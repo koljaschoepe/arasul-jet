@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { FileText, Table } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useModalForm } from '../../hooks/useModalForm';
@@ -62,6 +62,11 @@ const CreateDocumentDialog = memo(function CreateDocumentDialog({
   const api = useApi();
   const config = CONFIG[type];
   const Icon = config.icon;
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) nameInputRef.current?.focus();
+  }, [isOpen]);
 
   const { values, setValue, error, setError, saving, handleSubmit } = useModalForm(isOpen, {
     initialValues: { name: '', selectedSpaceId: spaceId || '' },
@@ -131,12 +136,12 @@ const CreateDocumentDialog = memo(function CreateDocumentDialog({
             {config.inputLabel}
           </label>
           <Input
+            ref={nameInputRef}
             id={config.inputId}
             type="text"
             value={values.name}
             onChange={e => setValue('name', e.target.value)}
             placeholder={config.inputPlaceholder}
-            autoFocus
             required
           />
           <p className="mt-1.5 text-xs text-muted-foreground">{config.inputHint}</p>

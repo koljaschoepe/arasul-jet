@@ -70,13 +70,6 @@ interface QueueEntry {
   pending_count: number;
 }
 
-interface DownloadState {
-  progress: number;
-  phase: string;
-  status?: string;
-  error?: string;
-}
-
 // --- Config ---
 
 const sizeConfig: Record<string, { label: string; description: string }> = {
@@ -447,8 +440,8 @@ function StoreModels() {
             const isActivating = activation?.modelId === model.id && !activation?.error;
             const isDefault = defaultModel === model.id;
             const pendingJobs = getQueueCount(model.id);
-            const sizeInfo = sizeConfig[model.category] || sizeConfig.medium;
-            const typeInfo = typeConfig[model.model_type || 'llm'] || typeConfig.llm;
+            const sizeInfo = sizeConfig[model.category] || sizeConfig.medium!;
+            const typeInfo = typeConfig[model.model_type || 'llm'] || typeConfig.llm!;
             const TypeIcon = typeInfo.icon;
 
             return (
@@ -563,7 +556,9 @@ function StoreModels() {
                 {/* Actions */}
                 <div
                   className="model-actions flex gap-2 mt-auto pt-2"
+                  role="presentation"
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 >
                   {!isReady && !modelIsDownloading && (
                     <>

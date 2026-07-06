@@ -5,10 +5,7 @@ import { queryClient } from './lib/queryClient';
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
 import Login from './features/system/Login';
-import ErrorBoundary, {
-  RouteErrorBoundary,
-  ComponentErrorBoundary,
-} from './components/ui/ErrorBoundary';
+import ErrorBoundary, { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import { SkeletonCard, SkeletonText } from './components/ui/Skeleton';
 import SetupWizard from './features/system/SetupWizard';
@@ -24,6 +21,7 @@ import { useWebSocketMetrics } from './hooks/useWebSocketMetrics';
 
 import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
+import type { Metrics } from './types';
 import { SidebarWithDownloads } from './components/layout/Sidebar';
 import './index.css';
 
@@ -41,22 +39,6 @@ const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview
 const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
 
 // ---- Type definitions ----
-
-interface MetricsDisk {
-  used: number;
-  free: number;
-  percent: number;
-}
-
-interface Metrics {
-  cpu: number;
-  ram: number;
-  swap: number;
-  gpu: number;
-  temperature: number;
-  temp: number;
-  disk: MetricsDisk;
-}
 
 interface MetricsHistory {
   timestamps: string[];
@@ -154,7 +136,7 @@ function AppContent(): React.JSX.Element | null {
   const { isAuthenticated, loading: authLoading, login, logout } = useAuth();
 
   // Setup wizard state
-  const [setupComplete, setSetupComplete] = useState<boolean | null>(null); // null = loading, true/false = known
+  const [, setSetupComplete] = useState<boolean | null>(null); // null = loading, true/false = known
   const [showSetupWizard, setShowSetupWizard] = useState<boolean>(false);
 
   // Dashboard state
@@ -291,30 +273,37 @@ function AppContent(): React.JSX.Element | null {
 
       try {
         const opts = { signal, showError: false };
-        const results = await Promise.allSettled([
-          api.get('/metrics/live', opts),
-          api.get('/metrics/history?range=24h', opts),
-          api.get('/services', opts),
-          api.get('/system/info', opts),
-          api.get('/system/network', opts),
-          api.get('/apps?status=running,installed', opts),
-          api.get('/system/thresholds', opts),
-        ]);
+        const [metricsRes, historyRes, servicesRes, infoRes, networkRes, appsRes, thresholdsRes] =
+          await Promise.allSettled([
+            api.get<Metrics>('/metrics/live', opts),
+            api.get<MetricsHistory>('/metrics/history?range=24h', opts),
+            api.get<Services>('/services', opts),
+            api.get<SystemInfo>('/system/info', opts),
+            api.get<NetworkInfo>('/system/network', opts),
+            api.get<{ apps?: RunningApp[] }>('/apps?status=running,installed', opts),
+            api.get<{ thresholds: Thresholds; device: DeviceInfo }>('/system/thresholds', opts),
+          ]);
+        const results: PromiseSettledResult<unknown>[] = [
+          metricsRes,
+          historyRes,
+          servicesRes,
+          infoRes,
+          networkRes,
+          appsRes,
+          thresholdsRes,
+        ];
 
-        const val = (i: number): unknown =>
-          results[i].status === 'fulfilled'
-            ? (results[i] as PromiseFulfilledResult<unknown>).value
-            : null;
-
-        if (val(0)) setMetrics(val(0));
-        if (val(1)) setMetricsHistory(val(1));
-        if (val(2)) setServices(val(2));
-        if (val(3)) setSystemInfo(val(3));
-        if (val(4)) setNetworkInfo(val(4));
-        if (val(5)) setRunningApps(val(5).apps || []);
-        if (val(6)) {
-          setThresholds(val(6).thresholds);
-          setDeviceInfo(val(6).device);
+        if (metricsRes.status === 'fulfilled' && metricsRes.value) setMetrics(metricsRes.value);
+        if (historyRes.status === 'fulfilled' && historyRes.value)
+          setMetricsHistory(historyRes.value);
+        if (servicesRes.status === 'fulfilled' && servicesRes.value) setServices(servicesRes.value);
+        if (infoRes.status === 'fulfilled' && infoRes.value) setSystemInfo(infoRes.value);
+        if (networkRes.status === 'fulfilled' && networkRes.value) setNetworkInfo(networkRes.value);
+        if (appsRes.status === 'fulfilled' && appsRes.value)
+          setRunningApps(appsRes.value.apps || []);
+        if (thresholdsRes.status === 'fulfilled' && thresholdsRes.value) {
+          setThresholds(thresholdsRes.value.thresholds);
+          setDeviceInfo(thresholdsRes.value.device);
         }
 
         const failedCount = results.filter(r => r.status === 'rejected').length;
@@ -374,11 +363,11 @@ function AppContent(): React.JSX.Element | null {
     const controller = new AbortController();
     const checkSetupStatus = async () => {
       try {
-        const data = await api.get('/system/setup-status', {
+        const data = await api.get<{ setupComplete?: boolean }>('/system/setup-status', {
           signal: controller.signal,
           showError: false,
         });
-        const isComplete = data.setupComplete;
+        const isComplete = data.setupComplete === true;
         setSetupComplete(isComplete);
         if (!isComplete) {
           setShowSetupWizard(true);
@@ -395,13 +384,6 @@ function AppContent(): React.JSX.Element | null {
   }, [isAuthenticated, api]);
 
   // PHASE 2: Memoize utility functions with useCallback
-  const formatUptime = useCallback((seconds: number): string => {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${days}d ${hours}h ${minutes}m`;
-  }, []);
-
   const formatChartData = useCallback((): ChartDataPoint[] => {
     if (!metricsHistory?.timestamps || !Array.isArray(metricsHistory.timestamps)) return [];
 
@@ -510,14 +492,11 @@ function AppContent(): React.JSX.Element | null {
               <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
               {/* Network offline banner */}
-              {metrics &&
-                (metrics as Record<string, unknown>).network &&
-                !((metrics as Record<string, unknown>).network as Record<string, unknown>)
-                  ?.online && (
-                  <div className="fixed top-0 left-0 right-0 z-50 bg-muted border-b border-border text-foreground text-center py-1.5 text-sm font-medium">
-                    Keine Internetverbindung
-                  </div>
-                )}
+              {metrics?.network && !metrics.network.online && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-muted border-b border-border text-foreground text-center py-1.5 text-sm font-medium">
+                  Keine Internetverbindung
+                </div>
+              )}
 
               {/* Update available banner */}
               {updateAvailable && (
@@ -577,7 +556,6 @@ function AppContent(): React.JSX.Element | null {
                             networkInfo={networkInfo}
                             runningApps={runningApps}
                             formatChartData={formatChartData}
-                            formatUptime={formatUptime}
                             thresholds={thresholds}
                             deviceInfo={deviceInfo}
                           />

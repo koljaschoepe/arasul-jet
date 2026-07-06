@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/shadcn/button';
 import type { DocumentStatistics } from '../../../types';
 
 interface DocumentStatsHeaderProps {
-  statistics: DocumentStatistics | null;
+  // total_chunks is returned by GET /documents/statistics but not yet part of
+  // the shared DocumentStatistics type (see report). Extended locally so the
+  // "Indexierte Chunks" card can read it without an `any`.
+  statistics: (DocumentStatistics & { total_chunks?: number }) | null;
   statsError: boolean;
   activeSpaceId: string | null;
   statusFilter: string;

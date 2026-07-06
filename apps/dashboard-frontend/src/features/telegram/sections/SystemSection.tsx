@@ -60,7 +60,7 @@ export default function SystemSection({
           <button
             type="button"
             className={cn(
-              'relative w-12 h-[26px] bg-background border border-border rounded-full cursor-pointer transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
+              'relative w-12 h-6.5 bg-background border border-border rounded-full cursor-pointer transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2',
               config.enabled && 'bg-primary border-primary'
             )}
             onClick={onToggle}
@@ -72,8 +72,8 @@ export default function SystemSection({
           >
             <span
               className={cn(
-                'absolute top-[3px] left-[3px] size-[18px] bg-white rounded-full transition-transform',
-                config.enabled && 'translate-x-[22px]'
+                'absolute top-[3px] left-[3px] size-4.5 bg-white rounded-full transition-transform',
+                config.enabled && 'translate-x-5.5'
               )}
             />
           </button>

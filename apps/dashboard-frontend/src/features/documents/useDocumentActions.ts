@@ -1,29 +1,27 @@
 import { useState, useCallback, useRef } from 'react';
 import { useApi } from '../../hooks/useApi';
-
-interface Document {
-  id: string;
-  filename: string;
-  status: string;
-  is_favorite: boolean;
-  [key: string]: unknown;
-}
+import type { Document } from '../../types';
 
 export interface SimilarDocument {
   id: string;
   filename: string;
-  similarity: number;
+  title?: string;
+  similarity?: number;
+  similarity_score?: number;
   [key: string]: unknown;
 }
 
+interface SearchResultItem {
+  document_id: string;
+  document_name?: string;
+  chunk_text: string;
+  similarity?: number;
+  score?: number;
+}
+
 interface SearchResults {
-  results: Array<{
-    document_id: string;
-    chunk_text: string;
-    similarity: number;
-    [key: string]: unknown;
-  }>;
-  [key: string]: unknown;
+  query: string;
+  results: SearchResultItem[];
 }
 
 interface UseDocumentActionsParams {
@@ -99,7 +97,7 @@ export default function useDocumentActions({
       // Without it, every download leaks ~1×file_size bytes until page unload.
       let url: string | null = null;
       try {
-        const response = await api.get(`/documents/${docId}/download`, {
+        const response = await api.get<Response>(`/documents/${docId}/download`, {
           raw: true,
           showError: false,
         });
@@ -144,7 +142,10 @@ export default function useDocumentActions({
       if (doc.status === 'indexed') {
         setLoadingSimilar(true);
         try {
-          const data = await api.get(`/documents/${doc.id}/similar`, { showError: false });
+          const data = await api.get<{ similar_documents?: SimilarDocument[] }>(
+            `/documents/${doc.id}/similar`,
+            { showError: false }
+          );
           setSimilarDocuments(data.similar_documents || []);
         } catch (err) {
           console.error('Error loading similar documents:', err);
@@ -162,7 +163,7 @@ export default function useDocumentActions({
     setSearching(true);
 
     try {
-      const data = await api.post(
+      const data = await api.post<SearchResults>(
         '/documents/search',
         { query: semanticSearch, top_k: 10 },
         { showError: false }

@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useRef } from 'react';
 import { Save, AlertCircle, Check, Trash2, Database } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApi } from '../../hooks/useApi';
@@ -60,6 +60,11 @@ const ProjectModal = memo(function ProjectModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) nameInputRef.current?.focus();
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -220,13 +225,13 @@ const ProjectModal = memo(function ProjectModal({
             Name
           </Label>
           <Input
+            ref={nameInputRef}
             id="pm-name"
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="z.B. Kundenservice, Marketing..."
             maxLength={100}
-            autoFocus
           />
         </div>
 
@@ -260,7 +265,7 @@ const ProjectModal = memo(function ProjectModal({
             // could submit 5000 chars and either get truncated server-side or
             // a 400 with no field-level mapping.
             maxLength={2000}
-            className="resize-y min-h-[100px] font-mono leading-relaxed"
+            className="resize-y min-h-25 font-mono leading-relaxed"
           />
           {systemPrompt.length > 0 && (
             <div

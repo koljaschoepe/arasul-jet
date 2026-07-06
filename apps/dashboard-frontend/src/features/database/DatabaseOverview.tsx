@@ -104,7 +104,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
   if (error) {
     return (
       <div className="dt-container p-6 max-md:p-4 w-full min-h-full box-border">
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center min-h-100 text-center text-muted-foreground">
           <h3 className="text-foreground mb-2">Fehler beim Laden</h3>
           <p>{error}</p>
           <Button onClick={fetchTables}>Erneut versuchen</Button>
@@ -128,7 +128,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
 
       {/* Search + View toggle */}
       <div className="flex justify-between items-center mb-4 gap-4 flex-wrap max-md:flex-col max-md:items-stretch">
-        <div className="relative flex-1 max-w-[400px] max-md:max-w-none">
+        <div className="relative flex-1 max-w-100 max-md:max-w-none">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none size-4" />
           <Input
             type="text"
@@ -171,7 +171,7 @@ const DatabaseOverview = memo(function DatabaseOverview() {
 
       {/* Content */}
       {filteredTables.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[400px] text-center text-muted-foreground">
+        <div className="flex flex-col items-center justify-center min-h-100 text-center text-muted-foreground">
           {searchQuery ? (
             <>
               <Search className="size-12 mb-4 opacity-30" />

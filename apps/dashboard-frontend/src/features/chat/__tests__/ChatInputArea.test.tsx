@@ -14,8 +14,7 @@
  * - Settings-Persistenz via chatSettings Prop
  */
 
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import ChatInputArea from '../ChatInputArea';
@@ -50,7 +49,7 @@ vi.mock('../../../hooks/useApi', () => ({
 }));
 
 // Use a mutable container so the hoisted vi.mock can reference it
-const chatCtx = {};
+const chatCtx: Record<string, unknown> = {};
 
 vi.mock('../../../contexts/ChatContext', () => ({
   useChatContext: () => chatCtx,
@@ -65,7 +64,7 @@ describe('ChatInputArea Component', () => {
   const messagesRef = { current: [] };
 
   const defaultProps = {
-    chatId: 1,
+    chatId: '1',
     chatSettings: null,
     messagesRef,
     hasMessages: false,
@@ -184,7 +183,7 @@ describe('ChatInputArea Component', () => {
       await user.keyboard('{Enter}');
 
       expect(mockSendMessage).toHaveBeenCalledWith(
-        1,
+        '1',
         'Test Nachricht',
         expect.objectContaining({ useRAG: false, useThinking: true })
       );
@@ -307,7 +306,7 @@ describe('ChatInputArea Component', () => {
       const user = userEvent.setup();
       const { container } = render(<ChatInputArea {...defaultProps} />);
 
-      const modelToggle = container.querySelector('.model-toggle');
+      const modelToggle = container.querySelector('.model-toggle')!;
       await user.click(modelToggle);
 
       expect(container.querySelector('.model-popup')).toBeInTheDocument();
@@ -317,7 +316,7 @@ describe('ChatInputArea Component', () => {
       const user = userEvent.setup();
       const { container } = render(<ChatInputArea {...defaultProps} />);
 
-      await user.click(container.querySelector('.model-toggle'));
+      await user.click(container.querySelector('.model-toggle')!);
 
       expect(screen.getByText('Qwen3 7B')).toBeInTheDocument();
       expect(screen.getByText('Llama3 8B')).toBeInTheDocument();
@@ -327,7 +326,7 @@ describe('ChatInputArea Component', () => {
       const user = userEvent.setup();
       const { container } = render(<ChatInputArea {...defaultProps} />);
 
-      await user.click(container.querySelector('.model-toggle'));
+      await user.click(container.querySelector('.model-toggle')!);
       await user.click(screen.getByText('Llama3 8B'));
 
       expect(mockSetSelectedModel).toHaveBeenCalledWith('llama3:8b');
@@ -380,7 +379,7 @@ describe('ChatInputArea Component', () => {
       render(<ChatInputArea {...defaultProps} />);
 
       await user.click(screen.getByTitle('Abbrechen'));
-      expect(mockCancelJob).toHaveBeenCalledWith(1);
+      expect(mockCancelJob).toHaveBeenCalledWith('1');
       chatCtx.activeJobIds = {};
     });
   });

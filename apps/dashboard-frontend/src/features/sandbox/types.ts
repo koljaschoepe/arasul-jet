@@ -32,30 +32,10 @@ export interface ResourceLimits {
   pids: number;
 }
 
-export interface TerminalSession {
-  id: string;
-  project_id: string;
-  session_type: 'interactive' | 'command' | 'claude_code';
-  command: string | null;
-  status: 'active' | 'closed' | 'error';
-  container_exec_id: string | null;
-  started_at: string;
-  ended_at: string | null;
-  metadata: Record<string, unknown> | null;
-}
-
 export interface SandboxStats {
   total_projects: number;
   active_projects: number;
   running_containers: number;
   stopped_containers: number;
   active_sessions: number;
-}
-
-export interface ProjectListResponse {
-  projects: SandboxProject[];
-  total: number;
-  limit: number;
-  offset: number;
-  timestamp: string;
 }

@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 
 const sizeClasses: Record<string, string> = {
-  small: 'sm:max-w-[400px]',
-  medium: 'sm:max-w-[560px]',
-  large: 'sm:max-w-[800px]',
+  small: 'sm:max-w-100',
+  medium: 'sm:max-w-140',
+  large: 'sm:max-w-200',
   fullscreen: 'sm:max-w-[calc(100vw-2rem)] h-[calc(100vh-2rem)]',
 };
 

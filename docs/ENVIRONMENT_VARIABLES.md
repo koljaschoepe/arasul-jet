@@ -218,6 +218,17 @@ When enabled, the queue system batches all requests for the currently loaded mod
 | RAG_GRAPH_MAX_ENTITIES               | 50                           | Max Entities pro Graph-Traversal                                                                         |
 | RAG_GRAPH_TRAVERSAL_DEPTH            | 2                            | Traversal-Tiefe im Knowledge Graph                                                                       |
 
+> **`system_settings` überschreibt env (Migration 094 + 096).** Die RAG/LLM-Tunables
+> oben (`RAG_HYBRID_SEARCH`, `RAG_ENABLE_RERANKING`, `SPACE_ROUTING_THRESHOLD`,
+> `SPACE_ROUTING_MAX_SPACES`, `RAG_RELEVANCE_THRESHOLD`, `RAG_VECTOR_SCORE_THRESHOLD`,
+> `RAG_TIMEOUT_RERANK_MS`, `RAG_FINAL_K` sowie Temperatur/`num_predict`/MMR/Dedup)
+> sind zur Laufzeit über die gleichnamigen `system_settings`-Spalten steuerbar und
+> werden im Admin-Dashboard unter **Settings → „RAG & LLM"** bearbeitet. Der env-Wert
+> ist nur noch der **Fallback**, falls die DB-Spalte `NULL`/leer ist. Änderungen über
+> `PATCH /api/rag/settings` wirken sofort (Cache-Reload, kein Neustart). Der
+> Basis-System-Prompt ist zusätzlich über die DB-Spalte `llm_base_system_prompt`
+> editierbar (leer = eingebauter Default).
+
 ---
 
 ## n8n (Workflow)

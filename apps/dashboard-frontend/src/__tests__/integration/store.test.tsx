@@ -10,9 +10,9 @@
  *   - Detail modal
  */
 
-import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import type { Mock } from 'vitest';
 import Store from '../../features/store/Store';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
 
@@ -55,6 +55,18 @@ vi.mock('../../contexts/DownloadContext', () => ({
     onDownloadComplete: vi.fn().mockReturnValue(() => {}),
   }),
   DownloadProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('../../contexts/ActivationContext', () => ({
+  useActivation: () => ({
+    activation: null,
+    startActivation: vi.fn(),
+    cancelActivation: vi.fn(),
+    isActivating: vi.fn().mockReturnValue(false),
+    getActivationPercent: vi.fn().mockReturnValue(0),
+    onActivationComplete: vi.fn().mockReturnValue(() => {}),
+  }),
+  ActivationProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock('../../hooks/useDebouncedSearch', () => ({
@@ -126,7 +138,7 @@ function renderStore(route = '/store') {
 }
 
 function setupDefaultApiResponses() {
-  mockApi.get.mockImplementation((path: string) => {
+  (mockApi.get as Mock).mockImplementation((path: string) => {
     if (path === '/store/info') {
       return Promise.resolve({ llmRamGB: 38, totalRamGB: 64, availableDiskGB: 200 });
     }
@@ -245,7 +257,7 @@ describe('Store integration', () => {
   });
 
   it('shows loading skeleton while fetching recommendations', () => {
-    mockApi.get.mockReturnValue(new Promise(() => {}));
+    (mockApi.get as Mock).mockReturnValue(new Promise(() => {}));
 
     renderStore();
 
@@ -254,7 +266,7 @@ describe('Store integration', () => {
   });
 
   it('shows error state on API failure', async () => {
-    mockApi.get.mockImplementation((path: string) => {
+    (mockApi.get as Mock).mockImplementation((path: string) => {
       if (path === '/store/info') return Promise.resolve({});
       if (path === '/store/recommendations') {
         return Promise.reject(new Error('Connection failed'));
@@ -270,7 +282,7 @@ describe('Store integration', () => {
   });
 
   it('shows retry button on error', async () => {
-    mockApi.get.mockImplementation((path: string) => {
+    (mockApi.get as Mock).mockImplementation((path: string) => {
       if (path === '/store/info') return Promise.resolve({});
       if (path === '/store/recommendations') {
         return Promise.reject(new Error('Connection failed'));
@@ -302,7 +314,7 @@ describe('Store integration', () => {
   });
 
   it('shows no-model banner when no model is loaded', async () => {
-    mockApi.get.mockImplementation((path: string) => {
+    (mockApi.get as Mock).mockImplementation((path: string) => {
       if (path === '/store/info') return Promise.resolve({ llmRamGB: 38, totalRamGB: 64 });
       if (path === '/store/recommendations') return Promise.resolve(sampleRecommendations);
       if (path === '/models/status') return Promise.resolve({});

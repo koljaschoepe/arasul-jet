@@ -109,7 +109,7 @@ export function ActivationProvider({ children }: ActivationProviderProps) {
       let buffer = '';
 
       try {
-        while (true) {
+        for (;;) {
           if (controller.signal.aborted) {
             reader.cancel();
             break;
@@ -255,5 +255,3 @@ export function useActivation(): ActivationContextValue {
   }
   return context;
 }
-
-export default ActivationContext;

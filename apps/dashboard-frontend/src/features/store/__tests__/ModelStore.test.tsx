@@ -15,20 +15,29 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { StoreModels as ModelStore } from '..';
 import { DownloadProvider } from '../../../contexts/DownloadContext';
+import { ActivationProvider } from '../../../contexts/ActivationContext';
 import { ToastProvider } from '../../../contexts/ToastContext';
+
+interface CustomResponses {
+  catalog?: unknown;
+  status?: unknown;
+  default?: unknown;
+}
 
 // Mock AuthContext - useApi now requires AuthProvider
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ logout: vi.fn() }),
-  AuthProvider: ({ children }) => children,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // Helper to render with required providers (Router needed for useSearchParams)
-const renderWithProvider = ui => {
+const renderWithProvider = (ui: React.ReactElement) => {
   return render(
     <MemoryRouter>
       <ToastProvider>
-        <DownloadProvider>{ui}</DownloadProvider>
+        <DownloadProvider>
+          <ActivationProvider>{ui}</ActivationProvider>
+        </DownloadProvider>
       </ToastProvider>
     </MemoryRouter>
   );
@@ -84,14 +93,14 @@ describe('ModelStore Component', () => {
   };
 
   // Helper to setup fetch mock with custom responses
-  const setupFetchMock = (customResponses = {}) => {
+  const setupFetchMock = (customResponses: CustomResponses = {}) => {
     const responses = {
       catalog: customResponses.catalog || mockCatalog,
       status: customResponses.status || mockStatus,
       default: customResponses.default || mockDefaultResponse,
     };
 
-    global.fetch = vi.fn((url, options) => {
+    global.fetch = vi.fn((url: string, options?: { method?: string }) => {
       if (url.includes('/models/catalog')) {
         return Promise.resolve({
           ok: true,
@@ -158,7 +167,7 @@ describe('ModelStore Component', () => {
         status: 200,
         json: () => Promise.resolve({}),
       });
-    });
+    }) as unknown as typeof fetch;
   };
 
   beforeEach(() => {
@@ -173,7 +182,7 @@ describe('ModelStore Component', () => {
   });
 
   // Helper: render and wait for loading to finish
-  const renderAndWait = async customResponses => {
+  const renderAndWait = async (customResponses?: CustomResponses) => {
     if (customResponses) setupFetchMock(customResponses);
     renderWithProvider(<ModelStore />);
     // Wait for actual model content to appear (skeleton loading replaced spinner text)
@@ -265,7 +274,7 @@ describe('ModelStore Component', () => {
       });
 
       const downloadButtons = screen.getAllByText(/Herunterladen/);
-      await user.click(downloadButtons[0]);
+      await user.click(downloadButtons[0]!);
 
       // DownloadContext calls fetch directly to /models/download
       await waitFor(() => {
@@ -362,7 +371,7 @@ describe('ModelStore Component', () => {
 
   describe('Loading States', () => {
     test('zeigt Loading während Katalog geladen wird', () => {
-      global.fetch = vi.fn(() => new Promise(() => {})); // Never resolves
+      global.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch; // Never resolves
 
       const { container } = renderWithProvider(<ModelStore />);
 

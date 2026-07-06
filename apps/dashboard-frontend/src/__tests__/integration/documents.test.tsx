@@ -13,6 +13,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { Mock } from 'vitest';
 import DocumentManager from '../../features/documents/DocumentManager';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
 
@@ -126,15 +128,20 @@ const sampleStatistics = {
 // ---- Helpers ----
 
 function renderDocumentManager() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return render(
-    <MemoryRouter>
-      <DocumentManager />
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <DocumentManager />
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
 function setupDefaultApiResponses(docs = sampleDocuments, spaces = sampleSpaces) {
-  mockApi.get.mockImplementation((path: string) => {
+  (mockApi.get as Mock).mockImplementation((path: string) => {
     if (path.startsWith('/documents/statistics')) {
       return Promise.resolve(sampleStatistics);
     }
@@ -212,7 +219,7 @@ describe('DocumentManager integration', () => {
 
     // The API should be called with search param
     await waitFor(() => {
-      const getCalls = mockApi.get.mock.calls.filter(
+      const getCalls = (mockApi.get as Mock).mock.calls.filter(
         (c: string[]) => typeof c[0] === 'string' && c[0].includes('search=API')
       );
       expect(getCalls.length).toBeGreaterThan(0);
@@ -220,7 +227,7 @@ describe('DocumentManager integration', () => {
   });
 
   it('shows loading state', () => {
-    mockApi.get.mockReturnValue(new Promise(() => {}));
+    (mockApi.get as Mock).mockReturnValue(new Promise(() => {}));
 
     renderDocumentManager();
 
@@ -255,7 +262,7 @@ describe('DocumentManager integration', () => {
   });
 
   it('handles API error gracefully', async () => {
-    mockApi.get.mockRejectedValue(new Error('Server Error'));
+    (mockApi.get as Mock).mockRejectedValue(new Error('Server Error'));
 
     renderDocumentManager();
 
@@ -268,7 +275,7 @@ describe('DocumentManager integration', () => {
     renderDocumentManager();
 
     await waitFor(() => {
-      const docsCalls = mockApi.get.mock.calls.filter(
+      const docsCalls = (mockApi.get as Mock).mock.calls.filter(
         (c: string[]) => typeof c[0] === 'string' && c[0].startsWith('/documents?')
       );
       expect(docsCalls.length).toBeGreaterThan(0);
@@ -279,7 +286,7 @@ describe('DocumentManager integration', () => {
     renderDocumentManager();
 
     await waitFor(() => {
-      const spacesCalls = mockApi.get.mock.calls.filter(
+      const spacesCalls = (mockApi.get as Mock).mock.calls.filter(
         (c: string[]) => typeof c[0] === 'string' && c[0] === '/spaces'
       );
       expect(spacesCalls.length).toBeGreaterThan(0);
@@ -290,7 +297,7 @@ describe('DocumentManager integration', () => {
     renderDocumentManager();
 
     await waitFor(() => {
-      const statsCalls = mockApi.get.mock.calls.filter(
+      const statsCalls = (mockApi.get as Mock).mock.calls.filter(
         (c: string[]) => typeof c[0] === 'string' && c[0].startsWith('/documents/statistics')
       );
       expect(statsCalls.length).toBeGreaterThan(0);

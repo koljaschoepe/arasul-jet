@@ -4,7 +4,7 @@
  * so each feature doesn't duplicate the same conditional rendering.
  */
 
-import React, { type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { AlertCircle, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { SkeletonCard } from './Skeleton';
@@ -73,7 +73,7 @@ function DataStateRenderer({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-center">
+      <div className="flex flex-col items-center justify-center min-h-100 gap-4 text-center">
         <AlertCircle className="size-12 text-destructive" />
         <h3 className="text-lg font-semibold text-foreground">Fehler beim Laden</h3>
         <p className="text-muted-foreground max-w-md">{error}</p>

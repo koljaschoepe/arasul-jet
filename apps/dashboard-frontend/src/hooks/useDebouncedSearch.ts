@@ -75,10 +75,8 @@ export function useDebouncedSearch<T>(
       clearTimeout(timeoutId);
       controller.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, [query, delay, minLength, initialResults, depsKey]);
 
   return { results, searching };
 }
-
-export default useDebouncedSearch;

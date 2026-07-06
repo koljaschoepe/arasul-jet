@@ -8,6 +8,7 @@
 
 const http = require('http');
 const { streamFromOllama, onJobComplete, destroyOllamaAgent } = require('./llmOllamaStream');
+const systemSettings = require('../system-settings/systemSettingsService');
 
 /**
  * Vision auto-fallback: caption an image with a small vision model so a text-only
@@ -286,6 +287,50 @@ async function processChatJob(ctx, job) {
 }
 
 /**
+ * RAG system prompt (RAG 4.0: three-tier anti-hallucination).
+ * The three modes (noRelevantDocs / marginalResults / default) and their marker
+ * sentences are load-bearing — tests assert the mode selection, and the markers
+ * tell the user which confidence tier produced the answer. Do not merge modes.
+ * Pure function, exported for regression tests.
+ */
+function buildRagSystemPrompt({ noRelevantDocs = false, marginalResults = false } = {}) {
+  let ragRules;
+  if (noRelevantDocs) {
+    // Mode 3: No relevant documents found at all
+    ragRules = `Regeln:
+1. Es wurden keine relevanten Dokumente in der Wissensbasis gefunden.
+2. Beginne deine Antwort IMMER mit: "**Hinweis:** Keine relevanten Dokumente gefunden. Die folgende Antwort basiert auf allgemeinem Wissen und nicht auf Unternehmensdokumenten."
+3. Danach darfst du die Frage aus allgemeinem Wissen beantworten — kennzeichne Unsicherheiten ausdrücklich.
+4. Erfinde KEINE Fakten, Zahlen, Preise oder spezifische Unternehmensinformationen. Nenne keine Quellenangaben wie [1], da keine Dokumente vorliegen.
+5. Strukturiere längere Antworten mit Absätzen oder Aufzählungen.
+6. Antworte auf Deutsch, es sei denn die Frage ist in einer anderen Sprache gestellt.`;
+  } else if (marginalResults) {
+    // Mode 2: Only marginal/low-confidence documents found
+    ragRules = `Regeln:
+1. WICHTIG: Die folgenden Dokumente haben nur GERINGE Übereinstimmung mit der Frage. Behandle sie mit Vorsicht.
+2. Wenn du die Antwort in den Dokumenten findest, belege jede Aussage mit der Quellenangabe [1], [2] etc. direkt hinter der Aussage.
+3. Wenn die Dokumente die Frage NICHT beantworten, sage klar: "Die Wissensbasis enthält keine ausreichend relevante Information zu dieser Frage." Rate nicht.
+4. Erfinde KEINE Informationen, die nicht wörtlich oder sinngemäß in den Dokumenten stehen, und ergänze KEINE Fakten, Zahlen oder Details aus eigenem Wissen.
+5. Strukturiere längere Antworten mit Absätzen oder Aufzählungen.
+6. Antworte auf Deutsch, es sei denn die Frage ist in einer anderen Sprache gestellt.`;
+  } else {
+    // Mode 1: High-confidence relevant documents found
+    ragRules = `Regeln:
+1. Antworte AUSSCHLIESSLICH auf Basis der bereitgestellten Dokumente.
+2. Belege jede Aussage mit der Quellenangabe [1], [2] etc. direkt hinter der Aussage.
+3. Die Quellennummer MUSS dem Dokument entsprechen, aus dem die Information tatsächlich stammt. Verwechsle KEINE Quellen.
+4. Wenn die Antwort nicht in den Dokumenten zu finden ist, sage das klar und deutlich. Erfinde NICHTS.
+5. Verwende die Fachbegriffe aus den Dokumenten und halte dich kurz und präzise.
+6. Strukturiere längere Antworten mit Absätzen oder Aufzählungen.
+7. Antworte auf Deutsch, es sei denn die Frage ist in einer anderen Sprache gestellt.`;
+  }
+
+  return `Du bist ein professioneller Wissensassistent für ein Unternehmen. Du beantwortest Fragen auf Basis der internen Wissensbasis.
+
+${ragRules}`;
+}
+
+/**
  * Process a RAG job with German citation-aware prompt
  * @param {Object} ctx - Context with dependencies
  * @param {Object} job - The job record from database
@@ -299,43 +344,7 @@ async function processRAGJob(ctx, job) {
     requestData;
   const enableThinking = thinking !== false;
 
-  // German system prompt with citation rules (RAG 4.0: three-tier anti-hallucination)
-  let ragRules;
-  if (noRelevantDocs) {
-    // Mode 3: No relevant documents found at all
-    ragRules = `Regeln:
-1. Es wurden keine relevanten Dokumente in der Wissensbasis gefunden.
-2. Sage klar: "In der Wissensbasis wurden keine relevanten Dokumente zu dieser Frage gefunden."
-3. Du darfst die Frage aus allgemeinem Wissen beantworten, ABER kennzeichne dies DEUTLICH als allgemeines Wissen, nicht als Unternehmensinfo.
-4. Beginne deine Antwort IMMER mit: "**Hinweis:** Keine relevanten Dokumente gefunden. Die folgende Antwort basiert auf allgemeinem Wissen und nicht auf Unternehmensdokumenten."
-5. Erfinde KEINE Fakten, Zahlen, Preise oder spezifische Unternehmensinformationen.
-6. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
-7. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
-  } else if (marginalResults) {
-    // Mode 2: Only marginal/low-confidence documents found
-    ragRules = `Regeln:
-1. WICHTIG: Die folgenden Dokumente haben nur GERINGE Uebereinstimmung mit der Frage. Behandle sie mit Vorsicht.
-2. Wenn du die Antwort in den Dokumenten findest, zitiere sie mit [1], [2] etc.
-3. Wenn die Dokumente die Frage NICHT beantworten, sage klar: "Die Wissensbasis enthaelt keine ausreichend relevante Information zu dieser Frage."
-4. Erfinde KEINE Informationen, die nicht woertlich oder sinngemaess in den Dokumenten stehen.
-5. Ergaenze KEINE Fakten, Zahlen oder Details aus eigenem Wissen — nur was in den Dokumenten steht.
-6. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
-7. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
-  } else {
-    // Mode 1: High-confidence relevant documents found
-    ragRules = `Regeln:
-1. Antworte AUSSCHLIESSLICH auf Basis der bereitgestellten Dokumente.
-2. Jede Aussage MUSS mit der KORREKTEN Quellenangabe [1], [2] etc. belegt sein.
-3. Die Quellennummer MUSS dem Dokument entsprechen, aus dem die Information tatsaechlich stammt. Verwechsle KEINE Quellen.
-4. Wenn die Antwort nicht in den Dokumenten zu finden ist, sage das klar und deutlich. Erfinde NICHTS.
-5. Verwende Fachbegriffe aus den Dokumenten.
-6. Strukturiere laengere Antworten mit Absaetzen oder Aufzaehlungen.
-7. Halte dich kurz und praezise. Antworte auf Deutsch, es sei denn die Frage ist auf Englisch gestellt.`;
-  }
-
-  const ragSystemPrompt = `Du bist ein professioneller Wissensassistent fuer ein Unternehmen.
-
-${ragRules}`;
+  const ragSystemPrompt = buildRagSystemPrompt({ noRelevantDocs, marginalResults });
 
   // Context Management: Truncate RAG context to fit within token budget
   const { estimateTokens, truncateToTokens } = require('../core/tokenService');
@@ -388,8 +397,9 @@ ${ragRules}`;
     jobId,
     prompt,
     enableThinking,
-    0.2,
-    2048,
+    // Low temperature keeps RAG answers faithful to sources; DB-tunable since 096.
+    systemSettings.getNumber('rag_temperature', 0.2),
+    systemSettings.getNumber('rag_num_predict', 2048),
     requested_model,
     '',
     optimized.numCtx
@@ -399,6 +409,7 @@ ${ragRules}`;
 module.exports = {
   processChatJob,
   processRAGJob,
+  buildRagSystemPrompt,
   streamFromOllama,
   onJobComplete,
   destroyOllamaAgent,

@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { X, Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
@@ -25,6 +25,12 @@ const RecordDetailSheet = memo(function RecordDetailSheet({
 }: RecordDetailSheetProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the inline editor when a field enters edit mode (replaces autoFocus).
+  useEffect(() => {
+    if (editingField) editInputRef.current?.focus();
+  }, [editingField]);
 
   const startEdit = (field: Field) => {
     setEditingField(field.slug);
@@ -43,7 +49,12 @@ const RecordDetailSheet = memo(function RecordDetailSheet({
   return (
     <div className="fixed inset-0 z-50 flex flex-col md:flex-row md:justify-end">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <button
+        type="button"
+        aria-label="Schließen"
+        className="absolute inset-0 bg-black/50 border-0"
+        onClick={onClose}
+      />
 
       {/* Sheet - bottom on mobile, side panel on tablet */}
       <div className="relative mt-auto md:mt-0 md:ml-auto bg-background border-t md:border-t-0 md:border-l border-border w-full md:w-96 max-h-[85vh] md:max-h-full md:h-full flex flex-col rounded-t-xl md:rounded-none animate-in slide-in-from-bottom md:slide-in-from-right">
@@ -85,13 +96,13 @@ const RecordDetailSheet = memo(function RecordDetailSheet({
                 {isEditing ? (
                   <div className="flex items-center gap-2">
                     <Input
+                      ref={editInputRef}
                       value={editValue}
                       onChange={e => setEditValue(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter') saveEdit(field.slug);
                         if (e.key === 'Escape') cancelEdit();
                       }}
-                      autoFocus
                       className="h-8 text-sm"
                     />
                     <Button size="icon-xs" onClick={() => saveEdit(field.slug)}>
@@ -102,9 +113,10 @@ const RecordDetailSheet = memo(function RecordDetailSheet({
                     </Button>
                   </div>
                 ) : (
-                  <div
+                  <button
+                    type="button"
                     className={cn(
-                      'text-sm text-foreground cursor-pointer rounded px-2 py-1.5 -mx-2 hover:bg-card transition-colors min-h-[32px]',
+                      'w-full text-left bg-transparent border-0 text-sm text-foreground cursor-pointer rounded px-2 py-1.5 -mx-2 hover:bg-card transition-colors min-h-8',
                       !row[field.slug] && 'text-muted-foreground/60 italic'
                     )}
                     onClick={() => startEdit(field)}
@@ -112,7 +124,7 @@ const RecordDetailSheet = memo(function RecordDetailSheet({
                     {row[field.slug]
                       ? formatCellValue(row[field.slug], field.field_type)
                       : 'Leer — tippen zum Bearbeiten'}
-                  </div>
+                  </button>
                 )}
               </div>
             );

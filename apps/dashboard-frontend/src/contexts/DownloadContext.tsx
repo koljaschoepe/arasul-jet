@@ -5,7 +5,7 @@
  * Downloads continue in the background even when user navigates away from ModelStore.
  */
 
-import React, {
+import {
   createContext,
   useContext,
   useState,
@@ -161,8 +161,12 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
           let hasChanges = false;
 
           for (const modelId of Object.keys(prev)) {
+            // noUncheckedIndexedAccess: modelId comes from Object.keys(prev),
+            // so the entry always exists — the guard only narrows the type.
+            const current = prev[modelId];
+            if (!current) continue;
             // Skip downloads already completed by SSE — prevents duplicate callbacks
-            if (prev[modelId]?.phase === 'complete') continue;
+            if (current.phase === 'complete') continue;
 
             const model = models.find(m => m.id === modelId);
             if (model) {
@@ -178,7 +182,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
               } else if (model.install_status === 'error') {
                 // Download failed
                 updated[modelId] = {
-                  ...prev[modelId],
+                  ...current,
                   progress: 0,
                   phase: 'error',
                   error: model.install_error || 'Download fehlgeschlagen',
@@ -186,9 +190,9 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                 hasChanges = true;
               } else if (model.install_status === 'downloading') {
                 // Update progress from DB
-                if (prev[modelId].progress !== model.download_progress) {
+                if (current.progress !== model.download_progress) {
                   updated[modelId] = {
-                    ...prev[modelId],
+                    ...current,
                     progress: model.download_progress || 0,
                   };
                   hasChanges = true;
@@ -199,14 +203,11 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                 // and shows stale progress without any indication that the
                 // job is paused. Phase===null would also be acceptable as a
                 // resumeable signal once the UI grows a Resume button.
-                if (
-                  prev[modelId].phase !== 'paused' ||
-                  prev[modelId].progress !== model.download_progress
-                ) {
+                if (current.phase !== 'paused' || current.progress !== model.download_progress) {
                   updated[modelId] = {
-                    ...prev[modelId],
+                    ...current,
                     phase: 'paused',
-                    progress: model.download_progress || prev[modelId].progress,
+                    progress: model.download_progress || current.progress,
                     status: 'Pausiert',
                   };
                   hasChanges = true;
@@ -228,7 +229,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
       controller.abort();
       clearInterval(pollInterval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, []); // RC-004 FIX: Empty dependency array - only run on mount (api is stable via useMemo)
 
   // Start a download
@@ -281,15 +282,21 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         if (!contentType.includes('text/event-stream')) {
           const data = await response.json();
           if (data.status === 'already_downloading') {
-            setActiveDownloads(prev => ({
-              ...prev,
-              [modelId]: {
-                ...prev[modelId],
-                progress: data.progress || 0,
-                status: 'Download läuft bereits...',
-                phase: 'download',
-              },
-            }));
+            setActiveDownloads(prev => {
+              // Entry was created synchronously above; if it vanished the
+              // download was cancelled in the meantime — don't resurrect it.
+              const existing = prev[modelId];
+              if (!existing) return prev;
+              return {
+                ...prev,
+                [modelId]: {
+                  ...existing,
+                  progress: data.progress || 0,
+                  status: 'Download läuft bereits...',
+                  phase: 'download',
+                },
+              };
+            });
             // P2.4.6: drop the abortController for this modelId on early
             // return. Otherwise it stays in the ref forever and a later
             // cancelDownload aborts a controller with no reader behind it.
@@ -315,7 +322,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         }, 5000);
 
         try {
-          while (true) {
+          for (;;) {
             const { done, value } = await reader.read();
             if (done) break;
 
@@ -393,33 +400,48 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
         }
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') {
-          // Check if this was an inactivity timeout vs intentional cancel
-          const downloadState = activeDownloadsRef.current[modelId];
+          // Check if this was an inactivity timeout vs intentional cancel.
+          // Fresh alias: the early-return guard at the top of startDownload
+          // narrowed `activeDownloadsRef.current[modelId]` to undefined, but
+          // the ref content has changed since (stale CFA narrowing).
+          const downloads: Record<string, DownloadState> = activeDownloadsRef.current;
+          const downloadState = downloads[modelId];
           if (
             downloadState &&
             downloadState.phase !== 'complete' &&
             downloadState.phase !== 'error'
           ) {
-            setActiveDownloads(prev => ({
-              ...prev,
-              [modelId]: {
-                ...prev[modelId],
-                phase: 'error',
-                error:
-                  'Verbindung zum Server verloren. Der Download läuft möglicherweise im Hintergrund weiter.',
-              },
-            }));
+            setActiveDownloads(prev => {
+              // Entry can only be missing if the download was cancelled
+              // concurrently — in that case there is nothing to mark as error.
+              const existing = prev[modelId];
+              if (!existing) return prev;
+              return {
+                ...prev,
+                [modelId]: {
+                  ...existing,
+                  phase: 'error',
+                  error:
+                    'Verbindung zum Server verloren. Der Download läuft möglicherweise im Hintergrund weiter.',
+                },
+              };
+            });
           }
         } else {
           console.error(`[DownloadContext] Download error for ${modelId}:`, err);
-          setActiveDownloads(prev => ({
-            ...prev,
-            [modelId]: {
-              ...prev[modelId],
-              phase: 'error',
-              error: err instanceof Error ? err.message : 'Unbekannter Fehler',
-            },
-          }));
+          setActiveDownloads(prev => {
+            // Same guard as above: don't resurrect a cancelled download.
+            const existing = prev[modelId];
+            if (!existing) return prev;
+            return {
+              ...prev,
+              [modelId]: {
+                ...existing,
+                phase: 'error',
+                error: err instanceof Error ? err.message : 'Unbekannter Fehler',
+              },
+            };
+          });
         }
       } finally {
         delete abortControllersRef.current[modelId];
@@ -506,5 +528,3 @@ export function useDownloads(): DownloadContextValue {
   }
   return context;
 }
-
-export default DownloadContext;

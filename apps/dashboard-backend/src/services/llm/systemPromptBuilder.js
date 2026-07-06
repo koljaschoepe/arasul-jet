@@ -10,10 +10,18 @@
 const yaml = require('js-yaml');
 const memoryService = require('../memory/memoryService');
 const logger = require('../../utils/logger');
+const systemSettings = require('../system-settings/systemSettingsService');
 
-// Layer 1: Hardcoded global base
+// Layer 1: built-in global base. Operators can override it via
+// system_settings.llm_base_system_prompt (096) without a redeploy.
 const GLOBAL_BASE_PROMPT =
-  'Du bist ein hilfreicher KI-Assistent. Antworte praezise und strukturiert auf Deutsch, es sei denn der Benutzer schreibt in einer anderen Sprache.';
+  'Du bist ein hilfreicher KI-Assistent. Antworte präzise und strukturiert auf Deutsch, es sei denn der Benutzer schreibt in einer anderen Sprache.';
+
+/** Layer-1 prompt: DB override if set and non-empty, else the built-in default. */
+function getBasePrompt() {
+  const dbPrompt = systemSettings.get('llm_base_system_prompt', null);
+  return typeof dbPrompt === 'string' && dbPrompt.trim() ? dbPrompt.trim() : GLOBAL_BASE_PROMPT;
+}
 
 /**
  * Sanitize user-supplied prompt content to mitigate prompt injection.
@@ -23,7 +31,9 @@ const GLOBAL_BASE_PROMPT =
  * @returns {string} Sanitized and delimited content
  */
 function sanitizePromptContent(content, label) {
-  if (!content || !content.trim()) {return '';}
+  if (!content || !content.trim()) {
+    return '';
+  }
 
   let sanitized = content;
 
@@ -204,7 +214,7 @@ async function loadProjectPrompt(database, conversationId) {
  * @returns {Promise<string>} Combined system prompt
  */
 async function buildSystemPrompt(database, conversationId, { includeTools = true } = {}) {
-  const parts = [GLOBAL_BASE_PROMPT];
+  const parts = [getBasePrompt()];
 
   // Layer 2: AI Profile
   const profileYaml = await loadProfile();
@@ -253,6 +263,7 @@ module.exports = {
   invalidateProfileCache,
   invalidateCompanyContextCache,
   GLOBAL_BASE_PROMPT,
+  getBasePrompt,
   // Exposed for testing
   _cache: cache,
   _loadCompanyContext: loadCompanyContext,

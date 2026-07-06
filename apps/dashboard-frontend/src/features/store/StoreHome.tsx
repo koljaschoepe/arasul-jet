@@ -114,13 +114,17 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
     try {
       const opts = { showError: false };
       const [recsData, statusData, defaultData] = await Promise.all([
-        api.get('/store/recommendations', opts),
-        api.get('/models/status', opts).catch(() => ({})),
-        api.get('/models/default', opts).catch(() => ({})),
+        api.get<Recommendations>('/store/recommendations', opts),
+        api
+          .get<{ loaded_model?: LoadedModel | null }>('/models/status', opts)
+          .catch(() => ({}) as { loaded_model?: LoadedModel | null }),
+        api
+          .get<{ default_model?: string | null }>('/models/default', opts)
+          .catch(() => ({}) as { default_model?: string | null }),
       ]);
 
       setRecommendations(recsData);
-      setLoadedModel(statusData.loaded_model);
+      setLoadedModel(statusData.loaded_model ?? null);
       setDefaultModel(defaultData.default_model || null);
       setError(null);
     } catch (err) {
@@ -242,7 +246,7 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
 
   if (error) {
     return (
-      <div className="store-home-error flex flex-col items-center justify-center min-h-[300px] gap-4 text-muted-foreground">
+      <div className="store-home-error flex flex-col items-center justify-center min-h-75 gap-4 text-muted-foreground">
         <p>{error}</p>
         <Button variant="outline" onClick={loadRecommendations}>
           Erneut versuchen
@@ -398,7 +402,9 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
 
                 <div
                   className="model-actions flex gap-2 mt-auto pt-2"
+                  role="presentation"
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 >
                   {!isReady && !modelIsDownloading && (
                     <Button
@@ -528,7 +534,9 @@ function StoreHome({ systemInfo }: StoreHomeProps) {
 
                 <div
                   className="model-actions flex gap-2 mt-auto pt-2"
+                  role="presentation"
                   onClick={e => e.stopPropagation()}
+                  onKeyDown={e => e.stopPropagation()}
                 >
                   {app.status === 'available' && (
                     <Button

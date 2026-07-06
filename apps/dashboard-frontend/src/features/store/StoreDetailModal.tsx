@@ -4,7 +4,6 @@
  * Migrated to TypeScript + shadcn + Tailwind
  */
 
-import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Cpu,
@@ -163,7 +162,7 @@ function StoreDetailModal({
 
   return (
     <Dialog open={!!item} onOpenChange={open => !open && onClose()}>
-      <DialogContent className="model-detail-modal sm:max-w-[600px] max-h-[80vh] flex flex-col gap-0 p-0">
+      <DialogContent className="model-detail-modal sm:max-w-150 max-h-[80vh] flex flex-col gap-0 p-0">
         <DialogHeader className="p-6 pb-4 border-b border-border">
           <DialogTitle className="flex items-center gap-3">
             {isModel ? (
@@ -421,8 +420,8 @@ function StoreDetailModal({
                     style={
                       isActivating
                         ? {
-                            background: `linear-gradient(90deg, var(--color-success) ${activatingPercent}%, var(--card) ${activatingPercent}%)`,
-                            borderColor: 'var(--color-success)',
+                            background: `linear-gradient(90deg, var(--success) ${activatingPercent}%, var(--card) ${activatingPercent}%)`,
+                            borderColor: 'var(--success)',
                           }
                         : {}
                     }

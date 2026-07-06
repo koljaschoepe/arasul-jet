@@ -12,6 +12,11 @@ import { useApi } from '../../../hooks/useApi';
 import { createExtensions } from './extensions';
 import './tiptap-editor.css';
 
+/** Shape of the tiptap-markdown storage slot we read from editor.storage. */
+interface MarkdownStorage {
+  markdown?: { getMarkdown?: () => string };
+}
+
 interface TipTapEditorProps {
   documentId: string;
   filename: string;
@@ -74,9 +79,12 @@ const TipTapEditor = memo(function TipTapEditor({
             const file = item.getAsFile();
             if (file) {
               uploadImage(file).then(url => {
-                if (url && view.state) {
+                // schema.nodes is an index type; 'image' is always registered
+                // via the Image extension, the guard only narrows the type.
+                const imageType = view.state?.schema.nodes.image;
+                if (url && view.state && imageType) {
                   const { tr } = view.state;
-                  const node = view.state.schema.nodes.image.create({ src: url });
+                  const node = imageType.create({ src: url });
                   view.dispatch(tr.replaceSelectionWith(node));
                 }
               });
@@ -94,12 +102,14 @@ const TipTapEditor = memo(function TipTapEditor({
         event.preventDefault();
         for (const file of imageFiles) {
           uploadImage(file).then(url => {
-            if (url && view.state) {
+            // See handlePaste: 'image' node is always registered.
+            const imageType = view.state?.schema.nodes.image;
+            if (url && view.state && imageType) {
               const { tr } = view.state;
               const pos =
                 view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ??
                 tr.selection.from;
-              const node = view.state.schema.nodes.image.create({ src: url });
+              const node = imageType.create({ src: url });
               view.dispatch(tr.insert(pos, node));
             }
           });
@@ -108,7 +118,7 @@ const TipTapEditor = memo(function TipTapEditor({
       },
     },
     onUpdate: ({ editor: e }) => {
-      const storage = e.storage as Record<string, any>;
+      const storage = e.storage as MarkdownStorage;
       const currentMd: string = storage.markdown?.getMarkdown?.() ?? '';
       setHasChanges(currentMd !== originalContentRef.current);
     },
@@ -145,13 +155,13 @@ const TipTapEditor = memo(function TipTapEditor({
     };
 
     loadContent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, [editor, documentId]);
 
   // Get markdown from editor
   const getMarkdown = useCallback((): string => {
     if (!editor) return '';
-    const storage = editor.storage as Record<string, any>;
+    const storage = editor.storage as MarkdownStorage;
     return storage.markdown?.getMarkdown?.() ?? '';
   }, [editor]);
 
@@ -221,6 +231,8 @@ const TipTapEditor = memo(function TipTapEditor({
         if (focusable.length === 0) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
+        // length > 0 was checked above, so both ends exist; type-only guard.
+        if (!first || !last) return;
         if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();
           last.focus();

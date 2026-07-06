@@ -31,12 +31,21 @@ vi.mock('../../../hooks/useApi', () => ({
 // Mock AuthContext
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ logout: vi.fn() }),
-  AuthProvider: ({ children }) => children,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // Mock WebSocket
 class MockWebSocket {
-  constructor(url) {
+  static instances: MockWebSocket[] = [];
+  url: string;
+  readyState: number;
+  sentMessages: unknown[];
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+
+  constructor(url: string) {
     this.url = url;
     this.readyState = 1;
     this.sentMessages = [];
@@ -45,12 +54,12 @@ class MockWebSocket {
       if (this.onopen) this.onopen();
     }, 10);
   }
-  send(data) {
-    this.sentMessages.push(JSON.parse(data));
+  send(data: string) {
     const message = JSON.parse(data);
+    this.sentMessages.push(message);
     if (message.type === 'subscribe' && this.onmessage) {
       setTimeout(() => {
-        this.onmessage({
+        this.onmessage?.({
           data: JSON.stringify({
             type: 'subscribed',
             setupToken: message.setupToken?.substring(0, 8) + '...',
@@ -64,28 +73,27 @@ class MockWebSocket {
     this.readyState = 3;
     if (this.onclose) this.onclose();
   }
-  simulateMessage(data) {
+  simulateMessage(data: unknown) {
     if (this.onmessage) this.onmessage({ data: JSON.stringify(data) });
   }
 }
-MockWebSocket.instances = [];
 
 describe('BotSetupWizard Component', () => {
   const mockOnComplete = vi.fn();
   const mockOnCancel = vi.fn();
   const validToken = '1234567890:ABCdefGHIjklMNOpqrsTUVwxyz';
 
-  let originalWebSocket;
+  let originalWebSocket: typeof WebSocket;
 
   beforeEach(() => {
     vi.clearAllMocks();
     MockWebSocket.instances = [];
 
     originalWebSocket = global.WebSocket;
-    global.WebSocket = MockWebSocket;
+    global.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 
     // Default API mocks
-    mockApi.get.mockImplementation(url => {
+    mockApi.get.mockImplementation((url: string) => {
       if (url.includes('/models/ollama')) {
         return Promise.resolve({ models: [{ name: 'llama3.1:8b' }, { name: 'mistral' }] });
       }
@@ -179,7 +187,7 @@ describe('BotSetupWizard Component', () => {
     });
 
     test('validiert Token erfolgreich und zeigt Bot-Info', async () => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
             valid: true,
@@ -206,7 +214,7 @@ describe('BotSetupWizard Component', () => {
     });
 
     test('zeigt Validierung-Ladezustand', async () => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return new Promise(() => {}); // Never resolves
         }
@@ -234,7 +242,7 @@ describe('BotSetupWizard Component', () => {
   // =====================================================
   describe('Template Selection', () => {
     const setupToTemplateSelection = async () => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
             valid: true,
@@ -275,7 +283,7 @@ describe('BotSetupWizard Component', () => {
     test('wählt Arasul Assistent Vorlage aus', async () => {
       await setupToTemplateSelection();
 
-      const assistantBtn = screen.getByText('Arasul Assistent').closest('button');
+      const assistantBtn = screen.getByText('Arasul Assistent').closest('button')!;
       fireEvent.click(assistantBtn);
 
       // Selected template gets primary border color class
@@ -285,7 +293,7 @@ describe('BotSetupWizard Component', () => {
     test('wählt Custom Bot Vorlage aus', async () => {
       await setupToTemplateSelection();
 
-      const customBtn = screen.getByText('Custom Bot').closest('button');
+      const customBtn = screen.getByText('Custom Bot').closest('button')!;
       fireEvent.click(customBtn);
 
       // Selected template gets primary border color class
@@ -306,7 +314,7 @@ describe('BotSetupWizard Component', () => {
   // =====================================================
   describe('Configuration (Step 2)', () => {
     const setupToStep2 = async (template = 'master') => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
             valid: true,
@@ -334,7 +342,7 @@ describe('BotSetupWizard Component', () => {
       // Select template
       const templateBtn = screen
         .getByText(template === 'master' ? 'Arasul Assistent' : 'Custom Bot')
-        .closest('button');
+        .closest('button')!;
       fireEvent.click(templateBtn);
 
       // Go to step 2
@@ -355,7 +363,7 @@ describe('BotSetupWizard Component', () => {
     test('zeigt System-Prompt Textarea', async () => {
       await setupToStep2('master');
 
-      const textarea = screen.getByLabelText('System-Prompt');
+      const textarea = screen.getByLabelText('System-Prompt') as HTMLTextAreaElement;
       expect(textarea).toBeInTheDocument();
       expect(textarea.value).toContain('Arasul Assistent');
     });
@@ -425,7 +433,7 @@ describe('BotSetupWizard Component', () => {
 
       // Find the visibility toggle button next to the token input
       const tokenInput = screen.getByPlaceholderText('Token von @BotFather eingeben');
-      const inputWrapper = tokenInput.closest('div');
+      const inputWrapper = tokenInput.closest('div')!;
       const toggleButton = inputWrapper.querySelector('button');
 
       if (toggleButton) {
@@ -440,7 +448,7 @@ describe('BotSetupWizard Component', () => {
   // =====================================================
   describe('Bot Name', () => {
     test('setzt Bot-Name nach Token-Validierung', async () => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
             valid: true,
@@ -467,7 +475,7 @@ describe('BotSetupWizard Component', () => {
     });
 
     test('erlaubt manuelle Änderung des Bot-Namens', async () => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
             valid: true,
@@ -505,7 +513,7 @@ describe('BotSetupWizard Component', () => {
   // =====================================================
   describe('Error Handling', () => {
     test('zeigt Netzwerkfehler', async () => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return Promise.reject(new Error('Failed to fetch'));
         }
@@ -532,7 +540,7 @@ describe('BotSetupWizard Component', () => {
     });
 
     test('zeigt Server-Fehler', async () => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({ valid: false, error: 'Token ist ungültig' });
         }
@@ -555,7 +563,7 @@ describe('BotSetupWizard Component', () => {
     });
 
     test('zeigt Fehler wenn keine Vorlage gewählt', async () => {
-      mockApi.post.mockImplementation(url => {
+      mockApi.post.mockImplementation((url: string) => {
         if (url.includes('/validate-token')) {
           return Promise.resolve({
             valid: true,

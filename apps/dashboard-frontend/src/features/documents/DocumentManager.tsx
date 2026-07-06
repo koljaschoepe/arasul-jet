@@ -155,7 +155,10 @@ function DocumentManager() {
         if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
         if (activeSpaceId) params.append('space_id', activeSpaceId);
 
-        const data = await api.get(`/documents?${params}`, { signal, showError: false });
+        const data = await api.get<{ documents?: Document[]; total?: number }>(
+          `/documents?${params}`,
+          { signal, showError: false }
+        );
         setDocuments(data.documents || []);
         setTotalDocuments(data.total || 0);
         setError(null);
@@ -181,7 +184,10 @@ function DocumentManager() {
   // Load categories
   const loadCategories = async (signal?: AbortSignal) => {
     try {
-      const data = await api.get('/documents/categories', { signal, showError: false });
+      const data = await api.get<{ categories?: DocumentCategory[] }>('/documents/categories', {
+        signal,
+        showError: false,
+      });
       setCategories(data.categories || []);
     } catch (err: unknown) {
       if (signal?.aborted) return;
@@ -198,7 +204,10 @@ function DocumentManager() {
         if (statusFilter) params.append('status', statusFilter);
         if (categoryFilter) params.append('category_id', categoryFilter);
 
-        const data = await api.get(`/documents/statistics?${params}`, { signal, showError: false });
+        const data = await api.get<DocumentStatistics>(`/documents/statistics?${params}`, {
+          signal,
+          showError: false,
+        });
         setStatistics(data);
         setStatsError(false);
       } catch (err: unknown) {
@@ -213,7 +222,10 @@ function DocumentManager() {
   // Load Knowledge Spaces (RAG 2.0)
   const loadSpaces = async (signal?: AbortSignal) => {
     try {
-      const data = await api.get('/spaces', { signal, showError: false });
+      const data = await api.get<{ spaces?: DocumentSpace[] }>('/spaces', {
+        signal,
+        showError: false,
+      });
       setSpaces(data.spaces || []);
       setSpacesError(false);
     } catch (err: unknown) {
@@ -245,10 +257,13 @@ function DocumentManager() {
         }
         if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
 
-        const data = await api.get(`/v1/datentabellen/tables?${params}`, {
-          signal,
-          showError: false,
-        });
+        const data = await api.get<{ tables?: DataTable[]; data?: DataTable[]; total?: number }>(
+          `/v1/datentabellen/tables?${params}`,
+          {
+            signal,
+            showError: false,
+          }
+        );
         const allTables = data.tables || data.data || [];
         setTables(allTables);
         setTotalTables(data.total || allTables.length);
@@ -319,7 +334,13 @@ function DocumentManager() {
 
     setCleaningUp(true);
     try {
-      const result = await api.post('/documents/cleanup-orphaned', {}, { showError: false });
+      const result = await api.post<{
+        cleaned: {
+          deleted_from_minio: number;
+          marked_failed_in_db: number;
+          purged_soft_deleted: number;
+        };
+      }>('/documents/cleanup-orphaned', {}, { showError: false });
       const cleaned = result.cleaned;
       if (
         cleaned.deleted_from_minio + cleaned.marked_failed_in_db + cleaned.purged_soft_deleted ===
@@ -374,12 +395,12 @@ function DocumentManager() {
     if (!confirmed) return;
 
     try {
-      const result = await api.post(
+      const result = await api.post<{ deleted: number; errors?: unknown[] }>(
         '/documents/batch/delete',
         { ids: Array.from(selectedIds) },
         { showError: false }
       );
-      if (result.errors?.length > 0) {
+      if (result.errors && result.errors.length > 0) {
         toast.warning(`${result.deleted} gelöscht, ${result.errors.length} fehlgeschlagen`);
       } else {
         toast.success(`${result.deleted} Dokumente gelöscht`);
@@ -398,12 +419,12 @@ function DocumentManager() {
 
   const handleBatchReindex = async () => {
     try {
-      const result = await api.post(
+      const result = await api.post<{ queued: number; errors?: unknown[] }>(
         '/documents/batch/reindex',
         { ids: Array.from(selectedIds) },
         { showError: false }
       );
-      if (result.errors?.length > 0) {
+      if (result.errors && result.errors.length > 0) {
         toast.warning(`${result.queued} eingeplant, ${result.errors.length} fehlgeschlagen`);
       } else {
         toast.success(`${result.queued} Dokumente zur Neuindexierung eingeplant`);
@@ -420,12 +441,12 @@ function DocumentManager() {
 
   const handleBatchMove = async (spaceId: string | null, spaceName: string) => {
     try {
-      const result = await api.post(
+      const result = await api.post<{ moved: number; errors?: unknown[] }>(
         '/documents/batch/move',
         { ids: Array.from(selectedIds), space_id: spaceId },
         { showError: false }
       );
-      if (result.errors?.length > 0) {
+      if (result.errors && result.errors.length > 0) {
         toast.warning(`${result.moved} verschoben, ${result.errors.length} fehlgeschlagen`);
       } else {
         toast.success(`${result.moved} Dokumente verschoben nach: ${spaceName}`);
@@ -560,7 +581,6 @@ function DocumentManager() {
   // Document actions hook
   const {
     selectedDocument,
-    setSelectedDocument,
     showDetails,
     setShowDetails,
     similarDocuments,
@@ -605,26 +625,27 @@ function DocumentManager() {
     loadStatistics();
   };
 
-  // Handle Markdown document creation
-  const handleMarkdownCreated = (newDoc: Document | null) => {
+  // Handle Markdown document creation. CreateDocumentDialog hands back an
+  // untyped record; we narrow it to Document for the editor.
+  const handleMarkdownCreated = (newDoc: Record<string, unknown>) => {
     setShowMarkdownCreate(false);
     loadDocuments();
     loadStatistics();
     loadSpaces();
     // Open the new document for editing
-    if (newDoc) {
-      setEditingDocument(newDoc);
+    if (newDoc && newDoc.id) {
+      setEditingDocument(newDoc as unknown as Document);
       setShowEditor(true);
     }
   };
 
   // Handle Datentabelle (PostgreSQL) creation
-  const handleDataTableCreated = (newTable: DataTable | null) => {
+  const handleDataTableCreated = (newTable: Record<string, unknown>) => {
     setShowSimpleTableCreate(false);
     loadTables(); // Refresh tables list
     // Open the new table in the editor popup
-    if (newTable?.slug) {
-      setEditingTable(newTable);
+    if (newTable && newTable.slug) {
+      setEditingTable(newTable as unknown as DataTable);
       setShowTableEditor(true);
     }
   };
@@ -688,7 +709,7 @@ function DocumentManager() {
 
   return (
     <main
-      className="document-manager p-6 max-md:p-4 max-w-[1600px] mx-auto"
+      className="document-manager p-6 max-md:p-4 max-w-400 mx-auto"
       role="main"
       aria-label="Dokumentenverwaltung"
     >
@@ -750,7 +771,12 @@ function DocumentManager() {
         />
 
         {uploading || fileStatuses.length > 0 ? (
-          <div className="w-full max-w-md mx-auto space-y-2" onClick={e => e.stopPropagation()}>
+          <div
+            className="w-full max-w-md mx-auto space-y-2"
+            role="presentation"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+          >
             {/* Overall progress */}
             {uploading && (
               <div className="flex items-center gap-3 mb-3">
@@ -794,10 +820,7 @@ function DocumentManager() {
                   </span>
                 )}
                 {fs.status === 'error' && (
-                  <span
-                    className="text-destructive text-xs truncate max-w-[150px]"
-                    title={fs.error}
-                  >
+                  <span className="text-destructive text-xs truncate max-w-37.5" title={fs.error}>
                     {fs.error}
                   </span>
                 )}
@@ -902,7 +925,7 @@ function DocumentManager() {
                 </p>
               </div>
             ) : (
-              <ul className="max-h-[300px] overflow-y-auto" aria-labelledby="search-results-title">
+              <ul className="max-h-75 overflow-y-auto" aria-labelledby="search-results-title">
                 {searchResults.results.map((result, idx) => (
                   <li key={idx} className="py-3 px-4 border-b border-border/50 last:border-b-0">
                     <div className="flex justify-between items-center mb-2">
@@ -931,7 +954,7 @@ function DocumentManager() {
         role="group"
         aria-label="Dokumenten-Filter"
       >
-        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
+        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-37.5">
           <Search className="text-muted-foreground shrink-0" aria-hidden="true" size={16} />
           <input
             type="text"
@@ -946,7 +969,7 @@ function DocumentManager() {
           />
         </div>
 
-        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
+        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-37.5">
           <Filter className="text-muted-foreground shrink-0" aria-hidden="true" size={16} />
           <select
             className="flex-1 bg-transparent border-none text-foreground text-sm w-full placeholder:text-muted-foreground focus:outline-none cursor-pointer"
@@ -990,7 +1013,7 @@ function DocumentManager() {
           </select>
         </div>
 
-        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-[150px]">
+        <div className="flex items-center bg-[var(--gradient-card)] border border-border rounded-md py-2 px-3 gap-2 flex-1 min-w-37.5">
           <Folder className="text-muted-foreground shrink-0" aria-hidden="true" size={16} />
           <select
             className="flex-1 bg-transparent border-none text-foreground text-sm w-full placeholder:text-muted-foreground focus:outline-none cursor-pointer"
@@ -1073,7 +1096,7 @@ function DocumentManager() {
             <Button variant="ghost" size="sm" className="h-7">
               <FolderInput size={14} className="mr-1" /> Verschieben
             </Button>
-            <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[160px] hidden group-hover:block z-50">
+            <div className="absolute top-full left-0 mt-1 bg-popover border border-border rounded-md shadow-lg py-1 min-w-40 hidden group-hover:block z-50">
               <button
                 type="button"
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent text-foreground"
@@ -1255,7 +1278,7 @@ function DocumentManager() {
                         <Grid3x3 aria-hidden="true" size={16} />
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-[300px]">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-75">
                       <div className="flex items-center gap-3">
                         <Table
                           className="text-primary text-xl shrink-0"
@@ -1372,7 +1395,7 @@ function DocumentManager() {
                         <Star aria-hidden="true" size={16} />
                       </button>
                     </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-[300px]">
+                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-75">
                       <div className="flex items-center gap-3">
                         {React.createElement(getFileIcon(doc), {
                           className: 'text-primary text-xl shrink-0',
@@ -1412,7 +1435,7 @@ function DocumentManager() {
                       <StatusBadge status={doc.status} />
                     </td>
                     <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      {formatFileSize(doc.file_size)}
+                      {formatFileSize(doc.file_size ?? 0)}
                     </td>
                     <td
                       className="py-3 px-4 text-foreground border-b border-border/50 text-sm whitespace-nowrap"
@@ -1507,7 +1530,7 @@ function DocumentManager() {
           filename={editingDocument.filename}
           onClose={handleEditorClose}
           onSave={handleEditorSave}
-          token={getAuthToken()}
+          token={getAuthToken() ?? ''}
         />
       )}
 

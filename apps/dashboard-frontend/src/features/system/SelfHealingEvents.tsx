@@ -4,7 +4,6 @@ import { SkeletonList } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import {
   RefreshCw,
-  Info,
   AlertCircle,
   AlertTriangle,
   CheckCircle,
@@ -68,7 +67,10 @@ const SelfHealingEvents = () => {
     setError('');
 
     try {
-      const data = await api.get('/self-healing/events?limit=50', { signal, showError: false });
+      const data = await api.get<{ events?: SelfHealingEvent[] }>('/self-healing/events?limit=50', {
+        signal,
+        showError: false,
+      });
       setEvents(data.events || []);
     } catch (err: unknown) {
       if (signal?.aborted) return;
@@ -107,28 +109,34 @@ const SelfHealingEvents = () => {
     const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const groups: { label: string; events: SelfHealingEvent[] }[] = [
-      { label: 'Letzte Stunde', events: [] },
-      { label: 'Heute', events: [] },
-      { label: 'Gestern', events: [] },
-      { label: 'Letzte 7 Tage', events: [] },
-      { label: 'Älter', events: [] },
-    ];
+    const lastHour: SelfHealingEvent[] = [];
+    const today: SelfHealingEvent[] = [];
+    const yesterday: SelfHealingEvent[] = [];
+    const lastWeek: SelfHealingEvent[] = [];
+    const older: SelfHealingEvent[] = [];
 
     for (const event of filteredEvents) {
       const ts = new Date(event.timestamp);
       if (ts >= oneHourAgo) {
-        groups[0].events.push(event);
+        lastHour.push(event);
       } else if (ts >= todayStart) {
-        groups[1].events.push(event);
+        today.push(event);
       } else if (ts >= yesterdayStart) {
-        groups[2].events.push(event);
+        yesterday.push(event);
       } else if (ts >= weekAgo) {
-        groups[3].events.push(event);
+        lastWeek.push(event);
       } else {
-        groups[4].events.push(event);
+        older.push(event);
       }
     }
+
+    const groups: { label: string; events: SelfHealingEvent[] }[] = [
+      { label: 'Letzte Stunde', events: lastHour },
+      { label: 'Heute', events: today },
+      { label: 'Gestern', events: yesterday },
+      { label: 'Letzte 7 Tage', events: lastWeek },
+      { label: 'Älter', events: older },
+    ];
 
     return groups.filter(g => g.events.length > 0);
   }, [filteredEvents]);

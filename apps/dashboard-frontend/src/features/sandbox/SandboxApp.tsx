@@ -56,9 +56,15 @@ export default function SandboxApp() {
         // Skip update if tabs and statuses haven't changed
         if (
           next.length === prev.length &&
-          next.every(
-            (p, i) => p.id === prev[i].id && p.container_status === prev[i].container_status
-          )
+          next.every((p, i) => {
+            // next.length === prev.length ⇒ prev[i] exists; type-only guard.
+            const prevTab = prev[i];
+            return (
+              prevTab !== undefined &&
+              p.id === prevTab.id &&
+              p.container_status === prevTab.container_status
+            );
+          })
         ) {
           return prev;
         }
@@ -127,10 +133,11 @@ export default function SandboxApp() {
         .map(id => projects.find(p => p.id === id))
         .filter((p): p is SandboxProject => p != null && p.status === 'active');
 
-      if (restoredTabs.length > 0) {
+      const firstTab = restoredTabs[0];
+      if (firstTab) {
         setOpenTabs(restoredTabs);
         const validActiveId =
-          activeId && restoredTabs.some(t => t.id === activeId) ? activeId : restoredTabs[0].id;
+          activeId && restoredTabs.some(t => t.id === activeId) ? activeId : firstTab.id;
         setActiveTabId(validActiveId);
 
         // Auto-start stopped containers for restored tabs

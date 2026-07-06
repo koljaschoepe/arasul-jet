@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Trash2 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
@@ -8,7 +8,7 @@ import useConfirm from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/shadcn/button';
 
 interface ChatTopBarProps {
-  chatId: number;
+  chatId: string;
   title: string;
   onTitleChange: (title: string) => void;
   project: { name: string; color: string } | null;
@@ -23,6 +23,12 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
 
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the title field when edit mode opens (replaces the autoFocus prop).
+  useEffect(() => {
+    if (editing) titleInputRef.current?.focus();
+  }, [editing]);
 
   const startEdit = useCallback(() => {
     setEditValue(title || '');
@@ -51,7 +57,8 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
 
   const handleExport = useCallback(async () => {
     try {
-      const response = await api.get(`/chats/${chatId}/export?format=json`, {
+      // raw:true makes useApi return the untouched fetch Response
+      const response = await api.get<Response>(`/chats/${chatId}/export?format=json`, {
         raw: true,
         showError: false,
       });
@@ -59,7 +66,7 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
       let filename = `chat-${chatId}.json`;
       if (contentDisposition) {
         const match = contentDisposition.match(/filename="?([^"]+)"?/);
-        if (match) filename = match[1];
+        if (match?.[1]) filename = match[1];
       }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -90,7 +97,7 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
       // P2.2.2: cleanupChat BEFORE the API delete so we abort the active
       // stream + drop callbacks/jobs/timers locally first. Otherwise the
       // background stream keeps writing tokens into deleted chat state.
-      cleanupChat(String(chatId));
+      cleanupChat(chatId);
       await api.del(`/chats/${chatId}`, { showError: false });
       localStorage.removeItem('arasul_last_chat_id');
       navigate('/chat', { replace: true });
@@ -117,21 +124,22 @@ export default function ChatTopBar({ chatId, title, onTitleChange, project }: Ch
       <div className="chat-title-area flex-1 min-w-0 flex items-center gap-2">
         {editing ? (
           <input
+            ref={titleInputRef}
             className="flex-1 bg-card border border-ring rounded-md text-foreground text-base font-semibold py-1 px-2 outline-none ring-[3px] ring-ring/50"
             value={editValue}
             onChange={e => setEditValue(e.target.value)}
             onKeyDown={handleTitleKeyDown}
             onBlur={saveTitle}
-            autoFocus
           />
         ) : (
-          <h2
-            className="m-0 text-base font-semibold text-foreground cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis py-1 px-2 rounded-md transition-colors duration-150 hover:bg-primary/5"
+          <button
+            type="button"
+            className="m-0 text-left bg-transparent border-0 text-base font-semibold text-foreground cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis py-1 px-2 rounded-md transition-colors duration-150 hover:bg-primary/5"
             onClick={startEdit}
             title="Klicken zum Bearbeiten"
           >
             {title || 'Neuer Chat'}
-          </h2>
+          </button>
         )}
         {project && (
           <span

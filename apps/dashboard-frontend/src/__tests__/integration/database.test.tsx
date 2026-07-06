@@ -12,7 +12,7 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import DatabaseOverview from '../../features/database/DatabaseOverview';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
 
@@ -114,7 +114,7 @@ function renderDatabaseOverview() {
 describe('Database integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockApi.get.mockResolvedValue({ data: sampleTables });
+    vi.mocked(mockApi.get).mockResolvedValue({ data: sampleTables });
   });
 
   it('renders the database page title', async () => {
@@ -207,7 +207,7 @@ describe('Database integration', () => {
   });
 
   it('shows empty state when no tables exist', async () => {
-    mockApi.get.mockResolvedValue({ data: [] });
+    vi.mocked(mockApi.get).mockResolvedValue({ data: [] });
 
     renderDatabaseOverview();
 
@@ -217,7 +217,7 @@ describe('Database integration', () => {
   });
 
   it('shows create table button in empty state', async () => {
-    mockApi.get.mockResolvedValue({ data: [] });
+    vi.mocked(mockApi.get).mockResolvedValue({ data: [] });
 
     renderDatabaseOverview();
 
@@ -227,7 +227,7 @@ describe('Database integration', () => {
   });
 
   it('shows loading skeleton while loading', () => {
-    mockApi.get.mockReturnValue(new Promise(() => {}));
+    vi.mocked(mockApi.get).mockReturnValue(new Promise(() => {}));
 
     renderDatabaseOverview();
 
@@ -238,7 +238,7 @@ describe('Database integration', () => {
   });
 
   it('shows error state on API failure', async () => {
-    mockApi.get.mockRejectedValue(new Error('Server Error'));
+    vi.mocked(mockApi.get).mockRejectedValue(new Error('Server Error'));
 
     renderDatabaseOverview();
 
@@ -248,7 +248,7 @@ describe('Database integration', () => {
   });
 
   it('shows retry button on error', async () => {
-    mockApi.get.mockRejectedValue(new Error('Server Error'));
+    vi.mocked(mockApi.get).mockRejectedValue(new Error('Server Error'));
 
     renderDatabaseOverview();
 

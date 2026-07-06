@@ -1,15 +1,12 @@
-import React from 'react';
 import {
   File,
   Trash2,
   Download,
   RefreshCw,
   AlertCircle,
-  Clock,
   Folder,
   Tag,
   Cpu,
-  Eye,
   Link,
   Pencil,
 } from 'lucide-react';
@@ -96,7 +93,7 @@ function DocumentDetailsModal({
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground text-xs">Gr&ouml;&szlig;e</span>
-            <span className="text-foreground text-sm">{formatFileSize(doc.file_size)}</span>
+            <span className="text-foreground text-sm">{formatFileSize(doc.file_size ?? 0)}</span>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-muted-foreground text-xs">Typ</span>
@@ -207,9 +204,9 @@ function DocumentDetailsModal({
                   </span>
                   <span
                     className="bg-primary/10 text-primary py-0.5 px-2 rounded-xs text-xs"
-                    aria-label={`Ähnlichkeit: ${(sim.similarity_score * 100).toFixed(0)} Prozent`}
+                    aria-label={`Ähnlichkeit: ${((sim.similarity_score ?? 0) * 100).toFixed(0)} Prozent`}
                   >
-                    {(sim.similarity_score * 100).toFixed(0)}%
+                    {((sim.similarity_score ?? 0) * 100).toFixed(0)}%
                   </span>
                 </div>
               ))}

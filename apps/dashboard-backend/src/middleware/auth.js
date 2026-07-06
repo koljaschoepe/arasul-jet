@@ -211,8 +211,18 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+/**
+ * Test-only: clear the per-user auth cache so a suite that authenticates as
+ * different users under the same userId (e.g. admin vs non-admin) does not
+ * leak a stale role between tests. Mirrors systemSettings._setForTest.
+ */
+function _clearUserCacheForTest() {
+  userCache.clear();
+}
+
 module.exports = {
   requireAuth,
   requireAdmin,
   optionalAuth,
+  _clearUserCacheForTest,
 };

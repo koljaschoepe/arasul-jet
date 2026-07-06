@@ -37,11 +37,11 @@ body.sidebar-collapsed .excel-editor-overlay {
 }
 
 /* Light mode */
-.light-mode .excel-editor-overlay {
+.light .excel-editor-overlay {
   background: var(--backdrop-color);
 }
 
-.light-mode .excel-editor-container {
+.light .excel-editor-container {
   background: var(--bg-card);
   box-shadow: var(--shadow-xl);
 }
@@ -110,7 +110,7 @@ body.sidebar-collapsed .excel-editor-overlay {
 }
 
 /* --- Light Mode Overrides --- */
-.light-mode .excel-cell-editor {
+.light .excel-cell-editor {
   background: var(--bg-elevated);
   border-color: var(--primary-color);
   color: var(--text-primary);

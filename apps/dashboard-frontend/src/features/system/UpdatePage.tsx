@@ -34,6 +34,17 @@ interface UpdateStatusData {
   startTime?: string;
 }
 
+interface SystemInfoData {
+  version?: string;
+  build_hash?: string;
+  jetpack_version?: string;
+  uptime?: number;
+}
+
+interface ApplyUpdateResponse {
+  status?: string;
+}
+
 interface UsbDevice {
   path: string;
   name: string;
@@ -75,12 +86,7 @@ const UpdatePage = () => {
   const [updateHistory, setUpdateHistory] = useState<HistoryEntry[]>([]);
   const [usbDevices, setUsbDevices] = useState<UsbDevice[]>([]);
   const [usbScanning, setUsbScanning] = useState(false);
-  const [systemInfo, setSystemInfo] = useState<{
-    version?: string;
-    build_hash?: string;
-    jetpack_version?: string;
-    uptime?: number;
-  } | null>(null);
+  const [systemInfo, setSystemInfo] = useState<SystemInfoData | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -109,7 +115,7 @@ const UpdatePage = () => {
 
   const fetchSystemInfo = async (signal?: AbortSignal) => {
     try {
-      const data = await api.get('/system/info', { signal, showError: false });
+      const data = await api.get<SystemInfoData>('/system/info', { signal, showError: false });
       setSystemInfo(data);
     } catch {
       // ignore
@@ -118,7 +124,10 @@ const UpdatePage = () => {
 
   const fetchUpdateHistory = async (signal?: AbortSignal) => {
     try {
-      const data = await api.get('/update/history', { signal, showError: false });
+      const data = await api.get<{ updates?: HistoryEntry[] }>('/update/history', {
+        signal,
+        showError: false,
+      });
       setUpdateHistory(data.updates || []);
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') return;
@@ -128,7 +137,7 @@ const UpdatePage = () => {
 
   const fetchUpdateStatus = async (signal?: AbortSignal) => {
     try {
-      const data = await api.get('/update/status', { signal, showError: false });
+      const data = await api.get<UpdateStatusData>('/update/status', { signal, showError: false });
       setUpdateStatus(data);
 
       if (data.status === 'completed') {
@@ -147,7 +156,9 @@ const UpdatePage = () => {
   const scanUsbDevices = useCallback(async () => {
     setUsbScanning(true);
     try {
-      const data = await api.get('/update/usb-devices', { showError: false });
+      const data = await api.get<{ devices?: UsbDevice[] }>('/update/usb-devices', {
+        showError: false,
+      });
       setUsbDevices(data.devices || []);
     } catch (error) {
       console.error('Failed to scan USB devices:', error);
@@ -256,7 +267,7 @@ const UpdatePage = () => {
     setErrorMessage('');
 
     try {
-      const data = await api.post(
+      const data = await api.post<ApplyUpdateResponse>(
         '/update/apply',
         { file_path: validationResult.file_path },
         { showError: false }
@@ -277,7 +288,7 @@ const UpdatePage = () => {
     setErrorMessage('');
 
     try {
-      const data = await api.post(
+      const data = await api.post<ValidationResult>(
         '/update/install-from-usb',
         { file_path: usbFile.path },
         { showError: false }
@@ -449,16 +460,11 @@ const UpdatePage = () => {
 
             <Button
               onClick={handleUpload}
-              // P2.7.4: also disable while upload/validation/apply is in
-              // flight. Without this, a fast double-click re-triggers
-              // handleUpload while the previous run is still ongoing.
-              disabled={
-                !selectedFile ||
-                !signatureFile ||
-                uploadStatus === 'uploading' ||
-                uploadStatus === 'validated' ||
-                uploadStatus === 'applying'
-              }
+              // This button only renders while uploadStatus === 'idle', so a
+              // file/signature check is sufficient to guard against a premature
+              // submit; the in-flight states are handled by the conditional
+              // rendering that swaps this block out.
+              disabled={!selectedFile || !signatureFile}
               className="w-full"
             >
               Hochladen & Validieren

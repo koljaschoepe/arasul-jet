@@ -204,7 +204,9 @@ async function getTokenBudget(modelName) {
   const tier2Memory = contextWindow >= 16384 ? 400 : 200;
   const tier3Summary = contextWindow >= 16384 ? 600 : 300;
 
-  // RAG budget scales with context (increased for top_k=8 with parent chunks)
+  // RAG budget scales with context. Sized for rag_final_k=4 (system_settings)
+  // with parent chunks (~2000 words each); small-ctx models truncate hard on
+  // purpose — raising these tiers risks GPU OOM on the Jetson.
   const maxRagTokens = contextWindow >= 32768 ? 24000 : contextWindow >= 16384 ? 8000 : 3000;
 
   const fixedOverhead = SYSTEM_PROMPT_TOKENS + TIER1_PROFILE_TOKENS + tier2Memory + tier3Summary;

@@ -65,6 +65,8 @@ export interface DocumentStatistics {
   pending_documents: number;
   failed_documents?: number;
   table_count?: number;
+  /** Indexed chunk count from GET /documents/statistics, shown in DocumentStatsHeader. */
+  total_chunks?: number;
 }
 
 export interface DocumentSource {
@@ -215,6 +217,32 @@ export interface OllamaModel {
   name: string;
   size?: number;
   modified_at?: string;
+}
+
+// --- System Metrics ---
+// Shared shape of the live metrics payload (`GET /metrics/live` and the
+// `/metrics/live-stream` WebSocket). Consumed by useWebSocketMetrics and the
+// dashboard shell in App.tsx; kept here so both agree on one precise type
+// instead of an index-signature grab bag.
+
+export interface MetricsDisk {
+  used: number;
+  free: number;
+  percent: number;
+}
+
+export interface Metrics {
+  cpu: number;
+  ram: number;
+  swap: number;
+  gpu: number;
+  temperature: number;
+  temp: number;
+  disk: MetricsDisk;
+  /** Optional network state from the metrics-collector (used for the offline banner). */
+  network?: {
+    online?: boolean;
+  };
 }
 
 // --- DataTable ---

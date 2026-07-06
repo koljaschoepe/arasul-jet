@@ -10,7 +10,7 @@
  *   - Chat navigation
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ChatRouter from '../../features/chat/ChatRouter';
@@ -137,7 +137,7 @@ describe('Chat integration', () => {
     vi.clearAllMocks();
     localStorage.clear();
 
-    mockApi.get.mockImplementation((path: string) => {
+    vi.mocked(mockApi.get).mockImplementation((path: string) => {
       if (path.includes('/projects')) {
         return Promise.resolve({ projects: [] });
       }
@@ -242,7 +242,7 @@ describe('Chat integration', () => {
 
     // Click the header "Neues Projekt" button (not the empty state one)
     const projectButtons = screen.getAllByText(/neues projekt/i);
-    await user.click(projectButtons[0]);
+    await user.click(projectButtons[0]!);
 
     // ProjectModal is mocked, but the state change happened - no crash
     expect(projectButtons[0]).toBeInTheDocument();
@@ -270,7 +270,7 @@ describe('Chat integration', () => {
     const buttons = screen.getAllByText(/neues projekt/i);
     expect(buttons[0]).toBeEnabled();
 
-    await user.click(buttons[0]);
+    await user.click(buttons[0]!);
     // No crash = success
   });
 });

@@ -9,6 +9,7 @@
  */
 
 import React from 'react';
+import type { Mock } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ToastProvider } from '../../../contexts/ToastContext';
@@ -17,19 +18,17 @@ import Settings from '../Settings';
 // Mock AuthContext - useApi now requires AuthProvider
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ logout: vi.fn() }),
-  AuthProvider: ({ children }) => children,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 // Mock child components that are rendered conditionally
 vi.mock('../../system/UpdatePage', () => ({
   default: () => {
-    const React = require('react');
     return React.createElement('div', { 'data-testid': 'update-page' }, 'Update Page Content');
   },
 }));
 vi.mock('../../system/SelfHealingEvents', () => ({
   default: () => {
-    const React = require('react');
     return React.createElement(
       'div',
       { 'data-testid': 'selfhealing-events' },
@@ -39,7 +38,6 @@ vi.mock('../../system/SelfHealingEvents', () => ({
 }));
 vi.mock('../PasswordManagement', () => ({
   default: () => {
-    const React = require('react');
     return React.createElement(
       'div',
       { 'data-testid': 'password-management' },
@@ -57,57 +55,61 @@ const MOCK_SYSTEM_INFO = {
   timestamp: '2026-03-08T10:00:00Z',
 };
 
+// Typed fetch mock (assigned fresh in beforeEach)
+type FetchImpl = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+let fetchMock: Mock<FetchImpl>;
+
+// Helper: build a JSON Response like the real backend
+function jsonResponse(body: unknown, status = 200): Promise<Response> {
+  return Promise.resolve(new Response(JSON.stringify(body), { status }));
+}
+
 // Helper: mock fetch for system info
-function mockSystemInfoFetch(systemInfo = MOCK_SYSTEM_INFO) {
-  global.fetch.mockImplementation(url => {
+function mockSystemInfoFetch(systemInfo: typeof MOCK_SYSTEM_INFO = MOCK_SYSTEM_INFO) {
+  fetchMock.mockImplementation(url => {
     if (typeof url === 'string' && url.includes('/system/info')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(systemInfo),
-      });
+      return jsonResponse(systemInfo);
     }
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
+    return jsonResponse({});
   });
 }
 
 // Helper: mock fetch for both profile + context + system info APIs
 function mockProfileAndContextFetch(
-  profileData = null,
-  contextData = { content: '', updated_at: null }
+  profileData: string | null = null,
+  contextData: { content: string | null; updated_at: string | null } = {
+    content: '',
+    updated_at: null,
+  }
 ) {
-  global.fetch.mockImplementation(url => {
+  fetchMock.mockImplementation(url => {
     if (typeof url === 'string' && url.includes('/system/info')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(MOCK_SYSTEM_INFO),
-      });
+      return jsonResponse(MOCK_SYSTEM_INFO);
     }
     if (typeof url === 'string' && url.includes('/memory/profile')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ profile: profileData }),
-      });
+      return jsonResponse({ profile: profileData });
     }
     if (typeof url === 'string' && url.includes('/settings/company-context')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve(contextData),
-      });
+      return jsonResponse(contextData);
     }
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
+    return jsonResponse({});
   });
+}
+
+// Helper: render Settings with its required props (tests here don't exercise them)
+function renderSettings() {
+  return render(
+    <ToastProvider>
+      <Settings handleLogout={vi.fn()} theme="light" onToggleTheme={vi.fn()} />
+    </ToastProvider>
+  );
 }
 
 describe('Settings Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    fetchMock = vi.fn<FetchImpl>();
+    global.fetch = fetchMock;
   });
 
   afterEach(() => {
@@ -121,11 +123,7 @@ describe('Settings Component', () => {
     test('rendert Settings Layout korrekt', () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       expect(screen.getByText('Einstellungen')).toBeInTheDocument();
       expect(screen.getByText('System-Konfiguration')).toBeInTheDocument();
@@ -134,11 +132,7 @@ describe('Settings Component', () => {
     test('zeigt alle Navigation-Items', () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       // Nav items appear in both mobile and desktop navs
       expect(screen.getAllByText('Allgemein').length).toBeGreaterThanOrEqual(1);
@@ -155,11 +149,7 @@ describe('Settings Component', () => {
     test('zeigt Beschreibungen für Navigation-Items', () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       // Descriptions appear in desktop sidebar nav (hidden on mobile)
       expect(
@@ -172,11 +162,7 @@ describe('Settings Component', () => {
     test('startet mit General Section aktiv', async () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       await waitFor(() => {
         expect(screen.getByText('Systeminformationen')).toBeInTheDocument();
@@ -193,13 +179,9 @@ describe('Settings Component', () => {
       const user = userEvent.setup();
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
-      await user.click(screen.getAllByText('Updates')[0]);
+      await user.click(screen.getAllByText('Updates')[0]!);
 
       expect(screen.getByTestId('update-page')).toBeInTheDocument();
     });
@@ -208,13 +190,9 @@ describe('Settings Component', () => {
       const user = userEvent.setup();
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
-      await user.click(screen.getAllByText('Self-Healing')[0]);
+      await user.click(screen.getAllByText('Self-Healing')[0]!);
 
       expect(screen.getByTestId('selfhealing-events')).toBeInTheDocument();
     });
@@ -223,13 +201,9 @@ describe('Settings Component', () => {
       const user = userEvent.setup();
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
-      await user.click(screen.getAllByText('Sicherheit')[0]);
+      await user.click(screen.getAllByText('Sicherheit')[0]!);
 
       expect(screen.getByTestId('password-management')).toBeInTheDocument();
     });
@@ -238,13 +212,9 @@ describe('Settings Component', () => {
       const user = userEvent.setup();
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings handleLogout={vi.fn()} />
-        </ToastProvider>
-      );
+      renderSettings();
 
-      await user.click(screen.getAllByText('Sicherheit')[0]);
+      await user.click(screen.getAllByText('Sicherheit')[0]!);
 
       expect(screen.getByText('Abmelden')).toBeInTheDocument();
       expect(screen.getByText('Von allen Geräten abmelden')).toBeInTheDocument();
@@ -254,13 +224,9 @@ describe('Settings Component', () => {
       const user = userEvent.setup();
       mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
-      await user.click(screen.getAllByText('KI-Profil')[0]);
+      await user.click(screen.getAllByText('KI-Profil')[0]!);
 
       await waitFor(() => {
         expect(screen.getByText('Firmenprofil')).toBeInTheDocument();
@@ -271,11 +237,7 @@ describe('Settings Component', () => {
       const user = userEvent.setup();
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       // Initial - Allgemein should be active (find the desktop sidebar button with 'bg-muted' class)
       const allgemeinButtons = screen.getAllByText('Allgemein').map(el => el.closest('button'));
@@ -285,8 +247,8 @@ describe('Settings Component', () => {
       // Click Updates (use desktop sidebar button which has 'text-left' class)
       const updatesButtons = screen.getAllByText('Updates').map(el => el.closest('button'));
       await user.click(
-        updatesButtons.find(btn => btn?.classList.contains('text-left')) ||
-          updatesButtons[updatesButtons.length - 1]
+        (updatesButtons.find(btn => btn?.classList.contains('text-left')) ||
+          updatesButtons[updatesButtons.length - 1])!
       );
 
       // After clicking, the desktop sidebar Updates button should be active (bg-muted)
@@ -306,11 +268,7 @@ describe('Settings Component', () => {
     test('zeigt Live-Systeminformationen', async () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       await waitFor(() => {
         expect(screen.getByText('Systeminformationen')).toBeInTheDocument();
@@ -326,11 +284,7 @@ describe('Settings Component', () => {
     test('zeigt Versions-Werte vom Backend', async () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       await waitFor(() => {
         expect(screen.getByText('1.2.0')).toBeInTheDocument();
@@ -343,11 +297,7 @@ describe('Settings Component', () => {
     test('zeigt Über Arasul Platform Section', async () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       await waitFor(() => {
         expect(screen.getByText('Über Arasul Platform')).toBeInTheDocument();
@@ -358,11 +308,7 @@ describe('Settings Component', () => {
     test('zeigt Platform Features', async () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       await waitFor(() => {
         expect(screen.getByText('Offline-Verfügbarkeit')).toBeInTheDocument();
@@ -372,13 +318,9 @@ describe('Settings Component', () => {
     });
 
     test('zeigt Fehlermeldung wenn System-Info nicht geladen werden kann', async () => {
-      global.fetch.mockRejectedValue(new Error('Network error'));
+      fetchMock.mockRejectedValue(new Error('Network error'));
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       await waitFor(() => {
         expect(
@@ -396,14 +338,10 @@ describe('Settings Component', () => {
       test('zeigt Loading-State', async () => {
         const user = userEvent.setup();
         // Never resolve fetch
-        global.fetch.mockImplementation(() => new Promise(() => {}));
+        fetchMock.mockImplementation(() => new Promise<Response>(() => {}));
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         // Component shows Skeleton loading state (animate-pulse elements)
         expect(
@@ -423,12 +361,8 @@ describe('Settings Component', () => {
           updated_at: '2024-01-15T10:00:00Z',
         });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByDisplayValue('Test GmbH')).toBeInTheDocument();
@@ -439,12 +373,8 @@ describe('Settings Component', () => {
         const user = userEvent.setup();
         mockProfileAndContextFetch(null, { content: null, updated_at: null });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         // Click the Zusatzkontext sub-tab
         await waitFor(() => {
@@ -453,7 +383,7 @@ describe('Settings Component', () => {
         await user.click(screen.getByText('Zusatzkontext'));
 
         await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
+          const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
             'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
           );
           expect(textarea.value).toContain('Zusätzlicher Kontext');
@@ -466,12 +396,8 @@ describe('Settings Component', () => {
         const user = userEvent.setup();
         mockProfileAndContextFetch(null, { content: 'Initial content', updated_at: null });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -479,13 +405,13 @@ describe('Settings Component', () => {
         await user.click(screen.getByText('Zusatzkontext'));
 
         await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
+          const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
             'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
           );
           expect(textarea.value).toBe('Initial content');
         });
 
-        const textarea = screen.getByPlaceholderText(
+        const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
           'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
         );
         fireEvent.change(textarea, { target: { value: 'New content' } });
@@ -497,12 +423,8 @@ describe('Settings Component', () => {
         const user = userEvent.setup();
         mockProfileAndContextFetch(null, { content: 'Initial', updated_at: null });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -510,13 +432,13 @@ describe('Settings Component', () => {
         await user.click(screen.getByText('Zusatzkontext'));
 
         await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
+          const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
             'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
           );
           expect(textarea.value).toBe('Initial');
         });
 
-        const textarea = screen.getByPlaceholderText(
+        const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
           'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
         );
         fireEvent.change(textarea, { target: { value: 'Initial modified' } });
@@ -528,12 +450,8 @@ describe('Settings Component', () => {
         const user = userEvent.setup();
         mockProfileAndContextFetch(null, { content: 'Initial', updated_at: null });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -545,7 +463,7 @@ describe('Settings Component', () => {
           expect(saveButton).toBeDisabled();
         });
 
-        const textarea = screen.getByPlaceholderText(
+        const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
           'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
         );
         fireEvent.change(textarea, { target: { value: 'Initial changed' } });
@@ -558,40 +476,24 @@ describe('Settings Component', () => {
     describe('Saving', () => {
       test('speichert Content erfolgreich', async () => {
         const user = userEvent.setup();
-        global.fetch.mockImplementation((url, opts) => {
+        fetchMock.mockImplementation((url, opts) => {
           if (typeof url === 'string' && url.includes('/system/info')) {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve(MOCK_SYSTEM_INFO),
-            });
+            return jsonResponse(MOCK_SYSTEM_INFO);
           }
           // PUT call returns save result
           if (opts && opts.method === 'PUT') {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve({ updated_at: '2024-01-16T12:00:00Z' }),
-            });
+            return jsonResponse({ updated_at: '2024-01-16T12:00:00Z' });
           }
           // Profile GET
           if (typeof url === 'string' && url.includes('/memory/profile')) {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve({ profile: null }),
-            });
+            return jsonResponse({ profile: null });
           }
           // Context GET
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ content: 'Initial', updated_at: null }),
-          });
+          return jsonResponse({ content: 'Initial', updated_at: null });
         });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -599,13 +501,13 @@ describe('Settings Component', () => {
         await user.click(screen.getByText('Zusatzkontext'));
 
         await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
+          const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
             'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
           );
           expect(textarea.value).toBe('Initial');
         });
 
-        const textarea = screen.getByPlaceholderText(
+        const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
           'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
         );
         fireEvent.change(textarea, { target: { value: 'Initial updated' } });
@@ -620,37 +522,24 @@ describe('Settings Component', () => {
 
       test('zeigt Loading während Save', async () => {
         const user = userEvent.setup();
-        global.fetch.mockImplementation((url, opts) => {
+        fetchMock.mockImplementation((url, opts) => {
           if (typeof url === 'string' && url.includes('/system/info')) {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve(MOCK_SYSTEM_INFO),
-            });
+            return jsonResponse(MOCK_SYSTEM_INFO);
           }
           // PUT call (save) never resolves
           if (opts && opts.method === 'PUT') {
-            return new Promise(() => {});
+            return new Promise<Response>(() => {});
           }
           // Profile GET
           if (typeof url === 'string' && url.includes('/memory/profile')) {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve({ profile: null }),
-            });
+            return jsonResponse({ profile: null });
           }
           // Context GET
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ content: 'Initial', updated_at: null }),
-          });
+          return jsonResponse({ content: 'Initial', updated_at: null });
         });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -658,13 +547,13 @@ describe('Settings Component', () => {
         await user.click(screen.getByText('Zusatzkontext'));
 
         await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
+          const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
             'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
           );
           expect(textarea.value).toBe('Initial');
         });
 
-        const textarea = screen.getByPlaceholderText(
+        const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
           'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
         );
         fireEvent.change(textarea, { target: { value: 'Initial changed' } });
@@ -680,41 +569,24 @@ describe('Settings Component', () => {
 
       test('zeigt Fehler bei Save-Failure', async () => {
         const user = userEvent.setup();
-        global.fetch.mockImplementation((url, opts) => {
+        fetchMock.mockImplementation((url, opts) => {
           if (typeof url === 'string' && url.includes('/system/info')) {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve(MOCK_SYSTEM_INFO),
-            });
+            return jsonResponse(MOCK_SYSTEM_INFO);
           }
           // PUT call returns error
           if (opts && opts.method === 'PUT') {
-            return Promise.resolve({
-              ok: false,
-              status: 500,
-              json: () => Promise.resolve({ error: 'Server error', message: 'Server error' }),
-            });
+            return jsonResponse({ error: 'Server error', message: 'Server error' }, 500);
           }
           // Profile GET
           if (typeof url === 'string' && url.includes('/memory/profile')) {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve({ profile: null }),
-            });
+            return jsonResponse({ profile: null });
           }
           // Context GET
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ content: 'Initial', updated_at: null }),
-          });
+          return jsonResponse({ content: 'Initial', updated_at: null });
         });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -722,13 +594,13 @@ describe('Settings Component', () => {
         await user.click(screen.getByText('Zusatzkontext'));
 
         await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
+          const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
             'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
           );
           expect(textarea.value).toBe('Initial');
         });
 
-        const textarea = screen.getByPlaceholderText(
+        const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
           'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
         );
         fireEvent.change(textarea, { target: { value: 'Initial changed' } });
@@ -743,12 +615,9 @@ describe('Settings Component', () => {
 
       test('zeigt Netzwerkfehler', async () => {
         const user = userEvent.setup();
-        global.fetch.mockImplementation((url, opts) => {
+        fetchMock.mockImplementation((url, opts) => {
           if (typeof url === 'string' && url.includes('/system/info')) {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve(MOCK_SYSTEM_INFO),
-            });
+            return jsonResponse(MOCK_SYSTEM_INFO);
           }
           // PUT call rejects with network error
           if (opts && opts.method === 'PUT') {
@@ -756,24 +625,14 @@ describe('Settings Component', () => {
           }
           // Profile GET
           if (typeof url === 'string' && url.includes('/memory/profile')) {
-            return Promise.resolve({
-              ok: true,
-              json: () => Promise.resolve({ profile: null }),
-            });
+            return jsonResponse({ profile: null });
           }
           // Context GET
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ content: 'Initial', updated_at: null }),
-          });
+          return jsonResponse({ content: 'Initial', updated_at: null });
         });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -781,13 +640,13 @@ describe('Settings Component', () => {
         await user.click(screen.getByText('Zusatzkontext'));
 
         await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
+          const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
             'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
           );
           expect(textarea.value).toBe('Initial');
         });
 
-        const textarea = screen.getByPlaceholderText(
+        const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
           'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
         );
         fireEvent.change(textarea, { target: { value: 'Initial changed' } });
@@ -809,12 +668,8 @@ describe('Settings Component', () => {
           updated_at: '2024-01-15T10:30:00Z',
         });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -832,12 +687,8 @@ describe('Settings Component', () => {
         const user = userEvent.setup();
         mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('KI-Verhalten')).toBeInTheDocument();
@@ -852,14 +703,10 @@ describe('Settings Component', () => {
         const user = userEvent.setup();
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        global.fetch.mockRejectedValue(new Error('Fetch failed'));
+        fetchMock.mockRejectedValue(new Error('Fetch failed'));
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -867,7 +714,7 @@ describe('Settings Component', () => {
         await user.click(screen.getByText('Zusatzkontext'));
 
         await waitFor(() => {
-          const textarea = screen.getByPlaceholderText(
+          const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
             'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
           );
           expect(textarea.value).toContain('Zusätzlicher Kontext');
@@ -882,12 +729,8 @@ describe('Settings Component', () => {
         const user = userEvent.setup();
         mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Firmenprofil')).toBeInTheDocument();
@@ -900,12 +743,8 @@ describe('Settings Component', () => {
         const user = userEvent.setup();
         mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
-        render(
-          <ToastProvider>
-            <Settings />
-          </ToastProvider>
-        );
-        await user.click(screen.getAllByText('KI-Profil')[0]);
+        renderSettings();
+        await user.click(screen.getAllByText('KI-Profil')[0]!);
 
         await waitFor(() => {
           expect(screen.getByText('Firmenprofil')).toBeInTheDocument();
@@ -923,11 +762,7 @@ describe('Settings Component', () => {
     test('Navigation ist per Tastatur bedienbar', async () => {
       mockSystemInfoFetch();
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
+      renderSettings();
 
       const navItems = screen.getAllByRole('button');
       expect(navItems.length).toBeGreaterThan(0);
@@ -943,12 +778,8 @@ describe('Settings Component', () => {
       const user = userEvent.setup();
       mockProfileAndContextFetch(null, { content: '', updated_at: null });
 
-      render(
-        <ToastProvider>
-          <Settings />
-        </ToastProvider>
-      );
-      await user.click(screen.getAllByText('KI-Profil')[0]);
+      renderSettings();
+      await user.click(screen.getAllByText('KI-Profil')[0]!);
 
       await waitFor(() => {
         expect(screen.getByText('Zusatzkontext')).toBeInTheDocument();
@@ -956,7 +787,7 @@ describe('Settings Component', () => {
       await user.click(screen.getByText('Zusatzkontext'));
 
       await waitFor(() => {
-        const textarea = screen.getByPlaceholderText(
+        const textarea = screen.getByPlaceholderText<HTMLTextAreaElement>(
           'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...'
         );
         expect(textarea).toBeInTheDocument();

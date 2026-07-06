@@ -11,7 +11,6 @@ import ProjectCard from './ProjectCard';
 import RecentChatCard from './RecentChatCard';
 import EmptyState from '../../components/ui/EmptyState';
 import { Button } from '@/components/ui/shadcn/button';
-import { formatRelativeTime } from './utils';
 import { cn } from '@/lib/utils';
 import './chat.css';
 
@@ -289,7 +288,7 @@ export default function ChatLanding() {
 
   if (loading) {
     return (
-      <div className="chat-landing p-6 max-md:p-4 max-w-[1400px] mx-auto">
+      <div className="chat-landing p-6 max-md:p-4 max-w-350 mx-auto">
         <div className="chat-landing-header flex items-center justify-between mb-6 gap-4">
           <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground m-0">
             <MessageSquare className="text-primary" /> Chat
@@ -299,7 +298,7 @@ export default function ChatLanding() {
           {[1, 2, 3, 4].map(i => (
             <div
               key={i}
-              className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]"
+              className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-13 animate-[skeleton-pulse_1.5s_ease-in-out_infinite]"
             />
           ))}
         </div>
@@ -310,7 +309,7 @@ export default function ChatLanding() {
   const isSearching = searchQuery.trim().length > 0;
 
   return (
-    <main className="chat-landing p-6 max-md:p-4 max-w-[1400px] mx-auto">
+    <main className="chat-landing p-6 max-md:p-4 max-w-350 mx-auto">
       <header className="chat-landing-header flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground m-0">
           <MessageSquare className="text-primary" /> Chat
@@ -372,8 +371,8 @@ export default function ChatLanding() {
         <section className="search-results flex flex-col gap-2">
           {searchLoading || searchResults === null ? (
             <div className="chat-landing-skeleton flex flex-col gap-4">
-              <div className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
-              <div className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-[52px] animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
+              <div className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-13 animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
+              <div className="skeleton-card bg-card border border-border/50 rounded-xl p-4 h-13 animate-[skeleton-pulse_1.5s_ease-in-out_infinite]" />
             </div>
           ) : searchResults.length === 0 ? (
             <EmptyState

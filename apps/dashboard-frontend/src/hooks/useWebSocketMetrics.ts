@@ -9,6 +9,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { getValidToken } from '../utils/token';
+import type { Metrics } from '../types';
 
 // WebSocket URL: use wss:// if page is https://, otherwise ws://
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -16,9 +17,7 @@ const WS_BASE = import.meta.env.VITE_WS_URL || `${WS_PROTOCOL}//${window.locatio
 
 const MAX_RECONNECT_ATTEMPTS = 10;
 
-export interface Metrics {
-  [key: string]: unknown;
-}
+export type { Metrics } from '../types';
 
 interface UseWebSocketMetricsReturn {
   metrics: Metrics | null;
@@ -155,7 +154,7 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
       ws.onmessage = (event: MessageEvent) => {
         lastDataTimeRef.current = Date.now();
         try {
-          const data = JSON.parse(event.data as string) as Metrics;
+          const data = JSON.parse(event.data as string) as Metrics & { error?: unknown };
           // Only update if data doesn't contain an error
           if (!data.error) {
             setMetrics(data);
@@ -248,5 +247,3 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
     wsReconnecting,
   };
 }
-
-export default useWebSocketMetrics;

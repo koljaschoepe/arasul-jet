@@ -49,16 +49,16 @@ export default function useExcelHistory(
   }, []);
 
   const handleUndo = useCallback(async () => {
-    if (undoStack.length === 0) return;
     const last = undoStack[undoStack.length - 1];
+    if (!last) return; // empty stack (same check as length === 0)
     setUndoStack(prev => prev.slice(0, -1));
     setRedoStack(prev => [...prev, last]);
     await cellSaveRef.current(last.rowId, last.fieldSlug, last.oldValue, null, true);
   }, [undoStack, cellSaveRef]);
 
   const handleRedo = useCallback(async () => {
-    if (redoStack.length === 0) return;
     const last = redoStack[redoStack.length - 1];
+    if (!last) return; // empty stack (same check as length === 0)
     setRedoStack(prev => prev.slice(0, -1));
     setUndoStack(prev => [...prev, last]);
     await cellSaveRef.current(last.rowId, last.fieldSlug, last.newValue, null, true);

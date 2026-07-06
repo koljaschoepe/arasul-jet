@@ -1,3 +1,4 @@
+import { formatUptime } from '../../utils/formatting';
 import { useState, useEffect, useCallback } from 'react';
 import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
 import { Switch } from '@/components/ui/shadcn/switch';
@@ -20,16 +21,6 @@ interface GeneralSettingsProps {
   onToggleTheme?: () => void;
 }
 
-function formatUptime(seconds: number): string {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
 export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) {
   const api = useApi();
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
@@ -38,7 +29,7 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
   const fetchSystemInfo = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const data = await api.get('/system/info', { signal, showError: false });
+        const data = await api.get<SystemInfo>('/system/info', { signal, showError: false });
         setSystemInfo(data);
       } catch (error: unknown) {
         if (signal?.aborted) return;

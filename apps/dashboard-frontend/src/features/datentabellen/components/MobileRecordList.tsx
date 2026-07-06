@@ -40,14 +40,15 @@ const MobileRecordList = memo(function MobileRecordList({
       {rows.map((row, idx) => {
         if (row._isGhost) {
           return (
-            <div
+            <button
+              type="button"
               key="ghost"
-              className="flex items-center justify-center py-6 border border-dashed border-border rounded-lg text-muted-foreground/60 text-sm cursor-pointer hover:border-primary hover:text-primary transition-colors"
+              className="w-full bg-transparent flex items-center justify-center py-6 border border-dashed border-border rounded-lg text-muted-foreground/60 text-sm cursor-pointer hover:border-primary hover:text-primary transition-colors"
               onClick={() => handleCardClick(row._id)}
             >
               <Plus className="size-4 mr-2" />
               Neue Zeile
-            </div>
+            </button>
           );
         }
 
@@ -56,15 +57,25 @@ const MobileRecordList = memo(function MobileRecordList({
         return (
           <div
             key={row._id}
+            role="button"
+            tabIndex={0}
             className={cn(
               'bg-card border border-border rounded-lg p-3 cursor-pointer transition-all active:scale-[0.98]',
               isSelected && 'border-primary bg-primary/8'
             )}
             onClick={() => handleCardClick(row._id)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleCardClick(row._id);
+              }
+            }}
           >
             <div className="flex items-start gap-3">
               {/* Selection indicator */}
-              <div
+              <button
+                type="button"
+                aria-label="Zeile auswählen"
                 className={cn(
                   'mt-0.5 size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors',
                   isSelected ? 'border-primary bg-primary' : 'border-border'
@@ -75,7 +86,7 @@ const MobileRecordList = memo(function MobileRecordList({
                 }}
               >
                 {isSelected && <Check className="size-3 text-white" />}
-              </div>
+              </button>
 
               <div className="flex-1 min-w-0">
                 {/* Row number */}

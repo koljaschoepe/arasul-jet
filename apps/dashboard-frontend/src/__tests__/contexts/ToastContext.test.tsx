@@ -59,16 +59,17 @@ describe('ToastContext', () => {
   it('dismiss function exists and works', () => {
     const { result } = renderHook(() => useToast(), { wrapper });
 
+    // ToastMethods exposes dismissal as `remove(id)` (there is no `dismiss`).
+    expect(result.current.remove).toBeDefined();
+
+    let id = -1;
     act(() => {
-      result.current.success('Temporary');
+      id = result.current.success('Temporary');
     });
 
-    // Dismiss should be callable
-    if (result.current.dismiss) {
-      act(() => {
-        result.current.dismiss?.();
-      });
-    }
+    act(() => {
+      result.current.remove(id);
+    });
 
     expect(true).toBe(true);
   });

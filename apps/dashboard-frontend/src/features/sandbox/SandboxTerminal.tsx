@@ -162,7 +162,7 @@ export default function SandboxTerminal({
                     Quick Launch
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[200px]">
+                <DropdownMenuContent align="start" className="min-w-50">
                   {QUICK_LAUNCH_ITEMS.map(item => (
                     <DropdownMenuItem
                       key={item.label}

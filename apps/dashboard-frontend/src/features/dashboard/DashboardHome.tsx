@@ -115,7 +115,7 @@ interface ChartDataPoint {
   Temp: number | null;
 }
 
-export interface DashboardHomeProps {
+interface DashboardHomeProps {
   metrics: Metrics | null;
   metricsHistory: MetricsHistory | null;
   services: Services | null;
@@ -123,7 +123,6 @@ export interface DashboardHomeProps {
   networkInfo: NetworkInfo | null;
   runningApps: RunningApp[];
   formatChartData: () => ChartDataPoint[];
-  formatUptime: (seconds: number) => string;
   thresholds: Thresholds | null;
   deviceInfo: DeviceInfo | null;
 }
@@ -192,7 +191,7 @@ const DashboardHome = React.memo(function DashboardHome({
       // Best-effort: if the user isn't authenticated, the link will surface
       // the 401 the usual way; nothing to do here.
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, []);
 
   const getStatusInfo = (value: number, metric: string): { status: string; className: string } => {

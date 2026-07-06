@@ -9,7 +9,6 @@
  * - Error Handling
  */
 
-import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
@@ -39,32 +38,38 @@ vi.mock('../features/sandbox', () => ({
   default: () => <div data-testid="sandbox">SandboxApp Component</div>,
 }));
 
+interface MockUser {
+  id: number;
+  username: string;
+  role?: string;
+}
+
+// Minimal Response stand-in for fetch mocks (AuthContext only reads ok/status/json).
+const fetchResponse = (body: unknown, init: { ok?: boolean; status?: number } = {}): Response =>
+  ({
+    ok: init.ok ?? true,
+    status: init.status ?? 200,
+    json: () => Promise.resolve(body),
+  }) as unknown as Response;
+
 // Helper to create fetch mock for auth endpoints (AuthContext uses raw fetch)
-const createFetchMock = (mockUser, overrides = {}) => {
-  return (url, opts) => {
+const createFetchMock = (mockUser: MockUser): typeof fetch => {
+  return (input: RequestInfo | URL) => {
+    const url = String(input);
     if (url.includes('/auth/me')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ user: mockUser }),
-      });
+      return Promise.resolve(fetchResponse({ user: mockUser }));
     }
     if (url.includes('/auth/logout')) {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      });
+      return Promise.resolve(fetchResponse({ success: true }));
     }
     // Default fetch response
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
+    return Promise.resolve(fetchResponse({}));
   };
 };
 
 // Helper to create comprehensive useApi mock
-const createApiMock = (mockUser, overrides = {}) => {
-  return url => {
+const createApiMock = (_mockUser: MockUser, overrides: Record<string, Promise<unknown>> = {}) => {
+  return (url: string): Promise<unknown> => {
     if (url.includes('/metrics/live')) {
       return Promise.resolve({
         cpu: 45,
@@ -142,8 +147,9 @@ const createApiMock = (mockUser, overrides = {}) => {
       });
     }
     // Apply overrides
-    if (overrides[url]) {
-      return overrides[url];
+    const override = overrides[url];
+    if (override) {
+      return override;
     }
     return Promise.resolve({});
   };
@@ -153,17 +159,22 @@ describe('App Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    // useApi contract: every method returns a Promise. Components call e.g.
+    // api.post('/auth/refresh-cookie').catch(...) on mount (DashboardHome),
+    // so bare vi.fn() mocks (returning undefined) would crash the route.
+    mockApi.get.mockResolvedValue({});
+    mockApi.post.mockResolvedValue({});
+    mockApi.put.mockResolvedValue({});
+    mockApi.patch.mockResolvedValue({});
+    mockApi.del.mockResolvedValue({});
+    mockApi.request.mockResolvedValue({});
   });
 
   describe('Unauthenticated State', () => {
     beforeEach(() => {
       // AuthContext uses raw fetch for /auth/me - return 401
       global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: false,
-          status: 401,
-          json: () => Promise.resolve({ message: 'Unauthorized' }),
-        })
+        Promise.resolve(fetchResponse({ message: 'Unauthorized' }, { ok: false, status: 401 }))
       );
       mockApi.get.mockRejectedValue({ status: 401 });
     });
@@ -219,8 +230,13 @@ describe('App Component', () => {
     test('Dashboard-Route zeigt Metriken', async () => {
       render(<App />);
 
+      // The CPU/RAM/GPU chart renders via Recharts, whose ResponsiveContainer
+      // collapses to 0px under jsdom and never mounts its children (incl. the
+      // aria-label). Assert on the always-rendered metric stat cards instead,
+      // which is the faithful "dashboard shows metrics" check.
       await waitFor(() => {
-        expect(screen.getAllByText(/cpu/i).length).toBeGreaterThan(0);
+        expect(screen.getByText(/RAM USAGE/i)).toBeInTheDocument();
+        expect(screen.getByText(/STORAGE/i)).toBeInTheDocument();
       });
     });
 
@@ -322,11 +338,7 @@ describe('App Component', () => {
 
       // AuthContext uses raw fetch - return 401
       global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: false,
-          status: 401,
-          json: () => Promise.resolve({ message: 'Unauthorized' }),
-        })
+        Promise.resolve(fetchResponse({ message: 'Unauthorized' }, { ok: false, status: 401 }))
       );
       mockApi.get.mockRejectedValue({ status: 401 });
 
@@ -346,9 +358,7 @@ describe('App Component', () => {
       global.fetch = vi.fn(createFetchMock(mockUser));
 
       // First call succeeds, subsequent fails
-      let callCount = 0;
       mockApi.get.mockImplementation(url => {
-        callCount++;
         // For data endpoints, return minimal valid data then reject
         if (url.includes('/metrics/history')) {
           return Promise.resolve({ timestamps: [], cpu: [], ram: [], gpu: [], temperature: [] });
@@ -499,12 +509,12 @@ describe('App Component', () => {
     });
 
     test('WebSocket wird nach Auth initialisiert', async () => {
-      const wsInstances = [];
+      const wsInstances: WebSocket[] = [];
       const originalWebSocket = window.WebSocket;
 
       window.WebSocket = class extends originalWebSocket {
-        constructor(url) {
-          super(url);
+        constructor(url: string | URL, protocols?: string | string[]) {
+          super(url, protocols);
           wsInstances.push(this);
         }
       };
@@ -531,6 +541,7 @@ describe('App Routing', () => {
     localStorage.setItem('arasul_user', JSON.stringify(mockUser));
     global.fetch = vi.fn(createFetchMock(mockUser));
     mockApi.get.mockImplementation(createApiMock(mockUser));
+    mockApi.post.mockResolvedValue({});
   });
 
   test('Unbekannte Route zeigt Dashboard (oder 404)', async () => {

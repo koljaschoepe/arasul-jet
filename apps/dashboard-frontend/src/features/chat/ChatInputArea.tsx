@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 import './chat.css';
 
 interface ChatInputAreaProps {
-  chatId: number;
+  chatId: string;
   chatSettings: ChatSettings | null;
   messagesRef: React.MutableRefObject<ChatMessage[]>;
   hasMessages: boolean;
@@ -64,7 +64,6 @@ function ChatInputArea({
   const [showRAGPopup, setShowRAGPopup] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modelPopupRef = useRef<HTMLDivElement>(null);
@@ -242,6 +241,7 @@ function ChatInputArea({
 
       // If vision model is active and dropped file is an image, use image handler
       const firstFile = files[0];
+      if (!firstFile) return;
       const isImage = firstFile.type.startsWith('image/');
       if (isImage && supportsVision) {
         handleImageSelect(files);
@@ -432,10 +432,10 @@ function ChatInputArea({
     >
       {error && (
         <div
-          className="error-banner flex items-center gap-3 w-full max-w-[960px] py-3 px-4 bg-destructive/10 border border-destructive/25 rounded-lg text-muted-foreground text-sm mb-4"
+          className="error-banner flex items-center gap-3 w-full max-w-240 py-3 px-4 bg-destructive/10 border border-destructive/25 rounded-lg text-muted-foreground text-sm mb-4"
           role="alert"
         >
-          <AlertCircle className="shrink-0 size-[18px] text-destructive" aria-hidden="true" />
+          <AlertCircle className="shrink-0 size-4.5 text-destructive" aria-hidden="true" />
           <span className="flex-1">{error}</span>
           {lastSendRef.current && (
             <button
@@ -461,7 +461,7 @@ function ChatInputArea({
 
       {(showThinkWarning || showRagWarning) && (
         <div
-          className="capability-warning flex items-center gap-2.5 w-full max-w-[960px] py-2.5 px-3.5 bg-muted/50 border border-border rounded-lg text-muted-foreground text-xs mb-3"
+          className="capability-warning flex items-center gap-2.5 w-full max-w-240 py-2.5 px-3.5 bg-muted/50 border border-border rounded-lg text-muted-foreground text-xs mb-3"
           role="status"
         >
           <AlertCircle className="size-4 text-muted-foreground shrink-0" />
@@ -475,7 +475,7 @@ function ChatInputArea({
         </div>
       )}
 
-      <div className="chat-input-card w-full max-w-[960px] bg-card border border-white/[0.04] rounded-xl overflow-visible transition-all duration-200 relative focus-within:border-foreground/25">
+      <div className="chat-input-card w-full max-w-240 bg-card border border-white/[0.04] rounded-xl overflow-visible transition-all duration-200 relative focus-within:border-foreground/25">
         <div
           className="chat-toolbar flex items-center gap-2 py-2 px-4 border-b border-border bg-background rounded-t-xl"
           role="toolbar"
@@ -515,7 +515,7 @@ function ChatInputArea({
                 className={cn(
                   'toolbar-btn-label text-xs',
                   useRAG &&
-                    'max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap !normal-case !tracking-normal'
+                    'max-w-25 overflow-hidden text-ellipsis whitespace-nowrap !normal-case !tracking-normal'
                 )}
               >
                 {useRAG && selectedSpace ? selectedSpace.name : 'RAG'}
@@ -531,7 +531,7 @@ function ChatInputArea({
             </button>
             {showRAGPopup && spaces.length > 0 && (
               <div
-                className="toolbar-popup rag-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
+                className="toolbar-popup rag-popup absolute bottom-[calc(100%+4px)] left-0 min-w-55 max-w-70 max-h-80 overflow-y-auto bg-card rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
                 role="listbox"
                 aria-label="RAG-Bereich auswählen"
               >
@@ -544,7 +544,14 @@ function ChatInputArea({
                     !selectedSpaceId && 'selected bg-primary/10'
                   )}
                   onClick={() => handleSelectSpace(null)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectSpace(null);
+                    }
+                  }}
                   role="option"
+                  tabIndex={0}
                   aria-selected={!selectedSpaceId}
                 >
                   <span className="w-4 text-center text-muted-foreground shrink-0 text-sm">
@@ -567,7 +574,14 @@ function ChatInputArea({
                       selectedSpaceId === space.id && 'selected bg-primary/10'
                     )}
                     onClick={() => handleSelectSpace(space.id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectSpace(space.id);
+                      }
+                    }}
                     role="option"
+                    tabIndex={0}
                     aria-selected={selectedSpaceId === space.id}
                   >
                     <span
@@ -602,7 +616,7 @@ function ChatInputArea({
                 <button
                   type="button"
                   className={cn(
-                    'chat-toolbar-btn model-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 max-w-[160px] hover:bg-primary/5 hover:text-foreground',
+                    'chat-toolbar-btn model-toggle inline-flex items-center gap-1.5 py-1.5 px-2.5 bg-transparent border border-transparent rounded-md text-muted-foreground text-sm font-medium cursor-pointer transition-all duration-150 h-8 shrink-0 max-w-40 hover:bg-primary/5 hover:text-foreground',
                     selectedModel && 'active bg-primary/15 text-primary border-primary/20'
                   )}
                   onClick={() => !isStreaming && setShowModelPopup(v => !v)}
@@ -613,7 +627,7 @@ function ChatInputArea({
                   aria-label="Modell auswählen"
                 >
                   <Box className="size-4 shrink-0" aria-hidden="true" />
-                  <span className="model-name-short max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap text-xs normal-case tracking-normal">
+                  <span className="model-name-short max-w-20 overflow-hidden text-ellipsis whitespace-nowrap text-xs normal-case tracking-normal">
                     {modelDisplayName}
                   </span>
                   <ChevronUp
@@ -625,7 +639,7 @@ function ChatInputArea({
                 </button>
                 {showModelPopup && (
                   <div
-                    className="toolbar-popup model-popup absolute bottom-[calc(100%+4px)] left-0 min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto bg-card rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
+                    className="toolbar-popup model-popup absolute bottom-[calc(100%+4px)] left-0 min-w-55 max-w-70 max-h-80 overflow-y-auto bg-card rounded-xl shadow-lg z-10 animate-[slideUpFadeIn_200ms_ease-out]"
                     role="listbox"
                     aria-label="Modell auswählen"
                   >
@@ -640,7 +654,14 @@ function ChatInputArea({
                             isSelected && 'selected bg-primary/10'
                           )}
                           onClick={() => handleSelectModel(model.id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleSelectModel(model.id);
+                            }
+                          }}
                           role="option"
+                          tabIndex={0}
                           aria-selected={isSelected}
                         >
                           {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
@@ -665,9 +686,18 @@ function ChatInputArea({
                         <div className="h-px bg-border my-1" />
                         <div
                           className="popup-option popup-action flex items-center gap-2 py-2.5 px-3.5 cursor-pointer transition-colors duration-150 text-sm text-muted-foreground hover:text-primary hover:bg-accent"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             setModelAsDefault(selectedModel);
                             setShowModelPopup(false);
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setModelAsDefault(selectedModel);
+                              setShowModelPopup(false);
+                            }
                           }}
                         >
                           <span className="popup-option-name flex-1 font-medium">
@@ -699,7 +729,7 @@ function ChatInputArea({
           </button>
 
           {hasAttachments && (
-            <div className="inline-flex items-center gap-1.5 py-1 px-2.5 bg-primary/10 text-primary rounded-md text-xs font-medium animate-[chipSlideIn_200ms_ease-out] max-w-[160px]">
+            <div className="inline-flex items-center gap-1.5 py-1 px-2.5 bg-primary/10 text-primary rounded-md text-xs font-medium animate-[chipSlideIn_200ms_ease-out] max-w-40">
               {attachedFile ? (
                 <>
                   <FileText className="size-3 shrink-0" />
@@ -808,7 +838,7 @@ function ChatInputArea({
         >
           <textarea
             ref={inputRef}
-            className="flex-1 bg-transparent border-none py-2 px-1 text-foreground text-[1.05rem] font-[inherit] leading-relaxed min-w-0 min-h-[40px] max-h-[200px] resize-none overflow-y-auto focus:outline-none placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-transparent border-none py-2 px-1 text-foreground text-[1.05rem] font-[inherit] leading-relaxed min-w-0 min-h-10 max-h-50 resize-none overflow-y-auto focus:outline-none placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
@@ -826,7 +856,7 @@ function ChatInputArea({
           {isStreaming || isLoading ? (
             <button
               type="button"
-              className="cancel-btn size-10 min-w-[40px] bg-destructive/15 border-none rounded-full text-destructive cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-destructive/20 hover:scale-105"
+              className="cancel-btn size-10 min-w-10 bg-destructive/15 border-none rounded-full text-destructive cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-destructive/20 hover:scale-105"
               onClick={handleCancel}
               title="Abbrechen"
               aria-label="Abbrechen"
@@ -836,7 +866,7 @@ function ChatInputArea({
           ) : (
             <button
               type="button"
-              className="send-btn size-10 min-w-[40px] bg-primary border-none rounded-full text-white cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-primary/80 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-border"
+              className="send-btn size-10 min-w-10 bg-primary border-none rounded-full text-white cursor-pointer flex items-center justify-center transition-all duration-150 shrink-0 hover:bg-primary/80 hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-border"
               onClick={handleSend}
               disabled={
                 (!input.trim() && !attachedFile && attachedImages.length === 0) ||

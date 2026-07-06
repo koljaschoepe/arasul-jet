@@ -10,6 +10,7 @@
 
 const logger = require('../../utils/logger');
 const ragCore = require('../rag/ragCore');
+const systemSettings = require('../system-settings/systemSettingsService');
 
 /**
  * Enrich a user query with RAG context for a Telegram bot.
@@ -42,12 +43,14 @@ async function enrichWithRAG(userQuery, bot) {
       }
     }
 
-    // 3. Hybrid search with space filter — 10 candidates feed the reranker;
-    //    RAG_FINAL_K caps the final context the bot sends to the LLM.
+    // 3. Hybrid search with space filter — rag_top_k candidates feed the
+    //    reranker; rag_final_k caps the final context the bot sends to the LLM.
+    //    Same DB-backed tunables as the dashboard pipeline (routes/rag.js).
+    const topK = systemSettings.getNumber('rag_top_k', 10);
     const searchResults = await ragCore.hybridSearch(
       userQuery,
       embedding,
-      10,
+      topK,
       spaceIds && spaceIds.length > 0 ? spaceIds : null
     );
 
@@ -56,11 +59,12 @@ async function enrichWithRAG(userQuery, bot) {
       return { context: null, sources: [], sourceText: null };
     }
 
-    // 4. Rerank results (BGE CrossEncoder picks the best 10 to score).
-    const reranked = await ragCore.rerankResults(userQuery, searchResults, 10);
+    // 4. Rerank results (BGE CrossEncoder picks the best rag_top_k to score).
+    const reranked = await ragCore.rerankResults(userQuery, searchResults, topK);
 
     // 5. Filter by relevance
-    const wasReranked = ragCore.ENABLE_RERANKING && reranked.some(r => r.rerankScore != null);
+    const rerankOn = systemSettings.getBool('rag_rerank_enabled', ragCore.ENABLE_RERANKING);
+    const wasReranked = rerankOn && reranked.some(r => r.rerankScore != null);
     const { relevant } = ragCore.filterByRelevance(reranked, wasReranked);
 
     if (relevant.length === 0) {
@@ -68,12 +72,21 @@ async function enrichWithRAG(userQuery, bot) {
       return { context: null, sources: [], sourceText: null };
     }
 
-    // 5b. MMR diversity selection — cap at RAG_FINAL_K (default 4) so the
+    // 5b. MMR diversity selection — cap at rag_final_k (default 4) so the
     //     Telegram message context stays tight, same as the dashboard pipeline.
-    const mmrResults = ragCore.applyMMR(relevant, 0.7, ragCore.RAG_FINAL_K);
+    const finalK = systemSettings.getNumber('rag_final_k', ragCore.RAG_FINAL_K);
+    const mmrResults = ragCore.applyMMR(
+      relevant,
+      systemSettings.getNumber('rag_mmr_lambda', 0.7),
+      finalK
+    );
 
-    // 5c. Deduplicate by document (max 3 chunks per document)
-    const deduplicated = ragCore.deduplicateByDocument(mmrResults, ragCore.RAG_FINAL_K, 3);
+    // 5c. Deduplicate by document (default max 3 chunks per document)
+    const deduplicated = ragCore.deduplicateByDocument(
+      mmrResults,
+      finalK,
+      systemSettings.getNumber('rag_dedup_max_per_doc', 3)
+    );
 
     // 6. Load parent chunks for richer context
     const parentChunks = await ragCore.getParentChunks(deduplicated);

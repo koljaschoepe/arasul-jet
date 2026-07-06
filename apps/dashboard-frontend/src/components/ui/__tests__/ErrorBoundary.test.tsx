@@ -8,7 +8,6 @@
  * - Gibt Children durch wenn kein Error
  */
 
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ErrorBoundary from '../ErrorBoundary';
@@ -21,24 +20,9 @@ const ErrorThrowingComponent = ({ shouldThrow = true, errorMessage = 'Test error
   return <div data-testid="child-content">Child content rendered successfully</div>;
 };
 
-// Component that throws on specific action
-const ConditionalErrorComponent = () => {
-  const [shouldError, setShouldError] = React.useState(false);
-
-  if (shouldError) {
-    throw new Error('Conditional error triggered');
-  }
-
-  return (
-    <button data-testid="trigger-error" onClick={() => setShouldError(true)}>
-      Trigger Error
-    </button>
-  );
-};
-
 describe('ErrorBoundary Component', () => {
   // Suppress console.error for cleaner test output
-  let originalConsoleError;
+  let originalConsoleError: typeof console.error;
 
   beforeAll(() => {
     originalConsoleError = console.error;
@@ -51,9 +35,11 @@ describe('ErrorBoundary Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Mock window.location.reload
-    delete window.location;
-    window.location = { reload: vi.fn() };
+    // Mock window.location.reload. jsdom's location is not replaceable via
+    // plain assignment on the Window type, so narrow it to an optional slot.
+    const win = window as { location?: Location };
+    delete win.location;
+    win.location = { reload: vi.fn() } as Partial<Location> as Location;
     // Mock window.history.back and length (length > 1 to trigger back())
     window.history.back = vi.fn();
     Object.defineProperty(window.history, 'length', { value: 2, writable: true });
@@ -400,7 +386,7 @@ describe('ErrorBoundary Component', () => {
   describe('Integration Tests', () => {
     test('zeigt Children nach Error-Reset (simuliert)', () => {
       // This tests that ErrorBoundary can recover when remounted
-      const { unmount, rerender } = render(
+      const { rerender } = render(
         <ErrorBoundary key="error">
           <ErrorThrowingComponent shouldThrow={true} />
         </ErrorBoundary>

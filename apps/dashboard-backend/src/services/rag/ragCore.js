@@ -187,7 +187,10 @@ let _spaceEmbeddingCache = { rows: null, expiresAt: 0 };
 const SPACE_EMBEDDING_CACHE_TTL = 5 * 60 * 1000;
 
 async function routeToSpaces(queryEmbedding, options = {}) {
-  const { threshold = SPACE_ROUTING_THRESHOLD, maxSpaces = SPACE_ROUTING_MAX_SPACES } = options;
+  const {
+    threshold = systemSettings.getNumber('rag_space_routing_threshold', SPACE_ROUTING_THRESHOLD),
+    maxSpaces = systemSettings.getNumber('rag_space_routing_max_spaces', SPACE_ROUTING_MAX_SPACES),
+  } = options;
 
   try {
     const now = Date.now();
@@ -293,7 +296,7 @@ function buildSpaceFilter(spaceIds) {
  * Graceful fallback: returns original results if reranker unavailable.
  */
 async function rerankResults(query, results, topK = 5) {
-  if (!ENABLE_RERANKING || results.length === 0) {
+  if (!systemSettings.getBool('rag_rerank_enabled', ENABLE_RERANKING) || results.length === 0) {
     return results.slice(0, topK);
   }
 
@@ -829,10 +832,12 @@ function buildHierarchicalContext(
 async function hybridSearch(query, embedding, limit = 5, spaceIds = null, options = {}) {
   const { additionalEmbeddings = [], decompoundedQuery = null } = options;
 
-  const fetchLimit = ENABLE_RERANKING ? Math.min(limit * 5, 40) : limit * 2;
+  const rerankOn = systemSettings.getBool('rag_rerank_enabled', ENABLE_RERANKING);
+  const hybridOn = systemSettings.getBool('rag_hybrid_search', HYBRID_SEARCH_ENABLED);
+  const fetchLimit = rerankOn ? Math.min(limit * 5, 40) : limit * 2;
 
   const sparseQuery = decompoundedQuery || query;
-  const sparseVector = HYBRID_SEARCH_ENABLED ? await getSparseVector(sparseQuery) : null;
+  const sparseVector = hybridOn ? await getSparseVector(sparseQuery) : null;
 
   const filter = buildSpaceFilter(spaceIds);
   const prefetch = [];

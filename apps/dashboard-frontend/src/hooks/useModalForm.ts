@@ -91,5 +91,3 @@ export function useModalForm<T extends Record<string, unknown>>(
 
   return { values, setValues, setValue, error, setError, saving, handleSubmit, reset };
 }
-
-export default useModalForm;

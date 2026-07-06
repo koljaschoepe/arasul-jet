@@ -42,6 +42,17 @@ interface AIProfileSettingsProps {
   onDirtyChange?: (dirty: boolean) => void;
 }
 
+/** GET /memory/profile response (YAML profile string or null). */
+interface ProfileResponse {
+  profile: string | null;
+}
+
+/** GET/PUT /settings/company-context response. */
+interface CompanyContextResponse {
+  content?: string | null;
+  updated_at?: string | null;
+}
+
 export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}) {
   const api = useApi();
   const [loading, setLoading] = useState(true);
@@ -85,7 +96,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
     if (produkteIdx >= 0) {
       const items: string[] = [];
       for (let i = produkteIdx + 1; i < lines.length; i++) {
-        const l = lines[i].trim();
+        const l = (lines[i] ?? '').trim();
         if (l.startsWith('- ')) {
           items.push(l.substring(2).trim());
         } else if (l && !l.startsWith('#')) {
@@ -97,17 +108,11 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
     const praefIdx = lines.findIndex(l => l.trim() === 'praeferenzen:');
     if (praefIdx >= 0) {
       for (let i = praefIdx + 1; i < lines.length; i++) {
-        const l = lines[i].trim();
+        const l = (lines[i] ?? '').trim();
         if (l.startsWith('antwortlaenge:')) {
-          data._antwortlaenge = l
-            .split(':')[1]
-            .trim()
-            .replace(/^["']|["']$/g, '');
+          data._antwortlaenge = (l.split(':')[1] ?? '').trim().replace(/^["']|["']$/g, '');
         } else if (l.startsWith('formalitaet:')) {
-          data._formalitaet = l
-            .split(':')[1]
-            .trim()
-            .replace(/^["']|["']$/g, '');
+          data._formalitaet = (l.split(':')[1] ?? '').trim().replace(/^["']|["']$/g, '');
         } else if (l && !l.startsWith('#') && !l.startsWith('-')) {
           if (l.indexOf(':') > 0 && !l.startsWith(' ')) break;
         }
@@ -120,10 +125,15 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
     async (signal: AbortSignal) => {
       try {
         const [profileData, contextData] = await Promise.all([
-          api.get('/memory/profile', { signal, showError: false }).catch(() => ({ profile: null })),
           api
-            .get('/settings/company-context', { signal, showError: false })
-            .catch(() => ({ content: '', updated_at: null })),
+            .get<ProfileResponse>('/memory/profile', { signal, showError: false })
+            .catch((): ProfileResponse => ({ profile: null })),
+          api
+            .get<CompanyContextResponse>('/settings/company-context', {
+              signal,
+              showError: false,
+            })
+            .catch((): CompanyContextResponse => ({ content: '', updated_at: null })),
         ]);
 
         if (profileData.profile) {
@@ -211,7 +221,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
     setMessage(null);
 
     try {
-      const promises: Promise<unknown>[] = [];
+      const promises: Promise<CompanyContextResponse>[] = [];
 
       if (profileChanged) {
         const resolvedIndustry = industry === 'custom' ? customIndustry : industry;
@@ -221,7 +231,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
           .filter(Boolean);
 
         promises.push(
-          api.post(
+          api.post<CompanyContextResponse>(
             '/memory/profile',
             {
               companyName: companyName || 'Unbekannt',
@@ -237,7 +247,11 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
 
       if (contextChanged) {
         promises.push(
-          api.put('/settings/company-context', { content: contextContent }, { showError: false })
+          api.put<CompanyContextResponse>(
+            '/settings/company-context',
+            { content: contextContent },
+            { showError: false }
+          )
         );
       }
 
@@ -246,7 +260,9 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
       setOriginalProfile({ ...currentProfileState });
       setOriginalContext(contextContent);
 
-      const contextResult = results.find(r => r?.updated_at);
+      const contextResult = results.find((r): r is { updated_at: string } =>
+        Boolean(r && r.updated_at)
+      );
       if (contextResult) {
         setLastUpdated(contextResult.updated_at);
       }
@@ -355,7 +371,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
             </p>
           </div>
           <Textarea
-            className="min-h-[200px] font-mono text-sm"
+            className="min-h-50 font-mono text-sm"
             value={contextContent}
             onChange={e => setContextContent(e.target.value)}
             placeholder="Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten..."

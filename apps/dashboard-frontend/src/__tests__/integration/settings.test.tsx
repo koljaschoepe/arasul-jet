@@ -9,7 +9,7 @@
  *   - Logout actions
  */
 
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Settings from '../../features/settings/Settings';
@@ -74,7 +74,7 @@ describe('Settings integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Default: return system info for General settings tab
-    mockApi.get.mockImplementation((path: string) => {
+    vi.mocked(mockApi.get).mockImplementation((path: string) => {
       if (path === '/system/info') {
         return Promise.resolve({
           version: '2.1.0',
@@ -134,7 +134,7 @@ describe('Settings integration', () => {
 
     // Click on Sicherheit tab
     const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]);
+    await user.click(securityButtons[0]!);
 
     await waitFor(() => {
       expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe('Settings integration', () => {
     renderSettings();
 
     const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]);
+    await user.click(securityButtons[0]!);
 
     await waitFor(() => {
       expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
@@ -191,7 +191,7 @@ describe('Settings integration', () => {
     renderSettings();
 
     const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]);
+    await user.click(securityButtons[0]!);
 
     await waitFor(() => {
       expect(screen.getByText('Abmelden')).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('Settings integration', () => {
     renderSettings({ handleLogout });
 
     const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]);
+    await user.click(securityButtons[0]!);
 
     await waitFor(() => {
       expect(screen.getByText('Abmelden')).toBeInTheDocument();
@@ -219,7 +219,7 @@ describe('Settings integration', () => {
     renderSettings();
 
     const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]);
+    await user.click(securityButtons[0]!);
 
     await waitFor(() => {
       // Password management service tabs
@@ -231,7 +231,7 @@ describe('Settings integration', () => {
 
   it('shows loading skeleton while fetching system info', () => {
     // Make the API hang
-    mockApi.get.mockReturnValue(new Promise(() => {}));
+    vi.mocked(mockApi.get).mockReturnValue(new Promise(() => {}));
 
     renderSettings();
 
@@ -242,7 +242,7 @@ describe('Settings integration', () => {
   });
 
   it('shows error state when system info fails to load', async () => {
-    mockApi.get.mockImplementation((path: string) => {
+    vi.mocked(mockApi.get).mockImplementation((path: string) => {
       if (path === '/system/info') {
         return Promise.reject(new Error('Connection refused'));
       }

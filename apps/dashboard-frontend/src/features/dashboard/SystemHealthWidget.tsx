@@ -121,7 +121,29 @@ const SystemHealthWidget: React.FC = () => {
     );
   }
 
-  const meta = statusMeta[data.status];
+  // Fall back to a neutral "unknown" state if the payload omits/garbles status —
+  // a malformed /ops/overview response must not crash the whole dashboard.
+  const meta = statusMeta[data.status] ?? {
+    icon: <ShieldAlert className="stat-icon" />,
+    label: 'Status unbekannt',
+    color: 'var(--text-muted)',
+  };
+
+  // Normalize every nested field the render reads, so a partial/empty payload
+  // degrades gracefully instead of throwing on `.length`/nested access.
+  const criticals = data.criticals ?? [];
+  const warnings = data.warnings ?? [];
+  const backup = data.backup ?? { status: 'unknown', stale: false };
+  const restoreDrill = data.restore_drill ?? { status: 'never_run', stale: false };
+  const services = data.services ?? {
+    total: 0,
+    healthy: 0,
+    degraded: 0,
+    down: 0,
+    down_services: [],
+  };
+  const alerts = data.alerts ?? { active: 0 };
+  const notifications = data.notifications ?? { unsent_critical_24h: 0 };
 
   return (
     <div className="dashboard-card">
@@ -142,15 +164,11 @@ const SystemHealthWidget: React.FC = () => {
         <div style={{ color: meta.color }}>{meta.icon}</div>
         <div>
           <div style={{ fontWeight: 600, color: meta.color }}>{meta.label}</div>
-          {data.criticals.length > 0 && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {data.criticals[0]}
-            </div>
+          {criticals.length > 0 && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{criticals[0]}</div>
           )}
-          {data.criticals.length === 0 && data.warnings.length > 0 && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {data.warnings[0]}
-            </div>
+          {criticals.length === 0 && warnings.length > 0 && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{warnings[0]}</div>
           )}
         </div>
       </div>
@@ -166,14 +184,12 @@ const SystemHealthWidget: React.FC = () => {
           }}
         >
           <span>Letztes Backup</span>
-          <span
-            style={{ color: data.backup.stale ? 'var(--danger-color)' : 'var(--success-color)' }}
-          >
-            {data.backup.status === 'missing'
+          <span style={{ color: backup.stale ? 'var(--danger-color)' : 'var(--success-color)' }}>
+            {backup.status === 'missing'
               ? 'fehlt'
-              : data.backup.ageHours !== undefined
-                ? `vor ${data.backup.ageHours}h`
-                : data.backup.status}
+              : backup.ageHours !== undefined
+                ? `vor ${backup.ageHours}h`
+                : backup.status}
             <ExternalLink
               size={12}
               style={{ display: 'inline', marginLeft: 4, verticalAlign: '-2px' }}
@@ -186,14 +202,14 @@ const SystemHealthWidget: React.FC = () => {
           <span
             style={{
               color:
-                data.restore_drill.status === 'never_run' || data.restore_drill.stale
+                restoreDrill.status === 'never_run' || restoreDrill.stale
                   ? 'var(--warning-color)'
                   : 'var(--success-color)',
             }}
           >
-            {data.restore_drill.status === 'never_run'
+            {restoreDrill.status === 'never_run'
               ? 'nie ausgeführt'
-              : `vor ${data.restore_drill.ageDays}d`}
+              : `vor ${restoreDrill.ageDays}d`}
           </span>
         </div>
 
@@ -201,11 +217,11 @@ const SystemHealthWidget: React.FC = () => {
           <span>Services</span>
           <span
             style={{
-              color: data.services.down > 0 ? 'var(--danger-color)' : 'var(--success-color)',
+              color: services.down > 0 ? 'var(--danger-color)' : 'var(--success-color)',
             }}
           >
-            {data.services.healthy}/{data.services.total} healthy
-            {data.services.down > 0 && ` · ${data.services.down} down`}
+            {services.healthy}/{services.total} healthy
+            {services.down > 0 && ` · ${services.down} down`}
           </span>
         </div>
 
@@ -221,10 +237,10 @@ const SystemHealthWidget: React.FC = () => {
           <span>Aktive Alerts</span>
           <span
             style={{
-              color: data.alerts.active > 0 ? 'var(--warning-color)' : 'var(--success-color)',
+              color: alerts.active > 0 ? 'var(--warning-color)' : 'var(--success-color)',
             }}
           >
-            {data.alerts.active}
+            {alerts.active}
             <ExternalLink
               size={12}
               style={{ display: 'inline', marginLeft: 4, verticalAlign: '-2px' }}
@@ -232,11 +248,11 @@ const SystemHealthWidget: React.FC = () => {
           </span>
         </Link>
 
-        {data.notifications.unsent_critical_24h > 0 && (
+        {notifications.unsent_critical_24h > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Unversandte kritische Events</span>
             <span style={{ color: 'var(--danger-color)' }}>
-              {data.notifications.unsent_critical_24h}
+              {notifications.unsent_critical_24h}
             </span>
           </div>
         )}

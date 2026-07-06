@@ -85,6 +85,18 @@ interface Message {
   text: string;
 }
 
+type OllamaModelEntry = OllamaModel | string;
+
+interface OllamaModelsResponse {
+  models?: OllamaModelEntry[];
+}
+
+type SpacesResponse = { spaces?: DocumentSpace[] } | DocumentSpace[];
+
+interface UpdateBotResponse {
+  bot: TelegramBot;
+}
+
 const TABS: Tab[] = [
   { id: 'settings', label: 'Übersicht', icon: Settings },
   { id: 'capabilities', label: 'Fähigkeiten', icon: Zap },
@@ -116,7 +128,7 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
   const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
-  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
+  const [ollamaModels, setOllamaModels] = useState<OllamaModelEntry[]>([]);
   const [spaces, setSpaces] = useState<DocumentSpace[]>([]);
   const [commands, setCommands] = useState<TelegramCommand[]>([]);
   const [chats, setChats] = useState<TelegramChat[]>([]);
@@ -129,15 +141,16 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
   useEffect(() => {
     const fetchData = async () => {
       const [modelsResult, spacesResult] = await Promise.allSettled([
-        api.get('/telegram-bots/models/ollama', { showError: false }),
-        api.get('/spaces', { showError: false }),
+        api.get<OllamaModelsResponse>('/telegram-bots/models/ollama', { showError: false }),
+        api.get<SpacesResponse>('/spaces', { showError: false }),
       ]);
 
       if (modelsResult.status === 'fulfilled') {
         setOllamaModels(modelsResult.value.models || []);
       }
       if (spacesResult.status === 'fulfilled') {
-        setSpaces(spacesResult.value.spaces || spacesResult.value || []);
+        const val = spacesResult.value;
+        setSpaces(Array.isArray(val) ? val : val.spaces || []);
       }
     };
     fetchData();
@@ -197,7 +210,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
 
       if (formData.token) payload.token = formData.token;
 
-      const data = await api.put(`/telegram-bots/${bot.id}`, payload, { showError: false });
+      const data = await api.put<UpdateBotResponse>(`/telegram-bots/${bot.id}`, payload, {
+        showError: false,
+      });
       setMessage({ type: 'success', text: 'Einstellungen gespeichert' });
       setFormData(prev => ({ ...prev, token: '' }));
       if (onUpdate) onUpdate(data.bot);
@@ -249,8 +264,11 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
 
       <div className="flex flex-col gap-1">
         <div className="mb-4">
-          <label className="block mb-1.5 text-foreground text-sm font-medium">Bot Name</label>
+          <label htmlFor="bot-name" className="block mb-1.5 text-foreground text-sm font-medium">
+            Bot Name
+          </label>
           <Input
+            id="bot-name"
             type="text"
             value={formData.name}
             onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -258,8 +276,14 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1.5 text-foreground text-sm font-medium">System-Prompt</label>
+          <label
+            htmlFor="bot-system-prompt"
+            className="block mb-1.5 text-foreground text-sm font-medium"
+          >
+            System-Prompt
+          </label>
           <Textarea
+            id="bot-system-prompt"
             value={formData.systemPrompt}
             onChange={e => setFormData(prev => ({ ...prev, systemPrompt: e.target.value }))}
             rows={5}
@@ -268,12 +292,17 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1.5 text-foreground text-sm font-medium">LLM-Modell</label>
+          <label
+            htmlFor="bot-llm-model"
+            className="block mb-1.5 text-foreground text-sm font-medium"
+          >
+            LLM-Modell
+          </label>
           <Select
             value={formData.llmModel}
             onValueChange={val => setFormData(prev => ({ ...prev, llmModel: val }))}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="bot-llm-model" className="w-full">
               <SelectValue
                 placeholder={
                   ollamaModels.length === 0 ? 'Keine Modelle verfügbar' : 'Modell wählen'
@@ -320,9 +349,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
           {formData.ragEnabled && (
             <>
               <div className="mb-4" style={{ marginTop: '0.75rem' }}>
-                <label className="block mb-1.5 text-foreground text-sm font-medium">
+                <span className="block mb-1.5 text-foreground text-sm font-medium">
                   Space-Zuordnung
-                </label>
+                </span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -486,11 +515,12 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
 
       <div className="flex flex-col gap-1">
         <div className="mb-4">
-          <label className="block mb-1.5 text-foreground text-sm font-medium">
+          <label htmlFor="bot-token" className="block mb-1.5 text-foreground text-sm font-medium">
             Bot-Token ändern
           </label>
           <div className="relative">
             <Input
+              id="bot-token"
               type={showToken ? 'text' : 'password'}
               value={formData.token}
               onChange={e => setFormData(prev => ({ ...prev, token: e.target.value }))}
@@ -541,7 +571,9 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
               </span>
               <span className="text-sm text-foreground">
                 {bot.lastMessageAt || bot.last_message_at
-                  ? new Date(bot.lastMessageAt || bot.last_message_at).toLocaleDateString('de-DE')
+                  ? new Date((bot.lastMessageAt || bot.last_message_at)!).toLocaleDateString(
+                      'de-DE'
+                    )
                   : '–'}
               </span>
             </div>
@@ -641,10 +673,14 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         </div>
         {formData.restrictUsers && (
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">
+            <label
+              htmlFor="bot-allowed-users"
+              className="block text-xs text-muted-foreground mb-1.5"
+            >
               Erlaubte Telegram-User-IDs (komma-getrennt)
             </label>
             <Input
+              id="bot-allowed-users"
               value={formData.allowedUsers}
               onChange={e => setFormData(prev => ({ ...prev, allowedUsers: e.target.value }))}
               placeholder="123456789, 987654321"
@@ -662,10 +698,14 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
         </div>
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">
+            <label
+              htmlFor="bot-context-tokens"
+              className="block text-xs text-muted-foreground mb-1.5"
+            >
               Kontext-Tokens (max)
             </label>
             <Input
+              id="bot-context-tokens"
               type="number"
               min={1024}
               max={8192}
@@ -681,10 +721,14 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
             />
           </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1.5">
+            <label
+              htmlFor="bot-response-tokens"
+              className="block text-xs text-muted-foreground mb-1.5"
+            >
               Antwort-Tokens (max)
             </label>
             <Input
+              id="bot-response-tokens"
               type="number"
               min={256}
               max={4096}
@@ -701,10 +745,11 @@ function BotDetailsModal({ bot, onClose, onUpdate }: BotDetailsModalProps) {
           </div>
         </div>
         <div>
-          <label className="block text-xs text-muted-foreground mb-1.5">
+          <label htmlFor="bot-rate-limit" className="block text-xs text-muted-foreground mb-1.5">
             Rate Limit (Anfragen/Minute)
           </label>
           <Input
+            id="bot-rate-limit"
             type="number"
             min={1}
             max={60}

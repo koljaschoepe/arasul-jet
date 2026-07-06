@@ -134,7 +134,7 @@ const getAppUrl = (app: App): string | null => {
 };
 
 // Synthesized tags so App-Cards match Model-Card density
-export const getAppTags = (app: Pick<App, 'hasCustomPage' | 'ports' | 'appType'>): string[] => {
+const getAppTags = (app: Pick<App, 'hasCustomPage' | 'ports' | 'appType'>): string[] => {
   const tags: string[] = [];
   if (app.hasCustomPage) tags.push('Integriert');
   else if (app.ports?.external) tags.push('Web-UI');
@@ -170,7 +170,7 @@ function StoreApps() {
   const loadApps = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const data = await api.get('/apps', { signal, showError: false });
+        const data = await api.get<{ apps?: App[] }>('/apps', { signal, showError: false });
         setApps(data.apps || []);
         setError(null);
       } catch (err: unknown) {
@@ -221,7 +221,7 @@ function StoreApps() {
         const decoder = new TextDecoder();
         let buffer = '';
 
-        while (true) {
+        for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
 
@@ -368,7 +368,13 @@ function StoreApps() {
 
   // Get status config
   const getStatusConfig = (status: string): StatusConfigEntry => {
-    return statusConfig[status] || statusConfig.available;
+    return (
+      statusConfig[status] || {
+        color: 'var(--muted-foreground)',
+        label: 'Verfügbar',
+        icon: Download,
+      }
+    );
   };
 
   // Retry handler for loading timeout
@@ -478,12 +484,21 @@ function StoreApps() {
 
         {/* Install progress bar */}
         {installProgress[app.id] != null && (
-          <div onClick={e => e.stopPropagation()}>
+          <div
+            role="presentation"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+          >
             <DownloadProgress downloadState={installProgress[app.id]!} compact />
           </div>
         )}
 
-        <div className="app-actions flex gap-2 mt-auto pt-2" onClick={e => e.stopPropagation()}>
+        <div
+          className="app-actions flex gap-2 mt-auto pt-2"
+          role="presentation"
+          onClick={e => e.stopPropagation()}
+          onKeyDown={e => e.stopPropagation()}
+        >
           {app.status === 'available' && !installProgress[app.id] && (
             <Button
               size="sm"
@@ -597,7 +612,9 @@ function StoreApps() {
         {app.lastError && !dismissedErrors.has(app.id) && (
           <div
             className="app-error flex items-center gap-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded mt-2"
+            role="presentation"
             onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
           >
             <AlertCircle className="size-3.5 shrink-0" />
             <span className="flex-1 line-clamp-2">{app.lastError}</span>
@@ -697,7 +714,7 @@ function StoreApps() {
 
         {/* Uninstall Dialog */}
         <Dialog open={uninstallDialog.open} onOpenChange={open => !open && closeUninstall()}>
-          <DialogContent className="sm:max-w-[480px]">
+          <DialogContent className="sm:max-w-120">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-destructive">
                 <Trash2 className="size-5" /> App deinstallieren
