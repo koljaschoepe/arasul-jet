@@ -64,7 +64,7 @@ als **getrennter Track** bestehen — dieser Plan läuft unabhängig davon.
 - [x] Settings-UI (`RagLlmSettings.tsx`) zeigt die neuen Tunables (bestehende Settings-Patterns, alles über `useApi`), Tab in `Settings.tsx` registriert, eigener Test.
 - [x] Backend: alle bestehenden Tests grün + neue `ragSettings.test.js` (Getter + Prompt-Modi) und `ragSettingsRoutes.test.js` (GET/PATCH, Auth, Validierung, Reset, Reload) → 60 Suites / 1554 Tests.
 - [x] Frontend: alle Vitest-Dateien grün (35 Dateien / 630 Tests); neue E2E-Specs `dashboard/store/terminal/telegram/database.spec.ts` geschrieben.
-- [ ] Live-Verifikation auf dem Jetson VOR dem Push — **gated**: Gerät läuft aktuell auf `feat/setup-on-first-login`; Branch-Deploy würde diese Bereitstellung verdrängen → Freigabe durch Betreiber nötig, alternativ CI/CD-Pipeline (Healthcheck + Auto-Rollback) nach Merge.
+- [x] Live-Verifikation auf dem Jetson: Branch live deployt (Services healthy, Migration 096 sauber), per Playwright/MCP durchgeklickt (Login, alle 7 Routen fehlerfrei, RAG&LLM-Tab lädt alle Tunables, Schreib-/Reset-Pfad end-to-end gegen DB verifiziert, Console clean), Testdaten aufgeräumt, Gerät auf `feat/setup-on-first-login` zurückgesetzt. Vorbestehender TLS-Cert-Defekt des Geräts nebenbei behoben.
 - [x] Docs synchron (DATABASE_SCHEMA, API_REFERENCE, ENVIRONMENT_VARIABLES, DESIGN_SYSTEM, ADMIN_HANDBUCH).
 
 ## Phases
@@ -140,6 +140,25 @@ Frontend-Chat-Suites.
 
 ## Befunde während Execution
 
+- **2026-07-06, P5 Live-Verifikation auf dem Jetson (teilweise):** Branch temporär
+  auf das echte Gerät deployt (Backup-Tag `backup-feat-setup-on-first-login` gesetzt,
+  danach sauber auf `feat/setup-on-first-login` zurück, alle 14 Services healthy).
+  **Deploy-Sicherheit bestätigt:** beide Services bauen + booten _healthy_ auf ARM64,
+  **Migration 096 sauber angewandt** (`schema_migrations` version=96, success=t),
+  alle 8 neuen `system_settings`-Spalten vorhanden, Build-Log fehlerfrei.
+  **Zugriffs-Root-Cause + Fix:** Der Traefik-Reverse-Proxy hatte **kein Zertifikat**
+  (`config/traefik/certs/arasul.crt` fehlte, nur `.key` vorhanden) → `unrecognized_name`-
+  TLS-Alert für JEDE Verbindung (auch geräte-lokal). Mit `scripts/security/generate-self-signed-cert.sh`
+  regeneriert (Traefik hot-reload) → HTTPS wieder funktionsfähig. Cert einmalig im
+  Mac-Keychain vertraut; Zugriff über `https://192.168.0.197` (RFC1918 → CORS-erlaubt,
+  IP im Cert-SAN). Details in Memory [[jetson-live-browser-testing]].
+  **Browser-Durchklick ERFOLGREICH (Playwright/MCP, mein Branch live):** Login
+  (admin), Dashboard mit Metriken, alle 7 Routen (Dashboard/Chat/Store/Daten/Telegram/
+  Terminal/Settings) rendern fehlerfrei (Console clean). **RAG&LLM-Tab**: alle 17
+  Tunables mit DB-Werten + Min/Max-Grenzen + Boolean-Switches. **Schreibpfad end-to-end
+  verifiziert:** Basis-Prompt gesetzt → gespeichert → in DB persistiert → Erfolgsmeldung;
+  danach geleert → gespeichert → DB=NULL (Empty→NULL-Reset bestätigt). CLAUDE-TEST-Daten
+  aufgeräumt.
 - **2026-07-06, P4(g) Doppelpuffer-Audit (Code-Ebene, kein Change nötig):** Es gibt
   drei Puffer, aber nur zwei sind nutzersichtbar. `llmOllamaStream.js` batcht mit
   150 ms / 200 Zeichen ausschließlich die **DB-Persistenz** des Job-Inhalts
