@@ -61,6 +61,14 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
   const confirmPassword = watch('confirmPassword');
   const canSubmit = Boolean(username && password && confirmPassword);
 
+  // Focus the first field on mount without `autoFocus` (a11y: jsx-a11y/no-autofocus).
+  // Compose react-hook-form's ref with a local ref used only for the initial focus.
+  const usernameField = register('username');
+  const usernameRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    usernameRef.current?.focus();
+  }, []);
+
   const onSubmit = async (values: CreateAdminFormValues) => {
     setError('');
     submitAbortRef.current?.abort();
@@ -117,9 +125,12 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
                 type="text"
                 placeholder="z. B. admin"
                 autoComplete="username"
-                autoFocus
                 className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
-                {...register('username')}
+                {...usernameField}
+                ref={el => {
+                  usernameField.ref(el);
+                  usernameRef.current = el;
+                }}
               />
             </div>
 
