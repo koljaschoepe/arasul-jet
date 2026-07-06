@@ -9,6 +9,7 @@ import CreateAdmin from './features/system/CreateAdmin';
 import ErrorBoundary, { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import { SkeletonCard, SkeletonText } from './components/ui/Skeleton';
+import { Button } from './components/ui/shadcn/button';
 import SetupWizard from './features/system/SetupWizard';
 import DashboardHome from './features/dashboard/DashboardHome';
 
@@ -489,17 +490,19 @@ function AppContent(): React.JSX.Element | null {
           <div className="error-icon">⚠️</div>
           <h2>Fehler beim Laden</h2>
           <p className="error-text">{error}</p>
-          <button
+          <Button
             type="button"
+            variant="solid"
+            size="lg"
             onClick={() => {
               setError(null);
               setLoading(true);
               fetchData();
             }}
-            className="btn-retry"
+            className="mt-2 font-semibold transition-all hover:-translate-y-0.5 hover:shadow-md"
           >
             Erneut versuchen
-          </button>
+          </Button>
         </div>
       </div>
     );

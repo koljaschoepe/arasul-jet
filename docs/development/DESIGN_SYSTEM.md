@@ -136,18 +136,24 @@ Für Hintergründe, Text und Strukturelemente.
 
 ### Font-Größen
 
+Die Font-Größen-Scale ist dichter als eine reine Tailwind-Default-Scale (14px
+Standard-Body statt 16px, plus `--text-md` als 15px-Zwischenschritt). Werte
+gespiegelt aus `apps/dashboard-frontend/src/index.css`:
+
 ```css
-/* Überschriften */
---text-3xl: 1.875rem; /* 30px - Seiten-Titel */
---text-2xl: 1.5rem; /* 24px - Abschnitt-Titel */
---text-xl: 1.25rem; /* 20px - Karten-Titel */
---text-lg: 1.125rem; /* 18px - Große Labels */
+/* Überschriften / große Labels */
+--text-4xl: 2rem; /* 32px - Hero / Seiten-Titel groß */
+--text-3xl: 1.5rem; /* 24px - Seiten-Titel */
+--text-2xl: 1.25rem; /* 20px - Abschnitt-Titel */
+--text-xl: 1.125rem; /* 18px - Karten-Titel */
+--text-lg: 1rem; /* 16px - Große Labels */
 
 /* Body */
---text-base: 1rem; /* 16px - Standard Body */
---text-sm: 0.875rem; /* 14px - Sekundärer Text */
+--text-md: 0.9375rem; /* 15px - Betonter Body */
+--text-base: 0.875rem; /* 14px - Standard Body */
+--text-sm: 0.8125rem; /* 13px - Sekundärer Text */
 --text-xs: 0.75rem; /* 12px - Kleine Labels, Badges */
---text-2xs: 0.625rem; /* 10px - Sehr klein, nur Meta */
+--text-2xs: 0.65rem; /* 10.4px - Sehr klein, nur Meta */
 ```
 
 ### Font-Gewichte
@@ -161,15 +167,15 @@ Für Hintergründe, Text und Strukturelemente.
 
 ### Typografie-Hierarchie
 
-| Element              | Größe      | Gewicht | Farbe              | Line-Height |
-| -------------------- | ---------- | ------- | ------------------ | ----------- |
-| Seiten-Titel (h1)    | `1.875rem` | 700     | `--text-primary`   | 1.2         |
-| Abschnitt-Titel (h2) | `1.5rem`   | 600     | `--text-primary`   | 1.3         |
-| Karten-Titel (h3)    | `1.25rem`  | 600     | `--text-primary`   | 1.4         |
-| Label (h4)           | `0.875rem` | 600     | `--text-muted`     | 1.4         |
-| Body Text            | `1rem`     | 400     | `--text-secondary` | 1.6         |
-| Small Text           | `0.875rem` | 400     | `--text-muted`     | 1.5         |
-| Caption              | `0.75rem`  | 400     | `--text-disabled`  | 1.4         |
+| Element              | Token         | Größe       | Gewicht | Farbe              | Line-Height |
+| -------------------- | ------------- | ----------- | ------- | ------------------ | ----------- |
+| Seiten-Titel (h1)    | `--text-3xl`  | `1.5rem`    | 700     | `--text-primary`   | 1.2         |
+| Abschnitt-Titel (h2) | `--text-2xl`  | `1.25rem`   | 600     | `--text-primary`   | 1.3         |
+| Karten-Titel (h3)    | `--text-xl`   | `1.125rem`  | 600     | `--text-primary`   | 1.4         |
+| Label (h4)           | `--text-base` | `0.875rem`  | 600     | `--text-muted`     | 1.4         |
+| Body Text            | `--text-base` | `0.875rem`  | 400     | `--text-secondary` | 1.6         |
+| Small Text           | `--text-sm`   | `0.8125rem` | 400     | `--text-muted`     | 1.5         |
+| Caption              | `--text-xs`   | `0.75rem`   | 400     | `--text-disabled`  | 1.4         |
 
 ---
 
@@ -177,30 +183,36 @@ Für Hintergründe, Text und Strukturelemente.
 
 ### Feste Abstände
 
+Benannte Scale (kein numerisches `--space-N`) mit Half-Steps für die häufigen
+Zwischenwerte. Gespiegelt aus `apps/dashboard-frontend/src/index.css`:
+
 ```css
---space-0: 0;
---space-1: 0.25rem; /* 4px */
---space-2: 0.5rem; /* 8px */
---space-3: 0.75rem; /* 12px */
---space-4: 1rem; /* 16px */
---space-5: 1.25rem; /* 20px */
---space-6: 1.5rem; /* 24px */
---space-8: 2rem; /* 32px */
---space-10: 2.5rem; /* 40px */
---space-12: 3rem; /* 48px */
---space-16: 4rem; /* 64px */
+--space-2xs: 0.125rem; /* 2px */
+--space-xs: 0.25rem; /* 4px */
+--space-sm: 0.5rem; /* 8px */
+--space-md: 1rem; /* 16px */
+--space-lg: 1.5rem; /* 24px */
+--space-xl: 2rem; /* 32px */
+--space-2xl: 3rem; /* 48px */
+--space-3xl: 4rem; /* 64px */
+
+/* Half-steps (häufige Zwischenwerte) */
+--space-xs-sm: 0.375rem; /* 6px */
+--space-sm-md: 0.75rem; /* 12px */
+--space-md-lg: 1.25rem; /* 20px */
+--space-lg-xl: 1.75rem; /* 28px */
 ```
 
 ### Anwendung
 
-| Kontext                            | Spacing            |
-| ---------------------------------- | ------------------ |
-| Inline-Elemente (Icons neben Text) | `--space-2` (8px)  |
-| Elemente in einer Gruppe           | `--space-3` (12px) |
-| Karten-Padding                     | `--space-5` (20px) |
-| Abstand zwischen Karten            | `--space-4` (16px) |
-| Abschnitte trennen                 | `--space-8` (32px) |
-| Seiten-Padding                     | `--space-6` (24px) |
+| Kontext                            | Spacing                |
+| ---------------------------------- | ---------------------- |
+| Inline-Elemente (Icons neben Text) | `--space-sm` (8px)     |
+| Elemente in einer Gruppe           | `--space-sm-md` (12px) |
+| Karten-Padding                     | `--space-md-lg` (20px) |
+| Abstand zwischen Karten            | `--space-md` (16px)    |
+| Abschnitte trennen                 | `--space-xl` (32px)    |
+| Seiten-Padding                     | `--space-lg` (24px)    |
 
 ---
 
@@ -208,25 +220,28 @@ Für Hintergründe, Text und Strukturelemente.
 
 ### Border-Radius
 
+Definiert im `@theme`-Block von `apps/dashboard-frontend/src/index.css`
+(`--radius-pill` zusätzlich in `:root`):
+
 ```css
---radius-sm: 4px; /* Badges, Tags */
---radius-md: 6px; /* Buttons, kleine Inputs */
---radius-lg: 8px; /* Inputs, kleine Karten */
---radius-xl: 12px; /* Karten, Container */
---radius-2xl: 16px; /* Modale, große Container */
---radius-full: 9999px; /* Pills, runde Buttons */
+--radius-xs: 4px; /* Badges, Tags */
+--radius-sm: 6px; /* Buttons, kleine Inputs */
+--radius-md: 8px; /* Inputs, kleine Karten */
+--radius-lg: 12px; /* Karten, Container */
+--radius-xl: 16px; /* Modale, große Container */
+--radius-pill: 9999px; /* Pills, runde Buttons */
 ```
 
 ### Anwendung
 
-| Element               | Radius                |
-| --------------------- | --------------------- |
-| Status-Badges         | `--radius-sm` (4px)   |
-| Buttons               | `--radius-md` (6px)   |
-| Inputs, Textfelder    | `--radius-lg` (8px)   |
-| Karten, Dropdowns     | `--radius-xl` (12px)  |
-| Modale                | `--radius-2xl` (16px) |
-| Pills, Toggle-Gruppen | `--radius-full`       |
+| Element               | Radius               |
+| --------------------- | -------------------- |
+| Status-Badges         | `--radius-xs` (4px)  |
+| Buttons               | `--radius-sm` (6px)  |
+| Inputs, Textfelder    | `--radius-md` (8px)  |
+| Karten, Dropdowns     | `--radius-lg` (12px) |
+| Modale                | `--radius-xl` (16px) |
+| Pills, Toggle-Gruppen | `--radius-pill`      |
 
 ### Border-Stile
 
@@ -283,6 +298,24 @@ box-shadow: 0 0 0 3px var(--primary-muted);
 ---
 
 ## Komponenten-Patterns
+
+### Interaktions-States (verbindlich)
+
+Jede interaktive Primitive (Button, Input, Card-als-Link, Tab, Select …) muss
+**alle vier** States konsistent bedienen. States werden als Tailwind-Utility-
+Varianten **innerhalb einer `cva()`-Definition** ausgedrückt und via `cn()`
+komponiert — **nicht** als hand-geschriebene `:hover`/`:focus`-CSS-Regeln.
+Referenzimplementierung: `apps/dashboard-frontend/src/components/ui/shadcn/button.tsx`.
+
+| State           | Konvention                                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `hover`         | Token-basierte Farb-/Elevation-Änderung (`hover:bg-primary-hover`, `hover:shadow-md`), nie neuer Hue.                  |
+| `focus-visible` | Sichtbarer Ring über `focus-visible:ring-2 focus-visible:ring-ring` (Tastatur-Fokus), kein `outline:none` ohne Ersatz. |
+| `disabled`      | `disabled:pointer-events-none disabled:opacity-50` — einheitlich über alle Primitives.                                 |
+| `loading`       | Nicht-interaktiv + sichtbarer Spinner/Skeleton; Layout darf nicht springen (Platz reservieren).                        |
+
+Timings kommen aus den `--transition-*`-Tokens (siehe [Transitions](#transitions)),
+niemals hardcodiert. Farben immer aus Tokens — keine Hex-Literale.
 
 ### Buttons
 
@@ -902,67 +935,102 @@ sind technische Paletten (z.B. Xterm-Farben in `TerminalTabs.tsx`, Chart-Palette
 
 ## CSS-Variablen Referenz (Kopiervorlage)
 
+Faithfuller Spiegel des `:root` (Dark) + `@theme`-Blocks aus
+`apps/dashboard-frontend/src/index.css`. Farbwerte leben **nur** hier bzw. im
+`.light`-Override — nie im Komponenten-Code.
+
 ```css
+@theme {
+  /* Border-Radius (statisch, theme-unabhängig) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Fonts */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', source-code-pro, Menlo, Monaco, Consolas, monospace;
+
+  /* Chart-Palette (recharts referenziert diese Tokens) */
+  --color-chart-1: #45adff;
+  --color-chart-2: #a78bfa;
+  --color-chart-3: #f97316;
+  --color-chart-4: #22d3ee;
+  --color-chart-5: #f472b6;
+}
+
 :root {
-  /* Primary (Blau) */
-  --primary-color: #45adff;
+  /* shadcn/ui Semantic (Dark) — die Wertequelle */
+  --background: #101923;
+  --foreground: #f8fafc;
+  --card: #1a2330;
+  --primary: #45adff;
+  --primary-foreground: #000000;
+  --muted: #1d2835;
+  --muted-foreground: #94a3b8;
+  --destructive: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --border: #2a3544;
+  --input: #2a3544;
+  --ring: #45adff;
+
+  /* Arasul-Aliase (mappen auf die shadcn-Werte, kein Doppel-Pflegen) */
   --primary-hover: #6ec4ff;
   --primary-active: #2d8fd9;
-  --primary-muted: rgba(69, 173, 255, 0.15);
-  --primary-glow: rgba(69, 173, 255, 0.4);
-
-  /* Backgrounds */
-  --bg-dark: #101923;
-  --bg-card: #1a2330;
-  --bg-card-hover: #222d3d;
+  --bg-card: var(--card);
+  --bg-card-hover: var(--accent);
   --bg-elevated: #2a3544;
-
-  /* Borders */
-  --border-color: #2a3544;
-  --border-subtle: #1d2835;
-  --border-strong: #3a4554;
-
-  /* Text */
-  --text-primary: #f8fafc;
+  --bg-subtle: #1d2835;
+  --text-primary: var(--foreground);
   --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+  --text-muted: var(--muted-foreground);
   --text-disabled: #64748b;
+  --border-subtle: var(--muted);
+  --radius-pill: 9999px;
 
-  /* Status (nur wenn semantisch notwendig) */
-  --status-success: #22c55e;
-  --status-warning: #f59e0b;
-  --status-error: #ef4444;
+  /* Spacing (benannt + Half-Steps) */
+  --space-2xs: 0.125rem;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-xs-sm: 0.375rem;
+  --space-sm-md: 0.75rem;
+  --space-md-lg: 1.25rem;
+  --space-lg-xl: 1.75rem;
 
-  /* Typography */
-  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* Font-Größen (14px Standard-Body) */
+  --text-2xs: 0.65rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.25rem;
+  --text-3xl: 1.5rem;
+  --text-4xl: 2rem;
 
-  /* Spacing */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+  /* Icon-Größen */
+  --icon-xs: 14px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 32px;
+  --icon-2xl: 48px;
 
-  /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-full: 9999px;
+  /* Shadows (Dark) */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px var(--primary-alpha-10);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px var(--primary-alpha-20);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px var(--primary-alpha-30);
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(69, 173, 255, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(69, 173, 255, 0.2);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(69, 173, 255, 0.25);
-  --focus-ring: 0 0 0 3px var(--primary-muted);
-  --glow-primary: 0 0 12px var(--primary-glow);
-
-  /* Transitions */
+  /* Transitions (die eine Quelle für Interaktions-Timings) */
   --transition-fast: 0.15s ease;
   --transition-base: 0.2s ease;
   --transition-slow: 0.3s ease;

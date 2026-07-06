@@ -143,7 +143,8 @@ function Login({ onLoginSuccess }: LoginProps) {
             <Button
               type="submit"
               variant="solid"
-              disabled={isSubmitting || !canSubmit}
+              loading={isSubmitting}
+              disabled={!canSubmit}
               className="w-full py-4 h-auto text-base font-bold uppercase tracking-wide hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 transition-all max-md:min-h-12 max-md:text-sm"
             >
               {isSubmitting ? 'Anmeldung...' : 'Anmelden'}

@@ -32,8 +32,10 @@ const ALLOWED_COLORS = [
 ];
 
 // --- Thresholds (ratchet — never increase) -----------------------------------
-const HARDCODED_COLOR_THRESHOLD = 150;
-const MISSING_TRANSITION_THRESHOLD = 225;
+// Ratcheted down to the current actual counts after the token-consolidation pass
+// (transition timings → --transition-* tokens, dead legacy CSS removed).
+const HARDCODED_COLOR_THRESHOLD = 59;
+const MISSING_TRANSITION_THRESHOLD = 49;
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -115,8 +117,11 @@ function checkIndexCSS() {
   const content = fs.readFileSync(indexPath, 'utf8');
   const lower = content.toLowerCase();
 
-  if (!lower.includes('--primary-color: #45adff')) errors.push('Primary Color nicht #45ADFF');
-  if (!lower.includes('--bg-dark: #101923')) errors.push('Background Dark nicht #101923');
+  // The value source is the shadcn set (--primary / --background); the Arasul
+  // aliases (--primary-color / --bg-dark) now point at those via var(). Check the
+  // real values where they actually live, not the aliased names.
+  if (!lower.includes('--primary: #45adff')) errors.push('Primary nicht #45ADFF');
+  if (!lower.includes('--background: #101923')) errors.push('Background Dark nicht #101923');
   if (!lower.includes('--text-primary')) errors.push('--text-primary Variable fehlt');
   return errors;
 }
