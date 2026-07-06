@@ -84,7 +84,10 @@ function PasswordManagement() {
 
   const fetchPasswordRequirements = async () => {
     try {
-      const data = await api.get('/settings/password-requirements', { showError: false });
+      const data = await api.get<{ requirements: PasswordRequirements }>(
+        '/settings/password-requirements',
+        { showError: false }
+      );
       setRequirements(data.requirements);
     } catch (error) {
       console.error('Failed to fetch password requirements:', error);
@@ -103,7 +106,7 @@ function PasswordManagement() {
       lowercase: requirements.requireLowercase ? /[a-z]/.test(newPass) : true,
       number: requirements.requireNumbers ? /[0-9]/.test(newPass) : true,
       special: requirements.requireSpecialChars
-        ? /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPass)
+        ? /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(newPass)
         : true,
       match: newPass.length > 0 && newPass === confirmPass,
     });
@@ -174,7 +177,7 @@ function PasswordManagement() {
     setMessage(null);
 
     try {
-      const data = await api.post(
+      const data = await api.post<{ message?: string }>(
         `/settings/password/${activeService}`,
         {
           currentPassword: passwords[activeService].current,

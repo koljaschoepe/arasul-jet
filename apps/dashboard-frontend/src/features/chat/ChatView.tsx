@@ -28,14 +28,17 @@ export default function ChatView() {
     unregisterMessageCallback,
     reconnectToJob,
     checkActiveJobs,
-    activeJobIds,
     getBackgroundMessages,
     getBackgroundLoading,
     clearBackgroundState,
     hasActiveStream,
   } = useChatContext();
 
-  const chatId = parseInt(chatIdParam!, 10);
+  // Normalize the URL param to a canonical string id ('' when invalid).
+  // ChatContext keys all per-chat state by string chatIds (see cleanupChat
+  // callers using String(chatId)), so the string form is the shared contract.
+  const parsedChatId = Number.parseInt(chatIdParam ?? '', 10);
+  const chatId = parsedChatId ? String(parsedChatId) : '';
 
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +66,7 @@ export default function ChatView() {
   }, [messages.length]);
 
   useEffect(() => {
-    if (!chatId || isNaN(chatId)) {
+    if (!chatId) {
       localStorage.removeItem('arasul_last_chat_id');
       navigate('/chat', { replace: true });
       return;
@@ -96,7 +99,10 @@ export default function ChatView() {
     const init = async () => {
       try {
         const [chatData, msgResult, activeJob] = await Promise.all([
-          api.get(`/chats/${chatId}`, { showError: false }),
+          api.get<{
+            chat?: { title?: string; settings?: ChatSettings | null } | null;
+            project?: { name: string; color: string } | null;
+          }>(`/chats/${chatId}`, { showError: false }),
           loadMessages(chatId),
           checkActiveJobs(chatId),
         ]);
@@ -110,7 +116,7 @@ export default function ChatView() {
           return;
         }
 
-        localStorage.setItem('arasul_last_chat_id', String(chatId));
+        localStorage.setItem('arasul_last_chat_id', chatId);
         setTitle(chatData.chat.title || '');
         setCurrentProject(chatData.project || null);
         setChatSettings(chatData.chat.settings || null);
@@ -210,16 +216,20 @@ export default function ChatView() {
 
   const toggleThinking = useCallback((index: number) => {
     setMessages(prev => {
+      const msg = prev[index];
+      if (!msg) return prev;
       const u = [...prev];
-      u[index] = { ...u[index], thinkingCollapsed: !u[index].thinkingCollapsed };
+      u[index] = { ...msg, thinkingCollapsed: !msg.thinkingCollapsed };
       return u;
     });
   }, []);
 
   const toggleSources = useCallback((index: number) => {
     setMessages(prev => {
+      const msg = prev[index];
+      if (!msg) return prev;
       const u = [...prev];
-      u[index] = { ...u[index], sourcesCollapsed: !u[index].sourcesCollapsed };
+      u[index] = { ...msg, sourcesCollapsed: !msg.sourcesCollapsed };
       return u;
     });
   }, []);
@@ -268,7 +278,7 @@ export default function ChatView() {
   }, [navigate]);
 
   return (
-    <main className="chat-view flex flex-col h-full bg-background overflow-hidden w-full max-w-[1400px] mx-auto relative animate-[chat-fadeIn_200ms_ease-out]">
+    <main className="chat-view flex flex-col h-full bg-background overflow-hidden w-full max-w-350 mx-auto relative animate-[chat-fadeIn_200ms_ease-out]">
       <ChatTopBar
         chatId={chatId}
         title={title}
@@ -285,7 +295,7 @@ export default function ChatView() {
         aria-live="polite"
       >
         {loadingMessages ? (
-          <div className="skeleton-messages flex flex-col max-w-[960px] mx-auto py-6 px-4">
+          <div className="skeleton-messages flex flex-col max-w-240 mx-auto py-6 px-4">
             {[
               { label: true, body: 'short' },
               { label: true, body: 'long' },
@@ -302,14 +312,14 @@ export default function ChatView() {
                     'skeleton-message-body bg-card rounded-xl p-4 animate-[skeleton-pulse_1.5s_ease-in-out_infinite]',
                     s.body === 'short' && 'h-10 max-w-[60%]',
                     s.body === 'medium' && 'h-20',
-                    s.body === 'long' && 'h-[120px]'
+                    s.body === 'long' && 'h-30'
                   )}
                 />
               </div>
             ))}
           </div>
         ) : messages.length === 0 ? (
-          <div className="chat-empty-state flex flex-col items-center justify-center flex-1 min-h-[300px] p-8">
+          <div className="chat-empty-state flex flex-col items-center justify-center flex-1 min-h-75 p-8">
             <h2 className="text-3xl font-normal text-muted-foreground m-0 mb-4 text-center">
               Wie kann ich dir heute helfen?
             </h2>
@@ -327,7 +337,7 @@ export default function ChatView() {
             )}
           </div>
         ) : (
-          <div className="messages-wrapper max-w-[960px] mx-auto py-6 px-4 flex flex-col">
+          <div className="messages-wrapper max-w-240 mx-auto py-6 px-4 flex flex-col">
             {hasMoreMessages && (
               <Button
                 variant="outline"
@@ -372,7 +382,7 @@ export default function ChatView() {
       </div>
 
       {error && (
-        <div className="mx-auto max-w-[960px] px-4 py-2">
+        <div className="mx-auto max-w-240 px-4 py-2">
           <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm flex items-center justify-between">
             <span>{error}</span>
             <Button

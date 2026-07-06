@@ -5,7 +5,7 @@
  * Steps: 1) Welcome, 2) KI-Profil, 3) Password Change, 4) Network Check, 5) AI Models, 6) Summary
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Check,
@@ -203,10 +203,16 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   // Step 2: KI-Profil
   const [industry, setIndustry] = useState('');
   const [customIndustry, setCustomIndustry] = useState('');
+  const customIndustryRef = useRef<HTMLInputElement>(null);
   const [teamSize, setTeamSize] = useState('');
   const [products, setProducts] = useState('');
   const [answerStyle, setAnswerStyle] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
+
+  // Focus the custom-industry field when that option is selected (replaces autoFocus).
+  useEffect(() => {
+    if (industry === 'custom') customIndustryRef.current?.focus();
+  }, [industry]);
 
   // Step 3: Password
   const [currentPassword, setCurrentPassword] = useState('');
@@ -509,7 +515,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-background p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-[720px] shadow-lg flex flex-col max-h-[90vh] md:max-h-[90vh] max-md:max-w-full max-md:rounded-lg max-md:max-h-[95vh]">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-180 shadow-lg flex flex-col max-h-[90vh] md:max-h-[90vh] max-md:max-w-full max-md:rounded-lg max-md:max-h-[95vh]">
         {/* Header */}
         <div className="text-center py-8 px-8 pb-4 max-md:py-6 max-md:px-6 max-md:pb-3 max-sm:p-4">
           <h1 className="text-[1.75rem] text-primary m-0 mb-1 font-bold max-md:text-2xl">
@@ -531,7 +537,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               <div
                 key={step.id}
                 className={cn(
-                  'flex flex-col items-center gap-1 flex-1 max-w-[100px] transition-opacity',
+                  'flex flex-col items-center gap-1 flex-1 max-w-25 transition-opacity',
                   isActive ? 'opacity-100' : isCompleted ? 'opacity-80' : 'opacity-40'
                 )}
               >
@@ -571,12 +577,12 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
                 Willkommen bei {PLATFORM_NAME}
               </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
                 Ihr Edge-AI-System ist bereit für die Einrichtung. Dieser Assistent führt Sie durch
                 die wichtigsten Konfigurationsschritte.
               </p>
 
-              <div className="w-full max-w-[440px] mb-4">
+              <div className="w-full max-w-110 mb-4">
                 <label
                   htmlFor="company-name"
                   className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
@@ -593,7 +599,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 />
               </div>
 
-              <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full max-w-[440px] mt-4">
+              <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full max-w-110 mt-4">
                 <Shield className="size-5 shrink-0 text-primary mt-0.5" />
                 <div>
                   <strong className="block text-foreground mb-1 text-sm">
@@ -611,14 +617,14 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
           {/* Step 2: KI-Profil */}
           {currentStep === 2 && (
-            <div className="flex flex-col items-stretch max-w-[560px] w-full mx-auto">
+            <div className="flex flex-col items-stretch max-w-140 w-full mx-auto">
               <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary self-center max-sm:size-12">
                 <Cpu className="size-7 max-sm:size-5" />
               </div>
               <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center self-center max-sm:text-[1.15rem]">
                 KI-Profil einrichten
               </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] self-center max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 self-center max-sm:text-sm">
                 Damit die KI Sie optimal unterstützt, erzählen Sie kurz etwas über Ihr Unternehmen.
               </p>
 
@@ -653,12 +659,12 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 </div>
                 {industry === 'custom' && (
                   <Input
+                    ref={customIndustryRef}
                     type="text"
                     value={customIndustry}
                     onChange={e => setCustomIndustry(e.target.value)}
                     placeholder="Ihre Branche eingeben..."
                     className="mt-2 bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
-                    autoFocus
                   />
                 )}
               </div>
@@ -781,12 +787,12 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
                 Admin-Passwort ändern
               </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
                 Ändern Sie das Standard-Passwort für mehr Sicherheit. Dies ist ein Pflichtschritt.
               </p>
 
               {passwordChanged ? (
-                <div className="flex items-center gap-3 bg-primary/10 border border-primary text-primary p-5 rounded-md w-full max-w-[440px] text-base font-semibold">
+                <div className="flex items-center gap-3 bg-primary/10 border border-primary text-primary p-5 rounded-md w-full max-w-110 text-base font-semibold">
                   <Check className="size-6 shrink-0" />
                   <p className="m-0">Passwort wurde erfolgreich geändert!</p>
                 </div>
@@ -794,14 +800,14 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 <>
                   {passwordError && (
                     <div
-                      className="flex items-center gap-2 bg-destructive/10 border border-destructive text-destructive py-3 px-4 rounded-md w-full max-w-[440px] mb-4 text-sm"
+                      className="flex items-center gap-2 bg-destructive/10 border border-destructive text-destructive py-3 px-4 rounded-md w-full max-w-110 mb-4 text-sm"
                       role="alert"
                     >
                       <AlertCircle className="size-4 shrink-0" /> {passwordError}
                     </div>
                   )}
 
-                  <div className="w-full max-w-[440px] mb-4">
+                  <div className="w-full max-w-110 mb-4">
                     <label
                       htmlFor="current-password"
                       className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
@@ -819,7 +825,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     />
                   </div>
 
-                  <div className="w-full max-w-[440px] mb-4">
+                  <div className="w-full max-w-110 mb-4">
                     <label
                       htmlFor="new-password"
                       className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
@@ -845,7 +851,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     )}
                   </div>
 
-                  <div className="w-full max-w-[440px] mb-4">
+                  <div className="w-full max-w-110 mb-4">
                     <label
                       htmlFor="confirm-password"
                       className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
@@ -902,7 +908,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
                 Netzwerk-Status
               </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
                 Überprüfung der Netzwerk-Konnektivität Ihres Systems.
               </p>
 
@@ -912,7 +918,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   <p className="m-0">Netzwerk wird geprüft...</p>
                 </div>
               ) : networkInfo ? (
-                <div className="w-full max-w-[440px]">
+                <div className="w-full max-w-110">
                   <div className="flex items-start gap-3 py-3 border-b border-border/30">
                     <div
                       className={cn(
@@ -992,14 +998,14 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
           {/* Step 5: AI Models */}
           {currentStep === 5 && (
-            <div className="flex flex-col items-stretch max-w-[580px] w-full mx-auto">
+            <div className="flex flex-col items-stretch max-w-145 w-full mx-auto">
               <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary self-center max-sm:size-12">
                 <Cpu className="size-7 max-sm:size-5" />
               </div>
               <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center self-center max-sm:text-[1.15rem]">
                 KI-Modell auswählen
               </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] self-center max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 self-center max-sm:text-sm">
                 Wählen Sie ein Startmodell für Ihren KI-Assistenten. Es wird im Hintergrund
                 heruntergeladen.
               </p>
@@ -1015,6 +1021,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     const catModels = models.filter((m: SetupCatalogModel) => m.category === cat);
                     if (catModels.length === 0) return null;
                     const catInfo = MODEL_CATEGORIES[cat];
+                    if (!catInfo) return null;
                     return (
                       <div key={cat} className="w-full mb-4">
                         <div className="flex items-baseline gap-2 mb-1.5 pb-1 border-b border-border/30">
@@ -1101,7 +1108,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   </div>
                 </>
               ) : (
-                <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full max-w-[440px] self-center mt-4">
+                <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full max-w-110 self-center mt-4">
                   <AlertCircle className="size-5 shrink-0 text-primary mt-0.5" />
                   <div>
                     <strong className="block text-foreground mb-1 text-sm">
@@ -1126,11 +1133,11 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
               <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
                 Zusammenfassung
               </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-[440px] max-sm:text-sm">
+              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
                 Ihre Einrichtung ist fast abgeschlossen. Überprüfen Sie die Konfiguration.
               </p>
 
-              <div className="w-full max-w-[440px]">
+              <div className="w-full max-w-110">
                 {companyName && (
                   <div className="flex justify-between items-center py-3 border-b border-border/30">
                     <span className="text-muted-foreground text-sm">Firma</span>
@@ -1231,7 +1238,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
 
               {error && (
                 <div
-                  className="flex items-center gap-2 bg-destructive/10 border border-destructive text-destructive py-3 px-4 rounded-md w-full max-w-[440px] mb-4 mt-4 text-sm"
+                  className="flex items-center gap-2 bg-destructive/10 border border-destructive text-destructive py-3 px-4 rounded-md w-full max-w-110 mb-4 mt-4 text-sm"
                   role="alert"
                 >
                   <AlertCircle className="size-4 shrink-0" /> {error}

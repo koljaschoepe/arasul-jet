@@ -418,10 +418,12 @@ Conversations belonging to the deleted project are ungrouped (`project_id` set t
 
 ### RAG (Document Q&A)
 
-| Method | Endpoint          | Description               |
-| ------ | ----------------- | ------------------------- |
-| POST   | `/api/rag/query`  | RAG query (SSE streaming) |
-| GET    | `/api/rag/status` | Qdrant collection status  |
+| Method | Endpoint            | Description                      |
+| ------ | ------------------- | -------------------------------- |
+| POST   | `/api/rag/query`    | RAG query (SSE streaming)        |
+| GET    | `/api/rag/status`   | Qdrant collection status         |
+| GET    | `/api/rag/settings` | Current RAG/LLM tunables (admin) |
+| PATCH  | `/api/rag/settings` | Update RAG/LLM tunables (admin)  |
 
 **POST /api/rag/query:**
 
@@ -432,6 +434,38 @@ Conversations belonging to the deleted project are ungrouped (`project_id` set t
   "top_k": 5 // optional, default: 5
 }
 ```
+
+**GET /api/rag/settings** (admin only) — returns the raw `system_settings`
+values for every RAG/LLM tunable as `{ "data": { ... } }`. A `null` value means
+"use the built-in/env default". Backs the Settings → "RAG & LLM" admin tab.
+
+**PATCH /api/rag/settings** (admin only) — updates any subset of the tunables and
+`systemSettings.reload()`s the in-memory cache so the change takes effect
+immediately (no restart). Body validated by `UpdateRagSettingsBody` (`.strict()`;
+unknown keys → `400 VALIDATION_ERROR`). Sending `""` for `llm_base_system_prompt`
+resets it to `NULL` (built-in default). Bounds:
+
+| Field                          | Type   | Range / notes                          |
+| ------------------------------ | ------ | -------------------------------------- |
+| `rag_top_k`                    | int    | 1–50                                   |
+| `rag_final_k`                  | int    | 1–20                                   |
+| `rag_score_threshold`          | float  | 0–1                                    |
+| `rag_relevance_threshold`      | float  | 0–1                                    |
+| `rag_rerank_enabled`           | bool   |                                        |
+| `rag_timeout_rerank_ms`        | int    | 1000–120000                            |
+| `llm_num_ctx_default`          | int    | 512–131072, nullable                   |
+| `llm_keep_alive_seconds`       | int    | 0–86400                                |
+| `llm_num_predict_default`      | int    | 64–16384                               |
+| `rag_temperature`              | float  | 0–2                                    |
+| `rag_num_predict`              | int    | 64–16384                               |
+| `rag_mmr_lambda`               | float  | 0–1                                    |
+| `rag_dedup_max_per_doc`        | int    | 1–10                                   |
+| `rag_hybrid_search`            | bool   | master switch for Qdrant hybrid search |
+| `rag_space_routing_threshold`  | float  | 0–1                                    |
+| `rag_space_routing_max_spaces` | int    | 1–10                                   |
+| `llm_base_system_prompt`       | string | ≤4000 chars, nullable (`""` → reset)   |
+
+Response: the fresh full settings row as `{ "data": { ... } }`.
 
 ### Document Analysis (Chat Upload + OCR)
 

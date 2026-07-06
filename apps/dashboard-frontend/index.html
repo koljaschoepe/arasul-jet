@@ -26,16 +26,15 @@
       }
     </style>
   </head>
-  <body class="dark-mode">
+  <body>
     <script>
       // Apply saved theme BEFORE React loads to prevent white flash.
-      // Default is dark (set via HTML classes above). Only switch if user explicitly chose light.
+      // Default is dark (class="dark" on <html>). Only switch if user explicitly chose light.
       (function() {
         var t = localStorage.getItem('arasul_theme');
         if (t === 'light') {
           document.documentElement.classList.remove('dark');
-          document.body.classList.remove('dark-mode');
-          document.body.classList.add('light-mode');
+          document.documentElement.classList.add('light');
           document.body.style.background = '#FFFFFF';
         }
       })();

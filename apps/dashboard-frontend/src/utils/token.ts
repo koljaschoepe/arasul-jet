@@ -82,17 +82,6 @@ export const getValidToken = (): string | null => {
 };
 
 /**
- * Set the authentication token
- *
- * @param token - The JWT token to store
- */
-export const setToken = (token: string): void => {
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-  }
-};
-
-/**
  * Get token expiration time
  *
  * @returns Expiration date or null if not available

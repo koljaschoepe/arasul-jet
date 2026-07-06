@@ -183,5 +183,3 @@ export function useToast(): ToastMethods {
   }
   return context.toast;
 }
-
-export default ToastContext;

@@ -11,7 +11,6 @@
  * - ChatTopBar und ChatInputArea sind eingebunden
  */
 
-import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 import ChatView from '../ChatView';
@@ -64,7 +63,7 @@ vi.mock('../../../contexts/ChatContext', () => ({
 
 // Mock child components to isolate ChatView logic
 vi.mock('../ChatTopBar', () => ({
-  default: function MockChatTopBar({ chatId, title }) {
+  default: function MockChatTopBar({ chatId, title }: { chatId: string; title: string }) {
     return (
       <div data-testid="chat-top-bar" data-chat-id={chatId}>
         {title}
@@ -74,16 +73,16 @@ vi.mock('../ChatTopBar', () => ({
 }));
 
 vi.mock('../ChatInputArea', () => ({
-  default: function MockChatInputArea({ chatId, disabled }) {
-    return <div data-testid="chat-input-area" data-disabled={disabled} />;
+  default: function MockChatInputArea({ chatId, disabled }: { chatId: string; disabled: boolean }) {
+    return <div data-testid="chat-input-area" data-chat-id={chatId} data-disabled={disabled} />;
   },
 }));
 
 // Mock ChatMessage
-vi.mock('../ChatMessage', () => {
-  const React = require('react');
+vi.mock('../ChatMessage', async () => {
+  const React = (await import('react')).default;
   return {
-    default: React.memo(function MockChatMessage({ message }) {
+    default: React.memo(function MockChatMessage({ message }: { message: { content: string } }) {
       return <div data-testid="chat-message">{message.content}</div>;
     }),
   };
@@ -231,7 +230,7 @@ describe('ChatView Component', () => {
 
       await waitFor(() => {
         expect(mockRegister).toHaveBeenCalledWith(
-          1,
+          '1',
           expect.objectContaining({
             setMessages: expect.any(Function),
             setIsLoading: expect.any(Function),
@@ -249,14 +248,14 @@ describe('ChatView Component', () => {
       });
 
       unmount();
-      expect(mockUnregister).toHaveBeenCalledWith(1);
+      expect(mockUnregister).toHaveBeenCalledWith('1');
     });
 
     test('prueft auf aktive Jobs beim Laden', async () => {
       render(<ChatView />);
 
       await waitFor(() => {
-        expect(mockCheckActiveJobs).toHaveBeenCalledWith(1);
+        expect(mockCheckActiveJobs).toHaveBeenCalledWith('1');
       });
     });
   });
@@ -315,7 +314,7 @@ describe('ChatView Component', () => {
       render(<ChatView />);
 
       await waitFor(() => {
-        expect(mockReconnectToJob).toHaveBeenCalledWith('job-active', 1);
+        expect(mockReconnectToJob).toHaveBeenCalledWith('job-active', '1');
       });
     });
   });

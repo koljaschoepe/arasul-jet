@@ -25,7 +25,7 @@ const llmQueueService = require('../services/llm/llmQueueService');
 const db = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
-const { RagQueryBody } = require('../schemas/rag');
+const { RagQueryBody, UpdateRagSettingsBody } = require('../schemas/rag');
 const { ValidationError, ServiceUnavailableError } = require('../utils/errors');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
 const services = require('../config/services');
@@ -87,9 +87,14 @@ router.post(
     const _ragStartTs = Date.now();
 
     try {
-      const HYBRID_SEARCH_ENABLED = process.env.RAG_HYBRID_SEARCH !== 'false';
+      const hybridOn = systemSettings.getBool(
+        'rag_hybrid_search',
+        process.env.RAG_HYBRID_SEARCH !== 'false'
+      );
+      const rerankOn = systemSettings.getBool('rag_rerank_enabled', ENABLE_RERANKING);
+      const finalK = systemSettings.getNumber('rag_final_k', RAG_FINAL_K);
       logger.info(
-        `RAG query: "${query}" (top_k=${top_k}, thinking=${enableThinking}, hybrid=${HYBRID_SEARCH_ENABLED}, reranking=${ENABLE_RERANKING})`
+        `RAG query: "${query}" (top_k=${top_k}, final_k=${finalK}, thinking=${enableThinking}, hybrid=${hybridOn}, reranking=${rerankOn})`
       );
 
       // Step 0: Spell correction (typo tolerance)
@@ -228,7 +233,7 @@ router.post(
       const rerankedResults = await rerankResults(query, searchResults, top_k);
 
       // Step 5b: RAG 4.0 - Filter by relevance score (anti-hallucination)
-      const wasReranked = ENABLE_RERANKING && rerankedResults.some(r => r.rerankScore != null);
+      const wasReranked = rerankOn && rerankedResults.some(r => r.rerankScore != null);
       const { relevant, marginal: marginalResults } = filterByRelevance(
         rerankedResults,
         wasReranked
@@ -243,17 +248,25 @@ router.post(
         logger.info(
           `RAG: no relevant results, using ${marginalResults.length} marginal results (flagged as low-confidence)`
         );
-        relevantResults = marginalResults.slice(0, RAG_FINAL_K);
+        relevantResults = marginalResults.slice(0, finalK);
         useMarginalResults = true;
       }
 
       // Step 5c: MMR diversity selection (balance relevance vs diversity).
-      // Cap at RAG_FINAL_K (not top_k) so the LLM gets a focused final context;
-      // top_k governed the rerank-input size, RAG_FINAL_K caps the LLM-input size.
-      relevantResults = applyMMR(relevantResults, 0.7, RAG_FINAL_K);
+      // Cap at final_k (not top_k) so the LLM gets a focused final context;
+      // top_k governed the rerank-input size, final_k caps the LLM-input size.
+      relevantResults = applyMMR(
+        relevantResults,
+        systemSettings.getNumber('rag_mmr_lambda', 0.7),
+        finalK
+      );
 
-      // Step 5d: Deduplicate by document (max 3 chunks per document)
-      relevantResults = deduplicateByDocument(relevantResults, RAG_FINAL_K, 3);
+      // Step 5d: Deduplicate by document (default max 3 chunks per document)
+      relevantResults = deduplicateByDocument(
+        relevantResults,
+        finalK,
+        systemSettings.getNumber('rag_dedup_max_per_doc', 3)
+      );
 
       // Step 6: Load parent chunks for richer LLM context
       const parentChunks = await getParentChunks(relevantResults);
@@ -688,6 +701,57 @@ router.post(
       errors,
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+/**
+ * GET /api/rag/settings
+ * Admin: current DB-backed RAG/LLM tunables (raw column values; null = env/code default).
+ */
+router.get(
+  '/settings',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const select = systemSettings.SETTINGS_COLUMNS.join(', ');
+    const result = await db.query(`SELECT ${select} FROM system_settings WHERE id = 1`);
+    res.json({ data: result.rows[0] || {} });
+  })
+);
+
+/**
+ * PATCH /api/rag/settings
+ * Admin: update RAG/LLM tunables. Takes effect immediately (cache reload) —
+ * no restart needed. Body is validated + bounded by UpdateRagSettingsBody.
+ */
+router.patch(
+  '/settings',
+  requireAuth,
+  requireAdmin,
+  validateBody(UpdateRagSettingsBody),
+  asyncHandler(async (req, res) => {
+    const entries = Object.entries(req.body);
+    if (entries.length === 0) {
+      throw new ValidationError('No settings provided');
+    }
+
+    // '' on the prompt means "reset to built-in default"
+    const normalized = entries.map(([key, value]) =>
+      key === 'llm_base_system_prompt' && value === '' ? [key, null] : [key, value]
+    );
+
+    const setClauses = normalized.map(([key], i) => `${key} = $${i + 1}`).join(', ');
+    const values = normalized.map(([, value]) => value);
+    await db.query(`UPDATE system_settings SET ${setClauses} WHERE id = 1`, values);
+
+    await systemSettings.reload();
+    logger.info(
+      `[rag-settings] Updated by ${req.user.username}: ${normalized.map(([k]) => k).join(', ')}`
+    );
+
+    const select = systemSettings.SETTINGS_COLUMNS.join(', ');
+    const result = await db.query(`SELECT ${select} FROM system_settings WHERE id = 1`);
+    res.json({ data: result.rows[0] || {} });
   })
 );
 

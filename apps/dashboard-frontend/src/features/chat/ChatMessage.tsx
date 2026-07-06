@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChevronDown, ChevronUp, Cpu, BookOpen, Folder, ScanEye } from 'lucide-react';
@@ -21,7 +21,7 @@ interface CodeProps {
 
 // ReactMarkdown component overrides - typed as Record to satisfy the `components` prop
 const markdownComponents: Record<string, React.ComponentType<CodeProps>> = {
-  code({ node, inline, className, children, ...props }: CodeProps) {
+  code({ node: _node, inline, className, children, ...props }: CodeProps) {
     const match = /language-(\w+)/.exec(className || '');
     const language = match ? match[1] : '';
 
@@ -162,7 +162,7 @@ const ChatMessage = memo(function ChatMessage({
             onClick={() => onToggleThinking(index)}
             aria-expanded={!message.thinkingCollapsed}
           >
-            <Cpu className="size-[18px] shrink-0" aria-hidden="true" />
+            <Cpu className="size-4.5 shrink-0" aria-hidden="true" />
             <span className="flex-1">Gedankengang</span>
             {message.thinkingCollapsed ? (
               <ChevronDown aria-hidden="true" />
@@ -170,7 +170,7 @@ const ChatMessage = memo(function ChatMessage({
               <ChevronUp aria-hidden="true" />
             )}
           </button>
-          <div className="thinking-content py-4 px-[18px] text-sm leading-relaxed text-muted-foreground border-t border-border bg-background max-h-[350px] overflow-y-auto">
+          <div className="thinking-content py-4 px-4.5 text-sm leading-relaxed text-muted-foreground border-t border-border bg-background max-h-87.5 overflow-y-auto">
             <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>
               {message.thinking}
             </ReactMarkdown>
@@ -184,12 +184,12 @@ const ChatMessage = memo(function ChatMessage({
           {message.images.map((img, i) => (
             <div
               key={i}
-              className="relative rounded-lg overflow-hidden border border-border max-w-[200px] max-h-[200px]"
+              className="relative rounded-lg overflow-hidden border border-border max-w-50 max-h-50"
             >
               <img
                 src={img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}`}
                 alt={`Bild ${i + 1}`}
-                className="max-w-[200px] max-h-[200px] object-contain"
+                className="max-w-50 max-h-50 object-contain"
                 loading="lazy"
               />
             </div>
@@ -300,7 +300,7 @@ const ChatMessage = memo(function ChatMessage({
             onClick={() => onToggleSources(index)}
             aria-expanded={!message.sourcesCollapsed}
           >
-            <BookOpen className="size-[18px] shrink-0" aria-hidden="true" />
+            <BookOpen className="size-4.5 shrink-0" aria-hidden="true" />
             <span className="flex-1">Quellen ({message.sources.length})</span>
             {message.sourcesCollapsed ? (
               <ChevronDown aria-hidden="true" />
@@ -309,7 +309,7 @@ const ChatMessage = memo(function ChatMessage({
             )}
           </button>
           {!message.sourcesCollapsed && (
-            <div className="sources-content py-4 px-[18px] text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap border-t border-border bg-background max-h-[350px] overflow-y-auto">
+            <div className="sources-content py-4 px-4.5 text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap border-t border-border bg-background max-h-87.5 overflow-y-auto">
               {message.sources.map((source: DocumentSource, sourceIndex: number) => (
                 <div
                   key={sourceIndex}

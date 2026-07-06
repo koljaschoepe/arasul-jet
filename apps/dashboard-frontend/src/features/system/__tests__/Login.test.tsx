@@ -8,8 +8,7 @@
  * - Error Handling
  */
 
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Login from '../Login';
 
@@ -117,7 +116,7 @@ describe('Login Component', () => {
 
       await waitFor(() => {
         expect(localStorage.getItem('arasul_token')).toBe(mockToken);
-        expect(JSON.parse(localStorage.getItem('arasul_user'))).toEqual(mockUser);
+        expect(JSON.parse(localStorage.getItem('arasul_user') ?? 'null')).toEqual(mockUser);
         expect(mockOnLoginSuccess).toHaveBeenCalledWith({
           token: mockToken,
           user: mockUser,
@@ -160,7 +159,7 @@ describe('Login Component', () => {
 
   describe('Error Handling', () => {
     test('zeigt Fehlermeldung bei falschem Passwort', async () => {
-      const err = new Error('Invalid credentials');
+      const err = new Error('Invalid credentials') as Error & { data?: unknown };
       err.data = { error: 'Invalid credentials' };
       mockApi.post.mockRejectedValueOnce(err);
 
@@ -192,7 +191,7 @@ describe('Login Component', () => {
     });
 
     test('Fehlermeldung wird bei neuer Eingabe nicht sofort gelöscht', async () => {
-      const err = new Error('Error message');
+      const err = new Error('Error message') as Error & { data?: unknown };
       err.data = { error: 'Error message' };
       mockApi.post.mockRejectedValueOnce(err);
 

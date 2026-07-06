@@ -15,11 +15,10 @@ interface TokenBatch {
 }
 
 /** Minimal message shape needed for token batching – intentionally narrower than ChatMessage */
-interface TokenCountableMessage {
+export interface TokenCountableMessage {
   content: string;
   thinking?: string;
   hasThinking?: boolean;
-  [key: string]: unknown;
 }
 
 type TokenType = 'content' | 'thinking';
@@ -39,8 +38,8 @@ interface UseTokenBatchingReturn {
  * @param setMessages - State setter for messages array
  * @param batchIntervalMs - Flush interval in milliseconds
  */
-export default function useTokenBatching(
-  setMessages: Dispatch<SetStateAction<TokenCountableMessage[]>>,
+export default function useTokenBatching<M extends TokenCountableMessage = TokenCountableMessage>(
+  setMessages: Dispatch<SetStateAction<M[]>>,
   batchIntervalMs: number = 50
 ): UseTokenBatchingReturn {
   const tokenBatchRef = useRef<TokenBatch>({
@@ -82,13 +81,15 @@ export default function useTokenBatching(
           }
 
           const updated = [...prevMessages];
-          if (updated[assistantMessageIndex]) {
-            updated[assistantMessageIndex] = {
-              ...updated[assistantMessageIndex],
+          const current = updated[assistantMessageIndex];
+          if (current) {
+            // Object.assign keeps the generic message type M intact (a spread
+            // literal would widen and no longer be assignable to M).
+            updated[assistantMessageIndex] = Object.assign({}, current, {
               content: batch.content,
               thinking: batch.thinking,
               hasThinking: batch.thinking.length > 0,
-            };
+            });
           }
           return updated;
         });

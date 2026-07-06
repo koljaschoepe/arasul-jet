@@ -34,17 +34,12 @@ export function useTheme() {
     });
   }, []);
 
-  // Apply theme classes to DOM
+  // Apply theme class to <html>: .dark drives the Tailwind dark: variant,
+  // .light drives the light-theme CSS variable overrides in index.css.
   useEffect(() => {
     const root = document.documentElement;
-    const body = document.body;
-
-    // shadcn/Tailwind: .dark on <html> for dark: variant support
     root.classList.toggle('dark', theme === 'dark');
-
-    // Legacy: .light-mode / .dark-mode on <body> for existing CSS overrides
-    body.classList.remove('light-mode', 'dark-mode');
-    body.classList.add(theme === 'dark' ? 'dark-mode' : 'light-mode');
+    root.classList.toggle('light', theme === 'light');
   }, [theme]);
 
   // Follow system preference changes when no explicit user choice exists

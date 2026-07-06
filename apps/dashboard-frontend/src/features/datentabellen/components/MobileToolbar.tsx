@@ -96,7 +96,9 @@ const MobileToolbar = memo(function MobileToolbar({
           <DropdownMenuItem onClick={onImportClick} disabled={saving || fieldsCount === 0}>
             <Upload className="size-4" /> CSV importieren
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onExportCSV} disabled={saving || rowsCount === 0}>
+          {/* Bugfix: passing onExportCSV directly handed the MouseEvent to the
+              `exportAll?: boolean` parameter (truthy → always full export). */}
+          <DropdownMenuItem onClick={() => onExportCSV(false)} disabled={saving || rowsCount === 0}>
             <Download className="size-4" /> CSV exportieren
           </DropdownMenuItem>
           <DropdownMenuSeparator />

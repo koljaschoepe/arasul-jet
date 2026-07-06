@@ -28,6 +28,10 @@ interface Space {
   is_system?: boolean;
 }
 
+interface SpaceSaveResponse extends Space {
+  space?: Space;
+}
+
 interface SpaceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -90,11 +94,14 @@ const SpaceModal = memo(function SpaceModal({
         color: space?.color || DEFAULT_PROJECT_COLOR,
       };
 
-      let data;
+      // Backend responds either with the bare space or a { space } envelope.
+      let data: SpaceSaveResponse;
       if (mode === 'edit' && space?.id) {
-        data = await api.put(`/spaces/${space.id}`, payload, { showError: false });
+        data = await api.put<SpaceSaveResponse>(`/spaces/${space.id}`, payload, {
+          showError: false,
+        });
       } else {
-        data = await api.post('/spaces', payload, { showError: false });
+        data = await api.post<SpaceSaveResponse>('/spaces', payload, { showError: false });
       }
 
       setSuccess(mode === 'edit' ? 'Bereich aktualisiert' : 'Bereich erstellt');
@@ -233,7 +240,7 @@ const SpaceModal = memo(function SpaceModal({
             onChange={e => setDescription(e.target.value)}
             placeholder="Beschreiben Sie, was dieser Bereich enthält..."
             rows={8}
-            className="resize-y min-h-[150px] font-mono leading-relaxed"
+            className="resize-y min-h-37.5 font-mono leading-relaxed"
           />
           <p className="text-xs text-muted-foreground italic">
             Je präziser die Beschreibung, desto besser findet die KI relevante Dokumente.

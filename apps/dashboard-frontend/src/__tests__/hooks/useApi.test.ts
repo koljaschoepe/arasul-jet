@@ -20,7 +20,7 @@ vi.mock('../../config/api', () => ({
   getAuthHeaders: () => ({ Authorization: 'Bearer test-token' }),
 }));
 
-import { useApi } from '../../hooks/useApi';
+import { useApi, type ApiError } from '../../hooks/useApi';
 
 describe('useApi', () => {
   beforeEach(() => {
@@ -172,7 +172,7 @@ describe('useApi', () => {
     });
 
     const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(fetchCall[1].signal).toBeDefined();
+    expect(fetchCall?.[1].signal).toBeDefined();
   });
 
   it('strips Content-Type for FormData body', async () => {
@@ -190,7 +190,7 @@ describe('useApi', () => {
       await result.current.post('/upload', formData as unknown as Record<string, unknown>);
     });
 
-    const headers = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].headers;
+    const headers = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1].headers;
     expect(headers['Content-Type']).toBeUndefined();
   });
 
@@ -275,7 +275,7 @@ describe('useApi', () => {
       await result.current.get('/custom', { headers: { 'X-Custom': 'value' } });
     });
 
-    const headers = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].headers;
+    const headers = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1].headers;
     expect(headers['X-Custom']).toBe('value');
     // Auth header should still be present
     expect(headers['Authorization']).toBe('Bearer test-token');
@@ -293,10 +293,11 @@ describe('useApi', () => {
     await act(async () => {
       try {
         await result.current.get('/bad-json');
-      } catch (err: any) {
+      } catch (err) {
         // Should fall back to default message when JSON parsing fails
-        expect(err.message).toBe('Unbekannter Fehler');
-        expect(err.status).toBe(500);
+        const apiErr = err as ApiError;
+        expect(apiErr.message).toBe('Unbekannter Fehler');
+        expect(apiErr.status).toBe(500);
       }
     });
   });
@@ -316,7 +317,7 @@ describe('useApi', () => {
     });
 
     const fetchCall = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(fetchCall[1].signal).toBe(controller.signal);
+    expect(fetchCall?.[1].signal).toBe(controller.signal);
   });
 
   it('returns raw response when raw option is true', async () => {
@@ -372,10 +373,11 @@ describe('useApi', () => {
     await act(async () => {
       try {
         await result.current.post('/items', { name: '' });
-      } catch (err: any) {
-        expect(err.status).toBe(422);
-        expect(err.data).toEqual({ message: 'Validation failed', errors: { name: 'required' } });
-        expect(err.message).toBe('Validation failed');
+      } catch (err) {
+        const apiErr = err as ApiError;
+        expect(apiErr.status).toBe(422);
+        expect(apiErr.data).toEqual({ message: 'Validation failed', errors: { name: 'required' } });
+        expect(apiErr.message).toBe('Validation failed');
       }
     });
   });

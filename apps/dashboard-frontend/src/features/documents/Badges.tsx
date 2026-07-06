@@ -38,7 +38,9 @@ export const TableBadge: React.FC = () => (
 type DocumentStatus = 'pending' | 'processing' | 'indexed' | 'failed';
 
 interface StatusBadgeProps {
-  status: DocumentStatus;
+  // Accept a plain string — the backend document status is untyped at the
+  // call sites; the lookup below falls back to 'pending' for unknown values.
+  status: string;
 }
 
 interface StatusConfig {
@@ -55,7 +57,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
     failed: { icon: AlertCircle, label: 'Fehlgeschlagen', badge: 'error' },
   };
 
-  const config = statusConfig[status] || statusConfig.pending;
+  const config = statusConfig[status as DocumentStatus] || statusConfig.pending;
   const Icon = config.icon;
 
   return (
@@ -78,7 +80,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 type TableStatus = 'active' | 'draft' | 'archived';
 
 interface TableStatusBadgeProps {
-  status: TableStatus;
+  status: string;
 }
 
 export const TableStatusBadge: React.FC<TableStatusBadgeProps> = ({ status }) => {
@@ -88,7 +90,7 @@ export const TableStatusBadge: React.FC<TableStatusBadgeProps> = ({ status }) =>
     archived: { icon: Archive, label: 'Archiviert', badge: 'neutral' },
   };
 
-  const config = statusConfig[status] || statusConfig.active;
+  const config = statusConfig[status as TableStatus] || statusConfig.active;
   const Icon = config.icon;
 
   return (
@@ -238,7 +240,7 @@ export const SpaceBadge: React.FC<SpaceBadgeProps> = ({ name, color, docId, spac
       </button>
       {open && (
         <div
-          className="absolute top-[calc(100%+4px)] left-0 min-w-[180px] max-h-[240px] overflow-y-auto bg-card border border-border rounded-md shadow-lg z-50 p-1"
+          className="absolute top-[calc(100%+4px)] left-0 min-w-45 max-h-60 overflow-y-auto bg-card border border-border rounded-md shadow-lg z-50 p-1"
           role="listbox"
           aria-label="Bereich wählen"
         >

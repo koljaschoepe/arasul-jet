@@ -27,7 +27,7 @@ import type { ChatInput } from '@arasul/shared-schemas';
 import useTokenBatching from '../hooks/useTokenBatching';
 import { useApi } from '../hooks/useApi';
 import { API_BASE, getAuthHeaders } from '../config/api';
-import type { DocumentSource, MatchedSpace, QueueJob, SSEData } from '../types';
+import type { DocumentSource, MatchedSpace, QueueJob } from '../types';
 
 // --- Types ---
 
@@ -355,20 +355,17 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   }, []);
 
   // --- Token Batching ---
-  // Cast needed: ChatMessage is structurally compatible with TokenCountableMessage
-  // but TypeScript can't verify this due to contravariance in function parameter position
-  const { tokenBatchRef, flushTokenBatch, addTokenToBatch, resetTokenBatch } = useTokenBatching(
-    routedSetMessages as React.Dispatch<React.SetStateAction<ChatMessage[]>>
-  );
+  const { tokenBatchRef, flushTokenBatch, addTokenToBatch, resetTokenBatch } =
+    useTokenBatching<ChatMessage>(routedSetMessages);
 
   // --- Data Loading ---
 
   const loadModels = useCallback(async () => {
     try {
       const [installedRes, defaultRes, loadedRes] = await Promise.all([
-        api.get('/models/installed', { showError: false }),
-        api.get('/models/default', { showError: false }),
-        api.get('/models/loaded', { showError: false }).catch(() => null),
+        api.get<{ models?: InstalledModel[] }>('/models/installed', { showError: false }),
+        api.get<{ default_model?: string }>('/models/default', { showError: false }),
+        api.get<{ model_id?: string }>('/models/loaded', { showError: false }).catch(() => null),
       ]);
       setInstalledModels(installedRes.models || []);
       if (defaultRes.default_model) setDefaultModel(defaultRes.default_model);
@@ -380,7 +377,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
   const loadSpaces = useCallback(async () => {
     try {
-      const data = await api.get('/spaces', { showError: false });
+      const data = await api.get<{ spaces?: Space[] }>('/spaces', { showError: false });
       setSpaces(data.spaces || []);
     } catch (err) {
       console.error('Error loading spaces:', err);
@@ -408,7 +405,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       try {
         const params = new URLSearchParams({ limit: String(limit) });
         if (before) params.set('before', String(before));
-        const data = await api.get(`/chats/${chatId}/messages?${params}`, { showError: false });
+        const data = await api.get<{ messages?: Record<string, unknown>[]; hasMore?: boolean }>(
+          `/chats/${chatId}/messages?${params}`,
+          { showError: false }
+        );
         return {
           messages: (data.messages || []).map(mapMessage),
           hasMore: data.hasMore || false,
@@ -455,7 +455,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   const checkActiveJobs = useCallback(
     async (chatId: string) => {
       try {
-        const data = await api.get(`/chats/${chatId}/jobs`, { showError: false });
+        const data = await api.get<{ jobs?: QueueJob[] }>(`/chats/${chatId}/jobs`, {
+          showError: false,
+        });
         const jobs = data.jobs || [];
         const activeJob = jobs.find(
           (j: QueueJob) => j.status === 'streaming' || j.status === 'pending'
@@ -531,7 +533,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     }
     const pollQueue = async () => {
       try {
-        const data = await api.get('/llm/queue', { showError: false });
+        const data = await api.get<QueueState>('/llm/queue', { showError: false });
         setGlobalQueue(data);
       } catch (err) {
         console.error('Error polling queue:', err);
@@ -617,7 +619,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         resetReconnectTimeout();
 
-        while (true) {
+        for (;;) {
           const readPromise = reader.read();
           const timeoutPromise = new Promise<never>((_, reject) => {
             reconnectTimeoutReject = reject;
@@ -699,9 +701,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             }
           }
         }
-        clearTimeout(reconnectTimeoutId);
+        if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
       } catch (err: unknown) {
-        clearTimeout(reconnectTimeoutId);
+        if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
         if (err instanceof Error && err.name === 'AbortError') return;
         console.error('Reconnect error:', err);
         updateIsLoading(targetChatId, false);
@@ -889,7 +891,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         resetStreamTimeout();
 
-        while (true) {
+        for (;;) {
           const readPromise = reader.read();
           // TIMEOUT-FIX: Create fresh reject ref per iteration and clear old timeout
           // before setting new one to prevent stale rejection
@@ -917,9 +919,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                 setActiveJobIds(prev => ({ ...prev, [chatId]: currentJobId! }));
                 updateMessages(chatId, prev => {
                   const u = [...prev];
-                  if (u[assistantMessageIndex]) {
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
                     u[assistantMessageIndex] = {
-                      ...u[assistantMessageIndex],
+                      ...cur,
                       jobId: currentJobId!,
                     };
                   }
@@ -936,9 +939,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
               if (data.type === 'status') {
                 updateMessages(chatId, prev => {
                   const u = [...prev];
-                  if (u[assistantMessageIndex]) {
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
                     u[assistantMessageIndex] = {
-                      ...u[assistantMessageIndex],
+                      ...cur,
                       streamStatus: data.status,
                       statusMessage: data.message || '',
                     };
@@ -979,10 +983,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                 ragSources = data.sources || [];
                 updateMessages(chatId, prev => {
                   const u = [...prev];
-                  if (u[assistantMessageIndex]) {
-                    const qo = data.queryOptimization || {};
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
                     u[assistantMessageIndex] = {
-                      ...u[assistantMessageIndex],
+                      ...cur,
                       sources: ragSources,
                       sourcesCollapsed: ragSources.length > 0,
                       matchedSpaces: data.matchedSpaces || matchedSpaces,
@@ -997,9 +1001,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                 ragSources = data.sources;
                 updateMessages(chatId, prev => {
                   const u = [...prev];
-                  if (u[assistantMessageIndex]) {
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
                     u[assistantMessageIndex] = {
-                      ...u[assistantMessageIndex],
+                      ...cur,
                       sources: ragSources,
                       sourcesCollapsed: ragSources.length > 0,
                       // Legacy fallback: matchedSpaces from options are plain IDs, wrap as MatchedSpace
@@ -1036,9 +1041,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
               ) {
                 updateMessages(chatId, prev => {
                   const u = [...prev];
-                  if (u[assistantMessageIndex]) {
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
                     u[assistantMessageIndex] = {
-                      ...u[assistantMessageIndex],
+                      ...cur,
                       visionFallbackVia: data.vision_via,
                     };
                   }
@@ -1055,9 +1061,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                 flushTokenBatch(assistantMessageIndex, true);
                 updateMessages(chatId, prev => {
                   const u = [...prev];
-                  if (u[assistantMessageIndex]) {
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
                     u[assistantMessageIndex] = {
-                      ...u[assistantMessageIndex],
+                      ...cur,
                       thinkingCollapsed: true,
                     };
                   }
@@ -1087,7 +1094,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           }
           if (streamError || streamDone) break;
         }
-        clearTimeout(streamTimeoutId);
+        if (streamTimeoutId) clearTimeout(streamTimeoutId);
 
         // FH3: Save final batch values BEFORE reset to avoid race condition
         // resetTokenBatch() zeroes out the ref, so we must capture values first
@@ -1276,5 +1283,3 @@ export function useChatContext(): ChatContextValue {
   if (!context) throw new Error('useChatContext must be used within a ChatProvider');
   return context;
 }
-
-export default ChatContext;

@@ -73,13 +73,20 @@ const CellEditor = memo(function CellEditor({
 
   const fieldType = field.field_type || field.type;
 
+  // React input/select `value` only accepts string | number. Booleans are
+  // stringified exactly like React DOM would render them; null becomes ''
+  // (matching the `value ?? ''` initial state, so this never occurs after
+  // the first onChange anyway).
+  const inputValue: string | number =
+    typeof editValue === 'boolean' ? String(editValue) : (editValue ?? '');
+
   const renderInput = () => {
     switch (fieldType) {
       case 'textarea':
         return (
           <textarea
             ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-            value={editValue}
+            value={inputValue}
             onChange={e => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={() => handleSave(editValue)}
@@ -94,7 +101,7 @@ const CellEditor = memo(function CellEditor({
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="number"
             step={fieldType === 'currency' ? '0.01' : 'any'}
-            value={editValue}
+            value={inputValue}
             onChange={e => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={() => handleSave(editValue)}
@@ -146,7 +153,7 @@ const CellEditor = memo(function CellEditor({
         return (
           <select
             ref={inputRef as React.RefObject<HTMLSelectElement>}
-            value={editValue}
+            value={inputValue}
             onChange={e => {
               setEditValue(e.target.value);
               onSave(e.target.value);
@@ -169,7 +176,7 @@ const CellEditor = memo(function CellEditor({
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="email"
-            value={editValue}
+            value={inputValue}
             onChange={e => {
               setEditValue(e.target.value);
               setValidationError(null);
@@ -185,7 +192,7 @@ const CellEditor = memo(function CellEditor({
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="url"
-            value={editValue}
+            value={inputValue}
             onChange={e => {
               setEditValue(e.target.value);
               setValidationError(null);
@@ -201,7 +208,7 @@ const CellEditor = memo(function CellEditor({
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="tel"
-            value={editValue}
+            value={inputValue}
             onChange={e => {
               setEditValue(e.target.value);
               setValidationError(null);
@@ -217,7 +224,7 @@ const CellEditor = memo(function CellEditor({
           <input
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="text"
-            value={editValue}
+            value={inputValue}
             onChange={e => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={() => handleSave(editValue)}

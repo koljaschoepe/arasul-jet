@@ -11,7 +11,10 @@ interface DownloadState {
   progress: number;
   phase: string;
   status?: string;
-  error?: string;
+  // Accept `null` so the global DownloadContext state (error: string | null)
+  // and the local StoreApps install-progress shape (error?: string) are both
+  // assignable to this prop without a second, incompatible DownloadState type.
+  error?: string | null;
 }
 
 interface DownloadProgressProps {
@@ -37,7 +40,12 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
 
   if (compact) {
     return (
-      <div className="download-progress flex items-center gap-3" onClick={e => e.stopPropagation()}>
+      <div
+        className="download-progress flex items-center gap-3"
+        role="presentation"
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      >
         <div className="flex-1 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <span
@@ -89,7 +97,9 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
         isComplete && 'border-primary bg-primary/10',
         isError && 'border-destructive/30 bg-destructive/10'
       )}
+      role="presentation"
       onClick={e => e.stopPropagation()}
+      onKeyDown={e => e.stopPropagation()}
     >
       <div className="progress-header flex justify-between items-center mb-2">
         <span

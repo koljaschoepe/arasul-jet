@@ -2,7 +2,7 @@
  * EditProjectDialog - Modal to edit an existing sandbox project
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AlertCircle, Save } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
@@ -27,6 +27,11 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
   const [networkMode, setNetworkMode] = useState<'isolated' | 'internal'>('isolated');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (project) nameInputRef.current?.focus();
+  }, [project?.id]);
 
   // P2.7.2: only re-populate fields when the project ID changes (i.e. a
   // different project was opened), not on every prop reference change.
@@ -39,7 +44,7 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
       setNetworkMode(project.network_mode === 'internal' ? 'internal' : 'isolated');
       setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, [project?.id]);
 
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent) => {
@@ -121,13 +126,13 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="ep-name">Projektname</Label>
           <Input
+            ref={nameInputRef}
             id="ep-name"
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="z.B. Web Scraper, ML Pipeline, API Server..."
             maxLength={100}
-            autoFocus
           />
         </div>
 

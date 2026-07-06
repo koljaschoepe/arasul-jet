@@ -50,6 +50,13 @@ function Login({ onLoginSuccess }: LoginProps) {
     defaultValues: { username: '', password: '' },
   });
 
+  // Focus the username field on mount (replaces the removed autoFocus prop).
+  const usernameRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    usernameRef.current?.focus();
+  }, []);
+  const { ref: registerUsernameRef, ...usernameField } = register('username');
+
   const username = watch('username');
   const password = watch('password');
   const canSubmit = Boolean(username && password);
@@ -78,7 +85,7 @@ function Login({ onLoginSuccess }: LoginProps) {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-background p-4 max-md:items-start max-md:pt-[10vh] max-md:p-3">
-      <Card className="w-full max-w-[420px] rounded-xl border-border bg-card p-10 shadow-lg max-md:max-w-[95vw] max-md:p-8 max-sm:p-6">
+      <Card className="w-full max-w-105 rounded-xl border-border bg-card p-10 shadow-lg max-md:max-w-[95vw] max-md:p-8 max-sm:p-6">
         <CardHeader className="p-0 text-center mb-8 max-md:mb-7 max-sm:mb-6">
           <h1 className="text-[2rem] text-primary mb-2 font-bold min-[1728px]:text-[2.25rem] min-[1280px]:max-[1511px]:text-[1.875rem] max-md:text-[1.875rem] max-sm:text-[1.75rem] max-sm:mb-1 max-[375px]:text-2xl">
             {PLATFORM_NAME} Platform
@@ -109,10 +116,13 @@ function Login({ onLoginSuccess }: LoginProps) {
                 type="text"
                 placeholder="admin"
                 autoComplete="username"
-                autoFocus
                 aria-describedby={error ? 'login-error' : undefined}
                 className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
-                {...register('username')}
+                {...usernameField}
+                ref={el => {
+                  registerUsernameRef(el);
+                  usernameRef.current = el;
+                }}
               />
             </div>
 

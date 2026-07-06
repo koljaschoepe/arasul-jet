@@ -42,8 +42,8 @@ function ActivationButton({
       style={
         isActivating
           ? {
-              background: `linear-gradient(90deg, var(--color-success) ${activatingPercent}%, var(--card) ${activatingPercent}%)`,
-              borderColor: 'var(--color-success)',
+              background: `linear-gradient(90deg, var(--success) ${activatingPercent}%, var(--card) ${activatingPercent}%)`,
+              borderColor: 'var(--success)',
               color: activatingPercent > 50 ? 'white' : undefined,
             }
           : {}

@@ -27,7 +27,7 @@ vi.mock('../ChatView', () => ({
 
 // Mock ChatContext provider (ChatLanding/ChatView need it, but they're mocked)
 vi.mock('../../../contexts/ChatContext', () => ({
-  ChatProvider: ({ children }) => <div>{children}</div>,
+  ChatProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   useChatContext: () => ({}),
 }));
 

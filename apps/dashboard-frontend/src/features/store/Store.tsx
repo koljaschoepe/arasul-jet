@@ -11,7 +11,6 @@ import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom'
 import { Package, Search, X, Cpu, LayoutGrid, Home } from 'lucide-react';
 import { Input } from '@/components/ui/shadcn/input';
 import { cn } from '@/lib/utils';
-import { useDownloads } from '../../contexts/DownloadContext';
 import StoreHome from './StoreHome';
 import StoreModels from './StoreModels';
 import StoreApps from './StoreApps';
@@ -55,7 +54,7 @@ function Store() {
   useEffect(() => {
     const loadSystemInfo = async () => {
       try {
-        const data = await api.get('/store/info', { showError: false });
+        const data = await api.get<SystemInfo>('/store/info', { showError: false });
         setSystemInfo(data);
       } catch (err) {
         toast.error('Systeminfo konnte nicht geladen werden');
@@ -128,7 +127,7 @@ function Store() {
   };
 
   return (
-    <div className="store p-6 max-md:p-4 max-w-[1600px] mx-auto animate-in fade-in">
+    <div className="store p-6 max-md:p-4 max-w-400 mx-auto animate-in fade-in">
       {/* Header */}
       <div className="store-header mb-6">
         <div className="store-header-top flex items-center justify-between gap-6 mb-4 flex-wrap relative">
@@ -138,7 +137,7 @@ function Store() {
           </div>
 
           {/* Global Search */}
-          <div ref={searchRef} className="store-search relative flex-1 max-w-[400px] min-w-[200px]">
+          <div ref={searchRef} className="store-search relative flex-1 max-w-100 min-w-50">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             <Input
               type="text"
@@ -167,7 +166,7 @@ function Store() {
             {searchQuery && (
               <div
                 id="store-search-results"
-                className="store-search-results absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[400px] overflow-y-auto"
+                className="store-search-results absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg z-50 max-h-100 overflow-y-auto"
                 role="listbox"
                 aria-label="Suchergebnisse"
                 aria-live="polite"
@@ -247,7 +246,9 @@ function Store() {
                     )}
                     {searchResults.models.length === 0 && searchResults.apps.length === 0 && (
                       <div className="p-8 text-center text-muted-foreground">
-                        <p className="font-medium mb-1">Keine Ergebnisse für „{searchQuery}"</p>
+                        <p className="font-medium mb-1">
+                          Keine Ergebnisse für „{searchQuery}&ldquo;
+                        </p>
                         <p className="text-sm">
                           Versuche andere Suchbegriffe oder durchsuche die Kategorien.
                         </p>
@@ -261,7 +262,7 @@ function Store() {
         </div>
 
         {/* Tab Navigation */}
-        <nav className="store-tabs flex gap-1 border-b border-border" role="tablist">
+        <div className="store-tabs flex gap-1 border-b border-border" role="tablist">
           <NavLink
             to="/store"
             end
@@ -317,7 +318,7 @@ function Store() {
             <LayoutGrid className="size-4" />
             <span>Apps</span>
           </NavLink>
-        </nav>
+        </div>
       </div>
 
       {/* Content */}

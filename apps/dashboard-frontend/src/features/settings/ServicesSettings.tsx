@@ -80,7 +80,10 @@ export function ServicesSettings() {
   const fetchServices = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const data = await api.get('/services/all', { signal, showError: false });
+        const data = await api.get<{ services?: Service[] }>('/services/all', {
+          signal,
+          showError: false,
+        });
         setServices(data.services || []);
       } catch (error: unknown) {
         if (signal?.aborted) return;
@@ -111,7 +114,11 @@ export function ServicesSettings() {
     setMessage(null);
 
     try {
-      const data = await api.post(`/services/restart/${serviceName}`, null, { showError: false });
+      const data = await api.post<{ success: boolean; duration_ms?: number; message?: string }>(
+        `/services/restart/${serviceName}`,
+        null,
+        { showError: false }
+      );
       if (data.success) {
         setMessage({
           type: 'success',

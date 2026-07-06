@@ -251,5 +251,3 @@ export function useApi(): ApiMethods {
     [get, post, put, patch, del, request]
   );
 }
-
-export default useApi;

@@ -194,6 +194,27 @@ Organisieren Sie Dokumente in thematischen Raeumen:
 - **Temperatur:** Kreativitaet der Antworten (0.0-1.0)
 - **Max Tokens:** Maximale Antwortlaenge
 
+### RAG & LLM (Experten-Tunables)
+
+Der Tab **Einstellungen → „RAG & LLM"** (nur fuer Administratoren) macht die
+Feinjustierung der Antwort-Pipeline ohne Neustart moeglich. Aenderungen wirken
+sofort. Alle Werte haben sinnvolle Standardwerte — nur anpassen, wenn Sie die
+Auswirkung kennen.
+
+- **Generierung:** `Temperatur` (0–2, niedrig = quellentreu), `num_predict`
+  (max. Antwortlaenge in Tokens).
+- **Retrieval:** `final_k` (Anzahl Dokument-Abschnitte, die die KI erhaelt, 1–20),
+  `MMR-Lambda` (1 = reine Relevanz, 0 = maximale Vielfalt), `Dedup pro Dokument`
+  (max. Abschnitte je Quelldokument), `Hybrid-Suche` (dichte + BM25-Suche an/aus).
+- **Space-Routing:** `Schwelle` (Mindest-Aehnlichkeit, damit ein Wissens-Space in
+  die Anfrage einbezogen wird) und `max. Spaces` pro Anfrage.
+- **Basis-System-Prompt:** frei editierbarer Grundtext, der jedem KI-Kontext
+  vorangestellt wird. **Feld leeren = eingebauter Standard-Prompt.**
+
+Die Standardwerte entsprechen exakt den bisher fest verdrahteten Werten; ein
+frisch aufgesetztes System verhaelt sich also unveraendert, bis Sie hier etwas
+aendern.
+
 ### Sicherheit
 
 - **Passwort aendern:** Unter Einstellungen > Sicherheit

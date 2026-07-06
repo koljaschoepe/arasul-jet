@@ -5,7 +5,7 @@
  *   - Default dark theme
  *   - Theme toggle
  *   - Theme persistence in localStorage
- *   - CSS class application on <html> and <body>
+ *   - CSS class application on <html>
  *   - System preference fallback
  */
 
@@ -18,8 +18,7 @@ describe('Theme integration', () => {
   beforeEach(() => {
     localStorage.clear();
     // Reset DOM classes
-    document.documentElement.classList.remove('dark');
-    document.body.classList.remove('dark-mode', 'light-mode');
+    document.documentElement.classList.remove('dark', 'light');
   });
 
   it('dark theme is the default when no saved preference', () => {
@@ -34,11 +33,10 @@ describe('Theme integration', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 
-  it('applies dark-mode class to body element', () => {
+  it('does not apply the light class in dark mode', () => {
     renderHook(() => useTheme());
 
-    expect(document.body.classList.contains('dark-mode')).toBe(true);
-    expect(document.body.classList.contains('light-mode')).toBe(false);
+    expect(document.documentElement.classList.contains('light')).toBe(false);
   });
 
   it('toggleTheme switches from dark to light', () => {
@@ -59,8 +57,7 @@ describe('Theme integration', () => {
     });
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
-    expect(document.body.classList.contains('light-mode')).toBe(true);
-    expect(document.body.classList.contains('dark-mode')).toBe(false);
+    expect(document.documentElement.classList.contains('light')).toBe(true);
   });
 
   it('double toggle returns to dark theme', () => {
@@ -118,7 +115,7 @@ describe('Theme integration', () => {
 
     expect(result.current.theme).toBe('dark');
     expect(document.documentElement.classList.contains('dark')).toBe(true);
-    expect(document.body.classList.contains('dark-mode')).toBe(true);
+    expect(document.documentElement.classList.contains('light')).toBe(false);
   });
 
   it('respects system preference when no saved theme', () => {

@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useRef, useState, useCallback } from 'react';
+import { memo, useEffect, useRef, useState, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 
 let mermaidInstance: typeof import('mermaid').default | null = null;

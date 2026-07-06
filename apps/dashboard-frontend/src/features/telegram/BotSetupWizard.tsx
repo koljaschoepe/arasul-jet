@@ -77,8 +77,8 @@ interface BotInfo {
 
 interface ChatInfo {
   chatId: string;
-  username: string;
-  firstName: string;
+  username?: string;
+  firstName?: string;
   type: string;
 }
 
@@ -93,6 +93,39 @@ interface Space {
   name: string;
   description?: string;
   color?: string;
+}
+
+type OllamaModelEntry = OllamaModel | string;
+
+interface OllamaModelsResponse {
+  models?: OllamaModelEntry[];
+}
+
+type SpacesResponse = { spaces?: Space[] } | Space[];
+
+interface ValidateTokenResponse {
+  valid?: boolean;
+  botInfo?: BotInfo;
+  error?: string;
+}
+
+interface ZeroConfigInitResponse {
+  setupToken?: string;
+}
+
+interface ZeroConfigTokenResponse {
+  deepLink?: string;
+}
+
+interface ZeroConfigStatusResponse {
+  status?: string;
+  chatId?: string;
+  chatUsername?: string;
+  chatFirstName?: string;
+}
+
+interface CreateBotResponse {
+  bot?: TelegramBot;
 }
 
 const STEPS: Step[] = [
@@ -142,7 +175,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
   const [validated, setValidated] = useState(false);
   const [botInfo, setBotInfo] = useState<BotInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
+  const [ollamaModels, setOllamaModels] = useState<OllamaModelEntry[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [creating, setCreating] = useState(false);
 
@@ -183,24 +216,27 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
   useEffect(() => {
     const fetchData = async () => {
       const [modelsResult, spacesResult] = await Promise.allSettled([
-        api.get('/telegram-bots/models/ollama', { showError: false }),
-        api.get('/spaces', { showError: false }),
+        api.get<OllamaModelsResponse>('/telegram-bots/models/ollama', { showError: false }),
+        api.get<SpacesResponse>('/spaces', { showError: false }),
       ]);
 
       if (modelsResult.status === 'fulfilled') {
         const models = modelsResult.value.models || [];
         setOllamaModels(models);
-        if (models.length > 0 && !formData.llmModel) {
-          setFormData(prev => ({ ...prev, llmModel: models[0].name || models[0] }));
+        const first = models[0];
+        if (first && !formData.llmModel) {
+          const name = typeof first === 'string' ? first : first.name;
+          setFormData(prev => ({ ...prev, llmModel: name }));
         }
       }
 
       if (spacesResult.status === 'fulfilled') {
-        setSpaces(spacesResult.value.spaces || spacesResult.value || []);
+        const val = spacesResult.value;
+        setSpaces(Array.isArray(val) ? val : val.spaces || []);
       }
     };
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, []);
 
   // WebSocket connection for chat detection
@@ -259,7 +295,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
     };
 
     return ws;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, []);
 
   // Polling fallback
@@ -269,9 +305,12 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
 
       const poll = async () => {
         try {
-          const data = await api.get(`/telegram-app/zero-config/status/${token}`, {
-            showError: false,
-          });
+          const data = await api.get<ZeroConfigStatusResponse>(
+            `/telegram-app/zero-config/status/${token}`,
+            {
+              showError: false,
+            }
+          );
           if (data.status === 'completed' && data.chatId) {
             chatDetectedRef.current = true;
             setChatDetected(true);
@@ -322,9 +361,9 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
-      let data: { valid?: boolean; botInfo?: BotInfo; error?: string };
+      let data: ValidateTokenResponse;
       try {
-        data = await api.post(
+        data = await api.post<ValidateTokenResponse>(
           '/telegram-bots/validate-token',
           { token: tokenTrimmed },
           { showError: false, signal: controller.signal }
@@ -375,16 +414,20 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
     setError(null);
 
     try {
-      const initData = await api.post('/telegram-app/zero-config/init', undefined, {
-        showError: false,
-      });
+      const initData = await api.post<ZeroConfigInitResponse>(
+        '/telegram-app/zero-config/init',
+        undefined,
+        {
+          showError: false,
+        }
+      );
       const token = initData.setupToken;
       if (!token) throw new Error('Setup-Token wurde nicht generiert');
       setSetupToken(token);
 
       connectWebSocket(token);
 
-      const tokenData = await api.post(
+      const tokenData = await api.post<ZeroConfigTokenResponse>(
         '/telegram-app/zero-config/token',
         {
           setupToken: token,
@@ -420,7 +463,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       }
       setWaitingForChat(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, [api, formData.token, connectWebSocket]);
 
   // Countdown timer
@@ -436,7 +479,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       });
     }, 1000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, [waitingForChat]);
 
   // Retry chat verification
@@ -481,7 +524,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
       }
 
       // Create bot
-      const data = await api.post(
+      const data = await api.post<CreateBotResponse>(
         '/telegram-bots',
         {
           name: formData.name,
@@ -571,7 +614,7 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-[420px]">
+    <div className="flex flex-col min-h-105">
       {/* Step Indicator */}
       <div className="flex gap-2 px-2 pb-6 border-b border-border mb-6 max-md:flex-col max-md:gap-1.5">
         {STEPS.map(step => (
@@ -672,9 +715,9 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
                 </div>
 
                 <div className="mb-5">
-                  <label className="block mb-1.5 text-foreground text-sm font-medium">
+                  <span className="block mb-1.5 text-foreground text-sm font-medium">
                     Bot-Vorlage
-                  </label>
+                  </span>
                   <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
                     {BOT_TEMPLATES.map(tpl => {
                       const Icon = tpl.icon;
@@ -776,9 +819,9 @@ function BotSetupWizard({ onComplete, onCancel }: BotSetupWizardProps) {
 
                 {formData.ragEnabled && spaces.length > 0 && (
                   <div className="mb-5">
-                    <label className="block mb-1.5 text-foreground text-sm font-medium">
+                    <span className="block mb-1.5 text-foreground text-sm font-medium">
                       Space-Zuordnung
-                    </label>
+                    </span>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"

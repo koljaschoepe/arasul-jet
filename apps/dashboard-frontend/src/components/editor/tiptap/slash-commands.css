@@ -75,17 +75,17 @@
 }
 
 /* Light mode */
-.light-mode .slash-commands-dropdown {
+.light .slash-commands-dropdown {
   background: var(--bg-card);
   border-color: var(--border-color);
 }
 
-.light-mode .slash-commands-item:hover,
-.light-mode .slash-commands-item.selected {
+.light .slash-commands-item:hover,
+.light .slash-commands-item.selected {
   background: var(--primary-alpha-8);
 }
 
-.light-mode .slash-commands-icon {
+.light .slash-commands-icon {
   background: var(--bg-elevated);
   border-color: var(--border-color);
 }

@@ -101,7 +101,7 @@ describe('Login integration', () => {
 
   it('calls API with credentials on valid submit', async () => {
     const user = userEvent.setup();
-    mockApi.post.mockResolvedValueOnce({
+    vi.mocked(mockApi.post).mockResolvedValueOnce({
       token: 'test-token',
       user: { id: 1, username: 'admin' },
     });
@@ -123,7 +123,7 @@ describe('Login integration', () => {
 
   it('stores token in localStorage on successful login', async () => {
     const user = userEvent.setup();
-    mockApi.post.mockResolvedValueOnce({
+    vi.mocked(mockApi.post).mockResolvedValueOnce({
       token: 'jwt-abc-123',
       user: { id: 1, username: 'admin' },
     });
@@ -142,7 +142,7 @@ describe('Login integration', () => {
   it('calls onLoginSuccess callback after successful login', async () => {
     const user = userEvent.setup();
     const loginData = { token: 'tok', user: { id: 1, username: 'admin' } };
-    mockApi.post.mockResolvedValueOnce(loginData);
+    vi.mocked(mockApi.post).mockResolvedValueOnce(loginData);
 
     const { onLoginSuccess } = renderLogin();
 
@@ -160,7 +160,7 @@ describe('Login integration', () => {
     const apiError = Object.assign(new Error('Invalid credentials'), {
       data: { error: 'Invalid credentials' },
     });
-    mockApi.post.mockRejectedValueOnce(apiError);
+    vi.mocked(mockApi.post).mockRejectedValueOnce(apiError);
 
     renderLogin();
 
@@ -180,7 +180,7 @@ describe('Login integration', () => {
     const loginPromise = new Promise(resolve => {
       resolveLogin = resolve;
     });
-    mockApi.post.mockReturnValueOnce(loginPromise);
+    vi.mocked(mockApi.post).mockReturnValueOnce(loginPromise);
 
     renderLogin();
 
@@ -195,7 +195,7 @@ describe('Login integration', () => {
 
   it('handles network error gracefully', async () => {
     const user = userEvent.setup();
-    mockApi.post.mockRejectedValueOnce(new Error('Network Error'));
+    vi.mocked(mockApi.post).mockRejectedValueOnce(new Error('Network Error'));
 
     renderLogin();
 
@@ -225,7 +225,7 @@ describe('Login integration', () => {
     const apiError = Object.assign(new Error('Bad credentials'), {
       data: { error: 'Bad credentials' },
     });
-    mockApi.post.mockRejectedValueOnce(apiError);
+    vi.mocked(mockApi.post).mockRejectedValueOnce(apiError);
 
     renderLogin();
 

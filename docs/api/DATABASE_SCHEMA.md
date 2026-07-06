@@ -2188,12 +2188,32 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 | `llm_num_ctx_default`             | integer                  | ✅       | `NULL`  |
 | `llm_keep_alive_seconds`          | integer                  | ✅       | `3600`  |
 | `llm_num_predict_default`         | integer                  | ✅       | `2048`  |
+| `rag_temperature`                 | double precision         | ✅       | `0.2`   |
+| `rag_num_predict`                 | integer                  | ✅       | `2048`  |
+| `rag_mmr_lambda`                  | double precision         | ✅       | `0.7`   |
+| `rag_dedup_max_per_doc`           | integer                  | ✅       | `3`     |
+| `rag_hybrid_search`               | boolean                  | ✅       | `true`  |
+| `rag_space_routing_threshold`     | double precision         | ✅       | `0.4`   |
+| `rag_space_routing_max_spaces`    | integer                  | ✅       | `3`     |
+| `llm_base_system_prompt`          | text                     | ✅       | `NULL`  |
 
 **Migration 094 — perf knobs:** `rag_*` and `llm_*` columns are loaded into the
 `systemSettingsService` cache at boot (`bootstrap.js`) so request hot-paths
 (`routes/rag.js`, `services/llm/llmOllamaStream.js`) read them via
 `systemSettings.get(...)` instead of a per-request DB hit. `NULL` on
 `llm_num_ctx_default` means "let `contextBudgetManager` pick".
+
+**Migration 096 — remaining RAG/LLM tunables + editable base prompt:** completes
+the env→DB migration begun in 094. All defaults equal the previously
+hardcoded values, so applying the migration changes no behavior until an admin
+edits a value via `PATCH /api/rag/settings` (which `systemSettings.reload()`s the
+cache — no restart needed). `rag_hybrid_search` is the master switch for Qdrant
+hybrid search; `rag_space_routing_*` bound knowledge-space routing;
+`rag_mmr_lambda`/`rag_dedup_max_per_doc` shape final-context diversity. Both the
+dashboard pipeline (`routes/rag.js`) and the Telegram bot
+(`services/telegram/telegramRagService.js`) read these knobs. `llm_base_system_prompt`
+is the DB-editable layer-1 system prompt; `NULL` = the built-in default in
+`systemPromptBuilder.js` (an empty string sent to the PATCH endpoint resets it to `NULL`).
 
 **Primary key:** `id`
 

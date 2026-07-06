@@ -6,8 +6,7 @@ describe('useTheme', () => {
   beforeEach(() => {
     localStorage.clear();
     // Reset DOM classes to a known state
-    document.documentElement.classList.remove('dark');
-    document.body.classList.remove('light-mode', 'dark-mode');
+    document.documentElement.classList.remove('dark', 'light');
   });
 
   afterEach(() => {
@@ -77,11 +76,10 @@ describe('useTheme', () => {
     });
 
     expect(document.documentElement.classList.contains('dark')).toBe(true);
-    expect(document.body.classList.contains('dark-mode')).toBe(true);
-    expect(document.body.classList.contains('light-mode')).toBe(false);
+    expect(document.documentElement.classList.contains('light')).toBe(false);
   });
 
-  it('removes dark class and adds light-mode for light theme', () => {
+  it('removes dark class and adds light class for light theme', () => {
     const { result } = renderHook(() => useTheme());
 
     act(() => {
@@ -89,8 +87,7 @@ describe('useTheme', () => {
     });
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
-    expect(document.body.classList.contains('light-mode')).toBe(true);
-    expect(document.body.classList.contains('dark-mode')).toBe(false);
+    expect(document.documentElement.classList.contains('light')).toBe(true);
   });
 
   it('ignores invalid localStorage values and falls back to system preference', () => {

@@ -98,7 +98,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           className="error-boundary min-h-screen flex items-center justify-center bg-background p-8"
           role="alert"
         >
-          <div className="error-boundary-content max-w-[600px] w-full bg-card border border-border rounded-lg px-8 py-12 text-center">
+          <div className="error-boundary-content max-w-150 w-full bg-card border border-border rounded-lg px-8 py-12 text-center">
             <div className="error-icon text-6xl mb-6">⚠️</div>
             <h1 className="text-destructive mb-4 text-3xl font-bold">
               {this.props.title || 'Etwas ist schiefgelaufen'}

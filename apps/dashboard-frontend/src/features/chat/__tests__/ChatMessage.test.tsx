@@ -13,23 +13,28 @@
  */
 
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import ChatMessage from '../ChatMessage';
+import type { ChatMessage as ChatMessageType } from '../../../contexts/ChatContext';
 
 // Mock MermaidDiagram component before import - avoids mermaid module issues
 vi.mock('../../../components/editor/MermaidDiagram', () => ({
-  default: function MockMermaidDiagram({ content }) {
-    const React = require('react');
+  default: function MockMermaidDiagram({ content }: { content: string }) {
     return React.createElement('div', { 'data-testid': 'mermaid-diagram' }, content);
   },
 }));
 
 // Mock react-markdown to avoid ESM issues
 vi.mock('react-markdown', () => ({
-  default: function MockReactMarkdown({ children, components }) {
-    const React = require('react');
+  default: function MockReactMarkdown({
+    children,
+    components,
+  }: {
+    children?: React.ReactNode;
+    components?: { code?: React.ElementType };
+  }) {
     // If content contains a mermaid code block and components.code is defined,
     // simulate react-markdown calling the custom code renderer
     if (
@@ -44,12 +49,15 @@ vi.mock('react-markdown', () => ({
         return React.createElement(
           'div',
           { 'data-testid': 'markdown' },
-          React.createElement(CodeComponent, {
-            node: {},
-            inline: false,
-            className: 'language-mermaid',
-            children: [mermaidMatch[1]],
-          })
+          React.createElement(
+            CodeComponent,
+            {
+              node: {},
+              inline: false,
+              className: 'language-mermaid',
+            },
+            [mermaidMatch[1]]
+          )
         );
       }
     }
@@ -80,7 +88,7 @@ describe('ChatMessage Component', () => {
   describe('User-Nachricht', () => {
     test('rendert User-Nachricht mit korrektem Inhalt', () => {
       const message = {
-        id: 'msg-1',
+        id: 1,
         role: 'user',
         content: 'Hallo, wie geht es dir?',
       };
@@ -92,7 +100,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt "Du" als Label für User-Nachrichten', () => {
       const message = {
-        id: 'msg-1',
+        id: 1,
         role: 'user',
         content: 'Test',
       };
@@ -104,7 +112,7 @@ describe('ChatMessage Component', () => {
 
     test('hat korrekte CSS-Klasse für User-Nachricht', () => {
       const message = {
-        id: 'msg-1',
+        id: 1,
         role: 'user',
         content: 'Test',
       };
@@ -117,7 +125,7 @@ describe('ChatMessage Component', () => {
 
     test('hat korrekte aria-label für User-Nachricht', () => {
       const message = {
-        id: 'msg-1',
+        id: 1,
         role: 'user',
         content: 'Test',
       };
@@ -134,7 +142,7 @@ describe('ChatMessage Component', () => {
   describe('Assistant-Nachricht', () => {
     test('rendert Assistant-Nachricht mit korrektem Inhalt', () => {
       const message = {
-        id: 'msg-2',
+        id: 2,
         role: 'assistant',
         content: 'Mir geht es gut, danke!',
       };
@@ -146,7 +154,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt "AI" als Label für Assistant-Nachrichten', () => {
       const message = {
-        id: 'msg-2',
+        id: 2,
         role: 'assistant',
         content: 'Antwort',
       };
@@ -158,7 +166,7 @@ describe('ChatMessage Component', () => {
 
     test('hat korrekte CSS-Klasse für Assistant-Nachricht', () => {
       const message = {
-        id: 'msg-2',
+        id: 2,
         role: 'assistant',
         content: 'Antwort',
       };
@@ -171,7 +179,7 @@ describe('ChatMessage Component', () => {
 
     test('hat korrekte aria-label für Assistant-Nachricht', () => {
       const message = {
-        id: 'msg-2',
+        id: 2,
         role: 'assistant',
         content: 'Antwort',
       };
@@ -188,7 +196,7 @@ describe('ChatMessage Component', () => {
   describe('Thinking-Block', () => {
     test('zeigt Thinking-Block wenn hasThinking und thinking vorhanden', () => {
       const message = {
-        id: 'msg-3',
+        id: 3,
         role: 'assistant',
         content: 'Antwort',
         hasThinking: true,
@@ -204,7 +212,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt keinen Thinking-Block wenn hasThinking false', () => {
       const message = {
-        id: 'msg-3',
+        id: 3,
         role: 'assistant',
         content: 'Antwort',
         hasThinking: false,
@@ -218,7 +226,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt keinen Thinking-Block wenn thinking leer', () => {
       const message = {
-        id: 'msg-3',
+        id: 3,
         role: 'assistant',
         content: 'Antwort',
         hasThinking: true,
@@ -235,7 +243,7 @@ describe('ChatMessage Component', () => {
       const onToggleThinking = vi.fn();
 
       const message = {
-        id: 'msg-3',
+        id: 3,
         role: 'assistant',
         content: 'Antwort',
         hasThinking: true,
@@ -252,7 +260,7 @@ describe('ChatMessage Component', () => {
         />
       );
 
-      const thinkingButton = screen.getByText('Gedankengang').closest('button');
+      const thinkingButton = screen.getByText('Gedankengang').closest('button')!;
       await user.click(thinkingButton);
 
       expect(onToggleThinking).toHaveBeenCalledWith(2);
@@ -260,7 +268,7 @@ describe('ChatMessage Component', () => {
 
     test('hat aria-expanded=true wenn Thinking aufgeklappt', () => {
       const message = {
-        id: 'msg-3',
+        id: 3,
         role: 'assistant',
         content: 'Antwort',
         hasThinking: true,
@@ -276,7 +284,7 @@ describe('ChatMessage Component', () => {
 
     test('hat aria-expanded=false wenn Thinking zugeklappt', () => {
       const message = {
-        id: 'msg-3',
+        id: 3,
         role: 'assistant',
         content: 'Antwort',
         hasThinking: true,
@@ -292,7 +300,7 @@ describe('ChatMessage Component', () => {
 
     test('hat collapsed CSS-Klasse wenn thinkingCollapsed true', () => {
       const message = {
-        id: 'msg-3',
+        id: 3,
         role: 'assistant',
         content: 'Antwort',
         hasThinking: true,
@@ -307,7 +315,7 @@ describe('ChatMessage Component', () => {
 
     test('hat collapsing CSS-Klasse wenn thinkingCollapsing true', () => {
       const message = {
-        id: 'msg-3',
+        id: 3,
         role: 'assistant',
         content: 'Antwort',
         hasThinking: true,
@@ -328,7 +336,7 @@ describe('ChatMessage Component', () => {
   describe('Markdown-Inhalt', () => {
     test('rendert Markdown über ReactMarkdown', () => {
       const message = {
-        id: 'msg-4',
+        id: 4,
         role: 'assistant',
         content: '# Überschrift\n\nEin Absatz mit **fett** und *kursiv*.',
       };
@@ -343,7 +351,7 @@ describe('ChatMessage Component', () => {
 
     test('rendert Mermaid-Diagramm für mermaid Code-Block', () => {
       const message = {
-        id: 'msg-5',
+        id: 5,
         role: 'assistant',
         content: '```mermaid\ngraph TD;\nA-->B;\n```',
       };
@@ -355,7 +363,7 @@ describe('ChatMessage Component', () => {
 
     test('rendert message-body Container für Inhalt', () => {
       const message = {
-        id: 'msg-4',
+        id: 4,
         role: 'assistant',
         content: 'Einige Inhalte',
       };
@@ -372,7 +380,7 @@ describe('ChatMessage Component', () => {
   describe('Loading-Indikator', () => {
     test('zeigt Loading-Animation wenn Assistant ohne Inhalt lädt', () => {
       const message = {
-        id: 'msg-6',
+        id: 6,
         role: 'assistant',
         content: '',
         thinking: '',
@@ -387,7 +395,7 @@ describe('ChatMessage Component', () => {
 
     test('Loading hat role=status und aria-label', () => {
       const message = {
-        id: 'msg-6',
+        id: 6,
         role: 'assistant',
         content: '',
       };
@@ -400,7 +408,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt drei Ladeanimation-Spans', () => {
       const message = {
-        id: 'msg-6',
+        id: 6,
         role: 'assistant',
         content: '',
       };
@@ -409,14 +417,14 @@ describe('ChatMessage Component', () => {
         <ChatMessage {...defaultProps} message={message} isLoading={true} />
       );
 
-      const loadingDiv = container.querySelector('.message-loading');
+      const loadingDiv = container.querySelector('.message-loading')!;
       const spans = loadingDiv.querySelectorAll('span');
       expect(spans).toHaveLength(3);
     });
 
     test('zeigt kein Loading wenn Inhalt vorhanden', () => {
       const message = {
-        id: 'msg-6',
+        id: 6,
         role: 'assistant',
         content: 'Antwort bereits vorhanden',
       };
@@ -430,7 +438,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt kein Loading wenn Thinking vorhanden', () => {
       const message = {
-        id: 'msg-6',
+        id: 6,
         role: 'assistant',
         content: '',
         thinking: 'Nachdenken...',
@@ -446,7 +454,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt kein Loading für User-Nachrichten', () => {
       const message = {
-        id: 'msg-6',
+        id: 6,
         role: 'user',
         content: '',
       };
@@ -460,7 +468,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt kein Loading wenn isLoading false', () => {
       const message = {
-        id: 'msg-6',
+        id: 6,
         role: 'assistant',
         content: '',
       };
@@ -478,7 +486,7 @@ describe('ChatMessage Component', () => {
   // =====================================================
   describe('Sources-Block (RAG-Quellen)', () => {
     const sourcesMessage = {
-      id: 'msg-7',
+      id: 7,
       role: 'assistant',
       content: 'Basierend auf den Dokumenten...',
       sources: [
@@ -536,7 +544,7 @@ describe('ChatMessage Component', () => {
         />
       );
 
-      const sourcesButton = screen.getByText('Quellen (2)').closest('button');
+      const sourcesButton = screen.getByText('Quellen (2)').closest('button')!;
       await user.click(sourcesButton);
 
       expect(onToggleSources).toHaveBeenCalledWith(5);
@@ -577,7 +585,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt keinen Sources-Block ohne Quellen', () => {
       const noSourcesMessage = {
-        id: 'msg-8',
+        id: 8,
         role: 'assistant',
         content: 'Antwort ohne Quellen',
         sources: [],
@@ -590,7 +598,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt keinen Sources-Block wenn sources undefined', () => {
       const noSourcesMessage = {
-        id: 'msg-8',
+        id: 8,
         role: 'assistant',
         content: 'Antwort ohne Quellen',
       };
@@ -618,7 +626,7 @@ describe('ChatMessage Component', () => {
   describe('Matched Spaces', () => {
     test('zeigt durchsuchte Bereiche wenn matchedSpaces vorhanden', () => {
       const message = {
-        id: 'msg-9',
+        id: 9,
         role: 'assistant',
         content: 'Antwort',
         matchedSpaces: [
@@ -636,7 +644,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt Relevanz-Score in Matched Spaces', () => {
       const message = {
-        id: 'msg-9',
+        id: 9,
         role: 'assistant',
         content: 'Antwort',
         matchedSpaces: [{ id: 'space-1', name: 'Dokumentation', score: 0.9, color: '#45ADFF' }],
@@ -649,7 +657,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt title-Attribut mit Relevanz', () => {
       const message = {
-        id: 'msg-9',
+        id: 9,
         role: 'assistant',
         content: 'Antwort',
         matchedSpaces: [{ id: 'space-1', name: 'Dokumentation', score: 0.9, color: '#45ADFF' }],
@@ -663,7 +671,7 @@ describe('ChatMessage Component', () => {
 
     test('behandelt matchedSpaces mit score=0 korrekt', () => {
       const message = {
-        id: 'msg-9',
+        id: 9,
         role: 'assistant',
         content: 'Antwort',
         matchedSpaces: [{ id: 'space-1', name: 'Leer', score: 0 }],
@@ -676,7 +684,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt keine Matched Spaces wenn leer', () => {
       const message = {
-        id: 'msg-9',
+        id: 9,
         role: 'assistant',
         content: 'Antwort',
         matchedSpaces: [],
@@ -689,7 +697,7 @@ describe('ChatMessage Component', () => {
 
     test('zeigt keine Matched Spaces wenn undefined', () => {
       const message = {
-        id: 'msg-9',
+        id: 9,
         role: 'assistant',
         content: 'Antwort',
       };
@@ -701,7 +709,7 @@ describe('ChatMessage Component', () => {
 
     test('verwendet angegebene Farbe für Space-Chip', () => {
       const message = {
-        id: 'msg-9',
+        id: 9,
         role: 'assistant',
         content: 'Antwort',
         matchedSpaces: [{ id: 'space-1', name: 'Mit Farbe', score: 0.5, color: '#ff0000' }],
@@ -709,14 +717,14 @@ describe('ChatMessage Component', () => {
 
       const { container } = render(<ChatMessage {...defaultProps} message={message} />);
 
-      const chip = container.querySelector('.matched-space-chip');
+      const chip = container.querySelector<HTMLElement>('.matched-space-chip')!;
       expect(chip).toBeInTheDocument();
       expect(chip.style.borderLeftColor).toBe('rgb(255, 0, 0)');
     });
 
     test('rendert Space-Chip korrekt ohne explizite color', () => {
       const message = {
-        id: 'msg-9',
+        id: 9,
         role: 'assistant',
         content: 'Antwort',
         matchedSpaces: [{ id: 'space-1', name: 'Ohne Farbe', score: 0.5 }],
@@ -736,7 +744,7 @@ describe('ChatMessage Component', () => {
   describe('Leere und fehlende Inhalte', () => {
     test('rendert keinen message-body wenn content leer', () => {
       const message = {
-        id: 'msg-10',
+        id: 10,
         role: 'assistant',
         content: '',
       };
@@ -747,11 +755,12 @@ describe('ChatMessage Component', () => {
     });
 
     test('rendert keinen message-body wenn content null', () => {
+      // Edge case: content is null at runtime despite the typed contract
       const message = {
-        id: 'msg-10',
+        id: 10,
         role: 'assistant',
         content: null,
-      };
+      } as unknown as ChatMessageType;
 
       const { container } = render(<ChatMessage {...defaultProps} message={message} />);
 
@@ -759,10 +768,11 @@ describe('ChatMessage Component', () => {
     });
 
     test('rendert keinen message-body wenn content undefined', () => {
+      // Edge case: content is missing at runtime despite the typed contract
       const message = {
-        id: 'msg-10',
+        id: 10,
         role: 'assistant',
-      };
+      } as unknown as ChatMessageType;
 
       const { container } = render(<ChatMessage {...defaultProps} message={message} />);
 
@@ -771,7 +781,7 @@ describe('ChatMessage Component', () => {
 
     test('rendert Label auch ohne Inhalt', () => {
       const message = {
-        id: 'msg-10',
+        id: 10,
         role: 'user',
         content: '',
       };
@@ -788,7 +798,7 @@ describe('ChatMessage Component', () => {
   describe('Artikel-Key Generierung', () => {
     test('rendert korrekt mit message.id', () => {
       const message = {
-        id: 'unique-msg-id',
+        id: 999,
         role: 'user',
         content: 'Test',
       };
@@ -828,17 +838,17 @@ describe('ChatMessage Component', () => {
   describe('Komponentenstruktur', () => {
     test('hat korrekte DOM-Struktur für einfache Nachricht', () => {
       const message = {
-        id: 'msg-11',
+        id: 11,
         role: 'user',
         content: 'Einfache Nachricht',
       };
 
       const { container } = render(<ChatMessage {...defaultProps} message={message} />);
 
-      const article = container.querySelector('article');
+      const article = container.querySelector('article')!;
       expect(article).toBeInTheDocument();
 
-      const label = article.querySelector('.message-label');
+      const label = article.querySelector('.message-label')!;
       expect(label).toBeInTheDocument();
       expect(label.textContent).toBe('Du');
       expect(label).toHaveAttribute('aria-hidden', 'true');
@@ -849,7 +859,7 @@ describe('ChatMessage Component', () => {
 
     test('rendert vollstaendige Assistant-Nachricht mit allen Bloecken', () => {
       const message = {
-        id: 'msg-12',
+        id: 12,
         role: 'assistant',
         content: 'Vollstaendige Antwort',
         hasThinking: true,
@@ -888,7 +898,7 @@ describe('ChatMessage Component', () => {
     test('behandelt sehr langen Inhalt ohne Fehler', () => {
       const longContent = 'A'.repeat(10000);
       const message = {
-        id: 'msg-13',
+        id: 13,
         role: 'assistant',
         content: longContent,
       };
@@ -900,7 +910,7 @@ describe('ChatMessage Component', () => {
 
     test('behandelt Sonderzeichen im Inhalt', () => {
       const message = {
-        id: 'msg-14',
+        id: 14,
         role: 'user',
         content: 'Sonderzeichen: <script>alert("xss")</script> & " \' < >',
       };
@@ -913,7 +923,7 @@ describe('ChatMessage Component', () => {
 
     test('behandelt Source mit Score=1 korrekt', () => {
       const message = {
-        id: 'msg-15',
+        id: 15,
         role: 'assistant',
         content: 'Antwort',
         sources: [
@@ -929,7 +939,7 @@ describe('ChatMessage Component', () => {
 
     test('behandelt Source mit sehr niedrigem Score', () => {
       const message = {
-        id: 'msg-16',
+        id: 16,
         role: 'assistant',
         content: 'Antwort',
         sources: [{ document_name: 'Schwach.pdf', text_preview: 'Kaum relevant', score: 0.01 }],
@@ -943,7 +953,7 @@ describe('ChatMessage Component', () => {
 
     test('rendert mehrere Sources korrekt', () => {
       const message = {
-        id: 'msg-17',
+        id: 17,
         role: 'assistant',
         content: 'Antwort',
         sources: [
@@ -965,7 +975,7 @@ describe('ChatMessage Component', () => {
     test('behandelt gleichzeitig Thinking und Loading korrekt', () => {
       // Wenn Thinking vorhanden ist, soll kein Loading angezeigt werden
       const message = {
-        id: 'msg-18',
+        id: 18,
         role: 'assistant',
         content: '',
         hasThinking: true,

@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import ChatLanding from '../ChatLanding';
@@ -18,7 +18,15 @@ import ChatLanding from '../ChatLanding';
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
-  Link: ({ to, children, className }) => (
+  Link: ({
+    to,
+    children,
+    className,
+  }: {
+    to: string;
+    children?: React.ReactNode;
+    className?: string;
+  }) => (
     <a href={to} className={className}>
       {children}
     </a>
@@ -52,14 +60,14 @@ vi.mock('../../../hooks/useConfirm', () => ({
 
 // Mock ProjectModal
 vi.mock('../../projects', () => ({
-  ProjectModal: function MockProjectModal({ isOpen }) {
+  ProjectModal: function MockProjectModal({ isOpen }: { isOpen: boolean }) {
     return isOpen ? <div data-testid="project-modal">Modal</div> : null;
   },
 }));
 
 // Mock EmptyState
 vi.mock('../../../components/ui/EmptyState', () => ({
-  default: function MockEmptyState({ title }) {
+  default: function MockEmptyState({ title }: { title: string }) {
     return <div data-testid="empty-state">{title}</div>;
   },
 }));

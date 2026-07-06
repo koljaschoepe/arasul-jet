@@ -12,7 +12,18 @@ import BotsSection from './sections/BotsSection';
 import StatusSection from './sections/StatusSection';
 import SystemSection from './sections/SystemSection';
 import LogsSection from './sections/LogsSection';
-import type { Bot, AppStatus, SystemConfig, SystemMessage, AuditLog } from './sections/types';
+import type {
+  Bot,
+  AppStatus,
+  SystemConfig,
+  SystemMessage,
+  AuditLog,
+  BotsResponse,
+  TelegramConfigResponse,
+  SaveConfigResponse,
+  AuditLogsResponse,
+  ToggleBotResponse,
+} from './sections/types';
 
 export default function TelegramBotPage() {
   const { confirm, ConfirmDialog } = useConfirm();
@@ -57,8 +68,8 @@ export default function TelegramBotPage() {
     setError(null);
     try {
       const [botsData, statusData] = await Promise.all([
-        api.get('/telegram-bots', { showError: false }),
-        api.get('/telegram-app/status', { showError: false }),
+        api.get<BotsResponse>('/telegram-bots', { showError: false }),
+        api.get<AppStatus>('/telegram-app/status', { showError: false }),
       ]);
       if (isMountedRef.current) {
         setBots(botsData.bots || []);
@@ -76,7 +87,10 @@ export default function TelegramBotPage() {
   const fetchSystemConfig = useCallback(
     async (signal: AbortSignal) => {
       try {
-        const data = await api.get('/telegram/config', { showError: false, signal });
+        const data = await api.get<TelegramConfigResponse>('/telegram/config', {
+          showError: false,
+          signal,
+        });
         if (isMountedRef.current) {
           setSystemConfig({
             bot_token: '',
@@ -104,7 +118,9 @@ export default function TelegramBotPage() {
   const fetchLogs = useCallback(async () => {
     setLogsLoading(true);
     try {
-      const data = await api.get('/telegram/audit-logs?limit=50', { showError: false });
+      const data = await api.get<AuditLogsResponse>('/telegram/audit-logs?limit=50', {
+        showError: false,
+      });
       if (isMountedRef.current) setAuditLogs(data.logs || []);
     } catch {
       // silently fail
@@ -130,9 +146,13 @@ export default function TelegramBotPage() {
     setTogglingBot(botId);
     try {
       const endpoint = currentActive ? 'deactivate' : 'activate';
-      const data = await api.post(`/telegram-bots/${botId}/${endpoint}`, undefined, {
-        showError: false,
-      });
+      const data = await api.post<ToggleBotResponse>(
+        `/telegram-bots/${botId}/${endpoint}`,
+        undefined,
+        {
+          showError: false,
+        }
+      );
       const newActive = data?.bot?.isActive ?? !currentActive;
       setBots(prev => prev.map(bot => (bot.id === botId ? { ...bot, isActive: newActive } : bot)));
       toast.success(currentActive ? 'Bot deaktiviert' : 'Bot aktiviert');
@@ -176,9 +196,11 @@ export default function TelegramBotPage() {
         enabled: systemConfig.enabled,
       };
       if (systemConfig.bot_token) payload.bot_token = systemConfig.bot_token;
-      const data = await api.post('/telegram/config', payload, { showError: false });
+      const data = await api.post<SaveConfigResponse>('/telegram/config', payload, {
+        showError: false,
+      });
       if (!isMountedRef.current) return;
-      setHasToken(data.has_token === true || (systemConfig.bot_token !== '' && data.success));
+      setHasToken(data.has_token === true || (systemConfig.bot_token !== '' && !!data.success));
       setSystemConfig(prev => ({ ...prev, bot_token: '' }));
       setOriginalSystemConfig({
         bot_token: '',
@@ -288,7 +310,7 @@ export default function TelegramBotPage() {
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="max-w-[960px] px-6 py-6">
+          <div className="max-w-240 px-6 py-6">
             <TabsContent value="bots">
               <ComponentErrorBoundary componentName="Bots">
                 <BotsSection
@@ -344,11 +366,22 @@ export default function TelegramBotPage() {
       {showWizard && (
         <div
           className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center animate-in fade-in duration-150"
+          role="button"
+          tabIndex={0}
+          aria-label="Dialog schließen"
           onClick={() => setShowWizard(false)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setShowWizard(false);
+            }
+          }}
         >
           <div
-            className="w-[90vw] max-w-[700px] max-h-[85vh] bg-background border border-border rounded-[14px] flex flex-col overflow-hidden shadow-2xl"
+            className="w-[90vw] max-w-175 max-h-[85vh] bg-background border border-border rounded-[14px] flex flex-col overflow-hidden shadow-2xl"
+            role="presentation"
             onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center px-6 py-4 border-b border-border">
               <h3 className="m-0 text-lg text-foreground">Neuen Bot erstellen</h3>

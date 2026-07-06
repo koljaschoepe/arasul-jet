@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import useTokenBatching from '../../hooks/useTokenBatching';
+import type { Dispatch, SetStateAction } from 'react';
+import useTokenBatching, { type TokenCountableMessage } from '../../hooks/useTokenBatching';
 
 describe('useTokenBatching', () => {
   let setMessagesMock: ReturnType<typeof vi.fn>;
@@ -84,10 +85,14 @@ describe('useTokenBatching', () => {
 
   it('validates index bounds in setMessages updater', () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const mockSetMessages = vi.fn((updater: (prev: any[]) => any[]) => {
-      // Simulate empty messages array
-      return updater([]);
-    });
+    const mockSetMessages: Dispatch<SetStateAction<TokenCountableMessage[]>> = vi.fn(
+      (updater: SetStateAction<TokenCountableMessage[]>) => {
+        // Simulate empty messages array
+        if (typeof updater === 'function') {
+          updater([]);
+        }
+      }
+    );
 
     const { result } = renderHook(() => useTokenBatching(mockSetMessages));
 

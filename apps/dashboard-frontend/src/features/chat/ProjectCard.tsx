@@ -185,7 +185,9 @@ export default function ProjectCard({
 
         <div
           className="project-card-actions flex items-center gap-1 ml-2"
+          role="presentation"
           onClick={e => e.stopPropagation()}
+          onKeyDown={e => e.stopPropagation()}
         >
           {!project.is_default && (
             <>

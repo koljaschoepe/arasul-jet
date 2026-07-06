@@ -353,7 +353,7 @@ export function useTerminal({
       hasConnectedRef.current = false;
       retryCountRef.current = 0;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, [containerStatus, projectId]);
 
   return {
@@ -366,5 +366,3 @@ export function useTerminal({
     sendInput,
   };
 }
-
-export default useTerminal;

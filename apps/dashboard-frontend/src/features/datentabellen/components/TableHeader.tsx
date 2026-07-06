@@ -103,8 +103,9 @@ function EditableColumnName({
   }
 
   return (
-    <div
-      className="flex items-center gap-1.5 text-xs font-medium text-foreground cursor-pointer leading-tight hover:text-primary truncate flex-1 min-w-0"
+    <button
+      type="button"
+      className="flex items-center gap-1.5 bg-transparent border-0 text-xs font-medium text-foreground cursor-pointer leading-tight hover:text-primary truncate flex-1 min-w-0"
       onClick={() => onSort(field.slug)}
       onDoubleClick={e => {
         e.stopPropagation();
@@ -119,7 +120,7 @@ function EditableColumnName({
         ) : (
           <ChevronDown className="size-3 shrink-0" />
         ))}
-    </div>
+    </button>
   );
 }
 
@@ -140,13 +141,14 @@ const TableHeader = memo(function TableHeader({
   return (
     <div className="overflow-hidden shrink-0 border-b border-border bg-card" ref={headerScrollRef}>
       <div className="flex min-w-max">
-        <div
-          className="w-12 min-w-12 h-9 flex items-center justify-center bg-card border-r border-border text-[0.6875rem] font-semibold text-muted-foreground cursor-pointer select-none hover:text-primary hover:bg-primary/10"
+        <button
+          type="button"
+          className="w-12 min-w-12 h-9 flex items-center justify-center bg-card border-0 border-r border-border text-[0.6875rem] font-semibold text-muted-foreground cursor-pointer select-none hover:text-primary hover:bg-primary/10"
           onClick={onToggleSelectAll}
           title="Alle auswählen"
         >
           #
-        </div>
+        </button>
         <TooltipProvider>
           {fields.map(field => {
             const typeLabel = FIELD_LABELS[field.field_type] || field.field_type;
@@ -190,6 +192,9 @@ const TableHeader = memo(function TableHeader({
                   <MoreVertical className="size-3" />
                 </button>
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Breite von ${field.name} anpassen`}
                   className={cn(
                     'absolute right-0 top-0 bottom-0 w-1 cursor-col-resize bg-transparent hover:bg-primary',
                     resizingColumn?.fieldSlug === field.slug && 'bg-primary'

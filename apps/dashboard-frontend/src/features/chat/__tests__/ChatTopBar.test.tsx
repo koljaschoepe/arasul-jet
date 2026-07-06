@@ -12,8 +12,7 @@
  * - Projekt-Badge Anzeige
  */
 
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import ChatTopBar from '../ChatTopBar';
@@ -51,7 +50,7 @@ vi.mock('../../../hooks/useConfirm', () => ({
 
 describe('ChatTopBar Component', () => {
   const defaultProps = {
-    chatId: 1,
+    chatId: '1',
     title: 'Mein Test Chat',
     onTitleChange: vi.fn(),
     project: null,

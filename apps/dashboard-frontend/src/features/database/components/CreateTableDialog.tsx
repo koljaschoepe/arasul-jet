@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { AlertCircle, Save } from 'lucide-react';
 import { useApi } from '../../../hooks/useApi';
 import Modal from '../../../components/ui/Modal';
@@ -24,6 +24,11 @@ const CreateTableDialog = memo(function CreateTableDialog({
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) nameInputRef.current?.focus();
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
@@ -110,11 +115,11 @@ const CreateTableDialog = memo(function CreateTableDialog({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="table-name">Name</Label>
           <Input
+            ref={nameInputRef}
             id="table-name"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="z.B. Produkte, Kunden, Aufträge"
-            autoFocus
           />
         </div>
 

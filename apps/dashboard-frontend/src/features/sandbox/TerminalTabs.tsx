@@ -45,7 +45,7 @@ export default function TerminalTabs({
   const availableProjects = allProjects.filter(p => !openIds.has(p.id) && p.status === 'active');
 
   return (
-    <div className="flex items-center bg-background border-b border-border shrink-0 min-h-[38px]">
+    <div className="flex items-center bg-background border-b border-border shrink-0 min-h-9.5">
       {/* Tabs */}
       <div className="flex items-center flex-1 min-w-0 overflow-x-auto scrollbar-none">
         {openTabs.map(tab => (
@@ -65,7 +65,7 @@ export default function TerminalTabs({
               }
             }}
             className={cn(
-              'group flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-r border-border shrink-0 transition-all duration-150 max-w-[180px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              'group flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-r border-border shrink-0 transition-all duration-150 max-w-45 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
               tab.id === activeTabId
                 ? 'bg-muted text-foreground border-b-2 border-b-primary'
                 : 'bg-background text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -101,13 +101,13 @@ export default function TerminalTabs({
           <Button
             variant="ghost"
             size="sm"
-            className="text-muted-foreground hover:text-foreground h-[38px] w-[38px] rounded-none border-r border-border shrink-0"
+            className="text-muted-foreground hover:text-foreground h-9.5 w-9.5 rounded-none border-r border-border shrink-0"
             title="Projekt hinzufügen"
           >
             <Plus className="size-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-[220px]">
+        <DropdownMenuContent align="start" className="min-w-55">
           {availableProjects.length > 0 && (
             <>
               <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
@@ -144,7 +144,7 @@ export default function TerminalTabs({
         variant="ghost"
         size="sm"
         onClick={onShowAllProjects}
-        className="text-muted-foreground hover:text-foreground h-[38px] px-3 rounded-none shrink-0"
+        className="text-muted-foreground hover:text-foreground h-9.5 px-3 rounded-none shrink-0"
         title="Alle Projekte"
       >
         <List className="size-4" />

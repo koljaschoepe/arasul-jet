@@ -59,11 +59,21 @@ const TableRow = memo(function TableRow({
                 isActive && 'outline-1 outline outline-primary -outline-offset-1 z-0'
               )}
               style={{ width: columnWidths[field.slug] || 150, height: ROW_HEIGHT }}
+              role="button"
+              tabIndex={0}
               onClick={() => onCellClick(rowIdx, colIdx, row._id, field.slug)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onCellClick(rowIdx, colIdx, row._id, field.slug);
+                }
+              }}
             >
               {isEditing ? (
                 <GridCellEditor
-                  value={row[field.slug]}
+                  // GridCellEditor's CellValue excludes undefined; it applies
+                  // `value ?? ''` internally, so undefined → null is identical.
+                  value={row[field.slug] ?? null}
                   field={field}
                   onSave={(val: CellValue, dir?: string) =>
                     onCellSave(row._id, field.slug, val, dir)
@@ -94,7 +104,16 @@ const TableRow = memo(function TableRow({
           'w-12 min-w-12 flex items-center justify-center bg-card border-r border-border text-[0.6875rem] text-muted-foreground cursor-pointer select-none shrink-0 hover:text-primary hover:bg-primary/10',
           isSelected && 'bg-primary/15 text-primary font-semibold'
         )}
+        role="button"
+        tabIndex={0}
+        aria-label={`Zeile ${rowIdx + 1} auswählen`}
         onClick={() => onToggleSelection(row._id)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggleSelection(row._id);
+          }
+        }}
       >
         {rowIdx + 1}
       </div>
@@ -111,12 +130,22 @@ const TableRow = memo(function TableRow({
               isActive && 'outline-1 outline outline-primary -outline-offset-1 z-0'
             )}
             style={{ width: columnWidths[field.slug] || 150, height: ROW_HEIGHT }}
+            role="button"
+            tabIndex={0}
             onClick={() => onCellClick(rowIdx, colIdx, row._id, field.slug)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onCellClick(rowIdx, colIdx, row._id, field.slug);
+              }
+            }}
             onContextMenu={e => onContextMenu(e, rowIdx, colIdx)}
           >
             {isEditing ? (
               <GridCellEditor
-                value={row[field.slug]}
+                // GridCellEditor's CellValue excludes undefined; it applies
+                // `value ?? ''` internally, so undefined → null is identical.
+                value={row[field.slug] ?? null}
                 field={field}
                 onSave={(val: CellValue, dir?: string) => onCellSave(row._id, field.slug, val, dir)}
                 onCancel={onCancelEdit}

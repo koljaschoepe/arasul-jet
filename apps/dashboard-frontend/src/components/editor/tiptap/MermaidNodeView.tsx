@@ -4,12 +4,12 @@
  * and a live diagram preview below.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import MermaidDiagram from '../MermaidDiagram';
 
-export default function MermaidNodeView({ node, updateAttributes }: NodeViewProps) {
+export default function MermaidNodeView({ node }: NodeViewProps) {
   const language: string = node.attrs.language ?? '';
   const isMermaid = language === 'mermaid';
   const [showPreview, setShowPreview] = useState(true);

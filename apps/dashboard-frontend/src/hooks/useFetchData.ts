@@ -115,5 +115,3 @@ export function useFetchData<T>(
 
   return { data, setData, loading, error, setError, refetch };
 }
-
-export default useFetchData;

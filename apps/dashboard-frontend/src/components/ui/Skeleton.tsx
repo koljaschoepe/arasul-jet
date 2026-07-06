@@ -9,13 +9,7 @@ interface SkeletonProps {
   style?: React.CSSProperties;
 }
 
-export function Skeleton({
-  width,
-  height,
-  borderRadius,
-  className = '',
-  style = {},
-}: SkeletonProps) {
+function Skeleton({ width, height, borderRadius, className = '', style = {} }: SkeletonProps) {
   return (
     <div
       className={cn('animate-pulse rounded-md bg-accent', className)}
@@ -52,7 +46,7 @@ export function SkeletonText({
   );
 }
 
-export function SkeletonAvatar({ size = '40px' }: { size?: string }) {
+function SkeletonAvatar({ size = '40px' }: { size?: string }) {
   return <Skeleton width={size} height={size} borderRadius="50%" />;
 }
 
@@ -92,69 +86,7 @@ export function SkeletonList({
   );
 }
 
-export function SkeletonTableRow({ columns = 4 }: { columns?: number }) {
-  return (
-    <div className="flex gap-4 py-3 px-4" aria-hidden="true">
-      {Array(columns)
-        .fill(0)
-        .map((_, i) => (
-          <Skeleton key={i} height="1rem" width={i === 0 ? '30%' : '80%'} />
-        ))}
-    </div>
-  );
-}
-
-export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
-  return (
-    <div
-      className="rounded-lg border border-border overflow-hidden"
-      aria-label="Lade Tabelle..."
-      role="status"
-    >
-      <div className="flex gap-4 py-3 px-4 bg-accent/50 border-b border-border">
-        {Array(columns)
-          .fill(0)
-          .map((_, i) => (
-            <Skeleton key={i} height="1rem" width="60%" />
-          ))}
-      </div>
-      {Array(rows)
-        .fill(0)
-        .map((_, i) => (
-          <SkeletonTableRow key={i} columns={columns} />
-        ))}
-    </div>
-  );
-}
-
-export function SkeletonChatMessage({ isUser = false }: { isUser?: boolean }) {
-  return (
-    <div
-      className={cn('flex gap-3 px-4 py-2', isUser ? 'flex-row-reverse' : 'flex-row')}
-      aria-hidden="true"
-    >
-      {!isUser && <SkeletonAvatar size="32px" />}
-      <div className={cn('flex-1', isUser ? 'max-w-[60%] ml-auto' : 'max-w-[80%]')}>
-        <SkeletonText lines={isUser ? 1 : 3} />
-      </div>
-      {isUser && <SkeletonAvatar size="32px" />}
-    </div>
-  );
-}
-
-export function SkeletonChat({ messageCount = 4 }: { messageCount?: number }) {
-  return (
-    <div className="flex flex-col gap-4" aria-label="Lade Chat..." role="status">
-      {Array(messageCount)
-        .fill(0)
-        .map((_, i) => (
-          <SkeletonChatMessage key={i} isUser={i % 2 === 0} />
-        ))}
-    </div>
-  );
-}
-
-export function SkeletonDocumentItem() {
+function SkeletonDocumentItem() {
   return (
     <div className="flex items-center gap-3 py-3 px-4" aria-hidden="true">
       <Skeleton width="24px" height="24px" borderRadius="4px" />
@@ -182,5 +114,3 @@ export function SkeletonDocumentList({ count = 5 }: { count?: number }) {
     </div>
   );
 }
-
-export default Skeleton;

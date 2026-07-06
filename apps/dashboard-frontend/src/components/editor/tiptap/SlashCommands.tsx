@@ -11,6 +11,11 @@ import Suggestion from '@tiptap/suggestion';
 import type { SuggestionOptions, SuggestionProps } from '@tiptap/suggestion';
 import SlashCommandsList from './SlashCommandsList';
 
+/** Imperative handle exposed by SlashCommandsList via useImperativeHandle. */
+interface SlashCommandsListRef {
+  onKeyDown: (props: { event: KeyboardEvent }) => boolean;
+}
+
 export interface SlashCommandItem {
   title: string;
   description: string;
@@ -196,7 +201,10 @@ export const SlashCommandsExtension = Extension.create({
                 component = null;
                 return true;
               }
-              return (component?.ref as any)?.onKeyDown?.(props) ?? false;
+              // TipTap types ReactRenderer.ref as `unknown`; assert the known
+              // imperative-handle shape (see SlashCommandsList useImperativeHandle).
+              const listRef = component?.ref as SlashCommandsListRef | undefined;
+              return listRef?.onKeyDown?.(props) ?? false;
             },
 
             onExit: () => {

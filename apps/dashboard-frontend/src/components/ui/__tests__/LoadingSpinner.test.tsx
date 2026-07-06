@@ -8,7 +8,6 @@
  * - Ohne message
  */
 
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import LoadingSpinner from '../LoadingSpinner';
 
@@ -135,9 +134,12 @@ describe('LoadingSpinner Component', () => {
     test('hat korrekte DOM-Struktur', () => {
       const { container } = render(<LoadingSpinner />);
 
-      // Outer container
-      const outerDiv = container.firstChild;
+      // Outer container (firstElementChild = the component's root div)
+      const outerDiv = container.firstElementChild;
       expect(outerDiv).toHaveClass('loading-spinner-inline');
+      // toHaveClass above already failed the test if outerDiv were null;
+      // the throw only narrows the type for the queries below.
+      if (!outerDiv) throw new Error('LoadingSpinner rendered no root element');
 
       // Animation container
       const animationDiv = outerDiv.querySelector('.spinner-animation');

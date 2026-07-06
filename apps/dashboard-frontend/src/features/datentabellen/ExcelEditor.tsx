@@ -315,8 +315,22 @@ function ExcelEditor({ tableSlug, tableName, onClose }: ExcelEditorProps) {
 
   if (loading && !table) {
     return (
-      <div className="excel-editor-overlay" onClick={handleClose}>
-        <div className="excel-editor-container" onClick={e => e.stopPropagation()}>
+      <div
+        className="excel-editor-overlay"
+        role="button"
+        tabIndex={0}
+        aria-label="Editor schließen"
+        onClick={e => {
+          if (e.target === e.currentTarget) handleClose();
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClose();
+          }
+        }}
+      >
+        <div className="excel-editor-container">
           <LoadingSpinner message="Tabelle wird geladen..." />
         </div>
       </div>
@@ -324,8 +338,22 @@ function ExcelEditor({ tableSlug, tableName, onClose }: ExcelEditorProps) {
   }
 
   return (
-    <div className="excel-editor-overlay" onClick={handleClose}>
-      <div className="excel-editor-container" onClick={e => e.stopPropagation()}>
+    <div
+      className="excel-editor-overlay"
+      role="button"
+      tabIndex={0}
+      aria-label="Editor schließen"
+      onClick={e => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClose();
+        }
+      }}
+    >
+      <div className="excel-editor-container">
         <EditorHeader
           table={table}
           tableName={tableName}
@@ -369,6 +397,8 @@ function ExcelEditor({ tableSlug, tableName, onClose }: ExcelEditorProps) {
             <div
               className="flex-1 flex flex-col min-h-0 outline-none relative focus-visible:outline-2 focus-visible:outline focus-visible:outline-primary focus-visible:outline-offset-[-2px]"
               ref={tableRef}
+              role="grid"
+              aria-label="Tabellendaten"
               tabIndex={0}
             >
               <TableHeader

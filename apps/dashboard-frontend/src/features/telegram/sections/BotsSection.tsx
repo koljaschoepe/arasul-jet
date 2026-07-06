@@ -69,7 +69,7 @@ export default function BotsSection({
                   className="rounded bg-border animate-pulse"
                   style={{ width: 120, height: 16 }}
                 />
-                <div className="w-[52px] h-[22px] rounded-full bg-border animate-pulse" />
+                <div className="w-13 h-5.5 rounded-full bg-border animate-pulse" />
               </div>
               <div
                 className="rounded bg-border animate-pulse"
@@ -94,7 +94,7 @@ export default function BotsSection({
             <Send size={32} />
           </div>
           <h4 className="text-foreground m-0 mb-2 text-lg">Noch keine Bots</h4>
-          <p className="m-0 mb-5 max-w-[360px] leading-relaxed text-sm">
+          <p className="m-0 mb-5 max-w-90 leading-relaxed text-sm">
             Verbinde deinen ersten Telegram Bot mit einer KI und starte Gespräche direkt aus
             Telegram.
           </p>

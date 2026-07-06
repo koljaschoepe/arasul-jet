@@ -183,7 +183,7 @@ export default function useTableData({
       rowId: string,
       fieldSlug: string,
       value: CellValue,
-      direction?: string,
+      _direction?: string,
       skipUndo = false
     ) => {
       setEditingCell(null);
@@ -376,13 +376,16 @@ export default function useTableData({
           .replace(/^\uFEFF/, '')
           .split(/\r?\n/)
           .filter(l => l.trim());
-        if (lines.length < 2) {
+        // headerLine is always defined when lines.length >= 2; the extra
+        // check only narrows the noUncheckedIndexedAccess type.
+        const headerLine = lines[0];
+        if (lines.length < 2 || headerLine === undefined) {
           toast.error('CSV-Datei muss mindestens eine Kopfzeile und eine Datenzeile enthalten');
           return;
         }
 
         // Auto-detect delimiter
-        const delimiter = lines[0].includes(';') ? ';' : ',';
+        const delimiter = headerLine.includes(';') ? ';' : ',';
 
         const parseCSVLine = (line: string): string[] => {
           const values: string[] = [];
@@ -412,7 +415,7 @@ export default function useTableData({
           return values;
         };
 
-        const csvHeaders = parseCSVLine(lines[0]);
+        const csvHeaders = parseCSVLine(headerLine);
 
         // Map CSV headers to field slugs
         const fieldMap = csvHeaders.map(header => {
@@ -446,7 +449,9 @@ export default function useTableData({
         // Parse data rows
         const importRows: Record<string, CellValue>[] = [];
         for (let i = 1; i < lines.length; i++) {
-          const values = parseCSVLine(lines[i]);
+          const line = lines[i];
+          if (line === undefined) continue; // i < lines.length ⇒ always defined; type-only guard
+          const values = parseCSVLine(line);
           const rowData: Record<string, CellValue> = {};
           let hasData = false;
           values.forEach((val, idx) => {

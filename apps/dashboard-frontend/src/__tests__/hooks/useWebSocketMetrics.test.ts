@@ -1,9 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock window.location for WebSocket URL construction
-const originalLocation = window.location;
-
 // Mock WebSocket
 class MockWebSocket {
   static OPEN = 1;
@@ -45,6 +42,13 @@ class MockWebSocket {
 
 vi.stubGlobal('WebSocket', MockWebSocket);
 
+/** Returns the most recently created MockWebSocket; throws (= test failure) if none exists. */
+function lastInstance(): MockWebSocket {
+  const ws: MockWebSocket | undefined = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+  if (!ws) throw new Error('Expected a MockWebSocket instance to have been created');
+  return ws;
+}
+
 // Mock config/api
 vi.mock('../../config/api', () => ({
   API_BASE: '/api',
@@ -74,10 +78,10 @@ describe('useWebSocketMetrics', () => {
 
   it('creates WebSocket connection when authenticated', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result } = renderHook(() => useWebSocketMetrics(true));
+    renderHook(() => useWebSocketMetrics(true));
 
     expect(MockWebSocket.instances.length).toBeGreaterThanOrEqual(1);
-    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const ws = lastInstance();
     expect(ws.url).toContain('metrics/live-stream');
   });
 
@@ -85,7 +89,7 @@ describe('useWebSocketMetrics', () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
     const { result } = renderHook(() => useWebSocketMetrics(true));
 
-    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const ws = lastInstance();
 
     act(() => {
       ws.simulateOpen();
@@ -104,7 +108,7 @@ describe('useWebSocketMetrics', () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
     const { result } = renderHook(() => useWebSocketMetrics(true));
 
-    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const ws = lastInstance();
 
     act(() => {
       ws.simulateOpen();
@@ -125,7 +129,7 @@ describe('useWebSocketMetrics', () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
     const { result } = renderHook(() => useWebSocketMetrics(true));
 
-    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const ws = lastInstance();
 
     act(() => {
       ws.simulateOpen();
@@ -141,9 +145,9 @@ describe('useWebSocketMetrics', () => {
 
   it('cleans up on unmount', async () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
-    const { result, unmount } = renderHook(() => useWebSocketMetrics(true));
+    const { unmount } = renderHook(() => useWebSocketMetrics(true));
 
-    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const ws = lastInstance();
 
     act(() => {
       ws.simulateOpen();
@@ -158,7 +162,7 @@ describe('useWebSocketMetrics', () => {
     const { useWebSocketMetrics } = await import('../../hooks/useWebSocketMetrics');
     const { result } = renderHook(() => useWebSocketMetrics(true));
 
-    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const ws = lastInstance();
 
     act(() => {
       ws.simulateOpen();

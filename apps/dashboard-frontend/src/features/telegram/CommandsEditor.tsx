@@ -13,14 +13,9 @@ import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 
-interface BotCommand {
-  id: number;
-  command: string;
-  description: string;
-  prompt: string;
-  isEnabled?: boolean;
-  is_enabled?: boolean;
-}
+import type { TelegramCommand } from '../../types';
+
+type BotCommand = TelegramCommand;
 
 interface CommandsEditorProps {
   botId: number;
@@ -324,7 +319,7 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
                   <button
                     type="button"
                     className={cn(
-                      'relative w-10 h-[22px] rounded-full cursor-pointer transition-all border',
+                      'relative w-10 h-5.5 rounded-full cursor-pointer transition-all border',
                       (cmd.isEnabled ?? cmd.is_enabled ?? true)
                         ? 'bg-primary border-primary'
                         : 'bg-background border-border'
@@ -336,8 +331,8 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
                   >
                     <span
                       className={cn(
-                        'absolute top-[2px] left-[2px] size-4 bg-white rounded-full transition-transform',
-                        (cmd.isEnabled ?? cmd.is_enabled ?? true) && 'translate-x-[18px]'
+                        'absolute top-0.5 left-0.5 size-4 bg-white rounded-full transition-transform',
+                        (cmd.isEnabled ?? cmd.is_enabled ?? true) && 'translate-x-4.5'
                       )}
                     />
                   </button>
@@ -370,21 +365,21 @@ function CommandsEditor({ botId, commands, onChange }: CommandsEditorProps) {
         <h5 className="m-0 mb-3 text-foreground text-sm">System-Befehle (nicht änderbar)</h5>
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-3 py-1.5">
-            <span className="font-mono text-sm text-primary min-w-[100px]">/start</span>
+            <span className="font-mono text-sm text-primary min-w-25">/start</span>
             <span className="text-[0.825rem] text-muted-foreground">Bot starten</span>
           </div>
           <div className="flex items-center gap-3 py-1.5">
-            <span className="font-mono text-sm text-primary min-w-[100px]">/clear</span>
+            <span className="font-mono text-sm text-primary min-w-25">/clear</span>
             <span className="text-[0.825rem] text-muted-foreground">
               Kontext leeren (neues Gespräch)
             </span>
           </div>
           <div className="flex items-center gap-3 py-1.5">
-            <span className="font-mono text-sm text-primary min-w-[100px]">/help</span>
+            <span className="font-mono text-sm text-primary min-w-25">/help</span>
             <span className="text-[0.825rem] text-muted-foreground">Hilfe anzeigen</span>
           </div>
           <div className="flex items-center gap-3 py-1.5">
-            <span className="font-mono text-sm text-primary min-w-[100px]">/commands</span>
+            <span className="font-mono text-sm text-primary min-w-25">/commands</span>
             <span className="text-[0.825rem] text-muted-foreground">Alle Befehle anzeigen</span>
           </div>
         </div>

@@ -856,16 +856,34 @@ export function FeatureCard({ title, description, status, onClick }: FeatureCard
 }
 ```
 
-### Tailwind Design-Token Mapping
+### Token-Architektur (eine Quelle, drei Schichten)
 
-Die CSS-Variablen aus dem Design-System sind als Tailwind-Tokens in `index.css` via `@theme` definiert:
+`index.css` hat **eine** Token-Quelle statt mehrerer überlappender Farb-Ebenen.
+Der Aufbau (von statisch → thematisch → Utility):
+
+1. **`@theme`** — statische, theme-unabhängige Tokens: Radius, Fonts, Chart-Palette
+   (`--radius-*`, `--font-*`, `--color-chart-1…5`).
+2. **`:root` (Dark) + `.light` (Overrides)** — die **einzige Wertequelle** für alle
+   Farben. `:root` hält die Dark-Theme-Werte (Default), `.light` überschreibt nur
+   die abweichenden. Kein Wert wird an mehreren Stellen doppelt gepflegt.
+3. **`@theme inline`** — mappt die Runtime-Variablen aus (2) auf Tailwind-Utility-Tokens,
+   damit jede Utility theme-aware ist:
 
 ```css
-/* index.css @theme Block */
---color-bg-card: #1a2330;        → className="bg-bg-card"
---color-text-muted: #94a3b8;     → className="text-text-muted"
---color-primary-hover: #6EC4FF;  → className="hover:text-primary-hover"
+/* @theme inline — Mapping, KEINE Werte */
+--color-bg-card: var(--bg-card);        → className="bg-bg-card"
+--color-text-muted: var(--text-muted);  → className="text-text-muted"
+--color-primary: var(--primary);        → className="bg-primary"
+/* Werte selbst: :root { --bg-card: #1a2330 } + .light { --bg-card: #ffffff } */
 ```
+
+### Dark/Light über EINE Mechanik
+
+Der Theme-Wechsel läuft ausschließlich über die Klasse **`html.dark`** bzw. `.light`
+am Wurzelelement (`@custom-variant dark (&:is(.dark *))`). Die früheren
+`body.light-mode`/`.dark-mode`-Abhängigkeiten entfallen — `useTheme` toggelt nur
+noch die Wurzel-Klasse. Neue Komponenten brauchen **keine** eigenen Dark/Light-Zweige:
+solange sie Tokens verwenden, folgen sie dem Theme automatisch.
 
 ### CSS-Variablen vs. Tailwind
 
@@ -875,6 +893,10 @@ Die CSS-Variablen aus dem Design-System sind als Tailwind-Tokens in `index.css` 
 | Custom Components        | Tailwind-Klassen mit Design-Tokens (`bg-bg-card`, `text-text-muted`) |
 | Inline-Styles (Ausnahme) | CSS-Variablen (`var(--primary-color)`)                               |
 | Animationen/Keyframes    | CSS in feature-spezifischen `.css` Dateien                           |
+
+Farb-Literale (`#rrggbb`) in Komponenten sind verboten — die einzige legitime Ausnahme
+sind technische Paletten (z.B. Xterm-Farben in `TerminalTabs.tsx`, Chart-Palette im
+`@theme`-Block), die mit Kommentar markiert sind.
 
 ---
 

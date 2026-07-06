@@ -82,7 +82,7 @@ class MockWebSocket {
     if (this.onclose) this.onclose();
   }
 }
-(window as Record<string, unknown>).WebSocket = MockWebSocket;
+window.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 
 // Mock fetch
 (globalThis as Record<string, unknown>).fetch = vi.fn(() =>

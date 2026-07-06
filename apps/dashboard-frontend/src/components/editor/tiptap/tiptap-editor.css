@@ -708,101 +708,101 @@ body.sidebar-collapsed .tiptap-editor-overlay {
    LIGHT MODE
    ======================================== */
 
-.light-mode .tiptap-editor-overlay {
+.light .tiptap-editor-overlay {
   background: var(--backdrop-color);
 }
 
-.light-mode .tiptap-editor-container {
+.light .tiptap-editor-container {
   background: var(--bg-card);
 }
 
-.light-mode .tiptap-editor-header {
+.light .tiptap-editor-header {
   background: var(--bg-elevated);
   border-bottom-color: var(--border-color);
 }
 
-.light-mode .tiptap-toolbar-group {
+.light .tiptap-toolbar-group {
   background: var(--border-color);
   border-color: transparent;
 }
 
-.light-mode .tiptap-toolbar-btn {
+.light .tiptap-toolbar-btn {
   color: var(--text-secondary);
 }
 
-.light-mode .tiptap-toolbar-btn:hover {
+.light .tiptap-toolbar-btn:hover {
   background: var(--bg-card-hover);
   color: var(--text-primary);
 }
 
-.light-mode .tiptap-toolbar-btn.active {
+.light .tiptap-toolbar-btn.active {
   background: var(--primary-alpha-15);
   color: var(--primary-color);
 }
 
-.light-mode .tiptap-save-btn {
+.light .tiptap-save-btn {
   background: var(--bg-elevated);
   color: var(--text-secondary);
 }
 
-.light-mode .tiptap-save-btn.has-changes {
+.light .tiptap-save-btn.has-changes {
   background: var(--primary-color);
   color: var(--text-on-primary);
 }
 
-.light-mode .tiptap-close-btn:hover {
+.light .tiptap-close-btn:hover {
   background: var(--danger-color);
   color: var(--text-on-primary);
 }
 
-.light-mode .tiptap-editor-error {
+.light .tiptap-editor-error {
   background: var(--danger-alpha-10);
   border-bottom-color: var(--danger-color);
   color: var(--danger-color);
 }
 
-.light-mode .tiptap-editor-content {
+.light .tiptap-editor-content {
   background: var(--bg-card);
 }
 
-.light-mode .tiptap-content {
+.light .tiptap-content {
   color: var(--text-primary);
 }
 
-.light-mode .tiptap-content code {
+.light .tiptap-content code {
   background: var(--border-color);
   color: var(--danger-color);
 }
 
-.light-mode .tiptap-content pre {
+.light .tiptap-content pre {
   background: var(--bg-elevated);
   border-color: var(--border-color);
 }
 
-.light-mode .tiptap-content pre code {
+.light .tiptap-content pre code {
   color: var(--text-primary);
 }
 
-.light-mode .tiptap-content blockquote {
+.light .tiptap-content blockquote {
   background: var(--primary-alpha-8);
   color: var(--text-secondary);
 }
 
-.light-mode .tiptap-content table th {
+.light .tiptap-content table th {
   background: var(--bg-elevated);
 }
 
-.light-mode .tiptap-content table th,
-.light-mode .tiptap-content table td {
+.light .tiptap-content table th,
+.light .tiptap-content table td {
   border-color: var(--border-color);
 }
 
-.light-mode .tiptap-content h1,
-.light-mode .tiptap-content h2 {
+.light .tiptap-content h1,
+.light .tiptap-content h2 {
   border-bottom-color: var(--border-color);
 }
 
-.light-mode .tiptap-editor-footer {
+.light .tiptap-editor-footer {
   background: var(--bg-elevated);
   border-top-color: var(--border-color);
 }

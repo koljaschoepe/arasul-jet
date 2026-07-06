@@ -39,3 +39,26 @@ export interface AuditLog {
   interaction_type?: string;
   success: boolean;
 }
+
+export interface BotsResponse {
+  bots?: Bot[];
+}
+
+export interface TelegramConfigResponse {
+  chat_id?: string;
+  enabled?: boolean;
+  configured?: boolean;
+}
+
+export interface SaveConfigResponse {
+  has_token?: boolean;
+  success?: boolean;
+}
+
+export interface AuditLogsResponse {
+  logs?: AuditLog[];
+}
+
+export interface ToggleBotResponse {
+  bot?: { isActive?: boolean };
+}

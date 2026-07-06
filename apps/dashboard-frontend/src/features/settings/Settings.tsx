@@ -9,6 +9,7 @@ import {
   User,
   Globe,
   ShieldAlert,
+  SlidersHorizontal,
 } from 'lucide-react';
 import UpdatePage from '../system/UpdatePage';
 import SelfHealingEvents from '../system/SelfHealingEvents';
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { useApi } from '../../hooks/useApi';
 import { GeneralSettings } from './GeneralSettings';
 import { AIProfileSettings } from './AIProfileSettings';
+import { RagLlmSettings } from './RagLlmSettings';
 import { ServicesSettings } from './ServicesSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { RemoteAccessSettings } from './RemoteAccessSettings';
@@ -48,6 +50,12 @@ const sections: Section[] = [
     label: 'KI-Profil',
     icon: <User className="size-5" />,
     description: 'Firmen- und KI-Verhalten konfigurieren',
+  },
+  {
+    id: 'rag-llm',
+    label: 'RAG & LLM',
+    icon: <SlidersHorizontal className="size-5" />,
+    description: 'RAG-Pipeline und Sprachmodell feinjustieren',
   },
   {
     id: 'security',
@@ -123,6 +131,12 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
         return (
           <ComponentErrorBoundary componentName="KI-Profil">
             <AIProfileSettings onDirtyChange={setIsDirty} />
+          </ComponentErrorBoundary>
+        );
+      case 'rag-llm':
+        return (
+          <ComponentErrorBoundary componentName="RAG & LLM">
+            <RagLlmSettings onDirtyChange={setIsDirty} />
           </ComponentErrorBoundary>
         );
       case 'security':
@@ -249,7 +263,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
 
       {/* Main Content Area */}
       <ScrollArea className="flex-1">
-        <div className="max-w-[900px] p-6 max-md:p-4">{renderContent()}</div>
+        <div className="max-w-225 p-6 max-md:p-4">{renderContent()}</div>
       </ScrollArea>
     </div>
   );

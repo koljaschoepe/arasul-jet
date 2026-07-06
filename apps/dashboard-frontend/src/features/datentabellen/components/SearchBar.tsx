@@ -8,7 +8,7 @@ interface SearchBarProps {
 
 const SearchBar = memo(function SearchBar({ onSearch, debounceMs = 300 }: SearchBarProps) {
   const [value, setValue] = useState('');
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

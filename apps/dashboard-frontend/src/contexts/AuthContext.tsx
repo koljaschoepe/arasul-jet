@@ -5,7 +5,7 @@
  * Handles login, logout, session verification, and 401 interceptor.
  */
 
-import React, {
+import {
   createContext,
   useContext,
   useState,
@@ -223,5 +223,3 @@ export function useAuth(): AuthContextValue {
   }
   return context;
 }
-
-export default AuthContext;

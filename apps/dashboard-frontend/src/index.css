@@ -11,35 +11,6 @@
    e.g. --color-bg-card → bg-bg-card, --color-danger → text-danger
    ======================================== */
 @theme {
-  /* Colors - Primary variants */
-  --color-primary-hover: #6EC4FF;
-  --color-primary-active: #2D8FD9;
-
-  /* Colors - Semantic (true status colors — see DESIGN_SYSTEM.md) */
-  --color-danger: #EF4444;
-  --color-danger-hover: #DC2626;
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-warning-hover: #D97706;
-
-  /* Colors - Background */
-  --color-bg-dark: #101923;
-  --color-bg-card: #1a2330;
-  --color-bg-card-hover: #222d3d;
-  --color-bg-elevated: #2a3544;
-  --color-bg-subtle: #1d2835;
-  --color-bg-input: #101923;
-  --color-bg-modal: #1a2330;
-
-  /* Colors - Text */
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #cbd5e1;
-  --color-text-muted: #94a3b8;
-  --color-text-disabled: #64748b;
-
-  /* Colors - Border */
-  --color-border-subtle: #1d2835;
-
   /* Border Radius */
   --radius-xs: 4px;
   --radius-sm: 6px;
@@ -60,11 +31,33 @@
 }
 
 /* ========================================
-   shadcn/ui - Semantic Color Mappings
-   Maps CSS variables to Tailwind utilities.
-   e.g. bg-primary, text-muted-foreground, border-border
+   Semantic Color Mappings (shadcn/ui + Arasul)
+   Maps runtime CSS variables to Tailwind utilities so every
+   utility is theme-aware (dark/light). Single source of truth
+   for the values: the :root block (dark) + .light overrides.
+   e.g. bg-primary, text-muted-foreground, bg-bg-card, text-danger
    ======================================== */
 @theme inline {
+  /* Arasul custom tokens */
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-danger: var(--danger-color);
+  --color-danger-hover: var(--danger-hover);
+  --color-warning-hover: var(--warning-hover);
+  --color-bg-dark: var(--bg-dark);
+  --color-bg-card: var(--bg-card);
+  --color-bg-card-hover: var(--bg-card-hover);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-bg-input: var(--bg-input);
+  --color-bg-modal: var(--bg-modal);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  --color-border-subtle: var(--border-subtle);
+
+  /* shadcn/ui semantic tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -203,18 +196,19 @@
   --icon-xl: 32px;
   --icon-2xl: 48px;
 
-  /* Blue Theme Colors - Design System */
-  --primary-color: #45ADFF;
+  /* Blue Theme Colors - Design System (aliases onto the shadcn set above) */
+  --primary-color: var(--primary);
   --primary-hover: #6EC4FF;
   --primary-active: #2D8FD9;
   --primary-light: #6EC4FF;
   --primary-muted: var(--primary-alpha-15);
-  --text-on-primary: #000000;
-  --danger-color: #EF4444;
+  --text-on-primary: var(--primary-foreground);
+  --danger-color: var(--destructive);
   --danger-hover: #DC2626;
   --danger-light: #FCA5A5;
-  --warning-color: #F59E0B;
-  --success-color: #10B981;
+  --warning-color: var(--warning);
+  --warning-hover: #D97706;
+  --success-color: var(--success);
   --error-color: var(--danger-color);
 
   /* Status Colors - Semantic */
@@ -229,24 +223,24 @@
   --status-performance-bg: rgba(69, 173, 255, 0.15);
   --status-performance-border: rgba(69, 173, 255, 0.3);
 
-  /* Background Colors */
-  --bg-dark: #101923;
-  --bg-app: #101923;
-  --bg-card: #1a2330;
-  --bg-card-hover: #222d3d;
-  --bg-sidebar: #101923;
+  /* Background Colors (aliases where the shadcn set already defines the value) */
+  --bg-dark: var(--background);
+  --bg-app: var(--background);
+  --bg-card: var(--card);
+  --bg-card-hover: var(--accent);
+  --bg-sidebar: var(--background);
   --bg-elevated: #2a3544;
   --bg-subtle: #1d2835;
 
   /* Border Colors */
-  --border-color: #2a3544;
-  --border-subtle: #1d2835;
+  --border-color: var(--border);
+  --border-subtle: var(--muted);
   --border-glow: var(--primary-alpha-30);
 
   /* Text Colors */
-  --text-primary: #f8fafc;
+  --text-primary: var(--foreground);
   --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+  --text-muted: var(--muted-foreground);
   --text-disabled: #64748b;
 
   /* Shadows */
@@ -263,7 +257,7 @@
   --bg-terminal: #1a1a2e;
 
   /* Additional Background Colors for Components */
-  --bg-input: #101923;
+  --bg-input: var(--background);
   --bg-table-header: var(--primary-alpha-5);
   --bg-table-row-hover: rgba(69, 173, 255, 0.03);
   --bg-table-row-active: var(--primary-alpha-8);
@@ -271,7 +265,7 @@
   --bg-dropzone-hover: var(--primary-alpha-8);
   --bg-dropzone-active: var(--primary-alpha-15);
   --bg-code: rgba(69, 173, 255, 0.03);
-  --bg-modal: #1a2330;
+  --bg-modal: var(--card);
 
   /* Additional Border Colors */
   --border-dropzone: var(--primary-alpha-30);
@@ -286,10 +280,10 @@
   --backdrop-color: rgba(0, 0, 0, 0.7);
 
   /* Select Option Background (for dropdowns) */
-  --bg-option: #1a2330;
+  --bg-option: var(--card);
 
   /* Scrollbar colors */
-  --scrollbar-track: #101923;
+  --scrollbar-track: var(--background);
   --scrollbar-thumb: var(--primary-color);
 
   /* ========================================
@@ -357,10 +351,11 @@
 }
 
 /* ========================================
-   LIGHT MODE - Theme Override
-   Helle Hintergründe, dunkler Text
+   LIGHT MODE - Theme Override (.light on <html>)
+   Only overrides values that actually differ from dark.
+   Aliased legacy vars (--bg-card → --card, …) follow automatically.
    ======================================== */
-.light-mode {
+.light {
   /* shadcn/ui Semantic Colors (Light Theme) */
   --background: #FFFFFF;
   --foreground: #0F172A;
@@ -394,106 +389,29 @@
   --code-variable: #953800;
   --code-symbol: #116329;
 
-  /* Hintergründe - Hell/Weiß */
-  --bg-dark: #FFFFFF;
-  --bg-app: #FFFFFF;
-  --bg-card: #FFFFFF;
-  --bg-card-hover: #F1F5F9;
-  --bg-sidebar: #FFFFFF;
+  /* Backgrounds without a dark-set equivalent */
   --bg-elevated: #F1F5F9;
   --bg-subtle: #F8FAFC;
-  --bg-input: #FFFFFF;
-  --bg-modal: #FFFFFF;
   --scrollbar-track: #F1F5F9;
 
-  /* Text - Dunkel (Schwarz/Grautöne) */
-  --text-primary: #0F172A;
+  /* Text without a dark-set equivalent */
   --text-secondary: #334155;
-  --text-muted: #64748B;
   --text-disabled: #94A3B8;
 
-  /* Borders - Dezent */
-  --border-color: #E2E8F0;
-  --border-subtle: #F1F5F9;
-  --border-glow: rgba(69, 173, 255, 0.3);
-
-  /* Shadows - Weicher für Light Mode */
+  /* Shadows - softer in light mode */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
 
-  /* Gradients - Light Mode (aligned with dark mode #45ADFF) */
-  --gradient-primary: linear-gradient(135deg, #45ADFF 0%, #2D8FD9 100%);
+  /* Gradients */
   --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
 
-  /* Terminal Background (light mode keeps dark terminal) */
-  --bg-terminal: #1a1a2e;
-
-  /* Primary Blau - aligned with dark mode */
-  --primary-color: #45ADFF;
-  --primary-hover: #6EC4FF;
-  --primary-active: #2D8FD9;
-  --primary-light: #6EC4FF;
+  /* Values that differ subtly from dark */
   --primary-muted: rgba(69, 173, 255, 0.12);
-  --text-on-primary: #000000;
-
-  /* Additional Background Colors for Components */
-  --bg-table-header: rgba(69, 173, 255, 0.05);
-  --bg-table-row-hover: rgba(69, 173, 255, 0.03);
-  --bg-table-row-active: rgba(69, 173, 255, 0.08);
-  --bg-dropzone: rgba(69, 173, 255, 0.05);
-  --bg-dropzone-hover: rgba(69, 173, 255, 0.08);
-  --bg-dropzone-active: rgba(69, 173, 255, 0.15);
   --bg-code: rgba(69, 173, 255, 0.05);
-  --bg-option: #FFFFFF;
-
-  /* Additional Border Colors */
-  --border-dropzone: rgba(69, 173, 255, 0.3);
-  --border-dropzone-hover: rgba(69, 173, 255, 0.5);
-  --border-dropzone-active: #45ADFF;
   --border-input: rgba(69, 173, 255, 0.2);
-  --border-input-focus: rgba(69, 173, 255, 0.4);
-  --border-table: rgba(69, 173, 255, 0.1);
-  --border-modal: rgba(69, 173, 255, 0.2);
-
-  /* Modal Backdrop */
   --backdrop-color: rgba(0, 0, 0, 0.5);
-
-  /* Scrollbar */
-  --scrollbar-thumb: #45ADFF;
-
-  /* Primary Color Alpha Scale (Light Mode - aligned with dark mode) */
-  --primary-alpha-5: rgba(69, 173, 255, 0.05);
-  --primary-alpha-8: rgba(69, 173, 255, 0.08);
-  --primary-alpha-10: rgba(69, 173, 255, 0.1);
-  --primary-alpha-12: rgba(69, 173, 255, 0.12);
-  --primary-alpha-15: rgba(69, 173, 255, 0.15);
-  --primary-alpha-20: rgba(69, 173, 255, 0.2);
-  --primary-alpha-25: rgba(69, 173, 255, 0.25);
-  --primary-alpha-30: rgba(69, 173, 255, 0.3);
-  --primary-alpha-40: rgba(69, 173, 255, 0.4);
-  --primary-alpha-50: rgba(69, 173, 255, 0.5);
-
-  /* Danger/Warning/Success/Neutral alpha variants (true status colors, light mode) */
-  --danger-alpha-8: rgba(239, 68, 68, 0.08);
-  --danger-alpha-10: rgba(239, 68, 68, 0.1);
-  --danger-alpha-15: rgba(239, 68, 68, 0.15);
-  --danger-alpha-20: rgba(239, 68, 68, 0.2);
-  --danger-alpha-30: rgba(239, 68, 68, 0.3);
-  --warning-alpha-10: rgba(245, 158, 11, 0.1);
-  --warning-alpha-15: rgba(245, 158, 11, 0.15);
-  --warning-alpha-20: rgba(245, 158, 11, 0.2);
-  --warning-alpha-30: rgba(245, 158, 11, 0.3);
-  --success-alpha-10: rgba(16, 185, 129, 0.1);
-  --success-alpha-15: rgba(16, 185, 129, 0.15);
-  --success-alpha-20: rgba(16, 185, 129, 0.2);
-  --success-alpha-30: rgba(16, 185, 129, 0.3);
-  --neutral-alpha-2: rgba(148, 163, 184, 0.02);
-  --neutral-alpha-10: rgba(148, 163, 184, 0.1);
-  --neutral-alpha-15: rgba(148, 163, 184, 0.15);
-  --neutral-alpha-20: rgba(148, 163, 184, 0.2);
-  --neutral-alpha-30: rgba(148, 163, 184, 0.3);
 
   /* Status Colors - Semantic (Light Mode) */
   --status-neutral: #64748B;
@@ -518,82 +436,82 @@
 @layer components {
 
 /* Light Mode - Status colors with better contrast */
-.light-mode .status-ok {
+.light .status-ok {
   background: var(--status-neutral-bg);
   color: var(--status-neutral);
   border: 1px solid var(--status-neutral-border);
 }
 
-.light-mode .status-ok::before {
+.light .status-ok::before {
   background: var(--status-neutral);
 }
 
-.light-mode .status-warning {
+.light .status-warning {
   background: var(--warning-alpha-10);
   color: var(--status-warning);
   border: 1px solid var(--warning-alpha-20);
 }
 
-.light-mode .status-warning::before {
+.light .status-warning::before {
   background: var(--status-warning);
 }
 
-.light-mode .status-critical {
+.light .status-critical {
   background: var(--danger-alpha-10);
   color: var(--status-critical);
   border: 1px solid var(--danger-alpha-20);
 }
 
-.light-mode .status-critical::before {
+.light .status-critical::before {
   background: var(--status-critical);
 }
 
 /* Light Mode - Status dots */
-.light-mode .status-dot-ok {
+.light .status-dot-ok {
   background: var(--status-neutral);
   box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
 }
 
-.light-mode .status-dot-error {
+.light .status-dot-error {
   background: var(--danger-hover);
   box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
 /* Light Mode - Stat changes */
-.light-mode .stat-change-positive {
+.light .stat-change-positive {
   background: var(--status-neutral-bg);
   color: var(--status-neutral);
   border: 1px solid var(--status-neutral-border);
 }
 
-.light-mode .stat-change-negative {
+.light .stat-change-negative {
   background: var(--danger-alpha-10);
   color: var(--status-critical);
   border: 1px solid var(--danger-alpha-20);
 }
 
-.light-mode .stat-change-warning {
+.light .stat-change-warning {
   background: var(--warning-alpha-10);
   color: var(--status-warning);
   border: 1px solid var(--warning-alpha-20);
 }
 
 /* Light Mode - Service indicators */
-.light-mode .service-healthy {
+.light .service-healthy {
   background: var(--status-neutral);
   box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
 }
 
-.light-mode .service-error {
+.light .service-error {
   background: var(--status-critical);
   box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
 /* Light Mode - ALL Badges unified gray (like version badges) */
-.light-mode .badge-success,
-.light-mode .badge-warning,
-.light-mode .badge-error,
-.light-mode .badge-info {
+.light .badge-success,
+.light .badge-warning,
+.light .badge-error,
+.light .badge-info {
   background: #F1F5F9;
   color: #334155;
   border: none;
@@ -601,108 +519,108 @@
 }
 
 /* Light Mode - Status indicator utility class */
-.light-mode .status-indicator.success,
-.light-mode .status-indicator.normal {
+.light .status-indicator.success,
+.light .status-indicator.normal {
   background: var(--status-neutral);
   box-shadow: 0 0 8px rgba(100, 116, 139, 0.4);
 }
 
-.light-mode .status-indicator.critical {
+.light .status-indicator.critical {
   background: var(--status-critical);
   box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
-.light-mode .status-indicator.warning {
+.light .status-indicator.warning {
   background: var(--status-warning);
   box-shadow: 0 0 8px var(--warning-alpha-30);
 }
 
-.light-mode .status-indicator.error {
+.light .status-indicator.error {
   background: var(--status-critical);
   box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
 /* Light Mode - Progress bar container */
-.light-mode .progress-bar-container {
+.light .progress-bar-container {
   background: rgba(0, 0, 0, 0.05);
 }
 
 /* Light Mode - Storage bar container */
-.light-mode .storage-bar-container {
+.light .storage-bar-container {
   background: rgba(0, 0, 0, 0.05);
 }
 
 /* Light Mode - Sidebar header gradient */
-.light-mode .sidebar-header {
+.light .sidebar-header {
   background: transparent;
 }
 
 /* Light Mode - Sidebar footer gradient */
-.light-mode .sidebar-footer {
+.light .sidebar-footer {
   background: transparent;
 }
 
 /* Light Mode - Theme Toggle Switch */
-.light-mode .theme-toggle-switch {
+.light .theme-toggle-switch {
   border-color: #E2E8F0;
 }
 
-.light-mode .theme-toggle-switch:hover {
+.light .theme-toggle-switch:hover {
   background: rgba(69, 173, 255, 0.06);
   border-color: rgba(69, 173, 255, 0.3);
 }
 
-.light-mode .theme-toggle-track {
+.light .theme-toggle-track {
   background: #F1F5F9;
   border-color: #E2E8F0;
 }
 
-.light-mode .theme-toggle-label {
+.light .theme-toggle-label {
   color: #334155;
 }
 
 /* Light Mode - Navigation hover state */
-.light-mode .nav-link:hover {
+.light .nav-link:hover {
   background: rgba(69, 173, 255, 0.06);
 }
 
-.light-mode .nav-link.active {
+.light .nav-link.active {
   background: rgba(69, 173, 255, 0.1);
 }
 
 /* Light Mode - Circular progress styling */
-.light-mode .circular-bg {
+.light .circular-bg {
   stroke: rgba(69, 173, 255, 0.1);
 }
 
 /* Light Mode - Print override */
 @media print {
-  .light-mode body {
+  .light body {
     background: white;
     color: black;
   }
 }
 
 /* Light Mode - Global Page Title Icons: BLACK instead of blue */
-.light-mode .card-title svg {
+.light .card-title svg {
   color: #0F172A;
 }
 
-.light-mode .page-title svg,
-.light-mode .page-header svg,
-.light-mode [class*="-title"] > svg:first-child {
+.light .page-title svg,
+.light .page-header svg,
+.light [class*="-title"] > svg:first-child {
   color: #0F172A;
 }
 
 /* Light Mode - ALL Badges unified gray (like version badges) */
-.light-mode .badge,
-.light-mode .badge-primary,
-.light-mode .badge-default,
-.light-mode .badge-success,
-.light-mode .badge-warning,
-.light-mode .badge-error,
-.light-mode .badge-danger,
-.light-mode .badge-info {
+.light .badge,
+.light .badge-primary,
+.light .badge-default,
+.light .badge-success,
+.light .badge-warning,
+.light .badge-error,
+.light .badge-danger,
+.light .badge-info {
   background: #F1F5F9;
   color: #334155;
   border: none;
@@ -710,81 +628,81 @@
 }
 
 /* Light Mode - Cards */
-.light-mode .stat-card,
-.light-mode .metric-card,
-.light-mode .info-card {
+.light .stat-card,
+.light .metric-card,
+.light .info-card {
   background: #FFFFFF;
   border-color: #E2E8F0;
 }
 
-.light-mode .stat-card:hover,
-.light-mode .metric-card:hover,
-.light-mode .info-card:hover {
+.light .stat-card:hover,
+.light .metric-card:hover,
+.light .info-card:hover {
   border-color: rgba(69, 173, 255, 0.3);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* Light Mode - Card Content */
-.light-mode .card-value {
+.light .card-value {
   color: #0F172A;
 }
 
-.light-mode .card-label {
+.light .card-label {
   color: #64748B;
 }
 
-.light-mode .card-description {
+.light .card-description {
   color: #64748B;
 }
 
 /* Light Mode - Sidebar nav icons should be dark gray */
-.light-mode .nav-link svg {
+.light .nav-link svg {
   color: #334155;
 }
 
-.light-mode .nav-link:hover svg,
-.light-mode .nav-link.active svg {
+.light .nav-link:hover svg,
+.light .nav-link.active svg {
   color: var(--primary-color);
 }
 
 /* Light Mode - Dashboard specific metrics */
-.light-mode .metric-icon {
+.light .metric-icon {
   background: #F1F5F9;
   color: #334155;
 }
 
-.light-mode .metric-trend.positive {
+.light .metric-trend.positive {
   color: var(--status-neutral);
 }
 
-.light-mode .metric-trend.negative {
+.light .metric-trend.negative {
   color: var(--status-critical);
 }
 
 /* Light Mode - Ensure tables are readable */
-.light-mode table {
+.light table {
   background: #FFFFFF;
 }
 
-.light-mode th {
+.light th {
   background: #F8FAFC;
   color: #0F172A;
   border-color: #E2E8F0;
 }
 
-.light-mode td {
+.light td {
   color: #334155;
   border-color: #E2E8F0;
 }
 
-.light-mode tr:hover {
+.light tr:hover {
   background: #F8FAFC;
 }
 
 /* Light Mode - Form focus states */
-.light-mode input:focus,
-.light-mode select:focus,
-.light-mode textarea:focus {
+.light input:focus,
+.light select:focus,
+.light textarea:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
 }
@@ -1340,12 +1258,12 @@ a:focus:not(:focus-visible),
 }
 
 /* Light mode: Knob nach rechts, Track heller */
-.light-mode .theme-toggle-track {
+.light .theme-toggle-track {
   background: var(--primary-muted);
   border-color: var(--primary-color);
 }
 
-.light-mode .theme-toggle-track::after {
+.light .theme-toggle-track::after {
   transform: translateX(18px);
 }
 
