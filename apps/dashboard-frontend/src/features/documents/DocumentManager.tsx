@@ -497,6 +497,11 @@ function DocumentManager() {
       if (oldStatus && oldStatus !== doc.status) {
         if (doc.status === 'indexed') {
           toast.success(`„${doc.original_name || doc.filename}" erfolgreich indexiert`);
+        } else if (doc.status === 'partial') {
+          // P6-17: partially indexed — searchable but incomplete, should be re-indexed
+          toast.warning(
+            `„${doc.original_name || doc.filename}" nur teilweise indexiert — erneutes Indexieren empfohlen`
+          );
         } else if (doc.status === 'failed') {
           toast.error(`Indexierung fehlgeschlagen: „${doc.original_name || doc.filename}"`);
         }

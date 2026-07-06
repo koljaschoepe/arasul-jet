@@ -439,6 +439,7 @@ def run_indexing_pipeline(
     space_info = get_document_space_info(db, doc_id)
 
     # Index into Qdrant (chunking + embedding + upsert)
+    index_stats = {}
     chunk_count = _index_to_qdrant(
         doc_id=doc_id,
         text=text,
@@ -455,12 +456,18 @@ def run_indexing_pipeline(
         },
         db=db,
         embedding_client=embedding_client,
-        qdrant_manager=qdrant_manager
+        qdrant_manager=qdrant_manager,
+        stats=index_stats
     )
 
-    # Mark as indexed (only if chunks were actually created)
+    # Mark as indexed (only if chunks were actually created).
+    # P6-17: if some child chunks failed to embed (skipped_chunks > 0) but at
+    # least one succeeded, mark 'partial' — the document is searchable but its
+    # knowledge base is incomplete and should be re-indexed. Previously this was
+    # silently reported as fully 'indexed'.
     if chunk_count and chunk_count > 0:
-        db.update_document_status(doc_id, 'indexed', chunk_count=chunk_count)
+        final_status = 'partial' if index_stats.get('skipped_chunks', 0) > 0 else 'indexed'
+        db.update_document_status(doc_id, final_status, chunk_count=chunk_count)
         db.update_document(doc_id, {'embedding_model': EMBEDDING_MODEL})
     else:
         # Clean up any partial vectors that may have been upserted
@@ -513,7 +520,8 @@ def _index_to_qdrant(
     metadata: Dict[str, Any],
     db,
     embedding_client,
-    qdrant_manager
+    qdrant_manager,
+    stats: Optional[Dict[str, int]] = None
 ) -> int:
     """
     Chunk, embed, and upsert document text into Qdrant.
@@ -529,6 +537,11 @@ def _index_to_qdrant(
         db: DatabaseManager instance
         embedding_client: EmbeddingClient instance
         qdrant_manager: QdrantManager instance
+        stats: Optional out-dict. If provided, it is populated with
+            'skipped_chunks' and 'total_children' so the caller can decide
+            whether the document was fully or only partially indexed (P6-17).
+            Passing a dict keeps the int return value unchanged, so existing
+            callers (e.g. enhanced_indexer) stay backward-compatible.
 
     Returns:
         Number of child chunks indexed
@@ -650,6 +663,11 @@ def _index_to_qdrant(
 
         # Validate embedding completeness — detect silent failures
         skipped_chunks = total_children - len(all_points)
+        # P6-17: expose skip stats to the caller so a partial index is recorded
+        # as status 'partial' (searchable but flagged), not silently 'indexed'.
+        if stats is not None:
+            stats['skipped_chunks'] = skipped_chunks
+            stats['total_children'] = total_children
         if skipped_chunks > 0:
             skip_pct = (skipped_chunks / total_children * 100) if total_children else 0
             logger.error(

@@ -42,6 +42,37 @@
 
 ---
 
+## Audit-Update 2026-07-06 (Repo-Konsolidierung, Multi-Agent-Verifikation gegen Code auf disk)
+
+> Dieser Plan wurde im Zuge des Cleanup-Plans `repo-consolidation-cleanup` gegen den echten Code-Stand auditiert. Verifiziert = im Quellcode nachgewiesen (nicht Live-DB). Der FIELD-Plan **bleibt die Feature-Roadmap**; nur der Status wird hier ehrlich nachgezogen.
+
+**Als DONE verifiziert (Code auf disk bestätigt):**
+
+- **P1-1** Migration 094 CHECK-Constraint-Fix — `094_rag_llm_perf_and_model_tier.sql` widet `llm_model_catalog_model_type_check` auf `'embedding'`.
+- **P4-4** `.deb` enthält `compose/`+`config/` — `packaging/build_deb.sh`.
+- **P4-5** systemd `ExecStart`-Pfade — `docker-watchdog.service` / `deadman-switch.service` → `/opt/arasul/...`.
+- **P4-6** `interactive_setup.sh` `${1:-}` gehärtet.
+- **P6-12** n8n-Custom-Node-Timeouts — `ArasulLlm.node.ts` / `ArasulEmbeddings.node.ts` übergeben `ARASUL_HTTP_TIMEOUT_MS`.
+- **P6-14** n8n Webhook/Editor-URLs env-getrieben — `compose/compose.app.yaml`.
+- **P6-15** embedding-GPU-Guard `total_memory` — `embedding_server.py`.
+- **P6-19** `<think>`-Strip — `document-indexer/ai_services.py`.
+
+**Migrations-Realität:** höchste Migration auf disk ist **096** (`096_rag_llm_tunables_and_prompts.sql`, kam mit #102 nach Plan-Erstellung). Nächste freie Nummer = **097**. (Frühere Plan-/Doc-Angaben „next 095/096" waren stale und sind im Cleanup-Plan durch „read from disk"-Pointer ersetzt.)
+
+**Die 3 sicheren Verhaltens-Fixes → im Cleanup-Plan erledigt (Code-only + Tests):**
+
+- **P6-16** RAG maskiert Qdrant-Ausfall als „keine Dokumente" → eigene Fehlermeldung.
+- **P6-17** Teil-Indizierung fälschlich als `indexed` → Status `partial`.
+- **P6-13** Self-Healing startet n8n nach RAM-Entlastung nicht neu → Auto-Restart ergänzt.
+
+**⚠ Konflikt mit stehender Policy — NICHT umsetzen:**
+
+- **P9-2** „CI-Gates auf blocking flippen" widerspricht der bewussten Entscheidung, dass Frontend-lint/tsc/vitest **advisory** bleiben (blocking bricht Auto-Merge; Memory `frontend-ci-advisory-backlog` + Kommentar in `.github/workflows/test.yml`). → als bewusst zurückgestellt markiert, **nicht** ausführen.
+
+**Weiterhin OPEN-INFRA (bewusst außerhalb des Cleanup-Scopes):** Mandanten-Isolation (P2), Netz/Ports/MinIO/docker-proxy (P3), OTA/Signing (P4-1..3), Backup-Verschlüsselung/WAL/LUKS/Restore-Drill (P5), externe LLM-Provider/Egress-Governance (P6-1..8), `/healthz`/`/readyz` (P7). Diese bleiben die eigentliche Roadmap Richtung 1.0.0.
+
+---
+
 ## Vision & Zielkunde
 
 Private On-Premise-KI-Box (NVIDIA Jetson) für **Steuerberater-Kanzleien (3–15 MA, DACH)** mit der **§203-StGB-Speerspitze** ("Ihre Mandantendaten verlassen niemals das Haus"). Preismodell Razor-and-Blades: **7.500 EUR Box netto + Pflicht-Wartung 250/450/750 EUR/Monat**. Der margenstarke Wartungsvertrag (50–60% Marge) setzt genau die Robustheit voraus (OTA, Backup, unattended-Betrieb), die dieser Plan liefert.
@@ -78,15 +109,15 @@ Allgemein: reproduzierbar auf frischem Zustand · von Außenstehendem in Betrieb
 
 Alle bisherigen aktiven Pläne wurden gegen Code + Live geprüft. Ihre noch offenen Punkte sind in die Phasen unten übernommen. Aktion:
 
-| Plan                                           | Status                                      | Aktion                                                                  |
-| ---------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
-| `active/2026-06-03_full-platform-audit.md`     | erledigt (62/62), nur Live-Zustellung offen | → `archive/` (offener Punkt = P1-1)                                     |
-| `active/DEPENDABOT_HARDENING.md`               | teilweise offen                             | → `archive/` (Punkte in Phase 9)                                        |
-| `active/EXTERNAL_INTEGRATIONS.md`              | teilweise offen                             | → `archive/` (Punkte in Phase 6)                                        |
-| `active/repo-deep-audit-2026-05-08.md`         | teilweise offen                             | → `archive/` (Punkte in Phase 1/5/8)                                    |
-| `active/side-branch-cherry-pick-2026-05-14.md` | teilweise offen                             | **bleibt aktiv** (Ernte-Backlog, referenziert aus Phase 7/9)            |
-| 12 × `archive/*`                               | bereits Archiv                              | Header prüfen, sonst unangetastet                                       |
-| `BUGS_AND_FIXES.md`                            | ~46/51 behoben                              | Statusblock korrigieren, dann bei Archivierung als historisch markieren |
+| Plan                                           | Status                                      | Aktion                                                                                                                            |
+| ---------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `active/2026-06-03_full-platform-audit.md`     | erledigt (62/62), nur Live-Zustellung offen | → `archive/` (offener Punkt = P1-1)                                                                                               |
+| `active/DEPENDABOT_HARDENING.md`               | teilweise offen                             | → `archive/` (Punkte in Phase 9)                                                                                                  |
+| `active/EXTERNAL_INTEGRATIONS.md`              | teilweise offen                             | → `archive/` (Punkte in Phase 6)                                                                                                  |
+| `active/repo-deep-audit-2026-05-08.md`         | teilweise offen                             | → `archive/` (Punkte in Phase 1/5/8)                                                                                              |
+| `active/side-branch-cherry-pick-2026-05-14.md` | teilweise offen                             | **bleibt aktiv** (Ernte-Backlog, referenziert aus Phase 7/9)                                                                      |
+| 12 × `archive/*`                               | bereits Archiv                              | Header prüfen, sonst unangetastet                                                                                                 |
+| `BUGS_AND_FIXES.md`                            | ~46/51 behoben (stale, 2026-04-06)          | **erledigt (2026-07-06):** im Cleanup-Plan gelöscht — stale Root-Audit, Historie via git; verbleibende Punkte in den Phasen unten |
 
 Cockpit-Dateien (`~/.arasul/cockpit/*`) bleiben aktiv (steuern das Meta-Vorgehen), sind aber jetzt durch diesen Masterplan als operativen Plan gedeckt.
 

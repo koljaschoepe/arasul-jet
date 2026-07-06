@@ -233,20 +233,47 @@ class CategoryHandlersMixin:
                 self.record_recovery_action('llm_cache_clear', 'llm-service', f'CPU overload: {cpu}%', success)
                 self.last_overload_actions[action_key] = current_time
 
-        # RAM Overload
+        # RAM Overload — stop n8n to free memory (graceful, P5.5)
         if ram > RAM_OVERLOAD_THRESHOLD:
             action_key = 'ram_overload'
             last_action = self.last_overload_actions.get(action_key, 0)
             if current_time - last_action > 300:
-                logger.warning(f"RAM overload detected: {ram}% - restarting n8n")
+                logger.warning(f"RAM overload detected: {ram}% - stopping n8n to free memory")
                 success = self.pause_n8n_workflows()
                 self.log_event(
                     'ram_overload', 'WARNING', f'RAM usage at {ram}%',
-                    'Restarted n8n to free memory' if success else 'Failed to free memory',
+                    'Stopped n8n to free memory' if success else 'Failed to free memory',
                     'n8n', success
                 )
                 self.record_recovery_action('service_restart', 'n8n', f'RAM overload: {ram}%', success)
                 self.last_overload_actions[action_key] = current_time
+                if success:
+                    self._n8n_stopped_for_ram = True
+            # Still over budget — reset the relief streak.
+            self._n8n_ram_relief_count = 0
+        # RAM Relief — restart n8n once memory is comfortably back under budget.
+        # P6-13: without this, a single RAM spike left n8n stopped forever. Only
+        # restart n8n that self-healing itself stopped, and only after RAM has
+        # held below a hysteresis threshold for 3 consecutive cycles.
+        elif getattr(self, '_n8n_stopped_for_ram', False):
+            ram_relief_threshold = max(0, RAM_OVERLOAD_THRESHOLD - 10)
+            if ram < ram_relief_threshold:
+                self._n8n_ram_relief_count = getattr(self, '_n8n_ram_relief_count', 0) + 1
+                if self._n8n_ram_relief_count >= 3:
+                    logger.info(f"RAM back to {ram}% for 3 cycles - restarting n8n")
+                    resumed = self.resume_n8n_workflows()
+                    self.log_event(
+                        'ram_relief', 'INFO', f'RAM recovered to {ram}%',
+                        'Restarted n8n after RAM relief' if resumed else 'Failed to restart n8n',
+                        'n8n', resumed
+                    )
+                    self.record_recovery_action('service_restart', 'n8n', f'RAM relief: {ram}%', resumed)
+                    if resumed:
+                        self._n8n_stopped_for_ram = False
+                    self._n8n_ram_relief_count = 0
+            else:
+                # Between relief and overload threshold — hold, reset the streak.
+                self._n8n_ram_relief_count = 0
 
         # GPU Overload
         if gpu > GPU_OVERLOAD_THRESHOLD:

@@ -13,7 +13,9 @@ postgres/
                                  /arasul/migrations for the runtime runner.
     000_schema_migrations.sql    Tracking table.
     001_init_schema.sql          ... up to ...
-    095_fix_telegram_user_chats.sql      Latest applied migration (next: 096).
+    0NN_*.sql                    Highest number on disk = latest migration;
+                                 next = that + 1. Read it, never hardcode:
+                                 `ls services/postgres/init/ | sort | tail -1`.
     032a_create_data_database.sh Shell variant — runs only on first init.
     data-db/                     Init scripts for the secondary user-data DB.
   init-data-db/                  Compose-mounted init dir for the user-data DB.
@@ -49,12 +51,12 @@ postgres/
 # 1. Find the next number
 ls services/postgres/init/ | grep -E '^[0-9]+' | sort | tail -3
 
-# 2. Create the file
-$EDITOR services/postgres/init/096_add_foo_table.sql
+# 2. Create the file (0NN = next number from step 1)
+$EDITOR services/postgres/init/0NN_add_foo_table.sql
 ```
 
 ```sql
--- 096_add_foo_table.sql — Phase X: <reason>
+-- 0NN_add_foo_table.sql — Phase X: <reason>
 
 CREATE TABLE IF NOT EXISTS foo (
   id          BIGSERIAL PRIMARY KEY,

@@ -388,7 +388,12 @@ async function getStatistics(filters) {
       tableParams.push(space_id);
     }
     if (status) {
-      const statusMap = { indexed: 'active', pending: 'draft', failed: 'archived' };
+      const statusMap = {
+        indexed: 'active',
+        partial: 'active',
+        pending: 'draft',
+        failed: 'archived',
+      };
       const tableStatus = statusMap[status] || status;
       tableConditions.push(`status = $${tParamIndex++}`);
       tableParams.push(tableStatus);

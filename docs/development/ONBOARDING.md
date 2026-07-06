@@ -82,8 +82,7 @@ arasul-jet/
 ├── .claude/                       Claude Code workspace (commands, agents, hooks, context)
 ├── CLAUDE.md                      AI-facing entry point + non-negotiables
 ├── README.md                      "what is this" + start-here
-├── CONTRIBUTING.md                workflow, conventions, slash-command catalog
-└── ARCHITECTURE.md                architecture summary
+└── CONTRIBUTING.md                workflow, conventions, slash-command catalog
 ```
 
 **Key distinction:** `apps/` = code you actively develop, `services/` = infrastructure containers built once and run.

@@ -21,7 +21,6 @@ Development workflows, patterns, API usage, and debugging for the Arasul Platfor
 | Database schema     | `docs/api/DATABASE_SCHEMA.md`, add migration     |
 | New env variable    | `docs/ENVIRONMENT_VARIABLES.md`, `.env.template` |
 | Architecture change | `docs/ARCHITECTURE.md`                           |
-| Bug fix             | `BUGS_AND_FIXES.md`                              |
 | Frontend component  | Follow `docs/development/DESIGN_SYSTEM.md`       |
 
 ---
@@ -370,7 +369,7 @@ docker compose logs reverse-proxy | tail -50
 
 ### Known Issues
 
-See [BUGS_AND_FIXES.md](../../BUGS_AND_FIXES.md).
+See [`docs/ops/TROUBLESHOOTING.md`](../ops/TROUBLESHOOTING.md).
 
 ---
 
@@ -386,7 +385,7 @@ See [BUGS_AND_FIXES.md](../../BUGS_AND_FIXES.md).
 
 ### Add Database Migration
 
-1. Create `services/postgres/init/096_name.sql` (next sequential number — `ls services/postgres/init/ | sort | tail -1`)
+1. Create `services/postgres/init/0NN_name.sql` (next sequential number — `ls services/postgres/init/ | sort | tail -1`, then + 1)
 2. Use `IF NOT EXISTS` for idempotency
 3. Update `docs/api/DATABASE_SCHEMA.md`
 4. Rebuild: `docker compose up -d --build dashboard-backend` (the runtime migration runner picks it up on backend boot)
