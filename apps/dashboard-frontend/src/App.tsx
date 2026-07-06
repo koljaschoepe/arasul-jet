@@ -5,6 +5,7 @@ import { queryClient } from './lib/queryClient';
 
 // PHASE 2: Code-Splitting - Synchronous imports for critical components
 import Login from './features/system/Login';
+import CreateAdmin from './features/system/CreateAdmin';
 import ErrorBoundary, { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import { SkeletonCard, SkeletonText } from './components/ui/Skeleton';
@@ -138,6 +139,9 @@ function AppContent(): React.JSX.Element | null {
   // Setup wizard state
   const [, setSetupComplete] = useState<boolean | null>(null); // null = loading, true/false = known
   const [showSetupWizard, setShowSetupWizard] = useState<boolean>(false);
+  // First-run onboarding: null = still checking, true = box has no admin yet
+  // (show CreateAdmin instead of Login), false = normal login.
+  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
 
   // Dashboard state
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistory | null>(null);
@@ -356,6 +360,25 @@ function AppContent(): React.JSX.Element | null {
     };
   }, [fetchData, isAuthenticated]);
 
+  // First-run check (unauthenticated): does the box still need an admin?
+  // Runs once on mount, before login, so we can show CreateAdmin instead of
+  // the login screen on a freshly bootstrapped box.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ needsSetup: boolean }>('/auth/needs-setup', { showError: false })
+      .then(d => {
+        if (!cancelled) setNeedsSetup(d.needsSetup);
+      })
+      .catch(() => {
+        // Old backend without the endpoint → assume an admin exists.
+        if (!cancelled) setNeedsSetup(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
   // Check setup wizard status after login
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -425,8 +448,12 @@ function AppContent(): React.JSX.Element | null {
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {
-    if (authLoading) {
+    if (authLoading || needsSetup === null) {
       return <LoadingSpinner message="Prüfe Authentifizierung..." fullscreen={true} />;
+    }
+    // Freshly bootstrapped box with no admin yet → first-run onboarding.
+    if (needsSetup) {
+      return <CreateAdmin onCreated={handleLoginSuccess} />;
     }
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }

@@ -249,7 +249,7 @@ router.get(
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const result = await db.query('SELECT * FROM update_events ORDER BY timestamp DESC LIMIT 10');
+    const result = await db.query('SELECT * FROM update_events ORDER BY started_at DESC LIMIT 10');
 
     res.json({
       updates: result.rows,

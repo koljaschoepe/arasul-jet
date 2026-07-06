@@ -24,7 +24,25 @@ const ChangePasswordBody = z
   })
   .strict();
 
+// Setup-on-first-login: create the very first admin from the web, no terminal
+// questions. Only accepted while no admin exists (enforced in the route).
+const SetupAdminBody = z
+  .object({
+    username: z
+      .string({ error: 'Username is required' })
+      .trim()
+      .min(1, 'Username is required')
+      .max(64),
+    password: z
+      .string({ error: 'Password is required' })
+      .min(8, 'Password does not meet complexity requirements (min 8 chars)')
+      .max(256),
+    email: z.string().trim().email('Invalid email').max(255).optional(),
+  })
+  .strict();
+
 module.exports = {
   LoginBody,
   ChangePasswordBody,
+  SetupAdminBody,
 };

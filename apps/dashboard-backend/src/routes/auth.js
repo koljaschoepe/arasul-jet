@@ -22,7 +22,8 @@ const {
 } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
-const { LoginBody, ChangePasswordBody } = require('../schemas/auth');
+const { LoginBody, ChangePasswordBody, SetupAdminBody } = require('../schemas/auth');
+const { isSetupNeeded, createFirstAdmin } = require('../services/auth/setupService');
 const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
 const { generateCsrfToken, CSRF_COOKIE } = require('../middleware/csrf');
 const logger = require('../utils/logger');
@@ -150,6 +151,74 @@ router.post(
         username: user.username,
         email: user.email,
       },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// GET /api/auth/needs-setup
+// Public: tells the frontend whether to show the "create admin" screen instead
+// of login. True only while the box has no admin user yet.
+router.get(
+  '/needs-setup',
+  generalAuthLimiter,
+  asyncHandler(async (req, res) => {
+    const needsSetup = await isSetupNeeded();
+    res.json({ needsSetup, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/auth/setup
+// Public but self-closing: creates the FIRST admin (username + password) from
+// the web onboarding screen. Only works while no admin exists; once one does,
+// createFirstAdmin() rejects with 409. On success the caller is auto-logged-in
+// (same cookies/token as /login) so they land straight in the setup wizard.
+router.post(
+  '/setup',
+  loginLimiter,
+  validateBody(SetupAdminBody),
+  asyncHandler(async (req, res) => {
+    const { username, password, email } = req.body;
+    const ipAddress = req.ip;
+    const userAgent = req.get('user-agent') || 'unknown';
+
+    // createFirstAdmin throws ConflictError (409) if an admin already exists.
+    const user = await createFirstAdmin({ username, password, email });
+
+    logSecurityEvent({
+      userId: user.id,
+      action: 'setup_admin_created',
+      details: { username },
+      ipAddress,
+      requestId: req.headers['x-request-id'],
+    });
+
+    // Auto-login the freshly created admin.
+    const tokenData = await generateToken(user, ipAddress, userAgent);
+
+    res.cookie('arasul_session', tokenData.token, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      maxAge: 4 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    const csrfToken = generateCsrfToken();
+    res.cookie(CSRF_COOKIE, csrfToken, {
+      httpOnly: false,
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      maxAge: 4 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    res.status(201).json({
+      success: true,
+      token: tokenData.token,
+      expiresAt: tokenData.expiresAt,
+      expiresIn: tokenData.expiresIn,
+      user: { id: user.id, username: user.username, email: user.email },
       timestamp: new Date().toISOString(),
     });
   })
