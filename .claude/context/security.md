@@ -66,15 +66,12 @@ Client → Authorization: Bearer <JWT> → auth.js middleware → Route Handler
 
 ## Rate Limiting
 
-| Endpoint    | Limit        | Window       |
-| ----------- | ------------ | ------------ |
-| Login       | 10 requests  | 15 min       |
-| General API | 100 req      | 1 min        |
-| LLM         | 10 req       | 1 sec        |
-| Upload      | 20 req       | 1 min        |
-| Per API Key | configurable | configurable |
+Application-level limiters (login, general API, LLM, upload, per-API-key, …)
+are the canonical table in
+[`apps/dashboard-backend/CLAUDE.md`](../../apps/dashboard-backend/CLAUDE.md)
+("Pick the right rate limiter") — don't restate the numbers here, they drift.
 
-**Traefik-Level zusätzlich:**
+**Traefik-Level zusätzlich (edge, vor dem Backend):**
 | Route | Limit |
 |-------|-------|
 | Auth API | 30/min |

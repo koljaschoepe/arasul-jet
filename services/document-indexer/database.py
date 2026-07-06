@@ -234,7 +234,10 @@ class DatabaseManager:
 
         if status == 'processing':
             updates['processing_started_at'] = datetime.now()
-        elif status == 'indexed':
+        elif status in ('indexed', 'partial'):
+            # P6-17: 'partial' == indexed-but-incomplete. Same timestamps and
+            # chunk_count bookkeeping as 'indexed' (the document IS searchable),
+            # only the status differs so it can be surfaced and re-indexed.
             updates['processing_completed_at'] = datetime.now()
             updates['indexed_at'] = datetime.now()
             if chunk_count is not None:

@@ -136,7 +136,7 @@ curl http://localhost:8080/api/http/routers
 | "too many clients" PG error        | Connection-leak hunt; pool max in `database.js` |
 | 404 on `/api/*` via Traefik        | `config/traefik/` routes.yml + priority         |
 
-For deeper recipes see `BUGS_AND_FIXES.md` and `docs/ops/TROUBLESHOOTING.md`.
+For deeper recipes see `docs/ops/TROUBLESHOOTING.md`.
 
 ---
 
@@ -227,4 +227,4 @@ docker compose down -v && docker compose up -d  # NUKES volumes — last resort
 4. Test the service's `/health` endpoint.
 5. Check DB + network connectivity.
 6. Recent commits — `git log -10`.
-7. Consult `docs/ops/TROUBLESHOOTING.md` and `BUGS_AND_FIXES.md`.
+7. Consult `docs/ops/TROUBLESHOOTING.md`.

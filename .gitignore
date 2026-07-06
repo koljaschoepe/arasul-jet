@@ -84,6 +84,9 @@ config/dev/
 .claude/settings.local.json
 config/base/
 
+# MCP tool artifacts (ephemeral Playwright browser-session dumps)
+.playwright-mcp/
+
 # Test output artifacts
 apps/*/jest-results.json
 apps/*/test-results.json

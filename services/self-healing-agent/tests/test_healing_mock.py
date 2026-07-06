@@ -157,6 +157,52 @@ class TestSelfHealingEngine(unittest.TestCase):
             self.engine.handle_category_b_overload(metrics)
             mock_pause.assert_called_once()
 
+    def test_pause_n8n_skips_already_stopped(self):
+        """P6-13: never claim ownership of an n8n that is already stopped."""
+        container = MagicMock()
+        container.status = 'exited'
+        self.mock_client.containers.get.return_value = container
+        result = self.engine.pause_n8n_workflows()
+        self.assertFalse(result)               # did not claim ownership
+        container.stop.assert_not_called()     # no-op stop avoided
+
+    def test_pause_n8n_stops_running(self):
+        """P6-13: stop a running n8n and claim ownership for later restart."""
+        container = MagicMock()
+        container.status = 'running'
+        self.mock_client.containers.get.return_value = container
+        result = self.engine.pause_n8n_workflows()
+        self.assertTrue(result)
+        container.stop.assert_called_once()
+
+    def test_handle_category_b_ram_relief_restarts_n8n(self):
+        """P6-13: n8n is auto-restarted once RAM recovers after an overload stop."""
+        with patch.object(self.engine, 'pause_n8n_workflows', return_value=True), \
+             patch.object(self.engine, 'resume_n8n_workflows', return_value=True) as mock_resume:
+            # 1. RAM overload → n8n stopped, resume-flag set
+            self.engine.handle_category_b_overload(
+                {'cpu': 50, 'ram': 95, 'gpu': 0, 'temperature': 60}
+            )
+            self.assertTrue(getattr(self.engine, '_n8n_stopped_for_ram', False))
+
+            # 2. RAM recovers — restart requires 3 consecutive sub-threshold cycles
+            relief = {'cpu': 50, 'ram': 50, 'gpu': 0, 'temperature': 60}
+            self.engine.handle_category_b_overload(relief)
+            self.engine.handle_category_b_overload(relief)
+            mock_resume.assert_not_called()  # only 2 cycles so far
+            self.engine.handle_category_b_overload(relief)
+            mock_resume.assert_called_once()  # 3rd cycle triggers the restart
+            self.assertFalse(getattr(self.engine, '_n8n_stopped_for_ram', True))
+
+    def test_handle_category_b_ram_no_restart_if_not_stopped_by_us(self):
+        """P6-13: never start an n8n that self-healing did not itself stop."""
+        with patch.object(self.engine, 'resume_n8n_workflows') as mock_resume:
+            # RAM is fine and we never stopped n8n → no restart attempt
+            self.engine.handle_category_b_overload(
+                {'cpu': 50, 'ram': 50, 'gpu': 0, 'temperature': 60}
+            )
+            mock_resume.assert_not_called()
+
     def test_handle_category_b_gpu_overload(self):
         """Test Category B: GPU Overload"""
         metrics = {'cpu': 50, 'ram': 50, 'gpu': 99, 'temperature': 60}

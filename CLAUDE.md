@@ -11,7 +11,7 @@ running fully local and GDPR-compliant. Target: 5 years of unattended operation.
 ```
 Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                          → Dashboard-Backend (Express API :3001)
-                              ├─ PostgreSQL 16 (latest applied: 095, next: 096_*.sql)
+                              ├─ PostgreSQL 16 (migrations in services/postgres/init/)
                               ├─ MinIO (S3-compatible object storage)
                               ├─ Ollama / LLM-Service (:11434/:11436) [GPU]
                               ├─ Embedding-Service (:11435) [GPU]
@@ -21,15 +21,15 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                               └─ Docker-Proxy → Self-Healing, Metrics, Backup
 ```
 
-| Layer    | Stack                                                        | Path                                                          |
-| -------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
-| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript     | `apps/dashboard-frontend/`                                    |
-| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                 | `apps/dashboard-backend/`                                     |
-| AI       | Ollama (LLM) + BGE-M3 (embeddings) + Qdrant (vectors)        | `services/llm-service/`, `services/embedding-service/`        |
-| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11 | `compose/`, `config/traefik/`                                 |
-| Ops      | Self-Healing Agent + Metrics Collector + Backup Service      | `services/self-healing-agent/`, `services/metrics-collector/` |
-| DB       | PostgreSQL 16 (next migration: `096_*.sql`)                  | `services/postgres/init/`                                     |
-| Hardware | Jetson AGX Orin / Thor (ARM64, 32–128 GB, CUDA 8.7–10.0)     | Detection: `scripts/setup/detect-jetson.sh`                   |
+| Layer    | Stack                                                             | Path                                                          |
+| -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`                                    |
+| Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                     |
+| AI       | Ollama (LLM) + BGE-M3 (embeddings) + Qdrant (vectors)             | `services/llm-service/`, `services/embedding-service/`        |
+| Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                 |
+| Ops      | Self-Healing Agent + Metrics Collector + Backup Service           | `services/self-healing-agent/`, `services/metrics-collector/` |
+| DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1) | `services/postgres/init/`                                     |
+| Hardware | Jetson AGX Orin / Thor (ARM64, 32–128 GB, CUDA 8.7–10.0)          | Detection: `scripts/setup/detect-jetson.sh`                   |
 
 ## Non-negotiable rules
 
@@ -71,14 +71,14 @@ custom nodes, security review checklist, etc.) live under `.claude/context/`.
 
 ### Entry points
 
-| Domain      | File                                                      |
-| ----------- | --------------------------------------------------------- |
-| Backend API | `apps/dashboard-backend/src/index.js` → `routes/index.js` |
-| Frontend    | `apps/dashboard-frontend/src/App.tsx`                     |
-| Database    | `services/postgres/init/` (next migration: `096_*.sql`)   |
-| LLM Service | `services/llm-service/api_server.py`                      |
-| Setup       | `scripts/interactive_setup.sh`                            |
-| Bootstrap   | `./arasul bootstrap`                                      |
+| Domain      | File                                                                 |
+| ----------- | -------------------------------------------------------------------- |
+| Backend API | `apps/dashboard-backend/src/index.js` → `routes/index.js`            |
+| Frontend    | `apps/dashboard-frontend/src/App.tsx`                                |
+| Database    | `services/postgres/init/` (next migration = highest NNN on disk + 1) |
+| LLM Service | `services/llm-service/api_server.py`                                 |
+| Setup       | `scripts/interactive_setup.sh`                                       |
+| Bootstrap   | `./arasul bootstrap`                                                 |
 
 ### Commands
 
@@ -106,7 +106,7 @@ make logs s=dashboard-backend                      # Logs via Make
 
 | Topic                   | File                                                                                                                                               |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Architecture root       | [ARCHITECTURE.md](ARCHITECTURE.md) → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                  |
+| Architecture            | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                                                       |
 | API reference           | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                                             |
 | API errors              | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                                                   |
 | Database schema         | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                                                         |

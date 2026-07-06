@@ -168,9 +168,14 @@ cd services/self-healing-agent && python -m pytest tests/
 
 ---
 
-## Coverage gaps (April 2026 audit)
+## Coverage
 
-- Backend: ~23/40 routes untested.
-- Frontend: ~110/145 components untested.
-- Python: 11/13 services untested. Critical gap: `document-indexer`
-  (16 modules, 0 tests).
+Coverage moves constantly — don't trust a hardcoded snapshot here. Read the
+current numbers from the tooling instead:
+
+- Backend: `cd apps/dashboard-backend && npm test -- --coverage`
+- Frontend: `cd apps/dashboard-frontend && npm run test -- --coverage`
+- Python services: `python -m pytest --cov` inside each service dir.
+
+Historically the weakest spots have been the Python services (esp.
+`document-indexer`) — prioritise those when adding tests.

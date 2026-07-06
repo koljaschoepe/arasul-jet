@@ -1,6 +1,18 @@
 # Architecture
 
-Complete architecture overview of the Arasul Platform.
+Complete architecture overview of the Arasul Platform. **This is the single
+canonical architecture document** — the compact topology diagrams in `README.md`
+and `CLAUDE.md` are simplified mirrors. When the architecture changes, update
+this file first.
+
+## Design priorities (in order)
+
+1. **Reliability.** Self-healing, no external dependencies, multi-year unattended uptime.
+2. **Data privacy.** Everything runs locally. No cloud calls during normal operation.
+3. **Ergonomics.** Dashboard UX is for non-technical operators and end-users.
+
+Concretely: no SaaS integrations baked into the platform, no silent failures,
+migrations always backward-compatible, no rewrites — only incremental change.
 
 ---
 

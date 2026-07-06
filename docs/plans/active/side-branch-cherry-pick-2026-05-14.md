@@ -30,7 +30,7 @@ User-visible: alles aus den Side-Branches, was nicht schon auf main ist, landet 
 
 ## Acceptance Criteria
 
-- [ ] Migration-Sequenz auf main durchgehend ohne Gap (082 … 094) und in `CLAUDE.md` "next: 095".
+- [ ] Migration-Sequenz auf main durchgehend ohne Gap (082 … höchste auf disk). Hinweis (Stand 2026-07-06): höchste ist 096, nächste 097; `CLAUDE.md` verweist nicht mehr auf eine hartkodierte Nummer, sondern „read from `services/postgres/init/`".
 - [ ] `GET /healthz` und `GET /readyz` antworten 200 mit dokumentiertem Body-Contract (Phase 8.3).
 - [ ] CI-Workflow `.github/workflows/dr-drill.yml` läuft nightly und ruft `scripts/test/dr-drill-ci.sh` auf.
 - [ ] Backend-Test-Suite hat zusätzliche `__tests__/unit/jwt.test.js`, `fileValidation.test.js`, `tokenCrypto.test.js`, `__tests__/integration/documentAnalysis.test.js`, `knowledge-graph.test.js`, `chats.test.js`, `datentabellenTables.test.js`, `telegramApp.test.js`.
@@ -88,7 +88,7 @@ Reihenfolge: Tests + Docs zuerst (safe, additive), Operations als zweites (Healt
 
 **Files:**
 
-- `docs/development/DEVELOPMENT.md`, `docs/api/API_REFERENCE.md`, `docs/BUGS_AND_FIXES.md`, `docs/ROADMAP.md` (neu/move), `docs/INDEX.md`
+- `docs/development/DEVELOPMENT.md`, `docs/api/API_REFERENCE.md`, `docs/ROADMAP.md` (neu/move), `docs/INDEX.md` (Hinweis: das frühere Root-`BUGS_AND_FIXES.md` wurde 2026-07-06 im Cleanup-Plan gelöscht — Known-Issues leben jetzt in `docs/ops/TROUBLESHOOTING.md`)
 - `scripts/docs/check-api-reference.sh` (neu, +226 LOC)
 - `scripts/docs/check-env-vars.sh` (analog)
 - CLAUDE.md sprachpolitisches Banner
@@ -212,7 +212,7 @@ Globaler Rollback: `git revert <commit-range>` und `docker compose up -d --build
 ## Open Questions
 
 - Squash-Commits `9e397f3` und `eb14000` — sollen Restbestände (z.B. `init-encryption-keys.sh`, `reencrypt-minio.sh`, n8n-Workflows aus `eb14000`) separat geholt werden? Liste vor P6 erstellen.
-- `BUGS_AND_FIXES.md` (Phase 7.6) ist auf main möglicherweise leer/neu — Inhalt nicht überschreiben.
+- `BUGS_AND_FIXES.md` (Phase 7.6): das Root-Dokument wurde 2026-07-06 im Cleanup-Plan gelöscht (stale Audit, Historie via git). Falls dieser Cherry-Pick-Block je ausgeführt wird, Known-Issues nach `docs/ops/TROUBLESHOOTING.md` schreiben statt die alte Datei wiederzubeleben.
 - Memory `feedback_dashboard_design` ("nur inkrementelle Verbesserungen") schränkt P4 explizit ein — die größeren Layout-Änderungen in Phase 2 (Dashboard) müssen darauf geprüft werden.
 
 ---

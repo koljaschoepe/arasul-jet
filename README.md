@@ -34,7 +34,7 @@ Internet (443) → Traefik → Dashboard frontend (React 19 SPA)
                               └─ Self-healing + metrics + backup
 ```
 
-Full topology, ports, startup order: [`ARCHITECTURE.md`](ARCHITECTURE.md) (root stub) → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (deep dive).
+Full topology, ports, startup order: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
@@ -56,7 +56,6 @@ arasul-jet/
 │   ├── features/               per-service feature docs
 │   └── plans/                  active and archived roadmaps
 ├── .claude/                    Claude Code workspace (commands, agents, hooks, context)
-├── ARCHITECTURE.md             one-page architecture summary
 ├── CLAUDE.md                   AI-facing rules and entry point
 ├── CONTRIBUTING.md             workflow, conventions, slash-command catalog
 ├── README.md                   you are here
@@ -70,7 +69,7 @@ arasul-jet/
 ## Where to look next
 
 - **Documentation index:** [`docs/INDEX.md`](docs/INDEX.md)
-- **Architecture:** [`ARCHITECTURE.md`](ARCHITECTURE.md) → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- **Architecture:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - **Onboarding (developers):** [`docs/development/ONBOARDING.md`](docs/development/ONBOARDING.md)
 - **Deployment (operators):** [`docs/ops/DEPLOYMENT.md`](docs/ops/DEPLOYMENT.md)
 - **API reference:** [`docs/api/API_REFERENCE.md`](docs/api/API_REFERENCE.md)
@@ -108,7 +107,6 @@ Runtime details, troubleshooting, hardening: [`docs/ops/DEPLOYMENT.md`](docs/ops
 
 - **License:** Proprietary — see [`LICENSE`](LICENSE).
 - **Bug reports / issues:** include `docker compose ps`, the failing `docker compose logs <service>`, and reproduction steps.
-- **Changelog:** [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 

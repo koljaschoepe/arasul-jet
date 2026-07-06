@@ -35,7 +35,7 @@ export const TableBadge: React.FC = () => (
 
 // -- StatusBadge --
 
-type DocumentStatus = 'pending' | 'processing' | 'indexed' | 'failed';
+type DocumentStatus = 'pending' | 'processing' | 'indexed' | 'partial' | 'failed';
 
 interface StatusBadgeProps {
   // Accept a plain string — the backend document status is untyped at the
@@ -54,6 +54,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
     pending: { icon: Clock, label: 'Wartend', badge: 'warning' },
     processing: { icon: RefreshCw, label: 'Verarbeitung', badge: 'info' },
     indexed: { icon: Check, label: 'Indexiert', badge: 'success' },
+    partial: { icon: AlertCircle, label: 'Teilweise indexiert', badge: 'warning' },
     failed: { icon: AlertCircle, label: 'Fehlgeschlagen', badge: 'error' },
   };
 

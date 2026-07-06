@@ -174,8 +174,8 @@ function DocumentDetailsModal({
         </div>
       )}
 
-      {/* Similar Documents */}
-      {doc.status === 'indexed' && (
+      {/* Similar Documents — partial docs are searchable too (P6-17) */}
+      {(doc.status === 'indexed' || doc.status === 'partial') && (
         <div className="mb-6 last:mb-0">
           <h4 className="flex items-center gap-2 text-muted-foreground text-sm uppercase tracking-wide m-0 mb-3">
             <Link aria-hidden="true" size={16} /> Ähnliche Dokumente

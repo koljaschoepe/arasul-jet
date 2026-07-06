@@ -311,6 +311,37 @@ describe('RAG Routes', () => {
       }
     });
 
+    test('P6-16: should return search-unavailable message when hybrid search fails', async () => {
+      const token = getAuthToken();
+      setupRagMocks({ companyContext: [], spaces: [], keywordResults: [] });
+
+      // Spellcheck (fails silently)
+      axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
+
+      // Simulate the search backend being down (Qdrant outage). This must NOT
+      // be reported to the user as "no documents — please upload".
+      ragCore.hybridSearch.mockRejectedValueOnce(new Error('Qdrant connection refused'));
+
+      llmJobService.createJob.mockResolvedValueOnce({ jobId: 'job-err', messageId: 'msg-err' });
+      llmJobService.updateJobContent.mockResolvedValueOnce();
+      llmJobService.completeJob.mockResolvedValueOnce();
+
+      const response = await request(app)
+        .post('/api/rag/query')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ query: 'test query', conversation_id: 1 });
+
+      expect(response.status).not.toBe(401);
+
+      if (response.headers['content-type'] && response.headers['content-type'].includes('text/event-stream')) {
+        expect(response.text).toContain('vorübergehend nicht verfügbar');
+        // And crucially NOT the misleading "upload documents" message.
+        expect(response.text).not.toContain('keine relevanten Dokumente');
+      } else {
+        expect(response.status).toBe(200);
+      }
+    });
+
     test('should process RAG query with documents found', async () => {
       const token = getAuthToken();
       setupRagMocks({
