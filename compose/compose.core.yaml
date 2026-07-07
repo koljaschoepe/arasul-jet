@@ -36,7 +36,6 @@ services:
       - arasul-postgres:/var/lib/postgresql/data
       - ../services/postgres/init:/docker-entrypoint-initdb.d
       - ../services/postgres/init-data-db:/docker-entrypoint-initdb.d/data-db:ro
-      - ../services/postgres/migrations:/migrations
       - ../config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - arasul-wal:/backups/wal
     healthcheck:

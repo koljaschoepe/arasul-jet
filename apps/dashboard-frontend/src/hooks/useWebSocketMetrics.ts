@@ -69,6 +69,9 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       try {
+        // useApi-exception: HTTP-polling fallback with its own 401→stopPolling
+        // handling. useApi would instead trigger a global logout on 401, which
+        // is wrong for a background metrics poll. Raw fetch is deliberate.
         const response = await fetch(`${API_BASE}/metrics/live`, {
           headers: getAuthHeaders(),
           signal: controller.signal,

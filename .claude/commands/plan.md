@@ -17,6 +17,34 @@ type `/ship` or anything else. See `docs/CICD.md` for the full pipeline.
 
 ---
 
+## Blocker protocol (applies to every phase except the Phase 4 gate)
+
+The user chose autonomous execution **explicitly to avoid vague half-stops.**
+So when you hit a blocker, you have exactly **two** legal moves — and a
+free-text "I stopped because X, what now?" is **forbidden** (that is the
+half-done state the user rejected):
+
+1. **Resolve it autonomously.** Retry with a corrected approach, pick the
+   safe/incremental default, or work around it — then continue. Prefer this
+   whenever the fix stays within the plan's intent and is low-risk. Do this
+   first, always.
+2. **If autonomous resolution fails, or the fix would exceed the plan's
+   intent**, call **`AskUserQuestion`** (never free text) with concrete,
+   mutually-exclusive options. Offer, as applicable:
+   - **(a)** an autonomous-retry / alternative-approach path,
+   - **(b)** a degrade / skip-this-phase / descope path,
+   - **(c)** a ship-anyway path where **CI arbitrates** (open the PR, let the
+     required checks decide),
+   - **(d)** a clean hand-back (leave the branch as-is, stop).
+     Use `preview` on options when there's something concrete to compare
+     (a diff, an error, two approaches). Recommended option first.
+
+Only **Phase 4** (plan approval) is a plain free-text gate — the deliberate
+human checkpoint. Everywhere else, route blockers through this protocol.
+Each phase below names its specific options; they all follow this shape.
+
+---
+
 ## Phase 1 — Interview (mandatory)
 
 This is the single most important phase. The user has chosen
@@ -97,8 +125,12 @@ Convention to Reuse). **Use that report verbatim as the basis for the
 plan file.**
 
 If the report contradicts an interview answer (e.g., user said "no
-DB change" but research found one is required), **stop and ask** —
-don't paper over it.
+DB change" but research found one is required), apply the **Blocker
+protocol**: if the contradiction is trivial and the research finding is
+clearly the only correct path, adopt it and note the deviation in the plan;
+otherwise `AskUserQuestion` with options — **(a)** adopt the research finding
+and re-scope, **(b)** keep the interview scope and find another approach,
+**(c)** re-plan under a new slug. Never paper over it, never free-text stop.
 
 ---
 
@@ -203,9 +235,13 @@ this work, stay on it instead of cutting a new one.
 - Update the plan file as you go: prefix each completed phase with
   `✅` so progress is visible.
 - If you hit a wall (test that fails for a reason the plan didn't
-  predict, an architectural surprise from the codebase): **stop**,
-  document the surprise in the plan's Open Questions, and ask the user.
-  Don't paper over it.
+  predict, an architectural surprise from the codebase): apply the
+  **Blocker protocol**. First try to resolve it autonomously within the
+  plan's intent (corrected approach, safe default). If that fails, document
+  the surprise in the plan's Open Questions and `AskUserQuestion` with
+  options — **(a)** try alternative approach X, **(b)** descope/skip this
+  phase and continue, **(c)** pause and hand back the branch. Never leave a
+  vague free-text stop.
 
 Do **not** commit during execution. Phase 7 owns commits.
 
@@ -231,8 +267,8 @@ When all phases are done:
   - Don't refactor; fix.
 - After all Critical edits: re-spawn `code-reviewer` once. Pass the
   same context plus a note "second pass after critical fixes".
-- If the second pass still has Critical findings: **stop**, list them
-  for the user, exit. Don't loop further.
+- If the second pass still has Critical findings: don't loop further —
+  hand off via the **Gate before shipping** below (Blocker protocol).
 
 ### Warnings + Suggestions
 
@@ -243,9 +279,14 @@ user can decide later.
 
 ### Gate before shipping
 
-- If the second `code-reviewer` pass **still** has Critical findings:
-  **stop**, list them, and do **not** proceed to Phase 7. This is a
-  hard automated gate — broken code must not reach `main`.
+- If the second `code-reviewer` pass **still** has Critical findings: do
+  **not** silently proceed to Phase 7 (broken code must not reach `main`).
+  Apply the **Blocker protocol** — list the findings, then `AskUserQuestion`
+  with options: **(a)** attempt one more targeted fix (the smallest edit for
+  the top finding, then re-review), **(b)** open the PR as a **draft** with
+  the findings in the body so CI + a human arbitrate before merge (auto-merge
+  stays off), **(c)** abort and leave the branch as-is for manual work.
+  Never a bare free-text stop.
 - Otherwise (no Critical, or all Critical addressed): **continue
   automatically to Phase 7.** Do not wait for the user.
 
@@ -264,17 +305,26 @@ No user input. This is the old `/ship` logic, run automatically.
    ```
 
    If lint has auto-fixable issues, run `lint:fix` and re-run. If tests
-   fail for real: **stop**, print the failures, exit. Do not commit —
-   the user fixes and re-runs `/plan` (or fixes on the branch).
+   fail for real, apply the **Blocker protocol**: first attempt an
+   autonomous fix if the failure is clearly within the change you just made
+   (fix, re-run once). If it still fails or the cause is outside the plan's
+   intent, do **not** commit — `AskUserQuestion` with options: **(a)** I
+   attempt a targeted fix now, **(b)** open the PR anyway and let CI arbitrate
+   (the required checks will block the merge if it's real), **(c)** stop and
+   hand back the branch. Never a bare free-text stop.
    If the local test infra is unavailable on this machine (e.g. no deps
    installed), note it and rely on CI — do **not** treat "cannot run"
-   as "failed".
+   as "failed" (this is autonomous, no question needed).
 
 2. **Stage precisely.** Never `git add -A`. Stage only the files listed
    in the plan's `**Files:**` sections plus the plan file. Never stage
    `.env`, `.env.*`, `**/secrets/**`, `**/*.pem`, `**/*.key`,
    `*.local.*`. If execution created files not in the plan, stage them
-   too but mention it in the commit body (the plan was incomplete).
+   too but mention it in the commit body (the plan was incomplete). This is
+   **intentionally autonomous** — unlike `/ship` (which asks), the
+   post-approval half auto-stages and records the deviation, per the Blocker
+   protocol's "resolve autonomously" default. Only the secret patterns above
+   are ever hard-excluded.
 
 3. **Conventional commit** (`<type>(<scope>): <subject>`), imperative,
    ≤72 char subject, body explains _why_ + references the plan slug.
@@ -289,7 +339,7 @@ No user input. This is the old `/ship` logic, run automatically.
    commit).
 
 4. **Archive the plan:** `git mv docs/plans/active/<slug>.md
-   docs/plans/done/<slug>.md` and amend it into the just-created commit
+docs/plans/done/<slug>.md` and amend it into the just-created commit
    (acceptable: not pushed yet).
 
 ---
@@ -338,6 +388,10 @@ No user input. This closes the loop to production.
 
 - Interview with fewer than 5 total questions, or all in one round.
 - Interview without `AskUserQuestion` (free-text only).
+- **A bare free-text "I stopped because X, what now?" anywhere except the
+  Phase 4 approval gate.** Every other blocker must go through the Blocker
+  protocol: resolve autonomously first, else `AskUserQuestion` with concrete
+  options. This is the #1 thing the user is trying to eliminate.
 - Skipping Phase 2 (or doing the research yourself instead of via
   `research-agent`).
 - Phases that each break the build until the next phase fixes it.
