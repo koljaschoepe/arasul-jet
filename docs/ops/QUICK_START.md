@@ -39,7 +39,11 @@ nmap -sn 192.168.1.0/24
 ## 3. Im Browser oeffnen
 
 1. Oeffnen Sie einen Webbrowser (Chrome, Firefox, Edge)
-2. Geben Sie die IP-Adresse ein: `http://<IP-Adresse>`
+2. Geben Sie den Geraetenamen ein: `https://arasul.local`
+   (bzw. `https://<hostname>.local`, falls Sie beim Setup einen eigenen
+   Hostnamen vergeben haben). Nur falls der Name nicht aufloest, ersatzweise
+   `https://<IP-Adresse>`. Beim ersten Aufruf zeigt der Browser eine
+   Zertifikatswarnung (normal bei selbstsigniertem LAN-Zertifikat) — bestaetigen.
 3. Der **Setup-Assistent** fuehrt Sie durch die Ersteinrichtung:
    - Admin-Passwort festlegen
    - Netzwerk pruefen

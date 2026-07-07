@@ -240,7 +240,7 @@ Live-Fakt: Produkt nutzt nur lokales Ollama; keine Provider-Verwaltung; `litellm
 - **P7-1** _(P1)_ — **`/healthz` + `/readyz`-Endpoints** + `docs/HEALTH_CONTRACT.md` (aus Side-Branch `feat/telegram-bot-overhaul`, Commit d361eae cherry-picken). Basis für Monitoring/Self-Healing/Wartungsvertrag. _Verifikation:_ beide Endpoints liefern korrekten Status.
 - **P7-2** _(P1)_ — **Alarmierung** bei: fehlgeschlagener Migration (P1-3), Backup-Fehler (P5-1), Modell-Absturz, **Platte voll**, **Zertifikat bald abgelaufen** (offline!). Kanal: Telegram + Dashboard. _Verifikation:_ je Szenario Test-Alarm.
 - **P7-3** _(P2)_ — **Log-Rotation + Metrik-Retention:** prüfen, dass `metrics_*`-Tabellen und Logs nicht die Platte füllen (5-Jahre-Betrieb). _Verifikation:_ Retention/Pruning aktiv.
-- **P7-4** _(P2)_ — **Fernwartung (Tailscale)** sicher & dokumentiert; Support-Runbook. _Verifikation:_ dokumentierter Remote-Zugriffspfad.
+- **P7-4** _(P2)_ ✅ — **Fernwartung (Tailscale)** sicher & dokumentiert; Support-Runbook. _Verifikation:_ dokumentierter Remote-Zugriffspfad. _Erledigt via Plan `einheitlicher-zugriff-lan-tailscale` (CORS-Fix Tailscale-Range, `tailscale serve` für browser-vertrautes Remote-HTTPS, `/api/tailscale/serve`, „So erreichst du Arasul"-Karte, vereinheitlichte Doku)._
 - **P7-5** _(P2)_ — **nightly DR-Drill-CI** (`.github/workflows/dr-drill.yml`, Commit 615e941 cherry-picken). _Verifikation:_ CI-Job grün.
 
 ## Phase 8 — Verifizierte Bugs & UX-Politur (P2)

@@ -91,8 +91,13 @@ export function RemoteAccessSettings() {
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [authKey, setAuthKey] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
+  // "So erreichst du Arasul" card: real LAN name (/system/network) + serve state.
+  const [lanName, setLanName] = useState<string | null>(null);
+  const [serveInfo, setServeInfo] = useState<{ enabled: boolean; httpsAvailable: boolean } | null>(
+    null
+  );
 
   // Use ref for status so callbacks don't need it as a dependency
   const statusRef = useRef(status);
@@ -139,15 +144,44 @@ export function RemoteAccessSettings() {
     [api, updateStatus]
   );
 
+  // Access-path info for the "So erreichst du Arasul" card. The LAN name is
+  // effectively static; serve state only matters once connected. Fetched
+  // separately from the 30s status poll to avoid probing `tailscale cert` on
+  // the host on every tick.
+  const loadAccessInfo = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const net = await api.get<{ mdns: string }>('/system/network', {
+          showError: false,
+          signal,
+        });
+        if (!signal?.aborted && net?.mdns) setLanName(net.mdns);
+      } catch {
+        /* LAN name is a nice-to-have; ignore failures */
+      }
+      try {
+        const serve = await api.get<{ enabled: boolean; httpsAvailable: boolean }>(
+          '/tailscale/serve',
+          { showError: false, signal }
+        );
+        if (!signal?.aborted) setServeInfo(serve);
+      } catch {
+        /* serve status is advisory; ignore failures */
+      }
+    },
+    [api]
+  );
+
   useEffect(() => {
     const controller = new AbortController();
     loadStatus(controller.signal);
+    loadAccessInfo(controller.signal);
     const interval = setInterval(() => loadStatus(controller.signal), 30000);
     return () => {
       controller.abort();
       clearInterval(interval);
     };
-  }, [loadStatus]);
+  }, [loadStatus, loadAccessInfo]);
 
   const handleInstall = async () => {
     setInstalling(true);
@@ -184,6 +218,8 @@ export function RemoteAccessSettings() {
       );
       updateStatus(data);
       setAuthKey('');
+      // connect() auto-enables serve on the backend — refresh the access card.
+      loadAccessInfo();
       toast.success('Tailscale verbunden!');
     } catch (err: unknown) {
       const e = err as { message?: string };
@@ -207,14 +243,16 @@ export function RemoteAccessSettings() {
     }
   };
 
-  const handleRefresh = () => loadStatus();
+  const handleRefresh = () => {
+    loadStatus();
+    loadAccessInfo();
+  };
 
-  const copyIp = async () => {
-    if (!status?.ip) return;
+  const copyValue = async (value: string, key: string) => {
     try {
-      await navigator.clipboard.writeText(status.ip);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
     } catch {
       /* Clipboard unavailable */
     }
@@ -468,6 +506,105 @@ export function RemoteAccessSettings() {
         {/* Step 3: Connected */}
         {currentStep === 3 && status && (
           <div className="space-y-6">
+            {/* "So erreichst du Arasul" — one stable name per context, IP only as fallback */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <ExternalLink className="size-4 text-primary" />
+                So erreichst du Arasul
+              </h3>
+              <div className="border border-border/50 rounded-lg divide-y divide-border/50">
+                {lanName && (
+                  <div className="flex items-center justify-between gap-2 px-4 py-2.5">
+                    <span className="text-xs text-muted-foreground shrink-0">Im LAN</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <a
+                        href={`https://${lanName}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-mono font-medium text-primary hover:underline truncate"
+                      >
+                        https://{lanName}
+                      </a>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 shrink-0"
+                        onClick={() => copyValue(`https://${lanName}`, 'lan')}
+                      >
+                        {copiedKey === 'lan' ? (
+                          <Check className="size-3 text-primary" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {status.dnsName && (
+                  <div className="flex items-center justify-between gap-2 px-4 py-2.5">
+                    <span className="text-xs text-muted-foreground shrink-0">Unterwegs</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <a
+                        href={`https://${status.dnsName}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-mono font-medium text-primary hover:underline truncate"
+                      >
+                        https://{status.dnsName}
+                      </a>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 shrink-0"
+                        onClick={() =>
+                          status.dnsName && copyValue(`https://${status.dnsName}`, 'remote')
+                        }
+                      >
+                        {copiedKey === 'remote' ? (
+                          <Check className="size-3 text-primary" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {status.ip && (
+                  <div className="flex items-center justify-between gap-2 px-4 py-2 text-muted-foreground">
+                    <span className="text-[11px] shrink-0">Fallback (IP)</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs font-mono truncate">https://{status.ip}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0 shrink-0"
+                        onClick={() => status.ip && copyValue(`https://${status.ip}`, 'ip')}
+                      >
+                        {copiedKey === 'ip' ? (
+                          <Check className="size-3 text-primary" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {status.dnsName && serveInfo && !serveInfo.httpsAvailable && (
+                <div className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2">
+                  <AlertCircle className="size-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-muted-foreground">
+                    Für ein browser-vertrautes Schloss auf dem Tailscale-Namen einmalig{' '}
+                    <strong className="font-medium text-foreground">
+                      MagicDNS + HTTPS-Zertifikate
+                    </strong>{' '}
+                    in der Tailscale-Admin-Konsole aktivieren. Bis dahin funktioniert der
+                    Fernzugriff über die IP (ggf. mit Zertifikatswarnung).
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -498,8 +635,13 @@ export function RemoteAccessSettings() {
                       <span className="text-sm font-mono font-medium text-foreground">
                         {status.ip}
                       </span>
-                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={copyIp}>
-                        {copied ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 w-5 p-0"
+                        onClick={() => status.ip && copyValue(status.ip, 'ip')}
+                      >
+                        {copiedKey === 'ip' ? (
                           <Check className="size-3 text-primary" />
                         ) : (
                           <Copy className="size-3" />
@@ -568,22 +710,17 @@ export function RemoteAccessSettings() {
               </div>
             )}
 
-            {/* Access info */}
-            <div className="border-l-2 border-primary/30 pl-4 space-y-1">
-              <p className="text-xs font-medium text-foreground">Zugriff von anderen Geräten:</p>
-              <p className="text-xs text-muted-foreground">
-                Dashboard:{' '}
-                <code className="px-1 py-0.5 rounded border border-border text-xs">
-                  http://{status.ip}
-                </code>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                SSH:{' '}
-                <code className="px-1 py-0.5 rounded border border-border text-xs">
-                  ssh arasul@{status.ip}
-                </code>
-              </p>
-            </div>
+            {/* SSH access — dashboard access is covered by the card above */}
+            {status.ip && (
+              <div className="border-l-2 border-primary/30 pl-4 space-y-1">
+                <p className="text-xs font-medium text-foreground">SSH-Zugriff:</p>
+                <p className="text-xs text-muted-foreground">
+                  <code className="px-1 py-0.5 rounded border border-border text-xs">
+                    ssh arasul@{status.ip}
+                  </code>
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

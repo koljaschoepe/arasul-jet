@@ -301,6 +301,26 @@ Tailscale provides secure remote access via WireGuard mesh VPN. Configured durin
 
 Tailscale runs on the host (not in Docker). Status is available via `GET /api/tailscale/status`.
 
+### Browser-trusted remote HTTPS (`tailscale serve`)
+
+Remote access is a deliberate opt-in — the delivery default is LAN-only. Once
+connected, the device is reachable at `https://<device>.<tailnet>.ts.net`. To get
+a **browser-trusted certificate** (green lock, no warning), `tailscale serve`
+proxies the tailnet HTTPS endpoint to Traefik on port 443. This is enabled
+automatically after connecting (via the dashboard or `setup-tailscale.sh`), and
+can be managed via:
+
+| Endpoint                      | Effect                                             |
+| ----------------------------- | -------------------------------------------------- |
+| `GET /api/tailscale/serve`    | Report serve state + whether HTTPS certs are ready |
+| `POST /api/tailscale/serve`   | Enable serve (→ Traefik:443)                       |
+| `DELETE /api/tailscale/serve` | Disable serve (falls back to the raw Tailscale IP) |
+
+> **One-time admin action:** MagicDNS **and** HTTPS certificates must be enabled
+> once in the Tailscale admin console (DNS settings) for the trusted cert to be
+> issued. Until then, remote access still works over the raw Tailscale IP (with a
+> certificate warning). The dashboard's Fernzugriff tab surfaces this state.
+
 See [REMOTE_MAINTENANCE.md](./ops/REMOTE_MAINTENANCE.md) for detailed remote access documentation.
 
 ---
@@ -495,18 +515,18 @@ the backup-related **environment variables** above.
 
 ## Dashboard
 
-| Variable                  | Default                   | Description                          |
-| ------------------------- | ------------------------- | ------------------------------------ |
-| PORT                      | 3001                      | Backend port                         |
-| ALLOWED_ORIGINS           | (empty)                   | CORS allowed origins                 |
-| VITE_API_URL              | /api                      | Frontend API URL                     |
-| VITE_WS_URL               | (auto)                    | Frontend WebSocket URL               |
-| VITE_PLATFORM_NAME        | Arasul                    | Platform brand name (white-label)    |
-| VITE_PLATFORM_SUBTITLE    | Edge AI Platform          | Subtitle shown in sidebar            |
-| VITE_PLATFORM_DESCRIPTION | Edge-KI Verwaltungssystem | Description shown on login page      |
-| VITE_SUPPORT_EMAIL        | info@arasul.de            | Support email (login & settings)     |
-| CLAUDE_TERMINAL_TIMEOUT   | 60000                     | Claude terminal command timeout (ms) |
-| RATE_LIMIT_ENABLED        | true                      | Enable API rate limiting             |
+| Variable                  | Default                   | Description                                                                                                                                                                                                     |
+| ------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PORT                      | 3001                      | Backend port                                                                                                                                                                                                    |
+| ALLOWED_ORIGINS           | (empty)                   | Extra CORS origins. Usually stays empty: LAN (RFC-1918 IPs + `*.local`), `localhost`, and Tailscale (CGNAT `100.64.0.0/10` + `*.ts.net`) are allowed automatically. Only add here for an unusual custom domain. |
+| VITE_API_URL              | /api                      | Frontend API URL                                                                                                                                                                                                |
+| VITE_WS_URL               | (auto)                    | Frontend WebSocket URL                                                                                                                                                                                          |
+| VITE_PLATFORM_NAME        | Arasul                    | Platform brand name (white-label)                                                                                                                                                                               |
+| VITE_PLATFORM_SUBTITLE    | Edge AI Platform          | Subtitle shown in sidebar                                                                                                                                                                                       |
+| VITE_PLATFORM_DESCRIPTION | Edge-KI Verwaltungssystem | Description shown on login page                                                                                                                                                                                 |
+| VITE_SUPPORT_EMAIL        | info@arasul.de            | Support email (login & settings)                                                                                                                                                                                |
+| CLAUDE_TERMINAL_TIMEOUT   | 60000                     | Claude terminal command timeout (ms)                                                                                                                                                                            |
+| RATE_LIMIT_ENABLED        | true                      | Enable API rate limiting                                                                                                                                                                                        |
 
 ---
 
@@ -533,15 +553,16 @@ the backup-related **environment variables** above.
 
 ## System Paths & Networking
 
-| Variable               | Default                              | Description                                                 |
-| ---------------------- | ------------------------------------ | ----------------------------------------------------------- |
-| ENV_FILE_PATH          | /arasul/config/.env                  | Path to runtime .env file                                   |
-| APPSTORE_MANIFESTS_DIR | /arasul/appstore/manifests           | App store manifest directory                                |
-| DOCKER_GATEWAY_IP      | 172.30.0.1                           | Docker bridge gateway IP                                    |
-| DOCKER_NETWORK         | arasul-platform_arasul-backend       | Docker network name (project `name:` in docker-compose.yml) |
-| SSH_PORT               | 2222                                 | SSH port (2222 after hardening)                             |
-| SSH_USER               | arasul                               | SSH username for app access                                 |
-| UPDATE_PUBLIC_KEY_PATH | /arasul/config/public_update_key.pem | Public key for update verification                          |
+| Variable               | Default                              | Description                                                                                                                                                                                        |
+| ---------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MDNS_NAME              | arasul                               | LAN hostname (without `.local`). Drives the access name `https://<MDNS_NAME>.local`, the self-signed cert CN, and `GET /api/system/network`. Set to your device hostname to avoid a cert mismatch. |
+| ENV_FILE_PATH          | /arasul/config/.env                  | Path to runtime .env file                                                                                                                                                                          |
+| APPSTORE_MANIFESTS_DIR | /arasul/appstore/manifests           | App store manifest directory                                                                                                                                                                       |
+| DOCKER_GATEWAY_IP      | 172.30.0.1                           | Docker bridge gateway IP                                                                                                                                                                           |
+| DOCKER_NETWORK         | arasul-platform_arasul-backend       | Docker network name (project `name:` in docker-compose.yml)                                                                                                                                        |
+| SSH_PORT               | 2222                                 | SSH port (2222 after hardening)                                                                                                                                                                    |
+| SSH_USER               | arasul                               | SSH username for app access                                                                                                                                                                        |
+| UPDATE_PUBLIC_KEY_PATH | /arasul/config/public_update_key.pem | Public key for update verification                                                                                                                                                                 |
 
 ---
 

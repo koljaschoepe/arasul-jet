@@ -44,9 +44,18 @@ tailscale status
 
 ### Zugriff nach Einrichtung
 
+Ein Gerät, ein Denkmodell: im LAN über den `.local`-Namen, unterwegs über den
+Tailscale-MagicDNS-Namen — immer derselbe Name statt roher IPs.
+
 ```bash
-# Dashboard:
-http://<tailscale-ip>
+# Dashboard im LAN:
+https://<hostname>.local
+
+# Dashboard unterwegs (Tailscale, browser-vertrautes Schloss via `tailscale serve`):
+https://<geraet>.<tailnet>.ts.net
+
+# Fallback, falls MagicDNS/HTTPS noch nicht aktiv ist (Zertifikatswarnung):
+https://<tailscale-ip>
 
 # SSH:
 ssh arasul@<tailscale-ip>
@@ -54,6 +63,12 @@ ssh arasul@<tailscale-ip>
 # Tailscale SSH (ohne SSH-Keys):
 ssh arasul@<hostname>
 ```
+
+> Das browser-vertraute Schloss auf `*.ts.net` benötigt einmalig MagicDNS +
+> HTTPS-Zertifikate in der Tailscale-Admin-Konsole (DNS-Einstellungen). Danach
+> aktiviert Arasul `tailscale serve` automatisch beim Verbinden. Der genaue
+> Zugriffsname steht im Dashboard unter **Einstellungen > Fernzugriff**
+> („So erreichst du Arasul").
 
 ### Dashboard-Verwaltung
 

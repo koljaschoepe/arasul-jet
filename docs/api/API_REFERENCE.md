@@ -1619,15 +1619,32 @@ Response:
 
 ### Tailscale
 
-| Method | Endpoint                    | Auth     | Description                             |
-| ------ | --------------------------- | -------- | --------------------------------------- |
-| GET    | `/api/tailscale/status`     | Required | Get current Tailscale connection status |
-| GET    | `/api/tailscale/peers`      | Required | List connected Tailscale peers          |
-| POST   | `/api/tailscale/install`    | Required | Install Tailscale on the host system    |
-| POST   | `/api/tailscale/connect`    | Required | Connect with auth key                   |
-| POST   | `/api/tailscale/disconnect` | Required | Disconnect from Tailscale               |
+| Method | Endpoint                    | Auth     | Description                                               |
+| ------ | --------------------------- | -------- | --------------------------------------------------------- |
+| GET    | `/api/tailscale/status`     | Required | Get current Tailscale connection status                   |
+| GET    | `/api/tailscale/peers`      | Required | List connected Tailscale peers                            |
+| POST   | `/api/tailscale/install`    | Required | Install Tailscale on the host system                      |
+| POST   | `/api/tailscale/connect`    | Required | Connect with auth key (auto-enables `serve`)              |
+| POST   | `/api/tailscale/disconnect` | Required | Disconnect from Tailscale                                 |
+| GET    | `/api/tailscale/serve`      | Required | Report `tailscale serve` state + HTTPS-cert readiness     |
+| POST   | `/api/tailscale/serve`      | Required | Enable browser-trusted remote HTTPS (serve → Traefik:443) |
+| DELETE | `/api/tailscale/serve`      | Required | Disable serve (remote falls back to raw Tailscale IP)     |
 
 All endpoints require authentication. The route group uses a dedicated `tailscaleLimiter`.
+
+**GET /api/tailscale/serve Response:**
+
+```json
+{
+  "installed": true,
+  "enabled": true,
+  "httpsAvailable": true,
+  "dnsName": "arasul.tail1234.ts.net"
+}
+```
+
+`httpsAvailable` is `false` until MagicDNS + HTTPS certs are enabled once in the
+Tailscale admin console; until then remote access uses the raw Tailscale IP.
 
 **GET /api/tailscale/status Response:**
 

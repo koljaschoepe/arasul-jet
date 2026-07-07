@@ -126,6 +126,7 @@ async function getStatus() {
     tailnet: null,
     version: null,
     peers: [],
+    certDomains: [],
   };
 
   // Single combined command: check installed, get version + JSON status
@@ -190,6 +191,10 @@ async function getStatus() {
   const dnsName = (self.DNSName || '').replace(/\.$/, '');
   const hostname = self.HostName || null;
   const tailnet = statusData.MagicDNSSuffix || null;
+  // Domains this node can obtain TLS certs for — populated by tailscaled only
+  // when MagicDNS + HTTPS certs are enabled for the tailnet. Read-only signal
+  // for `serveStatus().httpsAvailable` (no cert is fetched/written to probe it).
+  const certDomains = Array.isArray(statusData.CertDomains) ? statusData.CertDomains : [];
 
   const peers = [];
   const peerMap = statusData.Peer || {};
@@ -215,6 +220,7 @@ async function getStatus() {
     tailnet,
     version,
     peers,
+    certDomains,
   };
 
   cacheSet('status', result);
@@ -330,6 +336,16 @@ async function connect(authKey, hostname) {
   await new Promise(resolve => {
     setTimeout(resolve, 2000);
   });
+
+  // Best-effort: turn on `serve` so remote HTTPS gets a browser-trusted cert
+  // right away. Non-fatal — if it fails (e.g. MagicDNS HTTPS not yet enabled in
+  // the admin console), remote access still works via the raw Tailscale IP.
+  try {
+    await enableServe();
+  } catch (err) {
+    logger.warn(`Auto-enable of tailscale serve failed (non-fatal): ${err.message}`);
+  }
+
   return await getStatus();
 }
 
@@ -354,6 +370,102 @@ async function disconnect() {
   return { success: true };
 }
 
+/**
+ * Report `tailscale serve` state for browser-trusted remote HTTPS.
+ *
+ * `serve` is what makes `https://<device>.<tailnet>.ts.net` load with a real,
+ * browser-trusted certificate (no cert warning) by proxying the tailnet HTTPS
+ * endpoint to Traefik on 443. We also surface whether MagicDNS+HTTPS certs are
+ * available in the tailnet — that is a one-time admin-console toggle, and
+ * without it `serve --https` cannot obtain a cert.
+ *
+ * Both signals are READ-ONLY: `serve status` prints config, and cert
+ * availability is read from the `CertDomains` field of `tailscale status`
+ * (populated by tailscaled when HTTPS is enabled). We deliberately do NOT run
+ * `tailscale cert`, which would fetch and write a real cert + private key.
+ *
+ * @returns {Promise<{installed:boolean, enabled:boolean, httpsAvailable:boolean, dnsName:string|null}>}
+ */
+async function serveStatus() {
+  const status = await getStatus();
+  if (!status.installed) {
+    return { installed: false, enabled: false, httpsAvailable: false, dnsName: null };
+  }
+
+  let enabled = false;
+
+  try {
+    const { exitCode, output } = await runOnHost('tailscale serve status 2>&1', 10000);
+    // "No serve config" (any casing) means serve is off; anything referencing
+    // https:// / 443 / a proxy target means it is on.
+    if (exitCode === 0 && output && !/no serve config/i.test(output)) {
+      enabled = /https|:443|proxy|127\.0\.0\.1/i.test(output);
+    }
+  } catch (err) {
+    logger.debug(`serveStatus: serve status probe failed: ${err.message}`);
+  }
+
+  // HTTPS cert availability: read-only from the status JSON's CertDomains.
+  // Non-empty ⇒ tailnet has MagicDNS+HTTPS certs enabled, so `serve --https`
+  // can obtain a browser-trusted cert. No cert is fetched or written to check.
+  const httpsAvailable = Array.isArray(status.certDomains) && status.certDomains.length > 0;
+
+  return { installed: true, enabled, httpsAvailable, dnsName: status.dnsName };
+}
+
+/**
+ * Enable `tailscale serve` pointing at Traefik on 443.
+ *
+ * Points at 443 (NOT 80 — port 80 would 301-redirect and loop). `https+insecure`
+ * because Traefik terminates with a self-signed backend cert; Tailscale is the
+ * outward TLS terminator with the trusted MagicDNS cert. Idempotent: re-running
+ * just re-asserts the same config.
+ */
+async function enableServe() {
+  const installed = await isInstalled();
+  if (!installed) {
+    throw new Error('Tailscale ist nicht installiert');
+  }
+
+  const cmd = 'tailscale serve --bg --https=443 https+insecure://127.0.0.1:443 2>&1';
+  const { exitCode, output } = await runOnHost(cmd, 20000);
+
+  if (exitCode !== 0) {
+    logger.error(`Tailscale serve enable failed: ${output}`);
+    throw new Error(
+      'Aktivierung von tailscale serve fehlgeschlagen: ' +
+        (output.slice(-200) || 'Unbekannter Fehler')
+    );
+  }
+
+  cacheInvalidate();
+  logger.info('Tailscale serve enabled (https=443 → 127.0.0.1:443)');
+  return await serveStatus();
+}
+
+/**
+ * Disable `tailscale serve` (falls back to raw Tailscale-IP access).
+ */
+async function disableServe() {
+  const installed = await isInstalled();
+  if (!installed) {
+    throw new Error('Tailscale ist nicht installiert');
+  }
+
+  const { exitCode, output } = await runOnHost('tailscale serve reset 2>&1', 10000);
+
+  if (exitCode !== 0) {
+    logger.error(`Tailscale serve disable failed: ${output}`);
+    throw new Error(
+      'Deaktivierung von tailscale serve fehlgeschlagen: ' + (output || 'Unbekannter Fehler')
+    );
+  }
+
+  cacheInvalidate();
+  logger.info('Tailscale serve disabled');
+  return { success: true };
+}
+
 module.exports = {
   isInstalled,
   getStatus,
@@ -361,4 +473,7 @@ module.exports = {
   connect,
   disconnect,
   install,
+  serveStatus,
+  enableServe,
+  disableServe,
 };

@@ -119,12 +119,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// SEC-007 FIX: Restrict CORS to specific origins + allow local network access
-// Pre-compiled regex for private IP validation (RFC 1918, strict octet 0-255)
-const _octet = '(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)';
-const _privateIPRegex = new RegExp(
-  `^https?:\\/\\/(192\\.168\\.${_octet}\\.${_octet}|10\\.${_octet}\\.${_octet}\\.${_octet}|172\\.(?:1[6-9]|2\\d|3[01])\\.${_octet}\\.${_octet})(:\\d+)?$`
-);
+// SEC-007 FIX: Restrict CORS to specific origins + allow local/tailnet access.
+// Origin-matching rules live in utils/corsOrigin.js as a pure, unit-tested
+// function (LAN via RFC-1918 + *.local, remote via Tailscale CGNAT + *.ts.net).
+const { isAllowedOrigin } = require('./utils/corsOrigin');
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -133,18 +131,9 @@ const corsOptions = {
       ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
       : [];
 
-    // Check if origin is from a local/private network (RFC 1918) or mDNS
-    const isPrivateIP = origin && _privateIPRegex.test(origin);
-    const isLocalNetwork =
-      origin &&
-      (isPrivateIP ||
-        origin.includes('://localhost') ||
-        origin.includes('://127.0.0.1') ||
-        origin.includes('://dashboard-frontend') ||
-        /^https?:\/\/[a-zA-Z0-9-]+\.local(:\d+)?$/.test(origin));
-
-    // Allow if: no origin (same-origin/curl), explicitly allowed, or local network
-    if (!origin || allowedOrigins.includes(origin) || isLocalNetwork) {
+    // Allow if: no origin (same-origin/curl), explicitly allowed, local network,
+    // or a Tailscale tailnet address (CGNAT IP / *.ts.net MagicDNS name).
+    if (isAllowedOrigin(origin, allowedOrigins)) {
       callback(null, true);
     } else {
       require('./utils/logger').warn(`CORS blocked origin: ${origin}`);
