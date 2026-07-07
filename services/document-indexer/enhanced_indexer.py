@@ -288,9 +288,13 @@ class EnhancedDocumentIndexer:
         # Check for existing document by content hash (duplicate detection)
         existing = self.db.get_document_by_hash(content_hash)
         if existing:
-            if existing['status'] == 'indexed':
+            # 'partial' == indexed-but-incomplete. Treat it as terminal here so
+            # the auto-scan never reprocesses it; the /reindex endpoints reset
+            # status to 'pending' first and so still flow through the branch below.
+            if existing['status'] in ('indexed', 'partial'):
                 logger.info(
-                    f"Document already indexed (content match): {filename}"
+                    f"Document already {existing['status']} (content match): "
+                    f"{filename}"
                 )
                 return existing['id']
             elif existing['status'] in ('pending', 'failed'):
@@ -317,8 +321,10 @@ class EnhancedDocumentIndexer:
         # Check by file hash for re-indexing
         existing_by_path = self.db.get_document_by_file_hash(file_hash)
         if existing_by_path:
-            if existing_by_path['status'] == 'indexed':
-                logger.debug(f"Document already indexed: {filename}")
+            if existing_by_path['status'] in ('indexed', 'partial'):
+                logger.debug(
+                    f"Document already {existing_by_path['status']}: {filename}"
+                )
                 return existing_by_path['id']
             elif existing_by_path['status'] == 'pending':
                 logger.info(
@@ -553,10 +559,15 @@ class EnhancedDocumentIndexer:
                         obj.object_name, obj.size or 0
                     )
                     existing = self.db.get_document_by_file_hash(file_hash)
-                    if existing and existing['status'] == 'indexed':
+                    # 'partial' is terminal for the auto-scan: it is searchable
+                    # but incomplete and must only be re-indexed via the explicit
+                    # /reindex endpoints (which reset status to 'pending' first).
+                    # Otherwise every 30s cycle would re-download, re-analyse and
+                    # fully re-embed it forever, pinning the embedding GPU.
+                    if existing and existing['status'] in ('indexed', 'partial'):
                         logger.debug(
-                            f"Document already indexed (content match): "
-                            f"{os.path.basename(obj.object_name)}"
+                            f"Document already {existing['status']} (content "
+                            f"match): {os.path.basename(obj.object_name)}"
                         )
                         continue
 
