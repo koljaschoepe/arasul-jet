@@ -46,7 +46,9 @@ function normalizeErrorBody(
   details?: unknown;
 } {
   if (body === null || body === undefined) {
-    return { message: 'Unbekannter Fehler' };
+    return {
+      message: 'Es ist ein unerwarteter Fehler aufgetreten. Bitte versuchen Sie es erneut.',
+    };
   }
   if (body && typeof body === 'object') {
     const payload = body as Record<string, unknown>;

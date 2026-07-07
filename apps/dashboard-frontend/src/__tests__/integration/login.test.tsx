@@ -157,8 +157,8 @@ describe('Login integration', () => {
 
   it('shows error message on failed login', async () => {
     const user = userEvent.setup();
-    const apiError = Object.assign(new Error('Invalid credentials'), {
-      data: { error: 'Invalid credentials' },
+    const apiError = Object.assign(new Error('Invalid username or password'), {
+      status: 401,
     });
     vi.mocked(mockApi.post).mockRejectedValueOnce(apiError);
 
@@ -169,7 +169,7 @@ describe('Login integration', () => {
     await user.click(screen.getByRole('button', { name: /anmelden/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/invalid credentials/i);
+      expect(screen.getByRole('alert')).toHaveTextContent(/passwort ist falsch/i);
     });
   });
 
@@ -195,7 +195,7 @@ describe('Login integration', () => {
 
   it('handles network error gracefully', async () => {
     const user = userEvent.setup();
-    vi.mocked(mockApi.post).mockRejectedValueOnce(new Error('Network Error'));
+    vi.mocked(mockApi.post).mockRejectedValueOnce(new Error('Failed to fetch'));
 
     renderLogin();
 
@@ -204,7 +204,7 @@ describe('Login integration', () => {
     await user.click(screen.getByRole('button', { name: /anmelden/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/network error/i);
+      expect(screen.getByRole('alert')).toHaveTextContent(/netzwerkverbindung/i);
     });
   });
 
