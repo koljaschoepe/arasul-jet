@@ -1055,6 +1055,15 @@ async def collect_metrics_loop():
     db_writer = DatabaseWriter()
     _db_writer_instance = db_writer
 
+    # Every infra probe below (DNS lookups, HTTP calls to self-healing/backend/
+    # Qdrant, subprocess smartctl, blocking DB writes) is synchronous and can
+    # stall for several seconds on a timeout when its target is unreachable.
+    # Run them in the default thread-pool executor so a slow/offline probe can
+    # never freeze the event loop — otherwise the aiohttp /health endpoint that
+    # shares this loop stops answering and the container gets marked unhealthy
+    # and restart-looped.
+    loop = asyncio.get_event_loop()
+
     persist_counter = 0
     cleanup_counter = 0
     gpu_counter = 0
@@ -1064,13 +1073,13 @@ async def collect_metrics_loop():
     # every 5 minutes, not every 5 seconds like live metrics.
     INFRA_INTERVAL_SECONDS = int(os.getenv('INFRA_METRICS_INTERVAL', '300'))
 
-    # Initial storage wear check on startup
-    collector.check_storage_wear()
+    # Initial storage wear check on startup (subprocess smartctl — offload).
+    await loop.run_in_executor(None, collector.check_storage_wear)
 
     while True:
         try:
-            # Collect basic metrics
-            metrics = collector.collect_all()
+            # Collect basic metrics (includes blocking network/HTTP probes).
+            metrics = await loop.run_in_executor(None, collector.collect_all)
             current_metrics = metrics
 
             # Add to buffer, then hard-cap it every cycle. Trimming used to
@@ -1083,13 +1092,13 @@ async def collect_metrics_loop():
             # Collect detailed GPU stats (less frequently - every 10s)
             gpu_counter += METRICS_INTERVAL_LIVE
             if gpu_counter >= 10:
-                collector.collect_gpu_detailed()
+                await loop.run_in_executor(None, collector.collect_gpu_detailed)
                 gpu_counter = 0
 
             # Storage wear check (every 24h = 86400s)
             storage_wear_counter += METRICS_INTERVAL_LIVE
             if storage_wear_counter >= 86400:
-                collector.check_storage_wear()
+                await loop.run_in_executor(None, collector.check_storage_wear)
                 storage_wear_counter = 0
 
             # Persist to database every METRICS_INTERVAL_PERSIST seconds
@@ -1097,7 +1106,7 @@ async def collect_metrics_loop():
             if persist_counter >= METRICS_INTERVAL_PERSIST:
                 # Only persist the most recent metrics (buffer is for in-memory live access)
                 # Database retention is separate from live metrics
-                db_writer.write_metrics(metrics)
+                await loop.run_in_executor(None, db_writer.write_metrics, metrics)
                 # Buffer trimming happens every cycle right after append
                 # (see METRICS_BUFFER_MAX), not here.
                 persist_counter = 0
@@ -1105,7 +1114,7 @@ async def collect_metrics_loop():
             # Cleanup old metrics every hour
             cleanup_counter += METRICS_INTERVAL_LIVE
             if cleanup_counter >= 3600:
-                db_writer.cleanup_old_metrics()
+                await loop.run_in_executor(None, db_writer.cleanup_old_metrics)
                 cleanup_counter = 0
 
             # Infrastructure metrics (pg_stat, Qdrant, MinIO) — expensive, so
@@ -1115,22 +1124,26 @@ async def collect_metrics_loop():
             if infra_counter >= INFRA_INTERVAL_SECONDS:
                 infra_counter = 0
                 try:
-                    n_tables = db_writer.collect_pg_stats()
+                    n_tables = await loop.run_in_executor(None, db_writer.collect_pg_stats)
                     logger.debug(f"pg_stat snapshot: {n_tables} rows")
                 except Exception as e:
                     logger.debug(f"pg_stat probe errored: {e}")
                 try:
-                    qd = collector.collect_qdrant_stats()
+                    qd = await loop.run_in_executor(None, collector.collect_qdrant_stats)
                     if qd:
                         for name, payload in qd:
-                            db_writer.write_infra_metric('qdrant_collection', name, payload)
+                            await loop.run_in_executor(
+                                None, db_writer.write_infra_metric,
+                                'qdrant_collection', name, payload)
                 except Exception as e:
                     logger.debug(f"qdrant probe errored: {e}")
                 try:
-                    mn = collector.collect_minio_stats()
+                    mn = await loop.run_in_executor(None, collector.collect_minio_stats)
                     if mn:
                         for name, payload in mn:
-                            db_writer.write_infra_metric('minio_bucket', name, payload)
+                            await loop.run_in_executor(
+                                None, db_writer.write_infra_metric,
+                                'minio_bucket', name, payload)
                 except Exception as e:
                     logger.debug(f"minio probe errored: {e}")
 
