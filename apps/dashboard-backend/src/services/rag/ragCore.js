@@ -26,6 +26,7 @@ const db = require('../../database');
 const services = require('../../config/services');
 const embeddingService = require('../embeddingService');
 const systemSettings = require('../system-settings/systemSettingsService');
+const { ServiceUnavailableError } = require('../../utils/errors');
 
 // Environment variables
 const QDRANT_HOST = services.qdrant.host;
@@ -957,7 +958,15 @@ async function hybridSearch(query, embedding, limit = 5, spaceIds = null, option
       return fallbackResponse.data.result || [];
     } catch (fallbackErr) {
       logger.error(`Dense-only fallback also failed: ${fallbackErr.message}`);
-      return [];
+      // P6-16: both the primary hybrid query AND the dense-only fallback failed.
+      // This is a genuine Qdrant/search-backend outage — NOT an empty index.
+      // Returning [] here would be indistinguishable from "no documents exist"
+      // and mislead the user into uploading docs. Throw so callers can surface a
+      // "search temporarily unavailable" condition instead.
+      throw new ServiceUnavailableError('Vector search backend unavailable', {
+        code: 'SEARCH_UNAVAILABLE',
+        service: 'qdrant',
+      });
     }
   }
 }
