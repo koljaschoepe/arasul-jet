@@ -571,14 +571,14 @@ if (require.main === module) {
       }
 
       if (pathname === '/api/metrics/live-stream') {
-        // SEC: Verify JWT before allowing WebSocket upgrade
+        // SEC (P8-1): Verify JWT before allowing WebSocket upgrade. The token is
+        // NOT read from the query string — that leaks the JWT into Traefik access
+        // logs. Authenticate from the httpOnly session cookie or Bearer header only.
         const { verifyToken } = require('./utils/jwt');
-        const url = new URL(request.url, `http://${request.headers.host}`);
-        const tokenFromQuery = url.searchParams.get('token');
         const authHeader = request.headers['authorization'];
         const cookieHeader = request.headers['cookie'];
-        let token = tokenFromQuery;
-        if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+        let token = null;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
           token = authHeader.slice(7);
         }
         if (!token && cookieHeader) {
