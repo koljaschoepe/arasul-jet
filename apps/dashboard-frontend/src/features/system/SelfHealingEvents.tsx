@@ -40,6 +40,7 @@ const SelfHealingEvents = () => {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<SeverityFilter>('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['Letzte Stunde']));
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -79,6 +80,13 @@ const SelfHealingEvents = () => {
     } finally {
       if (!silent) setLoading(false);
     }
+  };
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    // Silent so the list stays visible instead of collapsing to a skeleton.
+    await fetchEvents(true);
+    setRefreshing(false);
   };
 
   const getEventTypeIcon = (eventType: string) => {
@@ -166,7 +174,7 @@ const SelfHealingEvents = () => {
     return (
       <div className="animate-in fade-in">
         <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Self-Healing</h1>
+          <h1 className="text-xl font-bold text-foreground mb-2">Self-Healing</h1>
         </div>
         <SkeletonList count={5} hasAvatar={false} />
       </div>
@@ -179,7 +187,7 @@ const SelfHealingEvents = () => {
       <div className="mb-8 pb-6 border-b border-border">
         <div className="flex justify-between items-start flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">Self-Healing</h1>
+            <h1 className="text-xl font-bold text-foreground mb-2">Self-Healing</h1>
             <p className="text-sm text-muted-foreground">Systemwiederherstellung und Wartung</p>
           </div>
           <div className="flex gap-2 items-center">
@@ -195,10 +203,11 @@ const SelfHealingEvents = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => fetchEvents()}
+              onClick={handleManualRefresh}
+              disabled={refreshing}
               className="h-7 text-xs"
             >
-              <RefreshCw className="size-3.5" /> Aktualisieren
+              <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} /> Aktualisieren
             </Button>
           </div>
         </div>
@@ -365,6 +374,12 @@ const SelfHealingEvents = () => {
             );
           })}
         </div>
+      )}
+
+      {events.length >= 50 && (
+        <p className="mt-4 text-xs text-muted-foreground">
+          Es werden die letzten 50 Ereignisse angezeigt.
+        </p>
       )}
     </div>
   );

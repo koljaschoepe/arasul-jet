@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Save, Check, AlertCircle } from 'lucide-react';
+import { Save, AlertCircle, RefreshCw } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
-import { useApi } from '../../hooks/useApi';
+import { useApi, type ApiError } from '../../hooks/useApi';
+import { useToast } from '../../contexts/ToastContext';
 import { formatDate } from '../../utils/formatting';
+import { extractIssues } from './validationIssues';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
@@ -55,9 +57,15 @@ interface CompanyContextResponse {
 
 export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}) {
   const api = useApi();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+  // Distinguishes a genuine backend failure (show error + retry) from an
+  // empty-but-successful load (no profile yet).
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  // Field-level validation errors keyed by 'companyName' | 'context'.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Profile fields
   const [companyName, setCompanyName] = useState('');
@@ -123,17 +131,17 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
 
   const fetchData = useCallback(
     async (signal: AbortSignal) => {
+      setLoadError(false);
       try {
+        // No per-request .catch(): a rejection here is a real backend failure,
+        // which must surface as an error state — not be masked as an empty
+        // profile. A genuinely empty profile is a *successful* { profile: null }.
         const [profileData, contextData] = await Promise.all([
-          api
-            .get<ProfileResponse>('/memory/profile', { signal, showError: false })
-            .catch((): ProfileResponse => ({ profile: null })),
-          api
-            .get<CompanyContextResponse>('/settings/company-context', {
-              signal,
-              showError: false,
-            })
-            .catch((): CompanyContextResponse => ({ content: '', updated_at: null })),
+          api.get<ProfileResponse>('/memory/profile', { signal, showError: false }),
+          api.get<CompanyContextResponse>('/settings/company-context', {
+            signal,
+            showError: false,
+          }),
         ]);
 
         if (profileData.profile) {
@@ -167,11 +175,9 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
       } catch (error) {
         if (signal?.aborted) return;
         console.error('Error fetching profile data:', error);
-        setOriginalProfile({ firma: '', branche: '', prods: '', aLen: 'mittel', form: 'normal' });
-        setContextContent(defaultContextTemplate);
-        setOriginalContext(defaultContextTemplate);
+        setLoadError(true);
       } finally {
-        setLoading(false);
+        if (!signal?.aborted) setLoading(false);
       }
     },
     [api, parseYaml]
@@ -181,7 +187,13 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
     const controller = new AbortController();
     fetchData(controller.signal);
     return () => controller.abort();
-  }, [fetchData]);
+  }, [fetchData, reloadKey]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setLoadError(false);
+    setReloadKey(k => k + 1);
+  };
 
   const currentProfileState = {
     firma: companyName,
@@ -218,11 +230,15 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
 
   const handleSave = async () => {
     setSaving(true);
-    setMessage(null);
+    setFieldErrors({});
 
+    // Sequence the two writes and commit each half's "saved" baseline right
+    // after its own success. On a partial failure this keeps the client in
+    // sync with the server (the saved half is marked clean, the failed half
+    // stays dirty) instead of the old Promise.all, which could leave one half
+    // persisted server-side while both were rolled back only client-side.
+    let profileSaved = false;
     try {
-      const promises: Promise<CompanyContextResponse>[] = [];
-
       if (profileChanged) {
         const resolvedIndustry = industry === 'custom' ? customIndustry : industry;
         const productList = products
@@ -230,50 +246,56 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
           .map(p => p.trim())
           .filter(Boolean);
 
-        promises.push(
-          api.post<CompanyContextResponse>(
-            '/memory/profile',
-            {
-              companyName: companyName || 'Unbekannt',
-              industry: resolvedIndustry,
-              teamSize: '',
-              products: productList,
-              preferences: { antwortlaenge: answerLength, formalitaet: formality },
-            },
-            { showError: false }
-          )
+        await api.post<CompanyContextResponse>(
+          '/memory/profile',
+          {
+            // No 'Unbekannt' fallback: an empty name must surface the backend
+            // ValidationError instead of being silently renamed.
+            companyName,
+            industry: resolvedIndustry,
+            teamSize: '',
+            products: productList,
+            preferences: { antwortlaenge: answerLength, formalitaet: formality },
+          },
+          { showError: false }
         );
+        setOriginalProfile({ ...currentProfileState });
+        profileSaved = true;
       }
 
       if (contextChanged) {
-        promises.push(
-          api.put<CompanyContextResponse>(
-            '/settings/company-context',
-            { content: contextContent },
-            { showError: false }
-          )
+        const res = await api.put<CompanyContextResponse>(
+          '/settings/company-context',
+          { content: contextContent },
+          { showError: false }
         );
+        setOriginalContext(contextContent);
+        if (res?.updated_at) setLastUpdated(res.updated_at);
       }
 
-      const results = await Promise.all(promises);
-
-      setOriginalProfile({ ...currentProfileState });
-      setOriginalContext(contextContent);
-
-      const contextResult = results.find((r): r is { updated_at: string } =>
-        Boolean(r && r.updated_at)
-      );
-      if (contextResult) {
-        setLastUpdated(contextResult.updated_at);
-      }
-
-      setMessage({ type: 'success', text: 'KI-Profil erfolgreich gespeichert' });
+      toast.success('KI-Profil erfolgreich gespeichert');
     } catch (error: unknown) {
-      const err = error as { message?: string };
-      setMessage({
-        type: 'error',
-        text: err.message || 'Fehler beim Speichern',
-      });
+      const issues = extractIssues(error);
+      const nextFieldErrors: Record<string, string> = {};
+      for (const issue of issues) {
+        if (issue.path.includes('companyName')) {
+          nextFieldErrors.companyName = issue.message;
+        } else if (issue.path.includes('content')) {
+          nextFieldErrors.context = issue.message;
+        }
+      }
+      setFieldErrors(nextFieldErrors);
+
+      const detail = issues[0]?.message || (error as ApiError).message || 'Fehler beim Speichern';
+      let text: string;
+      if (profileSaved && contextChanged) {
+        text = `Firmenprofil gespeichert, aber Zusatzkontext konnte nicht gespeichert werden: ${detail}`;
+      } else if (profileChanged && !profileSaved) {
+        text = `Firmenprofil konnte nicht gespeichert werden: ${detail}`;
+      } else {
+        text = `Zusatzkontext konnte nicht gespeichert werden: ${detail}`;
+      }
+      toast.error(text);
     } finally {
       setSaving(false);
     }
@@ -286,6 +308,29 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
           <h1 className="text-2xl font-bold text-foreground mb-2">KI-Profil</h1>
         </div>
         <SkeletonCard hasAvatar={false} lines={4} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="animate-in fade-in">
+        <div className="mb-8 pb-6 border-b border-border">
+          <h1 className="text-2xl font-bold text-foreground mb-2">KI-Profil</h1>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertDescription className="flex flex-col items-start gap-3">
+            <span>
+              KI-Profil konnte nicht geladen werden. Bitte prüfen Sie die Verbindung und versuchen
+              Sie es erneut.
+            </span>
+            <Button variant="outline" size="sm" onClick={handleRetry}>
+              <RefreshCw className="size-4" />
+              Erneut versuchen
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -310,9 +355,20 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
             <Input
               id="companyName"
               value={companyName}
-              onChange={e => setCompanyName(e.target.value)}
+              onChange={e => {
+                setCompanyName(e.target.value);
+                setFieldErrors(prev => {
+                  if (!prev.companyName) return prev;
+                  const { companyName: _omit, ...rest } = prev;
+                  return rest;
+                });
+              }}
               placeholder="z.B. Muster GmbH"
+              aria-invalid={Boolean(fieldErrors.companyName)}
             />
+            {fieldErrors.companyName && (
+              <p className="text-xs text-destructive">{fieldErrors.companyName}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -373,10 +429,19 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
           <Textarea
             className="min-h-50 font-mono text-sm"
             value={contextContent}
-            onChange={e => setContextContent(e.target.value)}
+            onChange={e => {
+              setContextContent(e.target.value);
+              setFieldErrors(prev => {
+                if (!prev.context) return prev;
+                const { context: _omit, ...rest } = prev;
+                return rest;
+              });
+            }}
             placeholder="Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten..."
             spellCheck={false}
+            aria-invalid={Boolean(fieldErrors.context)}
           />
+          {fieldErrors.context && <p className="text-xs text-destructive">{fieldErrors.context}</p>}
           {lastUpdated && (
             <p className="text-xs text-muted-foreground">
               Zuletzt aktualisiert: {formatDate(lastUpdated)}
@@ -435,18 +500,6 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
           </div>
         </section>
 
-        {/* Message */}
-        {message && (
-          <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-            {message.type === 'success' ? (
-              <Check className="size-4" />
-            ) : (
-              <AlertCircle className="size-4" />
-            )}
-            <AlertDescription>{message.text}</AlertDescription>
-          </Alert>
-        )}
-
         {/* Save Footer */}
         <div className="flex items-center justify-between py-2">
           <div>
@@ -454,15 +507,9 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
               <span className="text-xs text-warning font-medium">Ungespeicherte Änderungen</span>
             )}
           </div>
-          <Button onClick={handleSave} disabled={saving || !hasChanges}>
-            {saving ? (
-              'Speichern...'
-            ) : (
-              <>
-                <Save className="size-4" />
-                Speichern
-              </>
-            )}
+          <Button onClick={handleSave} loading={saving} disabled={!hasChanges}>
+            <Save className="size-4" />
+            Speichern
           </Button>
         </div>
       </div>

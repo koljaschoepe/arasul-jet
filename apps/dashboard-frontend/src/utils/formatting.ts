@@ -64,12 +64,12 @@ export const formatUptime = (seconds: number | null | undefined): string => {
 };
 
 /**
- * Format date as relative time (e.g., "5m ago", "2h ago")
+ * Format date as relative time in German (e.g., "vor 5 Min.", "vor 2 Std.")
  * @param dateString - ISO date string
- * @returns Relative time string
+ * @returns Relative time string (German locale)
  */
 export const formatRelativeDate = (dateString: string | null | undefined): string => {
-  if (!dateString) return 'N/A';
+  if (!dateString) return '–';
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -77,10 +77,10 @@ export const formatRelativeDate = (dateString: string | null | undefined): strin
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMins < 1) return 'gerade eben';
+  if (diffMins < 60) return `vor ${diffMins} Min.`;
+  if (diffHours < 24) return `vor ${diffHours} Std.`;
+  if (diffDays < 7) return `vor ${diffDays} ${diffDays === 1 ? 'Tag' : 'Tagen'}`;
 
-  return date.toLocaleString();
+  return date.toLocaleString('de-DE');
 };

@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { validateBody } = require('../../middleware/validate');
 const { ValidationError } = require('../../utils/errors');
 const {
@@ -30,6 +30,7 @@ router.use(requireAuth);
  */
 router.get(
   '/profile',
+  requireAdmin,
   asyncHandler(async (req, res) => {
     const profile = await memoryService.getProfile();
     res.json({ profile: profile || null });
@@ -41,6 +42,7 @@ router.get(
  */
 router.put(
   '/profile',
+  requireAdmin,
   validateBody(UpdateProfileBody),
   asyncHandler(async (req, res) => {
     const { profile } = req.body;
@@ -56,6 +58,7 @@ router.put(
  */
 router.post(
   '/profile',
+  requireAdmin,
   validateBody(CreateProfileBody),
   asyncHandler(async (req, res) => {
     const { companyName, industry, teamSize, products, preferences } = req.body;

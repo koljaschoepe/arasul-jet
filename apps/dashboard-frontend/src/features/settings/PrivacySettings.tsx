@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Download, Trash2, ShieldAlert, Info } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
+import { Input } from '@/components/ui/shadcn/input';
+import { Label } from '@/components/ui/shadcn/label';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import Modal from '@/components/ui/Modal';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -20,6 +23,9 @@ export function PrivacySettings() {
   const { confirm, ConfirmDialog } = useConfirm();
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // In-app type-to-confirm modal (replaces native window.prompt).
+  const [tokenModalOpen, setTokenModalOpen] = useState(false);
+  const [typedToken, setTypedToken] = useState('');
 
   const handleExport = async () => {
     setExporting(true);
@@ -37,7 +43,17 @@ export function PrivacySettings() {
       toast.success('Datenexport heruntergeladen');
     } catch (err) {
       console.error('Export error:', err);
-      toast.error('Export fehlgeschlagen');
+      // Export is admin-only server-side; surface the real reason instead of a
+      // generic message. useApi throws an ApiError with .status even for raw:true,
+      // and AbortSignal.timeout rejects with a TimeoutError DOMException.
+      const e = err as { status?: number; name?: string };
+      if (e.status === 403) {
+        toast.error('Nur Admins dürfen exportieren.');
+      } else if (e.name === 'TimeoutError') {
+        toast.error('Export hat zu lange gedauert — bitte erneut versuchen.');
+      } else {
+        toast.error('Export fehlgeschlagen.');
+      }
     } finally {
       setExporting(false);
     }
@@ -53,19 +69,25 @@ export function PrivacySettings() {
     });
     if (!ok) return;
 
-    const typed = window.prompt(
-      `Bestätigung erforderlich. Tippe genau "${DELETE_CONFIRMATION_TOKEN}" ein, um fortzufahren:`
-    );
-    if (typed !== DELETE_CONFIRMATION_TOKEN) {
+    // Second gate: collect the exact confirmation token via an in-app modal,
+    // consistent with the app's dialog system (no native window.prompt).
+    setTypedToken('');
+    setTokenModalOpen(true);
+  };
+
+  const confirmDeletion = async () => {
+    if (typedToken !== DELETE_CONFIRMATION_TOKEN) {
       toast.warning('Löschvorgang abgebrochen — Bestätigungstoken falsch.');
       return;
     }
 
+    setTokenModalOpen(false);
     setDeleting(true);
     try {
+      // Backend re-validates req.body.confirm === 'LOESCHEN-BESTAETIGT'.
       await api.request('/gdpr/me', {
         method: 'DELETE',
-        body: { confirm: typed },
+        body: { confirm: typedToken },
         showError: false,
       });
       toast.success('Konto gelöscht — du wirst abgemeldet.');
@@ -124,6 +146,55 @@ export function PrivacySettings() {
           {deleting ? 'Lösche...' : 'Konto endgültig löschen'}
         </Button>
       </section>
+
+      <Modal
+        isOpen={tokenModalOpen}
+        onClose={() => setTokenModalOpen(false)}
+        title={
+          <>
+            <Trash2 className="size-4 text-destructive" /> Löschung bestätigen
+          </>
+        }
+        size="small"
+        footer={
+          <div className="flex gap-3 w-full justify-end">
+            <Button type="button" variant="outline" onClick={() => setTokenModalOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDeletion}
+              disabled={typedToken !== DELETE_CONFIRMATION_TOKEN}
+            >
+              Endgültig löschen
+            </Button>
+          </div>
+        }
+      >
+        <form
+          className="space-y-3"
+          onSubmit={e => {
+            e.preventDefault();
+            confirmDeletion();
+          }}
+        >
+          <Label htmlFor="delete-confirm-token">
+            Tippe zur Bestätigung genau{' '}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
+              {DELETE_CONFIRMATION_TOKEN}
+            </code>{' '}
+            ein:
+          </Label>
+          <Input
+            id="delete-confirm-token"
+            value={typedToken}
+            onChange={e => setTypedToken(e.target.value)}
+            placeholder={DELETE_CONFIRMATION_TOKEN}
+            autoComplete="off"
+          />
+        </form>
+      </Modal>
     </div>
   );
 }

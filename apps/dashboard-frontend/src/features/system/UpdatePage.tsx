@@ -73,9 +73,12 @@ type UploadStatus =
   | 'success'
   | 'error';
 
+// If the update stays "in_progress" longer than this, warn the user it may be stuck.
+const STUCK_THRESHOLD_MS = 10 * 60 * 1000;
+
 const UpdatePage = () => {
   const api = useApi();
-  const pollingAbortRef = useRef<AbortController | null>(null);
+  const applyStartRef = useRef<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -87,6 +90,9 @@ const UpdatePage = () => {
   const [usbDevices, setUsbDevices] = useState<UsbDevice[]>([]);
   const [usbScanning, setUsbScanning] = useState(false);
   const [systemInfo, setSystemInfo] = useState<SystemInfoData | null>(null);
+  // Set while the status poll cannot reach the backend during an apply
+  // (expected: the backend container itself restarts mid-update).
+  const [connectionLost, setConnectionLost] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,16 +106,28 @@ const UpdatePage = () => {
     if (uploadStatus !== 'applying') return;
 
     const controller = new AbortController();
-    pollingAbortRef.current = controller;
+    if (applyStartRef.current === null) applyStartRef.current = Date.now();
 
-    const interval = setInterval(() => {
-      fetchUpdateStatus(controller.signal);
-    }, 2000);
+    let cancelled = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      const reachable = await fetchUpdateStatus(controller.signal);
+      if (cancelled) return;
+      failures = reachable ? 0 : failures + 1;
+      // Steady 2s cadence while connected; exponential backoff (capped at 30s)
+      // once the backend is unreachable — it is restarting itself mid-apply.
+      const delay = reachable ? 2000 : Math.min(2000 * 2 ** Math.min(failures, 4), 30000);
+      timer = setTimeout(poll, delay);
+    };
+
+    timer = setTimeout(poll, 2000);
 
     return () => {
-      clearInterval(interval);
+      cancelled = true;
+      clearTimeout(timer);
       controller.abort();
-      pollingAbortRef.current = null;
     };
   }, [uploadStatus]);
 
@@ -135,10 +153,13 @@ const UpdatePage = () => {
     }
   };
 
-  const fetchUpdateStatus = async (signal?: AbortSignal) => {
+  // Returns true if the backend was reachable, false if the request failed
+  // (network/timeout) — used to drive the reconnect banner + poll backoff.
+  const fetchUpdateStatus = async (signal?: AbortSignal): Promise<boolean> => {
     try {
       const data = await api.get<UpdateStatusData>('/update/status', { signal, showError: false });
       setUpdateStatus(data);
+      setConnectionLost(false);
 
       if (data.status === 'completed') {
         setUploadStatus('success');
@@ -147,9 +168,13 @@ const UpdatePage = () => {
         setUploadStatus('error');
         setErrorMessage(data.error || 'Update fehlgeschlagen');
       }
+      return true;
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') return;
+      // Aborted polls are teardown, not a real connection loss.
+      if (error instanceof Error && error.name === 'AbortError') return true;
       console.error('Failed to fetch update status:', error);
+      setConnectionLost(true);
+      return false;
     }
   };
 
@@ -265,6 +290,8 @@ const UpdatePage = () => {
 
     setUploadStatus('applying');
     setErrorMessage('');
+    setConnectionLost(false);
+    applyStartRef.current = Date.now();
 
     try {
       const data = await api.post<ApplyUpdateResponse>(
@@ -312,6 +339,8 @@ const UpdatePage = () => {
     setValidationResult(null);
     setUpdateStatus(null);
     setErrorMessage('');
+    setConnectionLost(false);
+    applyStartRef.current = null;
   };
 
   const getStatusLabel = (status: string) => {
@@ -349,11 +378,19 @@ const UpdatePage = () => {
     return `${(bytes / 1024).toFixed(1)} KB`;
   };
 
+  // The update looks stuck if it has stayed in progress well past the expected
+  // window (a permanently locked in_progress state would 409 any new apply).
+  const isStuck =
+    uploadStatus === 'applying' &&
+    updateStatus?.status === 'in_progress' &&
+    applyStartRef.current !== null &&
+    Date.now() - applyStartRef.current > STUCK_THRESHOLD_MS;
+
   return (
     <div className="animate-in fade-in">
       {/* Header */}
       <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground mb-2">System-Updates</h1>
+        <h1 className="text-xl font-bold text-foreground mb-2">System-Updates</h1>
         <p className="text-sm text-muted-foreground">Updates sicher hochladen und installieren</p>
       </div>
 
@@ -554,7 +591,7 @@ const UpdatePage = () => {
           </div>
         )}
 
-        {uploadStatus === 'applying' && updateStatus && (
+        {uploadStatus === 'applying' && (
           <div className="py-6 space-y-4">
             <div className="flex items-center gap-2">
               <Settings className="size-4 text-primary animate-spin" />
@@ -563,11 +600,20 @@ const UpdatePage = () => {
               </span>
             </div>
 
-            <div className="border-l-2 border-primary/30 pl-4">
-              <p className="text-sm text-primary">
-                {getCurrentStepDescription(updateStatus.currentStep || '')}
-              </p>
-            </div>
+            {connectionLost ? (
+              <div className="border-l-2 border-primary/30 pl-4 flex items-start gap-2">
+                <RefreshCw className="size-3.5 mt-0.5 shrink-0 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Verbindung verloren – das Update läuft weiter, versuche erneut zu verbinden…
+                </p>
+              </div>
+            ) : (
+              <div className="border-l-2 border-primary/30 pl-4">
+                <p className="text-sm text-primary">
+                  {getCurrentStepDescription(updateStatus?.currentStep || '')}
+                </p>
+              </div>
+            )}
 
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
               <div className="h-full bg-primary rounded-full w-full animate-pulse" />
@@ -577,7 +623,18 @@ const UpdatePage = () => {
               Bitte diese Seite nicht schließen und das Gerät nicht ausschalten.
             </p>
 
-            {updateStatus.startTime && (
+            {isStuck && (
+              <div className="border-l-2 border-primary/30 pl-4">
+                <p className="text-xs text-muted-foreground">
+                  <AlertCircle className="size-3.5 inline mr-1" />
+                  Das Update dauert länger als gewöhnlich. Falls es weiterhin hängt, prüfen Sie die
+                  System-Logs – solange der Status „in Bearbeitung“ bleibt, kann kein neues Update
+                  gestartet werden.
+                </p>
+              </div>
+            )}
+
+            {updateStatus?.startTime && (
               <p className="text-xs text-muted-foreground">
                 Gestartet: {formatDate(updateStatus.startTime)}
               </p>

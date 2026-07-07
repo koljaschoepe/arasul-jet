@@ -42,6 +42,13 @@ interface TailscaleStatus {
   tailnet: string | null;
   version: string | null;
   peers: Peer[];
+  /**
+   * Set by the backend when the host status probe could NOT be run (helper
+   * image not pullable, docker-proxy unreachable, exec error/timeout). This is
+   * NOT "not installed" — treat it as a transient/retryable detection error and
+   * keep the last-known status rather than dropping to step 1.
+   */
+  detectionError?: boolean;
 }
 
 const OS_ICONS: Record<string, typeof Monitor> = {
@@ -86,6 +93,9 @@ export function RemoteAccessSettings() {
   const [status, setStatus] = useState<TailscaleStatus | null>(initialCache);
   const [loading, setLoading] = useState(!initialCache);
   const [refreshing, setRefreshing] = useState(false);
+  // Transient/detection error (probe couldn't run, network blip). Distinct from
+  // a genuine installed:false — we keep the last-known status and offer a retry.
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
   const [installError, setInstallError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -117,23 +127,27 @@ export function RemoteAccessSettings() {
           signal,
         });
         if (signal?.aborted) return;
+        if (data.detectionError) {
+          // Backend could not run the host probe. This is NOT "not installed" —
+          // keep whatever we last knew and surface a retryable inline error so
+          // we don't hide the access card / drop the user to step 1.
+          setStatusError(
+            'Der Tailscale-Status konnte gerade nicht vom Gerät abgefragt werden. ' +
+              'Es wird der zuletzt bekannte Zustand angezeigt.'
+          );
+          return;
+        }
+        setStatusError(null);
         updateStatus(data);
       } catch {
         if (signal?.aborted) return;
-        // Only set empty status if we have NO data at all
-        if (!statusRef.current) {
-          setStatus({
-            installed: false,
-            running: false,
-            connected: false,
-            ip: null,
-            hostname: null,
-            dnsName: null,
-            tailnet: null,
-            version: null,
-            peers: [],
-          });
-        }
+        // Transient fetch failure (network/timeout/backend down). Treat exactly
+        // like a detection error: DO NOT synthesize an installed:false status
+        // (that is indistinguishable from genuinely uninstalled and hides the
+        // access card). Keep the last-known status and offer a retry.
+        setStatusError(
+          'Verbindung zum Gerät fehlgeschlagen. Der Tailscale-Status konnte nicht aktualisiert werden.'
+        );
       } finally {
         if (!signal?.aborted) {
           setLoading(false);
@@ -269,6 +283,38 @@ export function RemoteAccessSettings() {
     );
   }
 
+  // Detection failure with no last-known status to fall back on: show a
+  // retryable error instead of the step-1 install flow — otherwise "couldn't
+  // check" would look identical to "Tailscale not installed".
+  if (statusError && !status) {
+    return (
+      <div className="animate-in fade-in">
+        <div className="mb-8 pb-6 border-b border-border">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Fernzugriff</h1>
+          <p className="text-sm text-muted-foreground">
+            Greife sicher von überall auf dein Gerät zu — über Tailscale VPN.
+          </p>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertDescription className="space-y-3">
+            <p>{statusError}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="h-8"
+            >
+              <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} />
+              Erneut versuchen
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   const currentStep = getStep(status);
 
   return (
@@ -292,6 +338,26 @@ export function RemoteAccessSettings() {
           </Button>
         </div>
       </div>
+
+      {/* Transient detection error — status shown below is the last-known one */}
+      {statusError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="size-4" />
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{statusError}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="h-7 shrink-0"
+            >
+              <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} />
+              Erneut versuchen
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Step Indicator */}
       <div className="flex items-center gap-2 mb-8">

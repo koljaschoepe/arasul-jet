@@ -1650,12 +1650,24 @@ Tailscale admin console; until then remote access uses the raw Tailscale IP.
 
 ```json
 {
+  "installed": true,
+  "running": true,
   "connected": true,
   "ip": "100.x.x.x",
   "hostname": "arasul-device",
-  "timestamp": "2026-01-15T10:00:00.000Z"
+  "dnsName": "arasul-device.tailnet.ts.net",
+  "tailnet": "tailnet.ts.net",
+  "version": "1.x.x",
+  "peers": [],
+  "certDomains": []
 }
 ```
+
+> **`detectionError`:** If the backend cannot run the host probe (helper image
+> `alpine:latest` not pullable, docker-proxy unreachable, exec error/timeout),
+> the response is `{ ...empty, installed: false, detectionError: true }`. This is
+> a transient/retryable condition and must **not** be treated as "Tailscale not
+> installed" — clients keep the last-known status and offer a retry.
 
 **GET /api/tailscale/peers Response:**
 
@@ -2108,6 +2120,52 @@ Manages the AI assistant's persistent memory profile and individual memory entri
   "confirm": true
 }
 ```
+
+---
+
+### Company Context (RAG)
+
+Global company context injected into every RAG query as background context.
+Both routes require **admin** privileges (`requireAuth` + `requireAdmin`).
+
+| Method | Endpoint                        | Description                           |
+| ------ | ------------------------------- | ------------------------------------- |
+| GET    | `/api/settings/company-context` | Get the company context (Markdown)    |
+| PUT    | `/api/settings/company-context` | Update the company context (Markdown) |
+
+**GET /api/settings/company-context Response:**
+
+If no context has been saved yet, a default Markdown template is returned with
+`updated_at` and `updated_by` set to `null`.
+
+```json
+{
+  "content": "# Unternehmensprofil\n\n**Firma:** [Firmenname]\n...",
+  "updated_at": null,
+  "updated_by": null,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**PUT /api/settings/company-context:**
+
+```json
+// Request — content is trimmed and must be non-empty
+{
+  "content": "# Unternehmensprofil\n\n**Firma:** Muster GmbH\n..."
+}
+
+// Response
+{
+  "content": "# Unternehmensprofil\n\n**Firma:** Muster GmbH\n...",
+  "updated_at": "2026-01-15T10:00:00.000Z",
+  "message": "Unternehmenskontext erfolgreich gespeichert",
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+The content embedding is computed asynchronously (fire-and-forget) after the
+response is sent, so saves are not delayed by an embedding round-trip.
 
 ---
 
