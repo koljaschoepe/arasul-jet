@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Save, Check, AlertCircle } from 'lucide-react';
+import { Save, AlertCircle } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
+import { useToast } from '../../contexts/ToastContext';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
 import { Switch } from '@/components/ui/shadcn/switch';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { extractIssues } from './validationIssues';
 
 /**
  * RAG & LLM tunables — raw column values as returned by GET /rag/settings.
@@ -159,9 +161,12 @@ interface RagLlmSettingsProps {
 
 export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
   const api = useApi();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+  // Field-level validation errors keyed by column name (e.g. 'rag_temperature').
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [numberValues, setNumberValues] = useState<NumberValues | null>(null);
   const [boolValues, setBoolValues] = useState<BoolValues | null>(null);
@@ -248,19 +253,30 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
     onDirtyChange?.(hasChanges);
   }, [hasChanges, onDirtyChange]);
 
+  const clearFieldError = (key: string) => {
+    setFieldErrors(prev => {
+      if (!prev[key]) return prev;
+      const { [key]: _omit, ...rest } = prev;
+      return rest;
+    });
+  };
+
   const handleNumberChange = (key: NumberFieldKey, value: string) => {
     setNumberValues(prev => (prev ? { ...prev, [key]: value } : prev));
     setMessage(null);
+    clearFieldError(key);
   };
 
   const handleBoolChange = (key: BoolFieldKey, value: boolean) => {
     setBoolValues(prev => (prev ? { ...prev, [key]: value } : prev));
     setMessage(null);
+    clearFieldError(key);
   };
 
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
+    setFieldErrors({});
 
     try {
       await api.patch<RagSettingsResponse>('/rag/settings', patchBody, { showError: false });
@@ -269,10 +285,20 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
       if (boolValues) setOriginalBoolValues({ ...boolValues });
       setOriginalBasePrompt(basePrompt);
 
-      setMessage({ type: 'success', text: 'RAG- & LLM-Einstellungen erfolgreich gespeichert' });
+      toast.success('RAG- & LLM-Einstellungen erfolgreich gespeichert');
     } catch (error: unknown) {
+      // Surface field-level validation issues next to the offending inputs.
+      // Issue paths mirror the column names (e.g. 'rag_temperature').
+      const issues = extractIssues(error);
+      const nextFieldErrors: Record<string, string> = {};
+      for (const issue of issues) {
+        if (issue.path) nextFieldErrors[issue.path] = issue.message;
+      }
+      setFieldErrors(nextFieldErrors);
+
       const err = error as { message?: string };
-      setMessage({ type: 'error', text: err.message || 'Fehler beim Speichern' });
+      const detail = issues[0]?.message || err.message || 'Fehler beim Speichern';
+      toast.error(detail);
     } finally {
       setSaving(false);
     }
@@ -300,11 +326,16 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
         step={meta.step}
         value={numberValues[meta.key]}
         onChange={e => handleNumberChange(meta.key, e.target.value)}
+        aria-invalid={Boolean(fieldErrors[meta.key])}
       />
-      <p className="text-xs text-muted-foreground">
-        {meta.hint ? `${meta.hint} ` : ''}
-        Bereich: {meta.min}–{meta.max}
-      </p>
+      {fieldErrors[meta.key] ? (
+        <p className="text-xs text-destructive">{fieldErrors[meta.key]}</p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {meta.hint ? `${meta.hint} ` : ''}
+          Bereich: {meta.min}–{meta.max}
+        </p>
+      )}
     </div>
   );
 
@@ -379,21 +410,22 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
             onChange={e => {
               setBasePrompt(e.target.value);
               setMessage(null);
+              clearFieldError('llm_base_system_prompt');
             }}
             placeholder="Leer lassen für den eingebauten Standard-Prompt..."
             spellCheck={false}
             maxLength={4000}
+            aria-invalid={Boolean(fieldErrors.llm_base_system_prompt)}
           />
+          {fieldErrors.llm_base_system_prompt && (
+            <p className="text-xs text-destructive">{fieldErrors.llm_base_system_prompt}</p>
+          )}
         </section>
 
-        {/* Message */}
+        {/* Load error (save feedback goes through toasts) */}
         {message && (
-          <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-            {message.type === 'success' ? (
-              <Check className="size-4" />
-            ) : (
-              <AlertCircle className="size-4" />
-            )}
+          <Alert variant="destructive">
+            <AlertCircle className="size-4" />
             <AlertDescription>{message.text}</AlertDescription>
           </Alert>
         )}
@@ -405,15 +437,9 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
               <span className="text-xs text-warning font-medium">Ungespeicherte Änderungen</span>
             )}
           </div>
-          <Button onClick={handleSave} disabled={saving || !hasChanges}>
-            {saving ? (
-              'Speichern...'
-            ) : (
-              <>
-                <Save className="size-4" />
-                Speichern
-              </>
-            )}
+          <Button onClick={handleSave} loading={saving} disabled={!hasChanges}>
+            <Save className="size-4" />
+            Speichern
           </Button>
         </div>
       </div>

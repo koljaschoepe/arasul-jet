@@ -7,6 +7,7 @@
 
 const { docker } = require('../core/docker');
 const logger = require('../../utils/logger');
+const { ServiceUnavailableError } = require('../../utils/errors');
 
 const HOST_IMAGE = 'alpine:latest';
 
@@ -40,6 +41,84 @@ function cacheInvalidate(key) {
   }
 }
 
+// Whether the host helper image is known to be present on the local daemon.
+// dockerode's createContainer does NOT auto-pull, so a missing `alpine:latest`
+// would make createContainer throw 404 "No such image" — which used to be
+// swallowed into `installed:false`. We pull it lazily once per process.
+let hostImageReady = false;
+// De-dupe concurrent pulls: the first caller starts the pull, everyone else
+// awaits the same in-flight promise instead of kicking off a parallel pull.
+let hostImagePull = null;
+
+/**
+ * Ensure the host helper image (`alpine:latest`) is present on the local Docker
+ * daemon before we try to `createContainer` from it. Cached via `hostImageReady`
+ * so we don't hit the daemon on every call; concurrent first-callers share one
+ * in-flight pull.
+ *
+ * Throws if the image is neither present nor pullable (no cache + no network) —
+ * callers MUST treat that as an infrastructure/detection failure, NOT as
+ * "Tailscale is not installed".
+ */
+async function ensureHostImage() {
+  if (hostImageReady) {
+    return;
+  }
+  if (hostImagePull) {
+    // A pull is already in flight — await it instead of starting another.
+    return hostImagePull;
+  }
+
+  hostImagePull = (async () => {
+    // Fast path: image already cached locally → no pull needed.
+    try {
+      await docker.getImage(HOST_IMAGE).inspect();
+      hostImageReady = true;
+      return;
+    } catch {
+      // Not present locally — fall through to pull.
+    }
+
+    logger.info(
+      `Pulling host helper image ${HOST_IMAGE} (required to run Tailscale host commands)…`
+    );
+
+    await new Promise((resolve, reject) => {
+      docker.pull(HOST_IMAGE, (err, stream) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        docker.modem.followProgress(
+          stream,
+          (pullErr, output) => {
+            if (pullErr) {
+              reject(pullErr);
+              return;
+            }
+            logger.info(`Host helper image ${HOST_IMAGE} pulled successfully`);
+            resolve(output);
+          },
+          event => {
+            if (event.status) {
+              logger.debug(`Pull ${HOST_IMAGE}: ${event.status}`);
+            }
+          }
+        );
+      });
+    });
+
+    hostImageReady = true;
+  })();
+
+  try {
+    await hostImagePull;
+  } finally {
+    // Clear the in-flight handle so a failed pull can be retried next time.
+    hostImagePull = null;
+  }
+}
+
 /**
  * Run a command on the host system via a temporary Docker container.
  * Uses bind-mount of host root + chroot to execute commands as if on the host.
@@ -47,6 +126,10 @@ function cacheInvalidate(key) {
 async function runOnHost(cmd, timeoutMs = 10000) {
   let container;
   try {
+    // dockerode createContainer does not auto-pull — make sure the image exists
+    // first, otherwise it throws 404 "No such image".
+    await ensureHostImage();
+
     container = await docker.createContainer({
       Image: HOST_IMAGE,
       Cmd: ['chroot', '/host', 'sh', '-c', cmd],
@@ -101,8 +184,17 @@ async function isInstalled() {
     cacheSet('installed', result);
     return result;
   } catch (err) {
-    logger.debug(`isInstalled check failed: ${err.message}`);
-    return false;
+    // A THROW from runOnHost means we couldn't even run the probe (missing
+    // helper image, docker-proxy down, timeout) — that is an infrastructure /
+    // detection failure, NOT a definitive "tailscale is not installed". Surface
+    // it as a distinct 503 so callers (connect/disconnect/serve) don't mislead
+    // the user with "nicht installiert"; do NOT cache a negative result.
+    logger.error(
+      `isInstalled host probe failed — reporting detection error (NOT installed:false): ${err.message}`
+    );
+    throw new ServiceUnavailableError(
+      'Tailscale-Status konnte nicht geprüft werden (Host-Prüfung fehlgeschlagen)'
+    );
   }
 }
 
@@ -145,8 +237,16 @@ async function getStatus() {
     const res = await runOnHost(combinedCmd, 10000);
     output = res.output;
   } catch (err) {
-    logger.debug(`getStatus combined command failed: ${err.message}`);
-    return emptyStatus;
+    // Infrastructure/detection failure (image not pullable, docker-proxy
+    // unreachable, exec error, timeout). This is NOT the same as "Tailscale is
+    // not installed" — we simply could not run the check. Surface it as a
+    // DISTINCT condition (`detectionError: true`) so the route/UI can keep the
+    // last-known state instead of collapsing to the not-installed step 1.
+    // Deliberately NOT cached, so the next poll retries the probe.
+    logger.error(
+      `getStatus host probe failed — reporting detectionError (NOT installed:false): ${err.message}`
+    );
+    return { ...emptyStatus, detectionError: true };
   }
 
   // Parse sections by markers

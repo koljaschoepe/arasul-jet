@@ -182,21 +182,36 @@ Organisieren Sie Dokumente in thematischen Raeumen:
 
 ## 7. Einstellungen
 
+Die Einstellungen sind in **6 Reiter** gegliedert (frueher 9 — verwandte Bereiche
+wurden zusammengelegt, damit die Navigation uebersichtlich bleibt):
+
+| Reiter          | Inhalt                                                       |
+| --------------- | ------------------------------------------------------------ |
+| **Allgemein**   | Systeminformationen, Theme                                   |
+| **KI**          | Zwei Unterbereiche: _Firmenprofil & Kontext_ und _RAG & LLM_ |
+| **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden     |
+| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung                  |
+| **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_    |
+| **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                             |
+
+> Deep-Links funktionieren: `…/settings?tab=system` oeffnet direkt den System-Reiter.
+> Alte Links (z. B. `?tab=selfhealing`) werden automatisch auf den neuen Reiter umgeleitet.
+
 ### Allgemein
 
 - **System-Name:** Name Ihrer Arasul-Installation
 - **Sprache:** Standardmaessig Deutsch
 - **Theme:** Dunkles Design (Standard)
 
-### KI-Einstellungen
+### KI → Firmenprofil & Kontext
 
 - **Standard-Modell:** Voreingestelltes KI-Modell
 - **Temperatur:** Kreativitaet der Antworten (0.0-1.0)
 - **Max Tokens:** Maximale Antwortlaenge
 
-### RAG & LLM (Experten-Tunables)
+### KI → RAG & LLM (Experten-Tunables)
 
-Der Tab **Einstellungen → „RAG & LLM"** (nur fuer Administratoren) macht die
+Der Unterbereich **Einstellungen → KI → „RAG & LLM"** (nur fuer Administratoren) macht die
 Feinjustierung der Antwort-Pipeline ohne Neustart moeglich. Aenderungen wirken
 sofort. Alle Werte haben sinnvolle Standardwerte — nur anpassen, wenn Sie die
 Auswirkung kennen.
@@ -217,7 +232,10 @@ aendern.
 
 ### Sicherheit
 
-- **Passwort aendern:** Unter Einstellungen > Sicherheit
+- **Passwort aendern:** Unter Einstellungen > Sicherheit (Dashboard- und MinIO-Passwort)
+- **Passwort vergessen:** Es gibt bewusst keinen Self-Service-Reset. Ein ausgesperrter
+  Administrator setzt das Passwort per Operator-CLI zurueck: `scripts/security/reset-password.sh`
+- **Abmelden / Von allen Geraeten abmelden:** beide mit Sicherheitsabfrage
 - **Session-Dauer:** Automatisches Abmelden nach Inaktivitaet
 
 ---
@@ -226,8 +244,8 @@ aendern.
 
 ### Dienste anzeigen
 
-1. Navigieren Sie zu **"Services"**
-2. Alle 15 Dienste werden mit Status angezeigt
+1. Navigieren Sie zu **Einstellungen → System → "Services"**
+2. Alle Dienste werden mit Status angezeigt (manueller Refresh-Button oben rechts)
 
 ### Dienst-Aktionen
 
@@ -291,7 +309,7 @@ ssh -p 2222 arasul@<jetson-ip>
 ### USB-Update einspielen
 
 1. Stecken Sie den USB-Stick mit dem Update ein
-2. Oeffnen Sie **Einstellungen > Updates**
+2. Oeffnen Sie **Einstellungen → System → Updates**
 3. Das System erkennt den USB-Stick automatisch
 4. Klicken Sie auf **"Update installieren"**
 5. Warten Sie, bis das Update abgeschlossen ist
@@ -299,7 +317,7 @@ ssh -p 2222 arasul@<jetson-ip>
 
 ### Update-Verlauf
 
-Unter **Einstellungen > Updates > Verlauf** sehen Sie:
+Unter **Einstellungen → System → Updates → Verlauf** sehen Sie:
 
 - Installierte Updates mit Datum
 - Versionsnummern

@@ -297,6 +297,12 @@ router.post(
 );
 
 // POST /api/auth/change-password
+// DEPRECATED: functional duplicate of POST /api/settings/password/dashboard
+// (see routes/settings). The Settings > Sicherheit UI uses that route; this one
+// is only still consumed by the first-run SetupWizard (features/system/SetupWizard.tsx),
+// which forces the initial admin-password change before /settings is reachable.
+// Do not add new consumers — migrate to /settings/password/dashboard and remove
+// this route once SetupWizard is switched over.
 router.post(
   '/change-password',
   requireAuth,

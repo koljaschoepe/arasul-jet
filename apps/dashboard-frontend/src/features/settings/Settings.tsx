@@ -1,29 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Settings as SettingsIcon,
-  Upload,
-  Wrench,
   Lock,
   Info,
   Server,
-  User,
   Globe,
   ShieldAlert,
-  SlidersHorizontal,
+  Sparkles,
 } from 'lucide-react';
-import UpdatePage from '../system/UpdatePage';
-import SelfHealingEvents from '../system/SelfHealingEvents';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { cn } from '@/lib/utils';
 import { useApi } from '../../hooks/useApi';
+import { useToast } from '../../contexts/ToastContext';
+import useConfirm from '../../hooks/useConfirm';
 import { GeneralSettings } from './GeneralSettings';
-import { AIProfileSettings } from './AIProfileSettings';
-import { RagLlmSettings } from './RagLlmSettings';
-import { ServicesSettings } from './ServicesSettings';
+import { KISettings } from './KISettings';
 import { SecuritySettings } from './SecuritySettings';
 import { RemoteAccessSettings } from './RemoteAccessSettings';
 import { PrivacySettings } from './PrivacySettings';
+import { SystemSettings } from '../system/SystemSettings';
 
 interface SettingsProps {
   handleLogout: () => void;
@@ -46,16 +43,10 @@ const sections: Section[] = [
     description: 'Systeminformationen und Konfiguration',
   },
   {
-    id: 'ai-profile',
-    label: 'KI-Profil',
-    icon: <User className="size-5" />,
-    description: 'Firmen- und KI-Verhalten konfigurieren',
-  },
-  {
-    id: 'rag-llm',
-    label: 'RAG & LLM',
-    icon: <SlidersHorizontal className="size-5" />,
-    description: 'RAG-Pipeline und Sprachmodell feinjustieren',
+    id: 'ki',
+    label: 'KI',
+    icon: <Sparkles className="size-5" />,
+    description: 'Firmenprofil, Kontext & RAG/LLM',
   },
   {
     id: 'security',
@@ -70,10 +61,10 @@ const sections: Section[] = [
     description: 'DSGVO: Auskunft und Löschung',
   },
   {
-    id: 'services',
-    label: 'Services',
+    id: 'system',
+    label: 'System',
     icon: <Server className="size-5" />,
-    description: 'Dienste verwalten und neustarten',
+    description: 'Services, Updates & Self-Healing',
   },
   {
     id: 'remote-access',
@@ -81,42 +72,126 @@ const sections: Section[] = [
     icon: <Globe className="size-5" />,
     description: 'Tailscale VPN und Remote-Zugriff',
   },
-  {
-    id: 'updates',
-    label: 'Updates',
-    icon: <Upload className="size-5" />,
-    description: 'System-Updates verwalten',
-  },
-  {
-    id: 'selfhealing',
-    label: 'Self-Healing',
-    icon: <Wrench className="size-5" />,
-    description: 'Automatische Wiederherstellung',
-  },
 ];
+
+const validIds = sections.map(s => s.id);
+
+/**
+ * Map legacy / pre-consolidation tab ids (and sub-section ids) onto the new
+ * 6-tab structure so old bookmarks and in-app deep links keep working.
+ */
+function resolveTab(param: string | null): string {
+  if (!param) return 'general';
+  const legacy: Record<string, string> = {
+    'ai-profile': 'ki',
+    'rag-llm': 'ki',
+    services: 'system',
+    updates: 'system',
+    selfhealing: 'system',
+  };
+  const resolved = legacy[param] ?? param;
+  return validIds.includes(resolved) ? resolved : 'general';
+}
+
+/**
+ * Derive the initial System sub-section from a (possibly legacy) `?tab=` value,
+ * so a bookmark like `?tab=selfhealing` lands directly on the Self-Healing
+ * sub-tab instead of always defaulting to Services.
+ */
+function resolveSystemSub(
+  param: string | null
+): 'services' | 'updates' | 'selfhealing' | undefined {
+  if (param === 'updates' || param === 'selfhealing' || param === 'services') return param;
+  return undefined;
+}
 
 function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   const api = useApi();
-  const [activeSection, setActiveSection] = useState('general');
+  const toast = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeSection, setActiveSection] = useState(() => resolveTab(searchParams.get('tab')));
   const [isDirty, setIsDirty] = useState(false);
   const [loggingOutAll, setLoggingOutAll] = useState(false);
 
-  const handleSectionChange = (sectionId: string) => {
-    if (isDirty && sectionId !== activeSection) {
-      if (!window.confirm('Du hast ungespeicherte Änderungen. Trotzdem wechseln?')) return;
+  // Keep activeSection in sync when the URL changes externally (e.g. a deep
+  // link from another page like the SystemHealthWidget). This path also honors
+  // the unsaved-changes guard so an external navigation can't silently discard
+  // in-progress edits.
+  useEffect(() => {
+    const resolved = resolveTab(searchParams.get('tab'));
+    if (resolved === activeSection) return;
+    if (isDirty) {
+      void (async () => {
+        const ok = await confirm({
+          title: 'Ungespeicherte Änderungen',
+          message: 'Du hast ungespeicherte Änderungen. Trotzdem den Reiter wechseln?',
+          confirmText: 'Wechseln',
+          cancelText: 'Bleiben',
+          confirmVariant: 'warning',
+        });
+        if (ok) {
+          setIsDirty(false);
+          setActiveSection(resolved);
+        } else {
+          // Reject the navigation: restore the URL to the current tab.
+          setSearchParams({ tab: activeSection }, { replace: true });
+        }
+      })();
+      return;
+    }
+    setActiveSection(resolved);
+  }, [searchParams, activeSection, isDirty, confirm, setSearchParams]);
+
+  const handleSectionChange = async (sectionId: string) => {
+    if (sectionId === activeSection) return;
+    if (isDirty) {
+      const ok = await confirm({
+        title: 'Ungespeicherte Änderungen',
+        message: 'Du hast ungespeicherte Änderungen. Trotzdem den Reiter wechseln?',
+        confirmText: 'Wechseln',
+        cancelText: 'Bleiben',
+        confirmVariant: 'warning',
+      });
+      if (!ok) return;
       setIsDirty(false);
     }
     setActiveSection(sectionId);
+    setSearchParams({ tab: sectionId }, { replace: true });
+  };
+
+  const confirmThenLogout = async () => {
+    const ok = await confirm({
+      title: 'Abmelden',
+      message: 'Möchtest du dich von diesem Gerät abmelden?',
+      confirmText: 'Abmelden',
+      cancelText: 'Abbrechen',
+      confirmVariant: 'warning',
+    });
+    if (ok) handleLogout();
   };
 
   const handleLogoutAll = async () => {
+    const ok = await confirm({
+      title: 'Von allen Geräten abmelden',
+      message: 'Dadurch werden alle aktiven Sitzungen auf allen Geräten beendet. Fortfahren?',
+      confirmText: 'Überall abmelden',
+      cancelText: 'Abbrechen',
+      confirmVariant: 'warning',
+    });
+    if (!ok) return;
     setLoggingOutAll(true);
     try {
       await api.post('/auth/logout-all', null, { showError: false });
     } catch {
-      // Even if API fails, proceed with local logout
+      // Surface the failure instead of swallowing it, then still log out
+      // locally so the user isn't stuck in a half-authenticated state.
+      toast.error(
+        'Sitzungen auf anderen Geräten konnten nicht serverseitig beendet werden. Du wirst hier lokal abgemeldet.'
+      );
+    } finally {
+      handleLogout();
     }
-    handleLogout();
   };
 
   const renderContent = () => {
@@ -127,38 +202,20 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
             <GeneralSettings theme={theme} onToggleTheme={onToggleTheme} />
           </ComponentErrorBoundary>
         );
-      case 'ai-profile':
+      case 'ki':
         return (
-          <ComponentErrorBoundary componentName="KI-Profil">
-            <AIProfileSettings onDirtyChange={setIsDirty} />
-          </ComponentErrorBoundary>
-        );
-      case 'rag-llm':
-        return (
-          <ComponentErrorBoundary componentName="RAG & LLM">
-            <RagLlmSettings onDirtyChange={setIsDirty} />
+          <ComponentErrorBoundary componentName="KI">
+            <KISettings onDirtyChange={setIsDirty} />
           </ComponentErrorBoundary>
         );
       case 'security':
         return (
           <ComponentErrorBoundary componentName="Sicherheit">
             <SecuritySettings
-              handleLogout={handleLogout}
+              handleLogout={confirmThenLogout}
               loggingOutAll={loggingOutAll}
               onLogoutAll={handleLogoutAll}
             />
-          </ComponentErrorBoundary>
-        );
-      case 'services':
-        return (
-          <ComponentErrorBoundary componentName="Services">
-            <ServicesSettings />
-          </ComponentErrorBoundary>
-        );
-      case 'remote-access':
-        return (
-          <ComponentErrorBoundary componentName="Fernzugriff">
-            <RemoteAccessSettings />
           </ComponentErrorBoundary>
         );
       case 'privacy':
@@ -167,16 +224,16 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
             <PrivacySettings />
           </ComponentErrorBoundary>
         );
-      case 'updates':
+      case 'system':
         return (
-          <ComponentErrorBoundary componentName="Updates">
-            <UpdatePage />
+          <ComponentErrorBoundary componentName="System">
+            <SystemSettings initial={resolveSystemSub(searchParams.get('tab'))} />
           </ComponentErrorBoundary>
         );
-      case 'selfhealing':
+      case 'remote-access':
         return (
-          <ComponentErrorBoundary componentName="Self-Healing">
-            <SelfHealingEvents />
+          <ComponentErrorBoundary componentName="Fernzugriff">
+            <RemoteAccessSettings />
           </ComponentErrorBoundary>
         );
       default:
@@ -213,7 +270,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
                     ? 'text-foreground font-semibold bg-muted'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
-                onClick={() => handleSectionChange(section.id)}
+                onClick={() => void handleSectionChange(section.id)}
               >
                 <div className={cn('shrink-0', activeSection === section.id && 'text-primary')}>
                   {section.icon}
@@ -237,7 +294,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
-                onClick={() => handleSectionChange(section.id)}
+                onClick={() => void handleSectionChange(section.id)}
               >
                 <div className={cn('shrink-0', activeSection === section.id && 'text-primary')}>
                   {section.icon}
@@ -265,6 +322,8 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
       <ScrollArea className="flex-1">
         <div className="max-w-225 p-6 max-md:p-4">{renderContent()}</div>
       </ScrollArea>
+
+      {ConfirmDialog}
     </div>
   );
 }

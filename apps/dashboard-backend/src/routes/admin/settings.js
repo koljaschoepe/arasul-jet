@@ -45,6 +45,24 @@ const ALLOWED_RESTART_SERVICES = [
 const passwordChangeLimiter = createUserRateLimiter(3, 15 * 60 * 1000);
 
 /**
+ * Compute and persist the company-context embedding out of the request path.
+ * The embedding is only stored for potential future use, so computing it
+ * inline would delay every save by an embedding round-trip. This runs
+ * fire-and-forget; failures are logged, never surfaced to the caller.
+ * The `content` guard prevents a slow embedding from overwriting a newer save.
+ */
+async function updateCompanyContextEmbedding(content) {
+  const embedding = await getEmbedding(content);
+  if (!embedding) {
+    return;
+  }
+  await db.query(
+    `UPDATE company_context SET content_embedding = $1 WHERE id = 1 AND content = $2`,
+    [JSON.stringify(embedding), content]
+  );
+}
+
+/**
  * Verify current dashboard password for security
  */
 async function verifyCurrentDashboardPassword(userId, currentPassword) {
@@ -356,25 +374,22 @@ router.put(
   requireAdmin,
   validateBody(CompanyContextBody),
   asyncHandler(async (req, res) => {
+    // Content is already trimmed + non-empty (CompanyContextBody).
     const { content } = req.body;
 
-    // Generate embedding for the content (for potential future use)
-    const embedding = await getEmbedding(content);
-    const embeddingJson = embedding ? JSON.stringify(embedding) : null;
-
-    // Upsert the company context
+    // Upsert the company context. The embedding is computed fire-and-forget
+    // below so the save is not delayed by an embedding round-trip.
     const result = await db.query(
       `
-        INSERT INTO company_context (id, content, content_embedding, updated_at, updated_by)
-        VALUES (1, $1, $2, NOW(), $3)
+        INSERT INTO company_context (id, content, updated_at, updated_by)
+        VALUES (1, $1, NOW(), $2)
         ON CONFLICT (id) DO UPDATE SET
             content = $1,
-            content_embedding = $2,
             updated_at = NOW(),
-            updated_by = $3
+            updated_by = $2
         RETURNING content, updated_at, updated_by
     `,
-      [content.trim(), embeddingJson, req.user.id]
+      [content, req.user.id]
     );
 
     logger.info(`Company context updated by user ${req.user.username}`);
@@ -382,6 +397,11 @@ router.put(
     // Invalidate system prompt cache
     const { invalidateCompanyContextCache } = require('../../services/llm/systemPromptBuilder');
     invalidateCompanyContextCache();
+
+    // Fire-and-forget embedding update (for potential future use). Do not await.
+    updateCompanyContextEmbedding(content).catch(error => {
+      logger.warn(`Company context embedding update failed: ${error.message}`);
+    });
 
     res.json({
       content: result.rows[0].content,

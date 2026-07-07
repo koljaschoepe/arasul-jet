@@ -99,16 +99,21 @@ describe('Settings integration', () => {
     });
   });
 
-  it('renders all section tabs', () => {
+  it('renders all six section tabs', () => {
     renderSettings();
 
-    // "Allgemein" appears in both mobile and desktop navigation, use getAllByText
+    // Each top-level tab appears in both mobile and desktop navigation.
     expect(screen.getAllByText('Allgemein').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('KI-Profil').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('KI').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Sicherheit').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Services').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Updates').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Self-Healing').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Datenschutz').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('System').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Fernzugriff').length).toBeGreaterThanOrEqual(1);
+
+    // Old top-level tabs no longer exist as top-level nav items.
+    expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
+    expect(screen.queryByText('RAG & LLM')).not.toBeInTheDocument();
+    expect(screen.queryByText('Self-Healing')).not.toBeInTheDocument();
   });
 
   it('shows General section by default', async () => {
@@ -262,5 +267,57 @@ describe('Settings integration', () => {
     renderSettings();
 
     expect(screen.getByText('Einstellungen')).toBeInTheDocument();
+  });
+
+  it('opens the KI tab with its Firmenprofil / RAG & LLM sub-navigation', async () => {
+    const user = userEvent.setup();
+    renderSettings();
+
+    await user.click(screen.getAllByText('KI')[0]!);
+
+    await waitFor(() => {
+      // Sub-nav labels rendered by the (real) KISettings wrapper. "RAG & LLM"
+      // also appears as a heading inside the RagLlmSettings leaf, so match >=1.
+      expect(screen.getByText('Firmenprofil & Kontext')).toBeInTheDocument();
+      expect(screen.getAllByText('RAG & LLM').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('opens the System tab with its Services / Updates / Self-Healing sub-navigation', async () => {
+    const user = userEvent.setup();
+    renderSettings();
+
+    await user.click(screen.getAllByText('System')[0]!);
+
+    await waitFor(() => {
+      // Sub-nav labels rendered by SystemSettings; leaf content may repeat them.
+      expect(screen.getAllByText('Services').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Updates').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Self-Healing').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('deep-links via ?tab=system to the System tab', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings?tab=system']}>
+        <Settings handleLogout={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+    });
+  });
+
+  it('maps the legacy ?tab=selfhealing deep-link onto the System tab', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings?tab=selfhealing']}>
+        <Settings handleLogout={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+    });
   });
 });

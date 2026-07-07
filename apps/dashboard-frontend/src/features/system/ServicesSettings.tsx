@@ -76,6 +76,10 @@ export function ServicesSettings() {
   const [restartingService, setRestartingService] = useState<string | null>(null);
   const [confirmRestart, setConfirmRestart] = useState<Service | null>(null);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Services whose restart briefly drops the dashboard connection itself.
+  const SELF_RESTART_SERVICES = ['dashboard-backend', 'dashboard-frontend'];
 
   const fetchServices = useCallback(
     async (signal?: AbortSignal) => {
@@ -105,6 +109,15 @@ export function ServicesSettings() {
     };
   }, [fetchServices]);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchServices();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleConfirmRestart = async () => {
     if (!confirmRestart) return;
 
@@ -114,23 +127,17 @@ export function ServicesSettings() {
     setMessage(null);
 
     try {
-      const data = await api.post<{ success: boolean; duration_ms?: number; message?: string }>(
+      // The restart route always throws on failure, so reaching here means success.
+      const data = await api.post<{ success: boolean; duration_ms?: number }>(
         `/services/restart/${serviceName}`,
         null,
         { showError: false }
       );
-      if (data.success) {
-        setMessage({
-          type: 'success',
-          text: `Service "${getServiceInfo(serviceName).displayName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`,
-        });
-        setTimeout(fetchServices, 2000);
-      } else {
-        setMessage({
-          type: 'error',
-          text: data.message || 'Fehler beim Neustart des Service',
-        });
-      }
+      setMessage({
+        type: 'success',
+        text: `Service "${getServiceInfo(serviceName).displayName}" wurde erfolgreich neugestartet (${data.duration_ms}ms)`,
+      });
+      setTimeout(fetchServices, 2000);
     } catch (error: unknown) {
       const err = error as { status?: number; data?: { message?: string }; message?: string };
       if (err.status === 429) {
@@ -153,7 +160,7 @@ export function ServicesSettings() {
     return (
       <div className="animate-in fade-in">
         <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Services</h1>
+          <h1 className="text-xl font-bold text-foreground mb-2">Services</h1>
         </div>
         <SkeletonCard hasAvatar={false} lines={6} />
       </div>
@@ -163,11 +170,25 @@ export function ServicesSettings() {
   return (
     <div className="animate-in fade-in">
       <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Services</h1>
-        <p className="text-sm text-muted-foreground">
-          Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und Dienste
-          bei Bedarf neustarten.
-        </p>
+        <div className="flex justify-between items-start flex-wrap gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-foreground mb-2">Services</h1>
+            <p className="text-sm text-muted-foreground">
+              Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und
+              Dienste bei Bedarf neustarten.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs shrink-0"
+            onClick={handleRefresh}
+            loading={refreshing}
+          >
+            {!refreshing && <RefreshCw className="size-3.5" />}
+            Aktualisieren
+          </Button>
+        </div>
       </div>
 
       {message && (
@@ -230,9 +251,9 @@ export function ServicesSettings() {
                       setConfirmRestart(service);
                       setMessage(null);
                     }}
-                    disabled={isRestarting}
+                    loading={isRestarting}
                   >
-                    <RefreshCw className={cn('size-3.5', isRestarting && 'animate-spin')} />
+                    {!isRestarting && <RefreshCw className="size-3.5" />}
                     {isRestarting ? 'Neustart...' : 'Neustart'}
                   </Button>
                 )}
@@ -263,6 +284,15 @@ export function ServicesSettings() {
               sein.
             </DialogDescription>
           </DialogHeader>
+          {confirmRestart && SELF_RESTART_SERVICES.includes(confirmRestart.name) && (
+            <Alert variant="destructive">
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                Achtung: Ein Neustart dieses Dienstes trennt kurzzeitig die Verbindung zum
+                Dashboard.
+              </AlertDescription>
+            </Alert>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmRestart(null)}>
               Abbrechen

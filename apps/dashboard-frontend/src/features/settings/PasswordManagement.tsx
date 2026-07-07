@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
@@ -53,6 +54,7 @@ function PasswordManagement() {
   const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
   const { logout } = useAuth();
+  const toast = useToast();
   const [activeService, setActiveService] = useState<ServiceId>('dashboard');
   const [passwords, setPasswords] = useState<Record<ServiceId, PasswordFields>>({
     dashboard: { current: '', new: '', confirm: '' },
@@ -186,10 +188,7 @@ function PasswordManagement() {
         { showError: false }
       );
 
-      setMessage({
-        type: 'success',
-        text: data.message || 'Passwort erfolgreich geändert',
-      });
+      toast.success(data.message || 'Passwort erfolgreich geändert');
 
       setPasswords(prev => ({
         ...prev,
@@ -234,6 +233,9 @@ function PasswordManagement() {
           onChange={e => handleInputChange(activeService, field, e.target.value)}
           placeholder={placeholder}
           required
+          // Mirror the backend limit (PasswordChangeBody: .max(500)) so the
+          // client rejects over-long input before the round-trip.
+          maxLength={500}
           // P2.7.5: signal correct intent to the browser's password manager.
           // Without this hint, browsers may try to autofill the new-password
           // field with the current saved password.
@@ -407,9 +409,20 @@ function PasswordManagement() {
 
           {/* Submit Button */}
           <div className="flex justify-end">
-            <Button type="submit" disabled={!isFormValid() || loading}>
-              {loading ? 'Wird geändert...' : 'Passwort ändern'}
+            <Button type="submit" loading={loading} disabled={!isFormValid()}>
+              Passwort ändern
             </Button>
+          </div>
+
+          {/* Recovery hint — no self-service reset by design; operator-only via CLI. */}
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <Info className="size-3.5 shrink-0 mt-0.5" />
+            <p>
+              Passwort vergessen? Der Operator kann es per CLI zurücksetzen:{' '}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
+                scripts/security/reset-password.sh
+              </code>
+            </p>
           </div>
 
           {activeService === 'dashboard' && (
