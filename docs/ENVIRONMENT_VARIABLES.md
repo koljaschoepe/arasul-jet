@@ -441,18 +441,19 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 
 ### Advanced Configuration
 
-| Variable                       | Default | Description                                 |
-| ------------------------------ | ------- | ------------------------------------------- |
-| TELEGRAM_MAX_RESPONSE_TOKENS   | 1024    | Max LLM response tokens per message         |
-| TELEGRAM_MAX_VOICE_DURATION    | 120     | Max voice message duration (seconds)        |
-| TELEGRAM_MAX_MESSAGE_LENGTH    | 4096    | Max Telegram message length (chars)         |
-| TELEGRAM_NOTIFICATIONS_ENABLED | true    | Enable Telegram notifications               |
-| TELEGRAM_RATE_LIMIT_PER_MINUTE | 10      | Max requests per minute per user            |
-| TELEGRAM_RATE_LIMIT_PER_HOUR   | 100     | Max requests per hour per user              |
-| THINKING_MODE                  | false   | Enable Claude extended thinking in Telegram |
-| SKIP_PERMISSIONS               | false   | Skip permission checks (dev only)           |
-| ORCHESTRATOR_MODE              | master  | Multi-bot orchestration mode                |
-| PUBLIC_URL                     | (none)  | Public URL for Telegram webhooks            |
+| Variable                       | Default                       | Description                                                                                                                                                                                                       |
+| ------------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TELEGRAM_MAX_RESPONSE_TOKENS   | 1024                          | Max LLM response tokens per message                                                                                                                                                                               |
+| TELEGRAM_MAX_VOICE_DURATION    | 120                           | Max voice message duration (seconds)                                                                                                                                                                              |
+| TELEGRAM_MAX_MESSAGE_LENGTH    | 4096                          | Max Telegram message length (chars)                                                                                                                                                                               |
+| TELEGRAM_NOTIFICATIONS_ENABLED | true                          | Enable Telegram notifications                                                                                                                                                                                     |
+| TELEGRAM_RATE_LIMIT_PER_MINUTE | 10                            | Max requests per minute per user                                                                                                                                                                                  |
+| TELEGRAM_RATE_LIMIT_PER_HOUR   | 100                           | Max requests per hour per user                                                                                                                                                                                    |
+| THINKING_MODE                  | false                         | Enable Claude extended thinking in Telegram                                                                                                                                                                       |
+| SKIP_PERMISSIONS               | false                         | Skip permission checks (dev only)                                                                                                                                                                                 |
+| ORCHESTRATOR_MODE              | master                        | Multi-bot orchestration mode                                                                                                                                                                                      |
+| PUBLIC_URL                     | (none)                        | Public URL for Telegram webhooks                                                                                                                                                                                  |
+| DASHBOARD_BACKEND_URL          | http://dashboard-backend:3001 | Optional. Internal base URL the Telegram orchestrator uses to reach the backend (`/status`, `/metrics`, `/services` commands). Defaults to the in-cluster service URL; override only for non-standard networking. |
 
 ### Setup Instructions
 
