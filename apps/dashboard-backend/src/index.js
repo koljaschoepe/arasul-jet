@@ -639,14 +639,15 @@ if (require.main === module) {
             socket.destroy();
           });
       } else if (pathname === '/api/sandbox/terminal/ws') {
-        // SEC: Verify JWT before allowing Sandbox Terminal WebSocket upgrade
+        // SEC: Verify JWT before allowing Sandbox Terminal WebSocket upgrade. The
+        // token is NOT read from the query string — that leaks the JWT into Traefik
+        // access logs. Authenticate from the httpOnly session cookie or Bearer
+        // header only (mirrors the metrics WS handler above).
         const { verifyToken: verifySandboxToken } = require('./utils/jwt');
-        const sandboxUrl = new URL(request.url, `http://${request.headers.host}`);
-        const sandboxTokenFromQuery = sandboxUrl.searchParams.get('token');
         const sandboxAuthHeader = request.headers['authorization'];
         const sandboxCookieHeader = request.headers['cookie'];
-        let sandboxToken = sandboxTokenFromQuery;
-        if (!sandboxToken && sandboxAuthHeader && sandboxAuthHeader.startsWith('Bearer ')) {
+        let sandboxToken = null;
+        if (sandboxAuthHeader && sandboxAuthHeader.startsWith('Bearer ')) {
           sandboxToken = sandboxAuthHeader.slice(7);
         }
         if (!sandboxToken && sandboxCookieHeader) {
@@ -680,6 +681,14 @@ if (require.main === module) {
 
     // Sandbox Terminal WebSocket connection handler
     sandboxTerminalWss.on('connection', (ws, request) => {
+      // WS-001: Heartbeat to detect dead half-open connections. Without this a
+      // silently-dropped client leaves its Docker exec + tmux session and DB row
+      // alive forever. Mirrors the metrics WSS heartbeat pattern above.
+      ws.isAlive = true;
+      ws.on('pong', () => {
+        ws.isAlive = true;
+      });
+
       const terminalService = require('./services/sandbox/terminalService');
       const url = new URL(request.url, `http://${request.headers.host}`);
       const projectId = url.searchParams.get('projectId');
@@ -705,6 +714,23 @@ if (require.main === module) {
             /* ignore */
           }
         });
+    });
+
+    // WS-001: Heartbeat interval — terminate unresponsive sandbox terminal clients
+    // so their Docker exec/tmux session and DB row get reaped (mirrors metrics WSS).
+    const sandboxTerminalHeartbeat = setInterval(() => {
+      sandboxTerminalWss.clients.forEach(ws => {
+        if (ws.isAlive === false) {
+          logger.debug('Terminating dead sandbox terminal WebSocket connection');
+          return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping();
+      });
+    }, 15000);
+    globalIntervals.push(sandboxTerminalHeartbeat);
+    sandboxTerminalWss.on('close', () => {
+      clearInterval(sandboxTerminalHeartbeat);
     });
 
     logger.info(`Sandbox Terminal WebSocket ready at ws://0.0.0.0:${PORT}/api/sandbox/terminal/ws`);
