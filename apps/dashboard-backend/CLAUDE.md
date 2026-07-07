@@ -117,8 +117,11 @@ is documented at the top of `routes/index.js`.
 
 For SSE use `utils/sseHelper.js`. For LLM streaming, the global error handler
 is a no-op once headers are sent — flush an error frame yourself before
-closing. WebSocket auth: token comes from the `?token=` query param (post
-Phase 5 hardening); the cookie is unreliable for WS upgrades.
+closing. WebSocket auth: authenticate the upgrade from the httpOnly
+`arasul_session` cookie (sent automatically on same-origin WS upgrades) or an
+`Authorization: Bearer` header — the metrics and sandbox-terminal handlers use
+this. The legacy `?token=` query param is deprecated (it leaks the JWT into
+Traefik access logs); do not add it to new handlers and migrate any that remain.
 
 ### 8. Logging
 
