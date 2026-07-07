@@ -58,11 +58,18 @@ jest.mock('../../src/middleware/auth', () => {
       }
       next();
     },
+    invalidateUserCache: jest.fn(),
   };
 });
 
+// jwt: nur die für den Delete-Pfad genutzte Token-Invalidierung mocken.
+jest.mock('../../src/utils/jwt', () => ({
+  blacklistAllUserTokens: jest.fn().mockResolvedValue(true),
+}));
+
 const db = require('../../src/database');
 const auth = require('../../src/middleware/auth');
+const { blacklistAllUserTokens } = require('../../src/utils/jwt');
 const gdprRouter = require('../../src/routes/admin/gdpr');
 const { errorHandler } = require('../../src/middleware/errorHandler');
 
@@ -80,6 +87,8 @@ describe('DELETE /api/gdpr/me', () => {
     // sonst leakt ein nicht-konsumierter Once-Wert in den nächsten Test.
     db.query.mockReset();
     db.transaction.mockReset();
+    blacklistAllUserTokens.mockClear();
+    auth.invalidateUserCache.mockClear();
     auth.__setUser({ id: 42, username: 'kolja', role: 'admin' });
   });
 
@@ -163,6 +172,11 @@ describe('DELETE /api/gdpr/me', () => {
     const setCookies = res.headers['set-cookie'] || [];
     const cookieStr = Array.isArray(setCookies) ? setCookies.join('|') : String(setCookies);
     expect(cookieStr).toMatch(/arasul_session=/);
+
+    // Auth-Invalidierung: Token blacklisten (vor der Session-Löschung) + userCache leeren,
+    // damit der Token nicht bis zu 60s aus den in-memory Caches gültig bleibt.
+    expect(blacklistAllUserTokens).toHaveBeenCalledWith(42);
+    expect(auth.invalidateUserCache).toHaveBeenCalledWith(42);
   });
 
   test('User ohne admin-Rolle braucht keinen Single-Box-Schutz', async () => {
