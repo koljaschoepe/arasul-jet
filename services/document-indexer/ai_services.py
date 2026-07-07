@@ -13,6 +13,27 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+
+def strip_think_blocks(text: Optional[str]) -> Optional[str]:
+    """Remove qwen3 <think>...</think> reasoning blocks from model output.
+
+    qwen3 is a thinking model; its raw reasoning must never leak into
+    summaries/categories that are stored as customer data. Handles:
+    - complete <think>...</think> blocks, including multiline (re.DOTALL)
+    - a lone trailing </think> with no opening tag (reasoning emitted first)
+    - a stray unclosed <think> at the end
+    """
+    if not text:
+        return text
+    # Remove complete <think>...</think> blocks (including multiline).
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    # Lone closing </think>: everything up to and including it is reasoning.
+    if '</think>' in text:
+        text = text.rsplit('</think>', 1)[-1]
+    # Stray unclosed <think> at the end.
+    text = re.sub(r'<think>.*$', '', text, flags=re.DOTALL)
+    return text.strip()
+
 # LLM Service configuration
 LLM_HOST = os.getenv('LLM_SERVICE_HOST', 'llm-service')
 LLM_PORT = int(os.getenv('LLM_SERVICE_PORT', '11434'))
@@ -68,9 +89,9 @@ class AIServices:
             response.raise_for_status()
             result = response.json()
             content = result.get('message', {}).get('content', '')
-            # qwen3 is a thinking model. Strip <think>...</think> reasoning blocks
-            # so they never leak into summaries/categories stored as customer data.
-            content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+            # Strip qwen3 <think>...</think> reasoning so it never leaks into
+            # summaries/categories stored as customer data.
+            content = strip_think_blocks(content)
             return content
 
         except requests.exceptions.Timeout:
