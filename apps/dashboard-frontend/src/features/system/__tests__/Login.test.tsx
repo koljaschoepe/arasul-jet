@@ -158,9 +158,10 @@ describe('Login Component', () => {
   });
 
   describe('Error Handling', () => {
-    test('zeigt Fehlermeldung bei falschem Passwort', async () => {
-      const err = new Error('Invalid credentials') as Error & { data?: unknown };
-      err.data = { error: 'Invalid credentials' };
+    test('zeigt spezifische deutsche Fehlermeldung bei falschem Passwort', async () => {
+      // Der /auth/login-401 erreicht die Komponente mit status=401.
+      const err = new Error('Invalid username or password') as Error & { status?: number };
+      err.status = 401;
       mockApi.post.mockRejectedValueOnce(err);
 
       const user = userEvent.setup();
@@ -171,12 +172,13 @@ describe('Login Component', () => {
       await user.click(screen.getByRole('button', { name: /anmelden/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
+        expect(screen.getByText('Benutzername oder Passwort ist falsch.')).toBeInTheDocument();
       });
     });
 
-    test('zeigt generische Fehlermeldung bei Netzwerkfehler', async () => {
-      mockApi.post.mockRejectedValueOnce(new Error('Network Error'));
+    test('zeigt Netzwerk-Fehlermeldung wenn keine Serverantwort kommt', async () => {
+      // Ein echter Netzwerkfehler wirft ohne HTTP-Status.
+      mockApi.post.mockRejectedValueOnce(new Error('Failed to fetch'));
 
       const user = userEvent.setup();
       render(<Login onLoginSuccess={mockOnLoginSuccess} />);
@@ -186,13 +188,13 @@ describe('Login Component', () => {
       await user.click(screen.getByRole('button', { name: /anmelden/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/network error/i)).toBeInTheDocument();
+        expect(screen.getByText(/netzwerkverbindung/i)).toBeInTheDocument();
       });
     });
 
     test('Fehlermeldung wird bei neuer Eingabe nicht sofort gelöscht', async () => {
-      const err = new Error('Error message') as Error & { data?: unknown };
-      err.data = { error: 'Error message' };
+      const err = new Error('Invalid username or password') as Error & { status?: number };
+      err.status = 401;
       mockApi.post.mockRejectedValueOnce(err);
 
       const user = userEvent.setup();
@@ -203,13 +205,13 @@ describe('Login Component', () => {
       await user.click(screen.getByRole('button', { name: /anmelden/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Error message')).toBeInTheDocument();
+        expect(screen.getByText('Benutzername oder Passwort ist falsch.')).toBeInTheDocument();
       });
 
       // Fehlermeldung sollte noch sichtbar sein während neuer Eingabe
       await user.type(screen.getByLabelText(/passwort/i), 'new');
       // Fehlermeldung ist noch da (wird erst bei Submit gelöscht)
-      expect(screen.queryByText('Error message')).toBeInTheDocument();
+      expect(screen.queryByText('Benutzername oder Passwort ist falsch.')).toBeInTheDocument();
     });
   });
 

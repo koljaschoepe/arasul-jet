@@ -78,8 +78,27 @@ function Login({ onLoginSuccess }: LoginProps) {
       if (!mountedRef.current) return;
       if ((err as Error)?.name === 'AbortError') return;
       console.error('Login error:', err);
-      const e = err as { message?: string };
-      setError(e.message || 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.');
+      const e = err as { message?: string; status?: number };
+      // Meaningful, distinct German messages instead of the backend's raw
+      // (English) text. The /auth/login response is not intercepted by the
+      // useApi 401-handler, so it reaches us here with a status to dispatch on.
+      let message: string;
+      if (e.status === 401) {
+        message = 'Benutzername oder Passwort ist falsch.';
+      } else if (e.status === 403) {
+        message =
+          'Ihr Konto ist gesperrt oder deaktiviert. Bitte kontaktieren Sie den Administrator.';
+      } else if (e.status === 429) {
+        message =
+          'Zu viele Anmeldeversuche. Bitte warten Sie einen Moment und versuchen Sie es erneut.';
+      } else if (typeof e.status === 'number' && e.status >= 500) {
+        message = 'Der Server ist derzeit nicht erreichbar. Bitte versuchen Sie es später erneut.';
+      } else if (e.status === undefined) {
+        message = 'Verbindung zum Server fehlgeschlagen. Bitte prüfen Sie Ihre Netzwerkverbindung.';
+      } else {
+        message = e.message || 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.';
+      }
+      setError(message);
     }
   };
 
