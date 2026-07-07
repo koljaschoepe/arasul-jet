@@ -61,6 +61,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // logout-during-checkAuth do not race.
   const checkAuth = useCallback(async (signal?: AbortSignal) => {
     try {
+      // useApi-exception: AuthContext is the auth *primitive* useApi builds on
+      // (useApi calls useAuth().logout). Routing these calls through useApi
+      // would create a circular dependency + render loops (see useApi.ts:122)
+      // and a 401 here would trigger logout mid-check. Raw fetch is deliberate.
       const response = await fetch(`${API_BASE}/auth/me`, {
         headers: getAuthHeaders(),
         signal,
@@ -128,6 +132,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (csrfToken) {
         headers['X-CSRF-Token'] = csrfToken;
       }
+      // useApi-exception: see checkAuth above — auth primitive, raw fetch by design.
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
         headers,

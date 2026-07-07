@@ -113,7 +113,7 @@ Rules:
   (`See docs/plans/done/<slug>.md`).
 - **Co-author trailer**:
   ```
-  Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+  Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
   ```
 
 Show the full message to the user via `AskUserQuestion` (option:
@@ -132,7 +132,7 @@ git commit -m "$(cat <<'EOF'
 
 <optional body>
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 EOF
 )"
 ```

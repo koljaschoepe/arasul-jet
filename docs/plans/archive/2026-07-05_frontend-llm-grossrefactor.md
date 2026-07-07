@@ -1,5 +1,16 @@
 # Frontend & LLM Großrefactor — Optik, Qualität, Kontext
 
+> **Archived 2026-07-06** — abgeschlossen & gemergt (#102, `e04747a`). P0–P4 alle ✅
+> (Token-Konsolidierung, Hex-Elimination, Dead-Code/knip, TS/A11y-Härtung, LLM/RAG-Tunables
+>
+> - Migration 096 + Admin-UI). P5 Live-Verifikation auf dem Jetson wurde durchgeführt
+>   (Deploy-Sicherheit + Migration 096 bestätigt, Cert-Root-Cause gefixt); verbleibender
+>   E2E-Spec-Ausbau ist Nice-to-have-Backlog. P6 Docs-Sync läuft über die laufende
+>   Doc-Pflege (u.a. Cleanup-Plan `repo-consolidation-cleanup`).
+>   Kept for historical reference; do not act on its contents.
+
+---
+
 > Big-Bang-Refactor in einem Branch/PR: Design-Token-Konsolidierung, Hex-Elimination,
 > Dead-Code-Cleanup, A11y/TS-Härtung, LLM-Prompt- & RAG-Tunables-Paket (Backend + Admin-UI),
 > verifiziert vor dem Merge live auf dem Jetson per Playwright-Durchklick.

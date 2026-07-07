@@ -1,6 +1,8 @@
 # Side-Branch Cherry-Pick Master Plan — alle 4 Themen aus den Side-Branches
 
-> **STATUS 2026-06-28:** NICHT ausgefuehrt. Verifiziert: keines der Akzeptanz-Artefakte ist auf main, alle nur im Branch. Quelle gesichert in Tag `archive/side-branches-superset-2026-06-28` und Branch `feat/telegram-bot-overhaul`. Als Integrations-Backlog in `~/.arasul/cockpit/FOCUS.md` aufgenommen. Nicht loeschen.
+> **STATUS 2026-07-07 (Repo-Cleanup-Audit):** NICHT ausgefuehrt — keines der Ops/DR/Drift/Backend-Test/FE-Refactor-Akzeptanz-Artefakte ist auf main (Multi-Agent gegen Code auf disk verifiziert). **Quelle jetzt real gesichert** als annotierte Tags `archive/feat-telegram-bot-overhaul-2026-07-07` und `archive/cleanup-phase-6-test-coverage-2026-07-07` (gepusht). ⚠ Der frühere STATUS nannte einen Tag `archive/side-branches-superset-2026-06-28`, der **nie existierte** — ersetzt durch die zwei realen Tags. Die Branches bleiben zusätzlich als Quelle stehen. **Nicht löschen, bis dieser Plan abgearbeitet ist.**
+>
+> **Superseded-Hinweis:** Der Telegram-/Datentabellen-Test-Anteil von Phase 6.x ist inzwischen **durch andere main-Commits abgedeckt** (`d9d6b89` External-Integrations-Hardening inkl. Telegram Phasen 1–7, `42f62c3` 54 Telegram-Unit-Tests; `telegramApp.test.js`/`telegramBots.test.js`/`telegramWebSocket.test.js`/`datentabellen.test.js` liegen auf main). Dieser Teil ist **nicht mehr zu cherry-picken**, sondern nur gegen main zu re-verifizieren. Echt offen bleiben: Phase 8.x (Ops/Health/DR), die übrigen Phase-6.x-Backend-Unit-Tests (jwt/fileValidation/tokenCrypto/documentAnalysis/chats/factories), Phase 7.x (Drift-Checker/ROADMAP) und die Phase-1-Frontend-Chat-Optimierung.
 
 > Branches `cleanup/phase-6-test-coverage` (39 ahead) und `feat/telegram-bot-overhaul` (40 ahead) enthalten ~40 unique Themen-Commits, die nie auf main gemerged wurden. Ziel: alle vier wertvollen Themen-Blöcke gezielt cherry-picken — nicht branch-merge (Konflikt-Risiko zu groß).
 
@@ -30,7 +32,7 @@ User-visible: alles aus den Side-Branches, was nicht schon auf main ist, landet 
 
 ## Acceptance Criteria
 
-- [ ] Migration-Sequenz auf main durchgehend ohne Gap (082 … höchste auf disk). Hinweis (Stand 2026-07-06): höchste ist 096, nächste 097; `CLAUDE.md` verweist nicht mehr auf eine hartkodierte Nummer, sondern „read from `services/postgres/init/`".
+- [ ] Migration-Sequenz auf main durchgehend ohne Gap (082 … höchste auf disk). Hinweis (Stand 2026-07-07): höchste ist 097, nächste 098; `CLAUDE.md` verweist nicht mehr auf eine hartkodierte Nummer, sondern „read from `services/postgres/init/`".
 - [ ] `GET /healthz` und `GET /readyz` antworten 200 mit dokumentiertem Body-Contract (Phase 8.3).
 - [ ] CI-Workflow `.github/workflows/dr-drill.yml` läuft nightly und ruft `scripts/test/dr-drill-ci.sh` auf.
 - [ ] Backend-Test-Suite hat zusätzliche `__tests__/unit/jwt.test.js`, `fileValidation.test.js`, `tokenCrypto.test.js`, `__tests__/integration/documentAnalysis.test.js`, `knowledge-graph.test.js`, `chats.test.js`, `datentabellenTables.test.js`, `telegramApp.test.js`.

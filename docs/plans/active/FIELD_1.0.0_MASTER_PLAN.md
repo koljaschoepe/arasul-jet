@@ -57,7 +57,7 @@
 - **P6-15** embedding-GPU-Guard `total_memory` — `embedding_server.py`.
 - **P6-19** `<think>`-Strip — `document-indexer/ai_services.py`.
 
-**Migrations-Realität:** höchste Migration auf disk ist **096** (`096_rag_llm_tunables_and_prompts.sql`, kam mit #102 nach Plan-Erstellung). Nächste freie Nummer = **097**. (Frühere Plan-/Doc-Angaben „next 095/096" waren stale und sind im Cleanup-Plan durch „read from disk"-Pointer ersetzt.)
+**Migrations-Realität:** höchste Migration auf disk ist **097** (`097_document_status_partial.sql`, die P6-17-Statusmigration). Nächste freie Nummer = **098**. (Frühere Plan-/Doc-Angaben „next 095/096/097" waren stale und sind im Cleanup-Plan durch „read from disk"-Pointer ersetzt.)
 
 **Die 3 sicheren Verhaltens-Fixes → im Cleanup-Plan erledigt (Code-only + Tests):**
 
@@ -70,6 +70,14 @@
 - **P9-2** „CI-Gates auf blocking flippen" widerspricht der bewussten Entscheidung, dass Frontend-lint/tsc/vitest **advisory** bleiben (blocking bricht Auto-Merge; Memory `frontend-ci-advisory-backlog` + Kommentar in `.github/workflows/test.yml`). → als bewusst zurückgestellt markiert, **nicht** ausführen.
 
 **Weiterhin OPEN-INFRA (bewusst außerhalb des Cleanup-Scopes):** Mandanten-Isolation (P2), Netz/Ports/MinIO/docker-proxy (P3), OTA/Signing (P4-1..3), Backup-Verschlüsselung/WAL/LUKS/Restore-Drill (P5), externe LLM-Provider/Egress-Governance (P6-1..8), `/healthz`/`/readyz` (P7). Diese bleiben die eigentliche Roadmap Richtung 1.0.0.
+
+### Nachtrag 2026-07-07 (Repo-Cleanup-Audit, Multi-Agent gegen Code auf disk)
+
+Zwei bisher unter „OPEN-INFRA/P3" gelistete Punkte sind laut Code bereits **geshippt** — Status hier korrigiert:
+
+- **P3-2 DONE** — Ollama-Port ist auf `127.0.0.1:11434` gebunden (`compose/compose.ai.yaml`, Commit `4422507`), nicht mehr auf `0.0.0.0`. Damit ist der Netz-Teilpunkt von P3 erledigt; MinIO/docker-proxy/Isolation bleiben offen.
+- **P3-6 DONE** — Self-Healing-Webhook erzwingt das Secret (`apps/dashboard-backend/src/routes/external/events.js`, Commit `5a32b62`); Fake-Event ohne Secret wird abgewiesen.
+- **P6-18 — Datei-Referenz stale:** `telegramIntegrationService.js:422` existiert nicht mehr (Telegram-Code liegt jetzt unter `apps/dashboard-backend/src/routes/telegram/` + `services/telegram/`). Das Leak-Risiko (Claude-Pfad + RAG → Cloud) ist **weiterhin offen** und muss gegen die neue Struktur re-verifiziert werden, bevor es umgesetzt wird.
 
 ---
 

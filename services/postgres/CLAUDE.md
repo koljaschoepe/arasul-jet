@@ -17,8 +17,9 @@ postgres/
                                  next = that + 1. Read it, never hardcode:
                                  `ls services/postgres/init/ | sort | tail -1`.
     032a_create_data_database.sh Shell variant — runs only on first init.
-    data-db/                     Init scripts for the secondary user-data DB.
-  init-data-db/                  Compose-mounted init dir for the user-data DB.
+  init-data-db/                  Init scripts for the secondary user-data DB.
+                                 Compose-mounted into postgres at
+                                 /docker-entrypoint-initdb.d/data-db (ro).
   init-data-db.sh                One-shot bootstrap for the user-data DB.
   README.md                      Schema overview, retention, useful queries.
 ```
