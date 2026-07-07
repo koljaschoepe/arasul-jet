@@ -6,9 +6,10 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { requireAuth, requireAdmin, invalidateUserCache } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError, ForbiddenError } = require('../../utils/errors');
+const { blacklistAllUserTokens } = require('../../utils/jwt');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const db = require('../../database');
 const logger = require('../../utils/logger');
@@ -358,6 +359,15 @@ router.delete(
 
     logger.warn(`[gdpr-delete] user ${username} (id=${userId}) initiates account deletion`);
 
+    // Auth-Invalidierung MUSS vor der Lösch-Transaktion laufen:
+    // blacklistAllUserTokens liest active_sessions, um alle JTIs zu ermitteln,
+    // sie in token_blacklist einzutragen UND den in-memory verifiedTokenCache
+    // (60s TTL) sofort zu leeren. Die Transaktion löscht active_sessions weiter
+    // unten — liefe der Aufruf danach, fände er keine Sessions mehr und der
+    // aktuelle Token bliebe bis zu 60s aus dem Cache gültig. Bei Rollback der
+    // Transaktion ist der User nur ausgeloggt (Account bleibt) — sicheres Fail.
+    await blacklistAllUserTokens(userId);
+
     const summary = await db.transaction(async client => {
       const counts = {};
 
@@ -442,6 +452,11 @@ router.delete(
     logger.warn(
       `[gdpr-delete] user ${username} (id=${userId}) deleted; summary: ${JSON.stringify(summary)}`
     );
+
+    // userCache (auth.js, 60s TTL) leeren, damit eine warme Cache-Entry den
+    // gelöschten User nicht weiter als aktiv authentifiziert, obwohl die
+    // admin_users-Row bereits weg ist. Ergänzt die Token-Invalidierung oben.
+    invalidateUserCache(userId);
 
     // Session-Cookie räumen, damit der Client nicht weiter eingeloggt wirkt
     res.clearCookie('arasul_session');
