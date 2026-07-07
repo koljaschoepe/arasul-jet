@@ -8,7 +8,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
-import { getValidToken } from '../utils/token';
 import type { Metrics } from '../types';
 
 // WebSocket URL: use wss:// if page is https://, otherwise ws://
@@ -137,12 +136,11 @@ export function useWebSocketMetrics(isAuthenticated: boolean): UseWebSocketMetri
     }
 
     try {
-      // WebSocket API doesn't support custom headers, so send JWT via query param.
-      // This is safe: the connection is over WSS (encrypted) through Traefik.
-      const token = getValidToken();
-      const wsUrl = token
-        ? `${WS_BASE}/metrics/live-stream?token=${encodeURIComponent(token)}`
-        : `${WS_BASE}/metrics/live-stream`;
+      // SEC (P8-1): Do NOT put the JWT in the URL — WS URLs leak into Traefik
+      // access logs. The httpOnly `arasul_session` cookie is sent automatically
+      // on this same-origin WS upgrade handshake and the backend authenticates
+      // the upgrade from that cookie (or an Authorization header).
+      const wsUrl = `${WS_BASE}/metrics/live-stream`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
