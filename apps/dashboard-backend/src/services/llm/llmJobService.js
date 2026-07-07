@@ -305,11 +305,17 @@ function createLLMJobService(deps = {}) {
                         j.last_update_at, j.error_message, j.message_id, j.queue_position,
                         j.queued_at, j.priority, c.user_id
                  FROM llm_jobs j
-                 JOIN chat_conversations c ON c.id = j.conversation_id
+                 LEFT JOIN chat_conversations c ON c.id = j.conversation_id
                  WHERE j.id = $1`,
         [jobId]
       );
-      return result.rows[0] || null;
+      const job = result.rows[0];
+      if (!job) {return null;}
+      // With a LEFT JOIN the conversation may have been deleted in a parallel
+      // race; normalise the now-optional joined column so callers get a sane
+      // result (user_id null) instead of the whole row silently disappearing.
+      if (job.user_id === undefined) {job.user_id = null;}
+      return job;
     }
 
     /**
