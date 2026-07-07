@@ -22,23 +22,35 @@ const DOCUMENT_INDEXER_HOST = services.documentIndexer.host;
 const DOCUMENT_INDEXER_PORT = services.documentIndexer.port;
 
 /**
- * Delete a single document: MinIO file + Qdrant vectors + DB soft-delete.
- * MinIO and Qdrant failures are non-critical (logged, not thrown).
+ * Delete a single document: DB soft-delete first, then best-effort cleanup of
+ * MinIO file + Qdrant vectors.
+ *
+ * Ordering is deliberate and load-bearing: the DB soft-delete commits BEFORE
+ * any physical bytes are removed. If cleanup then fails, the row stays
+ * soft-deleted (recoverable) — we never end up with the file gone but the row
+ * present as a zombie. MinIO and Qdrant failures are non-critical (logged,
+ * not thrown).
  * @param {string} documentId - Document ID
  * @param {string} filePath - MinIO file path
  * @returns {Promise<void>}
  */
 async function deleteDocument(documentId, filePath) {
-  // Validate file path before MinIO delete
+  // Validate file path before touching anything
   if (!minioService.isValidMinioPath(filePath)) {
     logger.error(`Invalid file path detected for deletion: ${filePath}`);
     throw new ValidationError('Ungültiger Dateipfad');
   }
 
-  // Delete from MinIO (non-critical)
+  // Soft delete in database FIRST — this is the durable source of truth. If it
+  // throws, we abort before removing any bytes, so nothing is lost.
+  await pool.query(`UPDATE documents SET deleted_at = NOW(), status = 'deleted' WHERE id = $1`, [
+    documentId,
+  ]);
+
+  // Post-commit cleanup: remove the physical MinIO object (non-critical).
   await minioService.removeObject(filePath);
 
-  // Delete from Qdrant (non-critical, with retry)
+  // Post-commit cleanup: remove Qdrant vectors (non-critical, with retry).
   const qdrantSuccess = await qdrantService.deleteDocumentVectors(documentId);
   if (!qdrantSuccess) {
     // Mark for later cleanup if Qdrant delete fails
@@ -49,7 +61,8 @@ async function deleteDocument(documentId, filePath) {
     } catch (err) {
       // Pre-migration installs may not have qdrant_cleanup_pending yet; that
       // case is fine to swallow. Anything else is a real DB error and must
-      // surface so the deletion isn't silently incomplete.
+      // surface so the deletion isn't silently incomplete. The row is already
+      // soft-deleted at this point, so surfacing is safe (no zombie).
       const isMissingColumn = err.code === '42703';
       if (!isMissingColumn) {
         logger.error(`Failed to mark document ${documentId} for Qdrant cleanup: ${err.message}`, {
@@ -63,11 +76,6 @@ async function deleteDocument(documentId, filePath) {
       );
     }
   }
-
-  // Soft delete in database
-  await pool.query(`UPDATE documents SET deleted_at = NOW(), status = 'deleted' WHERE id = $1`, [
-    documentId,
-  ]);
 }
 
 /**
