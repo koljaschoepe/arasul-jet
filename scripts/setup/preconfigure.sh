@@ -361,6 +361,12 @@ fi
 ###############################################################################
 log_step 5 "TLS-Zertifikat generieren"
 
+# LAN hostname for cert CN/SAN. Overridable via MDNS_NAME so a custom hostname
+# gets a matching cert (no CN mismatch). Defaults to "arasul".
+MDNS_HOST="${MDNS_NAME:-arasul}"
+MDNS_HOST="${MDNS_HOST%.local}" # strip a trailing .local if the user added one
+MDNS_FQDN="${MDNS_HOST}.local"
+
 # Traefik reads the cert pair from /etc/traefik/certs (config/traefik/dynamic/tls.yml),
 # which is the bind-mount ../config/traefik:/etc/traefik. Generate it there so the
 # path matches ./arasul bootstrap and Traefik actually finds it.
@@ -376,11 +382,11 @@ else
     -newkey rsa:2048 \
     -keyout "$KEY_FILE" \
     -out "$CERT_FILE" \
-    -subj "/CN=arasul.local/O=Arasul Platform/C=DE" \
-    -addext "subjectAltName=DNS:arasul.local,DNS:localhost,IP:127.0.0.1" \
+    -subj "/CN=${MDNS_FQDN}/O=Arasul Platform/C=DE" \
+    -addext "subjectAltName=DNS:${MDNS_FQDN},DNS:localhost,IP:127.0.0.1" \
     >/dev/null 2>&1
   chmod 600 "$KEY_FILE"
-  log_info "Selbstsigniertes TLS-Zertifikat generiert (10 Jahre)"
+  log_info "Selbstsigniertes TLS-Zertifikat generiert (10 Jahre, CN=${MDNS_FQDN})"
 fi
 
 ###############################################################################
@@ -704,9 +710,9 @@ log_step 12 "mDNS (arasul.local) konfigurieren"
 if [ "$SKIP_MDNS" = true ]; then
   log_skip "mDNS-Setup übersprungen (--skip-mdns)"
 else
-  # Check if arasul.local already resolves
-  if avahi-resolve -n arasul.local >/dev/null 2>&1; then
-    log_info "arasul.local ist bereits auflösbar"
+  # Check if the mDNS hostname already resolves
+  if avahi-resolve -n "${MDNS_FQDN}" >/dev/null 2>&1; then
+    log_info "${MDNS_FQDN} ist bereits auflösbar"
   elif [ -x "${SCRIPT_DIR}/setup-mdns.sh" ]; then
     if sudo -n true 2>/dev/null; then
       log_info "Konfiguriere mDNS über setup-mdns.sh..."
@@ -1006,7 +1012,7 @@ echo -e "${GREEN}${BOLD}══════════════════�
 echo ""
 echo -e "  Nächste Schritte:"
 echo -e "    1. ${BOLD}docker compose up -d${NC}  - Alle Services starten"
-echo -e "    2. Browser öffnen: ${BOLD}http://arasul.local${NC}"
+echo -e "    2. Browser öffnen: ${BOLD}https://${MDNS_FQDN}${NC}"
 echo -e "    3. Setup-Wizard durchlaufen"
 echo -e "    4. ${BOLD}./scripts/validate/verify-dev-env.sh${NC}  - Umgebung verifizieren"
 echo ""

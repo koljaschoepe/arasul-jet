@@ -97,19 +97,24 @@ sudo ufw status
 
 ### Loesung
 
-**Passwort vergessen:**
+**Passwort vergessen oder Account gesperrt:**
 
 ```bash
 # Am Jetson per SSH:
 ssh -p 2222 arasul@<jetson-ip>
 
-# Passwort in .env nachschauen:
-grep ADMIN_PASSWORD .env
-
-# Oder neues Passwort setzen:
-docker exec postgres-db psql -U arasul -d arasul_db -c \
-  "UPDATE users SET password_hash = crypt('NeuesPasswort123!', gen_salt('bf')) WHERE username = 'admin';"
+# Passwort neu setzen UND Account-Sperre aufheben (interaktiv, offline):
+./arasul reset-password admin
 ```
+
+Das Skript setzt ein neues Passwort, entsperrt den Account
+(`login_attempts`/`locked_until`) und invalidiert alle Sessions — danach ist
+der Login sofort wieder möglich. Bei „Falsches Passwort" trotz korrektem
+Passwort ist meist die Account-Sperre nach mehreren Fehlversuchen die Ursache;
+`reset-password` behebt beides.
+
+> Hinweis: Die Tabelle heißt `admin_users` (nicht `users`); manuelle
+> `UPDATE`-Snippets auf `users` liefen früher ins Leere.
 
 **Backend nicht erreichbar:**
 

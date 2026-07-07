@@ -71,6 +71,10 @@ services:
       RAG_ENABLE_RERANKING: 'true'
       RAG_QUERY_OPTIMIZER_MODEL: ''
       ENV_FILE_PATH: /arasul/config/.env
+      # LAN mDNS hostname (without .local). Lets /api/system/network report the
+      # real access name instead of a hardcoded "arasul.local" when a customer
+      # runs a custom hostname. Defaults to "arasul".
+      MDNS_NAME: ${MDNS_NAME:-arasul}
       COMPOSE_PROJECT_DIR: ${COMPOSE_PROJECT_DIR:-.}
       DOCKER_HOST: tcp://docker-proxy:2375
       DOCKER_NETWORK: arasul-platform_arasul-backend

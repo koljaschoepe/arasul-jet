@@ -36,10 +36,10 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 
 ### Zugriff
 
-| Dienst          | Adresse                   |
-| --------------- | ------------------------- |
-| Web-Oberflaeche | `http://<jetson-ip>`      |
-| SSH-Zugang      | `ssh -p 2222 arasul@<ip>` |
+| Dienst          | Adresse                    |
+| --------------- | -------------------------- |
+| Web-Oberflaeche | `https://<hostname>.local` |
+| SSH-Zugang      | `ssh -p 2222 arasul@<ip>`  |
 
 ---
 
@@ -333,14 +333,19 @@ Unter **Einstellungen > Updates > Verlauf** sehen Sie:
 
 ## 12. Netzwerk & Fernzugriff
 
+> **Denkmodell:** LAN-Zugriff ist der Auslieferungs-Standard, Fernzugriff ist
+> ein bewusstes Opt-in via Tailscale. In beiden Faellen erreichen Sie das Gerät
+> ueber **einen Namen** (statt roher IP): im LAN `https://<hostname>.local`,
+> unterwegs `https://<geraet>.<tailnet>.ts.net`.
+
 ### Lokaler Zugriff
 
 Das System ist ueber das lokale Netzwerk erreichbar:
 
-- **Web:** `http://<jetson-ip>`
+- **Web:** `https://<hostname>.local` (selbstsigniertes Zertifikat — Warnung beim ersten Aufruf bestaetigen)
 - **SSH:** `ssh -p 2222 arasul@<jetson-ip>`
 
-### Fernzugriff mit Tailscale (empfohlen)
+### Fernzugriff mit Tailscale (Opt-in)
 
 Tailscale ermoeglicht sicheren Zugriff von ueberall - ohne Port-Forwarding oder VPN-Server.
 
@@ -353,7 +358,10 @@ Tailscale ermoeglicht sicheren Zugriff von ueberall - ohne Port-Forwarding oder 
 
 **Nach der Einrichtung:**
 
-- Dashboard: `http://<tailscale-ip>` (von ueberall erreichbar)
+- Dashboard: `https://<geraet>.<tailnet>.ts.net` (von ueberall erreichbar,
+  browser-vertrautes Schloss via `tailscale serve`). Ersatzweise
+  `https://<tailscale-ip>` (mit Zertifikatswarnung), falls MagicDNS/HTTPS
+  noch nicht in der Tailscale-Admin-Konsole aktiviert wurde.
 - SSH: `ssh arasul@<tailscale-ip>`
 
 **Status pruefen:** Im Dashboard unter Einstellungen > Fernzugriff werden angezeigt:

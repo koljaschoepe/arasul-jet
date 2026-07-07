@@ -49,6 +49,11 @@ migrations always backward-compatible, no rewrites — only incremental change.
 Tailscale runs directly on the host (not in Docker) to provide VPN access to all services.
 Managed via Dashboard UI (Einstellungen > Fernzugriff) and backend API (`/api/tailscale/*`).
 
+**Access model:** LAN-only is the delivery default; remote is an opt-in via
+Tailscale. One name per context, never a raw IP — in the LAN
+`https://<hostname>.local`, remotely `https://<device>.<tailnet>.ts.net` with a
+browser-trusted cert served by `tailscale serve` → Traefik:443.
+
 ---
 
 ## 2. System Layers

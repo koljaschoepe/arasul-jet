@@ -82,4 +82,42 @@ router.post(
   })
 );
 
+/**
+ * GET /api/tailscale/serve
+ * Report `tailscale serve` state (browser-trusted remote HTTPS on *.ts.net).
+ */
+router.get(
+  '/serve',
+  asyncHandler(async (req, res) => {
+    const status = await tailscaleService.serveStatus();
+    res.json(status);
+  })
+);
+
+/**
+ * POST /api/tailscale/serve
+ * Enable `tailscale serve` → Traefik:443 (trusted remote HTTPS).
+ */
+router.post(
+  '/serve',
+  asyncHandler(async (req, res) => {
+    logger.info(`Tailscale serve enable requested by user ${req.user?.username}`);
+    const status = await tailscaleService.enableServe();
+    res.json(status);
+  })
+);
+
+/**
+ * DELETE /api/tailscale/serve
+ * Disable `tailscale serve` (remote access falls back to raw Tailscale IP).
+ */
+router.delete(
+  '/serve',
+  asyncHandler(async (req, res) => {
+    logger.info(`Tailscale serve disable requested by user ${req.user?.username}`);
+    const result = await tailscaleService.disableServe();
+    res.json(result);
+  })
+);
+
 module.exports = router;

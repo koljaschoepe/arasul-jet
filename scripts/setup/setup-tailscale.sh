@@ -155,7 +155,9 @@ authenticate_tailscale() {
 
     log_info "Authentifiziere mit Auth-Key..."
 
-    local ts_args=(--authkey "$auth_key" --ssh)
+    # --accept-routes matches the backend connect() path (tailscaleService.js) so
+    # CLI setup and dashboard setup behave identically.
+    local ts_args=(--authkey "$auth_key" --ssh --accept-routes)
     if [ -n "$hostname" ]; then
         ts_args+=(--hostname "$hostname")
     fi
@@ -167,6 +169,18 @@ authenticate_tailscale() {
         ts_ip=$(get_tailscale_ip)
         if [ -n "$ts_ip" ]; then
             log_success "Verbunden! Tailscale-IP: ${GREEN}${ts_ip}${NC}"
+
+            # Browser-vertrautes Remote-HTTPS: serve auf Traefik:443 zeigen.
+            # https+insecure, da Traefik ein self-signed Backend-Cert hat; port 443
+            # (nicht 80 → sonst 301-Redirect-Loop). Best-effort, non-fatal: schlaegt
+            # es fehl (z. B. MagicDNS-HTTPS noch nicht in der Admin-Konsole aktiv),
+            # bleibt der Zugriff ueber die rohe Tailscale-IP funktionsfaehig.
+            if tailscale serve --bg --https=443 https+insecure://127.0.0.1:443 2>/dev/null; then
+                log_success "Remote-HTTPS aktiviert (tailscale serve → 443)"
+            else
+                log_warning "tailscale serve nicht aktiviert — Remote-Zugriff via Tailscale-IP bleibt moeglich"
+                log_info "  MagicDNS + HTTPS-Certs ggf. einmalig in der Tailscale-Admin-Konsole aktivieren"
+            fi
             return 0
         fi
     fi

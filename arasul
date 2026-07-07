@@ -765,11 +765,20 @@ setup_https() {
     # Traefik starts without a certificate and HTTPS is broken.
     local cert_dir="./config/traefik/certs"
 
+    # Resolve the LAN hostname from MDNS_NAME so the cert CN matches the real
+    # access name (https://<hostname>.local). A hardcoded "arasul.local" would
+    # produce a cert mismatch for customers running a custom hostname.
+    local cert_mdns
+    cert_mdns=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2)
+    cert_mdns="${cert_mdns:-arasul}"
+    cert_mdns="${cert_mdns%.local}" # strip any .local the user may have added
+    local cert_host="${cert_mdns}.local"
+
     if [ -f "$cert_dir/arasul.crt" ] && [ -f "$cert_dir/arasul.key" ]; then
         log_success "Self-signed certificate already present in $cert_dir"
     elif [ -f "scripts/security/generate-self-signed-cert.sh" ]; then
-        log_info "Generating self-signed certificate for arasul.local..."
-        bash scripts/security/generate-self-signed-cert.sh "$cert_dir" "arasul.local" "3650"
+        log_info "Generating self-signed certificate for ${cert_host}..."
+        bash scripts/security/generate-self-signed-cert.sh "$cert_dir" "$cert_host" "3650"
         log_success "Self-signed certificate generated"
         log_warning "Browser will show a security warning (normal for self-signed certificates)"
     else
@@ -1126,11 +1135,16 @@ show_completion_summary() {
     echo -e "  Dashboard:    ${BLUE}https://${hostname:-arasul}.local${NC}"
     echo -e "  n8n:          ${BLUE}https://${hostname:-arasul}.local/n8n${NC}"
 
-    # Tailscale-Info anzeigen (wenn verbunden)
-    local ts_ip
+    # Tailscale-Info anzeigen (wenn verbunden). Bevorzugt den MagicDNS-Namen
+    # (https://<geraet>.<tailnet>.ts.net) — browser-vertrautes Schloss via
+    # `tailscale serve` — und fällt nur auf die rohe IP zurück.
+    local ts_dnsname ts_ip
+    ts_dnsname=$(tailscale status --json 2>/dev/null | grep -o '"DNSName":"[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/\.$//')
     ts_ip=$(tailscale ip -4 2>/dev/null || echo "")
-    if [ -n "$ts_ip" ]; then
-        echo -e "  Remote:       ${BLUE}http://${ts_ip}${NC} (via Tailscale)"
+    if [ -n "$ts_dnsname" ]; then
+        echo -e "  Remote:       ${BLUE}https://${ts_dnsname}${NC} (via Tailscale)"
+    elif [ -n "$ts_ip" ]; then
+        echo -e "  Remote:       ${BLUE}https://${ts_ip}${NC} (via Tailscale)"
     fi
     echo ""
     echo "  ┌─────────────────────────────────────────────┐"
@@ -1641,6 +1655,21 @@ cmd_reload_config() {
     log_info "Note: Some changes require a full restart (database credentials, ports, etc.)"
 }
 
+# Reset an admin password and clear the account lockout (offline, no cloud).
+# Delegates to scripts/security/reset-password.sh, which also resets
+# login_attempts/locked_until so a locked-out admin can log back in immediately.
+cmd_reset_password() {
+    local username="${1:-admin}"
+    log_info "Resetting password for admin user: ${username}"
+
+    if [ -f "${SCRIPT_DIR}/scripts/security/reset-password.sh" ]; then
+        "${SCRIPT_DIR}/scripts/security/reset-password.sh" "$username"
+    else
+        log_error "Password reset script not found"
+        exit 1
+    fi
+}
+
 # Help command
 cmd_help() {
     echo "Arasul Platform Management Tool"
@@ -1660,6 +1689,7 @@ cmd_help() {
     echo "  logs [service]    - Show logs (optionally for a specific service)"
     echo "  update            - Update to latest version"
     echo "  mdns              - Configure mDNS (arasul.local)"
+    echo "  reset-password [user] - Reset admin password + clear account lock (default: admin)"
     echo "  validate-config   - Validate .env configuration"
     echo "  validate-deps     - Validate Docker Compose dependency chain"
     echo "  generate-secrets  - Generate all required secrets"
@@ -1675,6 +1705,7 @@ cmd_help() {
     echo "  ./arasul validate-config        - Check .env file"
     echo "  ./arasul generate-secrets       - Generate secrets"
     echo "  ./arasul reload-config          - Reload without restart"
+    echo "  ./arasul reset-password admin   - Reset admin password + unlock account"
     echo "  ./arasul logs dashboard-backend - Show dashboard backend logs"
     echo "  ./arasul restart                - Restart all services"
     echo "  ./arasul test-load              - Run load tests"
@@ -1722,6 +1753,10 @@ case "${1:-help}" in
         ;;
     mdns)
         cmd_mdns
+        ;;
+    reset-password)
+        shift
+        cmd_reset_password "$@"
         ;;
     validate-config)
         shift

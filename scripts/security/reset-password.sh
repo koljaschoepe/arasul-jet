@@ -87,9 +87,12 @@ if [ -z "$HASH" ]; then
   exit 1
 fi
 
-# Update password in database
+# Update password AND clear the account lock in one statement.
+# login_attempts / locked_until back off the failed-login lockout (see
+# is_user_locked() in 002_auth_schema.sql) — otherwise a user who was locked
+# out could reset the password and still be unable to log in for 15 minutes.
 docker exec postgres-db psql -U arasul -d arasul_db -c \
-  "UPDATE admin_users SET password_hash = '$HASH', updated_at = NOW() WHERE username = '$USERNAME';" \
+  "UPDATE admin_users SET password_hash = '$HASH', login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE username = '$USERNAME';" \
   >/dev/null 2>&1
 
 # Clear all sessions (force re-login)
@@ -99,6 +102,6 @@ docker exec postgres-db psql -U arasul -d arasul_db -c \
 
 echo ""
 echo "Password reset successful for user: $USERNAME"
-echo "All active sessions have been invalidated."
+echo "Account lock cleared and all active sessions invalidated."
 echo "Please log in with the new password."
 echo ""

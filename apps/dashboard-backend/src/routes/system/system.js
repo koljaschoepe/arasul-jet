@@ -215,9 +215,13 @@ router.get(
       // n8n not reachable
     }
 
+    // Real LAN name from MDNS_NAME (compose passes it through; defaults to
+    // "arasul"). Avoids a hardcoded "arasul.local" that mismatches a custom
+    // hostname and breaks the "one name" access story.
+    const mdnsHostname = (process.env.MDNS_NAME || 'arasul').replace(/\.local$/, '');
     res.json({
       ip_addresses: ipAddresses,
-      mdns: 'arasul.local',
+      mdns: `${mdnsHostname}.local`,
       internet_reachable: internetReachable,
       n8n_webhook_reachable: n8nWebhookReachable,
       timestamp: new Date().toISOString(),
