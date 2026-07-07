@@ -16,7 +16,6 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
-import { getValidToken } from '../../utils/token';
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE = import.meta.env.VITE_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;
@@ -199,15 +198,11 @@ export function useTerminal({
       }
     });
 
-    // Connect WebSocket
-    const token = getValidToken();
-    if (!token) {
-      setError('Nicht authentifiziert');
-      setIsConnecting(false);
-      return;
-    }
-
-    const wsUrl = `${WS_BASE}/sandbox/terminal/ws?projectId=${projectId}&token=${token}`;
+    // Connect WebSocket.
+    // SEC: Do NOT put the JWT in the URL — WS URLs leak into Traefik access logs.
+    // The httpOnly `arasul_session` cookie is sent automatically on this
+    // same-origin WS upgrade handshake and the backend authenticates from it.
+    const wsUrl = `${WS_BASE}/sandbox/terminal/ws?projectId=${projectId}`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
