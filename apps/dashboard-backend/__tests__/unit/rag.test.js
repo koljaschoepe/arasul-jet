@@ -311,6 +311,44 @@ describe('RAG Routes', () => {
       }
     });
 
+    test('anti-hallucination: routing method=none short-circuits to no-docs response, no unfiltered search', async () => {
+      const token = getAuthToken();
+      setupRagMocks({ companyContext: [], spaces: [], keywordResults: [] });
+
+      // Spellcheck (fails silently)
+      axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
+
+      // routeToSpaces signals "no space matched and no default" — the deliberate
+      // anti-hallucination signal. The route must NOT translate this into an
+      // unfiltered (whole-knowledge-base) Qdrant search.
+      ragCore.routeToSpaces.mockResolvedValueOnce({ spaces: [], method: 'none' });
+
+      llmJobService.createJob.mockResolvedValueOnce({ jobId: 'job-none', messageId: 'msg-none' });
+      llmJobService.updateJobContent.mockResolvedValueOnce();
+      llmJobService.completeJob.mockResolvedValueOnce();
+
+      const response = await request(app)
+        .post('/api/rag/query')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ query: 'completely off-topic question', conversation_id: 1 });
+
+      expect(response.status).not.toBe(401);
+
+      // The critical assertion: no search happened. Previously method=none set
+      // the space filter to null → buildSpaceFilter(null)=undefined → hybridSearch
+      // ran across the ENTIRE knowledge base, enabling off-topic hallucination.
+      expect(ragCore.hybridSearch).not.toHaveBeenCalled();
+
+      // And the user gets the honest "no relevant documents" response.
+      if (response.headers['content-type'] && response.headers['content-type'].includes('text/event-stream')) {
+        expect(response.text).toContain('keine relevanten Dokumente');
+        // Not misreported as a backend outage.
+        expect(response.text).not.toContain('vorübergehend nicht verfügbar');
+      } else {
+        expect(response.status).toBe(200);
+      }
+    });
+
     test('P6-16: should surface a 503 error when the search backend is down', async () => {
       const { ServiceUnavailableError } = require('../../src/utils/errors');
       const token = getAuthToken();
@@ -319,10 +357,14 @@ describe('RAG Routes', () => {
       // Spellcheck (fails silently)
       axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
 
+      // Routing resolves to a searchable path so the search actually runs —
+      // method='none' would skip the search and never exercise the outage path.
+      ragCore.routeToSpaces.mockResolvedValueOnce({ spaces: [], method: 'all' });
+
       // Simulate the search backend being down (Qdrant outage). hybridSearch
-      // now throws a ServiceUnavailableError on a genuine outage (both the
-      // hybrid query and the dense-only fallback failed). This must NOT be
-      // reported to the user as "no documents — please upload".
+      // throws a ServiceUnavailableError on a genuine outage (both the hybrid
+      // query and the dense-only fallback failed). This must NOT be reported to
+      // the user as "no documents — please upload".
       ragCore.hybridSearch.mockRejectedValueOnce(
         new ServiceUnavailableError('Vector search backend unavailable', {
           code: 'SEARCH_UNAVAILABLE',
@@ -352,6 +394,9 @@ describe('RAG Routes', () => {
 
       // Spellcheck (fails silently)
       axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
+
+      // Routing resolves to a searchable path so hybridSearch actually runs.
+      ragCore.routeToSpaces.mockResolvedValueOnce({ spaces: [], method: 'all' });
 
       // ragCore mocks: return documents found
       ragCore.getCompanyContext.mockResolvedValueOnce('Wir sind eine Test-Firma');
@@ -486,6 +531,10 @@ describe('RAG Routes', () => {
       const token = getAuthToken();
       setupRagMocks();
 
+      // method='all' yields a null space filter but still runs the search — the
+      // exact shape this test asserts. (method='none' deliberately skips search.)
+      ragCore.routeToSpaces.mockResolvedValueOnce({ spaces: [], method: 'all' });
+
       llmJobService.createJob.mockResolvedValueOnce({
         jobId: 'job-123',
         messageId: 'msg-123'
@@ -595,6 +644,9 @@ describe('RAG Routes', () => {
 
       // Spellcheck (fails silently)
       axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
+
+      // Routing resolves to a searchable path so hybridSearch actually runs.
+      ragCore.routeToSpaces.mockResolvedValueOnce({ spaces: [], method: 'all' });
 
       // ragCore mocks: return documents via hybrid search
       const mockResult = {
