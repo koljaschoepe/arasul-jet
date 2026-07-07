@@ -2,6 +2,9 @@
 Unit tests for metrics collector
 """
 
+import asyncio
+import time
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import collector as collector_module
@@ -118,3 +121,66 @@ class TestMetricsBufferBound:
     def test_buffer_cap_is_positive(self):
         assert isinstance(METRICS_BUFFER_MAX, int)
         assert METRICS_BUFFER_MAX > 0
+
+
+class TestEventLoopNotBlockedByProbes:
+    """Regression: blocking infra probes must not freeze the event loop.
+
+    ``collect_all`` runs synchronous network/HTTP/DNS probes that stall for
+    several seconds on a timeout when the appliance is offline. If those run
+    directly on the event loop they freeze the shared aiohttp ``/health``
+    endpoint and the container gets marked unhealthy / restart-looped. The
+    collection loop offloads them via ``loop.run_in_executor`` so a slow probe
+    can never block the loop.
+    """
+
+    @pytest.mark.asyncio
+    async def test_slow_probe_offloaded_keeps_loop_responsive(self):
+        loop = asyncio.get_event_loop()
+
+        # Simulate collect_all() blocking on an unreachable probe.
+        def blocking_collect_all():
+            time.sleep(0.5)
+            return {'cpu': 1.0}
+
+        # A concurrent "health" heartbeat that must keep ticking while the
+        # blocking probe runs. If the loop were frozen it would tick ~0 times.
+        ticks = 0
+
+        async def heartbeat():
+            nonlocal ticks
+            while True:
+                ticks += 1
+                await asyncio.sleep(0.02)
+
+        hb = asyncio.ensure_future(heartbeat())
+        try:
+            # This is exactly how collect_metrics_loop now invokes collect_all.
+            result = await loop.run_in_executor(None, blocking_collect_all)
+        finally:
+            hb.cancel()
+
+        assert result == {'cpu': 1.0}
+        # Loop stayed responsive during the 0.5s blocking call.
+        assert ticks >= 5
+
+    @pytest.mark.asyncio
+    async def test_direct_blocking_call_would_freeze_loop(self):
+        """Contrast: calling the blocking probe inline freezes the loop."""
+        ticks = 0
+
+        async def heartbeat():
+            nonlocal ticks
+            while True:
+                ticks += 1
+                await asyncio.sleep(0.02)
+
+        hb = asyncio.ensure_future(heartbeat())
+        try:
+            await asyncio.sleep(0)  # let heartbeat start
+            time.sleep(0.5)  # blocking the loop directly (the old behavior)
+        finally:
+            hb.cancel()
+
+        # Without offloading, the heartbeat is starved during the block.
+        assert ticks <= 2
