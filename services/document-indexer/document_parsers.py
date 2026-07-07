@@ -34,9 +34,58 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _format_tables_from_page(page) -> str:
+    """
+    Format all tables found on an already-open pdfplumber page object.
+
+    Separated from PDF opening so callers processing many pages can open the
+    document with ``pdfplumber.open`` ONCE and reuse it, instead of re-parsing
+    the whole multi-MB buffer per page (O(pages) full reparses).
+
+    Args:
+        page: An open ``pdfplumber`` page object
+
+    Returns:
+        Pipe-delimited text representation of all tables found on the page,
+        or empty string if no tables found
+    """
+    try:
+        tables = page.extract_tables()
+
+        if not tables:
+            return ""
+
+        table_texts = []
+        for table_idx, table in enumerate(tables):
+            if not table:
+                continue
+
+            rows_text = []
+            for row in table:
+                # Replace None values with empty string
+                cleaned_row = [
+                    str(cell).strip() if cell is not None else ""
+                    for cell in row
+                ]
+                rows_text.append(" | ".join(cleaned_row))
+
+            if rows_text:
+                table_texts.append("\n".join(rows_text))
+
+        return "\n\n".join(table_texts)
+
+    except Exception as e:
+        logger.debug(f"Table extraction failed: {e}")
+        return ""
+
+
 def _extract_tables_from_page(pdf_path_or_bytes, page_num: int) -> str:
     """
     Extract tables from a specific PDF page using pdfplumber.
+
+    NOTE: This opens the whole PDF on every call. When processing multiple
+    pages, open the document once with ``pdfplumber.open`` and call
+    ``_format_tables_from_page`` per page instead.
 
     Args:
         pdf_path_or_bytes: PDF file bytes for pdfplumber
@@ -51,30 +100,7 @@ def _extract_tables_from_page(pdf_path_or_bytes, page_num: int) -> str:
             if page_num >= len(pdf.pages):
                 return ""
 
-            page = pdf.pages[page_num]
-            tables = page.extract_tables()
-
-            if not tables:
-                return ""
-
-            table_texts = []
-            for table_idx, table in enumerate(tables):
-                if not table:
-                    continue
-
-                rows_text = []
-                for row in table:
-                    # Replace None values with empty string
-                    cleaned_row = [
-                        str(cell).strip() if cell is not None else ""
-                        for cell in row
-                    ]
-                    rows_text.append(" | ".join(cleaned_row))
-
-                if rows_text:
-                    table_texts.append("\n".join(rows_text))
-
-            return "\n\n".join(table_texts)
+            return _format_tables_from_page(pdf.pages[page_num])
 
     except Exception as e:
         logger.debug(f"Table extraction failed for page {page_num}: {e}")
@@ -110,27 +136,32 @@ def parse_pdf(file_obj: IO[bytes], use_ocr: bool = True) -> str:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         text_parts = []
 
-        for page_num in range(len(doc)):
-            page = doc[page_num]
+        # Open pdfplumber ONCE for the whole document and reuse it per page,
+        # instead of re-parsing the entire buffer on every page.
+        with pdfplumber.open(BytesIO(pdf_bytes)) as plumber_pdf:
+            for page_num in range(len(doc)):
+                page = doc[page_num]
 
-            # Extract text with layout preservation
-            # Using "text" sort mode for natural reading order
-            text = page.get_text("text")
+                # Extract text with layout preservation
+                # Using "text" sort mode for natural reading order
+                text = page.get_text("text")
 
-            page_content = ""
-            if text and text.strip():
-                page_content = text.strip()
+                page_content = ""
+                if text and text.strip():
+                    page_content = text.strip()
 
-            # Extract tables using pdfplumber and append to page text
-            table_text = _extract_tables_from_page(pdf_bytes, page_num)
-            if table_text:
+                # Extract tables using pdfplumber and append to page text
+                table_text = ""
+                if page_num < len(plumber_pdf.pages):
+                    table_text = _format_tables_from_page(plumber_pdf.pages[page_num])
+                if table_text:
+                    if page_content:
+                        page_content += "\n\n[Table]\n" + table_text
+                    else:
+                        page_content = "[Table]\n" + table_text
+
                 if page_content:
-                    page_content += "\n\n[Table]\n" + table_text
-                else:
-                    page_content = "[Table]\n" + table_text
-
-            if page_content:
-                text_parts.append(page_content)
+                    text_parts.append(page_content)
 
         doc.close()
 
@@ -208,35 +239,41 @@ def parse_pdf_streaming(file_obj: IO[bytes], gc_interval: int = 10) -> Generator
         total_pages = len(doc)
         logger.info(f"Starting streaming PDF parse: {total_pages} pages")
 
-        for page_num in range(total_pages):
-            try:
-                page = doc[page_num]
-                text = page.get_text("text")
+        # Open pdfplumber ONCE for the whole document and reuse it per page,
+        # instead of re-parsing the entire buffer on every page (O(pages)
+        # full reparses of a multi-MB buffer).
+        with pdfplumber.open(BytesIO(pdf_bytes)) as plumber_pdf:
+            for page_num in range(total_pages):
+                try:
+                    page = doc[page_num]
+                    text = page.get_text("text")
 
-                page_content = ""
-                if text and text.strip():
-                    page_content = text.strip()
+                    page_content = ""
+                    if text and text.strip():
+                        page_content = text.strip()
 
-                # Extract tables using pdfplumber
-                table_text = _extract_tables_from_page(pdf_bytes, page_num)
-                if table_text:
+                    # Extract tables using pdfplumber
+                    table_text = ""
+                    if page_num < len(plumber_pdf.pages):
+                        table_text = _format_tables_from_page(plumber_pdf.pages[page_num])
+                    if table_text:
+                        if page_content:
+                            page_content += "\n\n[Table]\n" + table_text
+                        else:
+                            page_content = "[Table]\n" + table_text
+
                     if page_content:
-                        page_content += "\n\n[Table]\n" + table_text
-                    else:
-                        page_content = "[Table]\n" + table_text
+                        yield page_content
 
-                if page_content:
-                    yield page_content
+                    # Periodic garbage collection for very large PDFs
+                    if gc_interval > 0 and (page_num + 1) % gc_interval == 0:
+                        gc.collect()
+                        logger.debug(f"Processed {page_num + 1}/{total_pages} pages (GC triggered)")
 
-                # Periodic garbage collection for very large PDFs
-                if gc_interval > 0 and (page_num + 1) % gc_interval == 0:
-                    gc.collect()
-                    logger.debug(f"Processed {page_num + 1}/{total_pages} pages (GC triggered)")
-
-            except Exception as page_error:
-                logger.warning(f"Error extracting text from page {page_num + 1}: {page_error}")
-                # Continue with next page instead of failing entire document
-                continue
+                except Exception as page_error:
+                    logger.warning(f"Error extracting text from page {page_num + 1}: {page_error}")
+                    # Continue with next page instead of failing entire document
+                    continue
 
         doc.close()
         logger.info(f"Completed streaming PDF parse: {total_pages} pages processed")
