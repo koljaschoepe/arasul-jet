@@ -72,7 +72,8 @@ router.get(
       'valid_until',
     ];
     const sortField = validSortFields.includes(sort) ? sort : 'created_at';
-    const sortOrder = order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    // String() guards against a duplicated ?order= param (array → TypeError → 500).
+    const sortOrder = String(order).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
     // Get total count
     const countResult = await dataDb.query(

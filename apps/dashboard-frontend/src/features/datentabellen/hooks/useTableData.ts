@@ -153,7 +153,10 @@ export default function useTableData({
 
   const handleGhostRowEdit = useCallback(
     async (fieldSlug: string, value: CellValue) => {
-      if (!value && value !== false) return;
+      // Skip only truly-empty edits. The old `!value` guard also dropped a
+      // numeric 0 (and NaN), so entering "0" in a new row silently created
+      // nothing. Allow 0/false through; ignore null/undefined/empty string.
+      if (value === null || value === undefined || value === '') return;
       try {
         setSaving(true);
         await api.post<RowPatchResponse>(
@@ -194,7 +197,21 @@ export default function useTableData({
       }
 
       const oldRow = rows.find(r => r._id === rowId);
-      const oldValue = oldRow?.[fieldSlug];
+      if (!oldRow) {
+        // Row isn't in the current page (e.g. an undo fired after the user
+        // paged away). Saving anyway would send _expected_updated_at: undefined,
+        // bypassing the 409 optimistic-concurrency check and blindly
+        // overwriting whatever the row now holds. Refuse — and surface why,
+        // since handleUndo/Redo have already popped the entry off the stack, so
+        // a silent return would make the keystroke look broken.
+        setError(
+          'Zeile nicht auf dieser Seite — dorthin wechseln, um die Änderung rückgängig zu machen.'
+        );
+        setSaveStatus('error');
+        scheduleSaveStatusReset();
+        return;
+      }
+      const oldValue = oldRow[fieldSlug];
       if (oldValue === value) {
         return;
       }
@@ -204,7 +221,7 @@ export default function useTableData({
         const data = await api
           .patch<RowPatchResponse>(
             `/v1/datentabellen/tables/${tableSlug}/rows/${rowId}`,
-            { [fieldSlug]: value, _expected_updated_at: oldRow?._updated_at },
+            { [fieldSlug]: value, _expected_updated_at: oldRow._updated_at },
             { showError: false }
           )
           .catch((err: { status?: number; message?: string }) => {

@@ -13,6 +13,7 @@
 const database = require('../../database');
 const logger = require('../../utils/logger');
 const cryptoService = require('../core/cryptoService');
+const { NotFoundError } = require('../../utils/errors');
 const crypto = require('crypto');
 
 // Telegram API base URL
@@ -421,7 +422,7 @@ async function updateBot(botId, userId, updates) {
   );
 
   if (result.rows.length === 0) {
-    throw new Error('Bot nicht gefunden');
+    throw new NotFoundError('Bot nicht gefunden');
   }
 
   const bot = result.rows[0];
@@ -461,7 +462,7 @@ async function deleteBot(botId, userId) {
   );
 
   if (result.rows.length === 0) {
-    throw new Error('Bot nicht gefunden');
+    throw new NotFoundError('Bot nicht gefunden');
   }
 
   logger.info(`Bot deleted: ${result.rows[0].id} (${result.rows[0].name})`);
@@ -484,7 +485,7 @@ async function activateBot(botId, userId) {
   );
 
   if (result.rows.length === 0) {
-    throw new Error('Bot nicht gefunden');
+    throw new NotFoundError('Bot nicht gefunden');
   }
 
   logger.info(`Bot activated: ${result.rows[0].id} (${result.rows[0].name})`);
@@ -529,7 +530,7 @@ async function deactivateBot(botId, userId) {
   );
 
   if (result.rows.length === 0) {
-    throw new Error('Bot nicht gefunden');
+    throw new NotFoundError('Bot nicht gefunden');
   }
 
   logger.info(`Bot deactivated: ${result.rows[0].id} (${result.rows[0].name})`);

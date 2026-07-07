@@ -104,7 +104,9 @@ router.get(
   asyncHandler(async (req, res) => {
     const { q, project_id } = req.query;
 
-    if (!q || !q.trim()) {
+    // typeof guard: a duplicated ?q= param arrives as an array, and q.trim()
+    // would throw a TypeError → raw 500. Treat non-strings as "no query".
+    if (!q || typeof q !== 'string' || !q.trim()) {
       return res.json({ chats: [], timestamp: new Date().toISOString() });
     }
 

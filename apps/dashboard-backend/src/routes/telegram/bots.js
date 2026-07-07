@@ -177,6 +177,16 @@ router.post(
 // Apply auth to all routes below
 router.use(requireAuth);
 
+// Reject a non-numeric :id before it reaches an integer PG column. Without this,
+// e.g. POST /api/telegram-bots/abc/activate parses to NaN and the query fails
+// with PG 22P02 → unmapped raw 500. Covers every /:id route on this router.
+router.param('id', (req, res, next, id) => {
+  if (isNaN(parseInt(id, 10))) {
+    return next(new ValidationError('Ungültige Bot-ID'));
+  }
+  next();
+});
+
 // ----------------------------------------------------------------------------
 // MODELS (requires auth)
 // ----------------------------------------------------------------------------

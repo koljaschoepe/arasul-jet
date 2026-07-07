@@ -432,11 +432,14 @@ router.post(
 
     // P3-001: SSE streaming for activation progress
     if (useStream) {
-      initSSE(res);
-
-      // Get model info for estimated time
+      // Fetch model info BEFORE initSSE. Once SSE headers are sent the global
+      // error handler is a no-op, so a rejection here (e.g. transient DB
+      // ECONNREFUSED) would leave the EventSource hanging open forever. Doing
+      // it pre-headers lets the error handler return a clean error response.
       const modelInfo = await modelService.getModelInfo(modelId);
       const estimatedSeconds = (modelInfo?.ram_required_gb || 10) * 3; // ~3s per GB
+
+      initSSE(res);
 
       // Send initial status
       res.write(
