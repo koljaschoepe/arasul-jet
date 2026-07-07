@@ -201,7 +201,8 @@ router.post(
           await db
             .query(
               `UPDATE update_events SET status = 'failed', error_message = $1
-                 WHERE status = 'in_progress' ORDER BY timestamp DESC LIMIT 1`,
+                 WHERE id = (SELECT id FROM update_events WHERE status = 'in_progress'
+                             ORDER BY started_at DESC LIMIT 1)`,
               [result.error]
             )
             .catch(dbErr => logger.error(`Failed to record update failure: ${dbErr.message}`));
@@ -212,7 +213,8 @@ router.post(
         await db
           .query(
             `UPDATE update_events SET status = 'failed', error_message = $1
-             WHERE status = 'in_progress' ORDER BY timestamp DESC LIMIT 1`,
+             WHERE id = (SELECT id FROM update_events WHERE status = 'in_progress'
+                         ORDER BY started_at DESC LIMIT 1)`,
             [error.message]
           )
           .catch(dbErr => logger.error(`Failed to record update failure: ${dbErr.message}`));

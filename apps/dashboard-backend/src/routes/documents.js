@@ -127,7 +127,9 @@ router.get(
     // Validate order_by
     const validOrderFields = ['uploaded_at', 'filename', 'title', 'file_size', 'status'];
     const orderField = validOrderFields.includes(order_by) ? order_by : 'uploaded_at';
-    const orderDirection = order_dir.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    // String() guards against a duplicated ?order_dir= param (Express yields an
+    // array → .toUpperCase() would throw a TypeError → raw 500).
+    const orderDirection = String(order_dir).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     // Get total count
     const countResult = await pool.query(

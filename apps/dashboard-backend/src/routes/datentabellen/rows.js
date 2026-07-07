@@ -193,7 +193,8 @@ router.get(
     validFields.add('_created_by');
 
     const sortField = validFields.has(sort) ? sort : '_created_at';
-    const sortOrder = order.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    // String() guards against a duplicated ?order= param (array → TypeError → 500).
+    const sortOrder = String(order).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
     // Parse filters from query string
     let parsedFilters = [];
@@ -206,7 +207,7 @@ router.get(
     }
 
     // SEARCH-FIX: Search across all text-like fields, not just primary display field
-    if (search && search.trim()) {
+    if (typeof search === 'string' && search.trim()) {
       const searchableTypes = ['text', 'textarea', 'email', 'url', 'phone', 'select'];
       const searchableFields = fields.filter(f => searchableTypes.includes(f.field_type));
       if (searchableFields.length > 0) {
