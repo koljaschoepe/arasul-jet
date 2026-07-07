@@ -813,7 +813,8 @@ class CommandAgent extends BaseAgent {
     const axios = require('axios');
 
     try {
-      const response = await axios.get('http://dashboard-backend:3001/api/health', {
+      const backendUrl = process.env.DASHBOARD_BACKEND_URL || 'http://dashboard-backend:3001';
+      const response = await axios.get(`${backendUrl}/api/health`, {
         timeout: 5000,
       });
 
@@ -835,7 +836,8 @@ class CommandAgent extends BaseAgent {
     const axios = require('axios');
 
     try {
-      const response = await axios.get('http://dashboard-backend:3001/api/metrics/live', {
+      const backendUrl = process.env.DASHBOARD_BACKEND_URL || 'http://dashboard-backend:3001';
+      const response = await axios.get(`${backendUrl}/api/metrics/live`, {
         timeout: 5000,
       });
 
@@ -879,7 +881,8 @@ _Benachrichtigungen konfigurieren: Dashboard → Telegram Bot_
     const axios = require('axios');
 
     try {
-      const response = await axios.get('http://dashboard-backend:3001/api/services/status', {
+      const backendUrl = process.env.DASHBOARD_BACKEND_URL || 'http://dashboard-backend:3001';
+      const response = await axios.get(`${backendUrl}/api/services/status`, {
         timeout: 10000,
       });
 
