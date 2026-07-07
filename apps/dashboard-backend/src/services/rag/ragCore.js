@@ -746,8 +746,11 @@ async function getParentChunks(results) {
 
 /**
  * Build hierarchical context for LLM (RAG 3.0)
- * Uses parent chunks for richer context when available (Parent-Document Retriever pattern).
- * Falls back to child chunks for legacy data without parent references.
+ * Merges both retrieval tiers: parent-backed results contribute their richer
+ * parent chunk (Parent-Document Retriever pattern), while results without a
+ * resolvable parent (legacy docs, or an unresolved parent_chunk_id) fall back
+ * to their child chunk text — in the same context. Neither tier is dropped when
+ * the corpus mixes both, so top-ranked legacy evidence still reaches the LLM.
  *
  * @param {string|null} companyContext - Global company context
  * @param {Object[]|null} spaces - Matched knowledge spaces
@@ -775,22 +778,51 @@ function buildHierarchicalContext(
     parts.push(`## Relevante Wissensbereiche\n${spaceDescriptions}`);
   }
 
-  // Level 3: Document chunks
+  // Level 3: Document chunks — merge both retrieval tiers.
+  // Parent-backed results contribute their richer parent chunk (Parent-Document
+  // Retriever pattern); results without a resolvable parent (legacy docs, or a
+  // parent_chunk_id that no longer resolves) fall back to their child chunk text.
+  // Iterating over `chunks` preserves the original relevance ranking and ensures
+  // no relevant child-only chunk is dropped just because some other result had a
+  // parent. Deduplication keeps each parent chunk at most once even when multiple
+  // children reference it.
   if (parentChunks && parentChunks.length > 0) {
-    const childByParent = new Map();
-    for (const c of chunks) {
-      if (c.parent_chunk_id && !childByParent.has(c.parent_chunk_id)) {
-        childByParent.set(c.parent_chunk_id, c);
+    const parentById = new Map();
+    for (const pc of parentChunks) {
+      parentById.set(String(pc.id), pc);
+    }
+
+    const entries = [];
+    const emittedParents = new Set();
+    for (const c of chunks || []) {
+      const parentId = c.parent_chunk_id ? String(c.parent_chunk_id) : null;
+      const parent = parentId ? parentById.get(parentId) : null;
+      if (parent) {
+        if (emittedParents.has(parentId)) {
+          continue;
+        }
+        emittedParents.add(parentId);
+        entries.push({
+          documentName: c.document_name || 'Dokument',
+          spaceName: c.space_name,
+          category: c.category,
+          text: parent.chunk_text,
+        });
+      } else {
+        entries.push({
+          documentName: c.document_name || 'Dokument',
+          spaceName: c.space_name,
+          category: c.category,
+          text: c.text,
+        });
       }
     }
 
-    const chunkTexts = parentChunks
-      .map((pc, i) => {
-        const child = childByParent.get(String(pc.id));
-        const docName = child?.document_name || 'Dokument';
-        const spaceBadge = child?.space_name ? ` | Bereich: ${child.space_name}` : '';
-        const categoryBadge = child?.category ? ` | Kategorie: ${child.category}` : '';
-        return `--- DOKUMENT [${i + 1}]: ${docName}${spaceBadge}${categoryBadge} ---\n${pc.chunk_text}\n--- ENDE DOKUMENT [${i + 1}] ---`;
+    const chunkTexts = entries
+      .map((e, i) => {
+        const spaceBadge = e.spaceName ? ` | Bereich: ${e.spaceName}` : '';
+        const categoryBadge = e.category ? ` | Kategorie: ${e.category}` : '';
+        return `--- DOKUMENT [${i + 1}]: ${e.documentName}${spaceBadge}${categoryBadge} ---\n${e.text}\n--- ENDE DOKUMENT [${i + 1}] ---`;
       })
       .join('\n\n');
     parts.push(`## Gefundene Informationen\n\n${chunkTexts}`);
