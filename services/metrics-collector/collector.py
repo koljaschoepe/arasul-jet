@@ -71,6 +71,8 @@ current_metrics = {
 current_gpu_stats = None
 
 metrics_buffer = []
+# Hard cap on the in-memory live-metrics ring buffer (last 5 minutes at 5s each).
+METRICS_BUFFER_MAX = 60
 
 
 class MetricsCollector:
@@ -1071,8 +1073,12 @@ async def collect_metrics_loop():
             metrics = collector.collect_all()
             current_metrics = metrics
 
-            # Add to buffer
+            # Add to buffer, then hard-cap it every cycle. Trimming used to
+            # live inside the persist branch and removed only one element, so
+            # the buffer grew unbounded (~14400/day) and eventually OOM'd the
+            # container. Keep only the last METRICS_BUFFER_MAX live samples.
             metrics_buffer.append(metrics)
+            del metrics_buffer[:-METRICS_BUFFER_MAX]
 
             # Collect detailed GPU stats (less frequently - every 10s)
             gpu_counter += METRICS_INTERVAL_LIVE
@@ -1092,9 +1098,8 @@ async def collect_metrics_loop():
                 # Only persist the most recent metrics (buffer is for in-memory live access)
                 # Database retention is separate from live metrics
                 db_writer.write_metrics(metrics)
-                # Buffer is not cleared - keeps last N metrics for live API
-                if len(metrics_buffer) > 60:  # Keep last 5 minutes (60 * 5s)
-                    metrics_buffer.pop(0)
+                # Buffer trimming happens every cycle right after append
+                # (see METRICS_BUFFER_MAX), not here.
                 persist_counter = 0
 
             # Cleanup old metrics every hour

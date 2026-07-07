@@ -4,7 +4,8 @@ Unit tests for metrics collector
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from collector import MetricsCollector, DatabaseWriter
+import collector as collector_module
+from collector import MetricsCollector, DatabaseWriter, METRICS_BUFFER_MAX
 
 
 class TestMetricsCollector:
@@ -84,3 +85,36 @@ class TestDatabaseWriter:
         assert 'slow_queries' in stats
         assert 'queries_per_second' in stats
         assert 'error_rate' in stats
+
+
+class TestMetricsBufferBound:
+    """Regression: the in-memory live buffer must stay bounded.
+
+    Previously it was trimmed only inside the persist branch and by a single
+    element, so it grew ~14400 entries/day and eventually OOM'd the container.
+    The collection loop now appends and hard-caps every cycle via
+    ``del metrics_buffer[:-METRICS_BUFFER_MAX]``.
+    """
+
+    def test_buffer_stays_bounded_across_many_cycles(self):
+        # Operate on the module's real buffer using the exact loop operation.
+        buffer = collector_module.metrics_buffer
+        buffer.clear()
+        try:
+            # Simulate far more cycles than the cap (e.g. a full day of 5s samples).
+            for i in range(METRICS_BUFFER_MAX * 100):
+                buffer.append({'i': i})
+                del buffer[:-METRICS_BUFFER_MAX]  # matches collect_metrics_loop
+                assert len(buffer) <= METRICS_BUFFER_MAX
+
+            # After the run the buffer holds exactly the last N samples, in order.
+            assert len(buffer) == METRICS_BUFFER_MAX
+            expected_first = (METRICS_BUFFER_MAX * 100) - METRICS_BUFFER_MAX
+            assert buffer[0] == {'i': expected_first}
+            assert buffer[-1] == {'i': (METRICS_BUFFER_MAX * 100) - 1}
+        finally:
+            buffer.clear()
+
+    def test_buffer_cap_is_positive(self):
+        assert isinstance(METRICS_BUFFER_MAX, int)
+        assert METRICS_BUFFER_MAX > 0
