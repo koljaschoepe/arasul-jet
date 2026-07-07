@@ -2,4 +2,4 @@ psycopg2-binary==2.9.10
 aiohttp==3.9.1
 psutil==6.1.0
 pynvml==11.5.0
-python-dotenv==1.0.0
+python-dotenv==1.2.2
