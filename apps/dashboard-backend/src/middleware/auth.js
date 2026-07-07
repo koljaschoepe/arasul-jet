@@ -212,6 +212,15 @@ function requireAdmin(req, res, next) {
 }
 
 /**
+ * Invalidate a user's cached identity. Call this when the account is deleted or
+ * disabled so a warm userCache entry cannot keep the user authenticated for up
+ * to USER_CACHE_TTL (60s) after the DB row is gone.
+ */
+function invalidateUserCache(userId) {
+  userCache.delete(userId);
+}
+
+/**
  * Test-only: clear the per-user auth cache so a suite that authenticates as
  * different users under the same userId (e.g. admin vs non-admin) does not
  * leak a stale role between tests. Mirrors systemSettings._setForTest.
@@ -224,5 +233,6 @@ module.exports = {
   requireAuth,
   requireAdmin,
   optionalAuth,
+  invalidateUserCache,
   _clearUserCacheForTest,
 };
