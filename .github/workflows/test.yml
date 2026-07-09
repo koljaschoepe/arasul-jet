@@ -145,6 +145,29 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.image.name }},mode=max
 
   # ----------------------------------------------------------------------------
+  # Lockfile drift guard (Master-Plan P9-4 / AC2): the repo keeps a single
+  # ROOT package-lock.json. `npm ci` from root must install every workspace
+  # cleanly — it errors if a package.json bump landed without updating the root
+  # lock, the exact drift that broke main on 2026-05-05. This directly tests the
+  # failure mode (and is robust to npm-version canonical-form differences that a
+  # byte-exact `--package-lock-only` diff would false-positive on).
+  # ----------------------------------------------------------------------------
+  lockfile-guard:
+    name: Lockfile drift guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Root lock must install cleanly (npm ci)
+        run: npm ci --ignore-scripts
+
+  # ----------------------------------------------------------------------------
   # Python services: non-blocking pytest. Some services have no tests yet.
   # ----------------------------------------------------------------------------
   python-services:
@@ -180,7 +203,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [backend, frontend, docker-build, python-services]
+    needs: [backend, frontend, docker-build, python-services, lockfile-guard]
     if: always()
     steps:
       - name: Aggregate results
@@ -189,7 +212,8 @@ jobs:
           echo "Frontend:        ${{ needs.frontend.result }}"
           echo "Docker build:    ${{ needs.docker-build.result }}"
           echo "Python services: ${{ needs.python-services.result }}"
-          case "${{ needs.backend.result }}-${{ needs.frontend.result }}-${{ needs.docker-build.result }}" in
-            success-success-success) echo "All required jobs passed"; exit 0 ;;
+          echo "Lockfile guard:  ${{ needs.lockfile-guard.result }}"
+          case "${{ needs.backend.result }}-${{ needs.frontend.result }}-${{ needs.docker-build.result }}-${{ needs.lockfile-guard.result }}" in
+            success-success-success-success) echo "All required jobs passed"; exit 0 ;;
             *) echo "One or more required jobs failed"; exit 1 ;;
           esac

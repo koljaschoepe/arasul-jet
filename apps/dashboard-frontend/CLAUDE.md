@@ -146,3 +146,9 @@ docker compose up -d --build dashboard-frontend
 
 Build runs `vite build` in the container; nginx serves the result. No local
 dev server — the user tests in the browser after each rebuild.
+
+**Lockfile:** root-only (see root `CLAUDE.md` rule 7). There is no
+`apps/dashboard-frontend/package-lock.json`. The Dockerfile installs from the
+single root lock via `npm ci --workspace=arasul-dashboard-frontend --include-workspace-root`.
+To add/upgrade a dependency, edit this `package.json` then run `npm install`
+from the **repo root** so the root lock regenerates.

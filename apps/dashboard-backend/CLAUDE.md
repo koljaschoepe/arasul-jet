@@ -200,3 +200,9 @@ docker compose logs -f dashboard-backend
 
 There is **no local dev server** — the user tests in the browser after a
 container rebuild. Iterating without rebuild is a footgun.
+
+**Lockfile:** root-only (see root `CLAUDE.md` rule 7). There is no
+`apps/dashboard-backend/package-lock.json`. The Dockerfile installs from the
+single root lock via `npm ci --workspace=arasul-dashboard-backend --include-workspace-root`.
+To add/upgrade a dependency, edit this `package.json` then run
+`npm install` from the **repo root** so the root lock regenerates.

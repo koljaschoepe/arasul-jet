@@ -4,32 +4,23 @@
 
 version: 2
 updates:
-  # Root npm packages (husky, lint-staged, prettier)
+  # All Node workspaces (root devDeps + apps/dashboard-{backend,frontend} +
+  # packages/*) share ONE root package-lock.json — the root-only lockfile
+  # strategy (Master-Plan P9-4). A SINGLE npm entry at '/' regenerates that one
+  # lock for every bump, so `npm ci` from root stays in sync after a merge.
+  # Do NOT re-add per-workspace npm entries: they update a workspace
+  # package.json without touching the root lock and break main (2026-05-05).
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
       interval: 'weekly'
       day: 'monday'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     labels:
       - 'dependencies'
       - 'npm'
     commit-message:
       prefix: 'chore(deps)'
-
-  # Dashboard Backend (Node.js)
-  - package-ecosystem: 'npm'
-    directory: '/apps/dashboard-backend'
-    schedule:
-      interval: 'weekly'
-      day: 'monday'
-    open-pull-requests-limit: 5
-    labels:
-      - 'dependencies'
-      - 'npm'
-      - 'backend'
-    commit-message:
-      prefix: 'chore(deps-backend)'
     groups:
       express:
         patterns:
@@ -45,21 +36,6 @@ updates:
         patterns:
           - 'jest*'
           - 'supertest'
-
-  # Dashboard Frontend (React)
-  - package-ecosystem: 'npm'
-    directory: '/apps/dashboard-frontend'
-    schedule:
-      interval: 'weekly'
-      day: 'monday'
-    open-pull-requests-limit: 5
-    labels:
-      - 'dependencies'
-      - 'npm'
-      - 'frontend'
-    commit-message:
-      prefix: 'chore(deps-frontend)'
-    groups:
       react:
         patterns:
           - 'react*'

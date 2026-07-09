@@ -1,7 +1,11 @@
 ARG NODE_VERSION=22
 
 # ============================================================================
-# base: shared layer — node image + workdir + workspace shared-schemas
+# base: root workspace manifests + the single source-of-truth lockfile.
+# This monorepo uses a ROOT-ONLY npm lockfile (Master-Plan P9-4): the only
+# package-lock.json is at the repo root. Installs are deterministic and scoped
+# to this workspace via `npm ci --workspace=... --include-workspace-root`.
+# Build context is the repo root (see compose / .github/workflows/test.yml).
 # ============================================================================
 FROM node:${NODE_VERSION}-alpine AS base
 
@@ -11,12 +15,22 @@ LABEL org.opencontainers.image.architecture="arm64"
 
 WORKDIR /app
 
-# Shared workspace: copy @arasul/shared-schemas so the local file: dep resolves.
-# Placed at /packages/shared-schemas so ../../packages/shared-schemas from
-# /app (the backend workdir) points here.
-COPY packages/shared-schemas /packages/shared-schemas
+# Root manifest + the single root lockfile (the only lock in the repo).
+COPY package.json package-lock.json ./
 
-COPY apps/dashboard-backend/package*.json ./
+# Every workspace manifest so the workspace graph resolves during `npm ci`.
+COPY apps/dashboard-backend/package.json apps/dashboard-backend/
+COPY apps/dashboard-frontend/package.json apps/dashboard-frontend/
+
+# Shared workspace: @arasul/shared-schemas (its built dist/ is committed and
+# lands in the image; the file: dep resolves via a workspace symlink into
+# /app/node_modules/@arasul/shared-schemas).
+COPY packages/shared-schemas packages/shared-schemas
+
+# The root `prepare` hook installs husky git hooks — a dev-only step that must
+# never run inside an image (no .git, husky is a devDependency). Drop it before
+# installing. This does not affect lockfile dependency integrity.
+RUN npm pkg delete scripts.prepare
 
 # ============================================================================
 # test: devDependencies + tests for local `npx jest` runs via
@@ -24,7 +38,8 @@ COPY apps/dashboard-backend/package*.json ./
 # NOT used at runtime — prod image is `runtime` below.
 # ============================================================================
 FROM base AS test
-RUN npm install --install-links
+RUN npm ci --workspace=arasul-dashboard-backend --include-workspace-root
+WORKDIR /app/apps/dashboard-backend
 COPY apps/dashboard-backend/src/ ./src/
 COPY apps/dashboard-backend/__tests__/ ./__tests__/
 COPY apps/dashboard-backend/__mocks__/ ./__mocks__/
@@ -38,8 +53,9 @@ CMD ["npx", "jest", "--passWithNoTests", "--maxWorkers=2"]
 # ============================================================================
 FROM base AS runtime
 
-RUN npm install --omit=dev --install-links
+RUN npm ci --omit=dev --workspace=arasul-dashboard-backend --include-workspace-root
 
+WORKDIR /app/apps/dashboard-backend
 COPY apps/dashboard-backend/src/ ./src/
 COPY apps/dashboard-backend/openapi.yaml ./
 
