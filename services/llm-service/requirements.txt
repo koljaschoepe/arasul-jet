@@ -2,5 +2,5 @@
 # Pinned versions; ARM64-compatible (Jetson AGX Orin / Thor).
 flask==3.0.0
 flask-cors==4.0.0
-requests==2.31.0
+requests==2.34.2
 psutil==5.9.6
