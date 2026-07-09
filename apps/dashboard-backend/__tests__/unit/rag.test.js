@@ -311,35 +311,35 @@ describe('RAG Routes', () => {
       }
     });
 
-    test('P6-16: should return search-unavailable message when hybrid search fails', async () => {
+    test('P6-16: should surface a 503 error when the search backend is down', async () => {
+      const { ServiceUnavailableError } = require('../../src/utils/errors');
       const token = getAuthToken();
       setupRagMocks({ companyContext: [], spaces: [], keywordResults: [] });
 
       // Spellcheck (fails silently)
       axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
 
-      // Simulate the search backend being down (Qdrant outage). This must NOT
-      // be reported to the user as "no documents — please upload".
-      ragCore.hybridSearch.mockRejectedValueOnce(new Error('Qdrant connection refused'));
-
-      llmJobService.createJob.mockResolvedValueOnce({ jobId: 'job-err', messageId: 'msg-err' });
-      llmJobService.updateJobContent.mockResolvedValueOnce();
-      llmJobService.completeJob.mockResolvedValueOnce();
+      // Simulate the search backend being down (Qdrant outage). hybridSearch
+      // now throws a ServiceUnavailableError on a genuine outage (both the
+      // hybrid query and the dense-only fallback failed). This must NOT be
+      // reported to the user as "no documents — please upload".
+      ragCore.hybridSearch.mockRejectedValueOnce(
+        new ServiceUnavailableError('Vector search backend unavailable', {
+          code: 'SEARCH_UNAVAILABLE',
+          service: 'qdrant',
+        })
+      );
 
       const response = await request(app)
         .post('/api/rag/query')
         .set('Authorization', `Bearer ${token}`)
         .send({ query: 'test query', conversation_id: 1 });
 
-      expect(response.status).not.toBe(401);
-
-      if (response.headers['content-type'] && response.headers['content-type'].includes('text/event-stream')) {
-        expect(response.text).toContain('vorübergehend nicht verfügbar');
-        // And crucially NOT the misleading "upload documents" message.
-        expect(response.text).not.toContain('keine relevanten Dokumente');
-      } else {
-        expect(response.status).toBe(200);
-      }
+      // asyncHandler maps the thrown ServiceUnavailableError to a 503 envelope.
+      expect(response.status).toBe(503);
+      expect(response.body.error.code).toBe('SEARCH_UNAVAILABLE');
+      // And crucially NOT the misleading "upload documents" empty-state message.
+      expect(response.text).not.toContain('keine relevanten Dokumente');
     });
 
     test('should process RAG query with documents found', async () => {

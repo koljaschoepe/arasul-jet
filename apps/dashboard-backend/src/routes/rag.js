@@ -205,25 +205,18 @@ router.post(
       logger.info(
         `Space routing: method=${routingMethod}, spaces=${targetSpaces?.length || 0}, filter=${spaceFilter ? spaceFilter.join(',') : 'none'}`
       );
-      let searchResults = [];
-      let graphEnrichment = [];
-      // P6-16: distinguish "search backend down" from "no documents exist".
-      // Both leave searchResults empty, but the user-facing message must differ —
-      // otherwise a Qdrant outage is silently misreported as "upload documents".
-      let searchFailed = false;
-      try {
-        [searchResults, graphEnrichment] = await Promise.all([
-          hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
-            additionalEmbeddings,
-            decompoundedQuery: decompounded,
-          }),
-          graphEnrichedRetrieval(correctedQuery),
-        ]);
-      } catch (searchError) {
-        logger.error(`Hybrid search failed (Qdrant may be down): ${searchError.message}`);
-        searchFailed = true;
-        // Continue with empty results — LLM will respond without RAG context
-      }
+      // P6-16: hybridSearch throws a ServiceUnavailableError on a genuine
+      // search-backend outage (Qdrant down); asyncHandler maps it to a 503
+      // "temporarily unavailable" response. A successful-but-empty search
+      // returns [] and falls through to the normal "no documents" path below.
+      // No route-level try/catch — the thrown custom error is intentional.
+      const [searchResults, graphEnrichment] = await Promise.all([
+        hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
+          additionalEmbeddings,
+          decompoundedQuery: decompounded,
+        }),
+        graphEnrichedRetrieval(correctedQuery),
+      ]);
 
       // Debug: log search result documents
       if (searchResults.length > 0) {
@@ -317,12 +310,11 @@ router.post(
 
       // Handle no documents case - respond immediately without queue
       if (rerankedResults.length === 0) {
-        // P6-16: if the search backend errored, this is an outage — not an
-        // empty knowledge base. Telling the user to "upload documents" would
-        // be misleading and hide a recoverable infrastructure problem.
-        const noDocsMessage = searchFailed
-          ? 'Die Dokumentensuche ist vorübergehend nicht verfügbar. Bitte versuchen Sie es in Kürze erneut — Ihre Dokumente sind nicht betroffen.'
-          : 'Es wurden keine relevanten Dokumente gefunden. Bitte laden Sie Dokumente in den MinIO-Bucket "documents" hoch, um das RAG-System zu nutzen.';
+        // Genuine search-backend outages never reach here — hybridSearch throws
+        // a ServiceUnavailableError (503) in that case (P6-16). Reaching this
+        // point means the search succeeded but the index has no matching docs.
+        const noDocsMessage =
+          'Es wurden keine relevanten Dokumente gefunden. Bitte laden Sie Dokumente in den MinIO-Bucket "documents" hoch, um das RAG-System zu nutzen.';
 
         const { jobId, messageId } = await llmJobService.createJob(conversation_id, 'rag', {
           query,
