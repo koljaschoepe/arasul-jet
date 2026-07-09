@@ -146,9 +146,11 @@ jobs:
 
   # ----------------------------------------------------------------------------
   # Lockfile drift guard (Master-Plan P9-4 / AC2): the repo keeps a single
-  # ROOT package-lock.json. Regenerating it from the manifests must be a no-op —
-  # otherwise a package.json bump landed without updating the root lock and
-  # `npm ci` on main would break. Fails the PR before it can merge.
+  # ROOT package-lock.json. `npm ci` from root must install every workspace
+  # cleanly — it errors if a package.json bump landed without updating the root
+  # lock, the exact drift that broke main on 2026-05-05. This directly tests the
+  # failure mode (and is robust to npm-version canonical-form differences that a
+  # byte-exact `--package-lock-only` diff would false-positive on).
   # ----------------------------------------------------------------------------
   lockfile-guard:
     name: Lockfile drift guard
@@ -162,15 +164,8 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      - name: Regenerate root lock (metadata only)
-        run: npm install --package-lock-only
-
-      - name: Fail if root package-lock.json drifted
-        run: |
-          if ! git diff --exit-code package-lock.json; then
-            echo "::error::Root package-lock.json is out of sync. Run 'npm install --package-lock-only' from the repo root and commit the result." >&2
-            exit 1
-          fi
+      - name: Root lock must install cleanly (npm ci)
+        run: npm ci --ignore-scripts
 
   # ----------------------------------------------------------------------------
   # Python services: non-blocking pytest. Some services have no tests yet.
