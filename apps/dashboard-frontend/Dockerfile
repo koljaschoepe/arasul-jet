@@ -5,18 +5,28 @@ LABEL org.opencontainers.image.architecture="arm64"
 
 WORKDIR /app
 
-# Shared workspace: place @arasul/shared-schemas at a path the file: dep
-# in package.json expects (../../packages/shared-schemas from /app).
-COPY packages/shared-schemas /packages/shared-schemas
+# ROOT-ONLY npm lockfile (Master-Plan P9-4): the only package-lock.json is at
+# the repo root. Copy the root manifest + lockfile + every workspace manifest
+# so the workspace graph resolves, then run a deterministic scoped install.
+# Build context is the repo root (see compose / .github/workflows/test.yml).
+COPY package.json package-lock.json ./
+COPY apps/dashboard-frontend/package.json apps/dashboard-frontend/
+COPY apps/dashboard-backend/package.json apps/dashboard-backend/
 
-# Copy package files and install dependencies
-COPY apps/dashboard-frontend/package*.json ./
-RUN npm install --install-links
+# Shared workspace: @arasul/shared-schemas (its built dist/ is committed and the
+# file: dep resolves via a workspace symlink).
+COPY packages/shared-schemas packages/shared-schemas
 
-# Copy source code
-COPY apps/dashboard-frontend/ .
+# Dev-only husky git-hook install must never run in an image; drop it before
+# installing. Does not affect lockfile dependency integrity.
+RUN npm pkg delete scripts.prepare
 
-# Build the application
+# Deterministic install from the single root lock, scoped to this workspace.
+RUN npm ci --workspace=arasul-dashboard-frontend --include-workspace-root
+
+# Copy source code (node_modules / dist excluded via .dockerignore) and build.
+COPY apps/dashboard-frontend/ apps/dashboard-frontend/
+WORKDIR /app/apps/dashboard-frontend
 RUN npm run build
 
 # Production stage
@@ -30,7 +40,7 @@ LABEL org.opencontainers.image.architecture="arm64"
 COPY apps/dashboard-frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built application
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/apps/dashboard-frontend/dist /usr/share/nginx/html
 
 # Health check - verify nginx is serving (wget available in alpine)
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \

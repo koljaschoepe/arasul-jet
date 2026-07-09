@@ -46,6 +46,14 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
    schema change → `docs/api/DATABASE_SCHEMA.md`,
    new env var → `docs/ENVIRONMENT_VARIABLES.md`.
 6. **Conventional commits** — `feat|fix|docs|refactor|test|chore: <subject>`.
+7. **Lockfile strategy: root-only.** This is an npm-workspaces monorepo with
+   exactly **one** lockfile — `/package-lock.json`. Never add a per-workspace
+   `package-lock.json` (they drift from the root lock and break `npm ci` on
+   `main` — see the 2026-05-05 incident, `docs/plans/archive/2026-07-02_dependabot-hardening.md`).
+   Install with `npm ci` from the repo root; Dockerfiles install via
+   `npm ci --workspace=<name> --include-workspace-root`. Dependabot has a
+   single npm entry at `/`, and CI's **Lockfile drift guard** fails any PR
+   whose root lock is out of sync.
 
 ## Task router — which CLAUDE.md to read
 

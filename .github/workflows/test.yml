@@ -145,6 +145,34 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.image.name }},mode=max
 
   # ----------------------------------------------------------------------------
+  # Lockfile drift guard (Master-Plan P9-4 / AC2): the repo keeps a single
+  # ROOT package-lock.json. Regenerating it from the manifests must be a no-op —
+  # otherwise a package.json bump landed without updating the root lock and
+  # `npm ci` on main would break. Fails the PR before it can merge.
+  # ----------------------------------------------------------------------------
+  lockfile-guard:
+    name: Lockfile drift guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Regenerate root lock (metadata only)
+        run: npm install --package-lock-only
+
+      - name: Fail if root package-lock.json drifted
+        run: |
+          if ! git diff --exit-code package-lock.json; then
+            echo "::error::Root package-lock.json is out of sync. Run 'npm install --package-lock-only' from the repo root and commit the result." >&2
+            exit 1
+          fi
+
+  # ----------------------------------------------------------------------------
   # Python services: non-blocking pytest. Some services have no tests yet.
   # ----------------------------------------------------------------------------
   python-services:
@@ -180,7 +208,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [backend, frontend, docker-build, python-services]
+    needs: [backend, frontend, docker-build, python-services, lockfile-guard]
     if: always()
     steps:
       - name: Aggregate results
@@ -189,7 +217,8 @@ jobs:
           echo "Frontend:        ${{ needs.frontend.result }}"
           echo "Docker build:    ${{ needs.docker-build.result }}"
           echo "Python services: ${{ needs.python-services.result }}"
-          case "${{ needs.backend.result }}-${{ needs.frontend.result }}-${{ needs.docker-build.result }}" in
-            success-success-success) echo "All required jobs passed"; exit 0 ;;
+          echo "Lockfile guard:  ${{ needs.lockfile-guard.result }}"
+          case "${{ needs.backend.result }}-${{ needs.frontend.result }}-${{ needs.docker-build.result }}-${{ needs.lockfile-guard.result }}" in
+            success-success-success-success) echo "All required jobs passed"; exit 0 ;;
             *) echo "One or more required jobs failed"; exit 1 ;;
           esac
