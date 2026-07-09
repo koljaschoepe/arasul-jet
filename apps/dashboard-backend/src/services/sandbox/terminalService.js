@@ -127,12 +127,32 @@ async function createSession(
   });
 
   // Pipe Docker exec output → WebSocket (binary frames for xterm.js)
+  // WS-BACKPRESSURE: a slow/stalled client must not let ws.bufferedAmount grow
+  // unbounded (a `yes`-style flood would OOM the backend). Pause the Docker exec
+  // stream once buffered data crosses the high-water mark and resume when it
+  // drains below the low-water mark.
+  const WS_BUFFER_HIGH_WATER = 1024 * 1024; // 1MB — pause reading the exec stream
+  const WS_BUFFER_LOW_WATER = 256 * 1024; // 256KB — resume once drained below this
+  let streamPaused = false;
   stream.on('data', chunk => {
     if (ws.readyState === 1) {
       // WebSocket.OPEN
       try {
         // Send as binary frame — xterm.js expects raw terminal data
         ws.send(chunk, { binary: true });
+        if (!streamPaused && ws.bufferedAmount >= WS_BUFFER_HIGH_WATER) {
+          streamPaused = true;
+          stream.pause();
+          const drain = setInterval(() => {
+            if (ws.readyState !== 1 || ws.bufferedAmount <= WS_BUFFER_LOW_WATER) {
+              clearInterval(drain);
+              if (streamPaused) {
+                streamPaused = false;
+                stream.resume();
+              }
+            }
+          }, 50);
+        }
       } catch (err) {
         logger.warn(`Terminal send error for session ${session.id}: ${err.message}`);
       }
