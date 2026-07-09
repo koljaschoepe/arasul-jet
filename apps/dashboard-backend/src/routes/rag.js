@@ -210,13 +210,28 @@ router.post(
       // "temporarily unavailable" response. A successful-but-empty search
       // returns [] and falls through to the normal "no documents" path below.
       // No route-level try/catch — the thrown custom error is intentional.
-      const [searchResults, graphEnrichment] = await Promise.all([
-        hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
-          additionalEmbeddings,
-          decompoundedQuery: decompounded,
-        }),
-        graphEnrichedRetrieval(correctedQuery),
-      ]);
+      //
+      // Anti-hallucination: routeToSpaces returns method='none' ONLY when no space
+      // matched the query and no default space exists — a deliberate signal to
+      // SUPPRESS a broad search. It must NOT be lumped with the null-filter paths
+      // ('all'/'fallback'), which legitimately search across spaces. buildSpaceFilter(null)
+      // yields an undefined filter, so proceeding would search the ENTIRE knowledge
+      // base and answer off-topic questions from unrelated docs. Skip the search for 'none'.
+      let searchResults = [];
+      let graphEnrichment = [];
+      if (routingMethod === 'none') {
+        logger.info(
+          'Space routing method=none — no space matched and no default; skipping search to prevent hallucination'
+        );
+      } else {
+        [searchResults, graphEnrichment] = await Promise.all([
+          hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
+            additionalEmbeddings,
+            decompoundedQuery: decompounded,
+          }),
+          graphEnrichedRetrieval(correctedQuery),
+        ]);
+      }
 
       // Debug: log search result documents
       if (searchResults.length > 0) {
