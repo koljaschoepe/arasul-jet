@@ -54,6 +54,10 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
    `npm ci --workspace=<name> --include-workspace-root`. Dependabot has a
    single npm entry at `/`, and CI's **Lockfile drift guard** fails any PR
    whose root lock is out of sync.
+8. **PR hygiene** — keep the queue clean: one active PR per work-stream (finish
+   what's open before starting the next related change), always merge/close with
+   `--delete-branch` (no branch outlives its PR), and sweep stale/merged/superseded
+   PRs on sight. Details: [`CONTRIBUTING.md`](CONTRIBUTING.md#pr-hygiene).
 
 ## Task router — which CLAUDE.md to read
 

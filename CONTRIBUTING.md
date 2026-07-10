@@ -114,6 +114,21 @@ EOF
 - Do **not** mix unrelated changes in one PR. Split.
 - Do **not** check in `.env*`, secrets, large binaries, or generated artifacts. The pre-commit hook blocks the obvious cases — but check yourself.
 
+### PR hygiene
+
+Keep the open-PR queue small and truthful — a pile of stale/parallel PRs is how
+work gets forgotten and how `main` breaks (see the 2026-05-05 lockfile incident).
+
+- **One active PR per work-stream.** Finish (merge or close) what's open before
+  starting the next related change. Don't accumulate parallel half-done PRs.
+- **Always delete the branch when the PR closes** — `gh pr merge --delete-branch`
+  or `gh pr close --delete-branch`. No branch outlives its PR; no orphan branches.
+- **Sweep on sight.** Whenever you open the PR list, resolve anything
+  merged-but-open, superseded, or gone stale (rebase & merge, or close with a
+  one-line reason) right then — don't let the queue rot.
+- **Dependabot:** triage in buckets, not one-by-one drive-bys. Close no-ops and
+  breaking majors with a reason; batch-verify the safe ones on the device.
+
 ---
 
 ## 5. Test policy
