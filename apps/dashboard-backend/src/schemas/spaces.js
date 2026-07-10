@@ -1,5 +1,7 @@
 const { z } = require('zod');
 
+const SpaceIdField = z.uuid('Ungültige Space-ID');
+
 const CreateSpaceBody = z
   .object({
     name: z
@@ -14,6 +16,8 @@ const CreateSpaceBody = z
       .max(4000),
     icon: z.string().trim().max(100).optional(),
     color: z.string().trim().max(50).optional(),
+    // Ordnerbaum (Plan ide-workspace-shell): optionaler Eltern-Ordner
+    parent_id: SpaceIdField.nullable().optional(),
   })
   .strict();
 
@@ -24,6 +28,16 @@ const UpdateSpaceBody = z
     icon: z.string().trim().max(100).optional(),
     color: z.string().trim().max(50).optional(),
     sort_order: z.number().int().optional(),
+    // Ordnerbaum: Verschieben (null = auf Wurzelebene)
+    parent_id: SpaceIdField.nullable().optional(),
+  })
+  .strict();
+
+const UpsertContextFileBody = z
+  .object({
+    content: z
+      .string({ error: 'Inhalt erforderlich' })
+      .max(50000, 'Kontextdatei darf höchstens 50.000 Zeichen haben'),
   })
   .strict();
 
@@ -42,5 +56,6 @@ const RouteQueryBody = z
 module.exports = {
   CreateSpaceBody,
   UpdateSpaceBody,
+  UpsertContextFileBody,
   RouteQueryBody,
 };

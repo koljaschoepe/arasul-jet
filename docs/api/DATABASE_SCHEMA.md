@@ -1055,6 +1055,16 @@
 | `space_id`                | uuid                     | ✅       |                              |
 | `document_summary`        | text                     | ✅       |                              |
 | `owner_id`                | integer                  | ✅       |                              |
+| `is_context_file`         | boolean                  | ⛔       | `false`                      |
+
+> `is_context_file` (Migration 098, Plan `ide-workspace-shell`): markiert die
+> Kontextdatei eines Ordners (à la CLAUDE.md). Kontextdateien haben Status
+> `context` (neuer `document_status`-Enum-Wert), werden vom Document-Indexer
+> übersprungen (der pollt nur `pending`), erscheinen nicht in der normalen
+> Dokumentliste und werden bei ordner-gescopten RAG-Anfragen als eigene
+> Prompt-Ebene injiziert. Höchstens eine pro Space (API-seitig erzwungen);
+> partieller Index `idx_documents_context_file` auf
+> `(space_id) WHERE is_context_file = TRUE AND deleted_at IS NULL`.
 
 **Primary key:** `id`
 
@@ -1201,15 +1211,23 @@
 | `created_at`             | timestamp with time zone | ✅       | `now()`                        |
 | `updated_at`             | timestamp with time zone | ✅       | `now()`                        |
 | `owner_id`               | integer                  | ✅       |                                |
+| `parent_id`              | uuid                     | ✅       |                                |
+
+> `parent_id` (Migration 098, Plan `ide-workspace-shell`): Spaces bilden einen
+> verschachtelten Ordnerbaum (Workspace-Explorer / Second Brain). `NULL` =
+> Wurzelebene. Die API verhindert Zyklen beim Verschieben und verweigert das
+> Löschen von Ordnern mit Unterordnern (409).
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
 - `owner_id` → `admin_users.id`
+- `parent_id` → `knowledge_spaces.id` (`ON DELETE SET NULL`)
 
 **Indexes:**
 
+- `idx_knowledge_spaces_parent_id` — `CREATE INDEX idx_knowledge_spaces_parent_id ON public.knowledge_spaces USING btree (parent_id) WHERE (parent_id IS NOT NULL)`
 - `idx_knowledge_spaces_owner` — `CREATE INDEX idx_knowledge_spaces_owner ON public.knowledge_spaces USING btree (owner_id)`
 - `idx_knowledge_spaces_single_default` — `CREATE UNIQUE INDEX idx_knowledge_spaces_single_default ON public.knowledge_spaces USING btree (is_default) WHERE (is_default = true)`
 - `idx_knowledge_spaces_sort` — `CREATE INDEX idx_knowledge_spaces_sort ON public.knowledge_spaces USING btree (sort_order, name)`

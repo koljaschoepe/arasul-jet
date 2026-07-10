@@ -57,8 +57,9 @@ function sanitizePromptContent(content, label) {
     }
   }
 
-  // Truncate excessively long content (max 5000 chars for context, 2000 for project prompt)
-  const maxLen = label === 'Unternehmenskontext' ? 5000 : 2000;
+  // Truncate excessively long content (max 5000 chars for company context,
+  // 6000 for folder context files, 2000 for project prompt)
+  const maxLen = label === 'Unternehmenskontext' ? 5000 : label === 'Ordner-Kontext' ? 6000 : 2000;
   if (sanitized.length > maxLen) {
     logger.warn(`[SystemPrompt] Truncated ${label} from ${sanitized.length} to ${maxLen} chars`);
     sanitized = sanitized.slice(0, maxLen) + '\n[... gekuerzt]';
@@ -260,6 +261,7 @@ async function buildSystemPrompt(database, conversationId, { includeTools = true
 module.exports = {
   buildSystemPrompt,
   formatProfile,
+  sanitizePromptContent,
   invalidateProfileCache,
   invalidateCompanyContextCache,
   GLOBAL_BASE_PROMPT,

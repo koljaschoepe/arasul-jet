@@ -8,9 +8,11 @@ import {
   Download,
   Settings,
   ChevronLeft,
+  PanelsTopLeft,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { useDownloads } from '@/contexts/DownloadContext';
+import { setWorkspaceShellEnabled } from '@/lib/featureFlags';
 import { PLATFORM_NAME, PLATFORM_SUBTITLE } from '@/config/branding';
 
 // Preload functions for lazy-loaded route chunks (triggered on hover)
@@ -171,6 +173,14 @@ const SidebarNav = React.memo(function SidebarNav({
       )}
 
       <div className="sidebar-footer">
+        <Link
+          to="/workspace"
+          className="nav-link"
+          title="Neue Workspace-Ansicht (IDE-Layout)"
+          onClick={() => setWorkspaceShellEnabled(true)}
+        >
+          <PanelsTopLeft aria-hidden="true" /> <span>Workspace</span>
+        </Link>
         <Link
           to="/settings"
           className={isActive('/settings')}

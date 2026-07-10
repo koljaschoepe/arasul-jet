@@ -328,7 +328,7 @@ apps/dashboard-backend/
 
 ```
 apps/dashboard-frontend/
-├── src/App.tsx               # Routes, WebSocket, Auth context
+├── src/App.tsx               # Routes, WebSocket, Auth context, Workspace-Flag
 ├── src/features/             # Feature modules with barrel exports (index.ts)
 │   ├── chat/                 # ChatRouter, ChatLanding, ChatView
 │   ├── documents/            # DocumentManager, SpaceModal, Badges
@@ -338,14 +338,24 @@ apps/dashboard-frontend/
 │   ├── datentabellen/        # ExcelEditor
 │   ├── claude/               # ClaudeCode, ClaudeTerminal
 │   ├── system/               # SetupWizard, UpdatePage, Login
-│   └── database/             # DatabaseOverview, DatabaseTable
+│   ├── database/             # DatabaseOverview, DatabaseTable
+│   └── workspace/            # IDE-Shell (Flag workspace-shell): ActivityBar,
+│                             #   Explorer (Ordnerbaum), Tabs, Viewer, KI-Panel
 ├── src/components/
 │   ├── ui/                   # Modal, Skeleton, LoadingSpinner, EmptyState
 │   └── editor/               # MarkdownEditor, MermaidDiagram, GridEditor/
 ├── src/contexts/             # AuthContext, DownloadContext, ToastContext
+├── src/stores/               # zustand (workspaceStore: Tabs/Panels/Chat-Scope)
 ├── src/hooks/                # useApi, useConfirm, useTokenBatching
 └── src/__tests__/            # Test files
 ```
+
+**Workspace-Shell (Plan `ide-workspace-shell`):** hinter dem localStorage-Flag
+`arasul_workspace_shell` rendert `/workspace/*` eine IDE-artige 3-Spalten-Shell
+(Explorer | Tab-Arbeitsfläche | KI-Panel). Die alte Sidebar-UI bleibt als
+Fallback vollständig erhalten. Ordnerbaum = `knowledge_spaces.parent_id`
+(Migration 098); »Mit Ordner chatten« scoped RAG via `space_ids`, Kontextdateien
+pro Ordner werden serverseitig in den Prompt injiziert.
 
 ### AI Services (Python)
 
