@@ -11,36 +11,43 @@ the Arasul Platform. AI agents working in this repo read from here.
 ├── settings.json                Team-shared: permissions + base hooks (committed).
 ├── settings.local.example.json  Template for personal overrides (committed).
 ├── settings.local.json          Personal overrides (gitignored).
-├── commands/                    Slash-commands users invoke (/plan, /ship).
+├── skills/                      The four slash commands: plan/, work/, audit/, status/.
 ├── agents/                      Sub-agent definitions (research-agent, code-reviewer).
 ├── hooks/                       Auto-fired scripts (PreToolUse / PostToolUse / Stop / ...).
-├── skills/                      Reusable mini-workflows the model auto-suggests.
+├── templates/                   plan-page.html — the shared plan/report page template.
 └── context/                     Topic packs the model loads on demand.
 ```
+
+The whole development loop runs on **four commands** (see `CONTRIBUTING.md` §8):
+`/plan` (interview → HTML plan page → approval) → `/work` (autonomous
+execution to a live-verified deploy) · `/audit` (multi-agent scan → findings
+page → roadmap themes) · `/status` (terminal situation report). The theme
+store is `docs/plans/ROADMAP.html`; the nightly run is
+`scripts/util/nightly-run.sh`.
 
 ## When to add what
 
 | Need                                                       | Put it in                                   |
 | ---------------------------------------------------------- | ------------------------------------------- |
-| A workflow a human triggers with `/<name>`                 | `commands/`                                 |
+| A workflow a human triggers with `/<name>`                 | `skills/<name>/SKILL.md`                    |
 | A focused task that should run with its own context window | `agents/`                                   |
 | A side-effect that must fire automatically on a tool call  | `hooks/`                                    |
-| A capability the model should auto-suggest by name         | `skills/`                                   |
 | A topic dossier the model should read on demand            | `context/`                                  |
 | A platform-wide rule, contract, or "always do this"        | the closest `CLAUDE.md` (root or subfolder) |
 
 Decision tree, terse:
 
 - _Triggers automatically on a file event?_ → **hook** (settings.json wires it up).
-- _User types `/foo`?_ → **command**.
+- _User types `/foo`?_ → **skill** — but keep the surface at the four core
+  commands; extend one of them before inventing a fifth.
 - _Long-running, isolated, returns a single answer?_ → **agent**.
 - _Domain knowledge for routine work?_ → **context** or a subfolder `CLAUDE.md`.
 
 ## Naming convention
 
-- `commands/` and `skills/`: **verb-first, hyphen-lowercase, English** —
-  `add-route.md`, `create-migration.md`, `run-tests-backend.md`.
-  No namespace colons, no `.cmd.md`-style suffixes.
+- `skills/`: **one folder per command, hyphen-lowercase, English** —
+  `skills/<name>/SKILL.md` with frontmatter (`name`, `description`,
+  `disable-model-invocation: true` for user-triggered commands).
 - `agents/`: **role-noun, hyphen-lowercase** — `code-reviewer.md`,
   `bug-reproducer.md`.
 - `hooks/`: **what-it-does** — `block-destructive.sh`, `format-on-save.sh`.

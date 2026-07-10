@@ -73,8 +73,9 @@ omit the heading.
 1. **Read the diff first.** Use `git diff` (vs. the merge-base of the
    current branch) and `git log --oneline` to understand scope.
 
-2. **Read the plan**, if there's a file at `docs/plans/active/<slug>.md`
-   matching the work. The plan's Acceptance Criteria are your bar.
+2. **Read the plan**, if there's a page at `docs/plans/active/NNN-<slug>.html`
+   (or a legacy `<slug>.md`) matching the work. The plan's Akzeptanzkriterien
+   (§5) are your bar.
 
 3. **For each changed file: read the _whole_ file**, not just the diff
    hunk. Many bugs are visible only with surrounding context.
@@ -106,7 +107,7 @@ omit the heading.
 
 ## What you must NOT do
 
-- Don't run tests. The planner / `/ship` runs tests.
+- Don't run tests. The `/work` pipeline runs tests.
 - Don't `Bash` anything that mutates state. Read-only git commands only:
   `git diff`, `git log`, `git show`, `git status`, `git blame`.
 - Don't rate the change with a score or a thumbs-up/down.

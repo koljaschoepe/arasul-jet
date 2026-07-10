@@ -79,7 +79,7 @@ custom nodes, security review checklist, etc.) live under `.claude/context/`.
 
 ## Quick reference
 
-> **Aktuellster Plan:** [`docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md`](docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md) — löst die bisherigen aktiven Pläne ab. Sekundär/Backlog: [`side-branch-cherry-pick-2026-05-14.md`](docs/plans/active/side-branch-cherry-pick-2026-05-14.md) (Side-Branches `feat/telegram-bot-overhaul` + `cleanup/phase-6-test-coverage` noch nicht auf main).
+> **Der eine Faden:** [`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html) — Themenspeicher + 1.0.0-Gates. Die gesamte Weiterentwicklung läuft über **vier Commands** (`CONTRIBUTING.md` §8): `/plan` (Interview → HTML-Plan-Seite → Freigabe) → `/work` (autonome Ausführung bis Live-Verify auf dem Jetson) · `/audit` (Scan → Findings → Roadmap) · `/status` (Lagebild). Nightly: `scripts/util/nightly-run.sh`. Der alte Master-Plan ([`FIELD_1.0.0_MASTER_PLAN.md`](docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md)) bleibt Referenz, bis die Migration (Roadmap-Thema T01) ihn eingedampft hat.
 
 ### Entry points
 
