@@ -53,7 +53,8 @@ export default function CreateProjectDialog({
         '/sandbox/projects',
         {
           name: name.trim(),
-          description: description.trim() || null,
+          // Backend-Schema erwartet string|undefined — leer ⇒ Feld weglassen
+          description: description.trim() || undefined,
           icon: 'terminal',
           color: DEFAULT_PROJECT_COLOR,
           network_mode: networkMode,

@@ -18,7 +18,14 @@ const NetworkMode = z.enum(['bridge', 'host', 'none', 'arasul']).optional();
 const CreateProjectBody = z
   .object({
     name: z.string().trim().min(1).max(64),
-    description: z.string().trim().max(500).optional(),
+    // nullish: der Dialog schickte historisch null für "keine Beschreibung" —
+    // tolerant annehmen statt 400 (Projekt-Anlage ohne Beschreibung schlug fehl)
+    description: z
+      .string()
+      .trim()
+      .max(500)
+      .nullish()
+      .transform(v => v ?? undefined),
     icon: z.string().max(32).optional(),
     color: z
       .string()
