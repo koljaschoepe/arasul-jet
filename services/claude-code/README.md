@@ -24,7 +24,7 @@ claude-code/
 ## When to use it
 
 - **Autonomous task runs** — kick off a long task and let the container finish even after your SSH session ends.
-- **Scheduled work** — cron-like invocation from `scripts/util/claude-autonomous.sh` or Telegram bot triggers.
+- **Scheduled work** — the nightly run (`scripts/util/nightly-run.sh`, launchd on the Mac) executes `/work --nightly` against the approved plan queue.
 - **Reproducible environment** — the CLI version, Node version, and toolchain are pinned in the Dockerfile, so different operators get the same behavior.
 
 For interactive coding work on a developer Jetson, prefer running `claude` directly on the host — the container adds latency and removes IDE integration.

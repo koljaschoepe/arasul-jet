@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd template for the Arasul nightly run.
+  Adjust the two ABSOLUTE PATHS below to your checkout, then:
+    cp scripts/util/com.arasul.nightly.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.arasul.nightly.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.arasul.nightly</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/koljaschope/Documents/dev/ara/arasul-jet/scripts/util/nightly-run.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/koljaschope/Documents/dev/ara/arasul-jet</string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>2</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/com.arasul.nightly.out</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/com.arasul.nightly.err</string>
+</dict>
+</plist>

@@ -190,15 +190,26 @@ The non-negotiables live in `CLAUDE.md` files at every level. Read these before 
 
 ## 8. Slash command catalog
 
-Slash commands live in [`.claude/commands/`](.claude/commands/). The
-project is deliberately minimal here — most "command-like" workflows
-are Bash/Makefile aliases or model-suggested skills, not slash commands.
-Type `/` in Claude Code to autocomplete; type `/help` for the live list.
+Slash commands live in [`.claude/skills/`](.claude/skills/). The project runs
+on exactly **four** commands plus a nightly run — everything else is a
+Bash/Makefile alias or a model-suggested skill, not a slash command.
 
-| Command            | Purpose                                                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `/plan <freitext>` | Interview-driven plan + autonomous execution. Writes `docs/plans/active/<slug>.md`, runs all phases, ends at diff review. |
-| `/ship`            | Tests + lint + format + conventional commit + plan archival. **No push, no PR** — that stays manual. User-invoked only.   |
+| Command                  | Purpose                                                                                                                                                                                 |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/plan [freitext]`       | Deep interview → designed HTML plan page (`docs/plans/active/NNN-<slug>.html`) → comment/revision loop → approved. No execution. Empty args pull the top roadmap theme.                 |
+| `/work [NNN\|--nightly]` | Executes the next approved plan fully autonomously: branch → build → tests → review → PR → auto-merge → Jetson deploy → live verify → plan page becomes the execution report (`done/`). |
+| `/audit [scope]`         | Multi-agent scan (security/reliability/perf/frontend/full) → verified findings page in `docs/plans/audits/` → new theme cards on the roadmap. Read-only.                                |
+| `/status`                | Compact terminal situation report: roadmap gates, plan queue, PR hygiene flags, CI/deploy state, live Jetson health, recommended next command. Read-only.                               |
+
+The theme store feeding `/plan` is [`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html).
+The **nightly run** (`scripts/util/nightly-run.sh` + launchd template
+`scripts/util/com.arasul.nightly.plist`) executes `/work --nightly` on the Mac:
+up to 3 approved plans, then Dependabot bucket-triage + PR sweep, Telegram
+summary in the morning.
+
+**Bookkeeping exception to the PR-only flow:** plan/roadmap/audit bookkeeping
+commits (`docs(plans): …`, touching only `docs/plans/**`) go straight to
+`main` — they are docs-only and deploy-skipped. Everything else ships via PR.
 
 Rule of thumb: if you can do it with one Bash command, it doesn't need
 a slash command — add it to the Makefile or `./arasul` instead.
@@ -207,16 +218,16 @@ a slash command — add it to the Makefile or `./arasul` instead.
 
 ## 9. Code review
 
-`/plan` invokes two subagents automatically — they aren't user-typed:
+The pipeline invokes two subagents automatically — they aren't user-typed:
 
-| Agent            | When            | Purpose                                                                                              |
-| ---------------- | --------------- | ---------------------------------------------------------------------------------------------------- |
-| `research-agent` | `/plan` Phase 2 | Heavy code-reading on isolated context. Returns Files / Patterns / Risks summary for the plan file.  |
-| `code-reviewer`  | `/plan` Phase 6 | Reviews the diff before `/ship`. Returns Critical / Warnings / Suggestions with file:line citations. |
+| Agent            | When            | Purpose                                                                                               |
+| ---------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| `research-agent` | `/plan` Phase 2 | Heavy code-reading on isolated context. Returns Files / Patterns / Risks summary for the plan page.   |
+| `code-reviewer`  | `/work` Phase 4 | Reviews the diff before shipping. Returns Critical / Warnings / Suggestions with file:line citations. |
 
-**Auto-fix policy:** `/plan` automatically addresses `Critical` findings
-(max 1 retry). `Warnings` and `Suggestions` are surfaced for the user
-to triage — never auto-applied.
+**Auto-fix policy:** `/work` automatically addresses `Critical` findings
+(max 1 retry). `Warnings` and `Suggestions` are surfaced in the PR body
+for the user to triage — never auto-applied.
 
 Both agents are read-only (no Edit / Write). They complement, not replace,
 human review. Humans focus on:

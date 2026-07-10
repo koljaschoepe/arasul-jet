@@ -1,0 +1,527 @@
+<!doctype html>
+<!--
+  Arasul ROADMAP v2 — the theme store the /plan · /work · /audit · /status
+  commands read and update.
+
+  MACHINE CONTRACT:
+  - #roadmap-meta (JSON) is the parseable state: gates[] and themes[].
+    Keep JSON and visible cards in sync when editing.
+  - Theme cards are <details class="card" id="Txx" data-prio data-status
+    data-ref="Txx <Titel>"> — data-ref keys the user's notes; keep it stable.
+  - /plan (no args) picks the top "open" theme by prio; sets "planned" + plan id.
+  - /work sets "done" (+ pr) and appends to the history list.
+  - /audit adds new themes (status "open", source "audit YYYY-MM-DD").
+  - User notes arrive via the page's "Alle kopieren" button pasted into chat —
+    treat them as binding input.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arasul · Roadmap Feld-1.0.0</title>
+<script type="application/json" id="roadmap-meta">
+{
+  "updated": "2026-07-10",
+  "migrated_from_master_plan": false,
+  "gates": [
+    { "id": "G1", "title": "Mandanten-Isolation bewiesen", "state": "open" },
+    { "id": "G2", "title": "Migrations-Kette auf frischer DB bewiesen", "state": "open" },
+    { "id": "G3", "title": "OTA-Update-Roundtrip mit Signatur", "state": "open" },
+    { "id": "G4", "title": "Saubere Prod/Privat-Netztrennung", "state": "open" },
+    { "id": "G5", "title": "Verschlüsselte Backups + Restore-Drill", "state": "open" },
+    { "id": "G6", "title": "Factory-Build auf zweitem Gerät", "state": "open" },
+    { "id": "G7", "title": "7 Tage unattended stabil", "state": "open" }
+  ],
+  "themes": [
+    { "id": "T01", "title": "Master-Plan → Roadmap-Migration (Stale-Check)", "prio": "P0", "status": "open", "source": "setup 2026-07-10", "plan": null, "pr": null },
+    { "id": "T02", "title": "Mandanten-Isolation (owner_id, Datenzugriff pro Mandant)", "prio": "P0", "status": "open", "source": "Master-Plan Phase 2", "plan": null, "pr": null },
+    { "id": "T03", "title": "Backup-Verschlüsselung + WAL + Restore-Drill", "prio": "P0", "status": "open", "source": "Master-Plan Phase 5", "plan": null, "pr": null },
+    { "id": "T04", "title": "OTA-Updates mit Paket-Signatur", "prio": "P1", "status": "open", "source": "Master-Plan Phase 4", "plan": null, "pr": null },
+    { "id": "T05", "title": "Prod/Privat-Netztrennung abschließen", "prio": "P1", "status": "open", "source": "Master-Plan Phase 3", "plan": null, "pr": null },
+    { "id": "T06", "title": "n8n-DSGVO-Governance + externe Provider", "prio": "P1", "status": "open", "source": "Master-Plan Phase 6", "plan": null, "pr": null },
+    { "id": "T07", "title": "/healthz + /readyz + Alarmierung", "prio": "P1", "status": "open", "source": "Master-Plan Phase 7 · Side-Branch 8.x", "plan": null, "pr": null },
+    { "id": "T08", "title": "Side-Branch-Reste: DR-Drill-CI, Backend-Unit-Tests, Drift-Checker", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick", "plan": null, "pr": null },
+    { "id": "T09", "title": "Frontend-Chat-UX-Refactor (Re-Implementation)", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick", "plan": null, "pr": null },
+    { "id": "T10", "title": "Doku-Sync abschließen (repo-doc-sync)", "prio": "P2", "status": "open", "source": "docs/plans/active/repo-doc-sync-2026-07-07.md", "plan": null, "pr": null }
+  ],
+  "history": []
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .875em; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .875em; background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .4em; }
+  .page { max-width: 50rem; margin: 0 auto; padding: 2.6rem 1.25rem 5rem; }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0 0 .7rem;
+  }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12; font-weight: 700;
+    margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.05rem; color: var(--muted); margin: 0 0 1.2rem; max-width: 62ch; }
+  h2 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.3rem; margin: 2.2rem 0 .9rem;
+  }
+  .banner {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 12px; padding: .8rem 1rem; font-size: .92rem; margin: 1.2rem 0;
+  }
+
+  /* gates + counters */
+  .gatebar {
+    display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: .8rem 1rem; box-shadow: var(--shadow);
+  }
+  .gatebar .big { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .gatebar .big small { font-size: .8rem; font-weight: 600; color: var(--muted); }
+  .gpills { display: flex; gap: .35rem; flex-wrap: wrap; }
+  .gpill {
+    display: inline-flex; align-items: center; gap: .35em;
+    font-size: .72rem; font-weight: 700; border-radius: 999px; padding: .15rem .55rem;
+    border: 1.5px solid var(--line); color: var(--muted); background: var(--bg);
+  }
+  .gpill::before { content: ""; width: .5em; height: .5em; border-radius: 50%; background: var(--muted); }
+  .gpill[data-state="done"]    { color: var(--ok); border-color: var(--ok); }
+  .gpill[data-state="done"]::before    { background: var(--ok); }
+  .gpill[data-state="partial"] { color: var(--warn); border-color: var(--warn); }
+  .gpill[data-state="partial"]::before { background: var(--warn); }
+
+  .counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: .6rem; margin-top: .6rem; }
+  .count {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .55rem .8rem; box-shadow: var(--shadow);
+  }
+  .count .cl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .count .cv { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  /* theme cards */
+  details.card {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 12px; margin: .55rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.card[data-prio="P0"] { border-left-color: var(--bad); }
+  details.card[data-prio="P1"] { border-left-color: var(--warn); }
+  details.card[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.card[data-prio="P0"][open] { border-left-color: var(--bad); }
+  details.card[data-prio="P1"][open] { border-left-color: var(--warn); }
+  details.card[data-status="done"] { opacity: .6; }
+  details.card > summary {
+    list-style: none; cursor: pointer; padding: .7rem .9rem;
+    display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.card > summary::-webkit-details-marker { display: none; }
+  details.card > summary:hover { background: var(--wash); }
+  details.card > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .card .prio {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .72rem; font-weight: 800;
+  }
+  details.card[data-prio="P0"] .prio { color: var(--bad); }
+  details.card[data-prio="P1"] .prio { color: var(--warn); }
+  details.card[data-prio="P2"] .prio { color: var(--muted); }
+  .card .ttl { font-weight: 700; font-size: .98rem; }
+  .card .st {
+    font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 800;
+    white-space: nowrap; color: var(--muted);
+  }
+  details.card[data-status="planned"] .st { color: var(--accent-ink); }
+  details.card[data-status="done"] .st { color: var(--ok); }
+  .card .chev { color: var(--muted); font-size: .78rem; transition: transform .15s; }
+  @media (prefers-reduced-motion: reduce) { .card .chev { transition: none; } }
+  details.card[open] > summary .chev { transform: rotate(90deg); }
+  .cbody { padding: .1rem .95rem .95rem; border-top: 1px solid var(--line); font-size: .93rem; }
+  .cbody p { margin: .8rem 0 .4rem; max-width: 66ch; }
+  .cbody .facts {
+    display: flex; gap: 1.2rem; flex-wrap: wrap; margin: .5rem 0 .7rem;
+    font-size: .82rem; color: var(--muted);
+  }
+  .cbody .facts b { color: var(--ink); }
+  .cmd {
+    display: flex; align-items: center; gap: .6rem;
+    background: var(--wash); border: 1px solid var(--line); border-radius: 10px;
+    padding: .45rem .7rem;
+  }
+  .cmd code { background: transparent; border: 0; font-weight: 700; padding: 0; }
+  .cmd button {
+    margin-left: auto; border: 1.5px solid var(--line); background: var(--surface);
+    color: var(--ink); font: inherit; font-size: .76rem; font-weight: 700;
+    border-radius: 999px; padding: .2rem .7rem; cursor: pointer; white-space: nowrap;
+  }
+  .cmd button:hover { border-color: var(--accent); color: var(--accent-ink); }
+
+  /* notes */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .72rem; font-weight: 600;
+    padding: .1rem .5rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .55rem .75rem; margin: .6rem 0 .2rem; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; gap: .6rem;
+    font-size: .66rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .3rem;
+  }
+  .comment .clabel button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .comment .clabel button:hover { color: var(--bad); }
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink); font: inherit; font-size: .9rem;
+    padding: .45rem .6rem; resize: vertical; min-height: 2.2rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+
+  ul.history { list-style: none; padding: 0; font-size: .9rem; color: var(--muted); }
+  ul.history li { padding: .35rem 0; border-bottom: 1px solid var(--line); }
+  .empty { color: var(--muted); font-size: .9rem; font-style: italic; }
+  footer { margin-top: 2.6rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <p class="eyebrow">Arasul · Roadmap</p>
+  <h1>Feld-1.0.0 — die verkaufbare Box</h1>
+  <p class="lead">
+    Eine Edge-AI-Appliance für Kanzleien und Mittelstand: Chat, RAG, Dokumentenanalyse
+    und Automatisierung — vollständig lokal, DSGVO-konform, §203-tauglich
+    („Daten verlassen nie das Haus“). Ziel: 5 Jahre unbeaufsichtigter Betrieb.
+  </p>
+
+  <div class="gatebar">
+    <span class="big">0<small> / 7 Gates</small></span>
+    <div class="gpills">
+      <span class="gpill" data-state="open" title="Mandanten-Isolation bewiesen">G1 Mandanten</span>
+      <span class="gpill" data-state="open" title="Migrations-Kette auf frischer DB bewiesen">G2 Migrationen</span>
+      <span class="gpill" data-state="open" title="OTA-Update-Roundtrip mit Signatur">G3 OTA</span>
+      <span class="gpill" data-state="open" title="Saubere Prod/Privat-Netztrennung">G4 Netz</span>
+      <span class="gpill" data-state="open" title="Verschlüsselte Backups + Restore-Drill">G5 Backups</span>
+      <span class="gpill" data-state="open" title="Factory-Build auf zweitem Gerät">G6 Factory</span>
+      <span class="gpill" data-state="open" title="7 Tage unattended stabil">G7 Unattended</span>
+    </div>
+  </div>
+  <div class="counts">
+    <div class="count"><div class="cl">Themen</div><div class="cv">10</div></div>
+    <div class="count"><div class="cl">P0 dringend</div><div class="cv">3</div></div>
+    <div class="count"><div class="cl">Geplant</div><div class="cv">0</div></div>
+    <div class="count"><div class="cl">Erledigt</div><div class="cv">0</div></div>
+  </div>
+
+  <div class="banner">
+    <strong>Migration ausstehend.</strong> Diese Themen wurden am 2026-07-10 grob aus
+    <span class="mono">FIELD_1.0.0_MASTER_PLAN.md</span> übernommen und sind noch nicht
+    gegen den Code geprüft. Der erste <code>/plan</code>-Lauf (Thema T01) macht diese
+    Seite verbindlich und setzt die Gate-Zustände korrekt.
+  </div>
+
+  <h2>Themen — anklicken für Details</h2>
+
+  <details class="card" id="T01" data-prio="P0" data-status="open" data-ref="T01 Master-Plan-Migration">
+    <summary><span class="prio">P0</span><span class="ttl">Master-Plan → Roadmap-Migration (Stale-Check)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Der 44-KB-Master-Plan wird gegen den echten Code geprüft: Was ist längst erledigt,
+      was ist noch wahr, was hat sich verschoben? Danach ist diese Roadmap die einzige
+      Quelle der Wahrheit und der Master-Plan wird zur Historie eingedampft.</p>
+      <div class="facts"><span>Macht: <b>alle Gates korrekt</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T01</code><button type="button" data-copy="/plan T01">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T02" data-prio="P0" data-status="open" data-ref="T02 Mandanten-Isolation">
+    <summary><span class="prio">P0</span><span class="ttl">Mandanten-Isolation</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Jeder Mandant sieht nur seine eigenen Dokumente, Chats und Analysen. Das ist das
+      §203-Verkaufsargument für Kanzleien — heute teilen sich alle Benutzer einen Datenraum.</p>
+      <div class="facts"><span>Macht Gate: <b>G1</b></span><span>Aufwand: <b>~3–4 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T02</code><button type="button" data-copy="/plan T02">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T03" data-prio="P0" data-status="open" data-ref="T03 Backup-Verschlüsselung">
+    <summary><span class="prio">P0</span><span class="ttl">Backup-Verschlüsselung + WAL + Restore-Drill</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Backups müssen verschlüsselt sein und nachweislich wiederherstellbar — die
+      MinIO-Backups waren zuletzt faktisch leer. Ohne bewiesenes Restore ist jedes
+      Backup nur Hoffnung.</p>
+      <div class="facts"><span>Macht Gate: <b>G5</b></span><span>Aufwand: <b>~2–3 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T03</code><button type="button" data-copy="/plan T03">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T04" data-prio="P1" data-status="open" data-ref="T04 OTA-Signatur">
+    <summary><span class="prio">P1</span><span class="ttl">OTA-Updates mit Paket-Signatur</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Kunden-Boxen sollen Updates über signierte Pakete bekommen. Der öffentliche
+      Signatur-Schlüssel fehlt noch auf dem Gerät, und der komplette Roundtrip
+      (Paket bauen → signieren → einspielen) wurde nie durchgespielt.</p>
+      <div class="facts"><span>Macht Gate: <b>G3</b></span><span>Aufwand: <b>~2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T04</code><button type="button" data-copy="/plan T04">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T05" data-prio="P1" data-status="open" data-ref="T05 Netztrennung">
+    <summary><span class="prio">P1</span><span class="ttl">Prod/Privat-Netztrennung abschließen</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Auf dem Gerät laufen neben Arasul noch private Stacks. Für den Verkauf muss die
+      Trennung sauber und nachweisbar sein — nichts Privates erreichbar, nichts teilt
+      sich Ports oder Netze. Teilweise bereits umgesetzt.</p>
+      <div class="facts"><span>Macht Gate: <b>G4</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T05</code><button type="button" data-copy="/plan T05">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T06" data-prio="P1" data-status="open" data-ref="T06 n8n-DSGVO">
+    <summary><span class="prio">P1</span><span class="ttl">n8n-DSGVO-Governance + externe Provider</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Workflows dürfen Daten nur kontrolliert nach außen geben: Drittland-Konnektoren
+      kennzeichnen, Consent-Regeln durchsetzen, Governance dokumentieren. Wichtig für
+      das DSGVO-Versprechen der Box.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b> (Verkaufs-Doku)</span><span>Aufwand: <b>~2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T06</code><button type="button" data-copy="/plan T06">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T07" data-prio="P1" data-status="open" data-ref="T07 healthz-Alarmierung">
+    <summary><span class="prio">P1</span><span class="ttl">/healthz + /readyz + Alarmierung</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Standardisierte Gesundheits-Endpunkte plus ein Alarm-Webhook, damit die Box sich
+      meldet, bevor der Kunde etwas merkt. Grundlage für den 5-Jahre-unattended-Anspruch.</p>
+      <div class="facts"><span>Macht Gate: <b>zahlt auf G7 ein</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T07</code><button type="button" data-copy="/plan T07">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T08" data-prio="P2" data-status="open" data-ref="T08 Side-Branch-Reste">
+    <summary><span class="prio">P2</span><span class="ttl">Side-Branch-Reste: DR-Drill-CI, Unit-Tests, Drift-Checker</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Was aus den alten Side-Branches noch offen ist: nächtlicher Disaster-Recovery-Drill
+      in CI, Backend-Unit-Tests (jwt, fileValidation, tokenCrypto, documentAnalysis) und
+      ein Checker gegen Doku-Drift.</p>
+      <div class="facts"><span>Macht Gate: <b>stützt G5</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T08</code><button type="button" data-copy="/plan T08">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T09" data-prio="P2" data-status="open" data-ref="T09 Chat-UX-Refactor">
+    <summary><span class="prio">P2</span><span class="ttl">Frontend-Chat-UX-Refactor (Re-Implementation)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Die Chat-Oberfläche gründlich modernisieren — bewusst als Neu-Implementation
+      statt Cherry-Pick aus dem alten Branch, weil der Code dort zu weit von main
+      abgedriftet ist. Riskant, braucht einen eigenen sorgfältigen Plan.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~3–4 Sessions</b></span><span>Hängt an: <b>besser nach T02</b></span></div>
+      <div class="cmd"><code>/plan T09</code><button type="button" data-copy="/plan T09">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T10" data-prio="P2" data-status="open" data-ref="T10 Doku-Sync">
+    <summary><span class="prio">P2</span><span class="ttl">Doku-Sync abschließen</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Rest aus dem Doku-Abgleich vom 2026-07-07: Dokumentation wieder vollständig mit
+      dem Code in Deckung bringen.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/plan T10</code><button type="button" data-copy="/plan T10">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <h2>Erledigt</h2>
+  <ul class="history" id="history">
+    <li class="empty">Noch nichts über das neue System geshippt — Historie beginnt mit dem ersten /work-Lauf.</li>
+  </ul>
+
+  <footer>
+    Gepflegt von <span class="mono">/plan · /work · /audit</span> · Quelle:
+    <span class="mono">docs/plans/ROADMAP.html</span> · Stand: 2026-07-10<br>
+    Notizen: 💬 an einer Karte → unten <strong>Alle kopieren</strong> → in den Claude-Chat einfügen.
+  </footer>
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Notizen">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = "arasul-roadmap-notes";
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { mem = list; }
+  }
+
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+  var cards = Array.prototype.slice.call(document.querySelectorAll("details.card"));
+  var btns = {};
+
+  cards.forEach(function (card) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + card.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      card.open = true;
+      addNote(card, "");
+    });
+    card.querySelector(".cbtn-slot").appendChild(btn);
+    btns[card.dataset.ref] = btn;
+  });
+
+  function addNote(card, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + card.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung zu diesem Thema …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    card.querySelector(".cbody").appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    document.querySelectorAll(".comment").forEach(function (box) {
+      out.push({
+        key: box.querySelector(".clabel span").textContent.replace(/^Notiz · /, ""),
+        text: box.querySelector("textarea").value
+      });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var txt = "Notizen zur Arasul-Roadmap:\n" + list.map(function (c) {
+      return "· " + c.key + "\n  → " + c.text.trim().replace(/\n/g, "\n  ");
+    }).join("\n") + "\n\nBitte verbindlich berücksichtigen und die Roadmap aktualisieren.";
+    copyText(txt);
+  });
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) { ccount.textContent = msg; setTimeout(persist, 2200); }
+
+  // copy-command buttons
+  document.querySelectorAll("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var val = b.dataset.copy, old = b.textContent;
+      var done = function () { b.textContent = "Kopiert ✓"; setTimeout(function () { b.textContent = old; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(val).then(done, function () { window.prompt("Manuell kopieren:", val); });
+      } else { window.prompt("Manuell kopieren:", val); }
+    });
+  });
+
+  // restore notes
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var card = document.querySelector('details.card[data-ref="' + c.key + '"]');
+    if (card) addNote(card, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
