@@ -9,6 +9,7 @@
  */
 
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { ToastProvider } from '../../../contexts/ToastContext';
 import type { ApiMethods } from '../../../hooks/useApi';
 import { RagLlmSettings } from '../RagLlmSettings';
 
@@ -50,6 +51,16 @@ function mockGetSettings(settings = MOCK_SETTINGS) {
   mockApi.get.mockResolvedValue({ data: settings });
 }
 
+// RagLlmSettings calls useToast, so renders need the real ToastProvider
+// (same pattern as PasswordManagement.test.tsx).
+function renderRagLlmSettings() {
+  return render(
+    <ToastProvider>
+      <RagLlmSettings />
+    </ToastProvider>
+  );
+}
+
 describe('RagLlmSettings Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -58,7 +69,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('lädt Einstellungen von GET /rag/settings', async () => {
-    render(<RagLlmSettings />);
+    renderRagLlmSettings();
 
     await waitFor(() => {
       expect(mockApi.get).toHaveBeenCalledWith('/rag/settings', expect.any(Object));
@@ -66,7 +77,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('rendert gruppierte Felder mit geladenen Werten', async () => {
-    render(<RagLlmSettings />);
+    renderRagLlmSettings();
 
     await waitFor(() => {
       expect(screen.getByText('Generierung')).toBeInTheDocument();
@@ -86,7 +97,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('spiegelt min/max aus dem Zod-Schema in den Zahlen-Inputs', async () => {
-    render(<RagLlmSettings />);
+    renderRagLlmSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Temperatur (RAG)')).toBeInTheDocument();
@@ -102,7 +113,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('Speichern-Button ist ohne Änderungen deaktiviert', async () => {
-    render(<RagLlmSettings />);
+    renderRagLlmSettings();
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Speichern/ })).toBeInTheDocument();
@@ -112,7 +123,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('PATCH /rag/settings nur mit geänderter Teilmenge', async () => {
-    render(<RagLlmSettings />);
+    renderRagLlmSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Final-K (finale Treffer)')).toBeInTheDocument();
@@ -139,7 +150,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('leerer Basis-Prompt wird als leerer String gesendet (Reset auf Default)', async () => {
-    render(<RagLlmSettings />);
+    renderRagLlmSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Basis-System-Prompt')).toBeInTheDocument();
@@ -161,7 +172,7 @@ describe('RagLlmSettings Component', () => {
   });
 
   test('Boolean-Switch wird in den PATCH-Body aufgenommen', async () => {
-    render(<RagLlmSettings />);
+    renderRagLlmSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText('Hybride Suche')).toBeInTheDocument();

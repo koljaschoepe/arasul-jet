@@ -252,11 +252,14 @@ describe('Settings shell', () => {
       });
     });
 
-    test('legacy ?tab=selfhealing maps onto the System tab', async () => {
+    test('legacy ?tab=selfhealing maps onto the System tab with the Self-Healing sub-section active', async () => {
       renderSettings('/settings?tab=selfhealing');
       await waitFor(() => {
-        expect(screen.getByTestId('services-settings')).toBeInTheDocument();
+        expect(screen.getByTestId('selfhealing-events')).toBeInTheDocument();
       });
+      // The deep link lands directly on the Self-Healing sub-tab, so the
+      // default Services sub-section is not mounted.
+      expect(screen.queryByTestId('services-settings')).not.toBeInTheDocument();
     });
 
     test('legacy ?tab=ai-profile maps onto the KI tab', async () => {

@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect } from 'react';
-import { MemoryRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { IsolatedMemoryRouter } from './IsolatedMemoryRouter';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -146,7 +147,7 @@ function FeatureTabHost({
     self.has(key) ? feature : <TabBridge makeSpec={() => spec} resetTo={resetTo} />;
 
   return (
-    <MemoryRouter initialEntries={[resetTo]}>
+    <IsolatedMemoryRouter initialEntries={[resetTo]}>
       <Routes>
         <Route
           path="/"
@@ -201,7 +202,7 @@ function FeatureTabHost({
         />
         <Route path="*" element={<Navigate to={resetTo} replace />} />
       </Routes>
-    </MemoryRouter>
+    </IsolatedMemoryRouter>
   );
 }
 
