@@ -48,10 +48,14 @@ RUN npm install -g @anthropic-ai/claude-code 2>/dev/null || true
 # Pre-install Python deps for open-ara (local AI coding agent, Textual TUI).
 # Debian bookworm pip is PEP-668-managed → --break-system-packages (same
 # mechanism the sudoers whitelist assumes for in-container pip3 usage).
+# hatchling: Build-Backend von open-ara — vorinstalliert, damit der Launcher
+# mit --no-build-isolation auch offline (Appliance!) installieren kann.
 RUN pip3 install --break-system-packages --no-cache-dir \
     'textual[syntax]>=0.80.0' \
     'openai>=1.50.0' \
-    'rich>=13.0.0'
+    'rich>=13.0.0' \
+    'hatchling>=1.25.0' \
+    'editables>=0.5'
 
 # open-ara launcher: installs the operator-provided sources from
 # /opt/tools/open-ara (read-only bind mount) on first use, then execs `arasul`.
