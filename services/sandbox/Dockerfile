@@ -45,6 +45,18 @@ ENV LANG=en_US.UTF-8 \
 # Pre-install Claude Code CLI (users can update via npm)
 RUN npm install -g @anthropic-ai/claude-code 2>/dev/null || true
 
+# Pre-install Python deps for open-ara (local AI coding agent, Textual TUI).
+# Debian bookworm pip is PEP-668-managed → --break-system-packages (same
+# mechanism the sudoers whitelist assumes for in-container pip3 usage).
+RUN pip3 install --break-system-packages --no-cache-dir \
+    'textual[syntax]>=0.80.0' \
+    'openai>=1.50.0' \
+    'rich>=13.0.0'
+
+# open-ara launcher: installs the operator-provided sources from
+# /opt/tools/open-ara (read-only bind mount) on first use, then execs `arasul`.
+COPY --chmod=755 open-ara.sh /usr/local/bin/open-ara
+
 # Reuse existing 'node' user (UID 1000) — matches host user arasul
 # Rename to 'sandbox' for clarity.
 # Narrow sudoers to a whitelist (package install + GPU diagnostics) instead of

@@ -7,6 +7,7 @@ function resetStore() {
     activeTabId: null,
     explorerVisible: true,
     llmVisible: true,
+    llmPanelMode: 'chat',
     chatScope: null,
     explorerRequest: null,
   });
@@ -111,6 +112,20 @@ describe('workspaceStore', () => {
     expect(state.explorerRequest).toBeNull();
     // Explorer bleibt sichtbar — nur die Anfrage wird zurückgesetzt
     expect(state.explorerVisible).toBe(true);
+  });
+
+  it('llmPanelMode startet im Chat-Modus und ist umschaltbar', () => {
+    expect(useWorkspaceStore.getState().llmPanelMode).toBe('chat');
+    useWorkspaceStore.getState().setLlmPanelMode('terminal');
+    expect(useWorkspaceStore.getState().llmPanelMode).toBe('terminal');
+    useWorkspaceStore.getState().setLlmPanelMode('chat');
+    expect(useWorkspaceStore.getState().llmPanelMode).toBe('chat');
+  });
+
+  it('persistiert llmPanelMode in localStorage', () => {
+    useWorkspaceStore.getState().setLlmPanelMode('terminal');
+    const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
+    expect(parsed.state.llmPanelMode).toBe('terminal');
   });
 
   it('persistiert Tabs in localStorage (Reload-Restore)', () => {

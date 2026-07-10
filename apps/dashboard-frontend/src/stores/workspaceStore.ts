@@ -135,11 +135,15 @@ export interface ChatScope {
  */
 export type ExplorerAction = 'create-folder';
 
+/** Modus des rechten KI-Panels: Chat (RAG) oder Sandbox-Terminal. */
+export type LlmPanelMode = 'chat' | 'terminal';
+
 interface WorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
   explorerVisible: boolean;
   llmVisible: boolean;
+  llmPanelMode: LlmPanelMode;
   chatScope: ChatScope | null;
   explorerRequest: ExplorerAction | null;
   openTab: (spec: WorkspaceTabSpec) => void;
@@ -149,6 +153,7 @@ interface WorkspaceState {
   updateTabTitle: (id: string, title: string) => void;
   toggleExplorer: () => void;
   toggleLlm: () => void;
+  setLlmPanelMode: (mode: LlmPanelMode) => void;
   setChatScope: (scope: ChatScope | null) => void;
   requestExplorerAction: (action: ExplorerAction) => void;
   clearExplorerRequest: () => void;
@@ -161,6 +166,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       activeTabId: null,
       explorerVisible: true,
       llmVisible: true,
+      llmPanelMode: 'chat',
       chatScope: null,
       explorerRequest: null,
 
@@ -228,6 +234,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       toggleExplorer: () => set(state => ({ explorerVisible: !state.explorerVisible })),
       toggleLlm: () => set(state => ({ llmVisible: !state.llmVisible })),
+      setLlmPanelMode: mode => set({ llmPanelMode: mode }),
       // Scope setzen blendet das KI-Panel ein (dorthin wirkt der Scope)
       setChatScope: scope =>
         set(scope ? { chatScope: scope, llmVisible: true } : { chatScope: null }),
@@ -242,6 +249,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         activeTabId: state.activeTabId,
         explorerVisible: state.explorerVisible,
         llmVisible: state.llmVisible,
+        llmPanelMode: state.llmPanelMode,
       }),
     }
   )

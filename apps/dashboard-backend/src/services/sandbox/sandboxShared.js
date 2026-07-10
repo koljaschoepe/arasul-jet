@@ -3,6 +3,7 @@
  * Extracted from sandboxService.js to keep per-concern modules under 500 LOC.
  */
 
+const path = require('path');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
 
@@ -53,6 +54,19 @@ async function getHostDataDir() {
 }
 
 /**
+ * Host-side path for read-only tool sources (e.g. open-ara), mounted into
+ * sandbox containers at /opt/tools. Sibling of the projects dir:
+ * data/sandbox/tools next to data/sandbox/projects.
+ */
+async function getHostToolsDir() {
+  if (process.env.SANDBOX_HOST_TOOLS_DIR) {
+    return process.env.SANDBOX_HOST_TOOLS_DIR;
+  }
+  const projectsDir = await getHostDataDir();
+  return path.posix.join(path.posix.dirname(projectsDir), 'tools');
+}
+
+/**
  * Parse memory string (e.g., "2G", "512M") to bytes.
  */
 function parseMemoryLimit(mem) {
@@ -73,5 +87,6 @@ module.exports = {
   SANDBOX_DATA_DIR,
   DEFAULT_RESOURCE_LIMITS,
   getHostDataDir,
+  getHostToolsDir,
   parseMemoryLimit,
 };
