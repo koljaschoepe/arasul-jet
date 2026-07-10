@@ -6,8 +6,11 @@
 // Import jest-dom matchers for better assertions
 import '@testing-library/jest-dom';
 
-// Polyfill TextEncoder/TextDecoder for JSDOM
-import { TextEncoder, TextDecoder } from 'util';
+// Polyfill TextEncoder/TextDecoder for JSDOM.
+// Wichtig: 'node:util' erzwingen — das nackte 'util' löst im Vite-Resolver auf
+// das gleichnamige npm-Paket auf, das KEINEN TextEncoder exportiert; der
+// Polyfill setzte dann undefined und jeder react-router-v7-Import crashte.
+import { TextEncoder, TextDecoder } from 'node:util';
 (globalThis as Record<string, unknown>).TextEncoder = TextEncoder;
 (globalThis as Record<string, unknown>).TextDecoder = TextDecoder;
 

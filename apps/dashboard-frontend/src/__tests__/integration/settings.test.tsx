@@ -309,7 +309,7 @@ describe('Settings integration', () => {
     });
   });
 
-  it('maps the legacy ?tab=selfhealing deep-link onto the System tab', async () => {
+  it('maps the legacy ?tab=selfhealing deep-link onto the System tab with the Self-Healing sub-section active', async () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=selfhealing']}>
         <Settings handleLogout={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
@@ -317,7 +317,13 @@ describe('Settings integration', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+      // "Self-Healing" appears both as the active sub-nav tab and as the
+      // heading of the mounted SelfHealingEvents section.
+      expect(screen.getByRole('button', { name: 'Self-Healing' })).toHaveAttribute(
+        'aria-current',
+        'page'
+      );
+      expect(screen.getAllByText('Self-Healing').length).toBeGreaterThanOrEqual(2);
     });
   });
 });

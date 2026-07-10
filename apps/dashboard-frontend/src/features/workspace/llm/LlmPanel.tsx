@@ -1,7 +1,8 @@
-import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import ChatRouter from '@/features/chat/ChatRouter';
+import { IsolatedMemoryRouter } from '../IsolatedMemoryRouter';
 
 /**
  * Rechtes KI-Panel: bettet den bestehenden RAG-Chat in einem eigenen
@@ -17,12 +18,12 @@ export function LlmPanel() {
       </div>
       <div className="min-h-0 flex-1">
         <ComponentErrorBoundary componentName="KI-Panel">
-          <MemoryRouter initialEntries={['/chat']}>
+          <IsolatedMemoryRouter initialEntries={['/chat']}>
             <Routes>
               <Route path="/chat/*" element={<ChatRouter />} />
               <Route path="*" element={<Navigate to="/chat" replace />} />
             </Routes>
-          </MemoryRouter>
+          </IsolatedMemoryRouter>
         </ComponentErrorBoundary>
       </div>
     </div>

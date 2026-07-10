@@ -332,7 +332,7 @@ interface LegacyAppContentProps extends ThemeControls {
 function LegacyOrWorkspaceRedirect(props: LegacyAppContentProps): React.JSX.Element {
   const location = useLocation();
   if (isWorkspaceShellEnabled() && location.pathname === '/') {
-    return <Navigate to="/workspace" replace />;
+    return <Navigate to={`/workspace${location.search}${location.hash}`} replace />;
   }
   return <LegacyAppContent {...props} />;
 }
