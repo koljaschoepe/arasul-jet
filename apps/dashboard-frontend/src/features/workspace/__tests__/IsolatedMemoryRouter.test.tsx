@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { IsolatedMemoryRouter } from '../IsolatedMemoryRouter';
 
 function LocationProbe() {
@@ -32,5 +32,28 @@ describe('IsolatedMemoryRouter', () => {
       </MemoryRouter>
     );
     expect(screen.getByTestId('probe').textContent).toBe('/inner');
+  });
+
+  it('innere Routes matchen auch, wenn der Teilbaum in einer gematchten Route sitzt', () => {
+    // Regression: In der App sitzt die Shell unter <Route path="/workspace/*">.
+    // Ohne RouteContext-Reset erbt ein inneres <Routes> die pathnameBase
+    // "/workspace" und matcht "/chat" nicht mehr → Tab/KI-Panel bleiben leer.
+    render(
+      <MemoryRouter initialEntries={['/workspace']}>
+        <Routes>
+          <Route
+            path="/workspace/*"
+            element={
+              <IsolatedMemoryRouter initialEntries={['/chat']}>
+                <Routes>
+                  <Route path="/chat/*" element={<span data-testid="inner-chat">CHAT</span>} />
+                </Routes>
+              </IsolatedMemoryRouter>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('inner-chat')).toBeInTheDocument();
   });
 });
