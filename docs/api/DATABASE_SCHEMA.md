@@ -1062,9 +1062,17 @@
 > `context` (neuer `document_status`-Enum-Wert), werden vom Document-Indexer
 > übersprungen (der pollt nur `pending`), erscheinen nicht in der normalen
 > Dokumentliste und werden bei ordner-gescopten RAG-Anfragen als eigene
-> Prompt-Ebene injiziert. Höchstens eine pro Space (API-seitig erzwungen);
-> partieller Index `idx_documents_context_file` auf
-> `(space_id) WHERE is_context_file = TRUE AND deleted_at IS NULL`.
+> Prompt-Ebene injiziert. Höchstens eine pro Space — seit Migration 099
+> (`099_context_file_integrity.sql`) DB-seitig erzwungen durch den UNIQUE
+> partial index `idx_documents_context_file_unique` auf
+> `(space_id) WHERE is_context_file = TRUE AND deleted_at IS NULL` (ersetzt
+> den nicht-uniquen `idx_documents_context_file` aus 098; Bestandsduplikate
+> wurden beim Einspielen soft-deleted, pro Space blieb die neueste Datei).
+> Migration 099 definiert außerdem `get_document_statistics()` und
+> `get_filtered_document_statistics()` neu mit `is_context_file = FALSE` —
+> Kontextdateien zählen nicht in Dokument-Statistiken. Beim Löschen eines
+> Space (`DELETE /api/spaces/:id`) wird die Kontextdatei soft-deleted statt
+> in den Default-Space verschoben.
 
 **Primary key:** `id`
 

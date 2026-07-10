@@ -392,5 +392,187 @@ describe('Spaces Tree & Nesting (ide-workspace-shell)', () => {
 
       expect(response.status).toBe(404);
     });
+
+    test('PUT läuft in einer Transaktion und sperrt die bestehende Zeile (FOR UPDATE)', async () => {
+      let selectContextQuery = null;
+      let spaceLockQuery = null;
+      setupMocksWithAuth((query) => {
+        if (query.includes('SELECT id, name FROM knowledge_spaces')) {
+          spaceLockQuery = query;
+          return Promise.resolve({ rows: [{ id: SPACE_ID, name: 'Müller GmbH' }] });
+        }
+        if (query.includes('is_context_file = TRUE') && query.includes('SELECT')) {
+          selectContextQuery = query;
+          return Promise.resolve({ rows: [{ id: 'doc-1', file_path: 'ctx.md' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .put(`/api/spaces/${SPACE_ID}/context-file`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ content: 'Neuer Inhalt' });
+
+      expect(response.status).toBe(200);
+      expect(db.transaction).toHaveBeenCalled();
+      expect(spaceLockQuery).toContain('FOR UPDATE');
+      expect(selectContextQuery).toContain('FOR UPDATE');
+    });
+
+    test('PUT Konfliktpfad: Unique-Violation (23505) → 409 CONFLICT', async () => {
+      setupMocksWithAuth((query) => {
+        if (query.includes('SELECT id, name FROM knowledge_spaces')) {
+          return Promise.resolve({ rows: [{ id: SPACE_ID, name: 'Müller GmbH' }] });
+        }
+        if (query.includes('is_context_file = TRUE') && query.includes('SELECT')) {
+          // Kein bestehender Eintrag sichtbar → Route nimmt den INSERT-Pfad
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO documents')) {
+          // Paralleler PUT hat gewonnen: UNIQUE-Index idx_documents_context_file_unique
+          const err = new Error(
+            'duplicate key value violates unique constraint "idx_documents_context_file_unique"'
+          );
+          err.code = '23505';
+          return Promise.reject(err);
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .put(`/api/spaces/${SPACE_ID}/context-file`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ content: '# Kontext' });
+
+      expect(response.status).toBe(409);
+      expect(response.body.error.code).toBe('CONFLICT');
+    });
+  });
+
+  describe('DELETE /api/spaces/:id und Kontextdateien (Migration 099)', () => {
+    test('soft-deletet die Kontextdatei und verschiebt nur normale Dokumente', async () => {
+      let softDeleteQuery = null;
+      let softDeleteParams = null;
+      let moveQuery = null;
+      let moveParams = null;
+      setupMocksWithAuth((query, params) => {
+        if (query.includes('SELECT * FROM knowledge_spaces')) {
+          return Promise.resolve({
+            rows: [{ id: SPACE_ID, name: 'Müller GmbH', is_system: false, is_default: false }]
+          });
+        }
+        if (query.includes('child_count')) {
+          return Promise.resolve({ rows: [{ child_count: 0 }] });
+        }
+        if (query.includes('is_default = TRUE')) {
+          return Promise.resolve({ rows: [{ id: PARENT_ID, name: 'Allgemein', slug: 'allgemein' }] });
+        }
+        if (query.includes('UPDATE documents') && query.includes('deleted_at = NOW()')) {
+          softDeleteQuery = query;
+          softDeleteParams = params;
+          return Promise.resolve({ rows: [{ id: 'ctx-doc' }] });
+        }
+        if (query.includes('UPDATE documents') && query.includes('SET space_id')) {
+          moveQuery = query;
+          moveParams = params;
+          return Promise.resolve({ rows: [{ id: 'd1' }, { id: 'd2' }] });
+        }
+        if (query.includes('DELETE FROM knowledge_spaces')) {
+          return Promise.resolve({ rowCount: 1 });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .delete(`/api/spaces/${SPACE_ID}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      // Kontextdatei: Soft-Delete statt Verschieben
+      expect(softDeleteQuery).toContain('is_context_file = TRUE');
+      expect(softDeleteQuery).toContain("status = 'deleted'");
+      expect(softDeleteParams).toEqual([SPACE_ID]);
+      // Verschoben werden nur normale Dokumente
+      expect(moveQuery).toContain('is_context_file = FALSE');
+      expect(moveParams).toEqual([PARENT_ID, SPACE_ID]);
+      expect(response.body.moved_documents).toBe(2);
+      // Prompt-Cache des gelöschten Ordners wird invalidiert
+      expect(invalidateFolderContext).toHaveBeenCalledWith(SPACE_ID);
+    });
+
+    test('ohne Kontextdatei wird der Cache nicht invalidiert', async () => {
+      setupMocksWithAuth((query) => {
+        if (query.includes('SELECT * FROM knowledge_spaces')) {
+          return Promise.resolve({
+            rows: [{ id: SPACE_ID, name: 'Müller GmbH', is_system: false, is_default: false }]
+          });
+        }
+        if (query.includes('child_count')) {
+          return Promise.resolve({ rows: [{ child_count: 0 }] });
+        }
+        if (query.includes('is_default = TRUE')) {
+          return Promise.resolve({ rows: [{ id: PARENT_ID, name: 'Allgemein', slug: 'allgemein' }] });
+        }
+        if (query.includes('UPDATE documents') && query.includes('deleted_at = NOW()')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('UPDATE documents') && query.includes('SET space_id')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('DELETE FROM knowledge_spaces')) {
+          return Promise.resolve({ rowCount: 1 });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .delete(`/api/spaces/${SPACE_ID}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.moved_documents).toBe(0);
+      expect(invalidateFolderContext).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Statistiken zählen Kontextdateien nicht mit (Migration 099)', () => {
+    test('GET /api/spaces filtert Kontextdateien aus doc_stats', async () => {
+      let listQuery = null;
+      setupMocksWithAuth((query) => {
+        if (query.includes('doc_stats')) {
+          listQuery = query;
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/spaces')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(listQuery).toContain('is_context_file = FALSE');
+    });
+
+    test('GET /api/spaces/:id filtert Kontextdateien aus der Dokumentliste', async () => {
+      let docsQuery = null;
+      setupMocksWithAuth((query) => {
+        if (query.includes('WHERE ks.id')) {
+          return Promise.resolve({ rows: [{ id: SPACE_ID, name: 'Müller GmbH' }] });
+        }
+        if (query.includes('FROM documents')) {
+          docsQuery = query;
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get(`/api/spaces/${SPACE_ID}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(docsQuery).toContain('is_context_file = FALSE');
+    });
   });
 });
