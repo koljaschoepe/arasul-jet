@@ -2,7 +2,7 @@
 # Enhanced version with metadata extraction, AI services, and HTTP API
 
 # Object Storage
-minio==7.2.5
+minio==7.2.20
 
 # Vector Database
 qdrant-client>=1.16,<1.17
