@@ -310,6 +310,14 @@ Keine neuen Farbwerte — ausschließlich `bg-background`, `bg-accent`,
 `react-resizable-panels` (Group/Panel/Separator) umgesetzt; der Separator ist
 `w-px bg-border` mit `hover:bg-primary`.
 
+Oberhalb von Activity-Bar und Panels sitzt die **WorkspaceMenuBar** (`h-9`,
+volle Breite, Cursor-minimal): links Marke + `Datei`/`Ansicht`-Dropdowns
+(shadcn `dropdown-menu`, `text-xs`-Trigger), rechts der Einstellungen-Button.
+Aktionen, die UI in anderen Panels öffnen (z. B. »Neuer Ordner…« → Explorer-
+Dialog), laufen als Request über den `workspaceStore`
+(`requestExplorerAction`), nicht über Cross-Component-Props. `⌘B`/`Ctrl+B`
+toggelt den Explorer.
+
 ### Interaktions-States (verbindlich)
 
 Jede interaktive Primitive (Button, Input, Card-als-Link, Tab, Select …) muss
