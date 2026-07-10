@@ -18,6 +18,11 @@ src/
   features/        Domain-organized UI. One folder per top-level route.
     chat/  documents/  store/  settings/  telegram/  database/  sandbox/
     dashboard/  projects/  datentabellen/  system/
+    workspace/     IDE-Shell (Feature-Flag `workspace-shell`): ActivityBar,
+                   Explorer (Second-Brain-Ordnerbaum), Tab-Bar/-Content,
+                   Datei-Viewer, KI-Panel. Feature-Tabs laufen je in einem
+                   eigenen MemoryRouter (FeatureTabHost); Cross-Feature-Links
+                   übersetzt die TabBridge in Tab-Öffnungen.
   components/
     ui/            App-wide primitives (Modal, ErrorBoundary, EmptyState, …).
       shadcn/      shadcn/ui primitives (button, input, …) — generated.
@@ -25,7 +30,8 @@ src/
     editor/        Rich-text / code editors.
   hooks/           Cross-feature hooks (useApi, useFetchData, useTheme, …).
   contexts/        Global state (Auth, Toast, Chat, Download, Activation).
-  lib/             queryClient, cn() helper.
+  stores/          zustand stores (workspaceStore: Tabs, Panels, Chat-Scope).
+  lib/             queryClient, cn() helper, featureFlags.
   utils/           Pure utilities (csrf, formatting, sanitizeUrl, token).
   config/          api.ts (API_BASE, getAuthHeaders).
   types/           Cross-feature TypeScript types.
@@ -131,12 +137,13 @@ Test setup: `src/setupTests.ts` (Vitest + jest-dom). Mock `useApi` via
 
 ## When you change something
 
-| You changed…                          | Also update                                |
-| ------------------------------------- | ------------------------------------------ |
-| A theme token / new color/radius/font | `docs/development/DESIGN_SYSTEM.md`        |
-| A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`               |
-| Added a top-level route               | `App.tsx` lazy import + sidebar entry      |
-| Touched API typings                   | Keep the matching backend `schemas/` happy |
+| You changed…                          | Also update                                                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| A theme token / new color/radius/font | `docs/development/DESIGN_SYSTEM.md`                                                                                        |
+| A user-facing flow                    | `docs/ops/ADMIN_HANDBUCH.md`                                                                                               |
+| Added a top-level route               | `App.tsx` lazy import + sidebar entry                                                                                      |
+| Added a workspace tab type            | `stores/workspaceStore.ts` (Typ + tabId/tabToPath/pathToTabSpec) + `features/workspace/TabContent.tsx` (Route/Lazy-Import) |
+| Touched API typings                   | Keep the matching backend `schemas/` happy                                                                                 |
 
 ## Deploy
 

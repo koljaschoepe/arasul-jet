@@ -87,8 +87,9 @@ router.get(
       order_dir = 'DESC',
     } = req.query;
 
-    // Build query
-    const conditions = ['d.deleted_at IS NULL'];
+    // Build query — Kontextdateien (Plan ide-workspace-shell) sind
+    // Ordner-Metadaten und erscheinen nicht in der normalen Dokumentliste
+    const conditions = ['d.deleted_at IS NULL', 'd.is_context_file = FALSE'];
     const params = [];
     let paramIndex = 1;
 

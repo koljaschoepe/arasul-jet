@@ -755,19 +755,32 @@ async function getParentChunks(results) {
  * @param {Object[]} chunks - Child chunk data with metadata
  * @param {Object[]|null} parentChunks - Parent chunks from PostgreSQL
  * @param {string|null} graphContext - Knowledge Graph context
+ * @param {Object[]|null} folderContexts - Ordner-Kontextdateien ({ spaceName, content }),
+ *   nur bei explizit gescopten Anfragen (Plan ide-workspace-shell)
  */
 function buildHierarchicalContext(
   companyContext,
   spaces,
   chunks,
   parentChunks = null,
-  graphContext = null
+  graphContext = null,
+  folderContexts = null
 ) {
   const parts = [];
 
   // Level 1: Company context
   if (companyContext) {
     parts.push(`## Unternehmenshintergrund\n${companyContext}`);
+  }
+
+  // Level 1.5: Ordner-Kontextdateien — Inhalte sind bereits sanitisiert und
+  // gekürzt (folderContextService); Injektion zählt über den gemeinsamen
+  // context-String im Token-Budget von llmJobProcessor mit.
+  if (folderContexts && folderContexts.length > 0) {
+    const contextTexts = folderContexts
+      .map(fc => `### Kontext für Ordner „${fc.spaceName}“\n${fc.content}`)
+      .join('\n\n');
+    parts.push(`## Ordner-Kontext\n${contextTexts}`);
   }
 
   // Level 2: Relevant spaces

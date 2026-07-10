@@ -22,7 +22,15 @@ const {
   ForbiddenError,
   ConflictError,
 } = require('../../utils/errors');
-const { CreateSpaceBody, UpdateSpaceBody, RouteQueryBody } = require('../../schemas/spaces');
+const {
+  CreateSpaceBody,
+  UpdateSpaceBody,
+  UpsertContextFileBody,
+  RouteQueryBody,
+} = require('../../schemas/spaces');
+const crypto = require('crypto');
+const minioService = require('../../services/documents/minioService');
+const { invalidateFolderContext } = require('../../services/rag/folderContextService');
 const { buildSetClauses } = require('../../utils/queryBuilder');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { generateSlug } = require('../../utils/slugGenerator');
@@ -69,6 +77,40 @@ router.get(
     res.json({
       spaces: result.rows,
       total: result.rows.length,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/spaces/tree
+ * Workspace-Explorer (Plan ide-workspace-shell): flacher Baum-Datensatz aus
+ * allen Spaces (mit parent_id) und allen Dokumenten. Der Client baut daraus
+ * den Ordnerbaum. Kontextdateien werden mitgeliefert (is_context_file), damit
+ * der Explorer sie kennzeichnen kann.
+ */
+router.get(
+  '/tree',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const [spacesResult, docsResult] = await Promise.all([
+      pool.query(`
+        SELECT id, name, slug, icon, color, parent_id, is_default, is_system, sort_order
+          FROM knowledge_spaces
+         ORDER BY sort_order, name
+      `),
+      pool.query(`
+        SELECT id, filename, title, status, space_id, is_context_file,
+               mime_type, file_extension, file_size
+          FROM documents
+         WHERE deleted_at IS NULL AND status <> 'deleted'
+         ORDER BY filename
+      `),
+    ]);
+
+    res.json({
+      spaces: spacesResult.rows,
+      documents: docsResult.rows,
       timestamp: new Date().toISOString(),
     });
   })
@@ -126,7 +168,17 @@ router.post(
   requireAuth,
   validateBody(CreateSpaceBody),
   asyncHandler(async (req, res) => {
-    const { name, description, icon = 'folder', color = '#6366f1' } = req.body;
+    const { name, description, icon = 'folder', color = '#6366f1', parent_id = null } = req.body;
+
+    // Ordnerbaum: Eltern-Ordner muss existieren
+    if (parent_id) {
+      const parentCheck = await pool.query('SELECT id FROM knowledge_spaces WHERE id = $1', [
+        parent_id,
+      ]);
+      if (parentCheck.rows.length === 0) {
+        throw new ValidationError('Übergeordneter Ordner nicht gefunden');
+      }
+    }
 
     // Generate slug
     let slug = generateSlug(name);
@@ -170,11 +222,11 @@ router.post(
       `
         INSERT INTO knowledge_spaces (
             name, slug, description, description_embedding,
-            icon, color, sort_order
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            icon, color, sort_order, parent_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
     `,
-      [name.trim(), slug, description.trim(), embeddingJson, icon, color, sortOrder]
+      [name.trim(), slug, description.trim(), embeddingJson, icon, color, sortOrder, parent_id]
     );
 
     logger.info(`Created knowledge space: ${name} (${slug})`);
@@ -200,7 +252,7 @@ router.put(
   validateBody(UpdateSpaceBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { name, description, icon, color, sort_order } = req.body;
+    const { name, description, icon, color, sort_order, parent_id } = req.body;
 
     // Check if space exists and is not system
     const existingResult = await pool.query('SELECT * FROM knowledge_spaces WHERE id = $1', [id]);
@@ -214,6 +266,34 @@ router.put(
     // System spaces have limited edits
     if (existing.is_system && name && name !== existing.name) {
       throw new ForbiddenError('Systembereich kann nicht umbenannt werden');
+    }
+
+    // Ordnerbaum: Verschieben mit Zyklus-Schutz (ein Ordner darf nicht in
+    // sich selbst oder einen seiner Unterordner verschoben werden)
+    if (parent_id !== undefined && parent_id !== null) {
+      if (parent_id === id) {
+        throw new ValidationError('Ein Ordner kann nicht in sich selbst verschoben werden');
+      }
+      const cycleCheck = await pool.query(
+        `WITH RECURSIVE subtree AS (
+           SELECT id FROM knowledge_spaces WHERE id = $1
+           UNION ALL
+           SELECT ks.id FROM knowledge_spaces ks JOIN subtree s ON ks.parent_id = s.id
+         )
+         SELECT 1 AS hit FROM subtree WHERE id = $2
+         UNION ALL
+         SELECT 2 AS hit WHERE NOT EXISTS (SELECT 1 FROM knowledge_spaces WHERE id = $2)`,
+        [id, parent_id]
+      );
+      if (cycleCheck.rows.length > 0) {
+        const hit = cycleCheck.rows[0].hit;
+        if (hit === 2) {
+          throw new ValidationError('Übergeordneter Ordner nicht gefunden');
+        }
+        throw new ValidationError(
+          'Ein Ordner kann nicht in einen seiner Unterordner verschoben werden'
+        );
+      }
     }
 
     // Re-generate embedding if description changed
@@ -235,6 +315,7 @@ router.put(
         icon,
         color,
         sort_order,
+        parent_id,
       },
       { includeUpdatedAt: false }
     );
@@ -289,6 +370,18 @@ router.delete(
     // Cannot delete system spaces
     if (existing.is_system) {
       throw new ForbiddenError('Systembereich kann nicht gelöscht werden');
+    }
+
+    // Ordnerbaum: Löschen nur, wenn keine Unterordner existieren (sicherer
+    // Default aus dem Plan ide-workspace-shell — erst Unterordner auflösen)
+    const childCheck = await pool.query(
+      'SELECT COUNT(*)::int AS child_count FROM knowledge_spaces WHERE parent_id = $1',
+      [id]
+    );
+    if ((childCheck.rows[0]?.child_count ?? 0) > 0) {
+      throw new ConflictError(
+        'Ordner enthält Unterordner — bitte zuerst die Unterordner löschen oder verschieben'
+      );
     }
 
     // DB-003: Use transaction for atomic move + delete
@@ -488,6 +581,183 @@ router.post(
       spaces: scoredSpaces,
       method: 'embedding_similarity',
       threshold,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/spaces/:id/context-file
+ * Kontextdatei eines Ordners lesen (Plan ide-workspace-shell).
+ * Liefert { document: null, content: null }, wenn keine existiert.
+ */
+router.get(
+  '/:id/context-file',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const spaceCheck = await pool.query('SELECT id FROM knowledge_spaces WHERE id = $1', [id]);
+    if (spaceCheck.rows.length === 0) {
+      throw new NotFoundError('Wissensbereich nicht gefunden');
+    }
+
+    const docResult = await pool.query(
+      `SELECT id, filename, file_path, file_size, updated_at
+         FROM documents
+        WHERE space_id = $1 AND is_context_file = TRUE AND deleted_at IS NULL
+        LIMIT 1`,
+      [id]
+    );
+
+    if (docResult.rows.length === 0) {
+      res.json({ document: null, content: null, timestamp: new Date().toISOString() });
+      return;
+    }
+
+    const doc = docResult.rows[0];
+    if (!minioService.isValidMinioPath(doc.file_path)) {
+      logger.error(`Invalid file path for context file: ${doc.file_path}`);
+      throw new ValidationError('Ungültiger Dateipfad');
+    }
+
+    const stream = await minioService.getObject(doc.file_path);
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+
+    res.json({
+      document: { id: doc.id, filename: doc.filename, updated_at: doc.updated_at },
+      content: Buffer.concat(chunks).toString('utf-8'),
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/spaces/:id/context-file
+ * Kontextdatei eines Ordners anlegen oder aktualisieren (Upsert).
+ * Kontextdateien bekommen status 'context' — der Document-Indexer pollt nur
+ * 'pending' und überspringt sie damit (kein Qdrant-Index, kein RAG-Zitat).
+ */
+router.put(
+  '/:id/context-file',
+  requireAuth,
+  validateBody(UpsertContextFileBody),
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    const spaceCheck = await pool.query('SELECT id, name FROM knowledge_spaces WHERE id = $1', [
+      id,
+    ]);
+    if (spaceCheck.rows.length === 0) {
+      throw new NotFoundError('Wissensbereich nicht gefunden');
+    }
+
+    const contentBuffer = Buffer.from(content, 'utf-8');
+    const contentHash = crypto.createHash('sha256').update(contentBuffer).digest('hex');
+
+    const existingResult = await pool.query(
+      `SELECT id, file_path FROM documents
+        WHERE space_id = $1 AND is_context_file = TRUE AND deleted_at IS NULL
+        LIMIT 1`,
+      [id]
+    );
+
+    let documentId;
+    if (existingResult.rows.length > 0) {
+      // Update: gleicher MinIO-Pfad, neuer Inhalt
+      const existing = existingResult.rows[0];
+      if (!minioService.isValidMinioPath(existing.file_path)) {
+        logger.error(`Invalid file path for context file: ${existing.file_path}`);
+        throw new ValidationError('Ungültiger Dateipfad');
+      }
+      await minioService.uploadObject(existing.file_path, contentBuffer, contentBuffer.length, {
+        'Content-Type': 'text/markdown',
+      });
+      await pool.query(
+        `UPDATE documents
+            SET file_size = $1, content_hash = $2, char_count = $3, updated_at = NOW()
+          WHERE id = $4`,
+        [contentBuffer.length, contentHash, content.length, existing.id]
+      );
+      documentId = existing.id;
+    } else {
+      // Create: neues Markdown-Dokument mit is_context_file-Flag
+      const objectName = `${Date.now()}_kontext_${id}.md`;
+      await minioService.uploadObject(objectName, contentBuffer, contentBuffer.length, {
+        'Content-Type': 'text/markdown',
+      });
+
+      documentId = crypto.randomUUID();
+      const fileHash = crypto
+        .createHash('sha256')
+        .update(`${objectName}:${contentBuffer.length}`)
+        .digest('hex');
+
+      await pool.query(
+        `INSERT INTO documents (
+             id, filename, original_filename, file_path, file_size,
+             mime_type, file_extension, content_hash, file_hash,
+             status, space_id, title, is_context_file, char_count
+         ) VALUES ($1, $2, $2, $3, $4, 'text/markdown', '.md', $5, $6,
+                   'context', $7, $8, TRUE, $9)`,
+        [
+          documentId,
+          'KONTEXT.md',
+          objectName,
+          contentBuffer.length,
+          contentHash,
+          fileHash,
+          id,
+          `Kontextdatei: ${spaceCheck.rows[0].name}`,
+          content.length,
+        ]
+      );
+    }
+
+    // Prompt-Cache dieses Ordners invalidieren — Änderungen wirken sofort
+    invalidateFolderContext(id);
+
+    logger.info(`Upserted context file for space ${id} (document ${documentId})`);
+
+    res.json({
+      document: { id: documentId },
+      message: 'Kontextdatei gespeichert',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * DELETE /api/spaces/:id/context-file
+ * Kontextdatei eines Ordners entfernen (Soft-Delete wie normale Dokumente).
+ */
+router.delete(
+  '/:id/context-file',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `UPDATE documents
+          SET deleted_at = NOW(), status = 'deleted'
+        WHERE space_id = $1 AND is_context_file = TRUE AND deleted_at IS NULL
+        RETURNING id`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundError('Keine Kontextdatei für diesen Ordner vorhanden');
+    }
+
+    invalidateFolderContext(id);
+
+    res.json({
+      status: 'deleted',
+      message: 'Kontextdatei gelöscht',
       timestamp: new Date().toISOString(),
     });
   })

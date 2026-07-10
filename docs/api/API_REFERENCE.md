@@ -806,15 +806,27 @@ Only accepts requests from localhost or Docker network IPs.
 
 ### Knowledge Spaces
 
-| Method | Endpoint                     | Description                          |
-| ------ | ---------------------------- | ------------------------------------ |
-| GET    | `/api/spaces`                | List all knowledge spaces            |
-| GET    | `/api/spaces/:id`            | Get space details with documents     |
-| POST   | `/api/spaces`                | Create knowledge space               |
-| PUT    | `/api/spaces/:id`            | Update knowledge space               |
-| DELETE | `/api/spaces/:id`            | Delete space (moves docs to default) |
-| POST   | `/api/spaces/:id/regenerate` | Trigger context regeneration         |
-| POST   | `/api/spaces/route`          | Find relevant spaces for query       |
+| Method | Endpoint                       | Description                                                       |
+| ------ | ------------------------------ | ----------------------------------------------------------------- |
+| GET    | `/api/spaces`                  | List all knowledge spaces                                         |
+| GET    | `/api/spaces/tree`             | Explorer-Aggregat: alle Spaces (mit `parent_id`) + alle Dokumente |
+| GET    | `/api/spaces/:id`              | Get space details with documents                                  |
+| POST   | `/api/spaces`                  | Create knowledge space (optional `parent_id` für Unterordner)     |
+| PUT    | `/api/spaces/:id`              | Update knowledge space (`parent_id` = Verschieben, Zyklus-Schutz) |
+| DELETE | `/api/spaces/:id`              | Delete space (409 bei Unterordnern; moves docs to default)        |
+| POST   | `/api/spaces/:id/regenerate`   | Trigger context regeneration                                      |
+| POST   | `/api/spaces/route`            | Find relevant spaces for query                                    |
+| GET    | `/api/spaces/:id/context-file` | Kontextdatei des Ordners lesen (`{document, content}` oder nulls) |
+| PUT    | `/api/spaces/:id/context-file` | Kontextdatei anlegen/aktualisieren (`{content}`, max. 50.000)     |
+| DELETE | `/api/spaces/:id/context-file` | Kontextdatei löschen (Soft-Delete)                                |
+
+> **Ordnerbaum & Kontextdateien (Plan `ide-workspace-shell`):** Spaces bilden
+> über `parent_id` einen verschachtelten Ordnerbaum (Workspace-Explorer).
+> Die Kontextdatei eines Ordners (`documents.is_context_file = TRUE`,
+> Status `context`) wird nicht indexiert und nicht in Dokumentlisten
+> geführt; bei RAG-Anfragen mit explizitem `space_ids`-Scope wird sie
+> sanitisiert als Prompt-Ebene »Ordner-Kontext« injiziert (max. 3 Dateien
+> pro Anfrage, 5-Minuten-Cache mit Invalidierung beim Speichern).
 
 **GET /api/spaces:**
 

@@ -52,6 +52,7 @@ const {
   ENABLE_RERANKING,
   RAG_FINAL_K,
 } = ragCore;
+const { getFolderContexts } = require('../services/rag/folderContextService');
 
 // Environment variables (only those needed by routes, not core functions)
 const QDRANT_HOST = services.qdrant.host;
@@ -309,12 +310,20 @@ router.post(
         parent_chunk_id: r.payload.parent_chunk_id || null,
       }));
 
+      // Ordner-Kontextdateien (Plan ide-workspace-shell): nur bei explizitem
+      // Scope (manuell übergebene space_ids), nie bei Auto-Routing.
+      const folderContexts =
+        routingMethod === 'manual' && targetSpaceIds && targetSpaceIds.length > 0
+          ? await getFolderContexts(targetSpaceIds)
+          : [];
+
       const context = buildHierarchicalContext(
         companyContext,
         targetSpaces.length > 0 ? targetSpaces : null,
         chunks,
         parentChunks,
-        graphEnrichment.graphContext
+        graphEnrichment.graphContext,
+        folderContexts
       );
 
       // RAG 4.0: Detect "docs exist but none relevant" case

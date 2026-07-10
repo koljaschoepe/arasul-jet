@@ -299,6 +299,17 @@ box-shadow: 0 0 0 3px var(--primary-muted);
 
 ## Komponenten-Patterns
 
+### Workspace-Shell (IDE-Layout, Plan `ide-workspace-shell`)
+
+Die Workspace-Shell (`features/workspace/`, Feature-Flag `workspace-shell`)
+nutzt **dieselben Theme-Tokens** wie der Rest der App, aber IDE-typisch
+kompaktere Dichte: schmale Leisten (`h-9` für Tab-/Explorer-Header, `w-12`
+Activity-Bar), `text-xs` in Explorer/Tabs, enge Paddings (`px-3`, `py-0.5`).
+Keine neuen Farbwerte — ausschließlich `bg-background`, `bg-accent`,
+`border-border`, `text-muted-foreground` etc. Panels sind mit
+`react-resizable-panels` (Group/Panel/Separator) umgesetzt; der Separator ist
+`w-px bg-border` mit `hover:bg-primary`.
+
 ### Interaktions-States (verbindlich)
 
 Jede interaktive Primitive (Button, Input, Card-als-Link, Tab, Select …) muss

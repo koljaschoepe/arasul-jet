@@ -16,6 +16,7 @@ import {
 import { useChatContext, type ChatMessage, type ChatSettings } from '../../contexts/ChatContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useApi } from '../../hooks/useApi';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
 import type { InstalledModel, DocumentSpace, QueueJob } from '../../types';
 import { cn } from '@/lib/utils';
 import './chat.css';
@@ -60,6 +61,11 @@ function ChatInputArea({
   const [useRAG, setUseRAG] = useState(false);
   const [useThinking, setUseThinking] = useState(true);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
+
+  // Workspace-Ordner-Scope (»Mit Ordner chatten«, Plan ide-workspace-shell):
+  // solange aktiv, wird RAG erzwungen und die Suche auf den Teilbaum begrenzt.
+  const chatScope = useWorkspaceStore(s => s.chatScope);
+  const setChatScope = useWorkspaceStore(s => s.setChatScope);
   const [showModelPopup, setShowModelPopup] = useState(false);
   const [showRAGPopup, setShowRAGPopup] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -308,10 +314,13 @@ function ChatInputArea({
     setAttachedImages([]);
     if (inputRef.current) inputRef.current.style.height = 'auto';
 
+    // Ordner-Scope: erzwingt RAG und begrenzt die Suche auf den Teilbaum
+    const scopeActive = !file && !!chatScope && chatScope.spaceIds.length > 0;
+
     const options = {
-      useRAG: file ? false : useRAG, // file upload uses its own pipeline
+      useRAG: file ? false : scopeActive ? true : useRAG, // file upload uses its own pipeline
       useThinking,
-      selectedSpaces: selectedSpaceId ? [selectedSpaceId] : [],
+      selectedSpaces: scopeActive ? chatScope.spaceIds : selectedSpaceId ? [selectedSpaceId] : [],
       matchedSpaces: [],
       messages: messagesRef?.current || [],
       model: selectedModel || undefined,
@@ -331,6 +340,7 @@ function ChatInputArea({
     useRAG,
     useThinking,
     selectedSpaceId,
+    chatScope,
     messagesRef,
     selectedModel,
   ]);
@@ -430,6 +440,23 @@ function ChatInputArea({
         !hasMessages && 'centered justify-center flex-1'
       )}
     >
+      {chatScope && (
+        <div className="flex items-center gap-2 w-full max-w-240 py-1.5 px-3 bg-primary/10 border border-primary/25 rounded-lg text-xs text-muted-foreground mb-2">
+          <FileText className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+          <span className="flex-1 truncate">
+            Chat eingegrenzt auf Ordner{' '}
+            <span className="font-medium text-foreground">„{chatScope.label}“</span>
+          </span>
+          <button
+            type="button"
+            className="bg-transparent border-none text-muted-foreground cursor-pointer p-1 rounded flex hover:bg-primary/20 hover:text-primary"
+            onClick={() => setChatScope(null)}
+            aria-label="Ordner-Eingrenzung aufheben"
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {error && (
         <div
           className="error-banner flex items-center gap-3 w-full max-w-240 py-3 px-4 bg-destructive/10 border border-destructive/25 rounded-lg text-muted-foreground text-sm mb-4"
