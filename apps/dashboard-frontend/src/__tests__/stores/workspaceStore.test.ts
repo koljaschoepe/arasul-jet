@@ -8,6 +8,7 @@ function resetStore() {
     explorerVisible: true,
     llmVisible: true,
     chatScope: null,
+    explorerRequest: null,
   });
   localStorage.removeItem('arasul_workspace');
 }
@@ -97,6 +98,19 @@ describe('workspaceStore', () => {
     expect(useWorkspaceStore.getState().chatScope).toBeNull();
     // Panel bleibt sichtbar — Scope aufheben blendet nichts aus
     expect(useWorkspaceStore.getState().llmVisible).toBe(true);
+  });
+
+  it('requestExplorerAction blendet den Explorer ein und clearExplorerRequest räumt auf', () => {
+    useWorkspaceStore.setState({ explorerVisible: false });
+    useWorkspaceStore.getState().requestExplorerAction('create-folder');
+    let state = useWorkspaceStore.getState();
+    expect(state.explorerVisible).toBe(true);
+    expect(state.explorerRequest).toBe('create-folder');
+    useWorkspaceStore.getState().clearExplorerRequest();
+    state = useWorkspaceStore.getState();
+    expect(state.explorerRequest).toBeNull();
+    // Explorer bleibt sichtbar — nur die Anfrage wird zurückgesetzt
+    expect(state.explorerVisible).toBe(true);
   });
 
   it('persistiert Tabs in localStorage (Reload-Restore)', () => {

@@ -129,12 +129,19 @@ export interface ChatScope {
   label: string;
 }
 
+/**
+ * Aktionen, die die Menüleiste an den Explorer delegiert (der Dialog-State
+ * lebt lokal im ExplorerPanel; die Menubar stellt nur eine Anfrage).
+ */
+export type ExplorerAction = 'create-folder';
+
 interface WorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
   explorerVisible: boolean;
   llmVisible: boolean;
   chatScope: ChatScope | null;
+  explorerRequest: ExplorerAction | null;
   openTab: (spec: WorkspaceTabSpec) => void;
   closeTab: (id: string) => void;
   activateTab: (id: string) => void;
@@ -143,6 +150,8 @@ interface WorkspaceState {
   toggleExplorer: () => void;
   toggleLlm: () => void;
   setChatScope: (scope: ChatScope | null) => void;
+  requestExplorerAction: (action: ExplorerAction) => void;
+  clearExplorerRequest: () => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -153,6 +162,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       explorerVisible: true,
       llmVisible: true,
       chatScope: null,
+      explorerRequest: null,
 
       openTab: spec => {
         const id = tabId(spec);
@@ -221,6 +231,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       // Scope setzen blendet das KI-Panel ein (dorthin wirkt der Scope)
       setChatScope: scope =>
         set(scope ? { chatScope: scope, llmVisible: true } : { chatScope: null }),
+      // Menü-Aktion an den Explorer delegieren — blendet ihn dafür ein
+      requestExplorerAction: action => set({ explorerRequest: action, explorerVisible: true }),
+      clearExplorerRequest: () => set({ explorerRequest: null }),
     }),
     {
       name: 'arasul_workspace',

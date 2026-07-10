@@ -8,15 +8,9 @@ import {
   Send,
   Database,
   MessageSquare,
-  Settings,
-  Undo2,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
-
-interface ActivityBarProps {
-  onLeaveWorkspace: () => void;
-}
 
 interface ActivityButtonProps {
   label: string;
@@ -53,10 +47,11 @@ const TAB_SHORTCUTS: Array<{ spec: WorkspaceTabSpec; label: string; icon: React.
 ];
 
 /**
- * Schmale Icon-Leiste ganz links (wie VS Code): Explorer/LLM-Panel-Toggles,
- * Schnellzugriff auf die Feature-Tabs und der Rückweg zur klassischen UI.
+ * Schmale Icon-Leiste ganz links (wie VS Code): Explorer/LLM-Panel-Toggles
+ * und Schnellzugriff auf die Feature-Tabs. Einstellungen und der Rückweg zur
+ * klassischen UI leben in der WorkspaceMenuBar (Cursor-minimal).
  */
-export function ActivityBar({ onLeaveWorkspace }: ActivityBarProps) {
+export function ActivityBar() {
   const explorerVisible = useWorkspaceStore(s => s.explorerVisible);
   const llmVisible = useWorkspaceStore(s => s.llmVisible);
   const toggleExplorer = useWorkspaceStore(s => s.toggleExplorer);
@@ -98,16 +93,6 @@ export function ActivityBar({ onLeaveWorkspace }: ActivityBarProps) {
         active={llmVisible}
       >
         <MessageSquare className="h-5 w-5" />
-      </ActivityButton>
-      <ActivityButton
-        label="Einstellungen"
-        onClick={() => openTab({ type: 'settings' })}
-        active={activeTabId === 'settings'}
-      >
-        <Settings className="h-5 w-5" />
-      </ActivityButton>
-      <ActivityButton label="Zur klassischen Ansicht" onClick={onLeaveWorkspace}>
-        <Undo2 className="h-5 w-5" />
       </ActivityButton>
     </nav>
   );

@@ -125,6 +125,16 @@ export function ExplorerPanel() {
     loadTree();
   }, [loadTree]);
 
+  // Menü-Aktionen (WorkspaceMenuBar → Store → hier): z. B. »Neuer Ordner…«
+  const explorerRequest = useWorkspaceStore(s => s.explorerRequest);
+  const clearExplorerRequest = useWorkspaceStore(s => s.clearExplorerRequest);
+  useEffect(() => {
+    if (explorerRequest === 'create-folder') {
+      setDialog({ kind: 'create', parent: null });
+      clearExplorerRequest();
+    }
+  }, [explorerRequest, clearExplorerRequest]);
+
   const childrenByParent = useMemo(() => {
     const map = new Map<string | null, TreeSpace[]>();
     for (const s of spaces) {

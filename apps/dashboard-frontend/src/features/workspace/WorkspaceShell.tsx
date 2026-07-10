@@ -4,6 +4,7 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import { setWorkspaceShellEnabled } from '@/lib/featureFlags';
 import { useWorkspaceStore, pathToTabSpec, tabToPath, tabId } from '@/stores/workspaceStore';
 import { ActivityBar } from './ActivityBar';
+import { WorkspaceMenuBar } from './WorkspaceMenuBar';
 import { TabBar } from './TabBar';
 import { TabContent } from './TabContent';
 import type { TabThemeControls } from './TabContent';
@@ -69,6 +70,18 @@ export default function WorkspaceShell(props: TabThemeControls) {
     enterWorkspacePermanently();
   }, []);
 
+  // ⌘B / Ctrl+B toggelt den Explorer (wie in der klassischen UI die Sidebar)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        useWorkspaceStore.getState().toggleExplorer();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   // Panel-Layout (Breiten) in localStorage persistieren
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: 'arasul-workspace-panels',
@@ -77,41 +90,44 @@ export default function WorkspaceShell(props: TabThemeControls) {
 
   return (
     <div
-      className="flex h-screen w-screen overflow-hidden bg-background text-foreground"
+      className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground"
       data-testid="workspace-shell"
     >
-      <ActivityBar onLeaveWorkspace={leaveWorkspace} />
-      <Group
-        orientation="horizontal"
-        className="flex-1"
-        defaultLayout={defaultLayout}
-        onLayoutChanged={onLayoutChanged}
-      >
-        {explorerVisible && (
-          <>
-            <Panel id="explorer" defaultSize="18%" minSize="160px" maxSize="35%">
-              <ExplorerPanel />
-            </Panel>
-            <Separator className="w-px bg-border transition-colors hover:bg-primary" />
-          </>
-        )}
-        <Panel id="main" minSize="30%">
-          <div className="flex h-full min-w-0 flex-col">
-            <TabBar />
-            <div className="min-h-0 flex-1">
-              <TabContent themeControls={props} />
+      <WorkspaceMenuBar themeControls={props} onLeaveWorkspace={leaveWorkspace} />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <ActivityBar />
+        <Group
+          orientation="horizontal"
+          className="flex-1"
+          defaultLayout={defaultLayout}
+          onLayoutChanged={onLayoutChanged}
+        >
+          {explorerVisible && (
+            <>
+              <Panel id="explorer" defaultSize="18%" minSize="160px" maxSize="35%">
+                <ExplorerPanel />
+              </Panel>
+              <Separator className="w-px bg-border transition-colors hover:bg-primary" />
+            </>
+          )}
+          <Panel id="main" minSize="30%">
+            <div className="flex h-full min-w-0 flex-col">
+              <TabBar />
+              <div className="min-h-0 flex-1">
+                <TabContent themeControls={props} />
+              </div>
             </div>
-          </div>
-        </Panel>
-        {llmVisible && (
-          <>
-            <Separator className="w-px bg-border transition-colors hover:bg-primary" />
-            <Panel id="llm" defaultSize="26%" minSize="220px" maxSize="45%">
-              <LlmPanel />
-            </Panel>
-          </>
-        )}
-      </Group>
+          </Panel>
+          {llmVisible && (
+            <>
+              <Separator className="w-px bg-border transition-colors hover:bg-primary" />
+              <Panel id="llm" defaultSize="26%" minSize="220px" maxSize="45%">
+                <LlmPanel />
+              </Panel>
+            </>
+          )}
+        </Group>
+      </div>
     </div>
   );
 }
