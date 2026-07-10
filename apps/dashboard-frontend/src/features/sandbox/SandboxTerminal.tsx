@@ -40,6 +40,11 @@ interface QuickLaunchItem {
 const QUICK_LAUNCH_ITEMS: QuickLaunchItem[] = [
   { label: 'Claude Code', command: 'claude\n', description: 'Claude Code CLI starten' },
   { label: 'Codex', command: 'codex\n', description: 'OpenAI Codex CLI starten' },
+  {
+    label: 'Open-ARA (lokaler Agent)',
+    command: 'open-ara\n',
+    description: 'Lokaler KI-Coding-Agent (Ollama)',
+  },
   { label: 'Python', command: 'python3\n', description: 'Python REPL starten' },
   { label: 'Node.js', command: 'node\n', description: 'Node.js REPL starten' },
   { label: 'htop', command: 'htop\n', description: 'Prozess-Monitor' },

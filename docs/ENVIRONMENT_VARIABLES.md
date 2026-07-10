@@ -552,6 +552,20 @@ the backup-related **environment variables** above.
 
 ---
 
+## Sandbox
+
+Per-project developer sandboxes (dashboard-backend `services/sandbox/`).
+
+| Variable               | Default                          | Description                                                                                                                 |
+| ---------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| SANDBOX_DATA_DIR       | /arasul/sandbox/projects         | Backend-container path where sandbox project dirs are visible (bind mount, `compose/compose.app.yaml`)                      |
+| SANDBOX_HOST_DATA_DIR  | (auto-detected)                  | Host path of `data/sandbox/projects` for Docker bind mounts; auto-resolved by inspecting the backend container's own mounts |
+| SANDBOX_HOST_TOOLS_DIR | (sibling of projects: `…/tools`) | Host path of `data/sandbox/tools`, mounted read-only into every sandbox container at `/opt/tools` (open-ara sources)        |
+
+Inside each sandbox container, the backend sets `ARASUL_OLLAMA_URL=http://llm-service:11434` as default endpoint for local agents (open-ara). It only resolves when the project's network mode is `internal`; project-level environment variables override it per shell session.
+
+---
+
 ## System Paths & Networking
 
 | Variable               | Default                              | Description                                                                                                                                                                                        |

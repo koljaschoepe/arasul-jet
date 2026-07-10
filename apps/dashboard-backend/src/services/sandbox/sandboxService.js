@@ -17,6 +17,7 @@ const {
   SANDBOX_DATA_DIR,
   DEFAULT_RESOURCE_LIMITS,
   getHostDataDir,
+  getHostToolsDir,
   parseMemoryLimit,
 } = require('./sandboxShared');
 const { checkIdleContainers, startIdleChecker, stopIdleChecker } = require('./sandboxIdleChecker');
@@ -367,6 +368,11 @@ async function startContainer(projectId, userId) {
 
     // Build environment array
     const envVars = [`SANDBOX_PROJECT=${project.slug}`];
+    // Default Ollama endpoint for local agents (open-ara). Only reachable with
+    // network_mode 'internal'; in 'isolated' mode the call fails cleanly.
+    // Project-level environment (SANDBOX_ENV_JSON, exported by entrypoint.sh)
+    // can override it per shell session.
+    envVars.push('ARASUL_OLLAMA_URL=http://llm-service:11434');
     if (project.environment && typeof project.environment === 'object') {
       envVars.push(`SANDBOX_ENV_JSON=${JSON.stringify(project.environment)}`);
     }
@@ -382,6 +388,9 @@ async function startContainer(projectId, userId) {
     // Determine network mode: 'isolated' (bridge, default) or 'internal' (backend network)
     const networkMode = project.network_mode === 'internal' ? NETWORK_NAME : 'bridge';
 
+    // Read-only tool sources (e.g. open-ara) — sibling of the projects dir
+    const hostToolsDir = await getHostToolsDir();
+
     const containerConfig = {
       Image: image,
       name: containerName,
@@ -389,7 +398,7 @@ async function startContainer(projectId, userId) {
       Env: envVars,
       WorkingDir: '/workspace',
       HostConfig: {
-        Binds: [`${hostPath}:/workspace`],
+        Binds: [`${hostPath}:/workspace`, `${hostToolsDir}:/opt/tools:ro`],
         NetworkMode: networkMode,
         RestartPolicy: { Name: 'unless-stopped' },
         Memory: parseMemoryLimit(limits.memory),
