@@ -69,6 +69,7 @@ router.get(
                 COUNT(*) FILTER (WHERE status != 'deleted') as doc_count,
                 COUNT(*) FILTER (WHERE status = 'indexed') as indexed_count
             FROM documents
+            WHERE is_context_file = FALSE
             GROUP BY space_id
         ) doc_stats ON ks.id = doc_stats.space_id
         ORDER BY ks.sort_order, ks.name
@@ -144,7 +145,7 @@ router.get(
       `
         SELECT id, filename, title, status, file_size, uploaded_at
         FROM documents
-        WHERE space_id = $1 AND deleted_at IS NULL
+        WHERE space_id = $1 AND deleted_at IS NULL AND is_context_file = FALSE
         ORDER BY uploaded_at DESC
         LIMIT 100
     `,
@@ -385,7 +386,7 @@ router.delete(
     }
 
     // DB-003: Use transaction for atomic move + delete
-    const { movedCount } = await pool.transaction(async client => {
+    const { movedCount, contextFileDeleted } = await pool.transaction(async client => {
       // Get default space ID
       const defaultResult = await client.query(
         'SELECT id FROM knowledge_spaces WHERE is_default = TRUE'
@@ -393,12 +394,28 @@ router.delete(
 
       const defaultSpaceId = defaultResult.rows.length > 0 ? defaultResult.rows[0].id : null;
 
-      // Move documents to default space
+      // Kontextdatei gehört zum Ordner, nicht zu den Dokumenten: beim Löschen
+      // des Ordners soft-deleten (gleiches Muster wie DELETE /:id/context-file;
+      // das MinIO-Objekt bleibt liegen — Soft-Delete-Konvention). Mitverschieben
+      // würde eine unsichtbare zweite Kontextdatei im Zielspace erzeugen und
+      // den UNIQUE-Index idx_documents_context_file_unique (Migration 099)
+      // verletzen.
+      const contextResult = await client.query(
+        `
+            UPDATE documents
+            SET deleted_at = NOW(), status = 'deleted'
+            WHERE space_id = $1 AND is_context_file = TRUE AND deleted_at IS NULL
+            RETURNING id
+        `,
+        [id]
+      );
+
+      // Move normal documents (not the context file) to default space
       const moveResult = await client.query(
         `
             UPDATE documents
             SET space_id = $1
-            WHERE space_id = $2 AND deleted_at IS NULL
+            WHERE space_id = $2 AND deleted_at IS NULL AND is_context_file = FALSE
             RETURNING id
         `,
         [defaultSpaceId, id]
@@ -407,10 +424,22 @@ router.delete(
       // Delete the space
       await client.query('DELETE FROM knowledge_spaces WHERE id = $1', [id]);
 
-      return { movedCount: moveResult.rows.length };
+      return {
+        movedCount: moveResult.rows.length,
+        contextFileDeleted: contextResult.rows.length > 0,
+      };
     });
 
-    logger.info(`Deleted knowledge space: ${id}, moved ${movedCount} documents`);
+    if (contextFileDeleted) {
+      // Prompt-Cache des gelöschten Ordners invalidieren (Muster wie bei
+      // PUT/DELETE /:id/context-file)
+      invalidateFolderContext(id);
+    }
+
+    logger.info(
+      `Deleted knowledge space: ${id}, moved ${movedCount} documents` +
+        (contextFileDeleted ? ', context file soft-deleted' : '')
+    );
 
     // QDRANT-SYNC: Update Qdrant payloads for documents moved from deleted space
     if (movedCount > 0) {
@@ -649,55 +678,63 @@ router.put(
     const { id } = req.params;
     const { content } = req.body;
 
-    const spaceCheck = await pool.query('SELECT id, name FROM knowledge_spaces WHERE id = $1', [
-      id,
-    ]);
-    if (spaceCheck.rows.length === 0) {
-      throw new NotFoundError('Wissensbereich nicht gefunden');
-    }
-
     const contentBuffer = Buffer.from(content, 'utf-8');
     const contentHash = crypto.createHash('sha256').update(contentBuffer).digest('hex');
 
-    const existingResult = await pool.query(
-      `SELECT id, file_path FROM documents
-        WHERE space_id = $1 AND is_context_file = TRUE AND deleted_at IS NULL
-        LIMIT 1`,
-      [id]
-    );
-
-    let documentId;
-    if (existingResult.rows.length > 0) {
-      // Update: gleicher MinIO-Pfad, neuer Inhalt
-      const existing = existingResult.rows[0];
-      if (!minioService.isValidMinioPath(existing.file_path)) {
-        logger.error(`Invalid file path for context file: ${existing.file_path}`);
-        throw new ValidationError('Ungültiger Dateipfad');
-      }
-      await minioService.uploadObject(existing.file_path, contentBuffer, contentBuffer.length, {
-        'Content-Type': 'text/markdown',
-      });
-      await pool.query(
-        `UPDATE documents
-            SET file_size = $1, content_hash = $2, char_count = $3, updated_at = NOW()
-          WHERE id = $4`,
-        [contentBuffer.length, contentHash, content.length, existing.id]
+    // Upsert in einer Transaktion (Muster wie DELETE /:id, DB-003): der
+    // FOR-UPDATE-Lock auf der Space-Zeile serialisiert parallele PUTs für
+    // denselben Ordner — der SELECT-then-INSERT-Race aus PR #178 kann keine
+    // zweite Kontextdatei mehr anlegen. Backstop: der UNIQUE partial index
+    // idx_documents_context_file_unique (Migration 099); eine dennoch
+    // auftretende Unique-Violation (PG 23505) mappt der globale ErrorHandler
+    // auf 409/CONFLICT.
+    const { documentId } = await pool.transaction(async client => {
+      const spaceCheck = await client.query(
+        'SELECT id, name FROM knowledge_spaces WHERE id = $1 FOR UPDATE',
+        [id]
       );
-      documentId = existing.id;
-    } else {
+      if (spaceCheck.rows.length === 0) {
+        throw new NotFoundError('Wissensbereich nicht gefunden');
+      }
+
+      const existingResult = await client.query(
+        `SELECT id, file_path FROM documents
+          WHERE space_id = $1 AND is_context_file = TRUE AND deleted_at IS NULL
+          LIMIT 1
+            FOR UPDATE`,
+        [id]
+      );
+
+      if (existingResult.rows.length > 0) {
+        // Update: gleicher MinIO-Pfad, neuer Inhalt
+        const existing = existingResult.rows[0];
+        if (!minioService.isValidMinioPath(existing.file_path)) {
+          logger.error(`Invalid file path for context file: ${existing.file_path}`);
+          throw new ValidationError('Ungültiger Dateipfad');
+        }
+        await client.query(
+          `UPDATE documents
+              SET file_size = $1, content_hash = $2, char_count = $3, updated_at = NOW()
+            WHERE id = $4`,
+          [contentBuffer.length, contentHash, content.length, existing.id]
+        );
+        // MinIO-Upload zuletzt: schlägt er fehl, rollt die DB-Änderung zurück
+        // und der alte Objekt-Inhalt bleibt konsistent stehen.
+        await minioService.uploadObject(existing.file_path, contentBuffer, contentBuffer.length, {
+          'Content-Type': 'text/markdown',
+        });
+        return { documentId: existing.id };
+      }
+
       // Create: neues Markdown-Dokument mit is_context_file-Flag
       const objectName = `${Date.now()}_kontext_${id}.md`;
-      await minioService.uploadObject(objectName, contentBuffer, contentBuffer.length, {
-        'Content-Type': 'text/markdown',
-      });
-
-      documentId = crypto.randomUUID();
+      const newDocumentId = crypto.randomUUID();
       const fileHash = crypto
         .createHash('sha256')
         .update(`${objectName}:${contentBuffer.length}`)
         .digest('hex');
 
-      await pool.query(
+      await client.query(
         `INSERT INTO documents (
              id, filename, original_filename, file_path, file_size,
              mime_type, file_extension, content_hash, file_hash,
@@ -705,7 +742,7 @@ router.put(
          ) VALUES ($1, $2, $2, $3, $4, 'text/markdown', '.md', $5, $6,
                    'context', $7, $8, TRUE, $9)`,
         [
-          documentId,
+          newDocumentId,
           'KONTEXT.md',
           objectName,
           contentBuffer.length,
@@ -716,7 +753,13 @@ router.put(
           content.length,
         ]
       );
-    }
+      // MinIO-Upload zuletzt: schlägt er fehl, rollt der INSERT zurück und es
+      // bleibt weder DB-Zeile noch Objekt-Referenz zurück.
+      await minioService.uploadObject(objectName, contentBuffer, contentBuffer.length, {
+        'Content-Type': 'text/markdown',
+      });
+      return { documentId: newDocumentId };
+    });
 
     // Prompt-Cache dieses Ordners invalidieren — Änderungen wirken sofort
     invalidateFolderContext(id);

@@ -806,19 +806,19 @@ Only accepts requests from localhost or Docker network IPs.
 
 ### Knowledge Spaces
 
-| Method | Endpoint                       | Description                                                       |
-| ------ | ------------------------------ | ----------------------------------------------------------------- |
-| GET    | `/api/spaces`                  | List all knowledge spaces                                         |
-| GET    | `/api/spaces/tree`             | Explorer-Aggregat: alle Spaces (mit `parent_id`) + alle Dokumente |
-| GET    | `/api/spaces/:id`              | Get space details with documents                                  |
-| POST   | `/api/spaces`                  | Create knowledge space (optional `parent_id` für Unterordner)     |
-| PUT    | `/api/spaces/:id`              | Update knowledge space (`parent_id` = Verschieben, Zyklus-Schutz) |
-| DELETE | `/api/spaces/:id`              | Delete space (409 bei Unterordnern; moves docs to default)        |
-| POST   | `/api/spaces/:id/regenerate`   | Trigger context regeneration                                      |
-| POST   | `/api/spaces/route`            | Find relevant spaces for query                                    |
-| GET    | `/api/spaces/:id/context-file` | Kontextdatei des Ordners lesen (`{document, content}` oder nulls) |
-| PUT    | `/api/spaces/:id/context-file` | Kontextdatei anlegen/aktualisieren (`{content}`, max. 50.000)     |
-| DELETE | `/api/spaces/:id/context-file` | Kontextdatei löschen (Soft-Delete)                                |
+| Method | Endpoint                       | Description                                                                                |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/spaces`                  | List all knowledge spaces                                                                  |
+| GET    | `/api/spaces/tree`             | Explorer-Aggregat: alle Spaces (mit `parent_id`) + alle Dokumente                          |
+| GET    | `/api/spaces/:id`              | Get space details with documents                                                           |
+| POST   | `/api/spaces`                  | Create knowledge space (optional `parent_id` für Unterordner)                              |
+| PUT    | `/api/spaces/:id`              | Update knowledge space (`parent_id` = Verschieben, Zyklus-Schutz)                          |
+| DELETE | `/api/spaces/:id`              | Delete space (409 bei Unterordnern; moves docs to default, Kontextdatei wird soft-deleted) |
+| POST   | `/api/spaces/:id/regenerate`   | Trigger context regeneration                                                               |
+| POST   | `/api/spaces/route`            | Find relevant spaces for query                                                             |
+| GET    | `/api/spaces/:id/context-file` | Kontextdatei des Ordners lesen (`{document, content}` oder nulls)                          |
+| PUT    | `/api/spaces/:id/context-file` | Kontextdatei anlegen/aktualisieren (`{content}`, max. 50.000)                              |
+| DELETE | `/api/spaces/:id/context-file` | Kontextdatei löschen (Soft-Delete)                                                         |
 
 > **Ordnerbaum & Kontextdateien (Plan `ide-workspace-shell`):** Spaces bilden
 > über `parent_id` einen verschachtelten Ordnerbaum (Workspace-Explorer).
@@ -910,7 +910,12 @@ Response:
 **Notes:**
 
 - System spaces cannot be deleted
-- Documents are moved to default space when deleting
+- Documents are moved to default space when deleting; the folder's context
+  file (`is_context_file = TRUE`) is **not** moved but soft-deleted with the
+  space (it belongs to the folder, not to the documents) — `moved_documents`
+  counts only regular documents
+- Space statistics (`actual_document_count`, `indexed_document_count`) and the
+  document list of `GET /api/spaces/:id` exclude context files
 - Space descriptions are embedded for semantic routing
 
 ### Settings / Passwords
