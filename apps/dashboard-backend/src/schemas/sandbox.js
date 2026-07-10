@@ -13,7 +13,10 @@ const ResourceLimits = z
 
 const EnvironmentMap = z.record(z.string(), z.string()).optional();
 
-const NetworkMode = z.enum(['bridge', 'host', 'none', 'arasul']).optional();
+// Muss zu sandboxService/DB passen (Migration 074): 'isolated' (bridge, nur
+// Internet) oder 'internal' (Backend-Netz mit LLM/DB-Zugriff). Die alten
+// Docker-Level-Werte hier blockierten jede Projekt-Anlage mit Netzwerkwahl.
+const NetworkMode = z.enum(['isolated', 'internal']).optional();
 
 const CreateProjectBody = z
   .object({
