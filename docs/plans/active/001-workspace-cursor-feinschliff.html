@@ -1,0 +1,918 @@
+<!doctype html>
+<!--
+  Arasul plan-page template v2 — used by /plan (create), /work (report), /audit (design language).
+
+  HOW TO USE (for the skill, not for humans):
+  1. Copy to docs/plans/active/NNN-<slug>.html, replace every token, fill
+     the section bodies with real content (German, plain language).
+  2. Structural contract (comment system + /work depend on it):
+     - Sections are <details class="sec" data-sec="N" data-ref="§N <Titel>">.
+       Keep ids sec-1..sec-9. Each <summary> carries a "Kurz:" one-liner.
+     - Steps in §4: <div class="step" data-status="pending|done|deviation|blocked"
+       data-ref="§4 · Schritt N — <Name>">. /work flips status and appends
+       <div class="result">…</div> inside the step.
+     - Open questions live in #oq as .oq-item with data-ref="Frage N".
+       If there are none, keep the box with the single "Keine —" line.
+     - Every data-ref must be unique — user comments are keyed on it.
+  3. Machine state lives in #plan-meta JSON (/work and /status parse it).
+     Dashboard tiles mirror it: dots use data-level="1|2|3" (1=niedrig).
+  4. §9 (report) starts with class "is-hidden" — /work removes it when filling.
+  5. User comments travel via the page's "Alle kopieren" button → pasted into
+     chat. Whatever arrives that way is BINDING input for /plan revisions and
+     /work execution.
+
+  STATUS VALUES: draft → in-review → approved → in-progress → done | blocked
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 001 · Workspace 2.0 — Feinschliff auf Cursor-Niveau</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "001",
+  "slug": "workspace-cursor-feinschliff",
+  "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau",
+  "type": "feature",
+  "status": "approved",
+  "priority": "P0",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-07-11",
+  "approved": "2026-07-11",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .oq {
+    background: var(--note-bg); border: 1.5px solid var(--note);
+    border-radius: 14px; padding: 1rem 1.2rem; margin: 0 0 1.6rem;
+  }
+  .oq h2 {
+    margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--note); font-weight: 800;
+  }
+  .oq-item { padding: .5rem 0; }
+  .oq-item + .oq-item { border-top: 1px solid color-mix(in srgb, var(--note) 30%, transparent); }
+  .oq-item p { margin: 0 0 .35rem; font-weight: 600; font-size: .95rem; }
+  .oq-item textarea, .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .oq-item textarea:focus, .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oq .none { color: var(--muted); font-size: .92rem; margin: 0; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 001</p>
+    <span class="chip" id="status-chip" data-status="draft">Draft</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Workspace 2.0 — Feinschliff auf Cursor-Niveau</h1>
+  <p class="lead">Die IDE-Shell wird zum Produkt: drei Themes ohne Linien-Wildwuchs, ein kompakter Agent-Chat mit Drag & Drop und Quellen, ein Projekte-Explorer mit Upload, Terminal-Modi mit KI-CLIs — und n8n inline auf gehärteter 2.x-Basis mit lokalen Agenten.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="bad" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">9</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Der komplette Workspace-Feinschliff in einem Wurf: neues Drei-Theme-Farbsystem (Schwarz Default) mit Cursor-Dichte, der Chat wird ein kompaktes Agent-Panel rechts (Quellen, Auto-RAG, DnD), der Explorer ein Projekte-Baum mit Datei-Upload (Daten-Dashboard entfällt), das Terminal bekommt drei Berechtigungsmodi und /claude·/codex·/gemini, der Store wird Extensions (Modelle + Apps), n8n läuft inline und wird auf 2.x gehoben — samt Agent-Härtung, qwen3:8b und Vorlagen.</dd>
+      <dt>Warum jetzt</dt><dd>Deine Live-Validierung des Nachtlaufs: Gerüst gut, aber Chat unübersichtlich, Dateien nicht ablegbar, zwei Konzepte links, Farben/Striche/Scrollbalken unprofessionell, n8n nur verlinkt. Genau das steht zwischen dem heutigen Stand und einem verkaufbaren Produkt.</dd>
+      <dt>Größtes Risiko</dt><dd>Das n8n-2.x-Upgrade der Live-Engine (deshalb als letzter Schritt mit Backup + Image-Pin-Rollback) und das Infrastruktur-Terminal mit vollem Host-Zugriff (deine bewusste Entscheidung, nur Admins).</dd>
+      <dt>Du entscheidest</dt><dd><ul><li>Akzentfarbton: Cursor-graublau oder entschärftes Arasul-Blau (Frage 1)</li><li>n8n-Lizenz-Anfrage-Entwurf jetzt mit erstellen (Frage 2)</li><li>Langfrist-Schicksal der klassischen Ansicht (Frage 3)</li></ul></dd>
+    </dl>
+  </div>
+
+  <div class="oq" id="oq">
+    <h2>Offene Fragen an dich</h2>
+    <p class="none">Keine mehr — mit der Freigabe vom 2026-07-11 wurden die drei Fragen mit ihren Defaults entschieden (siehe §8, letzte drei Zeilen).</p>
+  </div>
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Der Workspace wird vom Gerüst zum Produkt — Cursor-Niveau in Optik, Dichte und Bedienung, plus n8n-Agents.</span>
+  </summary>
+  <div class="sbody">
+  
+  <p>Der Nachtlauf hat das Gerüst der IDE-Shell geliefert: Menüleiste, Tabs, Explorer,
+  rechtes KI-Panel mit Chat/Terminal, Projekte-Sektion. Deine Live-Validierung hat aber
+  klar gezeigt, wo es noch kein Produkt ist: Der Chat rechts ist die alte, zu große
+  Vollansicht statt eines kompakten Agent-Panels; Dateien lassen sich nicht in Projekte
+  legen oder in den Chat ziehen; das Daten-Dashboard ist Ballast; links konkurrieren zwei
+  Konzepte (Ordner vs. Projekte); die Farbwelt ist blaustichig, voller Trennlinien und
+  hat einen grellen Scrollbalken; das Terminal ignoriert das Theme; und n8n sowie die
+  Modell-/App-Verwaltung sind nur angeflanscht statt integriert.</p>
+  <p>Dieses Paket zieht den Workspace auf das Niveau, an dem sich Arasul messen soll:
+  Cursor — aber minimalistischer. Ein Projekte-Baum links, in den man Dateien einfach
+  hineinzieht; ein Agent-Chat rechts, der sich wie ein Coding-Agent für das eigene
+  Unternehmenshandbuch anfühlt (Quellen, automatisches RAG, Drag&nbsp;&amp;&nbsp;Drop);
+  Terminals mit klaren Berechtigungsstufen bis hin zum Infrastruktur-Vollzugriff;
+  Extensions für Modelle und Apps; n8n inline samt gehärteter Agent-Engine.</p>
+  <p><b>Fertig heißt:</b> Ein Nutzer legt in unter zwei Minuten ein Projekt an, zieht
+  Dokumente hinein, stellt rechts eine Frage und bekommt eine Antwort mit klickbaren
+  Quellen, öffnet ein Terminal und startet <code>/claude</code> oder open-ara — alles in
+  einem der drei neuen Themes, ohne je eine alte Dashboard-Ansicht zu sehen.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Fünf Blöcke in einem Wurf: Farben/Themes, Dichte, Agent-Chat, Explorer/Projekte, Terminal + Extensions + n8n. Klassische Ansicht und App-SDK bleiben draußen.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Drei-Theme-System (Schwarz Default · Dunkel · Hell) mit neutraler Palette, Linien-Abbau, dezenten Scrollbars, Rundungen, gedämpftem Akzent</li>
+      <li>Dichte der Shell und der Tab-Inhalte auf Cursor-Maß (13px-Basis, 22px-Zeilen, 32px-Tabs)</li>
+      <li>Terminal-Farbschema folgt dem Theme (live)</li>
+      <li>Kompakter Agent-Chat rechts als einziger Workspace-Chat: flaches Rendering, Tool-Schritte, Quellen-Chips, Composer-Karte, Auto-RAG ohne Toggles, DnD aus Explorer und Desktop, History, Projekt-Scope</li>
+      <li>Explorer als ein Projekte-Baum (Projekte → Ordner → Dateien) mit Upload, Indexierungs-Status und Suche; »Daten«-Tab entfällt</li>
+      <li>Terminal-Modi Isoliert (DSGVO-Test) / Intern / Infrastruktur (Admin-Vollzugriff) + <code>/claude</code>, <code>/codex</code>, <code>/gemini</code>, open-ara</li>
+      <li>Extensions-Tab: Modelle + kuratierte Apps (n8n, Telegram, Datenbank) an/aus, App-Manifest-Grundstein</li>
+      <li>n8n inline als same-origin-iframe-Tab, pro Projekt erreichbar; Lizenz-Doku + Anfrage-Entwurf</li>
+      <li>n8n-2.x-Upgrade mit Task-Runner-Sidecar, Security-Envs, <code>qwen3:8b</code>, First-Boot-Agent-Vorlagen, Agent-Doku</li>
+</ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>App-SDK / Installations-Mechanismus für Dritt-Entwickler-Apps (nur das Manifest-Format als Grundstein)</li>
+      <li>GitHub-Integration (explizit ausgeschlossen)</li>
+      <li>Redesign oder Rückbau der klassischen Ansicht (bleibt unveränderter Fallback; nur die neuen Themes wirken global)</li>
+      <li>n8n-OEM-Lizenzverhandlung (nur Dokumentation + Anfrage-Entwurf; Versand/Verhandlung beim Betreiber)</li>
+      <li>Mandanten-Isolation, Backups, OTA und übrige Roadmap-Themen (T02–T10)</li>
+      <li>Backend-Umbau der Dokument-/Chat-APIs (die bestehenden Routen tragen alles; nur <code>/apps</code> kommt neu dazu)</li>
+</ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> data-theme-Architektur mit drei Paletten, Panel-Chat auf bestehendem ChatContext, ein Projekte-Baum, dritter Terminal-Modus, n8n 2.x mit Runner-Sidecar.</span>
+  </summary>
+  <div class="sbody">
+  
+  <p><b>Farben &amp; Dichte:</b> Heute ist Dunkel der CSS-Default und Hell eine
+  Override-Klasse — das trägt keine drei Modi. Die Architektur wechselt auf ein
+  <code>data-theme</code>-Attribut mit drei vollständigen, neutralen Paletten. Das
+  Kernprinzip übernehmen wir von Cursor: Flächen trennen sich über zwei
+  Hintergrundstufen, nicht über Linien; es gibt genau eine Border-Farbe mit niedriger
+  Deckkraft, ein gedämpftes Akzentblau nur für Aktiv-Zustände und quasi unsichtbare
+  Scrollbalken. Die Dichte-Maße (13px-UI, 22px-Explorerzeilen, 32px-Tabs) sind aus dem
+  VS-Code-Quellcode verifiziert.</p>
+  <p><b>Chat &amp; Explorer:</b> Der neue Agent-Chat ist reine Frontend-Arbeit: eine
+  kompakte Panel-Komponente auf dem bestehenden ChatContext (Streaming, Modelle, RAG
+  laufen unverändert im Backend). Der Explorer verschmilzt Projekte und Ordner zu einem
+  Baum — die Backend-Verknüpfung (Projekt ↔ Wissensbereich) existiert bereits, es fehlte
+  nur die Oberfläche zum Dateien-Ablegen. Drag&nbsp;&amp;&nbsp;Drop läuft über den
+  zentralen Workspace-Store, wie alle Panel-übergreifenden Aktionen.</p>
+  <p><b>Terminal, Extensions &amp; n8n:</b> Die Sandbox bekommt einen dritten
+  Netzwerk-/Mount-Modus »Infrastruktur« (Repo beschreibbar + Docker-Zugriff, nur Admin)
+  — damit wird die Plattform von innen heraus weiterentwickelbar; isolierte Terminals
+  bleiben die DSGVO-saubere Testumgebung. Der Store wird zum Extensions-Hub für Modelle
+  und Apps. n8n läuft inline als same-origin-iframe und wird auf die gehärtete
+  2.x-Generation gehoben: Task-Runner-Sidecar, Dateizugriff nur auf ein
+  Agent-Workspace-Volume, SSRF-Schutz mit interner Allowlist — so können Kunden-Agents
+  mit Bash, Datei-Schreiben und Websuche arbeiten, ohne die Appliance zu gefährden.</p>
+
+  <figure class="arch">
+    
+    <svg viewBox="0 0 560 300" role="img" aria-label="Ziel-Layout des Workspace" style="width:100%;height:auto;display:block">
+      <style>
+        .b { fill: none; stroke: currentColor; stroke-opacity:.55; rx:6; }
+        .f { fill: var(--wash); stroke: currentColor; stroke-opacity:.35; }
+        .t { font: 600 11px system-ui, sans-serif; fill: var(--ink); }
+        .s { font: 10px system-ui, sans-serif; fill: var(--muted); }
+        .a { font: 600 10px system-ui, sans-serif; fill: var(--accent); }
+      </style>
+      <rect x="8" y="8" width="544" height="24" rx="6" class="f"/>
+      <text x="20" y="24" class="t">Arasul · Datei · Ansicht</text>
+      <text x="470" y="24" class="s">⚙ rechts oben</text>
+      <rect x="8" y="40" width="30" height="220" rx="6" class="f"/>
+      <rect x="46" y="40" width="150" height="220" rx="6" class="b"/>
+      <text x="58" y="60" class="t">Explorer</text>
+      <text x="58" y="80" class="s">▾ 📁 Allgemein</text>
+      <text x="58" y="96" class="s">▾ 📁 Marketing</text>
+      <text x="70" y="112" class="s">▸ Kampagnen/</text>
+      <text x="70" y="128" class="s">Briefing.docx ●</text>
+      <text x="58" y="148" class="a">+ Upload / DnD</text>
+      <text x="58" y="168" class="s">🔍 Suche</text>
+      <rect x="204" y="40" width="196" height="220" rx="6" class="b"/>
+      <text x="216" y="60" class="t">Tabs (kompakt, 32px)</text>
+      <text x="216" y="80" class="s">Extensions · Automationen</text>
+      <text x="216" y="98" class="s">┌ n8n inline (iframe) ┐</text>
+      <text x="216" y="116" class="s">│ Workflows &amp; Agents │</text>
+      <text x="216" y="134" class="s">└─────────────────────┘</text>
+      <text x="216" y="162" class="s">Dokument-Vorschau …</text>
+      <rect x="408" y="40" width="144" height="220" rx="6" class="b"/>
+      <text x="420" y="60" class="t">Agent-Chat | Terminal</text>
+      <text x="420" y="80" class="s">⌕ Docs durchsucht ▸</text>
+      <text x="420" y="96" class="s">Antwort … [1]</text>
+      <text x="420" y="112" class="a">▸ 3 Quellen</text>
+      <text x="420" y="140" class="s">┌ Composer + Chips ┐</text>
+      <text x="420" y="156" class="s">│ Frag etwas … [Auto⌄]│</text>
+      <text x="420" y="172" class="s">└──────────────────┘</text>
+      <text x="420" y="200" class="s">Terminal-Modi:</text>
+      <text x="420" y="216" class="s">Isoliert · Intern · Infra</text>
+      <text x="420" y="232" class="a">/claude /codex open-ara</text>
+      <path d="M 150 130 C 260 200, 340 200, 414 150" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+      <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--accent)"/></marker></defs>
+      <text x="238" y="212" class="a">Drag &amp; Drop → Kontext-Chip</text>
+      <rect x="8" y="270" width="544" height="24" rx="6" class="f"/>
+      <text x="20" y="286" class="t">Themes:</text>
+      <text x="80" y="286" class="s">● Schwarz (Default) · ● Dunkel · ○ Hell — Terminal folgt</text>
+    </svg>
+
+    <figcaption>Ziel-Layout: Projekte-Baum links (Upload & DnD), kompakte Tabs in der Mitte (inkl. n8n inline), rechts der Agent-Chat mit Quellen und Terminal-Modi — in drei Themes.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Neun Schritte — UI zuerst, das riskante n8n-Upgrade ganz zuletzt hinter einem Backup-Gate.</span>
+  </summary>
+  <div class="sbody">
+  <!-- One .step per phase; unique data-ref each. -->
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Theme-System: Schwarz · Dunkel · Hell">
+    <h3>Schritt 1 — Theme-System: Schwarz · Dunkel · Hell <span class="tag">Risiko: mittel</span></h3>
+    <p>Die Theme-Architektur wechselt von der binären <code>.light</code>-Klasse auf <code>data-theme="schwarz|dunkel|hell"</code> am <code>&lt;html&gt;</code>-Element (inkl. Anpassung der Tailwind-<code>dark</code>-Variante). Drei neutrale Paletten ersetzen die blaustichige Navy-Skala: Schwarz (Chrome ≈ <code>#0A0A0A</code>, Flächen ≈ <code>#111</code>, neuer Default), Dunkel (Cursor-artig <code>#141414</code>/<code>#181818</code>), Hell. Es gibt nur noch <b>eine</b> Border-Farbe mit niedriger Deckkraft; der blaue Scrollbar-Verlauf wird durch einen dezenten, hintergrundnahen Thumb ersetzt; das Akzentblau wird gedämpft und nur noch für Aktiv-Zustände/Primäraktionen genutzt; Panel-Container bekommen Rundungen. Die ~30 <code>.light</code>-Spezialregeln werden generalisiert. Umschalter: Menü »Ansicht« + Einstellungen.</p>
+    <p class="files mono">apps/dashboard-frontend/src/index.css · src/hooks/useTheme.ts · src/features/workspace/WorkspaceMenuBar.tsx · Einstellungen (Appearance) · Tests: useTheme + bestehende Suite</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Dichte auf Cursor-Maß &amp; Entgraten">
+    <h3>Schritt 2 — Dichte auf Cursor-Maß &amp; Entgraten <span class="tag">Risiko: mittel</span></h3>
+    <p>Die Shell übernimmt Cursor-/VS-Code-Maße: Menüleiste ~35px, Tabs ~32px ohne Trennstrich pro Tab (aktiver Tab nur über Hintergrund + Schriftstärke), Explorer-Zeilen 22px bei 13px Schrift, UI-Basis 13px, Icons 16px. Von den 13 Border-Stellen der Shell bleiben nur die nötigsten — Kanten entstehen über zwei Hintergrundstufen (Chrome vs. Fläche) statt über Linien. Die Mitte (Tab-Inhalte) bekommt einen kompakten Dichte-Scope auf dem TabContent-Wrapper, damit die klassische Ansicht nicht mitreflowt.</p>
+    <p class="files mono">src/features/workspace/{WorkspaceShell,WorkspaceMenuBar,TabBar,TabContent,ActivityBar}.tsx · explorer/ExplorerPanel.tsx · llm/LlmPanel.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Terminal folgt dem Theme">
+    <h3>Schritt 3 — Terminal folgt dem Theme <span class="tag">Risiko: niedrig</span></h3>
+    <p>Das hart kodierte xterm-Farbschema wird durch pro-Theme-Schemata ersetzt, die aus den CSS-Tokens abgeleitet sind; bei Theme-Wechsel wird <code>term.options.theme</code> live aktualisiert. Im Hell-Modus ist das Terminal hell — der bisherige Schwarz-Block-Bruch verschwindet.</p>
+    <p class="files mono">src/features/sandbox/useTerminal.ts (+ Theme-Ableitung, Test)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Kompakter Agent-Chat im rechten Panel">
+    <h3>Schritt 4 — Kompakter Agent-Chat im rechten Panel <span class="tag">Risiko: hoch</span></h3>
+    <p>Neue schlanke Panel-Chat-UI nach dem Claude-Code/Cursor-Muster, auf dem bestehenden ChatContext (SSE-Streaming, Modelle, RAG) — ohne Backend-Änderung: Nachrichten flach ohne Bubbles/Avatare (nur die User-Nachricht als dezente Box), Retrieval-/Denk-Schritte als einklappbare Ein-Zeilen-Rows („⌕ 12 Dokumente durchsucht …“), klickbare Quellen-Chips unter der Antwort, Composer-Karte mit Kontext-Chips, Auto-grow-Eingabe und kleinem Modell-Dropdown (»Auto« als Default). RAG/Thinking laufen immer automatisch — keine Toggles mehr. Drag &amp; Drop: Datei aus dem Explorer → Kontext-Chip; Datei vom Desktop → Upload + Indexierung + Chip. Header: Auto-Titel, neuer Chat, History-Liste, Projekt-Scope-Chip. Der Chat-Tab in der Mitte entfällt; eine Store-Migration (persist-Version) filtert alte chat-/documents-Tabs sauber heraus.</p>
+    <p class="files mono">src/features/workspace/llm/* (neu: AgentChatPanel, MessageList, ToolStepRow, SourcesFooter, ComposerCard) · src/stores/workspaceStore.ts · contexts/ChatContext.tsx (nur Lücken) · Tests neu</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Explorer: ein Projekte-Baum mit Upload">
+    <h3>Schritt 5 — Explorer: ein Projekte-Baum mit Upload <span class="tag">Risiko: mittel</span></h3>
+    <p>Projekte werden die oberste Ebene des Explorers; darunter Ordner und Dateien (»Allgemein« = Standard-Projekt). Die getrennten Bereiche »Projekte« und Ordnerbaum verschmelzen. Dateien lassen sich per Knopf und per Drag &amp; Drop vom Desktop direkt in Projekt/Ordner hochladen (bestehende Upload-API; der Upload-Hook wird zu einem geteilten Hook befördert) und zeigen ihren Indexierungs-Status als dezenten Punkt. Ein Suchfeld filtert den Baum und nutzt die Dokumentensuche. Der »Daten«-Tab samt Dashboard verschwindet aus der ActivityBar — der Explorer ist der einzige Ort für Dateiverwaltung im Workspace.</p>
+    <p class="files mono">src/features/workspace/explorer/* · ActivityBar.tsx · stores/workspaceStore.ts · src/hooks/useDocumentUpload.ts (befördert) · Tests</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Terminal-Modi &amp; KI-CLIs">
+    <h3>Schritt 6 — Terminal-Modi &amp; KI-CLIs <span class="tag">Risiko: hoch</span></h3>
+    <p>Dritter Sandbox-Modus <b>Infrastruktur</b> (nur Admin, per Nutzerentscheidung ohne Extra-Bestätigung): mountet das Plattform-Repo beschreibbar und den Docker-Socket — damit kann die KI die live laufende Arasul-Software selbst weiterentwickeln. Der Modus <b>Isoliert</b> wird als DSGVO-Testumgebung geschärft (kein Netzzugriff auf Backend/LLM), <b>Intern</b> bleibt der Standard für Projekt-Arbeit mit lokalem LLM. Die Modi werden bei der Anlage klar erklärt und im Terminal-Header als Badge angezeigt. Das Sandbox-Image bekommt Node.js; Wrapper <code>/claude</code>, <code>/codex</code>, <code>/gemini</code> (Erststart installiert die CLI, danach Direktstart) plus Quick-Launch-Einträge; open-ara bleibt.</p>
+    <p class="files mono">services/postgres/init/1NN_*.sql (CHECK-Erweiterung) · apps/dashboard-backend/src/services/sandbox/* · schemas/sandbox.js · services/sandbox/Dockerfile + Wrapper · src/features/sandbox/* · Tests</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Extensions: Modelle + kuratierte Apps">
+    <h3>Schritt 7 — Extensions: Modelle + kuratierte Apps <span class="tag">Risiko: mittel</span></h3>
+    <p>Der Store wird zu <b>Extensions</b> mit zwei Bereichen: KI-Modelle (wie bisher installieren/löschen, Default-Empfehlung <code>qwen3:8b</code> für Agents) und Apps — v1 kuratiert: n8n, Telegram, Datenbank, jeweils an-/abschaltbar. Deaktivierte Apps verschwinden aus ActivityBar und Tab-Angebot. Persistenz über eine kleine Backend-Route (<code>GET/PUT /apps</code>, Ablage in Postgres, gleiche Migration wie Schritt 6). Ein App-Manifest-Format (Name, Icon, Tab-Typ, Route) legt den Grundstein für spätere Dritt-Apps. Bei aktivem Extensions-Tab zeigt der Explorer die Suche.</p>
+    <p class="files mono">src/features/store → extensions · apps/dashboard-backend/src/routes/apps.js (neu) · ActivityBar.tsx · docs/api/API_REFERENCE.md · Tests</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — n8n inline + Projekt-Automationen">
+    <h3>Schritt 8 — n8n inline + Projekt-Automationen <span class="tag">Risiko: mittel</span></h3>
+    <p>Neuer Tab-Typ <b>Automationen</b>: der n8n-Editor läuft als same-origin-iframe (Traefik-Route <code>/n8n</code>; n8ns <code>X-Frame-Options: sameorigin</code> erlaubt genau das). Jedes Projekt bekommt einen »Automationen«-Eintrag, der den Tab öffnet. Der separate n8n-Login bleibt (einmalig, Cookie hält). Die Lizenzlage (Sustainable Use License vs. Appliance-Verkauf) wird in <code>docs/legal/</code> dokumentiert, inklusive vorbereitetem Anfrage-Entwurf an license@n8n.io — Klärung ist Pflicht vor Verkaufsstart.</p>
+    <p class="files mono">stores/workspaceStore.ts (Tab-Typ) · TabContent.tsx · explorer (Projekt-Eintrag) · docs/legal/N8N_LIZENZ.md (neu)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — n8n 2.x, Agent-Härtung &amp; Vorlagen">
+    <h3>Schritt 9 — n8n 2.x, Agent-Härtung &amp; Vorlagen <span class="tag">Risiko: hoch</span></h3>
+    <p>Zuletzt (weil am riskantesten): Upgrade der n8n-Engine auf die 2.x-Linie mit externem Task-Runner-Sidecar (<code>n8nio/runners</code>) und expliziten Security-Envs — <code>N8N_BLOCK_ENV_ACCESS_IN_NODE=true</code>, <code>N8N_RESTRICT_FILE_ACCESS_TO=/data/agent-workspace</code>, <code>N8N_SSRF_PROTECTION_ENABLED=true</code> mit interner Allowlist (llm-service, Qdrant, Backend), Telemetrie aus. Vor dem Upgrade: Volume-/DB-Backup; danach API-Abgleich der Workflows. <code>qwen3:8b</code> wird als Default-Agent-Modell provisioniert (inkl. explizitem Ollama-Kontextfenster ≥32k). First-Boot-Vorlagen via <code>n8n import:workflow</code>: ein Recherche-Agent (Websuche + Datei schreiben ins Agent-Workspace-Volume) und ein RAG-Agent (Qdrant Vector Store Tool), beide mit Subagent-Muster. Neue Doku-Seite »Agent-Workflows mit Ollama bauen«.</p>
+    <p class="files mono">compose/* (n8n-Image-Pin + runners-Sidecar) · scripts/ Bootstrap-Import · services/n8n/templates/*.json (neu) · docs/integrations/N8N_AGENTS.md (neu) · docs/ENVIRONMENT_VARIABLES.md</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Zwölf nachprüfbare Kriterien vom Theme-Wechsel bis zur lauffähigen Agent-Vorlage.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+
+    <li data-done="false">Drei Themes (Schwarz · Dunkel · Hell) sind über Menü »Ansicht« und Einstellungen wählbar; Schwarz ist Default; die Wahl überlebt Reload und gilt auch für die klassische Ansicht.</li>
+    <li data-done="false">In allen drei Themes: keine Trennstriche mehr zwischen Tabs, Panels über Flächenabstufung getrennt, Scrollbalken dezent hintergrundnah, Panel-Container mit Rundungen, gedämpftes Akzentblau nur an Aktiv-Zuständen.</li>
+    <li data-done="false">Das Terminal wechselt sein Farbschema live mit dem Theme (hell im Hell-Modus).</li>
+    <li data-done="false">Rechtes Panel: Frage stellen → Antwort streamt; Retrieval-Schritte erscheinen als einklappbare Zeilen; unter der Antwort klickbare Quellen-Chips; kein RAG-/Thinking-Toggle mehr sichtbar.</li>
+    <li data-done="false">Drag &amp; Drop in den Chat funktioniert aus dem Explorer und vom Desktop (Desktop-Datei wird hochgeladen, indexiert und als Kontext-Chip angehängt).</li>
+    <li data-done="false">Chat existiert im Workspace nur noch rechts: neuer Chat + History-Liste mit Auto-Titeln im Panel; der Chat-Tab in der Mitte ist weg; alte persistierte Tabs verursachen keine Fehler.</li>
+    <li data-done="false">Explorer: Projekt anlegen → Ordner/Dateien darunter; Upload per Knopf und DnD in Projekt/Ordner; Indexierungs-Status sichtbar; Suchfeld filtert; das »Daten«-Icon ist aus der ActivityBar verschwunden.</li>
+    <li data-done="false">Terminal: drei Modi mit klarer Kennzeichnung; Infrastruktur nur für Admins — dort ist das Repo beschreibbar und <code>docker ps</code> funktioniert; im isolierten Terminal ist Backend/LLM nicht erreichbar; <code>/claude</code>, <code>/codex</code>, <code>/gemini</code> starten (Erststart installiert).</li>
+    <li data-done="false">Extensions: Modelle installierbar wie bisher; Apps (n8n/Telegram/Datenbank) lassen sich deaktivieren und verschwinden dann aus ActivityBar und Tab-Angebot.</li>
+    <li data-done="false">n8n öffnet inline als »Automationen«-Tab (same-origin-iframe) und ist pro Projekt erreichbar.</li>
+    <li data-done="false">n8n läuft auf 2.x: bestehende Workflows unverändert lauffähig (API-Abgleich vor/nach), Task-Runner-Sidecar aktiv, Security-Envs gesetzt, Agent-Vorlagen importiert und mit <code>qwen3:8b</code> lauffähig.</li>
+    <li data-done="false">Frontend- und Backend-Testsuiten grün; Doku aktualisiert (DESIGN_SYSTEM, ADMIN_HANDBUCH, ENVIRONMENT_VARIABLES, N8N_AGENTS, API_REFERENCE, N8N_LIZENZ).</li>
+
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Erweiterter Playwright-Lauf im echten Browser auf dem Jetson + n8n-API-Abgleich vor/nach dem Upgrade.</span>
+  </summary>
+  <div class="sbody">
+  
+  <p>Deploy des Feature-Branches auf den Jetson (device-seriell, Backup-Tag vor dem
+  n8n-Upgrade), danach Live-Verifikation im echten Browser gegen
+  <code>https://192.168.0.197</code> (lokales Playwright, temporärer Admin — wird nach
+  dem Lauf gelöscht):</p>
+  <ul>
+    <li>Login → Workspace lädt im Schwarz-Theme → Theme-Wechsel Schwarz→Dunkel→Hell (Screenshots je Modus, Terminal-Hintergrund prüfen)</li>
+    <li>Projekt anlegen → Datei per DnD hochladen → Indexierungs-Status wird grün</li>
+    <li>Frage im Agent-Panel → Antwort streamt, Tool-Schritt-Zeile + Quellen-Chips erscheinen, Quelle öffnet das Dokument</li>
+    <li>Datei aus dem Explorer in den Chat ziehen → Kontext-Chip; neuer Chat + History-Wechsel</li>
+    <li>Terminal Intern: <code>open-ara --version</code>; Wrapper-Präsenz <code>/claude</code>/<code>/codex</code>/<code>/gemini</code>; Isoliert: Backend/LLM nicht erreichbar (Negativtest); Infrastruktur (Admin): <code>ls</code> im Repo beschreibbar + <code>docker ps</code></li>
+    <li>Extensions: App deaktivieren → Icon/Tab verschwinden → wieder aktivieren</li>
+    <li>Automationen-Tab: n8n-iframe lädt (Login-Maske sichtbar = bestanden)</li>
+    <li>Reload-Restore des Workspace-Layouts; Rückweg »Zur klassischen Ansicht« funktioniert und sieht in allen drei Themes korrekt aus</li>
+  </ul>
+  <p><b>n8n-Upgrade-Verify:</b> Workflow-Liste per API vor/nach dem Upgrade identisch,
+  eine Test-Execution läuft grün, Task-Runner-Sidecar healthy, Agent-Vorlage antwortet
+  mit <code>qwen3:8b</code>. <b>Systemzustand:</b> <code>docker compose ps</code> — alle
+  Container healthy; Backend-/n8n-Logs ohne neue Fehler; bestehende 17-Schritte-Smoke
+  bleibt grün.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größte Risiken: n8n-Upgrade und Infra-Terminal; Rollback über Image-Pin, Volume-Backup und Deploy-Auto-Rollback.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>n8n-2.x-Upgrade bricht bestehende Workflows oder die DB-Migration der Engine schlägt fehl</td><td>mittel</td><td>Upgrade als letzter Schritt; Volume-/DB-Backup unmittelbar davor; Image-Pin als Sofort-Rollback; API-Abgleich der Workflows als Gate</td></tr>
+      <tr><td>Infrastruktur-Terminal = faktischer Host-Vollzugriff (Repo rw + Docker-Socket)</td><td>bewusst akzeptiert</td><td>Nur Admin-Rolle kann anlegen; unübersehbare Kennzeichnung im UI; Anlage wird geloggt; Entscheidung im §8 protokolliert</td></tr>
+      <tr><td>n8n-Lizenz (Sustainable Use License) beim Verkauf der Appliance mit iframe-Einbettung</td><td>mittel–hoch</td><td>n8n bleibt sichtbar als n8n gebrandet; Lizenz-Doku + Anfrage-Entwurf an license@n8n.io; Klärung als Pflicht-Gate vor Verkaufsstart in der Roadmap</td></tr>
+      <tr><td>Globales Theme-/Dichte-Rework verzieht die klassische Ansicht oder Alt-Komponenten</td><td>mittel</td><td>Dichte nur im Workspace-Scope; Themes über generalisierte Tokens; Smoke der klassischen Ansicht in allen drei Themes</td></tr>
+      <tr><td>Lokale Modelle liefern schwache Tool-Calls in den Agent-Vorlagen</td><td>mittel</td><td><code>qwen3:8b</code> als Default, ein Tool pro Subagent, Kontextfenster explizit ≥32k, Grenzen in der Doku benannt</td></tr>
+      <tr><td>Alte persistierte Workspace-Tabs (chat/documents) crashen nach dem Umbau</td><td>niedrig</td><td>zustand-persist-Versionierung mit Migration, unbekannte Tab-Typen werden gefiltert; Test deckt das ab</td></tr>
+      <tr><td>Der »eine große Wurf« wird als PR sehr groß (Review-/CI-Risiko)</td><td>hoch</td><td>Saubere Schritt-Commits auf dem Branch; Zwischen-Deploys auf den Jetson nach jedem Block; CI + Auto-Rollback der Deploy-Pipeline als Netz</td></tr>
+</tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  
+  <p>Ein Feature-Branch, ein PR: Revert des Squash-Merges stellt den Frontend-/
+  Backend-Stand vollständig wieder her. Die Deploy-Pipeline hat Health-Gate +
+  Auto-Rollback. n8n: Image-Pin zurückdrehen + Volume-Restore aus dem unmittelbar vor
+  dem Upgrade erstellten Backup (wird bis zum grünen Verify aufbewahrt). Die neue
+  SQL-Migration ist additiv (CHECK-Erweiterung + App-Tabelle) und idempotent; der
+  Down-Pfad wird im Migrationskopf dokumentiert. Theme-Fallback: unbekannter
+  localStorage-Wert fällt auf Schwarz zurück; die klassische Ansicht bleibt als
+  Bedien-Fallback unangetastet.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 13 Entscheidungen aus 3 Interview-Runden — inklusive deiner bewussten iframe- und Vollzugriff-Entscheidungen.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Umfang der ersten Iteration</td><td>Alle vier Blöcke + komplettes Farb-Redesign</td><td>Ein großes Arbeitspaket (dieser Plan), kein Teilausbau</td></tr>
+      <tr><td>Daten-Dashboard</td><td>Komplett ersetzen</td><td>»Daten«-Tab und Dashboard verschwinden aus dem Workspace; Upload/Verwaltung nur noch im Explorer</td></tr>
+      <tr><td>Projektmodell</td><td>Ein Baum, Projekte oben</td><td>Explorer zeigt Projekte → Ordner → Dateien; »Allgemein« wird Standard-Projekt</td></tr>
+      <tr><td>Absicherung Infrastruktur-Modus</td><td>Voller Zugriff ohne Extra-Hürde</td><td>Admin-only per Rolle, keine zusätzlichen Bestätigungsdialoge; Risiko bewusst akzeptiert</td></tr>
+      <tr><td>Farb-Feedback (Freitext, Runde 1)</td><td>Neutralere Grautöne, Schwarz, weniger Striche, dezenteres Blau, dezente Scrollbars, mehr Rundungen, Terminal-Bruch beheben</td><td>Definiert Schritt 1–3 und die Cursor-Referenzwerte</td></tr>
+      <tr><td>Theme-Setup</td><td>Schwarz · Dunkel · Hell</td><td>Dreistufige data-theme-Architektur; Schwarz als Default</td></tr>
+      <tr><td>Terminal-Hintergrund</td><td>Folgt dem Theme</td><td>xterm-Schema pro Theme mit Live-Update</td></tr>
+      <tr><td>Chat-Ort</td><td>Nur noch rechts im Panel</td><td>Chat-Tab in der Mitte entfällt; Panel-Chat ist die einzige Chat-UI im Workspace</td></tr>
+      <tr><td>Externe KI-CLIs</td><td>Claude Code, Codex, Gemini</td><td>Drei Slash-Wrapper im Sandbox-Image (Node.js kommt dazu); Install beim Erststart</td></tr>
+      <tr><td>n8n-Darstellung</td><td>Trotzdem iframe (same-origin)</td><td>Inline-Tab; separater n8n-Login bleibt; Lizenzklärung wird Pflicht-Gate vor Verkaufsstart</td></tr>
+      <tr><td>Extensions v1</td><td>Modelle + kuratierte Apps</td><td>n8n/Telegram/Datenbank an-/abschaltbar; Manifest-Format als Grundstein für Dritt-Apps</td></tr>
+      <tr><td>n8n-Agents (2.x, Härtung, Modell, Vorlagen)</td><td>Alles in diese Iteration</td><td>Schritt 9; riskantester Block, läuft zuletzt mit eigenem Backup-Gate</td></tr>
+      <tr><td>Rollout</td><td>Ein großer Wurf</td><td>Ein Feature-Branch, ein PR, ein Deploy; Zwischenstände werden per Branch-Deploy auf dem Jetson verifiziert</td></tr>
+      <tr><td>Frage 1 — Akzentfarbe (per Default entschieden)</td><td>Gedämpftes Graublau in Schwarz/Dunkel, entschärftes Arasul-Blau in Hell</td><td>Token-Werte in Schritt 1 entsprechend gesetzt</td></tr>
+      <tr><td>Frage 2 — n8n-Lizenz-Anfrage (per Default entschieden)</td><td>Entwurf wird erstellt und in docs/legal abgelegt</td><td>Versand bleibt beim Betreiber; Pflicht-Gate vor Verkaufsstart</td></tr>
+      <tr><td>Frage 3 — Klassische Ansicht (per Default entschieden)</td><td>Bleibt vorerst als Fallback</td><td>Rückbau als Notiz für ein späteres Roadmap-Thema, nicht Teil dieser Iteration</td></tr>
+</tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 001 · erstellt am 2026-07-11 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/001-workspace-cursor-feinschliff.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"))
+    .filter(function (el) { return !el.classList.contains("oq-item"); });
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // open-question answers first
+    document.querySelectorAll(".oq-item").forEach(function (q) {
+      var ta = q.querySelector("textarea");
+      if (ta) out.push({ ref: q.dataset.ref + ": " + (q.querySelector("p") ? q.querySelector("p").textContent.trim() : ""), text: ta.value, oq: true, key: q.dataset.ref });
+    });
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list.filter(function (c) { return !c.oq || c.text.trim(); }));
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.value = ""; });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // wire open-question textareas + restore persisted state
+  document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.addEventListener("input", persist); });
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var oq = document.querySelector('.oq-item[data-ref="' + c.key + '"]');
+    if (oq) {
+      var ta = oq.querySelector("textarea");
+      if (ta && !ta.value) ta.value = c.text;
+      return;
+    }
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>

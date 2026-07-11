@@ -21,7 +21,7 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-07-10",
+  "updated": "2026-07-11",
   "migrated_from_master_plan": false,
   "gates": [
     { "id": "G1", "title": "Mandanten-Isolation bewiesen", "state": "open" },
@@ -42,7 +42,8 @@
     { "id": "T07", "title": "/healthz + /readyz + Alarmierung", "prio": "P1", "status": "open", "source": "Master-Plan Phase 7 · Side-Branch 8.x", "plan": null, "pr": null },
     { "id": "T08", "title": "Side-Branch-Reste: DR-Drill-CI, Backend-Unit-Tests, Drift-Checker", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick", "plan": null, "pr": null },
     { "id": "T09", "title": "Frontend-Chat-UX-Refactor (Re-Implementation)", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick", "plan": null, "pr": null },
-    { "id": "T10", "title": "Doku-Sync abschließen (repo-doc-sync)", "prio": "P2", "status": "open", "source": "docs/plans/active/repo-doc-sync-2026-07-07.md", "plan": null, "pr": null }
+    { "id": "T10", "title": "Doku-Sync abschließen (repo-doc-sync)", "prio": "P2", "status": "open", "source": "docs/plans/active/repo-doc-sync-2026-07-07.md", "plan": null, "pr": null },
+    { "id": "T11", "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau (Themes, Agent-Chat, Projekte-Explorer, Terminal-Modi, Extensions, n8n 2.x)", "prio": "P0", "status": "planned", "source": "user 2026-07-11", "plan": "001", "pr": null }
   ],
   "history": []
 }
@@ -380,6 +381,19 @@
       dem Code in Deckung bringen.</p>
       <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>—</b></span></div>
       <div class="cmd"><code>/plan T10</code><button type="button" data-copy="/plan T10">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T11" data-prio="P0" data-status="planned" data-ref="T11 Workspace 2.0 Cursor-Feinschliff">
+    <summary><span class="prio">P0</span><span class="ttl">Workspace 2.0 — Feinschliff auf Cursor-Niveau</span><span class="cbtn-slot"></span><span class="st">geplant (001)</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Die IDE-Shell wird zum Produkt: drei Themes (Schwarz Default) mit Cursor-Dichte statt
+      Linien-Wildwuchs, kompakter Agent-Chat rechts mit Quellen und Drag&nbsp;&amp;&nbsp;Drop,
+      Explorer als Projekte-Baum mit Upload (Daten-Dashboard entfällt), Terminal-Modi inkl.
+      Infrastruktur-Vollzugriff und /claude·/codex·/gemini, Extensions (Modelle + Apps),
+      n8n inline auf gehärteter 2.x-Basis mit lokalen Agent-Vorlagen.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>mehrtägig</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>docs/plans/active/001-workspace-cursor-feinschliff.html</code><button type="button" data-copy="/work 001">Befehl kopieren</button></div>
     </div>
   </details>
 
