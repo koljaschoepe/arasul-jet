@@ -1,5 +1,6 @@
 import {
   FolderPlus,
+  FolderKanban,
   Upload,
   SquareTerminal,
   Undo2,
@@ -65,9 +66,13 @@ export function WorkspaceMenuBar({ themeControls, onLeaveWorkspace }: WorkspaceM
             <FolderPlus className="h-4 w-4" aria-hidden="true" />
             Neuer Ordner…
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => requestExplorerAction('create-project')}>
+            <FolderKanban className="h-4 w-4" aria-hidden="true" />
+            Neues Projekt…
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => openTab({ type: 'sandbox' })}>
             <SquareTerminal className="h-4 w-4" aria-hidden="true" />
-            Neues Projekt (Terminal)…
+            Neue Terminal-Umgebung…
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => openTab({ type: 'documents' })}>
             <Upload className="h-4 w-4" aria-hidden="true" />

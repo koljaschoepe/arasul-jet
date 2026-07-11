@@ -133,7 +133,7 @@ export interface ChatScope {
  * Aktionen, die die Menüleiste an den Explorer delegiert (der Dialog-State
  * lebt lokal im ExplorerPanel; die Menubar stellt nur eine Anfrage).
  */
-export type ExplorerAction = 'create-folder';
+export type ExplorerAction = 'create-folder' | 'create-project';
 
 /** Modus des rechten KI-Panels: Chat (RAG) oder Sandbox-Terminal. */
 export type LlmPanelMode = 'chat' | 'terminal';

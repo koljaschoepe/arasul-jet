@@ -89,14 +89,36 @@ async function createSession(
   const container = docker.getContainer(project.container_id);
 
   // Create docker exec with TTY
-  const exec = await container.exec({
-    Cmd: cmd,
-    AttachStdin: true,
-    AttachStdout: true,
-    AttachStderr: true,
-    Tty: true,
-    Env: [`TERM=xterm-256color`, `COLUMNS=${cols}`, `LINES=${rows}`],
-  });
+  let exec;
+  try {
+    exec = await container.exec({
+      Cmd: cmd,
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      Env: [`TERM=xterm-256color`, `COLUMNS=${cols}`, `LINES=${rows}`],
+    });
+  } catch (err) {
+    if (err.statusCode === 404) {
+      // Container wurde extern entfernt (docker rm / prune): DB-Zustand heilen,
+      // damit der Client den Container regulär neu startet, statt in einer
+      // Reconnect-Schleife gegen die verwaiste Container-ID zu laufen.
+      await db.query(
+        `UPDATE sandbox_projects
+            SET container_status = 'stopped', container_id = NULL
+          WHERE id = $1`,
+        [projectId]
+      );
+      logger.warn(
+        `Sandbox container for project ${projectId} vanished externally — state reset to 'stopped'`
+      );
+      throw new ValidationError(
+        'Container wurde extern entfernt — bitte Projekt neu öffnen/starten.'
+      );
+    }
+    throw err;
+  }
 
   // Start exec and get the duplex stream
   const stream = await exec.start({

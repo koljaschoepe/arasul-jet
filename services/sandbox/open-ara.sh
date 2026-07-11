@@ -26,11 +26,16 @@ if [ ! -d "$TOOLS_DIR" ] || { [ ! -e "$TOOLS_DIR/pyproject.toml" ] && [ ! -e "$T
     exit 1
 fi
 
+# User-Site-Install (kein sudo: die Container laufen mit no-new-privileges,
+# sudo ist dort grundsätzlich blockiert). Entry-Points landen in ~/.local/bin.
+export PATH="${HOME}/.local/bin:${PATH}"
+
 if [ ! -f "$MARKER" ] || ! command -v arasul >/dev/null 2>&1; then
     echo "Installiere Open-ARA (einmalig) ..."
-    # sudo pip3 ist in /etc/sudoers.d/sandbox freigeschaltet; --no-deps, weil
-    # die Abhängigkeiten (textual, openai, rich) im Image vorinstalliert sind.
-    sudo pip3 install --break-system-packages --no-deps -e "$TOOLS_DIR"
+    # --no-deps, weil die Abhängigkeiten (textual, openai, rich) im Image
+    # vorinstalliert sind; --user schreibt nach ~/.local (persistiert im
+    # Container-Filesystem über stop/start).
+    pip3 install --user --break-system-packages --no-deps --no-build-isolation -e "$TOOLS_DIR"
     touch "$MARKER"
 fi
 

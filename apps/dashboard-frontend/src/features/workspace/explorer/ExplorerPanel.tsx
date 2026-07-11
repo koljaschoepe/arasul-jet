@@ -28,6 +28,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { ExplorerDialogs } from './ExplorerDialogs';
 import type { ExplorerDialogState } from './ExplorerDialogs';
+import { ProjectsSection } from './ProjectsSection';
 
 export interface TreeSpace {
   id: string;
@@ -330,6 +331,7 @@ export function ExplorerPanel() {
           </button>
         </div>
       </div>
+      <ProjectsSection spaces={spaces} />
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-1.5" role="tree" aria-label="Dokumente und Ordner">
           {loading && <p className="px-2 py-1 text-xs text-muted-foreground">Lade Explorer…</p>}
