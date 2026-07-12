@@ -14,8 +14,9 @@ function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
     activeTabId: null,
-    explorerVisible: true,
-    llmVisible: true,
+    sidebarVisible: true,
+    terminalVisible: false,
+    chatVisible: true,
     chatScope: null,
     explorerRequest: null,
   });

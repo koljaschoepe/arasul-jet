@@ -3,12 +3,17 @@ import { Sparkles } from 'lucide-react';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import AgentChatPanel from './agentChat/AgentChatPanel';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
-import type { LlmPanelMode } from '@/stores/workspaceStore';
 import { cn } from '@/lib/utils';
 
 // Feature-Entry wie in TabContent.tsx — kein Import feature-interner Komponenten.
 const SandboxApp = lazy(() => import('@/features/sandbox'));
+
+/**
+ * Übergangs-Modus (nur Stufe 1): Chat/Terminal-Umschalter lebt lokal, bis
+ * Stufe 2 das Panel in unabhängige Chat-/Terminal-Flächen aufteilt
+ * (workspaceStore v3: chatVisible/terminalVisible).
+ */
+type LlmPanelMode = 'chat' | 'terminal';
 
 const MODES: ReadonlyArray<{ mode: LlmPanelMode; label: string }> = [
   { mode: 'chat', label: 'Chat' },
@@ -23,8 +28,7 @@ const MODES: ReadonlyArray<{ mode: LlmPanelMode; label: string }> = [
  * Sessions und laufende Chat-Streams den Moduswechsel überleben.
  */
 export function LlmPanel() {
-  const mode = useWorkspaceStore(s => s.llmPanelMode);
-  const setMode = useWorkspaceStore(s => s.setLlmPanelMode);
+  const [mode, setMode] = useState<LlmPanelMode>('chat');
 
   // Terminal erst beim ersten Wechsel mounten (SandboxApp lädt Projekte und
   // startet ggf. Container) — danach bleibt es am Leben.

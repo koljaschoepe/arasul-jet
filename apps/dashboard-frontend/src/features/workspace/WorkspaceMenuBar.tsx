@@ -56,10 +56,12 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
   // themeControls-Prop bleibt für die TabContent-Verdrahtung erhalten.
   const { theme, setTheme } = useTheme();
   const openTab = useWorkspaceStore(s => s.openTab);
-  const explorerVisible = useWorkspaceStore(s => s.explorerVisible);
-  const llmVisible = useWorkspaceStore(s => s.llmVisible);
-  const toggleExplorer = useWorkspaceStore(s => s.toggleExplorer);
-  const toggleLlm = useWorkspaceStore(s => s.toggleLlm);
+  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
+  const chatVisible = useWorkspaceStore(s => s.chatVisible);
+  const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
+  const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
+  const toggleChat = useWorkspaceStore(s => s.toggleChat);
+  const toggleTerminal = useWorkspaceStore(s => s.toggleTerminal);
   const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
 
@@ -81,7 +83,7 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
             <FolderKanban className="h-4 w-4" aria-hidden="true" />
             Neues Projekt…
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => openTab({ type: 'sandbox' })}>
+          <DropdownMenuItem onClick={() => useWorkspaceStore.setState({ terminalVisible: true })}>
             <SquareTerminal className="h-4 w-4" aria-hidden="true" />
             Neue Terminal-Umgebung…
           </DropdownMenuItem>
@@ -100,14 +102,18 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
       <DropdownMenu>
         <MenuTriggerButton label="Ansicht" />
         <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuItem onClick={toggleExplorer}>
+          <DropdownMenuItem onClick={toggleSidebar}>
             <PanelLeft className="h-4 w-4" aria-hidden="true" />
-            {explorerVisible ? 'Explorer ausblenden' : 'Explorer einblenden'}
+            {sidebarVisible ? 'Explorer ausblenden' : 'Explorer einblenden'}
             <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={toggleLlm}>
+          <DropdownMenuItem onClick={toggleTerminal}>
+            <SquareTerminal className="h-4 w-4" aria-hidden="true" />
+            {terminalVisible ? 'Terminal ausblenden' : 'Terminal einblenden'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={toggleChat}>
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
-            {llmVisible ? 'KI-Panel ausblenden' : 'KI-Panel einblenden'}
+            {chatVisible ? 'KI-Panel ausblenden' : 'KI-Panel einblenden'}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs text-muted-foreground">Design</DropdownMenuLabel>

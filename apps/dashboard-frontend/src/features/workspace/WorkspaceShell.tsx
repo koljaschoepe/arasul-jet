@@ -23,8 +23,8 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const openTab = useWorkspaceStore(s => s.openTab);
-  const explorerVisible = useWorkspaceStore(s => s.explorerVisible);
-  const llmVisible = useWorkspaceStore(s => s.llmVisible);
+  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
+  const chatVisible = useWorkspaceStore(s => s.chatVisible);
 
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        useWorkspaceStore.getState().toggleExplorer();
+        useWorkspaceStore.getState().toggleSidebar();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -85,7 +85,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
   // Panel-Layout (Breiten) in localStorage persistieren
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: 'arasul-workspace-panels',
-    panelIds: [...(explorerVisible ? ['explorer'] : []), 'main', ...(llmVisible ? ['llm'] : [])],
+    panelIds: [...(sidebarVisible ? ['explorer'] : []), 'main', ...(chatVisible ? ['llm'] : [])],
   });
 
   return (
@@ -102,7 +102,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
           defaultLayout={defaultLayout}
           onLayoutChanged={onLayoutChanged}
         >
-          {explorerVisible && (
+          {sidebarVisible && (
             <>
               <Panel id="explorer" defaultSize="18%" minSize="160px" maxSize="35%">
                 <ExplorerPanel />
@@ -118,7 +118,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
               </div>
             </div>
           </Panel>
-          {llmVisible && (
+          {chatVisible && (
             <>
               <Separator className="w-[3px] bg-transparent transition-colors hover:bg-primary/50" />
               <Panel id="llm" defaultSize="26%" minSize="220px" maxSize="45%">

@@ -2,12 +2,17 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * Workspace-Store: offene Tabs, aktiver Tab und Panel-Sichtbarkeit der
- * IDE-Shell. Persistiert in localStorage, der aktive Tab wird zusätzlich
+ * Workspace-Store v3: offene Tabs, aktiver Tab, drei unabhängige Flächen
+ * (Sidebar, Terminal-Panel, Chat-Panel) und die Terminal-Session-Registry
+ * der IDE-Shell. Persistiert in localStorage, der aktive Tab wird zusätzlich
  * in der URL gespiegelt (siehe WorkspaceShell).
  *
  * Tab-Identität: pro (type, payload)-Kombination existiert höchstens ein
  * Tab — `tabId()` liefert den deterministischen Schlüssel, openTab dedupliziert.
+ *
+ * Terminal: existiert NICHT als Mitte-Tab. Es lebt ausschließlich im rechten
+ * Panel (terminalVisible), seine Sessions in der Registry dieses Stores —
+ * Komponenten rendern die Sessions nur, sie besitzen sie nicht.
  */
 
 export type WorkspaceTabType =
@@ -15,7 +20,6 @@ export type WorkspaceTabType =
   | 'document'
   | 'settings'
   | 'store'
-  | 'sandbox'
   | 'automationen'
   | 'telegram'
   | 'database'
@@ -41,7 +45,6 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   document: 'Dokument',
   settings: 'Einstellungen',
   store: 'Extensions',
-  sandbox: 'Terminal',
   automationen: 'Automationen',
   telegram: 'Telegram',
   database: 'Datenbank',
@@ -70,8 +73,6 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/settings';
     case 'store':
       return '/workspace/store';
-    case 'sandbox':
-      return '/workspace/terminal';
     case 'automationen':
       return '/workspace/automationen';
     case 'telegram':
@@ -97,8 +98,6 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'settings' };
     case 'store':
       return { type: 'store' };
-    case 'terminal':
-      return { type: 'sandbox' };
     case 'automationen':
       return { type: 'automationen' };
     case 'telegram':
@@ -106,6 +105,7 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
     case 'database':
       return parts[1] ? { type: 'database-table', slug: parts[1] } : { type: 'database' };
     default:
+      // /workspace/terminal (v2) ist kein Tab mehr — Terminal lebt im Panel.
       return null;
   }
 }
@@ -125,15 +125,32 @@ export interface ChatScope {
  */
 export type ExplorerAction = 'create-folder' | 'create-project' | 'upload-files';
 
-/** Modus des rechten KI-Panels: Chat (RAG) oder Sandbox-Terminal. */
-export type LlmPanelMode = 'chat' | 'terminal';
+/**
+ * Eine Terminal-Session im rechten Panel. Die Registry lebt im Store
+ * (nicht im Komponenten-State), damit genau eine Quelle der Wahrheit
+ * existiert — egal ob das Panel sichtbar ist oder nicht. Die eigentliche
+ * WebSocket-Verbindung hält die Terminal-Komponente; sie hängt an der
+ * stabilen Session-Id.
+ */
+export interface TerminalSession {
+  /** Stabile Session-Id (aktuell: Sandbox-Projekt-Id). */
+  id: string;
+  /** Sandbox-Projekt, in dem die Session läuft. */
+  projectId: string;
+  title: string;
+}
 
 interface WorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
-  explorerVisible: boolean;
-  llmVisible: boolean;
-  llmPanelMode: LlmPanelMode;
+  /** Linke Sidebar (Explorer/Workspace). */
+  sidebarVisible: boolean;
+  /** Terminal-Fläche im rechten Panel (unten), unabhängig vom Chat. */
+  terminalVisible: boolean;
+  /** Chat-Fläche im rechten Panel (oben), unabhängig vom Terminal. */
+  chatVisible: boolean;
+  terminalSessions: TerminalSession[];
+  activeTerminalSessionId: string | null;
   chatScope: ChatScope | null;
   explorerRequest: ExplorerAction | null;
   openTab: (spec: WorkspaceTabSpec) => void;
@@ -141,12 +158,84 @@ interface WorkspaceState {
   activateTab: (id: string) => void;
   moveTab: (fromIndex: number, toIndex: number) => void;
   updateTabTitle: (id: string, title: string) => void;
-  toggleExplorer: () => void;
-  toggleLlm: () => void;
-  setLlmPanelMode: (mode: LlmPanelMode) => void;
+  toggleSidebar: () => void;
+  toggleTerminal: () => void;
+  toggleChat: () => void;
+  /** Session registrieren/aktivieren — blendet das Terminal-Panel ein. */
+  openTerminalSession: (session: TerminalSession) => void;
+  closeTerminalSession: (id: string) => void;
+  activateTerminalSession: (id: string) => void;
+  updateTerminalSessionTitle: (id: string, title: string) => void;
   setChatScope: (scope: ChatScope | null) => void;
   requestExplorerAction: (action: ExplorerAction) => void;
   clearExplorerRequest: () => void;
+}
+
+/** Persistierte Felder (partialize) — Basis für die migrate-Signatur. */
+interface PersistedWorkspaceState {
+  tabs: WorkspaceTab[];
+  activeTabId: string | null;
+  sidebarVisible: boolean;
+  terminalVisible: boolean;
+  chatVisible: boolean;
+  terminalSessions: TerminalSession[];
+  activeTerminalSessionId: string | null;
+}
+
+/** Roh-Shape älterer persistierter Stände (v≤2) + evtl. schon v3-Felder. */
+interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'tabs'>> {
+  tabs?: Array<{
+    id: string;
+    type: string;
+    title: string;
+    documentId?: string;
+    slug?: string;
+  }>;
+  explorerVisible?: boolean;
+  llmVisible?: boolean;
+  llmPanelMode?: 'chat' | 'terminal';
+}
+
+/**
+ * v2 → v3:
+ * - explorerVisible → sidebarVisible
+ * - llmVisible → chatVisible
+ * - llmPanelMode === 'terminal' → terminalVisible
+ * - 'sandbox'-Tabs (Terminal als Mitte-Tab) und unbekannte Typen entfernen,
+ *   übrige Tabs + aktiver Tab bleiben erhalten.
+ */
+function migrateWorkspaceState(persisted: unknown, version: number): PersistedWorkspaceState {
+  const old = (persisted ?? {}) as PersistedLegacyState;
+  const valid = new Set(Object.keys(DEFAULT_TITLES));
+  const tabs = (Array.isArray(old.tabs) ? old.tabs : []).filter(t =>
+    valid.has(t.type)
+  ) as WorkspaceTab[];
+  const activeTabId =
+    old.activeTabId && tabs.some(t => t.id === old.activeTabId)
+      ? old.activeTabId
+      : (tabs[0]?.id ?? null);
+
+  if (version >= 3) {
+    return {
+      tabs,
+      activeTabId,
+      sidebarVisible: old.sidebarVisible ?? true,
+      terminalVisible: old.terminalVisible ?? false,
+      chatVisible: old.chatVisible ?? true,
+      terminalSessions: Array.isArray(old.terminalSessions) ? old.terminalSessions : [],
+      activeTerminalSessionId: old.activeTerminalSessionId ?? null,
+    };
+  }
+
+  return {
+    tabs,
+    activeTabId,
+    sidebarVisible: old.explorerVisible ?? true,
+    terminalVisible: old.llmPanelMode === 'terminal',
+    chatVisible: old.llmVisible ?? true,
+    terminalSessions: [],
+    activeTerminalSessionId: null,
+  };
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -154,9 +243,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     (set, get) => ({
       tabs: [],
       activeTabId: null,
-      explorerVisible: true,
-      llmVisible: true,
-      llmPanelMode: 'chat',
+      sidebarVisible: true,
+      terminalVisible: false,
+      chatVisible: true,
+      terminalSessions: [],
+      activeTerminalSessionId: null,
       chatScope: null,
       explorerRequest: null,
 
@@ -221,38 +312,64 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }));
       },
 
-      toggleExplorer: () => set(state => ({ explorerVisible: !state.explorerVisible })),
-      toggleLlm: () => set(state => ({ llmVisible: !state.llmVisible })),
-      setLlmPanelMode: mode => set({ llmPanelMode: mode }),
-      // Scope setzen blendet das KI-Panel ein (dorthin wirkt der Scope)
+      toggleSidebar: () => set(state => ({ sidebarVisible: !state.sidebarVisible })),
+      toggleTerminal: () => set(state => ({ terminalVisible: !state.terminalVisible })),
+      toggleChat: () => set(state => ({ chatVisible: !state.chatVisible })),
+
+      openTerminalSession: session => {
+        const { terminalSessions } = get();
+        const exists = terminalSessions.some(s => s.id === session.id);
+        set({
+          terminalSessions: exists ? terminalSessions : [...terminalSessions, session],
+          activeTerminalSessionId: session.id,
+          terminalVisible: true,
+        });
+      },
+
+      closeTerminalSession: id => {
+        const { terminalSessions, activeTerminalSessionId } = get();
+        const index = terminalSessions.findIndex(s => s.id === id);
+        if (index === -1) return;
+        const next = terminalSessions.filter(s => s.id !== id);
+        let nextActive = activeTerminalSessionId;
+        if (activeTerminalSessionId === id) {
+          const neighbor = next[index] ?? next[index - 1] ?? null;
+          nextActive = neighbor ? neighbor.id : null;
+        }
+        set({ terminalSessions: next, activeTerminalSessionId: nextActive });
+      },
+
+      activateTerminalSession: id => {
+        if (get().terminalSessions.some(s => s.id === id)) {
+          set({ activeTerminalSessionId: id });
+        }
+      },
+
+      updateTerminalSessionTitle: (id, title) => {
+        set(state => ({
+          terminalSessions: state.terminalSessions.map(s => (s.id === id ? { ...s, title } : s)),
+        }));
+      },
+
+      // Scope setzen blendet das Chat-Panel ein (dorthin wirkt der Scope)
       setChatScope: scope =>
-        set(scope ? { chatScope: scope, llmVisible: true } : { chatScope: null }),
-      // Menü-Aktion an den Explorer delegieren — blendet ihn dafür ein
-      requestExplorerAction: action => set({ explorerRequest: action, explorerVisible: true }),
+        set(scope ? { chatScope: scope, chatVisible: true } : { chatScope: null }),
+      // Menü-Aktion an den Explorer delegieren — blendet die Sidebar dafür ein
+      requestExplorerAction: action => set({ explorerRequest: action, sidebarVisible: true }),
       clearExplorerRequest: () => set({ explorerRequest: null }),
     }),
     {
       name: 'arasul_workspace',
-      version: 2,
-      // v2: Chat lebt nur noch im rechten Panel — persistierte chat-Tabs
-      // (und sonst unbekannte Typen) aus altem State herausfiltern.
-      migrate: persisted => {
-        const state = persisted as Partial<WorkspaceState> | undefined;
-        if (!state || !Array.isArray(state.tabs)) return state as WorkspaceState;
-        const valid = new Set(Object.keys(DEFAULT_TITLES));
-        const tabs = state.tabs.filter(t => valid.has(t.type));
-        const activeTabId =
-          state.activeTabId && tabs.some(t => t.id === state.activeTabId)
-            ? state.activeTabId
-            : (tabs[0]?.id ?? null);
-        return { ...state, tabs, activeTabId } as WorkspaceState;
-      },
+      version: 3,
+      migrate: (persisted, version) => migrateWorkspaceState(persisted, version) as WorkspaceState,
       partialize: state => ({
         tabs: state.tabs,
         activeTabId: state.activeTabId,
-        explorerVisible: state.explorerVisible,
-        llmVisible: state.llmVisible,
-        llmPanelMode: state.llmPanelMode,
+        sidebarVisible: state.sidebarVisible,
+        terminalVisible: state.terminalVisible,
+        chatVisible: state.chatVisible,
+        terminalSessions: state.terminalSessions,
+        activeTerminalSessionId: state.activeTerminalSessionId,
       }),
     }
   )

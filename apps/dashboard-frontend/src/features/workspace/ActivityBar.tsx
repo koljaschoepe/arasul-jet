@@ -46,11 +46,6 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
 const BASE_SHORTCUTS: Array<{ spec: WorkspaceTabSpec; label: string; icon: React.ReactNode }> = [
   { spec: { type: 'dashboard' }, label: 'Dashboard', icon: <Home className="h-4.5 w-4.5" /> },
   { spec: { type: 'store' }, label: 'Extensions', icon: <Blocks className="h-4.5 w-4.5" /> },
-  {
-    spec: { type: 'sandbox' },
-    label: 'Terminal',
-    icon: <SquareTerminal className="h-4.5 w-4.5" />,
-  },
 ];
 
 const APP_SHORTCUTS: Array<{
@@ -85,10 +80,12 @@ const APP_SHORTCUTS: Array<{
  * klassischen UI leben in der WorkspaceMenuBar (Cursor-minimal).
  */
 export function ActivityBar() {
-  const explorerVisible = useWorkspaceStore(s => s.explorerVisible);
-  const llmVisible = useWorkspaceStore(s => s.llmVisible);
-  const toggleExplorer = useWorkspaceStore(s => s.toggleExplorer);
-  const toggleLlm = useWorkspaceStore(s => s.toggleLlm);
+  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
+  const chatVisible = useWorkspaceStore(s => s.chatVisible);
+  const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
+  const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
+  const toggleChat = useWorkspaceStore(s => s.toggleChat);
+  const toggleTerminal = useWorkspaceStore(s => s.toggleTerminal);
   const openTab = useWorkspaceStore(s => s.openTab);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const { isAppEnabled } = useWorkspaceApps();
@@ -101,9 +98,9 @@ export function ActivityBar() {
       className="flex h-full w-11 shrink-0 flex-col items-center gap-0.5 bg-background py-1.5"
     >
       <ActivityButton
-        label={explorerVisible ? 'Explorer ausblenden' : 'Explorer einblenden'}
-        onClick={toggleExplorer}
-        active={explorerVisible}
+        label={sidebarVisible ? 'Explorer ausblenden' : 'Explorer einblenden'}
+        onClick={toggleSidebar}
+        active={sidebarVisible}
       >
         <PanelLeft className="h-4.5 w-4.5" />
       </ActivityButton>
@@ -124,9 +121,17 @@ export function ActivityBar() {
       <div className="flex-1" />
 
       <ActivityButton
-        label={llmVisible ? 'KI-Panel ausblenden' : 'KI-Panel einblenden'}
-        onClick={toggleLlm}
-        active={llmVisible}
+        label={terminalVisible ? 'Terminal ausblenden' : 'Terminal einblenden'}
+        onClick={toggleTerminal}
+        active={terminalVisible}
+      >
+        <SquareTerminal className="h-4.5 w-4.5" />
+      </ActivityButton>
+
+      <ActivityButton
+        label={chatVisible ? 'KI-Panel ausblenden' : 'KI-Panel einblenden'}
+        onClick={toggleChat}
+        active={chatVisible}
       >
         <MessageSquare className="h-4.5 w-4.5" />
       </ActivityButton>
