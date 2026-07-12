@@ -7,7 +7,6 @@
  */
 import { useCallback, useRef, useState } from 'react';
 import { API_BASE, getAuthHeaders } from '@/config/api';
-import { getCsrfToken } from '@/utils/csrf';
 
 export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 export const MAX_UPLOAD_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
@@ -74,12 +73,12 @@ export function uploadFileXHR(
     xhr.addEventListener('abort', () => reject(new Error('Upload abgebrochen')));
 
     xhr.open('POST', `${API_BASE}/documents/upload`);
+    // WICHTIG: getAuthHeaders() enthält bereits X-CSRF-Token. Ihn hier ein
+    // zweites Mal zu setzen APPENDED bei XHR ("A, A") → das Backend vergleicht
+    // gegen das Cookie ("A") und lehnt mit 403 »CSRF token invalid« ab.
+    // Genau dieser Doppel-Set hat die Dokument-Uploads plattformweit gebrochen.
     for (const [key, value] of Object.entries(getAuthHeaders())) {
       xhr.setRequestHeader(key, value);
-    }
-    const csrfToken = getCsrfToken();
-    if (csrfToken) {
-      xhr.setRequestHeader('X-CSRF-Token', csrfToken);
     }
     xhr.send(formData);
   });

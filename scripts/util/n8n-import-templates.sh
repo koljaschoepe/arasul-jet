@@ -28,7 +28,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-LOG_PREFIX="N8N-IMPORT" source "${SCRIPT_DIR}/../lib/logging.sh"
+# Getrennt zuweisen: `VAR=x source …` gilt nur während des Sourcens — die
+# log_*-Funktionen lesen LOG_PREFIX aber erst beim Aufruf (set -u!).
+LOG_PREFIX="N8N-IMPORT"
+source "${SCRIPT_DIR}/../lib/logging.sh"
 
 cd "$PROJECT_ROOT"
 
