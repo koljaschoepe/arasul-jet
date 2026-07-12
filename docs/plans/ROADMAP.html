@@ -21,7 +21,7 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-07-11",
+  "updated": "2026-07-13",
   "migrated_from_master_plan": false,
   "gates": [
     { "id": "G1", "title": "Mandanten-Isolation bewiesen", "state": "open" },
@@ -43,7 +43,8 @@
     { "id": "T08", "title": "Side-Branch-Reste: DR-Drill-CI, Backend-Unit-Tests, Drift-Checker", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick", "plan": null, "pr": null },
     { "id": "T09", "title": "Frontend-Chat-UX-Refactor (Re-Implementation)", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick", "plan": null, "pr": null },
     { "id": "T10", "title": "Doku-Sync abschließen (repo-doc-sync)", "prio": "P2", "status": "open", "source": "docs/plans/active/repo-doc-sync-2026-07-07.md", "plan": null, "pr": null },
-    { "id": "T11", "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau (Themes, Agent-Chat, Projekte-Explorer, Terminal-Modi, Extensions, n8n 2.x)", "prio": "P0", "status": "done", "source": "user 2026-07-11", "plan": "001", "pr": 184 }
+    { "id": "T11", "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau (Themes, Agent-Chat, Projekte-Explorer, Terminal-Modi, Extensions, n8n 2.x)", "prio": "P0", "status": "done", "source": "user 2026-07-11", "plan": "001", "pr": 184 },
+    { "id": "T12", "title": "Cursor-Shell 3.0 — Neubau der Workspace-Shell (ein Terminal, echte Tabs, Extension-Gating, Kompakt-Skala)", "prio": "P1", "status": "planned", "source": "user 2026-07-13", "plan": "002", "pr": null }
   ],
   "history": [
     { "date": "2026-07-12", "plan": "001", "title": "Workspace 2.0 — Cursor-Feinschliff", "pr": 184 }
@@ -399,6 +400,18 @@
     </div>
   </details>
 
+  <details class="card" id="T12" data-prio="P1" data-status="planned" data-ref="T12 Cursor-Shell 3.0 Neubau">
+    <summary><span class="prio">P1</span><span class="ttl">Cursor-Shell 3.0 — Neubau der Workspace-Shell</span><span class="cbtn-slot"></span><span class="st">geplant (002)</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Die Workspace-Shell wird nach Cursor-Vorbild neu gebaut: zentraler Layout-/Session-Store,
+      genau ein Terminal im rechten Panel (Sessions überleben Toggles), echte Tab-Leiste mit Restore,
+      n8n/Telegram nur bei aktiver Extension, Layout-Toggles oben rechts, globale Kompakt-Skala,
+      Dashboard fluid, Extensions als kompakte Liste. Big-Bang-PR mit Geräte-Verify vor dem Merge.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>T11 (done)</b></span></div>
+      <div class="cmd"><code>docs/plans/active/002-cursor-shell-neubau.html</code><button type="button" data-copy="/work 002">Befehl kopieren</button></div>
+    </div>
+  </details>
+
   <h2>Erledigt</h2>
   <ul class="history" id="history">
     <li><b>2026-07-12</b> · Plan 001 — Workspace 2.0: Feinschliff auf Cursor-Niveau · PR #184 (+ Fix #185) · live verifiziert (Smoke 21/21)</li>
@@ -406,7 +419,7 @@
 
   <footer>
     Gepflegt von <span class="mono">/plan · /work · /audit</span> · Quelle:
-    <span class="mono">docs/plans/ROADMAP.html</span> · Stand: 2026-07-12<br>
+    <span class="mono">docs/plans/ROADMAP.html</span> · Stand: 2026-07-13<br>
     Notizen: 💬 an einer Karte → unten <strong>Alle kopieren</strong> → in den Claude-Chat einfügen.
   </footer>
 </div>

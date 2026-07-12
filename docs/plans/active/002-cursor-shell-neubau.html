@@ -1,0 +1,866 @@
+<!doctype html>
+<!--
+  Arasul plan-page template v2 — used by /plan (create), /work (report), /audit (design language).
+
+  HOW TO USE (for the skill, not for humans):
+  1. Copy to docs/plans/active/NNN-<slug>.html, replace every {{TOKEN}}, fill
+     the section bodies with real content (German, plain language).
+  2. Structural contract (comment system + /work depend on it):
+     - Sections are <details class="sec" data-sec="N" data-ref="§N <Titel>">.
+       Keep ids sec-1..sec-9. Each <summary> carries a "Kurz:" one-liner.
+     - Steps in §4: <div class="step" data-status="pending|done|deviation|blocked"
+       data-ref="§4 · Schritt N — <Name>">. /work flips status and appends
+       <div class="result">…</div> inside the step.
+     - Open questions live in #oq as .oq-item with data-ref="Frage N".
+       If there are none, keep the box with the single "Keine —" line.
+     - Every data-ref must be unique — user comments are keyed on it.
+  3. Machine state lives in #plan-meta JSON (/work and /status parse it).
+     Dashboard tiles mirror it: dots use data-level="1|2|3" (1=niedrig).
+  4. §9 (report) starts with class "is-hidden" — /work removes it when filling.
+  5. User comments travel via the page's "Alle kopieren" button → pasted into
+     chat. Whatever arrives that way is BINDING input for /plan revisions and
+     /work execution.
+
+  STATUS VALUES: draft → in-review → approved → in-progress → done | blocked
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 002 · Cursor-Shell 3.0 — Neubau der Workspace-Shell</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "002",
+  "slug": "cursor-shell-neubau",
+  "title": "Cursor-Shell 3.0 — Neubau der Workspace-Shell",
+  "type": "feat",
+  "status": "approved",
+  "priority": "P1",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-07-13",
+  "approved": "2026-07-13",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .oq {
+    background: var(--note-bg); border: 1.5px solid var(--note);
+    border-radius: 14px; padding: 1rem 1.2rem; margin: 0 0 1.6rem;
+  }
+  .oq h2 {
+    margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--note); font-weight: 800;
+  }
+  .oq-item { padding: .5rem 0; }
+  .oq-item + .oq-item { border-top: 1px solid color-mix(in srgb, var(--note) 30%, transparent); }
+  .oq-item p { margin: 0 0 .35rem; font-weight: 600; font-size: .95rem; }
+  .oq-item textarea, .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .oq-item textarea:focus, .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oq .none { color: var(--muted); font-size: .92rem; margin: 0; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 002</p>
+    <span class="chip" id="status-chip" data-status="draft">Draft</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Cursor-Shell 3.0 — Neubau der Workspace-Shell</h1>
+  <p class="lead">Die Workspace-Shell wird nach Cursor-Vorbild neu gebaut: ein konsistentes Raster mit Activity Bar, echter Tab-Leiste und genau einem Terminal im rechten Panel — kompakt, responsiv, ohne Doppel-Anzeigen, mit Extension-Gating für n8n und Telegram.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P1</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="bad" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">9</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Die Workspace-Shell wird in einem großen PR nach Cursor-Vorbild neu gebaut: ein zentraler Layout-/Session-Store, genau ein Terminal im rechten Panel, echte Tab-Leiste in der Mitte, drei Layout-Toggles oben rechts, Extension-Gating für n8n/Telegram und eine kompakte Dichte-Skala für alle Ansichten (Dashboard, Extensions, …).</dd>
+      <dt>Warum jetzt</dt><dd>Terminal-Doppelung, immer sichtbare Extension-Einträge und nicht-responsive Übergrößen machen die Shell unlogisch. Die Bugs sitzen in der Struktur (verstreuter Layout-State, doppelte Mounts) — Flickwerk an der Oberfläche würde sie nur verschieben.</dd>
+      <dt>Größtes Risiko</dt><dd>Der Big-Bang-Diff: Regressionsgefahr für Terminal-Sessions und den fragilen Upload/CSRF-Pfad. Abgefedert durch Branch-Deploy mit Backup-Tag und die volle Playwright-Matrix auf dem Jetson <em>vor</em> dem Merge.</dd>
+      <dt>Du entscheidest</dt><dd><ul><li>Frage 1: Legacy-Ansichten (<code>/</code>, <code>/terminal</code>, <code>/store</code>) in einem Folgeplan entfernen? Blockiert diesen Plan nicht.</li><li>Sonst nichts — die Freigabe wurde am 13.07.2026 im Chat erteilt („autonom ausführen"); Notizen an dieser Seite fließen trotzdem verbindlich ein.</li></ul></dd>
+    </dl>
+  </div>
+
+  <div class="oq" id="oq">
+    <h2>Offene Fragen an dich</h2>
+    <div class="oq-item" data-ref="Frage 1">
+      <p>Frage 1 — Sollen die Legacy-Ansichten (klassisches Dashboard unter <code>/</code>, <code>/terminal</code>, <code>/store</code>) in einem Folgeplan entfernt werden, sobald die neue Shell verifiziert läuft? Bis dahin bleiben sie unangetastet erreichbar.</p>
+      <textarea placeholder="Antwort / Meinung …"></textarea>
+    </div>
+  </div>
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Terminal-Doppelung, starre Navigation und Größen-Wildwuchs verschwinden — die Shell wird konsequent Cursor.</span>
+  </summary>
+  <div class="sbody">
+  <p>Die heutige Workspace-Shell (Plan 001) ist funktional, aber logisch inkonsistent: Ein Klick auf „Terminal“ in der Activity Bar öffnet das Terminal als Tab in der Mitte, obwohl rechts bereits ein Terminal-Panel existiert — technisch sind das zwei unabhängig gemountete Instanzen derselben App, jede mit eigener WebSocket-Verbindung, die sich einen localStorage-Schlüssel teilen. n8n und Telegram-Bot stehen immer in der Navigation, auch wenn die Extension gar nicht aktiviert ist. Das Dashboard ist rechts abgeschnitten und reagiert nicht auf die Containerbreite, die Extensions-Seite wirkt um Klassen größer als der Rest, und unten links sitzt ein Chat-Toggle, der nur das rechte Panel ein-/ausklappt.</p>
+  <p>Dieser Plan baut die Shell als Ganzes neu — nach dem Vorbild von Cursor/VS Code: schmale Activity Bar, Sidebar, Mitte mit echter Tab-Leiste, rechtes Panel mit Chat und Terminal, Statusleiste, drei Layout-Toggles oben rechts. Ein zentraler Store verwaltet Panels, Tabs und Sessions; eine globale Kompakt-Skala normiert Typografie und Abstände in allen Ansichten.</p>
+  <p><strong>Fertig heißt:</strong> Die Shell fühlt sich wie Cursor an — ein Raster, genau ein Terminal (im Panel, Sessions überleben das Ein-/Ausklappen), n8n/Telegram nur bei aktiver Extension, echte Tabs mit Restore, Dashboard und Extensions in kompakter, fluider Dichte — und die volle Playwright-Matrix (Ansichten × Panel-Kombinationen × 4 Auflösungen) ist auf dem Jetson im echten Browser grün, bei null Konsolenfehlern.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Die komplette Workspace-Shell inkl. Backend-Gating; Legacy-Ansichten und Chat-/RAG-Logik bleiben unangetastet.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Neubau der Workspace-Shell: Activity Bar, Sidebar, Tab-Leiste (Mitte), rechtes Panel (Chat + Terminal), Statusleiste</li>
+      <li>Terminal-Konsolidierung: genau ein Mount im Panel; Sessions überleben Toggle und Ansichtswechsel</li>
+      <li>Sichtbarkeits-Gating: n8n/Telegram links nur bei installierter + aktivierter Extension</li>
+      <li>Drei Layout-Toggles oben rechts; Chat-Toggle unten links entfällt ersatzlos</li>
+      <li>Globale Kompakt-Skala (Design-Tokens) für alle Ansichten</li>
+      <li>Dashboard als fluider Mitte-Tab (auto-fit-Grid), Extensions als kompakte Liste</li>
+      <li>Zentraler Layout-/Session-Store mit Persistenz-Migration (v2 → v3)</li>
+      <li>Backend-Anpassungen wo nötig (Extension-Manifest, ggf. Session-Listing)</li>
+      <li>Anpassung aller betroffenen Unit-/e2e-Tests + neue Matrix-Specs</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>Legacy-Ansichten unter <code>/</code>, <code>/terminal</code>, <code>/store</code> — bleiben unverändert erreichbar (Entfernung = offene Frage 1)</li>
+      <li>Chat-/RAG-/Auth-Backend-Logik (wird nur neu „eingerahmt“)</li>
+      <li>Neue Features oder neue Extensions</li>
+      <li>Mobile-Layouts unter 1024 px Breite</li>
+      <li>n8n-Interna und Telegram-Bot-Funktionalität</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Ein zentraler Store steuert Panels, Tabs und Sessions; das Terminal hat genau einen Mount; Sichtbarkeit kommt aus <code>platform_apps</code>.</span>
+  </summary>
+  <div class="sbody">
+  <p>Heute besitzt jede Oberfläche ihr eigenes Stück Layout-Wahrheit: Der Workspace-Store kennt „Explorer sichtbar“ und „LLM-Panel sichtbar“, das rechte Panel hat einen eigenen Chat/Terminal-Modus, und die Terminal-Ansicht führt zusätzlich eine eigene Tab-Liste im localStorage. Genau daraus entsteht der Doppel-Terminal-Bug: Mitte und Panel mounten unabhängig voneinander dieselbe Terminal-App — zwei WebSocket-Verbindungen, ein geteilter Speicher-Schlüssel.</p>
+  <p>Der Neubau ersetzt das durch <strong>einen</strong> zentralen Store (Version 3): Er verwaltet drei unabhängige Flächen (Sidebar, Terminal-Panel, Chat-Panel), die Tab-Leiste der Mitte und die Terminal-/Chat-Sessions. Das Terminal existiert nur noch als eine Instanz im rechten Panel; „ausblenden“ heißt verstecken statt zerstören (Keep-alive), damit laufende Prozesse weiterlaufen. Der Terminal-Klick in der Activity Bar toggelt nur noch dieses Panel — ein Terminal-Tab in der Mitte kann strukturell gar nicht mehr entstehen.</p>
+  <p>Die Sichtbarkeit von n8n/Telegram kommt aus der bestehenden <code>platform_apps</code>-Tabelle über <code>useWorkspaceApps()</code> — dieses Gating existiert bereits und wird konsequent auf alle Extension-Einträge angewandt statt sie hart zu verdrahten. Für die Dichte definiert das Design-System eine Kompakt-Skala (13-px-Basis, feste Abstandsstufen), an die Dashboard (auto-fit-Grid) und Extensions (Listenzeilen) angeschlossen werden.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 680 250" role="img" aria-label="Shell vorher und nachher" xmlns="http://www.w3.org/2000/svg" style="font: 11px -apple-system, 'Segoe UI', sans-serif; color: var(--ink); width: 680px;">
+      <text x="20" y="20" fill="currentColor" font-weight="700">Vorher</text>
+      <rect x="14" y="30" width="290" height="182" rx="8" fill="none" stroke="var(--line)"/>
+      <rect x="22" y="38" width="34" height="166" rx="4" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="39" y="58" text-anchor="middle" fill="var(--muted)" font-size="9">n8n</text>
+      <text x="39" y="74" text-anchor="middle" fill="var(--muted)" font-size="9">TG</text>
+      <text x="39" y="90" text-anchor="middle" fill="var(--bad)" font-size="9" font-weight="700">Term</text>
+      <rect x="64" y="38" width="150" height="166" rx="4" fill="none" stroke="var(--line)"/>
+      <rect x="72" y="46" width="134" height="38" rx="4" fill="none" stroke="var(--bad)"/>
+      <text x="139" y="69" text-anchor="middle" fill="var(--bad)" font-size="10">Terminal (Tab!)</text>
+      <rect x="72" y="92" width="134" height="58" rx="4" fill="none" stroke="var(--warn)"/>
+      <text x="139" y="117" text-anchor="middle" fill="var(--warn)" font-size="10">Dashboard</text>
+      <text x="139" y="131" text-anchor="middle" fill="var(--warn)" font-size="8">zu groß / abgeschnitten</text>
+      <text x="76" y="196" fill="var(--muted)" font-size="8">Chat-Toggle unten links</text>
+      <rect x="222" y="38" width="74" height="166" rx="4" fill="none" stroke="var(--line)"/>
+      <text x="259" y="70" text-anchor="middle" fill="var(--muted)" font-size="9">Chat</text>
+      <rect x="228" y="118" width="62" height="80" rx="4" fill="none" stroke="var(--bad)"/>
+      <text x="259" y="155" text-anchor="middle" fill="var(--bad)" font-size="9">Terminal</text>
+      <text x="259" y="168" text-anchor="middle" fill="var(--bad)" font-size="8">(2. Instanz)</text>
+      <text x="20" y="238" fill="var(--muted)" font-size="9">2 unabhängige Terminals · n8n/TG immer sichtbar</text>
+      <text x="322" y="130" fill="var(--accent)" font-size="24" font-weight="700">→</text>
+      <text x="380" y="20" fill="currentColor" font-weight="700">Nachher</text>
+      <rect x="374" y="30" width="290" height="182" rx="8" fill="none" stroke="var(--accent)"/>
+      <rect x="382" y="36" width="274" height="16" rx="3" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="650" y="48" text-anchor="end" fill="var(--accent)" font-size="9">◧ ▭ ◨ · ⚙</text>
+      <rect x="382" y="56" width="30" height="134" rx="4" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="397" y="72" text-anchor="middle" fill="var(--muted)" font-size="8">Expl</text>
+      <text x="397" y="88" text-anchor="middle" fill="var(--muted)" font-size="8">Chat</text>
+      <text x="397" y="104" text-anchor="middle" fill="var(--muted)" font-size="8">Dash</text>
+      <text x="397" y="120" text-anchor="middle" fill="var(--muted)" font-size="8">Ext</text>
+      <text x="397" y="140" text-anchor="middle" fill="var(--accent)" font-size="8">n8n*</text>
+      <rect x="418" y="56" width="54" height="134" rx="4" fill="none" stroke="var(--line)"/>
+      <text x="445" y="126" text-anchor="middle" fill="var(--muted)" font-size="8">Sidebar</text>
+      <rect x="478" y="56" width="112" height="134" rx="4" fill="none" stroke="var(--line)"/>
+      <rect x="482" y="60" width="104" height="14" rx="3" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="534" y="70" text-anchor="middle" fill="currentColor" font-size="8">Dash × · Ext ×</text>
+      <text x="534" y="130" text-anchor="middle" fill="var(--muted)" font-size="8">fluider Inhalt</text>
+      <rect x="596" y="56" width="60" height="134" rx="4" fill="none" stroke="var(--line)"/>
+      <text x="626" y="95" text-anchor="middle" fill="var(--muted)" font-size="8">Chat</text>
+      <line x1="600" y1="132" x2="652" y2="132" stroke="var(--line)"/>
+      <rect x="600" y="138" width="52" height="44" rx="3" fill="none" stroke="var(--accent)"/>
+      <text x="626" y="157" text-anchor="middle" fill="var(--accent)" font-size="8">Terminal</text>
+      <text x="626" y="170" text-anchor="middle" fill="var(--accent)" font-size="8">1 Instanz</text>
+      <rect x="382" y="194" width="274" height="12" rx="3" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="390" y="203" fill="var(--muted)" font-size="7">Statusleiste</text>
+      <text x="380" y="238" fill="var(--muted)" font-size="9">* nur bei installierter + aktivierter Extension</text>
+    </svg>
+    <figcaption>Vorher: zwei Terminal-Instanzen und verstreuter Layout-State. Nachher: ein Store, ein Terminal, ein Raster mit Toggles oben rechts.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Neun Schritte auf einem Branch — Store zuerst, dann Gerüst, Terminal, Gating, Dichte, Seiten, Tests, Doku. Ein PR, gemergt erst nach Geräte-Verify.</span>
+  </summary>
+  <div class="sbody">
+  <p>Alle Schritte laufen auf dem Branch <code>feat/002-cursor-shell-neubau</code>; <code>main</code> bleibt bis zum Merge unberührt. Nach jedem Schritt sind Build und Tests auf dem Branch grün.</p>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Zentraler Layout-/Session-Store (v3)">
+    <h3>Schritt 1 — Zentraler Layout-/Session-Store (v3) <span class="tag">Risiko: mittel</span></h3>
+    <p>Der Workspace-Store wird neu geschnitten: drei unabhängige Flächen (Sidebar, Terminal-Panel, Chat-Panel), Tab-Leiste mit Reihenfolge + aktivem Tab, Terminal-/Chat-Session-Registry. Persist-Migration v2 → v3, damit bestehende Nutzer offene Tabs und Panel-Zustände behalten. Neuer Unit-Test mit echten v2-Daten.</p>
+    <p class="files mono">apps/dashboard-frontend/src/stores/workspaceStore.ts · neu: src/stores/__tests__/workspaceStore.test.ts</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Shell-Gerüst neu (Raster, Toggles, Statusleiste)">
+    <h3>Schritt 2 — Shell-Gerüst neu (Raster, Toggles, Statusleiste) <span class="tag">Risiko: hoch</span></h3>
+    <p>WorkspaceShell nach Cursor-Raster: Activity Bar · Sidebar · Mitte · rechtes Panel · Statusleiste. Drei Layout-Toggles oben rechts neben ⚙ (mit Tooltips), der Chat-Toggle unten links wird entfernt. Panel-Breiten weiter über react-resizable-panels persistiert.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/{WorkspaceShell,WorkspaceMenuBar,ActivityBar}.tsx · neu: StatusBar.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Terminal-Konsolidierung (ein Mount)">
+    <h3>Schritt 3 — Terminal-Konsolidierung (ein Mount) <span class="tag">Risiko: hoch</span></h3>
+    <p>Die Terminal-App wird ausschließlich im rechten Panel gemountet; der Tab-Typ <code>sandbox</code> verlässt das Mitte-Tab-Universum. Keep-alive statt Unmount beim Toggeln, genau eine WebSocket-Verbindung pro Session, Terminal-Klick in der Activity Bar = Panel-Toggle. Dedup-Test beweist die Einzigkeit.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/TabContent.tsx · workspace/llm/LlmPanel.tsx · features/sandbox/{SandboxApp,SandboxTerminal,TerminalTabs}.tsx · features/sandbox/useTerminal.ts</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Extension-Gating n8n/Telegram">
+    <h3>Schritt 4 — Extension-Gating n8n/Telegram <span class="tag">Risiko: niedrig</span></h3>
+    <p>n8n- und Telegram-Einträge in der Activity Bar erscheinen nur bei installierter + aktivierter Extension — über das bestehende <code>useWorkspaceApps()</code>/<code>platform_apps</code>-Gating (APP_MANIFEST im Backend erweitern statt neuer Schicht). Aktivieren/Deaktivieren wirkt ohne Reload.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/ActivityBar.tsx · src/hooks/useWorkspaceApps.ts · apps/dashboard-backend/src/routes/workspaceApps.js</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Globale Kompakt-Skala (Design-Tokens)">
+    <h3>Schritt 5 — Globale Kompakt-Skala (Design-Tokens) <span class="tag">Risiko: niedrig</span></h3>
+    <p>Dichte-Tokens im Tailwind-<code>@theme</code> (13-px-Basistext, 4/8/12/16-px-Abstände, Zeilenhöhen) als verbindliche Skala; bestehende Text-/Spacing-Tokens werden erweitert, nicht ersetzt. Dokumentation im Design-System.</p>
+    <p class="files mono">apps/dashboard-frontend/src/index.css (@theme) · docs/development/DESIGN_SYSTEM.md</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Dashboard fluid (auto-fit-Grid)">
+    <h3>Schritt 6 — Dashboard fluid (auto-fit-Grid) <span class="tag">Risiko: mittel</span></h3>
+    <p>DashboardHome wechselt vom Legacy-CSS (<code>.dashboard-grid</code>/<code>.dashboard-card</code>, 8+ duplizierte Breakpoint-Blöcke) auf ein Tailwind-auto-fit-Grid in Kompakt-Dichte. Die Legacy-CSS-Blöcke werden vollständig entfernt. Kein Abschneiden, kein horizontales Scrollen — bei jeder Panel-Kombination.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/dashboard/DashboardHome.tsx · src/index.css (Legacy-Blöcke ~2231–3452 entfernen)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Extensions als kompakte Liste">
+    <h3>Schritt 7 — Extensions als kompakte Liste <span class="tag">Risiko: niedrig</span></h3>
+    <p>Die Extensions-Ansicht (früherer Store) wird von 320-px-Karten auf kompakte Listenzeilen (~32 px: Icon, Name, Kurzbeschreibung, Install/Aktiv-Schalter) umgestellt; Details erst bei Klick.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/store/StoreApps.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Tests & e2e-Anpassung">
+    <h3>Schritt 8 — Tests &amp; e2e-Anpassung <span class="tag">Risiko: mittel</span></h3>
+    <p>Bestehende Workspace-/Sandbox-Unit-Tests an die neue Struktur anpassen; die 9 e2e-Specs (Legacy-Routen) bleiben lauffähig, neue Playwright-Specs bilden die Matrix-Kernfälle ab (Panel-Kombinationen, Terminal-Toggle, Extension-Gating, Tab-Restore).</p>
+    <p class="files mono">apps/dashboard-frontend/src/**/__tests__/ · apps/dashboard-frontend/e2e/*.spec.ts · neu: e2e/workspace-shell.spec.ts</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Docs-Sync + Aufräumen">
+    <h3>Schritt 9 — Docs-Sync + Aufräumen <span class="tag">Risiko: niedrig</span></h3>
+    <p>Verwaiste Alt-Komponenten der Workspace-Shell löschen (kein toter Code im PR), Doku synchronisieren: Design-System (Kompakt-Skala), API-Referenz (falls Backend-Änderungen), Admin-Handbuch (neues Shell-Verhalten), Frontend-CLAUDE.md (Shell-Beschreibung).</p>
+    <p class="files mono">docs/development/DESIGN_SYSTEM.md · docs/api/API_REFERENCE.md · docs/ops/ADMIN_HANDBUCH.md · apps/dashboard-frontend/CLAUDE.md</p>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Zwölf messbare Kriterien — von „genau eine Terminal-WebSocket“ bis „Matrix grün bei 0 Konsolenfehlern“.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Das Terminal erscheint ausschließlich im rechten Panel; der Terminal-Klick in der Activity Bar toggelt nur das Panel — ein Terminal-Tab in der Mitte existiert nicht mehr, auch nicht nach Reload.</li>
+    <li data-done="false">Pro Terminal-Session besteht genau eine WebSocket-Verbindung (Dedup-Unit-Test + Netzwerk-Check im Browser).</li>
+    <li data-done="false">Eine laufende Terminal-Session überlebt Panel-Toggle und Ansichtswechsel (laufender Prozess läuft sichtbar weiter).</li>
+    <li data-done="false">n8n und Telegram erscheinen links nur bei installierter + aktivierter Extension; Deaktivieren entfernt den Eintrag ohne Reload, Aktivieren fügt ihn ohne Reload hinzu.</li>
+    <li data-done="false">Der Chat-Toggle unten links existiert nicht mehr; drei Layout-Toggles oben rechts (Sidebar / Terminal / Chat) funktionieren unabhängig und zeigen Tooltips.</li>
+    <li data-done="false">Tab-Leiste in der Mitte: mehrere Tabs gleichzeitig offen, schließbar, stabile Reihenfolge; nach Reload werden Tabs und aktiver Tab wiederhergestellt.</li>
+    <li data-done="false">Das Dashboard passt sich jeder Containerbreite an: kein horizontales Scrollen, nichts abgeschnitten — in allen 4 Auflösungen × allen Panel-Kombinationen.</li>
+    <li data-done="false">Die Extensions-Ansicht ist eine kompakte Liste (~32-px-Zeilen) mit Detailansicht per Klick.</li>
+    <li data-done="false">Alle Ansichten nutzen die Kompakt-Skala (13-px-Basis, Token-Abstände); keine Ansicht wirkt sichtbar größer skaliert als der Rest.</li>
+    <li data-done="false">Bestehende Nutzer verlieren beim Update weder offene Tabs noch Panel-Zustände (persist-Migration v2 → v3, per Test belegt).</li>
+    <li data-done="false">Backend- und Frontend-Testsuiten (<code>run-tests.sh --all</code>) sowie die angepassten e2e-Specs sind grün.</li>
+    <li data-done="false">Die volle Playwright-Matrix auf dem Jetson ist grün: alle E2E-Flows (Login, Chat senden, Terminal-Befehl, Extension-Toggle, Upload) funktionieren, 0 Konsolenfehler.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Branch-Deploy mit Backup-Tag, volle Playwright-Matrix im echten Browser — gemergt wird erst nach Grün.</span>
+  </summary>
+  <div class="sbody">
+  <h3>Vorgehen (vor dem Merge)</h3>
+  <ol>
+    <li>Auf dem Jetson (<code>/home/arasul/arasul/arasul-jet</code>): <code>git tag -f backup-002 HEAD</code>, dann Branch auschecken und <code>docker compose up -d --build dashboard-backend dashboard-frontend</code>.</li>
+    <li>Health-Gate: alle Container healthy (<code>docker compose ps</code>), HTTPS 200 auf <code>https://192.168.0.197/</code> bzw. <code>https://100.121.244.80/</code> (Traefik braucht nach Frontend-Neustart ~30 s Warmup).</li>
+    <li>Temporären Test-Admin nach dokumentierter Prozedur anlegen (bcrypt-Hash im Backend-Container, SQL per stdin) — wird nach dem Lauf wieder gelöscht.</li>
+  </ol>
+  <h3>Playwright-Matrix (im echten Browser gegen das Gerät)</h3>
+  <ul>
+    <li><strong>Ansichten:</strong> Dashboard, Chat, Extensions, Einstellungen, Explorer, n8n (bei aktiver Extension), Terminal-Panel.</li>
+    <li><strong>Panel-Kombinationen:</strong> Sidebar auf/zu × Chat auf/zu × Terminal auf/zu (8 Zustände).</li>
+    <li><strong>Auflösungen:</strong> 1024×768, 1280×800, 1440×900, 1920×1080 — Screenshot je Zustand, Prüfung auf horizontales Scrollen/Abschneiden.</li>
+    <li><strong>E2E-Flows:</strong> Login → Chat-Nachricht senden (Streaming-Antwort) → Terminal-Befehl ausführen → Panel toggeln (Prozess läuft weiter) → Extension deaktivieren/aktivieren (Activity-Bar-Eintrag verschwindet/erscheint) → Datei-Upload im Explorer → Reload (Tabs wiederhergestellt).</li>
+    <li><strong>Konsole &amp; Netzwerk:</strong> 0 Konsolenfehler über alle Läufe; genau eine Terminal-WebSocket-Verbindung.</li>
+  </ul>
+  <h3>Logs &amp; Abschluss</h3>
+  <p><code>docker compose logs dashboard-backend</code> und <code>traefik</code> auf Fehler prüfen. Erst wenn Matrix und Health-Gate grün sind, wird der PR gemergt; danach Gerät zurück auf <code>main</code>, Rebuild und ein abschließender Smoke-Lauf.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größte Gefahren: Terminal-Regression, State-Verlust, stiller e2e-Bruch — Rollback über Backup-Tag bzw. Revert.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Terminal-Doppelung kehrt in neuer Form zurück (zweiter Mount irgendwo)</td><td>mittel</td><td>Dedup-Test (genau 1 WebSocket/xterm pro Session), Review-Gate, Matrix-Flow „Terminal öffnen → toggeln → Reload“</td></tr>
+      <tr><td>Nutzer verlieren offene Tabs/Panel-Zustand durch den Store-Umbau</td><td>mittel</td><td>persist-Migration v2 → v3 mit Unit-Test auf echten v2-Daten</td></tr>
+      <tr><td>Die 9 Legacy-e2e-Specs brechen still (Frontend-CI ist bewusst advisory)</td><td>hoch</td><td>Specs im selben PR anpassen und lokal ausführen; advisory-Status bleibt unangetastet (Auto-Merge-Pipeline)</td></tr>
+      <tr><td>Legacy-CSS-Reste (<code>.dashboard-grid</code> u. a.) kollidieren mit dem neuen Grid</td><td>mittel</td><td>Legacy-Blöcke vollständig entfernen statt überschreiben; Screenshot-Matrix deckt alle Auflösungen ab</td></tr>
+      <tr><td>CSRF/Upload-Regression im Explorer-Flow (vgl. Fix #185)</td><td>niedrig</td><td>Header-Logik nicht anfassen; Upload ist Pflicht-Flow in der E2E-Matrix</td></tr>
+      <tr><td>Big-Bang-Diff zu groß für sauberes Review</td><td>hoch</td><td>Adversarialer Multi-Agent-Review vor dem Merge; hartes Gate: Matrix auf dem Gerät muss grün sein</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Vor dem Branch-Checkout auf dem Jetson wird <code>backup-002</code> getaggt; schlägt Health-Gate oder Matrix fehl, geht das Gerät sofort per Checkout + Rebuild auf diesen Stand zurück — gemergt wird nur nach Grün. Nach dem Merge gilt: <code>git revert</code> des Merge-Commits + Rebuild. Eine DB-Migration ist voraussichtlich nicht nötig; falls doch (Nr. 101), ist sie additiv und idempotent, sodass ein Frontend-Rollback ohne Down-Migration gefahrlos bleibt. Der Layout-State im Browser migriert nur vorwärts (v3); bei einem Rollback startet die alte Shell mit Default-Layout — verloren gehen höchstens Fensterzustände, keine Daten.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 16 Interview-Entscheidungen aus 4 Runden, plus Chat-Vorabfreigabe und eine autonome Scope-Präzisierung.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Leitbild der Shell</td><td>Cursor-Layout konsequent</td><td>Ein verbindliches Raster (Activity Bar · Sidebar · Tabs · Panel · Statusleiste) für alle Ansichten</td></tr>
+      <tr><td>Terminal-Klick in der Activity Bar</td><td>Nur Panel-Toggle</td><td>Terminal nie in der Mitte; Tab-Typ <code>sandbox</code> verlässt das Tab-Universum</td></tr>
+      <tr><td>Sichtbarkeit n8n/Telegram</td><td>Nur wenn installiert + aktiviert</td><td>Gating über <code>platform_apps</code>; Muster für alle künftigen Extensions</td></tr>
+      <tr><td>Scope-Grenze</td><td>Shell komplett neu bauen</td><td>Neubau statt Flickwerk; alte Shell-Komponenten werden im selben PR gelöscht</td></tr>
+      <tr><td>Layout-Shortcuts</td><td>Oben rechts wie Cursor</td><td>Drei Toggles neben ⚙; Chat-Toggle unten links entfällt ersatzlos</td></tr>
+      <tr><td>Dashboard-Darstellung</td><td>Fluider Mitte-Tab</td><td>auto-fit-Grid, kein horizontales Scrollen, keine festen Breiten</td></tr>
+      <tr><td>Extensions-Seite</td><td>Kompakte Liste im Tab</td><td>~32-px-Zeilen, Detailansicht per Klick</td></tr>
+      <tr><td>UI-Dichte</td><td>Globale Kompakt-Skala</td><td>Design-Tokens (13-px-Basis) verbindlich für alle Ansichten</td></tr>
+      <tr><td>Auslieferung</td><td>Ein großer PR (Big Bang)</td><td>Keine Zwischenzustände auf <code>main</code>; Gate = Geräte-Verify vor dem Merge</td></tr>
+      <tr><td>Risiko kritische Pfade</td><td>Auch Logik anfassen</td><td>Chat-/Terminal-State darf modernisiert werden; Absicherung über die volle Matrix</td></tr>
+      <tr><td>Verifikations-Umfang</td><td>Volle Matrix</td><td>4 Auflösungen × 8 Panel-Kombinationen × Hauptansichten + E2E-Flows</td></tr>
+      <tr><td>„Fertig heißt“</td><td>Cursor-Feeling, live verifiziert</td><td>Abnahme nur nach Geräte-Verify; alte Shell weg</td></tr>
+      <tr><td>Logik-Tiefe</td><td>Auch Backend-Anpassungen</td><td>APP_MANIFEST/Session-Endpoints dürfen angepasst werden (asyncHandler + Custom Errors)</td></tr>
+      <tr><td>Activity-Bar-Einträge</td><td>Explorer, Chats, Dashboard, Extensions</td><td>Plus dynamische Extension-Einträge (n8n, Telegram)</td></tr>
+      <tr><td>Absicherung Big Bang</td><td>Backup-Tag + Branch-Verify</td><td>Merge erst nach grüner Matrix auf dem Gerät; Rollback = Tag-Checkout bzw. Revert</td></tr>
+      <tr><td>Mitte-Tabs</td><td>Echte Tab-Leiste</td><td>Mehrere Tabs, schließbar, Restore nach Reload</td></tr>
+      <tr><td>Freigabe</td><td>Im Chat vorab erteilt (13.07.2026: „autonom ausführen, alles soll stehen“)</td><td>Plan gilt als approved; Umsetzung startet ohne weiteres Gate; Seiten-Notizen bleiben verbindlich</td></tr>
+      <tr><td>Legacy-Ansichten (autonome Präzisierung)</td><td>Bleiben unangetastet</td><td>„Shell“ = Workspace-Shell; Entfernung der Legacy-Routen als offene Frage 1 an dich</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 002 · erstellt am 2026-07-13 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/002-cursor-shell-neubau.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"))
+    .filter(function (el) { return !el.classList.contains("oq-item"); });
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // open-question answers first
+    document.querySelectorAll(".oq-item").forEach(function (q) {
+      var ta = q.querySelector("textarea");
+      if (ta) out.push({ ref: q.dataset.ref + ": " + (q.querySelector("p") ? q.querySelector("p").textContent.trim() : ""), text: ta.value, oq: true, key: q.dataset.ref });
+    });
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list.filter(function (c) { return !c.oq || c.text.trim(); }));
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.value = ""; });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // wire open-question textareas + restore persisted state
+  document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.addEventListener("input", persist); });
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var oq = document.querySelector('.oq-item[data-ref="' + c.key + '"]');
+    if (oq) {
+      var ta = oq.querySelector("textarea");
+      if (ta && !ta.value) ta.value = c.text;
+      return;
+    }
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
