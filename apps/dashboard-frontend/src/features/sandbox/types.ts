@@ -1,5 +1,13 @@
 /** Sandbox feature types */
 
+/**
+ * Netzwerk-/Berechtigungsmodus eines Sandbox-Projekts (Migration 100):
+ * - isolated: Bridge, nur Internet — DSGVO-saubere Testumgebung
+ * - internal: Backend-Netz (LLM, Qdrant, DB)
+ * - infrastructure: wie internal + Plattform-Repo rw + Docker-Socket (nur Admin)
+ */
+export type SandboxNetworkMode = 'isolated' | 'internal' | 'infrastructure';
+
 export interface SandboxProject {
   id: string;
   name: string;
@@ -19,7 +27,7 @@ export interface SandboxProject {
   environment: Record<string, string> | null;
   installed_packages: string[] | null;
   last_accessed_at: string | null;
-  network_mode: 'isolated' | 'internal';
+  network_mode: SandboxNetworkMode;
   total_terminal_seconds: number;
   created_at: string;
   updated_at: string;

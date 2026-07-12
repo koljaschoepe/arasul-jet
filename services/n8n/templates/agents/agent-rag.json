@@ -1,0 +1,159 @@
+{
+  "name": "[Vorlage] Agent — RAG (Qdrant Wissensbasis)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## [Vorlage] RAG-Agent (Qdrant)\n\n**Vor dem ersten Lauf:**\n1. Ollama-Credential anlegen: Base URL `http://llm-service:11434`, in beiden Ollama-Nodes auswählen.\n2. Qdrant-Credential anlegen: *QdrantApi* → URL `http://qdrant:6333` (API-Key leer lassen).\n3. Im Node »Qdrant Wissensbasis (Tool)« den Collection-Namen `MEINE_COLLECTION` durch eine echte Collection ersetzen.\n4. Embedding-Modell ziehen: `docker exec llm-service ollama pull bge-m3`.\n\n**WICHTIG — Embedding-Kompatibilität:**\nDie Suche funktioniert nur gegen Collections, deren Vektoren mit **demselben** Embedding-Modell erzeugt wurden wie hier konfiguriert (`bge-m3` via Ollama, 1024 Dimensionen). Die Plattform-Collection des Dokument-Indexers nutzt BGE-M3 über den separaten embedding-service — gleiche Modellfamilie/Dimension, aber vor produktiver Nutzung gegen die eigene Collection verifizieren (Score-Stichprobe). Für eine eigene Wissensbasis: Collection mit diesem Workflow-Setup befüllen (Insert-Mode des Qdrant-Nodes) — dann passt es garantiert.\n\nDetails: docs/integrations/N8N_AGENTS.md",
+        "height": 560,
+        "width": 440,
+        "color": 5
+      },
+      "id": "sticky-setup-rag",
+      "name": "Sticky Note — Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-180, 40]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "chat-trigger-rag",
+      "name": "Beim Chat-Empfang",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [320, 240],
+      "webhookId": "arasul-vorlage-rag-chat"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Du bist ein Assistent mit Zugriff auf eine lokale Wissensbasis (Qdrant-Vektordatenbank auf einer Arasul-Appliance, alles on-device).\n\nDein Werkzeug:\n- wissensbasis_suche: semantische Suche in der Wissensbasis. Übergib eine präzise, eigenständige Suchanfrage (keine Pronomen, keine Bezüge auf den Chatverlauf).\n\nArbeitsweise:\n1. Suche IMMER zuerst in der Wissensbasis, bevor du antwortest; formuliere die Suchanfrage ggf. um und suche erneut, wenn die Treffer nicht passen.\n2. Antworte NUR auf Basis der gefundenen Passagen. Wenn die Wissensbasis nichts Passendes enthält, sage das ehrlich — erfinde keine Inhalte.\n3. Nenne am Ende kurz, auf welche Fundstellen (Metadaten/Quelle der Treffer) sich deine Antwort stützt.\n4. Antworte auf Deutsch."
+        }
+      },
+      "id": "agent-rag-1",
+      "name": "RAG-Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [620, 240]
+    },
+    {
+      "parameters": {
+        "model": "qwen3:8b",
+        "options": {
+          "temperature": 0.2,
+          "numCtx": 32768
+        }
+      },
+      "id": "ollama-lm-rag",
+      "name": "Ollama Chat Model (qwen3:8b)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [500, 480],
+      "credentials": {
+        "ollamaApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Ollama (llm-service)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "wissensbasis_suche",
+        "toolDescription": "Semantische Suche in der lokalen Wissensbasis (Qdrant). Eingabe: eine präzise, eigenständige Suchanfrage in natürlicher Sprache. Liefert die relevantesten Textpassagen mit Metadaten zurück.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "MEINE_COLLECTION",
+          "mode": "id"
+        },
+        "topK": 4,
+        "options": {}
+      },
+      "id": "qdrant-tool-1",
+      "name": "Qdrant Wissensbasis (Tool)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [760, 480],
+      "credentials": {
+        "qdrantApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Qdrant (qdrant:6333)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "bge-m3"
+      },
+      "id": "ollama-embed-1",
+      "name": "Ollama Embeddings (bge-m3)",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [760, 700],
+      "credentials": {
+        "ollamaApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Ollama (llm-service)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Beim Chat-Empfang": {
+      "main": [
+        [
+          {
+            "node": "RAG-Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model (qwen3:8b)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "RAG-Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Wissensbasis (Tool)": {
+      "ai_tool": [
+        [
+          {
+            "node": "RAG-Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Embeddings (bge-m3)": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Wissensbasis (Tool)",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "id": "arasul-vorlage-agent-rag",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [{ "name": "arasul-vorlage" }]
+}

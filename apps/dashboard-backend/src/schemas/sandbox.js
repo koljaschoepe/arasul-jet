@@ -13,10 +13,12 @@ const ResourceLimits = z
 
 const EnvironmentMap = z.record(z.string(), z.string()).optional();
 
-// Muss zu sandboxService/DB passen (Migration 074): 'isolated' (bridge, nur
-// Internet) oder 'internal' (Backend-Netz mit LLM/DB-Zugriff). Die alten
-// Docker-Level-Werte hier blockierten jede Projekt-Anlage mit Netzwerkwahl.
-const NetworkMode = z.enum(['isolated', 'internal']).optional();
+// Muss zu sandboxService/DB passen (Migrationen 074 + 100): 'isolated'
+// (bridge, nur Internet), 'internal' (Backend-Netz mit LLM/DB-Zugriff) oder
+// 'infrastructure' (wie internal + Plattform-Repo rw + Docker-Socket — nur
+// Admin-Rolle, Durchsetzung in sandboxService). Die alten Docker-Level-Werte
+// hier blockierten jede Projekt-Anlage mit Netzwerkwahl.
+const NetworkMode = z.enum(['isolated', 'internal', 'infrastructure']).optional();
 
 const CreateProjectBody = z
   .object({

@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Folder, AlertCircle, Save } from 'lucide-react';
+import { Folder, AlertCircle, Save, ShieldAlert } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
-import type { SandboxProject } from './types';
+import type { SandboxProject, SandboxNetworkMode } from './types';
 
 interface CreateProjectDialogProps {
   open: boolean;
@@ -29,7 +29,7 @@ export default function CreateProjectDialog({
   const toast = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [networkMode, setNetworkMode] = useState<'isolated' | 'internal'>('isolated');
+  const [networkMode, setNetworkMode] = useState<SandboxNetworkMode>('isolated');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -158,7 +158,7 @@ export default function CreateProjectDialog({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label>Netzwerk</Label>
+          <Label>Netzwerk &amp; Berechtigungen</Label>
           <div className="flex gap-2">
             <button
               type="button"
@@ -189,6 +189,33 @@ export default function CreateProjectDialog({
               </div>
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setNetworkMode('infrastructure')}
+            className={`px-3 py-2 rounded-md border text-xs text-left transition-colors ${
+              networkMode === 'infrastructure'
+                ? 'border-destructive bg-destructive/10 text-destructive'
+                : 'border-border bg-muted text-muted-foreground hover:border-destructive/50'
+            }`}
+          >
+            <div className="font-medium flex items-center gap-1.5">
+              <ShieldAlert className="size-3.5 shrink-0" />
+              Infrastruktur
+            </div>
+            <div className="text-[10px] opacity-70 mt-0.5">
+              Voller Zugriff auf Plattform-Repo (beschreibbar) und Docker — die KI kann damit die
+              laufende Arasul-Plattform selbst verändern. Nur für Administratoren.
+            </div>
+          </button>
+          {networkMode === 'infrastructure' && (
+            <div className="flex items-start gap-2 p-2.5 bg-destructive/10 border border-destructive/30 rounded-md text-[11px] text-destructive">
+              <ShieldAlert className="size-3.5 shrink-0 mt-0.5" />
+              <span>
+                Achtung: Dieser Modus entspricht faktisch Host-Vollzugriff (Repo rw +
+                Docker-Socket). Anlage wird protokolliert und ist der Admin-Rolle vorbehalten.
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border/50 text-xs text-muted-foreground">

@@ -146,35 +146,40 @@ describe('Settings integration', () => {
     });
   });
 
-  it('shows theme toggle in General settings', async () => {
-    renderSettings({ theme: 'dark' });
+  it('shows the three theme options in General settings (black checked by default)', async () => {
+    localStorage.removeItem('arasul_theme');
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByText('Erscheinungsbild')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Dunkler Modus/)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Schwarz/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /Dunkel/ })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: /Hell/ })).not.toBeChecked();
   });
 
-  it('calls onToggleTheme when theme switch is clicked', async () => {
+  it('selecting a theme option applies theme and persists it', async () => {
     const user = userEvent.setup();
-    const onToggleTheme = vi.fn();
-    renderSettings({ onToggleTheme });
+    renderSettings();
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/theme umschalten/i)).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /Hell/ })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByLabelText(/theme umschalten/i));
+    await user.click(screen.getByRole('radio', { name: /Hell/ }));
 
-    expect(onToggleTheme).toHaveBeenCalled();
+    expect(localStorage.getItem('arasul_theme')).toBe('light');
+    expect(document.documentElement.classList.contains('light')).toBe(true);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 
-  it('shows light mode label when theme is light', async () => {
-    renderSettings({ theme: 'light' });
+  it('shows light option checked when stored theme is light', async () => {
+    localStorage.setItem('arasul_theme', 'light');
+    renderSettings();
 
     await waitFor(() => {
-      expect(screen.getByText(/Heller Modus/)).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /Hell/ })).toBeChecked();
     });
   });
 

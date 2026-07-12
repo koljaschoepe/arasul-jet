@@ -1811,6 +1811,20 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ---
 
+## `platform_apps`
+
+> Kuratierte Plattform-Apps (Extensions-Tab) an-/abschaltbar. Seed: `n8n`, `telegram`, `database` (Migration 100).
+
+| Column       | Type                     | Nullable | Default |
+| ------------ | ------------------------ | -------- | ------- |
+| `id`         | text                     | ⛔       |         |
+| `enabled`    | boolean                  | ⛔       | `true`  |
+| `updated_at` | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `id`
+
+---
+
 ## `projects`
 
 | Column               | Type                     | Nullable | Default                        |
@@ -1958,6 +1972,10 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 | `user_id`                | integer                  | ✅       |                                            |
 
 **Primary key:** `id`
+
+**Check constraints:**
+
+- `sandbox_projects_network_mode_check` — `CHECK (network_mode IN ('isolated', 'internal', 'infrastructure'))` (Migration 100; `infrastructure` = Backend-Netz + Plattform-Repo rw + Docker-Socket, nur Admin-Rolle)
 
 **Foreign Keys:**
 

@@ -70,26 +70,30 @@ For this to work end-to-end, three things must be aligned:
 
 The compose-level hardening for n8n is set in `compose/compose.app.yaml` and validated against the [n8n hardening guide](https://docs.n8n.io/hosting/securing/overview/):
 
-| Variable                                | Value             | Rationale                                                                                                    |
-| --------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| `N8N_BLOCK_ENV_ACCESS_IN_NODE`          | `true`            | Code/Function nodes cannot read `process.env`. Closes a credential-leak path via Code node.                  |
-| `N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES`    | `true`            | Code nodes cannot read n8n's own config / encryption-key file.                                               |
-| `N8N_RESTRICT_FILE_ACCESS_TO`           | `/home/node/.n8n` | Code nodes can only see a single whitelisted directory.                                                      |
-| `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS` | `true`            | n8n enforces 0600 on its own settings file.                                                                  |
-| `N8N_GIT_NODE_DISABLE_BARE_REPOS`       | `true`            | Git node hardening (prevents bare-repo pivot attacks).                                                       |
-| `N8N_PAYLOAD_SIZE_MAX`                  | `8` (MiB)         | Default 16 — reduced for DoS mitigation. 8 MiB is plenty for stock connectors; raise per-customer if needed. |
-| `N8N_DEFAULT_BINARY_DATA_MODE`          | `filesystem`      | Large attachments stay on disk, not in RAM. The Jetson has finite memory.                                    |
-| `N8N_PROXY_HOPS`                        | `1`               | n8n recognises Traefik as exactly one trusted proxy.                                                         |
-| `N8N_DIAGNOSTICS_ENABLED`               | `false`           | GDPR — no telemetry to n8n.io.                                                                               |
-| `N8N_VERSION_NOTIFICATIONS_ENABLED`     | `false`           | Not a security control, but reduces network noise.                                                           |
-| `N8N_HIRING_BANNER_ENABLED`             | `false`           | Customer-facing UI, no n8n-recruiter banners.                                                                |
+| Variable                                | Value                   | Rationale                                                                                                    |
+| --------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `N8N_BLOCK_ENV_ACCESS_IN_NODE`          | `true`                  | Code/Function nodes cannot read `process.env`. Closes a credential-leak path via Code node.                  |
+| `N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES`    | `true`                  | Code nodes cannot read n8n's own config / encryption-key file.                                               |
+| `N8N_RESTRICT_FILE_ACCESS_TO`           | `/data/agent-workspace` | File nodes only see the shared agent-workspace volume (details: [N8N_AGENTS.md](N8N_AGENTS.md)).             |
+| `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS` | `true`                  | n8n enforces 0600 on its own settings file.                                                                  |
+| `N8N_GIT_NODE_DISABLE_BARE_REPOS`       | `true`                  | Git node hardening (prevents bare-repo pivot attacks).                                                       |
+| `N8N_PAYLOAD_SIZE_MAX`                  | `8` (MiB)               | Default 16 — reduced for DoS mitigation. 8 MiB is plenty for stock connectors; raise per-customer if needed. |
+| `N8N_DEFAULT_BINARY_DATA_MODE`          | `filesystem`            | Large attachments stay on disk, not in RAM. The Jetson has finite memory.                                    |
+| `N8N_PROXY_HOPS`                        | `1`                     | n8n recognises Traefik as exactly one trusted proxy.                                                         |
+| `N8N_DIAGNOSTICS_ENABLED`               | `false`                 | GDPR — no telemetry to n8n.io.                                                                               |
+| `N8N_VERSION_NOTIFICATIONS_ENABLED`     | `false`                 | Not a security control, but reduces network noise.                                                           |
+| `N8N_HIRING_BANNER_ENABLED`             | `false`                 | Customer-facing UI, no n8n-recruiter banners.                                                                |
+| `N8N_TEMPLATES_ENABLED`                 | `false`                 | No template-store call-outs to api.n8n.io (GDPR / offline).                                                  |
+| `N8N_RUNNERS_MODE`                      | `external`              | Code nodes execute in the `n8n-runners` sidecar, not in the n8n main process.                                |
+| `N8N_SSRF_PROTECTION_ENABLED`           | `true`                  | HTTP nodes cannot reach RFC1918/loopback/link-local; internal services via explicit hostname allowlist.      |
+| `N8N_DISABLED_MODULES`                  | `mcp`                   | Instance-wide MCP server hard-disabled (MCP _client_ tool node still works).                                 |
 
-What's **not** enforced yet (tracked in `docs/plans/archive/2026-07-02_external-integrations.md`):
-
-- Execution-data retention / pruning — **Phase 3** of the integrations plan. Today executions are kept indefinitely. DSGVO-relevant.
-- Community packages disabled (`N8N_COMMUNITY_PACKAGES_ENABLED=false`) — **Phase 3**. Today an admin user inside n8n can install arbitrary community nodes, which run as full n8n privileges.
-- External task runners (`N8N_RUNNERS_MODE=external`) — **deferred** to the 2.x migration phase.
-- SSRF block-list for HTTP Request node — n8n's SSRF protection requires per-credential `allowedDomains`. Without it, a workflow author can hit `127.0.0.1` and other internal services. Document this in the customer's onboarding checklist.
+Since the 2.x upgrade the former backlog items are enforced: execution-data
+retention/pruning, `N8N_COMMUNITY_PACKAGES_ENABLED=false`, external task
+runners and instance-wide SSRF protection are all active in
+`compose/compose.app.yaml`. Agent-specific hardening (task-runner sidecar,
+agent workspace, SSRF allowlist rationale) is documented in
+**[N8N_AGENTS.md](N8N_AGENTS.md)**.
 
 ---
 
@@ -109,27 +113,31 @@ Run all three after every n8n image bump to catch regressions.
 
 ## 7. Common failure modes
 
-| Symptom                                                          | Likely cause                                                                                                                      |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| OAuth flow redirects to `https://localhost/...`                  | `PUBLIC_URL` / `N8N_EXTERNAL_URL` not set in `.env`.                                                                              |
-| OAuth provider returns "redirect_uri_mismatch"                   | The exact callback URL is not whitelisted in the provider's developer console.                                                    |
-| Webhook returns 404                                              | Workflow not active, or `WEBHOOK_URL` env not set so n8n didn't generate the URL.                                                 |
-| Webhook returns 503 Cloudflare                                   | Cloudflare BotFightMode treats Telegram/Stripe IPs as bots. Add a path-based bypass for `/webhook/*`.                             |
-| `Generated encryption key` warning in n8n logs on first boot     | `n8n_encryption_key` Docker secret not mounted. Check `compose.secrets.yaml`.                                                     |
-| Internal HTTP Request to `http://postgres-db:5432/` returns data | SSRF protection allowlist not configured. n8n SSRF protection is **opt-in per credential**. Document this in customer onboarding. |
+| Symptom                                                       | Likely cause                                                                                                                                                                      |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OAuth flow redirects to `https://localhost/...`               | `PUBLIC_URL` / `N8N_EXTERNAL_URL` not set in `.env`.                                                                                                                              |
+| OAuth provider returns "redirect_uri_mismatch"                | The exact callback URL is not whitelisted in the provider's developer console.                                                                                                    |
+| Webhook returns 404                                           | Workflow not active, or `WEBHOOK_URL` env not set so n8n didn't generate the URL.                                                                                                 |
+| Webhook returns 503 Cloudflare                                | Cloudflare BotFightMode treats Telegram/Stripe IPs as bots. Add a path-based bypass for `/webhook/*`.                                                                             |
+| `Generated encryption key` warning in n8n logs on first boot  | `n8n_encryption_key` Docker secret not mounted. Check `compose.secrets.yaml`.                                                                                                     |
+| HTTP Request to an internal host fails with "Request blocked" | Instance-wide SSRF protection (`N8N_SSRF_PROTECTION_ENABLED=true`) is working as intended. Legitimate internal targets belong in `N8N_SSRF_ALLOWED_HOSTNAMES` (compose.app.yaml). |
+| Code node hangs / "no task runner available"                  | `n8n-runners` sidecar down or auth-token mismatch — see [N8N_AGENTS.md](N8N_AGENTS.md) §Troubleshooting.                                                                          |
 
 ---
 
 ## 8. Where things live in the repo
 
-| File                                                     | Purpose                                                                    |
-| -------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `compose/compose.app.yaml` (n8n service)                 | Runtime env-vars, hardening flags, port bindings.                          |
-| `compose/compose.secrets.yaml` (n8n section)             | Mounts the `n8n_encryption_key` Docker secret.                             |
-| `services/n8n/Dockerfile`                                | Pinned n8n version, custom-node compilation, entrypoint shim.              |
-| `services/n8n/entrypoint.sh`                             | Resolves the encryption-key Docker secret into env at boot.                |
-| `config/traefik/dynamic/routes.yml`                      | `/n8n` (forward-auth + strip-prefix), `/webhook/*` (rate-limited, unauth). |
-| `config/traefik/dynamic/middlewares.yml`                 | `rate-limit-n8n`, `strip-n8n-prefix`, `forward-auth`.                      |
-| `config/traefik/dynamic/websockets.yml`                  | `/n8n-websocket` route for the editor's live updates.                      |
-| `services/n8n/templates/smoketests/*.json`               | Reference workflows for post-deploy verification.                          |
-| `docs/plans/archive/2026-07-02_external-integrations.md` | Full hardening roadmap.                                                    |
+| File                                                     | Purpose                                                                                            |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `compose/compose.app.yaml` (n8n + n8n-runners)           | Runtime env-vars, hardening flags, task-runner sidecar, agent-workspace volume.                    |
+| `compose/compose.secrets.yaml` (n8n section)             | Mounts the `n8n_encryption_key` + `n8n_runners_auth_token` Docker secrets.                         |
+| `services/n8n/Dockerfile`                                | Pinned n8n version (must match the `n8nio/runners` tag), custom-node compilation, entrypoint shim. |
+| `services/n8n/entrypoint.sh`                             | Resolves the encryption-key + runners-auth-token Docker secrets into env at boot.                  |
+| `config/traefik/dynamic/routes.yml`                      | `/n8n` (forward-auth + strip-prefix), `/webhook/*` (rate-limited, unauth).                         |
+| `config/traefik/dynamic/middlewares.yml`                 | `rate-limit-n8n`, `strip-n8n-prefix`, `forward-auth`.                                              |
+| `config/traefik/dynamic/websockets.yml`                  | `/n8n-websocket` route for the editor's live updates.                                              |
+| `services/n8n/templates/smoketests/*.json`               | Reference workflows for post-deploy verification.                                                  |
+| `services/n8n/templates/agents/*.json`                   | Agent workflow templates (import: `scripts/util/n8n-import-templates.sh`).                         |
+| `docs/integrations/N8N_AGENTS.md`                        | Agent workflows, task-runner architecture, upgrade/backup/rollback.                                |
+| `docs/legal/N8N_LIZENZ.md`                               | Sustainable-Use-License assessment + mandatory pre-sales gate.                                     |
+| `docs/plans/archive/2026-07-02_external-integrations.md` | Full hardening roadmap.                                                                            |

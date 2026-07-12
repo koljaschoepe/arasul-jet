@@ -113,33 +113,35 @@
 
 :root {
   /* ========================================
-     shadcn/ui Semantic Colors (Dark Theme)
-     These drive shadcn component styling.
+     shadcn/ui Semantic Colors — Theme »Schwarz« (Default)
+     Cursor-Prinzip: zwei Hintergrundstufen (Chrome vs. Fläche),
+     EINE Border-Farbe mit niedriger Alpha, Hover als Weiß-Alpha,
+     Akzent (gedämpftes Graublau) nur für Primäraktionen.
+     Weitere Themes: [data-theme="dark"] + .light weiter unten.
      ======================================== */
-  --radius: 0.75rem;
-  --background: #101923;
-  --foreground: #f8fafc;
-  --card: #1a2330;
-  --card-foreground: #f8fafc;
-  --popover: #1a2330;
-  --popover-foreground: #f8fafc;
-  --primary: #45ADFF;
-  --primary-foreground: #000000;
-  --secondary: #1d2835;
-  --secondary-foreground: #f8fafc;
-  --muted: #1d2835;
-  --muted-foreground: #94a3b8;
-  --accent: #222d3d;
-  --accent-foreground: #f8fafc;
+  --background: #0A0A0A;
+  --foreground: #e6e6e6;
+  --card: #121212;
+  --card-foreground: #e6e6e6;
+  --popover: #161616;
+  --popover-foreground: #e6e6e6;
+  --primary: #81A1C1;
+  --primary-foreground: #0A0A0A;
+  --secondary: #161616;
+  --secondary-foreground: #e6e6e6;
+  --muted: #161616;
+  --muted-foreground: rgba(228, 228, 228, 0.55); /* ≈ #8f8f8f */
+  --accent: rgba(228, 228, 228, 0.07); /* hover wash, ≈ #1a1a1a on #0A0A0A */
+  --accent-foreground: #e6e6e6;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
   --success: #10B981;
   --success-foreground: #FFFFFF;
   --warning: #F59E0B;
-  --warning-foreground: #1A2330;
-  --border: #2a3544;
-  --input: #2a3544;
-  --ring: #45ADFF;
+  --warning-foreground: #121212;
+  --border: rgba(228, 228, 228, 0.08);
+  --input: rgba(228, 228, 228, 0.1);
+  --ring: #81A1C1;
 
   /* Syntax Highlighting */
   --code-keyword: #ff7b72;
@@ -196,11 +198,11 @@
   --icon-xl: 32px;
   --icon-2xl: 48px;
 
-  /* Blue Theme Colors - Design System (aliases onto the shadcn set above) */
+  /* Accent Colors - Design System (aliases onto the shadcn set above) */
   --primary-color: var(--primary);
-  --primary-hover: #6EC4FF;
-  --primary-active: #2D8FD9;
-  --primary-light: #6EC4FF;
+  --primary-hover: #93b1cd;
+  --primary-active: #6e91b4;
+  --primary-light: #93b1cd;
   --primary-muted: var(--primary-alpha-15);
   --text-on-primary: var(--primary-foreground);
   --danger-color: var(--destructive);
@@ -219,9 +221,9 @@
   --status-critical-bg: rgba(239, 68, 68, 0.15);
   --status-critical-border: rgba(239, 68, 68, 0.3);
   --status-warning: #F59E0B;        /* Amber — warning */
-  --status-performance: #45ADFF;    /* Primary blue — performance metric */
-  --status-performance-bg: rgba(69, 173, 255, 0.15);
-  --status-performance-border: rgba(69, 173, 255, 0.3);
+  --status-performance: #81A1C1;    /* Accent — performance metric */
+  --status-performance-bg: rgba(129, 161, 193, 0.15);
+  --status-performance-border: rgba(129, 161, 193, 0.3);
 
   /* Background Colors (aliases where the shadcn set already defines the value) */
   --bg-dark: var(--background);
@@ -229,8 +231,8 @@
   --bg-card: var(--card);
   --bg-card-hover: var(--accent);
   --bg-sidebar: var(--background);
-  --bg-elevated: #2a3544;
-  --bg-subtle: #1d2835;
+  --bg-elevated: #1e1e1e;
+  --bg-subtle: #121212;
 
   /* Border Colors */
   --border-color: var(--border);
@@ -239,9 +241,9 @@
 
   /* Text Colors */
   --text-primary: var(--foreground);
-  --text-secondary: #cbd5e1;
+  --text-secondary: #c2c2c2;
   --text-muted: var(--muted-foreground);
-  --text-disabled: #64748b;
+  --text-disabled: #6b6b6b;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
@@ -259,28 +261,28 @@
   --transition-base: 0.2s ease;
   --transition-slow: 0.3s ease;
 
-  /* Gradients - Design System (only blue) */
-  --gradient-primary: linear-gradient(135deg, #45ADFF 0%, #2D8FD9 100%);
-  --gradient-card: linear-gradient(135deg, #1A2330 0%, #1f2835 100%);
+  /* Gradients - Design System (accent) */
+  --gradient-primary: linear-gradient(135deg, #81A1C1 0%, #6e91b4 100%);
+  --gradient-card: linear-gradient(135deg, #121212 0%, #161616 100%);
 
   /* Terminal Background */
-  --bg-terminal: #1a1a2e;
+  --bg-terminal: #0A0A0A;
 
   /* Additional Background Colors for Components */
   --bg-input: var(--background);
   --bg-table-header: var(--primary-alpha-5);
-  --bg-table-row-hover: rgba(69, 173, 255, 0.03);
+  --bg-table-row-hover: rgba(228, 228, 228, 0.04);
   --bg-table-row-active: var(--primary-alpha-8);
   --bg-dropzone: var(--primary-alpha-5);
   --bg-dropzone-hover: var(--primary-alpha-8);
   --bg-dropzone-active: var(--primary-alpha-15);
-  --bg-code: rgba(69, 173, 255, 0.03);
+  --bg-code: rgba(228, 228, 228, 0.05);
   --bg-modal: var(--card);
 
   /* Additional Border Colors */
   --border-dropzone: var(--primary-alpha-30);
   --border-dropzone-hover: var(--primary-alpha-50);
-  --border-dropzone-active: #45ADFF;
+  --border-dropzone-active: var(--primary);
   --border-input: var(--primary-alpha-15);
   --border-input-focus: var(--primary-alpha-40);
   --border-table: var(--primary-alpha-10);
@@ -292,24 +294,25 @@
   /* Select Option Background (for dropdowns) */
   --bg-option: var(--card);
 
-  /* Scrollbar colors */
-  --scrollbar-track: var(--background);
-  --scrollbar-thumb: var(--primary-color);
+  /* Scrollbar colors — neutral, no gradient, transparent track */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(228, 228, 228, 0.14);
+  --scrollbar-thumb-hover: rgba(228, 228, 228, 0.28);
 
   /* ========================================
      PRIMARY COLOR ALPHA SCALE
-     Use these instead of hardcoded rgba(69,173,255,...)
+     Use these instead of hardcoded rgba(129,161,193,...)
      ======================================== */
-  --primary-alpha-5: rgba(69, 173, 255, 0.05);
-  --primary-alpha-8: rgba(69, 173, 255, 0.08);
-  --primary-alpha-10: rgba(69, 173, 255, 0.1);
-  --primary-alpha-12: rgba(69, 173, 255, 0.12);
-  --primary-alpha-15: rgba(69, 173, 255, 0.15);
-  --primary-alpha-20: rgba(69, 173, 255, 0.2);
-  --primary-alpha-25: rgba(69, 173, 255, 0.25);
-  --primary-alpha-30: rgba(69, 173, 255, 0.3);
-  --primary-alpha-40: rgba(69, 173, 255, 0.4);
-  --primary-alpha-50: rgba(69, 173, 255, 0.5);
+  --primary-alpha-5: rgba(129, 161, 193, 0.05);
+  --primary-alpha-8: rgba(129, 161, 193, 0.08);
+  --primary-alpha-10: rgba(129, 161, 193, 0.1);
+  --primary-alpha-12: rgba(129, 161, 193, 0.12);
+  --primary-alpha-15: rgba(129, 161, 193, 0.15);
+  --primary-alpha-20: rgba(129, 161, 193, 0.2);
+  --primary-alpha-25: rgba(129, 161, 193, 0.25);
+  --primary-alpha-30: rgba(129, 161, 193, 0.3);
+  --primary-alpha-40: rgba(129, 161, 193, 0.4);
+  --primary-alpha-50: rgba(129, 161, 193, 0.5);
 
   /* Danger alpha variants (red #EF4444) */
   --danger-alpha-8: rgba(239, 68, 68, 0.08);
@@ -361,35 +364,65 @@
 }
 
 /* ========================================
-   LIGHT MODE - Theme Override (.light on <html>)
-   Only overrides values that actually differ from dark.
+   THEME »DUNKEL« - Override ([data-theme="dark"] on <html>)
+   Cursor-artiges Anthrazit: hellere Hintergrundstufen als Schwarz,
+   identische Border-/Text-/Akzent-Systematik (erbt aus :root).
+   ======================================== */
+[data-theme='dark'] {
+  --background: #141414;
+  --card: #181818;
+  --card-foreground: #e6e6e6;
+  --popover: #1c1c1c;
+  --secondary: #181818;
+  --muted: #181818;
+
+  /* Backgrounds */
+  --bg-elevated: #242424;
+  --bg-subtle: #181818;
+  --bg-input: #1c1c1c;
+
+  /* Gradients */
+  --gradient-card: linear-gradient(135deg, #181818 0%, #1c1c1c 100%);
+
+  /* Terminal Background */
+  --bg-terminal: #181818;
+}
+
+/* ========================================
+   THEME »HELL« - Override (.light on <html>)
+   Only overrides values that actually differ from black/dark.
    Aliased legacy vars (--bg-card → --card, …) follow automatically.
    ======================================== */
 .light {
   /* shadcn/ui Semantic Colors (Light Theme) */
-  --background: #FFFFFF;
-  --foreground: #0F172A;
+  --background: #F6F6F6;
+  --foreground: #1a1a1a;
   --card: #FFFFFF;
-  --card-foreground: #0F172A;
+  --card-foreground: #1a1a1a;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
-  --primary: #45ADFF;
-  --primary-foreground: #000000;
-  --secondary: #F1F5F9;
-  --secondary-foreground: #0F172A;
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;
-  --accent: #F1F5F9;
-  --accent-foreground: #0F172A;
+  --popover-foreground: #1a1a1a;
+  --primary: #2D8FD9;
+  --primary-foreground: #FFFFFF;
+  --secondary: #ECECEC;
+  --secondary-foreground: #1a1a1a;
+  --muted: #ECECEC;
+  --muted-foreground: #6b6b6b;
+  --accent: rgba(16, 16, 16, 0.05); /* hover wash */
+  --accent-foreground: #1a1a1a;
   --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
   --success: #10B981;
   --success-foreground: #FFFFFF;
   --warning: #F59E0B;
-  --warning-foreground: #1A2330;
-  --border: #E2E8F0;
-  --input: #E2E8F0;
-  --ring: #45ADFF;
+  --warning-foreground: #1a1a1a;
+  --border: rgba(16, 16, 16, 0.1);
+  --input: rgba(16, 16, 16, 0.12);
+  --ring: #2D8FD9;
+
+  /* Accent aliases (entschärftes Arasul-Blau) */
+  --primary-hover: #4AA3E4;
+  --primary-active: #2478B8;
+  --primary-light: #4AA3E4;
 
   /* Syntax Highlighting — Light */
   --code-keyword: #cf222e;
@@ -400,13 +433,17 @@
   --code-symbol: #116329;
 
   /* Backgrounds without a dark-set equivalent */
-  --bg-elevated: #F1F5F9;
-  --bg-subtle: #F8FAFC;
-  --scrollbar-track: #F1F5F9;
+  --bg-elevated: #FFFFFF;
+  --bg-subtle: #FAFAFA;
+  --bg-table-row-hover: rgba(16, 16, 16, 0.03);
+
+  /* Scrollbar — neutral dark alphas on light surfaces */
+  --scrollbar-thumb: rgba(16, 16, 16, 0.18);
+  --scrollbar-thumb-hover: rgba(16, 16, 16, 0.32);
 
   /* Text without a dark-set equivalent */
-  --text-secondary: #334155;
-  --text-disabled: #94A3B8;
+  --text-secondary: #3d3d3d;
+  --text-disabled: #a3a3a3;
 
   /* Shadows - softer in light mode */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -415,25 +452,41 @@
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
 
   /* Gradients */
-  --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+  --gradient-primary: linear-gradient(135deg, #2D8FD9 0%, #2478B8 100%);
+  --gradient-card: linear-gradient(135deg, #FFFFFF 0%, #FAFAFA 100%);
+
+  /* Terminal Background */
+  --bg-terminal: #FFFFFF;
 
   /* Values that differ subtly from dark */
-  --primary-muted: rgba(69, 173, 255, 0.12);
-  --bg-code: rgba(69, 173, 255, 0.05);
-  --border-input: rgba(69, 173, 255, 0.2);
-  --backdrop-color: rgba(0, 0, 0, 0.5);
+  --primary-muted: rgba(45, 143, 217, 0.12);
+  --bg-code: rgba(45, 143, 217, 0.05);
+  --border-input: rgba(16, 16, 16, 0.14);
+  --backdrop-color: rgba(0, 0, 0, 0.4);
+
+  /* Primary alpha scale (light accent) */
+  --primary-alpha-5: rgba(45, 143, 217, 0.05);
+  --primary-alpha-8: rgba(45, 143, 217, 0.08);
+  --primary-alpha-10: rgba(45, 143, 217, 0.1);
+  --primary-alpha-12: rgba(45, 143, 217, 0.12);
+  --primary-alpha-15: rgba(45, 143, 217, 0.15);
+  --primary-alpha-20: rgba(45, 143, 217, 0.2);
+  --primary-alpha-25: rgba(45, 143, 217, 0.25);
+  --primary-alpha-30: rgba(45, 143, 217, 0.3);
+  --primary-alpha-40: rgba(45, 143, 217, 0.4);
+  --primary-alpha-50: rgba(45, 143, 217, 0.5);
 
   /* Status Colors - Semantic (Light Mode) */
-  --status-neutral: #64748B;
-  --status-neutral-bg: rgba(100, 116, 139, 0.12);
-  --status-neutral-border: rgba(100, 116, 139, 0.25);
+  --status-neutral: #6b6b6b;
+  --status-neutral-bg: rgba(107, 107, 107, 0.12);
+  --status-neutral-border: rgba(107, 107, 107, 0.25);
   --status-critical: #DC2626;       /* Red for critical / error in light mode */
   --status-critical-bg: rgba(220, 38, 38, 0.12);
   --status-critical-border: rgba(220, 38, 38, 0.25);
   --status-warning: #D97706;        /* Amber for warning in light mode */
-  --status-performance: #45ADFF;    /* Primary blue — performance metric */
-  --status-performance-bg: rgba(69, 173, 255, 0.12);
-  --status-performance-border: rgba(69, 173, 255, 0.25);
+  --status-performance: #2D8FD9;    /* Accent blue — performance metric */
+  --status-performance-bg: rgba(45, 143, 217, 0.12);
+  --status-performance-border: rgba(45, 143, 217, 0.25);
 }
 
 /* Light Mode - Animated background override (disabled) */
@@ -522,8 +575,8 @@
 .light .badge-warning,
 .light .badge-error,
 .light .badge-info {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--secondary);
+  color: var(--text-secondary);
   border: none;
   font-weight: 500;
 }
@@ -572,35 +625,35 @@
 
 /* Light Mode - Theme Toggle Switch */
 .light .theme-toggle-switch {
-  border-color: #E2E8F0;
+  border-color: var(--border);
 }
 
 .light .theme-toggle-switch:hover {
-  background: rgba(69, 173, 255, 0.06);
-  border-color: rgba(69, 173, 255, 0.3);
+  background: var(--primary-alpha-5);
+  border-color: var(--primary-alpha-30);
 }
 
 .light .theme-toggle-track {
-  background: #F1F5F9;
-  border-color: #E2E8F0;
+  background: var(--secondary);
+  border-color: var(--border);
 }
 
 .light .theme-toggle-label {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 /* Light Mode - Navigation hover state */
 .light .nav-link:hover {
-  background: rgba(69, 173, 255, 0.06);
+  background: var(--primary-alpha-5);
 }
 
 .light .nav-link.active {
-  background: rgba(69, 173, 255, 0.1);
+  background: var(--primary-alpha-10);
 }
 
 /* Light Mode - Circular progress styling */
 .light .circular-bg {
-  stroke: rgba(69, 173, 255, 0.1);
+  stroke: var(--primary-alpha-10);
 }
 
 /* Light Mode - Print override */
@@ -613,13 +666,13 @@
 
 /* Light Mode - Global Page Title Icons: BLACK instead of blue */
 .light .card-title svg {
-  color: #0F172A;
+  color: var(--foreground);
 }
 
 .light .page-title svg,
 .light .page-header svg,
 .light [class*="-title"] > svg:first-child {
-  color: #0F172A;
+  color: var(--foreground);
 }
 
 /* Light Mode - ALL Badges unified gray (like version badges) */
@@ -631,8 +684,8 @@
 .light .badge-error,
 .light .badge-danger,
 .light .badge-info {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--secondary);
+  color: var(--text-secondary);
   border: none;
   font-weight: 500;
 }
@@ -641,33 +694,33 @@
 .light .stat-card,
 .light .metric-card,
 .light .info-card {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: var(--card);
+  border-color: var(--border);
 }
 
 .light .stat-card:hover,
 .light .metric-card:hover,
 .light .info-card:hover {
-  border-color: rgba(69, 173, 255, 0.3);
+  border-color: var(--primary-alpha-30);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 /* Light Mode - Card Content */
 .light .card-value {
-  color: #0F172A;
+  color: var(--foreground);
 }
 
 .light .card-label {
-  color: #64748B;
+  color: var(--muted-foreground);
 }
 
 .light .card-description {
-  color: #64748B;
+  color: var(--muted-foreground);
 }
 
 /* Light Mode - Sidebar nav icons should be dark gray */
 .light .nav-link svg {
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .light .nav-link:hover svg,
@@ -677,8 +730,8 @@
 
 /* Light Mode - Dashboard specific metrics */
 .light .metric-icon {
-  background: #F1F5F9;
-  color: #334155;
+  background: var(--secondary);
+  color: var(--text-secondary);
 }
 
 .light .metric-trend.positive {
@@ -691,22 +744,22 @@
 
 /* Light Mode - Ensure tables are readable */
 .light table {
-  background: #FFFFFF;
+  background: var(--card);
 }
 
 .light th {
-  background: #F8FAFC;
-  color: #0F172A;
-  border-color: #E2E8F0;
+  background: var(--bg-subtle);
+  color: var(--foreground);
+  border-color: var(--border);
 }
 
 .light td {
-  color: #334155;
-  border-color: #E2E8F0;
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
 .light tr:hover {
-  background: #F8FAFC;
+  background: var(--bg-subtle);
 }
 
 /* Light Mode - Form focus states */
@@ -714,7 +767,7 @@
 .light select:focus,
 .light textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(69, 173, 255, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-alpha-10);
 }
 
 /* Keyframe Animations */
@@ -2004,13 +2057,12 @@ a:focus:not(:focus-visible),
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--primary-color), var(--primary-hover));
+  background: var(--scrollbar-thumb);
   border-radius: 5px;
-  border: 2px solid var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-light);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ========================================
@@ -2053,7 +2105,7 @@ a:focus:not(:focus-visible),
 }
 
 .btn-global-primary:hover:not(:disabled) {
-  box-shadow: 0 4px 16px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 16px var(--primary-alpha-30);
 }
 
 /* Global Form Elements */
@@ -3093,7 +3145,7 @@ a:focus:not(:focus-visible),
   max-height: 280px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--primary-alpha-30) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .msb-model-row {
@@ -3929,7 +3981,7 @@ button.service-link-card.telegram-app-card:focus {
 }
 
 .btn-primary-base:hover:not(:disabled) {
-  box-shadow: 0 4px 16px rgba(69, 173, 255, 0.3);
+  box-shadow: 0 4px 16px var(--primary-alpha-30);
 }
 
 .btn-secondary-base {
@@ -4190,7 +4242,7 @@ button.service-link-card.telegram-app-card:focus {
 }
 
 .table-base tbody tr:hover {
-  background: rgba(69, 173, 255, 0.03);
+  background: var(--bg-table-row-hover);
 }
 
 /* Container Base - Reusable page container */
@@ -4251,8 +4303,8 @@ button.service-link-card.telegram-app-card:focus {
 }
 
 .form-message.info {
-  background: rgba(69, 173, 255, 0.1);
-  border-color: rgba(69, 173, 255, 0.3);
+  background: var(--primary-alpha-10);
+  border-color: var(--primary-alpha-30);
   color: var(--primary-color);
   border-left: 3px solid var(--primary-color);
 }
@@ -4451,8 +4503,8 @@ button.service-link-card.telegram-app-card:focus {
   align-items: center;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
-  background: var(--bg-card, #1A2330);
-  border: 1px solid var(--border-color, #2A3544);
+  background: var(--bg-card, #121212);
+  border: 1px solid var(--border-color, rgba(228, 228, 228, 0.08));
   border-radius: var(--radius-md);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   animation: toast-slide-in 0.3s ease-out;
@@ -4686,7 +4738,7 @@ button.service-link-card.telegram-app-card:focus {
   /* Skeleton shimmer becomes static */
   .skeleton {
     animation: none !important;
-    background: var(--bg-elevated, #2A3544) !important;
+    background: var(--bg-elevated, #1e1e1e) !important;
   }
 
   /* Spinner slows down instead of stopping */

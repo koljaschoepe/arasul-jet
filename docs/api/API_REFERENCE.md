@@ -1254,6 +1254,17 @@ Response (same as POST /upload):
 | GET    | `/api/database/status`  | Database connection status |
 | GET    | `/api/database/metrics` | Database size & stats      |
 
+### Workspace-Apps
+
+Sichtbarkeit der kuratierten Kern-Apps (n8n, Telegram, Datenbank) in der
+Workspace-Shell. Persistenz in `platform_apps`; deaktivierte Apps
+verschwinden aus ActivityBar/Tab-Angebot, die Dienste laufen weiter.
+
+| Method | Endpoint                  | Description                                        |
+| ------ | ------------------------- | -------------------------------------------------- |
+| GET    | `/api/workspace-apps`     | Manifest (id, name, description, tab) + `enabled`  |
+| PUT    | `/api/workspace-apps/:id` | App an-/abschalten — Body `{ "enabled": boolean }` |
+
 ### Store
 
 | Method | Endpoint                  | Description                           |
@@ -2383,9 +2394,20 @@ Isolated project environments with Docker containers and terminal WebSocket acce
 {
   "name": "Mein Projekt",
   "description": "Optionale Beschreibung",
-  "baseImage": "ubuntu:22.04" // optional
+  "baseImage": "ubuntu:22.04", // optional
+  "network_mode": "isolated" // optional: isolated | internal | infrastructure
 }
 ```
+
+**`network_mode` values** (also accepted on PUT `/api/sandbox/projects/:id`):
+
+| Value            | Network                       | Extra mounts                                         | Who                                        |
+| ---------------- | ----------------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| `isolated`       | Docker bridge (Internet only) | —                                                    | every user (default)                       |
+| `internal`       | Backend network (LLM, DB, …)  | —                                                    | every user                                 |
+| `infrastructure` | Backend network               | Platform repo rw (`/workspace/repo`) + docker socket | **admin role only** (else `403 FORBIDDEN`) |
+
+Creating or switching a project to `infrastructure` is audit-logged on the backend (warn level). Container hardening (CapDrop ALL, no-new-privileges) applies to all modes; docker socket access works via the docker group GID (`GroupAdd`), not via extra capabilities.
 
 ```json
 // Response (201)

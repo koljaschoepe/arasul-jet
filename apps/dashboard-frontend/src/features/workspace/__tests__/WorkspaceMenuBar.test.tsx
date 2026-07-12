@@ -22,7 +22,12 @@ function resetStore() {
 }
 
 describe('WorkspaceMenuBar', () => {
-  beforeEach(resetStore);
+  beforeEach(() => {
+    resetStore();
+    localStorage.clear();
+    document.documentElement.classList.remove('dark', 'light');
+    document.documentElement.removeAttribute('data-theme');
+  });
 
   it('rendert Marke, Menüs und den Settings-Button rechts', () => {
     render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
@@ -53,5 +58,30 @@ describe('WorkspaceMenuBar', () => {
     await user.click(screen.getByLabelText('Datei-Menü'));
     await user.click(await screen.findByText('Zur klassischen Ansicht'));
     expect(leave).toHaveBeenCalled();
+  });
+
+  it('Ansicht-Menü zeigt drei Design-Optionen, aktiv ist Schwarz (Default)', async () => {
+    const user = userEvent.setup();
+    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    await user.click(screen.getByLabelText('Ansicht-Menü'));
+
+    const black = await screen.findByRole('menuitemradio', { name: /Schwarz/ });
+    const dark = screen.getByRole('menuitemradio', { name: /Dunkel/ });
+    const light = screen.getByRole('menuitemradio', { name: /Hell/ });
+
+    expect(black).toHaveAttribute('aria-checked', 'true');
+    expect(dark).toHaveAttribute('aria-checked', 'false');
+    expect(light).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('Design-Auswahl »Hell« setzt Theme, Klasse und localStorage', async () => {
+    const user = userEvent.setup();
+    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    await user.click(screen.getByLabelText('Ansicht-Menü'));
+    await user.click(await screen.findByRole('menuitemradio', { name: /Hell/ }));
+
+    expect(localStorage.getItem('arasul_theme')).toBe('light');
+    expect(document.documentElement.classList.contains('light')).toBe(true);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 });

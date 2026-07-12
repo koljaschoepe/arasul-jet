@@ -34,14 +34,14 @@
   "slug": "workspace-cursor-feinschliff",
   "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P0",
   "risk_level": 3,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-07-11",
   "approved": "2026-07-11",
-  "branch": null,
+  "branch": "001-workspace-cursor-feinschliff",
   "pr": null,
   "verified_on_device": false
 }
@@ -538,45 +538,53 @@
   </summary>
   <div class="sbody">
   <!-- One .step per phase; unique data-ref each. -->
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Theme-System: Schwarz · Dunkel · Hell">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Theme-System: Schwarz · Dunkel · Hell">
     <h3>Schritt 1 — Theme-System: Schwarz · Dunkel · Hell <span class="tag">Risiko: mittel</span></h3>
     <p>Die Theme-Architektur wechselt von der binären <code>.light</code>-Klasse auf <code>data-theme="schwarz|dunkel|hell"</code> am <code>&lt;html&gt;</code>-Element (inkl. Anpassung der Tailwind-<code>dark</code>-Variante). Drei neutrale Paletten ersetzen die blaustichige Navy-Skala: Schwarz (Chrome ≈ <code>#0A0A0A</code>, Flächen ≈ <code>#111</code>, neuer Default), Dunkel (Cursor-artig <code>#141414</code>/<code>#181818</code>), Hell. Es gibt nur noch <b>eine</b> Border-Farbe mit niedriger Deckkraft; der blaue Scrollbar-Verlauf wird durch einen dezenten, hintergrundnahen Thumb ersetzt; das Akzentblau wird gedämpft und nur noch für Aktiv-Zustände/Primäraktionen genutzt; Panel-Container bekommen Rundungen. Die ~30 <code>.light</code>-Spezialregeln werden generalisiert. Umschalter: Menü »Ansicht« + Einstellungen.</p>
     <p class="files mono">apps/dashboard-frontend/src/index.css · src/hooks/useTheme.ts · src/features/workspace/WorkspaceMenuBar.tsx · Einstellungen (Appearance) · Tests: useTheme + bestehende Suite</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt: data-theme-Architektur mit drei neutralen Paletten (Schwarz #0A0A0A Default · Dunkel #141414/#181818 · Hell), gedämpfter Akzent (#81A1C1 / hell #2D8FD9), dezente Scrollbars ohne Gradient, ~30 .light-Regeln auf Tokens generalisiert; Umschalter im Ansicht-Menü + Einstellungen (RadioGroup). Tests: useTheme 11, theme-Integration 13, volle Suite grün.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Dichte auf Cursor-Maß &amp; Entgraten">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Dichte auf Cursor-Maß &amp; Entgraten">
     <h3>Schritt 2 — Dichte auf Cursor-Maß &amp; Entgraten <span class="tag">Risiko: mittel</span></h3>
     <p>Die Shell übernimmt Cursor-/VS-Code-Maße: Menüleiste ~35px, Tabs ~32px ohne Trennstrich pro Tab (aktiver Tab nur über Hintergrund + Schriftstärke), Explorer-Zeilen 22px bei 13px Schrift, UI-Basis 13px, Icons 16px. Von den 13 Border-Stellen der Shell bleiben nur die nötigsten — Kanten entstehen über zwei Hintergrundstufen (Chrome vs. Fläche) statt über Linien. Die Mitte (Tab-Inhalte) bekommt einen kompakten Dichte-Scope auf dem TabContent-Wrapper, damit die klassische Ansicht nicht mitreflowt.</p>
     <p class="files mono">src/features/workspace/{WorkspaceShell,WorkspaceMenuBar,TabBar,TabContent,ActivityBar}.tsx · explorer/ExplorerPanel.tsx · llm/LlmPanel.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt: Tabs 32px ohne Trennstriche (aktiver Tab über Flächenfarbe + rounded-t), Arbeitsfläche als eigene Flächenstufe (bg-card, rounded-tl), alle Struktur-Borders der Shell entfernt (Menubar/ActivityBar/Explorer/LlmPanel), Resizer unsichtbar bis Hover, ActivityBar 44px mit 18px-Icons.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Terminal folgt dem Theme">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Terminal folgt dem Theme">
     <h3>Schritt 3 — Terminal folgt dem Theme <span class="tag">Risiko: niedrig</span></h3>
     <p>Das hart kodierte xterm-Farbschema wird durch pro-Theme-Schemata ersetzt, die aus den CSS-Tokens abgeleitet sind; bei Theme-Wechsel wird <code>term.options.theme</code> live aktualisiert. Im Hell-Modus ist das Terminal hell — der bisherige Schwarz-Block-Bruch verschwindet.</p>
     <p class="files mono">src/features/sandbox/useTerminal.ts (+ Theme-Ableitung, Test)</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt: xterm-Theme pro App-Theme aus terminalThemes-Map (hell im Hell-Modus, inkl. 16-Farben-ANSI), Live-Update ohne Reconnect. 5 neue Tests.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Kompakter Agent-Chat im rechten Panel">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Kompakter Agent-Chat im rechten Panel">
     <h3>Schritt 4 — Kompakter Agent-Chat im rechten Panel <span class="tag">Risiko: hoch</span></h3>
     <p>Neue schlanke Panel-Chat-UI nach dem Claude-Code/Cursor-Muster, auf dem bestehenden ChatContext (SSE-Streaming, Modelle, RAG) — ohne Backend-Änderung: Nachrichten flach ohne Bubbles/Avatare (nur die User-Nachricht als dezente Box), Retrieval-/Denk-Schritte als einklappbare Ein-Zeilen-Rows („⌕ 12 Dokumente durchsucht …“), klickbare Quellen-Chips unter der Antwort, Composer-Karte mit Kontext-Chips, Auto-grow-Eingabe und kleinem Modell-Dropdown (»Auto« als Default). RAG/Thinking laufen immer automatisch — keine Toggles mehr. Drag &amp; Drop: Datei aus dem Explorer → Kontext-Chip; Datei vom Desktop → Upload + Indexierung + Chip. Header: Auto-Titel, neuer Chat, History-Liste, Projekt-Scope-Chip. Der Chat-Tab in der Mitte entfällt; eine Store-Migration (persist-Version) filtert alte chat-/documents-Tabs sauber heraus.</p>
     <p class="files mono">src/features/workspace/llm/* (neu: AgentChatPanel, MessageList, ToolStepRow, SourcesFooter, ComposerCard) · src/stores/workspaceStore.ts · contexts/ChatContext.tsx (nur Lücken) · Tests neu</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt: AgentChatPanel (routerlos auf ChatContext) mit flachem Rendering, Gedankengang-/Retrieval-Rows, klickbaren Quellen-Chips (öffnen Dokument-Tab), Composer-Karte mit Kontext-Chips + Auto-Modell-Dropdown, DnD (Explorer-Scope + OS-Dateien), History-Dropdown, Auto-Titel. RAG immer an, Thinking modellabhängig — keine Toggles. Chat-Tab aus der Mitte entfernt (persist-Migration v2 filtert Alt-Tabs; Legacy-/chat-Links öffnen das Panel). 6 neue Tests.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Explorer: ein Projekte-Baum mit Upload">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 5 — Explorer: ein Projekte-Baum mit Upload">
     <h3>Schritt 5 — Explorer: ein Projekte-Baum mit Upload <span class="tag">Risiko: mittel</span></h3>
     <p>Projekte werden die oberste Ebene des Explorers; darunter Ordner und Dateien (»Allgemein« = Standard-Projekt). Die getrennten Bereiche »Projekte« und Ordnerbaum verschmelzen. Dateien lassen sich per Knopf und per Drag &amp; Drop vom Desktop direkt in Projekt/Ordner hochladen (bestehende Upload-API; der Upload-Hook wird zu einem geteilten Hook befördert) und zeigen ihren Indexierungs-Status als dezenten Punkt. Ein Suchfeld filtert den Baum und nutzt die Dokumentensuche. Der »Daten«-Tab samt Dashboard verschwindet aus der ActivityBar — der Explorer ist der einzige Ort für Dateiverwaltung im Workspace.</p>
     <p class="files mono">src/features/workspace/explorer/* · ActivityBar.tsx · stores/workspaceStore.ts · src/hooks/useDocumentUpload.ts (befördert) · Tests</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt: EIN Projekte-Baum (Projekt → Ordner → Dateien; »Allgemein« nimmt Unzugeordnetes auf), Upload per Kontextmenü + DnD vom Desktop auf Projekt/Ordner (Upload-Kern nach hooks/ promotet), Indexierungs-Status-Punkte mit Nachlade-Polling, Suchfeld mit Auto-Expand, Zeilen zum Chat draggbar. »Daten«-Tab + Dashboard aus Workspace entfernt; Menubar lädt über den Explorer hoch. 5 neue Tests.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Terminal-Modi &amp; KI-CLIs">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 6 — Terminal-Modi &amp; KI-CLIs">
     <h3>Schritt 6 — Terminal-Modi &amp; KI-CLIs <span class="tag">Risiko: hoch</span></h3>
     <p>Dritter Sandbox-Modus <b>Infrastruktur</b> (nur Admin, per Nutzerentscheidung ohne Extra-Bestätigung): mountet das Plattform-Repo beschreibbar und den Docker-Socket — damit kann die KI die live laufende Arasul-Software selbst weiterentwickeln. Der Modus <b>Isoliert</b> wird als DSGVO-Testumgebung geschärft (kein Netzzugriff auf Backend/LLM), <b>Intern</b> bleibt der Standard für Projekt-Arbeit mit lokalem LLM. Die Modi werden bei der Anlage klar erklärt und im Terminal-Header als Badge angezeigt. Das Sandbox-Image bekommt Node.js; Wrapper <code>/claude</code>, <code>/codex</code>, <code>/gemini</code> (Erststart installiert die CLI, danach Direktstart) plus Quick-Launch-Einträge; open-ara bleibt.</p>
     <p class="files mono">services/postgres/init/1NN_*.sql (CHECK-Erweiterung) · apps/dashboard-backend/src/services/sandbox/* · schemas/sandbox.js · services/sandbox/Dockerfile + Wrapper · src/features/sandbox/* · Tests</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt: Migration 100 (CHECK + platform_apps), Modus »Infrastruktur« (nur admin-Rolle, Repo rw + docker.sock + GroupAdd, Audit-Log; CapDrop/no-new-privileges bleiben), Isoliert/Intern geschärft mit Badges im Terminal-Header, Sandbox-Image + Node 22 + docker-cli, Wrapper /claude·/codex·/gemini (Erststart-Install, profile.d-Slash-Funktionen), Quick-Launch-Einträge. Backend 45 + Frontend 10 Tests grün. Gerät: Image-Rebuild nötig.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Extensions: Modelle + kuratierte Apps">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 7 — Extensions: Modelle + kuratierte Apps">
     <h3>Schritt 7 — Extensions: Modelle + kuratierte Apps <span class="tag">Risiko: mittel</span></h3>
     <p>Der Store wird zu <b>Extensions</b> mit zwei Bereichen: KI-Modelle (wie bisher installieren/löschen, Default-Empfehlung <code>qwen3:8b</code> für Agents) und Apps — v1 kuratiert: n8n, Telegram, Datenbank, jeweils an-/abschaltbar. Deaktivierte Apps verschwinden aus ActivityBar und Tab-Angebot. Persistenz über eine kleine Backend-Route (<code>GET/PUT /apps</code>, Ablage in Postgres, gleiche Migration wie Schritt 6). Ein App-Manifest-Format (Name, Icon, Tab-Typ, Route) legt den Grundstein für spätere Dritt-Apps. Bei aktivem Extensions-Tab zeigt der Explorer die Suche.</p>
     <p class="files mono">src/features/store → extensions · apps/dashboard-backend/src/routes/apps.js (neu) · ActivityBar.tsx · docs/api/API_REFERENCE.md · Tests</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt: Store → Extensions (Titel + Tab), Plattform-Apps-Sektion mit Toggles (GET/PUT /api/workspace-apps, React Query), ActivityBar blendet deaktivierte Apps aus (n8n/Telegram/Datenbank), n8n-Shortcut → Automationen-Tab. Backend 5 + Frontend 2 Tests grün.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — n8n inline + Projekt-Automationen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 8 — n8n inline + Projekt-Automationen">
     <h3>Schritt 8 — n8n inline + Projekt-Automationen <span class="tag">Risiko: mittel</span></h3>
     <p>Neuer Tab-Typ <b>Automationen</b>: der n8n-Editor läuft als same-origin-iframe (Traefik-Route <code>/n8n</code>; n8ns <code>X-Frame-Options: sameorigin</code> erlaubt genau das). Jedes Projekt bekommt einen »Automationen«-Eintrag, der den Tab öffnet. Der separate n8n-Login bleibt (einmalig, Cookie hält). Die Lizenzlage (Sustainable Use License vs. Appliance-Verkauf) wird in <code>docs/legal/</code> dokumentiert, inklusive vorbereitetem Anfrage-Entwurf an license@n8n.io — Klärung ist Pflicht vor Verkaufsstart.</p>
     <p class="files mono">stores/workspaceStore.ts (Tab-Typ) · TabContent.tsx · explorer (Projekt-Eintrag) · docs/legal/N8N_LIZENZ.md (neu)</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt: Tab-Typ »automationen« als same-origin-iframe (/n8n, keep-alive), Projekt-Kontextmenü-Eintrag, docs/legal/N8N_LIZENZ.md mit SUL-Analyse + versandfertigem EN-Entwurf an license@n8n.io; Lizenzklärung als Pflicht-Gate dokumentiert.</div>
   </div>
   <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — n8n 2.x, Agent-Härtung &amp; Vorlagen">
     <h3>Schritt 9 — n8n 2.x, Agent-Härtung &amp; Vorlagen <span class="tag">Risiko: hoch</span></h3>

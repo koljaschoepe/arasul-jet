@@ -37,9 +37,12 @@ router.post(
   requireAuth,
   validateBody(CreateProjectBody),
   asyncHandler(async (req, res) => {
+    // userRole steuert das Infrastruktur-Gate im Service (nur Admin-Rolle;
+    // req.body ist strict-validiert, kann userRole also nicht injizieren).
     const project = await sandboxService.createProject({
       ...req.body,
       userId: req.user.id,
+      userRole: req.user.role,
     });
     res.status(201).json({ project, timestamp: new Date().toISOString() });
   })
@@ -61,7 +64,12 @@ router.put(
   requireAuth,
   validateBody(UpdateProjectBody),
   asyncHandler(async (req, res) => {
-    const project = await sandboxService.updateProject(req.params.id, req.body, req.user.id);
+    const project = await sandboxService.updateProject(
+      req.params.id,
+      req.body,
+      req.user.id,
+      req.user.role
+    );
     res.json({ project, timestamp: new Date().toISOString() });
   })
 );

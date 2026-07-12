@@ -1,4 +1,6 @@
-ARG NODE_VERSION=20.19
+# Node.js 22 (LTS, wie Plattform-Standard in .nvmrc) — offizielle node-Images
+# sind multi-arch (arm64 für Jetson inklusive), kein Nodesource nötig.
+ARG NODE_VERSION=22
 FROM node:${NODE_VERSION}-slim
 
 # ============================================================================
@@ -42,8 +44,21 @@ ENV LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8
 
-# Pre-install Claude Code CLI (users can update via npm)
-RUN npm install -g @anthropic-ai/claude-code 2>/dev/null || true
+# Docker-CLI (nur Client, kein Daemon) für den Infrastruktur-Modus: dort
+# mountet das Backend /var/run/docker.sock in den Container (GroupAdd auf die
+# Socket-GID, keine zusätzlichen Caps). Offizielles Docker-apt-Repo,
+# arch-aware (arm64/amd64).
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+      > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && apt-get install -y --no-install-recommends docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
+
+# Hinweis: Claude Code wird NICHT mehr als root vorinstalliert — die
+# KI-CLIs (claude/codex/gemini) installieren sich beim Erststart über ihre
+# Wrapper in den User-npm-Prefix ~/.npm-global (kein sudo nötig).
 
 # Pre-install Python deps for open-ara (local AI coding agent, Textual TUI).
 # Debian bookworm pip is PEP-668-managed → --break-system-packages (same
@@ -61,6 +76,25 @@ RUN pip3 install --break-system-packages --no-cache-dir \
 # /opt/tools/open-ara (read-only bind mount) on first use, then execs `arasul`.
 COPY --chmod=755 open-ara.sh /usr/local/bin/open-ara
 
+# KI-CLI-Wrapper (Erststart: npm install -g in ~/.npm-global, dann exec)
+COPY --chmod=755 claude.sh /usr/local/bin/claude
+COPY --chmod=755 codex.sh /usr/local/bin/codex
+COPY --chmod=755 gemini.sh /usr/local/bin/gemini
+
+# Slash-Funktionen (/claude, /codex, /gemini, /open-ara) + npm-Prefix/PATH.
+# profile.d greift bei Login-Shells (tmux startet Login-Shells); zusätzlich
+# aus /etc/bash.bashrc sourcen, damit auch der Non-Login-Fallback sie hat.
+COPY --chmod=644 arasul-slash.sh /etc/profile.d/arasul-slash.sh
+RUN printf '\n# Arasul: Slash-Funktionen + npm-Prefix auch für Non-Login-Shells\n[ -f /etc/profile.d/arasul-slash.sh ] && . /etc/profile.d/arasul-slash.sh\n' \
+      >> /etc/bash.bashrc
+
+# bash als Standard-Shell für tmux/exec-Sessions (Slash-Funktionen sind eine
+# Bash-Erweiterung); npm-Prefix + PATH auch auf Image-Ebene, damit docker exec
+# ohne Profil-Sourcing dieselben Binaries findet.
+ENV SHELL=/bin/bash \
+    NPM_CONFIG_PREFIX=/home/sandbox/.npm-global \
+    PATH=/home/sandbox/.npm-global/bin:/home/sandbox/.local/bin:$PATH
+
 # Reuse existing 'node' user (UID 1000) — matches host user arasul
 # Rename to 'sandbox' for clarity.
 # Narrow sudoers to a whitelist (package install + GPU diagnostics) instead of
@@ -73,8 +107,9 @@ RUN usermod -l sandbox -d /home/sandbox -m node && \
     chmod 0440 /etc/sudoers.d/sandbox && \
     visudo -c -f /etc/sudoers.d/sandbox
 
-# Create workspace directory
-RUN mkdir -p /workspace && chown sandbox:sandbox /workspace
+# Create workspace directory + user npm prefix
+RUN mkdir -p /workspace && chown sandbox:sandbox /workspace && \
+    install -d -o sandbox -g sandbox /home/sandbox/.npm-global
 
 # Copy tmux config and entrypoint
 COPY tmux.conf /etc/tmux.conf

@@ -734,6 +734,19 @@ setup_secrets() {
     mkdir -p config/secrets
     chmod 700 config/secrets
 
+    # --- Hook (Plan 001, Schritt 9): n8n Task-Runner-Auth-Token -------------
+    # Gemeinsames Secret zwischen n8n (Task-Broker) und n8n-runners-Sidecar
+    # (compose.secrets.yaml: n8n_runners_auth_token). Idempotent: wird nur
+    # erzeugt, wenn es fehlt — Bestandsgeräte bekommen es so beim nächsten
+    # Bootstrap; Neuinstallationen bereits via interactive_setup.sh.
+    # Ohne diese Datei startet compose nicht (Secret-File muss existieren).
+    if [ ! -s config/secrets/n8n_runners_auth_token ]; then
+        openssl rand -hex 32 > config/secrets/n8n_runners_auth_token
+        chmod 600 config/secrets/n8n_runners_auth_token
+        log_success "n8n-Runner-Auth-Token generiert (config/secrets/n8n_runners_auth_token)"
+    fi
+    # -------------------------------------------------------------------------
+
     # Credentials aus .env lesen (vom Interactive Setup generiert)
     local n8n_user=$(grep "^N8N_BASIC_AUTH_USER=" .env | cut -d'=' -f2)
     local n8n_pass=$(grep "^N8N_BASIC_AUTH_PASSWORD=" .env | cut -d'=' -f2)
@@ -1427,6 +1440,19 @@ cmd_bootstrap() {
         # Don't exit - log error but continue (non-fatal for bootstrap)
         log_warning "MinIO buckets can be created manually later"
     fi
+
+    # 13b. --- Hook (Plan 001, Schritt 9): n8n-Agent-Vorlagen (optional) ------
+    # Importiert die Agent-Workflow-Vorlagen und provisioniert qwen3:8b.
+    # Bewusst non-fatal: eine Appliance ist auch ohne Agent-Vorlagen voll
+    # funktionsfaehig; das Skript ist idempotent und jederzeit nachholbar.
+    if [ -f "./scripts/util/n8n-import-templates.sh" ]; then
+        log_info "Importiere n8n-Agent-Vorlagen (optionaler Schritt)..."
+        if ! bash ./scripts/util/n8n-import-templates.sh; then
+            log_warning "n8n-Agent-Vorlagen nicht importiert — spaeter manuell:"
+            log_warning "  ./scripts/util/n8n-import-templates.sh"
+        fi
+    fi
+    # --------------------------------------------------------------------------
 
     # 14. Verify database schema is ready (migrations via docker-entrypoint-initdb.d)
     log_info "Verifying database schema..."

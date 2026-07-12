@@ -2,8 +2,10 @@ import { X } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 /**
- * Kompakte Tab-Leiste über der Arbeitsfläche. Klick aktiviert, × oder
- * Mittelklick schließt.
+ * Kompakte Tab-Leiste über der Arbeitsfläche (Cursor-Maß: 32px). Keine
+ * Trennstriche zwischen Tabs — der aktive Tab hebt sich allein über die
+ * Flächenfarbe (bg-card = Arbeitsflächen-Ton) und Schriftstärke ab.
+ * Klick aktiviert, × oder Mittelklick schließt.
  */
 export function TabBar() {
   const tabs = useWorkspaceStore(s => s.tabs);
@@ -15,7 +17,7 @@ export function TabBar() {
     <div
       role="tablist"
       aria-label="Offene Tabs"
-      className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-border bg-background"
+      className="flex h-8 shrink-0 items-end gap-px overflow-x-auto bg-background px-1 pt-1"
     >
       {tabs.map(tab => {
         const isActive = tab.id === activeTabId;
@@ -39,10 +41,10 @@ export function TabBar() {
                 closeTab(tab.id);
               }
             }}
-            className={`group flex max-w-48 min-w-0 cursor-pointer items-center gap-1.5 border-r border-border px-3 text-xs select-none ${
+            className={`group flex h-7 max-w-44 min-w-0 cursor-pointer items-center gap-1.5 rounded-t-md px-2.5 text-xs select-none ${
               isActive
-                ? 'bg-accent text-foreground'
-                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                ? 'bg-card font-medium text-foreground'
+                : 'text-muted-foreground/70 hover:bg-card/50 hover:text-foreground'
             }`}
           >
             <span className="truncate">{tab.title}</span>
@@ -53,7 +55,7 @@ export function TabBar() {
                 e.stopPropagation();
                 closeTab(tab.id);
               }}
-              className={`shrink-0 rounded p-0.5 hover:bg-border ${
+              className={`shrink-0 rounded p-0.5 hover:bg-accent ${
                 isActive ? 'opacity-70' : 'opacity-0 group-hover:opacity-70'
               }`}
             >

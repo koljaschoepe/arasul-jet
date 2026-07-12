@@ -133,7 +133,7 @@ function Store() {
         <div className="store-header-top flex items-center justify-between gap-6 mb-4 flex-wrap relative">
           <div className="store-title flex items-center gap-3">
             <Package className="size-7 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Store</h1>
+            <h1 className="text-2xl font-bold text-foreground">Extensions</h1>
           </div>
 
           {/* Global Search */}

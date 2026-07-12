@@ -16,6 +16,8 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { useTheme } from '@/hooks/useTheme';
+import { TERMINAL_THEMES } from '@/lib/terminalThemes';
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE = import.meta.env.VITE_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;
@@ -61,6 +63,12 @@ export function useTerminal({
   const intentionalClose = useRef(false);
   const retryCountRef = useRef(0);
   const hasConnectedRef = useRef(false);
+
+  // App-Theme → Terminal-Theme (black/dark/light). Ref keeps `connect`
+  // stable; the live-update effect below re-themes without reconnecting.
+  const { theme: appTheme } = useTheme();
+  const appThemeRef = useRef(appTheme);
+  appThemeRef.current = appTheme;
 
   // Stable callback refs — prevents connect from depending on callback identity
   const onConnectedRef = useRef(onConnected);
@@ -141,29 +149,7 @@ export function useTerminal({
       fontSize,
       fontFamily:
         "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace",
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#e4e4e7',
-        cursor: '#a1a1aa',
-        cursorAccent: '#0a0a0a',
-        selectionBackground: 'rgba(255, 255, 255, 0.15)',
-        black: '#18181b',
-        red: '#ef4444',
-        green: '#22c55e',
-        yellow: '#eab308',
-        blue: '#3b82f6',
-        magenta: '#a855f7',
-        cyan: '#06b6d4',
-        white: '#e4e4e7',
-        brightBlack: '#52525b',
-        brightRed: '#f87171',
-        brightGreen: '#4ade80',
-        brightYellow: '#facc15',
-        brightBlue: '#60a5fa',
-        brightMagenta: '#c084fc',
-        brightCyan: '#22d3ee',
-        brightWhite: '#fafafa',
-      },
+      theme: TERMINAL_THEMES[appThemeRef.current],
       cursorBlink: true,
       cursorStyle: 'block',
       scrollback: 10000,
@@ -317,6 +303,13 @@ export function useTerminal({
 
   // Keep connectRef in sync
   connectRef.current = connect;
+
+  // Live re-theme on app theme change (no reconnect needed)
+  useEffect(() => {
+    if (xtermRef.current) {
+      xtermRef.current.options.theme = TERMINAL_THEMES[appTheme];
+    }
+  }, [appTheme]);
 
   // Manual reconnect — resets retry counter
   const reconnect = useCallback(() => {

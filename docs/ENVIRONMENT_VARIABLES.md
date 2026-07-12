@@ -88,24 +88,25 @@ All variables are defined in `.env` file at repository root.
 
 > **Hinweis:** `LLM_HOST`, `LLM_PORT` und `LLM_MANAGEMENT_PORT` sind **deprecated**. Der interne Code verwendet `LLM_SERVICE_HOST`, `LLM_SERVICE_PORT` und `LLM_SERVICE_MANAGEMENT_PORT`. Die alten Namen werden noch als Fallback akzeptiert, sollten aber in neuen Konfigurationen nicht mehr verwendet werden.
 
-| Variable                    | Default       | Description                                                                   |
-| --------------------------- | ------------- | ----------------------------------------------------------------------------- |
-| LLM_SERVICE_HOST            | llm-service   | Hostname des LLM-Service                                                      |
-| LLM_SERVICE_PORT            | 11434         | Port des LLM-Service                                                          |
-| LLM_SERVICE_MANAGEMENT_PORT | 11436         | Management-Port des LLM-Service                                               |
-| LLM_HOST                    | llm-service   | _(deprecated)_ Alias für `LLM_SERVICE_HOST`                                   |
-| LLM_PORT                    | 11434         | _(deprecated)_ Alias für `LLM_SERVICE_PORT`                                   |
-| LLM_MANAGEMENT_PORT         | 11436         | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT`                        |
-| LLM_MODEL                   | gemma4:26b-q4 | Default LLM model (Gemma 4, hardware-abhängig)                                |
-| LLM_MAX_TOKENS              | 2048          | Max response tokens                                                           |
-| LLM_CONTEXT_SIZE            | 4096          | Context window size                                                           |
-| LLM_MAX_RAM_GB              | 40            | Max RAM allocation (GB)                                                       |
-| LLM_GPU_LAYERS              | 33            | GPU layers                                                                    |
-| LLM_KEEP_ALIVE_SECONDS      | 3600          | Seconds Ollama keeps a loaded model resident (default 1h after migration 094) |
-| OLLAMA_NUM_PARALLEL         | 2             | Concurrent Ollama generation slots (1 on tight 32 GB Orin)                    |
-| OLLAMA_STARTUP_TIMEOUT      | 120           | Ollama startup timeout (seconds)                                              |
-| MAX_STORED_MODELS           | 10            | Maximale Anzahl gespeicherter Modelle                                         |
-| MEMORY_MAX_ENTRIES          | 500           | Per-user max entries in conversation memory store                             |
+| Variable                    | Default       | Description                                                                                                                                                                                               |
+| --------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM_SERVICE_HOST            | llm-service   | Hostname des LLM-Service                                                                                                                                                                                  |
+| LLM_SERVICE_PORT            | 11434         | Port des LLM-Service                                                                                                                                                                                      |
+| LLM_SERVICE_MANAGEMENT_PORT | 11436         | Management-Port des LLM-Service                                                                                                                                                                           |
+| LLM_HOST                    | llm-service   | _(deprecated)_ Alias für `LLM_SERVICE_HOST`                                                                                                                                                               |
+| LLM_PORT                    | 11434         | _(deprecated)_ Alias für `LLM_SERVICE_PORT`                                                                                                                                                               |
+| LLM_MANAGEMENT_PORT         | 11436         | _(deprecated)_ Alias für `LLM_SERVICE_MANAGEMENT_PORT`                                                                                                                                                    |
+| LLM_MODEL                   | gemma4:26b-q4 | Default LLM model (Gemma 4, hardware-abhängig)                                                                                                                                                            |
+| LLM_MAX_TOKENS              | 2048          | Max response tokens                                                                                                                                                                                       |
+| LLM_CONTEXT_SIZE            | 4096          | Context window size                                                                                                                                                                                       |
+| LLM_MAX_RAM_GB              | 40            | Max RAM allocation (GB)                                                                                                                                                                                   |
+| LLM_GPU_LAYERS              | 33            | GPU layers                                                                                                                                                                                                |
+| LLM_KEEP_ALIVE_SECONDS      | 3600          | Seconds Ollama keeps a loaded model resident (default 1h after migration 094)                                                                                                                             |
+| OLLAMA_NUM_PARALLEL         | 2             | Concurrent Ollama generation slots (1 on tight 32 GB Orin)                                                                                                                                                |
+| OLLAMA_CONTEXT_LENGTH       | 32768         | Default-Kontextfenster aller Ollama-Modelle. ≥32k nötig für n8n-Agent-Tool-Calling (Ollama truncated sonst still). Auf knappen 32-GB-Orins via `.env` absenkbar — siehe `docs/integrations/N8N_AGENTS.md` |
+| OLLAMA_STARTUP_TIMEOUT      | 120           | Ollama startup timeout (seconds)                                                                                                                                                                          |
+| MAX_STORED_MODELS           | 10            | Maximale Anzahl gespeicherter Modelle                                                                                                                                                                     |
+| MEMORY_MAX_ENTRIES          | 500           | Per-user max entries in conversation memory store                                                                                                                                                         |
 
 ---
 
@@ -248,6 +249,28 @@ When enabled, the queue system batches all requests for the currently loaded mod
 | N8N_WEBHOOK_SECRET      | (none)                           | n8n webhook verification secret      |
 | N8N_SSH_KEY_PATH        | /arasul/ssh-keys/n8n_private_key | SSH key for n8n access               |
 | N8N_PROXY_HOPS          | 1                                | trust-proxy hop count behind Traefik |
+
+### n8n 2.x — Task Runner & Agent-Härtung
+
+Gesetzt in `compose/compose.app.yaml` (n8n + n8n-runners) bzw.
+`compose/compose.secrets.yaml`; Hintergrund in
+[docs/integrations/N8N_AGENTS.md](integrations/N8N_AGENTS.md).
+
+| Variable                          | Default / Wert                                                                | Description                                                                                                                                                                                                                |
+| --------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N8N_RUNNERS_MODE                  | external                                                                      | Code-Nodes laufen im Sidecar `n8n-runners` statt im n8n-Prozess                                                                                                                                                            |
+| N8N_RUNNERS_BROKER_LISTEN_ADDRESS | 0.0.0.0                                                                       | Task-Broker (Port 5679, nur Docker-Netz) für den Sidecar erreichbar machen                                                                                                                                                 |
+| N8N_RUNNERS_AUTH_TOKEN            | (Docker-Secret `n8n_runners_auth_token`)                                      | Gemeinsames Auth-Token n8n ↔ Runner. Generiert von Setup/Bootstrap; nie in `.env` oder Compose eintragen                                                                                                                   |
+| N8N_RUNNERS_TASK_BROKER_URI       | http://n8n:5679                                                               | (n8n-runners) Adresse des Task-Brokers                                                                                                                                                                                     |
+| N8N_RUNNERS_LAUNCHER_LOG_LEVEL    | info                                                                          | (n8n-runners) Log-Level des Launchers                                                                                                                                                                                      |
+| NODE_FUNCTION_ALLOW_BUILTIN       | crypto,fs,fs/promises,path                                                    | (n8n-runners) Freigegebene Node-Builtins im JS-Runner — nötig für Datei-Ablage im Agent-Workspace. **Nicht als Env setzbar**: wirkt nur über `services/n8n/runners/n8n-task-runners.json` (→ `/etc/n8n-task-runners.json`) |
+| N8N_RESTRICT_FILE_ACCESS_TO       | /data/agent-workspace                                                         | Einziger für Datei-Nodes erlaubter Pfad (Volume `n8n-agent-workspace`, in n8n **und** n8n-runners gemountet)                                                                                                               |
+| N8N_SSRF_PROTECTION_ENABLED       | true                                                                          | SSRF-Schutz der HTTP-Nodes (ab n8n 2.12): blockt RFC1918/Loopback/Link-Local inkl. Redirect/DNS-Rebinding                                                                                                                  |
+| N8N_SSRF_ALLOWED_HOSTNAMES        | llm-service,qdrant,dashboard-backend,minio,embedding-service,document-indexer | Interne Hostnames, die trotz SSRF-Schutz erreichbar sind (Allowlist > Blocklist); postgres-db bewusst nicht                                                                                                                |
+| N8N_DISABLED_MODULES              | mcp                                                                           | Instanzweiten MCP-Server abschalten (MCP-Client-Tool-Node bleibt nutzbar)                                                                                                                                                  |
+| N8N_TEMPLATES_ENABLED             | false                                                                         | Kein Template-Store-Callout zu api.n8n.io (GDPR/offline)                                                                                                                                                                   |
+| N8N_AGENT_MODEL                   | qwen3:8b                                                                      | (nur `scripts/util/n8n-import-templates.sh`) Default-Agent-Modell, das provisioniert wird                                                                                                                                  |
+| RAM_LIMIT_N8N_RUNNERS             | 1G                                                                            | Memory-Limit des Runner-Sidecars                                                                                                                                                                                           |
 
 ---
 
@@ -556,13 +579,17 @@ the backup-related **environment variables** above.
 
 Per-project developer sandboxes (dashboard-backend `services/sandbox/`).
 
-| Variable               | Default                          | Description                                                                                                                 |
-| ---------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| SANDBOX_DATA_DIR       | /arasul/sandbox/projects         | Backend-container path where sandbox project dirs are visible (bind mount, `compose/compose.app.yaml`)                      |
-| SANDBOX_HOST_DATA_DIR  | (auto-detected)                  | Host path of `data/sandbox/projects` for Docker bind mounts; auto-resolved by inspecting the backend container's own mounts |
-| SANDBOX_HOST_TOOLS_DIR | (sibling of projects: `…/tools`) | Host path of `data/sandbox/tools`, mounted read-only into every sandbox container at `/opt/tools` (open-ara sources)        |
+| Variable                | Default                          | Description                                                                                                                                                                                                                                                                          |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SANDBOX_DATA_DIR        | /arasul/sandbox/projects         | Backend-container path where sandbox project dirs are visible (bind mount, `compose/compose.app.yaml`)                                                                                                                                                                               |
+| SANDBOX_HOST_DATA_DIR   | (auto-detected)                  | Host path of `data/sandbox/projects` for Docker bind mounts; auto-resolved by inspecting the backend container's own mounts                                                                                                                                                          |
+| SANDBOX_HOST_TOOLS_DIR  | (sibling of projects: `…/tools`) | Host path of `data/sandbox/tools`, mounted read-only into every sandbox container at `/opt/tools` (open-ara sources)                                                                                                                                                                 |
+| SANDBOX_HOST_REPO_DIR   | (ancestor of projects dir)       | Host path of the platform repo, mounted **rw** at `/workspace/repo` in `infrastructure`-mode containers. Fallback: derived from the projects dir (`…/data/sandbox/projects` → repo root); on the Jetson this resolves to `/home/arasul/arasul/arasul-jet`                            |
+| SANDBOX_DOCKER_SOCK_GID | (DOCKER_GID → stat → 994)        | GID of the host docker group; `infrastructure`-mode containers get it via `GroupAdd` so the unprivileged user can use the mounted `/var/run/docker.sock` (no extra capabilities). Resolution: `SANDBOX_DOCKER_SOCK_GID` → `DOCKER_GID` → `stat` of the socket → Jetson default `994` |
 
-Inside each sandbox container, the backend sets `ARASUL_OLLAMA_URL=http://llm-service:11434` as default endpoint for local agents (open-ara). It only resolves when the project's network mode is `internal`; project-level environment variables override it per shell session.
+Inside each sandbox container, the backend sets `ARASUL_OLLAMA_URL=http://llm-service:11434` as default endpoint for local agents (open-ara). It only resolves when the project's network mode is `internal` or `infrastructure`; project-level environment variables override it per shell session.
+
+Network modes (`sandbox_projects.network_mode`, CHECK in migration 100): `isolated` (bridge, Internet only — GDPR-clean test environment), `internal` (backend network: LLM/Qdrant/DB), `infrastructure` (like `internal` plus platform repo rw + docker socket; **admin role only**, creation is audit-logged).
 
 ---
 
@@ -775,6 +802,7 @@ echo -n 'YourJWTSecret32chars!' > config/secrets/jwt_secret
 echo -n 'minioadmin' > config/secrets/minio_root_user
 echo -n 'YourMinioPassword123!' > config/secrets/minio_root_password
 echo -n 'YourN8nEncryptionKey32chars!' > config/secrets/n8n_encryption_key
+openssl rand -hex 32 > config/secrets/n8n_runners_auth_token
 
 # Restrict permissions
 chmod 600 config/secrets/*
@@ -782,13 +810,14 @@ chmod 600 config/secrets/*
 
 ### Supported Secrets
 
-| Secret File           | Services                                                                                                | Resolves To           |
-| --------------------- | ------------------------------------------------------------------------------------------------------- | --------------------- |
-| `postgres_password`   | postgres-db, dashboard-backend, metrics-collector, self-healing-agent, document-indexer, backup-service | `POSTGRES_PASSWORD`   |
-| `jwt_secret`          | dashboard-backend                                                                                       | `JWT_SECRET`          |
-| `minio_root_user`     | minio, dashboard-backend, backup-service                                                                | `MINIO_ROOT_USER`     |
-| `minio_root_password` | minio, dashboard-backend, document-indexer, backup-service                                              | `MINIO_ROOT_PASSWORD` |
-| `n8n_encryption_key`  | n8n                                                                                                     | `N8N_ENCRYPTION_KEY`  |
+| Secret File              | Services                                                                                                | Resolves To              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `postgres_password`      | postgres-db, dashboard-backend, metrics-collector, self-healing-agent, document-indexer, backup-service | `POSTGRES_PASSWORD`      |
+| `jwt_secret`             | dashboard-backend                                                                                       | `JWT_SECRET`             |
+| `minio_root_user`        | minio, dashboard-backend, backup-service                                                                | `MINIO_ROOT_USER`        |
+| `minio_root_password`    | minio, dashboard-backend, document-indexer, backup-service                                              | `MINIO_ROOT_PASSWORD`    |
+| `n8n_encryption_key`     | n8n                                                                                                     | `N8N_ENCRYPTION_KEY`     |
+| `n8n_runners_auth_token` | n8n (via entrypoint-Shim), n8n-runners (Launcher versteht `_FILE` nativ)                                | `N8N_RUNNERS_AUTH_TOKEN` |
 
 ### Additional Backend Secrets
 

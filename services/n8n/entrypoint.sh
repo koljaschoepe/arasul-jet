@@ -20,4 +20,22 @@ if [ -z "${N8N_ENCRYPTION_KEY:-}" ]; then
   echo "      n8n will generate a random key on first boot — this is a recoverability risk." >&2
 fi
 
+# N8N_RUNNERS_AUTH_TOKEN: shared secret between the task broker (this
+# container) and the n8n-runners sidecar. n8n does not understand the *_FILE
+# convention for this variable either, so resolve it here. The sidecar's
+# task-runner-launcher DOES support *_FILE natively (no shim needed there).
+RUNNERS_TOKEN_FILE="${N8N_RUNNERS_AUTH_TOKEN_FILE:-/run/secrets/n8n_runners_auth_token}"
+
+if [ -z "${N8N_RUNNERS_AUTH_TOKEN:-}" ] && [ -r "$RUNNERS_TOKEN_FILE" ]; then
+  N8N_RUNNERS_AUTH_TOKEN="$(cat "$RUNNERS_TOKEN_FILE")"
+  export N8N_RUNNERS_AUTH_TOKEN
+fi
+unset N8N_RUNNERS_AUTH_TOKEN_FILE
+
+if [ "${N8N_RUNNERS_MODE:-}" = "external" ] && [ -z "${N8N_RUNNERS_AUTH_TOKEN:-}" ]; then
+  echo "WARN: N8N_RUNNERS_MODE=external but N8N_RUNNERS_AUTH_TOKEN is not set and" >&2
+  echo "      /run/secrets/n8n_runners_auth_token is missing. Code nodes will not" >&2
+  echo "      execute. Generate: openssl rand -hex 32 > config/secrets/n8n_runners_auth_token" >&2
+fi
+
 exec n8n "$@"

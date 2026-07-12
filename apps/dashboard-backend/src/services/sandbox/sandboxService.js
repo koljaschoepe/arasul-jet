@@ -7,7 +7,7 @@
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
-const { ValidationError, NotFoundError } = require('../../utils/errors');
+const { ValidationError, NotFoundError, ForbiddenError } = require('../../utils/errors');
 const path = require('path');
 const fs = require('fs');
 const {
@@ -18,8 +18,26 @@ const {
   DEFAULT_RESOURCE_LIMITS,
   getHostDataDir,
   getHostToolsDir,
+  getHostRepoDir,
+  getDockerSockGid,
   parseMemoryLimit,
 } = require('./sandboxShared');
+
+// Gültige Netzwerkmodi (CHECK-Constraint aus Migration 100).
+// 'infrastructure' mountet Plattform-Repo (rw) + Docker-Socket — nur Admin.
+const VALID_NETWORK_MODES = ['isolated', 'internal', 'infrastructure'];
+
+/**
+ * Autorisierungs-Gate für den Infrastruktur-Modus: Rollenmodell ist
+ * admin_users.role ('admin' | künftig 'viewer', Migration 068) — nur die
+ * Admin-Rolle darf Infrastruktur-Projekte anlegen oder ein Projekt darauf
+ * umstellen (Plan 001 §8: bewusst ohne zusätzliche Bestätigungs-Hürde).
+ */
+function assertInfrastructureAllowed(networkMode, userRole) {
+  if (networkMode === 'infrastructure' && userRole !== 'admin') {
+    throw new ForbiddenError('Der Infrastruktur-Modus ist Administratoren vorbehalten');
+  }
+}
 const { checkIdleContainers, startIdleChecker, stopIdleChecker } = require('./sandboxIdleChecker');
 
 // ============================================================================
@@ -39,6 +57,7 @@ async function createProject({
   environment,
   network_mode,
   userId,
+  userRole,
 }) {
   if (!userId) {
     throw new ValidationError('User-ID ist erforderlich');
@@ -62,8 +81,8 @@ async function createProject({
   const limits = { ...DEFAULT_RESOURCE_LIMITS, ...(resourceLimits || {}) };
 
   // Validate network_mode — default is 'isolated' (bridge, no access to backend services)
-  const validNetworkModes = ['isolated', 'internal'];
-  const netMode = validNetworkModes.includes(network_mode) ? network_mode : 'isolated';
+  const netMode = VALID_NETWORK_MODES.includes(network_mode) ? network_mode : 'isolated';
+  assertInfrastructureAllowed(netMode, userRole);
 
   const result = await db.query(
     `INSERT INTO sandbox_projects
@@ -86,6 +105,14 @@ async function createProject({
   );
 
   const project = result.rows[0];
+
+  // Audit: Anlage eines Infrastruktur-Projekts ist sicherheitsrelevant
+  // (Repo rw + Docker-Socket beim Container-Start) — bewusst als warn.
+  if (netMode === 'infrastructure') {
+    logger.warn(
+      `AUDIT: Infrastruktur-Sandbox-Projekt angelegt: "${project.name}" (${slug}) durch User ${userId} — Repo-rw- und Docker-Socket-Mount beim Container-Start`
+    );
+  }
 
   // Create project directory via container-local mount path
   const localPath = path.join(SANDBOX_DATA_DIR, slug);
@@ -186,7 +213,8 @@ async function getProject(projectId, userId) {
 async function updateProject(
   projectId,
   { name, description, icon, color, environment, resourceLimits, network_mode },
-  userId
+  userId,
+  userRole
 ) {
   // Verify project exists and belongs to user
   await getProject(projectId, userId);
@@ -227,9 +255,14 @@ async function updateProject(
     params.push(JSON.stringify(limits));
   }
   if (network_mode !== undefined) {
-    const validModes = ['isolated', 'internal'];
-    if (!validModes.includes(network_mode)) {
+    if (!VALID_NETWORK_MODES.includes(network_mode)) {
       throw new ValidationError(`Ungültiger Netzwerkmodus: ${network_mode}`);
+    }
+    assertInfrastructureAllowed(network_mode, userRole);
+    if (network_mode === 'infrastructure') {
+      logger.warn(
+        `AUDIT: Sandbox-Projekt ${projectId} auf Infrastruktur-Modus umgestellt durch User ${userId} — Repo-rw- und Docker-Socket-Mount beim nächsten Container-Start`
+      );
     }
     setClauses.push(`network_mode = $${idx++}`);
     params.push(network_mode);
@@ -385,11 +418,42 @@ async function startContainer(projectId, userId) {
       // Ignore 404 — no zombie
     }
 
-    // Determine network mode: 'isolated' (bridge, default) or 'internal' (backend network)
-    const networkMode = project.network_mode === 'internal' ? NETWORK_NAME : 'bridge';
+    // Determine network mode: 'isolated' (bridge, default), 'internal' oder
+    // 'infrastructure' (Netz wie internal + Repo-/Socket-Mounts, nur Admin).
+    const isInfrastructure = project.network_mode === 'infrastructure';
+    const networkMode =
+      project.network_mode === 'internal' || isInfrastructure ? NETWORK_NAME : 'bridge';
 
     // Read-only tool sources (e.g. open-ara) — sibling of the projects dir
     const hostToolsDir = await getHostToolsDir();
+
+    const binds = [`${hostPath}:/workspace`, `${hostToolsDir}:/opt/tools:ro`];
+    const hostConfig = {
+      Binds: binds,
+      NetworkMode: networkMode,
+      RestartPolicy: { Name: 'unless-stopped' },
+      Memory: parseMemoryLimit(limits.memory),
+      NanoCpus: Math.round(parseFloat(limits.cpus || '2') * 1e9),
+      PidsLimit: parseInt(limits.pids || '128'),
+      // Härtung gilt für ALLE Modi — auch 'infrastructure' wird nicht
+      // gelockert: Docker-Socket-Zugriff braucht keine Caps, nur die
+      // Gruppenmitgliedschaft der Socket-GID (GroupAdd unten).
+      SecurityOpt: ['no-new-privileges:true'],
+      CapDrop: ['ALL'],
+      CapAdd: ['NET_BIND_SERVICE'],
+      Tmpfs: { '/tmp': 'noexec,nosuid,size=256M' },
+    };
+
+    if (isInfrastructure) {
+      const hostRepoDir = await getHostRepoDir();
+      const sockGid = getDockerSockGid();
+      binds.push(`${hostRepoDir}:/workspace/repo:rw`);
+      binds.push('/var/run/docker.sock:/var/run/docker.sock');
+      hostConfig.GroupAdd = [String(sockGid)];
+      logger.warn(
+        `AUDIT: Infrastruktur-Container startet für Projekt "${project.name}" (${project.slug}): Repo ${hostRepoDir} rw + Docker-Socket (GID ${sockGid})`
+      );
+    }
 
     const containerConfig = {
       Image: image,
@@ -397,18 +461,7 @@ async function startContainer(projectId, userId) {
       Hostname: `sandbox-${project.slug}`,
       Env: envVars,
       WorkingDir: '/workspace',
-      HostConfig: {
-        Binds: [`${hostPath}:/workspace`, `${hostToolsDir}:/opt/tools:ro`],
-        NetworkMode: networkMode,
-        RestartPolicy: { Name: 'unless-stopped' },
-        Memory: parseMemoryLimit(limits.memory),
-        NanoCpus: Math.round(parseFloat(limits.cpus || '2') * 1e9),
-        PidsLimit: parseInt(limits.pids || '128'),
-        SecurityOpt: ['no-new-privileges:true'],
-        CapDrop: ['ALL'],
-        CapAdd: ['NET_BIND_SERVICE'],
-        Tmpfs: { '/tmp': 'noexec,nosuid,size=256M' },
-      },
+      HostConfig: hostConfig,
     };
 
     const container = await docker.createContainer(containerConfig);

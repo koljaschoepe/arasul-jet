@@ -5,55 +5,65 @@ import { useTheme } from '../../hooks/useTheme';
 describe('useTheme', () => {
   beforeEach(() => {
     localStorage.clear();
-    // Reset DOM classes to a known state
+    // Reset DOM to a known state
     document.documentElement.classList.remove('dark', 'light');
+    document.documentElement.removeAttribute('data-theme');
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('returns dark as default theme when no localStorage value', () => {
-    // matchMedia mock returns matches: false by default (prefers dark)
+  it('returns black as default theme when no localStorage value', () => {
     const { result } = renderHook(() => useTheme());
-    expect(result.current.theme).toBe('dark');
+    expect(result.current.theme).toBe('black');
   });
 
-  it('reads theme from localStorage', () => {
+  it('reads light theme from localStorage', () => {
     localStorage.setItem('arasul_theme', 'light');
     const { result } = renderHook(() => useTheme());
     expect(result.current.theme).toBe('light');
   });
 
-  it('reads dark theme from localStorage', () => {
+  it('migration: stored dark stays dark', () => {
     localStorage.setItem('arasul_theme', 'dark');
     const { result } = renderHook(() => useTheme());
     expect(result.current.theme).toBe('dark');
   });
 
-  it('toggleTheme switches from dark to light', () => {
+  it('reads black theme from localStorage', () => {
+    localStorage.setItem('arasul_theme', 'black');
     const { result } = renderHook(() => useTheme());
-    expect(result.current.theme).toBe('dark');
-
-    act(() => {
-      result.current.toggleTheme();
-    });
-
-    expect(result.current.theme).toBe('light');
-    expect(localStorage.getItem('arasul_theme')).toBe('light');
+    expect(result.current.theme).toBe('black');
   });
 
-  it('toggleTheme switches from light to dark', () => {
-    localStorage.setItem('arasul_theme', 'light');
+  it('migration: unknown stored values fall back to black', () => {
+    localStorage.setItem('arasul_theme', 'invalid-value');
     const { result } = renderHook(() => useTheme());
-    expect(result.current.theme).toBe('light');
+    expect(result.current.theme).toBe('black');
+  });
+
+  it('toggleTheme cycles black → dark → light → black', () => {
+    const { result } = renderHook(() => useTheme());
+    expect(result.current.theme).toBe('black');
 
     act(() => {
       result.current.toggleTheme();
     });
-
     expect(result.current.theme).toBe('dark');
     expect(localStorage.getItem('arasul_theme')).toBe('dark');
+
+    act(() => {
+      result.current.toggleTheme();
+    });
+    expect(result.current.theme).toBe('light');
+    expect(localStorage.getItem('arasul_theme')).toBe('light');
+
+    act(() => {
+      result.current.toggleTheme();
+    });
+    expect(result.current.theme).toBe('black');
+    expect(localStorage.getItem('arasul_theme')).toBe('black');
   });
 
   it('setTheme updates localStorage', () => {
@@ -67,19 +77,31 @@ describe('useTheme', () => {
     expect(localStorage.getItem('arasul_theme')).toBe('light');
   });
 
-  it('adds dark class on html element for dark theme', () => {
+  it('black theme sets dark class and data-theme="black"', () => {
     const { result } = renderHook(() => useTheme());
 
-    // Force dark theme (default)
+    act(() => {
+      result.current.setTheme('black');
+    });
+
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(document.documentElement.classList.contains('light')).toBe(false);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('black');
+  });
+
+  it('dark theme sets dark class and data-theme="dark"', () => {
+    const { result } = renderHook(() => useTheme());
+
     act(() => {
       result.current.setTheme('dark');
     });
 
     expect(document.documentElement.classList.contains('dark')).toBe(true);
     expect(document.documentElement.classList.contains('light')).toBe(false);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
 
-  it('removes dark class and adds light class for light theme', () => {
+  it('light theme sets light class and data-theme="light"', () => {
     const { result } = renderHook(() => useTheme());
 
     act(() => {
@@ -88,13 +110,23 @@ describe('useTheme', () => {
 
     expect(document.documentElement.classList.contains('dark')).toBe(false);
     expect(document.documentElement.classList.contains('light')).toBe(true);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 
-  it('ignores invalid localStorage values and falls back to system preference', () => {
-    localStorage.setItem('arasul_theme', 'invalid-value');
-    // matchMedia mock returns matches: false → system prefers dark
-    const { result } = renderHook(() => useTheme());
-    // Should fall back to system preference (dark, since matchMedia.matches is false)
-    expect(result.current.theme).toBe('dark');
+  it('keeps multiple hook instances in sync', () => {
+    const first = renderHook(() => useTheme());
+    const second = renderHook(() => useTheme());
+
+    act(() => {
+      first.result.current.setTheme('light');
+    });
+
+    expect(second.result.current.theme).toBe('light');
+
+    act(() => {
+      second.result.current.setTheme('dark');
+    });
+
+    expect(first.result.current.theme).toBe('dark');
   });
 });

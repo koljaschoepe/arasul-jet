@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { AlertCircle, Save } from 'lucide-react';
+import { AlertCircle, Save, ShieldAlert } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
-import type { SandboxProject } from './types';
+import type { SandboxProject, SandboxNetworkMode } from './types';
 
 interface EditProjectDialogProps {
   project: SandboxProject | null;
@@ -24,7 +24,7 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
   const toast = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [networkMode, setNetworkMode] = useState<'isolated' | 'internal'>('isolated');
+  const [networkMode, setNetworkMode] = useState<SandboxNetworkMode>('isolated');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -41,7 +41,13 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
     if (project) {
       setName(project.name || '');
       setDescription(project.description || '');
-      setNetworkMode(project.network_mode === 'internal' ? 'internal' : 'isolated');
+      // 'infrastructure' erhalten — sonst würde Speichern den Modus still
+      // auf 'isolated' herabstufen; unbekannte Werte fallen auf 'isolated'.
+      setNetworkMode(
+        project.network_mode === 'internal' || project.network_mode === 'infrastructure'
+          ? project.network_mode
+          : 'isolated'
+      );
       setError(null);
     }
     // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
@@ -183,6 +189,23 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
               </div>
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setNetworkMode('infrastructure')}
+            className={`px-3 py-2 rounded-md border text-xs text-left transition-colors ${
+              networkMode === 'infrastructure'
+                ? 'border-destructive bg-destructive/10 text-destructive'
+                : 'border-border bg-muted text-muted-foreground hover:border-destructive/50'
+            }`}
+          >
+            <div className="font-medium flex items-center gap-1.5">
+              <ShieldAlert className="size-3.5 shrink-0" />
+              Infrastruktur
+            </div>
+            <div className="text-[10px] opacity-70 mt-0.5">
+              Voller Zugriff auf Plattform-Repo (beschreibbar) und Docker — nur für Administratoren.
+            </div>
+          </button>
           <p className="text-[10px] text-muted-foreground mt-0.5">
             Netzwerk-Änderungen werden beim nächsten Container-Start wirksam.
           </p>

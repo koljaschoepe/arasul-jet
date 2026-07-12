@@ -67,6 +67,13 @@ services:
       OLLAMA_STARTUP_TIMEOUT: ${OLLAMA_STARTUP_TIMEOUT:-120}
       OLLAMA_FLASH_ATTENTION: '1'
       OLLAMA_KV_CACHE_TYPE: 'q4_0'
+      # Default-Kontextfenster für alle geladenen Modelle. n8n-Agent-Workflows
+      # (Tools Agent + qwen3:8b) brauchen ≥32k — Ollamas Default (4k) schneidet
+      # Tool-Definitionen + Verlauf sonst STILL ab und der Agent "vergisst"
+      # seine Tools. KV-Cache-Kosten sind durch q4_0 + Flash Attention
+      # gedämpft; auf knappen 32-GB-Orins via .env absenkbar.
+      # Siehe docs/integrations/N8N_AGENTS.md §Kontextfenster.
+      OLLAMA_CONTEXT_LENGTH: '${OLLAMA_CONTEXT_LENGTH:-32768}'
       # NUM_PARALLEL=2 lets two chat requests stream concurrently (Balanced
       # latency target: 2 users OK, 3+ queue). Lower to 1 on tight 32 GB Orin
       # by exporting OLLAMA_NUM_PARALLEL=1 in .env.

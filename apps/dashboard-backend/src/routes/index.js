@@ -132,6 +132,7 @@ router.use('/knowledge-graph', require('./ai/knowledgeGraph'));
 
 // --- Store ---
 router.use('/apps', require('./store/appstore'));
+router.use('/workspace-apps', require('./workspaceApps'));
 router.use('/store', require('./store/store'));
 router.use('/workflows', require('./store/workflows'));
 router.use('/workspaces', require('./store/workspaces'));

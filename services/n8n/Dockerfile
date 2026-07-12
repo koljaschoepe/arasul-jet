@@ -1,18 +1,21 @@
 # Multi-stage Dockerfile for n8n with custom Arasul nodes
 #
-# Pinned to 1.123.18 — the 1.x line that includes all Q1 2026 security fixes:
-#   - CVE-2026-21858 (CVSS 10.0) Ni8mare: unauthenticated RCE via webhook (fixed ≥ 1.121.0)
-#   - CVE-2025-68613 (CVSS 9.9)  Expression-injection RCE (fixed ≥ 1.122.0)
-#   - CVE-2026-25115 / CVE-2026-25049 / CVE-2026-25056 (Critical) — fixed ≥ 1.123.18
-#   - CVE-2025-68668 N8scape: Pyodide sandbox escape (fixed ≥ 2.0.0; we don't ship Python)
-#   - Several Critical/High advisories from the Feb 2026 bulletin — all fixed ≥ 1.123.18
+# Pinned to 2.29.10 — current stable of the 2.x security-hardening line
+# (Plan 001-workspace-cursor-feinschliff, Schritt 9). 2.x brings:
+#   - Execute-Command-Node default-disabled (we additionally NODES_EXCLUDE it)
+#   - Code nodes run in external task runners (sidecar n8n-runners, see
+#     compose/compose.app.yaml — the n8nio/runners tag MUST match this pin)
+#   - SSRF protection (≥2.12), env-access blocking, file-access whitelist
+#   - Pyodide removed (CVE-2025-68668 N8scape moot); Python runs in the runner
 #
-# 2.x is intentionally NOT chosen yet — 2.0 introduced breaking changes (env-var blocking,
-# stricter file permissions, Pyodide removal) that we want to migrate to deliberately.
+# UPGRADE-HINWEIS: die 2.x-Engine migriert das n8n-DB-Schema beim ersten
+# Start irreversibel. Vor dem ersten Start: Backup von n8n-Volume + DB
+# (docs/integrations/N8N_AGENTS.md §Upgrade). Rollback = Pin zurückdrehen
+# UND Volume-/DB-Restore.
 #
-# Patch cadence: aim for monthly rebuilds. n8n averaged ~1 critical CVE/month through
-# Q1 2026. See docs/plans/active/EXTERNAL_INTEGRATIONS.md §7.5 for the auto-update plan.
-ARG N8N_VERSION=1.123.18
+# Patch cadence: aim for monthly rebuilds. n8n averaged ~1 critical CVE/month
+# through Q1 2026. When bumping: bump n8nio/runners in compose.app.yaml too.
+ARG N8N_VERSION=2.29.10
 
 # Stage 1: Build custom nodes (TypeScript compilation)
 FROM node:20-alpine AS builder
@@ -72,6 +75,12 @@ COPY --from=builder /build/n8n-nodes-arasul-documents/node_modules /custom-nodes
 
 # Set ownership
 RUN chown -R node:node /custom-nodes
+
+# Agent-Workspace: mount point for the shared n8n-agent-workspace volume
+# (compose.app.yaml). Creating it here with node ownership makes Docker's
+# named-volume initialization copy that ownership, so both n8n (user node,
+# uid 1000) and the n8n-runners sidecar (user runner, uid 1000) can write.
+RUN mkdir -p /data/agent-workspace && chown node:node /data/agent-workspace
 
 # Entrypoint shim — reads /run/secrets/n8n_encryption_key into N8N_ENCRYPTION_KEY.
 # n8n upstream does not understand the *_FILE convention this repo uses, so we resolve
