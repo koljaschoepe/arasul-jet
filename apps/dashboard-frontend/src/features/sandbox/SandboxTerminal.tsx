@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Sparkles,
   Terminal,
+  ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/shadcn/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useTerminal } from './useTerminal';
+import type { SandboxNetworkMode } from './types';
 import '@xterm/xterm/css/xterm.css';
 
 interface QuickLaunchItem {
@@ -37,9 +39,12 @@ interface QuickLaunchItem {
   description: string;
 }
 
+// /claude, /codex, /gemini sind Bash-Funktionen aus /etc/profile.d/arasul-slash.sh
+// im Sandbox-Image; Erststart installiert die jeweilige CLI (Wrapper-Skripte).
 const QUICK_LAUNCH_ITEMS: QuickLaunchItem[] = [
-  { label: 'Claude Code', command: 'claude\n', description: 'Claude Code CLI starten' },
-  { label: 'Codex', command: 'codex\n', description: 'OpenAI Codex CLI starten' },
+  { label: 'Claude Code', command: '/claude\n', description: 'Claude Code CLI starten' },
+  { label: 'Codex', command: '/codex\n', description: 'OpenAI Codex CLI starten' },
+  { label: 'Gemini', command: '/gemini\n', description: 'Google Gemini CLI starten' },
   {
     label: 'Open-ARA (lokaler Agent)',
     command: 'open-ara\n',
@@ -50,9 +55,32 @@ const QUICK_LAUNCH_ITEMS: QuickLaunchItem[] = [
   { label: 'htop', command: 'htop\n', description: 'Prozess-Monitor' },
 ];
 
+/** Modus-Badge im Terminal-Header: Isoliert=neutral, Intern=ok, Infrastruktur=rot */
+const NETWORK_MODE_BADGES: Record<
+  SandboxNetworkMode,
+  { label: string; className: string; title: string }
+> = {
+  isolated: {
+    label: 'Isoliert',
+    className: 'bg-muted text-muted-foreground border-border',
+    title: 'Nur Internet — kein Zugriff auf interne Services (DSGVO-Testumgebung)',
+  },
+  internal: {
+    label: 'Intern',
+    className: 'bg-primary/10 text-primary border-primary/30',
+    title: 'Backend-Netz: Zugriff auf KI-Services + Datenbank',
+  },
+  infrastructure: {
+    label: 'Infrastruktur',
+    className: 'bg-destructive/10 text-destructive border-destructive/40',
+    title: 'Voller Zugriff: Plattform-Repo (beschreibbar) + Docker — nur Admin',
+  },
+};
+
 interface SandboxTerminalProps {
   projectId: string;
   containerStatus?: string;
+  networkMode?: SandboxNetworkMode;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   className?: string;
@@ -125,6 +153,7 @@ function getStatusDisplay(
 export default function SandboxTerminal({
   projectId,
   containerStatus,
+  networkMode,
   isFullscreen = false,
   onToggleFullscreen,
   className,
@@ -143,6 +172,7 @@ export default function SandboxTerminal({
   }, [onToggleFullscreen, fit]);
 
   const status = getStatusDisplay(containerStatus, isConnecting, isConnected, error);
+  const modeBadge = networkMode ? NETWORK_MODE_BADGES[networkMode] : null;
 
   return (
     <div className={cn('flex flex-col h-full p-3', className)}>
@@ -153,6 +183,20 @@ export default function SandboxTerminal({
           <div className="flex items-center gap-2">
             {status.icon}
             <span className="text-xs text-muted-foreground font-mono">{status.text}</span>
+
+            {/* Modus-Badge: Isoliert=neutral, Intern=ok, Infrastruktur=rot */}
+            {modeBadge && (
+              <span
+                title={modeBadge.title}
+                className={cn(
+                  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium leading-none',
+                  modeBadge.className
+                )}
+              >
+                {networkMode === 'infrastructure' && <ShieldAlert className="size-3 shrink-0" />}
+                {modeBadge.label}
+              </span>
+            )}
 
             {/* Quick Launch — Radix DropdownMenu for portal-based rendering */}
             {isConnected && (

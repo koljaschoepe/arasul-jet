@@ -4,6 +4,7 @@
  */
 
 const path = require('path');
+const fs = require('fs');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
 
@@ -67,6 +68,48 @@ async function getHostToolsDir() {
 }
 
 /**
+ * Host-Pfad des Plattform-Repos für den Netzwerkmodus 'infrastructure'
+ * (beschreibbarer Mount nach /workspace/repo). Vorrang hat
+ * SANDBOX_HOST_REPO_DIR; sonst Ableitung als Vorfahr des Projekt-Mounts:
+ * <repo>/data/sandbox/projects → drei Ebenen hoch = <repo>.
+ * Auf dem Jetson: /home/arasul/arasul/arasul-jet.
+ */
+async function getHostRepoDir() {
+  if (process.env.SANDBOX_HOST_REPO_DIR) {
+    return process.env.SANDBOX_HOST_REPO_DIR;
+  }
+  const projectsDir = await getHostDataDir();
+  // …/data/sandbox/projects → …
+  return path.posix.dirname(path.posix.dirname(path.posix.dirname(projectsDir)));
+}
+
+// Jetson-Standard für die docker-Gruppe (siehe compose.app.yaml group_add
+// '${DOCKER_GID:-994}' am dashboard-backend).
+const DEFAULT_DOCKER_SOCK_GID = 994;
+
+/**
+ * GID der Docker-Socket-Gruppe auf dem Host. Der Sandbox-Container läuft mit
+ * CapDrop ALL + no-new-privileges; Zugriff auf /var/run/docker.sock braucht
+ * daher nur die Gruppenmitgliedschaft (HostConfig.GroupAdd), keine Caps.
+ * Reihenfolge: SANDBOX_DOCKER_SOCK_GID → DOCKER_GID → stat des (ggf. ins
+ * Backend gemounteten) Sockets → Jetson-Default 994.
+ */
+function getDockerSockGid() {
+  const envGid = process.env.SANDBOX_DOCKER_SOCK_GID || process.env.DOCKER_GID;
+  if (envGid && /^\d+$/.test(envGid)) {
+    return parseInt(envGid, 10);
+  }
+  try {
+    return fs.statSync('/var/run/docker.sock').gid;
+  } catch {
+    logger.warn(
+      `Docker-Socket-GID nicht ermittelbar (kein SANDBOX_DOCKER_SOCK_GID/DOCKER_GID, Socket nicht gemountet) — Fallback ${DEFAULT_DOCKER_SOCK_GID}`
+    );
+    return DEFAULT_DOCKER_SOCK_GID;
+  }
+}
+
+/**
  * Parse memory string (e.g., "2G", "512M") to bytes.
  */
 function parseMemoryLimit(mem) {
@@ -88,5 +131,7 @@ module.exports = {
   DEFAULT_RESOURCE_LIMITS,
   getHostDataDir,
   getHostToolsDir,
+  getHostRepoDir,
+  getDockerSockGid,
   parseMemoryLimit,
 };

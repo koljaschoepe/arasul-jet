@@ -1,12 +1,39 @@
 import { formatUptime } from '../../utils/formatting';
 import { useState, useEffect, useCallback } from 'react';
-import { Moon, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
-import { Switch } from '@/components/ui/shadcn/switch';
+import { Moon, MoonStar, Sun, Clock, Wifi, ShieldCheck, Cpu } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/shadcn/radio-group';
 import { Label } from '@/components/ui/shadcn/label';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
+import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 import { N8nIntegrationGuide } from './N8nIntegrationGuide';
+
+const THEME_OPTIONS: ReadonlyArray<{
+  value: Theme;
+  label: string;
+  description: string;
+  icon: typeof Moon;
+}> = [
+  {
+    value: 'black',
+    label: 'Schwarz',
+    description: 'Tiefschwarzes Design mit maximalem Kontrast',
+    icon: MoonStar,
+  },
+  {
+    value: 'dark',
+    label: 'Dunkel',
+    description: 'Anthrazitfarbenes Design für reduzierte Augenbelastung',
+    icon: Moon,
+  },
+  {
+    value: 'light',
+    label: 'Hell',
+    description: 'Helles Design für bessere Lesbarkeit bei Tageslicht',
+    icon: Sun,
+  },
+];
 
 interface SystemInfo {
   version: string;
@@ -17,11 +44,14 @@ interface SystemInfo {
 }
 
 interface GeneralSettingsProps {
+  /** @deprecated Theme kommt jetzt direkt aus useTheme(); Props bleiben für Aufrufer-Kompatibilität. */
   theme?: string;
+  /** @deprecated s. theme */
   onToggleTheme?: () => void;
 }
 
-export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) {
+export function GeneralSettings(_props: GeneralSettingsProps) {
+  const { theme, setTheme } = useTheme();
   const api = useApi();
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,41 +85,51 @@ export function GeneralSettings({ theme, onToggleTheme }: GeneralSettingsProps) 
       </div>
 
       <div className="flex flex-col gap-8">
-        {/* Theme Toggle */}
+        {/* Theme-Auswahl (Schwarz · Dunkel · Hell) */}
         <div className="pb-6 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-            {theme === 'dark' ? (
+            {theme === 'light' ? (
+              <Sun className="size-4 text-muted-foreground" />
+            ) : theme === 'dark' ? (
               <Moon className="size-4 text-muted-foreground" />
             ) : (
-              <Sun className="size-4 text-muted-foreground" />
+              <MoonStar className="size-4 text-muted-foreground" />
             )}
             Erscheinungsbild
           </h3>
           <p className="text-xs text-muted-foreground mb-4">
-            Wählen Sie zwischen hellem und dunklem Design
+            Wählen Sie zwischen schwarzem, dunklem und hellem Design
           </p>
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <Label className="text-sm font-medium">
-                Aktuelles Theme:{' '}
-                <strong>{theme === 'dark' ? 'Dunkler Modus' : 'Heller Modus'}</strong>
-              </Label>
-              <span className="text-xs text-muted-foreground">
-                {theme === 'dark'
-                  ? 'Dunkles Design für reduzierte Augenbelastung'
-                  : 'Helles Design für bessere Lesbarkeit bei Tageslicht'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Sun className="size-4 text-muted-foreground" />
-              <Switch
-                checked={theme === 'dark'}
-                onCheckedChange={onToggleTheme}
-                aria-label="Theme umschalten"
-              />
-              <Moon className="size-4 text-muted-foreground" />
-            </div>
-          </div>
+          <RadioGroup
+            value={theme}
+            onValueChange={value => setTheme(value as Theme)}
+            aria-label="Design auswählen"
+          >
+            {THEME_OPTIONS.map(option => {
+              const Icon = option.icon;
+              return (
+                <div key={option.value} className="flex items-start gap-3">
+                  <RadioGroupItem
+                    value={option.value}
+                    id={`theme-${option.value}`}
+                    className="mt-0.5"
+                  />
+                  <Label
+                    htmlFor={`theme-${option.value}`}
+                    className="flex cursor-pointer flex-col gap-0.5"
+                  >
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <Icon className="size-3.5 text-muted-foreground" />
+                      {option.label}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {option.description}
+                    </span>
+                  </Label>
+                </div>
+              );
+            })}
+          </RadioGroup>
         </div>
 
         {/* System Information */}

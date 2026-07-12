@@ -741,6 +741,16 @@ ENVEOF
     echo -n "$MINIO_ROOT_USER" > "$secrets_dir/minio_root_user"
     echo -n "$MINIO_ROOT_PASSWORD" > "$secrets_dir/minio_root_password"
     echo -n "$N8N_ENCRYPTION_KEY" > "$secrets_dir/n8n_encryption_key"
+    # --- Hook (Plan 001, Schritt 9): n8n Task-Runner-Auth-Token --------------
+    # Gemeinsames Secret zwischen n8n (Task-Broker) und dem n8n-runners-
+    # Sidecar (compose.secrets.yaml). Nur erzeugen, wenn es fehlt — der Token
+    # ist nicht datentragend, aber ein Wechsel wuerde einen laufenden
+    # Runner-Sidecar bis zum Restart trennen. Bestandsgeraete bekommen ihn
+    # auch via ./arasul bootstrap (setup_secrets), ebenfalls idempotent.
+    if [ ! -s "$secrets_dir/n8n_runners_auth_token" ]; then
+        generate_secret 32 | tr -d '\n' > "$secrets_dir/n8n_runners_auth_token"
+    fi
+    # --------------------------------------------------------------------------
     echo -n "$TELEGRAM_ENCRYPTION_KEY" > "$secrets_dir/telegram_encryption_key"
     # Telegram Bot Token: Platzhalter (wird spaeter via Dashboard konfiguriert)
     if [ ! -f "$secrets_dir/telegram_bot_token" ]; then

@@ -164,7 +164,15 @@ services:
           memory: ${RAM_LIMIT_FRONTEND:-256M}
           pids: 64
 
-  # 3. n8n Workflow Engine
+  # 3. n8n Workflow Engine (2.x-Linie)
+  #
+  # ============================================================================
+  # UPGRADE-HINWEIS: vor erstem Start Backup von n8n-Volume+DB
+  # (siehe docs/integrations/N8N_AGENTS.md §Upgrade). Die 2.x-Engine migriert
+  # das Datenbankschema (Schema "n8n" in Postgres) beim ersten Start
+  # irreversibel — Rollback auf 1.x geht nur über Image-Pin
+  # (services/n8n/Dockerfile, ARG N8N_VERSION) PLUS Restore von Volume+DB.
+  # ============================================================================
   n8n:
     build:
       context: ../services/n8n
@@ -221,12 +229,24 @@ services:
       # n8n sits behind exactly one trusted proxy (Traefik) — needed for correct rate-limit
       # source-IP attribution and for OAuth2 callbacks behind the reverse proxy.
       N8N_PROXY_HOPS: '1'
+      # --- Task Runner (extern, seit 2.x-Upgrade) ---------------------------
+      # Code-Node-Ausführung läuft im Sidecar-Container n8n-runners (Image
+      # n8nio/runners, Version MUSS zum n8n-Pin in services/n8n/Dockerfile
+      # passen). Der Broker lauscht containerintern auf :5679; der Sidecar
+      # verbindet sich über das Docker-Netz. Auth über das gemeinsame Secret
+      # n8n_runners_auth_token (compose.secrets.yaml; im n8n-Container löst
+      # services/n8n/entrypoint.sh die *_FILE-Variable auf).
       N8N_RUNNERS_ENABLED: 'true'
-      N8N_RUNNERS_MODE: 'internal' # external mode deferred — see docs/plans/active/EXTERNAL_INTEGRATIONS.md §5.4
+      N8N_RUNNERS_MODE: 'external'
+      N8N_RUNNERS_BROKER_LISTEN_ADDRESS: '0.0.0.0' # Sidecar muss den Broker über das Docker-Netz erreichen
       # Hardening (Phase 2 of EXTERNAL_INTEGRATIONS plan) — see docs/integrations/N8N_HARDENING.md
       N8N_BLOCK_ENV_ACCESS_IN_NODE: 'true' # Code/Function nodes cannot read process.env
       N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: 'true' # Code nodes cannot read n8n's own files
-      N8N_RESTRICT_FILE_ACCESS_TO: '/home/node/.n8n' # File access whitelist
+      # Datei-Zugriff der Main-Process-Nodes (Read/Write File) ist auf das
+      # Agent-Workspace-Volume beschränkt. Das Volume ist zusätzlich im
+      # n8n-runners-Sidecar gemountet, damit Code-Tool-Schreibzugriffe von
+      # Agenten dort landen (siehe docs/integrations/N8N_AGENTS.md).
+      N8N_RESTRICT_FILE_ACCESS_TO: '/data/agent-workspace' # File access whitelist
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true' # 0600 on settings file
       N8N_GIT_NODE_DISABLE_BARE_REPOS: 'true' # Git node hardening
       N8N_PAYLOAD_SIZE_MAX: '8' # MiB (default 16) — DoS mitigation
@@ -234,6 +254,7 @@ services:
       N8N_DIAGNOSTICS_ENABLED: 'false' # GDPR — no telemetry to n8n.io
       N8N_VERSION_NOTIFICATIONS_ENABLED: 'false'
       N8N_HIRING_BANNER_ENABLED: 'false'
+      N8N_TEMPLATES_ENABLED: 'false' # kein Template-Store-Callout zu api.n8n.io (GDPR/offline)
       # Supply-chain hardening: customers cannot install community packages from npm at runtime.
       # If a vendor-specific node is needed, vendor it into this Dockerfile build.
       N8N_COMMUNITY_PACKAGES_ENABLED: 'false'
@@ -241,8 +262,22 @@ services:
       # executeCommand = arbitrary OS commands inside the n8n container.
       # ssh             = arbitrary SSH commands to anywhere n8n can reach.
       NODES_EXCLUDE: '["n8n-nodes-base.executeCommand","n8n-nodes-base.ssh"]'
+      # --- SSRF-Schutz (ab n8n 2.12) ----------------------------------------
+      # Blockt Requests aus HTTP-Nodes auf RFC1918/Loopback/Link-Local.
+      # Interne Arasul-Dienste, die Workflows legitim brauchen, werden per
+      # Hostname-Allowlist freigegeben (Allowlist > Blocklist). postgres-db
+      # ist bewusst NICHT freigegeben.
+      N8N_SSRF_PROTECTION_ENABLED: 'true'
+      N8N_SSRF_ALLOWED_HOSTNAMES: 'llm-service,qdrant,dashboard-backend,minio,embedding-service,document-indexer'
+      # Instanzweiten MCP-Server (Beta, macht Workflows als MCP-Tools nach
+      # außen verfügbar) hart abschalten. Der MCP-Client-Tool-Node in
+      # Agent-Workflows ist davon NICHT betroffen.
+      N8N_DISABLED_MODULES: 'mcp'
     volumes:
       - arasul-n8n:/home/node/.n8n
+      # Agent-Workspace: einziger von N8N_RESTRICT_FILE_ACCESS_TO erlaubter
+      # Pfad; wird auch in n8n-runners gemountet (Code-Tool-Schreibzugriffe).
+      - n8n-agent-workspace:/data/agent-workspace
       - ../services/n8n/credentials:/custom-credentials:ro
       - ../services/n8n/templates:/custom-templates:ro
     depends_on:
@@ -276,5 +311,70 @@ services:
       - 'traefik.enable=false'
     logging: *default-logging
 
+  # 4. n8n Task-Runner-Sidecar (Code-Node-Ausführung, extern)
+  #
+  # Führt JavaScript-/Python-Code aus n8n-Code-Nodes in einem eigenen
+  # Container aus (Blast-Radius-Trennung: ein Code-Node-Ausbruch landet hier,
+  # nicht im n8n-Hauptprozess mit DB-Zugang und Encryption-Key).
+  #
+  # Version MUSS exakt zum n8n-Pin passen (services/n8n/Dockerfile,
+  # ARG N8N_VERSION) — offizielle Vorgabe von n8n. Beim n8n-Upgrade beide
+  # gemeinsam bumpen. Image ist multi-arch (arm64 verifiziert, 2026-07).
+  n8n-runners:
+    image: n8nio/runners:2.29.10
+    container_name: n8n-runners
+    hostname: n8n-runners
+    restart: always
+    networks:
+      - arasul-backend
+    environment:
+      # Broker läuft im n8n-Hauptcontainer auf :5679 (nicht am Host publiziert).
+      N8N_RUNNERS_TASK_BROKER_URI: 'http://n8n:5679'
+      # Auth-Token als Docker-Secret — der task-runner-launcher versteht die
+      # *_FILE-Konvention nativ (siehe compose.secrets.yaml). KEIN Token hier!
+      N8N_RUNNERS_LAUNCHER_LOG_LEVEL: 'info'
+      TZ: 'Europe/Berlin'
+      GENERIC_TIMEZONE: 'Europe/Berlin'
+    volumes:
+      # Gleiches Workspace-Volume wie im n8n-Service: Code-Tool-Schreibzugriffe
+      # von Agenten landen hier und sind für Read/Write-File-Nodes im
+      # Hauptprozess sichtbar (dort via N8N_RESTRICT_FILE_ACCESS_TO erlaubt).
+      - n8n-agent-workspace:/data/agent-workspace
+      # Launcher-Konfig: Upstream-Kopie mit EINER Abweichung — fs/fs-promises/
+      # path zusätzlich in NODE_FUNCTION_ALLOW_BUILTIN, damit Agent-Code-Tools
+      # in den Workspace schreiben können. Eine Env-Variable reicht dafür
+      # NICHT (der Launcher überschreibt sie hart aus dieser Datei, und sie
+      # steht nicht in allowed-env). Wartungshinweis im JSON: bei jedem
+      # Runners-Image-Bump gegen den Upstream-Stand des neuen Tags diffen.
+      - ../services/n8n/runners/n8n-task-runners.json:/etc/n8n-task-runners.json:ro
+    depends_on:
+      # service_healthy: der Broker muss lauschen, bevor der Launcher verbindet
+      # (Launcher retryt zwar, aber so initialisiert außerdem der n8n-Container
+      # das Workspace-Volume mit node-Ownership, bevor der Runner es mountet).
+      n8n:
+        condition: service_healthy
+    healthcheck:
+      # Launcher-Healthendpoint (Port 5680, siehe task-runner-launcher-Doku).
+      # wget kommt aus busybox (Alpine-Basisimage).
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:5680/healthz']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    <<: *default-security
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: ${RAM_LIMIT_N8N_RUNNERS:-1G}
+          pids: 256
+    labels:
+      - 'traefik.enable=false'
+    logging: *default-logging
+
 volumes:
   arasul-n8n:
+  # Gemeinsamer Agent-Workspace für n8n (Read/Write-File-Nodes) und
+  # n8n-runners (Code-Tool). Ownership node:node kommt aus dem n8n-Image
+  # (services/n8n/Dockerfile legt /data/agent-workspace an).
+  n8n-agent-workspace:

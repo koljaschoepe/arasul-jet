@@ -30,6 +30,7 @@ import {
   X,
 } from 'lucide-react';
 import StoreDetailModal from './StoreDetailModal';
+import PlatformAppsSection from './PlatformAppsSection';
 import DownloadProgress from './DownloadProgress';
 import DataStateRenderer from '../../components/ui/DataStateRenderer';
 import { SkeletonCard } from '../../components/ui/Skeleton';
@@ -677,6 +678,7 @@ function StoreApps() {
       }
     >
       <div className="store-apps">
+        <PlatformAppsSection />
         {/* Error */}
         {error && (
           <div className="store-error flex items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-md px-4 py-3 mb-6 text-destructive">

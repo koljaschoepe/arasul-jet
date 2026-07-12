@@ -1,0 +1,154 @@
+{
+  "name": "[Vorlage] Agent — Recherche (Web + Datei-Ablage)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## [Vorlage] Recherche-Agent\n\n**Vor dem ersten Lauf:**\n1. Ollama-Credential anlegen: *Credentials → Ollama* → Base URL `http://llm-service:11434` (kein API-Key nötig) und im Node »Ollama Chat Model (qwen3:8b)« auswählen.\n2. Modell provisionieren: `scripts/util/n8n-import-templates.sh` zieht `qwen3:8b` automatisch, oder manuell `docker exec llm-service ollama pull qwen3:8b`.\n3. Chat öffnen (Button »Chat« unten) und z. B. fragen: *»Hole https://example.com und speichere eine Zusammenfassung als beispiel.md«*.\n\n**Hinweise:**\n- `web_abrufen` ist ein generisches HTTP-Tool (keine Suchmaschine). Der SSRF-Schutz der Plattform blockt interne Adressen; erlaubt sind öffentliche URLs sowie die freigegebenen internen Dienste (llm-service, qdrant, dashboard-backend, minio).\n- `datei_schreiben` legt Dateien im Agent-Workspace-Volume ab (`/data/agent-workspace`, gemeinsames Volume von n8n und n8n-runners).\n- Ein Tool pro Aufgabe halten; für mehr Tools Subagenten nutzen — siehe docs/integrations/N8N_AGENTS.md.",
+        "height": 520,
+        "width": 420,
+        "color": 4
+      },
+      "id": "sticky-setup",
+      "name": "Sticky Note — Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-160, 60]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "chat-trigger-1",
+      "name": "Beim Chat-Empfang",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [320, 260],
+      "webhookId": "arasul-vorlage-recherche-chat"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Du bist ein Recherche-Agent auf einer lokalen Arasul-Appliance (alles läuft on-device, keine Cloud).\n\nDeine Werkzeuge:\n- web_abrufen: ruft genau EINE öffentliche http(s)-URL ab und liefert den Rohinhalt zurück. Es ist KEINE Suchmaschine — du brauchst konkrete URLs (vom Nutzer genannt oder aus bereits abgerufenen Seiten verlinkt).\n- datei_schreiben: speichert ein Ergebnis als Datei im Agent-Workspace (nur Dateiname, keine Pfade).\n\nArbeitsweise:\n1. Zerlege den Auftrag in einzelne Schritte und rufe Werkzeuge einzeln nacheinander auf (ein Tool-Call pro Schritt).\n2. Fasse abgerufene Inhalte kompakt und faktentreu zusammen; erfinde nichts.\n3. Wenn der Nutzer eine Ablage wünscht (oder das Ergebnis umfangreich ist), speichere es mit datei_schreiben als Markdown und nenne den Dateinamen in deiner Antwort.\n4. Antworte auf Deutsch."
+        }
+      },
+      "id": "agent-1",
+      "name": "Recherche-Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [620, 260]
+    },
+    {
+      "parameters": {
+        "model": "qwen3:8b",
+        "options": {
+          "temperature": 0.2,
+          "numCtx": 32768
+        }
+      },
+      "id": "ollama-lm-1",
+      "name": "Ollama Chat Model (qwen3:8b)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [520, 500],
+      "credentials": {
+        "ollamaApi": {
+          "id": "REPLACE_AFTER_IMPORT",
+          "name": "Ollama (llm-service)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Ruft genau eine öffentliche http(s)-URL per GET ab und gibt den Antwort-Body zurück. Keine Suchmaschine: es wird nur die übergebene URL geladen. Interne/private Adressen werden vom SSRF-Schutz der Plattform geblockt.",
+        "method": "GET",
+        "url": "{url}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "url",
+              "description": "Vollständige öffentliche http(s)-URL, die abgerufen werden soll (inkl. Schema, z. B. https://example.com/seite)",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "tool-http-1",
+      "name": "web_abrufen",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [720, 500]
+    },
+    {
+      "parameters": {
+        "name": "datei_schreiben",
+        "description": "Speichert Textinhalt als Datei im Agent-Workspace (/data/agent-workspace). Eingabe: JSON-Objekt mit 'dateiname' (nur Dateiname, keine Pfade; z. B. bericht.md) und 'inhalt' (kompletter Dateiinhalt als Text).",
+        "language": "javaScript",
+        "jsCode": "// Läuft im n8n-runners-Sidecar. 'fs'/'path' sind dort per\n// NODE_FUNCTION_ALLOW_BUILTIN freigegeben (compose/compose.app.yaml).\n// Das Ziel /data/agent-workspace ist das gemeinsame, einzige beschreibbare\n// persistente Verzeichnis (n8n-agent-workspace-Volume).\nconst fs = require('fs');\nconst path = require('path');\nconst WORKSPACE = '/data/agent-workspace';\n\nlet input = query;\nif (typeof input === 'string') {\n  try { input = JSON.parse(input); } catch (e) {\n    return 'FEHLER: Eingabe muss ein JSON-Objekt mit {\"dateiname\", \"inhalt\"} sein.';\n  }\n}\nconst name = String((input && input.dateiname) || '').trim();\nconst inhalt = String((input && input.inhalt) != null ? input.inhalt : '');\nif (!name) return 'FEHLER: dateiname fehlt.';\n\n// Path-Traversal verhindern: nur nackter Dateiname, konservativer Zeichensatz.\nconst safe = path.basename(name).replace(/[^A-Za-z0-9._\\-]/g, '_');\nif (!safe || safe === '.' || safe === '..') return 'FEHLER: ungültiger Dateiname.';\nconst target = path.join(WORKSPACE, safe);\n\nfs.writeFileSync(target, inhalt, 'utf8');\nreturn 'Gespeichert: ' + target + ' (' + Buffer.byteLength(inhalt, 'utf8') + ' Bytes)';",
+        "specifyInputSchema": true,
+        "jsonSchemaExample": "{\n  \"dateiname\": \"bericht.md\",\n  \"inhalt\": \"# Titel\\n\\nInhalt der Datei...\"\n}"
+      },
+      "id": "tool-code-1",
+      "name": "Datei schreiben (Code-Tool)",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [920, 500]
+    }
+  ],
+  "connections": {
+    "Beim Chat-Empfang": {
+      "main": [
+        [
+          {
+            "node": "Recherche-Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model (qwen3:8b)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Recherche-Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "web_abrufen": {
+      "ai_tool": [
+        [
+          {
+            "node": "Recherche-Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datei schreiben (Code-Tool)": {
+      "ai_tool": [
+        [
+          {
+            "node": "Recherche-Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "id": "arasul-vorlage-agent-recherche",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [{ "name": "arasul-vorlage" }]
+}

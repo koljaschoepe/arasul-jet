@@ -107,20 +107,20 @@ export default function WorkspaceShell(props: TabThemeControls) {
               <Panel id="explorer" defaultSize="18%" minSize="160px" maxSize="35%">
                 <ExplorerPanel />
               </Panel>
-              <Separator className="w-px bg-border transition-colors hover:bg-primary" />
+              <Separator className="w-[3px] bg-transparent transition-colors hover:bg-primary/50" />
             </>
           )}
           <Panel id="main" minSize="30%">
             <div className="flex h-full min-w-0 flex-col">
               <TabBar />
-              <div className="min-h-0 flex-1">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-tl-md bg-card">
                 <TabContent themeControls={props} />
               </div>
             </div>
           </Panel>
           {llmVisible && (
             <>
-              <Separator className="w-px bg-border transition-colors hover:bg-primary" />
+              <Separator className="w-[3px] bg-transparent transition-colors hover:bg-primary/50" />
               <Panel id="llm" defaultSize="26%" minSize="220px" maxSize="45%">
                 <LlmPanel />
               </Panel>

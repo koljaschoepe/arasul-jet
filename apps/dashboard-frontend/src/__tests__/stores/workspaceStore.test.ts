@@ -144,11 +144,9 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
   it('bildet jeden Tab-Typ auf einen Pfad ab und zurück', () => {
     const specs = [
       { type: 'dashboard' as const },
-      { type: 'documents' as const },
       { type: 'document' as const, documentId: '42' },
-      { type: 'chat' as const, chatId: '7' },
-      { type: 'chat' as const },
       { type: 'settings' as const },
+      { type: 'automationen' as const },
       { type: 'store' as const },
       { type: 'sandbox' as const },
       { type: 'telegram' as const },

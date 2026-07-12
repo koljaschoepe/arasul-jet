@@ -6,19 +6,18 @@ import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
 import DashboardHome from '@/features/dashboard/DashboardHome';
-import ChatRouter from '@/features/chat/ChatRouter';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useWorkspaceStore, tabToPath } from '@/stores/workspaceStore';
 import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/workspaceStore';
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
-const DocumentManager = lazy(() => import('@/features/documents/DocumentManager'));
 const Store = lazy(() => import('@/features/store'));
 const SandboxApp = lazy(() => import('@/features/sandbox'));
 const TelegramBotPage = lazy(() => import('@/features/telegram/TelegramBotPage'));
 const DatabaseOverview = lazy(() => import('@/features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('@/features/database/DatabaseTable'));
 const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
+const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
 
 export interface TabThemeControls {
   theme: string;
@@ -35,6 +34,20 @@ interface TabContentProps {
  * Store auf `/`) in das Öffnen des passenden Workspace-Tabs und setzt den
  * MemoryRouter des Quell-Tabs zurück.
  */
+/**
+ * Legacy-Links auf /chat landen nicht mehr in einem Tab — der Chat lebt nur
+ * noch im rechten KI-Panel. Diese Bridge blendet das Panel ein und setzt den
+ * MemoryRouter des Quell-Tabs zurück.
+ */
+function ChatPanelBridge({ resetTo }: { resetTo: string }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    useWorkspaceStore.setState({ llmVisible: true, llmPanelMode: 'chat' });
+    navigate(resetTo, { replace: true });
+  }, []);
+  return null;
+}
+
 function TabBridge({
   makeSpec,
   resetTo,
@@ -91,16 +104,14 @@ function initialPathFor(tab: WorkspaceTab): string {
   switch (tab.type) {
     case 'dashboard':
       return '/';
-    case 'documents':
-      return '/data';
-    case 'chat':
-      return tab.chatId ? `/chat/${tab.chatId}` : '/chat';
     case 'settings':
       return '/settings';
     case 'store':
       return '/store';
     case 'sandbox':
       return '/terminal';
+    case 'automationen':
+      return '/';
     case 'telegram':
       return '/telegram-bot';
     case 'database':
@@ -115,12 +126,11 @@ function initialPathFor(tab: WorkspaceTab): string {
 /** Welche Route-Keys gehören zum Tab selbst (statt zur Bridge)? */
 const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   dashboard: new Set(['dashboard']),
-  documents: new Set(['documents']),
   document: new Set([]),
-  chat: new Set(['chat']),
   settings: new Set(['settings']),
   store: new Set(['store']),
   sandbox: new Set(['sandbox']),
+  automationen: new Set([]),
   telegram: new Set(['telegram']),
   database: new Set(['database', 'database-table']),
   'database-table': new Set(['database', 'database-table']),
@@ -165,10 +175,11 @@ function FeatureTabHost({
             { type: 'settings' }
           )}
         />
-        <Route path="/chat/*" element={routeFor('chat', <ChatRouter />, { type: 'chat' })} />
+        <Route path="/chat/*" element={<ChatPanelBridge resetTo={resetTo} />} />
+        {/* Dateiverwaltung lebt im Explorer — Legacy-Links auf /data landen im Dashboard-Tab */}
         <Route
           path="/data"
-          element={routeFor('documents', <DocumentManager />, { type: 'documents' })}
+          element={<TabBridge makeSpec={() => ({ type: 'dashboard' })} resetTo={resetTo} />}
         />
         <Route path="/documents" element={<Navigate to="/data" replace />} />
         <Route path="/store/*" element={routeFor('store', <Store />, { type: 'store' })} />
@@ -210,11 +221,14 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   if (tab.type === 'document') {
     return <DocumentViewerTab documentId={tab.documentId ?? ''} tabId={tab.id} />;
   }
+  if (tab.type === 'automationen') {
+    return <AutomationenTab />;
+  }
   return <FeatureTabHost tab={tab} themeControls={themeControls} />;
 }
 
 /** Tab-Typen, die beim Wechsel gemountet bleiben (Terminal-Sessions). */
-const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['sandbox']);
+const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['sandbox', 'automationen']);
 
 /**
  * Rendert den aktiven Tab (plus Keep-Alive-Tabs unsichtbar), jeweils mit

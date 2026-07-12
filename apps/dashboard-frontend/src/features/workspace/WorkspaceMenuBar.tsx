@@ -7,19 +7,27 @@ import {
   Settings,
   PanelLeft,
   MessageSquare,
-  SunMoon,
+  Check,
   ChevronDown,
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useTheme, type Theme } from '@/hooks/useTheme';
 import type { TabThemeControls } from './TabContent';
+
+const THEME_OPTIONS: ReadonlyArray<{ value: Theme; label: string }> = [
+  { value: 'black', label: 'Schwarz' },
+  { value: 'dark', label: 'Dunkel' },
+  { value: 'light', label: 'Hell' },
+];
 
 interface WorkspaceMenuBarProps {
   themeControls: TabThemeControls;
@@ -43,7 +51,10 @@ function MenuTriggerButton({ label }: { label: string }) {
  * links Marke + Datei/Ansicht-Menüs, rechts die Einstellungen. Sitzt
  * oberhalb von ActivityBar + Panel-Group und volle Breite.
  */
-export function WorkspaceMenuBar({ themeControls, onLeaveWorkspace }: WorkspaceMenuBarProps) {
+export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
+  // Theme direkt über den Hook (synct alle useTheme-Instanzen); die
+  // themeControls-Prop bleibt für die TabContent-Verdrahtung erhalten.
+  const { theme, setTheme } = useTheme();
   const openTab = useWorkspaceStore(s => s.openTab);
   const explorerVisible = useWorkspaceStore(s => s.explorerVisible);
   const llmVisible = useWorkspaceStore(s => s.llmVisible);
@@ -54,7 +65,7 @@ export function WorkspaceMenuBar({ themeControls, onLeaveWorkspace }: WorkspaceM
 
   return (
     <header
-      className="flex h-9 shrink-0 items-center gap-1 border-b border-border bg-background px-2 select-none"
+      className="flex h-9 shrink-0 items-center gap-1 bg-background px-2 select-none"
       data-testid="workspace-menubar"
     >
       <span className="mr-1 px-1 text-xs font-semibold tracking-wide text-foreground">Arasul</span>
@@ -74,9 +85,9 @@ export function WorkspaceMenuBar({ themeControls, onLeaveWorkspace }: WorkspaceM
             <SquareTerminal className="h-4 w-4" aria-hidden="true" />
             Neue Terminal-Umgebung…
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => openTab({ type: 'documents' })}>
+          <DropdownMenuItem onClick={() => requestExplorerAction('upload-files')}>
             <Upload className="h-4 w-4" aria-hidden="true" />
-            Dokument hochladen…
+            Dokumente hochladen…
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onLeaveWorkspace}>
@@ -99,10 +110,21 @@ export function WorkspaceMenuBar({ themeControls, onLeaveWorkspace }: WorkspaceM
             {llmVisible ? 'KI-Panel ausblenden' : 'KI-Panel einblenden'}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={themeControls.onToggleTheme}>
-            <SunMoon className="h-4 w-4" aria-hidden="true" />
-            {themeControls.theme === 'dark' ? 'Helles Design' : 'Dunkles Design'}
-          </DropdownMenuItem>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Design</DropdownMenuLabel>
+          {THEME_OPTIONS.map(option => (
+            <DropdownMenuItem
+              key={option.value}
+              onClick={() => setTheme(option.value)}
+              role="menuitemradio"
+              aria-checked={theme === option.value}
+            >
+              <Check
+                className={`h-4 w-4 ${theme === option.value ? 'opacity-100' : 'opacity-0'}`}
+                aria-hidden="true"
+              />
+              {option.label}
+            </DropdownMenuItem>
+          ))}
         </DropdownMenuContent>
       </DropdownMenu>
 

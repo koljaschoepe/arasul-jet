@@ -12,12 +12,11 @@ import { persist } from 'zustand/middleware';
 
 export type WorkspaceTabType =
   | 'dashboard'
-  | 'documents'
   | 'document'
-  | 'chat'
   | 'settings'
   | 'store'
   | 'sandbox'
+  | 'automationen'
   | 'telegram'
   | 'database'
   | 'database-table';
@@ -26,7 +25,6 @@ export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
   title?: string;
   documentId?: string;
-  chatId?: string;
   slug?: string;
 }
 
@@ -35,18 +33,16 @@ export interface WorkspaceTab {
   type: WorkspaceTabType;
   title: string;
   documentId?: string;
-  chatId?: string;
   slug?: string;
 }
 
 const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   dashboard: 'Dashboard',
-  documents: 'Daten',
   document: 'Dokument',
-  chat: 'Chat',
   settings: 'Einstellungen',
-  store: 'Store',
+  store: 'Extensions',
   sandbox: 'Terminal',
+  automationen: 'Automationen',
   telegram: 'Telegram',
   database: 'Datenbank',
   'database-table': 'Tabelle',
@@ -58,8 +54,6 @@ export function tabId(spec: WorkspaceTabSpec): string {
       return `document:${spec.documentId ?? ''}`;
     case 'database-table':
       return `database-table:${spec.slug ?? ''}`;
-    case 'chat':
-      return `chat:${spec.chatId ?? 'new'}`;
     default:
       return spec.type;
   }
@@ -70,18 +64,16 @@ export function tabToPath(tab: WorkspaceTab): string {
   switch (tab.type) {
     case 'dashboard':
       return '/workspace/dashboard';
-    case 'documents':
-      return '/workspace/documents';
     case 'document':
       return `/workspace/doc/${tab.documentId ?? ''}`;
-    case 'chat':
-      return tab.chatId ? `/workspace/chat/${tab.chatId}` : '/workspace/chat';
     case 'settings':
       return '/workspace/settings';
     case 'store':
       return '/workspace/store';
     case 'sandbox':
       return '/workspace/terminal';
+    case 'automationen':
+      return '/workspace/automationen';
     case 'telegram':
       return '/workspace/telegram';
     case 'database':
@@ -99,18 +91,16 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
   switch (head) {
     case 'dashboard':
       return { type: 'dashboard' };
-    case 'documents':
-      return { type: 'documents' };
     case 'doc':
       return parts[1] ? { type: 'document', documentId: parts[1] } : null;
-    case 'chat':
-      return parts[1] ? { type: 'chat', chatId: parts[1] } : { type: 'chat' };
     case 'settings':
       return { type: 'settings' };
     case 'store':
       return { type: 'store' };
     case 'terminal':
       return { type: 'sandbox' };
+    case 'automationen':
+      return { type: 'automationen' };
     case 'telegram':
       return { type: 'telegram' };
     case 'database':
@@ -133,7 +123,7 @@ export interface ChatScope {
  * Aktionen, die die Menüleiste an den Explorer delegiert (der Dialog-State
  * lebt lokal im ExplorerPanel; die Menubar stellt nur eine Anfrage).
  */
-export type ExplorerAction = 'create-folder' | 'create-project';
+export type ExplorerAction = 'create-folder' | 'create-project' | 'upload-files';
 
 /** Modus des rechten KI-Panels: Chat (RAG) oder Sandbox-Terminal. */
 export type LlmPanelMode = 'chat' | 'terminal';
@@ -183,7 +173,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           type: spec.type,
           title: spec.title ?? DEFAULT_TITLES[spec.type],
           documentId: spec.documentId,
-          chatId: spec.chatId,
           slug: spec.slug,
         };
         set({ tabs: [...tabs, tab], activeTabId: id });
@@ -244,6 +233,20 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: 'arasul_workspace',
+      version: 2,
+      // v2: Chat lebt nur noch im rechten Panel — persistierte chat-Tabs
+      // (und sonst unbekannte Typen) aus altem State herausfiltern.
+      migrate: persisted => {
+        const state = persisted as Partial<WorkspaceState> | undefined;
+        if (!state || !Array.isArray(state.tabs)) return state as WorkspaceState;
+        const valid = new Set(Object.keys(DEFAULT_TITLES));
+        const tabs = state.tabs.filter(t => valid.has(t.type));
+        const activeTabId =
+          state.activeTabId && tabs.some(t => t.id === state.activeTabId)
+            ? state.activeTabId
+            : (tabs[0]?.id ?? null);
+        return { ...state, tabs, activeTabId } as WorkspaceState;
+      },
       partialize: state => ({
         tabs: state.tabs,
         activeTabId: state.activeTabId,

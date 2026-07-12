@@ -29,79 +29,54 @@
 
 1. **Minimalismus** - Nur das Wesentliche, keine überflüssigen Elemente
 2. **Konsistenz** - Gleiche Patterns für gleiche Funktionen
-3. **Dark-First** - Dunkles Theme als Standard für Jetson Edge-Device
+3. **Schwarz-First** - Drei Themes »Schwarz · Dunkel · Hell«; tiefschwarzes Theme als Standard für Jetson Edge-Device
 4. **Klarheit** - Klare Hierarchie durch Farbe, Größe und Spacing
 5. **Performance** - Tailwind CSS v4 + shadcn/ui Components — keine Custom-CSS außer für komplexe Animationen
 
 ### Farbphilosophie
 
-Die Arasul-Plattform verwendet eine **monochrome Basis** mit **Blau als einziger Akzentfarbe**:
+Die Arasul-Plattform verwendet eine **neutrale monochrome Basis** (kein Blaustich)
+mit **einem gedämpften Akzent** — nach dem Cursor-Prinzip: Flächentrennung über
+zwei Hintergrundstufen, EINE Border-Farbe mit niedriger Alpha, Hover/Selection
+als neutrale Alphas, Akzent nur für Primäraktionen/Aktivzustände.
 
-- **Schwarz/Dunkelgrau** → Hintergründe, Tiefe
-- **Graustufen** → Text-Hierarchie, Borders, sekundäre Elemente
-- **Weiß/Hellgrau** → Primärer Text, wichtige Labels
-- **Blau (#45ADFF)** → Interaktive Elemente, Aktionen, Fokus
+- **Neutrale Flächen** → zwei Hintergrundstufen (Chrome vs. Fläche/Editor)
+- **Graustufen/Alphas** → Text-Hierarchie, Borders, Hover
+- **Akzent** → Schwarz/Dunkel: Graublau `#81A1C1`; Hell: entschärftes Arasul-Blau `#2D8FD9`
 
 ---
 
-## Farbpalette
+## Farbpalette — drei Themes
 
-### Primärfarbe (Blau)
+Umschaltung: `data-theme="black|dark|light"` + Klassen `dark`/`light` auf `<html>`
+(`useTheme`). `:root` = Schwarz (Default), `[data-theme="dark"]` und `.light`
+überschreiben nur die abweichenden Werte.
 
-Die einzige Akzentfarbe. Für alle interaktiven Elemente verwenden.
+### Kern-Tokens pro Theme
 
-```css
---primary-color: #45adff; /* Hauptfarbe für Buttons, Links, Aktionen */
---primary-hover: #6ec4ff; /* Hover-Zustand (10% heller) */
---primary-active: #2d8fd9; /* Active/Pressed-Zustand (10% dunkler) */
---primary-muted: rgba(69, 173, 255, 0.15); /* Hintergrund-Akzent */
---primary-glow: rgba(69, 173, 255, 0.4); /* Glow-Effekte */
-```
+| Token                   | Schwarz (`:root`)        | Dunkel (`[data-theme="dark"]`) | Hell (`.light`)       |
+| ----------------------- | ------------------------ | ------------------------------ | --------------------- |
+| `--background`          | `#0A0A0A` (Chrome)       | `#141414`                      | `#F6F6F6`             |
+| `--card`/`--bg-subtle`  | `#121212` (Flächen)      | `#181818`                      | `#FFFFFF` / `#FAFAFA` |
+| `--popover`             | `#161616`                | `#1c1c1c`                      | `#FFFFFF`             |
+| `--secondary`/`--muted` | `#161616`                | `#181818`                      | `#ECECEC`             |
+| `--bg-elevated`         | `#1e1e1e`                | `#242424`                      | `#FFFFFF`             |
+| `--accent` (Hover)      | `rgba(228,228,228,0.07)` | erbt Schwarz                   | `rgba(16,16,16,0.05)` |
+| `--border`              | `rgba(228,228,228,0.08)` | erbt Schwarz                   | `rgba(16,16,16,0.10)` |
+| `--foreground`          | `#e6e6e6`                | erbt Schwarz                   | `#1a1a1a`             |
+| `--muted-foreground`    | `rgba(228,228,228,0.55)` | erbt Schwarz                   | `#6b6b6b`             |
+| `--primary`             | `#81A1C1`                | erbt Schwarz                   | `#2D8FD9`             |
+| `--primary-hover`       | `#93b1cd`                | erbt Schwarz                   | `#4AA3E4`             |
+| `--primary-active`      | `#6e91b4`                | erbt Schwarz                   | `#2478B8`             |
+| `--ring`                | = `--primary`            | = `--primary`                  | = `--primary`         |
+| `--scrollbar-thumb`     | `rgba(228,228,228,0.14)` | erbt Schwarz                   | `rgba(16,16,16,0.18)` |
+| `--bg-terminal`         | `#0A0A0A`                | `#181818`                      | `#FFFFFF`             |
 
-| Verwendung                    | Farbe          | Hex                        |
-| ----------------------------- | -------------- | -------------------------- |
-| Buttons, Links, Icons (aktiv) | Primary        | `#45ADFF`                  |
-| Hover-Zustand                 | Primary Hover  | `#6EC4FF`                  |
-| Active/Pressed                | Primary Active | `#2D8FD9`                  |
-| Akzent-Hintergrund            | Primary Muted  | `rgba(69, 173, 255, 0.15)` |
-| Fokus-Ring, Glow              | Primary Glow   | `rgba(69, 173, 255, 0.4)`  |
+Scrollbars: Track transparent, Thumb neutral (Hover `0.28` bzw. `0.32` Alpha),
+kein Gradient. Die `--primary-alpha-5…50`-Skala folgt je Theme dem Akzent.
 
-### Graustufen (Neutral)
-
-Für Hintergründe, Text und Strukturelemente.
-
-```css
-/* Dunkle Töne (Hintergründe) */
---bg-dark: #101923; /* Dunkelster Hintergrund */
---bg-card: #1a2330; /* Karten, Container */
---bg-card-hover: #222d3d; /* Hover auf Karten */
---bg-elevated: #2a3544; /* Erhöhte Elemente, Dropdowns */
-
-/* Borders */
---border-color: #2a3544; /* Standard Border */
---border-subtle: #1d2835; /* Subtile Trennung */
---border-strong: #3a4554; /* Betonte Border */
-
-/* Text */
---text-primary: #f8fafc; /* Haupttext (fast weiß) */
---text-secondary: #cbd5e1; /* Sekundärer Text */
---text-muted: #94a3b8; /* Gedämpfter Text, Labels */
---text-disabled: #64748b; /* Deaktivierter Text */
-```
-
-| Graustufe | Hex       | Verwendung                |
-| --------- | --------- | ------------------------- |
-| Gray 900  | `#0F172A` | Dunkelste Flächen         |
-| Gray 850  | `#101923` | Haupt-Hintergrund         |
-| Gray 800  | `#1A2330` | Karten-Hintergrund        |
-| Gray 750  | `#222D3D` | Hover-Zustand auf Karten  |
-| Gray 700  | `#2A3544` | Erhöhte Elemente, Borders |
-| Gray 600  | `#3A4554` | Starke Borders            |
-| Gray 500  | `#64748B` | Deaktivierter Text        |
-| Gray 400  | `#94A3B8` | Gedämpfter Text           |
-| Gray 300  | `#CBD5E1` | Sekundärer Text           |
-| Gray 200  | `#E2E8F0` | Subtiler Text (selten)    |
-| Gray 100  | `#F8FAFC` | Primärer Text             |
+Terminal (xterm) koppelt an das App-Theme über `src/lib/terminalThemes.ts`
+(einzige sanktionierte Literal-Palette neben der Chart-Palette).
 
 ### Status-Farben (Nur bei semantischer Notwendigkeit)
 
@@ -113,15 +88,15 @@ Für Hintergründe, Text und Strukturelemente.
 --status-success: #22c55e; /* Erfolg, Aktiv, Verbunden */
 --status-warning: #f59e0b; /* Warnung, In Bearbeitung */
 --status-error: #ef4444; /* Fehler, Kritisch */
---status-info: #45adff; /* Info (= Primary) */
+--status-info: var(--primary); /* Info (= Akzent des aktiven Themes) */
 ```
 
-| Status  | Farbe | Hex       | Beispiele                            |
-| ------- | ----- | --------- | ------------------------------------ |
-| Erfolg  | Grün  | `#22C55E` | "Indexiert", "Online", "Gespeichert" |
-| Warnung | Amber | `#F59E0B` | "Verarbeitung", "Ausstehend"         |
-| Fehler  | Rot   | `#EF4444` | "Fehlgeschlagen", "Offline"          |
-| Info    | Blau  | `#45ADFF` | "Läuft", "Aktiv" (primäre Aktion)    |
+| Status  | Farbe  | Hex              | Beispiele                            |
+| ------- | ------ | ---------------- | ------------------------------------ |
+| Erfolg  | Grün   | `#22C55E`        | "Indexiert", "Online", "Gespeichert" |
+| Warnung | Amber  | `#F59E0B`        | "Verarbeitung", "Ausstehend"         |
+| Fehler  | Rot    | `#EF4444`        | "Fehlgeschlagen", "Offline"          |
+| Info    | Akzent | `var(--primary)` | "Läuft", "Aktiv" (primäre Aktion)    |
 
 ---
 
@@ -822,7 +797,7 @@ transition:
 - [ ] Tailwind CSS Klassen (keine neue `.css` Datei wenn vermeidbar)
 - [ ] shadcn Components verwenden wo möglich (Button, Card, Dialog, Input, Badge, etc.)
 - [ ] `cn()` für conditional Classes
-- [ ] Nur `--primary-color` (#45ADFF) als Akzentfarbe
+- [ ] Nur `--primary-color` (Akzent des aktiven Themes) als Akzentfarbe
 - [ ] Status-Farben (Grün/Gelb/Rot) nur wenn semantisch notwendig
 - [ ] Keine hardcoded Hex-Werte — Tailwind-Tokens oder CSS-Variablen
 
@@ -915,9 +890,10 @@ Der Aufbau (von statisch → thematisch → Utility):
 
 1. **`@theme`** — statische, theme-unabhängige Tokens: Radius, Fonts, Chart-Palette
    (`--radius-*`, `--font-*`, `--color-chart-1…5`).
-2. **`:root` (Dark) + `.light` (Overrides)** — die **einzige Wertequelle** für alle
-   Farben. `:root` hält die Dark-Theme-Werte (Default), `.light` überschreibt nur
-   die abweichenden. Kein Wert wird an mehreren Stellen doppelt gepflegt.
+2. **`:root` (Schwarz) + `[data-theme="dark"]` + `.light` (Overrides)** — die
+   **einzige Wertequelle** für alle Farben. `:root` hält die Schwarz-Werte
+   (Default), die beiden Override-Blöcke überschreiben nur die abweichenden.
+   Kein Wert wird an mehreren Stellen doppelt gepflegt.
 3. **`@theme inline`** — mappt die Runtime-Variablen aus (2) auf Tailwind-Utility-Tokens,
    damit jede Utility theme-aware ist:
 
@@ -926,16 +902,17 @@ Der Aufbau (von statisch → thematisch → Utility):
 --color-bg-card: var(--bg-card);        → className="bg-bg-card"
 --color-text-muted: var(--text-muted);  → className="text-text-muted"
 --color-primary: var(--primary);        → className="bg-primary"
-/* Werte selbst: :root { --bg-card: #1a2330 } + .light { --bg-card: #ffffff } */
+/* Werte selbst: :root { --card: #121212 } + [data-theme="dark"] { --card: #181818 } + .light { --card: #ffffff } */
 ```
 
-### Dark/Light über EINE Mechanik
+### Drei Themes über EINE Mechanik
 
-Der Theme-Wechsel läuft ausschließlich über die Klasse **`html.dark`** bzw. `.light`
-am Wurzelelement (`@custom-variant dark (&:is(.dark *))`). Die früheren
-`body.light-mode`/`.dark-mode`-Abhängigkeiten entfallen — `useTheme` toggelt nur
-noch die Wurzel-Klasse. Neue Komponenten brauchen **keine** eigenen Dark/Light-Zweige:
-solange sie Tokens verwenden, folgen sie dem Theme automatisch.
+Der Theme-Wechsel läuft über `useTheme` (`'black' | 'dark' | 'light'`, Default
+`black`, localStorage `arasul_theme`): es setzt `data-theme="black|dark|light"`
+**und** die Klassen `dark` (für black+dark, hält `@custom-variant dark
+(&:is(.dark *))` am Leben) bzw. `.light` auf `<html>`. Neue Komponenten brauchen
+**keine** eigenen Theme-Zweige: solange sie Tokens verwenden, folgen sie dem
+Theme automatisch.
 
 ### CSS-Variablen vs. Tailwind
 
@@ -954,9 +931,9 @@ sind technische Paletten (z.B. Xterm-Farben in `TerminalTabs.tsx`, Chart-Palette
 
 ## CSS-Variablen Referenz (Kopiervorlage)
 
-Faithfuller Spiegel des `:root` (Dark) + `@theme`-Blocks aus
-`apps/dashboard-frontend/src/index.css`. Farbwerte leben **nur** hier bzw. im
-`.light`-Override — nie im Komponenten-Code.
+Faithfuller Spiegel des `:root` (Schwarz) + `@theme`-Blocks aus
+`apps/dashboard-frontend/src/index.css`. Farbwerte leben **nur** hier bzw. in den
+Overrides `[data-theme="dark"]` / `.light` — nie im Komponenten-Code.
 
 ```css
 @theme {
@@ -980,33 +957,36 @@ Faithfuller Spiegel des `:root` (Dark) + `@theme`-Blocks aus
 }
 
 :root {
-  /* shadcn/ui Semantic (Dark) — die Wertequelle */
-  --background: #101923;
-  --foreground: #f8fafc;
-  --card: #1a2330;
-  --primary: #45adff;
-  --primary-foreground: #000000;
-  --muted: #1d2835;
-  --muted-foreground: #94a3b8;
+  /* shadcn/ui Semantic (Schwarz, Default) — die Wertequelle */
+  --background: #0a0a0a;
+  --foreground: #e6e6e6;
+  --card: #121212;
+  --primary: #81a1c1;
+  --primary-foreground: #0a0a0a;
+  --muted: #161616;
+  --muted-foreground: rgba(228, 228, 228, 0.55);
+  --accent: rgba(228, 228, 228, 0.07);
   --destructive: #ef4444;
   --success: #10b981;
   --warning: #f59e0b;
-  --border: #2a3544;
-  --input: #2a3544;
-  --ring: #45adff;
+  --border: rgba(228, 228, 228, 0.08);
+  --input: rgba(228, 228, 228, 0.1);
+  --ring: #81a1c1;
 
   /* Arasul-Aliase (mappen auf die shadcn-Werte, kein Doppel-Pflegen) */
-  --primary-hover: #6ec4ff;
-  --primary-active: #2d8fd9;
+  --primary-hover: #93b1cd;
+  --primary-active: #6e91b4;
   --bg-card: var(--card);
   --bg-card-hover: var(--accent);
-  --bg-elevated: #2a3544;
-  --bg-subtle: #1d2835;
+  --bg-elevated: #1e1e1e;
+  --bg-subtle: #121212;
   --text-primary: var(--foreground);
-  --text-secondary: #cbd5e1;
+  --text-secondary: #c2c2c2;
   --text-muted: var(--muted-foreground);
-  --text-disabled: #64748b;
+  --text-disabled: #6b6b6b;
   --border-subtle: var(--muted);
+  --scrollbar-thumb: rgba(228, 228, 228, 0.14);
+  --scrollbar-thumb-hover: rgba(228, 228, 228, 0.28);
   --radius-pill: 9999px;
 
   /* Spacing (benannt + Half-Steps) */

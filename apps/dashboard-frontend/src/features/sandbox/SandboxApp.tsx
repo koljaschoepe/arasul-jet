@@ -282,6 +282,7 @@ export default function SandboxApp() {
               <SandboxTerminal
                 projectId={tab.id}
                 containerStatus={containerStatus}
+                networkMode={(project ?? tab).network_mode}
                 className="flex-1"
               />
             </div>
