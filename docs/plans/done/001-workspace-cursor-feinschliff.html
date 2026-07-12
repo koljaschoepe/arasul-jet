@@ -34,7 +34,7 @@
   "slug": "workspace-cursor-feinschliff",
   "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P0",
   "risk_level": 3,
   "effort_level": 3,
@@ -42,8 +42,8 @@
   "created": "2026-07-11",
   "approved": "2026-07-11",
   "branch": "001-workspace-cursor-feinschliff",
-  "pr": null,
-  "verified_on_device": false
+  "pr": 184,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -586,10 +586,11 @@
     <p class="files mono">stores/workspaceStore.ts (Tab-Typ) · TabContent.tsx · explorer (Projekt-Eintrag) · docs/legal/N8N_LIZENZ.md (neu)</p>
     <div class="result"><strong>Ergebnis:</strong> Umgesetzt: Tab-Typ »automationen« als same-origin-iframe (/n8n, keep-alive), Projekt-Kontextmenü-Eintrag, docs/legal/N8N_LIZENZ.md mit SUL-Analyse + versandfertigem EN-Entwurf an license@n8n.io; Lizenzklärung als Pflicht-Gate dokumentiert.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — n8n 2.x, Agent-Härtung &amp; Vorlagen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 9 — n8n 2.x, Agent-Härtung &amp; Vorlagen">
     <h3>Schritt 9 — n8n 2.x, Agent-Härtung &amp; Vorlagen <span class="tag">Risiko: hoch</span></h3>
     <p>Zuletzt (weil am riskantesten): Upgrade der n8n-Engine auf die 2.x-Linie mit externem Task-Runner-Sidecar (<code>n8nio/runners</code>) und expliziten Security-Envs — <code>N8N_BLOCK_ENV_ACCESS_IN_NODE=true</code>, <code>N8N_RESTRICT_FILE_ACCESS_TO=/data/agent-workspace</code>, <code>N8N_SSRF_PROTECTION_ENABLED=true</code> mit interner Allowlist (llm-service, Qdrant, Backend), Telemetrie aus. Vor dem Upgrade: Volume-/DB-Backup; danach API-Abgleich der Workflows. <code>qwen3:8b</code> wird als Default-Agent-Modell provisioniert (inkl. explizitem Ollama-Kontextfenster ≥32k). First-Boot-Vorlagen via <code>n8n import:workflow</code>: ein Recherche-Agent (Websuche + Datei schreiben ins Agent-Workspace-Volume) und ein RAG-Agent (Qdrant Vector Store Tool), beide mit Subagent-Muster. Neue Doku-Seite »Agent-Workflows mit Ollama bauen«.</p>
     <p class="files mono">compose/* (n8n-Image-Pin + runners-Sidecar) · scripts/ Bootstrap-Import · services/n8n/templates/*.json (neu) · docs/integrations/N8N_AGENTS.md (neu) · docs/ENVIRONMENT_VARIABLES.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt &amp; live: n8n 2.29.10 auf dem Jetson (Migration der Engine fehlerfrei, Workflow-Bestand konsistent), Task-Runner-Sidecar healthy mit registriertem JS- und Python-Runner, alle Security-Envs aktiv, Volume-/DB-Backup unter /home/arasul/backups/n8n-pre2x/. Beide Agent-Vorlagen importiert (dem Personal-Projekt zugeordnet, deaktiviert) — dafür zwei Live-Funde behoben: fehlendes n8n-Personal-Projekt (per SQL angelegt) und doppelter Template-Tag (PR #185). qwen3:8b provisioniert. OLLAMA_CONTEXT_LENGTH=32768 am llm-service aktiv.</div>
   </div>
 
   </div>
@@ -604,18 +605,18 @@
   <div class="sbody">
   <ul class="checks">
 
-    <li data-done="false">Drei Themes (Schwarz · Dunkel · Hell) sind über Menü »Ansicht« und Einstellungen wählbar; Schwarz ist Default; die Wahl überlebt Reload und gilt auch für die klassische Ansicht.</li>
-    <li data-done="false">In allen drei Themes: keine Trennstriche mehr zwischen Tabs, Panels über Flächenabstufung getrennt, Scrollbalken dezent hintergrundnah, Panel-Container mit Rundungen, gedämpftes Akzentblau nur an Aktiv-Zuständen.</li>
-    <li data-done="false">Das Terminal wechselt sein Farbschema live mit dem Theme (hell im Hell-Modus).</li>
-    <li data-done="false">Rechtes Panel: Frage stellen → Antwort streamt; Retrieval-Schritte erscheinen als einklappbare Zeilen; unter der Antwort klickbare Quellen-Chips; kein RAG-/Thinking-Toggle mehr sichtbar.</li>
+    <li data-done="true">Drei Themes (Schwarz · Dunkel · Hell) sind über Menü »Ansicht« und Einstellungen wählbar; Schwarz ist Default; die Wahl überlebt Reload und gilt auch für die klassische Ansicht.</li>
+    <li data-done="true">In allen drei Themes: keine Trennstriche mehr zwischen Tabs, Panels über Flächenabstufung getrennt, Scrollbalken dezent hintergrundnah, Panel-Container mit Rundungen, gedämpftes Akzentblau nur an Aktiv-Zuständen.</li>
+    <li data-done="true">Das Terminal wechselt sein Farbschema live mit dem Theme (hell im Hell-Modus).</li>
+    <li data-done="true">Rechtes Panel: Frage stellen → Antwort streamt; Retrieval-Schritte erscheinen als einklappbare Zeilen; unter der Antwort klickbare Quellen-Chips; kein RAG-/Thinking-Toggle mehr sichtbar.</li>
     <li data-done="false">Drag &amp; Drop in den Chat funktioniert aus dem Explorer und vom Desktop (Desktop-Datei wird hochgeladen, indexiert und als Kontext-Chip angehängt).</li>
-    <li data-done="false">Chat existiert im Workspace nur noch rechts: neuer Chat + History-Liste mit Auto-Titeln im Panel; der Chat-Tab in der Mitte ist weg; alte persistierte Tabs verursachen keine Fehler.</li>
-    <li data-done="false">Explorer: Projekt anlegen → Ordner/Dateien darunter; Upload per Knopf und DnD in Projekt/Ordner; Indexierungs-Status sichtbar; Suchfeld filtert; das »Daten«-Icon ist aus der ActivityBar verschwunden.</li>
-    <li data-done="false">Terminal: drei Modi mit klarer Kennzeichnung; Infrastruktur nur für Admins — dort ist das Repo beschreibbar und <code>docker ps</code> funktioniert; im isolierten Terminal ist Backend/LLM nicht erreichbar; <code>/claude</code>, <code>/codex</code>, <code>/gemini</code> starten (Erststart installiert).</li>
-    <li data-done="false">Extensions: Modelle installierbar wie bisher; Apps (n8n/Telegram/Datenbank) lassen sich deaktivieren und verschwinden dann aus ActivityBar und Tab-Angebot.</li>
-    <li data-done="false">n8n öffnet inline als »Automationen«-Tab (same-origin-iframe) und ist pro Projekt erreichbar.</li>
+    <li data-done="true">Chat existiert im Workspace nur noch rechts: neuer Chat + History-Liste mit Auto-Titeln im Panel; der Chat-Tab in der Mitte ist weg; alte persistierte Tabs verursachen keine Fehler.</li>
+    <li data-done="true">Explorer: Projekt anlegen → Ordner/Dateien darunter; Upload per Knopf und DnD in Projekt/Ordner; Indexierungs-Status sichtbar; Suchfeld filtert; das »Daten«-Icon ist aus der ActivityBar verschwunden.</li>
+    <li data-done="true">Terminal: drei Modi mit klarer Kennzeichnung; Infrastruktur nur für Admins — dort ist das Repo beschreibbar und <code>docker ps</code> funktioniert; im isolierten Terminal ist Backend/LLM nicht erreichbar; <code>/claude</code>, <code>/codex</code>, <code>/gemini</code> starten (Erststart installiert).</li>
+    <li data-done="true">Extensions: Modelle installierbar wie bisher; Apps (n8n/Telegram/Datenbank) lassen sich deaktivieren und verschwinden dann aus ActivityBar und Tab-Angebot.</li>
+    <li data-done="true">n8n öffnet inline als »Automationen«-Tab (same-origin-iframe) und ist pro Projekt erreichbar.</li>
     <li data-done="false">n8n läuft auf 2.x: bestehende Workflows unverändert lauffähig (API-Abgleich vor/nach), Task-Runner-Sidecar aktiv, Security-Envs gesetzt, Agent-Vorlagen importiert und mit <code>qwen3:8b</code> lauffähig.</li>
-    <li data-done="false">Frontend- und Backend-Testsuiten grün; Doku aktualisiert (DESIGN_SYSTEM, ADMIN_HANDBUCH, ENVIRONMENT_VARIABLES, N8N_AGENTS, API_REFERENCE, N8N_LIZENZ).</li>
+    <li data-done="true">Frontend- und Backend-Testsuiten grün; Doku aktualisiert (DESIGN_SYSTEM, ADMIN_HANDBUCH, ENVIRONMENT_VARIABLES, N8N_AGENTS, API_REFERENCE, N8N_LIZENZ).</li>
 
   </ul>
   </div>
@@ -716,13 +717,27 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> 9/9 Schritte live, Smoke 21/21 grün, ein Plattform-Bug (Upload-403) gefunden und gefixt.</span>
   </summary>
   <div class="sbody">
+  <p><b>Kurzfassung:</b> Alle 9 Schritte umgesetzt und live auf dem Jetson verifiziert.
+  PR <a href="https://github.com/koljaschoepe/arasul-jet/pull/184">#184</a> (Squash 2a3ddc9)
+  + Fix-PR <a href="https://github.com/koljaschoepe/arasul-jet/pull/185">#185</a> (90d9aad,
+  Upload-403/Import-Fixes aus dem Live-Verify). Deploy über die Pipeline in 3:43,
+  15/15 Container healthy, finaler 21-Schritte-Playwright-Smoke <b>komplett grün</b>.</p>
+  <ul>
+    <li><b>Tests/CI:</b> Frontend 45 Dateien / 700+ Tests grün + tsc + ESLint sauber; Backend 67 Suiten / 1636 Tests grün; CI beider PRs grün; Review 0 Critical.</li>
+    <li><b>Live-Verify (echter Browser, https://192.168.0.197):</b> Schwarz-Default + Wechsel Dunkel/Hell (Screenshots), Projekte-Baum, Upload per Datei-Menü → Datei erscheint mit Indexierungs-Status im Baum, Agent-Chat streamt Antwort (Auto-RAG, keine Toggles, History/Neu vorhanden), Terminal-Panel, Extensions-Toggle blendet Telegram live aus der ActivityBar aus/ein, n8n-iframe lädt, Tab-Sweep + Reload-Restore + Rückweg zur Klassik fehlerfrei.</li>
+    <li><b>Terminal-Modi (per API + Container-Inspektion):</b> Infrastruktur → Repo unter /workspace/repo beschreibbar (Schreibtest), docker ps aus dem Container, npm+LLM erreichbar, /claude-Bash-Funktion aktiv, Erststart-Installation von Claude Code verifiziert; Isoliert → llm-service/Backend NICHT erreichbar (Negativtest).</li>
+    <li><b>n8n 2.29.10:</b> Engine-Migration sauber, Runner-Sidecar mit JS+Python-Runnern registriert, Security-Envs aktiv, Backups angelegt, Vorlagen importiert, qwen3:8b gezogen.</li>
+    <li><b>Wichtigster Live-Fund (behoben, #185):</b> Dokument-Uploads schlugen plattformweit mit 403 fehl — getAuthHeaders() enthält X-CSRF-Token bereits, der Upload-XHR setzte ihn ein zweites Mal (XHR appended → „A, A“ ≠ Cookie). Per CDP-Header-Mitschnitt nachgewiesen; betraf auch die klassische Ansicht.</li>
+  </ul>
+  <p><b>Bewusst offen / Nacharbeit:</b> (1) Drag&nbsp;&amp;&nbsp;Drop Explorer→Chat und Desktop→Ordner ist implementiert und unit-getestet, aber headless nicht fahrbar — bitte einmal manuell prüfen (Kriterium unten bewusst offen). (2) Agent-Vorlage end-to-end ausführen erfordert einmalig Ollama-/Qdrant-Credentials im n8n-Editor (Sticky-Notes in den Vorlagen). (3) Isoliert-Modus blockt Infrastruktur, hat aber Internet-Egress — falls DSGVO-Testterminals auch offline sein sollen: eigenes Roadmap-Thema. (4) Review-Warnings aus PR #184 (requireAdmin für /workspace-apps, offene Tabs deaktivierter Apps) als Follow-ups. (5) n8n-Personal-Projekt fehlte auf dem Gerät (Altbestand) — per SQL ergänzt; bei Neugeräten legt n8n es selbst an.</p>
+  <p class="mono" style="font-size:.8rem">Zeitleiste: Plan-Freigabe 2026-07-11 · Umsetzung + Review 2026-07-12 · Merge #184 16:56 UTC · Deploy 17:01 · Fixes #185 17:19 · finaler Smoke grün 17:2x UTC · Gerät endet healthy auf main 90d9aad.</p>
   </div>
 </details>
 
