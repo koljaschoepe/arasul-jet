@@ -1,13 +1,13 @@
 import React from 'react';
 import {
-  PanelLeft,
+  Files,
+  MessagesSquare,
   Home,
   Blocks,
   SquareTerminal,
   Send,
   Database,
   Workflow,
-  MessageSquare,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
@@ -26,6 +26,7 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
       type="button"
       title={label}
       aria-label={label}
+      aria-pressed={active}
       onClick={onClick}
       className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
         active
@@ -39,15 +40,15 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
 }
 
 /**
- * Feste Shortcuts + App-gebundene Shortcuts. Der »Daten«-Tab ist bewusst
- * weg — Dateiverwaltung lebt vollständig im Explorer. Apps (n8n, Telegram,
- * Datenbank) erscheinen nur, wenn sie unter Extensions aktiviert sind.
+ * Feste Tab-Shortcuts (Mitte-Tabs). Der »Daten«-Tab ist bewusst weg —
+ * Dateiverwaltung lebt vollständig im Explorer.
  */
 const BASE_SHORTCUTS: Array<{ spec: WorkspaceTabSpec; label: string; icon: React.ReactNode }> = [
   { spec: { type: 'dashboard' }, label: 'Dashboard', icon: <Home className="h-4.5 w-4.5" /> },
   { spec: { type: 'store' }, label: 'Extensions', icon: <Blocks className="h-4.5 w-4.5" /> },
 ];
 
+/** App-gebundene Shortcuts — erscheinen nur, wenn die Extension aktiviert ist. */
 const APP_SHORTCUTS: Array<{
   appId: string;
   spec: WorkspaceTabSpec;
@@ -75,9 +76,12 @@ const APP_SHORTCUTS: Array<{
 ];
 
 /**
- * Schmale Icon-Leiste ganz links (wie VS Code/Cursor): Explorer/KI-Panel-
- * Toggles und Schnellzugriff auf Tabs. Einstellungen und der Rückweg zur
- * klassischen UI leben in der WorkspaceMenuBar (Cursor-minimal).
+ * Schmale Icon-Leiste ganz links (wie VS Code/Cursor). Feste Einträge:
+ * Explorer (Sidebar-Toggle), Chats (Chat-Panel-Toggle), Dashboard,
+ * Extensions; dynamisch die aktivierten Apps (n8n, Telegram, Datenbank).
+ * Unten der Terminal-Toggle — er blendet ausschließlich das Terminal-Panel
+ * rechts ein/aus, öffnet also NIE einen Mitte-Tab. Einstellungen und die
+ * Layout-Toggles leben in der WorkspaceMenuBar (Cursor-minimal).
  */
 export function ActivityBar() {
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
@@ -102,7 +106,15 @@ export function ActivityBar() {
         onClick={toggleSidebar}
         active={sidebarVisible}
       >
-        <PanelLeft className="h-4.5 w-4.5" />
+        <Files className="h-4.5 w-4.5" />
+      </ActivityButton>
+
+      <ActivityButton
+        label={chatVisible ? 'Chats ausblenden' : 'Chats einblenden'}
+        onClick={toggleChat}
+        active={chatVisible}
+      >
+        <MessagesSquare className="h-4.5 w-4.5" />
       </ActivityButton>
 
       <div className="my-1 h-px w-5 bg-border" aria-hidden="true" />
@@ -126,14 +138,6 @@ export function ActivityBar() {
         active={terminalVisible}
       >
         <SquareTerminal className="h-4.5 w-4.5" />
-      </ActivityButton>
-
-      <ActivityButton
-        label={chatVisible ? 'KI-Panel ausblenden' : 'KI-Panel einblenden'}
-        onClick={toggleChat}
-        active={chatVisible}
-      >
-        <MessageSquare className="h-4.5 w-4.5" />
       </ActivityButton>
     </nav>
   );

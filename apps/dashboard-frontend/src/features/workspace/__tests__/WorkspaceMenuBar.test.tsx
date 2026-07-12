@@ -61,6 +61,37 @@ describe('WorkspaceMenuBar', () => {
     expect(leave).toHaveBeenCalled();
   });
 
+  it('zeigt drei Layout-Toggles rechts, die den Store spiegeln und schalten', () => {
+    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+
+    const sidebar = screen.getByLabelText('Sidebar ausblenden');
+    const terminal = screen.getByLabelText('Terminal-Panel einblenden');
+    const chat = screen.getByLabelText('Chat-Panel ausblenden');
+
+    expect(sidebar).toHaveAttribute('aria-pressed', 'true');
+    expect(terminal).toHaveAttribute('aria-pressed', 'false');
+    expect(chat).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(sidebar);
+    fireEvent.click(terminal);
+    fireEvent.click(chat);
+
+    const state = useWorkspaceStore.getState();
+    expect(state.sidebarVisible).toBe(false);
+    expect(state.terminalVisible).toBe(true);
+    expect(state.chatVisible).toBe(false);
+  });
+
+  it('Ansicht-Menü enthält keine Panel-Toggles mehr (nur Design)', async () => {
+    const user = userEvent.setup();
+    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    await user.click(screen.getByLabelText('Ansicht-Menü'));
+
+    expect(await screen.findByText('Design')).toBeInTheDocument();
+    expect(screen.queryByText(/Explorer ausblenden|Explorer einblenden/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/KI-Panel/)).not.toBeInTheDocument();
+  });
+
   it('Ansicht-Menü zeigt drei Design-Optionen, aktiv ist Schwarz (Default)', async () => {
     const user = userEvent.setup();
     render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
