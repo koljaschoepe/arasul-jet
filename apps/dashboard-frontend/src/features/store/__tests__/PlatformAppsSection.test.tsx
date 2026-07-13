@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PlatformAppsSection from '../PlatformAppsSection';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 const apiMock = {
   get: vi.fn().mockResolvedValue({
@@ -43,7 +44,10 @@ function renderSection() {
 }
 
 describe('PlatformAppsSection', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useWorkspaceStore.setState({ tabs: [], activeTabId: null });
+  });
 
   it('rendert die drei Plattform-Apps mit Zustand', async () => {
     renderSection();
@@ -59,5 +63,24 @@ describe('PlatformAppsSection', () => {
     await waitFor(() =>
       expect(apiMock.put).toHaveBeenCalledWith('/workspace-apps/n8n', { enabled: false })
     );
+  });
+
+  it('Deaktivieren schließt den offenen Mitte-Tab der App', async () => {
+    useWorkspaceStore.setState({
+      tabs: [
+        { id: 'dashboard', type: 'dashboard', title: 'Dashboard' },
+        { id: 'automationen', type: 'automationen', title: 'Automationen' },
+      ],
+      activeTabId: 'automationen',
+    });
+    renderSection();
+    await waitFor(() => expect(screen.getByText('n8n Automationen')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText('n8n Automationen deaktivieren'));
+
+    await waitFor(() =>
+      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard'])
+    );
+    expect(useWorkspaceStore.getState().activeTabId).toBe('dashboard');
   });
 });

@@ -70,14 +70,28 @@ class TestSelfHealingEngine(unittest.TestCase):
         self.assertEqual(metrics, {'cpu': 50, 'ram': 60})
 
     def test_get_metrics_failure(self):
-        """Test metrics retrieval failure"""
+        """Collector unreachable -> psutil fallback dict; psutil broken -> None"""
         mock_requests.get.side_effect = Exception("Connection failed")
+        try:
+            # 1) Collector down, psutil works -> fallback metrics with _fallback flag
+            mock_psutil.cpu_percent.return_value = 40
+            mock_psutil.virtual_memory.return_value.percent = 70
+            mock_psutil.sensors_temperatures.return_value = {}
 
-        metrics = self.engine.get_metrics()
-        self.assertIsNone(metrics)
+            metrics = self.engine.get_metrics()
+            self.assertEqual(metrics['cpu'], 40)
+            self.assertEqual(metrics['ram'], 70)
+            self.assertEqual(metrics['temperature'], 0)
+            self.assertTrue(metrics['_fallback'])
 
-        # Reset side_effect for other tests
-        mock_requests.get.side_effect = None
+            # 2) psutil also broken -> None
+            mock_psutil.cpu_percent.side_effect = Exception("psutil unavailable")
+            metrics = self.engine.get_metrics()
+            self.assertIsNone(metrics)
+        finally:
+            # Reset side_effects for other tests
+            mock_requests.get.side_effect = None
+            mock_psutil.cpu_percent.side_effect = None
 
     def test_check_service_health(self):
         """Test service health checking"""
@@ -218,10 +232,17 @@ class TestSelfHealingEngine(unittest.TestCase):
         container = MagicMock()
         self.mock_client.containers.get.return_value = container
 
-        self.engine.handle_category_b_overload(metrics)
+        # P5.4: temperature actions require >= 3 samples in the sliding window
+        # before the average is evaluated (guards against a single spurious
+        # reading right after restart).
+        for _ in range(3):
+            self.engine.handle_category_b_overload(metrics)
 
+        # avg 90 °C: above TEMP_RESTART_THRESHOLD (85), not above
+        # TEMP_SHUTDOWN_THRESHOLD (90) -> restart, no stop.
         self.mock_client.containers.get.assert_called_with('llm-service')
         container.restart.assert_called_once()
+        container.stop.assert_not_called()
 
     def test_handle_category_c_cooldown(self):
         """Test Category C cooldown logic"""

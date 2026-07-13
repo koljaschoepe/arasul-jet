@@ -613,7 +613,10 @@ export function ExplorerPanel() {
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-background">
+    <div
+      className="flex h-full min-w-0 flex-col bg-background"
+      data-testid="workspace-explorer-panel"
+    >
       {/* Kopf: Suche + Aktionen */}
       <div className="flex shrink-0 items-center gap-1 px-2 py-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-1 rounded-md bg-card px-1.5">

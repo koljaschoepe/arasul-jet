@@ -28,6 +28,29 @@
   --color-chart-3: #F97316;
   --color-chart-4: #22D3EE;
   --color-chart-5: #F472B6;
+
+  /* ========================================
+     DICHTE-SKALA (Plan 002 »Cursor-Shell«)
+     Kompakte globale Skala: 13px-Basistext + 4/8/12/16px-Abstandsstufen.
+     Text-Utilities: text-ui-xs / text-ui-sm / text-ui / text-ui-lg
+     (mit kompakter Zeilenhöhe als Default).
+     Abstands-Utilities: p-ui-1…4, gap-ui-1…4, m-ui-*, space-y-ui-* usw.
+     Neue/normierte Ansichten (Workspace-Shell, Dashboard, Extensions)
+     bauen ausschließlich auf dieser Skala auf.
+     ======================================== */
+  --text-ui-xs: 0.6875rem;             /* 11px — Badges, Metadaten */
+  --text-ui-xs--line-height: 1rem;     /* 16px */
+  --text-ui-sm: 0.75rem;               /* 12px — Sekundärtext, Labels */
+  --text-ui-sm--line-height: 1.125rem; /* 18px */
+  --text-ui: 0.8125rem;                /* 13px — Basistext kompakter Flächen */
+  --text-ui--line-height: 1.25rem;     /* 20px */
+  --text-ui-lg: 0.9375rem;             /* 15px — Karten-/Abschnittstitel */
+  --text-ui-lg--line-height: 1.375rem; /* 22px */
+
+  --spacing-ui-1: 0.25rem;  /* 4px  — Stufe 1 */
+  --spacing-ui-2: 0.5rem;   /* 8px  — Stufe 2 */
+  --spacing-ui-3: 0.75rem;  /* 12px — Stufe 3 */
+  --spacing-ui-4: 1rem;     /* 16px — Stufe 4 */
 }
 
 /* ========================================
@@ -221,6 +244,8 @@
   --status-critical-bg: rgba(239, 68, 68, 0.15);
   --status-critical-border: rgba(239, 68, 68, 0.3);
   --status-warning: #F59E0B;        /* Amber — warning */
+  --status-warning-bg: rgba(245, 158, 11, 0.15);
+  --status-warning-border: rgba(245, 158, 11, 0.3);
   --status-performance: #81A1C1;    /* Accent — performance metric */
   --status-performance-bg: rgba(129, 161, 193, 0.15);
   --status-performance-border: rgba(129, 161, 193, 0.3);
@@ -484,6 +509,8 @@
   --status-critical-bg: rgba(220, 38, 38, 0.12);
   --status-critical-border: rgba(220, 38, 38, 0.25);
   --status-warning: #D97706;        /* Amber for warning in light mode */
+  --status-warning-bg: rgba(217, 119, 6, 0.12);
+  --status-warning-border: rgba(217, 119, 6, 0.25);
   --status-performance: #2D8FD9;    /* Accent blue — performance metric */
   --status-performance-bg: rgba(45, 143, 217, 0.12);
   --status-performance-border: rgba(45, 143, 217, 0.25);
@@ -540,25 +567,6 @@
   box-shadow: 0 0 8px var(--danger-alpha-30);
 }
 
-/* Light Mode - Stat changes */
-.light .stat-change-positive {
-  background: var(--status-neutral-bg);
-  color: var(--status-neutral);
-  border: 1px solid var(--status-neutral-border);
-}
-
-.light .stat-change-negative {
-  background: var(--danger-alpha-10);
-  color: var(--status-critical);
-  border: 1px solid var(--danger-alpha-20);
-}
-
-.light .stat-change-warning {
-  background: var(--warning-alpha-10);
-  color: var(--status-warning);
-  border: 1px solid var(--warning-alpha-20);
-}
-
 /* Light Mode - Service indicators */
 .light .service-healthy {
   background: var(--status-neutral);
@@ -605,11 +613,6 @@
 
 /* Light Mode - Progress bar container */
 .light .progress-bar-container {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-/* Light Mode - Storage bar container */
-.light .storage-bar-container {
   background: rgba(0, 0, 0, 0.05);
 }
 
@@ -691,14 +694,12 @@
 }
 
 /* Light Mode - Cards */
-.light .stat-card,
 .light .metric-card,
 .light .info-card {
   background: var(--card);
   border-color: var(--border);
 }
 
-.light .stat-card:hover,
 .light .metric-card:hover,
 .light .info-card:hover {
   border-color: var(--primary-alpha-30);
@@ -1693,65 +1694,6 @@ a:focus:not(:focus-visible),
   border-radius: 2px;
 }
 
-/* Service Links */
-.service-links {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.service-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--gradient-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  text-decoration: none;
-  color: var(--text-primary);
-  text-align: center;
-  font-weight: 600;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.service-link::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--gradient-primary);
-  opacity: 0;
-  transition: opacity var(--transition-slow);
-}
-
-.service-link::after {
-  content: '→';
-  position: absolute;
-  right: 1rem;
-  opacity: 0;
-  transform: translateX(-10px);
-  transition: all var(--transition-slow);
-}
-
-.service-link:hover {
-  border-color: var(--primary-color);
-  transform: translateY(-3px) scale(1.02);
-  box-shadow: var(--shadow-lg);
-  color: var(--primary-light);
-}
-
-.service-link:hover::before {
-  opacity: 0.1;
-}
-
-.service-link:hover::after {
-  opacity: 1;
-  transform: translateX(0);
-}
-
 /* Footer */
 .footer {
   background: var(--gradient-card);
@@ -2223,25 +2165,6 @@ a:focus:not(:focus-visible),
     margin: 0 auto;
     padding: 2.5rem;
   }
-
-  .stats-top-row {
-    gap: 2rem;
-  }
-
-  .dashboard-grid {
-    gap: 2rem;
-  }
-}
-
-/* MacBook Pro 14" (1512px - 1727px) - Optimized default */
-@media (min-width: 1512px) and (max-width: 1727px) {
-  .stats-top-row {
-    gap: 1.5rem;
-  }
-
-  .stat-card-large {
-    padding: 1.5rem;
-  }
 }
 
 /* MacBook Air 13" (1280px - 1511px) - Compact mode */
@@ -2295,47 +2218,6 @@ a:focus:not(:focus-visible),
     font-size: 1.35rem;
   }
 
-  .stats-top-row {
-    gap: 0.875rem;
-  }
-
-  .stat-card-large {
-    padding: 1rem;
-    border-radius: var(--radius-lg);
-    gap: 1rem;
-  }
-
-  .stat-icon-wrapper {
-    width: 48px;
-    height: 48px;
-  }
-
-  .stat-icon-wrapper .stat-icon {
-    font-size: 1.5rem;
-  }
-
-  .stat-value-large {
-    font-size: 2rem;
-  }
-
-  .stat-unit {
-    font-size: 1rem;
-  }
-
-  .stat-label {
-    font-size: 0.65rem;
-  }
-
-  .stat-sublabel {
-    font-size: 0.75rem;
-  }
-
-  /* Dashboard grid */
-  .dashboard-grid {
-    grid-template-columns: 3fr 2fr;
-    gap: 1rem;
-  }
-
   /* Cards */
   .glass-card {
     padding: 1rem;
@@ -2356,18 +2238,6 @@ a:focus:not(:focus-visible),
 @media (max-width: 1279px) and (min-width: 1025px) {
   .sidebar {
     width: var(--sidebar-width-tablet);
-  }
-
-  .stats-top-row {
-    gap: 1rem;
-  }
-
-  .stat-card-large {
-    padding: 1.5rem;
-  }
-
-  .stat-value-large {
-    font-size: 2.5rem;
   }
 }
 
@@ -2439,39 +2309,6 @@ a:focus:not(:focus-visible),
   .app-content {
     padding: var(--space-lg);
   }
-
-  /* Dashboard Grid - single column on tablet */
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .dashboard-card-large {
-    grid-column: span 1;
-  }
-
-  /* Stats - 2x2 grid on tablet */
-  .stats-top-row {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-  }
-
-  .stat-card-large {
-    padding: 1.25rem;
-  }
-
-  .stat-icon-wrapper {
-    width: 52px;
-    height: 52px;
-  }
-
-  .stat-icon-wrapper .stat-icon {
-    font-size: 1.5rem;
-  }
-
-  .stat-value-large {
-    font-size: 2.25rem;
-  }
 }
 
 /* Tablet Portrait (≤768px) - Single column layouts */
@@ -2487,10 +2324,6 @@ a:focus:not(:focus-visible),
     gap: 1rem;
   }
 
-  .service-links {
-    grid-template-columns: 1fr;
-  }
-
   .footer {
     flex-direction: column;
     text-align: center;
@@ -2503,53 +2336,6 @@ a:focus:not(:focus-visible),
 
   .card-value {
     font-size: 2.5rem;
-  }
-
-  /* Stats - single column on mobile */
-  .stats-top-row {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .stat-card-large {
-    padding: 1rem;
-    gap: 1rem;
-  }
-
-  .stat-icon-wrapper {
-    width: 48px;
-    height: 48px;
-  }
-
-  .stat-value-large {
-    font-size: 2rem;
-  }
-
-  .stat-unit {
-    font-size: 1.25rem;
-  }
-
-  /* Dashboard Grid - single column */
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .dashboard-card-large {
-    grid-column: span 1;
-  }
-
-  .dashboard-card {
-    padding: 1.25rem;
-  }
-
-  .service-links-modern {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .service-link-card {
-    padding: 1.25rem;
   }
 
   /* Navigation - compact on mobile */
@@ -2577,7 +2363,6 @@ a:focus:not(:focus-visible),
   input[type="radio"],
   .filter-btn,
   .nav-link,
-  .chart-zoom-btn,
   .dm-pagination button {
     min-height: var(--touch-target-min);
     min-width: var(--touch-target-min);
@@ -2598,74 +2383,6 @@ a:focus:not(:focus-visible),
 
   .header-title {
     font-size: 1.5rem;
-  }
-
-  /* Stats - more compact */
-  .stats-top-row {
-    gap: 0.625rem;
-  }
-
-  .stat-card-large {
-    padding: 0.875rem;
-    border-radius: var(--radius-lg);
-  }
-
-  .stat-icon-wrapper {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-md);
-  }
-
-  .stat-icon-wrapper .stat-icon {
-    font-size: 1.25rem;
-  }
-
-  .stat-label {
-    font-size: 0.65rem;
-  }
-
-  .stat-value-large {
-    font-size: 1.75rem;
-  }
-
-  .stat-unit {
-    font-size: 1rem;
-  }
-
-  .stat-change {
-    font-size: 0.7rem;
-    padding: 0.2rem 0.5rem;
-  }
-
-  /* Dashboard cards compact */
-  .dashboard-card {
-    padding: 1rem;
-    border-radius: var(--radius-lg);
-  }
-
-  .dashboard-card-title {
-    font-size: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  /* Service links compact */
-  .service-link-card {
-    padding: 1rem;
-    border-radius: var(--radius-lg);
-    gap: 1rem;
-  }
-
-  .service-link-icon-wrapper {
-    width: 44px;
-    height: 44px;
-  }
-
-  .service-link-icon {
-    font-size: 1.5rem;
-  }
-
-  .service-link-name {
-    font-size: 1rem;
   }
 
   /* Navigation - icons with short labels */
@@ -2726,59 +2443,6 @@ a:focus:not(:focus-visible),
 @media (max-width: 375px) {
   .app-content {
     padding: 0.5rem;
-  }
-
-  .stats-top-row {
-    gap: 0.5rem;
-  }
-
-  .stat-card-large {
-    padding: 0.75rem;
-    gap: 0.75rem;
-  }
-
-  .stat-icon-wrapper {
-    width: 40px;
-    height: 40px;
-  }
-
-  .stat-value-large {
-    font-size: 1.5rem;
-  }
-
-  .stat-unit {
-    font-size: 0.875rem;
-  }
-
-  .stat-sublabel {
-    font-size: 0.75rem;
-  }
-
-  /* Dashboard grid compact */
-  .dashboard-card {
-    padding: 0.875rem;
-  }
-
-  .dashboard-card-title {
-    font-size: 0.95rem;
-  }
-
-  /* Service links very compact */
-  .service-link-card {
-    padding: 0.875rem;
-  }
-
-  .service-link-icon-wrapper {
-    width: 40px;
-    height: 40px;
-  }
-
-  .service-link-name {
-    font-size: 0.95rem;
-  }
-
-  .service-link-description {
-    font-size: 0.8rem;
   }
 
   /* Navigation icons only */
@@ -2857,216 +2521,9 @@ a:focus:not(:focus-visible),
 @media (max-width: 768px) {
   button,
   .btn,
-  a.service-link-card,
   .nav-link {
     min-height: var(--touch-target-min);
   }
-}
-
-/* Top Stats Row - Large Stat Cards */
-.stats-top-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: clamp(1rem, 1.5vw, 1.5rem);
-  margin-bottom: 2rem;
-  animation: fadeIn 0.5s ease;
-}
-
-.stat-card-large {
-  background: var(--gradient-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  padding: 1.75rem;
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  box-shadow: var(--shadow-md);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.stat-card-large:hover {
-  border-color: var(--border-glow);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-}
-
-.stat-icon-wrapper {
-  width: 64px;
-  height: 64px;
-  border-radius: var(--radius-lg);
-  background: var(--primary-alpha-10);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.stat-icon-wrapper .stat-icon {
-  font-size: 2rem;
-  color: var(--primary-color);
-}
-
-.stat-content {
-  flex: 1;
-  position: relative;
-  z-index: 1;
-}
-
-.stat-label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.stat-value-large {
-  font-size: 3rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-}
-
-.stat-unit {
-  font-size: 1.5rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.stat-sublabel {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-}
-
-.stat-sparkline {
-  margin-top: 0.5rem;
-  width: 100%;
-  max-width: 120px;
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.stat-change {
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-xs);
-  margin-top: 0.25rem;
-  width: fit-content;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.stat-change-positive {
-  background: var(--status-neutral-bg);
-  color: var(--status-neutral);
-  border: 1px solid var(--status-neutral-border);
-}
-
-.stat-change-negative {
-  background: var(--danger-alpha-10);
-  color: var(--danger-color);
-  border: 1px solid var(--danger-alpha-20);
-}
-
-.stat-change-warning {
-  background: var(--warning-alpha-10);
-  color: var(--warning-color);
-  border: 1px solid var(--warning-alpha-20);
-}
-
-/* Storage Progress Bar */
-.storage-bar-container {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  overflow: hidden;
-  margin: 0.5rem 0;
-}
-
-.storage-bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background var(--transition-slow);
-}
-
-/* Chart Header with Zoom Controls */
-.chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.chart-header .dashboard-card-title {
-  margin-bottom: 0;
-}
-
-.chart-zoom-controls {
-  display: flex;
-  gap: 0.25rem;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.25rem;
-  border-radius: var(--radius-md);
-}
-
-.chart-zoom-btn {
-  padding: 0.375rem 0.75rem;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-base);
-}
-
-.chart-zoom-btn:hover {
-  background: var(--primary-alpha-10);
-  color: var(--text-primary);
-}
-
-.chart-zoom-btn.active {
-  background: var(--primary-color);
-  color: white;
-  box-shadow: 0 2px 4px var(--primary-alpha-30);
-}
-
-/* Brush Styling */
-.recharts-brush-slide {
-  fill: var(--primary-alpha-20);
-  stroke: var(--primary-color);
-}
-
-.recharts-brush-traveller {
-  fill: var(--primary-color);
-}
-
-.recharts-brush-texts {
-  display: none;
-}
-
-/* Dashboard Grid */
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 3fr 2fr;
-  gap: clamp(1rem, 1.5vw, 1.5rem);
-  margin-bottom: 2rem;
 }
 
 /* === Model Status Bar Widget === */
@@ -3360,103 +2817,6 @@ a:focus:not(:focus-visible),
   }
 }
 
-/* Unified Status List */
-.status-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.status-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.status-row:last-child {
-  border-bottom: none;
-}
-
-.status-label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.status-value {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-left: auto;
-  text-transform: capitalize;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.status-indicator-neutral {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: var(--primary-alpha-30);
-}
-
-.dashboard-card {
-  background: var(--gradient-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  padding: 1.75rem;
-  box-shadow: var(--shadow-md);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: fadeIn 0.5s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.dashboard-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--gradient-primary);
-  opacity: 0;
-  transition: opacity var(--transition-slow);
-}
-
-.dashboard-card:hover::before {
-  opacity: 1;
-}
-
-.dashboard-card:hover {
-  border-color: var(--border-glow);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
-.dashboard-card-large {
-  grid-column: span 1;
-}
-
-.dashboard-card-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.dashboard-card-title::before {
-  content: '';
-  width: 4px;
-  height: 20px;
-  background: var(--gradient-primary);
-  border-radius: 2px;
-}
-
 /* Resources Grid - Circular Progress */
 .resources-grid {
   display: grid;
@@ -3618,166 +2978,6 @@ a:focus:not(:focus-visible),
   color: var(--text-primary);
   font-weight: 600;
   font-family: 'JetBrains Mono', monospace;
-}
-
-/* Service Links */
-.service-links-modern {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: clamp(1rem, 1.5vw, 1.5rem);
-  margin-bottom: 2rem;
-  animation: fadeIn 0.6s ease;
-}
-
-/* Service link cards stretch equally across full width */
-@media (min-width: 1280px) {
-  .service-links-modern {
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  }
-}
-
-.service-link-card {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  padding: 1.5rem;
-  background: var(--gradient-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
-  text-decoration: none;
-  color: inherit;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.service-link-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, var(--primary-alpha-8), transparent);
-  transition: left 0.5s ease;
-}
-
-.service-link-card:hover::before {
-  left: 100%;
-}
-
-.service-link-card:hover {
-  border-color: var(--border-glow);
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-}
-
-.service-link-icon-wrapper {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-lg);
-  background: var(--primary-alpha-12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all var(--transition-slow);
-}
-
-.service-link-card:hover .service-link-icon-wrapper {
-  background: var(--primary-alpha-20);
-  transform: scale(1.1) rotate(5deg);
-}
-
-.service-link-icon {
-  font-size: 1.75rem;
-  color: var(--primary-color);
-  transition: all var(--transition-slow);
-}
-
-.service-link-card:hover .service-link-icon {
-  filter: drop-shadow(0 0 8px var(--primary-alpha-50));
-}
-
-.service-link-content {
-  flex: 1;
-}
-
-.service-link-name {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.25rem;
-}
-
-.service-link-description {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.service-link-arrow {
-  font-size: 1.25rem;
-  color: var(--text-muted);
-  transition: all var(--transition-slow);
-  flex-shrink: 0;
-}
-
-.service-link-card:hover .service-link-arrow {
-  color: var(--primary-color);
-  transform: translateX(4px);
-}
-
-/* Telegram App Card - Button Style */
-button.service-link-card.telegram-app-card {
-  cursor: pointer;
-  border: none;
-  text-align: left;
-  position: relative;
-}
-
-button.service-link-card.telegram-app-card:focus {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-/* Telegram brand colors — kept literal because they're not part of our theme
-   (Telegram's brand, not Arasul's). Removed !important so component-level
-   overrides remain possible (P2.10.3). */
-.telegram-icon {
-  background: linear-gradient(135deg, #0088cc, #00aaff);
-}
-
-.service-link-badge {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  background: var(--primary-color);
-  color: white;
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-md);
-  min-width: 1.5rem;
-  text-align: center;
-}
-
-/* Unavailable app card */
-.service-link-card.service-link-unavailable {
-  opacity: 0.5;
-  cursor: default;
-  pointer-events: none;
-}
-
-.service-link-badge-unavailable {
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-sm);
-  background: rgba(100, 116, 139, 0.2);
-  color: var(--text-muted);
-  white-space: nowrap;
 }
 
 /* ========================================
@@ -4801,3 +4001,15 @@ button.service-link-card.telegram-app-card:focus {
 }
 
 } /* end @layer components */
+
+/* ========================================
+   WORKSPACE-SHELL: KEEP-ALIVE-PANELS
+   react-resizable-panels setzt display:flex inline auf Panel-Wurzeln —
+   ausgeblendete Flächen (Chat/Terminal/Sidebar) bleiben deshalb gemountet
+   (WebSocket-/Chat-Sessions überleben) und werden nur per aria-hidden +
+   dieser Regel visuell entfernt. Siehe WorkspaceShell.tsx.
+   ======================================== */
+[data-panel][aria-hidden='true'],
+[data-separator][aria-hidden='true'] {
+  display: none !important;
+}

@@ -3,18 +3,34 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { setWorkspaceShellEnabled } from '@/lib/featureFlags';
 import { useWorkspaceStore, pathToTabSpec, tabToPath, tabId } from '@/stores/workspaceStore';
+import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 import { ActivityBar } from './ActivityBar';
 import { WorkspaceMenuBar } from './WorkspaceMenuBar';
+import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';
 import { TabContent } from './TabContent';
 import type { TabThemeControls } from './TabContent';
 import { ExplorerPanel } from './explorer/ExplorerPanel';
-import { LlmPanel } from './llm/LlmPanel';
+import { ChatPanel } from './llm/ChatPanel';
+import { TerminalPanel } from './terminal/TerminalPanel';
 
 /**
- * IDE-artige 3-Spalten-Shell (Explorer | Tab-Arbeitsfläche | KI-Panel).
- * Der aktive Tab wird in der URL gespiegelt (/workspace/...), offene Tabs
- * und Panel-Layout persistieren in localStorage.
+ * Cursor-Raster der IDE-Shell:
+ *
+ *   MenuBar (oben, mit Layout-Toggles rechts)
+ *   ActivityBar · Sidebar · Mitte (TabBar + Inhalt) · rechtes Panel
+ *                                                     (Chat oben / Terminal unten)
+ *   StatusBar (unten)
+ *
+ * Der aktive Tab wird in der URL gespiegelt (/workspace/...), offene Tabs und
+ * Panel-Layout persistieren in localStorage.
+ *
+ * Keep-alive: Sidebar, Chat- und Terminal-Fläche werden beim Ausblenden NICHT
+ * unmounted, sondern nur per aria-hidden versteckt (CSS-Regel in index.css:
+ * `[data-panel][aria-hidden='true'] { display:none }`). So überleben Terminal-
+ * WebSocket-Sessions und Chat-Streams jeden Panel-Toggle. react-resizable-
+ * panels setzt display:flex inline auf Panel-Wurzeln, daher läuft das über
+ * aria-hidden + !important statt über das hidden-Attribut.
  */
 export default function WorkspaceShell(props: TabThemeControls) {
   const location = useLocation();
@@ -23,13 +39,48 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const openTab = useWorkspaceStore(s => s.openTab);
-  const explorerVisible = useWorkspaceStore(s => s.explorerVisible);
-  const llmVisible = useWorkspaceStore(s => s.llmVisible);
+  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
+  const chatVisible = useWorkspaceStore(s => s.chatVisible);
+  const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
+  const { isTabTypeEnabled } = useWorkspaceApps();
 
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab
   useEffect(() => {
     const subPath = location.pathname.replace(/^\/workspace/, '');
+
+    // v2-Deep-Link /workspace/terminal: Terminal ist kein Tab mehr — Panel
+    // einblenden (gleiche Semantik wie die TerminalPanelBridge in TabContent);
+    // die URL normalisiert der Store→URL-Effekt auf den aktiven Tab.
+    if (subPath.split('/').filter(Boolean)[0] === 'terminal') {
+      useWorkspaceStore.setState({ terminalVisible: true });
+      if (useWorkspaceStore.getState().tabs.length === 0) {
+        openTab({ type: 'dashboard' });
+      }
+      return;
+    }
+
     const spec = pathToTabSpec(subPath);
+
+    // Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
+    // Deep-Link oder Browser-Zurück nicht (wieder).
+    if (spec && !isTabTypeEnabled(spec.type)) {
+      const state = useWorkspaceStore.getState();
+      const id = tabId(spec);
+      if (state.tabs.some(t => t.id === id)) {
+        // Während des App-Ladens durchgerutscht (fail-open) → wieder schließen;
+        // der Store→URL-Effekt springt zum Nachbarn.
+        state.closeTab(id);
+      } else {
+        const active = state.tabs.find(t => t.id === state.activeTabId);
+        if (active) {
+          navigate(tabToPath(active), { replace: true });
+        } else {
+          openTab({ type: 'dashboard' });
+        }
+      }
+      return;
+    }
+
     if (spec) {
       const id = tabId(spec);
       if (id !== activeTabId) {
@@ -39,13 +90,18 @@ export default function WorkspaceShell(props: TabThemeControls) {
       // Erster Start: Dashboard als Default-Tab
       openTab({ type: 'dashboard' });
     }
-  }, [location.pathname]);
+  }, [location.pathname, isTabTypeEnabled]);
 
   // Store → URL: aktiver Tab spiegelt sich im Pfad
   useEffect(() => {
-    const active = tabs.find(t => t.id === activeTabId);
+    // Frischen Stand lesen (nicht den Render-Snapshot): der URL→Store-Effekt
+    // läuft im selben Commit direkt davor und kann bereits einen Tab geöffnet
+    // haben — mit dem stale Snapshot würde ein Deep-Link auf leeren Store
+    // sonst sofort von einem Dashboard-Default-Tab überschrieben.
+    const state = useWorkspaceStore.getState();
+    const active = state.tabs.find(t => t.id === state.activeTabId);
     if (!active) {
-      if (tabs.length === 0) {
+      if (state.tabs.length === 0) {
         openTab({ type: 'dashboard' });
       }
       return;
@@ -61,31 +117,36 @@ export default function WorkspaceShell(props: TabThemeControls) {
     navigate('/');
   };
 
-  const enterWorkspacePermanently = () => {
-    setWorkspaceShellEnabled(true);
-  };
-
   // Beim ersten Rendern der Shell das Flag setzen, damit "/" künftig hierher führt
   useEffect(() => {
-    enterWorkspacePermanently();
+    setWorkspaceShellEnabled(true);
   }, []);
 
-  // ⌘B / Ctrl+B toggelt den Explorer (wie in der klassischen UI die Sidebar)
+  // ⌘B / Ctrl+B toggelt die Sidebar (wie in VS Code/Cursor)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        useWorkspaceStore.getState().toggleExplorer();
+        useWorkspaceStore.getState().toggleSidebar();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Panel-Layout (Breiten) in localStorage persistieren
+  // Rechtes Panel ist sichtbar, sobald eine seiner Flächen sichtbar ist
+  const rightVisible = chatVisible || terminalVisible;
+  const rightSplit = chatVisible && terminalVisible;
+
+  // Panel-Layout (Breiten/Höhen) in localStorage persistieren. Die Panel-Ids
+  // sind stabil (Panels bleiben wegen Keep-alive immer gemountet).
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: 'arasul-workspace-panels',
-    panelIds: [...(explorerVisible ? ['explorer'] : []), 'main', ...(llmVisible ? ['llm'] : [])],
+    panelIds: ['explorer', 'main', 'llm'],
+  });
+  const { defaultLayout: rightLayout, onLayoutChanged: onRightLayoutChanged } = useDefaultLayout({
+    id: 'arasul-workspace-right-panels',
+    panelIds: ['chat', 'terminal'],
   });
 
   return (
@@ -102,14 +163,19 @@ export default function WorkspaceShell(props: TabThemeControls) {
           defaultLayout={defaultLayout}
           onLayoutChanged={onLayoutChanged}
         >
-          {explorerVisible && (
-            <>
-              <Panel id="explorer" defaultSize="18%" minSize="160px" maxSize="35%">
-                <ExplorerPanel />
-              </Panel>
-              <Separator className="w-[3px] bg-transparent transition-colors hover:bg-primary/50" />
-            </>
-          )}
+          <Panel
+            id="explorer"
+            defaultSize="18%"
+            minSize="160px"
+            maxSize="35%"
+            aria-hidden={!sidebarVisible}
+          >
+            <ExplorerPanel />
+          </Panel>
+          <Separator
+            aria-hidden={!sidebarVisible}
+            className="w-[3px] bg-transparent transition-colors hover:bg-primary/50"
+          />
           <Panel id="main" minSize="30%">
             <div className="flex h-full min-w-0 flex-col">
               <TabBar />
@@ -118,16 +184,38 @@ export default function WorkspaceShell(props: TabThemeControls) {
               </div>
             </div>
           </Panel>
-          {llmVisible && (
-            <>
-              <Separator className="w-[3px] bg-transparent transition-colors hover:bg-primary/50" />
-              <Panel id="llm" defaultSize="26%" minSize="220px" maxSize="45%">
-                <LlmPanel />
+          <Separator
+            aria-hidden={!rightVisible}
+            className="w-[3px] bg-transparent transition-colors hover:bg-primary/50"
+          />
+          <Panel
+            id="llm"
+            defaultSize="26%"
+            minSize="220px"
+            maxSize="45%"
+            aria-hidden={!rightVisible}
+          >
+            <Group
+              orientation="vertical"
+              className="h-full"
+              defaultLayout={rightLayout}
+              onLayoutChanged={onRightLayoutChanged}
+            >
+              <Panel id="chat" defaultSize="60%" minSize="120px" aria-hidden={!chatVisible}>
+                <ChatPanel />
               </Panel>
-            </>
-          )}
+              <Separator
+                aria-hidden={!rightSplit}
+                className="h-[3px] bg-transparent transition-colors hover:bg-primary/50"
+              />
+              <Panel id="terminal" defaultSize="40%" minSize="100px" aria-hidden={!terminalVisible}>
+                <TerminalPanel />
+              </Panel>
+            </Group>
+          </Panel>
         </Group>
       </div>
+      <StatusBar />
     </div>
   );
 }

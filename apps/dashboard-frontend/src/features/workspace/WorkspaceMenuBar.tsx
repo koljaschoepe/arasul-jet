@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   FolderPlus,
   FolderKanban,
@@ -16,7 +17,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -46,20 +46,52 @@ function MenuTriggerButton({ label }: { label: string }) {
   );
 }
 
+/** Icon-Toggle für die drei Layout-Flächen (Sidebar/Terminal/Chat). */
+function LayoutToggleButton({
+  label,
+  pressed,
+  onClick,
+  children,
+}: {
+  label: string;
+  pressed: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
+        pressed
+          ? 'bg-accent text-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 /**
  * Schlanke Top-Menüleiste der IDE-Shell (à la Cursor, bewusst minimal):
- * links Marke + Datei/Ansicht-Menüs, rechts die Einstellungen. Sitzt
- * oberhalb von ActivityBar + Panel-Group und volle Breite.
+ * links Marke + Datei/Ansicht-Menüs, rechts die drei Layout-Toggles
+ * (Sidebar / Terminal-Panel / Chat-Panel) neben den Einstellungen.
  */
 export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
   // Theme direkt über den Hook (synct alle useTheme-Instanzen); die
   // themeControls-Prop bleibt für die TabContent-Verdrahtung erhalten.
   const { theme, setTheme } = useTheme();
   const openTab = useWorkspaceStore(s => s.openTab);
-  const explorerVisible = useWorkspaceStore(s => s.explorerVisible);
-  const llmVisible = useWorkspaceStore(s => s.llmVisible);
-  const toggleExplorer = useWorkspaceStore(s => s.toggleExplorer);
-  const toggleLlm = useWorkspaceStore(s => s.toggleLlm);
+  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
+  const chatVisible = useWorkspaceStore(s => s.chatVisible);
+  const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
+  const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
+  const toggleChat = useWorkspaceStore(s => s.toggleChat);
+  const toggleTerminal = useWorkspaceStore(s => s.toggleTerminal);
   const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
 
@@ -81,7 +113,7 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
             <FolderKanban className="h-4 w-4" aria-hidden="true" />
             Neues Projekt…
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => openTab({ type: 'sandbox' })}>
+          <DropdownMenuItem onClick={() => useWorkspaceStore.setState({ terminalVisible: true })}>
             <SquareTerminal className="h-4 w-4" aria-hidden="true" />
             Neue Terminal-Umgebung…
           </DropdownMenuItem>
@@ -100,16 +132,6 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
       <DropdownMenu>
         <MenuTriggerButton label="Ansicht" />
         <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuItem onClick={toggleExplorer}>
-            <PanelLeft className="h-4 w-4" aria-hidden="true" />
-            {explorerVisible ? 'Explorer ausblenden' : 'Explorer einblenden'}
-            <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={toggleLlm}>
-            <MessageSquare className="h-4 w-4" aria-hidden="true" />
-            {llmVisible ? 'KI-Panel ausblenden' : 'KI-Panel einblenden'}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs text-muted-foreground">Design</DropdownMenuLabel>
           {THEME_OPTIONS.map(option => (
             <DropdownMenuItem
@@ -129,6 +151,34 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
       </DropdownMenu>
 
       <div className="flex-1" />
+
+      {/* Layout-Toggles: Sidebar / Terminal-Panel / Chat-Panel (ersetzen die
+          alten Ansicht-Menü-Einträge und den Chat-Toggle unten links) */}
+      <div className="flex items-center gap-0.5" role="group" aria-label="Layout">
+        <LayoutToggleButton
+          label={sidebarVisible ? 'Sidebar ausblenden' : 'Sidebar einblenden'}
+          pressed={sidebarVisible}
+          onClick={toggleSidebar}
+        >
+          <PanelLeft className="h-4 w-4" aria-hidden="true" />
+        </LayoutToggleButton>
+        <LayoutToggleButton
+          label={terminalVisible ? 'Terminal-Panel ausblenden' : 'Terminal-Panel einblenden'}
+          pressed={terminalVisible}
+          onClick={toggleTerminal}
+        >
+          <SquareTerminal className="h-4 w-4" aria-hidden="true" />
+        </LayoutToggleButton>
+        <LayoutToggleButton
+          label={chatVisible ? 'Chat-Panel ausblenden' : 'Chat-Panel einblenden'}
+          pressed={chatVisible}
+          onClick={toggleChat}
+        >
+          <MessageSquare className="h-4 w-4" aria-hidden="true" />
+        </LayoutToggleButton>
+      </div>
+
+      <div className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
 
       <button
         type="button"

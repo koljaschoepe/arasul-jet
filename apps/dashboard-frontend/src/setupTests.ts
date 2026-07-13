@@ -70,7 +70,10 @@ class MockWebSocket {
   url: string;
   readyState: number;
   onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
+  // Echte close-Events tragen immer ein Event-Objekt (u. a. .code) — der Mock
+  // reicht eines mit, damit Handler-Code wie `event.code === 1000` nicht nur
+  // per Short-Circuit zufällig funktioniert.
+  onclose: ((event: { code: number; wasClean: boolean }) => void) | null = null;
 
   constructor(url: string) {
     this.url = url;
@@ -82,7 +85,7 @@ class MockWebSocket {
   send(_data: string): void {}
   close(): void {
     this.readyState = 3;
-    if (this.onclose) this.onclose();
+    if (this.onclose) this.onclose({ code: 1000, wasClean: true });
   }
 }
 window.WebSocket = MockWebSocket as unknown as typeof WebSocket;

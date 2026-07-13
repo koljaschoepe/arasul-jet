@@ -26,9 +26,55 @@ import {
   Send,
 } from 'lucide-react';
 import { Suspense, lazy } from 'react';
+import { DashboardCard, DashboardCardTitle } from './DashboardCard';
 
 const ModelStatusBar = lazy(() => import('./ModelStatusBar'));
 const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
+
+// Kompakt-Layout (Plan 002): alle Klassen auf der Dichte-Skala (text-ui-*
+// + ui-1…4-Abstände). min(100%, …) in den auto-fit-Grids verhindert
+// horizontales Scrollen, wenn der Container schmaler als eine Karte ist.
+const STAT_BADGE_BASE =
+  'mt-ui-1 inline-flex w-fit items-center gap-ui-1 rounded-xs border px-ui-1 py-px ' +
+  'text-ui-xs font-semibold uppercase tracking-wide';
+
+// Theme-aware Status-Tokens (--status-*): haben in Light-Mode eigene,
+// kontraststarke Werte (#DC2626/#D97706) — --danger/--warning wären dort
+// zu hell (Kontrast ~2:1 auf hellem Alpha-Hintergrund).
+const STAT_BADGE_VARIANTS = {
+  positive:
+    'border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral)]',
+  negative:
+    'border-[var(--status-critical-border)] bg-[var(--status-critical-bg)] text-[var(--status-critical)]',
+  warning:
+    'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning)]',
+} as const;
+
+type StatBadgeVariant = keyof typeof STAT_BADGE_VARIANTS;
+
+function StatCard({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div className="flex min-w-0 items-center gap-ui-3 rounded-lg border border-border bg-bg-card p-ui-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--primary-alpha-10)]">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-ui-xs font-semibold uppercase tracking-wider text-text-muted">
+          {label}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 interface MetricsDisk {
   used: number;
@@ -143,7 +189,7 @@ const TempSparkline = React.memo(function TempSparkline({
   if (points.length < 2) return null;
 
   return (
-    <div className="stat-sparkline" aria-hidden="true">
+    <div className="pointer-events-none mt-ui-1 w-full max-w-[120px] opacity-60" aria-hidden="true">
       <ResponsiveContainer width="100%" height={18}>
         <LineChart data={points} margin={{ top: 2, right: 0, bottom: 2, left: 0 }}>
           <Line
@@ -194,27 +240,30 @@ const DashboardHome = React.memo(function DashboardHome({
     // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
   }, []);
 
-  const getStatusInfo = (value: number, metric: string): { status: string; className: string } => {
+  const getStatusInfo = (
+    value: number,
+    metric: string
+  ): { status: string; variant: StatBadgeVariant } => {
     const threshold = t[metric];
-    if (!threshold) return { status: 'Normal', className: 'stat-change-positive' };
+    if (!threshold) return { status: 'Normal', variant: 'positive' };
     if (value >= threshold.critical) {
-      return { status: 'Critical', className: 'stat-change-negative' };
+      return { status: 'Critical', variant: 'negative' };
     }
     if (value >= threshold.warning) {
-      return { status: 'Warning', className: 'stat-change-warning' };
+      return { status: 'Warning', variant: 'warning' };
     }
-    return { status: 'Normal', className: 'stat-change-positive' };
+    return { status: 'Normal', variant: 'positive' };
   };
 
-  const getTempStatusInfo = (value: number): { status: string; className: string } => {
+  const getTempStatusInfo = (value: number): { status: string; variant: StatBadgeVariant } => {
     const threshold = t.temperature;
     if (value >= threshold.critical) {
-      return { status: 'Hot', className: 'stat-change-negative' };
+      return { status: 'Hot', variant: 'negative' };
     }
     if (value >= threshold.warning) {
-      return { status: 'Warm', className: 'stat-change-warning' };
+      return { status: 'Warm', variant: 'warning' };
     }
-    return { status: 'Normal', className: 'stat-change-positive' };
+    return { status: 'Normal', variant: 'positive' };
   };
 
   const [chartTimeRange, setChartTimeRange] = useState<number>(() => {
@@ -266,7 +315,7 @@ const DashboardHome = React.memo(function DashboardHome({
       FiSend: Send,
     };
     const IconComponent = icons[iconName] || Box;
-    return <IconComponent className="service-link-icon" />;
+    return <IconComponent className="h-4 w-4 text-primary" />;
   };
 
   const getAppUrl = (app: RunningApp): string => {
@@ -310,119 +359,110 @@ const DashboardHome = React.memo(function DashboardHome({
   const usedDisk = metrics?.disk?.used || 0;
 
   return (
-    <>
-      <div className="stats-top-row">
-        <div className="stat-card-large">
-          <div className="stat-icon-wrapper">
-            <Activity className="stat-icon" />
+    <div className="flex min-w-0 flex-col gap-ui-3">
+      <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-ui-2">
+        <StatCard icon={<Activity className="h-5 w-5 text-primary" />} label="RAM Usage">
+          <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
+            {metrics?.ram?.toFixed(1) || 0}
+            <span className="text-ui-sm font-medium text-text-muted">%</span>
           </div>
-          <div className="stat-content">
-            <div className="stat-label">RAM USAGE</div>
-            <div className="stat-value-large">
-              {metrics?.ram?.toFixed(1) || 0}
-              <span className="stat-unit">%</span>
+          {deviceInfo?.total_memory_gb ? (
+            <div className="text-ui-sm text-text-secondary">
+              {(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} /{' '}
+              {deviceInfo.total_memory_gb} GB
             </div>
-            {deviceInfo?.total_memory_gb ? (
-              <div className="stat-sublabel">
-                {(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} /{' '}
-                {deviceInfo.total_memory_gb} GB
-              </div>
-            ) : (
-              <div className={`stat-change ${getStatusInfo(metrics?.ram || 0, 'ram').className}`}>
-                {getStatusInfo(metrics?.ram || 0, 'ram').status}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="stat-card-large">
-          <div className="stat-icon-wrapper">
-            <Layers className="stat-icon" />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">SWAP</div>
-            <div className="stat-value-large">
-              {metrics?.swap?.toFixed(1) || 0}
-              <span className="stat-unit">%</span>
-            </div>
-            <div className={`stat-change ${getStatusInfo(metrics?.swap || 0, 'swap').className}`}>
-              {getStatusInfo(metrics?.swap || 0, 'swap').status}
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card-large">
-          <div className="stat-icon-wrapper">
-            <HardDrive className="stat-icon" />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">STORAGE</div>
-            <div className="stat-value-large">
-              {metrics?.disk?.percent?.toFixed(0) || 0}
-              <span className="stat-unit">%</span>
-            </div>
-            <div className="storage-bar-container">
-              <div
-                className="storage-bar-fill"
-                style={{
-                  width: `${metrics?.disk?.percent || 0}%`,
-                  background: getProgressColor(metrics?.disk?.percent || 0, 'storage'),
-                }}
-              />
-            </div>
-            <div className="stat-sublabel">
-              {formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card-large">
-          <div className="stat-icon-wrapper">
-            <Thermometer className="stat-icon" />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">TEMPERATUR</div>
-            <div className="stat-value-large">
-              {metrics?.temperature?.toFixed(0) || 0}
-              <span className="stat-unit">°C</span>
-            </div>
+          ) : (
             <div
-              className={`stat-change ${getTempStatusInfo(metrics?.temperature || 0).className}`}
+              className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getStatusInfo(metrics?.ram || 0, 'ram').variant]}`}
             >
-              {getTempStatusInfo(metrics?.temperature || 0).status}
+              {getStatusInfo(metrics?.ram || 0, 'ram').status}
             </div>
-            <TempSparkline history={metricsHistory?.temperature} />
+          )}
+        </StatCard>
+
+        <StatCard icon={<Layers className="h-5 w-5 text-primary" />} label="Swap">
+          <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
+            {metrics?.swap?.toFixed(1) || 0}
+            <span className="text-ui-sm font-medium text-text-muted">%</span>
           </div>
-        </div>
+          <div
+            className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getStatusInfo(metrics?.swap || 0, 'swap').variant]}`}
+          >
+            {getStatusInfo(metrics?.swap || 0, 'swap').status}
+          </div>
+        </StatCard>
+
+        <StatCard icon={<HardDrive className="h-5 w-5 text-primary" />} label="Storage">
+          <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
+            {metrics?.disk?.percent?.toFixed(0) || 0}
+            <span className="text-ui-sm font-medium text-text-muted">%</span>
+          </div>
+          <div className="my-ui-1 h-1 w-full overflow-hidden rounded-full bg-border">
+            <div
+              className="h-full rounded-full transition-[width]"
+              style={{
+                width: `${metrics?.disk?.percent || 0}%`,
+                background: getProgressColor(metrics?.disk?.percent || 0, 'storage'),
+              }}
+            />
+          </div>
+          <div className="text-ui-sm text-text-secondary">
+            {formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB
+          </div>
+        </StatCard>
+
+        <StatCard icon={<Thermometer className="h-5 w-5 text-primary" />} label="Temperatur">
+          <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
+            {metrics?.temperature?.toFixed(0) || 0}
+            <span className="text-ui-sm font-medium text-text-muted">°C</span>
+          </div>
+          <div
+            className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getTempStatusInfo(metrics?.temperature || 0).variant]}`}
+          >
+            {getTempStatusInfo(metrics?.temperature || 0).status}
+          </div>
+          <TempSparkline history={metricsHistory?.temperature} />
+        </StatCard>
       </div>
 
       {runningApps && runningApps.length > 0 && (
-        <div className="service-links-modern">
+        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-ui-2">
           {runningApps
             ?.filter((app: RunningApp) => app.status === 'running' && app.id !== 'minio')
             .map((app: RunningApp) => {
               const url = getAppUrl(app);
+              const cardClass =
+                'group flex min-w-0 items-center gap-ui-2 rounded-lg border border-border ' +
+                'bg-bg-card p-ui-2 text-inherit no-underline transition-colors ' +
+                'hover:border-[var(--border-glow)] hover:bg-bg-card-hover';
+              const iconWrapper = (
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--primary-alpha-10)]">
+                  {getAppIcon(app.icon)}
+                </div>
+              );
+              const content = (
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-ui font-semibold text-text-primary">{app.name}</div>
+                  <div className="truncate text-ui-sm text-text-muted">{app.description}</div>
+                </div>
+              );
               if (isInternalLink(app)) {
                 return (
-                  <Link key={app.id} to={url} className="service-link-card">
-                    <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
-                    <div className="service-link-content">
-                      <div className="service-link-name">{app.name}</div>
-                      <div className="service-link-description">{app.description}</div>
-                    </div>
-                    <ExternalLink className="service-link-arrow" />
+                  <Link key={app.id} to={url} className={cardClass}>
+                    {iconWrapper}
+                    {content}
+                    <ExternalLink className="h-4 w-4 shrink-0 text-text-muted transition-colors group-hover:text-primary" />
                   </Link>
                 );
               }
               if (url === '#') {
                 return (
-                  <div key={app.id} className="service-link-card service-link-unavailable">
-                    <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
-                    <div className="service-link-content">
-                      <div className="service-link-name">{app.name}</div>
-                      <div className="service-link-description">{app.description}</div>
-                    </div>
-                    <span className="service-link-badge-unavailable">Nicht verfügbar</span>
+                  <div key={app.id} className={`${cardClass} pointer-events-none opacity-50`}>
+                    {iconWrapper}
+                    {content}
+                    <span className="shrink-0 whitespace-nowrap rounded-xs bg-secondary px-ui-1 py-px text-ui-xs font-semibold text-text-muted">
+                      Nicht verfügbar
+                    </span>
                   </div>
                 );
               }
@@ -432,30 +472,31 @@ const DashboardHome = React.memo(function DashboardHome({
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="service-link-card"
+                  className={cardClass}
                 >
-                  <div className="service-link-icon-wrapper">{getAppIcon(app.icon)}</div>
-                  <div className="service-link-content">
-                    <div className="service-link-name">{app.name}</div>
-                    <div className="service-link-description">{app.description}</div>
-                  </div>
-                  <ExternalLink className="service-link-arrow" />
+                  {iconWrapper}
+                  {content}
+                  <ExternalLink className="h-4 w-4 shrink-0 text-text-muted transition-colors group-hover:text-primary" />
                 </a>
               );
             })}
         </div>
       )}
 
-      <div className="dashboard-grid">
-        <div className="dashboard-card dashboard-card-large">
-          <div className="chart-header">
-            <h3 className="dashboard-card-title">Performance</h3>
-            <div className="chart-zoom-controls">
+      <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-ui-2">
+        <DashboardCard className="col-span-full">
+          <div className="mb-ui-2 flex flex-wrap items-center justify-between gap-ui-2">
+            <DashboardCardTitle className="mb-0">Performance</DashboardCardTitle>
+            <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
               {timeRangeOptions.map((hours: number) => (
                 <button
                   key={hours}
                   type="button"
-                  className={`chart-zoom-btn ${chartTimeRange === hours ? 'active' : ''}`}
+                  className={`cursor-pointer rounded-sm px-ui-2 py-ui-1 text-ui-xs font-semibold transition-colors ${
+                    chartTimeRange === hours
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-text-muted hover:bg-[var(--primary-alpha-10)] hover:text-text-primary'
+                  }`}
                   onClick={() => setChartTimeRange(hours)}
                 >
                   {hours}h
@@ -542,17 +583,17 @@ const DashboardHome = React.memo(function DashboardHome({
               </>
             )}
           </div>
-        </div>
+        </DashboardCard>
 
-        <Suspense fallback={<div className="dashboard-card" style={{ minHeight: 280 }} />}>
+        <Suspense fallback={<DashboardCard className="min-h-[280px]" />}>
           <ModelStatusBar />
         </Suspense>
 
-        <Suspense fallback={<div className="dashboard-card" style={{ minHeight: 200 }} />}>
+        <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>
           <SystemHealthWidget />
         </Suspense>
       </div>
-    </>
+    </div>
   );
 });
 

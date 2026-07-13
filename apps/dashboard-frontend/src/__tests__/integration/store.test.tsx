@@ -166,7 +166,8 @@ describe('Store integration', () => {
   it('renders store with tab navigation', async () => {
     renderStore();
 
-    expect(screen.getByText('Store')).toBeInTheDocument();
+    // Seit Plan 001 heißt der Store im UI »Extensions«
+    expect(screen.getByText('Extensions')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /start/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /modelle/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /apps/i })).toBeInTheDocument();

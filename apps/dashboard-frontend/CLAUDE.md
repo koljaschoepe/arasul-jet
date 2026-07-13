@@ -18,13 +18,16 @@ src/
   features/        Domain-organized UI. One folder per top-level route.
     chat/  documents/  store/  settings/  telegram/  database/  sandbox/
     dashboard/  projects/  datentabellen/  system/
-    workspace/     IDE-Shell (Feature-Flag `workspace-shell`): WorkspaceMenuBar
-                   (Datei/Ansicht, Settings oben rechts), ActivityBar,
-                   Explorer (Second-Brain-Ordnerbaum), Tab-Bar/-Content,
-                   Datei-Viewer, KI-Panel. Feature-Tabs laufen je in einem
-                   eigenen IsolatedMemoryRouter (FeatureTabHost); Cross-Feature-
-                   Links übersetzt die TabBridge in Tab-Öffnungen. Menü→Panel-
-                   Aktionen laufen als Request über den workspaceStore.
+    workspace/     IDE-Shell (Feature-Flag `workspace-shell`, Cursor-Raster):
+                   WorkspaceMenuBar (Datei/Ansicht, Layout-Toggles + Settings
+                   oben rechts), ActivityBar, Explorer (Second-Brain-Ordner-
+                   baum), Tab-Bar/-Content (Mitte), rechtes Panel mit Chat
+                   (oben) und Terminal (unten, keep-alive — nie unmounten,
+                   nie als Mitte-Tab), StatusBar. Feature-Tabs laufen je in
+                   einem eigenen IsolatedMemoryRouter (FeatureTabHost);
+                   Cross-Feature-Links übersetzt die TabBridge in Tab-
+                   Öffnungen (Chat/Terminal-Links in Panel-Toggles). Menü→
+                   Panel-Aktionen laufen als Request über den workspaceStore.
   components/
     ui/            App-wide primitives (Modal, ErrorBoundary, EmptyState, …).
       shadcn/      shadcn/ui primitives (button, input, …) — generated.

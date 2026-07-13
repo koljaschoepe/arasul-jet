@@ -32,10 +32,12 @@ const ALLOWED_COLORS = [
 ];
 
 // --- Thresholds (ratchet — never increase) -----------------------------------
-// Ratcheted down to the current actual counts after the token-consolidation pass
-// (transition timings → --transition-* tokens, dead legacy CSS removed).
-const HARDCODED_COLOR_THRESHOLD = 59;
-const MISSING_TRANSITION_THRESHOLD = 49;
+// Ratcheted down after the Cursor-Shell rebuild (Plan 002): custom-property
+// definitions (`--token: #hex`) no longer count as hardcoded — they ARE the
+// token source. Remaining 2 hits live in the @media print block (deliberate
+// literal print colors).
+const HARDCODED_COLOR_THRESHOLD = 2;
+const MISSING_TRANSITION_THRESHOLD = 48;
 
 // --- Helpers -----------------------------------------------------------------
 
@@ -73,9 +75,11 @@ function analyzeCSS(filePath) {
       }
     }
 
-    // Hardcoded hex colors
+    // Hardcoded hex colors — custom-property definitions (`--token: #hex`) are
+    // exempt: they are the design-token source, not a hardcoded usage.
     const hexMatches = line.match(/#[0-9A-Fa-f]{3,6}(?![0-9A-Fa-f])/g);
-    if (hexMatches && !line.includes('var(--') && !line.includes(':root')) {
+    const isTokenDefinition = /^--[\w-]+\s*:/.test(trimmed);
+    if (hexMatches && !isTokenDefinition && !line.includes('var(--') && !line.includes(':root')) {
       for (const m of hexMatches) {
         if (!ALLOWED_COLORS.includes(m.toLowerCase())) {
           issues.push({ type: 'HARDCODED_COLOR', severity: 'WARNING', line: lineNum, file: fileName, message: `Hardcodierte Farbe "${m}" — CSS-Variable verwenden` });
@@ -120,8 +124,10 @@ function checkIndexCSS() {
   // The value source is the shadcn set (--primary / --background); the Arasul
   // aliases (--primary-color / --bg-dark) now point at those via var(). Check the
   // real values where they actually live, not the aliased names.
-  if (!lower.includes('--primary: #45adff')) errors.push('Primary nicht #45ADFF');
-  if (!lower.includes('--background: #101923')) errors.push('Background Dark nicht #101923');
+  // Canonical values = Theme »Schwarz« (:root default), see
+  // docs/development/DESIGN_SYSTEM.md (Plan 001 »Cursor-Feinschliff«).
+  if (!lower.includes('--primary: #81a1c1')) errors.push('Primary nicht #81A1C1 (Theme Schwarz)');
+  if (!lower.includes('--background: #0a0a0a')) errors.push('Background Schwarz nicht #0A0A0A');
   if (!lower.includes('--text-primary')) errors.push('--text-primary Variable fehlt');
   return errors;
 }

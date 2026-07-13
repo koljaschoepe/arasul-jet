@@ -12,7 +12,6 @@ import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
-const SandboxApp = lazy(() => import('@/features/sandbox'));
 const TelegramBotPage = lazy(() => import('@/features/telegram/TelegramBotPage'));
 const DatabaseOverview = lazy(() => import('@/features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('@/features/database/DatabaseTable'));
@@ -42,7 +41,20 @@ interface TabContentProps {
 function ChatPanelBridge({ resetTo }: { resetTo: string }) {
   const navigate = useNavigate();
   useEffect(() => {
-    useWorkspaceStore.setState({ llmVisible: true, llmPanelMode: 'chat' });
+    useWorkspaceStore.setState({ chatVisible: true });
+    navigate(resetTo, { replace: true });
+  }, []);
+  return null;
+}
+
+/**
+ * Das Terminal ist kein Mitte-Tab mehr — Legacy-Links auf /terminal blenden
+ * das Terminal-Panel ein und setzen den MemoryRouter des Quell-Tabs zurück.
+ */
+function TerminalPanelBridge({ resetTo }: { resetTo: string }) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    useWorkspaceStore.setState({ terminalVisible: true });
     navigate(resetTo, { replace: true });
   }, []);
   return null;
@@ -85,17 +97,19 @@ function DashboardTabContent() {
     );
   }
   return (
-    <DashboardHome
-      metrics={data.metrics}
-      metricsHistory={data.metricsHistory}
-      services={data.services}
-      systemInfo={data.systemInfo}
-      networkInfo={data.networkInfo}
-      runningApps={data.runningApps}
-      formatChartData={data.formatChartData}
-      thresholds={data.thresholds}
-      deviceInfo={data.deviceInfo}
-    />
+    <div className="min-w-0 p-ui-3">
+      <DashboardHome
+        metrics={data.metrics}
+        metricsHistory={data.metricsHistory}
+        services={data.services}
+        systemInfo={data.systemInfo}
+        networkInfo={data.networkInfo}
+        runningApps={data.runningApps}
+        formatChartData={data.formatChartData}
+        thresholds={data.thresholds}
+        deviceInfo={data.deviceInfo}
+      />
+    </div>
   );
 }
 
@@ -108,8 +122,6 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/settings';
     case 'store':
       return '/store';
-    case 'sandbox':
-      return '/terminal';
     case 'automationen':
       return '/';
     case 'telegram':
@@ -129,7 +141,6 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   document: new Set([]),
   settings: new Set(['settings']),
   store: new Set(['store']),
-  sandbox: new Set(['sandbox']),
   automationen: new Set([]),
   telegram: new Set(['telegram']),
   database: new Set(['database', 'database-table']),
@@ -185,10 +196,7 @@ function FeatureTabHost({
         <Route path="/store/*" element={routeFor('store', <Store />, { type: 'store' })} />
         <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
         <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
-        <Route
-          path="/terminal"
-          element={routeFor('sandbox', <SandboxApp />, { type: 'sandbox' })}
-        />
+        <Route path="/terminal" element={<TerminalPanelBridge resetTo={resetTo} />} />
         <Route
           path="/telegram-bot"
           element={routeFor('telegram', <TelegramBotPage />, { type: 'telegram' })}
@@ -227,8 +235,8 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   return <FeatureTabHost tab={tab} themeControls={themeControls} />;
 }
 
-/** Tab-Typen, die beim Wechsel gemountet bleiben (Terminal-Sessions). */
-const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['sandbox', 'automationen']);
+/** Tab-Typen, die beim Wechsel gemountet bleiben (eingebettete iframes). */
+const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['automationen']);
 
 /**
  * Rendert den aktiven Tab (plus Keep-Alive-Tabs unsichtbar), jeweils mit
