@@ -1,9 +1,8 @@
 /**
  * StoreApps Component
- * Apps catalog with simplified filters (Empfohlen/Alle)
- * Based on the original AppStore component
- *
- * Migrated to TypeScript + shadcn + Tailwind
+ * Extensions-Katalog als kompakte Listenansicht (~32px-Zeilen):
+ * Icon, Name, Kurzbeschreibung, Status/Aktionen rechts.
+ * Detailansicht (StoreDetailModal) öffnet per Klick auf die Zeile.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -33,7 +32,7 @@ import StoreDetailModal from './StoreDetailModal';
 import PlatformAppsSection from './PlatformAppsSection';
 import DownloadProgress from './DownloadProgress';
 import DataStateRenderer from '../../components/ui/DataStateRenderer';
-import { SkeletonCard } from '../../components/ui/Skeleton';
+import { SkeletonList } from '../../components/ui/Skeleton';
 import { useApi } from '../../hooks/useApi';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/shadcn/button';
@@ -97,16 +96,6 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 // Featured apps
 const FEATURED_APPS = ['n8n', 'telegram-bot', 'terminal'];
 
-// Category labels
-const categoryLabels: Record<string, string> = {
-  development: 'Entwicklung',
-  productivity: 'Produktivität',
-  ai: 'KI & ML',
-  storage: 'Speicher',
-  monitoring: 'Monitoring',
-  networking: 'Netzwerk',
-};
-
 // Status configuration - uses shadcn/Tailwind semantic tokens
 const statusConfig: Record<string, StatusConfigEntry> = {
   running: { color: 'var(--primary)', label: 'Aktiv', icon: Check },
@@ -132,15 +121,6 @@ const getAppUrl = (app: App): string | null => {
     return `http://${window.location.hostname}:${app.ports.external}`;
   }
   return null;
-};
-
-// Synthesized tags so App-Cards match Model-Card density
-const getAppTags = (app: Pick<App, 'hasCustomPage' | 'ports' | 'appType'>): string[] => {
-  const tags: string[] = [];
-  if (app.hasCustomPage) tags.push('Integriert');
-  else if (app.ports?.external) tags.push('Web-UI');
-  if (app.appType === 'official') tags.push('Offiziell');
-  return tags;
 };
 
 function StoreApps() {
@@ -385,250 +365,199 @@ function StoreApps() {
     loadApps();
   };
 
-  // Render app card
-  const renderAppCard = (app: App) => {
+  // Render compact list row (~32px): Icon, Name, Kurzbeschreibung, Status/Aktionen rechts
+  const renderAppRow = (app: App) => {
     const status = getStatusConfig(app.status);
     const StatusIcon = status.icon;
     const isLoading = actionLoading[app.id];
     const isSystem = app.appType === 'system';
     const isFeatured = FEATURED_APPS.includes(app.id) || app.featured;
-    const tags = getAppTags(app);
+    const isBusy =
+      app.status === 'installing' ||
+      app.status === 'starting' ||
+      app.status === 'stopping' ||
+      app.status === 'uninstalling';
 
     return (
-      <div
-        key={app.id}
-        className="app-card bg-card border border-border rounded-xl p-6 cursor-pointer transition-all duration-200 flex flex-col gap-3 shadow-sm hover:-translate-y-0.5 hover:shadow-lg hover:border-muted-foreground/20"
-        onClick={() => setSelectedApp(app)}
-        tabIndex={0}
-        role="button"
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setSelectedApp(app);
-          }
-        }}
-      >
-        <div className="app-card-header flex items-start justify-between gap-3">
-          <div className="app-icon size-12 bg-muted rounded-lg flex items-center justify-center text-primary text-2xl shrink-0">
+      <li key={app.id} className="not-last:border-b not-last:border-border">
+        <div
+          className="app-row flex min-h-8 cursor-pointer items-center gap-2 bg-card px-3 py-1 transition-colors hover:bg-muted/50"
+          onClick={() => setSelectedApp(app)}
+          tabIndex={0}
+          role="button"
+          data-testid={`app-row-${app.id}`}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedApp(app);
+            }
+          }}
+        >
+          <span className="flex size-5 shrink-0 items-center justify-center text-primary [&_svg]:size-4">
             {getIcon(app.icon)}
-          </div>
-          <div className="app-badges flex flex-wrap gap-1.5 justify-end">
-            {isFeatured && (
-              <Badge
-                variant="outline"
-                className="border-primary/30 bg-primary/10 text-primary gap-1"
-              >
-                <Star className="size-3" /> Empfohlen
-              </Badge>
-            )}
-            {isSystem && (
-              <Badge variant="outline" className="bg-muted border-border text-muted-foreground">
-                System
-              </Badge>
-            )}
+          </span>
+          <span className="shrink-0 text-sm font-medium text-foreground">{app.name}</span>
+          {isFeatured && (
+            <Star className="size-3 shrink-0 text-primary" aria-label="Empfohlen" role="img" />
+          )}
+          {isSystem && (
             <Badge
               variant="outline"
-              className={cn(
-                'gap-1',
-                app.status === 'running' && 'border-primary/30 bg-primary/10 text-primary',
-                app.status === 'installed' && 'border-border bg-muted text-muted-foreground',
-                app.status === 'available' && 'border-border bg-muted text-muted-foreground',
-                app.status === 'error' &&
-                  'border-destructive/30 bg-destructive/10 text-destructive',
-                (app.status === 'installing' ||
-                  app.status === 'starting' ||
-                  app.status === 'stopping' ||
-                  app.status === 'uninstalling') &&
-                  'border-primary/30 bg-primary/10 text-primary'
-              )}
+              className="h-4.5 shrink-0 border-border bg-muted px-1.5 text-2xs text-muted-foreground"
             >
-              {isLoading ? (
-                <RefreshCw className="size-3 animate-spin" />
-              ) : (
-                <StatusIcon className="size-3" />
-              )}
-              {status.label}
+              System
             </Badge>
-          </div>
-        </div>
+          )}
+          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+            {app.description}
+          </span>
 
-        <h3 className="app-name text-base font-semibold text-foreground">{app.name}</h3>
-        <p className="app-description text-sm text-muted-foreground line-clamp-2">
-          {app.description}
-        </p>
-
-        <div className="app-specs flex gap-4 text-sm">
-          <div className="spec flex flex-col">
-            <span className="spec-label text-xs text-muted-foreground">Version</span>
-            <span className="spec-value font-medium text-foreground">v{app.version}</span>
-          </div>
-          <div className="spec flex flex-col">
-            <span className="spec-label text-xs text-muted-foreground">Kategorie</span>
-            <span className="spec-value font-medium text-foreground">
-              {categoryLabels[app.category] || app.category}
-            </span>
-          </div>
-        </div>
-
-        {tags.length > 0 && (
-          <div className="app-tags flex flex-wrap gap-1.5">
-            {tags.map(tag => (
-              <span
-                key={tag}
-                className="tag text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Install progress bar */}
-        {installProgress[app.id] != null && (
           <div
+            className="flex shrink-0 items-center gap-1.5"
             role="presentation"
             onClick={e => e.stopPropagation()}
             onKeyDown={e => e.stopPropagation()}
           >
-            <DownloadProgress downloadState={installProgress[app.id]!} compact />
+            {installProgress[app.id] != null ? (
+              <div className="w-56">
+                <DownloadProgress downloadState={installProgress[app.id]!} compact />
+              </div>
+            ) : (
+              <>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'h-4.5 gap-1 px-1.5 text-2xs',
+                    app.status === 'running' && 'border-primary/30 bg-primary/10 text-primary',
+                    app.status === 'installed' && 'border-border bg-muted text-muted-foreground',
+                    app.status === 'available' && 'border-border bg-muted text-muted-foreground',
+                    app.status === 'error' &&
+                      'border-destructive/30 bg-destructive/10 text-destructive',
+                    isBusy && 'border-primary/30 bg-primary/10 text-primary'
+                  )}
+                >
+                  {isLoading ? (
+                    <RefreshCw className="size-2.5 animate-spin" />
+                  ) : (
+                    <StatusIcon className="size-2.5" />
+                  )}
+                  {status.label}
+                </Badge>
+
+                {app.status === 'available' && (
+                  <Button size="xs" onClick={() => handleInstallSSE(app.id)} disabled={!!isLoading}>
+                    <Download /> Installieren
+                  </Button>
+                )}
+
+                {app.status === 'installed' && (
+                  <>
+                    <Button
+                      size="xs"
+                      onClick={() => handleAction(app.id, 'start')}
+                      disabled={!!isLoading}
+                    >
+                      {isLoading === 'start' ? <RefreshCw className="animate-spin" /> : <Play />}
+                      Starten
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => openUninstallDialog(app.id, app.name)}
+                      disabled={!!isLoading}
+                      title="Deinstallieren"
+                      aria-label="Deinstallieren"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </>
+                )}
+
+                {app.status === 'running' && (
+                  <>
+                    {app.hasCustomPage && app.customPageRoute ? (
+                      <Button size="xs" asChild>
+                        <Link to={app.customPageRoute}>
+                          <ExternalLink /> Öffnen
+                        </Link>
+                      </Button>
+                    ) : getAppUrl(app) ? (
+                      <Button size="xs" asChild>
+                        <a href={getAppUrl(app)!} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink /> Öffnen
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button size="xs" disabled title="App-URL nicht verfügbar">
+                        <ExternalLink /> Öffnen
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="icon-xs"
+                      onClick={() => handleAction(app.id, 'stop')}
+                      disabled={!!isLoading}
+                      title="Stoppen"
+                      aria-label="Stoppen"
+                    >
+                      {isLoading === 'stop' ? <RefreshCw className="animate-spin" /> : <Square />}
+                    </Button>
+                  </>
+                )}
+
+                {app.status === 'error' && (
+                  <>
+                    <Button
+                      size="xs"
+                      onClick={() => handleAction(app.id, 'start')}
+                      disabled={!!isLoading}
+                    >
+                      <RefreshCw /> Erneut starten
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => openUninstallDialog(app.id, app.name)}
+                      disabled={!!isLoading}
+                      title="Deinstallieren"
+                      aria-label="Deinstallieren"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </>
+                )}
+
+                {isBusy && (
+                  <Button size="xs" disabled>
+                    <RefreshCw className="animate-spin" /> {status.label}
+                  </Button>
+                )}
+              </>
+            )}
           </div>
-        )}
-
-        <div
-          className="app-actions flex gap-2 mt-auto pt-2"
-          role="presentation"
-          onClick={e => e.stopPropagation()}
-          onKeyDown={e => e.stopPropagation()}
-        >
-          {app.status === 'available' && !installProgress[app.id] && (
-            <Button
-              size="sm"
-              className="flex-1"
-              onClick={() => handleInstallSSE(app.id)}
-              disabled={!!isLoading}
-            >
-              <Download className="size-4" />
-              Installieren
-            </Button>
-          )}
-
-          {app.status === 'installed' && (
-            <>
-              <Button
-                size="sm"
-                className="flex-1"
-                onClick={() => handleAction(app.id, 'start')}
-                disabled={!!isLoading}
-              >
-                {isLoading === 'start' ? (
-                  <RefreshCw className="size-4 animate-spin" />
-                ) : (
-                  <Play className="size-4" />
-                )}
-                Starten
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => openUninstallDialog(app.id, app.name)}
-                disabled={!!isLoading}
-                title="Deinstallieren"
-                aria-label="Deinstallieren"
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </>
-          )}
-
-          {app.status === 'running' && (
-            <>
-              {app.hasCustomPage && app.customPageRoute ? (
-                <Button size="sm" className="flex-1" asChild>
-                  <Link to={app.customPageRoute}>
-                    <ExternalLink className="size-4" /> Öffnen
-                  </Link>
-                </Button>
-              ) : getAppUrl(app) ? (
-                <Button size="sm" className="flex-1" asChild>
-                  <a href={getAppUrl(app)!} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="size-4" /> Öffnen
-                  </a>
-                </Button>
-              ) : (
-                <Button size="sm" className="flex-1" disabled title="App-URL nicht verfügbar">
-                  <ExternalLink className="size-4" /> Öffnen
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAction(app.id, 'stop')}
-                disabled={!!isLoading}
-              >
-                {isLoading === 'stop' ? (
-                  <RefreshCw className="size-4 animate-spin" />
-                ) : (
-                  <Square className="size-4" />
-                )}
-                Stoppen
-              </Button>
-            </>
-          )}
-
-          {app.status === 'error' && (
-            <>
-              <Button
-                size="sm"
-                className="flex-1"
-                onClick={() => handleAction(app.id, 'start')}
-                disabled={!!isLoading}
-              >
-                <RefreshCw className="size-4" /> Erneut starten
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => openUninstallDialog(app.id, app.name)}
-                disabled={!!isLoading}
-                title="Deinstallieren"
-                aria-label="Deinstallieren"
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </>
-          )}
-
-          {(app.status === 'installing' ||
-            app.status === 'starting' ||
-            app.status === 'stopping' ||
-            app.status === 'uninstalling') && (
-            <Button size="sm" className="flex-1" disabled>
-              <RefreshCw className="size-4 animate-spin" /> {status.label}
-            </Button>
-          )}
         </div>
 
         {app.lastError && !dismissedErrors.has(app.id) && (
           <div
-            className="app-error flex items-center gap-2 text-xs text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded mt-2"
+            className="app-error mx-3 mb-1.5 flex items-center gap-2 rounded border border-destructive/20 bg-destructive/10 px-2 py-1 text-xs text-destructive"
             role="presentation"
             onClick={e => e.stopPropagation()}
             onKeyDown={e => e.stopPropagation()}
           >
             <AlertCircle className="size-3.5 shrink-0" />
-            <span className="flex-1 line-clamp-2">{app.lastError}</span>
+            <span className="flex-1 truncate">{app.lastError}</span>
             <button
               onClick={() => handleAction(app.id, 'start')}
-              className="shrink-0 text-destructive hover:text-foreground transition-colors font-medium"
+              className="shrink-0 font-medium text-destructive transition-colors hover:text-foreground"
               title="Erneut versuchen"
             >
               <RefreshCw className="size-3.5" />
             </button>
             <button
               onClick={() => setDismissedErrors(prev => new Set(prev).add(app.id))}
-              className="shrink-0 text-destructive/60 hover:text-destructive transition-colors"
+              className="shrink-0 text-destructive/60 transition-colors hover:text-destructive"
               title="Schließen"
               aria-label="Fehlermeldung schließen"
             >
@@ -636,7 +565,7 @@ function StoreApps() {
             </button>
           </div>
         )}
-      </div>
+      </li>
     );
   };
 
@@ -649,15 +578,7 @@ function StoreApps() {
       error={initialError}
       empty={false}
       onRetry={retry}
-      loadingSkeleton={
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-          {Array(4)
-            .fill(0)
-            .map((_, i) => (
-              <SkeletonCard key={i} hasAvatar={false} lines={3} />
-            ))}
-        </div>
-      }
+      loadingSkeleton={<SkeletonList count={5} hasAvatar />}
       loadingFooter={
         loadingTimeout ? (
           <div className="mt-6 text-center">
@@ -690,17 +611,20 @@ function StoreApps() {
           </div>
         )}
 
-        {/* Apps Grid */}
-        <div className="app-grid grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5">
-          {apps.length > 0 ? (
-            apps.map(renderAppCard)
-          ) : (
-            <div className="store-empty flex flex-col items-center justify-center p-12 text-muted-foreground col-span-full">
-              <Package className="size-12 mb-4 opacity-50" />
-              <p>Keine Apps gefunden</p>
-            </div>
-          )}
-        </div>
+        {/* Apps als kompakte Liste */}
+        {apps.length > 0 ? (
+          <ul
+            className="app-list overflow-hidden rounded-lg border border-border"
+            aria-label="Verfügbare Extensions"
+          >
+            {apps.map(renderAppRow)}
+          </ul>
+        ) : (
+          <div className="store-empty flex flex-col items-center justify-center p-12 text-muted-foreground">
+            <Package className="size-12 mb-4 opacity-50" />
+            <p>Keine Apps gefunden</p>
+          </div>
+        )}
 
         {/* App Detail Modal */}
         {selectedApp && (
