@@ -44,22 +44,34 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 ### Workspace (IDE-Oberflaeche)
 
 Die Standard-Oberflaeche ist der **Workspace** (`/workspace`) — aufgebaut wie
-eine Entwicklungsumgebung, in drei Themes (Schwarz · Dunkel · Hell, Menue
-**Ansicht**):
+eine Entwicklungsumgebung (Cursor/VS-Code-Raster), in drei Themes
+(Schwarz · Dunkel · Hell, Menue **Ansicht**):
 
-- **Explorer (links):** Projekte → Ordner → Dateien in einem Baum. Dateien
-  per Drag & Drop oder Kontextmenue hochladen — die Indexierung startet
-  automatisch (Statuspunkt an der Datei). Suchfeld filtert den Baum.
-- **Agent-Chat (rechts):** Fragen ans eigene Unternehmenswissen; Antworten
-  kommen mit klickbaren Quellen. Dateien/Ordner aus dem Explorer in den Chat
-  ziehen grenzt die Suche ein. Umschalter **Terminal** startet
-  Projekt-Terminals (Modi: Isoliert = DSGVO-Testumgebung ohne Netzzugriff,
-  Intern = Zugriff auf das lokale LLM, Infrastruktur = Vollzugriff, nur
-  Admins). In Terminals stehen `/claude`, `/codex`, `/gemini` und `open-ara`
-  bereit (Erststart installiert das jeweilige CLI).
-- **Extensions (Mitte):** KI-Modelle installieren und Plattform-Apps (n8n,
-  Telegram, Datenbank) ein-/ausblenden. **Automationen** oeffnet n8n direkt
-  als Tab.
+- **Activity Bar (ganz links):** schmale Icon-Leiste. Feste Eintraege:
+  Explorer, Chats, Dashboard, Extensions; darunter erscheinen aktivierte
+  Plattform-Apps (Automationen/n8n, Telegram, Datenbank). Ganz unten der
+  **Terminal**-Schalter — er blendet das Terminal-Panel rechts ein/aus.
+- **Explorer (Sidebar links):** Projekte → Ordner → Dateien in einem Baum.
+  Dateien per Drag & Drop oder Kontextmenue hochladen — die Indexierung
+  startet automatisch (Statuspunkt an der Datei). Suchfeld filtert den Baum.
+- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Dashboard, Extensions,
+  Dokumente, Datenbank, …), schliessbar, werden nach einem Neuladen
+  wiederhergestellt. Das Terminal erscheint nie als Tab.
+- **Agent-Chat (rechts oben):** Fragen ans eigene Unternehmenswissen;
+  Antworten kommen mit klickbaren Quellen. Dateien/Ordner aus dem Explorer
+  in den Chat ziehen grenzt die Suche ein.
+- **Terminal (rechts unten, eigenes Panel):** Projekt-Terminals (Modi:
+  Isoliert = DSGVO-Testumgebung ohne Netzzugriff, Intern = Zugriff auf das
+  lokale LLM, Infrastruktur = Vollzugriff, nur Admins). In Terminals stehen
+  `/claude`, `/codex`, `/gemini` und `open-ara` bereit (Erststart
+  installiert das jeweilige CLI). Ausblenden unterbricht laufende Sitzungen
+  NICHT — Prozesse laufen im Hintergrund weiter.
+- **Layout-Schalter (oben rechts, neben Einstellungen):** drei Symbole
+  blenden Sidebar, Terminal-Panel und Chat-Panel unabhaengig ein/aus.
+- **Statusleiste (unten):** aktive Terminal-Session, Systemstatus.
+- **Extensions (Mitte-Tab):** kompakte Liste — KI-Modelle installieren und
+  Plattform-Apps (n8n, Telegram, Datenbank) ein-/ausblenden; Details per
+  Klick auf die Zeile. **Automationen** oeffnet n8n direkt als Tab.
 - Zurueck zur klassischen Ansicht: Menue **Datei → Zur klassischen Ansicht**.
 
 ---

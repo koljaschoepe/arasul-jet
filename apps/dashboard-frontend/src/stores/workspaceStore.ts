@@ -200,7 +200,9 @@ interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'ta
  * v2 → v3:
  * - explorerVisible → sidebarVisible
  * - llmVisible → chatVisible
- * - llmPanelMode === 'terminal' → terminalVisible
+ * - Terminal-Panel nur einblenden, wenn das rechte Panel in v2 überhaupt
+ *   sichtbar war UND zuletzt im Terminal-Modus stand (llmVisible &&
+ *   llmPanelMode === 'terminal') — Panel-Zustände bleiben erhalten.
  * - 'sandbox'-Tabs (Terminal als Mitte-Tab) und unbekannte Typen entfernen,
  *   übrige Tabs + aktiver Tab bleiben erhalten.
  */
@@ -231,7 +233,7 @@ function migrateWorkspaceState(persisted: unknown, version: number): PersistedWo
     tabs,
     activeTabId,
     sidebarVisible: old.explorerVisible ?? true,
-    terminalVisible: old.llmPanelMode === 'terminal',
+    terminalVisible: (old.llmVisible ?? true) && old.llmPanelMode === 'terminal',
     chatVisible: old.llmVisible ?? true,
     terminalSessions: [],
     activeTerminalSessionId: null,

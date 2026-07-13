@@ -381,7 +381,7 @@ function StoreApps() {
     return (
       <li key={app.id} className="not-last:border-b not-last:border-border">
         <div
-          className="app-row flex min-h-8 cursor-pointer items-center gap-2 bg-card px-3 py-1 transition-colors hover:bg-muted/50"
+          className="app-row flex min-h-8 cursor-pointer flex-wrap items-center gap-2 bg-card px-3 py-1 transition-colors hover:bg-muted/50"
           onClick={() => setSelectedApp(app)}
           tabIndex={0}
           role="button"
@@ -396,14 +396,19 @@ function StoreApps() {
           <span className="flex size-5 shrink-0 items-center justify-center text-primary [&_svg]:size-4">
             {getIcon(app.icon)}
           </span>
-          <span className="shrink-0 text-sm font-medium text-foreground">{app.name}</span>
+          {/* Name begrenzt + Aktions-Cluster darf umbrechen (flex-wrap) —
+              bei schmalem Mitte-Panel wird nichts vom overflow-hidden der
+              Liste abgeschnitten, Buttons bleiben erreichbar */}
+          <span className="max-w-[40%] shrink-0 truncate text-sm font-medium text-foreground">
+            {app.name}
+          </span>
           {isFeatured && (
             <Star className="size-3 shrink-0 text-primary" aria-label="Empfohlen" role="img" />
           )}
           {isSystem && (
             <Badge
               variant="outline"
-              className="h-4.5 shrink-0 border-border bg-muted px-1.5 text-2xs text-muted-foreground"
+              className="h-4.5 shrink-0 border-border bg-muted px-1.5 text-ui-xs text-muted-foreground"
             >
               System
             </Badge>
@@ -419,7 +424,7 @@ function StoreApps() {
             onKeyDown={e => e.stopPropagation()}
           >
             {installProgress[app.id] != null ? (
-              <div className="w-56">
+              <div className="w-56 max-w-full">
                 <DownloadProgress downloadState={installProgress[app.id]!} compact />
               </div>
             ) : (
@@ -427,7 +432,7 @@ function StoreApps() {
                 <Badge
                   variant="outline"
                   className={cn(
-                    'h-4.5 gap-1 px-1.5 text-2xs',
+                    'h-4.5 gap-1 px-1.5 text-ui-xs',
                     app.status === 'running' && 'border-primary/30 bg-primary/10 text-primary',
                     app.status === 'installed' && 'border-border bg-muted text-muted-foreground',
                     app.status === 'available' && 'border-border bg-muted text-muted-foreground',

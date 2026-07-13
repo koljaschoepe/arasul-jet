@@ -280,6 +280,25 @@ describe('workspaceStore — Migration v2 → v3', () => {
     expect(s.activeTerminalSessionId).toBeNull();
   });
 
+  it('llmVisible=false + llmPanelMode=terminal → Terminal-Panel bleibt zu (Panel-Zustand erhalten)', async () => {
+    // v2: rechtes Panel bewusst ausgeblendet, letzter Modus war Terminal —
+    // nach dem Update darf sich das Terminal-Panel NICHT ungefragt öffnen.
+    await rehydrateFrom({
+      state: {
+        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
+        activeTabId: 'dashboard',
+        explorerVisible: true,
+        llmVisible: false,
+        llmPanelMode: 'terminal',
+      },
+      version: 2,
+    });
+    const s = useWorkspaceStore.getState();
+    expect(s.terminalVisible).toBe(false);
+    expect(s.chatVisible).toBe(false);
+    expect(s.sidebarVisible).toBe(true);
+  });
+
   it('mappt llmPanelMode=chat → terminalVisible=false und erhält Tabs + aktiven Tab', async () => {
     await rehydrateFrom(V2_CHAT_MODE);
     const s = useWorkspaceStore.getState();

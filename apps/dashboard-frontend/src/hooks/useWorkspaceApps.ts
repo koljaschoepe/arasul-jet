@@ -62,6 +62,22 @@ export function useWorkspaceApps() {
     [apps]
   );
 
+  /**
+   * Gating auf Tab-Typ-Ebene (inkl. Kind-Tabs wie database-table): gehört der
+   * Typ zu einer deaktivierten App, darf kein Tab dieses Typs geöffnet werden
+   * (URL-Deep-Link, Browser-Zurück). Unbekannte Typen sind immer erlaubt;
+   * solange die Apps noch laden, gilt fail-open (siehe Query-Kommentar).
+   */
+  const isTabTypeEnabled = useCallback(
+    (type: WorkspaceTabType) => {
+      const app = apps.find(
+        a => a.tab === type || (APP_CHILD_TAB_TYPES[a.tab] ?? []).includes(type)
+      );
+      return app ? app.enabled : true;
+    },
+    [apps]
+  );
+
   const setAppEnabled = useCallback(
     async (id: string, enabled: boolean) => {
       await api.put(`/workspace-apps/${id}`, { enabled });
@@ -79,5 +95,5 @@ export function useWorkspaceApps() {
     [api, queryClient, apps]
   );
 
-  return { apps, isLoading, isAppEnabled, setAppEnabled };
+  return { apps, isLoading, isAppEnabled, isTabTypeEnabled, setAppEnabled };
 }

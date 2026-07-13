@@ -194,6 +194,7 @@ export function useTerminal({
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (wsRef.current !== ws) return; // stale socket — schon ersetzt/abgebaut
       setIsConnected(true);
       setIsConnecting(false);
       setError(null);
@@ -208,6 +209,7 @@ export function useTerminal({
     };
 
     ws.onmessage = event => {
+      if (wsRef.current !== ws) return; // stale socket
       if (event.data instanceof ArrayBuffer) {
         term.write(new Uint8Array(event.data));
       } else {
@@ -224,11 +226,17 @@ export function useTerminal({
     };
 
     ws.onerror = () => {
+      if (wsRef.current !== ws) return; // stale socket
       setError('Verbindungsfehler');
       setIsConnecting(false);
     };
 
     ws.onclose = event => {
+      // Stale-Guard: close-Events treffen asynchron ein — nach reconnect()
+      // kann das 1006-Event der ALTEN Verbindung erst ankommen, wenn die neue
+      // längst steht (intentionalClose wieder false). Ohne Guard würde es
+      // einen Auto-Reconnect planen, der die gesunde Verbindung abreißt.
+      if (wsRef.current !== ws) return;
       setIsConnected(false);
       setIsConnecting(false);
       onDisconnectedRef.current?.();

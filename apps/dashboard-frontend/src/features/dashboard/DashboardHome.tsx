@@ -38,11 +38,16 @@ const STAT_BADGE_BASE =
   'mt-ui-1 inline-flex w-fit items-center gap-ui-1 rounded-xs border px-ui-1 py-px ' +
   'text-ui-xs font-semibold uppercase tracking-wide';
 
+// Theme-aware Status-Tokens (--status-*): haben in Light-Mode eigene,
+// kontraststarke Werte (#DC2626/#D97706) — --danger/--warning wären dort
+// zu hell (Kontrast ~2:1 auf hellem Alpha-Hintergrund).
 const STAT_BADGE_VARIANTS = {
   positive:
     'border-[var(--status-neutral-border)] bg-[var(--status-neutral-bg)] text-[var(--status-neutral)]',
-  negative: 'border-[var(--danger-alpha-20)] bg-[var(--danger-alpha-10)] text-danger',
-  warning: 'border-[var(--warning-alpha-20)] bg-[var(--warning-alpha-10)] text-warning',
+  negative:
+    'border-[var(--status-critical-border)] bg-[var(--status-critical-bg)] text-[var(--status-critical)]',
+  warning:
+    'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning)]',
 } as const;
 
 type StatBadgeVariant = keyof typeof STAT_BADGE_VARIANTS;

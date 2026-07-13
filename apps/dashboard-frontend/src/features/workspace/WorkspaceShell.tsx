@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { setWorkspaceShellEnabled } from '@/lib/featureFlags';
 import { useWorkspaceStore, pathToTabSpec, tabToPath, tabId } from '@/stores/workspaceStore';
+import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 import { ActivityBar } from './ActivityBar';
 import { WorkspaceMenuBar } from './WorkspaceMenuBar';
 import { StatusBar } from './StatusBar';
@@ -41,11 +42,45 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const chatVisible = useWorkspaceStore(s => s.chatVisible);
   const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
+  const { isTabTypeEnabled } = useWorkspaceApps();
 
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab
   useEffect(() => {
     const subPath = location.pathname.replace(/^\/workspace/, '');
+
+    // v2-Deep-Link /workspace/terminal: Terminal ist kein Tab mehr — Panel
+    // einblenden (gleiche Semantik wie die TerminalPanelBridge in TabContent);
+    // die URL normalisiert der Store→URL-Effekt auf den aktiven Tab.
+    if (subPath.split('/').filter(Boolean)[0] === 'terminal') {
+      useWorkspaceStore.setState({ terminalVisible: true });
+      if (useWorkspaceStore.getState().tabs.length === 0) {
+        openTab({ type: 'dashboard' });
+      }
+      return;
+    }
+
     const spec = pathToTabSpec(subPath);
+
+    // Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
+    // Deep-Link oder Browser-Zurück nicht (wieder).
+    if (spec && !isTabTypeEnabled(spec.type)) {
+      const state = useWorkspaceStore.getState();
+      const id = tabId(spec);
+      if (state.tabs.some(t => t.id === id)) {
+        // Während des App-Ladens durchgerutscht (fail-open) → wieder schließen;
+        // der Store→URL-Effekt springt zum Nachbarn.
+        state.closeTab(id);
+      } else {
+        const active = state.tabs.find(t => t.id === state.activeTabId);
+        if (active) {
+          navigate(tabToPath(active), { replace: true });
+        } else {
+          openTab({ type: 'dashboard' });
+        }
+      }
+      return;
+    }
+
     if (spec) {
       const id = tabId(spec);
       if (id !== activeTabId) {
@@ -55,13 +90,18 @@ export default function WorkspaceShell(props: TabThemeControls) {
       // Erster Start: Dashboard als Default-Tab
       openTab({ type: 'dashboard' });
     }
-  }, [location.pathname]);
+  }, [location.pathname, isTabTypeEnabled]);
 
   // Store → URL: aktiver Tab spiegelt sich im Pfad
   useEffect(() => {
-    const active = tabs.find(t => t.id === activeTabId);
+    // Frischen Stand lesen (nicht den Render-Snapshot): der URL→Store-Effekt
+    // läuft im selben Commit direkt davor und kann bereits einen Tab geöffnet
+    // haben — mit dem stale Snapshot würde ein Deep-Link auf leeren Store
+    // sonst sofort von einem Dashboard-Default-Tab überschrieben.
+    const state = useWorkspaceStore.getState();
+    const active = state.tabs.find(t => t.id === state.activeTabId);
     if (!active) {
-      if (tabs.length === 0) {
+      if (state.tabs.length === 0) {
         openTab({ type: 'dashboard' });
       }
       return;

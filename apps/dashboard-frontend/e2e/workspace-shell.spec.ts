@@ -123,10 +123,14 @@ test.describe('Workspace-Shell', () => {
     await expect(s.tabList.getByRole('tab')).toHaveCount(tabCountBefore);
     await expect(s.tabList.getByRole('tab', { name: /Terminal/i })).toHaveCount(0);
 
-    // Auch der Legacy-Deep-Link /workspace/terminal erzeugt keinen Mitte-Tab
+    // Der Legacy-Deep-Link /workspace/terminal (v2-Bookmark) erzeugt keinen
+    // Mitte-Tab, sondern blendet das Terminal-Panel ein und normalisiert
+    // die URL auf den aktiven Tab
     await page.goto('/workspace/terminal');
     await expect(s.root).toBeVisible({ timeout: 10000 });
     await expect(s.tabList.getByRole('tab', { name: /Terminal/i })).toHaveCount(0);
+    await expect(s.terminalPanel).toBeVisible();
+    await expect(page).not.toHaveURL(/\/workspace\/terminal/);
   });
 
   test('Tabs öffnen, schließen und nach Reload wiederherstellen', async ({ page }) => {
@@ -211,5 +215,58 @@ test.describe('Workspace-Shell', () => {
     await expect(s.activityBar.getByRole('button', { name: 'Telegram' })).toBeVisible();
     await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toHaveCount(0);
     await expect(s.activityBar.getByRole('button', { name: 'Datenbank' })).toBeVisible();
+  });
+
+  test('Extension-Gating wirkt live: Toggle im Extensions-Tab, KEIN Reload', async ({ page }) => {
+    // Zustandsbehafteter Mock: PUT ändert den Stand, der Refetch nach
+    // invalidateQueries liefert ihn zurück — der Test lädt NIE neu.
+    let n8nEnabled = true;
+    const appsResponse = () => ({
+      apps: [
+        {
+          id: 'n8n',
+          name: 'n8n',
+          description: 'Workflow-Automatisierung',
+          tab: 'automationen',
+          enabled: n8nEnabled,
+        },
+        {
+          id: 'telegram',
+          name: 'Telegram',
+          description: 'Telegram-Bot',
+          tab: 'telegram',
+          enabled: true,
+        },
+        {
+          id: 'database',
+          name: 'Datenbank',
+          description: 'Datentabellen',
+          tab: 'database',
+          enabled: true,
+        },
+      ],
+    });
+    await page.route('**/api/workspace-apps', route => route.fulfill({ json: appsResponse() }));
+    await page.route('**/api/workspace-apps/n8n', route => {
+      n8nEnabled = route.request().postDataJSON()?.enabled ?? false;
+      return route.fulfill({ json: { app: { id: 'n8n', enabled: n8nEnabled } } });
+    });
+
+    await openWorkspace(page);
+    const s = shell(page);
+    await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toBeVisible();
+
+    // Extensions-Tab öffnen und n8n dort abschalten
+    await s.activityBar.getByRole('button', { name: 'Extensions' }).click();
+    await page.getByRole('switch', { name: 'n8n deaktivieren' }).click();
+
+    // Ohne Reload: Eintrag verschwindet über den gemeinsamen Query-Cache,
+    // die übrigen Apps bleiben sichtbar
+    await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toHaveCount(0);
+    await expect(s.activityBar.getByRole('button', { name: 'Telegram' })).toBeVisible();
+
+    // Wieder aktivieren — ebenfalls ohne Reload
+    await page.getByRole('switch', { name: 'n8n aktivieren' }).click();
+    await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toBeVisible();
   });
 });

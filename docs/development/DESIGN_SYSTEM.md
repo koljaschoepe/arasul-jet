@@ -98,6 +98,18 @@ Terminal (xterm) koppelt an das App-Theme über `src/lib/terminalThemes.ts`
 | Fehler  | Rot    | `#EF4444`        | "Fehlgeschlagen", "Offline"          |
 | Info    | Akzent | `var(--primary)` | "Läuft", "Aktiv" (primäre Aktion)    |
 
+Für Badges/Flächen gibt es theme-aware Token-Tripel in `index.css` —
+`--status-critical` und `--status-warning` haben im Light-Mode dunklere,
+kontraststarke Werte (`#DC2626` / `#D97706`); immer die Tokens statt
+`--warning`/`--destructive` verwenden, wenn Text auf hellem Alpha-Grund liegt:
+
+```css
+--status-neutral / -bg / -border      /* Grau — neutral/informativ  */
+--status-critical / -bg / -border     /* Rot — kritisch/Fehler      */
+--status-warning / -bg / -border      /* Amber — Warnung            */
+--status-performance / -bg / -border  /* Akzent — Performance       */
+```
+
 ---
 
 ## Typografie

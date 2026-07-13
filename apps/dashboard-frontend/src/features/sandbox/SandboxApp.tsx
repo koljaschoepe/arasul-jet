@@ -104,15 +104,22 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
     loadStats();
   }, [loadProjects, loadStats]);
 
-  // Auto-refresh while containers are running
+  // Auto-refresh while containers are running — oder eine offene Session noch
+  // auf ihren Container wartet (z. B. Auto-Start nach Reboot): ohne Poll bliebe
+  // das Terminal dauerhaft im »Container wird gestartet…«-Spinner, denn durch
+  // das Keep-alive im Panel gibt es keinen Remount-Reload mehr.
   useEffect(() => {
     const hasRunning = projects.some(
       p => p.container_status === 'running' || p.container_status === 'creating'
     );
-    if (!hasRunning) return;
+    const hasWaitingSession = terminalSessions.some(session => {
+      const project = projects.find(p => p.id === session.id);
+      return project != null && project.container_status !== 'running';
+    });
+    if (!hasRunning && !hasWaitingSession) return;
     const interval = setInterval(loadProjects, 10000);
     return () => clearInterval(interval);
-  }, [projects, loadProjects]);
+  }, [projects, terminalSessions, loadProjects]);
 
   /**
    * Bootstrap (einmalig, nach dem ersten erfolgreichen Projekt-Load):
@@ -146,6 +153,7 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
     }
     localStorage.removeItem(LEGACY_TABS_KEY);
 
+    const startRequests: Array<Promise<unknown>> = [];
     for (const session of useWorkspaceStore.getState().terminalSessions) {
       const project = projects.find(p => p.id === session.id);
       if (
@@ -153,10 +161,20 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
         project.container_status !== 'running' &&
         project.container_status !== 'creating'
       ) {
-        api.post(`/sandbox/projects/${project.id}/start`, {}, { showError: false }).catch(() => {});
+        startRequests.push(
+          api
+            .post(`/sandbox/projects/${project.id}/start`, {}, { showError: false })
+            .catch(() => {})
+        );
       }
     }
-  }, [projectsLoaded, projects, api, openTerminalSession, activateTerminalSession]);
+    if (startRequests.length > 0) {
+      // Nach den Starts die Projektliste nachziehen — erst mit
+      // container_status 'running' verbindet SandboxTerminal; sonst hinge
+      // der Restore dauerhaft im Spinner (kein Remount-Reload mehr).
+      Promise.allSettled(startRequests).then(() => loadProjects());
+    }
+  }, [projectsLoaded, projects, api, openTerminalSession, activateTerminalSession, loadProjects]);
 
   /**
    * Registry ↔ Projektliste synchron halten (nach jedem erfolgreichen Load):

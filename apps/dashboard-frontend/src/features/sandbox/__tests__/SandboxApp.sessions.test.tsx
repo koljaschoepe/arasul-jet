@@ -172,6 +172,7 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
     fitInstances.length = 0;
     CountingWebSocket.instances.length = 0;
     apiState.projects = [];
+    apiMock.post.mockClear();
     vi.stubGlobal('WebSocket', CountingWebSocket);
   });
 
@@ -223,6 +224,41 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
     const state = useWorkspaceStore.getState();
     expect(state.terminalSessions.map(s => s.id)).toEqual(['p1', 'p2']);
     expect(state.activeTerminalSessionId).toBe('p1');
+  });
+
+  it('startet gestoppte Container beim Session-Restore und lädt die Projekte nach', async () => {
+    // Restore nach Reboot: Registry-Session existiert, Container ist gestoppt.
+    // Der Bootstrap muss POST /start feuern UND danach loadProjects() nachziehen,
+    // sonst bliebe das Terminal dauerhaft im Spinner (Keep-alive: kein Remount).
+    const stopped: SandboxProject = {
+      ...makeProject('p1', 'Projekt Eins'),
+      container_status: 'stopped',
+    };
+    apiState.projects = [stopped];
+    useWorkspaceStore.setState({
+      terminalSessions: [{ id: 'p1', projectId: 'p1', title: 'Projekt Eins' }],
+      activeTerminalSessionId: 'p1',
+      terminalVisible: true,
+    });
+    // Nach dem Start-POST liefert die API den Container als 'running'
+    apiMock.post.mockImplementationOnce(async () => {
+      apiState.projects = [{ ...stopped, container_status: 'running' }];
+      return {};
+    });
+
+    render(<SandboxApp visible />);
+
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/sandbox/projects/p1/start',
+        {},
+        { showError: false }
+      )
+    );
+
+    // loadProjects() nach dem Start → container_status 'running' kommt an
+    // → Terminal verbindet (genau 1 Socket), statt endlos zu warten
+    await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(1));
   });
 
   it("migriert den Legacy-Key 'sandbox-open-tabs' einmalig in die Store-Registry", async () => {
