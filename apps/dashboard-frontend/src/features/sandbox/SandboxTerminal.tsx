@@ -9,7 +9,7 @@
  * and only attempts connection when container is running.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   RefreshCw,
   Maximize2,
@@ -81,6 +81,13 @@ interface SandboxTerminalProps {
   projectId: string;
   containerStatus?: string;
   networkMode?: SandboxNetworkMode;
+  /**
+   * Sichtbarkeit des Terminals (Keep-alive: versteckt = display:none, nicht
+   * unmounted). Beim Übergang zu sichtbar wird xterm neu gefittet — fit()
+   * auf einem versteckten Container misst 0×0 und schlägt fehl, deshalb
+   * erst NACH dem Einblenden (double-rAF, Layout steht dann).
+   */
+  isVisible?: boolean;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   className?: string;
@@ -154,6 +161,7 @@ export default function SandboxTerminal({
   projectId,
   containerStatus,
   networkMode,
+  isVisible = true,
   isFullscreen = false,
   onToggleFullscreen,
   className,
@@ -163,6 +171,20 @@ export default function SandboxTerminal({
     containerStatus,
     fontSize: isFullscreen ? 15 : 14,
   });
+
+  // Refit beim Wieder-Einblenden (Panel-Toggle / Session-Wechsel): double-rAF,
+  // damit display:none → flex bereits gelayoutet ist, bevor fit() misst.
+  useEffect(() => {
+    if (!isVisible) return;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => fit());
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [isVisible, fit]);
 
   const handleFullscreenToggle = useCallback(() => {
     onToggleFullscreen?.();

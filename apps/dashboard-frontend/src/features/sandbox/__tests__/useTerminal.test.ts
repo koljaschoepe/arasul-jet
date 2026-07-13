@@ -5,6 +5,9 @@
  *    korrekte Hintergründe, volle 16-Farben-ANSI-Palette.
  * 2. useTerminal: initialisiert xterm mit dem aktiven App-Theme und
  *    re-themed live (ohne Reconnect), wenn das App-Theme wechselt.
+ * 3. Verbindungs-Dedup: pro Hook-Instanz existiert zu jedem Zeitpunkt
+ *    höchstens EINE offene WebSocket-Verbindung — auch über reconnect()
+ *    hinweg; unmount schließt sie (Terminal-Konsolidierung, Stufe 3).
  */
 
 import { renderHook, act } from '@testing-library/react';
@@ -144,5 +147,57 @@ describe('useTerminal Theme-Kopplung', () => {
 
     themeHook.unmount();
     hook.unmount();
+  });
+});
+
+describe('useTerminal Verbindungs-Dedup', () => {
+  beforeEach(() => {
+    terminalInstances.length = 0;
+    localStorage.clear();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('hält pro Hook-Instanz höchstens eine offene Verbindung, auch über reconnect()', async () => {
+    // Zählender Wrapper um den globalen WebSocket-Mock (setupTests)
+    const sockets: Array<{ readyState: number }> = [];
+    const BaseWebSocket = window.WebSocket as unknown as new (url: string) => {
+      readyState: number;
+    };
+    class TrackingWebSocket extends BaseWebSocket {
+      constructor(url: string) {
+        super(url);
+        sockets.push(this);
+      }
+    }
+    vi.stubGlobal('WebSocket', TrackingWebSocket);
+
+    const hook = renderHook(() => useTerminal({ projectId: 'p1' }));
+    hook.result.current.terminalRef.current = document.createElement('div');
+    act(() => {
+      hook.result.current.reconnect();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(sockets.filter(ws => ws.readyState === 1)).toHaveLength(1);
+
+    // Manueller Reconnect: alte Verbindung wird geschlossen, bevor die neue entsteht
+    act(() => {
+      hook.result.current.reconnect();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(sockets.filter(ws => ws.readyState === 1)).toHaveLength(1);
+    expect(terminalInstances.length).toBeGreaterThan(0);
+
+    // Unmount (z. B. Session schließen) räumt die letzte Verbindung ab
+    hook.unmount();
+    expect(sockets.filter(ws => ws.readyState === 1)).toHaveLength(0);
   });
 });

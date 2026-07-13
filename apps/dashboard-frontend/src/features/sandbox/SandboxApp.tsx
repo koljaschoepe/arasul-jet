@@ -3,15 +3,22 @@
  *
  * Layout:
  * - Tab bar: Open project tabs + [+] add button + [list] all projects
- * - Terminal area: xterm.js terminal for active tab
- * - Welcome screen when no tabs are open
+ * - Terminal area: xterm.js terminal for active session
+ * - Welcome screen when no sessions are open
  * - ProjectListPanel overlay for managing all projects
+ *
+ * Session-State (welche Terminals offen sind, welches aktiv ist) lebt seit
+ * Stufe 3 des Cursor-Shell-Neubaus NICHT mehr hier, sondern in der Terminal-
+ * Session-Registry des workspaceStore (persistiert unter 'arasul_workspace').
+ * Diese Komponente rendert die Sessions nur; der alte localStorage-Key
+ * 'sandbox-open-tabs' wird einmalig in die Registry migriert.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import TerminalTabs from './TerminalTabs';
 import ProjectListPanel from './ProjectListPanel';
 import CreateProjectDialog from './CreateProjectDialog';
@@ -19,24 +26,52 @@ import EditProjectDialog from './EditProjectDialog';
 import SandboxTerminal from './SandboxTerminal';
 import type { SandboxProject, SandboxStats } from './types';
 
-export default function SandboxApp() {
+/** Legacy-Key (v2): Tab-State lag im SandboxApp-Lokalstate + localStorage. */
+const LEGACY_TABS_KEY = 'sandbox-open-tabs';
+
+interface SandboxAppProps {
+  /**
+   * Ist die App gerade sichtbar? Im Workspace hängt das am Terminal-Panel
+   * (Keep-alive: ausgeblendet = display:none, nicht unmounted). Beim
+   * Wieder-Einblenden triggert das den xterm-Refit — fit() auf verstecktem
+   * Container liefert falsche Maße. Legacy-Route /terminal: immer sichtbar.
+   */
+  visible?: boolean;
+}
+
+export default function SandboxApp({ visible = true }: SandboxAppProps) {
   const api = useApi();
   const toast = useToast();
   const { confirm: showConfirm, ConfirmDialog } = useConfirm();
+
+  // Session-Registry aus dem workspaceStore — die einzige Quelle der Wahrheit
+  const terminalSessions = useWorkspaceStore(s => s.terminalSessions);
+  const activeTabId = useWorkspaceStore(s => s.activeTerminalSessionId);
+  const openTerminalSession = useWorkspaceStore(s => s.openTerminalSession);
+  const closeTerminalSession = useWorkspaceStore(s => s.closeTerminalSession);
+  const activateTerminalSession = useWorkspaceStore(s => s.activateTerminalSession);
+  const updateTerminalSessionTitle = useWorkspaceStore(s => s.updateTerminalSessionTitle);
 
   // Data state
   const [projects, setProjects] = useState<SandboxProject[]>([]);
   const [stats, setStats] = useState<SandboxStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // UI state
-  const [openTabs, setOpenTabs] = useState<SandboxProject[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showProjectList, setShowProjectList] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editProject, setEditProject] = useState<SandboxProject | null>(null);
-  const [hasRestoredTabs, setHasRestoredTabs] = useState(false);
+
+  // Offene Tabs = Registry-Sessions, aufgelöst auf frische Projektdaten
+  const openTabs = useMemo(
+    () =>
+      terminalSessions
+        .map(session => projects.find(p => p.id === session.id))
+        .filter((p): p is SandboxProject => p != null && p.status === 'active'),
+    [terminalSessions, projects]
+  );
 
   // ---- Data loading ----
 
@@ -47,29 +82,7 @@ export default function SandboxApp() {
         { showError: false }
       );
       setProjects(data.projects);
-
-      // Update open tabs with fresh data — only if something actually changed
-      setOpenTabs(prev => {
-        const next = prev
-          .map(tab => data.projects.find(p => p.id === tab.id))
-          .filter((p): p is SandboxProject => p != null && p.status === 'active');
-        // Skip update if tabs and statuses haven't changed
-        if (
-          next.length === prev.length &&
-          next.every((p, i) => {
-            // next.length === prev.length ⇒ prev[i] exists; type-only guard.
-            const prevTab = prev[i];
-            return (
-              prevTab !== undefined &&
-              p.id === prevTab.id &&
-              p.container_status === prevTab.container_status
-            );
-          })
-        ) {
-          return prev;
-        }
-        return next;
-      });
+      setProjectsLoaded(true);
     } catch {
       toast.error('Projekte konnten nicht geladen werden');
     } finally {
@@ -101,58 +114,66 @@ export default function SandboxApp() {
     return () => clearInterval(interval);
   }, [projects, loadProjects]);
 
-  // Persist open tabs to localStorage
+  /**
+   * Bootstrap (einmalig, nach dem ersten erfolgreichen Projekt-Load):
+   * 1. Legacy-Migration: 'sandbox-open-tabs' (v2, Lokalstate) → Store-Registry,
+   *    nur wenn die Registry noch leer ist; der Key wird danach entfernt.
+   * 2. Auto-Start gestoppter Container für alle Registry-Sessions —
+   *    gleiche Semantik wie der alte Tab-Restore.
+   */
+  const bootstrappedRef = useRef(false);
   useEffect(() => {
-    if (!hasRestoredTabs) return; // Don't save before restore completes
-    if (openTabs.length > 0) {
-      localStorage.setItem(
-        'sandbox-open-tabs',
-        JSON.stringify({
-          tabs: openTabs.map(t => t.id),
-          activeId: activeTabId,
-        })
-      );
-    } else {
-      localStorage.removeItem('sandbox-open-tabs');
-    }
-  }, [openTabs, activeTabId, hasRestoredTabs]);
+    if (!projectsLoaded || bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
 
-  // Restore tabs from localStorage (once, after first project load)
-  useEffect(() => {
-    if (hasRestoredTabs || loading || projects.length === 0) return;
-
-    const saved = localStorage.getItem('sandbox-open-tabs');
-    if (!saved) {
-      setHasRestoredTabs(true);
-      return;
-    }
-
-    try {
-      const { tabs, activeId } = JSON.parse(saved) as { tabs: string[]; activeId: string | null };
-      const restoredTabs = tabs
-        .map(id => projects.find(p => p.id === id))
-        .filter((p): p is SandboxProject => p != null && p.status === 'active');
-
-      const firstTab = restoredTabs[0];
-      if (firstTab) {
-        setOpenTabs(restoredTabs);
-        const validActiveId =
-          activeId && restoredTabs.some(t => t.id === activeId) ? activeId : firstTab.id;
-        setActiveTabId(validActiveId);
-
-        // Auto-start stopped containers for restored tabs
-        for (const tab of restoredTabs) {
-          if (tab.container_status !== 'running' && tab.container_status !== 'creating') {
-            api.post(`/sandbox/projects/${tab.id}/start`, {}, { showError: false }).catch(() => {});
+    const saved = localStorage.getItem(LEGACY_TABS_KEY);
+    if (saved && useWorkspaceStore.getState().terminalSessions.length === 0) {
+      try {
+        const { tabs, activeId } = JSON.parse(saved) as {
+          tabs: string[];
+          activeId: string | null;
+        };
+        for (const id of tabs) {
+          const project = projects.find(p => p.id === id && p.status === 'active');
+          if (project) {
+            openTerminalSession({ id: project.id, projectId: project.id, title: project.name });
           }
         }
+        if (activeId) activateTerminalSession(activeId);
+      } catch {
+        // Korrupter localStorage-Eintrag — ignorieren
       }
-    } catch {
-      // Corrupt localStorage — ignore
     }
+    localStorage.removeItem(LEGACY_TABS_KEY);
 
-    setHasRestoredTabs(true);
-  }, [projects, loading, hasRestoredTabs, api]);
+    for (const session of useWorkspaceStore.getState().terminalSessions) {
+      const project = projects.find(p => p.id === session.id);
+      if (
+        project &&
+        project.container_status !== 'running' &&
+        project.container_status !== 'creating'
+      ) {
+        api.post(`/sandbox/projects/${project.id}/start`, {}, { showError: false }).catch(() => {});
+      }
+    }
+  }, [projectsLoaded, projects, api, openTerminalSession, activateTerminalSession]);
+
+  /**
+   * Registry ↔ Projektliste synchron halten (nach jedem erfolgreichen Load):
+   * archivierte/gelöschte Projekte schließen ihre Session, Umbenennungen
+   * aktualisieren den Session-Titel (sichtbar u. a. in der StatusBar).
+   */
+  useEffect(() => {
+    if (!projectsLoaded || !bootstrappedRef.current) return;
+    for (const session of useWorkspaceStore.getState().terminalSessions) {
+      const project = projects.find(p => p.id === session.id);
+      if (!project || project.status !== 'active') {
+        closeTerminalSession(session.id);
+      } else if (project.name !== session.title) {
+        updateTerminalSessionTitle(session.id, project.name);
+      }
+    }
+  }, [projectsLoaded, projects, closeTerminalSession, updateTerminalSessionTitle]);
 
   // ---- Actions ----
 
@@ -185,9 +206,8 @@ export default function SandboxApp() {
         await api.del(`/sandbox/projects/${project.id}`, { showError: false });
         toast.success(`Projekt "${project.name}" archiviert`);
 
-        // Close tab if open
-        setOpenTabs(prev => prev.filter(t => t.id !== project.id));
-        setActiveTabId(prev => (prev === project.id ? null : prev));
+        // Session schließen, falls offen (Store aktiviert den Nachbarn)
+        closeTerminalSession(project.id);
 
         await loadProjects();
         loadStats();
@@ -198,18 +218,14 @@ export default function SandboxApp() {
         setActionLoading(null);
       }
     },
-    [api, toast, showConfirm, loadProjects, loadStats]
+    [api, toast, showConfirm, loadProjects, loadStats, closeTerminalSession]
   );
 
-  // One-click open: immediately opens tab, starts container in background if needed
+  // One-click open: immediately opens session, starts container in background if needed
   const handleOpenProject = useCallback(
     async (project: SandboxProject) => {
-      // 1. Immediately open the tab — terminal shows "Verbinde..."
-      setOpenTabs(prev => {
-        if (prev.some(t => t.id === project.id)) return prev;
-        return [...prev, project];
-      });
-      setActiveTabId(project.id);
+      // 1. Session sofort registrieren/aktivieren — Terminal zeigt "Verbinde..."
+      openTerminalSession({ id: project.id, projectId: project.id, title: project.name });
       setShowProjectList(false);
 
       // 2. Start container in background if not running
@@ -223,21 +239,7 @@ export default function SandboxApp() {
         }
       }
     },
-    [api, toast, loadProjects]
-  );
-
-  const handleCloseTab = useCallback(
-    (projectId: string) => {
-      setOpenTabs(prev => prev.filter(t => t.id !== projectId));
-      setActiveTabId(prev => {
-        if (prev !== projectId) return prev;
-        // Switch to adjacent tab
-        const idx = openTabs.findIndex(t => t.id === projectId);
-        const next = openTabs[idx + 1] || openTabs[idx - 1];
-        return next?.id || null;
-      });
-    },
-    [openTabs]
+    [api, toast, loadProjects, openTerminalSession]
   );
 
   const handleProjectCreated = useCallback(() => {
@@ -260,8 +262,8 @@ export default function SandboxApp() {
         openTabs={openTabs}
         activeTabId={activeTabId}
         allProjects={projects}
-        onSelectTab={setActiveTabId}
-        onCloseTab={handleCloseTab}
+        onSelectTab={activateTerminalSession}
+        onCloseTab={closeTerminalSession}
         onOpenProject={handleOpenProject}
         onCreateProject={() => setShowCreateDialog(true)}
         onShowAllProjects={() => setShowProjectList(!showProjectList)}
@@ -269,25 +271,23 @@ export default function SandboxApp() {
 
       {/* Terminal area */}
       <div className="flex-1 min-h-0 relative">
-        {/* Terminals - hidden but alive for non-active tabs */}
-        {openTabs.map(tab => {
-          const project = projects.find(p => p.id === tab.id);
-          const containerStatus = project?.container_status || 'none';
-          return (
-            <div
-              key={tab.id}
-              className="absolute inset-0"
-              style={{ display: tab.id === activeTabId ? 'flex' : 'none' }}
-            >
-              <SandboxTerminal
-                projectId={tab.id}
-                containerStatus={containerStatus}
-                networkMode={(project ?? tab).network_mode}
-                className="flex-1"
-              />
-            </div>
-          );
-        })}
+        {/* Terminals - hidden but alive for non-active sessions (genau EINE
+            useTerminal/WebSocket-Instanz pro Session, keyed by project id) */}
+        {openTabs.map(project => (
+          <div
+            key={project.id}
+            className="absolute inset-0"
+            style={{ display: project.id === activeTabId ? 'flex' : 'none' }}
+          >
+            <SandboxTerminal
+              projectId={project.id}
+              containerStatus={project.container_status || 'none'}
+              networkMode={project.network_mode}
+              isVisible={visible && project.id === activeTabId}
+              className="flex-1"
+            />
+          </div>
+        ))}
 
         {/* Default view when no tabs open — show project list directly */}
         {openTabs.length === 0 && (

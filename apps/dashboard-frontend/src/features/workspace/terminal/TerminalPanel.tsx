@@ -15,9 +15,10 @@ const SandboxApp = lazy(() => import('@/features/sandbox'));
  * umgebenden Panel, siehe WorkspaceShell), damit WebSocket-Sessions und
  * laufende Prozesse Toggle und Ansichtswechsel überleben.
  *
- * Übergangsstand Stufe 2: Inhalt ist noch die komplette SandboxApp mit
- * eigener Tab-Verwaltung; Stufe 3 migriert sie auf die Terminal-Session-
- * Registry des workspaceStore.
+ * Die Session-Verwaltung (offene Terminals, aktive Session) liegt in der
+ * Registry des workspaceStore; SandboxApp rendert sie nur. `visible` wird
+ * durchgereicht, damit xterm beim Wieder-Einblenden neu fittet (fit() auf
+ * verstecktem Container misst 0×0).
  */
 export function TerminalPanel() {
   const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
@@ -51,7 +52,7 @@ export function TerminalPanel() {
         {mounted && (
           <ComponentErrorBoundary componentName="Terminal-Panel">
             <Suspense fallback={<LoadingSpinner message="Lade Terminal..." />}>
-              <SandboxApp />
+              <SandboxApp visible={terminalVisible} />
             </Suspense>
           </ComponentErrorBoundary>
         )}
