@@ -2,10 +2,12 @@
  * Zustand der kuratierten Workspace-Apps (n8n, Telegram, Datenbank).
  * Gemeinsame Datenbasis für ActivityBar (Sichtbarkeit) und Extensions-Tab
  * (Toggles) — via React Query, damit ein Toggle sofort überall wirkt.
+ * Beim Deaktivieren schließt setAppEnabled offene Mitte-Tabs der App.
  */
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabType } from '@/stores/workspaceStore';
 
 export interface WorkspaceApp {
@@ -17,6 +19,20 @@ export interface WorkspaceApp {
 }
 
 const QUERY_KEY = ['workspace-apps'];
+
+/** Kind-Tab-Typen, die zum Haupt-Tab einer App gehören (z. B. Tabellen-Tabs). */
+const APP_CHILD_TAB_TYPES: Partial<Record<WorkspaceTabType, WorkspaceTabType[]>> = {
+  database: ['database-table'],
+};
+
+/** Offene Mitte-Tabs einer deaktivierten App schließen (inkl. Kind-Tabs). */
+function closeAppTabs(tabType: WorkspaceTabType) {
+  const affected = new Set<WorkspaceTabType>([tabType, ...(APP_CHILD_TAB_TYPES[tabType] ?? [])]);
+  const { tabs, closeTab } = useWorkspaceStore.getState();
+  for (const tab of tabs) {
+    if (affected.has(tab.type)) closeTab(tab.id);
+  }
+}
 
 export function useWorkspaceApps() {
   const api = useApi();
@@ -53,8 +69,14 @@ export function useWorkspaceApps() {
         (prev ?? []).map(a => (a.id === id ? { ...a, enabled } : a))
       );
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      // Deaktivierte App: offene Tabs der App sauber schließen —
+      // der ActivityBar-Eintrag verschwindet über den Query-Cache von selbst.
+      if (!enabled) {
+        const app = apps.find(a => a.id === id);
+        if (app) closeAppTabs(app.tab);
+      }
     },
-    [api, queryClient]
+    [api, queryClient, apps]
   );
 
   return { apps, isLoading, isAppEnabled, setAppEnabled };

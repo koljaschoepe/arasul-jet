@@ -51,6 +51,29 @@ describe('ActivityBar', () => {
     expect(screen.queryByLabelText('Datenbank')).not.toBeInTheDocument();
   });
 
+  it('alle aktivierten Apps erscheinen gemeinsam', () => {
+    enabledApps.add('n8n');
+    enabledApps.add('telegram');
+    enabledApps.add('database');
+    render(<ActivityBar />);
+    expect(screen.getByLabelText('Automationen')).toBeInTheDocument();
+    expect(screen.getByLabelText('Telegram')).toBeInTheDocument();
+    expect(screen.getByLabelText('Datenbank')).toBeInTheDocument();
+  });
+
+  it('Aktivieren/Deaktivieren wirkt ohne Reload — der nächste Render genügt', () => {
+    const { rerender } = render(<ActivityBar />);
+    expect(screen.queryByLabelText('Telegram')).not.toBeInTheDocument();
+
+    enabledApps.add('telegram');
+    rerender(<ActivityBar />);
+    expect(screen.getByLabelText('Telegram')).toBeInTheDocument();
+
+    enabledApps.delete('telegram');
+    rerender(<ActivityBar />);
+    expect(screen.queryByLabelText('Telegram')).not.toBeInTheDocument();
+  });
+
   it('Terminal-Eintrag toggelt nur das Panel und öffnet NIE einen Tab', () => {
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Terminal einblenden'));
