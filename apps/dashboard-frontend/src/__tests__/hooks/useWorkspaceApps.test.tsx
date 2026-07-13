@@ -116,6 +116,10 @@ describe('useWorkspaceApps — setAppEnabled schließt Tabs deaktivierter Apps',
     await act(() => result.current.setAppEnabled('telegram', false));
 
     await waitFor(() => expect(result.current.isAppEnabled('telegram')).toBe(false));
-    expect(apiMock.put).toHaveBeenCalledWith('/workspace-apps/telegram', { enabled: false });
+    expect(apiMock.put).toHaveBeenCalledWith(
+      '/workspace-apps/telegram',
+      { enabled: false },
+      { showError: false }
+    );
   });
 });

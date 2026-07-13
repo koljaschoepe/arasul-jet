@@ -3,9 +3,9 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 /**
  * Kompakte Tab-Leiste über der Arbeitsfläche (Cursor-Maß: 32px). Keine
- * Trennstriche zwischen Tabs — der aktive Tab hebt sich allein über die
- * Flächenfarbe (bg-card = Arbeitsflächen-Ton) und Schriftstärke ab.
- * Klick aktiviert, × oder Mittelklick schließt.
+ * Trennstriche zwischen Tabs — der aktive Tab teilt die eine Flächenfarbe
+ * (bg-background) mit dem Editor-Inhalt darunter und hebt sich nur über
+ * Schriftstärke/Textfarbe ab. Klick aktiviert, × oder Mittelklick schließt.
  */
 export function TabBar() {
   const tabs = useWorkspaceStore(s => s.tabs);
@@ -43,7 +43,7 @@ export function TabBar() {
             }}
             className={`group flex h-7 max-w-44 min-w-0 cursor-pointer items-center gap-1.5 rounded-t-md px-2.5 text-xs select-none ${
               isActive
-                ? 'bg-card font-medium text-foreground'
+                ? 'bg-background font-medium text-foreground'
                 : 'text-muted-foreground/70 hover:bg-card/50 hover:text-foreground'
             }`}
           >

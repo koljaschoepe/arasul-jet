@@ -41,7 +41,7 @@ interface TabContentProps {
 function ChatPanelBridge({ resetTo }: { resetTo: string }) {
   const navigate = useNavigate();
   useEffect(() => {
-    useWorkspaceStore.setState({ chatVisible: true });
+    useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'chat' });
     navigate(resetTo, { replace: true });
   }, []);
   return null;
@@ -54,7 +54,7 @@ function ChatPanelBridge({ resetTo }: { resetTo: string }) {
 function TerminalPanelBridge({ resetTo }: { resetTo: string }) {
   const navigate = useNavigate();
   useEffect(() => {
-    useWorkspaceStore.setState({ terminalVisible: true });
+    useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
     navigate(resetTo, { replace: true });
   }, []);
   return null;
@@ -193,7 +193,10 @@ function FeatureTabHost({
           element={<TabBridge makeSpec={() => ({ type: 'dashboard' })} resetTo={resetTo} />}
         />
         <Route path="/documents" element={<Navigate to="/data" replace />} />
-        <Route path="/store/*" element={routeFor('store', <Store />, { type: 'store' })} />
+        <Route
+          path="/store/*"
+          element={routeFor('store', <Store variant="workspace" />, { type: 'store' })}
+        />
         <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
         <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
         <Route path="/terminal" element={<TerminalPanelBridge resetTo={resetTo} />} />

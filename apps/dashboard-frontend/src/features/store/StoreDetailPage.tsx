@@ -1,0 +1,590 @@
+/**
+ * StoreDetailPage — die Mitte der Extensions-Ansicht (Store 3.1). Zeigt die
+ * Detailseite der links (ExtensionsSidebarList) gewählten Extension mit allen
+ * Aktionen; ohne Auswahl einen Leerzustand mit kompaktem „Aktuell geladen"-Kopf.
+ *
+ * Ersetzt die früheren Unter-Tabs (Start/Modelle/Apps): statt Grid + Modal
+ * eine Liste-links/Detail-Mitte-Aufteilung. Die Modell-Aktionen laufen wie
+ * bisher über DownloadContext/ActivationContext (Downloads/Aktivierungen
+ * überleben Navigation), App-Aktionen über die /apps-Endpunkte inkl.
+ * SSE-Installation. Datenbasis: useStoreCatalog (geteilt mit der Sidebar-Liste).
+ */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  AlertCircle,
+  Check,
+  Cpu,
+  Download,
+  ExternalLink,
+  HardDrive,
+  Package,
+  Play,
+  RefreshCw,
+  Square,
+  Star,
+  Trash2,
+  Zap,
+} from 'lucide-react';
+import { Button } from '@/components/ui/shadcn/button';
+import { Badge } from '@/components/ui/shadcn/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/shadcn/dialog';
+import { useApi } from '@/hooks/useApi';
+import { useToast } from '@/contexts/ToastContext';
+import { useDownloads } from '@/contexts/DownloadContext';
+import { useActivation } from '@/contexts/ActivationContext';
+import useConfirm from '@/hooks/useConfirm';
+import { useStoreCatalog } from '@/hooks/useStoreCatalog';
+import type { CatalogApp, CatalogModel, LoadedModel } from '@/hooks/useStoreCatalog';
+import { useExtensionStore } from '@/stores/extensionStore';
+import { formatModelSize as formatSize } from '@/utils/formatting';
+import { sanitizeUrl } from '@/utils/sanitizeUrl';
+import ActivationButton from './ActivationButton';
+import DownloadProgress from './DownloadProgress';
+
+const speedLabel: Record<string, string> = {
+  fast: 'Schnell',
+  balanced: 'Ausgewogen',
+  quality: 'Qualität',
+  vision: 'Vision',
+  ocr: 'OCR',
+  embed: 'Embedding',
+};
+
+function Spec({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <span className="mb-1 block text-xs uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span className="font-medium text-foreground">{children}</span>
+    </div>
+  );
+}
+
+function DetailShell({
+  icon,
+  title,
+  badges,
+  children,
+  footer,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  badges?: React.ReactNode;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+}) {
+  return (
+    <div className="mx-auto flex h-full max-w-3xl flex-col">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-4">
+        <span className="text-primary [&_svg]:size-5">{icon}</span>
+        <h1 className="text-xl font-bold text-foreground">{title}</h1>
+        {badges}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
+      <div className="flex flex-wrap gap-2 border-t border-border px-6 py-4">{footer}</div>
+    </div>
+  );
+}
+
+// --- Model detail ---
+
+function ModelDetail({
+  model,
+  loadedModel,
+  defaultModel,
+  onChanged,
+}: {
+  model: CatalogModel;
+  loadedModel: LoadedModel | null;
+  defaultModel: string | null;
+  onChanged: () => void;
+}) {
+  const api = useApi();
+  const toast = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { startDownload, isDownloading, getDownloadState, onDownloadComplete, cancelDownload } =
+    useDownloads();
+  const { activation, startActivation, onActivationComplete } = useActivation();
+
+  useEffect(() => {
+    const unsub1 = onDownloadComplete(() => onChanged());
+    const unsub2 = onActivationComplete(() => onChanged());
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [onDownloadComplete, onActivationComplete, onChanged]);
+
+  const isReady = model.install_status === 'available';
+  const loadedId = loadedModel?.model_id ?? null;
+  const isLoaded =
+    loadedId != null && (loadedId === model.id || loadedId === model.effective_ollama_name);
+  const isDefault = defaultModel === model.id;
+  const isActivating = activation?.modelId === model.id && !activation?.error;
+  const downloading = isDownloading(model.id);
+  const downloadState = getDownloadState(model.id);
+
+  const handleSetDefault = async () => {
+    try {
+      await api.post('/models/default', { model_id: model.id }, { showError: false });
+      toast.success(`„${model.name}" als Standard gesetzt`);
+      onChanged();
+    } catch {
+      toast.error(`Fehler beim Setzen von „${model.name}" als Standard`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!(await confirm({ message: `Modell „${model.name}" wirklich löschen?` }))) return;
+    try {
+      await api.del(`/models/${model.id}`, { showError: false });
+      onChanged();
+    } catch {
+      toast.error(`Fehler beim Löschen von „${model.name}"`);
+    }
+  };
+
+  return (
+    <DetailShell
+      icon={<Cpu />}
+      title={model.name}
+      badges={
+        <div className="flex items-center gap-2">
+          {isLoaded && (
+            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+              <Zap className="size-3" /> Aktiv
+            </Badge>
+          )}
+          {isDefault && (
+            <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+              <Star className="size-3" /> Standard
+            </Badge>
+          )}
+        </div>
+      }
+      footer={
+        <>
+          {!isReady && !downloading && (
+            <Button onClick={() => startDownload(model.id, model.name)}>
+              <Download className="size-4" /> Herunterladen
+            </Button>
+          )}
+          {(isReady || isLoaded) && (
+            <ActivationButton
+              isActivating={!!isActivating}
+              isLoaded={!!isLoaded}
+              activatingPercent={activation?.progress || 0}
+              onActivate={() => startActivation(model.id, model.name)}
+              className="max-w-48"
+            />
+          )}
+          {!isDefault && (isReady || isLoaded) && (
+            <Button variant="secondary" onClick={handleSetDefault}>
+              <Star className="size-4" /> Als Standard
+            </Button>
+          )}
+          {isReady && !isLoaded && (
+            <Button variant="destructive" onClick={handleDelete}>
+              <Trash2 className="size-4" /> Löschen
+            </Button>
+          )}
+        </>
+      }
+    >
+      <p className="leading-relaxed text-muted-foreground">{model.description}</p>
+
+      {downloading && downloadState && (
+        <div className="mt-4">
+          <DownloadProgress
+            downloadState={downloadState}
+            onCancel={() => cancelDownload(model.id)}
+          />
+        </div>
+      )}
+
+      <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4 border-t border-border pt-6">
+        <Spec label="Modell-ID">
+          <code className="text-sm">{model.id}</code>
+        </Spec>
+        <Spec label="Download-Größe">{formatSize(model.size_bytes)}</Spec>
+        <Spec label="RAM-Bedarf">{model.ram_required_gb} GB</Spec>
+        <Spec label="Geschwindigkeit">{speedLabel[model.speed_tier ?? ''] ?? 'Ausgewogen'}</Spec>
+      </div>
+
+      {model.capabilities && model.capabilities.length > 0 && (
+        <div className="mt-6 border-t border-border pt-6">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Fähigkeiten</h2>
+          <div className="flex flex-wrap gap-2">
+            {model.capabilities.map(cap => (
+              <span key={cap} className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
+                {cap}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {model.ollama_library_url && (
+        <div className="mt-6 border-t border-border pt-6">
+          <a href={sanitizeUrl(model.ollama_library_url)} target="_blank" rel="noopener noreferrer">
+            <Button variant="secondary">
+              <ExternalLink className="size-4" /> Ollama Library ansehen
+            </Button>
+          </a>
+        </div>
+      )}
+      {ConfirmDialog}
+    </DetailShell>
+  );
+}
+
+// --- App detail ---
+
+const getAppUrl = (app: CatalogApp): string | null => {
+  if (app.hasCustomPage && app.customPageRoute) return app.customPageRoute;
+  const traefikPaths: Record<string, string> = { n8n: '/n8n' };
+  if (traefikPaths[app.id]) return `${window.location.origin}${traefikPaths[app.id]}`;
+  if (app.ports?.external) return `http://${window.location.hostname}:${app.ports.external}`;
+  return null;
+};
+
+interface InstallProgress {
+  phase: string;
+  progress: number;
+  status: string;
+  error?: string;
+}
+
+function AppDetail({ app, onChanged }: { app: CatalogApp; onChanged: () => void }) {
+  const api = useApi();
+  const toast = useToast();
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [install, setInstall] = useState<InstallProgress | null>(null);
+  const [uninstallOpen, setUninstallOpen] = useState(false);
+  const installRef = useRef(false);
+
+  const handleAction = async (action: string, options: Record<string, unknown> = {}) => {
+    if (actionLoading) return;
+    setActionLoading(action);
+    try {
+      await api.post(`/apps/${app.id}/${action}`, options, { showError: false });
+      onChanged();
+    } catch {
+      const labels: Record<string, string> = {
+        start: 'Start',
+        stop: 'Stoppen',
+        restart: 'Neustart',
+        uninstall: 'Deinstallation',
+      };
+      toast.error(`${labels[action] ?? action} von „${app.name}" fehlgeschlagen`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleInstall = useCallback(async () => {
+    if (installRef.current) return;
+    installRef.current = true;
+    setInstall({ phase: 'init', progress: 0, status: 'Wird vorbereitet...' });
+    try {
+      const response = await api.request<Response>(`/apps/${app.id}/install?stream=true`, {
+        method: 'POST',
+        body: { config: {} },
+        raw: true,
+        showError: false,
+      });
+      if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.error) {
+              toast.error(`Installation von „${app.name}" fehlgeschlagen`);
+              setInstall(null);
+              onChanged();
+              return;
+            }
+            if (evt.done) {
+              setInstall({ phase: 'complete', progress: 100, status: evt.message || 'Fertig' });
+              onChanged();
+              setTimeout(() => setInstall(null), 2000);
+              return;
+            }
+            setInstall({
+              phase: evt.phase || 'pull',
+              progress: evt.percent ?? 0,
+              status: evt.message || evt.status || '',
+            });
+          } catch {
+            /* keepalive / parse noise */
+          }
+        }
+      }
+    } catch {
+      toast.error(`Installation von „${app.name}" fehlgeschlagen`);
+      setInstall(null);
+      onChanged();
+    } finally {
+      installRef.current = false;
+    }
+  }, [api, app.id, app.name, onChanged, toast]);
+
+  const doUninstall = async (removeVolumes: boolean) => {
+    setUninstallOpen(false);
+    await handleAction('uninstall', { removeVolumes });
+  };
+
+  const busy = !!actionLoading;
+  const appUrl = getAppUrl(app);
+
+  return (
+    <DetailShell
+      icon={<Package />}
+      title={app.name}
+      badges={
+        app.status === 'running' ? (
+          <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+            <Zap className="size-3" /> Aktiv
+          </Badge>
+        ) : app.status === 'installed' ? (
+          <Badge variant="outline" className="border-border bg-muted text-muted-foreground">
+            Gestoppt
+          </Badge>
+        ) : app.status === 'error' ? (
+          <Badge
+            variant="outline"
+            className="border-destructive/30 bg-destructive/10 text-destructive"
+          >
+            <AlertCircle className="size-3" /> Fehler
+          </Badge>
+        ) : undefined
+      }
+      footer={
+        <>
+          {app.status === 'available' && !install && (
+            <Button onClick={handleInstall} disabled={busy}>
+              <Download className="size-4" /> Installieren
+            </Button>
+          )}
+          {app.status === 'installed' && (
+            <>
+              <Button onClick={() => handleAction('start')} disabled={busy}>
+                {actionLoading === 'start' ? (
+                  <RefreshCw className="size-4 animate-spin" />
+                ) : (
+                  <Play className="size-4" />
+                )}
+                Starten
+              </Button>
+              <Button variant="destructive" onClick={() => setUninstallOpen(true)} disabled={busy}>
+                <Trash2 className="size-4" /> Löschen
+              </Button>
+            </>
+          )}
+          {app.status === 'running' && (
+            <>
+              {app.hasCustomPage && app.customPageRoute ? (
+                <Button asChild>
+                  <Link to={app.customPageRoute}>
+                    <ExternalLink className="size-4" /> Öffnen
+                  </Link>
+                </Button>
+              ) : appUrl ? (
+                <Button asChild>
+                  <a href={appUrl} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="size-4" /> Öffnen
+                  </a>
+                </Button>
+              ) : (
+                <Button disabled title="App-URL nicht verfügbar">
+                  <ExternalLink className="size-4" /> Öffnen
+                </Button>
+              )}
+              {!app.builtin && (
+                <>
+                  <Button variant="outline" onClick={() => handleAction('restart')} disabled={busy}>
+                    <RefreshCw className="size-4" /> Neustarten
+                  </Button>
+                  <Button variant="outline" onClick={() => handleAction('stop')} disabled={busy}>
+                    {actionLoading === 'stop' ? (
+                      <RefreshCw className="size-4 animate-spin" />
+                    ) : (
+                      <Square className="size-4" />
+                    )}
+                    Stoppen
+                  </Button>
+                </>
+              )}
+            </>
+          )}
+          {app.status === 'error' && (
+            <>
+              <Button onClick={() => handleAction('start')} disabled={busy}>
+                <RefreshCw className="size-4" /> Erneut starten
+              </Button>
+              <Button variant="destructive" onClick={() => setUninstallOpen(true)} disabled={busy}>
+                <Trash2 className="size-4" /> Löschen
+              </Button>
+            </>
+          )}
+        </>
+      }
+    >
+      <p className="leading-relaxed text-muted-foreground">
+        {app.longDescription || app.description}
+      </p>
+
+      {install && (
+        <div className="mt-4">
+          <DownloadProgress downloadState={install} />
+        </div>
+      )}
+
+      <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4 border-t border-border pt-6">
+        <Spec label="Version">v{app.version}</Spec>
+        <Spec label="Kategorie">{app.category}</Spec>
+        {app.author && <Spec label="Autor">{app.author}</Spec>}
+        <Spec label="Status">
+          {app.status === 'running'
+            ? 'Aktiv'
+            : app.status === 'installed'
+              ? 'Gestoppt'
+              : app.status === 'error'
+                ? 'Fehler'
+                : 'Verfügbar'}
+        </Spec>
+        {app.ports?.external && <Spec label="Port">{app.ports.external}</Spec>}
+        {app.homepage && (
+          <Spec label="Homepage">
+            <a
+              href={sanitizeUrl(app.homepage)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              {app.homepage}
+            </a>
+          </Spec>
+        )}
+      </div>
+
+      {app.lastError && (
+        <div className="mt-6 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <AlertCircle className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1">{app.lastError}</span>
+        </div>
+      )}
+
+      <Dialog open={uninstallOpen} onOpenChange={open => !open && setUninstallOpen(false)}>
+        <DialogContent className="sm:max-w-120">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="size-5" /> App deinstallieren
+            </DialogTitle>
+            <DialogDescription>
+              Möchten Sie <strong>{app.name}</strong> wirklich deinstallieren?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+            <AlertCircle className="size-4 shrink-0" />
+            Wählen Sie, ob die App-Daten behalten oder gelöscht werden sollen:
+          </div>
+          <DialogFooter className="flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setUninstallOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button variant="secondary" onClick={() => doUninstall(false)}>
+              <Trash2 className="size-4" /> Nur App entfernen
+            </Button>
+            <Button variant="destructive" onClick={() => doUninstall(true)}>
+              <Trash2 className="size-4" /> App + Daten löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </DetailShell>
+  );
+}
+
+// --- Empty state ---
+
+function StoreDetailEmpty({ loadedModel }: { loadedModel: LoadedModel | null }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-3 text-sm">
+        {loadedModel ? (
+          <>
+            <Zap className="size-4 text-primary" />
+            <span className="text-muted-foreground">Aktuell geladen:</span>
+            <strong className="text-foreground">{loadedModel.model_id}</strong>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <HardDrive className="size-4" />
+              {loadedModel.ram_usage_mb
+                ? `${(loadedModel.ram_usage_mb / 1024).toFixed(1)} GB RAM`
+                : 'RAM wird berechnet...'}
+            </span>
+          </>
+        ) : (
+          <>
+            <Check className="size-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Kein Modell geladen.</span>
+          </>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
+        <Package className="size-10 opacity-40" />
+        <p className="font-medium">Keine Extension ausgewählt</p>
+        <p className="max-w-sm text-sm">
+          Wähle links eine App oder ein Modell, um Details zu sehen und Aktionen auszuführen.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function StoreDetailPage() {
+  const selected = useExtensionStore(s => s.selected);
+  const { models, apps, loadedModel, defaultModel, invalidateModels, invalidateApps } =
+    useStoreCatalog();
+
+  if (!selected) {
+    return <StoreDetailEmpty loadedModel={loadedModel} />;
+  }
+
+  if (selected.kind === 'model') {
+    const model = models.find(m => m.id === selected.id);
+    if (!model) return <StoreDetailEmpty loadedModel={loadedModel} />;
+    return (
+      <ModelDetail
+        model={model}
+        loadedModel={loadedModel}
+        defaultModel={defaultModel}
+        onChanged={invalidateModels}
+      />
+    );
+  }
+
+  const app = apps.find(a => a.id === selected.id);
+  if (!app) return <StoreDetailEmpty loadedModel={loadedModel} />;
+  return <AppDetail app={app} onChanged={invalidateApps} />;
+}
+
+export default StoreDetailPage;

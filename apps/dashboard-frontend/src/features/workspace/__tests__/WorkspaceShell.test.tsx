@@ -7,8 +7,10 @@
  *    aktiven Tab.
  * 2. Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
  *    Deep-Link / Browser-Zurück nicht wieder (Plan 002 §5 Kriterium 4).
- * 3. Keep-alive-Verdrahtung: ausgeblendete Flächen werden über aria-hidden
- *    am echten react-resizable-panels-Panel versteckt, nicht unmounted.
+ * 3. Keep-alive-Verdrahtung: ausgeblendete Flächen werden über
+ *    data-shell-hidden am echten react-resizable-panels-Panel versteckt, nicht
+ *    unmounted (aria-hidden wird für die A11y gespiegelt, steuert aber die
+ *    Darstellung nicht mehr — siehe DialogPanelCollision.test).
  */
 
 import { render, screen, act, waitFor } from '@testing-library/react';
@@ -46,13 +48,20 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
-    terminalVisible: false,
-    chatVisible: true,
+    sidebarRestore: null,
+    rightPanelVisible: true,
+    rightPanelMode: 'chat',
     terminalSessions: [],
     activeTerminalSessionId: null,
     chatScope: null,
     explorerRequest: null,
   });
+}
+
+/** Terminal ist sichtbar, wenn das rechte Panel offen ist und im Terminal-Modus steht. */
+function terminalIsVisible() {
+  const s = useWorkspaceStore.getState();
+  return s.rightPanelVisible && s.rightPanelMode === 'terminal';
 }
 
 function LocationProbe() {
@@ -91,7 +100,7 @@ describe('WorkspaceShell — URL-Sync', () => {
 
     renderShell('/workspace/terminal');
 
-    await waitFor(() => expect(useWorkspaceStore.getState().terminalVisible).toBe(true));
+    await waitFor(() => expect(terminalIsVisible()).toBe(true));
     // Kein Terminal-Tab, bestehende Tabs unverändert
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard']);
     // URL normalisiert sich auf den aktiven Tab
@@ -103,7 +112,7 @@ describe('WorkspaceShell — URL-Sync', () => {
   it('v2-Deep-Link /workspace/terminal beim ersten Start: Dashboard-Tab + Terminal-Panel', async () => {
     renderShell('/workspace/terminal');
 
-    await waitFor(() => expect(useWorkspaceStore.getState().terminalVisible).toBe(true));
+    await waitFor(() => expect(terminalIsVisible()).toBe(true));
     await waitFor(() =>
       expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toEqual(['dashboard'])
     );
@@ -153,7 +162,28 @@ describe('WorkspaceShell — URL-Sync', () => {
     expect(useWorkspaceStore.getState().activeTabId).toBe('database');
   });
 
-  it('Keep-alive: Terminal-Fläche wird per aria-hidden versteckt, nicht unmounted', async () => {
+  it('Farbregel (AC #8): die Mitte nutzt die Basis-Flächenfarbe bg-background, nicht bg-card', async () => {
+    // Anker für „eine Flächenfarbe überall": der zentrale TabContent-Wrapper und
+    // die Shell-Grundfläche müssen bg-background tragen. Ein Refactoring, das die
+    // Mitte wieder auf bg-card (den früheren Farbbruch) umstellt, lässt diesen
+    // Test fehlschlagen, bevor es unbemerkt live geht.
+    useWorkspaceStore.setState({
+      tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
+      activeTabId: 'dashboard',
+    });
+    renderShell('/workspace/dashboard');
+
+    const centerSurface = (await screen.findByTestId('mock-tabcontent')).parentElement;
+    expect(centerSurface).not.toBeNull();
+    expect(centerSurface).toHaveClass('bg-background');
+    expect(centerSurface).not.toHaveClass('bg-card');
+
+    const shellRoot = screen.getByTestId('workspace-shell');
+    expect(shellRoot).toHaveClass('bg-background');
+    expect(shellRoot).not.toHaveClass('bg-card');
+  });
+
+  it('Keep-alive: Terminal-Fläche wird per data-shell-hidden versteckt, nicht unmounted', async () => {
     useWorkspaceStore.setState({
       tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
       activeTabId: 'dashboard',
@@ -161,22 +191,36 @@ describe('WorkspaceShell — URL-Sync', () => {
 
     renderShell('/workspace/dashboard');
 
-    // Terminal-Panel ist zu — TerminalPanel bleibt trotzdem gemountet,
-    // das umgebende [data-panel] trägt aria-hidden='true' (CSS versteckt es)
+    // Default: rechtes Panel sichtbar, Modus Chat. Die Terminal-Fläche im
+    // RightPanel ist als [data-shell-surface] gemountet, aber wegen des
+    // Chat-Modus per data-shell-hidden='true' versteckt (nicht unmounted). Das
+    // umgebende [data-panel]#llm ist sichtbar (rightPanelVisible).
     const terminalContent = await screen.findByTestId('mock-terminal-panel');
+    const surface = terminalContent.closest('[data-shell-surface]');
+    expect(surface).not.toBeNull();
+    expect(surface).toHaveAttribute('data-shell-hidden', 'true');
+    expect(surface).toHaveAttribute('aria-hidden', 'true');
     const panelRoot = terminalContent.closest('[data-panel]');
     expect(panelRoot).not.toBeNull();
-    expect(panelRoot).toHaveAttribute('aria-hidden', 'true');
+    expect(panelRoot).toHaveAttribute('data-shell-hidden', 'false');
 
+    // Auf den Terminal-Modus umschalten: dieselbe Fläche wird sichtbar, ohne
+    // Remount (kein zweiter Knoten).
     act(() => {
-      useWorkspaceStore.setState({ terminalVisible: true });
+      useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
     });
-    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('aria-hidden', 'false');
-    // Wieder ausblenden: derselbe Knoten (kein Remount), nur wieder versteckt
+    expect(terminalContent.closest('[data-shell-surface]')).toHaveAttribute(
+      'data-shell-hidden',
+      'false'
+    );
+    expect(screen.getByTestId('mock-terminal-panel')).toBe(terminalContent);
+
+    // Ganzes Panel ausblenden: das [data-panel]#llm wird versteckt, die Fläche
+    // bleibt derselbe (kein Remount) gemountete Knoten.
     act(() => {
-      useWorkspaceStore.setState({ terminalVisible: false });
+      useWorkspaceStore.setState({ rightPanelVisible: false });
     });
     expect(screen.getByTestId('mock-terminal-panel')).toBe(terminalContent);
-    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('aria-hidden', 'true');
+    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('data-shell-hidden', 'true');
   });
 });

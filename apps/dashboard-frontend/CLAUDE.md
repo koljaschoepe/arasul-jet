@@ -18,16 +18,43 @@ src/
   features/        Domain-organized UI. One folder per top-level route.
     chat/  documents/  store/  settings/  telegram/  database/  sandbox/
     dashboard/  projects/  datentabellen/  system/
-    workspace/     IDE-Shell (Feature-Flag `workspace-shell`, Cursor-Raster):
-                   WorkspaceMenuBar (Datei/Ansicht, Layout-Toggles + Settings
-                   oben rechts), ActivityBar, Explorer (Second-Brain-Ordner-
-                   baum), Tab-Bar/-Content (Mitte), rechtes Panel mit Chat
-                   (oben) und Terminal (unten, keep-alive — nie unmounten,
-                   nie als Mitte-Tab), StatusBar. Feature-Tabs laufen je in
-                   einem eigenen IsolatedMemoryRouter (FeatureTabHost);
-                   Cross-Feature-Links übersetzt die TabBridge in Tab-
-                   Öffnungen (Chat/Terminal-Links in Panel-Toggles). Menü→
-                   Panel-Aktionen laufen als Request über den workspaceStore.
+    workspace/     IDE-Shell (Cursor-Raster 3.1, **Standard nach Login** —
+                   Feature-Flag `workspace-shell` ist Opt-**out**, siehe unten):
+                   WorkspaceMenuBar (Datei/Ansicht + **zwei** Layout-Toggles
+                   [Sidebar, rechtes Panel] + Settings oben rechts), ActivityBar
+                   (nur Dashboard, Extensions und aktivierte Apps — keine
+                   Explorer-/Chat-/Terminal-Icons), SidebarHost (Sidebar),
+                   Tab-Bar/-Content (Mitte), RightPanel (rechts), StatusBar
+                   (Modell + KI-RAM). Feature-Tabs laufen je in einem eigenen
+                   IsolatedMemoryRouter (FeatureTabHost); Cross-Feature-Links
+                   übersetzt die TabBridge in Tab-Öffnungen (Chat/Terminal-Links
+                   in Panel-Umschaltungen). Menü→Panel-Aktionen laufen als
+                   Request über den workspaceStore.
+                   • **RightPanel** — EINE Fläche mit Segment-Umschalter
+                     [Chat | Terminal]; beide Seiten bleiben keep-alive gemountet
+                     (nie unmounten, nie als Mitte-Tab), die inaktive wird nur
+                     per `data-shell-hidden` versteckt. Zustand im Store:
+                     `rightPanelVisible` + `rightPanelMode` ('chat' | 'terminal').
+                   • **SidebarHost** — kontextabhängig: Dashboard → Dokumente/
+                     Projekte (Explorer), Extensions → ExtensionsSidebarList
+                     (Suche + Liste aller Apps/Modelle, in components/extensions/
+                     promoted), App-Tabs (n8n/Telegram/Datenbank) → Sidebar
+                     klappt zu. Die Präferenz (auf/zu) überlebt Reload via
+                     `sidebarVisible`/`sidebarRestore` (`syncSidebarForTab`).
+                   • **Extensions/Store** — keine Unter-Tabs mehr: Liste links
+                     (ExtensionsSidebarList), Detail in der Mitte
+                     (StoreDetailPage); alte /store/models|apps-Deep-Links leiten
+                     um.
+                   • **Default-Flag** — `lib/featureFlags.ts`
+                     `isWorkspaceShellEnabled()` ist standardmäßig **an**; nur
+                     `localStorage['arasul_workspace_shell'] === 'false'` schaltet
+                     auf die Legacy-Sidebar-UI zurück (Legacy-Routen bleiben
+                     funktionsfähig).
+                   • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
+                     RightPanel) teilen `--background` (`bg-background`); Trennung
+                     nur über Borders. `--card` bleibt erhabenen Elementen
+                     vorbehalten (siehe DESIGN_SYSTEM.md, Regel „eine
+                     Flächenfarbe").
   components/
     ui/            App-wide primitives (Modal, ErrorBoundary, EmptyState, …).
       shadcn/      shadcn/ui primitives (button, input, …) — generated.

@@ -67,6 +67,7 @@ list of error codes. No auth required.
 | POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token       | 30/15min   |
 | GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)        | -          |
 | GET    | `/api/auth/me`              | Get current user info                          | -          |
+| GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session | -          |
 | GET    | `/api/auth/sessions`        | List active sessions for current user          | -          |
 
 **POST /api/auth/logout-all:**
@@ -109,6 +110,18 @@ Re-syncs the `arasul_session` HttpOnly cookie from the current Bearer token. The
 // Response
 {
   "success": true,
+  "timestamp": "2026-01-15T10:00:00.000Z"
+}
+```
+
+**GET /api/auth/csrf:**
+
+Mints a fresh CSRF token, sets it as the non-HttpOnly `arasul_csrf` cookie (4 h, matching the session), and returns it in the body. The CSRF cookie is otherwise only created at login and rotated on state-changing requests; if it expires or is cleared while the session/Bearer auth is still valid, mutations fail with `403 CSRF_INVALID`. `useApi` calls this automatically to re-mint the token and retry the failed request exactly once — no re-login needed. Auth required.
+
+```json
+// Response
+{
+  "csrfToken": "…64-char hex…",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```

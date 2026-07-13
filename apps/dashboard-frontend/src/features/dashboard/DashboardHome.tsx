@@ -28,7 +28,6 @@ import {
 import { Suspense, lazy } from 'react';
 import { DashboardCard, DashboardCardTitle } from './DashboardCard';
 
-const ModelStatusBar = lazy(() => import('./ModelStatusBar'));
 const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
 
 // Kompakt-Layout (Plan 002): alle Klassen auf der Dichte-Skala (text-ui-*
@@ -584,10 +583,6 @@ const DashboardHome = React.memo(function DashboardHome({
             )}
           </div>
         </DashboardCard>
-
-        <Suspense fallback={<DashboardCard className="min-h-[280px]" />}>
-          <ModelStatusBar />
-        </Suspense>
 
         <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>
           <SystemHealthWidget />

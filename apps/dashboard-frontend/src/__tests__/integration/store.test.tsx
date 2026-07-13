@@ -1,19 +1,19 @@
 /**
- * Integration tests for the Store feature.
+ * Integration-Tests der Extensions-Ansicht (Store 3.1 — Plan 003).
  *
- * Tests the Store component as users experience it:
- *   - Tab navigation (Start, Modelle, Apps)
- *   - Search functionality
- *   - Model and app card rendering
- *   - Install/activate actions
- *   - Loading and error states
- *   - Detail modal
+ * Der Store ist keine Tab-Ansicht mehr, sondern Liste (links) + Detail (Mitte):
+ *   - ExtensionsSidebarList: Suchfeld + Apps/Modelle mit Status
+ *   - StoreDetailPage: Detail der gewählten Extension bzw. Leerzustand
+ *
+ * Getestet wird der eigenständige (Legacy-)Pfad /store, der beide Flächen
+ * nebeneinander rendert.
  */
-
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { Mock } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Store from '../../features/store/Store';
+import { useExtensionStore } from '../../stores/extensionStore';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
 
 // ---- Mocks ----
@@ -31,23 +31,8 @@ vi.mock('../../contexts/ToastContext', () => ({
   ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('../../contexts/AuthContext', () => ({
-  useAuth: () => ({
-    user: { id: 1, username: 'admin' },
-    isAuthenticated: true,
-    loading: false,
-    login: vi.fn(),
-    logout: vi.fn(),
-    checkAuth: vi.fn(),
-    setLoadingComplete: vi.fn(),
-  }),
-}));
-
 vi.mock('../../contexts/DownloadContext', () => ({
   useDownloads: () => ({
-    activeDownloads: {},
-    activeDownloadCount: 0,
-    activeDownloadsList: [],
     startDownload: vi.fn(),
     cancelDownload: vi.fn(),
     isDownloading: vi.fn().mockReturnValue(false),
@@ -61,95 +46,85 @@ vi.mock('../../contexts/ActivationContext', () => ({
   useActivation: () => ({
     activation: null,
     startActivation: vi.fn(),
-    cancelActivation: vi.fn(),
-    isActivating: vi.fn().mockReturnValue(false),
-    getActivationPercent: vi.fn().mockReturnValue(0),
     onActivationComplete: vi.fn().mockReturnValue(() => {}),
   }),
   ActivationProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('../../hooks/useDebouncedSearch', () => ({
-  useDebouncedSearch: (_query: string, _searcher: unknown, opts?: { initialResults: unknown }) => ({
-    results: opts?.initialResults ?? { models: [], apps: [] },
-    searching: false,
-  }),
-}));
-
 // ---- Sample data ----
 
-const sampleRecommendations = {
-  models: [
-    {
-      id: 'qwen3-14b',
-      name: 'Qwen3 14B',
-      description: 'High-quality multilingual model',
-      size_bytes: 14000000000,
-      ram_required_gb: 16,
-      capabilities: ['chat', 'coding', 'reasoning'],
-      install_status: 'available',
-      is_default: true,
-    },
-    {
-      id: 'llama3-8b',
-      name: 'Llama 3 8B',
-      description: 'Fast and efficient model',
-      size_bytes: 8000000000,
-      ram_required_gb: 8,
-      capabilities: ['chat', 'general'],
-      install_status: 'not_installed',
-    },
-  ],
-  apps: [
-    {
-      id: 'n8n',
-      name: 'n8n',
-      description: 'Workflow Automation',
-      version: '1.30',
-      category: 'Automation',
-      status: 'running',
-      featured: true,
-    },
-    {
-      id: 'code-server',
-      name: 'Code Server',
-      description: 'VS Code in the Browser',
-      version: '4.90',
-      category: 'Development',
-      status: 'available',
-    },
-  ],
-};
+const sampleModels = [
+  {
+    id: 'qwen3-14b',
+    name: 'Qwen3 14B',
+    description: 'Mehrsprachiges Qualitätsmodell',
+    size_bytes: 14_000_000_000,
+    ram_required_gb: 16,
+    category: 'medium',
+    install_status: 'available',
+    capabilities: ['chat', 'coding'],
+    speed_tier: 'quality',
+  },
+  {
+    id: 'llama3-8b',
+    name: 'Llama 3 8B',
+    description: 'Kompaktes Allround-Modell',
+    size_bytes: 8_000_000_000,
+    ram_required_gb: 8,
+    category: 'small',
+    install_status: 'missing',
+    speed_tier: 'fast',
+  },
+];
 
-const sampleModelStatus = {
-  loaded_model: { model_id: 'qwen3-14b', ram_usage_mb: 14000 },
-};
+const sampleApps = [
+  {
+    id: 'n8n',
+    name: 'n8n',
+    description: 'Workflow-Automatisierung',
+    version: '1.30',
+    category: 'Automation',
+    status: 'running',
+  },
+  {
+    id: 'code-server',
+    name: 'Code Server',
+    description: 'VS Code im Browser',
+    version: '4.90',
+    category: 'Development',
+    status: 'available',
+  },
+];
 
 // ---- Helpers ----
 
 function renderStore(route = '/store') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[route]}>
-      <Routes>
-        <Route path="/store/*" element={<Store />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[route]}>
+        <Routes>
+          <Route path="/store/*" element={<Store />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
 function setupDefaultApiResponses() {
   (mockApi.get as Mock).mockImplementation((path: string) => {
-    if (path === '/store/info') {
-      return Promise.resolve({ llmRamGB: 38, totalRamGB: 64, availableDiskGB: 200 });
+    if (path.startsWith('/models/catalog')) return Promise.resolve({ models: sampleModels });
+    if (path.startsWith('/apps')) return Promise.resolve({ apps: sampleApps });
+    if (path.startsWith('/models/status')) {
+      return Promise.resolve({ loaded_model: { model_id: 'qwen3-14b', ram_usage_mb: 14000 } });
     }
-    if (path === '/store/recommendations') {
-      return Promise.resolve(sampleRecommendations);
-    }
-    if (path === '/models/status') {
-      return Promise.resolve(sampleModelStatus);
-    }
-    if (path.startsWith('/store/search')) {
-      return Promise.resolve({ models: [], apps: [] });
+    if (path.startsWith('/models/default')) return Promise.resolve({ default_model: 'qwen3-14b' });
+    if (path.startsWith('/workspace-apps')) {
+      return Promise.resolve({
+        apps: [
+          { id: 'telegram', name: 'Telegram', description: 'Bot', tab: 'telegram', enabled: true },
+        ],
+      });
     }
     return Promise.resolve({});
   });
@@ -157,175 +132,60 @@ function setupDefaultApiResponses() {
 
 // ---- Tests ----
 
-describe('Store integration', () => {
+describe('Store integration (Liste + Detail)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useExtensionStore.getState().clearSelection();
     setupDefaultApiResponses();
   });
 
-  it('renders store with tab navigation', async () => {
+  it('zeigt das Suchfeld', async () => {
     renderStore();
-
-    // Seit Plan 001 heißt der Store im UI »Extensions«
-    expect(screen.getByText('Extensions')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /start/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /modelle/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /apps/i })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/extensions durchsuchen/i)).toBeInTheDocument();
   });
 
-  it('shows recommended models on home tab', async () => {
+  it('rendert Apps und Modelle als Liste', async () => {
     renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText('Qwen3 14B')).toBeInTheDocument();
-      expect(screen.getByText('Llama 3 8B')).toBeInTheDocument();
-    });
+    expect(await screen.findByTestId('ext-app-n8n')).toBeInTheDocument();
+    expect(screen.getByTestId('ext-app-code-server')).toBeInTheDocument();
+    expect(screen.getByTestId('ext-model-qwen3-14b')).toBeInTheDocument();
+    expect(screen.getByTestId('ext-model-llama3-8b')).toBeInTheDocument();
   });
 
-  it('shows recommended apps on home tab', async () => {
+  it('das Suchfeld filtert die Liste', async () => {
     renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText('n8n')).toBeInTheDocument();
-      expect(screen.getByText('Code Server')).toBeInTheDocument();
-    });
+    const search = await screen.findByLabelText(/extensions durchsuchen/i);
+    fireEvent.change(search, { target: { value: 'browser' } });
+    expect(screen.getByTestId('ext-app-code-server')).toBeInTheDocument();
+    expect(screen.queryByTestId('ext-app-n8n')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ext-model-qwen3-14b')).not.toBeInTheDocument();
   });
 
-  it('shows loaded model banner when model is active', async () => {
+  it('Leerzustand ohne Auswahl mit „Aktuell geladen"-Kopf', async () => {
     renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText(/aktuell geladen/i)).toBeInTheDocument();
-      expect(screen.getByText('qwen3-14b')).toBeInTheDocument();
-    });
+    expect(await screen.findByText(/aktuell geladen/i)).toBeInTheDocument();
+    expect(screen.getByText('Keine Extension ausgewählt')).toBeInTheDocument();
   });
 
-  it('shows "Standard" badge for default model', async () => {
+  it('Klick auf ein Modell zeigt die Detailseite mit Specs', async () => {
     renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText('Standard')).toBeInTheDocument();
-    });
+    fireEvent.click(await screen.findByTestId('ext-model-llama3-8b'));
+    expect(await screen.findByRole('heading', { name: 'Llama 3 8B' })).toBeInTheDocument();
+    // missing → Download-Aktion in der Detailseite
+    expect(screen.getByRole('button', { name: /Herunterladen/ })).toBeInTheDocument();
   });
 
-  it('shows "Aktiv" badge for running app', async () => {
+  it('Klick auf eine verfügbare App zeigt den Installieren-Button', async () => {
     renderStore();
-
-    await waitFor(() => {
-      const aktivBadges = screen.getAllByText('Aktiv');
-      expect(aktivBadges.length).toBeGreaterThan(0);
-    });
+    fireEvent.click(await screen.findByTestId('ext-app-code-server'));
+    const heading = await screen.findByRole('heading', { name: 'Code Server' });
+    expect(heading).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Installieren/ })).toBeInTheDocument();
   });
 
-  it('shows install button for non-installed model', async () => {
+  it('zeigt Status-Badges in der Liste (laufende App = Aktiv)', async () => {
     renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText('Herunterladen')).toBeInTheDocument();
-    });
-  });
-
-  it('shows install button for available app', async () => {
-    renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText('Installieren')).toBeInTheDocument();
-    });
-  });
-
-  it('shows search input', () => {
-    renderStore();
-
-    expect(screen.getByLabelText(/store durchsuchen/i)).toBeInTheDocument();
-  });
-
-  it('renders model specs (size and RAM)', async () => {
-    renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText('16 GB')).toBeInTheDocument();
-    });
-  });
-
-  it('shows model capabilities', async () => {
-    renderStore();
-
-    await waitFor(() => {
-      // "chat" capability appears on multiple model cards
-      expect(screen.getAllByText('chat').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('coding')).toBeInTheDocument();
-    });
-  });
-
-  it('shows loading skeleton while fetching recommendations', () => {
-    (mockApi.get as Mock).mockReturnValue(new Promise(() => {}));
-
-    renderStore();
-
-    // Should not show model names yet
-    expect(screen.queryByText('Qwen3 14B')).not.toBeInTheDocument();
-  });
-
-  it('shows error state on API failure', async () => {
-    (mockApi.get as Mock).mockImplementation((path: string) => {
-      if (path === '/store/info') return Promise.resolve({});
-      if (path === '/store/recommendations') {
-        return Promise.reject(new Error('Connection failed'));
-      }
-      return Promise.resolve({});
-    });
-
-    renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText(/fehler/i)).toBeInTheDocument();
-    });
-  });
-
-  it('shows retry button on error', async () => {
-    (mockApi.get as Mock).mockImplementation((path: string) => {
-      if (path === '/store/info') return Promise.resolve({});
-      if (path === '/store/recommendations') {
-        return Promise.reject(new Error('Connection failed'));
-      }
-      return Promise.resolve({});
-    });
-
-    renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText(/erneut versuchen/i)).toBeInTheDocument();
-    });
-  });
-
-  it('shows "Alle Modelle" link', async () => {
-    renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText(/alle modelle/i)).toBeInTheDocument();
-    });
-  });
-
-  it('shows "Alle Apps" link', async () => {
-    renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText(/alle apps/i)).toBeInTheDocument();
-    });
-  });
-
-  it('shows no-model banner when no model is loaded', async () => {
-    (mockApi.get as Mock).mockImplementation((path: string) => {
-      if (path === '/store/info') return Promise.resolve({ llmRamGB: 38, totalRamGB: 64 });
-      if (path === '/store/recommendations') return Promise.resolve(sampleRecommendations);
-      if (path === '/models/status') return Promise.resolve({});
-      return Promise.resolve({});
-    });
-
-    renderStore();
-
-    await waitFor(() => {
-      expect(screen.getByText(/kein modell geladen/i)).toBeInTheDocument();
-    });
+    const row = await screen.findByTestId('ext-app-n8n');
+    expect(within(row).getByText('Aktiv')).toBeInTheDocument();
   });
 });

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { FolderKanban } from 'lucide-react';
+import { Cpu, FolderKanban } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import type { MemoryBudget } from '@/types';
 
 /** Antwort des öffentlichen /health-Fast-Path (dashboard-backend). */
 interface HealthResponse {
@@ -10,10 +11,23 @@ interface HealthResponse {
 }
 
 /**
+ * React-Query-Key des KI-RAM-Budgets. Bewusst identisch zu dem Key, den ein
+ * künftiger useModelStatus-Query nutzt, damit sich beide Verbraucher denselben
+ * Cache-Eintrag teilen und es keine doppelte Poll-Last auf dem Jetson gibt.
+ */
+export const MEMORY_BUDGET_QUERY_KEY = ['models', 'memory-budget'] as const;
+
+/** MB → GB, kompakt auf eine Nachkommastelle. */
+function toGb(mb: number): string {
+  return (mb / 1024).toFixed(1);
+}
+
+/**
  * Schlanke Statusleiste am unteren Rand der IDE-Shell (Cursor-Maß: 24px):
- * links Verbindungs-/Health-Punkt + Plattform-Version, rechts das aktive
- * Terminal-Projekt (sobald die Session-Registry gefüllt ist). Bewusst
- * token-basiert und kompakt — keine Interaktion außer Statusanzeige.
+ * links Verbindungs-/Health-Punkt + Plattform-Version, mittig der Modellstatus
+ * (KI-RAM-Budget), rechts das aktive Terminal-Projekt (sobald die
+ * Session-Registry gefüllt ist). Bewusst token-basiert und kompakt — keine
+ * Interaktion außer Statusanzeige.
  */
 export function StatusBar() {
   const api = useApi();
@@ -23,6 +37,17 @@ export function StatusBar() {
     queryFn: () => api.get<HealthResponse>('/health', { showError: false }),
     refetchInterval: 30_000,
     staleTime: 15_000,
+    retry: 1,
+  });
+
+  // KI-RAM-Budget: teilt sich Key + Cache mit useModelStatus, daher kein
+  // zweiter Poll-Zyklus. 10 s Intervall spiegelt die bisherige Kadenz der
+  // (entfallenen) Dashboard-KI-Karte.
+  const { data: budget } = useQuery({
+    queryKey: MEMORY_BUDGET_QUERY_KEY,
+    queryFn: () => api.get<MemoryBudget>('/models/memory-budget', { showError: false }),
+    refetchInterval: 10_000,
+    staleTime: 5_000,
     retry: 1,
   });
 
@@ -45,6 +70,23 @@ export function StatusBar() {
         ? 'var(--success)'
         : 'var(--warning)';
 
+  const loadedModels = budget?.loadedModels ?? [];
+  const primaryModel = loadedModels[0] ?? null;
+  const hasModel = primaryModel !== null;
+  const extraModels = loadedModels.length > 1 ? ` +${loadedModels.length - 1}` : '';
+  const modelLabel = hasModel
+    ? `${primaryModel.name}${extraModels} · KI-RAM ${toGb(budget?.usedMb ?? 0)}/${toGb(
+        budget?.totalBudgetMb ?? 0
+      )} GB`
+    : 'kein Modell geladen';
+  const modelTooltip = hasModel
+    ? `${loadedModels
+        .map(m => `${m.name} (${toGb(m.ramMb)} GB)`)
+        .join(', ')} — belegt ${toGb(budget?.usedMb ?? 0)} von ${toGb(
+        budget?.totalBudgetMb ?? 0
+      )} GB, frei ${toGb(budget?.availableMb ?? 0)} GB`
+    : 'Kein KI-Modell geladen';
+
   return (
     <footer
       className="flex h-6 shrink-0 items-center gap-3 border-t border-border bg-background px-3 text-xs text-muted-foreground select-none"
@@ -60,6 +102,20 @@ export function StatusBar() {
       </span>
 
       {data?.version && <span className="text-muted-foreground/70">v{data.version}</span>}
+
+      {budget !== undefined && (
+        <span
+          className="flex min-w-0 items-center gap-1.5"
+          title={modelTooltip}
+          data-testid="workspace-statusbar-model"
+        >
+          <Cpu
+            className={`h-3 w-3 shrink-0 ${hasModel ? 'text-foreground/70' : ''}`}
+            aria-hidden="true"
+          />
+          <span className="truncate">{modelLabel}</span>
+        </span>
+      )}
 
       <div className="flex-1" />
 

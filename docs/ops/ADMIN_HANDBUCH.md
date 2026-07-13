@@ -43,38 +43,57 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 
 ### Workspace (IDE-Oberflaeche)
 
-Die Standard-Oberflaeche ist der **Workspace** (`/workspace`) — aufgebaut wie
-eine Entwicklungsumgebung (Cursor/VS-Code-Raster), in drei Themes
-(Schwarz · Dunkel · Hell, Menue **Ansicht**):
+Die Standard-Oberflaeche nach der Anmeldung ist der **Workspace** — aufgebaut
+wie eine Entwicklungsumgebung (Cursor/VS-Code-Raster), in drei Themes
+(Schwarz · Dunkel · Hell, Menue **Ansicht**). Alle Flaechen (Sidebar, Mitte,
+rechtes Panel) teilen denselben Hintergrund; getrennt wird nur durch feine
+Linien.
 
-- **Activity Bar (ganz links):** schmale Icon-Leiste. Feste Eintraege:
-  Explorer, Chats, Dashboard, Extensions; darunter erscheinen aktivierte
-  Plattform-Apps (Automationen/n8n, Telegram, Datenbank). Ganz unten der
-  **Terminal**-Schalter — er blendet das Terminal-Panel rechts ein/aus.
-- **Explorer (Sidebar links):** Projekte → Ordner → Dateien in einem Baum.
-  Dateien per Drag & Drop oder Kontextmenue hochladen — die Indexierung
-  startet automatisch (Statuspunkt an der Datei). Suchfeld filtert den Baum.
-- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Dashboard, Extensions,
+- **Activity Bar (ganz links):** schmale Icon-Leiste mit **nur drei Arten von
+  Eintraegen**: **Dashboard**, **Extensions** und darunter die aktivierten
+  Plattform-Apps (Automationen/n8n, Telegram, Datenbank). Keine Explorer-,
+  Chat- oder Terminal-Icons mehr — Chat und Terminal wohnen im rechten Panel,
+  der Explorer in der kontextabhaengigen Sidebar.
+- **Sidebar (links, kontextabhaengig):** wechselt mit dem aktiven Tab —
+  **Dashboard** zeigt den Dokumente-/Projekte-Explorer (Projekte → Ordner →
+  Dateien als Baum; Upload per Drag & Drop oder Kontextmenue, Indexierung
+  startet automatisch, Suchfeld filtert den Baum). **Extensions** zeigt ein
+  Suchfeld plus die Liste aller Apps und KI-Modelle mit Status. Bei App-Tabs
+  (n8n/Telegram/Datenbank) klappt die Sidebar zu. Der Auf-/Zu-Zustand bleibt
+  ueber ein Neuladen erhalten.
+- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Dashboard, Extensions-Detail,
   Dokumente, Datenbank, …), schliessbar, werden nach einem Neuladen
-  wiederhergestellt. Das Terminal erscheint nie als Tab.
-- **Agent-Chat (rechts oben):** Fragen ans eigene Unternehmenswissen;
-  Antworten kommen mit klickbaren Quellen. Dateien/Ordner aus dem Explorer
-  in den Chat ziehen grenzt die Suche ein.
-- **Terminal (rechts unten, eigenes Panel):** Projekt-Terminals (Modi:
-  Isoliert = DSGVO-Testumgebung ohne Netzzugriff, Intern = Zugriff auf das
-  lokale LLM, Infrastruktur = Vollzugriff, nur Admins). In Terminals stehen
-  `/claude`, `/codex`, `/gemini` und `open-ara` bereit (Erststart
-  installiert das jeweilige CLI). Ausblenden unterbricht laufende Sitzungen
-  NICHT — Prozesse laufen im Hintergrund weiter.
-- **Layout-Schalter (oben rechts, neben Einstellungen):** drei Symbole
-  blenden Sidebar, Terminal-Panel und Chat-Panel unabhaengig ein/aus.
-- **Statusleiste (unten):** aktive Terminal-Session, Systemstatus.
-- **Extensions (Mitte-Tab):** kompakte Liste — KI-Modelle installieren und
-  Plattform-Apps (n8n, Telegram, Datenbank) ein-/ausblenden; Details per
-  Klick auf die Zeile. **Automationen** oeffnet n8n direkt als Tab.
-  Deaktivieren wirkt sofort (ohne Neuladen): das Symbol verschwindet aus
-  der Activity Bar und offene Tabs der App werden geschlossen.
+  wiederhergestellt. Chat und Terminal erscheinen nie als Tab.
+- **Rechtes Panel (eine Flaeche mit Umschalter [Chat | Terminal]):** oben
+  waehlt ein Segment-Schalter zwischen **Chat** und **Terminal**; der aktive
+  Modus fuellt die ganze Flaeche (kein geteiltes Fenster mehr).
+  - **Chat:** Fragen ans eigene Unternehmenswissen; Antworten kommen mit
+    klickbaren Quellen. Dateien/Ordner aus dem Explorer in den Chat ziehen
+    grenzt die Suche ein.
+  - **Terminal:** Projekt-Terminals (Modi: Isoliert = DSGVO-Testumgebung ohne
+    Netzzugriff, Intern = Zugriff auf das lokale LLM, Infrastruktur =
+    Vollzugriff, nur Admins). In Terminals stehen `/claude`, `/codex`,
+    `/gemini` und `open-ara` bereit (Erststart installiert das jeweilige CLI).
+  - Der Wechsel zwischen Chat und Terminal unterbricht **nichts**: ein
+    laufender Chat-Stream und eine laufende Terminal-Sitzung laufen im
+    Hintergrund weiter; der zuletzt genutzte Modus wird nach einem Neuladen
+    wiederhergestellt.
+- **Layout-Schalter (oben rechts, neben Einstellungen):** **zwei** Symbole
+  blenden die Sidebar und das rechte Panel unabhaengig ein/aus (mit Tooltip).
+- **Statusleiste (unten):** aktive Terminal-Session, Systemstatus sowie das
+  aktuell geladene KI-Modell samt belegtem KI-RAM (aus der tatsaechlichen
+  Ollama-Auslastung — Details im Tooltip).
+- **Extensions (Liste + Detail):** die Sidebar zeigt die durchsuchbare Liste,
+  ein Klick oeffnet die **Detailseite in der Mitte** — KI-Modelle
+  installieren/aktivieren, Plattform-Apps (n8n, Telegram, Datenbank)
+  ein-/ausblenden. **Automationen** oeffnet n8n direkt als Tab. Deaktivieren
+  wirkt sofort (ohne Neuladen): das Symbol verschwindet aus der Activity Bar
+  und offene Tabs der App werden geschlossen. (Alte Deep-Links auf die
+  frueheren Unter-Tabs `/store/models` und `/store/apps` leiten automatisch um.)
 - Zurueck zur klassischen Ansicht: Menue **Datei → Zur klassischen Ansicht**.
+  Die Workspace-Shell ist Standard; die klassische Sidebar-Ansicht bleibt als
+  Opt-out ueber diesen Menuepunkt erreichbar, alle Alt-Routen funktionieren
+  weiter.
 
 ---
 

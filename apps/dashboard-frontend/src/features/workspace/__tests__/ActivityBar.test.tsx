@@ -19,8 +19,8 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
-    terminalVisible: false,
-    chatVisible: true,
+    rightPanelVisible: true,
+    rightPanelMode: 'chat',
     terminalSessions: [],
     activeTerminalSessionId: null,
     chatScope: null,
@@ -34,13 +34,17 @@ describe('ActivityBar', () => {
     enabledApps.clear();
   });
 
-  it('rendert die festen Einträge Explorer, Chats, Dashboard, Extensions und Terminal', () => {
+  it('rendert nur die Mitte-Tab-Einträge Dashboard und Extensions', () => {
     render(<ActivityBar />);
-    expect(screen.getByLabelText('Explorer ausblenden')).toBeInTheDocument();
-    expect(screen.getByLabelText('Chats ausblenden')).toBeInTheDocument();
     expect(screen.getByLabelText('Dashboard')).toBeInTheDocument();
     expect(screen.getByLabelText('Extensions')).toBeInTheDocument();
-    expect(screen.getByLabelText('Terminal einblenden')).toBeInTheDocument();
+  });
+
+  it('zeigt keine Explorer-/Chats-/Terminal-Icons mehr (leben in den Layout-Toggles)', () => {
+    render(<ActivityBar />);
+    expect(screen.queryByLabelText(/Explorer/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Chats/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Terminal/)).not.toBeInTheDocument();
   });
 
   it('App-Einträge erscheinen nur, wenn die Extension aktiviert ist', () => {
@@ -72,25 +76,6 @@ describe('ActivityBar', () => {
     enabledApps.delete('telegram');
     rerender(<ActivityBar />);
     expect(screen.queryByLabelText('Telegram')).not.toBeInTheDocument();
-  });
-
-  it('Terminal-Eintrag toggelt nur das Panel und öffnet NIE einen Tab', () => {
-    render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Terminal einblenden'));
-
-    const state = useWorkspaceStore.getState();
-    expect(state.terminalVisible).toBe(true);
-    expect(state.tabs).toHaveLength(0);
-
-    fireEvent.click(screen.getByLabelText('Terminal ausblenden'));
-    expect(useWorkspaceStore.getState().terminalVisible).toBe(false);
-  });
-
-  it('Chats-Eintrag toggelt das Chat-Panel', () => {
-    render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Chats ausblenden'));
-    expect(useWorkspaceStore.getState().chatVisible).toBe(false);
-    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
   });
 
   it('Dashboard-Eintrag öffnet den Dashboard-Tab', () => {

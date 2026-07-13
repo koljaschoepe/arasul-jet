@@ -46,6 +46,12 @@ All error responses follow this consistent structure:
 | `TOKEN_REVOKED` | Token was explicitly revoked (e.g. logout-all) |
 | `UNAUTHORIZED`  | Missing `Authorization` header                 |
 
+**CSRF error code** (HTTP 403):
+
+| Code           | When                                                                                                                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CSRF_INVALID` | CSRF token missing or mismatched on a state-changing request. Recoverable: fetch `GET /api/auth/csrf`, retry once (`useApi` does this automatically). Distinct from `FORBIDDEN` (a genuine permission denial that must **not** be retried). |
+
 ---
 
 ## HTTP Status Codes

@@ -363,6 +363,130 @@ describe('useApi', () => {
     expect(mockLogout).not.toHaveBeenCalled();
   });
 
+  // --- CSRF token recovery (Plan 003, Schritt 1) -------------------------
+  // Build a fetch-Response-like mock whose clone() yields an independent copy
+  // (useApi peeks the 403 body via res.clone().json()).
+  const mockRes = (status: number, body: unknown) => {
+    const make = (): unknown => ({
+      ok: status >= 200 && status < 300,
+      status,
+      json: () => Promise.resolve(body),
+      clone: () => make(),
+    });
+    return make();
+  };
+  const callsTo = (url: string) =>
+    (global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(c => c[0] === url);
+
+  it('refreshes the CSRF token and retries once on 403 CSRF_INVALID', async () => {
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    let putAttempts = 0;
+    fetchMock.mockImplementation((url: string) => {
+      if (url === '/api/auth/csrf') {
+        return Promise.resolve(mockRes(200, { csrfToken: 'fresh-token' }));
+      }
+      if (url === '/api/workspace-apps/n8n') {
+        putAttempts += 1;
+        return Promise.resolve(
+          putAttempts === 1
+            ? mockRes(403, { error: { code: 'CSRF_INVALID', message: 'CSRF token missing' } })
+            : mockRes(200, { ok: true })
+        );
+      }
+      return Promise.resolve(mockRes(404, {}));
+    });
+
+    const { result } = renderHook(() => useApi());
+    let data: unknown;
+    await act(async () => {
+      data = await result.current.put('/workspace-apps/n8n', { enabled: false });
+    });
+
+    expect(data).toEqual({ ok: true });
+    // Token re-minted exactly once, request retried exactly once (2 PUTs total).
+    expect(callsTo('/api/auth/csrf').length).toBe(1);
+    expect(callsTo('/api/workspace-apps/n8n').length).toBe(2);
+    // Retry carried the freshly-minted token.
+    expect(callsTo('/api/workspace-apps/n8n')[1]?.[1].headers['X-CSRF-Token']).toBe('fresh-token');
+    // No error toast for a recovered request.
+    expect(mockToast.error).not.toHaveBeenCalled();
+  });
+
+  it('never refreshes/retries on 401 (real auth failure → logout)', async () => {
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation((url: string) => {
+      if (url === '/api/workspace-apps/n8n') {
+        return Promise.resolve(mockRes(401, { message: 'Sitzung abgelaufen' }));
+      }
+      return Promise.resolve(mockRes(500, {}));
+    });
+
+    const { result } = renderHook(() => useApi());
+    await act(async () => {
+      await expect(result.current.put('/workspace-apps/n8n', { enabled: false })).rejects.toThrow();
+    });
+
+    expect(callsTo('/api/auth/csrf').length).toBe(0);
+    expect(callsTo('/api/workspace-apps/n8n').length).toBe(1);
+    expect(mockLogout).toHaveBeenCalled();
+  });
+
+  it('does not retry on a genuine (non-CSRF) 403 FORBIDDEN', async () => {
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation((url: string) => {
+      if (url === '/api/workspace-apps/n8n') {
+        return Promise.resolve(
+          mockRes(403, { error: { code: 'FORBIDDEN', message: 'Access denied' } })
+        );
+      }
+      return Promise.resolve(mockRes(500, {}));
+    });
+
+    const { result } = renderHook(() => useApi());
+    await act(async () => {
+      await expect(result.current.put('/workspace-apps/n8n', { enabled: false })).rejects.toThrow(
+        'Access denied'
+      );
+    });
+
+    expect(callsTo('/api/auth/csrf').length).toBe(0);
+    expect(callsTo('/api/workspace-apps/n8n').length).toBe(1);
+  });
+
+  it('dedupes the CSRF refresh across a concurrent double-toggle race', async () => {
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    const attempts: Record<string, number> = {};
+    fetchMock.mockImplementation((url: string) => {
+      if (url === '/api/auth/csrf') {
+        return Promise.resolve(mockRes(200, { csrfToken: 'race-token' }));
+      }
+      if (url === '/api/workspace-apps/n8n' || url === '/api/workspace-apps/telegram') {
+        attempts[url] = (attempts[url] ?? 0) + 1;
+        return Promise.resolve(
+          attempts[url] === 1
+            ? mockRes(403, { error: { code: 'CSRF_INVALID' } })
+            : mockRes(200, { ok: true })
+        );
+      }
+      return Promise.resolve(mockRes(404, {}));
+    });
+
+    const { result } = renderHook(() => useApi());
+    let results: unknown[] = [];
+    await act(async () => {
+      results = await Promise.all([
+        result.current.put('/workspace-apps/n8n', { enabled: false }),
+        result.current.put('/workspace-apps/telegram', { enabled: false }),
+      ]);
+    });
+
+    expect(results).toEqual([{ ok: true }, { ok: true }]);
+    // Both mutations 403'd concurrently but the token was re-minted only ONCE.
+    expect(callsTo('/api/auth/csrf').length).toBe(1);
+    expect(callsTo('/api/workspace-apps/n8n').length).toBe(2);
+    expect(callsTo('/api/workspace-apps/telegram').length).toBe(2);
+  });
+
   it('sets error status and data on thrown error', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: false,
