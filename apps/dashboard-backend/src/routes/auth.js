@@ -352,6 +352,28 @@ router.get(
   })
 );
 
+// GET /api/auth/csrf - Issue a fresh CSRF token for the current session.
+// The CSRF cookie is only minted at login and rotated on state-changing
+// requests; if it expires or gets cleared while the (Bearer/session) auth is
+// still valid, every mutation 403s with "CSRF token missing". This endpoint
+// lets the client re-mint the token without forcing a full re-login. Auth
+// required — never hand a CSRF token to an unauthenticated caller.
+router.get(
+  '/csrf',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const csrfToken = generateCsrfToken();
+    res.cookie(CSRF_COOKIE, csrfToken, {
+      httpOnly: false, // Must be readable by frontend JS
+      secure: isSecure,
+      sameSite: isSecure ? 'strict' : 'lax',
+      maxAge: 4 * 60 * 60 * 1000, // 4 hours (matches session cookie)
+      path: '/',
+    });
+    res.json({ csrfToken, timestamp: new Date().toISOString() });
+  })
+);
+
 // GET /api/auth/sessions - Get active sessions
 router.get(
   '/sessions',

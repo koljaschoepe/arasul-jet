@@ -84,6 +84,41 @@ function normalizeErrorBody(
   return { message: `HTTP ${statusCode}` };
 }
 
+/**
+ * Fetch a fresh CSRF token from the backend and let the browser store the
+ * rotated `arasul_csrf` cookie. Used to recover from `403 CSRF_INVALID` when the
+ * cookie expired/was cleared while the session is still valid — no re-login.
+ *
+ * Concurrent callers (e.g. a fast double-toggle where several mutations 403 at
+ * once) share a single in-flight request, so we hit the endpoint only once and
+ * every retry uses the same freshly-minted token. Never throws: on failure it
+ * falls back to whatever token the cookie currently holds so the caller can
+ * proceed and surface the real error.
+ */
+let csrfRefreshInFlight: Promise<string | null> | null = null;
+
+function fetchFreshCsrfToken(): Promise<string | null> {
+  if (!csrfRefreshInFlight) {
+    csrfRefreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/csrf`, {
+          method: 'GET',
+          headers: { ...getAuthHeaders() },
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!res.ok) return getCsrfToken();
+        const data = (await res.json().catch(() => null)) as { csrfToken?: string } | null;
+        return typeof data?.csrfToken === 'string' ? data.csrfToken : getCsrfToken();
+      } catch {
+        return getCsrfToken();
+      } finally {
+        csrfRefreshInFlight = null;
+      }
+    })();
+  }
+  return csrfRefreshInFlight;
+}
+
 interface RequestOptions {
   method?: string;
   body?: Record<string, unknown> | FormData | unknown[] | null;
@@ -139,34 +174,61 @@ export function useApi(): ApiMethods {
         signal,
       } = options;
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-        ...extraHeaders,
-      };
-
-      // Add CSRF token for state-changing requests
-      if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
-        const csrfToken = getCsrfToken();
-        if (csrfToken) {
-          headers['X-CSRF-Token'] = csrfToken;
-        }
-      }
-
-      // Remove Content-Type for FormData (browser sets it with boundary)
-      if (body instanceof FormData) {
-        delete headers['Content-Type'];
-      }
+      const isStateChanging = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
 
       // LEAK-002: Default 30s timeout if no signal provided (prevents hanging requests)
       const effectiveSignal = signal || AbortSignal.timeout(30000);
 
-      const res = await fetch(`${API_BASE}${path}`, {
-        method,
-        headers,
-        body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-        signal: effectiveSignal,
-      });
+      // `csrfOverride === undefined` → read the token fresh from the cookie (so
+      // each request/retry always sends whatever the last rotation left behind,
+      // which sidesteps the rotation race). A string override forces a specific
+      // freshly-minted token on the retry after a CSRF refresh.
+      const doFetch = (csrfOverride?: string | null): Promise<Response> => {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+          ...extraHeaders,
+        };
+
+        // Add CSRF token for state-changing requests
+        if (isStateChanging) {
+          const csrfToken = csrfOverride !== undefined ? csrfOverride : getCsrfToken();
+          if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+          }
+        }
+
+        // Remove Content-Type for FormData (browser sets it with boundary)
+        if (body instanceof FormData) {
+          delete headers['Content-Type'];
+        }
+
+        return fetch(`${API_BASE}${path}`, {
+          method,
+          headers,
+          body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+          signal: effectiveSignal,
+        });
+      };
+
+      let res = await doFetch();
+
+      // CSRF recovery: the cookie is only minted at login and rotated on
+      // mutations, so it can expire/vanish while the session is still valid —
+      // every mutation then 403s with code CSRF_INVALID. Fetch a fresh token and
+      // retry EXACTLY ONCE. Scoped to state-changing calls, skips /auth/* (the
+      // token endpoint itself), and only fires on the distinct CSRF_INVALID code
+      // — never on a 401 (handled below → logout) nor a genuine FORBIDDEN.
+      if (isStateChanging && res.status === 403 && !path.startsWith('/auth/')) {
+        const csrfBody = await res
+          .clone()
+          .json()
+          .catch(() => null);
+        if (normalizeErrorBody(csrfBody, 403).code === 'CSRF_INVALID') {
+          const freshToken = await fetchFreshCsrfToken();
+          res = await doFetch(freshToken);
+        }
+      }
 
       if (!res.ok) {
         // 401 interceptor: auto-logout on expired/invalid token.

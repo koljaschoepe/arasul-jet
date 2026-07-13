@@ -12,7 +12,7 @@
  */
 
 const crypto = require('crypto');
-const { ForbiddenError } = require('../utils/errors');
+const { CsrfError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
 const CSRF_COOKIE = 'arasul_csrf';
@@ -82,7 +82,7 @@ function csrfProtection(req, res, next) {
 
   if (!cookieToken || !headerToken) {
     logger.warn(`CSRF token missing - ${req.method} ${req.originalUrl} from ${req.ip}`);
-    return next(new ForbiddenError('CSRF token missing'));
+    return next(new CsrfError('CSRF token missing'));
   }
 
   // Constant-time comparison to prevent timing attacks
@@ -91,7 +91,7 @@ function csrfProtection(req, res, next) {
     !crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(headerToken))
   ) {
     logger.warn(`CSRF token mismatch - ${req.method} ${req.originalUrl} from ${req.ip}`);
-    return next(new ForbiddenError('CSRF token invalid'));
+    return next(new CsrfError('CSRF token invalid'));
   }
 
   // BH10 FIX: Rotate CSRF token with error handling — don't block the request on failure

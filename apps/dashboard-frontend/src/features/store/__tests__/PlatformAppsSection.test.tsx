@@ -61,7 +61,30 @@ describe('PlatformAppsSection', () => {
     await waitFor(() => expect(screen.getByText('n8n Automationen')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('n8n Automationen deaktivieren'));
     await waitFor(() =>
-      expect(apiMock.put).toHaveBeenCalledWith('/workspace-apps/n8n', { enabled: false })
+      expect(apiMock.put).toHaveBeenCalledWith(
+        '/workspace-apps/n8n',
+        { enabled: false },
+        { showError: false }
+      )
+    );
+  });
+
+  it('zeigt bei einem Fehler genau EINEN Toast (kein Doppel-Toast)', async () => {
+    apiMock.put.mockRejectedValueOnce(new Error('boom'));
+    renderSection();
+    await waitFor(() => expect(screen.getByText('n8n Automationen')).toBeInTheDocument());
+    fireEvent.click(screen.getByLabelText('n8n Automationen deaktivieren'));
+
+    await waitFor(() =>
+      expect(screen.getByText('Änderung konnte nicht gespeichert werden')).toBeInTheDocument()
+    );
+    // Genau ein Toast: der Hook unterdrückt seinen eigenen (showError:false),
+    // die Komponente zeigt den einzigen.
+    expect(screen.getAllByText('Änderung konnte nicht gespeichert werden')).toHaveLength(1);
+    expect(apiMock.put).toHaveBeenCalledWith(
+      '/workspace-apps/n8n',
+      { enabled: false },
+      { showError: false }
     );
   });
 

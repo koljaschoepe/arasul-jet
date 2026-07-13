@@ -80,7 +80,9 @@ export function useWorkspaceApps() {
 
   const setAppEnabled = useCallback(
     async (id: string, enabled: boolean) => {
-      await api.put(`/workspace-apps/${id}`, { enabled });
+      // showError:false — der einzige Aufrufer (PlatformAppsSection) fängt den
+      // Fehler selbst ab und zeigt genau EINEN Toast. Sonst doppelter Toast.
+      await api.put(`/workspace-apps/${id}`, { enabled }, { showError: false });
       queryClient.setQueryData<WorkspaceApp[]>(QUERY_KEY, prev =>
         (prev ?? []).map(a => (a.id === id ? { ...a, enabled } : a))
       );

@@ -97,7 +97,11 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
     // Die übrigen Apps bleiben unberührt
     expect(screen.getByLabelText('Telegram')).toBeInTheDocument();
     expect(screen.getByLabelText('Datenbank')).toBeInTheDocument();
-    expect(apiMock.put).toHaveBeenCalledWith('/workspace-apps/n8n', { enabled: false });
+    expect(apiMock.put).toHaveBeenCalledWith(
+      '/workspace-apps/n8n',
+      { enabled: false },
+      { showError: false }
+    );
   });
 
   it('Wieder aktivieren bringt den Eintrag ohne Reload zurück', async () => {

@@ -71,6 +71,17 @@ class ForbiddenError extends ApiError {
   }
 }
 
+/**
+ * CSRF token missing/invalid. Distinct code so clients can tell this recoverable
+ * failure (fetch a fresh token, retry once) apart from a genuine authorization
+ * denial (FORBIDDEN), which must never be retried.
+ */
+class CsrfError extends ApiError {
+  constructor(message = 'CSRF token invalid') {
+    super(message, { statusCode: 403, code: 'CSRF_INVALID' });
+  }
+}
+
 class NotFoundError extends ApiError {
   constructor(message = 'Resource not found') {
     super(message, { statusCode: 404, code: 'NOT_FOUND' });
@@ -134,6 +145,7 @@ module.exports = {
   InvalidTokenError,
   TokenRevokedError,
   ForbiddenError,
+  CsrfError,
   NotFoundError,
   ConflictError,
   RateLimitError,
