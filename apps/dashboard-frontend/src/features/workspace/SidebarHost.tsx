@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabType } from '@/stores/workspaceStore';
 import { ExtensionsSidebarList } from '@/components/extensions/ExtensionsSidebarList';
@@ -14,10 +14,13 @@ import { ExplorerPanel } from './explorer/ExplorerPanel';
  *
  * Auto-Collapse: Beim Betreten eines App-Tabs wird die Sidebar eingeklappt und
  * die vorherige Nutzer-Präferenz gemerkt; beim Verlassen wird sie
- * wiederhergestellt. `sidebarVisible` bleibt die Quelle der Wahrheit (die
- * WorkspaceShell versteckt das Panel darüber), der Toggle (⌘B / Menüleiste)
- * bleibt jederzeit bedienbar — er kann die Sidebar auch auf einem App-Tab
- * wieder aufziehen.
+ * wiederhergestellt. Die Zustandsmaschine (inkl. persistiertem `sidebarRestore`)
+ * lebt im Store (`syncSidebarForTab`), damit die Präferenz auch einen Reload auf
+ * einem App-Tab überlebt und nicht der bereits eingeklappte Zustand als
+ * vermeintliche Präferenz übernommen wird. `sidebarVisible` bleibt die Quelle
+ * der Wahrheit (die WorkspaceShell versteckt das Panel darüber), der Toggle
+ * (⌘B / Menüleiste) bleibt jederzeit bedienbar — er kann die Sidebar auch auf
+ * einem App-Tab wieder aufziehen, ohne dass das erneute Einklappen greift.
  */
 
 const APP_TAB_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
@@ -30,29 +33,17 @@ const APP_TAB_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
 export function SidebarHost() {
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
-  const setSidebarVisible = useWorkspaceStore(s => s.setSidebarVisible);
+  const syncSidebarForTab = useWorkspaceStore(s => s.syncSidebarForTab);
 
   const activeType = tabs.find(t => t.id === activeTabId)?.type ?? null;
   const isAppTab = activeType != null && APP_TAB_TYPES.has(activeType);
 
-  // Auto-Collapse nur bei echten App-/Nicht-App-Übergängen (nicht bei jedem
-  // sidebarVisible-Wechsel), damit ein manueller Toggle nicht sofort revidiert
-  // wird. Der vor dem App-Tab gültige Zustand wird gemerkt und beim Verlassen
-  // wiederhergestellt.
-  const wasAppTab = useRef(false);
-  const savedVisible = useRef<boolean | null>(null);
+  // Kontextwechsel an die Store-Zustandsmaschine melden: Ein-/Austritt in den
+  // App-Tab-Kontext klappt ein bzw. stellt wieder her. Das Gate (sidebarRestore)
+  // sitzt im Store, deshalb ist kein Transition-Ref mehr nötig.
   useEffect(() => {
-    if (isAppTab && !wasAppTab.current) {
-      savedVisible.current = useWorkspaceStore.getState().sidebarVisible;
-      setSidebarVisible(false);
-    } else if (!isAppTab && wasAppTab.current) {
-      if (savedVisible.current !== null) {
-        setSidebarVisible(savedVisible.current);
-        savedVisible.current = null;
-      }
-    }
-    wasAppTab.current = isAppTab;
-  }, [isAppTab, setSidebarVisible]);
+    syncSidebarForTab(isAppTab);
+  }, [isAppTab, syncSidebarForTab]);
 
   if (activeType === 'store') {
     return <ExtensionsSidebarList />;

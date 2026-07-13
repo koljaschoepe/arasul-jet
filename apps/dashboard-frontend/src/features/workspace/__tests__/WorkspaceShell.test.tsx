@@ -48,6 +48,7 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
+    sidebarRestore: null,
     rightPanelVisible: true,
     rightPanelMode: 'chat',
     terminalSessions: [],
@@ -159,6 +160,27 @@ describe('WorkspaceShell — URL-Sync', () => {
       expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toContain('database')
     );
     expect(useWorkspaceStore.getState().activeTabId).toBe('database');
+  });
+
+  it('Farbregel (AC #8): die Mitte nutzt die Basis-Flächenfarbe bg-background, nicht bg-card', async () => {
+    // Anker für „eine Flächenfarbe überall": der zentrale TabContent-Wrapper und
+    // die Shell-Grundfläche müssen bg-background tragen. Ein Refactoring, das die
+    // Mitte wieder auf bg-card (den früheren Farbbruch) umstellt, lässt diesen
+    // Test fehlschlagen, bevor es unbemerkt live geht.
+    useWorkspaceStore.setState({
+      tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
+      activeTabId: 'dashboard',
+    });
+    renderShell('/workspace/dashboard');
+
+    const centerSurface = (await screen.findByTestId('mock-tabcontent')).parentElement;
+    expect(centerSurface).not.toBeNull();
+    expect(centerSurface).toHaveClass('bg-background');
+    expect(centerSurface).not.toHaveClass('bg-card');
+
+    const shellRoot = screen.getByTestId('workspace-shell');
+    expect(shellRoot).toHaveClass('bg-background');
+    expect(shellRoot).not.toHaveClass('bg-card');
   });
 
   it('Keep-alive: Terminal-Fläche wird per data-shell-hidden versteckt, nicht unmounted', async () => {

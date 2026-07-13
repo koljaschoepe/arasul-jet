@@ -134,13 +134,21 @@ export function ExtensionsSidebarList() {
   const matches = (name: string, description: string) =>
     q === '' || name.toLowerCase().includes(q) || description.toLowerCase().includes(q);
 
+  const filteredPlatformApps = useMemo(
+    () => platformApps.filter(a => matches(a.name, a.description)),
+    [platformApps, q]
+  );
   const filteredApps = useMemo(() => apps.filter(a => matches(a.name, a.description)), [apps, q]);
   const filteredModels = useMemo(
     () => models.filter(m => matches(m.name, m.description)),
     [models, q]
   );
 
-  const nothingVisible = filteredApps.length === 0 && filteredModels.length === 0 && q !== '';
+  const nothingVisible =
+    filteredPlatformApps.length === 0 &&
+    filteredApps.length === 0 &&
+    filteredModels.length === 0 &&
+    q !== '';
 
   return (
     <div
@@ -172,13 +180,13 @@ export function ExtensionsSidebarList() {
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
         {/* Plattform-Apps: Sichtbarkeits-Toggles (Dienste laufen weiter) */}
-        {platformApps.length > 0 && (
+        {filteredPlatformApps.length > 0 && (
           <>
             <SectionHeading icon={<Blocks className="size-3.5" aria-hidden="true" />}>
               Plattform
             </SectionHeading>
             <ul>
-              {platformApps.map(app => (
+              {filteredPlatformApps.map(app => (
                 <li
                   key={app.id}
                   className="flex items-center gap-2 px-2.5 py-1.5"

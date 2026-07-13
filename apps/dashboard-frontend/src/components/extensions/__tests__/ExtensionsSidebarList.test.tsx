@@ -78,6 +78,27 @@ describe('ExtensionsSidebarList', () => {
     expect(screen.queryByTestId('ext-app-gitea')).not.toBeInTheDocument();
   });
 
+  it('das Suchfeld filtert auch die Plattform-Apps', () => {
+    renderList();
+    // Query, die nur die Plattform-App (Telegram) trifft
+    fireEvent.change(screen.getByLabelText('Extensions durchsuchen'), {
+      target: { value: 'telegram' },
+    });
+    expect(screen.getByTestId('platform-row-telegram')).toBeInTheDocument();
+    expect(screen.queryByTestId('ext-app-gitea')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ext-model-llama3')).not.toBeInTheDocument();
+  });
+
+  it('ohne Treffer verschwinden auch die Plattform-Apps und der Leerzustand erscheint', () => {
+    renderList();
+    fireEvent.change(screen.getByLabelText('Extensions durchsuchen'), {
+      target: { value: 'zzz-kein-treffer' },
+    });
+    expect(screen.queryByTestId('platform-row-telegram')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ext-app-gitea')).not.toBeInTheDocument();
+    expect(screen.getByText(/Keine Treffer/)).toBeInTheDocument();
+  });
+
   it('Klick auf eine Zeile setzt die Auswahl im Extension-Store', () => {
     renderList();
     fireEvent.click(screen.getByTestId('ext-app-gitea'));

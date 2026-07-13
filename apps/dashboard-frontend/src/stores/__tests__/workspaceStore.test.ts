@@ -6,6 +6,7 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
+    sidebarRestore: null,
     rightPanelVisible: true,
     rightPanelMode: 'chat',
     terminalSessions: [],
@@ -190,6 +191,67 @@ describe('workspaceStore — Sidebar + rechtes Panel (Sichtbarkeit + Modus)', ()
   });
 });
 
+describe('workspaceStore — Sidebar-Auto-Collapse (syncSidebarForTab)', () => {
+  beforeEach(resetStore);
+
+  it('Eintritt in App-Tab sichert die Präferenz und klappt ein; Austritt stellt wieder her', () => {
+    const { syncSidebarForTab } = useWorkspaceStore.getState();
+    // Nicht-App-Tab mit offener Sidebar
+    syncSidebarForTab(false);
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
+    expect(useWorkspaceStore.getState().sidebarRestore).toBeNull();
+    // App-Tap betreten → eingeklappt, Präferenz gesichert
+    syncSidebarForTab(true);
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
+    expect(useWorkspaceStore.getState().sidebarRestore).toBe(true);
+    // Verlassen → wiederhergestellt, Merker geleert
+    syncSidebarForTab(false);
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
+    expect(useWorkspaceStore.getState().sidebarRestore).toBeNull();
+  });
+
+  it('erneuter sync auf demselben App-Tab revidiert einen manuellen Toggle NICHT', () => {
+    const { syncSidebarForTab, toggleSidebar } = useWorkspaceStore.getState();
+    syncSidebarForTab(true); // eingeklappt, restore=true
+    toggleSidebar(); // Nutzer zieht auf App-Tab manuell wieder auf
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
+    syncSidebarForTab(true); // kein Eintritts-Übergang (restore !== null) → no-op
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
+  });
+
+  it('kollabierte Präferenz bleibt kollabiert: Austritt öffnet die Sidebar nicht ungefragt', () => {
+    useWorkspaceStore.setState({ sidebarVisible: false });
+    const { syncSidebarForTab } = useWorkspaceStore.getState();
+    syncSidebarForTab(true); // restore=false, bleibt eingeklappt
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
+    syncSidebarForTab(false); // stellt false wieder her → bleibt zu
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
+  });
+
+  it('Reload auf App-Tab: persistierte Präferenz (sidebarRestore) überlebt und wird beim Verlassen wiederhergestellt', () => {
+    // Simulierter rehydrierter Stand nach einem Reload auf einem App-Tab:
+    // die Sidebar ist eingeklappt (persistiert), die echte Präferenz (offen)
+    // liegt in sidebarRestore.
+    useWorkspaceStore.setState({ sidebarVisible: false, sidebarRestore: true });
+    const { syncSidebarForTab } = useWorkspaceStore.getState();
+    // Mount-sync auf dem App-Tab darf die gesicherte Präferenz nicht überschreiben
+    syncSidebarForTab(true);
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
+    expect(useWorkspaceStore.getState().sidebarRestore).toBe(true);
+    // Wechsel zurück auf Nicht-App-Tab → echte Präferenz (offen) wiederhergestellt
+    syncSidebarForTab(false);
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
+    expect(useWorkspaceStore.getState().sidebarRestore).toBeNull();
+  });
+
+  it('persistiert sidebarRestore in localStorage', () => {
+    useWorkspaceStore.getState().syncSidebarForTab(true);
+    const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
+    expect(parsed.state.sidebarRestore).toBe(true);
+    expect(parsed.state.sidebarVisible).toBe(false);
+  });
+});
+
 describe('workspaceStore — Terminal-Session-Registry', () => {
   beforeEach(resetStore);
 
@@ -296,10 +358,11 @@ describe('workspaceStore — Migration v2 → v4', () => {
     await rehydrateFrom(V2_TERMINAL_MODE);
     const s = useWorkspaceStore.getState();
     expect(s.sidebarVisible).toBe(false); // explorerVisible → sidebarVisible
-    // llmVisible=true → sichtbar; letzter Modus terminal + chat aktiv → 'chat'
-    // (v3-Zwischenbild: chatVisible=true, terminalVisible=true → visible, mode chat)
+    // v2 hatte schon EIN Panel mit Modus: llmVisible=true → sichtbar,
+    // llmPanelMode='terminal' bildet 1:1 auf rightPanelMode ab (kein Verlust
+    // des zuletzt genutzten Terminal-Modus durch eine Zwei-Flächen-Faltung).
     expect(s.rightPanelVisible).toBe(true);
-    expect(s.rightPanelMode).toBe('chat');
+    expect(s.rightPanelMode).toBe('terminal');
     expect(s.tabs.map(t => t.id)).toEqual(['dashboard', 'document:42']);
     // aktiver Tab war der entfernte sandbox-Tab → Fallback auf ersten Tab
     expect(s.activeTabId).toBe('dashboard');
@@ -342,7 +405,7 @@ describe('workspaceStore — Migration v2 → v4', () => {
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
     expect(parsed.version).toBe(4);
     expect(parsed.state.rightPanelVisible).toBe(true);
-    expect(parsed.state.rightPanelMode).toBe('chat');
+    expect(parsed.state.rightPanelMode).toBe('terminal');
     expect(parsed.state.llmPanelMode).toBeUndefined();
     expect(parsed.state.explorerVisible).toBeUndefined();
     expect(parsed.state.llmVisible).toBeUndefined();

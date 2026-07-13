@@ -153,6 +153,14 @@ interface WorkspaceState {
   activeTabId: string | null;
   /** Linke Sidebar (Explorer/Workspace). */
   sidebarVisible: boolean;
+  /**
+   * Auto-Collapse-Merker: die vor dem Betreten eines App-Tabs gültige
+   * Sidebar-Präferenz. `null` heißt „nicht auto-eingeklappt". Persistiert,
+   * damit die Präferenz einen Reload auf einem App-Tab überlebt und beim
+   * Verlassen korrekt wiederhergestellt wird (statt den bereits eingeklappten
+   * Zustand als vermeintliche Präferenz zu übernehmen).
+   */
+  sidebarRestore: boolean | null;
   /** Sichtbarkeit des rechten Panels (Chat/Terminal). */
   rightPanelVisible: boolean;
   /** Aktiver Inhalt des rechten Panels. */
@@ -169,6 +177,14 @@ interface WorkspaceState {
   toggleSidebar: () => void;
   /** Sidebar-Sichtbarkeit explizit setzen (Auto-Collapse des SidebarHost). */
   setSidebarVisible: (visible: boolean) => void;
+  /**
+   * Auto-Collapse-Zustandsmaschine für Kontextwechsel: beim Betreten eines
+   * App-Tabs die aktuelle Präferenz in `sidebarRestore` sichern und einklappen,
+   * beim Verlassen wiederherstellen. Nur die Ein-/Austritts-Übergänge wirken
+   * (Gate über `sidebarRestore === null`), damit ein manueller Toggle auf einem
+   * App-Tab nicht sofort revidiert wird.
+   */
+  syncSidebarForTab: (isAppTab: boolean) => void;
   /** Rechtes Panel ein-/ausblenden (Modus bleibt erhalten). */
   toggleRightPanel: () => void;
   /** Modus setzen und das rechte Panel dabei einblenden. */
@@ -188,6 +204,7 @@ interface PersistedWorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
   sidebarVisible: boolean;
+  sidebarRestore: boolean | null;
   rightPanelVisible: boolean;
   rightPanelMode: RightPanelMode;
   terminalSessions: TerminalSession[];
@@ -213,20 +230,22 @@ interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'ta
 }
 
 /**
- * Migration auf v4 (rightPanelVisible/-Mode). Läuft für jeden älteren Stand
- * über die Zwischenrepräsentation „zwei Flächen" (chatVisible/terminalVisible)
- * und faltet sie am Ende zu Sichtbarkeit + Modus:
- *   visible = chatVisible || terminalVisible
- *   mode    = (terminalVisible && !chatVisible) ? 'terminal' : 'chat'
+ * Migration auf v4 (rightPanelVisible/-Mode). Je nach Herkunftsversion:
  *
- * Quellen der beiden Flächen je Version:
- * - v≥3: direkt chatVisible / terminalVisible.
- * - v≤2: explorerVisible → sidebarVisible, llmVisible → chatVisible,
- *   terminalVisible nur, wenn das rechte Panel sichtbar war UND zuletzt im
- *   Terminal-Modus stand (llmVisible && llmPanelMode === 'terminal').
+ * - v≤2: Das rechte Panel war schon damals EINE Fläche mit Modus
+ *   (llmVisible = sichtbar, llmPanelMode = Inhalt) — es bildet 1:1 auf v4 ab:
+ *   rightPanelVisible = llmVisible, rightPanelMode = llmPanelMode. explorerVisible
+ *   → sidebarVisible. (Kein Umweg über die v3-Zwei-Flächen-Faltung: der würde
+ *   den zuletzt genutzten Terminal-Modus verlieren, weil llmVisible=true dort als
+ *   „Chat sichtbar" gelesen würde und Chat beim Falten Vorrang hat.)
+ * - v≥3: Chat und Terminal waren zwei unabhängige Flächen; sie werden zu
+ *   Sichtbarkeit + Modus gefaltet:
+ *     visible = chatVisible || terminalVisible
+ *     mode    = (terminalVisible && !chatVisible) ? 'terminal' : 'chat'
  *
  * 'sandbox'-Tabs (Terminal als Mitte-Tab) und unbekannte Typen werden
- * entfernt, übrige Tabs + aktiver Tab bleiben erhalten.
+ * entfernt, übrige Tabs + aktiver Tab bleiben erhalten. sidebarRestore startet
+ * bei null (kein Auto-Collapse aus einer Alt-Session übernehmen).
  */
 function migrateWorkspaceState(persisted: unknown, version: number): PersistedWorkspaceState {
   const old = (persisted ?? {}) as PersistedLegacyState;
@@ -239,23 +258,25 @@ function migrateWorkspaceState(persisted: unknown, version: number): PersistedWo
       ? old.activeTabId
       : (tabs[0]?.id ?? null);
 
-  // Zwei-Flächen-Zwischenrepräsentation je nach Herkunftsversion herleiten.
-  let chatVisible: boolean;
-  let terminalVisible: boolean;
   let sidebarVisible: boolean;
+  let rightPanelVisible: boolean;
+  let rightPanelMode: RightPanelMode;
   let terminalSessions: TerminalSession[];
   let activeTerminalSessionId: string | null;
 
   if (version >= 3) {
-    chatVisible = old.chatVisible ?? true;
-    terminalVisible = old.terminalVisible ?? false;
+    const chatVisible = old.chatVisible ?? true;
+    const terminalVisible = old.terminalVisible ?? false;
     sidebarVisible = old.sidebarVisible ?? true;
+    rightPanelVisible = chatVisible || terminalVisible;
+    rightPanelMode = terminalVisible && !chatVisible ? 'terminal' : 'chat';
     terminalSessions = Array.isArray(old.terminalSessions) ? old.terminalSessions : [];
     activeTerminalSessionId = old.activeTerminalSessionId ?? null;
   } else {
-    chatVisible = old.llmVisible ?? true;
-    terminalVisible = (old.llmVisible ?? true) && old.llmPanelMode === 'terminal';
+    // v≤2: EIN Panel mit Modus → direkt übernehmen (kein Faltungs-Verlust).
     sidebarVisible = old.explorerVisible ?? true;
+    rightPanelVisible = old.llmVisible ?? true;
+    rightPanelMode = old.llmPanelMode === 'terminal' ? 'terminal' : 'chat';
     terminalSessions = [];
     activeTerminalSessionId = null;
   }
@@ -264,8 +285,9 @@ function migrateWorkspaceState(persisted: unknown, version: number): PersistedWo
     tabs,
     activeTabId,
     sidebarVisible,
-    rightPanelVisible: chatVisible || terminalVisible,
-    rightPanelMode: terminalVisible && !chatVisible ? 'terminal' : 'chat',
+    sidebarRestore: null,
+    rightPanelVisible,
+    rightPanelMode,
     terminalSessions,
     activeTerminalSessionId,
   };
@@ -277,6 +299,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       tabs: [],
       activeTabId: null,
       sidebarVisible: true,
+      sidebarRestore: null,
       rightPanelVisible: true,
       rightPanelMode: 'chat',
       terminalSessions: [],
@@ -347,6 +370,21 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       toggleSidebar: () => set(state => ({ sidebarVisible: !state.sidebarVisible })),
       setSidebarVisible: visible => set({ sidebarVisible: visible }),
+      syncSidebarForTab: isAppTab =>
+        set(state => {
+          // Betreten eines App-Tabs (nur der Eintritts-Übergang, Gate über
+          // sidebarRestore === null): Präferenz sichern und einklappen.
+          if (isAppTab && state.sidebarRestore === null) {
+            return { sidebarRestore: state.sidebarVisible, sidebarVisible: false };
+          }
+          // Verlassen des App-Kontexts: gesicherte Präferenz wiederherstellen.
+          // Greift auch selbstheilend nach einem Reload, der auf einem App-Tab
+          // mit bereits eingeklappter (persistierter) Sidebar startete.
+          if (!isAppTab && state.sidebarRestore !== null) {
+            return { sidebarVisible: state.sidebarRestore, sidebarRestore: null };
+          }
+          return {};
+        }),
       toggleRightPanel: () => set(state => ({ rightPanelVisible: !state.rightPanelVisible })),
       setRightPanelMode: mode => set({ rightPanelVisible: true, rightPanelMode: mode }),
 
@@ -405,6 +443,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         tabs: state.tabs,
         activeTabId: state.activeTabId,
         sidebarVisible: state.sidebarVisible,
+        sidebarRestore: state.sidebarRestore,
         rightPanelVisible: state.rightPanelVisible,
         rightPanelMode: state.rightPanelMode,
         terminalSessions: state.terminalSessions,

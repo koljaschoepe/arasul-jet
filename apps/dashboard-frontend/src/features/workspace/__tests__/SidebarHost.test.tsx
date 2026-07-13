@@ -22,7 +22,7 @@ const STORE: WorkspaceTab = { id: 'store', type: 'store', title: 'Extensions' };
 const DB: WorkspaceTab = { id: 'database', type: 'database', title: 'Datenbank' };
 
 function reset(tabs: WorkspaceTab[], activeTabId: string) {
-  useWorkspaceStore.setState({ tabs, activeTabId, sidebarVisible: true });
+  useWorkspaceStore.setState({ tabs, activeTabId, sidebarVisible: true, sidebarRestore: null });
 }
 
 describe('SidebarHost — Kontext-Mapping', () => {
@@ -65,6 +65,24 @@ describe('SidebarHost — Kontext-Mapping', () => {
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
     // Nutzer zieht die Sidebar manuell wieder auf — bleibt erhalten
     act(() => useWorkspaceStore.getState().toggleSidebar());
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
+  });
+
+  it('Reload auf App-Tab: gesicherte Präferenz überlebt und wird beim Verlassen wiederhergestellt', () => {
+    // Rehydrierter Stand nach Reload auf einem App-Tab: Sidebar persistiert
+    // eingeklappt, die echte Präferenz (offen) liegt in sidebarRestore.
+    useWorkspaceStore.setState({
+      tabs: [DASH, DB],
+      activeTabId: 'database',
+      sidebarVisible: false,
+      sidebarRestore: true,
+    });
+    render(<SidebarHost />);
+    // Mount-sync darf den gesicherten Wert nicht mit dem eingeklappten überschreiben
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
+    expect(useWorkspaceStore.getState().sidebarRestore).toBe(true);
+    // Zurück auf Dashboard → echte Präferenz (offen) wiederhergestellt
+    act(() => useWorkspaceStore.setState({ activeTabId: 'dashboard' }));
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
   });
 });
