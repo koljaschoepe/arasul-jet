@@ -34,16 +34,16 @@
   "slug": "shell-panel-sidebar-feinschliff",
   "title": "Cursor-Shell 3.1 — Ein rechtes Panel, Kontext-Sidebar & Feinschliff",
   "type": "feat",
-  "status": "approved",
+  "status": "done",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-07-13",
   "approved": "2026-07-13",
-  "branch": null,
-  "pr": null,
-  "verified_on_device": false
+  "branch": "feat/003-shell-panel-sidebar-feinschliff",
+  "pr": 197,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -490,57 +490,57 @@
   </summary>
   <div class="sbody">
   <p>Alle Schritte auf <code>feat/003-shell-panel-sidebar-feinschliff</code>; <code>main</code> bleibt bis zum Merge unberührt.</p>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Bugfix CSRF/Apps-Toggle">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Bugfix CSRF/Apps-Toggle">
     <h3>Schritt 1 — Bugfix CSRF/Apps-Toggle <span class="tag">Risiko: mittel</span></h3>
     <p>Der API-Client erkennt fehlende/abgelaufene CSRF-Tokens (Ursache laut Gerätelog: <code>CSRF token missing</code> bei Sessions von vor einem Deploy), beschafft den Token automatisch neu und wiederholt den Request genau einmal; das Rotations-Race bei schnellen Doppel-Toggles wird mitbehandelt. Doppelter Fehler-Toast in der Plattform-Apps-Sektion entfällt (<code>showError:false</code>). Regressionstest für beide Fälle.</p>
     <p class="files mono">apps/dashboard-frontend/src/hooks/useApi.ts · src/hooks/useWorkspaceApps.ts · features/store/PlatformAppsSection.tsx · ggf. apps/dashboard-backend/src/middleware/csrf.js (Token-Endpoint)</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Bugfix Dialog/Panel-Kollision">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Bugfix Dialog/Panel-Kollision">
     <h3>Schritt 2 — Bugfix Dialog/Panel-Kollision („Neuer Ordner“) <span class="tag">Risiko: niedrig</span></h3>
     <p>Hypothese live im DOM verifizieren (Radix setzt <code>aria-hidden</code> auf Panel-Vorfahren), dann die Panel-Versteck-Regel von <code>[data-panel][aria-hidden]</code> auf ein exklusives, nur vom Store gesetztes Attribut (<code>data-shell-hidden</code>) umstellen. Alle Explorer-Dialoge (Neuer Ordner, Projekt, Upload, Rename, Move, Delete) und sämtliche Menüaktionen durchtesten.</p>
     <p class="files mono">apps/dashboard-frontend/src/index.css (Regel ~4012) · features/workspace/WorkspaceShell.tsx · features/workspace/__tests__/</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Store v4 (rightPanelVisible/-Mode)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Store v4 (rightPanelVisible/-Mode)">
     <h3>Schritt 3 — Store v4 (<code>rightPanelVisible</code>/<code>rightPanelMode</code>) <span class="tag">Risiko: mittel</span></h3>
     <p>Migration v3→v4 (Sichtbarkeit = chat||terminal; Modus-Heuristik terminal&amp;&amp;!chat → „terminal“, sonst „chat“), Umstellung der vier externen Aufrufstellen (ChatPanelBridge, TerminalPanelBridge, openTerminalSession, setChatScope). Unit-Tests mit echten v3-Daten.</p>
     <p class="files mono">apps/dashboard-frontend/src/stores/workspaceStore.ts · features/workspace/TabContent.tsx (Bridges) · src/stores/__tests__/workspaceStore.test.ts</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — RightPanel mit Segment-Umschalter">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — RightPanel mit Segment-Umschalter">
     <h3>Schritt 4 — RightPanel mit Segment-Umschalter <span class="tag">Risiko: mittel</span></h3>
     <p>Neuer <code>RightPanel</code>-Wrapper: Segment-Toggle [Chat | Terminal] oben, beide Flächen permanent gemountet (Keep-alive), nur eine sichtbar; innerer Split + zweite Layout-Persistenz entfallen. Terminal-Mount-once triggert auf Modus+Sichtbarkeit, xterm-Refit nach Moduswechsel.</p>
     <p class="files mono">features/workspace/WorkspaceShell.tsx · neu: features/workspace/RightPanel.tsx · workspace/llm/ChatPanel.tsx · workspace/terminal/TerminalPanel.tsx</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Activity Bar & zwei Layout-Toggles">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 5 — Activity Bar & zwei Layout-Toggles">
     <h3>Schritt 5 — Activity Bar &amp; zwei Layout-Toggles <span class="tag">Risiko: niedrig</span></h3>
     <p>Explorer-/Chats-Einträge oben und Terminal-Toggle unten entfernen; übrig Dashboard, Extensions, dynamische Apps. MenuBar-Layout-Gruppe: [Sidebar] + [Rechtes Panel] (PanelLeft/PanelRight-Icons, aria-pressed, Tooltips).</p>
     <p class="files mono">features/workspace/ActivityBar.tsx · features/workspace/WorkspaceMenuBar.tsx · zugehörige __tests__</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Kontext-SidebarHost">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 6 — Kontext-SidebarHost">
     <h3>Schritt 6 — Kontext-SidebarHost <span class="tag">Risiko: mittel</span></h3>
     <p>SidebarHost nach TabBridge-Vorbild: aktiver Tab bestimmt den Inhalt — Dashboard → ExplorerPanel, Extensions → Suchfeld + Apps/Modelle-Liste (als gemeinsame Komponente promoted, Feature-Isolation bleibt gewahrt), App-Tabs → Sidebar zu (Auto-Collapse, Toggle bleibt bedienbar).</p>
     <p class="files mono">features/workspace/WorkspaceShell.tsx · neu: features/workspace/SidebarHost.tsx · neu: components/extensions/ExtensionsSidebarList.tsx (promoted)</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Store-Rückbau (Liste + Detail)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 7 — Store-Rückbau (Liste + Detail)">
     <h3>Schritt 7 — Store-Rückbau (Liste + Detail) <span class="tag">Risiko: mittel</span></h3>
     <p>Unter-Tabs Start/Modelle/Apps entfallen; die Mitte zeigt die Detailseite der links gewählten Extension (Beschreibung, Status, Aktivieren/Installieren/Deinstallieren/Download — auf Basis von StoreDetailModal/ActivationButton/DownloadProgress). Plattform-App-Toggles wandern in die Sidebar-Liste. Alte Deep-Links (<code>/store/models</code>, <code>/store/apps</code>, Such-Highlights) leiten sauber um.</p>
     <p class="files mono">features/store/{Store,StoreHome,StoreModels,StoreApps,StoreDetailModal}.tsx · features/store/__tests__</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Dashboard & Statusleiste">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 8 — Dashboard & Statusleiste">
     <h3>Schritt 8 — Dashboard &amp; Statusleiste <span class="tag">Risiko: niedrig</span></h3>
     <p>KI-Modelle-Karte (<code>ModelStatusBar</code>) aus dem Dashboard entfernen; Statusleiste zeigt aktives Modell + KI-RAM aus <code>/models/memory-budget</code> (gemeinsamer Query-Key mit bestehenden Nutzern — keine doppelte Poll-Last auf dem Jetson).</p>
     <p class="files mono">features/dashboard/DashboardHome.tsx · features/workspace/StatusBar.tsx · __tests__/StatusBar.test.tsx</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Farb-Audit (eine Flächenfarbe)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 9 — Farb-Audit (eine Flächenfarbe)">
     <h3>Schritt 9 — Farb-Audit (eine Flächenfarbe) <span class="tag">Risiko: niedrig</span></h3>
     <p>Mitte von <code>bg-card</code> auf <code>bg-background</code>; Grep-Audit aller <code>bg-card</code>/<code>bg-background</code>-Flächen in Workspace-Ansichten und gehosteten Feature-Tabs (Store, Dashboard, Telegram, n8n); Trennung nur noch per Border. Verifikation per Pixel-Vergleich im Screenshot.</p>
     <p class="files mono">features/workspace/WorkspaceShell.tsx:182 · src/index.css · features/** (Audit)</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 10 — Workspace-Shell als Default">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 10 — Workspace-Shell als Default">
     <h3>Schritt 10 — Workspace-Shell als Default <span class="tag">Risiko: mittel</span></h3>
     <p><code>isWorkspaceShellEnabled()</code> wird Default-true (<code>!== 'false'</code>, Opt-out bleibt); Legacy-e2e-Specs werden geprüft und setzen das Flag explizit auf false, wo sie die alte UI testen; irreführende Kommentare aktualisiert.</p>
     <p class="files mono">src/lib/featureFlags.ts · src/App.tsx · components/layout/Sidebar.tsx · e2e/*.spec.ts</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 11 — Tests, e2e & Doku-Sync">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 11 — Tests, e2e & Doku-Sync">
     <h3>Schritt 11 — Tests, e2e &amp; Doku-Sync <span class="tag">Risiko: niedrig</span></h3>
     <p>Alle betroffenen Unit-/e2e-Suiten anpassen (u. a. workspace-shell.spec Toggle-Selektoren), neue Specs für Segment-Umschalter, Kontext-Sidebar und beide Bug-Regressionen; <code>run-tests.sh --all</code> grün. Doku: Frontend-CLAUDE.md (Panel-Beschreibung), DESIGN_SYSTEM (Token-Regel „eine Flächenfarbe“), ADMIN_HANDBUCH (Default-Shell, neue Navigation).</p>
     <p class="files mono">e2e/workspace-shell.spec.ts · src/**/__tests__ · apps/dashboard-frontend/CLAUDE.md · docs/development/DESIGN_SYSTEM.md · docs/ops/ADMIN_HANDBUCH.md</p>
@@ -556,20 +556,20 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Das rechte Panel hat oben einen Segment-Umschalter [Chat | Terminal]; der aktive Modus füllt die gesamte Fläche, es gibt kein unteres Terminal-Teilfenster mehr.</li>
-    <li data-done="false">Beim Moduswechsel bleiben beide Seiten am Leben: laufender Chat-Stream und laufende Terminal-Session überleben den Wechsel; der letzte Modus wird nach Reload wiederhergestellt.</li>
-    <li data-done="false">Die Activity Bar zeigt nur Dashboard, Extensions und aktivierte Apps — keine Explorer-/Chats-Icons oben, kein Terminal-Icon unten.</li>
-    <li data-done="false">Oben rechts gibt es genau zwei Layout-Toggles (Sidebar, rechtes Panel) mit Tooltips.</li>
-    <li data-done="false">Die Sidebar ist kontextabhängig: Dashboard → Dokumente/Projekte; Extensions → Suchfeld + Liste aller Apps und Modelle mit Status; n8n/Telegram/Datenbank → Sidebar zugeklappt.</li>
-    <li data-done="false">Extensions haben keine Unter-Tabs mehr; Klick auf einen Sidebar-Eintrag öffnet die Detailseite in der Mitte mit funktionierendem Aktivieren/Installieren/Deinstallieren/Download; alte Store-Deep-Links leiten um.</li>
-    <li data-done="false">Das Dashboard enthält keine KI-Modelle-Karte mehr; die Statusleiste zeigt aktives Modell + KI-RAM konsistent mit der tatsächlichen Ollama-Auslastung.</li>
-    <li data-done="false">Alle Flächen (Sidebar, Mitte, rechtes Panel, Unterseiten) haben pixelgleich denselben Hintergrund; Trennung nur durch Borders — per Screenshot-Pixelvergleich belegt.</li>
-    <li data-done="false">Apps-Toggle funktioniert auch in einer Alt-Session: fehlender CSRF-Token wird automatisch beschafft und der Request wiederholt; es erscheint höchstens EIN verständlicher Fehler-Toast, und nur wenn es wirklich scheitert.</li>
-    <li data-done="false">„Datei → Neuer Ordner“ (und alle anderen Explorer-Dialoge/Menüaktionen) lassen Sidebar und rechtes Panel sichtbar; der Dialog funktioniert.</li>
-    <li data-done="false">Die Workspace-Shell ist ohne localStorage-Flag der Standard nach Login; Opt-out und Legacy-Routen funktionieren weiter.</li>
-    <li data-done="false">Store-Migration v3→v4 erhält Panel-Sichtbarkeit, Tabs und Terminal-Sessions (per Test mit echten v3-Daten belegt).</li>
-    <li data-done="false"><code>run-tests.sh --all</code> und alle angepassten e2e-Specs sind grün.</li>
-    <li data-done="false">Volle Playwright-Matrix + alle Bug-Regressions-Flows auf dem Jetson grün, 0 nicht-erklärte Konsolenfehler.</li>
+    <li data-done="true">Das rechte Panel hat oben einen Segment-Umschalter [Chat | Terminal]; der aktive Modus füllt die gesamte Fläche, es gibt kein unteres Terminal-Teilfenster mehr.</li>
+    <li data-done="true">Beim Moduswechsel bleiben beide Seiten am Leben: laufender Chat-Stream und laufende Terminal-Session überleben den Wechsel; der letzte Modus wird nach Reload wiederhergestellt.</li>
+    <li data-done="true">Die Activity Bar zeigt nur Dashboard, Extensions und aktivierte Apps — keine Explorer-/Chats-Icons oben, kein Terminal-Icon unten.</li>
+    <li data-done="true">Oben rechts gibt es genau zwei Layout-Toggles (Sidebar, rechtes Panel) mit Tooltips.</li>
+    <li data-done="true">Die Sidebar ist kontextabhängig: Dashboard → Dokumente/Projekte; Extensions → Suchfeld + Liste aller Apps und Modelle mit Status; n8n/Telegram/Datenbank → Sidebar zugeklappt.</li>
+    <li data-done="true">Extensions haben keine Unter-Tabs mehr; Klick auf einen Sidebar-Eintrag öffnet die Detailseite in der Mitte mit funktionierendem Aktivieren/Installieren/Deinstallieren/Download; alte Store-Deep-Links leiten um.</li>
+    <li data-done="true">Das Dashboard enthält keine KI-Modelle-Karte mehr; die Statusleiste zeigt aktives Modell + KI-RAM konsistent mit der tatsächlichen Ollama-Auslastung.</li>
+    <li data-done="true">Alle Flächen (Sidebar, Mitte, rechtes Panel, Unterseiten) haben pixelgleich denselben Hintergrund; Trennung nur durch Borders — per Screenshot-Pixelvergleich belegt.</li>
+    <li data-done="true">Apps-Toggle funktioniert auch in einer Alt-Session: fehlender CSRF-Token wird automatisch beschafft und der Request wiederholt; es erscheint höchstens EIN verständlicher Fehler-Toast, und nur wenn es wirklich scheitert.</li>
+    <li data-done="true">„Datei → Neuer Ordner“ (und alle anderen Explorer-Dialoge/Menüaktionen) lassen Sidebar und rechtes Panel sichtbar; der Dialog funktioniert.</li>
+    <li data-done="true">Die Workspace-Shell ist ohne localStorage-Flag der Standard nach Login; Opt-out und Legacy-Routen funktionieren weiter.</li>
+    <li data-done="true">Store-Migration v3→v4 erhält Panel-Sichtbarkeit, Tabs und Terminal-Sessions (per Test mit echten v3-Daten belegt).</li>
+    <li data-done="true"><code>run-tests.sh --all</code> und alle angepassten e2e-Specs sind grün.</li>
+    <li data-done="true">Volle Playwright-Matrix + alle Bug-Regressions-Flows auf dem Jetson grün, 0 nicht-erklärte Konsolenfehler.</li>
   </ul>
   </div>
 </details>
@@ -655,19 +655,34 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Umgesetzt, gemergt (PR #197) und live auf dem Jetson verifiziert — beide Bugs behoben, alle Kriterien grün.</span>
   </summary>
   <div class="sbody">
+  <p><strong>Ausführung am 13.07.2026, vollautonom (Modellwechsel Fable 5 → Opus 4.8 mitten im Lauf, mehrere Session-Limit-Resumes).</strong> Multi-Agent-Pipeline auf <code>feat/003-shell-panel-sidebar-feinschliff</code>; Squash-Merge als PR <a href="https://github.com/koljaschoepe/arasul-jet/pull/197">#197</a> (<code>9f30801</code>).</p>
+  <h3>Ergebnis</h3>
+  <ul>
+    <li>Alle 11 Schritte umgesetzt; 5-Linsen-Review mit adversarialer Verifikation, bestätigte Findings gefixt (u. a. SidebarHost-Auto-Collapse übersteht Reload, Migration v2→v4 erhält Terminal-Modus, ExtensionsSidebarList-Suche filtert auch Plattform-Apps).</li>
+    <li>Tests: <code>run-tests.sh --all</code> grün — Frontend 776, Backend 1636, Quality Gates.</li>
+    <li>Live-Verifikation im echten Browser (Branch-Deploy mit <code>backup-003</code>, danach erneut auf gemergtem <code>main</code>): Default-Flip (Login → Workspace ohne Flag), Activity Bar nur Dashboard/Extensions/Apps, zwei Layout-Toggles, Segment-Umschalter [Chat|Terminal] mit Keep-alive (beide Flächen im DOM gemountet), Kontext-Sidebar (Dashboard→Explorer, Extensions→durchsuchbare Liste, App-Tab→zugeklappt), konsistente Flächenfarbe (nur erhabene Karten nutzen <code>--card</code>), Statusleisten-Modell stimmt mit <code>ollama ps</code> überein (<code>kein Modell</code> bei leerem Ollama, <code>qwen3:14b · KI-RAM 12/32 GB</code> bei geladenem).</li>
+    <li><strong>Bug (a) CSRF gefixt:</strong> App-Toggle nach Backend-Neustart (Stale-Session) ging ohne Fehler durch — n8n verschwand ohne Reload aus der Activity Bar.</li>
+    <li><strong>Bug (b) „Neuer Ordner“ gefixt (Root-Cause live bestätigt):</strong> Bei offenem Dialog setzt Radix weiterhin <code>aria-hidden</code> auf ein Panel (1 Treffer), aber die entkoppelte <code>data-shell-hidden</code>-Regel greift nicht mehr — Sidebar und rechtes Panel bleiben sichtbar.</li>
+    <li>Gerät endet gesund auf <code>main</code> (<code>9f30801</code>); Test-Admin und Test-Projekt entfernt.</li>
+  </ul>
+  <h3>Hinweise</h3>
+  <ul>
+    <li>Die Git-Historie des Branch war durch mehrere Session-Limit-Resumes uneben (u. a. zwei „Schritt 10“-Commits, Schritt 6+7 unter einem Nachbar-Commit gebündelt) — durch den Squash-Merge ohne Auswirkung auf <code>main</code>.</li>
+    <li>Vorbestehend, nicht Teil dieses Plans: transiente 503 auf <code>/models/memory-budget</code> im Backend-Neustart-Fenster; „Failed to fetch“-Konsolenmeldungen beim Kontext-Teardown.</li>
+  </ul>
   </div>
 </details>
 
 <footer class="colophon">
   Plan 003 · erstellt am 2026-07-13 via <code>/plan</code> · Quelle:
-  <span class="mono">docs/plans/active/003-shell-panel-sidebar-feinschliff.html</span><br>
+  <span class="mono">docs/plans/done/003-shell-panel-sidebar-feinschliff.html</span><br>
   Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
   dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
   Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.

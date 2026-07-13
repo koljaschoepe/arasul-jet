@@ -45,7 +45,7 @@
     { "id": "T10", "title": "Doku-Sync abschließen (repo-doc-sync)", "prio": "P2", "status": "open", "source": "docs/plans/active/repo-doc-sync-2026-07-07.md", "plan": null, "pr": null },
     { "id": "T11", "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau (Themes, Agent-Chat, Projekte-Explorer, Terminal-Modi, Extensions, n8n 2.x)", "prio": "P0", "status": "done", "source": "user 2026-07-11", "plan": "001", "pr": 184 },
     { "id": "T12", "title": "Cursor-Shell 3.0 — Neubau der Workspace-Shell (ein Terminal, echte Tabs, Extension-Gating, Kompakt-Skala)", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "002", "pr": 196 },
-    { "id": "T13", "title": "Cursor-Shell 3.1 — Ein rechtes Panel (Chat⇄Terminal), Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default", "prio": "P1", "status": "planned", "source": "user 2026-07-13", "plan": "003", "pr": null }
+    { "id": "T13", "title": "Cursor-Shell 3.1 — Ein rechtes Panel (Chat⇄Terminal), Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "003", "pr": 197 }
   ],
   "history": [
     { "date": "2026-07-12", "plan": "001", "title": "Workspace 2.0 — Cursor-Feinschliff", "pr": 184 }
@@ -413,20 +413,21 @@
     </div>
   </details>
 
-  <details class="card" id="T13" data-prio="P1" data-status="planned" data-ref="T13 Cursor-Shell 3.1 Feinschliff">
-    <summary><span class="prio">P1</span><span class="ttl">Cursor-Shell 3.1 — Ein Panel, Kontext-Sidebar &amp; Feinschliff</span><span class="cbtn-slot"></span><span class="st">geplant (003)</span><span class="chev">▶</span></summary>
+  <details class="card" id="T13" data-prio="P1" data-status="done" data-ref="T13 Cursor-Shell 3.1 Feinschliff">
+    <summary><span class="prio">P1</span><span class="ttl">Cursor-Shell 3.1 — Ein Panel, Kontext-Sidebar &amp; Feinschliff</span><span class="cbtn-slot"></span><span class="st">done (PR #197)</span><span class="chev">▶</span></summary>
     <div class="cbody">
       <p>Rechts eine Fläche mit Chat⇄Terminal-Umschalter, Activity Bar nur noch Dashboard/Extensions/Apps,
       kontextabhängige Sidebar (Docs ⟷ Extension-Suche+Liste ⟷ zu), Store-Rückbau auf Liste+Detail,
       Dashboard ohne KI-Karte (Modell in die Statusleiste), eine Flächenfarbe überall, Workspace-Shell
       wird Default. Bugfixes: Apps-Toggle (CSRF token missing) und „Neuer Ordner“ (Dialog kollabiert Panels).</p>
       <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>T12 (done)</b></span></div>
-      <div class="cmd"><code>docs/plans/active/003-shell-panel-sidebar-feinschliff.html</code><button type="button" data-copy="/work 003">Befehl kopieren</button></div>
+      <div class="cmd"><code>docs/plans/done/003-shell-panel-sidebar-feinschliff.html</code><button type="button" data-copy="/work 003">Befehl kopieren</button></div>
     </div>
   </details>
 
   <h2>Erledigt</h2>
   <ul class="history" id="history">
+    <li><b>2026-07-13</b> · Plan 003 — Cursor-Shell 3.1: Ein Panel, Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default · PR #197 · live verifiziert</li>
     <li><b>2026-07-13</b> · Plan 002 — Cursor-Shell 3.0: Neubau der Workspace-Shell · PR #196 · live verifiziert (Matrix 64 Zustände + alle E2E-Flows grün)</li>
     <li><b>2026-07-12</b> · Plan 001 — Workspace 2.0: Feinschliff auf Cursor-Niveau · PR #184 (+ Fix #185) · live verifiziert (Smoke 21/21)</li>
   </ul>
