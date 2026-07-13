@@ -189,6 +189,31 @@ Zwischenwerte. Gespiegelt aus `apps/dashboard-frontend/src/index.css`:
 | Abschnitte trennen                 | `--space-xl` (32px)    |
 | Seiten-Padding                     | `--space-lg` (24px)    |
 
+### Dichte-Skala (Kompakt-UI, Plan 002 »Cursor-Shell«)
+
+Für die Workspace-Shell und alle normierten Ansichten (Dashboard, Extensions, …)
+gilt eine kompakte globale Skala, definiert im `@theme`-Block von
+`apps/dashboard-frontend/src/index.css`:
+
+```css
+/* Text (mit kompakter Zeilenhöhe als Default) */
+--text-ui-xs: 0.6875rem; /* 11px — Badges, Metadaten   (text-ui-xs) */
+--text-ui-sm: 0.75rem; /* 12px — Sekundärtext, Labels (text-ui-sm) */
+--text-ui: 0.8125rem; /* 13px — Basistext            (text-ui)    */
+--text-ui-lg: 0.9375rem; /* 15px — Karten-/Abschnittstitel (text-ui-lg) */
+
+/* Abstandsstufen 4/8/12/16px */
+--spacing-ui-1: 0.25rem; /* p-ui-1, gap-ui-1, … */
+--spacing-ui-2: 0.5rem;
+--spacing-ui-3: 0.75rem;
+--spacing-ui-4: 1rem;
+```
+
+Anwendung: Basistext kompakter Flächen ist `text-ui` (13px); Abstände nur aus
+den vier Stufen (`*-ui-1…4`). Karten-Padding kompakt = `p-ui-3` (12px),
+Abstand zwischen kompakten Karten = `gap-ui-2` (8px). Neue Workspace-Ansichten
+verwenden diese Skala statt der klassischen `--space-*`-Werte.
+
 ---
 
 ## Border & Radius

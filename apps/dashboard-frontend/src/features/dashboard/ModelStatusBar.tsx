@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from '../../components/ui/shadcn/tooltip';
 import type { InstalledModel } from '../../types';
+import { DashboardCard, DashboardCardTitle } from './DashboardCard';
 
 type CategoryKey = 'text' | 'vision' | 'ocr';
 
@@ -142,15 +143,13 @@ function ModelStatusBar() {
         : 'msb-ram-bar-fill';
 
   return (
-    <div className="dashboard-card msb-widget">
+    <DashboardCard className="msb-widget">
       {/* Header */}
       <div className="msb-header">
         <div className="msb-header-left">
           <Cpu size={18} style={{ color: 'var(--primary-color)' }} />
           <div>
-            <h3 className="dashboard-card-title" style={{ margin: 0 }}>
-              KI-Modelle
-            </h3>
+            <DashboardCardTitle className="mb-0">KI-Modelle</DashboardCardTitle>
             <div className="msb-subtitle">1 API-Endpunkt · Lokale Verarbeitung</div>
           </div>
         </div>
@@ -359,7 +358,7 @@ function ModelStatusBar() {
       )}
 
       {ConfirmDialog}
-    </div>
+    </DashboardCard>
   );
 }
 

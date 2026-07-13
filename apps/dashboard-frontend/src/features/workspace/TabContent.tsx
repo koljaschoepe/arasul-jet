@@ -97,17 +97,19 @@ function DashboardTabContent() {
     );
   }
   return (
-    <DashboardHome
-      metrics={data.metrics}
-      metricsHistory={data.metricsHistory}
-      services={data.services}
-      systemInfo={data.systemInfo}
-      networkInfo={data.networkInfo}
-      runningApps={data.runningApps}
-      formatChartData={data.formatChartData}
-      thresholds={data.thresholds}
-      deviceInfo={data.deviceInfo}
-    />
+    <div className="min-w-0 p-ui-3">
+      <DashboardHome
+        metrics={data.metrics}
+        metricsHistory={data.metricsHistory}
+        services={data.services}
+        systemInfo={data.systemInfo}
+        networkInfo={data.networkInfo}
+        runningApps={data.runningApps}
+        formatChartData={data.formatChartData}
+        thresholds={data.thresholds}
+        deviceInfo={data.deviceInfo}
+      />
+    </div>
   );
 }
 

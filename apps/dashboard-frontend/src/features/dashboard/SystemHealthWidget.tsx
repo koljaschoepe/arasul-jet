@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 import { ShieldCheck, ShieldAlert, ShieldX, ExternalLink } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
+import { DashboardCard, DashboardCardTitle } from './DashboardCard';
 
 interface OpsOverview {
   status: 'OK' | 'WARNING' | 'CRITICAL';
@@ -50,17 +51,17 @@ const statusMeta: Record<
   { icon: React.ReactNode; label: string; color: string }
 > = {
   OK: {
-    icon: <ShieldCheck className="stat-icon" />,
+    icon: <ShieldCheck size={20} />,
     label: 'Alle Systeme OK',
     color: 'var(--success-color)',
   },
   WARNING: {
-    icon: <ShieldAlert className="stat-icon" />,
+    icon: <ShieldAlert size={20} />,
     label: 'Warnung',
     color: 'var(--warning-color)',
   },
   CRITICAL: {
-    icon: <ShieldX className="stat-icon" />,
+    icon: <ShieldX size={20} />,
     label: 'Kritisch',
     color: 'var(--danger-color)',
   },
@@ -105,26 +106,26 @@ const SystemHealthWidget: React.FC = () => {
 
   if (error && !data) {
     return (
-      <div className="dashboard-card">
-        <h3 className="dashboard-card-title">System-Gesundheit</h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{error}</p>
-      </div>
+      <DashboardCard>
+        <DashboardCardTitle>System-Gesundheit</DashboardCardTitle>
+        <p className="text-ui text-text-muted">{error}</p>
+      </DashboardCard>
     );
   }
 
   if (!data) {
     return (
-      <div className="dashboard-card" style={{ minHeight: 200 }}>
-        <h3 className="dashboard-card-title">System-Gesundheit</h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Lade…</p>
-      </div>
+      <DashboardCard className="min-h-[200px]">
+        <DashboardCardTitle>System-Gesundheit</DashboardCardTitle>
+        <p className="text-ui text-text-muted">Lade…</p>
+      </DashboardCard>
     );
   }
 
   // Fall back to a neutral "unknown" state if the payload omits/garbles status —
   // a malformed /ops/overview response must not crash the whole dashboard.
   const meta = statusMeta[data.status] ?? {
-    icon: <ShieldAlert className="stat-icon" />,
+    icon: <ShieldAlert size={20} />,
     label: 'Status unbekannt',
     color: 'var(--text-muted)',
   };
@@ -146,8 +147,8 @@ const SystemHealthWidget: React.FC = () => {
   const notifications = data.notifications ?? { unsent_critical_24h: 0 };
 
   return (
-    <div className="dashboard-card">
-      <h3 className="dashboard-card-title">System-Gesundheit</h3>
+    <DashboardCard>
+      <DashboardCardTitle>System-Gesundheit</DashboardCardTitle>
 
       <div
         style={{
@@ -257,7 +258,7 @@ const SystemHealthWidget: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </DashboardCard>
   );
 };
 
