@@ -61,33 +61,41 @@ describe('WorkspaceMenuBar', () => {
     expect(leave).toHaveBeenCalled();
   });
 
-  it('zeigt drei Layout-Toggles rechts, die den Store spiegeln und schalten', () => {
+  it('zeigt genau zwei Layout-Toggles rechts, die den Store spiegeln und schalten', () => {
     render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
 
+    const layoutGroup = screen.getByRole('group', { name: 'Layout' });
+    expect(layoutGroup.querySelectorAll('button')).toHaveLength(2);
+
     const sidebar = screen.getByLabelText('Sidebar ausblenden');
-    // Default: Sidebar an, Chat sichtbar (Chat-Modus), Terminal aus
+    const panel = screen.getByLabelText('Panel ausblenden');
+    // Default: Sidebar an, rechtes Panel sichtbar
     expect(sidebar).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText('Terminal-Panel einblenden')).toHaveAttribute(
-      'aria-pressed',
-      'false'
-    );
-    expect(screen.getByLabelText('Chat-Panel ausblenden')).toHaveAttribute('aria-pressed', 'true');
+    expect(panel).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.click(sidebar);
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
 
-    // Chat und Terminal teilen sich EIN Panel — der Terminal-Toggle schaltet
-    // den Modus um (nicht eine zweite Fläche ein).
-    fireEvent.click(screen.getByLabelText('Terminal-Panel einblenden'));
+    // Der Panel-Toggle blendet nur die Sichtbarkeit um — der Modus bleibt.
+    fireEvent.click(panel);
     let state = useWorkspaceStore.getState();
-    expect(state.rightPanelVisible).toBe(true);
-    expect(state.rightPanelMode).toBe('terminal');
+    expect(state.rightPanelVisible).toBe(false);
+    expect(state.rightPanelMode).toBe('chat');
 
-    // Zurück in den Chat-Modus (Label ist nun »einblenden«, da Chat versteckt).
-    fireEvent.click(screen.getByLabelText('Chat-Panel einblenden'));
+    fireEvent.click(screen.getByLabelText('Panel einblenden'));
     state = useWorkspaceStore.getState();
     expect(state.rightPanelVisible).toBe(true);
     expect(state.rightPanelMode).toBe('chat');
+  });
+
+  it('»Neue Terminal-Umgebung…« schaltet das rechte Panel in den Terminal-Modus', async () => {
+    const user = userEvent.setup();
+    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    await user.click(screen.getByLabelText('Datei-Menü'));
+    await user.click(await screen.findByText('Neue Terminal-Umgebung…'));
+    const state = useWorkspaceStore.getState();
+    expect(state.rightPanelVisible).toBe(true);
+    expect(state.rightPanelMode).toBe('terminal');
   });
 
   it('Ansicht-Menü enthält keine Panel-Toggles mehr (nur Design)', async () => {

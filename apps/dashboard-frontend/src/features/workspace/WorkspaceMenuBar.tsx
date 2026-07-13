@@ -7,7 +7,7 @@ import {
   Undo2,
   Settings,
   PanelLeft,
-  MessageSquare,
+  PanelRight,
   Check,
   ChevronDown,
 } from 'lucide-react';
@@ -46,7 +46,7 @@ function MenuTriggerButton({ label }: { label: string }) {
   );
 }
 
-/** Icon-Toggle für die drei Layout-Flächen (Sidebar/Terminal/Chat). */
+/** Icon-Toggle für die zwei Layout-Flächen (Sidebar/rechtes Panel). */
 function LayoutToggleButton({
   label,
   pressed,
@@ -78,8 +78,9 @@ function LayoutToggleButton({
 
 /**
  * Schlanke Top-Menüleiste der IDE-Shell (à la Cursor, bewusst minimal):
- * links Marke + Datei/Ansicht-Menüs, rechts die drei Layout-Toggles
- * (Sidebar / Terminal-Panel / Chat-Panel) neben den Einstellungen.
+ * links Marke + Datei/Ansicht-Menüs, rechts die zwei Layout-Toggles
+ * (Sidebar / rechtes Panel) neben den Einstellungen. Der Panel-Modus
+ * (Chat/Terminal) wird im Panel selbst umgeschaltet.
  */
 export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
   // Theme direkt über den Hook (synct alle useTheme-Instanzen); die
@@ -88,20 +89,11 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
-  const rightPanelMode = useWorkspaceStore(s => s.rightPanelMode);
   const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
   const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
   const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
   const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
-
-  // Abgeleitet aus dem einen rechten Panel — ein Klick im schon aktiven Modus
-  // blendet das Panel aus, sonst wird der Modus gewählt (finaler Umbau: Stufe 4/5).
-  const chatVisible = rightPanelVisible && rightPanelMode === 'chat';
-  const terminalVisible = rightPanelVisible && rightPanelMode === 'terminal';
-  const toggleChat = () => (chatVisible ? toggleRightPanel() : setRightPanelMode('chat'));
-  const toggleTerminal = () =>
-    terminalVisible ? toggleRightPanel() : setRightPanelMode('terminal');
 
   return (
     <header
@@ -160,8 +152,8 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
 
       <div className="flex-1" />
 
-      {/* Layout-Toggles: Sidebar / Terminal-Panel / Chat-Panel (ersetzen die
-          alten Ansicht-Menü-Einträge und den Chat-Toggle unten links) */}
+      {/* Zwei Layout-Toggles: Sidebar + rechtes Panel. Der Panel-Modus
+          (Chat/Terminal) wird im Panel selbst gewechselt. */}
       <div className="flex items-center gap-0.5" role="group" aria-label="Layout">
         <LayoutToggleButton
           label={sidebarVisible ? 'Sidebar ausblenden' : 'Sidebar einblenden'}
@@ -171,18 +163,11 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
           <PanelLeft className="h-4 w-4" aria-hidden="true" />
         </LayoutToggleButton>
         <LayoutToggleButton
-          label={terminalVisible ? 'Terminal-Panel ausblenden' : 'Terminal-Panel einblenden'}
-          pressed={terminalVisible}
-          onClick={toggleTerminal}
+          label={rightPanelVisible ? 'Panel ausblenden' : 'Panel einblenden'}
+          pressed={rightPanelVisible}
+          onClick={toggleRightPanel}
         >
-          <SquareTerminal className="h-4 w-4" aria-hidden="true" />
-        </LayoutToggleButton>
-        <LayoutToggleButton
-          label={chatVisible ? 'Chat-Panel ausblenden' : 'Chat-Panel einblenden'}
-          pressed={chatVisible}
-          onClick={toggleChat}
-        >
-          <MessageSquare className="h-4 w-4" aria-hidden="true" />
+          <PanelRight className="h-4 w-4" aria-hidden="true" />
         </LayoutToggleButton>
       </div>
 

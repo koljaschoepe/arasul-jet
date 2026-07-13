@@ -1,14 +1,5 @@
 import React from 'react';
-import {
-  Files,
-  MessagesSquare,
-  Home,
-  Blocks,
-  SquareTerminal,
-  Send,
-  Database,
-  Workflow,
-} from 'lucide-react';
+import { Home, Blocks, Send, Database, Workflow } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
@@ -76,31 +67,16 @@ const APP_SHORTCUTS: Array<{
 ];
 
 /**
- * Schmale Icon-Leiste ganz links (wie VS Code/Cursor). Feste Einträge:
- * Explorer (Sidebar-Toggle), Chats (Chat-Panel-Toggle), Dashboard,
- * Extensions; dynamisch die aktivierten Apps (n8n, Telegram, Datenbank).
- * Unten der Terminal-Toggle — er blendet ausschließlich das Terminal-Panel
- * rechts ein/aus, öffnet also NIE einen Mitte-Tab. Einstellungen und die
- * Layout-Toggles leben in der WorkspaceMenuBar (Cursor-minimal).
+ * Schmale Icon-Leiste ganz links (wie VS Code/Cursor). Rein für Mitte-Tabs:
+ * Dashboard, Extensions und dynamisch die aktivierten Apps (n8n, Telegram,
+ * Datenbank). Sidebar- und Panel-Sichtbarkeit steuern die zwei Layout-Toggles
+ * in der WorkspaceMenuBar; der Panel-Modus (Chat/Terminal) lebt im Panel
+ * selbst (Cursor-minimal).
  */
 export function ActivityBar() {
-  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
-  const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
-  const rightPanelMode = useWorkspaceStore(s => s.rightPanelMode);
-  const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
-  const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
-  const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
   const openTab = useWorkspaceStore(s => s.openTab);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const { isAppEnabled } = useWorkspaceApps();
-
-  // Abgeleitet aus dem einen rechten Panel (Sichtbarkeit + Modus). Ein Klick
-  // im schon aktiven Modus blendet das Panel aus, sonst wird der Modus gewählt.
-  const chatVisible = rightPanelVisible && rightPanelMode === 'chat';
-  const terminalVisible = rightPanelVisible && rightPanelMode === 'terminal';
-  const toggleChat = () => (chatVisible ? toggleRightPanel() : setRightPanelMode('chat'));
-  const toggleTerminal = () =>
-    terminalVisible ? toggleRightPanel() : setRightPanelMode('terminal');
 
   const shortcuts = [...BASE_SHORTCUTS, ...APP_SHORTCUTS.filter(s => isAppEnabled(s.appId))];
 
@@ -109,24 +85,6 @@ export function ActivityBar() {
       aria-label="Workspace-Navigation"
       className="flex h-full w-11 shrink-0 flex-col items-center gap-0.5 bg-background py-1.5"
     >
-      <ActivityButton
-        label={sidebarVisible ? 'Explorer ausblenden' : 'Explorer einblenden'}
-        onClick={toggleSidebar}
-        active={sidebarVisible}
-      >
-        <Files className="h-4.5 w-4.5" />
-      </ActivityButton>
-
-      <ActivityButton
-        label={chatVisible ? 'Chats ausblenden' : 'Chats einblenden'}
-        onClick={toggleChat}
-        active={chatVisible}
-      >
-        <MessagesSquare className="h-4.5 w-4.5" />
-      </ActivityButton>
-
-      <div className="my-1 h-px w-5 bg-border" aria-hidden="true" />
-
       {shortcuts.map(({ spec, label, icon }) => (
         <ActivityButton
           key={spec.type}
@@ -137,16 +95,6 @@ export function ActivityBar() {
           {icon}
         </ActivityButton>
       ))}
-
-      <div className="flex-1" />
-
-      <ActivityButton
-        label={terminalVisible ? 'Terminal ausblenden' : 'Terminal einblenden'}
-        onClick={toggleTerminal}
-        active={terminalVisible}
-      >
-        <SquareTerminal className="h-4.5 w-4.5" />
-      </ActivityButton>
     </nav>
   );
 }
