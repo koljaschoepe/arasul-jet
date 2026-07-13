@@ -11,21 +11,25 @@ import { TabBar } from './TabBar';
 import { TabContent } from './TabContent';
 import type { TabThemeControls } from './TabContent';
 import { ExplorerPanel } from './explorer/ExplorerPanel';
-import { ChatPanel } from './llm/ChatPanel';
-import { TerminalPanel } from './terminal/TerminalPanel';
+import { RightPanel } from './RightPanel';
 
 /**
  * Cursor-Raster der IDE-Shell:
  *
  *   MenuBar (oben, mit Layout-Toggles rechts)
  *   ActivityBar · Sidebar · Mitte (TabBar + Inhalt) · rechtes Panel
- *                                                     (Chat oben / Terminal unten)
+ *                                                     (Chat ⇄ Terminal, Segment-Kopf)
  *   StatusBar (unten)
  *
  * Der aktive Tab wird in der URL gespiegelt (/workspace/...), offene Tabs und
  * Panel-Layout persistieren in localStorage.
  *
- * Keep-alive: Sidebar, Chat- und Terminal-Fläche werden beim Ausblenden NICHT
+ * Rechtes Panel: EINE Fläche mit zwei Modi (Chat/Terminal), gerendert vom
+ * RightPanel — der frühere innere vertikale Split (Chat oben / Terminal unten)
+ * samt eigener Layout-Persistenz entfällt. Der Modus lebt im Store
+ * (rightPanelMode), die Sichtbarkeit in rightPanelVisible.
+ *
+ * Keep-alive: Sidebar und das rechte Panel werden beim Ausblenden NICHT
  * unmounted, sondern nur per CSS versteckt (Regel in index.css:
  * `[data-panel][data-shell-hidden='true'] { display:none }`). So überleben
  * Terminal-WebSocket-Sessions und Chat-Streams jeden Panel-Toggle. react-
@@ -50,11 +54,6 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
-  const rightPanelMode = useWorkspaceStore(s => s.rightPanelMode);
-  // Aus dem einen Panel (Sichtbarkeit + Modus) die beiden Keep-alive-Flächen
-  // ableiten — der finale UI-Umbau des rechten Panels folgt in Stufe 4/5.
-  const chatVisible = rightPanelVisible && rightPanelMode === 'chat';
-  const terminalVisible = rightPanelVisible && rightPanelMode === 'terminal';
   const { isTabTypeEnabled } = useWorkspaceApps();
 
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab
@@ -147,19 +146,14 @@ export default function WorkspaceShell(props: TabThemeControls) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Rechtes Panel ist sichtbar, sobald eine seiner Flächen sichtbar ist
-  const rightVisible = chatVisible || terminalVisible;
-  const rightSplit = chatVisible && terminalVisible;
+  // Das rechte Panel (Chat/Terminal) ist als Ganzes sichtbar oder nicht.
+  const rightVisible = rightPanelVisible;
 
-  // Panel-Layout (Breiten/Höhen) in localStorage persistieren. Die Panel-Ids
-  // sind stabil (Panels bleiben wegen Keep-alive immer gemountet).
+  // Panel-Layout (Breiten) in localStorage persistieren. Die Panel-Ids sind
+  // stabil (Panels bleiben wegen Keep-alive immer gemountet).
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
     id: 'arasul-workspace-panels',
     panelIds: ['explorer', 'main', 'llm'],
-  });
-  const { defaultLayout: rightLayout, onLayoutChanged: onRightLayoutChanged } = useDefaultLayout({
-    id: 'arasul-workspace-right-panels',
-    panelIds: ['chat', 'terminal'],
   });
 
   return (
@@ -212,36 +206,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
             aria-hidden={!rightVisible}
             data-shell-hidden={rightVisible ? 'false' : 'true'}
           >
-            <Group
-              orientation="vertical"
-              className="h-full"
-              defaultLayout={rightLayout}
-              onLayoutChanged={onRightLayoutChanged}
-            >
-              <Panel
-                id="chat"
-                defaultSize="60%"
-                minSize="120px"
-                aria-hidden={!chatVisible}
-                data-shell-hidden={chatVisible ? 'false' : 'true'}
-              >
-                <ChatPanel />
-              </Panel>
-              <Separator
-                aria-hidden={!rightSplit}
-                data-shell-hidden={rightSplit ? 'false' : 'true'}
-                className="h-[3px] bg-transparent transition-colors hover:bg-primary/50"
-              />
-              <Panel
-                id="terminal"
-                defaultSize="40%"
-                minSize="100px"
-                aria-hidden={!terminalVisible}
-                data-shell-hidden={terminalVisible ? 'false' : 'true'}
-              >
-                <TerminalPanel />
-              </Panel>
-            </Group>
+            <RightPanel />
           </Panel>
         </Group>
       </div>

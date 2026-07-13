@@ -194,20 +194,22 @@ describe('Fix: offene Explorer-Dialoge lassen die Shell-Panels sichtbar', () => 
       // Dialog ist offen …
       await waitFor(() => expect(screen.getByText(open)).toBeInTheDocument());
 
-      // … und die sichtbaren Panels bleiben es: data-shell-hidden ist nirgends
+      // … und die sichtbaren Flächen bleiben es: data-shell-hidden ist nirgends
       // fälschlich auf 'true' gekippt (der Bug ließ Sidebar + Chat verschwinden).
-      const byId = (id: string) => document.querySelector<HTMLElement>(`[data-panel]#${id}`);
-      const explorer = byId('explorer');
-      const chat = byId('chat');
-      const llm = byId('llm');
+      // Chat lebt seit Schritt 4 als [data-shell-surface] im RightPanel (kein
+      // eigenes react-resizable-panels-Panel mehr); Explorer + das rechte Panel
+      // (#llm) sind weiterhin echte Panels.
+      const explorer = document.querySelector<HTMLElement>('[data-panel]#explorer');
+      const llm = document.querySelector<HTMLElement>('[data-panel]#llm');
+      const chatSurface = document.querySelector<HTMLElement>('[data-shell-surface="chat"]');
 
       expect(explorer).not.toBeNull();
-      expect(chat).not.toBeNull();
       expect(llm).not.toBeNull();
+      expect(chatSurface).not.toBeNull();
 
       expect(explorer).toHaveAttribute('data-shell-hidden', 'false');
-      expect(chat).toHaveAttribute('data-shell-hidden', 'false');
       expect(llm).toHaveAttribute('data-shell-hidden', 'false');
+      expect(chatSurface).toHaveAttribute('data-shell-hidden', 'false');
     }
   );
 });

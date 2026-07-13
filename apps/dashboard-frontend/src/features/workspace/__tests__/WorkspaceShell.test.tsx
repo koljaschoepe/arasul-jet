@@ -169,21 +169,32 @@ describe('WorkspaceShell — URL-Sync', () => {
 
     renderShell('/workspace/dashboard');
 
-    // Terminal-Panel ist zu — TerminalPanel bleibt trotzdem gemountet, das
-    // umgebende [data-panel] trägt data-shell-hidden='true' (CSS versteckt es);
-    // aria-hidden wird für die A11y gespiegelt.
+    // Default: rechtes Panel sichtbar, Modus Chat. Die Terminal-Fläche im
+    // RightPanel ist als [data-shell-surface] gemountet, aber wegen des
+    // Chat-Modus per data-shell-hidden='true' versteckt (nicht unmounted). Das
+    // umgebende [data-panel]#llm ist sichtbar (rightPanelVisible).
     const terminalContent = await screen.findByTestId('mock-terminal-panel');
+    const surface = terminalContent.closest('[data-shell-surface]');
+    expect(surface).not.toBeNull();
+    expect(surface).toHaveAttribute('data-shell-hidden', 'true');
+    expect(surface).toHaveAttribute('aria-hidden', 'true');
     const panelRoot = terminalContent.closest('[data-panel]');
     expect(panelRoot).not.toBeNull();
-    expect(panelRoot).toHaveAttribute('data-shell-hidden', 'true');
-    expect(panelRoot).toHaveAttribute('aria-hidden', 'true');
+    expect(panelRoot).toHaveAttribute('data-shell-hidden', 'false');
 
+    // Auf den Terminal-Modus umschalten: dieselbe Fläche wird sichtbar, ohne
+    // Remount (kein zweiter Knoten).
     act(() => {
       useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
     });
-    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('data-shell-hidden', 'false');
-    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('aria-hidden', 'false');
-    // Wieder ausblenden: derselbe Knoten (kein Remount), nur wieder versteckt
+    expect(terminalContent.closest('[data-shell-surface]')).toHaveAttribute(
+      'data-shell-hidden',
+      'false'
+    );
+    expect(screen.getByTestId('mock-terminal-panel')).toBe(terminalContent);
+
+    // Ganzes Panel ausblenden: das [data-panel]#llm wird versteckt, die Fläche
+    // bleibt derselbe (kein Remount) gemountete Knoten.
     act(() => {
       useWorkspaceStore.setState({ rightPanelVisible: false });
     });
