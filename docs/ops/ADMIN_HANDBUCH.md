@@ -72,6 +72,8 @@ eine Entwicklungsumgebung (Cursor/VS-Code-Raster), in drei Themes
 - **Extensions (Mitte-Tab):** kompakte Liste — KI-Modelle installieren und
   Plattform-Apps (n8n, Telegram, Datenbank) ein-/ausblenden; Details per
   Klick auf die Zeile. **Automationen** oeffnet n8n direkt als Tab.
+  Deaktivieren wirkt sofort (ohne Neuladen): das Symbol verschwindet aus
+  der Activity Bar und offene Tabs der App werden geschlossen.
 - Zurueck zur klassischen Ansicht: Menue **Datei → Zur klassischen Ansicht**.
 
 ---
