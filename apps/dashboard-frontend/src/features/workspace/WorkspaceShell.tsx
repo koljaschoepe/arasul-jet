@@ -26,11 +26,20 @@ import { TerminalPanel } from './terminal/TerminalPanel';
  * Panel-Layout persistieren in localStorage.
  *
  * Keep-alive: Sidebar, Chat- und Terminal-Fläche werden beim Ausblenden NICHT
- * unmounted, sondern nur per aria-hidden versteckt (CSS-Regel in index.css:
- * `[data-panel][aria-hidden='true'] { display:none }`). So überleben Terminal-
- * WebSocket-Sessions und Chat-Streams jeden Panel-Toggle. react-resizable-
- * panels setzt display:flex inline auf Panel-Wurzeln, daher läuft das über
- * aria-hidden + !important statt über das hidden-Attribut.
+ * unmounted, sondern nur per CSS versteckt (Regel in index.css:
+ * `[data-panel][data-shell-hidden='true'] { display:none }`). So überleben
+ * Terminal-WebSocket-Sessions und Chat-Streams jeden Panel-Toggle. react-
+ * resizable-panels setzt display:flex inline auf Panel-Wurzeln, daher läuft das
+ * über ein Datenattribut + !important statt über das hidden-Attribut.
+ *
+ * WICHTIG — `data-shell-hidden` statt `aria-hidden` als CSS-Anker: Die
+ * Sichtbarkeit MUSS an einem Attribut hängen, das ausschließlich diese Shell
+ * setzt. `aria-hidden` erfüllt das nicht — Radix-Dialoge/-Overlays rufen beim
+ * Öffnen `hideOthers()` (aria-hidden-Paket) auf und setzen `aria-hidden='true'`
+ * auf fremde Geschwister-Elemente, um sie vor Screenreadern zu verbergen. Hing
+ * die Versteck-Regel an `aria-hidden`, kollabierten Panels, sobald ein Dialog
+ * (z. B. „Neuer Ordner") ein Panel als Nachbarn markierte. `aria-hidden` wird
+ * für die A11y weiter gespiegelt, steuert aber die Darstellung nicht mehr.
  */
 export default function WorkspaceShell(props: TabThemeControls) {
   const location = useLocation();
@@ -169,11 +178,13 @@ export default function WorkspaceShell(props: TabThemeControls) {
             minSize="160px"
             maxSize="35%"
             aria-hidden={!sidebarVisible}
+            data-shell-hidden={sidebarVisible ? 'false' : 'true'}
           >
             <ExplorerPanel />
           </Panel>
           <Separator
             aria-hidden={!sidebarVisible}
+            data-shell-hidden={sidebarVisible ? 'false' : 'true'}
             className="w-[3px] bg-transparent transition-colors hover:bg-primary/50"
           />
           <Panel id="main" minSize="30%">
@@ -186,6 +197,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
           </Panel>
           <Separator
             aria-hidden={!rightVisible}
+            data-shell-hidden={rightVisible ? 'false' : 'true'}
             className="w-[3px] bg-transparent transition-colors hover:bg-primary/50"
           />
           <Panel
@@ -194,6 +206,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
             minSize="220px"
             maxSize="45%"
             aria-hidden={!rightVisible}
+            data-shell-hidden={rightVisible ? 'false' : 'true'}
           >
             <Group
               orientation="vertical"
@@ -201,14 +214,27 @@ export default function WorkspaceShell(props: TabThemeControls) {
               defaultLayout={rightLayout}
               onLayoutChanged={onRightLayoutChanged}
             >
-              <Panel id="chat" defaultSize="60%" minSize="120px" aria-hidden={!chatVisible}>
+              <Panel
+                id="chat"
+                defaultSize="60%"
+                minSize="120px"
+                aria-hidden={!chatVisible}
+                data-shell-hidden={chatVisible ? 'false' : 'true'}
+              >
                 <ChatPanel />
               </Panel>
               <Separator
                 aria-hidden={!rightSplit}
+                data-shell-hidden={rightSplit ? 'false' : 'true'}
                 className="h-[3px] bg-transparent transition-colors hover:bg-primary/50"
               />
-              <Panel id="terminal" defaultSize="40%" minSize="100px" aria-hidden={!terminalVisible}>
+              <Panel
+                id="terminal"
+                defaultSize="40%"
+                minSize="100px"
+                aria-hidden={!terminalVisible}
+                data-shell-hidden={terminalVisible ? 'false' : 'true'}
+              >
                 <TerminalPanel />
               </Panel>
             </Group>

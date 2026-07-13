@@ -7,8 +7,10 @@
  *    aktiven Tab.
  * 2. Extension-Gating: Tabs deaktivierter Apps öffnen sich auch per
  *    Deep-Link / Browser-Zurück nicht wieder (Plan 002 §5 Kriterium 4).
- * 3. Keep-alive-Verdrahtung: ausgeblendete Flächen werden über aria-hidden
- *    am echten react-resizable-panels-Panel versteckt, nicht unmounted.
+ * 3. Keep-alive-Verdrahtung: ausgeblendete Flächen werden über
+ *    data-shell-hidden am echten react-resizable-panels-Panel versteckt, nicht
+ *    unmounted (aria-hidden wird für die A11y gespiegelt, steuert aber die
+ *    Darstellung nicht mehr — siehe DialogPanelCollision.test).
  */
 
 import { render, screen, act, waitFor } from '@testing-library/react';
@@ -153,7 +155,7 @@ describe('WorkspaceShell — URL-Sync', () => {
     expect(useWorkspaceStore.getState().activeTabId).toBe('database');
   });
 
-  it('Keep-alive: Terminal-Fläche wird per aria-hidden versteckt, nicht unmounted', async () => {
+  it('Keep-alive: Terminal-Fläche wird per data-shell-hidden versteckt, nicht unmounted', async () => {
     useWorkspaceStore.setState({
       tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
       activeTabId: 'dashboard',
@@ -161,22 +163,25 @@ describe('WorkspaceShell — URL-Sync', () => {
 
     renderShell('/workspace/dashboard');
 
-    // Terminal-Panel ist zu — TerminalPanel bleibt trotzdem gemountet,
-    // das umgebende [data-panel] trägt aria-hidden='true' (CSS versteckt es)
+    // Terminal-Panel ist zu — TerminalPanel bleibt trotzdem gemountet, das
+    // umgebende [data-panel] trägt data-shell-hidden='true' (CSS versteckt es);
+    // aria-hidden wird für die A11y gespiegelt.
     const terminalContent = await screen.findByTestId('mock-terminal-panel');
     const panelRoot = terminalContent.closest('[data-panel]');
     expect(panelRoot).not.toBeNull();
+    expect(panelRoot).toHaveAttribute('data-shell-hidden', 'true');
     expect(panelRoot).toHaveAttribute('aria-hidden', 'true');
 
     act(() => {
       useWorkspaceStore.setState({ terminalVisible: true });
     });
+    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('data-shell-hidden', 'false');
     expect(terminalContent.closest('[data-panel]')).toHaveAttribute('aria-hidden', 'false');
     // Wieder ausblenden: derselbe Knoten (kein Remount), nur wieder versteckt
     act(() => {
       useWorkspaceStore.setState({ terminalVisible: false });
     });
     expect(screen.getByTestId('mock-terminal-panel')).toBe(terminalContent);
-    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('aria-hidden', 'true');
+    expect(terminalContent.closest('[data-panel]')).toHaveAttribute('data-shell-hidden', 'true');
   });
 });

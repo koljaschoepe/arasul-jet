@@ -4006,10 +4006,15 @@ a:focus:not(:focus-visible),
    WORKSPACE-SHELL: KEEP-ALIVE-PANELS
    react-resizable-panels setzt display:flex inline auf Panel-Wurzeln —
    ausgeblendete Flächen (Chat/Terminal/Sidebar) bleiben deshalb gemountet
-   (WebSocket-/Chat-Sessions überleben) und werden nur per aria-hidden +
+   (WebSocket-/Chat-Sessions überleben) und werden nur per data-shell-hidden +
    dieser Regel visuell entfernt. Siehe WorkspaceShell.tsx.
+
+   Anker ist bewusst data-shell-hidden (nur die Shell setzt es) und NICHT
+   aria-hidden: Radix-Dialoge rufen beim Öffnen hideOthers() auf und setzen
+   aria-hidden='true' auf fremde Nachbarelemente — hinge die Regel daran,
+   kollabierten Panels beim Öffnen von „Neuer Ordner" & Co. (Plan 003 · Bug b).
    ======================================== */
-[data-panel][aria-hidden='true'],
-[data-separator][aria-hidden='true'] {
+[data-panel][data-shell-hidden='true'],
+[data-separator][data-shell-hidden='true'] {
   display: none !important;
 }

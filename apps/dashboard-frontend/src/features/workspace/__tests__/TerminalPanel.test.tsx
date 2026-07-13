@@ -5,9 +5,11 @@
  * 1. TerminalPanel mountet SandboxApp einmalig (mount-once) und unmountet
  *    sie beim Ausblenden NICHT — sonst sterben WebSocket-Sessions und
  *    laufende Prozesse bei jedem Toggle.
- * 2. Die CSS-Regel `[data-panel][aria-hidden='true'] { display:none }` in
- *    index.css versteckt das umgebende Panel nur visuell (WorkspaceShell
- *    setzt aria-hidden, react-resizable-panels erzwingt display:flex inline).
+ * 2. Die CSS-Regel `[data-panel][data-shell-hidden='true'] { display:none }` in
+ *    index.css versteckt das umgebende Panel nur visuell (WorkspaceShell setzt
+ *    data-shell-hidden, react-resizable-panels erzwingt display:flex inline).
+ *    Anker ist bewusst data-shell-hidden statt aria-hidden — sonst kollidiert
+ *    die Regel mit Radix-Dialogen (hideOthers), siehe DialogPanelCollision.test.
  */
 
 import fs from 'node:fs';
@@ -93,7 +95,7 @@ describe('TerminalPanel Keep-alive', () => {
     expect(mountLog.unmounts).toBe(0);
   });
 
-  it('Keep-alive-CSS-Regel existiert in index.css (aria-hidden → display:none)', () => {
+  it('Keep-alive-CSS-Regel existiert in index.css (data-shell-hidden → display:none)', () => {
     // Zweites Glied der Kette: fällt diese Regel weg, bleiben ausgeblendete
     // Panels sichtbar (react-resizable-panels setzt display:flex inline) —
     // bzw. ein Umbau auf hidden/unmount würde die Sessions killen.
@@ -101,7 +103,10 @@ describe('TerminalPanel Keep-alive', () => {
     const cssPath = path.resolve(process.cwd(), 'src/index.css');
     const css = fs.readFileSync(cssPath, 'utf8');
     expect(css).toMatch(
-      /\[data-panel\]\[aria-hidden='true'\][^{]*\{[^}]*display:\s*none\s*!important/
+      /\[data-panel\]\[data-shell-hidden='true'\][^{]*\{[^}]*display:\s*none\s*!important/
     );
+    // Regressionsschutz Bug (b): die Versteck-Regel darf NICHT an aria-hidden
+    // hängen, sonst kollabieren Panels beim Öffnen von Radix-Dialogen.
+    expect(css).not.toMatch(/\[data-panel\]\[aria-hidden='true'\][^{]*\{[^}]*display:\s*none/);
   });
 });
