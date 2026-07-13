@@ -167,6 +167,8 @@ interface WorkspaceState {
   moveTab: (fromIndex: number, toIndex: number) => void;
   updateTabTitle: (id: string, title: string) => void;
   toggleSidebar: () => void;
+  /** Sidebar-Sichtbarkeit explizit setzen (Auto-Collapse des SidebarHost). */
+  setSidebarVisible: (visible: boolean) => void;
   /** Rechtes Panel ein-/ausblenden (Modus bleibt erhalten). */
   toggleRightPanel: () => void;
   /** Modus setzen und das rechte Panel dabei einblenden. */
@@ -344,6 +346,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       toggleSidebar: () => set(state => ({ sidebarVisible: !state.sidebarVisible })),
+      setSidebarVisible: visible => set({ sidebarVisible: visible }),
       toggleRightPanel: () => set(state => ({ rightPanelVisible: !state.rightPanelVisible })),
       setRightPanelMode: mode => set({ rightPanelVisible: true, rightPanelMode: mode }),
 

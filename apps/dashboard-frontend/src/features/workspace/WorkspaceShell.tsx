@@ -10,7 +10,7 @@ import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';
 import { TabContent } from './TabContent';
 import type { TabThemeControls } from './TabContent';
-import { ExplorerPanel } from './explorer/ExplorerPanel';
+import { SidebarHost } from './SidebarHost';
 import { RightPanel } from './RightPanel';
 
 /**
@@ -178,7 +178,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
             aria-hidden={!sidebarVisible}
             data-shell-hidden={sidebarVisible ? 'false' : 'true'}
           >
-            <ExplorerPanel />
+            <SidebarHost />
           </Panel>
           <Separator
             aria-hidden={!sidebarVisible}
