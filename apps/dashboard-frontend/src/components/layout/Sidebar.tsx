@@ -176,7 +176,7 @@ const SidebarNav = React.memo(function SidebarNav({
         <Link
           to="/workspace"
           className="nav-link"
-          title="Neue Workspace-Ansicht (IDE-Layout)"
+          title="Zur Workspace-Ansicht (IDE-Layout) zurückkehren"
           onClick={() => setWorkspaceShellEnabled(true)}
         >
           <PanelsTopLeft aria-hidden="true" /> <span>Workspace</span>

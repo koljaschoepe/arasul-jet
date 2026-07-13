@@ -159,6 +159,10 @@ describe('App Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    // Workspace-Shell ist seit Schritt 10 die Standard-UI (Default an) und
+    // würde "/" nach /workspace umleiten. Diese Suite prüft die Legacy-UI,
+    // daher explizit den Opt-out setzen (Wert 'false').
+    localStorage.setItem('arasul_workspace_shell', 'false');
     // useApi contract: every method returns a Promise. Components call e.g.
     // api.post('/auth/refresh-cookie').catch(...) on mount (DashboardHome),
     // so bare vi.fn() mocks (returning undefined) would crash the route.

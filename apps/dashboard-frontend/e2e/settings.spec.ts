@@ -18,6 +18,15 @@ const TOP_LEVEL_TABS = ['Allgemein', 'KI', 'Sicherheit', 'Datenschutz', 'System'
 
 test.describe('Settings', () => {
   test.beforeEach(async ({ page }) => {
+    // Workspace-Shell ist Default (Schritt 10) — diese Legacy-Spec erwartet die
+    // klassische Sidebar-UI auf '/', daher explizit den Opt-out setzen.
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem('arasul_workspace_shell', 'false');
+      } catch {
+        /* localStorage nicht verfügbar */
+      }
+    });
     await page.goto('/');
     await page.fill('input[name="username"], input[type="text"]', ADMIN_USER);
     await page.fill('input[type="password"]', ADMIN_PASS);

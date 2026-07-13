@@ -12,9 +12,10 @@ import { test, expect, type Page } from '@playwright/test';
  *    Test den Geräte-Zustand nicht verändert)
  *
  * Läuft wie die übrigen Specs gegen E2E_BASE_URL (deployter Stack, kein
- * lokaler Dev-Server). Die Shell ist Opt-in (localStorage-Flag
- * `arasul_workspace_shell`) — die Tests betreten sie explizit über
- * /workspace, der frische Browser-Context bleibt davon unberührt.
+ * lokaler Dev-Server). Die Shell ist seit Schritt 10 die Standard-UI (Default
+ * an); das localStorage-Flag `arasul_workspace_shell` dient nur noch dem
+ * Opt-out ('false'). Diese Tests betreten die Shell explizit über /workspace
+ * und lassen den Default unangetastet.
  */
 
 const ADMIN_USER = process.env.E2E_ADMIN_USER || 'admin';
