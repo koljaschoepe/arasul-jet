@@ -183,12 +183,12 @@ export default function WorkspaceShell(props: TabThemeControls) {
           <Separator
             aria-hidden={!sidebarVisible}
             data-shell-hidden={sidebarVisible ? 'false' : 'true'}
-            className="w-[3px] bg-transparent transition-colors hover:bg-primary/50"
+            className="w-[3px] bg-border transition-colors hover:bg-primary/50"
           />
           <Panel id="main" minSize="30%">
             <div className="flex h-full min-w-0 flex-col">
               <TabBar />
-              <div className="min-h-0 flex-1 overflow-hidden rounded-tl-md bg-card">
+              <div className="min-h-0 flex-1 overflow-hidden rounded-tl-md bg-background">
                 <TabContent themeControls={props} />
               </div>
             </div>
@@ -196,7 +196,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
           <Separator
             aria-hidden={!rightVisible}
             data-shell-hidden={rightVisible ? 'false' : 'true'}
-            className="w-[3px] bg-transparent transition-colors hover:bg-primary/50"
+            className="w-[3px] bg-border transition-colors hover:bg-primary/50"
           />
           <Panel
             id="llm"

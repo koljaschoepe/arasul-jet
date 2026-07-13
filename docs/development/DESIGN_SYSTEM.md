@@ -40,9 +40,23 @@ mit **einem gedämpften Akzent** — nach dem Cursor-Prinzip: Flächentrennung �
 zwei Hintergrundstufen, EINE Border-Farbe mit niedriger Alpha, Hover/Selection
 als neutrale Alphas, Akzent nur für Primäraktionen/Aktivzustände.
 
-- **Neutrale Flächen** → zwei Hintergrundstufen (Chrome vs. Fläche/Editor)
+- **Neutrale Flächen** → Grundflächen (Chrome, Editor/Inhalt, Sidebar, Panels)
+  teilen sich **eine** Flächenfarbe; `--card` bleibt den erhabenen Elementen
+  darauf vorbehalten
 - **Graustufen/Alphas** → Text-Hierarchie, Borders, Hover
 - **Akzent** → Schwarz/Dunkel: Graublau `#81A1C1`; Hell: entschärftes Arasul-Blau `#2D8FD9`
+
+> **Regel „eine Flächenfarbe" (Plan 003 · Cursor-Shell 3.1):** Grundflächen =
+> `--background` (`bg-background`), erhabene Elemente = `--card` (`bg-card`).
+> Jede großflächige Grundfläche einer Workspace-gehosteten Ansicht (Editor-
+> Mitte, Sidebar, rechtes Panel, Dashboard, Extensions/Store inkl. Detailseite,
+> Telegram, Datenbank, n8n-Wrapper, Chat, Terminal, Explorer) trägt denselben
+> Hintergrund `bg-background`; Trennung zwischen Flächen erfolgt **nur** über
+> Borders (`bg-border`/`border-border`), nicht über eine zweite Flächenfarbe.
+> `--card` ist reserviert für _erhabene_ Elemente **innerhalb** einer Fläche:
+> Karten/Kacheln (StatCards, Model-/Bot-Cards), Popover/Menüs/Dialoge/Overlays,
+> Chips, Eingabefelder und Tabellen-Kopfzeilen. Der aktive Tab teilt die
+> Flächenfarbe des Editors und hebt sich nur über Schriftstärke ab.
 
 ---
 
