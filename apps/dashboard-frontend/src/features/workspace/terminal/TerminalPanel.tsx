@@ -21,8 +21,11 @@ const SandboxApp = lazy(() => import('@/features/sandbox'));
  * verstecktem Container misst 0×0).
  */
 export function TerminalPanel() {
-  const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
-  const toggleTerminal = useWorkspaceStore(s => s.toggleTerminal);
+  const terminalVisible = useWorkspaceStore(
+    s => s.rightPanelVisible && s.rightPanelMode === 'terminal'
+  );
+  // Das rechte Panel ausblenden (der X-Button lebt nur im sichtbaren Terminal).
+  const toggleTerminal = useWorkspaceStore(s => s.toggleRightPanel);
 
   // Mount-once: erst beim ersten Einblenden laden, danach am Leben halten.
   const [mounted, setMounted] = useState(terminalVisible);

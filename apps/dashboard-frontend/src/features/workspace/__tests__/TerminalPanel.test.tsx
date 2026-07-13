@@ -44,8 +44,10 @@ function resetStore(terminalVisible: boolean) {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
-    terminalVisible,
-    chatVisible: true,
+    // Terminal ist im v4-Panel sichtbar, wenn das Panel offen ist UND im
+    // Terminal-Modus steht — Modus fix, Sichtbarkeit steuert den Toggle.
+    rightPanelVisible: terminalVisible,
+    rightPanelMode: 'terminal',
     terminalSessions: [],
     activeTerminalSessionId: null,
     chatScope: null,
@@ -66,7 +68,7 @@ describe('TerminalPanel Keep-alive', () => {
     expect(mountLog.mounts).toBe(0);
 
     act(() => {
-      useWorkspaceStore.setState({ terminalVisible: true });
+      useWorkspaceStore.setState({ rightPanelVisible: true });
     });
     expect(await screen.findByTestId('mock-sandbox-app')).toBeInTheDocument();
     expect(mountLog.mounts).toBe(1);
@@ -80,7 +82,7 @@ describe('TerminalPanel Keep-alive', () => {
 
     // Panel ausblenden: SandboxApp bleibt gemountet, bekommt nur visible=false
     act(() => {
-      useWorkspaceStore.setState({ terminalVisible: false });
+      useWorkspaceStore.setState({ rightPanelVisible: false });
     });
     expect(screen.getByTestId('mock-sandbox-app')).toBeInTheDocument();
     expect(screen.getByTestId('mock-sandbox-app').dataset.visible).toBe('false');
@@ -88,7 +90,7 @@ describe('TerminalPanel Keep-alive', () => {
 
     // Wieder einblenden: kein Remount (kein zweiter Mount-Effekt)
     act(() => {
-      useWorkspaceStore.setState({ terminalVisible: true });
+      useWorkspaceStore.setState({ rightPanelVisible: true });
     });
     expect(mountLog.mounts).toBe(mountsAfterFirstShow);
     expect(screen.getByTestId('mock-sandbox-app').dataset.visible).toBe('true');

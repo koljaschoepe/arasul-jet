@@ -85,14 +85,22 @@ const APP_SHORTCUTS: Array<{
  */
 export function ActivityBar() {
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
-  const chatVisible = useWorkspaceStore(s => s.chatVisible);
-  const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
+  const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
+  const rightPanelMode = useWorkspaceStore(s => s.rightPanelMode);
   const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
-  const toggleChat = useWorkspaceStore(s => s.toggleChat);
-  const toggleTerminal = useWorkspaceStore(s => s.toggleTerminal);
+  const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
+  const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
   const openTab = useWorkspaceStore(s => s.openTab);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const { isAppEnabled } = useWorkspaceApps();
+
+  // Abgeleitet aus dem einen rechten Panel (Sichtbarkeit + Modus). Ein Klick
+  // im schon aktiven Modus blendet das Panel aus, sonst wird der Modus gewählt.
+  const chatVisible = rightPanelVisible && rightPanelMode === 'chat';
+  const terminalVisible = rightPanelVisible && rightPanelMode === 'terminal';
+  const toggleChat = () => (chatVisible ? toggleRightPanel() : setRightPanelMode('chat'));
+  const toggleTerminal = () =>
+    terminalVisible ? toggleRightPanel() : setRightPanelMode('terminal');
 
   const shortcuts = [...BASE_SHORTCUTS, ...APP_SHORTCUTS.filter(s => isAppEnabled(s.appId))];
 

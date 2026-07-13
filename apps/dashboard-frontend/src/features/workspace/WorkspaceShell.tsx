@@ -49,8 +49,12 @@ export default function WorkspaceShell(props: TabThemeControls) {
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
-  const chatVisible = useWorkspaceStore(s => s.chatVisible);
-  const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
+  const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
+  const rightPanelMode = useWorkspaceStore(s => s.rightPanelMode);
+  // Aus dem einen Panel (Sichtbarkeit + Modus) die beiden Keep-alive-Flächen
+  // ableiten — der finale UI-Umbau des rechten Panels folgt in Stufe 4/5.
+  const chatVisible = rightPanelVisible && rightPanelMode === 'chat';
+  const terminalVisible = rightPanelVisible && rightPanelMode === 'terminal';
   const { isTabTypeEnabled } = useWorkspaceApps();
 
   // URL → Store: Deep-Links und Browser-Zurück aktivieren/öffnen den Tab
@@ -61,7 +65,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
     // einblenden (gleiche Semantik wie die TerminalPanelBridge in TabContent);
     // die URL normalisiert der Store→URL-Effekt auf den aktiven Tab.
     if (subPath.split('/').filter(Boolean)[0] === 'terminal') {
-      useWorkspaceStore.setState({ terminalVisible: true });
+      useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
       if (useWorkspaceStore.getState().tabs.length === 0) {
         openTab({ type: 'dashboard' });
       }

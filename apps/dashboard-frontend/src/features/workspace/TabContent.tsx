@@ -41,7 +41,7 @@ interface TabContentProps {
 function ChatPanelBridge({ resetTo }: { resetTo: string }) {
   const navigate = useNavigate();
   useEffect(() => {
-    useWorkspaceStore.setState({ chatVisible: true });
+    useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'chat' });
     navigate(resetTo, { replace: true });
   }, []);
   return null;
@@ -54,7 +54,7 @@ function ChatPanelBridge({ resetTo }: { resetTo: string }) {
 function TerminalPanelBridge({ resetTo }: { resetTo: string }) {
   const navigate = useNavigate();
   useEffect(() => {
-    useWorkspaceStore.setState({ terminalVisible: true });
+    useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
     navigate(resetTo, { replace: true });
   }, []);
   return null;

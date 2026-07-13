@@ -87,13 +87,21 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
   const { theme, setTheme } = useTheme();
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
-  const chatVisible = useWorkspaceStore(s => s.chatVisible);
-  const terminalVisible = useWorkspaceStore(s => s.terminalVisible);
+  const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
+  const rightPanelMode = useWorkspaceStore(s => s.rightPanelMode);
   const toggleSidebar = useWorkspaceStore(s => s.toggleSidebar);
-  const toggleChat = useWorkspaceStore(s => s.toggleChat);
-  const toggleTerminal = useWorkspaceStore(s => s.toggleTerminal);
+  const toggleRightPanel = useWorkspaceStore(s => s.toggleRightPanel);
+  const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
   const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
+
+  // Abgeleitet aus dem einen rechten Panel — ein Klick im schon aktiven Modus
+  // blendet das Panel aus, sonst wird der Modus gewählt (finaler Umbau: Stufe 4/5).
+  const chatVisible = rightPanelVisible && rightPanelMode === 'chat';
+  const terminalVisible = rightPanelVisible && rightPanelMode === 'terminal';
+  const toggleChat = () => (chatVisible ? toggleRightPanel() : setRightPanelMode('chat'));
+  const toggleTerminal = () =>
+    terminalVisible ? toggleRightPanel() : setRightPanelMode('terminal');
 
   return (
     <header
@@ -113,7 +121,7 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
             <FolderKanban className="h-4 w-4" aria-hidden="true" />
             Neues Projekt…
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => useWorkspaceStore.setState({ terminalVisible: true })}>
+          <DropdownMenuItem onClick={() => setRightPanelMode('terminal')}>
             <SquareTerminal className="h-4 w-4" aria-hidden="true" />
             Neue Terminal-Umgebung…
           </DropdownMenuItem>

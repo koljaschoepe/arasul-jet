@@ -151,8 +151,8 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
-    terminalVisible: false,
-    chatVisible: true,
+    rightPanelVisible: false,
+    rightPanelMode: 'chat',
     terminalSessions: [],
     activeTerminalSessionId: null,
     chatScope: null,
@@ -188,7 +188,8 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
         { id: 'p2', projectId: 'p2', title: 'Projekt Zwei' },
       ],
       activeTerminalSessionId: 'p1',
-      terminalVisible: true,
+      rightPanelVisible: true,
+      rightPanelMode: 'terminal',
     });
 
     const { rerender } = render(<SandboxApp visible />);
@@ -238,7 +239,8 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
     useWorkspaceStore.setState({
       terminalSessions: [{ id: 'p1', projectId: 'p1', title: 'Projekt Eins' }],
       activeTerminalSessionId: 'p1',
-      terminalVisible: true,
+      rightPanelVisible: true,
+      rightPanelMode: 'terminal',
     });
     // Nach dem Start-POST liefert die API den Container als 'running'
     apiMock.post.mockImplementationOnce(async () => {
@@ -278,7 +280,8 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
     // Registry ist jetzt die Quelle der Wahrheit — Legacy-Key entfernt,
     // Terminal-Panel eingeblendet, genau 1 Socket
     expect(localStorage.getItem('sandbox-open-tabs')).toBeNull();
-    expect(useWorkspaceStore.getState().terminalVisible).toBe(true);
+    expect(useWorkspaceStore.getState().rightPanelVisible).toBe(true);
+    expect(useWorkspaceStore.getState().rightPanelMode).toBe('terminal');
     await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(1));
   });
 
@@ -287,7 +290,8 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
     useWorkspaceStore.setState({
       terminalSessions: [{ id: 'p1', projectId: 'p1', title: 'Projekt Eins' }],
       activeTerminalSessionId: 'p1',
-      terminalVisible: true,
+      rightPanelVisible: true,
+      rightPanelMode: 'terminal',
     });
 
     const { rerender } = render(<SandboxApp visible />);

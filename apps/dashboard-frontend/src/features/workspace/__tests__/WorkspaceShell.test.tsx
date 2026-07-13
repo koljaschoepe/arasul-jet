@@ -48,13 +48,19 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
-    terminalVisible: false,
-    chatVisible: true,
+    rightPanelVisible: true,
+    rightPanelMode: 'chat',
     terminalSessions: [],
     activeTerminalSessionId: null,
     chatScope: null,
     explorerRequest: null,
   });
+}
+
+/** Terminal ist sichtbar, wenn das rechte Panel offen ist und im Terminal-Modus steht. */
+function terminalIsVisible() {
+  const s = useWorkspaceStore.getState();
+  return s.rightPanelVisible && s.rightPanelMode === 'terminal';
 }
 
 function LocationProbe() {
@@ -93,7 +99,7 @@ describe('WorkspaceShell — URL-Sync', () => {
 
     renderShell('/workspace/terminal');
 
-    await waitFor(() => expect(useWorkspaceStore.getState().terminalVisible).toBe(true));
+    await waitFor(() => expect(terminalIsVisible()).toBe(true));
     // Kein Terminal-Tab, bestehende Tabs unverändert
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard']);
     // URL normalisiert sich auf den aktiven Tab
@@ -105,7 +111,7 @@ describe('WorkspaceShell — URL-Sync', () => {
   it('v2-Deep-Link /workspace/terminal beim ersten Start: Dashboard-Tab + Terminal-Panel', async () => {
     renderShell('/workspace/terminal');
 
-    await waitFor(() => expect(useWorkspaceStore.getState().terminalVisible).toBe(true));
+    await waitFor(() => expect(terminalIsVisible()).toBe(true));
     await waitFor(() =>
       expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toEqual(['dashboard'])
     );
@@ -173,13 +179,13 @@ describe('WorkspaceShell — URL-Sync', () => {
     expect(panelRoot).toHaveAttribute('aria-hidden', 'true');
 
     act(() => {
-      useWorkspaceStore.setState({ terminalVisible: true });
+      useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
     });
     expect(terminalContent.closest('[data-panel]')).toHaveAttribute('data-shell-hidden', 'false');
     expect(terminalContent.closest('[data-panel]')).toHaveAttribute('aria-hidden', 'false');
     // Wieder ausblenden: derselbe Knoten (kein Remount), nur wieder versteckt
     act(() => {
-      useWorkspaceStore.setState({ terminalVisible: false });
+      useWorkspaceStore.setState({ rightPanelVisible: false });
     });
     expect(screen.getByTestId('mock-terminal-panel')).toBe(terminalContent);
     expect(terminalContent.closest('[data-panel]')).toHaveAttribute('data-shell-hidden', 'true');

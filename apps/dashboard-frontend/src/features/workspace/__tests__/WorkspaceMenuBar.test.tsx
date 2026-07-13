@@ -15,8 +15,8 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
-    terminalVisible: false,
-    chatVisible: true,
+    rightPanelVisible: true,
+    rightPanelMode: 'chat',
     chatScope: null,
     explorerRequest: null,
   });
@@ -65,21 +65,29 @@ describe('WorkspaceMenuBar', () => {
     render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
 
     const sidebar = screen.getByLabelText('Sidebar ausblenden');
-    const terminal = screen.getByLabelText('Terminal-Panel einblenden');
-    const chat = screen.getByLabelText('Chat-Panel ausblenden');
-
+    // Default: Sidebar an, Chat sichtbar (Chat-Modus), Terminal aus
     expect(sidebar).toHaveAttribute('aria-pressed', 'true');
-    expect(terminal).toHaveAttribute('aria-pressed', 'false');
-    expect(chat).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Terminal-Panel einblenden')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    expect(screen.getByLabelText('Chat-Panel ausblenden')).toHaveAttribute('aria-pressed', 'true');
 
     fireEvent.click(sidebar);
-    fireEvent.click(terminal);
-    fireEvent.click(chat);
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
 
-    const state = useWorkspaceStore.getState();
-    expect(state.sidebarVisible).toBe(false);
-    expect(state.terminalVisible).toBe(true);
-    expect(state.chatVisible).toBe(false);
+    // Chat und Terminal teilen sich EIN Panel — der Terminal-Toggle schaltet
+    // den Modus um (nicht eine zweite Fläche ein).
+    fireEvent.click(screen.getByLabelText('Terminal-Panel einblenden'));
+    let state = useWorkspaceStore.getState();
+    expect(state.rightPanelVisible).toBe(true);
+    expect(state.rightPanelMode).toBe('terminal');
+
+    // Zurück in den Chat-Modus (Label ist nun »einblenden«, da Chat versteckt).
+    fireEvent.click(screen.getByLabelText('Chat-Panel einblenden'));
+    state = useWorkspaceStore.getState();
+    expect(state.rightPanelVisible).toBe(true);
+    expect(state.rightPanelMode).toBe('chat');
   });
 
   it('Ansicht-Menü enthält keine Panel-Toggles mehr (nur Design)', async () => {

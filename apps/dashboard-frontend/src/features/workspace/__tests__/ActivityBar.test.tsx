@@ -19,8 +19,8 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
-    terminalVisible: false,
-    chatVisible: true,
+    rightPanelVisible: true,
+    rightPanelMode: 'chat',
     terminalSessions: [],
     activeTerminalSessionId: null,
     chatScope: null,
@@ -79,17 +79,19 @@ describe('ActivityBar', () => {
     fireEvent.click(screen.getByLabelText('Terminal einblenden'));
 
     const state = useWorkspaceStore.getState();
-    expect(state.terminalVisible).toBe(true);
+    expect(state.rightPanelVisible).toBe(true);
+    expect(state.rightPanelMode).toBe('terminal');
     expect(state.tabs).toHaveLength(0);
 
     fireEvent.click(screen.getByLabelText('Terminal ausblenden'));
-    expect(useWorkspaceStore.getState().terminalVisible).toBe(false);
+    expect(useWorkspaceStore.getState().rightPanelVisible).toBe(false);
   });
 
   it('Chats-Eintrag toggelt das Chat-Panel', () => {
     render(<ActivityBar />);
+    // Chat ist Default-Modus + sichtbar → Klick blendet das rechte Panel aus
     fireEvent.click(screen.getByLabelText('Chats ausblenden'));
-    expect(useWorkspaceStore.getState().chatVisible).toBe(false);
+    expect(useWorkspaceStore.getState().rightPanelVisible).toBe(false);
     expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
   });
 

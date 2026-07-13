@@ -6,8 +6,8 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     sidebarVisible: true,
-    terminalVisible: false,
-    chatVisible: true,
+    rightPanelVisible: true,
+    rightPanelMode: 'chat',
     terminalSessions: [],
     activeTerminalSessionId: null,
     chatScope: null,
@@ -96,7 +96,7 @@ describe('workspaceStore — Tabs', () => {
     const raw = localStorage.getItem('arasul_workspace');
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw ?? '{}');
-    expect(parsed.version).toBe(3);
+    expect(parsed.version).toBe(4);
     expect(parsed.state.tabs).toHaveLength(1);
     expect(parsed.state.activeTabId).toBe('dashboard');
     // chatScope ist ephemer und wird nicht persistiert
@@ -104,53 +104,77 @@ describe('workspaceStore — Tabs', () => {
   });
 });
 
-describe('workspaceStore — drei unabhängige Flächen', () => {
+describe('workspaceStore — Sidebar + rechtes Panel (Sichtbarkeit + Modus)', () => {
   beforeEach(resetStore);
 
-  it('Defaults: Sidebar an, Chat an, Terminal aus', () => {
+  it('Defaults: Sidebar an, rechtes Panel sichtbar im Chat-Modus', () => {
     const s = useWorkspaceStore.getState();
     expect(s.sidebarVisible).toBe(true);
-    expect(s.chatVisible).toBe(true);
-    expect(s.terminalVisible).toBe(false);
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('chat');
   });
 
-  it('Toggles wirken unabhängig voneinander', () => {
-    useWorkspaceStore.getState().toggleTerminal();
+  it('setRightPanelMode wechselt den Modus und blendet das Panel ein', () => {
+    // Panel zuerst ausblenden, dann per Modus-Wahl wieder einblenden
+    useWorkspaceStore.getState().toggleRightPanel();
+    expect(useWorkspaceStore.getState().rightPanelVisible).toBe(false);
+
+    useWorkspaceStore.getState().setRightPanelMode('terminal');
     let s = useWorkspaceStore.getState();
-    expect(s.terminalVisible).toBe(true);
-    expect(s.chatVisible).toBe(true);
-    expect(s.sidebarVisible).toBe(true);
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('terminal');
 
-    useWorkspaceStore.getState().toggleChat();
-    useWorkspaceStore.getState().toggleSidebar();
+    useWorkspaceStore.getState().setRightPanelMode('chat');
     s = useWorkspaceStore.getState();
-    expect(s.terminalVisible).toBe(true);
-    expect(s.chatVisible).toBe(false);
-    expect(s.sidebarVisible).toBe(false);
-
-    useWorkspaceStore.getState().toggleTerminal();
-    expect(useWorkspaceStore.getState().terminalVisible).toBe(false);
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('chat');
   });
 
-  it('persistiert die drei Flächen in localStorage', () => {
-    useWorkspaceStore.getState().toggleTerminal();
-    useWorkspaceStore.getState().toggleChat();
+  it('toggleRightPanel schaltet nur die Sichtbarkeit, Modus bleibt erhalten', () => {
+    useWorkspaceStore.getState().setRightPanelMode('terminal');
+    useWorkspaceStore.getState().toggleRightPanel();
+    let s = useWorkspaceStore.getState();
+    expect(s.rightPanelVisible).toBe(false);
+    expect(s.rightPanelMode).toBe('terminal');
+
+    useWorkspaceStore.getState().toggleRightPanel();
+    s = useWorkspaceStore.getState();
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('terminal');
+  });
+
+  it('toggleSidebar wirkt unabhängig vom rechten Panel', () => {
+    useWorkspaceStore.getState().setRightPanelMode('terminal');
+    useWorkspaceStore.getState().toggleSidebar();
+    const s = useWorkspaceStore.getState();
+    expect(s.sidebarVisible).toBe(false);
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('terminal');
+  });
+
+  it('persistiert Sichtbarkeit + Modus des rechten Panels in localStorage', () => {
+    useWorkspaceStore.getState().setRightPanelMode('terminal');
+    useWorkspaceStore.getState().toggleRightPanel();
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
-    expect(parsed.state.terminalVisible).toBe(true);
-    expect(parsed.state.chatVisible).toBe(false);
+    expect(parsed.state.rightPanelVisible).toBe(false);
+    expect(parsed.state.rightPanelMode).toBe('terminal');
     expect(parsed.state.sidebarVisible).toBe(true);
   });
 
-  it('setChatScope blendet das Chat-Panel ein', () => {
-    useWorkspaceStore.setState({ chatVisible: false });
+  it('setChatScope blendet das Chat-Panel ein (Sichtbarkeit + Chat-Modus)', () => {
+    // Panel im Terminal-Modus versteckt → Scope setzen schaltet auf Chat + zeigt
+    useWorkspaceStore.setState({ rightPanelVisible: false, rightPanelMode: 'terminal' });
     useWorkspaceStore.getState().setChatScope({ spaceIds: ['a'], label: 'Ordner' });
-    const state = useWorkspaceStore.getState();
-    expect(state.chatVisible).toBe(true);
+    let state = useWorkspaceStore.getState();
+    expect(state.rightPanelVisible).toBe(true);
+    expect(state.rightPanelMode).toBe('chat');
     expect(state.chatScope?.spaceIds).toEqual(['a']);
     useWorkspaceStore.getState().setChatScope(null);
-    expect(useWorkspaceStore.getState().chatScope).toBeNull();
+    state = useWorkspaceStore.getState();
+    expect(state.chatScope).toBeNull();
     // Panel bleibt sichtbar — Scope aufheben blendet nichts aus
-    expect(useWorkspaceStore.getState().chatVisible).toBe(true);
+    expect(state.rightPanelVisible).toBe(true);
+    expect(state.rightPanelMode).toBe('chat');
   });
 
   it('requestExplorerAction blendet die Sidebar ein und clearExplorerRequest räumt auf', () => {
@@ -176,7 +200,8 @@ describe('workspaceStore — Terminal-Session-Registry', () => {
     const s = useWorkspaceStore.getState();
     expect(s.terminalSessions).toHaveLength(1);
     expect(s.activeTerminalSessionId).toBe('p1');
-    expect(s.terminalVisible).toBe(true);
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('terminal');
   });
 
   it('dedupliziert Sessions über die Id und aktiviert die bestehende', () => {
@@ -228,7 +253,7 @@ describe('workspaceStore — Terminal-Session-Registry', () => {
   });
 });
 
-describe('workspaceStore — Migration v2 → v3', () => {
+describe('workspaceStore — Migration v2 → v4', () => {
   beforeEach(resetStore);
 
   /** Echter v2-Persist-Stand (Terminal als Mitte-Tab, rechtes Panel im Terminal-Modus). */
@@ -267,12 +292,14 @@ describe('workspaceStore — Migration v2 → v3', () => {
     await useWorkspaceStore.persist.rehydrate();
   }
 
-  it('mappt llmPanelMode=terminal → terminalVisible und entfernt sandbox-Tabs', async () => {
+  it('mappt llmPanelMode=terminal → rightPanel sichtbar im Terminal-Modus und entfernt sandbox-Tabs', async () => {
     await rehydrateFrom(V2_TERMINAL_MODE);
     const s = useWorkspaceStore.getState();
     expect(s.sidebarVisible).toBe(false); // explorerVisible → sidebarVisible
-    expect(s.chatVisible).toBe(true); // llmVisible → chatVisible
-    expect(s.terminalVisible).toBe(true); // llmPanelMode === 'terminal'
+    // llmVisible=true → sichtbar; letzter Modus terminal + chat aktiv → 'chat'
+    // (v3-Zwischenbild: chatVisible=true, terminalVisible=true → visible, mode chat)
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('chat');
     expect(s.tabs.map(t => t.id)).toEqual(['dashboard', 'document:42']);
     // aktiver Tab war der entfernte sandbox-Tab → Fallback auf ersten Tab
     expect(s.activeTabId).toBe('dashboard');
@@ -280,9 +307,9 @@ describe('workspaceStore — Migration v2 → v3', () => {
     expect(s.activeTerminalSessionId).toBeNull();
   });
 
-  it('llmVisible=false + llmPanelMode=terminal → Terminal-Panel bleibt zu (Panel-Zustand erhalten)', async () => {
+  it('llmVisible=false → rechtes Panel bleibt zu (Panel-Zustand erhalten)', async () => {
     // v2: rechtes Panel bewusst ausgeblendet, letzter Modus war Terminal —
-    // nach dem Update darf sich das Terminal-Panel NICHT ungefragt öffnen.
+    // nach dem Update darf sich das rechte Panel NICHT ungefragt öffnen.
     await rehydrateFrom({
       state: {
         tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
@@ -294,30 +321,33 @@ describe('workspaceStore — Migration v2 → v3', () => {
       version: 2,
     });
     const s = useWorkspaceStore.getState();
-    expect(s.terminalVisible).toBe(false);
-    expect(s.chatVisible).toBe(false);
+    expect(s.rightPanelVisible).toBe(false);
     expect(s.sidebarVisible).toBe(true);
   });
 
-  it('mappt llmPanelMode=chat → terminalVisible=false und erhält Tabs + aktiven Tab', async () => {
+  it('mappt llmVisible=false/Chat-Modus → Panel zu und erhält Tabs + aktiven Tab', async () => {
     await rehydrateFrom(V2_CHAT_MODE);
     const s = useWorkspaceStore.getState();
     expect(s.sidebarVisible).toBe(true);
-    expect(s.chatVisible).toBe(false);
-    expect(s.terminalVisible).toBe(false);
+    expect(s.rightPanelVisible).toBe(false);
+    expect(s.rightPanelMode).toBe('chat');
     expect(s.tabs.map(t => t.id)).toEqual(['store', 'database-table:users']);
     expect(s.activeTabId).toBe('database-table:users');
   });
 
-  it('schreibt den migrierten Stand als version 3 zurück', async () => {
+  it('schreibt den migrierten Stand als version 4 zurück (Alt-Felder weg)', async () => {
     await rehydrateFrom(V2_TERMINAL_MODE);
     // Ein Write triggert die Persistierung des migrierten Stands
     useWorkspaceStore.getState().toggleSidebar();
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
-    expect(parsed.version).toBe(3);
+    expect(parsed.version).toBe(4);
+    expect(parsed.state.rightPanelVisible).toBe(true);
+    expect(parsed.state.rightPanelMode).toBe('chat');
     expect(parsed.state.llmPanelMode).toBeUndefined();
     expect(parsed.state.explorerVisible).toBeUndefined();
     expect(parsed.state.llmVisible).toBeUndefined();
+    expect(parsed.state.chatVisible).toBeUndefined();
+    expect(parsed.state.terminalVisible).toBeUndefined();
   });
 
   it('filtert auch unbekannte Tab-Typen (defensiv)', async () => {
@@ -337,6 +367,99 @@ describe('workspaceStore — Migration v2 → v3', () => {
     const s = useWorkspaceStore.getState();
     expect(s.tabs.map(t => t.id)).toEqual(['settings']);
     expect(s.activeTabId).toBe('settings');
+  });
+});
+
+describe('workspaceStore — Migration v3 → v4', () => {
+  beforeEach(resetStore);
+
+  async function rehydrateFrom(persisted: unknown) {
+    localStorage.setItem('arasul_workspace', JSON.stringify(persisted));
+    await useWorkspaceStore.persist.rehydrate();
+  }
+
+  /** v3: nur Terminal sichtbar → rechtes Panel sichtbar im Terminal-Modus. */
+  it('terminalVisible=true, chatVisible=false → visible + Terminal-Modus', async () => {
+    await rehydrateFrom({
+      state: {
+        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
+        activeTabId: 'dashboard',
+        sidebarVisible: true,
+        chatVisible: false,
+        terminalVisible: true,
+        terminalSessions: [{ id: 'p1', projectId: 'p1', title: 'proj' }],
+        activeTerminalSessionId: 'p1',
+      },
+      version: 3,
+    });
+    const s = useWorkspaceStore.getState();
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('terminal');
+    expect(s.sidebarVisible).toBe(true);
+    // Session-Registry überlebt die Migration
+    expect(s.terminalSessions).toEqual([{ id: 'p1', projectId: 'p1', title: 'proj' }]);
+    expect(s.activeTerminalSessionId).toBe('p1');
+  });
+
+  /** v3: beide sichtbar → visible, Modus fällt auf Chat zurück. */
+  it('chatVisible=true, terminalVisible=true → visible + Chat-Modus (Vorrang Chat)', async () => {
+    await rehydrateFrom({
+      state: {
+        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
+        activeTabId: 'dashboard',
+        sidebarVisible: false,
+        chatVisible: true,
+        terminalVisible: true,
+        terminalSessions: [],
+        activeTerminalSessionId: null,
+      },
+      version: 3,
+    });
+    const s = useWorkspaceStore.getState();
+    expect(s.rightPanelVisible).toBe(true);
+    expect(s.rightPanelMode).toBe('chat');
+    expect(s.sidebarVisible).toBe(false);
+  });
+
+  /** v3: beide aus → rechtes Panel bleibt zu, Modus Chat (Default). */
+  it('chatVisible=false, terminalVisible=false → Panel zu', async () => {
+    await rehydrateFrom({
+      state: {
+        tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
+        activeTabId: 'settings',
+        sidebarVisible: true,
+        chatVisible: false,
+        terminalVisible: false,
+        terminalSessions: [],
+        activeTerminalSessionId: null,
+      },
+      version: 3,
+    });
+    const s = useWorkspaceStore.getState();
+    expect(s.rightPanelVisible).toBe(false);
+    expect(s.rightPanelMode).toBe('chat');
+  });
+
+  it('schreibt den migrierten v3-Stand als version 4 zurück (v3-Felder weg)', async () => {
+    await rehydrateFrom({
+      state: {
+        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
+        activeTabId: 'dashboard',
+        sidebarVisible: true,
+        chatVisible: false,
+        terminalVisible: true,
+        terminalSessions: [],
+        activeTerminalSessionId: null,
+      },
+      version: 3,
+    });
+    useWorkspaceStore.getState().toggleSidebar();
+    const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
+    expect(parsed.version).toBe(4);
+    expect(parsed.state.rightPanelVisible).toBe(true);
+    expect(parsed.state.rightPanelMode).toBe('terminal');
+    expect(parsed.state.chatVisible).toBeUndefined();
+    expect(parsed.state.terminalVisible).toBeUndefined();
   });
 });
 

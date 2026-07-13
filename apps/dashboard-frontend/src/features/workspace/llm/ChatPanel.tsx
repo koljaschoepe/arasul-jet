@@ -11,7 +11,8 @@ import AgentChatPanel from './agentChat/AgentChatPanel';
  * Toggle überleben.
  */
 export function ChatPanel() {
-  const toggleChat = useWorkspaceStore(s => s.toggleChat);
+  // Das rechte Panel ausblenden (der X-Button lebt nur im sichtbaren Chat).
+  const toggleChat = useWorkspaceStore(s => s.toggleRightPanel);
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background" data-testid="workspace-chat-panel">
