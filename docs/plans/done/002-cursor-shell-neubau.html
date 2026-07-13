@@ -34,16 +34,16 @@
   "slug": "cursor-shell-neubau",
   "title": "Cursor-Shell 3.0 — Neubau der Workspace-Shell",
   "type": "feat",
-  "status": "approved",
+  "status": "done",
   "priority": "P1",
   "risk_level": 3,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-07-13",
   "approved": "2026-07-13",
-  "branch": null,
-  "pr": null,
-  "verified_on_device": false
+  "branch": "feat/002-cursor-shell-neubau",
+  "pr": 196,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -502,47 +502,47 @@
   </summary>
   <div class="sbody">
   <p>Alle Schritte laufen auf dem Branch <code>feat/002-cursor-shell-neubau</code>; <code>main</code> bleibt bis zum Merge unberührt. Nach jedem Schritt sind Build und Tests auf dem Branch grün.</p>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Zentraler Layout-/Session-Store (v3)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Zentraler Layout-/Session-Store (v3)">
     <h3>Schritt 1 — Zentraler Layout-/Session-Store (v3) <span class="tag">Risiko: mittel</span></h3>
     <p>Der Workspace-Store wird neu geschnitten: drei unabhängige Flächen (Sidebar, Terminal-Panel, Chat-Panel), Tab-Leiste mit Reihenfolge + aktivem Tab, Terminal-/Chat-Session-Registry. Persist-Migration v2 → v3, damit bestehende Nutzer offene Tabs und Panel-Zustände behalten. Neuer Unit-Test mit echten v2-Daten.</p>
     <p class="files mono">apps/dashboard-frontend/src/stores/workspaceStore.ts · neu: src/stores/__tests__/workspaceStore.test.ts</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Shell-Gerüst neu (Raster, Toggles, Statusleiste)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Shell-Gerüst neu (Raster, Toggles, Statusleiste)">
     <h3>Schritt 2 — Shell-Gerüst neu (Raster, Toggles, Statusleiste) <span class="tag">Risiko: hoch</span></h3>
     <p>WorkspaceShell nach Cursor-Raster: Activity Bar · Sidebar · Mitte · rechtes Panel · Statusleiste. Drei Layout-Toggles oben rechts neben ⚙ (mit Tooltips), der Chat-Toggle unten links wird entfernt. Panel-Breiten weiter über react-resizable-panels persistiert.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/workspace/{WorkspaceShell,WorkspaceMenuBar,ActivityBar}.tsx · neu: StatusBar.tsx</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Terminal-Konsolidierung (ein Mount)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Terminal-Konsolidierung (ein Mount)">
     <h3>Schritt 3 — Terminal-Konsolidierung (ein Mount) <span class="tag">Risiko: hoch</span></h3>
     <p>Die Terminal-App wird ausschließlich im rechten Panel gemountet; der Tab-Typ <code>sandbox</code> verlässt das Mitte-Tab-Universum. Keep-alive statt Unmount beim Toggeln, genau eine WebSocket-Verbindung pro Session, Terminal-Klick in der Activity Bar = Panel-Toggle. Dedup-Test beweist die Einzigkeit.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/workspace/TabContent.tsx · workspace/llm/LlmPanel.tsx · features/sandbox/{SandboxApp,SandboxTerminal,TerminalTabs}.tsx · features/sandbox/useTerminal.ts</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Extension-Gating n8n/Telegram">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Extension-Gating n8n/Telegram">
     <h3>Schritt 4 — Extension-Gating n8n/Telegram <span class="tag">Risiko: niedrig</span></h3>
     <p>n8n- und Telegram-Einträge in der Activity Bar erscheinen nur bei installierter + aktivierter Extension — über das bestehende <code>useWorkspaceApps()</code>/<code>platform_apps</code>-Gating (APP_MANIFEST im Backend erweitern statt neuer Schicht). Aktivieren/Deaktivieren wirkt ohne Reload.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/workspace/ActivityBar.tsx · src/hooks/useWorkspaceApps.ts · apps/dashboard-backend/src/routes/workspaceApps.js</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Globale Kompakt-Skala (Design-Tokens)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 5 — Globale Kompakt-Skala (Design-Tokens)">
     <h3>Schritt 5 — Globale Kompakt-Skala (Design-Tokens) <span class="tag">Risiko: niedrig</span></h3>
     <p>Dichte-Tokens im Tailwind-<code>@theme</code> (13-px-Basistext, 4/8/12/16-px-Abstände, Zeilenhöhen) als verbindliche Skala; bestehende Text-/Spacing-Tokens werden erweitert, nicht ersetzt. Dokumentation im Design-System.</p>
     <p class="files mono">apps/dashboard-frontend/src/index.css (@theme) · docs/development/DESIGN_SYSTEM.md</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Dashboard fluid (auto-fit-Grid)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 6 — Dashboard fluid (auto-fit-Grid)">
     <h3>Schritt 6 — Dashboard fluid (auto-fit-Grid) <span class="tag">Risiko: mittel</span></h3>
     <p>DashboardHome wechselt vom Legacy-CSS (<code>.dashboard-grid</code>/<code>.dashboard-card</code>, 8+ duplizierte Breakpoint-Blöcke) auf ein Tailwind-auto-fit-Grid in Kompakt-Dichte. Die Legacy-CSS-Blöcke werden vollständig entfernt. Kein Abschneiden, kein horizontales Scrollen — bei jeder Panel-Kombination.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/dashboard/DashboardHome.tsx · src/index.css (Legacy-Blöcke ~2231–3452 entfernen)</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Extensions als kompakte Liste">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 7 — Extensions als kompakte Liste">
     <h3>Schritt 7 — Extensions als kompakte Liste <span class="tag">Risiko: niedrig</span></h3>
     <p>Die Extensions-Ansicht (früherer Store) wird von 320-px-Karten auf kompakte Listenzeilen (~32 px: Icon, Name, Kurzbeschreibung, Install/Aktiv-Schalter) umgestellt; Details erst bei Klick.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/store/StoreApps.tsx</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Tests & e2e-Anpassung">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 8 — Tests & e2e-Anpassung">
     <h3>Schritt 8 — Tests &amp; e2e-Anpassung <span class="tag">Risiko: mittel</span></h3>
     <p>Bestehende Workspace-/Sandbox-Unit-Tests an die neue Struktur anpassen; die 9 e2e-Specs (Legacy-Routen) bleiben lauffähig, neue Playwright-Specs bilden die Matrix-Kernfälle ab (Panel-Kombinationen, Terminal-Toggle, Extension-Gating, Tab-Restore).</p>
     <p class="files mono">apps/dashboard-frontend/src/**/__tests__/ · apps/dashboard-frontend/e2e/*.spec.ts · neu: e2e/workspace-shell.spec.ts</p>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Docs-Sync + Aufräumen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 9 — Docs-Sync + Aufräumen">
     <h3>Schritt 9 — Docs-Sync + Aufräumen <span class="tag">Risiko: niedrig</span></h3>
     <p>Verwaiste Alt-Komponenten der Workspace-Shell löschen (kein toter Code im PR), Doku synchronisieren: Design-System (Kompakt-Skala), API-Referenz (falls Backend-Änderungen), Admin-Handbuch (neues Shell-Verhalten), Frontend-CLAUDE.md (Shell-Beschreibung).</p>
     <p class="files mono">docs/development/DESIGN_SYSTEM.md · docs/api/API_REFERENCE.md · docs/ops/ADMIN_HANDBUCH.md · apps/dashboard-frontend/CLAUDE.md</p>
@@ -558,18 +558,18 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Das Terminal erscheint ausschließlich im rechten Panel; der Terminal-Klick in der Activity Bar toggelt nur das Panel — ein Terminal-Tab in der Mitte existiert nicht mehr, auch nicht nach Reload.</li>
-    <li data-done="false">Pro Terminal-Session besteht genau eine WebSocket-Verbindung (Dedup-Unit-Test + Netzwerk-Check im Browser).</li>
-    <li data-done="false">Eine laufende Terminal-Session überlebt Panel-Toggle und Ansichtswechsel (laufender Prozess läuft sichtbar weiter).</li>
-    <li data-done="false">n8n und Telegram erscheinen links nur bei installierter + aktivierter Extension; Deaktivieren entfernt den Eintrag ohne Reload, Aktivieren fügt ihn ohne Reload hinzu.</li>
-    <li data-done="false">Der Chat-Toggle unten links existiert nicht mehr; drei Layout-Toggles oben rechts (Sidebar / Terminal / Chat) funktionieren unabhängig und zeigen Tooltips.</li>
-    <li data-done="false">Tab-Leiste in der Mitte: mehrere Tabs gleichzeitig offen, schließbar, stabile Reihenfolge; nach Reload werden Tabs und aktiver Tab wiederhergestellt.</li>
-    <li data-done="false">Das Dashboard passt sich jeder Containerbreite an: kein horizontales Scrollen, nichts abgeschnitten — in allen 4 Auflösungen × allen Panel-Kombinationen.</li>
-    <li data-done="false">Die Extensions-Ansicht ist eine kompakte Liste (~32-px-Zeilen) mit Detailansicht per Klick.</li>
-    <li data-done="false">Alle Ansichten nutzen die Kompakt-Skala (13-px-Basis, Token-Abstände); keine Ansicht wirkt sichtbar größer skaliert als der Rest.</li>
-    <li data-done="false">Bestehende Nutzer verlieren beim Update weder offene Tabs noch Panel-Zustände (persist-Migration v2 → v3, per Test belegt).</li>
-    <li data-done="false">Backend- und Frontend-Testsuiten (<code>run-tests.sh --all</code>) sowie die angepassten e2e-Specs sind grün.</li>
-    <li data-done="false">Die volle Playwright-Matrix auf dem Jetson ist grün: alle E2E-Flows (Login, Chat senden, Terminal-Befehl, Extension-Toggle, Upload) funktionieren, 0 Konsolenfehler.</li>
+    <li data-done="true">Das Terminal erscheint ausschließlich im rechten Panel; der Terminal-Klick in der Activity Bar toggelt nur das Panel — ein Terminal-Tab in der Mitte existiert nicht mehr, auch nicht nach Reload.</li>
+    <li data-done="true">Pro Terminal-Session besteht genau eine WebSocket-Verbindung (Dedup-Unit-Test + Netzwerk-Check im Browser).</li>
+    <li data-done="true">Eine laufende Terminal-Session überlebt Panel-Toggle und Ansichtswechsel (laufender Prozess läuft sichtbar weiter).</li>
+    <li data-done="true">n8n und Telegram erscheinen links nur bei installierter + aktivierter Extension; Deaktivieren entfernt den Eintrag ohne Reload, Aktivieren fügt ihn ohne Reload hinzu.</li>
+    <li data-done="true">Der Chat-Toggle unten links existiert nicht mehr; drei Layout-Toggles oben rechts (Sidebar / Terminal / Chat) funktionieren unabhängig und zeigen Tooltips.</li>
+    <li data-done="true">Tab-Leiste in der Mitte: mehrere Tabs gleichzeitig offen, schließbar, stabile Reihenfolge; nach Reload werden Tabs und aktiver Tab wiederhergestellt.</li>
+    <li data-done="true">Das Dashboard passt sich jeder Containerbreite an: kein horizontales Scrollen, nichts abgeschnitten — in allen 4 Auflösungen × allen Panel-Kombinationen.</li>
+    <li data-done="true">Die Extensions-Ansicht ist eine kompakte Liste (~32-px-Zeilen) mit Detailansicht per Klick.</li>
+    <li data-done="true">Alle Ansichten nutzen die Kompakt-Skala (13-px-Basis, Token-Abstände); keine Ansicht wirkt sichtbar größer skaliert als der Rest.</li>
+    <li data-done="true">Bestehende Nutzer verlieren beim Update weder offene Tabs noch Panel-Zustände (persist-Migration v2 → v3, per Test belegt).</li>
+    <li data-done="true">Backend- und Frontend-Testsuiten (<code>run-tests.sh --all</code>) sowie die angepassten e2e-Specs sind grün.</li>
+    <li data-done="true">Die volle Playwright-Matrix auf dem Jetson ist grün: alle E2E-Flows (Login, Chat senden, Terminal-Befehl, Extension-Toggle, Upload) funktionieren, 0 Konsolenfehler.</li>
   </ul>
   </div>
 </details>
@@ -656,19 +656,34 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Umgesetzt, gemergt (PR #196) und auf dem Jetson live verifiziert — Matrix grün, Gerät endet gesund auf <code>main</code>.</span>
   </summary>
   <div class="sbody">
+  <p><strong>Ausführung am 13.07.2026, vollautonom.</strong> Multi-Agent-Pipeline (31 Agenten: 7 Implementierungs-Stufen, 5 Review-Linsen, 17 adversariale Verifikationen, Fix- und Docs-Stufe) auf <code>feat/002-cursor-shell-neubau</code>; Squash-Merge als PR <a href="https://github.com/koljaschoepe/arasul-jet/pull/196">#196</a> (<code>7472420</code>).</p>
+  <h3>Ergebnis</h3>
+  <ul>
+    <li>Alle 9 Schritte umgesetzt (Commits <code>f2ac9c7</code>…<code>ba0e78d</code>); Review bestätigte 10 Findings, alle behoben (u. a. Stale-Socket-Guard im Terminal, Migrations-Panelzustand, Deep-Link-Gating).</li>
+    <li>Tests: <code>run-tests.sh --all</code> ALL PASSED — Backend 1636, Frontend 753 (54 Dateien), Quality Gates, self-healing-pytest 16/16.</li>
+    <li>Live-Verifikation (Branch-Deploy mit <code>backup-002</code>-Tag, danach erneut auf gemergtem <code>main</code>): 64er-Layout-Matrix (4 Auflösungen × 8 Panel-Kombinationen × Ansichten) ohne horizontales Scrollen/Abschneiden; Terminal mit genau einer WebSocket, Session überlebt Panel-Toggle (live: <code>verify-42</code>); Tabs mit Reload-Restore; Extension-Gating ohne Reload; Chat mit RAG-Quellen; Legacy-Routen funktionsfähig. Gesamt: 74/76 + 5/5 (Gating) + 10/10 (main-Smoke) + 4/4 (Legacy) — die Zwischen-FAILs waren ausnahmslos Test-Harness-Artefakte (Login-Rate-Limiter 429, Skript-Navigation).</li>
+    <li>Gerät endet gesund auf <code>main</code> (<code>7472420</code>), alle Container healthy; Test-Admin und Test-Projekt wieder entfernt.</li>
+  </ul>
+  <h3>Beobachtungen (vorbestehend, nicht Teil dieses Plans → Audit-Kandidaten)</h3>
+  <ul>
+    <li>„Failed to fetch“-Konsolenmeldungen beim Kontext-Teardown (DownloadContext, Models, Recommendations, Spaces) — auch auf altem <code>main</code> vorhanden.</li>
+    <li>Terminal-Projektliste: Kopfzählung (<code>stats.active_projects</code>, global) passt nicht zur per-User gefilterten Liste (off-by-one aus Nutzersicht).</li>
+    <li>Login-Rate-Limiter (15-min-Fenster) bremst automatisierte E2E-Läufe mit mehreren Logins aus.</li>
+    <li>Die Workspace-Shell ist weiterhin per localStorage-Flag (<code>arasul_workspace_shell</code>) opt-in; Default-Umstellung + Legacy-Abbau = offene Frage 1.</li>
+  </ul>
   </div>
 </details>
 
 <footer class="colophon">
   Plan 002 · erstellt am 2026-07-13 via <code>/plan</code> · Quelle:
-  <span class="mono">docs/plans/active/002-cursor-shell-neubau.html</span><br>
+  <span class="mono">docs/plans/done/002-cursor-shell-neubau.html</span><br>
   Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
   dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
   Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
