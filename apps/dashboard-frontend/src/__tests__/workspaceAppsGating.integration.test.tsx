@@ -1,9 +1,10 @@
 /**
  * Integrationstest: Extension-Gating wirkt live, ohne Reload (Plan 002 §5
- * Kriterium 4). ActivityBar (Workspace) und PlatformAppsSection (Extensions-
- * Tab) hängen im SELBEN Render-Tree am SELBEN QueryClient — genau wie in der
- * echten Shell. Der Toggle im Extensions-Tab muss den ActivityBar-Eintrag
- * über den gemeinsamen React-Query-Cache sofort verschwinden lassen.
+ * Kriterium 4). ActivityBar (Workspace) und ExtensionsSidebarList (die
+ * Extensions-Liste im Sidebar-Host) hängen im SELBEN Render-Tree am SELBEN
+ * QueryClient — genau wie in der echten Shell. Der Plattform-Toggle in der
+ * Liste muss den ActivityBar-Eintrag über den gemeinsamen React-Query-Cache
+ * sofort verschwinden lassen.
  *
  * Bewusst KEIN Mock von useWorkspaceApps und KEIN manuelles rerender():
  * getestet wird die echte Query-Cache-Propagation (setQueryData +
@@ -16,7 +17,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ActivityBar } from '@/features/workspace/ActivityBar';
-import PlatformAppsSection from '@/features/store/PlatformAppsSection';
+import { ExtensionsSidebarList } from '@/components/extensions/ExtensionsSidebarList';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 // Zustandsbehafteter Server-Mock: PUT ändert, GET (Refetch nach
@@ -50,7 +51,7 @@ function renderShellAndExtensions() {
   return render(
     <QueryClientProvider client={client}>
       <ActivityBar />
-      <PlatformAppsSection />
+      <ExtensionsSidebarList />
     </QueryClientProvider>
   );
 }
