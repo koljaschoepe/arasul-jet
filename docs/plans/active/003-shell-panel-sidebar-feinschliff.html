@@ -1,0 +1,865 @@
+<!doctype html>
+<!--
+  Arasul plan-page template v2 — used by /plan (create), /work (report), /audit (design language).
+
+  HOW TO USE (for the skill, not for humans):
+  1. Copy to docs/plans/active/NNN-<slug>.html, replace every {{TOKEN}}, fill
+     the section bodies with real content (German, plain language).
+  2. Structural contract (comment system + /work depend on it):
+     - Sections are <details class="sec" data-sec="N" data-ref="§N <Titel>">.
+       Keep ids sec-1..sec-9. Each <summary> carries a "Kurz:" one-liner.
+     - Steps in §4: <div class="step" data-status="pending|done|deviation|blocked"
+       data-ref="§4 · Schritt N — <Name>">. /work flips status and appends
+       <div class="result">…</div> inside the step.
+     - Open questions live in #oq as .oq-item with data-ref="Frage N".
+       If there are none, keep the box with the single "Keine —" line.
+     - Every data-ref must be unique — user comments are keyed on it.
+  3. Machine state lives in #plan-meta JSON (/work and /status parse it).
+     Dashboard tiles mirror it: dots use data-level="1|2|3" (1=niedrig).
+  4. §9 (report) starts with class "is-hidden" — /work removes it when filling.
+  5. User comments travel via the page's "Alle kopieren" button → pasted into
+     chat. Whatever arrives that way is BINDING input for /plan revisions and
+     /work execution.
+
+  STATUS VALUES: draft → in-review → approved → in-progress → done | blocked
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 003 · Cursor-Shell 3.1 — Ein rechtes Panel, Kontext-Sidebar &amp; Feinschliff</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "003",
+  "slug": "shell-panel-sidebar-feinschliff",
+  "title": "Cursor-Shell 3.1 — Ein rechtes Panel, Kontext-Sidebar & Feinschliff",
+  "type": "feat",
+  "status": "approved",
+  "priority": "P1",
+  "risk_level": 2,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-07-13",
+  "approved": "2026-07-13",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .oq {
+    background: var(--note-bg); border: 1.5px solid var(--note);
+    border-radius: 14px; padding: 1rem 1.2rem; margin: 0 0 1.6rem;
+  }
+  .oq h2 {
+    margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--note); font-weight: 800;
+  }
+  .oq-item { padding: .5rem 0; }
+  .oq-item + .oq-item { border-top: 1px solid color-mix(in srgb, var(--note) 30%, transparent); }
+  .oq-item p { margin: 0 0 .35rem; font-weight: 600; font-size: .95rem; }
+  .oq-item textarea, .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .oq-item textarea:focus, .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oq .none { color: var(--muted); font-size: .92rem; margin: 0; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 003</p>
+    <span class="chip" id="status-chip" data-status="draft">Draft</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Cursor-Shell 3.1 — Ein rechtes Panel, Kontext-Sidebar &amp; Feinschliff</h1>
+  <p class="lead">Die Shell aus Plan 002 wird auf Dein Zielbild geschärft: rechts eine Fläche mit Chat⇄Terminal-Umschalter, links nur noch Dashboard/Extensions/Apps, eine kontextabhängige Sidebar statt Store, einheitliche Flächenfarben, Dashboard ohne KI-Karte — plus die Fixes für den Apps-Toggle- (CSRF) und den „Neuer Ordner“-Bug. Die Workspace-Shell wird Standard.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P1</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">11</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Rechts wird aus dem Chat-oben/Terminal-unten-Split EINE Fläche mit Segment-Umschalter [Chat | Terminal]. Die Activity Bar behält nur Dashboard, Extensions und die dynamischen Apps. Die Sidebar wird kontextabhängig (Dashboard → Dokumente, Extensions → Suche + App-/Modell-Liste, Apps → zugeklappt), der Store verliert seine Unter-Tabs zugunsten von Sidebar-Liste + Mitte-Detail. Dashboard ohne KI-Karte (Modell + KI-RAM wandern korrekt in die Statusleiste), eine Flächenfarbe überall, zwei Layout-Toggles statt drei, Workspace-Shell wird Standard. Dazu die zwei Bug-Fixes: Apps-Toggle (CSRF-Token fehlt in Alt-Sessions — in den Backend-Logs belegt) und „Neuer Ordner“ (Radix-Dialog kollidiert mit der Panel-CSS-Regel).</dd>
+      <dt>Warum jetzt</dt><dd>Plan 002 hat das Fundament gelegt, aber Dein Praxistest zeigt: Terminal-Platzierung, Navigations-Dopplungen, Store-Charakter, Farbbrüche und zwei echte Funktionsbugs passen noch nicht zum Zielbild.</dd>
+      <dt>Größtes Risiko</dt><dd>Die Store-Migration v3→v4 (vier externe Aufrufstellen) und der Default-Flip der Shell (kann Legacy-e2e-Specs still brechen). Beides wird mit gezielten Tests + voller Geräte-Matrix vor dem Merge abgesichert.</dd>
+      <dt>Du entscheidest</dt><dd><ul><li>Keine offenen Fragen — alle 12 Interview-Entscheidungen sind eingearbeitet. Es fehlt nur Deine Freigabe („freigegeben“ / „go“), dann läuft die Umsetzung wie bei Plan 002 vollautonom bis zum verifizierten Merge.</li></ul></dd>
+    </dl>
+  </div>
+
+  <div class="oq" id="oq">
+    <h2>Offene Fragen an dich</h2>
+    <p class="none">Keine — alles Wichtige ist im Interview entschieden worden (12 Fragen, 3 Runden). Offen ist nur Deine Freigabe.</p>
+  </div>
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Die 3.0-Shell wird auf Dein Zielbild geschärft: klarere Navigation, ein rechtes Panel, echte Kontext-Sidebar, konsistente Farben, zwei Bugfixes.</span>
+  </summary>
+  <div class="sbody">
+  <p>Die Cursor-Shell 3.0 (Plan 002) steht, aber Dein Praxistest hat konkrete Lücken gezeigt: Das Terminal klemmt als Teilfenster unten rechts statt die Chat-Fläche zu ersetzen; die Activity Bar dupliziert mit Explorer-/Chat-/Terminal-Icons die Layout-Toggles; die Sidebar zeigt immer Dokumentenordner, egal wo Du bist; die Extensions-Ansicht ist noch ein „Store“ mit Unter-Tabs statt einer durchsuchbaren Liste; das Dashboard trägt eine KI-Modelle-Karte mit widersprüchlichen Zahlen (System-RAM vs. KI-RAM sind zwei verschiedene Messgrößen aus zwei Endpoints); und die Mitte hat einen anderen Hintergrund (<code>--card</code>) als die Panels (<code>--background</code>) — überall sichtbar.</p>
+  <p>Dazu kommen zwei echte Funktionsfehler: (a) Der Apps-Toggle schlägt bei Deinem Admin fehl — die Backend-Logs zeigen <code>CSRF token missing</code> für Deine PUT-Requests; Sessions von vor einem Deploy/Neustart verlieren ihren Token, und der Client beschafft ihn nicht neu. (b) „Datei → Neuer Ordner“ lässt Sidebar und Chat verschwinden — der Radix-Dialog setzt beim Öffnen <code>aria-hidden</code> auf Nachbar-Elemente, und genau darauf reagiert unsere Panel-Versteck-CSS-Regel.</p>
+  <p><strong>Fertig heißt:</strong> Rechts eine Fläche mit [Chat | Terminal]-Umschalter (beide keep-alive), links nur Dashboard/Extensions/Apps, die Sidebar wechselt mit dem Kontext (Dokumente ⟷ Extension-Suche+Liste ⟷ zu), der Store ist eine Liste mit Mitte-Detail, das Dashboard zeigt nur Systemmetriken (Modell + KI-RAM korrekt in der Statusleiste), alle Flächen haben dieselbe Hintergrundfarbe, beide Bugs sind mit Regressionstests gefixt, die Workspace-Shell ist Standard — und alles ist per voller Matrix + Bug-Regressions-Flows auf dem Jetson belegt.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Shell-Feinschliff + zwei Bugfixes + Default-Flip; Chat-/RAG-Logik, Legacy-UI-Abbau und Backend-Schema bleiben unangetastet.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Rechtes Panel: eine Fläche, Segment-Umschalter [Chat | Terminal], beide Modi keep-alive, letzter Modus persistiert (Store v4)</li>
+      <li>Activity Bar: nur Dashboard, Extensions, dynamische Apps; Explorer-/Chats-/Terminal-Icons entfallen</li>
+      <li>Zwei Layout-Toggles oben rechts (Sidebar, rechtes Panel)</li>
+      <li>Kontextabhängige Sidebar: Dokumente ⟷ Extensions-Suche+Liste ⟷ zugeklappt</li>
+      <li>Store-Rückbau: Unter-Tabs weg, Sidebar-Liste + Mitte-Detail; Deep-Link-Redirects</li>
+      <li>Dashboard ohne KI-Karte; aktives Modell + KI-RAM in der Statusleiste (gemeinsamer Query-Cache)</li>
+      <li>Farb-Audit: eine Flächenfarbe überall, Trennung per Border</li>
+      <li>Bugfix Apps-Toggle (CSRF-Beschaffung/Retry + Doppel-Toast) und „Neuer Ordner“ (Dialog/Panel-CSS)</li>
+      <li>Workspace-Shell wird Default (Opt-out bleibt möglich), Legacy-e2e-Specs angepasst</li>
+      <li>Menüaktionen vollständig durchgetestet</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>Abbau der Legacy-UI (bleibt als Fallback erreichbar)</li>
+      <li>Chat-/RAG-/Auth-Funktionslogik</li>
+      <li>Neue Extensions/Apps oder Modell-Katalog-Inhalte</li>
+      <li>DB-Migrationen (rein Frontend/Store; Backend nur falls CSRF-Fix es minimal erfordert)</li>
+      <li>Mobile-Layouts unter 1024 px</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Store v4 mit <code>rightPanelMode</code>, ein SidebarHost pro Kontext, Store als Liste+Detail, ein Hintergrund-Token — und zwei chirurgische Bugfixes.</span>
+  </summary>
+  <div class="sbody">
+  <p>Der Layout-Store bekommt Version 4: Statt zwei unabhängiger Booleans (<code>chatVisible</code>/<code>terminalVisible</code>) gibt es <code>rightPanelVisible</code> plus <code>rightPanelMode</code> („chat“ oder „terminal“). Ein neuer <code>RightPanel</code>-Wrapper hält beide Flächen dauerhaft gemountet (Keep-alive wie bisher — Streams und Terminal-Sessions überleben) und zeigt je nach Modus genau eine; der innere Split verschwindet. Vier bekannte Aufrufstellen außerhalb des Stores (Deep-Link-Brücken, „Terminal öffnen“, Chat-Scope) werden auf den Modus umgestellt, die Migration v3→v4 übersetzt bestehende Zustände verlustfrei.</p>
+  <p>Die Sidebar wird zum <code>SidebarHost</code> nach dem bewährten Brücken-Muster der Tabs: Aktiver Tab „Dashboard“ → Dokumente-Explorer (wie heute), „Extensions“ → Suchfeld + Liste aller Apps und Modelle (die Liste wird als gemeinsame Komponente promoted, damit die Feature-Isolationsregel hält), App-Tabs (n8n/Telegram/Datenbank) → Sidebar klappt zu. Der Store verliert seine Unter-Tab-Routen; die Mitte zeigt die Detailseite der links gewählten Extension (auf Basis der bestehenden Detail-, Aktivierungs- und Download-Bausteine); alte Deep-Links leiten um.</p>
+  <p>Farben: Die Mitte nutzt heute <code>--card</code>, alles andere <code>--background</code> — künftig gilt überall <code>--background</code>, Trennung nur per Border; ein Grep-Audit räumt alle abweichenden Flächen in den Workspace-Ansichten ab. Dashboard: Die KI-Karte entfällt; die Statusleiste zeigt aktives Modell + KI-RAM aus dem bereits vorhandenen <code>/models/memory-budget</code>-Endpoint (gemeinsamer React-Query-Cache, keine doppelte Poll-Last). Bugfixes: (a) Der API-Client beschafft einen fehlenden/abgelaufenen CSRF-Token automatisch neu und wiederholt den Request einmal — belegt ist die Ursache in den Backend-Logs (<code>CSRF token missing</code> bei Alt-Sessions); zusätzlich fällt der doppelte Fehler-Toast weg. (b) Die Panel-Versteck-Regel <code>[data-panel][aria-hidden]</code> kollidiert mit Radix-Dialogen, die <code>aria-hidden</code> auf Nachbarn setzen — die Sichtbarkeit bekommt ein eigenes Datenattribut (z. B. <code>data-shell-hidden</code>), das nur der Store setzt; die Hypothese wird vor dem Fix live im DOM verifiziert.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 680 240" role="img" aria-label="Shell 3.0 zu 3.1" xmlns="http://www.w3.org/2000/svg" style="font: 11px -apple-system, 'Segoe UI', sans-serif; color: var(--ink); width: 680px;">
+      <text x="20" y="20" fill="currentColor" font-weight="700">Shell 3.0 (heute)</text>
+      <rect x="14" y="30" width="290" height="180" rx="8" fill="none" stroke="var(--line)"/>
+      <rect x="22" y="38" width="30" height="164" rx="4" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="37" y="54" text-anchor="middle" fill="var(--bad)" font-size="8">Expl</text>
+      <text x="37" y="70" text-anchor="middle" fill="var(--bad)" font-size="8">Chat</text>
+      <text x="37" y="86" text-anchor="middle" fill="var(--muted)" font-size="8">Dash</text>
+      <text x="37" y="102" text-anchor="middle" fill="var(--muted)" font-size="8">Ext</text>
+      <text x="37" y="196" text-anchor="middle" fill="var(--bad)" font-size="8">Term</text>
+      <rect x="58" y="38" width="52" height="164" rx="4" fill="none" stroke="var(--line)"/>
+      <text x="84" y="120" text-anchor="middle" fill="var(--warn)" font-size="8">immer Docs</text>
+      <rect x="116" y="38" width="110" height="164" rx="4" fill="var(--wash)" stroke="var(--warn)"/>
+      <text x="171" y="120" text-anchor="middle" fill="var(--warn)" font-size="8">Mitte heller (card)</text>
+      <rect x="232" y="38" width="64" height="164" rx="4" fill="none" stroke="var(--line)"/>
+      <text x="264" y="100" text-anchor="middle" fill="var(--muted)" font-size="8">Chat</text>
+      <line x1="236" y1="140" x2="292" y2="140" stroke="var(--bad)"/>
+      <text x="264" y="170" text-anchor="middle" fill="var(--bad)" font-size="8">Terminal unten</text>
+      <text x="322" y="125" fill="var(--accent)" font-size="24" font-weight="700">→</text>
+      <text x="380" y="20" fill="currentColor" font-weight="700">Shell 3.1 (Ziel)</text>
+      <rect x="374" y="30" width="290" height="180" rx="8" fill="none" stroke="var(--accent)"/>
+      <rect x="382" y="38" width="30" height="164" rx="4" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="397" y="56" text-anchor="middle" fill="var(--muted)" font-size="8">Dash</text>
+      <text x="397" y="72" text-anchor="middle" fill="var(--muted)" font-size="8">Ext</text>
+      <text x="397" y="94" text-anchor="middle" fill="var(--accent)" font-size="8">n8n*</text>
+      <text x="397" y="110" text-anchor="middle" fill="var(--accent)" font-size="8">TG*</text>
+      <rect x="418" y="38" width="60" height="164" rx="4" fill="none" stroke="var(--accent)"/>
+      <text x="448" y="112" text-anchor="middle" fill="var(--accent)" font-size="8">Kontext-</text>
+      <text x="448" y="124" text-anchor="middle" fill="var(--accent)" font-size="8">Sidebar</text>
+      <rect x="484" y="38" width="104" height="164" rx="4" fill="none" stroke="var(--line)"/>
+      <text x="536" y="120" text-anchor="middle" fill="var(--muted)" font-size="8">Mitte = gleiche Farbe</text>
+      <rect x="594" y="38" width="62" height="164" rx="4" fill="none" stroke="var(--accent)"/>
+      <rect x="598" y="42" width="54" height="14" rx="3" fill="var(--wash)" stroke="var(--accent)"/>
+      <text x="625" y="52" text-anchor="middle" fill="var(--accent)" font-size="7">Chat|Term</text>
+      <text x="625" y="125" text-anchor="middle" fill="var(--muted)" font-size="8">eine Fläche</text>
+      <text x="20" y="232" fill="var(--muted)" font-size="9">rot = entfällt/Bug · gelb = inkonsistent</text>
+      <text x="380" y="232" fill="var(--muted)" font-size="9">* nur bei aktiver Extension · Shell = Default</text>
+    </svg>
+    <figcaption>Links die heutigen Schwächen (doppelte Icons, starre Sidebar, hellere Mitte, Terminal als Teilfenster) — rechts das 3.1-Ziel: aufgeräumte Activity Bar, Kontext-Sidebar, eine Flächenfarbe, ein rechtes Panel mit Modus-Umschalter.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Elf Schritte auf einem Branch — Bugs zuerst (sofort verifizierbar), dann Panel, Navigation, Sidebar, Store, Dashboard, Farben, Default-Flip, Tests, Doku.</span>
+  </summary>
+  <div class="sbody">
+  <p>Alle Schritte auf <code>feat/003-shell-panel-sidebar-feinschliff</code>; <code>main</code> bleibt bis zum Merge unberührt.</p>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Bugfix CSRF/Apps-Toggle">
+    <h3>Schritt 1 — Bugfix CSRF/Apps-Toggle <span class="tag">Risiko: mittel</span></h3>
+    <p>Der API-Client erkennt fehlende/abgelaufene CSRF-Tokens (Ursache laut Gerätelog: <code>CSRF token missing</code> bei Sessions von vor einem Deploy), beschafft den Token automatisch neu und wiederholt den Request genau einmal; das Rotations-Race bei schnellen Doppel-Toggles wird mitbehandelt. Doppelter Fehler-Toast in der Plattform-Apps-Sektion entfällt (<code>showError:false</code>). Regressionstest für beide Fälle.</p>
+    <p class="files mono">apps/dashboard-frontend/src/hooks/useApi.ts · src/hooks/useWorkspaceApps.ts · features/store/PlatformAppsSection.tsx · ggf. apps/dashboard-backend/src/middleware/csrf.js (Token-Endpoint)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Bugfix Dialog/Panel-Kollision">
+    <h3>Schritt 2 — Bugfix Dialog/Panel-Kollision („Neuer Ordner“) <span class="tag">Risiko: niedrig</span></h3>
+    <p>Hypothese live im DOM verifizieren (Radix setzt <code>aria-hidden</code> auf Panel-Vorfahren), dann die Panel-Versteck-Regel von <code>[data-panel][aria-hidden]</code> auf ein exklusives, nur vom Store gesetztes Attribut (<code>data-shell-hidden</code>) umstellen. Alle Explorer-Dialoge (Neuer Ordner, Projekt, Upload, Rename, Move, Delete) und sämtliche Menüaktionen durchtesten.</p>
+    <p class="files mono">apps/dashboard-frontend/src/index.css (Regel ~4012) · features/workspace/WorkspaceShell.tsx · features/workspace/__tests__/</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Store v4 (rightPanelVisible/-Mode)">
+    <h3>Schritt 3 — Store v4 (<code>rightPanelVisible</code>/<code>rightPanelMode</code>) <span class="tag">Risiko: mittel</span></h3>
+    <p>Migration v3→v4 (Sichtbarkeit = chat||terminal; Modus-Heuristik terminal&amp;&amp;!chat → „terminal“, sonst „chat“), Umstellung der vier externen Aufrufstellen (ChatPanelBridge, TerminalPanelBridge, openTerminalSession, setChatScope). Unit-Tests mit echten v3-Daten.</p>
+    <p class="files mono">apps/dashboard-frontend/src/stores/workspaceStore.ts · features/workspace/TabContent.tsx (Bridges) · src/stores/__tests__/workspaceStore.test.ts</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — RightPanel mit Segment-Umschalter">
+    <h3>Schritt 4 — RightPanel mit Segment-Umschalter <span class="tag">Risiko: mittel</span></h3>
+    <p>Neuer <code>RightPanel</code>-Wrapper: Segment-Toggle [Chat | Terminal] oben, beide Flächen permanent gemountet (Keep-alive), nur eine sichtbar; innerer Split + zweite Layout-Persistenz entfallen. Terminal-Mount-once triggert auf Modus+Sichtbarkeit, xterm-Refit nach Moduswechsel.</p>
+    <p class="files mono">features/workspace/WorkspaceShell.tsx · neu: features/workspace/RightPanel.tsx · workspace/llm/ChatPanel.tsx · workspace/terminal/TerminalPanel.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Activity Bar & zwei Layout-Toggles">
+    <h3>Schritt 5 — Activity Bar &amp; zwei Layout-Toggles <span class="tag">Risiko: niedrig</span></h3>
+    <p>Explorer-/Chats-Einträge oben und Terminal-Toggle unten entfernen; übrig Dashboard, Extensions, dynamische Apps. MenuBar-Layout-Gruppe: [Sidebar] + [Rechtes Panel] (PanelLeft/PanelRight-Icons, aria-pressed, Tooltips).</p>
+    <p class="files mono">features/workspace/ActivityBar.tsx · features/workspace/WorkspaceMenuBar.tsx · zugehörige __tests__</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Kontext-SidebarHost">
+    <h3>Schritt 6 — Kontext-SidebarHost <span class="tag">Risiko: mittel</span></h3>
+    <p>SidebarHost nach TabBridge-Vorbild: aktiver Tab bestimmt den Inhalt — Dashboard → ExplorerPanel, Extensions → Suchfeld + Apps/Modelle-Liste (als gemeinsame Komponente promoted, Feature-Isolation bleibt gewahrt), App-Tabs → Sidebar zu (Auto-Collapse, Toggle bleibt bedienbar).</p>
+    <p class="files mono">features/workspace/WorkspaceShell.tsx · neu: features/workspace/SidebarHost.tsx · neu: components/extensions/ExtensionsSidebarList.tsx (promoted)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Store-Rückbau (Liste + Detail)">
+    <h3>Schritt 7 — Store-Rückbau (Liste + Detail) <span class="tag">Risiko: mittel</span></h3>
+    <p>Unter-Tabs Start/Modelle/Apps entfallen; die Mitte zeigt die Detailseite der links gewählten Extension (Beschreibung, Status, Aktivieren/Installieren/Deinstallieren/Download — auf Basis von StoreDetailModal/ActivationButton/DownloadProgress). Plattform-App-Toggles wandern in die Sidebar-Liste. Alte Deep-Links (<code>/store/models</code>, <code>/store/apps</code>, Such-Highlights) leiten sauber um.</p>
+    <p class="files mono">features/store/{Store,StoreHome,StoreModels,StoreApps,StoreDetailModal}.tsx · features/store/__tests__</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Dashboard & Statusleiste">
+    <h3>Schritt 8 — Dashboard &amp; Statusleiste <span class="tag">Risiko: niedrig</span></h3>
+    <p>KI-Modelle-Karte (<code>ModelStatusBar</code>) aus dem Dashboard entfernen; Statusleiste zeigt aktives Modell + KI-RAM aus <code>/models/memory-budget</code> (gemeinsamer Query-Key mit bestehenden Nutzern — keine doppelte Poll-Last auf dem Jetson).</p>
+    <p class="files mono">features/dashboard/DashboardHome.tsx · features/workspace/StatusBar.tsx · __tests__/StatusBar.test.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Farb-Audit (eine Flächenfarbe)">
+    <h3>Schritt 9 — Farb-Audit (eine Flächenfarbe) <span class="tag">Risiko: niedrig</span></h3>
+    <p>Mitte von <code>bg-card</code> auf <code>bg-background</code>; Grep-Audit aller <code>bg-card</code>/<code>bg-background</code>-Flächen in Workspace-Ansichten und gehosteten Feature-Tabs (Store, Dashboard, Telegram, n8n); Trennung nur noch per Border. Verifikation per Pixel-Vergleich im Screenshot.</p>
+    <p class="files mono">features/workspace/WorkspaceShell.tsx:182 · src/index.css · features/** (Audit)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 10 — Workspace-Shell als Default">
+    <h3>Schritt 10 — Workspace-Shell als Default <span class="tag">Risiko: mittel</span></h3>
+    <p><code>isWorkspaceShellEnabled()</code> wird Default-true (<code>!== 'false'</code>, Opt-out bleibt); Legacy-e2e-Specs werden geprüft und setzen das Flag explizit auf false, wo sie die alte UI testen; irreführende Kommentare aktualisiert.</p>
+    <p class="files mono">src/lib/featureFlags.ts · src/App.tsx · components/layout/Sidebar.tsx · e2e/*.spec.ts</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 11 — Tests, e2e & Doku-Sync">
+    <h3>Schritt 11 — Tests, e2e &amp; Doku-Sync <span class="tag">Risiko: niedrig</span></h3>
+    <p>Alle betroffenen Unit-/e2e-Suiten anpassen (u. a. workspace-shell.spec Toggle-Selektoren), neue Specs für Segment-Umschalter, Kontext-Sidebar und beide Bug-Regressionen; <code>run-tests.sh --all</code> grün. Doku: Frontend-CLAUDE.md (Panel-Beschreibung), DESIGN_SYSTEM (Token-Regel „eine Flächenfarbe“), ADMIN_HANDBUCH (Default-Shell, neue Navigation).</p>
+    <p class="files mono">e2e/workspace-shell.spec.ts · src/**/__tests__ · apps/dashboard-frontend/CLAUDE.md · docs/development/DESIGN_SYSTEM.md · docs/ops/ADMIN_HANDBUCH.md</p>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Vierzehn messbare Kriterien — jede Interview-Entscheidung und jeder Bug hat ein Abnahmekriterium.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Das rechte Panel hat oben einen Segment-Umschalter [Chat | Terminal]; der aktive Modus füllt die gesamte Fläche, es gibt kein unteres Terminal-Teilfenster mehr.</li>
+    <li data-done="false">Beim Moduswechsel bleiben beide Seiten am Leben: laufender Chat-Stream und laufende Terminal-Session überleben den Wechsel; der letzte Modus wird nach Reload wiederhergestellt.</li>
+    <li data-done="false">Die Activity Bar zeigt nur Dashboard, Extensions und aktivierte Apps — keine Explorer-/Chats-Icons oben, kein Terminal-Icon unten.</li>
+    <li data-done="false">Oben rechts gibt es genau zwei Layout-Toggles (Sidebar, rechtes Panel) mit Tooltips.</li>
+    <li data-done="false">Die Sidebar ist kontextabhängig: Dashboard → Dokumente/Projekte; Extensions → Suchfeld + Liste aller Apps und Modelle mit Status; n8n/Telegram/Datenbank → Sidebar zugeklappt.</li>
+    <li data-done="false">Extensions haben keine Unter-Tabs mehr; Klick auf einen Sidebar-Eintrag öffnet die Detailseite in der Mitte mit funktionierendem Aktivieren/Installieren/Deinstallieren/Download; alte Store-Deep-Links leiten um.</li>
+    <li data-done="false">Das Dashboard enthält keine KI-Modelle-Karte mehr; die Statusleiste zeigt aktives Modell + KI-RAM konsistent mit der tatsächlichen Ollama-Auslastung.</li>
+    <li data-done="false">Alle Flächen (Sidebar, Mitte, rechtes Panel, Unterseiten) haben pixelgleich denselben Hintergrund; Trennung nur durch Borders — per Screenshot-Pixelvergleich belegt.</li>
+    <li data-done="false">Apps-Toggle funktioniert auch in einer Alt-Session: fehlender CSRF-Token wird automatisch beschafft und der Request wiederholt; es erscheint höchstens EIN verständlicher Fehler-Toast, und nur wenn es wirklich scheitert.</li>
+    <li data-done="false">„Datei → Neuer Ordner“ (und alle anderen Explorer-Dialoge/Menüaktionen) lassen Sidebar und rechtes Panel sichtbar; der Dialog funktioniert.</li>
+    <li data-done="false">Die Workspace-Shell ist ohne localStorage-Flag der Standard nach Login; Opt-out und Legacy-Routen funktionieren weiter.</li>
+    <li data-done="false">Store-Migration v3→v4 erhält Panel-Sichtbarkeit, Tabs und Terminal-Sessions (per Test mit echten v3-Daten belegt).</li>
+    <li data-done="false"><code>run-tests.sh --all</code> und alle angepassten e2e-Specs sind grün.</li>
+    <li data-done="false">Volle Playwright-Matrix + alle Bug-Regressions-Flows auf dem Jetson grün, 0 nicht-erklärte Konsolenfehler.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Wie bei Plan 002: Branch-Deploy mit Backup-Tag, volle Matrix — plus ein dedizierter Regressions-Flow pro gemeldetem Bug.</span>
+  </summary>
+  <div class="sbody">
+  <h3>Vorgehen (vor dem Merge)</h3>
+  <ol>
+    <li>Jetson: <code>git tag -f backup-003 HEAD</code> → Branch auschecken → <code>docker compose up -d --build dashboard-backend dashboard-frontend</code> → Health-Gate (Container healthy, HTTPS 200, Traefik-Warmup beachten).</li>
+    <li>Vor jedem Playwright-Lauf: <code>docker compose restart dashboard-backend</code> (leert den Login-Rate-Limiter — bekannte Falle aus Plan 002).</li>
+    <li>Temporärer Test-Admin nach dokumentierter Prozedur; nach dem Lauf löschen.</li>
+  </ol>
+  <h3>Volle Matrix + Bug-Regressionen (echter Browser gegen das Gerät)</h3>
+  <ul>
+    <li><strong>Layout-Matrix:</strong> 4 Auflösungen (1024/1280/1440/1920) × Panel-Kombinationen (Sidebar auf/zu × rechtes Panel auf/zu × Modus Chat/Terminal) × Ansichten (Dashboard, Extensions inkl. Detail, n8n, Telegram) — Screenshots, kein horizontales Scrollen, Panel-Zustand == Toggle-Zustand.</li>
+    <li><strong>Bug-Regression CSRF:</strong> Session einloggen → Backend neu starten (Token weg) → App-Toggle klicken → muss ohne Fehlermeldung durchgehen (Auto-Refetch + Retry); zusätzlich schneller Doppel-Toggle zweier Apps.</li>
+    <li><strong>Bug-Regression Dialog:</strong> Datei → Neuer Ordner öffnen → Sidebar + rechtes Panel bleiben sichtbar → Ordner anlegen → erscheint im Explorer; dasselbe stichprobenartig für Upload/Rename/Delete und alle Menüpunkte.</li>
+    <li><strong>Panel-Flow:</strong> Terminal-Befehl starten → auf Chat umschalten → Chat-Nachricht senden (Streaming) → zurück auf Terminal → Ausgabe komplett, genau eine WebSocket.</li>
+    <li><strong>Kontext-Sidebar:</strong> Dashboard→Docs, Extensions→Suche (Suchbegriff filtert Liste), App-Tab→Sidebar zu, zurück→vorheriger Kontext.</li>
+    <li><strong>Farb-Check:</strong> Pixelvergleich Hintergrund Sidebar vs. Mitte vs. rechtes Panel in Dashboard-, Extensions-, Telegram-Ansicht (muss identisch sein).</li>
+    <li><strong>Statusleiste:</strong> angezeigtes Modell + KI-RAM gegen <code>ollama ps</code> auf dem Gerät geprüft.</li>
+    <li><strong>Default-Flip:</strong> frischer Browser-Kontext ohne Flag → landet nach Login in der Workspace-Shell; Opt-out-Flag → Legacy erreichbar.</li>
+    <li><strong>Konsole:</strong> 0 nicht-erklärte Fehler über alle Läufe (Whitelist nur für die dokumentierten vorbestehenden Meldungen).</li>
+  </ul>
+  <h3>Abschluss</h3>
+  <p>Backend-/Traefik-Logs auf Fehler prüfen. Merge erst nach grüner Matrix; danach Gerät zurück auf <code>main</code>, Rebuild, Abschluss-Smoke. Gerät endet gesund auf <code>main</code>.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Hauptgefahren: Store-Migration, Default-Flip auf Legacy-e2e, falsche Bug-Diagnose — alles mit gezielten Gegenmaßnahmen; Rollback wie bei 002.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Store-Migration v3→v4 verpasst eine der 4 externen Aufrufstellen → Keep-alive/Deep-Links brechen</td><td>mittel</td><td>Aufrufstellen sind im Research namentlich erfasst; Migrations-Test mit echten v3-Daten; Panel-Flow in der Geräte-Matrix</td></tr>
+      <tr><td>Default-Flip bricht Legacy-e2e-Specs still (CI advisory)</td><td>hoch</td><td>Vor Umsetzung Stichprobe der Specs; Flag wird in Legacy-Specs explizit gesetzt; kompletter e2e-Lauf im PR</td></tr>
+      <tr><td>Dialog-Bug-Hypothese (Radix aria-hidden) trifft nicht zu → Fix am falschen Ort</td><td>niedrig</td><td>Schritt 2 verifiziert die Ursache ZUERST live im DOM, erst dann wird gefixt</td></tr>
+      <tr><td>CSRF-Auto-Retry maskiert echte Auth-Fehler oder wiederholt nicht-idempotente Requests doppelt</td><td>mittel</td><td>Retry genau 1× und nur bei CSRF-Fehlercode, nie bei 401/403-Auth; Regressionstests für beide Pfade</td></tr>
+      <tr><td>Store-Rückbau bricht Deep-Links/Suche (Highlights auf /store/models)</td><td>mittel</td><td>Redirects für alte Routen; Such-Flow ist Teil der Matrix</td></tr>
+      <tr><td>Doppelte Poll-Last durch Statusleisten-Query auf Jetson</td><td>niedrig</td><td>Gemeinsamer React-Query-Key mit bestehenden memory-budget-Nutzern</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Vor dem Branch-Checkout wird <code>backup-003</code> getaggt; scheitert Health-Gate oder Matrix, geht das Gerät per Checkout + Rebuild zurück — gemergt wird nur nach Grün. Nach dem Merge: <code>git revert</code> + Rebuild. Keine DB-Migration geplant. Der Browser-State migriert nur vorwärts (v4); ein Rollback startet mit Default-Layout, verloren gehen höchstens Fensterzustände. Der Default-Flip ist per Ein-Zeilen-Revert (<code>featureFlags.ts</code>) rückholbar, Opt-out per Flag bleibt ohnehin bestehen.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 12 Interview-Entscheidungen aus 3 Runden (13.07.2026), plus der belegte CSRF-Logbefund als Faktenlage.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Chat⇄Terminal-Umschaltung</td><td>Segment-Umschalter oben im rechten Panel</td><td>Eine Fläche, ein Modus; beide keep-alive; letzter Modus persistiert (Store v4)</td></tr>
+      <tr><td>Activity-Bar-Einträge</td><td>Nur Dashboard + Extensions + Apps</td><td>Explorer-/Chats-Icons oben und Terminal-Toggle unten entfallen</td></tr>
+      <tr><td>Sidebar-Verhalten</td><td>Kontext-Mapping</td><td>Docs bei Dashboard, Suche+Liste bei Extensions, zugeklappt bei App-Tabs</td></tr>
+      <tr><td>Store-Rückbau</td><td>Sidebar-Liste + Mitte-Detail</td><td>Unter-Tabs Start/Modelle/Apps entfallen; VS-Code-Extensions-Muster</td></tr>
+      <tr><td>Dashboard-Überarbeitung</td><td>KI-Karte raus, Status in Leiste</td><td>Modell + KI-RAM aus /models/memory-budget in der StatusBar; Datenwiderspruch behoben</td></tr>
+      <tr><td>Hintergrundfarben</td><td>Eine Flächenfarbe überall</td><td>Mitte wechselt von --card auf --background; Token-Audit; Pixel-Verify</td></tr>
+      <tr><td>Datei-/Ansicht-Menü</td><td>Behalten, Bug fixen</td><td>Alle Menüaktionen werden einzeln durchgetestet</td></tr>
+      <tr><td>Apps-Toggle-Fehler</td><td>Reproduzieren + strukturell fixen</td><td>Ursache belegt (Log: CSRF token missing); Auto-Refetch + einmaliger Retry + Regressionstest</td></tr>
+      <tr><td>Layout-Toggles</td><td>Zwei Toggles</td><td>[Sidebar] + [Rechtes Panel]; Moduswechsel nur im Panel selbst</td></tr>
+      <tr><td>Auslieferung</td><td>Ein PR + Branch-Verify</td><td>Wie Plan 002: backup-003-Tag, Matrix vor Merge, Squash</td></tr>
+      <tr><td>Verifikations-Umfang</td><td>Volle Matrix + Bug-Regressionen</td><td>Je gemeldetem Bug ein dedizierter Regressions-Flow auf dem Gerät</td></tr>
+      <tr><td>Default-Shell (offene Frage 1 aus Plan 002)</td><td>Ja, Default umstellen</td><td>Workspace-Shell für alle Standard; Legacy bleibt erreichbar; Legacy-Abbau bleibt späteres Thema</td></tr>
+      <tr><td>Faktenlage (kein Interview)</td><td>Backend-Log 13.07. 14:16–14:19: „CSRF token missing — PUT /api/workspace-apps/…“ von Deiner IP</td><td>Bug (a) ist keine Vermutung; Fix zielt auf Token-Beschaffung in Alt-Sessions</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 003 · erstellt am 2026-07-13 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/003-shell-panel-sidebar-feinschliff.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"))
+    .filter(function (el) { return !el.classList.contains("oq-item"); });
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // open-question answers first
+    document.querySelectorAll(".oq-item").forEach(function (q) {
+      var ta = q.querySelector("textarea");
+      if (ta) out.push({ ref: q.dataset.ref + ": " + (q.querySelector("p") ? q.querySelector("p").textContent.trim() : ""), text: ta.value, oq: true, key: q.dataset.ref });
+    });
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list.filter(function (c) { return !c.oq || c.text.trim(); }));
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.value = ""; });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // wire open-question textareas + restore persisted state
+  document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.addEventListener("input", persist); });
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var oq = document.querySelector('.oq-item[data-ref="' + c.key + '"]');
+    if (oq) {
+      var ta = oq.querySelector("textarea");
+      if (ta && !ta.value) ta.value = c.text;
+      return;
+    }
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
