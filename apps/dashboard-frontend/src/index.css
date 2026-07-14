@@ -2180,9 +2180,13 @@ a:focus:not(:focus-visible),
 
 /* MacBook Air 13" (1280px - 1511px) - Compact mode */
 @media (max-width: 1511px) and (min-width: 1280px) {
-  /* Reduce base font size for MacBook Air to prevent oversized elements */
+  /* Komfort-Dichte (Plan 004): dieser Legacy-Breakpoint klemmte die Root-
+     Schrift auf 14.5px herunter (aus der alten Sidebar-UI) und hebelte den
+     globalen Komfort-Hebel (106.25%) genau im typischen Laptop-Band aus —
+     Hauptursache für „alles zu klein". Auf Komfort angehoben, mild getapert
+     für die kleinere Laptop-Breite. */
   html {
-    font-size: 14.5px;
+    font-size: 103.125%; /* 16.5px */
   }
 
   /* Slightly narrower sidebar when expanded */
