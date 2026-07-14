@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 006 · Feature-Audit „funktioniert wirklich"</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "006",
+  "slug": "feature-audit-funktioniert-wirklich",
+  "title": "Feature-Audit „funktioniert wirklich\"",
+  "type": "audit",
+  "status": "approved",
+  "priority": "P0",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-07-14",
+  "approved": "2026-07-14",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .oq {
+    background: var(--note-bg); border: 1.5px solid var(--note);
+    border-radius: 14px; padding: 1rem 1.2rem; margin: 0 0 1.6rem;
+  }
+  .oq h2 {
+    margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--note); font-weight: 800;
+  }
+  .oq-item { padding: .5rem 0; }
+  .oq-item + .oq-item { border-top: 1px solid color-mix(in srgb, var(--note) 30%, transparent); }
+  .oq-item p { margin: 0 0 .35rem; font-weight: 600; font-size: .95rem; }
+  .oq-item textarea, .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .oq-item textarea:focus, .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oq .none { color: var(--muted); font-size: .92rem; margin: 0; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 006</p>
+    <span class="chip" id="status-chip" data-status="draft">Draft</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Feature-Audit „funktioniert wirklich"</h1>
+  <p class="lead">Jede angekündigte Funktion end-to-end live auf dem Jetson prüfen, eine belegte Bug-Liste erzeugen und alle P0/P1-Fehler im selben Zug beheben.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="bad" data-level="3"></span>Hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>Hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">6</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Die vorhandene Playwright-E2E-Suite wird auf den echten Jetson gerichtet und auf jede Feature-Domäne (inkl. Ops/Infra) ausgeweitet; ein Audit-Lauf erzeugt eine triagierte Bug-Liste, alle P0- und P1-Bugs werden sofort gefixt und re-verifiziert.</dd>
+      <dt>Warum jetzt</dt><dd>Gate G1 — „alle Features funktionieren nachweislich" — ist das Fundament für „voll verkaufbar". Bisher wurde nur punktuell live geprüft; ein systematischer, belegter Nachweis fehlt.</dd>
+      <dt>Größtes Risiko</dt><dd>Destruktive Tests laufen gegen die eine, produktionsnahe Appliance (kein Staging), und ein großer Fix-Batch kann die PR-Hygiene (Regel 8) sprengen.</dd>
+      <dt>Entschieden</dt><dd><ul>
+        <li>Fix-Strategie: <b>ein großer Audit-PR</b> mit allen P0/P1-Fixes (bewusster Override von Regel 8).</li>
+        <li>Destruktiv-Test: Kern-Services <b>werden neugestartet</b>, DB-Migrationen werden ausgeführt, alles danach <b>live auf dem Jetson</b> verifiziert.</li>
+      </ul></dd>
+    </dl>
+  </div>
+
+  <div class="oq" id="oq">
+    <h2>Offene Fragen an dich</h2>
+    <p class="none">Keine — beide Fragen sind beantwortet (siehe §8): ein großer Audit-PR mit allen P0/P1-Fixes; Kern-Services werden neugestartet, DB-Migrationen ausgeführt, alles danach live auf dem Jetson verifiziert.</p>
+  </div>
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Nachweisen, dass jede Funktion wirklich läuft — das Fundament für „voll verkaufbar" (Gate&nbsp;G1).</span>
+  </summary>
+  <div class="sbody">
+  <p>Arasul wird als Plug-&amp;-Play-Appliance verkauft: Chat, RAG, Dokumentenanalyse,
+  Automatisierung — alles lokal, alles zuverlässig. Der North Star der Roadmap ist
+  eindeutig: <b>jedes angekündigte Feature funktioniert zu 100&nbsp;%, nachweislich</b>.
+  Bisher haben wir viel gebaut und punktuell live verifiziert, aber es gibt keinen
+  systematischen, belegten Beweis, dass wirklich jede versprochene Funktion auf dem
+  echten Jetson tut, was sie soll. Genau diese Lücke schließt T01 und öffnet damit
+  Gate&nbsp;G1 („alle Features funktionieren nachweislich").</p>
+
+  <p>Konkret richten wir die bereits vorhandene Playwright-E2E-Suite auf die echte
+  Appliance (<code>https://192.168.0.197</code>) statt auf localhost, weiten sie von
+  der Legacy-Oberfläche auf die tatsächlich ausgelieferte <b>Workspace-Shell</b> aus
+  und ergänzen sie um Health-/Log-Checks für Ops/Infra. Damit fahren wir jede
+  Feature-Domäne einmal vollständig durch, halten pro Funktion „Erwartet vs.
+  Tatsächlich" fest und erzeugen eine belegte, triagierte Bug-Liste. Alle als P0
+  (Blocker) oder P1 (hoch) eingestuften Fehler werden im selben Zug behoben,
+  deployt und auf dem Gerät erneut geprüft.</p>
+
+  <p><b>Fertig heißt:</b> Es gibt einen kanonischen Feature-Katalog, einen lebenden
+  Audit-Report mit Erwartet/Tatsächlich-Beleg je Funktion, eine vollständig
+  triagierte Bug-Liste — und <b>alle P0- und P1-Bugs sind gefixt, deployt und auf
+  dem Jetson re-verifiziert</b>. P2 und bereits bekannte Themen (T02/T03/T04) sind
+  als Roadmap-Einträge bzw. Querverweise erfasst, die Appliance läuft nach dem Lauf
+  unbeschädigt weiter, und T01 steht in der Roadmap auf „done".</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Alle Kunden- <em>und</em> Ops-Features rein (funktional); UI-Optik-Feinschliff und reine P2-Kosmetik raus.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Chat: Nachricht senden/streamen, Modell wählen, Verlauf</li>
+      <li>RAG/Dokumente: Upload → Index → Suche → Antwort mit Quellen</li>
+      <li>Auth/Login/Rollen: Anmeldung, Rollen-/Rechte-Verhalten</li>
+      <li>Dashboard &amp; Container-Steuerung: Status, Start/Stop/Restart</li>
+      <li>Extensions/Store: Anzeige, Aktivieren/Deaktivieren</li>
+      <li>Ops/Infra: Backup auslösen, Metrics, Self-Healing/Service-Restart</li>
+      <li>Integrationen: Telegram-Bot-Lifecycle, n8n-Workflow triggern</li>
+      <li>Modell-Verwaltung: Pull/Delete (Ergebnis nur beobachten, siehe T03)</li>
+      <li>Audit-Report-Seite + Roadmap-Spiegel (P0/P1/P2)</li>
+      <li>Fix aller <b>P0- und P1-Bugs</b> + Re-Verify auf dem Jetson</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>Reine UI-/Optik-Konsistenz (Abstände, Größen) → gehört zu <b>T04</b></li>
+      <li>Fix von <b>P2</b>-Bugs (kosmetisch/UX) → nur als Roadmap-Thema</li>
+      <li>Neu-Bewertung/Fix von <b>T02, T03, T04</b> → nur Querverweis</li>
+      <li>Blockierendes CI-Gate für die E2E-Suite (bleibt on-demand/advisory)</li>
+      <li>Ersatz des bestehenden Playwright-MCP-Chat-Flows (<code>tests/e2e/README.md</code>)</li>
+      <li>Geparkte Themen (OTA, Netztrennung, /healthz) — T08–T14</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Die vorhandene Playwright-Suite wird auf den echten Jetson + die Default-UI gerichtet und um Ops-Checks erweitert.</span>
+  </summary>
+  <div class="sbody">
+  <p>Wir bauen keine neue Test-Maschinerie — die entscheidende Erkenntnis aus der
+  Recherche: Es gibt bereits eine Playwright-Suite unter
+  <code>apps/dashboard-frontend/e2e/</code> mit 9 Specs, gesteuert über die
+  Umgebungsvariablen <code>E2E_BASE_URL</code> und <code>E2E_ADMIN_USER/PASS</code>,
+  und <code>scripts/test/run-tests.sh</code> ruft sie schon auf. T01 <b>erweitert und
+  repariert</b> diese Suite, statt sie neu zu erfinden.</p>
+
+  <p>Heute zeigt die Suite auf <code>localhost</code> und — noch wichtiger — 7 der 9
+  Specs schalten per <code>localStorage['arasul_workspace_shell']='false'</code>
+  bewusst zurück auf die <b>Legacy-Oberfläche</b>. Damit testen sie einen Fallback,
+  nicht das, was ein echter Bediener heute sieht (die Workspace-Shell ist seit
+  Plan&nbsp;002/003 der Standard nach dem Login). „Bestehende E2E grün" heißt also
+  aktuell <em>nicht</em> „Feature funktioniert in der echten UI". Das drehen wir um.</p>
+
+  <p>Nach T01 zeigt die Suite über <code>E2E_BASE_URL=https://192.168.0.197</code>
+  (plus <code>ignoreHTTPSErrors</code> wegen des selbstsignierten Zertifikats) auf die
+  echte Appliance, fährt jede Domäne über den <b>Default-Workspace-Shell-Pfad</b> und
+  wird um eine schlanke Health-/Log-Check-Schicht für Ops/Infra ergänzt (curl gegen
+  <code>/api/health</code>, <code>/api/_meta</code>, <code>docker compose ps</code>-Health).
+  Das Ergebnis speist einen lebenden Audit-Report und — für offene Punkte — die
+  Roadmap. Der Audit-Lauf selbst ist durch ein Recovery-Netz abgesichert
+  (Pre-Backup, destruktive Schritte zuletzt, je mit Undo).</p>
+
+  <figure class="arch">
+    <svg viewBox="0 0 680 300" role="img" aria-label="Vorher/Nachher: E2E-Suite gegen localhost/Legacy versus gegen den echten Jetson mit Default-UI und Ops-Checks">
+      <!-- divider -->
+      <line x1="340" y1="20" x2="340" y2="280" style="stroke:var(--line)" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <text x="20" y="34" style="fill:var(--muted)" font-size="12" font-weight="700" letter-spacing="1.5">HEUTE</text>
+      <text x="360" y="34" style="fill:var(--accent-ink)" font-size="12" font-weight="700" letter-spacing="1.5">NACH T01</text>
+
+      <!-- BEFORE -->
+      <rect x="20" y="52" width="150" height="52" rx="8" style="fill:var(--surface);stroke:var(--line)" stroke-width="1.5"/>
+      <text x="95" y="74" text-anchor="middle" style="fill:var(--ink)" font-size="12" font-weight="700">9 Specs</text>
+      <text x="95" y="92" text-anchor="middle" style="fill:var(--muted)" font-size="10.5">7× Legacy-Opt-out</text>
+
+      <line x1="170" y1="78" x2="215" y2="78" style="stroke:var(--muted)" stroke-width="1.5" marker-end="url(#a1)"/>
+
+      <rect x="215" y="52" width="105" height="52" rx="8" style="fill:var(--wash);stroke:var(--line)" stroke-width="1.5"/>
+      <text x="267" y="74" text-anchor="middle" style="fill:var(--ink)" font-size="11.5" font-weight="700">localhost</text>
+      <text x="267" y="92" text-anchor="middle" style="fill:var(--muted)" font-size="10.5">Legacy-UI</text>
+
+      <rect x="20" y="150" width="300" height="112" rx="8" style="fill:var(--note-bg);stroke:var(--note)" stroke-width="1.3"/>
+      <text x="34" y="172" style="fill:var(--note)" font-size="11" font-weight="700">Lücke</text>
+      <text x="34" y="192" style="fill:var(--ink)" font-size="10.5">• testet Fallback, nicht die echte UI</text>
+      <text x="34" y="210" style="fill:var(--ink)" font-size="10.5">• kein Lauf gegen die Appliance</text>
+      <text x="34" y="228" style="fill:var(--ink)" font-size="10.5">• Ops/Infra ungeprüft</text>
+      <text x="34" y="246" style="fill:var(--ink)" font-size="10.5">• kein belegter Nachweis</text>
+
+      <!-- AFTER -->
+      <rect x="360" y="52" width="150" height="52" rx="8" style="fill:var(--surface);stroke:var(--accent)" stroke-width="1.5"/>
+      <text x="435" y="74" text-anchor="middle" style="fill:var(--ink)" font-size="12" font-weight="700">Specs + Health</text>
+      <text x="435" y="92" text-anchor="middle" style="fill:var(--muted)" font-size="10.5">alle Domänen · Default-UI</text>
+
+      <line x1="510" y1="78" x2="552" y2="78" style="stroke:var(--accent)" stroke-width="1.5" marker-end="url(#a2)"/>
+
+      <rect x="552" y="52" width="108" height="52" rx="8" style="fill:var(--wash);stroke:var(--accent)" stroke-width="1.5"/>
+      <text x="606" y="72" text-anchor="middle" style="fill:var(--accent-ink)" font-size="11" font-weight="700">Jetson</text>
+      <text x="606" y="88" text-anchor="middle" style="fill:var(--muted)" font-size="9.5">192.168.0.197</text>
+      <text x="606" y="100" text-anchor="middle" style="fill:var(--muted)" font-size="9.5">Default-Shell</text>
+
+      <line x1="435" y1="104" x2="435" y2="146" style="stroke:var(--accent)" stroke-width="1.5" marker-end="url(#a2)"/>
+
+      <rect x="360" y="150" width="300" height="112" rx="8" style="fill:var(--surface);stroke:var(--accent)" stroke-width="1.3"/>
+      <text x="374" y="172" style="fill:var(--accent-ink)" font-size="11" font-weight="700">Audit-Lauf (mit Recovery-Netz)</text>
+      <text x="374" y="192" style="fill:var(--ink)" font-size="10.5">→ Erwartet/Tatsächlich je Feature</text>
+      <text x="374" y="210" style="fill:var(--ink)" font-size="10.5">→ triagierte Bug-Liste (P0/P1/P2)</text>
+      <text x="374" y="228" style="fill:var(--ink)" font-size="10.5">→ Audit-Report + Roadmap-Spiegel</text>
+      <text x="374" y="246" style="fill:var(--ink)" font-size="10.5">→ P0/P1 gefixt &amp; re-verifiziert</text>
+
+      <defs>
+        <marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" style="fill:var(--muted)"/></marker>
+        <marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" style="fill:var(--accent)"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Vorher: Suite prüft localhost + Legacy-Fallback. Nachher: dieselbe Suite, erweitert, prüft die echte Appliance über die Default-UI und mündet in Report + gefixte Bugs.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Sechs Schritte: Suite härten → Abdeckung → Audit-Lauf → Report → Fix-Loop → Re-Audit.</span>
+  </summary>
+  <div class="sbody">
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — E2E-Suite auf den Jetson richten &amp; härten">
+    <h3>Schritt 1 — E2E-Suite auf den Jetson richten &amp; härten <span class="tag">Risiko: niedrig</span></h3>
+    <p><code>playwright.config.ts</code> auf <code>E2E_BASE_URL=https://192.168.0.197</code>
+    umstellen und <code>ignoreHTTPSErrors: true</code> ergänzen (selbstsigniertes Zert).
+    Login-Helper vereinheitlichen (aus <code>workspace-shell.spec.ts</code>), die 7 Legacy-
+    Opt-out-Specs auf den <b>Default-Workspace-Shell-Pfad</b> umziehen, npm-Script
+    <code>e2e:jetson</code> ergänzen. Ergebnis: die 9 bestehenden Specs laufen grün gegen die
+    echte Appliance über die echte UI.</p>
+    <p class="files mono">apps/dashboard-frontend/playwright.config.ts · apps/dashboard-frontend/e2e/*.spec.ts · package.json · scripts/test/run-tests.sh</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Feature-Katalog + Abdeckung fehlender Domänen">
+    <h3>Schritt 2 — Feature-Katalog + Abdeckung fehlender Domänen <span class="tag">Risiko: mittel</span></h3>
+    <p>Kanonischen Feature-Katalog aus <code>App.tsx</code>-Routen/Nav +
+    <code>routes/index.js</code> + <code>docs/features/</code> ableiten (jede Funktion mit
+    Domäne + 2–4 Kernflüssen). Neue Specs/Checks für bislang ungetestete Domänen:
+    Extensions/Store-Aktivierung, Backup-Trigger, Self-Healing/Service-Restart,
+    Telegram-Lifecycle, n8n-Workflow, Modell-Pull/Delete. Zusätzlich ein
+    Health-/Log-Check-Skript (curl gegen <code>/api/health</code>, <code>/api/_meta</code>,
+    <code>docker compose ps</code>-Health) für Ops/Infra.</p>
+    <p class="files mono">apps/dashboard-frontend/e2e/*.spec.ts (neu) · scripts/test/health-audit.sh (neu) · Feature-Katalog (Report-Seite)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Audit-Lauf gegen den Jetson (mit Recovery-Netz)">
+    <h3>Schritt 3 — Audit-Lauf gegen den Jetson (mit Recovery-Netz) <span class="tag">Risiko: hoch</span></h3>
+    <p>Pre-Backup auslösen und Ausgangszustand notieren. Erst alle <b>nicht-destruktiven</b>
+    Flows fahren, dann die <b>destruktiven</b> (Restart, Löschen, Pull) — jede mit
+    sofortigem Undo (stop→start, delete→recreate). Pro Feature „Erwartet vs. Tatsächlich"
+    + Belege (Screenshot/Trace, Log bei FAIL) erfassen; Bugs nach Rubrik P0/P1/P2
+    triagieren; auf T02/T03/T04 fallende Treffer nur als Querverweis notieren.
+    Post-Lauf: alle Kern-Container healthy.</p>
+    <p class="files mono">(Live-Lauf gegen 192.168.0.197) · Playwright-Artefakte · health-audit.sh-Ausgabe</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Audit-Report-Seite + Roadmap-Spiegel">
+    <h3>Schritt 4 — Audit-Report-Seite + Roadmap-Spiegel <span class="tag">Risiko: niedrig</span></h3>
+    <p>Lebende HTML-Audit-Report-Seite im Plan-/Report-Stil anlegen: Feature-Katalog +
+    Bug-Tabelle (ID, Feature, Schwere, Symptom, Repro, Beleg, Status). P0/P1/P2 sowie
+    bekannte Themen als Roadmap-Einträge bzw. Querverweise spiegeln
+    (<code>#roadmap-meta</code>-Themen, Muster wie T03/T04 „source: audit 2026-07-14").
+    T01-Card auf „in Arbeit".</p>
+    <p class="files mono">docs/plans/active/006-… (Report §9) bzw. docs/plans/audits/2026-07-14-feature-audit.html · docs/plans/ROADMAP.html</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Fix-Loop P0 → P1 (ein großer PR)">
+    <h3>Schritt 5 — Fix-Loop P0 → P1 (ein großer PR) <span class="tag">Risiko: hoch</span></h3>
+    <p>In Schwere-Reihenfolge zuerst alle <b>P0</b>, dann alle <b>P1</b> beheben — <b>alle
+    Fixes in einem großen Audit-PR</b> (bewusster Override von Regel&nbsp;8, vom Nutzer
+    freigegeben). Backend-Fixes strikt über <code>asyncHandler</code> + Custom-Errors,
+    Frontend über <code>useApi</code> + TS + Theme-Tokens; DB-Änderungen als idempotente,
+    sequenzielle Migration <code>services/postgres/init/102_*.sql</code> (werden auf dem
+    Jetson tatsächlich ausgeführt). Jeder Fix wird deployt und live re-verifiziert; der
+    PR bleibt trotz Umfang commit-weise nachvollziehbar (ein Commit pro Bug/Domäne).</p>
+    <p class="files mono">apps/dashboard-backend/src/routes/** · services/** · apps/dashboard-frontend/src/** · services/postgres/init/102_*.sql (ggf.)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Re-Audit &amp; Abschluss">
+    <h3>Schritt 6 — Re-Audit &amp; Abschluss <span class="tag">Risiko: niedrig</span></h3>
+    <p>Alle gefixten Flows erneut auf dem Jetson fahren, bis grün; Report-Status je Bug
+    auf „behoben" + Live-Repro (vorher/nachher). Verbleibende P2 + neue Themen in der
+    Roadmap belassen. T01-Card → „done", History-Eintrag ergänzen.</p>
+    <p class="files mono">docs/plans/… (Report) · docs/plans/ROADMAP.html</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Katalog vollständig, Suite grün-oder-dokumentiert, alle P0/P1 gefixt &amp; auf dem Jetson re-verifiziert.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Ein kanonischer Feature-Katalog listet jede angekündigte Funktion mit Domäne und 2–4 Kernflüssen.</li>
+    <li data-done="false">Die Playwright-Suite läuft on-demand gegen <code>https://192.168.0.197</code> (E2E_BASE_URL + ignoreHTTPSErrors) über den Default-Workspace-Shell-Pfad durch alle In-Scope-Domänen.</li>
+    <li data-done="false">Der Audit-Report hält pro Feature „Erwartet / Tatsächlich / Status" fest; jeder FAIL hat Repro-Schritte, Log-Auszug und Screenshot/Trace-Link.</li>
+    <li data-done="false">Jeder gefundene Bug ist triagiert (P0/P1/P2); P2 + bekannte Themen (T02/T03/T04) sind als Roadmap-Einträge bzw. Querverweise erfasst — keine Duplikate.</li>
+    <li data-done="false">Alle P0- und P1-Bugs sind gefixt, deployt und auf dem Jetson erneut grün verifiziert.</li>
+    <li data-done="false">Der Audit-Lauf hinterlässt die Appliance im Ausgangszustand: alle Kern-Container healthy, Pre-Backup vorhanden, keine Restschäden.</li>
+    <li data-done="false">Bestehende Test-Suiten bleiben grün: Backend-Jest, Frontend-Vitest und die (erweiterten) Playwright-Specs.</li>
+    <li data-done="false">ROADMAP aktualisiert: T01 auf „done", History-Eintrag, neue Follow-up-Themen für P2 angelegt.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Echter Browser gegen <code>https://192.168.0.197</code>, Health-Curls, Logs, Post-Lauf alle Services healthy.</span>
+  </summary>
+  <div class="sbody">
+  <p>Die Verifikation <b>ist</b> hier der Kern des Plans — der Audit läuft gegen die echte
+  Appliance, nicht gegen eine Attrappe.</p>
+
+  <h3>Erreichbarkeit &amp; Health</h3>
+  <ul>
+    <li>Dashboard im echten Browser: <code>https://192.168.0.197</code> (Keychain-Trust wie gehabt).</li>
+    <li>curl-Checks: <code>GET /api/health</code>, <code>GET /api/_meta</code>, <code>docker compose ps</code> (Health-Spalte je Service).</li>
+  </ul>
+
+  <h3>Getriebene Flows (Default-Workspace-Shell)</h3>
+  <ul>
+    <li>Login → Chat: Nachricht senden, Streaming, Modell wählen, Verlauf.</li>
+    <li>RAG: Test-Dokument hochladen → indexieren → suchen → Antwort mit Quelle; danach löschen.</li>
+    <li>Dashboard/Container: Status lesen, Restart eines Containers (mit sofortigem Recovery).</li>
+    <li>Extensions/Store aktivieren/deaktivieren; Backup auslösen; Self-Healing/Service-Restart beobachten.</li>
+    <li>Telegram-Bot-Lifecycle; n8n-Workflow triggern; Modell-Pull/Delete (Ergebnis beobachten, Querverweis T03).</li>
+  </ul>
+
+  <h3>Belege &amp; Abschluss</h3>
+  <ul>
+    <li>Bei jedem FAIL: Screenshot/Playwright-Trace + relevanter Container-Log-Auszug im Report.</li>
+    <li>Nach dem Lauf: alle Kern-Container (<code>postgres-db</code>, <code>llm-service</code>, <code>qdrant</code>, <code>traefik</code>, <code>dashboard-backend</code>) healthy; Pre-Backup vorhanden.</li>
+    <li>Nach jedem Fix: betroffener Flow erneut live grün.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größte Risiken: destruktive Live-Tests und Fix-PR-Umfang — beide mit Netz.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Destruktive Tests beschädigen die laufende Appliance (kein Staging)</td><td>Mittel</td><td>Recovery-Netz: Pre-Backup, destruktiv zuletzt, je Undo-Schritt, Post-Check aller Kern-Services; Self-Healing greift zusätzlich. Volume-/Datenlöschen an Kern-Services bleibt tabu.</td></tr>
+      <tr><td>Ein großer Fix-PR (vom Nutzer gewählt) wird unübersichtlich / schwer verifizierbar</td><td>Hoch</td><td>Bewusster Override von Regel 8. Gegenmaßnahme: ein Commit pro Bug/Domäne, sprechende Messages, jeder Fix einzeln live re-verifiziert; PR-Beschreibung verlinkt jeden Bug im Audit-Report.</td></tr>
+      <tr><td>Playwright scheitert am selbstsignierten Zertifikat</td><td>Hoch</td><td><code>ignoreHTTPSErrors: true</code> + <code>E2E_BASE_URL</code> auf die Jetson-URL.</td></tr>
+      <tr><td>Suite testet Legacy-Fallback statt echter Default-UI</td><td>Mittel</td><td>Alle Specs auf den Workspace-Shell-Default umstellen (Schritt 1).</td></tr>
+      <tr><td>Modell-Download-Flows sind bekannt flaky (T03)</td><td>Mittel</td><td>Nicht neu bewerten/fixen — nur Ergebnis beobachten und auf T03 querverweisen.</td></tr>
+      <tr><td>Audit-Lauf sehr lang (GPU/Modell-Pull, viele Domänen)</td><td>Mittel</td><td>Non-destruktiv zuerst, schwere Flows separat/zeitgeboxt; Lauf ist wiederholbar.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <ul>
+    <li><b>Audit selbst:</b> read-only bzw. durch Recovery-Netz zustandsneutral — keine bleibende Änderung; im Ernstfall Pre-Backup zurückspielen.</li>
+    <li><b>Fixes:</b> jeder Fix-PR einzeln per <code>git revert</code> / <code>gh pr revert</code> rückrollbar; Deploy über <code>deploy-local.sh</code>, alter Stand per Branch-Restore auf dem Gerät.</li>
+    <li><b>Migrationen</b> (falls ein Fix die DB berührt): Down-Pfad im selben PR, nächste Nummer <code>102_*.sql</code>.</li>
+    <li><b>Plan-Seite + ROADMAP:</b> reine Doku, jederzeit editierbar/revertierbar.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 12 Interview-Entscheidungen + 2 Abweichungen aus der Recherche.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Wo endet T01?</td><td>Audit + P0- <em>und</em> P1-Bugs sofort fixen</td><td>Echter Code-Plan mit Branch/PR, Deploy und Re-Verify — nicht nur eine Liste.</td></tr>
+      <tr><td>Feature-Inventar?</td><td>Kanonischer Feature-Katalog (Nav + Routen + Doku)</td><td>Eine wiederverwendbare Quelle der Wahrheit für dieses und künftige Audits.</td></tr>
+      <tr><td>Report-Format?</td><td>Lebende HTML-Audit-Report-Seite + Roadmap-Spiegel</td><td>Bug-Tabelle im Plan-Stil; P0/P1/P2 fließen in den Roadmap-Faden.</td></tr>
+      <tr><td>Testmethode?</td><td>Automatisierte Playwright-E2E-Suite</td><td>Wiederholbar; visuelle Feinheiten bleiben T04 überlassen.</td></tr>
+      <tr><td>Scope?</td><td>Alles inkl. Ops/Infra</td><td>Größter Umfang: UI-Flows + Health/Log-Checks für Backend/Ops.</td></tr>
+      <tr><td>Testdaten/Safety?</td><td>Realer Admin, alles echt</td><td>Maximale Realität → zwingend abgesichert durch das Recovery-Netz.</td></tr>
+      <tr><td>Triage-Rubrik?</td><td>3-stufig; P0 <em>und</em> P1 werden gefixt, P2 → Roadmap</td><td>Größerer Fix-Umfang in diesem Lauf; braucht PR-Batching.</td></tr>
+      <tr><td>Bekannte Themen (T02/T03/T04)?</td><td>Referenzieren, nicht doppeln</td><td>Nur Querverweis im Report; kein neuer Bug/Fix hier.</td></tr>
+      <tr><td>Recovery bei „alles echt"?</td><td>Reihenfolge + sofortiges Recovery + Pre-Backup</td><td>Destruktiv zuletzt, je Undo; Appliance bleibt am Ende intakt.</td></tr>
+      <tr><td>Fix-Autonomie bei großen Fixes?</td><td>Jeden P0/P1 erzwingen</td><td>Potenziell großer Umfang → über domänen-gebündelte Folge-PRs beherrschbar (Frage 1).</td></tr>
+      <tr><td>Suite/CI?</td><td>On-Demand gegen Jetson, nicht CI-blockierend</td><td>Bleibt bei der bewussten Advisory-Linie; kein Auto-Merge-Bruch.</td></tr>
+      <tr><td>Beleg-Tiefe?</td><td>Erwartet/Tatsächlich + Belege bei FAIL</td><td>PASS schlank, FAIL beweisbar (Repro + Log + Trace).</td></tr>
+      <tr><td><b>Abweichung (Recherche):</b> Testmethode</td><td>Suite existiert bereits — wird erweitert/repariert statt neu gebaut</td><td>Schritt 1 kleiner; Fokus auf Jetson-Ausrichtung + Default-UI + fehlende Domänen.</td></tr>
+      <tr><td><b>Abweichung (Recherche):</b> echte UI</td><td>Specs vom Legacy-Opt-out auf den Default-Workspace-Shell-Pfad umstellen</td><td>„E2E grün" heißt künftig „Feature funktioniert in der echten UI".</td></tr>
+      <tr><td><b>Frage 1:</b> Fix-PR-Strategie</td><td>Ein großer Audit-PR mit allen P0/P1-Fixes</td><td>Bewusster Override von Regel 8; Nachvollziehbarkeit über ein Commit pro Bug/Domäne.</td></tr>
+      <tr><td><b>Frage 2:</b> Kern-Services im Destruktiv-Test</td><td>Neustarten + DB migrieren + alles live auf dem Jetson verifizieren</td><td>Maximale Realität; abgesichert durch Pre-Backup + Recovery-Netz. Kein Volume-/Datenlöschen an Kern-Services.</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 006 · erstellt am 2026-07-14 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/006-feature-audit-funktioniert-wirklich.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"))
+    .filter(function (el) { return !el.classList.contains("oq-item"); });
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // open-question answers first
+    document.querySelectorAll(".oq-item").forEach(function (q) {
+      var ta = q.querySelector("textarea");
+      if (ta) out.push({ ref: q.dataset.ref + ": " + (q.querySelector("p") ? q.querySelector("p").textContent.trim() : ""), text: ta.value, oq: true, key: q.dataset.ref });
+    });
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list.filter(function (c) { return !c.oq || c.text.trim(); }));
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.value = ""; });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // wire open-question textareas + restore persisted state
+  document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.addEventListener("input", persist); });
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var oq = document.querySelector('.oq-item[data-ref="' + c.key + '"]');
+    if (oq) {
+      var ta = oq.querySelector("textarea");
+      if (ta && !ta.value) ta.value = c.text;
+      return;
+    }
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
