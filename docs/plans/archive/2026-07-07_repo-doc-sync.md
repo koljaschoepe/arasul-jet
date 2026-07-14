@@ -1,3 +1,7 @@
+> **Archived 2026-07-14** — In die frische `ROADMAP.html` überführt; der offene
+> Rest lebt als geparktes Roadmap-Thema „Doku-Sync abschließen". Nur noch
+> historische Referenz.
+
 # Repo Doc-Sync — Doku wieder mit Code in Deckung bringen
 
 > Sammelplan aus dem Repo-Cleanup-Audit vom 2026-07-07 (22-Agenten-Sweep). Die

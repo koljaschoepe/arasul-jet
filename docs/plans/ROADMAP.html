@@ -22,36 +22,38 @@
 <script type="application/json" id="roadmap-meta">
 {
   "updated": "2026-07-14",
-  "migrated_from_master_plan": false,
+  "migrated_from_master_plan": true,
   "gates": [
-    { "id": "G1", "title": "Mandanten-Isolation bewiesen", "state": "open" },
-    { "id": "G2", "title": "Migrations-Kette auf frischer DB bewiesen", "state": "open" },
-    { "id": "G3", "title": "OTA-Update-Roundtrip mit Signatur", "state": "open" },
-    { "id": "G4", "title": "Saubere Prod/Privat-Netztrennung", "state": "open" },
-    { "id": "G5", "title": "Verschlüsselte Backups + Restore-Drill", "state": "open" },
-    { "id": "G6", "title": "Factory-Build auf zweitem Gerät", "state": "open" },
+    { "id": "G1", "title": "Alle Features funktionieren nachweislich (Feature-Audit grün)", "state": "open" },
+    { "id": "G2", "title": "Aktions-Feedback plattformweit konsistent (jede Aktion gibt klaren Status)", "state": "open" },
+    { "id": "G3", "title": "UI plattformweit konsistent (Abstände, Größen, Formatierung)", "state": "open" },
+    { "id": "G4", "title": "Mandanten-Isolation bewiesen", "state": "open" },
+    { "id": "G5", "title": "DSGVO-Compliance dokumentiert", "state": "open" },
+    { "id": "G6", "title": "Verschlüsselte Backups + Restore-Drill bewiesen", "state": "open" },
     { "id": "G7", "title": "7 Tage unattended stabil", "state": "open" }
   ],
   "themes": [
-    { "id": "T01", "title": "Master-Plan → Roadmap-Migration (Stale-Check)", "prio": "P0", "status": "open", "source": "setup 2026-07-10", "plan": null, "pr": null },
-    { "id": "T02", "title": "Mandanten-Isolation (owner_id, Datenzugriff pro Mandant)", "prio": "P0", "status": "open", "source": "Master-Plan Phase 2", "plan": null, "pr": null },
-    { "id": "T03", "title": "Backup-Verschlüsselung + WAL + Restore-Drill", "prio": "P0", "status": "open", "source": "Master-Plan Phase 5", "plan": null, "pr": null },
-    { "id": "T04", "title": "OTA-Updates mit Paket-Signatur", "prio": "P1", "status": "open", "source": "Master-Plan Phase 4", "plan": null, "pr": null },
-    { "id": "T05", "title": "Prod/Privat-Netztrennung abschließen", "prio": "P1", "status": "open", "source": "Master-Plan Phase 3", "plan": null, "pr": null },
-    { "id": "T06", "title": "n8n-DSGVO-Governance + externe Provider", "prio": "P1", "status": "open", "source": "Master-Plan Phase 6", "plan": null, "pr": null },
-    { "id": "T07", "title": "/healthz + /readyz + Alarmierung", "prio": "P1", "status": "open", "source": "Master-Plan Phase 7 · Side-Branch 8.x", "plan": null, "pr": null },
-    { "id": "T08", "title": "Side-Branch-Reste: DR-Drill-CI, Backend-Unit-Tests, Drift-Checker", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick", "plan": null, "pr": null },
-    { "id": "T09", "title": "Frontend-Chat-UX-Refactor (Re-Implementation)", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick", "plan": null, "pr": null },
-    { "id": "T10", "title": "Doku-Sync abschließen (repo-doc-sync)", "prio": "P2", "status": "open", "source": "docs/plans/active/repo-doc-sync-2026-07-07.md", "plan": null, "pr": null },
-    { "id": "T11", "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau (Themes, Agent-Chat, Projekte-Explorer, Terminal-Modi, Extensions, n8n 2.x)", "prio": "P0", "status": "done", "source": "user 2026-07-11", "plan": "001", "pr": 184 },
-    { "id": "T12", "title": "Cursor-Shell 3.0 — Neubau der Workspace-Shell (ein Terminal, echte Tabs, Extension-Gating, Kompakt-Skala)", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "002", "pr": 196 },
-    { "id": "T13", "title": "Cursor-Shell 3.1 — Ein rechtes Panel (Chat⇄Terminal), Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "003", "pr": 197 },
-    { "id": "T14", "title": "Frontend-Politur — Kundennutzen & Komfort (plattformweite Dichte, Dashboard-Aktions-Hub, Extensions-Übersicht + Kontextlänge, Chat-Anhang-Feedback, Terminal-Ordner-Header, Settings-Ausrichtung, Datenbank-App-Onboarding)", "prio": "P1", "status": "done", "source": "user 2026-07-14", "plan": "004", "pr": 205 },
-    { "id": "T15", "title": "Ordner-Cloud-Sync (GitHub/OneDrive) — gespeicherte Projekte optional in die Cloud spiegeln", "prio": "P2", "status": "open", "source": "user 2026-07-14", "plan": null, "pr": null },
-    { "id": "T16", "title": "Modell-Download-Robustheit — Nach-Download-Verify mit Retry/Poll statt Einmal-Check (vorbestehende Race in modelDownloadHelpers.js: Modell wird real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error' markiert)", "prio": "P1", "status": "open", "source": "Live-Verify Plan 004 2026-07-14", "plan": null, "pr": null },
-    { "id": "T17", "title": "Workspace-Shell interaktiv — n8n-Explorer-Bug, Chat mit Denk-Stream + Maskottchen + Anhang-Liste, Quellen-Fix, editierbarer Markdown-Editor (mit Speicher-Route), Extensions-Zwei-Spalten, Dashboard eingedampft, Ansichtsmodus-Umschalter raus, Responsive-Politur", "prio": "P1", "status": "done", "source": "user 2026-07-14", "plan": "005", "pr": 207 }
+    { "id": "T01", "title": "Feature-Audit „funktioniert wirklich\" — jede angekündigte Funktion end-to-end live auf dem Jetson durchtesten, Bug-Liste erzeugen", "prio": "P0", "status": "open", "source": "Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T02", "title": "Aktions-Feedback plattformweit — Container start/stop/restart, Modell-Download, Deaktivieren geben sofort klaren Status (kein „passiert nichts → dann alles auf einmal\")", "prio": "P0", "status": "open", "source": "Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T03", "title": "Modell-Download-Robustheit — Verify mit Retry/Poll statt Einmal-Check (Race in modelDownloadHelpers.js: real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error') + saubere Progress-UI", "prio": "P1", "status": "open", "source": "Live-Verify Plan 004 2026-07-14", "plan": null, "pr": null },
+    { "id": "T04", "title": "UI-Konsistenz-Sweep — Abstände, Formatierung, Größen, Theme-Tokens plattformweit vereinheitlichen; einzelne unschöne Frontend-Stellen glätten", "prio": "P1", "status": "open", "source": "Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T05", "title": "Mandanten-Isolation (owner_id, Datenzugriff pro Mandant)", "prio": "P0", "status": "open", "source": "Master-Plan Phase 2 · Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T06", "title": "DSGVO & Compliance — n8n-DSGVO-Governance, Drittland-Konnektoren kennzeichnen, AVV/Consent-Doku", "prio": "P0", "status": "open", "source": "Master-Plan Phase 6 · Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T07", "title": "Backup-Verschlüsselung + Restore-Drill — nur der offene Rest (Auto-Backup auf externe SSD existiert schon): Verschlüsselung + belegte Wiederherstellung", "prio": "P1", "status": "open", "source": "Master-Plan Phase 5 · Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T08", "title": "[Geparkt] OTA-Updates mit Paket-Signatur", "prio": "P2", "status": "open", "source": "Master-Plan Phase 4 · geparkt Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T09", "title": "[Geparkt] Prod/Privat-Netztrennung abschließen", "prio": "P2", "status": "open", "source": "Master-Plan Phase 3 · geparkt Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T10", "title": "[Geparkt] /healthz + /readyz + Alarmierung", "prio": "P2", "status": "open", "source": "Master-Plan Phase 7 · geparkt Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T11", "title": "[Geparkt] Ordner-Cloud-Sync (GitHub/OneDrive)", "prio": "P2", "status": "open", "source": "user 2026-07-14 · geparkt", "plan": null, "pr": null },
+    { "id": "T12", "title": "[Geparkt] Frontend-Chat-UX-Refactor (Re-Implementation)", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick · geparkt", "plan": null, "pr": null },
+    { "id": "T13", "title": "[Geparkt] Side-Branch-Reste: DR-Drill-CI, Backend-Unit-Tests, Drift-Checker", "prio": "P2", "status": "open", "source": "side-branch-cherry-pick · geparkt", "plan": null, "pr": null },
+    { "id": "T14", "title": "[Geparkt] Doku-Sync abschließen (repo-doc-sync)", "prio": "P2", "status": "open", "source": "repo-doc-sync · geparkt", "plan": null, "pr": null }
   ],
   "history": [
+    { "date": "2026-07-14", "plan": null, "title": "Roadmap konsolidiert — Neuausrichtung „voll verkaufbar\": Feature-Zuverlässigkeit + Aktions-Feedback + UI-Konsistenz nach oben, Betrieb/Updates geparkt; Master-Plan & Legacy-Pläne archiviert", "pr": null },
+    { "date": "2026-07-14", "plan": "005", "title": "Workspace-Shell interaktiv — Chat, Extensions, Dashboard", "pr": 207 },
+    { "date": "2026-07-14", "plan": "004", "title": "Frontend-Politur — Kundennutzen & Komfort", "pr": 205 },
+    { "date": "2026-07-13", "plan": "003", "title": "Cursor-Shell 3.1 — Ein Panel, Kontext-Sidebar & Feinschliff", "pr": 197 },
+    { "date": "2026-07-13", "plan": "002", "title": "Cursor-Shell 3.0 — Neubau der Workspace-Shell", "pr": 196 },
     { "date": "2026-07-12", "plan": "001", "title": "Workspace 2.0 — Cursor-Feinschliff", "pr": 184 }
   ]
 }
@@ -260,231 +262,200 @@
   <div class="gatebar">
     <span class="big">0<small> / 7 Gates</small></span>
     <div class="gpills">
-      <span class="gpill" data-state="open" title="Mandanten-Isolation bewiesen">G1 Mandanten</span>
-      <span class="gpill" data-state="open" title="Migrations-Kette auf frischer DB bewiesen">G2 Migrationen</span>
-      <span class="gpill" data-state="open" title="OTA-Update-Roundtrip mit Signatur">G3 OTA</span>
-      <span class="gpill" data-state="open" title="Saubere Prod/Privat-Netztrennung">G4 Netz</span>
-      <span class="gpill" data-state="open" title="Verschlüsselte Backups + Restore-Drill">G5 Backups</span>
-      <span class="gpill" data-state="open" title="Factory-Build auf zweitem Gerät">G6 Factory</span>
+      <span class="gpill" data-state="open" title="Alle Features funktionieren nachweislich">G1 Features</span>
+      <span class="gpill" data-state="open" title="Aktions-Feedback plattformweit konsistent">G2 Feedback</span>
+      <span class="gpill" data-state="open" title="UI plattformweit konsistent">G3 UI</span>
+      <span class="gpill" data-state="open" title="Mandanten-Isolation bewiesen">G4 Mandanten</span>
+      <span class="gpill" data-state="open" title="DSGVO-Compliance dokumentiert">G5 DSGVO</span>
+      <span class="gpill" data-state="open" title="Verschlüsselte Backups + Restore-Drill">G6 Backups</span>
       <span class="gpill" data-state="open" title="7 Tage unattended stabil">G7 Unattended</span>
     </div>
   </div>
   <div class="counts">
-    <div class="count"><div class="cl">Themen</div><div class="cv">10</div></div>
-    <div class="count"><div class="cl">P0 dringend</div><div class="cv">3</div></div>
+    <div class="count"><div class="cl">Themen offen</div><div class="cv">14</div></div>
+    <div class="count"><div class="cl">P0 dringend</div><div class="cv">4</div></div>
     <div class="count"><div class="cl">Geplant</div><div class="cv">0</div></div>
-    <div class="count"><div class="cl">Erledigt</div><div class="cv">1</div></div>
+    <div class="count"><div class="cl">Erledigt</div><div class="cv">5</div></div>
   </div>
 
   <div class="banner">
-    <strong>Migration ausstehend.</strong> Diese Themen wurden am 2026-07-10 grob aus
-    <span class="mono">FIELD_1.0.0_MASTER_PLAN.md</span> übernommen und sind noch nicht
-    gegen den Code geprüft. Der erste <code>/plan</code>-Lauf (Thema T01) macht diese
-    Seite verbindlich und setzt die Gate-Zustände korrekt.
+    <strong>Frische Roadmap (2026-07-14).</strong> Neuausrichtung Richtung <em>voll
+    verkaufbar</em>: Der North Star ist, dass <strong>jede vorhandene Funktion
+    100&nbsp;% funktioniert und sauber aussieht</strong> — Feature-Zuverlässigkeit,
+    Aktions-Feedback und UI-Konsistenz stehen oben (T01–T04), parallel dazu die
+    Verkaufs-Härtung (Mandanten, DSGVO, Backup — T05–T07). Betrieb/Updates
+    (OTA, Netztrennung, healthz) sind bewusst <strong>geparkt</strong>. Master-Plan
+    und Legacy-Pläne sind nach <span class="mono">docs/plans/archive/</span> gewandert.
   </div>
 
   <h2>Themen — anklicken für Details</h2>
 
-  <details class="card" id="T01" data-prio="P0" data-status="open" data-ref="T01 Master-Plan-Migration">
-    <summary><span class="prio">P0</span><span class="ttl">Master-Plan → Roadmap-Migration (Stale-Check)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T01" data-prio="P0" data-status="open" data-ref="T01 Feature-Audit">
+    <summary><span class="prio">P0</span><span class="ttl">Feature-Audit „funktioniert wirklich“</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Der 44-KB-Master-Plan wird gegen den echten Code geprüft: Was ist längst erledigt,
-      was ist noch wahr, was hat sich verschoben? Danach ist diese Roadmap die einzige
-      Quelle der Wahrheit und der Master-Plan wird zur Historie eingedampft.</p>
-      <div class="facts"><span>Macht: <b>alle Gates korrekt</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Jede angekündigte Funktion wird end-to-end live auf dem Jetson durchgetestet:
+      Chat, RAG, Dokumentenanalyse, Extensions, Terminal, n8n, Modell-Verwaltung,
+      Container-Steuerung. Ergebnis ist eine belastbare Bug-Liste, die die nächsten
+      Fix-Runden speist. Kern des Verkaufsversprechens: Kunden dürfen keine Bugs merken.</p>
+      <div class="facts"><span>Macht Gate: <b>G1</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
       <div class="cmd"><code>/plan T01</code><button type="button" data-copy="/plan T01">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T02" data-prio="P0" data-status="open" data-ref="T02 Mandanten-Isolation">
-    <summary><span class="prio">P0</span><span class="ttl">Mandanten-Isolation</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T02" data-prio="P0" data-status="open" data-ref="T02 Aktions-Feedback">
+    <summary><span class="prio">P0</span><span class="ttl">Aktions-Feedback plattformweit</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Jeder Mandant sieht nur seine eigenen Dokumente, Chats und Analysen. Das ist das
-      §203-Verkaufsargument für Kanzleien — heute teilen sich alle Benutzer einen Datenraum.</p>
-      <div class="facts"><span>Macht Gate: <b>G1</b></span><span>Aufwand: <b>~3–4 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Jede Aktion gibt sofort klaren Status: Container starten/stoppen/neu&nbsp;starten,
+      Modell-Download, Extension deaktivieren. Heute wirkt es teils, als passiere nichts —
+      und dann kommt alles auf einmal. Ziel: einheitliche Loading-/Success-/Error-Zustände,
+      optimistisches UI, keine stummen Aktionen.</p>
+      <div class="facts"><span>Macht Gate: <b>G2</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
       <div class="cmd"><code>/plan T02</code><button type="button" data-copy="/plan T02">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T03" data-prio="P0" data-status="open" data-ref="T03 Backup-Verschlüsselung">
-    <summary><span class="prio">P0</span><span class="ttl">Backup-Verschlüsselung + WAL + Restore-Drill</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T03" data-prio="P1" data-status="open" data-ref="T03 Modell-Download-Robustheit">
+    <summary><span class="prio">P1</span><span class="ttl">Modell-Download-Robustheit (Verify mit Retry + UI)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Backups müssen verschlüsselt sein und nachweislich wiederherstellbar — die
-      MinIO-Backups waren zuletzt faktisch leer. Ohne bewiesenes Restore ist jedes
-      Backup nur Hoffnung.</p>
-      <div class="facts"><span>Macht Gate: <b>G5</b></span><span>Aufwand: <b>~2–3 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Beim Live-Verify von Plan 004 gefunden: Ein echter Pull landet real in Ollama, aber
+      die Nach-Download-Verifizierung in <code>modelDownloadHelpers.js</code> prüft einmalig
+      <code>/api/tags</code> bei Stream-Ende und markiert das Modell bei client-disconnect /
+      noch nicht registriertem Modell fälschlich als <code>error</code>. Fix: Verify mit
+      Retry/Poll + robuster Disconnect-Behandlung, plus saubere Progress-UI.</p>
+      <div class="facts"><span>Macht Gate: <b>zahlt auf G1/G2</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>—</b></span></div>
       <div class="cmd"><code>/plan T03</code><button type="button" data-copy="/plan T03">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T04" data-prio="P1" data-status="open" data-ref="T04 OTA-Signatur">
-    <summary><span class="prio">P1</span><span class="ttl">OTA-Updates mit Paket-Signatur</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T04" data-prio="P1" data-status="open" data-ref="T04 UI-Konsistenz-Sweep">
+    <summary><span class="prio">P1</span><span class="ttl">UI-Konsistenz-Sweep</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Kunden-Boxen sollen Updates über signierte Pakete bekommen. Der öffentliche
-      Signatur-Schlüssel fehlt noch auf dem Gerät, und der komplette Roundtrip
-      (Paket bauen → signieren → einspielen) wurde nie durchgespielt.</p>
-      <div class="facts"><span>Macht Gate: <b>G3</b></span><span>Aufwand: <b>~2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Grundlegend über die Oberfläche iterieren: Abstände, Formatierung, Größen und
+      Theme-Tokens plattformweit vereinheitlichen, einzelne noch unschöne Frontend-Stellen
+      glätten. Alles soll wirken wie aus einem Guss. (Darf laut Interview etwas später als
+      T01/T02 kommen.)</p>
+      <div class="facts"><span>Macht Gate: <b>G3</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>gut nach T01</b></span></div>
       <div class="cmd"><code>/plan T04</code><button type="button" data-copy="/plan T04">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T05" data-prio="P1" data-status="open" data-ref="T05 Netztrennung">
-    <summary><span class="prio">P1</span><span class="ttl">Prod/Privat-Netztrennung abschließen</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T05" data-prio="P0" data-status="open" data-ref="T05 Mandanten-Isolation">
+    <summary><span class="prio">P0</span><span class="ttl">Mandanten-Isolation</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Auf dem Gerät laufen neben Arasul noch private Stacks. Für den Verkauf muss die
-      Trennung sauber und nachweisbar sein — nichts Privates erreichbar, nichts teilt
-      sich Ports oder Netze. Teilweise bereits umgesetzt.</p>
-      <div class="facts"><span>Macht Gate: <b>G4</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Jeder Mandant sieht nur seine eigenen Dokumente, Chats und Analysen (owner_id,
+      Datenzugriff pro Mandant). Das ist das §203-Verkaufsargument für Kanzleien — heute
+      teilen sich alle Benutzer einen Datenraum.</p>
+      <div class="facts"><span>Macht Gate: <b>G4</b></span><span>Aufwand: <b>~3–4 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
       <div class="cmd"><code>/plan T05</code><button type="button" data-copy="/plan T05">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T06" data-prio="P1" data-status="open" data-ref="T06 n8n-DSGVO">
-    <summary><span class="prio">P1</span><span class="ttl">n8n-DSGVO-Governance + externe Provider</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T06" data-prio="P0" data-status="open" data-ref="T06 DSGVO & Compliance">
+    <summary><span class="prio">P0</span><span class="ttl">DSGVO &amp; Compliance</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Workflows dürfen Daten nur kontrolliert nach außen geben: Drittland-Konnektoren
-      kennzeichnen, Consent-Regeln durchsetzen, Governance dokumentieren. Wichtig für
-      das DSGVO-Versprechen der Box.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b> (Verkaufs-Doku)</span><span>Aufwand: <b>~2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Rechtliche Verkaufbarkeit absichern: n8n-Workflows geben Daten nur kontrolliert nach
+      außen (Drittland-Konnektoren kennzeichnen, Consent durchsetzen), plus AVV-/Governance-Doku.
+      Trägt das DSGVO-Versprechen der Box.</p>
+      <div class="facts"><span>Macht Gate: <b>G5</b></span><span>Aufwand: <b>~2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
       <div class="cmd"><code>/plan T06</code><button type="button" data-copy="/plan T06">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T07" data-prio="P1" data-status="open" data-ref="T07 healthz-Alarmierung">
-    <summary><span class="prio">P1</span><span class="ttl">/healthz + /readyz + Alarmierung</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T07" data-prio="P1" data-status="open" data-ref="T07 Backup-Verschlüsselung + Restore-Drill">
+    <summary><span class="prio">P1</span><span class="ttl">Backup-Verschlüsselung + Restore-Drill</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Standardisierte Gesundheits-Endpunkte plus ein Alarm-Webhook, damit die Box sich
-      meldet, bevor der Kunde etwas merkt. Grundlage für den 5-Jahre-unattended-Anspruch.</p>
-      <div class="facts"><span>Macht Gate: <b>zahlt auf G7 ein</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Das Auto-Backup auf externe SSD (Stick anstecken → Daten werden gesichert) existiert
+      bereits. Offen ist nur der Rest: die Backups <strong>verschlüsseln</strong> und die
+      Wiederherstellung <strong>nachweislich</strong> durchspielen (Restore-Drill). Ohne
+      bewiesenes Restore ist ein Backup nur Hoffnung.</p>
+      <div class="facts"><span>Macht Gate: <b>G6</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
       <div class="cmd"><code>/plan T07</code><button type="button" data-copy="/plan T07">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T08" data-prio="P2" data-status="open" data-ref="T08 Side-Branch-Reste">
-    <summary><span class="prio">P2</span><span class="ttl">Side-Branch-Reste: DR-Drill-CI, Unit-Tests, Drift-Checker</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <h2>Geparkt — nach dem Verkaufs-Gate</h2>
+  <p class="lead" style="font-size:.95rem">Bewusst zurückgestellt: nicht Teil des „voll verkaufbar“-Ziels. Bleiben als Themenspeicher, werden erst nach T01–T07 angefasst.</p>
+
+  <details class="card" id="T08" data-prio="P2" data-status="open" data-ref="T08 OTA-Signatur">
+    <summary><span class="prio">P2</span><span class="ttl">OTA-Updates mit Paket-Signatur</span><span class="cbtn-slot"></span><span class="st">geparkt</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Was aus den alten Side-Branches noch offen ist: nächtlicher Disaster-Recovery-Drill
-      in CI, Backend-Unit-Tests (jwt, fileValidation, tokenCrypto, documentAnalysis) und
-      ein Checker gegen Doku-Drift.</p>
-      <div class="facts"><span>Macht Gate: <b>stützt G5</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Kunden-Boxen bekommen Updates über signierte Pakete. Der öffentliche Signatur-Schlüssel
+      fehlt noch auf dem Gerät, der komplette Roundtrip (bauen → signieren → einspielen) wurde
+      nie durchgespielt. Fürs erste Verkaufs-Gate zurückgestellt.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~2 Sessions</b></span><span>Status: <b>geparkt</b></span></div>
       <div class="cmd"><code>/plan T08</code><button type="button" data-copy="/plan T08">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T09" data-prio="P2" data-status="open" data-ref="T09 Chat-UX-Refactor">
-    <summary><span class="prio">P2</span><span class="ttl">Frontend-Chat-UX-Refactor (Re-Implementation)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T09" data-prio="P2" data-status="open" data-ref="T09 Netztrennung">
+    <summary><span class="prio">P2</span><span class="ttl">Prod/Privat-Netztrennung abschließen</span><span class="cbtn-slot"></span><span class="st">geparkt</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Die Chat-Oberfläche gründlich modernisieren — bewusst als Neu-Implementation
-      statt Cherry-Pick aus dem alten Branch, weil der Code dort zu weit von main
-      abgedriftet ist. Riskant, braucht einen eigenen sorgfältigen Plan.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~3–4 Sessions</b></span><span>Hängt an: <b>besser nach T02</b></span></div>
+      <p>Auf dem Gerät laufen neben Arasul noch private Stacks. Für den späteren Auslieferungs-Build
+      muss die Trennung sauber und nachweisbar sein. Teilweise bereits umgesetzt; fürs erste
+      Verkaufs-Gate zurückgestellt.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Status: <b>geparkt</b></span></div>
       <div class="cmd"><code>/plan T09</code><button type="button" data-copy="/plan T09">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T10" data-prio="P2" data-status="open" data-ref="T10 Doku-Sync">
-    <summary><span class="prio">P2</span><span class="ttl">Doku-Sync abschließen</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T10" data-prio="P2" data-status="open" data-ref="T10 healthz-Alarmierung">
+    <summary><span class="prio">P2</span><span class="ttl">/healthz + /readyz + Alarmierung</span><span class="cbtn-slot"></span><span class="st">geparkt</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Rest aus dem Doku-Abgleich vom 2026-07-07: Dokumentation wieder vollständig mit
-      dem Code in Deckung bringen.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>—</b></span></div>
+      <p>Standardisierte Gesundheits-Endpunkte plus Alarm-Webhook, damit die Box sich meldet,
+      bevor der Kunde etwas merkt. Grundlage für den 5-Jahre-unattended-Anspruch — kommt nach
+      dem ersten Verkaufs-Gate.</p>
+      <div class="facts"><span>Macht Gate: <b>zahlt auf G7 ein</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Status: <b>geparkt</b></span></div>
       <div class="cmd"><code>/plan T10</code><button type="button" data-copy="/plan T10">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T11" data-prio="P0" data-status="done" data-ref="T11 Workspace 2.0 Cursor-Feinschliff">
-    <summary><span class="prio">P0</span><span class="ttl">Workspace 2.0 — Feinschliff auf Cursor-Niveau</span><span class="cbtn-slot"></span><span class="st">done (PR #184)</span><span class="chev">▶</span></summary>
+  <details class="card" id="T11" data-prio="P2" data-status="open" data-ref="T11 Ordner-Cloud-Sync">
+    <summary><span class="prio">P2</span><span class="ttl">Ordner-Cloud-Sync (GitHub/OneDrive)</span><span class="cbtn-slot"></span><span class="st">geparkt</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Die IDE-Shell wird zum Produkt: drei Themes (Schwarz Default) mit Cursor-Dichte statt
-      Linien-Wildwuchs, kompakter Agent-Chat rechts mit Quellen und Drag&nbsp;&amp;&nbsp;Drop,
-      Explorer als Projekte-Baum mit Upload (Daten-Dashboard entfällt), Terminal-Modi inkl.
-      Infrastruktur-Vollzugriff und /claude·/codex·/gemini, Extensions (Modelle + Apps),
-      n8n inline auf gehärteter 2.x-Basis mit lokalen Agent-Vorlagen.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>mehrtägig</b></span><span>Hängt an: <b>—</b></span></div>
-      <div class="cmd"><code>docs/plans/active/001-workspace-cursor-feinschliff.html</code><button type="button" data-copy="/work 001">Befehl kopieren</button></div>
+      <p>Gespeicherte Projekte/Ordner optional in die Cloud spiegeln (GitHub-Repo oder OneDrive).
+      Scope (Provider, Auth, DSGVO-Implikationen der Drittland-Ablage) noch offen — Zukunftsthema.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>offen</b></span><span>Status: <b>geparkt</b></span></div>
+      <div class="cmd"><code>/plan T11</code><button type="button" data-copy="/plan T11">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T12" data-prio="P1" data-status="done" data-ref="T12 Cursor-Shell 3.0 Neubau">
-    <summary><span class="prio">P1</span><span class="ttl">Cursor-Shell 3.0 — Neubau der Workspace-Shell</span><span class="cbtn-slot"></span><span class="st">done (PR #196)</span><span class="chev">▶</span></summary>
+  <details class="card" id="T12" data-prio="P2" data-status="open" data-ref="T12 Chat-UX-Refactor">
+    <summary><span class="prio">P2</span><span class="ttl">Frontend-Chat-UX-Refactor (Re-Implementation)</span><span class="cbtn-slot"></span><span class="st">geparkt</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Die Workspace-Shell wird nach Cursor-Vorbild neu gebaut: zentraler Layout-/Session-Store,
-      genau ein Terminal im rechten Panel (Sessions überleben Toggles), echte Tab-Leiste mit Restore,
-      n8n/Telegram nur bei aktiver Extension, Layout-Toggles oben rechts, globale Kompakt-Skala,
-      Dashboard fluid, Extensions als kompakte Liste. Big-Bang-PR mit Geräte-Verify vor dem Merge.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>T11 (done)</b></span></div>
-      <div class="cmd"><code>docs/plans/done/002-cursor-shell-neubau.html</code><button type="button" data-copy="/work 002">Befehl kopieren</button></div>
+      <p>Die Chat-Oberfläche gründlich modernisieren — bewusst als Neu-Implementation statt
+      Cherry-Pick aus dem alten Branch. Riskant, braucht einen eigenen sorgfältigen Plan;
+      besser nach der Mandanten-Isolation.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~3–4 Sessions</b></span><span>Hängt an: <b>nach T05</b></span></div>
+      <div class="cmd"><code>/plan T12</code><button type="button" data-copy="/plan T12">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T13" data-prio="P1" data-status="done" data-ref="T13 Cursor-Shell 3.1 Feinschliff">
-    <summary><span class="prio">P1</span><span class="ttl">Cursor-Shell 3.1 — Ein Panel, Kontext-Sidebar &amp; Feinschliff</span><span class="cbtn-slot"></span><span class="st">done (PR #197)</span><span class="chev">▶</span></summary>
+  <details class="card" id="T13" data-prio="P2" data-status="open" data-ref="T13 Side-Branch-Reste">
+    <summary><span class="prio">P2</span><span class="ttl">Side-Branch-Reste: DR-Drill-CI, Unit-Tests, Drift-Checker</span><span class="cbtn-slot"></span><span class="st">geparkt</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Rechts eine Fläche mit Chat⇄Terminal-Umschalter, Activity Bar nur noch Dashboard/Extensions/Apps,
-      kontextabhängige Sidebar (Docs ⟷ Extension-Suche+Liste ⟷ zu), Store-Rückbau auf Liste+Detail,
-      Dashboard ohne KI-Karte (Modell in die Statusleiste), eine Flächenfarbe überall, Workspace-Shell
-      wird Default. Bugfixes: Apps-Toggle (CSRF token missing) und „Neuer Ordner“ (Dialog kollabiert Panels).</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>T12 (done)</b></span></div>
-      <div class="cmd"><code>docs/plans/done/003-shell-panel-sidebar-feinschliff.html</code><button type="button" data-copy="/work 003">Befehl kopieren</button></div>
+      <p>Aus den alten Side-Branches noch offen: nächtlicher Disaster-Recovery-Drill in CI,
+      Backend-Unit-Tests (jwt, fileValidation, tokenCrypto, documentAnalysis) und ein Checker
+      gegen Doku-Drift.</p>
+      <div class="facts"><span>Macht Gate: <b>stützt G6</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Status: <b>geparkt</b></span></div>
+      <div class="cmd"><code>/plan T13</code><button type="button" data-copy="/plan T13">Befehl kopieren</button></div>
     </div>
   </details>
 
-  <details class="card" id="T17" data-prio="P1" data-status="done" data-ref="T17 Workspace-Shell interaktiv">
-    <summary><span class="prio">P1</span><span class="ttl">Workspace-Shell interaktiv — Chat, Extensions, Dashboard</span><span class="cbtn-slot"></span><span class="st">done (PR #207)</span><span class="chev">▶</span></summary>
+  <details class="card" id="T14" data-prio="P2" data-status="open" data-ref="T14 Doku-Sync">
+    <summary><span class="prio">P2</span><span class="ttl">Doku-Sync abschließen</span><span class="cbtn-slot"></span><span class="st">geparkt</span><span class="chev">▶</span></summary>
     <div class="cbody">
-      <p>Zweite Frontend-Runde: den n8n-Wechsel-Bug beheben (Explorer bleibt), den Chat lebendig machen
-      (sichtbarer Denk-Stream + Live-Status statt endlosem Laden, Maskottchen aus zwei Bird-Frames,
-      Anhang-Chips über der Eingabe), Quellen sauber darstellen, den früheren editierbaren Markdown-Editor
-      (TipTap-Toolbar) mit neuer Speicher-Route zurückholen, Extensions in zwei Spalten (links installiert/aktiv,
-      Mitte Browse + Filter-Tabs), das Dashboard auf Systemstatus + Automatisierungs-Outputs eindampfen,
-      den redundanten Ansichtsmodus-Umschalter oben links entfernen und die betroffenen Panels responsive polieren.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>T14 (done)</b></span></div>
-      <div class="cmd"><code>docs/plans/done/005-frontend-shell-interaktiv.html</code><button type="button" data-copy="docs/plans/done/005-frontend-shell-interaktiv.html">Pfad kopieren</button></div>
-    </div>
-  </details>
-
-  <details class="card" id="T14" data-prio="P1" data-status="done" data-ref="T14 Frontend-Politur Kundennutzen">
-    <summary><span class="prio">P1</span><span class="ttl">Frontend-Politur — Kundennutzen &amp; Komfort</span><span class="cbtn-slot"></span><span class="st">done (PR #205 + #206)</span><span class="chev">▶</span></summary>
-    <div class="cbody">
-      <p>Sieben gezielte Verbesserungen: plattformweite Komfort-Dichte (zwei Größen-Systeme werden eins,
-      nichts wirkt mehr zu klein), Dashboard als Aktions-Hub in voller Breite, Extensions-Kategorie-Übersicht
-      + reiche Detailseite (inkl. Kontextlänge) + verifizierter Download, sichtbares Chat-Anhang-Feedback,
-      klarer Terminal-Ordner-Header, durchgängig links-ausgerichtete Einstellungen, verständliche Datenbank-App.
-      Verify-first: mehrere gewünschte Funktionen existieren schon → live prüfen, echte Lücken schließen.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>T13 (done)</b></span></div>
-      <div class="cmd"><code>docs/plans/done/004-frontend-kundennutzen-politur.html</code><button type="button" data-copy="docs/plans/done/004-frontend-kundennutzen-politur.html">Pfad kopieren</button></div>
-    </div>
-  </details>
-
-  <details class="card" id="T16" data-prio="P1" data-status="open" data-ref="T16 Modell-Download-Robustheit">
-    <summary><span class="prio">P1</span><span class="ttl">Modell-Download-Robustheit (Verify mit Retry)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
-    <div class="cbody">
-      <p>Beim Live-Verify von Plan 004 gefunden: Ein echter Modell-Pull landet real in Ollama, aber die
-      Nach-Download-Verifizierung in <code>modelDownloadHelpers.js</code> prüft einmalig <code>/api/tags</code>
-      direkt bei Stream-Ende und markiert das Modell bei einem client-disconnect / noch nicht registrierten
-      Modell fälschlich als <code>error</code>. Fix: Verify mit kurzem Retry/Poll (Modell registriert sich
-      teils Sekunden später) und robustere Behandlung des Client-Disconnects, damit ein serverseitig
-      laufender Pull nicht vorzeitig als Fehler gilt. Kritischer Pfad — braucht Iteration gegen echte Pulls.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>—</b></span></div>
-      <div class="cmd"><code>—</code><button type="button" data-copy="/plan Modell-Download-Robustheit (Verify mit Retry)">Befehl kopieren</button></div>
-    </div>
-  </details>
-
-  <details class="card" id="T15" data-prio="P2" data-status="open" data-ref="T15 Ordner-Cloud-Sync">
-    <summary><span class="prio">P2</span><span class="ttl">Ordner-Cloud-Sync (GitHub/OneDrive)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
-    <div class="cbody">
-      <p>Gespeicherte Projekte/Ordner optional in die Cloud spiegeln (GitHub-Repo oder OneDrive), damit
-      Kundendaten nicht nur lokal auf der Appliance liegen. Aus Plan 004 bewusst ausgeklammert, hier als
-      Zukunftsthema geparkt — Scope (welche Provider, Auth, DSGVO-Implikationen der Drittland-Ablage) noch offen.</p>
-      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>offen</b></span><span>Hängt an: <b>—</b></span></div>
-      <div class="cmd"><code>—</code><button type="button" data-copy="/plan Ordner-Cloud-Sync (GitHub/OneDrive)">Befehl kopieren</button></div>
+      <p>Rest aus dem Doku-Abgleich vom 2026-07-07: Dokumentation wieder vollständig mit dem
+      Code in Deckung bringen.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1 Session</b></span><span>Status: <b>geparkt</b></span></div>
+      <div class="cmd"><code>/plan T14</code><button type="button" data-copy="/plan T14">Befehl kopieren</button></div>
     </div>
   </details>
 
   <h2>Erledigt</h2>
   <ul class="history" id="history">
+    <li><b>2026-07-14</b> · Roadmap konsolidiert — Neuausrichtung „voll verkaufbar“: Feature-Zuverlässigkeit, Aktions-Feedback &amp; UI-Konsistenz nach oben (T01–T04), Verkaufs-Härtung parallel (T05–T07), Betrieb/Updates geparkt (T08–T14). Master-Plan &amp; Legacy-Pläne nach <span class="mono">archive/</span>, <span class="mono">active/</span> geleert.</li>
     <li><b>2026-07-14</b> · Plan 005 — Workspace-Shell interaktiv: n8n-Wechsel behält Explorer, Chat-Maskottchen + Denk-Stream, Quellen-Fix, editierbarer Markdown-Editor (TipTap, Backend existierte bereits), Extensions-Zwei-Spalten, Dashboard eingedampft (Automatisierungen-Karte), Ansichtsmodus-Umschalter raus · PR #207 · live verifiziert (n8n/Explorer, Extensions-Filter/Tabs, Editor, Chat-Thinking)</li>
-    <li><b>2026-07-14</b> · Plan 004 — Frontend-Politur (Kundennutzen &amp; Komfort): plattformweite Komfort-Dichte, Dashboard-Aktions-Hub, Extensions-Kategorie-Landing + Kontextlänge, Chat-Anhang-Feedback, Terminal-Mehrfach-Sitzungen, Settings-Ausrichtung, Datenbank-Onboarding · PR #205 + #206 (Legacy-14.5px-Breakpoint) · live verifiziert; Download-Verify-Race → T16</li>
+    <li><b>2026-07-14</b> · Plan 004 — Frontend-Politur (Kundennutzen &amp; Komfort): plattformweite Komfort-Dichte, Dashboard-Aktions-Hub, Extensions-Kategorie-Landing + Kontextlänge, Chat-Anhang-Feedback, Terminal-Mehrfach-Sitzungen, Settings-Ausrichtung, Datenbank-Onboarding · PR #205 + #206 (Legacy-14.5px-Breakpoint) · live verifiziert; Download-Verify-Race → T03</li>
     <li><b>2026-07-13</b> · Plan 003 — Cursor-Shell 3.1: Ein Panel, Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default · PR #197 · live verifiziert</li>
     <li><b>2026-07-13</b> · Plan 002 — Cursor-Shell 3.0: Neubau der Workspace-Shell · PR #196 · live verifiziert (Matrix 64 Zustände + alle E2E-Flows grün)</li>
     <li><b>2026-07-12</b> · Plan 001 — Workspace 2.0: Feinschliff auf Cursor-Niveau · PR #184 (+ Fix #185) · live verifiziert (Smoke 21/21)</li>

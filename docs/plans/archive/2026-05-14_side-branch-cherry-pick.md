@@ -1,3 +1,7 @@
+> **Archived 2026-07-14** — In die frische `ROADMAP.html` überführt; der offene
+> Rest (DR-Drill-CI, Backend-Unit-Tests, Drift-Checker) lebt als geparktes
+> Roadmap-Thema „Side-Branch-Reste". Nur noch historische Referenz.
+
 # Side-Branch Cherry-Pick Master Plan — alle 4 Themen aus den Side-Branches
 
 > **STATUS 2026-07-07 (Repo-Cleanup-Audit):** NICHT ausgefuehrt — keines der Ops/DR/Drift/Backend-Test/FE-Refactor-Akzeptanz-Artefakte ist auf main (Multi-Agent gegen Code auf disk verifiziert). **Quelle jetzt real gesichert** als annotierte Tags `archive/feat-telegram-bot-overhaul-2026-07-07` und `archive/cleanup-phase-6-test-coverage-2026-07-07` (gepusht). ⚠ Der frühere STATUS nannte einen Tag `archive/side-branches-superset-2026-06-28`, der **nie existierte** — ersetzt durch die zwei realen Tags. Die Branches bleiben zusätzlich als Quelle stehen. **Nicht löschen, bis dieser Plan abgearbeitet ist.**
