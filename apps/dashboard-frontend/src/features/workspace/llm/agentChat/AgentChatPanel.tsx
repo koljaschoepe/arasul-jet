@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { Mascot } from '@/components/mascot/Mascot';
 import CompactMessage from './CompactMessage';
 import ComposerCard from './ComposerCard';
 
@@ -362,10 +363,16 @@ export default function AgentChatPanel() {
       onDrop={handleDrop}
       data-testid="agent-chat-panel"
     >
-      {/* Kopfzeile: Titel · neuer Chat · Verlauf */}
-      <div className="flex h-8 shrink-0 items-center gap-1 px-2">
-        <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
-          {title || 'Neuer Chat'}
+      {/* Kopfzeile: Maskottchen-Status · Titel · neuer Chat · Verlauf.
+          Das Maskottchen „lebt" oben in der Statuszeile (wie im Terminal) und
+          gibt ab dem Absenden sofort sichtbares Feedback („denkt nach …"). */}
+      <div className="flex h-9 shrink-0 items-center gap-1.5 px-2">
+        <Mascot state={isLoading ? 'thinking' : 'idle'} className="size-5" />
+        <span
+          className="min-w-0 flex-1 truncate text-xs font-medium text-foreground"
+          aria-live="polite"
+        >
+          {isLoading ? 'Arasul denkt nach …' : title || 'Neuer Chat'}
         </span>
         <button
           type="button"
@@ -416,6 +423,7 @@ export default function AgentChatPanel() {
       >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-1.5 px-4 text-center">
+            <Mascot state="idle" className="mb-1 size-16" />
             <p className="text-sm text-muted-foreground">Frag dein Unternehmenswissen.</p>
             <p className="text-xs text-muted-foreground/60">
               Antworten kommen mit Quellen aus deinen Dokumenten.

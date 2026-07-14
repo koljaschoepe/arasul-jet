@@ -45,9 +45,10 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 
 Die Standard-Oberflaeche nach der Anmeldung ist der **Workspace** — aufgebaut
 wie eine Entwicklungsumgebung (Cursor/VS-Code-Raster), in drei Themes
-(Schwarz · Dunkel · Hell, Menue **Ansicht**). Alle Flaechen (Sidebar, Mitte,
-rechtes Panel) teilen denselben Hintergrund; getrennt wird nur durch feine
-Linien.
+(Schwarz · Dunkel · Hell). Das Theme wird ausschliesslich unter **Einstellungen →
+Erscheinungsbild** gewaehlt (der fruehere Ansichtsmodus-Umschalter oben links
+ist entfallen). Alle Flaechen (Sidebar, Mitte, rechtes Panel) teilen denselben
+Hintergrund; getrennt wird nur durch feine Linien.
 
 - **Activity Bar (ganz links):** schmale Icon-Leiste mit **nur drei Arten von
   Eintraegen**: **Dashboard**, **Extensions** und darunter die aktivierten
@@ -57,10 +58,13 @@ Linien.
 - **Sidebar (links, kontextabhaengig):** wechselt mit dem aktiven Tab —
   **Dashboard** zeigt den Dokumente-/Projekte-Explorer (Projekte → Ordner →
   Dateien als Baum; Upload per Drag & Drop oder Kontextmenue, Indexierung
-  startet automatisch, Suchfeld filtert den Baum). **Extensions** zeigt ein
-  Suchfeld plus die Liste aller Apps und KI-Modelle mit Status. Bei App-Tabs
-  (n8n/Telegram/Datenbank) klappt die Sidebar zu. Der Auf-/Zu-Zustand bleibt
-  ueber ein Neuladen erhalten.
+  startet automatisch, Suchfeld filtert den Baum). **Extensions** zeigt links
+  eine Verwaltung mit **nur den installierten/aktiven** Apps und KI-Modellen —
+  mit Filter **Alle · Sprachmodelle · Apps** und Suchfeld; gestoebert und
+  installiert wird im Katalog in der Mitte. Bei **Automation (n8n)** bleibt der
+  Explorer stehen (n8n oeffnet als Tab im Hauptbereich); nur bei
+  Telegram/Datenbank klappt die Sidebar zu. Der Auf-/Zu-Zustand bleibt ueber ein
+  Neuladen erhalten.
 - **Mitte (Tab-Leiste):** mehrere Tabs parallel (Dashboard, Extensions-Detail,
   Dokumente, Datenbank, …), schliessbar, werden nach einem Neuladen
   wiederhergestellt. Chat und Terminal erscheinen nie als Tab.
@@ -68,8 +72,12 @@ Linien.
   waehlt ein Segment-Schalter zwischen **Chat** und **Terminal**; der aktive
   Modus fuellt die ganze Flaeche (kein geteiltes Fenster mehr).
   - **Chat:** Fragen ans eigene Unternehmenswissen; Antworten kommen mit
-    klickbaren Quellen. Dateien/Ordner aus dem Explorer in den Chat ziehen
-    grenzt die Suche ein.
+    klickbaren Quellen (Dateinamen vollstaendig lesbar). Oben in der
+    Statuszeile lebt das **Maskottchen** und zeigt sofort „denkt nach …";
+    laufende Antworten streamen, ein aufklappbarer **Denkprozess** ist sichtbar,
+    wenn das Modell ihn liefert. Dateien in den Chat ziehen erzeugt **Anhang-
+    Chips** ueber dem Eingabefeld (mit Entfernen); Dateien/Ordner aus dem
+    Explorer grenzen die Suche ein.
   - **Terminal:** Projekt-Terminals (Modi: Isoliert = DSGVO-Testumgebung ohne
     Netzzugriff, Intern = Zugriff auf das lokale LLM, Infrastruktur =
     Vollzugriff, nur Admins). In Terminals stehen `/claude`, `/codex`,
@@ -83,10 +91,12 @@ Linien.
 - **Statusleiste (unten):** aktive Terminal-Session, Systemstatus sowie das
   aktuell geladene KI-Modell samt belegtem KI-RAM (aus der tatsaechlichen
   Ollama-Auslastung — Details im Tooltip).
-- **Extensions (Liste + Detail):** die Sidebar zeigt die durchsuchbare Liste,
-  ein Klick oeffnet die **Detailseite in der Mitte** — KI-Modelle
-  installieren/aktivieren, Plattform-Apps (n8n, Telegram, Datenbank)
-  ein-/ausblenden. **Automationen** oeffnet n8n direkt als Tab. Deaktivieren
+- **Extensions (Verwaltung + Katalog):** links die **installierten/aktiven**
+  Eintraege (Filter Alle · Sprachmodelle · Apps), in der Mitte der durchsuchbare
+  **Katalog** mit Tabs **Empfohlen · Sprachmodelle · Apps**; ein Klick oeffnet
+  die Detailseite mit allen Aktionen — KI-Modelle installieren/aktivieren,
+  Plattform-Apps (n8n, Telegram, Datenbank) ein-/ausblenden. **Automationen**
+  oeffnet n8n direkt als Tab. Deaktivieren
   wirkt sofort (ohne Neuladen): das Symbol verschwindet aus der Activity Bar
   und offene Tabs der App werden geschlossen. (Alte Deep-Links auf die
   frueheren Unter-Tabs `/store/models` und `/store/apps` leiten automatisch um.)
@@ -99,12 +109,14 @@ Linien.
 
 ## 2. Dashboard
 
-Das Dashboard zeigt auf einen Blick:
+Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 
-- **System-Status:** CPU, RAM, GPU, Temperatur, Speicherplatz
-- **Service-Status:** Alle Dienste mit Ampel-Anzeige (gruen/gelb/rot)
-- **Letzte Aktivitaeten:** Chats, Dokumente, Events
-- **Warnungen:** Automatische Hinweise bei Problemen
+- **System-Status:** RAM, Swap, Speicherplatz, Temperatur (mit Verlauf) sowie
+  ein Dienste-Health-Widget mit Ampel-Anzeige (gruen/gelb/rot)
+- **Automatisierungen:** die letzten n8n-Workflow-Laeufe mit Status und
+  Zeitpunkt; „n8n oeffnen" springt direkt in den Automation-Tab
+- **Chat starten/Dokument hochladen/Projekt oeffnen** sind als Aktions-Kacheln
+  entfallen — Chat lebt im rechten Panel, Upload im Explorer der Sidebar.
 
 ### Status-Farben
 

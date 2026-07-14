@@ -866,6 +866,18 @@ transition:
 - [ ] Deutsche UI-Texte
 - [ ] Loading/Error States über `LoadingSpinner` / `EmptyState`
 
+### Statische Bild-Assets (Plan 005)
+
+Für gebündelte Bild-Assets (z. B. das Chat-Maskottchen) gibt es die Konvention
+`apps/dashboard-frontend/src/assets/<gruppe>/` — per ES-Import eingebunden
+(`import url from '@/assets/mascot/idle.png'`; Vite liefert die gehashte URL,
+Typen via `vite/client`). Vor dem Einchecken optimieren: zuschneiden, Hintergrund
+transparent, verkleinern (das Maskottchen ging so von 1254² @840 KB auf 200²
+@28 KB). Das `Mascot`-Bauteil (`components/mascot/Mascot.tsx`) stapelt zwei
+Frames (idle ↔ wink) und animiert per CSS-Keyframes (`mascot-blink|wink|bob` in
+`index.css`), respektiert `prefers-reduced-motion` (Variante
+`motion-reduce:animate-none`).
+
 ### Interaktivität
 
 - [ ] Hover-States (`hover:bg-bg-card-hover`, `hover:border-primary`)

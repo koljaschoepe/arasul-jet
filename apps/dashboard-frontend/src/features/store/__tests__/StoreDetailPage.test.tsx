@@ -93,17 +93,19 @@ describe('StoreDetailPage', () => {
     useExtensionStore.getState().clearSelection();
   });
 
-  it('Landing ohne Auswahl: „Aktuell geladen"-Kopf + Kategorie-Abschnitte', () => {
+  it('Landing ohne Auswahl: „Aktuell geladen"-Kopf + Browse-Tabs', () => {
     catalog.loadedModel = { model_id: 'llama3', ram_usage_mb: 8192 };
     renderPage();
     expect(screen.getByText('Aktuell geladen:')).toBeInTheDocument();
     expect(screen.getByText('llama3')).toBeInTheDocument();
-    // Kategorie-Übersicht statt nacktem Leerzustand
-    expect(screen.getByRole('heading', { name: 'Empfohlen' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Sprachmodelle' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Apps' })).toBeInTheDocument();
-    // Kacheln für vorhandene Extensions (Modell auch im „Empfohlen"-Abschnitt)
-    expect(screen.getAllByTestId('landing-tile-model-llama3').length).toBeGreaterThan(0);
+    // Durchsuchbarer Katalog mit Filter-Tabs statt Sektions-Überschriften
+    expect(screen.getByRole('tab', { name: /Empfohlen/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Sprachmodelle/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Apps/ })).toBeInTheDocument();
+    // Default-Tab „Empfohlen": das balanced-Modell ist dabei
+    expect(screen.getByTestId('landing-tile-model-llama3')).toBeInTheDocument();
+    // App erscheint nach Wechsel auf den Apps-Tab
+    fireEvent.click(screen.getByRole('tab', { name: /Apps/ }));
     expect(screen.getByTestId('landing-tile-app-gitea')).toBeInTheDocument();
   });
 

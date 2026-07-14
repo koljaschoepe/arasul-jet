@@ -93,17 +93,21 @@ function SourcesFooter({ sources }: { sources: DocumentSource[] }) {
                   openTab({ type: 'document', documentId: s.document_id, title: s.document_name })
                 }
                 className={cn(
-                  'flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs',
+                  'flex w-full items-start gap-1.5 rounded px-1.5 py-1 text-left text-xs',
                   s.document_id
                     ? 'text-foreground hover:bg-accent'
                     : 'cursor-default text-muted-foreground'
                 )}
                 title={s.space_name ? `${s.document_name} · ${s.space_name}` : s.document_name}
               >
-                <FileText className="size-3 shrink-0 opacity-60" />
-                <span className="truncate">{s.document_name}</span>
+                <FileText className="mt-0.5 size-3 shrink-0 opacity-60" />
+                {/* Dateiname vollständig lesbar — umbrechen statt abschneiden
+                    (Plan 005 · Schritt 4). */}
+                <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
+                  {s.document_name}
+                </span>
                 {s.space_name && (
-                  <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                  <span className="mt-0.5 shrink-0 text-[10px] text-muted-foreground">
                     {s.space_name}
                   </span>
                 )}

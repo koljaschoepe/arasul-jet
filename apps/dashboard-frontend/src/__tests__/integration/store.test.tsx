@@ -144,43 +144,50 @@ describe('Store integration (Liste + Detail)', () => {
     expect(await screen.findByLabelText(/extensions durchsuchen/i)).toBeInTheDocument();
   });
 
-  it('rendert Apps und Modelle als Liste', async () => {
+  it('die Verwaltung links zeigt nur installierte/aktive Einträge', async () => {
     renderStore();
-    expect(await screen.findByTestId('ext-app-n8n')).toBeInTheDocument();
-    expect(screen.getByTestId('ext-app-code-server')).toBeInTheDocument();
-    expect(screen.getByTestId('ext-model-qwen3-14b')).toBeInTheDocument();
-    expect(screen.getByTestId('ext-model-llama3-8b')).toBeInTheDocument();
+    // installiert/aktiv → in der Liste links
+    expect(await screen.findByTestId('ext-app-n8n')).toBeInTheDocument(); // running
+    expect(screen.getByTestId('ext-model-qwen3-14b')).toBeInTheDocument(); // available = installiert
+    // nicht installiert → NUR im Katalog (Mitte), nicht in der Verwaltung
+    expect(screen.queryByTestId('ext-app-code-server')).not.toBeInTheDocument(); // available
+    expect(screen.queryByTestId('ext-model-llama3-8b')).not.toBeInTheDocument(); // missing
   });
 
-  it('das Suchfeld filtert die Liste', async () => {
+  it('das Suchfeld filtert die installierte Liste', async () => {
     renderStore();
     const search = await screen.findByLabelText(/extensions durchsuchen/i);
-    fireEvent.change(search, { target: { value: 'browser' } });
-    expect(screen.getByTestId('ext-app-code-server')).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: 'qualität' } });
+    // qwen3-14b (Beschreibung "…Qualitätsmodell") bleibt, n8n verschwindet
+    expect(screen.getByTestId('ext-model-qwen3-14b')).toBeInTheDocument();
     expect(screen.queryByTestId('ext-app-n8n')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('ext-model-qwen3-14b')).not.toBeInTheDocument();
   });
 
-  it('Übersichts-Landing ohne Auswahl mit „Aktuell geladen"-Kopf', async () => {
+  it('die Mitte zeigt Browse-Tabs (Empfohlen/Sprachmodelle/Apps) mit „Aktuell geladen"-Kopf', async () => {
     renderStore();
     expect(await screen.findByText(/aktuell geladen/i)).toBeInTheDocument();
-    // Plan 004: statt Leerzustand zeigt die Mitte eine Kategorie-Übersicht
-    // (Empfohlen / Sprachmodelle / Apps) mit anklickbaren Kacheln.
-    expect(screen.getByRole('heading', { name: 'Sprachmodelle' })).toBeInTheDocument();
+    // Plan 005: die Mitte ist ein durchsuchbarer Katalog mit Filter-Tabs.
+    expect(screen.getByTestId('browse-tab-recommended')).toBeInTheDocument();
+    expect(screen.getByTestId('browse-tab-models')).toBeInTheDocument();
+    expect(screen.getByTestId('browse-tab-apps')).toBeInTheDocument();
+    // Default-Tab „Empfohlen" zeigt Kacheln (qwen3-14b = Standardmodell)
     expect(screen.getAllByTestId(/^landing-tile-/).length).toBeGreaterThan(0);
   });
 
-  it('Klick auf ein Modell zeigt die Detailseite mit Specs', async () => {
+  it('Klick auf ein noch nicht installiertes Modell im Katalog zeigt den Download', async () => {
     renderStore();
-    fireEvent.click(await screen.findByTestId('ext-model-llama3-8b'));
+    // im Katalog (Mitte) den Sprachmodelle-Tab öffnen und das Modell wählen
+    fireEvent.click(await screen.findByTestId('browse-tab-models'));
+    fireEvent.click(await screen.findByTestId('landing-tile-model-llama3-8b'));
     expect(await screen.findByRole('heading', { name: 'Llama 3 8B' })).toBeInTheDocument();
     // missing → Download-Aktion in der Detailseite
     expect(screen.getByRole('button', { name: /Herunterladen/ })).toBeInTheDocument();
   });
 
-  it('Klick auf eine verfügbare App zeigt den Installieren-Button', async () => {
+  it('Klick auf eine verfügbare App im Katalog zeigt den Installieren-Button', async () => {
     renderStore();
-    fireEvent.click(await screen.findByTestId('ext-app-code-server'));
+    fireEvent.click(await screen.findByTestId('browse-tab-apps'));
+    fireEvent.click(await screen.findByTestId('landing-tile-app-code-server'));
     const heading = await screen.findByRole('heading', { name: 'Code Server' });
     expect(heading).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Installieren/ })).toBeInTheDocument();

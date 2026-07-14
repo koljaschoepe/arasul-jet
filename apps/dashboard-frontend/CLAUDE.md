@@ -38,8 +38,10 @@ src/
                    • **SidebarHost** — kontextabhängig: Dashboard → Dokumente/
                      Projekte (Explorer), Extensions → ExtensionsSidebarList
                      (Suche + Liste aller Apps/Modelle, in components/extensions/
-                     promoted), App-Tabs (n8n/Telegram/Datenbank) → Sidebar
-                     klappt zu. Die Präferenz (auf/zu) überlebt Reload via
+                     promoted), Automation (n8n) → Explorer bleibt (Tab im
+                     Hauptbereich, kein Auto-Collapse), App-Tabs
+                     (Telegram/Datenbank) → Sidebar klappt zu. Die Präferenz
+                     (auf/zu) überlebt Reload via
                      `sidebarVisible`/`sidebarRestore` (`syncSidebarForTab`).
                    • **Extensions/Store** — keine Unter-Tabs mehr: Liste links
                      (ExtensionsSidebarList), Detail in der Mitte

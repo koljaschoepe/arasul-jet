@@ -1,10 +1,11 @@
 /**
- * Extensions-Liste (promoted) — von der Workspace-Sidebar (SidebarHost) UND
- * der Legacy-Store-Seite (features/store) genutzt. Oben ein Suchfeld (lokales
- * Filtern über Name/Beschreibung), darunter EINE durchgehende Liste:
- * Plattform-Apps (Sichtbarkeits-Toggles), Container-Apps und Modelle — jeweils
- * mit Status-Badge. Die Auswahl läuft über den ephemeren Extension-Store; die
- * Detailseite in der Mitte reagiert darauf.
+ * Extensions-Verwaltung (promoted) — die LINKE Spalte der Zwei-Spalten-Ansicht
+ * (Plan 005 · Schritt 5). Zeigt bewusst NUR das schon Installierte/Aktive:
+ * Plattform-Apps (Sichtbarkeits-Toggles), installierte Container-Apps und
+ * heruntergeladene/aktive Modelle. Oben ein Kategorie-Filter
+ * (Alle · Sprachmodelle · Apps) und ein Suchfeld. Zum Stöbern/Installieren dient
+ * die Mitte (StoreDetailPage-Browse). Die Auswahl läuft über den ephemeren
+ * Extension-Store; die Detailseite in der Mitte reagiert darauf.
  *
  * Liegt in components/extensions/, weil sie von ≥2 Features gebraucht wird
  * (Workspace-Shell + Store) — Feature-Isolationsregel: keine Imports aus
@@ -18,10 +19,24 @@ import { Switch } from '@/components/ui/shadcn/switch';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
-import { useStoreCatalog } from '@/hooks/useStoreCatalog';
+import {
+  useStoreCatalog,
+  isModelInstalled,
+  isModelActive,
+  isAppInstalled,
+} from '@/hooks/useStoreCatalog';
 import type { CatalogApp, CatalogModel } from '@/hooks/useStoreCatalog';
 import { useExtensionStore } from '@/stores/extensionStore';
 import type { ExtensionKind } from '@/stores/extensionStore';
+
+/** Kategorie-Filter der Verwaltungsspalte (spiegelt die Browse-Tabs der Mitte). */
+type CategoryFilter = 'all' | 'models' | 'apps';
+
+const CATEGORY_FILTERS: ReadonlyArray<{ value: CategoryFilter; label: string }> = [
+  { value: 'all', label: 'Alle' },
+  { value: 'models', label: 'Sprachmodelle' },
+  { value: 'apps', label: 'Apps' },
+];
 
 interface RowBadge {
   label: string;
@@ -126,6 +141,7 @@ export function ExtensionsSidebarList() {
   const selected = useExtensionStore(s => s.selected);
   const selectExtension = useExtensionStore(s => s.selectExtension);
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<CategoryFilter>('all');
 
   const isSelected = (kind: ExtensionKind, id: string) =>
     selected?.kind === kind && selected.id === id;
@@ -134,21 +150,33 @@ export function ExtensionsSidebarList() {
   const matches = (name: string, description: string) =>
     q === '' || name.toLowerCase().includes(q) || description.toLowerCase().includes(q);
 
+  const loadedId = loadedModel?.model_id ?? null;
+  const showApps = category !== 'models';
+  const showModels = category !== 'apps';
+
+  // Nur Installiertes/Aktives: Plattform-Apps immer (Built-in-Toggles),
+  // Container-Apps nur wenn installiert, Modelle nur wenn heruntergeladen/aktiv.
   const filteredPlatformApps = useMemo(
-    () => platformApps.filter(a => matches(a.name, a.description)),
-    [platformApps, q]
+    () => (showApps ? platformApps.filter(a => matches(a.name, a.description)) : []),
+    [platformApps, q, showApps]
   );
-  const filteredApps = useMemo(() => apps.filter(a => matches(a.name, a.description)), [apps, q]);
+  const filteredApps = useMemo(
+    () => (showApps ? apps.filter(a => isAppInstalled(a) && matches(a.name, a.description)) : []),
+    [apps, q, showApps]
+  );
   const filteredModels = useMemo(
-    () => models.filter(m => matches(m.name, m.description)),
-    [models, q]
+    () =>
+      showModels
+        ? models.filter(
+            m =>
+              (isModelInstalled(m) || isModelActive(m, loadedId)) && matches(m.name, m.description)
+          )
+        : [],
+    [models, q, showModels, loadedId]
   );
 
   const nothingVisible =
-    filteredPlatformApps.length === 0 &&
-    filteredApps.length === 0 &&
-    filteredModels.length === 0 &&
-    q !== '';
+    filteredPlatformApps.length === 0 && filteredApps.length === 0 && filteredModels.length === 0;
 
   return (
     <div
@@ -156,13 +184,13 @@ export function ExtensionsSidebarList() {
       data-testid="extensions-sidebar"
       aria-label="Extensions"
     >
-      <div className="relative shrink-0 p-2">
-        <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="relative shrink-0 p-2 pb-1">
+        <Search className="pointer-events-none absolute left-4 top-[calc(0.5rem+1rem)] size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="text"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Extensions durchsuchen..."
+          placeholder="Installierte durchsuchen..."
           aria-label="Extensions durchsuchen"
           className="h-8 pl-8 pr-8"
         />
@@ -171,11 +199,36 @@ export function ExtensionsSidebarList() {
             type="button"
             onClick={() => setQuery('')}
             aria-label="Suche leeren"
-            className="absolute right-4 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            className="absolute right-4 top-[calc(0.5rem+1rem)] -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
           >
             <X className="size-3.5" />
           </button>
         )}
+      </div>
+
+      {/* Kategorie-Filter (spiegelt die Browse-Tabs der Mitte) */}
+      <div
+        className="flex shrink-0 flex-wrap gap-1 px-2 pb-2"
+        role="group"
+        aria-label="Extensions filtern"
+      >
+        {CATEGORY_FILTERS.map(f => (
+          <button
+            key={f.value}
+            type="button"
+            data-testid={`ext-filter-${f.value}`}
+            aria-pressed={category === f.value}
+            onClick={() => setCategory(f.value)}
+            className={cn(
+              'rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+              category === f.value
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
@@ -270,11 +323,22 @@ export function ExtensionsSidebarList() {
           </>
         )}
 
-        {nothingVisible && (
-          <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
-            Keine Treffer für „{query}“
-          </p>
-        )}
+        {nothingVisible &&
+          (q !== '' ? (
+            <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
+              Keine Treffer für „{query}“
+            </p>
+          ) : (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+              {category === 'models'
+                ? 'Noch kein Modell heruntergeladen.'
+                : category === 'apps'
+                  ? 'Noch keine App installiert.'
+                  : 'Noch nichts installiert.'}
+              <br />
+              <span className="text-xs">Im Katalog rechts stöbern und installieren.</span>
+            </p>
+          ))}
       </div>
     </div>
   );

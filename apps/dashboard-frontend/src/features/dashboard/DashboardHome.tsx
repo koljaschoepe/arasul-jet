@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
 import {
   LineChart,
@@ -16,18 +16,10 @@ import {
   HardDrive,
   Activity,
   Thermometer,
-  Zap,
-  Database,
-  ExternalLink,
-  Code,
-  GitBranch,
-  Box,
-  Terminal,
-  Send,
-  MessageSquare,
-  Upload,
-  FolderKanban,
-  History,
+  Workflow,
+  CheckCircle2,
+  CircleAlert,
+  Loader2,
   ChevronRight,
 } from 'lucide-react';
 import { Suspense, lazy } from 'react';
@@ -81,126 +73,108 @@ function StatCard({
   );
 }
 
-/**
- * Aktions-Hub: die vier zentralen Einstiege oben im Dashboard. Statt reiner
- * Systemtelemetrie führt das Dashboard den Nutzer zuerst zu einer Aktion.
- * Alle Auslöser laufen über den workspaceStore (keine erfundenen Ziele):
- *  - Chat starten     → rechtes Panel auf Chat (setRightPanelMode)
- *  - Dokument hochladen → Upload-Flow des Explorers (requestExplorerAction)
- *  - Projekt öffnen   → Explorer-Sidebar mit der Projektliste einblenden
- *  - Zuletzt genutzt  → offene Tabs (echte Datenquelle) reaktivieren
- */
-function ActionTile({
-  icon,
-  title,
-  subtitle,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  onClick: () => void;
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex min-w-0 items-center gap-ui-3 rounded-lg border border-border bg-bg-card p-ui-3 text-left transition-colors hover:border-[var(--border-glow)] hover:bg-bg-card-hover"
-    >
-      <div
-        className="flex shrink-0 items-center justify-center rounded-md bg-[var(--primary-alpha-10)] text-primary"
-        style={{ width: 'var(--icon-2xl)', height: 'var(--icon-2xl)' }}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-ui-lg font-semibold text-text-primary">{title}</div>
-        <div className="truncate text-ui-sm text-text-muted">{subtitle}</div>
-      </div>
-      <ChevronRight className="h-4 w-4 shrink-0 text-text-muted transition-colors group-hover:text-primary" />
-    </button>
-  );
+interface WorkflowRun {
+  id: number;
+  workflow_name: string;
+  status: 'success' | 'error' | 'running' | 'waiting';
+  duration_ms?: number | null;
+  timestamp: string;
 }
 
-function ActionHub(): React.JSX.Element {
-  const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
-  const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
-  const setSidebarVisible = useWorkspaceStore(s => s.setSidebarVisible);
-  const activateTab = useWorkspaceStore(s => s.activateTab);
-  const tabs = useWorkspaceStore(s => s.tabs);
-  const activeTabId = useWorkspaceStore(s => s.activeTabId);
+const RUN_STATUS_LABEL: Record<WorkflowRun['status'], string> = {
+  success: 'Erfolg',
+  error: 'Fehler',
+  running: 'Läuft',
+  waiting: 'Wartet',
+};
 
-  // "Zuletzt genutzt" nutzt ausschließlich echte Daten: die offenen Tabs
-  // (ohne das gerade sichtbare Dashboard), jüngste zuerst. Keine Datenquelle
-  // erfunden — ist nichts weiter offen, zeigt die Kachel einen ehrlichen Hinweis.
-  const recentTabs = useMemo(
-    () =>
-      tabs
-        .filter(tb => tb.type !== 'dashboard' && tb.id !== activeTabId)
-        .slice(-3)
-        .reverse(),
-    [tabs, activeTabId]
-  );
+function runStatusVariant(status: WorkflowRun['status']): StatBadgeVariant {
+  if (status === 'error') return 'negative';
+  if (status === 'running' || status === 'waiting') return 'warning';
+  return 'positive';
+}
 
-  const iconStyle = { width: 'var(--icon-md)', height: 'var(--icon-md)' } as const;
+function runStatusIcon(status: WorkflowRun['status']): React.ReactNode {
+  if (status === 'error') return <CircleAlert className="h-4 w-4 text-[var(--status-critical)]" />;
+  if (status === 'running' || status === 'waiting')
+    return <Loader2 className="h-4 w-4 animate-spin text-[var(--status-warning)]" />;
+  return <CheckCircle2 className="h-4 w-4 text-[var(--status-neutral)]" />;
+}
+
+function runRelativeTime(iso: string): string {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (Number.isNaN(min)) return '';
+  if (min < 1) return 'gerade eben';
+  if (min < 60) return `vor ${min} Min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `vor ${h} Std`;
+  return `vor ${Math.round(h / 24)} Tg`;
+}
+
+/**
+ * Automatisierungen: die letzten n8n-Workflow-Läufe (echte Datenquelle
+ * /api/workflows/history). Statt Aktions-Kacheln zeigt das Dashboard hier
+ * konkrete Ergebnisse der Automatisierungen; leer → Einstieg in n8n.
+ */
+function AutomationsCard(): React.JSX.Element {
+  const api = useApi();
+  const openTab = useWorkspaceStore(s => s.openTab);
+
+  const { data: runs = [], isLoading } = useQuery({
+    queryKey: ['workflows', 'history', 'dashboard'],
+    queryFn: async () => {
+      const res = await api.get<{ data?: WorkflowRun[] }>('/workflows/history?limit=6', {
+        showError: false,
+      });
+      return res.data ?? [];
+    },
+    staleTime: 30_000,
+  });
 
   return (
-    <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-ui-2">
-      <ActionTile
-        icon={<MessageSquare style={iconStyle} aria-hidden="true" />}
-        title="Chat starten"
-        subtitle="Frag die KI zu deinen Daten"
-        onClick={() => setRightPanelMode('chat')}
-      />
-      <ActionTile
-        icon={<Upload style={iconStyle} aria-hidden="true" />}
-        title="Dokument hochladen"
-        subtitle="Dateien zur Wissensbasis"
-        onClick={() => requestExplorerAction('upload-files')}
-      />
-      <ActionTile
-        icon={<FolderKanban style={iconStyle} aria-hidden="true" />}
-        title="Projekt öffnen"
-        subtitle="Projekte & Ordner im Explorer"
-        onClick={() => setSidebarVisible(true)}
-      />
-
-      <div className="flex min-w-0 flex-col gap-ui-2 rounded-lg border border-border bg-bg-card p-ui-3">
-        <div className="flex min-w-0 items-center gap-ui-3">
-          <div
-            className="flex shrink-0 items-center justify-center rounded-md bg-[var(--primary-alpha-10)] text-primary"
-            style={{ width: 'var(--icon-2xl)', height: 'var(--icon-2xl)' }}
-          >
-            <History style={iconStyle} aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-ui-lg font-semibold text-text-primary">
-              Zuletzt genutzt
-            </div>
-            <div className="truncate text-ui-sm text-text-muted">Offene Tabs</div>
-          </div>
-        </div>
-        {recentTabs.length > 0 ? (
-          <div className="flex min-w-0 flex-col gap-px">
-            {recentTabs.map(tb => (
-              <button
-                key={tb.id}
-                type="button"
-                onClick={() => activateTab(tb.id)}
-                className="flex min-w-0 items-center gap-ui-1 rounded-sm px-ui-1 py-ui-1 text-left text-ui-sm text-text-secondary transition-colors hover:bg-[var(--primary-alpha-10)] hover:text-text-primary"
-              >
-                <span className="min-w-0 flex-1 truncate">{tb.title}</span>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="text-ui-sm text-text-muted">
-            Noch nichts geöffnet – starte oben mit Chat, Upload oder einem Projekt.
-          </p>
-        )}
+    <DashboardCard>
+      <div className="mb-ui-2 flex items-center justify-between gap-ui-2">
+        <DashboardCardTitle className="mb-0 flex items-center gap-ui-1">
+          <Workflow className="h-4 w-4 text-primary" aria-hidden="true" />
+          Automatisierungen
+        </DashboardCardTitle>
+        <button
+          type="button"
+          onClick={() => openTab({ type: 'automationen' })}
+          className="flex items-center gap-ui-1 rounded-sm px-ui-1 py-px text-ui-xs font-semibold text-text-muted transition-colors hover:text-primary"
+        >
+          n8n öffnen
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
-    </div>
+      {runs.length > 0 ? (
+        <ul className="flex min-w-0 flex-col gap-px">
+          {runs.map(run => (
+            <li
+              key={run.id}
+              className="flex min-w-0 items-center gap-ui-2 rounded-sm px-ui-1 py-ui-1 text-ui-sm"
+            >
+              <span className="shrink-0">{runStatusIcon(run.status)}</span>
+              <span className="min-w-0 flex-1 truncate text-text-primary">{run.workflow_name}</span>
+              <span
+                className={`${STAT_BADGE_BASE} mt-0 ${STAT_BADGE_VARIANTS[runStatusVariant(run.status)]}`}
+              >
+                {RUN_STATUS_LABEL[run.status]}
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-ui-xs text-text-muted">
+                {runRelativeTime(run.timestamp)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-ui-sm text-text-muted">
+          {isLoading
+            ? 'Lade Automatisierungs-Verlauf …'
+            : 'Noch keine Automatisierungs-Läufe. Öffne n8n, um Workflows einzurichten.'}
+        </p>
+      )}
+    </DashboardCard>
   );
 }
 
@@ -337,7 +311,6 @@ const TempSparkline = React.memo(function TempSparkline({
 const DashboardHome = React.memo(function DashboardHome({
   metrics,
   metricsHistory,
-  runningApps,
   formatChartData,
   thresholds,
   deviceInfo,
@@ -432,46 +405,6 @@ const DashboardHome = React.memo(function DashboardHome({
     return ticks;
   }, [chartData, chartTimeRange]);
 
-  const getAppIcon = (iconName: string): React.JSX.Element => {
-    const icons: Record<string, React.ComponentType<{ className?: string }>> = {
-      FiZap: Zap,
-      FiDatabase: Database,
-      FiCode: Code,
-      FiGitBranch: GitBranch,
-      FiBox: Box,
-      FiTerminal: Terminal,
-      FiSend: Send,
-    };
-    const IconComponent = icons[iconName] || Box;
-    return <IconComponent className="h-4 w-4 text-primary" />;
-  };
-
-  const getAppUrl = (app: RunningApp): string => {
-    if (app.hasCustomPage && app.customPageRoute) {
-      return app.customPageRoute;
-    }
-    const traefikPaths: Record<string, string> = { n8n: '/n8n' };
-    if (traefikPaths[app.id]) {
-      return `${window.location.origin}${traefikPaths[app.id]}`;
-    }
-    if (app.ports?.external) {
-      return `http://${window.location.hostname}:${app.ports.external}`;
-    }
-    const knownPorts: Record<string, number> = {
-      minio: 9001,
-      'code-server': 8443,
-      gitea: 3002,
-    };
-    if (knownPorts[app.id]) {
-      return `http://${window.location.hostname}:${knownPorts[app.id]}`;
-    }
-    return '#';
-  };
-
-  const isInternalLink = (app: RunningApp): boolean => {
-    return !!(app.hasCustomPage && app.customPageRoute);
-  };
-
   const getProgressColor = (value: number, metric: string = 'cpu'): string => {
     const threshold = t[metric] || { warning: 70, critical: 90 };
     if (value >= threshold.critical) return 'var(--danger-color)';
@@ -488,9 +421,7 @@ const DashboardHome = React.memo(function DashboardHome({
 
   return (
     <div className="flex min-w-0 flex-col gap-ui-3">
-      <ActionHub />
-
-      <div className="mt-ui-1 text-ui-xs font-semibold uppercase tracking-wider text-text-muted">
+      <div className="text-ui-xs font-semibold uppercase tracking-wider text-text-muted">
         Systemstatus
       </div>
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-ui-2">
@@ -557,64 +488,6 @@ const DashboardHome = React.memo(function DashboardHome({
           <TempSparkline history={metricsHistory?.temperature} />
         </StatCard>
       </div>
-
-      {runningApps && runningApps.length > 0 && (
-        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-ui-2">
-          {runningApps
-            ?.filter((app: RunningApp) => app.status === 'running' && app.id !== 'minio')
-            .map((app: RunningApp) => {
-              const url = getAppUrl(app);
-              const cardClass =
-                'group flex min-w-0 items-center gap-ui-2 rounded-lg border border-border ' +
-                'bg-bg-card p-ui-2 text-inherit no-underline transition-colors ' +
-                'hover:border-[var(--border-glow)] hover:bg-bg-card-hover';
-              const iconWrapper = (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--primary-alpha-10)]">
-                  {getAppIcon(app.icon)}
-                </div>
-              );
-              const content = (
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-ui font-semibold text-text-primary">{app.name}</div>
-                  <div className="truncate text-ui-sm text-text-muted">{app.description}</div>
-                </div>
-              );
-              if (isInternalLink(app)) {
-                return (
-                  <Link key={app.id} to={url} className={cardClass}>
-                    {iconWrapper}
-                    {content}
-                    <ExternalLink className="h-4 w-4 shrink-0 text-text-muted transition-colors group-hover:text-primary" />
-                  </Link>
-                );
-              }
-              if (url === '#') {
-                return (
-                  <div key={app.id} className={`${cardClass} pointer-events-none opacity-50`}>
-                    {iconWrapper}
-                    {content}
-                    <span className="shrink-0 whitespace-nowrap rounded-xs bg-secondary px-ui-1 py-px text-ui-xs font-semibold text-text-muted">
-                      Nicht verfügbar
-                    </span>
-                  </div>
-                );
-              }
-              return (
-                <a
-                  key={app.id}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cardClass}
-                >
-                  {iconWrapper}
-                  {content}
-                  <ExternalLink className="h-4 w-4 shrink-0 text-text-muted transition-colors group-hover:text-primary" />
-                </a>
-              );
-            })}
-        </div>
-      )}
 
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-ui-2">
         <DashboardCard className="col-span-full">
@@ -723,6 +596,8 @@ const DashboardHome = React.memo(function DashboardHome({
         <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>
           <SystemHealthWidget />
         </Suspense>
+
+        <AutomationsCard />
       </div>
     </div>
   );
