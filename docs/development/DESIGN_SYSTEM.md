@@ -215,30 +215,38 @@ Zwischenwerte. Gespiegelt aus `apps/dashboard-frontend/src/index.css`:
 | Abschnitte trennen                 | `--space-xl` (32px)    |
 | Seiten-Padding                     | `--space-lg` (24px)    |
 
-### Dichte-Skala (Kompakt-UI, Plan 002 »Cursor-Shell«)
+### Dichte-Skala (Komfort-UI, Plan 002 »Cursor-Shell« → Komfort-Kalibrierung Plan 004)
 
 Für die Workspace-Shell und alle normierten Ansichten (Dashboard, Extensions, …)
-gilt eine kompakte globale Skala, definiert im `@theme`-Block von
+gilt eine gemeinsame Dichte-Skala, definiert im `@theme`-Block von
 `apps/dashboard-frontend/src/index.css`:
 
 ```css
-/* Text (mit kompakter Zeilenhöhe als Default) */
---text-ui-xs: 0.6875rem; /* 11px — Badges, Metadaten   (text-ui-xs) */
---text-ui-sm: 0.75rem; /* 12px — Sekundärtext, Labels (text-ui-sm) */
---text-ui: 0.8125rem; /* 13px — Basistext            (text-ui)    */
---text-ui-lg: 0.9375rem; /* 15px — Karten-/Abschnittstitel (text-ui-lg) */
+/* Text (Komfort-Skala, Plan 004) */
+--text-ui-xs: 0.75rem; /* 12px — Badges, Metadaten   (text-ui-xs) */
+--text-ui-sm: 0.8125rem; /* 13px — Sekundärtext, Labels (text-ui-sm) */
+--text-ui: 0.875rem; /* 14px — Basistext            (text-ui)    */
+--text-ui-lg: 1rem; /* 16px — Karten-/Abschnittstitel (text-ui-lg) */
 
-/* Abstandsstufen 4/8/12/16px */
---spacing-ui-1: 0.25rem; /* p-ui-1, gap-ui-1, … */
---spacing-ui-2: 0.5rem;
---spacing-ui-3: 0.75rem;
---spacing-ui-4: 1rem;
+/* Abstandsstufen 5/10/14/18px */
+--spacing-ui-1: 0.3125rem; /* p-ui-1, gap-ui-1, … */
+--spacing-ui-2: 0.625rem;
+--spacing-ui-3: 0.875rem;
+--spacing-ui-4: 1.125rem;
 ```
 
-Anwendung: Basistext kompakter Flächen ist `text-ui` (13px); Abstände nur aus
-den vier Stufen (`*-ui-1…4`). Karten-Padding kompakt = `p-ui-3` (12px),
-Abstand zwischen kompakten Karten = `gap-ui-2` (8px). Neue Workspace-Ansichten
-verwenden diese Skala statt der klassischen `--space-*`-Werte.
+Anwendung: Basistext normierter Flächen ist `text-ui` (14px); Abstände nur aus
+den vier Stufen (`*-ui-1…4`). Karten-Padding = `p-ui-3` (14px), Abstand zwischen
+Karten = `gap-ui-2` (10px). Neue Workspace-Ansichten verwenden diese Skala statt
+der klassischen `--space-*`-Werte.
+
+**Globaler Komfort-Hebel (Plan 004):** Zusätzlich setzt `@layer base` in
+`index.css` `html { font-size: 106.25% }` (17px statt 16px). Das skaliert **alle**
+rem-basierten Text- und Abstands-Utilities plattformweit ~6 % größer — auch
+Nicht-Shell-Flächen (Einstellungen, Chat, Datenbank, Legacy), die Tailwinds
+Standard-`text-*`-Utilities nutzen. Ein einziger, leicht umkehrbarer Schalter.
+Feste px-Werte skalieren nicht mit; daher wurde die `--icon-*`-Skala separat eine
+Stufe angehoben (`--icon-xs: 15px … --icon-2xl: 52px`).
 
 ---
 

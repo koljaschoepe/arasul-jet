@@ -218,7 +218,9 @@ function createModelService(deps = {}) {
 
   class ModelService {
     /**
-     * Get curated model catalog with installation status
+     * Get curated model catalog with installation status.
+     * `c.*` includes `context_window` (tokens; seeded for the Gemma catalog in
+     * migration 101), so the catalog response surfaces it without a contract change.
      */
     async getCatalog() {
       const result = await database.query(`

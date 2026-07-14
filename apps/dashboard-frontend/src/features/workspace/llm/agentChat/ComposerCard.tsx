@@ -29,6 +29,41 @@ export interface ComposerModel {
   name: string;
 }
 
+/**
+ * Anhang-/Kontext-Chip über dem Eingabefeld: Icon + Name + Entfernen-X.
+ * Deutlich sichtbar (Border + `bg-muted`), damit hineingezogene Dateien sofort
+ * als „liegt an" erkennbar sind. Komfort-Dichte über `text-ui-xs`.
+ */
+function AttachmentChip({
+  icon,
+  label,
+  onRemove,
+  removeLabel,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onRemove: () => void;
+  removeLabel: string;
+}) {
+  return (
+    <span
+      className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-ui-xs text-foreground"
+      data-testid="composer-chip"
+    >
+      {icon}
+      <span className="truncate">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={removeLabel}
+        className="ml-0.5 shrink-0 rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <X className="size-3.5" />
+      </button>
+    </span>
+  );
+}
+
 interface ComposerCardProps {
   value: string;
   onChange: (v: string) => void;
@@ -96,51 +131,31 @@ export default function ComposerCard({
   return (
     <div className="rounded-lg border border-border bg-card focus-within:border-primary/40">
       {hasChips && (
-        <div className="flex flex-wrap gap-1 px-2 pt-2" data-testid="composer-chips">
+        <div className="flex flex-wrap gap-1.5 px-2 pt-2" data-testid="composer-chips">
           {chatScope && (
-            <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-accent px-1.5 py-0.5 text-[11px] text-foreground">
-              <FolderOpen className="size-3 shrink-0 opacity-70" />
-              <span className="truncate">{chatScope.label}</span>
-              <button
-                type="button"
-                onClick={() => setChatScope(null)}
-                aria-label="Ordner-Kontext entfernen"
-                className="opacity-60 hover:opacity-100"
-              >
-                <X className="size-3" />
-              </button>
-            </span>
+            <AttachmentChip
+              icon={<FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />}
+              label={chatScope.label}
+              onRemove={() => setChatScope(null)}
+              removeLabel="Ordner-Kontext entfernen"
+            />
           )}
           {attachedFile && (
-            <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-accent px-1.5 py-0.5 text-[11px] text-foreground">
-              <Paperclip className="size-3 shrink-0 opacity-70" />
-              <span className="truncate">{attachedFile.name}</span>
-              <button
-                type="button"
-                onClick={onRemoveFile}
-                aria-label="Anhang entfernen"
-                className="opacity-60 hover:opacity-100"
-              >
-                <X className="size-3" />
-              </button>
-            </span>
+            <AttachmentChip
+              icon={<Paperclip className="size-3.5 shrink-0 text-muted-foreground" />}
+              label={attachedFile.name}
+              onRemove={onRemoveFile}
+              removeLabel="Anhang entfernen"
+            />
           )}
           {attachedImages.map((img, i) => (
-            <span
+            <AttachmentChip
               key={`${img.file.name}-${i}`}
-              className="inline-flex max-w-full items-center gap-1 rounded-md bg-accent px-1.5 py-0.5 text-[11px] text-foreground"
-            >
-              <ImageIcon className="size-3 shrink-0 opacity-70" />
-              <span className="truncate">{img.file.name}</span>
-              <button
-                type="button"
-                onClick={() => onRemoveImage(i)}
-                aria-label="Bild entfernen"
-                className="opacity-60 hover:opacity-100"
-              >
-                <X className="size-3" />
-              </button>
-            </span>
+              icon={<ImageIcon className="size-3.5 shrink-0 text-muted-foreground" />}
+              label={img.file.name}
+              onRemove={() => onRemoveImage(i)}
+              removeLabel="Bild entfernen"
+            />
           ))}
         </div>
       )}
@@ -154,7 +169,7 @@ export default function ComposerCard({
         }}
         onKeyDown={handleKeyDown}
         rows={1}
-        placeholder="Frag etwas … (Dateien einfach hineinziehen)"
+        placeholder="Nachricht schreiben …"
         disabled={disabled}
         aria-label="Nachricht an die KI"
         className="max-h-40 w-full resize-none bg-transparent px-2.5 py-2 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"

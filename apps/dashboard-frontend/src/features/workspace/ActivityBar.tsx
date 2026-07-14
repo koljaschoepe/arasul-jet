@@ -19,7 +19,7 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
       aria-label={label}
       aria-pressed={active}
       onClick={onClick}
-      className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
+      className={`flex h-10 w-10 items-center justify-center rounded-md transition-colors ${
         active
           ? 'bg-accent text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -35,8 +35,8 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
  * Dateiverwaltung lebt vollständig im Explorer.
  */
 const BASE_SHORTCUTS: Array<{ spec: WorkspaceTabSpec; label: string; icon: React.ReactNode }> = [
-  { spec: { type: 'dashboard' }, label: 'Dashboard', icon: <Home className="h-4.5 w-4.5" /> },
-  { spec: { type: 'store' }, label: 'Extensions', icon: <Blocks className="h-4.5 w-4.5" /> },
+  { spec: { type: 'dashboard' }, label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
+  { spec: { type: 'store' }, label: 'Extensions', icon: <Blocks className="h-5 w-5" /> },
 ];
 
 /** App-gebundene Shortcuts — erscheinen nur, wenn die Extension aktiviert ist. */
@@ -50,19 +50,19 @@ const APP_SHORTCUTS: Array<{
     appId: 'n8n',
     spec: { type: 'automationen' },
     label: 'Automationen',
-    icon: <Workflow className="h-4.5 w-4.5" />,
+    icon: <Workflow className="h-5 w-5" />,
   },
   {
     appId: 'telegram',
     spec: { type: 'telegram' },
     label: 'Telegram',
-    icon: <Send className="h-4.5 w-4.5" />,
+    icon: <Send className="h-5 w-5" />,
   },
   {
     appId: 'database',
     spec: { type: 'database' },
     label: 'Datenbank',
-    icon: <Database className="h-4.5 w-4.5" />,
+    icon: <Database className="h-5 w-5" />,
   },
 ];
 
@@ -83,7 +83,7 @@ export function ActivityBar() {
   return (
     <nav
       aria-label="Workspace-Navigation"
-      className="flex h-full w-11 shrink-0 flex-col items-center gap-0.5 bg-background py-1.5"
+      className="flex h-full w-12 shrink-0 flex-col items-center gap-1 bg-background py-2"
     >
       {shortcuts.map(({ spec, label, icon }) => (
         <ActivityButton

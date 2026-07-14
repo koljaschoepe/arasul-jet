@@ -161,10 +161,13 @@ describe('Store integration (Liste + Detail)', () => {
     expect(screen.queryByTestId('ext-model-qwen3-14b')).not.toBeInTheDocument();
   });
 
-  it('Leerzustand ohne Auswahl mit „Aktuell geladen"-Kopf', async () => {
+  it('Übersichts-Landing ohne Auswahl mit „Aktuell geladen"-Kopf', async () => {
     renderStore();
     expect(await screen.findByText(/aktuell geladen/i)).toBeInTheDocument();
-    expect(screen.getByText('Keine Extension ausgewählt')).toBeInTheDocument();
+    // Plan 004: statt Leerzustand zeigt die Mitte eine Kategorie-Übersicht
+    // (Empfohlen / Sprachmodelle / Apps) mit anklickbaren Kacheln.
+    expect(screen.getByRole('heading', { name: 'Sprachmodelle' })).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^landing-tile-/).length).toBeGreaterThan(0);
   });
 
   it('Klick auf ein Modell zeigt die Detailseite mit Specs', async () => {

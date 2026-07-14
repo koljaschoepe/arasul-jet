@@ -28,6 +28,8 @@ export interface CatalogModel {
   performance_tier?: number;
   speed_tier?: string;
   ollama_library_url?: string;
+  /** Nutzbares Kontextfenster in Tokens (catalog-Spalte, für Gemma seeded in Migration 101). */
+  context_window?: number;
 }
 
 export interface LoadedModel {

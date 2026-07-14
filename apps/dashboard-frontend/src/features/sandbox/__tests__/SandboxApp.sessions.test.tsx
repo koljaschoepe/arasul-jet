@@ -227,6 +227,39 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
     expect(state.activeTerminalSessionId).toBe('p1');
   });
 
+  it('hält für ZWEI Sessions im selben Projekt zwei distinkte, unabhängige Sockets (eigener tmux-Name)', async () => {
+    apiState.projects = [makeProject('p1', 'Projekt Eins')];
+    // Zwei Sessions desselben Projekts: erste (tmux 'main', id === projectId),
+    // zweite (tmux 'main-2', id 'p1#2') — müssen DISTINKTE WS-URLs ergeben.
+    useWorkspaceStore.setState({
+      terminalSessions: [
+        { id: 'p1', projectId: 'p1', title: 'Projekt Eins', terminalName: 'main' },
+        { id: 'p1#2', projectId: 'p1', title: 'Projekt Eins', terminalName: 'main-2' },
+      ],
+      activeTerminalSessionId: 'p1',
+      rightPanelVisible: true,
+      rightPanelMode: 'terminal',
+    });
+
+    render(<SandboxApp visible />);
+
+    // Genau zwei Sockets, mit DISTINKTEN URLs (nur die zweite trägt terminal=main-2)
+    await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(2));
+    const urls = CountingWebSocket.instances.map(ws => ws.url);
+    expect(new Set(urls).size).toBe(2);
+    // Beide Sessions zielen auf dasselbe Projekt, aber distinkte tmux-Namen
+    expect(urls.every(u => u.includes('projectId=p1'))).toBe(true);
+    expect(urls.some(u => u.includes('terminal=main-2'))).toBe(true);
+    expect(urls.some(u => u.includes('terminal=main&') || /terminal=main$/.test(u))).toBe(true);
+    // Zwei getrennte xterm-Instanzen (keine geteilte)
+    expect(xtermInstances).toHaveLength(2);
+
+    // Beide Sessions bleiben in der Registry, dasselbe Projekt
+    const state = useWorkspaceStore.getState();
+    expect(state.terminalSessions.map(s => s.id)).toEqual(['p1', 'p1#2']);
+    expect(state.terminalSessions.every(s => s.projectId === 'p1')).toBe(true);
+  });
+
   it('startet gestoppte Container beim Session-Restore und lädt die Projekte nach', async () => {
     // Restore nach Reboot: Registry-Session existiert, Container ist gestoppt.
     // Der Bootstrap muss POST /start feuern UND danach loadProjects() nachziehen,

@@ -206,14 +206,27 @@ describe('Database integration', () => {
     expect(screen.getByText(/keine tabellen gefunden/i)).toBeInTheDocument();
   });
 
-  it('shows empty state when no tables exist', async () => {
+  it('shows onboarding empty state when no tables exist', async () => {
     vi.mocked(mockApi.get).mockResolvedValue({ data: [] });
 
     renderDatabaseOverview();
 
     await waitFor(() => {
-      expect(screen.getByText(/noch keine tabellen/i)).toBeInTheDocument();
+      expect(screen.getByText(/eigene datentabellen/i)).toBeInTheDocument();
     });
+    // Explains what the app is for (structured data, spreadsheet-like)
+    expect(screen.getByText(/tabellenkalkulation/i)).toBeInTheDocument();
+  });
+
+  it('shows the 1-2-3 first-steps guide in the empty state', async () => {
+    vi.mocked(mockApi.get).mockResolvedValue({ data: [] });
+
+    renderDatabaseOverview();
+
+    await waitFor(() => {
+      expect(screen.getByText(/tabelle anlegen/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/spalten & zeilen füllen/i)).toBeInTheDocument();
   });
 
   it('shows create table button in empty state', async () => {

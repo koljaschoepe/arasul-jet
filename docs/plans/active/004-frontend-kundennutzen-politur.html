@@ -10,14 +10,14 @@
   "slug": "frontend-kundennutzen-politur",
   "title": "Frontend-Politur — Kundennutzen & Komfort",
   "type": "feat",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 3,
   "created": "2026-07-14",
   "approved": "2026-07-14",
-  "branch": null,
+  "branch": "004-frontend-kundennutzen-politur",
   "pr": null,
   "verified_on_device": false
 }
@@ -471,46 +471,53 @@
   </summary>
   <div class="sbody">
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Komfort-Dichte plattformweit">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Komfort-Dichte plattformweit">
     <h3>Schritt 1 — Komfort-Dichte plattformweit <span class="tag">Risiko: mittel</span></h3>
     <p>Die ui-Tokens (<code>--text-ui-*</code>, <code>--spacing-ui-*</code>, Icon-Größen) eine Stufe anheben <b>und</b> die alte Text-/Spacing-Skala (Settings, Chat, Datenbank, Legacy) auf dasselbe Komfort-Niveau ziehen, damit die ganze App gleich groß atmet. ActivityBar-Buttons/-Icons von hand-justierten px auf die Skala bringen. Bereich für Bereich prüfen, dass nichts umbricht/überlappt.</p>
     <p class="files mono">apps/dashboard-frontend/src/index.css (~32–54, 204–222) · features/workspace/ActivityBar.tsx · TabContent.tsx · features/dashboard/* · components/extensions/ExtensionsSidebarList.tsx · docs/development/DESIGN_SYSTEM.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Globaler Komfort-Hebel <code>html { font-size: 106.25% }</code> (17px) in <code>@layer base</code> skaliert alle rem-Utilities plattformweit ~6 % größer — erreicht auch Nicht-Shell-Flächen. Shell-Tokens <code>--text-ui-*</code> (12/13/14/16px) + <code>--spacing-ui-*</code> (5/10/14/18px) eine Stufe hoch; <code>--icon-*</code>-Skala (feste px) auf 15–52px angehoben; ActivityBar auf <code>h-10 w-10</code> / <code>h-5 w-5</code> / <code>w-12</code> vergrößert. DESIGN_SYSTEM.md aktualisiert. Rein tokenbasiert → per Geräte-Verify über 1024–1920 px final abgesichert.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Dashboard: volle Breite + Aktions-Hub">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Dashboard: volle Breite + Aktions-Hub">
     <h3>Schritt 2 — Dashboard: volle Breite + Aktions-Hub <span class="tag">Risiko: mittel</span></h3>
     <p>Zuerst live reproduzieren, woher „rechts abgeschnitten" kommt (Verdacht: un-truncated Inline-Styles im SystemHealthWidget bzw. recharts-ResponsiveContainer im schmalen Panel) — dann an der echten Stelle fixen. Danach das Dashboard als Aktions-Hub schärfen: große Kacheln „Chat starten", „Dokument hochladen", „Projekt öffnen", „zuletzt genutzt"; Systemstatus kompakt. Volle Breite, kein Horizontal-Scroll auf allen Zielbreiten.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/dashboard/DashboardHome.tsx · DashboardCard.tsx · SystemHealthWidget.tsx · features/workspace/TabContent.tsx · WorkspaceShell.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> „Abgeschnitten"-Härtung: <code>SystemHealthWidget</code>-Inline-Styles → <code>flex min-w-0</code> + <code>truncate</code>/<code>shrink-0</code>; recharts-<code>ResponsiveContainer</code> in <code>min-w-0</code>-Container. Aktions-Hub oben mit 4 Kacheln über <code>workspaceStore</code>: Chat → <code>setRightPanelMode('chat')</code>, Upload → <code>requestExplorerAction('upload-files')</code>, Projekt → Explorer/Projektliste einblenden, Zuletzt → offene Tabs (echte Daten, sonst ehrlicher Hinweis). Systemstatus darunter kompakt untergeordnet. 6/6 Tests grün, tsc/eslint sauber. Abweichung: „Projekt öffnen" öffnet keinen eigenen Tab-Typ (existiert nicht) → blendet Projektliste im Explorer ein.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Extensions: Übersicht + reiche Detailseite + Kontextlänge">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 3 — Extensions: Übersicht + reiche Detailseite + Kontextlänge">
     <h3>Schritt 3 — Extensions: Übersicht + Detailseite + Kontextlänge <span class="tag">Risiko: mittel</span></h3>
     <p>Den heutigen Leerzustand (<code>StoreDetailEmpty</code>) durch eine <b>Kategorie-Übersichtsseite</b> ersetzen: Kacheln für empfohlen / Sprachmodelle / Apps; Klick öffnet die bestehende reiche Detailseite. Detailseite um <b>Kontextlänge</b> ergänzen (additive Spalte <code>context_length</code> im Katalog: Migration + Backend-Read + <code>CatalogModel</code>-Typ) — bestätigt. Download-/Aktivieren-Block optisch aufräumen; die bestehende <code>DownloadContext</code>-Pipeline wird nur genutzt, nicht umgebaut.</p>
-    <p class="files mono">features/store/StoreDetailPage.tsx · Store.tsx · hooks/useStoreCatalog.ts · contexts/DownloadContext.tsx · apps/dashboard-backend/src/routes/ai/models.js · services/llm/modelService.js · services/postgres/init/101_model_catalog_context_length.sql · docs/api/{API_REFERENCE,DATABASE_SCHEMA}.md</p>
+    <p class="files mono">features/store/StoreDetailPage.tsx · Store.tsx · hooks/useStoreCatalog.ts · contexts/DownloadContext.tsx · apps/dashboard-backend/src/routes/ai/models.js · services/llm/modelService.js · services/postgres/init/101_model_catalog_context_window_seed.sql · docs/api/{API_REFERENCE,DATABASE_SCHEMA}.md</p>
+    <div class="result"><strong>Ergebnis (Abweichung):</strong> Landing <code>StoreLanding</code> statt Leerzustand: Abschnitte Empfohlen/Sprachmodelle/Apps, Kacheln → bestehende Detailseite (Client-Nav via <code>useExtensionStore</code>). <b>Abweichung:</b> statt neuer Spalte <code>context_length</code> wird die bereits existierende, semantisch identische <code>context_window</code> (Migration 041) wiederverwendet — Doppelspalte/Drift vermieden; Migration <code>101_model_catalog_context_window_seed.sql</code> seedet nur die NULL-Werte (Gemma-4). Detail-<code>Spec</code> zeigt „Kontextlänge" (131072 → „128k Tokens"); Download-Block als abgesetzte Karte. Docs aktualisiert. 10/10 Tests grün, tsc/eslint sauber.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Chat: sichtbares Anhang-Feedback">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Chat: sichtbares Anhang-Feedback">
     <h3>Schritt 4 — Chat: sichtbares Anhang-Feedback <span class="tag">Risiko: niedrig</span></h3>
     <p>Live-Audit: Warum sieht der Kunde kein Anhang-Feedback, obwohl Chip-Leiste + Drop-Overlay im Workspace-Agent-Chat (<code>ComposerCard</code>/<code>AgentChatPanel</code>) existieren? Wahrscheinliche Ursache: er war auf der Legacy-<code>/chat</code>-Route ohne Chips. Ergebnis: die Chip-Leiste + das Overlay auf der genutzten Oberfläche absichern (Datei per Drop → Chip erscheint über dem Feld, entfernbar), Platzhalter nativer formulieren (weg von „Frag etwas … (Dateien einfach hineinziehen)"). Keine Änderung an der Upload-/Sende-Logik.</p>
     <p class="files mono">features/workspace/llm/agentChat/ComposerCard.tsx · AgentChatPanel.tsx · (Legacy) features/chat/ChatInputArea.tsx (nur Platzhalter/Feedback)</p>
+    <div class="result"><strong>Ergebnis:</strong> Befund: Chips + Overlay existierten im Workspace-Composer, waren aber zu unauffällig. Chips als <code>AttachmentChip</code> aufgewertet (<code>border</code>, <code>bg-muted</code>, Icon, <code>text-ui-xs</code>, Hover am X); Drop-Overlay klar &amp; kontraststark (Karte mit <code>Upload</code>-Icon, „Dateien hier ablegen"); Platzhalter → „Nachricht schreiben …". 4 neue ComposerCard-Tests, 156 Tests grün. Legacy-<code>ChatInputArea</code> bewusst unverändert (Platzhalter dort bereits nativ, Test-Datei außerhalb Scope).</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Terminal: klarer Ordner-Header">
     <h3>Schritt 5 — Terminal: klarer Ordner-Header + Mehrfach-Sitzungen <span class="tag">Risiko: mittel</span></h3>
     <p>Live-Audit des bestehenden Wechslers (<code>TerminalTabs</code> hat bereits [+]-Dropdown + Projektliste). Ergebnis: eine gut sichtbare Kopfzeile „📁 aktuelles Projekt ▾" + „neue Sitzung". <b>Bestätigt: mehrere gleichzeitige Sitzungen im selben Ordner</b> — die Session-Verwaltung wird von „eine Session pro <code>project.id</code>" auf mehrere Sessions je Projekt erweitert (eigene Session-IDs, umschaltbar), inklusive sauberem Aufräumen beim Schließen. In welchem Ordner man ist, bleibt jederzeit sichtbar.</p>
-    <p class="files mono">features/sandbox/TerminalTabs.tsx · ProjectListPanel.tsx · SandboxApp.tsx · features/workspace/RightPanel.tsx</p>
+    <p class="files mono">features/sandbox/{TerminalTabs,SandboxApp,useTerminal,SandboxTerminal,sessionModel}.tsx/ts · stores/workspaceStore.ts · apps/dashboard-backend/src/services/sandbox/terminalService.js · apps/dashboard-backend/src/index.js</p>
+    <div class="result"><strong>Ergebnis:</strong> Befund: Backend-PTY erlaubt mehrere WS-Verbindungen/Projekt, aber tmux-Name war fest <code>main</code> → gespiegelter Screen. Additiver Fix: <code>createSession(tmuxName)</code> validiert (<code>/^[A-Za-z0-9_-]{1,40}$/</code>), WS-Query <code>terminal=…</code>, Default <code>main</code> rückwärtskompatibel. Frontend: <code>sessionModel.ts</code> (n Sessions/Projekt, 1. = <code>main</code>-Reattach, weitere <code>main-N</code>), zwei-Ebenen-Header (Projekt-Wechsler + Session-Tabs „Sitzung 1/2/…"), keep-alive unangetastet. 25 FE- + 36 BE-Tests grün, tsc/eslint sauber. Backend-Anpassung additiv (per §8-Entscheidung erlaubt).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Einstellungen: einheitliches links-Raster">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 6 — Einstellungen: einheitliches links-Raster">
     <h3>Schritt 6 — Einstellungen: einheitliches links-Raster <span class="tag">Risiko: niedrig</span></h3>
     <p>Live-Audit: was wirkt zentriert? (Die Theme-Auswahl in <code>GeneralSettings</code> ist bereits eine links-ausgerichtete RadioGroup — der echte Bruch liegt vermutlich in anderen Panels.) Dann alle Settings-Panels auf ein durchgängiges Label-links-Raster mit gleicher Einrückung bringen; Theme-Auswahl bleibt/wird linksbündige Optionsliste. Rein visuell, keine Logik.</p>
     <p class="files mono">features/settings/GeneralSettings.tsx · Settings.tsx · AIProfileSettings.tsx · RagLlmSettings.tsx · PrivacySettings.tsx · SecuritySettings.tsx · RemoteAccessSettings.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Befund bestätigt — Theme-Auswahl war bereits linksbündig (unverändert). Echte Inkonsistenz: <code>PrivacySettings</code> brach aus dem Standard-Raster aus (eigener Wrapper/Header/Abschnittstitel) → auf das gemeinsame Raster gebracht (h1-Header + Divider, <code>flex flex-col gap-8</code>, <code>h3</code>-Abschnittstitel). Zwei zentrierte Hinweistexte in <code>PasswordManagement</code> linksbündig gemacht. 77 Settings-Tests grün. Textgröße wächst über den globalen Root-Hebel (S1) mit.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Datenbank-App: Befund + Onboarding">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 7 — Datenbank-App: Befund + Onboarding">
     <h3>Schritt 7 — Datenbank-App: Befund + Onboarding <span class="tag">Risiko: niedrig</span></h3>
     <p>Zuerst prüfen, was die Datenbank-App (<code>DatabaseOverview</code>, „Datentabellen") heute wirklich tut und ob die Kette (Tabelle anlegen → befüllen → nutzen) funktioniert. Dann: erklärender Startzustand („Was ist das, wofür, erste Schritte"), klare Buttons/Labels; gefundene Logik-Bugs beheben. Kein Funktionsumbau ohne Befund.</p>
     <p class="files mono">features/database/DatabaseOverview.tsx · DatabaseTable.tsx · components/{TableCard,CreateTableDialog}.tsx · apps/dashboard-backend routes (datentabellen) · docs/ops/ADMIN_HANDBUCH.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Befund: Datentabellen-Manager (Airtable-light, lokal) — Kette funktioniert. <b>Bug gefunden &amp; behoben:</b> <code>CreateTableDialog</code> sendete kein <code>createDefaultField</code> → neue Tabellen öffneten spaltenlos; jetzt startet jede Tabelle mit einer „Name"-Spalte. Onboarding: Leerzustand auf die <code>EmptyState</code>-Primitive umgestellt mit Zweck (strukturierte Daten für n8n-Workflows + RAG) + nummerierter 1-2-3-Anleitung + CTA; Intro-Absatz im Anlege-Dialog. 23/23 Tests grün, tsc sauber.</div>
   </div>
 
   </div>

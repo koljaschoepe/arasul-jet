@@ -148,5 +148,25 @@ describe('terminalService — input validation', () => {
         })
       ).rejects.toThrow(/Ungültiger command/);
     });
+
+    test('rejects tmuxName with shell metacharacters (multi-session guard)', async () => {
+      await expect(
+        terminalService.createSession('p1', mockWs(), {
+          tmuxName: "main'; whoami; #",
+          userId: 1,
+        })
+      ).rejects.toThrow(/Ungültiger tmux-Session-Name/);
+      // Must fail before touching the project lookup
+      expect(sandboxService.getProject).not.toHaveBeenCalled();
+    });
+
+    test('rejects overly long tmuxName', async () => {
+      await expect(
+        terminalService.createSession('p1', mockWs(), {
+          tmuxName: 'a'.repeat(41),
+          userId: 1,
+        })
+      ).rejects.toThrow(/Ungültiger tmux-Session-Name/);
+    });
   });
 });

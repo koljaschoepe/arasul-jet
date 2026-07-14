@@ -138,11 +138,22 @@ export type ExplorerAction = 'create-folder' | 'create-project' | 'upload-files'
  * stabilen Session-Id.
  */
 export interface TerminalSession {
-  /** Stabile Session-Id (aktuell: Sandbox-Projekt-Id). */
+  /**
+   * Stabile, eindeutige Session-Id. Erste Session eines Projekts: die
+   * Projekt-Id selbst (rückwärtskompatibel zum 1-Session-Modell); weitere
+   * Sessions desselben Projekts: `${projectId}#${n}`.
+   */
   id: string;
-  /** Sandbox-Projekt, in dem die Session läuft. */
+  /** Sandbox-Projekt (Container), in dem die Session läuft. */
   projectId: string;
   title: string;
+  /**
+   * tmux-Session-Name im Container — stabil über Reconnects hinweg. Mehrere
+   * Sessions im selben Projekt brauchen DISTINKTE Namen, sonst spiegeln sie
+   * denselben Screen statt unabhängige Shells zu sein. Fehlt bei Alt-Sessions
+   * (v≤4-Persist) → Backend-Default 'main'.
+   */
+  terminalName?: string;
 }
 
 /** Inhalt des rechten Panels: Chat oder Terminal (nie beide gleichzeitig). */

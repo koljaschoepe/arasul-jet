@@ -426,14 +426,14 @@ function PasswordManagement() {
           </div>
 
           {activeService === 'dashboard' && (
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-xs text-muted-foreground">
               <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des Dashboard-Passworts
               werden Sie automatisch abgemeldet.
             </p>
           )}
 
           {activeService === 'minio' && (
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-xs text-muted-foreground">
               <Info className="size-3.5 inline" /> Der MinIO-Service wird nach der Passwortänderung
               automatisch neu gestartet.
             </p>

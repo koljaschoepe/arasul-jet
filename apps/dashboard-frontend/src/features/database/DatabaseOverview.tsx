@@ -4,6 +4,7 @@ import { Plus, Search, LayoutGrid, List, Database, FileText } from 'lucide-react
 import { useApi } from '../../hooks/useApi';
 import { useFetchData } from '../../hooks/useFetchData';
 import { SkeletonCard } from '../../components/ui/Skeleton';
+import EmptyState from '../../components/ui/EmptyState';
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { Input } from '@/components/ui/shadcn/input';
@@ -182,14 +183,47 @@ const DatabaseOverview = memo(function DatabaseOverview() {
               </Button>
             </>
           ) : (
-            <>
-              <Database className="size-12 mb-4 opacity-30" />
-              <h3 className="text-foreground mb-2">Noch keine Tabellen</h3>
-              <p className="mb-4">Erstellen Sie Ihre erste Tabelle, um Daten zu verwalten.</p>
-              <Button onClick={handleCreateTable}>
-                <Plus className="size-4" /> Erste Tabelle erstellen
-              </Button>
-            </>
+            <EmptyState
+              icon={<Database className="size-12" />}
+              title="Eigene Datentabellen"
+              description="Legen Sie strukturierte Daten an — z. B. Kunden, Produkte oder Aufträge — und nutzen Sie sie in Automatisierungen (n8n) und der Wissenssuche (RAG). Wie eine Tabellenkalkulation, nur direkt auf Ihrem Arasul."
+              action={
+                <div className="flex flex-col items-center gap-5">
+                  <ol className="flex flex-col gap-2 text-left text-ui-sm text-muted-foreground m-0 p-0 list-none">
+                    <li className="flex gap-2.5">
+                      <span className="flex items-center justify-center size-5 shrink-0 rounded-full bg-primary/10 text-primary text-ui-xs font-semibold">
+                        1
+                      </span>
+                      <span>
+                        <span className="text-foreground font-medium">Tabelle anlegen</span> — Namen
+                        vergeben (z.&nbsp;B. „Kunden“).
+                      </span>
+                    </li>
+                    <li className="flex gap-2.5">
+                      <span className="flex items-center justify-center size-5 shrink-0 rounded-full bg-primary/10 text-primary text-ui-xs font-semibold">
+                        2
+                      </span>
+                      <span>
+                        <span className="text-foreground font-medium">Spalten & Zeilen füllen</span>{' '}
+                        — Felder definieren und Daten eintragen.
+                      </span>
+                    </li>
+                    <li className="flex gap-2.5">
+                      <span className="flex items-center justify-center size-5 shrink-0 rounded-full bg-primary/10 text-primary text-ui-xs font-semibold">
+                        3
+                      </span>
+                      <span>
+                        <span className="text-foreground font-medium">Nutzen</span> — in Workflows
+                        und der Wissenssuche weiterverwenden.
+                      </span>
+                    </li>
+                  </ol>
+                  <Button onClick={handleCreateTable}>
+                    <Plus className="size-4" /> Erste Tabelle erstellen
+                  </Button>
+                </div>
+              }
+            />
           )}
         </div>
       ) : viewMode === 'list' ? (

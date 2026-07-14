@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Trash2, ShieldAlert, Info } from 'lucide-react';
+import { Download, Trash2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
@@ -105,47 +105,48 @@ export function PrivacySettings() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="animate-in fade-in">
       {ConfirmDialog}
 
-      <div>
-        <h2 className="text-xl font-bold text-foreground mb-1 flex items-center gap-2">
-          <ShieldAlert className="size-5 text-primary" />
-          Datenschutz
-        </h2>
+      <div className="mb-8 pb-6 border-b border-border">
+        <h1 className="text-2xl font-bold text-foreground mb-2">Datenschutz</h1>
         <p className="text-sm text-muted-foreground">
           DSGVO-Rechte: Auskunft (Art. 15) und Löschung (Art. 17)
         </p>
       </div>
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2 text-foreground font-semibold">
-          <Download className="size-4" /> Meine Daten exportieren
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Lädt eine JSON-Datei mit allen zu deinem Account gespeicherten Daten herunter (Profil,
-          Chats, Dokument-Metadaten, Projekte, API-Keys, Audit-Log).
-        </p>
-        <Button onClick={handleExport} disabled={exporting} variant="outline">
-          {exporting ? 'Exportiere...' : 'Datenexport herunterladen'}
-        </Button>
-      </section>
+      <div className="flex flex-col gap-8">
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Download className="size-4 text-muted-foreground" />
+            Meine Daten exportieren
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Lädt eine JSON-Datei mit allen zu deinem Account gespeicherten Daten herunter (Profil,
+            Chats, Dokument-Metadaten, Projekte, API-Keys, Audit-Log).
+          </p>
+          <Button onClick={handleExport} disabled={exporting} variant="outline">
+            {exporting ? 'Exportiere...' : 'Datenexport herunterladen'}
+          </Button>
+        </section>
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2 text-foreground font-semibold">
-          <Trash2 className="size-4 text-destructive" /> Konto löschen
-        </div>
-        <Alert variant="destructive">
-          <Info className="size-4" />
-          <AlertDescription>
-            Diese Aktion löscht dein Konto und alle damit verbundenen Daten unwiderruflich. Eine
-            Wiederherstellung ist nicht möglich.
-          </AlertDescription>
-        </Alert>
-        <Button onClick={handleDelete} disabled={deleting} variant="destructive">
-          {deleting ? 'Lösche...' : 'Konto endgültig löschen'}
-        </Button>
-      </section>
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Trash2 className="size-4 text-destructive" />
+            Konto löschen
+          </h3>
+          <Alert variant="destructive">
+            <Info className="size-4" />
+            <AlertDescription>
+              Diese Aktion löscht dein Konto und alle damit verbundenen Daten unwiderruflich. Eine
+              Wiederherstellung ist nicht möglich.
+            </AlertDescription>
+          </Alert>
+          <Button onClick={handleDelete} disabled={deleting} variant="destructive">
+            {deleting ? 'Lösche...' : 'Konto endgültig löschen'}
+          </Button>
+        </section>
+      </div>
 
       <Modal
         isOpen={tokenModalOpen}
