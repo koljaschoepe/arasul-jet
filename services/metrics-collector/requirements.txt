@@ -1,4 +1,4 @@
-psycopg2-binary==2.9.10
+psycopg2-binary==2.9.12
 aiohttp==3.14.1
 psutil==6.1.0
 pynvml==11.5.0
