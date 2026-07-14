@@ -1,0 +1,779 @@
+<!doctype html>
+<!-- Arasul plan-page v2 · Plan 005 · erzeugt via /plan -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 005 · Workspace-Shell: interaktiver Chat, Extensions & Dashboard</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "005",
+  "slug": "frontend-shell-interaktiv",
+  "title": "Workspace-Shell: interaktiver Chat, Extensions & Dashboard",
+  "type": "feature",
+  "status": "approved",
+  "priority": "P1",
+  "risk_level": 2,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-07-14",
+  "approved": "2026-07-14",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+  .oq {
+    background: var(--note-bg); border: 1.5px solid var(--note);
+    border-radius: 14px; padding: 1rem 1.2rem; margin: 0 0 1.6rem;
+  }
+  .oq h2 {
+    margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--note); font-weight: 800;
+  }
+  .oq-item { padding: .5rem 0; }
+  .oq-item + .oq-item { border-top: 1px solid color-mix(in srgb, var(--note) 30%, transparent); }
+  .oq-item p { margin: 0 0 .35rem; font-weight: 600; font-size: .95rem; }
+  .oq-item textarea, .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .oq-item textarea:focus, .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oq .none { color: var(--muted); font-size: .92rem; margin: 0; }
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz { grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem; }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 005</p>
+    <span class="chip" id="status-chip" data-status="in-review">In Review</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Workspace-Shell: interaktiver Chat, Extensions &amp; Dashboard</h1>
+  <p class="lead">Die Shell fühlt sich lebendiger an, echte Bugs sind weg, und der schöne editierbare Markdown-Editor kommt zurück — damit der Kunde die Plattform als „fertiges Produkt" erlebt.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P1</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>Hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">8</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Acht Schritte: n8n-Bug &amp; Ansichtsmodus-Umschalter raus, Chat mit Anhang-Liste + Denk-Stream + Maskottchen, Quellen-Fix, editierbarer Markdown-Editor mit Speichern, Extensions in zwei Spalten, Dashboard eingedampft, Responsive-Politur.</dd>
+      <dt>Warum jetzt</dt><dd>Die Shell steht — aber Kleinbugs, ein „ewiges Laden" im Chat und eine unklare Extensions-/Dashboard-Struktur untergraben den Kundennutzen. Diese Runde macht sie produktiv nutzbar.</dd>
+      <dt>Größtes Risiko</dt><dd>Der Markdown-Editor braucht einen <b>neuen Backend-Speicher-Endpunkt</b> und berührt drei getrennte Markdown-Renderpfade — der aufwändigste, fehleranfälligste Schritt.</dd>
+      <dt>Du entscheidest</dt><dd><ul>
+        <li>Chat inkrementell aufwerten (Struktur bleibt), Maskottchen aus deinen zwei Bird-Icons.</li>
+        <li>n8n als Tab im Hauptbereich — Explorer bleibt stehen.</li>
+        <li>Editor <b>mit</b> Speichern; alle Text-/MD-Dokumente editierbar (RAG-Quellen brauchen Re-Index).</li>
+        <li>Ansichtsmodus-Umschalter oben links entfernt — Theme nur in den Einstellungen.</li>
+      </ul></dd>
+    </dl>
+  </div>
+
+  <div class="oq" id="oq">
+    <h2>Offene Fragen an dich</h2>
+    <p class="none">Keine — alle materiellen Entscheidungen wurden im Interview geklärt (siehe §8). Wenn dir beim Durchlesen etwas auffällt: 💬 an jeder Karte kommentieren, unten „Alle kopieren", in den Chat einfügen.</p>
+  </div>
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Die Shell soll sich als fertiges Produkt anfühlen — lebendig, bugfrei, produktiv.</span>
+  </summary>
+  <div class="sbody">
+  <p>Die Workspace-Shell ist optisch fertig, aber an mehreren Stellen „hakt" sie noch so, dass der Kunde nicht flüssig arbeiten kann. Konkret: Beim Wechsel auf <b>Automation (n8n)</b> verschwindet das linke Datei-Panel; im <b>Chat</b> passiert beim Senden sekundenlang scheinbar nichts (kein sichtbarer Denkprozess); angehängte Dateien geben <b>kein Feedback</b>; die <b>Quellen</b> unter Antworten werden abgeschnitten; die <b>Extensions</b>-Ansicht trennt nicht zwischen „was habe ich" und „was gibt es"; das <b>Dashboard</b> ist mit toten Aktions-Kacheln überladen; und der früher vorhandene <b>editierbare Markdown-Editor</b> (mit Format-Toolbar) fehlt im Workspace.</p>
+  <p>Ziel ist, jede dieser Reibungen gezielt zu beseitigen und die Interaktion an modernen KI-Oberflächen (Claude Code, Cursor) auszurichten: sichtbarer Denk-Stream statt Spinner, ein lebendiges Maskottchen als Status-Anker, klare Zwei-Spalten-Extensions, ein aufgeräumtes Status-Dashboard und ein echter Inline-Editor. Alles inkrementell — die bewährte Shell-Struktur bleibt.</p>
+  <p><b>Fertig heißt:</b> Der Kunde wechselt zu n8n ohne seinen Explorer zu verlieren; schreibt im Chat und sieht sofort „Arasul denkt nach …" plus Denk-Block; zieht Dateien rein und sieht Chips; öffnet ein Markdown-Dokument, bearbeitet es inline mit Toolbar und speichert; findet in den Extensions links seine installierten Modelle/Apps und in der Mitte den durchsuchbaren Katalog; und sieht auf dem Dashboard nur noch Systemstatus und Automatisierungs-Ergebnisse — alles live auf dem Jetson verifiziert.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Frontend-Politur + ein additiver Backend-Speicher-Endpunkt; kein RAG-/Login-Umbau.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>n8n-Wechsel behält den Explorer (Auto-Einklappen entfernt)</li>
+      <li>Ansichtsmodus-Umschalter oben links raus — Theme nur in Einstellungen</li>
+      <li>Chat: Anhang-Liste/Chips über der Eingabe + Drop-Overlay</li>
+      <li>Chat: Denk-Stream (echtes Reasoning) + Live-Status + Stop-Button + Maskottchen</li>
+      <li>Chat: Quellen vollständig lesbar (nicht abgeschnitten)</li>
+      <li>Editierbarer Markdown-Viewer (TipTap) + neue Speicher-Route</li>
+      <li>Extensions: zwei Spalten (links installiert/aktiv + Filter, Mitte Browse + Filter-Tabs)</li>
+      <li>Dashboard auf Systemstatus + Automatisierungs-Outputs eingedampft</li>
+      <li>Responsive-/Dichte-Politur der betroffenen Panels</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>GitHub-/OneDrive-Cloud-Sync (nur Roadmap-Vormerkung)</li>
+      <li>Login-/Onboarding-Redesign</li>
+      <li>Umbau der RAG-/Embedding-Pipeline</li>
+      <li>Neue Modelle/Apps im Katalog</li>
+      <li>Konsolidierung aller drei Markdown-Renderer zu einem (nur so weit nötig)</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Fast alles Frontend; ein Bug ist eine Ein-Zeilen-Regel, Reasoning &amp; Editor existieren schon.</span>
+  </summary>
+  <div class="sbody">
+  <p>Die gute Nachricht aus der Recherche: Die meisten Bausteine sind schon da, wir müssen sie nur richtig verdrahten. Der <b>n8n-Bug</b> ist kein Umbau, sondern eine Regel: Eine Liste „welche Tabs klappen den Explorer automatisch ein" enthält fälschlich auch „Automation". n8n ist bereits ein normaler Tab im Hauptbereich — wir nehmen es nur aus dieser Auto-Einklapp-Liste (und passen auf, dass Telegram/Datenbank davon unberührt bleiben). Der <b>Denk-Stream</b> ist möglich, weil das LLM-Backend Reasoning-Tokens bereits über SSE streamt — der Chat konsumiert diesen Strom schon, wir machen die Denk- und Status-Anteile nur sichtbar (aufklappbarer Block + Live-Zeile statt Dauer-Spinner). Der <b>editierbare Editor</b> existiert als <code>TipTapEditor</code> mit Format-Toolbar, wird aber nur im alten Dokument-Manager genutzt; wir setzen ihn in den Workspace-Viewer und ergänzen die eine fehlende Zutat — eine Backend-Route zum <b>Speichern</b> des Inhalts.</p>
+  <p>Der einzige echte Systemzuwachs ist diese Speicher-Route (<code>PUT /documents/:id/content</code>, sauber mit <code>asyncHandler</code> + Custom-Errors). Weil du „alle Dokumente editierbar" gewählt hast, stößt das Speichern bei bereits indexierten RAG-Quellen zusätzlich einen <b>Re-Index</b> beim Document-Indexer an, damit die Suche nicht veraltet. Für das <b>Maskottchen</b> führen wir eine erste <code>src/assets/</code>-Konvention ein (die es bisher nicht gibt) und binden deine beiden Bird-Frames (idle ↔ zwinkert) als Zustandsanzeige ein.</p>
+  <p>Extensions und Dashboard sind reine Frontend-Umbauten über bestehende Hooks: <code>useStoreCatalog</code> speist links die Verwaltungsliste (nur installiert/aktiv) und in der Mitte den Katalog; das Dashboard verliert seine toten Aktions-Kacheln und zeigt nur noch das (vergrößerte) Systemstatus-Widget plus eine Liste der Automatisierungs-Ergebnisse.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 640 260" role="img" aria-label="Vorher/Nachher der Shell beim n8n-Wechsel und Chat-Interaktion" style="color: var(--ink)">
+      <style>
+        .lbl { font: 600 11px system-ui, sans-serif; fill: var(--muted); }
+        .ttl { font: 700 12px system-ui, sans-serif; fill: var(--accent-ink); }
+        .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+        .actv { fill: var(--wash); stroke: var(--accent); stroke-width: 1.5; }
+        .x { font: 700 12px system-ui, sans-serif; fill: var(--bad); }
+        .ok { font: 700 12px system-ui, sans-serif; fill: var(--ok); }
+      </style>
+      <!-- VORHER -->
+      <text x="20" y="20" class="ttl">VORHER — n8n verdrängt den Explorer</text>
+      <rect x="20" y="30" width="26" height="90" class="box"/>
+      <text x="24" y="78" class="lbl" transform="rotate(-90 33 75)">Tabs</text>
+      <rect x="52" y="30" width="248" height="90" class="box" opacity="0.35"/>
+      <text x="120" y="70" class="x">Explorer weg ✕</text>
+      <rect x="52" y="30" width="248" height="90" fill="none" stroke="var(--bad)" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="150" y="112" class="lbl">n8n füllt alles</text>
+      <!-- NACHHER -->
+      <text x="20" y="152" class="ttl">NACHHER — n8n ist ein Tab, Explorer bleibt</text>
+      <rect x="20" y="162" width="26" height="90" class="box"/>
+      <text x="24" y="210" class="lbl" transform="rotate(-90 33 207)">Tabs</text>
+      <rect x="52" y="162" width="78" height="90" class="box"/>
+      <text x="62" y="200" class="lbl">Explorer</text>
+      <text x="70" y="216" class="ok">bleibt ✓</text>
+      <rect x="136" y="162" width="164" height="90" class="actv"/>
+      <text x="180" y="210" class="lbl">n8n (Tab)</text>
+      <!-- CHAT rechts -->
+      <text x="340" y="20" class="ttl">CHAT rechts — lebendig statt „lädt ewig"</text>
+      <rect x="340" y="30" width="280" height="222" class="box"/>
+      <rect x="352" y="42" width="256" height="26" class="actv"/>
+      <circle cx="368" cy="55" r="7" fill="var(--accent)"/>
+      <text x="382" y="59" class="lbl">🐦 Arasul · denkt nach ▓▓░░</text>
+      <rect x="352" y="76" width="256" height="24" class="box"/>
+      <text x="360" y="92" class="lbl">▸ Denkprozess (aufklappbar)</text>
+      <rect x="352" y="104" width="256" height="40" class="box"/>
+      <text x="360" y="120" class="lbl">Antwort streamt Token für Token …</text>
+      <text x="360" y="136" class="lbl">▸ Quellen (3) — voll lesbar</text>
+      <rect x="352" y="196" width="256" height="20" class="box"/>
+      <text x="360" y="210" class="lbl">📎 bericht.pdf ✕   📎 notiz.md ✕</text>
+      <rect x="352" y="220" width="212" height="24" class="box"/>
+      <rect x="568" y="220" width="40" height="24" class="actv"/>
+      <text x="360" y="236" class="lbl">Nachricht schreiben …</text>
+      <text x="583" y="236" class="ok">↑</text>
+    </svg>
+    <figcaption>Links: der n8n-Bug (Explorer verschwindet) und sein Fix. Rechts: der aufgewertete Chat mit Maskottchen-Status, Denk-Block, lesbaren Quellen und Anhang-Chips.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 8 Schritte, jeder lauffähig — Bugs zuerst, riskanter Editor spät.</span>
+  </summary>
+  <div class="sbody">
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Bug-Batch: n8n-Explorer &amp; Ansichtsmodus-Umschalter">
+    <h3>Schritt 1 — Bug-Batch: n8n behält Explorer + Theme-Umschalter raus <span class="tag">Risiko: niedrig</span></h3>
+    <p><code>'automationen'</code> aus der Auto-Einklapp-Menge (<code>APP_TAB_TYPES</code>) entfernen, sodass der Explorer beim n8n-Wechsel stehen bleibt — ohne Telegram/Datenbank zu beeinflussen. Zusätzlich den hell/dunkel-Umschalter aus der Menüleiste oben links entfernen; die Theme-Logik (<code>useTheme</code>) bleibt unangetastet und wird nur noch aus den Einstellungen bedient.</p>
+    <p class="files mono">features/workspace/SidebarHost.tsx · stores/workspaceStore.ts (syncSidebarForTab) · features/workspace/WorkspaceMenuBar.tsx · Tests: SidebarHost.test.tsx (+ Fall „n8n hält Sidebar"), WorkspaceMenuBar.test.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Chat: Anhang-Liste über der Eingabe">
+    <h3>Schritt 2 — Chat: Anhang-Chips + Drop-Feedback <span class="tag">Risiko: niedrig</span></h3>
+    <p>Angehängte/hineingezogene Dateien als Chip-Liste <b>über</b> dem Eingabefeld darstellen (Icon, Name, Entfernen-✕). Beim Drüberziehen ein deutliches Drop-Overlay („hier loslassen"). Baut auf den seit Plan 004 vorhandenen <code>AttachmentChip</code>/Drop-Bausteinen auf und macht sie zur echten Liste.</p>
+    <p class="files mono">features/workspace/llm/agentChat/ComposerCard.tsx · AgentChatPanel.tsx · Tests: ComposerCard.test.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Chat: Denk-Stream, Live-Status &amp; Maskottchen">
+    <h3>Schritt 3 — Chat: Denk-Stream + Live-Status + Maskottchen <span class="tag">Risiko: mittel</span></h3>
+    <p>Aufklappbaren Denk-Block einführen (öffnet beim Streamen, schließt bei Fertigstellung) gespeist aus den bereits gestreamten Reasoning-Tokens; eine ehrliche Live-Statuszeile („denkt nach …", „durchsucht Dokumente …") statt Dauer-Spinner; einen <b>Stop-Button</b> während des Streamens. Maskottchen-Komponente aus deinen zwei Bird-Frames (idle ↔ zwinkert als Aktivitäts-/Denk-Zustand) im Composer-Header und groß im leeren Chat. Erste <code>src/assets/</code>-Konvention; Assets aus <code>docs/plans/assets/005-mascot/</code> zuschneiden (cremefarbenen Hintergrund auf transparent), verkleinern (aktuell ~840 KB) und importieren.</p>
+    <p class="files mono">contexts/ChatContext.tsx (thinking/status durchreichen) · features/workspace/llm/agentChat/{AgentChatPanel,CompactMessage}.tsx · neu: components/mascot/Mascot.tsx · neu: src/assets/mascot/{mascot-idle,mascot-wink}.png · Tests: AgentChatPanel.test.tsx (+ Denk-Block/Status)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Chat: Quellen sauber darstellen">
+    <h3>Schritt 4 — Chat: Quellen vollständig lesbar <span class="tag">Risiko: niedrig</span></h3>
+    <p>Den aufklappbaren Quellen-Bereich unter Antworten so umbauen, dass Dateinamen nicht abgeschnitten werden (Umbruch statt Overflow-Clip), sauber untereinander. Umfang bewusst klein gehalten: nur die Dateinamen sauber — kein Textausschnitt/Viewer-Deeplink in dieser Runde.</p>
+    <p class="files mono">features/workspace/llm/agentChat/{CompactMessage,markdown}.tsx + zugehöriges CSS (overflow/word-break) · Tests: AgentChatPanel.test.tsx (Quellen-Rendering)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Extensions: Zwei-Spalten-Ansicht">
+    <h3>Schritt 5 — Extensions: links Verwaltung, Mitte Browse <span class="tag">Risiko: mittel</span></h3>
+    <p>Linke Spalte zeigt nur <b>installierte/aktive</b> Modelle &amp; Apps mit Filtern (Alle / Sprachmodelle / Apps). Mitte bekommt oben Filter-Tabs (Empfohlen / Sprachmodelle / Apps) + Suche und darunter den Katalog mit Detail-/Download-Bereich. Dabei die inkonsistente <code>install_status</code>-Benennung (u. a. <code>'available'</code> = installiert) vereinheitlichen, ohne den Legacy-<code>/store</code>-Konsumenten zu brechen.</p>
+    <p class="files mono">components/extensions/ExtensionsSidebarList.tsx · features/store/StoreDetailPage.tsx · hooks/useStoreCatalog.ts · Tests: ExtensionsSidebarList.test.tsx, __tests__/integration/store.test.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Dashboard eindampfen">
+    <h3>Schritt 6 — Dashboard: nur Systemstatus + Automatisierungs-Outputs <span class="tag">Risiko: mittel</span></h3>
+    <p>Die Aktions-Kacheln (<code>ActionHub</code>: „Projekt öffnen" [tot], „Chat starten" [redundant], „zuletzt benutzte Tabs") und das Running-Apps-Raster entfernen. Das Systemstatus-Widget prominent/vergrößert in den Mittelpunkt stellen und eine Liste der Automatisierungs-Ergebnisse (Dateien/Outputs) ergänzen. „Dokument hochladen" darf als einzige funktionierende Aktion bleiben (klein).</p>
+    <p class="files mono">features/dashboard/DashboardHome.tsx · features/dashboard/SystemHealthWidget.tsx · Tests: neu DashboardHome.test.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Markdown-Editor + Speicher-Endpunkt">
+    <h3>Schritt 7 — Editierbarer Markdown-Viewer mit Speichern <span class="tag">Risiko: hoch</span></h3>
+    <p>Den bestehenden <code>TipTapEditor</code> (Format-Toolbar: fett/kursiv/markieren/Überschriften/Listen) in den Workspace-Dokument-Viewer einsetzen; Bearbeiten inline mit „Speichern"-Button + Dirty-State. Neue Backend-Route <code>PUT /documents/:id/content</code> (mit <code>asyncHandler</code> + Custom-Errors, keine try/catch, kein <code>throw new Error</code>) persistiert den Inhalt; bei indexierten Dokumenten wird ein Re-Index beim Document-Indexer angestoßen. Alle Text-/MD-Dokumente sind editierbar. Doku ergänzen.</p>
+    <p class="files mono">features/workspace/viewers/DocumentViewerTab.tsx · components/editor/tiptap/TipTapEditor.tsx (Wiederverwendung) · apps/dashboard-backend/src/routes/documents.js (neue PUT-Route) · docs/api/API_REFERENCE.md · Tests: neu DocumentViewerTab.test.tsx + Backend-Route-Test</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Responsive- &amp; Dichte-Politur">
+    <h3>Schritt 8 — Responsive-/Dichte-Politur + Konsistenz <span class="tag">Risiko: niedrig-mittel</span></h3>
+    <p>Betroffene Panels (Chat, Terminal, Extensions, Dashboard) bei üblichen Fensterbreiten (bis ~1280–1440) auf sauberes Verhalten ohne Überlauf prüfen; die bekannten <code>index.css</code>-Media-Queries/<code>html{font-size}</code>-Hebel (Dichte-Landmine aus Plan 004) gegenprüfen, damit nichts wieder zu klein klemmt. Doku/Handbuch für die geänderten Kunden-Flows aktualisieren.</p>
+    <p class="files mono">apps/dashboard-frontend/src/index.css · betroffene Panel-Komponenten · docs/development/DESIGN_SYSTEM.md · docs/ops/ADMIN_HANDBUCH.md</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Jeder Bug weg, Chat lebendig, Editor speichert, Extensions/Dashboard klar.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Beim Wechsel auf „Automation"/n8n bleibt der Explorer (linkes Panel) sichtbar; n8n rendert als Tab im Hauptbereich. Telegram/Datenbank-Verhalten unverändert.</li>
+    <li data-done="false">Der hell/dunkel-Umschalter oben links ist entfernt; Theme lässt sich nur noch unter Einstellungen → Erscheinungsbild ändern und wirkt korrekt (data-theme).</li>
+    <li data-done="false">Angehängte Dateien erscheinen als Chips über dem Eingabefeld (mit Entfernen-✕); ein Datei-Drop zeigt sichtbares Overlay-Feedback.</li>
+    <li data-done="false">Beim Senden zeigt der Chat sofort einen Live-Status (kein endloses Laden) und einen aufklappbaren Denk-Block, wenn das Modell Reasoning liefert; ein Stop-Button bricht den Stream ab.</li>
+    <li data-done="false">Das Maskottchen (idle ↔ zwinkert) ist im Composer-Header und im leeren Chat sichtbar und spiegelt den Zustand (denkt/streamt).</li>
+    <li data-done="false">Quellen unter einer Antwort sind vollständig lesbar — Dateinamen werden nicht abgeschnitten.</li>
+    <li data-done="false">Ein Markdown-/Textdokument lässt sich im Viewer inline bearbeiten (Toolbar: fett/kursiv/markieren/Überschriften) und über „Speichern" persistieren; Neuladen zeigt die Änderung; indexierte Dokumente werden re-indexiert.</li>
+    <li data-done="false">Extensions: linke Spalte zeigt nur installierte/aktive Einträge mit Filtern (Alle/Sprachmodelle/Apps); die Mitte hat Filter-Tabs oben (Empfohlen/Sprachmodelle/Apps) + Suche.</li>
+    <li data-done="false">Dashboard zeigt nur noch Systemstatus (prominent) + Automatisierungs-Outputs; keine toten Aktions-Kacheln mehr.</li>
+    <li data-done="false">Betroffene Panels (Chat, Terminal, Extensions, Dashboard) sind bei üblichen Fensterbreiten (bis ~1280–1440) responsive ohne horizontalen Überlauf.</li>
+    <li data-done="false">Alle bestehenden Vitest-Suites bleiben grün; neue Tests decken n8n-Explorer, Markdown-Speichern und Extensions-Filter ab; Backend-Lint/Test grün.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Jeder Flow live im echten Browser durchklicken, null neue Konsolenfehler.</span>
+  </summary>
+  <div class="sbody">
+  <p>Nach Deploy auf <code>https://100.121.244.80/</code> (bzw. LAN, falls erreichbar) via Playwright/MCP jeden geänderten Flow real durchklicken und Aktionen wirklich absenden — nicht nur Unit-Tests:</p>
+  <ul>
+    <li><b>Health:</b> <code>docker compose -p arasul-platform ps</code> — alle betroffenen Dienste (dashboard-frontend, dashboard-backend, document-indexer) healthy; Logs auf neue Fehler scannen.</li>
+    <li><b>n8n/Explorer:</b> Tab „Automation" öffnen → Explorer bleibt sichtbar; zurück zu einem Datei-Tab funktioniert.</li>
+    <li><b>Theme:</b> Umschalter oben links ist weg; Theme in Einstellungen umstellen → data-theme wechselt korrekt hell/dunkel.</li>
+    <li><b>Chat:</b> Datei per Drag&amp;Drop → Chip erscheint; Nachricht senden → Live-Status + Denk-Block sichtbar, Antwort streamt, Stop-Button bricht ab; Quellen aufklappen → nicht abgeschnitten; Maskottchen sichtbar.</li>
+    <li><b>Markdown-Editor:</b> Dokument öffnen → inline fett/kursiv setzen → Speichern → Seite neu laden → Änderung persistent; Backend-Log zeigt PUT + ggf. Re-Index ohne Fehler.</li>
+    <li><b>Extensions:</b> linke Filter (Alle/Sprachmodelle/Apps) zeigen nur Installiertes/Aktives; mittige Filter-Tabs Empfohlen/Sprachmodelle/Apps + Suche funktionieren.</li>
+    <li><b>Dashboard:</b> nur Systemstatus + Automatisierungs-Outputs, keine toten Kacheln.</li>
+    <li><b>Responsive:</b> Fenster auf ~1280 und ~1440 — kein horizontaler Überlauf in den betroffenen Panels.</li>
+  </ul>
+  <p>Erwartung: null neue Konsolenfehler (bekannte Whitelist aus früheren Läufen ausgenommen), Gerät endet gesund. Prüfmethode für Layout/Dichte: <code>browser_evaluate</code> mit getComputedStyle statt Screenshots (Font-Timeout).</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Editor-Route ist der Hebel; Frontend per Revert, gespeicherte Inhalte bleiben.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>n8n-Fix klappt auch Telegram/Datenbank-Explorer versehentlich auf</td><td>Mittel</td><td>Gezielt nur <code>'automationen'</code> aus der Menge nehmen; Regressionstest für Telegram-/Datenbank-Tab in SidebarHost.test.tsx.</td></tr>
+      <tr><td>Kein Speicher-Endpunkt → Editor-Umbau wird größer als gedacht (PUT-Route + Re-Index + Dirty-State)</td><td>Mittel</td><td>Als eigener, spät liegender Schritt 7 isoliert; wenn Re-Index-Anbindung hakt, erst Speichern ohne Auto-Re-Index liefern (Re-Index als Folge-Ticket), Rest bleibt live.</td></tr>
+      <tr><td>Drei divergente Markdown-Renderer (Chat/Viewer/TipTap) — Konsolidierung bricht Chat-Styling</td><td>Mittel</td><td>Chat-Renderer nicht anfassen; TipTap nur im Viewer; keine gemeinsame Vereinheitlichung in dieser Runde (out of scope).</td></tr>
+      <tr><td><code>install_status</code>-Benennung inkonsistent → Zwei-Spalten-Split zeigt falsche „installiert"-Zustände</td><td>Mittel</td><td>Naming in <code>useStoreCatalog</code> zentral klären; beide Konsumenten (Shell + Legacy <code>/store</code>) mit Tests absichern.</td></tr>
+      <tr><td>Maskottchen-Assets (~840 KB, cremefarbener Hintergrund) blähen Bundle / sehen unsauber aus</td><td>Niedrig</td><td>Vor Einbau zuschneiden, auf transparent trimmen, verkleinern; als erste <code>src/assets/</code>-Konvention dokumentieren.</td></tr>
+      <tr><td>Bearbeiten einer RAG-Quelle verfälscht die Suche</td><td>Niedrig</td><td>Speichern stößt Re-Index an; bewusst gewählt („alle editierbar"), im Handbuch vermerken.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Alle Frontend-Änderungen sind per <code>git revert</code> des Squash-Commits (gleicher Auto-Merge-Pfad) umkehrbar; die neue Backend-Route ist additiv (keine Migration, kein Schema-Zwang). <b>Achtung Datenpunkt:</b> vom Nutzer <b>gespeicherte Dokument-Inhalte</b> bleiben auch nach Code-Rollback bestehen — daher Umkehrbarkeit „Mittel". Deploy-Fehler rollt <code>deploy-local.sh</code> automatisch zurück; das Gerät endet immer auf dem vorherigen gesunden Stand.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 14 Interview-Entscheidungen + Recherche-Erkenntnisse, die den Plan geformt haben.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Chat-Umbau: wie weit Richtung Claude Code?</td><td>Aufwerten, Struktur behalten</td><td>Maskottchen + Denk-Stream + Anhang-Liste, aber Panel-Struktur bleibt — geringes Risiko am Chat-Kritikpfad.</td></tr>
+      <tr><td>Extensions-Struktur?</td><td>Zwei-Spalten wie VS Code</td><td>Links installiert/aktiv + Filter, Mitte Browse mit Filter-Tabs + Suche (Schritt 5).</td></tr>
+      <tr><td>Dashboard-Inhalt?</td><td>Nur Systemstatus + Automatisierungs-Outputs</td><td>Aktions-Kacheln raus; Health-Widget prominent (Schritt 6).</td></tr>
+      <tr><td>Markdown: Editor oder Read-Only?</td><td>Inline-Editor mit Toolbar zurückholen</td><td>Bestehenden TipTap in den Viewer setzen (Schritt 7).</td></tr>
+      <tr><td>n8n-Bug: wie einbetten?</td><td>n8n als Tab im Hauptbereich</td><td>Explorer bleibt; Auto-Einklappen für „Automation" entfernt (Schritt 1).</td></tr>
+      <tr><td>Logo/Maskottchen: Beschaffung?</td><td>Zwei Bird-Icons geliefert (idle + zwinkert)</td><td>Ersetzt „Platzhalter"; feste <code>src/assets/</code>-Konvention, zwei Zustände (Schritt 3). Quelle: <code>docs/plans/assets/005-mascot/</code>.</td></tr>
+      <tr><td>Ansichtsmodus-Umschalter oben links?</td><td>Entfernen — nur Einstellungen</td><td>Menüleisten-Eintrag raus, <code>useTheme</code> unberührt (Schritt 1).</td></tr>
+      <tr><td>Quellen-Darstellung?</td><td>Nur Dateinamen sauber anzeigen</td><td>Kein Textausschnitt/Deeplink in dieser Runde; nur Abschneiden beheben (Schritt 4).</td></tr>
+      <tr><td>Denk-Stream ohne Reasoning-Tokens?</td><td>Lebendiges Feedback zuerst</td><td>Immer Live-Status + Token-Streaming; echter Denk-Block, wenn Modell liefert (Recherche: Backend streamt Reasoning bereits).</td></tr>
+      <tr><td>Plan-Schnitt?</td><td>Ein Plan, viele Phasen</td><td>8 Schritte in einem Rutsch, jeder einzeln lauffähig/testbar.</td></tr>
+      <tr><td>Was bleibt draußen?</td><td>Cloud-Sync, Login/Onboarding, RAG-Backend, Katalog-Erweiterung</td><td>Nur vormerken/Roadmap; nicht implementieren (§2).</td></tr>
+      <tr><td>Verifikation auf dem Jetson?</td><td>Voll: jeder Flow im echten Browser</td><td>Detailliertes Live-Durchklicken je Phase (§6).</td></tr>
+      <tr><td>Markdown-Editor: mit Speichern?</td><td>Editor MIT Speichern (Backend-Route dazu)</td><td>Neue <code>PUT /documents/:id/content</code> (asyncHandler + Custom-Errors) + API-Doku (Schritt 7).</td></tr>
+      <tr><td>Welche Dokumente editierbar?</td><td>Alle Text-/Markdown-Dokumente</td><td>Auch indexierte RAG-Quellen; Speichern stößt Re-Index an (Risiko §7).</td></tr>
+      <tr><td>Recherche-Erkenntnis: Editor existiert schon</td><td><code>TipTapEditor</code> wiederverwenden statt neu bauen</td><td>Reduziert Aufwand; Hauptaufwand liegt in Speicher-Route + Renderpfad-Trennung.</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 005 · erstellt am 2026-07-14 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/005-frontend-shell-interaktiv.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"))
+    .filter(function (el) { return !el.classList.contains("oq-item"); });
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+  function collect() {
+    var out = [];
+    document.querySelectorAll(".oq-item").forEach(function (q) {
+      var ta = q.querySelector("textarea");
+      if (ta) out.push({ ref: q.dataset.ref + ": " + (q.querySelector("p") ? q.querySelector("p").textContent.trim() : ""), text: ta.value, oq: true, key: q.dataset.ref });
+    });
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+  function persist() {
+    var list = collect();
+    save(list.filter(function (c) { return !c.oq || c.text.trim(); }));
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.value = ""; });
+    persist();
+  });
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+  document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.addEventListener("input", persist); });
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var oq = document.querySelector('.oq-item[data-ref="' + c.key + '"]');
+    if (oq) {
+      var ta = oq.querySelector("textarea");
+      if (ta && !ta.value) ta.value = c.text;
+      return;
+    }
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
