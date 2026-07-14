@@ -79,7 +79,7 @@ custom nodes, security review checklist, etc.) live under `.claude/context/`.
 
 ## Quick reference
 
-> **Der eine Faden:** [`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html) — Themenspeicher + 1.0.0-Gates. Die gesamte Weiterentwicklung läuft über **vier Commands** (`CONTRIBUTING.md` §8): `/plan` (Interview → HTML-Plan-Seite → Freigabe) → `/work` (autonome Ausführung bis Live-Verify auf dem Jetson) · `/audit` (Scan → Findings → Roadmap) · `/status` (Lagebild). Nightly: `scripts/util/nightly-run.sh`. Der alte Master-Plan ([`FIELD_1.0.0_MASTER_PLAN.md`](docs/plans/active/FIELD_1.0.0_MASTER_PLAN.md)) bleibt Referenz, bis die Migration (Roadmap-Thema T01) ihn eingedampft hat.
+> **Der eine Faden:** [`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html) — Themenspeicher + 1.0.0-Gates. Die gesamte Weiterentwicklung läuft über **vier Commands** (`CONTRIBUTING.md` §8): `/plan` (Interview → HTML-Plan-Seite → Freigabe) → `/work` (autonome Ausführung bis Live-Verify auf dem Jetson) · `/audit` (Scan → Findings → Roadmap) · `/status` (Lagebild). Nightly: `scripts/util/nightly-run.sh`. Die Roadmap wurde am 2026-07-14 auf „voll verkaufbar" neu ausgerichtet und konsolidiert; der alte Master-Plan liegt jetzt als reine Historie unter [`docs/plans/archive/2026-07-07_field-1.0.0-master-plan.md`](docs/plans/archive/2026-07-07_field-1.0.0-master-plan.md).
 
 ### Entry points
 
