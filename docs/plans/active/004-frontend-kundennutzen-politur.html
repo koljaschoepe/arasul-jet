@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 004 · Frontend-Politur — Kundennutzen &amp; Komfort</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "004",
+  "slug": "frontend-kundennutzen-politur",
+  "title": "Frontend-Politur — Kundennutzen & Komfort",
+  "type": "feat",
+  "status": "approved",
+  "priority": "P1",
+  "risk_level": 2,
+  "effort_level": 3,
+  "reversibility_level": 3,
+  "created": "2026-07-14",
+  "approved": "2026-07-14",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .oq {
+    background: var(--note-bg); border: 1.5px solid var(--note);
+    border-radius: 14px; padding: 1rem 1.2rem; margin: 0 0 1.6rem;
+  }
+  .oq h2 {
+    margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--note); font-weight: 800;
+  }
+  .oq-item { padding: .5rem 0; }
+  .oq-item + .oq-item { border-top: 1px solid color-mix(in srgb, var(--note) 30%, transparent); }
+  .oq-item p { margin: 0 0 .35rem; font-weight: 600; font-size: .95rem; }
+  .oq-item textarea, .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .oq-item textarea:focus, .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oq .none { color: var(--muted); font-size: .92rem; margin: 0; }
+
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 004</p>
+    <span class="chip" id="status-chip" data-status="approved">Approved</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Frontend-Politur — Kundennutzen &amp; Komfort</h1>
+  <p class="lead">Die Cursor-Shell steht. Jetzt kalibrieren wir Größe, Dichte und Klarheit auf echten Kundennutzen — plattformweit größer, überall konsistent, und mit einem ehrlichen Live-Check, wo es wirklich hakt.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P1</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="3"></span>leicht</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">7</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Sieben gezielte Verbesserungen am Frontend: eine plattformweite Komfort-Dichte (nichts wirkt mehr zu klein), ein Dashboard als Aktions-Hub in voller Breite, eine Extensions-Übersichtsseite mit reicher Detailansicht, sichtbares Anhang-Feedback im Chat, ein klarer Terminal-Ordner-Header, einheitlich links-ausgerichtete Einstellungen und eine verständliche Datenbank-App.</dd>
+      <dt>Warum jetzt</dt><dd>Die Shell (Plan 002/003) funktioniert, wirkt aber überall etwas zu klein und an mehreren Stellen unfertig. Ziel: aus der Shell ein Werkzeug machen, mit dem der Kunde sofort produktiv wird.</dd>
+      <dt>Größtes Risiko</dt><dd>Die globale Dichte-Anhebung berührt viele Bildschirme — sie kann Layouts brechen, wenn wir nicht Bereich für Bereich prüfen. Zweitgrößtes: mehrere gewünschte Funktionen existieren schon; wir dürfen sie nicht versehentlich neu bauen.</dd>
+      <dt>Entschieden</dt><dd><ul>
+        <li>Komfort-Dichte wird plattformweit der neue Standard (kein Umschalter).</li>
+        <li>Terminal: <b>mehrere gleichzeitige Sitzungen im selben Ordner</b> werden gebaut.</li>
+        <li>Modell-Detail: Kontextlänge <b>jetzt mit additiver DB-Migration</b> mitgenommen.</li>
+        <li>Bereits vorhandene Funktionen (Chat-Chips, Terminal-Wechsler, links-Settings) werden geprüft &amp; poliert, nicht neu gebaut.</li>
+      </ul></dd>
+    </dl>
+  </div>
+
+  <div class="oq" id="oq">
+    <h2>Offene Fragen an dich</h2>
+    <p class="none">Keine mehr — beide Fragen sind beantwortet (Terminal: mehrere Sitzungen pro Ordner; Kontextlänge: jetzt mit Migration). Die Entscheidungen stehen im §8.</p>
+  </div>
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Aus der fertigen Shell ein Werkzeug machen, das sich groß, konsistent und selbsterklärend anfühlt.</span>
+  </summary>
+  <div class="sbody">
+  <p>Die Workspace-Shell steht seit Plan 002/003 — Activity Bar, Tabs, rechtes Panel mit Chat⇄Terminal, Extensions als Liste, eine Flächenfarbe. Beim echten Arbeiten fällt aber auf: <b>alles wirkt eine Spur zu klein</b> (Dashboard, Dokumente-Explorer, die Reiter ganz links), einige Bereiche wirken unfertig oder unklar (Extensions-Detail, Terminal-Ordner, Datenbank-App), und Kleinigkeiten stören den nativen Eindruck (Chat-Platzhalter, fehlendes Anhang-Feedback, mittig statt links ausgerichtete Einstellungen).</p>
+  <p>Dieser Plan poliert das Frontend entlang des <b>Kundennutzens</b>: Der Kunde soll die Appliance öffnen und ohne Nachdenken loslegen können. Der rote Faden ist eine <b>gemeinsame Komfort-Dichte</b> (alles atmet gleich und groß genug) plus <b>verify-first</b>: Wir prüfen jeden Bereich zuerst live im Browser, weil mehrere gewünschte Dinge bereits existieren — dann schließen wir gezielt die echten Lücken statt Vorhandenes neu zu bauen.</p>
+  <p><b>Fertig heißt:</b> Auf 1024–1920 px wirkt die ganze Oberfläche einheitlich groß und luftig, das Dashboard nutzt die volle Breite als Aktions-Hub, Extensions haben eine Übersicht mit reicher Detailseite und funktionierendem Download, der Chat zeigt angehängte Dateien sichtbar an, das Terminal macht klar in welchem Ordner man ist, die Einstellungen sind durchgängig linksbündig, und die Datenbank-App erklärt sich beim Öffnen selbst — alles live auf dem Jetson bestätigt.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Sieben Frontend-Bereiche polieren; Cloud-Sync, Mobil-Layout und Umbau kritischer Logik bleiben draußen.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Komfort-Dichte <b>plattformweit</b> (neue ui-Skala + alte Text-/Spacing-Skala auf ein gemeinsames, größeres Niveau gehoben)</li>
+      <li>Dashboard: volle Breite / responsive + Aktions-Hub-Kacheln (Chat, Upload, Projekt, zuletzt genutzt)</li>
+      <li>Extensions: Kategorie-Übersichtsseite + reiche Detailseite (inkl. Kontextlänge) + Download live verifiziert</li>
+      <li>Chat: sichtbare Anhang-Chips + Drop-Overlay + nativer Platzhalter — auf der Oberfläche, die der Kunde nutzt</li>
+      <li>Terminal: klarer Projekt-/Ordner-Header mit Wechsler</li>
+      <li>Einstellungen: durchgängig links-ausgerichtetes Raster in allen Panels</li>
+      <li>Datenbank-App: Befund (funktioniert die Logik?) + Onboarding/Klartext</li>
+      <li>Live-Verifikation auf 1024 / 1280 / 1440 / 1920 px</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>GitHub-/OneDrive-Cloud-Sync — nur als neues Roadmap-Thema notiert</li>
+      <li>Mobil-/Handy-Layout unter 1024 px</li>
+      <li>Umbau der Chat-Sende-, Upload-, Auth- oder RAG-Logik (nur additive Backend-Felder erlaubt)</li>
+      <li>Neubau der Legacy-<code>/chat</code>-Route (nur Platzhalter/Feedback klären, kein Funktionsumbau)</li>
+      <li>Funktionsumbau der Datenbank-App ohne vorherigen Befund</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Eine gemeinsame Dichte-Skala für alle Screens + verify-first, um echte Lücken statt vermeintlicher zu füllen.</span>
+  </summary>
+  <div class="sbody">
+  <p><b>Der erste Hebel — eine Dichte, überall.</b> Heute steuern die „ui"-Tokens (<code>--text-ui-*</code>, <code>--spacing-ui-*</code> in <code>index.css</code>) die Größe nur auf ~6 Dateien: Shell, Dashboard und Extensions. Der Rest der App — Einstellungen, Chat, Datenbank, Legacy-Routen — hängt an einer älteren, kleineren Skala. Deshalb wirkt manches kompakt und manches nicht: es sind zwei Systeme. Wir heben beide auf ein gemeinsames, komfortables Niveau an (Grundschrift, Zeilenhöhe, Abstände, Icon-Größen ~eine Stufe größer), zentral über die Token-Definitionen. So wird „größer" ein Schalter an einer Stelle — nicht 40 Handjustierungen.</p>
+  <p><b>Der zweite Hebel — erst schauen, dann bauen.</b> Der Research-Durchlauf hat gezeigt: die Anhang-Chips + das Drop-Overlay im Chat, der Terminal-Projekt-Wechsler und die links-ausgerichtete Theme-Auswahl <em>existieren bereits</em>; auch die Modell-Detailseite ist schon reich an Infos. Der Kunde erlebt sie trotzdem als fehlend/unklar — also liegt das Problem woanders (falsche Oberfläche, echter Live-Bug, oder Auffindbarkeit). Jeder Schritt startet daher mit einem kurzen Live-Audit im echten Browser; erst der bestätigte Befund entscheidet, ob wir polieren, verdrahten oder eine echte Lücke (Kategorie-Übersicht, Kontextlänge, Aktions-Hub, Datenbank-Onboarding) neu bauen.</p>
+  <p><b>Was sich am System ändert.</b> Fast alles bleibt im Frontend (CSS-Tokens + Komponenten). Genau eine kleine, additive Backend-Änderung ist vorgesehen: eine neue Spalte <code>context_length</code> im Modell-Katalog (Migration + Read-Feld), damit die Detailseite die Kontextlänge zeigen kann. Kritische Pfade (Chat-Senden, Auth, RAG) werden nicht angefasst.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 660 300" role="img" aria-label="Vorher/Nachher: zwei Dichte-Systeme werden zu einem; verify-first-Schleife">
+      <style>
+        .lbl { font: 600 12px -apple-system, system-ui, sans-serif; fill: var(--ink); }
+        .sub { font: 11px ui-monospace, Menlo, monospace; fill: var(--muted); }
+        .hd  { font: 700 11px -apple-system, system-ui, sans-serif; fill: var(--accent-ink); letter-spacing:.08em; }
+        .bx  { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+        .bxa { fill: var(--wash); stroke: var(--accent); stroke-width: 1.5; }
+        .ar  { stroke: var(--accent); stroke-width: 1.6; fill: none; marker-end: url(#ah); }
+      </style>
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+
+      <text x="20" y="24" class="hd">VORHER — zwei Größen-Systeme</text>
+      <rect x="20" y="36" width="180" height="52" rx="8" class="bx"/>
+      <text x="30" y="58" class="lbl">ui-Skala</text>
+      <text x="30" y="76" class="sub">Shell · Dashboard · Ext. (~6 Dateien)</text>
+      <rect x="20" y="98" width="180" height="52" rx="8" class="bx"/>
+      <text x="30" y="120" class="lbl" style="font-size:11px">alte Text-/Spacing-Skala</text>
+      <text x="30" y="138" class="sub">Settings · Chat · DB · Legacy</text>
+      <text x="20" y="176" class="sub">→ manches kompakt, manches nicht</text>
+
+      <path d="M212 88 C 250 88, 250 130, 288 130" class="ar"/>
+      <path d="M212 124 C 250 124, 250 130, 288 130" class="ar"/>
+
+      <text x="300" y="24" class="hd">NACHHER — eine Komfort-Dichte</text>
+      <rect x="300" y="70" width="180" height="72" rx="8" class="bxa"/>
+      <text x="312" y="98" class="lbl">gemeinsame Dichte-Tokens</text>
+      <text x="312" y="118" class="sub">1 Stufe größer · überall gleich</text>
+      <text x="312" y="134" class="sub">Grundschrift · Abstände · Icons</text>
+
+      <text x="300" y="176" class="hd">VERIFY-FIRST je Bereich</text>
+      <rect x="300" y="188" width="340" height="88" rx="8" class="bx"/>
+      <text x="314" y="212" class="sub">Live-Audit → Befund → gezielt handeln:</text>
+      <text x="314" y="234" class="sub">existiert? → polieren / verdrahten</text>
+      <text x="314" y="252" class="sub">fehlt?     → neu bauen (Landing, Kontextlänge,</text>
+      <text x="314" y="268" class="sub">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;Aktions-Hub, DB-Onboarding)</text>
+
+      <path d="M212 210 C 250 210, 258 232, 296 232" class="ar"/>
+      <text x="150" y="252" class="lbl" style="fill:var(--muted)">7 Bereiche</text>
+    </svg>
+    <figcaption>Zwei getrennte Größen-Systeme werden zu einer Komfort-Dichte vereint; jeder der sieben Bereiche wird erst live geprüft, dann gezielt behandelt.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Sieben je-für-sich-deploybare Schritte, jeder verify-first, jeder einzeln live bestätigt.</span>
+  </summary>
+  <div class="sbody">
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Komfort-Dichte plattformweit">
+    <h3>Schritt 1 — Komfort-Dichte plattformweit <span class="tag">Risiko: mittel</span></h3>
+    <p>Die ui-Tokens (<code>--text-ui-*</code>, <code>--spacing-ui-*</code>, Icon-Größen) eine Stufe anheben <b>und</b> die alte Text-/Spacing-Skala (Settings, Chat, Datenbank, Legacy) auf dasselbe Komfort-Niveau ziehen, damit die ganze App gleich groß atmet. ActivityBar-Buttons/-Icons von hand-justierten px auf die Skala bringen. Bereich für Bereich prüfen, dass nichts umbricht/überlappt.</p>
+    <p class="files mono">apps/dashboard-frontend/src/index.css (~32–54, 204–222) · features/workspace/ActivityBar.tsx · TabContent.tsx · features/dashboard/* · components/extensions/ExtensionsSidebarList.tsx · docs/development/DESIGN_SYSTEM.md</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Dashboard: volle Breite + Aktions-Hub">
+    <h3>Schritt 2 — Dashboard: volle Breite + Aktions-Hub <span class="tag">Risiko: mittel</span></h3>
+    <p>Zuerst live reproduzieren, woher „rechts abgeschnitten" kommt (Verdacht: un-truncated Inline-Styles im SystemHealthWidget bzw. recharts-ResponsiveContainer im schmalen Panel) — dann an der echten Stelle fixen. Danach das Dashboard als Aktions-Hub schärfen: große Kacheln „Chat starten", „Dokument hochladen", „Projekt öffnen", „zuletzt genutzt"; Systemstatus kompakt. Volle Breite, kein Horizontal-Scroll auf allen Zielbreiten.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/dashboard/DashboardHome.tsx · DashboardCard.tsx · SystemHealthWidget.tsx · features/workspace/TabContent.tsx · WorkspaceShell.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Extensions: Übersicht + reiche Detailseite + Kontextlänge">
+    <h3>Schritt 3 — Extensions: Übersicht + Detailseite + Kontextlänge <span class="tag">Risiko: mittel</span></h3>
+    <p>Den heutigen Leerzustand (<code>StoreDetailEmpty</code>) durch eine <b>Kategorie-Übersichtsseite</b> ersetzen: Kacheln für empfohlen / Sprachmodelle / Apps; Klick öffnet die bestehende reiche Detailseite. Detailseite um <b>Kontextlänge</b> ergänzen (additive Spalte <code>context_length</code> im Katalog: Migration + Backend-Read + <code>CatalogModel</code>-Typ) — bestätigt. Download-/Aktivieren-Block optisch aufräumen; die bestehende <code>DownloadContext</code>-Pipeline wird nur genutzt, nicht umgebaut.</p>
+    <p class="files mono">features/store/StoreDetailPage.tsx · Store.tsx · hooks/useStoreCatalog.ts · contexts/DownloadContext.tsx · apps/dashboard-backend/src/routes/ai/models.js · services/llm/modelService.js · services/postgres/init/101_model_catalog_context_length.sql · docs/api/{API_REFERENCE,DATABASE_SCHEMA}.md</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Chat: sichtbares Anhang-Feedback">
+    <h3>Schritt 4 — Chat: sichtbares Anhang-Feedback <span class="tag">Risiko: niedrig</span></h3>
+    <p>Live-Audit: Warum sieht der Kunde kein Anhang-Feedback, obwohl Chip-Leiste + Drop-Overlay im Workspace-Agent-Chat (<code>ComposerCard</code>/<code>AgentChatPanel</code>) existieren? Wahrscheinliche Ursache: er war auf der Legacy-<code>/chat</code>-Route ohne Chips. Ergebnis: die Chip-Leiste + das Overlay auf der genutzten Oberfläche absichern (Datei per Drop → Chip erscheint über dem Feld, entfernbar), Platzhalter nativer formulieren (weg von „Frag etwas … (Dateien einfach hineinziehen)"). Keine Änderung an der Upload-/Sende-Logik.</p>
+    <p class="files mono">features/workspace/llm/agentChat/ComposerCard.tsx · AgentChatPanel.tsx · (Legacy) features/chat/ChatInputArea.tsx (nur Platzhalter/Feedback)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Terminal: klarer Ordner-Header">
+    <h3>Schritt 5 — Terminal: klarer Ordner-Header + Mehrfach-Sitzungen <span class="tag">Risiko: mittel</span></h3>
+    <p>Live-Audit des bestehenden Wechslers (<code>TerminalTabs</code> hat bereits [+]-Dropdown + Projektliste). Ergebnis: eine gut sichtbare Kopfzeile „📁 aktuelles Projekt ▾" + „neue Sitzung". <b>Bestätigt: mehrere gleichzeitige Sitzungen im selben Ordner</b> — die Session-Verwaltung wird von „eine Session pro <code>project.id</code>" auf mehrere Sessions je Projekt erweitert (eigene Session-IDs, umschaltbar), inklusive sauberem Aufräumen beim Schließen. In welchem Ordner man ist, bleibt jederzeit sichtbar.</p>
+    <p class="files mono">features/sandbox/TerminalTabs.tsx · ProjectListPanel.tsx · SandboxApp.tsx · features/workspace/RightPanel.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Einstellungen: einheitliches links-Raster">
+    <h3>Schritt 6 — Einstellungen: einheitliches links-Raster <span class="tag">Risiko: niedrig</span></h3>
+    <p>Live-Audit: was wirkt zentriert? (Die Theme-Auswahl in <code>GeneralSettings</code> ist bereits eine links-ausgerichtete RadioGroup — der echte Bruch liegt vermutlich in anderen Panels.) Dann alle Settings-Panels auf ein durchgängiges Label-links-Raster mit gleicher Einrückung bringen; Theme-Auswahl bleibt/wird linksbündige Optionsliste. Rein visuell, keine Logik.</p>
+    <p class="files mono">features/settings/GeneralSettings.tsx · Settings.tsx · AIProfileSettings.tsx · RagLlmSettings.tsx · PrivacySettings.tsx · SecuritySettings.tsx · RemoteAccessSettings.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Datenbank-App: Befund + Onboarding">
+    <h3>Schritt 7 — Datenbank-App: Befund + Onboarding <span class="tag">Risiko: niedrig</span></h3>
+    <p>Zuerst prüfen, was die Datenbank-App (<code>DatabaseOverview</code>, „Datentabellen") heute wirklich tut und ob die Kette (Tabelle anlegen → befüllen → nutzen) funktioniert. Dann: erklärender Startzustand („Was ist das, wofür, erste Schritte"), klare Buttons/Labels; gefundene Logik-Bugs beheben. Kein Funktionsumbau ohne Befund.</p>
+    <p class="files mono">features/database/DatabaseOverview.tsx · DatabaseTable.tsx · components/{TableCard,CreateTableDialog}.tsx · apps/dashboard-backend routes (datentabellen) · docs/ops/ADMIN_HANDBUCH.md</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größer &amp; konsistent überall, echte Lücken geschlossen, alles live auf dem Gerät bestätigt.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Komfort-Dichte greift plattformweit: Dashboard, Dokumente-Explorer, ActivityBar-Reiter, Einstellungen, Chat und Datenbank wirken sichtbar größer/luftiger — kein Bereich bleibt auf der alten Kompakt-Skala.</li>
+    <li data-done="false">Dashboard nutzt auf 1024 / 1280 / 1440 / 1920 px die volle Breite, nichts ist rechts abgeschnitten, kein Horizontal-Scroll; Aktions-Kacheln (Chat / Upload / Projekt / zuletzt) sind sichtbar und funktionieren.</li>
+    <li data-done="false">Extensions: die Mitte zeigt eine Kategorie-Übersicht (empfohlen / Modelle / Apps) statt eines Leerzustands; Klick öffnet ein Detail mit Größe, RAM-Bedarf, Kontextlänge, Beschreibung und Status; Download-Block ist klar.</li>
+    <li data-done="false">Ein echter kleiner Modell-Download läuft auf dem Gerät durch: Fortschritt → fertig/aktiv → wieder entfernt.</li>
+    <li data-done="false">Chat: hineingezogene Dateien erscheinen als entfernbare Chips über dem Eingabefeld; beim Ziehen ist ein Drop-Overlay sichtbar; der Platzhalter ist nativ formuliert — bestätigt auf der Oberfläche, die der Kunde nutzt.</li>
+    <li data-done="false">Terminal: eine Kopfzeile zeigt das aktuelle Projekt/Verzeichnis + Wechsler; ein Ordner lässt sich ohne cd-Rätselraten starten.</li>
+    <li data-done="false">Einstellungen: alle Sektionen sind links ausgerichtet (Label links/oben, gleiche Einrückung); die Theme-Auswahl ist eine linksbündige Optionsliste.</li>
+    <li data-done="false">Datenbank-App: erklärt beim Öffnen Zweck + erste Schritte; Labels sind klar; der Logik-Befund ist dokumentiert und gefundene Bugs sind behoben.</li>
+    <li data-done="false">Alle bestehenden Frontend- und Backend-Tests sind grün; für geänderte Komponenten gibt es neue/erweiterte Tests.</li>
+    <li data-done="false">Live auf dem Jetson im echten Browser über 1024–1920 px verifiziert; keine neuen Konsolenfehler außerhalb der Whitelist.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> MCP-Browser-Sweep über 4 Breiten, echter Test-Download, DOM-Checks statt Screenshots.</span>
+  </summary>
+  <div class="sbody">
+  <p>Branch auf dem Gerät bauen (<code>git tag -f backup-004 HEAD</code> vorher), dann per MCP/Playwright im echten Browser über <code>https://192.168.0.197</code> (bzw. Tailscale-IP) einloggen und durchklicken. Screenshots vermeiden (Font-Load-Timeout) — Assertions über <code>browser_evaluate</code> mit <code>getComputedStyle</code>/DOM-Checks.</p>
+  <ul>
+    <li><b>Dichte:</b> <code>getComputedStyle</code> Grundschrift/Abstände auf Kern-Elementen (Explorer-Zeile, ActivityBar-Reiter, Settings-Label, Chat-Eingabe, Datenbank-Karte) vor/nach — sichtbar größer, überall gleiche Skala.</li>
+    <li><b>Viewport-Sweep 1024 / 1280 / 1440 / 1920 px</b> je Bereich: Dashboard (volle Breite, kein Clip, kein Horizontal-Scroll), Explorer, ActivityBar, Einstellungen, Chat, Datenbank.</li>
+    <li><b>Extensions:</b> Kategorie-Landing rendert; Detail zeigt Kontextlänge; echter kleiner Modell-Pull → Fortschritt läuft → „aktiv" → danach löschen.</li>
+    <li><b>Chat:</b> Datei per Drop → Chip erscheint über dem Feld → entfernbar; Overlay beim Dragover sichtbar (DOM-Check).</li>
+    <li><b>Terminal:</b> Projekt-Header sichtbar; Wechsel per Dropdown startet den Ordner; ggf. neue Sitzung.</li>
+    <li><b>Einstellungen:</b> alle Panels linksbündig (<code>text-align</code>/Grid-Ausrichtung per DOM-Check).</li>
+    <li><b>Datenbank:</b> Öffnen zeigt Onboarding; Tabelle anlegen → befüllen funktioniert.</li>
+    <li><b>Health:</b> <code>docker compose ps</code> = 15/15 healthy; Konsole ohne neue Fehler (bekannte Whitelist).</li>
+    <li>Nach dem Lauf: Test-Modell + Test-Daten/-Admin löschen, zurück auf <code>main</code> + Rebuild.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größte Gefahr ist die globale Dichte; alles bleibt per PR-Revert / additiver Migration leicht umkehrbar.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Globale Dichte-Anhebung bricht Layouts (Überlappen, Umbrüche, Clipping)</td><td>Mittel</td><td>Schrittweise über zentrale Tokens; Viewport-Sweep 1024–1920 px; betroffene Screens einzeln live prüfen; Tests grün halten</td></tr>
+      <tr><td>Bereits existierende Funktion wird neu gebaut statt poliert → Doppelarbeit/Regression</td><td>Mittel</td><td>Jeder Schritt verify-first: Live-Audit vor Codeänderung; nur den bestätigten Gap füllen</td></tr>
+      <tr><td>„Rechts abgeschnitten" wird an der falschen Stelle gefixt</td><td>Niedrig–Mittel</td><td>Erst live reproduzieren (SystemHealthWidget-Inline-Styles / recharts), dann gezielt an der echten Ursache fixen</td></tr>
+      <tr><td>Kontextlängen-Migration berührt den Modell-Katalog</td><td>Niedrig</td><td>Additive Spalte <code>context_length</code>, down-path = DROP COLUMN; RAG-nahe Tabellen unangetastet</td></tr>
+      <tr><td>Echter Test-Download belegt Bandbreite/Zeit auf dem Gerät</td><td>Niedrig</td><td>Kleines Modell wählen, Fortschritt beobachten, danach löschen</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Kein Feature-Flag nötig — die Änderungen sind überwiegend CSS/UI. Ein PR-Revert stellt den alten Zustand vollständig her. Die einzige DB-Änderung (Kontextlänge) ist additiv; down-path <code>ALTER TABLE … DROP COLUMN context_length</code>. Auf dem Gerät sichert <code>backup-004</code> den Vorzustand; bei Problemen <code>git checkout main</code> + Rebuild.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 12 Interview-Entscheidungen + 6 Research-Abweichungen (Vorhandenes nicht neu bauen).</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Größe/Dichte neu kalibrieren?</td><td>Komfort-Dichte als neuer plattformweiter Standard</td><td>Dichte-Stufe zentral hoch (Schritt 1); kein Umschalter</td></tr>
+      <tr><td>Wie schneiden?</td><td>Ein Plan, mehrere je-für-sich-deploybare Schritte, ein /work-Lauf</td><td>7 Schritte, jeder einzeln live verifiziert</td></tr>
+      <tr><td>Extensions-Ansicht?</td><td>Store-Übersicht mit Kategorien + reiche Detailseite; Liste links bleibt</td><td>Schritt 3: Kategorie-Landing + Detail-Ausbau</td></tr>
+      <tr><td>Chat-Anhänge?</td><td>Chip-Leiste über dem Feld + Drop-Overlay + nativer Platzhalter</td><td>Schritt 4 (verify-first, s. Abweichung R1)</td></tr>
+      <tr><td>Terminal-Ordner?</td><td>Klarer Projekt-/Ordner-Header mit Dropdown + neue Sitzung</td><td>Schritt 5 (verify-first, s. Abweichung R2)</td></tr>
+      <tr><td><b>Frage 1 (beantwortet):</b> mehrere Sitzungen pro Projekt?</td><td>Ja — mehrere gleichzeitige Sitzungen im selben Ordner</td><td>Schritt 5 erweitert: Session-Modell von 1/Projekt auf n/Projekt (eigene Session-IDs); Risiko Schritt 5 → mittel</td></tr>
+      <tr><td>Datenbank-App?</td><td>Zuerst prüfen, dann Onboarding + Klartext</td><td>Schritt 7: Befund vor jeder Änderung</td></tr>
+      <tr><td>Settings-Layout?</td><td>Ganze Einstellungen auf einheitliches links-Raster</td><td>Schritt 6 (verify-first, s. Abweichung R3)</td></tr>
+      <tr><td>Responsive-Testbreiten?</td><td>Desktop + Tablet: 1024 / 1280 / 1440 / 1920 px</td><td>Verifikation §6 über diese vier Breiten</td></tr>
+      <tr><td>Cloud-/GitHub-Sync?</td><td>Nur als Roadmap-Thema notieren, nicht bauen</td><td>Neues offenes Thema in ROADMAP.html; out of scope</td></tr>
+      <tr><td>Dashboard-Fokus?</td><td>Aktions-Hub (schnell loslegen)</td><td>Schritt 2: Aktions-Kacheln, Status kompakt</td></tr>
+      <tr><td>Wie vorsichtig am kritischen Pfad?</td><td>UX + kleine additive Backend-Anpassungen erlaubt</td><td>Nur additive Felder (Kontextlänge); Chat/Auth/RAG-Logik unberührt</td></tr>
+      <tr><td>Tiefe der Download-Verifikation?</td><td>UI + echter kleiner Test-Download</td><td>§6: realer Modell-Pull auf dem Gerät, danach löschen</td></tr>
+      <tr><td><b>R1 · Research:</b> Chip-Leiste + Drop-Overlay existieren bereits (ComposerCard/AgentChatPanel)</td><td>Schritt 4 wird verify-first statt Neubau</td><td>Prüfen, warum der Kunde kein Feedback sah (evtl. Legacy-/chat); Platzhalter + Absicherung, kein Neubau</td></tr>
+      <tr><td><b>R2 · Research:</b> Terminal-Projekt-Dropdown + Projektliste existieren bereits (TerminalTabs/ProjectListPanel)</td><td>Schritt 5 = Politur/Header-Klarheit</td><td>„Neue Sitzung pro Projekt" ist ein echter Neubau → Frage 1</td></tr>
+      <tr><td><b>R3 · Research:</b> Theme-Auswahl in GeneralSettings ist bereits linksbündig</td><td>Schritt 6 verify-first</td><td>Echtes Raster-Gap liegt in den übrigen Settings-Panels (stacked Label-Input)</td></tr>
+      <tr><td><b>R4 · Research:</b> Modell-Detailseite ist bereits reich (Größe/RAM/Speed/Fähigkeiten)</td><td>Schritt-3-Gap = Kategorie-Landing + Kontextlänge</td><td>Kontextlänge fehlt in der DB → additive Migration (Frage 2: bestätigt)</td></tr>
+      <tr><td><b>Frage 2 (beantwortet):</b> Kontextlänge jetzt migrieren?</td><td>Ja — Backend-Änderung + Migration jetzt mitnehmen</td><td>Schritt 3 baut Migration <code>101_…</code> + additives Katalog-Feld <code>context_length</code></td></tr>
+      <tr><td><b>R5 · Research:</b> Dichte-Tokens erreichen heute nur ~6 Dateien; Rest hängt an alter Skala</td><td>„Plattformweit" = alte Skala mit hochziehen</td><td>Schritt 1 größer als ein Token-Bump; sonst bleibt es inkonsistent</td></tr>
+      <tr><td><b>R6 · Research:</b> „Dashboard rechts abgeschnitten" hat keine statische CSS-Ursache</td><td>Live-Audit zuerst</td><td>Verdacht SystemHealthWidget-Inline-Styles / recharts; erst reproduzieren, dann fixen</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 004 · erstellt am 2026-07-14 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/004-frontend-kundennutzen-politur.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"))
+    .filter(function (el) { return !el.classList.contains("oq-item"); });
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    document.querySelectorAll(".oq-item").forEach(function (q) {
+      var ta = q.querySelector("textarea");
+      if (ta) out.push({ ref: q.dataset.ref + ": " + (q.querySelector("p") ? q.querySelector("p").textContent.trim() : ""), text: ta.value, oq: true, key: q.dataset.ref });
+    });
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list.filter(function (c) { return !c.oq || c.text.trim(); }));
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "\n\n[" + c.ref + "]\n" + c.text.trim(); }).join("");
+    var text = head + body;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { flash("Kopiert — in den Chat einfügen"); },
+                                              function () { fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  });
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert — in den Chat einfügen"); }
+    catch (e) { flash("Kopieren nicht möglich"); }
+    document.body.removeChild(ta);
+  }
+  document.getElementById("cclear").addEventListener("click", function () {
+    if (!confirm("Alle Notizen auf dieser Seite entfernen?")) return;
+    document.querySelectorAll(".comment").forEach(function (b) { b.remove(); });
+    document.querySelectorAll(".oq-item textarea").forEach(function (t) { t.value = ""; });
+    save([]); persist();
+  });
+  function flash(msg) {
+    var el = document.getElementById("ccount");
+    var prev = el.textContent; el.textContent = msg;
+    setTimeout(function () { persist(); }, 1400);
+  }
+
+  (function restore() {
+    var saved = load();
+    if (!saved || !saved.length) { persist(); return; }
+    var byRef = {};
+    saved.forEach(function (c) { (byRef[c.key] = byRef[c.key] || []).push(c); });
+    Object.keys(byRef).forEach(function (ref) {
+      byRef[ref].forEach(function (c) {
+        if (c.oq) {
+          var q = document.querySelector('.oq-item[data-ref="' + cssEscape(ref) + '"]');
+          if (q) { var ta = q.querySelector("textarea"); if (ta) ta.value = c.text; }
+        } else {
+          var el = document.querySelector('[data-ref="' + cssEscape(ref) + '"]');
+          if (el) addComment(el, c.text, true);
+        }
+      });
+    });
+    persist();
+  })();
+  function cssEscape(s) { return (s || "").replace(/"/g, '\\"'); }
+})();
+</script>
+
+</body>
+</html>

@@ -21,7 +21,7 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-07-13",
+  "updated": "2026-07-14",
   "migrated_from_master_plan": false,
   "gates": [
     { "id": "G1", "title": "Mandanten-Isolation bewiesen", "state": "open" },
@@ -45,7 +45,9 @@
     { "id": "T10", "title": "Doku-Sync abschließen (repo-doc-sync)", "prio": "P2", "status": "open", "source": "docs/plans/active/repo-doc-sync-2026-07-07.md", "plan": null, "pr": null },
     { "id": "T11", "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau (Themes, Agent-Chat, Projekte-Explorer, Terminal-Modi, Extensions, n8n 2.x)", "prio": "P0", "status": "done", "source": "user 2026-07-11", "plan": "001", "pr": 184 },
     { "id": "T12", "title": "Cursor-Shell 3.0 — Neubau der Workspace-Shell (ein Terminal, echte Tabs, Extension-Gating, Kompakt-Skala)", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "002", "pr": 196 },
-    { "id": "T13", "title": "Cursor-Shell 3.1 — Ein rechtes Panel (Chat⇄Terminal), Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "003", "pr": 197 }
+    { "id": "T13", "title": "Cursor-Shell 3.1 — Ein rechtes Panel (Chat⇄Terminal), Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "003", "pr": 197 },
+    { "id": "T14", "title": "Frontend-Politur — Kundennutzen & Komfort (plattformweite Dichte, Dashboard-Aktions-Hub, Extensions-Übersicht + Kontextlänge, Chat-Anhang-Feedback, Terminal-Ordner-Header, Settings-Ausrichtung, Datenbank-App-Onboarding)", "prio": "P1", "status": "planned", "source": "user 2026-07-14", "plan": "004", "pr": null },
+    { "id": "T15", "title": "Ordner-Cloud-Sync (GitHub/OneDrive) — gespeicherte Projekte optional in die Cloud spiegeln", "prio": "P2", "status": "open", "source": "user 2026-07-14", "plan": null, "pr": null }
   ],
   "history": [
     { "date": "2026-07-12", "plan": "001", "title": "Workspace 2.0 — Cursor-Feinschliff", "pr": 184 }
@@ -425,6 +427,30 @@
     </div>
   </details>
 
+  <details class="card" id="T14" data-prio="P1" data-status="planned" data-ref="T14 Frontend-Politur Kundennutzen">
+    <summary><span class="prio">P1</span><span class="ttl">Frontend-Politur — Kundennutzen &amp; Komfort</span><span class="cbtn-slot"></span><span class="st">geplant (004)</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Sieben gezielte Verbesserungen: plattformweite Komfort-Dichte (zwei Größen-Systeme werden eins,
+      nichts wirkt mehr zu klein), Dashboard als Aktions-Hub in voller Breite, Extensions-Kategorie-Übersicht
+      + reiche Detailseite (inkl. Kontextlänge) + verifizierter Download, sichtbares Chat-Anhang-Feedback,
+      klarer Terminal-Ordner-Header, durchgängig links-ausgerichtete Einstellungen, verständliche Datenbank-App.
+      Verify-first: mehrere gewünschte Funktionen existieren schon → live prüfen, echte Lücken schließen.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>T13 (done)</b></span></div>
+      <div class="cmd"><code>docs/plans/active/004-frontend-kundennutzen-politur.html</code><button type="button" data-copy="/work 004">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T15" data-prio="P2" data-status="open" data-ref="T15 Ordner-Cloud-Sync">
+    <summary><span class="prio">P2</span><span class="ttl">Ordner-Cloud-Sync (GitHub/OneDrive)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Gespeicherte Projekte/Ordner optional in die Cloud spiegeln (GitHub-Repo oder OneDrive), damit
+      Kundendaten nicht nur lokal auf der Appliance liegen. Aus Plan 004 bewusst ausgeklammert, hier als
+      Zukunftsthema geparkt — Scope (welche Provider, Auth, DSGVO-Implikationen der Drittland-Ablage) noch offen.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>offen</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>—</code><button type="button" data-copy="/plan Ordner-Cloud-Sync (GitHub/OneDrive)">Befehl kopieren</button></div>
+    </div>
+  </details>
+
   <h2>Erledigt</h2>
   <ul class="history" id="history">
     <li><b>2026-07-13</b> · Plan 003 — Cursor-Shell 3.1: Ein Panel, Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default · PR #197 · live verifiziert</li>
@@ -434,7 +460,7 @@
 
   <footer>
     Gepflegt von <span class="mono">/plan · /work · /audit</span> · Quelle:
-    <span class="mono">docs/plans/ROADMAP.html</span> · Stand: 2026-07-13<br>
+    <span class="mono">docs/plans/ROADMAP.html</span> · Stand: 2026-07-14<br>
     Notizen: 💬 an einer Karte → unten <strong>Alle kopieren</strong> → in den Claude-Chat einfügen.
   </footer>
 </div>
