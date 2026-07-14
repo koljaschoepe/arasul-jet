@@ -49,7 +49,7 @@
     { "id": "T14", "title": "Frontend-Politur — Kundennutzen & Komfort (plattformweite Dichte, Dashboard-Aktions-Hub, Extensions-Übersicht + Kontextlänge, Chat-Anhang-Feedback, Terminal-Ordner-Header, Settings-Ausrichtung, Datenbank-App-Onboarding)", "prio": "P1", "status": "done", "source": "user 2026-07-14", "plan": "004", "pr": 205 },
     { "id": "T15", "title": "Ordner-Cloud-Sync (GitHub/OneDrive) — gespeicherte Projekte optional in die Cloud spiegeln", "prio": "P2", "status": "open", "source": "user 2026-07-14", "plan": null, "pr": null },
     { "id": "T16", "title": "Modell-Download-Robustheit — Nach-Download-Verify mit Retry/Poll statt Einmal-Check (vorbestehende Race in modelDownloadHelpers.js: Modell wird real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error' markiert)", "prio": "P1", "status": "open", "source": "Live-Verify Plan 004 2026-07-14", "plan": null, "pr": null },
-    { "id": "T17", "title": "Workspace-Shell interaktiv — n8n-Explorer-Bug, Chat mit Denk-Stream + Maskottchen + Anhang-Liste, Quellen-Fix, editierbarer Markdown-Editor (mit Speicher-Route), Extensions-Zwei-Spalten, Dashboard eingedampft, Ansichtsmodus-Umschalter raus, Responsive-Politur", "prio": "P1", "status": "planned", "source": "user 2026-07-14", "plan": "005", "pr": null }
+    { "id": "T17", "title": "Workspace-Shell interaktiv — n8n-Explorer-Bug, Chat mit Denk-Stream + Maskottchen + Anhang-Liste, Quellen-Fix, editierbarer Markdown-Editor (mit Speicher-Route), Extensions-Zwei-Spalten, Dashboard eingedampft, Ansichtsmodus-Umschalter raus, Responsive-Politur", "prio": "P1", "status": "done", "source": "user 2026-07-14", "plan": "005", "pr": 207 }
   ],
   "history": [
     { "date": "2026-07-12", "plan": "001", "title": "Workspace 2.0 — Cursor-Feinschliff", "pr": 184 }
@@ -429,8 +429,8 @@
     </div>
   </details>
 
-  <details class="card" id="T17" data-prio="P1" data-status="planned" data-ref="T17 Workspace-Shell interaktiv">
-    <summary><span class="prio">P1</span><span class="ttl">Workspace-Shell interaktiv — Chat, Extensions, Dashboard</span><span class="cbtn-slot"></span><span class="st">geplant (005)</span><span class="chev">▶</span></summary>
+  <details class="card" id="T17" data-prio="P1" data-status="done" data-ref="T17 Workspace-Shell interaktiv">
+    <summary><span class="prio">P1</span><span class="ttl">Workspace-Shell interaktiv — Chat, Extensions, Dashboard</span><span class="cbtn-slot"></span><span class="st">done (PR #207)</span><span class="chev">▶</span></summary>
     <div class="cbody">
       <p>Zweite Frontend-Runde: den n8n-Wechsel-Bug beheben (Explorer bleibt), den Chat lebendig machen
       (sichtbarer Denk-Stream + Live-Status statt endlosem Laden, Maskottchen aus zwei Bird-Frames,
@@ -439,7 +439,7 @@
       Mitte Browse + Filter-Tabs), das Dashboard auf Systemstatus + Automatisierungs-Outputs eindampfen,
       den redundanten Ansichtsmodus-Umschalter oben links entfernen und die betroffenen Panels responsive polieren.</p>
       <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>T14 (done)</b></span></div>
-      <div class="cmd"><code>docs/plans/active/005-frontend-shell-interaktiv.html</code><button type="button" data-copy="docs/plans/active/005-frontend-shell-interaktiv.html">Pfad kopieren</button></div>
+      <div class="cmd"><code>docs/plans/done/005-frontend-shell-interaktiv.html</code><button type="button" data-copy="docs/plans/done/005-frontend-shell-interaktiv.html">Pfad kopieren</button></div>
     </div>
   </details>
 
@@ -483,6 +483,7 @@
 
   <h2>Erledigt</h2>
   <ul class="history" id="history">
+    <li><b>2026-07-14</b> · Plan 005 — Workspace-Shell interaktiv: n8n-Wechsel behält Explorer, Chat-Maskottchen + Denk-Stream, Quellen-Fix, editierbarer Markdown-Editor (TipTap, Backend existierte bereits), Extensions-Zwei-Spalten, Dashboard eingedampft (Automatisierungen-Karte), Ansichtsmodus-Umschalter raus · PR #207 · live verifiziert (n8n/Explorer, Extensions-Filter/Tabs, Editor, Chat-Thinking)</li>
     <li><b>2026-07-14</b> · Plan 004 — Frontend-Politur (Kundennutzen &amp; Komfort): plattformweite Komfort-Dichte, Dashboard-Aktions-Hub, Extensions-Kategorie-Landing + Kontextlänge, Chat-Anhang-Feedback, Terminal-Mehrfach-Sitzungen, Settings-Ausrichtung, Datenbank-Onboarding · PR #205 + #206 (Legacy-14.5px-Breakpoint) · live verifiziert; Download-Verify-Race → T16</li>
     <li><b>2026-07-13</b> · Plan 003 — Cursor-Shell 3.1: Ein Panel, Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default · PR #197 · live verifiziert</li>
     <li><b>2026-07-13</b> · Plan 002 — Cursor-Shell 3.0: Neubau der Workspace-Shell · PR #196 · live verifiziert (Matrix 64 Zustände + alle E2E-Flows grün)</li>

@@ -11,7 +11,7 @@
   "slug": "frontend-shell-interaktiv",
   "title": "Workspace-Shell: interaktiver Chat, Extensions & Dashboard",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
@@ -19,8 +19,8 @@
   "created": "2026-07-14",
   "approved": "2026-07-14",
   "branch": "005-frontend-shell-interaktiv",
-  "pr": null,
-  "verified_on_device": false
+  "pr": 207,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -601,13 +601,47 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Alle 8 Schritte erledigt, gemergt (PR #207), auf dem Jetson live verifiziert.</span>
   </summary>
   <div class="sbody">
+  <p><b>Zusammenfassung.</b> Die zweite Frontend-Runde ist komplett umgesetzt, gemergt und auf dem Gerät verifiziert. Zwei Baustellen waren dank vorhandener Substanz deutlich kleiner als geplant: der <b>Denk-Stream/Live-Status/Stop-Button</b> existierte bereits (nur das Maskottchen war neu), und der <b>Markdown-Speicher-Endpunkt</b> (<code>PUT /documents/:id/content</code>) war bereits vollständig da (inkl. Re-Index) — daher kein Backend-/Migrations-Änderung. Schritt 2 (Anhang-Liste) war bereits aus Plan 004 erfüllt.</p>
+
+  <h3>Ergebnisse je Schritt</h3>
+  <ul>
+    <li><b>1 · Bugs:</b> n8n behält den Explorer (<code>'automationen'</code> aus <code>APP_TAB_TYPES</code>), Ansichtsmodus-Umschalter entfernt (Theme nur in Einstellungen). ✓</li>
+    <li><b>2 · Anhang-Liste (Abweichung):</b> bereits aus Plan 004 vorhanden (Chips + Drop-Overlay), verifiziert, kein Neubau. ✓</li>
+    <li><b>3 · Maskottchen + Denk-Stream:</b> neue <code>Mascot</code>-Komponente (2 Bird-Frames, CSS-Animation, reduced-motion), Assets 200²/28 KB; Denk-Block/Status waren vorhanden. ✓</li>
+    <li><b>4 · Quellen:</b> Dateinamen brechen um statt abgeschnitten. ✓</li>
+    <li><b>5 · Extensions:</b> links nur installiert/aktiv + Filter, Mitte Katalog mit Browse-Tabs; <code>install_status</code>-Prädikate zentralisiert. ✓</li>
+    <li><b>6 · Dashboard:</b> ActionHub + Running-Apps-Raster raus, echte Automatisierungen-Karte aus <code>/api/workflows/history</code>. ✓</li>
+    <li><b>7 · Markdown-Editor (Abweichung):</b> TipTap im Viewer hinter „Bearbeiten"; Backend existierte bereits vollständig — reine Frontend-Verdrahtung. ✓</li>
+    <li><b>8 · Politur + Docs:</b> Filter/Tabs brechen bei schmaler Breite um; DESIGN_SYSTEM + ADMIN_HANDBUCH aktualisiert. ✓</li>
+  </ul>
+
+  <h3>Review, Tests, CI</h3>
+  <ul>
+    <li>code-reviewer: 1 Critical (DocumentViewerTab remountete den Editor beim Speichern) → gefixt (stilles <code>refreshContent</code> ohne Unmount), per Re-Review bestätigt. 2 Warnings + 2 Suggestions im PR-Text dokumentiert (nicht auto-gefixt).</li>
+    <li>Lokal: <code>tsc --noEmit</code> 0 Fehler, Vitest <b>804/804</b> (63 Dateien), ESLint über alle Änderungen sauber.</li>
+    <li>CI (PR #207): alle Checks grün (Backend, Frontend, 5 Docker-Builds, Lockfile-Guard, claude-review, CI Summary). Merge-SHA <code>755acd9</code>. Deploy-Workflow erfolgreich (1m0s).</li>
+  </ul>
+
+  <h3>Live-Verifikation auf dem Jetson (192.168.0.197, Commit 755acd9)</h3>
+  <ul>
+    <li><b>Health:</b> 15 Container healthy; dashboard-frontend frisch gebaut, dashboard-backend/document-indexer/postgres healthy.</li>
+    <li><b>n8n-Bug:</b> auf <code>/workspace/automationen</code> ist der Explorer <b>sichtbar</b> UND das n8n-iframe geladen — Bug behoben.</li>
+    <li><b>Theme:</b> kein „Ansicht"-Menü mehr in der Menüleiste; Datei-Menü bleibt.</li>
+    <li><b>Maskottchen/Chat:</b> Maskottchen sichtbar (Header + leerer Chat); nach „Sag kurz Hallo" schaltet es auf <code>data-state="thinking"</code>, „denkt nach"-Status + User-/Assistant-Nachricht erscheinen sofort.</li>
+    <li><b>Extensions:</b> links <code>ext-filter-{all,models,apps}</code> + „Installierte durchsuchen…"; Mitte <code>browse-tab-{recommended,models,apps}</code>; Apps-Tab zeigt 6 App-Kacheln, 0 Modelle.</li>
+    <li><b>Dashboard:</b> Automatisierungen-Karte + „n8n öffnen"; keine „Chat starten"/„Zuletzt genutzt"-Kacheln.</li>
+    <li><b>Markdown-Editor:</b> reales <code>.md</code> geöffnet → „Bearbeiten" → TipTap-Overlay mit 20 Toolbar-Buttons (Fett, Speichern) + editierbarer ProseMirror-Fläche.</li>
+    <li><b>Konsole:</b> keine NEUEN Fehler — die 3 Errors sind vorbestehend (<code>/api/auth/me</code> 401, 2× n8n-iframe-intern); die 2 Warnings sind der vorbestehende TipTap-<code>underline</code>-Duplikat-Hinweis (aus <code>extensions.ts</code>, unverändert).</li>
+    <li>Temporärer Test-Admin + Test-Chat nach der Prüfung gelöscht; nur <code>admin</code> bleibt.</li>
+  </ul>
+  <p style="color:var(--muted);font-size:.85rem">Ausgeführt am 2026-07-14 · PR <a href="https://github.com/koljaschoepe/arasul-jet/pull/207">#207</a> · Merge 755acd9.</p>
   </div>
 </details>
 
