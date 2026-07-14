@@ -10,7 +10,7 @@
  * Quellen). Chats entstehen lazy beim ersten Senden.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { History, Plus, X } from 'lucide-react';
+import { History, Plus, Upload, X } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -465,10 +465,19 @@ export default function AgentChatPanel() {
         />
       </div>
 
-      {/* Drop-Overlay */}
+      {/* Drop-Overlay — sichtbares Feedback beim Hineinziehen von Dateien/Ordnern */}
       {dragOver && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-primary/60 bg-background/80">
-          <span className="text-sm text-foreground">Als Kontext hinzufügen</span>
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-background/85 backdrop-blur-[1px]"
+          data-testid="chat-drop-overlay"
+        >
+          <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border bg-card px-5 py-4 text-center shadow-lg">
+            <Upload className="size-6 text-primary" aria-hidden="true" />
+            <span className="text-ui font-medium text-foreground">Dateien hier ablegen</span>
+            <span className="text-ui-xs text-muted-foreground">
+              Dokumente und Bilder als Kontext hinzufügen
+            </span>
+          </div>
         </div>
       )}
     </div>

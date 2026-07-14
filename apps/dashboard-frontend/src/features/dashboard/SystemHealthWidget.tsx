@@ -151,56 +151,48 @@ const SystemHealthWidget: React.FC = () => {
       <DashboardCardTitle>System-Gesundheit</DashboardCardTitle>
 
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          padding: '0.75rem',
-          borderRadius: '0.5rem',
-          background: 'var(--bg-subtle)',
-          border: `1px solid ${meta.color}`,
-          marginBottom: '1rem',
-        }}
+        className="mb-ui-3 flex min-w-0 items-center gap-ui-2 rounded-lg border bg-bg-subtle p-ui-2"
+        style={{ borderColor: meta.color }}
       >
-        <div style={{ color: meta.color }}>{meta.icon}</div>
-        <div>
-          <div style={{ fontWeight: 600, color: meta.color }}>{meta.label}</div>
+        <div className="shrink-0" style={{ color: meta.color }}>
+          {meta.icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-semibold" style={{ color: meta.color }}>
+            {meta.label}
+          </div>
           {criticals.length > 0 && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{criticals[0]}</div>
+            <div className="truncate text-ui-xs text-text-muted">{criticals[0]}</div>
           )}
           {criticals.length === 0 && warnings.length > 0 && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{warnings[0]}</div>
+            <div className="truncate text-ui-xs text-text-muted">{warnings[0]}</div>
           )}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.875rem' }}>
+      <div className="grid min-w-0 gap-ui-1 text-ui">
         <Link
           to="/settings?tab=system"
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            color: 'inherit',
-            textDecoration: 'none',
-          }}
+          className="flex min-w-0 items-center justify-between gap-ui-2 text-inherit no-underline"
         >
-          <span>Letztes Backup</span>
-          <span style={{ color: backup.stale ? 'var(--danger-color)' : 'var(--success-color)' }}>
+          <span className="min-w-0 truncate">Letztes Backup</span>
+          <span
+            className="inline-flex shrink-0 items-center gap-ui-1 whitespace-nowrap"
+            style={{ color: backup.stale ? 'var(--danger-color)' : 'var(--success-color)' }}
+          >
             {backup.status === 'missing'
               ? 'fehlt'
               : backup.ageHours !== undefined
                 ? `vor ${backup.ageHours}h`
                 : backup.status}
-            <ExternalLink
-              size={12}
-              style={{ display: 'inline', marginLeft: 4, verticalAlign: '-2px' }}
-            />
+            <ExternalLink size={12} className="shrink-0" aria-hidden="true" />
           </span>
         </Link>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span>Restore-Drill</span>
+        <div className="flex min-w-0 items-center justify-between gap-ui-2">
+          <span className="min-w-0 truncate">Restore-Drill</span>
           <span
+            className="shrink-0 whitespace-nowrap"
             style={{
               color:
                 restoreDrill.status === 'never_run' || restoreDrill.stale
@@ -214,12 +206,11 @@ const SystemHealthWidget: React.FC = () => {
           </span>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span>Services</span>
+        <div className="flex min-w-0 items-center justify-between gap-ui-2">
+          <span className="min-w-0 truncate">Services</span>
           <span
-            style={{
-              color: services.down > 0 ? 'var(--danger-color)' : 'var(--success-color)',
-            }}
+            className="shrink-0 whitespace-nowrap"
+            style={{ color: services.down > 0 ? 'var(--danger-color)' : 'var(--success-color)' }}
           >
             {services.healthy}/{services.total} healthy
             {services.down > 0 && ` · ${services.down} down`}
@@ -228,31 +219,22 @@ const SystemHealthWidget: React.FC = () => {
 
         <Link
           to="/settings?tab=system"
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            color: 'inherit',
-            textDecoration: 'none',
-          }}
+          className="flex min-w-0 items-center justify-between gap-ui-2 text-inherit no-underline"
         >
-          <span>Aktive Alerts</span>
+          <span className="min-w-0 truncate">Aktive Alerts</span>
           <span
-            style={{
-              color: alerts.active > 0 ? 'var(--warning-color)' : 'var(--success-color)',
-            }}
+            className="inline-flex shrink-0 items-center gap-ui-1 whitespace-nowrap"
+            style={{ color: alerts.active > 0 ? 'var(--warning-color)' : 'var(--success-color)' }}
           >
             {alerts.active}
-            <ExternalLink
-              size={12}
-              style={{ display: 'inline', marginLeft: 4, verticalAlign: '-2px' }}
-            />
+            <ExternalLink size={12} className="shrink-0" aria-hidden="true" />
           </span>
         </Link>
 
         {notifications.unsent_critical_24h > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Unversandte kritische Events</span>
-            <span style={{ color: 'var(--danger-color)' }}>
+          <div className="flex min-w-0 items-center justify-between gap-ui-2">
+            <span className="min-w-0 truncate">Unversandte kritische Events</span>
+            <span className="shrink-0 whitespace-nowrap" style={{ color: 'var(--danger-color)' }}>
               {notifications.unsent_critical_24h}
             </span>
           </div>

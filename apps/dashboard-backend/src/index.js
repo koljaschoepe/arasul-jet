@@ -696,6 +696,10 @@ if (require.main === module) {
       const command = url.searchParams.get('command') || undefined;
       const cols = parseInt(url.searchParams.get('cols') || '120');
       const rows = parseInt(url.searchParams.get('rows') || '30');
+      // Per-session tmux name: lets several terminals in the SAME project be
+      // independent persistent shells instead of mirroring one screen. Defaults
+      // to 'main' in the service when absent (backwards-compatible).
+      const tmuxName = url.searchParams.get('terminal') || undefined;
 
       if (!projectId) {
         ws.send(JSON.stringify({ type: 'error', message: 'projectId parameter required' }));
@@ -704,7 +708,14 @@ if (require.main === module) {
       }
 
       terminalService
-        .createSession(projectId, ws, { sessionType, command, cols, rows, userId: request.userId })
+        .createSession(projectId, ws, {
+          sessionType,
+          command,
+          cols,
+          rows,
+          tmuxName,
+          userId: request.userId,
+        })
         .catch(err => {
           logger.error(`Sandbox terminal session failed: ${err.message}`);
           try {

@@ -30,27 +30,29 @@
   --color-chart-5: #F472B6;
 
   /* ========================================
-     DICHTE-SKALA (Plan 002 »Cursor-Shell«)
-     Kompakte globale Skala: 13px-Basistext + 4/8/12/16px-Abstandsstufen.
-     Text-Utilities: text-ui-xs / text-ui-sm / text-ui / text-ui-lg
-     (mit kompakter Zeilenhöhe als Default).
+     DICHTE-SKALA (Plan 002 »Cursor-Shell«, Komfort-Kalibrierung Plan 004)
+     Komfort-Skala: 14px-Basistext + 5/10/14/18px-Abstandsstufen.
+     Zusätzlich hebt ein globaler Root-Hebel (html { font-size }, siehe
+     @layer base) alle rem-Einheiten plattformweit an, damit auch Nicht-
+     Shell-Flächen (Einstellungen, Chat, Datenbank, Legacy) mitwachsen.
+     Text-Utilities: text-ui-xs / text-ui-sm / text-ui / text-ui-lg.
      Abstands-Utilities: p-ui-1…4, gap-ui-1…4, m-ui-*, space-y-ui-* usw.
      Neue/normierte Ansichten (Workspace-Shell, Dashboard, Extensions)
      bauen ausschließlich auf dieser Skala auf.
      ======================================== */
-  --text-ui-xs: 0.6875rem;             /* 11px — Badges, Metadaten */
-  --text-ui-xs--line-height: 1rem;     /* 16px */
-  --text-ui-sm: 0.75rem;               /* 12px — Sekundärtext, Labels */
-  --text-ui-sm--line-height: 1.125rem; /* 18px */
-  --text-ui: 0.8125rem;                /* 13px — Basistext kompakter Flächen */
-  --text-ui--line-height: 1.25rem;     /* 20px */
-  --text-ui-lg: 0.9375rem;             /* 15px — Karten-/Abschnittstitel */
-  --text-ui-lg--line-height: 1.375rem; /* 22px */
+  --text-ui-xs: 0.75rem;               /* 12px — Badges, Metadaten */
+  --text-ui-xs--line-height: 1.125rem; /* 18px */
+  --text-ui-sm: 0.8125rem;             /* 13px — Sekundärtext, Labels */
+  --text-ui-sm--line-height: 1.25rem;  /* 20px */
+  --text-ui: 0.875rem;                 /* 14px — Basistext kompakter Flächen */
+  --text-ui--line-height: 1.375rem;    /* 22px */
+  --text-ui-lg: 1rem;                  /* 16px — Karten-/Abschnittstitel */
+  --text-ui-lg--line-height: 1.5rem;   /* 24px */
 
-  --spacing-ui-1: 0.25rem;  /* 4px  — Stufe 1 */
-  --spacing-ui-2: 0.5rem;   /* 8px  — Stufe 2 */
-  --spacing-ui-3: 0.75rem;  /* 12px — Stufe 3 */
-  --spacing-ui-4: 1rem;     /* 16px — Stufe 4 */
+  --spacing-ui-1: 0.3125rem; /* 5px  — Stufe 1 */
+  --spacing-ui-2: 0.625rem;  /* 10px — Stufe 2 */
+  --spacing-ui-3: 0.875rem;  /* 14px — Stufe 3 */
+  --spacing-ui-4: 1.125rem;  /* 18px — Stufe 4 */
 }
 
 /* ========================================
@@ -120,6 +122,14 @@
     background-color: transparent;
     color: inherit;
     font: inherit;
+  }
+  /* Komfort-Dichte (Plan 004): globaler Root-Hebel. 17px-Basis (statt 16px)
+     skaliert ALLE rem-basierten Text-/Abstands-Utilities plattformweit ~6 %
+     größer — auch Nicht-Shell-Flächen (Einstellungen, Chat, Datenbank,
+     Legacy). Ein einziger, leicht umkehrbarer Schalter. Feste px-Werte
+     (Icons, Chrome-Höhen) werden separat auf der --icon-*-Skala angehoben. */
+  html {
+    font-size: 106.25%;
   }
   body {
     @apply bg-background text-foreground;
@@ -213,13 +223,14 @@
   --text-3xl: 1.5rem;       /* 24px */
   --text-4xl: 2rem;         /* 32px */
 
-  /* Icon-size scale */
-  --icon-xs: 14px;
-  --icon-sm: 16px;
-  --icon-md: 20px;
-  --icon-lg: 24px;
-  --icon-xl: 32px;
-  --icon-2xl: 48px;
+  /* Icon-size scale (Komfort-Kalibrierung Plan 004 — feste px, skalieren
+     nicht mit dem Root-Hebel, daher hier eine Stufe angehoben) */
+  --icon-xs: 15px;
+  --icon-sm: 17px;
+  --icon-md: 21px;
+  --icon-lg: 26px;
+  --icon-xl: 34px;
+  --icon-2xl: 52px;
 
   /* Accent Colors - Design System (aliases onto the shadcn set above) */
   --primary-color: var(--primary);

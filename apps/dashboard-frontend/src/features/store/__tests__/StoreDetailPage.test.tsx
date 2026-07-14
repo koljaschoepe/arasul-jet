@@ -20,6 +20,7 @@ const catalog = {
       category: 'medium',
       install_status: 'available',
       speed_tier: 'balanced',
+      context_window: 32768,
     },
   ],
   apps: [
@@ -92,12 +93,32 @@ describe('StoreDetailPage', () => {
     useExtensionStore.getState().clearSelection();
   });
 
-  it('Leerzustand ohne Auswahl mit „Aktuell geladen"-Kopf', () => {
+  it('Landing ohne Auswahl: „Aktuell geladen"-Kopf + Kategorie-Abschnitte', () => {
     catalog.loadedModel = { model_id: 'llama3', ram_usage_mb: 8192 };
     renderPage();
     expect(screen.getByText('Aktuell geladen:')).toBeInTheDocument();
     expect(screen.getByText('llama3')).toBeInTheDocument();
-    expect(screen.getByText('Keine Extension ausgewählt')).toBeInTheDocument();
+    // Kategorie-Übersicht statt nacktem Leerzustand
+    expect(screen.getByRole('heading', { name: 'Empfohlen' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sprachmodelle' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Apps' })).toBeInTheDocument();
+    // Kacheln für vorhandene Extensions (Modell auch im „Empfohlen"-Abschnitt)
+    expect(screen.getAllByTestId('landing-tile-model-llama3').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('landing-tile-app-gitea')).toBeInTheDocument();
+  });
+
+  it('Landing: Klick auf eine Kachel öffnet die Detailseite', () => {
+    renderPage();
+    const [firstTile] = screen.getAllByTestId('landing-tile-model-llama3');
+    fireEvent.click(firstTile!);
+    expect(screen.getByRole('heading', { name: 'Llama 3' })).toBeInTheDocument();
+  });
+
+  it('Modell-Detail: Kontextlänge wird formatiert angezeigt', () => {
+    useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3' });
+    renderPage();
+    expect(screen.getByText('Kontextlänge')).toBeInTheDocument();
+    expect(screen.getByText('32k Tokens')).toBeInTheDocument();
   });
 
   it('Modell-Detail: Aktivieren startet die Aktivierung', () => {

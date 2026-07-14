@@ -45,6 +45,9 @@ const CreateTableDialog = memo(function CreateTableDialog({
           description: description.trim() || null,
           icon: '\u{1F4E6}',
           color: DEFAULT_PROJECT_COLOR,
+          // Start with a ready-to-fill "Name" column so a new table opens
+          // usable instead of as an empty grid with zero columns.
+          createDefaultField: true,
         },
         { showError: false }
       );
@@ -105,6 +108,12 @@ const CreateTableDialog = memo(function CreateTableDialog({
       }
     >
       <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
+        <p className="text-ui-sm text-muted-foreground m-0">
+          Eine Datentabelle speichert strukturierte Daten in Spalten und Zeilen &ndash; z.&nbsp;B.
+          Kunden, Produkte oder Aufträge. Die Tabelle startet mit einer Spalte &bdquo;Name&ldquo;;
+          weitere Spalten fügen Sie danach im Editor hinzu.
+        </p>
+
         {error && (
           <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm">
             <AlertCircle className="size-4 shrink-0" />

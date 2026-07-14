@@ -1363,6 +1363,12 @@
 | `is_platform_default`   | boolean                  | ✅       | `false`                    |
 | `speed_tier`            | character varying(20)    | ✅       | `'balanced'`               |
 
+**Migration 101 — `context_window` seed:** No new column — migration 101 seeds
+the existing `context_window` (tokens) for the curated Gemma 4 catalog
+(`gemma4:e4b-q4` = 131072, `gemma4:26b-q4` / `gemma4:31b-q4` = 262144), which
+predates migration 041's seeding. The Extensions/Store model detail page renders
+it as "Kontextlänge" when present (NULL rows show no row).
+
 **Migration 094 — `speed_tier`:** Semantic tier for the Store UI grouping and
 Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 `'ocr'` / `'embed'`. Independent from the numeric `performance_tier` (1=fastest,

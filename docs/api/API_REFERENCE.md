@@ -1410,6 +1410,7 @@ verschwinden aus ActivityBar/Tab-Angebot, die Dienste laufen weiter.
       "size_bytes": 8589934592,
       "ram_required_gb": 10,
       "category": "small",
+      "context_window": 32768,
       "capabilities": ["chat", "code"],
       "recommended_for": ["chat", "quick-tasks"],
       "jetson_tested": true,
@@ -2456,7 +2457,15 @@ Creating or switching a project to `infrastructure` is audit-logged on the backe
 
 **Terminal WebSocket:**
 
-The terminal WebSocket upgrade is handled by the main `index.js` server. Clients connect to `ws://<host>/api/sandbox/terminal?token=<jwt>&projectId=<id>` and receive a full PTY session inside the running container.
+The terminal WebSocket upgrade is handled by the main `index.js` server. Clients connect to `ws://<host>/api/sandbox/terminal/ws?projectId=<id>` and receive a full PTY session inside the running container. Auth is read from the `arasul_session` cookie or a `Bearer` header (never the query string — it would leak into access logs).
+
+**Query parameters:**
+
+- `projectId` (required): target sandbox project
+- `type`: session type — `shell` (default), `custom`, `claude-code`, `codex`
+- `command`: command for `type=custom` (allowlist `[A-Za-z0-9_.-/ ]`, max 200)
+- `cols`, `rows`: initial terminal size
+- `terminal`: tmux session name inside the container (`[A-Za-z0-9_-]`, max 40; default `main`). Distinct names allow **several independent terminal sessions in the same project** — reusing a name reattaches to that persistent shell; different names give separate shells rather than mirroring one screen.
 
 **Notes:**
 

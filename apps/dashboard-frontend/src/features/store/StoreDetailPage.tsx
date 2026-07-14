@@ -21,6 +21,7 @@ import {
   Package,
   Play,
   RefreshCw,
+  Sparkles,
   Square,
   Star,
   Trash2,
@@ -44,6 +45,7 @@ import useConfirm from '@/hooks/useConfirm';
 import { useStoreCatalog } from '@/hooks/useStoreCatalog';
 import type { CatalogApp, CatalogModel, LoadedModel } from '@/hooks/useStoreCatalog';
 import { useExtensionStore } from '@/stores/extensionStore';
+import type { ExtensionKind } from '@/stores/extensionStore';
 import { formatModelSize as formatSize } from '@/utils/formatting';
 import { sanitizeUrl } from '@/utils/sanitizeUrl';
 import ActivationButton from './ActivationButton';
@@ -57,6 +59,12 @@ const speedLabel: Record<string, string> = {
   ocr: 'OCR',
   embed: 'Embedding',
 };
+
+/** 131072 → „128k Tokens", 8192 → „8k Tokens", 512 → „512 Tokens". */
+function formatContextLength(tokens: number): string {
+  if (tokens >= 1000) return `${Math.round(tokens / 1024)}k Tokens`;
+  return `${tokens} Tokens`;
+}
 
 function Spec({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -203,7 +211,10 @@ function ModelDetail({
       <p className="leading-relaxed text-muted-foreground">{model.description}</p>
 
       {downloading && downloadState && (
-        <div className="mt-4">
+        <div className="mt-ui-4 rounded-lg border border-border bg-card p-ui-3">
+          <div className="mb-ui-2 flex items-center gap-ui-1 text-ui-sm font-medium text-foreground">
+            <Download className="size-4 text-primary" /> Wird heruntergeladen
+          </div>
           <DownloadProgress
             downloadState={downloadState}
             onCancel={() => cancelDownload(model.id)}
@@ -218,6 +229,9 @@ function ModelDetail({
         <Spec label="Download-Größe">{formatSize(model.size_bytes)}</Spec>
         <Spec label="RAM-Bedarf">{model.ram_required_gb} GB</Spec>
         <Spec label="Geschwindigkeit">{speedLabel[model.speed_tier ?? ''] ?? 'Ausgewogen'}</Spec>
+        {model.context_window != null && (
+          <Spec label="Kontextlänge">{formatContextLength(model.context_window)}</Spec>
+        )}
       </div>
 
       {model.capabilities && model.capabilities.length > 0 && (
@@ -524,37 +538,183 @@ function AppDetail({ app, onChanged }: { app: CatalogApp; onChanged: () => void 
   );
 }
 
-// --- Empty state ---
+// --- Landing / category overview ---
 
-function StoreDetailEmpty({ loadedModel }: { loadedModel: LoadedModel | null }) {
+/** Kompakter „Aktuell geladen"-Kopf, geteilt von Landing- und Fallback-Ansicht. */
+function LoadedModelBar({ loadedModel }: { loadedModel: LoadedModel | null }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-3 text-sm">
+      {loadedModel ? (
+        <>
+          <Zap className="size-4 text-primary" />
+          <span className="text-muted-foreground">Aktuell geladen:</span>
+          <strong className="text-foreground">{loadedModel.model_id}</strong>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <HardDrive className="size-4" />
+            {loadedModel.ram_usage_mb
+              ? `${(loadedModel.ram_usage_mb / 1024).toFixed(1)} GB RAM`
+              : 'RAM wird berechnet...'}
+          </span>
+        </>
+      ) : (
+        <>
+          <Check className="size-4 text-muted-foreground" />
+          <span className="text-muted-foreground">Kein Modell geladen.</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+interface Tile {
+  kind: ExtensionKind;
+  id: string;
+  name: string;
+  description: string;
+  meta: string;
+}
+
+function CategoryTile({ tile, onSelect }: { tile: Tile; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      data-testid={`landing-tile-${tile.kind}-${tile.id}`}
+      onClick={onSelect}
+      className="flex h-full flex-col gap-ui-2 rounded-lg border border-border bg-card p-ui-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+    >
+      <span className="flex items-center gap-ui-2">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary [&_svg]:size-4">
+          {tile.kind === 'model' ? <Cpu aria-hidden="true" /> : <Package aria-hidden="true" />}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-ui font-semibold text-foreground">
+          {tile.name}
+        </span>
+      </span>
+      <span className="line-clamp-2 text-ui-sm text-muted-foreground">{tile.description}</span>
+      <span className="mt-auto text-ui-xs uppercase tracking-wider text-muted-foreground">
+        {tile.meta}
+      </span>
+    </button>
+  );
+}
+
+function LandingSection({
+  icon,
+  title,
+  tiles,
+  onSelect,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  tiles: Tile[];
+  onSelect: (tile: Tile) => void;
+}) {
+  if (tiles.length === 0) return null;
+  return (
+    <section className="mb-8">
+      <h2 className="mb-ui-3 flex items-center gap-ui-2 text-ui-lg font-semibold text-foreground">
+        <span className="text-primary [&_svg]:size-5">{icon}</span>
+        {title}
+      </h2>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-ui-3">
+        {tiles.map(tile => (
+          <CategoryTile
+            key={`${tile.kind}-${tile.id}`}
+            tile={tile}
+            onSelect={() => onSelect(tile)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function modelTile(model: CatalogModel): Tile {
+  return {
+    kind: 'model',
+    id: model.id,
+    name: model.name,
+    description: model.description,
+    meta:
+      model.install_status === 'available'
+        ? 'Installiert'
+        : `${formatSize(model.size_bytes)} Download`,
+  };
+}
+
+function appTile(app: CatalogApp): Tile {
+  return {
+    kind: 'app',
+    id: app.id,
+    name: app.name,
+    description: app.description,
+    meta: app.status === 'running' ? 'Aktiv' : app.category,
+  };
+}
+
+function StoreLanding({
+  models,
+  apps,
+  defaultModel,
+  loadedModel,
+}: {
+  models: CatalogModel[];
+  apps: CatalogApp[];
+  defaultModel: string | null;
+  loadedModel: LoadedModel | null;
+}) {
+  const selectExtension = useExtensionStore(s => s.selectExtension);
+  const onSelect = (tile: Tile) => selectExtension({ kind: tile.kind, id: tile.id });
+
+  const recommendedModels = models.filter(
+    m => m.id === defaultModel || m.speed_tier === 'balanced'
+  );
+  const featuredApps = apps.filter(a => a.featured);
+  const recommendedTiles: Tile[] = [
+    ...recommendedModels.map(modelTile),
+    ...featuredApps.map(appTile),
+  ];
+
+  const hasContent = models.length > 0 || apps.length > 0;
+
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-3 text-sm">
-        {loadedModel ? (
-          <>
-            <Zap className="size-4 text-primary" />
-            <span className="text-muted-foreground">Aktuell geladen:</span>
-            <strong className="text-foreground">{loadedModel.model_id}</strong>
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <HardDrive className="size-4" />
-              {loadedModel.ram_usage_mb
-                ? `${(loadedModel.ram_usage_mb / 1024).toFixed(1)} GB RAM`
-                : 'RAM wird berechnet...'}
-            </span>
-          </>
+      <LoadedModelBar loadedModel={loadedModel} />
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        {hasContent ? (
+          <div className="mx-auto max-w-4xl">
+            <p className="mb-8 max-w-2xl text-ui-sm text-muted-foreground">
+              Wähle eine App oder ein Modell, um Details zu sehen und Aktionen auszuführen — oder
+              starte direkt hier.
+            </p>
+            <LandingSection
+              icon={<Sparkles aria-hidden="true" />}
+              title="Empfohlen"
+              tiles={recommendedTiles}
+              onSelect={onSelect}
+            />
+            <LandingSection
+              icon={<Cpu aria-hidden="true" />}
+              title="Sprachmodelle"
+              tiles={models.map(modelTile)}
+              onSelect={onSelect}
+            />
+            <LandingSection
+              icon={<Package aria-hidden="true" />}
+              title="Apps"
+              tiles={apps.map(appTile)}
+              onSelect={onSelect}
+            />
+          </div>
         ) : (
-          <>
-            <Check className="size-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Kein Modell geladen.</span>
-          </>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center text-muted-foreground">
+            <Package className="size-10 opacity-40" />
+            <p className="font-medium">Noch keine Extensions verfügbar</p>
+            <p className="max-w-sm text-ui-sm">
+              Sobald Modelle oder Apps im Katalog stehen, erscheinen sie hier.
+            </p>
+          </div>
         )}
-      </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-muted-foreground">
-        <Package className="size-10 opacity-40" />
-        <p className="font-medium">Keine Extension ausgewählt</p>
-        <p className="max-w-sm text-sm">
-          Wähle links eine App oder ein Modell, um Details zu sehen und Aktionen auszuführen.
-        </p>
       </div>
     </div>
   );
@@ -565,13 +725,20 @@ export function StoreDetailPage() {
   const { models, apps, loadedModel, defaultModel, invalidateModels, invalidateApps } =
     useStoreCatalog();
 
-  if (!selected) {
-    return <StoreDetailEmpty loadedModel={loadedModel} />;
-  }
+  const landing = (
+    <StoreLanding
+      models={models}
+      apps={apps}
+      defaultModel={defaultModel}
+      loadedModel={loadedModel}
+    />
+  );
+
+  if (!selected) return landing;
 
   if (selected.kind === 'model') {
     const model = models.find(m => m.id === selected.id);
-    if (!model) return <StoreDetailEmpty loadedModel={loadedModel} />;
+    if (!model) return landing;
     return (
       <ModelDetail
         model={model}
@@ -583,7 +750,7 @@ export function StoreDetailPage() {
   }
 
   const app = apps.find(a => a.id === selected.id);
-  if (!app) return <StoreDetailEmpty loadedModel={loadedModel} />;
+  if (!app) return landing;
   return <AppDetail app={app} onChanged={invalidateApps} />;
 }
 

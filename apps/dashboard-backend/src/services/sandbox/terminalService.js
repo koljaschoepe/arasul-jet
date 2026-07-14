@@ -16,6 +16,13 @@ const activeSessions = new Map();
 // Default tmux session name for persistent terminals
 const TMUX_SESSION = 'main';
 
+// Strict allowlist for the per-connection tmux session name. Multiple terminal
+// sessions in the SAME project (container) must attach to DISTINCT tmux sessions
+// to be independent shells rather than mirrors of one screen — the client sends
+// a stable name per session (e.g. 'main', 'main-2'). Only [A-Za-z0-9_-] so the
+// value is safe inside `tmux new-session -s <name>` (still single-quoted below).
+const TMUX_NAME_RE = /^[A-Za-z0-9_-]{1,40}$/;
+
 // Allowlist for sessionType — anything else is rejected
 const ALLOWED_SESSION_TYPES = new Set(['shell', 'custom', 'claude-code', 'codex']);
 
@@ -36,7 +43,7 @@ function shellSingleQuote(str) {
 async function createSession(
   projectId,
   ws,
-  { sessionType = 'shell', command, cols = 120, rows = 30, userId } = {}
+  { sessionType = 'shell', command, cols = 120, rows = 30, tmuxName = TMUX_SESSION, userId } = {}
 ) {
   if (!ALLOWED_SESSION_TYPES.has(sessionType)) {
     throw new ValidationError(`Ungültiger sessionType: ${sessionType}`);
@@ -47,6 +54,9 @@ async function createSession(
         'Ungültiger command — nur [A-Za-z0-9_.-/ ] zulässig, max 200 Zeichen'
       );
     }
+  }
+  if (!TMUX_NAME_RE.test(tmuxName)) {
+    throw new ValidationError('Ungültiger tmux-Session-Name — nur [A-Za-z0-9_-], max 40 Zeichen');
   }
 
   const project = await sandboxService.getProject(projectId, userId);
@@ -70,19 +80,22 @@ async function createSession(
   // Use tmux for persistent sessions: attach if exists, create if not.
   // Falls back to plain shell if tmux is not installed (old containers).
   // innerCmd is validated above; still single-quote it for defense in depth.
+  // tmuxName is validated against TMUX_NAME_RE above; still single-quote for
+  // defense in depth. Distinct names → independent persistent shells per project.
+  const tmuxSession = shellSingleQuote(tmuxName);
   let cmd;
   if (innerCmd) {
     const quoted = shellSingleQuote(innerCmd);
     cmd = [
       '/bin/bash',
       '-c',
-      `command -v tmux >/dev/null 2>&1 && tmux new-session -A -s ${TMUX_SESSION} ${quoted} || exec ${quoted}`,
+      `command -v tmux >/dev/null 2>&1 && tmux new-session -A -s ${tmuxSession} ${quoted} || exec ${quoted}`,
     ];
   } else {
     cmd = [
       '/bin/bash',
       '-c',
-      `command -v tmux >/dev/null 2>&1 && tmux new-session -A -s ${TMUX_SESSION} || exec /bin/bash`,
+      `command -v tmux >/dev/null 2>&1 && tmux new-session -A -s ${tmuxSession} || exec /bin/bash`,
     ];
   }
 

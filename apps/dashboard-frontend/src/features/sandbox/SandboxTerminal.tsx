@@ -79,6 +79,12 @@ const NETWORK_MODE_BADGES: Record<
 
 interface SandboxTerminalProps {
   projectId: string;
+  /**
+   * tmux-Session-Name im Container — distinkt pro Session, damit mehrere
+   * Terminals desselben Projekts unabhängige Shells sind (nicht Spiegel).
+   * Weglassen → Backend-Default 'main' (Erst-Session, rückwärtskompatibel).
+   */
+  terminalName?: string;
   containerStatus?: string;
   networkMode?: SandboxNetworkMode;
   /**
@@ -159,6 +165,7 @@ function getStatusDisplay(
 
 export default function SandboxTerminal({
   projectId,
+  terminalName,
   containerStatus,
   networkMode,
   isVisible = true,
@@ -168,6 +175,7 @@ export default function SandboxTerminal({
 }: SandboxTerminalProps) {
   const { terminalRef, isConnected, isConnecting, error, reconnect, fit, sendInput } = useTerminal({
     projectId,
+    terminalName,
     containerStatus,
     fontSize: isFullscreen ? 15 : 14,
   });

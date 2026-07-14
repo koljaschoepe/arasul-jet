@@ -24,8 +24,14 @@ import {
   Box,
   Terminal,
   Send,
+  MessageSquare,
+  Upload,
+  FolderKanban,
+  History,
+  ChevronRight,
 } from 'lucide-react';
 import { Suspense, lazy } from 'react';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { DashboardCard, DashboardCardTitle } from './DashboardCard';
 
 const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
@@ -70,6 +76,129 @@ function StatCard({
           {label}
         </div>
         {children}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Aktions-Hub: die vier zentralen Einstiege oben im Dashboard. Statt reiner
+ * Systemtelemetrie führt das Dashboard den Nutzer zuerst zu einer Aktion.
+ * Alle Auslöser laufen über den workspaceStore (keine erfundenen Ziele):
+ *  - Chat starten     → rechtes Panel auf Chat (setRightPanelMode)
+ *  - Dokument hochladen → Upload-Flow des Explorers (requestExplorerAction)
+ *  - Projekt öffnen   → Explorer-Sidebar mit der Projektliste einblenden
+ *  - Zuletzt genutzt  → offene Tabs (echte Datenquelle) reaktivieren
+ */
+function ActionTile({
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex min-w-0 items-center gap-ui-3 rounded-lg border border-border bg-bg-card p-ui-3 text-left transition-colors hover:border-[var(--border-glow)] hover:bg-bg-card-hover"
+    >
+      <div
+        className="flex shrink-0 items-center justify-center rounded-md bg-[var(--primary-alpha-10)] text-primary"
+        style={{ width: 'var(--icon-2xl)', height: 'var(--icon-2xl)' }}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-ui-lg font-semibold text-text-primary">{title}</div>
+        <div className="truncate text-ui-sm text-text-muted">{subtitle}</div>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-text-muted transition-colors group-hover:text-primary" />
+    </button>
+  );
+}
+
+function ActionHub(): React.JSX.Element {
+  const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
+  const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
+  const setSidebarVisible = useWorkspaceStore(s => s.setSidebarVisible);
+  const activateTab = useWorkspaceStore(s => s.activateTab);
+  const tabs = useWorkspaceStore(s => s.tabs);
+  const activeTabId = useWorkspaceStore(s => s.activeTabId);
+
+  // "Zuletzt genutzt" nutzt ausschließlich echte Daten: die offenen Tabs
+  // (ohne das gerade sichtbare Dashboard), jüngste zuerst. Keine Datenquelle
+  // erfunden — ist nichts weiter offen, zeigt die Kachel einen ehrlichen Hinweis.
+  const recentTabs = useMemo(
+    () =>
+      tabs
+        .filter(tb => tb.type !== 'dashboard' && tb.id !== activeTabId)
+        .slice(-3)
+        .reverse(),
+    [tabs, activeTabId]
+  );
+
+  const iconStyle = { width: 'var(--icon-md)', height: 'var(--icon-md)' } as const;
+
+  return (
+    <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-ui-2">
+      <ActionTile
+        icon={<MessageSquare style={iconStyle} aria-hidden="true" />}
+        title="Chat starten"
+        subtitle="Frag die KI zu deinen Daten"
+        onClick={() => setRightPanelMode('chat')}
+      />
+      <ActionTile
+        icon={<Upload style={iconStyle} aria-hidden="true" />}
+        title="Dokument hochladen"
+        subtitle="Dateien zur Wissensbasis"
+        onClick={() => requestExplorerAction('upload-files')}
+      />
+      <ActionTile
+        icon={<FolderKanban style={iconStyle} aria-hidden="true" />}
+        title="Projekt öffnen"
+        subtitle="Projekte & Ordner im Explorer"
+        onClick={() => setSidebarVisible(true)}
+      />
+
+      <div className="flex min-w-0 flex-col gap-ui-2 rounded-lg border border-border bg-bg-card p-ui-3">
+        <div className="flex min-w-0 items-center gap-ui-3">
+          <div
+            className="flex shrink-0 items-center justify-center rounded-md bg-[var(--primary-alpha-10)] text-primary"
+            style={{ width: 'var(--icon-2xl)', height: 'var(--icon-2xl)' }}
+          >
+            <History style={iconStyle} aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-ui-lg font-semibold text-text-primary">
+              Zuletzt genutzt
+            </div>
+            <div className="truncate text-ui-sm text-text-muted">Offene Tabs</div>
+          </div>
+        </div>
+        {recentTabs.length > 0 ? (
+          <div className="flex min-w-0 flex-col gap-px">
+            {recentTabs.map(tb => (
+              <button
+                key={tb.id}
+                type="button"
+                onClick={() => activateTab(tb.id)}
+                className="flex min-w-0 items-center gap-ui-1 rounded-sm px-ui-1 py-ui-1 text-left text-ui-sm text-text-secondary transition-colors hover:bg-[var(--primary-alpha-10)] hover:text-text-primary"
+              >
+                <span className="min-w-0 flex-1 truncate">{tb.title}</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-ui-sm text-text-muted">
+            Noch nichts geöffnet – starte oben mit Chat, Upload oder einem Projekt.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -359,6 +488,11 @@ const DashboardHome = React.memo(function DashboardHome({
 
   return (
     <div className="flex min-w-0 flex-col gap-ui-3">
+      <ActionHub />
+
+      <div className="mt-ui-1 text-ui-xs font-semibold uppercase tracking-wider text-text-muted">
+        Systemstatus
+      </div>
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-ui-2">
         <StatCard icon={<Activity className="h-5 w-5 text-primary" />} label="RAM Usage">
           <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
@@ -503,77 +637,79 @@ const DashboardHome = React.memo(function DashboardHome({
               ))}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart
-              data={chartData}
-              role="img"
-              aria-label={`Performance-Diagramm der letzten ${chartTimeRange} Stunden: CPU, RAM und GPU`}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-alpha-10)" />
-              <XAxis
-                dataKey="timestamp"
-                type="number"
-                domain={['dataMin', 'dataMax']}
-                ticks={chartTicks}
-                tickFormatter={(ts: number) =>
-                  new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-                }
-                stroke="var(--text-muted)"
-                tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
-                axisLine={{ stroke: 'var(--text-muted)' }}
-                tickLine={{ stroke: 'var(--text-muted)' }}
-              />
-              <YAxis
-                stroke="var(--text-muted)"
-                tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
-                axisLine={{ stroke: 'var(--text-muted)' }}
-                tickLine={{ stroke: 'var(--text-muted)' }}
-                domain={[0, 100]}
-                tickFormatter={(value: number) => `${value}%`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-subtle) 100%)',
-                  border: '1px solid var(--primary-alpha-30)',
-                  borderRadius: '10px',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
-                }}
-                labelStyle={{ color: 'var(--primary-color)', fontWeight: 600 }}
-                labelFormatter={(ts: number) =>
-                  new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-                }
-                formatter={(value: number, name: string) => {
-                  const unit = name === 'Temp' ? '°C' : '%';
-                  return [`${value?.toFixed(1)}${unit}`, name];
-                }}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="RAM"
-                stroke="var(--color-chart-2)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="Swap"
-                stroke="var(--primary-color)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="Temp"
-                stroke="var(--color-chart-3)"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="min-w-0">
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart
+                data={chartData}
+                role="img"
+                aria-label={`Performance-Diagramm der letzten ${chartTimeRange} Stunden: CPU, RAM und GPU`}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-alpha-10)" />
+                <XAxis
+                  dataKey="timestamp"
+                  type="number"
+                  domain={['dataMin', 'dataMax']}
+                  ticks={chartTicks}
+                  tickFormatter={(ts: number) =>
+                    new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                  }
+                  stroke="var(--text-muted)"
+                  tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
+                  axisLine={{ stroke: 'var(--text-muted)' }}
+                  tickLine={{ stroke: 'var(--text-muted)' }}
+                />
+                <YAxis
+                  stroke="var(--text-muted)"
+                  tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
+                  axisLine={{ stroke: 'var(--text-muted)' }}
+                  tickLine={{ stroke: 'var(--text-muted)' }}
+                  domain={[0, 100]}
+                  tickFormatter={(value: number) => `${value}%`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-subtle) 100%)',
+                    border: '1px solid var(--primary-alpha-30)',
+                    borderRadius: '10px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
+                  }}
+                  labelStyle={{ color: 'var(--primary-color)', fontWeight: 600 }}
+                  labelFormatter={(ts: number) =>
+                    new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                  }
+                  formatter={(value: number, name: string) => {
+                    const unit = name === 'Temp' ? '°C' : '%';
+                    return [`${value?.toFixed(1)}${unit}`, name];
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="RAM"
+                  stroke="var(--color-chart-2)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Swap"
+                  stroke="var(--primary-color)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Temp"
+                  stroke="var(--color-chart-3)"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
           <div className="sr-only" role="status">
             {metrics && (
               <>

@@ -27,6 +27,12 @@ const BASE_DELAY = 1500; // 1.5s, 3s, 6s, 12s, 24s
 
 interface UseTerminalOptions {
   projectId: string;
+  /**
+   * tmux-Session-Name im Container. Mehrere Terminals im selben Projekt
+   * brauchen distinkte Namen, um unabhängige Shells (statt Spiegel eines
+   * Screens) zu sein. Weglassen → Backend-Default 'main' (Erst-Session).
+   */
+  terminalName?: string;
   containerStatus?: string;
   fontSize?: number;
   onConnected?: () => void;
@@ -46,6 +52,7 @@ interface UseTerminalReturn {
 
 export function useTerminal({
   projectId,
+  terminalName,
   containerStatus,
   fontSize = 14,
   onConnected,
@@ -188,7 +195,8 @@ export function useTerminal({
     // SEC: Do NOT put the JWT in the URL — WS URLs leak into Traefik access logs.
     // The httpOnly `arasul_session` cookie is sent automatically on this
     // same-origin WS upgrade handshake and the backend authenticates from it.
-    const wsUrl = `${WS_BASE}/sandbox/terminal/ws?projectId=${projectId}`;
+    const terminalParam = terminalName ? `&terminal=${encodeURIComponent(terminalName)}` : '';
+    const wsUrl = `${WS_BASE}/sandbox/terminal/ws?projectId=${projectId}${terminalParam}`;
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
@@ -307,7 +315,7 @@ export function useTerminal({
     pingIntervalRef.current = setInterval(() => {
       sendControl({ type: 'ping' });
     }, 25000);
-  }, [projectId, fontSize, sendControl, teardown]);
+  }, [projectId, terminalName, fontSize, sendControl, teardown]);
 
   // Keep connectRef in sync
   connectRef.current = connect;
@@ -350,7 +358,7 @@ export function useTerminal({
       retryCountRef.current = 0;
     };
     // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
-  }, [containerStatus, projectId]);
+  }, [containerStatus, projectId, terminalName]);
 
   return {
     terminalRef,
