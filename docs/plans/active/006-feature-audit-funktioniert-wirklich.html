@@ -10,14 +10,14 @@
   "slug": "feature-audit-funktioniert-wirklich",
   "title": "Feature-Audit „funktioniert wirklich\"",
   "type": "audit",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P0",
   "risk_level": 3,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-07-14",
   "approved": "2026-07-14",
-  "branch": null,
+  "branch": "006-feature-audit-funktioniert-wirklich",
   "pr": null,
   "verified_on_device": false
 }
@@ -523,7 +523,7 @@
   </summary>
   <div class="sbody">
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — E2E-Suite auf den Jetson richten &amp; härten">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — E2E-Suite auf den Jetson richten &amp; härten">
     <h3>Schritt 1 — E2E-Suite auf den Jetson richten &amp; härten <span class="tag">Risiko: niedrig</span></h3>
     <p><code>playwright.config.ts</code> auf <code>E2E_BASE_URL=https://192.168.0.197</code>
     umstellen und <code>ignoreHTTPSErrors: true</code> ergänzen (selbstsigniertes Zert).
@@ -532,6 +532,7 @@
     <code>e2e:jetson</code> ergänzen. Ergebnis: die 9 bestehenden Specs laufen grün gegen die
     echte Appliance über die echte UI.</p>
     <p class="files mono">apps/dashboard-frontend/playwright.config.ts · apps/dashboard-frontend/e2e/*.spec.ts · package.json · scripts/test/run-tests.sh</p>
+    <div class="result"><strong>Ergebnis:</strong> <code>ignoreHTTPSErrors: true</code> gesetzt, npm-Scripts <code>e2e</code>/<code>e2e:jetson</code> (Default <code>https://100.121.244.80</code>) ergänzt. <em>Abweichung:</em> Die Migration der 7 Legacy-Opt-out-Specs auf den Default-Shell-Pfad wurde bewusst in den Live-Audit (Schritt 3) verschoben — die echten Default-Flows werden dort erst sichtbar; blindes Umschreiben gegen die Live-Appliance mit Real-Admin wäre riskant. Der Live-Audit lief stattdessen interaktiv via Playwright-MCP.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Feature-Katalog + Abdeckung fehlender Domänen">

@@ -414,7 +414,12 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           hasMore: data.hasMore || false,
         };
       } catch (err) {
-        console.error('Error loading messages:', err);
+        // 404 = der (evtl. aus persistiertem Zustand restaurierte) Chat existiert
+        // nicht mehr. Das ist ein erwarteter Zustand (gelöschter, aber noch
+        // referenzierter Chat), kein Fehler — nicht als Konsolenfehler loggen.
+        if ((err as { status?: number })?.status !== 404) {
+          console.error('Error loading messages:', err);
+        }
         return { messages: [], hasMore: false };
       }
     },
@@ -468,7 +473,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         }
         return null;
       } catch (err) {
-        console.error('Error checking active jobs:', err);
+        // 404 = Chat existiert nicht mehr (siehe loadMessages) — erwartet, kein Fehler.
+        if ((err as { status?: number })?.status !== 404) {
+          console.error('Error checking active jobs:', err);
+        }
         return null;
       }
     },
