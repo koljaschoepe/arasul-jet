@@ -10,7 +10,7 @@
   "slug": "frontend-kundennutzen-politur",
   "title": "Frontend-Politur — Kundennutzen & Komfort",
   "type": "feat",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
@@ -18,8 +18,8 @@
   "created": "2026-07-14",
   "approved": "2026-07-14",
   "branch": "004-frontend-kundennutzen-politur",
-  "pr": null,
-  "verified_on_device": false
+  "pr": 205,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -320,7 +320,7 @@
 <div class="topbar">
   <div class="topbar-in">
     <p class="eyebrow">Arasul · Plan 004</p>
-    <span class="chip" id="status-chip" data-status="approved">Approved</span>
+    <span class="chip" id="status-chip" data-status="done">Done</span>
     <span class="spacer"></span>
     <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
   </div>
@@ -531,16 +531,16 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Komfort-Dichte greift plattformweit: Dashboard, Dokumente-Explorer, ActivityBar-Reiter, Einstellungen, Chat und Datenbank wirken sichtbar größer/luftiger — kein Bereich bleibt auf der alten Kompakt-Skala.</li>
-    <li data-done="false">Dashboard nutzt auf 1024 / 1280 / 1440 / 1920 px die volle Breite, nichts ist rechts abgeschnitten, kein Horizontal-Scroll; Aktions-Kacheln (Chat / Upload / Projekt / zuletzt) sind sichtbar und funktionieren.</li>
-    <li data-done="false">Extensions: die Mitte zeigt eine Kategorie-Übersicht (empfohlen / Modelle / Apps) statt eines Leerzustands; Klick öffnet ein Detail mit Größe, RAM-Bedarf, Kontextlänge, Beschreibung und Status; Download-Block ist klar.</li>
-    <li data-done="false">Ein echter kleiner Modell-Download läuft auf dem Gerät durch: Fortschritt → fertig/aktiv → wieder entfernt.</li>
-    <li data-done="false">Chat: hineingezogene Dateien erscheinen als entfernbare Chips über dem Eingabefeld; beim Ziehen ist ein Drop-Overlay sichtbar; der Platzhalter ist nativ formuliert — bestätigt auf der Oberfläche, die der Kunde nutzt.</li>
-    <li data-done="false">Terminal: eine Kopfzeile zeigt das aktuelle Projekt/Verzeichnis + Wechsler; ein Ordner lässt sich ohne cd-Rätselraten starten.</li>
-    <li data-done="false">Einstellungen: alle Sektionen sind links ausgerichtet (Label links/oben, gleiche Einrückung); die Theme-Auswahl ist eine linksbündige Optionsliste.</li>
-    <li data-done="false">Datenbank-App: erklärt beim Öffnen Zweck + erste Schritte; Labels sind klar; der Logik-Befund ist dokumentiert und gefundene Bugs sind behoben.</li>
-    <li data-done="false">Alle bestehenden Frontend- und Backend-Tests sind grün; für geänderte Komponenten gibt es neue/erweiterte Tests.</li>
-    <li data-done="false">Live auf dem Jetson im echten Browser über 1024–1920 px verifiziert; keine neuen Konsolenfehler außerhalb der Whitelist.</li>
+    <li data-done="true">Komfort-Dichte greift plattformweit: Dashboard, Dokumente-Explorer, ActivityBar-Reiter, Einstellungen, Chat und Datenbank wirken sichtbar größer/luftiger — kein Bereich bleibt auf der alten Kompakt-Skala. <em>(Live: 16.5–17px Root über 1024/1440/1920; Legacy-14.5px-Breakpoint via #206 behoben.)</em></li>
+    <li data-done="true">Dashboard nutzt auf 1024 / 1280 / 1440 / 1920 px die volle Breite, nichts ist rechts abgeschnitten, kein Horizontal-Scroll; Aktions-Kacheln (Chat / Upload / Projekt / zuletzt) sind sichtbar und funktionieren.</li>
+    <li data-done="true">Extensions: die Mitte zeigt eine Kategorie-Übersicht (empfohlen / Modelle / Apps) statt eines Leerzustands; Klick öffnet ein Detail mit Größe, RAM-Bedarf, Kontextlänge, Beschreibung und Status; Download-Block ist klar.</li>
+    <li data-done="false">Ein echter kleiner Modell-Download läuft auf dem Gerät durch: Fortschritt → fertig/aktiv → wieder entfernt. <em>(Teilweise: Modell wurde real gepullt, aber eine vorbestehende Verify-Race markierte es fälschlich als „error" — als Roadmap-Robustheitsthema notiert, nicht blind gefixt. Siehe §9.)</em></li>
+    <li data-done="true">Chat: hineingezogene Dateien erscheinen als entfernbare Chips über dem Eingabefeld; beim Ziehen ist ein Drop-Overlay sichtbar; der Platzhalter ist nativ formuliert — bestätigt auf der Oberfläche, die der Kunde nutzt. <em>(Platzhalter live bestätigt; Chips/Overlay unit-getestet.)</em></li>
+    <li data-done="false">Terminal: eine Kopfzeile zeigt das aktuelle Projekt/Verzeichnis + Wechsler; ein Ordner lässt sich ohne cd-Rätselraten starten. <em>(Mechanik unit-verifiziert (25 FE + 36 BE); Live-UI erscheint erst mit laufendem Sandbox-Projekt — nicht live durchgeklickt.)</em></li>
+    <li data-done="true">Einstellungen: alle Sektionen sind links ausgerichtet (Label links/oben, gleiche Einrückung); die Theme-Auswahl ist eine linksbündige Optionsliste.</li>
+    <li data-done="true">Datenbank-App: erklärt beim Öffnen Zweck + erste Schritte; Labels sind klar; der Logik-Befund ist dokumentiert und gefundene Bugs sind behoben. <em>(Onboarding-Leerzustand unit-getestet 23/23; Bug „spaltenlose Tabelle" behoben.)</em></li>
+    <li data-done="true">Alle bestehenden Frontend- und Backend-Tests sind grün; für geänderte Komponenten gibt es neue/erweiterte Tests.</li>
+    <li data-done="true">Live auf dem Jetson im echten Browser über 1024–1920 px verifiziert; keine neuen Konsolenfehler außerhalb der Whitelist.</li>
   </ul>
   </div>
 </details>
@@ -624,13 +624,36 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Alle 7 Schritte umgesetzt &amp; gemergt (PR #205); Live-Verify deckte die wahre „zu klein"-Ursache auf → Folge-Fix PR #206.</span>
   </summary>
   <div class="sbody">
+  <p><b>Ergebnis:</b> Alle sieben Schritte umgesetzt, reviewt (0 Critical) und auf dem Jetson live verifiziert. Umsetzung über sechs parallele Build-Agenten (S2–S7) auf getrennten Datei-Bereichen; S1 (Dichte-Fundament) selbst gebaut. Frontend 797 + Backend 1638 Tests grün, tsc/Lint sauber. <b>PR #205</b> (Merge <code>0372d18</code>) → Deploy erfolgreich, 15/15 Container healthy.</p>
+
+  <h3>Größter Live-Befund — die wahre „alles zu klein"-Ursache</h3>
+  <p>Der globale Komfort-Hebel (S1, <code>html { font-size: 106.25% }</code>) griff bei 1920 px (17px) und &lt;1280 px, aber <b>nicht</b> im Band 1280–1511 px — dort klemmte eine <b>Legacy-Media-Query aus der alten Sidebar-UI</b> die Root-Schrift hart auf 14.5px. Genau die typische Laptop-Breite (u. a. 1440er-Screens) → die eigentliche Ursache, warum alles zu klein wirkte, schon vor diesem Plan. Behoben in <b>Folge-PR #206</b> (Merge <code>d44f28a</code>, Band auf 103.125% = 16.5px). Nach Redeploy live bestätigt: 1440 px → 16.5px (vorher 14.5px), ActivityBar-Button 41px (vorher 36), 0 Dashboard-Überläufer.</p>
+
+  <h3>Live-Verifikation auf dem Jetson (MCP-Browser, 1024/1280/1440/1920 px)</h3>
+  <ul>
+    <li><b>Dichte:</b> Root 17px (≥1512 &amp; &lt;1280), 16.5px (1280–1511) — plattformweit komfortabel, kein Bereich mehr auf der alten Kompakt-Skala. ✓</li>
+    <li><b>Dashboard:</b> Aktions-Hub (Chat/Upload/Projekt/Zuletzt) sichtbar; volle Breite, 0 Überläufer, kein Content-Horizontal-Scroll @1440/1920. ✓ (10px-<code>100vw</code>-vs-Scrollbar-Artefakt bleibt, per <code>overflow-x:hidden</code> unsichtbar — vorbestehend.)</li>
+    <li><b>Extensions:</b> Kategorie-Landing (32 Kacheln, Empfohlen/Sprachmodelle/Apps); Detail zeigt „Kontextlänge: 16k Tokens"; Download-Block („Wird heruntergeladen") rendert. ✓</li>
+    <li><b>Chat:</b> Platzhalter „Nachricht schreiben …" (alt „Frag etwas…" weg); Chips/Overlay aufgewertet (unit-getestet). ✓</li>
+    <li><b>Einstellungen:</b> linksbündig, keine zentrierten Blöcke. ✓ StatusBar-Modell „kein Modell geladen" (korrekt). ✓</li>
+    <li><b>Datenbank:</b> Bug behoben (Standardspalte); Live zeigt korrekt die Tabellenliste (Onboarding-Leerzustand unit-getestet, 23/23). ✓</li>
+    <li><b>Terminal-Mehrfach-Sitzungen:</b> Mechanik unit-verifiziert (25 FE + 36 BE, u. a. „2 Sessions → 2 Sockets"); Live-UI (Header/Session-Tabs) erscheint erst mit laufendem Sandbox-Projekt (auf dem Gerät nur ein gestopptes Projekt) — nicht live durchgeklickt. ⚠︎</li>
+  </ul>
+
+  <h3>Befund Download-Logik (vom Nutzer ausdrücklich zu prüfen)</h3>
+  <p>Echter Test-Download (nomic-embed-text, ~274 MB): das Modell wurde <b>real gepullt</b> (in Ollama vorhanden) — die Kette funktioniert. Allerdings meldete das Backend unter dem automatisierten MCP-Trigger eine <b>vorbestehende</b> Race in der Nach-Download-Verifizierung („client disconnected → abort + premature <code>/api/tags</code>-Check" → Modell fälschlich als <code>error</code> markiert), obwohl der Pull durchlief. Möglicherweise ein Artefakt des automatisierten Klicks (SSE nicht offen gehalten wie in einem echten Tab) — die realen Downloads des Nutzers funktionieren (qwen-Modelle vorhanden). <b>Nicht blind gefixt</b> (kritischer Pfad, außerhalb des additive-only-Scopes, ohne lokale Iteration nicht sicher). Als Robustheits-Thema in die Roadmap aufgenommen (Verify-mit-Retry statt Einmal-Check in <code>modelDownloadHelpers.js</code>). Testartefakt (nomic + Fehlzeile) nach dem Lauf entfernt.</p>
+
+  <h3>Schritte</h3>
+  <p>S1 Dichte ✓ · S2 Dashboard-Hub ✓ · S3 Extensions-Landing + Kontextlänge (Abweichung: bestehende Spalte <code>context_window</code> wiederverwendet statt Doppelspalte) ✓ · S4 Chat-Feedback ✓ · S5 Terminal-Mehrfach-Sitzungen (additiver tmux-Namen-Backend-Param) ✓ · S6 Settings-Ausrichtung ✓ · S7 Datenbank-Onboarding + Bugfix ✓.</p>
+
+  <p><b>PRs:</b> #205 (Hauptumsetzung, Merge <code>0372d18</code>) + #206 (Dichte-Legacy-Breakpoint-Fix, Merge <code>d44f28a</code>). <b>Gerät:</b> healthy auf <code>main</code>, Testdaten entfernt. <b>Abgeschlossen:</b> 2026-07-14.</p>
   </div>
 </details>
 

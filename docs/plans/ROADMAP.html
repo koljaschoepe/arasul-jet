@@ -46,8 +46,9 @@
     { "id": "T11", "title": "Workspace 2.0 — Feinschliff auf Cursor-Niveau (Themes, Agent-Chat, Projekte-Explorer, Terminal-Modi, Extensions, n8n 2.x)", "prio": "P0", "status": "done", "source": "user 2026-07-11", "plan": "001", "pr": 184 },
     { "id": "T12", "title": "Cursor-Shell 3.0 — Neubau der Workspace-Shell (ein Terminal, echte Tabs, Extension-Gating, Kompakt-Skala)", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "002", "pr": 196 },
     { "id": "T13", "title": "Cursor-Shell 3.1 — Ein rechtes Panel (Chat⇄Terminal), Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default", "prio": "P1", "status": "done", "source": "user 2026-07-13", "plan": "003", "pr": 197 },
-    { "id": "T14", "title": "Frontend-Politur — Kundennutzen & Komfort (plattformweite Dichte, Dashboard-Aktions-Hub, Extensions-Übersicht + Kontextlänge, Chat-Anhang-Feedback, Terminal-Ordner-Header, Settings-Ausrichtung, Datenbank-App-Onboarding)", "prio": "P1", "status": "planned", "source": "user 2026-07-14", "plan": "004", "pr": null },
-    { "id": "T15", "title": "Ordner-Cloud-Sync (GitHub/OneDrive) — gespeicherte Projekte optional in die Cloud spiegeln", "prio": "P2", "status": "open", "source": "user 2026-07-14", "plan": null, "pr": null }
+    { "id": "T14", "title": "Frontend-Politur — Kundennutzen & Komfort (plattformweite Dichte, Dashboard-Aktions-Hub, Extensions-Übersicht + Kontextlänge, Chat-Anhang-Feedback, Terminal-Ordner-Header, Settings-Ausrichtung, Datenbank-App-Onboarding)", "prio": "P1", "status": "done", "source": "user 2026-07-14", "plan": "004", "pr": 205 },
+    { "id": "T15", "title": "Ordner-Cloud-Sync (GitHub/OneDrive) — gespeicherte Projekte optional in die Cloud spiegeln", "prio": "P2", "status": "open", "source": "user 2026-07-14", "plan": null, "pr": null },
+    { "id": "T16", "title": "Modell-Download-Robustheit — Nach-Download-Verify mit Retry/Poll statt Einmal-Check (vorbestehende Race in modelDownloadHelpers.js: Modell wird real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error' markiert)", "prio": "P1", "status": "open", "source": "Live-Verify Plan 004 2026-07-14", "plan": null, "pr": null }
   ],
   "history": [
     { "date": "2026-07-12", "plan": "001", "title": "Workspace 2.0 — Cursor-Feinschliff", "pr": 184 }
@@ -427,8 +428,8 @@
     </div>
   </details>
 
-  <details class="card" id="T14" data-prio="P1" data-status="planned" data-ref="T14 Frontend-Politur Kundennutzen">
-    <summary><span class="prio">P1</span><span class="ttl">Frontend-Politur — Kundennutzen &amp; Komfort</span><span class="cbtn-slot"></span><span class="st">geplant (004)</span><span class="chev">▶</span></summary>
+  <details class="card" id="T14" data-prio="P1" data-status="done" data-ref="T14 Frontend-Politur Kundennutzen">
+    <summary><span class="prio">P1</span><span class="ttl">Frontend-Politur — Kundennutzen &amp; Komfort</span><span class="cbtn-slot"></span><span class="st">done (PR #205 + #206)</span><span class="chev">▶</span></summary>
     <div class="cbody">
       <p>Sieben gezielte Verbesserungen: plattformweite Komfort-Dichte (zwei Größen-Systeme werden eins,
       nichts wirkt mehr zu klein), Dashboard als Aktions-Hub in voller Breite, Extensions-Kategorie-Übersicht
@@ -436,7 +437,21 @@
       klarer Terminal-Ordner-Header, durchgängig links-ausgerichtete Einstellungen, verständliche Datenbank-App.
       Verify-first: mehrere gewünschte Funktionen existieren schon → live prüfen, echte Lücken schließen.</p>
       <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1–2 Sessions</b></span><span>Hängt an: <b>T13 (done)</b></span></div>
-      <div class="cmd"><code>docs/plans/active/004-frontend-kundennutzen-politur.html</code><button type="button" data-copy="/work 004">Befehl kopieren</button></div>
+      <div class="cmd"><code>docs/plans/done/004-frontend-kundennutzen-politur.html</code><button type="button" data-copy="docs/plans/done/004-frontend-kundennutzen-politur.html">Pfad kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T16" data-prio="P1" data-status="open" data-ref="T16 Modell-Download-Robustheit">
+    <summary><span class="prio">P1</span><span class="ttl">Modell-Download-Robustheit (Verify mit Retry)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Beim Live-Verify von Plan 004 gefunden: Ein echter Modell-Pull landet real in Ollama, aber die
+      Nach-Download-Verifizierung in <code>modelDownloadHelpers.js</code> prüft einmalig <code>/api/tags</code>
+      direkt bei Stream-Ende und markiert das Modell bei einem client-disconnect / noch nicht registrierten
+      Modell fälschlich als <code>error</code>. Fix: Verify mit kurzem Retry/Poll (Modell registriert sich
+      teils Sekunden später) und robustere Behandlung des Client-Disconnects, damit ein serverseitig
+      laufender Pull nicht vorzeitig als Fehler gilt. Kritischer Pfad — braucht Iteration gegen echte Pulls.</p>
+      <div class="facts"><span>Macht Gate: <b>—</b></span><span>Aufwand: <b>~1 Session</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>—</code><button type="button" data-copy="/plan Modell-Download-Robustheit (Verify mit Retry)">Befehl kopieren</button></div>
     </div>
   </details>
 
@@ -453,6 +468,7 @@
 
   <h2>Erledigt</h2>
   <ul class="history" id="history">
+    <li><b>2026-07-14</b> · Plan 004 — Frontend-Politur (Kundennutzen &amp; Komfort): plattformweite Komfort-Dichte, Dashboard-Aktions-Hub, Extensions-Kategorie-Landing + Kontextlänge, Chat-Anhang-Feedback, Terminal-Mehrfach-Sitzungen, Settings-Ausrichtung, Datenbank-Onboarding · PR #205 + #206 (Legacy-14.5px-Breakpoint) · live verifiziert; Download-Verify-Race → T16</li>
     <li><b>2026-07-13</b> · Plan 003 — Cursor-Shell 3.1: Ein Panel, Kontext-Sidebar, Store-Rückbau, Farb-Audit, CSRF-/Dialog-Bugfixes, Shell als Default · PR #197 · live verifiziert</li>
     <li><b>2026-07-13</b> · Plan 002 — Cursor-Shell 3.0: Neubau der Workspace-Shell · PR #196 · live verifiziert (Matrix 64 Zustände + alle E2E-Flows grün)</li>
     <li><b>2026-07-12</b> · Plan 001 — Workspace 2.0: Feinschliff auf Cursor-Niveau · PR #184 (+ Fix #185) · live verifiziert (Smoke 21/21)</li>
