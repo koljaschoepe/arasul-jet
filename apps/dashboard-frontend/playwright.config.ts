@@ -22,6 +22,9 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL || 'http://localhost',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // Jetson liefert ein selbstsigniertes Zertifikat (Traefik default). Ohne
+    // dies scheitert jeder Lauf gegen https://<jetson> an der TLS-Prüfung.
+    ignoreHTTPSErrors: true,
     // Use snap Chromium on Jetson if available
     launchOptions: {
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,

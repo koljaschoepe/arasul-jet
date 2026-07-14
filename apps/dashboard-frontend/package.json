@@ -59,7 +59,9 @@
     "test:ci": "vitest run --coverage",
     "lint": "eslint src/ --ext .ts,.tsx",
     "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
-    "knip": "knip --no-config-hints"
+    "knip": "knip --no-config-hints",
+    "e2e": "playwright test",
+    "e2e:jetson": "E2E_BASE_URL=${E2E_BASE_URL:-https://100.121.244.80} playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.0",
