@@ -880,6 +880,21 @@
   50% { opacity: 0.6; }
 }
 
+/* Chat-Maskottchen (Plan 005 · Schritt 3): Wink-Frame ein-/ausblenden.
+   Idle blinzelt selten, Thinking zwinkert häufiger + wippt sanft. */
+@keyframes mascot-blink {
+  0%, 90%, 100% { opacity: 0; }
+  93%, 97% { opacity: 1; }
+}
+@keyframes mascot-wink {
+  0%, 100% { opacity: 0; }
+  40%, 70% { opacity: 1; }
+}
+@keyframes mascot-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
 /* ========================================
    PHASE 5: Skip-to-content Link (Accessibility)
    Allows keyboard users to skip navigation

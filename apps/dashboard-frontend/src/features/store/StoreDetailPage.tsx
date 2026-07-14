@@ -21,14 +21,17 @@ import {
   Package,
   Play,
   RefreshCw,
+  Search,
   Sparkles,
   Square,
   Star,
   Trash2,
+  X,
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
+import { Input } from '@/components/ui/shadcn/input';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +40,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/shadcn/dialog';
+import { cn } from '@/lib/utils';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -598,34 +602,22 @@ function CategoryTile({ tile, onSelect }: { tile: Tile; onSelect: () => void }) 
   );
 }
 
-function LandingSection({
-  icon,
-  title,
-  tiles,
-  onSelect,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  tiles: Tile[];
-  onSelect: (tile: Tile) => void;
-}) {
-  if (tiles.length === 0) return null;
+/** Browse-Tabs der Mitte (spiegeln den Kategorie-Filter der linken Verwaltung). */
+type BrowseTab = 'recommended' | 'models' | 'apps';
+
+const BROWSE_TABS: ReadonlyArray<{ value: BrowseTab; label: string; icon: React.ReactNode }> = [
+  { value: 'recommended', label: 'Empfohlen', icon: <Sparkles aria-hidden="true" /> },
+  { value: 'models', label: 'Sprachmodelle', icon: <Cpu aria-hidden="true" /> },
+  { value: 'apps', label: 'Apps', icon: <Package aria-hidden="true" /> },
+];
+
+function TileGrid({ tiles, onSelect }: { tiles: Tile[]; onSelect: (tile: Tile) => void }) {
   return (
-    <section className="mb-8">
-      <h2 className="mb-ui-3 flex items-center gap-ui-2 text-ui-lg font-semibold text-foreground">
-        <span className="text-primary [&_svg]:size-5">{icon}</span>
-        {title}
-      </h2>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-ui-3">
-        {tiles.map(tile => (
-          <CategoryTile
-            key={`${tile.kind}-${tile.id}`}
-            tile={tile}
-            onSelect={() => onSelect(tile)}
-          />
-        ))}
-      </div>
-    </section>
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-ui-3">
+      {tiles.map(tile => (
+        <CategoryTile key={`${tile.kind}-${tile.id}`} tile={tile} onSelect={() => onSelect(tile)} />
+      ))}
+    </div>
   );
 }
 
@@ -665,47 +657,89 @@ function StoreLanding({
 }) {
   const selectExtension = useExtensionStore(s => s.selectExtension);
   const onSelect = (tile: Tile) => selectExtension({ kind: tile.kind, id: tile.id });
+  const [tab, setTab] = useState<BrowseTab>('recommended');
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
 
   const recommendedModels = models.filter(
     m => m.id === defaultModel || m.speed_tier === 'balanced'
   );
   const featuredApps = apps.filter(a => a.featured);
-  const recommendedTiles: Tile[] = [
-    ...recommendedModels.map(modelTile),
-    ...featuredApps.map(appTile),
-  ];
+  const tilesByTab: Record<BrowseTab, Tile[]> = {
+    recommended: [...recommendedModels.map(modelTile), ...featuredApps.map(appTile)],
+    models: models.map(modelTile),
+    apps: apps.map(appTile),
+  };
+  const activeTiles = tilesByTab[tab].filter(
+    t => q === '' || t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+  );
 
   const hasContent = models.length > 0 || apps.length > 0;
 
   return (
     <div className="flex h-full flex-col">
       <LoadedModelBar loadedModel={loadedModel} />
+      {hasContent && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-6 py-3">
+          <div role="tablist" aria-label="Katalog filtern" className="flex gap-1">
+            {BROWSE_TABS.map(t => (
+              <button
+                key={t.value}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.value}
+                data-testid={`browse-tab-${t.value}`}
+                onClick={() => setTab(t.value)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-ui-sm font-medium transition-colors [&_svg]:size-3.5',
+                  tab === t.value
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                )}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative ml-auto min-w-[12rem] flex-1 sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Katalog durchsuchen..."
+              aria-label="Katalog durchsuchen"
+              className="h-8 pl-8 pr-8"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Suche leeren"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         {hasContent ? (
-          <div className="mx-auto max-w-4xl">
-            <p className="mb-8 max-w-2xl text-ui-sm text-muted-foreground">
-              Wähle eine App oder ein Modell, um Details zu sehen und Aktionen auszuführen — oder
-              starte direkt hier.
+          activeTiles.length > 0 ? (
+            <div className="mx-auto max-w-4xl">
+              <TileGrid tiles={activeTiles} onSelect={onSelect} />
+            </div>
+          ) : (
+            <p className="py-16 text-center text-ui-sm text-muted-foreground">
+              {q !== ''
+                ? `Keine Treffer für „${query}“.`
+                : tab === 'recommended'
+                  ? 'Noch keine Empfehlungen — wähle „Sprachmodelle" oder „Apps".'
+                  : 'Nichts in dieser Kategorie.'}
             </p>
-            <LandingSection
-              icon={<Sparkles aria-hidden="true" />}
-              title="Empfohlen"
-              tiles={recommendedTiles}
-              onSelect={onSelect}
-            />
-            <LandingSection
-              icon={<Cpu aria-hidden="true" />}
-              title="Sprachmodelle"
-              tiles={models.map(modelTile)}
-              onSelect={onSelect}
-            />
-            <LandingSection
-              icon={<Package aria-hidden="true" />}
-              title="Apps"
-              tiles={apps.map(appTile)}
-              onSelect={onSelect}
-            />
-          </div>
+          )
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center text-muted-foreground">
             <Package className="size-10 opacity-40" />

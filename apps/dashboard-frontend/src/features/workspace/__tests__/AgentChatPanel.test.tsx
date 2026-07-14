@@ -53,10 +53,12 @@ describe('AgentChatPanel', () => {
     localStorage.clear();
   });
 
-  it('zeigt den leeren Zustand mit Composer', () => {
+  it('zeigt den leeren Zustand mit Composer und Maskottchen', () => {
     render(<AgentChatPanel />);
     expect(screen.getByText('Frag dein Unternehmenswissen.')).toBeInTheDocument();
     expect(screen.getByLabelText('Nachricht an die KI')).toBeInTheDocument();
+    // Maskottchen sichtbar (Statuszeile oben + großes Bild im leeren Zustand)
+    expect(screen.getAllByTestId('chat-mascot').length).toBeGreaterThanOrEqual(1);
     // Keine RAG-/Thinking-Toggles mehr
     expect(screen.queryByText(/\bRAG\b/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Thinking/i)).not.toBeInTheDocument();
@@ -124,6 +126,25 @@ describe('CompactMessage', () => {
     const tabs = useWorkspaceStore.getState().tabs;
     expect(tabs).toHaveLength(1);
     expect(tabs[0]).toMatchObject({ type: 'document', documentId: 'd1' });
+  });
+
+  it('zeigt lange Quellen-Dateinamen vollständig (umbrechend, nicht abgeschnitten)', () => {
+    const longName = 'Sehr-langer-Dateiname-Quartalsbericht-2026-Q3-final-v7.pdf';
+    render(
+      <CompactMessage
+        isStreaming={false}
+        message={{
+          role: 'assistant',
+          content: 'Antwort',
+          sources: [{ document_name: longName, document_id: 'd9' }],
+        }}
+      />
+    );
+    fireEvent.click(screen.getByText('1 Quelle'));
+    const label = screen.getByText(longName);
+    // Vollständig lesbar: kein truncate-Clip, sondern Umbruch
+    expect(label).not.toHaveClass('truncate');
+    expect(label.className).toMatch(/break-words/);
   });
 
   it('zeigt Thinking als einklappbare Zeile', () => {

@@ -29,6 +29,12 @@ vi.mock('@/hooks/useStoreCatalog', () => ({
     invalidateModels: vi.fn(),
     invalidateApps: vi.fn(),
   }),
+  // Prädikate spiegeln die echte Implementierung (reine Funktionen).
+  isModelInstalled: (m: { install_status?: string }) => m.install_status === 'available',
+  isModelActive: (m: { id: string; effective_ollama_name?: string }, loadedId: string | null) =>
+    loadedId != null && (loadedId === m.id || loadedId === m.effective_ollama_name),
+  isAppInstalled: (a: { status?: string }) =>
+    a.status === 'running' || a.status === 'installed' || a.status === 'error',
 }));
 
 const setAppEnabled = vi.fn().mockResolvedValue(undefined);
@@ -58,24 +64,44 @@ describe('ExtensionsSidebarList', () => {
     useExtensionStore.getState().clearSelection();
   });
 
-  it('rendert Plattform-Apps, Container-Apps und Modelle', () => {
+  it('zeigt NUR installierte/aktive Einträge (Plattform, laufende App, geladenes Modell)', () => {
     renderList();
+    // Installiert/aktiv → sichtbar
     expect(screen.getByTestId('platform-row-telegram')).toBeInTheDocument();
-    expect(screen.getByTestId('ext-app-gitea')).toBeInTheDocument();
-    expect(screen.getByTestId('ext-app-n8n')).toBeInTheDocument();
-    expect(screen.getByTestId('ext-model-llama3')).toBeInTheDocument();
-    expect(screen.getByTestId('ext-model-bge-m3')).toBeInTheDocument();
+    expect(screen.getByTestId('ext-app-n8n')).toBeInTheDocument(); // status running
+    expect(screen.getByTestId('ext-model-llama3')).toBeInTheDocument(); // install_status available
+    // Nicht installiert → in der Verwaltung ausgeblendet (nur im Katalog rechts)
+    expect(screen.queryByTestId('ext-app-gitea')).not.toBeInTheDocument(); // status available
+    expect(screen.queryByTestId('ext-model-bge-m3')).not.toBeInTheDocument(); // install_status missing
   });
 
-  it('das Suchfeld filtert Apps und Modelle', () => {
+  it('das Suchfeld filtert die installierten Einträge', () => {
     renderList();
     fireEvent.change(screen.getByLabelText('Extensions durchsuchen'), {
-      target: { value: 'embed' },
+      target: { value: 'workflow' },
     });
-    // BGE-M3 (Beschreibung "Embedding-Modell") bleibt, alles andere verschwindet
-    expect(screen.getByTestId('ext-model-bge-m3')).toBeInTheDocument();
+    // n8n (Beschreibung "Workflow-Automatisierung") bleibt, alles andere verschwindet
+    expect(screen.getByTestId('ext-app-n8n')).toBeInTheDocument();
     expect(screen.queryByTestId('ext-model-llama3')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('ext-app-gitea')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('platform-row-telegram')).not.toBeInTheDocument();
+  });
+
+  it('der Kategorie-Filter grenzt auf Sprachmodelle bzw. Apps ein', () => {
+    renderList();
+    // Sprachmodelle → nur Modelle, keine Apps/Plattform
+    fireEvent.click(screen.getByTestId('ext-filter-models'));
+    expect(screen.getByTestId('ext-model-llama3')).toBeInTheDocument();
+    expect(screen.queryByTestId('ext-app-n8n')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('platform-row-telegram')).not.toBeInTheDocument();
+    // Apps → Plattform + Container-Apps, keine Modelle
+    fireEvent.click(screen.getByTestId('ext-filter-apps'));
+    expect(screen.getByTestId('platform-row-telegram')).toBeInTheDocument();
+    expect(screen.getByTestId('ext-app-n8n')).toBeInTheDocument();
+    expect(screen.queryByTestId('ext-model-llama3')).not.toBeInTheDocument();
+    // Alle → wieder alles Installierte
+    fireEvent.click(screen.getByTestId('ext-filter-all'));
+    expect(screen.getByTestId('ext-model-llama3')).toBeInTheDocument();
+    expect(screen.getByTestId('ext-app-n8n')).toBeInTheDocument();
   });
 
   it('das Suchfeld filtert auch die Plattform-Apps', () => {
@@ -101,8 +127,8 @@ describe('ExtensionsSidebarList', () => {
 
   it('Klick auf eine Zeile setzt die Auswahl im Extension-Store', () => {
     renderList();
-    fireEvent.click(screen.getByTestId('ext-app-gitea'));
-    expect(useExtensionStore.getState().selected).toEqual({ kind: 'app', id: 'gitea' });
+    fireEvent.click(screen.getByTestId('ext-app-n8n'));
+    expect(useExtensionStore.getState().selected).toEqual({ kind: 'app', id: 'n8n' });
 
     fireEvent.click(screen.getByTestId('ext-model-llama3'));
     expect(useExtensionStore.getState().selected).toEqual({ kind: 'model', id: 'llama3' });

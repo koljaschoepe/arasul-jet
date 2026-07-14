@@ -20,6 +20,7 @@ vi.mock('@/components/extensions/ExtensionsSidebarList', () => ({
 const DASH: WorkspaceTab = { id: 'dashboard', type: 'dashboard', title: 'Dashboard' };
 const STORE: WorkspaceTab = { id: 'store', type: 'store', title: 'Extensions' };
 const DB: WorkspaceTab = { id: 'database', type: 'database', title: 'Datenbank' };
+const N8N: WorkspaceTab = { id: 'automationen', type: 'automationen', title: 'Automation' };
 
 function reset(tabs: WorkspaceTab[], activeTabId: string) {
   useWorkspaceStore.setState({ tabs, activeTabId, sidebarVisible: true, sidebarRestore: null });
@@ -41,6 +42,17 @@ describe('SidebarHost — Kontext-Mapping', () => {
     render(<SidebarHost />);
     expect(screen.getByTestId('ext-list')).toBeInTheDocument();
     expect(screen.queryByTestId('explorer')).not.toBeInTheDocument();
+  });
+
+  it('Automation/n8n-Tab → ExplorerPanel bleibt, Sidebar wird NICHT eingeklappt', () => {
+    reset([DASH, N8N], 'dashboard');
+    render(<SidebarHost />);
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
+
+    // Wechsel auf den n8n-Tab → Explorer bleibt sichtbar, kein Auto-Collapse
+    act(() => useWorkspaceStore.setState({ activeTabId: 'automationen' }));
+    expect(screen.getByTestId('explorer')).toBeInTheDocument();
+    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
   });
 
   it('App-Tab klappt die Sidebar automatisch zu und stellt sie beim Verlassen wieder her', () => {

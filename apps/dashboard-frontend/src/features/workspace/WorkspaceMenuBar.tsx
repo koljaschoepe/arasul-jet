@@ -8,26 +8,17 @@ import {
   Settings,
   PanelLeft,
   PanelRight,
-  Check,
   ChevronDown,
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useTheme, type Theme } from '@/hooks/useTheme';
 import type { TabThemeControls } from './TabContent';
-
-const THEME_OPTIONS: ReadonlyArray<{ value: Theme; label: string }> = [
-  { value: 'black', label: 'Schwarz' },
-  { value: 'dark', label: 'Dunkel' },
-  { value: 'light', label: 'Hell' },
-];
 
 interface WorkspaceMenuBarProps {
   themeControls: TabThemeControls;
@@ -78,14 +69,14 @@ function LayoutToggleButton({
 
 /**
  * Schlanke Top-Menüleiste der IDE-Shell (à la Cursor, bewusst minimal):
- * links Marke + Datei/Ansicht-Menüs, rechts die zwei Layout-Toggles
+ * links Marke + Datei-Menü, rechts die zwei Layout-Toggles
  * (Sidebar / rechtes Panel) neben den Einstellungen. Der Panel-Modus
- * (Chat/Terminal) wird im Panel selbst umgeschaltet.
+ * (Chat/Terminal) wird im Panel selbst umgeschaltet. Das Theme
+ * (Schwarz/Dunkel/Hell) wird ausschließlich in den Einstellungen →
+ * Erscheinungsbild gesetzt (kein redundanter Ansichtsmodus-Umschalter mehr,
+ * Plan 005 · Schritt 1).
  */
 export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
-  // Theme direkt über den Hook (synct alle useTheme-Instanzen); die
-  // themeControls-Prop bleibt für die TabContent-Verdrahtung erhalten.
-  const { theme, setTheme } = useTheme();
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
@@ -126,27 +117,6 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
             <Undo2 className="h-4 w-4" aria-hidden="true" />
             Zur klassischen Ansicht
           </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <MenuTriggerButton label="Ansicht" />
-        <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Design</DropdownMenuLabel>
-          {THEME_OPTIONS.map(option => (
-            <DropdownMenuItem
-              key={option.value}
-              onClick={() => setTheme(option.value)}
-              role="menuitemradio"
-              aria-checked={theme === option.value}
-            >
-              <Check
-                className={`h-4 w-4 ${theme === option.value ? 'opacity-100' : 'opacity-0'}`}
-                aria-hidden="true"
-              />
-              {option.label}
-            </DropdownMenuItem>
-          ))}
         </DropdownMenuContent>
       </DropdownMenu>
 

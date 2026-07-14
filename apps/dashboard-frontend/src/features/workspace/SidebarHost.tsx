@@ -10,7 +10,9 @@ import { ExplorerPanel } from './explorer/ExplorerPanel';
  *
  *   Dashboard / Dokumente / Einstellungen → ExplorerPanel (Second-Brain-Baum)
  *   Extensions (store)                    → ExtensionsSidebarList (Suche + Liste)
- *   App-Tabs (n8n / Telegram / Datenbank) → Sidebar klappt automatisch zu
+ *   Automation (n8n)                      → ExplorerPanel bleibt sichtbar (Tab
+ *                                           im Hauptbereich, kein Auto-Collapse)
+ *   App-Tabs (Telegram / Datenbank)       → Sidebar klappt automatisch zu
  *
  * Auto-Collapse: Beim Betreten eines App-Tabs wird die Sidebar eingeklappt und
  * die vorherige Nutzer-Präferenz gemerkt; beim Verlassen wird sie
@@ -23,8 +25,10 @@ import { ExplorerPanel } from './explorer/ExplorerPanel';
  * einem App-Tab wieder aufziehen, ohne dass das erneute Einklappen greift.
  */
 
+// Tabs, die den Explorer automatisch einklappen. 'automationen' (n8n) ist
+// bewusst NICHT dabei: n8n läuft als Tab im Hauptbereich, der Explorer bleibt
+// stehen, damit der Nutzer seine Dateien nicht verliert (Plan 005 · Schritt 1).
 const APP_TAB_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
-  'automationen',
   'telegram',
   'database',
   'database-table',

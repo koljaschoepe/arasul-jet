@@ -30,12 +30,16 @@ describe('WorkspaceMenuBar', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('rendert Marke, Menüs und den Settings-Button rechts', () => {
+  it('rendert Marke, Datei-Menü und den Settings-Button rechts', () => {
     render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
     expect(screen.getByText('Arasul')).toBeInTheDocument();
     expect(screen.getByLabelText('Datei-Menü')).toBeInTheDocument();
-    expect(screen.getByLabelText('Ansicht-Menü')).toBeInTheDocument();
     expect(screen.getByLabelText('Einstellungen')).toBeInTheDocument();
+  });
+
+  it('hat keinen Ansichtsmodus-/Theme-Umschalter mehr (nur noch in den Einstellungen)', () => {
+    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    expect(screen.queryByLabelText('Ansicht-Menü')).not.toBeInTheDocument();
   });
 
   it('»Neuer Ordner…« stellt eine Explorer-Anfrage', async () => {
@@ -98,38 +102,12 @@ describe('WorkspaceMenuBar', () => {
     expect(state.rightPanelMode).toBe('terminal');
   });
 
-  it('Ansicht-Menü enthält keine Panel-Toggles mehr (nur Design)', async () => {
-    const user = userEvent.setup();
+  it('bietet keine Design-/Theme-Auswahl mehr in der Menüleiste', () => {
     render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
-    await user.click(screen.getByLabelText('Ansicht-Menü'));
-
-    expect(await screen.findByText('Design')).toBeInTheDocument();
-    expect(screen.queryByText(/Explorer ausblenden|Explorer einblenden/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/KI-Panel/)).not.toBeInTheDocument();
-  });
-
-  it('Ansicht-Menü zeigt drei Design-Optionen, aktiv ist Schwarz (Default)', async () => {
-    const user = userEvent.setup();
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
-    await user.click(screen.getByLabelText('Ansicht-Menü'));
-
-    const black = await screen.findByRole('menuitemradio', { name: /Schwarz/ });
-    const dark = screen.getByRole('menuitemradio', { name: /Dunkel/ });
-    const light = screen.getByRole('menuitemradio', { name: /Hell/ });
-
-    expect(black).toHaveAttribute('aria-checked', 'true');
-    expect(dark).toHaveAttribute('aria-checked', 'false');
-    expect(light).toHaveAttribute('aria-checked', 'false');
-  });
-
-  it('Design-Auswahl »Hell« setzt Theme, Klasse und localStorage', async () => {
-    const user = userEvent.setup();
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
-    await user.click(screen.getByLabelText('Ansicht-Menü'));
-    await user.click(await screen.findByRole('menuitemradio', { name: /Hell/ }));
-
-    expect(localStorage.getItem('arasul_theme')).toBe('light');
-    expect(document.documentElement.classList.contains('light')).toBe(true);
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    // Kein Ansicht-Menü, keine Design-Optionen — Theme lebt nur in den Einstellungen.
+    expect(screen.queryByLabelText('Ansicht-Menü')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitemradio', { name: /Schwarz|Dunkel|Hell/ })
+    ).not.toBeInTheDocument();
   });
 });

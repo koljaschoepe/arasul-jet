@@ -57,6 +57,31 @@ export interface CatalogApp {
   lastError?: string;
 }
 
+/**
+ * Zentrale „installiert/aktiv"-Prädikate (Plan 005 · Schritt 5). Achtung:
+ * Der Katalog nutzt `install_status === 'available'` verwirrenderweise für
+ * „installiert/heruntergeladen" (nicht „im Store verfügbar"). Damit die
+ * Zwei-Spalten-Ansicht (links nur Installiertes, Mitte Browse) und die Badges
+ * dieselbe Definition teilen, kapseln wir sie hier — statt die Bedeutung an
+ * jedem Aufrufer neu zu raten.
+ */
+export function isModelInstalled(model: CatalogModel): boolean {
+  return model.install_status === 'available';
+}
+
+export function isModelActive(model: CatalogModel, loadedModelId: string | null): boolean {
+  return (
+    loadedModelId != null &&
+    (loadedModelId === model.id || loadedModelId === model.effective_ollama_name)
+  );
+}
+
+/** Container-App ist installiert (läuft, gestoppt oder im Fehlerzustand) — nur
+ *  `status === 'available'` bedeutet „noch nicht installiert". */
+export function isAppInstalled(app: CatalogApp): boolean {
+  return app.status === 'running' || app.status === 'installed' || app.status === 'error';
+}
+
 export const STORE_MODELS_KEY = ['store', 'models'] as const;
 export const STORE_MODEL_STATUS_KEY = ['store', 'model-status'] as const;
 export const STORE_MODEL_DEFAULT_KEY = ['store', 'model-default'] as const;

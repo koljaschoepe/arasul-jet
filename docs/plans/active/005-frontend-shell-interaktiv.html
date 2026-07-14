@@ -11,14 +11,14 @@
   "slug": "frontend-shell-interaktiv",
   "title": "Workspace-Shell: interaktiver Chat, Extensions & Dashboard",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-07-14",
   "approved": "2026-07-14",
-  "branch": null,
+  "branch": "005-frontend-shell-interaktiv",
   "pr": null,
   "verified_on_device": false
 }
@@ -444,52 +444,60 @@
   </summary>
   <div class="sbody">
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Bug-Batch: n8n-Explorer &amp; Ansichtsmodus-Umschalter">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Bug-Batch: n8n-Explorer &amp; Ansichtsmodus-Umschalter">
     <h3>Schritt 1 — Bug-Batch: n8n behält Explorer + Theme-Umschalter raus <span class="tag">Risiko: niedrig</span></h3>
     <p><code>'automationen'</code> aus der Auto-Einklapp-Menge (<code>APP_TAB_TYPES</code>) entfernen, sodass der Explorer beim n8n-Wechsel stehen bleibt — ohne Telegram/Datenbank zu beeinflussen. Zusätzlich den hell/dunkel-Umschalter aus der Menüleiste oben links entfernen; die Theme-Logik (<code>useTheme</code>) bleibt unangetastet und wird nur noch aus den Einstellungen bedient.</p>
     <p class="files mono">features/workspace/SidebarHost.tsx · stores/workspaceStore.ts (syncSidebarForTab) · features/workspace/WorkspaceMenuBar.tsx · Tests: SidebarHost.test.tsx (+ Fall „n8n hält Sidebar"), WorkspaceMenuBar.test.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> <code>'automationen'</code> aus <code>APP_TAB_TYPES</code> entfernt (Telegram/Datenbank unverändert); die <code>syncSidebarForTab</code>-Zustandsmaschine blieb ungeändert nötig. „Ansicht"-Menü inkl. Theme-Auswahl komplett aus <code>WorkspaceMenuBar</code> entfernt (Theme nur noch in Einstellungen → Erscheinungsbild, <code>useTheme</code> unberührt). Neuer Testfall „n8n hält Sidebar" ergänzt; Frontend-CLAUDE.md angeglichen. Tests: SidebarHost 6/6, WorkspaceMenuBar 8/8, theme-Integration 13/13 grün; ESLint sauber.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Chat: Anhang-Liste über der Eingabe">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 2 — Chat: Anhang-Liste über der Eingabe">
     <h3>Schritt 2 — Chat: Anhang-Chips + Drop-Feedback <span class="tag">Risiko: niedrig</span></h3>
     <p>Angehängte/hineingezogene Dateien als Chip-Liste <b>über</b> dem Eingabefeld darstellen (Icon, Name, Entfernen-✕). Beim Drüberziehen ein deutliches Drop-Overlay („hier loslassen"). Baut auf den seit Plan 004 vorhandenen <code>AttachmentChip</code>/Drop-Bausteinen auf und macht sie zur echten Liste.</p>
     <p class="files mono">features/workspace/llm/agentChat/ComposerCard.tsx · AgentChatPanel.tsx · Tests: ComposerCard.test.tsx</p>
+    <div class="result"><strong>Ergebnis (Abweichung):</strong> Bereits vollständig durch Plan 004 geliefert — Anhang-Chips über der Eingabe (<code>ComposerCard</code>, <code>data-testid="composer-chips"</code>, mit Entfernen-✕) und sichtbares Drop-Overlay (<code>AgentChatPanel</code>, <code>data-testid="chat-drop-overlay"</code>, „Dateien hier ablegen"). Verifiziert (ComposerCard-Tests 4/4 grün). Bewusst KEIN Neubau: eine Ausweitung auf mehrere gleichzeitige Dokument-Anhänge würde die Backend-Analyse-Pipeline (ein Datei-Slot) und den Chat-Kritikpfad berühren → aus dem Scope gehalten.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Chat: Denk-Stream, Live-Status &amp; Maskottchen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Chat: Denk-Stream, Live-Status &amp; Maskottchen">
     <h3>Schritt 3 — Chat: Denk-Stream + Live-Status + Maskottchen <span class="tag">Risiko: mittel</span></h3>
     <p>Aufklappbaren Denk-Block einführen (öffnet beim Streamen, schließt bei Fertigstellung) gespeist aus den bereits gestreamten Reasoning-Tokens; eine ehrliche Live-Statuszeile („denkt nach …", „durchsucht Dokumente …") statt Dauer-Spinner; einen <b>Stop-Button</b> während des Streamens. Maskottchen-Komponente aus deinen zwei Bird-Frames (idle ↔ zwinkert als Aktivitäts-/Denk-Zustand) im Composer-Header und groß im leeren Chat. Erste <code>src/assets/</code>-Konvention; Assets aus <code>docs/plans/assets/005-mascot/</code> zuschneiden (cremefarbenen Hintergrund auf transparent), verkleinern (aktuell ~840 KB) und importieren.</p>
     <p class="files mono">contexts/ChatContext.tsx (thinking/status durchreichen) · features/workspace/llm/agentChat/{AgentChatPanel,CompactMessage}.tsx · neu: components/mascot/Mascot.tsx · neu: src/assets/mascot/{mascot-idle,mascot-wink}.png · Tests: AgentChatPanel.test.tsx (+ Denk-Block/Status)</p>
+    <div class="result"><strong>Ergebnis:</strong> Denk-Block, Live-Status („Arbeitet …"/„Antwortet …"), Streaming-Cursor und Stop-Button waren bereits in <code>CompactMessage</code>/<code>ComposerCard</code> vorhanden (aus den gestreamten Reasoning-Tokens) — verifiziert, keine Doppelarbeit. NEU gebaut: <code>Mascot</code>-Komponente (<code>components/mascot/Mascot.tsx</code>) mit den zwei Bird-Frames (idle ↔ zwinkert), CSS-Animationen (Blinzeln/Zwinkern/Wippen, respektiert <code>prefers-reduced-motion</code>). Assets mit ImageMagick von 1254² @840 KB → 200² transparent @28 KB verarbeitet (<code>src/assets/mascot/{idle,wink}.png</code>, erste <code>src/assets/</code>-Konvention). Maskottchen lebt jetzt oben in der Chat-Statuszeile (zeigt ab Absenden sofort „Arasul denkt nach …") und groß im leeren Chat. Tests: Mascot 3/3, Panel 6/6 grün; PNG-Import in vitest ok; ESLint sauber.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Chat: Quellen sauber darstellen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Chat: Quellen sauber darstellen">
     <h3>Schritt 4 — Chat: Quellen vollständig lesbar <span class="tag">Risiko: niedrig</span></h3>
     <p>Den aufklappbaren Quellen-Bereich unter Antworten so umbauen, dass Dateinamen nicht abgeschnitten werden (Umbruch statt Overflow-Clip), sauber untereinander. Umfang bewusst klein gehalten: nur die Dateinamen sauber — kein Textausschnitt/Viewer-Deeplink in dieser Runde.</p>
     <p class="files mono">features/workspace/llm/agentChat/{CompactMessage,markdown}.tsx + zugehöriges CSS (overflow/word-break) · Tests: AgentChatPanel.test.tsx (Quellen-Rendering)</p>
+    <div class="result"><strong>Ergebnis:</strong> Ursache gefunden: der Quellen-Chip in <code>SourcesFooter</code> hatte <code>truncate</code> auf dem Dateinamen → Abschneiden. Ersetzt durch <code>flex-1 break-words [overflow-wrap:anywhere]</code> (Icon <code>items-start</code>, Space-Badge bleibt rechts, <code>shrink-0</code>) → Dateiname bricht jetzt vollständig um, ist komplett lesbar. Neuer Test mit langem Dateinamen (kein <code>truncate</code>, <code>break-words</code> vorhanden). Tests: 7/7 grün; ESLint sauber.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Extensions: Zwei-Spalten-Ansicht">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 5 — Extensions: Zwei-Spalten-Ansicht">
     <h3>Schritt 5 — Extensions: links Verwaltung, Mitte Browse <span class="tag">Risiko: mittel</span></h3>
     <p>Linke Spalte zeigt nur <b>installierte/aktive</b> Modelle &amp; Apps mit Filtern (Alle / Sprachmodelle / Apps). Mitte bekommt oben Filter-Tabs (Empfohlen / Sprachmodelle / Apps) + Suche und darunter den Katalog mit Detail-/Download-Bereich. Dabei die inkonsistente <code>install_status</code>-Benennung (u. a. <code>'available'</code> = installiert) vereinheitlichen, ohne den Legacy-<code>/store</code>-Konsumenten zu brechen.</p>
     <p class="files mono">components/extensions/ExtensionsSidebarList.tsx · features/store/StoreDetailPage.tsx · hooks/useStoreCatalog.ts · Tests: ExtensionsSidebarList.test.tsx, __tests__/integration/store.test.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Links jetzt reine Verwaltung — nur installiert/aktiv (Plattform-Toggles immer, Container-Apps mit Status running/installed/error, Modelle mit <code>install_status='available'</code> oder geladen), plus Kategorie-Filter Alle/Sprachmodelle/Apps (<code>data-testid="ext-filter-*"</code>). Mitte jetzt durchsuchbarer Katalog mit Browse-Tabs Empfohlen/Sprachmodelle/Apps (<code>data-testid="browse-tab-*"</code>) + Katalogsuche; Tab-Umschaltung löst zugleich das alte Doppel-testid-Problem (nur ein Tab rendert). Die <code>install_status</code>-Inkonsistenz an EINER Stelle gekapselt: <code>isModelInstalled</code>/<code>isModelActive</code>/<code>isAppInstalled</code> in <code>useStoreCatalog</code> (mit Kommentar zur verwirrenden <code>'available'</code>-Semantik), von beiden Konsumenten genutzt. Tests angepasst + erweitert (Kategorie-Filter, Browse-Tabs, Katalog-Download-Flow): Sidebar 7/7, Store-Integration 7/7 grün; ESLint sauber.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Dashboard eindampfen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 6 — Dashboard eindampfen">
     <h3>Schritt 6 — Dashboard: nur Systemstatus + Automatisierungs-Outputs <span class="tag">Risiko: mittel</span></h3>
     <p>Die Aktions-Kacheln (<code>ActionHub</code>: „Projekt öffnen" [tot], „Chat starten" [redundant], „zuletzt benutzte Tabs") und das Running-Apps-Raster entfernen. Das Systemstatus-Widget prominent/vergrößert in den Mittelpunkt stellen und eine Liste der Automatisierungs-Ergebnisse (Dateien/Outputs) ergänzen. „Dokument hochladen" darf als einzige funktionierende Aktion bleiben (klein).</p>
     <p class="files mono">features/dashboard/DashboardHome.tsx · features/dashboard/SystemHealthWidget.tsx · Tests: neu DashboardHome.test.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Kompletter <code>ActionHub</code> (inkl. totem „Projekt öffnen") und das Running-Apps-Raster + zugehörige Helfer/Icons entfernt. Dashboard zeigt jetzt: Systemstatus-Kacheln (RAM/Swap/Storage/Temperatur), Performance-Chart, SystemHealthWidget — und NEU eine echte <b>Automatisierungen</b>-Karte aus <code>/api/workflows/history</code> (letzte n8n-Läufe mit Status-Icon, dt. Label, Relativzeit; „n8n öffnen" öffnet den Automation-Tab). Datenquelle real, nichts erfunden; leer → ehrlicher Einstiegs-Hinweis. <code>runningApps</code>-Prop bleibt für Aufrufer-Kompatibilität, wird aber nicht mehr gerendert. Test neu geschrieben (QueryClientProvider, Automatisierungs-Karte, keine Aktions-Kacheln mehr): DashboardHome 5/5, System-Integration 12/12 grün; ESLint sauber.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Markdown-Editor + Speicher-Endpunkt">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 7 — Markdown-Editor + Speicher-Endpunkt">
     <h3>Schritt 7 — Editierbarer Markdown-Viewer mit Speichern <span class="tag">Risiko: hoch</span></h3>
     <p>Den bestehenden <code>TipTapEditor</code> (Format-Toolbar: fett/kursiv/markieren/Überschriften/Listen) in den Workspace-Dokument-Viewer einsetzen; Bearbeiten inline mit „Speichern"-Button + Dirty-State. Neue Backend-Route <code>PUT /documents/:id/content</code> (mit <code>asyncHandler</code> + Custom-Errors, keine try/catch, kein <code>throw new Error</code>) persistiert den Inhalt; bei indexierten Dokumenten wird ein Re-Index beim Document-Indexer angestoßen. Alle Text-/MD-Dokumente sind editierbar. Doku ergänzen.</p>
     <p class="files mono">features/workspace/viewers/DocumentViewerTab.tsx · components/editor/tiptap/TipTapEditor.tsx (Wiederverwendung) · apps/dashboard-backend/src/routes/documents.js (neue PUT-Route) · docs/api/API_REFERENCE.md · Tests: neu DocumentViewerTab.test.tsx + Backend-Route-Test</p>
+    <div class="result"><strong>Ergebnis (Abweichung — deutlich kleiner als geplant):</strong> Die Research-Annahme „kein Speicher-Endpunkt" war falsch. <code>PUT /documents/:id/content</code> existiert bereits vollständig (<code>documents.js:725</code>): <code>asyncHandler</code> + <code>NotFoundError</code>/<code>ValidationError</code>, <code>validateBody(ContentBody)</code>, MinIO-Upload, DB-Update mit <code>status='pending'</code> → Neuindexierung angestoßen. Auch der <code>TipTapEditor</code> speichert bereits über genau diese Route (Markdown-Roundtrip via tiptap-markdown). Daher <b>kein</b> Backend-Code, <b>keine</b> Migration, <b>keine</b> API_REFERENCE-Änderung nötig. Reine Frontend-Verdrahtung: <code>DocumentViewerTab</code> zeigt für .md/.markdown/.txt/.yaml/.yml jetzt eine Vorschau mit „Bearbeiten"-Button, der den TipTap-Editor (lazy) öffnet; nach dem Speichern lädt die Vorschau via <code>refreshKey</code> neu. Alle Text-/MD-Dokumente editierbar (Re-Index serverseitig). Neuer Test <code>DocumentViewerTab.test.tsx</code> 3/3 grün; ESLint sauber. Risiko real niedrig statt hoch.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Responsive- &amp; Dichte-Politur">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 8 — Responsive- &amp; Dichte-Politur">
     <h3>Schritt 8 — Responsive-/Dichte-Politur + Konsistenz <span class="tag">Risiko: niedrig-mittel</span></h3>
     <p>Betroffene Panels (Chat, Terminal, Extensions, Dashboard) bei üblichen Fensterbreiten (bis ~1280–1440) auf sauberes Verhalten ohne Überlauf prüfen; die bekannten <code>index.css</code>-Media-Queries/<code>html{font-size}</code>-Hebel (Dichte-Landmine aus Plan 004) gegenprüfen, damit nichts wieder zu klein klemmt. Doku/Handbuch für die geänderten Kunden-Flows aktualisieren.</p>
     <p class="files mono">apps/dashboard-frontend/src/index.css · betroffene Panel-Komponenten · docs/development/DESIGN_SYSTEM.md · docs/ops/ADMIN_HANDBUCH.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Neue UI durchgängig mit <code>min-w-0</code>/<code>truncate</code>/<code>flex-wrap</code> gebaut (Extensions-Filterzeile + Browse-Tab-Leiste brechen bei schmaler Breite um); der Dichte-Hebel aus Plan 004 (index.css) blieb unberührt, keine neuen Fixbreiten. Doku aktualisiert: DESIGN_SYSTEM (neue <code>src/assets/</code>-Bild-Konvention + Mascot-Animationen), ADMIN_HANDBUCH (Theme nur in Einstellungen, n8n behält Explorer, Extensions Verwaltung+Katalog, Chat-Maskottchen/Denkprozess/Anhang-Chips, eingedampftes Dashboard mit Automatisierungen). Gesamt-Gate: <b>TypeScript 0 Fehler</b>, <b>Vitest 804/804 grün (63 Dateien)</b>, ESLint über alle geänderten Dateien sauber. Feinschliff der Pixelbreiten erfolgt im Live-Verify (§6) am Gerät.</div>
   </div>
 
   </div>
