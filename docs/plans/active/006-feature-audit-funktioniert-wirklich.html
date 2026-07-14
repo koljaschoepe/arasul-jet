@@ -18,8 +18,8 @@
   "created": "2026-07-14",
   "approved": "2026-07-14",
   "branch": "006-feature-audit-funktioniert-wirklich",
-  "pr": null,
-  "verified_on_device": false
+  "pr": 209,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -704,13 +704,61 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Erster Live-Audit-Durchlauf — Kernpfad grün, F1 gefixt &amp; live verifiziert, Rest als Themen.</span>
   </summary>
   <div class="sbody">
+  <p><strong>Zusammenfassung (Lauf 1, 2026-07-14):</strong> Erster Live-Audit auf dem echten
+  Jetson (<code>100.121.244.80</code>). Der kundenkritische Kernpfad ist <b>grün</b>:
+  Login, Dashboard, <b>Chat + RAG</b> (korrekte Antwort mit 3 Quellen), Extensions/Store,
+  Datenbank. Ein Frontend-Logikfehler (F1) wurde gefunden, gefixt, deployt und live
+  re-verifiziert. Drei weitere Funde (F2–F4) und die noch nicht auditierten Domänen sind
+  als Roadmap-Themen erfasst. <b>T01 ist damit noch nicht abgeschlossen</b> — dies war der
+  erste Durchlauf; der Restlauf (T17) auditiert die übrigen Domänen.</p>
+
+  <h3>Ergebnisse pro Schritt</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Schritt</th><th>Status</th><th>Ergebnis</th></tr></thead>
+    <tbody>
+      <tr><td>1 — Suite härten</td><td>done</td><td><code>ignoreHTTPSErrors</code> + npm-Scripts <code>e2e</code>/<code>e2e:jetson</code>. <em>Abweichung:</em> Spec-Migration auf Default-Shell &amp; Feature-Katalog in den Live-Audit verschoben; Audit lief interaktiv via Playwright-MCP statt über neu-geschriebene Specs (gegen die eine Live-Appliance mit Real-Admin risikoärmer).</td></tr>
+      <tr><td>2 — Katalog/Abdeckung/Health</td><td>teilweise</td><td>Kern-Domänen live abgedeckt; formaler Feature-Katalog + Health-Skript + Domänen-Specs noch offen → T17.</td></tr>
+      <tr><td>3 — Live-Audit</td><td>teilweise</td><td>Login, Dashboard, Chat/RAG, Extensions, Automationen (n8n), Datenbank auditiert. Terminal, Einstellungen, Telegram, Upload-Flow, Backup, Self-Healing, Modell-Pull/Delete, destruktive Aktionen → T17.</td></tr>
+      <tr><td>4 — Report/Roadmap</td><td>done</td><td>Dieser §9 + Roadmap-Themen T15–T17.</td></tr>
+      <tr><td>5 — Fix P0/P1</td><td>teilweise</td><td>F1 (P1) gefixt in PR #209. F2 (P1, n8n) infra-nah → T15. „Ein großer PR" für alle P0/P1 nicht erreicht (Umfang &gt; ein Lauf) — ehrliche Abweichung.</td></tr>
+      <tr><td>6 — Re-Audit/Abschluss</td><td>teilweise</td><td>F1 live re-verifiziert (s.u.). Gesamt-Abschluss folgt nach T17.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Funde (Lauf 1)</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Domäne</th><th>Schwere</th><th>Symptom</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>F1</td><td>Chat/Restore</td><td>P1</td><td>Verwaiste Chat-Restore-ID → 404-Spam + <code>console.error</code> („Chat not found") beim Workspace-Laden.</td><td><strong>gefixt</strong> (PR #209, live verifiziert)</td></tr>
+      <tr><td>F2</td><td>Automationen/n8n</td><td>P1</td><td>Eingebettetes n8n zeigt fremde „Sign in"-Wand statt Workflows (<code>401 /n8n/rest/login</code>, Auto-Login schlägt fehl).</td><td>offen → T15</td></tr>
+      <tr><td>F3</td><td>n8n-Embed</td><td>P2</td><td>CSP-Verstoß: <code>data:</code>-Script durch <code>script-src</code> blockiert.</td><td>offen → T16</td></tr>
+      <tr><td>F4</td><td>Store</td><td>P2</td><td>Geladenes Modell (qwen3:14b) fehlt in der „MODELLE installiert"-Liste (nur 7B/32B).</td><td>offen → T16</td></tr>
+      <tr><td>F5</td><td>Workspace</td><td>P3</td><td>Loses „0%"-Element am Seitenende (außerhalb App-Container).</td><td>offen → T16</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>PR &amp; Deploy</h3>
+  <ul>
+    <li>PR <a href="https://github.com/koljaschoepe/arasul-jet/pull/209">#209</a> — squash-merged auf <code>main</code> als <span class="mono">814e1ce</span>.</li>
+    <li>CI grün (Backend, Docker-Builds, Lockfile-Guard, Frontend/advisory). Review: 0 Critical.</li>
+    <li>Deploy-Pipeline (Run 29368426176): <strong>success</strong> — Frontend neu gebaut &amp; auf dem Jetson ausgerollt (neues Bundle <code>index-DvQmzAOL.js</code>).</li>
+  </ul>
+
+  <h3>Live-Verifikation auf dem Jetson</h3>
+  <ul>
+    <li><b>Vorher:</b> Workspace-Laden mit verwaister Chat-ID 123 → 3× 404 + <code>console.error</code> „Error loading messages: Chat not found" &amp; „Error checking active jobs: Chat not found".</li>
+    <li><b>Nachher</b> (deployter Build, provozierter Fall Chat 999999): beide <code>console.error</code>-Logs <strong>verschwunden</strong>; nur die inhärenten 404-Netzwerkeinträge + ChatViews eigener Redirect-Log bleiben (außerhalb F1).</li>
+    <li>Kernpfad live: Login ✅ · Dashboard (Tiles+Perf-Chart) ✅ · Chat+RAG (3 Quellen) ✅ · Extensions ✅ · Datenbank ✅.</li>
+    <li>Gerät nach dem Lauf: <b>15/15 Container healthy</b>, keine destruktiven Änderungen. Login lief über ein vollständig reversibles Temp-Passwort; Original-Hash exakt restauriert (verifiziert).</li>
+  </ul>
+  <p style="color:var(--muted);font-size:.85rem">Zeitstempel: Audit-Lauf 2026-07-14 ~20:40–21:15 UTC. Nächster Schritt: Restlauf T17 (übrige Domänen) + T15 (n8n).</p>
   </div>
 </details>
 
