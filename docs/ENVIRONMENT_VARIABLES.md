@@ -234,21 +234,23 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## n8n (Workflow)
 
-| Variable                | Default                          | Description                          |
-| ----------------------- | -------------------------------- | ------------------------------------ |
-| N8N_HOST                | n8n                              | n8n hostname                         |
-| N8N_PORT                | 5678                             | n8n port                             |
-| N8N_BASIC_AUTH_USER     | (required)                       | Basic auth username                  |
-| N8N_BASIC_AUTH_PASSWORD | (required)                       | Basic auth password                  |
-| N8N_ENCRYPTION_KEY      | (required)                       | Encryption key (32+ chars)           |
-| N8N_EXTERNAL_URL        | (optional)                       | Public HTTPS URL for OAuth callbacks |
-| N8N_PROTOCOL            | https                            | Protocol (http/https)                |
-| N8N_SECURE_COOKIE       | true                             | Secure cookies (true for HTTPS)      |
-| N8N_URL                 | http://n8n:5678                  | n8n service URL                      |
-| N8N_API_KEY             | (none)                           | n8n API key                          |
-| N8N_WEBHOOK_SECRET      | (none)                           | n8n webhook verification secret      |
-| N8N_SSH_KEY_PATH        | /arasul/ssh-keys/n8n_private_key | SSH key for n8n access               |
-| N8N_PROXY_HOPS          | 1                                | trust-proxy hop count behind Traefik |
+| Variable                | Default                          | Description                                                                                                                                                |
+| ----------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N8N_HOST                | n8n                              | n8n hostname                                                                                                                                               |
+| N8N_PORT                | 5678                             | n8n port                                                                                                                                                   |
+| N8N_BASIC_AUTH_USER     | (deprecated, unused)             | Legacy basic-auth user. n8n 2.x runs with `N8N_BASIC_AUTH_ACTIVE=false`; auth is the fixed owner + forward-auth (Plan 007). Kept only for backward-compat. |
+| N8N_BASIC_AUTH_PASSWORD | (deprecated, unused)             | Legacy basic-auth password — see above. Not required.                                                                                                      |
+| N8N_ENCRYPTION_KEY      | (required)                       | Encryption key (32+ chars)                                                                                                                                 |
+| N8N_OWNER_EMAIL         | via `n8n_owner_email` secret     | Fixed n8n owner e-mail (Plan 007). Resolved from the Docker secret; provisions the owner and drives `GET /api/automations/session`.                        |
+| N8N_OWNER_PASSWORD      | via `n8n_owner_password` secret  | Fixed n8n owner password (Plan 007). Must satisfy n8n's policy (≥8 chars, ≥1 uppercase, ≥1 digit); auto-generated compliant.                               |
+| N8N_EXTERNAL_URL        | (optional)                       | Public HTTPS URL for OAuth callbacks                                                                                                                       |
+| N8N_PROTOCOL            | https                            | Protocol (http/https)                                                                                                                                      |
+| N8N_SECURE_COOKIE       | true                             | Secure cookies (true for HTTPS)                                                                                                                            |
+| N8N_URL                 | http://n8n:5678                  | n8n service URL                                                                                                                                            |
+| N8N_API_KEY             | (none)                           | n8n API key                                                                                                                                                |
+| N8N_WEBHOOK_SECRET      | (none)                           | n8n webhook verification secret                                                                                                                            |
+| N8N_SSH_KEY_PATH        | /arasul/ssh-keys/n8n_private_key | SSH key for n8n access                                                                                                                                     |
+| N8N_PROXY_HOPS          | 1                                | trust-proxy hop count behind Traefik                                                                                                                       |
 
 ### n8n 2.x — Task Runner & Agent-Härtung
 
@@ -818,6 +820,8 @@ chmod 600 config/secrets/*
 | `minio_root_password`    | minio, dashboard-backend, document-indexer, backup-service                                              | `MINIO_ROOT_PASSWORD`    |
 | `n8n_encryption_key`     | n8n                                                                                                     | `N8N_ENCRYPTION_KEY`     |
 | `n8n_runners_auth_token` | n8n (via entrypoint-Shim), n8n-runners (Launcher versteht `_FILE` nativ)                                | `N8N_RUNNERS_AUTH_TOKEN` |
+| `n8n_owner_email`        | n8n (entrypoint provisioniert den Owner), dashboard-backend (Auto-Session)                              | `N8N_OWNER_EMAIL`        |
+| `n8n_owner_password`     | n8n (entrypoint provisioniert den Owner), dashboard-backend (Auto-Session)                              | `N8N_OWNER_PASSWORD`     |
 
 ### Additional Backend Secrets
 
@@ -825,6 +829,8 @@ The dashboard-backend resolver also supports these `_FILE` variables (add them t
 
 - `ARASUL_DATA_DB_PASSWORD_FILE` → `ARASUL_DATA_DB_PASSWORD`
 - `TELEGRAM_ENCRYPTION_KEY_FILE` → `TELEGRAM_ENCRYPTION_KEY`
+- `N8N_OWNER_EMAIL_FILE` → `N8N_OWNER_EMAIL` (Plan 007 — n8n Auto-Session)
+- `N8N_OWNER_PASSWORD_FILE` → `N8N_OWNER_PASSWORD` (Plan 007 — n8n Auto-Session)
 
 ### Precedence
 

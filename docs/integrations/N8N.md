@@ -8,12 +8,14 @@ n8n is shipped as a customer-installable App-Store entry, not as an Arasul-bundl
 
 ## 1. Reaching the editor
 
-The editor is at `/n8n/` behind two layers of authentication:
+The editor is at `/n8n/`. There is **one** wall — the Arasul dashboard login — and n8n's own sign-in is never shown to the user (Plan 007):
 
-1. **Dashboard session** — Traefik's `forward-auth` middleware verifies an Arasul dashboard JWT (cookie or `Authorization: Bearer …`). Logged-out visitors get a 401.
-2. **n8n user management** — n8n's own login governs workflow ownership. Customers create their first n8n account on first visit; subsequent users are invited from inside n8n.
+1. **Dashboard session** — Traefik's `forward-auth` middleware verifies an Arasul dashboard JWT (cookie or `Authorization: Bearer …`). Logged-out visitors get a 401 and never reach `/n8n/` or `/api/automations/session`.
+2. **Fixed n8n owner + auto-session** — n8n 2.x enforces a single owner. Arasul provisions **one fixed owner** idempotently at container start (`services/n8n/entrypoint.sh`, `POST /rest/owner/setup`, credentials from the `n8n_owner_email` / `n8n_owner_password` Docker secrets). When the Automationen tab opens, the frontend calls `GET /api/automations/session`; the backend logs that owner in server-side (`POST /rest/login` against n8n) and forwards n8n's `Set-Cookie` (`n8n-auth`) **same-origin** to the browser. The iframe then loads `/n8n/` already authenticated — no visible n8n login.
 
-Implication: an unauth visitor cannot even reach the n8n login screen — they see the dashboard login. This is intentional and matches how `/minio` and `/claude-terminal` are gated.
+This is a single-tenant appliance: all dashboard admins share one n8n workspace. n8n's own user management is not surfaced; the security boundary is entirely the dashboard session (forward-auth). Webhooks (`/webhook/*`) stay deliberately public for external triggers.
+
+Implication: an unauth visitor cannot even reach `/n8n/` — they see the dashboard login. This is intentional and matches how `/minio` and `/claude-terminal` are gated.
 
 ---
 
@@ -127,17 +129,19 @@ Run all three after every n8n image bump to catch regressions.
 
 ## 8. Where things live in the repo
 
-| File                                                     | Purpose                                                                                            |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `compose/compose.app.yaml` (n8n + n8n-runners)           | Runtime env-vars, hardening flags, task-runner sidecar, agent-workspace volume.                    |
-| `compose/compose.secrets.yaml` (n8n section)             | Mounts the `n8n_encryption_key` + `n8n_runners_auth_token` Docker secrets.                         |
-| `services/n8n/Dockerfile`                                | Pinned n8n version (must match the `n8nio/runners` tag), custom-node compilation, entrypoint shim. |
-| `services/n8n/entrypoint.sh`                             | Resolves the encryption-key + runners-auth-token Docker secrets into env at boot.                  |
-| `config/traefik/dynamic/routes.yml`                      | `/n8n` (forward-auth + strip-prefix), `/webhook/*` (rate-limited, unauth).                         |
-| `config/traefik/dynamic/middlewares.yml`                 | `rate-limit-n8n`, `strip-n8n-prefix`, `forward-auth`.                                              |
-| `config/traefik/dynamic/websockets.yml`                  | `/n8n-websocket` route for the editor's live updates.                                              |
-| `services/n8n/templates/smoketests/*.json`               | Reference workflows for post-deploy verification.                                                  |
-| `services/n8n/templates/agents/*.json`                   | Agent workflow templates (import: `scripts/util/n8n-import-templates.sh`).                         |
-| `docs/integrations/N8N_AGENTS.md`                        | Agent workflows, task-runner architecture, upgrade/backup/rollback.                                |
-| `docs/legal/N8N_LIZENZ.md`                               | Sustainable-Use-License assessment + mandatory pre-sales gate.                                     |
-| `docs/plans/archive/2026-07-02_external-integrations.md` | Full hardening roadmap.                                                                            |
+| File                                                      | Purpose                                                                                                                                                                                |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `compose/compose.app.yaml` (n8n + n8n-runners)            | Runtime env-vars, hardening flags, task-runner sidecar, agent-workspace volume.                                                                                                        |
+| `compose/compose.secrets.yaml` (n8n section)              | Mounts `n8n_encryption_key`, `n8n_runners_auth_token`, and the `n8n_owner_email` / `n8n_owner_password` secrets (also into dashboard-backend for the auto-session).                    |
+| `apps/dashboard-backend/src/routes/automations.js`        | `GET /api/automations/session` — logs the fixed owner into n8n and forwards the `n8n-auth` cookie same-origin (Plan 007).                                                              |
+| `apps/dashboard-frontend/.../viewers/AutomationenTab.tsx` | Fetches the session before mounting the `/n8n/` iframe; shows a loading/error state instead of n8n's login mask.                                                                       |
+| `services/n8n/Dockerfile`                                 | Pinned n8n version (must match the `n8nio/runners` tag), custom-node compilation, entrypoint shim.                                                                                     |
+| `services/n8n/entrypoint.sh`                              | Resolves the encryption-key + runners-auth-token secrets into env at boot **and** idempotently provisions the fixed owner (`POST /rest/owner/setup`, gated on `showSetupOnFirstLoad`). |
+| `config/traefik/dynamic/routes.yml`                       | `/n8n` (forward-auth + strip-prefix), `/webhook/*` (rate-limited, unauth).                                                                                                             |
+| `config/traefik/dynamic/middlewares.yml`                  | `rate-limit-n8n`, `strip-n8n-prefix`, `forward-auth`.                                                                                                                                  |
+| `config/traefik/dynamic/websockets.yml`                   | `/n8n-websocket` route for the editor's live updates.                                                                                                                                  |
+| `services/n8n/templates/smoketests/*.json`                | Reference workflows for post-deploy verification.                                                                                                                                      |
+| `services/n8n/templates/agents/*.json`                    | Agent workflow templates (import: `scripts/util/n8n-import-templates.sh`).                                                                                                             |
+| `docs/integrations/N8N_AGENTS.md`                         | Agent workflows, task-runner architecture, upgrade/backup/rollback.                                                                                                                    |
+| `docs/legal/N8N_LIZENZ.md`                                | Sustainable-Use-License assessment + mandatory pre-sales gate.                                                                                                                         |
+| `docs/plans/archive/2026-07-02_external-integrations.md`  | Full hardening roadmap.                                                                                                                                                                |

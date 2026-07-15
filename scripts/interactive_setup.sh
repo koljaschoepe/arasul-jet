@@ -751,6 +751,18 @@ ENVEOF
         generate_secret 32 | tr -d '\n' > "$secrets_dir/n8n_runners_auth_token"
     fi
     # --------------------------------------------------------------------------
+    # --- Plan 007: fester n8n-Owner -------------------------------------------
+    # Zugangsdaten des einzigen n8n-Owners. services/n8n/entrypoint.sh legt ihn
+    # beim Start idempotent an; das Backend meldet ihn für die nahtlose Session
+    # an (GET /api/automations/session). Nur erzeugen, wenn fehlend. Das
+    # Passwort erfüllt n8ns Policy (>= 8 Zeichen, 1 Großbuchstabe, 1 Ziffer).
+    if [ ! -s "$secrets_dir/n8n_owner_email" ]; then
+        printf 'owner@arasul.local' > "$secrets_dir/n8n_owner_email"
+    fi
+    if [ ! -s "$secrets_dir/n8n_owner_password" ]; then
+        printf 'A1%s' "$(generate_secret 24 | tr -d '\n')" > "$secrets_dir/n8n_owner_password"
+    fi
+    # --------------------------------------------------------------------------
     echo -n "$TELEGRAM_ENCRYPTION_KEY" > "$secrets_dir/telegram_encryption_key"
     # Telegram Bot Token: Platzhalter (wird spaeter via Dashboard konfiguriert)
     if [ ! -f "$secrets_dir/telegram_bot_token" ]; then

@@ -472,4 +472,57 @@ test.describe('Workspace-Shell', () => {
     await page.getByRole('switch', { name: 'n8n aktivieren' }).click();
     await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toBeVisible();
   });
+
+  test('Automationen-Tab (Plan 007): holt die n8n-Session vor dem iframe, keine Login-Maske', async ({
+    page,
+  }) => {
+    // Der Tab ruft beim Öffnen GET /api/automations/session auf; das Backend
+    // stellt die n8n-Session her (Set-Cookie n8n-auth) und der iframe lädt
+    // dann bereits angemeldet. Hermetisch nachgestellt: die Session-Route
+    // liefert 200 (Cookie im echten Deploy), /n8n/ wird auf einen Stub
+    // geroutet, damit der Test nicht von einer echten n8n-Instanz abhängt.
+    let sessionCalls = 0;
+    await page.route('**/api/workspace-apps', route =>
+      route.fulfill({
+        json: {
+          apps: [
+            {
+              id: 'n8n',
+              name: 'n8n',
+              description: 'Workflow-Automatisierung',
+              tab: 'automationen',
+              enabled: true,
+            },
+          ],
+        },
+      })
+    );
+    await page.route('**/api/automations/session', route => {
+      sessionCalls += 1;
+      return route.fulfill({
+        // n8n-auth-Cookie würde im echten Deploy hier durchgereicht; für den
+        // Tab-Zustand genügt der 200-Erfolg.
+        json: { data: { authenticated: true }, timestamp: new Date().toISOString() },
+      });
+    });
+    await page.route('**/n8n/**', route =>
+      route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>n8n editor stub</title>' })
+    );
+
+    await openWorkspace(page);
+    const s = shell(page);
+
+    // Automationen-Tab öffnen
+    await s.activityBar.getByRole('button', { name: 'Automationen' }).click();
+
+    // Die Session wird VOR dem iframe geholt …
+    await expect.poll(() => sessionCalls).toBeGreaterThan(0);
+
+    // … und danach lädt der iframe direkt (Ladeplatzhalter verschwindet,
+    // keine Fehlermeldung, keine n8n-Login-Maske).
+    const frame = page.getByTestId('n8n-frame');
+    await expect(frame).toBeVisible({ timeout: 10000 });
+    await expect(frame).toHaveAttribute('src', '/n8n/');
+    await expect(page.getByText('Automationen nicht verfügbar')).toHaveCount(0);
+  });
 });

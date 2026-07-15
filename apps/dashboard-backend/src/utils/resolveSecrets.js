@@ -21,6 +21,8 @@ function resolveSecrets() {
     'TELEGRAM_USER_ID_PEPPER',
     'ADMIN_PASSWORD',
     'N8N_ENCRYPTION_KEY',
+    'N8N_OWNER_EMAIL',
+    'N8N_OWNER_PASSWORD',
   ];
 
   for (const name of vars) {
