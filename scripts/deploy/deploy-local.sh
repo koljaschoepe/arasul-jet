@@ -63,6 +63,26 @@ fi
 git reset --hard "$NEW_SHA" || { err "git reset fehlgeschlagen"; exit 1; }
 ok "Working Tree auf $NEW_SHA"
 
+# --- 1b. Fehlende, auto-generierbare Docker-Secrets idempotent nachziehen ----
+# Neu eingefuehrte Secret-Dateien existieren auf Bestandsgeraeten noch nicht.
+# compose kann eine fehlende Bind-Quelle nicht mounten und der Deploy bricht ab
+# (Plan 007: n8n_owner_email/_password). Der automatisierte Deploy fuehrt kein
+# ./arasul bootstrap aus, deshalb hier die nicht datentragenden Secrets
+# idempotent erzeugen — bestehende Werte werden NIE ueberschrieben.
+SECRETS_DIR="$DEPLOY_DIR/config/secrets"
+mkdir -p "$SECRETS_DIR"; chmod 700 "$SECRETS_DIR" 2>/dev/null || true
+if [ ! -s "$SECRETS_DIR/n8n_owner_email" ]; then
+  printf 'owner@arasul.local' > "$SECRETS_DIR/n8n_owner_email"
+  chmod 600 "$SECRETS_DIR/n8n_owner_email"
+  ok "n8n-Owner-E-Mail-Secret erzeugt (config/secrets/n8n_owner_email)"
+fi
+if [ ! -s "$SECRETS_DIR/n8n_owner_password" ]; then
+  # n8n-Policy: >= 8 Zeichen, mind. 1 Grossbuchstabe, mind. 1 Ziffer.
+  printf 'A1%s' "$(openssl rand -hex 24)" > "$SECRETS_DIR/n8n_owner_password"
+  chmod 600 "$SECRETS_DIR/n8n_owner_password"
+  ok "n8n-Owner-Passwort-Secret erzeugt (config/secrets/n8n_owner_password)"
+fi
+
 # --- 2. Geaenderte Dateien -> Services ---------------------------------------
 mapfile -t CHANGED < <(git diff --name-only "$PREV_SHA" "$NEW_SHA")
 if [ "${#CHANGED[@]}" -eq 0 ]; then
