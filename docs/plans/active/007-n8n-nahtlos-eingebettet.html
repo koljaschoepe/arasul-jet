@@ -1,0 +1,857 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 007 · Automationen nahtlos: n8n ohne zweite Anmeldung</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "007",
+  "slug": "n8n-nahtlos-eingebettet",
+  "title": "Automationen nahtlos: n8n ohne zweite Anmeldung",
+  "type": "fix",
+  "status": "approved",
+  "priority": "P1",
+  "risk_level": 2,
+  "effort_level": 2,
+  "reversibility_level": 2,
+  "created": "2026-07-15",
+  "approved": "2026-07-15",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .oq {
+    background: var(--note-bg); border: 1.5px solid var(--note);
+    border-radius: 14px; padding: 1rem 1.2rem; margin: 0 0 1.6rem;
+  }
+  .oq h2 {
+    margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--note); font-weight: 800;
+  }
+  .oq-item { padding: .5rem 0; }
+  .oq-item + .oq-item { border-top: 1px solid color-mix(in srgb, var(--note) 30%, transparent); }
+  .oq-item p { margin: 0 0 .35rem; font-weight: 600; font-size: .95rem; }
+  .oq-item textarea, .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .oq-item textarea:focus, .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .oq .none { color: var(--muted); font-size: .92rem; margin: 0; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 007</p>
+    <span class="chip" id="status-chip" data-status="approved">Approved</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Automationen nahtlos: n8n ohne zweite Anmeldung</h1>
+  <p class="lead">Der Automationen-Tab öffnet direkt den n8n-Editor — keine fremde Sign-in-Wand, kein 401 mehr. Ein fester Auto-Owner plus ein Backend-Session-Endpunkt melden n8n transparent an; die Arasul-Anmeldung (Traefik-forward-auth) bleibt die einzige Wand.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P1</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>Teilweise</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">7</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>n8n bekommt einen festen Owner, der beim Start automatisch angelegt wird. Ein neuer Backend-Endpunkt meldet diesen Owner beim Öffnen des Tabs im Hintergrund an und setzt den n8n-Session-Cookie — der iframe lädt direkt den Editor.</dd>
+      <dt>Warum jetzt</dt><dd>Der Automationen-Tab zeigt heute eine fremde n8n-Sign-in-Wand und 401 auf <code>/n8n/rest/login</code> (Audit-Fund F2 aus Plan 006). Ein Kern-Feature der Appliance ist damit unbenutzbar.</dd>
+      <dt>Größtes Risiko</dt><dd>Der n8n-Session-Cookie ist <code>Secure</code>/<code>SameSite</code>-behaftet und könnte im iframe verworfen werden. Same-Origin sollte tragen, muss aber empirisch am Image 2.29.10 bestätigt werden.</dd>
+      <dt>Du entscheidest</dt><dd><ul><li>Nahtlos statt Einmal-Login → <b>fester Auto-Owner + Auto-Session</b></li><li>n8n auf dem Jetson wird <b>komplett zurückgesetzt</b> (keine echten Workflows vorhanden)</li><li>Scope strikt: <b>nur die Anmelde-Wand</b>, kein UI-Umbau</li></ul></dd>
+    </dl>
+  </div>
+
+  <div class="oq" id="oq">
+    <h2>Offene Fragen an dich</h2>
+    <!-- One .oq-item per question the interview deliberately left to the user;
+         answer textareas feed the comment export. No questions? Use:
+         <p class="none">Keine — alles Wichtige ist im Interview entschieden worden.</p> -->
+    <p class="none">Keine — alles Materielle wurde im Interview (10 Fragen, 3 Runden) entschieden. Der einzige noch offene Punkt ist rein technisch (exakter n8n-2.x-Cookie-Name / Same-Origin-Cookie-Weitergabe) und wird bei der Ausführung empirisch am Image 2.29.10 geklärt — keine Entscheidung deinerseits nötig.</p>
+  </div>
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Der Automationen-Tab soll direkt den n8n-Editor zeigen — nie eine n8n-Anmeldung.</span>
+  </summary>
+  <div class="sbody">
+  <p>Arasul verspricht Automationen als Kern-Feature — im Dashboard unter „Automationen". Heute passiert dort das Gegenteil von plug-&-play: Der Tab bettet n8n ein, aber n8n zeigt <b>seine eigene Sign-in-Maske</b> und antwortet mit <code>401</code> auf <code>/n8n/rest/login</code>. Wer im Arasul-Dashboard bereits angemeldet ist, steht vor einer zweiten, fremden Anmeldung, die er gar nicht bedienen kann. Das Feature ist damit faktisch unbenutzbar (Audit-Fund <b>F2</b> aus Plan 006).</p>
+
+  <p>Die Ursache ist strukturell: n8n läuft mit eigener Benutzerverwaltung (E-Mail/Passwort + JWT-Cookie). Traefik prüft per <code>forward-auth</code> zwar die Arasul-Anmeldung, meldet den Nutzer aber <b>nicht</b> bei n8n an — es gibt heute keinen Code-Pfad, der die n8n-Session herstellt. In n8n 2.29.10 lässt sich die Eigenanmeldung auch nicht einfach per Umgebungsvariable abschalten (2.x erzwingt einen Owner).</p>
+
+  <p>Die Lösung: ein <b>einziger fester n8n-Owner</b>, der beim Start automatisch angelegt wird, und ein schlanker Backend-Endpunkt, der diesen Owner beim Öffnen des Tabs transparent anmeldet und den n8n-Session-Cookie same-origin an den Browser gibt. Die Absicherung bleibt bei der Arasul-Anmeldung (Traefik-forward-auth) — n8ns eigene Wand wird schlicht überflüssig.</p>
+
+  <p><b>Fertig heißt:</b> Ein im Dashboard angemeldeter Admin klickt auf „Automationen" und sieht <b>sofort den n8n-Editor</b> — ohne jemals eine n8n-Anmeldung zu sehen, ohne 401, mit voll funktionierender Workflow-Bearbeitung, auch nach einem Reload.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Nur die Anmelde-Wand wird behoben; kein UI-Redesign, keine neuen Features.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Auto-Login/401 beheben, sodass der Tab ohne sichtbare n8n-Anmeldung lädt</li>
+      <li>Fester n8n-Owner, idempotent beim Container-Start provisioniert</li>
+      <li>Neue Docker-Secrets <code>n8n_owner_email</code> / <code>n8n_owner_password</code></li>
+      <li>Neuer Backend-Endpunkt <code>GET /api/automations/session</code> (stellt n8n-Session her)</li>
+      <li>Frontend: <code>AutomationenTab</code> holt die Session vor dem iframe</li>
+      <li>Einmaliger n8n-Reset auf dem Jetson (Volume + Schema) für den frischen Owner</li>
+      <li>Unit- + e2e-Test für den Session-Pfad; Doku-Sync (N8N.md, ENV-Vars)</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>UI-Redesign des Tabs, Ausblenden der n8n-Navigation, Deep-Links</li>
+      <li>Neue Workflow-Features oder eigene Arasul-Automations-Oberfläche</li>
+      <li>Getrennte n8n-Konten pro Nutzer (bewusst Single-Tenant, ein Workspace)</li>
+      <li>n8n-Versions-Bump oder Downgrade</li>
+      <li>Zusätzliche n8n-interne Härtung (Public-API o. Ä.) — forward-auth genügt</li>
+      <li>Änderungen an Traefik-Routen, CSP oder <code>X-Frame-Options</code></li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Fester Owner + Backend-Session-Endpunkt melden n8n transparent an; forward-auth bleibt die Wand.</span>
+  </summary>
+  <div class="sbody">
+  <p><b>Heute</b> ist der Automationen-Tab ein schlichter, gleicher-Herkunft-iframe mit <code>src="/n8n/"</code> (17 Zeilen, keine Auth-Logik). Traefik legt vor <code>/n8n/</code> die <code>forward-auth</code>-Middleware, die beim Backend (<code>/api/auth/verify</code>) nur die <b>Arasul-Session</b> prüft und <code>X-User-*</code>-Header weiterreicht. Sie meldet dich aber nirgends bei n8n an. n8n selbst läuft mit eigener Benutzerverwaltung und liefert deshalb seine Login-Maske plus <code>401</code> auf <code>/n8n/rest/login</code>, solange kein gültiger <b>n8n</b>-Session-Cookie vorliegt. Diesen Cookie stellt heute niemand aus — das ist die ganze Bug-Ursache.</p>
+
+  <p><b>Nachher</b> kommen zwei kleine Bausteine dazu, ohne die bestehende Absicherung anzufassen. Erstens legt der n8n-Container beim Start <b>idempotent einen einzigen festen Owner</b> an (Zugangsdaten aus zwei neuen Docker-Secrets, genau nach dem Muster des vorhandenen <code>n8n_encryption_key</code>). Zweitens ruft der Tab vor dem iframe einen neuen Backend-Endpunkt <code>GET /api/automations/session</code> auf; dieser meldet den festen Owner serverseitig bei n8n an (<code>/rest/login</code>) und gibt den n8n-Session-Cookie <b>same-origin</b> an den Browser weiter. Danach lädt der iframe <code>/n8n/</code> bereits angemeldet — direkt im Editor.</p>
+
+  <p>Wichtig: Die <b>Arasul-Anmeldung bleibt die einzige Wand</b>. Wer nicht im Dashboard angemeldet ist, kommt schon an Traefik-forward-auth nicht vorbei — weder an den Editor noch an <code>/api/automations/session</code>. n8ns eigene Anmeldung entfällt für den Nutzer, ohne dass eine Schutzschicht verloren geht. Webhooks (<code>/webhook/*</code>) bleiben wie bisher bewusst öffentlich für externe Trigger.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 560 300" role="img" aria-label="Vorher/Nachher-Architekturdiagramm" style="color:var(--ink)">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/>
+        </marker>
+        <marker id="ahb" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" style="fill:var(--bad)"/>
+        </marker>
+        <marker id="aho" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" style="fill:var(--accent)"/>
+        </marker>
+      </defs>
+      <style>
+        .bx{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+        .lbl{font:600 11px sans-serif;fill:var(--ink)}
+        .sub{font:10px sans-serif;fill:var(--muted)}
+        .hd{font:700 10px sans-serif;letter-spacing:.08em;fill:var(--muted)}
+        .ln{stroke:currentColor;stroke-width:1.5;fill:none}
+      </style>
+
+      <text x="8" y="20" class="hd">VORHER</text>
+      <rect class="bx" x="8" y="30" width="92" height="40" rx="8"/>
+      <text x="54" y="48" text-anchor="middle" class="lbl">Browser</text>
+      <text x="54" y="62" text-anchor="middle" class="sub">Arasul-Login ✓</text>
+
+      <rect class="bx" x="150" y="30" width="104" height="40" rx="8"/>
+      <text x="202" y="48" text-anchor="middle" class="lbl">Traefik</text>
+      <text x="202" y="62" text-anchor="middle" class="sub">forward-auth ✓</text>
+
+      <rect class="bx" x="316" y="30" width="104" height="40" rx="8"/>
+      <text x="368" y="48" text-anchor="middle" class="lbl">iframe /n8n/</text>
+      <text x="368" y="62" text-anchor="middle" class="sub">lädt direkt</text>
+
+      <rect class="bx" x="452" y="30" width="100" height="40" rx="8" style="stroke:var(--bad)"/>
+      <text x="502" y="48" text-anchor="middle" class="lbl" style="fill:var(--bad)">n8n Login</text>
+      <text x="502" y="62" text-anchor="middle" class="sub" style="fill:var(--bad)">401 /rest/login</text>
+
+      <line class="ln" x1="100" y1="50" x2="146" y2="50" marker-end="url(#ah)"/>
+      <line class="ln" x1="254" y1="50" x2="312" y2="50" marker-end="url(#ah)"/>
+      <line class="ln" x1="420" y1="50" x2="448" y2="50" style="stroke:var(--bad)" marker-end="url(#ahb)"/>
+
+      <text x="8" y="128" class="hd">NACHHER</text>
+      <rect class="bx" x="8" y="140" width="92" height="44" rx="8"/>
+      <text x="54" y="160" text-anchor="middle" class="lbl">Browser</text>
+      <text x="54" y="174" text-anchor="middle" class="sub">Tab öffnet</text>
+
+      <rect class="bx" x="150" y="140" width="118" height="44" rx="8"/>
+      <text x="209" y="158" text-anchor="middle" class="lbl">Backend</text>
+      <text x="209" y="172" text-anchor="middle" class="sub">/automations/session</text>
+
+      <rect class="bx" x="316" y="140" width="118" height="44" rx="8" style="stroke:var(--accent)"/>
+      <text x="375" y="158" text-anchor="middle" class="lbl">n8n /rest/login</text>
+      <text x="375" y="172" text-anchor="middle" class="sub">fester Owner ✓</text>
+
+      <rect class="bx" x="452" y="140" width="100" height="44" rx="8" style="stroke:var(--accent)"/>
+      <text x="502" y="158" text-anchor="middle" class="lbl" style="fill:var(--accent)">iframe /n8n/</text>
+      <text x="502" y="172" text-anchor="middle" class="sub" style="fill:var(--accent)">im Editor</text>
+
+      <line class="ln" x1="100" y1="162" x2="146" y2="162" marker-end="url(#ah)"/>
+      <line class="ln" x1="268" y1="162" x2="312" y2="162" marker-end="url(#ah)"/>
+      <path class="ln" d="M375,184 L375,214 L54,214 L54,186" style="stroke:var(--accent)" marker-end="url(#aho)"/>
+      <text x="214" y="230" text-anchor="middle" class="sub" style="fill:var(--accent)">Set-Cookie n8n-auth (same-origin) → iframe lädt angemeldet</text>
+
+      <rect class="bx" x="316" y="252" width="236" height="34" rx="8" style="stroke-dasharray:4 3"/>
+      <text x="434" y="266" text-anchor="middle" class="sub">Start: entrypoint legt Owner idempotent an</text>
+      <text x="434" y="279" text-anchor="middle" class="sub">Creds ← Docker-Secret</text>
+    </svg>
+    <figcaption>Vorher: der iframe lädt n8n direkt und stößt auf n8ns eigene Anmeldung (401). Nachher: der Tab holt zuerst eine n8n-Session über das Backend; der iframe lädt dann bereits angemeldet.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 7 Schritte: Secrets → Owner-Provisionierung → Backend-Route → Frontend → Tests → Doku → Jetson-Reset.</span>
+  </summary>
+  <div class="sbody">
+  <!-- One .step per phase; unique data-ref each. -->
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Owner-Secrets anlegen &amp; verdrahten">
+    <h3>Schritt 1 — Owner-Secrets anlegen &amp; verdrahten <span class="tag">Risiko: niedrig</span></h3>
+    <p>Zwei neue Docker-Secrets <code>n8n_owner_email</code> und <code>n8n_owner_password</code> nach dem exakten Muster von <code>n8n_encryption_key</code>: Deklaration in <code>compose.secrets.yaml</code> (<code>file: ../config/secrets/&lt;name&gt;</code>), Verdrahtung als <code>*_FILE</code>-Env in den n8n-Service. Idempotente Generierung im interaktiven Setup (neben den bestehenden n8n-Secrets). System läuft unverändert weiter — die Secrets sind vorhanden, aber noch ungenutzt.</p>
+    <p class="files mono">compose/compose.secrets.yaml · scripts/interactive_setup.sh · config/secrets/ (generiert, nicht committet)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Idempotente Owner-Provisionierung im Entrypoint">
+    <h3>Schritt 2 — Idempotente Owner-Provisionierung im Entrypoint <span class="tag">Risiko: mittel</span></h3>
+    <p>Im <code>services/n8n/entrypoint.sh</code> (vor <code>exec n8n</code>) die Owner-Secrets per <code>*_FILE</code>-Shim auflösen, auf n8n-Readiness warten und — nur falls noch kein Owner existiert — den festen Owner über n8ns REST-Setup anlegen. Strikt idempotent: existiert der Owner bereits, passiert nichts. Kein Fehler bei erneutem Boot. Empirisch am Image 2.29.10 den korrekten Setup-Endpunkt/Ablauf bestätigen.</p>
+    <p class="files mono">services/n8n/entrypoint.sh</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Backend-Route /api/automations/session">
+    <h3>Schritt 3 — Backend-Route <code>/api/automations/session</code> <span class="tag">Risiko: mittel</span></h3>
+    <p>Neues Route-Modul <code>routes/automations.js</code> (Muster: <code>routes/store/workflows.js</code>): <code>requireAuth</code> + <code>asyncHandler</code>, kein try/catch. Meldet den festen Owner serverseitig bei n8n an (axios gegen <code>N8N_HOST/N8N_PORT</code> bzw. <code>N8N_URL</code>, wie <code>tools/workflowsTool.js</code>) und reicht den n8n-<code>Set-Cookie</code> <b>attributgetreu</b> (Secure/SameSite unverändert) same-origin an den Browser weiter. Bei n8n-Ausfall <code>ServiceUnavailableError</code> aus <code>utils/errors.js</code>. Registrierung in <code>routes/index.js</code> (Gruppe + <code>router.use</code>).</p>
+    <p class="files mono">apps/dashboard-backend/src/routes/automations.js (neu) · apps/dashboard-backend/src/routes/index.js</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Frontend: Session vor dem iframe holen">
+    <h3>Schritt 4 — Frontend: Session vor dem iframe holen <span class="tag">Risiko: niedrig</span></h3>
+    <p><code>AutomationenTab.tsx</code> ruft beim Mount via <code>useApi</code> <code>GET /api/automations/session</code> auf (Muster: <code>DocumentViewerTab.tsx</code> — <code>loading</code>/<code>error</code>/<code>cancelled</code>-Guard), zeigt bis dahin einen schlanken Ladezustand und rendert den iframe erst, wenn der Cookie gesetzt ist. Bei Fehler eine klare Meldung statt der stummen Sign-in-Wand. TypeScript, Theme-Tokens, keine Hex-Literale.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/viewers/AutomationenTab.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Tests">
+    <h3>Schritt 5 — Tests <span class="tag">Risiko: niedrig</span></h3>
+    <p>Backend-Unit-Test <code>__tests__/unit/automations.test.js</code> (Muster: <code>workspaceApps.test.js</code>, <code>jest.mock('axios')</code> + supertest): erfolgreicher Login reicht <code>Set-Cookie</code> durch; n8n unerreichbar → <code>ServiceUnavailableError</code>. Frontend-e2e: neuer Fall, der <code>**/api/automations/session</code> mockt und prüft, dass der iframe ohne Login-Maske lädt; bestehender <code>e2e/workspace-shell.spec.ts</code> bleibt grün.</p>
+    <p class="files mono">apps/dashboard-backend/__tests__/unit/automations.test.js (neu) · apps/dashboard-frontend/e2e/*.spec.ts</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Doku synchronisieren">
+    <h3>Schritt 6 — Doku synchronisieren <span class="tag">Risiko: niedrig</span></h3>
+    <p><code>docs/integrations/N8N.md</code> §1 (Self-Service-Signup entfernen, festen Owner + Auto-Session beschreiben) und §8 (neue Secrets/Entrypoint-Schritt/Backend-Route ergänzen). <code>docs/ENVIRONMENT_VARIABLES.md</code>: veraltete <code>N8N_BASIC_AUTH_USER/PASSWORD</code>-„required"-Einträge korrigieren, neue Owner-Secrets + Secret→Env-Tabelle ergänzen.</p>
+    <p class="files mono">docs/integrations/N8N.md · docs/ENVIRONMENT_VARIABLES.md</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Jetson: n8n zurücksetzen &amp; Owner frisch provisionieren">
+    <h3>Schritt 7 — Jetson: n8n zurücksetzen &amp; Owner frisch provisionieren <span class="tag">Risiko: mittel</span></h3>
+    <p>Deploy-/Geräteschritt (in <code>/work</code> Phase 6–7): Vor dem Umschalten Volume <code>arasul-n8n</code> + Schema <code>n8n</code> sichern, dann leeren/neu anlegen, neues n8n-Image starten — der Entrypoint provisioniert dabei den frischen festen Owner. Nötig, weil ein evtl. halb-eingerichteter Owner die idempotente Provisionierung sonst überspringt. Anschließend Health prüfen und §6 fahren.</p>
+    <p class="files mono">Gerät: docker compose -p arasul-platform (Volume arasul-n8n, Schema n8n) — kein committeter Code</p>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Tab öffnet ohne Login, kein 401, Test-Workflow baubar, Session hält über Reload.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Der Automationen-Tab öffnet direkt den n8n-Editor — <b>keine n8n-Sign-in-Maske</b> ist sichtbar.</li>
+    <li data-done="false">Kein <code>401</code> mehr auf <code>/n8n/rest/login</code>; im Netzwerk-Tab liegt eine gültige n8n-Session an.</li>
+    <li data-done="false"><b>0 neue Console-Errors</b> beim Öffnen des Tabs.</li>
+    <li data-done="false">Ein Test-Workflow lässt sich <b>anlegen, aktivieren und wieder löschen</b>.</li>
+    <li data-done="false">Nach einem Reload bleibt der Tab nahtlos angemeldet (Session hält).</li>
+    <li data-done="false">Die Owner-Provisionierung ist idempotent: ein zweiter Container-Boot läuft ohne Fehler und ohne Duplikat.</li>
+    <li data-done="false">Die Backend-Route liefert bei n8n-Ausfall einen sauberen <code>ServiceUnavailableError</code> (kein Crash, kein Leerlauf).</li>
+    <li data-done="false">forward-auth bleibt wirksam: ohne Arasul-Anmeldung kein Zugriff auf <code>/n8n</code> oder <code>/api/automations/session</code>.</li>
+    <li data-done="false">Alle bestehenden Tests bleiben grün (inkl. <code>e2e/workspace-shell.spec.ts</code>); neue Unit- + e2e-Tests decken den Session-Pfad ab.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Auf dem Jetson im echten Browser: Tab öffnen, Workflow anlegen→aktiv→löschen, 0 Console-Errors.</span>
+  </summary>
+  <div class="sbody">
+  <p>Verifikation läuft <b>echt auf dem Jetson</b>, nicht lokal. Reihenfolge:</p>
+  <h3>Gerät &amp; Deploy</h3>
+  <ul>
+    <li>n8n auf dem Gerät zurücksetzen (Schritt 7), neues Image ausrollen.</li>
+    <li><code>docker compose -p arasul-platform ps</code> — n8n, dashboard-backend, traefik <b>healthy</b>.</li>
+    <li>Logs sichten: n8n-Entrypoint meldet „Owner provisioniert" (bzw. „bereits vorhanden"); Backend loggt <code>GET /api/automations/session → 200</code>; keine neuen Fehler.</li>
+  </ul>
+  <h3>Im echten Browser (Playwright-MCP gegen <code>https://192.168.0.197/</code> bzw. Tailscale-IP)</h3>
+  <ul>
+    <li>Im Dashboard anmelden, „Automationen" öffnen → <b>direkt der n8n-Editor</b>, keine Login-Maske.</li>
+    <li>Netzwerk: <code>/n8n/rest/login</code> nicht mehr 401; Console: <b>0 Fehler</b>.</li>
+    <li>Einen Test-Workflow <b>anlegen → aktivieren → wieder löschen</b>.</li>
+    <li>Seite neu laden → Tab bleibt nahtlos angemeldet.</li>
+    <li>Gegenprobe: in einem frischen Kontext ohne Arasul-Login <code>/n8n/</code> aufrufen → von forward-auth abgewiesen.</li>
+  </ul>
+  <p class="sub" style="color:var(--muted);font-size:.9rem">Hinweis: Reachability über LAN (<code>192.168.0.197</code>) ist der zuverlässige Pfad; die Tailscale-SSH-Verbindung flackerte zuletzt (siehe Betriebs-Memo). Selbstsigniertes Zertifikat → <code>ignoreHTTPSErrors</code> ist in <code>playwright.config.ts</code> bereits gesetzt.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Hauptrisiko Cookie-Verwerfung (Secure/SameSite); Rollback per Revert-PR + Volume-Backup.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>n8n-Session-Cookie wird im iframe verworfen (<code>Secure</code>/<code>SameSite</code>)</td><td>Mittel</td><td>Cookie-Attribute 1:1 von n8n übernehmen, nichts umschreiben; same-origin; empirisch am Image 2.29.10 prüfen. Ist das Hauptrisiko.</td></tr>
+      <tr><td>Exakter n8n-2.x-Cookie-Name unbekannt</td><td>Mittel</td><td>Cookie-Name empirisch am laufenden 2.29.10-Container bestätigen, nicht aus Doku raten; Route reicht den Cookie generisch weiter.</td></tr>
+      <tr><td>Entrypoint-Timing: Owner-Setup läuft, bevor n8n bereit ist</td><td>Mittel</td><td>Readiness-Poll vor dem Setup-Call, kurze Retry-Schleife; Idempotenz macht Wiederholung ungefährlich.</td></tr>
+      <tr><td>Volume-Reset löscht bestehende n8n-Workflows</td><td>Niedrig</td><td>Bewusst gewählt (Gerät hat keine echten Workflows); vorher Volume + Schema sichern, damit rückrollbar.</td></tr>
+      <tr><td>Fester Owner = geteilter Workspace (keine Mandanten-Trennung)</td><td>Akzeptiert</td><td>Single-Tenant-Appliance; explizit im Interview so entschieden.</td></tr>
+      <tr><td>Secrets versehentlich committet</td><td>Niedrig</td><td><code>config/secrets/</code> ist git-ignoriert; Staging in <code>/work</code> schließt <code>secrets/</code> hart aus.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <ul>
+    <li><b>Code</b> (Route, Frontend, Entrypoint, Secrets-Verdrahtung, Doku): vollständig per <code>git revert</code> des Squash-Commits rückrollbar — gleicher Auto-Merge-Pfad.</li>
+    <li><b>n8n-Daten</b>: das vor dem Reset gezogene Volume-/Schema-Backup zurückspielen stellt den vorherigen n8n-Stand wieder her.</li>
+    <li><b>Deploy</b>: schlägt der Deploy fehl, rollt <code>deploy-local.sh</code> automatisch auf den vorherigen Stand zurück — das Gerät bleibt gesund.</li>
+    <li>Der Fix ändert weder Traefik-Routen noch CSP/<code>X-Frame-Options</code>, also kein Risiko für andere eingebettete Dienste.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 10 Entscheidungen aus dem Interview — nahtlos, Single-Tenant, fester Owner, Jetson-Reset.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Was heißt „fertig" für den Tab?</td><td>Nahtlos — keine n8n-Anmeldung sichtbar</td><td>Backend stellt die n8n-Session automatisch her; der iframe zeigt nie einen Login.</td></tr>
+      <tr><td>Wie weit geht der Eingriff?</td><td>Nur die Anmelde-Wand beheben</td><td>Kein UI-Redesign, keine Deep-Links, keine neuen Features.</td></tr>
+      <tr><td>Umgang mit bestehenden n8n-Daten?</td><td>Frische Owner-Einrichtung erlaubt</td><td>n8n darf auf dem Gerät zurückgesetzt werden.</td></tr>
+      <tr><td>Mechanismus für „kein Login"?</td><td>n8n-Eigenanmeldung deaktivieren, forward-auth als einzige Wand</td><td>Kein zweiter Login; Absicherung liegt bei Traefik/Arasul-JWT.</td></tr>
+      <tr><td>Mandanten-Modell?</td><td>Ein gemeinsamer Workspace</td><td>Alle Admins teilen dieselben Workflows (Single-Tenant-Appliance).</td></tr>
+      <tr><td>Reicht forward-auth als alleinige Wand?</td><td>Ja; Webhooks bleiben bewusst offen</td><td>Keine zusätzliche n8n-interne Härtung in diesem Plan.</td></tr>
+      <tr><td>Umsetzung auf n8n 2.29.10 (kein „Login aus" per Env)?</td><td>Fester Auto-Owner + Backend-Auto-Session</td><td>Neuer Backend-Endpunkt + idempotente Owner-Provisionierung statt Env-Flag.</td></tr>
+      <tr><td>Wie wird der Owner eingerichtet?</td><td>Idempotent beim Start, Creds aus Docker-Secret</td><td>Kein manueller Schritt; neue Secrets <code>n8n_owner_email</code>/<code>n8n_owner_password</code>.</td></tr>
+      <tr><td>Ist-Zustand auf dem Jetson?</td><td>n8n komplett zurücksetzen (Volume + Schema)</td><td>Frischer fester Owner; vorher Backup, bestehende Workflows gehen verloren (Gerät leer).</td></tr>
+      <tr><td>Was zur Live-Abnahme?</td><td>Voll: öffnen + Test-Workflow bauen/aktivieren/löschen</td><td>Beweist echte Funktion, nicht nur login-freies Laden.</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 007 · erstellt am 2026-07-15 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/007-n8n-nahtlos-eingebettet.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"))
+    .filter(function (el) { return !el.classList.contains("oq-item"); });
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // open-question answers first
+    document.querySelectorAll(".oq-item").forEach(function (q) {
+      var ta = q.querySelector("textarea");
+      if (ta) out.push({ ref: q.dataset.ref + ": " + (q.querySelector("p") ? q.querySelector("p").textContent.trim() : ""), text: ta.value, oq: true, key: q.dataset.ref });
+    });
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list.filter(function (c) { return !c.oq || c.text.trim(); }));
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.value = ""; });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // wire open-question textareas + restore persisted state
+  document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.addEventListener("input", persist); });
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var oq = document.querySelector('.oq-item[data-ref="' + c.key + '"]');
+    if (oq) {
+      var ta = oq.querySelector("textarea");
+      if (ta && !ta.value) ta.value = c.text;
+      return;
+    }
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
