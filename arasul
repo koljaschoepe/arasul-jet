@@ -747,6 +747,23 @@ setup_secrets() {
     fi
     # -------------------------------------------------------------------------
 
+    # --- Plan 007: fester n8n-Owner ------------------------------------------
+    # Zugangsdaten des einzigen n8n-Owners. entrypoint.sh legt ihn beim Start
+    # idempotent an; das Backend meldet ihn für die nahtlose Session an.
+    # Idempotent: nur erzeugen, wenn fehlend. Das Passwort erfüllt n8ns Policy
+    # (>= 8 Zeichen, mind. 1 Großbuchstabe, mind. 1 Ziffer).
+    if [ ! -s config/secrets/n8n_owner_email ]; then
+        printf 'owner@arasul.local' > config/secrets/n8n_owner_email
+        chmod 600 config/secrets/n8n_owner_email
+        log_success "n8n-Owner-E-Mail gesetzt (config/secrets/n8n_owner_email)"
+    fi
+    if [ ! -s config/secrets/n8n_owner_password ]; then
+        printf 'A1%s' "$(openssl rand -hex 24)" > config/secrets/n8n_owner_password
+        chmod 600 config/secrets/n8n_owner_password
+        log_success "n8n-Owner-Passwort generiert (config/secrets/n8n_owner_password)"
+    fi
+    # -------------------------------------------------------------------------
+
     # Credentials aus .env lesen (vom Interactive Setup generiert)
     local n8n_user=$(grep "^N8N_BASIC_AUTH_USER=" .env | cut -d'=' -f2)
     local n8n_pass=$(grep "^N8N_BASIC_AUTH_PASSWORD=" .env | cut -d'=' -f2)

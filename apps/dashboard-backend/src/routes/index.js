@@ -58,6 +58,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/store', group: 'store' },
   { prefix: '/workflows', group: 'store' },
   { prefix: '/workspaces', group: 'store' },
+  { prefix: '/automations', group: 'store' },
   { prefix: '/sandbox', group: 'sandbox' },
   { prefix: '/v1/external', group: 'external' },
   { prefix: '/claude-terminal', group: 'external' },
@@ -136,6 +137,7 @@ router.use('/workspace-apps', require('./workspaceApps'));
 router.use('/store', require('./store/store'));
 router.use('/workflows', require('./store/workflows'));
 router.use('/workspaces', require('./store/workspaces'));
+router.use('/automations', require('./automations'));
 
 // --- Sandbox ---
 router.use('/sandbox', require('./sandbox'));

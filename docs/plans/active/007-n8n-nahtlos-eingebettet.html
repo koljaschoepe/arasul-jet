@@ -10,14 +10,14 @@
   "slug": "n8n-nahtlos-eingebettet",
   "title": "Automationen nahtlos: n8n ohne zweite Anmeldung",
   "type": "fix",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 2,
   "reversibility_level": 2,
   "created": "2026-07-15",
   "approved": "2026-07-15",
-  "branch": null,
+  "branch": "007-n8n-nahtlos-eingebettet",
   "pr": null,
   "verified_on_device": false
 }
@@ -503,40 +503,46 @@
   </summary>
   <div class="sbody">
   <!-- One .step per phase; unique data-ref each. -->
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Owner-Secrets anlegen &amp; verdrahten">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Owner-Secrets anlegen &amp; verdrahten">
     <h3>Schritt 1 — Owner-Secrets anlegen &amp; verdrahten <span class="tag">Risiko: niedrig</span></h3>
     <p>Zwei neue Docker-Secrets <code>n8n_owner_email</code> und <code>n8n_owner_password</code> nach dem exakten Muster von <code>n8n_encryption_key</code>: Deklaration in <code>compose.secrets.yaml</code> (<code>file: ../config/secrets/&lt;name&gt;</code>), Verdrahtung als <code>*_FILE</code>-Env in den n8n-Service. Idempotente Generierung im interaktiven Setup (neben den bestehenden n8n-Secrets). System läuft unverändert weiter — die Secrets sind vorhanden, aber noch ungenutzt.</p>
     <p class="files mono">compose/compose.secrets.yaml · scripts/interactive_setup.sh · config/secrets/ (generiert, nicht committet)</p>
+  <div class="result"><strong>Ergebnis:</strong> Zwei Docker-Secrets <code>n8n_owner_email</code>/<code>n8n_owner_password</code> in <code>compose.secrets.yaml</code> deklariert und in <b>n8n</b> und <b>dashboard-backend</b> als <code>*_FILE</code>-Env verdrahtet; idempotente Generierung in <code>arasul</code> (setup_secrets) und <code>interactive_setup.sh</code> (Passwort n8n-policy-konform).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Idempotente Owner-Provisionierung im Entrypoint">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Idempotente Owner-Provisionierung im Entrypoint">
     <h3>Schritt 2 — Idempotente Owner-Provisionierung im Entrypoint <span class="tag">Risiko: mittel</span></h3>
     <p>Im <code>services/n8n/entrypoint.sh</code> (vor <code>exec n8n</code>) die Owner-Secrets per <code>*_FILE</code>-Shim auflösen, auf n8n-Readiness warten und — nur falls noch kein Owner existiert — den festen Owner über n8ns REST-Setup anlegen. Strikt idempotent: existiert der Owner bereits, passiert nichts. Kein Fehler bei erneutem Boot. Empirisch am Image 2.29.10 den korrekten Setup-Endpunkt/Ablauf bestätigen.</p>
     <p class="files mono">services/n8n/entrypoint.sh</p>
+  <div class="result"><strong>Ergebnis:</strong> Entrypoint provisioniert den festen Owner idempotent: wartet auf n8n-Readiness (<code>/rest/settings</code>), legt ihn nur bei <code>showSetupOnFirstLoad:true</code> via <code>POST /rest/owner/setup</code> an (empirisch am Image 2.29.10 bestätigt: REST liegt an der Wurzel <code>/rest/*</code>, Owner-Body <code>{email,firstName,lastName,password}</code>). Läuft als Hintergrund-Job, stört den n8n-Start nie.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Backend-Route /api/automations/session">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Backend-Route /api/automations/session">
     <h3>Schritt 3 — Backend-Route <code>/api/automations/session</code> <span class="tag">Risiko: mittel</span></h3>
     <p>Neues Route-Modul <code>routes/automations.js</code> (Muster: <code>routes/store/workflows.js</code>): <code>requireAuth</code> + <code>asyncHandler</code>, kein try/catch. Meldet den festen Owner serverseitig bei n8n an (axios gegen <code>N8N_HOST/N8N_PORT</code> bzw. <code>N8N_URL</code>, wie <code>tools/workflowsTool.js</code>) und reicht den n8n-<code>Set-Cookie</code> <b>attributgetreu</b> (Secure/SameSite unverändert) same-origin an den Browser weiter. Bei n8n-Ausfall <code>ServiceUnavailableError</code> aus <code>utils/errors.js</code>. Registrierung in <code>routes/index.js</code> (Gruppe + <code>router.use</code>).</p>
     <p class="files mono">apps/dashboard-backend/src/routes/automations.js (neu) · apps/dashboard-backend/src/routes/index.js</p>
+  <div class="result"><strong>Ergebnis:</strong> Neue Route <code>routes/automations.js</code>: <code>requireAuth</code>+<code>asyncHandler</code>, meldet den Owner über <code>POST /rest/login</code> (<code>{emailOrLdapLoginId,password}</code>) an und reicht den <code>Set-Cookie</code> (n8n-auth) attributgetreu durch; n8n-Ausfall → <code>ServiceUnavailableError</code>. Registriert in <code>routes/index.js</code> (+_meta).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Frontend: Session vor dem iframe holen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Frontend: Session vor dem iframe holen">
     <h3>Schritt 4 — Frontend: Session vor dem iframe holen <span class="tag">Risiko: niedrig</span></h3>
     <p><code>AutomationenTab.tsx</code> ruft beim Mount via <code>useApi</code> <code>GET /api/automations/session</code> auf (Muster: <code>DocumentViewerTab.tsx</code> — <code>loading</code>/<code>error</code>/<code>cancelled</code>-Guard), zeigt bis dahin einen schlanken Ladezustand und rendert den iframe erst, wenn der Cookie gesetzt ist. Bei Fehler eine klare Meldung statt der stummen Sign-in-Wand. TypeScript, Theme-Tokens, keine Hex-Literale.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/workspace/viewers/AutomationenTab.tsx</p>
+  <div class="result"><strong>Ergebnis:</strong> <code>AutomationenTab.tsx</code> holt beim Mount via <code>useApi</code> <code>GET /automations/session</code> (loading/error/cancelled-Guard), rendert den iframe erst nach Erfolg und zeigt bei Fehler eine klare Meldung statt der stummen Login-Wand. TS, Theme-Tokens.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Tests">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 5 — Tests">
     <h3>Schritt 5 — Tests <span class="tag">Risiko: niedrig</span></h3>
     <p>Backend-Unit-Test <code>__tests__/unit/automations.test.js</code> (Muster: <code>workspaceApps.test.js</code>, <code>jest.mock('axios')</code> + supertest): erfolgreicher Login reicht <code>Set-Cookie</code> durch; n8n unerreichbar → <code>ServiceUnavailableError</code>. Frontend-e2e: neuer Fall, der <code>**/api/automations/session</code> mockt und prüft, dass der iframe ohne Login-Maske lädt; bestehender <code>e2e/workspace-shell.spec.ts</code> bleibt grün.</p>
     <p class="files mono">apps/dashboard-backend/__tests__/unit/automations.test.js (neu) · apps/dashboard-frontend/e2e/*.spec.ts</p>
+  <div class="result"><strong>Ergebnis:</strong> Backend-Unit-Test <code>automations.test.js</code> (4 Fälle: Cookie durchgereicht, n8n down→503, Login-ohne-Cookie→503, Auth nötig) — grün. Frontend-e2e-Fall in <code>workspace-shell.spec.ts</code>: mockt <code>/api/automations/session</code>+<code>/n8n/</code>, prüft iframe lädt ohne Login-Maske (läuft gegen den deployten Stack).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Doku synchronisieren">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 6 — Doku synchronisieren">
     <h3>Schritt 6 — Doku synchronisieren <span class="tag">Risiko: niedrig</span></h3>
     <p><code>docs/integrations/N8N.md</code> §1 (Self-Service-Signup entfernen, festen Owner + Auto-Session beschreiben) und §8 (neue Secrets/Entrypoint-Schritt/Backend-Route ergänzen). <code>docs/ENVIRONMENT_VARIABLES.md</code>: veraltete <code>N8N_BASIC_AUTH_USER/PASSWORD</code>-„required"-Einträge korrigieren, neue Owner-Secrets + Secret→Env-Tabelle ergänzen.</p>
     <p class="files mono">docs/integrations/N8N.md · docs/ENVIRONMENT_VARIABLES.md</p>
+  <div class="result"><strong>Ergebnis:</strong> <code>N8N.md</code> §1 (fester Owner + Auto-Session statt Self-Service-Signup) und §8 (neue Dateien/Secrets) aktualisiert; <code>ENVIRONMENT_VARIABLES.md</code>: Basic-Auth als deprecated markiert, Owner-Secrets + Secret→Env-Tabelle ergänzt.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Jetson: n8n zurücksetzen &amp; Owner frisch provisionieren">

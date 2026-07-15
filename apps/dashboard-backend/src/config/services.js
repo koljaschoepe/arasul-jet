@@ -122,6 +122,11 @@ const services = {
     host: N8N_HOST,
     port: N8N_PORT,
     url: `http://${N8N_HOST}:${N8N_PORT}`,
+    // Fester Owner (Plan 007): hydratisiert von utils/resolveSecrets aus den
+    // Docker-Secrets n8n_owner_email / n8n_owner_password. Das Backend meldet
+    // diesen Owner bei n8n an (GET /api/automations/session).
+    ownerEmail: process.env.N8N_OWNER_EMAIL || '',
+    ownerPassword: process.env.N8N_OWNER_PASSWORD || '',
   },
 };
 

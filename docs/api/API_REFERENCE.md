@@ -559,6 +559,19 @@ Request: `multipart/form-data` with `file` field.
 | ------ | ------------------------- | ------------------- |
 | GET    | `/api/workflows/activity` | Workflow statistics |
 
+### Automations (n8n auto-session)
+
+| Method | Endpoint                   | Description                                                   |
+| ------ | -------------------------- | ------------------------------------------------------------- |
+| GET    | `/api/automations/session` | Logs the fixed n8n owner in and forwards n8n's session cookie |
+
+Requires an authenticated dashboard session (`requireAuth`). The backend logs
+the fixed n8n owner into n8n (`POST /rest/login`, credentials from the
+`n8n_owner_email` / `n8n_owner_password` Docker secrets) and forwards n8n's
+`Set-Cookie` (`n8n-auth`) verbatim, same-origin, so the `/n8n/` iframe loads
+already authenticated (Plan 007). Response: `{ "data": { "authenticated": true }, "timestamp": "…" }`.
+On n8n being unreachable or login failing, returns `503 SERVICE_UNAVAILABLE`.
+
 ### Self-Healing
 
 | Method | Endpoint                   | Description    |
