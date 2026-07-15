@@ -70,28 +70,35 @@ provision_owner() {
     return 0
   fi
 
-  # Auf n8n-Readiness warten (bis ~60s): /rest/settings liefert erst JSON,
-  # wenn der HTTP-Server steht.
-  _settings=""
+  # Auf echte n8n-Readiness warten. WICHTIG: NICHT auf /rest/settings pollen und
+  # dann showSetupOnFirstLoad auswerten — n8n serviert /rest/* bereits mitten in
+  # den Start-Migrationen, und das Flag ist bis zur Migration
+  # RemoveSkipOwnerSetup transient `false`. Genau diese Race hat die
+  # Provisionierung faelschlich uebersprungen. Stattdessen:
+  #   1) auf /healthz warten (Server oben),
+  #   2) kurz nachsetzen lassen (Migrationen inkl. Owner-Setup-Status),
+  #   3) den Setup-Call unbedingt versuchen — n8n weist ihn serverseitig mit
+  #      4xx ab, falls bereits ein Owner existiert. Das ist die eigentliche,
+  #      race-freie Idempotenz-Grenze.
   _i=0
   while [ "$_i" -lt 60 ]; do
-    _settings="$(wget -qO- http://localhost:5678/rest/settings 2>/dev/null)"
-    if [ -n "$_settings" ]; then
+    if wget -q -O /dev/null http://localhost:5678/healthz 2>/dev/null; then
       break
     fi
     _i=$((_i + 1))
     sleep 1
   done
-  if [ -z "$_settings" ]; then
-    echo "n8n-owner: n8n nicht rechtzeitig bereit — Owner-Provisionierung übersprungen." >&2
-    return 0
-  fi
-
-  # Nur einrichten, wenn noch kein Owner existiert.
-  if ! printf '%s' "$_settings" | grep -q '"showSetupOnFirstLoad":true'; then
-    echo "n8n-owner: Owner bereits vorhanden — Provisionierung übersprungen (idempotent)."
-    return 0
-  fi
+  # Migrationen austrudeln lassen (Owner-Setup-Status stabilisiert sich).
+  sleep 5
+  # Sicherstellen, dass die REST-Schicht (inkl. /rest/owner/setup) serviert.
+  _i=0
+  while [ "$_i" -lt 30 ]; do
+    if wget -qO- http://localhost:5678/rest/settings 2>/dev/null | grep -q showSetupOnFirstLoad; then
+      break
+    fi
+    _i=$((_i + 1))
+    sleep 1
+  done
 
   # JSON-Body sicher zusammenbauen (Passwort kann Sonderzeichen enthalten).
   _body="$(N8N_OWNER_EMAIL="$_email" N8N_OWNER_PASSWORD="$_password" node -e '
@@ -107,11 +114,14 @@ provision_owner() {
     return 0
   fi
 
+  # Setup-Call: n8ns Server-Guard laesst /rest/owner/setup nur zu, solange kein
+  # Owner existiert (sonst 4xx). Erfolg = frisch provisioniert; Ablehnung =
+  # bereits vorhanden. Damit ist der Aufruf idempotent, ohne racy Vorab-Check.
   if wget -qO- --post-data="$_body" --header='Content-Type: application/json' \
       http://localhost:5678/rest/owner/setup >/dev/null 2>&1; then
     echo "n8n-owner: fester Owner provisioniert."
   else
-    echo "n8n-owner: Owner-Setup fehlgeschlagen (evtl. bereits vorhanden) — n8n läuft weiter." >&2
+    echo "n8n-owner: Owner-Setup uebersprungen (bereits vorhanden oder nicht noetig) — n8n laeuft weiter."
   fi
   return 0
 }
