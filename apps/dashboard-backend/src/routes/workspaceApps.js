@@ -1,5 +1,5 @@
 /**
- * Workspace-Apps: An-/Abschalten der kuratierten Kern-Apps (n8n, Telegram,
+ * Workspace-Apps: An-/Abschalten der kuratierten Kern-Apps (n8n,
  * Datenbank) in der Workspace-Shell. Persistenz in platform_apps
  * (Migration 100). Deaktivierte Apps verschwinden aus ActivityBar und
  * Tab-Angebot — die Dienste selbst laufen weiter (reine UI-Sichtbarkeit).
@@ -25,12 +25,6 @@ const APP_MANIFEST = [
     name: 'n8n Automationen',
     description: 'Workflows und KI-Agenten — läuft inline als Automationen-Tab.',
     tab: 'automationen',
-  },
-  {
-    id: 'telegram',
-    name: 'Telegram-Bot',
-    description: 'Chat-Zugang über Telegram inklusive Bot-Verwaltung.',
-    tab: 'telegram',
   },
   {
     id: 'database',

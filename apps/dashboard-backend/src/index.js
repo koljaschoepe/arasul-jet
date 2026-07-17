@@ -271,7 +271,7 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // HIGH-001 FIX: WebSocket server for live metrics streaming
-// Use noServer to prevent dual-WSS upgrade conflict with Telegram WSS
+// Use noServer to keep upgrade handling explicit per path.
 const wss = new WebSocket.Server({ noServer: true });
 
 // Sandbox terminal WebSocket server (interactive terminal sessions)
@@ -290,8 +290,6 @@ const modelService = require('./services/llm/modelService');
 const alertEngine = require('./services/alertEngine');
 const ollamaReadiness = require('./services/llm/ollamaReadiness');
 const dataDatabase = require('./dataDatabase');
-const telegramWebSocketService = require('./services/telegram/telegramWebSocketService');
-const telegramPollingManager = require('./services/telegram/telegramPollingManager');
 const eventListenerService = require('./services/core/eventListenerService');
 const { cacheService } = require('./services/core/cacheService');
 const { bootstrap } = require('./bootstrap');
@@ -467,11 +465,6 @@ async function gracefulShutdown(signal) {
     /* ignore */
   }
   try {
-    telegramPollingManager.shutdown();
-  } catch (e) {
-    /* ignore */
-  }
-  try {
     cacheService.shutdown();
   } catch (e) {
     /* ignore */
@@ -480,13 +473,6 @@ async function gracefulShutdown(signal) {
   try {
     const { destroyOllamaAgent } = require('./services/llm/llmJobProcessor');
     destroyOllamaAgent();
-  } catch (e) {
-    /* ignore */
-  }
-  // LEAK-002: Shutdown Telegram WebSocket heartbeat
-  try {
-    const telegramOrchestrator = require('./services/telegram/telegramOrchestratorService');
-    telegramOrchestrator.shutdown();
   } catch (e) {
     /* ignore */
   }
@@ -542,14 +528,6 @@ if (require.main === module) {
       logger.error(`Bootstrap failed: ${err.message}`);
     }
 
-    // Initialize Telegram WebSocket Service for real-time setup notifications
-    try {
-      telegramWebSocketService.initialize(server);
-      logger.info(`Telegram WebSocket ready at ws://0.0.0.0:${PORT}/api/telegram-app/ws`);
-    } catch (err) {
-      logger.error(`Failed to initialize Telegram WebSocket Service: ${err.message}`);
-    }
-
     // Central upgrade handler - routes WebSocket connections by path
     // Prevents dual-WSS conflict where two servers corrupt each other's upgrades
     const MAX_WS_CONNECTIONS = 100;
@@ -557,10 +535,7 @@ if (require.main === module) {
       const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
       // Connection limit guard — prevent resource exhaustion
-      const totalConnections =
-        wss.clients.size +
-        sandboxTerminalWss.clients.size +
-        (telegramWebSocketService?.wss?.clients?.size || 0);
+      const totalConnections = wss.clients.size + sandboxTerminalWss.clients.size;
       if (totalConnections >= MAX_WS_CONNECTIONS) {
         logger.warn(
           `WebSocket connection limit reached (${totalConnections}/${MAX_WS_CONNECTIONS}), rejecting upgrade`
@@ -601,40 +576,6 @@ if (require.main === module) {
           })
           .catch(err => {
             logger.warn(`WebSocket upgrade rejected: ${err.message}`);
-            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-            socket.destroy();
-          });
-      } else if (pathname === '/api/telegram-app/ws' && telegramWebSocketService.wss) {
-        // SEC: Verify JWT before allowing Telegram WebSocket upgrade
-        const { verifyToken: verifyTgToken } = require('./utils/jwt');
-        const tgUrl = new URL(request.url, `http://${request.headers.host}`);
-        const tgTokenFromQuery = tgUrl.searchParams.get('token');
-        const tgAuthHeader = request.headers['authorization'];
-        const tgCookieHeader = request.headers['cookie'];
-        let tgToken = tgTokenFromQuery;
-        if (!tgToken && tgAuthHeader && tgAuthHeader.startsWith('Bearer ')) {
-          tgToken = tgAuthHeader.slice(7);
-        }
-        if (!tgToken && tgCookieHeader) {
-          const tgMatch = tgCookieHeader.match(/arasul_session=([^;]+)/);
-          if (tgMatch) {
-            tgToken = tgMatch[1];
-          }
-        }
-        if (!tgToken) {
-          logger.warn('Telegram WebSocket upgrade rejected: no auth token');
-          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-          socket.destroy();
-          return;
-        }
-        verifyTgToken(tgToken)
-          .then(() => {
-            telegramWebSocketService.wss.handleUpgrade(request, socket, head, ws => {
-              telegramWebSocketService.wss.emit('connection', ws, request);
-            });
-          })
-          .catch(err => {
-            logger.warn(`Telegram WebSocket upgrade rejected: ${err.message}`);
             socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
             socket.destroy();
           });
@@ -756,13 +697,6 @@ if (require.main === module) {
       }
     } catch (err) {
       logger.warn(`Data Database initialization failed (non-critical): ${err.message}`);
-    }
-
-    // Initialize Telegram Polling Manager (getUpdates for bots when no PUBLIC_URL)
-    try {
-      await telegramPollingManager.initialize();
-    } catch (err) {
-      logger.error(`Failed to initialize Telegram Polling Manager: ${err.message}`);
     }
 
     // Initialize Ollama Readiness Service (handles waiting for Ollama + periodic sync)

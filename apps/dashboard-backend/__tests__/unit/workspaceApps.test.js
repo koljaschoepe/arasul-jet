@@ -43,11 +43,6 @@ jest.mock('../../src/services/core/eventListenerService', () => ({
   sendTestNotification: jest.fn()
 }));
 
-jest.mock('../../src/services/telegram/telegramNotificationService', () => ({
-  sendNotification: jest.fn().mockResolvedValue(true),
-  sendAlert: jest.fn().mockResolvedValue(true)
-}));
-
 jest.mock('../../src/middleware/rateLimit', () => ({
   apiLimiter: (req, res, next) => next(),
   metricsLimiter: (req, res, next) => next(),
@@ -108,7 +103,7 @@ describe('Workspace-Apps Routes', () => {
     test('liefert Manifest mit DB-Zustand (fehlende Zeile = aktiviert)', async () => {
       setupMocksWithAuth((query) => {
         if (query.includes('FROM platform_apps')) {
-          return Promise.resolve({ rows: [{ id: 'telegram', enabled: false }] });
+          return Promise.resolve({ rows: [{ id: 'database', enabled: false }] });
         }
         return Promise.resolve({ rows: [] });
       });
@@ -118,11 +113,10 @@ describe('Workspace-Apps Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.apps).toHaveLength(3);
+      expect(res.body.apps).toHaveLength(2);
       const byId = Object.fromEntries(res.body.apps.map(a => [a.id, a]));
-      expect(byId.telegram.enabled).toBe(false);
+      expect(byId.database.enabled).toBe(false);
       expect(byId.n8n.enabled).toBe(true);
-      expect(byId.database.enabled).toBe(true);
       expect(byId.n8n.tab).toBe('automationen');
     });
 

@@ -12,7 +12,6 @@ import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
-const TelegramBotPage = lazy(() => import('@/features/telegram/TelegramBotPage'));
 const DatabaseOverview = lazy(() => import('@/features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('@/features/database/DatabaseTable'));
 const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
@@ -124,8 +123,6 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/store';
     case 'automationen':
       return '/';
-    case 'telegram':
-      return '/telegram-bot';
     case 'database':
       return '/database';
     case 'database-table':
@@ -142,7 +139,6 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   settings: new Set(['settings']),
   store: new Set(['store']),
   automationen: new Set([]),
-  telegram: new Set(['telegram']),
   database: new Set(['database', 'database-table']),
   'database-table': new Set(['database', 'database-table']),
 };
@@ -200,11 +196,6 @@ function FeatureTabHost({
         <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
         <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
         <Route path="/terminal" element={<TerminalPanelBridge resetTo={resetTo} />} />
-        <Route
-          path="/telegram-bot"
-          element={routeFor('telegram', <TelegramBotPage />, { type: 'telegram' })}
-        />
-        <Route path="/telegram-bots" element={<Navigate to="/telegram-bot" replace />} />
         <Route
           path="/database"
           element={routeFor('database', <DatabaseOverview />, { type: 'database' })}

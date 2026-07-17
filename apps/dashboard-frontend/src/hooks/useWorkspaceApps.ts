@@ -1,5 +1,5 @@
 /**
- * Zustand der kuratierten Workspace-Apps (n8n, Telegram, Datenbank).
+ * Zustand der kuratierten Workspace-Apps (n8n, Datenbank).
  * Gemeinsame Datenbasis für ActivityBar (Sichtbarkeit) und Extensions-Tab
  * (Toggles) — via React Query, damit ein Toggle sofort überall wirkt.
  * Beim Deaktivieren schließt setAppEnabled offene Mitte-Tabs der App.

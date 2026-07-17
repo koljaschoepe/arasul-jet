@@ -178,17 +178,17 @@ test.describe('Workspace-Shell', () => {
   test('Kontext-Sidebar bildet den aktiven Tab ab (Dashboard → Explorer, Extensions → Liste, App-Tab → zu)', async ({
     page,
   }) => {
-    // Telegram-App aktivieren, damit der App-Tab-Shortcut in der Activity Bar
+    // Datenbank-App aktivieren, damit der App-Tab-Shortcut in der Activity Bar
     // erscheint (deterministisch statt geräteabhängig).
     await page.route('**/api/workspace-apps', route =>
       route.fulfill({
         json: {
           apps: [
             {
-              id: 'telegram',
-              name: 'Telegram',
-              description: 'Telegram-Bot',
-              tab: 'telegram',
+              id: 'database',
+              name: 'Datenbank',
+              description: 'Datentabellen',
+              tab: 'database',
               enabled: true,
             },
           ],
@@ -208,9 +208,9 @@ test.describe('Workspace-Shell', () => {
     await expect(s.extensionsSidebar).toBeVisible();
     await expect(s.explorerPanel).toHaveCount(0);
 
-    // App-Tab (Telegram): Sidebar klappt automatisch zu
-    await s.activityBar.getByRole('button', { name: 'Telegram' }).click();
-    await expect(page).toHaveURL(/\/workspace\/telegram/);
+    // App-Tab (Datenbank): Sidebar klappt automatisch zu
+    await s.activityBar.getByRole('button', { name: 'Datenbank' }).click();
+    await expect(page).toHaveURL(/\/workspace\/database/);
     await expect(s.explorerPanel).toBeHidden();
     await expect(s.extensionsSidebar).toHaveCount(0);
     await expect(s.sidebarToggle).toHaveAttribute('aria-pressed', 'false');
@@ -325,10 +325,10 @@ test.describe('Workspace-Shell', () => {
           enabled: n8nEnabled,
         },
         {
-          id: 'telegram',
-          name: 'Telegram',
-          description: 'Telegram-Bot',
-          tab: 'telegram',
+          id: 'database',
+          name: 'Datenbank',
+          description: 'Datentabellen',
+          tab: 'database',
           enabled: true,
         },
       ],
@@ -381,13 +381,6 @@ test.describe('Workspace-Shell', () => {
           enabled: n8nEnabled,
         },
         {
-          id: 'telegram',
-          name: 'Telegram',
-          description: 'Telegram-Bot',
-          tab: 'telegram',
-          enabled: true,
-        },
-        {
           id: 'database',
           name: 'Datenbank',
           description: 'Datentabellen',
@@ -403,7 +396,6 @@ test.describe('Workspace-Shell', () => {
     const s = shell(page);
 
     await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toBeVisible();
-    await expect(s.activityBar.getByRole('button', { name: 'Telegram' })).toBeVisible();
     await expect(s.activityBar.getByRole('button', { name: 'Datenbank' })).toBeVisible();
 
     // Phase 2: n8n deaktiviert → Automationen-Eintrag verschwindet,
@@ -415,7 +407,6 @@ test.describe('Workspace-Shell', () => {
     await page.reload();
     await expect(s.root).toBeVisible({ timeout: 10000 });
 
-    await expect(s.activityBar.getByRole('button', { name: 'Telegram' })).toBeVisible();
     await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toHaveCount(0);
     await expect(s.activityBar.getByRole('button', { name: 'Datenbank' })).toBeVisible();
   });
@@ -432,13 +423,6 @@ test.describe('Workspace-Shell', () => {
           description: 'Workflow-Automatisierung',
           tab: 'automationen',
           enabled: n8nEnabled,
-        },
-        {
-          id: 'telegram',
-          name: 'Telegram',
-          description: 'Telegram-Bot',
-          tab: 'telegram',
-          enabled: true,
         },
         {
           id: 'database',
@@ -466,7 +450,7 @@ test.describe('Workspace-Shell', () => {
     // Ohne Reload: Eintrag verschwindet über den gemeinsamen Query-Cache,
     // die übrigen Apps bleiben sichtbar
     await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toHaveCount(0);
-    await expect(s.activityBar.getByRole('button', { name: 'Telegram' })).toBeVisible();
+    await expect(s.activityBar.getByRole('button', { name: 'Datenbank' })).toBeVisible();
 
     // Wieder aktivieren — ebenfalls ohne Reload
     await page.getByRole('switch', { name: 'n8n aktivieren' }).click();

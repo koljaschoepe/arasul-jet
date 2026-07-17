@@ -55,7 +55,7 @@ const TIME_REGEX = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
 
 const UpdateNotificationSettingsBody = z
   .object({
-    channel: z.enum(['telegram', 'webhook', 'email', 'in_app']).optional(),
+    channel: z.enum(['webhook', 'email', 'in_app']).optional(),
     enabled: z.boolean().optional(),
     event_types: z.array(z.string().max(100)).max(100).optional().nullable(),
     min_severity: z.enum(['info', 'warning', 'critical']).optional(),
@@ -68,10 +68,6 @@ const UpdateNotificationSettingsBody = z
     quiet_hours_end: z
       .string()
       .regex(TIME_REGEX, 'Ungültiges Zeitformat (HH:MM erwartet)')
-      .optional()
-      .nullable(),
-    telegram_chat_id: z
-      .union([z.string().trim().min(1).max(100), z.number().int()])
       .optional()
       .nullable(),
   })

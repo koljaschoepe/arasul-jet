@@ -122,7 +122,13 @@ function setupDefaultApiResponses() {
     if (path.startsWith('/workspace-apps')) {
       return Promise.resolve({
         apps: [
-          { id: 'telegram', name: 'Telegram', description: 'Bot', tab: 'telegram', enabled: true },
+          {
+            id: 'database',
+            name: 'Datenbank',
+            description: 'Tabellen',
+            tab: 'database',
+            enabled: true,
+          },
         ],
       });
     }

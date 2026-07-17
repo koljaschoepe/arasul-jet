@@ -51,31 +51,28 @@ describe('ActivityBar', () => {
     enabledApps.add('n8n');
     render(<ActivityBar />);
     expect(screen.getByLabelText('Automationen')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Telegram')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Datenbank')).not.toBeInTheDocument();
   });
 
   it('alle aktivierten Apps erscheinen gemeinsam', () => {
     enabledApps.add('n8n');
-    enabledApps.add('telegram');
     enabledApps.add('database');
     render(<ActivityBar />);
     expect(screen.getByLabelText('Automationen')).toBeInTheDocument();
-    expect(screen.getByLabelText('Telegram')).toBeInTheDocument();
     expect(screen.getByLabelText('Datenbank')).toBeInTheDocument();
   });
 
   it('Aktivieren/Deaktivieren wirkt ohne Reload — der nächste Render genügt', () => {
     const { rerender } = render(<ActivityBar />);
-    expect(screen.queryByLabelText('Telegram')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Datenbank')).not.toBeInTheDocument();
 
-    enabledApps.add('telegram');
+    enabledApps.add('database');
     rerender(<ActivityBar />);
-    expect(screen.getByLabelText('Telegram')).toBeInTheDocument();
+    expect(screen.getByLabelText('Datenbank')).toBeInTheDocument();
 
-    enabledApps.delete('telegram');
+    enabledApps.delete('database');
     rerender(<ActivityBar />);
-    expect(screen.queryByLabelText('Telegram')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Datenbank')).not.toBeInTheDocument();
   });
 
   it('Dashboard-Eintrag öffnet den Dashboard-Tab', () => {

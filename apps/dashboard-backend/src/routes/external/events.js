@@ -10,21 +10,17 @@ const db = require('../../database');
 const logger = require('../../utils/logger');
 
 function safeCompareSecret(provided, expected) {
-  if (typeof provided !== 'string' || typeof expected !== 'string') {return false;}
+  if (typeof provided !== 'string' || typeof expected !== 'string') {
+    return false;
+  }
   const providedHash = crypto.createHash('sha256').update(provided).digest();
   const expectedHash = crypto.createHash('sha256').update(expected).digest();
   return crypto.timingSafeEqual(providedHash, expectedHash);
 }
 const eventListenerService = require('../../services/core/eventListenerService');
-const telegramService = require('../../services/telegram/telegramNotificationService');
+const notificationService = require('../../services/core/notificationService');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const {
-  ValidationError,
-  NotFoundError,
-  UnauthorizedError,
-  ForbiddenError,
-  ServiceUnavailableError,
-} = require('../../utils/errors');
+const { NotFoundError, UnauthorizedError, ForbiddenError } = require('../../utils/errors');
 const { webhookLimiter } = require('../../middleware/rateLimit');
 const { validateBody } = require('../../middleware/validate');
 const {
@@ -84,7 +80,6 @@ router.get(
   auth,
   asyncHandler(async (req, res) => {
     const listenerStats = eventListenerService.getStats();
-    const notificationStats = await telegramService.getStats();
 
     // Get event breakdown from database
     const eventBreakdown = await db.query(`
@@ -101,7 +96,6 @@ router.get(
 
     res.json({
       listener: listenerStats,
-      notifications: notificationStats,
       eventBreakdown: eventBreakdown.rows,
       timestamp: new Date().toISOString(),
     });
@@ -122,10 +116,6 @@ router.get(
 
     res.json({
       settings: result.rows,
-      telegram: {
-        enabled: !!process.env.TELEGRAM_BOT_TOKEN && !!process.env.TELEGRAM_CHAT_ID,
-        chatIdConfigured: !!result.rows.find(s => s.channel === 'telegram')?.telegram_chat_id,
-      },
       timestamp: new Date().toISOString(),
     });
   })
@@ -141,14 +131,13 @@ router.put(
   validateBody(UpdateNotificationSettingsBody),
   asyncHandler(async (req, res) => {
     const {
-      channel = 'telegram',
+      channel = 'in_app',
       enabled,
       event_types,
       min_severity,
       rate_limit_per_minute,
       quiet_hours_start,
       quiet_hours_end,
-      telegram_chat_id,
     } = req.body;
 
     // Upsert settings
@@ -157,8 +146,8 @@ router.put(
         INSERT INTO notification_settings (
             user_id, channel, enabled, event_types, min_severity,
             rate_limit_per_minute, quiet_hours_start, quiet_hours_end,
-            telegram_chat_id, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+            updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
         ON CONFLICT (user_id, channel) DO UPDATE SET
             enabled = COALESCE($3, notification_settings.enabled),
             event_types = COALESCE($4, notification_settings.event_types),
@@ -166,7 +155,6 @@ router.put(
             rate_limit_per_minute = COALESCE($6, notification_settings.rate_limit_per_minute),
             quiet_hours_start = $7,
             quiet_hours_end = $8,
-            telegram_chat_id = COALESCE($9, notification_settings.telegram_chat_id),
             updated_at = NOW()
         RETURNING *
     `,
@@ -179,7 +167,6 @@ router.put(
         rate_limit_per_minute,
         quiet_hours_start,
         quiet_hours_end,
-        telegram_chat_id,
       ]
     );
 
@@ -201,14 +188,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const { message = 'Test-Benachrichtigung von Arasul Platform' } = req.body;
 
-    // Test Telegram connection first
-    const connectionTest = await telegramService.testConnection();
-    if (!connectionTest.success) {
-      throw new ServiceUnavailableError(`Telegram connection failed: ${connectionTest.error}`);
-    }
-
-    // Send test notification
-    const result = await telegramService.queueNotification({
+    // Record test notification event
+    const result = await notificationService.queueNotification({
       event_type: 'service_status',
       event_category: 'test',
       source_service: 'dashboard-backend',
@@ -224,7 +205,6 @@ router.post(
     res.json({
       success: true,
       eventId: result.eventId,
-      botInfo: connectionTest.botInfo,
       timestamp: new Date().toISOString(),
     });
   })
@@ -356,7 +336,7 @@ router.post(
       message,
     } = req.body;
 
-    const result = await telegramService.queueNotification({
+    const result = await notificationService.queueNotification({
       event_type,
       event_category,
       source_service,
@@ -465,31 +445,6 @@ router.post(
     res.json({
       success: true,
       deleted: deletedCount,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * GET /api/events/telegram/status
- * Get Telegram bot status and connection info
- */
-router.get(
-  '/telegram/status',
-  auth,
-  asyncHandler(async (req, res) => {
-    const connectionTest = await telegramService.testConnection();
-    const stats = await telegramService.getStats();
-
-    res.json({
-      connected: connectionTest.success,
-      botInfo: connectionTest.botInfo,
-      error: connectionTest.error,
-      stats,
-      configured: {
-        botToken: !!process.env.TELEGRAM_BOT_TOKEN,
-        chatId: !!process.env.TELEGRAM_CHAT_ID,
-      },
       timestamp: new Date().toISOString(),
     });
   })

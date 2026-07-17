@@ -88,10 +88,6 @@ teardown() {
     grep -q "N8N_ENCRYPTION_KEY=" "$SETUP_SCRIPT"
 }
 
-@test "env generation: generates TELEGRAM_ENCRYPTION_KEY" {
-    grep -q "TELEGRAM_ENCRYPTION_KEY=" "$SETUP_SCRIPT"
-}
-
 @test "env generation: sets SELF_HEALING_REBOOT_ENABLED" {
     grep -q "SELF_HEALING_REBOOT_ENABLED=" "$SETUP_SCRIPT"
 }

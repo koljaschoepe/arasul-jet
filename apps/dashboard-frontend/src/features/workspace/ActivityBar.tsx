@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Blocks, Send, Database, Workflow } from 'lucide-react';
+import { Home, Blocks, Database, Workflow } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
@@ -53,12 +53,6 @@ const APP_SHORTCUTS: Array<{
     icon: <Workflow className="h-5 w-5" />,
   },
   {
-    appId: 'telegram',
-    spec: { type: 'telegram' },
-    label: 'Telegram',
-    icon: <Send className="h-5 w-5" />,
-  },
-  {
     appId: 'database',
     spec: { type: 'database' },
     label: 'Datenbank',
@@ -68,7 +62,7 @@ const APP_SHORTCUTS: Array<{
 
 /**
  * Schmale Icon-Leiste ganz links (wie VS Code/Cursor). Rein für Mitte-Tabs:
- * Dashboard, Extensions und dynamisch die aktivierten Apps (n8n, Telegram,
+ * Dashboard, Extensions und dynamisch die aktivierten Apps (n8n,
  * Datenbank). Sidebar- und Panel-Sichtbarkeit steuern die zwei Layout-Toggles
  * in der WorkspaceMenuBar; der Panel-Modus (Chat/Terminal) lebt im Panel
  * selbst (Cursor-minimal).

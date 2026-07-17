@@ -80,15 +80,13 @@ jest.mock('../../src/services/core/eventListenerService', () => ({
   handleSelfHealingEvent: jest.fn()
 }));
 
-jest.mock('../../src/services/telegram/telegramNotificationService', () => ({
-  testConnection: jest.fn(),
-  queueNotification: jest.fn(),
-  getStats: jest.fn()
+jest.mock('../../src/services/core/notificationService', () => ({
+  queueNotification: jest.fn()
 }));
 
 const db = require('../../src/database');
 const eventListenerService = require('../../src/services/core/eventListenerService');
-const telegramService = require('../../src/services/telegram/telegramNotificationService');
+const notificationService = require('../../src/services/core/notificationService');
 const { app } = require('../../src/server');
 
 const { generateTestToken } = require('../helpers/authMock');
@@ -162,7 +160,6 @@ describe('Events Routes', () => {
 
     test('should return event statistics', async () => {
       eventListenerService.getStats.mockReturnValue({ running: true, events_processed: 42 });
-      telegramService.getStats.mockResolvedValue({ queued: 0, sent: 10 });
       db.query.mockImplementation((query) => {
         if (query.includes('notification_events')) {
           return Promise.resolve({
@@ -178,7 +175,6 @@ describe('Events Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('listener');
-      expect(response.body).toHaveProperty('notifications');
       expect(response.body).toHaveProperty('eventBreakdown');
       expect(response.body).toHaveProperty('timestamp');
     });
@@ -198,7 +194,7 @@ describe('Events Routes', () => {
     test('should return notification settings', async () => {
       db.query.mockImplementation((query) => {
         if (query.includes('notification_settings')) {
-          return Promise.resolve({ rows: [{ channel: 'telegram', enabled: true }] });
+          return Promise.resolve({ rows: [{ channel: 'in_app', enabled: true }] });
         }
         return Promise.resolve({ rows: [] });
       });
@@ -209,7 +205,6 @@ describe('Events Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('settings');
-      expect(response.body).toHaveProperty('telegram');
       expect(response.body).toHaveProperty('timestamp');
     });
   });
@@ -221,7 +216,7 @@ describe('Events Routes', () => {
     test('should return 401 without authentication', async () => {
       const response = await request(app)
         .put('/api/events/settings')
-        .send({ channel: 'telegram', enabled: true });
+        .send({ channel: 'in_app', enabled: true });
 
       expect(response.status).toBe(401);
     });
@@ -229,7 +224,7 @@ describe('Events Routes', () => {
     test('should update notification settings', async () => {
       db.query.mockImplementation((query) => {
         if (query.includes('notification_settings')) {
-          return Promise.resolve({ rows: [{ channel: 'telegram', enabled: true }] });
+          return Promise.resolve({ rows: [{ channel: 'in_app', enabled: true }] });
         }
         return Promise.resolve({ rows: [] });
       });
@@ -237,7 +232,7 @@ describe('Events Routes', () => {
       const response = await request(app)
         .put('/api/events/settings')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({ channel: 'telegram', enabled: true, min_severity: 'warning' });
+        .send({ channel: 'in_app', enabled: true, min_severity: 'warning' });
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('settings');
@@ -257,8 +252,7 @@ describe('Events Routes', () => {
     });
 
     test('should send test notification successfully', async () => {
-      telegramService.testConnection.mockResolvedValue({ success: true, botInfo: { username: 'testbot' } });
-      telegramService.queueNotification.mockResolvedValue({ eventId: 99 });
+      notificationService.queueNotification.mockResolvedValue({ eventId: 99 });
 
       const response = await request(app)
         .post('/api/events/test')
@@ -269,16 +263,6 @@ describe('Events Routes', () => {
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('eventId', 99);
       expect(response.body).toHaveProperty('timestamp');
-    });
-
-    test('should return 503 if Telegram connection fails', async () => {
-      telegramService.testConnection.mockResolvedValue({ success: false, error: 'Bot token invalid' });
-
-      const response = await request(app)
-        .post('/api/events/test')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(503);
     });
   });
 
@@ -390,7 +374,7 @@ describe('Events Routes', () => {
     });
 
     test('should create manual event successfully', async () => {
-      telegramService.queueNotification.mockResolvedValue({ eventId: 55 });
+      notificationService.queueNotification.mockResolvedValue({ eventId: 55 });
 
       const response = await request(app)
         .post('/api/events/manual')

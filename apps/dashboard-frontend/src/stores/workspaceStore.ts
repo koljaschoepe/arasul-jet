@@ -26,7 +26,6 @@ export type WorkspaceTabType =
   | 'settings'
   | 'store'
   | 'automationen'
-  | 'telegram'
   | 'database'
   | 'database-table';
 
@@ -51,7 +50,6 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   settings: 'Einstellungen',
   store: 'Extensions',
   automationen: 'Automationen',
-  telegram: 'Telegram',
   database: 'Datenbank',
   'database-table': 'Tabelle',
 };
@@ -80,8 +78,6 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/store';
     case 'automationen':
       return '/workspace/automationen';
-    case 'telegram':
-      return '/workspace/telegram';
     case 'database':
       return '/workspace/database';
     case 'database-table':
@@ -105,8 +101,6 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'store' };
     case 'automationen':
       return { type: 'automationen' };
-    case 'telegram':
-      return { type: 'telegram' };
     case 'database':
       return parts[1] ? { type: 'database-table', slug: parts[1] } : { type: 'database' };
     default:

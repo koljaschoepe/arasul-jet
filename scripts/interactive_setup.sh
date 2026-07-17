@@ -535,20 +535,14 @@ main() {
     MINIO_ROOT_PASSWORD=$(generate_password 24)
     N8N_BASIC_AUTH_PASSWORD=$(generate_password 16)
     # Preserve encryption keys from previous install (re-generating would make
-    # existing n8n credentials and Telegram API keys undecryptable)
-    local _prev_n8n_key="" _prev_tg_key=""
+    # existing n8n credentials undecryptable)
+    local _prev_n8n_key=""
     if [ -f "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" ]; then
         _prev_n8n_key=$(cat "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" 2>/dev/null)
     elif [ -f "${PROJECT_ROOT}/.env" ]; then
         _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "${PROJECT_ROOT}/.env" 2>/dev/null | cut -d'=' -f2-)
     fi
-    if [ -f "${PROJECT_ROOT}/config/secrets/telegram_encryption_key" ]; then
-        _prev_tg_key=$(cat "${PROJECT_ROOT}/config/secrets/telegram_encryption_key" 2>/dev/null)
-    elif [ -f "${PROJECT_ROOT}/.env" ]; then
-        _prev_tg_key=$(grep '^TELEGRAM_ENCRYPTION_KEY=' "${PROJECT_ROOT}/.env" 2>/dev/null | cut -d'=' -f2-)
-    fi
     N8N_ENCRYPTION_KEY=${_prev_n8n_key:-$(generate_secret 32)}
-    TELEGRAM_ENCRYPTION_KEY=${_prev_tg_key:-$(generate_secret 32)}
 
     echo ""
     echo -e "  ${BOLD}Konfiguration:${NC}"
@@ -606,7 +600,6 @@ ADMIN_HASH=${ADMIN_HASH}
 # --- Sicherheit (automatisch generiert) ---
 JWT_SECRET=${JWT_SECRET}
 N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-TELEGRAM_ENCRYPTION_KEY=${TELEGRAM_ENCRYPTION_KEY}
 
 # --- Datenbank ---
 POSTGRES_USER=arasul
@@ -761,12 +754,6 @@ ENVEOF
     fi
     if [ ! -s "$secrets_dir/n8n_owner_password" ]; then
         printf 'A1%s' "$(generate_secret 24 | tr -d '\n')" > "$secrets_dir/n8n_owner_password"
-    fi
-    # --------------------------------------------------------------------------
-    echo -n "$TELEGRAM_ENCRYPTION_KEY" > "$secrets_dir/telegram_encryption_key"
-    # Telegram Bot Token: Platzhalter (wird spaeter via Dashboard konfiguriert)
-    if [ ! -f "$secrets_dir/telegram_bot_token" ]; then
-        touch "$secrets_dir/telegram_bot_token"
     fi
 
     chmod 600 "$secrets_dir"/*

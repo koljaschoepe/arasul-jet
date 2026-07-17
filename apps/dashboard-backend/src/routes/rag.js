@@ -11,7 +11,7 @@
  * - Space-filtered document retrieval
  *
  * Core functions extracted to services/rag/ragCore.js for reuse
- * (Telegram bots, future integrations)
+ * (future integrations)
  */
 
 const express = require('express');

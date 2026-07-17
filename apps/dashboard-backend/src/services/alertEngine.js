@@ -20,7 +20,6 @@ const { URL } = require('url');
 const dns = require('dns');
 const net = require('net');
 const services = require('../config/services');
-const telegramNotificationService = require('./telegram/telegramNotificationService');
 
 /**
  * SSRF Protection: reject IPs that point at internal/private networks.
@@ -44,17 +43,27 @@ function isPrivateIP(ip) {
   }
   if (net.isIPv6(ip)) {
     const lower = ip.toLowerCase();
-    if (lower === '::1' || lower === '::') {return true;}
+    if (lower === '::1' || lower === '::') {
+      return true;
+    }
     // Link-local fe80::/10 covers fe80:..febf: (10-bit prefix → second byte 0x80–0xbf).
-    if (/^fe[89ab][0-9a-f]:/.test(lower)) {return true;}
+    if (/^fe[89ab][0-9a-f]:/.test(lower)) {
+      return true;
+    }
     // Unique-local fc00::/7 (fc.. and fd..)
-    if (/^f[cd][0-9a-f]{2}:/.test(lower)) {return true;}
+    if (/^f[cd][0-9a-f]{2}:/.test(lower)) {
+      return true;
+    }
     // Multicast ff00::/8
-    if (/^ff[0-9a-f]{2}:/.test(lower)) {return true;}
+    if (/^ff[0-9a-f]{2}:/.test(lower)) {
+      return true;
+    }
     // IPv4-mapped (dotted form). The compact-hex form (e.g. ::ffff:7f00:1) is
     // rare for inbound URLs but worth flagging if it ever surfaces.
     const mapped = lower.match(/^::ffff:([\d.]+)$/);
-    if (mapped) {return isPrivateIP(mapped[1]);}
+    if (mapped) {
+      return isPrivateIP(mapped[1]);
+    }
     return false;
   }
   return true; // unknown format → reject
@@ -85,7 +94,9 @@ async function validateWebhookUrl(urlString) {
   // family:0 means "first match of either family", which is what fetch will see.
   const resolved = await new Promise((resolve, reject) => {
     dns.lookup(hostname, { family: 0, all: true }, (err, addrs) => {
-      if (err) {return reject(new Error(`DNS-Auflösung fehlgeschlagen: ${hostname}`));}
+      if (err) {
+        return reject(new Error(`DNS-Auflösung fehlgeschlagen: ${hostname}`));
+      }
       resolve(addrs);
     });
   });
@@ -723,40 +734,6 @@ function createAlertEngine(deps = {}) {
           logger.info(`Webhook notification sent for ${metricType} alert`);
         } catch (error) {
           logger.error(`Webhook notification failed: ${error.message}`);
-        }
-      }
-
-      // Telegram notification (via existing telegramNotificationService)
-      // Self-guards: service is disabled if TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing
-      if (telegramNotificationService.enabled) {
-        try {
-          const tgResult = await telegramNotificationService.queueNotification({
-            event_type: 'metric_alert',
-            event_category: severity === 'critical' ? 'critical_threshold' : 'warning_threshold',
-            source_service: 'alert-engine',
-            severity: severity === 'critical' ? 'critical' : 'warning',
-            title: `${threshold.displayName} ${severity === 'critical' ? 'KRITISCH' : 'Warnung'}`,
-            message,
-            metadata: {
-              metric_type: metricType,
-              current_value: currentValue,
-              threshold_value: thresholdValue,
-              unit: threshold.unit,
-            },
-          });
-          if (tgResult?.success) {
-            notifiedVia.push('telegram');
-            // Update notified_via on last-fired alert row
-            await database.query(
-              `UPDATE alert_history
-               SET notified_via = $1
-               WHERE metric_type = $2::alert_metric_type
-               AND fired_at = (SELECT MAX(fired_at) FROM alert_history WHERE metric_type = $2::alert_metric_type)`,
-              [notifiedVia, metricType]
-            );
-          }
-        } catch (error) {
-          logger.warn(`Telegram alert dispatch failed: ${error.message}`);
         }
       }
 

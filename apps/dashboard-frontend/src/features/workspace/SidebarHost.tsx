@@ -12,7 +12,7 @@ import { ExplorerPanel } from './explorer/ExplorerPanel';
  *   Extensions (store)                    → ExtensionsSidebarList (Suche + Liste)
  *   Automation (n8n)                      → ExplorerPanel bleibt sichtbar (Tab
  *                                           im Hauptbereich, kein Auto-Collapse)
- *   App-Tabs (Telegram / Datenbank)       → Sidebar klappt automatisch zu
+ *   App-Tabs (Datenbank)                  → Sidebar klappt automatisch zu
  *
  * Auto-Collapse: Beim Betreten eines App-Tabs wird die Sidebar eingeklappt und
  * die vorherige Nutzer-Präferenz gemerkt; beim Verlassen wird sie
@@ -28,11 +28,7 @@ import { ExplorerPanel } from './explorer/ExplorerPanel';
 // Tabs, die den Explorer automatisch einklappen. 'automationen' (n8n) ist
 // bewusst NICHT dabei: n8n läuft als Tab im Hauptbereich, der Explorer bleibt
 // stehen, damit der Nutzer seine Dateien nicht verliert (Plan 005 · Schritt 1).
-const APP_TAB_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
-  'telegram',
-  'database',
-  'database-table',
-]);
+const APP_TAB_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['database', 'database-table']);
 
 export function SidebarHost() {
   const tabs = useWorkspaceStore(s => s.tabs);

@@ -141,11 +141,6 @@ const createApiMock = (_mockUser: MockUser, overrides: Record<string, Promise<un
         apps: [],
       });
     }
-    if (url.includes('/telegram-app/dashboard-data')) {
-      return Promise.resolve({
-        app: null,
-      });
-    }
     // Apply overrides
     const override = overrides[url];
     if (override) {
@@ -376,9 +371,6 @@ describe('App Component', () => {
         if (url.includes('/system/setup-status')) {
           return Promise.resolve({ setupComplete: true, setupStep: 5 });
         }
-        if (url.includes('/telegram-app/dashboard-data')) {
-          return Promise.resolve({ app: null });
-        }
         return Promise.reject({ status: 401 });
       });
 
@@ -422,9 +414,6 @@ describe('App Component', () => {
         }
         if (url.includes('/services')) {
           return Promise.resolve({});
-        }
-        if (url.includes('/telegram-app/dashboard-data')) {
-          return Promise.resolve({ app: null });
         }
         return Promise.resolve({});
       });

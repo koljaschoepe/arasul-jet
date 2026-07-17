@@ -3,7 +3,6 @@
  *
  * Central route registry for the entire backend.
  * Routes are organized into subdirectories by domain:
- *   telegram/  - Bot management, setup, orchestration
  *   system/    - Services, metrics, logs, database
  *   admin/     - Settings, audit, updates, self-healing
  *   ai/        - Models, embeddings, memory, spaces
@@ -32,9 +31,6 @@ const API_ROUTE_GROUPS = [
   { prefix: '/document-analysis', group: 'core' },
   { prefix: '/llm', group: 'core' },
   { prefix: '/rag', group: 'core' },
-  { prefix: '/telegram', group: 'telegram' },
-  { prefix: '/telegram-app', group: 'telegram' },
-  { prefix: '/telegram-bots', group: 'telegram' },
   { prefix: '/system', group: 'system' },
   { prefix: '/services', group: 'system' },
   { prefix: '/metrics', group: 'system' },
@@ -100,11 +96,6 @@ router.use('/document-analysis', require('./documentAnalysis'));
 router.use('/llm', llmLimiter, require('./llm'));
 router.use('/rag', require('./rag'));
 router.use('/docs', require('./docs'));
-
-// --- Telegram ---
-router.use('/telegram', require('./telegram/settings'));
-router.use('/telegram-app', require('./telegram/app'));
-router.use('/telegram-bots', require('./telegram/bots'));
 
 // --- System ---
 router.use('/system', require('./system/system'));

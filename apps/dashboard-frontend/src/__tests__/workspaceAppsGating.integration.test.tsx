@@ -61,7 +61,6 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
     vi.clearAllMocks();
     serverApps = [
       { id: 'n8n', name: 'n8n', description: 'Workflows', tab: 'automationen', enabled: true },
-      { id: 'telegram', name: 'Telegram', description: 'Bot', tab: 'telegram', enabled: true },
       {
         id: 'database',
         name: 'Datenbank',
@@ -96,7 +95,6 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
     // Kein reload, kein rerender: der Cache-Update muss durchpropagieren
     await waitFor(() => expect(screen.queryByLabelText('Automationen')).not.toBeInTheDocument());
     // Die übrigen Apps bleiben unberührt
-    expect(screen.getByLabelText('Telegram')).toBeInTheDocument();
     expect(screen.getByLabelText('Datenbank')).toBeInTheDocument();
     expect(apiMock.put).toHaveBeenCalledWith(
       '/workspace-apps/n8n',

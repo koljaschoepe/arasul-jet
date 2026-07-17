@@ -1,6 +1,6 @@
 /**
  * Alerts Tool
- * Check and manage system alerts via Telegram
+ * Check and manage system alerts
  */
 
 const BaseTool = require('./baseTool');
@@ -101,7 +101,7 @@ class AlertsTool extends BaseTool {
 
     const result = await database.query(
       `UPDATE alert_history
-       SET acknowledged_at = NOW(), acknowledged_by = 'telegram'
+       SET acknowledged_at = NOW(), acknowledged_by = 'system'
        WHERE id = $1 AND acknowledged_at IS NULL
        RETURNING id, alert_type`,
       [parseInt(alertId)]

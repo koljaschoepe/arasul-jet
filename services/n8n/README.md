@@ -223,7 +223,7 @@ Templates are available in `templates/`:
 | Template                  | Description                   |
 | ------------------------- | ----------------------------- |
 | `document-indexing.json`  | Auto-index uploaded documents |
-| `alert-notification.json` | Send alerts via Telegram      |
+| `alert-notification.json` | Send alerts to the dashboard  |
 | `scheduled-backup.json`   | Scheduled backup trigger      |
 
 See [templates/README.md](templates/README.md) for detailed documentation.

@@ -10,14 +10,14 @@
   "slug": "agenten-orchestrierung-neubau",
   "title": "Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung",
   "type": "refactor",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P0",
   "risk_level": 3,
   "effort_level": 3,
   "reversibility_level": 1,
   "created": "2026-07-17",
   "approved": "2026-07-17",
-  "branch": null,
+  "branch": "008-agenten-orchestrierung-neubau",
   "pr": null,
   "verified_on_device": false
 }
@@ -500,15 +500,17 @@
   </summary>
   <div class="sbody">
   <!-- One .step per phase; unique data-ref each. -->
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Bestand sichern &amp; Plan 006 ablösen">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 1 — Bestand sichern &amp; Plan 006 ablösen">
     <h3>Schritt 1 — Bestand sichern &amp; Plan 006 ablösen <span class="tag">Risiko: niedrig</span></h3>
     <p>Vollbackup der Box, damit jeder spätere Schnitt umkehrbar ist. Plan 006 (Feature-Audit) wird als „abgelöst“ geschlossen — seine offenen Punkte betreffen zur Hälfte Bereiche, die dieser Plan löscht. Danach ein Branch, auf dem alle folgenden Schritte als eigene Commits landen.</p>
     <p class="files mono">docs/plans/active/006-*.html → done/ · docs/plans/ROADMAP.html · scripts/backup/</p>
+    <div class="result"><strong>Ergebnis:</strong> Branch <code>008-agenten-orchestrierung-neubau</code> von <code>origin/main</code> (8059dfe) erstellt; <code>#plan-meta</code> auf <code>in-progress</code>. Plan 006 nach <code>docs/plans/done/</code> verschoben (Status <code>done</code>, <code>superseded_by: 008</code>), <code>active/</code> enthält nur noch 008. ROADMAP: Thema T18 auf <code>in-progress</code> („in Arbeit (008)“).<br><strong>Abweichung (Sequenzierung):</strong> Das Vollbackup wird <b>nicht</b> jetzt, sondern unmittelbar vor dem Deploy (Phase 6) gefahren. Grund: Alle Schritte 2–16 ändern nur Code auf dem unfusionierten Branch; <code>main</code> und der Jetson bleiben bis zum Schluss unberührt (so auch §7-Rollback: „Vor dem Zusammenführen ist der PR folgenlos“). Ein jetzt gezogenes Backup wäre bis zum tatsächlichen Deploy veraltet. <code>scripts/backup/{backup,verify-backup}.sh</code> laufen daher gebündelt vor dem Merge-Deploy, mit Restore-Prüfung, bevor die zweite Datenbank auf dem Gerät verschwindet.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Telegram ersatzlos löschen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Telegram ersatzlos löschen">
     <h3>Schritt 2 — Telegram ersatzlos löschen <span class="tag">Risiko: mittel</span></h3>
     <p>Der komplette Telegram-Bereich fliegt: Frontend-Feature, Backend-Routen, fünf Dienste, HMAC-Hilfsmittel und 17 Tabellen aus neun Migrationen. Ersatz ist der Telegram-Baustein in n8n — dieselbe Fähigkeit, null eigener Code. Achtung: der Store empfiehlt „telegram-bot“ heute noch als Featured-App; dieser Eintrag muss mit.</p>
     <p class="files mono">features/telegram/ · routes/telegram/ · services/telegram/ · utils/telegramHmac.js · routes/store/store.js (FEATURED_APPS) · routes/index.js (API_ROUTE_GROUPS) · __tests__/{telegram*} · Migration 102 (DROP) · docs/integrations/TELEGRAM_BOT_SETUP.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Telegram vollständig entfernt — Frontend-Feature, <code>routes/telegram/</code>, alle 19 <code>services/telegram/</code>-Dateien, <code>schemas/telegram.js</code>, <code>utils/telegramHmac.js</code>, 5 Backend- und 7 Frontend-Testdateien, sowie Compose-Secrets, Traefik-/Cloudflared-Routing, Setup-Skripte und die Telegram-Knoten aus zwei n8n-Workflows. Store-Featured-App und <code>platform_apps</code>-Eintrag entfernt. Migration <code>102_drop_telegram.sql</code> (forward-only, idempotent) droppt die 16 Telegram-Tabellen + alle <code>%telegram%</code>-Funktionen. Netto −715/+116 in 54 editierten Dateien plus gelöschte Verzeichnisse (~16.000 Zeilen inkl. Testdaten). <strong>Entscheidung Benachrichtigungs-Pipeline:</strong> behalten — kanal-neutrales <code>services/core/notificationService.js</code> extrahiert (nur DB-Log), Telegram-Zustellung raus; <code>eventListenerService</code>/<code>events.js</code>/<code>alertEngine</code> darauf umgestellt. <code>tokenCrypto.js</code>/<code>cryptoService.js</code> unangetastet (Schritt 14). <strong>Grün:</strong> Backend-Lint 0 Fehler, Backend-Tests 1489 grün, Frontend <code>tsc --noEmit</code> 0 Fehler, Frontend-Tests 779 grün. Doku-Nachzug bewusst auf Schritt 16 verschoben.</div>
   </div>
   <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Datentabellen und die zweite Datenbank löschen">
     <h3>Schritt 3 — Datentabellen und die zweite Datenbank löschen <span class="tag">Risiko: hoch</span></h3>
@@ -719,6 +721,8 @@
       <tr><td>Wie heißt die Arbeitsmappe?</td><td>„Workspace“.</td><td>Passt zum Cursor-Vorbild. Ich hatte auf die Namenskollision mit der Workspace-Shell hingewiesen; Deine Frage galt der Oberfläche, dort heißt es Workspace. Im Code behalten Shell und Store ihre etablierten Bezeichner, die Entität bekommt einen eindeutigen eigenen — sonst hieße Oberfläche und Inhalt gleich.</td></tr>
       <tr><td>Wer darf ins Terminal?</td><td>Alle angemeldeten Nutzer.</td><td>Kein zusätzliches Rechte-System. Die dritte Netz-Stufe („Voller Zugriff“) bleibt wie heute admin-geschützt.</td></tr>
       <tr><td>Wissensräume?</td><td>Unsichtbarer Unterbau — ein Workspace hat genau einen.</td><td>Der Begriff verschwindet aus der Oberfläche, die Technik bleibt und trägt die Indizierung. Ein Konzept weniger zu erklären, und die RAG-Grenze ist automatisch die Workspace-Grenze.</td></tr>
+      <tr><td>Benachrichtigungs-Pipeline beim Telegram-Löschen?</td><td>Behalten — nur den Telegram-Kanal entfernen.</td><td>Ausführungs-Fund (Schritt 2): <code>telegramNotificationService</code> war der einzige Zustell-Kanal einer breiteren Ereignis-Pipeline (<code>notification_events</code>, Docker-/Workflow-/Self-Healing-Ereignisse, WebSocket-Live-Broadcast), die die <b>überlebende</b> Ops-Übersicht liest. Daher: kanal-neutrales <code>services/core/notificationService.js</code> extrahiert (nur DB-Log via <code>record_notification_event</code>), Telegram-Zustellung gestrichen. Zukünftiger Push läuft über n8n — passt zur Neuausrichtung.</td></tr>
+      <tr><td>tokenCrypto/cryptoService mitlöschen?</td><td>Nein — bleiben unangetastet.</td><td>Die Telegram-Analyse schlug beide zum Löschen vor; Schritt 14 baut aber ausdrücklich auf <code>utils/tokenCrypto.js</code> (AES-256-GCM) und liest <code>cryptoService.js</code>. Also in Schritt 2 nicht anfassen.</td></tr>
       <tr><td>Offene Fragen auf der Plan-Seite?</td><td>Abgeschafft — die Seite fragt nichts mehr.</td><td>Dein Einwand: in einer HTML-Datei kann man nicht antworten. Der <code>/plan</code>-Command und die Vorlage wurden geändert: jede Frage läuft über das Interview-Tool im Chat, lieber eine Runde mehr. Die fünf zuvor geparkten Fragen sind jetzt hier im Log beantwortet.</td></tr></tbody>
   </table></div>
   </div>

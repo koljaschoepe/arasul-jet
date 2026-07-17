@@ -57,11 +57,6 @@ curl -X POST http://localhost:3001/api/auth/service-token \
   -d '{"service": "n8n"}'
 ```
 
-### 3. Arasul Telegram Bot
-
-- **Type:** Telegram API
-- **Access Token:** (from `TELEGRAM_BOT_TOKEN` env var)
-
 ## Workflow Details
 
 ### DB Maintenance
@@ -72,7 +67,7 @@ Runs daily at midnight:
 - Removes expired sessions and tokens
 - Cleans audit logs older than 90 days
 - Runs VACUUM ANALYZE on all tables
-- Sends report via Telegram (if configured)
+- Reports the result to the dashboard backend
 
 ### Alerting Pipeline
 
@@ -80,7 +75,6 @@ Receives alerts via webhook (`POST /webhook/alerts`):
 
 - Normalizes alert structure
 - Routes by severity (critical/warning/info)
-- Sends Telegram notifications for critical/warning
 - Logs all alerts to database
 
 **Webhook Payload:**
@@ -116,14 +110,8 @@ Runs every 5 minutes:
 
 ## Environment Variables
 
-These workflows use the following environment variables:
-
-```bash
-TELEGRAM_BOT_TOKEN=<bot-token>
-TELEGRAM_CHAT_ID=<chat-id>
-```
-
-Configure in n8n via **Settings** → **Variables** or pass via `N8N_` prefix in docker-compose.
+These workflows require the PostgreSQL credential and the Internal API Key
+described above. Configure them in n8n via **Settings** → **Credentials**.
 
 ## Troubleshooting
 
@@ -132,12 +120,6 @@ Configure in n8n via **Settings** → **Variables** or pass via `N8N_` prefix in
 1. Check workflow is activated (toggle ON)
 2. Verify credentials are configured
 3. Check n8n logs: `docker compose logs n8n`
-
-### Telegram Not Sending
-
-1. Verify `TELEGRAM_BOT_TOKEN` is set
-2. Check bot has permissions for the chat
-3. Test with `/api/telegram/send` endpoint first
 
 ### Database Connection Failed
 

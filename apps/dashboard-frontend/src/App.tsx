@@ -43,7 +43,6 @@ const Settings = lazy(() => import('./features/settings/Settings'));
 const DocumentManager = lazy(() => import('./features/documents/DocumentManager'));
 const Store = lazy(() => import('./features/store'));
 const SandboxApp = lazy(() => import('./features/sandbox'));
-const TelegramBotPage = lazy(() => import('./features/telegram/TelegramBotPage'));
 const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
 const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
 
@@ -526,15 +525,6 @@ function LegacyAppContent({
                 </RouteErrorBoundary>
               }
             />
-            <Route
-              path="/telegram-bot"
-              element={
-                <RouteErrorBoundary routeName="Telegram Bot">
-                  <TelegramBotPage />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route path="/telegram-bots" element={<Navigate to="/telegram-bot" replace />} />
             <Route
               path="/database"
               element={

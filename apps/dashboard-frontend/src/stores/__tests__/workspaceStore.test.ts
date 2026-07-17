@@ -534,7 +534,6 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
       { type: 'settings' as const },
       { type: 'automationen' as const },
       { type: 'store' as const },
-      { type: 'telegram' as const },
       { type: 'database' as const },
       { type: 'database-table' as const, slug: 'users' },
     ];

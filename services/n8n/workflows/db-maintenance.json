@@ -57,7 +57,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "-- Clean up audit logs older than 90 days\nDELETE FROM api_audit_logs WHERE timestamp < NOW() - INTERVAL '90 days';\nDELETE FROM telegram_audit_logs WHERE timestamp < NOW() - INTERVAL '90 days';\n\n-- Clean up old self-healing events (older than 30 days)\nDELETE FROM self_healing_events WHERE timestamp < NOW() - INTERVAL '30 days';\n\n-- Return counts\nSELECT \n  (SELECT COUNT(*) FROM api_audit_logs) as api_audit_count,\n  (SELECT COUNT(*) FROM telegram_audit_logs) as telegram_audit_count,\n  (SELECT COUNT(*) FROM self_healing_events) as healing_events_count;",
+        "query": "-- Clean up audit logs older than 90 days\nDELETE FROM api_audit_logs WHERE timestamp < NOW() - INTERVAL '90 days';\n\n-- Clean up old self-healing events (older than 30 days)\nDELETE FROM self_healing_events WHERE timestamp < NOW() - INTERVAL '30 days';\n\n-- Return counts\nSELECT \n  (SELECT COUNT(*) FROM api_audit_logs) as api_audit_count,\n  (SELECT COUNT(*) FROM self_healing_events) as healing_events_count;",
         "options": {}
       },
       "id": "cleanup-audit",
@@ -92,7 +92,7 @@
     },
     {
       "parameters": {
-        "functionCode": "const metricsResult = items[0].json;\nconst sessionsResult = items[1].json;\nconst auditResult = items[2].json;\nconst vacuumResult = items[3].json;\n\nconst timestamp = new Date().toISOString();\n\nconst report = {\n  timestamp,\n  status: 'completed',\n  metrics: {\n    cpu_rows: metricsResult[0]?.cpu_count || 0,\n    ram_rows: metricsResult[0]?.ram_count || 0,\n    gpu_rows: metricsResult[0]?.gpu_count || 0,\n    temp_rows: metricsResult[0]?.temp_count || 0,\n    disk_rows: metricsResult[0]?.disk_count || 0\n  },\n  sessions: {\n    active_sessions: sessionsResult[0]?.active_sessions || 0,\n    blacklisted_tokens: sessionsResult[0]?.blacklisted_tokens || 0\n  },\n  audit: {\n    api_audit_count: auditResult[0]?.api_audit_count || 0,\n    telegram_audit_count: auditResult[0]?.telegram_audit_count || 0,\n    healing_events_count: auditResult[0]?.healing_events_count || 0\n  },\n  database: {\n    size_bytes: vacuumResult[0]?.db_size_bytes || 0,\n    size_human: vacuumResult[0]?.db_size_human || 'unknown'\n  }\n};\n\nreturn [{ json: report }];"
+        "functionCode": "const metricsResult = items[0].json;\nconst sessionsResult = items[1].json;\nconst auditResult = items[2].json;\nconst vacuumResult = items[3].json;\n\nconst timestamp = new Date().toISOString();\n\nconst report = {\n  timestamp,\n  status: 'completed',\n  metrics: {\n    cpu_rows: metricsResult[0]?.cpu_count || 0,\n    ram_rows: metricsResult[0]?.ram_count || 0,\n    gpu_rows: metricsResult[0]?.gpu_count || 0,\n    temp_rows: metricsResult[0]?.temp_count || 0,\n    disk_rows: metricsResult[0]?.disk_count || 0\n  },\n  sessions: {\n    active_sessions: sessionsResult[0]?.active_sessions || 0,\n    blacklisted_tokens: sessionsResult[0]?.blacklisted_tokens || 0\n  },\n  audit: {\n    api_audit_count: auditResult[0]?.api_audit_count || 0,\n    healing_events_count: auditResult[0]?.healing_events_count || 0\n  },\n  database: {\n    size_bytes: vacuumResult[0]?.db_size_bytes || 0,\n    size_human: vacuumResult[0]?.db_size_human || 'unknown'\n  }\n};\n\nreturn [{ json: report }];"
       },
       "id": "generate-report",
       "name": "Generate Report",
@@ -132,63 +132,6 @@
           "name": "Internal API Key"
         }
       }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "condition-telegram-enabled",
-              "leftValue": "={{ $env.TELEGRAM_BOT_TOKEN }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "check-telegram",
-      "name": "Telegram Enabled?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [1500, 400]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
-        "text": "=🔧 *DB Maintenance Report*\n\n📊 *Metrics Rows:*\n• CPU: {{ $json.metrics.cpu_rows }}\n• RAM: {{ $json.metrics.ram_rows }}\n• GPU: {{ $json.metrics.gpu_rows }}\n• Temp: {{ $json.metrics.temp_rows }}\n• Disk: {{ $json.metrics.disk_rows }}\n\n🔐 *Sessions:*\n• Active: {{ $json.sessions.active_sessions }}\n• Blacklisted: {{ $json.sessions.blacklisted_tokens }}\n\n📝 *Audit Logs:*\n• API: {{ $json.audit.api_audit_count }}\n• Telegram: {{ $json.audit.telegram_audit_count }}\n• Healing: {{ $json.audit.healing_events_count }}\n\n💾 *Database Size:* {{ $json.database.size_human }}\n\n✅ Maintenance completed at {{ $json.timestamp }}",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
-      },
-      "id": "telegram-notify",
-      "name": "Send Telegram Report",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [1750, 300],
-      "credentials": {
-        "telegramApi": {
-          "id": "3",
-          "name": "Arasul Telegram Bot"
-        }
-      }
-    },
-    {
-      "parameters": {},
-      "id": "no-op",
-      "name": "Skip Telegram",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [1750, 500]
     }
   ],
   "connections": {
@@ -262,35 +205,6 @@
         [
           {
             "node": "Notify Backend",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Notify Backend": {
-      "main": [
-        [
-          {
-            "node": "Telegram Enabled?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Telegram Enabled?": {
-      "main": [
-        [
-          {
-            "node": "Send Telegram Report",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Skip Telegram",
             "type": "main",
             "index": 0
           }
