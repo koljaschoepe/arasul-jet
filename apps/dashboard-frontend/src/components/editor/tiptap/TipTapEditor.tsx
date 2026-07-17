@@ -23,6 +23,12 @@ interface TipTapEditorProps {
   onClose: () => void;
   onSave?: () => void;
   token: string;
+  /**
+   * Inline-Modus: der Editor füllt seinen Eltern-Container (flex column,
+   * height 100%) statt als fixed Vollbild-Overlay zu erscheinen. Der
+   * Vollbild-Toggle wechselt weiterhin in ein temporäres fixed Overlay.
+   */
+  embedded?: boolean;
 }
 
 const TipTapEditor = memo(function TipTapEditor({
@@ -30,6 +36,7 @@ const TipTapEditor = memo(function TipTapEditor({
   filename,
   onClose,
   onSave,
+  embedded = false,
 }: TipTapEditorProps) {
   const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
@@ -124,13 +131,17 @@ const TipTapEditor = memo(function TipTapEditor({
     },
   });
 
-  // Prevent body scroll while editor is open
+  // Prevent body scroll while the editor is open — but not in embedded mode
+  // (there it lives inline in a tab and must not lock the whole page). When
+  // the embedded editor is toggled to fullscreen it covers the page, so lock
+  // then too.
   useEffect(() => {
+    if (embedded && !isFullscreen) return;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
     };
-  }, []);
+  }, [embedded, isFullscreen]);
 
   // Load document content
   useEffect(() => {
@@ -251,13 +262,16 @@ const TipTapEditor = memo(function TipTapEditor({
   const charCount = editor?.storage.characterCount?.characters() ?? 0;
   const wordCount = editor?.storage.characterCount?.words() ?? 0;
 
+  // Root layout: fullscreen (fixed, page-covering) wins; otherwise embedded
+  // fills its parent inline; otherwise the classic fixed overlay.
+  const rootClass = `tiptap-editor-overlay ${
+    isFullscreen ? 'fullscreen' : embedded ? 'tiptap-editor-embedded' : ''
+  }`;
+
   // Loading state
   if (loading || !editor) {
     return (
-      <div
-        className={`tiptap-editor-overlay ${isFullscreen ? 'fullscreen' : ''}`}
-        role="presentation"
-      >
+      <div className={rootClass} role="presentation">
         <div
           className="tiptap-editor-container"
           role="dialog"
@@ -274,10 +288,7 @@ const TipTapEditor = memo(function TipTapEditor({
   }
 
   return (
-    <div
-      className={`tiptap-editor-overlay ${isFullscreen ? 'fullscreen' : ''}`}
-      role="presentation"
-    >
+    <div className={rootClass} role="presentation">
       <div
         ref={containerRef}
         className="tiptap-editor-container"
