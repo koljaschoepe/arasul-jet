@@ -2396,23 +2396,26 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Isolated project environments with Docker containers and terminal WebSocket access. All routes require authentication.
 
-| Method | Endpoint                                                     | Description                                          |
-| ------ | ------------------------------------------------------------ | ---------------------------------------------------- |
-| GET    | `/api/sandbox/projects`                                      | List all sandbox projects for current user           |
-| POST   | `/api/sandbox/projects`                                      | Create a new sandbox project                         |
-| GET    | `/api/sandbox/projects/:id`                                  | Get project details                                  |
-| PUT    | `/api/sandbox/projects/:id`                                  | Update project name/description                      |
-| DELETE | `/api/sandbox/projects/:id`                                  | Archive a project                                    |
-| POST   | `/api/sandbox/projects/:id/start`                            | Start the project container                          |
-| POST   | `/api/sandbox/projects/:id/stop`                             | Stop the project container                           |
-| POST   | `/api/sandbox/projects/:id/commit`                           | Commit container state as a new image                |
-| GET    | `/api/sandbox/projects/:id/status`                           | Get live container status                            |
-| GET    | `/api/sandbox/projects/:id/sessions`                         | List terminal sessions for a project                 |
-| GET    | `/api/sandbox/projects/:workspace/agenten`                   | List the workspace's agents (name + parsed metadata) |
-| POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run/stream` | Run an agent, streaming its tool steps as SSE        |
-| POST   | `/api/sandbox/projects/:workspace/agenten/token`             | Generate (rotate) the workspace's external run token |
-| POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run`        | Run an agent via token auth (n8n / HTTP), buffered   |
-| GET    | `/api/sandbox/stats`                                         | Overall sandbox statistics                           |
+| Method | Endpoint                                                     | Description                                                |
+| ------ | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| GET    | `/api/sandbox/projects`                                      | List all sandbox projects for current user                 |
+| POST   | `/api/sandbox/projects`                                      | Create a new sandbox project                               |
+| GET    | `/api/sandbox/projects/:id`                                  | Get project details                                        |
+| PUT    | `/api/sandbox/projects/:id`                                  | Update project name/description                            |
+| DELETE | `/api/sandbox/projects/:id`                                  | Archive a project                                          |
+| POST   | `/api/sandbox/projects/:id/start`                            | Start the project container                                |
+| POST   | `/api/sandbox/projects/:id/stop`                             | Stop the project container                                 |
+| POST   | `/api/sandbox/projects/:id/commit`                           | Commit container state as a new image                      |
+| GET    | `/api/sandbox/projects/:id/status`                           | Get live container status                                  |
+| GET    | `/api/sandbox/projects/:id/sessions`                         | List terminal sessions for a project                       |
+| GET    | `/api/sandbox/projects/:workspace/agenten`                   | List the workspace's agents (name + parsed metadata)       |
+| POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run/stream` | Run an agent, streaming its tool steps as SSE              |
+| POST   | `/api/sandbox/projects/:workspace/agenten/token`             | Generate (rotate) the workspace's external run token       |
+| POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run`        | Run an agent via token auth (n8n / HTTP), buffered         |
+| POST   | `/api/sandbox/projects/:workspace/claude-login/capture`      | Capture the container's Claude Code login, store encrypted |
+| GET    | `/api/sandbox/projects/:workspace/claude-login/status`       | Whether an encrypted Claude login is stored for the user   |
+| DELETE | `/api/sandbox/projects/:workspace/claude-login`              | Delete the stored Claude login for the user                |
+| GET    | `/api/sandbox/stats`                                         | Overall sandbox statistics                                 |
 
 **POST /api/sandbox/projects/:workspace/agenten/:agent/run/stream** — `:workspace`
 is the project id (UUID) or slug; body `{ "input": "<message to the agent>" }`.
@@ -2480,6 +2483,32 @@ curl -X POST https://arasul.local/api/sandbox/projects/mein-ws/agenten/texter/ru
   -d '{ "input": "Schreib einen Brief an den Kunden" }'
 # → { "result": "…", "iterations": 2, "steps": [ … ] }
 ```
+
+#### Claude-Login persistence (Plan 008, Schritt 14)
+
+A one-time Claude Code login in a sandbox terminal is made to survive a
+`docker compose up -d --build` (container rebuild). The login files the CLI
+stores in the container (`~/.claude/.credentials.json`, and `~/.claude.json` if
+present) are captured, **encrypted per user** (AES-256-GCM via
+`utils/tokenCrypto.js`, key from `JWT_SECRET`) into `user_external_credentials`,
+and automatically restored into the container on its next start (best-effort —
+a restore failure never blocks the terminal). All three routes are
+cookie/session auth (`requireAuth`), owner-or-admin scoped by `:workspace`.
+
+**POST /api/sandbox/projects/:workspace/claude-login/capture** — reads the
+container's current Claude login and stores it encrypted for the calling user.
+Returns `{ captured: boolean, files?: string[] }`. `captured:false` (still 200)
+means no login was present yet — call it after logging in inside the terminal.
+
+**GET /api/sandbox/projects/:workspace/claude-login/status** — `{ stored: boolean }`
+for the calling user (credentials are per-user, the workspace is auth context).
+
+**DELETE /api/sandbox/projects/:workspace/claude-login** — `{ deleted: boolean }`.
+
+> **Device-verify:** the actual capture/restore into `arasul-sandbox:latest`
+> depends on the device-local sandbox image and can only be confirmed on the
+> Jetson (login → rebuild → still logged in). The encrypt/decrypt round-trip and
+> the docker-exec plumbing are unit-tested.
 
 **GET /api/sandbox/projects Query Parameters:**
 

@@ -39,6 +39,7 @@ function assertInfrastructureAllowed(networkMode, userRole) {
   }
 }
 const { checkIdleContainers, startIdleChecker, stopIdleChecker } = require('./sandboxIdleChecker');
+const externalCredentialsService = require('./externalCredentialsService');
 
 // ============================================================================
 // Project CRUD
@@ -384,6 +385,14 @@ async function startContainer(projectId, userId) {
              WHERE id = $1`,
             [projectId]
           );
+          // Plan 008 Schritt 14: einmal eingeloggten Claude-Login wieder in den
+          // Container spielen, sobald er läuft. Best-effort — ein Restore-Fehler
+          // darf den Start nie blockieren.
+          await externalCredentialsService.restoreClaudeLoginBestEffort(project.user_id, {
+            container_id: project.container_id,
+            container_name: project.container_name,
+          });
+
           logger.info(`Sandbox container started: ${project.container_name}`);
           return { success: true, message: 'Container gestartet' };
         }
@@ -511,6 +520,13 @@ async function startContainer(projectId, userId) {
        WHERE id = $3`,
       [container.id, containerName, projectId]
     );
+
+    // Plan 008 Schritt 14: gespeicherten Claude-Login in den frischen Container
+    // spielen (best-effort — blockiert den Start nie).
+    await externalCredentialsService.restoreClaudeLoginBestEffort(project.user_id, {
+      container_id: container.id,
+      container_name: containerName,
+    });
 
     logger.info(`Sandbox container created and started: ${containerName}`);
     return { success: true, containerId: container.id, containerName };

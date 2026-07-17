@@ -2981,6 +2981,41 @@ is the DB-editable layer-1 system prompt; `NULL` = the built-in default in
 
 ---
 
+## `user_external_credentials`
+
+> Per-user, **encrypted** credentials of external CLIs, so a one-time login
+> survives a container rebuild (Migration 107, Plan 008 Schritt 14). v1:
+> `provider='claude'` — the Claude Code login files.
+
+| Column                  | Type                     | Nullable | Default                                          |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------------ |
+| `id`                    | bigint                   | ⛔       | `nextval('user_external_credentials_id_seq'...)` |
+| `user_id`               | integer                  | ⛔       |                                                  |
+| `provider`              | character varying(50)    | ⛔       |                                                  |
+| `encrypted_credentials` | bytea                    | ⛔       |                                                  |
+| `created_at`            | timestamp with time zone | ⛔       | `now()`                                          |
+| `updated_at`            | timestamp with time zone | ⛔       | `now()`                                          |
+
+> `encrypted_credentials` is the AES-256-GCM blob (`IV || AuthTag || Ciphertext`)
+> of the JSON-serialized credential object, encrypted via `utils/tokenCrypto.js`
+> (key derived from `JWT_SECRET`). Never plaintext.
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id` (`ON DELETE CASCADE`)
+
+**Constraints:**
+
+- `user_external_credentials_user_provider_uniq` — `UNIQUE (user_id, provider)`
+
+**Indexes:**
+
+- `idx_user_external_credentials_user_id` — `CREATE INDEX idx_user_external_credentials_user_id ON public.user_external_credentials USING btree (user_id)`
+
+---
+
 ## `workflow_activity`
 
 > n8n workflow execution history

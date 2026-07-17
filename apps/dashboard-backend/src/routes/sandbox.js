@@ -22,6 +22,7 @@ const {
 } = require('../schemas/agents');
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
+const externalCredentialsService = require('../services/sandbox/externalCredentialsService');
 const { resolveAndRun, loadWorkspace } = require('../services/agents/runWorkspaceAgent');
 const { listAgents, loadAgent } = require('../services/agents/agentFile');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
@@ -365,6 +366,72 @@ router.post(
       steps,
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+// ============================================================================
+// Claude-Login-Persistenz (Plan 008, Schritt 14)
+// ============================================================================
+// Ein einmaliger Claude-Code-Login im Sandbox-Terminal soll einen Container-
+// Neubau überleben. Nach dem Login ruft der Nutzer `capture` auf; die
+// Credential-Dateien werden pro Nutzer VERSCHLÜSSELT in der DB abgelegt und beim
+// nächsten Container-Start automatisch zurückgespielt (sandboxService).
+
+// POST /api/sandbox/projects/:workspace/claude-login/capture
+// Liest den aktuellen Claude-Login aus dem Workspace-Container und speichert ihn
+// verschlüsselt für den eingeloggten Nutzer. 200 auch dann, wenn (noch) kein
+// Login vorhanden war — `captured:false` signalisiert das dem Client.
+router.post(
+  '/projects/:workspace/claude-login/capture',
+  requireAuth,
+  validateParams(AgentTokenParams),
+  asyncHandler(async (req, res) => {
+    // Existenz + Owner-or-Admin-Gate (fremder/unbekannter Workspace → 404).
+    const project = await loadWorkspace(req.params.workspace, {
+      userId: req.user.id,
+      userRole: req.user.role,
+    });
+    const result = await externalCredentialsService.captureClaudeLogin(req.user.id, project);
+    res.json({ ...result, timestamp: new Date().toISOString() });
+  })
+);
+
+// GET /api/sandbox/projects/:workspace/claude-login/status
+// Ob für den eingeloggten Nutzer ein Claude-Login hinterlegt ist. Der Workspace
+// dient nur als Auth-Kontext (Credentials sind pro Nutzer, nicht pro Workspace).
+router.get(
+  '/projects/:workspace/claude-login/status',
+  requireAuth,
+  validateParams(AgentTokenParams),
+  asyncHandler(async (req, res) => {
+    await loadWorkspace(req.params.workspace, {
+      userId: req.user.id,
+      userRole: req.user.role,
+    });
+    const stored = await externalCredentialsService.hasCredentials(
+      req.user.id,
+      externalCredentialsService.PROVIDER_CLAUDE
+    );
+    res.json({ stored, timestamp: new Date().toISOString() });
+  })
+);
+
+// DELETE /api/sandbox/projects/:workspace/claude-login
+// Löscht den gespeicherten Claude-Login des eingeloggten Nutzers.
+router.delete(
+  '/projects/:workspace/claude-login',
+  requireAuth,
+  validateParams(AgentTokenParams),
+  asyncHandler(async (req, res) => {
+    await loadWorkspace(req.params.workspace, {
+      userId: req.user.id,
+      userRole: req.user.role,
+    });
+    const deleted = await externalCredentialsService.deleteCredentials(
+      req.user.id,
+      externalCredentialsService.PROVIDER_CLAUDE
+    );
+    res.json({ deleted, timestamp: new Date().toISOString() });
   })
 );
 
