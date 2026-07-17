@@ -1,12 +1,14 @@
 /**
- * Integration-Tests der Extensions-Ansicht (Store 3.1 — Plan 003).
+ * Integration-Tests der Store-Ansicht (Plan 008 · Schritt 15).
  *
- * Der Store ist keine Tab-Ansicht mehr, sondern Liste (links) + Detail (Mitte):
- *   - ExtensionsSidebarList: Suchfeld + Apps/Modelle mit Status
+ * Liste (links, zwei Reiter) + Detail (Mitte):
+ *   - Reiter „Modelle" (StoreModelsList): Katalog-Modelle mit Status/Fortschritt
+ *   - Reiter „Erweiterungen" (ExtensionsSidebarList): Apps als An/Aus-Liste
  *   - StoreDetailPage: Detail der gewählten Extension bzw. Leerzustand
  *
- * Getestet wird der eigenständige (Legacy-)Pfad /store, der beide Flächen
- * nebeneinander rendert.
+ * Getestet wird der eigenständige Pfad /store, der beide Flächen nebeneinander
+ * rendert. Der „Erweiterungen"-Reiter muss vor Zugriffen auf die App-Liste
+ * aktiv geschaltet werden (Default-Reiter ist „Modelle").
  */
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -145,13 +147,28 @@ describe('Store integration (Liste + Detail)', () => {
     setupDefaultApiResponses();
   });
 
-  it('zeigt das Suchfeld', async () => {
+  /** Auf den „Erweiterungen"-Reiter wechseln (Default ist „Modelle"). */
+  async function openExtensionsTab() {
+    fireEvent.click(await screen.findByTestId('store-tab-extensions'));
+  }
+
+  it('Default-Reiter „Modelle": Modell-Liste mit Katalog-Modellen', async () => {
     renderStore();
+    expect(await screen.findByTestId('store-models-list')).toBeInTheDocument();
+    // Modelle-Reiter listet ALLE Katalog-Modelle (installiert + verfügbar)
+    expect(await screen.findByTestId('model-row-qwen3-14b')).toBeInTheDocument();
+    expect(screen.getByTestId('model-row-llama3-8b')).toBeInTheDocument();
+  });
+
+  it('Reiter „Erweiterungen": zeigt das Suchfeld', async () => {
+    renderStore();
+    await openExtensionsTab();
     expect(await screen.findByLabelText(/extensions durchsuchen/i)).toBeInTheDocument();
   });
 
   it('die Verwaltung links zeigt nur installierte/aktive Einträge', async () => {
     renderStore();
+    await openExtensionsTab();
     // installiert/aktiv → in der Liste links
     expect(await screen.findByTestId('ext-app-n8n')).toBeInTheDocument(); // running
     expect(screen.getByTestId('ext-model-qwen3-14b')).toBeInTheDocument(); // available = installiert
@@ -162,6 +179,7 @@ describe('Store integration (Liste + Detail)', () => {
 
   it('das Suchfeld filtert die installierte Liste', async () => {
     renderStore();
+    await openExtensionsTab();
     const search = await screen.findByLabelText(/extensions durchsuchen/i);
     fireEvent.change(search, { target: { value: 'qualität' } });
     // qwen3-14b (Beschreibung "…Qualitätsmodell") bleibt, n8n verschwindet
@@ -201,6 +219,7 @@ describe('Store integration (Liste + Detail)', () => {
 
   it('zeigt Status-Badges in der Liste (laufende App = Aktiv)', async () => {
     renderStore();
+    await openExtensionsTab();
     const row = await screen.findByTestId('ext-app-n8n');
     expect(within(row).getByText('Aktiv')).toBeInTheDocument();
   });
