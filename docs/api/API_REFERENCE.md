@@ -2396,19 +2396,28 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Isolated project environments with Docker containers and terminal WebSocket access. All routes require authentication.
 
-| Method | Endpoint                             | Description                                |
-| ------ | ------------------------------------ | ------------------------------------------ |
-| GET    | `/api/sandbox/projects`              | List all sandbox projects for current user |
-| POST   | `/api/sandbox/projects`              | Create a new sandbox project               |
-| GET    | `/api/sandbox/projects/:id`          | Get project details                        |
-| PUT    | `/api/sandbox/projects/:id`          | Update project name/description            |
-| DELETE | `/api/sandbox/projects/:id`          | Archive a project                          |
-| POST   | `/api/sandbox/projects/:id/start`    | Start the project container                |
-| POST   | `/api/sandbox/projects/:id/stop`     | Stop the project container                 |
-| POST   | `/api/sandbox/projects/:id/commit`   | Commit container state as a new image      |
-| GET    | `/api/sandbox/projects/:id/status`   | Get live container status                  |
-| GET    | `/api/sandbox/projects/:id/sessions` | List terminal sessions for a project       |
-| GET    | `/api/sandbox/stats`                 | Overall sandbox statistics                 |
+| Method | Endpoint                                                     | Description                                          |
+| ------ | ------------------------------------------------------------ | ---------------------------------------------------- |
+| GET    | `/api/sandbox/projects`                                      | List all sandbox projects for current user           |
+| POST   | `/api/sandbox/projects`                                      | Create a new sandbox project                         |
+| GET    | `/api/sandbox/projects/:id`                                  | Get project details                                  |
+| PUT    | `/api/sandbox/projects/:id`                                  | Update project name/description                      |
+| DELETE | `/api/sandbox/projects/:id`                                  | Archive a project                                    |
+| POST   | `/api/sandbox/projects/:id/start`                            | Start the project container                          |
+| POST   | `/api/sandbox/projects/:id/stop`                             | Stop the project container                           |
+| POST   | `/api/sandbox/projects/:id/commit`                           | Commit container state as a new image                |
+| GET    | `/api/sandbox/projects/:id/status`                           | Get live container status                            |
+| GET    | `/api/sandbox/projects/:id/sessions`                         | List terminal sessions for a project                 |
+| GET    | `/api/sandbox/projects/:workspace/agenten`                   | List the workspace's agents (name + parsed metadata) |
+| POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run/stream` | Run an agent, streaming its tool steps as SSE        |
+| GET    | `/api/sandbox/stats`                                         | Overall sandbox statistics                           |
+
+**POST /api/sandbox/projects/:workspace/agenten/:agent/run/stream** — `:workspace`
+is the project id (UUID) or slug; body `{ "input": "<message to the agent>" }`.
+Opens a `text/event-stream`; each engine event is one `data:` frame:
+`{type:"tool_start",tool,params}` · `{type:"tool_result",tool,result}` ·
+`{type:"text",content}` · `{type:"done",result}` · `{type:"error",message}`.
+Unknown workspace/agent → 404 before the stream opens.
 
 **GET /api/sandbox/projects Query Parameters:**
 

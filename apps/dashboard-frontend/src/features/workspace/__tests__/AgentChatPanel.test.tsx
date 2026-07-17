@@ -5,7 +5,12 @@ import CompactMessage from '../llm/agentChat/CompactMessage';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 const apiMock = {
-  get: vi.fn().mockResolvedValue({ chat: { title: 'Testchat' } }),
+  get: vi.fn((url: string) => {
+    if (url === '/sandbox/projects') {
+      return Promise.resolve({ projects: [{ id: 'p-uuid', slug: 'mein-ws' }] });
+    }
+    return Promise.resolve({ chat: { title: 'Testchat' } });
+  }),
   post: vi.fn().mockResolvedValue({ chat: { id: 42 } }),
   patch: vi.fn(),
   put: vi.fn(),
@@ -14,8 +19,10 @@ const apiMock = {
 vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 
 const sendMessage = vi.fn();
+const runAgentStream = vi.fn();
 const chatContext = {
   sendMessage,
+  runAgentStream,
   cancelJob: vi.fn(),
   loadMessages: vi.fn().mockResolvedValue({ messages: [], hasMore: false }),
   checkActiveJobs: vi.fn().mockResolvedValue(null),
@@ -95,6 +102,31 @@ describe('AgentChatPanel', () => {
     expect(sendMessage.mock.calls[0]![2].selectedSpaces).toEqual(['s1', 's2']);
   });
 
+  it('startet bei @agent einen Agentenlauf statt der normalen Antwort', async () => {
+    render(<AgentChatPanel />);
+    fireEvent.change(screen.getByLabelText('Nachricht an die KI'), {
+      target: { value: '@texter Schreib einen Brief' },
+    });
+    fireEvent.click(screen.getByLabelText('Senden'));
+
+    // Workspace wird aufgelöst, Chat lazy angelegt, dann der Agentenlauf gestartet.
+    await waitFor(() =>
+      expect(apiMock.get).toHaveBeenCalledWith('/sandbox/projects', {
+        showError: false,
+      })
+    );
+    await waitFor(() => expect(runAgentStream).toHaveBeenCalled());
+    expect(sendMessage).not.toHaveBeenCalled();
+    const call = runAgentStream.mock.calls[0]!;
+    expect(call[0]).toBe('42');
+    expect(call[1]).toMatchObject({
+      workspaceRef: 'mein-ws',
+      agentName: 'texter',
+      userInput: 'Schreib einen Brief',
+      fullMessage: '@texter Schreib einen Brief',
+    });
+  });
+
   it('lädt einen bestehenden Panel-Chat aus localStorage', async () => {
     localStorage.setItem('arasul_panel_chat_id', '7');
     render(<AgentChatPanel />);
@@ -145,6 +177,37 @@ describe('CompactMessage', () => {
     // Vollständig lesbar: kein truncate-Clip, sondern Umbruch
     expect(label).not.toHaveClass('truncate');
     expect(label.className).toMatch(/break-words/);
+  });
+
+  it('rendert Agenten-Werkzeugschritte inkrementell mit deutschen Beschriftungen', () => {
+    render(
+      <CompactMessage
+        isStreaming
+        message={{
+          role: 'assistant',
+          content: '',
+          agent: 'texter',
+          steps: [
+            {
+              tool: 'dateien',
+              params: { aktion: 'read', pfad: 'brief.md' },
+              status: 'done',
+              result: 'Inhalt',
+            },
+            { tool: 'rag', params: { frage: 'Kündigungsfrist' }, status: 'running' },
+            { tool: 'terminal', params: { befehl: 'ls -la' }, status: 'done' },
+          ],
+        }}
+      />
+    );
+    expect(screen.getByText('liest brief.md')).toBeInTheDocument();
+    // Laufender Schritt bekommt das Ellipsis-Suffix
+    expect(screen.getByText('sucht: Kündigungsfrist …')).toBeInTheDocument();
+    expect(screen.getByText('führt aus: ls -la')).toBeInTheDocument();
+    // Ergebnis eines Schritts ist einklappbar
+    expect(screen.queryByText('Inhalt')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('liest brief.md'));
+    expect(screen.getByText('Inhalt')).toBeInTheDocument();
   });
 
   it('zeigt Thinking als einklappbare Zeile', () => {

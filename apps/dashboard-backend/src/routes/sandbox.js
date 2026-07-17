@@ -8,10 +8,15 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { validateBody, validateQuery } = require('../middleware/validate');
+const { validateBody, validateQuery, validateParams } = require('../middleware/validate');
+const { llmLimiter } = require('../middleware/rateLimit');
 const { CreateProjectBody, UpdateProjectBody, ListProjectsQuery } = require('../schemas/sandbox');
+const { AgentListParams, RunAgentParams, RunAgentBody } = require('../schemas/agents');
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
+const { resolveAndRun, loadWorkspace } = require('../services/agents/runWorkspaceAgent');
+const { listAgents, loadAgent } = require('../services/agents/agentFile');
+const { initSSE, trackConnection } = require('../utils/sseHelper');
 
 // ============================================================================
 // Projects CRUD
@@ -140,6 +145,93 @@ router.get(
     const includeCompleted = req.query.all === 'true';
     const sessions = await terminalService.listSessions(req.params.id, { includeCompleted });
     res.json({ sessions, timestamp: new Date().toISOString() });
+  })
+);
+
+// ============================================================================
+// Workspace Agents (Plan 008, Schritt 11 — chat as agent command center)
+// ============================================================================
+
+// GET /api/sandbox/projects/:workspace/agenten — List the workspace's agents
+// (name + parsed metadata). Powers @-autocomplete / validation in the chat.
+router.get(
+  '/projects/:workspace/agenten',
+  requireAuth,
+  validateParams(AgentListParams),
+  asyncHandler(async (req, res) => {
+    const project = await loadWorkspace(req.params.workspace, {
+      userId: req.user.id,
+      userRole: req.user.role,
+    });
+    const names = await listAgents(project.host_path);
+    const agents = [];
+    for (const name of names) {
+      try {
+        const agent = await loadAgent(project.host_path, name);
+        agents.push({
+          name,
+          displayName: agent.name,
+          description: agent.description,
+          model: agent.model,
+          tools: agent.tools,
+        });
+      } catch {
+        // A malformed definition file shouldn't hide the rest — list it bare.
+        agents.push({ name });
+      }
+    }
+    res.json({ agents, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/sandbox/projects/:workspace/agenten/:agent/run/stream
+// Runs the agent and streams every engine event as an SSE frame:
+//   data: {"type":"tool_start","tool":"dateien","params":{...}}
+//   data: {"type":"tool_result","tool":"dateien","result":"..."}
+//   data: {"type":"text","content":"..."}
+//   data: {"type":"done","result":"...","truncated":false}
+//   data: {"type":"error","message":"..."}
+// Resolution/auth failures happen BEFORE the first frame, so they still map to
+// a real HTTP status (401 via requireAuth, 404 for unknown workspace/agent) —
+// the SSE stream is opened lazily on the first emitted event.
+router.post(
+  '/projects/:workspace/agenten/:agent/run/stream',
+  requireAuth,
+  llmLimiter,
+  validateParams(RunAgentParams),
+  validateBody(RunAgentBody),
+  asyncHandler(async (req, res) => {
+    let sseStarted = false;
+    const ensureSSE = () => {
+      if (!sseStarted) {
+        initSSE(res);
+        trackConnection(res);
+        sseStarted = true;
+      }
+    };
+    const send = evt => {
+      ensureSSE();
+      if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify(evt)}\n\n`);
+      }
+    };
+
+    await resolveAndRun({
+      workspaceRef: req.params.workspace,
+      agentName: req.params.agent,
+      userInput: req.body.input,
+      userId: req.user.id,
+      userRole: req.user.role,
+      onEvent: send,
+    });
+
+    // runAgent always emits a terminal 'done'/'error' event, so the stream is
+    // already open here; ensure it is closed. If it somehow emitted nothing,
+    // open + close cleanly so the client isn't left hanging.
+    ensureSSE();
+    if (!res.writableEnded) {
+      res.end();
+    }
   })
 );
 

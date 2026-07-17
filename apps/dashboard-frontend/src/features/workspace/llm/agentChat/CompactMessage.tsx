@@ -7,9 +7,9 @@
  * einklappbare Ein-Zeilen-Rows, Quellen ein klickbarer Chip-Footer.
  */
 import { memo, useState } from 'react';
-import { ChevronRight, FileText, Search, Sparkles } from 'lucide-react';
+import { ChevronRight, FileText, Search, Sparkles, TerminalSquare, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ChatMessage } from '@/contexts/ChatContext';
+import type { AgentToolStep, ChatMessage } from '@/contexts/ChatContext';
 import type { DocumentSource } from '@/types';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { CompactMarkdown } from './markdown';
@@ -120,6 +120,62 @@ function SourcesFooter({ sources }: { sources: DocumentSource[] }) {
   );
 }
 
+/** Kompakte deutsche Beschriftung eines Werkzeug-Schritts aus Name + Parametern. */
+function agentStepLabel(step: AgentToolStep): string {
+  const p = step.params || {};
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  switch (step.tool) {
+    case 'dateien': {
+      const aktion = str(p.aktion).toLowerCase();
+      const pfad = str(p.pfad) || '/';
+      if (aktion === 'read') return `liest ${pfad}`;
+      if (aktion === 'write') return `schreibt ${pfad}`;
+      if (aktion === 'list') return `listet ${pfad}`;
+      return `Dateien: ${pfad}`;
+    }
+    case 'rag': {
+      const q = str(p.frage) || str(p.query);
+      return q ? `sucht: ${q}` : 'durchsucht das Wissen';
+    }
+    case 'terminal': {
+      const cmd = str(p.befehl) || str(p.command);
+      return cmd ? `führt aus: ${cmd}` : 'führt einen Befehl aus';
+    }
+    default:
+      return `nutzt ${step.tool || 'Werkzeug'}`;
+  }
+}
+
+function agentStepIcon(step: AgentToolStep): React.ReactNode {
+  switch (step.tool) {
+    case 'dateien':
+      return <FileText className="size-3" />;
+    case 'rag':
+      return <Search className="size-3" />;
+    case 'terminal':
+      return <TerminalSquare className="size-3" />;
+    default:
+      return <Wrench className="size-3" />;
+  }
+}
+
+/** Einzelne, inkrementell erscheinende Werkzeug-Schritte eines Agentenlaufs. */
+function AgentSteps({ steps }: { steps: AgentToolStep[] }) {
+  return (
+    <div className="mb-1" data-testid="agent-steps">
+      {steps.map((step, i) => (
+        <StepRow
+          key={i}
+          icon={agentStepIcon(step)}
+          label={step.status === 'running' ? `${agentStepLabel(step)} …` : agentStepLabel(step)}
+        >
+          {step.result || undefined}
+        </StepRow>
+      ))}
+    </div>
+  );
+}
+
 interface CompactMessageProps {
   message: ChatMessage;
   isStreaming: boolean;
@@ -137,8 +193,11 @@ function CompactMessageInner({ message, isStreaming }: CompactMessageProps) {
   const hasThinking = Boolean(message.thinking && message.thinking.trim());
   const matched = message.matchedSpaces || [];
 
+  const steps = message.steps || [];
+
   return (
     <div className="my-2" data-testid="assistant-message">
+      {steps.length > 0 && <AgentSteps steps={steps} />}
       {hasThinking && (
         <StepRow
           icon={<Sparkles className="size-3" />}
