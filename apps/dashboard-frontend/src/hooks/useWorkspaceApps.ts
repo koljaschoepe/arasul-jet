@@ -21,9 +21,7 @@ export interface WorkspaceApp {
 const QUERY_KEY = ['workspace-apps'];
 
 /** Kind-Tab-Typen, die zum Haupt-Tab einer App gehören (z. B. Tabellen-Tabs). */
-const APP_CHILD_TAB_TYPES: Partial<Record<WorkspaceTabType, WorkspaceTabType[]>> = {
-  database: ['database-table'],
-};
+const APP_CHILD_TAB_TYPES: Partial<Record<WorkspaceTabType, WorkspaceTabType[]>> = {};
 
 /** Offene Mitte-Tabs einer deaktivierten App schließen (inkl. Kind-Tabs). */
 function closeAppTabs(tabType: WorkspaceTabType) {
@@ -63,7 +61,7 @@ export function useWorkspaceApps() {
   );
 
   /**
-   * Gating auf Tab-Typ-Ebene (inkl. Kind-Tabs wie database-table): gehört der
+   * Gating auf Tab-Typ-Ebene (inkl. etwaiger Kind-Tabs einer App): gehört der
    * Typ zu einer deaktivierten App, darf kein Tab dieses Typs geöffnet werden
    * (URL-Deep-Link, Browser-Zurück). Unbekannte Typen sind immer erlaubt;
    * solange die Apps noch laden, gilt fail-open (siehe Query-Kommentar).

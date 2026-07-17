@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Blocks, Database, Workflow } from 'lucide-react';
+import { Home, Blocks, Workflow } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
@@ -51,12 +51,6 @@ const APP_SHORTCUTS: Array<{
     spec: { type: 'automationen' },
     label: 'Automationen',
     icon: <Workflow className="h-5 w-5" />,
-  },
-  {
-    appId: 'database',
-    spec: { type: 'database' },
-    label: 'Datenbank',
-    icon: <Database className="h-5 w-5" />,
   },
 ];
 

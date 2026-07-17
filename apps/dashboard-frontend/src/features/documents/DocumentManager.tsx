@@ -20,17 +20,14 @@ import {
   Cpu,
   Eye,
   Pencil,
-  Grid3x3,
   CheckSquare,
   Square,
   Minus,
   FolderInput,
-  Table,
 } from 'lucide-react';
-import { TableBadge, StatusBadge, TableStatusBadge, IndexStatusBadge, SpaceBadge } from './Badges';
+import { StatusBadge, SpaceBadge } from './Badges';
 import TipTapEditor from '../../components/editor/tiptap/TipTapEditor';
 import CreateDocumentDialog from '../../components/editor/CreateDocumentDialog';
-import ExcelEditor from '../datentabellen/ExcelEditor';
 import SpaceModal from './SpaceModal';
 import DocumentDetailsModal from './DocumentDetailsModal';
 import RagMetricsCard from './RagMetricsCard';
@@ -47,13 +44,7 @@ import useDocumentUpload from './useDocumentUpload';
 import useDocumentActions from './useDocumentActions';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/shadcn/button';
-import type {
-  Document,
-  DocumentSpace,
-  DocumentCategory,
-  DocumentStatistics,
-  DataTable,
-} from '../../types';
+import type { Document, DocumentSpace, DocumentCategory, DocumentStatistics } from '../../types';
 
 function DocumentManager() {
   // State
@@ -61,11 +52,9 @@ function DocumentManager() {
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [tables, setTables] = useState<DataTable[]>([]); // PostgreSQL Datentabellen
   const [categories, setCategories] = useState<DocumentCategory[]>([]);
   const [statistics, setStatistics] = useState<DocumentStatistics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingTables, setLoadingTables] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statsError, setStatsError] = useState(false);
   const [spacesError, setSpacesError] = useState(false);
@@ -101,13 +90,8 @@ function DocumentManager() {
   const [showEditor, setShowEditor] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
 
-  // Table Editor state (ExcelEditor popup)
-  const [showTableEditor, setShowTableEditor] = useState(false);
-  const [editingTable, setEditingTable] = useState<DataTable | null>(null);
-
   // Create dialog state
   const [showMarkdownCreate, setShowMarkdownCreate] = useState(false);
-  const [showSimpleTableCreate, setShowSimpleTableCreate] = useState(false);
 
   // Multi-select for batch operations
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -234,48 +218,6 @@ function DocumentManager() {
       setSpacesError(true);
     }
   };
-
-  // Total tables count (from server)
-  const [totalTables, setTotalTables] = useState(0);
-
-  // Load Datentabellen (PostgreSQL tables) - server-side filtering
-  const loadTables = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        setLoadingTables(true);
-        const params = new URLSearchParams();
-
-        if (activeSpaceId) params.append('space_id', activeSpaceId);
-        if (statusFilter) {
-          // Map document status to table status
-          const statusMap: Record<string, string> = {
-            indexed: 'active',
-            pending: 'draft',
-            failed: 'archived',
-          };
-          params.append('status', statusMap[statusFilter] || statusFilter);
-        }
-        if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
-
-        const data = await api.get<{ tables?: DataTable[]; data?: DataTable[]; total?: number }>(
-          `/v1/datentabellen/tables?${params}`,
-          {
-            signal,
-            showError: false,
-          }
-        );
-        const allTables = data.tables || data.data || [];
-        setTables(allTables);
-        setTotalTables(data.total || allTables.length);
-      } catch (err: unknown) {
-        if (signal?.aborted) return;
-        console.error('Error loading tables:', err);
-      } finally {
-        setLoadingTables(false);
-      }
-    },
-    [api, activeSpaceId, statusFilter, debouncedSearchQuery]
-  );
 
   // Handle space change (for tabs) - reset all filters
   const handleSpaceChange = (spaceId: string | null) => {
@@ -467,7 +409,6 @@ function DocumentManager() {
   // when filter dependencies change. The interval should only be created once on mount.
   const loadDocumentsRef = useRef(loadDocuments);
   const loadStatisticsRef = useRef(loadStatistics);
-  const loadTablesRef = useRef(loadTables);
 
   // Keep refs in sync with latest functions
   useEffect(() => {
@@ -477,10 +418,6 @@ function DocumentManager() {
   useEffect(() => {
     loadStatisticsRef.current = loadStatistics;
   }, [loadStatistics]);
-
-  useEffect(() => {
-    loadTablesRef.current = loadTables;
-  }, [loadTables]);
 
   // Adaptive polling: 5s when documents are pending/processing, 30s otherwise
   const POLL_FAST = 5000;
@@ -529,7 +466,6 @@ function DocumentManager() {
     loadCategories(controller.signal);
     loadStatisticsRef.current(controller.signal);
     loadSpaces(controller.signal);
-    loadTablesRef.current(controller.signal);
 
     return () => {
       controller.abort();
@@ -546,7 +482,6 @@ function DocumentManager() {
       if (signal?.aborted) return;
       loadDocumentsRef.current(signal);
       loadStatisticsRef.current(signal);
-      loadTablesRef.current(signal);
     }, pollInterval);
 
     return () => {
@@ -559,7 +494,6 @@ function DocumentManager() {
     const controller = new AbortController();
     loadDocumentsRef.current(controller.signal);
     loadStatisticsRef.current(controller.signal);
-    loadTablesRef.current(controller.signal);
     return () => controller.abort();
   }, [activeSpaceId, statusFilter, categoryFilter, debouncedSearchQuery]);
 
@@ -644,73 +578,15 @@ function DocumentManager() {
     }
   };
 
-  // Handle Datentabelle (PostgreSQL) creation
-  const handleDataTableCreated = (newTable: Record<string, unknown>) => {
-    setShowSimpleTableCreate(false);
-    loadTables(); // Refresh tables list
-    // Open the new table in the editor popup
-    if (newTable && newTable.slug) {
-      setEditingTable(newTable as unknown as DataTable);
-      setShowTableEditor(true);
-    }
-  };
-
-  // Handle table edit
-  const handleTableEdit = (table: DataTable) => {
-    setEditingTable(table);
-    setShowTableEditor(true);
-  };
-
-  // Handle table editor close
-  const handleTableEditorClose = () => {
-    setShowTableEditor(false);
-    setEditingTable(null);
-    loadTables(); // Refresh tables after editing
-  };
-
-  // Delete table
-  const handleDeleteTable = async (table: DataTable) => {
-    if (!(await confirm({ message: `Tabelle "${table.name}" wirklich löschen?` }))) return;
-
-    try {
-      await api.del(`/v1/datentabellen/tables/${table.slug}`, { showError: false });
-      loadTables();
-    } catch (err: unknown) {
-      setError('Fehler beim Löschen der Tabelle');
-    }
-  };
-
-  // Get space name for a table
-  const getTableSpaceName = (table: DataTable) => {
-    const space = spaces.find(s => s.id === table.space_id);
-    return space?.name || 'Allgemein';
-  };
-
-  const getTableSpaceColor = (table: DataTable) => {
-    const space = spaces.find(s => s.id === table.space_id);
-    return space?.color || 'var(--primary-color)';
-  };
-
-  // Combine documents and tables into a unified list for display
-  type TaggedDocument = Document & { _type: 'document' };
-  type TaggedTable = DataTable & { _type: 'table' };
-  type CombinedItem = TaggedDocument | TaggedTable;
-  const combinedItems: CombinedItem[] = [
-    // Tables first (marked as type 'table')
-    ...tables.map(t => ({ ...t, _type: 'table' as const })),
-    // Then documents (marked as type 'document')
-    ...documents.map(d => ({ ...d, _type: 'document' as const })),
-  ];
-
   // Server already filters - no client-side filtering needed
-  const filteredItems = combinedItems;
+  const filteredItems = documents;
 
-  // Batch selection helpers (must be after filteredItems declaration)
-  const docIds = filteredItems.filter(i => i._type === 'document').map(i => i.id);
+  // Batch selection helpers
+  const docIds = filteredItems.map(d => d.id);
   const allDocsSelected = docIds.length > 0 && docIds.every((id: string) => selectedIds.has(id));
   const someDocsSelected = docIds.some((id: string) => selectedIds.has(id));
 
-  const totalPages = Math.ceil((totalDocuments + totalTables) / itemsPerPage);
+  const totalPages = Math.ceil(totalDocuments / itemsPerPage);
 
   return (
     <main
@@ -1070,11 +946,6 @@ function DocumentManager() {
           <Trash2 className={cleaningUp ? 'animate-pulse' : ''} aria-hidden="true" size={16} />
         </Button>
 
-        <Button onClick={() => setShowSimpleTableCreate(true)} aria-label="Neue Tabelle erstellen">
-          <Table aria-hidden="true" size={16} />
-          <span>Neue Tabelle</span>
-        </Button>
-
         <Button onClick={() => setShowMarkdownCreate(true)} aria-label="Neues Dokument erstellen">
           <FileText aria-hidden="true" size={16} />
           <span>Neues Dokument</span>
@@ -1137,7 +1008,7 @@ function DocumentManager() {
         className="bg-[var(--gradient-card)] border border-border rounded-lg overflow-hidden"
         aria-label="Datenliste"
       >
-        {(loading || loadingTables) && filteredItems.length === 0 ? (
+        {loading && filteredItems.length === 0 ? (
           <SkeletonDocumentList count={6} />
         ) : filteredItems.length === 0 ? (
           <EmptyState
@@ -1261,243 +1132,154 @@ function DocumentManager() {
               </tr>
             </thead>
             <tbody>
-              {/* Render Tables */}
-              {filteredItems
-                .filter((item): item is TaggedTable => item._type === 'table')
-                .map(table => (
-                  <tr
-                    key={`table-${table.id}`}
-                    className="cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2"
-                    onClick={() => handleTableEdit(table)}
-                    tabIndex={0}
-                    onKeyDown={e => e.key === 'Enter' && handleTableEdit(table)}
-                    aria-label={`Tabelle: ${table.name}`}
+              {/* Render Documents */}
+              {filteredItems.map(doc => (
+                <tr
+                  key={`doc-${doc.id}`}
+                  className={cn(
+                    'cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2',
+                    doc.is_favorite && 'bg-primary/5',
+                    selectedIds.has(doc.id) && 'bg-primary/10'
+                  )}
+                  onClick={() => viewDocumentDetails(doc)}
+                  tabIndex={0}
+                  onKeyDown={e => e.key === 'Enter' && viewDocumentDetails(doc)}
+                  aria-label={`${doc.title || doc.filename}, Typ: ${getDocumentType(doc)}, Status: ${doc.status}`}
+                >
+                  <td
+                    className="py-3 px-2 text-center border-b border-border/50 text-sm w-10"
+                    onClick={e => e.stopPropagation()}
                   >
-                    <td className="py-3 px-2 text-center border-b border-border/50 text-sm w-10">
-                      <span className="inline-flex items-center justify-center size-6 text-muted-foreground/40">
-                        <Square size={14} />
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      <span className="inline-flex items-center justify-center size-6 text-primary opacity-60">
-                        <Grid3x3 aria-hidden="true" size={16} />
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-75">
-                      <div className="flex items-center gap-3">
-                        <Table
-                          className="text-primary text-xl shrink-0"
-                          aria-hidden="true"
-                          size={20}
-                        />
-                        <div>
-                          <span className="block font-medium overflow-hidden text-ellipsis whitespace-nowrap">
-                            {table.name}
-                          </span>
-                          {table.description && (
-                            <span className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap">
-                              {table.description}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      <TableBadge />
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      <SpaceBadge
-                        name={getTableSpaceName(table)}
-                        color={getTableSpaceColor(table)}
-                      />
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <TableStatusBadge status={table.status || 'active'} />
-                        <IndexStatusBadge
-                          needsReindex={table.needs_reindex}
-                          lastIndexedAt={table.last_indexed_at}
-                        />
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground border-b border-border/50 text-sm">
-                      <span>{table.field_count || 0} Spalten</span>
-                    </td>
-                    <td
-                      className="py-3 px-4 text-foreground border-b border-border/50 text-sm whitespace-nowrap"
-                      onClick={e => e.stopPropagation()}
+                    <button
+                      type="button"
+                      className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() => toggleSelect(doc.id)}
+                      aria-label={selectedIds.has(doc.id) ? 'Abwählen' : 'Auswählen'}
                     >
+                      {selectedIds.has(doc.id) ? (
+                        <CheckSquare size={16} className="text-primary" />
+                      ) : (
+                        <Square size={16} />
+                      )}
+                    </button>
+                  </td>
+                  <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
+                    <button
+                      type="button"
+                      className={cn(
+                        'bg-transparent border-none text-muted-foreground cursor-pointer p-1 transition-colors hover:text-primary',
+                        doc.is_favorite && 'text-primary'
+                      )}
+                      onClick={e => {
+                        e.stopPropagation();
+                        toggleFavorite(doc);
+                      }}
+                      aria-label={
+                        doc.is_favorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'
+                      }
+                      aria-pressed={doc.is_favorite}
+                    >
+                      <Star aria-hidden="true" size={16} />
+                    </button>
+                  </td>
+                  <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-75">
+                    <div className="flex items-center gap-3">
+                      {React.createElement(getFileIcon(doc), {
+                        className: 'text-primary text-xl shrink-0',
+                        'aria-hidden': 'true',
+                        size: 20,
+                      })}
+                      <div>
+                        <span className="block font-medium overflow-hidden text-ellipsis whitespace-nowrap">
+                          {doc.title || doc.filename}
+                        </span>
+                        {doc.title && doc.title !== doc.filename && (
+                          <span className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                            {doc.filename}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
+                    <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-sm text-xs font-medium uppercase tracking-wide bg-primary/10 text-primary">
+                      {getDocumentType(doc)}
+                    </span>
+                  </td>
+                  <td
+                    className="py-3 px-4 text-foreground border-b border-border/50 text-sm"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <SpaceBadge
+                      name={doc.space_name}
+                      color={doc.space_color}
+                      docId={doc.id}
+                      spaces={spaces}
+                      onMove={handleMoveDocument}
+                    />
+                  </td>
+                  <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
+                    <StatusBadge status={doc.status} />
+                  </td>
+                  <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
+                    {formatFileSize(doc.file_size ?? 0)}
+                  </td>
+                  <td
+                    className="py-3 px-4 text-foreground border-b border-border/50 text-sm whitespace-nowrap"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="mr-1"
+                      onClick={() => viewDocumentDetails(doc)}
+                      aria-label={`Details für ${doc.title || doc.filename} anzeigen`}
+                    >
+                      <Eye aria-hidden="true" size={16} />
+                    </Button>
+                    {canEdit(doc) && (
                       <Button
                         variant="ghost"
                         size="icon-xs"
                         className="mr-1"
-                        onClick={() => handleTableEdit(table)}
-                        aria-label={`${table.name} bearbeiten`}
+                        onClick={() => handleEdit(doc)}
+                        aria-label={`${doc.title || doc.filename} bearbeiten`}
                       >
                         <Pencil aria-hidden="true" size={16} />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className="mr-1 hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => handleDeleteTable(table)}
-                        aria-label={`${table.name} löschen`}
-                      >
-                        <Trash2 aria-hidden="true" size={16} />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              {/* Render Documents */}
-              {filteredItems
-                .filter((item): item is TaggedDocument => item._type === 'document')
-                .map(doc => (
-                  <tr
-                    key={`doc-${doc.id}`}
-                    className={cn(
-                      'cursor-pointer transition-all hover:bg-[var(--bg-table-row-active)] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2',
-                      doc.is_favorite && 'bg-primary/5',
-                      selectedIds.has(doc.id) && 'bg-primary/10'
                     )}
-                    onClick={() => viewDocumentDetails(doc)}
-                    tabIndex={0}
-                    onKeyDown={e => e.key === 'Enter' && viewDocumentDetails(doc)}
-                    aria-label={`${doc.title || doc.filename}, Typ: ${getDocumentType(doc)}, Status: ${doc.status}`}
-                  >
-                    <td
-                      className="py-3 px-2 text-center border-b border-border/50 text-sm w-10"
-                      onClick={e => e.stopPropagation()}
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="mr-1"
+                      onClick={() => handleDownload(doc.id, doc.filename)}
+                      aria-label={`${doc.filename} herunterladen`}
                     >
-                      <button
-                        type="button"
-                        className="p-1 text-muted-foreground hover:text-primary transition-colors"
-                        onClick={() => toggleSelect(doc.id)}
-                        aria-label={selectedIds.has(doc.id) ? 'Abwählen' : 'Auswählen'}
-                      >
-                        {selectedIds.has(doc.id) ? (
-                          <CheckSquare size={16} className="text-primary" />
-                        ) : (
-                          <Square size={16} />
-                        )}
-                      </button>
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      <button
-                        type="button"
-                        className={cn(
-                          'bg-transparent border-none text-muted-foreground cursor-pointer p-1 transition-colors hover:text-primary',
-                          doc.is_favorite && 'text-primary'
-                        )}
-                        onClick={e => {
-                          e.stopPropagation();
-                          toggleFavorite(doc);
-                        }}
-                        aria-label={
-                          doc.is_favorite ? 'Aus Favoriten entfernen' : 'Zu Favoriten hinzufügen'
-                        }
-                        aria-pressed={doc.is_favorite}
-                      >
-                        <Star aria-hidden="true" size={16} />
-                      </button>
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm max-w-75">
-                      <div className="flex items-center gap-3">
-                        {React.createElement(getFileIcon(doc), {
-                          className: 'text-primary text-xl shrink-0',
-                          'aria-hidden': 'true',
-                          size: 20,
-                        })}
-                        <div>
-                          <span className="block font-medium overflow-hidden text-ellipsis whitespace-nowrap">
-                            {doc.title || doc.filename}
-                          </span>
-                          {doc.title && doc.title !== doc.filename && (
-                            <span className="block text-muted-foreground text-xs overflow-hidden text-ellipsis whitespace-nowrap">
-                              {doc.filename}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-sm text-xs font-medium uppercase tracking-wide bg-primary/10 text-primary">
-                        {getDocumentType(doc)}
-                      </span>
-                    </td>
-                    <td
-                      className="py-3 px-4 text-foreground border-b border-border/50 text-sm"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <SpaceBadge
-                        name={doc.space_name}
-                        color={doc.space_color}
-                        docId={doc.id}
-                        spaces={spaces}
-                        onMove={handleMoveDocument}
-                      />
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      <StatusBadge status={doc.status} />
-                    </td>
-                    <td className="py-3 px-4 text-foreground border-b border-border/50 text-sm">
-                      {formatFileSize(doc.file_size ?? 0)}
-                    </td>
-                    <td
-                      className="py-3 px-4 text-foreground border-b border-border/50 text-sm whitespace-nowrap"
-                      onClick={e => e.stopPropagation()}
-                    >
+                      <Download aria-hidden="true" size={16} />
+                    </Button>
+                    {doc.status === 'failed' && (
                       <Button
                         variant="ghost"
                         size="icon-xs"
                         className="mr-1"
-                        onClick={() => viewDocumentDetails(doc)}
-                        aria-label={`Details für ${doc.title || doc.filename} anzeigen`}
+                        onClick={() => handleReindex(doc.id)}
+                        aria-label={`${doc.title || doc.filename} neu indexieren`}
                       >
-                        <Eye aria-hidden="true" size={16} />
+                        <RefreshCw aria-hidden="true" size={16} />
                       </Button>
-                      {canEdit(doc) && (
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          className="mr-1"
-                          onClick={() => handleEdit(doc)}
-                          aria-label={`${doc.title || doc.filename} bearbeiten`}
-                        >
-                          <Pencil aria-hidden="true" size={16} />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className="mr-1"
-                        onClick={() => handleDownload(doc.id, doc.filename)}
-                        aria-label={`${doc.filename} herunterladen`}
-                      >
-                        <Download aria-hidden="true" size={16} />
-                      </Button>
-                      {doc.status === 'failed' && (
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          className="mr-1"
-                          onClick={() => handleReindex(doc.id)}
-                          aria-label={`${doc.title || doc.filename} neu indexieren`}
-                        >
-                          <RefreshCw aria-hidden="true" size={16} />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className="mr-1 hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => handleDelete(doc.id, doc.filename)}
-                        aria-label={`${doc.title || doc.filename} löschen`}
-                      >
-                        <Trash2 aria-hidden="true" size={16} />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="mr-1 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleDelete(doc.id, doc.filename)}
+                      aria-label={`${doc.title || doc.filename} löschen`}
+                    >
+                      <Trash2 aria-hidden="true" size={16} />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
@@ -1507,7 +1289,7 @@ function DocumentManager() {
         currentPage={currentPage}
         totalPages={totalPages}
         itemsPerPage={itemsPerPage}
-        totalEntries={totalDocuments + totalTables}
+        totalEntries={totalDocuments}
         onPageChange={setCurrentPage}
         onItemsPerPageChange={setItemsPerPage}
       />
@@ -1562,27 +1344,6 @@ function DocumentManager() {
           onCreated={handleMarkdownCreated}
           spaceId={activeSpaceId || uploadSpaceId}
           spaces={spaces}
-        />
-      )}
-
-      {/* Simple Table Create Dialog (PostgreSQL Datentabellen) */}
-      {showSimpleTableCreate && (
-        <CreateDocumentDialog
-          type="table"
-          isOpen={showSimpleTableCreate}
-          onClose={() => setShowSimpleTableCreate(false)}
-          onCreated={handleDataTableCreated}
-          spaceId={activeSpaceId || uploadSpaceId}
-          spaces={spaces}
-        />
-      )}
-
-      {/* Excel Editor Popup (PostgreSQL Datentabellen) */}
-      {showTableEditor && editingTable && (
-        <ExcelEditor
-          tableSlug={editingTable.slug}
-          tableName={editingTable.name}
-          onClose={handleTableEditorClose}
         />
       )}
 

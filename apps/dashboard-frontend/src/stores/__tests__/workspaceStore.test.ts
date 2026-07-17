@@ -339,9 +339,9 @@ describe('workspaceStore — Migration v2 → v4', () => {
     state: {
       tabs: [
         { id: 'store', type: 'store', title: 'Extensions' },
-        { id: 'database-table:users', type: 'database-table', title: 'users', slug: 'users' },
+        { id: 'document:99', type: 'document', title: 'Doc', documentId: '99' },
       ],
-      activeTabId: 'database-table:users',
+      activeTabId: 'document:99',
       explorerVisible: true,
       llmVisible: false,
       llmPanelMode: 'chat',
@@ -394,8 +394,8 @@ describe('workspaceStore — Migration v2 → v4', () => {
     expect(s.sidebarVisible).toBe(true);
     expect(s.rightPanelVisible).toBe(false);
     expect(s.rightPanelMode).toBe('chat');
-    expect(s.tabs.map(t => t.id)).toEqual(['store', 'database-table:users']);
-    expect(s.activeTabId).toBe('database-table:users');
+    expect(s.tabs.map(t => t.id)).toEqual(['store', 'document:99']);
+    expect(s.activeTabId).toBe('document:99');
   });
 
   it('schreibt den migrierten Stand als version 4 zurück (Alt-Felder weg)', async () => {
@@ -534,8 +534,6 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
       { type: 'settings' as const },
       { type: 'automationen' as const },
       { type: 'store' as const },
-      { type: 'database' as const },
-      { type: 'database-table' as const, slug: 'users' },
     ];
     for (const spec of specs) {
       const tab = { id: tabId(spec), title: 'x', ...spec };

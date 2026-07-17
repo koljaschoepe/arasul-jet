@@ -12,8 +12,6 @@ import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/
 
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
-const DatabaseOverview = lazy(() => import('@/features/database/DatabaseOverview'));
-const DatabaseTable = lazy(() => import('@/features/database/DatabaseTable'));
 const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
 
@@ -123,10 +121,6 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/store';
     case 'automationen':
       return '/';
-    case 'database':
-      return '/database';
-    case 'database-table':
-      return `/database/${tab.slug ?? ''}`;
     case 'document':
       return '/';
   }
@@ -139,8 +133,6 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   settings: new Set(['settings']),
   store: new Set(['store']),
   automationen: new Set([]),
-  database: new Set(['database', 'database-table']),
-  'database-table': new Set(['database', 'database-table']),
 };
 
 /**
@@ -196,23 +188,6 @@ function FeatureTabHost({
         <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
         <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
         <Route path="/terminal" element={<TerminalPanelBridge resetTo={resetTo} />} />
-        <Route
-          path="/database"
-          element={routeFor('database', <DatabaseOverview />, { type: 'database' })}
-        />
-        <Route
-          path="/database/:slug"
-          element={
-            self.has('database-table') ? (
-              <DatabaseTable />
-            ) : (
-              <TabBridge
-                makeSpec={params => ({ type: 'database-table', slug: params.slug })}
-                resetTo={resetTo}
-              />
-            )
-          }
-        />
         <Route path="*" element={<Navigate to={resetTo} replace />} />
       </Routes>
     </IsolatedMemoryRouter>

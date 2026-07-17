@@ -26,12 +26,6 @@ const APP_MANIFEST = [
     description: 'Workflows und KI-Agenten — läuft inline als Automationen-Tab.',
     tab: 'automationen',
   },
-  {
-    id: 'database',
-    name: 'Datenbank',
-    description: 'Datentabellen einsehen und pflegen.',
-    tab: 'database',
-  },
 ];
 
 const UpdateAppBody = z.object({ enabled: z.boolean() });

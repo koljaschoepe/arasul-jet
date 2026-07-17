@@ -61,13 +61,6 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
     vi.clearAllMocks();
     serverApps = [
       { id: 'n8n', name: 'n8n', description: 'Workflows', tab: 'automationen', enabled: true },
-      {
-        id: 'database',
-        name: 'Datenbank',
-        description: 'Tabellen',
-        tab: 'database',
-        enabled: true,
-      },
     ];
     useWorkspaceStore.setState({
       tabs: [],
@@ -94,8 +87,6 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
 
     // Kein reload, kein rerender: der Cache-Update muss durchpropagieren
     await waitFor(() => expect(screen.queryByLabelText('Automationen')).not.toBeInTheDocument());
-    // Die übrigen Apps bleiben unberührt
-    expect(screen.getByLabelText('Datenbank')).toBeInTheDocument();
     expect(apiMock.put).toHaveBeenCalledWith(
       '/workspace-apps/n8n',
       { enabled: false },

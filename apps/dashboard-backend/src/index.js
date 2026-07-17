@@ -289,7 +289,6 @@ const llmQueueService = require('./services/llm/llmQueueService');
 const modelService = require('./services/llm/modelService');
 const alertEngine = require('./services/alertEngine');
 const ollamaReadiness = require('./services/llm/ollamaReadiness');
-const dataDatabase = require('./dataDatabase');
 const eventListenerService = require('./services/core/eventListenerService');
 const { cacheService } = require('./services/core/cacheService');
 const { bootstrap } = require('./bootstrap');
@@ -687,18 +686,6 @@ if (require.main === module) {
 
     logger.info(`Sandbox Terminal WebSocket ready at ws://0.0.0.0:${PORT}/api/sandbox/terminal/ws`);
 
-    // Initialize Data Database for Datentabellen feature
-    try {
-      const dataDbInitialized = await dataDatabase.initialize();
-      if (dataDbInitialized) {
-        logger.info('Data Database (Datentabellen) initialized successfully');
-      } else {
-        logger.warn('Data Database initialization skipped - database may not exist yet');
-      }
-    } catch (err) {
-      logger.warn(`Data Database initialization failed (non-critical): ${err.message}`);
-    }
-
     // Initialize Ollama Readiness Service (handles waiting for Ollama + periodic sync)
     try {
       await ollamaReadiness.initialize({ modelService });
@@ -755,18 +742,6 @@ if (require.main === module) {
     const dbCleanupTimeout = setTimeout(runDbCleanup, 60 * 1000);
     globalTimeouts.push(dbCleanupTimeout);
     globalIntervals.push(setInterval(runDbCleanup, DB_CLEANUP_INTERVAL));
-
-    // Initialize Datentabellen Re-index Service (periodic Qdrant sync)
-    if (dataDatabase.isInitialized()) {
-      try {
-        const reindexService = require('./services/datentabellen/reindexService');
-        reindexService.initialize({ intervalMs: 300000 }); // 5 minutes
-        globalIntervals.push(reindexService.getIntervalId());
-        logger.info('Datentabellen Re-index Service initialized (5 min interval)');
-      } catch (err) {
-        logger.warn(`Datentabellen Re-index Service failed to start: ${err.message}`);
-      }
-    }
 
     // Initialize Alert Engine with WebSocket broadcast support
     try {

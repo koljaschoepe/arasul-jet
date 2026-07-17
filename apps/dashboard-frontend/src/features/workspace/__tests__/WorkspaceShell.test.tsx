@@ -119,13 +119,13 @@ describe('WorkspaceShell — URL-Sync', () => {
   });
 
   it('Gating: Deep-Link auf eine deaktivierte App öffnet den Tab nicht (Browser-Zurück-Szenario)', async () => {
-    disabledTabTypes.add('database');
+    disabledTabTypes.add('automationen');
     useWorkspaceStore.setState({
       tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
       activeTabId: 'dashboard',
     });
 
-    renderShell('/workspace/database');
+    renderShell('/workspace/automationen');
 
     // Tab wird NICHT (wieder) geöffnet, URL springt zurück auf den aktiven Tab
     await waitFor(() =>
@@ -135,16 +135,16 @@ describe('WorkspaceShell — URL-Sync', () => {
   });
 
   it('Gating: bereits offener Tab einer deaktivierten App wird geschlossen', async () => {
-    disabledTabTypes.add('database');
+    disabledTabTypes.add('automationen');
     useWorkspaceStore.setState({
       tabs: [
         { id: 'dashboard', type: 'dashboard', title: 'Dashboard' },
-        { id: 'database', type: 'database', title: 'Datenbank' },
+        { id: 'automationen', type: 'automationen', title: 'Automationen' },
       ],
-      activeTabId: 'database',
+      activeTabId: 'automationen',
     });
 
-    renderShell('/workspace/database');
+    renderShell('/workspace/automationen');
 
     await waitFor(() =>
       expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard'])
@@ -155,11 +155,11 @@ describe('WorkspaceShell — URL-Sync', () => {
   });
 
   it('aktivierte Apps öffnen per Deep-Link weiterhin ihren Tab', async () => {
-    renderShell('/workspace/database');
+    renderShell('/workspace/automationen');
     await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toContain('database')
+      expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toContain('automationen')
     );
-    expect(useWorkspaceStore.getState().activeTabId).toBe('database');
+    expect(useWorkspaceStore.getState().activeTabId).toBe('automationen');
   });
 
   it('Farbregel (AC #8): die Mitte nutzt die Basis-Flächenfarbe bg-background, nicht bg-card', async () => {

@@ -43,8 +43,6 @@ const Settings = lazy(() => import('./features/settings/Settings'));
 const DocumentManager = lazy(() => import('./features/documents/DocumentManager'));
 const Store = lazy(() => import('./features/store'));
 const SandboxApp = lazy(() => import('./features/sandbox'));
-const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
-const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
 
 // IDE-Workspace-Shell (Feature-Flag `workspace-shell`, Plan ide-workspace-shell)
 const WorkspaceShell = lazy(() => import('./features/workspace'));
@@ -522,22 +520,6 @@ function LegacyAppContent({
               element={
                 <RouteErrorBoundary routeName="Terminal">
                   <SandboxApp />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route
-              path="/database"
-              element={
-                <RouteErrorBoundary routeName="Datenbank">
-                  <DatabaseOverview />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route
-              path="/database/:slug"
-              element={
-                <RouteErrorBoundary routeName="Datentabelle">
-                  <DatabaseTable />
                 </RouteErrorBoundary>
               }
             />

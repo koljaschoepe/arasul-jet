@@ -8,7 +8,6 @@
  *   ai/        - Models, embeddings, memory, spaces
  *   store/     - App store, unified store, workflows, workspaces
  *   external/  - External API, Claude terminal, events, alerts
- *   datentabellen/ - Dynamic database builder
  *
  * Core routes (auth, chats, documents, llm, rag) stay at the top level.
  */
@@ -60,7 +59,6 @@ const API_ROUTE_GROUPS = [
   { prefix: '/claude-terminal', group: 'external' },
   { prefix: '/events', group: 'external' },
   { prefix: '/alerts', group: 'external' },
-  { prefix: '/v1/datentabellen', group: 'datentabellen' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
 ];
 
@@ -138,8 +136,5 @@ router.use('/v1/external', require('./external/externalApi'));
 router.use('/claude-terminal', require('./external/claudeTerminal'));
 router.use('/events', require('./external/events'));
 router.use('/alerts', require('./external/alerts'));
-
-// --- Datentabellen (versioned) ---
-router.use('/v1/datentabellen', require('./datentabellen'));
 
 module.exports = router;

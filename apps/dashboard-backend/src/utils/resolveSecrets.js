@@ -15,7 +15,6 @@ function resolveSecrets() {
     'JWT_SECRET',
     'MINIO_ROOT_USER',
     'MINIO_ROOT_PASSWORD',
-    'ARASUL_DATA_DB_PASSWORD',
     'ADMIN_PASSWORD',
     'N8N_ENCRYPTION_KEY',
     'N8N_OWNER_EMAIL',

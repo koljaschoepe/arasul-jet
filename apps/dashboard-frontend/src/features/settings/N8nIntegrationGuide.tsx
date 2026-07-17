@@ -361,7 +361,7 @@ export function N8nIntegrationGuide() {
                 <p className="text-xs text-muted-foreground mb-2">
                   Workflow: <strong>E-Mail empfangen</strong> &rarr;{' '}
                   <strong>Arasul Documents (Extract Structured)</strong> &rarr;{' '}
-                  <strong>Datentabelle/ERP</strong>
+                  <strong>ERP-System</strong>
                 </p>
                 <p className="text-xs text-muted-foreground mb-2">Schema-Beispiel:</p>
                 <CodeBlock>

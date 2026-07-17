@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from 'react';
-import { FileText, Table } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useModalForm } from '../../hooks/useModalForm';
 import Modal from '../ui/Modal';
@@ -12,7 +12,7 @@ interface Space {
 }
 
 interface CreateDocumentDialogProps {
-  type: 'markdown' | 'table';
+  type: 'markdown';
   isOpen: boolean;
   onClose: () => void;
   onCreated: (document: Record<string, unknown>) => void;
@@ -34,20 +34,6 @@ const CONFIG = {
     submitLabel: 'Dokument erstellen',
     errorLog: 'Error creating markdown document:',
     fallbackError: 'Fehler beim Erstellen des Dokuments',
-  },
-  table: {
-    title: 'Neue Tabelle',
-    icon: Table,
-    inputId: 'table-name',
-    inputLabel: 'Tabellenname *',
-    inputPlaceholder: 'z.B. Kunden, Produkte, Aufgaben',
-    inputHint: 'Eine Spalte "Name" wird automatisch erstellt',
-    spaceSelectId: 'table-space',
-    spaceLabel: 'Bereich',
-    emptyValidation: 'Tabellenname ist erforderlich',
-    submitLabel: 'Erstellen & Bearbeiten',
-    errorLog: 'Error creating table:',
-    fallbackError: 'Fehler beim Erstellen der Tabelle',
   },
 } as const;
 
@@ -80,37 +66,18 @@ const CreateDocumentDialog = memo(function CreateDocumentDialog({
     }
 
     try {
-      if (type === 'markdown') {
-        const data = await api.post<{ document: Record<string, unknown> }>(
-          '/documents/create-markdown',
-          {
-            filename: values.name.trim(),
-            space_id: values.selectedSpaceId || null,
-          },
-          { showError: false }
-        );
+      const data = await api.post<{ document: Record<string, unknown> }>(
+        '/documents/create-markdown',
+        {
+          filename: values.name.trim(),
+          space_id: values.selectedSpaceId || null,
+        },
+        { showError: false }
+      );
 
-        onCreated(data.document);
-      } else {
-        const responseData = await api.post<{ data: Record<string, unknown> }>(
-          '/v1/datentabellen/tables',
-          {
-            name: values.name.trim(),
-            createDefaultField: true,
-            space_id: values.selectedSpaceId || null,
-          },
-          { showError: false }
-        );
-
-        const newTable = responseData.data;
-        onCreated({ ...newTable, space_id: values.selectedSpaceId || null });
-      }
+      onCreated(data.document);
     } catch (err: unknown) {
       console.error(config.errorLog, err);
-      const apiErr = err as { status?: number };
-      if (type === 'table' && apiErr.status === 409) {
-        throw new Error('Eine Tabelle mit diesem Namen existiert bereits');
-      }
       throw err;
     }
   });

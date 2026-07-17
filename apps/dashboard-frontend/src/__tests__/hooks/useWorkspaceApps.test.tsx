@@ -24,7 +24,6 @@ function resetServerApps() {
       tab: 'automationen',
       enabled: true,
     },
-    { id: 'database', name: 'Datenbank', description: 'Tabellen', tab: 'database', enabled: true },
   ];
 }
 
@@ -69,7 +68,7 @@ describe('useWorkspaceApps — setAppEnabled schließt Tabs deaktivierter Apps',
       'automationen'
     );
     const { result } = renderWorkspaceApps();
-    await waitFor(() => expect(result.current.apps).toHaveLength(2));
+    await waitFor(() => expect(result.current.apps).toHaveLength(1));
 
     await act(() => result.current.setAppEnabled('n8n', false));
 
@@ -78,29 +77,10 @@ describe('useWorkspaceApps — setAppEnabled schließt Tabs deaktivierter Apps',
     expect(state.activeTabId).toBe('dashboard');
   });
 
-  it('Datenbank deaktivieren schließt auch offene Tabellen-Tabs', async () => {
-    seedTabs(
-      [
-        { id: 'database', type: 'database', title: 'Datenbank' },
-        { id: 'database-table:kunden', type: 'database-table', title: 'kunden', slug: 'kunden' },
-        { id: 'store', type: 'store', title: 'Extensions' },
-      ],
-      'database-table:kunden'
-    );
-    const { result } = renderWorkspaceApps();
-    await waitFor(() => expect(result.current.apps).toHaveLength(2));
-
-    await act(() => result.current.setAppEnabled('database', false));
-
-    const state = useWorkspaceStore.getState();
-    expect(state.tabs.map(t => t.id)).toEqual(['store']);
-    expect(state.activeTabId).toBe('store');
-  });
-
   it('Aktivieren schließt keine Tabs', async () => {
     seedTabs([{ id: 'automationen', type: 'automationen', title: 'Automationen' }], 'automationen');
     const { result } = renderWorkspaceApps();
-    await waitFor(() => expect(result.current.apps).toHaveLength(2));
+    await waitFor(() => expect(result.current.apps).toHaveLength(1));
 
     await act(() => result.current.setAppEnabled('n8n', true));
 
@@ -109,7 +89,7 @@ describe('useWorkspaceApps — setAppEnabled schließt Tabs deaktivierter Apps',
 
   it('Toggle aktualisiert den Query-Cache sofort (kein Reload nötig)', async () => {
     const { result } = renderWorkspaceApps();
-    await waitFor(() => expect(result.current.apps).toHaveLength(2));
+    await waitFor(() => expect(result.current.apps).toHaveLength(1));
     expect(result.current.isAppEnabled('n8n')).toBe(true);
 
     await act(() => result.current.setAppEnabled('n8n', false));

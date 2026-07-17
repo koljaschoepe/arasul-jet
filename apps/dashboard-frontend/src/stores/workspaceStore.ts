@@ -20,14 +20,7 @@ import { persist } from 'zustand/middleware';
  * Stores — Komponenten rendern die Sessions nur, sie besitzen sie nicht.
  */
 
-export type WorkspaceTabType =
-  | 'dashboard'
-  | 'document'
-  | 'settings'
-  | 'store'
-  | 'automationen'
-  | 'database'
-  | 'database-table';
+export type WorkspaceTabType = 'dashboard' | 'document' | 'settings' | 'store' | 'automationen';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
@@ -50,16 +43,12 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   settings: 'Einstellungen',
   store: 'Extensions',
   automationen: 'Automationen',
-  database: 'Datenbank',
-  'database-table': 'Tabelle',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
   switch (spec.type) {
     case 'document':
       return `document:${spec.documentId ?? ''}`;
-    case 'database-table':
-      return `database-table:${spec.slug ?? ''}`;
     default:
       return spec.type;
   }
@@ -78,10 +67,6 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/store';
     case 'automationen':
       return '/workspace/automationen';
-    case 'database':
-      return '/workspace/database';
-    case 'database-table':
-      return `/workspace/database/${tab.slug ?? ''}`;
   }
 }
 
@@ -101,8 +86,6 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'store' };
     case 'automationen':
       return { type: 'automationen' };
-    case 'database':
-      return parts[1] ? { type: 'database-table', slug: parts[1] } : { type: 'database' };
     default:
       // /workspace/terminal (v2) ist kein Tab mehr — Terminal lebt im Panel.
       return null;

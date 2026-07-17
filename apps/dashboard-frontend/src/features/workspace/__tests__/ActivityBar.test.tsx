@@ -48,31 +48,25 @@ describe('ActivityBar', () => {
   });
 
   it('App-Einträge erscheinen nur, wenn die Extension aktiviert ist', () => {
-    enabledApps.add('n8n');
     render(<ActivityBar />);
-    expect(screen.getByLabelText('Automationen')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Datenbank')).not.toBeInTheDocument();
-  });
+    expect(screen.queryByLabelText('Automationen')).not.toBeInTheDocument();
 
-  it('alle aktivierten Apps erscheinen gemeinsam', () => {
     enabledApps.add('n8n');
-    enabledApps.add('database');
     render(<ActivityBar />);
     expect(screen.getByLabelText('Automationen')).toBeInTheDocument();
-    expect(screen.getByLabelText('Datenbank')).toBeInTheDocument();
   });
 
   it('Aktivieren/Deaktivieren wirkt ohne Reload — der nächste Render genügt', () => {
     const { rerender } = render(<ActivityBar />);
-    expect(screen.queryByLabelText('Datenbank')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Automationen')).not.toBeInTheDocument();
 
-    enabledApps.add('database');
+    enabledApps.add('n8n');
     rerender(<ActivityBar />);
-    expect(screen.getByLabelText('Datenbank')).toBeInTheDocument();
+    expect(screen.getByLabelText('Automationen')).toBeInTheDocument();
 
-    enabledApps.delete('database');
+    enabledApps.delete('n8n');
     rerender(<ActivityBar />);
-    expect(screen.queryByLabelText('Datenbank')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Automationen')).not.toBeInTheDocument();
   });
 
   it('Dashboard-Eintrag öffnet den Dashboard-Tab', () => {

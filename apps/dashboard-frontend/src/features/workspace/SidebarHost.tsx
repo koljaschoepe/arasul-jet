@@ -28,7 +28,7 @@ import { ExplorerPanel } from './explorer/ExplorerPanel';
 // Tabs, die den Explorer automatisch einklappen. 'automationen' (n8n) ist
 // bewusst NICHT dabei: n8n läuft als Tab im Hauptbereich, der Explorer bleibt
 // stehen, damit der Nutzer seine Dateien nicht verliert (Plan 005 · Schritt 1).
-const APP_TAB_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['database', 'database-table']);
+const APP_TAB_TYPES: ReadonlySet<WorkspaceTabType> = new Set([]);
 
 export function SidebarHost() {
   const tabs = useWorkspaceStore(s => s.tabs);

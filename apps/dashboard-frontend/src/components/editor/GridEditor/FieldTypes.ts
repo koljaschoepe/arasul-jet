@@ -1,6 +1,6 @@
 /**
  * FieldTypes - Constants and utilities for grid field types
- * Shared field type utilities for Datentabellen
+ * Shared field type utilities for the documents grid editor (GridEditor).
  */
 
 interface FieldTypeConfig {
@@ -79,7 +79,7 @@ export const validateValue = (value: unknown, fieldType: string): string | null 
 export type FieldValue = string | number | boolean | null | undefined;
 
 // `unknown`, not `FieldValue`: this is a display formatter that stringifies
-// whatever a cell holds (including JSON/object cells from datentabellen). It is
+// whatever a cell holds (including JSON/object cells). It is
 // type-safe — every branch guards or routes through String(value).
 export const formatValue = (value: unknown, type: string, options: FormatOptions = {}): string => {
   if (value === null || value === undefined || value === '') return '-';

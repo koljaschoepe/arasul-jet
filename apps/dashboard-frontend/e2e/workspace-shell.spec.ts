@@ -175,27 +175,9 @@ test.describe('Workspace-Shell', () => {
     await expect(s.activityBar.getByRole('button', { name: 'Extensions' })).toBeVisible();
   });
 
-  test('Kontext-Sidebar bildet den aktiven Tab ab (Dashboard → Explorer, Extensions → Liste, App-Tab → zu)', async ({
+  test('Kontext-Sidebar bildet den aktiven Tab ab (Dashboard → Explorer, Extensions → Liste)', async ({
     page,
   }) => {
-    // Datenbank-App aktivieren, damit der App-Tab-Shortcut in der Activity Bar
-    // erscheint (deterministisch statt geräteabhängig).
-    await page.route('**/api/workspace-apps', route =>
-      route.fulfill({
-        json: {
-          apps: [
-            {
-              id: 'database',
-              name: 'Datenbank',
-              description: 'Datentabellen',
-              tab: 'database',
-              enabled: true,
-            },
-          ],
-        },
-      })
-    );
-
     await openWorkspace(page);
     const s = shell(page);
 
@@ -208,15 +190,7 @@ test.describe('Workspace-Shell', () => {
     await expect(s.extensionsSidebar).toBeVisible();
     await expect(s.explorerPanel).toHaveCount(0);
 
-    // App-Tab (Datenbank): Sidebar klappt automatisch zu
-    await s.activityBar.getByRole('button', { name: 'Datenbank' }).click();
-    await expect(page).toHaveURL(/\/workspace\/database/);
-    await expect(s.explorerPanel).toBeHidden();
-    await expect(s.extensionsSidebar).toHaveCount(0);
-    await expect(s.sidebarToggle).toHaveAttribute('aria-pressed', 'false');
-
-    // Zurück auf Dashboard: die zuvor gemerkte Sidebar-Präferenz wird
-    // wiederhergestellt (Explorer wieder sichtbar)
+    // Zurück auf Dashboard: Explorer wieder sichtbar
     await s.activityBar.getByRole('button', { name: 'Dashboard' }).click();
     await expect(s.explorerPanel).toBeVisible();
     await expect(s.sidebarToggle).toHaveAttribute('aria-pressed', 'true');
@@ -324,13 +298,6 @@ test.describe('Workspace-Shell', () => {
           tab: 'automationen',
           enabled: n8nEnabled,
         },
-        {
-          id: 'database',
-          name: 'Datenbank',
-          description: 'Datentabellen',
-          tab: 'database',
-          enabled: true,
-        },
       ],
     });
 
@@ -380,13 +347,6 @@ test.describe('Workspace-Shell', () => {
           tab: 'automationen',
           enabled: n8nEnabled,
         },
-        {
-          id: 'database',
-          name: 'Datenbank',
-          description: 'Datentabellen',
-          tab: 'database',
-          enabled: true,
-        },
       ],
     });
 
@@ -396,10 +356,8 @@ test.describe('Workspace-Shell', () => {
     const s = shell(page);
 
     await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toBeVisible();
-    await expect(s.activityBar.getByRole('button', { name: 'Datenbank' })).toBeVisible();
 
-    // Phase 2: n8n deaktiviert → Automationen-Eintrag verschwindet,
-    // die übrigen Apps bleiben sichtbar
+    // Phase 2: n8n deaktiviert → Automationen-Eintrag verschwindet
     await page.unroute('**/api/workspace-apps');
     await page.route('**/api/workspace-apps', route =>
       route.fulfill({ json: appsResponse(false) })
@@ -408,7 +366,6 @@ test.describe('Workspace-Shell', () => {
     await expect(s.root).toBeVisible({ timeout: 10000 });
 
     await expect(s.activityBar.getByRole('button', { name: 'Automationen' })).toHaveCount(0);
-    await expect(s.activityBar.getByRole('button', { name: 'Datenbank' })).toBeVisible();
   });
 
   test('Extension-Gating wirkt live: Toggle im Extensions-Tab, KEIN Reload', async ({ page }) => {
@@ -423,13 +380,6 @@ test.describe('Workspace-Shell', () => {
           description: 'Workflow-Automatisierung',
           tab: 'automationen',
           enabled: n8nEnabled,
-        },
-        {
-          id: 'database',
-          name: 'Datenbank',
-          description: 'Datentabellen',
-          tab: 'database',
-          enabled: true,
         },
       ],
     });
