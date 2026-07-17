@@ -17,7 +17,7 @@ const {
   PatchChatBody,
   PatchChatSettingsBody,
 } = require('../schemas/chats');
-const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
+const { ValidationError, NotFoundError } = require('../utils/errors');
 const { buildSetClauses } = require('../utils/queryBuilder');
 
 // PHASE3-FIX: Input validation helper for conversation_id
@@ -37,35 +37,18 @@ async function verifyOwnership(conversationId, userId) {
   }
 }
 
-// Helper: get default project ID
-async function getDefaultProjectId() {
-  const { rows } = await db.query('SELECT id FROM projects WHERE is_default = TRUE LIMIT 1');
-  if (!rows.length) {
-    throw new ServiceUnavailableError('Kein Standard-Projekt gefunden');
-  }
-  return rows[0].id;
-}
-
 // GET /api/chats - Get all chat conversations
 router.get(
   '/',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { project_id } = req.query;
-
-    let query = `SELECT id, title, project_id, created_at, updated_at, message_count
+    const result = await db.query(
+      `SELECT id, title, created_at, updated_at, message_count
          FROM chat_conversations
-         WHERE deleted_at IS NULL AND user_id = $1`;
-    const params = [req.user.id];
-
-    if (project_id) {
-      params.push(project_id);
-      query += ` AND project_id = $${params.length}`;
-    }
-
-    query += ' ORDER BY updated_at DESC LIMIT 100';
-
-    const result = await db.query(query, params);
+         WHERE deleted_at IS NULL AND user_id = $1
+         ORDER BY updated_at DESC LIMIT 100`,
+      [req.user.id]
+    );
 
     res.json({
       chats: result.rows,
@@ -74,18 +57,16 @@ router.get(
   })
 );
 
-// GET /api/chats/recent - Get top 10 recent chats with project info
+// GET /api/chats/recent - Get top 10 recent chats
 router.get(
   '/recent',
   requireAuth,
   asyncHandler(async (req, res) => {
     const result = await db.query(
-      `SELECT c.id, c.title, c.project_id, c.updated_at, c.message_count,
-              p.name as project_name, p.color as project_color
-       FROM chat_conversations c
-       LEFT JOIN projects p ON c.project_id = p.id
-       WHERE c.deleted_at IS NULL AND c.user_id = $1
-       ORDER BY c.updated_at DESC
+      `SELECT id, title, updated_at, message_count
+       FROM chat_conversations
+       WHERE deleted_at IS NULL AND user_id = $1
+       ORDER BY updated_at DESC
        LIMIT 10`,
       [req.user.id]
     );
@@ -102,7 +83,7 @@ router.get(
   '/search',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { q, project_id } = req.query;
+    const { q } = req.query;
 
     // typeof guard: a duplicated ?q= param arrives as an array, and q.trim()
     // would throw a TypeError → raw 500. Treat non-strings as "no query".
@@ -110,22 +91,14 @@ router.get(
       return res.json({ chats: [], timestamp: new Date().toISOString() });
     }
 
-    let query = `SELECT c.id, c.title, c.project_id, c.updated_at, c.message_count,
-                        p.name as project_name, p.color as project_color
-                 FROM chat_conversations c
-                 LEFT JOIN projects p ON c.project_id = p.id
-                 WHERE c.deleted_at IS NULL AND c.user_id = $1
-                   AND c.title ILIKE $2`;
-    const params = [req.user.id, `%${q.trim()}%`];
-
-    if (project_id) {
-      params.push(project_id);
-      query += ` AND c.project_id = $${params.length}`;
-    }
-
-    query += ' ORDER BY c.updated_at DESC LIMIT 50';
-
-    const result = await db.query(query, params);
+    const result = await db.query(
+      `SELECT id, title, updated_at, message_count
+         FROM chat_conversations
+         WHERE deleted_at IS NULL AND user_id = $1
+           AND title ILIKE $2
+         ORDER BY updated_at DESC LIMIT 50`,
+      [req.user.id, `%${q.trim()}%`]
+    );
 
     res.json({
       chats: result.rows,
@@ -134,7 +107,7 @@ router.get(
   })
 );
 
-// GET /api/chats/:id - Get single chat with project metadata
+// GET /api/chats/:id - Get single chat with settings
 router.get(
   '/:id',
   requireAuth,
@@ -146,13 +119,9 @@ router.get(
     }
 
     const result = await db.query(
-      `SELECT c.id, c.title, c.project_id, c.created_at, c.updated_at, c.message_count,
-              c.use_rag, c.use_thinking, c.preferred_model, c.preferred_space_id,
-              p.name as project_name, p.description as project_description,
-              p.system_prompt as project_system_prompt, p.icon as project_icon,
-              p.color as project_color, p.knowledge_space_id as project_space_id
+      `SELECT c.id, c.title, c.created_at, c.updated_at, c.message_count,
+              c.use_rag, c.use_thinking, c.preferred_model, c.preferred_space_id
        FROM chat_conversations c
-       LEFT JOIN projects p ON c.project_id = p.id
        WHERE c.id = $1 AND c.deleted_at IS NULL AND c.user_id = $2`,
       [id, req.user.id]
     );
@@ -165,7 +134,6 @@ router.get(
     const chat = {
       id: row.id,
       title: row.title,
-      project_id: row.project_id,
       created_at: row.created_at,
       updated_at: row.updated_at,
       message_count: row.message_count,
@@ -177,21 +145,8 @@ router.get(
       },
     };
 
-    const project = row.project_id
-      ? {
-          id: row.project_id,
-          name: row.project_name,
-          description: row.project_description,
-          system_prompt: row.project_system_prompt,
-          icon: row.project_icon,
-          color: row.project_color,
-          knowledge_space_id: row.project_space_id,
-        }
-      : null;
-
     res.json({
       chat,
-      project,
       timestamp: new Date().toISOString(),
     });
   })
@@ -203,16 +158,13 @@ router.post(
   requireAuth,
   validateBody(CreateChatBody),
   asyncHandler(async (req, res) => {
-    const { title, project_id } = req.body;
-
-    // Fallback to default project if none specified
-    const resolvedProjectId = project_id || (await getDefaultProjectId());
+    const { title } = req.body;
 
     const result = await db.query(
-      `INSERT INTO chat_conversations (title, project_id, user_id, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW())
-         RETURNING id, title, project_id, created_at, updated_at, message_count`,
-      [title || 'Neuer Chat', resolvedProjectId, req.user.id]
+      `INSERT INTO chat_conversations (title, user_id, created_at, updated_at)
+         VALUES ($1, $2, NOW(), NOW())
+         RETURNING id, title, created_at, updated_at, message_count`,
+      [title || 'Neuer Chat', req.user.id]
     );
 
     res.json({
@@ -435,14 +387,14 @@ router.post(
   })
 );
 
-// PATCH /api/chats/:id - Update chat (title, project_id)
+// PATCH /api/chats/:id - Update chat (title)
 router.patch(
   '/:id',
   requireAuth,
   validateBody(PatchChatBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { title, project_id } = req.body;
+    const { title } = req.body;
 
     // PHASE3-FIX: Validate conversation_id
     if (!isValidConversationId(id)) {
@@ -452,7 +404,6 @@ router.patch(
     // Build dynamic update
     const { setClauses, params, paramIndex } = buildSetClauses({
       title: title || undefined,
-      project_id: project_id !== undefined ? project_id || null : undefined,
     });
 
     params.push(id, req.user.id);
@@ -460,7 +411,7 @@ router.patch(
       `UPDATE chat_conversations
          SET ${setClauses.join(', ')}
          WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1} AND deleted_at IS NULL
-         RETURNING id, title, project_id, created_at, updated_at, message_count`,
+         RETURNING id, title, created_at, updated_at, message_count`,
       params
     );
 

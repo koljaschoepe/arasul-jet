@@ -5,7 +5,6 @@
  * Layer 1: Global base (always present)
  * Layer 2: AI profile (from memoryService)
  * Layer 3: Company context (from DB)
- * Layer 4: Project prompt (per conversation)
  */
 
 // Mock dependencies before requiring the module
@@ -92,13 +91,11 @@ describe('SystemPromptBuilder', () => {
       expect(result).not.toContain('## Projektanweisungen');
     });
 
-    it('should combine all 4 layers', async () => {
+    it('should combine all 3 layers', async () => {
       memoryService.getProfile.mockResolvedValue(
         'firma: "ACME"\nbranche: "Handel"\nsprache: "de"\n'
       );
-      mockDatabase.query
-        .mockResolvedValueOnce({ rows: [{ content: 'Firmenkontext hier.' }] }) // company context
-        .mockResolvedValueOnce({ rows: [{ system_prompt: 'Fokus auf Kundenservice.' }] }); // project prompt
+      mockDatabase.query.mockResolvedValueOnce({ rows: [{ content: 'Firmenkontext hier.' }] }); // company context
 
       const result = await buildSystemPrompt(mockDatabase, 'conv-456');
 
@@ -107,17 +104,13 @@ describe('SystemPromptBuilder', () => {
       expect(result).toContain('ACME');
       expect(result).toContain('## Unternehmenskontext');
       expect(result).toContain('Firmenkontext hier.');
-      expect(result).toContain('## Projektanweisungen');
-      expect(result).toContain('Fokus auf Kundenservice.');
 
-      // Verify order: base, profile, context, project
+      // Verify order: base, profile, context
       const baseIdx = result.indexOf(GLOBAL_BASE_PROMPT);
       const profileIdx = result.indexOf('## KI-Profil');
       const contextIdx = result.indexOf('## Unternehmenskontext');
-      const projectIdx = result.indexOf('## Projektanweisungen');
       expect(baseIdx).toBeLessThan(profileIdx);
       expect(profileIdx).toBeLessThan(contextIdx);
-      expect(contextIdx).toBeLessThan(projectIdx);
     });
 
     it('should skip empty profile', async () => {

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -9,7 +9,6 @@ import {
   FileImage,
   MoreHorizontal,
   Pencil,
-  Plus,
   Search,
   Trash2,
   FolderInput,
@@ -17,7 +16,6 @@ import {
   BookOpenText,
   RefreshCw,
   Upload,
-  Workflow,
   X,
 } from 'lucide-react';
 import {
@@ -36,12 +34,7 @@ import { cn } from '@/lib/utils';
 import { ExplorerDialogs } from './ExplorerDialogs';
 import type { ExplorerDialogState } from './ExplorerDialogs';
 
-// Feature-Entry wie in TabContent.tsx — kein Import feature-interner Komponenten.
-const ProjectModal = lazy(() =>
-  import('@/features/projects').then(m => ({ default: m.ProjectModal }))
-);
-
-/** Drag-Payload Explorer → Agent-Chat (Datei/Ordner/Projekt als Kontext). */
+/** Drag-Payload Explorer → Agent-Chat (Datei/Ordner als Kontext). */
 export const DND_SCOPE_TYPE = 'application/x-arasul-scope';
 
 export interface TreeSpace {
@@ -66,19 +59,6 @@ export interface TreeDocument {
   mime_type: string | null;
   file_extension: string | null;
   file_size: number | null;
-}
-
-export interface WorkspaceProject {
-  id: string;
-  name: string;
-  description?: string;
-  system_prompt?: string;
-  icon?: string;
-  color?: string;
-  knowledge_space_id?: string | null;
-  is_default?: boolean;
-  space_name?: string | null;
-  conversation_count?: string | number;
 }
 
 interface TreeResponse {
@@ -137,11 +117,9 @@ function StatusDot({ status }: { status: string }) {
 }
 
 /**
- * Explorer der Workspace-Shell: EIN Baum mit Projekten als oberster Ebene
- * (Projekt → Ordner → Dateien). Das Standard-Projekt (»Allgemein«) nimmt
- * alle Ordner/Dateien auf, die keinem anderen Projekt zugeordnet sind —
- * nichts bleibt unsichtbar. Upload per Kontextmenü und Drag & Drop vom
- * Desktop direkt in Projekt/Ordner; Zeilen sind zum Agent-Chat draggbar
+ * Explorer der Workspace-Shell: EIN Baum aus Ordnern und Dateien
+ * (Ordner → Unterordner → Dateien). Upload per Kontextmenü und Drag & Drop vom
+ * Desktop direkt in einen Ordner; Zeilen sind zum Agent-Chat draggbar
  * (Kontext-Scope). Suche filtert den Baum client-seitig.
  */
 export function ExplorerPanel() {
@@ -152,15 +130,10 @@ export function ExplorerPanel() {
 
   const [spaces, setSpaces] = useState<TreeSpace[]>([]);
   const [documents, setDocuments] = useState<TreeDocument[]>([]);
-  const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<ExplorerDialogState | null>(null);
-  const [projectModal, setProjectModal] = useState<{
-    mode: 'create' | 'edit';
-    project: WorkspaceProject | null;
-  } | null>(null);
   const [query, setQuery] = useState('');
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
@@ -170,15 +143,9 @@ export function ExplorerPanel() {
 
   const loadTree = useCallback(async () => {
     try {
-      const [tree, proj] = await Promise.all([
-        api.get<TreeResponse>('/spaces/tree', { showError: false }),
-        api
-          .get<{ projects: WorkspaceProject[] }>('/projects', { showError: false })
-          .catch(() => ({ projects: [] as WorkspaceProject[] })),
-      ]);
+      const tree = await api.get<TreeResponse>('/spaces/tree', { showError: false });
       setSpaces(tree.spaces);
       setDocuments(tree.documents);
-      setProjects(proj.projects);
       setError(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Explorer konnte nicht geladen werden');
@@ -229,7 +196,6 @@ export function ExplorerPanel() {
   useEffect(() => {
     if (!explorerRequest) return;
     if (explorerRequest === 'create-folder') setDialog({ kind: 'create', parent: null });
-    if (explorerRequest === 'create-project') setProjectModal({ mode: 'create', project: null });
     if (explorerRequest === 'upload-files') requestUpload(null);
     clearExplorerRequest();
   }, [explorerRequest, clearExplorerRequest, requestUpload]);
@@ -257,33 +223,11 @@ export function ExplorerPanel() {
     return map;
   }, [documents]);
 
-  const spaceById = useMemo(() => new Map(spaces.map(s => [s.id, s])), [spaces]);
+  /** Wurzel-Ordner (ohne Elternordner) — oberste Baum-Ebene. */
+  const rootFolders = useMemo(() => childrenByParent.get(null) ?? [], [childrenByParent]);
 
-  /** Projekt-Zeilen: Standard-Projekt zuerst, danach alphabetisch. */
-  const orderedProjects = useMemo(() => {
-    const list = [...projects].sort((a, b) => {
-      if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
-      return a.name.localeCompare(b.name, 'de');
-    });
-    // Ohne Projekte (leere DB / API-Fehler): synthetisches »Allgemein«,
-    // damit der Baum trotzdem alle Ordner zeigt.
-    if (list.length === 0) {
-      list.push({ id: '__default__', name: 'Allgemein', is_default: true });
-    }
-    return list;
-  }, [projects]);
-
-  /** Von Nicht-Default-Projekten abgedeckte Space-IDs. */
-  const coveredSpaceIds = useMemo(() => {
-    const covered = new Set<string>();
-    for (const p of orderedProjects) {
-      if (p.is_default) continue;
-      if (p.knowledge_space_id && spaceById.has(p.knowledge_space_id)) {
-        for (const id of collectSubtreeIds(spaces, p.knowledge_space_id)) covered.add(id);
-      }
-    }
-    return covered;
-  }, [orderedProjects, spaceById, spaces]);
+  /** Wurzel-Dateien (keinem Ordner zugeordnet). */
+  const rootDocs = useMemo(() => docsBySpace.get(null) ?? [], [docsBySpace]);
 
   // --- Suche -----------------------------------------------------------
 
@@ -316,13 +260,6 @@ export function ExplorerPanel() {
     const subtree = collectSubtreeIds(spaces, space.id);
     setChatScope({ spaceIds: subtree, label: space.name });
     toast.success(`KI auf Ordner „${space.name}“ eingegrenzt`);
-  };
-
-  const scopeToProject = (project: WorkspaceProject) => {
-    if (!project.knowledge_space_id) return;
-    const ids = collectSubtreeIds(spaces, project.knowledge_space_id);
-    setChatScope({ spaceIds: ids, label: project.name });
-    toast.success(`KI auf Projekt „${project.name}“ eingegrenzt`);
   };
 
   const dragPayload = (spaceIds: string[], label: string) => (e: React.DragEvent) => {
@@ -494,124 +431,6 @@ export function ExplorerPanel() {
     );
   };
 
-  const renderProject = (project: WorkspaceProject): React.ReactNode => {
-    const ks = project.knowledge_space_id ? spaceById.get(project.knowledge_space_id) : undefined;
-    const projectKey = `project:${project.id}`;
-    const open = isExpanded(projectKey);
-
-    // Kinder: eigener Ordner-Teilbaum; das Standard-Projekt nimmt zusätzlich
-    // alles Unzugeordnete auf (Root-Ordner außerhalb anderer Projekte + Dateien
-    // ohne Ordner).
-    let childFolders: TreeSpace[] = [];
-    let childDocs: TreeDocument[] = [];
-    if (ks) {
-      childFolders = childrenByParent.get(ks.id) ?? [];
-      childDocs = docsBySpace.get(ks.id) ?? [];
-    }
-    if (project.is_default) {
-      const uncoveredRoots = (childrenByParent.get(null) ?? []).filter(
-        s => !coveredSpaceIds.has(s.id) && s.id !== project.knowledge_space_id
-      );
-      childFolders = [...childFolders, ...uncoveredRoots];
-      childDocs = [...childDocs, ...(docsBySpace.get(null) ?? [])];
-    }
-
-    const visibleChildren =
-      q === ''
-        ? true
-        : matches(project.name) ||
-          childFolders.some(folderVisible) ||
-          childDocs.some(d => matches(d.filename));
-    if (!visibleChildren) return null;
-
-    const uploadSpaceId = ks?.id ?? null;
-    const scopeIds = ks ? collectSubtreeIds(spaces, ks.id) : [];
-
-    return (
-      <div key={project.id} data-testid={`project-${project.id}`}>
-        <div
-          className={cn(
-            'group flex cursor-pointer items-center gap-1.5 rounded px-1 py-1 text-xs font-medium hover:bg-accent',
-            dropTarget === projectKey && 'bg-accent outline-1 outline-dashed outline-primary/60'
-          )}
-          role="treeitem"
-          aria-expanded={open}
-          aria-selected={false}
-          tabIndex={0}
-          draggable={scopeIds.length > 0}
-          onDragStart={scopeIds.length > 0 ? dragPayload(scopeIds, project.name) : undefined}
-          onClick={() => toggleExpand(projectKey)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              toggleExpand(projectKey);
-            }
-          }}
-          {...dropProps(uploadSpaceId, projectKey)}
-        >
-          {open ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-          )}
-          <span
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: project.color || 'var(--primary)' }}
-            aria-hidden="true"
-          />
-          <span className="min-w-0 flex-1 truncate text-foreground">{project.name}</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Aktionen für Projekt ${project.name}`}
-                className="rounded p-0.5 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 hover:bg-accent"
-                onClick={e => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56" onClick={e => e.stopPropagation()}>
-              <DropdownMenuItem onClick={() => requestUpload(uploadSpaceId)}>
-                <Upload className="mr-2 h-3.5 w-3.5" /> Dateien hochladen…
-              </DropdownMenuItem>
-              {scopeIds.length > 0 && (
-                <DropdownMenuItem onClick={() => scopeToProject(project)}>
-                  <FolderSearch className="mr-2 h-3.5 w-3.5" /> KI auf Projekt eingrenzen
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => openTab({ type: 'automationen' })}>
-                <Workflow className="mr-2 h-3.5 w-3.5" /> Automationen
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {ks && (
-                <DropdownMenuItem onClick={() => setDialog({ kind: 'create', parent: ks })}>
-                  <FolderPlus className="mr-2 h-3.5 w-3.5" /> Neuer Ordner
-                </DropdownMenuItem>
-              )}
-              {project.id !== '__default__' && (
-                <DropdownMenuItem onClick={() => setProjectModal({ mode: 'edit', project })}>
-                  <Pencil className="mr-2 h-3.5 w-3.5" /> Bearbeiten…
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        {open && (
-          <div role="group">
-            {childFolders.map(child => renderFolder(child, 1))}
-            {childDocs.map(doc => renderDocument(doc, 1))}
-            {childFolders.length === 0 && childDocs.length === 0 && (
-              <p className="py-0.5 pl-8 text-xs text-muted-foreground/60">
-                Leer — Dateien einfach hierher ziehen
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div
       className="flex h-full min-w-0 flex-col bg-background"
@@ -641,15 +460,6 @@ export function ExplorerPanel() {
         </div>
         <button
           type="button"
-          title="Neues Projekt"
-          aria-label="Neues Projekt"
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          onClick={() => setProjectModal({ mode: 'create', project: null })}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
           title="Aktualisieren"
           aria-label="Explorer aktualisieren"
           className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -674,7 +484,7 @@ export function ExplorerPanel() {
       />
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="p-1.5" role="tree" aria-label="Projekte, Ordner und Dokumente">
+        <div className="p-1.5" role="tree" aria-label="Ordner und Dokumente">
           {loading && <p className="px-2 py-1 text-xs text-muted-foreground">Lade Explorer…</p>}
           {error && (
             <p className="px-2 py-1 text-xs text-destructive" role="alert">
@@ -682,33 +492,20 @@ export function ExplorerPanel() {
             </p>
           )}
           {!loading && !error && (
-            <div data-testid="projects-tree">{orderedProjects.map(renderProject)}</div>
+            <div data-testid="explorer-tree">
+              {rootFolders.map(folder => renderFolder(folder, 0))}
+              {rootDocs.map(doc => renderDocument(doc, 0))}
+              {rootFolders.length === 0 && rootDocs.length === 0 && (
+                <p className="px-2 py-1 text-xs text-muted-foreground/60">
+                  Noch keine Ordner oder Dateien — Dateien einfach hierher ziehen
+                </p>
+              )}
+            </div>
           )}
         </div>
       </ScrollArea>
 
       <ExplorerDialogs dialog={dialog} onClose={() => setDialog(null)} onChanged={loadTree} />
-      {projectModal && (
-        <Suspense fallback={null}>
-          <ProjectModal
-            isOpen
-            mode={projectModal.mode}
-            project={
-              projectModal.project
-                ? {
-                    ...projectModal.project,
-                    knowledge_space_id: projectModal.project.knowledge_space_id ?? undefined,
-                  }
-                : null
-            }
-            onClose={() => setProjectModal(null)}
-            onSave={() => {
-              setProjectModal(null);
-              loadTree();
-            }}
-          />
-        </Suspense>
-      )}
     </div>
   );
 }

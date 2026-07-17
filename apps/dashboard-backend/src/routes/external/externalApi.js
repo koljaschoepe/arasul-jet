@@ -110,8 +110,8 @@ router.post(
     const apiKeyUserId = req.apiKey.userId || 1;
     const conversationResult = await require('../../database').query(
       `
-        INSERT INTO chat_conversations (title, user_id, project_id, created_at)
-        VALUES ($1, $2, (SELECT id FROM projects WHERE is_default = TRUE LIMIT 1), NOW())
+        INSERT INTO chat_conversations (title, user_id, created_at)
+        VALUES ($1, $2, NOW())
         RETURNING id
     `,
       [`External API: ${req.apiKey.name} - ${new Date().toISOString()}`, apiKeyUserId]
@@ -492,8 +492,8 @@ router.post(
     // 3. Create temp conversation and enqueue LLM job
     const apiKeyUserId = req.apiKey.userId || 1;
     const conversationResult = await require('../../database').query(
-      `INSERT INTO chat_conversations (title, user_id, project_id, created_at)
-       VALUES ($1, $2, (SELECT id FROM projects WHERE is_default = TRUE LIMIT 1), NOW()) RETURNING id`,
+      `INSERT INTO chat_conversations (title, user_id, created_at)
+       VALUES ($1, $2, NOW()) RETURNING id`,
       [`External API Document: ${req.apiKey.name} - ${filename}`, apiKeyUserId]
     );
     const conversationId = conversationResult.rows[0].id;
@@ -622,8 +622,8 @@ Respond with ONLY the JSON object. No markdown, no explanation, just the JSON.`;
     // 3. Enqueue LLM job
     const apiKeyUserId = req.apiKey.userId || 1;
     const conversationResult = await require('../../database').query(
-      `INSERT INTO chat_conversations (title, user_id, project_id, created_at)
-       VALUES ($1, $2, (SELECT id FROM projects WHERE is_default = TRUE LIMIT 1), NOW()) RETURNING id`,
+      `INSERT INTO chat_conversations (title, user_id, created_at)
+       VALUES ($1, $2, NOW()) RETURNING id`,
       [`External API Structured: ${req.apiKey.name} - ${filename}`, apiKeyUserId]
     );
     const conversationId = conversationResult.rows[0].id;

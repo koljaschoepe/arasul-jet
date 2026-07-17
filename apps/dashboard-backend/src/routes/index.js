@@ -25,7 +25,6 @@ const { metricsLimiter, llmLimiter, tailscaleLimiter } = require('../middleware/
 const API_ROUTE_GROUPS = [
   { prefix: '/auth', group: 'core' },
   { prefix: '/chats', group: 'core' },
-  { prefix: '/projects', group: 'core' },
   { prefix: '/documents', group: 'core' },
   { prefix: '/document-analysis', group: 'core' },
   { prefix: '/llm', group: 'core' },
@@ -88,7 +87,6 @@ router.get('/_meta', (req, res) => {
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
 router.use('/chats', require('./chats'));
-router.use('/projects', require('./projects'));
 router.use('/documents', require('./documents'));
 router.use('/document-analysis', require('./documentAnalysis'));
 router.use('/llm', llmLimiter, require('./llm'));

@@ -124,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // P2.1.3: Cross-user data leak — logout() must clear the React Query cache
   // BEFORE flipping isAuthenticated. Otherwise the next user's mount sees the
-  // previous user's chats/projects/documents until each query refetches.
+  // previous user's chats/documents until each query refetches.
   const logout = useCallback(async () => {
     try {
       const headers: Record<string, string> = getAuthHeaders();

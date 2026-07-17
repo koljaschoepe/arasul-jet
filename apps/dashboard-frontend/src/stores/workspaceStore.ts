@@ -100,7 +100,7 @@ export interface ChatScope {
  * Aktionen, die die Menüleiste an den Explorer delegiert (der Dialog-State
  * lebt lokal im ExplorerPanel; die Menubar stellt nur eine Anfrage).
  */
-export type ExplorerAction = 'create-folder' | 'create-project' | 'upload-files';
+export type ExplorerAction = 'create-folder' | 'upload-files';
 
 /**
  * Eine Terminal-Session im rechten Panel. Die Registry lebt im Store

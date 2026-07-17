@@ -146,23 +146,6 @@ router.post(
           let _routingMethod = 'none';
           let _targetSpaceIds = space_ids;
 
-          if (!space_ids && conversation_id) {
-            try {
-              const projSpace = await db.query(
-                `SELECT p.knowledge_space_id FROM projects p
-                 JOIN chat_conversations c ON c.project_id = p.id
-                 WHERE c.id = $1 AND p.knowledge_space_id IS NOT NULL`,
-                [conversation_id]
-              );
-              if (projSpace.rows.length > 0) {
-                _targetSpaceIds = [projSpace.rows[0].knowledge_space_id];
-                logger.debug(`Project space override: ${_targetSpaceIds[0]}`);
-              }
-            } catch (projErr) {
-              logger.debug(`Project space lookup failed: ${projErr.message}`);
-            }
-          }
-
           if (_targetSpaceIds && _targetSpaceIds.length > 0) {
             const spacesResult = await db.query(
               'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',

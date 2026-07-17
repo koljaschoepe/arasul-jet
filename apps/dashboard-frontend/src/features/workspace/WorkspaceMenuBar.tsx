@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   FolderPlus,
-  FolderKanban,
   Upload,
   SquareTerminal,
   Settings,
@@ -96,10 +95,6 @@ export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
           <DropdownMenuItem onClick={() => requestExplorerAction('create-folder')}>
             <FolderPlus className="h-4 w-4" aria-hidden="true" />
             Neuer Ordner…
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => requestExplorerAction('create-project')}>
-            <FolderKanban className="h-4 w-4" aria-hidden="true" />
-            Neues Projekt…
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setRightPanelMode('terminal')}>
             <SquareTerminal className="h-4 w-4" aria-hidden="true" />
