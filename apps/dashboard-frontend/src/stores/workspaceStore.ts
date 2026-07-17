@@ -20,7 +20,7 @@ import { persist } from 'zustand/middleware';
  * Stores — Komponenten rendern die Sessions nur, sie besitzen sie nicht.
  */
 
-export type WorkspaceTabType = 'dashboard' | 'document' | 'settings' | 'store' | 'automationen';
+export type WorkspaceTabType = 'document' | 'settings' | 'store' | 'automationen';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
@@ -38,7 +38,6 @@ export interface WorkspaceTab {
 }
 
 const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
-  dashboard: 'Dashboard',
   document: 'Dokument',
   settings: 'Einstellungen',
   store: 'Extensions',
@@ -57,8 +56,6 @@ export function tabId(spec: WorkspaceTabSpec): string {
 /** Aktiver Tab → URL-Pfad unterhalb von /workspace. */
 export function tabToPath(tab: WorkspaceTab): string {
   switch (tab.type) {
-    case 'dashboard':
-      return '/workspace/dashboard';
     case 'document':
       return `/workspace/doc/${tab.documentId ?? ''}`;
     case 'settings':
@@ -76,8 +73,6 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
   const head = parts[0];
   if (!head) return null;
   switch (head) {
-    case 'dashboard':
-      return { type: 'dashboard' };
     case 'doc':
       return parts[1] ? { type: 'document', documentId: parts[1] } : null;
     case 'settings':

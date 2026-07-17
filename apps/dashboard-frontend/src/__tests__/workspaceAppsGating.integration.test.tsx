@@ -113,7 +113,7 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
     const user = userEvent.setup();
     useWorkspaceStore.setState({
       tabs: [
-        { id: 'dashboard', type: 'dashboard', title: 'Dashboard' },
+        { id: 'store', type: 'store', title: 'Extensions' },
         { id: 'automationen', type: 'automationen', title: 'Automationen' },
       ],
       activeTabId: 'automationen',
@@ -123,8 +123,8 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
     await user.click(await screen.findByRole('switch', { name: 'n8n deaktivieren' }));
 
     await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard'])
+      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['store'])
     );
-    expect(useWorkspaceStore.getState().activeTabId).toBe('dashboard');
+    expect(useWorkspaceStore.getState().activeTabId).toBe('store');
   });
 });

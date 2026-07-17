@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Server, Upload, Wrench, type LucideIcon } from 'lucide-react';
+import { Activity, Server, Upload, Wrench, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ServicesSettings } from './ServicesSettings';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
+import { SystemStatus } from './SystemStatus';
 
-type SubId = 'services' | 'updates' | 'selfhealing';
+type SubId = 'status' | 'services' | 'updates' | 'selfhealing';
 
 interface SubSection {
   id: SubId;
@@ -15,6 +16,7 @@ interface SubSection {
 }
 
 const subSections: SubSection[] = [
+  { id: 'status', label: 'System-Status', icon: Activity },
   { id: 'services', label: 'Services', icon: Server },
   { id: 'updates', label: 'Updates', icon: Upload },
   { id: 'selfhealing', label: 'Self-Healing', icon: Wrench },
@@ -33,7 +35,7 @@ interface SystemSettingsProps {
  * views — no unsaved state to preserve across switches).
  */
 export function SystemSettings({ initial }: SystemSettingsProps = {}) {
-  const [active, setActive] = useState<SubId>(initial ?? 'services');
+  const [active, setActive] = useState<SubId>(initial ?? 'status');
 
   return (
     <div className="flex flex-col gap-6">
@@ -61,6 +63,11 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
         })}
       </nav>
 
+      {active === 'status' && (
+        <ComponentErrorBoundary componentName="System-Status">
+          <SystemStatus />
+        </ComponentErrorBoundary>
+      )}
       {active === 'services' && (
         <ComponentErrorBoundary componentName="Services">
           <ServicesSettings />

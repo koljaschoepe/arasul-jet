@@ -67,8 +67,9 @@ describe('Sidebar navigation integration', () => {
   it('renders all primary navigation items', () => {
     renderSidebar();
 
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Chat')).toBeInTheDocument();
+    // Dashboard- und Chat-Einträge sind entfernt (Plan 008).
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.queryByText('Chat')).not.toBeInTheDocument();
     expect(screen.getByText('Daten')).toBeInTheDocument();
     expect(screen.getByText('Store')).toBeInTheDocument();
   });
@@ -79,18 +80,11 @@ describe('Sidebar navigation integration', () => {
     expect(screen.getByText('Einstellungen')).toBeInTheDocument();
   });
 
-  it('highlights active route - Dashboard', () => {
-    renderSidebar({ route: '/' });
+  it('highlights active route - Daten', () => {
+    renderSidebar({ route: '/data' });
 
-    const dashboardLink = screen.getByText('Dashboard').closest('a');
-    expect(dashboardLink?.className).toContain('active');
-  });
-
-  it('highlights active route - Chat', () => {
-    renderSidebar({ route: '/chat' });
-
-    const chatLink = screen.getByText('Chat').closest('a');
-    expect(chatLink?.className).toContain('active');
+    const dataLink = screen.getByText('Daten').closest('a');
+    expect(dataLink?.className).toContain('active');
   });
 
   it('highlights active route - Store', () => {
@@ -155,21 +149,21 @@ describe('Sidebar navigation integration', () => {
     expect(screen.getByRole('menubar')).toBeInTheDocument();
 
     const menuItems = screen.getAllByRole('menuitem');
-    expect(menuItems.length).toBeGreaterThanOrEqual(4);
+    expect(menuItems.length).toBeGreaterThanOrEqual(2);
   });
 
   it('sets aria-current on active route', () => {
-    renderSidebar({ route: '/' });
+    renderSidebar({ route: '/data' });
 
-    const dashboardLink = screen.getByText('Dashboard').closest('a');
-    expect(dashboardLink).toHaveAttribute('aria-current', 'page');
+    const dataLink = screen.getByText('Daten').closest('a');
+    expect(dataLink).toHaveAttribute('aria-current', 'page');
   });
 
   it('does not set aria-current on inactive routes', () => {
-    renderSidebar({ route: '/' });
+    renderSidebar({ route: '/data' });
 
-    const chatLink = screen.getByText('Chat').closest('a');
-    expect(chatLink).not.toHaveAttribute('aria-current');
+    const storeLink = screen.getByText('Store').closest('a');
+    expect(storeLink).not.toHaveAttribute('aria-current');
   });
 });
 

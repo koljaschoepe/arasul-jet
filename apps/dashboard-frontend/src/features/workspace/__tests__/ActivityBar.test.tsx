@@ -34,10 +34,10 @@ describe('ActivityBar', () => {
     enabledApps.clear();
   });
 
-  it('rendert nur die Mitte-Tab-Einträge Dashboard und Extensions', () => {
+  it('rendert den Mitte-Tab-Eintrag Extensions (Dashboard ist entfernt)', () => {
     render(<ActivityBar />);
-    expect(screen.getByLabelText('Dashboard')).toBeInTheDocument();
     expect(screen.getByLabelText('Extensions')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Dashboard')).not.toBeInTheDocument();
   });
 
   it('zeigt keine Explorer-/Chats-/Terminal-Icons mehr (leben in den Layout-Toggles)', () => {
@@ -69,11 +69,11 @@ describe('ActivityBar', () => {
     expect(screen.queryByLabelText('Automationen')).not.toBeInTheDocument();
   });
 
-  it('Dashboard-Eintrag öffnet den Dashboard-Tab', () => {
+  it('Extensions-Eintrag öffnet den Extensions-Tab', () => {
     render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Dashboard'));
+    fireEvent.click(screen.getByLabelText('Extensions'));
     const state = useWorkspaceStore.getState();
-    expect(state.activeTabId).toBe('dashboard');
-    expect(state.tabs.map(t => t.type)).toEqual(['dashboard']);
+    expect(state.activeTabId).toBe('store');
+    expect(state.tabs.map(t => t.type)).toEqual(['store']);
   });
 });

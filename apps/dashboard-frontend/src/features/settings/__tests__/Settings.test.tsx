@@ -76,6 +76,7 @@ vi.mock('../AIProfileSettings', () => ({
 }));
 vi.mock('../RagLlmSettings', () => ({ RagLlmSettings: stub('rag-llm-settings', 'RAG') }));
 // Leaves inside the (real) SystemSettings wrapper.
+vi.mock('../../system/SystemStatus', () => ({ SystemStatus: stub('system-status', 'Status') }));
 vi.mock('../../system/ServicesSettings', () => ({
   ServicesSettings: stub('services-settings', 'Services'),
 }));
@@ -221,8 +222,8 @@ describe('Settings shell', () => {
         expect(screen.getAllByText('Updates').length).toBeGreaterThanOrEqual(1);
         expect(screen.getAllByText('Self-Healing').length).toBeGreaterThanOrEqual(1);
       });
-      // Services sub-section is mounted by default.
-      expect(screen.getByTestId('services-settings')).toBeInTheDocument();
+      // System-Status sub-section is mounted by default (Plan 008).
+      expect(screen.getByTestId('system-status')).toBeInTheDocument();
     });
 
     test('switches sub-sections within System (only active one mounted)', async () => {
@@ -241,7 +242,7 @@ describe('Settings shell', () => {
     test('?tab=system opens the System tab', async () => {
       renderSettings('/settings?tab=system');
       await waitFor(() => {
-        expect(screen.getByTestId('services-settings')).toBeInTheDocument();
+        expect(screen.getByTestId('system-status')).toBeInTheDocument();
       });
     });
 

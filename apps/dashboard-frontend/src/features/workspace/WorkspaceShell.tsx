@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
-import { setWorkspaceShellEnabled } from '@/lib/featureFlags';
 import { useWorkspaceStore, pathToTabSpec, tabToPath, tabId } from '@/stores/workspaceStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 import { ActivityBar } from './ActivityBar';
@@ -65,9 +64,6 @@ export default function WorkspaceShell(props: TabThemeControls) {
     // die URL normalisiert der Store→URL-Effekt auf den aktiven Tab.
     if (subPath.split('/').filter(Boolean)[0] === 'terminal') {
       useWorkspaceStore.setState({ rightPanelVisible: true, rightPanelMode: 'terminal' });
-      if (useWorkspaceStore.getState().tabs.length === 0) {
-        openTab({ type: 'dashboard' });
-      }
       return;
     }
 
@@ -86,8 +82,6 @@ export default function WorkspaceShell(props: TabThemeControls) {
         const active = state.tabs.find(t => t.id === state.activeTabId);
         if (active) {
           navigate(tabToPath(active), { replace: true });
-        } else {
-          openTab({ type: 'dashboard' });
         }
       }
       return;
@@ -98,10 +92,10 @@ export default function WorkspaceShell(props: TabThemeControls) {
       if (id !== activeTabId) {
         openTab(spec);
       }
-    } else if (tabs.length === 0) {
-      // Erster Start: Dashboard als Default-Tab
-      openTab({ type: 'dashboard' });
     }
+    // Kein Default-Tab mehr: ohne passenden Deep-Link landet der Workspace auf
+    // seinem Leerzustand ("Kein Tab geöffnet") — das Chat-Panel rechts ist der
+    // Chat-first-Einstieg (Plan 008).
   }, [location.pathname, isTabTypeEnabled]);
 
   // Store → URL: aktiver Tab spiegelt sich im Pfad
@@ -113,9 +107,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
     const state = useWorkspaceStore.getState();
     const active = state.tabs.find(t => t.id === state.activeTabId);
     if (!active) {
-      if (state.tabs.length === 0) {
-        openTab({ type: 'dashboard' });
-      }
+      // Kein aktiver Tab → Leerzustand; die URL bleibt unverändert stehen.
       return;
     }
     const path = tabToPath(active);
@@ -123,16 +115,6 @@ export default function WorkspaceShell(props: TabThemeControls) {
       navigate(path);
     }
   }, [activeTabId, tabs]);
-
-  const leaveWorkspace = () => {
-    setWorkspaceShellEnabled(false);
-    navigate('/');
-  };
-
-  // Beim ersten Rendern der Shell das Flag setzen, damit "/" künftig hierher führt
-  useEffect(() => {
-    setWorkspaceShellEnabled(true);
-  }, []);
 
   // ⌘B / Ctrl+B toggelt die Sidebar (wie in VS Code/Cursor)
   useEffect(() => {
@@ -161,7 +143,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
       className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground"
       data-testid="workspace-shell"
     >
-      <WorkspaceMenuBar themeControls={props} onLeaveWorkspace={leaveWorkspace} />
+      <WorkspaceMenuBar themeControls={props} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <ActivityBar />
         <Group

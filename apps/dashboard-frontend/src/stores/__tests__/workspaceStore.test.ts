@@ -21,17 +21,17 @@ describe('workspaceStore — Tabs', () => {
   beforeEach(resetStore);
 
   it('öffnet einen Tab und aktiviert ihn', () => {
-    useWorkspaceStore.getState().openTab({ type: 'dashboard' });
+    useWorkspaceStore.getState().openTab({ type: 'automationen' });
     const { tabs, activeTabId } = useWorkspaceStore.getState();
     expect(tabs).toHaveLength(1);
-    expect(tabs[0]?.type).toBe('dashboard');
-    expect(activeTabId).toBe('dashboard');
+    expect(tabs[0]?.type).toBe('automationen');
+    expect(activeTabId).toBe('automationen');
   });
 
   it('dedupliziert Tabs über die Identität (type + payload)', () => {
     const { openTab } = useWorkspaceStore.getState();
     openTab({ type: 'document', documentId: '42', title: 'a.pdf' });
-    openTab({ type: 'dashboard' });
+    openTab({ type: 'automationen' });
     openTab({ type: 'document', documentId: '42', title: 'a.pdf' });
     const { tabs, activeTabId } = useWorkspaceStore.getState();
     expect(tabs).toHaveLength(2);
@@ -47,19 +47,19 @@ describe('workspaceStore — Tabs', () => {
 
   it('schließt den aktiven Tab und aktiviert den Nachbarn', () => {
     const { openTab } = useWorkspaceStore.getState();
-    openTab({ type: 'dashboard' });
+    openTab({ type: 'automationen' });
     openTab({ type: 'settings' });
     openTab({ type: 'store' });
     useWorkspaceStore.getState().activateTab('settings');
     useWorkspaceStore.getState().closeTab('settings');
     const { tabs, activeTabId } = useWorkspaceStore.getState();
-    expect(tabs.map(t => t.id)).toEqual(['dashboard', 'store']);
+    expect(tabs.map(t => t.id)).toEqual(['automationen', 'store']);
     expect(activeTabId).toBe('store');
   });
 
   it('schließt den letzten Tab → kein aktiver Tab', () => {
-    useWorkspaceStore.getState().openTab({ type: 'dashboard' });
-    useWorkspaceStore.getState().closeTab('dashboard');
+    useWorkspaceStore.getState().openTab({ type: 'automationen' });
+    useWorkspaceStore.getState().closeTab('automationen');
     const { tabs, activeTabId } = useWorkspaceStore.getState();
     expect(tabs).toHaveLength(0);
     expect(activeTabId).toBeNull();
@@ -67,22 +67,22 @@ describe('workspaceStore — Tabs', () => {
 
   it('inaktiven Tab schließen lässt den aktiven unverändert', () => {
     const { openTab } = useWorkspaceStore.getState();
-    openTab({ type: 'dashboard' });
+    openTab({ type: 'automationen' });
     openTab({ type: 'settings' });
-    useWorkspaceStore.getState().closeTab('dashboard');
+    useWorkspaceStore.getState().closeTab('automationen');
     expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
   });
 
   it('moveTab ordnet Tabs um (stabile Reihenfolge)', () => {
     const { openTab } = useWorkspaceStore.getState();
-    openTab({ type: 'dashboard' });
+    openTab({ type: 'automationen' });
     openTab({ type: 'settings' });
     openTab({ type: 'store' });
     useWorkspaceStore.getState().moveTab(0, 2);
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
       'settings',
       'store',
-      'dashboard',
+      'automationen',
     ]);
   });
 
@@ -93,13 +93,13 @@ describe('workspaceStore — Tabs', () => {
   });
 
   it('persistiert Tabs in localStorage (Reload-Restore)', () => {
-    useWorkspaceStore.getState().openTab({ type: 'dashboard' });
+    useWorkspaceStore.getState().openTab({ type: 'automationen' });
     const raw = localStorage.getItem('arasul_workspace');
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw ?? '{}');
     expect(parsed.version).toBe(4);
     expect(parsed.state.tabs).toHaveLength(1);
-    expect(parsed.state.activeTabId).toBe('dashboard');
+    expect(parsed.state.activeTabId).toBe('automationen');
     // chatScope ist ephemer und wird nicht persistiert
     expect(parsed.state.chatScope).toBeUndefined();
   });
@@ -322,7 +322,7 @@ describe('workspaceStore — Migration v2 → v4', () => {
   const V2_TERMINAL_MODE = {
     state: {
       tabs: [
-        { id: 'dashboard', type: 'dashboard', title: 'Dashboard' },
+        { id: 'automationen', type: 'automationen', title: 'Dashboard' },
         { id: 'sandbox', type: 'sandbox', title: 'Terminal' },
         { id: 'document:42', type: 'document', title: 'rechnung.pdf', documentId: '42' },
       ],
@@ -363,9 +363,9 @@ describe('workspaceStore — Migration v2 → v4', () => {
     // des zuletzt genutzten Terminal-Modus durch eine Zwei-Flächen-Faltung).
     expect(s.rightPanelVisible).toBe(true);
     expect(s.rightPanelMode).toBe('terminal');
-    expect(s.tabs.map(t => t.id)).toEqual(['dashboard', 'document:42']);
+    expect(s.tabs.map(t => t.id)).toEqual(['automationen', 'document:42']);
     // aktiver Tab war der entfernte sandbox-Tab → Fallback auf ersten Tab
-    expect(s.activeTabId).toBe('dashboard');
+    expect(s.activeTabId).toBe('automationen');
     expect(s.terminalSessions).toEqual([]);
     expect(s.activeTerminalSessionId).toBeNull();
   });
@@ -375,8 +375,8 @@ describe('workspaceStore — Migration v2 → v4', () => {
     // nach dem Update darf sich das rechte Panel NICHT ungefragt öffnen.
     await rehydrateFrom({
       state: {
-        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-        activeTabId: 'dashboard',
+        tabs: [{ id: 'automationen', type: 'automationen', title: 'Dashboard' }],
+        activeTabId: 'automationen',
         explorerVisible: true,
         llmVisible: false,
         llmPanelMode: 'terminal',
@@ -445,8 +445,8 @@ describe('workspaceStore — Migration v3 → v4', () => {
   it('terminalVisible=true, chatVisible=false → visible + Terminal-Modus', async () => {
     await rehydrateFrom({
       state: {
-        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-        activeTabId: 'dashboard',
+        tabs: [{ id: 'automationen', type: 'automationen', title: 'Dashboard' }],
+        activeTabId: 'automationen',
         sidebarVisible: true,
         chatVisible: false,
         terminalVisible: true,
@@ -468,8 +468,8 @@ describe('workspaceStore — Migration v3 → v4', () => {
   it('chatVisible=true, terminalVisible=true → visible + Chat-Modus (Vorrang Chat)', async () => {
     await rehydrateFrom({
       state: {
-        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-        activeTabId: 'dashboard',
+        tabs: [{ id: 'automationen', type: 'automationen', title: 'Dashboard' }],
+        activeTabId: 'automationen',
         sidebarVisible: false,
         chatVisible: true,
         terminalVisible: true,
@@ -506,8 +506,8 @@ describe('workspaceStore — Migration v3 → v4', () => {
   it('schreibt den migrierten v3-Stand als version 4 zurück (v3-Felder weg)', async () => {
     await rehydrateFrom({
       state: {
-        tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-        activeTabId: 'dashboard',
+        tabs: [{ id: 'automationen', type: 'automationen', title: 'Dashboard' }],
+        activeTabId: 'automationen',
         sidebarVisible: true,
         chatVisible: false,
         terminalVisible: true,
@@ -529,7 +529,6 @@ describe('workspaceStore — Migration v3 → v4', () => {
 describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
   it('bildet jeden Tab-Typ auf einen Pfad ab und zurück', () => {
     const specs = [
-      { type: 'dashboard' as const },
       { type: 'document' as const, documentId: '42' },
       { type: 'settings' as const },
       { type: 'automationen' as const },

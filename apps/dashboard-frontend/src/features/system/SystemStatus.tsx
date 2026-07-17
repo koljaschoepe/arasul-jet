@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useApi } from '@/hooks/useApi';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import {
   LineChart,
   Line,
@@ -11,20 +9,30 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import {
-  Layers,
-  HardDrive,
-  Activity,
-  Thermometer,
-  Workflow,
-  CheckCircle2,
-  CircleAlert,
-  Loader2,
-  ChevronRight,
-} from 'lucide-react';
-import { Suspense, lazy } from 'react';
-import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { Layers, HardDrive, Activity, Thermometer } from 'lucide-react';
+import { Button } from '@/components/ui/shadcn/button';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import type {
+  DashboardData,
+  MetricsHistory,
+  Thresholds,
+  DeviceInfo,
+  ChartDataPoint,
+} from '@/hooks/useDashboardData';
+import type { Metrics } from '@/types';
 import { DashboardCard, DashboardCardTitle } from './DashboardCard';
+
+/**
+ * SystemStatus — die Live-System-Status-Ansicht (RAM/Swap/Storage/Temperatur-
+ * Kacheln, Performance-Verlauf und die admin-only System-Gesundheit).
+ *
+ * Aus der entfernten Dashboard-Startseite (Plan 008) in die System-
+ * Einstellungen übernommen; die Datenbasis liefert weiterhin `useDashboardData`
+ * (Live-Metriken via WebSocket, `/metrics/history?range=24h`,
+ * `/system/thresholds`, …). Die frühere Automatisierungs-Kachel
+ * (n8n-Läufe) war reines Dashboard-Chrome und entfällt hier.
+ */
 
 const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
 
@@ -73,208 +81,6 @@ function StatCard({
   );
 }
 
-interface WorkflowRun {
-  id: number;
-  workflow_name: string;
-  status: 'success' | 'error' | 'running' | 'waiting';
-  duration_ms?: number | null;
-  timestamp: string;
-}
-
-const RUN_STATUS_LABEL: Record<WorkflowRun['status'], string> = {
-  success: 'Erfolg',
-  error: 'Fehler',
-  running: 'Läuft',
-  waiting: 'Wartet',
-};
-
-function runStatusVariant(status: WorkflowRun['status']): StatBadgeVariant {
-  if (status === 'error') return 'negative';
-  if (status === 'running' || status === 'waiting') return 'warning';
-  return 'positive';
-}
-
-function runStatusIcon(status: WorkflowRun['status']): React.ReactNode {
-  if (status === 'error') return <CircleAlert className="h-4 w-4 text-[var(--status-critical)]" />;
-  if (status === 'running' || status === 'waiting')
-    return <Loader2 className="h-4 w-4 animate-spin text-[var(--status-warning)]" />;
-  return <CheckCircle2 className="h-4 w-4 text-[var(--status-neutral)]" />;
-}
-
-function runRelativeTime(iso: string): string {
-  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (Number.isNaN(min)) return '';
-  if (min < 1) return 'gerade eben';
-  if (min < 60) return `vor ${min} Min`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `vor ${h} Std`;
-  return `vor ${Math.round(h / 24)} Tg`;
-}
-
-/**
- * Automatisierungen: die letzten n8n-Workflow-Läufe (echte Datenquelle
- * /api/workflows/history). Statt Aktions-Kacheln zeigt das Dashboard hier
- * konkrete Ergebnisse der Automatisierungen; leer → Einstieg in n8n.
- */
-function AutomationsCard(): React.JSX.Element {
-  const api = useApi();
-  const openTab = useWorkspaceStore(s => s.openTab);
-
-  const { data: runs = [], isLoading } = useQuery({
-    queryKey: ['workflows', 'history', 'dashboard'],
-    queryFn: async () => {
-      const res = await api.get<{ data?: WorkflowRun[] }>('/workflows/history?limit=6', {
-        showError: false,
-      });
-      return res.data ?? [];
-    },
-    staleTime: 30_000,
-  });
-
-  return (
-    <DashboardCard>
-      <div className="mb-ui-2 flex items-center justify-between gap-ui-2">
-        <DashboardCardTitle className="mb-0 flex items-center gap-ui-1">
-          <Workflow className="h-4 w-4 text-primary" aria-hidden="true" />
-          Automatisierungen
-        </DashboardCardTitle>
-        <button
-          type="button"
-          onClick={() => openTab({ type: 'automationen' })}
-          className="flex items-center gap-ui-1 rounded-sm px-ui-1 py-px text-ui-xs font-semibold text-text-muted transition-colors hover:text-primary"
-        >
-          n8n öffnen
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      {runs.length > 0 ? (
-        <ul className="flex min-w-0 flex-col gap-px">
-          {runs.map(run => (
-            <li
-              key={run.id}
-              className="flex min-w-0 items-center gap-ui-2 rounded-sm px-ui-1 py-ui-1 text-ui-sm"
-            >
-              <span className="shrink-0">{runStatusIcon(run.status)}</span>
-              <span className="min-w-0 flex-1 truncate text-text-primary">{run.workflow_name}</span>
-              <span
-                className={`${STAT_BADGE_BASE} mt-0 ${STAT_BADGE_VARIANTS[runStatusVariant(run.status)]}`}
-              >
-                {RUN_STATUS_LABEL[run.status]}
-              </span>
-              <span className="shrink-0 whitespace-nowrap text-ui-xs text-text-muted">
-                {runRelativeTime(run.timestamp)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-ui-sm text-text-muted">
-          {isLoading
-            ? 'Lade Automatisierungs-Verlauf …'
-            : 'Noch keine Automatisierungs-Läufe. Öffne n8n, um Workflows einzurichten.'}
-        </p>
-      )}
-    </DashboardCard>
-  );
-}
-
-interface MetricsDisk {
-  used: number;
-  free: number;
-  percent: number;
-}
-
-interface Metrics {
-  cpu: number;
-  ram: number;
-  swap: number;
-  gpu: number;
-  temperature: number;
-  temp: number;
-  disk: MetricsDisk;
-}
-
-interface MetricsHistory {
-  timestamps: string[];
-  cpu: (number | null)[];
-  ram: (number | null)[];
-  swap: (number | null)[];
-  gpu: (number | null)[];
-  temperature: (number | null)[];
-}
-
-interface ServiceStatus {
-  status: string;
-}
-
-interface Services {
-  llm: ServiceStatus;
-  embeddings: ServiceStatus;
-}
-
-interface SystemInfo {
-  uptime_seconds: number;
-  version: string;
-  hostname: string;
-}
-
-interface NetworkInfo {
-  internet_reachable: boolean;
-}
-
-interface RunningApp {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  status: string;
-  hasCustomPage?: boolean;
-  customPageRoute?: string;
-  ports?: { external?: number };
-}
-
-interface ThresholdPair {
-  warning: number;
-  critical: number;
-}
-
-interface Thresholds {
-  cpu: ThresholdPair;
-  ram: ThresholdPair;
-  gpu: ThresholdPair;
-  storage: ThresholdPair;
-  temperature: ThresholdPair;
-  [key: string]: ThresholdPair;
-}
-
-interface DeviceInfo {
-  name: string;
-  total_memory_gb?: number;
-  cpu_cores?: number;
-  type?: string;
-}
-
-interface ChartDataPoint {
-  timestamp: number;
-  time: string;
-  hour: number;
-  RAM: number | null;
-  Swap: number | null;
-  Temp: number | null;
-}
-
-interface DashboardHomeProps {
-  metrics: Metrics | null;
-  metricsHistory: MetricsHistory | null;
-  services: Services | null;
-  systemInfo: SystemInfo | null;
-  networkInfo: NetworkInfo | null;
-  runningApps: RunningApp[];
-  formatChartData: () => ChartDataPoint[];
-  thresholds: Thresholds | null;
-  deviceInfo: DeviceInfo | null;
-}
-
 const TempSparkline = React.memo(function TempSparkline({
   history,
 }: {
@@ -308,13 +114,26 @@ const TempSparkline = React.memo(function TempSparkline({
   );
 });
 
-const DashboardHome = React.memo(function DashboardHome({
+interface SystemStatusViewProps {
+  metrics: Metrics | null;
+  metricsHistory: MetricsHistory | null;
+  formatChartData: () => ChartDataPoint[];
+  thresholds: Thresholds | null;
+  deviceInfo: DeviceInfo | null;
+}
+
+/**
+ * Die eigentliche Status-Darstellung. Erwartet bereits geladene Daten aus
+ * useDashboardData (der Wrapper unten übernimmt Lade-/Fehlerzustand + den
+ * einen useDashboardData-Aufruf, damit nur EIN WebSocket geöffnet wird).
+ */
+function SystemStatusView({
   metrics,
   metricsHistory,
   formatChartData,
   thresholds,
   deviceInfo,
-}: DashboardHomeProps): React.JSX.Element {
+}: SystemStatusViewProps): React.JSX.Element {
   const defaultThresholds: Thresholds = {
     cpu: { warning: 70, critical: 90 },
     ram: { warning: 70, critical: 90 },
@@ -325,21 +144,6 @@ const DashboardHome = React.memo(function DashboardHome({
   };
 
   const t = thresholds || defaultThresholds;
-  const api = useApi();
-
-  // Forward-auth-gated apps (n8n, etc.) need the session COOKIE on a plain
-  // <a href> navigation — the Authorization header used by the dashboard is
-  // never sent on link clicks. If the user logged in under a different
-  // hostname/IP than the address bar currently shows, the cookie jar is
-  // per-host and missing → 401. Refresh the cookie for the current host on
-  // mount so the cards work as plain links (no popup-blocker games).
-  useEffect(() => {
-    api.post('/auth/refresh-cookie', undefined, { showError: false }).catch(() => {
-      // Best-effort: if the user isn't authenticated, the link will surface
-      // the 401 the usual way; nothing to do here.
-    });
-    // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
-  }, []);
 
   const getStatusInfo = (
     value: number,
@@ -596,11 +400,39 @@ const DashboardHome = React.memo(function DashboardHome({
         <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>
           <SystemHealthWidget />
         </Suspense>
-
-        <AutomationsCard />
       </div>
     </div>
   );
-});
+}
 
-export default DashboardHome;
+/**
+ * Öffentlicher Einstieg: kapselt Lade-/Fehlerzustand rund um die Status-Ansicht.
+ */
+export function SystemStatus(): React.JSX.Element {
+  const data: DashboardData = useDashboardData(true);
+
+  if (data.loading) {
+    return <LoadingSpinner message="Lade Systemstatus..." />;
+  }
+  if (data.error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
+        <p>{data.error}</p>
+        <Button type="button" variant="solid" onClick={data.retry}>
+          Erneut versuchen
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <SystemStatusView
+      metrics={data.metrics}
+      metricsHistory={data.metricsHistory}
+      formatChartData={data.formatChartData}
+      thresholds={data.thresholds}
+      deviceInfo={data.deviceInfo}
+    />
+  );
+}
+
+export default SystemStatus;

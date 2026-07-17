@@ -2,15 +2,14 @@
  * App Component Tests
  *
  * Tests für die Haupt-App-Komponente:
- * - Routing
- * - Authentication
- * - Navigation
- * - WebSocket Connection
- * - Error Handling
+ * - Login-Gating (unauthentifiziert → Login, sonst Workspace-Shell)
+ * - "/" leitet immer auf die Workspace-Shell um (Plan 008; der frühere
+ *   Legacy/Workspace-Umschalter ist entfernt)
+ * - Session-Validierung
+ * - Routing (Legacy-Fallback-Routen bleiben für Nicht-"/"-Pfade erreichbar)
  */
 
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor } from '@testing-library/react';
 import App from '../App';
 
 // Mock useApi hook
@@ -24,10 +23,13 @@ const mockApi = {
 };
 vi.mock('../hooks/useApi', () => ({ useApi: () => mockApi, default: () => mockApi }));
 
-// Mock components to avoid complex setup
-vi.mock('../features/chat/ChatRouter', () => ({
-  default: () => <div data-testid="chat-router">Chat Component</div>,
+// Die Workspace-Shell ist die Startseite; ihre schweren Abhängigkeiten werden
+// hier durch einen Stub ersetzt — getestet wird nur das App-Level-Routing.
+vi.mock('../features/workspace', () => ({
+  default: () => <div data-testid="workspace-shell">Workspace</div>,
 }));
+
+// Mock secondary route components (Legacy-Fallback-Routen)
 vi.mock('../features/documents/DocumentManager', () => ({
   default: () => <div data-testid="document-manager">Documents Component</div>,
 }));
@@ -94,12 +96,6 @@ const createApiMock = (_mockUser: MockUser, overrides: Record<string, Promise<un
         setupStep: 5,
       });
     }
-    if (url.includes('/system/status')) {
-      return Promise.resolve({
-        status: 'OK',
-        checks: {},
-      });
-    }
     if (url.includes('/system/info')) {
       return Promise.resolve({
         hostname: 'arasul-edge',
@@ -131,15 +127,8 @@ const createApiMock = (_mockUser: MockUser, overrides: Record<string, Promise<un
         embeddings: { status: 'healthy' },
       });
     }
-    if (url.includes('/workflows/activity')) {
-      return Promise.resolve({
-        workflows: [],
-      });
-    }
     if (url.includes('/apps')) {
-      return Promise.resolve({
-        apps: [],
-      });
+      return Promise.resolve({ apps: [] });
     }
     // Apply overrides
     const override = overrides[url];
@@ -154,13 +143,11 @@ describe('App Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    // Workspace-Shell ist seit Schritt 10 die Standard-UI (Default an) und
-    // würde "/" nach /workspace umleiten. Diese Suite prüft die Legacy-UI,
-    // daher explizit den Opt-out setzen (Wert 'false').
-    localStorage.setItem('arasul_workspace_shell', 'false');
+    // Jede Suite startet auf "/" (Standard-Einstieg → Workspace-Shell).
+    window.history.pushState({}, '', '/');
     // useApi contract: every method returns a Promise. Components call e.g.
-    // api.post('/auth/refresh-cookie').catch(...) on mount (DashboardHome),
-    // so bare vi.fn() mocks (returning undefined) would crash the route.
+    // api.post('/auth/refresh-cookie').catch(...) on mount, so bare vi.fn()
+    // mocks (returning undefined) would crash a route.
     mockApi.get.mockResolvedValue({});
     mockApi.post.mockResolvedValue({});
     mockApi.put.mockResolvedValue({});
@@ -187,13 +174,13 @@ describe('App Component', () => {
       });
     });
 
-    test('zeigt keine Navigation wenn nicht authentifiziert', async () => {
+    test('zeigt keine Workspace-Shell wenn nicht authentifiziert', async () => {
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
-        expect(screen.queryByText('Chat')).not.toBeInTheDocument();
+        expect(screen.getByLabelText(/benutzername/i)).toBeInTheDocument();
       });
+      expect(screen.queryByTestId('workspace-shell')).not.toBeInTheDocument();
     });
   });
 
@@ -207,126 +194,22 @@ describe('App Component', () => {
       mockApi.get.mockImplementation(createApiMock(mockUser));
     });
 
-    test('zeigt Dashboard nach erfolgreicher Authentifizierung', async () => {
+    test('landet nach erfolgreicher Authentifizierung in der Workspace-Shell', async () => {
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByText('Arasul')).toBeInTheDocument();
+        expect(screen.getByTestId('workspace-shell')).toBeInTheDocument();
       });
     });
 
-    test('zeigt Navigation Sidebar', async () => {
+    test('"/" leitet auf /workspace um', async () => {
+      window.history.pushState({}, '', '/');
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByText('Dashboard')).toBeInTheDocument();
-        expect(screen.getByText('Chat')).toBeInTheDocument();
-        expect(screen.getByText('Daten')).toBeInTheDocument();
-        expect(screen.getByText('Einstellungen')).toBeInTheDocument();
+        expect(screen.getByTestId('workspace-shell')).toBeInTheDocument();
       });
-    });
-
-    test('Dashboard-Route zeigt Metriken', async () => {
-      render(<App />);
-
-      // The CPU/RAM/GPU chart renders via Recharts, whose ResponsiveContainer
-      // collapses to 0px under jsdom and never mounts its children (incl. the
-      // aria-label). Assert on the always-rendered metric stat cards instead,
-      // which is the faithful "dashboard shows metrics" check.
-      await waitFor(() => {
-        expect(screen.getByText(/RAM USAGE/i)).toBeInTheDocument();
-        expect(screen.getByText(/STORAGE/i)).toBeInTheDocument();
-      });
-    });
-
-    test('Navigation zu Chat funktioniert', async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Chat')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByText('Chat'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('chat-router')).toBeInTheDocument();
-      });
-    });
-
-    test('Navigation zu Daten funktioniert', async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Daten')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByText('Daten'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('document-manager')).toBeInTheDocument();
-      });
-    });
-
-    test('Navigation zu Einstellungen funktioniert', async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Einstellungen')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByText('Einstellungen'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('settings')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Logout Flow', () => {
-    const mockUser = { id: 1, username: 'admin', role: 'admin' };
-
-    beforeEach(() => {
-      localStorage.setItem('arasul_token', 'valid-token');
-      localStorage.setItem('arasul_user', JSON.stringify(mockUser));
-      global.fetch = vi.fn(createFetchMock(mockUser));
-      mockApi.get.mockImplementation(createApiMock(mockUser));
-      mockApi.post.mockImplementation(url => {
-        if (url.includes('/auth/logout')) {
-          return Promise.resolve({ success: true });
-        }
-        return Promise.resolve({});
-      });
-    });
-
-    test('Logout löscht Token und zeigt Login', async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Arasul')).toBeInTheDocument();
-      });
-
-      // Navigate to Settings where the logout button is located
-      await user.click(screen.getByText('Einstellungen'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('settings')).toBeInTheDocument();
-      });
-
-      // Since Settings is mocked, we can't test the actual logout button click
-      // Instead, verify that the Settings component is rendered with logout capability
-      // The actual logout functionality is tested in Settings.test.js
-      expect(screen.getByTestId('settings')).toBeInTheDocument();
-
-      // Simulate logout by clearing localStorage (what logout does)
-      localStorage.removeItem('arasul_token');
-      localStorage.removeItem('arasul_user');
-
-      // Verify token is cleared
-      expect(localStorage.getItem('arasul_token')).toBeNull();
+      expect(window.location.pathname).toBe('/workspace');
     });
   });
 
@@ -348,7 +231,7 @@ describe('App Component', () => {
       });
     });
 
-    test('401 auf API-Call führt zu Logout', async () => {
+    test('App bleibt stabil, wenn Datenendpunkte fehlschlagen', async () => {
       const mockUser = { id: 1, username: 'admin' };
       localStorage.setItem('arasul_token', 'valid-token');
       localStorage.setItem('arasul_user', JSON.stringify(mockUser));
@@ -356,172 +239,23 @@ describe('App Component', () => {
       // Auth succeeds via fetch
       global.fetch = vi.fn(createFetchMock(mockUser));
 
-      // First call succeeds, subsequent fails
+      // Auth-relevante Endpunkte liefern gültige Daten, alles andere schlägt fehl
       mockApi.get.mockImplementation(url => {
-        // For data endpoints, return minimal valid data then reject
-        if (url.includes('/metrics/history')) {
-          return Promise.resolve({ timestamps: [], cpu: [], ram: [], gpu: [], temperature: [] });
+        if (url.includes('/system/setup-status')) {
+          return Promise.resolve({ setupComplete: true, setupStep: 5 });
         }
         if (url.includes('/apps')) {
           return Promise.resolve({ apps: [] });
-        }
-        if (url.includes('/workflows')) {
-          return Promise.resolve({ workflows: [] });
-        }
-        if (url.includes('/system/setup-status')) {
-          return Promise.resolve({ setupComplete: true, setupStep: 5 });
         }
         return Promise.reject({ status: 401 });
       });
 
       render(<App />);
 
-      // Initial render should work
+      // Die Shell rendert trotzdem (kein Crash)
       await waitFor(() => {
-        expect(screen.getByText('Arasul')).toBeInTheDocument();
+        expect(screen.getByTestId('workspace-shell')).toBeInTheDocument();
       });
-    });
-  });
-
-  describe('Error Handling', () => {
-    const mockUser = { id: 1, username: 'admin' };
-
-    beforeEach(() => {
-      localStorage.setItem('arasul_token', 'valid-token');
-      localStorage.setItem('arasul_user', JSON.stringify(mockUser));
-    });
-
-    test('zeigt Fehler bei Metriken-Ladefehler', async () => {
-      // Auth succeeds via fetch
-      global.fetch = vi.fn(createFetchMock(mockUser));
-
-      mockApi.get.mockImplementation(url => {
-        if (url.includes('/metrics')) {
-          return Promise.reject(new Error('Network Error'));
-        }
-        // Return valid data for other endpoints to prevent cascading errors
-        if (url.includes('/apps')) {
-          return Promise.resolve({ apps: [] });
-        }
-        if (url.includes('/workflows')) {
-          return Promise.resolve({ workflows: [] });
-        }
-        if (url.includes('/system/setup-status')) {
-          return Promise.resolve({ setupComplete: true, setupStep: 5 });
-        }
-        if (url.includes('/system')) {
-          return Promise.resolve({});
-        }
-        if (url.includes('/services')) {
-          return Promise.resolve({});
-        }
-        return Promise.resolve({});
-      });
-
-      render(<App />);
-
-      // App should still render even with metrics errors
-      await waitFor(() => {
-        // Should show error or dashboard with missing data
-        expect(screen.getByText(/Arasul|Fehler/)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Sidebar Toggle', () => {
-    const mockUser = { id: 1, username: 'admin' };
-
-    beforeEach(() => {
-      localStorage.setItem('arasul_token', 'valid-token');
-      localStorage.setItem('arasul_user', JSON.stringify(mockUser));
-      global.fetch = vi.fn(createFetchMock(mockUser));
-      mockApi.get.mockImplementation(createApiMock(mockUser));
-    });
-
-    test('Sidebar Toggle speichert Zustand in localStorage', async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Arasul')).toBeInTheDocument();
-      });
-
-      // Finde den Toggle-Button
-      const toggleButton = document.querySelector('.sidebar-toggle');
-
-      if (toggleButton) {
-        await user.click(toggleButton);
-
-        expect(localStorage.getItem('arasul_sidebar_collapsed')).toBe('true');
-      }
-    });
-
-    test('Sidebar Zustand wird aus localStorage geladen', async () => {
-      localStorage.setItem('arasul_sidebar_collapsed', 'true');
-
-      render(<App />);
-
-      await waitFor(() => {
-        // When collapsed, sidebar shows 'A' instead of 'Arasul'
-        expect(screen.getByText('A')).toBeInTheDocument();
-      });
-
-      const sidebar = document.querySelector('.sidebar');
-      if (sidebar) {
-        expect(sidebar.classList.contains('collapsed')).toBe(true);
-      }
-    });
-
-    test('Keyboard Shortcut Ctrl+B toggled Sidebar', async () => {
-      render(<App />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Arasul')).toBeInTheDocument();
-      });
-
-      // Simulate Ctrl+B
-      fireEvent.keyDown(document, { key: 'b', ctrlKey: true });
-
-      // Check if sidebar toggled
-      const sidebar = document.querySelector('.sidebar');
-      if (sidebar) {
-        // State should have changed
-        expect(localStorage.getItem('arasul_sidebar_collapsed')).toBeDefined();
-      }
-    });
-  });
-
-  describe('WebSocket Connection', () => {
-    const mockUser = { id: 1, username: 'admin' };
-
-    beforeEach(() => {
-      localStorage.setItem('arasul_token', 'valid-token');
-      localStorage.setItem('arasul_user', JSON.stringify(mockUser));
-      global.fetch = vi.fn(createFetchMock(mockUser));
-      mockApi.get.mockImplementation(createApiMock(mockUser));
-    });
-
-    test('WebSocket wird nach Auth initialisiert', async () => {
-      const wsInstances: WebSocket[] = [];
-      const originalWebSocket = window.WebSocket;
-
-      window.WebSocket = class extends originalWebSocket {
-        constructor(url: string | URL, protocols?: string | string[]) {
-          super(url, protocols);
-          wsInstances.push(this);
-        }
-      };
-
-      render(<App />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Arasul')).toBeInTheDocument();
-      });
-
-      // WebSocket sollte erstellt worden sein
-      expect(wsInstances.length).toBeGreaterThanOrEqual(0);
-
-      window.WebSocket = originalWebSocket;
     });
   });
 });
@@ -530,6 +264,8 @@ describe('App Routing', () => {
   const mockUser = { id: 1, username: 'admin' };
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
     localStorage.setItem('arasul_token', 'valid-token');
     localStorage.setItem('arasul_user', JSON.stringify(mockUser));
     global.fetch = vi.fn(createFetchMock(mockUser));
@@ -537,14 +273,14 @@ describe('App Routing', () => {
     mockApi.post.mockResolvedValue({});
   });
 
-  test('Unbekannte Route zeigt Dashboard (oder 404)', async () => {
+  test('Unbekannte Route rendert den Legacy-Fallback (404-Seite, kein Crash)', async () => {
     window.history.pushState({}, '', '/unknown-route');
 
     render(<App />);
 
+    // Nicht-"/"-Pfade bleiben in der Legacy-UI; eine unbekannte Route zeigt 404.
     await waitFor(() => {
-      // Sollte entweder Dashboard oder 404 zeigen, nicht crashen
-      expect(screen.getByText('Arasul')).toBeInTheDocument();
+      expect(screen.getByText(/seite nicht gefunden/i)).toBeInTheDocument();
     });
 
     window.history.pushState({}, '', '/');

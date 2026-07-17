@@ -1,10 +1,9 @@
 /**
- * DashboardCard — kompakte Karten-Primitive des Dashboard-Features.
+ * DashboardCard — kompakte Karten-Primitive der System-Status-Ansicht.
  *
- * Ersetzt die Legacy-CSS-Klassen `.dashboard-card` / `.dashboard-card-title`
- * aus index.css (Plan 002 »Cursor-Shell«, Dichte-Skala): flache Karte auf
- * Theme-Tokens, keine festen Breiten — die Größe kommt vollständig vom
- * umgebenden auto-fit-Grid.
+ * Flache Karte auf Theme-Tokens, keine festen Breiten — die Größe kommt
+ * vollständig vom umgebenden auto-fit-Grid. (Aus dem entfernten Dashboard-
+ * Feature in die System-Einstellungen übernommen; Plan 008.)
  */
 
 import React from 'react';

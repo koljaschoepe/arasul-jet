@@ -4,7 +4,6 @@ import {
   FolderKanban,
   Upload,
   SquareTerminal,
-  Undo2,
   Settings,
   PanelLeft,
   PanelRight,
@@ -14,7 +13,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -22,7 +20,6 @@ import type { TabThemeControls } from './TabContent';
 
 interface WorkspaceMenuBarProps {
   themeControls: TabThemeControls;
-  onLeaveWorkspace: () => void;
 }
 
 function MenuTriggerButton({ label }: { label: string }) {
@@ -76,7 +73,7 @@ function LayoutToggleButton({
  * Erscheinungsbild gesetzt (kein redundanter Ansichtsmodus-Umschalter mehr,
  * Plan 005 · Schritt 1).
  */
-export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
+export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
   const openTab = useWorkspaceStore(s => s.openTab);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
   const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
@@ -111,11 +108,6 @@ export function WorkspaceMenuBar({ onLeaveWorkspace }: WorkspaceMenuBarProps) {
           <DropdownMenuItem onClick={() => requestExplorerAction('upload-files')}>
             <Upload className="h-4 w-4" aria-hidden="true" />
             Dokumente hochladen…
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onLeaveWorkspace}>
-            <Undo2 className="h-4 w-4" aria-hidden="true" />
-            Zur klassischen Ansicht
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

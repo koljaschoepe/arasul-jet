@@ -1,18 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import {
-  Home,
-  MessageSquare,
-  Database,
-  Package,
-  Download,
-  Settings,
-  ChevronLeft,
-  PanelsTopLeft,
-} from 'lucide-react';
+import { Database, Package, Download, Settings, ChevronLeft, PanelsTopLeft } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { setWorkspaceShellEnabled } from '@/lib/featureFlags';
 import { PLATFORM_NAME, PLATFORM_SUBTITLE } from '@/config/branding';
 
 // Preload functions for lazy-loaded route chunks (triggered on hover)
@@ -91,26 +81,6 @@ const SidebarNav = React.memo(function SidebarNav({
           <ul className="nav-bar" role="menubar">
             <li role="none">
               <Link
-                to="/"
-                className={isActive('/')}
-                role="menuitem"
-                aria-current={isCurrent('/') ? 'page' : undefined}
-              >
-                <Home aria-hidden="true" /> <span>Dashboard</span>
-              </Link>
-            </li>
-            <li role="none">
-              <Link
-                to="/chat"
-                className={isActive('/chat')}
-                role="menuitem"
-                aria-current={isCurrent('/chat') ? 'page' : undefined}
-              >
-                <MessageSquare aria-hidden="true" /> <span>Chat</span>
-              </Link>
-            </li>
-            <li role="none">
-              <Link
                 to="/data"
                 className={isActive('/data')}
                 role="menuitem"
@@ -177,7 +147,6 @@ const SidebarNav = React.memo(function SidebarNav({
           to="/workspace"
           className="nav-link"
           title="Zur Workspace-Ansicht (IDE-Layout) zurückkehren"
-          onClick={() => setWorkspaceShellEnabled(true)}
         >
           <PanelsTopLeft aria-hidden="true" /> <span>Workspace</span>
         </Link>

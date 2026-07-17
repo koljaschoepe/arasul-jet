@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Blocks, Workflow } from 'lucide-react';
+import { Blocks, Workflow } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
@@ -32,10 +32,10 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
 
 /**
  * Feste Tab-Shortcuts (Mitte-Tabs). Der »Daten«-Tab ist bewusst weg —
- * Dateiverwaltung lebt vollständig im Explorer.
+ * Dateiverwaltung lebt vollständig im Explorer; die Dashboard-Startseite ist
+ * entfernt (Plan 008).
  */
 const BASE_SHORTCUTS: Array<{ spec: WorkspaceTabSpec; label: string; icon: React.ReactNode }> = [
-  { spec: { type: 'dashboard' }, label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
   { spec: { type: 'store' }, label: 'Extensions', icon: <Blocks className="h-5 w-5" /> },
 ];
 

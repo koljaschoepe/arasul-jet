@@ -17,7 +17,9 @@ vi.mock('@/components/extensions/ExtensionsSidebarList', () => ({
   ExtensionsSidebarList: () => <div data-testid="ext-list" />,
 }));
 
-const DASH: WorkspaceTab = { id: 'dashboard', type: 'dashboard', title: 'Dashboard' };
+// Ein Nicht-Extensions-Tab (mappt auf den ExplorerPanel-Default). Früher der
+// Dashboard-Tab; die Startseite ist entfernt (Plan 008), daher Einstellungen.
+const DEFAULTLIKE: WorkspaceTab = { id: 'settings', type: 'settings', title: 'Einstellungen' };
 const STORE: WorkspaceTab = { id: 'store', type: 'store', title: 'Extensions' };
 const N8N: WorkspaceTab = { id: 'automationen', type: 'automationen', title: 'Automation' };
 
@@ -27,10 +29,10 @@ function reset(tabs: WorkspaceTab[], activeTabId: string) {
 
 describe('SidebarHost — Kontext-Mapping', () => {
   beforeEach(() => {
-    reset([DASH], 'dashboard');
+    reset([DEFAULTLIKE], 'settings');
   });
 
-  it('Dashboard-Tab → ExplorerPanel', () => {
+  it('Nicht-Extensions-Tab → ExplorerPanel', () => {
     render(<SidebarHost />);
     expect(screen.getByTestId('explorer')).toBeInTheDocument();
     expect(screen.queryByTestId('ext-list')).not.toBeInTheDocument();
@@ -44,7 +46,7 @@ describe('SidebarHost — Kontext-Mapping', () => {
   });
 
   it('Automation/n8n-Tab → ExplorerPanel bleibt, Sidebar wird NICHT eingeklappt', () => {
-    reset([DASH, N8N], 'dashboard');
+    reset([DEFAULTLIKE, N8N], 'settings');
     render(<SidebarHost />);
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
 

@@ -4,6 +4,9 @@
  * Shows one consolidated badge + 4 sub-lines (backup, restore-drill,
  * service-health, unacknowledged alerts) driven by GET /api/ops/overview.
  * Admin-only endpoint; renders nothing for non-admin users.
+ *
+ * Aus dem entfernten Dashboard-Feature in die System-Einstellungen (Settings →
+ * System → System-Status) übernommen (Plan 008).
  */
 
 import React, { useEffect, useState } from 'react';
@@ -123,7 +126,7 @@ const SystemHealthWidget: React.FC = () => {
   }
 
   // Fall back to a neutral "unknown" state if the payload omits/garbles status —
-  // a malformed /ops/overview response must not crash the whole dashboard.
+  // a malformed /ops/overview response must not crash the whole view.
   const meta = statusMeta[data.status] ?? {
     icon: <ShieldAlert size={20} />,
     label: 'Status unbekannt',
