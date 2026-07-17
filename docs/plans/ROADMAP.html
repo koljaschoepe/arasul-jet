@@ -277,10 +277,10 @@
     </div>
   </div>
   <div class="counts">
-    <div class="count"><div class="cl">Themen offen</div><div class="cv">14</div></div>
-    <div class="count"><div class="cl">P0 dringend</div><div class="cv">4</div></div>
-    <div class="count"><div class="cl">Geplant</div><div class="cv">0</div></div>
-    <div class="count"><div class="cl">Erledigt</div><div class="cv">6</div></div>
+    <div class="count"><div class="cl">Themen offen</div><div class="cv" id="c-open">–</div></div>
+    <div class="count"><div class="cl">P0 dringend</div><div class="cv" id="c-p0">–</div></div>
+    <div class="count"><div class="cl">Geplant</div><div class="cv" id="c-planned">–</div></div>
+    <div class="count"><div class="cl">Erledigt</div><div class="cv" id="c-done">–</div></div>
   </div>
 
   <div class="banner">
@@ -540,6 +540,20 @@
 <script>
 (function () {
   "use strict";
+
+  // Zaehler-Kacheln aus #roadmap-meta rechnen. Frueher von Hand gepflegt und
+  // deshalb zuverlaessig verdriftet (Stand 2026-07-17: 14/4/0/6 angezeigt,
+  // 15/5/2/7 tatsaechlich). Das JSON ist die einzige Wahrheit.
+  try {
+    var meta = JSON.parse(document.getElementById("roadmap-meta").textContent);
+    var themes = meta.themes || [], hist = meta.history || [];
+    var n = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+    n("c-open", themes.filter(function (t) { return t.status === "open"; }).length);
+    n("c-p0", themes.filter(function (t) { return t.prio === "P0" && t.status !== "done"; }).length);
+    n("c-planned", themes.filter(function (t) { return t.status === "planned"; }).length);
+    n("c-done", hist.length);
+  } catch (e) { /* Kacheln zeigen "–" statt einer Luege */ }
+
   var KEY = "arasul-roadmap-notes";
   var mem = null;
   function load() {
