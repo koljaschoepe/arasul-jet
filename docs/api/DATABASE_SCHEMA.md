@@ -1976,8 +1976,16 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 | `updated_at`             | timestamp with time zone | ✅       | `now()`                                    |
 | `network_mode`           | character varying        | ✅       | `'internal'::character varying`            |
 | `user_id`                | integer                  | ✅       |                                            |
+| `agent_run_token_hash`   | text                     | ✅       |                                            |
+| `agent_run_token_set_at` | timestamp with time zone | ✅       |                                            |
 
 **Primary key:** `id`
+
+> `agent_run_token_hash` / `agent_run_token_set_at` (Migration 105, Plan 008
+> Schritt 12): bcrypt hash of the per-workspace external agent-run token and the
+> time it was last generated. NULL hash = no external caller can start an agent
+> for this workspace. The plaintext token is only ever returned once, on
+> generation (`POST /api/sandbox/projects/:workspace/agenten/token`).
 
 **Check constraints:**
 

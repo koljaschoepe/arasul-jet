@@ -2410,6 +2410,8 @@ Isolated project environments with Docker containers and terminal WebSocket acce
 | GET    | `/api/sandbox/projects/:id/sessions`                         | List terminal sessions for a project                 |
 | GET    | `/api/sandbox/projects/:workspace/agenten`                   | List the workspace's agents (name + parsed metadata) |
 | POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run/stream` | Run an agent, streaming its tool steps as SSE        |
+| POST   | `/api/sandbox/projects/:workspace/agenten/token`             | Generate (rotate) the workspace's external run token |
+| POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run`        | Run an agent via token auth (n8n / HTTP), buffered   |
 | GET    | `/api/sandbox/stats`                                         | Overall sandbox statistics                           |
 
 **POST /api/sandbox/projects/:workspace/agenten/:agent/run/stream** — `:workspace`
@@ -2418,6 +2420,66 @@ Opens a `text/event-stream`; each engine event is one `data:` frame:
 `{type:"tool_start",tool,params}` · `{type:"tool_result",tool,result}` ·
 `{type:"text",content}` · `{type:"done",result}` · `{type:"error",message}`.
 Unknown workspace/agent → 404 before the stream opens.
+
+#### External agent run (n8n / HTTP integration surface)
+
+These two endpoints let n8n — or any HTTP client — start a workspace agent
+without a dashboard session, secured by a **per-workspace bearer token**.
+
+**POST /api/sandbox/projects/:workspace/agenten/token** — cookie/session auth
+(`requireAuth`), owner-or-admin only. Generates a high-entropy token
+(`arun_<base64url>`), stores **only its bcrypt hash** on the workspace and
+returns the plaintext **exactly once**. Each call rotates the token
+(overwrites the previous hash). Response:
+
+```json
+{
+  "token": "arun_JbT2…",
+  "message": "Dieses Token wird nur EINMAL angezeigt und ersetzt ein zuvor erzeugtes Token. Sicher speichern — es kann nicht erneut abgerufen werden.",
+  "timestamp": "2026-07-17T…"
+}
+```
+
+**POST /api/sandbox/projects/:workspace/agenten/:agent/run** — **token auth,
+not cookie auth**. Pass the token in `Authorization: Bearer <token>` (or the
+`X-Agent-Token` header). Body `{ "input": "<message>" }` (the German field
+name `eingabe` is also accepted). The token authorizes as the workspace owner;
+the agent runs to completion and the result is returned as one buffered JSON
+response (no SSE):
+
+```json
+{
+  "result": "Der fertige Antworttext des Agenten.",
+  "iterations": 2,
+  "truncated": false,
+  "steps": [
+    { "type": "tool_start", "tool": "dateien", "params": { "aktion": "read", "pfad": "brief.md" } },
+    { "type": "tool_result", "tool": "dateien", "result": "Sehr geehrte…" }
+  ],
+  "timestamp": "2026-07-17T…"
+}
+```
+
+`steps` contains only the `tool_start` / `tool_result` events so the caller can
+inspect what the agent did. Auth failures — missing token, unknown workspace,
+workspace with no token set, or a wrong token — all return **401** (existence
+is never leaked as a 404). A valid token against an unknown agent returns 404.
+A mid-run engine failure returns a 5xx with the error message (never a silent
+200). Rate limited via `webhookLimiter` (100 req/min).
+
+```bash
+# 1) Generate a token (dashboard session / owner)
+curl -X POST https://arasul.local/api/sandbox/projects/mein-ws/agenten/token \
+  -H "Authorization: Bearer <dashboard-jwt>" -H "X-CSRF-Token: <csrf>"
+# → { "token": "arun_…", … }   (store it — shown once)
+
+# 2) Run the agent from n8n / any HTTP client
+curl -X POST https://arasul.local/api/sandbox/projects/mein-ws/agenten/texter/run \
+  -H "Authorization: Bearer arun_…" \
+  -H "Content-Type: application/json" \
+  -d '{ "input": "Schreib einen Brief an den Kunden" }'
+# → { "result": "…", "iterations": 2, "steps": [ … ] }
+```
 
 **GET /api/sandbox/projects Query Parameters:**
 

@@ -21,6 +21,7 @@ jest.mock('../../src/services/agents/runWorkspaceAgent');
 jest.mock('../../src/services/agents/agentFile');
 
 const db = require('../../src/database');
+const bcrypt = require('bcrypt');
 const logger = require('../../src/utils/logger');
 const { resolveAndRun, loadWorkspace } = require('../../src/services/agents/runWorkspaceAgent');
 const { listAgents, loadAgent } = require('../../src/services/agents/agentFile');
@@ -166,6 +167,178 @@ describe('Workspace Agent routes (Schritt 11)', () => {
         .send({ input: 'hallo' });
       expect(res.status).toBe(401);
       expect(resolveAndRun).not.toHaveBeenCalled();
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // POST /api/sandbox/projects/:workspace/agenten/token  (Schritt 12)
+  // --------------------------------------------------------------------------
+  describe('POST /projects/:workspace/agenten/token', () => {
+    test('owner generates a token; hash is stored, plaintext returned once', async () => {
+      loadWorkspace.mockResolvedValue({ id: 'w1', host_path: '/data/ws', user_id: 1 });
+
+      const res = await request(app)
+        .post('/api/sandbox/projects/mein-ws/agenten/token')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(201);
+      expect(res.body.token).toMatch(/^arun_/);
+      expect(res.body.message).toMatch(/EINMAL/);
+      // Owner-or-admin gate went through loadWorkspace.
+      expect(loadWorkspace).toHaveBeenCalledWith('mein-ws', { userId: 1, userRole: 'admin' });
+      // The bcrypt hash (mocked → 'mock-hash') was persisted, not the plaintext.
+      expect(bcrypt.hash).toHaveBeenCalledWith(res.body.token, 10);
+      const updateCall = db.query.mock.calls.find(
+        ([q]) => typeof q === 'string' && q.includes('agent_run_token_hash')
+      );
+      expect(updateCall).toBeTruthy();
+      expect(updateCall[1]).toEqual(['mock-hash', 'w1']);
+    });
+
+    test('non-owner / unknown workspace → 404', async () => {
+      loadWorkspace.mockRejectedValue(new NotFoundError('Workspace nicht gefunden'));
+      const res = await request(app)
+        .post('/api/sandbox/projects/fremd/agenten/token')
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    });
+
+    test('no auth → 401', async () => {
+      const res = await request(app).post('/api/sandbox/projects/mein-ws/agenten/token');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // POST /api/sandbox/projects/:workspace/agenten/:agent/run  (Schritt 12)
+  // Token-authenticated external run — NOT cookie/session auth.
+  // --------------------------------------------------------------------------
+  describe('POST /projects/:workspace/agenten/:agent/run (external, token)', () => {
+    const TOKEN = 'arun_externaltoken';
+
+    beforeEach(() => {
+      // A workspace owned by user 7, with a stored token hash.
+      loadWorkspace.mockResolvedValue({
+        id: 'w1',
+        host_path: '/data/ws',
+        user_id: 7,
+        agent_run_token_hash: 'stored-hash',
+      });
+    });
+
+    test('valid token → 200 with result + buffered steps; runs as workspace owner', async () => {
+      const scripted = [
+        { type: 'tool_start', tool: 'dateien', params: { aktion: 'read', pfad: 'brief.md' } },
+        { type: 'tool_result', tool: 'dateien', result: 'Sehr geehrte…' },
+        { type: 'text', content: 'Fertig.' },
+        { type: 'done', result: 'Fertig.' },
+      ];
+      resolveAndRun.mockImplementation(async ({ onEvent }) => {
+        for (const evt of scripted) onEvent(evt);
+        return { result: 'Fertig.', iterations: 2 };
+      });
+
+      const res = await request(app)
+        .post('/api/sandbox/projects/mein-ws/agenten/texter/run')
+        .set('Authorization', `Bearer ${TOKEN}`)
+        .send({ input: 'Schreib einen Brief' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.result).toBe('Fertig.');
+      expect(res.body.iterations).toBe(2);
+      // steps = only the tool_start / tool_result events.
+      expect(res.body.steps).toEqual([
+        { type: 'tool_start', tool: 'dateien', params: { aktion: 'read', pfad: 'brief.md' } },
+        { type: 'tool_result', tool: 'dateien', result: 'Sehr geehrte…' },
+      ]);
+      // Authorized AS THE OWNER: workspace.user_id (7) is passed to the helper.
+      expect(resolveAndRun).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceRef: 'mein-ws',
+          agentName: 'texter',
+          userInput: 'Schreib einen Brief',
+          userId: 7,
+          onEvent: expect.any(Function),
+        })
+      );
+    });
+
+    test('accepts the German `eingabe` field and X-Agent-Token header', async () => {
+      resolveAndRun.mockImplementation(async () => ({ result: 'ok', iterations: 1 }));
+      const res = await request(app)
+        .post('/api/sandbox/projects/mein-ws/agenten/texter/run')
+        .set('X-Agent-Token', TOKEN)
+        .send({ eingabe: 'Hallo' });
+      expect(res.status).toBe(200);
+      expect(resolveAndRun).toHaveBeenCalledWith(expect.objectContaining({ userInput: 'Hallo' }));
+    });
+
+    test('no token → 401, engine never invoked', async () => {
+      const res = await request(app)
+        .post('/api/sandbox/projects/mein-ws/agenten/texter/run')
+        .send({ input: 'hallo' });
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+      expect(resolveAndRun).not.toHaveBeenCalled();
+    });
+
+    test('invalid token → 401', async () => {
+      bcrypt.compare.mockResolvedValueOnce(false);
+      const res = await request(app)
+        .post('/api/sandbox/projects/mein-ws/agenten/texter/run')
+        .set('Authorization', `Bearer ${TOKEN}`)
+        .send({ input: 'hallo' });
+      expect(res.status).toBe(401);
+      expect(resolveAndRun).not.toHaveBeenCalled();
+    });
+
+    test('workspace without a token set → 401', async () => {
+      loadWorkspace.mockResolvedValue({
+        id: 'w1',
+        host_path: '/data/ws',
+        user_id: 7,
+        agent_run_token_hash: null,
+      });
+      const res = await request(app)
+        .post('/api/sandbox/projects/mein-ws/agenten/texter/run')
+        .set('Authorization', `Bearer ${TOKEN}`)
+        .send({ input: 'hallo' });
+      expect(res.status).toBe(401);
+      expect(resolveAndRun).not.toHaveBeenCalled();
+    });
+
+    test('unknown workspace → 401 (does not leak existence as 404)', async () => {
+      loadWorkspace.mockRejectedValue(new NotFoundError('Workspace nicht gefunden'));
+      const res = await request(app)
+        .post('/api/sandbox/projects/nope/agenten/texter/run')
+        .set('Authorization', `Bearer ${TOKEN}`)
+        .send({ input: 'hallo' });
+      expect(res.status).toBe(401);
+      expect(resolveAndRun).not.toHaveBeenCalled();
+    });
+
+    test('valid token but unknown agent → 404', async () => {
+      resolveAndRun.mockRejectedValue(new NotFoundError('Agent "texter" nicht gefunden'));
+      const res = await request(app)
+        .post('/api/sandbox/projects/mein-ws/agenten/texter/run')
+        .set('Authorization', `Bearer ${TOKEN}`)
+        .send({ input: 'hallo' });
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    });
+
+    test('engine error event → 5xx, not a silent 200', async () => {
+      resolveAndRun.mockImplementation(async ({ onEvent }) => {
+        onEvent({ type: 'error', message: 'Ollama nicht erreichbar' });
+        return { result: '', iterations: 0, error: 'Ollama nicht erreichbar' };
+      });
+      const res = await request(app)
+        .post('/api/sandbox/projects/mein-ws/agenten/texter/run')
+        .set('Authorization', `Bearer ${TOKEN}`)
+        .send({ input: 'hallo' });
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(res.body.error.message).toMatch(/Ollama nicht erreichbar/);
     });
   });
 });

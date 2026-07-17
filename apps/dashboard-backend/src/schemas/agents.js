@@ -28,4 +28,27 @@ const RunAgentBody = z
   })
   .strict();
 
-module.exports = { AgentListParams, RunAgentParams, RunAgentBody };
+// POST /api/sandbox/projects/:workspace/agenten/token (params) — token route
+// operates on a whole workspace, so it only needs the workspace ref.
+const AgentTokenParams = AgentListParams;
+
+// POST body for the EXTERNAL (token-authenticated) run route. Called by n8n
+// or any HTTP client, so we are lenient about the field name (`input` or the
+// German `eingabe`) and about extra keys the caller may attach — everything
+// is normalised down to a single `input` string. Unknown keys are dropped by
+// the transform rather than rejected, so a webhook body isn't brittle.
+const ExternalRunAgentBody = z
+  .object({
+    input: z.string().max(20000).optional(),
+    eingabe: z.string().max(20000).optional(),
+  })
+  .passthrough()
+  .transform(data => ({ input: data.input ?? data.eingabe ?? '' }));
+
+module.exports = {
+  AgentListParams,
+  RunAgentParams,
+  RunAgentBody,
+  AgentTokenParams,
+  ExternalRunAgentBody,
+};
