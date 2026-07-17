@@ -1,22 +1,21 @@
 /**
- * Integrationstest: Extension-Gating wirkt live, ohne Reload (Plan 002 §5
- * Kriterium 4). ActivityBar (Workspace) und ExtensionsSidebarList (die
- * Extensions-Liste im Sidebar-Host) hängen im SELBEN Render-Tree am SELBEN
- * QueryClient — genau wie in der echten Shell. Der Plattform-Toggle in der
- * Liste muss den ActivityBar-Eintrag über den gemeinsamen React-Query-Cache
- * sofort verschwinden lassen.
+ * Integrationstest: Der Extension-Toggle in der Extensions-Liste wirkt live
+ * über den gemeinsamen React-Query-Cache — ohne Reload (Plan 002 §5 Kriterium 4).
+ *
+ * Seit Plan 008 ist die Workspace-Navigation fest (Chat · Wissen · Automation +
+ * Einstellungen); die ActivityBar wird NICHT mehr per App-Gating ein-/ausgeblendet.
+ * Was live bleibt und hier geprüft wird: (1) der Toggle-Zustand propagiert sofort
+ * über den Cache (setQueryData + invalidateQueries + Refetch), und (2)
+ * Deaktivieren einer App schließt ihren offenen Mitte-Tab im selben Zug.
  *
  * Bewusst KEIN Mock von useWorkspaceApps und KEIN manuelles rerender():
- * getestet wird die echte Query-Cache-Propagation (setQueryData +
- * invalidateQueries + Refetch), die die Unit-Tests der Einzelkomponenten
- * nicht abdecken.
+ * getestet wird die echte Query-Cache-Propagation.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ActivityBar } from '@/features/workspace/ActivityBar';
 import { ExtensionsSidebarList } from '@/components/extensions/ExtensionsSidebarList';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
@@ -46,47 +45,48 @@ vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 const toastMock = { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() };
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => toastMock }));
 
-function renderShellAndExtensions() {
+function renderExtensions() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <ActivityBar />
       <ExtensionsSidebarList />
     </QueryClientProvider>
   );
 }
 
-describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Query-Cache)', () => {
+function resetStore() {
+  useWorkspaceStore.setState({
+    tabs: [],
+    activeTabId: null,
+    sidebarVisible: true,
+    rightPanelVisible: true,
+    rightPanelMode: 'chat',
+    terminalSessions: [],
+    activeTerminalSessionId: null,
+    chatScope: null,
+    explorerRequest: null,
+  });
+}
+
+describe('Extension-Toggle live (gemeinsamer Query-Cache)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     serverApps = [
       { id: 'n8n', name: 'n8n', description: 'Workflows', tab: 'automationen', enabled: true },
     ];
-    useWorkspaceStore.setState({
-      tabs: [],
-      activeTabId: null,
-      sidebarVisible: true,
-      rightPanelVisible: true,
-      rightPanelMode: 'chat',
-      terminalSessions: [],
-      activeTerminalSessionId: null,
-      chatScope: null,
-      explorerRequest: null,
-    });
+    resetStore();
   });
 
-  it('Deaktivieren im Extensions-Tab entfernt den ActivityBar-Eintrag sofort — ohne Reload', async () => {
+  it('Deaktivieren propagiert sofort über den Cache — der Schalter kippt ohne Reload', async () => {
     const user = userEvent.setup();
-    renderShellAndExtensions();
+    renderExtensions();
 
-    // Beide Komponenten hängen am selben Cache: Eintrag + Toggle sichtbar
-    await waitFor(() => expect(screen.getByLabelText('Automationen')).toBeInTheDocument());
     const toggle = await screen.findByRole('switch', { name: 'n8n deaktivieren' });
-
     await user.click(toggle);
 
-    // Kein reload, kein rerender: der Cache-Update muss durchpropagieren
-    await waitFor(() => expect(screen.queryByLabelText('Automationen')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'n8n aktivieren' })).toBeInTheDocument()
+    );
     expect(apiMock.put).toHaveBeenCalledWith(
       '/workspace-apps/n8n',
       { enabled: false },
@@ -94,19 +94,16 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
     );
   });
 
-  it('Wieder aktivieren bringt den Eintrag ohne Reload zurück', async () => {
+  it('Wieder aktivieren kippt den Schalter ohne Reload zurück', async () => {
     const user = userEvent.setup();
     serverApps = serverApps.map(a => (a.id === 'n8n' ? { ...a, enabled: false } : a));
-    renderShellAndExtensions();
+    renderExtensions();
+
+    await user.click(await screen.findByRole('switch', { name: 'n8n aktivieren' }));
 
     await waitFor(() =>
-      expect(screen.getByRole('switch', { name: 'n8n aktivieren' })).toBeInTheDocument()
+      expect(screen.getByRole('switch', { name: 'n8n deaktivieren' })).toBeInTheDocument()
     );
-    expect(screen.queryByLabelText('Automationen')).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('switch', { name: 'n8n aktivieren' }));
-
-    await waitFor(() => expect(screen.getByLabelText('Automationen')).toBeInTheDocument());
   });
 
   it('Deaktivieren schließt den offenen Mitte-Tab der App im selben Zug', async () => {
@@ -118,7 +115,7 @@ describe('Extension-Gating live (ActivityBar ↔ Extensions-Tab, gemeinsamer Que
       ],
       activeTabId: 'automationen',
     });
-    renderShellAndExtensions();
+    renderExtensions();
 
     await user.click(await screen.findByRole('switch', { name: 'n8n deaktivieren' }));
 

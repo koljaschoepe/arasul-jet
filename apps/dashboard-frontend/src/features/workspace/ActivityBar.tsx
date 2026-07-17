@@ -1,17 +1,16 @@
 import React from 'react';
-import { Blocks, Workflow } from 'lucide-react';
+import { MessageSquare, Library, Workflow, Blocks, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
-import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 
 interface ActivityButtonProps {
   label: string;
   onClick: () => void;
   active?: boolean;
+  className?: string;
   children: React.ReactNode;
 }
 
-function ActivityButton({ label, onClick, active, children }: ActivityButtonProps) {
+function ActivityButton({ label, onClick, active, className, children }: ActivityButtonProps) {
   return (
     <button
       type="button"
@@ -23,7 +22,7 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
         active
           ? 'bg-accent text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-      }`}
+      } ${className ?? ''}`}
     >
       {children}
     </button>
@@ -31,58 +30,64 @@ function ActivityButton({ label, onClick, active, children }: ActivityButtonProp
 }
 
 /**
- * Feste Tab-Shortcuts (Mitte-Tabs). Der »Daten«-Tab ist bewusst weg —
- * Dateiverwaltung lebt vollständig im Explorer; die Dashboard-Startseite ist
- * entfernt (Plan 008).
- */
-const BASE_SHORTCUTS: Array<{ spec: WorkspaceTabSpec; label: string; icon: React.ReactNode }> = [
-  { spec: { type: 'store' }, label: 'Extensions', icon: <Blocks className="h-5 w-5" /> },
-];
-
-/** App-gebundene Shortcuts — erscheinen nur, wenn die Extension aktiviert ist. */
-const APP_SHORTCUTS: Array<{
-  appId: string;
-  spec: WorkspaceTabSpec;
-  label: string;
-  icon: React.ReactNode;
-}> = [
-  {
-    appId: 'n8n',
-    spec: { type: 'automationen' },
-    label: 'Automationen',
-    icon: <Workflow className="h-5 w-5" />,
-  },
-];
-
-/**
- * Schmale Icon-Leiste ganz links (wie VS Code/Cursor). Rein für Mitte-Tabs:
- * Dashboard, Extensions und dynamisch die aktivierten Apps (n8n,
- * Datenbank). Sidebar- und Panel-Sichtbarkeit steuern die zwei Layout-Toggles
- * in der WorkspaceMenuBar; der Panel-Modus (Chat/Terminal) lebt im Panel
- * selbst (Cursor-minimal).
+ * Schmale Icon-Leiste ganz links (wie VS Code/Cursor) — die
+ * Drei-Bereiche-Navigation aus Plan 008: **Chat** (Kommandozentrale, rechtes
+ * Panel), **Wissen** (Dateien/Explorer, linke Sidebar) und **Automation** (n8n).
+ * Darunter der Extensions-Store, ganz unten die Einstellungen. Die Bereiche sind
+ * bewusst fest — keine dynamischen App-Shortcuts mehr; der Store verwaltet, was
+ * installiert ist, die Navigation bleibt konstant.
+ *
+ * Chat und Wissen schalten Panel- bzw. Sidebar-Sichtbarkeit; Automation,
+ * Extensions und Einstellungen öffnen ihren Mitte-Tab.
  */
 export function ActivityBar() {
   const openTab = useWorkspaceStore(s => s.openTab);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
-  const { isAppEnabled } = useWorkspaceApps();
+  const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
+  const setSidebarVisible = useWorkspaceStore(s => s.setSidebarVisible);
+  const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
+  const rightPanelMode = useWorkspaceStore(s => s.rightPanelMode);
+  const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
 
-  const shortcuts = [...BASE_SHORTCUTS, ...APP_SHORTCUTS.filter(s => isAppEnabled(s.appId))];
+  const chatActive = rightPanelVisible && rightPanelMode === 'chat';
 
   return (
     <nav
       aria-label="Workspace-Navigation"
       className="flex h-full w-12 shrink-0 flex-col items-center gap-1 bg-background py-2"
     >
-      {shortcuts.map(({ spec, label, icon }) => (
-        <ActivityButton
-          key={spec.type}
-          label={label}
-          onClick={() => openTab(spec)}
-          active={activeTabId === spec.type}
-        >
-          {icon}
-        </ActivityButton>
-      ))}
+      <ActivityButton label="Chat" active={chatActive} onClick={() => setRightPanelMode('chat')}>
+        <MessageSquare className="h-5 w-5" />
+      </ActivityButton>
+      <ActivityButton
+        label="Wissen"
+        active={sidebarVisible}
+        onClick={() => setSidebarVisible(!sidebarVisible)}
+      >
+        <Library className="h-5 w-5" />
+      </ActivityButton>
+      <ActivityButton
+        label="Automation"
+        active={activeTabId === 'automationen'}
+        onClick={() => openTab({ type: 'automationen' })}
+      >
+        <Workflow className="h-5 w-5" />
+      </ActivityButton>
+      <ActivityButton
+        label="Extensions"
+        active={activeTabId === 'store'}
+        onClick={() => openTab({ type: 'store' })}
+      >
+        <Blocks className="h-5 w-5" />
+      </ActivityButton>
+      <ActivityButton
+        label="Einstellungen"
+        active={activeTabId === 'settings'}
+        onClick={() => openTab({ type: 'settings' })}
+        className="mt-auto"
+      >
+        <Settings className="h-5 w-5" />
+      </ActivityButton>
     </nav>
   );
 }
