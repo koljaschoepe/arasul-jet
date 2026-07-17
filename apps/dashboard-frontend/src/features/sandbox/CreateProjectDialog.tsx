@@ -158,7 +158,7 @@ export default function CreateProjectDialog({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label>Netzwerk &amp; Berechtigungen</Label>
+          <Label>Was darf dieser Workspace?</Label>
           <div className="flex gap-2">
             <button
               type="button"
@@ -169,9 +169,11 @@ export default function CreateProjectDialog({
                   : 'border-border bg-muted text-muted-foreground hover:border-primary/50'
               }`}
             >
-              <div className="font-medium">Isoliert</div>
+              <div className="font-medium">Abgeschottet</div>
               <div className="text-[10px] opacity-70 mt-0.5">
-                Nur Internet, kein Zugriff auf interne Services
+                Internet ja · dein System nein. Der Container sieht nur seine eigenen Dateien —
+                Datenbank, Speicher und Qdrant sind für ihn nicht erreichbar. Für externe Modelle
+                (z.&nbsp;B. Claude).
               </div>
             </button>
             <button
@@ -183,9 +185,9 @@ export default function CreateProjectDialog({
                   : 'border-border bg-muted text-muted-foreground hover:border-primary/50'
               }`}
             >
-              <div className="font-medium">Internes Netzwerk</div>
+              <div className="font-medium">Am System</div>
               <div className="text-[10px] opacity-70 mt-0.5">
-                Zugriff auf KI-Services + Datenbank
+                Zugriff auf Datenbank, Speicher und RAG. Für lokale Agenten, die im System arbeiten.
               </div>
             </button>
           </div>
@@ -200,10 +202,10 @@ export default function CreateProjectDialog({
           >
             <div className="font-medium flex items-center gap-1.5">
               <ShieldAlert className="size-3.5 shrink-0" />
-              Infrastruktur
+              Voller Zugriff
             </div>
             <div className="text-[10px] opacity-70 mt-0.5">
-              Voller Zugriff auf Plattform-Repo (beschreibbar) und Docker — die KI kann damit die
+              Darf alles — inkl. Plattform-Repo (beschreibbar) und Docker. Die KI kann damit die
               laufende Arasul-Plattform selbst verändern. Nur für Administratoren.
             </div>
           </button>
