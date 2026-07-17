@@ -96,7 +96,7 @@ Always:
 - Use `Idempotency-Key` if the SaaS sends one.
 
 The appliance applies a 600 req/min rate limit per source IP at the proxy
-layer, so a single SaaS misbehaving cannot DoS the bot.
+layer, so a single SaaS misbehaving cannot DoS the appliance.
 
 ---
 
@@ -145,7 +145,7 @@ Common gotchas:
 | Symptom                                                   | Likely cause                                                                                                                                                           |
 | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | OAuth flow redirects to `localhost`                       | `PUBLIC_URL` is not configured on the appliance — ask your operator.                                                                                                   |
-| Webhook returns 503 from Cloudflare                       | Cloudflare's BotFightMode strips Telegram/Stripe headers. Add a path-based bypass in CF.                                                                               |
+| Webhook returns 503 from Cloudflare                       | Cloudflare's BotFightMode strips Stripe/GitHub webhook headers. Add a path-based bypass in CF.                                                                         |
 | HTTP Request returns ECONNREFUSED to a hostname like `db` | The hostname is internal-only. n8n's HTTP Request node deliberately blocks internal hostnames in the latest hardening pass — use the appliance's external URL instead. |
 | Workflow runs once, then never again                      | Workflow is not **Active** — toggle the switch in the top-right of the editor.                                                                                         |
 | Credentials disappear after a restart                     | The encryption key was not persisted. Operator should check `n8n_encryption_key` Docker secret.                                                                        |

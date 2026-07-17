@@ -50,7 +50,7 @@ list of error codes. No auth required.
   "version": "1.0.0",
   "node": "v22.x.x",
   "uptimeSeconds": 12345,
-  "routes": { "core": ["..."], "telegram": ["..."], "system": ["..."], "...": [] },
+  "routes": { "core": ["..."], "sandbox": ["..."], "system": ["..."], "...": [] },
   "errorCodes": ["VALIDATION_ERROR", "UNAUTHORIZED", "..."],
   "timestamp": "2026-..."
 }
@@ -285,7 +285,7 @@ Response: Server-Sent Events (SSE) stream
 | GET    | `/api/chats`              | List all conversations      |
 | POST   | `/api/chats`              | Create new conversation     |
 | GET    | `/api/chats/:id`          | Get conversation details    |
-| PATCH  | `/api/chats/:id`          | Update title or project     |
+| PATCH  | `/api/chats/:id`          | Update title                |
 | DELETE | `/api/chats/:id`          | Soft delete conversation    |
 | GET    | `/api/chats/:id/messages` | Get messages                |
 | POST   | `/api/chats/:id/messages` | Add message                 |
@@ -295,8 +295,7 @@ Response: Server-Sent Events (SSE) stream
 
 ```json
 {
-  "title": "Optional title",
-  "project_id": "uuid" // optional, assign to project
+  "title": "Optional title"
 }
 ```
 
@@ -304,14 +303,9 @@ Response: Server-Sent Events (SSE) stream
 
 ```json
 {
-  "title": "New title", // optional
-  "project_id": "uuid|null" // optional, move to/from project
+  "title": "New title" // optional
 }
 ```
-
-**GET /api/chats** Query Parameters:
-
-- `ungrouped=true`: Only return conversations not assigned to any project
 
 **POST /api/chats/:id/messages:**
 
@@ -369,65 +363,6 @@ JSON Export Example:
 ```
 
 Markdown Export: Generates a human-readable Markdown file with collapsible thinking blocks and source citations.
-
-### Projects
-
-Projects group conversations with a shared system prompt and optional Knowledge Space for RAG focus.
-
-| Method | Endpoint            | Description                                     |
-| ------ | ------------------- | ----------------------------------------------- |
-| GET    | `/api/projects`     | List all projects with conversation count       |
-| POST   | `/api/projects`     | Create new project                              |
-| GET    | `/api/projects/:id` | Get project details with conversations          |
-| PUT    | `/api/projects/:id` | Update project                                  |
-| DELETE | `/api/projects/:id` | Delete project (conversations become ungrouped) |
-
-**GET /api/projects:**
-
-Query Parameters:
-
-- `include=conversations`: Include full conversation list per project
-
-```json
-{
-  "projects": [
-    {
-      "id": "uuid",
-      "name": "Mein Projekt",
-      "description": "Projektbeschreibung",
-      "system_prompt": "Du bist ein Experte für...",
-      "icon": "folder",
-      "color": "#45ADFF",
-      "knowledge_space_id": "uuid|null",
-      "space_name": "Space Name|null",
-      "sort_order": 0,
-      "conversation_count": "3",
-      "conversations": [...]  // only with include=conversations
-    }
-  ]
-}
-```
-
-**POST /api/projects:**
-
-```json
-{
-  "name": "Projekt Name", // required, max 100 chars
-  "description": "Optional", // optional
-  "system_prompt": "Du bist...", // optional
-  "icon": "folder", // optional, default: "folder"
-  "color": "#45ADFF", // optional, default: "#45ADFF"
-  "knowledge_space_id": "uuid" // optional, must exist
-}
-```
-
-**PUT /api/projects/:id:**
-
-Same body as POST. All fields optional (COALESCE update). Set `knowledge_space_id` to `null` to unlink a space.
-
-**DELETE /api/projects/:id:**
-
-Conversations belonging to the deleted project are ungrouped (`project_id` set to `NULL`), not deleted.
 
 ### RAG (Document Q&A)
 
@@ -755,7 +690,6 @@ data: {"done": true, "status": "completed"}
 | GET    | `/api/events/boot-history`         | Yes    | System boot history               |
 | DELETE | `/api/events/:id`                  | Yes    | Delete specific event             |
 | POST   | `/api/events/cleanup`              | Yes    | Cleanup old events                |
-| GET    | `/api/events/telegram/status`      | Yes    | Telegram connection status        |
 
 **GET /api/events Query Parameters:**
 
@@ -767,14 +701,13 @@ data: {"done": true, "status": "completed"}
 
 ```json
 {
-  "channel": "telegram",
+  "channel": "webhook",
   "enabled": true,
   "event_types": ["service_status", "alert"],
   "min_severity": "warning",
   "rate_limit_per_minute": 10,
   "quiet_hours_start": "22:00",
-  "quiet_hours_end": "07:00",
-  "telegram_chat_id": "-1001234567890"
+  "quiet_hours_end": "07:00"
 }
 ```
 
@@ -805,28 +738,6 @@ Only accepts requests from localhost or Docker network IPs.
   "success": true,
   "duration_ms": 3000,
   "error_message": null
-}
-```
-
-**GET /api/events/telegram/status:**
-
-```json
-{
-  "connected": true,
-  "botInfo": {
-    "id": 123456789,
-    "username": "MyArasulBot"
-  },
-  "error": null,
-  "stats": {
-    "sent_24h": 15,
-    "failed_24h": 0
-  },
-  "configured": {
-    "botToken": true,
-    "chatId": true
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
 
@@ -970,222 +881,6 @@ Response:
 - At least 1 number
 - At least 1 special character
 
-### Telegram Bot
-
-| Method | Endpoint                         | Description                              | Rate Limit |
-| ------ | -------------------------------- | ---------------------------------------- | ---------- |
-| POST   | `/api/telegram/config`           | Save bot token and settings              | 100/min    |
-| GET    | `/api/telegram/config`           | Get configuration (token masked)         | -          |
-| GET    | `/api/telegram/updates`          | Get recent messages to discover chat IDs | 5/min      |
-| GET    | `/api/telegram/thresholds`       | Get alert thresholds                     | -          |
-| PUT    | `/api/telegram/thresholds`       | Update alert thresholds                  | 100/min    |
-| POST   | `/api/telegram/test`             | Send test message                        | 5/min      |
-| GET    | `/api/telegram/audit-logs`       | Get bot audit logs                       | -          |
-| GET    | `/api/telegram/audit-logs/stats` | Get audit statistics                     | -          |
-
-**POST /api/telegram/config:**
-
-Full configuration (with token):
-
-```json
-{
-  "bot_token": "123456789:ABCdefGHIjklMNOpqrsTUVwxyz",
-  "chat_id": "-1001234567890",
-  "enabled": true
-}
-```
-
-Partial update (without token):
-
-```json
-{
-  "chat_id": "-1001234567890",
-  "enabled": true
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "has_token": true,
-  "message": "Telegram configuration saved successfully",
-  "token_masked": "12345...xyz",
-  "chat_id": "-1001234567890",
-  "enabled": true,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/telegram/config:**
-
-```json
-{
-  "configured": true,
-  "token_masked": "12345...xyz",
-  "chat_id": "-1001234567890",
-  "enabled": true,
-  "created_at": "2026-01-15T10:00:00.000Z",
-  "updated_at": "2026-01-15T10:00:00.000Z",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/telegram/updates:**
-
-Fetches recent messages sent to the bot to discover chat IDs. Useful when the user doesn't know their chat ID.
-
-Response:
-
-```json
-{
-  "success": true,
-  "chats": [
-    {
-      "chat_id": "-1001234567890",
-      "type": "supergroup",
-      "title": "My Group",
-      "username": null,
-      "first_name": null,
-      "last_message": "Hello bot!",
-      "date": "2026-01-15T10:00:00.000Z"
-    },
-    {
-      "chat_id": "123456789",
-      "type": "private",
-      "title": null,
-      "username": "johndoe",
-      "first_name": "John",
-      "last_message": "/start",
-      "date": "2026-01-15T09:55:00.000Z"
-    }
-  ],
-  "total_updates": 5,
-  "hint": "Select a chat ID from the list above.",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/telegram/thresholds:**
-
-```json
-{
-  "thresholds": {
-    "cpu_warning": 80,
-    "cpu_critical": 95,
-    "ram_warning": 80,
-    "ram_critical": 95,
-    "disk_warning": 80,
-    "disk_critical": 95,
-    "gpu_warning": 85,
-    "gpu_critical": 95,
-    "temperature_warning": 75,
-    "temperature_critical": 85,
-    "notify_on_warning": false,
-    "notify_on_critical": true,
-    "notify_on_service_down": true,
-    "notify_on_self_healing": true,
-    "cooldown_minutes": 15
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**PUT /api/telegram/thresholds:**
-
-```json
-{
-  "thresholds": {
-    "cpu_warning": 75,
-    "cpu_critical": 90,
-    "notify_on_warning": true
-  }
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "Alert thresholds updated successfully",
-  "thresholds": { ... },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**POST /api/telegram/test:**
-
-```json
-{
-  "chat_id": "-1001234567890"
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "Test message sent successfully",
-  "chat_id": "-1001234567890",
-  "message_id": 12345,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/telegram/audit-logs:**
-
-Query Parameters:
-
-- `limit`: Number of records (default: 50, max: 200)
-- `offset`: Pagination offset
-- `userId`: Filter by Telegram user ID
-- `chatId`: Filter by chat ID
-- `command`: Filter by command
-- `success`: Filter by success ('true' or 'false')
-- `startDate`: Filter from date (ISO string)
-- `endDate`: Filter to date (ISO string)
-
-Response:
-
-```json
-{
-  "logs": [
-    {
-      "id": 1,
-      "timestamp": "2026-01-15T10:00:00.000Z",
-      "user_id": 123456789,
-      "username": "johndoe",
-      "chat_id": -1001234567890,
-      "command": "/status",
-      "message_text": "/status",
-      "response_text": "System running normally",
-      "response_time_ms": 150,
-      "success": true,
-      "interaction_type": "command"
-    }
-  ],
-  "pagination": {
-    "total": 100,
-    "limit": 50,
-    "offset": 0,
-    "hasMore": true
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**Notes:**
-
-- Bot token is encrypted using AES-256-GCM before storage
-- Token is never returned in plaintext, only masked (first 5, last 3 chars)
-- Chat ID can be a user ID, group ID, or channel ID
-- Use `/updates` endpoint to discover chat IDs by sending a message to your bot
-- Alert thresholds control when Telegram notifications are sent for system metrics
-- Cooldown prevents notification spam (default: 15 minutes between same alerts)
-
 ### Updates
 
 | Method | Endpoint                       | Description                       |
@@ -1282,7 +977,7 @@ Response (same as POST /upload):
 
 ### Workspace-Apps
 
-Sichtbarkeit der kuratierten Kern-Apps (n8n, Telegram, Datenbank) in der
+Sichtbarkeit der kuratierten Kern-Apps (aktuell nur n8n) in der
 Workspace-Shell. Persistenz in `platform_apps`; deaktivierte Apps
 verschwinden aus ActivityBar/Tab-Angebot, die Dienste laufen weiter.
 
@@ -1769,7 +1464,7 @@ All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
   "tier": "professional",
   "customer": "Muster GmbH",
   "expiresAt": "2027-01-01T00:00:00.000Z",
-  "features": ["rag", "telegram", "backup"],
+  "features": ["rag", "backup"],
   "hardwareFingerprint": "sha256:abc...",
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
@@ -1808,7 +1503,7 @@ All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
 
 ```json
 {
-  "feature": "telegram",
+  "feature": "rag",
   "allowed": true,
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
@@ -2417,12 +2112,42 @@ Isolated project environments with Docker containers and terminal WebSocket acce
 | DELETE | `/api/sandbox/projects/:workspace/claude-login`              | Delete the stored Claude login for the user                |
 | GET    | `/api/sandbox/stats`                                         | Overall sandbox statistics                                 |
 
+#### Agenten (Workspace-Agenten)
+
+An _agent_ is a markdown file with YAML frontmatter at
+`<workspace host_path>/agenten/<name>.md` (frontmatter fields: `name`,
+`beschreibung`, `modell`, `werkzeuge`; the body is the system prompt). Agents
+may use three tools: `dateien` (read/write files in the workspace), `rag`
+(search the workspace's knowledge) and `terminal` (run a command in the
+workspace container). `:workspace` is the sandbox project id or ref.
+
+**GET /api/sandbox/projects/:workspace/agenten** — cookie/session auth. Lists
+the workspace's agents (parsed frontmatter). Powers the `@`-autocomplete in
+Chat. A malformed agent file is returned bare as `{ "name": "…" }`.
+
+```json
+{
+  "agents": [
+    {
+      "name": "texter",
+      "displayName": "Texter",
+      "description": "Schreibt und überarbeitet Texte.",
+      "model": "qwen2.5:7b",
+      "tools": ["dateien", "rag"]
+    }
+  ],
+  "timestamp": "2026-07-17T…"
+}
+```
+
 **POST /api/sandbox/projects/:workspace/agenten/:agent/run/stream** — `:workspace`
 is the project id (UUID) or slug; body `{ "input": "<message to the agent>" }`.
 Opens a `text/event-stream`; each engine event is one `data:` frame:
 `{type:"tool_start",tool,params}` · `{type:"tool_result",tool,result}` ·
-`{type:"text",content}` · `{type:"done",result}` · `{type:"error",message}`.
-Unknown workspace/agent → 404 before the stream opens.
+`{type:"text",content}` · `{type:"done",result,truncated}` · `{type:"error",message}`.
+Auth/resolution failures happen before the first SSE frame — **401** if
+unauthenticated, **404** for an unknown workspace/agent. Rate limited by the
+LLM limiter.
 
 #### External agent run (n8n / HTTP integration surface)
 
@@ -2742,436 +2467,6 @@ Request: `multipart/form-data` with `file` field only.
 
 ---
 
-## Telegram App API
-
-**Base Path:** `/api/telegram-app`
-
-Advanced Telegram bot configuration with zero-config setup.
-
-### Zero-Config Setup
-
-Bot-Wizard mit automatischer Chat-Erkennung via WebSocket.
-
-| Method | Endpoint                     | Description                             |
-| ------ | ---------------------------- | --------------------------------------- |
-| POST   | `/zero-config/init`          | Start setup session, returns setupToken |
-| POST   | `/zero-config/token`         | Validate bot token, returns deep link   |
-| GET    | `/zero-config/status/:token` | Poll setup status                       |
-| POST   | `/zero-config/complete`      | Finalize setup, send test message       |
-| WS     | `/ws`                        | WebSocket for real-time chat detection  |
-
-**POST /zero-config/init:**
-
-Startet eine neue Setup-Session (10 Min gültig).
-
-```json
-// Response
-{
-  "success": true,
-  "setupToken": "a1b2c3d4e5f6...", // 32-char hex
-  "expiresIn": 600
-}
-```
-
-**POST /zero-config/token:**
-
-Validiert Bot-Token bei Telegram API und generiert Deep-Link.
-
-```json
-// Request
-{
-  "setupToken": "a1b2c3d4e5f6...",
-  "botToken": "123456789:ABCdefGHI..."
-}
-
-// Response
-{
-  "success": true,
-  "botInfo": {
-    "id": 123456789,
-    "first_name": "My Bot",
-    "username": "my_bot"
-  },
-  "deepLink": "https://t.me/my_bot?start=setup_a1b2c3d4"
-}
-```
-
-**GET /zero-config/status/:token:**
-
-Polling-Endpoint für Setup-Status (Fallback wenn WebSocket nicht verfügbar).
-
-```json
-// Response (waiting)
-{
-  "status": "waiting_start",
-  "chatId": null,
-  "botUsername": "my_bot"
-}
-
-// Response (completed)
-{
-  "status": "completed",
-  "chatId": 987654321,
-  "chatUsername": "user123",
-  "chatFirstName": "Max"
-}
-```
-
-**WebSocket /ws:**
-
-Real-time Updates für Chat-Erkennung.
-
-```javascript
-// Client → Server: Subscribe
-{ "type": "subscribe", "setupToken": "a1b2c3d4..." }
-
-// Server → Client: Subscribed
-{ "type": "subscribed", "timestamp": "..." }
-
-// Server → Client: Chat detected
-{
-  "type": "setup_complete",
-  "status": "completed",
-  "chatId": 987654321,
-  "chatUsername": "user123",
-  "chatFirstName": "Max",
-  "chatType": "private"
-}
-
-// Server → Client: Error
-{ "type": "error", "error": "Session expired" }
-```
-
-### Status Endpoints
-
-| Method | Endpoint                           | Description                                   |
-| ------ | ---------------------------------- | --------------------------------------------- |
-| GET    | `/api/telegram-app/status`         | Get current app status for authenticated user |
-| GET    | `/api/telegram-app/dashboard-data` | Get data for dashboard icon display           |
-| PUT    | `/api/telegram-app/settings`       | Update app settings                           |
-| GET    | `/api/telegram-app/global-stats`   | Get global statistics                         |
-
-**PUT /api/telegram-app/settings:**
-
-```json
-{
-  "settings": {
-    "key": "value"
-  }
-}
-```
-
-### Bot Configuration
-
-| Method | Endpoint                    | Description                   |
-| ------ | --------------------------- | ----------------------------- |
-| GET    | `/api/telegram-app/config`  | Get current bot configuration |
-| PUT    | `/api/telegram-app/config`  | Update bot configuration      |
-| GET    | `/api/telegram-app/history` | Get notification history      |
-
-**GET /api/telegram-app/config Response:**
-
-```json
-{
-  "configured": true,
-  "config": {
-    "chat_id": 987654321,
-    "bot_username": "my_bot",
-    "bot_first_name": "My Bot",
-    "notifications_enabled": true,
-    "quiet_hours_start": "22:00",
-    "quiet_hours_end": "07:00",
-    "min_severity": "warning",
-    "claude_notifications": true,
-    "system_notifications": true,
-    "n8n_notifications": true,
-    "is_active": true,
-    "last_message_at": "2026-01-15T10:00:00.000Z",
-    "created_at": "2026-01-10T08:00:00.000Z"
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**PUT /api/telegram-app/config:**
-
-```json
-{
-  "notificationsEnabled": true,
-  "quietHoursStart": "22:00",
-  "quietHoursEnd": "07:00",
-  "minSeverity": "warning",
-  "claudeNotifications": true,
-  "systemNotifications": true,
-  "n8nNotifications": false
-}
-```
-
-**GET /api/telegram-app/history Query Parameters:**
-
-- `limit`: Max results (default: 50)
-- `offset`: Pagination offset
-
-**GET /api/telegram-app/history Response:**
-
-```json
-{
-  "history": [
-    {
-      "id": 1,
-      "rule_name": "High CPU Alert",
-      "created_at": "2026-01-15T10:00:00.000Z"
-    }
-  ],
-  "total": 25,
-  "limit": 50,
-  "offset": 0,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-### Notification Rules
-
-| Method | Endpoint                | Description                       |
-| ------ | ----------------------- | --------------------------------- |
-| GET    | `/rules`                | List notification rules           |
-| POST   | `/rules`                | Create notification rule          |
-| PUT    | `/rules/:ruleId`        | Update rule                       |
-| DELETE | `/rules/:ruleId`        | Delete rule                       |
-| PATCH  | `/rules/:ruleId/toggle` | Enable/disable rule               |
-| POST   | `/rules/:id/test`       | Send test notification for a rule |
-
-**POST /api/telegram-app/rules:**
-
-```json
-{
-  "name": "High CPU Alert",
-  "description": "Benachrichtigung bei hoher CPU-Auslastung",
-  "eventSource": "system",
-  "eventType": "cpu_critical",
-  "triggerCondition": {},
-  "severity": "critical",
-  "messageTemplate": "CPU bei {{event.value}}%! Zeitstempel: {{timestamp}}",
-  "cooldownSeconds": 60,
-  "isEnabled": true
-}
-```
-
-**POST /api/telegram-app/rules/:id/test:**
-
-Sendet eine Test-Benachrichtigung für eine Regel an den konfigurierten Telegram-Chat. Erfordert einen aktiv konfigurierten Bot.
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "Test-Nachricht gesendet",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-### Orchestrator
-
-| Method | Endpoint                                             | Description                          |
-| ------ | ---------------------------------------------------- | ------------------------------------ |
-| POST   | `/orchestrator/process`                              | Process event through rules          |
-| GET    | `/orchestrator/stats`                                | Get processing statistics            |
-| GET    | `/api/telegram-app/orchestrator/status`              | Get orchestrator and agent status    |
-| GET    | `/api/telegram-app/orchestrator/thinking/:agentType` | Get thinking logs for specific agent |
-
-**GET /api/telegram-app/orchestrator/status Response:**
-
-```json
-{
-  "agents": [
-    {
-      "agent_type": "setup",
-      "state": "idle",
-      "last_action": "2026-01-15T10:00:00.000Z",
-      "actions_count": 5,
-      "thinking_entries": 12
-    }
-  ],
-  "orchestratorMode": "master",
-  "thinkingMode": false,
-  "skipPermissions": false,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/telegram-app/orchestrator/thinking/:agentType Query Parameters:**
-
-- `limit`: Max log entries to return (default: 50)
-
-**GET /api/telegram-app/orchestrator/thinking/:agentType Response:**
-
-```json
-{
-  "agentType": "setup",
-  "thinkingLog": [
-    {
-      "timestamp": "2026-01-15T10:00:00.000Z",
-      "message": "Setup session initialized",
-      "context": { "userId": 1, "action": "create_session" }
-    }
-  ],
-  "totalEntries": 12,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-### Zero-Config (Additional Endpoints)
-
-| Method | Endpoint                                      | Description                                   |
-| ------ | --------------------------------------------- | --------------------------------------------- |
-| POST   | `/api/telegram-app/zero-config/chat-detected` | Called by bot when user sends /start (intern) |
-| POST   | `/api/telegram-app/zero-config/cancel`        | Cancel setup session and stop polling         |
-
-**POST /api/telegram-app/zero-config/chat-detected:**
-
-Interner Endpoint – wird vom Polling-Service aufgerufen, wenn der Bot ein `/start`-Kommando erkennt. Kein Auth-Token erforderlich.
-
-```json
-// Request
-{
-  "setupToken": "a1b2c3d4e5f6...",
-  "chatId": 987654321,
-  "username": "user123",
-  "firstName": "Max"
-}
-
-// Response
-{
-  "success": true,
-  "message": "Setup erfolgreich abgeschlossen",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**POST /api/telegram-app/zero-config/cancel:**
-
-Bricht eine aktive Setup-Session ab und stoppt den Telegram-Polling-Service.
-
-```json
-// Request
-{
-  "setupToken": "a1b2c3d4e5f6..."
-}
-
-// Response
-{
-  "success": true,
-  "message": "Setup abgebrochen",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
----
-
-## Telegram Bots API
-
-**Base Path:** `/api/telegram-bots`
-
-CRUD-Operationen für Telegram-Bot-Verwaltung mit LLM-Integration.
-
-### Bot Management
-
-| Method | Endpoint          | Description                 |
-| ------ | ----------------- | --------------------------- |
-| GET    | `/`               | List all bots               |
-| POST   | `/`               | Create new bot              |
-| GET    | `/:id`            | Get bot details             |
-| PUT    | `/:id`            | Update bot config           |
-| DELETE | `/:id`            | Delete bot                  |
-| POST   | `/:id/activate`   | Activate bot (set webhook)  |
-| POST   | `/:id/deactivate` | Deactivate bot              |
-| POST   | `/validate-token` | Validate Telegram bot token |
-
-**POST / (Create Bot):**
-
-```json
-{
-  "name": "Mein Assistent",
-  "botToken": "123456789:ABCdefGHI...",
-  "llmProvider": "ollama", // "ollama" | "claude"
-  "llmModel": "llama3.2",
-  "systemPrompt": "Du bist ein hilfreicher Assistent...",
-  "maxTokens": 2048,
-  "temperature": 0.7,
-  "ragEnabled": false, // optional, default false
-  "ragSpaceIds": ["uuid1", "uuid2"], // optional, array of RAG space UUIDs or null
-  "ragShowSources": false // optional, default false - include source references in responses
-}
-```
-
-**PUT /:id (Update Bot):**
-
-Accepts the same body fields as `POST /`. All fields are optional; only provided fields are updated.
-
-```json
-{
-  "name": "Neuer Name",
-  "ragEnabled": true,
-  "ragSpaceIds": ["uuid1"],
-  "ragShowSources": true
-}
-```
-
-**GET / and GET /:id Response (RAG fields):**
-
-Bot objects returned by list and detail endpoints include the following RAG-related fields:
-
-```json
-{
-  "id": "uuid",
-  "name": "Mein Assistent",
-  "...": "...",
-  "rag_enabled": false,
-  "rag_space_ids": ["uuid1", "uuid2"],
-  "rag_show_sources": false
-}
-```
-
-> **Database Migration:** `047_telegram_rag.sql` adds the columns `rag_enabled` (boolean, default false), `rag_space_ids` (jsonb, nullable), and `rag_show_sources` (boolean, default false) to the `telegram_bots` table.
-
-### Bot Commands
-
-| Method | Endpoint               | Description          |
-| ------ | ---------------------- | -------------------- |
-| GET    | `/:id/commands`        | List custom commands |
-| POST   | `/:id/commands`        | Add custom command   |
-| PUT    | `/:id/commands/:cmdId` | Update command       |
-| DELETE | `/:id/commands/:cmdId` | Delete command       |
-
-### Chat Management
-
-| Method | Endpoint                | Description           |
-| ------ | ----------------------- | --------------------- |
-| GET    | `/:id/chats`            | List authorized chats |
-| DELETE | `/:id/chats/:chatRowId` | Remove chat access    |
-| GET    | `/:id/session/:chatId`  | Get chat session      |
-| DELETE | `/:id/session/:chatId`  | Clear chat session    |
-
-### Webhook Management
-
-| Method | Endpoint                  | Description                 |
-| ------ | ------------------------- | --------------------------- |
-| GET    | `/:id/webhook`            | Get webhook status          |
-| POST   | `/:id/webhook`            | Set webhook                 |
-| DELETE | `/:id/webhook`            | Remove webhook              |
-| POST   | `/webhook/:botId/:secret` | Webhook receiver (Telegram) |
-
-### Testing & Models
-
-| Method | Endpoint            | Description        |
-| ------ | ------------------- | ------------------ |
-| POST   | `/:id/test-message` | Send test message  |
-| GET    | `/models/ollama`    | List Ollama models |
-| GET    | `/models/claude`    | List Claude models |
-
----
-
 ## Documentation API
 
 **Base Path:** `/api/docs`
@@ -3181,323 +2476,6 @@ Bot objects returned by list and detail endpoints include the following RAG-rela
 | GET    | `/api/docs/`             | OpenAPI documentation UI |
 | GET    | `/api/docs/openapi.json` | OpenAPI spec (JSON)      |
 | GET    | `/api/docs/openapi.yaml` | OpenAPI spec (YAML)      |
-
----
-
-## Datentabellen API (Dynamic Database)
-
-**Base Path:** `/api/v1/datentabellen`
-
-Dynamic database builder for creating custom tables and automated quote generation.
-
-### Tables
-
-| Method | Endpoint                          | Description                |
-| ------ | --------------------------------- | -------------------------- |
-| GET    | `/tables`                         | List all tables with stats |
-| POST   | `/tables`                         | Create new table           |
-| GET    | `/tables/:slug`                   | Get table with fields      |
-| PATCH  | `/tables/:slug`                   | Update table metadata      |
-| DELETE | `/tables/:slug`                   | Delete table and data      |
-| POST   | `/tables/:slug/fields`            | Add field to table         |
-| PATCH  | `/tables/:slug/fields/:fieldSlug` | Update field               |
-| DELETE | `/tables/:slug/fields/:fieldSlug` | Remove field               |
-
-**Supported Field Types:**
-
-- `text`, `textarea`, `number`, `currency`, `date`, `datetime`
-- `select`, `multiselect`, `checkbox`, `relation`
-- `file`, `image`, `email`, `url`, `phone`, `formula`
-
-**POST /tables/:slug/fields** Body:
-
-- `name` (required): Display name
-- `field_type` (required): One of the supported types
-- `unit` (optional): Measurement unit (e.g. "kg", "€", "m")
-- `is_required` (optional): Boolean, default false
-- `is_unique` (optional): Boolean, default false
-
-**PATCH /tables/:slug/fields/:fieldSlug** Body (all optional):
-
-- `name`: New display name
-- `field_type`: Change field type (with automatic column type conversion)
-- `unit`: Change or remove measurement unit (null to remove)
-
-### Rows (Data)
-
-| Method | Endpoint                    | Description            |
-| ------ | --------------------------- | ---------------------- |
-| GET    | `/tables/:slug/rows`        | List rows (paginated)  |
-| POST   | `/tables/:slug/rows`        | Create row             |
-| GET    | `/tables/:slug/rows/:rowId` | Get single row         |
-| PATCH  | `/tables/:slug/rows/:rowId` | Update row             |
-| DELETE | `/tables/:slug/rows/:rowId` | Delete row             |
-| POST   | `/tables/:slug/rows/bulk`   | Bulk import (max 1000) |
-| DELETE | `/tables/:slug/rows/bulk`   | Bulk delete            |
-
-**Query Parameters (GET /rows):**
-
-- `page`: Page number (default: 1)
-- `limit`: Items per page (default: 50, max: 10000)
-- `sort`: Field to sort by (default: `_created_at`)
-- `order`: `asc` or `desc` (default: `desc`)
-- `filters`: JSON array of filter objects
-- `search`: Search in primary display field
-
-**Filter Format:**
-
-```json
-[
-  { "field": "name", "operator": "like", "value": "Widget" },
-  { "field": "price", "operator": "gte", "value": 100 }
-]
-```
-
-**Operators:** `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `in`, `is_null`, `is_not_null`
-
-### Bulk Operations
-
-| Method | Endpoint                                       | Description                       |
-| ------ | ---------------------------------------------- | --------------------------------- |
-| POST   | `/api/v1/datentabellen/tables/:slug/rows/bulk` | Bulk-Import von Zeilen (max 1000) |
-| DELETE | `/api/v1/datentabellen/tables/:slug/rows/bulk` | Bulk-Löschen von Zeilen           |
-
-**POST /api/v1/datentabellen/tables/:slug/rows/bulk:**
-
-Importiert bis zu 1000 Zeilen in einem Vorgang. Einzelne fehlerhafte Zeilen werden übersprungen; der Rest wird trotzdem importiert.
-
-```json
-// Request
-{
-  "rows": [
-    { "name": "Artikel 1", "price": 9.99 },
-    { "name": "Artikel 2", "price": 19.99 }
-  ]
-}
-
-// Response
-{
-  "success": true,
-  "data": {
-    "inserted": 2,
-    "errors": 0
-  },
-  "message": "2 Datensätze importiert",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**DELETE /api/v1/datentabellen/tables/:slug/rows/bulk:**
-
-Löscht bis zu 100 Zeilen gleichzeitig anhand ihrer UUIDs.
-
-```json
-// Request
-{
-  "ids": [
-    "550e8400-e29b-41d4-a716-446655440000",
-    "550e8400-e29b-41d4-a716-446655440001"
-  ]
-}
-
-// Response
-{
-  "success": true,
-  "data": { "deleted": 2 },
-  "message": "2 Datensätze gelöscht",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-### RAG / Indexierung
-
-| Method | Endpoint                                          | Description                                   |
-| ------ | ------------------------------------------------- | --------------------------------------------- |
-| POST   | `/api/v1/datentabellen/tables/:slug/index`        | Tabellendaten für RAG/LLM-Abfragen indexieren |
-| DELETE | `/api/v1/datentabellen/tables/:slug/index`        | Tabellendaten aus dem RAG-Index entfernen     |
-| GET    | `/api/v1/datentabellen/tables/:slug/index/status` | Indexierungsstatus abfragen                   |
-
-**POST /api/v1/datentabellen/tables/:slug/index:**
-
-Erstellt Embeddings für jede Zeile der Tabelle und speichert sie in Qdrant. Bestehende Vektoren der Tabelle werden zuerst gelöscht.
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "42 Datensätze indexiert",
-  "indexed": 42,
-  "table": "Produkte",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**DELETE /api/v1/datentabellen/tables/:slug/index:**
-
-Entfernt alle Vektoren der Tabelle aus dem Qdrant-Index.
-
-Response:
-
-```json
-{
-  "success": true,
-  "message": "Index erfolgreich entfernt",
-  "table": "Produkte",
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/v1/datentabellen/tables/:slug/index/status:**
-
-Response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "table": "Produkte",
-    "indexed_rows": 42,
-    "total_rows": 42,
-    "is_indexed": true,
-    "is_complete": true
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-### Natural Language Query
-
-| Method | Endpoint                                  | Description                                   |
-| ------ | ----------------------------------------- | --------------------------------------------- |
-| POST   | `/api/v1/datentabellen/query/natural`     | KI-gestützte Abfrage in natürlicher Sprache   |
-| POST   | `/api/v1/datentabellen/query/sql`         | Validierte SQL-Abfrage ausführen (nur SELECT) |
-| GET    | `/api/v1/datentabellen/schema/:tableSlug` | Tabellenschema für KI/SQL-Zwecke abrufen      |
-| GET    | `/api/v1/datentabellen/schemas`           | Alle Tabellenschemata abrufen                 |
-
-**POST /api/v1/datentabellen/query/natural:**
-
-Übersetzt eine natürlichsprachliche Anfrage mit Hilfe des LLM in SQL und führt diese aus. Die Abfrage muss mindestens 5 Zeichen lang sein.
-
-```json
-// Request
-{
-  "query": "Zeige mir alle Produkte über 100 Euro",
-  "tableSlug": "produkte"  // optional, auto-detect wenn weggelassen
-}
-
-// Response
-{
-  "success": true,
-  "data": {
-    "sql": "SELECT * FROM data_produkte WHERE preis > 100",
-    "results": [...],
-    "explanation": "Alle Produkte mit einem Preis über 100 Euro",
-    "rowCount": 15,
-    "table": "Produkte"
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**POST /api/v1/datentabellen/query/sql:**
-
-Führt einen validierten SQL-SELECT-Befehl direkt aus. Nur SELECT-Statements sind erlaubt.
-
-```json
-// Request
-{
-  "sql": "SELECT name, preis FROM data_produkte WHERE preis > 100 ORDER BY preis DESC"
-}
-
-// Response
-{
-  "success": true,
-  "data": {
-    "results": [...],
-    "rowCount": 15
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/v1/datentabellen/schema/:tableSlug:**
-
-Gibt das Datenbankschema einer Tabelle zurück – für die KI-SQL-Generierung genutzt.
-
-Response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "slug": "produkte",
-    "name": "Produkte",
-    "fields": [
-      { "slug": "name", "name": "Name", "field_type": "text", "is_required": true },
-      { "slug": "preis", "name": "Preis", "field_type": "currency", "is_required": false }
-    ]
-  },
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-**GET /api/v1/datentabellen/schemas:**
-
-Gibt die Schemata aller vorhandenen Tabellen zurück.
-
-Response:
-
-```json
-{
-  "success": true,
-  "data": [...],
-  "count": 5,
-  "timestamp": "2026-01-15T10:00:00.000Z"
-}
-```
-
-### Quotes
-
-| Method | Endpoint                        | Description              |
-| ------ | ------------------------------- | ------------------------ |
-| GET    | `/quotes`                       | List quotes (paginated)  |
-| POST   | `/quotes`                       | Create quote             |
-| GET    | `/quotes/:quoteId`              | Get quote with positions |
-| PATCH  | `/quotes/:quoteId`              | Update draft quote       |
-| POST   | `/quotes/:quoteId/status`       | Change quote status      |
-| GET    | `/quotes/:quoteId/pdf`          | Download quote as PDF    |
-| GET    | `/quotes/templates`             | List quote templates     |
-| POST   | `/quotes/templates`             | Create template          |
-| PATCH  | `/quotes/templates/:templateId` | Update template          |
-
-**Quote Statuses:** `draft`, `sent`, `viewed`, `accepted`, `rejected`, `expired`, `cancelled`
-
-**Create Quote Example:**
-
-```json
-{
-  "customer_email": "kunde@example.com",
-  "customer_name": "Max Mustermann",
-  "customer_company": "Muster GmbH",
-  "positions": [
-    {
-      "name": "Product A",
-      "quantity": 2,
-      "unit": "Stück",
-      "unit_price": 99.99
-    }
-  ],
-  "valid_days": 30
-}
-```
-
-### Stats & Health
-
-| Method | Endpoint  | Description                |
-| ------ | --------- | -------------------------- |
-| GET    | `/health` | Data database health check |
-| GET    | `/stats`  | Overview statistics        |
 
 ---
 
@@ -3541,7 +2519,6 @@ All responses include:
 | Metrics API      | 20 req  | 1 sec  |
 | Password Changes | 3 req   | 15 min |
 | n8n Webhooks     | 100 req | 1 min  |
-| Telegram Test    | 5 req   | 1 min  |
 
 ---
 

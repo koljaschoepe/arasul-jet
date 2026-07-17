@@ -56,9 +56,9 @@ Concretely, this means:
 | Surface             | Lives in                        | Who cares               |
 | ------------------- | ------------------------------- | ----------------------- |
 | **Dashboard UI**    | `apps/dashboard-frontend/`      | End users, admins       |
-| **HTTP API**        | `apps/dashboard-backend/`       | Frontend, n8n, bots     |
+| **HTTP API**        | `apps/dashboard-backend/`       | Frontend, n8n, agents   |
 | **Database**        | `services/postgres/init/*.sql`  | All backend services    |
-| **LLM / RAG**       | `services/llm-service/`, Qdrant | Chat, Telegram, search  |
+| **LLM / RAG**       | `services/llm-service/`, Qdrant | Chat, agents, search    |
 | **Ops / Self-heal** | `services/self-healing-agent/`  | Autonomous recovery     |
 | **Setup / Boot**    | `./arasul`, `scripts/setup/`    | First-boot provisioning |
 
@@ -209,7 +209,7 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 | Adding a DB field    | `services/postgres/init/` (next migration number)                             |
 | Editing LLM behavior | `apps/dashboard-backend/src/services/llm/`                                    |
 | Debugging n8n flow   | `services/n8n/` + dashboard n8n page                                          |
-| Touching Telegram    | `apps/dashboard-frontend/src/features/telegram/` + `routes/telegram/`         |
+| Touching agents      | `apps/dashboard-backend/src/services/agents/` + `routes/sandbox.js`           |
 | Changing design      | `docs/development/DESIGN_SYSTEM.md` + `apps/dashboard-frontend/src/index.css` |
 
 ### Reading guide per domain
@@ -217,7 +217,6 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 Before editing in a domain, glance at the matching context file:
 
 - `.claude/context/backend.md` — Express routes, services, middleware
-- `.claude/context/telegram.md` — Telegram bot architecture
 - `.claude/context/n8n-workflow.md` — n8n workflow engine + custom nodes
 - `.claude/context/rag.md` — RAG pipeline (chunk → embed → retrieve)
 - `.claude/context/llm-queue.md` — LLM service queue + concurrency
@@ -229,7 +228,7 @@ Before editing in a domain, glance at the matching context file:
 
 ### Your first PR checklist
 
-- [ ] Branch from `main` with a descriptive name (`feat/telegram-multi-bot`, `fix/rag-cite-parser`).
+- [ ] Branch from `main` with a descriptive name (`feat/agent-tools`, `fix/rag-cite-parser`).
 - [ ] Implementation + at least one test covering the change.
 - [ ] `./scripts/test/run-tests.sh --all` passes locally.
 - [ ] Updated relevant docs if behavior or API changed.

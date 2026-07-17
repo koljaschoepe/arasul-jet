@@ -60,7 +60,7 @@ scripts/deploy/deploy-local.sh
 | Datei / Ort                                     | Rolle                                                                                           |
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `.claude/skills/plan/` + `.claude/skills/work/` | Plan-Seite (Interview → Freigabe) bzw. Ausführung (Branch → PR → Deploy → Live-Verify → Report) |
-| `scripts/util/nightly-run.sh`                   | Nightly: `/work --nightly` — bis 3 Pläne + Dependabot/PR-Chores, Telegram-Report                |
+| `scripts/util/nightly-run.sh`                   | Nightly: `/work --nightly` — bis 3 Pläne + Dependabot/PR-Chores, Report                         |
 | `.github/workflows/deploy.yml`                  | Deploy-Trigger (push→main), self-hosted                                                         |
 | `scripts/deploy/deploy-local.sh`                | Deploy-Logik + Healthcheck + Rollback                                                           |
 | `.github/workflows/test.yml`                    | CI (unverändert), liefert den Required-Check                                                    |

@@ -75,13 +75,13 @@ deploy:
 
 All config under `config/traefik/`:
 
-| File                      | Purpose                                                       |
-| ------------------------- | ------------------------------------------------------------- |
-| `traefik.yml`             | Static config: entrypoints, providers, logging, metrics       |
-| `dynamic/routes.yml`      | HTTP routers and service definitions (priority 1-110)         |
-| `dynamic/middlewares.yml` | Rate limits, auth, CORS, security headers, strip-prefix       |
-| `dynamic/tls.yml`         | Self-signed cert, TLS 1.2+ with strong cipher suites          |
-| `dynamic/websockets.yml`  | WebSocket routers for metrics, telegram, n8n, claude-terminal |
+| File                      | Purpose                                                 |
+| ------------------------- | ------------------------------------------------------- |
+| `traefik.yml`             | Static config: entrypoints, providers, logging, metrics |
+| `dynamic/routes.yml`      | HTTP routers and service definitions (priority 1-110)   |
+| `dynamic/middlewares.yml` | Rate limits, auth, CORS, security headers, strip-prefix |
+| `dynamic/tls.yml`         | Self-signed cert, TLS 1.2+ with strong cipher suites    |
+| `dynamic/websockets.yml`  | WebSocket routers for metrics, n8n, claude-terminal     |
 
 **Entrypoints**:
 
@@ -179,16 +179,14 @@ All config under `config/traefik/`:
 
 Defined in `compose/compose.secrets.yaml`. Secret files stored in `config/secrets/`:
 
-| Secret                    | File Path                                | Used By              |
-| ------------------------- | ---------------------------------------- | -------------------- |
-| `postgres_password`       | `config/secrets/postgres_password`       | postgres-db, backend |
-| `jwt_secret`              | `config/secrets/jwt_secret`              | backend              |
-| `minio_root_user`         | `config/secrets/minio_root_user`         | minio, backend       |
-| `minio_root_password`     | `config/secrets/minio_root_password`     | minio, backend       |
-| `n8n_encryption_key`      | `config/secrets/n8n_encryption_key`      | n8n                  |
-| `admin_password`          | `config/secrets/admin_password`          | backend              |
-| `telegram_encryption_key` | `config/secrets/telegram_encryption_key` | backend              |
-| `telegram_bot_token`      | `config/secrets/telegram_bot_token`      | backend              |
+| Secret                | File Path                            | Used By              |
+| --------------------- | ------------------------------------ | -------------------- |
+| `postgres_password`   | `config/secrets/postgres_password`   | postgres-db, backend |
+| `jwt_secret`          | `config/secrets/jwt_secret`          | backend              |
+| `minio_root_user`     | `config/secrets/minio_root_user`     | minio, backend       |
+| `minio_root_password` | `config/secrets/minio_root_password` | minio, backend       |
+| `n8n_encryption_key`  | `config/secrets/n8n_encryption_key`  | n8n                  |
+| `admin_password`      | `config/secrets/admin_password`      | backend              |
 
 Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment variables (e.g., `POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password`). Backend uses `resolveSecrets.js` to read these.
 

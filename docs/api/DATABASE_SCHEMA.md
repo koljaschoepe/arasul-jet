@@ -499,7 +499,8 @@
 
 ## `bot_audit_log`
 
-> Audit log for all Telegram bot interactions
+> Legacy audit log for Telegram bot interactions. Retained by migration 017;
+> no longer written to since the Telegram feature was removed (Plan 008).
 
 | Column             | Type                     | Nullable | Default                                    |
 | ------------------ | ------------------------ | -------- | ------------------------------------------ |
@@ -580,7 +581,6 @@
 | `compaction_token_count`   | integer                  | ✅       | `0`                                        |
 | `compaction_message_count` | integer                  | ✅       | `0`                                        |
 | `last_compacted_at`        | timestamp with time zone | ✅       |                                            |
-| `project_id`               | uuid                     | ⛔       |                                            |
 | `use_rag`                  | boolean                  | ✅       | `false`                                    |
 | `use_thinking`             | boolean                  | ✅       | `true`                                     |
 | `preferred_model`          | character varying        | ✅       | `NULL::character varying`                  |
@@ -591,7 +591,6 @@
 
 **Foreign Keys:**
 
-- `project_id` → `projects.id`
 - `user_id` → `admin_users.id`
 
 **Indexes:**
@@ -600,7 +599,6 @@
 - `idx_chat_conversations_deleted` — `CREATE INDEX idx_chat_conversations_deleted ON public.chat_conversations USING btree (deleted_at) WHERE (deleted_at IS NULL)`
 - `idx_chat_conversations_updated` — `CREATE INDEX idx_chat_conversations_updated ON public.chat_conversations USING btree (updated_at DESC)`
 - `idx_chat_conversations_user` — `CREATE INDEX idx_chat_conversations_user ON public.chat_conversations USING btree (user_id, updated_at DESC) WHERE (deleted_at IS NULL)`
-- `idx_conversations_project` — `CREATE INDEX idx_conversations_project ON public.chat_conversations USING btree (project_id)`
 - `idx_conversations_updated` — `CREATE INDEX idx_conversations_updated ON public.chat_conversations USING btree (updated_at DESC) WHERE (deleted_at IS NULL)`
 
 ---
@@ -808,29 +806,6 @@
 
 - `component_updates_pkey` — `CREATE UNIQUE INDEX component_updates_pkey ON public.component_updates USING btree (id)`
 - `idx_component_updates_event` — `CREATE INDEX idx_component_updates_event ON public.component_updates USING btree (update_event_id)`
-
----
-
-## `datentabellen_config`
-
-> Configuration for the separate arasul_data_db used by the Datentabellen feature
-
-| Column         | Type                     | Nullable | Default                                    |
-| -------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`           | integer                  | ⛔       | `nextval('datentabellen_config_id_seq'...` |
-| `data_db_host` | character varying        | ✅       | `'postgres-db'::character varying`         |
-| `data_db_port` | integer                  | ✅       | `5432`                                     |
-| `data_db_name` | character varying        | ✅       | `'arasul_data_db'::character varying`      |
-| `data_db_user` | character varying        | ✅       | `'arasul_data'::character varying`         |
-| `is_enabled`   | boolean                  | ✅       | `true`                                     |
-| `created_at`   | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`   | timestamp with time zone | ✅       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `datentabellen_config_pkey` — `CREATE UNIQUE INDEX datentabellen_config_pkey ON public.datentabellen_config USING btree (id)`
 
 ---
 
@@ -1220,6 +1195,11 @@
 | `updated_at`             | timestamp with time zone | ✅       | `now()`                        |
 | `owner_id`               | integer                  | ✅       |                                |
 | `parent_id`              | uuid                     | ✅       |                                |
+| `is_workspace`           | boolean                  | ⛔       | `false`                        |
+
+> `is_workspace` (Migration 106, Plan 008): `TRUE` marks the automatic, invisible
+> per-workspace space (one per `sandbox_projects` row, hidden from the documents
+> UI) used to auto-index files written in the workspace.
 
 > `parent_id` (Migration 098, Plan `ide-workspace-shell`): Spaces bilden einen
 > verschachtelten Ordnerbaum (Workspace-Explorer / Second Brain). `NULL` =
@@ -1235,6 +1215,7 @@
 
 **Indexes:**
 
+- `idx_knowledge_spaces_is_workspace` — `CREATE INDEX idx_knowledge_spaces_is_workspace ON public.knowledge_spaces USING btree (is_workspace) WHERE (is_workspace = true)`
 - `idx_knowledge_spaces_parent_id` — `CREATE INDEX idx_knowledge_spaces_parent_id ON public.knowledge_spaces USING btree (parent_id) WHERE (parent_id IS NOT NULL)`
 - `idx_knowledge_spaces_owner` — `CREATE INDEX idx_knowledge_spaces_owner ON public.knowledge_spaces USING btree (owner_id)`
 - `idx_knowledge_spaces_single_default` — `CREATE UNIQUE INDEX idx_knowledge_spaces_single_default ON public.knowledge_spaces USING btree (is_default) WHERE (is_default = true)`
@@ -1756,26 +1737,26 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ## `notification_settings`
 
-> User preferences for notification delivery
+> User preferences for notification delivery. The channel-neutral notification
+> pipeline stays; the Telegram delivery channel was removed (Migration 102), so
+> `telegram` is no longer a valid `channel` despite the legacy column default.
 
-| Column                        | Type                     | Nullable | Default                                    |
-| ----------------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                          | integer                  | ⛔       | `nextval('notification_settings_id_seq...` |
-| `user_id`                     | integer                  | ✅       |                                            |
-| `channel`                     | character varying        | ⛔       | `'telegram'::character varying`            |
-| `enabled`                     | boolean                  | ✅       | `true`                                     |
-| `event_types`                 | ARRAY                    | ✅       | `ARRAY['service_status'::text, 'workfl...` |
-| `min_severity`                | character varying        | ✅       | `'warning'::character varying`             |
-| `rate_limit_per_minute`       | integer                  | ✅       | `10`                                       |
-| `rate_limit_per_hour`         | integer                  | ✅       | `100`                                      |
-| `quiet_hours_start`           | time without time zone   | ✅       |                                            |
-| `quiet_hours_end`             | time without time zone   | ✅       |                                            |
-| `telegram_chat_id`            | character varying        | ✅       |                                            |
-| `telegram_bot_token_override` | character varying        | ✅       |                                            |
-| `webhook_url`                 | character varying        | ✅       |                                            |
-| `webhook_secret`              | character varying        | ✅       |                                            |
-| `created_at`                  | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`                  | timestamp with time zone | ✅       | `now()`                                    |
+| Column                  | Type                     | Nullable | Default                                    |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                    | integer                  | ⛔       | `nextval('notification_settings_id_seq...` |
+| `user_id`               | integer                  | ✅       |                                            |
+| `channel`               | character varying        | ⛔       | `'telegram'::character varying`            |
+| `enabled`               | boolean                  | ✅       | `true`                                     |
+| `event_types`           | ARRAY                    | ✅       | `ARRAY['service_status'::text, 'workfl...` |
+| `min_severity`          | character varying        | ✅       | `'warning'::character varying`             |
+| `rate_limit_per_minute` | integer                  | ✅       | `10`                                       |
+| `rate_limit_per_hour`   | integer                  | ✅       | `100`                                      |
+| `quiet_hours_start`     | time without time zone   | ✅       |                                            |
+| `quiet_hours_end`       | time without time zone   | ✅       |                                            |
+| `webhook_url`           | character varying        | ✅       |                                            |
+| `webhook_secret`        | character varying        | ✅       |                                            |
+| `created_at`            | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`            | timestamp with time zone | ✅       | `now()`                                    |
 
 **Primary key:** `id`
 
@@ -1819,7 +1800,7 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ## `platform_apps`
 
-> Kuratierte Plattform-Apps (Extensions-Tab) an-/abschaltbar. Seed: `n8n`, `telegram`, `database` (Migration 100).
+> Kuratierte Plattform-Apps (Extensions-Tab) an-/abschaltbar. Effektiver Seed: `n8n` (Migration 100). Die Apps `telegram` und `database` wurden von den Migrationen 102 bzw. 103 wieder entfernt.
 
 | Column       | Type                     | Nullable | Default |
 | ------------ | ------------------------ | -------- | ------- |
@@ -1828,38 +1809,6 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 | `updated_at` | timestamp with time zone | ⛔       | `now()` |
 
 **Primary key:** `id`
-
----
-
-## `projects`
-
-| Column               | Type                     | Nullable | Default                        |
-| -------------------- | ------------------------ | -------- | ------------------------------ |
-| `id`                 | uuid                     | ⛔       | `gen_random_uuid()`            |
-| `name`               | character varying        | ⛔       |                                |
-| `description`        | text                     | ✅       | `''::text`                     |
-| `system_prompt`      | text                     | ✅       | `''::text`                     |
-| `icon`               | character varying        | ✅       | `'folder'::character varying`  |
-| `color`              | character varying        | ✅       | `'#45ADFF'::character varying` |
-| `knowledge_space_id` | uuid                     | ✅       |                                |
-| `sort_order`         | integer                  | ✅       | `0`                            |
-| `created_at`         | timestamp with time zone | ✅       | `now()`                        |
-| `updated_at`         | timestamp with time zone | ✅       | `now()`                        |
-| `is_default`         | boolean                  | ✅       | `false`                        |
-| `owner_id`           | integer                  | ✅       |                                |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `knowledge_space_id` → `knowledge_spaces.id`
-- `owner_id` → `admin_users.id`
-
-**Indexes:**
-
-- `idx_projects_owner` — `CREATE INDEX idx_projects_owner ON public.projects USING btree (owner_id)`
-- `idx_projects_sort` — `CREATE INDEX idx_projects_sort ON public.projects USING btree (sort_order, created_at DESC)`
-- `projects_pkey` — `CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (id)`
 
 ---
 
@@ -1978,6 +1927,7 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 | `user_id`                | integer                  | ✅       |                                            |
 | `agent_run_token_hash`   | text                     | ✅       |                                            |
 | `agent_run_token_set_at` | timestamp with time zone | ✅       |                                            |
+| `space_id`               | uuid                     | ✅       |                                            |
 
 **Primary key:** `id`
 
@@ -1987,6 +1937,11 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 > for this workspace. The plaintext token is only ever returned once, on
 > generation (`POST /api/sandbox/projects/:workspace/agenten/token`).
 
+> `space_id` (Migration 106, Plan 008): the one invisible per-workspace
+> knowledge space (`knowledge_spaces.is_workspace = true`) used to auto-index
+> files written in the workspace for RAG scoping. `NULL` = no space yet; the
+> agent then scopes to no space. `ON DELETE SET NULL`.
+
 **Check constraints:**
 
 - `sandbox_projects_network_mode_check` — `CHECK (network_mode IN ('isolated', 'internal', 'infrastructure'))` (Migration 100; `infrastructure` = Backend-Netz + Plattform-Repo rw + Docker-Socket, nur Admin-Rolle)
@@ -1994,10 +1949,12 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 **Foreign Keys:**
 
 - `user_id` → `admin_users.id`
+- `space_id` → `knowledge_spaces.id` (`ON DELETE SET NULL`)
 
 **Indexes:**
 
 - `idx_sandbox_projects_container_status` — `CREATE INDEX idx_sandbox_projects_container_status ON public.sandbox_projects USING btree (container_status) WHERE (container_status = ANY (ARRAY['running'::sandbox_container_status, 'creating'::sandbox_container_status]))`
+- `idx_sandbox_projects_space_id` — `CREATE INDEX idx_sandbox_projects_space_id ON public.sandbox_projects USING btree (space_id)`
 - `idx_sandbox_projects_last_accessed` — `CREATE INDEX idx_sandbox_projects_last_accessed ON public.sandbox_projects USING btree (last_accessed_at DESC NULLS LAST) WHERE (status = 'active'::sandbox_project_status)`
 - `idx_sandbox_projects_slug` — `CREATE INDEX idx_sandbox_projects_slug ON public.sandbox_projects USING btree (slug)`
 - `idx_sandbox_projects_status` — `CREATE INDEX idx_sandbox_projects_status ON public.sandbox_projects USING btree (status)`
@@ -2216,44 +2173,40 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ## `system_settings`
 
-| Column                            | Type                     | Nullable | Default |
-| --------------------------------- | ------------------------ | -------- | ------- |
-| `id`                              | integer                  | ⛔       | `1`     |
-| `setup_completed`                 | boolean                  | ⛔       | `false` |
-| `setup_completed_at`              | timestamp with time zone | ✅       |         |
-| `setup_completed_by`              | integer                  | ✅       |         |
-| `company_name`                    | character varying        | ✅       |         |
-| `hostname`                        | character varying        | ✅       |         |
-| `selected_model`                  | character varying        | ✅       |         |
-| `setup_step`                      | integer                  | ✅       | `0`     |
-| `created_at`                      | timestamp with time zone | ⛔       | `now()` |
-| `updated_at`                      | timestamp with time zone | ⛔       | `now()` |
-| `ai_profile_yaml`                 | text                     | ✅       |         |
-| `ai_profile_updated_at`           | timestamp with time zone | ✅       |         |
-| `telegram_enabled`                | boolean                  | ⛔       | `false` |
-| `telegram_disclaimer_accepted`    | boolean                  | ⛔       | `false` |
-| `telegram_disclaimer_accepted_at` | timestamp with time zone | ✅       |         |
-| `telegram_disclaimer_accepted_by` | integer                  | ✅       |         |
-| `ai_transparency_enabled`         | boolean                  | ⛔       | `true`  |
-| `ai_transparency_disabled_at`     | timestamp with time zone | ✅       |         |
-| `ai_transparency_disabled_by`     | integer                  | ✅       |         |
-| `rag_top_k`                       | integer                  | ✅       | `10`    |
-| `rag_final_k`                     | integer                  | ✅       | `4`     |
-| `rag_score_threshold`             | double precision         | ✅       | `0.30`  |
-| `rag_relevance_threshold`         | double precision         | ✅       | `0.55`  |
-| `rag_rerank_enabled`              | boolean                  | ✅       | `true`  |
-| `rag_timeout_rerank_ms`           | integer                  | ✅       | `8000`  |
-| `llm_num_ctx_default`             | integer                  | ✅       | `NULL`  |
-| `llm_keep_alive_seconds`          | integer                  | ✅       | `3600`  |
-| `llm_num_predict_default`         | integer                  | ✅       | `2048`  |
-| `rag_temperature`                 | double precision         | ✅       | `0.2`   |
-| `rag_num_predict`                 | integer                  | ✅       | `2048`  |
-| `rag_mmr_lambda`                  | double precision         | ✅       | `0.7`   |
-| `rag_dedup_max_per_doc`           | integer                  | ✅       | `3`     |
-| `rag_hybrid_search`               | boolean                  | ✅       | `true`  |
-| `rag_space_routing_threshold`     | double precision         | ✅       | `0.4`   |
-| `rag_space_routing_max_spaces`    | integer                  | ✅       | `3`     |
-| `llm_base_system_prompt`          | text                     | ✅       | `NULL`  |
+| Column                         | Type                     | Nullable | Default |
+| ------------------------------ | ------------------------ | -------- | ------- |
+| `id`                           | integer                  | ⛔       | `1`     |
+| `setup_completed`              | boolean                  | ⛔       | `false` |
+| `setup_completed_at`           | timestamp with time zone | ✅       |         |
+| `setup_completed_by`           | integer                  | ✅       |         |
+| `company_name`                 | character varying        | ✅       |         |
+| `hostname`                     | character varying        | ✅       |         |
+| `selected_model`               | character varying        | ✅       |         |
+| `setup_step`                   | integer                  | ✅       | `0`     |
+| `created_at`                   | timestamp with time zone | ⛔       | `now()` |
+| `updated_at`                   | timestamp with time zone | ⛔       | `now()` |
+| `ai_profile_yaml`              | text                     | ✅       |         |
+| `ai_profile_updated_at`        | timestamp with time zone | ✅       |         |
+| `ai_transparency_enabled`      | boolean                  | ⛔       | `true`  |
+| `ai_transparency_disabled_at`  | timestamp with time zone | ✅       |         |
+| `ai_transparency_disabled_by`  | integer                  | ✅       |         |
+| `rag_top_k`                    | integer                  | ✅       | `10`    |
+| `rag_final_k`                  | integer                  | ✅       | `4`     |
+| `rag_score_threshold`          | double precision         | ✅       | `0.30`  |
+| `rag_relevance_threshold`      | double precision         | ✅       | `0.55`  |
+| `rag_rerank_enabled`           | boolean                  | ✅       | `true`  |
+| `rag_timeout_rerank_ms`        | integer                  | ✅       | `8000`  |
+| `llm_num_ctx_default`          | integer                  | ✅       | `NULL`  |
+| `llm_keep_alive_seconds`       | integer                  | ✅       | `3600`  |
+| `llm_num_predict_default`      | integer                  | ✅       | `2048`  |
+| `rag_temperature`              | double precision         | ✅       | `0.2`   |
+| `rag_num_predict`              | integer                  | ✅       | `2048`  |
+| `rag_mmr_lambda`               | double precision         | ✅       | `0.7`   |
+| `rag_dedup_max_per_doc`        | integer                  | ✅       | `3`     |
+| `rag_hybrid_search`            | boolean                  | ✅       | `true`  |
+| `rag_space_routing_threshold`  | double precision         | ✅       | `0.4`   |
+| `rag_space_routing_max_spaces` | integer                  | ✅       | `3`     |
+| `llm_base_system_prompt`       | text                     | ✅       | `NULL`  |
 
 **Migration 094 — perf knobs:** `rag_*` and `llm_*` columns are loaded into the
 `systemSettingsService` cache at boot (`bootstrap.js`) so request hot-paths
@@ -2267,9 +2220,8 @@ hardcoded values, so applying the migration changes no behavior until an admin
 edits a value via `PATCH /api/rag/settings` (which `systemSettings.reload()`s the
 cache — no restart needed). `rag_hybrid_search` is the master switch for Qdrant
 hybrid search; `rag_space_routing_*` bound knowledge-space routing;
-`rag_mmr_lambda`/`rag_dedup_max_per_doc` shape final-context diversity. Both the
-dashboard pipeline (`routes/rag.js`) and the Telegram bot
-(`services/telegram/telegramRagService.js`) read these knobs. `llm_base_system_prompt`
+`rag_mmr_lambda`/`rag_dedup_max_per_doc` shape final-context diversity. The
+dashboard pipeline (`routes/rag.js`) reads these knobs. `llm_base_system_prompt`
 is the DB-editable layer-1 system prompt; `NULL` = the built-in default in
 `systemPromptBuilder.js` (an empty string sent to the PATCH endpoint resets it to `NULL`).
 
@@ -2277,7 +2229,6 @@ is the DB-editable layer-1 system prompt; `NULL` = the built-in default in
 
 **Foreign Keys:**
 
-- `telegram_disclaimer_accepted_by` → `admin_users.id`
 - `setup_completed_by` → `admin_users.id`
 - `ai_transparency_disabled_by` → `admin_users.id`
 
@@ -2311,508 +2262,6 @@ is the DB-editable layer-1 system prompt; `NULL` = the built-in default in
 - `idx_system_snapshots_status` — `CREATE INDEX idx_system_snapshots_status ON public.system_snapshots USING btree (status)`
 - `idx_system_snapshots_timestamp` — `CREATE INDEX idx_system_snapshots_timestamp ON public.system_snapshots USING btree ("timestamp" DESC)`
 - `system_snapshots_pkey` — `CREATE UNIQUE INDEX system_snapshots_pkey ON public.system_snapshots USING btree (id)`
-
----
-
-## `telegram_app_status`
-
-> Tracks Telegram App activation status per user for dashboard icon visibility
-
-| Column                 | Type                     | Nullable | Default                                    |
-| ---------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                   | integer                  | ⛔       | `nextval('telegram_app_status_id_seq':...` |
-| `user_id`              | integer                  | ⛔       |                                            |
-| `is_enabled`           | boolean                  | ✅       | `false`                                    |
-| `icon_visible`         | boolean                  | ✅       | `false`                                    |
-| `first_bot_created_at` | timestamp with time zone | ✅       |                                            |
-| `last_activity_at`     | timestamp with time zone | ✅       | `now()`                                    |
-| `settings`             | jsonb                    | ✅       | `'{"quietHoursEnd": "07:00", "quietHou...` |
-| `created_at`           | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`           | timestamp with time zone | ✅       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `user_id` → `admin_users.id`
-
-**Indexes:**
-
-- `idx_telegram_app_status_enabled` — `CREATE INDEX idx_telegram_app_status_enabled ON public.telegram_app_status USING btree (user_id) WHERE (is_enabled = true)`
-- `idx_telegram_app_status_visible` — `CREATE INDEX idx_telegram_app_status_visible ON public.telegram_app_status USING btree (user_id) WHERE (icon_visible = true)`
-- `telegram_app_status_pkey` — `CREATE UNIQUE INDEX telegram_app_status_pkey ON public.telegram_app_status USING btree (id)`
-- `telegram_app_status_user_id_key` — `CREATE UNIQUE INDEX telegram_app_status_user_id_key ON public.telegram_app_status USING btree (user_id)`
-
----
-
-## `telegram_bot_chats`
-
-> Chats/groups connected to each bot
-
-| Column            | Type                     | Nullable | Default                                    |
-| ----------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`              | integer                  | ⛔       | `nextval('telegram_bot_chats_id_seq'::...` |
-| `bot_id`          | integer                  | ⛔       |                                            |
-| `chat_id`         | bigint                   | ⛔       |                                            |
-| `chat_title`      | character varying        | ✅       |                                            |
-| `chat_type`       | character varying        | ✅       | `'private'::character varying`             |
-| `chat_username`   | character varying        | ✅       |                                            |
-| `is_active`       | boolean                  | ✅       | `true`                                     |
-| `is_admin`        | boolean                  | ✅       | `false`                                    |
-| `added_at`        | timestamp with time zone | ✅       | `now()`                                    |
-| `last_message_at` | timestamp with time zone | ✅       |                                            |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `bot_id` → `telegram_bots.id`
-
-**Indexes:**
-
-- `idx_telegram_bot_chats_active` — `CREATE INDEX idx_telegram_bot_chats_active ON public.telegram_bot_chats USING btree (bot_id, is_active) WHERE (is_active = true)`
-- `idx_telegram_bot_chats_bot` — `CREATE INDEX idx_telegram_bot_chats_bot ON public.telegram_bot_chats USING btree (bot_id)`
-- `idx_telegram_bot_chats_chat` — `CREATE INDEX idx_telegram_bot_chats_chat ON public.telegram_bot_chats USING btree (chat_id)`
-- `telegram_bot_chats_bot_id_chat_id_key` — `CREATE UNIQUE INDEX telegram_bot_chats_bot_id_chat_id_key ON public.telegram_bot_chats USING btree (bot_id, chat_id)`
-- `telegram_bot_chats_pkey` — `CREATE UNIQUE INDEX telegram_bot_chats_pkey ON public.telegram_bot_chats USING btree (id)`
-
----
-
-## `telegram_user_chats`
-
-> Individual pseudonymised Telegram users per bot — backs the DSGVO consent,
-> `/loeschen` and `/auskunft` flows (added in migration `095`).
-
-| Column                  | Type                     | Nullable | Default                                     |
-| ----------------------- | ------------------------ | -------- | ------------------------------------------- |
-| `id`                    | bigint                   | ⛔       | `nextval('telegram_user_chats_id_seq'::...` |
-| `bot_id`                | integer                  | ⛔       |                                             |
-| `chat_id`               | text                     | ⛔       |                                             |
-| `telegram_user_id_hash` | text                     | ✅       |                                             |
-| `chat_title`            | text                     | ✅       |                                             |
-| `chat_type`             | text                     | ✅       |                                             |
-| `registered_at`         | timestamp with time zone | ⛔       | `now()`                                     |
-| `updated_at`            | timestamp with time zone | ⛔       | `now()`                                     |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `bot_id` → `telegram_bots.id` (ON DELETE CASCADE)
-
-**Indexes:**
-
-- `idx_telegram_user_chats_bot_id` — `CREATE INDEX idx_telegram_user_chats_bot_id ON public.telegram_user_chats USING btree (bot_id)`
-- `idx_telegram_user_chats_chat_id` — `CREATE INDEX idx_telegram_user_chats_chat_id ON public.telegram_user_chats USING btree (chat_id)`
-- `idx_telegram_user_chats_user_hash` — `CREATE INDEX idx_telegram_user_chats_user_hash ON public.telegram_user_chats USING btree (telegram_user_id_hash) WHERE (telegram_user_id_hash IS NOT NULL)`
-- `telegram_user_chats_bot_id_chat_id_key` — `CREATE UNIQUE INDEX telegram_user_chats_bot_id_chat_id_key ON public.telegram_user_chats USING btree (bot_id, chat_id)`
-- `telegram_user_chats_pkey` — `CREATE UNIQUE INDEX telegram_user_chats_pkey ON public.telegram_user_chats USING btree (id)`
-
----
-
-## `telegram_bot_commands`
-
-> Custom slash commands per bot with LLM prompts
-
-| Column         | Type                     | Nullable | Default                                    |
-| -------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`           | integer                  | ⛔       | `nextval('telegram_bot_commands_id_seq...` |
-| `bot_id`       | integer                  | ⛔       |                                            |
-| `command`      | character varying        | ⛔       |                                            |
-| `description`  | character varying        | ⛔       |                                            |
-| `prompt`       | text                     | ⛔       |                                            |
-| `is_enabled`   | boolean                  | ✅       | `true`                                     |
-| `sort_order`   | integer                  | ✅       | `0`                                        |
-| `usage_count`  | integer                  | ✅       | `0`                                        |
-| `last_used_at` | timestamp with time zone | ✅       |                                            |
-| `created_at`   | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`   | timestamp with time zone | ✅       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `bot_id` → `telegram_bots.id`
-
-**Indexes:**
-
-- `idx_telegram_bot_commands_bot` — `CREATE INDEX idx_telegram_bot_commands_bot ON public.telegram_bot_commands USING btree (bot_id)`
-- `idx_telegram_bot_commands_enabled` — `CREATE INDEX idx_telegram_bot_commands_enabled ON public.telegram_bot_commands USING btree (bot_id, is_enabled) WHERE (is_enabled = true)`
-- `telegram_bot_commands_bot_id_command_key` — `CREATE UNIQUE INDEX telegram_bot_commands_bot_id_command_key ON public.telegram_bot_commands USING btree (bot_id, command)`
-- `telegram_bot_commands_pkey` — `CREATE UNIQUE INDEX telegram_bot_commands_pkey ON public.telegram_bot_commands USING btree (id)`
-
----
-
-## `telegram_bot_configs`
-
-> Per-user Telegram Bot configurations
-
-| Column                  | Type                     | Nullable | Default                                    |
-| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                    | integer                  | ⛔       | `nextval('telegram_bot_configs_id_seq'...` |
-| `user_id`               | integer                  | ✅       |                                            |
-| `bot_token_encrypted`   | bytea                    | ✅       |                                            |
-| `chat_id`               | bigint                   | ✅       |                                            |
-| `bot_username`          | character varying        | ✅       |                                            |
-| `bot_first_name`        | character varying        | ✅       |                                            |
-| `notifications_enabled` | boolean                  | ✅       | `true`                                     |
-| `quiet_hours_start`     | time without time zone   | ✅       |                                            |
-| `quiet_hours_end`       | time without time zone   | ✅       |                                            |
-| `min_severity`          | USER-DEFINED             | ✅       | `'info'::notification_severity`            |
-| `claude_notifications`  | boolean                  | ✅       | `true`                                     |
-| `system_notifications`  | boolean                  | ✅       | `true`                                     |
-| `n8n_notifications`     | boolean                  | ✅       | `true`                                     |
-| `is_active`             | boolean                  | ✅       | `true`                                     |
-| `last_message_at`       | timestamp with time zone | ✅       |                                            |
-| `created_at`            | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`            | timestamp with time zone | ✅       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `user_id` → `admin_users.id`
-
-**Indexes:**
-
-- `idx_telegram_bot_configs_active` — `CREATE INDEX idx_telegram_bot_configs_active ON public.telegram_bot_configs USING btree (is_active) WHERE (is_active = true)`
-- `idx_telegram_bot_configs_user` — `CREATE INDEX idx_telegram_bot_configs_user ON public.telegram_bot_configs USING btree (user_id)`
-- `telegram_bot_configs_pkey` — `CREATE UNIQUE INDEX telegram_bot_configs_pkey ON public.telegram_bot_configs USING btree (id)`
-- `telegram_bot_configs_user_id_key` — `CREATE UNIQUE INDEX telegram_bot_configs_user_id_key ON public.telegram_bot_configs USING btree (user_id)`
-
----
-
-## `telegram_bot_sessions`
-
-> LLM conversation sessions per bot+chat
-
-| Column        | Type                     | Nullable | Default                                    |
-| ------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`          | integer                  | ⛔       | `nextval('telegram_bot_sessions_id_seq...` |
-| `bot_id`      | integer                  | ⛔       |                                            |
-| `chat_id`     | bigint                   | ⛔       |                                            |
-| `messages`    | jsonb                    | ✅       | `'[]'::jsonb`                              |
-| `token_count` | integer                  | ✅       | `0`                                        |
-| `max_tokens`  | integer                  | ✅       | `4096`                                     |
-| `created_at`  | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`  | timestamp with time zone | ✅       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `bot_id` → `telegram_bots.id`
-
-**Indexes:**
-
-- `idx_telegram_bot_sessions_bot` — `CREATE INDEX idx_telegram_bot_sessions_bot ON public.telegram_bot_sessions USING btree (bot_id)`
-- `idx_telegram_bot_sessions_chat` — `CREATE INDEX idx_telegram_bot_sessions_chat ON public.telegram_bot_sessions USING btree (bot_id, chat_id)`
-- `idx_telegram_bot_sessions_updated` — `CREATE INDEX idx_telegram_bot_sessions_updated ON public.telegram_bot_sessions USING btree (updated_at DESC)`
-- `telegram_bot_sessions_bot_id_chat_id_key` — `CREATE UNIQUE INDEX telegram_bot_sessions_bot_id_chat_id_key ON public.telegram_bot_sessions USING btree (bot_id, chat_id)`
-- `telegram_bot_sessions_pkey` — `CREATE UNIQUE INDEX telegram_bot_sessions_pkey ON public.telegram_bot_sessions USING btree (id)`
-
----
-
-## `telegram_bots`
-
-> Multi-bot management - each user can have multiple Telegram bots
-
-| Column                     | Type                     | Nullable | Default                                    |
-| -------------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                       | integer                  | ⛔       | `nextval('telegram_bots_id_seq'::regcl...` |
-| `user_id`                  | integer                  | ✅       |                                            |
-| `name`                     | character varying        | ⛔       |                                            |
-| `bot_username`             | character varying        | ✅       |                                            |
-| `bot_token_encrypted`      | bytea                    | ⛔       |                                            |
-| `bot_token_iv`             | character varying        | ⛔       |                                            |
-| `bot_token_tag`            | character varying        | ⛔       |                                            |
-| `system_prompt`            | text                     | ✅       | `'Du bist ein hilfreicher Assistent. A...` |
-| `llm_provider`             | character varying        | ✅       | `'ollama'::character varying`              |
-| `llm_model`                | character varying        | ✅       |                                            |
-| `claude_api_key_encrypted` | bytea                    | ✅       |                                            |
-| `claude_api_key_iv`        | character varying        | ✅       |                                            |
-| `claude_api_key_tag`       | character varying        | ✅       |                                            |
-| `webhook_secret`           | character varying        | ✅       |                                            |
-| `webhook_url`              | text                     | ✅       |                                            |
-| `is_active`                | boolean                  | ✅       | `false`                                    |
-| `is_polling`               | boolean                  | ✅       | `false`                                    |
-| `created_at`               | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`               | timestamp with time zone | ✅       | `now()`                                    |
-| `last_message_at`          | timestamp with time zone | ✅       |                                            |
-| `openai_api_key_encrypted` | bytea                    | ✅       |                                            |
-| `openai_api_key_iv`        | character varying        | ✅       |                                            |
-| `openai_api_key_auth_tag`  | character varying        | ✅       |                                            |
-| `voice_enabled`            | boolean                  | ✅       | `true`                                     |
-| `max_voice_duration`       | integer                  | ✅       | `120`                                      |
-| `allowed_users`            | jsonb                    | ✅       | `'[]'::jsonb`                              |
-| `restrict_users`           | boolean                  | ✅       | `false`                                    |
-| `rag_enabled`              | boolean                  | ✅       | `false`                                    |
-| `rag_space_ids`            | ARRAY                    | ✅       |                                            |
-| `rag_show_sources`         | boolean                  | ✅       | `true`                                     |
-| `rag_context_limit`        | integer                  | ✅       | `2000`                                     |
-| `tools_enabled`            | boolean                  | ✅       | `true`                                     |
-| `max_context_tokens`       | integer                  | ✅       | `4096`                                     |
-| `max_response_tokens`      | integer                  | ✅       | `1024`                                     |
-| `rate_limit_per_minute`    | integer                  | ✅       | `10`                                       |
-| `health_status`            | text                     | ✅       | `'unknown'::text`                          |
-| `last_error_at`            | timestamp with time zone | ✅       |                                            |
-| `last_error_message`       | text                     | ✅       |                                            |
-| `last_health_check_at`     | timestamp with time zone | ✅       |                                            |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `user_id` → `admin_users.id`
-
-**Indexes:**
-
-- `idx_telegram_bots_active` — `CREATE INDEX idx_telegram_bots_active ON public.telegram_bots USING btree (is_active) WHERE (is_active = true)`
-- `idx_telegram_bots_health_status` — `CREATE INDEX idx_telegram_bots_health_status ON public.telegram_bots USING btree (health_status) WHERE (health_status <> ALL (ARRAY['healthy'::text, 'unknown'::text]))`
-- `idx_telegram_bots_user` — `CREATE INDEX idx_telegram_bots_user ON public.telegram_bots USING btree (user_id)`
-- `idx_telegram_bots_username` — `CREATE INDEX idx_telegram_bots_username ON public.telegram_bots USING btree (bot_username)`
-- `telegram_bots_pkey` — `CREATE UNIQUE INDEX telegram_bots_pkey ON public.telegram_bots USING btree (id)`
-- `telegram_bots_user_id_name_key` — `CREATE UNIQUE INDEX telegram_bots_user_id_name_key ON public.telegram_bots USING btree (user_id, name)`
-
----
-
-## `telegram_config`
-
-> Telegram bot configuration (singleton) with encrypted token for system notifications
-
-| Column                     | Type                     | Nullable | Default                                    |
-| -------------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                       | integer                  | ⛔       | `1`                                        |
-| `bot_token_encrypted`      | text                     | ✅       |                                            |
-| `bot_token_iv`             | text                     | ✅       |                                            |
-| `bot_token_tag`            | text                     | ✅       |                                            |
-| `chat_id`                  | character varying        | ✅       |                                            |
-| `enabled`                  | boolean                  | ✅       | `false`                                    |
-| `alert_thresholds`         | jsonb                    | ✅       | `'{"cpu_warning": 80, "gpu_warning": 8...` |
-| `created_at`               | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`               | timestamp with time zone | ✅       | `now()`                                    |
-| `notification_preferences` | jsonb                    | ✅       | `'{"login_alerts": true, "daily_summar...` |
-| `test_message_sent_at`     | timestamp with time zone | ✅       |                                            |
-| `last_error`               | text                     | ✅       |                                            |
-| `last_error_at`            | timestamp with time zone | ✅       |                                            |
-| `connection_verified`      | boolean                  | ✅       | `false`                                    |
-| `connection_verified_at`   | timestamp with time zone | ✅       |                                            |
-| `bot_username`             | character varying        | ✅       |                                            |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `idx_telegram_config_enabled` — `CREATE INDEX idx_telegram_config_enabled ON public.telegram_config USING btree (enabled)`
-- `telegram_config_pkey` — `CREATE UNIQUE INDEX telegram_config_pkey ON public.telegram_config USING btree (id)`
-
----
-
-## `telegram_notification_history`
-
-> Audit trail of sent notifications
-
-| Column                | Type                     | Nullable | Default                                    |
-| --------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                  | integer                  | ⛔       | `nextval('telegram_notification_histor...` |
-| `rule_id`             | integer                  | ✅       |                                            |
-| `user_id`             | integer                  | ✅       |                                            |
-| `chat_id`             | bigint                   | ✅       |                                            |
-| `event_source`        | USER-DEFINED             | ✅       |                                            |
-| `event_type`          | character varying        | ✅       |                                            |
-| `severity`            | USER-DEFINED             | ✅       |                                            |
-| `message_sent`        | text                     | ✅       |                                            |
-| `telegram_message_id` | bigint                   | ✅       |                                            |
-| `delivered`           | boolean                  | ✅       | `false`                                    |
-| `delivery_error`      | text                     | ✅       |                                            |
-| `created_at`          | timestamp with time zone | ✅       | `now()`                                    |
-| `delivered_at`        | timestamp with time zone | ✅       |                                            |
-| `bot_id`              | integer                  | ✅       |                                            |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `rule_id` → `telegram_notification_rules.id`
-- `bot_id` → `telegram_bots.id`
-- `user_id` → `admin_users.id`
-
-**Indexes:**
-
-- `idx_telegram_history_bot` — `CREATE INDEX idx_telegram_history_bot ON public.telegram_notification_history USING btree (bot_id)`
-- `idx_telegram_history_created` — `CREATE INDEX idx_telegram_history_created ON public.telegram_notification_history USING btree (created_at DESC)`
-- `idx_telegram_history_rule` — `CREATE INDEX idx_telegram_history_rule ON public.telegram_notification_history USING btree (rule_id)`
-- `idx_telegram_history_user` — `CREATE INDEX idx_telegram_history_user ON public.telegram_notification_history USING btree (user_id)`
-- `telegram_notification_history_pkey` — `CREATE UNIQUE INDEX telegram_notification_history_pkey ON public.telegram_notification_history USING btree (id)`
-
----
-
-## `telegram_notification_rules`
-
-> User-defined notification rules for Telegram
-
-| Column              | Type                     | Nullable | Default                                    |
-| ------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                | integer                  | ⛔       | `nextval('telegram_notification_rules_...` |
-| `name`              | character varying        | ⛔       |                                            |
-| `description`       | text                     | ✅       |                                            |
-| `event_source`      | USER-DEFINED             | ⛔       |                                            |
-| `event_type`        | character varying        | ⛔       |                                            |
-| `trigger_condition` | jsonb                    | ✅       | `'{}'::jsonb`                              |
-| `severity`          | USER-DEFINED             | ✅       | `'info'::notification_severity`            |
-| `message_template`  | text                     | ⛔       |                                            |
-| `cooldown_seconds`  | integer                  | ✅       | `60`                                       |
-| `last_triggered_at` | timestamp with time zone | ✅       |                                            |
-| `trigger_count`     | integer                  | ✅       | `0`                                        |
-| `is_enabled`        | boolean                  | ✅       | `true`                                     |
-| `user_id`           | integer                  | ✅       |                                            |
-| `created_at`        | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`        | timestamp with time zone | ✅       | `now()`                                    |
-| `bot_id`            | integer                  | ✅       |                                            |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `bot_id` → `telegram_bots.id`
-- `user_id` → `admin_users.id`
-
-**Indexes:**
-
-- `idx_telegram_rules_bot` — `CREATE INDEX idx_telegram_rules_bot ON public.telegram_notification_rules USING btree (bot_id)`
-- `idx_telegram_rules_enabled` — `CREATE INDEX idx_telegram_rules_enabled ON public.telegram_notification_rules USING btree (is_enabled) WHERE (is_enabled = true)`
-- `idx_telegram_rules_event` — `CREATE INDEX idx_telegram_rules_event ON public.telegram_notification_rules USING btree (event_source, event_type)`
-- `idx_telegram_rules_source` — `CREATE INDEX idx_telegram_rules_source ON public.telegram_notification_rules USING btree (event_source)`
-- `idx_telegram_rules_user` — `CREATE INDEX idx_telegram_rules_user ON public.telegram_notification_rules USING btree (user_id)`
-- `telegram_notification_rules_pkey` — `CREATE UNIQUE INDEX telegram_notification_rules_pkey ON public.telegram_notification_rules USING btree (id)`
-
----
-
-## `telegram_orchestrator_state`
-
-> Agent state and thinking logs for debugging
-
-| Column            | Type                     | Nullable | Default                                    |
-| ----------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`              | integer                  | ⛔       | `nextval('telegram_orchestrator_state_...` |
-| `agent_type`      | USER-DEFINED             | ⛔       |                                            |
-| `session_id`      | character varying        | ✅       |                                            |
-| `state`           | jsonb                    | ✅       | `'{}'::jsonb`                              |
-| `thinking_log`    | jsonb                    | ✅       | `'[]'::jsonb`                              |
-| `last_action`     | timestamp with time zone | ✅       | `now()`                                    |
-| `actions_count`   | integer                  | ✅       | `0`                                        |
-| `avg_response_ms` | integer                  | ✅       |                                            |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `idx_telegram_orchestrator_agent` — `CREATE INDEX idx_telegram_orchestrator_agent ON public.telegram_orchestrator_state USING btree (agent_type)`
-- `idx_telegram_orchestrator_session` — `CREATE INDEX idx_telegram_orchestrator_session ON public.telegram_orchestrator_state USING btree (session_id)`
-- `telegram_orchestrator_state_agent_type_session_id_key` — `CREATE UNIQUE INDEX telegram_orchestrator_state_agent_type_session_id_key ON public.telegram_orchestrator_state USING btree (agent_type, session_id)`
-- `telegram_orchestrator_state_pkey` — `CREATE UNIQUE INDEX telegram_orchestrator_state_pkey ON public.telegram_orchestrator_state USING btree (id)`
-
----
-
-## `telegram_rate_limits`
-
-> Per-chat rate limiting for LLM calls
-
-| Column                    | Type                     | Nullable | Default                                    |
-| ------------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                      | integer                  | ⛔       | `nextval('telegram_rate_limits_id_seq'...` |
-| `bot_id`                  | integer                  | ⛔       |                                            |
-| `chat_id`                 | bigint                   | ⛔       |                                            |
-| `user_id`                 | bigint                   | ✅       |                                            |
-| `request_count`           | integer                  | ✅       | `0`                                        |
-| `window_start`            | timestamp with time zone | ✅       | `now()`                                    |
-| `max_requests_per_minute` | integer                  | ✅       | `10`                                       |
-| `max_requests_per_hour`   | integer                  | ✅       | `100`                                      |
-| `is_rate_limited`         | boolean                  | ✅       | `false`                                    |
-| `cooldown_until`          | timestamp with time zone | ✅       |                                            |
-| `created_at`              | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`              | timestamp with time zone | ✅       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `bot_id` → `telegram_bots.id`
-
-**Indexes:**
-
-- `idx_telegram_rate_limits_bot_chat` — `CREATE INDEX idx_telegram_rate_limits_bot_chat ON public.telegram_rate_limits USING btree (bot_id, chat_id)`
-- `idx_telegram_rate_limits_limited` — `CREATE INDEX idx_telegram_rate_limits_limited ON public.telegram_rate_limits USING btree (is_rate_limited) WHERE (is_rate_limited = true)`
-- `telegram_rate_limits_bot_id_chat_id_key` — `CREATE UNIQUE INDEX telegram_rate_limits_bot_id_chat_id_key ON public.telegram_rate_limits USING btree (bot_id, chat_id)`
-- `telegram_rate_limits_pkey` — `CREATE UNIQUE INDEX telegram_rate_limits_pkey ON public.telegram_rate_limits USING btree (id)`
-
----
-
-## `telegram_setup_sessions`
-
-> Zero-Config Magic Setup sessions for Telegram Bot
-
-| Column                | Type                     | Nullable | Default                                    |
-| --------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                  | integer                  | ⛔       | `nextval('telegram_setup_sessions_id_s...` |
-| `setup_token`         | character varying        | ⛔       |                                            |
-| `bot_token_encrypted` | bytea                    | ✅       |                                            |
-| `bot_username`        | character varying        | ✅       |                                            |
-| `chat_id`             | bigint                   | ✅       |                                            |
-| `chat_username`       | character varying        | ✅       |                                            |
-| `chat_first_name`     | character varying        | ✅       |                                            |
-| `user_id`             | integer                  | ✅       |                                            |
-| `status`              | USER-DEFINED             | ✅       | `'pending'::telegram_setup_status`         |
-| `created_at`          | timestamp with time zone | ✅       | `now()`                                    |
-| `expires_at`          | timestamp with time zone | ✅       | `(now() + '00:10:00'::interval)`           |
-| `token_validated_at`  | timestamp with time zone | ✅       |                                            |
-| `completed_at`        | timestamp with time zone | ✅       |                                            |
-| `last_error`          | text                     | ✅       |                                            |
-| `bot_id`              | integer                  | ✅       |                                            |
-| `bot_name`            | character varying        | ✅       |                                            |
-| `llm_provider`        | character varying        | ✅       | `'ollama'::character varying`              |
-
-**Primary key:** `id`
-
-**Foreign Keys:**
-
-- `bot_id` → `telegram_bots.id`
-- `user_id` → `admin_users.id`
-
-**Indexes:**
-
-- `idx_telegram_setup_expires` — `CREATE INDEX idx_telegram_setup_expires ON public.telegram_setup_sessions USING btree (expires_at) WHERE (status = ANY (ARRAY['pending'::telegram_setup_status, 'token_valid'::telegram_setup_status, 'waiting_start'::telegram_setup_status]))`
-- `idx_telegram_setup_status` — `CREATE INDEX idx_telegram_setup_status ON public.telegram_setup_sessions USING btree (status)`
-- `idx_telegram_setup_token` — `CREATE INDEX idx_telegram_setup_token ON public.telegram_setup_sessions USING btree (setup_token)`
-- `idx_telegram_setup_user` — `CREATE INDEX idx_telegram_setup_user ON public.telegram_setup_sessions USING btree (user_id)`
-- `telegram_setup_sessions_pkey` — `CREATE UNIQUE INDEX telegram_setup_sessions_pkey ON public.telegram_setup_sessions USING btree (id)`
-- `telegram_setup_sessions_setup_token_key` — `CREATE UNIQUE INDEX telegram_setup_sessions_setup_token_key ON public.telegram_setup_sessions USING btree (setup_token)`
-
----
-
-## `telegram_user_consent`
-
-> DSGVO Art. 13 consent records. Created by /start, withdrawn by /loeschen. No PII stored — only the HMAC of telegram_user_id and the chat id.
-
-| Column                  | Type                     | Nullable | Default                                    |
-| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                    | bigint                   | ⛔       | `nextval('telegram_user_consent_id_seq...` |
-| `bot_id`                | bigint                   | ⛔       |                                            |
-| `telegram_user_id_hash` | character                | ⛔       |                                            |
-| `chat_id`               | text                     | ⛔       |                                            |
-| `consent_status`        | text                     | ⛔       |                                            |
-| `consented_at`          | timestamp with time zone | ⛔       | `now()`                                    |
-| `withdrawn_at`          | timestamp with time zone | ✅       |                                            |
-| `notice_version`        | text                     | ⛔       | `'v1'::text`                               |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `idx_telegram_user_consent_bot` — `CREATE INDEX idx_telegram_user_consent_bot ON arasul.telegram_user_consent USING btree (bot_id)`
-- `idx_telegram_user_consent_status` — `CREATE INDEX idx_telegram_user_consent_status ON arasul.telegram_user_consent USING btree (consent_status)`
-- `telegram_user_consent_bot_id_telegram_user_id_hash_key` — `CREATE UNIQUE INDEX telegram_user_consent_bot_id_telegram_user_id_hash_key ON arasul.telegram_user_consent USING btree (bot_id, telegram_user_id_hash)`
-- `telegram_user_consent_pkey` — `CREATE UNIQUE INDEX telegram_user_consent_pkey ON arasul.telegram_user_consent USING btree (id)`
 
 ---
 
@@ -3013,6 +2462,7 @@ is the DB-editable layer-1 system prompt; `NULL` = the built-in default in
 **Indexes:**
 
 - `idx_user_external_credentials_user_id` — `CREATE INDEX idx_user_external_credentials_user_id ON public.user_external_credentials USING btree (user_id)`
+- `user_external_credentials_pkey` — `CREATE UNIQUE INDEX user_external_credentials_pkey ON public.user_external_credentials USING btree (id)`
 
 ---
 

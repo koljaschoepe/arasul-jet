@@ -421,10 +421,9 @@ For low-memory devices, disable optional services:
 ```bash
 # In .env
 DISABLE_N8N=true
-DISABLE_TELEGRAM=true
 
 # Start without optional services
-docker compose up -d --scale n8n=0 --scale telegram-bot=0
+docker compose up -d --scale n8n=0
 ```
 
 ## JetPack Requirements

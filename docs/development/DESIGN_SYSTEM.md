@@ -49,8 +49,8 @@ als neutrale Alphas, Akzent nur für Primäraktionen/Aktivzustände.
 > **Regel „eine Flächenfarbe" (Plan 003 · Cursor-Shell 3.1):** Grundflächen =
 > `--background` (`bg-background`), erhabene Elemente = `--card` (`bg-card`).
 > Jede großflächige Grundfläche einer Workspace-gehosteten Ansicht (Editor-
-> Mitte, Sidebar, rechtes Panel, Dashboard, Extensions/Store inkl. Detailseite,
-> Telegram, Datenbank, n8n-Wrapper, Chat, Terminal, Explorer) trägt denselben
+> Mitte, Sidebar, rechtes Panel, Extensions/Store inkl. Detailseite,
+> n8n-Wrapper, Chat, Terminal, Explorer) trägt denselben
 > Hintergrund `bg-background`; Trennung zwischen Flächen erfolgt **nur** über
 > Borders (`bg-border`/`border-border`), nicht über eine zweite Flächenfarbe.
 > `--card` ist reserviert für _erhabene_ Elemente **innerhalb** einer Fläche:
@@ -333,9 +333,10 @@ box-shadow: 0 0 0 3px var(--primary-muted);
 
 ## Komponenten-Patterns
 
-### Workspace-Shell (IDE-Layout, Plan `ide-workspace-shell`)
+### Workspace-Shell (IDE-Layout)
 
-Die Workspace-Shell (`features/workspace/`, Feature-Flag `workspace-shell`)
+Die Workspace-Shell (`features/workspace/`, immer aktiv — `/` landet stets auf
+`/workspace`, kein Feature-Flag mehr)
 nutzt **dieselben Theme-Tokens** wie der Rest der App, aber IDE-typisch
 kompaktere Dichte: schmale Leisten (`h-9` für Tab-/Explorer-Header, `w-12`
 Activity-Bar), `text-xs` in Explorer/Tabs, enge Paddings (`px-3`, `py-0.5`).
