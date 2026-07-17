@@ -95,10 +95,12 @@ docker exec postgres-db psql -U arasul -d arasul_db -c \
   "UPDATE admin_users SET password_hash = '$HASH', login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE username = '$USERNAME';" \
   >/dev/null 2>&1
 
-# Clear all sessions (force re-login)
+# Clear all sessions (force re-login).
+# Table is active_sessions (see 002_auth_schema.sql) — do NOT suppress stderr
+# here: a wrong table name must fail loudly, not silently print "success".
 docker exec postgres-db psql -U arasul -d arasul_db -c \
-  "DELETE FROM user_sessions WHERE user_id = (SELECT id FROM admin_users WHERE username = '$USERNAME');" \
-  >/dev/null 2>&1
+  "DELETE FROM active_sessions WHERE user_id = (SELECT id FROM admin_users WHERE username = '$USERNAME');" \
+  >/dev/null
 
 echo ""
 echo "Password reset successful for user: $USERNAME"
