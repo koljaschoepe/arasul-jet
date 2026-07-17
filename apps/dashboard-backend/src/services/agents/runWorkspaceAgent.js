@@ -42,9 +42,11 @@ async function loadWorkspace(workspaceRef, { userId, userRole } = {}) {
   if (!project) {
     throw new NotFoundError(`Workspace "${workspaceRef}" nicht gefunden`);
   }
-  // Owner-or-admin gate. Non-owners get the same 404 the owner-scoped sandbox
-  // routes produce (don't leak existence of other users' workspaces).
-  if (userRole !== 'admin' && userId != null && project.user_id !== userId) {
+  // Owner-or-admin gate — fail CLOSED. Non-owners (and any caller that omits a
+  // userId while not being admin) get the same 404 the owner-scoped sandbox
+  // routes produce (don't leak existence of other users' workspaces). Admins
+  // bypass the owner check; every non-admin caller MUST present the owning userId.
+  if (userRole !== 'admin' && (userId == null || project.user_id !== userId)) {
     throw new NotFoundError(`Workspace "${workspaceRef}" nicht gefunden`);
   }
   return project;

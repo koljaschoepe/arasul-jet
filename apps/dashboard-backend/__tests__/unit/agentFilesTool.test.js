@@ -69,6 +69,55 @@ describe('FilesTool (dateien)', () => {
     expect(r).toMatch(/ausserhalb/);
   });
 
+  // Security regression (Plan 008 code-review Critical): the `terminal` tool can
+  // create a symlink inside the workspace; the `dateien` tool must NOT follow it
+  // out of the jail — a purely lexical check would wrongly allow it.
+  it('rejects reading through a symlink that points outside the workspace', async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-outside-'));
+    try {
+      await fs.writeFile(path.join(outside, 'secret.txt'), 'top-secret');
+      await fs.symlink(path.join(outside, 'secret.txt'), path.join(dir, 'escape.txt'));
+      const r = await tool.execute({ aktion: 'read', pfad: 'escape.txt' }, ctx);
+      expect(r).toMatch(/Symlink/);
+      expect(r).not.toMatch(/top-secret/);
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects writing through a symlink (incl. dangling) that points outside', async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-outside-'));
+    try {
+      // Dangling symlink → target does not exist yet; a naive writer would create it outside.
+      await fs.symlink(path.join(outside, 'planted.txt'), path.join(dir, 'escape.txt'));
+      const r = await tool.execute({ aktion: 'write', pfad: 'escape.txt', inhalt: 'x' }, ctx);
+      expect(r).toMatch(/Symlink/);
+      let planted = false;
+      try {
+        await fs.access(path.join(outside, 'planted.txt'));
+        planted = true;
+      } catch {
+        planted = false;
+      }
+      expect(planted).toBe(false);
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects reading through a symlinked parent directory that points outside', async () => {
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-outside-'));
+    try {
+      await fs.writeFile(path.join(outside, 'secret.txt'), 'top-secret');
+      await fs.symlink(outside, path.join(dir, 'link'));
+      const r = await tool.execute({ aktion: 'read', pfad: 'link/secret.txt' }, ctx);
+      expect(r).toMatch(/Symlink/);
+      expect(r).not.toMatch(/top-secret/);
+    } finally {
+      await fs.rm(outside, { recursive: true, force: true });
+    }
+  });
+
   it('rejects an unknown aktion', async () => {
     const r = await tool.execute({ aktion: 'delete', pfad: 'x' }, ctx);
     expect(r).toMatch(/Unbekannte aktion/);

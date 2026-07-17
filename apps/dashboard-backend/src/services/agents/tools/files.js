@@ -11,7 +11,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const BaseTool = require('../../../tools/baseTool');
 const logger = require('../../../utils/logger');
-const { resolveWithin } = require('../pathSafe');
+const { resolveRealWithin } = require('../pathSafe');
 const { indexWorkspaceFile } = require('../workspaceIndexer');
 
 const MAX_READ_BYTES = 256 * 1024; // 256 KB
@@ -74,7 +74,7 @@ class FilesTool extends BaseTool {
   async _list(hostPath, pfad) {
     let dir;
     try {
-      dir = resolveWithin(hostPath, pfad || '.');
+      dir = resolveRealWithin(hostPath, pfad || '.');
     } catch (err) {
       return `Fehler: ${err.message}`;
     }
@@ -110,7 +110,7 @@ class FilesTool extends BaseTool {
     }
     let file;
     try {
-      file = resolveWithin(hostPath, pfad);
+      file = resolveRealWithin(hostPath, pfad);
     } catch (err) {
       return `Fehler: ${err.message}`;
     }
@@ -149,7 +149,7 @@ class FilesTool extends BaseTool {
     }
     let file;
     try {
-      file = resolveWithin(hostPath, pfad);
+      file = resolveRealWithin(hostPath, pfad);
     } catch (err) {
       return `Fehler: ${err.message}`;
     }
