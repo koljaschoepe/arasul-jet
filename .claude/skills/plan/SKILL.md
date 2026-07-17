@@ -46,6 +46,11 @@ be asked, so `/work` and the nightly run never have to guess. Hard rules:
 - **Minimum 8 questions across at least 3 rounds.** Continue with further
   rounds until no materially ambiguous decision remains. Err on the side of one
   round too many.
+- **The page never asks.** A question the user must answer belongs in
+  `AskUserQuestion`, here in chat — never parked in the HTML, which the user
+  cannot answer in (explicit instruction, 2026-07-17). If a question surfaces
+  while writing or revising the page, run another interview round instead. The
+  finished page states decisions; it does not ask for them.
 - Use `preview` on options whenever something concrete can be compared
   (layouts, schemas, API shapes, UI mockups, config snippets) — at least half
   of round 1.
@@ -87,12 +92,13 @@ keep scope, different approach / re-plan).
    - `#plan-meta` JSON: complete, `status: "in-review"`. Dashboard levels
      (`risk/effort/reversibility_level`, 1–3) must match the visible words.
    - The decision surface is mandatory: the "In 30 Sekunden" block (Was /
-     Warum / größtes Risiko / "Du entscheidest"-bullets), a plain-German
-     `Kurz:` one-liner in **every** section summary, and the "Offene Fragen"
-     box — one `.oq-item` (unique `data-ref="Frage N"`) per question the
-     interview deliberately left to the user; if none, say so explicitly.
-   - Keep every `data-ref` unique (sections, steps, questions) — the page's
-     note system keys on them.
+     Warum / größtes Risiko / "Du entscheidest"-bullets) and a plain-German
+     `Kurz:` one-liner in **every** section summary.
+   - There is **no open-questions box** — every question was settled in the
+     interview (Phase 1). If you catch yourself wanting one, that is the signal
+     to run another `AskUserQuestion` round, not to write it into the page.
+   - Keep every `data-ref` unique (sections, steps) — the page's note system
+     keys on them.
    - §1 plain-German why/goal ending with "Fertig heißt: …".
    - §3 is the section the user cares most about: 2–3 paragraphs of simply
      explained architecture ("was ändert sich am System und warum so") plus an
@@ -112,16 +118,16 @@ keep scope, different approach / re-plan).
 
 ## Phase 4 — Deliver & revision loop
 
-1. Send the page: `SendUserFile` with `display: "render"`, plus a ≤6-line German
-   chat summary (path, step count, headline risks) and one line reminding the
-   user of both feedback channels: page notes (💬 an jeder Karte / Antwortfelder
-   bei den offenen Fragen → „Alle kopieren“ → paste here) or plain chat/voice
-   notes referencing § numbers.
+1. Open the page for the user: `open docs/plans/active/NNN-<slug>.html` (there is
+   no `SendUserFile` tool in this harness — verified 2026-07-17). Add a ≤6-line
+   German chat summary (path, step count, headline risks) and one line reminding
+   the user of both feedback channels: page notes (💬 an jeder Karte →
+   „Alle kopieren“ → paste here) or plain chat/voice notes referencing § numbers.
 2. On feedback (a pasted „Notizen zu Plan …“ block or chat): **every note is
-   binding.** Revise the page in place; answered open questions move out of
-   the Offene-Fragen box and into the §8 decision log; keep §8 updated with
-   every changed decision. Re-send, ask nothing that was already decided.
-   Repeat until approval.
+   binding.** Revise the page in place and keep §8 updated with every changed
+   decision. If a note raises a new decision, ask it via `AskUserQuestion` —
+   never answer it for the user and never park it in the page. Re-open, ask
+   nothing that was already decided. Repeat until approval.
 3. **Approval gate** — the user must explicitly approve („freigegeben“, „go“,
    „approved“, „passt“). This is the only free-text gate. Do not start
    implementation — that is `/work`'s job. Do not treat silence as approval.
@@ -144,6 +150,9 @@ Approved plans must be visible to the nightly run, so they live on `main`:
 ## Failure modes (don't)
 
 - Fewer than 8 questions, fewer than 3 rounds, or free-text questions.
+- **Parking a question in the page instead of asking it.** The user cannot
+  answer inside the HTML. An unanswered question means the interview is not
+  finished — go back and ask.
 - Leftover `{{TOKEN}}` placeholders, or `#plan-meta` out of sync with the page.
 - Doing the research yourself instead of `research-agent`.
 - Starting implementation, cutting a branch, or touching code.
