@@ -10,7 +10,9 @@
 const fs = require('fs').promises;
 const path = require('path');
 const BaseTool = require('../../../tools/baseTool');
+const logger = require('../../../utils/logger');
 const { resolveWithin } = require('../pathSafe');
+const { indexWorkspaceFile } = require('../workspaceIndexer');
 
 const MAX_READ_BYTES = 256 * 1024; // 256 KB
 const MAX_WRITE_BYTES = 1024 * 1024; // 1 MB
@@ -63,7 +65,7 @@ class FilesTool extends BaseTool {
       case 'read':
         return this._read(hostPath, params.pfad);
       case 'write':
-        return this._write(hostPath, params.pfad, params.inhalt);
+        return this._write(hostPath, params.pfad, params.inhalt, context);
       default:
         return `Fehler: Unbekannte aktion "${params.aktion}". Erlaubt: list, read, write.`;
     }
@@ -137,7 +139,7 @@ class FilesTool extends BaseTool {
     return content;
   }
 
-  async _write(hostPath, pfad, inhalt) {
+  async _write(hostPath, pfad, inhalt, context = {}) {
     if (!pfad) {
       return 'Fehler: "pfad" ist zum Schreiben erforderlich.';
     }
@@ -157,6 +159,29 @@ class FilesTool extends BaseTool {
     } catch (err) {
       return `Fehler beim Schreiben: ${err.message}`;
     }
+
+    // Plan 008 Schritt 13: geschriebene Datei OHNE manuellen Upload per RAG
+    // auffindbar machen. Best effort — ein Indexierungsfehler darf den Schreib-
+    // vorgang NIEMALS scheitern lassen (nur loggen). Nur wenn der Workspace einen
+    // Wissensraum hat (context.spaceId), wird gescopt indexiert.
+    if (context.spaceId) {
+      try {
+        await indexWorkspaceFile({
+          workspace: {
+            space_id: context.spaceId,
+            slug: context.slug,
+            host_path: hostPath,
+          },
+          relPath: pfad,
+          absPath: file,
+        });
+      } catch (err) {
+        logger.warn(
+          `dateien-Werkzeug: RAG-Indexierung von "${pfad}" fehlgeschlagen: ${err.message}`
+        );
+      }
+    }
+
     return `Datei "${pfad}" geschrieben (${Buffer.byteLength(data, 'utf8')} Bytes).`;
   }
 }

@@ -88,8 +88,14 @@ router.get(
     } = req.query;
 
     // Build query — Kontextdateien (Plan ide-workspace-shell) sind
-    // Ordner-Metadaten und erscheinen nicht in der normalen Dokumentliste
-    const conditions = ['d.deleted_at IS NULL', 'd.is_context_file = FALSE'];
+    // Ordner-Metadaten und erscheinen nicht in der normalen Dokumentliste.
+    // Plan 008 Schritt 13: Dokumente aus unsichtbaren Workspace-Wissensräumen
+    // (is_workspace) gehören ebenfalls nicht in die operator-seitige Liste.
+    const conditions = [
+      'd.deleted_at IS NULL',
+      'd.is_context_file = FALSE',
+      'NOT EXISTS (SELECT 1 FROM knowledge_spaces ksw WHERE ksw.id = d.space_id AND ksw.is_workspace = TRUE)',
+    ];
     const params = [];
     let paramIndex = 1;
 

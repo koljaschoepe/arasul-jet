@@ -111,6 +111,45 @@ describe('resolveAndRun', () => {
     expect(out).toEqual({ result: 'done', iterations: 1 });
   });
 
+  test('scopes RAG to the workspace space only when space_id is a real id', async () => {
+    const scopedProject = { ...PROJECT, space_id: 'space-abc' };
+    db.query.mockResolvedValue({ rows: [scopedProject] });
+    const agent = { name: 'Texter', model: 'qwen2.5:7b', tools: ['rag', 'dateien'] };
+    loadAgent.mockResolvedValue(agent);
+    runAgent.mockResolvedValue({ result: 'done', iterations: 1 });
+
+    await resolveAndRun({
+      workspaceRef: 'mein-ws',
+      agentName: 'texter',
+      userInput: 'hallo',
+      userId: 7,
+      userRole: 'user',
+    });
+
+    const ctx = runAgent.mock.calls[0][0].context;
+    expect(ctx.spaceIds).toEqual(['space-abc']);
+    expect(ctx.spaceId).toBe('space-abc');
+  });
+
+  test('never sets spaceIds (fail-open guard) when the workspace has no space', async () => {
+    db.query.mockResolvedValue({ rows: [PROJECT] }); // PROJECT has no space_id
+    const agent = { name: 'Texter', model: 'qwen2.5:7b', tools: ['rag'] };
+    loadAgent.mockResolvedValue(agent);
+    runAgent.mockResolvedValue({ result: 'done', iterations: 1 });
+
+    await resolveAndRun({
+      workspaceRef: 'mein-ws',
+      agentName: 'texter',
+      userInput: 'hallo',
+      userId: 7,
+      userRole: 'user',
+    });
+
+    const ctx = runAgent.mock.calls[0][0].context;
+    expect(ctx).not.toHaveProperty('spaceIds');
+    expect(ctx).not.toHaveProperty('spaceId');
+  });
+
   test('unknown agent → NotFoundError (engine not called)', async () => {
     db.query.mockResolvedValue({ rows: [PROJECT] });
     loadAgent.mockRejectedValue(new NotFoundError('Agent "x" nicht gefunden'));

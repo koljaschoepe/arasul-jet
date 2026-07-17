@@ -83,6 +83,15 @@ async function resolveAndRun({
     networkMode: project.network_mode,
   };
 
+  // Plan 008 Schritt 13: der Workspace scoped RAG auf seinen EINEN Wissensraum.
+  // NUR wenn eine echte, nicht-leere space_id vorhanden ist — niemals [null]/[]
+  // setzen, denn das würde über ALLE Spaces suchen und die Isolation fail-open
+  // aufweichen. Ältere Workspaces ohne Space bleiben bewusst ungescopt.
+  if (project.space_id) {
+    context.spaceId = project.space_id;
+    context.spaceIds = [project.space_id];
+  }
+
   return runAgent({ agent, userInput, context, onEvent });
 }
 

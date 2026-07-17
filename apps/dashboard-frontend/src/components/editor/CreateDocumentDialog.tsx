@@ -29,7 +29,7 @@ const CONFIG = {
     inputPlaceholder: 'z.B. notizen, dokumentation, anleitung',
     inputHint: '.md wird automatisch angehängt',
     spaceSelectId: 'md-space',
-    spaceLabel: 'Wissensbereich',
+    spaceLabel: 'Ordner',
     emptyValidation: 'Dateiname ist erforderlich',
     submitLabel: 'Dokument erstellen',
     errorLog: 'Error creating markdown document:',

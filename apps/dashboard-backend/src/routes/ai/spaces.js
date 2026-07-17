@@ -72,6 +72,9 @@ router.get(
             WHERE is_context_file = FALSE
             GROUP BY space_id
         ) doc_stats ON ks.id = doc_stats.space_id
+        -- Plan 008 Schritt 13: die unsichtbaren Workspace-Wissensräume gehören
+        -- nicht in die Dokumenten-UI.
+        WHERE ks.is_workspace = FALSE
         ORDER BY ks.sort_order, ks.name
     `);
 
@@ -98,6 +101,7 @@ router.get(
       pool.query(`
         SELECT id, name, slug, icon, color, parent_id, is_default, is_system, sort_order
           FROM knowledge_spaces
+         WHERE is_workspace = FALSE
          ORDER BY sort_order, name
       `),
       pool.query(`
@@ -109,9 +113,20 @@ router.get(
       `),
     ]);
 
+    // Plan 008 Schritt 13: Dokumente aus unsichtbaren Workspace-Wissensräumen
+    // gehören nicht in den Dokumenten-Explorer. Da die Spaces-Abfrage die
+    // is_workspace-Spaces bereits ausblendet, ist deren id nicht in der
+    // sichtbaren Menge — ein Dokument mit einer solchen (nicht sichtbaren)
+    // space_id wird hier herausgefiltert. Dokumente ohne space_id (null)
+    // bleiben erhalten.
+    const visibleSpaceIds = new Set(spacesResult.rows.map(s => s.id));
+    const documents = docsResult.rows.filter(
+      d => d.space_id == null || visibleSpaceIds.has(d.space_id)
+    );
+
     res.json({
       spaces: spacesResult.rows,
-      documents: docsResult.rows,
+      documents,
       timestamp: new Date().toISOString(),
     });
   })
