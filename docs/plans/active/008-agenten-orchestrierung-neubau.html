@@ -18,7 +18,7 @@
   "created": "2026-07-17",
   "approved": "2026-07-17",
   "branch": "008-agenten-orchestrierung-neubau",
-  "pr": null,
+  "pr": 218,
   "verified_on_device": false
 }
 </script>
@@ -606,10 +606,10 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Kein Verweis auf Telegram, Datentabellen, Dashboard oder die Datenbank-Ansicht ist im Repo übrig — <code>grep -ri</code> auf die vier Namen findet in <code>apps/</code> nichts mehr.</li>
+    <li data-done="true">Kein Verweis auf Telegram, Datentabellen, Dashboard oder die Datenbank-Ansicht ist im Repo übrig — <code>grep -ri</code> auf die vier Namen findet in <code>apps/</code> nichts mehr.</li>
     <li data-done="false">Die Box hat genau eine Postgres-Datenbank; <code>\l</code> in der Datenbank-Konsole zeigt keine zweite Nutzdaten-Datenbank.</li>
-    <li data-done="false">Es gibt genau eine Tabelle für Projekte und genau eine Chat-Oberfläche.</li>
-    <li data-done="false">Backend-Tests laufen grün durch (<code>./scripts/test/run-tests.sh --backend</code>) — sie sind in der CI blockierend.</li>
+    <li data-done="true">Es gibt genau eine Tabelle für Projekte und genau eine Chat-Oberfläche.</li>
+    <li data-done="true">Backend-Tests laufen grün durch (<code>./scripts/test/run-tests.sh --backend</code>) — sie sind in der CI blockierend.</li>
     <li data-done="false">Eine Markdown-Datei öffnet direkt im Editor; Überschriften, Listen und Code-Blöcke sind sofort richtig formatiert, ohne dass irgendwo „Bearbeiten“ geklickt wird.</li>
     <li data-done="false">Ein Agent lässt sich als Markdown-Datei im Workspace anlegen und erscheint ohne Neuladen im Explorer.</li>
     <li data-done="false"><code>@texter</code> im Chat startet den Agenten; die Werkzeug-Schritte (liest, sucht, schreibt) erscheinen einzeln und live, nicht erst am Ende.</li>
@@ -745,13 +745,19 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Alle 16 Schritte gebaut, grün, committet in einem PR (#218). Wartet auf die Live-Verifikation auf dem Jetson — erst danach mergen.</span>
   </summary>
   <div class="sbody">
+  <p><b>Stand:</b> Alle 16 Schritte sind umgesetzt und als je ein Commit auf dem Branch <code>008-agenten-orchestrierung-neubau</code> abgelegt; jeder Zwischenstand ist lauffähig. Der Branch ist als <b>PR #218</b> offen und bewusst <b>nicht gemergt</b> — <code>main</code> und der Jetson sind unberührt, bis die Live-Verifikation (§6) auf der Box bestanden ist (der einzige echte Rückweg nach dem Merge ist das Vollbackup, §7).</p>
+  <p><b>Grün über den gesamten Branch:</b> Backend 1470 Tests (0 Lint-Fehler, in CI blockierend), Frontend 571 Tests, <code>tsc --noEmit</code> 0 Fehler. Die Schritt-Ergebnisse stehen einzeln bei den §4-Schritten.</p>
+  <p><b>Adversariales Code-Review</b> der neuen Sicherheits-/Kernpfade: ein <b>Critical</b> gefunden und in diesem PR gefixt — die Pfad-Jail des <code>dateien</code>-Werkzeugs war rein lexikalisch und erlaubte einen Symlink-Ausbruch aus dem Workspace; jetzt <code>realpath</code>-basiert (folgt Symlinks, weist hängende ab) mit drei Regressionstests, plus fail-closed Owner-Gate. Drei Warnings/Suggestions sind im PR als Follow-up notiert (Token-Route-Timing, byte-gleiche Datei-Indexierung, Werkzeug-Aufrufe pro Runde, Agent-Env-Vars).</p>
+  <p><b>Bewusst gehalten für die Box (§6, unter Mocks nicht prüfbar):</b> der echte Agenten-Lauf gegen die GPU inkl. Live-Werkzeug-Schritten, der RAG-Durchlauf ohne Upload, der <b>Isolations-Gegentest</b> (abgeschotteter Workspace erreicht Postgres/MinIO/Qdrant nicht), das Übersteht-Rebuild der Claude-Anmeldung, der Modell-Download und der Kaltstart mit genau einer Datenbank. Diese Punkte sind die Merge-Voraussetzung und im PR als Checkliste dokumentiert.</p>
+  <p><b>Nächster Schritt (Mensch + Box):</b> Branch auf den Jetson deployen, die §6-Checkliste durchgehen; wenn grün → PR #218 mergen (Deploy läuft dann auf <code>main</code>), diesen Plan nach <code>done/</code> verschieben, Roadmap-Thema T18 auf <code>done</code>. Bei einem echten Regress: Revert des Merge-Commits, Box bleibt über das Vollbackup gesund.</p>
+  <p class="mono" style="font-size:.82rem;color:var(--muted)">Ausführung via /work · 2026-07-17 · 16 Schritte · 17 Commits · PR #218 · verified_on_device: offen</p>
   </div>
 </details>
 

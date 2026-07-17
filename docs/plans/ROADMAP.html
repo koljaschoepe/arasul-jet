@@ -33,7 +33,7 @@
     { "id": "G7", "title": "7 Tage unattended stabil", "state": "open" }
   ],
   "themes": [
-    { "id": "T18", "title": "Arasul wird Agenten-Orchestrierung — Neupositionierung zur Workflow-Bauer-Plattform: Telegram/Datentabellen/Dashboard/DB-Ansicht/Alt-Chat ersatzlos löschen (~14.000 Zeilen), Projekt-Entität konsolidieren, Agenten als Markdown-Dateien mit Werkzeug-Aufrufen, Chat als Kommandozentrale, n8n-HTTP-Trigger, Netz-Schalter je Workspace, Store-Neubau", "prio": "P0", "status": "in-progress", "source": "Interview 2026-07-17 (6 Runden)", "plan": "008", "pr": null, "note": "Löst T01/T17 ab; schluckt T02, T03, T04, T12, T16 — Ausführung via /work seit 2026-07-17" },
+    { "id": "T18", "title": "Arasul wird Agenten-Orchestrierung — Neupositionierung zur Workflow-Bauer-Plattform: Telegram/Datentabellen/Dashboard/DB-Ansicht/Alt-Chat ersatzlos löschen (~14.000 Zeilen), Projekt-Entität konsolidieren, Agenten als Markdown-Dateien mit Werkzeug-Aufrufen, Chat als Kommandozentrale, n8n-HTTP-Trigger, Netz-Schalter je Workspace, Store-Neubau", "prio": "P0", "status": "in-progress", "source": "Interview 2026-07-17 (6 Runden)", "plan": "008", "pr": 218, "note": "Löst T01/T17 ab; schluckt T02, T03, T04, T12, T16. 16 Schritte gebaut & grün (PR #218 offen) — wartet auf Jetson-Live-Verify vor Merge" },
     { "id": "T01", "title": "Feature-Audit „funktioniert wirklich\" — jede angekündigte Funktion end-to-end live auf dem Jetson durchtesten, Bug-Liste erzeugen", "prio": "P0", "status": "planned", "source": "Interview 2026-07-14", "plan": "006", "pr": 209, "note": "Lauf 1: Kernpfad grün, F1 gefixt (PR #209); Restlauf → T17" },
     { "id": "T02", "title": "Aktions-Feedback plattformweit — Container start/stop/restart, Modell-Download, Deaktivieren geben sofort klaren Status (kein „passiert nichts → dann alles auf einmal\")", "prio": "P0", "status": "open", "source": "Interview 2026-07-14", "plan": null, "pr": null },
     { "id": "T03", "title": "Modell-Download-Robustheit — Verify mit Retry/Poll statt Einmal-Check (Race in modelDownloadHelpers.js: real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error') + saubere Progress-UI", "prio": "P1", "status": "open", "source": "Live-Verify Plan 004 2026-07-14", "plan": null, "pr": null },
@@ -296,7 +296,7 @@
   <h2>Themen — anklicken für Details</h2>
 
   <details class="card" id="T18" data-prio="P0" data-status="in-progress" data-ref="T18 Agenten-Orchestrierung">
-    <summary><span class="prio">P0</span><span class="ttl">Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung</span><span class="cbtn-slot"></span><span class="st">in Arbeit (008)</span><span class="chev">▶</span></summary>
+    <summary><span class="prio">P0</span><span class="ttl">Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung</span><span class="cbtn-slot"></span><span class="st">in Arbeit (008 · PR #218)</span><span class="chev">▶</span></summary>
     <div class="cbody">
       <p>Neupositionierung statt Aufräumen: Aus der Chat-Appliance für Endnutzer wird eine
       Agenten-Orchestrierungs-Plattform für Leute, die Workflows bauen. Telegram, Datentabellen
