@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 008 · Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "008",
+  "slug": "agenten-orchestrierung-neubau",
+  "title": "Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung",
+  "type": "refactor",
+  "status": "approved",
+  "priority": "P0",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 1,
+  "created": "2026-07-17",
+  "approved": "2026-07-17",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 008</p>
+    <span class="chip" id="status-chip" data-status="approved">Approved</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung</h1>
+  <p class="lead">Aus der Chat-Appliance für Endnutzer wird eine Agenten-Orchestrierungs-Plattform für Workflow-Bauer: rund 14.000 Zeilen fliegen raus, das Projekt wird die Mitte, und Agenten als Markdown-Dateien machen die Box zu dem Werkzeug, für das jemand zahlt.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="1"></span>schwer</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">16</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Telegram, Datentabellen (samt zweiter Datenbank), Dashboard, Datenbank-Ansicht und der alte Chat werden ersatzlos gelöscht. Das „Projekt“ — heute zwei verschiedene Dinge — wird zum <b>Workspace</b>: Dateien, Agenten und Workflows an einem Ort. Agenten sind Markdown-Dateien, die Werkzeuge benutzen; der Chat startet sie, n8n auch. Ein Schalter je Workspace regelt in klarer Sprache, was er darf.</dd>
+      <dt>Warum jetzt</dt><dd>Weil die Ausgangsfrage „welche Features brauchen wir wirklich?“ ohne Zielperson unbeantwortbar ist. Mit der Antwort „Leute, die Workflows bauen“ beantwortet sie sich von selbst — und erklärt zugleich, warum bisher alles gewachsen und nichts fertig geworden ist.</dd>
+      <dt>Größtes Risiko</dt><dd>Ein einziger PR über Frontend, Backend, Datenbank und Infrastruktur — kaum prüfbar, und nach dem Zusammenführen führt der einzige echte Rückweg über das Backup. Direkt dahinter: die Agenten-Maschine ist komplett neu, Werkzeug-Aufrufe gibt es heute nirgends.</dd>
+      <dt>Du entscheidest</dt><dd><ul><li>Ob die Neupositionierung wirklich so radikal sein soll — <b>hier steht der ganze Plan oder fällt</b></li><li>Ob ~14.000 Zeilen (Telegram, Tabellen, Dashboard, DB-Ansicht, Alt-Chat) endgültig weg dürfen</li><li>Ob der eine große PR bleibt, obwohl ich phasenweise empfohlen hätte (§7 nennt den Preis)</li><li>Ob Agenten wirklich ab Tag 1 selbst Befehle ausführen dürfen (§7 nennt die Absicherung)</li></ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Der Chat allein bringt nichts — die Box braucht eine Zielperson. Mit „Workflow-Bauer“ beantwortet sich die Feature-Frage von selbst.</span>
+  </summary>
+  <div class="sbody">
+  <p>Dieser Plan hat als Aufräum-Auftrag begonnen — „kein toter Code, keine sinnlosen Features“ — und ist im Interview zu etwas anderem geworden: einer <b>Neupositionierung</b>. Der Auslöser war Dein Satz, dass der Chat allein Dir nichts bringt. Das ist der eigentliche Befund. Nicht einzelne Features sind das Problem, sondern eine fehlende Antwort auf die Frage, <i>für wen</i> die Box eigentlich gebaut ist.</p>
+
+<p>Solange die Antwort „für Endnutzer, die lokal chatten wollen“ lautete, war jedes Feature irgendwie begründbar: ein Telegram-Bot, eine Tabellen-Verwaltung, eine Datenbank-Ansicht, eine Dokumente-Seite. Genau deshalb ist alles gewachsen und nichts fertig geworden. Mit der neuen Antwort — <b>die Box ist eine Agenten-Orchestrierungs-Plattform für Leute, die Workflows bauen</b> — beantwortet sich Deine Ausgangsfrage von selbst. Die Hälfte der Oberfläche hat schlicht keine Begründung mehr, und die andere Hälfte bekommt endlich eine.</p>
+
+<p>Das ist der Grund, warum dieser Plan so viel löscht: nicht aus Ordnungsliebe, sondern weil ein klarer Adressat Features überflüssig macht, die vorher unentscheidbar waren. Und es ist der Grund, warum er trotzdem viel <i>neu</i> baut: Agenten, die Werkzeuge benutzen, gibt es heute nirgends — das ist die Fähigkeit, die aus einer hübschen Chat-Box ein Werkzeug macht, für das jemand zahlt. Der externe Wertzuwachs, den Du gesucht hast, entsteht dann von selbst: n8n löst Agenten aus, Agenten lesen Projekt-Dateien, externe Modelle laufen abgeschottet daneben.</p>
+
+<p><b>Fertig heißt:</b> Auf der Box läuft ein Workspace namens „Marketing“. Darin liegen eine Briefing-Datei, eine Kundenliste und ein Agent als Markdown-Datei. Im Chat startet <code>@texter</code> ihn und man sieht live, wie er liest, sucht und schreibt. Ein n8n-Workflow ruft denselben Agenten um acht Uhr morgens über HTTP auf und verarbeitet sein Ergebnis weiter. Ein externer Claude-Agent arbeitet abgeschottet, ohne dass er Postgres, MinIO oder Qdrant je erreicht  Telegram, Datentabellen, Dashboard, Datenbank-Ansicht und der alte Chat existieren nicht mehr. <code>docs/plans/active/</code> ist leer.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Drin: löschen, konsolidieren, Agenten bauen, Sandbox härten. Draußen: Mandanten, Datenmigration, VMs, Anonymisierung.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul><li>Ersatzloses Löschen von Telegram, Datentabellen (samt zweiter Datenbank), Dashboard, Datenbank-Ansicht und der alten Chat-Oberfläche</li><li>Konsolidierung der zwei „Projekt“-Entitäten auf einen Workspace</li><li>Agenten als Markdown-Dateien: Format, Leser, Ausführungs-Maschine mit Werkzeug-Aufrufen</li><li>Umbau des Chats zur Agenten-Kommandozentrale (@-Aufruf, sichtbare Werkzeug-Schritte)</li><li>Die Workspace-Oberfläche (Dateien · Agenten · Workflows)</li><li>Editor ohne Lese-Ansicht, mit korrekter Live-Formatierung</li><li>HTTP-Schnittstelle, über die n8n Agenten startet</li><li>Automatische RAG-Indizierung der Workspace-Dateien; Wissensräume werden unsichtbarer Unterbau</li><li>Ein verständlicher Netz-Schalter je Workspace (Abgeschottet · Am System · Voller Zugriff) auf Basis der vorhandenen Stufen</li><li>Verschlüsselte Speicherung externer Zugangsdaten (Claude-Login)</li><li>Neubau des Stores mit zwei Reitern und verlässlichem Download-Feedback</li><li>Neue Navigation: drei Bereiche plus Einstellungen</li><li>Nachziehen der betroffenen Dokumentation (~30 Dateien)</li></ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul><li><b>Mandanten-Trennung</b> — Workspaces gehören der Box, nicht einzelnen Nutzern (Roadmap T05)</li><li><b>Datenmigration</b> — die Box darf leer starten; nichts wird überführt</li><li><b>Virtuelle Maschinen als Isolation</b> — auf dem Orin ohne GPU und nur mit Kernel-Patches; bewusst verworfen</li><li><b>Automatische Anonymisierung</b> vor dem Versand an externe Modelle — bewusst verworfen</li><li><b>Eigener n8n-Baustein</b> — der Standard-HTTP-Baustein reicht</li><li><b>Proxy mit Ziel-Allowlist und Ausgangs-Protokoll</b> — im Interview verworfen; wäre später eine vierte Netz-Stufe „abgeschottet + protokolliert“</li><li><b>Frontend-Prüfungen blockierend schalten</b> — die ~1.500 Lint-/580 Typ-Fehler sind Altlast und ein eigenes Thema</li><li><b>Backup-Verschlüsselung, OTA, Netztrennung, /healthz</b> — bleiben geparkt (Roadmap T07–T10)</li><li><b>Eine Chat-Oberfläche für Laien</b> — die Zielperson ist ausdrücklich der Workflow-Bauer</li></ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Aus acht Inseln wird eine Mitte: der Workspace. Ein Schalter regelt, was er darf — und die Sandbox kann das längst.</span>
+  </summary>
+  <div class="sbody">
+  <p>Heute ist Arasul eine Sammlung nebeneinanderstehender Seiten. Jede hat ihre eigene Datenhaltung, ihre eigenen Tabellen, ihre eigene Vorstellung davon, was der Nutzer will: Der Chat kennt Unterhaltungen, die Dokumente-Seite kennt Uploads, die Datentabellen kennen Zeilen — in einer eigenen, physisch getrennten Datenbank —, der Telegram-Bereich kennt Bots. Nichts davon weiß voneinander. Wer etwas erledigen will, muss selbst zwischen den Seiten vermitteln. Das ist der Grund, warum sich die Box „nicht produktiv nutzbar“ anfühlt: Sie hat viele Fähigkeiten und keinen Ort, an dem sie zusammenkommen.</p>
+
+<p>Nachher gibt es genau einen solchen Ort: den <b>Workspace</b>. Ein Workspace ist ein Ordner auf der Platte plus ein Container. Darin liegen Dateien (Kontext, Daten, Ergebnisse), Agenten (Markdown-Dateien, die beschreiben, wer mit welchem Modell und welchen Werkzeugen was tut) und Workflows. Der Name ist bewusst der aus Cursor — wer dort zu Hause ist, muss hier nichts Neues lernen. Alles andere ordnet sich dem unter: Der Chat ist die Kommandozentrale, aus der man Agenten startet. RAG ist kein Bereich mehr, sondern ein Werkzeug — die Dateien werden automatisch indiziert, sodass ein Agent den Inhalt seines Workspace findet, ohne dass jemand etwas hochlädt. Auch „Wissensräume“ verschwinden als Begriff: jeder Workspace hat genau einen, unsichtbar. Das Terminal ist die Werkbank im selben Container. Und n8n ist der Auslöser von außen, der dieselben Agenten über einen normalen HTTP-Aufruf startet, den ein Zeitplan um acht Uhr morgens zündet.</p>
+
+<p>An der Workspace-Grenze liegt zugleich das Verkaufsargument — und hier ist der Plan im Lauf des Interviews <i>einfacher</i> geworden, nicht komplizierter. Jeder Workspace beantwortet beim Anlegen genau eine Frage: <b>Was darf dieser Workspace?</b> „Abgeschottet“ heißt Internet ja, Dein System nein — der Container sieht nur seine eigenen Dateien, Postgres, MinIO und Qdrant sind für ihn schlicht nicht existent. Genau das braucht ein externer Claude-Agent, und mehr nicht. „Am System“ gibt einem lokalen Agenten Zugriff auf Datenbank, Speicher und RAG. „Voller Zugriff“ darf alles und bleibt Admins vorbehalten. Ein Klick, jederzeit änderbar.</p>
+
+<p>Das Bemerkenswerte daran: <b>die Sandbox kann das alles bereits.</b> Die drei Stufen existieren im Code, sie sind nur nicht bedienbar. Der ursprüngliche Entwurf sah einen eigenen Proxy-Dienst mit Ziel-Allowlist und Protokoll vor — sicherheitstechnisch stärker, aber ein neuer Dienst, neue Angriffsfläche, schwerer auf dem Jetson zu testen, und ein Konfigurations-Aufwand bei jedem Workspace. Das wurde bewusst gestrichen. Eine Sache muss man dabei ehrlich benennen und der Schalter tut es auch: „abgeschottet“ trennt vom <i>System</i>, nicht vom <i>Netz</i>. Wer einen lückenlosen Nachweis will, was die Box verlassen hat, braucht später eine vierte Stufe — das ist ein eigenes Vorhaben, kein Nebenprodukt dieses Plans.</p>
+
+<p>Ebenfalls bewusst <i>nicht</i> gewählt: eine echte virtuelle Maschine. Sie klingt stärker und wäre besser vermarktbar, aber auf dem Orin bräuchte sie Kernel-Patches, könnte die GPU nicht erreichen, und jedes L4T-Update könnte sie brechen — bei fünf Jahren unbeaufsichtigtem Betrieb ein schlechter Tausch. Da externe Modelle ohnehin in der Cloud rechnen, brauchen sie in der Sandbox keine GPU; die Isolation, die zählt, ist die vom Produktivsystem — und die leistet der Container genauso.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 900 470" role="img" aria-label="Vorher: acht getrennte Seiten mit eigenen Daten. Nachher: ein Projekt als Mitte, mit abgeschotteter Sandbox für externe Modelle." style="width:100%;height:auto">
+  <style>
+    .t  { font: 600 13px system-ui, sans-serif; fill: var(--ink); }
+    .ts { font: 400 11px system-ui, sans-serif; fill: var(--muted); }
+    .th { font: 700 12px system-ui, sans-serif; fill: var(--muted); letter-spacing:.08em; }
+    .tm { font: 500 11px ui-monospace, monospace; fill: var(--muted); }
+    .ta { font: 600 12px system-ui, sans-serif; fill: var(--accent); }
+    .bx { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+    .bxa{ fill: var(--wash);    stroke: var(--accent); stroke-width: 2; }
+    .ln { stroke: var(--line); stroke-width: 1.5; fill: none; }
+    .la { stroke: var(--accent); stroke-width: 2; fill: none; }
+    .lx { stroke: var(--muted); stroke-width: 1.5; fill: none; stroke-dasharray: 4 3; opacity:.6; }
+  </style>
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 z" fill="var(--accent)"/>
+    </marker>
+  </defs>
+
+  <!-- ===================== VORHER ===================== -->
+  <text class="th" x="20" y="22">VORHER — ACHT INSELN</text>
+  <text class="ts" x="20" y="40">Jede Seite mit eigenen Daten. Keine weiß von der anderen.</text>
+
+  <g>
+    <rect class="bx" x="20"  y="54" width="88" height="40" rx="6"/><text class="t" x="64"  y="79" text-anchor="middle">Dashboard</text>
+    <rect class="bx" x="116" y="54" width="88" height="40" rx="6"/><text class="t" x="160" y="79" text-anchor="middle">Chat</text>
+    <rect class="bx" x="212" y="54" width="88" height="40" rx="6"/><text class="t" x="256" y="79" text-anchor="middle">Dokumente</text>
+    <rect class="bx" x="308" y="54" width="88" height="40" rx="6"/><text class="t" x="352" y="79" text-anchor="middle">Telegram</text>
+    <rect class="bx" x="20"  y="102" width="88" height="40" rx="6"/><text class="t" x="64"  y="127" text-anchor="middle">Tabellen</text>
+    <rect class="bx" x="116" y="102" width="88" height="40" rx="6"/><text class="t" x="160" y="127" text-anchor="middle">Datenbank</text>
+    <rect class="bx" x="212" y="102" width="88" height="40" rx="6"/><text class="t" x="256" y="127" text-anchor="middle">Store</text>
+    <rect class="bx" x="308" y="102" width="88" height="40" rx="6"/><text class="t" x="352" y="127" text-anchor="middle">Terminal</text>
+  </g>
+  <line class="lx" x1="64"  y1="94" x2="64"  y2="102"/>
+  <line class="lx" x1="160" y1="94" x2="160" y2="102"/>
+  <text class="ts" x="20" y="164">2 DBs · 2 Chats · 2× „Projekt“ · ~34.000 Zeilen</text>
+
+  <!-- Trennlinie -->
+  <line class="ln" x1="440" y1="14" x2="440" y2="456"/>
+
+  <!-- ===================== NACHHER ===================== -->
+  <text class="th" x="470" y="22">NACHHER — EIN WORKSPACE ALS MITTE</text>
+  <text class="ts" x="470" y="40">Alles ordnet sich dem Workspace unter.</text>
+
+  <!-- n8n Trigger -->
+  <rect class="bx" x="470" y="54" width="120" height="34" rx="6"/>
+  <text class="t" x="530" y="76" text-anchor="middle">n8n · extern</text>
+  <path class="la" d="M530,88 L530,112" marker-end="url(#ar)"/>
+  <text class="tm" x="540" y="104">POST …/run</text>
+
+  <!-- Projekt -->
+  <rect class="bxa" x="470" y="112" width="270" height="150" rx="8"/>
+  <text class="ta" x="484" y="132">Workspace „Marketing“</text>
+
+  <text class="th" x="484" y="154">DATEIEN</text>
+  <text class="tm" x="484" y="170">briefing.md</text>
+  <text class="tm" x="484" y="184">kunden.csv</text>
+  <text class="tm" x="484" y="198">out/</text>
+
+  <text class="th" x="606" y="154">AGENTEN</text>
+  <text class="tm" x="606" y="170">texter.md</text>
+  <text class="tm" x="606" y="184">pruefer.md</text>
+
+  <text class="ts" x="484" y="224">Werkzeuge: Dateien · RAG · Terminal</text>
+  <text class="ts" x="484" y="244">Chat = Kommandozentrale (@texter)</text>
+
+  <!-- lokal -->
+  <rect class="bx" x="470" y="286" width="128" height="46" rx="6"/>
+  <text class="t"  x="534" y="306" text-anchor="middle">Ollama · lokal</text>
+  <text class="ts" x="534" y="322" text-anchor="middle">GPU · Qdrant · DB</text>
+  <path class="la" d="M534,286 L534,262" marker-end="url(#ar)"/>
+
+  <!-- sandbox -->
+  <rect class="bx" x="614" y="286" width="126" height="46" rx="6" stroke-dasharray="5 3"/>
+  <text class="t"  x="677" y="306" text-anchor="middle">Abgeschottet</text>
+  <text class="ts" x="677" y="322" text-anchor="middle">nur Projekt-Kopie</text>
+  <path class="la" d="M677,286 L677,262" marker-end="url(#ar)"/>
+  <path class="la" d="M740,309 L800,309" marker-end="url(#ar)"/>
+  <text class="ts" x="806" y="306">Claude</text>
+  <text class="ts" x="806" y="320">(extern)</text>
+
+  <!-- barrier -->
+  <line class="ln" x1="606" y1="278" x2="606" y2="340" stroke="var(--muted)" stroke-dasharray="3 3"/>
+  <text class="ts" x="612" y="352">✕ kein Zugriff nach links</text>
+
+  <!-- Schalter -->
+  <rect class="bxa" x="470" y="366" width="270" height="52" rx="6"/>
+  <text class="ta" x="484" y="384">Ein Schalter je Workspace</text>
+  <text class="ts" x="484" y="400">Abgeschottet · Am System · Voller Zugriff</text>
+  <text class="ts" x="484" y="413">— gibt es im Code schon, war nur nie bedienbar</text>
+
+  <text class="ts" x="470" y="440">„Abgeschottet“ trennt vom System, nicht vom Internet. Die Workspace-Grenze ist die Datenschutzgrenze.</text>
+  <text class="ts" x="470" y="458">1 Datenbank · 1 Chat · 1× „Projekt“ · ~14.000 Zeilen weniger</text>
+</svg>
+    <figcaption>Links: acht Seiten, die nichts voneinander wissen. Rechts: der Workspace als einzige Mitte — lokale Modelle mit vollem Zugriff, externe Modelle nur im abgeschotteten Workspace, der das Produktivsystem nicht sieht.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 16 Schritte, jeder ein eigener Commit mit lauffähigem Zwischenstand — von „Backup“ über „Agenten-Maschine“ bis „Doku“.</span>
+  </summary>
+  <div class="sbody">
+  <!-- One .step per phase; unique data-ref each. -->
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Bestand sichern &amp; Plan 006 ablösen">
+    <h3>Schritt 1 — Bestand sichern &amp; Plan 006 ablösen <span class="tag">Risiko: niedrig</span></h3>
+    <p>Vollbackup der Box, damit jeder spätere Schnitt umkehrbar ist. Plan 006 (Feature-Audit) wird als „abgelöst“ geschlossen — seine offenen Punkte betreffen zur Hälfte Bereiche, die dieser Plan löscht. Danach ein Branch, auf dem alle folgenden Schritte als eigene Commits landen.</p>
+    <p class="files mono">docs/plans/active/006-*.html → done/ · docs/plans/ROADMAP.html · scripts/backup/</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Telegram ersatzlos löschen">
+    <h3>Schritt 2 — Telegram ersatzlos löschen <span class="tag">Risiko: mittel</span></h3>
+    <p>Der komplette Telegram-Bereich fliegt: Frontend-Feature, Backend-Routen, fünf Dienste, HMAC-Hilfsmittel und 17 Tabellen aus neun Migrationen. Ersatz ist der Telegram-Baustein in n8n — dieselbe Fähigkeit, null eigener Code. Achtung: der Store empfiehlt „telegram-bot“ heute noch als Featured-App; dieser Eintrag muss mit.</p>
+    <p class="files mono">features/telegram/ · routes/telegram/ · services/telegram/ · utils/telegramHmac.js · routes/store/store.js (FEATURED_APPS) · routes/index.js (API_ROUTE_GROUPS) · __tests__/{telegram*} · Migration 102 (DROP) · docs/integrations/TELEGRAM_BOT_SETUP.md</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Datentabellen und die zweite Datenbank löschen">
+    <h3>Schritt 3 — Datentabellen und die zweite Datenbank löschen <span class="tag">Risiko: hoch</span></h3>
+    <p>Die Datentabellen hängen an einer eigenen, physisch getrennten Postgres-Datenbank mit eigenem Bootstrap-Skript und eigenem Verbindungspool. Alles davon geht: Feature, Routen, Pool, Init-Skripte, Compose-Verdrahtung. Danach hat die Box genau eine Datenbank. Höchstes Risiko dieses Blocks, weil der Bootstrap in die Infrastruktur reicht.</p>
+    <p class="files mono">features/datentabellen/ · routes/datentabellen/ · src/dataDatabase.js · services/postgres/init/032a_create_data_database.sh · services/postgres/init-data-db/ · compose/ · Migration 102 (DROP datentabellen_config)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Dashboard, Datenbank-Ansicht und Legacy-Chat löschen">
+    <h3>Schritt 4 — Dashboard, Datenbank-Ansicht und Legacy-Chat löschen <span class="tag">Risiko: mittel</span></h3>
+    <p>Drei Leichen auf einmal: die Kachel-Startseite, die rohe Postgres-Ansicht und die alte Chat-Oberfläche, die nur noch über einen Ausweich-Schalter erreichbar war. Der Schalter selbst fliegt mit — danach gibt es genau eine Chat-Oberfläche. System-Status wandert in die Einstellungen.</p>
+    <p class="files mono">features/dashboard/ · features/database/ · features/chat/ · routes/system/database.js · isWorkspaceShellEnabled() · App.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Tab-Typen und Navigation aufräumen">
+    <h3>Schritt 5 — Tab-Typen und Navigation aufräumen <span class="tag">Risiko: mittel</span></h3>
+    <p>Der Workspace kennt seine Inhalte über eine geschlossene Typ-Aufzählung; „telegram“ und „database“ stehen dort namentlich drin und werden an vier Stellen ausgewertet. Die fliegen raus — der Compiler zeigt jede Fundstelle. Gleichzeitig entsteht die neue Navigation: drei Bereiche (Chat, Wissen, Automation) plus Einstellungen.</p>
+    <p class="files mono">stores/workspaceStore.ts (WorkspaceTabType) · features/workspace/TabContent.tsx · features/workspace/ActivityBar.tsx · App.tsx · __tests__/integration/database.test.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Workspace-Entität konsolidieren">
+    <h3>Schritt 6 — Workspace-Entität konsolidieren <span class="tag">Risiko: hoch</span></h3>
+    <p>Heute heißen zwei verschiedene Dinge „Projekt“: eine Chat-Gruppierung und ein Container-Workspace. Der Container gewinnt, weil er Host-Pfad, Besitzer und Netzmodus schon mitbringt — also genau das Gerüst einer Arbeitsmappe. Die Chat-Projekte werden gelöscht; ihr Systemprompt lebt künftig in den Agenten-Dateien weiter. In der Oberfläche heißt das Ergebnis <b>Workspace</b>. Damit der Name im Code nicht doppelt belegt ist, behalten Shell und Store ihre etablierten Bezeichner, und die Entität bekommt einen eindeutigen eigenen. Das ist der Angelpunkt des ganzen Plans.</p>
+    <p class="files mono">Migration 103 (sandbox_projects → Workspace-Entität, DROP projects) · routes/projects.js (weg) · routes/sandbox.js · services/sandbox/sandboxService.js · features/projects/ (weg)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Die Workspace-Oberfläche">
+    <h3>Schritt 7 — Die Workspace-Oberfläche <span class="tag">Risiko: mittel</span></h3>
+    <p>Der vorhandene IDE-Aufbau bleibt und bekommt einen neuen Inhalt: links im Explorer die drei Rubriken Dateien, Agenten und Workflows, in der Mitte der Editor, rechts der Agenten-Chat. Kein Neubau der Shell — sie ist bereits Cursor-artig und funktioniert.</p>
+    <p class="files mono">features/workspace/explorer/ExplorerPanel.tsx · features/workspace/WorkspaceShell.tsx · features/workspace/RightPanel.tsx · stores/workspaceStore.ts</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Ein Schalter statt einer Sicherheits-Baustelle">
+    <h3>Schritt 8 — Ein Schalter statt einer Sicherheits-Baustelle <span class="tag">Risiko: niedrig</span></h3>
+    <p><b>Bewusst vorgezogen.</b> Die Sandbox kann die nötige Trennung bereits: drei Netz-Stufen, davon eine abgeschottete (Internet ja, Plattform-Netz nein) — genau das, was ein externer Claude-Agent braucht. Es fehlt kein Unterbau, nur ein verständlicher Schalter beim Anlegen: „Abgeschottet“ als Standard, „Am System“ für lokale Agenten, „Voller Zugriff“ nur für Admins. Weil Agenten ab Schritt 10 selbst Befehle ausführen dürfen, muss dieser Schalter vorher stehen — sonst gäbe es ein Fenster, in dem ein Agent ungeschirmt auf dem System arbeitet.</p>
+    <p class="files mono">features/workspace/ (Anlage-Dialog) · routes/sandbox.js · services/sandbox/sandboxService.js (VALID_NETWORK_MODES — vorhanden) · services/sandbox/sandboxShared.js</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Editor: nur noch Bearbeiten, Live-Formatierung">
+    <h3>Schritt 9 — Editor: nur noch Bearbeiten, Live-Formatierung <span class="tag">Risiko: mittel</span></h3>
+    <p>Heute rendert eine Lese-Ansicht das Markdown, und der Editor öffnet erst auf Klick als Überlagerung — daher die unterschiedliche Formatierung. Künftig gibt es nur noch den Editor: man öffnet die Datei und steht im Text. Die Lese-Ansicht wird ersatzlos entfernt, damit es nur noch eine Darstellung gibt, die stimmen muss.</p>
+    <p class="files mono">features/workspace/DocumentViewerTab.tsx · components/editor/tiptap/TipTapEditor.tsx · components/editor/tiptap/extensions.ts · react-markdown/remark-gfm (Abhängigkeit prüfen)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 10 — Agenten-Definition und Ausführungs-Maschine">
+    <h3>Schritt 10 — Agenten-Definition und Ausführungs-Maschine <span class="tag">Risiko: hoch</span></h3>
+    <p>Das Herzstück und komplett neu: Es gibt heute nirgends Werkzeug-Aufrufe — weder im Chat noch im LLM-Dienst. Neu entsteht das Agenten-Format (Markdown mit Kopfdaten: Name, Modell, Werkzeuge, Kontext), ein Leser dafür, und die Schleife, die das Modell Werkzeuge aufrufen lässt. Alle drei Werkzeuge von Anfang an: Dateien lesen und schreiben, RAG durchsuchen, <b>Terminal ausführen</b>. Jeder Schritt wird als Ereignis nach außen gemeldet. Das Terminal ist das mächtigste Werkzeug — es ist nur deshalb ab Tag 1 vertretbar, weil der Netz-Schalter aus Schritt 8 bereits steht und der Agent in seinem abgeschotteten Workspace arbeitet.</p>
+    <p class="files mono">services/agents/ (neu) · services/agents/agentFile.js · services/agents/toolLoop.js · services/agents/tools/{files,rag,terminal}.js · services/llm-service/api_server.py</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 11 — Chat wird Agenten-Kommandozentrale">
+    <h3>Schritt 11 — Chat wird Agenten-Kommandozentrale <span class="tag">Risiko: mittel</span></h3>
+    <p>Die Oberfläche wird neu gedacht, die erprobte Technik darunter bleibt: Streaming, Verlauf und Speicherung funktionieren und werden weiterverwendet. Neu sind der @-Aufruf eines Agenten und die sichtbaren Werkzeug-Schritte — man sieht, was der Agent liest, sucht und schreibt, statt nur auf Text zu warten.</p>
+    <p class="files mono">features/workspace/llm/agentChat/AgentChatPanel.tsx · contexts/ChatContext.tsx · features/workspace/llm/agentChat/CompactMessage.tsx · ComposerCard.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 12 — Agenten von außen aufrufbar (n8n)">
+    <h3>Schritt 12 — Agenten von außen aufrufbar (n8n) <span class="tag">Risiko: mittel</span></h3>
+    <p>Ein Agent wird über einen normalen HTTP-Aufruf gestartet und liefert sein Ergebnis zurück. Damit reicht in n8n der Standard-Baustein — kein eigenes Paket, das bei jedem n8n-Update nachgezogen werden müsste. Absicherung über ein Projekt-Token.</p>
+    <p class="files mono">routes/projekte/agenten.js (neu, asyncHandler + Zod + ApiError nach Muster routes/sandbox.js) · Migration 104 (Projekt-Token) · docs/api/API_REFERENCE.md</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 13 — Workspace-Dateien automatisch indizieren">
+    <h3>Schritt 13 — Workspace-Dateien automatisch indizieren <span class="tag">Risiko: mittel</span></h3>
+    <p>Der vorhandene Indexer durchsucht heute alle 30 Sekunden einen Speicher-Eimer und legt Treffer in Qdrant ab. Er bekommt die Workspace-Dateien als zweite Quelle. Damit findet ein Agent den Inhalt seines Workspace, ohne dass jemand etwas hochlädt — die Dokumente-Seite wird überflüssig. Die „Wissensräume“ verschwinden dabei als Begriff aus der Oberfläche, bleiben aber technisch der Unterbau: jeder Workspace hat genau einen. Das macht die RAG-Grenze automatisch zur Workspace-Grenze — niemand muss sie pflegen, und sie kann nicht versehentlich zu weit gezogen werden.</p>
+    <p class="files mono">services/document-indexer/ · routes/ai/spaces.js · Migration 105 (Workspace-Bezug am Dokument)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 14 — Externe Anmeldung verschlüsselt speichern">
+    <h3>Schritt 14 — Externe Anmeldung verschlüsselt speichern <span class="tag">Risiko: mittel</span></h3>
+    <p>Wer sich einmal im Terminal bei Claude anmeldet, soll Ruhe haben. Der Zugang wird verschlüsselt in der Datenbank abgelegt und beim Start in die Sitzung gereicht — er übersteht Neustarts und Neubauten. Dafür gibt es bereits ein erprobtes Verfahren im Haus, das übernommen wird; es wird kein drittes erfunden.</p>
+    <p class="files mono">utils/tokenCrypto.js (bestehendes AES-256-GCM-Muster) · services/core/cryptoService.js (vorher beide lesen) · routes/settings · Migration 107 (Zugangsdaten je Nutzer)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 15 — Store neu: zwei Tabs">
+    <h3>Schritt 15 — Store neu: zwei Tabs <span class="tag">Risiko: niedrig</span></h3>
+    <p>Der Aufbau „Liste links, Detail in der Mitte“ existiert bereits und bleibt. Neu ist die Trennung in zwei Reiter: Modelle mit Größe, Status und Fortschritt — ruhig und übersichtlich wie früher — und Erweiterungen als schlichte An/Aus-Liste. Der Modell-Download bekommt endlich verlässliches Fortschritts- und Fehler-Feedback.</p>
+    <p class="files mono">features/store/Store.tsx · features/store/StoreDetailPage.tsx · features/store/DownloadProgress.tsx · routes/store/store.js · services/…/modelDownloadHelpers.js</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 16 — Doku nachziehen, live prüfen, abschließen">
+    <h3>Schritt 16 — Doku nachziehen, live prüfen, abschließen <span class="tag">Risiko: niedrig</span></h3>
+    <p>Alles, was gelöscht oder neu ist, wird in der Doku nachgezogen — rund 30 Dateien nennen die gestrichenen Bereiche. Danach der vollständige Live-Durchlauf auf dem Jetson im echten Browser, und die Roadmap wird auf den neuen Stand gebracht.</p>
+    <p class="files mono">docs/api/API_REFERENCE.md · docs/api/DATABASE_SCHEMA.md · docs/ENVIRONMENT_VARIABLES.md · docs/ARCHITECTURE.md · docs/ops/ADMIN_HANDBUCH.md · docs/development/{DESIGN_SYSTEM,ONBOARDING}.md · docs/plans/ROADMAP.html</p>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 21 Kriterien, alle nachprüfbar — inklusive: die Sandbox erreicht Postgres nachweislich nicht.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Kein Verweis auf Telegram, Datentabellen, Dashboard oder die Datenbank-Ansicht ist im Repo übrig — <code>grep -ri</code> auf die vier Namen findet in <code>apps/</code> nichts mehr.</li>
+    <li data-done="false">Die Box hat genau eine Postgres-Datenbank; <code>\l</code> in der Datenbank-Konsole zeigt keine zweite Nutzdaten-Datenbank.</li>
+    <li data-done="false">Es gibt genau eine Tabelle für Projekte und genau eine Chat-Oberfläche.</li>
+    <li data-done="false">Backend-Tests laufen grün durch (<code>./scripts/test/run-tests.sh --backend</code>) — sie sind in der CI blockierend.</li>
+    <li data-done="false">Eine Markdown-Datei öffnet direkt im Editor; Überschriften, Listen und Code-Blöcke sind sofort richtig formatiert, ohne dass irgendwo „Bearbeiten“ geklickt wird.</li>
+    <li data-done="false">Ein Agent lässt sich als Markdown-Datei im Workspace anlegen und erscheint ohne Neuladen im Explorer.</li>
+    <li data-done="false"><code>@texter</code> im Chat startet den Agenten; die Werkzeug-Schritte (liest, sucht, schreibt) erscheinen einzeln und live, nicht erst am Ende.</li>
+    <li data-done="false">Ein Agent schreibt eine Datei in den Workspace, und die Datei erscheint im Explorer.</li>
+    <li data-done="false">Ein Agent mit <code>werkzeuge: [terminal]</code> führt einen Befehl aus, und die Ausgabe erscheint als Schritt im Chat.</li>
+    <li data-done="false"><code>POST /api/workspaces/:workspace/agenten/:agent/run</code> liefert mit gültigem Token das Ergebnis; ohne Token kommt 401.</li>
+    <li data-done="false">Ein n8n-Workflow mit dem Standard-HTTP-Baustein ruft einen Agenten auf und verarbeitet dessen Antwort weiter.</li>
+    <li data-done="false">Eine in den Workspace gelegte Datei ist ohne manuellen Upload über RAG auffindbar.</li>
+    <li data-done="false">Der Begriff „Wissensraum“ kommt in der Oberfläche nicht mehr vor.</li>
+    <li data-done="false">Beim Anlegen eines Workspace steht die Frage „Was darf dieser Workspace?“ mit drei Stufen in klarer Sprache; „Abgeschottet“ ist vorausgewählt und später änderbar.</li>
+    <li data-done="false">Aus einem abgeschotteten Workspace sind Postgres, MinIO und Qdrant nachweislich <b>nicht</b> erreichbar (Verbindungsversuch schlägt fehl), das Internet dagegen schon (Claude antwortet).</li>
+    <li data-done="false">Aus einem Workspace der Stufe „Am System“ ist RAG erreichbar — die Stufen unterscheiden sich also nachweisbar.</li>
+    <li data-done="false">Nach einer Anmeldung bei Claude im Terminal überlebt der Zugang einen <code>docker compose up -d --build</code> — kein zweites Anmelden nötig.</li>
+    <li data-done="false">Der Store zeigt zwei Reiter; ein Modell-Download meldet Fortschritt laufend und landet danach sichtbar in der Installiert-Liste.</li>
+    <li data-done="false">Die Navigation hat drei Bereiche plus Einstellungen; kein Eintrag führt ins Leere.</li>
+    <li data-done="false">Alle Punkte aus §6 sind im echten Browser auf dem Jetson durchgeklickt und abgehakt.</li>
+    <li data-done="false"><code>docs/plans/active/</code> ist leer — kein aktiver Plan bleibt übrig.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Alles wird von Hand im Browser auf dem Jetson durchgeklickt. Die Isolation wird gegengetestet, nicht nur positiv geprüft.</span>
+  </summary>
+  <div class="sbody">
+  <p>Nichts gilt als fertig, bevor es im echten Browser auf dem Jetson (<code>https://192.168.0.197</code>) durchgeklickt wurde — nicht per Test, nicht per Log, sondern von Hand. Das ist bei diesem Plan besonders wichtig, weil die Frontend-Prüfungen in der CI nur beratend sind und einen Umbau dieser Größe nicht auffangen.</p>
+
+<h3>Diese Abläufe werden live durchgespielt</h3>
+<ul>
+  <li><b>Anmelden und herumklicken:</b> Jeder Eintrag der neuen Navigation führt irgendwohin. Keine leere Seite, kein 404, kein toter Link auf einen gelöschten Bereich.</li>
+  <li><b>Editor:</b> Eine Markdown-Datei mit Überschrift, Liste, Tabelle und Code-Block öffnen. Sie steht sofort im Editor, alles ist korrekt formatiert, der Cursor ist da. Tippen, Formatierung bleibt richtig, Speichern wird bestätigt.</li>
+  <li><b>Workspace anlegen:</b> Einen Workspace „Marketing“ erstellen, <code>briefing.md</code> und <code>kunden.csv</code> hineinlegen, im Explorer wiederfinden.</li>
+  <li><b>Agent anlegen:</b> <code>agenten/texter.md</code> anlegen und ohne Neuladen im Explorer sehen.</li>
+  <li><b>Agent im Chat:</b> <code>@texter</code> starten. Die Werkzeug-Schritte erscheinen einzeln und live. Das Ergebnis landet als Datei im Workspace und taucht im Explorer auf.</li>
+  <li><b>RAG ohne Upload:</b> Eine neue Datei in den Workspace legen und den Agenten danach fragen — er findet sie, ohne dass irgendwo etwas hochgeladen wurde.</li>
+  <li><b>n8n:</b> Ein echter Workflow mit dem Standard-HTTP-Baustein ruft <code>@texter</code> auf und verarbeitet die Antwort weiter. Zusätzlich: derselbe Aufruf ohne Token muss 401 liefern.</li>
+  <li><b>Der Schalter:</b> Beim Anlegen eines Workspace erscheint „Was darf dieser Workspace?“ mit drei Stufen in klarer Sprache, „Abgeschottet“ vorausgewählt. Die Stufe lässt sich nachträglich ändern.</li>
+  <li><b>Isolation (Gegentest, nicht nur Positivtest):</b> Aus einem <i>abgeschotteten</i> Workspace heraus wird versucht, Postgres, MinIO und Qdrant zu erreichen — <b>muss fehlschlagen</b>. Im selben Container muss Claude aber antworten — Internet ja, System nein. Danach denselben Workspace auf „Am System“ stellen: jetzt <b>muss</b> RAG erreichbar sein. Erst dann ist bewiesen, dass der Schalter etwas bewirkt.</li>
+  <li><b>Anmeldung übersteht Neubau:</b> Im Terminal bei Claude anmelden, dann <code>docker compose up -d --build</code>, dann Claude erneut aufrufen — keine zweite Anmeldung.</li>
+  <li><b>Store:</b> Beide Reiter ansehen, ein kleines Modell laden. Fortschritt läuft sichtbar mit, danach steht das Modell in der Installiert-Liste (das ging bisher schief — Roadmap T03/T16).</li>
+  <li><b>Kaltstart:</b> Die Box einmal von Null hochziehen. Postgres startet mit genau einer Datenbank, alle Dienste werden gesund.</li>
+</ul>
+
+<h3>Gesundheit und Protokolle</h3>
+<ul>
+  <li><code>docker compose ps</code> — jeder Dienst gesund, keiner in einer Neustart-Schleife.</li>
+  <li><code>docker compose logs</code> für Backend, Indexer, Sandbox-Proxy — keine Fehler-Kaskade, kein Verweis auf gelöschte Routen oder Tabellen.</li>
+  <li><code>docker exec postgres-db psql -U arasul -c "\l"</code> — genau eine Nutzdaten-Datenbank.</li>
+  <li>Browser-Konsole beim Durchklicken — keine roten Fehler, keine fehlgeschlagenen Anfragen an gelöschte Endpunkte.</li>
+  <li><code>./scripts/test/run-tests.sh --all</code> — Backend grün (blockierend); Frontend-Fehlerzahl vorher/nachher gemessen und gesunken.</li>
+</ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größtes Risiko ist der eine große PR; nach dem Merge führt der einzige Rückweg über das Backup aus Schritt 1.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>      <tr><td>Ein einziger Riesen-PR über Frontend, Backend, Datenbank und Infrastruktur ist kaum prüfbar und schwer zurückzudrehen.</td><td>hoch</td><td>Bewusst so entschieden. Gegenmaßnahme: jeder der 16 Schritte wird ein eigener Commit mit lauffähigem Zwischenstand — so bleibt ein Zurückspringen auf Schritt-Ebene möglich, auch wenn nur ein PR entsteht.</td></tr>
+      <tr><td>Die Agenten-Maschine ist komplett neu (kein Werkzeug-Aufruf existiert heute) — der größte Brocken und die größte Unbekannte.</td><td>hoch</td><td>Eigener Schritt, nicht in den Chat-Umbau gefaltet. Innerhalb des Schritts wird die Maschine erst mit einem einzigen Werkzeug (Dateien lesen) bewiesen, bevor RAG und Terminal dazukommen.</td></tr>
+      <tr><td>Agenten dürfen ab Tag 1 selbst Befehle ausführen. Ein Agent, der sich vertut, kann echten Schaden anrichten.</td><td>mittel</td><td>So entschieden — das ist die Autonomie, um die es geht. Entschärft durch die Reihenfolge: der Netz-Schalter steht in Schritt 8, die Agenten kommen in Schritt 10. Ein Agent arbeitet also nie außerhalb eines Workspace, dessen Rechte vorher festgelegt wurden; Standard ist „Abgeschottet“.</td></tr>
+      <tr><td>Das Löschen der zweiten Datenbank greift in Bootstrap und Compose — geht das schief, startet Postgres nicht mehr.</td><td>mittel</td><td>Vollbackup in Schritt 1. Der Bootstrap wird auf dem Jetson einmal von Null hochgezogen, bevor der Schritt als fertig gilt.</td></tr>
+      <tr><td>Die abgeschottete Stufe hat Internet (Docker-Bridge mit NAT) — sie trennt vom System, nicht vom Netz. Wer „abgeschottet“ als „nichts geht raus“ liest, täuscht sich.</td><td>mittel</td><td>Der Schalter benennt es ausdrücklich: „Internet ja · Dein System nein“. Ein lückenloser Nachweis, was die Box verlässt, ist bewusst nicht Teil dieses Plans — er wäre eine eigene Stufe „abgeschottet + protokolliert“ und ein eigenes Vorhaben.</td></tr>
+      <tr><td>Das Frontend hat rund 1.500 Lint- und 580 Typ-Fehler Altlast; die Prüfungen sind in der CI absichtlich nur beratend. Ein Umbau dieser Größe kann echte Fehler in diesem Rauschen verstecken.</td><td>mittel</td><td>Nicht auf die beratende CI verlassen. Die gelöschten Bereiche müssen die Fehlerzahl senken — Vorher/Nachher wird gemessen. Blockierend umschalten bleibt ausdrücklich außerhalb dieses Plans.</td></tr>
+      <tr><td>Die Typ-Aufzählung der Workspace-Tabs wird an mehreren Stellen ausgewertet; Löschen bricht dort den Bau.</td><td>niedrig</td><td>Das ist hier ein Vorteil: der Compiler zeigt jede Fundstelle. Kein stilles Übersehen möglich.</td></tr>
+      <tr><td>„Projekt“ existiert zweimal — eine Verwechslung beim Migrieren träfe den Kern des Plans.</td><td>mittel</td><td>Vorab entschieden und im Log festgehalten (siehe §8). Die Migration benennt die Container-Tabelle um und löscht die Chat-Tabelle in einem Schritt, damit kein Zwischenzustand mit zwei Bedeutungen entsteht.</td></tr></tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Die ehrliche Antwort: Bei einem einzigen PR über Frontend, Backend, Datenbank und Infrastruktur ist Rollback <b>grob</b>. Es gibt kein Zurück auf Feature-Ebene — nur ganz oder gar nicht. Das ist der Preis der Entscheidung „alles in einem Rutsch“ und der Grund, warum die Umkehrbarkeit oben nur einen Punkt hat.</p>
+<ul>
+  <li><b>Vor dem Zusammenführen:</b> Der PR bleibt offen und ist folgenlos — <code>main</code> ist unberührt. Alle 16 Schritte sind eigene Commits, sodass ein Zurückspringen auf einen Zwischenstand innerhalb des Branches möglich bleibt.</li>
+  <li><b>Nach dem Zusammenführen, Code:</b> <code>git revert</code> des Merge-Commits plus Neubau. Bringt die Oberfläche zurück.</li>
+  <li><b>Nach dem Zusammenführen, Daten:</b> Bringt <code>revert</code> <b>nicht</b> zurück. Die Migrationen sind vorwärts-gerichtet (so die Hausregel), und gelöschte Tabellen bleiben gelöscht — die zweite Datenbank ebenso. Der einzige Weg zurück ist das Vollbackup aus Schritt 1.</li>
+  <li><b>Deshalb Schritt 1:</b> Das Vollbackup vor dem ersten Schnitt ist nicht Formsache, sondern der einzige echte Rückweg. Es wird angelegt und seine Wiederherstellbarkeit geprüft, bevor irgendetwas gelöscht wird.</li>
+  <li><b>Entschärfend:</b> Du hast entschieden, dass die Box leer starten darf. Es gibt also nichts Produktives zu verlieren — das ist der Grund, warum dieses grobe Rollback vertretbar ist.</li>
+</ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 29 Entscheidungen aus 7 Interview-Runden — inklusive drei Stellen, an denen ich Dir widersprochen habe.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>      <tr><td>Was heißt „fertig“?</td><td>Alles, was bleibt, ist bugfrei und minimal programmiert; nichts Komplexes ohne Kundennutzen.</td><td>Umfang wird nicht an Feature-Zahl gemessen, sondern an Zuverlässigkeit. Rechtfertigt das großzügige Löschen.</td></tr>
+      <tr><td>Wie hart beim Wegwerfen?</td><td>Offensichtlich Totes wird autonom gelöscht; bei sichtbaren Features wird gefragt.</td><td>/work darf toten Code ohne Rückfrage entfernen.</td></tr>
+      <tr><td>Navigation?</td><td>Cursor-Stil: drei Arbeitsbereiche (Chat, Wissen, Automation) plus Einstellungen.</td><td>Betrieb und Technik wandern unter Einstellungen; Schritt 5.</td></tr>
+      <tr><td>Modell-Download?</td><td>Bleibt im Store, wird aber komplett neu gebaut.</td><td>Schritt 15 statt einer eigenen Seite in den Einstellungen.</td></tr>
+      <tr><td><b>Positionierung?</b></td><td><b>Agenten-Orchestrierungs-Plattform für Workflow-Bauer — kein Chat für Endnutzer.</b></td><td><b>Die tragende Entscheidung. Zielperson ist kein Laie; alles, was nur „nettes Chatten“ ist, verliert seine Berechtigung.</b></td></tr>
+      <tr><td>Was ist ein Agent?</td><td>Eine Markdown-Datei im Projekt mit Kopfdaten (Name, Modell, Werkzeuge, Kontext).</td><td>Versionierbar, im Terminal editierbar, kein Klick-Formular. Prägt das Datenmodell in Schritt 9.</td></tr>
+      <tr><td>Externe Anmeldung?</td><td>Verschlüsselt in der Datenbank, pro Nutzer.</td><td>Schritt 14; nutzt das vorhandene AES-256-GCM-Verfahren, kein neues.</td></tr>
+      <tr><td>Lokal vs. extern?</td><td>Externe Modelle müssen sicher einbindbar sein — abgeschottet, ohne Zugriff aufs Produktivsystem.</td><td>Führte zur Sandbox-Härtung in Schritt 13 statt zu einem Verbot externer Anbieter.</td></tr>
+      <tr><td>Isolation womit?</td><td>Gehärteter Container mit dichtem Netz — <b>nicht</b> per virtueller Maschine.</td><td>Recherche-Korrektur: KVM auf dem Orin braucht Kernel-Patches und kann die GPU nicht durchreichen; gVisor ist auf ARM64 laut Hersteller nicht produktionsreif. Bei fünf Jahren Laufzeit ist beides ein Wartungsrisiko.</td></tr>
+      <tr><td>Datenfreigabe an externe Agenten?</td><td>Das ganze Projekt, aber nie darüber hinaus.</td><td>Die Projektgrenze ist die Datenschutzgrenze. Automatische Anonymisierung wurde bewusst <b>nicht</b> gewählt — ein Versprechen, das nur meist hält, ist gefährlicher als keines.</td></tr>
+      <tr><td>Telegram, Datentabellen, Dashboard, Datenbank-Ansicht?</td><td>Alle vier ersatzlos löschen.</td><td>Rund 8.800 Zeilen Frontend plus Routen und Tabellen. Schritte 2–4.</td></tr>
+      <tr><td>RAG/Dokumente?</td><td>Fähigkeit bleibt, eigener Bereich fällt weg.</td><td>Qdrant, Embedding und Indexer bleiben; Projekt-Dateien werden automatisch indiziert. Schritt 12.</td></tr>
+      <tr><td>Workspace?</td><td>Wird zur Projekt-Oberfläche — kein Neubau.</td><td>Die Shell ist bereits Cursor-artig und funktioniert. Schritt 7.</td></tr>
+      <tr><td>Bestandsdaten?</td><td>Die Box darf leer starten — kein Export, keine Migration.</td><td>Erlaubt harte Schnitte, u. a. das Löschen der zweiten Datenbank.</td></tr>
+      <tr><td>Lieferweg?</td><td>Alles in einem Rutsch, ein PR.</td><td>Zweimal bestätigt, auch nach der Umfangs-Explosion. Aufgelöst als: 16 Schritte, sequenziell, je ein Commit, ein PR am Ende. Risiko in §7 offen benannt.</td></tr>
+      <tr><td>n8n-Aufruf?</td><td>Normaler HTTP-Aufruf, wartet auf das Ergebnis.</td><td>Standard-Baustein in n8n reicht; kein eigenes Paket zu pflegen. Schritt 11.</td></tr>
+      <tr><td>Nutzer?</td><td>Mehrere Nutzer, Projekte gehören der Box.</td><td>Kein Mandanten-Umbau in diesem Plan; nur externe Zugangsdaten sind persönlich.</td></tr>
+      <tr><td>Chat-Umbau?</td><td>Neu bauen, aber Streaming, Verlauf und Speicherung weiterverwenden.</td><td>Genau die Stellen, an denen Bugs sitzen, bleiben erprobt. Schritt 10.</td></tr>
+      <tr><td>Plan 006?</td><td>In diesen Plan aufgehen lassen.</td><td>006 wird als abgelöst geschlossen; dieser Plan beantwortet „funktioniert wirklich“ rigoroser, indem die Hälfte der Features verschwindet. Schritt 1.</td></tr>
+      <tr><td><b>Welche Projekt-Tabelle?</b></td><td><b>sandbox_projects wird zur Arbeitsmappe ausgebaut; die Chat-Tabelle projects wird gelöscht.</b></td><td><b>Recherche-Fund: „Projekt“ existierte zweimal. Die Container-Tabelle bringt Host-Pfad, Besitzer und Netzmodus bereits mit. Der Systemprompt der Chat-Projekte lebt in den Agenten-Dateien weiter. Schritt 6.</b></td></tr>
+      <tr><td>Alter Chat?</td><td>Löschen — der Workspace-Chat ist der einzige.</td><td>Recherche-Fund: zwei Chat-Oberflächen, die alte nur hinter einem Ausweich-Schalter. Nochmals ~5.000 Zeilen weniger. Schritt 4.</td></tr>
+      <tr><td>Zweite Datenbank?</td><td>Komplett raus — Datenbank, Bootstrap und Verbindungspool.</td><td>Recherche-Fund: Datentabellen hingen an einer eigenen physischen Datenbank, nicht nur an Tabellen. Schritt 3.</td></tr>
+      <tr><td>Netz-Allowlist wie?</td><td><s>Proxy-Beiwagen pro Projekt</s> — <b>revidiert (siehe nächste Zeile)</b>.</td><td>Zuerst so entschieden, weil es heute keine Ausgangskontrolle gibt. Wurde noch im Interview verworfen.</td></tr>
+      <tr><td><b>Isolation — nochmal, einfacher?</b></td><td><b>Nur ein Schalter mit drei Stufen. Kein Proxy, kein Protokoll, keine neue Infrastruktur.</b></td><td><b>Dein Einwand: „soll nicht ultrakomplex werden — internes Netz an oder aus reicht, aber leicht konfigurierbar“. Er trifft: die Sandbox hat die drei Stufen bereits (VALID_NETWORK_MODES), sie sind nur nicht bedienbar. Für Claude reicht „abgeschottet“, weil ein Docker-Bridge-Netz Internet hat, aber die Plattform nicht erreicht. Der Schritt fällt von „hoch“ auf „niedrig“. Preis: kein Nachweis, was rausgeht — offen benannt in §3 und §7.</b></td></tr>
+      <tr><td>Agent-Werkzeuge ab wann?</td><td>Alle drei von Anfang an — Dateien, RAG <b>und</b> Terminal.</td><td>Ich hatte das Terminal später empfohlen, weil es sonst ein Fenster gäbe, in dem ein Agent ungeschirmt Befehle ausführt. Aufgelöst statt vertagt: der Netz-Schalter wurde <b>vor</b> die Agenten-Maschine gezogen (jetzt Schritt 8 statt 13). Da er seit der Proxy-Streichung nur noch ein Dialog ist, kostet das Vorziehen nichts — und das ungeschirmte Fenster entfällt ganz.</td></tr>
+      <tr><td>Wie heißt die Arbeitsmappe?</td><td>„Workspace“.</td><td>Passt zum Cursor-Vorbild. Ich hatte auf die Namenskollision mit der Workspace-Shell hingewiesen; Deine Frage galt der Oberfläche, dort heißt es Workspace. Im Code behalten Shell und Store ihre etablierten Bezeichner, die Entität bekommt einen eindeutigen eigenen — sonst hieße Oberfläche und Inhalt gleich.</td></tr>
+      <tr><td>Wer darf ins Terminal?</td><td>Alle angemeldeten Nutzer.</td><td>Kein zusätzliches Rechte-System. Die dritte Netz-Stufe („Voller Zugriff“) bleibt wie heute admin-geschützt.</td></tr>
+      <tr><td>Wissensräume?</td><td>Unsichtbarer Unterbau — ein Workspace hat genau einen.</td><td>Der Begriff verschwindet aus der Oberfläche, die Technik bleibt und trägt die Indizierung. Ein Konzept weniger zu erklären, und die RAG-Grenze ist automatisch die Workspace-Grenze.</td></tr>
+      <tr><td>Offene Fragen auf der Plan-Seite?</td><td>Abgeschafft — die Seite fragt nichts mehr.</td><td>Dein Einwand: in einer HTML-Datei kann man nicht antworten. Der <code>/plan</code>-Command und die Vorlage wurden geändert: jede Frage läuft über das Interview-Tool im Chat, lieber eine Runde mehr. Die fünf zuvor geparkten Fragen sind jetzt hier im Log beantwortet.</td></tr></tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 008 · erstellt am 2026-07-17 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/008-agenten-orchestrierung-neubau.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // restore persisted state
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>

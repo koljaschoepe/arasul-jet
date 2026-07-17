@@ -21,7 +21,7 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-07-14",
+  "updated": "2026-07-17",
   "migrated_from_master_plan": true,
   "gates": [
     { "id": "G1", "title": "Alle Features funktionieren nachweislich (Feature-Audit grün)", "state": "open" },
@@ -33,6 +33,7 @@
     { "id": "G7", "title": "7 Tage unattended stabil", "state": "open" }
   ],
   "themes": [
+    { "id": "T18", "title": "Arasul wird Agenten-Orchestrierung — Neupositionierung zur Workflow-Bauer-Plattform: Telegram/Datentabellen/Dashboard/DB-Ansicht/Alt-Chat ersatzlos löschen (~14.000 Zeilen), Projekt-Entität konsolidieren, Agenten als Markdown-Dateien mit Werkzeug-Aufrufen, Chat als Kommandozentrale, n8n-HTTP-Trigger, Netz-Schalter je Workspace, Store-Neubau", "prio": "P0", "status": "planned", "source": "Interview 2026-07-17 (6 Runden)", "plan": "008", "pr": null, "note": "Löst T01/T17 ab; schluckt T02, T03, T04, T12, T16" },
     { "id": "T01", "title": "Feature-Audit „funktioniert wirklich\" — jede angekündigte Funktion end-to-end live auf dem Jetson durchtesten, Bug-Liste erzeugen", "prio": "P0", "status": "planned", "source": "Interview 2026-07-14", "plan": "006", "pr": 209, "note": "Lauf 1: Kernpfad grün, F1 gefixt (PR #209); Restlauf → T17" },
     { "id": "T02", "title": "Aktions-Feedback plattformweit — Container start/stop/restart, Modell-Download, Deaktivieren geben sofort klaren Status (kein „passiert nichts → dann alles auf einmal\")", "prio": "P0", "status": "open", "source": "Interview 2026-07-14", "plan": null, "pr": null },
     { "id": "T03", "title": "Modell-Download-Robustheit — Verify mit Retry/Poll statt Einmal-Check (Race in modelDownloadHelpers.js: real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error') + saubere Progress-UI", "prio": "P1", "status": "open", "source": "Live-Verify Plan 004 2026-07-14", "plan": null, "pr": null },
@@ -293,6 +294,25 @@
   </div>
 
   <h2>Themen — anklicken für Details</h2>
+
+  <details class="card" id="T18" data-prio="P0" data-status="planned" data-ref="T18 Agenten-Orchestrierung">
+    <summary><span class="prio">P0</span><span class="ttl">Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung</span><span class="cbtn-slot"></span><span class="st">geplant (008)</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Neupositionierung statt Aufräumen: Aus der Chat-Appliance für Endnutzer wird eine
+      Agenten-Orchestrierungs-Plattform für Leute, die Workflows bauen. Telegram, Datentabellen
+      (samt zweiter Datenbank), Dashboard, Datenbank-Ansicht und der alte Chat werden ersatzlos
+      gelöscht — rund 14.000 Zeilen. Das „Projekt“ (heute zwei verschiedene Entitäten) wird zur
+      Workspace: Dateien, Agenten und Workflows an einem Ort. Agenten sind Markdown-Dateien, die
+      Werkzeuge benutzen (inkl. Terminal); Chat und n8n starten dieselben. Ein Schalter je Workspace
+      regelt in klarer Sprache, was er darf.</p>
+      <p><b>Löst ab bzw. schluckt:</b> T01/T17 (Feature-Audit — die Hälfte der zu auditierenden
+      Features verschwindet), T02 (Aktions-Feedback), T03 (Modell-Download-Robustheit → Store-Neubau),
+      T04 (UI-Konsistenz), T12 (Chat-UX-Refactor), T16 (Store-Kleinfunde). Diese Themen werden mit
+      Plan 008 abgeschlossen oder auf den verbleibenden Rest eingedampft.</p>
+      <div class="facts"><span>Macht Gate: <b>G1, G2, G3</b></span><span>Aufwand: <b>16 Schritte · 1 PR</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/work 008</code><button type="button" data-copy="/work 008">Befehl kopieren</button></div>
+    </div>
+  </details>
 
   <details class="card" id="T01" data-prio="P0" data-status="planned" data-ref="T01 Feature-Audit">
     <summary><span class="prio">P0</span><span class="ttl">Feature-Audit „funktioniert wirklich“</span><span class="cbtn-slot"></span><span class="st">geplant (006)</span><span class="chev">▶</span></summary>
