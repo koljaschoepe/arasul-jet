@@ -11,9 +11,9 @@
      - Steps in §4: <div class="step" data-status="pending|done|deviation|blocked"
        data-ref="§4 · Schritt N — <Name>">. /work flips status and appends
        <div class="result">…</div> inside the step.
-     - Open questions live in #oq as .oq-item with data-ref="Frage N".
-       If there are none, keep the box with the single "Keine —" line.
      - Every data-ref must be unique — user comments are keyed on it.
+     - The page never ASKS anything. Questions belong in AskUserQuestion,
+       in chat — the user cannot answer inside this file.
   3. Machine state lives in #plan-meta JSON (/work and /status parse it).
      Dashboard tiles mirror it: dots use data-level="1|2|3" (1=niedrig).
   4. §9 (report) starts with class "is-hidden" — /work removes it when filling.
@@ -182,25 +182,13 @@
   .brief dd ul { margin: 0; padding-left: 1.1rem; }
   @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
 
-  .oq {
-    background: var(--note-bg); border: 1.5px solid var(--note);
-    border-radius: 14px; padding: 1rem 1.2rem; margin: 0 0 1.6rem;
-  }
-  .oq h2 {
-    margin: 0 0 .5rem; font-size: .72rem; letter-spacing: .13em;
-    text-transform: uppercase; color: var(--note); font-weight: 800;
-  }
-  .oq-item { padding: .5rem 0; }
-  .oq-item + .oq-item { border-top: 1px solid color-mix(in srgb, var(--note) 30%, transparent); }
-  .oq-item p { margin: 0 0 .35rem; font-weight: 600; font-size: .95rem; }
-  .oq-item textarea, .comment textarea {
+  .comment textarea {
     width: 100%; border: 1px solid var(--line); border-radius: 8px;
     background: var(--surface); color: var(--ink);
     font: inherit; font-size: .92rem; padding: .5rem .65rem;
     resize: vertical; min-height: 2.4rem;
   }
-  .oq-item textarea:focus, .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .oq .none { color: var(--muted); font-size: .92rem; margin: 0; }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   /* ---------- collapsible section cards ---------- */
   details.sec {
@@ -379,13 +367,6 @@
     </dl>
   </div>
 
-  <div class="oq" id="oq">
-    <h2>Offene Fragen an dich</h2>
-    <!-- One .oq-item per question the interview deliberately left to the user;
-         answer textareas feed the comment export. No questions? Use:
-         <p class="none">Keine — alles Wichtige ist im Interview entschieden worden.</p> -->
-    {{OQ_ITEMS}}
-  </div>
 </header>
 
 <details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
@@ -602,8 +583,7 @@
     return btn;
   }
 
-  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"))
-    .filter(function (el) { return !el.classList.contains("oq-item"); });
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
   var btns = {};
   targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
 
@@ -624,11 +604,6 @@
 
   function collect() {
     var out = [];
-    // open-question answers first
-    document.querySelectorAll(".oq-item").forEach(function (q) {
-      var ta = q.querySelector("textarea");
-      if (ta) out.push({ ref: q.dataset.ref + ": " + (q.querySelector("p") ? q.querySelector("p").textContent.trim() : ""), text: ta.value, oq: true, key: q.dataset.ref });
-    });
     // walk all comment boxes in DOM order, key by their label
     document.querySelectorAll(".comment").forEach(function (box) {
       var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
@@ -640,7 +615,7 @@
 
   function persist() {
     var list = collect();
-    save(list.filter(function (c) { return !c.oq || c.text.trim(); }));
+    save(list);
     var n = list.filter(function (c) { return c.text.trim(); }).length;
     ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
     cbar.classList.toggle("visible", n > 0);
@@ -663,7 +638,6 @@
 
   document.getElementById("cclear").addEventListener("click", function () {
     document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
-    document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.value = ""; });
     persist();
   });
 
@@ -688,16 +662,9 @@
     setTimeout(persist, 2200);
   }
 
-  // wire open-question textareas + restore persisted state
-  document.querySelectorAll(".oq-item textarea").forEach(function (ta) { ta.addEventListener("input", persist); });
+  // restore persisted state
   load().forEach(function (c) {
     if (!c.text || !c.key) return;
-    var oq = document.querySelector('.oq-item[data-ref="' + c.key + '"]');
-    if (oq) {
-      var ta = oq.querySelector("textarea");
-      if (ta && !ta.value) ta.value = c.text;
-      return;
-    }
     var host = document.querySelector('[data-ref="' + c.key + '"]');
     if (host) addComment(host, c.text, true);
   });
