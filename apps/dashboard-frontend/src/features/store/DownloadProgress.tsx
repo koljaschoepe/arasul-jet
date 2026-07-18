@@ -74,10 +74,11 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
             <div
               className={cn(
                 'h-full bg-primary rounded transition-all duration-300',
-                isVerify && 'animate-pulse bg-muted-foreground'
+                isVerify && 'animate-pulse bg-muted-foreground',
+                isError && 'bg-destructive'
               )}
               style={{
-                width: `${isVerify && downloadState.progress < 100 ? 100 : downloadState.progress}%`,
+                width: `${isVerify && downloadState.progress < 100 ? 100 : isError ? 100 : downloadState.progress}%`,
               }}
               role="progressbar"
               aria-valuenow={downloadState.progress}
@@ -85,6 +86,9 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
               aria-valuemax={100}
             />
           </div>
+          {isError && downloadState.error && (
+            <div className="text-xs text-destructive">{downloadState.error}</div>
+          )}
         </div>
       </div>
     );

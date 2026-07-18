@@ -55,7 +55,7 @@ const MOCK_CATALOG = [
 
 const MOCK_APPS = [
   { id: 'n8n', name: 'n8n', description: 'Workflow automation', category: 'automation' },
-  { id: 'telegram-bot', name: 'Telegram Bot', description: 'Messaging', category: 'communication' }
+  { id: 'terminal', name: 'Terminal', description: 'Shell access', category: 'tools' }
 ];
 
 describe('Store Routes', () => {

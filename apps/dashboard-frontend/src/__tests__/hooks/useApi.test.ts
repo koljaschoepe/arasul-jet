@@ -460,7 +460,7 @@ describe('useApi', () => {
       if (url === '/api/auth/csrf') {
         return Promise.resolve(mockRes(200, { csrfToken: 'race-token' }));
       }
-      if (url === '/api/workspace-apps/n8n' || url === '/api/workspace-apps/telegram') {
+      if (url === '/api/workspace-apps/n8n' || url === '/api/workspace-apps/database') {
         attempts[url] = (attempts[url] ?? 0) + 1;
         return Promise.resolve(
           attempts[url] === 1
@@ -476,7 +476,7 @@ describe('useApi', () => {
     await act(async () => {
       results = await Promise.all([
         result.current.put('/workspace-apps/n8n', { enabled: false }),
-        result.current.put('/workspace-apps/telegram', { enabled: false }),
+        result.current.put('/workspace-apps/database', { enabled: false }),
       ]);
     });
 
@@ -484,7 +484,7 @@ describe('useApi', () => {
     // Both mutations 403'd concurrently but the token was re-minted only ONCE.
     expect(callsTo('/api/auth/csrf').length).toBe(1);
     expect(callsTo('/api/workspace-apps/n8n').length).toBe(2);
-    expect(callsTo('/api/workspace-apps/telegram').length).toBe(2);
+    expect(callsTo('/api/workspace-apps/database').length).toBe(2);
   });
 
   it('sets error status and data on thrown error', async () => {

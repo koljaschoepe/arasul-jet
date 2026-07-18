@@ -190,10 +190,9 @@ teardown() {
     echo "$result" | grep -q "EMBEDDING_USE_FP16=false"
 }
 
-@test "get_config_for_profile: minimal_4gb disables n8n and telegram" {
+@test "get_config_for_profile: minimal_4gb disables n8n" {
     result=$(get_config_for_profile "minimal_memory")
     echo "$result" | grep -q "DISABLE_N8N=true"
-    echo "$result" | grep -q "DISABLE_TELEGRAM=true"
 }
 
 @test "get_config_for_profile: all profiles contain JETSON_PROFILE" {

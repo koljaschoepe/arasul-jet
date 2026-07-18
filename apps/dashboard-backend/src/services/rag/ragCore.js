@@ -3,7 +3,6 @@
  *
  * Used by:
  * - routes/rag.js (dashboard RAG queries)
- * - services/telegram/telegramRagService.js (Telegram bot RAG enrichment)
  *
  * Functions:
  * - getEmbedding / getEmbeddings - Generate embedding vectors

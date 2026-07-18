@@ -20,15 +20,7 @@ import { persist } from 'zustand/middleware';
  * Stores — Komponenten rendern die Sessions nur, sie besitzen sie nicht.
  */
 
-export type WorkspaceTabType =
-  | 'dashboard'
-  | 'document'
-  | 'settings'
-  | 'store'
-  | 'automationen'
-  | 'telegram'
-  | 'database'
-  | 'database-table';
+export type WorkspaceTabType = 'document' | 'settings' | 'store' | 'automationen';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
@@ -46,22 +38,16 @@ export interface WorkspaceTab {
 }
 
 const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
-  dashboard: 'Dashboard',
   document: 'Dokument',
   settings: 'Einstellungen',
   store: 'Extensions',
   automationen: 'Automationen',
-  telegram: 'Telegram',
-  database: 'Datenbank',
-  'database-table': 'Tabelle',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
   switch (spec.type) {
     case 'document':
       return `document:${spec.documentId ?? ''}`;
-    case 'database-table':
-      return `database-table:${spec.slug ?? ''}`;
     default:
       return spec.type;
   }
@@ -70,8 +56,6 @@ export function tabId(spec: WorkspaceTabSpec): string {
 /** Aktiver Tab → URL-Pfad unterhalb von /workspace. */
 export function tabToPath(tab: WorkspaceTab): string {
   switch (tab.type) {
-    case 'dashboard':
-      return '/workspace/dashboard';
     case 'document':
       return `/workspace/doc/${tab.documentId ?? ''}`;
     case 'settings':
@@ -80,12 +64,6 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/store';
     case 'automationen':
       return '/workspace/automationen';
-    case 'telegram':
-      return '/workspace/telegram';
-    case 'database':
-      return '/workspace/database';
-    case 'database-table':
-      return `/workspace/database/${tab.slug ?? ''}`;
   }
 }
 
@@ -95,8 +73,6 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
   const head = parts[0];
   if (!head) return null;
   switch (head) {
-    case 'dashboard':
-      return { type: 'dashboard' };
     case 'doc':
       return parts[1] ? { type: 'document', documentId: parts[1] } : null;
     case 'settings':
@@ -105,10 +81,6 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'store' };
     case 'automationen':
       return { type: 'automationen' };
-    case 'telegram':
-      return { type: 'telegram' };
-    case 'database':
-      return parts[1] ? { type: 'database-table', slug: parts[1] } : { type: 'database' };
     default:
       // /workspace/terminal (v2) ist kein Tab mehr — Terminal lebt im Panel.
       return null;
@@ -128,7 +100,7 @@ export interface ChatScope {
  * Aktionen, die die Menüleiste an den Explorer delegiert (der Dialog-State
  * lebt lokal im ExplorerPanel; die Menubar stellt nur eine Anfrage).
  */
-export type ExplorerAction = 'create-folder' | 'create-project' | 'upload-files';
+export type ExplorerAction = 'create-folder' | 'upload-files';
 
 /**
  * Eine Terminal-Session im rechten Panel. Die Registry lebt im Store

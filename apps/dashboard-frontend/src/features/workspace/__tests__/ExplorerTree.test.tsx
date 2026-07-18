@@ -63,15 +63,10 @@ const documents = [
     file_size: 5,
   },
 ];
-const projects = [
-  { id: 'p-def', name: 'Allgemein', is_default: true, knowledge_space_id: null },
-  { id: 'p-mkt', name: 'Marketing', is_default: false, knowledge_space_id: 'ks-m', color: '#f00' },
-];
 
 const apiMock = {
   get: vi.fn((path: string) => {
     if (path === '/spaces/tree') return Promise.resolve({ spaces, documents });
-    if (path === '/projects') return Promise.resolve({ projects });
     return Promise.resolve({});
   }),
   post: vi.fn(),
@@ -81,7 +76,7 @@ const apiMock = {
 };
 vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 
-describe('ExplorerPanel (Projekte-Baum)', () => {
+describe('ExplorerPanel (Ordner-Baum)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useWorkspaceStore.setState({
@@ -92,45 +87,31 @@ describe('ExplorerPanel (Projekte-Baum)', () => {
     });
   });
 
-  it('zeigt Projekte als oberste Ebene, Standard-Projekt zuerst', async () => {
+  it('zeigt Wurzel-Ordner und Wurzel-Dateien als oberste Ebene', async () => {
     render(
       <ToastProvider>
         <ExplorerPanel />
       </ToastProvider>
     );
-    await waitFor(() => expect(screen.getByText('Marketing')).toBeInTheDocument());
-    const tree = screen.getByTestId('projects-tree');
-    const rows = tree.querySelectorAll('[data-testid^="project-"]');
-    expect(rows[0]?.getAttribute('data-testid')).toBe('project-p-def');
-    expect(screen.getByText('Allgemein')).toBeInTheDocument();
-  });
-
-  it('Standard-Projekt nimmt unzugeordnete Ordner und Wurzel-Dateien auf', async () => {
-    render(
-      <ToastProvider>
-        <ExplorerPanel />
-      </ToastProvider>
-    );
-    await waitFor(() => expect(screen.getByText('Allgemein')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Allgemein'));
-    // ks-frei ist von keinem Projekt abgedeckt → unter Allgemein
+    await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
+    // Wurzel-Ordner ohne Elternordner
     expect(screen.getByText('Unzugeordnet')).toBeInTheDocument();
-    // Datei ohne Ordner ebenfalls, mit Indexierungs-Status
+    // Wurzel-Datei (keinem Ordner zugeordnet), mit Indexierungs-Status
     expect(screen.getByText('Notiz.md')).toBeInTheDocument();
     expect(screen.getByLabelText('Wird indexiert …')).toBeInTheDocument();
-    // Der Marketing-Ordner gehört zum Projekt Marketing, NICHT zu Allgemein
-    expect(screen.queryByText('Marketing-Ordner')).not.toBeInTheDocument();
+    // Unterordner bleibt bis zum Aufklappen verborgen
+    expect(screen.queryByText('Kampagnen')).not.toBeInTheDocument();
   });
 
-  it('Projekt-Ordnerbaum öffnet Dateien als Dokument-Tab', async () => {
+  it('Ordner öffnet Unterordner und Dateien; Datei öffnet Dokument-Tab', async () => {
     render(
       <ToastProvider>
         <ExplorerPanel />
       </ToastProvider>
     );
-    await waitFor(() => expect(screen.getByText('Marketing')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Marketing'));
-    // Kinder des Projekt-Ordners: Unterordner + Datei
+    await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Marketing-Ordner'));
+    // Kinder des Ordners: Unterordner + Datei
     expect(screen.getByText('Kampagnen')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Briefing.pdf'));
     const tabs = useWorkspaceStore.getState().tabs;
@@ -143,7 +124,7 @@ describe('ExplorerPanel (Projekte-Baum)', () => {
         <ExplorerPanel />
       </ToastProvider>
     );
-    await waitFor(() => expect(screen.getByText('Marketing')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText('Explorer durchsuchen'), {
       target: { value: 'briefing' },
     });
@@ -159,7 +140,7 @@ describe('ExplorerPanel (Projekte-Baum)', () => {
         <ExplorerPanel />
       </ToastProvider>
     );
-    await waitFor(() => expect(screen.getByText('Allgemein')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
     const input = screen.getByTestId('explorer-upload-input') as HTMLInputElement;
     const clickSpy = vi.spyOn(input, 'click');
     useWorkspaceStore.getState().requestExplorerAction('upload-files');

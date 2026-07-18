@@ -18,7 +18,6 @@ import LoadingSpinner from './components/ui/LoadingSpinner';
 import { SkeletonCard, SkeletonText } from './components/ui/Skeleton';
 import { Button } from './components/ui/shadcn/button';
 import SetupWizard from './features/system/SetupWizard';
-import DashboardHome from './features/dashboard/DashboardHome';
 
 // PHASE 3: State Management - Contexts and Hooks
 import { DownloadProvider } from './contexts/DownloadContext';
@@ -30,12 +29,8 @@ import { ChatProvider } from './contexts/ChatContext';
 import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
 import { useDashboardData } from './hooks/useDashboardData';
-import { isWorkspaceShellEnabled } from './lib/featureFlags';
 import { SidebarWithDownloads } from './components/layout/Sidebar';
 import './index.css';
-
-// Eager imports for primary routes (needed immediately or on first render)
-import ChatRouter from './features/chat/ChatRouter';
 
 // PHASE 2: Code-Splitting - Lazy imports for secondary route components
 // These components are loaded on-demand when the user navigates to them
@@ -43,9 +38,6 @@ const Settings = lazy(() => import('./features/settings/Settings'));
 const DocumentManager = lazy(() => import('./features/documents/DocumentManager'));
 const Store = lazy(() => import('./features/store'));
 const SandboxApp = lazy(() => import('./features/sandbox'));
-const TelegramBotPage = lazy(() => import('./features/telegram/TelegramBotPage'));
-const DatabaseOverview = lazy(() => import('./features/database/DatabaseOverview'));
-const DatabaseTable = lazy(() => import('./features/database/DatabaseTable'));
 
 // IDE-Workspace-Shell (Feature-Flag `workspace-shell`, Plan ide-workspace-shell)
 const WorkspaceShell = lazy(() => import('./features/workspace'));
@@ -325,13 +317,14 @@ interface LegacyAppContentProps extends ThemeControls {
 }
 
 /**
- * Review-Fix (Critical): Bei aktivem Workspace-Flag darf ein Besuch von "/"
- * die Legacy-UI (inkl. der 7 Dashboard-Fetches und des Fullscreen-Spinners)
- * gar nicht erst mounten — der Redirect nach /workspace passiert davor.
+ * Die Workspace-Shell ist die einzige Startseite: "/" leitet immer nach
+ * /workspace um (der frühere Legacy/Workspace-Umschalter ist entfernt, Plan
+ * 008). Für alle übrigen Pfade bleibt die Legacy-Sidebar-UI als Fallback für
+ * ihre bestehenden Routen (/settings, /data, /store, …) erreichbar.
  */
 function LegacyOrWorkspaceRedirect(props: LegacyAppContentProps): React.JSX.Element {
   const location = useLocation();
-  if (isWorkspaceShellEnabled() && location.pathname === '/') {
+  if (location.pathname === '/') {
     return <Navigate to={`/workspace${location.search}${location.hash}`} replace />;
   }
   return <LegacyAppContent {...props} />;
@@ -348,20 +341,9 @@ function LegacyAppContent({
   onToggleTheme,
   onLogout,
 }: LegacyAppContentProps): React.JSX.Element {
-  const {
-    metrics,
-    metricsHistory,
-    services,
-    systemInfo,
-    networkInfo,
-    runningApps,
-    thresholds,
-    deviceInfo,
-    loading,
-    error,
-    formatChartData,
-    retry,
-  } = useDashboardData(isAuthenticated);
+  // Die Dashboard-Startseite ist entfernt (Plan 008); die Legacy-UI nutzt aus
+  // useDashboardData nur noch den Lade-/Fehlerzustand und das Offline-Banner.
+  const { metrics, loading, error, retry } = useDashboardData(isAuthenticated);
 
   // Sidebar collapsed state - persisted in localStorage
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -466,36 +448,10 @@ function LegacyAppContent({
         >
           <Routes>
             <Route
-              path="/"
-              element={
-                <RouteErrorBoundary routeName="Dashboard">
-                  <DashboardHome
-                    metrics={metrics}
-                    metricsHistory={metricsHistory}
-                    services={services}
-                    systemInfo={systemInfo}
-                    networkInfo={networkInfo}
-                    runningApps={runningApps}
-                    formatChartData={formatChartData}
-                    thresholds={thresholds}
-                    deviceInfo={deviceInfo}
-                  />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route
               path="/settings"
               element={
                 <RouteErrorBoundary routeName="Einstellungen">
                   <Settings handleLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route
-              path="/chat/*"
-              element={
-                <RouteErrorBoundary routeName="AI Chat">
-                  <ChatRouter />
                 </RouteErrorBoundary>
               }
             />
@@ -527,41 +483,16 @@ function LegacyAppContent({
               }
             />
             <Route
-              path="/telegram-bot"
-              element={
-                <RouteErrorBoundary routeName="Telegram Bot">
-                  <TelegramBotPage />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route path="/telegram-bots" element={<Navigate to="/telegram-bot" replace />} />
-            <Route
-              path="/database"
-              element={
-                <RouteErrorBoundary routeName="Datenbank">
-                  <DatabaseOverview />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route
-              path="/database/:slug"
-              element={
-                <RouteErrorBoundary routeName="Datentabelle">
-                  <DatabaseTable />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route
               path="*"
               element={
                 <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground">
                   <h1 className="text-7xl font-bold m-0 text-foreground">404</h1>
                   <p className="text-lg mt-2">Seite nicht gefunden</p>
                   <Link
-                    to="/"
+                    to="/workspace"
                     className="mt-6 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg no-underline hover:opacity-90 transition-opacity"
                   >
-                    Zum Dashboard
+                    Zum Workspace
                   </Link>
                 </div>
               }

@@ -58,13 +58,12 @@ nmap -sn 192.168.1.0/24
 
 Nach der Ersteinrichtung koennen Sie sofort:
 
-| Funktion          | Beschreibung                                   |
-| ----------------- | ---------------------------------------------- |
-| **Chat**          | KI-Assistent fuer Fragen und Analysen          |
-| **Dokumente**     | Dateien hochladen und mit KI durchsuchen (RAG) |
-| **Datentabellen** | Strukturierte Daten verwalten                  |
-| **Telegram-Bot**  | Eigenen Telegram-Bot erstellen und verbinden   |
-| **Einstellungen** | System konfigurieren und anpassen              |
+| Funktion          | Beschreibung                                                                    |
+| ----------------- | ------------------------------------------------------------------------------- |
+| **Chat**          | KI-Assistent fuer Fragen und Analysen; `@agent` startet einen Workspace-Agenten |
+| **Dokumente**     | Dateien hochladen und mit KI durchsuchen (RAG)                                  |
+| **Automation**    | n8n-Workflows + Workspace-Agenten (auch per HTTP/n8n aufrufbar)                 |
+| **Einstellungen** | System konfigurieren und anpassen                                               |
 
 ---
 

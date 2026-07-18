@@ -6,7 +6,13 @@
  * ARASUL_OLLAMA_URL env var, plus network-mode mapping.
  */
 
-jest.mock('../../src/database', () => ({ query: jest.fn() }));
+jest.mock('../../src/database', () => {
+  const query = jest.fn();
+  // createProject wraps the workspace + space insert in a transaction; the
+  // client it hands the callback shares the same jest.fn as db.query so tests
+  // can drive both via a single mockImplementation.
+  return { query, transaction: jest.fn(async callback => callback({ query })) };
+});
 jest.mock('../../src/utils/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
@@ -188,7 +194,34 @@ describe('sandboxService.createProject — infrastructure authorization', () => 
       }
       if (/INSERT INTO sandbox_projects/.test(sql)) {
         return {
-          rows: [{ id: 'p9', name: 'Infra', slug: 'infra-projekt', network_mode: 'infrastructure' }],
+          rows: [
+            {
+              id: 'p9',
+              name: 'Infra',
+              slug: 'infra-projekt',
+              color: '#45ADFF',
+              network_mode: 'infrastructure',
+            },
+          ],
+        };
+      }
+      if (/generate_space_slug/.test(sql)) {
+        return { rows: [{ slug: 'workspace-infra-projekt' }] };
+      }
+      if (/INSERT INTO knowledge_spaces/.test(sql)) {
+        return { rows: [{ id: 'space-9' }] };
+      }
+      if (/UPDATE sandbox_projects/.test(sql)) {
+        return {
+          rows: [
+            {
+              id: 'p9',
+              name: 'Infra',
+              slug: 'infra-projekt',
+              network_mode: 'infrastructure',
+              space_id: 'space-9',
+            },
+          ],
         };
       }
       return { rows: [] };
@@ -228,7 +261,20 @@ describe('sandboxService.createProject — infrastructure authorization', () => 
         return { rows: [{ slug: 'demo' }] };
       }
       if (/INSERT INTO sandbox_projects/.test(sql)) {
-        return { rows: [{ id: 'p10', name: 'demo', slug: 'demo', network_mode: 'isolated' }] };
+        return {
+          rows: [{ id: 'p10', name: 'demo', slug: 'demo', color: '#45ADFF', network_mode: 'isolated' }],
+        };
+      }
+      if (/generate_space_slug/.test(sql)) {
+        return { rows: [{ slug: 'workspace-demo' }] };
+      }
+      if (/INSERT INTO knowledge_spaces/.test(sql)) {
+        return { rows: [{ id: 'space-10' }] };
+      }
+      if (/UPDATE sandbox_projects/.test(sql)) {
+        return {
+          rows: [{ id: 'p10', name: 'demo', slug: 'demo', network_mode: 'isolated', space_id: 'space-10' }],
+        };
       }
       return { rows: [] };
     });
@@ -236,6 +282,34 @@ describe('sandboxService.createProject — infrastructure authorization', () => 
     await expect(
       sandboxService.createProject({ name: 'demo', userId: 2, userRole: 'viewer' })
     ).resolves.toMatchObject({ network_mode: 'isolated' });
+  });
+
+  test('auto-creates exactly one invisible knowledge space and stores its id on the project', async () => {
+    // Uses the infrastructure-authorization beforeEach mock (returns space-9).
+    const project = await sandboxService.createProject({
+      name: 'Infra',
+      userId: 1,
+      userRole: 'admin',
+    });
+
+    // The linked space id is written back onto the workspace row.
+    expect(project.space_id).toBe('space-9');
+
+    // Exactly one knowledge_spaces INSERT, marked as an invisible, undeletable
+    // per-workspace space.
+    const spaceInserts = db.query.mock.calls.filter(([sql]) =>
+      /INSERT INTO knowledge_spaces/.test(sql)
+    );
+    expect(spaceInserts).toHaveLength(1);
+    expect(spaceInserts[0][0]).toMatch(/is_workspace/);
+    expect(spaceInserts[0][0]).toMatch(/is_system/);
+
+    // The space id is persisted via UPDATE ... space_id.
+    const spaceUpdates = db.query.mock.calls.filter(([sql]) =>
+      /UPDATE sandbox_projects SET space_id/.test(sql)
+    );
+    expect(spaceUpdates).toHaveLength(1);
+    expect(spaceUpdates[0][1]).toEqual(['space-9', 'p9']);
   });
 });
 

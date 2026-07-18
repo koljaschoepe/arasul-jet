@@ -183,7 +183,6 @@ if [ -n "$TOKEN" ]; then
     "GET /metrics"
     "GET /logs/list"
     "GET /llm/models"
-    "GET /datentabellen/tables"
   )
 fi
 

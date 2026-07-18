@@ -91,7 +91,7 @@ class LogsTool extends BaseTool {
         combined = filtered.length > 0 ? filtered.join('\n') : 'Keine Fehler gefunden';
       }
 
-      // Truncate if too long for Telegram
+      // Truncate if too long for chat output
       if (combined.length > 3500) {
         combined = combined.substring(0, 3500) + '\n... (gekuerzt)';
       }

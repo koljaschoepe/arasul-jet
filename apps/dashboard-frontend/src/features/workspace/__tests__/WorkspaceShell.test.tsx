@@ -94,72 +94,72 @@ describe('WorkspaceShell — URL-Sync', () => {
 
   it('v2-Deep-Link /workspace/terminal blendet das Terminal-Panel ein (kein Tab)', async () => {
     useWorkspaceStore.setState({
-      tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-      activeTabId: 'dashboard',
+      tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
+      activeTabId: 'settings',
     });
 
     renderShell('/workspace/terminal');
 
     await waitFor(() => expect(terminalIsVisible()).toBe(true));
     // Kein Terminal-Tab, bestehende Tabs unverändert
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard']);
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings']);
     // URL normalisiert sich auf den aktiven Tab
     await waitFor(() =>
-      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/dashboard')
+      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/settings')
     );
   });
 
-  it('v2-Deep-Link /workspace/terminal beim ersten Start: Dashboard-Tab + Terminal-Panel', async () => {
+  it('v2-Deep-Link /workspace/terminal beim ersten Start: nur Terminal-Panel, kein Default-Tab', async () => {
     renderShell('/workspace/terminal');
 
     await waitFor(() => expect(terminalIsVisible()).toBe(true));
-    await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toEqual(['dashboard'])
-    );
+    // Kein Dashboard-Default-Tab mehr (Plan 008): der Workspace bleibt leer,
+    // der Chat-first-Einstieg lebt im rechten Panel.
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
   });
 
   it('Gating: Deep-Link auf eine deaktivierte App öffnet den Tab nicht (Browser-Zurück-Szenario)', async () => {
-    disabledTabTypes.add('database');
+    disabledTabTypes.add('automationen');
     useWorkspaceStore.setState({
-      tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-      activeTabId: 'dashboard',
+      tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
+      activeTabId: 'settings',
     });
 
-    renderShell('/workspace/database');
+    renderShell('/workspace/automationen');
 
     // Tab wird NICHT (wieder) geöffnet, URL springt zurück auf den aktiven Tab
     await waitFor(() =>
-      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/dashboard')
+      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/settings')
     );
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard']);
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings']);
   });
 
   it('Gating: bereits offener Tab einer deaktivierten App wird geschlossen', async () => {
-    disabledTabTypes.add('database');
+    disabledTabTypes.add('automationen');
     useWorkspaceStore.setState({
       tabs: [
-        { id: 'dashboard', type: 'dashboard', title: 'Dashboard' },
-        { id: 'database', type: 'database', title: 'Datenbank' },
+        { id: 'settings', type: 'settings', title: 'Einstellungen' },
+        { id: 'automationen', type: 'automationen', title: 'Automationen' },
       ],
-      activeTabId: 'database',
+      activeTabId: 'automationen',
     });
 
-    renderShell('/workspace/database');
+    renderShell('/workspace/automationen');
 
     await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['dashboard'])
+      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['settings'])
     );
     await waitFor(() =>
-      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/dashboard')
+      expect(screen.getByTestId('location-probe').textContent).toBe('/workspace/settings')
     );
   });
 
   it('aktivierte Apps öffnen per Deep-Link weiterhin ihren Tab', async () => {
-    renderShell('/workspace/database');
+    renderShell('/workspace/automationen');
     await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toContain('database')
+      expect(useWorkspaceStore.getState().tabs.map(t => t.type)).toContain('automationen')
     );
-    expect(useWorkspaceStore.getState().activeTabId).toBe('database');
+    expect(useWorkspaceStore.getState().activeTabId).toBe('automationen');
   });
 
   it('Farbregel (AC #8): die Mitte nutzt die Basis-Flächenfarbe bg-background, nicht bg-card', async () => {
@@ -168,10 +168,10 @@ describe('WorkspaceShell — URL-Sync', () => {
     // Mitte wieder auf bg-card (den früheren Farbbruch) umstellt, lässt diesen
     // Test fehlschlagen, bevor es unbemerkt live geht.
     useWorkspaceStore.setState({
-      tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-      activeTabId: 'dashboard',
+      tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
+      activeTabId: 'settings',
     });
-    renderShell('/workspace/dashboard');
+    renderShell('/workspace/settings');
 
     const centerSurface = (await screen.findByTestId('mock-tabcontent')).parentElement;
     expect(centerSurface).not.toBeNull();
@@ -185,11 +185,11 @@ describe('WorkspaceShell — URL-Sync', () => {
 
   it('Keep-alive: Terminal-Fläche wird per data-shell-hidden versteckt, nicht unmounted', async () => {
     useWorkspaceStore.setState({
-      tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-      activeTabId: 'dashboard',
+      tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
+      activeTabId: 'settings',
     });
 
-    renderShell('/workspace/dashboard');
+    renderShell('/workspace/settings');
 
     // Default: rechtes Panel sichtbar, Modus Chat. Die Terminal-Fläche im
     // RightPanel ist als [data-shell-surface] gemountet, aber wegen des

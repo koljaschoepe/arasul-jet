@@ -71,12 +71,13 @@ docs/
 
 ## Features
 
-| Document                                                                             | Topic                                      |
-| ------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`features/MINIO_SERVICE.md`](features/MINIO_SERVICE.md)                             | S3-compatible object storage               |
-| [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture            |
-| [`features/JETSON_COMPATIBILITY.md`](features/JETSON_COMPATIBILITY.md)               | Multi-device support, GPU error handling   |
-| [`features/CUSTOMER_OAUTH_SETUP.md`](features/CUSTOMER_OAUTH_SETUP.md)               | OAuth onboarding for customer integrations |
+| Document                                                                             | Topic                                               |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| [`features/AGENTS.md`](features/AGENTS.md)                                           | Workspace-Agenten: Format, Werkzeuge, Run-Endpoints |
+| [`features/MINIO_SERVICE.md`](features/MINIO_SERVICE.md)                             | S3-compatible object storage                        |
+| [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                     |
+| [`features/JETSON_COMPATIBILITY.md`](features/JETSON_COMPATIBILITY.md)               | Multi-device support, GPU error handling            |
+| [`features/CUSTOMER_OAUTH_SETUP.md`](features/CUSTOMER_OAUTH_SETUP.md)               | OAuth onboarding for customer integrations          |
 
 ---
 

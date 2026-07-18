@@ -10,8 +10,8 @@
 ## Overview
 
 - **Location**: `services/postgres/init/*.sql` — executed alphabetically on first DB start, and re-applied per checksum by the dashboard-backend migration runner.
-- **Connection**: `apps/dashboard-backend/src/database.js` (main pool) and `dataDatabase.js` (user-data pool).
-- **Two databases**: `arasul_db` (main) and `arasul_data_db` (user data tables / Datentabellen).
+- **Connection**: `apps/dashboard-backend/src/database.js` (single pool).
+- **One database**: `arasul_db`. (The former second database `arasul_data_db` / Datentabellen feature was removed in Plan 008.)
 
 > Migration counter: read from disk —
 > `ls services/postgres/init/ | grep -E '^[0-9]+' | sort | tail -1`
@@ -32,15 +32,18 @@
 
 | Table              | Key Columns                                                                                                      |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| chat_conversations | id, title, project_id, message_count, deleted_at, compaction_summary                                             |
+| chat_conversations | id, title, message_count, deleted_at, compaction_summary                                                         |
 | chat_messages      | id, conversation_id, role, content, thinking, sources, job_id, status                                            |
 | llm_jobs           | id (UUID), conversation_id, job_type, status, content, thinking, sources, request_data, queue_position, priority |
 
-### Projects (042, 041)
+### AI Memory / Compaction (042, 041)
+
+> The chat-grouping `projects` table was dropped in Plan 008 (migration 104).
+> "Project" now means the container **workspace** (`sandbox_projects`) — see the
+> Workspaces / Agents domain below.
 
 | Table          | Key Columns                                                                             |
 | -------------- | --------------------------------------------------------------------------------------- |
-| projects       | id (UUID), name, description, system_prompt, knowledge_space_id, icon, color            |
 | ai_memories    | id (UUID), type (fact/decision/preference), content, importance, is_active              |
 | compaction_log | id, conversation_id, messages_compacted, tokens_before, tokens_after, compression_ratio |
 
@@ -58,23 +61,30 @@
 
 ### RAG / Knowledge (016, 044)
 
-| Table               | Key Columns                                                                               |
-| ------------------- | ----------------------------------------------------------------------------------------- |
-| knowledge_spaces    | id (UUID), name, slug, description, auto_summary, auto_topics, document_count, is_default |
-| company_context     | id=1 (singleton), content (Markdown), updated_at                                          |
-| kg_entities         | id, name, entity_type, properties (JSONB), mention_count                                  |
-| kg_entity_documents | entity_id, document_id, mention_count (composite PK)                                      |
-| kg_relations        | id, source_entity_id, target_entity_id, relation_type, weight                             |
+| Table               | Key Columns                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| knowledge_spaces    | id (UUID), name, slug, description, auto_summary, auto_topics, document_count, is_default, is_workspace |
+| company_context     | id=1 (singleton), content (Markdown), updated_at                                                        |
+| kg_entities         | id, name, entity_type, properties (JSONB), mention_count                                                |
+| kg_entity_documents | entity_id, document_id, mention_count (composite PK)                                                    |
+| kg_relations        | id, source_entity_id, target_entity_id, relation_type, weight                                           |
 
-### Telegram (020, 032, 033, 034, 047)
+### Workspaces / Agents (100, 105, 106, 107)
 
-| Table                 | Key Columns                                                                 |
-| --------------------- | --------------------------------------------------------------------------- |
-| telegram_config       | id=1 (singleton), bot_token_encrypted, chat_id, enabled, alert_thresholds   |
-| telegram_bots         | id, user_id, name, bot_token_encrypted, system_prompt, llm_model, is_active |
-| telegram_bot_commands | id, bot_id, command, description, prompt, usage_count                       |
-| telegram_bot_chats    | id, bot_id, chat_id, chat_type, is_active                                   |
-| telegram_bot_sessions | id, bot_id, chat_id, messages (JSONB), token_count                          |
+> A **workspace** (`sandbox_projects`) is the only "project" entity: a `host_path`
+> folder + a container, with a `network_mode` (`isolated` / `internal` /
+> `infrastructure`) and an owner. Agents are Markdown files on disk under
+> `<host_path>/agenten/<name>.md` (not a DB table).
+
+| Table                     | Key Columns                                                                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| sandbox_projects          | id, user_id, name, host_path, container_name, network_mode, space_id (→ knowledge_spaces), agent_run_token_hash, agent_run_token_set_at             |
+| user_external_credentials | id, user_id (→ admin_users), provider (e.g. 'claude'), encrypted_credentials (BYTEA, AES-256-GCM), created_at, updated_at (unique user_id+provider) |
+
+Each workspace owns exactly one invisible `knowledge_spaces` row (`is_workspace = TRUE`,
+linked via `sandbox_projects.space_id`) so files written in the workspace are
+auto-indexed for RAG. `agent_run_token_hash` is the bcrypt hash of the
+per-workspace `arun_…` Bearer token used by the external (n8n/HTTP) agent-run route.
 
 ### Models (011, 029, 030, 035)
 
@@ -126,23 +136,21 @@
 
 ### Audit (017, 021)
 
-| Table          | Key Columns                                                                                    |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| api_audit_logs | id, timestamp, user_id, action_type, target_endpoint, response_status, duration_ms, ip_address |
-| bot_audit_log  | id, timestamp, user_id (telegram), chat_id, command, message_text, response_time_ms            |
+| Table          | Key Columns                                                                                                                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| api_audit_logs | id, timestamp, user_id, action_type, target_endpoint, response_status, duration_ms, ip_address                                                                                               |
+| bot_audit_log  | id, timestamp, user_id, chat_id, command, message_text, response_time_ms (legacy — table retained by migration 017; no longer written to after the Telegram feature was removed in Plan 008) |
 
 ### Settings (031, 038)
 
-| Table                | Key Columns                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------ |
-| system_settings      | id=1 (singleton), setup_completed, company_name, hostname, selected_model, ai_profile_yaml |
-| datentabellen_config | id, data_db_host, data_db_name, data_db_user, is_enabled                                   |
+| Table           | Key Columns                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| system_settings | id=1 (singleton), setup_completed, company_name, hostname, selected_model, ai_profile_yaml |
 
 ## Singleton Tables
 
 These tables enforce a single row via `CHECK (id = 1)`:
 
-- **telegram_config** -- Legacy notification bot config
 - **alert_settings** -- Global alert enable/disable + webhook
 - **system_settings** -- Setup wizard state, company name, AI profile
 - **company_context** -- Global company context for RAG queries
@@ -164,7 +172,7 @@ INSERT INTO ... ON CONFLICT (key) DO NOTHING;
 
 ### JSONB for Flexible Data
 
-Used extensively: `llm_jobs.request_data`, `self_healing_events.metadata`, `telegram_bot_sessions.messages`, `kg_entities.properties`, `knowledge_spaces.auto_topics`.
+Used extensively: `llm_jobs.request_data`, `self_healing_events.metadata`, `kg_entities.properties`, `knowledge_spaces.auto_topics`.
 
 ### Enums
 
@@ -268,9 +276,6 @@ COMMIT;
 ```bash
 # Shell access
 docker exec -it postgres-db psql -U arasul -d arasul_db
-
-# Data database
-docker exec -it postgres-db psql -U arasul_data -d arasul_data_db
 
 # List tables
 \dt

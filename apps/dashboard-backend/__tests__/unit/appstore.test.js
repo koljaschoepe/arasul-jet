@@ -91,7 +91,7 @@ describe('AppStore Routes', () => {
     test('should return all apps', async () => {
       const mockApps = [
         { id: 'n8n', name: 'n8n', category: 'automation', status: 'running' },
-        { id: 'telegram-bot', name: 'Telegram Bot', category: 'communication', status: 'running' }
+        { id: 'terminal', name: 'Terminal', category: 'tools', status: 'running' }
       ];
       appService.getAllApps.mockResolvedValue(mockApps);
 
@@ -135,12 +135,12 @@ describe('AppStore Routes', () => {
       appService.getAllApps.mockResolvedValue([]);
 
       const response = await request(app)
-        .get('/api/apps?search=telegram')
+        .get('/api/apps?search=terminal')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
       expect(appService.getAllApps).toHaveBeenCalledWith(
-        expect.objectContaining({ search: 'telegram' })
+        expect.objectContaining({ search: 'terminal' })
       );
     });
   });

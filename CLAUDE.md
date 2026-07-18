@@ -74,8 +74,8 @@ folder. Read the closest one to where you're working:
 | Onboarding / first-time setup           | `docs/development/ONBOARDING.md`                |
 | Testing strategy across the platform    | `docs/development/TESTING.md`                   |
 
-Deeper-dive context packs (one-off topics — Telegram bot internals, n8n
-custom nodes, security review checklist, etc.) live under `.claude/context/`.
+Deeper-dive context packs (one-off topics — n8n custom nodes, security
+review checklist, etc.) live under `.claude/context/`.
 
 ## Quick reference
 
@@ -116,24 +116,24 @@ make logs s=dashboard-backend                      # Logs via Make
 
 ## Documentation
 
-| Topic                   | File                                                                                                                                               |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Architecture            | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                                                       |
-| API reference           | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                                             |
-| API errors              | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                                                   |
-| Database schema         | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                                                         |
-| Design system           | [docs/development/DESIGN_SYSTEM.md](docs/development/DESIGN_SYSTEM.md)                                                                             |
-| Development             | [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md)                                                                                 |
-| Onboarding              | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                                                   |
-| Testing                 | [docs/development/TESTING.md](docs/development/TESTING.md)                                                                                         |
-| Environment variables   | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                                                                                     |
-| Jetson compatibility    | [docs/features/JETSON_COMPATIBILITY.md](docs/features/JETSON_COMPATIBILITY.md)                                                                     |
-| Admin handbook          | [docs/ops/ADMIN_HANDBUCH.md](docs/ops/ADMIN_HANDBUCH.md) (DE)                                                                                      |
-| Deployment              | [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)                                                                                                   |
-| Troubleshooting         | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                                                         |
-| Backup & DR             | [docs/ops/BACKUP_SYSTEM.md](docs/ops/BACKUP_SYSTEM.md), [docs/ops/DISASTER_RECOVERY.md](docs/ops/DISASTER_RECOVERY.md)                             |
-| Integrations (n8n)      | [docs/integrations/N8N.md](docs/integrations/N8N.md) (operator), [docs/integrations/N8N_OVERVIEW.md](docs/integrations/N8N_OVERVIEW.md) (customer) |
-| Integrations (Telegram) | [docs/integrations/TELEGRAM_BOT_SETUP.md](docs/integrations/TELEGRAM_BOT_SETUP.md)                                                                 |
-| Legal / DSGVO           | [docs/legal/](docs/legal/) (AVV-Vorlage, Datenschutz-Module, Drittland-Konnektoren)                                                                |
-| Full doc index          | [docs/INDEX.md](docs/INDEX.md)                                                                                                                     |
-| Contributing            | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                                                 |
+| Topic                 | File                                                                                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture          | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                                                       |
+| API reference         | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                                             |
+| API errors            | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                                                   |
+| Database schema       | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                                                         |
+| Design system         | [docs/development/DESIGN_SYSTEM.md](docs/development/DESIGN_SYSTEM.md)                                                                             |
+| Development           | [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md)                                                                                 |
+| Onboarding            | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                                                   |
+| Testing               | [docs/development/TESTING.md](docs/development/TESTING.md)                                                                                         |
+| Environment variables | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                                                                                     |
+| Jetson compatibility  | [docs/features/JETSON_COMPATIBILITY.md](docs/features/JETSON_COMPATIBILITY.md)                                                                     |
+| Admin handbook        | [docs/ops/ADMIN_HANDBUCH.md](docs/ops/ADMIN_HANDBUCH.md) (DE)                                                                                      |
+| Deployment            | [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)                                                                                                   |
+| Troubleshooting       | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                                                         |
+| Backup & DR           | [docs/ops/BACKUP_SYSTEM.md](docs/ops/BACKUP_SYSTEM.md), [docs/ops/DISASTER_RECOVERY.md](docs/ops/DISASTER_RECOVERY.md)                             |
+| Integrations (n8n)    | [docs/integrations/N8N.md](docs/integrations/N8N.md) (operator), [docs/integrations/N8N_OVERVIEW.md](docs/integrations/N8N_OVERVIEW.md) (customer) |
+| Workspace-Agenten     | [docs/features/AGENTS.md](docs/features/AGENTS.md) (Agent-Format + Run-Endpoints)                                                                  |
+| Legal / DSGVO         | [docs/legal/](docs/legal/) (AVV-Vorlage, Datenschutz-Module, Drittland-Konnektoren)                                                                |
+| Full doc index        | [docs/INDEX.md](docs/INDEX.md)                                                                                                                     |
+| Contributing          | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                                                 |

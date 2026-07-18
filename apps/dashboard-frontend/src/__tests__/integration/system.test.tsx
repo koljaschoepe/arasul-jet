@@ -1,13 +1,9 @@
 /**
- * Integration tests for the System / Dashboard home.
+ * Integration tests for the shared ErrorBoundary primitives used across the
+ * System / Settings surfaces (route- and component-level fallbacks).
  *
- * Tests the DashboardHome component inside AppContent as users experience it:
- *   - Metric gauges (CPU, RAM, GPU, Temperature)
- *   - Service status
- *   - Time range selector
- *   - System info display
- *   - Device info
- *   - Error boundary behavior
+ * (Die frühere Dashboard-Startseite ist entfernt — Plan 008; die Live-System-
+ * Status-Ansicht lebt jetzt unter Einstellungen → System → System-Status.)
  */
 
 import { render, screen } from '@testing-library/react';

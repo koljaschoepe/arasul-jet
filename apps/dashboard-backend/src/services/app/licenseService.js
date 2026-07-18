@@ -32,7 +32,6 @@ const FEATURE_TIERS = {
     maxUsers: 1,
     maxDocuments: 100,
     maxWorkflows: 3,
-    telegramBots: 0,
     rag: true,
     externalApi: false,
     customModels: false,
@@ -42,7 +41,6 @@ const FEATURE_TIERS = {
     maxUsers: 5,
     maxDocuments: 10_000,
     maxWorkflows: 50,
-    telegramBots: 3,
     rag: true,
     externalApi: true,
     customModels: false,
@@ -52,7 +50,6 @@ const FEATURE_TIERS = {
     maxUsers: -1, // unlimited
     maxDocuments: -1,
     maxWorkflows: -1,
-    telegramBots: -1,
     rag: true,
     externalApi: true,
     customModels: true,
@@ -73,14 +70,18 @@ class LicenseService {
    * Falls back gracefully when identifiers aren't available (dev machines).
    */
   async getHardwareFingerprint() {
-    if (this._hardwareFingerprint) {return this._hardwareFingerprint;}
+    if (this._hardwareFingerprint) {
+      return this._hardwareFingerprint;
+    }
 
     const components = [];
 
     // 1. Machine ID (systemd)
     try {
       const machineId = (await fs.readFile('/etc/machine-id', 'utf8')).trim();
-      if (machineId) {components.push(`mid:${machineId}`);}
+      if (machineId) {
+        components.push(`mid:${machineId}`);
+      }
     } catch {
       /* not available */
     }
@@ -89,7 +90,9 @@ class LicenseService {
     try {
       const cpuinfo = await fs.readFile('/proc/cpuinfo', 'utf8');
       const serialMatch = cpuinfo.match(/Serial\s*:\s*([0-9a-fA-F]+)/);
-      if (serialMatch) {components.push(`cpu:${serialMatch[1]}`);}
+      if (serialMatch) {
+        components.push(`cpu:${serialMatch[1]}`);
+      }
     } catch {
       /* not available */
     }
@@ -99,7 +102,9 @@ class LicenseService {
       const model = (await fs.readFile('/proc/device-tree/model', 'utf8'))
         .replace(/\0/g, '')
         .trim();
-      if (model) {components.push(`model:${model}`);}
+      if (model) {
+        components.push(`model:${model}`);
+      }
     } catch {
       /* not available */
     }
@@ -109,7 +114,9 @@ class LicenseService {
       const serial = (await fs.readFile('/proc/device-tree/serial-number', 'utf8'))
         .replace(/\0/g, '')
         .trim();
-      if (serial) {components.push(`serial:${serial}`);}
+      if (serial) {
+        components.push(`serial:${serial}`);
+      }
     } catch {
       /* not available */
     }
@@ -274,7 +281,9 @@ class LicenseService {
    */
   async isFeatureAllowed(feature) {
     const result = await this.validateLicense();
-    if (!result.valid && !result.graceMode) {return false;}
+    if (!result.valid && !result.graceMode) {
+      return false;
+    }
     return !!result.features[feature];
   }
 
@@ -287,8 +296,12 @@ class LicenseService {
   async checkLimit(limitKey, currentCount) {
     const result = await this.validateLicense();
     const limit = result.features[limitKey];
-    if (limit === undefined) {return { allowed: true, limit: -1, current: currentCount };}
-    if (limit === -1) {return { allowed: true, limit: -1, current: currentCount };}
+    if (limit === undefined) {
+      return { allowed: true, limit: -1, current: currentCount };
+    }
+    if (limit === -1) {
+      return { allowed: true, limit: -1, current: currentCount };
+    }
     return { allowed: currentCount < limit, limit, current: currentCount };
   }
 

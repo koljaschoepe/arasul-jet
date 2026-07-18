@@ -3,13 +3,11 @@
  *
  * Central route registry for the entire backend.
  * Routes are organized into subdirectories by domain:
- *   telegram/  - Bot management, setup, orchestration
  *   system/    - Services, metrics, logs, database
  *   admin/     - Settings, audit, updates, self-healing
  *   ai/        - Models, embeddings, memory, spaces
  *   store/     - App store, unified store, workflows, workspaces
  *   external/  - External API, Claude terminal, events, alerts
- *   datentabellen/ - Dynamic database builder
  *
  * Core routes (auth, chats, documents, llm, rag) stay at the top level.
  */
@@ -27,14 +25,10 @@ const { metricsLimiter, llmLimiter, tailscaleLimiter } = require('../middleware/
 const API_ROUTE_GROUPS = [
   { prefix: '/auth', group: 'core' },
   { prefix: '/chats', group: 'core' },
-  { prefix: '/projects', group: 'core' },
   { prefix: '/documents', group: 'core' },
   { prefix: '/document-analysis', group: 'core' },
   { prefix: '/llm', group: 'core' },
   { prefix: '/rag', group: 'core' },
-  { prefix: '/telegram', group: 'telegram' },
-  { prefix: '/telegram-app', group: 'telegram' },
-  { prefix: '/telegram-bots', group: 'telegram' },
   { prefix: '/system', group: 'system' },
   { prefix: '/services', group: 'system' },
   { prefix: '/metrics', group: 'system' },
@@ -64,7 +58,6 @@ const API_ROUTE_GROUPS = [
   { prefix: '/claude-terminal', group: 'external' },
   { prefix: '/events', group: 'external' },
   { prefix: '/alerts', group: 'external' },
-  { prefix: '/v1/datentabellen', group: 'datentabellen' },
   { prefix: '/docs', group: 'core', description: 'Static API documentation' },
 ];
 
@@ -94,17 +87,11 @@ router.get('/_meta', (req, res) => {
 // --- Core (top-level) ---
 router.use('/auth', require('./auth'));
 router.use('/chats', require('./chats'));
-router.use('/projects', require('./projects'));
 router.use('/documents', require('./documents'));
 router.use('/document-analysis', require('./documentAnalysis'));
 router.use('/llm', llmLimiter, require('./llm'));
 router.use('/rag', require('./rag'));
 router.use('/docs', require('./docs'));
-
-// --- Telegram ---
-router.use('/telegram', require('./telegram/settings'));
-router.use('/telegram-app', require('./telegram/app'));
-router.use('/telegram-bots', require('./telegram/bots'));
 
 // --- System ---
 router.use('/system', require('./system/system'));
@@ -147,8 +134,5 @@ router.use('/v1/external', require('./external/externalApi'));
 router.use('/claude-terminal', require('./external/claudeTerminal'));
 router.use('/events', require('./external/events'));
 router.use('/alerts', require('./external/alerts'));
-
-// --- Datentabellen (versioned) ---
-router.use('/v1/datentabellen', require('./datentabellen'));
 
 module.exports = router;

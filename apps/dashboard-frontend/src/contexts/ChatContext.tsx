@@ -31,6 +31,17 @@ import type { DocumentSource, MatchedSpace, QueueJob } from '../types';
 
 // --- Types ---
 
+/**
+ * A single tool step of an agent run (Plan 008, Schritt 11). Streamed live via
+ * `tool_start` (status 'running') and completed by `tool_result` (status 'done').
+ */
+export interface AgentToolStep {
+  tool: string;
+  params?: Record<string, unknown>;
+  result?: string;
+  status: 'running' | 'done';
+}
+
 export interface ChatMessage {
   id?: number;
   role: string;
@@ -53,6 +64,8 @@ export interface ChatMessage {
   statusMessage?: string;
   images?: string[]; // Base64-encoded images for vision models
   visionFallbackVia?: string; // model_id of the vision model that captioned the user image (P6 auto-fallback)
+  agent?: string; // Agent name when this assistant message is an @agent run (Schritt 11)
+  steps?: AgentToolStep[]; // Live tool steps of an agent run
 }
 
 export interface ChatSettings {
@@ -111,6 +124,14 @@ interface SendMessageOptions {
   images?: string[]; // Base64-encoded images for vision models
 }
 
+interface RunAgentOptions {
+  workspaceRef: string;
+  agentName: string;
+  userInput: string;
+  fullMessage: string;
+  messages?: ChatMessage[];
+}
+
 interface LoadMessagesOptions {
   limit?: number;
   before?: number;
@@ -134,6 +155,7 @@ interface ChatContextValue {
   spaces: Space[];
   // Functions
   sendMessage: (chatId: string, input: string, options?: SendMessageOptions) => Promise<void>;
+  runAgentStream: (chatId: string, options: RunAgentOptions) => Promise<void>;
   reconnectToJob: (jobId: string, targetChatId: string) => Promise<void>;
   cancelJob: (chatId: string) => Promise<void>;
   abortExistingStream: (chatId: string) => void;
@@ -1217,6 +1239,193 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     ]
   );
 
+  // --- Streaming: Run Agent (@agent command, Plan 008 Schritt 11) ---
+  // Mirrors sendMessage's lifecycle (user-message persistence, callback routing,
+  // abort registry) but consumes the agent run endpoint's event stream —
+  // tool_start / tool_result / text / done / error — instead of token chunks.
+
+  const runAgentStream = useCallback(
+    async (chatId: string, options: RunAgentOptions) => {
+      const { workspaceRef, agentName, userInput, fullMessage, messages = [] } = options;
+      if (!chatId || !workspaceRef || !agentName) return;
+
+      // Reuse sendMessage's double-send guard so a stray double-click can't
+      // open two runs for the same chat.
+      if (sendLockRef.current.has(chatId)) return;
+      sendLockRef.current.add(chatId);
+
+      // Persist the user message exactly like the normal chat path.
+      try {
+        await api.post(
+          `/chats/${chatId}/messages`,
+          { role: 'user', content: fullMessage },
+          { showError: false }
+        );
+      } catch (err) {
+        console.error('Error saving agent user message:', err);
+      }
+
+      const baseMessages: ChatMessage[] = [...messages, { role: 'user', content: fullMessage }];
+      const assistantIndex = baseMessages.length;
+      updateMessages(chatId, () => [
+        ...baseMessages,
+        { role: 'assistant', content: '', status: 'streaming', agent: agentName, steps: [] },
+      ]);
+      updateIsLoading(chatId, true);
+      updateError(chatId, null);
+
+      // Only one active stream at a time (token batching / activeStreamChatIdRef).
+      for (const id of Object.keys(abortControllersRef.current)) {
+        if (id !== chatId) {
+          abortControllersRef.current[id]?.abort();
+          delete abortControllersRef.current[id];
+        }
+      }
+      abortExistingStream(chatId);
+      const abortController = new AbortController();
+      abortControllersRef.current[chatId] = abortController;
+      activeStreamChatIdRef.current = chatId;
+
+      const patchAssistant = (patch: (cur: ChatMessage) => ChatMessage) =>
+        updateMessages(chatId, prev => {
+          const u = [...prev];
+          const cur = u[assistantIndex];
+          if (cur) u[assistantIndex] = patch(cur);
+          return u;
+        });
+
+      let finalText = '';
+      let streamError = false;
+
+      const handleAgentEvent = (evt: {
+        type?: string;
+        tool?: string;
+        params?: Record<string, unknown>;
+        result?: string;
+        content?: string;
+        message?: string;
+      }) => {
+        switch (evt.type) {
+          case 'tool_start':
+            patchAssistant(cur => ({
+              ...cur,
+              steps: [
+                ...(cur.steps || []),
+                { tool: evt.tool || '', params: evt.params, status: 'running' },
+              ],
+            }));
+            break;
+          case 'tool_result':
+            patchAssistant(cur => {
+              const steps = [...(cur.steps || [])];
+              for (let i = steps.length - 1; i >= 0; i--) {
+                const s = steps[i];
+                if (s && s.tool === evt.tool && s.status === 'running') {
+                  steps[i] = { ...s, status: 'done', result: evt.result };
+                  break;
+                }
+              }
+              return { ...cur, steps };
+            });
+            break;
+          case 'text':
+            finalText = evt.content || finalText;
+            patchAssistant(cur => ({ ...cur, content: evt.content || cur.content }));
+            break;
+          case 'done':
+            finalText = evt.result != null ? evt.result : finalText;
+            patchAssistant(cur => ({
+              ...cur,
+              content: finalText || cur.content,
+              status: 'completed',
+              steps: (cur.steps || []).map(s =>
+                s.status === 'running' ? { ...s, status: 'done' } : s
+              ),
+            }));
+            break;
+          case 'error':
+            streamError = true;
+            updateError(chatId, evt.message || 'Der Agent hat einen Fehler gemeldet.');
+            patchAssistant(cur => ({ ...cur, status: 'error' }));
+            break;
+          default:
+            break;
+        }
+      };
+
+      try {
+        const url = `${API_BASE}/sandbox/projects/${encodeURIComponent(
+          workspaceRef
+        )}/agenten/${encodeURIComponent(agentName)}/run/stream`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ input: userInput }),
+          signal: abortController.signal,
+        });
+        if (!response.ok) {
+          let msg = `HTTP ${response.status}`;
+          try {
+            const j = (await response.json()) as { error?: { message?: string } };
+            msg = j?.error?.message || msg;
+          } catch {
+            /* non-JSON error body */
+          }
+          if (response.status === 404) msg = `Agent „${agentName}" nicht gefunden.`;
+          throw new Error(msg);
+        }
+        if (!response.body) throw new Error('Stream body ist null');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t.startsWith('data:')) continue;
+            try {
+              handleAgentEvent(JSON.parse(t.replace(/^data:\s*/, '')));
+            } catch {
+              /* ignore malformed frame */
+            }
+          }
+        }
+
+        // Persist the agent's final answer so history survives a reload.
+        if (!streamError && finalText) {
+          try {
+            await api.post(
+              `/chats/${chatId}/messages`,
+              { role: 'assistant', content: finalText },
+              { showError: false }
+            );
+          } catch (err) {
+            console.error('Error saving agent answer:', err);
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.error('Agent run error:', err);
+        updateError(
+          chatId,
+          (err instanceof Error ? err.message : null) || 'Fehler beim Ausführen des Agenten.'
+        );
+        patchAssistant(cur => ({ ...cur, status: 'error' }));
+      } finally {
+        sendLockRef.current.delete(chatId);
+        updateIsLoading(chatId, false);
+        delete abortControllersRef.current[chatId];
+        if (activeStreamChatIdRef.current === chatId) activeStreamChatIdRef.current = null;
+      }
+    },
+    [api, abortExistingStream, updateMessages, updateIsLoading, updateError]
+  );
+
   // --- Context Value ---
 
   const value = useMemo(
@@ -1233,6 +1442,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       spaces,
       // Functions
       sendMessage,
+      runAgentStream,
       reconnectToJob,
       cancelJob,
       abortExistingStream,
@@ -1263,6 +1473,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       favoriteModels,
       spaces,
       sendMessage,
+      runAgentStream,
       reconnectToJob,
       cancelJob,
       abortExistingStream,

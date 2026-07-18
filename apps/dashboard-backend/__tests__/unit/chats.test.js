@@ -3,14 +3,14 @@
  *
  * Tests all chat conversation endpoints:
  * - GET    /api/chats              - List all chats
- * - GET    /api/chats/recent       - Top 10 recent chats with project info
+ * - GET    /api/chats/recent       - Top 10 recent chats
  * - GET    /api/chats/search       - Search chats by title
- * - GET    /api/chats/:id          - Get single chat with project metadata
+ * - GET    /api/chats/:id          - Get single chat with settings
  * - POST   /api/chats              - Create new chat conversation
  * - GET    /api/chats/:id/messages - Get paginated messages for a chat
  * - GET    /api/chats/:id/jobs     - Get active jobs for a conversation
  * - POST   /api/chats/:id/messages - Add message to chat
- * - PATCH  /api/chats/:id          - Update chat title / project_id
+ * - PATCH  /api/chats/:id          - Update chat title
  * - PATCH  /api/chats/:id/settings - Update chat settings (RAG, Think, Model, Space)
  * - GET    /api/chats/:id/export   - Export chat (JSON or Markdown)
  * - DELETE /api/chats/:id          - Soft-delete chat conversation
@@ -64,7 +64,6 @@ const { generateTestToken, mockUser, mockSession } = require('../helpers/authMoc
 const mockChat = {
   id: 1,
   title: 'Test Chat',
-  project_id: 'proj-uuid-1',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
   message_count: 5
@@ -75,13 +74,7 @@ const mockChatFull = {
   use_rag: false,
   use_thinking: true,
   preferred_model: null,
-  preferred_space_id: null,
-  project_name: 'Default Project',
-  project_description: 'A test project',
-  project_system_prompt: 'You are helpful.',
-  project_icon: 'folder',
-  project_color: '#45ADFF',
-  project_space_id: null
+  preferred_space_id: null
 };
 
 const mockMessage = {
@@ -95,12 +88,6 @@ const mockMessage = {
   status: 'completed',
   job_id: null,
   job_status: null
-};
-
-const mockProject = {
-  id: 'proj-uuid-1',
-  name: 'Default Project',
-  is_default: true
 };
 
 // ---------------------------------------------------------------------------
@@ -196,23 +183,6 @@ describe('Chat Routes', () => {
       expect(response.body.chats).toHaveLength(0);
     });
 
-    test('should filter by project_id when provided', async () => {
-      setupMocksWithAuth((query, params) => {
-        if (query.includes('chat_conversations')) {
-          // Verify the query includes project_id filtering
-          return Promise.resolve({ rows: [mockChat] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
-
-      const response = await request(app)
-        .get('/api/chats?project_id=proj-uuid-1')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('chats');
-    });
-
     test('should return 500 on database error', async () => {
       setupMocksWithAuth((query) => {
         if (query.includes('chat_conversations')) {
@@ -238,16 +208,10 @@ describe('Chat Routes', () => {
       expect(response.status).toBe(401);
     });
 
-    test('should return up to 10 recent chats with project info', async () => {
-      const recentChat = {
-        ...mockChat,
-        project_name: 'Default Project',
-        project_color: '#45ADFF'
-      };
-
+    test('should return up to 10 recent chats', async () => {
       setupMocksWithAuth((query) => {
         if (query.includes('chat_conversations') && query.includes('LIMIT 10')) {
-          return Promise.resolve({ rows: [recentChat] });
+          return Promise.resolve({ rows: [mockChat] });
         }
         return Promise.resolve({ rows: [] });
       });
@@ -343,22 +307,6 @@ describe('Chat Routes', () => {
       expect(response.body).toHaveProperty('timestamp');
     });
 
-    test('should filter by project_id when provided with search', async () => {
-      setupMocksWithAuth((query) => {
-        if (query.includes('ILIKE')) {
-          return Promise.resolve({ rows: [mockChat] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
-
-      const response = await request(app)
-        .get('/api/chats/search?q=Test&project_id=proj-uuid-1')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('chats');
-    });
-
     test('should return 500 on database error', async () => {
       setupMocksWithAuth((query) => {
         if (query.includes('ILIKE')) {
@@ -417,7 +365,7 @@ describe('Chat Routes', () => {
 
     test('should return 404 when chat does not exist', async () => {
       setupMocksWithAuth((query) => {
-        if (query.includes('chat_conversations') && query.includes('LEFT JOIN')) {
+        if (query.includes('chat_conversations') && query.includes('use_rag')) {
           return Promise.resolve({ rows: [] });
         }
         return Promise.resolve({ rows: [] });
@@ -431,9 +379,9 @@ describe('Chat Routes', () => {
       expect(response.body.error.message).toContain('Chat not found');
     });
 
-    test('should return chat with project metadata', async () => {
+    test('should return chat with settings', async () => {
       setupMocksWithAuth((query) => {
-        if (query.includes('chat_conversations') && query.includes('LEFT JOIN')) {
+        if (query.includes('chat_conversations') && query.includes('use_rag')) {
           return Promise.resolve({ rows: [mockChatFull] });
         }
         return Promise.resolve({ rows: [] });
@@ -449,32 +397,12 @@ describe('Chat Routes', () => {
       expect(response.body.chat).toHaveProperty('settings');
       expect(response.body.chat.settings).toHaveProperty('use_rag', false);
       expect(response.body.chat.settings).toHaveProperty('use_thinking', true);
-      expect(response.body).toHaveProperty('project');
-      expect(response.body.project).toHaveProperty('name', 'Default Project');
       expect(response.body).toHaveProperty('timestamp');
-    });
-
-    test('should return null project when chat has no project_id', async () => {
-      const chatNoProject = { ...mockChatFull, project_id: null };
-
-      setupMocksWithAuth((query) => {
-        if (query.includes('chat_conversations') && query.includes('LEFT JOIN')) {
-          return Promise.resolve({ rows: [chatNoProject] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
-
-      const response = await request(app)
-        .get('/api/chats/1')
-        .set('Authorization', `Bearer ${token}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body.project).toBeNull();
     });
 
     test('should return 500 on database error', async () => {
       setupMocksWithAuth((query) => {
-        if (query.includes('chat_conversations') && query.includes('LEFT JOIN')) {
+        if (query.includes('chat_conversations') && query.includes('use_rag')) {
           return Promise.reject(new Error('DB error'));
         }
         return Promise.resolve({ rows: [] });
@@ -510,7 +438,7 @@ describe('Chat Routes', () => {
       expect(response.status).toBe(400);
     });
 
-    test('should create a chat with explicit title and project_id', async () => {
+    test('should create a chat with explicit title', async () => {
       const newChat = { ...mockChat, id: 2, title: 'My Chat' };
 
       setupMocksWithAuth((query) => {
@@ -523,7 +451,7 @@ describe('Chat Routes', () => {
       const response = await request(app)
         .post('/api/chats')
         .set('Authorization', `Bearer ${token}`)
-        .send({ title: 'My Chat', project_id: 'proj-uuid-1' });
+        .send({ title: 'My Chat' });
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('chat');
@@ -535,9 +463,6 @@ describe('Chat Routes', () => {
       const defaultChat = { ...mockChat, title: 'Neuer Chat' };
 
       setupMocksWithAuth((query) => {
-        if (query.includes('projects') && query.includes('is_default')) {
-          return Promise.resolve({ rows: [{ id: 'proj-uuid-1' }] });
-        }
         if (query.includes('INSERT INTO chat_conversations')) {
           return Promise.resolve({ rows: [defaultChat] });
         }
@@ -553,27 +478,8 @@ describe('Chat Routes', () => {
       expect(response.body.chat).toHaveProperty('title');
     });
 
-    test('should return 503 when no default project exists', async () => {
-      setupMocksWithAuth((query) => {
-        if (query.includes('projects') && query.includes('is_default')) {
-          return Promise.resolve({ rows: [] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
-
-      const response = await request(app)
-        .post('/api/chats')
-        .set('Authorization', `Bearer ${token}`)
-        .send({});
-
-      expect(response.status).toBe(503);
-    });
-
     test('should return 500 on INSERT error', async () => {
       setupMocksWithAuth((query) => {
-        if (query.includes('projects') && query.includes('is_default')) {
-          return Promise.resolve({ rows: [{ id: 'proj-uuid-1' }] });
-        }
         if (query.includes('INSERT INTO chat_conversations')) {
           return Promise.reject(new Error('Insert failed'));
         }
@@ -948,7 +854,7 @@ describe('Chat Routes', () => {
       expect(response.status).toBe(400);
     });
 
-    test('should return 400 when neither title nor project_id is provided', async () => {
+    test('should return 400 when no title is provided', async () => {
       setupMocksWithAuth();
 
       const response = await request(app)
@@ -1005,25 +911,6 @@ describe('Chat Routes', () => {
       expect(response.body).toHaveProperty('chat');
       expect(response.body.chat).toHaveProperty('title', 'Renamed Chat');
       expect(response.body).toHaveProperty('timestamp');
-    });
-
-    test('should update project_id and return updated chat', async () => {
-      const updatedChat = { ...mockChat, project_id: 'new-proj-id' };
-
-      setupMocksWithAuth((query) => {
-        if (query.includes('UPDATE chat_conversations')) {
-          return Promise.resolve({ rows: [updatedChat] });
-        }
-        return Promise.resolve({ rows: [] });
-      });
-
-      const response = await request(app)
-        .patch('/api/chats/1')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ project_id: 'new-proj-id' });
-
-      expect(response.status).toBe(200);
-      expect(response.body.chat).toHaveProperty('project_id', 'new-proj-id');
     });
 
     test('should return 500 on database error', async () => {

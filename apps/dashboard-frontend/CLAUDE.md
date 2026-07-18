@@ -16,14 +16,14 @@ Path alias: `@/* → src/*` (configured in `tsconfig.json` and `vite.config.ts`)
 ```
 src/
   features/        Domain-organized UI. One folder per top-level route.
-    chat/  documents/  store/  settings/  telegram/  database/  sandbox/
-    dashboard/  projects/  datentabellen/  system/
-    workspace/     IDE-Shell (Cursor-Raster 3.1, **Standard nach Login** —
-                   Feature-Flag `workspace-shell` ist Opt-**out**, siehe unten):
+    documents/  sandbox/  settings/  store/  system/
+    workspace/     IDE-Shell (Cursor-Raster 3.1, **immer aktiv** — `/` landet
+                   nach Login stets auf `/workspace`; es gibt keinen Fallback-Flag
+                   mehr):
                    WorkspaceMenuBar (Datei/Ansicht + **zwei** Layout-Toggles
                    [Sidebar, rechtes Panel] + Settings oben rechts), ActivityBar
-                   (nur Dashboard, Extensions und aktivierte Apps — keine
-                   Explorer-/Chat-/Terminal-Icons), SidebarHost (Sidebar),
+                   (feste Drei-Bereiche-Navigation **Chat · Wissen · Automation**
+                   plus Extensions und Einstellungen — Plan 008), SidebarHost (Sidebar),
                    Tab-Bar/-Content (Mitte), RightPanel (rechts), StatusBar
                    (Modell + KI-RAM). Feature-Tabs laufen je in einem eigenen
                    IsolatedMemoryRouter (FeatureTabHost); Cross-Feature-Links
@@ -39,19 +39,13 @@ src/
                      Projekte (Explorer), Extensions → ExtensionsSidebarList
                      (Suche + Liste aller Apps/Modelle, in components/extensions/
                      promoted), Automation (n8n) → Explorer bleibt (Tab im
-                     Hauptbereich, kein Auto-Collapse), App-Tabs
-                     (Telegram/Datenbank) → Sidebar klappt zu. Die Präferenz
+                     Hauptbereich, kein Auto-Collapse). Die Präferenz
                      (auf/zu) überlebt Reload via
                      `sidebarVisible`/`sidebarRestore` (`syncSidebarForTab`).
                    • **Extensions/Store** — keine Unter-Tabs mehr: Liste links
                      (ExtensionsSidebarList), Detail in der Mitte
                      (StoreDetailPage); alte /store/models|apps-Deep-Links leiten
                      um.
-                   • **Default-Flag** — `lib/featureFlags.ts`
-                     `isWorkspaceShellEnabled()` ist standardmäßig **an**; nur
-                     `localStorage['arasul_workspace_shell'] === 'false'` schaltet
-                     auf die Legacy-Sidebar-UI zurück (Legacy-Routen bleiben
-                     funktionsfähig).
                    • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
                      RightPanel) teilen `--background` (`bg-background`); Trennung
                      nur über Borders. `--card` bleibt erhabenen Elementen
@@ -65,7 +59,7 @@ src/
   hooks/           Cross-feature hooks (useApi, useFetchData, useTheme, …).
   contexts/        Global state (Auth, Toast, Chat, Download, Activation).
   stores/          zustand stores (workspaceStore: Tabs, Panels, Chat-Scope).
-  lib/             queryClient, cn() helper, featureFlags.
+  lib/             queryClient, cn() helper.
   utils/           Pure utilities (csrf, formatting, sanitizeUrl, token).
   config/          api.ts (API_BASE, getAuthHeaders).
   types/           Cross-feature TypeScript types.

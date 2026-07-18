@@ -25,9 +25,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS}
-      ARASUL_DATA_DB_NAME: ${ARASUL_DATA_DB_NAME:-arasul_data_db}
-      ARASUL_DATA_DB_USER: ${ARASUL_DATA_DB_USER:-arasul_data}
-      ARASUL_DATA_DB_PASSWORD: ${ARASUL_DATA_DB_PASSWORD:-${POSTGRES_PASSWORD}}
     command:
       - 'postgres'
       - '-c'
@@ -35,7 +32,6 @@ services:
     volumes:
       - arasul-postgres:/var/lib/postgresql/data
       - ../services/postgres/init:/docker-entrypoint-initdb.d
-      - ../services/postgres/init-data-db:/docker-entrypoint-initdb.d/data-db:ro
       - ../config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - arasul-wal:/backups/wal
     healthcheck:

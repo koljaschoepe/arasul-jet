@@ -9,6 +9,18 @@
 
 const LLM_SERVICE_URL = require('../../config/services').llm.url;
 
+const sleep = ms =>
+  new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+
+// T03/T16: how long to keep polling Ollama's /api/tags before concluding a
+// finished pull genuinely failed. Ollama can take a few seconds after the pull
+// stream ends before the model shows up in /api/tags; a single immediate check
+// used to flag a real success as 'error' (and then it never appeared installed).
+const VERIFY_RETRIES = 6;
+const VERIFY_DELAY_MS = 2000;
+
 /**
  * Factory: create download helpers bound to injected dependencies.
  * @param {Object} deps
@@ -64,43 +76,72 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
   }
 
   /**
-   * Verify that a model is actually available in Ollama after download
+   * Verify that a model is actually available in Ollama after download.
+   *
+   * T03/T16 fix: poll /api/tags with retries instead of a single immediate
+   * check. Ollama frequently needs a couple of seconds after the pull stream
+   * ends before the freshly-pulled model appears in /api/tags. The old
+   * single-shot check raced that window and flagged a genuinely successful
+   * pull as `error`, after which the model never showed up in the installed
+   * list. We only mark `error` once Ollama is reachable AND the model is still
+   * absent after all retries. If Ollama itself is unreachable we assume success
+   * (the pull stream reported done) and let the next sync reconcile.
+   *
    * @param {string} modelId - Catalog model ID
    * @param {string} ollamaName - Ollama model name
+   * @param {{retries?: number, delayMs?: number}} [options]
    * @returns {Promise<boolean>}
    */
-  async function verifyDownloadComplete(modelId, ollamaName) {
+  async function verifyDownloadComplete(modelId, ollamaName, options = {}) {
+    const retries = options.retries ?? VERIFY_RETRIES;
+    const delayMs = options.delayMs ?? VERIFY_DELAY_MS;
     logger.info(`[DOWNLOAD] Verifying model ${modelId} (Ollama: ${ollamaName}) after download...`);
 
-    try {
-      const tagsResponse = await axios.get(`${LLM_SERVICE_URL}/api/tags`, {
-        timeout: 10000,
-      });
-      const ollamaModels = (tagsResponse.data.models || []).map(m => m.name);
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const tagsResponse = await axios.get(`${LLM_SERVICE_URL}/api/tags`, {
+          timeout: 10000,
+        });
+        const ollamaModels = (tagsResponse.data.models || []).map(m => m.name);
 
-      if (!ollamaModels.includes(ollamaName)) {
-        logger.error(`[DOWNLOAD] Model ${modelId} not found in Ollama after download!`);
-        await database.query(
-          `UPDATE llm_installed_models
-           SET status = 'error', error_message = $1
-           WHERE id = $2`,
-          [
-            'Download abgeschlossen, aber Modell nicht in Ollama verfügbar. Bitte erneut herunterladen.',
-            modelId,
-          ]
+        if (ollamaModels.includes(ollamaName)) {
+          logger.info(
+            `[DOWNLOAD] Model ${modelId} verified successfully in Ollama (attempt ${attempt}/${retries})`
+          );
+          return true;
+        }
+
+        logger.warn(
+          `[DOWNLOAD] Model ${modelId} not yet listed in Ollama (attempt ${attempt}/${retries}), waiting...`
         );
-        return false;
+      } catch (verifyError) {
+        // Ollama unreachable — we can't disprove a successful pull. Don't flag
+        // an error on a real success; let the next sync reconcile.
+        logger.warn(
+          `[DOWNLOAD] Could not verify model ${modelId}: ${verifyError.message}, will retry on next sync`
+        );
+        return true;
       }
 
-      logger.info(`[DOWNLOAD] Model ${modelId} verified successfully in Ollama`);
-      return true;
-    } catch (verifyError) {
-      logger.warn(
-        `[DOWNLOAD] Could not verify model ${modelId}: ${verifyError.message}, will retry on next sync`
-      );
-      // Mark as available (download succeeded) but let next sync verify
-      return true;
+      if (attempt < retries) {
+        await sleep(delayMs);
+      }
     }
+
+    // Ollama was reachable every attempt but never listed the model → genuine failure.
+    logger.error(
+      `[DOWNLOAD] Model ${modelId} not found in Ollama after ${retries} verify attempts!`
+    );
+    await database.query(
+      `UPDATE llm_installed_models
+       SET status = 'error', error_message = $1
+       WHERE id = $2`,
+      [
+        'Download abgeschlossen, aber Modell nicht in Ollama verfügbar. Bitte erneut herunterladen.',
+        modelId,
+      ]
+    );
+    return false;
   }
 
   /**

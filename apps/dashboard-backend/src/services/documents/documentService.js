@@ -382,52 +382,6 @@ async function getStatistics(filters) {
     stats = result.rows[0];
   }
 
-  // Get table count from data-db (cross-db) with matching filters
-  let tableCount = 0;
-  try {
-    const dataDb = require('../../dataDatabase');
-
-    const tableConditions = [];
-    const tableParams = [];
-    let tParamIndex = 1;
-
-    if (space_id) {
-      tableConditions.push(`space_id = $${tParamIndex++}`);
-      tableParams.push(space_id);
-    }
-    if (status) {
-      const statusMap = {
-        indexed: 'active',
-        partial: 'active',
-        pending: 'draft',
-        failed: 'archived',
-      };
-      const tableStatus = statusMap[status] || status;
-      tableConditions.push(`status = $${tParamIndex++}`);
-      tableParams.push(tableStatus);
-    }
-    if (category_id) {
-      const catResult = await pool.query('SELECT name FROM document_categories WHERE id = $1', [
-        parseInt(category_id, 10),
-      ]);
-      if (catResult.rows.length > 0) {
-        tableConditions.push(`category = $${tParamIndex++}`);
-        tableParams.push(catResult.rows[0].name);
-      } else {
-        tableConditions.push('1 = 0');
-      }
-    }
-
-    const tableWhere = tableConditions.length > 0 ? `WHERE ${tableConditions.join(' AND ')}` : '';
-    const tcResult = await dataDb.query(
-      `SELECT COUNT(*)::int as count FROM dt_tables ${tableWhere}`,
-      tableParams
-    );
-    tableCount = tcResult.rows[0].count;
-  } catch (e) {
-    logger.warn(`Failed to get table count from data-db: ${e.message}`);
-  }
-
   // Get indexer status (non-critical)
   let indexerStatus = { status: 'unknown' };
   try {
@@ -448,7 +402,6 @@ async function getStatistics(filters) {
     total_chunks: Number(stats.total_chunks) || 0,
     total_size_bytes: Number(stats.total_size_bytes) || 0,
     documents_by_category: stats.documents_by_category,
-    table_count: tableCount,
     indexer: indexerStatus,
   };
 }

@@ -68,6 +68,42 @@ For this to work end-to-end, three things must be aligned:
 
 ---
 
+## Calling a Workspace agent from n8n (HTTP trigger)
+
+n8n can start a Workspace agent over plain HTTP and read its result. This is the
+non-streaming counterpart of the Chat `@agent` flow — see
+[`docs/features/AGENTS.md`](../features/AGENTS.md) for the agent format.
+
+1. **Mint a token** (once, in the dashboard or via API). Each Workspace has its
+   own bearer token:
+
+   ```
+   POST /api/sandbox/projects/<workspace>/agenten/token
+   ```
+
+   The plaintext token (`arun_…`) is returned **exactly once**; only its bcrypt
+   hash is stored, and each call rotates it. Store it in an n8n _Header Auth_
+   credential.
+
+2. **Run the agent** from an n8n _HTTP Request_ node:
+
+   ```
+   POST /api/sandbox/projects/<workspace>/agenten/<agent>/run
+   Authorization: Bearer arun_…
+   Content-Type: application/json
+
+   { "input": "…" }
+   ```
+
+   Response: `{ "result": "…", "steps": [ … ], "iterations": 3, "truncated": false, "timestamp": "…" }`.
+
+Every auth failure — missing/unknown workspace, no token set, wrong token —
+returns a single `401` (never `404`), so the endpoint never reveals which
+workspaces exist. The run executes as the workspace owner and is jailed to that
+workspace (files, RAG, terminal).
+
+---
+
 ## 5. Hardening posture
 
 The compose-level hardening for n8n is set in `compose/compose.app.yaml` and validated against the [n8n hardening guide](https://docs.n8n.io/hosting/securing/overview/):
@@ -120,7 +156,7 @@ Run all three after every n8n image bump to catch regressions.
 | OAuth flow redirects to `https://localhost/...`               | `PUBLIC_URL` / `N8N_EXTERNAL_URL` not set in `.env`.                                                                                                                              |
 | OAuth provider returns "redirect_uri_mismatch"                | The exact callback URL is not whitelisted in the provider's developer console.                                                                                                    |
 | Webhook returns 404                                           | Workflow not active, or `WEBHOOK_URL` env not set so n8n didn't generate the URL.                                                                                                 |
-| Webhook returns 503 Cloudflare                                | Cloudflare BotFightMode treats Telegram/Stripe IPs as bots. Add a path-based bypass for `/webhook/*`.                                                                             |
+| Webhook returns 503 Cloudflare                                | Cloudflare BotFightMode treats Stripe/GitHub webhook IPs as bots. Add a path-based bypass for `/webhook/*`.                                                                       |
 | `Generated encryption key` warning in n8n logs on first boot  | `n8n_encryption_key` Docker secret not mounted. Check `compose.secrets.yaml`.                                                                                                     |
 | HTTP Request to an internal host fails with "Request blocked" | Instance-wide SSRF protection (`N8N_SSRF_PROTECTION_ENABLED=true`) is working as intended. Legitimate internal targets belong in `N8N_SSRF_ALLOWED_HOSTNAMES` (compose.app.yaml). |
 | Code node hangs / "no task runner available"                  | `n8n-runners` sidecar down or auth-token mismatch — see [N8N_AGENTS.md](N8N_AGENTS.md) §Troubleshooting.                                                                          |

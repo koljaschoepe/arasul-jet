@@ -12,7 +12,7 @@
 3. [Login funktioniert nicht](#3-login-funktioniert-nicht)
 4. [KI antwortet nicht](#4-ki-antwortet-nicht)
 5. [Dokumente werden nicht indexiert](#5-dokumente-werden-nicht-indexiert)
-6. [Telegram-Bot reagiert nicht](#6-telegram-bot-reagiert-nicht)
+6. [Agent läuft nicht / kein `@agent` im Chat](#6-agent-laeuft-nicht)
 7. [Speicherplatz voll](#7-speicherplatz-voll)
 8. [System ist langsam](#8-system-ist-langsam)
 9. [Backup/Restore Probleme](#9-backuprestore-probleme)
@@ -204,31 +204,38 @@ docker compose restart document-indexer embedding-service
 
 ---
 
-## 6. Telegram-Bot reagiert nicht
+<a id="6-agent-laeuft-nicht"></a>
+
+## 6. Agent läuft nicht / kein `@agent` im Chat
 
 ### Symptom
 
-Bot empfaengt oder sendet keine Nachrichten.
+`@agentname` im Chat findet den Agenten nicht, oder ein Agenten-Lauf schlägt
+fehl (per Chat oder per HTTP/n8n).
 
 ### Loesung
 
-**Schritt 1: Bot-Token pruefen**
+**Schritt 1: Agent-Datei prüfen**
 
-- Im Dashboard unter "Telegram" den Bot-Token verifizieren
-- Auf https://t.me/BotFather pruefen, ob der Bot aktiv ist
+- Der Agent ist eine Datei `agenten/<name>.md` im Host-Ordner des Workspace.
+  `@name` bezieht sich auf den Dateinamen (ohne `.md`).
+- Die Datei braucht einen YAML-Kopf mit mindestens `name:`; `werkzeuge:` darf
+  nur `dateien`, `rag`, `terminal` enthalten — ein unbekanntes Werkzeug lässt
+  den Lauf mit einem Validierungsfehler abbrechen.
 
-**Schritt 2: Webhook pruefen**
+**Schritt 2: Werkzeug-/Netzwerk-Rechte prüfen**
 
-- Internetverbindung am Jetson pruefen
-- Telegram benoetigt eine erreichbare URL (Cloudflare Tunnel)
+- `rag` liefert nichts, wenn der Workspace noch keinen Wissensraum hat
+  (bestehende Workspaces bekommen ihn erst beim nächsten Anlegen) — im
+  Workspace geschriebene Dateien werden automatisch indiziert.
+- `terminal`-Befehle mit Internet-/Systemzugriff scheitern je nach
+  Netzwerkmodus des Workspace (**Abgeschottet** = keine Plattform-Dienste).
 
-**Schritt 3: Service pruefen**
+**Schritt 3: HTTP-/n8n-Aufruf gibt 401**
 
-```bash
-docker compose ps telegram-bot
-docker compose logs --tail=20 telegram-bot
-docker compose restart telegram-bot
-```
+- Das pro-Workspace-Token (`arun_…`) unter _Agenten → Token_ neu erzeugen; es
+  wird nur einmal angezeigt und ersetzt das vorige. Jeder Fehler (fehlendes/
+  falsches Token, kein Token gesetzt) endet bewusst in einem `401`.
 
 ---
 

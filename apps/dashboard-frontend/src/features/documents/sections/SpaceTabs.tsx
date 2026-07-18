@@ -28,14 +28,14 @@ export default function SpaceTabs({
 
   return (
     <>
-      <nav className="mb-4 overflow-hidden" aria-label="Wissensbereiche">
+      <nav className="mb-4 overflow-hidden" aria-label="Ordner">
         {spacesError && (
           <div
             className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-md py-2 px-3 mb-2 text-destructive text-sm"
             role="alert"
           >
             <AlertCircle size={14} className="shrink-0" />
-            <span>Wissensbereiche nicht verfügbar</span>
+            <span>Ordner nicht verfügbar</span>
             <Button
               variant="ghost"
               size="sm"
@@ -108,7 +108,7 @@ export default function SpaceTabs({
             type="button"
             className="flex items-center gap-2 py-2.5 px-4 bg-[var(--gradient-card)] border border-dashed border-border rounded-md text-primary text-sm font-medium cursor-pointer transition-all whitespace-nowrap shrink-0 relative hover:border-primary hover:bg-primary/10"
             onClick={onCreateSpace}
-            aria-label="Neuen Bereich erstellen"
+            aria-label="Neuen Ordner erstellen"
           >
             <Plus aria-hidden="true" size={16} />
             <span>Neu</span>

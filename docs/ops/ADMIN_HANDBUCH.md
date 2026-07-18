@@ -11,8 +11,8 @@
 2. [Dashboard](#2-dashboard)
 3. [Chat / KI-Assistent](#3-chat--ki-assistent)
 4. [Dokumente & RAG](#4-dokumente--rag)
-5. [Datentabellen](#5-datentabellen)
-6. [Telegram-Bot](#6-telegram-bot)
+5. [Workspace & Agenten](#5-workspace--agenten)
+6. [Automation (n8n & Agenten per HTTP)](#6-automation)
 7. [Einstellungen](#7-einstellungen)
 8. [Services-Verwaltung](#8-services-verwaltung)
 9. [Datensicherung](#9-datensicherung)
@@ -29,8 +29,8 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 - **Lokale KI:** Alle Daten bleiben auf dem Geraet - keine Cloud erforderlich
 - **Chat-Assistent:** Fragen stellen, Texte analysieren, Aufgaben loesen
 - **Dokumenten-Analyse (RAG):** Eigene Dokumente hochladen und intelligent durchsuchen
-- **Datentabellen:** Strukturierte Daten verwalten und mit KI verknuepfen
-- **Telegram-Integration:** KI-Bot fuer Ihr Team ueber Telegram
+- **Workspace-Agenten:** Eigene KI-Agenten anlegen, aus dem Chat (`@agent`) oder per HTTP/n8n starten
+- **Automation (n8n):** Workflows bauen und Agenten in Abläufe einbinden
 - **Automatische Sicherung:** Taegliche Backups aller Daten
 - **Offline-faehig:** Funktioniert ohne Internetverbindung
 
@@ -50,11 +50,11 @@ Erscheinungsbild** gewaehlt (der fruehere Ansichtsmodus-Umschalter oben links
 ist entfallen). Alle Flaechen (Sidebar, Mitte, rechtes Panel) teilen denselben
 Hintergrund; getrennt wird nur durch feine Linien.
 
-- **Activity Bar (ganz links):** schmale Icon-Leiste mit **nur drei Arten von
-  Eintraegen**: **Dashboard**, **Extensions** und darunter die aktivierten
-  Plattform-Apps (Automationen/n8n, Telegram, Datenbank). Keine Explorer-,
-  Chat- oder Terminal-Icons mehr — Chat und Terminal wohnen im rechten Panel,
-  der Explorer in der kontextabhaengigen Sidebar.
+- **Activity Bar (ganz links):** schmale Icon-Leiste mit einer **festen
+  Drei-Bereiche-Navigation** — **Chat** (Kommandozentrale, rechtes Panel),
+  **Wissen** (Dateien/Explorer, linke Sidebar) und **Automation** (n8n) —
+  darunter **Extensions**, ganz unten **Einstellungen** (inkl. System-Status).
+  Chat und Terminal wohnen im rechten Panel, der Explorer in der Sidebar.
 - **Sidebar (links, kontextabhaengig):** wechselt mit dem aktiven Tab —
   **Dashboard** zeigt den Dokumente-/Projekte-Explorer (Projekte → Ordner →
   Dateien als Baum; Upload per Drag & Drop oder Kontextmenue, Indexierung
@@ -62,11 +62,10 @@ Hintergrund; getrennt wird nur durch feine Linien.
   eine Verwaltung mit **nur den installierten/aktiven** Apps und KI-Modellen —
   mit Filter **Alle · Sprachmodelle · Apps** und Suchfeld; gestoebert und
   installiert wird im Katalog in der Mitte. Bei **Automation (n8n)** bleibt der
-  Explorer stehen (n8n oeffnet als Tab im Hauptbereich); nur bei
-  Telegram/Datenbank klappt die Sidebar zu. Der Auf-/Zu-Zustand bleibt ueber ein
-  Neuladen erhalten.
-- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Dashboard, Extensions-Detail,
-  Dokumente, Datenbank, …), schliessbar, werden nach einem Neuladen
+  Explorer stehen (n8n oeffnet als Tab im Hauptbereich). Der Auf-/Zu-Zustand
+  bleibt ueber ein Neuladen erhalten.
+- **Mitte (Tab-Leiste):** mehrere Tabs parallel (Extensions-Detail, Dokumente,
+  Automation, Editor-Dateien, …), schliessbar, werden nach einem Neuladen
   wiederhergestellt. Chat und Terminal erscheinen nie als Tab.
 - **Rechtes Panel (eine Flaeche mit Umschalter [Chat | Terminal]):** oben
   waehlt ein Segment-Schalter zwischen **Chat** und **Terminal**; der aktive
@@ -93,17 +92,16 @@ Hintergrund; getrennt wird nur durch feine Linien.
   Ollama-Auslastung — Details im Tooltip).
 - **Extensions (Verwaltung + Katalog):** links die **installierten/aktiven**
   Eintraege (Filter Alle · Sprachmodelle · Apps), in der Mitte der durchsuchbare
-  **Katalog** mit Tabs **Empfohlen · Sprachmodelle · Apps**; ein Klick oeffnet
+  **Store** mit **zwei Reitern (Modelle · Erweiterungen)**; ein Klick oeffnet
   die Detailseite mit allen Aktionen — KI-Modelle installieren/aktivieren,
-  Plattform-Apps (n8n, Telegram, Datenbank) ein-/ausblenden. **Automationen**
+  Plattform-Apps (n8n) ein-/ausblenden. **Automation**
   oeffnet n8n direkt als Tab. Deaktivieren
   wirkt sofort (ohne Neuladen): das Symbol verschwindet aus der Activity Bar
   und offene Tabs der App werden geschlossen. (Alte Deep-Links auf die
   frueheren Unter-Tabs `/store/models` und `/store/apps` leiten automatisch um.)
-- Zurueck zur klassischen Ansicht: Menue **Datei → Zur klassischen Ansicht**.
-  Die Workspace-Shell ist Standard; die klassische Sidebar-Ansicht bleibt als
-  Opt-out ueber diesen Menuepunkt erreichbar, alle Alt-Routen funktionieren
-  weiter.
+- Die Workspace-Shell ist die einzige Ansicht: `/` landet nach dem Login
+  immer auf `/workspace` (es gibt keine klassische Sidebar-Ansicht und keinen
+  Umschalter mehr).
 
 ---
 
@@ -191,58 +189,67 @@ Organisieren Sie Dokumente in thematischen Raeumen:
 
 ---
 
-## 5. Datentabellen
+<a id="5-workspace--agenten"></a>
 
-### Tabelle erstellen
+## 5. Workspace & Agenten
 
-1. Navigieren Sie zu **"Datentabellen"**
-2. Klicken Sie auf **"Neue Tabelle"**
-3. Definieren Sie Spalten (Name, Typ)
-4. Fuellen Sie Daten ein
+Ein **Workspace** ist die zentrale Arbeitsumgebung: ein Ordner plus ein
+Container mit einem Besitzer und einem **Netzwerkmodus** („Was darf dieser
+Workspace?"):
 
-### Spaltentypen
+| Modus              | Zugriff                                           |
+| ------------------ | ------------------------------------------------- |
+| **Abgeschottet**   | Internet ja, Plattform nein (Standard)            |
+| **Am System**      | interne Dienste: Datenbank / MinIO / Qdrant / RAG |
+| **Voller Zugriff** | Infrastruktur — **nur Admins**                    |
 
-| Typ     | Beschreibung           |
-| ------- | ---------------------- |
-| Text    | Freitext               |
-| Zahl    | Numerische Werte       |
-| Datum   | Datumswerte            |
-| Boolean | Ja/Nein                |
-| Auswahl | Vordefinierte Optionen |
+Jeder Workspace hat genau einen unsichtbaren Wissensbereich („Ordner"): dort
+geschriebene Dateien werden **automatisch indiziert** (kein manueller Upload).
 
-### KI-Integration
+### Agent anlegen
 
-- Tabellen-Daten koennen im Chat referenziert werden
-- Die KI kann Daten analysieren und zusammenfassen
-- Zitate aus Tabellen werden im Chat angezeigt
+Ein Agent ist eine Markdown-Datei `agenten/<name>.md` im Workspace-Ordner mit
+einem YAML-Kopf und einem System-Prompt:
+
+```markdown
+---
+name: Texter
+beschreibung: Schreibt und überarbeitet Texte im Workspace.
+modell: qwen2.5:7b
+werkzeuge: [dateien, rag]
+---
+
+Du bist ein präziser Lektor. Antworte auf Deutsch.
+```
+
+Werkzeuge: **dateien** (Dateien lesen/schreiben), **rag** (im Workspace-Wissen
+suchen), **terminal** (Befehl im Workspace-Container ausführen).
+
+### Agent starten
+
+- **Aus dem Chat:** `@agentname <Eingabe>` — die Werkzeug-Schritte laufen live mit.
+- **Per HTTP / n8n:** siehe [Abschnitt 6](#6-automation).
 
 ---
 
-## 6. Telegram-Bot
+<a id="6-automation"></a>
 
-### Bot erstellen
+## 6. Automation (n8n & Agenten per HTTP)
 
-1. Navigieren Sie zu **"Telegram"**
-2. Klicken Sie auf **"Neuen Bot erstellen"**
-3. Folgen Sie dem Assistenten:
-   - Bot-Token vom BotFather eingeben
-   - Name und Beschreibung festlegen
-   - KI-Modell auswaehlen
-4. Der Bot ist sofort einsatzbereit
+- **n8n:** Öffnen Sie **Automation** in der Activity Bar, um Workflows zu bauen.
+- **Agent per HTTP starten:** Erzeugen Sie pro Workspace ein Token
+  (_Agenten → Token_; das Token `arun_…` wird **nur einmal** angezeigt) und
+  rufen Sie den Agenten aus n8n (HTTP-Request-Node) auf:
 
-### Bot-Token erhalten
+  ```
+  POST /api/sandbox/projects/<workspace>/agenten/<agent>/run
+  Authorization: Bearer arun_…
 
-1. Oeffnen Sie Telegram und suchen Sie **@BotFather**
-2. Senden Sie `/newbot`
-3. Folgen Sie den Anweisungen
-4. Kopieren Sie den Token
+  { "input": "…" }
+  ```
 
-### Bot-Einstellungen
-
-- **Modell:** Welches KI-Modell der Bot verwendet
-- **System-Prompt:** Wie der Bot sich verhalten soll
-- **RAG aktivieren:** Bot kann auf Ihre Dokumente zugreifen
-- **Berechtigungen:** Wer den Bot nutzen darf
+  Details: [docs/integrations/N8N.md](../integrations/N8N.md) und
+  [docs/features/AGENTS.md](../features/AGENTS.md).
 
 ---
 

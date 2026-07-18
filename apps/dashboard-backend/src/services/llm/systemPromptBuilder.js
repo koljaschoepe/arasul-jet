@@ -1,10 +1,9 @@
 /**
  * System Prompt Builder
- * Builds a layered system prompt from 4 sources:
+ * Builds a layered system prompt from 3 sources:
  *   1. Global base (hardcoded German default)
  *   2. AI profile (YAML from MinIO/DB via memoryService)
  *   3. Company context (from company_context table)
- *   4. Project prompt (per conversation, from projects table)
  */
 
 const yaml = require('js-yaml');
@@ -182,34 +181,10 @@ async function loadProfile() {
 }
 
 /**
- * Load project system prompt for a conversation.
- * @param {Object} database - Database instance
- * @param {string|null} conversationId
- * @returns {Promise<string>}
- */
-async function loadProjectPrompt(database, conversationId) {
-  if (!conversationId) {
-    return '';
-  }
-
-  try {
-    const result = await database.query(
-      `SELECT p.system_prompt FROM projects p
-       JOIN chat_conversations c ON c.project_id = p.id
-       WHERE c.id = $1 AND p.system_prompt != ''`,
-      [conversationId]
-    );
-    return result.rows.length > 0 ? result.rows[0].system_prompt : '';
-  } catch (err) {
-    logger.debug(`[SystemPrompt] Could not fetch project prompt: ${err.message}`);
-    return '';
-  }
-}
-
-/**
  * Build the combined system prompt from all layers.
  * @param {Object} database - Database instance
- * @param {string|null} conversationId - Current conversation ID
+ * @param {string|null} conversationId - Current conversation ID (reserved; kept
+ *   for signature stability with existing callers).
  * @param {Object} [options] - Options
  * @param {boolean} [options.includeTools=true] - Whether to include tools section
  * @returns {Promise<string>} Combined system prompt
@@ -233,16 +208,7 @@ async function buildSystemPrompt(database, conversationId, { includeTools = true
     }
   }
 
-  // Layer 4: Project Prompt (sanitized — user-editable content)
-  const projectPrompt = await loadProjectPrompt(database, conversationId);
-  if (projectPrompt) {
-    const sanitized = sanitizePromptContent(projectPrompt, 'Projektanweisungen');
-    if (sanitized) {
-      parts.push(`## Projektanweisungen\n${sanitized}`);
-    }
-  }
-
-  // Layer 5: Available Tools (only for medium/complex queries)
+  // Layer 4: Available Tools (only for medium/complex queries)
   if (includeTools) {
     try {
       const toolRegistry = require('../../tools');
@@ -270,5 +236,4 @@ module.exports = {
   _cache: cache,
   _loadCompanyContext: loadCompanyContext,
   _loadProfile: loadProfile,
-  _loadProjectPrompt: loadProjectPrompt,
 };

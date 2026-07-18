@@ -65,10 +65,6 @@ vi.mock('../../components/editor/CreateDocumentDialog', () => ({
   default: () => null,
 }));
 
-vi.mock('../datentabellen/ExcelEditor', () => ({
-  default: () => <div data-testid="excel-editor">Excel</div>,
-}));
-
 // ---- Sample data ----
 
 const sampleDocuments = [
@@ -122,7 +118,6 @@ const sampleStatistics = {
   total_documents: 3,
   indexed_documents: 2,
   pending_documents: 1,
-  table_count: 0,
 };
 
 // ---- Helpers ----
@@ -153,9 +148,6 @@ function setupDefaultApiResponses(docs = sampleDocuments, spaces = sampleSpaces)
     }
     if (path === '/spaces') {
       return Promise.resolve({ spaces });
-    }
-    if (path.startsWith('/v1/datentabellen/tables')) {
-      return Promise.resolve({ data: [], total: 0 });
     }
     return Promise.resolve({});
   });

@@ -24,8 +24,6 @@ function resetServerApps() {
       tab: 'automationen',
       enabled: true,
     },
-    { id: 'telegram', name: 'Telegram-Bot', description: 'Bot', tab: 'telegram', enabled: true },
-    { id: 'database', name: 'Datenbank', description: 'Tabellen', tab: 'database', enabled: true },
   ];
 }
 
@@ -64,34 +62,15 @@ describe('useWorkspaceApps — setAppEnabled schließt Tabs deaktivierter Apps',
   it('Deaktivieren schließt den offenen Tab der App, andere Tabs bleiben', async () => {
     seedTabs(
       [
-        { id: 'dashboard', type: 'dashboard', title: 'Dashboard' },
-        { id: 'telegram', type: 'telegram', title: 'Telegram' },
-      ],
-      'telegram'
-    );
-    const { result } = renderWorkspaceApps();
-    await waitFor(() => expect(result.current.apps).toHaveLength(3));
-
-    await act(() => result.current.setAppEnabled('telegram', false));
-
-    const state = useWorkspaceStore.getState();
-    expect(state.tabs.map(t => t.id)).toEqual(['dashboard']);
-    expect(state.activeTabId).toBe('dashboard');
-  });
-
-  it('Datenbank deaktivieren schließt auch offene Tabellen-Tabs', async () => {
-    seedTabs(
-      [
-        { id: 'database', type: 'database', title: 'Datenbank' },
-        { id: 'database-table:kunden', type: 'database-table', title: 'kunden', slug: 'kunden' },
         { id: 'store', type: 'store', title: 'Extensions' },
+        { id: 'automationen', type: 'automationen', title: 'Automationen' },
       ],
-      'database-table:kunden'
+      'automationen'
     );
     const { result } = renderWorkspaceApps();
-    await waitFor(() => expect(result.current.apps).toHaveLength(3));
+    await waitFor(() => expect(result.current.apps).toHaveLength(1));
 
-    await act(() => result.current.setAppEnabled('database', false));
+    await act(() => result.current.setAppEnabled('n8n', false));
 
     const state = useWorkspaceStore.getState();
     expect(state.tabs.map(t => t.id)).toEqual(['store']);
@@ -99,25 +78,25 @@ describe('useWorkspaceApps — setAppEnabled schließt Tabs deaktivierter Apps',
   });
 
   it('Aktivieren schließt keine Tabs', async () => {
-    seedTabs([{ id: 'telegram', type: 'telegram', title: 'Telegram' }], 'telegram');
+    seedTabs([{ id: 'automationen', type: 'automationen', title: 'Automationen' }], 'automationen');
     const { result } = renderWorkspaceApps();
-    await waitFor(() => expect(result.current.apps).toHaveLength(3));
+    await waitFor(() => expect(result.current.apps).toHaveLength(1));
 
-    await act(() => result.current.setAppEnabled('telegram', true));
+    await act(() => result.current.setAppEnabled('n8n', true));
 
-    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['telegram']);
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['automationen']);
   });
 
   it('Toggle aktualisiert den Query-Cache sofort (kein Reload nötig)', async () => {
     const { result } = renderWorkspaceApps();
-    await waitFor(() => expect(result.current.apps).toHaveLength(3));
-    expect(result.current.isAppEnabled('telegram')).toBe(true);
+    await waitFor(() => expect(result.current.apps).toHaveLength(1));
+    expect(result.current.isAppEnabled('n8n')).toBe(true);
 
-    await act(() => result.current.setAppEnabled('telegram', false));
+    await act(() => result.current.setAppEnabled('n8n', false));
 
-    await waitFor(() => expect(result.current.isAppEnabled('telegram')).toBe(false));
+    await waitFor(() => expect(result.current.isAppEnabled('n8n')).toBe(false));
     expect(apiMock.put).toHaveBeenCalledWith(
-      '/workspace-apps/telegram',
+      '/workspace-apps/n8n',
       { enabled: false },
       { showError: false }
     );

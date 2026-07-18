@@ -50,7 +50,6 @@ router.get(
       auditResult,
       securityAuditResult,
       spacesResult,
-      projectsResult,
     ] = await Promise.all([
       // 1. User profile
       db.query(
@@ -61,7 +60,7 @@ router.get(
 
       // 2. Chat conversations
       db.query(
-        `SELECT id, title, model, created_at, updated_at, message_count, project_id
+        `SELECT id, title, model, created_at, updated_at, message_count
          FROM chat_conversations WHERE user_id = $1
          ORDER BY created_at DESC`,
         [userId]
@@ -163,16 +162,6 @@ router.get(
           [userId]
         )
         .catch(() => ({ rows: [] })),
-
-      // 12. Projects
-      db
-        .query(
-          `SELECT id, name, description, created_at, updated_at
-         FROM projects WHERE user_id = $1
-         ORDER BY created_at DESC`,
-          [userId]
-        )
-        .catch(() => ({ rows: [] })),
     ]);
 
     const exportData = {
@@ -238,10 +227,6 @@ router.get(
       knowledgeSpaces: {
         count: spacesResult.rows.length,
         data: spacesResult.rows,
-      },
-      projects: {
-        count: projectsResult.rows.length,
-        data: projectsResult.rows,
       },
     };
 
@@ -405,8 +390,8 @@ router.delete(
       ]);
 
       // 2) Documents — Metadaten löschen. Single-Box: documents.uploaded_by
-      //    ist die einzige user-gebundene Spalte; ai_memories, knowledge_spaces
-      //    und projects sind Box-weit (kein user_id-Feld) und werden vom
+      //    ist die einzige user-gebundene Spalte; ai_memories und knowledge_spaces
+      //    sind Box-weit (kein user_id-Feld) und werden vom
       //    Single-Box-Schutz oben ohnehin auf einem Nachfolge-Admin "vererbt".
       //    MinIO-Files bleiben (Cleanup ist follow-up Phase 5.7); für DSGVO ist
       //    die DB-Löschung der entscheidende Schritt, weil MinIO-Objekte ohne

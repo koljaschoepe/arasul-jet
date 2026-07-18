@@ -18,7 +18,7 @@ Entry: `src/index.js` → `src/server.js` → `src/routes/index.js`.
 ```
 src/
   routes/        HTTP layer — thin. Validate, authorize, delegate. No business logic.
-    <domain>/    Sub-router per domain (telegram/, system/, ai/, store/, ...).
+    <domain>/    Sub-router per domain (sandbox/, system/, ai/, store/, ...).
   services/      Business logic. Routes call services; services call db/external.
     <domain>/    One folder per domain that has multiple cooperating modules.
   middleware/    Cross-cutting: auth, csrf, rateLimit, validate, errorHandler, audit.
@@ -27,8 +27,11 @@ src/
   config/        Static config (no runtime state).
   tools/         Standalone scripts (run via `node src/tools/<name>.js`).
   database.js    Main pg.Pool. Use `db.query(...)` — never instantiate your own pool.
-  dataDatabase.js Separate pool for the user-data DB (datentabellen feature).
 ```
+
+The box runs **exactly one** Postgres database (`arasul_db`). The former
+second database (`arasul_data_db` / `dataDatabase.js`) was removed with the
+Datentabellen feature (Plan 008).
 
 ## Non-negotiable patterns
 
@@ -87,17 +90,17 @@ get typed, trimmed, defaulted data.
 
 `middleware/rateLimit.js` exports ready-made limiters; use them, don't roll your own:
 
-| Limiter                          | Use for                                   | Window / max |
-| -------------------------------- | ----------------------------------------- | ------------ |
-| `loginLimiter`                   | `/auth/login`                             | 15 min / 10  |
-| `generalAuthLimiter`             | other `/auth/*` (logout, change-password) | 15 min / 30  |
-| `apiLimiter`                     | default, per-IP                           | 1 min / 100  |
-| `llmLimiter`                     | `/llm/*`, `/rag/*` (expensive)            | 1 sec / 10   |
-| `metricsLimiter`                 | high-frequency polling endpoints          | 1 sec / 20   |
-| `webhookLimiter`                 | inbound webhooks (telegram, n8n, ...)     | 1 min / 100  |
-| `uploadLimiter`                  | multipart uploads                         | 1 min / 20   |
-| `tailscaleLimiter`               | tailscale orchestration                   | (per-domain) |
-| `createUserRateLimiter(max, ms)` | user-scoped (after auth)                  | factory      |
+| Limiter                          | Use for                                          | Window / max |
+| -------------------------------- | ------------------------------------------------ | ------------ |
+| `loginLimiter`                   | `/auth/login`                                    | 15 min / 10  |
+| `generalAuthLimiter`             | other `/auth/*` (logout, change-password)        | 15 min / 30  |
+| `apiLimiter`                     | default, per-IP                                  | 1 min / 100  |
+| `llmLimiter`                     | `/llm/*`, `/rag/*` (expensive)                   | 1 sec / 10   |
+| `metricsLimiter`                 | high-frequency polling endpoints                 | 1 sec / 20   |
+| `webhookLimiter`                 | inbound webhooks + external agent-run (n8n, ...) | 1 min / 100  |
+| `uploadLimiter`                  | multipart uploads                                | 1 min / 20   |
+| `tailscaleLimiter`               | tailscale orchestration                          | (per-domain) |
+| `createUserRateLimiter(max, ms)` | user-scoped (after auth)                         | factory      |
 
 Disable in tests via `RATE_LIMIT_ENABLED=false`.
 
@@ -110,7 +113,7 @@ this automatically on the client. `apiKeyAuth.js` is for `/api/external/*`.
 ### 6. Mount new route groups in `routes/index.js`
 
 Add the prefix to `API_ROUTE_GROUPS` so it surfaces in `GET /api/_meta`.
-Group choice (`core | telegram | system | admin | ai | store | external | sandbox | datentabellen`)
+Group choice (`core | system | admin | ai | store | external | sandbox`)
 is documented at the top of `routes/index.js`.
 
 ### 7. SSE / WebSocket
@@ -137,37 +140,35 @@ is preferred so `errorHandler` keeps structured fields.
 - ❌ Returning bare strings or arrays at the top level — wrap in `{ data, ... }`
   so response shape is uniform.
 
-## Telegram subsystem
+## Workspace-Agenten (Plan 008)
 
-Five years of unattended operation makes the Telegram path one of the
-trickier corners of this backend. Conventions:
+The product's automation core is now workspace agents, not the Telegram bot.
+An agent is a Markdown file at `<workspace host_path>/agenten/<name>.md` with
+YAML frontmatter (`name`, `beschreibung`, `modell`, `werkzeuge`) and a
+system-prompt body. Engine lives in `services/agents/` (`agentFile.js` parses
+the file, `toolLoop.js` drives the Ollama function-calling loop, `tools/`
+holds the three tools). Conventions:
 
-- **Polling is the default**, webhook is opt-in. `telegramIngressService.initialize()`
-  starts polling for every active bot at boot — except those with both
-  `webhook_url IS NOT NULL` _and_ `PUBLIC_URL` set in env. Don't gate this on
-  PUBLIC_URL alone; it produced the silent-bots-after-restart bug.
-- **Health state** lives in `telegram_bots.health_status / last_error_*`. Any
-  failure path that wants to surface to the operator must call
-  `telegramBotService.setHealth(botId, status, msg)` — silent drops are not OK.
-  The `health_status` CHECK list lives in migration `091_telegram_bot_health.sql`.
-- **DSGVO consent** is enforced at the `processUpdate` switch. Free-form text
-  goes through `hasConsent()` before reaching the LLM; `/start` issues an
-  Art-13 notice + inline keyboard. Three commands always work without consent:
-  `/datenschutz`, `/loeschen`, `/auskunft`. Don't add new commands that bypass
-  this gate.
-- **Pseudonymisation:** Telegram user IDs are HMAC-hashed via `utils/telegramHmac.js`
-  before persisting. The pepper comes from the `telegram_user_id_pepper` Docker
-  secret. Never write a raw user ID to a new column — always hash first.
-- **Webhook auth:** new bots use the header-based path
-  `/api/telegram-bots/webhook/<bot_id>` with `X-Telegram-Bot-Api-Secret-Token`
-  validated by `crypto.timingSafeEqual`. Legacy URL-secret path
-  `/webhook/<bot_id>/<secret>` stays for backward-compat.
-- **Library:** raw `fetch` calls today. A grammY migration is planned (Phase 5b
-  of the EXTERNAL_INTEGRATIONS plan) — when you touch this code, prefer
-  centralising new fetch calls in `telegramMessageSender.js` so the migration
-  is mechanical.
-
-Customer-facing setup doc: [`docs/integrations/TELEGRAM_BOT_SETUP.md`](../../docs/integrations/TELEGRAM_BOT_SETUP.md).
+- **Tools are path-jailed to the workspace.** `dateien` reads/writes files,
+  `rag` searches the workspace's one knowledge space, `terminal` runs a command
+  in the workspace container. All extend the existing `BaseTool`/`ToolRegistry`;
+  a definition may only name tools from `VALID_TOOLS` (`dateien`, `rag`,
+  `terminal`).
+- **Two run surfaces, both in `routes/sandbox.js`:** the cookie-authenticated
+  SSE stream `POST .../agenten/:agent/run/stream` (Chat's `@agentname`, streams
+  each tool step) and the Bearer-token `POST .../agenten/:agent/run` for n8n /
+  external HTTP (non-streaming, returns `{ result, steps, ... }`). The token is
+  minted at `POST .../agenten/token`; only its bcrypt hash is stored
+  (`sandbox_projects.agent_run_token_hash`), and every external-auth failure
+  collapses to a single 401 so the route never leaks which workspaces exist.
+- **RAG isolation:** each workspace owns exactly one invisible knowledge space
+  (`sandbox_projects.space_id`, `knowledge_spaces.is_workspace = TRUE`). Files
+  written in a workspace are auto-indexed (`workspaceIndexer.js`); a workspace
+  without a linked space scopes to nothing — never fail open to all spaces.
+- **Encrypted external login:** a Claude login done in a sandbox terminal is
+  stored per user in `user_external_credentials`, encrypted AES-256-GCM via
+  `utils/tokenCrypto.js`, and restored on container start so it survives a
+  rebuild.
 
 ## Testing
 

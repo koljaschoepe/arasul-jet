@@ -31,42 +31,33 @@ describe('WorkspaceMenuBar', () => {
   });
 
   it('rendert Marke, Datei-Menü und den Settings-Button rechts', () => {
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    render(<WorkspaceMenuBar themeControls={themeControls} />);
     expect(screen.getByText('Arasul')).toBeInTheDocument();
     expect(screen.getByLabelText('Datei-Menü')).toBeInTheDocument();
     expect(screen.getByLabelText('Einstellungen')).toBeInTheDocument();
   });
 
   it('hat keinen Ansichtsmodus-/Theme-Umschalter mehr (nur noch in den Einstellungen)', () => {
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    render(<WorkspaceMenuBar themeControls={themeControls} />);
     expect(screen.queryByLabelText('Ansicht-Menü')).not.toBeInTheDocument();
   });
 
   it('»Neuer Ordner…« stellt eine Explorer-Anfrage', async () => {
     const user = userEvent.setup();
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    render(<WorkspaceMenuBar themeControls={themeControls} />);
     await user.click(screen.getByLabelText('Datei-Menü'));
     await user.click(await screen.findByText('Neuer Ordner…'));
     expect(useWorkspaceStore.getState().explorerRequest).toBe('create-folder');
   });
 
   it('Settings-Button öffnet den Einstellungen-Tab', () => {
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    render(<WorkspaceMenuBar themeControls={themeControls} />);
     fireEvent.click(screen.getByLabelText('Einstellungen'));
     expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
   });
 
-  it('»Zur klassischen Ansicht« ruft onLeaveWorkspace', async () => {
-    const user = userEvent.setup();
-    const leave = vi.fn();
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={leave} />);
-    await user.click(screen.getByLabelText('Datei-Menü'));
-    await user.click(await screen.findByText('Zur klassischen Ansicht'));
-    expect(leave).toHaveBeenCalled();
-  });
-
   it('zeigt genau zwei Layout-Toggles rechts, die den Store spiegeln und schalten', () => {
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    render(<WorkspaceMenuBar themeControls={themeControls} />);
 
     const layoutGroup = screen.getByRole('group', { name: 'Layout' });
     expect(layoutGroup.querySelectorAll('button')).toHaveLength(2);
@@ -94,7 +85,7 @@ describe('WorkspaceMenuBar', () => {
 
   it('»Neue Terminal-Umgebung…« schaltet das rechte Panel in den Terminal-Modus', async () => {
     const user = userEvent.setup();
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    render(<WorkspaceMenuBar themeControls={themeControls} />);
     await user.click(screen.getByLabelText('Datei-Menü'));
     await user.click(await screen.findByText('Neue Terminal-Umgebung…'));
     const state = useWorkspaceStore.getState();
@@ -103,7 +94,7 @@ describe('WorkspaceMenuBar', () => {
   });
 
   it('bietet keine Design-/Theme-Auswahl mehr in der Menüleiste', () => {
-    render(<WorkspaceMenuBar themeControls={themeControls} onLeaveWorkspace={vi.fn()} />);
+    render(<WorkspaceMenuBar themeControls={themeControls} />);
     // Kein Ansicht-Menü, keine Design-Optionen — Theme lebt nur in den Einstellungen.
     expect(screen.queryByLabelText('Ansicht-Menü')).not.toBeInTheDocument();
     expect(

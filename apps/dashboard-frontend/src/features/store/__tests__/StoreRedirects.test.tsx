@@ -4,15 +4,18 @@
  * leiten auf die neue Liste+Detail-Struktur um: Highlight → Auswahl im
  * Extension-Store, Navigation zurück auf /store.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useExtensionStore } from '@/stores/extensionStore';
 import Store from '../Store';
 
-// Detailseite + Liste stubben — hier interessiert nur der Redirect
+// Detailseite + beide Listen stubben — hier interessieren Redirect + Reiter
 vi.mock('../StoreDetailPage', () => ({
   StoreDetailPage: () => <div data-testid="detail" />,
+}));
+vi.mock('../StoreModelsList', () => ({
+  StoreModelsList: () => <div data-testid="models-list" />,
 }));
 vi.mock('@/components/extensions/ExtensionsSidebarList', () => ({
   ExtensionsSidebarList: () => <div data-testid="list" />,
@@ -56,9 +59,23 @@ describe('Store — Redirects', () => {
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/store'));
   });
 
-  it('eigenständig (/store) zeigt Liste + Detail', async () => {
+  it('eigenständig (/store): zwei Reiter — Modelle (default) + Detail', () => {
     renderAt('/store');
-    expect(screen.getByTestId('list')).toBeInTheDocument();
+    expect(screen.getByTestId('store-tab-models')).toBeInTheDocument();
+    expect(screen.getByTestId('store-tab-extensions')).toBeInTheDocument();
+    // Default-Reiter „Modelle" zeigt die Modell-Liste, nicht die Erweiterungen.
+    expect(screen.getByTestId('models-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('list')).not.toBeInTheDocument();
     expect(screen.getByTestId('detail')).toBeInTheDocument();
+  });
+
+  it('eigenständig (/store): Reiter-Wechsel schaltet die linke Liste um', () => {
+    renderAt('/store');
+    fireEvent.click(screen.getByTestId('store-tab-extensions'));
+    expect(screen.getByTestId('list')).toBeInTheDocument();
+    expect(screen.queryByTestId('models-list')).not.toBeInTheDocument();
+    // Zurück auf „Modelle"
+    fireEvent.click(screen.getByTestId('store-tab-models'));
+    expect(screen.getByTestId('models-list')).toBeInTheDocument();
   });
 });

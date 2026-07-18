@@ -87,8 +87,8 @@ const doc: TreeDocument = {
 
 function resetStore() {
   useWorkspaceStore.setState({
-    tabs: [{ id: 'dashboard', type: 'dashboard', title: 'Dashboard' }],
-    activeTabId: 'dashboard',
+    tabs: [{ id: 'settings', type: 'settings', title: 'Einstellungen' }],
+    activeTabId: 'settings',
     sidebarVisible: true,
     rightPanelVisible: true,
     rightPanelMode: 'chat',
@@ -175,7 +175,7 @@ describe('Fix: offene Explorer-Dialoge lassen die Shell-Panels sichtbar', () => 
     async ({ dialog, open }) => {
       render(
         <>
-          <MemoryRouter initialEntries={['/workspace/dashboard']}>
+          <MemoryRouter initialEntries={['/workspace/settings']}>
             <Routes>
               <Route
                 path="/workspace/*"

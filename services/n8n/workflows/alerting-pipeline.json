@@ -85,46 +85,6 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
-        "text": "={{ $json.emoji }} *CRITICAL ALERT*\n\n*Type:* {{ $json.type }}\n*Source:* {{ $json.source }}\n*Message:* {{ $json.details }}\n*Time:* {{ $json.timestamp }}\n\n⚠️ Immediate action required!",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
-      },
-      "id": "telegram-critical",
-      "name": "Telegram Critical",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [1000, 200],
-      "credentials": {
-        "telegramApi": {
-          "id": "3",
-          "name": "Arasul Telegram Bot"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
-        "text": "={{ $json.emoji }} *Warning Alert*\n\n*Type:* {{ $json.type }}\n*Source:* {{ $json.source }}\n*Message:* {{ $json.details }}\n*Time:* {{ $json.timestamp }}",
-        "additionalFields": {
-          "parse_mode": "Markdown"
-        }
-      },
-      "id": "telegram-warning",
-      "name": "Telegram Warning",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [1000, 400],
-      "credentials": {
-        "telegramApi": {
-          "id": "3",
-          "name": "Arasul Telegram Bot"
-        }
-      }
-    },
-    {
-      "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO notification_events (event_type, severity, source, message, metadata, created_at)\nVALUES ($1, $2, $3, $4, $5, $6)",
         "options": {
@@ -196,7 +156,7 @@
       "main": [
         [
           {
-            "node": "Telegram Critical",
+            "node": "Log Alert to DB",
             "type": "main",
             "index": 0
           }
@@ -214,7 +174,7 @@
       "main": [
         [
           {
-            "node": "Telegram Warning",
+            "node": "Log Alert to DB",
             "type": "main",
             "index": 0
           }
@@ -222,28 +182,6 @@
         [
           {
             "node": "Info - No Notification",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Telegram Critical": {
-      "main": [
-        [
-          {
-            "node": "Log Alert to DB",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Telegram Warning": {
-      "main": [
-        [
-          {
-            "node": "Log Alert to DB",
             "type": "main",
             "index": 0
           }

@@ -5,7 +5,7 @@
 
 const db = require('../../database');
 const logger = require('../../utils/logger');
-const telegramService = require('../telegram/telegramNotificationService');
+const notificationService = require('./notificationService');
 const { docker: dockerClient } = require('./docker');
 
 // Service name mappings (from docker.js)
@@ -74,9 +74,6 @@ class EventListenerService {
       // Start Docker event listener
       await this.startDockerListener();
 
-      // Start periodic pending notification processor
-      this.startNotificationProcessor();
-
       logger.info('Event Listener Service started successfully');
       return { success: true };
     } catch (error) {
@@ -99,10 +96,6 @@ class EventListenerService {
       } catch (error) {
         logger.warn(`Error stopping event stream: ${error.message}`);
       }
-    }
-
-    if (this.notificationProcessorInterval) {
-      clearInterval(this.notificationProcessorInterval);
     }
 
     logger.info('Event Listener Service stopped');
@@ -226,7 +219,7 @@ class EventListenerService {
       const title = this.getDockerEventTitle(action, serviceName, healthStatus);
       const message = this.getDockerEventMessage(action, serviceName, healthStatus, statusChange);
 
-      await telegramService.queueNotification({
+      await notificationService.queueNotification({
         event_type: 'service_status',
         event_category: this.getDockerEventCategory(action),
         source_service: containerName,
@@ -415,7 +408,7 @@ class EventListenerService {
           ? `Der Workflow "${workflow_name}" ist mit einem Fehler beendet worden.`
           : `Der Workflow "${workflow_name}" wurde erfolgreich ausgeführt.`;
 
-      await telegramService.queueNotification({
+      await notificationService.queueNotification({
         event_type: 'workflow_event',
         event_category: category,
         source_service: 'n8n',
@@ -506,7 +499,7 @@ class EventListenerService {
       logger.info(`System boot recorded with ID: ${bootId}`);
 
       // Send notification
-      await telegramService.queueNotification({
+      await notificationService.queueNotification({
         event_type: 'system_boot',
         event_category: 'status_change',
         source_service: 'system',
@@ -584,7 +577,7 @@ class EventListenerService {
         ? `Self-Healing hat erfolgreich "${this.formatActionType(action_type)}" auf ${serviceFriendlyName} ausgeführt.`
         : `Self-Healing konnte "${this.formatActionType(action_type)}" auf ${serviceFriendlyName} nicht ausführen.`;
 
-      await telegramService.queueNotification({
+      await notificationService.queueNotification({
         event_type: 'self_healing',
         event_category: category,
         source_service: service_name,
@@ -635,22 +628,6 @@ class EventListenerService {
       db_vacuum: 'Datenbank-Optimierung',
     };
     return actionMap[actionType] || actionType;
-  }
-
-  /**
-   * Start periodic processor for pending notifications
-   */
-  startNotificationProcessor() {
-    // Process pending notifications every 30 seconds
-    this.notificationProcessorInterval = setInterval(async () => {
-      try {
-        await telegramService.processPendingFromDb();
-      } catch (error) {
-        logger.error(`Notification processor error: ${error.message}`);
-      }
-    }, 30000);
-
-    logger.info('Notification processor started (30s interval)');
   }
 
   /**

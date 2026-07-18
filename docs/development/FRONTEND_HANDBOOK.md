@@ -29,15 +29,13 @@ apps/dashboard-frontend/src/
   index.css                  # Tailwind v4 config, CSS variables, design tokens
 
   features/                  # Feature modules (each with barrel export index.ts)
-    chat/                    # ChatRouter, ChatView, ChatMessage, ChatInputArea, ...
+    workspace/               # IDE-Shell: ActivityBar (Chat · Wissen · Automation), Explorer, Tabs, TipTap editor
     documents/               # DocumentManager, SpaceModal, Badges
-    settings/                # Settings, GeneralSettings, AIProfileSettings, ...
-    store/                   # Store, StoreHome, StoreApps, StoreModels
-    telegram/                # TelegramAppModal, BotSetupWizard, BotDetailsModal
-    datentabellen/           # ExcelEditor + custom hooks (clipboard, history, keyboard)
+    sandbox/                 # CreateProjectDialog, workspace + network-mode UI
+    settings/                # Settings, GeneralSettings, AIProfileSettings, System-Status
+    store/                   # Store (Modelle · Erweiterungen tabs)
     claude/                  # ClaudeCode, ClaudeTerminal
     system/                  # SetupWizard, UpdatePage, SelfHealingEvents, Login
-    database/                # DatabaseOverview, DatabaseTable
 
   components/
     layout/                  # Sidebar (with ScrollArea)

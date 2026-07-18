@@ -1,15 +1,8 @@
 const { z } = require('zod');
 
-const ProjectIdField = z.union([
-  z.number().int().positive(),
-  z.string().trim().min(1).max(200),
-  z.null(),
-]);
-
 const CreateChatBody = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
-    project_id: ProjectIdField.optional(),
   })
   .strict();
 
@@ -24,11 +17,10 @@ const PostMessageBody = z
 const PatchChatBody = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
-    project_id: ProjectIdField.optional(),
   })
   .strict()
-  .refine(v => v.title !== undefined || v.project_id !== undefined, {
-    message: 'Title or project_id is required',
+  .refine(v => v.title !== undefined, {
+    message: 'Title is required',
   });
 
 const PatchChatSettingsBody = z

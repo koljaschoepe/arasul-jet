@@ -32,7 +32,7 @@ nach Art. 28 DSGVO
 
 (1) Gegenstand der Verarbeitung ist die Bereitstellung und der Betrieb der
 Arasul Edge-AI-Appliance, einschließlich der lokalen LLM-Inferenz, Dokumenten-
-Indexierung, Workflow-Engine (n8n) und Telegram-Bot-Schnittstelle.
+Indexierung, Workflow-Engine (n8n) und Workspace-Agenten (Agenten-Orchestrierung).
 
 (2) Die Verarbeitung erfolgt **lokal auf der beim Auftraggeber installierten
 Hardware**. Eine Übertragung personenbezogener Daten an den Auftragnehmer
@@ -50,7 +50,7 @@ Der Auftragnehmer verarbeitet personenbezogene Daten ausschließlich zu folgende
 
 - Betrieb der KI-Inferenz, Embeddings, RAG-Anfragen
 - Speicherung von Chat-Verläufen, Workflow-Definitionen, n8n-Credentials
-- Verarbeitung eingehender und ausgehender Nachrichten (Telegram, Webhooks, Workflow-Aufrufe)
+- Verarbeitung eingehender und ausgehender Nachrichten (Webhooks, Workflow- und Agenten-Aufrufe)
 - Telemetrie für Self-Healing, Backup und Monitoring (lokal, kein Versand)
 - Remote-Wartung und Software-Updates (nur auf ausdrückliche Anforderung des Auftraggebers)
 
@@ -61,7 +61,7 @@ Der Auftragnehmer verarbeitet personenbezogene Daten ausschließlich zu folgende
 **Art der personenbezogenen Daten:**
 
 - Stammdaten (Name, Kontaktdaten, Berufs-/Tätigkeitsdaten)
-- Kommunikationsinhalte (Chats mit dem KI-Assistenten, Telegram-Nachrichten)
+- Kommunikationsinhalte (Chats mit dem KI-Assistenten)
 - Dokumenteninhalte (vom Auftraggeber hochgeladene Dokumente, RAG-Index)
 - Authentifizierungsdaten (Hash der Passwörter, JWT-Token, Bot-Tokens, OAuth-Tokens)
 - Nutzungsdaten (Zeitpunkt, Modell, Tokenanzahl, Workflow-Ausführungen)
@@ -70,7 +70,7 @@ Der Auftragnehmer verarbeitet personenbezogene Daten ausschließlich zu folgende
 
 - Mitarbeiter:innen des Auftraggebers
 - Endkund:innen / Kontakte des Auftraggebers (z.B. bei Lexware-Integration)
-- Externe Kommunikationspartner (z.B. Telegram-User, Microsoft-Teams-Mitglieder)
+- Externe Kommunikationspartner (z.B. Microsoft-Teams-Mitglieder)
 
 **Besondere Kategorien (Art. 9 DSGVO):** sind nicht primärer Verarbeitungs-
 zweck, können aber in Chat-Inhalten enthalten sein. Auftraggeber wird

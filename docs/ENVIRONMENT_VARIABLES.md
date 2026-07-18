@@ -54,22 +54,6 @@ All variables are defined in `.env` file at repository root.
 
 ---
 
-## Datentabellen (Dynamic Database)
-
-| Variable                   | Default             | Description                     |
-| -------------------------- | ------------------- | ------------------------------- |
-| ARASUL_DATA_DB_HOST        | postgres-db         | Data DB hostname                |
-| ARASUL_DATA_DB_PORT        | 5432                | Data DB port                    |
-| ARASUL_DATA_DB_NAME        | arasul_data_db      | Data database name              |
-| ARASUL_DATA_DB_USER        | arasul_data         | Data DB username                |
-| ARASUL_DATA_DB_PASSWORD    | (POSTGRES_PASSWORD) | Data DB password                |
-| DATA_DB_POOL_MAX           | 10                  | Data DB max pool connections    |
-| DATA_DB_POOL_MIN           | 1                   | Data DB min pool connections    |
-| DATA_DB_IDLE_TIMEOUT       | 30000               | Data DB idle timeout (ms)       |
-| DATA_DB_CONNECTION_TIMEOUT | 10000               | Data DB connection timeout (ms) |
-
----
-
 ## MinIO (Object Storage)
 
 | Variable                    | Default     | Description                            |
@@ -416,97 +400,7 @@ These thresholds are used by both Self-Healing and the Dashboard. If not set, de
 
 ---
 
-## Telegram Bot
-
-### Core Configuration
-
-| Variable                     | Default                              | Description                                                          |
-| ---------------------------- | ------------------------------------ | -------------------------------------------------------------------- |
-| TELEGRAM_BOT_TOKEN           | (required)                           | Bot token from @BotFather                                            |
-| TELEGRAM_CHAT_ID             | -                                    | Default chat for notifications                                       |
-| TELEGRAM_ALLOWED_USERS       | -                                    | Comma-separated user IDs (whitelist)                                 |
-| TELEGRAM_BOT_PORT            | 8090                                 | Health check port                                                    |
-| TELEGRAM_NOTIFY_STARTUP      | true                                 | Send startup notification                                            |
-| TELEGRAM_NOTIFY_ERRORS       | true                                 | Send error notifications                                             |
-| TELEGRAM_USER_ID_PEPPER      | (Docker secret)                      | HMAC pepper for user-ID pseudonymisation (DSGVO; ≥16 chars required) |
-| TELEGRAM_USER_ID_PEPPER_FILE | /run/secrets/telegram_user_id_pepper | Docker-secret mount path resolved at boot                            |
-
-### LLM Chat Configuration (Bot 2.0)
-
-| Variable                      | Default                    | Description                                 |
-| ----------------------------- | -------------------------- | ------------------------------------------- |
-| TELEGRAM_LLM_ENABLED          | true                       | Enable LLM chat feature                     |
-| TELEGRAM_DEFAULT_LLM_PROVIDER | ollama                     | Default provider (`ollama` or `claude`)     |
-| TELEGRAM_DEFAULT_OLLAMA_MODEL | -                          | Default Ollama model (auto-select if empty) |
-| TELEGRAM_DEFAULT_CLAUDE_MODEL | claude-3-5-sonnet-20241022 | Default Claude model                        |
-| OLLAMA_URL                    | http://llm-service:11434   | Ollama API URL                              |
-| OLLAMA_TIMEOUT                | 120                        | Ollama request timeout (seconds)            |
-
-### Voice-to-Text Configuration
-
-| Variable                | Default | Description                                       |
-| ----------------------- | ------- | ------------------------------------------------- |
-| TELEGRAM_VOICE_ENABLED  | false   | Enable voice message transcription                |
-| TELEGRAM_VOICE_PROVIDER | local   | Voice provider (`local` or `api`)                 |
-| TELEGRAM_WHISPER_MODEL  | base    | Whisper model size (tiny/base/small/medium/large) |
-| OPENAI_API_KEY          | -       | OpenAI API key (for Whisper API provider)         |
-
-### Session Configuration
-
-| Variable                       | Default | Description                             |
-| ------------------------------ | ------- | --------------------------------------- |
-| TELEGRAM_MAX_CONTEXT_TOKENS    | 4096    | Maximum tokens for conversation context |
-| TELEGRAM_SESSION_TIMEOUT_HOURS | 24      | Session auto-reset after inactivity     |
-
-### Security Configuration
-
-| Variable                | Default      | Description                           |
-| ----------------------- | ------------ | ------------------------------------- |
-| TELEGRAM_ENCRYPTION_KEY | (JWT_SECRET) | Encryption key for API keys (AES-256) |
-
-### Advanced Configuration
-
-| Variable                       | Default                       | Description                                                                                                                                                                                                       |
-| ------------------------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TELEGRAM_MAX_RESPONSE_TOKENS   | 1024                          | Max LLM response tokens per message                                                                                                                                                                               |
-| TELEGRAM_MAX_VOICE_DURATION    | 120                           | Max voice message duration (seconds)                                                                                                                                                                              |
-| TELEGRAM_MAX_MESSAGE_LENGTH    | 4096                          | Max Telegram message length (chars)                                                                                                                                                                               |
-| TELEGRAM_NOTIFICATIONS_ENABLED | true                          | Enable Telegram notifications                                                                                                                                                                                     |
-| TELEGRAM_RATE_LIMIT_PER_MINUTE | 10                            | Max requests per minute per user                                                                                                                                                                                  |
-| TELEGRAM_RATE_LIMIT_PER_HOUR   | 100                           | Max requests per hour per user                                                                                                                                                                                    |
-| THINKING_MODE                  | false                         | Enable Claude extended thinking in Telegram                                                                                                                                                                       |
-| SKIP_PERMISSIONS               | false                         | Skip permission checks (dev only)                                                                                                                                                                                 |
-| ORCHESTRATOR_MODE              | master                        | Multi-bot orchestration mode                                                                                                                                                                                      |
-| PUBLIC_URL                     | (none)                        | Public URL for Telegram webhooks                                                                                                                                                                                  |
-| DASHBOARD_BACKEND_URL          | http://dashboard-backend:3001 | Optional. Internal base URL the Telegram orchestrator uses to reach the backend (`/status`, `/metrics`, `/services` commands). Defaults to the in-cluster service URL; override only for non-standard networking. |
-
-### Setup Instructions
-
-1. Create bot via Telegram @BotFather (`/newbot`)
-2. Copy bot token to `TELEGRAM_BOT_TOKEN`
-3. Start bot and send `/start` to get your user ID
-4. Optionally add your user ID to `TELEGRAM_ALLOWED_USERS`
-
-### Bot 2.0 Features
-
-**LLM Chat:**
-
-- Send any message to chat with the AI
-- Use `/new` to reset conversation
-- Use `/model` to switch between Ollama and Claude
-- Use `/context` to view memory usage
-
-**Voice Messages:**
-
-- Send voice messages (max 2 minutes)
-- Automatic transcription via Whisper
-- Transcribed text is processed through LLM
-
-**API Keys:**
-
-- Use `/apikey set claude <key>` to configure Claude API
-- Keys are encrypted with AES-256-GCM
-- Message containing key is auto-deleted
+## Backup & Ops
 
 ### Backup Paths
 
@@ -581,13 +475,14 @@ the backup-related **environment variables** above.
 
 Per-project developer sandboxes (dashboard-backend `services/sandbox/`).
 
-| Variable                | Default                          | Description                                                                                                                                                                                                                                                                          |
-| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| SANDBOX_DATA_DIR        | /arasul/sandbox/projects         | Backend-container path where sandbox project dirs are visible (bind mount, `compose/compose.app.yaml`)                                                                                                                                                                               |
-| SANDBOX_HOST_DATA_DIR   | (auto-detected)                  | Host path of `data/sandbox/projects` for Docker bind mounts; auto-resolved by inspecting the backend container's own mounts                                                                                                                                                          |
-| SANDBOX_HOST_TOOLS_DIR  | (sibling of projects: `…/tools`) | Host path of `data/sandbox/tools`, mounted read-only into every sandbox container at `/opt/tools` (open-ara sources)                                                                                                                                                                 |
-| SANDBOX_HOST_REPO_DIR   | (ancestor of projects dir)       | Host path of the platform repo, mounted **rw** at `/workspace/repo` in `infrastructure`-mode containers. Fallback: derived from the projects dir (`…/data/sandbox/projects` → repo root); on the Jetson this resolves to `/home/arasul/arasul/arasul-jet`                            |
-| SANDBOX_DOCKER_SOCK_GID | (DOCKER_GID → stat → 994)        | GID of the host docker group; `infrastructure`-mode containers get it via `GroupAdd` so the unprivileged user can use the mounted `/var/run/docker.sock` (no extra capabilities). Resolution: `SANDBOX_DOCKER_SOCK_GID` → `DOCKER_GID` → `stat` of the socket → Jetson default `994` |
+| Variable                     | Default                          | Description                                                                                                                                                                                                                                                                          |
+| ---------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SANDBOX_DATA_DIR             | /arasul/sandbox/projects         | Backend-container path where sandbox project dirs are visible (bind mount, `compose/compose.app.yaml`)                                                                                                                                                                               |
+| SANDBOX_HOST_DATA_DIR        | (auto-detected)                  | Host path of `data/sandbox/projects` for Docker bind mounts; auto-resolved by inspecting the backend container's own mounts                                                                                                                                                          |
+| SANDBOX_HOST_TOOLS_DIR       | (sibling of projects: `…/tools`) | Host path of `data/sandbox/tools`, mounted read-only into every sandbox container at `/opt/tools` (open-ara sources)                                                                                                                                                                 |
+| SANDBOX_HOST_REPO_DIR        | (ancestor of projects dir)       | Host path of the platform repo, mounted **rw** at `/workspace/repo` in `infrastructure`-mode containers. Fallback: derived from the projects dir (`…/data/sandbox/projects` → repo root); on the Jetson this resolves to `/home/arasul/arasul/arasul-jet`                            |
+| SANDBOX_DOCKER_SOCK_GID      | (DOCKER_GID → stat → 994)        | GID of the host docker group; `infrastructure`-mode containers get it via `GroupAdd` so the unprivileged user can use the mounted `/var/run/docker.sock` (no extra capabilities). Resolution: `SANDBOX_DOCKER_SOCK_GID` → `DOCKER_GID` → `stat` of the socket → Jetson default `994` |
+| CLAUDE_LOGIN_EXEC_TIMEOUT_MS | 15000                            | Wall-clock limit (ms) for the `docker exec` calls that capture/restore the Claude Code login files in a sandbox container (Plan 008 Schritt 14, `externalCredentialsService`)                                                                                                        |
 
 Inside each sandbox container, the backend sets `ARASUL_OLLAMA_URL=http://llm-service:11434` as default endpoint for local agents (open-ara). It only resolves when the project's network mode is `internal` or `infrastructure`; project-level environment variables override it per shell session.
 
@@ -648,7 +543,6 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 | RAM_LIMIT_REVERSE_PROXY    | 512M    | Traefik reverse proxy memory |
 | RAM_LIMIT_FRONTEND         | 256M    | Dashboard frontend memory    |
 | RAM_LIMIT_BACKUP           | 256M    | Backup service memory        |
-| RAM_LIMIT_TELEGRAM         | 256M    | Telegram bot memory          |
 | RAM_LIMIT_BACKEND          | 1G      | Dashboard backend memory     |
 
 ### CPU Limits
@@ -827,8 +721,6 @@ chmod 600 config/secrets/*
 
 The dashboard-backend resolver also supports these `_FILE` variables (add them to `docker-compose.secrets.yml` as needed):
 
-- `ARASUL_DATA_DB_PASSWORD_FILE` → `ARASUL_DATA_DB_PASSWORD`
-- `TELEGRAM_ENCRYPTION_KEY_FILE` → `TELEGRAM_ENCRYPTION_KEY`
 - `N8N_OWNER_EMAIL_FILE` → `N8N_OWNER_EMAIL` (Plan 007 — n8n Auto-Session)
 - `N8N_OWNER_PASSWORD_FILE` → `N8N_OWNER_PASSWORD` (Plan 007 — n8n Auto-Session)
 

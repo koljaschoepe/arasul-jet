@@ -41,7 +41,13 @@ const setAppEnabled = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/hooks/useWorkspaceApps', () => ({
   useWorkspaceApps: () => ({
     apps: [
-      { id: 'telegram', name: 'Telegram', description: 'Bot', tab: 'telegram', enabled: true },
+      {
+        id: 'database',
+        name: 'Datenbank',
+        description: 'Tabellen',
+        tab: 'database',
+        enabled: true,
+      },
     ],
     isLoading: false,
     isAppEnabled: () => true,
@@ -67,7 +73,7 @@ describe('ExtensionsSidebarList', () => {
   it('zeigt NUR installierte/aktive Einträge (Plattform, laufende App, geladenes Modell)', () => {
     renderList();
     // Installiert/aktiv → sichtbar
-    expect(screen.getByTestId('platform-row-telegram')).toBeInTheDocument();
+    expect(screen.getByTestId('platform-row-database')).toBeInTheDocument();
     expect(screen.getByTestId('ext-app-n8n')).toBeInTheDocument(); // status running
     expect(screen.getByTestId('ext-model-llama3')).toBeInTheDocument(); // install_status available
     // Nicht installiert → in der Verwaltung ausgeblendet (nur im Katalog rechts)
@@ -83,7 +89,7 @@ describe('ExtensionsSidebarList', () => {
     // n8n (Beschreibung "Workflow-Automatisierung") bleibt, alles andere verschwindet
     expect(screen.getByTestId('ext-app-n8n')).toBeInTheDocument();
     expect(screen.queryByTestId('ext-model-llama3')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('platform-row-telegram')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('platform-row-database')).not.toBeInTheDocument();
   });
 
   it('der Kategorie-Filter grenzt auf Sprachmodelle bzw. Apps ein', () => {
@@ -92,10 +98,10 @@ describe('ExtensionsSidebarList', () => {
     fireEvent.click(screen.getByTestId('ext-filter-models'));
     expect(screen.getByTestId('ext-model-llama3')).toBeInTheDocument();
     expect(screen.queryByTestId('ext-app-n8n')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('platform-row-telegram')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('platform-row-database')).not.toBeInTheDocument();
     // Apps → Plattform + Container-Apps, keine Modelle
     fireEvent.click(screen.getByTestId('ext-filter-apps'));
-    expect(screen.getByTestId('platform-row-telegram')).toBeInTheDocument();
+    expect(screen.getByTestId('platform-row-database')).toBeInTheDocument();
     expect(screen.getByTestId('ext-app-n8n')).toBeInTheDocument();
     expect(screen.queryByTestId('ext-model-llama3')).not.toBeInTheDocument();
     // Alle → wieder alles Installierte
@@ -106,11 +112,11 @@ describe('ExtensionsSidebarList', () => {
 
   it('das Suchfeld filtert auch die Plattform-Apps', () => {
     renderList();
-    // Query, die nur die Plattform-App (Telegram) trifft
+    // Query, die nur die Plattform-App (Datenbank) trifft
     fireEvent.change(screen.getByLabelText('Extensions durchsuchen'), {
-      target: { value: 'telegram' },
+      target: { value: 'datenbank' },
     });
-    expect(screen.getByTestId('platform-row-telegram')).toBeInTheDocument();
+    expect(screen.getByTestId('platform-row-database')).toBeInTheDocument();
     expect(screen.queryByTestId('ext-app-gitea')).not.toBeInTheDocument();
     expect(screen.queryByTestId('ext-model-llama3')).not.toBeInTheDocument();
   });
@@ -120,7 +126,7 @@ describe('ExtensionsSidebarList', () => {
     fireEvent.change(screen.getByLabelText('Extensions durchsuchen'), {
       target: { value: 'zzz-kein-treffer' },
     });
-    expect(screen.queryByTestId('platform-row-telegram')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('platform-row-database')).not.toBeInTheDocument();
     expect(screen.queryByTestId('ext-app-gitea')).not.toBeInTheDocument();
     expect(screen.getByText(/Keine Treffer/)).toBeInTheDocument();
   });
@@ -136,7 +142,7 @@ describe('ExtensionsSidebarList', () => {
 
   it('Plattform-Toggle ruft setAppEnabled', () => {
     renderList();
-    fireEvent.click(screen.getByRole('switch', { name: /Telegram/ }));
-    expect(setAppEnabled).toHaveBeenCalledWith('telegram', false);
+    fireEvent.click(screen.getByRole('switch', { name: /Datenbank/ }));
+    expect(setAppEnabled).toHaveBeenCalledWith('database', false);
   });
 });

@@ -376,21 +376,6 @@ fi
 # 7. DATENTABELLEN
 ###############################################################################
 
-log_section "7. Datentabellen"
-
-if [ -z "$TOKEN" ]; then
-  test_skip "Datentabellen tests" "No auth token"
-else
-  # List tables
-  RESPONSE=$(http_request GET "/datentabellen/tables")
-  STATUS=$(get_status "$RESPONSE")
-  if [ "$STATUS" = "200" ]; then
-    test_pass "GET /datentabellen/tables"
-  else
-    test_fail "GET /datentabellen/tables" "HTTP $STATUS"
-  fi
-fi
-
 ###############################################################################
 # 8. METRICS
 ###############################################################################

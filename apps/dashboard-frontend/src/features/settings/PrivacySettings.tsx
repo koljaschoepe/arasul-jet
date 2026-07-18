@@ -63,7 +63,7 @@ export function PrivacySettings() {
     const ok = await confirm({
       title: 'Konto wirklich endgültig löschen?',
       message:
-        'Alle Chats, Dokumente, Projekte und Datentabellen werden unwiderruflich gelöscht. ' +
+        'Alle Chats, Dokumente und Projekte werden unwiderruflich gelöscht. ' +
         'Diese Aktion kann nicht rückgängig gemacht werden.',
       confirmText: 'Endgültig löschen',
     });

@@ -39,6 +39,7 @@ function assertInfrastructureAllowed(networkMode, userRole) {
   }
 }
 const { checkIdleContainers, startIdleChecker, stopIdleChecker } = require('./sandboxIdleChecker');
+const externalCredentialsService = require('./externalCredentialsService');
 
 // ============================================================================
 // Project CRUD
@@ -69,13 +70,8 @@ async function createProject({
     throw new ValidationError('Projektname darf maximal 100 Zeichen lang sein');
   }
 
-  // Generate slug via database function
-  const slugResult = await db.query('SELECT generate_sandbox_slug($1) AS slug', [name.trim()]);
-  const slug = slugResult.rows[0].slug;
-
-  // Build host path (absolute path for Docker bind mounts)
+  // Build host path base (absolute path for Docker bind mounts)
   const hostBaseDir = await getHostDataDir();
-  const hostPath = path.join(hostBaseDir, slug);
 
   // Merge resource limits with defaults
   const limits = { ...DEFAULT_RESOURCE_LIMITS, ...(resourceLimits || {}) };
@@ -84,27 +80,70 @@ async function createProject({
   const netMode = VALID_NETWORK_MODES.includes(network_mode) ? network_mode : 'isolated';
   assertInfrastructureAllowed(netMode, userRole);
 
-  const result = await db.query(
-    `INSERT INTO sandbox_projects
-      (name, slug, description, icon, color, base_image, host_path, container_path, resource_limits, environment, network_mode, user_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, '/workspace', $8, $9, $10, $11)
-     RETURNING *`,
-    [
+  // Plan 008 Schritt 13: der Workspace-INSERT und die Anlage seines EINEN
+  // unsichtbaren Wissensraums laufen atomar in einer Transaktion. Entweder der
+  // Workspace bekommt seinen verknüpften Space (RAG-Scoping der Agenten) — oder
+  // das Anlegen schlägt sauber fehl. So entsteht nie ein Space-loser Workspace,
+  // dessen Agent mangels Scope über ALLE Wissensräume suchen (Isolation
+  // fail-open) würde.
+  const project = await db.transaction(async client => {
+    // Generate slug via database function
+    const slugResult = await client.query('SELECT generate_sandbox_slug($1) AS slug', [
       name.trim(),
-      slug,
-      description || '',
-      icon || 'terminal',
-      color || '#45ADFF',
-      baseImage || DEFAULT_IMAGE,
-      hostPath,
-      JSON.stringify(limits),
-      JSON.stringify(environment || {}),
-      netMode,
-      userId,
-    ]
-  );
+    ]);
+    const slug = slugResult.rows[0].slug;
+    const hostPath = path.join(hostBaseDir, slug);
 
-  const project = result.rows[0];
+    const result = await client.query(
+      `INSERT INTO sandbox_projects
+        (name, slug, description, icon, color, base_image, host_path, container_path, resource_limits, environment, network_mode, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, '/workspace', $8, $9, $10, $11)
+       RETURNING *`,
+      [
+        name.trim(),
+        slug,
+        description || '',
+        icon || 'terminal',
+        color || '#45ADFF',
+        baseImage || DEFAULT_IMAGE,
+        hostPath,
+        JSON.stringify(limits),
+        JSON.stringify(environment || {}),
+        netMode,
+        userId,
+      ]
+    );
+    const proj = result.rows[0];
+
+    // Genau EIN unsichtbarer Wissensraum pro Workspace. is_system=TRUE schützt
+    // ihn vor manuellem Löschen; is_workspace=TRUE blendet ihn aus der
+    // Dokumenten-UI aus. Der Slug ist über generate_space_slug() garantiert
+    // eindeutig (und nie leer, dank des 'workspace-'-Präfixes).
+    const spaceSlugResult = await client.query('SELECT generate_space_slug($1) AS slug', [
+      `workspace-${slug}`,
+    ]);
+    const spaceSlug = spaceSlugResult.rows[0].slug;
+    // name ist VARCHAR(100) — den Präfix mit einrechnen.
+    const spaceName = `Workspace: ${proj.name}`.slice(0, 100);
+    const spaceDescription = `Automatischer Wissensraum für Workspace ${proj.name}`;
+
+    const spaceResult = await client.query(
+      `INSERT INTO knowledge_spaces
+        (name, slug, description, icon, color, is_workspace, is_system)
+       VALUES ($1, $2, $3, 'terminal', $4, TRUE, TRUE)
+       RETURNING id`,
+      [spaceName, spaceSlug, spaceDescription, proj.color || '#45ADFF']
+    );
+    const spaceId = spaceResult.rows[0].id;
+
+    const updated = await client.query(
+      `UPDATE sandbox_projects SET space_id = $1 WHERE id = $2 RETURNING *`,
+      [spaceId, proj.id]
+    );
+    return updated.rows[0];
+  });
+
+  const slug = project.slug;
 
   // Audit: Anlage eines Infrastruktur-Projekts ist sicherheitsrelevant
   // (Repo rw + Docker-Socket beim Container-Start) — bewusst als warn.
@@ -346,6 +385,14 @@ async function startContainer(projectId, userId) {
              WHERE id = $1`,
             [projectId]
           );
+          // Plan 008 Schritt 14: einmal eingeloggten Claude-Login wieder in den
+          // Container spielen, sobald er läuft. Best-effort — ein Restore-Fehler
+          // darf den Start nie blockieren.
+          await externalCredentialsService.restoreClaudeLoginBestEffort(project.user_id, {
+            container_id: project.container_id,
+            container_name: project.container_name,
+          });
+
           logger.info(`Sandbox container started: ${project.container_name}`);
           return { success: true, message: 'Container gestartet' };
         }
@@ -473,6 +520,13 @@ async function startContainer(projectId, userId) {
        WHERE id = $3`,
       [container.id, containerName, projectId]
     );
+
+    // Plan 008 Schritt 14: gespeicherten Claude-Login in den frischen Container
+    // spielen (best-effort — blockiert den Start nie).
+    await externalCredentialsService.restoreClaudeLoginBestEffort(project.user_id, {
+      container_id: container.id,
+      container_name: containerName,
+    });
 
     logger.info(`Sandbox container created and started: ${containerName}`);
     return { success: true, containerId: container.id, containerName };

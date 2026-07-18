@@ -104,7 +104,7 @@ const SpaceModal = memo(function SpaceModal({
         data = await api.post<SpaceSaveResponse>('/spaces', payload, { showError: false });
       }
 
-      setSuccess(mode === 'edit' ? 'Bereich aktualisiert' : 'Bereich erstellt');
+      setSuccess(mode === 'edit' ? 'Ordner aktualisiert' : 'Ordner erstellt');
 
       setTimeout(() => {
         onSave(data.space || data);
@@ -123,7 +123,7 @@ const SpaceModal = memo(function SpaceModal({
 
     if (
       !(await confirm({
-        message: `Bereich "${space.name}" wirklich löschen? Dokumente werden in "Allgemein" verschoben.`,
+        message: `Ordner "${space.name}" wirklich löschen? Dokumente werden in "Allgemein" verschoben.`,
       }))
     ) {
       return;
@@ -135,7 +135,7 @@ const SpaceModal = memo(function SpaceModal({
     try {
       await api.del(`/spaces/${space.id}`, { showError: false });
 
-      setSuccess('Bereich gelöscht');
+      setSuccess('Ordner gelöscht');
       setTimeout(() => {
         onSave(null); // Signal deletion
         onClose();
@@ -152,7 +152,7 @@ const SpaceModal = memo(function SpaceModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'edit' ? 'Bereich bearbeiten' : 'Neuen Wissensbereich erstellen'}
+      title={mode === 'edit' ? 'Ordner bearbeiten' : 'Neuen Ordner erstellen'}
       size="medium"
       footer={
         <div className="flex justify-between items-center w-full max-sm:flex-col max-sm:gap-3">

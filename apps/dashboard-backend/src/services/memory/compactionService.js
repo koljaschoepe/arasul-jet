@@ -8,7 +8,7 @@
  *  - Low temperature (0.3) for factual summaries
  *  - Stores summary in chat_conversations table
  *  - Logs compaction stats in compaction_log table
- *  - Memory extraction removed (replaced by projects system)
+ *  - Memory extraction removed
  */
 
 const logger = require('../../utils/logger');

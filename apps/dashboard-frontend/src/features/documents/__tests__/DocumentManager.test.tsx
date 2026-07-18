@@ -576,7 +576,7 @@ describe('DocumentManager Component', () => {
         renderWithProviders(<DocumentManager />);
 
         await waitFor(() => {
-          expect(screen.getByLabelText('Neuen Bereich erstellen')).toBeInTheDocument();
+          expect(screen.getByLabelText('Neuen Ordner erstellen')).toBeInTheDocument();
         });
       });
     });
@@ -671,7 +671,7 @@ describe('DocumentManager Component', () => {
         });
 
         // Find add space button via aria-label
-        const addButton = screen.getByLabelText('Neuen Bereich erstellen');
+        const addButton = screen.getByLabelText('Neuen Ordner erstellen');
         await user.click(addButton);
 
         // Modal should appear

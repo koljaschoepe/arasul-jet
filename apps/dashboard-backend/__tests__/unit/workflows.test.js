@@ -44,11 +44,6 @@ jest.mock('../../src/services/core/eventListenerService', () => ({
   sendTestNotification: jest.fn()
 }));
 
-jest.mock('../../src/services/telegram/telegramNotificationService', () => ({
-  sendNotification: jest.fn().mockResolvedValue(true),
-  sendAlert: jest.fn().mockResolvedValue(true)
-}));
-
 jest.mock('../../src/middleware/rateLimit', () => ({
   apiLimiter: (req, res, next) => next(),
   metricsLimiter: (req, res, next) => next(),

@@ -89,12 +89,6 @@ class ServiceConfig:
             port=int(os.getenv('N8N_PORT', '5678'))
         )
 
-        # Telegram Bot
-        self.telegram_bot = ServiceEndpoint(
-            host=os.getenv('TELEGRAM_BOT_HOST', 'telegram-bot'),
-            port=int(os.getenv('TELEGRAM_BOT_PORT', '8090'))
-        )
-
     @property
     def llm_management_url(self) -> str:
         """Get LLM management API URL"""

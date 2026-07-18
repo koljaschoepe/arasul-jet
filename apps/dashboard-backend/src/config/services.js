@@ -48,7 +48,7 @@ const timeouts = {
   embedBatch: 120000, // Batch embedding
   generate: 600000, // LLM generation (streaming)
   pull: 3600000, // Model download (1h)
-  webhook: 10000, // External webhooks (Telegram, etc.)
+  webhook: 10000, // External webhooks (n8n, etc.)
   default: 30000, // Fallback for anything unspecified
 };
 

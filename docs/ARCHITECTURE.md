@@ -18,27 +18,27 @@ migrations always backward-compatible, no rewrites — only incremental change.
 
 ## 1. Service Overview (17 Services)
 
-14 core services + 3 optional services. Telegram-Bot-Funktionalität ist in dashboard-backend integriert (kein separater Container).
+14 core services + 3 optional services. Die Agenten-Orchestrierung (Workspaces, Agenten-Engine, Chat-Command-Center) läuft im dashboard-backend (kein separater Container).
 
-| #   | Service            | Port      | Technology          | Entry Point           | Purpose                                   |
-| --- | ------------------ | --------- | ------------------- | --------------------- | ----------------------------------------- |
-| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                                    |
-| 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket + Telegram Bot |
-| 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database                       |
-| 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference                             |
-| 5   | embedding-service  | 11435     | Flask               | `embedding_server.py` | Text vectorization                        |
-| 6   | document-indexer   | 9102      | Flask               | `api_server.py`       | RAG document processing                   |
-| 7   | qdrant             | 6333      | Qdrant              | -                     | Vector database                           |
-| 8   | minio              | 9000/9001 | MinIO               | -                     | S3-compatible storage                     |
-| 9   | metrics-collector  | 9100      | aiohttp             | `collector.py`        | System metrics                            |
-| 10  | self-healing-agent | 9200      | Python              | `healing_engine.py`   | Autonomous recovery                       |
-| 11  | docker-proxy       | -         | Docker Socket Proxy | -                     | Secure Docker API access                  |
-| 12  | n8n                | 5678      | n8n                 | -                     | Workflow automation                       |
-| 13  | reverse-proxy      | 80/443    | Traefik             | `routes.yml`          | Reverse proxy + SSL                       |
-| 14  | backup-service     | -         | Alpine + cron       | `backup.sh`           | Automated backups                         |
-| 15  | loki               | 3100      | Grafana Loki        | -                     | Log aggregation (optional)                |
-| 16  | promtail           | 9080      | Grafana Promtail    | -                     | Log collector (optional)                  |
-| 17  | cloudflared        | -         | Cloudflare Tunnel   | -                     | OAuth & webhook gateway (optional)        |
+| #   | Service            | Port      | Technology          | Entry Point           | Purpose                                     |
+| --- | ------------------ | --------- | ------------------- | --------------------- | ------------------------------------------- |
+| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                                      |
+| 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket + Agenten-Engine |
+| 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database                         |
+| 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference                               |
+| 5   | embedding-service  | 11435     | Flask               | `embedding_server.py` | Text vectorization                          |
+| 6   | document-indexer   | 9102      | Flask               | `api_server.py`       | RAG document processing                     |
+| 7   | qdrant             | 6333      | Qdrant              | -                     | Vector database                             |
+| 8   | minio              | 9000/9001 | MinIO               | -                     | S3-compatible storage                       |
+| 9   | metrics-collector  | 9100      | aiohttp             | `collector.py`        | System metrics                              |
+| 10  | self-healing-agent | 9200      | Python              | `healing_engine.py`   | Autonomous recovery                         |
+| 11  | docker-proxy       | -         | Docker Socket Proxy | -                     | Secure Docker API access                    |
+| 12  | n8n                | 5678      | n8n                 | -                     | Workflow automation                         |
+| 13  | reverse-proxy      | 80/443    | Traefik             | `routes.yml`          | Reverse proxy + SSL                         |
+| 14  | backup-service     | -         | Alpine + cron       | `backup.sh`           | Automated backups                           |
+| 15  | loki               | 3100      | Grafana Loki        | -                     | Log aggregation (optional)                  |
+| 16  | promtail           | 9080      | Grafana Promtail    | -                     | Log collector (optional)                    |
+| 17  | cloudflared        | -         | Cloudflare Tunnel   | -                     | OAuth & webhook gateway (optional)          |
 
 ### Host-Level Services
 
@@ -305,19 +305,18 @@ apps/dashboard-backend/
 │   ├── rag.js                # /api/rag/query (SSE)
 │   ├── chats.js              # /api/chats CRUD
 │   ├── documents.js          # /api/documents/upload, list, delete
-│   ├── telegram/             # settings, app, bots
+│   ├── sandbox.js            # /api/sandbox/projects (workspaces) + agent-run routes
 │   ├── system/               # system, services, metrics, logs, database
 │   ├── admin/                # settings, audit, update, selfhealing
 │   ├── ai/                   # models, embeddings, memory, spaces
 │   ├── store/                # appstore, store, workflows, workspaces
-│   ├── external/             # externalApi, claudeTerminal, events, alerts
-│   └── datentabellen/        # tables, rows, quotes
+│   └── external/             # externalApi, claudeTerminal, events, alerts
 ├── src/middleware/
 │   ├── auth.js               # JWT validation
 │   ├── audit.js              # Request logging
 │   ├── errorHandler.js       # asyncHandler + error middleware
 │   └── rateLimit.js          # Per-user rate limiting
-├── src/services/             # Business logic (telegram/, llm/, context/, core/, memory/, app/)
+├── src/services/             # Business logic (agents/, sandbox/, llm/, context/, core/, memory/, app/)
 └── src/utils/
     ├── errors.js             # Custom error classes
     ├── logger.js             # Winston logging
@@ -328,19 +327,17 @@ apps/dashboard-backend/
 
 ```
 apps/dashboard-frontend/
-├── src/App.tsx               # Routes, WebSocket, Auth context, Workspace-Flag
+├── src/App.tsx               # Routes, WebSocket, Auth context (/ always → /workspace)
 ├── src/features/             # Feature modules with barrel exports (index.ts)
-│   ├── chat/                 # ChatRouter, ChatLanding, ChatView
+│   ├── chat/                 # Chat command center (@agent runs an agent, live tool steps)
 │   ├── documents/            # DocumentManager, SpaceModal, Badges
-│   ├── telegram/             # TelegramAppModal, BotSetupWizard
-│   ├── settings/             # Settings, GeneralSettings, AIProfileSettings
-│   ├── store/                # Store, StoreHome, StoreApps, StoreModels
-│   ├── datentabellen/        # ExcelEditor
+│   ├── sandbox/              # CreateProjectDialog, workspace + network-mode UI
+│   ├── settings/             # Settings, GeneralSettings, AIProfileSettings, System-Status
+│   ├── store/                # Store (Modelle · Erweiterungen tabs)
 │   ├── claude/               # ClaudeCode, ClaudeTerminal
 │   ├── system/               # SetupWizard, UpdatePage, Login
-│   ├── database/             # DatabaseOverview, DatabaseTable
-│   └── workspace/            # IDE-Shell (Flag workspace-shell): ActivityBar,
-│                             #   Explorer (Ordnerbaum), Tabs, Viewer, KI-Panel
+│   └── workspace/            # IDE-Shell: ActivityBar (Chat · Wissen · Automation),
+│                             #   Explorer (Ordnerbaum), Tabs, TipTap editor, KI-Panel
 ├── src/components/
 │   ├── ui/                   # Modal, Skeleton, LoadingSpinner, EmptyState
 │   └── editor/               # MarkdownEditor, MermaidDiagram, GridEditor/
@@ -350,12 +347,26 @@ apps/dashboard-frontend/
 └── src/__tests__/            # Test files
 ```
 
-**Workspace-Shell (Plan `ide-workspace-shell`):** hinter dem localStorage-Flag
-`arasul_workspace_shell` rendert `/workspace/*` eine IDE-artige 3-Spalten-Shell
-(Explorer | Tab-Arbeitsfläche | KI-Panel). Die alte Sidebar-UI bleibt als
-Fallback vollständig erhalten. Ordnerbaum = `knowledge_spaces.parent_id`
-(Migration 098); »Mit Ordner chatten« scoped RAG via `space_ids`, Kontextdateien
-pro Ordner werden serverseitig in den Prompt injiziert.
+**Workspace-Shell:** `/` landet immer auf `/workspace` (kein Feature-Flag mehr).
+Die Shell ist eine IDE-artige Oberfläche mit einer festen drei-Bereiche-ActivityBar
+— **Chat · Wissen · Automation** — plus **Extensions** und **Einstellungen**
+(System-Status liegt unter Einstellungen → System). Editierbare Markdown-/Text-
+Dateien öffnen direkt in einem Inline-TipTap-Editor (keine Read-only-Vorschau mehr).
+Ordnerbaum = `knowledge_spaces.parent_id` (Migration 098); Kontextdateien pro
+Ordner werden serverseitig in den Prompt injiziert.
+
+**Workspace & Agenten (Plan 008):** Ein **Workspace** ist die Entität
+`sandbox_projects` — ein `host_path`-Ordner + Container mit einem Netzwerkmodus
+(»Was darf dieser Workspace?«: **Abgeschottet** = isoliert, Internet ja/Plattform
+nein, Default · **Am System** = interner Zugriff auf DB/MinIO/Qdrant/RAG · **Voller
+Zugriff** = Infrastruktur, nur Admin) und einem Besitzer. **Agenten** sind Markdown-
+Dateien unter `<host_path>/agenten/<name>.md` mit YAML-Frontmatter (`name`,
+`beschreibung`, `modell`, `werkzeuge`) und einem System-Prompt-Body. Werkzeuge:
+`dateien` (Dateien im Workspace lesen/schreiben, pfad-jailed), `rag` (im Workspace-
+Wissen suchen), `terminal` (Befehl im Workspace-Container ausführen). Die Engine
+liegt in `apps/dashboard-backend/src/services/agents/` (`agentFile.js`, `toolLoop.js`,
+`tools/`) und baut auf dem bestehenden `BaseTool`/`ToolRegistry`-Function-Calling
+auf. Details: [`docs/features/AGENTS.md`](features/AGENTS.md).
 
 ### AI Services (Python)
 
@@ -485,10 +496,6 @@ POSTGRES_PASSWORD=<secure>
 MINIO_ROOT_USER=<key>
 MINIO_ROOT_PASSWORD=<secure>
 N8N_ENCRYPTION_KEY=<32+ chars>
-
-# Telegram Bot
-TELEGRAM_BOT_TOKEN=<from @BotFather>
-TELEGRAM_ALLOWED_CHAT_IDS=<comma-separated>
 ```
 
 Full reference: [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)
