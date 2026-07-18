@@ -7,7 +7,7 @@ import {
   FileText,
   File as FileIcon,
   FileImage,
-  MoreHorizontal,
+  FileUp,
   Pencil,
   Search,
   Trash2,
@@ -19,12 +19,12 @@ import {
   X,
 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/shadcn/dropdown-menu';
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/shadcn/context-menu';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -36,6 +36,15 @@ import type { ExplorerDialogState } from './ExplorerDialogs';
 
 /** Drag-Payload Explorer → Agent-Chat (Datei/Ordner als Kontext). */
 export const DND_SCOPE_TYPE = 'application/x-arasul-scope';
+
+/** Drag-Payload Datei → Ordner (Verschieben innerhalb des Explorers). */
+export const DND_DOC_TYPE = 'application/x-arasul-doc';
+
+interface DocMovePayload {
+  documentId: string;
+  fromSpaceId: string | null;
+  label: string;
+}
 
 export interface TreeSpace {
   id: string;
@@ -64,6 +73,11 @@ export interface TreeDocument {
 interface TreeResponse {
   spaces: TreeSpace[];
   documents: TreeDocument[];
+}
+
+/** Anzeigename einer Datei: benutzerdefinierter Titel schlägt den Dateinamen. */
+function docLabel(doc: TreeDocument): string {
+  return doc.title?.trim() ? doc.title : doc.filename;
 }
 
 /** Teilbaum-IDs eines Ordners (inklusive des Ordners selbst, Wurzel zuerst). */
@@ -118,9 +132,15 @@ function StatusDot({ status }: { status: string }) {
 
 /**
  * Explorer der Workspace-Shell: EIN Baum aus Ordnern und Dateien
- * (Ordner → Unterordner → Dateien). Upload per Kontextmenü und Drag & Drop vom
- * Desktop direkt in einen Ordner; Zeilen sind zum Agent-Chat draggbar
- * (Kontext-Scope). Suche filtert den Baum client-seitig.
+ * (Ordner → Unterordner → Dateien). Import per Rechtsklick oder Drag & Drop vom
+ * Desktop direkt in einen Ordner; Dateien lassen sich per Drag & Drop zwischen
+ * Ordnern verschieben und in den Agent-Chat ziehen (Kontext-Scope). Rechtsklick
+ * öffnet je Zeile ein Kontextmenü (Umbenennen/Löschen/Neuer Ordner …). Suche
+ * filtert den Baum client-seitig.
+ *
+ * Versteckte Workspace-Ordner (`knowledge_spaces.is_workspace = TRUE`) liefert
+ * `/spaces/tree` gar nicht erst aus — sie erscheinen deshalb nie als Zeile und
+ * können strukturell kein Verschiebe-/Ablageziel sein.
  */
 export function ExplorerPanel() {
   const api = useApi();
@@ -190,6 +210,30 @@ export function ExplorerPanel() {
     fileInputRef.current?.click();
   }, []);
 
+  /** Datei per Drag & Drop in einen anderen Ordner verschieben (optimistisch). */
+  const moveDocument = useCallback(
+    async (
+      documentId: string,
+      fromSpaceId: string | null,
+      toSpaceId: string | null,
+      label: string
+    ) => {
+      if (fromSpaceId === toSpaceId) return; // gleicher Ordner → No-Op
+      const snapshot = documents;
+      setDocuments(docs =>
+        docs.map(d => (d.id === documentId ? { ...d, space_id: toSpaceId } : d))
+      );
+      try {
+        await api.put(`/documents/${documentId}/move`, { space_id: toSpaceId });
+        toast.success(`„${label}“ verschoben`);
+        loadTree();
+      } catch {
+        setDocuments(snapshot); // Fehler-Toast kommt aus useApi
+      }
+    },
+    [api, documents, toast, loadTree]
+  );
+
   // Menü-Aktionen (WorkspaceMenuBar → Store → hier)
   const explorerRequest = useWorkspaceStore(s => s.explorerRequest);
   const clearExplorerRequest = useWorkspaceStore(s => s.clearExplorerRequest);
@@ -238,7 +282,7 @@ export function ExplorerPanel() {
   const folderVisible = useCallback(
     function visible(space: TreeSpace): boolean {
       if (matches(space.name)) return true;
-      if ((docsBySpace.get(space.id) ?? []).some(d => matches(d.filename))) return true;
+      if ((docsBySpace.get(space.id) ?? []).some(d => matches(docLabel(d)))) return true;
       return (childrenByParent.get(space.id) ?? []).some(visible);
     },
     [matches, docsBySpace, childrenByParent]
@@ -262,23 +306,75 @@ export function ExplorerPanel() {
     toast.success(`KI auf Ordner „${space.name}“ eingegrenzt`);
   };
 
-  const dragPayload = (spaceIds: string[], label: string) => (e: React.DragEvent) => {
-    e.dataTransfer.setData(DND_SCOPE_TYPE, JSON.stringify({ spaceIds, label }));
-    e.dataTransfer.setData('text/plain', label);
+  const chatWithDocument = (doc: TreeDocument) => {
+    if (!doc.space_id) {
+      toast.error('Datei ohne Ordner kann nicht als Kontext gesetzt werden');
+      return;
+    }
+    setChatScope({ spaceIds: [doc.space_id], label: docLabel(doc) });
+    toast.success(`KI auf „${docLabel(doc)}“ eingegrenzt`);
+  };
+
+  /** Elternordner einer Datei (für »Neuer Ordner« als Geschwister). */
+  const parentSpaceOf = (doc: TreeDocument): TreeSpace | null =>
+    doc.space_id ? (spaces.find(s => s.id === doc.space_id) ?? null) : null;
+
+  /** Drag-Payloads eines Ordners setzen (nur Chat-Scope). */
+  const folderDragStart = (space: TreeSpace) => (e: React.DragEvent) => {
+    e.dataTransfer.setData(
+      DND_SCOPE_TYPE,
+      JSON.stringify({ spaceIds: collectSubtreeIds(spaces, space.id), label: space.name })
+    );
+    e.dataTransfer.setData('text/plain', space.name);
     e.dataTransfer.effectAllowed = 'link';
   };
 
-  /** Drop-Handler für OS-Dateien auf Projekt-/Ordner-Zeilen. */
+  /** Drag-Payloads einer Datei setzen (Chat-Scope + Verschiebe-Payload). */
+  const docDragStart = (doc: TreeDocument) => (e: React.DragEvent) => {
+    const label = docLabel(doc);
+    // Chat akzeptiert den Scope (Ordner der Datei); leere spaceIds ignoriert der Chat.
+    e.dataTransfer.setData(
+      DND_SCOPE_TYPE,
+      JSON.stringify({ spaceIds: doc.space_id ? [doc.space_id] : [], label })
+    );
+    // Ordner-Zeilen akzeptieren die Verschiebe-Nutzlast.
+    const move: DocMovePayload = { documentId: doc.id, fromSpaceId: doc.space_id, label };
+    e.dataTransfer.setData(DND_DOC_TYPE, JSON.stringify(move));
+    e.dataTransfer.setData('text/plain', label);
+    e.dataTransfer.effectAllowed = 'all';
+  };
+
+  /** Drop-Handler für Ordner-/Wurzel-Zeilen: OS-Datei-Import ODER Datei-Move. */
   const dropProps = (spaceId: string | null, rowKey: string) => ({
     onDragOver: (e: React.DragEvent) => {
-      if (e.dataTransfer.types.includes('Files')) {
+      const types = e.dataTransfer.types;
+      if (types.includes(DND_DOC_TYPE)) {
         e.preventDefault();
         e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        setDropTarget(rowKey);
+      } else if (types.includes('Files')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'copy';
         setDropTarget(rowKey);
       }
     },
     onDragLeave: () => setDropTarget(t => (t === rowKey ? null : t)),
     onDrop: (e: React.DragEvent) => {
+      const movePayload = e.dataTransfer.getData(DND_DOC_TYPE);
+      if (movePayload) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropTarget(null);
+        try {
+          const parsed = JSON.parse(movePayload) as DocMovePayload;
+          moveDocument(parsed.documentId, parsed.fromSpaceId ?? null, spaceId, parsed.label);
+        } catch {
+          /* defekte Nutzlast ignorieren */
+        }
+        return;
+      }
       if (e.dataTransfer.files.length > 0) {
         e.preventDefault();
         e.stopPropagation();
@@ -291,48 +387,63 @@ export function ExplorerPanel() {
   // --- Rendering -----------------------------------------------------------
 
   const renderDocument = (doc: TreeDocument, depth: number): React.ReactNode => {
-    if (!matches(doc.filename)) return null;
+    const label = docLabel(doc);
+    if (!matches(label)) return null;
+    const open = () => openTab({ type: 'document', documentId: doc.id, title: doc.filename });
     return (
-      <div
-        key={doc.id}
-        className="group flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-        style={{ paddingLeft: `${depth * 12 + 20}px` }}
-        role="treeitem"
-        aria-selected={false}
-        tabIndex={0}
-        draggable
-        onDragStart={dragPayload(doc.space_id ? [doc.space_id] : [], doc.filename)}
-        onClick={() => openTab({ type: 'document', documentId: doc.id, title: doc.filename })}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            openTab({ type: 'document', documentId: doc.id, title: doc.filename });
-          }
-        }}
-      >
-        {docIcon(doc)}
-        <span className="min-w-0 flex-1 truncate">{doc.filename}</span>
-        <StatusDot status={doc.status} />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={`Aktionen für ${doc.filename}`}
-              className="rounded p-0.5 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 hover:bg-accent"
-              onClick={e => e.stopPropagation()}
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" onClick={e => e.stopPropagation()}>
-            <DropdownMenuItem
-              onClick={() => setDialog({ kind: 'move-document', document: doc, spaces })}
-            >
-              <FolderInput className="mr-2 h-3.5 w-3.5" /> In Ordner verschieben
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <ContextMenu key={doc.id}>
+        <ContextMenuTrigger asChild>
+          <div
+            className="group flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            style={{ paddingLeft: `${depth * 12 + 20}px` }}
+            role="treeitem"
+            aria-selected={false}
+            tabIndex={0}
+            draggable
+            onDragStart={docDragStart(doc)}
+            onClick={open}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                open();
+              }
+            }}
+          >
+            {docIcon(doc)}
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+            <StatusDot status={doc.status} />
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onSelect={open}>
+            <FileText className="mr-2 h-3.5 w-3.5" /> Öffnen
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => chatWithDocument(doc)}>
+            <FolderSearch className="mr-2 h-3.5 w-3.5" /> KI auf Datei eingrenzen
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onSelect={() => setDialog({ kind: 'rename-document', document: doc })}>
+            <Pencil className="mr-2 h-3.5 w-3.5" /> Umbenennen
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => setDialog({ kind: 'move-document', document: doc, spaces })}
+          >
+            <FolderInput className="mr-2 h-3.5 w-3.5" /> In Ordner verschieben
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => setDialog({ kind: 'create', parent: parentSpaceOf(doc) })}
+          >
+            <FolderPlus className="mr-2 h-3.5 w-3.5" /> Neuer Ordner
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            variant="destructive"
+            onSelect={() => setDialog({ kind: 'delete-document', document: doc })}
+          >
+            <Trash2 className="mr-2 h-3.5 w-3.5" /> Löschen
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
     );
   };
 
@@ -345,82 +456,74 @@ export function ExplorerPanel() {
 
     return (
       <div key={space.id}>
-        <div
-          className={cn(
-            'group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-accent',
-            dropTarget === rowKey && 'bg-accent outline-1 outline-dashed outline-primary/60'
-          )}
-          style={{ paddingLeft: `${depth * 12 + 4}px` }}
-          onClick={() => toggleExpand(space.id)}
-          role="treeitem"
-          aria-expanded={open}
-          aria-selected={false}
-          tabIndex={0}
-          draggable
-          onDragStart={dragPayload(collectSubtreeIds(spaces, space.id), space.name)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              toggleExpand(space.id);
-            }
-          }}
-          {...dropProps(space.id, rowKey)}
-        >
-          {open ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-          )}
-          <Folder
-            className="h-3.5 w-3.5 shrink-0"
-            style={space.color ? { color: space.color } : undefined}
-          />
-          <span className="min-w-0 flex-1 truncate text-foreground">{space.name}</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Aktionen für Ordner ${space.name}`}
-                className="rounded p-0.5 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 hover:bg-accent"
-                onClick={e => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" onClick={e => e.stopPropagation()}>
-              <DropdownMenuItem onClick={() => requestUpload(space.id)}>
-                <Upload className="mr-2 h-3.5 w-3.5" /> Dateien hochladen…
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => chatWithFolder(space)}>
-                <FolderSearch className="mr-2 h-3.5 w-3.5" /> KI auf Ordner eingrenzen
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDialog({ kind: 'context-file', space })}>
-                <BookOpenText className="mr-2 h-3.5 w-3.5" /> Kontextdatei bearbeiten
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setDialog({ kind: 'create', parent: space })}>
-                <FolderPlus className="mr-2 h-3.5 w-3.5" /> Neuer Unterordner
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={space.is_system}
-                onClick={() => setDialog({ kind: 'rename', space })}
-              >
-                <Pencil className="mr-2 h-3.5 w-3.5" /> Umbenennen
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDialog({ kind: 'move', space, spaces })}>
-                <FolderInput className="mr-2 h-3.5 w-3.5" /> Verschieben
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={space.is_system}
-                variant="destructive"
-                onClick={() => setDialog({ kind: 'delete', space })}
-              >
-                <Trash2 className="mr-2 h-3.5 w-3.5" /> Löschen
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              className={cn(
+                'group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-accent',
+                dropTarget === rowKey && 'bg-accent outline-1 outline-dashed outline-primary/60'
+              )}
+              style={{ paddingLeft: `${depth * 12 + 4}px` }}
+              onClick={() => toggleExpand(space.id)}
+              role="treeitem"
+              aria-expanded={open}
+              aria-selected={false}
+              tabIndex={0}
+              draggable
+              onDragStart={folderDragStart(space)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggleExpand(space.id);
+                }
+              }}
+              {...dropProps(space.id, rowKey)}
+            >
+              {open ? (
+                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+              )}
+              <Folder
+                className="h-3.5 w-3.5 shrink-0"
+                style={space.color ? { color: space.color } : undefined}
+              />
+              <span className="min-w-0 flex-1 truncate text-foreground">{space.name}</span>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem onSelect={() => requestUpload(space.id)}>
+              <FileUp className="mr-2 h-3.5 w-3.5" /> Datei importieren…
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => chatWithFolder(space)}>
+              <FolderSearch className="mr-2 h-3.5 w-3.5" /> KI auf Ordner eingrenzen
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => setDialog({ kind: 'context-file', space })}>
+              <BookOpenText className="mr-2 h-3.5 w-3.5" /> Kontextdatei bearbeiten
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={() => setDialog({ kind: 'create', parent: space })}>
+              <FolderPlus className="mr-2 h-3.5 w-3.5" /> Neuer Ordner
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={space.is_system}
+              onSelect={() => setDialog({ kind: 'rename', space })}
+            >
+              <Pencil className="mr-2 h-3.5 w-3.5" /> Umbenennen
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => setDialog({ kind: 'move', space, spaces })}>
+              <FolderInput className="mr-2 h-3.5 w-3.5" /> Verschieben
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              disabled={space.is_system}
+              variant="destructive"
+              onSelect={() => setDialog({ kind: 'delete', space })}
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" /> Löschen
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
         {open && (
           <div role="group">
             {childFolders.map(child => renderFolder(child, depth + 1))}
@@ -460,6 +563,24 @@ export function ExplorerPanel() {
         </div>
         <button
           type="button"
+          title="Neuer Ordner"
+          aria-label="Neuer Ordner"
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={() => setDialog({ kind: 'create', parent: null })}
+        >
+          <FolderPlus className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          title="Dateien importieren"
+          aria-label="Dateien importieren"
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={() => requestUpload(null)}
+        >
+          <Upload className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
           title="Aktualisieren"
           aria-label="Explorer aktualisieren"
           className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -484,7 +605,16 @@ export function ExplorerPanel() {
       />
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="p-1.5" role="tree" aria-label="Ordner und Dokumente">
+        <div
+          className={cn(
+            'p-1.5',
+            dropTarget === 'root' &&
+              'rounded bg-accent/40 outline-1 outline-dashed outline-primary/50'
+          )}
+          role="tree"
+          aria-label="Ordner und Dokumente"
+          {...dropProps(null, 'root')}
+        >
           {loading && <p className="px-2 py-1 text-xs text-muted-foreground">Lade Explorer…</p>}
           {error && (
             <p className="px-2 py-1 text-xs text-destructive" role="alert">
