@@ -1800,12 +1800,12 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ## `platform_apps`
 
-> Kuratierte Plattform-Apps (Extensions-Tab) an-/abschaltbar. Effektiver Seed: `n8n` (Migration 100). Die Apps `telegram` und `database` wurden von den Migrationen 102 bzw. 103 wieder entfernt.
+> Kuratierte Plattform-Apps (Extensions-Tab) an-/abschaltbar. Effektiver Seed: `n8n` (Migration 100). Die Apps `telegram` und `database` wurden von den Migrationen 102 bzw. 103 wieder entfernt. `enabled` steuert lizenzsauber den n8n-Container-Lifecycle (`services/app/appLifecycleService.js`): aktiv → Container laufen, inaktiv → gestoppt. Der Spalten-Default ist seit Migration 108 `false` (frische Installationen: n8n aus, bis der Operator es aktiviert); bestehende Zeilen behalten ihren Wert.
 
 | Column       | Type                     | Nullable | Default |
 | ------------ | ------------------------ | -------- | ------- |
 | `id`         | text                     | ⛔       |         |
-| `enabled`    | boolean                  | ⛔       | `true`  |
+| `enabled`    | boolean                  | ⛔       | `false` |
 | `updated_at` | timestamp with time zone | ⛔       | `now()` |
 
 **Primary key:** `id`

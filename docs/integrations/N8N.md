@@ -4,6 +4,18 @@
 
 n8n is shipped as a customer-installable App-Store entry, not as an Arasul-bundled component. This document covers the platform-level wiring that has to be right for any connector to work — beyond that, customers configure their own n8n credentials inside the n8n editor.
 
+> **License gating — n8n runs only when the extension is enabled.** n8n is
+> fair-code licensed, so its containers (`n8n`, `n8n-runners`) run **only while
+> the "n8n Automationen" extension is toggled on**. Enabling the extension in
+> the workspace (`PUT /api/workspace-apps/n8n`, `enabled: true`) starts the
+> containers; disabling it stops them. On every backend boot the state is
+> reconciled to the stored flag (`services/app/appLifecycleService.js`,
+> `reconcileApps()`), so a box with the extension off comes up with n8n stopped.
+> **Fresh installs default to disabled** — n8n stays off until an operator
+> enables it. Existing boxes keep whatever value they already had stored (the
+> stored flag is never force-changed). The DB flag in `platform_apps.enabled`
+> is the single source of truth.
+
 ---
 
 ## 1. Reaching the editor

@@ -17,6 +17,8 @@ const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
 const { NotFoundError } = require('../utils/errors');
+const appLifecycle = require('../services/app/appLifecycleService');
+const logger = require('../utils/logger');
 
 /** Kuratierte Apps mit UI-Metadaten (Manifest-Grundstein für spätere Dritt-Apps). */
 const APP_MANIFEST = [
@@ -57,12 +59,31 @@ router.put(
       throw new NotFoundError(`Unbekannte App: ${id}`);
     }
     const { enabled } = req.body;
+
+    // Reihenfolge: erst das Flag persistieren (Source of Truth), dann den
+    // Container-Zustand angleichen. So bleibt die gespeicherte Absicht auch
+    // dann korrekt, wenn Docker gerade nicht erreichbar ist — der
+    // Boot-Reconcile holt den Container-Zustand später nach.
     await db.query(
       `INSERT INTO platform_apps (id, enabled, updated_at) VALUES ($1, $2, now())
        ON CONFLICT (id) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = now()`,
       [id, enabled]
     );
-    res.json({ app: { id, enabled } });
+
+    // Lizenz-Gating: n8n läuft nur, solange die Extension aktiv ist. Andere
+    // Apps ohne Container-Lifecycle sind hier ein sicherer No-op.
+    const lifecycle = enabled ? await appLifecycle.startApp(id) : await appLifecycle.stopApp(id);
+
+    const body = { app: { id, enabled }, lifecycle };
+    if (lifecycle.hasLifecycle && !lifecycle.ok) {
+      // Nicht still Erfolg vortäuschen: Flag ist gesetzt, aber die
+      // Container-Operation ist teilweise fehlgeschlagen — sichtbar melden.
+      body.warning = enabled
+        ? 'App aktiviert, aber der Container konnte nicht vollständig gestartet werden — wird beim nächsten Neustart erneut versucht.'
+        : 'App deaktiviert, aber der Container konnte nicht vollständig gestoppt werden — wird beim nächsten Neustart erneut versucht.';
+      logger.warn(`workspace-apps: Lifecycle für '${id}' (enabled=${enabled}) unvollständig`);
+    }
+    res.json(body);
   })
 );
 
