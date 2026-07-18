@@ -13,9 +13,6 @@ import { SidebarHost } from '../SidebarHost';
 vi.mock('../explorer/ExplorerPanel', () => ({
   ExplorerPanel: () => <div data-testid="explorer" />,
 }));
-vi.mock('@/components/extensions/ExtensionsSidebarList', () => ({
-  ExtensionsSidebarList: () => <div data-testid="ext-list" />,
-}));
 
 // Ein Nicht-Extensions-Tab (mappt auf den ExplorerPanel-Default). Früher der
 // Dashboard-Tab; die Startseite ist entfernt (Plan 008), daher Einstellungen.
@@ -38,11 +35,12 @@ describe('SidebarHost — Kontext-Mapping', () => {
     expect(screen.queryByTestId('ext-list')).not.toBeInTheDocument();
   });
 
-  it('Extensions-Tab → ExtensionsSidebarList', () => {
+  it('Erweiterungen-Tab (store) → ExplorerPanel bleibt, keine Datei-Sidebar-Kaperung', () => {
+    // Der Store ist ein Full-Width-Tab; die linke Datei-Sidebar wird NICHT mehr
+    // durch die Extensions-Liste ersetzt.
     reset([STORE], 'store');
     render(<SidebarHost />);
-    expect(screen.getByTestId('ext-list')).toBeInTheDocument();
-    expect(screen.queryByTestId('explorer')).not.toBeInTheDocument();
+    expect(screen.getByTestId('explorer')).toBeInTheDocument();
   });
 
   it('Automation/n8n-Tab → ExplorerPanel bleibt, Sidebar wird NICHT eingeklappt', () => {

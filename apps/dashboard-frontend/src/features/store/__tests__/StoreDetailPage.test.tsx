@@ -1,11 +1,10 @@
 /**
- * StoreDetailPage — Detailseite der gewählten Extension (Plan 003 · Schritt 7).
- * Leerzustand mit „Aktuell geladen"-Kopf, Modell-Aktivierung und App-Aktionen.
+ * StoreDetailPage — Detailseite eines Store-Eintrags (Full-Width mit „← Zurück").
+ * Deckt Modell-Detail (Kontextlänge, Aktivieren, Als Standard, Zurück) und
+ * Erweiterungs-Detail (Workspace-App An/Aus über setAppEnabled) ab.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
-import { ToastProvider } from '@/contexts/ToastContext';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { StoreDetailPage } from '../StoreDetailPage';
 
@@ -23,25 +22,34 @@ const catalog = {
       context_window: 32768,
     },
   ],
-  apps: [
-    {
-      id: 'gitea',
-      name: 'Gitea',
-      description: 'Git-Server',
-      version: '1.0.0',
-      category: 'development',
-      status: 'available',
-    },
-  ],
+  apps: [],
   loadedModel: null as { model_id: string; ram_usage_mb?: number } | null,
   defaultModel: null as string | null,
   isLoading: false,
   invalidateModels: vi.fn(),
   invalidateApps: vi.fn(),
 };
-
 vi.mock('@/hooks/useStoreCatalog', () => ({
   useStoreCatalog: () => catalog,
+}));
+
+const setAppEnabled = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/hooks/useWorkspaceApps', () => ({
+  useWorkspaceApps: () => ({
+    apps: [
+      {
+        id: 'n8n',
+        name: 'n8n',
+        description: 'Workflow-Automatisierung',
+        tab: 'automationen',
+        enabled: true,
+      },
+    ],
+    isLoading: false,
+    isAppEnabled: () => true,
+    isTabTypeEnabled: () => true,
+    setAppEnabled,
+  }),
 }));
 
 const startActivation = vi.fn();
@@ -76,14 +84,14 @@ vi.mock('@/hooks/useApi', () => ({
   }),
 }));
 
+const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() };
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => toast,
+}));
+
+const onBack = vi.fn();
 function renderPage() {
-  return render(
-    <MemoryRouter>
-      <ToastProvider>
-        <StoreDetailPage />
-      </ToastProvider>
-    </MemoryRouter>
-  );
+  return render(<StoreDetailPage onBack={onBack} />);
 }
 
 describe('StoreDetailPage', () => {
@@ -93,40 +101,25 @@ describe('StoreDetailPage', () => {
     useExtensionStore.getState().clearSelection();
   });
 
-  it('Landing ohne Auswahl: „Aktuell geladen"-Kopf + Browse-Tabs', () => {
-    catalog.loadedModel = { model_id: 'llama3', ram_usage_mb: 8192 };
+  it('ohne Auswahl: „← Zurück"-Fallback ruft onBack', () => {
     renderPage();
-    expect(screen.getByText('Aktuell geladen:')).toBeInTheDocument();
-    expect(screen.getByText('llama3')).toBeInTheDocument();
-    // Durchsuchbarer Katalog mit Filter-Tabs statt Sektions-Überschriften
-    expect(screen.getByRole('tab', { name: /Empfohlen/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Sprachmodelle/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Apps/ })).toBeInTheDocument();
-    // Default-Tab „Empfohlen": das balanced-Modell ist dabei
-    expect(screen.getByTestId('landing-tile-model-llama3')).toBeInTheDocument();
-    // App erscheint nach Wechsel auf den Apps-Tab
-    fireEvent.click(screen.getByRole('tab', { name: /Apps/ }));
-    expect(screen.getByTestId('landing-tile-app-gitea')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('store-detail-back'));
+    expect(onBack).toHaveBeenCalled();
   });
 
-  it('Landing: Klick auf eine Kachel öffnet die Detailseite', () => {
-    renderPage();
-    const [firstTile] = screen.getAllByTestId('landing-tile-model-llama3');
-    fireEvent.click(firstTile!);
-    expect(screen.getByRole('heading', { name: 'Llama 3' })).toBeInTheDocument();
-  });
-
-  it('Modell-Detail: Kontextlänge wird formatiert angezeigt', () => {
+  it('Modell-Detail: Kontextlänge formatiert + „← Zurück"', () => {
     useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3' });
     renderPage();
+    expect(screen.getByRole('heading', { name: 'Llama 3' })).toBeInTheDocument();
     expect(screen.getByText('Kontextlänge')).toBeInTheDocument();
     expect(screen.getByText('32k Tokens')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('store-detail-back'));
+    expect(onBack).toHaveBeenCalled();
   });
 
   it('Modell-Detail: Aktivieren startet die Aktivierung', () => {
     useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3' });
     renderPage();
-    expect(screen.getByRole('heading', { name: 'Llama 3' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Aktivieren/ }));
     expect(startActivation).toHaveBeenCalledWith('llama3', 'Llama 3');
   });
@@ -144,10 +137,11 @@ describe('StoreDetailPage', () => {
     );
   });
 
-  it('App-Detail: Installieren startet den SSE-Install über /apps', async () => {
-    useExtensionStore.getState().selectExtension({ kind: 'app', id: 'gitea' });
+  it('Erweiterungs-Detail: Deaktivieren ruft setAppEnabled', async () => {
+    useExtensionStore.getState().selectExtension({ kind: 'app', id: 'n8n' });
     renderPage();
-    expect(screen.getByRole('heading', { name: 'Gitea' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Installieren/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'n8n' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Deaktivieren/ }));
+    await waitFor(() => expect(setAppEnabled).toHaveBeenCalledWith('n8n', false));
   });
 });

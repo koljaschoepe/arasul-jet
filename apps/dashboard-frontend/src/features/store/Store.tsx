@@ -1,36 +1,31 @@
 /**
- * Store / Extensions — Liste links, Detail in der Mitte (Plan 008 · Schritt 15).
+ * Store / Erweiterungen — Full-Width-Kartenlayout mit eigener Detailseite.
  *
- * Die linke Liste hat zwei Reiter:
- *   - „Modelle" (StoreModelsList): alle LLM-/Embedding-Modelle mit Größe, Status
- *     und LIVE-Download-Fortschritt — ruhig/übersichtlich.
- *   - „Erweiterungen" (ExtensionsSidebarList): Apps als schlichte An/Aus-Liste.
- * Die Reiter schalten NUR die linke Liste um; die Detailseite in der Mitte
- * (StoreDetailPage) bleibt geteilt und reagiert auf die Auswahl (Extension-Store).
- *
- *   - im Workspace (variant="workspace"): NUR die Detailseite; die Liste liefert
- *     der SidebarHost über die ExtensionsSidebarList.
- *   - eigenständig (Route /store): die Zwei-Reiter-Liste + Detail nebeneinander.
+ * Der Store ist ein eigenständiger Full-Width-Bereich (Workspace-Tab vom Typ
+ * `store`), NICHT mehr eine Liste in der Datei-Sidebar. Oben schalten zwei
+ * Reiter um:
+ *   - „Modelle" (StoreModelsGrid): LLM-/Embedding-Modelle als Kartenraster mit
+ *     Größe, Status-Badge und Inline-Download (LIVE-Fortschritt).
+ *   - „Erweiterungen" (StoreExtensionsGrid): Workspace-Apps (n8n, …) als Karten
+ *     mit An/Aus-Schalter.
+ * Ein Klick auf eine Karte öffnet die Detailseite (StoreDetailPage) mit einem
+ * „← Zurück"-Knopf, der zurück ins Raster desselben Reiters führt. Die Auswahl
+ * läuft über den ephemeren Extension-Store; die Detailseite ersetzt das Raster
+ * im selben Tab (kein Router-Wechsel, keine Sackgasse mehr).
  *
  * Alte Deep-Links /store/models und /store/apps (auch mit ?highlight=…) leiten
- * auf die neue Struktur um: Highlight → Auswahl im Extension-Store, dann /store.
+ * auf /store um und setzen dabei die Auswahl im Extension-Store.
  */
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Cpu, Package } from 'lucide-react';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
-import { ExtensionsSidebarList } from '@/components/extensions/ExtensionsSidebarList';
 import { cn } from '@/lib/utils';
 import { useExtensionStore } from '@/stores/extensionStore';
 import type { ExtensionKind } from '@/stores/extensionStore';
 import { StoreDetailPage } from './StoreDetailPage';
-import { StoreModelsList } from './StoreModelsList';
-
-type StoreVariant = 'standalone' | 'workspace';
-
-interface StoreProps {
-  variant?: StoreVariant;
-}
+import { StoreModelsGrid } from './StoreModelsGrid';
+import { StoreExtensionsGrid } from './StoreExtensionsGrid';
 
 /** Alt-Deep-Link /store/models|apps(?highlight=id) → Auswahl setzen, /store. */
 function HighlightRedirect({ kind }: { kind: ExtensionKind }) {
@@ -52,15 +47,32 @@ const STORE_TABS: ReadonlyArray<{ value: StoreTab; label: string; icon: React.Re
   { value: 'extensions', label: 'Erweiterungen', icon: <Package aria-hidden="true" /> },
 ];
 
-/** Zwei-Reiter-Liste links: „Modelle" (Katalog + Fortschritt) / „Erweiterungen" (An/Aus). */
-function StoreSidebar() {
+function StoreWorkspace() {
   const [tab, setTab] = useState<StoreTab>('models');
+  const selected = useExtensionStore(s => s.selected);
+  const clearSelection = useExtensionStore(s => s.clearSelection);
+
+  // Auswahl (Karte oder Deep-Link) → passenden Reiter aktivieren, damit „Zurück"
+  // ins richtige Raster führt.
+  useEffect(() => {
+    if (selected?.kind === 'model') setTab('models');
+    else if (selected?.kind === 'app') setTab('extensions');
+  }, [selected]);
+
+  if (selected) {
+    return (
+      <div className="h-full min-h-0 overflow-hidden bg-background">
+        <StoreDetailPage onBack={clearSelection} />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-full flex-col bg-background" data-testid="store-sidebar">
+    <div className="flex h-full min-h-0 flex-col bg-background" data-testid="store">
       <div
         role="tablist"
         aria-label="Store-Bereich"
-        className="flex shrink-0 gap-1 border-b border-border p-1.5"
+        className="flex shrink-0 gap-1 border-b border-border px-3 py-2"
       >
         {STORE_TABS.map(t => (
           <button
@@ -71,7 +83,7 @@ function StoreSidebar() {
             data-testid={`store-tab-${t.value}`}
             onClick={() => setTab(t.value)}
             className={cn(
-              'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-ui-sm font-medium transition-colors [&_svg]:size-3.5',
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-ui-sm font-medium transition-colors [&_svg]:size-4',
               tab === t.value
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
@@ -83,33 +95,17 @@ function StoreSidebar() {
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        {tab === 'models' ? <StoreModelsList /> : <ExtensionsSidebarList />}
+        {tab === 'models' ? <StoreModelsGrid /> : <StoreExtensionsGrid />}
       </div>
     </div>
   );
 }
 
-function StoreContent({ variant }: { variant: StoreVariant }) {
-  if (variant === 'workspace') {
-    return <StoreDetailPage />;
-  }
+function Store() {
   return (
-    <div className="flex h-full min-h-0 overflow-hidden rounded-lg border border-border">
-      <aside className="w-72 shrink-0 overflow-hidden border-r border-border">
-        <StoreSidebar />
-      </aside>
-      <div className="min-w-0 flex-1 overflow-hidden bg-background">
-        <StoreDetailPage />
-      </div>
-    </div>
-  );
-}
-
-function Store({ variant = 'standalone' }: StoreProps) {
-  return (
-    <ComponentErrorBoundary componentName="Extensions">
+    <ComponentErrorBoundary componentName="Erweiterungen">
       <Routes>
-        <Route index element={<StoreContent variant={variant} />} />
+        <Route index element={<StoreWorkspace />} />
         <Route path="models" element={<HighlightRedirect kind="model" />} />
         <Route path="apps" element={<HighlightRedirect kind="app" />} />
         <Route path="*" element={<Navigate to="/store" replace />} />

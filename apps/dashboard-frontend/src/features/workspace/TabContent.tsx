@@ -137,10 +137,7 @@ function FeatureTabHost({
             Quell-Tab nur auf seinen Startpfad zurück. */}
         <Route path="/data" element={<Navigate to={resetTo} replace />} />
         <Route path="/documents" element={<Navigate to="/data" replace />} />
-        <Route
-          path="/store/*"
-          element={routeFor('store', <Store variant="workspace" />, { type: 'store' })}
-        />
+        <Route path="/store/*" element={routeFor('store', <Store />, { type: 'store' })} />
         <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
         <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
         <Route path="/terminal" element={<TerminalPanelBridge resetTo={resetTo} />} />

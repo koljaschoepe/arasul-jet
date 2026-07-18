@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabType } from '@/stores/workspaceStore';
-import { ExtensionsSidebarList } from '@/components/extensions/ExtensionsSidebarList';
 import { ExplorerPanel } from './explorer/ExplorerPanel';
 
 /**
@@ -9,7 +8,9 @@ import { ExplorerPanel } from './explorer/ExplorerPanel';
  * bestimmt den Inhalt der linken Fläche.
  *
  *   Dashboard / Dokumente / Einstellungen → ExplorerPanel (Second-Brain-Baum)
- *   Extensions (store)                    → ExtensionsSidebarList (Suche + Liste)
+ *   Erweiterungen (store)                 → ExplorerPanel bleibt (der Store ist
+ *                                           ein Full-Width-Tab; die Datei-
+ *                                           Sidebar wird NICHT mehr gekapert)
  *   Automation (n8n)                      → ExplorerPanel bleibt sichtbar (Tab
  *                                           im Hauptbereich, kein Auto-Collapse)
  *   App-Tabs (Datenbank)                  → Sidebar klappt automatisch zu
@@ -45,10 +46,9 @@ export function SidebarHost() {
     syncSidebarForTab(isAppTab);
   }, [isAppTab, syncSidebarForTab]);
 
-  if (activeType === 'store') {
-    return <ExtensionsSidebarList />;
-  }
-  // Dashboard, Dokumente, Einstellungen — und als neutraler Default auch bei
-  // eingeklappten App-Tabs (falls der Nutzer die Sidebar dort aufzieht).
+  // Dashboard, Dokumente, Einstellungen, Erweiterungen (Store) — und als
+  // neutraler Default auch bei eingeklappten App-Tabs (falls der Nutzer die
+  // Sidebar dort aufzieht). Der Store lebt komplett im Mitte-Tab; die Datei-
+  // Sidebar wird nicht mehr durch die Extensions-Liste ersetzt.
   return <ExplorerPanel />;
 }

@@ -1,13 +1,9 @@
 /**
- * Gemeinsame Datenbasis der Extensions-Ansicht: Modell-Katalog (+ geladenes/
- * Standard-Modell) und Container-Apps. Von ExtensionsSidebarList (Liste, im
- * Workspace-Sidebar-Baum) UND der StoreDetailPage (Mitte, im Store-Tab)
- * genutzt. React Query mit stabilen Keys dedupliziert die Requests über beide
- * Bäume hinweg — keine doppelte Poll-Last auf dem Jetson.
- *
- * Liegt bewusst in hooks/ (nicht features/store), damit die promotete
- * components/extensions/ExtensionsSidebarList es nutzen kann, ohne die
- * Feature-Isolationsregel zu verletzen.
+ * Gemeinsame Datenbasis der Store-Ansicht: Modell-Katalog (+ geladenes/
+ * Standard-Modell) und Container-Apps. Vom Kartenraster (StoreModelsGrid) UND
+ * der Detailseite (StoreDetailPage) genutzt. React Query mit stabilen Keys
+ * dedupliziert die Requests über beide Verbraucher hinweg — keine doppelte
+ * Poll-Last auf dem Jetson.
  */
 import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

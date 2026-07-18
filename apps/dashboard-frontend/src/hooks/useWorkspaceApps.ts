@@ -78,8 +78,8 @@ export function useWorkspaceApps() {
 
   const setAppEnabled = useCallback(
     async (id: string, enabled: boolean) => {
-      // showError:false — der Aufrufer (ExtensionsSidebarList) fängt den
-      // Fehler selbst ab und zeigt genau EINEN Toast. Sonst doppelter Toast.
+      // showError:false — der Aufrufer (StoreExtensionsGrid / StoreDetailPage)
+      // fängt den Fehler selbst ab und zeigt genau EINEN Toast. Sonst doppelt.
       await api.put(`/workspace-apps/${id}`, { enabled }, { showError: false });
       queryClient.setQueryData<WorkspaceApp[]>(QUERY_KEY, prev =>
         (prev ?? []).map(a => (a.id === id ? { ...a, enabled } : a))

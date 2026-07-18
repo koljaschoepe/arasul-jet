@@ -1,16 +1,16 @@
 /**
- * Integration-Tests der Store-Ansicht (Plan 008 · Schritt 15).
+ * Integration-Tests der Store-Ansicht (Full-Width-Kartenlayout).
  *
- * Liste (links, zwei Reiter) + Detail (Mitte):
- *   - Reiter „Modelle" (StoreModelsList): Katalog-Modelle mit Status/Fortschritt
- *   - Reiter „Erweiterungen" (ExtensionsSidebarList): Apps als An/Aus-Liste
- *   - StoreDetailPage: Detail der gewählten Extension bzw. Leerzustand
+ *   - Zwei Reiter (Modelle/Erweiterungen) über dem Raster.
+ *   - „Modelle" (StoreModelsGrid): Katalog-Modelle als Karten mit Status/Laden.
+ *   - „Erweiterungen" (StoreExtensionsGrid): Workspace-Apps als Karten mit
+ *     An/Aus-Schalter (PUT /workspace-apps/:id).
+ *   - Karte → Detailseite (StoreDetailPage) mit „← Zurück" zurück ins Raster.
  *
- * Getestet wird der eigenständige Pfad /store, der beide Flächen nebeneinander
- * rendert. Der „Erweiterungen"-Reiter muss vor Zugriffen auf die App-Liste
- * aktiv geschaltet werden (Default-Reiter ist „Modelle").
+ * Getestet wird der Pfad /store mit echten Datenhooks (React Query) über einem
+ * gemockten useApi.
  */
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { Mock } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -33,9 +33,10 @@ vi.mock('../../contexts/ToastContext', () => ({
   ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+const startDownload = vi.fn();
 vi.mock('../../contexts/DownloadContext', () => ({
   useDownloads: () => ({
-    startDownload: vi.fn(),
+    startDownload,
     cancelDownload: vi.fn(),
     isDownloading: vi.fn().mockReturnValue(false),
     getDownloadState: vi.fn().mockReturnValue(null),
@@ -79,22 +80,20 @@ const sampleModels = [
   },
 ];
 
-const sampleApps = [
+const sampleWorkspaceApps = [
   {
     id: 'n8n',
     name: 'n8n',
     description: 'Workflow-Automatisierung',
-    version: '1.30',
-    category: 'Automation',
-    status: 'running',
+    tab: 'automationen',
+    enabled: true,
   },
   {
-    id: 'code-server',
-    name: 'Code Server',
-    description: 'VS Code im Browser',
-    version: '4.90',
-    category: 'Development',
-    status: 'available',
+    id: 'database',
+    name: 'Datenbank',
+    description: 'Tabellen',
+    tab: 'database',
+    enabled: true,
   },
 ];
 
@@ -116,111 +115,73 @@ function renderStore(route = '/store') {
 function setupDefaultApiResponses() {
   (mockApi.get as Mock).mockImplementation((path: string) => {
     if (path.startsWith('/models/catalog')) return Promise.resolve({ models: sampleModels });
-    if (path.startsWith('/apps')) return Promise.resolve({ apps: sampleApps });
     if (path.startsWith('/models/status')) {
       return Promise.resolve({ loaded_model: { model_id: 'qwen3-14b', ram_usage_mb: 14000 } });
     }
     if (path.startsWith('/models/default')) return Promise.resolve({ default_model: 'qwen3-14b' });
-    if (path.startsWith('/workspace-apps')) {
-      return Promise.resolve({
-        apps: [
-          {
-            id: 'database',
-            name: 'Datenbank',
-            description: 'Tabellen',
-            tab: 'database',
-            enabled: true,
-          },
-        ],
-      });
-    }
+    if (path.startsWith('/workspace-apps')) return Promise.resolve({ apps: sampleWorkspaceApps });
+    if (path.startsWith('/apps')) return Promise.resolve({ apps: [] });
     return Promise.resolve({});
   });
+  (mockApi.put as Mock).mockResolvedValue({});
 }
 
 // ---- Tests ----
 
-describe('Store integration (Liste + Detail)', () => {
+describe('Store integration (Full-Width-Kartenlayout)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useExtensionStore.getState().clearSelection();
     setupDefaultApiResponses();
   });
 
-  /** Auf den „Erweiterungen"-Reiter wechseln (Default ist „Modelle"). */
-  async function openExtensionsTab() {
+  it('zeigt zwei Reiter (Modelle/Erweiterungen)', async () => {
+    renderStore();
+    expect(await screen.findByTestId('store-tab-models')).toBeInTheDocument();
+    expect(screen.getByTestId('store-tab-extensions')).toBeInTheDocument();
+  });
+
+  it('Default-Reiter „Modelle": Kartenraster mit Katalog-Modellen', async () => {
+    renderStore();
+    expect(await screen.findByTestId('store-models-grid')).toBeInTheDocument();
+    expect(await screen.findByTestId('model-card-qwen3-14b')).toBeInTheDocument();
+    expect(screen.getByTestId('model-card-llama3-8b')).toBeInTheDocument();
+  });
+
+  it('Reiter „Erweiterungen": Kartenraster mit Workspace-Apps', async () => {
+    renderStore();
     fireEvent.click(await screen.findByTestId('store-tab-extensions'));
-  }
-
-  it('Default-Reiter „Modelle": Modell-Liste mit Katalog-Modellen', async () => {
-    renderStore();
-    expect(await screen.findByTestId('store-models-list')).toBeInTheDocument();
-    // Modelle-Reiter listet ALLE Katalog-Modelle (installiert + verfügbar)
-    expect(await screen.findByTestId('model-row-qwen3-14b')).toBeInTheDocument();
-    expect(screen.getByTestId('model-row-llama3-8b')).toBeInTheDocument();
+    expect(await screen.findByTestId('store-extensions-grid')).toBeInTheDocument();
+    expect(await screen.findByTestId('ext-card-n8n')).toBeInTheDocument();
+    expect(screen.getByTestId('ext-card-database')).toBeInTheDocument();
   });
 
-  it('Reiter „Erweiterungen": zeigt das Suchfeld', async () => {
+  it('Klick auf eine Modell-Karte öffnet die Detailseite; „← Zurück" führt zurück', async () => {
     renderStore();
-    await openExtensionsTab();
-    expect(await screen.findByLabelText(/extensions durchsuchen/i)).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId('model-open-qwen3-14b'));
+    expect(await screen.findByRole('heading', { name: 'Qwen3 14B' })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('store-detail-back'));
+    expect(await screen.findByTestId('store-models-grid')).toBeInTheDocument();
   });
 
-  it('die Verwaltung links zeigt nur installierte/aktive Einträge', async () => {
+  it('ein nicht installiertes Modell zeigt „Laden" und startet den Download', async () => {
     renderStore();
-    await openExtensionsTab();
-    // installiert/aktiv → in der Liste links
-    expect(await screen.findByTestId('ext-app-n8n')).toBeInTheDocument(); // running
-    expect(screen.getByTestId('ext-model-qwen3-14b')).toBeInTheDocument(); // available = installiert
-    // nicht installiert → NUR im Katalog (Mitte), nicht in der Verwaltung
-    expect(screen.queryByTestId('ext-app-code-server')).not.toBeInTheDocument(); // available
-    expect(screen.queryByTestId('ext-model-llama3-8b')).not.toBeInTheDocument(); // missing
+    const btn = await screen.findByTestId('model-download-llama3-8b');
+    fireEvent.click(btn);
+    expect(startDownload).toHaveBeenCalledWith('llama3-8b', 'Llama 3 8B');
   });
 
-  it('das Suchfeld filtert die installierte Liste', async () => {
+  it('der Erweiterungs-Schalter kippt über PUT /workspace-apps/:id', async () => {
     renderStore();
-    await openExtensionsTab();
-    const search = await screen.findByLabelText(/extensions durchsuchen/i);
-    fireEvent.change(search, { target: { value: 'qualität' } });
-    // qwen3-14b (Beschreibung "…Qualitätsmodell") bleibt, n8n verschwindet
-    expect(screen.getByTestId('ext-model-qwen3-14b')).toBeInTheDocument();
-    expect(screen.queryByTestId('ext-app-n8n')).not.toBeInTheDocument();
-  });
-
-  it('die Mitte zeigt Browse-Tabs (Empfohlen/Sprachmodelle/Apps) mit „Aktuell geladen"-Kopf', async () => {
-    renderStore();
-    expect(await screen.findByText(/aktuell geladen/i)).toBeInTheDocument();
-    // Plan 005: die Mitte ist ein durchsuchbarer Katalog mit Filter-Tabs.
-    expect(screen.getByTestId('browse-tab-recommended')).toBeInTheDocument();
-    expect(screen.getByTestId('browse-tab-models')).toBeInTheDocument();
-    expect(screen.getByTestId('browse-tab-apps')).toBeInTheDocument();
-    // Default-Tab „Empfohlen" zeigt Kacheln (qwen3-14b = Standardmodell)
-    expect(screen.getAllByTestId(/^landing-tile-/).length).toBeGreaterThan(0);
-  });
-
-  it('Klick auf ein noch nicht installiertes Modell im Katalog zeigt den Download', async () => {
-    renderStore();
-    // im Katalog (Mitte) den Sprachmodelle-Tab öffnen und das Modell wählen
-    fireEvent.click(await screen.findByTestId('browse-tab-models'));
-    fireEvent.click(await screen.findByTestId('landing-tile-model-llama3-8b'));
-    expect(await screen.findByRole('heading', { name: 'Llama 3 8B' })).toBeInTheDocument();
-    // missing → Download-Aktion in der Detailseite
-    expect(screen.getByRole('button', { name: /Herunterladen/ })).toBeInTheDocument();
-  });
-
-  it('Klick auf eine verfügbare App im Katalog zeigt den Installieren-Button', async () => {
-    renderStore();
-    fireEvent.click(await screen.findByTestId('browse-tab-apps'));
-    fireEvent.click(await screen.findByTestId('landing-tile-app-code-server'));
-    const heading = await screen.findByRole('heading', { name: 'Code Server' });
-    expect(heading).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Installieren/ })).toBeInTheDocument();
-  });
-
-  it('zeigt Status-Badges in der Liste (laufende App = Aktiv)', async () => {
-    renderStore();
-    await openExtensionsTab();
-    const row = await screen.findByTestId('ext-app-n8n');
-    expect(within(row).getByText('Aktiv')).toBeInTheDocument();
+    fireEvent.click(await screen.findByTestId('store-tab-extensions'));
+    const toggle = await screen.findByRole('switch', { name: 'n8n deaktivieren' });
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(mockApi.put).toHaveBeenCalledWith(
+        '/workspace-apps/n8n',
+        { enabled: false },
+        { showError: false }
+      )
+    );
   });
 });

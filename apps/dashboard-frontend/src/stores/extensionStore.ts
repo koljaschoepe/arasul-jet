@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 
 /**
- * Auswahl-Store für die Extensions-Ansicht (Store 3.1: Liste links, Detail in
- * der Mitte). Die Liste (ExtensionsSidebarList) lebt im Workspace-Sidebar-Baum,
- * die Detailseite (StoreDetailPage) im isolierten MemoryRouter des Store-Tabs —
- * zwei getrennte Router-Bäume unter derselben React-Wurzel. Ein schlanker,
- * NICHT persistierter Zustand-Store ist der Kanal dazwischen: ephemer wie der
- * chatScope, damit ein Reload immer im Leerzustand („nichts gewählt") startet.
+ * Auswahl-Store für den Full-Width-Store (Kartenraster + eigene Detailseite).
+ * Ein Klick auf eine Karte (StoreModelsGrid / StoreExtensionsGrid) setzt hier
+ * die Auswahl; Store.tsx zeigt daraufhin statt des Rasters die StoreDetailPage,
+ * „← Zurück" ruft clearSelection. Der Store ist außerdem der Kanal für die alten
+ * Deep-Links /store/models|apps?highlight=… (HighlightRedirect). Ein schlanker,
+ * NICHT persistierter Zustand — ephemer wie der chatScope, damit ein Reload
+ * immer im Leerzustand („nichts gewählt", d. h. Raster) startet.
  */
 
 export type ExtensionKind = 'model' | 'app';
