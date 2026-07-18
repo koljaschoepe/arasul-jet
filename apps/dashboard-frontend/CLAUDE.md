@@ -36,16 +36,20 @@ src/
                      per `data-shell-hidden` versteckt. Zustand im Store:
                      `rightPanelVisible` + `rightPanelMode` ('chat' | 'terminal').
                    • **SidebarHost** — kontextabhängig: Dashboard → Dokumente/
-                     Projekte (Explorer), Extensions → ExtensionsSidebarList
-                     (Suche + Liste aller Apps/Modelle, in components/extensions/
-                     promoted), Automation (n8n) → Explorer bleibt (Tab im
-                     Hauptbereich, kein Auto-Collapse). Die Präferenz
-                     (auf/zu) überlebt Reload via
+                     Projekte (Explorer). Erweiterungen (store) → Explorer bleibt
+                     (der Store ist ein Full-Width-Tab; die Datei-Sidebar wird
+                     NICHT mehr durch eine Extensions-Liste gekapert), Automation
+                     (n8n) → Explorer bleibt (Tab im Hauptbereich, kein
+                     Auto-Collapse). Die Präferenz (auf/zu) überlebt Reload via
                      `sidebarVisible`/`sidebarRestore` (`syncSidebarForTab`).
-                   • **Extensions/Store** — keine Unter-Tabs mehr: Liste links
-                     (ExtensionsSidebarList), Detail in der Mitte
-                     (StoreDetailPage); alte /store/models|apps-Deep-Links leiten
-                     um.
+                   • **Erweiterungen/Store** — Full-Width-Kartenlayout im
+                     Mitte-Tab mit zwei Reitern [Modelle | Erweiterungen]
+                     (StoreModelsGrid / StoreExtensionsGrid); ein Klick auf eine
+                     Karte öffnet die Detailseite (StoreDetailPage) mit
+                     „← Zurück". Modelle = Katalog (Laden/Aktivieren), Erweiterungen
+                     = Workspace-Apps (An/Aus über `PUT /workspace-apps/:id`). Die
+                     Auswahl läuft über den ephemeren extensionStore; alte
+                     /store/models|apps-Deep-Links leiten um.
                    • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
                      RightPanel) teilen `--background` (`bg-background`); Trennung
                      nur über Borders. `--card` bleibt erhabenen Elementen

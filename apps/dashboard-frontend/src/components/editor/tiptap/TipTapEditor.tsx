@@ -6,11 +6,28 @@
 
 import { memo, useState, useEffect, useCallback, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
-import { X, Save, FileText, Maximize2, Minimize2, AlertCircle } from 'lucide-react';
+import {
+  X,
+  Save,
+  FileText,
+  Maximize2,
+  Minimize2,
+  AlertCircle,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Link2,
+  Link2Off,
+} from 'lucide-react';
 import useConfirm from '../../../hooks/useConfirm';
 import { useApi } from '../../../hooks/useApi';
 import { createExtensions } from './extensions';
 import './tiptap-editor.css';
+
+/** Idle-Zeit (ms) nach der letzten Änderung, bevor automatisch gespeichert wird. */
+const AUTOSAVE_DELAY_MS = 1200;
+/** Wie lange der „Gespeichert"-Hinweis nach dem Speichern sichtbar bleibt. */
+const SAVED_FLASH_MS = 2500;
 
 /** Shape of the tiptap-markdown storage slot we read from editor.storage. */
 interface MarkdownStorage {
@@ -48,7 +65,18 @@ const TipTapEditor = memo(function TipTapEditor({
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Autosave-Verdrahtung: `hydratedRef` verhindert einen No-Op-Save direkt nach
+  // dem initialen Laden (setContent löst onUpdate aus). `autosaveTimerRef` ist
+  // der laufende Debounce-Timer, `autosaveRunRef` hält stets die aktuelle
+  // Save-Funktion (Refs sind stabil, der Timer liest so nie eine veraltete
+  // Closure).
+  const hydratedRef = useRef(false);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveRunRef = useRef<() => void>(() => {});
 
   // Upload image to MinIO and return the URL
   const uploadImage = useCallback(
@@ -127,7 +155,18 @@ const TipTapEditor = memo(function TipTapEditor({
     onUpdate: ({ editor: e }) => {
       const storage = e.storage as MarkdownStorage;
       const currentMd: string = storage.markdown?.getMarkdown?.() ?? '';
-      setHasChanges(currentMd !== originalContentRef.current);
+      const changed = currentMd !== originalContentRef.current;
+      setHasChanges(changed);
+
+      // Kein Autosave während der initialen Hydration (verhindert Speicher-Loop).
+      if (!hydratedRef.current) return;
+      setSavedFlash(false);
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+      // Nichts (mehr) zu speichern (z. B. Änderung zurückgenommen).
+      if (!changed) return;
+      autosaveTimerRef.current = setTimeout(() => {
+        autosaveRunRef.current();
+      }, AUTOSAVE_DELAY_MS);
     },
   });
 
@@ -147,6 +186,11 @@ const TipTapEditor = memo(function TipTapEditor({
   useEffect(() => {
     if (!editor || !documentId) return;
 
+    // Neue Datei: Autosave still legen, bis der Inhalt hydratisiert ist.
+    hydratedRef.current = false;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    setSavedFlash(false);
+
     const loadContent = async () => {
       try {
         setLoading(true);
@@ -158,6 +202,8 @@ const TipTapEditor = memo(function TipTapEditor({
         originalContentRef.current = md;
         editor.commands.setContent(md);
         setHasChanges(false);
+        // Ab jetzt sind Änderungen echte Nutzereingaben → Autosave erlauben.
+        hydratedRef.current = true;
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
       } finally {
@@ -176,9 +222,14 @@ const TipTapEditor = memo(function TipTapEditor({
     return storage.markdown?.getMarkdown?.() ?? '';
   }, [editor]);
 
-  // Handle save
+  // Handle save (manuell wie auch per Autosave über denselben PUT-Pfad)
   const handleSave = useCallback(async () => {
     if (!editor) return;
+    // Einen anstehenden Autosave verwerfen — dieser Save deckt ihn ab.
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
     try {
       setSaving(true);
       setError(null);
@@ -190,6 +241,10 @@ const TipTapEditor = memo(function TipTapEditor({
       );
       originalContentRef.current = markdown;
       setHasChanges(false);
+      // „Gespeichert"-Hinweis kurz einblenden.
+      setSavedFlash(true);
+      if (savedFlashTimerRef.current) clearTimeout(savedFlashTimerRef.current);
+      savedFlashTimerRef.current = setTimeout(() => setSavedFlash(false), SAVED_FLASH_MS);
       onSave?.();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
@@ -197,6 +252,36 @@ const TipTapEditor = memo(function TipTapEditor({
       setSaving(false);
     }
   }, [editor, documentId, getMarkdown, onSave, api]);
+
+  // Autosave-Runner immer auf die aktuelle Save-Funktion zeigen lassen; der
+  // Debounce-Timer ruft nur, wenn es wirklich etwas zu speichern gibt.
+  useEffect(() => {
+    autosaveRunRef.current = () => {
+      if (hasChanges && !saving) handleSave();
+    };
+  }, [hasChanges, saving, handleSave]);
+
+  // Timer beim Unmount aufräumen.
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+      if (savedFlashTimerRef.current) clearTimeout(savedFlashTimerRef.current);
+    };
+  }, []);
+
+  // Link setzen/entfernen (nutzt das in StarterKit v3 enthaltene Link-Mark).
+  const handleSetLink = useCallback(() => {
+    if (!editor) return;
+    const previous = (editor.getAttributes('link').href as string | undefined) ?? '';
+    const url = window.prompt('Link-URL (leer lassen zum Entfernen):', previous);
+    // Abgebrochen → nichts tun.
+    if (url === null) return;
+    if (url.trim() === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
+  }, [editor]);
 
   // Handle close with unsaved changes warning
   const handleClose = useCallback(async () => {
@@ -304,14 +389,43 @@ const TipTapEditor = memo(function TipTapEditor({
             {hasChanges && <span className="tiptap-unsaved-indicator">*</span>}
           </div>
 
-          <div className="tiptap-editor-toolbar">
-            {/* Formatting buttons — will be extracted to EditorToolbar in Phase 2 */}
+          <div className="tiptap-editor-toolbar" role="toolbar" aria-label="Formatierung">
+            {/* Paragraph / Heading */}
+            <div className="tiptap-toolbar-group">
+              <button
+                type="button"
+                className={`tiptap-toolbar-btn ${editor.isActive('paragraph') && !editor.isActive('heading') ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().setParagraph().run()}
+                title="Fließtext"
+                aria-label="Fließtext"
+                aria-pressed={editor.isActive('paragraph') && !editor.isActive('heading')}
+              >
+                P
+              </button>
+              {([1, 2, 3] as const).map(level => (
+                <button
+                  key={level}
+                  type="button"
+                  className={`tiptap-toolbar-btn ${editor.isActive('heading', { level }) ? 'active' : ''}`}
+                  onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
+                  title={`Überschrift ${level}`}
+                  aria-label={`Überschrift ${level}`}
+                  aria-pressed={editor.isActive('heading', { level })}
+                >
+                  H{level}
+                </button>
+              ))}
+            </div>
+
+            {/* Inline marks */}
             <div className="tiptap-toolbar-group">
               <button
                 type="button"
                 className={`tiptap-toolbar-btn ${editor.isActive('bold') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleBold().run()}
                 title="Fett (Ctrl+B)"
+                aria-label="Fett"
+                aria-pressed={editor.isActive('bold')}
               >
                 <strong>B</strong>
               </button>
@@ -320,6 +434,8 @@ const TipTapEditor = memo(function TipTapEditor({
                 className={`tiptap-toolbar-btn ${editor.isActive('italic') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleItalic().run()}
                 title="Kursiv (Ctrl+I)"
+                aria-label="Kursiv"
+                aria-pressed={editor.isActive('italic')}
               >
                 <em>I</em>
               </button>
@@ -328,6 +444,8 @@ const TipTapEditor = memo(function TipTapEditor({
                 className={`tiptap-toolbar-btn ${editor.isActive('underline') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleUnderline().run()}
                 title="Unterstrichen (Ctrl+U)"
+                aria-label="Unterstrichen"
+                aria-pressed={editor.isActive('underline')}
               >
                 <u>U</u>
               </button>
@@ -336,6 +454,8 @@ const TipTapEditor = memo(function TipTapEditor({
                 className={`tiptap-toolbar-btn ${editor.isActive('strike') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleStrike().run()}
                 title="Durchgestrichen"
+                aria-label="Durchgestrichen"
+                aria-pressed={editor.isActive('strike')}
               >
                 <s>S</s>
               </button>
@@ -344,24 +464,65 @@ const TipTapEditor = memo(function TipTapEditor({
                 className={`tiptap-toolbar-btn ${editor.isActive('code') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleCode().run()}
                 title="Inline-Code"
+                aria-label="Inline-Code"
+                aria-pressed={editor.isActive('code')}
               >
                 {'</>'}
               </button>
+              <button
+                type="button"
+                className={`tiptap-toolbar-btn ${editor.isActive('link') ? 'active' : ''}`}
+                onClick={handleSetLink}
+                title="Link einfügen/bearbeiten"
+                aria-label="Link einfügen oder bearbeiten"
+                aria-pressed={editor.isActive('link')}
+              >
+                <Link2 size={16} />
+              </button>
+              <button
+                type="button"
+                className="tiptap-toolbar-btn"
+                onClick={() => editor.chain().focus().extendMarkRange('link').unsetLink().run()}
+                disabled={!editor.isActive('link')}
+                title="Link entfernen"
+                aria-label="Link entfernen"
+              >
+                <Link2Off size={16} />
+              </button>
             </div>
 
-            {/* Heading buttons */}
+            {/* Text-Ausrichtung */}
             <div className="tiptap-toolbar-group">
-              {([1, 2, 3] as const).map(level => (
-                <button
-                  key={level}
-                  type="button"
-                  className={`tiptap-toolbar-btn ${editor.isActive('heading', { level }) ? 'active' : ''}`}
-                  onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
-                  title={`Überschrift ${level}`}
-                >
-                  H{level}
-                </button>
-              ))}
+              <button
+                type="button"
+                className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'left' }) ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                title="Linksbündig"
+                aria-label="Linksbündig"
+                aria-pressed={editor.isActive({ textAlign: 'left' })}
+              >
+                <AlignLeft size={16} />
+              </button>
+              <button
+                type="button"
+                className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'center' }) ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                title="Zentriert"
+                aria-label="Zentriert"
+                aria-pressed={editor.isActive({ textAlign: 'center' })}
+              >
+                <AlignCenter size={16} />
+              </button>
+              <button
+                type="button"
+                className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'right' }) ? 'active' : ''}`}
+                onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                title="Rechtsbündig"
+                aria-label="Rechtsbündig"
+                aria-pressed={editor.isActive({ textAlign: 'right' })}
+              >
+                <AlignRight size={16} />
+              </button>
             </div>
 
             {/* List & block buttons */}
@@ -371,6 +532,8 @@ const TipTapEditor = memo(function TipTapEditor({
                 className={`tiptap-toolbar-btn ${editor.isActive('bulletList') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleBulletList().run()}
                 title="Aufzählung"
+                aria-label="Aufzählung"
+                aria-pressed={editor.isActive('bulletList')}
               >
                 &bull;
               </button>
@@ -379,6 +542,8 @@ const TipTapEditor = memo(function TipTapEditor({
                 className={`tiptap-toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleOrderedList().run()}
                 title="Nummerierte Liste"
+                aria-label="Nummerierte Liste"
+                aria-pressed={editor.isActive('orderedList')}
               >
                 1.
               </button>
@@ -387,6 +552,8 @@ const TipTapEditor = memo(function TipTapEditor({
                 className={`tiptap-toolbar-btn ${editor.isActive('blockquote') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleBlockquote().run()}
                 title="Zitat"
+                aria-label="Zitat"
+                aria-pressed={editor.isActive('blockquote')}
               >
                 &ldquo;
               </button>
@@ -395,6 +562,8 @@ const TipTapEditor = memo(function TipTapEditor({
                 className={`tiptap-toolbar-btn ${editor.isActive('codeBlock') ? 'active' : ''}`}
                 onClick={() => editor.chain().focus().toggleCodeBlock().run()}
                 title="Code-Block"
+                aria-label="Code-Block"
+                aria-pressed={editor.isActive('codeBlock')}
               >
                 {'{ }'}
               </button>
@@ -403,6 +572,7 @@ const TipTapEditor = memo(function TipTapEditor({
                 className="tiptap-toolbar-btn"
                 onClick={() => editor.chain().focus().setHorizontalRule().run()}
                 title="Trennlinie"
+                aria-label="Trennlinie"
               >
                 &mdash;
               </button>
@@ -421,6 +591,7 @@ const TipTapEditor = memo(function TipTapEditor({
                     .run()
                 }
                 title="Tabelle einfügen"
+                aria-label="Tabelle einfügen"
               >
                 <svg
                   width="16"
@@ -442,6 +613,7 @@ const TipTapEditor = memo(function TipTapEditor({
                 className="tiptap-toolbar-btn"
                 onClick={() => fileInputRef.current?.click()}
                 title="Bild einfügen"
+                aria-label="Bild einfügen"
               >
                 <svg
                   width="16"
@@ -526,6 +698,7 @@ const TipTapEditor = memo(function TipTapEditor({
                 onClick={() => editor.chain().focus().undo().run()}
                 disabled={!editor.can().undo()}
                 title="Rückgängig (Ctrl+Z)"
+                aria-label="Rückgängig"
               >
                 &#x21B6;
               </button>
@@ -535,10 +708,15 @@ const TipTapEditor = memo(function TipTapEditor({
                 onClick={() => editor.chain().focus().redo().run()}
                 disabled={!editor.can().redo()}
                 title="Wiederholen (Ctrl+Y)"
+                aria-label="Wiederholen"
               >
                 &#x21B7;
               </button>
             </div>
+
+            <span className="tiptap-autosave-status" role="status" aria-live="polite">
+              {saving ? 'Speichert…' : savedFlash ? 'Gespeichert' : ''}
+            </span>
 
             <div className="tiptap-toolbar-group">
               <button
@@ -546,6 +724,7 @@ const TipTapEditor = memo(function TipTapEditor({
                 className="tiptap-toolbar-btn"
                 onClick={() => setIsFullscreen(!isFullscreen)}
                 title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
+                aria-label={isFullscreen ? 'Verkleinern' : 'Vollbild'}
               >
                 {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
@@ -555,6 +734,7 @@ const TipTapEditor = memo(function TipTapEditor({
                 onClick={handleSave}
                 disabled={!hasChanges || saving}
                 title="Speichern (Ctrl+S)"
+                aria-label="Speichern"
               >
                 <Save size={16} />
                 {saving ? 'Speichert...' : 'Speichern'}
@@ -564,6 +744,7 @@ const TipTapEditor = memo(function TipTapEditor({
                 className="tiptap-toolbar-btn tiptap-close-btn"
                 onClick={handleClose}
                 title="Schließen"
+                aria-label="Schließen"
               >
                 <X size={16} />
               </button>

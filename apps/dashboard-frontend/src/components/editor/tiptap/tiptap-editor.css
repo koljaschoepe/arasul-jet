@@ -168,9 +168,25 @@ body.sidebar-collapsed .tiptap-editor-overlay.tiptap-editor-embedded {
   color: var(--primary-color);
 }
 
+.tiptap-toolbar-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 1px;
+}
+
 .tiptap-toolbar-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Autosave-Status neben der Toolbar */
+.tiptap-autosave-status {
+  display: inline-flex;
+  align-items: center;
+  min-width: 66px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding: 0 2px;
 }
 
 .tiptap-toolbar-btn svg {
@@ -291,15 +307,17 @@ body.sidebar-collapsed .tiptap-editor-overlay.tiptap-editor-embedded {
   margin: 1em 0;
 }
 
-/* Links */
-.tiptap-content a {
+/* Links — im Editor klar als Link erkennbar (unterstrichen + Akzentfarbe) */
+.tiptap-content a,
+.tiptap-content a.tiptap-link {
   color: var(--primary-color);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
 }
 
 .tiptap-content a:hover {
-  text-decoration: underline;
+  color: var(--primary-hover);
 }
 
 /* Inline code */
@@ -498,27 +516,71 @@ body.sidebar-collapsed .tiptap-editor-overlay.tiptap-editor-embedded {
   margin: 0.5em 0;
 }
 
-/* Lists */
+/* Lists
+   Tailwinds Preflight setzt global `list-style: none` — dadurch verschwinden
+   im Editor die Aufzählungspunkte/Nummern. Hier explizit wiederherstellen,
+   damit Listen beim Schreiben sofort als Punkte/Nummern sichtbar sind. */
 .tiptap-content ul,
 .tiptap-content ol {
   margin: 1em 0;
-  padding-left: 1.5em;
+  padding-left: 1.6em;
+  list-style-position: outside;
+}
+
+.tiptap-content ul {
+  list-style-type: disc;
+}
+
+.tiptap-content ol {
+  list-style-type: decimal;
 }
 
 .tiptap-content li {
   margin: 0.3em 0;
+  display: list-item;
+}
+
+.tiptap-content li::marker {
+  color: var(--text-muted);
 }
 
 .tiptap-content li p {
   margin: 0.2em 0;
 }
 
-/* Nested lists */
+/* Nested lists — eigene Marker-Ebenen, klar eingerückt */
 .tiptap-content ul ul,
 .tiptap-content ol ol,
 .tiptap-content ul ol,
 .tiptap-content ol ul {
   margin: 0.2em 0;
+}
+
+.tiptap-content ul ul {
+  list-style-type: circle;
+}
+
+.tiptap-content ul ul ul {
+  list-style-type: square;
+}
+
+.tiptap-content ol ol {
+  list-style-type: lower-alpha;
+}
+
+/* Text-Ausrichtung (extension-text-align rendert `text-align` inline; diese
+   Regeln stellen sicher, dass auch Überschriften sichtbar ausgerichtet werden
+   und der Cursor mitläuft). */
+.tiptap-content [style*='text-align: center'] {
+  text-align: center;
+}
+
+.tiptap-content [style*='text-align: right'] {
+  text-align: right;
+}
+
+.tiptap-content [style*='text-align: left'] {
+  text-align: left;
 }
 
 /* Horizontal rule */

@@ -38,6 +38,17 @@ async function bootstrap() {
 
   // Step 3: Ensure admin user exists
   await ensureAdminUser();
+
+  // Step 4: Reconcile optionale App-Container (z. B. n8n) an den gespeicherten
+  // Aktivierungszustand. Lizenzsauber: n8n läuft nur, wenn die Extension aktiv
+  // ist — ist sie deaktiviert (Default für frische Boxen), wird der Container
+  // gestoppt. Best-effort, blockiert den Boot nie.
+  try {
+    const appLifecycle = require('./services/app/appLifecycleService');
+    await appLifecycle.reconcileApps();
+  } catch (error) {
+    logger.error(`Bootstrap: App-Container-Reconcile error: ${error.message}`);
+  }
 }
 
 async function ensureAdminUser() {

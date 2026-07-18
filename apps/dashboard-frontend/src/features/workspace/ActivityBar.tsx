@@ -1,16 +1,17 @@
 import React from 'react';
-import { MessageSquare, Library, Workflow, Blocks, Settings } from 'lucide-react';
+import { FolderClosed, Blocks, Workflow, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
+import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 
 interface ActivityButtonProps {
   label: string;
   onClick: () => void;
   active?: boolean;
-  className?: string;
   children: React.ReactNode;
 }
 
-function ActivityButton({ label, onClick, active, className, children }: ActivityButtonProps) {
+function ActivityButton({ label, onClick, active, children }: ActivityButtonProps) {
   return (
     <button
       type="button"
@@ -22,7 +23,7 @@ function ActivityButton({ label, onClick, active, className, children }: Activit
         active
           ? 'bg-accent text-foreground'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-      } ${className ?? ''}`}
+      }`}
     >
       {children}
     </button>
@@ -30,48 +31,52 @@ function ActivityButton({ label, onClick, active, className, children }: Activit
 }
 
 /**
- * Schmale Icon-Leiste ganz links (wie VS Code/Cursor) — die
- * Drei-Bereiche-Navigation aus Plan 008: **Chat** (Kommandozentrale, rechtes
- * Panel), **Wissen** (Dateien/Explorer, linke Sidebar) und **Automation** (n8n).
- * Darunter der Extensions-Store, ganz unten die Einstellungen. Die Bereiche sind
- * bewusst fest — keine dynamischen App-Shortcuts mehr; der Store verwaltet, was
- * installiert ist, die Navigation bleibt konstant.
- *
- * Chat und Wissen schalten Panel- bzw. Sidebar-Sichtbarkeit; Automation,
- * Extensions und Einstellungen öffnen ihren Mitte-Tab.
+ * Dynamische App-Einträge: erscheinen in der Leiste NUR, wenn die zugehörige
+ * Erweiterung aktiviert (heruntergeladen) ist. n8n ist damit eine echte
+ * Erweiterung — deaktiviert taucht sie hier nicht auf (Lizenz-sauber, der
+ * Container läuft dann auch nicht; siehe appLifecycleService).
+ */
+const APP_ENTRIES: Array<{
+  appId: string;
+  spec: WorkspaceTabSpec;
+  label: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    appId: 'n8n',
+    spec: { type: 'automationen' },
+    label: 'Automation',
+    icon: <Workflow className="h-5 w-5" />,
+  },
+];
+
+/**
+ * Schmale Icon-Leiste ganz links (wie VS Code/Cursor). Bewusst reduziert auf
+ * zwei feste Bereiche — **Dateien** (Explorer-Sidebar) und **Extensions**
+ * (Store) — plus die aktivierten App-Erweiterungen unten und die Einstellungen
+ * ganz unten. Der Chat lebt ausschließlich im rechten Panel und hat hier kein
+ * Icon mehr.
  */
 export function ActivityBar() {
   const openTab = useWorkspaceStore(s => s.openTab);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
-  const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
   const setSidebarVisible = useWorkspaceStore(s => s.setSidebarVisible);
-  const rightPanelVisible = useWorkspaceStore(s => s.rightPanelVisible);
-  const rightPanelMode = useWorkspaceStore(s => s.rightPanelMode);
   const sidebarVisible = useWorkspaceStore(s => s.sidebarVisible);
+  const { isAppEnabled } = useWorkspaceApps();
 
-  const chatActive = rightPanelVisible && rightPanelMode === 'chat';
+  const apps = APP_ENTRIES.filter(a => isAppEnabled(a.appId));
 
   return (
     <nav
       aria-label="Workspace-Navigation"
       className="flex h-full w-12 shrink-0 flex-col items-center gap-1 bg-background py-2"
     >
-      <ActivityButton label="Chat" active={chatActive} onClick={() => setRightPanelMode('chat')}>
-        <MessageSquare className="h-5 w-5" />
-      </ActivityButton>
       <ActivityButton
-        label="Wissen"
+        label="Dateien"
         active={sidebarVisible}
         onClick={() => setSidebarVisible(!sidebarVisible)}
       >
-        <Library className="h-5 w-5" />
-      </ActivityButton>
-      <ActivityButton
-        label="Automation"
-        active={activeTabId === 'automationen'}
-        onClick={() => openTab({ type: 'automationen' })}
-      >
-        <Workflow className="h-5 w-5" />
+        <FolderClosed className="h-5 w-5" />
       </ActivityButton>
       <ActivityButton
         label="Extensions"
@@ -80,14 +85,26 @@ export function ActivityBar() {
       >
         <Blocks className="h-5 w-5" />
       </ActivityButton>
-      <ActivityButton
-        label="Einstellungen"
-        active={activeTabId === 'settings'}
-        onClick={() => openTab({ type: 'settings' })}
-        className="mt-auto"
-      >
-        <Settings className="h-5 w-5" />
-      </ActivityButton>
+
+      <div className="mt-auto flex flex-col items-center gap-1">
+        {apps.map(a => (
+          <ActivityButton
+            key={a.appId}
+            label={a.label}
+            active={activeTabId === a.spec.type}
+            onClick={() => openTab(a.spec)}
+          >
+            {a.icon}
+          </ActivityButton>
+        ))}
+        <ActivityButton
+          label="Einstellungen"
+          active={activeTabId === 'settings'}
+          onClick={() => openTab({ type: 'settings' })}
+        >
+          <Settings className="h-5 w-5" />
+        </ActivityButton>
+      </div>
     </nav>
   );
 }

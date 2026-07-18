@@ -1,8 +1,8 @@
 /**
- * Store — Deep-Link-Redirects (Plan 003 · Schritt 7).
- * Alte Unter-Tab-Links /store/models und /store/apps (auch mit ?highlight=…)
- * leiten auf die neue Liste+Detail-Struktur um: Highlight → Auswahl im
- * Extension-Store, Navigation zurück auf /store.
+ * Store — Full-Width-Layout + Deep-Link-Redirects.
+ * Zwei Reiter (Modelle/Erweiterungen) über dem Kartenraster; alte Unter-Tab-
+ * Links /store/models und /store/apps (auch mit ?highlight=…) leiten auf /store
+ * um und setzen dabei die Auswahl im Extension-Store (öffnet die Detailseite).
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -10,15 +10,15 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useExtensionStore } from '@/stores/extensionStore';
 import Store from '../Store';
 
-// Detailseite + beide Listen stubben — hier interessieren Redirect + Reiter
+// Raster + Detail stubben — hier interessieren Redirect + Reiter-Umschaltung.
 vi.mock('../StoreDetailPage', () => ({
   StoreDetailPage: () => <div data-testid="detail" />,
 }));
-vi.mock('../StoreModelsList', () => ({
-  StoreModelsList: () => <div data-testid="models-list" />,
+vi.mock('../StoreModelsGrid', () => ({
+  StoreModelsGrid: () => <div data-testid="models-grid" />,
 }));
-vi.mock('@/components/extensions/ExtensionsSidebarList', () => ({
-  ExtensionsSidebarList: () => <div data-testid="list" />,
+vi.mock('../StoreExtensionsGrid', () => ({
+  StoreExtensionsGrid: () => <div data-testid="extensions-grid" />,
 }));
 
 function Probe() {
@@ -37,7 +37,7 @@ function renderAt(path: string) {
   );
 }
 
-describe('Store — Redirects', () => {
+describe('Store — Full-Width + Redirects', () => {
   beforeEach(() => {
     useExtensionStore.getState().clearSelection();
   });
@@ -48,10 +48,10 @@ describe('Store — Redirects', () => {
     expect(useExtensionStore.getState().selected).toEqual({ kind: 'model', id: 'llama3' });
   });
 
-  it('/store/apps?highlight=gitea → Auswahl App + Redirect auf /store', async () => {
-    renderAt('/store/apps?highlight=gitea');
+  it('/store/apps?highlight=n8n → Auswahl App + Redirect auf /store', async () => {
+    renderAt('/store/apps?highlight=n8n');
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/store'));
-    expect(useExtensionStore.getState().selected).toEqual({ kind: 'app', id: 'gitea' });
+    expect(useExtensionStore.getState().selected).toEqual({ kind: 'app', id: 'n8n' });
   });
 
   it('unbekannter Unterpfad leitet auf /store um', async () => {
@@ -59,23 +59,22 @@ describe('Store — Redirects', () => {
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/store'));
   });
 
-  it('eigenständig (/store): zwei Reiter — Modelle (default) + Detail', () => {
+  it('/store: zwei Reiter — Modelle (default) zeigt das Raster', () => {
     renderAt('/store');
     expect(screen.getByTestId('store-tab-models')).toBeInTheDocument();
     expect(screen.getByTestId('store-tab-extensions')).toBeInTheDocument();
-    // Default-Reiter „Modelle" zeigt die Modell-Liste, nicht die Erweiterungen.
-    expect(screen.getByTestId('models-list')).toBeInTheDocument();
-    expect(screen.queryByTestId('list')).not.toBeInTheDocument();
-    expect(screen.getByTestId('detail')).toBeInTheDocument();
+    // Default-Reiter „Modelle" zeigt das Modell-Raster, keine Detailseite.
+    expect(screen.getByTestId('models-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('extensions-grid')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('detail')).not.toBeInTheDocument();
   });
 
-  it('eigenständig (/store): Reiter-Wechsel schaltet die linke Liste um', () => {
+  it('/store: Reiter-Wechsel schaltet das Raster um', () => {
     renderAt('/store');
     fireEvent.click(screen.getByTestId('store-tab-extensions'));
-    expect(screen.getByTestId('list')).toBeInTheDocument();
-    expect(screen.queryByTestId('models-list')).not.toBeInTheDocument();
-    // Zurück auf „Modelle"
+    expect(screen.getByTestId('extensions-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('models-grid')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('store-tab-models'));
-    expect(screen.getByTestId('models-list')).toBeInTheDocument();
+    expect(screen.getByTestId('models-grid')).toBeInTheDocument();
   });
 });

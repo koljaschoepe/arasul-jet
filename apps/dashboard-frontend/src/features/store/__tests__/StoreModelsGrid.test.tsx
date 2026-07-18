@@ -1,15 +1,16 @@
 /**
- * StoreModelsList — Modelle-Reiter der linken Liste (Plan 008 · Schritt 15).
+ * StoreModelsGrid — der „Modelle"-Reiter des Stores (Full-Width-Kartenraster).
  *
  * Prüft: Status-Badges (Verfügbar/Installiert), Start eines Downloads,
  * LIVE-Fortschritt, sowie das zuverlässige Feedback — nach einem erfolgreichen
  * Download wird der Katalog neu geladen (Modell erscheint installiert), bei
- * einem Fehler zeigt die Fortschrittsleiste die echte Fehlermeldung.
+ * einem Fehler zeigt die Fortschrittsleiste die echte Fehlermeldung. Ein Klick
+ * auf eine Karte setzt die Auswahl im Extension-Store (öffnet die Detailseite).
  */
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useExtensionStore } from '@/stores/extensionStore';
-import { StoreModelsList } from '../StoreModelsList';
+import { StoreModelsGrid } from '../StoreModelsGrid';
 
 type Model = {
   id: string;
@@ -56,8 +57,8 @@ vi.mock('@/contexts/DownloadContext', () => ({
   }),
 }));
 
-function renderList() {
-  return render(<StoreModelsList />);
+function renderGrid() {
+  return render(<StoreModelsGrid />);
 }
 
 const model = (over: Partial<Model> = {}): Model => ({
@@ -71,7 +72,7 @@ const model = (over: Partial<Model> = {}): Model => ({
   ...over,
 });
 
-describe('StoreModelsList', () => {
+describe('StoreModelsGrid', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     catalog.models = [];
@@ -83,17 +84,24 @@ describe('StoreModelsList', () => {
 
   it('zeigt Größe und Status „Installiert" für ein heruntergeladenes Modell', () => {
     catalog.models = [model({ install_status: 'available' })];
-    renderList();
+    renderGrid();
     expect(screen.getByText('Qwen3 7B')).toBeInTheDocument();
     expect(screen.getByText('4.7 GB')).toBeInTheDocument();
     expect(screen.getByText('Installiert')).toBeInTheDocument();
   });
 
-  it('ein nicht installiertes Modell hat einen Download-Button, der startDownload auslöst', () => {
+  it('ein nicht installiertes Modell hat einen Laden-Button, der startDownload auslöst', () => {
     catalog.models = [model()];
-    renderList();
+    renderGrid();
     fireEvent.click(screen.getByTestId('model-download-qwen3-7b'));
     expect(startDownload).toHaveBeenCalledWith('qwen3-7b', 'Qwen3 7B');
+  });
+
+  it('Klick auf die Karte setzt die Auswahl im Extension-Store', () => {
+    catalog.models = [model()];
+    renderGrid();
+    fireEvent.click(screen.getByTestId('model-open-qwen3-7b'));
+    expect(useExtensionStore.getState().selected).toEqual({ kind: 'model', id: 'qwen3-7b' });
   });
 
   it('zeigt LIVE-Fortschritt während des Downloads', () => {
@@ -104,14 +112,14 @@ describe('StoreModelsList', () => {
       status: 'Download läuft...',
       error: null,
     };
-    renderList();
+    renderGrid();
     expect(screen.getByTestId('model-progress-qwen3-7b')).toBeInTheDocument();
     expect(screen.getByText('42%')).toBeInTheDocument();
   });
 
   it('erfolgreicher Download lädt den Katalog neu (Modell erscheint installiert)', () => {
     catalog.models = [model()];
-    renderList();
+    renderGrid();
     // Simuliere einen Abschluss-Callback aus dem DownloadContext.
     expect(completeCallbacks.size).toBe(1);
     completeCallbacks.forEach(cb => cb('qwen3-7b', true));
@@ -126,7 +134,7 @@ describe('StoreModelsList', () => {
       status: 'Fehler',
       error: 'Ollama-Version zu alt für dieses Modell.',
     };
-    renderList();
+    renderGrid();
     expect(screen.getByText('Ollama-Version zu alt für dieses Modell.')).toBeInTheDocument();
   });
 });

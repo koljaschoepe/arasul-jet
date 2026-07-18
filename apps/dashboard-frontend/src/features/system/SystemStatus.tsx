@@ -351,12 +351,16 @@ function SystemStatusView({
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
                   }}
                   labelStyle={{ color: 'var(--primary-color)', fontWeight: 600 }}
-                  labelFormatter={(ts: number) =>
-                    new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                  labelFormatter={label =>
+                    new Date(Number(label)).toLocaleTimeString('de-DE', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
                   }
-                  formatter={(value: number, name: string) => {
+                  formatter={(value, name) => {
                     const unit = name === 'Temp' ? '°C' : '%';
-                    return [`${value?.toFixed(1)}${unit}`, name];
+                    const num = typeof value === 'number' ? value : Number(value);
+                    return [`${num.toFixed(1)}${unit}`, String(name)];
                   }}
                 />
                 <Legend />

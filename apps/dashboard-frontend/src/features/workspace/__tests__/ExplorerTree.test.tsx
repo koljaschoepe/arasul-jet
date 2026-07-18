@@ -1,8 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ExplorerPanel } from '../explorer/ExplorerPanel';
+import { ExplorerPanel, DND_DOC_TYPE } from '../explorer/ExplorerPanel';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+
+// Upload-Hook mocken, damit Import-Drops die echte XHR-Kette nicht anfassen.
+const { uploadFilesMock } = vi.hoisted(() => ({ uploadFilesMock: vi.fn() }));
+vi.mock('@/hooks/uploadDocuments', () => ({
+  useUploadDocuments: () => ({ uploadFiles: uploadFilesMock, uploading: false, progress: 0 }),
+}));
+
+/** DataTransfer-Attrappe für Drop-Events (jsdom hat keine echte). */
+function makeDataTransfer(opts: { files?: File[]; data?: Record<string, string> }): DataTransfer {
+  const data = opts.data ?? {};
+  return {
+    files: (opts.files ?? []) as unknown as FileList,
+    types: [...(opts.files?.length ? ['Files'] : []), ...Object.keys(data)],
+    getData: (type: string) => data[type] ?? '',
+    setData: () => undefined,
+    dropEffect: 'none',
+    effectAllowed: 'all',
+  } as unknown as DataTransfer;
+}
+
+/** Zeilencontainer (role=treeitem) zu einem sichtbaren Label. */
+function row(label: string): HTMLElement {
+  const el = screen.getByText(label).closest('[role="treeitem"]');
+  if (!el) throw new Error(`Zeile für „${label}“ nicht gefunden`);
+  return el as HTMLElement;
+}
 
 const spaces = [
   {
@@ -79,6 +105,7 @@ vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 describe('ExplorerPanel (Ordner-Baum)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    uploadFilesMock.mockResolvedValue({ ok: 1, failed: [] });
     useWorkspaceStore.setState({
       tabs: [],
       activeTabId: null,
@@ -86,6 +113,13 @@ describe('ExplorerPanel (Ordner-Baum)', () => {
       explorerRequest: null,
     });
   });
+
+  const renderPanel = () =>
+    render(
+      <ToastProvider>
+        <ExplorerPanel />
+      </ToastProvider>
+    );
 
   it('zeigt Wurzel-Ordner und Wurzel-Dateien als oberste Ebene', async () => {
     render(
@@ -146,5 +180,78 @@ describe('ExplorerPanel (Ordner-Baum)', () => {
     useWorkspaceStore.getState().requestExplorerAction('upload-files');
     await waitFor(() => expect(clickSpy).toHaveBeenCalled());
     expect(useWorkspaceStore.getState().explorerRequest).toBeNull();
+  });
+
+  it('Rechtsklick auf eine Datei öffnet ein Kontextmenü mit Umbenennen/Löschen/Neuer Ordner', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Notiz.md')).toBeInTheDocument());
+    fireEvent.contextMenu(row('Notiz.md'), { clientX: 5, clientY: 5 });
+    expect(await screen.findByText('Umbenennen')).toBeInTheDocument();
+    expect(screen.getByText('Löschen')).toBeInTheDocument();
+    expect(screen.getByText('Neuer Ordner')).toBeInTheDocument();
+  });
+
+  it('Umbenennen einer Datei ruft den PATCH-Endpunkt mit neuem Titel', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Notiz.md')).toBeInTheDocument());
+    fireEvent.contextMenu(row('Notiz.md'), { clientX: 5, clientY: 5 });
+    fireEvent.click(await screen.findByText('Umbenennen'));
+    const input = (await screen.findByDisplayValue('Notiz.md')) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Meine Notiz' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+    await waitFor(() =>
+      expect(apiMock.patch).toHaveBeenCalledWith('/documents/d2', { title: 'Meine Notiz' })
+    );
+  });
+
+  it('Löschen einer Datei ruft den DELETE-Endpunkt erst nach Bestätigung', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Notiz.md')).toBeInTheDocument());
+    fireEvent.contextMenu(row('Notiz.md'), { clientX: 5, clientY: 5 });
+    fireEvent.click(await screen.findByText('Löschen'));
+    // Bestätigungsdialog erscheint; erst der Bestätigungs-Button löst DELETE aus.
+    await screen.findByText('„Notiz.md“ löschen?');
+    expect(apiMock.del).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+    await waitFor(() => expect(apiMock.del).toHaveBeenCalledWith('/documents/d2'));
+  });
+
+  it('Datei per Drag & Drop auf einen Ordner ruft den Move-Endpunkt mit dessen space_id', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
+    const payload = JSON.stringify({ documentId: 'd2', fromSpaceId: null, label: 'Notiz.md' });
+    fireEvent.drop(row('Marketing-Ordner'), {
+      dataTransfer: makeDataTransfer({ data: { [DND_DOC_TYPE]: payload } }),
+    });
+    await waitFor(() =>
+      expect(apiMock.put).toHaveBeenCalledWith('/documents/d2/move', { space_id: 'ks-m' })
+    );
+  });
+
+  it('Drop einer Datei auf ihren eigenen Ordner löst KEIN Verschieben aus', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
+    // d1 liegt bereits in ks-m; Drop auf denselben Ordner ist ein No-Op.
+    const payload = JSON.stringify({
+      documentId: 'd1',
+      fromSpaceId: 'ks-m',
+      label: 'Briefing.pdf',
+    });
+    fireEvent.drop(row('Marketing-Ordner'), {
+      dataTransfer: makeDataTransfer({ data: { [DND_DOC_TYPE]: payload } }),
+    });
+    expect(apiMock.put).not.toHaveBeenCalled();
+  });
+
+  it('Import per OS-Datei-Drop auf einen Ordner lädt in dessen space hoch', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
+    const file = new File(['x'], 'neu.pdf', { type: 'application/pdf' });
+    fireEvent.drop(row('Marketing-Ordner'), {
+      dataTransfer: makeDataTransfer({ files: [file] }),
+    });
+    await waitFor(() => expect(uploadFilesMock).toHaveBeenCalled());
+    const call = uploadFilesMock.mock.calls[0];
+    expect(call?.[1]).toBe('ks-m');
   });
 });

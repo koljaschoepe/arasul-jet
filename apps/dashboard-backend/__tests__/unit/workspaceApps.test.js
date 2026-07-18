@@ -37,6 +37,12 @@ jest.mock('child_process', () => ({
 
 jest.mock('axios');
 
+jest.mock('../../src/services/app/appLifecycleService', () => ({
+  startApp: jest.fn().mockResolvedValue({ appId: 'n8n', hasLifecycle: true, ok: true, containers: [] }),
+  stopApp: jest.fn().mockResolvedValue({ appId: 'n8n', hasLifecycle: true, ok: true, containers: [] }),
+  reconcileApps: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('../../src/services/core/eventListenerService', () => ({
   getStatus: jest.fn(),
   getRecentEvents: jest.fn().mockResolvedValue([]),
@@ -67,6 +73,7 @@ jest.mock('../../src/config/services', () => ({
 }));
 
 const db = require('../../src/database');
+const appLifecycle = require('../../src/services/app/appLifecycleService');
 const { app } = require('../../src/server');
 const { generateTestToken, mockUser, mockSession } = require('../helpers/authMock');
 
@@ -141,6 +148,48 @@ describe('Workspace-Apps Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.app).toEqual({ id: 'n8n', enabled: false });
       expect(upsertParams).toEqual(['n8n', false]);
+      // Deaktivieren stoppt den n8n-Container (Lizenz-Gating).
+      expect(appLifecycle.stopApp).toHaveBeenCalledWith('n8n');
+      expect(appLifecycle.startApp).not.toHaveBeenCalled();
+    });
+
+    test('schaltet eine App an → startet den Container', async () => {
+      setupMocksWithAuth((query) => {
+        if (query.includes('INSERT INTO platform_apps')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const res = await request(app)
+        .put('/api/workspace-apps/n8n')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ enabled: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.app).toEqual({ id: 'n8n', enabled: true });
+      // Aktivieren startet den n8n-Container (Lizenz-Gating).
+      expect(appLifecycle.startApp).toHaveBeenCalledWith('n8n');
+      expect(appLifecycle.stopApp).not.toHaveBeenCalled();
+    });
+
+    test('gescheiterte Container-Operation meldet Warnung (kein stiller Erfolg)', async () => {
+      appLifecycle.stopApp.mockResolvedValueOnce({
+        appId: 'n8n',
+        hasLifecycle: true,
+        ok: false,
+        containers: [{ name: 'n8n', ok: false, reason: 'error' }],
+      });
+      setupMocksWithAuth(() => Promise.resolve({ rows: [] }));
+
+      const res = await request(app)
+        .put('/api/workspace-apps/n8n')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ enabled: false });
+
+      expect(res.status).toBe(200);
+      expect(res.body.app).toEqual({ id: 'n8n', enabled: false });
+      expect(res.body.warning).toBeDefined();
     });
 
     test('404 für unbekannte App', async () => {

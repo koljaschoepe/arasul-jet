@@ -16,7 +16,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ExtensionsSidebarList } from '@/components/extensions/ExtensionsSidebarList';
+import { StoreExtensionsGrid } from '@/features/store/StoreExtensionsGrid';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 // Zustandsbehafteter Server-Mock: PUT ändert, GET (Refetch nach
@@ -49,7 +49,7 @@ function renderExtensions() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <ExtensionsSidebarList />
+      <StoreExtensionsGrid />
     </QueryClientProvider>
   );
 }

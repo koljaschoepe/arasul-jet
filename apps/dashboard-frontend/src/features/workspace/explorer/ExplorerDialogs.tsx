@@ -28,6 +28,8 @@ export type ExplorerDialogState =
   | { kind: 'move'; space: TreeSpace; spaces: TreeSpace[] }
   | { kind: 'delete'; space: TreeSpace }
   | { kind: 'move-document'; document: TreeDocument; spaces: TreeSpace[] }
+  | { kind: 'rename-document'; document: TreeDocument }
+  | { kind: 'delete-document'; document: TreeDocument }
   | { kind: 'context-file'; space: TreeSpace };
 
 interface ExplorerDialogsProps {
@@ -59,6 +61,8 @@ export function ExplorerDialogs({ dialog, onClose, onChanged }: ExplorerDialogsP
     setBusy(false);
     if (dialog.kind === 'rename') {
       setName(dialog.space.name);
+    } else if (dialog.kind === 'rename-document') {
+      setName(dialog.document.title?.trim() ? dialog.document.title : dialog.document.filename);
     } else {
       setName('');
     }
@@ -324,6 +328,82 @@ export function ExplorerDialogs({ dialog, onClose, onChanged }: ExplorerDialogsP
                 }
               >
                 Verschieben
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {dialog.kind === 'rename-document' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Datei umbenennen</DialogTitle>
+              <DialogDescription>
+                Der Anzeigename der Datei. Der ursprüngliche Dateiname bleibt erhalten.
+              </DialogDescription>
+            </DialogHeader>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && name.trim()) {
+                  run(
+                    () =>
+                      api
+                        .patch(`/documents/${dialog.document.id}`, { title: name.trim() })
+                        .then(() => undefined),
+                    'Datei umbenannt'
+                  );
+                }
+              }}
+            />
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
+                Abbrechen
+              </Button>
+              <Button
+                type="button"
+                disabled={!name.trim() || busy}
+                onClick={() =>
+                  run(
+                    () =>
+                      api
+                        .patch(`/documents/${dialog.document.id}`, { title: name.trim() })
+                        .then(() => undefined),
+                    'Datei umbenannt'
+                  )
+                }
+              >
+                Speichern
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {dialog.kind === 'delete-document' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>„{dialog.document.filename}“ löschen?</DialogTitle>
+              <DialogDescription>
+                Die Datei wird endgültig entfernt und aus dem Index gelöscht. Dies kann nicht
+                rückgängig gemacht werden.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
+                Abbrechen
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={busy}
+                onClick={() =>
+                  run(
+                    () => api.del(`/documents/${dialog.document.id}`).then(() => undefined),
+                    'Datei gelöscht'
+                  )
+                }
+              >
+                Löschen
               </Button>
             </DialogFooter>
           </>
