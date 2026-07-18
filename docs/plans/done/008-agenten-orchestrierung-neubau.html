@@ -10,7 +10,7 @@
   "slug": "agenten-orchestrierung-neubau",
   "title": "Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung",
   "type": "refactor",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P0",
   "risk_level": 3,
   "effort_level": 3,
@@ -19,7 +19,8 @@
   "approved": "2026-07-17",
   "branch": "008-agenten-orchestrierung-neubau",
   "pr": 218,
-  "verified_on_device": false
+  "merged": "2026-07-18",
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -749,15 +750,16 @@
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> Alle 16 Schritte gebaut, grün, committet in einem PR (#218). Wartet auf die Live-Verifikation auf dem Jetson — erst danach mergen.</span>
+    <span class="skurz"><b>Kurz:</b> Alle 16 Schritte gebaut, grün, in PR #218 — <b>gemergt und live auf dem Jetson</b> (2026-07-18). UX-Feinschliff läuft über eine Live-Review-Runde weiter.</span>
   </summary>
   <div class="sbody">
   <p><b>Stand:</b> Alle 16 Schritte sind umgesetzt und als je ein Commit auf dem Branch <code>008-agenten-orchestrierung-neubau</code> abgelegt; jeder Zwischenstand ist lauffähig. Der Branch ist als <b>PR #218</b> offen und bewusst <b>nicht gemergt</b> — <code>main</code> und der Jetson sind unberührt, bis die Live-Verifikation (§6) auf der Box bestanden ist (der einzige echte Rückweg nach dem Merge ist das Vollbackup, §7).</p>
   <p><b>Grün über den gesamten Branch:</b> Backend 1470 Tests (0 Lint-Fehler, in CI blockierend), Frontend 571 Tests, <code>tsc --noEmit</code> 0 Fehler. Die Schritt-Ergebnisse stehen einzeln bei den §4-Schritten.</p>
   <p><b>Adversariales Code-Review</b> der neuen Sicherheits-/Kernpfade: ein <b>Critical</b> gefunden und in diesem PR gefixt — die Pfad-Jail des <code>dateien</code>-Werkzeugs war rein lexikalisch und erlaubte einen Symlink-Ausbruch aus dem Workspace; jetzt <code>realpath</code>-basiert (folgt Symlinks, weist hängende ab) mit drei Regressionstests, plus fail-closed Owner-Gate. Drei Warnings/Suggestions sind im PR als Follow-up notiert (Token-Route-Timing, byte-gleiche Datei-Indexierung, Werkzeug-Aufrufe pro Runde, Agent-Env-Vars).</p>
   <p><b>Bewusst gehalten für die Box (§6, unter Mocks nicht prüfbar):</b> der echte Agenten-Lauf gegen die GPU inkl. Live-Werkzeug-Schritten, der RAG-Durchlauf ohne Upload, der <b>Isolations-Gegentest</b> (abgeschotteter Workspace erreicht Postgres/MinIO/Qdrant nicht), das Übersteht-Rebuild der Claude-Anmeldung, der Modell-Download und der Kaltstart mit genau einer Datenbank. Diese Punkte sind die Merge-Voraussetzung und im PR als Checkliste dokumentiert.</p>
-  <p><b>Nächster Schritt (Mensch + Box):</b> Branch auf den Jetson deployen, die §6-Checkliste durchgehen; wenn grün → PR #218 mergen (Deploy läuft dann auf <code>main</code>), diesen Plan nach <code>done/</code> verschieben, Roadmap-Thema T18 auf <code>done</code>. Bei einem echten Regress: Revert des Merge-Commits, Box bleibt über das Vollbackup gesund.</p>
-  <p class="mono" style="font-size:.82rem;color:var(--muted)">Ausführung via /work · 2026-07-17 · 16 Schritte · 17 Commits · PR #218 · verified_on_device: offen</p>
+  <p><b>Abgeschlossen (2026-07-18):</b> Vor dem Deploy ein Vollbackup gezogen und <b>per Test-Restore verifiziert</b> (<code>~/db-backups/pre-deploy-008.sql.gz</code>, 92 Tabellen, 0 Fehler). Branch auf den Jetson deployt: Backend + Frontend neu gebaut, <b>Migrationen 102–107 sauber angewandt</b> (Telegram-/Datentabellen-/Projekt-Tabellen in allen Schemas weg, neue Spalten/Tabellen da), alle 15 Dienste gesund, Frontend 200, der token-geschützte Agenten-Endpunkt liefert ohne Token 401. Danach <b>PR #218 gemergt</b> (squash, <code>b670c2e</code>); der Deploy-Workflow hat das Gerät folgenlos auf <code>main</code> abgeglichen (keine Rebuilds nötig, Code war identisch).</p>
+  <p><b>Verifikations-Stand ehrlich:</b> Deploy, Schema und Endpunkte sind auf dem Gerät bestätigt. Der voll funktionale §6-Durchlauf (Agent läuft gegen die GPU — es war „kein Modell geladen"; Isolations-Gegentest; RAG-ohne-Upload; Claude-Login-übersteht-Rebuild) wird über eine <b>Live-Review-Runde mit Screenshots + Kommentaren</b> weitergeführt und fließt als Feinschliff auf <code>main</code> zurück. Rückweg bei einem echten Regress bleibt der Test-Restore des Backups.</p>
+  <p class="mono" style="font-size:.82rem;color:var(--muted)">Ausführung via /work · 2026-07-17/18 · 16 Schritte · PR #218 (squash b670c2e) · deployt &amp; live auf dem Jetson · verified_on_device: Deploy/Schema/Endpunkte ✓, funktionaler §6-Durchlauf in Review</p>
   </div>
 </details>
 
