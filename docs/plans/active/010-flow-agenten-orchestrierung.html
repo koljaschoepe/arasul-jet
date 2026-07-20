@@ -656,6 +656,16 @@
     <li><strong>Abweichung:</strong> GPU-Serialisierung über prozessweites <code>gpuGate.js</code> (<code>AsyncMutex</code>) statt der chat-/streaming-gebundenen <code>llmQueueService</code>-Pipeline — gleiche Ein-nach-dem-anderen-Garantie, ohne Chat-Historie mit synthetischen Jobs zu verschmutzen.</li>
   </ul>
 
+  <h3>Schritt 4 — Fluss-Engine (Verzweigung &amp; Parallel-Zweige) ✅</h3>
+  <ul>
+    <li><strong>PRs:</strong> #227 (Engine) + #228 (Zod-Hotfix, s. u.) — beide squash-merged, CI grün. 2 Review-Runden: 2 Critical behoben (Validierung vor SSE → echte 400/404; custom error), 2. Runde 0/0.</li>
+    <li><strong>Umsetzung:</strong> siehe §4 · Schritt 4. DAG-Engine mit Verzweigung/Parallelität, Bedingungs-Beschneidung, Concurrency-Limiter; Fluss-CRUD + Run-Route; SSE mit Knoten-IDs.</li>
+    <li><strong>Tests:</strong> 25 + 6 (Hotfix) Unit-Tests; Backend-Unit-Suite grün, Lint sauber.</li>
+    <li><strong>Deploy:</strong> erfolgreich, Backend healthy.</li>
+    <li><strong>Live-Verify (Gerät):</strong> Verzweigter Fluss (Bedingung „contains ja" → true/false-Agent) angelegt und ausgeführt. Eingabe „ja bitte" → <code>node_condition c=true → node_start t → node_skipped f → flow_done</code> („JA, ich bin bereit!"); Eingabe „nein danke" → <code>c=false → node_skipped t → node_start f → flow_done</code> („NEIN, gerne!") — Beschneidung in beide Richtungen, Knoten-IDs in jedem SSE-Frame. Ein Fluss mit fremdem Agenten liefert <strong>HTTP 400</strong> (VALIDATION_ERROR) vor dem Stream — kein error-Frame. Test-Flüsse/-Agenten gelöscht, Token invalidiert.</li>
+    <li><strong>Hotfix (#228):</strong> <code>POST /api/agents/flows</code> lieferte zunächst 500 — <code>z.record(z.any())</code> ist unter Zod v4 ungültig (Key-Typ nötig). Auf <code>z.record(z.string(), z.unknown())</code> korrigiert + Schema-Parse-Test ergänzt; der Live-Verify hat es aufgedeckt.</li>
+  </ul>
+
   <h3>Schritt 3 — Tools v1 (RAG · MinIO · n8n · Web) ✅</h3>
   <ul>
     <li><strong>PR:</strong> #226 (squash-merged, alle CI-Checks grün). 2 Review-Runden: 2 Critical behoben (Anthropic-Parallel-Tools, MinIO-Nutzer-Isolation), 2. Runde 0 Critical/0 Warnings.</li>
