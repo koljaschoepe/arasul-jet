@@ -5,7 +5,7 @@
  * aktualisiert; alles über useApi, Theme-Tokens, TypeScript.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/shadcn/button';
@@ -23,8 +23,23 @@ import {
 import type { AgentDraft, AgentProvider, FlowAgent } from '../types';
 import { PROVIDER_LABELS } from '../types';
 
+/**
+ * Shape aus GET /api/models/installed: `id` ist der Katalog-Schlüssel,
+ * `effective_ollama_name` der tatsächliche Ollama-Tag (den bekommt das Modell),
+ * `model_type` trennt Chat-Modelle ('llm') von OCR o. Ä.
+ */
+interface InstalledModel {
+  id: string;
+  name?: string;
+  effective_ollama_name?: string;
+  model_type?: string;
+}
 interface InstalledModelsResponse {
-  models: Array<{ model_id: string }>;
+  models: InstalledModel[];
+}
+interface ModelOption {
+  value: string;
+  label: string;
 }
 
 interface Props {
@@ -53,7 +68,7 @@ export function AgentEditor({ agent, onSaved, onDeleted, onCancel }: Props) {
   const isAdmin = (user?.role as string | undefined) === 'admin';
 
   const [draft, setDraft] = useState<AgentDraft>(() => toDraft(agent));
-  const [localModels, setLocalModels] = useState<string[]>([]);
+  const [localModels, setLocalModels] = useState<ModelOption[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -66,7 +81,13 @@ export function AgentEditor({ agent, onSaved, onDeleted, onCancel }: Props) {
     api
       .get<InstalledModelsResponse>('/models/installed', { showError: false })
       .then(res => {
-        if (!cancelled) setLocalModels(res.models.map(m => m.model_id));
+        if (cancelled) return;
+        // Nur Chat-Modelle (kein OCR); Wert = Ollama-Tag, Label = Anzeigename.
+        const opts = (res.models ?? [])
+          .filter(m => (m.model_type ?? 'llm') === 'llm')
+          .map(m => ({ value: m.effective_ollama_name || m.id, label: m.name || m.id }))
+          .filter(o => o.value);
+        setLocalModels(opts);
       })
       .catch(() => {
         /* Picker fällt auf freie Eingabe zurück */
@@ -102,7 +123,7 @@ export function AgentEditor({ agent, onSaved, onDeleted, onCancel }: Props) {
   };
 
   const isLocal = draft.provider === 'ollama';
-  const modelOptions = useMemo(() => localModels, [localModels]);
+  const modelOptions = localModels;
 
   return (
     <div className="flex flex-col gap-4">
@@ -165,8 +186,8 @@ export function AgentEditor({ agent, onSaved, onDeleted, onCancel }: Props) {
               </SelectTrigger>
               <SelectContent>
                 {modelOptions.map(m => (
-                  <SelectItem key={m} value={m}>
-                    {m}
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
                   </SelectItem>
                 ))}
               </SelectContent>
