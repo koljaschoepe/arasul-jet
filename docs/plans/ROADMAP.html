@@ -36,8 +36,8 @@
     { "id": "T18", "title": "Arasul wird Agenten-Orchestrierung — Neupositionierung zur Workflow-Bauer-Plattform: Telegram/Datentabellen/Dashboard/DB-Ansicht/Alt-Chat ersatzlos löschen (~14.000 Zeilen), Projekt-Entität konsolidieren, Agenten als Markdown-Dateien mit Werkzeug-Aufrufen, Chat als Kommandozentrale, n8n-HTTP-Trigger, Netz-Schalter je Workspace, Store-Neubau", "prio": "P0", "status": "done", "source": "Interview 2026-07-17 (6 Runden)", "plan": "008", "pr": 218, "note": "Löst T01/T17 ab; schluckt T02, T03, T04, T12, T16. 16 Schritte, gemergt (squash b670c2e) & live auf dem Jetson 2026-07-18. Funktionaler §6-Durchlauf im Live-Review-Feinschliff" },
     { "id": "T01", "title": "Feature-Audit „funktioniert wirklich\" — jede angekündigte Funktion end-to-end live auf dem Jetson durchtesten, Bug-Liste erzeugen", "prio": "P0", "status": "planned", "source": "Interview 2026-07-14", "plan": "006", "pr": 209, "note": "Lauf 1: Kernpfad grün, F1 gefixt (PR #209); Restlauf → T17" },
     { "id": "T02", "title": "Aktions-Feedback plattformweit — Container start/stop/restart, Modell-Download, Deaktivieren geben sofort klaren Status (kein „passiert nichts → dann alles auf einmal\")", "prio": "P0", "status": "open", "source": "Interview 2026-07-14", "plan": null, "pr": null },
-    { "id": "T03", "title": "Modell-Download-Robustheit — Verify mit Retry/Poll statt Einmal-Check (Race in modelDownloadHelpers.js: real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error') + saubere Progress-UI", "prio": "P1", "status": "open", "source": "Live-Verify Plan 004 2026-07-14", "plan": null, "pr": null },
-    { "id": "T04", "title": "UI-Konsistenz-Sweep — Abstände, Formatierung, Größen, Theme-Tokens plattformweit vereinheitlichen; einzelne unschöne Frontend-Stellen glätten", "prio": "P1", "status": "open", "source": "Interview 2026-07-14", "plan": null, "pr": null },
+    { "id": "T03", "title": "Modell-Download-Robustheit — Verify mit Retry/Poll statt Einmal-Check (Race in modelDownloadHelpers.js: real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error') + saubere Progress-UI", "prio": "P1", "status": "planned", "source": "Live-Verify Plan 004 2026-07-14", "plan": "009", "pr": null, "note": "Plan 009 härtet die Download-Zustandsmaschine (Migration-083-Spalten verdrahten, paused/Resume statt error, keine Doppelinstallation) + saubere Progress-UI; behebt auch den T16-Store/„kein Modell geladen\"-Fund" },
+    { "id": "T04", "title": "UI-Konsistenz-Sweep — Abstände, Formatierung, Größen, Theme-Tokens plattformweit vereinheitlichen; einzelne unschöne Frontend-Stellen glätten", "prio": "P1", "status": "planned", "source": "Interview 2026-07-14", "plan": "009", "pr": null, "note": "Plan 009: zentrale Token-Skala an Cursor geeicht + app-weit angewendet, Cursor-artige linke Nav, Store-Redesign, Editor-Leiste, Dateisystem, Einstellungen linksbündig" },
     { "id": "T05", "title": "Mandanten-Isolation (owner_id, Datenzugriff pro Mandant)", "prio": "P0", "status": "open", "source": "Master-Plan Phase 2 · Interview 2026-07-14", "plan": null, "pr": null },
     { "id": "T06", "title": "DSGVO & Compliance — n8n-DSGVO-Governance, Drittland-Konnektoren kennzeichnen, AVV/Consent-Doku", "prio": "P0", "status": "open", "source": "Master-Plan Phase 6 · Interview 2026-07-14", "plan": null, "pr": null },
     { "id": "T07", "title": "Backup-Verschlüsselung + Restore-Drill — nur der offene Rest (Auto-Backup auf externe SSD existiert schon): Verschlüsselung + belegte Wiederherstellung", "prio": "P1", "status": "open", "source": "Master-Plan Phase 5 · Interview 2026-07-14", "plan": null, "pr": null },
@@ -338,8 +338,8 @@
     </div>
   </details>
 
-  <details class="card" id="T03" data-prio="P1" data-status="open" data-ref="T03 Modell-Download-Robustheit">
-    <summary><span class="prio">P1</span><span class="ttl">Modell-Download-Robustheit (Verify mit Retry + UI)</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T03" data-prio="P1" data-status="planned" data-ref="T03 Modell-Download-Robustheit">
+    <summary><span class="prio">P1</span><span class="ttl">Modell-Download-Robustheit (Verify mit Retry + UI)</span><span class="cbtn-slot"></span><span class="st">geplant (009)</span><span class="chev">▶</span></summary>
     <div class="cbody">
       <p>Beim Live-Verify von Plan 004 gefunden: Ein echter Pull landet real in Ollama, aber
       die Nach-Download-Verifizierung in <code>modelDownloadHelpers.js</code> prüft einmalig
@@ -351,8 +351,8 @@
     </div>
   </details>
 
-  <details class="card" id="T04" data-prio="P1" data-status="open" data-ref="T04 UI-Konsistenz-Sweep">
-    <summary><span class="prio">P1</span><span class="ttl">UI-Konsistenz-Sweep</span><span class="cbtn-slot"></span><span class="st">offen</span><span class="chev">▶</span></summary>
+  <details class="card" id="T04" data-prio="P1" data-status="planned" data-ref="T04 UI-Konsistenz-Sweep">
+    <summary><span class="prio">P1</span><span class="ttl">UI-Konsistenz-Sweep</span><span class="cbtn-slot"></span><span class="st">geplant (009)</span><span class="chev">▶</span></summary>
     <div class="cbody">
       <p>Grundlegend über die Oberfläche iterieren: Abstände, Formatierung, Größen und
       Theme-Tokens plattformweit vereinheitlichen, einzelne noch unschöne Frontend-Stellen
