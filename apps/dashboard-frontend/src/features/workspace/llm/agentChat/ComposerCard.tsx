@@ -5,9 +5,10 @@
  * bewusst KEINE Schalter mehr; die Orchestrierung läuft automatisch und wird
  * im Verlauf transparent gemacht (Schritte/Quellen).
  */
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ArrowUp,
+  Bot,
   ChevronDown,
   FolderOpen,
   Image as ImageIcon,
@@ -79,6 +80,8 @@ interface ComposerCardProps {
   models: ComposerModel[];
   selectedModel: string;
   onSelectModel: (id: string) => void;
+  /** Flow-Agenten für die /-Palette (Plan 010, Schritt 6). */
+  flowAgents?: { id: number; name: string }[];
 }
 
 export default function ComposerCard({
@@ -96,11 +99,37 @@ export default function ComposerCard({
   models,
   selectedModel,
   onSelectModel,
+  flowAgents = [],
 }: ComposerCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScope = useWorkspaceStore(s => s.chatScope);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
+  const [paletteDismissed, setPaletteDismissed] = useState(false);
+
+  // /-Palette: sichtbar, solange der Text nur „/<teilname>" ist (kein Leerzeichen)
+  // und nicht per Escape geschlossen wurde. Auswahl setzt „/<name> " und
+  // schließt; danach tippt der Nutzer die Eingabe und sendet.
+  const slashMatch = value.match(/^\/([^\s/]*)$/);
+  const paletteMatches = slashMatch
+    ? flowAgents.filter(a => a.name.toLowerCase().startsWith((slashMatch[1] || '').toLowerCase()))
+    : [];
+  // Keine Palette bei Anhang: Flow-Agenten nehmen keine Uploads (wie @).
+  const showPalette =
+    Boolean(slashMatch) &&
+    !paletteDismissed &&
+    paletteMatches.length > 0 &&
+    !attachedFile &&
+    attachedImages.length === 0;
+
+  const pickFlowAgent = useCallback(
+    (name: string) => {
+      onChange(`/${name} `);
+      setPaletteDismissed(true);
+      textareaRef.current?.focus();
+    },
+    [onChange]
+  );
 
   const autoGrow = useCallback(() => {
     const el = textareaRef.current;
@@ -109,14 +138,26 @@ export default function ComposerCard({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, []);
 
+  const firstMatchName = paletteMatches[0]?.name;
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape' && showPalette) {
+        e.preventDefault();
+        setPaletteDismissed(true);
+        return;
+      }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
+        // Bei offener Palette wählt Enter den ersten Treffer (statt „/rec" wörtlich
+        // zu senden) — sonst normale Senden-Aktion.
+        if (showPalette && firstMatchName) {
+          pickFlowAgent(firstMatchName);
+          return;
+        }
         onSend();
       }
     },
-    [onSend]
+    [onSend, showPalette, firstMatchName, pickFlowAgent]
   );
 
   const canSend =
@@ -129,7 +170,35 @@ export default function ComposerCard({
   const hasChips = Boolean(chatScope) || Boolean(attachedFile) || attachedImages.length > 0;
 
   return (
-    <div className="rounded-lg border border-border bg-card focus-within:border-primary/40">
+    <div className="relative rounded-lg border border-border bg-card focus-within:border-primary/40">
+      {/* /-Palette der Flow-Agenten (Plan 010, Schritt 6) */}
+      {showPalette && (
+        <div
+          className="absolute bottom-full left-0 z-20 mb-1 max-h-56 w-64 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md"
+          data-testid="flow-agent-palette"
+          role="listbox"
+          aria-label="Flow-Agenten"
+        >
+          <div className="px-2 py-1 text-ui-xs text-muted-foreground">Flow-Agenten</div>
+          {paletteMatches.map(a => (
+            <button
+              key={a.id}
+              type="button"
+              role="option"
+              aria-selected={false}
+              onMouseDown={e => {
+                // mousedown, damit der Textarea-Blur die Auswahl nicht abfängt.
+                e.preventDefault();
+                pickFlowAgent(a.name);
+              }}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-accent"
+            >
+              <Bot className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate">{a.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {hasChips && (
         <div className="flex flex-wrap gap-1.5 px-2 pt-2" data-testid="composer-chips">
           {chatScope && (
@@ -164,7 +233,11 @@ export default function ComposerCard({
         ref={textareaRef}
         value={value}
         onChange={e => {
-          onChange(e.target.value);
+          const v = e.target.value;
+          // Verlässt der Text den „/<teilname>"-Modus, die Escape-Sperre lösen,
+          // damit ein späteres „/" die Palette wieder öffnet.
+          if (!/^\/[^\s/]*$/.test(v)) setPaletteDismissed(false);
+          onChange(v);
           autoGrow();
         }}
         onKeyDown={handleKeyDown}

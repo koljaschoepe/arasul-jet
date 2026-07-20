@@ -132,6 +132,15 @@ interface RunAgentOptions {
   messages?: ChatMessage[];
 }
 
+// Flow-Agent (Plan 010): per DB-Id adressiert statt per Workspace+Name.
+interface RunFlowAgentOptions {
+  agentId: number;
+  agentName: string;
+  userInput: string;
+  fullMessage: string;
+  messages?: ChatMessage[];
+}
+
 interface LoadMessagesOptions {
   limit?: number;
   before?: number;
@@ -156,6 +165,7 @@ interface ChatContextValue {
   // Functions
   sendMessage: (chatId: string, input: string, options?: SendMessageOptions) => Promise<void>;
   runAgentStream: (chatId: string, options: RunAgentOptions) => Promise<void>;
+  runFlowAgentStream: (chatId: string, options: RunFlowAgentOptions) => Promise<void>;
   reconnectToJob: (jobId: string, targetChatId: string) => Promise<void>;
   cancelJob: (chatId: string) => Promise<void>;
   abortExistingStream: (chatId: string) => void;
@@ -1426,6 +1436,186 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     [api, abortExistingStream, updateMessages, updateIsLoading, updateError]
   );
 
+  // Flow-Agent (Plan 010, Schritt 6): bewusst als eigenständige Parallel-Methode
+  // zu runAgentStream gehalten, damit der bestehende @-Datei-Agenten-Pfad NICHT
+  // angefasst wird. Nur URL (/agents/:id/run/stream) und Adressierung (DB-Id)
+  // unterscheiden sich; die Event-Behandlung (status/tool/text/done/error) ist
+  // identisch, weil der Flow-Agent-Lauf dieselben Frames liefert.
+  const runFlowAgentStream = useCallback(
+    async (chatId: string, options: RunFlowAgentOptions) => {
+      const { agentId, agentName, userInput, fullMessage, messages = [] } = options;
+      if (!chatId || agentId == null || !agentName) return;
+
+      if (sendLockRef.current.has(chatId)) return;
+      sendLockRef.current.add(chatId);
+
+      try {
+        await api.post(
+          `/chats/${chatId}/messages`,
+          { role: 'user', content: fullMessage },
+          { showError: false }
+        );
+      } catch (err) {
+        console.error('Error saving flow-agent user message:', err);
+      }
+
+      const baseMessages: ChatMessage[] = [...messages, { role: 'user', content: fullMessage }];
+      const assistantIndex = baseMessages.length;
+      updateMessages(chatId, () => [
+        ...baseMessages,
+        { role: 'assistant', content: '', status: 'streaming', agent: agentName, steps: [] },
+      ]);
+      updateIsLoading(chatId, true);
+      updateError(chatId, null);
+
+      for (const id of Object.keys(abortControllersRef.current)) {
+        if (id !== chatId) {
+          abortControllersRef.current[id]?.abort();
+          delete abortControllersRef.current[id];
+        }
+      }
+      abortExistingStream(chatId);
+      const abortController = new AbortController();
+      abortControllersRef.current[chatId] = abortController;
+      activeStreamChatIdRef.current = chatId;
+
+      const patchAssistant = (patch: (cur: ChatMessage) => ChatMessage) =>
+        updateMessages(chatId, prev => {
+          const u = [...prev];
+          const cur = u[assistantIndex];
+          if (cur) u[assistantIndex] = patch(cur);
+          return u;
+        });
+
+      let finalText = '';
+      let streamError = false;
+
+      const handleAgentEvent = (evt: {
+        type?: string;
+        tool?: string;
+        params?: Record<string, unknown>;
+        result?: string;
+        content?: string;
+        message?: string;
+      }) => {
+        switch (evt.type) {
+          case 'tool_start':
+            patchAssistant(cur => ({
+              ...cur,
+              steps: [
+                ...(cur.steps || []),
+                { tool: evt.tool || '', params: evt.params, status: 'running' },
+              ],
+            }));
+            break;
+          case 'tool_result':
+            patchAssistant(cur => {
+              const steps = [...(cur.steps || [])];
+              for (let i = steps.length - 1; i >= 0; i--) {
+                const s = steps[i];
+                if (s && s.tool === evt.tool && s.status === 'running') {
+                  steps[i] = { ...s, status: 'done', result: evt.result };
+                  break;
+                }
+              }
+              return { ...cur, steps };
+            });
+            break;
+          case 'text':
+            finalText = evt.content || finalText;
+            patchAssistant(cur => ({ ...cur, content: evt.content || cur.content }));
+            break;
+          case 'done':
+            finalText = evt.result != null ? evt.result : finalText;
+            patchAssistant(cur => ({
+              ...cur,
+              content: finalText || cur.content,
+              status: 'completed',
+              steps: (cur.steps || []).map(s =>
+                s.status === 'running' ? { ...s, status: 'done' } : s
+              ),
+            }));
+            break;
+          case 'error':
+            streamError = true;
+            updateError(chatId, evt.message || 'Der Agent hat einen Fehler gemeldet.');
+            patchAssistant(cur => ({ ...cur, status: 'error' }));
+            break;
+          default:
+            break;
+        }
+      };
+
+      try {
+        const url = `${API_BASE}/agents/${agentId}/run/stream`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          body: JSON.stringify({ input: userInput }),
+          signal: abortController.signal,
+        });
+        if (!response.ok) {
+          let msg = `HTTP ${response.status}`;
+          try {
+            const j = (await response.json()) as { error?: { message?: string } };
+            msg = j?.error?.message || msg;
+          } catch {
+            /* non-JSON error body */
+          }
+          if (response.status === 404) msg = `Flow-Agent „${agentName}" nicht gefunden.`;
+          throw new Error(msg);
+        }
+        if (!response.body) throw new Error('Stream body ist null');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t.startsWith('data:')) continue;
+            try {
+              handleAgentEvent(JSON.parse(t.replace(/^data:\s*/, '')));
+            } catch {
+              /* ignore malformed frame */
+            }
+          }
+        }
+
+        if (!streamError && finalText) {
+          try {
+            await api.post(
+              `/chats/${chatId}/messages`,
+              { role: 'assistant', content: finalText },
+              { showError: false }
+            );
+          } catch (err) {
+            console.error('Error saving flow-agent answer:', err);
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.error('Flow-agent run error:', err);
+        updateError(
+          chatId,
+          (err instanceof Error ? err.message : null) || 'Fehler beim Ausführen des Agenten.'
+        );
+        patchAssistant(cur => ({ ...cur, status: 'error' }));
+      } finally {
+        sendLockRef.current.delete(chatId);
+        updateIsLoading(chatId, false);
+        delete abortControllersRef.current[chatId];
+        if (activeStreamChatIdRef.current === chatId) activeStreamChatIdRef.current = null;
+      }
+    },
+    [api, abortExistingStream, updateMessages, updateIsLoading, updateError]
+  );
+
   // --- Context Value ---
 
   const value = useMemo(
@@ -1443,6 +1633,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       // Functions
       sendMessage,
       runAgentStream,
+      runFlowAgentStream,
       reconnectToJob,
       cancelJob,
       abortExistingStream,
@@ -1474,6 +1665,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       spaces,
       sendMessage,
       runAgentStream,
+      runFlowAgentStream,
       reconnectToJob,
       cancelJob,
       abortExistingStream,
