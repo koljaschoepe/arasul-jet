@@ -654,11 +654,16 @@
     <li><strong>Abweichung:</strong> GPU-Serialisierung über prozessweites <code>gpuGate.js</code> (<code>AsyncMutex</code>) statt der chat-/streaming-gebundenen <code>llmQueueService</code>-Pipeline — gleiche Ein-nach-dem-anderen-Garantie, ohne Chat-Historie mit synthetischen Jobs zu verschmutzen.</li>
   </ul>
 
-  <h3>Schritt 2 — Agenten-Bereich &amp; ausführbarer Einzelagent ⏳ (im Review/Ship)</h3>
+  <h3>Schritt 2 — Agenten-Bereich &amp; ausführbarer Einzelagent ✅</h3>
   <ul>
-    <li><strong>Umsetzung:</strong> siehe §4 · Schritt 2 (Ergebnis). Backend-CRUD + SSE-Run + Frontend-Bereich „Agenten".</li>
-    <li><strong>Tests:</strong> 16 Backend-Unit + 4 Frontend; Backend-Unit-Suite 1406 grün, Workspace-Suite 116 grün; tsc/Lint sauber.</li>
-    <li><strong>PR / Deploy / Live-Verify:</strong> folgt in diesem Schritt (wird ergänzt).</li>
+    <li><strong>PRs:</strong> #224 (Feature) + #225 (Hotfix, s. u.) — beide squash-merged, alle CI-Checks grün.</li>
+    <li><strong>Umsetzung:</strong> siehe §4 · Schritt 2. Backend owner-scoped CRUD + SSE-Run über die Provider-Registry; Frontend vierter Bereich „Agenten" (Liste · Editor · Lauf-Ansicht).</li>
+    <li><strong>Tests:</strong> 16 Backend-Unit + 4 Frontend; Backend-Unit-Suite (1406) &amp; Workspace-Suite (116) grün; tsc/Lint sauber.</li>
+    <li><strong>Deploy:</strong> <code>deploy.yml</code> (Frontend + Backend neu gebaut) erfolgreich; beide Container healthy.</li>
+    <li><strong>Live-Verify (Gerät, authentifiziert):</strong> <code>/api/agents</code>-CRUD und <code>/api/agents/provider-keys</code> liefern <code>200</code> (Mount-Reihenfolge korrekt, kein Shadowing durch <code>/:id</code>). Ein Ollama-Agent (<code>qwen3:8b</code>) wurde angelegt und per <code>POST /run/stream</code> ausgeführt — SSE <code>status→text→done</code>, Antwort „Hallo, ich bin Arasul-Agent." (System-Prompt befolgt, echte GPU-Inferenz über die Provider-Registry + GPU-Gate). Der letzte Lauf wurde in <code>flow_runs</code> persistiert (<code>done</code>), <code>DELETE</code> kaskadierte sauber.</li>
+    <li><strong>Review:</strong> 1 Critical behoben (rohes <code>Error</code> → custom errors in <code>runFlowAgent.js</code>); Warnings/Suggestions in PR #224 dokumentiert.</li>
+    <li><strong>Hotfix aus dem Live-Verify (#225):</strong> Der Modell-Picker las <code>model_id</code>, aber <code>/api/models/installed</code> liefert <code>id</code> + <code>effective_ollama_name</code> (Ollama-Tag) + <code>model_type</code> — der lokale Picker wäre leer gewesen. Korrigiert (Tag als Wert, nur <code>llm</code>-Modelle, OCR gefiltert); der ursprüngliche Test hatte die falsche Annahme selbst gemockt — auf die reale Form umgestellt. Backend/Run-Pfad war korrekt und blieb es.</li>
+    <li><strong>Visueller Browser-Walkthrough:</strong> optional dem Nutzer angeboten (benötigt Dashboard-Login); der funktionale Pfad ist auf dem Gerät bewiesen.</li>
   </ul>
   </div>
 </details>
