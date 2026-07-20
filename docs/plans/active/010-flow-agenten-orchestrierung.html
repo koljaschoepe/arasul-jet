@@ -1,0 +1,821 @@
+<!doctype html>
+<!--
+  Arasul plan-page — Plan 010 · Flow-Agenten (lokale KI-Orchestrierung)
+  Erstellt via /plan. Struktur-Contract siehe .claude/templates/plan-page.html.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 010 · Flow-Agenten — lokale KI-Orchestrierung</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "010",
+  "slug": "flow-agenten-orchestrierung",
+  "title": "Flow-Agenten — lokale KI-Orchestrierung",
+  "type": "feature",
+  "status": "approved",
+  "priority": "P1",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-07-20",
+  "approved": "2026-07-20",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 010</p>
+    <span class="chip" id="status-chip" data-status="in-review">In Review</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Flow-Agenten — lokale KI-Orchestrierung</h1>
+  <p class="lead">Aus dem reinen Chat wird eine Orchestrierungs-Plattform: Agenten mit Prompt, Modell, Tools und Rechten, im visuellen Canvas zu verzweigten Flüssen verkettet — lokal und Cloud gemischt, per <code>/</code> im Chat, Zeitplan oder n8n auslösbar.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P1</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="bad" data-level="3"></span>Hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>Hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">7</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Ein neuer Top-Level-Bereich „Agenten" bekommt einen visuellen Fluss-Editor (React Flow). Ein Agent = Prompt + Modell + Tools + Rechte; Agenten werden zu verzweigten Flüssen (If/Else, parallele Zweige) verkettet und laufen über eine GPU-Queue. Modelle sind pro Agent lokal (Ollama) oder Cloud (OpenAI-kompatibel/Anthropic). Auslösen per <code>/flow</code> im Chat, per Zeitplan oder per n8n-HTTP-Aufruf.</dd>
+      <dt>Warum jetzt</dt><dd>Das ist das Kaufargument für Arasul: Prozess-Automatisierung mit lokalen KI-Modellen, die kleine Modelle clever verkettet — DSGVO-konform auf der eigenen Hardware. Der Chat allein verkauft das nicht.</dd>
+      <dt>Größtes Risiko</dt><dd>GPU-Überlastung bei parallelen Zweigen auf einer Jetson-GPU. Gegenmittel: <b>alle</b> LLM-Aufrufe zwingend durch die bestehende <code>llmQueueService</code>-Warteschlange — kein direkter Modell-Call wie heute in <code>toolLoop.js</code>.</dd>
+      <dt>Du entscheidest</dt><dd><ul>
+        <li>n8n bleibt Trigger-Rückgrat — Arasul liefert die KI-native Agenten-Schicht, keinen n8n-Nachbau.</li>
+        <li>Flow-Agenten als eigene v2 <b>neben</b> den bestehenden Datei-Agenten: <code>/</code> für Flows, <code>@</code> bleibt für Datei-Agenten.</li>
+        <li>Verzweigte Flüsse im echten Canvas; lokale + Cloud-Modelle mischbar, Keys nur Admin, verschlüsselt.</li>
+        <li>Ohne Feature-Flag, direkt live — dafür ist jeder Schritt einzeln livefähig; kein Audit-Log in v1.</li>
+      </ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Aus dem Chat wird eine lokale Agenten-Orchestrierung — das eigentliche Kaufargument für Arasul.</span>
+  </summary>
+  <div class="sbody">
+  <p>Arasul verkauft sich als autonome Edge-KI auf eigener Hardware. Ein reines Chatfenster mit einem lokalen Modell ist dafür zu wenig — das kann jeder. Das <em>unverwechselbare</em> Versprechen ist: Prozesse automatisieren, indem man <strong>kleine lokale Modelle clever verkettet</strong>, jeweils mit dem richtigen Werkzeug und der richtigen Aufgabe ausgestattet, sodass am Ende ein Ergebnis herauskommt, für das andere ein großes Cloud-Modell bräuchten — vollständig DSGVO-konform auf dem Gerät.</p>
+  <p>Genau das baut dieser Plan: eine <strong>Agenten-Orchestrierungs-Schicht</strong>. Ein „Agent" ist eine gespeicherte Konfiguration aus Prompt, Modellwahl, erlaubten Tools und Rechten. Mehrere Agenten werden in einem visuellen Canvas zu einem <strong>Fluss</strong> verkettet — mit Verzweigungen (Wenn/Sonst) und parallelen Zweigen. Ein Fluss lässt sich per Slash-Command <code>/flowname</code> direkt aus dem Chat starten, per Zeitplan automatisch ausführen oder von n8n per HTTP anstoßen. Arasul wird damit das „KI-Gehirn", n8n bleibt eines der möglichen „Nervensysteme" für Trigger.</p>
+  <p>Wichtig für die Abgrenzung: Arasul baut <em>keinen</em> zweiten Workflow-Motor neben n8n. n8n kann Trigger, Scheduling und hunderte Konnektoren — das nutzen wir. Neu ist ausschließlich die KI-native Agenten-Schicht, die n8n nicht hat: Modell-Mischung lokal/Cloud, Tool-Rechte, verzweigte Agenten-Flüsse über eine GPU-Queue.</p>
+  <p><strong>Fertig heißt:</strong> Ein Nutzer legt im Bereich „Agenten" mehrere Agenten an, verkettet sie im Canvas zu einem verzweigten Fluss, startet ihn per <code>/</code> im Chat, per Zeitplan oder aus n8n — und sieht das gestreamte Ergebnis, wobei lokale und Cloud-Modelle gemischt und die GPU nie überlastet wird.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Flow-Agenten (DB), Canvas, Provider-Registry, Tools, GPU-Queue, /-Chat, Scheduler + n8n-HTTP. Datei-Agenten und Audit-Log bleiben außen vor.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Neuer Top-Level-Bereich „Agenten" (Liste · Editor · schlanke Lauf-Ansicht)</li>
+      <li>Flow-Agent-Datenmodell in PostgreSQL (Agenten, Flüsse, letzter Lauf)</li>
+      <li>Visueller Canvas mit React Flow (<code>@xyflow/react</code>): Knoten, Kanten, If/Else, parallele Zweige</li>
+      <li>Provider-Registry: Ollama (lokal) + OpenAI-kompatibel + Anthropic, Modellwahl pro Agent</li>
+      <li>Externe API-Keys verschlüsselt at-rest (AES-256-GCM via <code>tokenCrypto.js</code>), nur Admin</li>
+      <li>Tools v1: RAG/Dokumentensuche, MinIO-Datei lesen/schreiben, n8n-Workflow auslösen, Web/HTTP (opt-in, Admin-Freigabe)</li>
+      <li>Fluss-Engine im Backend über <code>llmQueueService</code> (GPU-serialisiert), Live-Streaming per SSE</li>
+      <li><code>/flowname</code>-Slash-Command im rechten Chat</li>
+      <li>Arasul-Scheduler (Cron) + offener <code>POST /api/agents/:id/run</code> (Bearer-Token) für n8n</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>Ablösung/Migration der bestehenden Datei-Agenten (Plan 008) — sie bleiben unverändert</li>
+      <li>Audit-Log externer Aufrufe (bewusst später; v1 nur „letzter Lauf")</li>
+      <li>Feature-Flag (direkt live; Rollback per Deploy-Revert)</li>
+      <li>Dedizierte n8n-Custom-Node (nur HTTP-Aufruf in v1)</li>
+      <li>Screenshot-/Browser-Tool</li>
+      <li>Marktplatz/Teilen von Agenten, feingranulares RBAC (nur „Admin" vs. „alle Nutzer")</li>
+      <li>Lange Lauf-Historie, Export, Auto-Löschung</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Eigener Bereich + Chat-Slash starten eine Fluss-Engine, die lokale/Cloud-Modelle über die GPU-Queue und lokale/externe Tools nutzt; Trigger via Scheduler oder n8n.</span>
+  </summary>
+  <div class="sbody">
+  <p>Heute spricht der rechte Chat direkt mit einem lokalen Modell. Künftig gibt es zwei Wege, einen Fluss zu starten — den neuen <strong>Agenten-Bereich mit Canvas</strong> und den Chat-Slash <code>/flow</code> — und beide münden in dieselbe <strong>Fluss-Engine</strong> im Backend. Diese Engine geht den gespeicherten Fluss-Graphen (JSON aus Knoten und Kanten) Schritt für Schritt durch, wertet Verzweigungen aus und führt parallele Zweige logisch gleichzeitig aus. Der entscheidende Trick für die Jetson-Hardware: jeder einzelne Modell-Aufruf läuft durch die bestehende <code>llmQueueService</code>-Warteschlange. Damit sind Zweige zwar „parallel", die GPU wird aber nie mit mehreren Modell-Läufen gleichzeitig überlastet.</p>
+  <p>Neu im Backend ist eine <strong>Provider-Registry</strong>: Der bisher fest auf Ollama verdrahtete Modell-Aufruf (<code>toolLoop.js → callOllama</code>) wird zu einer Abstraktion, die pro Agent entweder das lokale Ollama, einen OpenAI-kompatiblen Endpoint oder Anthropic anspricht. Die dafür nötigen API-Schlüssel liegen verschlüsselt in der Datenbank (gleiches AES-Muster wie die bestehenden Nutzer-Credentials) und sind nur für Admins editierbar. Agenten <em>bauen</em> und <em>ausführen</em> dürfen dagegen alle Nutzer.</p>
+  <p>Alles lebt sauber <strong>neben</strong> den bestehenden datei-basierten Workspace-Agenten (Plan 008): eigene DB-Tabellen, eigener Bereich, eigener Trigger <code>/</code> (das bestehende <code>@</code> für Datei-Agenten bleibt unangetastet). Getriggert wird ein Fluss auf drei Wegen: manuell/Chat, über einen neuen Arasul-Scheduler (Cron im Backend) oder über den offenen Endpoint <code>POST /api/agents/:id/run</code>, den n8n per HTTP mit einem Bearer-Token aufruft — dasselbe Muster wie die bestehenden Sandbox-Run-Routen.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 720 430" role="img" aria-labelledby="arch-title" font-family="ui-monospace, Menlo, monospace">
+      <title id="arch-title">Vorher: Chat spricht mit einem lokalen Modell. Nachher: Agenten-Bereich und Chat-Slash starten eine Fluss-Engine über die GPU-Queue.</title>
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"></path>
+        </marker>
+      </defs>
+      <style>
+        .b { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; rx: 8; }
+        .ba { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+        .t { fill: var(--ink); font-size: 13px; }
+        .tm { fill: var(--muted); font-size: 12px; }
+        .ta { fill: var(--accent-ink); font-size: 13px; font-weight: 700; }
+        .lbl { fill: var(--accent-ink); font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+        .edge { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+      </style>
+
+      <!-- VORHER -->
+      <text x="14" y="24" class="lbl">VORHER</text>
+      <rect x="14" y="34" width="150" height="38" rx="8" class="b"></rect>
+      <text x="89" y="58" text-anchor="middle" class="t">Rechter Chat</text>
+      <line x1="164" y1="53" x2="222" y2="53" class="edge" marker-end="url(#ah)"></line>
+      <rect x="224" y="34" width="150" height="38" rx="8" class="b"></rect>
+      <text x="299" y="58" text-anchor="middle" class="t">Ollama (lokal)</text>
+      <text x="392" y="57" class="tm">ein Modell · kein Fluss · keine Tools</text>
+
+      <line x1="14" y1="90" x2="706" y2="90" stroke="var(--line)" stroke-width="1"></line>
+
+      <!-- NACHHER -->
+      <text x="14" y="112" class="lbl">NACHHER — FLOW-AGENTEN</text>
+
+      <!-- entry row -->
+      <rect x="14" y="124" width="196" height="40" rx="8" class="ba"></rect>
+      <text x="112" y="149" text-anchor="middle" class="ta">Agenten-Bereich · Canvas</text>
+      <rect x="226" y="124" width="150" height="40" rx="8" class="ba"></rect>
+      <text x="301" y="149" text-anchor="middle" class="ta">Chat · /flow</text>
+      <rect x="430" y="124" width="276" height="40" rx="8" class="b"></rect>
+      <text x="568" y="143" text-anchor="middle" class="t">Trigger</text>
+      <text x="568" y="158" text-anchor="middle" class="tm">Scheduler (Cron) · n8n → POST /run</text>
+
+      <!-- arrows into engine -->
+      <path d="M112,164 L112,214 L214,214" class="edge" marker-end="url(#ah)"></path>
+      <path d="M301,164 L301,208" class="edge" marker-end="url(#ah)"></path>
+      <path d="M568,164 L568,214 L506,214" class="edge" marker-end="url(#ah)"></path>
+
+      <!-- engine -->
+      <rect x="120" y="216" width="480" height="48" rx="8" class="ba" fill="var(--wash)"></rect>
+      <text x="360" y="238" text-anchor="middle" class="ta">Fluss-Engine — verzweigt (If/Else · parallele Zweige)</text>
+      <text x="360" y="255" text-anchor="middle" class="tm">jeder Modell-Aufruf über die GPU-Queue (llmQueueService)</text>
+
+      <!-- outputs -->
+      <path d="M250,264 L250,304" class="edge" marker-end="url(#ah)"></path>
+      <path d="M470,264 L470,304" class="edge" marker-end="url(#ah)"></path>
+
+      <rect x="40" y="306" width="300" height="64" rx="8" class="b"></rect>
+      <text x="190" y="328" text-anchor="middle" class="t">Modelle (pro Agent wählbar)</text>
+      <text x="190" y="346" text-anchor="middle" class="tm">Ollama · OpenAI-kompatibel · Anthropic</text>
+      <text x="190" y="362" text-anchor="middle" class="tm">Cloud-Keys verschlüsselt · nur Admin</text>
+
+      <rect x="380" y="306" width="300" height="64" rx="8" class="b"></rect>
+      <text x="530" y="328" text-anchor="middle" class="t">Tools</text>
+      <text x="530" y="346" text-anchor="middle" class="tm">RAG · MinIO · n8n auslösen</text>
+      <text x="530" y="362" text-anchor="middle" class="tm">Web/HTTP (opt-in · Admin-Freigabe)</text>
+
+      <text x="14" y="404" class="tm">Neben bestehenden Datei-Agenten (Plan 008): eigene DB-Tabellen · Trigger „/" statt „@" · kein Bruch.</text>
+    </svg>
+    <figcaption>Vorher/Nachher: Der Chat bekommt Gesellschaft von einem eigenen Agenten-Bereich; beide starten dieselbe Fluss-Engine, die lokale und Cloud-Modelle über die GPU-Queue orchestriert und lokale/externe Tools nutzt.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 7 Schritte — jeder lässt das System lauffähig und ist einzeln live-verifizierbar (kein Feature-Flag).</span>
+  </summary>
+  <div class="sbody">
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Datenmodell &amp; Provider-Registry">
+    <h3>Schritt 1 — Datenmodell &amp; Provider-Registry (Backend) <span class="tag">Risiko: Mittel</span></h3>
+    <p>Migration <code>110_flow_agents.sql</code>: Tabellen für Flow-Agenten, Flüsse (Graph-JSON) und „letzter Lauf" sowie eine verschlüsselte Tabelle für externe Provider-Keys (Vorlage <code>107_external_credentials.sql</code>). Provider-Registry als Abstraktion über den bisherigen <code>callOllama</code>: dispatcht lokal (Ollama) / OpenAI-kompatibel / Anthropic und ruft <strong>immer</strong> über <code>llmQueueService</code> statt direktem axios. Admin-Routen zum Anlegen/Rotieren der Keys (AES via <code>tokenCrypto.js</code>). Neue Route-Gruppe in <code>routes/index.js</code> registriert (<code>API_ROUTE_GROUPS</code>). Noch keine UI.</p>
+    <p class="files mono">services/postgres/init/110_flow_agents.sql · apps/dashboard-backend/src/services/agents/{toolLoop.js,providerRegistry.js} · apps/dashboard-backend/src/config/services.js · apps/dashboard-backend/src/routes/index.js · apps/dashboard-backend/src/utils/tokenCrypto.js · Tests: __tests__/unit/providerRegistry.test.js</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Agenten-Bereich &amp; Einzelagent">
+    <h3>Schritt 2 — Agenten-Bereich &amp; ausführbarer Einzelagent (Frontend) <span class="tag">Risiko: Mittel</span></h3>
+    <p>Vierter Aktivitäts-Bereich „Agenten" in der <code>ActivityBar</code> + neuer <code>WorkspaceTabType</code>. Liste + Editor für einen einzelnen Agenten (Prompt, Modellwahl aus Provider-Registry, Tools, Rechte). Ein Agent lässt sich speichern und manuell ausführen; die Antwort streamt über das bestehende SSE-Muster in die Lauf-Ansicht. Alles über <code>useApi</code>, Theme-Tokens, TypeScript. Erste sichtbare, live nutzbare Scheibe.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/ActivityBar.tsx · src/stores/workspaceStore.ts · src/features/agents/** (neu) · apps/dashboard-backend/src/routes/agents/*.js · Tests: features/agents/__tests__/*</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Tools v1">
+    <h3>Schritt 3 — Tools v1 (RAG · MinIO · n8n · Web) <span class="tag">Risiko: Mittel</span></h3>
+    <p>Tool-Implementierungen als <code>BaseTool</code>-Einträge im <code>toolRegistry</code>, nutzbar durch einen Agenten: RAG/Dokumentensuche (Qdrant/Indexer), MinIO-Datei lesen/schreiben, n8n-Workflow auslösen. Web/HTTP-Tool <strong>standardmäßig aus</strong>, pro Agent nur nach Admin-Freigabe aktivierbar; rein lokale Agenten erreichen kein externes Netz.</p>
+    <p class="files mono">apps/dashboard-backend/src/tools/{baseTool.js,toolRegistry.js} · src/tools/agentTools/{ragTool,minioTool,n8nTool,webTool}.js (neu) · Tests: __tests__/unit/agentTools.*.test.js</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Fluss-Engine">
+    <h3>Schritt 4 — Fluss-Engine mit Verzweigung &amp; Parallel-Zweigen (Backend) <span class="tag">Risiko: Hoch</span></h3>
+    <p>Ausführung eines Fluss-Graphen (JSON): Knoten = Agenten/Bedingungen, Kanten = Reihenfolge, If/Else-Auswertung, logisch parallele Zweige. Alle Modell-Aufrufe strikt über die GPU-Queue (serialisiert). SSE-Frames mit Knoten-ID, damit mehrere Zweige in einen Lauf-Stream gemultiplext werden können. Persistenz nur „letzter Lauf" pro Fluss.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/agents/flowEngine.js (neu) · src/services/llm/llmQueueService.js · src/utils/sseHelper.js · Tests: __tests__/integration/flowRun.routes.test.js</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Visueller Canvas">
+    <h3>Schritt 5 — Visueller Fluss-Canvas (React Flow) <span class="tag">Risiko: Hoch</span></h3>
+    <p><code>@xyflow/react</code> als Dependency (root <code>npm install</code>, Editor lazy-loaded gegen Bundle-Größe). Canvas zum Bauen eines Flusses: Agenten- und Bedingungs-Knoten, Kanten ziehen, If/Else, parallele Zweige. Theming über CSS-Variablen (unsere Tokens). Speichern als Graph-JSON, Ausführen mit Live-Status pro Knoten.</p>
+    <p class="files mono">apps/dashboard-frontend/package.json · src/features/agents/canvas/** (neu) · Tests: features/agents/__tests__/FlowCanvas.test.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Chat-Slash-Command">
+    <h3>Schritt 6 — <code>/flow</code>-Slash-Command im Chat <span class="tag">Risiko: Mittel</span></h3>
+    <p>Slash-Command-Palette im Composer des rechten Chats: <code>/</code> öffnet die Liste der Flow-Agenten, Auswahl startet den Fluss und streamt das Ergebnis in den Chat. Das bestehende <code>@agentname</code> (Datei-Agenten) bleibt vollständig unverändert und wird durch Tests abgesichert.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/llm/agentChat/AgentChatPanel.tsx · ComposerCard · Tests: features/workspace/__tests__/AgentChatPanel.test.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Trigger: Scheduler &amp; n8n-HTTP">
+    <h3>Schritt 7 — Arasul-Scheduler &amp; n8n-HTTP-Trigger <span class="tag">Risiko: Hoch</span></h3>
+    <p>Eigener Cron-Scheduler im Backend (Zeitplan pro Fluss, DB-gestützt) plus offener <code>POST /api/agents/:id/run</code> mit einmalig ausgegebenem Bearer-Token (nur bcrypt-Hash gespeichert, <code>webhookLimiter</code>) — Muster der bestehenden Sandbox-Run-Route. UI: Zeitplan setzen + Webhook-Token kopieren. n8n ruft den Endpoint per HTTP-Node; ohne gültigen Token → 401.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/agents/scheduler.js (neu) · src/routes/agents/run.js · services/postgres/init/110_flow_agents.sql (Token-Spalten) · docs/integrations/N8N.md · Tests: __tests__/integration/agentRun.routes.test.js</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Konkret prüfbar — Agent bauen/ausführen, Modelle mischen, verzweigter Fluss, /-Chat, n8n-Trigger, Bestand grün.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Ein Flow-Agent (Prompt + Modell + Tools) lässt sich im Bereich „Agenten" anlegen, speichern und manuell ausführen; die Antwort streamt live.</li>
+    <li data-done="false">Die Modellwahl pro Agent funktioniert zwischen lokalem Ollama und mindestens einem externen Provider (OpenAI-kompatibel/Anthropic); externe API-Keys sind AES-verschlüsselt gespeichert und nur für Admins editierbar.</li>
+    <li data-done="false">Ein verzweigter Fluss (If/Else + mindestens ein paralleler Zweig) lässt sich im React-Flow-Canvas bauen, speichern und ausführen; parallele Zweige laufen logisch parallel, alle LLM-Aufrufe gehen durch die GPU-Queue.</li>
+    <li data-done="false">Externe Tools (Web/HTTP) sind standardmäßig aus und nur nach Admin-Freigabe pro Agent nutzbar; ein rein lokaler Agent erreicht kein externes Netz.</li>
+    <li data-done="false"><code>/flowname</code> im rechten Chat startet einen Flow-Agenten und streamt das Ergebnis; <code>@agentname</code> (Datei-Agenten, Plan 008) funktioniert unverändert weiter.</li>
+    <li data-done="false"><code>POST /api/agents/:id/run</code> mit gültigem Bearer-Token liefert den Output (für n8n); ohne bzw. mit falschem Token → 401.</li>
+    <li data-done="false">Ein Zeitplan (Cron) im Arasul-Backend löst einen Flow-Agenten automatisch aus; der letzte Lauf ist in der schlanken Lauf-Ansicht sichtbar.</li>
+    <li data-done="false">Bestehende Tests (<code>agentRun.routes</code>, <code>agentToolLoop</code>, <code>ActivityBar</code>, <code>AgentChatPanel</code>) bleiben grün; neue Tests für Provider-Registry, <code>/run</code>-Route und Canvas-CRUD sind vorhanden.</li>
+    <li data-done="false">Alle neuen Backend-Routen nutzen <code>asyncHandler</code> + custom errors; kein Route-Level-try/catch; <code>API_ROUTE_GROUPS</code> ist aktualisiert.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Gestuft im echten Browser: Einzelagent → Cloud-Lauf → verzweigter Fluss → /-Chat → Cron → n8n-HTTP.</span>
+  </summary>
+  <div class="sbody">
+  <p>Live im echten Browser gegen das Gerät (<code>https://192.168.0.197</code>), gestuft — jeder Schritt aus §4 wird nach seinem Deploy einzeln verifiziert, da es keinen Feature-Flag gibt:</p>
+  <ol>
+    <li><strong>Erreichbarkeit &amp; Bereich:</strong> Dashboard lädt, neuer Bereich „Agenten" erscheint in der Aktivitätsleiste.</li>
+    <li><strong>Einzelagent lokal:</strong> Agent mit Ollama-Modell anlegen → manuell ausführen → Antwort streamt live.</li>
+    <li><strong>Cloud-Lauf:</strong> Admin hinterlegt einen externen Key (verschlüsselt) → Agent mit externem Modell → ein Lauf liefert eine Antwort.</li>
+    <li><strong>Verzweigter Fluss:</strong> Im Canvas If/Else + einen parallelen Zweig bauen → ausführen → Knoten-Status live; in <code>docker compose logs dashboard-backend</code> ist zu sehen, dass die Modell-Aufrufe seriell durch die Queue laufen (keine GPU-OOM).</li>
+    <li><strong>Chat-Slash:</strong> <code>/flowname</code> startet den Fluss, Ergebnis erscheint im Chat; <code>@agentname</code> testweise weiterhin funktionsfähig.</li>
+    <li><strong>Zeitplan:</strong> kurzes Cron-Intervall setzen → ein Lauf entsteht automatisch, sichtbar in der Lauf-Ansicht.</li>
+    <li><strong>n8n-HTTP:</strong> n8n-HTTP-Node ruft <code>POST /api/agents/:id/run</code> mit Bearer-Token → 200 + Output; ohne Token → 401.</li>
+  </ol>
+  <p><strong>Health/Logs:</strong> <code>docker compose ps</code> (alle healthy), <code>docker compose logs -f dashboard-backend</code> (Queue-Reihenfolge, Provider-Dispatch, keine Fehler), GPU per <code>tegrastats</code> während eines Parallel-Flusses stabil.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Hauptrisiken GPU-Contention, Secret-Handling und „ohne Flag live" — jeweils klar abgesichert; Rollback per Deploy-Revert.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>GPU-Überlastung bei parallelen Zweigen auf einer Jetson-GPU</td><td>Hoch</td><td>Alle LLM-Aufrufe zwingend über <code>llmQueueService</code> (serialisiert) — nie direkter axios wie heute in <code>toolLoop.js</code>. In §6 explizit an den Logs verifiziert.</td></tr>
+      <tr><td>Leak externer API-Keys (Klartext, falsche Krypto)</td><td>Mittel</td><td>AES-256-GCM über bestehendes <code>tokenCrypto.js</code> (Key aus <code>JWT_SECRET</code> abgeleitet), nur Admin, keine Klartext-Spalte, kein neues Env.</td></tr>
+      <tr><td>Kollision mit bestehenden Datei-Agenten (Plan 008)</td><td>Mittel</td><td>Strikte Trennung als v2: eigene DB-Tabellen, eigener Bereich, Trigger <code>/</code> statt <code>@</code>. Datei-Agenten bleiben unberührt, per Test abgesichert.</td></tr>
+      <tr><td>Kein Feature-Flag → halbfertige Zwischenstände sichtbar</td><td>Mittel</td><td>§4-Schritte so geschnitten, dass jeder für sich funktioniert und live-verifizierbar ist; unfertige Folgeschritte werden nicht in die Navigation gehängt.</td></tr>
+      <tr><td>SSE-Multiplexing paralleler Zweige (Reihenfolge, Knoten-IDs)</td><td>Mittel</td><td>Knoten-ID in jedem SSE-Frame, ein Stream pro Lauf; Zweig-Multiplexing bewusst neu designt (kein Reuse des linearen Tool-Loops).</td></tr>
+      <tr><td>Kein Audit externer Aufrufe trotz Cloud/Web (DSGVO-Nachweis)</td><td>Mittel</td><td>Bewusste v1-Entscheidung; kompensiert durch opt-in + Admin-Freigabe. Audit-Log als benannte spätere Erweiterung vorgemerkt.</td></tr>
+      <tr><td>Neue Dependency <code>@xyflow/react</code> (Bundle / no-manualChunks-Landmine)</td><td>Niedrig</td><td>Root-<code>npm install</code> (ein Lockfile), Canvas lazy-loaded; Frontend-Lint/Build bleibt advisory.</td></tr>
+      <tr><td>Migrationskollision</td><td>Niedrig</td><td>Nächste freie Nummer <code>110</code> (höchste auf Platte: 109), rein additiv, keine destruktiven Änderungen an Bestandstabellen.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Kein Feature-Flag: Rollback erfolgt pro Schritt per Deploy-Zurückrollen (Revert des jeweiligen Merges + <code>docker compose up -d --build</code>). Die Migration 110 ist additiv (neue Tabellen/Spalten), sodass ein Zurückrollen des Codes ohne Datenverlust am Bestand möglich ist; ein Down-Pfad droppt ausschließlich die neuen Flow-Tabellen. Da die bestehenden Datei-Agenten und der bisherige Chat unangetastet bleiben, hat ein Rollback keinen Einfluss auf kritische Bestandsfunktionen (Chat, RAG, Auth).</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 21 Entscheidungen aus 6 Interview-Runden — inkl. der bewussten Abweichung „opt-in ohne Audit-Log".</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Zweiter Orchestrierungs-Motor oder Schicht auf n8n?</td><td>Agenten-Schicht auf n8n</td><td>Kein n8n-Nachbau; n8n bleibt Trigger-Rückgrat, Arasul liefert das KI-Gehirn.</td></tr>
+      <tr><td>Primäre UI-Metapher?</td><td>Chat + Slash + Config-Pane</td><td>Basis-Bild; später zum eigenen Bereich erweitert (s. Zeile 9).</td></tr>
+      <tr><td>MVP-Umfang?</td><td>Voll inkl. Trigger</td><td>Großer Wurf, in §4 in sieben einzeln-livefähige Schritte sequenziert.</td></tr>
+      <tr><td>Wie an n8n koppeln?</td><td>Agent als HTTP-Webhook (<code>POST /agents/:id/run</code>)</td><td>Keine Custom-Node nötig; Bearer-Token, <code>webhookLimiter</code>.</td></tr>
+      <tr><td>Lokal-Versprechen vs. externe Tools?</td><td>Externe Tools opt-in + Admin-Freigabe</td><td>Default lokal; der Audit-Teil dieser Wahl wurde später verworfen (s. Zeile 15/19).</td></tr>
+      <tr><td>Bestehendes Agenten-Format nutzen?</td><td>Recherche entscheidet</td><td>Ergebnis: getrennte v2 (s. Zeile 20) — Formate zu unterschiedlich (Datei vs. DB).</td></tr>
+      <tr><td>Welche Tools in v1?</td><td>RAG, MinIO-Dateien, n8n auslösen, Web/HTTP extern</td><td>Externe Tools unter der opt-in-Regel; kein Screenshot/Browser in v1.</td></tr>
+      <tr><td>Wer besitzt Zeitpläne/Trigger?</td><td>Arasul eigener Scheduler</td><td>Zweiter Scheduler neben n8n bewusst akzeptiert; DB-gestützter Cron im Backend.</td></tr>
+      <tr><td>UI-Heimat des Features?</td><td>Eigener Top-Level-Bereich + Chat-Aufruf</td><td>Vierter Aktivitäts-Bereich „Agenten"; Chat-<code>/</code> als Schnellstart.</td></tr>
+      <tr><td>Modell-Provider in v1?</td><td>Ollama + OpenAI-kompatibel + Anthropic</td><td>Provider-Registry; API-Keys verschlüsselt, nur Admin.</td></tr>
+      <tr><td>Verkettungs-Modell?</td><td>Verzweigt (If/Else + parallele Zweige)</td><td>Von Anfang an; erfordert Graph-Engine statt linearer Kette.</td></tr>
+      <tr><td>Wo laufen die Ausführungen?</td><td>Recherche entscheidet</td><td>Ergebnis: Backend-Modul (<code>flowEngine</code>) über <code>llmQueueService</code>, kein neuer Service (s. Zeile 21).</td></tr>
+      <tr><td>Wie werden verzweigte Flüsse editiert?</td><td>Visueller Mini-Canvas</td><td>React Flow als Dependency; teuerster Baustein (Schritt 5).</td></tr>
+      <tr><td>Wer darf anlegen/ausführen &amp; Keys verwalten?</td><td>Alle Nutzer; Keys nur Admin</td><td>Niedrige Hürde für Agenten, Cloud-Keys bleiben Admin-Sache.</td></tr>
+      <tr><td>Lauf-Historie?</td><td>Schlank (nur letzter Lauf)</td><td>Überschreibt den Audit-Teil von Zeile 5 — kein dauerhaftes Log.</td></tr>
+      <tr><td>Rollout?</td><td>Ohne Feature-Flag, direkt live</td><td>Rollback nur per Deploy-Revert; §4-Schritte einzeln livefähig geschnitten.</td></tr>
+      <tr><td>Canvas-Technik?</td><td>React Flow (<code>@xyflow/react</code>)</td><td>Neue Dependency; Theming über CSS-Variablen, Editor lazy-loaded.</td></tr>
+      <tr><td>Parallelität auf einer GPU?</td><td>Logisch parallel, LLM serialisiert</td><td>Alle Modell-Aufrufe über die GPU-Queue → keine OOM.</td></tr>
+      <tr><td>Extern-Audit trotz schlanker Historie?</td><td>Wirklich nur letzter Lauf</td><td>Bewusste Abweichung: opt-in bleibt, aber kein Nachweis-Log externer Aufrufe in v1.</td></tr>
+      <tr><td>Alt vs. Neu (Research-Fund)?</td><td>Flow-Agenten als v2 parallel</td><td>Datei-Agenten (Plan 008) bleiben unberührt; eigene DB-Tabellen.</td></tr>
+      <tr><td>Chat-Trigger-Zeichen (Research-Fund)?</td><td><code>/</code> neu für Flow-Agenten, <code>@</code> bleibt</td><td>Keine Migration bestehender Nutzung; zwei klar getrennte Trigger.</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 010 · erstellt am 2026-07-20 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/010-flow-agenten-orchestrierung.html</span><br>
+  Feedback: 💬 an jeder Karte nutzen — dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
