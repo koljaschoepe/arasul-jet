@@ -120,7 +120,10 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
                   />
                   <Label
                     htmlFor={`theme-${option.value}`}
-                    className="flex cursor-pointer flex-col gap-0.5"
+                    // items-start überschreibt das items-center der Basis-Label-
+                    // Klasse — sonst zentriert flex-col die Kinder horizontal und
+                    // der kurze Titel („Schwarz") wirkt mittig (Plan 009, live bestätigt).
+                    className="flex cursor-pointer flex-col items-start gap-0.5"
                   >
                     <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                       <Icon className="size-3.5 text-muted-foreground" />
