@@ -655,6 +655,15 @@
     <li><strong>Abweichung:</strong> GPU-Serialisierung über prozessweites <code>gpuGate.js</code> (<code>AsyncMutex</code>) statt der chat-/streaming-gebundenen <code>llmQueueService</code>-Pipeline — gleiche Ein-nach-dem-anderen-Garantie, ohne Chat-Historie mit synthetischen Jobs zu verschmutzen.</li>
   </ul>
 
+  <h3>Schritt 3 — Tools v1 (RAG · MinIO · n8n · Web) ✅</h3>
+  <ul>
+    <li><strong>PR:</strong> #226 (squash-merged, alle CI-Checks grün). 2 Review-Runden: 2 Critical behoben (Anthropic-Parallel-Tools, MinIO-Nutzer-Isolation), 2. Runde 0 Critical/0 Warnings.</li>
+    <li><strong>Umsetzung:</strong> siehe §4 · Schritt 3. Vier Tools + Function-Calling-Schleife; Provider-Registry auf provider-neutrale Nachrichten umgebaut (Tool-Round-Trip für ollama/openai/anthropic); SSRF-Guard; Editor-Tool-Auswahl.</li>
+    <li><strong>Tests:</strong> 30+ neue Backend-Unit-Tests; Backend-Unit-Suite 1438 grün; tsc/Lint sauber.</li>
+    <li><strong>Deploy:</strong> erfolgreich (Frontend + Backend), beide Container healthy.</li>
+    <li><strong>Live-Verify (Gerät):</strong> Ein Agent mit <code>rag</code>-Tool (Modell <code>qwen3:8b</code>) wurde ausgeführt — SSE-Sequenz <code>status → tool_start(rag) → tool_result → text → done</code>. Das Modell rief das Tool auf, die RAG-Suche traf die <em>echte</em> Wissensbasis (Arasul-PRD + Bachelorarbeit) und die Antwort war fundiert. Web-Gating: Agent mit <code>allow_external=false</code> + <code>tools:['web']</code> wird angelegt, das Web-Tool zur Laufzeit aber ausgeschlossen (Unit-verifiziert). Test-Agenten danach gelöscht, Verify-Token invalidiert.</li>
+  </ul>
+
   <h3>Schritt 2 — Agenten-Bereich &amp; ausführbarer Einzelagent ✅</h3>
   <ul>
     <li><strong>PRs:</strong> #224 (Feature) + #225 (Hotfix, s. u.) — beide squash-merged, alle CI-Checks grün.</li>
