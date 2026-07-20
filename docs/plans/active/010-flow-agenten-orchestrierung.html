@@ -658,6 +658,14 @@
     <li><strong>Abweichung:</strong> GPU-Serialisierung über prozessweites <code>gpuGate.js</code> (<code>AsyncMutex</code>) statt der chat-/streaming-gebundenen <code>llmQueueService</code>-Pipeline — gleiche Ein-nach-dem-anderen-Garantie, ohne Chat-Historie mit synthetischen Jobs zu verschmutzen.</li>
   </ul>
 
+  <h3>Schritt 6 — <code>/flow</code>-Slash-Command im Chat ✅</h3>
+  <ul>
+    <li><strong>PR:</strong> #230 (squash-merged, CI grün). 2 Review-Runden: 0 Critical (<code>@</code>-Pfad bestätigt unberührt, Regex disjunkt), 2 Warnings behoben (Enter wählt Treffer, keine Palette bei Anhang).</li>
+    <li><strong>Umsetzung:</strong> siehe §4 · Schritt 6. <code>/</code>-Palette im Composer, eigenständige <code>runFlowAgentStream</code> im ChatContext, <code>@</code> unangetastet.</li>
+    <li><strong>Deploy:</strong> erfolgreich (Frontend neu gebaut).</li>
+    <li><strong>Live-Verify (echter Browser, Playwright):</strong> Im rechten Chat öffnete <code>/</code> die Flow-Agenten-Palette (listet „slashdemo"). Senden von <code>/slashdemo Was ist die Hauptstadt von Italien?</code> startete den Flow-Agenten (Qwen 3 7B auf der GPU) und streamte die Antwort <strong>„Die Hauptstadt von Italien ist Rom."</strong> als Assistenten-Nachricht in den Chat. Die normale RAG-Chat-Antwort darüber (Paris) blieb intakt — <code>@</code>/normal unberührt. Test-Agent danach gelöscht.</li>
+  </ul>
+
   <h3>Schritt 5 — Visueller Fluss-Canvas (React Flow) ✅</h3>
   <ul>
     <li><strong>PR:</strong> #229 (squash-merged, CI grün). 2 Review-Runden: 1 Critical behoben (Lauf-Status hing nach „Stopp"/Flusswechsel), Status-Farben auf Design-Tokens; 2. Runde 0/0.</li>
