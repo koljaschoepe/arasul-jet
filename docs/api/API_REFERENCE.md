@@ -523,6 +523,14 @@ darf nur ein Admin auf `true` setzen — sonst `400 VALIDATION_ERROR`. Für Clou
 Provider muss zuvor ein Key hinterlegt sein (siehe Provider-Keys), sonst endet
 der Lauf mit einem `error`-Event.
 
+`tools` ∈ {`rag`, `minio`, `n8n`, `web`} (andere Namen → `400 VALIDATION_ERROR`).
+Während eines Laufs führt der Agent eine native Function-Calling-Schleife aus:
+das Modell darf die deklarierten Tools aufrufen, deren Ergebnisse fließen zurück
+ins Modell (max. `AGENT_MAX_ITERATIONS` Runden). `web` ist **extern** und wird
+zur Laufzeit nur einbezogen, wenn der Agent `allowExternal` hat; jede Ziel-URL
+läuft durch einen SSRF-Guard (keine privaten/reservierten IPs). Tool-Schritte
+erscheinen im SSE-Stream als `{"type":"tool_start",…}` / `{"type":"tool_result",…}`.
+
 **`POST /api/agents/:id/run/stream`** streamt SSE-Frames (Body `{ "input": "…" }`):
 `{"type":"status","status":"running",…}` · `{"type":"text","content":"…"}` ·
 `{"type":"done","result":"…"}` · `{"type":"error","message":"…"}`. Auth-/Lookup-

@@ -1,28 +1,29 @@
 /**
- * Einzel-Agent-Runner (Plan 010, Schritt 2)
+ * Einzel-Agent-Runner (Plan 010, Schritt 2 + Tool-Loop in Schritt 3)
  *
- * Führt EINEN Flow-Agenten einmal aus: lädt den (owner-scoped) Agenten, löst
- * bei Cloud-Providern den verschlüsselten API-Key auf, ruft die Provider-
- * Registry (nicht-streamend, GPU-serialisiert für lokale Modelle) und meldet
- * jeden Schritt über onEvent — dasselbe Event-Muster wie der Datei-Agent-
- * Tool-Loop (Plan 008): {type:'status'|'text'|'done'|'error', ...}.
+ * Führt EINEN Flow-Agenten aus: lädt den (owner-scoped) Agenten, löst bei
+ * Cloud-Providern den verschlüsselten API-Key auf, baut aus den deklarierten
+ * Tools eine Per-Run-Registry (externe Tools nur bei allow_external) und dreht
+ * die native Function-Calling-Schleife über die Provider-Registry: Modell rufen
+ * → falls Tool-Aufrufe, ausführen und Ergebnisse anhängen → wiederholen, bis
+ * eine reine Text-Antwort kommt oder MAX_ITERATIONS erreicht ist. Jeder Schritt
+ * wird über onEvent gemeldet ({type:'status'|'tool_start'|'tool_result'|'text'|
+ * 'done'|'error', ...}). Lokale Modell-Aufrufe sind GPU-serialisiert.
  *
- * Der Lauf wird schlank persistiert: pro Agent nur der LETZTE Lauf (frühere
- * flow_runs-Zeilen des Agenten werden vorher gelöscht). Kein Audit-Log (v1).
- *
- * Tools kommen in Schritt 3 dazu; hier läuft ein reiner Prompt→Antwort-Turn.
+ * Persistenz: pro Agent nur der LETZTE Lauf (frühere flow_runs-Zeilen werden
+ * vorher gelöscht). Kein Audit-Log (v1).
  */
 
 const db = require('../../database');
 const logger = require('../../utils/logger');
-const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
+const { ServiceUnavailableError } = require('../../utils/errors');
 const flowAgentsService = require('./flowAgentsService');
 const providerKeysService = require('./providerKeysService');
 const providerRegistry = require('./providerRegistry');
+const { buildRegistry } = require('./flowToolRegistry');
 
-/**
- * Letzten Lauf eines Agenten ersetzen (schlank: nur der letzte bleibt).
- */
+const MAX_ITERATIONS = parseInt(process.env.AGENT_MAX_ITERATIONS || '8', 10);
+
 async function persistLastRun(agentId, userId, { trigger, status, input, output, error }) {
   try {
     await db.query(`DELETE FROM flow_runs WHERE agent_id = $1`, [agentId]);
@@ -32,7 +33,6 @@ async function persistLastRun(agentId, userId, { trigger, status, input, output,
       [agentId, userId, trigger, status, input || '', output || '', error || null]
     );
   } catch (err) {
-    // Persistenz ist best-effort — ein DB-Fehler darf den Lauf nicht kippen.
     logger.warn(`persistLastRun (Agent ${agentId}) fehlgeschlagen: ${err.message}`);
   }
 }
@@ -46,7 +46,7 @@ async function persistLastRun(agentId, userId, { trigger, status, input, output,
  * @param {string} [args.trigger] - 'manual' | 'schedule' | 'webhook'
  * @param {string} args.userInput
  * @param {(evt:object)=>void} [args.onEvent]
- * @returns {Promise<{result:string, error?:string}>}
+ * @returns {Promise<{result:string, error?:string, truncated?:boolean}>}
  */
 async function runById({ agentId, userId, trigger = 'manual', userInput = '', onEvent } = {}) {
   const emit = evt => {
@@ -62,13 +62,24 @@ async function runById({ agentId, userId, trigger = 'manual', userInput = '', on
   // Ownership/Existenz — wirft NotFoundError (→ 404) VOR dem ersten SSE-Frame.
   const agent = await flowAgentsService.getAgent(agentId, userId);
 
+  if (!agent.model) {
+    // Konfigurationsproblem, das VOR dem Start bekannt ist → kein 'running',
+    // direkt ein sauberes error-Event (kein Wurf: der Aufrufer wertet .error aus,
+    // und im SSE-Pfad ist der Stream damit sauber terminiert).
+    const message = 'Für diesen Agenten ist kein Modell gewählt.';
+    emit({ type: 'error', message });
+    await persistLastRun(agentId, userId, {
+      trigger,
+      status: 'error',
+      input: userInput,
+      error: message,
+    });
+    return { result: '', error: message };
+  }
+
   emit({ type: 'status', status: 'running', agent: agent.name, model: agent.model });
 
   try {
-    if (!agent.model) {
-      throw new ValidationError('Für diesen Agenten ist kein Modell gewählt.');
-    }
-
     // Bei Cloud-Providern den verschlüsselten Key auflösen.
     let apiKey;
     let baseUrl;
@@ -83,29 +94,65 @@ async function runById({ agentId, userId, trigger = 'manual', userInput = '', on
       baseUrl = creds.baseUrl;
     }
 
+    // Per-Run-Tool-Registry: externe Tools nur bei allow_external.
+    const registry = buildRegistry(agent.tools, { allowExternal: agent.allowExternal });
+    const toolDefs = await registry.getOllamaToolDefinitions();
+    const tools = toolDefs.length > 0 ? toolDefs : undefined;
+    // userId scoped den Datei-Zugriff (minio) auf das eigene Agenten-Präfix,
+    // damit ein Agent NICHT fremde Dokumente lesen/überschreiben kann.
+    const toolContext = { spaceIds: null, userId };
+
     const messages = [
       { role: 'system', content: agent.systemPrompt || '' },
       { role: 'user', content: String(userInput || '') },
     ];
 
-    const { content } = await providerRegistry.chat({
-      provider: agent.provider,
-      model: agent.model,
-      messages,
-      apiKey,
-      baseUrl,
-    });
+    let lastText = '';
+    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+      const { content, toolCalls } = await providerRegistry.chat({
+        provider: agent.provider,
+        model: agent.model,
+        messages,
+        tools,
+        apiKey,
+        baseUrl,
+      });
 
-    const result = content || '';
-    emit({ type: 'text', content: result });
-    emit({ type: 'done', result });
+      if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+        const result = content || '';
+        emit({ type: 'text', content: result });
+        emit({ type: 'done', result });
+        await persistLastRun(agentId, userId, {
+          trigger,
+          status: 'done',
+          input: userInput,
+          output: result,
+        });
+        return { result };
+      }
+
+      lastText = content || lastText;
+      // Assistenten-Turn mit seinen Tool-Aufrufen anhängen.
+      messages.push({ role: 'assistant', content: content || '', toolCalls });
+
+      for (const call of toolCalls) {
+        emit({ type: 'tool_start', tool: call.name, params: call.args });
+        const result = await registry.execute(call.name, call.args, toolContext);
+        emit({ type: 'tool_result', tool: call.name, result });
+        messages.push({ role: 'tool', toolCallId: call.id, content: result });
+      }
+    }
+
+    // MAX_ITERATIONS erreicht, noch immer Tool-Aufrufe.
+    const result = lastText || 'Der Agent hat die maximale Schrittzahl erreicht.';
+    emit({ type: 'done', result, truncated: true });
     await persistLastRun(agentId, userId, {
       trigger,
       status: 'done',
       input: userInput,
       output: result,
     });
-    return { result };
+    return { result, truncated: true };
   } catch (err) {
     const message = err.message || 'Agent-Lauf fehlgeschlagen';
     emit({ type: 'error', message });

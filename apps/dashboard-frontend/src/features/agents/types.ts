@@ -40,3 +40,24 @@ export const PROVIDER_LABELS: Record<AgentProvider, string> = {
   openai: 'OpenAI-kompatibel',
   anthropic: 'Anthropic',
 };
+
+/** Wählbare Tools (muss mit dem Backend flowToolRegistry übereinstimmen). */
+export interface ToolMeta {
+  name: string;
+  label: string;
+  description: string;
+  /** Verlässt das lokale Netz → nur mit allow_external nutzbar. */
+  external?: boolean;
+}
+
+export const FLOW_TOOLS: ToolMeta[] = [
+  { name: 'rag', label: 'Wissensbasis (RAG)', description: 'Lokale Dokumente durchsuchen' },
+  { name: 'minio', label: 'Dateien (MinIO)', description: 'Dateien lesen/schreiben' },
+  { name: 'n8n', label: 'n8n auslösen', description: 'Einen n8n-Workflow per Webhook starten' },
+  {
+    name: 'web',
+    label: 'Web/HTTP',
+    description: 'Öffentliche URL abrufen (extern)',
+    external: true,
+  },
+];

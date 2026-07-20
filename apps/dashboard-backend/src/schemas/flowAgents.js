@@ -30,8 +30,9 @@ const SaveProviderKeyBody = z
 
 const Provider = z.enum(['ollama', 'openai', 'anthropic']);
 
-// Tool-Namen (Schritt 3 füllt die tatsächliche Registry). Hier nur Form-Prüfung.
-const ToolName = z.string().trim().min(1).max(50);
+// Erlaubte Flow-Agent-Tools (Schritt 3). Muss mit flowToolRegistry.TOOL_CLASSES
+// übereinstimmen — 'web' ist extern und greift zur Laufzeit nur bei allow_external.
+const ToolName = z.enum(['rag', 'minio', 'n8n', 'web']);
 
 const AgentIdParam = z
   .object({
@@ -80,4 +81,5 @@ module.exports = {
   UpdateAgentBody,
   RunAgentBody,
   Provider,
+  ToolName,
 };
