@@ -50,8 +50,25 @@ beforeEach(() => {
   // Default: models list for the editor picker.
   mockApi.get.mockImplementation((path: string) => {
     if (path === '/agents') return Promise.resolve({ data: [AGENT] });
+    // Reale Form aus GET /api/models/installed (id + effective_ollama_name +
+    // model_type); OCR-Modelle müssen herausgefiltert werden.
     if (path === '/models/installed')
-      return Promise.resolve({ models: [{ model_id: 'qwen2.5:3b' }] });
+      return Promise.resolve({
+        models: [
+          {
+            id: 'qwen3:7b-q8',
+            name: 'Qwen 3 7B',
+            effective_ollama_name: 'qwen3:8b',
+            model_type: 'llm',
+          },
+          {
+            id: 'tesseract:latest',
+            name: 'Tesseract OCR',
+            effective_ollama_name: 'tesseract:latest',
+            model_type: 'ocr',
+          },
+        ],
+      });
     return Promise.resolve({ data: [] });
   });
 });
