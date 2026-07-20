@@ -488,6 +488,47 @@ Request: `multipart/form-data` with `file` field.
 }
 ```
 
+### Flow-Agenten (Plan 010)
+
+KI-Orchestrierungs-Schicht. Ein Flow-Agent = Prompt + Provider/Modell + Tools +
+Rechte. Agenten sind **owner-scoped** — jeder Nutzer sieht/verwaltet nur seine
+eigenen (fremd/unbekannt → 404). Getrennt von den Datei-Agenten (Plan 008, unter
+`/api/sandbox/...`).
+
+| Method | Endpoint                     | Description                                                |
+| ------ | ---------------------------- | ---------------------------------------------------------- |
+| GET    | `/api/agents`                | Eigene Agenten auflisten                                   |
+| POST   | `/api/agents`                | Agenten anlegen                                            |
+| GET    | `/api/agents/:id`            | Einen eigenen Agenten laden                                |
+| PUT    | `/api/agents/:id`            | Agenten aktualisieren (nur gesetzte Felder)                |
+| DELETE | `/api/agents/:id`            | Agenten löschen                                            |
+| POST   | `/api/agents/:id/run/stream` | Agenten einmal ausführen — Ergebnis per SSE (`llmLimiter`) |
+
+Alle erfordern `requireAuth`. **Body (POST/PUT):**
+
+```json
+{
+  "name": "Recherche-Assistent",
+  "description": "",
+  "systemPrompt": "Du bist ein Rechercheur…",
+  "provider": "ollama",
+  "model": "qwen2.5:3b",
+  "tools": [],
+  "allowExternal": false
+}
+```
+
+`provider` ∈ {`ollama`, `openai`, `anthropic`}. `allowExternal` (Netz-/Cloud-Tools)
+darf nur ein Admin auf `true` setzen — sonst `400 VALIDATION_ERROR`. Für Cloud-
+Provider muss zuvor ein Key hinterlegt sein (siehe Provider-Keys), sonst endet
+der Lauf mit einem `error`-Event.
+
+**`POST /api/agents/:id/run/stream`** streamt SSE-Frames (Body `{ "input": "…" }`):
+`{"type":"status","status":"running",…}` · `{"type":"text","content":"…"}` ·
+`{"type":"done","result":"…"}` · `{"type":"error","message":"…"}`. Auth-/Lookup-
+Fehler (401/404) kommen als echter HTTP-Status vor dem ersten Frame. Persistiert
+wird nur der **letzte** Lauf pro Agent.
+
 ### Flow-Agenten — Provider-Keys (Plan 010)
 
 Admin-only management of external model-provider API keys used by Flow-Agents.

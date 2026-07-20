@@ -493,10 +493,11 @@
     <div class="result"><strong>Ergebnis:</strong> Umgesetzt. Migration <code>110_flow_agents.sql</code> (4 additive Tabellen: <code>flow_agents</code>, <code>flows</code> inkl. <code>schedule_cron</code>/<code>run_token_hash</code> für Schritt 7, <code>flow_runs</code>, verschlüsselte <code>flow_provider_keys</code>). <code>providerRegistry.js</code> dispatcht ollama/openai/anthropic mit provider-neutraler Normalisierung; <code>providerKeysService.js</code> (AES via <code>tokenCrypto.js</code>) + Admin-Routen <code>/api/agents/provider-keys</code> (requireAuth+requireAdmin), Gruppe in <code>API_ROUTE_GROUPS</code> registriert. 20 neue Unit-Tests grün, Lint sauber. <strong>Abweichung (bewusst):</strong> GPU-Serialisierung lokaler Aufrufe erfolgt über ein neues, prozessweites <code>gpuGate.js</code> (derselbe <code>AsyncMutex</code>-Primitiv wie <code>llmQueueService</code>), NICHT durch die Chat-Queue selbst — diese ist streaming- und <code>chat_conversations</code>-gebunden und für nicht-streamende Agenten-Function-Calls ungeeignet; das Gate liefert dieselbe „einer-nach-dem-anderen"-Garantie ohne die Chat-Historie zu verschmutzen. <code>toolLoop.js</code> (Datei-Agenten, Plan 008) blieb unangetastet.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Agenten-Bereich &amp; Einzelagent">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Agenten-Bereich &amp; Einzelagent">
     <h3>Schritt 2 — Agenten-Bereich &amp; ausführbarer Einzelagent (Frontend) <span class="tag">Risiko: Mittel</span></h3>
     <p>Vierter Aktivitäts-Bereich „Agenten" in der <code>ActivityBar</code> + neuer <code>WorkspaceTabType</code>. Liste + Editor für einen einzelnen Agenten (Prompt, Modellwahl aus Provider-Registry, Tools, Rechte). Ein Agent lässt sich speichern und manuell ausführen; die Antwort streamt über das bestehende SSE-Muster in die Lauf-Ansicht. Alles über <code>useApi</code>, Theme-Tokens, TypeScript. Erste sichtbare, live nutzbare Scheibe.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/workspace/ActivityBar.tsx · src/stores/workspaceStore.ts · src/features/agents/** (neu) · apps/dashboard-backend/src/routes/agents/*.js · Tests: features/agents/__tests__/*</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt. Backend: <code>flowAgentsService.js</code> (owner-scopes CRUD, fremd → 404; <code>allow_external</code> nur für Admins), <code>runFlowAgent.js</code> (Einzel-Lauf über Provider-Registry, Cloud-Key-Auflösung, SSE-Events, „letzter Lauf" persistiert), Routen <code>GET/POST/PUT/DELETE /api/agents</code> + <code>POST /api/agents/:id/run/stream</code> (lazy-SSE wie Datei-Agenten). Frontend: vierter <code>ActivityBar</code>-Bereich „Agenten" (Bot-Icon) + <code>WorkspaceTabType 'agenten'</code> in allen erschöpfend getypten Switches; Feature <code>features/agents/</code> — Master-Detail-Liste, Editor (Provider-/Modell-Picker: lokal aus <code>/models/installed</code>, extern frei; Admin-Switch für externe Tools) und Lauf-Ansicht mit Live-SSE-Streaming (rohes fetch wie <code>ChatContext</code>, da Streaming). Tests: 16 neue Backend-Unit-Tests + 4 Frontend-Tests; volle Backend-Unit-Suite (1406) und Workspace-Suite (116) grün; tsc + Lint sauber. Tools-Auswahl bewusst auf Schritt 3 verschoben (nur das Rechte-Gate steht bereits).</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Tools v1">
@@ -635,13 +636,30 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> laufender Report — inkrementell pro Schritt (jeder Schritt eigener PR + Deploy + Jetson-Verify).</span>
   </summary>
   <div class="sbody">
+  <p><strong>Ausführungsmodus (Abweichung, bewusst):</strong> Der Plan wird <em>inkrementell</em> ausgeführt — jeder der 7 Schritte als eigener PR mit eigenem Deploy und Live-Verify auf dem Jetson, statt eines einzelnen Mega-PRs. Das entspricht dem Plan-Design („jeder Schritt einzeln livefähig"), der PR-Hygiene (ein aktiver PR pro Work-Stream) und hält jeden Deploy auf die Produktions-Hardware klein und umkehrbar.</p>
+
+  <h3>Schritt 1 — Datenmodell &amp; Provider-Registry ✅</h3>
+  <ul>
+    <li><strong>PR:</strong> #223 (squash-merge auf <code>main</code>, alle CI-Checks grün: Backend-jest, Lockfile-Guard, Docker-Builds, Frontend).</li>
+    <li><strong>Deploy:</strong> <code>deploy.yml</code> auf dem Jetson erfolgreich.</li>
+    <li><strong>Live-Verify (Gerät):</strong> Migration 110 in <code>schema_migrations</code> mit <code>success = true</code>; alle vier Tabellen vorhanden (<code>flow_agents</code>, <code>flows</code>, <code>flow_runs</code>, <code>flow_provider_keys</code>); <code>dashboard-backend</code> healthy; <code>/api/agents</code> in der API-Surface (<code>/api/_meta</code>), Provider-Key-Routen ohne Auth korrekt <code>401</code>.</li>
+    <li><strong>Review:</strong> 0 Critical; 2 Warnings behoben (Env-Vars dokumentiert, <code>getDecryptedKey</code> Decrypt-Guard), 3 als Folgeschritt vermerkt.</li>
+    <li><strong>Abweichung:</strong> GPU-Serialisierung über prozessweites <code>gpuGate.js</code> (<code>AsyncMutex</code>) statt der chat-/streaming-gebundenen <code>llmQueueService</code>-Pipeline — gleiche Ein-nach-dem-anderen-Garantie, ohne Chat-Historie mit synthetischen Jobs zu verschmutzen.</li>
+  </ul>
+
+  <h3>Schritt 2 — Agenten-Bereich &amp; ausführbarer Einzelagent ⏳ (im Review/Ship)</h3>
+  <ul>
+    <li><strong>Umsetzung:</strong> siehe §4 · Schritt 2 (Ergebnis). Backend-CRUD + SSE-Run + Frontend-Bereich „Agenten".</li>
+    <li><strong>Tests:</strong> 16 Backend-Unit + 4 Frontend; Backend-Unit-Suite 1406 grün, Workspace-Suite 116 grün; tsc/Lint sauber.</li>
+    <li><strong>PR / Deploy / Live-Verify:</strong> folgt in diesem Schritt (wird ergänzt).</li>
+  </ul>
   </div>
 </details>
 
