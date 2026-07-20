@@ -11,6 +11,9 @@
 const express = require('express');
 const router = express.Router();
 
+// Provider-Keys ZUERST mounten: das spezifischere Präfix darf nicht vom
+// '/:id'-Muster des CRUD-Routers verschluckt werden.
 router.use('/provider-keys', require('./providerKeys'));
+router.use('/', require('./flowAgents'));
 
 module.exports = router;

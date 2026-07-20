@@ -26,4 +26,58 @@ const SaveProviderKeyBody = z
   })
   .strict();
 
-module.exports = { ProviderParam, SaveProviderKeyBody, KeyedProvider };
+// --- Agent-CRUD (Schritt 2) ---
+
+const Provider = z.enum(['ollama', 'openai', 'anthropic']);
+
+// Tool-Namen (Schritt 3 füllt die tatsächliche Registry). Hier nur Form-Prüfung.
+const ToolName = z.string().trim().min(1).max(50);
+
+const AgentIdParam = z
+  .object({
+    id: z.coerce.number().int().positive(),
+  })
+  .strict();
+
+const CreateAgentBody = z
+  .object({
+    name: z.string().trim().min(1, 'Name darf nicht leer sein').max(120),
+    description: z.string().max(2000).default(''),
+    systemPrompt: z.string().max(20000).default(''),
+    provider: Provider.default('ollama'),
+    model: z.string().trim().max(200).default(''),
+    tools: z.array(ToolName).max(20).default([]),
+    allowExternal: z.boolean().default(false),
+  })
+  .strict();
+
+// Update: alle Felder optional, aber mindestens eins vorhanden.
+const UpdateAgentBody = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    description: z.string().max(2000).optional(),
+    systemPrompt: z.string().max(20000).optional(),
+    provider: Provider.optional(),
+    model: z.string().trim().max(200).optional(),
+    tools: z.array(ToolName).max(20).optional(),
+    allowExternal: z.boolean().optional(),
+  })
+  .strict()
+  .refine(obj => Object.keys(obj).length > 0, { message: 'Keine Felder zum Aktualisieren' });
+
+const RunAgentBody = z
+  .object({
+    input: z.string().max(20000).default(''),
+  })
+  .strict();
+
+module.exports = {
+  ProviderParam,
+  SaveProviderKeyBody,
+  KeyedProvider,
+  AgentIdParam,
+  CreateAgentBody,
+  UpdateAgentBody,
+  RunAgentBody,
+  Provider,
+};
