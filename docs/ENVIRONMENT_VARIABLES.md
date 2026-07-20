@@ -495,13 +495,14 @@ Network modes (`sandbox_projects.network_mode`, CHECK in migration 100): `isolat
 KI-Orchestrierungs-Schicht (dashboard-backend `services/agents/`). Alle Variablen
 sind optional mit sinnvollen Defaults.
 
-| Variable               | Default | Description                                                                                                           |
-| ---------------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
-| AGENT_LLM_TIMEOUT_MS   | 120000  | Timeout (ms) für lokale Ollama-Aufrufe der Provider-Registry (geteilt mit dem Datei-Agenten-Tool-Loop, `toolLoop.js`) |
-| AGENT_CLOUD_TIMEOUT_MS | 120000  | Timeout (ms) für Cloud-Provider-Aufrufe (OpenAI-kompatibel / Anthropic) in `providerRegistry.js`                      |
-| AGENT_MAX_TOKENS       | 2048    | `max_tokens` für Anthropic-Aufrufe (Anthropic verlangt das Feld; OpenAI/Ollama nutzen ihre Server-Defaults)           |
-| AGENT_MAX_ITERATIONS   | 8       | Max. Runden der Tool-Schleife eines Agenten (Function-Calling); danach endet der Lauf `truncated`                     |
-| AGENT_WEB_TIMEOUT_MS   | 15000   | Timeout (ms) des externen Web/HTTP-Tools (`web`, nur bei `allow_external`)                                            |
+| Variable               | Default | Description                                                                                                                |
+| ---------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
+| AGENT_LLM_TIMEOUT_MS   | 120000  | Timeout (ms) für lokale Ollama-Aufrufe der Provider-Registry (geteilt mit dem Datei-Agenten-Tool-Loop, `toolLoop.js`)      |
+| AGENT_CLOUD_TIMEOUT_MS | 120000  | Timeout (ms) für Cloud-Provider-Aufrufe (OpenAI-kompatibel / Anthropic) in `providerRegistry.js`                           |
+| AGENT_MAX_TOKENS       | 2048    | `max_tokens` für Anthropic-Aufrufe (Anthropic verlangt das Feld; OpenAI/Ollama nutzen ihre Server-Defaults)                |
+| AGENT_MAX_ITERATIONS   | 8       | Max. Runden der Tool-Schleife eines Agenten (Function-Calling); danach endet der Lauf `truncated`                          |
+| AGENT_WEB_TIMEOUT_MS   | 15000   | Timeout (ms) des externen Web/HTTP-Tools (`web`, nur bei `allow_external`)                                                 |
+| AGENT_FLOW_CONCURRENCY | 4       | Max. gleichzeitig laufende Agenten-Knoten eines Flusses (begrenzt Cloud-Fan-out; lokale Aufrufe serialisiert das GPU-Gate) |
 
 Externe Provider-API-Keys sind **keine** Env-Variablen: sie werden Admin-verwaltet
 und AES-256-GCM-verschlüsselt in der DB (`flow_provider_keys`, Migration 110)
