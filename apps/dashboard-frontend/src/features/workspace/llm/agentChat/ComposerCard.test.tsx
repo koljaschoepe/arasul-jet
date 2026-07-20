@@ -63,6 +63,56 @@ describe('ComposerCard', () => {
     expect(onRemoveFile).toHaveBeenCalledTimes(1);
   });
 
+  const flowAgents = [
+    { id: 1, name: 'recherche' },
+    { id: 2, name: 'zusammenfasser' },
+  ];
+
+  test('/ öffnet die Flow-Agenten-Palette', () => {
+    render(<ComposerCard {...makeProps({ value: '/', flowAgents })} />);
+    expect(screen.getByTestId('flow-agent-palette')).toBeInTheDocument();
+    expect(screen.getByText('recherche')).toBeInTheDocument();
+    expect(screen.getByText('zusammenfasser')).toBeInTheDocument();
+  });
+
+  test('/rech filtert die Palette', () => {
+    render(<ComposerCard {...makeProps({ value: '/rech', flowAgents })} />);
+    expect(screen.getByText('recherche')).toBeInTheDocument();
+    expect(screen.queryByText('zusammenfasser')).not.toBeInTheDocument();
+  });
+
+  test('Auswahl setzt /<name> und schließt die Palette', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<ComposerCard {...makeProps({ value: '/rech', flowAgents, onChange })} />);
+    await user.click(screen.getByText('recherche'));
+    expect(onChange).toHaveBeenCalledWith('/recherche ');
+  });
+
+  test('keine Palette ohne / und keine bei Leerzeichen (Eingabe-Modus)', () => {
+    const { rerender } = render(<ComposerCard {...makeProps({ value: 'hallo', flowAgents })} />);
+    expect(screen.queryByTestId('flow-agent-palette')).not.toBeInTheDocument();
+    rerender(<ComposerCard {...makeProps({ value: '/recherche finde', flowAgents })} />);
+    expect(screen.queryByTestId('flow-agent-palette')).not.toBeInTheDocument();
+  });
+
+  test('Enter bei offener Palette wählt den ersten Treffer (statt zu senden)', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onSend = vi.fn();
+    render(<ComposerCard {...makeProps({ value: '/rech', flowAgents, onChange, onSend })} />);
+    await user.click(screen.getByLabelText('Nachricht an die KI'));
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith('/recherche ');
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  test('keine Palette bei angehängter Datei', () => {
+    const file = new File(['x'], 'a.pdf', { type: 'application/pdf' });
+    render(<ComposerCard {...makeProps({ value: '/', flowAgents, attachedFile: file })} />);
+    expect(screen.queryByTestId('flow-agent-palette')).not.toBeInTheDocument();
+  });
+
   test('angehängte Bilder erscheinen je als eigener Chip', async () => {
     const user = userEvent.setup();
     const onRemoveImage = vi.fn();

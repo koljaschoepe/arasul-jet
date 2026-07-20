@@ -58,6 +58,7 @@ export default function AgentChatPanel() {
   const {
     sendMessage,
     runAgentStream,
+    runFlowAgentStream,
     cancelJob,
     loadMessages,
     checkActiveJobs,
@@ -85,6 +86,8 @@ export default function AgentChatPanel() {
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [input, setInput] = useState('');
+  // Flow-Agenten (Plan 010) für die /-Palette im Composer.
+  const [flowAgents, setFlowAgents] = useState<{ id: number; name: string }[]>([]);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
@@ -243,9 +246,55 @@ export default function AgentChatPanel() {
     return null;
   }, [api]);
 
+  // Flow-Agenten für die /-Palette laden (Plan 010, Schritt 6).
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ data: { id: number; name: string }[] }>('/agents', { showError: false })
+      .then(res => {
+        if (!cancelled) setFlowAgents(res.data.map(a => ({ id: a.id, name: a.name })));
+      })
+      .catch(() => {
+        /* Palette bleibt leer */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
   const handleSend = useCallback(async () => {
     const hasInput = input.trim() || attachedFile || attachedImages.length > 0;
     if (!hasInput || isLoading) return;
+
+    // /flow-agent-Aufruf (Plan 010): startet einen Flow-Agenten statt der
+    // normalen Antwort. Nur ohne Datei-Anhang; matcht den Namen gegen die
+    // eigenen Flow-Agenten. Das bestehende @ (Datei-Agenten) bleibt unberührt.
+    const flowMatch = !attachedFile ? input.trim().match(/^\/([^\s/]+)\s*([\s\S]*)$/) : null;
+    if (flowMatch) {
+      const name = flowMatch[1] || '';
+      const agentInput = (flowMatch[2] || '').trim();
+      const agent = flowAgents.find(a => a.name.toLowerCase() === name.toLowerCase());
+      if (agent) {
+        const fullMessage = input.trim();
+        setInput('');
+        setError(null);
+        try {
+          const id = await ensureChat();
+          runFlowAgentStream(id, {
+            agentId: agent.id,
+            agentName: agent.name,
+            userInput: agentInput,
+            fullMessage,
+            messages: messagesRef.current,
+          });
+          stickToBottomRef.current = true;
+        } catch {
+          setError('Flow-Agent konnte nicht gestartet werden');
+        }
+        return;
+      }
+      // Kein passender Flow-Agent → als normale Nachricht behandeln (Fall-through).
+    }
 
     // @agent-Aufruf: startet einen Agentenlauf statt der normalen Antwort.
     // Nur ohne Datei-Anhang (Agenten nehmen keine Uploads); der Rest der
@@ -325,6 +374,8 @@ export default function AgentChatPanel() {
     sendMessage,
     resolveWorkspace,
     runAgentStream,
+    runFlowAgentStream,
+    flowAgents,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -527,6 +578,7 @@ export default function AgentChatPanel() {
           models={composerModels}
           selectedModel={selectedModel}
           onSelectModel={setSelectedModel}
+          flowAgents={flowAgents}
         />
       </div>
 
