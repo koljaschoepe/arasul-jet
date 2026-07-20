@@ -28,6 +28,66 @@ export interface AgentDraft {
   allowExternal: boolean;
 }
 
+// --- Flüsse (Schritt 4/5) ---
+
+export type FlowNodeType = 'agent' | 'condition';
+export type ConditionMode = 'contains' | 'not_contains' | 'equals';
+
+export interface FlowGraphNode {
+  id: string;
+  type: FlowNodeType;
+  position: { x: number; y: number };
+  data: {
+    agentId?: number;
+    label?: string;
+    mode?: ConditionMode;
+    value?: string;
+    [k: string]: unknown;
+  };
+}
+export interface FlowGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+}
+export interface FlowGraph {
+  nodes: FlowGraphNode[];
+  edges: FlowGraphEdge[];
+}
+
+export interface Flow {
+  id: number;
+  name: string;
+  description: string;
+  graph: FlowGraph;
+  scheduleCron: string | null;
+  hasRunToken: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Live-Status eines Knotens während eines Fluss-Laufs. */
+export type NodeRunStatus = 'idle' | 'running' | 'done' | 'error' | 'skipped';
+
+/** SSE-Event eines Fluss-Laufs (Backend runFlow/flowEngine). Frames tragen `node`. */
+export type FlowRunEvent =
+  | { type: 'flow_start'; flow?: string }
+  | { type: 'node_start'; node: string; agentId?: number }
+  | { type: 'node_condition'; node: string; result: 'true' | 'false' }
+  | { type: 'node_skipped'; node: string }
+  | { type: 'node_done'; node: string }
+  | { type: 'node_error'; node: string; message: string }
+  | { type: 'flow_done'; result: string }
+  | { type: 'flow_error'; message: string }
+  | { type: string; node?: string; [k: string]: unknown };
+
+export const CONDITION_LABELS: Record<ConditionMode, string> = {
+  contains: 'enthält',
+  not_contains: 'enthält nicht',
+  equals: 'ist gleich',
+};
+
 /** SSE-Event eines Agent-Laufs (Backend runFlowAgent). */
 export type RunEvent =
   | { type: 'status'; status: string; agent?: string; model?: string }

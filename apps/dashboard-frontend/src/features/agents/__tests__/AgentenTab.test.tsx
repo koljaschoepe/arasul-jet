@@ -23,6 +23,8 @@ vi.mock('@/hooks/useApi', () => ({ useApi: () => mockApi }));
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ user: { id: 7, username: 'kolja', role: 'user' } }),
 }));
+// Flüsse-Ansicht (React-Flow) im Test stubben — der Canvas wird live geprüft.
+vi.mock('../FlowsView', () => ({ default: () => <div data-testid="flows-view" /> }));
 
 const AGENT: FlowAgent = {
   id: 1,
@@ -97,6 +99,13 @@ test('„Neuer Agent" öffnet ein leeres Formular (Anlegen-Button)', async () =>
   await waitFor(() => {
     expect(screen.getByText('Anlegen')).toBeInTheDocument();
   });
+});
+
+test('Umschalter „Flüsse" mountet die Flüsse-Ansicht', async () => {
+  renderTab();
+  await screen.findByText('Recherche');
+  fireEvent.click(screen.getByRole('button', { name: /Flüsse/ }));
+  await waitFor(() => expect(screen.getByTestId('flows-view')).toBeInTheDocument());
 });
 
 test('Leerzustand, wenn keine Agenten existieren', async () => {
