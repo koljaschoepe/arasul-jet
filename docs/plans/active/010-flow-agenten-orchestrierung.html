@@ -657,6 +657,14 @@
     <li><strong>Abweichung:</strong> GPU-Serialisierung über prozessweites <code>gpuGate.js</code> (<code>AsyncMutex</code>) statt der chat-/streaming-gebundenen <code>llmQueueService</code>-Pipeline — gleiche Ein-nach-dem-anderen-Garantie, ohne Chat-Historie mit synthetischen Jobs zu verschmutzen.</li>
   </ul>
 
+  <h3>Schritt 5 — Visueller Fluss-Canvas (React Flow) ✅</h3>
+  <ul>
+    <li><strong>PR:</strong> #229 (squash-merged, CI grün). 2 Review-Runden: 1 Critical behoben (Lauf-Status hing nach „Stopp"/Flusswechsel), Status-Farben auf Design-Tokens; 2. Runde 0/0.</li>
+    <li><strong>Umsetzung:</strong> siehe §4 · Schritt 5. <code>@xyflow/react</code> (Root-Lock), Bereichs-Umschalter „Agenten | Flüsse", Canvas mit Agenten-/Bedingungs-Knoten (If/Else-Handles), Speichern als Graph-JSON, Lauf mit Live-Knoten-Färbung.</li>
+    <li><strong>Deploy:</strong> erfolgreich (Frontend neu gebaut); Canvas als eigener 149-KB-Lazy-Chunk.</li>
+    <li><strong>Live-Verify (echter Browser, Playwright):</strong> Login → Bereich „Agenten" → „Flüsse" (Canvas-Chunk lazy geladen, keine neuen Konsolenfehler). Ein verzweigter Fluss (Bedingung „enthält ja" → canvas-ja / canvas-nein) rendert korrekt im Canvas inkl. ja↙/↘nein-Handles und Kanten. Ausführen mit „ja bitte" → <strong>canvas-ja grün (done), canvas-nein ausgegraut (skipped)</strong>, Ergebnis „JA" gestreamt, Modell lief auf der GPU. Live-Knoten-Färbung, Verzweigung und Multiplexing damit visuell bestätigt. Test-Fluss/-Agenten danach gelöscht.</li>
+  </ul>
+
   <h3>Schritt 4 — Fluss-Engine (Verzweigung &amp; Parallel-Zweige) ✅</h3>
   <ul>
     <li><strong>PRs:</strong> #227 (Engine) + #228 (Zod-Hotfix, s. u.) — beide squash-merged, CI grün. 2 Review-Runden: 2 Critical behoben (Validierung vor SSE → echte 400/404; custom error), 2. Runde 0/0.</li>
