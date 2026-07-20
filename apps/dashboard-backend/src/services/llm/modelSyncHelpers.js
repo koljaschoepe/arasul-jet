@@ -126,17 +126,24 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
           `[SYNC] Model ${row.id} was downloading but already in Ollama - marked available`
         );
       } else {
-        // Model not in Ollama and stuck downloading - mark as error
+        // Plan 009: Modell nicht in Ollama und im Prozess kein aktiver Download
+        // → NICHT als 'error' verwerfen, sondern 'paused' (wiederaufnehmbar).
+        // Häufigster Fall: Backend-Neustart mitten im 20–30h-Download; der
+        // In-Memory-activeDownloadIds-Set ist frisch leer, die Zeile steht aber
+        // noch auf 'downloading'. 'paused' + download_progress bleiben erhalten,
+        // resumePausedDownloads nimmt den Pull wieder auf (Ollama-Layer-Dedup
+        // überspringt fertige Layer → kein Neuladen von 0).
         await database.query(
           `
             UPDATE llm_installed_models
-            SET status = 'error',
-                error_message = 'Download abgebrochen - bitte erneut versuchen'
+            SET status = 'paused',
+                last_activity_at = COALESCE(last_activity_at, NOW()),
+                error_message = NULL
             WHERE id = $1 AND status = 'downloading'
           `,
           [row.id]
         );
-        logger.warn(`[SYNC] Cleaned up stale download: ${row.id}`);
+        logger.warn(`[SYNC] Unterbrochener Download pausiert (wiederaufnehmbar): ${row.id}`);
         modelAvailabilityCache.delete(row.id);
         staleCount++;
       }

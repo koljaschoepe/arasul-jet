@@ -34,14 +34,14 @@
   "slug": "frontend-feinschliff-cursor-shell",
   "title": "Frontend-Feinschliff Runde 2 — Cursor-Shell, Store & robuste Downloads",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-07-20",
   "approved": "2026-07-20",
-  "branch": null,
+  "branch": "009-frontend-feinschliff-cursor-shell",
   "pr": null,
   "verified_on_device": false
 }
@@ -504,70 +504,81 @@
   <div class="sbody">
   <!-- One .step per phase; unique data-ref each. -->
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Größen-Skala an Cursor eichen (Fundament)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Größen-Skala an Cursor eichen (Fundament)">
     <h3>Schritt 1 — Größen-Skala an Cursor eichen (Fundament) <span class="tag">Risiko: mittel</span></h3>
     <p>Die vorhandene, aber kaum genutzte Token-Skala in <span class="mono">index.css</span> (<span class="mono">--text-ui-*</span>, <span class="mono">--spacing-ui-*</span>) an Cursors Maßen kalibrieren und um zwei Tokens ergänzen: eine Baumzeilen-Höhe (<span class="mono">--row-h: 22px</span>) und eine niedrigkontrastige Hairline-Kante (<span class="mono">--border</span> ≈ 8–12&nbsp;% Alpha). Zielwerte: UI-Text 13&nbsp;px, Fließtext 14&nbsp;px, Radien 4/6/8. Nur Definitionen — noch keine Komponente umgestellt (das passiert in den Folgeschritten). Design-System-Doku entsprechend erweitern. App bleibt optisch unverändert lauffähig.</p>
     <p class="files mono">apps/dashboard-frontend/src/index.css · docs/development/DESIGN_SYSTEM.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Die Skala war aus Plan 002/004 bereits Cursor-nah (Root-Hebel 106,25 %, <span class="mono">--text-ui-sm</span>=13px, <span class="mono">--border</span> bereits ~8–10 % Alpha-Hairline, Radien 4/6/8). Ergänzt: <span class="mono">--spacing-ui-row</span> (~22px, Utility <span class="mono">h-ui-row</span>) für Baum-/Listenzeilen + Doku. Root-Hebel bewusst unverändert gelassen (globale Änderung = Chat/RAG-Regressionsrisiko). Flächendeckende Anwendung folgt in Schritt 3.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Cursor-Shell: linke Navigation umbauen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Cursor-Shell: linke Navigation umbauen">
     <h3>Schritt 2 — Cursor-Shell: linke Navigation umbauen <span class="tag">Risiko: hoch</span></h3>
     <p>Die breite vertikale <span class="mono">ActivityBar</span> (48-px-Spalte) auflösen und als kompakte, horizontale Icon-Zeile <i>oben</i> im linken Panel neu aufbauen (Dateien · Erweiterungen · aktivierte Apps wie n8n). Darunter füllt der Dateibaum die volle Höhe; die Einstellungen werden ein Zahnrad unten links. Die geteilte Flächenfarbe (<span class="mono">bg-background</span>, nur Hairline-Trennung) und das <span class="mono">data-shell-hidden</span>-Sichtbarkeitsmuster bleiben. Icon-Gating (n8n nur wenn aktiviert) über <span class="mono">useWorkspaceApps().isAppEnabled</span> beibehalten. Editor-Mitte und rechtes Chat-Panel unberührt. Bestehende Labels (Dateien/Extensions/Einstellungen) bleiben, damit Tests &amp; Verhalten stabil sind.</p>
-    <p class="files mono">features/workspace/WorkspaceShell.tsx · features/workspace/ActivityBar.tsx · features/workspace/SidebarHost.tsx · __tests__/ActivityBar.test.tsx · __tests__/WorkspaceShell.test.tsx</p>
+    <p class="files mono">features/workspace/WorkspaceShell.tsx · features/workspace/ActivityBar.tsx · features/workspace/SidebarFooter.tsx (neu) · features/workspace/SidebarHost.tsx · __tests__/ActivityBar.test.tsx · __tests__/SidebarFooter.test.tsx (neu) · __tests__/{SidebarHost,WorkspaceShell,DialogPanelCollision}.test.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> ActivityBar ist jetzt eine horizontale Icon-Zeile (h-9) im linken Panel-Kopf; <span class="mono">ActivityButton</span> exportiert &amp; im neuen <span class="mono">SidebarFooter</span> (Zahnrad unten links) wiederverwendet; <span class="mono">SidebarHost</span> komponiert Zeile · Baum (flex-1) · Footer, alles <span class="mono">bg-background</span> + Hairline. Vertikale 48-px-Spalte aus <span class="mono">WorkspaceShell</span> entfernt. Verhalten von Dateien/Extensions/Apps unverändert. 24 betroffene Tests grün (ActivityBar/SidebarFooter/SidebarHost/WorkspaceShell/DialogPanelCollision).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Explorer-Optik + Skala flächendeckend anwenden">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Explorer-Optik + Skala flächendeckend anwenden">
     <h3>Schritt 3 — Explorer-Optik + Skala flächendeckend anwenden <span class="tag">Risiko: mittel</span></h3>
     <p>Explorer-Zeilen, TabBar und StatusBar von rohen Tailwind-Größen auf die kalibrierte Skala umstellen: Baumzeile auf <span class="mono">--row-h</span>/<span class="mono">text-ui-sm</span>, weiche Hairline-Kanten statt harter grauer Striche, Gap zwischen Dateiname und Rahmen. Vorab per Live-Screenshot auf dem Jetson prüfen, welches Element die vom Nutzer beklagte „dicke graue Kante" tatsächlich erzeugt (im Quellcode nicht eindeutig lokalisierbar — evtl. die 3-px-<span class="mono">Separator</span> der Panels). Chat/RAG-Panels teilen dieselben <span class="mono">border-border</span>-Konventionen — nach der Umstellung visuell gegenprüfen.</p>
-    <p class="files mono">features/workspace/explorer/ExplorerPanel.tsx · features/workspace/TabBar.tsx · features/workspace/StatusBar.tsx</p>
+    <p class="files mono">features/workspace/explorer/ExplorerPanel.tsx · features/workspace/TabBar.tsx · features/workspace/StatusBar.tsx · features/workspace/WorkspaceShell.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Explorer-Zeilen (Dokumente + Ordner) und Such-Input auf <span class="mono">text-ui-sm</span> (13px) + <span class="mono">min-h-ui-row</span> (~22px) + <span class="mono">pr-2</span> (Gap zwischen Name/StatusDot und Rand); TabBar-Text auf <span class="mono">text-ui-sm</span>. Panel-Separatoren von 3px auf 1px-Hairline reduziert (wahrscheinlicher Auslöser der „dicken grauen Striche" — echter Auslöser wird in §6 per Screenshot bestätigt). StatusBar bleibt bei 12px/24px (bereits Cursor-Maß). ExplorerTree/StatusBar-Tests grün (17).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Editor: einzeilige Formatier-Leiste mit Überlaufmenü">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Editor: einzeilige Formatier-Leiste mit Überlaufmenü">
     <h3>Schritt 4 — Editor: einzeilige Formatier-Leiste mit ⋯-Überlaufmenü <span class="tag">Risiko: mittel</span></h3>
     <p>Die TipTap-Formatier-Leiste über den Dateinamen verschieben und strikt einzeilig machen: Controls in logische Gruppen (Absatz · Auszeichnung · Listen · Ausrichtung · Einfügen) bündeln; bei zu wenig Breite wandern niederpriore Gruppen in ein aufklappbares ⋯-Menü, statt umzubrechen. Muss in beiden Layout-Zweigen funktionieren (<span class="mono">overlay</span> fixed vs. <span class="mono">embedded</span> inline) und am Mobile-Breakpoint. Autosave (Debounce + <span class="mono">hydratedRef</span>) bleibt unverändert. Neuer Test für das Überlauf-Verhalten bei schmaler Breite.</p>
-    <p class="files mono">components/editor/tiptap/TipTapEditor.tsx · components/editor/tiptap/tiptap-editor.css · viewers/__tests__/DocumentViewerTab.test.tsx</p>
+    <p class="files mono">components/editor/tiptap/TipTapEditor.tsx · toolbarOverflow.ts (neu) · tiptap-editor.css · __tests__/toolbarOverflow.test.ts (neu) · viewers/__tests__/DocumentViewerTab.test.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Kopf ist jetzt zweizeilig — Zeile 1 die Formatier-Leiste (6 Gruppen), Zeile 2 Dateiname + Autosave-Status + Aktionen (Vollbild/Speichern/Schließen). Die Leiste bleibt strikt einzeilig: ein verstecktes Mess-Lineal + ResizeObserver + reine <span class="mono">computeInlineCount</span>-Rechnung schieben überzählige Gruppen live ins ⋯-Menü (reaktiv beim Schmalerziehen). Autosave unverändert. Fokus-Trap überspringt das Lineal. tsc grün, 6 Overflow-Unit-Tests + DocumentViewerTab (3) grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Dateisystem: beliebige Typen + Ordner-Upload">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 5 — Dateisystem: beliebige Typen + Ordner-Upload">
     <h3>Schritt 5 — Dateisystem: beliebige Typen + Ordner-Upload <span class="tag">Risiko: hoch</span></h3>
     <p>Den Upload zu einem echten Dateisystem öffnen: die Endungs-Whitelist im Frontend (<span class="mono">uploadDocuments.ts</span>) und Backend (<span class="mono">documents.js</span> multer-<span class="mono">fileFilter</span>) auf beliebige Typen weiten, mit generischem Magic-Byte-Fallback (<span class="mono">fileValidation.js</span>) und <span class="mono">application/octet-stream</span>-Speicherung. Ordner-Upload via <span class="mono">webkitdirectory</span>: <span class="mono">webkitRelativePath</span> auf verschachtelte <span class="mono">knowledge_spaces</span> (existiert via <span class="mono">parent_id</span>) abbilden — Ordner werden pro Pfadsegment über <span class="mono">POST /spaces</span> angelegt, mit Kompensation bei Teilfehler. Sicherheitsnetz: Größenlimit bleibt, MinIO-then-DB-Kompensationsmuster wie bestehend.</p>
-    <p class="files mono">hooks/uploadDocuments.ts · features/workspace/explorer/ExplorerPanel.tsx · dashboard-backend/src/routes/documents.js · dashboard-backend/src/utils/fileValidation.js</p>
+    <p class="files mono">hooks/uploadDocuments.ts · features/workspace/explorer/ExplorerPanel.tsx · dashboard-backend/src/routes/documents.js</p>
+    <div class="result"><strong>Ergebnis (Abweichung):</strong> Beliebige Typen: Endungs-Whitelist im Frontend (<span class="mono">validateUploadFile</span>) und Backend (<span class="mono">multer fileFilter</span>) entfernt; Größenlimit + Magic-Byte-Prüfung bleiben. Ordner-Upload via <span class="mono">webkitdirectory</span>-Input + Header-/Kontextmenü-Aktion „Ordner importieren". <b>Abweichung:</b> die Unterordner-Struktur wird beim Ordner-Upload <i>flach</i> ins Ziel geladen statt als verschachtelte <span class="mono">knowledge_spaces</span> nachgebaut — das Spaces-API erzwingt global eindeutige Ordnernamen + Beschreibung/Embedding pro Ordner, eine 1:1-Baum-Nachbildung wäre fragil &amp; teuer (GPU-Embedding je Ordner). Sichere, in-Intent-Variante; tiefe Baum-Rekonstruktion bleibt Folgethema. tsc grün, Backend-Upload-Tests (69) grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — „Nur gespeichert“-Zustand für nicht-indexierbare Dateien">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 6 — „Nur gespeichert“-Zustand für nicht-indexierbare Dateien">
     <h3>Schritt 6 — „Nur gespeichert"-Zustand für nicht-indexierbare Dateien <span class="tag">Risiko: mittel</span></h3>
     <p>Damit Office-/Binärdateien nicht als roter „Fehlgeschlagen"-Punkt erscheinen: einen expliziten „gespeichert, nicht indexiert"-Zustand einführen. Migration <b>109</b> ergänzt eine nullbare Spalte (z.&nbsp;B. <span class="mono">indexable BOOLEAN</span>, forward-only, idempotent) an <span class="mono">documents</span>. Der Indexer (<span class="mono">document_processor.py</span>) markiert nicht-parsebare Typen als „nur gespeichert" statt sie in die Fehler-Retry-Schleife zu schicken; der Explorer rendert dafür ein neutrales Icon statt des roten Punkts. Die Viewer (PDF-iframe, Bild-<span class="mono">&lt;img&gt;</span>, Markdown/Text, sonst Download) existieren bereits — kein neuer Viewer nötig.</p>
-    <p class="files mono">services/postgres/init/109_documents_indexable_flag.sql · services/document-indexer/document_processor.py · features/workspace/explorer/ExplorerPanel.tsx · features/workspace/viewers/DocumentViewerTab.tsx</p>
+    <p class="files mono">services/postgres/init/109_documents_stored_status.sql · services/document-indexer/document_processor.py · services/document-indexer/database.py · features/workspace/explorer/ExplorerPanel.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Statt einer Boolean-Spalte ein sauberer Enum-Wert: Migration 109 fügt <span class="mono">document_status</span> den Wert <span class="mono">'stored'</span> hinzu (forward-only, idempotent, PG16-tx-sicher). <span class="mono">run_indexing_pipeline</span> markiert nicht-parsebare Typen als <span class="mono">stored</span> (Rückgabe 0 → kein Retry) statt <span class="mono">failed</span>; <span class="mono">database.py</span> setzt dafür <span class="mono">processing_completed_at</span>. Explorer-<span class="mono">StatusDot</span> zeigt für <span class="mono">stored</span> (wie <span class="mono">indexed</span>) keinen Punkt — kein roter Fehler mehr. Die Viewer (PDF/Bild/Download) existierten bereits. <b>Kleine Planabweichung:</b> Enum-Wert statt <span class="mono">indexable</span>-Spalte (klar sauberer für die StatusDot-Logik).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Datei-Import mit sauberer Markdown-Formatierung">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 7 — Datei-Import mit sauberer Markdown-Formatierung">
     <h3>Schritt 7 — Datei-Import mit sauberer Markdown-Formatierung <span class="tag">Risiko: niedrig</span></h3>
     <p>Beim Import einer <span class="mono">.md</span>-Datei den Inhalt formatiert (Überschriften, Listen, Fett/Kursiv) in den TipTap-Editor übernehmen statt als rohen Text. Vorhandene Markdown-/TipTap-Bausteine wiederverwenden (kein neuer Dienst). Import-Button im Explorer-Header ist bereits vorhanden — nur die Formatierungs-Übernahme ergänzen.</p>
-    <p class="files mono">components/editor/tiptap/TipTapEditor.tsx · components/editor/tiptap/extensions.ts · hooks/uploadDocuments.ts</p>
+    <p class="files mono">components/editor/tiptap/extensions.ts</p>
+    <div class="result"><strong>Ergebnis:</strong> Die <span class="mono">tiptap-markdown</span>-Extension parst Markdown-Strings bereits beim Laden (<span class="mono">setContent</span>) — importierte .md-Dateien erscheinen also formatiert (Recherche bestätigte: Edit-in-Place funktioniert). Gehärtet mit <span class="mono">linkify: true</span>, damit nackte URLs in importiertem Markdown klickbar werden. Kein neuer Dienst nötig.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Download-Zustandsmaschine härten">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 8 — Download-Zustandsmaschine härten">
     <h3>Schritt 8 — Download-Zustandsmaschine härten <span class="tag">Risiko: hoch</span></h3>
     <p>Die in Migration 083 angelegten, aber ungenutzten Spalten (<span class="mono">bytes_completed</span>, <span class="mono">last_activity_at</span>, <span class="mono">attempt_count</span>, Status <span class="mono">paused</span>) endlich verdrahten. Kern: <span class="mono">cleanupStaleDownloads()</span> markiert einen durch Backend-Neustart abgerissenen Download als <span class="mono">paused</span> (nicht <span class="mono">error</span>) und nimmt ihn wieder auf — Ollamas Layer-Dedup lädt nur fehlende Layer nach. Die Datenbank (atomarer <span class="mono">ON CONFLICT ... WHERE status &lt;&gt; 'downloading'</span>-Claim) bleibt alleinige Quelle der Wahrheit gegen Doppel-Download; der In-Memory-Set wird nicht mehr als Sperre missbraucht. Frontend: <span class="mono">DownloadContext</span> zeigt %/GB/Rate/ETA und übernimmt nach Reload den DB-Zustand. Neuer Backend-Test: Neustart mitten im Download → <span class="mono">paused</span> + Resume-Pfad.</p>
-    <p class="files mono">dashboard-backend/src/services/llm/modelService.js · services/llm/modelSyncHelpers.js · services/llm/modelDownloadHelpers.js · routes/ai/models.js · frontend/src/contexts/DownloadContext.tsx</p>
+    <p class="files mono">dashboard-backend/src/services/llm/modelSyncHelpers.js · services/llm/modelService.js · __tests__/unit/modelSyncHelpers.test.js (neu)</p>
+    <div class="result"><strong>Ergebnis:</strong> <span class="mono">cleanupStaleDownloads</span> markiert unterbrochene Downloads jetzt als <span class="mono">paused</span> (Fortschritt bleibt) statt <span class="mono">error</span>. Neue <span class="mono">resumePausedDownloads()</span> nimmt genau einen pausierten Download zur Zeit wieder auf (Single-Box), aufgerufen aus <span class="mono">syncWithOllama</span> — läuft also automatisch beim ersten Sync nach einem Neustart. Wiederaufnahme = <span class="mono">downloadModel</span> headless; Ollama-Layer-Dedup überspringt fertige Layer → kein Neuladen von 0. Der atomare Claim (<span class="mono">status &lt;&gt; 'downloading'</span>) verhindert weiterhin Doppel-Downloads. Frontend (<span class="mono">DownloadContext</span>) kannte <span class="mono">paused</span> + Reload-Persistenz bereits (P2.4.1) — keine Änderung nötig. Migration 083 (Status <span class="mono">paused</span> + Recovery-Index) war fertig vorbereitet. 3 neue Unit-Tests + models/downloadHelpers (23) grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — „kein Modell geladen“-Bug an der Wurzel">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 9 — „kein Modell geladen“-Bug an der Wurzel">
     <h3>Schritt 9 — „kein Modell geladen"-Bug an der Wurzel beheben <span class="tag">Risiko: mittel</span></h3>
     <p>Die StatusBar zeigt teils „kein Modell geladen", obwohl ein Modell installiert/geladen ist. Ursache ist eine Signal-Uneinigkeit: StatusBar liest <span class="mono">/models/memory-budget</span> (<span class="mono">loadedModels</span>), während Store/Chat <span class="mono">/models/status</span> (<span class="mono">loaded_model</span> aus Ollama <span class="mono">/api/ps</span>) bzw. <span class="mono">/models/loaded</span> nutzen. Das „ist ein Modell verfügbar/geladen"-Signal vereinheitlichen (eine Quelle, konsistent über alle Verbraucher) und die StatusBar daran hängen. Regressions-Test auf den echten Grund statt nur den Store-Zweig.</p>
-    <p class="files mono">features/workspace/StatusBar.tsx · dashboard-backend/src/routes/ai/models.js · features/workspace/__tests__/StatusBar.test.tsx</p>
+    <p class="files mono">dashboard-backend/src/services/llm/modelService.js (getMemoryBudget) · features/workspace/StatusBar.tsx · types/index.ts · __tests__/StatusBar.test.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Ursache war die Vermischung von „im RAM geladen" mit „installiert": Ollama entlädt Idle-Modelle, dann war <span class="mono">loadedModels</span> leer → „kein Modell geladen", obwohl ein Modell da war. <span class="mono">getMemoryBudget</span> liefert jetzt zusätzlich <span class="mono">installedModel</span>/<span class="mono">installedCount</span>. Die StatusBar zeigt drei saubere Zustände: geladen (<span class="mono">… · KI-RAM …</span>), installiert-aber-nicht-geladen (<span class="mono">… · bereit</span>), oder — nur wenn wirklich nichts installiert ist — „kein Modell geladen". tsc grün, StatusBar (8) + models (19) grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 10 — Store · Modelle: 3-Spalten-Raster + Filter-Leiste + reiche Detailseite">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 10 — Store · Modelle: 3-Spalten-Raster + Filter-Leiste + reiche Detailseite">
     <h3>Schritt 10 — Store · Modelle: 3-Spalten + Filter-Leiste + reiche Detailseite <span class="tag">Risiko: mittel</span></h3>
     <p>Den Modell-Store an modernen SaaS-Modell-Browsern (LM Studio/Jan/HF) ausrichten: 3-Spalten-Karten-Raster + persistente linke Filter-Leiste mit Facetten-Zählern (Fähigkeit: Chat/Vision/Tools/Embedding/Code · Größe: &lt;4B/4–9B/9–15B/&gt;15B · Status: installiert/verfügbar), Suche und aktive Filter als entfernbare Chips + „Zurücksetzen". Filter aus vorhandenen Katalogfeldern (<span class="mono">capabilities</span>, Größe, Tier) ableiten — kein Katalog-Schema nötig. Detailseite anreichern: Fit-Hinweis für <i>diese</i> Jetson-Hardware (aus VRAM + Größe), Varianten/Quant-Tier, Kontextlänge, Fähigkeiten, Lizenz, Beschreibung, Benchmarks nur falls vorhanden (Feld sonst ausblenden). Alt-Deep-Links (<span class="mono">/store/models</span>, <span class="mono">/store/apps</span>) müssen weiter funktionieren.</p>
-    <p class="files mono">features/store/Store.tsx · features/store/StoreModelsGrid.tsx · features/store/StoreDetailPage.tsx · hooks/useStoreCatalog.ts · features/store/__tests__/*.tsx</p>
+    <p class="files mono">features/store/storeModelFilters.ts (neu) · StoreModelsGrid.tsx · StoreDetailPage.tsx · __tests__/storeModelFilters.test.ts (neu) · __tests__/{StoreModelsGrid,StoreDetailPage}.test.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Neue reine Filter-/Facetten-Logik (<span class="mono">storeModelFilters.ts</span>, aus vorhandenen Katalogfeldern abgeleitet, kein Schema nötig). StoreModelsGrid hat jetzt eine persistente linke Filter-Leiste (Fähigkeit/Typ/Größe/Status mit Facetten-Zählern), entfernbare Chips + „Zurücksetzen" und ein responsives Raster (1→2→3→4 Spalten, mind. 3 auf breiten Screens). Detailseite: breiter (max-w-4xl), <b>HW-Fit-Banner</b> (RAM-Bedarf vs. KI-RAM dieser Jetson-Box, geteilter memory-budget-Query — kein Extra-Poll), „Gut geeignet für"-Sektion; Benchmarks bewusst weggelassen (kein Feld im Katalog). Download-Zuverlässigkeit deckt Schritt 8 ab (Doppel-Download-Sperre + Fortschritt live). Alt-Deep-Links unverändert. 10 neue Filter-Unit-Tests + Store-Suiten (26) grün, tsc grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 11 — Erweiterungen-Tab + Einstellungen linksbündig">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 11 — Erweiterungen-Tab + Einstellungen linksbündig">
     <h3>Schritt 11 — Erweiterungen-Tab kuratiert + Einstellungen linksbündig <span class="tag">Risiko: niedrig</span></h3>
     <p>Erweiterungen-Tab: die ausgelieferten Erweiterungen (n8n &amp; Co.) sauber als Karten mit An/Aus darstellen, plus ein dezenter Platzhalter „Eigene Erweiterungen hochladen — kommt bald" (ehrlich, keine Fake-Funktion; das echte SDK ist Plan 010). Einstellungen: alle Sektionen konsequent linksbündig — insbesondere die Erscheinungsbild-Auswahl (Schwarz/Dunkel/Hell), deren mittige Ausrichtung vorab live verifiziert werden muss (im Quellcode steht bereits <span class="mono">flex items-start</span> — der tatsächliche Auslöser ist live zu bestätigen) — und Größen an die neue Skala. Kein funktionaler Umbau.</p>
-    <p class="files mono">features/store/StoreExtensionsGrid.tsx · features/settings/GeneralSettings.tsx · features/settings/Settings.tsx · features/settings/__tests__/Settings.test.tsx</p>
+    <p class="files mono">features/store/StoreExtensionsGrid.tsx · features/settings/GeneralSettings.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> Erweiterungen-Tab zeigt die kuratierten Apps (n8n &amp; Co.) im gleichen responsiven Raster wie die Modelle, plus eine dezente, nicht-klickbare „Eigene Erweiterungen hochladen — kommt bald"-Kachel (ehrlicher Ausblick auf Plan 010, kein Fake). Einstellungen: die Erscheinungsbild-Auswahl bekommt <span class="mono">items-start justify-items-start</span> als garantierte Links-Ausrichtung. Der Quellcode war bereits linksbündig (<span class="mono">flex items-start</span>) — der tatsächliche „mittig"-Auslöser wird in §6 live per Screenshot bestätigt, bevor weiter angefasst wird. tsc grün, Gating-Integration + Settings-Suiten (80) grün.</div>
   </div>
   </div>
 </details>

@@ -5,6 +5,7 @@
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { StoreDetailPage } from '../StoreDetailPage';
 
@@ -91,7 +92,13 @@ vi.mock('@/contexts/ToastContext', () => ({
 
 const onBack = vi.fn();
 function renderPage() {
-  return render(<StoreDetailPage onBack={onBack} />);
+  // ModelFitBanner (Plan 009) nutzt useQuery → QueryClientProvider nötig.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <StoreDetailPage onBack={onBack} />
+    </QueryClientProvider>
+  );
 }
 
 describe('StoreDetailPage', () => {

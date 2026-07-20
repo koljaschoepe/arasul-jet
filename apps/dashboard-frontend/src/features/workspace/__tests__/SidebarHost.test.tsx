@@ -14,6 +14,12 @@ vi.mock('../explorer/ExplorerPanel', () => ({
   ExplorerPanel: () => <div data-testid="explorer" />,
 }));
 
+// Cursor-Zeile oben + Zahnrad unten sind eigene, getestete Komponenten
+// (ActivityBar.test / SidebarFooter.test) — hier isolieren, damit dieser Test
+// nur das Kontext-Mapping des ExplorerPanels prüft und nicht useWorkspaceApps.
+vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div data-testid="nav-top" /> }));
+vi.mock('../SidebarFooter', () => ({ SidebarFooter: () => <div data-testid="nav-bottom" /> }));
+
 // Ein Nicht-Extensions-Tab (mappt auf den ExplorerPanel-Default). Früher der
 // Dashboard-Tab; die Startseite ist entfernt (Plan 008), daher Einstellungen.
 const DEFAULTLIKE: WorkspaceTab = { id: 'settings', type: 'settings', title: 'Einstellungen' };

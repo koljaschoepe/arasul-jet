@@ -104,6 +104,10 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
             value={theme}
             onValueChange={value => setTheme(value as Theme)}
             aria-label="Design auswählen"
+            // Plan 009: Optionen konsequent linksbündig (guaranteed), damit
+            // Schwarz/Dunkel/Hell nicht mittig gegenüber dem übrigen linksbündigen
+            // Inhalt stehen.
+            className="items-start justify-items-start"
           >
             {THEME_OPTIONS.map(option => {
               const Icon = option.icon;

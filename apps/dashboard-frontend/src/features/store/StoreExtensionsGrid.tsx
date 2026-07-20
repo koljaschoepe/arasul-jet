@@ -9,7 +9,7 @@
  * Karte (nicht den Schalter) öffnet die Detailseite über den Extension-Store.
  */
 import { useState } from 'react';
-import { Package } from 'lucide-react';
+import { Package, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { Switch } from '@/components/ui/shadcn/switch';
 import { cn } from '@/lib/utils';
@@ -98,17 +98,29 @@ export function StoreExtensionsGrid() {
       aria-label="Erweiterungen"
     >
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        {apps.length > 0 ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-            {apps.map(app => (
-              <ExtensionCard key={app.id} app={app} onToggle={setAppEnabled} />
-            ))}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          {apps.map(app => (
+            <ExtensionCard key={app.id} app={app} onToggle={setAppEnabled} />
+          ))}
+
+          {/* Plan 009: ehrlicher Ausblick auf den selbst-baubaren Marktplatz
+              (eigene Extension-Schnittstelle) — die echte Upload-Funktion kommt
+              in Plan 010. Bewusst nicht klickbar, kein Fake. */}
+          <div
+            data-testid="ext-coming-soon"
+            className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center"
+          >
+            <span className="flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-4">
+              <Upload aria-hidden="true" />
+            </span>
+            <span className="text-ui-sm font-semibold text-foreground">
+              Eigene Erweiterungen hochladen
+            </span>
+            <span className="text-ui-xs text-muted-foreground">
+              Baue eigene Erweiterungen über eine definierte Schnittstelle — kommt bald.
+            </span>
           </div>
-        ) : (
-          <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-            Noch keine Erweiterungen verfügbar.
-          </p>
-        )}
+        </div>
       </div>
     </div>
   );

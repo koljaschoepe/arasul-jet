@@ -7,7 +7,7 @@
  * einem Fehler zeigt die Fortschrittsleiste die echte Fehlermeldung. Ein Klick
  * auf eine Karte setzt die Auswahl im Extension-Store (öffnet die Detailseite).
  */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { StoreModelsGrid } from '../StoreModelsGrid';
@@ -87,7 +87,10 @@ describe('StoreModelsGrid', () => {
     renderGrid();
     expect(screen.getByText('Qwen3 7B')).toBeInTheDocument();
     expect(screen.getByText('4.7 GB')).toBeInTheDocument();
-    expect(screen.getByText('Installiert')).toBeInTheDocument();
+    // „Installiert" steht jetzt auch als Status-Facette in der Filter-Leiste —
+    // deshalb gezielt das Karten-Badge prüfen (Plan 009).
+    const card = screen.getByTestId('model-card-qwen3-7b');
+    expect(within(card).getByText('Installiert')).toBeInTheDocument();
   });
 
   it('ein nicht installiertes Modell hat einen Laden-Button, der startDownload auslöst', () => {

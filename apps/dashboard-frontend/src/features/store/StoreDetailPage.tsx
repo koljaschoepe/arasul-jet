@@ -14,6 +14,7 @@
  * Datenbasis: useStoreCatalog (Modelle) + useWorkspaceApps (Erweiterungen).
  */
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Cpu,
@@ -25,9 +26,14 @@ import {
   Star,
   Trash2,
   Zap,
+  CircleCheck,
+  TriangleAlert,
+  CircleX,
 } from 'lucide-react';
+import type { MemoryBudget } from '@/types';
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
+import { cn } from '@/lib/utils';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -64,6 +70,59 @@ function formatContextLength(tokens: number): string {
   return `${tokens} Tokens`;
 }
 
+/**
+ * HW-Fit-Banner (Plan 009): schätzt anhand des RAM-Bedarfs des Modells gegen
+ * das KI-RAM-Budget dieser Jetson-Box, ob es flüssig läuft. Nutzt denselben
+ * React-Query-Key wie die StatusBar (['models','memory-budget']) → kein
+ * zusätzlicher Poll. Das ist der Alleinstellungs-Vorteil eines Edge-Stores
+ * (bekannte Hardware): rechnen statt raten.
+ */
+function ModelFitBanner({ requiredGb }: { requiredGb: number }) {
+  const api = useApi();
+  const { data: budget } = useQuery({
+    queryKey: ['models', 'memory-budget'],
+    queryFn: () => api.get<MemoryBudget>('/models/memory-budget', { showError: false }),
+    staleTime: 5_000,
+    retry: 1,
+  });
+
+  if (!budget || !requiredGb || requiredGb <= 0) return null;
+  const totalGb = budget.totalBudgetMb / 1024;
+  if (totalGb <= 0) return null;
+
+  let tone: 'good' | 'tight' | 'too-big';
+  let text: string;
+  if (requiredGb <= totalGb * 0.8) {
+    tone = 'good';
+    text = `Läuft flüssig auf dieser Box (~${requiredGb} GB von ${totalGb.toFixed(0)} GB KI-RAM).`;
+  } else if (requiredGb <= totalGb) {
+    tone = 'tight';
+    text = `Läuft, könnte aber knapp werden (~${requiredGb} GB von ${totalGb.toFixed(0)} GB KI-RAM).`;
+  } else {
+    tone = 'too-big';
+    text = `Zu groß für den verfügbaren KI-RAM (~${requiredGb} GB, nur ${totalGb.toFixed(0)} GB).`;
+  }
+
+  const toneClass = {
+    good: 'border-success/30 bg-success/10 text-success',
+    tight: 'border-warning/30 bg-warning/10 text-warning',
+    'too-big': 'border-destructive/30 bg-destructive/10 text-destructive',
+  }[tone];
+  const Icon = tone === 'good' ? CircleCheck : tone === 'tight' ? TriangleAlert : CircleX;
+
+  return (
+    <div
+      className={cn(
+        'mt-ui-4 flex items-center gap-2 rounded-lg border px-ui-3 py-ui-2 text-ui-sm font-medium',
+        toneClass
+      )}
+    >
+      <Icon className="size-4 shrink-0" aria-hidden="true" />
+      <span>{text}</span>
+    </div>
+  );
+}
+
 function Spec({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -91,7 +150,7 @@ function DetailShell({
   footer: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col">
+    <div className="mx-auto flex h-full max-w-4xl flex-col">
       <div className="shrink-0 border-b border-border px-6 pb-4 pt-4">
         <button
           type="button"
@@ -223,6 +282,8 @@ function ModelDetail({
     >
       <p className="leading-relaxed text-muted-foreground">{model.description}</p>
 
+      <ModelFitBanner requiredGb={model.ram_required_gb} />
+
       {downloading && downloadState && (
         <div className="mt-ui-4 rounded-lg border border-border bg-card p-ui-3">
           <div className="mb-ui-2 flex items-center gap-ui-1 text-ui-sm font-medium text-foreground">
@@ -257,6 +318,20 @@ function ModelDetail({
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {model.recommended_for && model.recommended_for.length > 0 && (
+        <div className="mt-6 border-t border-border pt-6">
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Gut geeignet für</h2>
+          <ul className="flex flex-col gap-1.5">
+            {model.recommended_for.map(use => (
+              <li key={use} className="flex items-start gap-2 text-sm text-muted-foreground">
+                <CircleCheck className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                <span>{use}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -350,7 +425,7 @@ function ExtensionDetail({
 
 function NotFound({ onBack }: { onBack: () => void }) {
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col">
+    <div className="mx-auto flex h-full max-w-4xl flex-col">
       <div className="shrink-0 px-6 pb-4 pt-4">
         <button
           type="button"

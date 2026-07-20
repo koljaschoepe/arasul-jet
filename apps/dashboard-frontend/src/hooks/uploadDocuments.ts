@@ -8,7 +8,12 @@
 import { useCallback, useRef, useState } from 'react';
 import { API_BASE, getAuthHeaders } from '@/config/api';
 
-export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
+/**
+ * In-App indexierbare/durchsuchbare Typen. Plan 009: der Upload nimmt BELIEBIGE
+ * Dateitypen an (echtes Dateisystem); diese Liste dient nur der Anzeige/Hinweisen,
+ * nicht als Whitelist. Nicht-indexierbare Dateien werden „nur gespeichert".
+ */
+export const INDEXABLE_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 export const MAX_UPLOAD_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const UPLOAD_TIMEOUT = 120000; // 120 s
 
@@ -17,12 +22,12 @@ export function getFileExtension(name: string): string {
   return dot >= 0 ? name.slice(dot).toLowerCase() : '';
 }
 
-/** Client-seitige Validierung; gibt eine deutsche Fehlermeldung oder null zurück. */
+/**
+ * Client-seitige Validierung; gibt eine deutsche Fehlermeldung oder null zurück.
+ * Plan 009: keine Typ-Whitelist mehr — beliebige Dateitypen sind erlaubt. Es
+ * bleiben nur Größen- und Leer-Prüfung.
+ */
 export function validateUploadFile(file: File): string | null {
-  const ext = getFileExtension(file.name);
-  if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    return `Ungültiger Dateityp "${ext}". Erlaubt: ${ALLOWED_EXTENSIONS.join(', ')}`;
-  }
   if (file.size > MAX_UPLOAD_FILE_SIZE) {
     const sizeMB = (file.size / 1024 / 1024).toFixed(1);
     return `Datei zu groß (${sizeMB} MB). Maximum: 50 MB`;

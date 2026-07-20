@@ -4,7 +4,16 @@
  * Documents are loaded/saved as Markdown via the existing API.
  */
 
-import { memo, useState, useEffect, useCallback, useRef } from 'react';
+import {
+  memo,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+  Fragment,
+  type ReactNode,
+} from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import {
   X,
@@ -18,11 +27,16 @@ import {
   AlignRight,
   Link2,
   Link2Off,
+  MoreHorizontal,
 } from 'lucide-react';
 import useConfirm from '../../../hooks/useConfirm';
 import { useApi } from '../../../hooks/useApi';
 import { createExtensions } from './extensions';
+import { computeInlineCount } from './toolbarOverflow';
 import './tiptap-editor.css';
+
+/** Platz (px), der in der Formatier-Leiste fürs ⋯-Überlaufmenü freigehalten wird. */
+const MORE_RESERVED_PX = 40;
 
 /** Idle-Zeit (ms) nach der letzten Änderung, bevor automatisch gespeichert wird. */
 const AUTOSAVE_DELAY_MS = 1200;
@@ -77,6 +91,20 @@ const TipTapEditor = memo(function TipTapEditor({
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveRunRef = useRef<() => void>(() => {});
+
+  // Reaktive Überlauf-Steuerung der Formatier-Leiste: die Leiste bleibt strikt
+  // einzeilig; überzählige Gruppen wandern hinter das ⋯-Menü. Ein verstecktes
+  // Mess-Lineal liefert die Gruppenbreiten, ein ResizeObserver die Container-
+  // breite; die reine Rechnung steckt in computeInlineCount (getestet).
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const rulerRef = useRef<HTMLDivElement>(null);
+  const groupWidthsRef = useRef<number[]>([]);
+  const moreWrapRef = useRef<HTMLDivElement>(null);
+  const [inlineCount, setInlineCount] = useState(Number.MAX_SAFE_INTEGER);
+  const [moreOpen, setMoreOpen] = useState(false);
+  // Lineal nur mounten, solange gemessen werden muss (dann aushängen → keine
+  // dauerhaft doppelten aria-labels im DOM).
+  const [measurePending, setMeasurePending] = useState(true);
 
   // Upload image to MinIO and return the URL
   const uploadImage = useCallback(
@@ -321,9 +349,13 @@ const TipTapEditor = memo(function TipTapEditor({
       }
       // Focus trap: cycle Tab within the editor container
       if (e.key === 'Tab' && containerRef.current) {
-        const focusable = containerRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [contenteditable="true"], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
+        // Das versteckte Mess-Lineal (data-toolbar-ruler) aus der Tab-Reihenfolge
+        // ausschließen — sonst landet der Fokus in unsichtbaren Doppel-Buttons.
+        const focusable = Array.from(
+          containerRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [contenteditable="true"], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter(el => !el.closest('[data-toolbar-ruler]'));
         if (focusable.length === 0) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
@@ -353,6 +385,60 @@ const TipTapEditor = memo(function TipTapEditor({
     isFullscreen ? 'fullscreen' : embedded ? 'tiptap-editor-embedded' : ''
   }`;
 
+  // Reaktive Überlauf-Steuerung. Das Mess-Lineal wird NUR gerendert, solange
+  // gemessen werden muss (measurePending), und danach wieder ausgehängt — sonst
+  // dupliziert es alle Button-Beschriftungen (aria-label) dauerhaft im DOM.
+  // tableActive ändert die Breite der Einfügen-Gruppe (Tabellen-Aktionen) →
+  // Neu-Messung anstoßen.
+  const tableActive = editor?.isActive('table') ?? false;
+
+  // Reine Neuberechnung aus zwischengespeicherten Gruppenbreiten + Containerbreite.
+  const recomputeToolbar = useCallback(() => {
+    const container = toolbarRef.current;
+    const widths = groupWidthsRef.current;
+    if (!container || widths.length === 0) return;
+    setInlineCount(computeInlineCount(container.clientWidth, widths, MORE_RESERVED_PX));
+  }, []);
+
+  // Messen (Lineal aktuell im DOM) → Breiten cachen → Lineal aushängen.
+  useLayoutEffect(() => {
+    if (loading || !editor || !measurePending) return;
+    const ruler = rulerRef.current;
+    if (ruler && ruler.children.length > 0) {
+      groupWidthsRef.current = Array.from(ruler.children).map(c => (c as HTMLElement).offsetWidth);
+    }
+    recomputeToolbar();
+    setMeasurePending(false);
+  }, [loading, editor, measurePending, recomputeToolbar]);
+
+  // Ändert sich der Gruppensatz (Tabellen-Aktionen) oder das Layout (Vollbild),
+  // neu messen: Lineal wieder einhängen.
+  useEffect(() => {
+    setMeasurePending(true);
+  }, [tableActive, isFullscreen]);
+
+  // Containerbreite beobachten → nur neu rechnen (aus gecachten Breiten).
+  useEffect(() => {
+    if (loading || !editor) return;
+    const el = toolbarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => recomputeToolbar());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading, editor, recomputeToolbar]);
+
+  // ⋯-Menü bei Klick außerhalb schließen.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreWrapRef.current && !moreWrapRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [moreOpen]);
+
   // Loading state
   if (loading || !editor) {
     return (
@@ -372,6 +458,335 @@ const TipTapEditor = memo(function TipTapEditor({
     );
   }
 
+  // Formatier-Gruppen in fester Reihenfolge; Überlauf wandert ins ⋯-Menü.
+  const toolbarGroups: Array<{ id: string; node: ReactNode }> = [
+    {
+      id: 'headings',
+      node: (
+        <div className="tiptap-toolbar-group">
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('paragraph') && !editor.isActive('heading') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().setParagraph().run()}
+            title="Fließtext"
+            aria-label="Fließtext"
+            aria-pressed={editor.isActive('paragraph') && !editor.isActive('heading')}
+          >
+            P
+          </button>
+          {([1, 2, 3] as const).map(level => (
+            <button
+              key={level}
+              type="button"
+              className={`tiptap-toolbar-btn ${editor.isActive('heading', { level }) ? 'active' : ''}`}
+              onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
+              title={`Überschrift ${level}`}
+              aria-label={`Überschrift ${level}`}
+              aria-pressed={editor.isActive('heading', { level })}
+            >
+              H{level}
+            </button>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: 'marks',
+      node: (
+        <div className="tiptap-toolbar-group">
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('bold') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            title="Fett (Ctrl+B)"
+            aria-label="Fett"
+            aria-pressed={editor.isActive('bold')}
+          >
+            <strong>B</strong>
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('italic') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            title="Kursiv (Ctrl+I)"
+            aria-label="Kursiv"
+            aria-pressed={editor.isActive('italic')}
+          >
+            <em>I</em>
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('underline') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleUnderline().run()}
+            title="Unterstrichen (Ctrl+U)"
+            aria-label="Unterstrichen"
+            aria-pressed={editor.isActive('underline')}
+          >
+            <u>U</u>
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('strike') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleStrike().run()}
+            title="Durchgestrichen"
+            aria-label="Durchgestrichen"
+            aria-pressed={editor.isActive('strike')}
+          >
+            <s>S</s>
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('code') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleCode().run()}
+            title="Inline-Code"
+            aria-label="Inline-Code"
+            aria-pressed={editor.isActive('code')}
+          >
+            {'</>'}
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('link') ? 'active' : ''}`}
+            onClick={handleSetLink}
+            title="Link einfügen/bearbeiten"
+            aria-label="Link einfügen oder bearbeiten"
+            aria-pressed={editor.isActive('link')}
+          >
+            <Link2 size={16} />
+          </button>
+          <button
+            type="button"
+            className="tiptap-toolbar-btn"
+            onClick={() => editor.chain().focus().extendMarkRange('link').unsetLink().run()}
+            disabled={!editor.isActive('link')}
+            title="Link entfernen"
+            aria-label="Link entfernen"
+          >
+            <Link2Off size={16} />
+          </button>
+        </div>
+      ),
+    },
+    {
+      id: 'align',
+      node: (
+        <div className="tiptap-toolbar-group">
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'left' }) ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().setTextAlign('left').run()}
+            title="Linksbündig"
+            aria-label="Linksbündig"
+            aria-pressed={editor.isActive({ textAlign: 'left' })}
+          >
+            <AlignLeft size={16} />
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'center' }) ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().setTextAlign('center').run()}
+            title="Zentriert"
+            aria-label="Zentriert"
+            aria-pressed={editor.isActive({ textAlign: 'center' })}
+          >
+            <AlignCenter size={16} />
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'right' }) ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().setTextAlign('right').run()}
+            title="Rechtsbündig"
+            aria-label="Rechtsbündig"
+            aria-pressed={editor.isActive({ textAlign: 'right' })}
+          >
+            <AlignRight size={16} />
+          </button>
+        </div>
+      ),
+    },
+    {
+      id: 'blocks',
+      node: (
+        <div className="tiptap-toolbar-group">
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('bulletList') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            title="Aufzählung"
+            aria-label="Aufzählung"
+            aria-pressed={editor.isActive('bulletList')}
+          >
+            &bull;
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            title="Nummerierte Liste"
+            aria-label="Nummerierte Liste"
+            aria-pressed={editor.isActive('orderedList')}
+          >
+            1.
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('blockquote') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            title="Zitat"
+            aria-label="Zitat"
+            aria-pressed={editor.isActive('blockquote')}
+          >
+            &ldquo;
+          </button>
+          <button
+            type="button"
+            className={`tiptap-toolbar-btn ${editor.isActive('codeBlock') ? 'active' : ''}`}
+            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+            title="Code-Block"
+            aria-label="Code-Block"
+            aria-pressed={editor.isActive('codeBlock')}
+          >
+            {'{ }'}
+          </button>
+          <button
+            type="button"
+            className="tiptap-toolbar-btn"
+            onClick={() => editor.chain().focus().setHorizontalRule().run()}
+            title="Trennlinie"
+            aria-label="Trennlinie"
+          >
+            &mdash;
+          </button>
+        </div>
+      ),
+    },
+    {
+      id: 'insert',
+      node: (
+        <div className="tiptap-toolbar-group">
+          <button
+            type="button"
+            className="tiptap-toolbar-btn"
+            onClick={() =>
+              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+            }
+            title="Tabelle einfügen"
+            aria-label="Tabelle einfügen"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+              <line x1="3" y1="15" x2="21" y2="15" />
+              <line x1="9" y1="3" x2="9" y2="21" />
+              <line x1="15" y1="3" x2="15" y2="21" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="tiptap-toolbar-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Bild einfügen"
+            aria-label="Bild einfügen"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </button>
+          {editor.isActive('table') && (
+            <>
+              <button
+                type="button"
+                className="tiptap-toolbar-btn"
+                onClick={() => editor.chain().focus().addRowAfter().run()}
+                title="Zeile hinzufügen"
+              >
+                +↓
+              </button>
+              <button
+                type="button"
+                className="tiptap-toolbar-btn"
+                onClick={() => editor.chain().focus().addColumnAfter().run()}
+                title="Spalte hinzufügen"
+              >
+                +→
+              </button>
+              <button
+                type="button"
+                className="tiptap-toolbar-btn"
+                onClick={() => editor.chain().focus().deleteRow().run()}
+                title="Zeile löschen"
+              >
+                -↓
+              </button>
+              <button
+                type="button"
+                className="tiptap-toolbar-btn"
+                onClick={() => editor.chain().focus().deleteColumn().run()}
+                title="Spalte löschen"
+              >
+                -→
+              </button>
+              <button
+                type="button"
+                className="tiptap-toolbar-btn tiptap-close-btn"
+                onClick={() => editor.chain().focus().deleteTable().run()}
+                title="Tabelle löschen"
+              >
+                ✕
+              </button>
+            </>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'history',
+      node: (
+        <div className="tiptap-toolbar-group">
+          <button
+            type="button"
+            className="tiptap-toolbar-btn"
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={!editor.can().undo()}
+            title="Rückgängig (Ctrl+Z)"
+            aria-label="Rückgängig"
+          >
+            &#x21B6;
+          </button>
+          <button
+            type="button"
+            className="tiptap-toolbar-btn"
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={!editor.can().redo()}
+            title="Wiederholen (Ctrl+Y)"
+            aria-label="Wiederholen"
+          >
+            &#x21B7;
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  const count = Math.min(inlineCount, toolbarGroups.length);
+  const hasOverflow = count < toolbarGroups.length;
+
   return (
     <div className={rootClass} role="presentation">
       <div
@@ -381,344 +796,73 @@ const TipTapEditor = memo(function TipTapEditor({
         aria-modal="true"
         aria-label={`Editor: ${filename}`}
       >
-        {/* Header / Toolbar */}
+        {/* Header: Zeile 1 = Formatier-Leiste (strikt einzeilig, ⋯-Überlauf),
+            Zeile 2 = Dateiname + Autosave-Status + Aktionen. */}
         <div className="tiptap-editor-header">
-          <div className="tiptap-editor-title">
-            <FileText />
-            <span>{filename}</span>
-            {hasChanges && <span className="tiptap-unsaved-indicator">*</span>}
-          </div>
-
-          <div className="tiptap-editor-toolbar" role="toolbar" aria-label="Formatierung">
-            {/* Paragraph / Heading */}
-            <div className="tiptap-toolbar-group">
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('paragraph') && !editor.isActive('heading') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().setParagraph().run()}
-                title="Fließtext"
-                aria-label="Fließtext"
-                aria-pressed={editor.isActive('paragraph') && !editor.isActive('heading')}
-              >
-                P
-              </button>
-              {([1, 2, 3] as const).map(level => (
-                <button
-                  key={level}
-                  type="button"
-                  className={`tiptap-toolbar-btn ${editor.isActive('heading', { level }) ? 'active' : ''}`}
-                  onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
-                  title={`Überschrift ${level}`}
-                  aria-label={`Überschrift ${level}`}
-                  aria-pressed={editor.isActive('heading', { level })}
-                >
-                  H{level}
-                </button>
+          <div
+            className="tiptap-editor-toolbar"
+            role="toolbar"
+            aria-label="Formatierung"
+            ref={toolbarRef}
+          >
+            <div className="tiptap-toolbar-inline">
+              {toolbarGroups.slice(0, count).map(g => (
+                <Fragment key={g.id}>{g.node}</Fragment>
               ))}
             </div>
 
-            {/* Inline marks */}
-            <div className="tiptap-toolbar-group">
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('bold') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleBold().run()}
-                title="Fett (Ctrl+B)"
-                aria-label="Fett"
-                aria-pressed={editor.isActive('bold')}
-              >
-                <strong>B</strong>
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('italic') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleItalic().run()}
-                title="Kursiv (Ctrl+I)"
-                aria-label="Kursiv"
-                aria-pressed={editor.isActive('italic')}
-              >
-                <em>I</em>
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('underline') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleUnderline().run()}
-                title="Unterstrichen (Ctrl+U)"
-                aria-label="Unterstrichen"
-                aria-pressed={editor.isActive('underline')}
-              >
-                <u>U</u>
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('strike') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleStrike().run()}
-                title="Durchgestrichen"
-                aria-label="Durchgestrichen"
-                aria-pressed={editor.isActive('strike')}
-              >
-                <s>S</s>
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('code') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleCode().run()}
-                title="Inline-Code"
-                aria-label="Inline-Code"
-                aria-pressed={editor.isActive('code')}
-              >
-                {'</>'}
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('link') ? 'active' : ''}`}
-                onClick={handleSetLink}
-                title="Link einfügen/bearbeiten"
-                aria-label="Link einfügen oder bearbeiten"
-                aria-pressed={editor.isActive('link')}
-              >
-                <Link2 size={16} />
-              </button>
-              <button
-                type="button"
-                className="tiptap-toolbar-btn"
-                onClick={() => editor.chain().focus().extendMarkRange('link').unsetLink().run()}
-                disabled={!editor.isActive('link')}
-                title="Link entfernen"
-                aria-label="Link entfernen"
-              >
-                <Link2Off size={16} />
-              </button>
-            </div>
-
-            {/* Text-Ausrichtung */}
-            <div className="tiptap-toolbar-group">
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'left' }) ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().setTextAlign('left').run()}
-                title="Linksbündig"
-                aria-label="Linksbündig"
-                aria-pressed={editor.isActive({ textAlign: 'left' })}
-              >
-                <AlignLeft size={16} />
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'center' }) ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().setTextAlign('center').run()}
-                title="Zentriert"
-                aria-label="Zentriert"
-                aria-pressed={editor.isActive({ textAlign: 'center' })}
-              >
-                <AlignCenter size={16} />
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive({ textAlign: 'right' }) ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().setTextAlign('right').run()}
-                title="Rechtsbündig"
-                aria-label="Rechtsbündig"
-                aria-pressed={editor.isActive({ textAlign: 'right' })}
-              >
-                <AlignRight size={16} />
-              </button>
-            </div>
-
-            {/* List & block buttons */}
-            <div className="tiptap-toolbar-group">
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('bulletList') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
-                title="Aufzählung"
-                aria-label="Aufzählung"
-                aria-pressed={editor.isActive('bulletList')}
-              >
-                &bull;
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                title="Nummerierte Liste"
-                aria-label="Nummerierte Liste"
-                aria-pressed={editor.isActive('orderedList')}
-              >
-                1.
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('blockquote') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                title="Zitat"
-                aria-label="Zitat"
-                aria-pressed={editor.isActive('blockquote')}
-              >
-                &ldquo;
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn ${editor.isActive('codeBlock') ? 'active' : ''}`}
-                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                title="Code-Block"
-                aria-label="Code-Block"
-                aria-pressed={editor.isActive('codeBlock')}
-              >
-                {'{ }'}
-              </button>
-              <button
-                type="button"
-                className="tiptap-toolbar-btn"
-                onClick={() => editor.chain().focus().setHorizontalRule().run()}
-                title="Trennlinie"
-                aria-label="Trennlinie"
-              >
-                &mdash;
-              </button>
-            </div>
-
-            {/* Table buttons */}
-            <div className="tiptap-toolbar-group">
-              <button
-                type="button"
-                className="tiptap-toolbar-btn"
-                onClick={() =>
-                  editor
-                    .chain()
-                    .focus()
-                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                    .run()
-                }
-                title="Tabelle einfügen"
-                aria-label="Tabelle einfügen"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
+            {hasOverflow && (
+              <div className="tiptap-toolbar-more" ref={moreWrapRef}>
+                <button
+                  type="button"
+                  className={`tiptap-toolbar-btn ${moreOpen ? 'active' : ''}`}
+                  onClick={() => setMoreOpen(o => !o)}
+                  title="Weitere Formatierung"
+                  aria-label="Weitere Formatierung"
+                  aria-haspopup="true"
+                  aria-expanded={moreOpen}
                 >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <line x1="3" y1="9" x2="21" y2="9" />
-                  <line x1="3" y1="15" x2="21" y2="15" />
-                  <line x1="9" y1="3" x2="9" y2="21" />
-                  <line x1="15" y1="3" x2="15" y2="21" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className="tiptap-toolbar-btn"
-                onClick={() => fileInputRef.current?.click()}
-                title="Bild einfügen"
-                aria-label="Bild einfügen"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={async e => {
-                  const file = e.target.files?.[0];
-                  if (file && editor) {
-                    const url = await uploadImage(file);
-                    if (url) {
-                      editor.chain().focus().setImage({ src: url }).run();
-                    }
-                  }
-                  e.target.value = '';
-                }}
-              />
-              {editor.isActive('table') && (
-                <>
-                  <button
-                    type="button"
-                    className="tiptap-toolbar-btn"
-                    onClick={() => editor.chain().focus().addRowAfter().run()}
-                    title="Zeile hinzufügen"
-                  >
-                    +↓
-                  </button>
-                  <button
-                    type="button"
-                    className="tiptap-toolbar-btn"
-                    onClick={() => editor.chain().focus().addColumnAfter().run()}
-                    title="Spalte hinzufügen"
-                  >
-                    +→
-                  </button>
-                  <button
-                    type="button"
-                    className="tiptap-toolbar-btn"
-                    onClick={() => editor.chain().focus().deleteRow().run()}
-                    title="Zeile löschen"
-                  >
-                    -↓
-                  </button>
-                  <button
-                    type="button"
-                    className="tiptap-toolbar-btn"
-                    onClick={() => editor.chain().focus().deleteColumn().run()}
-                    title="Spalte löschen"
-                  >
-                    -→
-                  </button>
-                  <button
-                    type="button"
-                    className="tiptap-toolbar-btn tiptap-close-btn"
-                    onClick={() => editor.chain().focus().deleteTable().run()}
-                    title="Tabelle löschen"
-                  >
-                    ✕
-                  </button>
-                </>
-              )}
-            </div>
+                  <MoreHorizontal size={16} />
+                </button>
+                {moreOpen && (
+                  <div className="tiptap-toolbar-more-panel" role="menu">
+                    {toolbarGroups.slice(count).map(g => (
+                      <Fragment key={g.id}>{g.node}</Fragment>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Action buttons */}
-            <div className="tiptap-toolbar-group">
-              <button
-                type="button"
-                className="tiptap-toolbar-btn"
-                onClick={() => editor.chain().focus().undo().run()}
-                disabled={!editor.can().undo()}
-                title="Rückgängig (Ctrl+Z)"
-                aria-label="Rückgängig"
+            {/* Verstecktes Mess-Lineal: alle Gruppen, liefert die Gruppenbreiten.
+                Nur gemountet, solange gemessen wird (measurePending) — danach
+                ausgehängt, damit die Button-Beschriftungen nicht dauerhaft
+                doppelt im DOM stehen. visibility:hidden + data-toolbar-ruler
+                halten es aus Tab-Fluss und Fokus-Trap heraus. */}
+            {measurePending && (
+              <div
+                className="tiptap-toolbar-ruler"
+                data-toolbar-ruler
+                ref={rulerRef}
+                aria-hidden="true"
               >
-                &#x21B6;
-              </button>
-              <button
-                type="button"
-                className="tiptap-toolbar-btn"
-                onClick={() => editor.chain().focus().redo().run()}
-                disabled={!editor.can().redo()}
-                title="Wiederholen (Ctrl+Y)"
-                aria-label="Wiederholen"
-              >
-                &#x21B7;
-              </button>
-            </div>
+                {toolbarGroups.map(g => (
+                  <Fragment key={g.id}>{g.node}</Fragment>
+                ))}
+              </div>
+            )}
+          </div>
 
+          <div className="tiptap-editor-titlebar">
+            <div className="tiptap-editor-title">
+              <FileText />
+              <span>{filename}</span>
+              {hasChanges && <span className="tiptap-unsaved-indicator">*</span>}
+            </div>
             <span className="tiptap-autosave-status" role="status" aria-live="polite">
               {saving ? 'Speichert…' : savedFlash ? 'Gespeichert' : ''}
             </span>
-
-            <div className="tiptap-toolbar-group">
+            <div className="tiptap-toolbar-group tiptap-titlebar-actions">
               <button
                 type="button"
                 className="tiptap-toolbar-btn"
@@ -750,6 +894,25 @@ const TipTapEditor = memo(function TipTapEditor({
               </button>
             </div>
           </div>
+
+          {/* Bild-Upload-Input (aus der Einfügen-Gruppe ausgelagert, damit es
+              nicht dreifach im DOM landet). */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={async e => {
+              const file = e.target.files?.[0];
+              if (file && editor) {
+                const url = await uploadImage(file);
+                if (url) {
+                  editor.chain().focus().setImage({ src: url }).run();
+                }
+              }
+              e.target.value = '';
+            }}
+          />
         </div>
 
         {/* Error message */}

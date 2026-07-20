@@ -46,9 +46,14 @@ const minioService = require('../services/documents/minioService');
 const qdrantService = require('../services/documents/qdrantService');
 const documentService = require('../services/documents/documentService');
 
-// Allowed file types and size limits
-const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
+// Größen-Limit für Uploads.
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+// Dateitypen, die in-App indexiert/durchsuchbar sind. Plan 009: der Upload
+// selbst nimmt BELIEBIGE Typen an (echtes Dateisystem — auch Office, ZIP,
+// Bilder, Binärdateien); nur diese hier werden vom Indexer verarbeitet, der
+// Rest wird als „nur gespeichert" abgelegt (herunterladbar, siehe Indexer).
+const INDEXABLE_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
@@ -57,15 +62,10 @@ const upload = multer({
   limits: {
     fileSize: MAX_FILE_SIZE,
   },
-  fileFilter: (req, file, cb) => {
-    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
-    if (ALLOWED_EXTENSIONS.includes(ext)) {
-      cb(null, true);
-    } else {
-      // P8.3: typed error → canonical envelope.
-      cb(new ValidationError(`Ungültiger Dateityp. Erlaubt: ${ALLOWED_EXTENSIONS.join(', ')}`));
-    }
-  },
+  // Plan 009: keine Endungs-Whitelist mehr — beliebige Dateitypen sind erlaubt.
+  // Sicherheitsnetz bleibt: Größenlimit (oben) + Magic-Byte-Prüfung für bekannte
+  // Binärtypen (validateFileContent im Handler). Dateien werden ausschließlich
+  // gespeichert und als Download ausgeliefert, nie serverseitig ausgeführt.
 });
 
 /**

@@ -1049,6 +1049,14 @@
 > Space (`DELETE /api/spaces/:id`) wird die Kontextdatei soft-deleted statt
 > in den Default-Space verschoben.
 
+> `status`-Enum `document_status` (Migration 109, Plan 009): zusätzlich zum
+> bestehenden `pending`/`processing`/`indexed`/`failed`/`deleted`/`context`
+> gibt es den Wert **`stored`** — Datei ist hochgeladen und herunterladbar,
+> aber ein nicht-indexierbarer Typ (z. B. Office/ZIP/Binär). Der Document-
+> Indexer (`run_indexing_pipeline`) setzt ihn statt `failed`, sodass solche
+> Dateien im Explorer keinen roten Fehlerpunkt zeigen. `ADD VALUE IF NOT EXISTS`
+> ist forward-only; Enum-Werte lassen sich nicht ohne Typ-Neubau entfernen.
+
 **Primary key:** `id`
 
 **Foreign Keys:**

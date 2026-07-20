@@ -371,6 +371,20 @@ def run_indexing_pipeline(
     except OSError:
         pass  # Non-critical — proceed if disk check fails
 
+    # Plan 009: nicht-indexierbare Dateitypen (z. B. Office, ZIP, Binär, Bilder)
+    # NICHT als 'failed' markieren. Der Upload nimmt beliebige Typen an; solche
+    # Dateien werden gespeichert + herunterladbar, aber bewusst nicht indexiert.
+    # Status 'stored' → der Explorer zeigt ein neutrales Icon statt roter Fehler.
+    # Rückgabe 0 (nicht None): der Aufrufer wertet das als erfolgreich behandelt,
+    # ohne Retry (siehe enhanced_indexer: chunk_count == 0 → doc_id).
+    file_ext = os.path.splitext(filename.lower())[1]
+    if file_ext not in PARSERS:
+        logger.info(
+            f"{filename}: nicht-indexierbarer Typ '{file_ext}' — gespeichert, nicht indexiert"
+        )
+        db.update_document_status(doc_id, 'stored')
+        return 0
+
     # Parse document
     text = parse_document(data, filename)
     if not text:

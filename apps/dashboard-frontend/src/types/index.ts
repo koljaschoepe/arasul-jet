@@ -144,6 +144,13 @@ export interface MemoryBudget {
   availableMb: number;
   safetyBufferMb: number;
   loadedModels: LoadedModelInfo[];
+  /**
+   * Plan 009: installiertes (heruntergeladenes) Standard-/zuletzt-genutztes
+   * Modell — auch wenn es gerade NICHT im RAM geladen ist. Damit unterscheidet
+   * die Statusleiste „installiert, bereit" von „gar nichts installiert".
+   */
+  installedModel?: { id: string; name: string } | null;
+  installedCount?: number;
   canLoadMore: boolean;
 }
 

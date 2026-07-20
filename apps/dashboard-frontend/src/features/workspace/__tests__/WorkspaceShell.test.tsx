@@ -21,6 +21,9 @@ import WorkspaceShell from '../WorkspaceShell';
 
 // Schwere Kinder mocken — getestet wird ausschließlich die Shell-Logik
 vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div data-testid="mock-activitybar" /> }));
+vi.mock('../SidebarFooter', () => ({
+  SidebarFooter: () => <div data-testid="mock-sidebarfooter" />,
+}));
 vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
 vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));

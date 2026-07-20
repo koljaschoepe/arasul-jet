@@ -66,8 +66,13 @@ export function createExtensions() {
       allowBase64: false,
     }),
     SlashCommandsExtension,
+    // tiptap-markdown parst Markdown-Strings beim Laden (setContent) UND beim
+    // Einfügen — dadurch erscheinen importierte .md-Dateien formatiert
+    // (Überschriften/Listen/Auszeichnung), statt als roher Text. Plan 009:
+    // linkify macht zusätzlich nackte URLs in importiertem Markdown klickbar.
     Markdown.configure({
       html: false,
+      linkify: true,
       transformPastedText: true,
       transformCopiedText: true,
     }),
