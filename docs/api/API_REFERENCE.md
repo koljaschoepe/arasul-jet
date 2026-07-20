@@ -488,6 +488,33 @@ Request: `multipart/form-data` with `file` field.
 }
 ```
 
+### Flow-Agenten — Provider-Keys (Plan 010)
+
+Admin-only management of external model-provider API keys used by Flow-Agents.
+The key itself never leaves the backend — the list returns metadata only.
+
+| Method | Endpoint                              | Description                                         |
+| ------ | ------------------------------------- | --------------------------------------------------- |
+| GET    | `/api/agents/provider-keys`           | List configured providers (metadata, no key)        |
+| PUT    | `/api/agents/provider-keys/:provider` | Create/rotate a provider key (`openai`/`anthropic`) |
+| DELETE | `/api/agents/provider-keys/:provider` | Delete a provider key                               |
+
+All three require `requireAuth` + `requireAdmin`. `:provider` ∈ {`openai`,
+`anthropic`} (`ollama` is local and needs no key). The stored key is AES-256-GCM
+encrypted (`utils/tokenCrypto.js`, key from `JWT_SECRET`).
+
+**PUT /api/agents/provider-keys/:provider:**
+
+```json
+{
+  "apiKey": "sk-…",
+  "baseUrl": "https://gateway.example.com/v1"
+}
+```
+
+`baseUrl` is optional (OpenAI-compatible custom endpoints). Response:
+`{ "data": { "provider": "openai", "baseUrl": null, "updatedAt": "…" }, "timestamp": "…" }`.
+
 ### Workflows (n8n)
 
 | Method | Endpoint                  | Description         |
