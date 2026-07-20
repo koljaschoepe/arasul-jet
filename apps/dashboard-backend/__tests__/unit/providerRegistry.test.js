@@ -165,7 +165,34 @@ describe('providerRegistry.chat — anthropic', () => {
     expect(body.system).toBe('Du bist hilfreich.');
     expect(body.messages).toEqual([{ role: 'user', content: 'Hallo' }]);
     expect(out.content).toBe('Teil1 Teil2');
-    expect(out.toolCalls).toEqual([{ id: 'tu_1', function: { name: 'rag', arguments: { q: 'a' } } }]);
+    expect(out.toolCalls).toEqual([{ id: 'tu_1', name: 'rag', args: { q: 'a' } }]);
+  });
+
+  test('bündelt parallele tool-Ergebnisse in EINE user-Nachricht (kein 400)', async () => {
+    const httpClient = {
+      post: jest.fn().mockResolvedValue({ data: { content: [{ type: 'text', text: 'ok' }] } }),
+    };
+    // Turn mit zwei parallelen Tool-Aufrufen → zwei tool-Ergebnisse hintereinander.
+    const messages = [
+      { role: 'user', content: 'frag' },
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [
+          { id: 't1', name: 'rag', args: {} },
+          { id: 't2', name: 'web', args: {} },
+        ],
+      },
+      { role: 'tool', toolCallId: 't1', content: 'R1' },
+      { role: 'tool', toolCallId: 't2', content: 'R2' },
+    ];
+    await chat({ provider: 'anthropic', model: 'c', messages, apiKey: 'k', httpClient });
+    const body = httpClient.post.mock.calls[0][1];
+    // Erwartung: user, assistant(tool_use x2), user(tool_result x2) — NICHT zwei user hintereinander.
+    expect(body.messages.map(m => m.role)).toEqual(['user', 'assistant', 'user']);
+    const lastUser = body.messages[2];
+    expect(Array.isArray(lastUser.content)).toBe(true);
+    expect(lastUser.content.map(b => b.tool_use_id)).toEqual(['t1', 't2']);
   });
 });
 

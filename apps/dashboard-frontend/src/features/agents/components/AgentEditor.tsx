@@ -21,7 +21,9 @@ import {
   SelectValue,
 } from '@/components/ui/shadcn/select';
 import type { AgentDraft, AgentProvider, FlowAgent } from '../types';
-import { PROVIDER_LABELS } from '../types';
+import { PROVIDER_LABELS, FLOW_TOOLS } from '../types';
+
+const EXTERNAL_TOOL_NAMES = FLOW_TOOLS.filter(t => t.external).map(t => t.name);
 
 /**
  * Shape aus GET /api/models/installed: `id` ist der Katalog-Schlüssel,
@@ -106,7 +108,11 @@ export function AgentEditor({ agent, onSaved, onDeleted, onCancel }: Props) {
     if (!canSave) return;
     setSaving(true);
     try {
-      const body = { ...draft };
+      // Externe Tools nie mitspeichern, wenn die Freigabe fehlt (UI/Backend deckungsgleich).
+      const tools = draft.allowExternal
+        ? draft.tools
+        : draft.tools.filter(t => !EXTERNAL_TOOL_NAMES.includes(t));
+      const body = { ...draft, tools };
       const res = agent
         ? await api.put<{ data: FlowAgent }>(`/agents/${agent.id}`, body)
         : await api.post<{ data: FlowAgent }>('/agents', body);
@@ -204,6 +210,53 @@ export function AgentEditor({ agent, onSaved, onDeleted, onCancel }: Props) {
         </div>
       </div>
 
+      <div className="flex flex-col gap-2">
+        <Label>Tools</Label>
+        <p className="-mt-1 text-xs text-muted-foreground">
+          Werkzeuge, die der Agent während eines Laufs nutzen darf.
+        </p>
+        <div className="flex flex-col gap-2">
+          {FLOW_TOOLS.map(t => {
+            // Externe Tools sind nur nutzbar, wenn „externe Tools" freigeschaltet ist.
+            const blocked = Boolean(t.external) && !draft.allowExternal;
+            const checked = draft.tools.includes(t.name) && !blocked;
+            return (
+              <div
+                key={t.name}
+                className="flex items-center justify-between rounded-md border border-border p-2.5"
+              >
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-foreground">
+                    {t.label}
+                    {t.external && (
+                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
+                        extern
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {blocked
+                      ? `${t.description} — benötigt „Externe Tools erlauben"`
+                      : t.description}
+                  </span>
+                </div>
+                <Switch
+                  checked={checked}
+                  disabled={blocked}
+                  aria-label={t.label}
+                  onCheckedChange={on =>
+                    set(
+                      'tools',
+                      on ? [...draft.tools, t.name] : draft.tools.filter(x => x !== t.name)
+                    )
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {isAdmin && (
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div className="flex flex-col">
@@ -214,7 +267,14 @@ export function AgentEditor({ agent, onSaved, onDeleted, onCancel }: Props) {
           </div>
           <Switch
             checked={draft.allowExternal}
-            onCheckedChange={v => set('allowExternal', v)}
+            onCheckedChange={v =>
+              setDraft(d => ({
+                ...d,
+                allowExternal: v,
+                // Externe Tools abwählen, wenn die Freigabe zurückgenommen wird.
+                tools: v ? d.tools : d.tools.filter(x => !EXTERNAL_TOOL_NAMES.includes(x)),
+              }))
+            }
             aria-label="Externe Tools erlauben"
           />
         </div>

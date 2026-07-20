@@ -1,25 +1,25 @@
 /**
- * Provider-Registry (Plan 010, Schritt 1)
+ * Provider-Registry (Plan 010, Schritt 1 + Tool-Round-Trip in Schritt 3)
  *
- * Eine Abstraktion über den bisher fest auf Ollama verdrahteten Modell-Aufruf
- * (toolLoop.js → callOllama). Dispatcht pro Agent auf:
+ * Eine Abstraktion über den bisher fest auf Ollama verdrahteten Modell-Aufruf.
+ * Dispatcht pro Agent auf:
  *   - 'ollama'    → lokales Ollama /api/chat (GPU, seriell über gpuGate)
  *   - 'openai'    → OpenAI-kompatibler /v1/chat/completions-Endpoint
  *   - 'anthropic' → Anthropic /v1/messages
  *
  * GPU-Serialisierung: der lokale (ollama) Pfad läuft IMMER durch withGpuLock,
- * statt — wie das alte callOllama — direkt und ungebremst per axios. Damit ist
- * garantiert, dass nie zwei lokale Modell-Läufe gleichzeitig die eine Jetson-GPU
- * belasten (siehe gpuGate.js). Cloud-Provider berühren die GPU nicht.
+ * damit nie zwei lokale Modell-Läufe gleichzeitig die eine Jetson-GPU belasten.
+ * Cloud-Provider berühren die GPU nicht.
  *
- * Rückgabe ist provider-neutral normalisiert:
- *   { content: string, toolCalls: Array<{id?, function:{name, arguments}}>, raw }
- * sodass die Fluss-Engine (Schritt 4) und der Einzel-Agent-Runner (Schritt 2)
- * eine einheitliche Form sehen, egal welcher Provider antwortet.
+ * Provider-neutrale Nachrichten (INTERNAL shape) — die Fluss-Engine/der Runner
+ * arbeiten NUR damit, die Registry übersetzt pro Provider:
+ *   { role:'system'|'user', content }
+ *   { role:'assistant', content, toolCalls?: [{ id, name, args }] }
+ *   { role:'tool', toolCallId, content }
  *
- * Die Registry ist ein reiner Dispatcher: API-Key und Basis-URL externer
- * Provider gibt der Aufrufer herein (aufgelöst über providerKeysService). So
- * bleibt sie ohne DB testbar.
+ * Rückgabe ist ebenfalls normalisiert:
+ *   { content: string, toolCalls: Array<{ id, name, args }>, raw }
+ * sodass ein Tool-Loop (Schritt 3) provider-unabhängig funktioniert.
  */
 
 const axios = require('axios');
@@ -39,31 +39,156 @@ const LOCAL_TIMEOUT_MS = parseInt(process.env.AGENT_LLM_TIMEOUT_MS || '120000', 
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MAX_TOKENS = parseInt(process.env.AGENT_MAX_TOKENS || '2048', 10);
 
-/**
- * Ist der Provider ein Cloud-Anbieter (braucht API-Key, keine GPU)?
- * @param {string} provider
- * @returns {boolean}
- */
 function isExternalProvider(provider) {
   return provider === PROVIDERS.OPENAI || provider === PROVIDERS.ANTHROPIC;
+}
+
+// ---------------------------------------------------------------------------
+// Nachrichten-Übersetzung INTERNAL → Provider-spezifisch
+// ---------------------------------------------------------------------------
+function toOllamaMessages(messages) {
+  return messages.map(m => {
+    if (m.role === 'assistant' && Array.isArray(m.toolCalls) && m.toolCalls.length) {
+      return {
+        role: 'assistant',
+        content: m.content || '',
+        tool_calls: m.toolCalls.map(tc => ({
+          function: { name: tc.name, arguments: tc.args || {} },
+        })),
+      };
+    }
+    if (m.role === 'tool') {
+      return { role: 'tool', content: String(m.content ?? '') };
+    }
+    return { role: m.role, content: String(m.content ?? '') };
+  });
+}
+
+function toOpenAIMessages(messages) {
+  return messages.map(m => {
+    if (m.role === 'assistant' && Array.isArray(m.toolCalls) && m.toolCalls.length) {
+      return {
+        role: 'assistant',
+        content: m.content || null,
+        tool_calls: m.toolCalls.map(tc => ({
+          id: tc.id,
+          type: 'function',
+          function: { name: tc.name, arguments: JSON.stringify(tc.args || {}) },
+        })),
+      };
+    }
+    if (m.role === 'tool') {
+      return { role: 'tool', tool_call_id: m.toolCallId, content: String(m.content ?? '') };
+    }
+    return { role: m.role, content: String(m.content ?? '') };
+  });
+}
+
+function toAnthropicMessages(messages) {
+  const convo = [];
+  // Aufeinanderfolgende tool-Ergebnisse (parallele Tool-Aufrufe eines Turns)
+  // MÜSSEN in EINER user-Nachricht mit mehreren tool_result-Blöcken gebündelt
+  // werden — Anthropic verlangt strikt alternierende Rollen und lehnt zwei
+  // aufeinanderfolgende user-Nachrichten sonst mit 400 ab.
+  let pendingToolResults = null;
+  const flushToolResults = () => {
+    if (pendingToolResults) {
+      convo.push({ role: 'user', content: pendingToolResults });
+      pendingToolResults = null;
+    }
+  };
+
+  for (const m of messages) {
+    if (m.role === 'system') {
+      continue;
+    }
+    if (m.role === 'tool') {
+      if (!pendingToolResults) {
+        pendingToolResults = [];
+      }
+      pendingToolResults.push({
+        type: 'tool_result',
+        tool_use_id: m.toolCallId,
+        content: String(m.content ?? ''),
+      });
+      continue;
+    }
+    // Jede Nicht-tool-Nachricht schließt einen offenen tool_result-Block ab.
+    flushToolResults();
+    if (m.role === 'assistant') {
+      const blocks = [];
+      if (m.content) {
+        blocks.push({ type: 'text', text: String(m.content) });
+      }
+      for (const tc of m.toolCalls || []) {
+        blocks.push({ type: 'tool_use', id: tc.id, name: tc.name, input: tc.args || {} });
+      }
+      // Leere Assistant-Nachricht (kein Text, keine Tool-Aufrufe) auslassen —
+      // Anthropic lehnt content:'' mit 400 ab.
+      if (blocks.length === 0) {
+        continue;
+      }
+      convo.push({ role: 'assistant', content: blocks });
+    } else if (m.role === 'user') {
+      convo.push({ role: 'user', content: String(m.content ?? '') });
+    }
+  }
+  flushToolResults();
+  return convo;
+}
+
+// Ollama-Tool-Calls (kein id) → INTERNAL {id, name, args}
+function normalizeOllamaToolCalls(toolCalls) {
+  if (!Array.isArray(toolCalls)) {
+    return [];
+  }
+  return toolCalls.map((tc, i) => {
+    const fn = tc.function || {};
+    let args = fn.arguments;
+    if (typeof args === 'string') {
+      try {
+        args = JSON.parse(args);
+      } catch {
+        args = { _raw: fn.arguments };
+      }
+    }
+    return { id: tc.id || `call_${i}`, name: fn.name, args: args || {} };
+  });
+}
+
+function normalizeOpenAIToolCalls(toolCalls) {
+  if (!Array.isArray(toolCalls)) {
+    return [];
+  }
+  return toolCalls.map((tc, i) => {
+    const fn = tc.function || {};
+    let args = fn.arguments;
+    if (typeof args === 'string') {
+      try {
+        args = JSON.parse(args);
+      } catch {
+        args = { _raw: fn.arguments };
+      }
+    }
+    return { id: tc.id || `call_${i}`, name: fn.name, args: args || {} };
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Ollama (lokal) — GPU-serialisiert
 // ---------------------------------------------------------------------------
 async function dispatchOllama({ model, messages, tools, httpClient }) {
-  const body = { model, messages, stream: false };
+  const body = { model, messages: toOllamaMessages(messages), stream: false };
   if (Array.isArray(tools) && tools.length > 0) {
     body.tools = tools;
   }
-  // Jeder lokale Aufruf strikt seriell über das GPU-Gate.
   const response = await withGpuLock(() =>
     httpClient.post(services.llm.chatEndpoint, body, { timeout: LOCAL_TIMEOUT_MS })
   );
   const message = response.data?.message || {};
   return {
     content: message.content || '',
-    toolCalls: Array.isArray(message.tool_calls) ? message.tool_calls : [],
+    toolCalls: normalizeOllamaToolCalls(message.tool_calls),
     raw: response.data,
   };
 }
@@ -73,7 +198,7 @@ async function dispatchOllama({ model, messages, tools, httpClient }) {
 // ---------------------------------------------------------------------------
 async function dispatchOpenAI({ model, messages, tools, apiKey, baseUrl, httpClient }) {
   const base = (baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
-  const body = { model, messages, stream: false };
+  const body = { model, messages: toOpenAIMessages(messages), stream: false };
   if (Array.isArray(tools) && tools.length > 0) {
     body.tools = tools;
   }
@@ -84,7 +209,7 @@ async function dispatchOpenAI({ model, messages, tools, apiKey, baseUrl, httpCli
   const message = response.data?.choices?.[0]?.message || {};
   return {
     content: message.content || '',
-    toolCalls: Array.isArray(message.tool_calls) ? message.tool_calls : [],
+    toolCalls: normalizeOpenAIToolCalls(message.tool_calls),
     raw: response.data,
   };
 }
@@ -114,20 +239,16 @@ function toAnthropicTools(tools) {
 async function dispatchAnthropic({ model, messages, tools, apiKey, baseUrl, httpClient }) {
   const base = (baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
 
-  // System-Nachrichten hebt Anthropic auf die Top-Level-Ebene.
   const systemText = messages
     .filter(m => m.role === 'system')
     .map(m => m.content || '')
     .join('\n')
     .trim();
-  const convo = messages
-    .filter(m => m.role === 'user' || m.role === 'assistant')
-    .map(m => ({ role: m.role, content: String(m.content || '') }));
 
   const body = {
     model,
     max_tokens: DEFAULT_MAX_TOKENS,
-    messages: convo,
+    messages: toAnthropicMessages(messages),
   };
   if (systemText) {
     body.system = systemText;
@@ -153,7 +274,7 @@ async function dispatchAnthropic({ model, messages, tools, apiKey, baseUrl, http
     .join('');
   const toolCalls = blocks
     .filter(b => b.type === 'tool_use')
-    .map(b => ({ id: b.id, function: { name: b.name, arguments: b.input || {} } }));
+    .map(b => ({ id: b.id, name: b.name, args: b.input || {} }));
 
   return { content, toolCalls, raw: response.data };
 }
@@ -162,14 +283,14 @@ async function dispatchAnthropic({ model, messages, tools, apiKey, baseUrl, http
  * Einen Chat-Turn beim gewählten Provider ausführen (nicht-streamend).
  *
  * @param {object} opts
- * @param {string} opts.provider  - 'ollama' | 'openai' | 'anthropic'
- * @param {string} opts.model     - Modellname beim Provider
- * @param {Array}  opts.messages  - Chat-Nachrichten ({role, content, ...})
+ * @param {string} opts.provider
+ * @param {string} opts.model
+ * @param {Array}  opts.messages  - INTERNAL-Nachrichten (s. Kopf)
  * @param {Array}  [opts.tools]   - Tool-Definitionen (OpenAI-Funktionsschema)
- * @param {string} [opts.apiKey]  - API-Key (nur externe Provider)
- * @param {string} [opts.baseUrl] - Basis-URL (optional, externe Provider)
- * @param {object} [opts.httpClient] - Injizierbarer HTTP-Client (Tests); Default axios
- * @returns {Promise<{content:string, toolCalls:Array, raw:any}>}
+ * @param {string} [opts.apiKey]
+ * @param {string} [opts.baseUrl]
+ * @param {object} [opts.httpClient]
+ * @returns {Promise<{content:string, toolCalls:Array<{id,name,args}>, raw:any}>}
  */
 async function chat(opts = {}) {
   const { provider, model, messages, tools, apiKey, baseUrl, httpClient = axios } = opts;
@@ -202,7 +323,6 @@ async function chat(opts = {}) {
     if (err instanceof ValidationError) {
       throw err;
     }
-    // Netzwerk-/Provider-Fehler auf einen klaren 503 abbilden; Rohantwort nie leaken.
     const status = err.response?.status;
     logger.error(`providerRegistry.chat(${provider}) fehlgeschlagen: ${err.message}`, { status });
     throw new ServiceUnavailableError(
