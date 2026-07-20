@@ -14,14 +14,14 @@
   "slug": "flow-agenten-orchestrierung",
   "title": "Flow-Agenten — lokale KI-Orchestrierung",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P1",
   "risk_level": 3,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-07-20",
   "approved": "2026-07-20",
-  "branch": null,
+  "branch": "010-flow-agenten-orchestrierung",
   "pr": null,
   "verified_on_device": false
 }
@@ -486,10 +486,11 @@
   </summary>
   <div class="sbody">
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Datenmodell &amp; Provider-Registry">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Datenmodell &amp; Provider-Registry">
     <h3>Schritt 1 — Datenmodell &amp; Provider-Registry (Backend) <span class="tag">Risiko: Mittel</span></h3>
     <p>Migration <code>110_flow_agents.sql</code>: Tabellen für Flow-Agenten, Flüsse (Graph-JSON) und „letzter Lauf" sowie eine verschlüsselte Tabelle für externe Provider-Keys (Vorlage <code>107_external_credentials.sql</code>). Provider-Registry als Abstraktion über den bisherigen <code>callOllama</code>: dispatcht lokal (Ollama) / OpenAI-kompatibel / Anthropic und ruft <strong>immer</strong> über <code>llmQueueService</code> statt direktem axios. Admin-Routen zum Anlegen/Rotieren der Keys (AES via <code>tokenCrypto.js</code>). Neue Route-Gruppe in <code>routes/index.js</code> registriert (<code>API_ROUTE_GROUPS</code>). Noch keine UI.</p>
     <p class="files mono">services/postgres/init/110_flow_agents.sql · apps/dashboard-backend/src/services/agents/{toolLoop.js,providerRegistry.js} · apps/dashboard-backend/src/config/services.js · apps/dashboard-backend/src/routes/index.js · apps/dashboard-backend/src/utils/tokenCrypto.js · Tests: __tests__/unit/providerRegistry.test.js</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt. Migration <code>110_flow_agents.sql</code> (4 additive Tabellen: <code>flow_agents</code>, <code>flows</code> inkl. <code>schedule_cron</code>/<code>run_token_hash</code> für Schritt 7, <code>flow_runs</code>, verschlüsselte <code>flow_provider_keys</code>). <code>providerRegistry.js</code> dispatcht ollama/openai/anthropic mit provider-neutraler Normalisierung; <code>providerKeysService.js</code> (AES via <code>tokenCrypto.js</code>) + Admin-Routen <code>/api/agents/provider-keys</code> (requireAuth+requireAdmin), Gruppe in <code>API_ROUTE_GROUPS</code> registriert. 20 neue Unit-Tests grün, Lint sauber. <strong>Abweichung (bewusst):</strong> GPU-Serialisierung lokaler Aufrufe erfolgt über ein neues, prozessweites <code>gpuGate.js</code> (derselbe <code>AsyncMutex</code>-Primitiv wie <code>llmQueueService</code>), NICHT durch die Chat-Queue selbst — diese ist streaming- und <code>chat_conversations</code>-gebunden und für nicht-streamende Agenten-Function-Calls ungeeignet; das Gate liefert dieselbe „einer-nach-dem-anderen"-Garantie ohne die Chat-Historie zu verschmutzen. <code>toolLoop.js</code> (Datei-Agenten, Plan 008) blieb unangetastet.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Agenten-Bereich &amp; Einzelagent">

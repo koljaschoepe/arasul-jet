@@ -1084,6 +1084,104 @@
 
 ---
 
+## `flow_agents`
+
+> A saved Flow-Agent — prompt + provider/model + tools + rights (Migration 110,
+> Plan 010). Separate from the file-based workspace agents (Plan 008).
+
+| Column           | Type                     | Nullable | Default                            |
+| ---------------- | ------------------------ | -------- | ---------------------------------- |
+| `id`             | bigint                   | ⛔       | `nextval('flow_agents_id_seq'...)` |
+| `user_id`        | integer                  | ⛔       |                                    |
+| `name`           | character varying(120)   | ⛔       |                                    |
+| `description`    | text                     | ⛔       | `''`                               |
+| `system_prompt`  | text                     | ⛔       | `''`                               |
+| `provider`       | character varying(50)    | ⛔       | `'ollama'`                         |
+| `model`          | character varying(200)   | ⛔       | `''`                               |
+| `tools`          | jsonb                    | ⛔       | `'[]'`                             |
+| `allow_external` | boolean                  | ⛔       | `false`                            |
+| `created_at`     | timestamp with time zone | ⛔       | `now()`                            |
+| `updated_at`     | timestamp with time zone | ⛔       | `now()`                            |
+
+**Primary key:** `id` · **FK:** `user_id` → `admin_users.id` (`ON DELETE CASCADE`) ·
+**Unique:** `flow_agents_user_name_uniq (user_id, name)`
+
+---
+
+## `flow_provider_keys`
+
+> Admin-managed, **encrypted** API keys of external model providers (`openai`,
+> `anthropic`) for Flow-Agents (Migration 110, Plan 010). One key per provider.
+
+| Column          | Type                     | Nullable | Default                                   |
+| --------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`            | bigint                   | ⛔       | `nextval('flow_provider_keys_id_seq'...)` |
+| `provider`      | character varying(50)    | ⛔       |                                           |
+| `base_url`      | text                     | ✅       |                                           |
+| `encrypted_key` | bytea                    | ⛔       |                                           |
+| `created_by`    | integer                  | ✅       |                                           |
+| `created_at`    | timestamp with time zone | ⛔       | `now()`                                   |
+| `updated_at`    | timestamp with time zone | ⛔       | `now()`                                   |
+
+> `encrypted_key` is the AES-256-GCM blob (`IV || AuthTag || Ciphertext`) of the
+> API key, encrypted via `utils/tokenCrypto.js` (key derived from `JWT_SECRET`).
+> Never plaintext.
+
+**Primary key:** `id` · **FK:** `created_by` → `admin_users.id` (`ON DELETE SET NULL`) ·
+**Unique:** `flow_provider_keys_provider_uniq (provider)`
+
+---
+
+## `flow_runs`
+
+> The last saved run per Flow-Agent or Flow (Migration 110, Plan 010).
+> Deliberately lean — only the latest run, no audit log in v1.
+
+| Column        | Type                     | Nullable | Default                          |
+| ------------- | ------------------------ | -------- | -------------------------------- |
+| `id`          | bigint                   | ⛔       | `nextval('flow_runs_id_seq'...)` |
+| `agent_id`    | bigint                   | ✅       |                                  |
+| `flow_id`     | bigint                   | ✅       |                                  |
+| `user_id`     | integer                  | ✅       |                                  |
+| `trigger`     | character varying(20)    | ⛔       | `'manual'`                       |
+| `status`      | character varying(20)    | ⛔       | `'pending'`                      |
+| `input`       | text                     | ⛔       | `''`                             |
+| `output`      | text                     | ⛔       | `''`                             |
+| `error`       | text                     | ✅       |                                  |
+| `started_at`  | timestamp with time zone | ⛔       | `now()`                          |
+| `finished_at` | timestamp with time zone | ✅       |                                  |
+
+**Primary key:** `id` · **FK:** `agent_id` → `flow_agents.id`, `flow_id` → `flows.id`
+(both `ON DELETE CASCADE`), `user_id` → `admin_users.id` (`ON DELETE SET NULL`) ·
+**Check:** `flow_runs_target_chk` — exactly one of `agent_id` / `flow_id` is set.
+
+---
+
+## `flows`
+
+> A branched flow stored as a graph JSON (nodes/edges), optionally schedule- or
+> webhook-triggered (Migration 110, Plan 010).
+
+| Column           | Type                     | Nullable | Default                      |
+| ---------------- | ------------------------ | -------- | ---------------------------- |
+| `id`             | bigint                   | ⛔       | `nextval('flows_id_seq'...)` |
+| `user_id`        | integer                  | ⛔       |                              |
+| `name`           | character varying(120)   | ⛔       |                              |
+| `description`    | text                     | ⛔       | `''`                         |
+| `graph`          | jsonb                    | ⛔       | `'{"nodes":[],"edges":[]}'`  |
+| `schedule_cron`  | character varying(120)   | ✅       |                              |
+| `run_token_hash` | text                     | ✅       |                              |
+| `created_at`     | timestamp with time zone | ⛔       | `now()`                      |
+| `updated_at`     | timestamp with time zone | ⛔       | `now()`                      |
+
+> `run_token_hash` is the bcrypt hash of the one-time Bearer token for
+> `POST /api/agents/:id/run` (n8n, Plan 010 Schritt 7) — never the plaintext token.
+
+**Primary key:** `id` · **FK:** `user_id` → `admin_users.id` (`ON DELETE CASCADE`) ·
+**Unique:** `flows_user_name_uniq (user_id, name)`
+
+---
+
 ## `kg_entities`
 
 | Column          | Type                     | Nullable | Default                                   |
