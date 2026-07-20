@@ -73,19 +73,27 @@ export function StatusBar() {
   const loadedModels = budget?.loadedModels ?? [];
   const primaryModel = loadedModels[0] ?? null;
   const hasModel = primaryModel !== null;
+  // Plan 009: installiertes Modell, das gerade NICHT im RAM liegt (Ollama
+  // entlädt Idle-Modelle). Verhindert das fälschliche „kein Modell geladen",
+  // obwohl ein Modell installiert ist.
+  const installedModel = budget?.installedModel ?? null;
   const extraModels = loadedModels.length > 1 ? ` +${loadedModels.length - 1}` : '';
   const modelLabel = hasModel
     ? `${primaryModel.name}${extraModels} · KI-RAM ${toGb(budget?.usedMb ?? 0)}/${toGb(
         budget?.totalBudgetMb ?? 0
       )} GB`
-    : 'kein Modell geladen';
+    : installedModel
+      ? `${installedModel.name} · bereit`
+      : 'kein Modell geladen';
   const modelTooltip = hasModel
     ? `${loadedModels
         .map(m => `${m.name} (${toGb(m.ramMb)} GB)`)
         .join(', ')} — belegt ${toGb(budget?.usedMb ?? 0)} von ${toGb(
         budget?.totalBudgetMb ?? 0
       )} GB, frei ${toGb(budget?.availableMb ?? 0)} GB`
-    : 'Kein KI-Modell geladen';
+    : installedModel
+      ? `${installedModel.name} ist installiert und bereit — wird beim ersten Gebrauch in den Speicher geladen`
+      : 'Kein KI-Modell installiert';
 
   return (
     <footer
@@ -110,7 +118,7 @@ export function StatusBar() {
           data-testid="workspace-statusbar-model"
         >
           <Cpu
-            className={`h-3 w-3 shrink-0 ${hasModel ? 'text-foreground/70' : ''}`}
+            className={`h-3 w-3 shrink-0 ${hasModel || installedModel ? 'text-foreground/70' : ''}`}
             aria-hidden="true"
           />
           <span className="truncate">{modelLabel}</span>

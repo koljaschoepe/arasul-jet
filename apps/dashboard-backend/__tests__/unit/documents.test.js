@@ -351,12 +351,15 @@ describe('Documents Routes', () => {
             expect(response.body.error.message).toBe('Keine Datei hochgeladen');
         });
 
-        test('lehnt ungültigen Dateityp ab', async () => {
+        test('akzeptiert beliebigen Dateityp (Plan 009: keine Whitelist mehr)', async () => {
+            // INSERT ... RETURNING id — beliebige Typen werden gespeichert.
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'doc-any' }] });
+
             const response = await request(app)
                 .post('/api/documents/upload')
-                .attach('file', Buffer.from('EXE'), 'virus.exe');
+                .attach('file', Buffer.from('PK\x03\x04data'), 'export.zip');
 
-            expect(response.status).toBe(400);
+            expect(response.status).toBe(201);
         });
 
         test('erkennt Duplikate und gibt 409', async () => {
@@ -1049,28 +1052,37 @@ describe('File Type Validation', () => {
         expect(response.status).toBe(201);
     });
 
-    test('lehnt .exe ab', async () => {
+    // Plan 009: der Upload nimmt BELIEBIGE Dateitypen an (echtes Dateisystem).
+    // Früher als Whitelist abgelehnte Typen werden jetzt akzeptiert und
+    // gespeichert (nicht-indexierbare Typen landen später auf Status 'stored').
+    test('akzeptiert .exe (beliebiger Typ, Plan 009)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'ft-exe' }] });
+
         const response = await request(app)
             .post('/api/documents/upload')
-            .attach('file', Buffer.from('EXE'), 'virus.exe');
+            .attach('file', Buffer.from('EXE'), 'tool.exe');
 
-        expect(response.status).toBe(400);
+        expect(response.status).toBe(201);
     });
 
-    test('lehnt .js ab', async () => {
+    test('akzeptiert .js (beliebiger Typ, Plan 009)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'ft-js' }] });
+
         const response = await request(app)
             .post('/api/documents/upload')
             .attach('file', Buffer.from('JS'), 'script.js');
 
-        expect(response.status).toBe(400);
+        expect(response.status).toBe(201);
     });
 
-    test('lehnt .html ab', async () => {
+    test('akzeptiert .zip (beliebiger Typ, Plan 009)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'ft-zip' }] });
+
         const response = await request(app)
             .post('/api/documents/upload')
-            .attach('file', Buffer.from('HTML'), 'page.html');
+            .attach('file', Buffer.from('PK\x03\x04data'), 'archive.zip');
 
-        expect(response.status).toBe(400);
+        expect(response.status).toBe(201);
     });
 });
 

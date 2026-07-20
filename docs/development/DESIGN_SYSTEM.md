@@ -233,12 +233,24 @@ gilt eine gemeinsame Dichte-Skala, definiert im `@theme`-Block von
 --spacing-ui-2: 0.625rem;
 --spacing-ui-3: 0.875rem;
 --spacing-ui-4: 1.125rem;
+
+/* Cursor-Eichung (Plan 009): kompakte Baum-/Listenzeile */
+--spacing-ui-row: 1.375rem; /* ~22px — h-ui-row / min-h-ui-row */
 ```
 
 Anwendung: Basistext normierter Flächen ist `text-ui` (14px); Abstände nur aus
 den vier Stufen (`*-ui-1…4`). Karten-Padding = `p-ui-3` (14px), Abstand zwischen
 Karten = `gap-ui-2` (10px). Neue Workspace-Ansichten verwenden diese Skala statt
 der klassischen `--space-*`-Werte.
+
+**Cursor-Eichung (Plan 009):** Baum-/Listenzeilen (Explorer, Store-Facetten,
+Tab-Leiste) nutzen die kompakte Zeilenhöhe `--spacing-ui-row` (~22px, Utility
+`h-ui-row`/`min-h-ui-row`) und UI-Chrome-Text `text-ui-sm` (13px) — angelehnt an
+Cursors Workbench-Maße (UI 13px, Tree-Row 22px). Die feine Trennlinie ist bereits
+der bestehende `--border`-Token (~8–10 % Alpha, 1px) — es gibt bewusst **keinen**
+zweiten „dicken" Kanten-Token. Radien folgen `--radius-xs/sm/md` (4/6/8px). Der
+globale Root-Hebel (106.25 %) bleibt unverändert, damit Chat/RAG-Flächen nicht
+springen; Plan 009 vereinheitlicht nur die Anwendung der Skala.
 
 **Globaler Komfort-Hebel (Plan 004):** Zusätzlich setzt `@layer base` in
 `index.css` `html { font-size: 106.25% }` (17px statt 16px). Das skaliert **alle**

@@ -263,7 +263,8 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
                   SET status = 'available',
                       download_progress = 100,
                       downloaded_at = NOW(),
-                      error_message = NULL
+                      error_message = NULL,
+                      attempt_count = 0
                   WHERE id = $1
                 `,
                 [modelId]

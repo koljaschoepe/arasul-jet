@@ -16,6 +16,7 @@ import {
   BookOpenText,
   RefreshCw,
   Upload,
+  FolderUp,
   X,
 } from 'lucide-react';
 import {
@@ -113,7 +114,9 @@ function docIcon(doc: TreeDocument) {
 
 /** Indexierungs-Status als dezenter Punkt; »indexed« zeigt nichts. */
 function StatusDot({ status }: { status: string }) {
-  if (status === 'indexed') return null;
+  // 'indexed' = fertig durchsuchbar, 'stored' = bewusst nur gespeichert
+  // (nicht-indexierbarer Typ, Plan 009) — beide brauchen keinen Statuspunkt.
+  if (status === 'indexed' || status === 'stored') return null;
   const map: Record<string, { cls: string; label: string }> = {
     processing: { cls: 'bg-warning animate-pulse', label: 'Wird indexiert …' },
     pending: { cls: 'bg-muted-foreground/50', label: 'Wartet auf Indexierung' },
@@ -158,6 +161,7 @@ export function ExplorerPanel() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<string | null>(null);
   const refreshTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -208,6 +212,16 @@ export function ExplorerPanel() {
   const requestUpload = useCallback((spaceId: string | null) => {
     uploadTargetRef.current = spaceId;
     fileInputRef.current?.click();
+  }, []);
+
+  // Ordner-Upload (Plan 009): der Browser liefert per webkitdirectory eine
+  // flache FileList aller enthaltenen Dateien. Sie werden ins Ziel geladen; die
+  // Unterordner-Struktur wird dabei bewusst flach abgelegt (das Spaces-API
+  // erzwingt global eindeutige Ordnernamen + Beschreibung/Embedding pro Ordner,
+  // eine 1:1-Baum-Nachbildung wäre fragil/teuer — siehe Plan §7).
+  const requestFolderUpload = useCallback((spaceId: string | null) => {
+    uploadTargetRef.current = spaceId;
+    folderInputRef.current?.click();
   }, []);
 
   /** Datei per Drag & Drop in einen anderen Ordner verschieben (optimistisch). */
@@ -394,7 +408,7 @@ export function ExplorerPanel() {
       <ContextMenu key={doc.id}>
         <ContextMenuTrigger asChild>
           <div
-            className="group flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="group flex min-h-ui-row cursor-pointer items-center gap-1.5 rounded pr-2 text-ui-sm text-muted-foreground hover:bg-accent hover:text-foreground"
             style={{ paddingLeft: `${depth * 12 + 20}px` }}
             role="treeitem"
             aria-selected={false}
@@ -460,7 +474,7 @@ export function ExplorerPanel() {
           <ContextMenuTrigger asChild>
             <div
               className={cn(
-                'group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-accent',
+                'group flex min-h-ui-row cursor-pointer items-center gap-1 rounded pr-2 text-ui-sm hover:bg-accent',
                 dropTarget === rowKey && 'bg-accent outline-1 outline-dashed outline-primary/60'
               )}
               style={{ paddingLeft: `${depth * 12 + 4}px` }}
@@ -494,6 +508,9 @@ export function ExplorerPanel() {
           <ContextMenuContent>
             <ContextMenuItem onSelect={() => requestUpload(space.id)}>
               <FileUp className="mr-2 h-3.5 w-3.5" /> Datei importieren…
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => requestFolderUpload(space.id)}>
+              <FolderUp className="mr-2 h-3.5 w-3.5" /> Ordner importieren…
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => chatWithFolder(space)}>
               <FolderSearch className="mr-2 h-3.5 w-3.5" /> KI auf Ordner eingrenzen
@@ -548,7 +565,7 @@ export function ExplorerPanel() {
             onChange={e => setQuery(e.target.value)}
             placeholder="Suchen…"
             aria-label="Explorer durchsuchen"
-            className="h-6 w-full min-w-0 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="h-ui-row w-full min-w-0 bg-transparent text-ui-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {query && (
             <button
@@ -581,6 +598,15 @@ export function ExplorerPanel() {
         </button>
         <button
           type="button"
+          title="Ordner importieren"
+          aria-label="Ordner importieren"
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={() => requestFolderUpload(null)}
+        >
+          <FolderUp className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
           title="Aktualisieren"
           aria-label="Explorer aktualisieren"
           className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -596,6 +622,23 @@ export function ExplorerPanel() {
         multiple
         className="hidden"
         data-testid="explorer-upload-input"
+        onChange={e => {
+          if (e.target.files && e.target.files.length > 0) {
+            doUpload(e.target.files, uploadTargetRef.current);
+          }
+          e.target.value = '';
+        }}
+      />
+
+      {/* Ordner-Upload: webkitdirectory ist non-standard, daher als
+          durchgereichtes Attribut gesetzt. Liefert alle Dateien des Ordners. */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        data-testid="explorer-folder-input"
+        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
         onChange={e => {
           if (e.target.files && e.target.files.length > 0) {
             doUpload(e.target.files, uploadTargetRef.current);

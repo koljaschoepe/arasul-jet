@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { useWorkspaceStore, pathToTabSpec, tabToPath, tabId } from '@/stores/workspaceStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
-import { ActivityBar } from './ActivityBar';
 import { WorkspaceMenuBar } from './WorkspaceMenuBar';
 import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';
@@ -145,7 +144,6 @@ export default function WorkspaceShell(props: TabThemeControls) {
     >
       <WorkspaceMenuBar themeControls={props} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <ActivityBar />
         <Group
           orientation="horizontal"
           className="flex-1"
@@ -165,7 +163,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
           <Separator
             aria-hidden={!sidebarVisible}
             data-shell-hidden={sidebarVisible ? 'false' : 'true'}
-            className="w-[3px] bg-border transition-colors hover:bg-primary/50"
+            className="w-px bg-border transition-colors hover:bg-primary/50"
           />
           <Panel id="main" minSize="30%">
             <div className="flex h-full min-w-0 flex-col">
@@ -178,7 +176,7 @@ export default function WorkspaceShell(props: TabThemeControls) {
           <Separator
             aria-hidden={!rightVisible}
             data-shell-hidden={rightVisible ? 'false' : 'true'}
-            className="w-[3px] bg-border transition-colors hover:bg-primary/50"
+            className="w-px bg-border transition-colors hover:bg-primary/50"
           />
           <Panel
             id="llm"

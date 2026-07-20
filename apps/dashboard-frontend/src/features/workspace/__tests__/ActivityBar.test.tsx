@@ -28,17 +28,18 @@ function resetStore() {
   });
 }
 
-describe('ActivityBar — zwei feste Bereiche + aktivierte Apps (Feinschliff)', () => {
+describe('ActivityBar — Cursor-Icon-Zeile oben: Dateien + Extensions + aktivierte Apps', () => {
   beforeEach(() => {
     resetStore();
     enabledApps.clear();
   });
 
-  it('zeigt nur Dateien, Extensions und Einstellungen — kein Chat-, kein festes Automation-Icon', () => {
+  it('zeigt Dateien und Extensions — kein Chat/Wissen, kein festes Automation, und NICHT mehr Einstellungen (die sitzen im Footer)', () => {
     render(<ActivityBar />);
     expect(screen.getByLabelText('Dateien')).toBeInTheDocument();
     expect(screen.getByLabelText('Extensions')).toBeInTheDocument();
-    expect(screen.getByLabelText('Einstellungen')).toBeInTheDocument();
+    // Einstellungen wandern in den SidebarFooter (Cursor-Zahnrad unten links)
+    expect(screen.queryByLabelText('Einstellungen')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Chat')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Wissen')).not.toBeInTheDocument();
     // Automation ist kein fester Bereich mehr — nur als aktivierte Erweiterung
@@ -57,12 +58,6 @@ describe('ActivityBar — zwei feste Bereiche + aktivierte Apps (Feinschliff)', 
     const s = useWorkspaceStore.getState();
     expect(s.activeTabId).toBe('store');
     expect(s.tabs.map(t => t.type)).toEqual(['store']);
-  });
-
-  it('Einstellungen öffnet den Einstellungen-Tab', () => {
-    render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Einstellungen'));
-    expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
   });
 
   it('n8n (Automation) erscheint NUR wenn die Erweiterung aktiviert ist und öffnet den Automationen-Tab', () => {

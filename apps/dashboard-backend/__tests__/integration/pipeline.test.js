@@ -697,7 +697,11 @@ describe('Document Upload Pipeline', () => {
     }
   });
 
-  test('File type validation rejects dangerous extensions', async () => {
+  // Plan 009: der Upload nimmt BELIEBIGE Dateitypen an (echtes Dateisystem).
+  // Die frühere Endungs-Whitelist ist entfernt; solche Dateien werden gespeichert
+  // (nicht-indexierbare Typen landen auf Status 'stored') und dürfen NICHT mehr
+  // mit einer Typ-Ablehnung („Dateityp") abgewiesen werden.
+  test('akzeptiert beliebige Dateitypen (.exe) — keine Typ-Ablehnung', async () => {
     const { generateTestToken, setupAuthMocks } = require('../helpers/authMock');
     const authToken = generateTestToken();
     setupAuthMocks(db);
@@ -705,13 +709,17 @@ describe('Document Upload Pipeline', () => {
     const response = await request(app)
       .post('/api/documents/upload')
       .set('Authorization', `Bearer ${authToken}`)
-      .attach('file', Buffer.from('malicious content'), 'malware.exe');
+      .attach('file', Buffer.from('binary tool content'), 'tool.exe');
 
-    // Multer fileFilter should reject .exe
-    expect([400, 500]).toContain(response.status);
+    // Nicht wegen des Dateityps abgelehnt (Erfolg oder Infra-/Duplikat-Status).
+    expect([200, 201, 409, 500, 502]).toContain(response.status);
+    if (response.body?.error) {
+      const msg = response.body.error.message || response.body.error;
+      expect(String(msg)).not.toMatch(/Dateityp/);
+    }
   });
 
-  test('File type validation rejects .sh scripts', async () => {
+  test('akzeptiert beliebige Dateitypen (.sh) — keine Typ-Ablehnung', async () => {
     const { generateTestToken, setupAuthMocks } = require('../helpers/authMock');
     const authToken = generateTestToken();
     setupAuthMocks(db);
@@ -719,9 +727,13 @@ describe('Document Upload Pipeline', () => {
     const response = await request(app)
       .post('/api/documents/upload')
       .set('Authorization', `Bearer ${authToken}`)
-      .attach('file', Buffer.from('#!/bin/bash\nrm -rf /'), 'hack.sh');
+      .attach('file', Buffer.from('#!/bin/bash\necho hi'), 'script.sh');
 
-    expect([400, 500]).toContain(response.status);
+    expect([200, 201, 409, 500, 502]).toContain(response.status);
+    if (response.body?.error) {
+      const msg = response.body.error.message || response.body.error;
+      expect(String(msg)).not.toMatch(/Dateityp/);
+    }
   });
 
   test('Duplicate content detection returns conflict for same hash', async () => {

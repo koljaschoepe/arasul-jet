@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabType } from '@/stores/workspaceStore';
 import { ExplorerPanel } from './explorer/ExplorerPanel';
+import { ActivityBar } from './ActivityBar';
+import { SidebarFooter } from './SidebarFooter';
 
 /**
  * Kontextabhängige Sidebar nach dem TabBridge-Muster: der aktive Tab-Typ
@@ -46,9 +48,18 @@ export function SidebarHost() {
     syncSidebarForTab(isAppTab);
   }, [isAppTab, syncSidebarForTab]);
 
-  // Dashboard, Dokumente, Einstellungen, Erweiterungen (Store) — und als
-  // neutraler Default auch bei eingeklappten App-Tabs (falls der Nutzer die
-  // Sidebar dort aufzieht). Der Store lebt komplett im Mitte-Tab; die Datei-
-  // Sidebar wird nicht mehr durch die Extensions-Liste ersetzt.
-  return <ExplorerPanel />;
+  // Cursor-Aufbau (Plan 009): kompakte Icon-Zeile oben (Dateien/Extensions/
+  // Apps) · Dateibaum füllt die Höhe · Einstellungen-Zahnrad unten. Der Store
+  // lebt komplett im Mitte-Tab; die Datei-Sidebar wird nicht durch eine
+  // Extensions-Liste ersetzt. Alle drei teilen `bg-background` (eine
+  // Flächenfarbe), getrennt nur durch Hairline-Kanten.
+  return (
+    <div className="flex h-full flex-col bg-background">
+      <ActivityBar />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ExplorerPanel />
+      </div>
+      <SidebarFooter />
+    </div>
+  );
 }

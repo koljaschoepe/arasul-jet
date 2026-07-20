@@ -99,11 +99,30 @@ describe('StatusBar', () => {
     expect(get).toHaveBeenCalledWith('/models/memory-budget', { showError: false });
   });
 
-  it('zeigt "kein Modell geladen", wenn kein Modell aktiv ist', async () => {
+  it('zeigt "kein Modell geladen" nur, wenn gar nichts installiert ist', async () => {
     mockApi();
     renderStatusBar();
 
     expect(await screen.findByText('kein Modell geladen')).toBeInTheDocument();
+  });
+
+  it('zeigt "<Modell> · bereit", wenn ein Modell installiert, aber nicht im RAM geladen ist (Plan 009)', async () => {
+    mockApi({
+      budget: {
+        totalBudgetMb: 24_576,
+        usedMb: 0,
+        availableMb: 24_576,
+        safetyBufferMb: 0,
+        canLoadMore: true,
+        loadedModels: [],
+        installedModel: { id: 'llama3', name: 'Llama 3' },
+        installedCount: 1,
+      } satisfies MemoryBudget,
+    });
+    renderStatusBar();
+
+    expect(await screen.findByText('Llama 3 · bereit')).toBeInTheDocument();
+    expect(screen.queryByText('kein Modell geladen')).not.toBeInTheDocument();
   });
 
   it('zeigt Modellname und KI-RAM-Belegung, wenn ein Modell geladen ist', async () => {

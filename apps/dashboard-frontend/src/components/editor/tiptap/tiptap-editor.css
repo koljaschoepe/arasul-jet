@@ -90,26 +90,49 @@ body.sidebar-collapsed .tiptap-editor-overlay.tiptap-editor-embedded {
    HEADER
    ======================================== */
 
+/* Plan 009: Kopf ist zweizeilig — oben die Formatier-Leiste (strikt einzeilig),
+   darunter Dateiname + Aktionen. */
 .tiptap-editor-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 8px 12px;
   background: var(--bg-dark);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  gap: 6px;
+}
+
+/* Zeile 2: Dateiname (links) · Autosave-Status · Aktionen (rechts). */
+.tiptap-editor-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   gap: 12px;
 }
 
 .tiptap-editor-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 15px;
+  gap: 8px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tiptap-editor-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Aktionen ganz rechts. */
+.tiptap-titlebar-actions {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .tiptap-editor-title svg {
@@ -126,11 +149,65 @@ body.sidebar-collapsed .tiptap-editor-overlay.tiptap-editor-embedded {
    TOOLBAR
    ======================================== */
 
+/* Zeile 1: Formatier-Leiste. STRIKT einzeilig — nie umbrechen. Überzählige
+   Gruppen wandern per computeInlineCount ins ⋯-Menü. position:relative als
+   Anker fürs Überlauf-Panel; overflow bleibt sichtbar, damit das Panel nicht
+   abgeschnitten wird (die eigentliche Clip-Sicherung sitzt auf .inline). */
 .tiptap-editor-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  position: relative;
+  min-width: 0;
+}
+
+/* Inline-Gruppen: füllen die Breite, clippen im Notfall (nie umbrechen). */
+.tiptap-toolbar-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+/* ⋯-Überlauf: Button bleibt immer sichtbar, Panel klappt darunter auf. */
+.tiptap-toolbar-more {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.tiptap-toolbar-more-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: min(92vw, 460px);
+  padding: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Verstecktes Mess-Lineal: rendert alle Gruppen zum Breiten-Messen, nimmt aber
+   keinen Platz ein und ist unsichtbar/nicht interaktiv. */
+.tiptap-toolbar-ruler {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .tiptap-toolbar-group {
@@ -783,13 +860,13 @@ body.sidebar-collapsed .tiptap-editor-overlay.tiptap-editor-embedded {
   }
 
   .tiptap-editor-header {
-    flex-wrap: wrap;
     gap: 8px;
   }
 
+  /* Auch mobil bleibt die Leiste einzeilig: das ⋯-Menü fängt den Überlauf,
+     kein horizontales Scrollen (das würde das Überlauf-Panel abschneiden). */
   .tiptap-editor-toolbar {
     width: 100%;
-    overflow-x: auto;
   }
 
   .tiptap-content {

@@ -389,12 +389,38 @@ function createModelService(deps = {}) {
         });
       }
 
+      // Plan 009: auch die installierten (heruntergeladenen) Modelle melden, damit
+      // die Statusleiste sauber zwischen drei Zuständen unterscheiden kann:
+      //   (a) Modell im RAM geladen  → loadedModels
+      //   (b) Modell installiert, aber gerade NICHT im RAM (Ollama entlädt idle
+      //       Modelle) → „bereit" statt fälschlich „kein Modell geladen"
+      //   (c) gar nichts installiert → „kein Modell geladen"
+      let installedModel = null;
+      let installedCount = 0;
+      try {
+        const inst = await database.query(
+          `SELECT i.id, COALESCE(c.name, i.id) AS name
+             FROM llm_installed_models i
+             LEFT JOIN llm_model_catalog c ON c.id = i.id
+            WHERE i.status = 'available'
+            ORDER BY i.is_default DESC NULLS LAST, i.last_used_at DESC NULLS LAST`
+        );
+        installedCount = inst.rows.length;
+        if (inst.rows.length > 0) {
+          installedModel = { id: inst.rows[0].id, name: inst.rows[0].name };
+        }
+      } catch {
+        /* nicht kritisch — Statusleiste fällt auf loadedModels zurück */
+      }
+
       return {
         totalBudgetMb,
         usedMb,
         availableMb,
         safetyBufferMb: SAFETY_BUFFER_MB,
         loadedModels: enriched,
+        installedModel,
+        installedCount,
         canLoadMore: availableMb > 0,
       };
     }
@@ -1021,15 +1047,91 @@ function createModelService(deps = {}) {
         // 2. Mark models as error if marked available in DB but not in Ollama
         await syncHelpers.markMissingModels(ollamaModels);
 
-        // 3. Clean up stale downloads (stuck in 'downloading')
+        // 3. Clean up stale downloads → 'paused' (statt 'error', Plan 009)
         const cleanedUp = await syncHelpers.cleanupStaleDownloads(ollamaModels);
 
+        // 4. Pausierte Downloads wiederaufnehmen (Plan 009). Läuft nach dem ersten
+        //    Sync nach einem Neustart automatisch an; nimmt genau einen Download
+        //    zur Zeit auf (Single-Box: eine Leitung, eine GPU).
+        const resumed = await this.resumePausedDownloads();
+
         this.invalidateAvailabilityCache();
-        return { success: true, ollamaModels, cleanedUp };
+        return { success: true, ollamaModels, cleanedUp, resumed };
       } catch (err) {
         logger.error(`[SYNC] Error syncing with Ollama: ${err.message}`);
         return { success: false, error: err.message };
       }
+    }
+
+    /**
+     * Pausierte Downloads wiederaufnehmen (Plan 009).
+     *
+     * Nimmt bewusst nur EINEN Download zur Zeit auf: die Box hat eine Leitung
+     * und eine GPU; parallele Multi-GB-Pulls würden sich gegenseitig aushungern.
+     * Läuft bereits ein Download (activeDownloadIds nicht leer), passiert nichts —
+     * der nächste Sync holt den nächsten pausierten Eintrag.
+     *
+     * Der Resume ruft downloadModel() headless (ohne Progress-Callback) auf. Das
+     * re-claimt die Zeile ('paused' <> 'downloading' → Claim gelingt) und startet
+     * `ollama pull` neu; bereits fertige Layer werden per Digest übersprungen, es
+     * wird also nicht von 0 neu geladen. Fehler landen auf 'error' (nicht
+     * wiederaufnehmbar) bzw. beim nächsten Sync erneut auf 'paused'.
+     *
+     * @returns {Promise<number>} Zahl der angestoßenen Wiederaufnahmen (0 oder 1)
+     */
+    async resumePausedDownloads() {
+      // Ein Download zur Zeit: läuft schon einer, nichts tun.
+      if (activeDownloadIds.size > 0) {
+        return 0;
+      }
+      // Nur pausierte Downloads, deren Modell noch im Katalog existiert. Ein
+      // JOIN filtert verwaiste Einträge (Modell gelöscht) heraus, die sonst bei
+      // jedem Sync erneut scheitern würden. attempt_count (Migration 083)
+      // begrenzt die Wiederaufnahmen hart — sortiert nach ältester Aktivität
+      // zuerst (fairste Reihenfolge: der am längsten wartende Download zuerst).
+      const MAX_RESUME_ATTEMPTS = 5;
+      const paused = await database.query(
+        `SELECT i.id, COALESCE(i.attempt_count, 0) AS attempt_count
+           FROM llm_installed_models i
+           JOIN llm_model_catalog c ON c.id = i.id
+          WHERE i.status = 'paused'
+          ORDER BY i.last_activity_at ASC NULLS FIRST
+          LIMIT 1`
+      );
+      if (paused.rows.length === 0) {
+        return 0;
+      }
+      const { id, attempt_count: attemptCount } = paused.rows[0];
+
+      // Wiederaufnahme-Budget erschöpft → auf 'error' setzen, damit der Sync
+      // nicht endlos versucht (downloadModel setzt attempt_count bei Erfolg auf 0).
+      if (attemptCount >= MAX_RESUME_ATTEMPTS) {
+        await database.query(
+          `UPDATE llm_installed_models
+              SET status = 'error',
+                  error_message = 'Wiederaufnahme nach mehreren Versuchen fehlgeschlagen - bitte erneut herunterladen'
+            WHERE id = $1 AND status = 'paused'`,
+          [id]
+        );
+        logger.warn(
+          `[DOWNLOAD] ${id}: Wiederaufnahme-Budget (${MAX_RESUME_ATTEMPTS}) erschöpft → error`
+        );
+        return 0;
+      }
+
+      // Versuch zählen, dann headless wiederaufnehmen (Fire-and-forget: der Pull
+      // läuft Stunden — den Sync nicht blockieren).
+      await database.query(
+        `UPDATE llm_installed_models SET attempt_count = COALESCE(attempt_count, 0) + 1 WHERE id = $1`,
+        [id]
+      );
+      logger.info(
+        `[DOWNLOAD] Pausierten Download wiederaufnehmen: ${id} (Versuch ${attemptCount + 1}/${MAX_RESUME_ATTEMPTS})`
+      );
+      this.downloadModel(id).catch(err => {
+        logger.warn(`[DOWNLOAD] Wiederaufnahme von ${id} fehlgeschlagen: ${err.message}`);
+      });
+      return 1;
     }
 
     /**

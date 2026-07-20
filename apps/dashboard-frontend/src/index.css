@@ -53,6 +53,13 @@
   --spacing-ui-2: 0.625rem;  /* 10px — Stufe 2 */
   --spacing-ui-3: 0.875rem;  /* 14px — Stufe 3 */
   --spacing-ui-4: 1.125rem;  /* 18px — Stufe 4 */
+
+  /* Cursor-Eichung (Plan 009): kompakte Zeilenhöhe für Baum-/Listenzeilen
+     (Explorer, Store-Facetten, Tab-Leiste). Cursor nutzt ~22px; hier als
+     rem, damit der globale Root-Hebel (html{font-size}) mitzieht.
+     Utility: h-ui-row / min-h-ui-row. Die feine Trennlinie ist bereits
+     --border (rgba …, ~8–10% Alpha) — kein zweiter Kanten-Token nötig. */
+  --spacing-ui-row: 1.375rem;  /* ~22px kompakte Baum-/Listenzeile */
 }
 
 /* ========================================

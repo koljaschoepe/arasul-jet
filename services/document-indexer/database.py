@@ -234,6 +234,10 @@ class DatabaseManager:
 
         if status == 'processing':
             updates['processing_started_at'] = datetime.now()
+        elif status == 'stored':
+            # Plan 009: gespeichert, bewusst nicht indexiert (nicht-parsebarer Typ).
+            # Verarbeitung ist abgeschlossen — kein Fehler, keine Chunks.
+            updates['processing_completed_at'] = datetime.now()
         elif status in ('indexed', 'partial'):
             # P6-17: 'partial' == indexed-but-incomplete. Same timestamps and
             # chunk_count bookkeeping as 'indexed' (the document IS searchable),
