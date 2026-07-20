@@ -537,6 +537,33 @@ erscheinen im SSE-Stream als `{"type":"tool_start",…}` / `{"type":"tool_result
 Fehler (401/404) kommen als echter HTTP-Status vor dem ersten Frame. Persistiert
 wird nur der **letzte** Lauf pro Agent.
 
+### Flüsse (Plan 010)
+
+Verzweigte Flüsse aus Agenten- und Bedingungs-Knoten (owner-scoped, unter
+`/api/agents/flows`). Der Fluss speichert einen Graphen (`{nodes, edges}`).
+
+| Method | Endpoint                           | Description                                            |
+| ------ | ---------------------------------- | ------------------------------------------------------ |
+| GET    | `/api/agents/flows`                | Eigene Flüsse auflisten                                |
+| POST   | `/api/agents/flows`                | Fluss anlegen (`{name, description, graph}`)           |
+| GET    | `/api/agents/flows/:id`            | Einen Fluss laden                                      |
+| PUT    | `/api/agents/flows/:id`            | Fluss aktualisieren                                    |
+| DELETE | `/api/agents/flows/:id`            | Fluss löschen                                          |
+| POST   | `/api/agents/flows/:id/run/stream` | Fluss ausführen — Knoten-Events per SSE (`llmLimiter`) |
+
+Alle erfordern `requireAuth`. **Graph:** `nodes` = `{id, type:'agent'|'condition', data}`
+(agent: `data.agentId`; condition: `data.mode` ∈ {`contains`,`not_contains`,`equals`},
+`data.value`), `edges` = `{id, source, target, sourceHandle?}` (Bedingungs-Kanten
+tragen `sourceHandle` `'true'`/`'false'`). Der Graph muss azyklisch sein und darf
+nur **eigene** Agenten referenzieren (sonst `400 VALIDATION_ERROR` vor dem Lauf).
+
+**`POST .../run/stream`** streamt SSE-Frames, jedes mit `node` (Knoten-ID) zum
+Multiplexen paralleler Zweige: `flow_start` · `node_start` · agent-interne
+`status`/`tool_start`/`tool_result`/`text` (mit `node`) · `node_condition` ·
+`node_skipped` · `node_done` · `flow_done` / `flow_error`. Unabhängige Zweige
+laufen logisch parallel; alle Modell-Aufrufe bleiben über das GPU-Gate
+serialisiert. Persistiert wird nur der **letzte** Lauf pro Fluss.
+
 ### Flow-Agenten — Provider-Keys (Plan 010)
 
 Admin-only management of external model-provider API keys used by Flow-Agents.
