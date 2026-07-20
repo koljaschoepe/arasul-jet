@@ -14,7 +14,8 @@ const FlowNode = z
   .object({
     id: z.string().trim().min(1).max(100),
     type: z.enum(['agent', 'condition']),
-    data: z.record(z.any()).default({}),
+    // Zod v4: z.record braucht einen Key-Typ (z.record(z.string(), …)).
+    data: z.record(z.string(), z.unknown()).default({}),
   })
   .passthrough();
 
