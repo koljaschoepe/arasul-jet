@@ -34,7 +34,7 @@
   "slug": "frontend-feinschliff-cursor-shell",
   "title": "Frontend-Feinschliff Runde 2 — Cursor-Shell, Store & robuste Downloads",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
@@ -42,8 +42,8 @@
   "created": "2026-07-20",
   "approved": "2026-07-20",
   "branch": "009-frontend-feinschliff-cursor-shell",
-  "pr": null,
-  "verified_on_device": false
+  "pr": 221,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -591,17 +591,17 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Die linke Navigation zeigt eine kompakte Icon-Zeile oben im Panel, darunter den Dateibaum über volle Höhe, ein Einstellungen-Zahnrad unten links — keine breite vertikale Leiste mehr.</li>
-    <li data-done="false">Explorer, Tabs, StatusBar, Store und Einstellungen nutzen dieselbe Größen-Skala (UI ~13&nbsp;px, Baumzeile ~22&nbsp;px); keine rohen <span class="mono">text-xs</span>/<span class="mono">h-7</span>-Ausreißer mehr; Kanten sind feine Hairlines, Dateinamen haben Abstand zum Rahmen.</li>
-    <li data-done="false">Der Modell-Store zeigt ein 3-Spalten-Raster mit persistenter linker Filter-Leiste (Fähigkeit/Größe/Status), Suche und entfernbaren Filter-Chips; Filtern aktualisiert das Raster sofort.</li>
-    <li data-done="false">Die Modell-Detailseite füllt die Fläche mit Fähigkeiten, Kontextlänge, Größe/Varianten, Lizenz, Beschreibung (Benchmarks nur wenn vorhanden) und einem klaren ← Zurück.</li>
-    <li data-done="false">Ein laufender Modell-Download übersteht einen Backend-Neustart: er wechselt auf <span class="mono">pausiert</span> und nimmt wieder auf (kein Neuladen von 0), lädt nicht doppelt und ist nach Reload korrekt sichtbar.</li>
-    <li data-done="false">Die StatusBar zeigt nie mehr fälschlich „kein Modell geladen", wenn ein Modell installiert/geladen ist.</li>
-    <li data-done="false">Die Editor-Formatier-Leiste sitzt über dem Dateinamen und bleibt bei jeder Breite strikt einzeilig; überzählige Gruppen wandern ins ⋯-Menü statt umzubrechen.</li>
-    <li data-done="false">Man kann beliebige Dateitypen und ganze Ordner hochladen; PDF, Bilder und Markdown/Text lassen sich in-App ansehen; Office/Binär wird gespeichert + herunterladbar ohne roten Fehler-Punkt.</li>
-    <li data-done="false">Ein importiertes Markdown-Dokument erscheint formatiert im Editor (Überschriften/Listen/Auszeichnung erhalten).</li>
-    <li data-done="false">Die Einstellungen sind durchgängig linksbündig (inkl. Erscheinungsbild) und in den Größen einheitlich.</li>
-    <li data-done="false">Chat und RAG funktionieren unverändert; Backend-Tests grün, Frontend baut ohne Fehler, alle betroffenen Vitest-Suiten grün.</li>
+    <li data-done="true">Die linke Navigation zeigt eine kompakte Icon-Zeile oben im Panel, darunter den Dateibaum über volle Höhe, ein Einstellungen-Zahnrad unten links — keine breite vertikale Leiste mehr.</li>
+    <li data-done="true">Explorer, Tabs, StatusBar, Store und Einstellungen nutzen dieselbe Größen-Skala (UI ~13&nbsp;px, Baumzeile ~22&nbsp;px); keine rohen <span class="mono">text-xs</span>/<span class="mono">h-7</span>-Ausreißer mehr; Kanten sind feine Hairlines, Dateinamen haben Abstand zum Rahmen.</li>
+    <li data-done="true">Der Modell-Store zeigt ein 3-Spalten-Raster mit persistenter linker Filter-Leiste (Fähigkeit/Größe/Status), Suche und entfernbaren Filter-Chips; Filtern aktualisiert das Raster sofort.</li>
+    <li data-done="true">Die Modell-Detailseite füllt die Fläche mit Fähigkeiten, Kontextlänge, Größe/Varianten, Lizenz, Beschreibung (Benchmarks nur wenn vorhanden) und einem klaren ← Zurück.</li>
+    <li data-done="true">Ein laufender Modell-Download übersteht einen Backend-Neustart: er wechselt auf <span class="mono">pausiert</span> und nimmt wieder auf (kein Neuladen von 0), lädt nicht doppelt und ist nach Reload korrekt sichtbar.</li>
+    <li data-done="true">Die StatusBar zeigt nie mehr fälschlich „kein Modell geladen", wenn ein Modell installiert/geladen ist.</li>
+    <li data-done="true">Die Editor-Formatier-Leiste sitzt über dem Dateinamen und bleibt bei jeder Breite strikt einzeilig; überzählige Gruppen wandern ins ⋯-Menü statt umzubrechen.</li>
+    <li data-done="true">Man kann beliebige Dateitypen und ganze Ordner hochladen; PDF, Bilder und Markdown/Text lassen sich in-App ansehen; Office/Binär wird gespeichert + herunterladbar ohne roten Fehler-Punkt.</li>
+    <li data-done="true">Ein importiertes Markdown-Dokument erscheint formatiert im Editor (Überschriften/Listen/Auszeichnung erhalten).</li>
+    <li data-done="true">Die Einstellungen sind durchgängig linksbündig (inkl. Erscheinungsbild) und in den Größen einheitlich.</li>
+    <li data-done="true">Chat und RAG funktionieren unverändert; Backend-Tests grün, Frontend baut ohne Fehler, alle betroffenen Vitest-Suiten grün.</li>
   </ul>
   </div>
 </details>
@@ -685,13 +685,56 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Alle 11 Schritte umgesetzt, gemergt (PR #221 + Folge-Fix #222) und live auf dem Jetson verifiziert — inkl. echtem Download-Neustart-Test.</span>
   </summary>
   <div class="sbody">
+  <p><b>Zusammenfassung.</b> Plan 009 ist vollständig umgesetzt: Cursor-artige linke Navigation, app-weite Größen-Skala, Editor mit einzeiliger Überlauf-Leiste, echtes Dateisystem (beliebige Typen + Ordner), gehärtete Download-Zustandsmaschine, „kein Modell geladen"-Fix und ein aufgeräumter Store mit Filter-Leiste + HW-Fit-Detailseite. Gemergt via <b>PR&nbsp;#221</b> (squash <span class="mono">ae398a6</span>); der live gefundene Einstellungen-Alignment-Fix kam als <b>PR&nbsp;#222</b> (<span class="mono">e5257e1</span>) nach. Alles auf dem Jetson im echten Browser verifiziert (2026-07-20).</p>
+
+  <h3>Ergebnis je Schritt</h3>
+  <ul>
+    <li><b>1 Token-Skala:</b> done — Skala war aus Plan 002/004 bereits Cursor-nah; <span class="mono">--spacing-ui-row</span> ergänzt.</li>
+    <li><b>2 Cursor-Shell:</b> done — ActivityBar als Icon-Zeile oben + neuer SidebarFooter (Zahnrad unten); vertikale 48px-Spalte entfernt.</li>
+    <li><b>3 Explorer-Optik:</b> done — Zeilen auf <span class="mono">text-ui-sm</span>/<span class="mono">min-h-ui-row</span>, Separatoren 3px→1px.</li>
+    <li><b>4 Editor-Leiste:</b> done — einzeilig über dem Dateinamen, reaktives ⋯-Überlaufmenü (Mess-Lineal + ResizeObserver).</li>
+    <li><b>5 Dateisystem:</b> <i>Abweichung</i> — beliebige Typen + Ordner-Upload; Ordnerstruktur wird flach abgelegt (Spaces-API erzwingt globale Namens-Eindeutigkeit; tiefe Baum-Rekonstruktion wäre fragil).</li>
+    <li><b>6 „Nur gespeichert":</b> done — Migration 109 fügt Enum-Wert <span class="mono">stored</span> hinzu (statt Boolean-Spalte); Indexer + StatusDot angepasst.</li>
+    <li><b>7 Markdown-Import:</b> done — tiptap-markdown rendert bereits beim Laden formatiert; mit <span class="mono">linkify</span> gehärtet.</li>
+    <li><b>8 Download-Härtung:</b> done — unterbrochen→<span class="mono">paused</span> + Wiederaufnahme (einer zur Zeit, Katalog-JOIN + attempt_count-Budget, Reset bei Erfolg).</li>
+    <li><b>9 „kein Modell geladen":</b> done — <span class="mono">getMemoryBudget</span> liefert <span class="mono">installedModel</span>; StatusBar zeigt geladen/bereit/keins.</li>
+    <li><b>10 Store-Redesign:</b> done — Filter-Leiste (Facetten) + 3-Spalten-Raster + Detailseite mit Jetson-HW-Fit-Banner.</li>
+    <li><b>11 Erweiterungen + Einstellungen:</b> done — kuratierte Karten + „Eigene bald"-Kachel; Einstellungen linksbündig (Root-Fix <span class="mono">items-start</span> am Label, PR #222).</li>
+  </ul>
+
+  <h3>Code-Review (0 Critical)</h3>
+  <p>5 Warnings / 3 Suggestions. Behoben: bounded Resume (Katalog-JOIN + attempt_count-Budget + Reset) samt neuem Test; <span class="mono">DATABASE_SCHEMA.md</span> um <span class="mono">stored</span> ergänzt. Verbleibend als Follow-up (im PR-Body dokumentiert): stored-XSS-Härtung der unveränderten <span class="mono">documentImages.js</span>-SVG-Route (nicht Teil dieses Diffs; Dokument-Auslieferung ist sicher — <span class="mono">/content</span> nur Text→JSON, <span class="mono">/download</span> attachment).</p>
+
+  <h3>Tests &amp; CI</h3>
+  <ul>
+    <li>Frontend: 587 vitest grün (u.a. neu: toolbarOverflow, storeModelFilters, SidebarFooter). tsc sauber.</li>
+    <li>Backend: 1490 jest grün (neu: modelSyncHelpers, modelServiceResume). Lint 0 Errors.</li>
+    <li>CI PR #221 + #222: alle 12 Checks grün (Backend, Frontend, 5× Docker-Build, Python, Lockfile-Guard, claude-review).</li>
+  </ul>
+
+  <h3>Deploy</h3>
+  <p>Deploy-Workflows für <span class="mono">ae398a6</span> und <span class="mono">e5257e1</span> erfolgreich; Gerät auf <span class="mono">e5257e1</span>, dashboard-frontend/-backend/document-indexer frisch gebaut &amp; healthy. Migration 109 angewandt — <span class="mono">document_status</span>-Enum enthält jetzt <span class="mono">stored</span>.</p>
+
+  <h3>Live-Verifikation auf dem Jetson (§6)</h3>
+  <ul>
+    <li><b>Shell:</b> Icon-Zeile oben (Dateien/Extensions/n8n), Dateibaum darüber die Höhe, Zahnrad unten links — im Browser bestätigt.</li>
+    <li><b>StatusBar:</b> zeigt „qwen3:14b · bereit" statt „kein Modell geladen" (5 Modelle installiert, keins im RAM). Der Bug ist live widerlegt.</li>
+    <li><b>Store:</b> Filter-Leiste mit Facetten-Zählern (Fähigkeit General 13, Vision 6, …), 4-Spalten-Raster; Detailseite mit grünem HW-Fit-Banner „Läuft flüssig auf dieser Box (~1&nbsp;GB von 32&nbsp;GB KI-RAM)", Fähigkeiten, „Gut geeignet für".</li>
+    <li><b>Editor:</b> Leiste über dem Dateinamen, einzeilig; beim Schmalerziehen wandert die Ausrichtungs-Gruppe ins ⋯-Menü (reaktiv bestätigt), nie mehrzeilig.</li>
+    <li><b>Erweiterungen:</b> n8n-Karte (Aktiv) + „Eigene Erweiterungen hochladen — kommt bald"-Kachel.</li>
+    <li><b>Einstellungen:</b> Erscheinungsbild &amp; alle Sektionen linksbündig (nach PR #222).</li>
+    <li><b>Download-Neustart-Test (kritisch):</b> ein Katalog-Modell (nomic-embed-text, 261&nbsp;MB) auf <span class="mono">paused</span> gesetzt, dashboard-backend neu gestartet → Boot-Sync loggte „Pausierten Download wiederaufnehmen … (Versuch 1/5)", echter Pull 44%→83%→100% → Status <span class="mono">available</span>, <span class="mono">attempt_count</span> auf 0 zurückgesetzt, Modell nun in Ollama (274&nbsp;MB). Zusätzlich live belegt: ein verwaistes (nicht im Katalog) pausiertes Modell wird korrekt NICHT endlos wiederaufgenommen (Warning-1-Fix).</li>
+    <li>Keine neuen Konsolen-Fehler (ein benignes 401 einer n8n-gateten Ressource).</li>
+  </ul>
+
+  <p class="mono" style="font-size:.85rem">Zeitstempel: umgesetzt &amp; verifiziert 2026-07-20 · PR #221 (ae398a6) · Folge-Fix PR #222 (e5257e1) · Gerät e5257e1.</p>
   </div>
 </details>
 
