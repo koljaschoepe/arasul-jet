@@ -1,6 +1,7 @@
 # Backup System
 
-Automated backup service for PostgreSQL, MinIO, Qdrant, and n8n workflows.
+Automated backup service for PostgreSQL, MinIO, Qdrant, n8n workflows, and skill
+definitions.
 
 ## Overview
 
@@ -19,17 +20,17 @@ Automated backup service for PostgreSQL, MinIO, Qdrant, and n8n workflows.
 │                      BACKUP SERVICE                             │
 │                    (Alpine + crond)                             │
 └─────────────────────────────────────────────────────────────────┘
-        │           │           │           │
-        ▼           ▼           ▼           ▼
-   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-   │PostgreSQL│ │  MinIO  │ │ Qdrant  │ │   n8n   │
-   │pg_dump  │ │mc mirror│ │snapshot │ │ export  │
-   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
-        │           │           │           │
-        ▼           ▼           ▼           ▼
+        │           │           │           │           │
+        ▼           ▼           ▼           ▼           ▼
+   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+   │PostgreSQL│ │  MinIO  │ │ Qdrant  │ │   n8n   │ │ Skills  │
+   │pg_dump  │ │mc mirror│ │snapshot │ │ export  │ │ tar.gz  │
+   └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
+        │           │           │           │           │
+        ▼           ▼           ▼           ▼           ▼
    ┌─────────────────────────────────────────────────────────────┐
    │                    /data/backups/                           │
-   │  postgres/  │  minio/  │  qdrant/  │  n8n/  │  weekly/     │
+   │ postgres/ │ minio/ │ qdrant/ │ n8n/ │ skills/ │ weekly/    │
    └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -103,6 +104,38 @@ n8n export:workflow --all \
 - File: `/backups/n8n/workflows_YYYYMMDD_HHMMSS.json`
 - Latest: `/backups/n8n/workflows_latest.json` (symlink)
 
+### 5. Skills
+
+Skill definitions (Plan 011) are Markdown files under `data/skills/` — they are
+**not** stored in Postgres, MinIO or Qdrant. They are user-authored and
+reproducible from nowhere else, so a device loss without this archive would
+silently take every self-built skill with it. The directory is mounted
+read-only into the backup service at `SKILLS_BACKUP_DIR` (default
+`/arasul/skills`).
+
+**Method:** tar.gz of the skills directory, verified by reading the archive back
+
+```bash
+tar -czf /backups/skills/skills_$(date +%Y%m%d_%H%M%S).tar.gz \
+  -C "${SKILLS_BACKUP_DIR:-/arasul/skills}" .
+tar -tzf /backups/skills/skills_$(date +%Y%m%d_%H%M%S).tar.gz   # verify
+```
+
+**Output:**
+
+- File: `/backups/skills/skills_YYYYMMDD_HHMMSS.tar.gz`
+- Latest: `/backups/skills/skills_latest.tar.gz` (symlink)
+- Weekly: `/backups/skills/weekly/` (Sundays), Monthly: `/backups/skills/monthly/` (1st of month)
+
+Retention follows the same daily / weekly / monthly rules as MinIO and Qdrant.
+If backup encryption is enabled, the archive is encrypted in place after
+verification (same `encrypt_file` step as the other components).
+
+**Missing directory is a warning, not a failure:** older deployments have no
+such mount, and failing there would make the healthcheck report a broken backup
+on a perfectly healthy box. The report field `skills_status` is `true`,
+`false` or `skipped` accordingly.
+
 ## Directory Structure
 
 ```
@@ -123,6 +156,12 @@ n8n export:workflow --all \
 │   ├── workflows_20240124_020100.json
 │   ├── workflows_20240125_020058.json
 │   └── workflows_latest.json → workflows_20240125_020058.json
+├── skills/
+│   ├── skills_20240124_020110.tar.gz
+│   ├── skills_20240125_020108.tar.gz
+│   ├── skills_latest.tar.gz → skills_20240125_020108.tar.gz
+│   ├── weekly/
+│   └── monthly/
 ├── weekly/
 │   ├── 2024_W03/
 │   │   ├── postgres/
@@ -138,19 +177,20 @@ n8n export:workflow --all \
 
 ### Environment Variables
 
-| Variable                | Default       | Description                     |
-| ----------------------- | ------------- | ------------------------------- |
-| BACKUP_SCHEDULE         | `0 2 * * *`   | Cron schedule (02:00 UTC daily) |
-| BACKUP_RETENTION_DAYS   | 30            | Days to keep daily backups      |
-| BACKUP_RETENTION_WEEKLY | 12            | Weeks to keep weekly snapshots  |
-| POSTGRES_HOST           | postgres-db   | PostgreSQL host                 |
-| POSTGRES_USER           | arasul        | PostgreSQL user                 |
-| POSTGRES_PASSWORD       | (required)    | PostgreSQL password             |
-| POSTGRES_DB             | arasul_db     | Database name                   |
-| MINIO_HOST              | minio         | MinIO host                      |
-| MINIO_ROOT_USER         | (required)    | MinIO access key                |
-| MINIO_ROOT_PASSWORD     | (required)    | MinIO secret key                |
-| TZ                      | Europe/Berlin | Timezone                        |
+| Variable                | Default        | Description                               |
+| ----------------------- | -------------- | ----------------------------------------- |
+| BACKUP_SCHEDULE         | `0 2 * * *`    | Cron schedule (02:00 UTC daily)           |
+| BACKUP_RETENTION_DAYS   | 30             | Days to keep daily backups                |
+| BACKUP_RETENTION_WEEKLY | 12             | Weeks to keep weekly snapshots            |
+| POSTGRES_HOST           | postgres-db    | PostgreSQL host                           |
+| POSTGRES_USER           | arasul         | PostgreSQL user                           |
+| POSTGRES_PASSWORD       | (required)     | PostgreSQL password                       |
+| POSTGRES_DB             | arasul_db      | Database name                             |
+| MINIO_HOST              | minio          | MinIO host                                |
+| MINIO_ROOT_USER         | (required)     | MinIO access key                          |
+| MINIO_ROOT_PASSWORD     | (required)     | MinIO secret key                          |
+| SKILLS_BACKUP_DIR       | /arasul/skills | Source dir of the skill files (read-only) |
+| TZ                      | Europe/Berlin  | Timezone                                  |
 
 ### Cron Schedule Examples
 
@@ -274,6 +314,16 @@ docker exec n8n n8n import:workflow \
   --input=/backups/n8n/workflows_latest.json
 ```
 
+### Restore Skills
+
+Unpack into the host directory `data/skills/` — the backend picks changes up on
+the next read (the registry cache is invalidated per file via mtime+size, no
+restart needed).
+
+```bash
+tar -xzf /data/backups/skills/skills_latest.tar.gz -C /path/to/arasul-jet/data/skills/
+```
+
 ## Backup Report
 
 After each backup, a report is generated at `/backups/backup_report.json`:
@@ -353,7 +403,34 @@ tar -tzf /data/backups/qdrant/qdrant_latest.tar.gz > /dev/null && echo "OK"
 
 # Verify n8n backup (JSON validity)
 jq . /data/backups/n8n/workflows_latest.json > /dev/null && echo "OK"
+
+# Verify skills backup
+tar -tzf /data/backups/skills/skills_latest.tar.gz > /dev/null && echo "OK"
 ```
+
+### Restore Drill
+
+`services/backup-service/restore-drill.sh` restores the latest PostgreSQL dump
+into a scratch database and additionally inspects the skills archive. Its report
+carries two extra fields:
+
+| Field           | Meaning                                                                         |
+| --------------- | ------------------------------------------------------------------------------- |
+| `skills_files`  | Number of `.md` files found in the archive (`0` unless `skills_status` is `ok`) |
+| `skills_status` | One of the four states below                                                    |
+
+- `ok` — archive present, readable and listed; `skills_files` holds the count.
+- `encrypted` — backup encryption is on, so the archive is no longer a gzip
+  stream. It is reported as-is and **not** verified; the drill still passes.
+- `absent` — no archive under `/backups/skills/skills_latest.tar.gz`. The drill
+  **does not fail** (a fresh box or an older deployment without the mount).
+- `corrupt` — the archive exists as gzip but cannot be listed. The drill still
+  reports `status: ok` and exits `0`, because its primary question is _"can the
+  database be restored?"_ — a problem with a handful of text files must not
+  raise a false DR alarm or devalue that signal. The problem stays visible in
+  two places: the drill log, and the report's `detail` field, which then carries
+  `WARNUNG: Skill-Archiv beschaedigt`. Act on it, but do not read it as a
+  failed database drill.
 
 ## Troubleshooting
 

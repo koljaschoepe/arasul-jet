@@ -48,6 +48,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/memory', group: 'ai' },
   { prefix: '/spaces', group: 'ai' },
   { prefix: '/knowledge-graph', group: 'ai' },
+  { prefix: '/skills', group: 'ai' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/store', group: 'store' },
   { prefix: '/workflows', group: 'store' },
@@ -117,6 +118,7 @@ router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
 router.use('/memory', require('./ai/memory'));
 router.use('/spaces', require('./ai/spaces'));
 router.use('/knowledge-graph', require('./ai/knowledgeGraph'));
+router.use('/skills', require('./skills'));
 
 // --- Store ---
 router.use('/apps', require('./store/appstore'));

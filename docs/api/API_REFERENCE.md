@@ -2087,6 +2087,112 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 ---
 
+### Skills
+
+Skills are Markdown files with YAML front matter under `data/skills/` (container path `SKILLS_DIR`, default `/arasul/skills`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken skill can never reach the disk. All routes require authentication.
+
+| Method | Endpoint                  | Description                                              |
+| ------ | ------------------------- | -------------------------------------------------------- |
+| GET    | `/api/skills`             | List all skills (broken files reported separately)       |
+| GET    | `/api/skills/werkzeuge`   | Available tool names a skill may declare                 |
+| GET    | `/api/skills/sammlungen`  | Selectable knowledge spaces (for `typ: wissensbasis`)    |
+| GET    | `/api/skills/:name`       | Get a single skill                                       |
+| GET    | `/api/skills/:name/datei` | Get the raw Markdown file (`text/markdown`)              |
+| POST   | `/api/skills/vorschau`    | Render the file that _would_ be written — without saving |
+| POST   | `/api/skills`             | Create a skill (409 if the name exists)                  |
+| PUT    | `/api/skills/:name`       | Update an existing skill (404 if it does not exist)      |
+| DELETE | `/api/skills/:name`       | Delete a skill                                           |
+
+`:name` and the `name` field are restricted to lowercase letters, digits and hyphens (1–50 chars), and must start and end with a letter or digit — the name becomes both the filename and the `/name` slash command in chat.
+
+**File format** (`data/skills/recherche.md`) — the YAML head declares what the skill needs and may do, the Markdown body is the prompt and carries `{{argument}}` placeholders. Every placeholder must have a matching entry in `argumente`, otherwise the file is rejected.
+
+```yaml
+---
+name: recherche
+beschreibung: Recherchiert ein Thema im Web und fasst es zusammen.
+modell: gemma4:26b-q4 # optional, sonst das Standardmodell
+argumente:
+  - name: thema
+    typ: freitext # freitext | datei | auswahl | wissensbasis
+    beschreibung: Das zu recherchierende Thema
+    pflicht: true
+    # optionen: [...]   # nur bei typ=auswahl (pflicht dort)
+    # standard: "..."   # schließt pflicht=true aus
+ordner: [/arasul/sandbox/projects/demo] # der ERSTE ist das Arbeitsverzeichnis
+werkzeuge: [web_suche, web_lesen, subagent]
+rollen:
+  - name: leser
+    beschreibung: Liest eine Seite und extrahiert Fakten
+    werkzeuge: [web_lesen] # nie mehr als der Skill selbst darf
+    ergebnis: { felder: [fakten], max_zeichen: 2000 }
+    prompt: Lies die Seite und gib nur die belegten Fakten zurück.
+grenzen:
+  max_aufrufe: 20 # Subagent-Aufrufe über ALLE Ebenen
+  zeitlimit_s: 900
+  werkzeug_runden: 10
+---
+Recherchiere gründlich zum Thema {{thema}}.
+```
+
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent` (also returned by `GET /api/skills/werkzeuge`). Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`.
+
+**GET /api/skills Response** — a single unparsable file must not break the slash menu, so it is skipped and reported in `fehlerhaft` instead of failing the request. In the API the Markdown body is called `prompt`.
+
+```json
+{
+  "data": [
+    {
+      "name": "recherche",
+      "beschreibung": "Recherchiert ein Thema im Web und fasst es zusammen.",
+      "argumente": [{ "name": "thema", "typ": "freitext", "beschreibung": "", "pflicht": true }],
+      "ordner": [],
+      "werkzeuge": ["web_suche", "web_lesen", "subagent"],
+      "rollen": [
+        {
+          "name": "leser",
+          "beschreibung": "",
+          "werkzeuge": ["web_lesen"],
+          "ergebnis": { "felder": ["fakten"], "max_zeichen": 2000 },
+          "prompt": "Lies die Seite und gib nur die belegten Fakten zurück."
+        }
+      ],
+      "grenzen": { "max_aufrufe": 20, "zeitlimit_s": 900, "werkzeug_runden": 10 },
+      "prompt": "Recherchiere gründlich zum Thema {{thema}}."
+    }
+  ],
+  "fehlerhaft": [{ "name": "kaputt", "fehler": "Skill ist ungültig (werkzeuge.0): ..." }],
+  "timestamp": "2026-07-21T10:00:00.000Z"
+}
+```
+
+**POST /api/skills** — body is the API shape above with `prompt` instead of the Markdown body; everything except `name` and `prompt` is optional. Returns `201` with the normalized, saved definition in `data`.
+
+```json
+{
+  "name": "recherche",
+  "beschreibung": "Recherchiert ein Thema im Web und fasst es zusammen.",
+  "argumente": [{ "name": "thema", "typ": "freitext", "pflicht": true }],
+  "werkzeuge": ["web_suche", "web_lesen"],
+  "prompt": "Recherchiere gründlich zum Thema {{thema}}."
+}
+```
+
+`PUT /api/skills/:name` takes the same body without `name` (it comes from the URL) and **merges**: fields omitted from the body keep their stored value. This is deliberate — sending only `{ "prompt": "…" }` to fix a typo must not silently wipe `werkzeuge`, `rollen`, `argumente`, `ordner` or `grenzen`. To actually clear a field, send it explicitly as an empty list. `POST /api/skills/vorschau` takes the same body as `POST /api/skills` but only returns the rendered file — nothing is written:
+
+```json
+{
+  "data": { "datei": "---\nname: recherche\n...\n---\n\nRecherchiere ..." },
+  "timestamp": "2026-07-21T10:00:00.000Z"
+}
+```
+
+`DELETE /api/skills/:name` responds with `{ "deleted": true, "timestamp": "..." }`.
+
+**Errors:** `VALIDATION_ERROR` (400) for an invalid name, an unknown placeholder or any schema violation (with a `details.issues` list of `{ pfad, meldung }`), `NOT_FOUND` (404) for an unknown skill, `CONFLICT` (409) when creating a skill that already exists.
+
+---
+
 ### Sandbox
 
 Isolated project environments with Docker containers and terminal WebSocket access. All routes require authentication.
