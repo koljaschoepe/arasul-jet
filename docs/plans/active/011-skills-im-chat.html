@@ -34,14 +34,14 @@
   "slug": "skills-im-chat",
   "title": "Skills im Chat — Agenten & Flüsse raus, Slash-Befehle rein",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P0",
   "risk_level": 3,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-07-21",
   "approved": "2026-07-21",
-  "branch": null,
+  "branch": "011-skills-im-chat",
   "pr": null,
   "verified_on_device": false
 }
@@ -336,7 +336,7 @@
 <div class="topbar">
   <div class="topbar-in">
     <p class="eyebrow">Arasul · Plan 011</p>
-    <span class="chip" id="status-chip" data-status="approved">Approved</span>
+    <span class="chip" id="status-chip" data-status="in-progress">In Arbeit</span>
     <span class="spacer"></span>
     <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
   </div>
@@ -532,20 +532,23 @@ kannst du dich später wieder einklinken.</p>
   </summary>
   <div class="sbody">
   <!-- One .step per phase; unique data-ref each. -->
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Abriss Backend — Flüsse, Scheduler, Provider-Schlüssel">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Abriss Backend — Flüsse, Scheduler, Provider-Schlüssel">
     <h3>Schritt 1 — Abriss Backend — Flüsse, Scheduler, Provider-Schlüssel <span class="tag">Risiko: mittel</span></h3>
     <p>Der komplette Fluss-Layer verschwindet aus dem Backend: Routen, Fluss-Engine, Fluss-Dienste, Werkzeug-Registry, Zeitplaner und die Anbindung fremder KI-Anbieter samt Schlüsselverwaltung. Der <code>/agents</code>-Einhängepunkt wird aus der Routen-Übersicht entfernt. Ausdrücklich <em>nicht</em> angefasst: <code>routes/store/workflows.js</code> und <code>tools/workflowsTool.js</code> — die gehören zu n8n, nicht zu den Flüssen. Nach diesem Schritt startet das Backend sauber, nur ohne Fluss-Funktionen.</p>
     <p class="files mono">routes/agents/{index,flows,flowAgents,providerKeys}.js · services/agents/{flowEngine,runFlow,runFlowAgent,flowsService,flowAgentsService,flowToolRegistry,scheduler,cronMatch,providerRegistry,providerKeysService}.js · services/agents/flowTools/* · routes/index.js:51,121 · 13 Testdateien</p>
+      <div class="result"><strong>Ergebnis:</strong> Fluss-Layer restlos entfernt: <code>routes/agents/</code>, 10 Fluss-Dienste, <code>flowTools/</code>, <code>schemas/{flows,flowAgents}.js</code> und 13 Testdateien gelöscht; <code>/agents</code>-Mount und Scheduler-Start ausgebaut. <em>Abweichung:</em> drei weitere verwaiste Tests (<code>cronMatch</code>, <code>providerKeysService</code>, <code>providerRegistry</code>) kamen hinzu, die die Dateiliste des Plans nicht nannte. n8n (<code>routes/store/workflows.js</code>, <code>tools/workflowsTool.js</code>) nachweislich unberührt. Backend-Tests: 74 Suiten, 1505 grün.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Abriss Frontend — Canvas, Agenten-Bereich, Navigation">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 2 — Abriss Frontend — Canvas, Agenten-Bereich, Navigation">
     <h3>Schritt 2 — Abriss Frontend — Canvas, Agenten-Bereich, Navigation <span class="tag">Risiko: mittel</span></h3>
     <p>Der visuelle Fluss-Canvas, der Agenten-Tab und der Navigationspunkt „Agenten“ werden entfernt. In <code>ChatContext.tsx</code> werden die beiden Agenten-Streams gezielt herausgeschnitten — chirurgisch, Zeilenbereich für Zeilenbereich, weil in derselben Datei der normale Chat-Stream liegt, der unverändert weiterlaufen muss. Die React-Flow-Abhängigkeit wird aus der Paketliste entfernt und der Root-Lockfile neu erzeugt.</p>
     <p class="files mono">features/agents/** · features/workspace/ActivityBar.tsx:87-92 · TabContent.tsx:13,85,98,161-162 · stores/workspaceStore.ts:23,45,68-69,87-88 · contexts/ChatContext.tsx (runAgentStream, runFlowAgentStream) · dashboard-frontend/package.json:31 · package-lock.json (Root)</p>
+      <div class="result"><strong>Ergebnis:</strong> <code>features/agents/**</code> gelöscht, Agenten-Tab und Navigationspunkt entfernt, beide Agenten-Streams chirurgisch aus <code>ChatContext.tsx</code> geschnitten (Zeilen 1252–1618, 127–142, 167–168) — der normale Chat-Stream blieb unangetastet, <code>tsc</code> bestätigt es. <code>@xyflow/react</code> raus, Root-Lockfile neu erzeugt (−77 Zeilen, kein Workspace-Lock). <em>Abweichung:</em> <code>AgentChatPanel.tsx</code> war ein vom Plan nicht genannter Konsument (@- und /-Aufrufpfad, Flow-Agenten-Liste); dort mit entfernt, samt drei obsolet gewordener Tests. Frontend-Tests: 56 Dateien, 592 grün.</div>
   </div>
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Abriss Workspace-Agenten & Datenbank-Bereinigung">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 3 — Abriss Workspace-Agenten & Datenbank-Bereinigung">
     <h3>Schritt 3 — Abriss Workspace-Agenten & Datenbank-Bereinigung <span class="tag">Risiko: hoch</span></h3>
     <p>Die Workspace-Agenten aus Plan 008 werden entfernt (Routen in <code>sandbox.js</code>, <code>runWorkspaceAgent.js</code>, Schemas). Migration 111 löscht die vier Tabellen des Fluss-Layers. Vor dem Löschen wird auf dem Jetson gezählt, wie viele Datensätze betroffen sind, und das Ergebnis berichtet. Die Spalten <code>agent_run_token_hash</code>/<code>_set_at</code> bleiben zunächst stehen — ihr Entfernen wäre ein separater, invasiverer Eingriff ohne Nutzen.</p>
     <p class="files mono">routes/sandbox.js:164-370 · services/agents/runWorkspaceAgent.js · schemas/agents.js · services/postgres/init/111_drop_flow_agents.sql · docs/api/DATABASE_SCHEMA.md:1087-1181 · docs/plans/active/010-flow-agenten-orchestrierung.html → docs/plans/archive/</p>
+      <div class="result"><strong>Ergebnis:</strong> Workspace-Agenten-Block aus <code>routes/sandbox.js</code> (Zeilen 163–371), <code>runWorkspaceAgent.js</code>, <code>schemas/agents.js</code> und zwei Tests entfernt; Migration <code>111_drop_flow_agents.sql</code> angelegt (destruktiv, mit Zählabfrage im Kopf). <em>Abweichung:</em> die Claude-Login-Routen (Plan 008, Schritt 14 — bleiben bestehen) hingen an zwei Exporten der gelöschten Dateien; <code>loadWorkspace</code> wanderte deshalb nach <code>sandboxService.js</code> und <code>AgentTokenParams</code> als <code>WorkspaceParams</code> nach <code>schemas/sandbox.js</code>, statt ersatzlos zu verschwinden. Ebenfalls abweichend: die <code>AGENT_*</code>-Umgebungsvariablen wurden nicht pauschal gelöscht — <code>AGENT_LLM_TIMEOUT_MS</code> und <code>AGENT_MAX_ITERATIONS</code> nutzt die behaltene Werkzeug-Schleife weiterhin (in §7 vorhergesehenes Risiko). Plan 010 archiviert. Backend-Tests: 72 Suiten, 1478 grün.</div>
   </div>
   <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Skill-Format, Parser und Ablage">
     <h3>Schritt 4 — Skill-Format, Parser und Ablage <span class="tag">Risiko: niedrig</span></h3>

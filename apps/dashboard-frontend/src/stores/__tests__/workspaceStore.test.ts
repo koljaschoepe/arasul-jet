@@ -97,7 +97,7 @@ describe('workspaceStore — Tabs', () => {
     const raw = localStorage.getItem('arasul_workspace');
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw ?? '{}');
-    expect(parsed.version).toBe(4);
+    expect(parsed.version).toBe(5);
     expect(parsed.state.tabs).toHaveLength(1);
     expect(parsed.state.activeTabId).toBe('automationen');
     // chatScope ist ephemer und wird nicht persistiert
@@ -403,7 +403,7 @@ describe('workspaceStore — Migration v2 → v4', () => {
     // Ein Write triggert die Persistierung des migrierten Stands
     useWorkspaceStore.getState().toggleSidebar();
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
-    expect(parsed.version).toBe(4);
+    expect(parsed.version).toBe(5);
     expect(parsed.state.rightPanelVisible).toBe(true);
     expect(parsed.state.rightPanelMode).toBe('terminal');
     expect(parsed.state.llmPanelMode).toBeUndefined();
@@ -518,11 +518,60 @@ describe('workspaceStore — Migration v3 → v4', () => {
     });
     useWorkspaceStore.getState().toggleSidebar();
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
-    expect(parsed.version).toBe(4);
+    expect(parsed.version).toBe(5);
     expect(parsed.state.rightPanelVisible).toBe(true);
     expect(parsed.state.rightPanelMode).toBe('terminal');
     expect(parsed.state.chatVisible).toBeUndefined();
     expect(parsed.state.terminalVisible).toBeUndefined();
+  });
+
+  /**
+   * v4 → v5 (Plan 011): der 'agenten'-Tab ist entfallen. Ohne den
+   * Versionssprung liefe die Migration für v4-Nutzer nie an und sie behielten
+   * einen Tab, für den es keine Komponente und keinen Pfad mehr gibt.
+   */
+  it('entfernt den entfallenen agenten-Tab aus einem v4-Stand', async () => {
+    await rehydrateFrom({
+      state: {
+        tabs: [
+          { id: 'agenten', type: 'agenten', title: 'Agenten' },
+          { id: 'automationen', type: 'automationen', title: 'Dashboard' },
+        ],
+        activeTabId: 'agenten',
+        sidebarVisible: true,
+        rightPanelVisible: true,
+        rightPanelMode: 'terminal',
+        terminalSessions: [],
+        activeTerminalSessionId: null,
+      },
+      version: 4,
+    });
+    const s = useWorkspaceStore.getState();
+    expect(s.tabs.map(t => t.type)).toEqual(['automationen']);
+    // Der aktive Tab zeigte auf den entfernten Tab → rückt auf den ersten weiter.
+    expect(s.activeTabId).toBe('automationen');
+  });
+
+  /** v4 → v5 darf den Panel-Zustand nicht verlieren (kein Umweg über v3). */
+  it('reicht den Panel-Zustand eines v4-Stands unverändert durch', async () => {
+    await rehydrateFrom({
+      state: {
+        tabs: [{ id: 'automationen', type: 'automationen', title: 'Dashboard' }],
+        activeTabId: 'automationen',
+        sidebarVisible: false,
+        rightPanelVisible: false,
+        rightPanelMode: 'terminal',
+        terminalSessions: [{ id: 'p1', projectId: 'p1', title: 'proj' }],
+        activeTerminalSessionId: 'p1',
+      },
+      version: 4,
+    });
+    const s = useWorkspaceStore.getState();
+    expect(s.rightPanelVisible).toBe(false);
+    expect(s.rightPanelMode).toBe('terminal');
+    expect(s.sidebarVisible).toBe(false);
+    expect(s.terminalSessions).toEqual([{ id: 'p1', projectId: 'p1', title: 'proj' }]);
+    expect(s.activeTerminalSessionId).toBe('p1');
   });
 });
 

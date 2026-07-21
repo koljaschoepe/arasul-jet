@@ -10,7 +10,6 @@ const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
 const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
-const AgentenTab = lazy(() => import('@/features/agents/AgentenTab'));
 
 export interface TabThemeControls {
   theme: string;
@@ -82,8 +81,6 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/store';
     case 'automationen':
       return '/';
-    case 'agenten':
-      return '/';
     case 'document':
       return '/';
   }
@@ -95,7 +92,6 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   settings: new Set(['settings']),
   store: new Set(['store']),
   automationen: new Set([]),
-  agenten: new Set([]),
 };
 
 /**
@@ -157,9 +153,6 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   }
   if (tab.type === 'automationen') {
     return <AutomationenTab />;
-  }
-  if (tab.type === 'agenten') {
-    return <AgentenTab />;
   }
   return <FeatureTabHost tab={tab} themeControls={themeControls} />;
 }

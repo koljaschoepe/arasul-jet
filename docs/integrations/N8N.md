@@ -80,42 +80,6 @@ For this to work end-to-end, three things must be aligned:
 
 ---
 
-## Calling a Workspace agent from n8n (HTTP trigger)
-
-n8n can start a Workspace agent over plain HTTP and read its result. This is the
-non-streaming counterpart of the Chat `@agent` flow — see
-[`docs/features/AGENTS.md`](../features/AGENTS.md) for the agent format.
-
-1. **Mint a token** (once, in the dashboard or via API). Each Workspace has its
-   own bearer token:
-
-   ```
-   POST /api/sandbox/projects/<workspace>/agenten/token
-   ```
-
-   The plaintext token (`arun_…`) is returned **exactly once**; only its bcrypt
-   hash is stored, and each call rotates it. Store it in an n8n _Header Auth_
-   credential.
-
-2. **Run the agent** from an n8n _HTTP Request_ node:
-
-   ```
-   POST /api/sandbox/projects/<workspace>/agenten/<agent>/run
-   Authorization: Bearer arun_…
-   Content-Type: application/json
-
-   { "input": "…" }
-   ```
-
-   Response: `{ "result": "…", "steps": [ … ], "iterations": 3, "truncated": false, "timestamp": "…" }`.
-
-Every auth failure — missing/unknown workspace, no token set, wrong token —
-returns a single `401` (never `404`), so the endpoint never reveals which
-workspaces exist. The run executes as the workspace owner and is jailed to that
-workspace (files, RAG, terminal).
-
----
-
 ## 5. Hardening posture
 
 The compose-level hardening for n8n is set in `compose/compose.app.yaml` and validated against the [n8n hardening guide](https://docs.n8n.io/hosting/securing/overview/):
@@ -193,25 +157,3 @@ Run all three after every n8n image bump to catch regressions.
 | `docs/integrations/N8N_AGENTS.md`                         | Agent workflows, task-runner architecture, upgrade/backup/rollback.                                                                                                                    |
 | `docs/legal/N8N_LIZENZ.md`                                | Sustainable-Use-License assessment + mandatory pre-sales gate.                                                                                                                         |
 | `docs/plans/archive/2026-07-02_external-integrations.md`  | Full hardening roadmap.                                                                                                                                                                |
-
-## Flow-Agenten (Plan 010): einen Fluss aus n8n triggern
-
-Arasul liefert die KI-native Orchestrierung (Flow-Agenten + Flüsse), n8n bleibt
-der Trigger. Um einen **Fluss** aus n8n per HTTP anzustoßen:
-
-1. Im Dashboard: **Agenten → Flüsse → Fluss wählen → „Trigger"**.
-   „Token erzeugen" liefert EINMALIG einen Bearer-Token; die Webhook-URL
-   (`https://<host>/api/agents/flows/<id>/run`) steht daneben.
-2. In n8n einen **HTTP Request**-Node anlegen:
-   - Method `POST`, URL = die Webhook-URL.
-   - Header `Authorization: Bearer <Token>`.
-   - Body (JSON): `{ "input": "<Text an den Fluss>" }` (auch `eingabe` wird akzeptiert).
-   - Antwort: `{ "result": "…" }` (nicht-streamend). Ohne/mit falschem Token → `401`.
-
-**Zeitplan statt n8n:** Ein Fluss kann auch direkt im Dashboard einen Cron-
-Zeitplan (`scheduleCron`, 5 Felder) bekommen — ein backend-interner Scheduler
-startet ihn dann automatisch als Owner (kein n8n nötig).
-
-Sicherheit: Gespeichert wird nur der bcrypt-Hash des Tokens; „Token neu"
-rotiert (der alte wird ungültig). Der Lauf autorisiert als Fluss-Owner, sodass
-die Owner-Prüfung der referenzierten Agenten greift.

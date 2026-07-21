@@ -54,8 +54,17 @@ const ListProjectsQuery = z
   })
   .strict();
 
+// Params für die workspace-gebundenen Claude-Login-Routen (Plan 008,
+// Schritt 14): identifiziert einen Workspace per Id oder Slug.
+const WorkspaceParams = z
+  .object({
+    workspace: z.string().trim().min(1).max(100),
+  })
+  .strict();
+
 module.exports = {
   CreateProjectBody,
   UpdateProjectBody,
   ListProjectsQuery,
+  WorkspaceParams,
 };

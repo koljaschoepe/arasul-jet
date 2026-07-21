@@ -9,9 +9,6 @@ const apiMock = {
     if (url === '/sandbox/projects') {
       return Promise.resolve({ projects: [{ id: 'p-uuid', slug: 'mein-ws' }] });
     }
-    if (url === '/agents') {
-      return Promise.resolve({ data: [{ id: 5, name: 'recherche' }] });
-    }
     return Promise.resolve({ chat: { title: 'Testchat' } });
   }),
   post: vi.fn().mockResolvedValue({ chat: { id: 42 } }),
@@ -22,12 +19,8 @@ const apiMock = {
 vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 
 const sendMessage = vi.fn();
-const runAgentStream = vi.fn();
-const runFlowAgentStream = vi.fn();
 const chatContext = {
   sendMessage,
-  runAgentStream,
-  runFlowAgentStream,
   cancelJob: vi.fn(),
   loadMessages: vi.fn().mockResolvedValue({ messages: [], hasMore: false }),
   checkActiveJobs: vi.fn().mockResolvedValue(null),
@@ -105,65 +98,6 @@ describe('AgentChatPanel', () => {
     fireEvent.click(screen.getByLabelText('Senden'));
     await waitFor(() => expect(sendMessage).toHaveBeenCalled());
     expect(sendMessage.mock.calls[0]![2].selectedSpaces).toEqual(['s1', 's2']);
-  });
-
-  it('startet bei @agent einen Agentenlauf statt der normalen Antwort', async () => {
-    render(<AgentChatPanel />);
-    fireEvent.change(screen.getByLabelText('Nachricht an die KI'), {
-      target: { value: '@texter Schreib einen Brief' },
-    });
-    fireEvent.click(screen.getByLabelText('Senden'));
-
-    // Workspace wird aufgelöst, Chat lazy angelegt, dann der Agentenlauf gestartet.
-    await waitFor(() =>
-      expect(apiMock.get).toHaveBeenCalledWith('/sandbox/projects', {
-        showError: false,
-      })
-    );
-    await waitFor(() => expect(runAgentStream).toHaveBeenCalled());
-    expect(sendMessage).not.toHaveBeenCalled();
-    const call = runAgentStream.mock.calls[0]!;
-    expect(call[0]).toBe('42');
-    expect(call[1]).toMatchObject({
-      workspaceRef: 'mein-ws',
-      agentName: 'texter',
-      userInput: 'Schreib einen Brief',
-      fullMessage: '@texter Schreib einen Brief',
-    });
-  });
-
-  it('startet bei /flowagent einen Flow-Agenten (Plan 010), nicht @ oder normal', async () => {
-    render(<AgentChatPanel />);
-    // Warten, bis die Flow-Agenten-Liste geladen ist.
-    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/agents', { showError: false }));
-
-    fireEvent.change(screen.getByLabelText('Nachricht an die KI'), {
-      target: { value: '/recherche finde die Quartalszahlen' },
-    });
-    fireEvent.click(screen.getByLabelText('Senden'));
-
-    await waitFor(() => expect(runFlowAgentStream).toHaveBeenCalled());
-    expect(sendMessage).not.toHaveBeenCalled();
-    expect(runAgentStream).not.toHaveBeenCalled();
-    const call = runFlowAgentStream.mock.calls[0]!;
-    expect(call[0]).toBe('42');
-    expect(call[1]).toMatchObject({
-      agentId: 5,
-      agentName: 'recherche',
-      userInput: 'finde die Quartalszahlen',
-      fullMessage: '/recherche finde die Quartalszahlen',
-    });
-  });
-
-  it('unbekannter /name fällt auf eine normale Nachricht zurück', async () => {
-    render(<AgentChatPanel />);
-    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/agents', { showError: false }));
-    fireEvent.change(screen.getByLabelText('Nachricht an die KI'), {
-      target: { value: '/gibtsnicht hallo' },
-    });
-    fireEvent.click(screen.getByLabelText('Senden'));
-    await waitFor(() => expect(sendMessage).toHaveBeenCalled());
-    expect(runFlowAgentStream).not.toHaveBeenCalled();
   });
 
   it('lädt einen bestehenden Panel-Chat aus localStorage', async () => {

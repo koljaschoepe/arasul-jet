@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderClosed, Blocks, Workflow, Bot } from 'lucide-react';
+import { FolderClosed, Blocks, Workflow } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
@@ -82,13 +82,6 @@ export function ActivityBar() {
         onClick={() => setSidebarVisible(!sidebarVisible)}
       >
         <FolderClosed className="h-[18px] w-[18px]" />
-      </ActivityButton>
-      <ActivityButton
-        label="Agenten"
-        active={activeTabId === 'agenten'}
-        onClick={() => openTab({ type: 'agenten' })}
-      >
-        <Bot className="h-[18px] w-[18px]" />
       </ActivityButton>
       <ActivityButton
         label="Extensions"

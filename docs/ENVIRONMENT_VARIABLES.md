@@ -490,23 +490,21 @@ Network modes (`sandbox_projects.network_mode`, CHECK in migration 100): `isolat
 
 ---
 
-## Flow-Agenten (Plan 010)
+## Werkzeug-Schleife (Tool-Loop)
 
-KI-Orchestrierungs-Schicht (dashboard-backend `services/agents/`). Alle Variablen
-sind optional mit sinnvollen Defaults.
+Die Werkzeug-Schleife in `services/agents/toolLoop.js` bedient das lokale
+Modell mit echten Function-Calls. Sie ist das Fundament, auf dem die Skills
+aufsetzen (Plan 011). Beide Variablen sind optional mit sinnvollen Defaults.
 
-| Variable               | Default | Description                                                                                                                |
-| ---------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
-| AGENT_LLM_TIMEOUT_MS   | 120000  | Timeout (ms) für lokale Ollama-Aufrufe der Provider-Registry (geteilt mit dem Datei-Agenten-Tool-Loop, `toolLoop.js`)      |
-| AGENT_CLOUD_TIMEOUT_MS | 120000  | Timeout (ms) für Cloud-Provider-Aufrufe (OpenAI-kompatibel / Anthropic) in `providerRegistry.js`                           |
-| AGENT_MAX_TOKENS       | 2048    | `max_tokens` für Anthropic-Aufrufe (Anthropic verlangt das Feld; OpenAI/Ollama nutzen ihre Server-Defaults)                |
-| AGENT_MAX_ITERATIONS   | 8       | Max. Runden der Tool-Schleife eines Agenten (Function-Calling); danach endet der Lauf `truncated`                          |
-| AGENT_WEB_TIMEOUT_MS   | 15000   | Timeout (ms) des externen Web/HTTP-Tools (`web`, nur bei `allow_external`)                                                 |
-| AGENT_FLOW_CONCURRENCY | 4       | Max. gleichzeitig laufende Agenten-Knoten eines Flusses (begrenzt Cloud-Fan-out; lokale Aufrufe serialisiert das GPU-Gate) |
+| Variable             | Default | Description                                                                             |
+| -------------------- | ------- | --------------------------------------------------------------------------------------- |
+| AGENT_LLM_TIMEOUT_MS | 120000  | Timeout (ms) für lokale Ollama-Aufrufe der Werkzeug-Schleife                            |
+| AGENT_MAX_ITERATIONS | 10      | Max. Runden der Werkzeug-Schleife (Function-Calling); danach endet der Lauf `truncated` |
 
-Externe Provider-API-Keys sind **keine** Env-Variablen: sie werden Admin-verwaltet
-und AES-256-GCM-verschlüsselt in der DB (`flow_provider_keys`, Migration 110)
-gespeichert — Schlüssel abgeleitet aus `JWT_SECRET`.
+> Die übrigen `AGENT_*`-Variablen des Fluss-Layers (`AGENT_CLOUD_TIMEOUT_MS`,
+> `AGENT_MAX_TOKENS`, `AGENT_WEB_TIMEOUT_MS`, `AGENT_FLOW_CONCURRENCY`) sind mit
+> Plan 011 entfallen, ebenso die verschlüsselten Provider-Keys in der DB —
+> Arasul spricht wieder ausschließlich lokale Modelle an.
 
 ---
 

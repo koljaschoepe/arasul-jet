@@ -40,7 +40,7 @@
 
 > The chat-grouping `projects` table was dropped in Plan 008 (migration 104).
 > "Project" now means the container **workspace** (`sandbox_projects`) — see the
-> Workspaces / Agents domain below.
+> Workspaces domain below.
 
 | Table          | Key Columns                                                                             |
 | -------------- | --------------------------------------------------------------------------------------- |
@@ -69,12 +69,11 @@
 | kg_entity_documents | entity_id, document_id, mention_count (composite PK)                                                    |
 | kg_relations        | id, source_entity_id, target_entity_id, relation_type, weight                                           |
 
-### Workspaces / Agents (100, 105, 106, 107)
+### Workspaces (100, 105, 106, 107)
 
 > A **workspace** (`sandbox_projects`) is the only "project" entity: a `host_path`
 > folder + a container, with a `network_mode` (`isolated` / `internal` /
-> `infrastructure`) and an owner. Agents are Markdown files on disk under
-> `<host_path>/agenten/<name>.md` (not a DB table).
+> `infrastructure`) and an owner.
 
 | Table                     | Key Columns                                                                                                                                         |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -83,8 +82,9 @@
 
 Each workspace owns exactly one invisible `knowledge_spaces` row (`is_workspace = TRUE`,
 linked via `sandbox_projects.space_id`) so files written in the workspace are
-auto-indexed for RAG. `agent_run_token_hash` is the bcrypt hash of the
-per-workspace `arun_…` Bearer token used by the external (n8n/HTTP) agent-run route.
+auto-indexed for RAG. `agent_run_token_hash` / `agent_run_token_set_at`
+(Migration 105) are **unused since Plan 011**; the columns remain in place
+because dropping them would be a separate, more invasive change without benefit.
 
 ### Models (011, 029, 030, 035)
 

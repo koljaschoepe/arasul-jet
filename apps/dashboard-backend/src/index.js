@@ -772,13 +772,6 @@ if (require.main === module) {
       logger.error(`Failed to initialize Event Listener Service: ${err.message}`);
     }
 
-    // Flow-Scheduler (Plan 010, Schritt 7): DB-gestützter Cron für Flüsse.
-    try {
-      require('./services/agents/scheduler').start();
-    } catch (err) {
-      logger.error(`Failed to start Flow-Scheduler: ${err.message}`);
-    }
-
     // Startup readiness summary
     try {
       const { detectDevice, getGpuInfo, getLlmRamGB } = require('./utils/hardware');

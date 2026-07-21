@@ -32,7 +32,7 @@ nach Art. 28 DSGVO
 
 (1) Gegenstand der Verarbeitung ist die Bereitstellung und der Betrieb der
 Arasul Edge-AI-Appliance, einschließlich der lokalen LLM-Inferenz, Dokumenten-
-Indexierung, Workflow-Engine (n8n) und Workspace-Agenten (Agenten-Orchestrierung).
+Indexierung, Workflow-Engine (n8n) und Workspaces (isolierte Arbeitsumgebungen).
 
 (2) Die Verarbeitung erfolgt **lokal auf der beim Auftraggeber installierten
 Hardware**. Eine Übertragung personenbezogener Daten an den Auftragnehmer
@@ -50,7 +50,7 @@ Der Auftragnehmer verarbeitet personenbezogene Daten ausschließlich zu folgende
 
 - Betrieb der KI-Inferenz, Embeddings, RAG-Anfragen
 - Speicherung von Chat-Verläufen, Workflow-Definitionen, n8n-Credentials
-- Verarbeitung eingehender und ausgehender Nachrichten (Webhooks, Workflow- und Agenten-Aufrufe)
+- Verarbeitung eingehender und ausgehender Nachrichten (Webhooks, Workflow-Aufrufe)
 - Telemetrie für Self-Healing, Backup und Monitoring (lokal, kein Versand)
 - Remote-Wartung und Software-Updates (nur auf ausdrückliche Anforderung des Auftraggebers)
 

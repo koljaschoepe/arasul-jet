@@ -20,7 +20,7 @@ import { persist } from 'zustand/middleware';
  * Stores — Komponenten rendern die Sessions nur, sie besitzen sie nicht.
  */
 
-export type WorkspaceTabType = 'document' | 'settings' | 'store' | 'automationen' | 'agenten';
+export type WorkspaceTabType = 'document' | 'settings' | 'store' | 'automationen';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
@@ -42,7 +42,6 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   settings: 'Einstellungen',
   store: 'Extensions',
   automationen: 'Automationen',
-  agenten: 'Agenten',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
@@ -65,8 +64,6 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/store';
     case 'automationen':
       return '/workspace/automationen';
-    case 'agenten':
-      return '/workspace/agenten';
   }
 }
 
@@ -84,8 +81,6 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'store' };
     case 'automationen':
       return { type: 'automationen' };
-    case 'agenten':
-      return { type: 'agenten' };
     default:
       // /workspace/terminal (v2) ist kein Tab mehr — Terminal lebt im Panel.
       return null;
@@ -215,6 +210,9 @@ interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'ta
   // v3-Felder (zwei unabhängige Flächen)
   chatVisible?: boolean;
   terminalVisible?: boolean;
+  // v4-Felder (eine Fläche mit Modus)
+  rightPanelVisible?: boolean;
+  rightPanelMode?: RightPanelMode;
 }
 
 /**
@@ -231,9 +229,16 @@ interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'ta
  *     visible = chatVisible || terminalVisible
  *     mode    = (terminalVisible && !chatVisible) ? 'terminal' : 'chat'
  *
- * 'sandbox'-Tabs (Terminal als Mitte-Tab) und unbekannte Typen werden
- * entfernt, übrige Tabs + aktiver Tab bleiben erhalten. sidebarRestore startet
- * bei null (kein Auto-Collapse aus einer Alt-Session übernehmen).
+ * - v4: Panel-Felder liegen bereits in ihrer heutigen Form vor und werden
+ *   unverändert übernommen. Die Migration auf v5 dient allein dazu, den mit
+ *   Plan 011 entfallenen 'agenten'-Tab aus bestehenden Sitzungen zu entfernen —
+ *   ohne Versionssprung liefe der Filter unten für v4-Nutzer nie an und sie
+ *   behielten einen Tab, den es nicht mehr gibt.
+ *
+ * 'sandbox'-Tabs (Terminal als Mitte-Tab), der frühere 'agenten'-Tab und
+ * unbekannte Typen werden entfernt, übrige Tabs + aktiver Tab bleiben erhalten.
+ * sidebarRestore startet bei null (kein Auto-Collapse aus einer Alt-Session
+ * übernehmen).
  */
 function migrateWorkspaceState(persisted: unknown, version: number): PersistedWorkspaceState {
   const old = (persisted ?? {}) as PersistedLegacyState;
@@ -252,7 +257,14 @@ function migrateWorkspaceState(persisted: unknown, version: number): PersistedWo
   let terminalSessions: TerminalSession[];
   let activeTerminalSessionId: string | null;
 
-  if (version >= 3) {
+  if (version >= 4) {
+    // v4 → v5: Panel-Zustand ist bereits im Zielformat, nur durchreichen.
+    sidebarVisible = old.sidebarVisible ?? true;
+    rightPanelVisible = old.rightPanelVisible ?? true;
+    rightPanelMode = old.rightPanelMode === 'terminal' ? 'terminal' : 'chat';
+    terminalSessions = Array.isArray(old.terminalSessions) ? old.terminalSessions : [];
+    activeTerminalSessionId = old.activeTerminalSessionId ?? null;
+  } else if (version >= 3) {
     const chatVisible = old.chatVisible ?? true;
     const terminalVisible = old.terminalVisible ?? false;
     sidebarVisible = old.sidebarVisible ?? true;
@@ -425,7 +437,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: 'arasul_workspace',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => migrateWorkspaceState(persisted, version) as WorkspaceState,
       partialize: state => ({
         tabs: state.tabs,

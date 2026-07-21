@@ -12,12 +12,11 @@
 3. [Login funktioniert nicht](#3-login-funktioniert-nicht)
 4. [KI antwortet nicht](#4-ki-antwortet-nicht)
 5. [Dokumente werden nicht indexiert](#5-dokumente-werden-nicht-indexiert)
-6. [Agent läuft nicht / kein `@agent` im Chat](#6-agent-laeuft-nicht)
-7. [Speicherplatz voll](#7-speicherplatz-voll)
-8. [System ist langsam](#8-system-ist-langsam)
-9. [Backup/Restore Probleme](#9-backuprestore-probleme)
-10. [USB-Update schlaegt fehl](#10-usb-update-schlaegt-fehl)
-11. [Support kontaktieren](#11-support-kontaktieren)
+6. [Speicherplatz voll](#6-speicherplatz-voll)
+7. [System ist langsam](#7-system-ist-langsam)
+8. [Backup/Restore Probleme](#8-backuprestore-probleme)
+9. [USB-Update schlaegt fehl](#9-usb-update-schlaegt-fehl)
+10. [Support kontaktieren](#10-support-kontaktieren)
 
 ---
 
@@ -204,42 +203,7 @@ docker compose restart document-indexer embedding-service
 
 ---
 
-<a id="6-agent-laeuft-nicht"></a>
-
-## 6. Agent läuft nicht / kein `@agent` im Chat
-
-### Symptom
-
-`@agentname` im Chat findet den Agenten nicht, oder ein Agenten-Lauf schlägt
-fehl (per Chat oder per HTTP/n8n).
-
-### Loesung
-
-**Schritt 1: Agent-Datei prüfen**
-
-- Der Agent ist eine Datei `agenten/<name>.md` im Host-Ordner des Workspace.
-  `@name` bezieht sich auf den Dateinamen (ohne `.md`).
-- Die Datei braucht einen YAML-Kopf mit mindestens `name:`; `werkzeuge:` darf
-  nur `dateien`, `rag`, `terminal` enthalten — ein unbekanntes Werkzeug lässt
-  den Lauf mit einem Validierungsfehler abbrechen.
-
-**Schritt 2: Werkzeug-/Netzwerk-Rechte prüfen**
-
-- `rag` liefert nichts, wenn der Workspace noch keinen Wissensraum hat
-  (bestehende Workspaces bekommen ihn erst beim nächsten Anlegen) — im
-  Workspace geschriebene Dateien werden automatisch indiziert.
-- `terminal`-Befehle mit Internet-/Systemzugriff scheitern je nach
-  Netzwerkmodus des Workspace (**Abgeschottet** = keine Plattform-Dienste).
-
-**Schritt 3: HTTP-/n8n-Aufruf gibt 401**
-
-- Das pro-Workspace-Token (`arun_…`) unter _Agenten → Token_ neu erzeugen; es
-  wird nur einmal angezeigt und ersetzt das vorige. Jeder Fehler (fehlendes/
-  falsches Token, kein Token gesetzt) endet bewusst in einem `401`.
-
----
-
-## 7. Speicherplatz voll
+## 6. Speicherplatz voll
 
 ### Symptom
 
@@ -280,7 +244,7 @@ find logs/ -name "*.log" -size +100M -exec gzip {} \;
 
 ---
 
-## 8. System ist langsam
+## 7. System ist langsam
 
 ### Symptom
 
@@ -319,7 +283,7 @@ docker compose restart
 
 ---
 
-## 9. Backup/Restore Probleme
+## 8. Backup/Restore Probleme
 
 ### Backup schlaegt fehl
 
@@ -350,7 +314,7 @@ ls -la data/backups/
 
 ---
 
-## 10. USB-Update schlaegt fehl
+## 9. USB-Update schlaegt fehl
 
 ### Symptom
 
@@ -391,7 +355,7 @@ cp /mnt/usb/arasul-update-*.tar.gz updates/
 
 ---
 
-## 11. Support kontaktieren
+## 10. Support kontaktieren
 
 Bei Problemen, die Sie nicht selbst loesen koennen:
 

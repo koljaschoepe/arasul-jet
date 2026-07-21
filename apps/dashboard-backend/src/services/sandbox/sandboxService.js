@@ -695,7 +695,43 @@ async function getStatistics() {
 // The idle checker lazy-requires stopContainer from this module.
 startIdleChecker();
 
+/**
+ * Lädt einen aktiven Workspace per Id oder Slug und setzt das Owner-or-Admin-
+ * Gate durch. Fehlschlag ist immer ein 404 — die Existenz fremder Workspaces
+ * wird nicht preisgegeben. (Aus runWorkspaceAgent.js übernommen, Plan 011
+ * Schritt 3: die Workspace-Agenten sind entfallen, die Claude-Login-Routen
+ * brauchen die Auflösung weiterhin.)
+ */
+const WORKSPACE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function loadWorkspace(workspaceRef, { userId, userRole } = {}) {
+  const ref = String(workspaceRef || '').trim();
+  if (!ref) {
+    throw new NotFoundError('Workspace nicht gefunden');
+  }
+  const byId = WORKSPACE_UUID_RE.test(ref);
+  const result = await db.query(
+    `SELECT * FROM sandbox_projects
+     WHERE ${byId ? 'id' : 'slug'} = $1 AND status = 'active'
+     LIMIT 1`,
+    [ref]
+  );
+  const project = result.rows[0];
+  if (!project) {
+    throw new NotFoundError(`Workspace "${workspaceRef}" nicht gefunden`);
+  }
+  // Owner-or-admin gate — fail CLOSED. Non-owners (and any caller that omits a
+  // userId while not being admin) get the same 404 the owner-scoped sandbox
+  // routes produce (don't leak existence of other users' workspaces). Admins
+  // bypass the owner check; every non-admin caller MUST present the owning userId.
+  if (userRole !== 'admin' && (userId == null || project.user_id !== userId)) {
+    throw new NotFoundError(`Workspace "${workspaceRef}" nicht gefunden`);
+  }
+  return project;
+}
+
 module.exports = {
+  loadWorkspace,
   createProject,
   listProjects,
   getProject,
