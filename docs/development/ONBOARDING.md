@@ -209,7 +209,7 @@ Types: `feat | fix | docs | refactor | test | chore | ci | build | perf`. PR tit
 | Adding a DB field    | `services/postgres/init/` (next migration number)                             |
 | Editing LLM behavior | `apps/dashboard-backend/src/services/llm/`                                    |
 | Debugging n8n flow   | `services/n8n/` + dashboard n8n page                                          |
-| Touching agents      | `apps/dashboard-backend/src/services/agents/` + `routes/sandbox.js`           |
+| Touching workspaces  | `apps/dashboard-backend/src/services/sandbox/` + `routes/sandbox.js`          |
 | Changing design      | `docs/development/DESIGN_SYSTEM.md` + `apps/dashboard-frontend/src/index.css` |
 
 ### Reading guide per domain

@@ -140,35 +140,35 @@ is preferred so `errorHandler` keeps structured fields.
 - ❌ Returning bare strings or arrays at the top level — wrap in `{ data, ... }`
   so response shape is uniform.
 
-## Workspace-Agenten (Plan 008)
+## Werkzeug-Schleife & Workspace (Plan 008 / 011)
 
-The product's automation core is now workspace agents, not the Telegram bot.
-An agent is a Markdown file at `<workspace host_path>/agenten/<name>.md` with
-YAML frontmatter (`name`, `beschreibung`, `modell`, `werkzeuge`) and a
-system-prompt body. Engine lives in `services/agents/` (`agentFile.js` parses
-the file, `toolLoop.js` drives the Ollama function-calling loop, `tools/`
-holds the three tools). Conventions:
+Der Agenten- und Fluss-Layer ist mit Plan 011 entfernt; an seine Stelle treten
+**Skills** (Markdown-Dateien unter `data/skills/`, im Chat per `/name`
+aufgerufen). Was aus Plan 008 als Fundament bleibt und von den Skills
+weiterverwendet wird, liegt weiterhin in `services/agents/`:
 
-- **Tools are path-jailed to the workspace.** `dateien` reads/writes files,
-  `rag` searches the workspace's one knowledge space, `terminal` runs a command
-  in the workspace container. All extend the existing `BaseTool`/`ToolRegistry`;
-  a definition may only name tools from `VALID_TOOLS` (`dateien`, `rag`,
-  `terminal`).
-- **Two run surfaces, both in `routes/sandbox.js`:** the cookie-authenticated
-  SSE stream `POST .../agenten/:agent/run/stream` (Chat's `@agentname`, streams
-  each tool step) and the Bearer-token `POST .../agenten/:agent/run` for n8n /
-  external HTTP (non-streaming, returns `{ result, steps, ... }`). The token is
-  minted at `POST .../agenten/token`; only its bcrypt hash is stored
-  (`sandbox_projects.agent_run_token_hash`), and every external-auth failure
-  collapses to a single 401 so the route never leaks which workspaces exist.
-- **RAG isolation:** each workspace owns exactly one invisible knowledge space
-  (`sandbox_projects.space_id`, `knowledge_spaces.is_workspace = TRUE`). Files
-  written in a workspace are auto-indexed (`workspaceIndexer.js`); a workspace
-  without a linked space scopes to nothing — never fail open to all spaces.
-- **Encrypted external login:** a Claude login done in a sandbox terminal is
-  stored per user in `user_external_credentials`, encrypted AES-256-GCM via
-  `utils/tokenCrypto.js`, and restored on container start so it survives a
-  rebuild.
+- `toolLoop.js` — treibt die Ollama-Function-Calling-Schleife (Runden-Limit
+  `AGENT_MAX_ITERATIONS`, Timeout `AGENT_LLM_TIMEOUT_MS`).
+- `pathSafe.js` — symlink-sichere Pfad-Sperre. **Jeder** Dateizugriff eines
+  Werkzeugs läuft ausnahmslos hierdurch.
+- `agentFile.js` — Parser für Markdown + YAML-Frontmatter.
+- `tools/` — die drei path-gejailten Werkzeuge `dateien`, `rag`, `terminal`.
+- `gpuGate.js` / `workspaceIndexer.js` — Serialisierung der GPU-Aufrufe bzw.
+  Auto-Indexierung geschriebener Dateien.
+
+Weiterhin gültige Konventionen rund um den Workspace:
+
+- **RAG-Isolation:** Jeder Workspace besitzt genau einen unsichtbaren
+  Wissensraum (`sandbox_projects.space_id`, `knowledge_spaces.is_workspace =
+TRUE`). Ein Workspace ohne verknüpften Raum scopet auf nichts — niemals auf
+  alle Räume zurückfallen.
+- **Verschlüsselter externer Login:** Ein Claude-Login aus dem Sandbox-Terminal
+  wird pro Nutzer in `user_external_credentials` AES-256-GCM-verschlüsselt
+  (`utils/tokenCrypto.js`) abgelegt und beim Container-Start zurückgespielt.
+  Routen: `POST|GET|DELETE .../claude-login*` in `routes/sandbox.js`.
+- `sandbox_projects.agent_run_token_hash` / `_set_at` sind seit Plan 011
+  **ungenutzt** (die externe Agenten-Run-Route ist entfallen); die Spalten
+  stehen noch, ihr Entfernen wäre ein separater Eingriff ohne Nutzen.
 
 ## Testing
 

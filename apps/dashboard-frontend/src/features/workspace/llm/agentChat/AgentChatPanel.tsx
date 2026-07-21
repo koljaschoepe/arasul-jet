@@ -57,8 +57,6 @@ export default function AgentChatPanel() {
   const api = useApi();
   const {
     sendMessage,
-    runAgentStream,
-    runFlowAgentStream,
     cancelJob,
     loadMessages,
     checkActiveJobs,
@@ -86,16 +84,10 @@ export default function AgentChatPanel() {
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [input, setInput] = useState('');
-  // Flow-Agenten (Plan 010) für die /-Palette im Composer.
-  const [flowAgents, setFlowAgents] = useState<{ id: number; name: string }[]>([]);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
   const [dragOver, setDragOver] = useState(false);
-
-  // Aktueller Workspace (sandbox_projects) für @agent-Läufe. Lazy einmalig
-  // aufgelöst über die zuletzt genutzte aktive Projekt-Liste.
-  const workspaceRefRef = useRef<string | null>(null);
 
   const messagesRef = useRef<ChatMessage[]>(messages);
   useEffect(() => {
@@ -227,105 +219,9 @@ export default function AgentChatPanel() {
     return id;
   }, [chatId, api]);
 
-  // Löst den aktiven Workspace (Slug bevorzugt, sonst Id) für Agentenläufe auf.
-  const resolveWorkspace = useCallback(async (): Promise<string | null> => {
-    if (workspaceRefRef.current) return workspaceRefRef.current;
-    try {
-      const data = await api.get<{ projects?: { id: string; slug?: string }[] }>(
-        '/sandbox/projects',
-        { showError: false }
-      );
-      const proj = data.projects?.[0];
-      if (proj) {
-        workspaceRefRef.current = proj.slug || proj.id;
-        return workspaceRefRef.current;
-      }
-    } catch {
-      /* kein Workspace erreichbar */
-    }
-    return null;
-  }, [api]);
-
-  // Flow-Agenten für die /-Palette laden (Plan 010, Schritt 6).
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .get<{ data: { id: number; name: string }[] }>('/agents', { showError: false })
-      .then(res => {
-        if (!cancelled) setFlowAgents(res.data.map(a => ({ id: a.id, name: a.name })));
-      })
-      .catch(() => {
-        /* Palette bleibt leer */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [api]);
-
   const handleSend = useCallback(async () => {
     const hasInput = input.trim() || attachedFile || attachedImages.length > 0;
     if (!hasInput || isLoading) return;
-
-    // /flow-agent-Aufruf (Plan 010): startet einen Flow-Agenten statt der
-    // normalen Antwort. Nur ohne Datei-Anhang; matcht den Namen gegen die
-    // eigenen Flow-Agenten. Das bestehende @ (Datei-Agenten) bleibt unberührt.
-    const flowMatch = !attachedFile ? input.trim().match(/^\/([^\s/]+)\s*([\s\S]*)$/) : null;
-    if (flowMatch) {
-      const name = flowMatch[1] || '';
-      const agentInput = (flowMatch[2] || '').trim();
-      const agent = flowAgents.find(a => a.name.toLowerCase() === name.toLowerCase());
-      if (agent) {
-        const fullMessage = input.trim();
-        setInput('');
-        setError(null);
-        try {
-          const id = await ensureChat();
-          runFlowAgentStream(id, {
-            agentId: agent.id,
-            agentName: agent.name,
-            userInput: agentInput,
-            fullMessage,
-            messages: messagesRef.current,
-          });
-          stickToBottomRef.current = true;
-        } catch {
-          setError('Flow-Agent konnte nicht gestartet werden');
-        }
-        return;
-      }
-      // Kein passender Flow-Agent → als normale Nachricht behandeln (Fall-through).
-    }
-
-    // @agent-Aufruf: startet einen Agentenlauf statt der normalen Antwort.
-    // Nur ohne Datei-Anhang (Agenten nehmen keine Uploads); der Rest der
-    // Nachricht ist die Eingabe an den Agenten.
-    const agentMatch = !attachedFile ? input.trim().match(/^@([^\s@]+)\s*([\s\S]*)$/) : null;
-    if (agentMatch) {
-      const agentName = agentMatch[1] || '';
-      const agentInput = (agentMatch[2] || '').trim();
-      const fullMessage = input.trim();
-      setInput('');
-      setError(null);
-      try {
-        const ws = await resolveWorkspace();
-        if (!ws) {
-          setError('Kein Workspace gefunden, um den Agenten auszuführen.');
-          return;
-        }
-        const id = await ensureChat();
-        runAgentStream(id, {
-          workspaceRef: ws,
-          agentName,
-          userInput: agentInput,
-          fullMessage,
-          messages: messagesRef.current,
-        });
-        stickToBottomRef.current = true;
-      } catch {
-        setError('Agent konnte nicht gestartet werden');
-      }
-      return;
-    }
 
     const msg =
       input.trim() ||
@@ -372,10 +268,6 @@ export default function AgentChatPanel() {
     installedModels,
     ensureChat,
     sendMessage,
-    resolveWorkspace,
-    runAgentStream,
-    runFlowAgentStream,
-    flowAgents,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -578,7 +470,6 @@ export default function AgentChatPanel() {
           models={composerModels}
           selectedModel={selectedModel}
           onSelectModel={setSelectedModel}
-          flowAgents={flowAgents}
         />
       </div>
 

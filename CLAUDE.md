@@ -133,7 +133,7 @@ make logs s=dashboard-backend                      # Logs via Make
 | Troubleshooting       | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                                                         |
 | Backup & DR           | [docs/ops/BACKUP_SYSTEM.md](docs/ops/BACKUP_SYSTEM.md), [docs/ops/DISASTER_RECOVERY.md](docs/ops/DISASTER_RECOVERY.md)                             |
 | Integrations (n8n)    | [docs/integrations/N8N.md](docs/integrations/N8N.md) (operator), [docs/integrations/N8N_OVERVIEW.md](docs/integrations/N8N_OVERVIEW.md) (customer) |
-| Workspace-Agenten     | [docs/features/AGENTS.md](docs/features/AGENTS.md) (Agent-Format + Run-Endpoints)                                                                  |
+| Workspace             | [docs/features/WORKSPACE.md](docs/features/WORKSPACE.md) (Netzwerkmodi, Wissensraum, Claude-Login)                                                 |
 | Legal / DSGVO         | [docs/legal/](docs/legal/) (AVV-Vorlage, Datenschutz-Module, Drittland-Konnektoren)                                                                |
 | Full doc index        | [docs/INDEX.md](docs/INDEX.md)                                                                                                                     |
 | Contributing          | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                                                 |

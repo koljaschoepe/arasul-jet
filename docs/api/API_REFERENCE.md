@@ -488,121 +488,6 @@ Request: `multipart/form-data` with `file` field.
 }
 ```
 
-### Flow-Agenten (Plan 010)
-
-KI-Orchestrierungs-Schicht. Ein Flow-Agent = Prompt + Provider/Modell + Tools +
-Rechte. Agenten sind **owner-scoped** — jeder Nutzer sieht/verwaltet nur seine
-eigenen (fremd/unbekannt → 404). Getrennt von den Datei-Agenten (Plan 008, unter
-`/api/sandbox/...`).
-
-| Method | Endpoint                     | Description                                                |
-| ------ | ---------------------------- | ---------------------------------------------------------- |
-| GET    | `/api/agents`                | Eigene Agenten auflisten                                   |
-| POST   | `/api/agents`                | Agenten anlegen                                            |
-| GET    | `/api/agents/:id`            | Einen eigenen Agenten laden                                |
-| PUT    | `/api/agents/:id`            | Agenten aktualisieren (nur gesetzte Felder)                |
-| DELETE | `/api/agents/:id`            | Agenten löschen                                            |
-| POST   | `/api/agents/:id/run/stream` | Agenten einmal ausführen — Ergebnis per SSE (`llmLimiter`) |
-
-Alle erfordern `requireAuth`. **Body (POST/PUT):**
-
-```json
-{
-  "name": "Recherche-Assistent",
-  "description": "",
-  "systemPrompt": "Du bist ein Rechercheur…",
-  "provider": "ollama",
-  "model": "qwen2.5:3b",
-  "tools": [],
-  "allowExternal": false
-}
-```
-
-`provider` ∈ {`ollama`, `openai`, `anthropic`}. `allowExternal` (Netz-/Cloud-Tools)
-darf nur ein Admin auf `true` setzen — sonst `400 VALIDATION_ERROR`. Für Cloud-
-Provider muss zuvor ein Key hinterlegt sein (siehe Provider-Keys), sonst endet
-der Lauf mit einem `error`-Event.
-
-`tools` ∈ {`rag`, `minio`, `n8n`, `web`} (andere Namen → `400 VALIDATION_ERROR`).
-Während eines Laufs führt der Agent eine native Function-Calling-Schleife aus:
-das Modell darf die deklarierten Tools aufrufen, deren Ergebnisse fließen zurück
-ins Modell (max. `AGENT_MAX_ITERATIONS` Runden). `web` ist **extern** und wird
-zur Laufzeit nur einbezogen, wenn der Agent `allowExternal` hat; jede Ziel-URL
-läuft durch einen SSRF-Guard (keine privaten/reservierten IPs). Tool-Schritte
-erscheinen im SSE-Stream als `{"type":"tool_start",…}` / `{"type":"tool_result",…}`.
-
-**`POST /api/agents/:id/run/stream`** streamt SSE-Frames (Body `{ "input": "…" }`):
-`{"type":"status","status":"running",…}` · `{"type":"text","content":"…"}` ·
-`{"type":"done","result":"…"}` · `{"type":"error","message":"…"}`. Auth-/Lookup-
-Fehler (401/404) kommen als echter HTTP-Status vor dem ersten Frame. Persistiert
-wird nur der **letzte** Lauf pro Agent.
-
-### Flüsse (Plan 010)
-
-Verzweigte Flüsse aus Agenten- und Bedingungs-Knoten (owner-scoped, unter
-`/api/agents/flows`). Der Fluss speichert einen Graphen (`{nodes, edges}`).
-
-| Method | Endpoint                           | Description                                                      |
-| ------ | ---------------------------------- | ---------------------------------------------------------------- |
-| GET    | `/api/agents/flows`                | Eigene Flüsse auflisten                                          |
-| POST   | `/api/agents/flows`                | Fluss anlegen (`{name, description, graph}`)                     |
-| GET    | `/api/agents/flows/:id`            | Einen Fluss laden                                                |
-| PUT    | `/api/agents/flows/:id`            | Fluss aktualisieren                                              |
-| DELETE | `/api/agents/flows/:id`            | Fluss löschen                                                    |
-| POST   | `/api/agents/flows/:id/run/stream` | Fluss ausführen — Knoten-Events per SSE (`llmLimiter`)           |
-| POST   | `/api/agents/flows/:id/token`      | Webhook-Token erzeugen/rotieren (nur EINMAL sichtbar)            |
-| POST   | `/api/agents/flows/:id/run`        | Externer token-authentifizierter Lauf für n8n (`webhookLimiter`) |
-
-Die CRUD-/Stream-/Token-Routen erfordern `requireAuth`; **einzige Ausnahme ist
-`POST .../run`** — sie ist bewusst nicht cookie-, sondern token-authentifiziert
-(für n8n, s. u.). **Graph:** `nodes` = `{id, type:'agent'|'condition', data}`
-(agent: `data.agentId`; condition: `data.mode` ∈ {`contains`,`not_contains`,`equals`},
-`data.value`), `edges` = `{id, source, target, sourceHandle?}` (Bedingungs-Kanten
-tragen `sourceHandle` `'true'`/`'false'`). Der Graph muss azyklisch sein und darf
-nur **eigene** Agenten referenzieren (sonst `400 VALIDATION_ERROR` vor dem Lauf).
-
-**`POST .../run/stream`** streamt SSE-Frames, jedes mit `node` (Knoten-ID) zum
-Multiplexen paralleler Zweige: `flow_start` · `node_start` · agent-interne
-`status`/`tool_start`/`tool_result`/`text` (mit `node`) · `node_condition` ·
-`node_skipped` · `node_done` · `flow_done` / `flow_error`. Unabhängige Zweige
-laufen logisch parallel; alle Modell-Aufrufe bleiben über das GPU-Gate
-serialisiert. Persistiert wird nur der **letzte** Lauf pro Fluss.
-
-**Trigger (Schritt 7):** Ein Fluss kann per `scheduleCron` (5-Feld-Cron im
-Update-Body) zeitgesteuert laufen — ein backend-interner Scheduler startet ihn
-als Owner. Für n8n liefert `POST .../token` einen einmaligen Bearer-Token (nur
-bcrypt-Hash gespeichert); `POST .../run` (nicht cookie-, sondern token-
-authentifiziert, `Authorization: Bearer <token>`, Body `{ "input": "…" }`)
-führt den Fluss nicht-streamend aus und gibt `{ result }` zurück. Jeder
-Auth-Fehlermodus fällt auf ein einzelnes `401`.
-
-### Flow-Agenten — Provider-Keys (Plan 010)
-
-Admin-only management of external model-provider API keys used by Flow-Agents.
-The key itself never leaves the backend — the list returns metadata only.
-
-| Method | Endpoint                              | Description                                         |
-| ------ | ------------------------------------- | --------------------------------------------------- |
-| GET    | `/api/agents/provider-keys`           | List configured providers (metadata, no key)        |
-| PUT    | `/api/agents/provider-keys/:provider` | Create/rotate a provider key (`openai`/`anthropic`) |
-| DELETE | `/api/agents/provider-keys/:provider` | Delete a provider key                               |
-
-All three require `requireAuth` + `requireAdmin`. `:provider` ∈ {`openai`,
-`anthropic`} (`ollama` is local and needs no key). The stored key is AES-256-GCM
-encrypted (`utils/tokenCrypto.js`, key from `JWT_SECRET`).
-
-**PUT /api/agents/provider-keys/:provider:**
-
-```json
-{
-  "apiKey": "sk-…",
-  "baseUrl": "https://gateway.example.com/v1"
-}
-```
-
-`baseUrl` is optional (OpenAI-compatible custom endpoints). Response:
-`{ "data": { "provider": "openai", "baseUrl": null, "updatedAt": "…" }, "timestamp": "…" }`.
-
 ### Workflows (n8n)
 
 | Method | Endpoint                  | Description         |
@@ -2206,123 +2091,22 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Isolated project environments with Docker containers and terminal WebSocket access. All routes require authentication.
 
-| Method | Endpoint                                                     | Description                                                |
-| ------ | ------------------------------------------------------------ | ---------------------------------------------------------- |
-| GET    | `/api/sandbox/projects`                                      | List all sandbox projects for current user                 |
-| POST   | `/api/sandbox/projects`                                      | Create a new sandbox project                               |
-| GET    | `/api/sandbox/projects/:id`                                  | Get project details                                        |
-| PUT    | `/api/sandbox/projects/:id`                                  | Update project name/description                            |
-| DELETE | `/api/sandbox/projects/:id`                                  | Archive a project                                          |
-| POST   | `/api/sandbox/projects/:id/start`                            | Start the project container                                |
-| POST   | `/api/sandbox/projects/:id/stop`                             | Stop the project container                                 |
-| POST   | `/api/sandbox/projects/:id/commit`                           | Commit container state as a new image                      |
-| GET    | `/api/sandbox/projects/:id/status`                           | Get live container status                                  |
-| GET    | `/api/sandbox/projects/:id/sessions`                         | List terminal sessions for a project                       |
-| GET    | `/api/sandbox/projects/:workspace/agenten`                   | List the workspace's agents (name + parsed metadata)       |
-| POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run/stream` | Run an agent, streaming its tool steps as SSE              |
-| POST   | `/api/sandbox/projects/:workspace/agenten/token`             | Generate (rotate) the workspace's external run token       |
-| POST   | `/api/sandbox/projects/:workspace/agenten/:agent/run`        | Run an agent via token auth (n8n / HTTP), buffered         |
-| POST   | `/api/sandbox/projects/:workspace/claude-login/capture`      | Capture the container's Claude Code login, store encrypted |
-| GET    | `/api/sandbox/projects/:workspace/claude-login/status`       | Whether an encrypted Claude login is stored for the user   |
-| DELETE | `/api/sandbox/projects/:workspace/claude-login`              | Delete the stored Claude login for the user                |
-| GET    | `/api/sandbox/stats`                                         | Overall sandbox statistics                                 |
-
-#### Agenten (Workspace-Agenten)
-
-An _agent_ is a markdown file with YAML frontmatter at
-`<workspace host_path>/agenten/<name>.md` (frontmatter fields: `name`,
-`beschreibung`, `modell`, `werkzeuge`; the body is the system prompt). Agents
-may use three tools: `dateien` (read/write files in the workspace), `rag`
-(search the workspace's knowledge) and `terminal` (run a command in the
-workspace container). `:workspace` is the sandbox project id or ref.
-
-**GET /api/sandbox/projects/:workspace/agenten** — cookie/session auth. Lists
-the workspace's agents (parsed frontmatter). Powers the `@`-autocomplete in
-Chat. A malformed agent file is returned bare as `{ "name": "…" }`.
-
-```json
-{
-  "agents": [
-    {
-      "name": "texter",
-      "displayName": "Texter",
-      "description": "Schreibt und überarbeitet Texte.",
-      "model": "qwen2.5:7b",
-      "tools": ["dateien", "rag"]
-    }
-  ],
-  "timestamp": "2026-07-17T…"
-}
-```
-
-**POST /api/sandbox/projects/:workspace/agenten/:agent/run/stream** — `:workspace`
-is the project id (UUID) or slug; body `{ "input": "<message to the agent>" }`.
-Opens a `text/event-stream`; each engine event is one `data:` frame:
-`{type:"tool_start",tool,params}` · `{type:"tool_result",tool,result}` ·
-`{type:"text",content}` · `{type:"done",result,truncated}` · `{type:"error",message}`.
-Auth/resolution failures happen before the first SSE frame — **401** if
-unauthenticated, **404** for an unknown workspace/agent. Rate limited by the
-LLM limiter.
-
-#### External agent run (n8n / HTTP integration surface)
-
-These two endpoints let n8n — or any HTTP client — start a workspace agent
-without a dashboard session, secured by a **per-workspace bearer token**.
-
-**POST /api/sandbox/projects/:workspace/agenten/token** — cookie/session auth
-(`requireAuth`), owner-or-admin only. Generates a high-entropy token
-(`arun_<base64url>`), stores **only its bcrypt hash** on the workspace and
-returns the plaintext **exactly once**. Each call rotates the token
-(overwrites the previous hash). Response:
-
-```json
-{
-  "token": "arun_JbT2…",
-  "message": "Dieses Token wird nur EINMAL angezeigt und ersetzt ein zuvor erzeugtes Token. Sicher speichern — es kann nicht erneut abgerufen werden.",
-  "timestamp": "2026-07-17T…"
-}
-```
-
-**POST /api/sandbox/projects/:workspace/agenten/:agent/run** — **token auth,
-not cookie auth**. Pass the token in `Authorization: Bearer <token>` (or the
-`X-Agent-Token` header). Body `{ "input": "<message>" }` (the German field
-name `eingabe` is also accepted). The token authorizes as the workspace owner;
-the agent runs to completion and the result is returned as one buffered JSON
-response (no SSE):
-
-```json
-{
-  "result": "Der fertige Antworttext des Agenten.",
-  "iterations": 2,
-  "truncated": false,
-  "steps": [
-    { "type": "tool_start", "tool": "dateien", "params": { "aktion": "read", "pfad": "brief.md" } },
-    { "type": "tool_result", "tool": "dateien", "result": "Sehr geehrte…" }
-  ],
-  "timestamp": "2026-07-17T…"
-}
-```
-
-`steps` contains only the `tool_start` / `tool_result` events so the caller can
-inspect what the agent did. Auth failures — missing token, unknown workspace,
-workspace with no token set, or a wrong token — all return **401** (existence
-is never leaked as a 404). A valid token against an unknown agent returns 404.
-A mid-run engine failure returns a 5xx with the error message (never a silent
-200). Rate limited via `webhookLimiter` (100 req/min).
-
-```bash
-# 1) Generate a token (dashboard session / owner)
-curl -X POST https://arasul.local/api/sandbox/projects/mein-ws/agenten/token \
-  -H "Authorization: Bearer <dashboard-jwt>" -H "X-CSRF-Token: <csrf>"
-# → { "token": "arun_…", … }   (store it — shown once)
-
-# 2) Run the agent from n8n / any HTTP client
-curl -X POST https://arasul.local/api/sandbox/projects/mein-ws/agenten/texter/run \
-  -H "Authorization: Bearer arun_…" \
-  -H "Content-Type: application/json" \
-  -d '{ "input": "Schreib einen Brief an den Kunden" }'
-# → { "result": "…", "iterations": 2, "steps": [ … ] }
-```
+| Method | Endpoint                                                | Description                                                |
+| ------ | ------------------------------------------------------- | ---------------------------------------------------------- |
+| GET    | `/api/sandbox/projects`                                 | List all sandbox projects for current user                 |
+| POST   | `/api/sandbox/projects`                                 | Create a new sandbox project                               |
+| GET    | `/api/sandbox/projects/:id`                             | Get project details                                        |
+| PUT    | `/api/sandbox/projects/:id`                             | Update project name/description                            |
+| DELETE | `/api/sandbox/projects/:id`                             | Archive a project                                          |
+| POST   | `/api/sandbox/projects/:id/start`                       | Start the project container                                |
+| POST   | `/api/sandbox/projects/:id/stop`                        | Stop the project container                                 |
+| POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                      |
+| GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                  |
+| GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project                       |
+| POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted |
+| GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user   |
+| DELETE | `/api/sandbox/projects/:workspace/claude-login`         | Delete the stored Claude login for the user                |
+| GET    | `/api/sandbox/stats`                                    | Overall sandbox statistics                                 |
 
 #### Claude-Login persistence (Plan 008, Schritt 14)
 

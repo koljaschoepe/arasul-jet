@@ -11,8 +11,8 @@
 2. [Dashboard](#2-dashboard)
 3. [Chat / KI-Assistent](#3-chat--ki-assistent)
 4. [Dokumente & RAG](#4-dokumente--rag)
-5. [Workspace & Agenten](#5-workspace--agenten)
-6. [Automation (n8n & Agenten per HTTP)](#6-automation)
+5. [Workspace](#5-workspace)
+6. [Automation (n8n)](#6-automation)
 7. [Einstellungen](#7-einstellungen)
 8. [Services-Verwaltung](#8-services-verwaltung)
 9. [Datensicherung](#9-datensicherung)
@@ -29,8 +29,8 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 - **Lokale KI:** Alle Daten bleiben auf dem Geraet - keine Cloud erforderlich
 - **Chat-Assistent:** Fragen stellen, Texte analysieren, Aufgaben loesen
 - **Dokumenten-Analyse (RAG):** Eigene Dokumente hochladen und intelligent durchsuchen
-- **Workspace-Agenten:** Eigene KI-Agenten anlegen, aus dem Chat (`@agent`) oder per HTTP/n8n starten
-- **Automation (n8n):** Workflows bauen und Agenten in Abläufe einbinden
+- **Workspace:** Eigener Arbeitsordner samt Container, mit Netzwerkmodus und automatisch indiziertem Wissensbereich
+- **Automation (n8n):** Workflows bauen und Abläufe automatisieren
 - **Automatische Sicherung:** Taegliche Backups aller Daten
 - **Offline-faehig:** Funktioniert ohne Internetverbindung
 
@@ -189,9 +189,9 @@ Organisieren Sie Dokumente in thematischen Raeumen:
 
 ---
 
-<a id="5-workspace--agenten"></a>
+<a id="5-workspace"></a>
 
-## 5. Workspace & Agenten
+## 5. Workspace
 
 Ein **Workspace** ist die zentrale Arbeitsumgebung: ein Ordner plus ein
 Container mit einem Besitzer und einem **Netzwerkmodus** („Was darf dieser
@@ -206,50 +206,17 @@ Workspace?"):
 Jeder Workspace hat genau einen unsichtbaren Wissensbereich („Ordner"): dort
 geschriebene Dateien werden **automatisch indiziert** (kein manueller Upload).
 
-### Agent anlegen
-
-Ein Agent ist eine Markdown-Datei `agenten/<name>.md` im Workspace-Ordner mit
-einem YAML-Kopf und einem System-Prompt:
-
-```markdown
----
-name: Texter
-beschreibung: Schreibt und überarbeitet Texte im Workspace.
-modell: qwen2.5:7b
-werkzeuge: [dateien, rag]
----
-
-Du bist ein präziser Lektor. Antworte auf Deutsch.
-```
-
-Werkzeuge: **dateien** (Dateien lesen/schreiben), **rag** (im Workspace-Wissen
-suchen), **terminal** (Befehl im Workspace-Container ausführen).
-
-### Agent starten
-
-- **Aus dem Chat:** `@agentname <Eingabe>` — die Werkzeug-Schritte laufen live mit.
-- **Per HTTP / n8n:** siehe [Abschnitt 6](#6-automation).
+Details: [docs/features/WORKSPACE.md](../features/WORKSPACE.md).
 
 ---
 
 <a id="6-automation"></a>
 
-## 6. Automation (n8n & Agenten per HTTP)
+## 6. Automation (n8n)
 
-- **n8n:** Öffnen Sie **Automation** in der Activity Bar, um Workflows zu bauen.
-- **Agent per HTTP starten:** Erzeugen Sie pro Workspace ein Token
-  (_Agenten → Token_; das Token `arun_…` wird **nur einmal** angezeigt) und
-  rufen Sie den Agenten aus n8n (HTTP-Request-Node) auf:
+Öffnen Sie **Automation** in der Activity Bar, um Workflows zu bauen.
 
-  ```
-  POST /api/sandbox/projects/<workspace>/agenten/<agent>/run
-  Authorization: Bearer arun_…
-
-  { "input": "…" }
-  ```
-
-  Details: [docs/integrations/N8N.md](../integrations/N8N.md) und
-  [docs/features/AGENTS.md](../features/AGENTS.md).
+Details: [docs/integrations/N8N.md](../integrations/N8N.md).
 
 ---
 
