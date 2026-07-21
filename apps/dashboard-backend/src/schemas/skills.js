@@ -258,6 +258,17 @@ const CreateSkillBody = SaveSkillBody.extend({ name: SkillName });
 /** `:name` in der URL. */
 const SkillNameParams = z.object({ name: SkillName }).strict();
 
+/** `:id` eines Laufs in der URL (Plan 011, Schritt 9). */
+const RunIdParams = z.object({ id: z.coerce.number().int().positive() }).strict();
+
+/** Query der Lauf-Liste. */
+const ListRunsQuery = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+    conversation_id: z.coerce.number().int().positive().optional(),
+  })
+  .strict();
+
 module.exports = {
   SkillDefinition,
   SkillArgument,
@@ -268,6 +279,8 @@ module.exports = {
   SaveSkillBody,
   CreateSkillBody,
   SkillNameParams,
+  RunIdParams,
+  ListRunsQuery,
   VALID_TOOLS,
   ARG_TYPES,
   SKILL_NAME_RE,

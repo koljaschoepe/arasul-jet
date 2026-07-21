@@ -326,4 +326,86 @@ describe('Skills-Routen', () => {
       expect(res.status).toBe(400);
     });
   });
+
+  // --- Läufe (Plan 011, Schritt 9) -----------------------------------------
+  // Der Auth-Mock beantwortet die Auth-Abfragen per Teilstring; hier wird er um
+  // die Lauf-Tabellen erweitert, damit die Routen echte Zeilen zurückbekommen.
+  describe('Läufe', () => {
+    /** Verdrahtet db.query: erst Auth wie gehabt, dann die Lauf-Tabellen. */
+    function mitLaeufen({ runRows = [], stepRows = [], cancelRows = [] }) {
+      setupAuthMocks(db);
+      const auth = db.query.getMockImplementation();
+      db.query.mockImplementation((sql, params) => {
+        const s = String(sql);
+        if (/UPDATE skill_runs\s+SET status = 'abgebrochen'/.test(s)) {
+          return Promise.resolve({ rows: cancelRows });
+        }
+        if (/UPDATE skill_run_steps/.test(s)) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (/FROM skill_runs/.test(s) && /ORDER BY id DESC/.test(s)) {
+          return Promise.resolve({ rows: runRows });
+        }
+        if (/FROM skill_runs WHERE id/.test(s)) {
+          return Promise.resolve({ rows: runRows });
+        }
+        if (/FROM skill_run_steps/.test(s)) {
+          return Promise.resolve({ rows: stepRows });
+        }
+        return auth(sql, params);
+      });
+    }
+
+    test('listet die Läufe des Nutzers', async () => {
+      mitLaeufen({ runRows: [{ id: 3, skill_name: 'recherche', status: 'fertig' }] });
+      const res = await auth(request(app).get('/api/skills/laeufe'));
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].skill_name).toBe('recherche');
+    });
+
+    test('„laeufe" wird NICHT als Skill-Name missverstanden', async () => {
+      // Der Kern der Routen-Reihenfolge: /laeufe muss VOR /:name greifen.
+      mitLaeufen({ runRows: [] });
+      const res = await auth(request(app).get('/api/skills/laeufe'));
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+    });
+
+    test('lädt einen Lauf samt Schritten', async () => {
+      mitLaeufen({
+        runRows: [{ id: 3, skill_name: 'recherche', status: 'laeuft' }],
+        stepRows: [{ id: 9, position: 0, kind: 'werkzeug', name: 'web_suche' }],
+      });
+      const res = await auth(request(app).get('/api/skills/laeufe/3'));
+      expect(res.status).toBe(200);
+      expect(res.body.data.steps).toHaveLength(1);
+      expect(res.body.data.steps[0].name).toBe('web_suche');
+    });
+
+    test('ein fremder/unbekannter Lauf gibt 404', async () => {
+      mitLaeufen({ runRows: [] });
+      const res = await auth(request(app).get('/api/skills/laeufe/999'));
+      expect(res.status).toBe(404);
+    });
+
+    test('eine nicht-numerische Lauf-ID wird abgewiesen', async () => {
+      mitLaeufen({ runRows: [] });
+      const res = await auth(request(app).get('/api/skills/laeufe/abc'));
+      expect(res.status).toBe(400);
+    });
+
+    test('bricht einen laufenden Lauf ab', async () => {
+      mitLaeufen({ cancelRows: [{ id: 3, status: 'abgebrochen' }] });
+      const res = await auth(request(app).post('/api/skills/laeufe/3/abbrechen'));
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe('abgebrochen');
+    });
+
+    test('Abbrechen eines bereits beendeten/fremden Laufs gibt 404', async () => {
+      mitLaeufen({ cancelRows: [] });
+      const res = await auth(request(app).post('/api/skills/laeufe/3/abbrechen'));
+      expect(res.status).toBe(404);
+    });
+  });
 });

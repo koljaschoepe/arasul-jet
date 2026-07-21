@@ -16,14 +16,18 @@ const router = express.Router();
 const pool = require('../database');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { validateBody, validateParams } = require('../middleware/validate');
+const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const {
   CreateSkillBody,
   SaveSkillBody,
   SkillNameParams,
+  RunIdParams,
+  ListRunsQuery,
   VALID_TOOLS,
 } = require('../schemas/skills');
+const { NotFoundError } = require('../utils/errors');
 const registry = require('../services/skills/skillRegistry');
+const runStore = require('../services/skills/runStore');
 const { serializeSkillFile, parseSkillFile } = require('../services/skills/skillFile');
 const { implementedTools } = require('../services/skills/toolRegistry');
 
@@ -92,6 +96,58 @@ router.get(
         ORDER BY name ASC`
     );
     res.json({ data: result.rows, timestamp: new Date().toISOString() });
+  })
+);
+
+// --- Läufe (Plan 011, Schritt 9) -------------------------------------------
+// BEWUSST vor `/:name` registriert: Sonst finge die Skill-Route "/laeufe" als
+// vermeintlichen Skill-Namen ab. Express nimmt die erste passende Route.
+
+// GET /api/skills/laeufe — die neuesten Läufe des Nutzers (ohne Schritte).
+router.get(
+  '/laeufe',
+  requireAuth,
+  validateQuery(ListRunsQuery),
+  asyncHandler(async (req, res) => {
+    const runs = await runStore.listRuns({
+      userId: req.user.id,
+      limit: req.query.limit,
+      conversationId: req.query.conversation_id ?? null,
+    });
+    res.json({ data: runs, timestamp: new Date().toISOString() });
+  })
+);
+
+// GET /api/skills/laeufe/:id — ein Lauf samt Schritten. `?raw=1` liefert auch
+// die Rohdaten der Schritte (für die Nachschau; sie können groß sein).
+router.get(
+  '/laeufe/:id',
+  requireAuth,
+  validateParams(RunIdParams),
+  asyncHandler(async (req, res) => {
+    const run = await runStore.getRun({
+      runId: req.params.id,
+      userId: req.user.id,
+      includeRaw: req.query.raw === '1' || req.query.raw === 'true',
+    });
+    res.json({ data: run, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/skills/laeufe/:id/abbrechen — einen laufenden Lauf abbrechen.
+router.post(
+  '/laeufe/:id/abbrechen',
+  requireAuth,
+  validateParams(RunIdParams),
+  asyncHandler(async (req, res) => {
+    const run = await runStore.cancelRun({ runId: req.params.id, userId: req.user.id });
+    if (!run) {
+      // Entweder gibt es den Lauf nicht (fremd/unbekannt) oder er läuft nicht
+      // mehr. In beiden Fällen NotFound — die Existenz fremder Läufe wird nicht
+      // verraten, und ein bereits beendeter Lauf ist nichts zum Abbrechen.
+      throw new NotFoundError(`Kein laufender Skill-Lauf ${req.params.id}`);
+    }
+    res.json({ data: run, timestamp: new Date().toISOString() });
   })
 );
 
