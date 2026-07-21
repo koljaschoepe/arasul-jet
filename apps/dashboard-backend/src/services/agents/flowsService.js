@@ -38,12 +38,16 @@ async function getFlow(id, userId) {
   return rowToFlow(row);
 }
 
-async function createFlow(userId, { name, description = '', graph = { nodes: [], edges: [] } }) {
+async function createFlow(
+  userId,
+  { name, description = '', graph = { nodes: [], edges: [] }, scheduleCron = null }
+) {
+  const cron = scheduleCron ? String(scheduleCron).trim() || null : null;
   const result = await db.query(
-    `INSERT INTO flows (user_id, name, description, graph)
-     VALUES ($1, $2, $3, $4::jsonb)
+    `INSERT INTO flows (user_id, name, description, graph, schedule_cron)
+     VALUES ($1, $2, $3, $4::jsonb, $5)
      RETURNING *`,
-    [userId, name, description, JSON.stringify(graph)]
+    [userId, name, description, JSON.stringify(graph), cron]
   );
   return rowToFlow(result.rows[0]);
 }
@@ -65,6 +69,12 @@ async function updateFlow(id, userId, fields) {
   if (fields.graph !== undefined) {
     sets.push(`graph = $${i++}::jsonb`);
     params.push(JSON.stringify(fields.graph));
+  }
+  if (fields.scheduleCron !== undefined) {
+    // Leerer String/null → Zeitplan entfernen.
+    const cron = fields.scheduleCron ? String(fields.scheduleCron).trim() : null;
+    sets.push(`schedule_cron = $${i++}`);
+    params.push(cron);
   }
   if (sets.length === 0) {
     return getFlow(id, userId);
@@ -110,6 +120,37 @@ async function assertAgentsOwned(agentIds, userId) {
   }
 }
 
+/**
+ * Fluss NUR per Id laden (KEIN Owner-Scoping) — für die token-authentifizierte
+ * externe Run-Route. Der Aufrufer authentifiziert danach über den Token-Hash.
+ * @param {number} id
+ * @returns {Promise<{id:number,userId:number,graph:object,runTokenHash:string|null}|null>}
+ */
+async function getFlowByIdUnscoped(id) {
+  const result = await db.query(
+    `SELECT id, user_id, graph, run_token_hash FROM flows WHERE id = $1`,
+    [id]
+  );
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+  return {
+    id: Number(row.id),
+    userId: row.user_id,
+    graph: row.graph || { nodes: [], edges: [] },
+    runTokenHash: row.run_token_hash || null,
+  };
+}
+
+/** Den (bcrypt-)Token-Hash eines Flusses setzen. Ownership prüft der Aufrufer. */
+async function setRunTokenHash(id, hash) {
+  await db.query(`UPDATE flows SET run_token_hash = $1, updated_at = NOW() WHERE id = $2`, [
+    hash,
+    id,
+  ]);
+}
+
 /** Letzten Lauf eines Flusses ersetzen (schlank: nur der letzte bleibt). */
 async function persistFlowRun(flowId, userId, { trigger, status, input, output, error }) {
   await db.query(`DELETE FROM flow_runs WHERE flow_id = $1`, [flowId]);
@@ -128,5 +169,7 @@ module.exports = {
   deleteFlow,
   assertAgentsOwned,
   persistFlowRun,
+  getFlowByIdUnscoped,
+  setRunTokenHash,
   _internals: { rowToFlow },
 };

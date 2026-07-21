@@ -8,6 +8,16 @@
  */
 
 const { z } = require('zod');
+const { isValidCron } = require('../services/agents/cronMatch');
+
+// Cron-Ausdruck (5 Felder) oder leer/null zum Entfernen des Zeitplans.
+const ScheduleCron = z
+  .string()
+  .trim()
+  .max(120)
+  .refine(v => v === '' || isValidCron(v), { message: 'Ungültiger Cron-Ausdruck (5 Felder)' })
+  .nullable()
+  .optional();
 
 // React-Flow-Knoten tragen Zusatzfelder (position, width, …) — durchlassen.
 const FlowNode = z
@@ -50,6 +60,7 @@ const CreateFlowBody = z
     name: z.string().trim().min(1, 'Name darf nicht leer sein').max(120),
     description: z.string().max(2000).default(''),
     graph: FlowGraph.default({ nodes: [], edges: [] }),
+    scheduleCron: ScheduleCron,
   })
   .strict();
 
@@ -58,11 +69,22 @@ const UpdateFlowBody = z
     name: z.string().trim().min(1).max(120).optional(),
     description: z.string().max(2000).optional(),
     graph: FlowGraph.optional(),
+    scheduleCron: ScheduleCron,
   })
   .strict()
   .refine(obj => Object.keys(obj).length > 0, { message: 'Keine Felder zum Aktualisieren' });
 
 const RunFlowBody = z.object({ input: z.string().max(20000).default('') }).strict();
+
+// Externer (token-authentifizierter) Webhook-Body: tolerant gegenüber input/
+// eingabe und Zusatzfeldern, normalisiert auf ein input-String.
+const ExternalRunFlowBody = z
+  .object({
+    input: z.string().max(20000).optional(),
+    eingabe: z.string().max(20000).optional(),
+  })
+  .passthrough()
+  .transform(d => ({ input: d.input ?? d.eingabe ?? '' }));
 
 module.exports = {
   FlowNode,
@@ -72,4 +94,6 @@ module.exports = {
   CreateFlowBody,
   UpdateFlowBody,
   RunFlowBody,
+  ExternalRunFlowBody,
+  ScheduleCron,
 };

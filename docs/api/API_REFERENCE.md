@@ -542,16 +542,20 @@ wird nur der **letzte** Lauf pro Agent.
 Verzweigte Flüsse aus Agenten- und Bedingungs-Knoten (owner-scoped, unter
 `/api/agents/flows`). Der Fluss speichert einen Graphen (`{nodes, edges}`).
 
-| Method | Endpoint                           | Description                                            |
-| ------ | ---------------------------------- | ------------------------------------------------------ |
-| GET    | `/api/agents/flows`                | Eigene Flüsse auflisten                                |
-| POST   | `/api/agents/flows`                | Fluss anlegen (`{name, description, graph}`)           |
-| GET    | `/api/agents/flows/:id`            | Einen Fluss laden                                      |
-| PUT    | `/api/agents/flows/:id`            | Fluss aktualisieren                                    |
-| DELETE | `/api/agents/flows/:id`            | Fluss löschen                                          |
-| POST   | `/api/agents/flows/:id/run/stream` | Fluss ausführen — Knoten-Events per SSE (`llmLimiter`) |
+| Method | Endpoint                           | Description                                                      |
+| ------ | ---------------------------------- | ---------------------------------------------------------------- |
+| GET    | `/api/agents/flows`                | Eigene Flüsse auflisten                                          |
+| POST   | `/api/agents/flows`                | Fluss anlegen (`{name, description, graph}`)                     |
+| GET    | `/api/agents/flows/:id`            | Einen Fluss laden                                                |
+| PUT    | `/api/agents/flows/:id`            | Fluss aktualisieren                                              |
+| DELETE | `/api/agents/flows/:id`            | Fluss löschen                                                    |
+| POST   | `/api/agents/flows/:id/run/stream` | Fluss ausführen — Knoten-Events per SSE (`llmLimiter`)           |
+| POST   | `/api/agents/flows/:id/token`      | Webhook-Token erzeugen/rotieren (nur EINMAL sichtbar)            |
+| POST   | `/api/agents/flows/:id/run`        | Externer token-authentifizierter Lauf für n8n (`webhookLimiter`) |
 
-Alle erfordern `requireAuth`. **Graph:** `nodes` = `{id, type:'agent'|'condition', data}`
+Die CRUD-/Stream-/Token-Routen erfordern `requireAuth`; **einzige Ausnahme ist
+`POST .../run`** — sie ist bewusst nicht cookie-, sondern token-authentifiziert
+(für n8n, s. u.). **Graph:** `nodes` = `{id, type:'agent'|'condition', data}`
 (agent: `data.agentId`; condition: `data.mode` ∈ {`contains`,`not_contains`,`equals`},
 `data.value`), `edges` = `{id, source, target, sourceHandle?}` (Bedingungs-Kanten
 tragen `sourceHandle` `'true'`/`'false'`). Der Graph muss azyklisch sein und darf
@@ -563,6 +567,14 @@ Multiplexen paralleler Zweige: `flow_start` · `node_start` · agent-interne
 `node_skipped` · `node_done` · `flow_done` / `flow_error`. Unabhängige Zweige
 laufen logisch parallel; alle Modell-Aufrufe bleiben über das GPU-Gate
 serialisiert. Persistiert wird nur der **letzte** Lauf pro Fluss.
+
+**Trigger (Schritt 7):** Ein Fluss kann per `scheduleCron` (5-Feld-Cron im
+Update-Body) zeitgesteuert laufen — ein backend-interner Scheduler startet ihn
+als Owner. Für n8n liefert `POST .../token` einen einmaligen Bearer-Token (nur
+bcrypt-Hash gespeichert); `POST .../run` (nicht cookie-, sondern token-
+authentifiziert, `Authorization: Bearer <token>`, Body `{ "input": "…" }`)
+führt den Fluss nicht-streamend aus und gibt `{ result }` zurück. Jeder
+Auth-Fehlermodus fällt auf ein einzelnes `401`.
 
 ### Flow-Agenten — Provider-Keys (Plan 010)
 

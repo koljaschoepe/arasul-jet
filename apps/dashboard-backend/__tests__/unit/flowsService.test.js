@@ -46,6 +46,17 @@ describe('createFlow', () => {
     expect(params[0]).toBe(7);
     expect(params[3]).toBe(JSON.stringify({ nodes: [], edges: [] }));
   });
+
+  test('reicht scheduleCron beim Anlegen durch (kein stiller Verlust)', async () => {
+    db.query.mockResolvedValue({ rows: [ROW] });
+    await svc.createFlow(7, { name: 'X', scheduleCron: '*/5 * * * *' });
+    expect(db.query.mock.calls[0][1][4]).toBe('*/5 * * * *');
+    // leer → null
+    db.query.mockClear();
+    db.query.mockResolvedValue({ rows: [ROW] });
+    await svc.createFlow(7, { name: 'Y', scheduleCron: '' });
+    expect(db.query.mock.calls[0][1][4]).toBeNull();
+  });
 });
 
 describe('assertAgentsOwned', () => {

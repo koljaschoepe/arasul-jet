@@ -8,10 +8,11 @@
  */
 
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { GitBranch, Plus, Play, Save, Square } from 'lucide-react';
+import { Clock, GitBranch, Plus, Play, Save, Square } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
+import { Label } from '@/components/ui/shadcn/label';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import { runFlowStream, type FlowRunHandle } from './runFlowStream';
@@ -38,6 +39,11 @@ export default function FlowsView() {
   const [runResult, setRunResult] = useState('');
   const [runError, setRunError] = useState('');
   const runHandle = useRef<FlowRunHandle | null>(null);
+
+  // Trigger (Plan 010, Schritt 7): Zeitplan + Webhook-Token.
+  const [scheduleCron, setScheduleCron] = useState('');
+  const [runToken, setRunToken] = useState('');
+  const [showTrigger, setShowTrigger] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +86,8 @@ export default function FlowsView() {
     setRunResult('');
     setRunError('');
     setRunInput('');
+    setScheduleCron(flow.scheduleCron ?? '');
+    setRunToken('');
   };
 
   const newFlow = async () => {
@@ -98,13 +106,27 @@ export default function FlowsView() {
       const res = await api.put<{ data: Flow }>(`/agents/flows/${selected.id}`, {
         name: name.trim() || 'Fluss',
         graph: graphRef.current,
+        scheduleCron: scheduleCron.trim(),
       });
       setSelected(res.data);
+      setScheduleCron(res.data.scheduleCron ?? '');
       setFlows(prev => prev.map(f => (f.id === res.data.id ? res.data : f)));
     } finally {
       setSaving(false);
     }
   };
+
+  // Webhook-Token erzeugen/rotieren — Klartext wird nur EINMAL zurückgegeben.
+  const generateToken = async () => {
+    if (!selected) return;
+    const res = await api.post<{ token: string }>(`/agents/flows/${selected.id}/token`);
+    setRunToken(res.token);
+    setSelected(prev => (prev ? { ...prev, hasRunToken: true } : prev));
+  };
+
+  const webhookUrl = selected
+    ? `${window.location.origin}/api/agents/flows/${selected.id}/run`
+    : '';
 
   const remove = async () => {
     if (!selected) return;
@@ -220,10 +242,64 @@ export default function FlowsView() {
               <Button size="sm" onClick={save} disabled={saving}>
                 <Save className="mr-1 h-4 w-4" /> {saving ? 'Speichert…' : 'Speichern'}
               </Button>
+              <Button
+                size="sm"
+                variant={showTrigger ? 'secondary' : 'ghost'}
+                onClick={() => setShowTrigger(v => !v)}
+              >
+                <Clock className="mr-1 h-4 w-4" /> Trigger
+              </Button>
               <Button size="sm" variant="ghost" className="text-destructive" onClick={remove}>
                 Löschen
               </Button>
             </div>
+
+            {/* Trigger: Zeitplan (Cron) + Webhook-Token (n8n) */}
+            {showTrigger && (
+              <div className="flex flex-col gap-3 border-b border-border bg-card/40 p-3">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="flow-cron" className="text-xs">
+                      Zeitplan (Cron, 5 Felder) — z. B. <code>*/5 * * * *</code>
+                    </Label>
+                    <Input
+                      id="flow-cron"
+                      value={scheduleCron}
+                      onChange={e => setScheduleCron(e.target.value)}
+                      className="h-8 w-56 font-mono text-xs"
+                      placeholder="leer = kein Zeitplan"
+                    />
+                  </div>
+                  <Button size="sm" onClick={save} disabled={saving}>
+                    Zeitplan speichern
+                  </Button>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">n8n-Webhook (HTTP-Node)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input readOnly value={webhookUrl} className="h-8 flex-1 font-mono text-xs" />
+                    <Button size="sm" variant="outline" onClick={generateToken}>
+                      {selected.hasRunToken ? 'Token neu' : 'Token erzeugen'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <code>POST</code> mit Header <code>Authorization: Bearer &lt;Token&gt;</code>,
+                    Body <code>{'{ "input": "…" }'}</code>.
+                  </p>
+                  {runToken && (
+                    <div className="mt-1 rounded-md border border-warning/40 bg-warning/10 p-2">
+                      <p className="text-xs text-foreground">
+                        Token (wird nur EINMAL angezeigt — jetzt kopieren):
+                      </p>
+                      <code className="mt-1 block break-all text-xs text-foreground">
+                        {runToken}
+                      </code>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Canvas */}
             <div className="min-h-0 flex-1">

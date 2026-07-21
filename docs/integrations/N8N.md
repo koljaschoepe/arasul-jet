@@ -193,3 +193,25 @@ Run all three after every n8n image bump to catch regressions.
 | `docs/integrations/N8N_AGENTS.md`                         | Agent workflows, task-runner architecture, upgrade/backup/rollback.                                                                                                                    |
 | `docs/legal/N8N_LIZENZ.md`                                | Sustainable-Use-License assessment + mandatory pre-sales gate.                                                                                                                         |
 | `docs/plans/archive/2026-07-02_external-integrations.md`  | Full hardening roadmap.                                                                                                                                                                |
+
+## Flow-Agenten (Plan 010): einen Fluss aus n8n triggern
+
+Arasul liefert die KI-native Orchestrierung (Flow-Agenten + Flüsse), n8n bleibt
+der Trigger. Um einen **Fluss** aus n8n per HTTP anzustoßen:
+
+1. Im Dashboard: **Agenten → Flüsse → Fluss wählen → „Trigger"**.
+   „Token erzeugen" liefert EINMALIG einen Bearer-Token; die Webhook-URL
+   (`https://<host>/api/agents/flows/<id>/run`) steht daneben.
+2. In n8n einen **HTTP Request**-Node anlegen:
+   - Method `POST`, URL = die Webhook-URL.
+   - Header `Authorization: Bearer <Token>`.
+   - Body (JSON): `{ "input": "<Text an den Fluss>" }` (auch `eingabe` wird akzeptiert).
+   - Antwort: `{ "result": "…" }` (nicht-streamend). Ohne/mit falschem Token → `401`.
+
+**Zeitplan statt n8n:** Ein Fluss kann auch direkt im Dashboard einen Cron-
+Zeitplan (`scheduleCron`, 5 Felder) bekommen — ein backend-interner Scheduler
+startet ihn dann automatisch als Owner (kein n8n nötig).
+
+Sicherheit: Gespeichert wird nur der bcrypt-Hash des Tokens; „Token neu"
+rotiert (der alte wird ungültig). Der Lauf autorisiert als Fluss-Owner, sodass
+die Owner-Prüfung der referenzierten Agenten greift.
