@@ -42,7 +42,7 @@
   "created": "2026-07-21",
   "approved": "2026-07-21",
   "branch": "011-skills-im-chat",
-  "pr": null,
+  "pr": 234,
   "verified_on_device": false
 }
 </script>
@@ -797,11 +797,11 @@ Nach dem Bauen der betroffenen Dienste wird durchgespielt:</p>
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Schritte 1–3 von 20 erledigt, gemergt und auf dem Jetson verifiziert</span>
   </summary>
   <div class="sbody">
   </div>
@@ -991,3 +991,89 @@ Nach dem Bauen der betroffenen Dienste wird durchgespielt:</p>
 </script>
 </body>
 </html>
+      <p><strong>Stand:</strong> Schritte 1–3 von 20 sind umgesetzt, gemergt (PR
+      <a href="https://github.com/koljaschoepe/arasul-jet/pull/234">#234</a>, Merge-SHA
+      <code>a7814b8</code>) und auf dem Jetson im Browser verifiziert. Der Plan bleibt
+      <em>in Arbeit</em> — die Schritte 4–20 (das eigentliche Skill-System) stehen noch aus.</p>
+
+      <p><strong>Zusammenfassung:</strong> Der Agenten- und Fluss-Layer ist restlos aus dem
+      Repository verschwunden — Backend-Routen und -Dienste, Canvas, Zeitplaner, Provider-
+      Schlüssel, Agenten-Bereich, Workspace-Agenten sowie die vier Datenbank-Tabellen.
+      Insgesamt 82 Dateien, rund 8000 gelöschte Zeilen. n8n ist nachweislich unversehrt.
+      Die Plattform kann damit bewusst weniger als vorher; der Ersatz kommt mit dem
+      Slash-Menü ab Schritt 13.</p>
+
+      <p><strong>Datenverlust (Migration 111, nicht umkehrbar):</strong> Vor dem Drop auf dem
+      Gerät gezählt — <code>flow_agents=1</code>, <code>flows=1</code>, <code>flow_runs=2</code>,
+      <code>flow_provider_keys=0</code>. Es handelte sich ausschließlich um Entwicklungs-
+      artefakte aus Plan 010; es ging keine produktive Konfiguration verloren.</p>
+
+      <h3>Abweichungen</h3>
+      <ul>
+        <li><strong>Ein nicht genannter Konsument:</strong> <code>AgentChatPanel.tsx</code> rief
+        beide Agenten-Streams auf (<code>@</code>- und <code>/</code>-Pfad) und lud die
+        Flow-Agenten-Liste. Der Plan listete nur <code>ChatContext.tsx</code>.</li>
+        <li><strong>Zwei Exporte mussten umziehen statt zu verschwinden:</strong> Die
+        Claude-Login-Routen (Plan 008, Schritt 14 — bleiben bestehen) hingen an
+        <code>loadWorkspace</code> und <code>AgentTokenParams</code> aus gelöschten Dateien.
+        Ersteres wanderte unverändert nach <code>sandboxService.js</code>, letzteres als
+        <code>WorkspaceParams</code> nach <code>schemas/sandbox.js</code>. Ohne diesen Umzug wäre
+        der Claude-Login gebrochen.</li>
+        <li><strong>Eine echte Fehlerquelle gefunden:</strong> Der <code>workspaceStore</code>
+        persistiert Tabs. Ohne Versionssprung wäre die Migration für bestehende Nutzer nie
+        angelaufen und sie hätten einen <code>agenten</code>-Tab behalten, für den es weder
+        Komponente noch Pfad mehr gibt. Version 4 → 5 plus zwei Regressionstests.</li>
+        <li><strong>Umgebungsvariablen:</strong> Der <code>AGENT_*</code>-Block wurde nicht
+        pauschal gelöscht — <code>AGENT_LLM_TIMEOUT_MS</code> und <code>AGENT_MAX_ITERATIONS</code>
+        nutzt die behaltene Werkzeug-Schleife weiterhin. Genau das in §7 vorhergesehene Risiko.</li>
+        <li><strong>Veraltete Doku war umfangreicher als gelistet:</strong> 11 weitere Dateien,
+        darunter Admin-Handbuch, Troubleshooting, ARCHITECTURE und beide <code>CLAUDE.md</code>.
+        <code>docs/features/AGENTS.md</code> wurde zu <code>docs/features/WORKSPACE.md</code>
+        umbenannt, da Workspace und Claude-Login ja bestehen bleiben.</li>
+      </ul>
+
+      <h3>Prüfung</h3>
+      <ul>
+        <li><code>code-reviewer</code>: <strong>0 Critical.</strong> Zwei Warnungen (bewusst nicht
+        behoben): die <code>/</code>-Palette in <code>ComposerCard.tsx</code> und die
+        Schritt-Darstellung in <code>CompactMessage.tsx</code> sind jetzt toter Code — Schritt 13
+        bzw. 15 bauen genau diese Stellen um.</li>
+        <li>Tests: Backend 72 Suiten / 1478 grün, Frontend 56 Dateien / 594 grün.
+        <em>Ehrlichkeitshalber:</em> In einem von fünf Backend-Läufen fielen zwei Tests aus,
+        nicht reproduzierbar; diese Flakiness ist vorbestehend und traf <code>main</code>
+        bereits beim <code>/plan</code>-Push.</li>
+        <li>CI grün inklusive Lockfile-Drift-Wächter. Der Check <code>claude-review</code> ist
+        gefallen — Ursache ist der Schritt „Run Claude Code Review" (Anthropic-Action,
+        Auth/Kontingent), kein Befund am Code; der Check ist beratend und blockiert nicht.</li>
+      </ul>
+
+      <h3>Live-Verifikation auf dem Jetson (2026-07-21)</h3>
+      <ul>
+        <li>Gerät auf <code>a7814b8</code>, alle 15 Dienste <em>healthy</em>, keine Fehler in den
+        Backend-Logs seit dem Deploy.</li>
+        <li><strong>Abriss belegt:</strong> Die Navigation zeigt nur noch Dateien · Extensions ·
+        Automation — kein „Agenten" mehr, keine Flüsse-Ansicht. Im Container existiert
+        <code>src/routes/agents</code> nicht mehr; <code>GET /api/agents</code> antwortet
+        <strong>404</strong>.</li>
+        <li><strong>Normaler Chat unversehrt</strong> (das größte Risiko aus §7): Eine frische
+        Nachricht lief durch — RAG suchte sichtbar („Dokumente durchsucht · Allgemein"), die
+        Antwort kam gestreamt an, drei Quellen wurden ausgewiesen. <em>Keine neuen
+        Konsolenfehler.</em></li>
+        <li><strong>n8n unversehrt:</strong> <code>GET /api/workflows/activity</code> → 200,
+        <code>GET /api/automations/session</code> → 200. Der eingebettete n8n-Frame zeigt
+        derzeit „No authentication token" (401 über Traefiks Forward-Auth, auch ohne Browser
+        reproduzierbar). Das ist <em>nicht</em> von dieser Änderung verursacht — es wurde kein
+        n8n-Code angefasst, alle n8n-Endpunkte antworten, und <code>AutomationenTab.tsx</code> ist
+        seit PR #211 unverändert. Der Punkt bleibt offen und gehört gesondert angesehen.</li>
+        <li><strong>Migration:</strong> 111 angewandt, <code>flow_agents</code> existiert nicht
+        mehr, Backend startet gesund.</li>
+        <li><strong>Alt-URL:</strong> <code>/workspace/agenten</code> leitet sauber auf
+        <code>/workspace/automationen</code> um — kein Absturz, kein verwaister Tab. Die
+        Store-Migration greift in der Praxis.</li>
+      </ul>
+
+      <h3>Was als Nächstes ansteht</h3>
+      <p>Schritte 4–12 bauen das Fundament (Skill-Format, Verwaltung, Werkzeuge, Terminal,
+      SearXNG, Läufe, Runner, Subagenten, Ereignis-Strom) — ohne sichtbares Ergebnis. Sichtbar
+      wird es ab Schritt 13 mit dem Slash-Menü.</p>
+    
