@@ -170,8 +170,59 @@ function resolveRealWithinRoots(roots, relPath) {
   throw new ValidationError(`Pfad "${relPath}" kann nicht aufgeloest werden`);
 }
 
+/**
+ * Prüft einen bereits GEÖFFNETEN Dateideskriptor gegen die erlaubten Ordner.
+ *
+ * Das schliesst das Zeitfenster zwischen Prüfung und Zugriff (TOCTOU), das eine
+ * reine Pfad-Prüfung offen lässt: Wer zwischen `resolveRealWithinRoots` und dem
+ * eigentlichen `readFile` einen Pfadbestandteil gegen einen Symlink tauscht,
+ * lenkt den Zugriff nach draussen. Genau diese Fähigkeit bringt das
+ * Terminal-Werkzeug mit (Plan 011, Schritt 7).
+ *
+ * Der Deskriptor zeigt immer auf die Datei, die beim Öffnen getroffen wurde —
+ * ein späterer Tausch am Pfad ändert daran nichts mehr. Unter Linux verrät
+ * `/proc/self/fd/<fd>`, welche Datei das ist; die Prüfung greift damit auch für
+ * ZWISCHENverzeichnisse, die `O_NOFOLLOW` (nur letzte Komponente) nicht abdeckt.
+ *
+ * Ohne `/proc` (etwa macOS in der Entwicklung) ist die Prüfung nicht möglich;
+ * dann bleibt es beim vorgelagerten `resolveRealWithinRoots` plus `O_NOFOLLOW`.
+ * Auf dem Zielsystem — Linux im Container — greift der volle Schutz.
+ *
+ * @param {string[]|string} roots
+ * @param {number} fd - Offener Dateideskriptor.
+ * @param {string} relPath - Nur für die Fehlermeldung.
+ * @returns {string|null} Der tatsächlich geöffnete Pfad, oder null wenn nicht prüfbar.
+ * @throws {ValidationError} wenn der Deskriptor ausserhalb der Ordner zeigt.
+ */
+function assertFdWithinRoots(roots, fd, relPath) {
+  let echt;
+  try {
+    echt = fs.readlinkSync(`/proc/self/fd/${fd}`);
+  } catch {
+    return null; // kein /proc — Aufrufer verlässt sich auf die Vorprüfung
+  }
+  // Gelöschte Dateien hängt Linux ein " (deleted)" an.
+  echt = echt.replace(/ \(deleted\)$/, '');
+
+  for (const root of normalizeRoots(roots)) {
+    let realRoot;
+    try {
+      realRoot = fs.realpathSync(root);
+    } catch {
+      continue;
+    }
+    if (within(realRoot, echt)) {
+      return echt;
+    }
+  }
+  throw new ValidationError(
+    `Pfad "${relPath}" zeigte beim Zugriff aus den erlaubten Ordnern heraus (${echt})`
+  );
+}
+
 module.exports = {
   normalizeRoots,
   resolveWithinRoots,
   resolveRealWithinRoots,
+  assertFdWithinRoots,
 };
