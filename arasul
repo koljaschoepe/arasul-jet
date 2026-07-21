@@ -783,6 +783,15 @@ setup_secrets() {
     fi
     # -------------------------------------------------------------------------
 
+    # --- Plan 011, Schritt 8: SearXNG-Geheimnis ------------------------------
+    # Ohne gesetztes Geheimnis startet SearXNG nicht. Es traegt keine Daten und
+    # ist deshalb gefahrlos automatisch erzeugbar — aber je Geraet verschieden.
+    if ! grep -q '^SEARXNG_SECRET=' .env 2>/dev/null; then
+        printf '\nSEARXNG_SECRET=%s\n' "$(openssl rand -hex 32)" >> .env
+        log_success "SearXNG-Geheimnis generiert (.env: SEARXNG_SECRET)"
+    fi
+    # -------------------------------------------------------------------------
+
     # Credentials aus .env lesen (vom Interactive Setup generiert)
     local n8n_user=$(grep "^N8N_BASIC_AUTH_USER=" .env | cut -d'=' -f2)
     local n8n_pass=$(grep "^N8N_BASIC_AUTH_PASSWORD=" .env | cut -d'=' -f2)

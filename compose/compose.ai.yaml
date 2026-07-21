@@ -254,6 +254,85 @@ services:
           memory: ${RAM_LIMIT_DOCUMENT_INDEXER:-2G}
           pids: 128
 
+  # 5. SearXNG — Meta-Suchmaschine fuer die Web-Recherche von Skills (Plan 011)
+  #
+  # Warum ein eigener Container statt einer Such-API: kein Drittanbieter-Konto,
+  # kein Schluessel, keine Abfragen, die das Geraet einem Anbieter zuordnen.
+  # SearXNG buendelt oeffentliche Suchmaschinen und liefert das Ergebnis als
+  # JSON — genau das, was das Werkzeug braucht.
+  #
+  # Der Dienst ist bewusst NICHT ueber Traefik erreichbar: Er hat kein
+  # Login und niemand soll ihn von aussen anfragen koennen. Nur das Backend
+  # spricht ihn ueber das interne Netz an.
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    hostname: searxng
+    restart: always
+    networks:
+      - arasul-backend
+    volumes:
+      # READ-ONLY, und das ist wichtig: config/searxng/ liegt IM Repository.
+      # Schreibbar montiert koennte der Container das Geheimnis in eine
+      # versionierte Datei schreiben — ein Geheimnis, das `git status` dann
+      # zum Commit anbietet.
+      #
+      # Im Einstiegspunkt des Images geprueft (2026-07-21, searxng:latest):
+      # Das `sed -i` auf settings.yml laeuft NUR, wenn die Datei fehlt und
+      # erst aus der Vorlage erzeugt wird. Unsere Datei existiert, also wird
+      # nie hineingeschrieben. Das Skript laeuft mit `set -u`, nicht `set -e`
+      # — ein an der Schreibsperre scheiternder `chown` beendet es also nicht.
+      - ../config/searxng:/etc/searxng:ro
+    environment:
+      # Das Geheimnis wird je Geraet erzeugt und in .env abgelegt
+      # (./arasul bootstrap bzw. deploy-local.sh). settings_defaults.py
+      # deklariert server.secret_key mit environ_name='SEARXNG_SECRET' — die
+      # Variable schlaegt die Datei, deshalb steht in unserer settings.yml
+      # bewusst kein secret_key.
+      #
+      # Der Rueckfallwert ist ABSICHTLICH der bekannte Platzhalter und nicht
+      # leer: SearXNG prueft beim Start genau auf 'ultrasecretkey' und bricht
+      # dann mit klarer Meldung ab. Die Uebernahme aus der Umgebung ist eine
+      # reine VORHANDENSEINS-Pruefung (settings_defaults.py: `environ_name in
+      # os.environ`), kein Test auf Inhalt — ein leerer Wert wuerde also
+      # uebernommen, und SearXNG liefe still mit leerem Schluessel weiter.
+      # Lieber lautes Scheitern als ein Dienst, der scheinbar laeuft.
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-ultrasecretkey}
+      # Der Einstiegspunkt wuerde sonst versuchen, den read-only montierten
+      # Ordner umzuschreiben, und eine Warnung ins Log schreiben.
+      FORCE_OWNERSHIP: 'false'
+      SEARXNG_BASE_URL: http://searxng:8080/
+      UWSGI_WORKERS: '2'
+      UWSGI_THREADS: '2'
+    # Bewusst die Startseite statt /healthz: Sie antwortet in jeder Version mit
+    # 200, sobald die Anwendung laeuft. Ein Healthcheck, der auf einen Pfad
+    # zeigt, den es in der jeweiligen Version vielleicht nicht gibt, meldet
+    # einen gesunden Dienst als krank — das ist schlimmer als etwas grob.
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/', timeout=5).status == 200 else 1)"
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+    <<: *default-security
+    cap_drop:
+      - ALL
+    cap_add:
+      # uwsgi bindet 8080 (>1024) — der Cap ist nur fuer den Fall, dass das
+      # Image kuenftig einen privilegierten Port waehlt.
+      - NET_BIND_SERVICE
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: ${RAM_LIMIT_SEARXNG:-512M}
+          pids: 128
+
 volumes:
   arasul-llm-models:
   arasul-embeddings-models:

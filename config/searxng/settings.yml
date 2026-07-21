@@ -1,0 +1,53 @@
+# SearXNG — Konfiguration für die Web-Recherche von Skills (Plan 011, Schritt 8)
+#
+# `use_default_settings: true` erbt die vollständige Standardkonfiguration des
+# Images (inklusive der langen Engine-Liste) und überschreibt nur, was hier
+# steht. Damit bleibt die Datei kurz und übersteht ein Image-Update, statt bei
+# jedem Upgrade zu veralten.
+use_default_settings: true
+
+general:
+  instance_name: 'Arasul Suche'
+  # Nichts nach außen anbieten, was auf ein Impressum oder eine Spendenseite
+  # zeigt — dieser Dienst hat genau einen Nutzer: das Backend.
+  contact_url: false
+  donation_url: false
+  privacypolicy_url: false
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ''
+  default_lang: 'de'
+  # DER entscheidende Punkt dieser Datei: SearXNG liefert von Haus aus NUR
+  # HTML. Ohne `json` hier bekommt das Werkzeug eine 403 zurück und die ganze
+  # Websuche ist tot — ohne dass irgendetwas nach einem Fehler aussieht.
+  formats:
+    - html
+    - json
+
+server:
+  # ACHTUNG: Hier steht bewusst KEIN secret_key.
+  #
+  # Diese Datei liegt im Repository — ein Geheimnis gehört nicht hinein.
+  # Es kommt aus der Umgebungsvariablen SEARXNG_SECRET
+  # (settings_defaults.py: environ_name='SEARXNG_SECRET'), die die Datei
+  # schlägt. Fehlt die Variable, greift der Platzhalter aus compose.ai.yaml
+  # und SearXNG bricht mit klarer Meldung ab; die Begründung dazu steht dort.
+  #
+  # Der Limiter wehrt Bot-Verkehr aus dem Internet ab. Hier ist der einzige
+  # Aufrufer das eigene Backend im internen Netz — eingeschaltet würde er
+  # ausgerechnet den legitimen Nutzer aussperren.
+  limiter: false
+  image_proxy: false
+
+ui:
+  static_use_hash: true
+
+outgoing:
+  # Kurze Fristen: Eine hängende Suchmaschine darf einen Skill-Lauf nicht
+  # blockieren. Lieber weniger Treffer als ein Lauf, der steht.
+  request_timeout: 6.0
+  max_request_timeout: 10.0
+  pool_connections: 50
+  pool_maxsize: 20

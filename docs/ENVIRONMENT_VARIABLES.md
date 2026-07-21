@@ -167,6 +167,32 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ---
 
+## SearXNG (Web search for skills)
+
+Skills with the `web_suche` / `web_lesen` tools search through the platform's
+own SearXNG container — no third-party account, no API key, no queries tied to
+the device by an external provider. The service is deliberately **not** exposed
+via Traefik; only the backend reaches it on the internal network.
+
+| Variable             | Default             | Description                                                                                                                                                                         |
+| -------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEARXNG_SECRET       | _(generated)_       | Session secret. SearXNG refuses to start without it. Created per device by `./arasul bootstrap` and by `deploy-local.sh`, appended to `.env`. Carries no data — safe to regenerate. |
+| SEARXNG_URL          | http://searxng:8080 | Where the backend reaches SearXNG. Rarely changed.                                                                                                                                  |
+| RAM_LIMIT_SEARXNG    | 512M                | Memory limit for the container.                                                                                                                                                     |
+| WEB_SUCHE_TIMEOUT_MS | 15000               | Timeout for a search query.                                                                                                                                                         |
+| WEB_LESEN_TIMEOUT_MS | 20000               | Timeout for fetching a single page.                                                                                                                                                 |
+
+Configuration lives in `config/searxng/settings.yml`. One setting there is
+load-bearing: `search.formats` **must** include `json`. SearXNG serves HTML
+only by default, and without `json` every tool call comes back as a 403 —
+with nothing in the logs that looks like a misconfiguration.
+
+`web_lesen` refuses private, loopback and link-local addresses, and re-checks
+after every redirect. The backend sits on the internal network, so without that
+check a "web page" of `http://postgres-db:5432` would be a way into the stack.
+
+---
+
 ## Document Indexer
 
 | Variable                             | Default                      | Description                                                                                              |
@@ -574,6 +600,7 @@ All memory limits use Docker memory notation (e.g., `512M`, `2G`, `48G`).
 | RAM_LIMIT_POSTGRES         | 4G      | PostgreSQL database memory   |
 | RAM_LIMIT_N8N              | 2G      | n8n workflow engine memory   |
 | RAM_LIMIT_DOCUMENT_INDEXER | 2G      | Document indexer memory      |
+| RAM_LIMIT_SEARXNG          | 512M    | SearXNG web search memory    |
 | RAM_LIMIT_METRICS          | 512M    | Metrics collector memory     |
 | RAM_LIMIT_SELF_HEALING     | 512M    | Self-healing agent memory    |
 | RAM_LIMIT_REVERSE_PROXY    | 512M    | Traefik reverse proxy memory |
