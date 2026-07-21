@@ -16,7 +16,8 @@ const fs = require('fs').promises;
 const path = require('path');
 const BaseTool = require('../../../tools/baseTool');
 const logger = require('../../../utils/logger');
-const { resolveRealWithinRoots, normalizeRoots } = require('../pathSafe');
+const { resolveRealWithinRoots, normalizeRoots, assertFdWithinRoots } = require('../pathSafe');
+const fsc = require('fs').constants;
 
 const MAX_READ_BYTES = 256 * 1024; // 256 KB
 const MAX_WRITE_BYTES = 1024 * 1024; // 1 MB
@@ -118,23 +119,38 @@ class DateienLesenTool extends BaseTool {
     } catch (err) {
       return `Fehler: ${err.message}`;
     }
-    let stat;
+    // Ueber einen Dateideskriptor lesen, nicht ueber den Pfad. `O_NOFOLLOW`
+    // verhindert, dass die letzte Komponente ein Symlink ist; die anschliessende
+    // Deskriptor-Pruefung deckt zusaetzlich Zwischenverzeichnisse ab. Damit
+    // laesst sich der Pfad zwischen Pruefung und Zugriff nicht mehr tauschen
+    // (TOCTOU) — die Faehigkeit dazu bringt das Terminal-Werkzeug mit.
+    let handle;
+    let content;
     try {
-      stat = await fs.stat(file);
+      handle = await fs.open(file, fsc.O_RDONLY | fsc.O_NOFOLLOW);
     } catch (err) {
       if (err.code === 'ENOENT') {
         return `Fehler: Datei "${pfad}" existiert nicht.`;
       }
+      if (err.code === 'ELOOP') {
+        return `Fehler: "${pfad}" ist ein Symlink — der Zugriff wird verweigert.`;
+      }
+      if (err.code === 'EISDIR') {
+        return `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.`;
+      }
       return `Fehler beim Lesen: ${err.message}`;
     }
-    if (stat.isDirectory()) {
-      return `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.`;
-    }
-    let content;
     try {
-      content = await fs.readFile(file, 'utf8');
+      assertFdWithinRoots(roots, handle.fd, pfad);
+      const stat = await handle.stat();
+      if (stat.isDirectory()) {
+        return `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.`;
+      }
+      content = await handle.readFile('utf8');
     } catch (err) {
       return `Fehler beim Lesen: ${err.message}`;
+    } finally {
+      await handle.close().catch(() => {});
     }
     // Die Kürzung ist hier Kontext-Schutz, nicht nur Speicherschutz: Eine
     // 5-MB-Datei würde den Kontext eines kleinen lokalen Modells sprengen.
@@ -218,23 +234,40 @@ class DateienSchreibenTool extends BaseTool {
       return `Fehler: ${err.message}`;
     }
 
-    // Vorherigen Inhalt merken, solange es ihn noch gibt — die Änderungs-
-    // Übersicht am Ende des Laufs zeigt Vorher/Nachher, und das geht nur, wenn
-    // wir hier danach greifen, nicht später.
     let vorher = null;
     let neu = true;
+    let handle;
     try {
-      vorher = await fs.readFile(file, 'utf8');
-      neu = false;
-    } catch {
-      vorher = null;
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      // O_RDWR statt O_WRONLY und bewusst OHNE O_TRUNC: Erst wird der bisherige
+      // Inhalt fuer die Aenderungs-Uebersicht gelesen, dann gekuerzt und neu
+      // geschrieben — alles auf DEMSELBEN Deskriptor. O_NOFOLLOW schliesst den
+      // Symlink als letzte Komponente aus, die Deskriptor-Pruefung danach auch
+      // getauschte Zwischenverzeichnisse (TOCTOU).
+      handle = await fs.open(file, fsc.O_RDWR | fsc.O_CREAT | fsc.O_NOFOLLOW, 0o644);
+    } catch (err) {
+      if (err.code === 'ELOOP') {
+        return `Fehler: "${pfad}" ist ein Symlink — der Schreibzugriff wird verweigert.`;
+      }
+      return `Fehler beim Schreiben: ${err.message}`;
     }
 
     try {
-      await fs.mkdir(path.dirname(file), { recursive: true });
-      await fs.writeFile(file, data, 'utf8');
+      assertFdWithinRoots(roots, handle.fd, pfad);
+      const stat = await handle.stat();
+      if (stat.isDirectory()) {
+        return `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.`;
+      }
+      if (stat.size > 0) {
+        vorher = await handle.readFile('utf8');
+        neu = false;
+      }
+      await handle.truncate(0);
+      await handle.write(data, 0, 'utf8');
     } catch (err) {
       return `Fehler beim Schreiben: ${err.message}`;
+    } finally {
+      await handle.close().catch(() => {});
     }
 
     if (typeof context.onChange === 'function') {

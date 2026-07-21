@@ -16,6 +16,7 @@ const {
   normalizeRoots,
   resolveWithinRoots,
   resolveRealWithinRoots,
+  assertFdWithinRoots,
 } = require('../../src/services/skills/pathSafe');
 
 let base, arbeit, zweit, aussen;
@@ -182,5 +183,69 @@ describe('resolveRealWithinRoots — Symlinks', () => {
     expect(() => resolveRealWithinRoots(['/gibt/es/nicht'], 'x.md')).toThrow(
       /Keiner der erlaubten Ordner existiert/i
     );
+  });
+});
+
+/**
+ * Deskriptor-Prüfung — der Schutz gegen das Zeitfenster zwischen Pfad-Prüfung
+ * und Zugriff (TOCTOU). Die reine Pfad-Prüfung kann ausgehebelt werden, indem
+ * man danach einen Pfadbestandteil gegen einen Symlink tauscht; genau das kann
+ * ein Skill mit Terminal-Recht. Ein geöffneter Deskriptor zeigt dagegen fest
+ * auf die getroffene Datei.
+ *
+ * Ohne `/proc` (macOS) ist die Prüfung nicht möglich und liefert null — dann
+ * greifen nur Vorprüfung und O_NOFOLLOW. Auf dem Zielsystem (Linux) greift sie.
+ */
+describe('assertFdWithinRoots', () => {
+  const hatProc = fs.existsSync('/proc/self/fd');
+
+  it('bestätigt einen Deskriptor INNERHALB der erlaubten Ordner', () => {
+    const fd = fs.openSync(path.join(arbeit, 'notiz.md'), 'r');
+    try {
+      const ergebnis = assertFdWithinRoots(roots(), fd, 'notiz.md');
+      if (hatProc) {
+        expect(ergebnis).toBe(fs.realpathSync(path.join(arbeit, 'notiz.md')));
+      } else {
+        expect(ergebnis).toBeNull(); // nicht prüfbar ohne /proc
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+  });
+
+  it('weist einen Deskriptor AUSSERHALB der erlaubten Ordner ab', () => {
+    const fd = fs.openSync(path.join(aussen, 'geheim.txt'), 'r');
+    try {
+      if (hatProc) {
+        expect(() => assertFdWithinRoots(roots(), fd, 'getarnt.md')).toThrow(
+          /aus den erlaubten Ordnern heraus/i
+        );
+      } else {
+        expect(assertFdWithinRoots(roots(), fd, 'getarnt.md')).toBeNull();
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+  });
+
+  it('faengt den getauschten ZWISCHENordner ab, den O_NOFOLLOW nicht abdeckt', () => {
+    // O_NOFOLLOW schuetzt nur die letzte Komponente. Hier zeigt bereits ein
+    // Zwischenverzeichnis nach draussen — der Deskriptor verraet es.
+    const link = path.join(arbeit, 'zwischen');
+    fs.symlinkSync(aussen, link);
+    try {
+      const fd = fs.openSync(path.join(link, 'geheim.txt'), 'r');
+      try {
+        if (hatProc) {
+          expect(() => assertFdWithinRoots(roots(), fd, 'zwischen/geheim.txt')).toThrow(
+            /aus den erlaubten Ordnern heraus/i
+          );
+        }
+      } finally {
+        fs.closeSync(fd);
+      }
+    } finally {
+      fs.unlinkSync(link);
+    }
   });
 });
