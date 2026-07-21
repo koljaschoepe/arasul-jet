@@ -536,10 +536,17 @@ create_directories() {
     #   appstore/manifests     → compose.app (dashboard-backend, ro)
     #   ssh-keys               → compose.app (dashboard-backend, ro)
     #   sandbox/projects       → compose.app (dashboard-backend, rw — the writer)
+    #   skills                 → compose.app (dashboard-backend, rw — the writer)
+    #                            + compose.monitoring (backup-service, ro)
+    # WICHTIG: Diese Verzeichnisse muessen VOR dem ersten `docker compose up`
+    # existieren. Legt Docker eine fehlende Bind-Quelle selbst an, gehoert sie
+    # root — und der als uid 1000 laufende Backend-Container kann nicht hinein
+    # schreiben (EACCES). Genau das ist bei data/skills passiert.
     mkdir -p data/{postgres,minio,models,n8n,updates,backups}
     mkdir -p data/appstore/manifests
     mkdir -p data/ssh-keys
     mkdir -p data/sandbox/projects
+    mkdir -p data/skills
     mkdir -p cache
     mkdir -p updates
 

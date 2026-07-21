@@ -69,6 +69,15 @@ ok "Working Tree auf $NEW_SHA"
 # (Plan 007: n8n_owner_email/_password). Der automatisierte Deploy fuehrt kein
 # ./arasul bootstrap aus, deshalb hier die nicht datentragenden Secrets
 # idempotent erzeugen — bestehende Werte werden NIE ueberschrieben.
+# --- 1c. Neu eingefuehrte Bind-Mount-Quellen idempotent anlegen -------------
+# Gleiche Logik wie bei den Secrets oben: Ein Verzeichnis, das erst mit einem
+# neuen Release dazukommt, existiert auf Bestandsgeraeten noch nicht. Legt
+# Docker die fehlende Bind-Quelle beim Start selbst an, gehoert sie ROOT — der
+# als uid 1000 laufende dashboard-backend kann dann nicht hineinschreiben und
+# jeder Schreibzugriff endet in EACCES. Hier angelegt, gehoert das Verzeichnis
+# dem Deploy-Nutzer (uid 1000) und ist damit schreibbar.
+mkdir -p "$DEPLOY_DIR/data/skills"
+
 SECRETS_DIR="$DEPLOY_DIR/config/secrets"
 mkdir -p "$SECRETS_DIR"; chmod 700 "$SECRETS_DIR" 2>/dev/null || true
 if [ ! -s "$SECRETS_DIR/n8n_owner_email" ]; then

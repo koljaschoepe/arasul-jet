@@ -419,6 +419,12 @@ carries two extra fields:
 | `skills_files`  | Number of `.md` files found in the archive (`0` unless `skills_status` is `ok`) |
 | `skills_status` | One of the four states below                                                    |
 
+> **Not the same field as in `backup_report.json`.** Both reports happen to
+> carry a key called `skills_status`, but they answer different questions and
+> use different vocabularies. In `backup_report.json` it reports whether the
+> archive was _written_ (`true` / `false` / `skipped`); here it reports whether
+> the archive is _readable_ (`ok` / `encrypted` / `absent` / `corrupt`).
+
 - `ok` — archive present, readable and listed; `skills_files` holds the count.
 - `encrypted` — backup encryption is on, so the archive is no longer a gzip
   stream. It is reported as-is and **not** verified; the drill still passes.

@@ -110,19 +110,44 @@ if [ "$DAY_OF_MONTH" = "01" ]; then
 fi
 
 # MinIO backup via docker exec (credentials via env to avoid process listing exposure)
+#
+# ACHTUNG — hier lag ein stiller Datenverlust: Frueher endeten `mc mirror` und
+# `docker cp` auf `|| true` bzw. `|| mkdir -p`. Ohne Docker-Zugriff schlugen
+# beide fehl, das Skript packte ein LEERES Verzeichnis ein, und die
+# Integritaetspruefung bestaetigte brav "completed and verified". Auf dem
+# Geraet waren dadurch ueber einen Monat lang alle Dokument-Archive 128 Byte
+# gross. Deshalb werden die Exit-Codes jetzt AUSGEWERTET statt verworfen: ein
+# fehlgeschlagener Abzug ist ein Fehler, kein leeres Archiv.
 mkdir -p /backups/minio /backups/minio/weekly
-docker exec -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@localhost:9000" minio mc mirror --overwrite local/documents /tmp/backup_docs 2>/dev/null || true
-docker cp minio:/tmp/backup_docs /tmp/minio_backup_$TIMESTAMP 2>/dev/null || mkdir -p /tmp/minio_backup_$TIMESTAMP
+MINIO_OK=true
+if ! docker exec -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@localhost:9000" minio mc mirror --overwrite local/documents /tmp/backup_docs 2>/dev/null; then
+    echo "[$TIMESTAMP] [ERROR] MinIO mirror failed (Docker-Zugriff? MinIO erreichbar?) — Dokumente werden NICHT gesichert"
+    MINIO_OK=false
+    BACKUP_OK=false
+fi
+if ! docker cp minio:/tmp/backup_docs /tmp/minio_backup_$TIMESTAMP 2>/dev/null; then
+    echo "[$TIMESTAMP] [ERROR] docker cp aus dem MinIO-Container fehlgeschlagen"
+    MINIO_OK=false
+    BACKUP_OK=false
+    mkdir -p /tmp/minio_backup_$TIMESTAMP
+fi
 if tar -czf /backups/minio/documents_$TIMESTAMP.tar.gz -C /tmp minio_backup_$TIMESTAMP 2>/dev/null; then
     # Verify tar archive integrity
     if tar -tzf /backups/minio/documents_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
-        echo "[$TIMESTAMP] MinIO backup completed and verified"
+        if [ "$MINIO_OK" = true ]; then
+            MINIO_FILES=$(find /tmp/minio_backup_$TIMESTAMP -type f 2>/dev/null | wc -l)
+            echo "[$TIMESTAMP] MinIO backup completed and verified (${MINIO_FILES} Dateien)"
+        else
+            echo "[$TIMESTAMP] [ERROR] MinIO archive written, but the copy step failed — content is INCOMPLETE"
+        fi
     else
         echo "[$TIMESTAMP] [ERROR] MinIO backup archive corrupt (tar integrity check failed)"
+        MINIO_OK=false
         BACKUP_OK=false
     fi
 else
     echo "[$TIMESTAMP] [ERROR] MinIO backup archive creation failed"
+    MINIO_OK=false
     BACKUP_OK=false
 fi
 encrypt_file /backups/minio/documents_$TIMESTAMP.tar.gz
@@ -181,7 +206,13 @@ if docker ps --format '{{.Names}}' | grep -q "^qdrant$"; then
         BACKUP_OK=false
     fi
 else
-    echo "[$TIMESTAMP] [WARNING] Qdrant container not running — skipping vector-DB backup"
+    # Frueher nur eine Warnung. Auf einem Geraet, auf dem Qdrant zum Kern
+    # gehoert, heisst "Container nicht sichtbar" fast immer: kein Docker-Zugriff.
+    # Das ist ein Fehler, kein Normalzustand — sonst faellt der fehlende
+    # Vektor-Index erst im Ernstfall auf.
+    echo "[$TIMESTAMP] [ERROR] Qdrant container not visible — vector DB NOT backed up (Docker-Zugriff?)"
+    QDRANT_OK=false
+    BACKUP_OK=false
 fi
 
 # Weekly snapshot for Qdrant
@@ -308,6 +339,7 @@ cat > /backups/backup_report.json << EOF
   "minio_backups": $(ls /backups/minio/*.tar.gz 2>/dev/null | grep -v latest | wc -l),
   "minio_weekly": $(ls /backups/minio/weekly/*.tar.gz 2>/dev/null | wc -l),
   "minio_monthly": $(ls /backups/minio/monthly/*.tar.gz 2>/dev/null | wc -l),
+  "minio_status": "$MINIO_OK",
   "qdrant_status": "$QDRANT_OK",
   "skills_status": "$SKILLS_OK",
   "skills_backups": $(find /backups/skills -maxdepth 1 -name '*.tar.gz' ! -name '*latest*' 2>/dev/null | wc -l),
