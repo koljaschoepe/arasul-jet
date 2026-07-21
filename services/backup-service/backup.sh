@@ -109,36 +109,33 @@ if [ "$DAY_OF_MONTH" = "01" ]; then
     echo "[$TIMESTAMP] Monthly PostgreSQL snapshot saved"
 fi
 
-# MinIO backup via docker exec (credentials via env to avoid process listing exposure)
+# MinIO backup — direkt ueber das Backend-Netz mit `mc`.
 #
-# ACHTUNG — hier lag ein stiller Datenverlust: Frueher endeten `mc mirror` und
-# `docker cp` auf `|| true` bzw. `|| mkdir -p`. Ohne Docker-Zugriff schlugen
-# beide fehl, das Skript packte ein LEERES Verzeichnis ein, und die
-# Integritaetspruefung bestaetigte brav "completed and verified". Auf dem
-# Geraet waren dadurch ueber einen Monat lang alle Dokument-Archive 128 Byte
-# gross. Deshalb werden die Exit-Codes jetzt AUSGEWERTET statt verworfen: ein
-# fehlgeschlagener Abzug ist ein Fehler, kein leeres Archiv.
+# Frueher lief das ueber `docker exec minio mc mirror` plus `docker cp`. Das war
+# aus zwei Gruenden fragil und ist auf dem Geraet ueber einen Monat lang still
+# gescheitert: `docker cp` wird vom Socket-Proxy geblockt, und der Umweg haengt
+# davon ab, welche Werkzeuge zufaellig im fremden MinIO-Image liegen (`tar` etwa
+# gibt es dort nicht). Jetzt spricht der Backup-Dienst MinIO als ganz normaler
+# S3-Client an — kein Docker noetig, keine Annahmen ueber fremde Images.
 mkdir -p /backups/minio /backups/minio/weekly
 MINIO_OK=true
-if ! docker exec -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@localhost:9000" minio mc mirror --overwrite local/documents /tmp/backup_docs 2>/dev/null; then
-    echo "[$TIMESTAMP] [ERROR] MinIO mirror failed (Docker-Zugriff? MinIO erreichbar?) — Dokumente werden NICHT gesichert"
+MINIO_TMP=/tmp/minio_backup_$TIMESTAMP
+mkdir -p "$MINIO_TMP"
+# Zugangsdaten ueber die Umgebung, nicht als Argument — sonst stuenden sie in
+# /proc/<pid>/cmdline.
+export MC_HOST_arasul="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@${MINIO_HOST:-minio}:9000"
+if ! mc mirror --overwrite --quiet arasul/documents "$MINIO_TMP" >/dev/null 2>&1; then
+    echo "[$TIMESTAMP] [ERROR] MinIO mirror failed (MinIO erreichbar? Zugangsdaten?) — Dokumente werden NICHT gesichert"
     MINIO_OK=false
     BACKUP_OK=false
 fi
-if ! docker cp minio:/tmp/backup_docs /tmp/minio_backup_$TIMESTAMP 2>/dev/null; then
-    echo "[$TIMESTAMP] [ERROR] docker cp aus dem MinIO-Container fehlgeschlagen"
-    MINIO_OK=false
-    BACKUP_OK=false
-    mkdir -p /tmp/minio_backup_$TIMESTAMP
-fi
-if tar -czf /backups/minio/documents_$TIMESTAMP.tar.gz -C /tmp minio_backup_$TIMESTAMP 2>/dev/null; then
-    # Verify tar archive integrity
+MINIO_FILES=$(find "$MINIO_TMP" -type f 2>/dev/null | wc -l)
+if tar -czf /backups/minio/documents_$TIMESTAMP.tar.gz -C /tmp "minio_backup_$TIMESTAMP" 2>/dev/null; then
     if tar -tzf /backups/minio/documents_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
         if [ "$MINIO_OK" = true ]; then
-            MINIO_FILES=$(find /tmp/minio_backup_$TIMESTAMP -type f 2>/dev/null | wc -l)
             echo "[$TIMESTAMP] MinIO backup completed and verified (${MINIO_FILES} Dateien)"
         else
-            echo "[$TIMESTAMP] [ERROR] MinIO archive written, but the copy step failed — content is INCOMPLETE"
+            echo "[$TIMESTAMP] [ERROR] MinIO archive written, but the mirror failed — content is INCOMPLETE"
         fi
     else
         echo "[$TIMESTAMP] [ERROR] MinIO backup archive corrupt (tar integrity check failed)"
@@ -152,8 +149,7 @@ else
 fi
 encrypt_file /backups/minio/documents_$TIMESTAMP.tar.gz
 ln -sf documents_$TIMESTAMP.tar.gz /backups/minio/documents_latest.tar.gz
-rm -rf /tmp/minio_backup_$TIMESTAMP
-docker exec minio rm -rf /tmp/backup_docs 2>/dev/null || true
+rm -rf "$MINIO_TMP"
 
 # Weekly snapshot for MinIO
 if [ "$DAY_OF_WEEK" = "7" ]; then
@@ -168,49 +164,43 @@ if [ "$DAY_OF_MONTH" = "01" ]; then
     echo "[$TIMESTAMP] Monthly MinIO snapshot saved"
 fi
 
-# Qdrant vector-DB backup (RAG index). Snapshot via the Qdrant HTTP API, then
-# copy the snapshot out of the container and archive it. Uses docker exec (same
-# mechanism as the MinIO step) so no direct network path to qdrant is required.
+# Qdrant vector-DB backup (RAG-Index) — ueber die HTTP-API im Backend-Netz.
+#
+# Frueher via `docker exec qdrant curl ...`. Das konnte NIE funktionieren: im
+# Qdrant-Image gibt es gar kein `curl` (exec endet mit 127). Entsprechend gab es
+# auf dem Geraet kein einziges Qdrant-Archiv. Der Backup-Dienst ruft die
+# Snapshot-API jetzt selbst auf — er haengt ohnehin im selben Netz.
 mkdir -p /backups/qdrant /backups/qdrant/weekly
 QDRANT_OK=skipped
-if docker ps --format '{{.Names}}' | grep -q "^qdrant$"; then
-    if docker exec qdrant curl -s -X POST "http://localhost:6333/snapshots" -H "Content-Type: application/json" >/dev/null 2>&1; then
-        sleep 2
-        QDRANT_SNAPSHOT=$(docker exec qdrant curl -s "http://localhost:6333/snapshots" 2>/dev/null | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4) || true
-        if [ -n "$QDRANT_SNAPSHOT" ]; then
-            QDRANT_TMP=/tmp/qdrant_backup_$TIMESTAMP
-            mkdir -p "$QDRANT_TMP"
-            docker cp "qdrant:/qdrant/snapshots/${QDRANT_SNAPSHOT}" "$QDRANT_TMP/" 2>/dev/null || true
-            if tar -czf /backups/qdrant/qdrant_$TIMESTAMP.tar.gz -C "$QDRANT_TMP" . 2>/dev/null \
-               && tar -tzf /backups/qdrant/qdrant_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
-                echo "[$TIMESTAMP] Qdrant backup completed and verified"
-                encrypt_file /backups/qdrant/qdrant_$TIMESTAMP.tar.gz
-                ln -sf qdrant_$TIMESTAMP.tar.gz /backups/qdrant/qdrant_latest.tar.gz
-                QDRANT_OK=true
-            else
-                echo "[$TIMESTAMP] [ERROR] Qdrant backup archive creation/verify failed"
-                QDRANT_OK=false
-                BACKUP_OK=false
-            fi
-            rm -rf "$QDRANT_TMP"
-            # Remove the in-container snapshot so they don't accumulate on the device
-            docker exec qdrant curl -s -X DELETE "http://localhost:6333/snapshots/${QDRANT_SNAPSHOT}" >/dev/null 2>&1 || true
+QDRANT_URL="http://${QDRANT_HOST:-qdrant}:6333"
+QDRANT_TMP=/tmp/qdrant_backup_$TIMESTAMP
+if curl -sf --max-time 30 -X POST "${QDRANT_URL}/snapshots" -H "Content-Type: application/json" -o /tmp/qdrant_snap_$TIMESTAMP.json 2>/dev/null; then
+    QDRANT_SNAPSHOT=$(grep -o '"name":"[^"]*"' /tmp/qdrant_snap_$TIMESTAMP.json | head -1 | cut -d'"' -f4)
+    rm -f /tmp/qdrant_snap_$TIMESTAMP.json
+    if [ -n "$QDRANT_SNAPSHOT" ]; then
+        mkdir -p "$QDRANT_TMP"
+        if curl -sf --max-time 300 -o "${QDRANT_TMP}/${QDRANT_SNAPSHOT}" "${QDRANT_URL}/snapshots/${QDRANT_SNAPSHOT}" 2>/dev/null \
+           && tar -czf /backups/qdrant/qdrant_$TIMESTAMP.tar.gz -C "$QDRANT_TMP" . 2>/dev/null \
+           && tar -tzf /backups/qdrant/qdrant_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
+            echo "[$TIMESTAMP] Qdrant backup completed and verified (${QDRANT_SNAPSHOT})"
+            encrypt_file /backups/qdrant/qdrant_$TIMESTAMP.tar.gz
+            ln -sf qdrant_$TIMESTAMP.tar.gz /backups/qdrant/qdrant_latest.tar.gz
+            QDRANT_OK=true
         else
-            echo "[$TIMESTAMP] [ERROR] Qdrant snapshot created but not found via API"
+            echo "[$TIMESTAMP] [ERROR] Qdrant snapshot download or archiving failed"
             QDRANT_OK=false
             BACKUP_OK=false
         fi
+        rm -rf "$QDRANT_TMP"
+        # Snapshot in Qdrant wieder loeschen, sonst sammeln sie sich auf dem Geraet an.
+        curl -sf --max-time 30 -X DELETE "${QDRANT_URL}/snapshots/${QDRANT_SNAPSHOT}" >/dev/null 2>&1 || true
     else
-        echo "[$TIMESTAMP] [ERROR] Failed to create Qdrant snapshot"
+        echo "[$TIMESTAMP] [ERROR] Qdrant snapshot created but no name returned by the API"
         QDRANT_OK=false
         BACKUP_OK=false
     fi
 else
-    # Frueher nur eine Warnung. Auf einem Geraet, auf dem Qdrant zum Kern
-    # gehoert, heisst "Container nicht sichtbar" fast immer: kein Docker-Zugriff.
-    # Das ist ein Fehler, kein Normalzustand — sonst faellt der fehlende
-    # Vektor-Index erst im Ernstfall auf.
-    echo "[$TIMESTAMP] [ERROR] Qdrant container not visible — vector DB NOT backed up (Docker-Zugriff?)"
+    echo "[$TIMESTAMP] [ERROR] Qdrant snapshot request failed (${QDRANT_URL}) — vector DB NOT backed up"
     QDRANT_OK=false
     BACKUP_OK=false
 fi

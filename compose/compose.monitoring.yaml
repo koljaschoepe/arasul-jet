@@ -155,6 +155,10 @@ services:
       # POSTGRES_PASSWORD resolved via Docker secret (compose.secrets.yaml)
       POSTGRES_DB: ${POSTGRES_DB}
       MINIO_HOST: minio
+      # Qdrant wird ueber die HTTP-Snapshot-API gesichert, nicht mehr per
+      # `docker exec` — im Qdrant-Image gibt es kein `curl`, der Weg konnte also
+      # nie funktionieren.
+      QDRANT_HOST: qdrant
       # MINIO_ROOT_USER / MINIO_ROOT_PASSWORD resolved via Docker secrets (compose.secrets.yaml)
       BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
