@@ -177,11 +177,16 @@ describe('Skills-Routen', () => {
       expect(res.text).toContain('Fasse den Text zusammen.');
     });
 
-    test('nennt die verfügbaren Werkzeuge', async () => {
+    test('nennt die Werkzeuge und ob sie schon nutzbar sind', async () => {
       const res = await auth(request(app).get('/api/skills/werkzeuge'));
       expect(res.status).toBe(200);
-      expect(res.body.data).toContain('terminal');
-      expect(res.body.data).toContain('subagent');
+      const nach = Object.fromEntries(res.body.data.map(w => [w.name, w.verfuegbar]));
+      // Schritt 6 gebaut …
+      expect(nach.dateien_lesen).toBe(true);
+      expect(nach.rag_suche).toBe(true);
+      // … Rest folgt in den Schritten 7, 8 und 11.
+      expect(nach.terminal).toBe(false);
+      expect(nach.subagent).toBe(false);
     });
 
     test('listet die Wissensbasen ohne die unsichtbaren Workspace-Räume', async () => {
