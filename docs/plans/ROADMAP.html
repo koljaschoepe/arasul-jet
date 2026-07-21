@@ -21,7 +21,7 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-07-20",
+  "updated": "2026-07-21",
   "migrated_from_master_plan": true,
   "gates": [
     { "id": "G1", "title": "Alle Features funktionieren nachweislich (Feature-Audit grün)", "state": "open" },
@@ -34,7 +34,8 @@
   ],
   "themes": [
     { "id": "T18", "title": "Arasul wird Agenten-Orchestrierung — Neupositionierung zur Workflow-Bauer-Plattform: Telegram/Datentabellen/Dashboard/DB-Ansicht/Alt-Chat ersatzlos löschen (~14.000 Zeilen), Projekt-Entität konsolidieren, Agenten als Markdown-Dateien mit Werkzeug-Aufrufen, Chat als Kommandozentrale, n8n-HTTP-Trigger, Netz-Schalter je Workspace, Store-Neubau", "prio": "P0", "status": "done", "source": "Interview 2026-07-17 (6 Runden)", "plan": "008", "pr": 218, "note": "Löst T01/T17 ab; schluckt T02, T03, T04, T12, T16. 16 Schritte, gemergt (squash b670c2e) & live auf dem Jetson 2026-07-18. Funktionaler §6-Durchlauf im Live-Review-Feinschliff" },
-    { "id": "T19", "title": "Flow-Agenten — lokale KI-Orchestrierung: Agent = Prompt+Modell+Tools+Rechte, verzweigte Flüsse im React-Flow-Canvas (If/Else, parallele Zweige), Provider-Mix Ollama/OpenAI-kompatibel/Anthropic (Keys verschlüsselt, nur Admin), Tools RAG/MinIO/n8n/Web (opt-in), GPU-Queue-serialisiert, Trigger via /flow-Chat + Arasul-Scheduler + n8n-HTTP; eigene v2 neben den Datei-Agenten (T18)", "prio": "P1", "status": "planned", "source": "Interview 2026-07-20 (6 Runden)", "plan": "010", "pr": null, "note": "Baut auf T18/008 auf, ersetzt es nicht: eigene DB-Tabellen, Trigger / statt @. Kein n8n-Nachbau. 7 Schritte, jeder einzeln livefähig (kein Feature-Flag)" },
+    { "id": "T20", "title": "Skills im Chat — Agenten- und Fluss-Layer ersatzlos löschen (Canvas, Scheduler, Provider-Schlüssel, Agenten-Bereich, Workspace-Agenten); Chat bekommt Slash-Skills nach Claude-Code-Vorbild: Markdown-Skills unter data/skills/ mit Argumenten (Freitext/Datei/Auswahl/Wissensbasis), Ordner-Sandbox, Werkzeugen (Dateien, RAG, Websuche via SearXNG, Seiten lesen, Terminal im Sandbox-Container), Subagent-Rollen mit hartem Ergebnis-Vertrag, serverseitig weiterlaufenden Läufen, Lauf-Karte und Änderungs-Übersicht", "prio": "P0", "status": "planned", "source": "Interview 2026-07-21 (6 Runden, 24 Fragen)", "plan": "011", "pr": null, "note": "Löst T18 und T19 ab. Kernziel Kontext-Sparsamkeit: Orchestrator delegiert, sieht nur gekappte Ergebnisse — damit kleine lokale Modelle wie große wirken. Bewusst kein Rechtekonzept und keine Bestätigungsdialoge. 20 Schritte" },
+    { "id": "T19", "title": "[Verworfen] Flow-Agenten — lokale KI-Orchestrierung: Canvas, Provider-Mix, Scheduler. Richtung vom Nutzer am 2026-07-21 verworfen, Layer wird durch T20/011 komplett gelöscht", "prio": "P1", "status": "dropped", "source": "Interview 2026-07-20 (6 Runden)", "plan": "010", "pr": null, "note": "Schritte 1-7 waren umgesetzt (bis 39e65a1). Nutzer-Entscheidung 2026-07-21: Produkt wird dadurch komplexer statt besser — Code und Tabellen werden in Plan 011 ersatzlos entfernt. Code bleibt in der Git-Historie" },
     { "id": "T01", "title": "Feature-Audit „funktioniert wirklich\" — jede angekündigte Funktion end-to-end live auf dem Jetson durchtesten, Bug-Liste erzeugen", "prio": "P0", "status": "planned", "source": "Interview 2026-07-14", "plan": "006", "pr": 209, "note": "Lauf 1: Kernpfad grün, F1 gefixt (PR #209); Restlauf → T17" },
     { "id": "T02", "title": "Aktions-Feedback plattformweit — Container start/stop/restart, Modell-Download, Deaktivieren geben sofort klaren Status (kein „passiert nichts → dann alles auf einmal\")", "prio": "P0", "status": "open", "source": "Interview 2026-07-14", "plan": null, "pr": null },
     { "id": "T03", "title": "Modell-Download-Robustheit — Verify mit Retry/Poll statt Einmal-Check (Race in modelDownloadHelpers.js: real gepullt, aber bei client-disconnect/premature verify fälschlich als 'error') + saubere Progress-UI", "prio": "P1", "status": "done", "source": "Live-Verify Plan 004 2026-07-14", "plan": "009", "pr": 221, "note": "Plan 009: Download-Zustandsmaschine gehärtet (unterbrochen→paused + Wiederaufnahme, Katalog-JOIN + attempt_count-Budget, keine Doppelinstallation). Live-Neustart-Test auf dem Jetson bestanden (nomic-embed-text paused→resume→available). Behebt auch „kein Modell geladen\"" },
@@ -316,8 +317,33 @@
     </div>
   </details>
 
-  <details class="card" id="T19" data-prio="P1" data-status="planned" data-ref="T19 Flow-Agenten">
-    <summary><span class="prio">P1</span><span class="ttl">Flow-Agenten — lokale KI-Orchestrierung (Canvas, Provider-Mix, Trigger)</span><span class="cbtn-slot"></span><span class="st">geplant (010)</span><span class="chev">▶</span></summary>
+  <details class="card" id="T20" data-prio="P0" data-status="planned" data-ref="T20 Skills im Chat">
+    <summary><span class="prio">P0</span><span class="ttl">Skills im Chat — Agenten &amp; Flüsse raus, Slash-Befehle rein</span><span class="cbtn-slot"></span><span class="st">geplant (011)</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Kehrtwende gegenüber T18/T19: Der komplette Agenten- und Fluss-Layer wird <b>gelöscht</b>
+      (Canvas, Scheduler, Fluss-Agenten, Provider-Schlüssel, Agenten-Bereich, Workspace-Agenten —
+      Code und Tabellen). An seine Stelle tritt ein <b>Skill-System im Chat</b> nach dem Vorbild von
+      Claude Code: <code>/</code> öffnet ein gefiltertes Menü, nach der Auswahl stehen die erwarteten
+      Argumente grau im Eingabefeld. Ein Skill ist eine Markdown-Datei mit Kopfdaten unter
+      <code>data/skills/</code> und bringt mit, was er braucht: Argumente (Freitext, Datei,
+      Auswahlliste, Wissensbasis), erlaubte Ordner, Werkzeuge (Dateien lesen/schreiben, RAG,
+      Websuche, Seiten lesen, Terminal im Sandbox-Container) und eigene <b>Subagent-Rollen</b>.</p>
+      <p><b>Der eigentliche Hebel ist Kontext-Sparsamkeit:</b> Der Orchestrator delegiert und liest
+      nie selbst. Jede Subagent-Rolle hat einen technisch erzwungenen Ergebnis-Vertrag (deklarierte
+      Felder, harte Zeichengrenze) — Rohdaten landen nur im Lauf-Protokoll, nie im Modell-Kontext.
+      So sollen kleine lokale Modelle wie große wirken. Neu im Stack: <b>SearXNG</b> für die
+      Websuche (ARM64-Image geprüft). Läufe leben im Backend und überstehen das Schließen des Tabs.
+      n8n bleibt unangetastet.</p>
+      <p><b>Bewusst getragen:</b> kein Rechtekonzept (nur ein Admin), keine Bestätigungsdialoge —
+      Skills führen Terminal- und Schreibzugriffe autonom aus; gebremst nur durch Grenzen,
+      Änderungs-Übersicht und Abbrechen-Knopf.</p>
+      <div class="facts"><span>Macht Gate: <b>G1</b></span><span>Aufwand: <b>20 Schritte · hoch</b></span><span>Löst ab: <b>T18, T19</b></span></div>
+      <div class="cmd"><code>/work 011</code><button type="button" data-copy="/work 011">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T19" data-prio="P1" data-status="dropped" data-ref="T19 Flow-Agenten">
+    <summary><span class="prio">P1</span><span class="ttl">Flow-Agenten — lokale KI-Orchestrierung (Canvas, Provider-Mix, Trigger)</span><span class="cbtn-slot"></span><span class="st">verworfen → T20 (011)</span><span class="chev">▶</span></summary>
     <div class="cbody">
       <p>Die nächste Ausbaustufe der Agenten-Schicht: Ein „Agent“ = Prompt + Modell + Tools + Rechte,
       im visuellen Canvas (React Flow) zu <b>verzweigten Flüssen</b> (If/Else, parallele Zweige)

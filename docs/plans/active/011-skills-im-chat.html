@@ -1,0 +1,990 @@
+<!doctype html>
+<!--
+  Arasul plan-page template v2 — used by /plan (create), /work (report), /audit (design language).
+
+  HOW TO USE (for the skill, not for humans):
+  1. Copy to docs/plans/active/NNN-<slug>.html, replace every {{TOKEN}}, fill
+     the section bodies with real content (German, plain language).
+  2. Structural contract (comment system + /work depend on it):
+     - Sections are <details class="sec" data-sec="N" data-ref="§N <Titel>">.
+       Keep ids sec-1..sec-9. Each <summary> carries a "Kurz:" one-liner.
+     - Steps in §4: <div class="step" data-status="pending|done|deviation|blocked"
+       data-ref="§4 · Schritt N — <Name>">. /work flips status and appends
+       <div class="result">…</div> inside the step.
+     - Every data-ref must be unique — user comments are keyed on it.
+     - The page never ASKS anything. Questions belong in AskUserQuestion,
+       in chat — the user cannot answer inside this file.
+  3. Machine state lives in #plan-meta JSON (/work and /status parse it).
+     Dashboard tiles mirror it: dots use data-level="1|2|3" (1=niedrig).
+  4. §9 (report) starts with class "is-hidden" — /work removes it when filling.
+  5. User comments travel via the page's "Alle kopieren" button → pasted into
+     chat. Whatever arrives that way is BINDING input for /plan revisions and
+     /work execution.
+
+  STATUS VALUES: draft → in-review → approved → in-progress → done | blocked
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 011 · Skills im Chat — Agenten &amp; Flüsse raus, Slash-Befehle rein</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "011",
+  "slug": "skills-im-chat",
+  "title": "Skills im Chat — Agenten & Flüsse raus, Slash-Befehle rein",
+  "type": "feature",
+  "status": "approved",
+  "priority": "P0",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-07-21",
+  "approved": "2026-07-21",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 011</p>
+    <span class="chip" id="status-chip" data-status="approved">Approved</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Skills im Chat — Agenten &amp; Flüsse raus, Slash-Befehle rein</h1>
+  <p class="lead">Der komplette Agenten- und Fluss-Layer wird gelöscht. An seine Stelle treten Skills: mit <code>/</code> aufrufbare, vorkonfigurierte Aufgaben mit eigenen Argumenten, Ordnern, Werkzeugen und Subagenten — bedient wie bei Claude Code, gebaut für kleine lokale Modelle.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="bad" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>teilweise</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">20</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Flüsse, Canvas, Zeitplaner, Provider-Schlüssel und der Agenten-Bereich werden restlos entfernt (Code und Tabellen). Der Chat bekommt stattdessen Skills: <code>/</code> öffnet ein Menü, nach der Auswahl stehen die erwarteten Argumente grau im Eingabefeld. Ein Skill darf Dateien lesen und schreiben, die Wissensbasis durchsuchen, im Web recherchieren, Befehle im Sandbox-Container ausführen und an eigene Subagent-Rollen delegieren.</dd>
+      <dt>Warum jetzt</dt><dd>Die Fluss-Richtung hat das Produkt schwerer gemacht, nicht besser — Kästchen verbinden ist nicht, wofür man eine lokale KI kauft. Skills verschieben die Komplexität von dir in die Maschine und sind gleichzeitig der Hebel, mit dem kleine lokale Modelle wie große wirken: Der Kontext wird gezielt klein gehalten, statt alles ins Modell zu kippen.</dd>
+      <dt>Größtes Risiko</dt><dd>Skills führen auf deinen Wunsch hin Terminal-Befehle und Schreibzugriffe <strong>ohne Rückfrage</strong> aus. Ein Fehlgriff des Modells kann Dateien im erlaubten Ordner zerstören; die Änderungs-Übersicht zeigt es dir hinterher, verhindert es aber nicht. Zweitgrößtes Risiko: der Abriss in <code>ChatContext.tsx</code>, wo Agenten- und normaler Chat-Stream in derselben Datei liegen.</dd>
+      <dt>Du entscheidest</dt><dd><ul><li>Der Fluss-Code wird <strong>gelöscht</strong>, nicht abgeschaltet — zurück nur über die Git-Historie oder ein Backup.</li><li>Es gibt bewusst <strong>kein Rechtekonzept</strong>: jeder darf jeden Skill anlegen und ihm jedes Werkzeug geben, inklusive Terminal und freiem Web-Zugriff.</li><li>Skills laufen <strong>autonom ohne Bestätigungsdialoge</strong>; gebremst wird nur durch Grenzen und den Abbrechen-Knopf.</li><li>Ein großer Plan mit 20 Schritten statt zwei kleiner — das erste benutzbare Ergebnis kommt entsprechend später.</li><li><strong>SearXNG</strong> kommt als zusätzlicher Container in den Stack (ARM64-Image geprüft und vorhanden).</li><li>Web-Recherche liest <strong>Text, keinen Browser</strong> — kein Durchklicken, keine Screenshots, keine Login-Seiten.</li></ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Flüsse raus, Skills rein — der Chat wird die eine Oberfläche, und der Kontext bleibt klein genug für lokale Modelle.</span>
+  </summary>
+  <div class="sbody">
+  <p>Die letzten beiden Pläne haben Arasul in Richtung <strong>Workflow-Bauer</strong> gedreht:
+Agenten als eigene Entität, Flüsse mit Verzweigungen, ein visueller Canvas zum Zeichnen, ein
+Zeitplaner, Schlüsselverwaltung für fremde KI-Anbieter. Das Ergebnis funktioniert — aber es macht
+das Produkt schwerer statt besser. Wer eine lokale KI kauft, will nicht Kästchen verbinden.</p>
+
+<p>Dieser Plan dreht das zurück und setzt stattdessen dort an, wo der eigentliche Wert liegt: im
+<strong>Chat</strong>. Der Chat bekommt <strong>Skills</strong> — benannte, vorkonfigurierte Aufgaben,
+die du mit einem Schrägstrich aufrufst, so wie bei Claude Code. Ein Skill weiß im Voraus, welche
+Argumente er braucht, in welchen Ordnern er arbeiten darf, welche Werkzeuge er benutzen darf und
+welche spezialisierten Subagenten ihm zuarbeiten. Die Komplexität wandert damit von dir in die
+Maschine: Du tippst <code>/recherche jetson-kühlung</code>, und dahinter arbeiten ein Sucher, mehrere
+Leser und ein Prüfer, ohne dass du je einen Graphen gezeichnet hast.</p>
+
+<p>Der technische Kern dahinter ist <strong>Kontext-Sparsamkeit</strong>. Lokale Modelle sind klein;
+sie scheitern nicht an mangelnder Intelligenz, sondern daran, dass ihnen zu viel Unwichtiges
+vorgelegt wird. Deshalb liest kein Skill „einfach alles“: Argumente holen gezielt genau eine Datei
+oder genau eine Wissensbasis, Subagenten arbeiten die Rohdaten ab und geben nur ein verdichtetes,
+in seiner Länge begrenztes Ergebnis zurück. Der Orchestrator sieht nie eine Webseite, nie einen
+Dateiinhalt — nur Ergebnisse. Genau das soll ein 7B-Modell so wirken lassen wie ein großes.</p>
+
+<p><strong>Fertig heißt:</strong> Der Agenten- und Fluss-Code ist restlos aus dem Repository
+verschwunden, im Chat öffnet <code>/</code> ein Skill-Menü mit grauen Argument-Hinweisen, drei
+mitgelieferte Beispiel-Skills laufen auf dem Jetson im echten Browser erfolgreich durch — darunter
+eine Web-Recherche, die sichtbar an Subagenten delegiert — und ein Lauf überlebt das Schließen des
+Browser-Tabs.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Drin: Abriss, Skill-System, Subagenten, Web-Recherche, zwei Politur-Schritte. Draußen: Rechtekonzept, Browser-Automatisierung, Zeitpläne.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul><li>Vollständiges Löschen von Flüssen, Canvas, Zeitplaner, Fluss-Agenten, Provider-Schlüsseln, Agenten-Bereich und Workspace-Agenten (Code, Routen, Tests, Navigation, Tabellen)</li><li>Skill-Format als Markdown mit Kopfdaten unter <code>data/skills/</code>, samt Prüfschema und Registry</li><li>Slash-Menü im Chat mit Filter, Bearbeiten-Symbol, <code>/skills</code> und <code>/neuer-skill</code></li><li>Graue Argument-Hinweise im Eingabefeld, Tab-Sprung, Eingabehilfen für Datei, Auswahlliste und Wissensbasis</li><li>Werkzeuge: Dateien lesen und schreiben, RAG-Suche, Websuche, Seiten lesen, Terminal im Sandbox-Container, Subagent</li><li>Subagent-Rollen mit hartem Ergebnis-Vertrag, zwei Ebenen, Gesamtzähler, Zeitlimit</li><li>SearXNG als neuer Container für die Websuche</li><li>Läufe, die serverseitig weiterlaufen, mit Live-Übertragung, Wiederverbinden und Abbrechen</li><li>Lauf-Karte im Chat-Verlauf und Übersicht der Datei-Änderungen</li><li>Anlege- und Bearbeiten-Dialog mit Live-Vorschau der Markdown-Datei</li><li>Drei mitgelieferte Beispiel-Skills</li><li>Zwei Politur-Schritte: Antwortdarstellung und Wiederfinden von Unterhaltungen</li></ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul><li>Rollen- und Rechtekonzept — die Anwendung kennt bewusst nur einen Admin</li><li>Bestätigungsdialoge vor riskanten Befehlen — Skills laufen ausdrücklich autonom</li><li>Echter Browser (Playwright/Chromium), Klickpfade, Screenshots, Seiten hinter Login</li><li>Anbindung fremder KI-Anbieter (OpenAI, Anthropic) und Schlüsselverwaltung — ersatzlos gestrichen</li><li>Zeitgesteuerte Skill-Läufe — der Zeitplaner entfällt; Zeitpläne bleiben n8n überlassen</li><li>Ein n8n-Werkzeug für Skills und ein Skill-Auslöser aus n8n heraus</li><li>Visuelles Zeichnen von Abläufen in irgendeiner Form</li><li>Automatisches Zurücksetzen nach einem Lauf (nur Übersicht der Änderungen, keine Sicherung)</li><li>Verschachtelung tiefer als zwei Subagent-Ebenen</li><li>Mehrbenutzer-Sichtbarkeit oder persönliche gegenüber geteilten Skills</li></ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Ein Skill ist eine Markdown-Datei; der Orchestrator delegiert an Subagenten und sieht nur deren gekappte Ergebnisse.</span>
+  </summary>
+  <div class="sbody">
+  <p><strong>Vorher</strong> gab es zwei Konzepte nebeneinander: Datei-Agenten aus Plan 008 und
+Fluss-Agenten aus Plan 010, letztere mit eigener Datenhaltung, eigenem Canvas, eigenem Zeitplaner und
+einer Anbindung fremder KI-Anbieter. Beide hatten ihre eigene Oberfläche, ihre eigenen Tabellen und
+ihre eigene Ausführungslogik. <strong>Nachher</strong> gibt es genau ein Konzept — den Skill — und
+genau einen Ort, an dem er lebt: den Chat.</p>
+
+<p>Ein Skill ist eine Markdown-Datei unter <code>data/skills/</code>. Oben in den Kopfdaten steht,
+was er braucht und darf: Argumente mit Typ, erlaubte Ordner, erlaubte Werkzeuge, Subagent-Rollen mit
+je eigenem Prompt und eigenem Ergebnis-Vertrag, Grenzen und optional ein Modell je Rolle. Darunter
+steht der Prompt mit Platzhaltern für die Argumente. Das ist bewusst dasselbe Format, das schon für
+die Datei-Agenten existiert — nur erweitert. Deshalb kann das Fundament bleiben: die Werkzeug-Schleife,
+die das lokale Modell mit echten Funktionsaufrufen bedient, und die symlink-sichere Pfad-Sperre, die
+jeden Dateizugriff auf die erlaubten Ordner einsperrt. Weg fällt alles, was darüber lag.</p>
+
+<p>Beim Ausführen entsteht die eigentliche Neuerung: der <strong>Orchestrator</strong> delegiert,
+statt selbst zu lesen. Ruft er die Rolle <em>leser</em> für eine Webseite auf, dann holt der Subagent
+die Seite, wirft Navigation und Werbung weg, kürzt auf rund 8000 Zeichen, extrahiert daraus seine
+Fakten — und gibt nur diese zurück, geprüft gegen die deklarierten Felder und hart auf etwa zwei
+Kilobyte gekappt. Der Orchestrator sammelt so nach acht Seiten rund sechzehn Kilobyte statt mehrerer
+hundert. Alle Modell-Aufrufe laufen dabei durch eine Warteschlange mit einem einzigen Platz, weil das
+Gerät eine GPU hat; eine normale Chat-Nachricht wird vorgezogen. Der Lauf selbst lebt im Backend und
+schreibt jeden Schritt in die Datenbank — deshalb überlebt er das Schließen des Browsers, und deshalb
+kannst du dich später wieder einklinken.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 820 430" width="100%" role="img" aria-label="Vorher-Nachher-Diagramm">
+  <style>
+    .lbl { font: 600 13px system-ui, sans-serif; fill: var(--ink); }
+    .sml { font: 400 11px system-ui, sans-serif; fill: var(--muted); }
+    .ttl { font: 700 14px system-ui, sans-serif; fill: var(--accent); }
+    .bx  { fill: var(--wash); stroke: var(--line); stroke-width: 1.5; rx: 8; }
+    .bxa { fill: none; stroke: var(--accent); stroke-width: 2; rx: 8; }
+    .ln  { stroke: var(--line); stroke-width: 1.5; fill: none; }
+    .lna { stroke: var(--accent); stroke-width: 2; fill: none; }
+    .dead { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; rx: 8; opacity:.55 }
+  </style>
+
+  <text x="10" y="20" class="ttl">Vorher — zwei Konzepte, eigener Bereich</text>
+  <rect class="dead" x="10" y="34" width="150" height="34"/>
+  <text x="26" y="56" class="sml">Agenten-Tab</text>
+  <rect class="dead" x="172" y="34" width="150" height="34"/>
+  <text x="188" y="56" class="sml">Flüsse + Canvas</text>
+  <rect class="dead" x="334" y="34" width="120" height="34"/>
+  <text x="350" y="56" class="sml">Zeitplaner</text>
+  <rect class="dead" x="466" y="34" width="160" height="34"/>
+  <text x="482" y="56" class="sml">Provider-Schlüssel</text>
+  <text x="640" y="56" class="sml" style="fill:var(--bad)">→ gelöscht</text>
+
+  <line x1="10" y1="88" x2="810" y2="88" class="ln"/>
+
+  <text x="10" y="114" class="ttl">Nachher — ein Konzept, im Chat</text>
+
+  <rect class="bxa" x="10" y="128" width="200" height="64"/>
+  <text x="26" y="150" class="lbl">Chat-Eingabe</text>
+  <text x="26" y="168" class="sml">/recherche &lt;thema&gt;</text>
+  <text x="26" y="183" class="sml">Menü · graue Hinweise</text>
+
+  <path class="lna" d="M210 160 H 268"/>
+  <polygon points="268,160 260,156 260,164" fill="var(--accent)"/>
+
+  <rect class="bxa" x="270" y="128" width="180" height="64"/>
+  <text x="286" y="150" class="lbl">Orchestrator</text>
+  <text x="286" y="168" class="sml">delegiert, liest nie selbst</text>
+  <text x="286" y="183" class="sml">Kontext bleibt klein</text>
+
+  <path class="ln" d="M360 192 V 214"/>
+  <path class="ln" d="M110 214 H 610"/>
+  <path class="ln" d="M110 214 V 238 M270 214 V 238 M430 214 V 238 M610 214 V 238"/>
+
+  <rect class="bx" x="40" y="238" width="140" height="52"/>
+  <text x="56" y="258" class="lbl">sucher</text>
+  <text x="56" y="276" class="sml">web_suche</text>
+
+  <rect class="bx" x="200" y="238" width="140" height="52"/>
+  <text x="216" y="258" class="lbl">leser × n</text>
+  <text x="216" y="276" class="sml">web_lesen · Dateien</text>
+
+  <rect class="bx" x="360" y="238" width="140" height="52"/>
+  <text x="376" y="258" class="lbl">prüfer</text>
+  <text x="376" y="276" class="sml">widerlegt Behauptungen</text>
+
+  <rect class="bx" x="540" y="238" width="140" height="52"/>
+  <text x="556" y="258" class="lbl">synthese</text>
+  <text x="556" y="276" class="sml">schreibt das Ergebnis</text>
+
+  <rect class="bxa" x="40" y="316" width="640" height="44"/>
+  <text x="56" y="336" class="lbl">Ergebnis-Vertrag — deklarierte Felder, hart gekappt (~2 kB je Rolle)</text>
+  <text x="56" y="352" class="sml">Rohdaten (Seiten, Dateien) landen nur im Lauf-Protokoll — nie im Modell-Kontext</text>
+
+  <rect class="bx" x="40" y="376" width="310" height="40"/>
+  <text x="56" y="401" class="sml">GPU-Warteschlange · 1 Platz · Chat hat Vorrang</text>
+
+  <rect class="bx" x="370" y="376" width="310" height="40"/>
+  <text x="386" y="401" class="sml">Lauf im Backend gespeichert · Tab-schließen-fest</text>
+</svg>
+    <figcaption>Oben gestrichelt: was ersatzlos verschwindet. Unten: der neue Weg vom Slash-Befehl über den Orchestrator zu den Subagent-Rollen — mit dem Ergebnis-Vertrag als Kontext-Sperre und dem Lauf, der im Backend weiterlebt.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 20 Schritte: erst Abriss, dann Fundament, dann Oberfläche, dann Subagenten und Web, zuletzt Politur.</span>
+  </summary>
+  <div class="sbody">
+  <!-- One .step per phase; unique data-ref each. -->
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Abriss Backend — Flüsse, Scheduler, Provider-Schlüssel">
+    <h3>Schritt 1 — Abriss Backend — Flüsse, Scheduler, Provider-Schlüssel <span class="tag">Risiko: mittel</span></h3>
+    <p>Der komplette Fluss-Layer verschwindet aus dem Backend: Routen, Fluss-Engine, Fluss-Dienste, Werkzeug-Registry, Zeitplaner und die Anbindung fremder KI-Anbieter samt Schlüsselverwaltung. Der <code>/agents</code>-Einhängepunkt wird aus der Routen-Übersicht entfernt. Ausdrücklich <em>nicht</em> angefasst: <code>routes/store/workflows.js</code> und <code>tools/workflowsTool.js</code> — die gehören zu n8n, nicht zu den Flüssen. Nach diesem Schritt startet das Backend sauber, nur ohne Fluss-Funktionen.</p>
+    <p class="files mono">routes/agents/{index,flows,flowAgents,providerKeys}.js · services/agents/{flowEngine,runFlow,runFlowAgent,flowsService,flowAgentsService,flowToolRegistry,scheduler,cronMatch,providerRegistry,providerKeysService}.js · services/agents/flowTools/* · routes/index.js:51,121 · 13 Testdateien</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Abriss Frontend — Canvas, Agenten-Bereich, Navigation">
+    <h3>Schritt 2 — Abriss Frontend — Canvas, Agenten-Bereich, Navigation <span class="tag">Risiko: mittel</span></h3>
+    <p>Der visuelle Fluss-Canvas, der Agenten-Tab und der Navigationspunkt „Agenten“ werden entfernt. In <code>ChatContext.tsx</code> werden die beiden Agenten-Streams gezielt herausgeschnitten — chirurgisch, Zeilenbereich für Zeilenbereich, weil in derselben Datei der normale Chat-Stream liegt, der unverändert weiterlaufen muss. Die React-Flow-Abhängigkeit wird aus der Paketliste entfernt und der Root-Lockfile neu erzeugt.</p>
+    <p class="files mono">features/agents/** · features/workspace/ActivityBar.tsx:87-92 · TabContent.tsx:13,85,98,161-162 · stores/workspaceStore.ts:23,45,68-69,87-88 · contexts/ChatContext.tsx (runAgentStream, runFlowAgentStream) · dashboard-frontend/package.json:31 · package-lock.json (Root)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Abriss Workspace-Agenten & Datenbank-Bereinigung">
+    <h3>Schritt 3 — Abriss Workspace-Agenten & Datenbank-Bereinigung <span class="tag">Risiko: hoch</span></h3>
+    <p>Die Workspace-Agenten aus Plan 008 werden entfernt (Routen in <code>sandbox.js</code>, <code>runWorkspaceAgent.js</code>, Schemas). Migration 111 löscht die vier Tabellen des Fluss-Layers. Vor dem Löschen wird auf dem Jetson gezählt, wie viele Datensätze betroffen sind, und das Ergebnis berichtet. Die Spalten <code>agent_run_token_hash</code>/<code>_set_at</code> bleiben zunächst stehen — ihr Entfernen wäre ein separater, invasiverer Eingriff ohne Nutzen.</p>
+    <p class="files mono">routes/sandbox.js:164-370 · services/agents/runWorkspaceAgent.js · schemas/agents.js · services/postgres/init/111_drop_flow_agents.sql · docs/api/DATABASE_SCHEMA.md:1087-1181 · docs/plans/active/010-flow-agenten-orchestrierung.html → docs/plans/archive/</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Skill-Format, Parser und Ablage">
+    <h3>Schritt 4 — Skill-Format, Parser und Ablage <span class="tag">Risiko: niedrig</span></h3>
+    <p>Das Markdown-plus-Kopfdaten-Format aus <code>agentFile.js</code> wird zum Skill-Format erweitert: Argumente, mehrere Ordner, Subagent-Rollen, Grenzen, Modell je Rolle. Dazu ein Prüfschema, das beim Speichern und beim Laden greift, und eine Registry, die <code>data/skills/</code> liest und zwischenspeichert. Das Verzeichnis wird als eigenes Docker-Volume eingehängt, damit Skills Rebuilds überleben und ins Backup wandern.</p>
+    <p class="files mono">services/skills/skillFile.js (aus agentFile.js) · services/skills/skillRegistry.js · schemas/skills.js · compose/ (Volume data/skills) · __tests__/unit/skillFile.test.js</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Skill-Verwaltung als API">
+    <h3>Schritt 5 — Skill-Verwaltung als API <span class="tag">Risiko: niedrig</span></h3>
+    <p>Endpunkte zum Auflisten, Lesen, Anlegen, Ändern und Löschen von Skills. Jede Änderung wird gegen das Schema geprüft, bevor die Datei geschrieben wird — ein fehlerhafter Skill kann nicht gespeichert werden. Alle Routen nach Hausregel mit <code>asyncHandler</code> und eigenen Fehlerklassen.</p>
+    <p class="files mono">routes/skills.js · routes/index.js (Einhängepunkt) · __tests__/integration/skills.routes.test.js · docs/api/API_REFERENCE.md</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Werkzeuge v1 — Dateien und Wissensbasis">
+    <h3>Schritt 6 — Werkzeuge v1 — Dateien und Wissensbasis <span class="tag">Risiko: mittel</span></h3>
+    <p>Die vorhandenen Datei- und RAG-Werkzeuge werden zu Skill-Werkzeugen: <code>dateien_lesen</code>, <code>dateien_schreiben</code>, <code>rag_suche</code>. Die Pfad-Sandbox wird von einem auf mehrere erlaubte Ordner erweitert; der erste Ordner ist das Arbeitsverzeichnis. Jeder Dateizugriff läuft weiterhin ausnahmslos über die symlink-sichere Prüfung. Zusätzlich ein Endpunkt, der die verfügbaren Wissensbasen auflistet — den braucht der Argumenttyp „Sammlung“.</p>
+    <p class="files mono">services/skills/tools/{dateien,rag}.js (aus services/agents/tools/) · services/skills/pathSafe.js (mehrere Wurzeln) · routes/skills.js (Sammlungen) · __tests__/unit/skillTools*.test.js</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Terminal-Werkzeug im Sandbox-Container">
+    <h3>Schritt 7 — Terminal-Werkzeug im Sandbox-Container <span class="tag">Risiko: hoch</span></h3>
+    <p>Das vorhandene Terminal-Werkzeug wird angebunden: Befehle laufen über <code>docker exec</code> im <code>arasul-sandbox</code>-Container, Arbeitsverzeichnis ist der Haupt-Ordner des Skills, mit Ausgabe-Deckel und Zeitlimit. Der Aufrufer löst den Container-Namen auf — das Werkzeug selbst kennt ihn nicht. Wichtig: Das Sandbox-Image wird vom normalen Deploy bisher nicht gebaut; dieser Schritt schließt die Lücke, sonst schlägt jeder Terminal-Skill auf einem frischen Gerät fehl.</p>
+    <p class="files mono">services/skills/tools/terminal.js · services/skills/sandboxResolve.js · scripts/deploy oder compose (Sandbox-Image-Build) · __tests__/unit/skillTerminal.test.js</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Websuche und Seiten-Lesen (SearXNG)">
+    <h3>Schritt 8 — Websuche und Seiten-Lesen (SearXNG) <span class="tag">Risiko: mittel</span></h3>
+    <p>SearXNG kommt als eigener Container in den Stack (ARM64-Image bestätigt vorhanden). <code>web_suche</code> fragt die JSON-Schnittstelle ab und liefert höchstens zehn Treffer mit Titel, Adresse und Auszug. <code>web_lesen</code> holt eine Seite, entfernt Navigation und Werbung, wandelt in lesbaren Text und kürzt auf rund 8000 Zeichen — die Kürzung ist der eigentliche Kontext-Schutz. Kein Browser, kein JavaScript, keine Klickpfade.</p>
+    <p class="files mono">compose/*.yml (searxng) · config/searxng/settings.yml · services/skills/tools/web.js · docs/ENVIRONMENT_VARIABLES.md · __tests__/unit/skillWeb.test.js</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Läufe persistent machen">
+    <h3>Schritt 9 — Läufe persistent machen <span class="tag">Risiko: mittel</span></h3>
+    <p>Migration 112 legt zwei Tabellen an: einen Lauf und seine Schritte. Jeder Subagent-Aufruf, jeder Werkzeug-Aufruf und jedes Ergebnis wird fortlaufend gespeichert, während der Lauf läuft. Damit überlebt ein Lauf das Schließen des Browsers, und ein späterer Aufruf zeigt den vollen Verlauf. Dazu ein sauberer Abbruch-Pfad, der einen laufenden Vorgang beendet und als abgebrochen markiert.</p>
+    <p class="files mono">services/postgres/init/112_skill_runs.sql · services/skills/runStore.js · routes/skills.js (Abbrechen) · docs/api/DATABASE_SCHEMA.md</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 10 — Skill-Runner und GPU-Warteschlange">
+    <h3>Schritt 10 — Skill-Runner und GPU-Warteschlange <span class="tag">Risiko: hoch</span></h3>
+    <p>Der Kern: Ein Skill wird mit seinen Argumenten geladen, die Platzhalter im Prompt werden ersetzt, die erlaubten Werkzeuge werden zusammengestellt, und die Werkzeug-Schleife läuft. Alle Modell-Aufrufe gehen durch eine Warteschlange mit genau einem Platz, damit die GPU nicht überlastet wird; normale Chat-Nachrichten werden vorgezogen, ein laufender Skill wartet kurz. Die Grenzen (Werkzeug-Runden, Zeitlimit) greifen hier zum ersten Mal.</p>
+    <p class="files mono">services/skills/runSkill.js · services/skills/toolLoop.js (aus services/agents/) · services/skills/gpuQueue.js (aus gpuGate.js) · __tests__/unit/runSkill.test.js</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 11 — Subagenten mit hartem Ergebnis-Vertrag">
+    <h3>Schritt 11 — Subagenten mit hartem Ergebnis-Vertrag <span class="tag">Risiko: hoch</span></h3>
+    <p>Der Orchestrator bekommt ein <code>subagent</code>-Werkzeug. Der Skill deklariert die Rollen samt eigenem Prompt, eigenen Werkzeugen und — entscheidend — den Feldern, die die Rolle zurückgeben muss, mit Zeichen-Obergrenze. Rohdaten wie Seiteninhalte oder Dateitexte erreichen den Orchestrator nie; sie landen nur im Lauf-Protokoll. Zwei Ebenen sind erlaubt, gebremst durch einen Gesamtzähler über alle Ebenen, ein Zeitlimit und den Ergebnis-Deckel.</p>
+    <p class="files mono">services/skills/subagent.js · services/skills/resultContract.js · services/skills/limits.js · __tests__/unit/subagent.test.js (inkl. Verschachtelungs- und Grenzfall)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 12 — Live-Übertragung mit Wiederverbinden">
+    <h3>Schritt 12 — Live-Übertragung mit Wiederverbinden <span class="tag">Risiko: mittel</span></h3>
+    <p>Ein Ereignis-Strom überträgt jeden Schritt live in den Browser. Bricht die Verbindung ab, läuft der Lauf serverseitig weiter; beim erneuten Öffnen liest der Browser den gespeicherten Verlauf und hängt sich ab dem letzten Schritt wieder ein. Ohne diesen Schritt gäbe es keine langen autonomen Läufe.</p>
+    <p class="files mono">routes/skills.js (Stream) · frontend hooks/useSkillRun.ts · contexts/ChatContext.tsx (Anbindung)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 13 — Slash-Menü im Eingabefeld">
+    <h3>Schritt 13 — Slash-Menü im Eingabefeld <span class="tag">Risiko: mittel</span></h3>
+    <p>Der vorhandene Slash-Ansatz im Eingabefeld wird zum Skill-Menü ausgebaut: Tippen filtert, Pfeiltasten wählen, Enter übernimmt. Jeder Eintrag hat ein Stift-Symbol zum Bearbeiten. Zusätzlich <code>/skills</code> als Übersicht und <code>/neuer-skill</code> zum Anlegen. Der Chat ohne Slash bleibt vollständig unverändert.</p>
+    <p class="files mono">features/workspace/llm/agentChat/ComposerCard.tsx:83-192 (Umbau) · features/skills/SkillMenu.tsx · __tests__/ComposerCard.test.tsx (neu geschrieben)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 14 — Graue Argument-Hinweise und Argument-Eingabe">
+    <h3>Schritt 14 — Graue Argument-Hinweise und Argument-Eingabe <span class="tag">Risiko: hoch</span></h3>
+    <p>Nach der Auswahl steht der Befehl schwarz im Feld, dahinter grau die erwarteten Argumente — Pflichtargumente in spitzen, optionale in eckigen Klammern. Tippen überschreibt den grauen Text, Tab springt zum nächsten Argument. Für die Typen jenseits von Freitext öffnet sich die passende Auswahl: Datei-Picker über den Workspace, Liste bei festen Werten, Wissensbasis-Auswahl. Das ist die neueste UI-Logik im Plan und deshalb ein eigener Schritt.</p>
+    <p class="files mono">features/skills/ArgumentHints.tsx · features/skills/ArgumentPicker.tsx · ComposerCard.tsx (Anbindung) · __tests__/ArgumentHints.test.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 15 — Lauf-Karte im Verlauf">
+    <h3>Schritt 15 — Lauf-Karte im Verlauf <span class="tag">Risiko: mittel</span></h3>
+    <p>Während ein Skill arbeitet, erscheint im Chat eine kompakte Karte: eine Zeile je Subagent-Aufruf mit Rolle, Kurzfassung des Auftrags, Dauer und Status. Aufklappen zeigt Auftrag, Ergebnis und die Rohdaten, die das Modell <em>nicht</em> gesehen hat. Ein Abbrechen-Knopf ist durchgehend sichtbar.</p>
+    <p class="files mono">features/skills/RunCard.tsx · features/skills/RunStep.tsx · ChatContext.tsx (Darstellung im Verlauf)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 16 — Übersicht der Datei-Änderungen">
+    <h3>Schritt 16 — Übersicht der Datei-Änderungen <span class="tag">Risiko: mittel</span></h3>
+    <p>Jeder Schreibzugriff und jeder Terminal-Befehl, der Dateien verändert, wird protokolliert. Am Ende des Laufs zeigt der Chat eine Liste: neu, geändert, gelöscht — aufklappbar mit Vorher/Nachher. Das ist die Gegenleistung dafür, dass Skills ohne Rückfrage arbeiten dürfen: Du siehst hinterher lückenlos, was passiert ist.</p>
+    <p class="files mono">services/skills/changeTracker.js · features/skills/ChangeSummary.tsx · services/postgres/init/112_skill_runs.sql (Änderungs-Spalte)</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 17 — Anlege- und Bearbeiten-Dialog">
+    <h3>Schritt 17 — Anlege- und Bearbeiten-Dialog <span class="tag">Risiko: mittel</span></h3>
+    <p>Ein Dialog mit Formular links und der erzeugten Markdown-Datei als Live-Vorschau rechts: Name, Beschreibung, Argumente zeilenweise, Werkzeuge als Ankreuzfelder, Ordner über einen Baum-Picker, Subagent-Rollen, Grenzen, Prompt. Derselbe Dialog dient zum Bearbeiten und enthält den Löschen-Knopf. Speichern schreibt die geprüfte Datei.</p>
+    <p class="files mono">features/skills/SkillDialog.tsx · features/skills/SkillForm.tsx · features/skills/MarkdownPreview.tsx · __tests__/SkillDialog.test.tsx</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 18 — Drei Beispiel-Skills und Dokumentation">
+    <h3>Schritt 18 — Drei Beispiel-Skills und Dokumentation <span class="tag">Risiko: niedrig</span></h3>
+    <p>Bei der Einrichtung werden drei Skills angelegt, die je eine Fähigkeit vorführen und zugleich der Live-Nachweis auf dem Jetson sind: Dokument zusammenfassen (Datei-Argument), Wissen (RAG mit Quellen), Recherche (Subagenten mit Websuche). Alle drei sind bearbeitbar und löschbar. Parallel wird die Dokumentation nachgezogen.</p>
+    <p class="files mono">data/skills/{dokument-zusammenfassen,wissen,recherche}.md · docs/features/SKILLS.md (ersetzt AGENTS.md) · docs/api/API_REFERENCE.md · docs/ENVIRONMENT_VARIABLES.md · docs/INDEX.md</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 19 — Politur — Antwortdarstellung">
+    <h3>Schritt 19 — Politur — Antwortdarstellung <span class="tag">Risiko: niedrig</span></h3>
+    <p>Lange Antworten werden lesbarer: klarere Überschriften und Abstände, Code-Blöcke mit Kopier-Knopf, Quellenangaben als abgesetzte Chips statt im Fließtext. Reine Darstellung, keine Änderung an der Chat-Logik.</p>
+    <p class="files mono">features/workspace/llm/**/MessageBody.tsx (bzw. entsprechende Darstellungskomponente) · Theme-Token, keine Farbliterale</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 20 — Politur — Unterhaltungen wiederfinden">
+    <h3>Schritt 20 — Politur — Unterhaltungen wiederfinden <span class="tag">Risiko: niedrig</span></h3>
+    <p>Die Liste vergangener Unterhaltungen bekommt ein Suchfeld, Umbenennen und einen automatisch erzeugten Titel aus der ersten Nachricht. Damit findest du zurück zu einem Skill-Lauf von letzter Woche.</p>
+    <p class="files mono">features/workspace/llm/ConversationList.tsx · routes/chat.js (Umbenennen, Suche) · __tests__ entsprechend</p>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 19 Kriterien — vom leeren Fluss-Repository bis zum Lauf, der das Schließen des Tabs überlebt.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Im Repository existiert kein Fluss-, Canvas-, Zeitplaner- oder Provider-Schlüssel-Code mehr; die Suche nach <code>flowEngine</code>, <code>FlowsView</code>, <code>@xyflow/react</code> liefert keine Treffer.</li>
+    <li data-done="false">Die n8n-Funktionen sind unversehrt: <code>routes/store/workflows.js</code> und <code>tools/workflowsTool.js</code> existieren weiter, die Automationen-Ansicht funktioniert unverändert.</li>
+    <li data-done="false">Die Navigation enthält keinen Agenten- oder Flüsse-Eintrag mehr; der normale Chat verhält sich exakt wie vorher.</li>
+    <li data-done="false">Ein Druck auf <code>/</code> im Chat öffnet ein gefiltertes Skill-Menü mit Bearbeiten-Symbol, <code>/skills</code> und <code>/neuer-skill</code>.</li>
+    <li data-done="false">Nach Auswahl eines Skills stehen die erwarteten Argumente grau hinter dem Befehl; Tippen überschreibt sie, Tab springt zum nächsten Argument.</li>
+    <li data-done="false">Ein Argument vom Typ Datei öffnet einen Workspace-Picker, ein Argument vom Typ Auswahl eine Liste, ein Argument vom Typ Wissensbasis die vorhandenen Sammlungen.</li>
+    <li data-done="false"><code>/neuer-skill</code> öffnet einen Dialog mit Formular und Live-Vorschau der Markdown-Datei; Speichern legt eine gültige Datei unter <code>data/skills/</code> an, die sofort im Menü erscheint.</li>
+    <li data-done="false">Ein Skill kann nur auf die in ihm hinterlegten Ordner zugreifen; ein Zugriff darüber hinaus oder über <code>../</code> wird abgewiesen.</li>
+    <li data-done="false">Ein Skill mit Terminal-Werkzeug führt Befehle im Sandbox-Container aus, mit dem Haupt-Ordner als Arbeitsverzeichnis.</li>
+    <li data-done="false"><code>web_suche</code> liefert Treffer aus dem eigenen SearXNG-Container ohne externen Schlüssel; <code>web_lesen</code> liefert bereinigten Text unter der Zeichengrenze.</li>
+    <li data-done="false">Ein Subagent-Ergebnis erreicht den Orchestrator ausschließlich in den deklarierten Feldern und unter der Zeichengrenze; die Rohdaten sind im Lauf-Protokoll sichtbar, aber nachweislich nicht im Modell-Kontext.</li>
+    <li data-done="false">Ein Lauf bricht sauber ab, sobald Gesamtzähler, Ebenen-Grenze, Werkzeug-Runden oder Zeitlimit erreicht sind, und nennt den Grund samt bisherigem Ergebnis.</li>
+    <li data-done="false">Während eines Skill-Laufs bleibt eine normale Chat-Nachricht bedienbar und wird vorgezogen.</li>
+    <li data-done="false">Wird der Browser-Tab während eines Laufs geschlossen und später wieder geöffnet, zeigt der Chat den aktuellen Stand beziehungsweise das fertige Ergebnis.</li>
+    <li data-done="false">Der Abbrechen-Knopf beendet einen laufenden Skill innerhalb weniger Sekunden.</li>
+    <li data-done="false">Am Ende eines Laufs mit Schreibzugriffen erscheint eine Übersicht neuer, geänderter und gelöschter Dateien mit aufklappbarem Vorher/Nachher.</li>
+    <li data-done="false">Die drei Beispiel-Skills sind nach der Einrichtung im Menü vorhanden und laufen erfolgreich durch.</li>
+    <li data-done="false"><code>./scripts/test/run-tests.sh --all</code> läuft grün.</li>
+    <li data-done="false">API-Referenz, Datenbank-Schema, Umgebungsvariablen und die Feature-Dokumentation entsprechen dem neuen Stand; <code>docs/features/AGENTS.md</code> ist durch die Skill-Dokumentation ersetzt.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Alles im echten Browser auf dem Jetson: Abriss belegen, drei Beispiel-Skills fahren, Subagenten aufklappen, Grenzen provozieren.</span>
+  </summary>
+  <div class="sbody">
+  <p>Verifiziert wird ausschließlich auf dem Jetson im echten Browser
+(<span class="mono">https://192.168.0.197</span>), nicht lokal — es gibt keinen Entwicklungsserver.
+Nach dem Bauen der betroffenen Dienste wird durchgespielt:</p>
+
+<h3>Abriss belegen</h3>
+<ul>
+  <li>Nach dem Einloggen: kein Navigationspunkt „Agenten“ und keine Flüsse-Ansicht mehr vorhanden.</li>
+  <li>Ein normaler Chat mit RAG läuft unverändert durch — Antwort kommt gestreamt an, Quellen erscheinen.</li>
+  <li>Die Automationen-/n8n-Ansicht öffnet und zeigt Workflows: Beweis, dass kein n8n-Code mitgelöscht wurde.</li>
+  <li>Vor der Migration wird in der Datenbank gezählt, wie viele Fluss-Datensätze existieren; die Zahl wird im Report festgehalten. Danach: Tabellen sind fort, Backend startet gesund.</li>
+</ul>
+
+<h3>Skills bedienen</h3>
+<ul>
+  <li><code>/</code> im Chat drücken: Menü erscheint, Tippen filtert, die drei Beispiel-Skills sind sichtbar.</li>
+  <li>Einen Skill auswählen: der Befehl steht im Feld, dahinter grau die Argumente. Tippen überschreibt den grauen Text, Tab springt zum nächsten Argument.</li>
+  <li><code>/dokument-zusammenfassen</code> mit einer echten Datei aus dem Workspace ausführen: der Datei-Picker öffnet, die Zusammenfassung kommt an.</li>
+  <li><code>/wissen</code> mit einer Frage und einer Wissensbasis ausführen: Antwort mit Quellenangabe.</li>
+</ul>
+
+<h3>Subagenten und Web-Recherche</h3>
+<ul>
+  <li><code>/recherche</code> mit einem echten Thema starten: In der Lauf-Karte erscheinen nacheinander sucher, mehrere leser, prüfer und synthese, jeweils mit Dauer und Status.</li>
+  <li>Eine Subagent-Zeile aufklappen: Auftrag, verdichtetes Ergebnis und die Rohdaten sind sichtbar — und die Rohdaten sind nachweislich <em>nicht</em> Teil dessen, was der Orchestrator bekommen hat.</li>
+  <li>Während der Lauf läuft, eine normale Chat-Nachricht senden: sie wird vorgezogen und beantwortet.</li>
+  <li>Browser-Tab schließen, nach einer Minute wieder öffnen: der Lauf ist weitergelaufen und zeigt Stand oder Ergebnis.</li>
+  <li>Einen zweiten Lauf starten und über den Abbrechen-Knopf beenden: er stoppt innerhalb weniger Sekunden mit klarer Meldung.</li>
+</ul>
+
+<h3>Terminal, Schreibzugriff und Grenzen</h3>
+<ul>
+  <li>Einen Test-Skill mit Terminal- und Schreibrecht anlegen und ausführen: Befehle laufen im Sandbox-Container, das Arbeitsverzeichnis stimmt.</li>
+  <li>Am Ende erscheint die Änderungs-Übersicht mit neuen, geänderten und gelöschten Dateien samt Vorher/Nachher.</li>
+  <li>Einen Zugriff außerhalb der erlaubten Ordner provozieren: er wird abgewiesen, der Lauf bricht nicht unkontrolliert ab.</li>
+  <li>Die Grenzen künstlich niedrig setzen und einen Lauf hineinlaufen lassen: er endet sauber mit Nennung der erreichten Grenze und dem bisherigen Ergebnis.</li>
+</ul>
+
+<h3>Anlegen und Betrieb</h3>
+<ul>
+  <li><code>/neuer-skill</code>: Dialog öffnet, Formular ausfüllen, Vorschau aktualisiert sich, Speichern legt die Datei an, der Skill erscheint sofort im Menü.</li>
+  <li>Denselben Skill über das Stift-Symbol bearbeiten und wieder löschen.</li>
+  <li><code>docker compose ps</code>: SearXNG ist gesund. Logs von Backend und SearXNG ohne Fehlerstapel.</li>
+  <li>Politur prüfen: eine lange Antwort ist sauber gegliedert, Code-Blöcke haben einen Kopier-Knopf; die Unterhaltungs-Liste lässt sich durchsuchen und umbenennen.</li>
+</ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größte Posten: autonome Schreibzugriffe (bewusst getragen), der Eingriff in ChatContext und das fehlende Sandbox-Image.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>      <tr><td>Autonome Terminal- und Schreibzugriffe zerstören Daten — Skills laufen bewusst ohne Rückfrage.</td><td>mittel</td><td>Bewusst akzeptiert (deine Entscheidung). Abgefedert durch: Ausführung nur im Sandbox-Container, Beschränkung auf die im Skill hinterlegten Ordner, lückenlose Änderungs-Übersicht am Ende, Abbrechen-Knopf, Zeitlimit. Der Workspace liegt im regulären Backup.</td></tr>
+      <tr><td>Chirurgischer Eingriff in <code>ChatContext.tsx</code> bricht den normalen Chat — dort liegen Agenten-Streams und Chat-Stream in derselben Datei.</td><td>mittel</td><td>Nur die benannten Zeilenbereiche entfernen, keine Datei-Neufassung. Nach dem Schritt Chat-Streaming im echten Browser prüfen, bevor weitergearbeitet wird.</td></tr>
+      <tr><td>Versehentliches Mitlöschen von n8n-Code — <code>workflows.js</code> und <code>workflowsTool.js</code> klingen nach Fluss, gehören aber zu n8n.</td><td>mittel</td><td>Beide Dateien stehen namentlich auf der Nicht-anfassen-Liste in Schritt 1. Akzeptanzkriterium prüft ihre Existenz und die funktionierende Automationen-Ansicht.</td></tr>
+      <tr><td>Umgebungsvariablen des Fluss-Layers werden entfernt, obwohl die behaltene Werkzeug-Schleife sie mitbenutzt (etwa die Runden-Obergrenze).</td><td>mittel</td><td>Vor dem Löschen jede <code>AGENT_*</code>-Variable auf Nutzung in behaltenem Code prüfen; benötigte werden auf <code>SKILL_*</code> umbenannt und in der Dokumentation nachgezogen.</td></tr>
+      <tr><td>Der Sandbox-Container fehlt auf frischen Geräten — das Terminal-Werkzeug schlägt dann bei jedem Skill fehl.</td><td>hoch</td><td>Bekanntes Problem, wird in Schritt 7 mitbehoben: Image-Build in den Deploy-Pfad aufnehmen und beim Start prüfen. Fehlt er trotzdem, meldet das Werkzeug eine klare Ursache statt eines Absturzes.</td></tr>
+      <tr><td>Kleine lokale Modelle erzeugen unsaubere Subagent-Ergebnisse und sprengen trotz Vertrag den Kontext.</td><td>mittel</td><td>Der Vertrag wird technisch erzwungen, nicht erhofft: Antworten werden gegen die deklarierten Felder geprüft und hart auf die Zeichengrenze gekappt, bevor sie den Orchestrator erreichen. Verstößt eine Rolle wiederholt, endet der Aufruf als Fehlschlag statt als Kontext-Flut.</td></tr>
+      <tr><td>Zwei Subagent-Ebenen auf einer sequenziellen GPU führen zu sehr langen Läufen.</td><td>mittel</td><td>Gesamtzähler über alle Ebenen (Standard 20), Zeitlimit 900 Sekunden, sichtbarer Fortschritt und jederzeit erreichbarer Abbrechen-Knopf. Grenzen sind je Skill hochsetzbar, wenn du es bewusst willst.</td></tr>
+      <tr><td>SearXNG als zusätzlicher Container verbraucht Speicher und kann bei Suchanbieter-Sperren leere Treffer liefern.</td><td>niedrig</td><td>ARM64-Image ist bestätigt verfügbar. Ressourcengrenzen im Compose setzen; liefert die Suche nichts, meldet das Werkzeug „keine Treffer“ statt zu blockieren.</td></tr></tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <ul>
+  <li><strong>Code:</strong> Jeder Schritt ist ein eigener Pull-Request auf einem Zweig; ein einzelner Schritt lässt sich per Revert zurücknehmen. Der gelöschte Agenten- und Fluss-Code bleibt vollständig in der Git-Historie (Stand <code>39e65a1</code>) und ist damit wiederherstellbar, auch wenn er im Arbeitsstand verschwindet.</li>
+  <li><strong>Datenbank:</strong> Migration 111 löscht Tabellen und ist bewusst <em>nicht</em> umkehrbar — die Daten sind danach nur über ein Backup zurückzuholen. Deshalb wird vor dem Ausführen gezählt und berichtet. Migration 112 legt nur neue Tabellen an und lässt sich folgenlos droppen.</li>
+  <li><strong>SearXNG:</strong> Container aus dem Compose nehmen; Skills mit Websuche melden dann „nicht verfügbar“, alles andere läuft weiter.</li>
+  <li><strong>Skills:</strong> Liegen als Dateien in einem eigenen Volume. Ein fehlerhafter Skill wird gelöscht oder umbenannt, ohne dass Code angefasst werden muss.</li>
+  <li><strong>Deploy:</strong> Bei Problemen auf dem Jetson auf den vorherigen Stand zurückwechseln und die betroffenen Dienste neu bauen — der etablierte Weg aus den vorangegangenen Plänen.</li>
+</ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 32 Entscheidungen aus sechs Interview-Runden — inklusive der zweimal bestätigten Absage an ein Rechtekonzept.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>      <tr><td>Wie radikal löschen wir den Agenten-/Fluss-Code?</td><td>Nur die Komplexitätsschicht löschen (Flüsse, Canvas, Zeitplaner, Provider-Schlüssel, Agenten-Bereich); das Fundament (Werkzeug-Schleife, Pfad-Sandbox, Datei-/RAG-/Terminal-Werkzeuge) wird zur Skill-Engine umgebaut.</td><td>Deutlich weniger Neubau und weniger neue Fehler, dafür bleibt bestehender Code erhalten, der umbenannt und angepasst werden muss.</td></tr>
+      <tr><td>Wie speziell ist ein Skill?</td><td>Prompt-Vorlage plus Werkzeugkasten: Name, Beschreibung, Argumente, System-Prompt, erlaubte Werkzeuge, erlaubte Ordner. Kein Graph.</td><td>Ein Skill bleibt in einer Datei überschaubar; mehrstufige Abläufe entstehen über Subagenten, nicht über gezeichnete Knoten.</td></tr>
+      <tr><td>Wo lebt eine Skill-Definition?</td><td>Als Markdown-Datei mit Kopfdaten, wie bei Claude Code.</td><td>Skills sind lesbar, kopierbar und teilbar; dafür muss die Oberfläche Dateien schreiben und Formatfehler abfangen.</td></tr>
+      <tr><td>Was passiert mit vorhandenen Agenten- und Fluss-Daten?</td><td>Ersatzlos löschen, Tabellen droppen — nach vorheriger Zählung auf dem Jetson.</td><td>Sauberer Schnitt ohne Altlasten; vorhandene Fluss-Definitionen sind unwiederbringlich weg (außer über ein Backup).</td></tr>
+      <tr><td>Was passiert beim Tippen von <code>/</code> und danach?</td><td>Gefiltertes Menü, nach Auswahl grauer Argument-Hinweis im Eingabefeld, Tab springt zum nächsten Argument.</td><td>Bedienung wie bei Claude Code; erfordert eigene Eingabefeld-Logik statt eines einfachen Formulars.</td></tr>
+      <tr><td>Welche Argumenttypen gibt es?</td><td>Freitext, Datei aus dem Workspace, Auswahlliste, RAG-Sammlung.</td><td>Der Skill kann gezielt genau den Kontext anfordern, den er braucht — Grundlage der Kontext-Sparsamkeit; kostet vier Eingabe-Varianten in der Oberfläche.</td></tr>
+      <tr><td>Welche Werkzeuge bekommt ein Skill?</td><td>Dateien lesen, Dateien schreiben, RAG-Suche, Websuche, Seiten lesen, Terminal, Subagent.</td><td>Ein Skill kann realistisch wie ein Coding-Agent arbeiten; die Angriffsfläche ist entsprechend groß und wird bewusst getragen.</td></tr>
+      <tr><td>Wie legt man einen Skill an?</td><td>Formular-Dialog mit Live-Vorschau der erzeugten Markdown-Datei.</td><td>Kein Formatwissen nötig, trotzdem bleibt die Datei die Wahrheit; ein Dialog mehr zu bauen und zu testen.</td></tr>
+      <tr><td>Ein Plan oder zwei?</td><td>Ein großer Plan mit allem — Abriss, Skills, Subagenten, Web-Recherche, Politur.</td><td>Vollständiges Bild vorab; das erste benutzbare Ergebnis kommt später, und die Schritte 1 bis 12 sind Vorarbeit ohne sichtbaren Nutzen.</td></tr>
+      <tr><td>Wie werden Subagenten definiert?</td><td>Feste Rollen im Skill deklariert; der Orchestrator ruft sie über ein Werkzeug auf und entscheidet Reihenfolge und Häufigkeit selbst.</td><td>Klare Grenzen ohne Graph; ein kleines lokales Modell muss keine Prompts erfinden, sondern nur delegieren.</td></tr>
+      <tr><td>Wie bleibt der Orchestrator-Kontext klein?</td><td>Harter Ergebnis-Vertrag je Rolle: deklarierte Felder plus Zeichen-Obergrenze, technisch erzwungen. Rohdaten erreichen den Orchestrator nie.</td><td>Der zentrale Hebel für kleine lokale Modelle; Rohdaten bleiben nur im Protokoll sichtbar, nicht in der Antwortkette.</td></tr>
+      <tr><td>Wie weit geht der Web-Zugriff?</td><td>Abrufen und Text extrahieren, kein Browser, keine Screenshots.</td><td>Klein, schnell und auf ARM64 verlässlich; Seiten hinter Login oder reinem JavaScript bleiben unerreichbar.</td></tr>
+      <tr><td>Woher kommen Suchtreffer?</td><td>SearXNG als eigener Container im Stack.</td><td>Keine Schlüssel, kein Drittanbieter-Konto, DSGVO-freundlich; ein Container mehr zu betreiben.</td></tr>
+      <tr><td>Was siehst du während eines Laufs?</td><td>Aufklappbare Schritt-Liste im Chat-Verlauf, live, mit Abbrechen-Knopf.</td><td>Nachvollziehbar ohne Ansichtswechsel; die Chat-Darstellung wird um eine eigene Karte erweitert.</td></tr>
+      <tr><td>Welches Modell nutzen Orchestrator und Subagenten?</td><td>Je Rolle wählbar, sonst das Standard-Chatmodell.</td><td>Kleine Rollen können auf kleinen Modellen laufen; die Modellverwaltung wird etwas komplexer.</td></tr>
+      <tr><td>Was passiert mit dem Agenten-Bereich?</td><td>Ersatzlos entfernt — Skills leben ausschließlich im Chat.</td><td>Ein Konzept statt zwei; bei sehr vielen Skills wird das Menü irgendwann lang.</td></tr>
+      <tr><td>Nacheinander oder gleichzeitig auf der GPU?</td><td>Strikt nacheinander, normaler Chat hat Vorrang.</td><td>Keine Speicherüberlastung und vorhersagbares Verhalten; lange Läufe dauern entsprechend lang.</td></tr>
+      <tr><td>Welche Notbremsen gibt es?</td><td>Gesamtzähler über alle Ebenen, Ebenen-Grenze, Werkzeug-Runden je Subagent, Zeitlimit, Ergebnis-Deckel, Abbrechen-Knopf.</td><td>Eine Endlosschleife kann das Gerät nicht dauerhaft belegen; jede Grenze ist je Skill hochsetzbar.</td></tr>
+      <tr><td>Wer darf Skills anlegen und welche Werkzeuge wählen?</td><td>Jeder darf alles — es gibt bewusst kein Rechtekonzept, die Anwendung kennt nur einen Admin.</td><td>Keine Rollenprüfung im Code. Das Risiko der Rechteausweitung wird bewusst getragen und ist in §7 vermerkt.</td></tr>
+      <tr><td>Bekommen Skills Shell-Zugriff?</td><td>Ja — Terminal ist ausdrücklich gewünscht, damit Skills wie ein Coding-Agent arbeiten können.</td><td>Ausführung im Sandbox-Container statt im Backend, damit ein Fehlgriff nicht das Dashboard trifft.</td></tr>
+      <tr><td>Wo läuft ein Shell-Befehl?</td><td>Im <code>arasul-sandbox</code>-Container, Arbeitsverzeichnis ist der Haupt-Ordner des Skills.</td><td>Ein Absturz betrifft nur den Container; dafür muss die bekannte Lücke beim Bauen des Images geschlossen werden.</td></tr>
+      <tr><td>Was passiert, wenn der Tab während eines Laufs zugeht?</td><td>Der Lauf läuft serverseitig weiter, die Ansicht klinkt sich später wieder ein.</td><td>Voraussetzung für lange autonome Aufgaben; erfordert Lauf-Tabellen und Wiederverbinden im Ereignis-Strom.</td></tr>
+      <tr><td>Fragt ein Skill vor riskanten Befehlen nach?</td><td>Nein — immer autonom, keine Rückfragen.</td><td>Lange Läufe bleiben ungestört; die einzige Bremse sind Grenzen und Abbrechen-Knopf. Bewusst getragenes Risiko.</td></tr>
+      <tr><td>Wie siehst du, was ein Skill verändert hat?</td><td>Übersicht aller Datei-Änderungen am Ende des Laufs, mit Vorher/Nachher.</td><td>Nachvollziehbarkeit als Gegenleistung zur fehlenden Rückfrage; kein automatisches Zurücksetzen.</td></tr>
+      <tr><td>Worauf zeigt ein Skill?</td><td>Mehrere Ordner je Skill, der erste ist das Arbeitsverzeichnis.</td><td>Skills können zwei Quellen verbinden (etwa Vorlagen und Verträge); die Pfad-Sandbox muss mehrere Wurzeln beherrschen.</td></tr>
+      <tr><td>Darf ein Subagent selbst delegieren?</td><td>Ja, zwei Ebenen — begrenzt durch einen Gesamtzähler über alle Ebenen und ein Zeitlimit.</td><td>Größere Aufgaben sind zerlegbar, ohne dass die Aufrufzahl explodiert.</td></tr>
+      <tr><td>Wie werden Skills bearbeitet und gelöscht?</td><td>Über das Slash-Menü selbst (Stift-Symbol), plus <code>/skills</code> als Übersicht.</td><td>Alles bleibt an einem Ort; kein zusätzlicher Verwaltungsbereich.</td></tr>
+      <tr><td>Wo liegen die Skill-Dateien?</td><td>In einem eigenen Volume unter <code>data/skills/</code>, getrennt vom Nutzer-Workspace.</td><td>Rebuild-fest und im Backup enthalten; ein Skill kann seine eigene Definition nicht versehentlich überschreiben.</td></tr>
+      <tr><td>Was heißt „der Chat soll übersichtlicher werden“ konkret?</td><td>Zwei Politur-Schritte am Ende: Antwortdarstellung aufräumen und Unterhaltungen wiederfindbar machen. Sonst bleibt der Chat unverändert.</td><td>Der unscharfe Wunsch wird zu zwei prüfbaren Schritten; sie stehen am Ende, damit die Kernarbeit nicht davon abhängt.</td></tr>
+      <tr><td>Wie hängt n8n künftig mit Skills zusammen?</td><td>Gar nicht — n8n bleibt eigenständig, nur das Fluss-n8n-Werkzeug wird mitgelöscht.</td><td>Zwei getrennte Werkzeuge für zwei Zwecke; zeitgesteuerte Skill-Läufe gibt es vorerst nicht.</td></tr>
+      <tr><td>Gibt es ein ARM64-Image für SearXNG? (Recherche-Agent konnte es nicht prüfen)</td><td>Ja — beim Planen selbst geprüft: <code>searxng/searxng:latest</code> führt <code>linux/arm64</code>.</td><td>Kein offener Punkt mehr; der Container kann ohne Eigenbau in den Stack.</td></tr>
+      <tr><td>Liefern wir Beispiel-Skills mit?</td><td>Ja, drei: Dokument zusammenfassen, Wissen, Recherche.</td><td>Das System ist nach dem Deploy sofort benutzbar und die Beispiele sind zugleich der Live-Nachweis auf dem Jetson.</td></tr></tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 011 · erstellt am 2026-07-21 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/011-skills-im-chat.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // restore persisted state
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
