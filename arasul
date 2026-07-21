@@ -648,6 +648,18 @@ build_images() {
     }
 
     log_success "Custom images built"
+
+    # Sandbox-Image: kein compose-Service, sondern ein Image, das das Backend
+    # bei Bedarf startet (Workspace-Terminals, Terminalbefehle von Skills).
+    # Weil es in keiner compose-Datei steht, wurde es bisher nie gebaut und
+    # fehlte auf jedem frisch aufgesetzten Geraet. Nicht-fatal: Die Plattform
+    # laeuft auch ohne, nur Terminal-Funktionen fehlen dann.
+    log_info "Building sandbox image (arasul-sandbox:latest)..."
+    if docker build -t arasul-sandbox:latest "${SCRIPT_DIR}/services/sandbox" > /dev/null 2>&1; then
+        log_success "Sandbox image built"
+    else
+        log_warning "Sandbox-Image konnte nicht gebaut werden — Terminal-Funktionen bleiben deaktiviert"
+    fi
 }
 
 # Initialize database

@@ -101,18 +101,47 @@ fi
 declare -A SVC_SET=()
 INFRA_CHANGE=0
 MIGRATION_CHANGE=0
+SANDBOX_CHANGE=0
 for f in "${CHANGED[@]}"; do
   case "$f" in
     compose/*|docker-compose.yml|.env|.env.*) INFRA_CHANGE=1 ;;
     services/postgres/init/*) MIGRATION_CHANGE=1; SVC_SET["dashboard-backend"]=1 ;;
+    services/sandbox/*) SANDBOX_CHANGE=1 ;;
   esac
   for p in "${!PATH2SVC[@]}"; do
     [[ "$f" == "$p"* ]] && SVC_SET["${PATH2SVC[$p]}"]=1
   done
 done
 
+# --- 2b. Sandbox-Image (arasul-sandbox:latest) -------------------------------
+# Das Sandbox-Image ist KEIN compose-Service — es hat keinen laufenden
+# Container, sondern wird vom Backend bei Bedarf gestartet (Workspace-Terminals
+# und, seit Plan 011 Schritt 7, Terminalbefehle von Skills). Genau deshalb hat
+# es bisher NIEMAND gebaut: Auf einem frisch aufgesetzten Geraet fehlte es, und
+# jeder Terminal-Aufruf lief ins Leere.
+#
+# Gebaut wird nur, wenn es fehlt oder wenn services/sandbox/ sich geaendert hat
+# — der Build dauert Minuten (apt, Node, Docker-CLI) und gehoert nicht in jeden
+# Deploy. Ein Fehlschlag ist bewusst KEIN Rollback-Grund: Die Plattform selbst
+# laeuft ohne dieses Image weiter, nur Terminal-Funktionen fehlen, und die
+# melden dann eine klare Ursache statt abzustuerzen.
+SANDBOX_IMAGE="arasul-sandbox:latest"
+if [ "$SANDBOX_CHANGE" -eq 1 ] || ! docker image inspect "$SANDBOX_IMAGE" >/dev/null 2>&1; then
+  log "Baue Sandbox-Image $SANDBOX_IMAGE (Aenderung: $SANDBOX_CHANGE)"
+  if docker build -t "$SANDBOX_IMAGE" "$DEPLOY_DIR/services/sandbox"; then
+    ok "Sandbox-Image gebaut"
+  else
+    warn "Sandbox-Image konnte nicht gebaut werden — Terminal-Funktionen bleiben deaktiviert."
+    summary "⚠️ Sandbox-Image-Build fehlgeschlagen — Terminal-Werkzeuge nicht verfuegbar."
+  fi
+fi
+
 SERVICES=("${!SVC_SET[@]}")
 if [ "${#SERVICES[@]}" -eq 0 ] && [ "$INFRA_CHANGE" -eq 0 ]; then
+  if [ "$SANDBOX_CHANGE" -eq 1 ]; then
+    ok "Nur das Sandbox-Image war betroffen — kein Service-Rebuild noetig."
+    summary "Deploy: sandbox image only."; exit 0
+  fi
   ok "Nur nicht-deploybare Dateien (docs/.claude/.github/tests) geaendert — kein Rebuild."
   summary "Deploy: only non-deployable files changed — skipped."; exit 0
 fi
