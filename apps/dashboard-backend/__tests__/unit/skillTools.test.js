@@ -286,10 +286,10 @@ describe('Werkzeug-Registry', () => {
   });
 
   it('meldet noch nicht gebaute Werkzeuge klar, statt still zu fehlen', async () => {
-    // `terminal` ist seit Schritt 7 echt; die Websuche kommt erst mit Schritt 8.
-    const [web] = buildTools(['web_suche']);
-    expect(web.name).toBe('web_suche');
-    expect(await web.execute({}, {})).toMatch(/noch nicht verfügbar.*Schritt 8/s);
+    // Terminal (7) und Web (8) sind echt; der Subagent kommt erst mit Schritt 11.
+    const [sub] = buildTools(['subagent']);
+    expect(sub.name).toBe('subagent');
+    expect(await sub.execute({}, {})).toMatch(/noch nicht verfügbar.*Schritt 11/s);
   });
 
   it('liefert für "terminal" das echte Werkzeug, keinen Platzhalter mehr', () => {
@@ -299,7 +299,7 @@ describe('Werkzeug-Registry', () => {
 
   it('nennt die heute wirklich benutzbaren Werkzeuge', () => {
     expect(implementedTools().sort()).toEqual(
-      ['dateien_lesen', 'dateien_schreiben', 'rag_suche', 'terminal'].sort()
+      ['dateien_lesen', 'dateien_schreiben', 'rag_suche', 'terminal', 'web_suche', 'web_lesen'].sort()
     );
   });
 });

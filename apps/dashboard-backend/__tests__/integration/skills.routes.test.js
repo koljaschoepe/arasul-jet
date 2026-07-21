@@ -181,12 +181,12 @@ describe('Skills-Routen', () => {
       const res = await auth(request(app).get('/api/skills/werkzeuge'));
       expect(res.status).toBe(200);
       const nach = Object.fromEntries(res.body.data.map(w => [w.name, w.verfuegbar]));
-      // Schritte 6 und 7 gebaut …
+      // Schritte 6, 7 und 8 gebaut …
       expect(nach.dateien_lesen).toBe(true);
       expect(nach.rag_suche).toBe(true);
       expect(nach.terminal).toBe(true);
-      // … Rest folgt in den Schritten 8 und 11.
-      expect(nach.web_suche).toBe(false);
+      expect(nach.web_suche).toBe(true);
+      // … der Subagent folgt in Schritt 11.
       expect(nach.subagent).toBe(false);
     });
 

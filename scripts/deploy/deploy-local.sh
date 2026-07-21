@@ -85,6 +85,12 @@ if [ ! -s "$SECRETS_DIR/n8n_owner_email" ]; then
   chmod 600 "$SECRETS_DIR/n8n_owner_email"
   ok "n8n-Owner-E-Mail-Secret erzeugt (config/secrets/n8n_owner_email)"
 fi
+# SearXNG startet ohne Geheimnis gar nicht. Es traegt keine Daten, ist also
+# gefahrlos automatisch erzeugbar — und je Geraet verschieden.
+if ! grep -q '^SEARXNG_SECRET=' "$DEPLOY_DIR/.env" 2>/dev/null; then
+  printf '\nSEARXNG_SECRET=%s\n' "$(openssl rand -hex 32)" >> "$DEPLOY_DIR/.env"
+  ok "SEARXNG_SECRET in .env erzeugt"
+fi
 if [ ! -s "$SECRETS_DIR/n8n_owner_password" ]; then
   # n8n-Policy: >= 8 Zeichen, mind. 1 Grossbuchstabe, mind. 1 Ziffer.
   printf 'A1%s' "$(openssl rand -hex 24)" > "$SECRETS_DIR/n8n_owner_password"
