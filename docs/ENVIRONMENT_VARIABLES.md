@@ -508,6 +508,24 @@ aufsetzen (Plan 011). Beide Variablen sind optional mit sinnvollen Defaults.
 
 ---
 
+## Skills
+
+Skills sind Markdown-Dateien mit YAML-Kopfdaten — es gibt keine Tabelle. Die
+Dateien liegen auf dem Host unter `data/skills/` und werden in zwei Container
+gemountet: schreibend ins Backend (`compose/compose.app.yaml`), lesend in den
+Backup-Dienst (`compose/compose.monitoring.yaml`). Beide Variablen sind
+optional; die Defaults passen zu diesen Mounts.
+
+| Variable          | Default        | Description                                                                                                          |
+| ----------------- | -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| SKILLS_DIR        | /arasul/skills | Verzeichnis der Skill-Dateien im Backend-Container; die Registry legt es beim Start an, falls es fehlt               |
+| SKILLS_BACKUP_DIR | /arasul/skills | Quellverzeichnis für die Skill-Sicherung im Backup-Dienst (`services/backup-service/backup.sh`, read-only gemountet) |
+
+> Bewusst getrennt vom Nutzer-Workspace: ein Skill mit Schreibrecht auf einen
+> Arbeitsordner kann seine eigene Definition nicht überschreiben.
+
+---
+
 ## System Paths & Networking
 
 | Variable               | Default                              | Description                                                                                                                                                                                        |

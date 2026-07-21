@@ -83,6 +83,11 @@ services:
       - ../services/postgres/init:/arasul/migrations:ro
       - ../data/sandbox/projects:/arasul/sandbox/projects
       - ../services/sandbox:/arasul/sandbox-build:ro
+      # Skill-Definitionen (Plan 011): bewusst ein eigener Pfad, getrennt vom
+      # Nutzer-Workspace — ein Skill mit Schreibrecht kann seine eigene
+      # Definition damit nicht ueberschreiben. Schreibbar, weil der Anlege-
+      # Dialog hier Dateien erzeugt; ueberlebt Rebuilds und wandert ins Backup.
+      - ../data/skills:/arasul/skills
     security_opt:
       - no-new-privileges:true
     depends_on:

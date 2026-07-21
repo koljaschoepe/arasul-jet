@@ -156,6 +156,9 @@ services:
       - ${BACKUP_PATH:-../data/backups}:/backups
       - arasul-wal:/backups/wal
       - ../scripts/backup/backup.sh:/usr/local/bin/backup-full.sh:ro
+      # Skill-Definitionen (Plan 011) nur-lesend: sie stecken in keiner Datenbank
+      # und waeren bei Geraeteverlust sonst unwiederbringlich weg.
+      - ../data/skills:/arasul/skills:ro
     depends_on:
       postgres-db:
         condition: service_healthy
