@@ -140,7 +140,16 @@ services:
     networks:
       - arasul-backend
       - arasul-monitoring
+      # Ohne dieses Netz hat der Dienst KEINEN Docker-Zugriff — und genau daran
+      # sind MinIO- und Qdrant-Sicherung sowie der Restore-Drill still
+      # gescheitert: `docker exec`/`docker cp`/`docker run` liefen ins Leere,
+      # die Fallbacks im Skript packten ein leeres Verzeichnis ein, und die
+      # Integritaetspruefung meldete das als "verified".
+      - arasul-docker-proxy
     environment:
+      # Zugriff ausschliesslich ueber den restriktiven Socket-Proxy, nie direkt
+      # auf /var/run/docker.sock — gleiches Muster wie dashboard-backend.
+      DOCKER_HOST: tcp://docker-proxy:2375
       POSTGRES_HOST: postgres-db
       POSTGRES_USER: ${POSTGRES_USER}
       # POSTGRES_PASSWORD resolved via Docker secret (compose.secrets.yaml)
