@@ -214,6 +214,26 @@ docker compose exec -T embedding-service curl -s http://localhost:11435/health
 
 > Self-signed TLS certificates produce a browser warning on first access — expected. Click through.
 
+### The sandbox image
+
+`arasul-sandbox:latest` is the odd one out: it appears in no compose file,
+because nothing keeps a container of it running. The backend starts containers
+from it on demand — for workspace terminals, and for terminal commands issued
+by skills. Consequently `docker compose build` never touches it and
+`docker compose config --images` never lists it.
+
+All three install paths now build or ship it explicitly (`./arasul bootstrap`,
+`scripts/deploy/deploy-local.sh`, `scripts/deploy/create-factory-image.sh`).
+Verify it is present:
+
+```bash
+docker image inspect arasul-sandbox:latest >/dev/null && echo present
+docker build -t arasul-sandbox:latest services/sandbox   # rebuild by hand
+```
+
+A missing image never breaks the platform — only terminal features stop
+working, and they report the missing image as the cause.
+
 If a model is not yet pulled (skipped during bootstrap):
 
 ```bash

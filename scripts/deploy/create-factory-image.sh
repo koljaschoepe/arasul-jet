@@ -84,6 +84,18 @@ mkdir -p "$STAGING"
 
 # Get list of all images used by compose
 IMAGES=$(docker compose config --images 2>/dev/null | sort -u)
+
+# Das Sandbox-Image steht in KEINER compose-Datei — es hat keinen laufenden
+# Container, sondern wird vom Backend bei Bedarf gestartet (Workspace-Terminals,
+# Terminalbefehle von Skills). `compose config --images` findet es deshalb nicht,
+# und ohne diesen Zusatz fehlt es im Werksabbild: Auf dem Zielgeraet gaebe es
+# dann kein Terminal. Nur aufnehmen, wenn es lokal wirklich existiert.
+if docker image inspect arasul-sandbox:latest >/dev/null 2>&1; then
+  IMAGES=$(printf '%s\narasul-sandbox:latest' "$IMAGES" | sort -u)
+else
+  echo -e "  ${YELLOW}⚠${NC}  arasul-sandbox:latest fehlt lokal — Werksabbild ohne Terminal-Funktionen"
+fi
+
 IMAGE_COUNT=$(echo "$IMAGES" | wc -l)
 
 echo -e "  Exportiere ${IMAGE_COUNT} Images..."

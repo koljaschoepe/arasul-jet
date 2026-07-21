@@ -19,6 +19,7 @@ const {
   DateienSchreibenTool,
 } = require('../../src/services/skills/tools/dateien');
 const RagSucheTool = require('../../src/services/skills/tools/rag');
+const TerminalTool = require('../../src/services/skills/tools/terminal');
 const { buildTools, implementedTools } = require('../../src/services/skills/toolRegistry');
 
 let base, arbeit, zweit, aussen;
@@ -285,14 +286,20 @@ describe('Werkzeug-Registry', () => {
   });
 
   it('meldet noch nicht gebaute Werkzeuge klar, statt still zu fehlen', async () => {
-    const [terminal] = buildTools(['terminal']);
-    expect(terminal.name).toBe('terminal');
-    expect(await terminal.execute({}, {})).toMatch(/noch nicht verfügbar.*Schritt 7/s);
+    // `terminal` ist seit Schritt 7 echt; die Websuche kommt erst mit Schritt 8.
+    const [web] = buildTools(['web_suche']);
+    expect(web.name).toBe('web_suche');
+    expect(await web.execute({}, {})).toMatch(/noch nicht verfügbar.*Schritt 8/s);
+  });
+
+  it('liefert für "terminal" das echte Werkzeug, keinen Platzhalter mehr', () => {
+    const [tool] = buildTools(['terminal']);
+    expect(tool).toBeInstanceOf(TerminalTool);
   });
 
   it('nennt die heute wirklich benutzbaren Werkzeuge', () => {
     expect(implementedTools().sort()).toEqual(
-      ['dateien_lesen', 'dateien_schreiben', 'rag_suche'].sort()
+      ['dateien_lesen', 'dateien_schreiben', 'rag_suche', 'terminal'].sort()
     );
   });
 });

@@ -6,14 +6,15 @@
  * durchgesetzt wird: Der Runner bekommt ausschließlich das, was der Skill
  * deklariert hat — nicht alles, was es gibt.
  *
- * Noch nicht implementierte Werkzeuge (Terminal, Web, Subagent — Schritte 7, 8
- * und 11) werden hier bewusst als "noch nicht verfügbar" gemeldet, statt still
- * zu fehlen. Ein Skill, der sie deklariert, ist gültig und lässt sich speichern;
+ * Noch nicht implementierte Werkzeuge (Web, Subagent — Schritte 8 und 11)
+ * werden hier bewusst als "noch nicht verfügbar" gemeldet, statt still zu
+ * fehlen. Ein Skill, der sie deklariert, ist gültig und lässt sich speichern;
  * beim Ausführen sagt das Werkzeug dann klar, woran es liegt.
  */
 
 const { DateienLesenTool, DateienSchreibenTool } = require('./tools/dateien');
 const RagSucheTool = require('./tools/rag');
+const TerminalTool = require('./tools/terminal');
 const BaseTool = require('../../tools/baseTool');
 
 /**
@@ -46,7 +47,7 @@ const FACTORIES = {
   dateien_lesen: () => new DateienLesenTool(),
   dateien_schreiben: () => new DateienSchreibenTool(),
   rag_suche: () => new RagSucheTool(),
-  terminal: () => new NochNichtVerfuegbarTool('terminal', 7),
+  terminal: () => new TerminalTool(),
   web_suche: () => new NochNichtVerfuegbarTool('web_suche', 8),
   web_lesen: () => new NochNichtVerfuegbarTool('web_lesen', 8),
   subagent: () => new NochNichtVerfuegbarTool('subagent', 11),
