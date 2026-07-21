@@ -2091,17 +2091,32 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Skills are Markdown files with YAML front matter under `data/skills/` (container path `SKILLS_DIR`, default `/arasul/skills`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken skill can never reach the disk. All routes require authentication.
 
-| Method | Endpoint                  | Description                                              |
-| ------ | ------------------------- | -------------------------------------------------------- |
-| GET    | `/api/skills`             | List all skills (broken files reported separately)       |
-| GET    | `/api/skills/werkzeuge`   | Tool names a skill may declare, each with `verfuegbar`   |
-| GET    | `/api/skills/sammlungen`  | Selectable knowledge spaces (for `typ: wissensbasis`)    |
-| GET    | `/api/skills/:name`       | Get a single skill                                       |
-| GET    | `/api/skills/:name/datei` | Get the raw Markdown file (`text/markdown`)              |
-| POST   | `/api/skills/vorschau`    | Render the file that _would_ be written — without saving |
-| POST   | `/api/skills`             | Create a skill (409 if the name exists)                  |
-| PUT    | `/api/skills/:name`       | Update an existing skill (404 if it does not exist)      |
-| DELETE | `/api/skills/:name`       | Delete a skill                                           |
+| Method | Endpoint                           | Description                                              |
+| ------ | ---------------------------------- | -------------------------------------------------------- |
+| GET    | `/api/skills`                      | List all skills (broken files reported separately)       |
+| GET    | `/api/skills/werkzeuge`            | Tool names a skill may declare, each with `verfuegbar`   |
+| GET    | `/api/skills/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)    |
+| GET    | `/api/skills/:name`                | Get a single skill                                       |
+| GET    | `/api/skills/:name/datei`          | Get the raw Markdown file (`text/markdown`)              |
+| POST   | `/api/skills/vorschau`             | Render the file that _would_ be written — without saving |
+| POST   | `/api/skills`                      | Create a skill (409 if the name exists)                  |
+| PUT    | `/api/skills/:name`                | Update an existing skill (404 if it does not exist)      |
+| DELETE | `/api/skills/:name`                | Delete a skill                                           |
+| GET    | `/api/skills/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`)    |
+| GET    | `/api/skills/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data) |
+| POST   | `/api/skills/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)          |
+
+> The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
+> `werkzeuge`, `sammlungen`, `vorschau`) is a reserved segment: a skill named
+> exactly `laeufe` could not be fetched via `GET /:name`.
+
+**Runs (Plan 011, Schritt 9).** A run persists in the database (`skill_runs` +
+`skill_run_steps`) so it survives closing the browser tab; the live stream
+(Schritt 12) reloads the stored history on reconnect. Runs are scoped by owner:
+a run belonging to another user returns `404`, never `403` — its existence is
+not revealed. Each step stores a condensed `output` (what reaches the
+orchestrator) separately from `raw_output` (page/file content, log-only, loaded
+only with `?raw=1`). Statuses: `laeuft | fertig | fehler | abgebrochen`.
 
 `:name` and the `name` field are restricted to lowercase letters, digits and hyphens (1–50 chars), and must start and end with a letter or digit — the name becomes both the filename and the `/name` slash command in chat.
 
