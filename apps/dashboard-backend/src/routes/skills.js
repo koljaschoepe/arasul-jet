@@ -25,6 +25,7 @@ const {
 } = require('../schemas/skills');
 const registry = require('../services/skills/skillRegistry');
 const { serializeSkillFile, parseSkillFile } = require('../services/skills/skillFile');
+const { implementedTools } = require('../services/skills/toolRegistry');
 
 /**
  * Formt eine interne Definition in die API-Antwort um. `systemPrompt` heißt
@@ -60,11 +61,20 @@ router.get(
 // GET /api/skills/werkzeuge — die verfügbaren Werkzeugnamen.
 // Speist die Ankreuzfelder im Anlege-Dialog, damit die Liste nicht im Frontend
 // dupliziert wird und dort veralten kann.
+//
+// `verfuegbar` sagt, ob das Werkzeug heute schon etwas tut. Ein Skill darf auch
+// ein noch nicht gebautes Werkzeug deklarieren (Terminal, Web, Subagent folgen
+// in den Schritten 7, 8 und 11) — der Dialog kann es dann als "kommt noch"
+// kennzeichnen, statt dem Nutzer eine funktionierende Fähigkeit vorzugaukeln.
 router.get(
   '/werkzeuge',
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json({ data: VALID_TOOLS, timestamp: new Date().toISOString() });
+    const nutzbar = new Set(implementedTools());
+    res.json({
+      data: VALID_TOOLS.map(name => ({ name, verfuegbar: nutzbar.has(name) })),
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 

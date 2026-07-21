@@ -2094,7 +2094,7 @@ Skills are Markdown files with YAML front matter under `data/skills/` (container
 | Method | Endpoint                  | Description                                              |
 | ------ | ------------------------- | -------------------------------------------------------- |
 | GET    | `/api/skills`             | List all skills (broken files reported separately)       |
-| GET    | `/api/skills/werkzeuge`   | Available tool names a skill may declare                 |
+| GET    | `/api/skills/werkzeuge`   | Tool names a skill may declare, each with `verfuegbar`   |
 | GET    | `/api/skills/sammlungen`  | Selectable knowledge spaces (for `typ: wissensbasis`)    |
 | GET    | `/api/skills/:name`       | Get a single skill                                       |
 | GET    | `/api/skills/:name/datei` | Get the raw Markdown file (`text/markdown`)              |
@@ -2135,7 +2135,23 @@ grenzen:
 Recherchiere gründlich zum Thema {{thema}}.
 ```
 
-Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent` (also returned by `GET /api/skills/werkzeuge`). Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`.
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`.
+
+`GET /api/skills/werkzeuge` returns each tool with a `verfuegbar` flag:
+
+```json
+{
+  "data": [
+    { "name": "dateien_lesen", "verfuegbar": true },
+    { "name": "terminal", "verfuegbar": false }
+  ],
+  "timestamp": "2026-07-21T10:00:00.000Z"
+}
+```
+
+A skill may declare a tool that is not built yet — the definition stays valid and saveable, and the tool reports why it did nothing when the skill runs. `verfuegbar: false` currently applies to `terminal`, `web_suche`, `web_lesen` and `subagent`.
+
+**Folders and paths.** A skill may declare several folders in `ordner`; the **first one is the working directory**. Relative paths in the file tools resolve against it, deliberately not against whichever folder happens to contain a matching file — otherwise the same path would write to different places depending on what exists. Another declared folder is addressed by its full path. Every access is symlink-checked, so a symlink pointing out of the allowed folders is rejected even though the link itself sits inside one.
 
 **GET /api/skills Response** — a single unparsable file must not break the slash menu, so it is skipped and reported in `fehlerhaft` instead of failing the request. In the API the Markdown body is called `prompt`.
 
