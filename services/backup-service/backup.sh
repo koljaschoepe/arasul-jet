@@ -124,7 +124,16 @@ mkdir -p "$MINIO_TMP"
 # Zugangsdaten ueber die Umgebung, nicht als Argument — sonst stuenden sie in
 # /proc/<pid>/cmdline.
 export MC_HOST_arasul="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@${MINIO_HOST:-minio}:9000"
-if ! mc mirror --overwrite --quiet arasul/documents "$MINIO_TMP" >/dev/null 2>&1; then
+# Alpine liefert den MinIO-Client als `mcli` aus, nicht als `mc` — der Name `mc`
+# ist dort von GNU Midnight Commander belegt. Andere Distributionen und die
+# offiziellen Binaries heissen `mc`. Beide Namen akzeptieren, statt sich auf
+# einen festzulegen und beim naechsten Basis-Image wieder aufzulaufen.
+MC_BIN=$(command -v mcli || command -v mc || true)
+if [ -z "$MC_BIN" ]; then
+    echo "[$TIMESTAMP] [ERROR] Kein MinIO-Client im Image (weder mcli noch mc) — Dokumente werden NICHT gesichert"
+    MINIO_OK=false
+    BACKUP_OK=false
+elif ! "$MC_BIN" mirror --overwrite --quiet arasul/documents "$MINIO_TMP" >/dev/null 2>&1; then
     echo "[$TIMESTAMP] [ERROR] MinIO mirror failed (MinIO erreichbar? Zugangsdaten?) — Dokumente werden NICHT gesichert"
     MINIO_OK=false
     BACKUP_OK=false
