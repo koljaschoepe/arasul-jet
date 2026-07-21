@@ -138,6 +138,24 @@ describe('htmlZuText', () => {
     expect(text).not.toMatch(/alert|color:red|Startseite|Impressum/);
   });
 
+  it('entfernt Tags, die ein ">" im Attributwert tragen', () => {
+    // Auf dem Jetson an einem echten Wikipedia-Artikel gefunden: `data-parsoid`
+    // transportiert HTML-Schnipsel in Attributen. Ein Stripper, der am ersten
+    // ">" abbricht, hält das Tag dort für beendet und kippt den Rest als Text
+    // in die Ausgabe — 34 Fragmente in einem einzigen Artikel.
+    const { text } = web.htmlZuText(
+      `<p>Vorher</p><span data-parsoid='{"src":"<b>x</b>"}' title="a > b">Inhalt</span><p>Nachher</p>`
+    );
+    expect(text).not.toMatch(/data-parsoid|<b>|"\}/);
+    expect(text).toContain('Inhalt');
+    expect(text).toContain('Vorher');
+    expect(text).toContain('Nachher');
+  });
+
+  it('verwirft ein unabgeschlossenes Tag am Ende, statt Markup durchzulassen', () => {
+    expect(web.htmlZuText('<p>Text</p><div class="offen').text).toBe('Text');
+  });
+
   it('liest den Titel aus', () => {
     expect(web.htmlZuText('<title>Mein Titel</title><p>x</p>').titel).toBe('Mein Titel');
   });

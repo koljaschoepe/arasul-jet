@@ -268,6 +268,60 @@ function entitaeten(text) {
 }
 
 /**
+ * Entfernt HTML-Tags — und zwar mit Blick auf ANFÜHRUNGSZEICHEN.
+ *
+ * Der naheliegende Weg (`/<[^>]+>/g`) endet am ersten `>`. Steht ein `>`
+ * innerhalb eines Attributwertes, gilt das Tag dort fälschlich als beendet und
+ * der Rest landet als Text in der Ausgabe. Das ist kein Randfall: Wikipedia
+ * transportiert in `data-parsoid` ganze HTML-Schnipsel in Attributen — auf dem
+ * Gerät gemessen blieben so 34 Markup-Fragmente in einem einzigen Artikel
+ * stehen. Genau die Sorte Müll, die der Kontext-Deckel eigentlich fernhalten
+ * soll.
+ *
+ * Bewusst ein Durchlauf von Hand statt eines schlaueren Musters: Der Scanner
+ * läuft linear durch die Zeichenkette, kennt also kein Zurücksetzen und kann
+ * an bösartiger Eingabe nicht in exponentielle Laufzeit geraten (ReDoS).
+ */
+function tagsEntfernen(html) {
+  let aus = '';
+  let i = 0;
+  while (i < html.length) {
+    const auf = html.indexOf('<', i);
+    if (auf === -1) {
+      aus += html.slice(i);
+      break;
+    }
+    aus += html.slice(i, auf);
+
+    let j = auf + 1;
+    let quote = null;
+    let geschlossen = false;
+    while (j < html.length) {
+      const c = html[j];
+      if (quote) {
+        if (c === quote) {
+          quote = null;
+        }
+      } else if (c === '"' || c === "'") {
+        quote = c;
+      } else if (c === '>') {
+        geschlossen = true;
+        break;
+      }
+      j += 1;
+    }
+    if (!geschlossen) {
+      // Unabgeschlossenes Tag am Ende: alles ab hier verwerfen, statt rohes
+      // Markup durchzureichen.
+      break;
+    }
+    aus += ' ';
+    i = j + 1;
+  }
+  return aus;
+}
+
+/**
  * Macht aus HTML lesbaren Text.
  *
  * BEWUSST kein HTML-Parser (kein cheerio/jsdom): Das wäre eine weitere
@@ -304,7 +358,7 @@ function htmlZuText(html) {
   // sonst klebt die ganze Seite zu einem einzigen Absatz zusammen.
   t = t.replace(/<\/(p|div|section|article|li|tr|h[1-6]|blockquote)>/gi, '\n');
   t = t.replace(/<br\s*\/?>/gi, '\n');
-  t = t.replace(/<[^>]+>/g, ' ');
+  t = tagsEntfernen(t);
 
   t = entitaeten(t);
   t = t
