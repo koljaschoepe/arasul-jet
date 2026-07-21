@@ -1,14 +1,14 @@
 # Arasul Platform — Database Schema
 
 > **Auto-generated**. Do not edit by hand.
-> Run `scripts/docs/generate-db-schema.sh` to regenerate. Last sync: `2026-05-07T19:17:43Z`
+> Run `scripts/docs/generate-db-schema.sh` to regenerate. Last sync: `2026-07-21T21:58:37Z`
 
 ## Übersicht
 
-- Tabellen: **94**
-- Spalten gesamt: **1258**
-- Foreign Keys: **72**
-- Indexes: **367**
+- Tabellen: **89**
+- Spalten gesamt: **1186**
+- Foreign Keys: **58**
+- Indexes: **334**
 
 ---
 
@@ -497,10 +497,156 @@
 
 ---
 
+## `avatar_best_slot`
+
+| Column           | Type                     | Nullable | Default |
+| ---------------- | ------------------------ | -------- | ------- |
+| `hour_of_day`    | integer                  | ⛔       |         |
+| `avg_reach`      | double precision         | ⛔       | `0`     |
+| `avg_engagement` | double precision         | ⛔       | `0`     |
+| `sample_count`   | integer                  | ⛔       | `0`     |
+| `last_updated`   | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `hour_of_day`
+
+**Indexes:**
+
+- `avatar_best_slot_pkey` — `CREATE UNIQUE INDEX avatar_best_slot_pkey ON arasul.avatar_best_slot USING btree (hour_of_day)`
+
+---
+
+## `avatar_render_queue`
+
+| Column            | Type                     | Nullable | Default                                    |
+| ----------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`              | integer                  | ⛔       | `nextval('avatar_render_queue_id_seq':...` |
+| `script_id`       | integer                  | ✅       |                                            |
+| `status`          | text                     | ⛔       | `'pending'::text`                          |
+| `render_backend`  | text                     | ⛔       | `'heygen'::text`                           |
+| `audio_url`       | text                     | ✅       |                                            |
+| `avatar_id`       | text                     | ✅       |                                            |
+| `render_job_id`   | text                     | ✅       |                                            |
+| `raw_video_url`   | text                     | ✅       |                                            |
+| `final_video_url` | text                     | ✅       |                                            |
+| `error_message`   | text                     | ✅       |                                            |
+| `retry_count`     | integer                  | ⛔       | `0`                                        |
+| `created_at`      | timestamp with time zone | ⛔       | `now()`                                    |
+| `updated_at`      | timestamp with time zone | ⛔       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `avatar_render_queue_pkey` — `CREATE UNIQUE INDEX avatar_render_queue_pkey ON arasul.avatar_render_queue USING btree (id)`
+- `idx_arq_created_at` — `CREATE INDEX idx_arq_created_at ON arasul.avatar_render_queue USING btree (created_at DESC)`
+- `idx_arq_status` — `CREATE INDEX idx_arq_status ON arasul.avatar_render_queue USING btree (status)`
+
+---
+
+## `avatar_script_history`
+
+| Column            | Type                     | Nullable | Default                                    |
+| ----------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`              | integer                  | ⛔       | `nextval('avatar_script_history_id_seq...` |
+| `topic`           | text                     | ⛔       |                                            |
+| `topic_category`  | text                     | ⛔       |                                            |
+| `hook`            | text                     | ✅       |                                            |
+| `body`            | text                     | ⛔       |                                            |
+| `cta`             | text                     | ✅       |                                            |
+| `hashtags`        | ARRAY                    | ✅       |                                            |
+| `full_script`     | text                     | ⛔       |                                            |
+| `qdrant_point_id` | text                     | ✅       |                                            |
+| `approved_by`     | text                     | ✅       | `'telegram'::text`                         |
+| `approval_at`     | timestamp with time zone | ✅       |                                            |
+| `render_queue_id` | integer                  | ✅       |                                            |
+| `created_at`      | timestamp with time zone | ⛔       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `avatar_script_history_pkey` — `CREATE UNIQUE INDEX avatar_script_history_pkey ON arasul.avatar_script_history USING btree (id)`
+- `idx_ash_created_at` — `CREATE INDEX idx_ash_created_at ON arasul.avatar_script_history USING btree (created_at DESC)`
+- `idx_ash_topic_category` — `CREATE INDEX idx_ash_topic_category ON arasul.avatar_script_history USING btree (topic_category)`
+
+---
+
+## `avatar_topic_weight`
+
+| Column           | Type                     | Nullable | Default |
+| ---------------- | ------------------------ | -------- | ------- |
+| `topic_category` | text                     | ⛔       |         |
+| `weight`         | double precision         | ⛔       | `1.0`   |
+| `avg_engagement` | double precision         | ⛔       | `0`     |
+| `post_count`     | integer                  | ⛔       | `0`     |
+| `last_updated`   | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `topic_category`
+
+**Indexes:**
+
+- `avatar_topic_weight_pkey` — `CREATE UNIQUE INDEX avatar_topic_weight_pkey ON arasul.avatar_topic_weight USING btree (topic_category)`
+
+---
+
+## `avatar_video_performance`
+
+| Column                | Type                     | Nullable | Default                                    |
+| --------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                  | integer                  | ⛔       | `nextval('avatar_video_performance_id_...` |
+| `video_id`            | text                     | ⛔       |                                            |
+| `script_id`           | integer                  | ✅       |                                            |
+| `topic`               | text                     | ⛔       |                                            |
+| `topic_category`      | text                     | ⛔       |                                            |
+| `hook_style`          | text                     | ✅       |                                            |
+| `caption_length`      | integer                  | ✅       |                                            |
+| `hashtag_count`       | integer                  | ✅       |                                            |
+| `posted_at`           | timestamp with time zone | ⛔       |                                            |
+| `platform`            | text                     | ⛔       |                                            |
+| `platform_post_id`    | text                     | ✅       |                                            |
+| `reach`               | integer                  | ⛔       | `0`                                        |
+| `plays`               | integer                  | ⛔       | `0`                                        |
+| `shares`              | integer                  | ⛔       | `0`                                        |
+| `saves`               | integer                  | ⛔       | `0`                                        |
+| `comments_count`      | integer                  | ⛔       | `0`                                        |
+| `engagement_rate`     | double precision         | ✅       |                                            |
+| `insights_fetched_at` | timestamp with time zone | ✅       |                                            |
+| `created_at`          | timestamp with time zone | ⛔       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `avatar_video_performance_pkey` — `CREATE UNIQUE INDEX avatar_video_performance_pkey ON arasul.avatar_video_performance USING btree (id)`
+- `avatar_video_performance_video_id_key` — `CREATE UNIQUE INDEX avatar_video_performance_video_id_key ON arasul.avatar_video_performance USING btree (video_id)`
+- `idx_avp_platform` — `CREATE INDEX idx_avp_platform ON arasul.avatar_video_performance USING btree (platform)`
+- `idx_avp_posted_at` — `CREATE INDEX idx_avp_posted_at ON arasul.avatar_video_performance USING btree (posted_at DESC)`
+- `idx_avp_topic_category` — `CREATE INDEX idx_avp_topic_category ON arasul.avatar_video_performance USING btree (topic_category)`
+
+---
+
+## `avatar_weekly_report`
+
+| Column           | Type                     | Nullable | Default                                    |
+| ---------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`             | integer                  | ⛔       | `nextval('avatar_weekly_report_id_seq'...` |
+| `report_text`    | text                     | ⛔       |                                            |
+| `top_topics`     | jsonb                    | ✅       |                                            |
+| `top_hours`      | jsonb                    | ✅       |                                            |
+| `weight_changes` | jsonb                    | ✅       |                                            |
+| `created_at`     | timestamp with time zone | ⛔       | `now()`                                    |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `avatar_weekly_report_pkey` — `CREATE UNIQUE INDEX avatar_weekly_report_pkey ON arasul.avatar_weekly_report USING btree (id)`
+
+---
+
 ## `bot_audit_log`
 
-> Legacy audit log for Telegram bot interactions. Retained by migration 017;
-> no longer written to since the Telegram feature was removed (Plan 008).
+> Audit log for all Telegram bot interactions
 
 | Column             | Type                     | Nullable | Default                                    |
 | ------------------ | ------------------------ | -------- | ------------------------------------------ |
@@ -1032,31 +1178,6 @@
 | `owner_id`                | integer                  | ✅       |                              |
 | `is_context_file`         | boolean                  | ⛔       | `false`                      |
 
-> `is_context_file` (Migration 098, Plan `ide-workspace-shell`): markiert die
-> Kontextdatei eines Ordners (à la CLAUDE.md). Kontextdateien haben Status
-> `context` (neuer `document_status`-Enum-Wert), werden vom Document-Indexer
-> übersprungen (der pollt nur `pending`), erscheinen nicht in der normalen
-> Dokumentliste und werden bei ordner-gescopten RAG-Anfragen als eigene
-> Prompt-Ebene injiziert. Höchstens eine pro Space — seit Migration 099
-> (`099_context_file_integrity.sql`) DB-seitig erzwungen durch den UNIQUE
-> partial index `idx_documents_context_file_unique` auf
-> `(space_id) WHERE is_context_file = TRUE AND deleted_at IS NULL` (ersetzt
-> den nicht-uniquen `idx_documents_context_file` aus 098; Bestandsduplikate
-> wurden beim Einspielen soft-deleted, pro Space blieb die neueste Datei).
-> Migration 099 definiert außerdem `get_document_statistics()` und
-> `get_filtered_document_statistics()` neu mit `is_context_file = FALSE` —
-> Kontextdateien zählen nicht in Dokument-Statistiken. Beim Löschen eines
-> Space (`DELETE /api/spaces/:id`) wird die Kontextdatei soft-deleted statt
-> in den Default-Space verschoben.
-
-> `status`-Enum `document_status` (Migration 109, Plan 009): zusätzlich zum
-> bestehenden `pending`/`processing`/`indexed`/`failed`/`deleted`/`context`
-> gibt es den Wert **`stored`** — Datei ist hochgeladen und herunterladbar,
-> aber ein nicht-indexierbarer Typ (z. B. Office/ZIP/Binär). Der Document-
-> Indexer (`run_indexing_pipeline`) setzt ihn statt `failed`, sodass solche
-> Dateien im Explorer keinen roten Fehlerpunkt zeigen. `ADD VALUE IF NOT EXISTS`
-> ist forward-only; Enum-Werte lassen sich nicht ohne Typ-Neubau entfernen.
-
 **Primary key:** `id`
 
 **Foreign Keys:**
@@ -1070,6 +1191,7 @@
 - `documents_pkey` — `CREATE UNIQUE INDEX documents_pkey ON public.documents USING btree (id)`
 - `idx_documents_category` — `CREATE INDEX idx_documents_category ON public.documents USING btree (category_id)`
 - `idx_documents_category_uploaded` — `CREATE INDEX idx_documents_category_uploaded ON public.documents USING btree (category_id, uploaded_at DESC) WHERE (deleted_at IS NULL)`
+- `idx_documents_context_file_unique` — `CREATE UNIQUE INDEX idx_documents_context_file_unique ON public.documents USING btree (space_id) WHERE ((is_context_file = true) AND (deleted_at IS NULL))`
 - `idx_documents_deleted_at` — `CREATE INDEX idx_documents_deleted_at ON public.documents USING btree (deleted_at) WHERE (deleted_at IS NULL)`
 - `idx_documents_file_hash` — `CREATE INDEX idx_documents_file_hash ON public.documents USING btree (file_hash)`
 - `idx_documents_filename` — `CREATE INDEX idx_documents_filename ON public.documents USING btree (filename)`
@@ -1205,27 +1327,18 @@
 | `parent_id`              | uuid                     | ✅       |                                |
 | `is_workspace`           | boolean                  | ⛔       | `false`                        |
 
-> `is_workspace` (Migration 106, Plan 008): `TRUE` marks the automatic, invisible
-> per-workspace space (one per `sandbox_projects` row, hidden from the documents
-> UI) used to auto-index files written in the workspace.
-
-> `parent_id` (Migration 098, Plan `ide-workspace-shell`): Spaces bilden einen
-> verschachtelten Ordnerbaum (Workspace-Explorer / Second Brain). `NULL` =
-> Wurzelebene. Die API verhindert Zyklen beim Verschieben und verweigert das
-> Löschen von Ordnern mit Unterordnern (409).
-
 **Primary key:** `id`
 
 **Foreign Keys:**
 
 - `owner_id` → `admin_users.id`
-- `parent_id` → `knowledge_spaces.id` (`ON DELETE SET NULL`)
+- `parent_id` → `knowledge_spaces.id`
 
 **Indexes:**
 
 - `idx_knowledge_spaces_is_workspace` — `CREATE INDEX idx_knowledge_spaces_is_workspace ON public.knowledge_spaces USING btree (is_workspace) WHERE (is_workspace = true)`
-- `idx_knowledge_spaces_parent_id` — `CREATE INDEX idx_knowledge_spaces_parent_id ON public.knowledge_spaces USING btree (parent_id) WHERE (parent_id IS NOT NULL)`
 - `idx_knowledge_spaces_owner` — `CREATE INDEX idx_knowledge_spaces_owner ON public.knowledge_spaces USING btree (owner_id)`
+- `idx_knowledge_spaces_parent_id` — `CREATE INDEX idx_knowledge_spaces_parent_id ON public.knowledge_spaces USING btree (parent_id) WHERE (parent_id IS NOT NULL)`
 - `idx_knowledge_spaces_single_default` — `CREATE UNIQUE INDEX idx_knowledge_spaces_single_default ON public.knowledge_spaces USING btree (is_default) WHERE (is_default = true)`
 - `idx_knowledge_spaces_sort` — `CREATE INDEX idx_knowledge_spaces_sort ON public.knowledge_spaces USING btree (sort_order, name)`
 - `idx_knowledge_spaces_updated` — `CREATE INDEX idx_knowledge_spaces_updated ON public.knowledge_spaces USING btree (updated_at DESC)`
@@ -1327,41 +1440,30 @@
 
 > Curated catalog of Jetson-tested LLM models
 
-| Column                  | Type                     | Nullable | Default                    |
-| ----------------------- | ------------------------ | -------- | -------------------------- |
-| `id`                    | character varying        | ⛔       |                            |
-| `name`                  | character varying        | ⛔       |                            |
-| `description`           | text                     | ✅       |                            |
-| `size_bytes`            | bigint                   | ⛔       |                            |
-| `ram_required_gb`       | integer                  | ⛔       |                            |
-| `category`              | character varying        | ⛔       |                            |
-| `capabilities`          | jsonb                    | ✅       | `'[]'::jsonb`              |
-| `recommended_for`       | jsonb                    | ✅       | `'[]'::jsonb`              |
-| `jetson_tested`         | boolean                  | ✅       | `true`                     |
-| `performance_tier`      | integer                  | ✅       | `2`                        |
-| `ollama_library_url`    | character varying        | ✅       |                            |
-| `added_at`              | timestamp with time zone | ✅       | `now()`                    |
-| `updated_at`            | timestamp with time zone | ✅       | `now()`                    |
-| `ollama_name`           | character varying        | ✅       |                            |
-| `supports_thinking`     | boolean                  | ✅       | `false`                    |
-| `rag_optimized`         | boolean                  | ✅       | `false`                    |
-| `model_type`            | character varying        | ✅       | `'llm'::character varying` |
-| `context_window`        | integer                  | ✅       |                            |
-| `recommended_ctx`       | integer                  | ✅       | `8192`                     |
-| `supports_vision_input` | boolean                  | ✅       | `false`                    |
-| `is_platform_default`   | boolean                  | ✅       | `false`                    |
-| `speed_tier`            | character varying(20)    | ✅       | `'balanced'`               |
-
-**Migration 101 — `context_window` seed:** No new column — migration 101 seeds
-the existing `context_window` (tokens) for the curated Gemma 4 catalog
-(`gemma4:e4b-q4` = 131072, `gemma4:26b-q4` / `gemma4:31b-q4` = 262144), which
-predates migration 041's seeding. The Extensions/Store model detail page renders
-it as "Kontextlänge" when present (NULL rows show no row).
-
-**Migration 094 — `speed_tier`:** Semantic tier for the Store UI grouping and
-Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
-`'ocr'` / `'embed'`. Independent from the numeric `performance_tier` (1=fastest,
-3=slowest) which still drives ordering.
+| Column                  | Type                     | Nullable | Default                         |
+| ----------------------- | ------------------------ | -------- | ------------------------------- |
+| `id`                    | character varying        | ⛔       |                                 |
+| `name`                  | character varying        | ⛔       |                                 |
+| `description`           | text                     | ✅       |                                 |
+| `size_bytes`            | bigint                   | ⛔       |                                 |
+| `ram_required_gb`       | integer                  | ⛔       |                                 |
+| `category`              | character varying        | ⛔       |                                 |
+| `capabilities`          | jsonb                    | ✅       | `'[]'::jsonb`                   |
+| `recommended_for`       | jsonb                    | ✅       | `'[]'::jsonb`                   |
+| `jetson_tested`         | boolean                  | ✅       | `true`                          |
+| `performance_tier`      | integer                  | ✅       | `2`                             |
+| `ollama_library_url`    | character varying        | ✅       |                                 |
+| `added_at`              | timestamp with time zone | ✅       | `now()`                         |
+| `updated_at`            | timestamp with time zone | ✅       | `now()`                         |
+| `ollama_name`           | character varying        | ✅       |                                 |
+| `supports_thinking`     | boolean                  | ✅       | `false`                         |
+| `rag_optimized`         | boolean                  | ✅       | `false`                         |
+| `model_type`            | character varying        | ✅       | `'llm'::character varying`      |
+| `context_window`        | integer                  | ✅       |                                 |
+| `recommended_ctx`       | integer                  | ✅       | `8192`                          |
+| `supports_vision_input` | boolean                  | ✅       | `false`                         |
+| `is_platform_default`   | boolean                  | ✅       | `false`                         |
+| `speed_tier`            | character varying        | ✅       | `'balanced'::character varying` |
 
 **Primary key:** `id`
 
@@ -1745,26 +1847,26 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ## `notification_settings`
 
-> User preferences for notification delivery. The channel-neutral notification
-> pipeline stays; the Telegram delivery channel was removed (Migration 102), so
-> `telegram` is no longer a valid `channel` despite the legacy column default.
+> User preferences for notification delivery
 
-| Column                  | Type                     | Nullable | Default                                    |
-| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`                    | integer                  | ⛔       | `nextval('notification_settings_id_seq...` |
-| `user_id`               | integer                  | ✅       |                                            |
-| `channel`               | character varying        | ⛔       | `'telegram'::character varying`            |
-| `enabled`               | boolean                  | ✅       | `true`                                     |
-| `event_types`           | ARRAY                    | ✅       | `ARRAY['service_status'::text, 'workfl...` |
-| `min_severity`          | character varying        | ✅       | `'warning'::character varying`             |
-| `rate_limit_per_minute` | integer                  | ✅       | `10`                                       |
-| `rate_limit_per_hour`   | integer                  | ✅       | `100`                                      |
-| `quiet_hours_start`     | time without time zone   | ✅       |                                            |
-| `quiet_hours_end`       | time without time zone   | ✅       |                                            |
-| `webhook_url`           | character varying        | ✅       |                                            |
-| `webhook_secret`        | character varying        | ✅       |                                            |
-| `created_at`            | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`            | timestamp with time zone | ✅       | `now()`                                    |
+| Column                        | Type                     | Nullable | Default                                    |
+| ----------------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                          | integer                  | ⛔       | `nextval('notification_settings_id_seq...` |
+| `user_id`                     | integer                  | ✅       |                                            |
+| `channel`                     | character varying        | ⛔       | `'telegram'::character varying`            |
+| `enabled`                     | boolean                  | ✅       | `true`                                     |
+| `event_types`                 | ARRAY                    | ✅       | `ARRAY['service_status'::text, 'workfl...` |
+| `min_severity`                | character varying        | ✅       | `'warning'::character varying`             |
+| `rate_limit_per_minute`       | integer                  | ✅       | `10`                                       |
+| `rate_limit_per_hour`         | integer                  | ✅       | `100`                                      |
+| `quiet_hours_start`           | time without time zone   | ✅       |                                            |
+| `quiet_hours_end`             | time without time zone   | ✅       |                                            |
+| `telegram_chat_id`            | character varying        | ✅       |                                            |
+| `telegram_bot_token_override` | character varying        | ✅       |                                            |
+| `webhook_url`                 | character varying        | ✅       |                                            |
+| `webhook_secret`              | character varying        | ✅       |                                            |
+| `created_at`                  | timestamp with time zone | ✅       | `now()`                                    |
+| `updated_at`                  | timestamp with time zone | ✅       | `now()`                                    |
 
 **Primary key:** `id`
 
@@ -1808,7 +1910,7 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ## `platform_apps`
 
-> Kuratierte Plattform-Apps (Extensions-Tab) an-/abschaltbar. Effektiver Seed: `n8n` (Migration 100). Die Apps `telegram` und `database` wurden von den Migrationen 102 bzw. 103 wieder entfernt. `enabled` steuert lizenzsauber den n8n-Container-Lifecycle (`services/app/appLifecycleService.js`): aktiv → Container laufen, inaktiv → gestoppt. Der Spalten-Default ist seit Migration 108 `false` (frische Installationen: n8n aus, bis der Operator es aktiviert); bestehende Zeilen behalten ihren Wert.
+> Kuratierte Plattform-Apps (Extensions-Tab): pro App an/aus. v1-Seed: n8n, telegram, database.
 
 | Column       | Type                     | Nullable | Default |
 | ------------ | ------------------------ | -------- | ------- |
@@ -1817,6 +1919,10 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 | `updated_at` | timestamp with time zone | ⛔       | `now()` |
 
 **Primary key:** `id`
+
+**Indexes:**
+
+- `platform_apps_pkey` — `CREATE UNIQUE INDEX platform_apps_pkey ON arasul.platform_apps USING btree (id)`
 
 ---
 
@@ -1939,31 +2045,17 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 **Primary key:** `id`
 
-> `agent_run_token_hash` / `agent_run_token_set_at` (Migration 105, Plan 008
-> Schritt 12): **ungenutzt seit Plan 011.** Die Workspace-Agenten und ihre
-> externe Run-Route sind entfernt; die Spalten bleiben vorerst stehen, weil ihr
-> Löschen ein separater, invasiverer Eingriff ohne Nutzen wäre.
-
-> `space_id` (Migration 106, Plan 008): the one invisible per-workspace
-> knowledge space (`knowledge_spaces.is_workspace = true`) used to auto-index
-> files written in the workspace for RAG scoping. `NULL` = no space yet; the
-> agent then scopes to no space. `ON DELETE SET NULL`.
-
-**Check constraints:**
-
-- `sandbox_projects_network_mode_check` — `CHECK (network_mode IN ('isolated', 'internal', 'infrastructure'))` (Migration 100; `infrastructure` = Backend-Netz + Plattform-Repo rw + Docker-Socket, nur Admin-Rolle)
-
 **Foreign Keys:**
 
+- `space_id` → `knowledge_spaces.id`
 - `user_id` → `admin_users.id`
-- `space_id` → `knowledge_spaces.id` (`ON DELETE SET NULL`)
 
 **Indexes:**
 
 - `idx_sandbox_projects_container_status` — `CREATE INDEX idx_sandbox_projects_container_status ON public.sandbox_projects USING btree (container_status) WHERE (container_status = ANY (ARRAY['running'::sandbox_container_status, 'creating'::sandbox_container_status]))`
-- `idx_sandbox_projects_space_id` — `CREATE INDEX idx_sandbox_projects_space_id ON public.sandbox_projects USING btree (space_id)`
 - `idx_sandbox_projects_last_accessed` — `CREATE INDEX idx_sandbox_projects_last_accessed ON public.sandbox_projects USING btree (last_accessed_at DESC NULLS LAST) WHERE (status = 'active'::sandbox_project_status)`
 - `idx_sandbox_projects_slug` — `CREATE INDEX idx_sandbox_projects_slug ON public.sandbox_projects USING btree (slug)`
+- `idx_sandbox_projects_space_id` — `CREATE INDEX idx_sandbox_projects_space_id ON public.sandbox_projects USING btree (space_id)`
 - `idx_sandbox_projects_status` — `CREATE INDEX idx_sandbox_projects_status ON public.sandbox_projects USING btree (status)`
 - `idx_sandbox_projects_user_id` — `CREATE INDEX idx_sandbox_projects_user_id ON public.sandbox_projects USING btree (user_id)`
 - `sandbox_projects_pkey` — `CREATE UNIQUE INDEX sandbox_projects_pkey ON public.sandbox_projects USING btree (id)`
@@ -2004,22 +2096,27 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ## `schema_migrations`
 
-> Tracks applied database migrations for idempotent re-runs
-
 | Column         | Type                     | Nullable | Default |
 | -------------- | ------------------------ | -------- | ------- |
 | `version`      | integer                  | ⛔       |         |
+| `version`      | integer                  | ⛔       |         |
+| `filename`     | character varying        | ⛔       |         |
 | `filename`     | character varying        | ⛔       |         |
 | `applied_at`   | timestamp with time zone | ✅       | `now()` |
+| `applied_at`   | timestamp with time zone | ✅       | `now()` |
+| `checksum`     | character varying        | ✅       |         |
 | `checksum`     | character varying        | ✅       |         |
 | `execution_ms` | integer                  | ✅       |         |
+| `execution_ms` | integer                  | ✅       |         |
+| `success`      | boolean                  | ✅       | `true`  |
 | `success`      | boolean                  | ✅       | `true`  |
 
-**Primary key:** `version`
+**Primary key:** `version, version`
 
 **Indexes:**
 
 - `schema_migrations_pkey` — `CREATE UNIQUE INDEX schema_migrations_pkey ON public.schema_migrations USING btree (version)`
+- `schema_migrations_pkey` — `CREATE UNIQUE INDEX schema_migrations_pkey ON arasul.schema_migrations USING btree (version)`
 
 ---
 
@@ -2126,6 +2223,67 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ---
 
+## `skill_run_steps`
+
+> Einzelne Schritte eines Skill-Laufs (Plan 011, Schritt 9): je Werkzeug-/Subagent-/Modell-Schritt eine Zeile, angehängt statt ein wachsendes JSONB neu zu schreiben.
+
+| Column        | Type                     | Nullable | Default                                    |
+| ------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`          | bigint                   | ⛔       | `nextval('skill_run_steps_id_seq'::reg...` |
+| `run_id`      | bigint                   | ⛔       |                                            |
+| `position`    | integer                  | ⛔       |                                            |
+| `kind`        | USER-DEFINED             | ⛔       |                                            |
+| `name`        | character varying        | ⛔       | `''::character varying`                    |
+| `input`       | jsonb                    | ⛔       | `'{}'::jsonb`                              |
+| `output`      | text                     | ✅       |                                            |
+| `raw_output`  | text                     | ✅       |                                            |
+| `status`      | USER-DEFINED             | ⛔       | `'laeuft'::skill_run_status`               |
+| `created_at`  | timestamp with time zone | ⛔       | `now()`                                    |
+| `finished_at` | timestamp with time zone | ✅       |                                            |
+
+**Primary key:** `id`
+
+**Foreign Keys:**
+
+- `run_id` → `skill_runs.id`
+
+**Indexes:**
+
+- `idx_skill_run_steps_run_id` — `CREATE INDEX idx_skill_run_steps_run_id ON arasul.skill_run_steps USING btree (run_id)`
+- `skill_run_steps_pkey` — `CREATE UNIQUE INDEX skill_run_steps_pkey ON arasul.skill_run_steps USING btree (id)`
+- `skill_run_steps_run_pos_uniq` — `CREATE UNIQUE INDEX skill_run_steps_run_pos_uniq ON arasul.skill_run_steps USING btree (run_id, "position")`
+
+---
+
+## `skill_runs`
+
+> Skill-Läufe (Plan 011, Schritt 9): ein Lauf je Aufruf von /name. Überlebt das Schließen des Tabs, damit die Live-Übertragung wiederverbinden kann.
+
+| Column            | Type                     | Nullable | Default                                  |
+| ----------------- | ------------------------ | -------- | ---------------------------------------- |
+| `id`              | bigint                   | ⛔       | `nextval('skill_runs_id_seq'::regclass)` |
+| `user_id`         | bigint                   | ⛔       |                                          |
+| `skill_name`      | character varying        | ⛔       |                                          |
+| `conversation_id` | bigint                   | ✅       |                                          |
+| `arguments`       | jsonb                    | ⛔       | `'{}'::jsonb`                            |
+| `status`          | USER-DEFINED             | ⛔       | `'laeuft'::skill_run_status`             |
+| `result`          | text                     | ✅       |                                          |
+| `error`           | text                     | ✅       |                                          |
+| `steps_used`      | integer                  | ⛔       | `0`                                      |
+| `created_at`      | timestamp with time zone | ⛔       | `now()`                                  |
+| `finished_at`     | timestamp with time zone | ✅       |                                          |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_skill_runs_conversation` — `CREATE INDEX idx_skill_runs_conversation ON arasul.skill_runs USING btree (conversation_id)`
+- `idx_skill_runs_status` — `CREATE INDEX idx_skill_runs_status ON arasul.skill_runs USING btree (status) WHERE (status = 'laeuft'::skill_run_status)`
+- `idx_skill_runs_user_id` — `CREATE INDEX idx_skill_runs_user_id ON arasul.skill_runs USING btree (user_id)`
+- `skill_runs_pkey` — `CREATE UNIQUE INDEX skill_runs_pkey ON arasul.skill_runs USING btree (id)`
+
+---
+
 ## `space_members`
 
 > Phase 1.1: Per-Space-ACL. Owner ist immer implicit member with permission='owner'. Admins (admin_users.role = 'admin') haben Zugriff auf alle Spaces.
@@ -2180,62 +2338,50 @@ Setup auto-pick. Values: `'fast'` / `'balanced'` / `'quality'` / `'vision'` /
 
 ## `system_settings`
 
-| Column                         | Type                     | Nullable | Default |
-| ------------------------------ | ------------------------ | -------- | ------- |
-| `id`                           | integer                  | ⛔       | `1`     |
-| `setup_completed`              | boolean                  | ⛔       | `false` |
-| `setup_completed_at`           | timestamp with time zone | ✅       |         |
-| `setup_completed_by`           | integer                  | ✅       |         |
-| `company_name`                 | character varying        | ✅       |         |
-| `hostname`                     | character varying        | ✅       |         |
-| `selected_model`               | character varying        | ✅       |         |
-| `setup_step`                   | integer                  | ✅       | `0`     |
-| `created_at`                   | timestamp with time zone | ⛔       | `now()` |
-| `updated_at`                   | timestamp with time zone | ⛔       | `now()` |
-| `ai_profile_yaml`              | text                     | ✅       |         |
-| `ai_profile_updated_at`        | timestamp with time zone | ✅       |         |
-| `ai_transparency_enabled`      | boolean                  | ⛔       | `true`  |
-| `ai_transparency_disabled_at`  | timestamp with time zone | ✅       |         |
-| `ai_transparency_disabled_by`  | integer                  | ✅       |         |
-| `rag_top_k`                    | integer                  | ✅       | `10`    |
-| `rag_final_k`                  | integer                  | ✅       | `4`     |
-| `rag_score_threshold`          | double precision         | ✅       | `0.30`  |
-| `rag_relevance_threshold`      | double precision         | ✅       | `0.55`  |
-| `rag_rerank_enabled`           | boolean                  | ✅       | `true`  |
-| `rag_timeout_rerank_ms`        | integer                  | ✅       | `8000`  |
-| `llm_num_ctx_default`          | integer                  | ✅       | `NULL`  |
-| `llm_keep_alive_seconds`       | integer                  | ✅       | `3600`  |
-| `llm_num_predict_default`      | integer                  | ✅       | `2048`  |
-| `rag_temperature`              | double precision         | ✅       | `0.2`   |
-| `rag_num_predict`              | integer                  | ✅       | `2048`  |
-| `rag_mmr_lambda`               | double precision         | ✅       | `0.7`   |
-| `rag_dedup_max_per_doc`        | integer                  | ✅       | `3`     |
-| `rag_hybrid_search`            | boolean                  | ✅       | `true`  |
-| `rag_space_routing_threshold`  | double precision         | ✅       | `0.4`   |
-| `rag_space_routing_max_spaces` | integer                  | ✅       | `3`     |
-| `llm_base_system_prompt`       | text                     | ✅       | `NULL`  |
-
-**Migration 094 — perf knobs:** `rag_*` and `llm_*` columns are loaded into the
-`systemSettingsService` cache at boot (`bootstrap.js`) so request hot-paths
-(`routes/rag.js`, `services/llm/llmOllamaStream.js`) read them via
-`systemSettings.get(...)` instead of a per-request DB hit. `NULL` on
-`llm_num_ctx_default` means "let `contextBudgetManager` pick".
-
-**Migration 096 — remaining RAG/LLM tunables + editable base prompt:** completes
-the env→DB migration begun in 094. All defaults equal the previously
-hardcoded values, so applying the migration changes no behavior until an admin
-edits a value via `PATCH /api/rag/settings` (which `systemSettings.reload()`s the
-cache — no restart needed). `rag_hybrid_search` is the master switch for Qdrant
-hybrid search; `rag_space_routing_*` bound knowledge-space routing;
-`rag_mmr_lambda`/`rag_dedup_max_per_doc` shape final-context diversity. The
-dashboard pipeline (`routes/rag.js`) reads these knobs. `llm_base_system_prompt`
-is the DB-editable layer-1 system prompt; `NULL` = the built-in default in
-`systemPromptBuilder.js` (an empty string sent to the PATCH endpoint resets it to `NULL`).
+| Column                            | Type                     | Nullable | Default |
+| --------------------------------- | ------------------------ | -------- | ------- |
+| `id`                              | integer                  | ⛔       | `1`     |
+| `setup_completed`                 | boolean                  | ⛔       | `false` |
+| `setup_completed_at`              | timestamp with time zone | ✅       |         |
+| `setup_completed_by`              | integer                  | ✅       |         |
+| `company_name`                    | character varying        | ✅       |         |
+| `hostname`                        | character varying        | ✅       |         |
+| `selected_model`                  | character varying        | ✅       |         |
+| `setup_step`                      | integer                  | ✅       | `0`     |
+| `created_at`                      | timestamp with time zone | ⛔       | `now()` |
+| `updated_at`                      | timestamp with time zone | ⛔       | `now()` |
+| `ai_profile_yaml`                 | text                     | ✅       |         |
+| `ai_profile_updated_at`           | timestamp with time zone | ✅       |         |
+| `telegram_enabled`                | boolean                  | ⛔       | `false` |
+| `telegram_disclaimer_accepted`    | boolean                  | ⛔       | `false` |
+| `telegram_disclaimer_accepted_at` | timestamp with time zone | ✅       |         |
+| `telegram_disclaimer_accepted_by` | integer                  | ✅       |         |
+| `ai_transparency_enabled`         | boolean                  | ⛔       | `true`  |
+| `ai_transparency_disabled_at`     | timestamp with time zone | ✅       |         |
+| `ai_transparency_disabled_by`     | integer                  | ✅       |         |
+| `rag_top_k`                       | integer                  | ✅       | `10`    |
+| `rag_final_k`                     | integer                  | ✅       | `4`     |
+| `rag_score_threshold`             | double precision         | ✅       | `0.30`  |
+| `rag_relevance_threshold`         | double precision         | ✅       | `0.55`  |
+| `rag_rerank_enabled`              | boolean                  | ✅       | `true`  |
+| `rag_timeout_rerank_ms`           | integer                  | ✅       | `8000`  |
+| `llm_num_ctx_default`             | integer                  | ✅       |         |
+| `llm_keep_alive_seconds`          | integer                  | ✅       | `3600`  |
+| `llm_num_predict_default`         | integer                  | ✅       | `2048`  |
+| `rag_temperature`                 | double precision         | ✅       | `0.2`   |
+| `rag_num_predict`                 | integer                  | ✅       | `2048`  |
+| `rag_mmr_lambda`                  | double precision         | ✅       | `0.7`   |
+| `rag_dedup_max_per_doc`           | integer                  | ✅       | `3`     |
+| `rag_hybrid_search`               | boolean                  | ✅       | `true`  |
+| `rag_space_routing_threshold`     | double precision         | ✅       | `0.4`   |
+| `rag_space_routing_max_spaces`    | integer                  | ✅       | `3`     |
+| `llm_base_system_prompt`          | text                     | ✅       |         |
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
+- `telegram_disclaimer_accepted_by` → `admin_users.id`
 - `setup_completed_by` → `admin_users.id`
 - `ai_transparency_disabled_by` → `admin_users.id`
 
@@ -2439,37 +2585,24 @@ is the DB-editable layer-1 system prompt; `NULL` = the built-in default in
 
 ## `user_external_credentials`
 
-> Per-user, **encrypted** credentials of external CLIs, so a one-time login
-> survives a container rebuild (Migration 107, Plan 008 Schritt 14). v1:
-> `provider='claude'` — the Claude Code login files.
+> Pro Nutzer verschlüsselt gespeicherte Credentials externer CLIs (Plan 008 Schritt 14). v1: provider=claude — die Claude-Code-Login-Dateien, damit ein Login einen Container-Rebuild überlebt.
 
-| Column                  | Type                     | Nullable | Default                                          |
-| ----------------------- | ------------------------ | -------- | ------------------------------------------------ |
-| `id`                    | bigint                   | ⛔       | `nextval('user_external_credentials_id_seq'...)` |
-| `user_id`               | integer                  | ⛔       |                                                  |
-| `provider`              | character varying(50)    | ⛔       |                                                  |
-| `encrypted_credentials` | bytea                    | ⛔       |                                                  |
-| `created_at`            | timestamp with time zone | ⛔       | `now()`                                          |
-| `updated_at`            | timestamp with time zone | ⛔       | `now()`                                          |
-
-> `encrypted_credentials` is the AES-256-GCM blob (`IV || AuthTag || Ciphertext`)
-> of the JSON-serialized credential object, encrypted via `utils/tokenCrypto.js`
-> (key derived from `JWT_SECRET`). Never plaintext.
+| Column                  | Type                     | Nullable | Default                                    |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------ |
+| `id`                    | bigint                   | ⛔       | `nextval('user_external_credentials_id...` |
+| `user_id`               | integer                  | ⛔       |                                            |
+| `provider`              | character varying        | ⛔       |                                            |
+| `encrypted_credentials` | bytea                    | ⛔       |                                            |
+| `created_at`            | timestamp with time zone | ⛔       | `now()`                                    |
+| `updated_at`            | timestamp with time zone | ⛔       | `now()`                                    |
 
 **Primary key:** `id`
 
-**Foreign Keys:**
-
-- `user_id` → `admin_users.id` (`ON DELETE CASCADE`)
-
-**Constraints:**
-
-- `user_external_credentials_user_provider_uniq` — `UNIQUE (user_id, provider)`
-
 **Indexes:**
 
-- `idx_user_external_credentials_user_id` — `CREATE INDEX idx_user_external_credentials_user_id ON public.user_external_credentials USING btree (user_id)`
-- `user_external_credentials_pkey` — `CREATE UNIQUE INDEX user_external_credentials_pkey ON public.user_external_credentials USING btree (id)`
+- `idx_user_external_credentials_user_id` — `CREATE INDEX idx_user_external_credentials_user_id ON arasul.user_external_credentials USING btree (user_id)`
+- `user_external_credentials_pkey` — `CREATE UNIQUE INDEX user_external_credentials_pkey ON arasul.user_external_credentials USING btree (id)`
+- `user_external_credentials_user_provider_uniq` — `CREATE UNIQUE INDEX user_external_credentials_user_provider_uniq ON arasul.user_external_credentials USING btree (user_id, provider)`
 
 ---
 
