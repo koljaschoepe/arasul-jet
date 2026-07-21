@@ -2,7 +2,7 @@
 # PyPI torch has NO CUDA support for ARM64 - installing it would break GPU acceleration
 sentence-transformers==3.0.1
 flask==3.0.0
-numpy==1.26.3
+numpy==2.5.1
 transformers==5.14.1
 einops==0.7.0
 protobuf>=3.20
