@@ -119,6 +119,17 @@ describe('runSkillLoop — Grenzen', () => {
     expect(axios.post).toHaveBeenCalledTimes(3);
   });
 
+  it('bricht ab, sobald das Abbruch-Signal gesetzt ist — ohne einen Modell-Aufruf', async () => {
+    const controller = new AbortController();
+    controller.abort(); // schon vor dem ersten Aufruf abgebrochen
+    const r = await runSkillLoop({
+      model: 'm', systemPrompt: 's', userInput: 'u', tools: [], signal: controller.signal,
+    });
+    expect(r.aborted).toBe(true);
+    expect(r.truncated).toBe(true);
+    expect(axios.post).not.toHaveBeenCalled(); // gar kein Modell-Aufruf
+  });
+
   it('bricht ab, wenn das Zeitlimit vor der nächsten Runde überschritten ist', async () => {
     const tool = fakeTool('web_suche');
     axios.post.mockResolvedValue(

@@ -2091,20 +2091,34 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Skills are Markdown files with YAML front matter under `data/skills/` (container path `SKILLS_DIR`, default `/arasul/skills`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken skill can never reach the disk. All routes require authentication.
 
-| Method | Endpoint                           | Description                                              |
-| ------ | ---------------------------------- | -------------------------------------------------------- |
-| GET    | `/api/skills`                      | List all skills (broken files reported separately)       |
-| GET    | `/api/skills/werkzeuge`            | Tool names a skill may declare, each with `verfuegbar`   |
-| GET    | `/api/skills/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)    |
-| GET    | `/api/skills/:name`                | Get a single skill                                       |
-| GET    | `/api/skills/:name/datei`          | Get the raw Markdown file (`text/markdown`)              |
-| POST   | `/api/skills/vorschau`             | Render the file that _would_ be written — without saving |
-| POST   | `/api/skills`                      | Create a skill (409 if the name exists)                  |
-| PUT    | `/api/skills/:name`                | Update an existing skill (404 if it does not exist)      |
-| DELETE | `/api/skills/:name`                | Delete a skill                                           |
-| GET    | `/api/skills/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`)    |
-| GET    | `/api/skills/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data) |
-| POST   | `/api/skills/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)          |
+| Method | Endpoint                           | Description                                               |
+| ------ | ---------------------------------- | --------------------------------------------------------- |
+| GET    | `/api/skills`                      | List all skills (broken files reported separately)        |
+| GET    | `/api/skills/werkzeuge`            | Tool names a skill may declare, each with `verfuegbar`    |
+| GET    | `/api/skills/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)     |
+| GET    | `/api/skills/:name`                | Get a single skill                                        |
+| GET    | `/api/skills/:name/datei`          | Get the raw Markdown file (`text/markdown`)               |
+| POST   | `/api/skills/vorschau`             | Render the file that _would_ be written — without saving  |
+| POST   | `/api/skills`                      | Create a skill (409 if the name exists)                   |
+| PUT    | `/api/skills/:name`                | Update an existing skill (404 if it does not exist)       |
+| DELETE | `/api/skills/:name`                | Delete a skill                                            |
+| GET    | `/api/skills/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`)     |
+| POST   | `/api/skills/laeufe`               | Start a run detached; returns `202 { runId }` immediately |
+| GET    | `/api/skills/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)  |
+| GET    | `/api/skills/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps  |
+| POST   | `/api/skills/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)           |
+
+**Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
+(`{ skill, args, conversation_id? }`) starts the run **server-side** and returns
+its `runId` at once — the run keeps going regardless of the client. The client
+then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
+`EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
+with the stored run+steps first (so a **reconnecting** client sees everything up
+to now), then live frames (`tool_start`/`tool_result`/`text`/`done`/`error`),
+and closes on `ende`. Disconnecting does **not** stop the run. `abbrechen` sets
+the run's abort signal, so a running skill actually stops rather than only being
+marked cancelled in the DB. A backend restart marks any still-`laeuft` run as
+`fehler` (a detached run cannot survive the process).
 
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
 > `werkzeuge`, `sammlungen`, `vorschau`) is a reserved segment: a skill named

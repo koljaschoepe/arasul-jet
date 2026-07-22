@@ -29,6 +29,7 @@ jest.mock('../../src/utils/logger');
 const db = require('../../src/database');
 const logger = require('../../src/utils/logger');
 const registry = require('../../src/services/skills/skillRegistry');
+const skillRunner = require('../../src/services/skills/skillRunner');
 const { app } = require('../../src/server');
 
 logger.info = jest.fn();
@@ -405,6 +406,154 @@ describe('Skills-Routen', () => {
     test('Abbrechen eines bereits beendeten/fremden Laufs gibt 404', async () => {
       mitLaeufen({ cancelRows: [] });
       const res = await auth(request(app).post('/api/skills/laeufe/3/abbrechen'));
+      expect(res.status).toBe(404);
+    });
+  });
+
+  // --- Starten & Streamen (Plan 011, Schritt 12) ---------------------------
+  describe('Läufe starten & streamen', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    test('startet einen Lauf LOSGELÖST und gibt sofort die ID (202) zurück', async () => {
+      setupAuthMocks(db);
+      // Der Skill muss existieren (loadSkill prüft die Datei früh).
+      await auth(request(app).post('/api/skills')).send(NEU);
+      // Den echten, losgelösten Start abfangen — kein Hintergrund-Lauf im Test.
+      const spy = jest.spyOn(skillRunner, 'starten').mockResolvedValue({ runId: 77 });
+
+      const res = await auth(request(app).post('/api/skills/laeufe')).send({
+        skill: 'notiz',
+        args: { text: 'hallo' },
+      });
+      expect(res.status).toBe(202);
+      expect(res.body.data.runId).toBe(77);
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ skillName: 'notiz', args: { text: 'hallo' } })
+      );
+    });
+
+    test('Starten eines unbekannten Skills gibt 404 (kein Lauf entsteht)', async () => {
+      setupAuthMocks(db);
+      const spy = jest.spyOn(skillRunner, 'starten');
+      const res = await auth(request(app).post('/api/skills/laeufe')).send({ skill: 'gibtsnicht' });
+      expect(res.status).toBe(404);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    test('fehlt ein Pflicht-Argument, gibt es SOFORT 400 (kein losgelöster Lauf)', async () => {
+      setupAuthMocks(db);
+      // Skill mit Pflicht-Argument anlegen.
+      await auth(request(app).post('/api/skills')).send({
+        name: 'mitpflicht',
+        prompt: 'Fasse {{text}} zusammen.',
+        argumente: [{ name: 'text', typ: 'freitext', pflicht: true }],
+      });
+      const spy = jest.spyOn(skillRunner, 'starten');
+      const res = await auth(request(app).post('/api/skills/laeufe')).send({
+        skill: 'mitpflicht',
+        args: {}, // das Pflicht-Argument fehlt
+      });
+      expect(res.status).toBe(400);
+      expect(spy).not.toHaveBeenCalled(); // gar kein Lauf gestartet
+    });
+
+    test('Stream eines FERTIGEN Laufs: Verlauf + ende, dann geschlossen', async () => {
+      // Fertiger Lauf → die Route sendet Verlauf und ende und schließt sofort.
+      db.query.mockReset();
+      setupAuthMocks(db);
+      const auth2 = db.query.getMockImplementation();
+      db.query.mockImplementation((sql, params) => {
+        const s = String(sql);
+        if (/FROM skill_runs WHERE id/.test(s)) {
+          return Promise.resolve({ rows: [{ id: 5, skill_name: 'notiz', status: 'fertig', result: 'R' }] });
+        }
+        if (/FROM skill_run_steps/.test(s)) {
+          return Promise.resolve({ rows: [] });
+        }
+        return auth2(sql, params);
+      });
+
+      const res = await auth(request(app).get('/api/skills/laeufe/5/stream'));
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/text\/event-stream/);
+      expect(res.text).toMatch(/"type":"verlauf"/);
+      expect(res.text).toMatch(/"type":"ende"/);
+      expect(res.text).toMatch(/"status":"fertig"/);
+    });
+
+    test('Stream eines laufenden Laufs: hängt sich an und schließt beim ende-Ereignis', async () => {
+      db.query.mockReset();
+      setupAuthMocks(db);
+      const auth2 = db.query.getMockImplementation();
+      db.query.mockImplementation((sql, params) => {
+        const s = String(sql);
+        if (/FROM skill_runs WHERE id/.test(s)) {
+          return Promise.resolve({ rows: [{ id: 6, skill_name: 'notiz', status: 'laeuft' }] });
+        }
+        if (/FROM skill_run_steps/.test(s)) {
+          return Promise.resolve({ rows: [] });
+        }
+        return auth2(sql, params);
+      });
+      // Abonnement mocken: sofort ein Live-Ereignis und dann 'ende' schicken,
+      // damit der Strom sich schließt (sonst hinge der Test).
+      jest.spyOn(skillRunner, 'abonnieren').mockImplementation((id, handler) => {
+        setImmediate(() => {
+          handler({ type: 'text', content: 'live!' });
+          handler({ type: 'ende', status: 'fertig' });
+        });
+        return () => {};
+      });
+
+      const res = await auth(request(app).get('/api/skills/laeufe/6/stream'));
+      expect(res.status).toBe(200);
+      expect(res.text).toMatch(/"content":"live!"/);
+      expect(res.text).toMatch(/"type":"ende"/);
+    });
+
+    test('Wettlauf: endet der Lauf zwischen Verlauf und Abonnieren, schließt der Strom trotzdem', async () => {
+      // Der kritische Fall: Beim ersten Lesen ist der Lauf 'laeuft', das
+      // 'ende'-Ereignis feuert aber, bevor wir abonnieren — der Bus wiederholt
+      // es nicht. Die Nachprüfung (zweites getRun) muss den Strom schließen,
+      // sonst hinge er für immer.
+      db.query.mockReset();
+      setupAuthMocks(db);
+      const auth2 = db.query.getMockImplementation();
+      let runReads = 0;
+      db.query.mockImplementation((sql, params) => {
+        const s = String(sql);
+        if (/FROM skill_runs WHERE id/.test(s)) {
+          runReads += 1;
+          // Erstes Lesen: läuft. Zweites Lesen (Nachprüfung): schon fertig.
+          const status = runReads === 1 ? 'laeuft' : 'fertig';
+          return Promise.resolve({ rows: [{ id: 8, skill_name: 'notiz', status }] });
+        }
+        if (/FROM skill_run_steps/.test(s)) {
+          return Promise.resolve({ rows: [] });
+        }
+        return auth2(sql, params);
+      });
+      // Abonnieren liefert eine Abmelde-Funktion, feuert aber NIE 'ende' (es kam
+      // ja schon vor dem Abonnieren) — ohne die Nachprüfung bliebe der Strom offen.
+      jest.spyOn(skillRunner, 'abonnieren').mockReturnValue(() => {});
+
+      const res = await auth(request(app).get('/api/skills/laeufe/8/stream'));
+      expect(res.status).toBe(200);
+      expect(res.text).toMatch(/"type":"ende"/); // der Strom hat sich geschlossen
+      expect(runReads).toBeGreaterThanOrEqual(2); // die Nachprüfung lief
+    });
+
+    test('Stream eines fremden/unbekannten Laufs gibt 404', async () => {
+      db.query.mockReset();
+      setupAuthMocks(db);
+      const auth2 = db.query.getMockImplementation();
+      db.query.mockImplementation((sql, params) => {
+        if (/FROM skill_runs WHERE id/.test(String(sql))) {
+          return Promise.resolve({ rows: [] }); // gehört nicht dem Nutzer
+        }
+        return auth2(sql, params);
+      });
+      const res = await auth(request(app).get('/api/skills/laeufe/999/stream'));
       expect(res.status).toBe(404);
     });
   });

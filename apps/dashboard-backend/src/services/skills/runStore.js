@@ -103,15 +103,30 @@ async function finishStep(
   { stepId, output = null, rawOutput = null, status = 'fertig' },
   { db = database } = {}
 ) {
+  // NUR einen noch laufenden Schritt abschließen. Wichtig beim Abbruch: Bricht
+  // der Nutzer ab, während ein Werkzeug noch rechnet, markiert `cancelRun` den
+  // offenen Schritt bereits als 'abgebrochen'. Läuft das Werkzeug danach doch
+  // noch zu Ende, darf sein 'fertig' den Abbruch NICHT übertünchen. Die
+  // Bedingung `status = 'laeuft'` fällt dann ins Leere — der Schritt bleibt
+  // abgebrochen. (Gleiche Idempotenz wie bei finishRun.)
   const { rows } = await db.query(
     `UPDATE skill_run_steps
         SET output = $2, raw_output = $3, status = $4, finished_at = NOW()
       WHERE id = $1
+        AND status = 'laeuft'
       RETURNING *`,
     [stepId, output, rawOutput, status]
   );
+  // Kein Treffer heißt: Der Schritt existiert nicht ODER wurde bereits beendet
+  // (z. B. durch einen Abbruch). Beides ist hier kein Fehler — der Aufrufer
+  // (die Werkzeug-Schleife) darf daran nicht scheitern. Wir prüfen die Existenz
+  // getrennt, damit ein echter Programmierfehler (falsche ID) sichtbar bleibt.
   if (rows.length === 0) {
-    throw new NotFoundError(`Skill-Schritt ${stepId} nicht gefunden`);
+    const da = await db.query(`SELECT id FROM skill_run_steps WHERE id = $1`, [stepId]);
+    if (da.rows.length === 0) {
+      throw new NotFoundError(`Skill-Schritt ${stepId} nicht gefunden`);
+    }
+    return da.rows[0]; // schon beendet — unverändert lassen
   }
   return rows[0];
 }
