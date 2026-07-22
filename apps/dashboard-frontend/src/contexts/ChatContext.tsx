@@ -164,6 +164,10 @@ interface ChatContextValue {
   getBackgroundLoading: (chatId: string) => boolean;
   clearBackgroundState: (chatId: string) => void;
   hasActiveStream: (chatId: string) => boolean;
+  // Skill runs (Plan 011, Schritt 15) — welche Läufe im Verlauf eines Chats stehen
+  getSkillRuns: (chatId: string) => number[];
+  registerSkillRun: (chatId: string, runId: number) => void;
+  setChatSkillRuns: (chatId: string, runIds: number[]) => void;
   // Cleanup
   cleanupChat: (chatId: string) => void;
 }
@@ -232,6 +236,12 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   useEffect(() => {
     selectedModelRef.current = selectedModel;
   }, [selectedModel]);
+
+  // === SKILL RUNS (Plan 011, Schritt 15) ===
+  // Welche Skill-Läufe gehören zu welchem Chat? So bleiben die Lauf-Karten im
+  // Verlauf auch nach einem Panel-Wechsel erhalten und ein frisch gestarteter
+  // Lauf erscheint sofort — nicht erst nach dem nächsten Laden. Neueste ID zuerst.
+  const [skillRunsByChat, setSkillRunsByChat] = useState<Record<string, number[]>>({});
 
   // --- Callback Registry ---
   // ChatView registers per-chat callbacks on mount, unregisters on unmount.
@@ -333,6 +343,32 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
   const hasActiveStream = useCallback((chatId: string) => {
     return !!abortControllersRef.current[chatId];
+  }, []);
+
+  // === SKILL RUNS ===
+  // Die Lauf-IDs eines Chats (neueste zuerst). Der Panel liest sie beim Laden
+  // frisch vom Server (`setChatSkillRuns`) und meldet neue Läufe hier an
+  // (`registerSkillRun`), damit die Karte sofort steht.
+  const getSkillRuns = useCallback(
+    (chatId: string): number[] => skillRunsByChat[chatId] ?? [],
+    [skillRunsByChat]
+  );
+
+  const registerSkillRun = useCallback((chatId: string, runId: number) => {
+    setSkillRunsByChat(prev => {
+      const vorhanden = prev[chatId] ?? [];
+      if (vorhanden.includes(runId)) return prev;
+      return { ...prev, [chatId]: [runId, ...vorhanden] };
+    });
+  }, []);
+
+  const setChatSkillRuns = useCallback((chatId: string, runIds: number[]) => {
+    setSkillRunsByChat(prev => {
+      // Lokal schon bekannte IDs, die die Server-Liste (noch) nicht kennt, vorn
+      // behalten — ein gerade gestarteter Lauf darf nicht kurz verschwinden.
+      const zusatz = (prev[chatId] ?? []).filter(id => !runIds.includes(id));
+      return { ...prev, [chatId]: [...zusatz, ...runIds] };
+    });
   }, []);
 
   // FH2: Full cleanup when a chat is deleted — prevents memory leaks
@@ -1263,6 +1299,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       getBackgroundLoading,
       clearBackgroundState,
       hasActiveStream,
+      // Skill runs
+      getSkillRuns,
+      registerSkillRun,
+      setChatSkillRuns,
       // Cleanup
       cleanupChat,
     }),
@@ -1292,6 +1332,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       getBackgroundLoading,
       clearBackgroundState,
       hasActiveStream,
+      getSkillRuns,
+      registerSkillRun,
+      setChatSkillRuns,
       cleanupChat,
     ]
   );

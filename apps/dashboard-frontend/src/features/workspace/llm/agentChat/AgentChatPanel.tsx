@@ -28,6 +28,7 @@ import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Mascot } from '@/components/mascot/Mascot';
 import CompactMessage from './CompactMessage';
 import ComposerCard from './ComposerCard';
+import RunCard from '@/features/skills/RunCard';
 
 const PANEL_CHAT_KEY = 'arasul_panel_chat_id';
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -69,6 +70,9 @@ export default function AgentChatPanel() {
     getBackgroundLoading,
     clearBackgroundState,
     hasActiveStream,
+    getSkillRuns,
+    registerSkillRun,
+    setChatSkillRuns,
     installedModels,
     defaultModel,
     selectedModel,
@@ -92,6 +96,13 @@ export default function AgentChatPanel() {
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
   const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  // Skill-Namen je Lauf-ID — nur als Kopfzeilen-Hinweis, bevor der Lauf-Strom
+  // ihn ohnehin bestätigt (Plan 011, Schritt 15).
+  const [runNames, setRunNames] = useState<Record<number, string>>({});
+
+  // Die Lauf-IDs dieses Chats (neueste zuerst) — die Karten stehen chronologisch
+  // unter den Nachrichten, also älteste zuerst.
+  const runIds = chatId ? getSkillRuns(chatId) : [];
 
   const messagesRef = useRef<ChatMessage[]>(messages);
   useEffect(() => {
@@ -104,6 +115,8 @@ export default function AgentChatPanel() {
   // und der GET würde mit dem laufenden Stream um setMessages konkurrieren).
   const freshChatRef = useRef<string | null>(null);
   const wasLoadingRef = useRef(false);
+  // Sperrt eine zweite Skill-Lauf-Auslösung, bis der Start-POST durch ist.
+  const runStartRef = useRef(false);
 
   // --- Chat-Lebenszyklus ------------------------------------------------
 
@@ -203,7 +216,7 @@ export default function AgentChatPanel() {
     if (stickToBottomRef.current) {
       endRef.current?.scrollIntoView({ behavior: 'auto' });
     }
-  }, [messages]);
+  }, [messages, runIds.length]);
 
   const handleScroll = useCallback(() => {
     const el = scrollerRef.current;
@@ -273,6 +286,65 @@ export default function AgentChatPanel() {
     ensureChat,
     sendMessage,
   ]);
+
+  // Beim Öffnen eines Chats seine Skill-Läufe vom Server holen (Quelle der
+  // Wahrheit); die Karten reihen sich unter die Nachrichten. Frisch gestartete
+  // Läufe bleiben durch `setChatSkillRuns` erhalten.
+  useEffect(() => {
+    if (!chatId) return;
+    let cancelled = false;
+    api
+      .get<{ data: { id: number; skill_name: string }[] }>(
+        `/skills/laeufe?conversation_id=${chatId}`,
+        { showError: false }
+      )
+      .then(d => {
+        if (cancelled) return;
+        setChatSkillRuns(
+          chatId,
+          d.data.map(r => r.id)
+        );
+        setRunNames(prev => {
+          const next = { ...prev };
+          for (const r of d.data) next[r.id] = r.skill_name;
+          return next;
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, api, setChatSkillRuns]);
+
+  const handleRunSkill = useCallback(
+    async (skillName: string, args: Record<string, string>) => {
+      // Doppel-Auslösung sperren: `isLoading` ist der Chat-Stream, nicht der Lauf —
+      // ohne eigene Sperre startete ein schnelles Doppel-Enter zwei Läufe (zwei
+      // teure GPU-Vorgänge, zwei Karten) für eine Aktion. Erst nach dem POST frei.
+      if (isLoading || runStartRef.current) return;
+      runStartRef.current = true;
+      setInput('');
+      setError(null);
+      try {
+        const id = await ensureChat();
+        const res = await api.post<{ data: { runId: number } }>('/skills/laeufe', {
+          skill: skillName,
+          args,
+          conversation_id: Number(id),
+        });
+        const runId = res.data.runId;
+        setRunNames(prev => ({ ...prev, [runId]: skillName }));
+        registerSkillRun(id, runId);
+        stickToBottomRef.current = true;
+      } catch (err) {
+        // useApi zeigt die Fehlermeldung bereits als Toast; hier die Zeile oben.
+        setError((err as Error).message || 'Skill konnte nicht gestartet werden');
+      } finally {
+        runStartRef.current = false;
+      }
+    },
+    [isLoading, ensureChat, api, registerSkillRun]
+  );
 
   const handleCancel = useCallback(() => {
     if (chatId) cancelJob(chatId);
@@ -425,7 +497,7 @@ export default function AgentChatPanel() {
         aria-label="Chat-Verlauf"
         aria-live="polite"
       >
-        {messages.length === 0 ? (
+        {messages.length === 0 && runIds.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-1.5 px-4 text-center">
             <Mascot state="idle" className="mb-1 size-16" />
             <p className="text-sm text-muted-foreground">Frag dein Unternehmenswissen.</p>
@@ -441,6 +513,12 @@ export default function AgentChatPanel() {
             {messages.map((m, i) => (
               <ComponentErrorBoundary key={m.id || m.jobId || `msg-${i}`} componentName="Nachricht">
                 <CompactMessage message={m} isStreaming={isLoading && i === lastIndex} />
+              </ComponentErrorBoundary>
+            ))}
+            {/* Skill-Läufe chronologisch (älteste zuerst) unter den Nachrichten */}
+            {[...runIds].reverse().map(id => (
+              <ComponentErrorBoundary key={`run-${id}`} componentName="Skill-Lauf">
+                <RunCard runId={id} skillName={runNames[id]} />
               </ComponentErrorBoundary>
             ))}
             <div ref={endRef} />
@@ -480,6 +558,7 @@ export default function AgentChatPanel() {
           onOpenSkillOverview={() => toast.info('Die Skill-Übersicht folgt in Kürze.')}
           onCreateSkill={() => toast.info('Der Anlege-Dialog für Skills folgt in Kürze.')}
           onEditSkill={name => toast.info(`Der Bearbeiten-Dialog für „${name}" folgt in Kürze.`)}
+          onRunSkill={handleRunSkill}
         />
       </div>
 

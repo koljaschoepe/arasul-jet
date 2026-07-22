@@ -29,12 +29,19 @@ export interface SkillRunStep {
   input?: unknown;
   output?: string | null;
   status: SkillRunStatus;
+  /** Zeitstempel (nur im gespeicherten Verlauf/Wiederverbinden) — für die Dauer. */
+  created_at?: string;
+  finished_at?: string | null;
 }
 
 export type SkillRunStatus = 'laeuft' | 'fertig' | 'fehler' | 'abgebrochen';
 
 export interface SkillRunState {
   runId: number | null;
+  /** Name des laufenden Skills (aus dem Verlauf) — für die Kopfzeile der Lauf-Karte. */
+  skillName: string | null;
+  /** Die eingesetzten Argumente (aus dem Verlauf) — für die Kopfzeile der Lauf-Karte. */
+  args: Record<string, string>;
   status: SkillRunStatus | null;
   /** Die bisher gesehenen Schritte, in Reihenfolge. */
   steps: SkillRunStep[];
@@ -52,6 +59,8 @@ interface StreamEvent {
     steps?: SkillRunStep[];
     result?: string | null;
     error?: string | null;
+    skill_name?: string;
+    arguments?: Record<string, string> | null;
   };
   tool?: string;
   params?: unknown;
@@ -63,6 +72,8 @@ interface StreamEvent {
 
 const LEER: SkillRunState = {
   runId: null,
+  skillName: null,
+  args: {},
   status: null,
   steps: [],
   result: null,
@@ -102,6 +113,8 @@ export function useSkillRun() {
             const run = evt.run;
             return {
               ...s,
+              skillName: run?.skill_name ?? s.skillName,
+              args: run?.arguments ?? s.args,
               status: run?.status ?? s.status,
               steps: run?.steps ?? [],
               result: run?.result ?? s.result,
@@ -208,7 +221,8 @@ export function useSkillRun() {
    */
   const start = useCallback(
     async (skill: string, args: Record<string, string> = {}, conversationId?: number) => {
-      setSicher(() => ({ ...LEER, status: 'laeuft' }));
+      // Kopfzeile sofort füllen — der Verlauf bestätigt beides gleich darauf.
+      setSicher(() => ({ ...LEER, status: 'laeuft', skillName: skill, args }));
       try {
         const antwort = await api.post<{ data: { runId: number } }>('/skills/laeufe', {
           skill,

@@ -92,6 +92,12 @@ interface ComposerCardProps {
   onOpenSkillOverview?: () => void;
   /** `/neuer-skill` gewählt — Anlege-Dialog öffnen (Schritt 17). */
   onCreateSkill?: () => void;
+  /**
+   * Ein Skill-Befehl wurde abgeschickt (Plan 011, Schritt 15). Statt einer
+   * Chat-Nachricht startet der Aufrufer einen Lauf und zeigt die Lauf-Karte.
+   * Die Argumente kommen aus der Eingabehilfe (`collect()`), sonst leer.
+   */
+  onRunSkill?: (skillName: string, args: Record<string, string>) => void;
 }
 
 export default function ComposerCard({
@@ -113,6 +119,7 @@ export default function ComposerCard({
   onEditSkill,
   onOpenSkillOverview,
   onCreateSkill,
+  onRunSkill,
 }: ComposerCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -177,6 +184,21 @@ export default function ComposerCard({
     [onChange, onOpenSkillOverview, onCreateSkill, args.begin]
   );
 
+  // Abschicken: Beginnt der Text mit einem bekannten Skill-Befehl, wird ein
+  // LAUF gestartet (Schritt 15) statt einer Chat-Nachricht — mit den Argumenten
+  // aus der Eingabehilfe. Ein Anhang schlägt das aus (ein Skill nimmt keine
+  // Uploads). Sonst normal senden.
+  const submit = useCallback(() => {
+    const m = value.match(/^\/([^\s/]+)/);
+    const skill = m ? skills.find(s => s.name === m[1]) : undefined;
+    if (skill && onRunSkill && !attachedFile && attachedImages.length === 0) {
+      const collected = inArgs && args.argState?.skill.name === skill.name ? args.collect() : {};
+      onRunSkill(skill.name, collected);
+      return;
+    }
+    onSend();
+  }, [value, skills, onRunSkill, onSend, inArgs, args, attachedFile, attachedImages]);
+
   const autoGrow = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -222,11 +244,11 @@ export default function ComposerCard({
       }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        onSend();
+        submit();
       }
     },
     [
-      onSend,
+      submit,
       showMenu,
       menuItems,
       activeIndex,
@@ -395,7 +417,7 @@ export default function ComposerCard({
           ) : (
             <button
               type="button"
-              onClick={onSend}
+              onClick={submit}
               disabled={!canSend}
               aria-label="Senden"
               className={cn(
