@@ -361,6 +361,74 @@ describe('runSkill — Orchestrierung', () => {
     expect(deps.runLoop.mock.calls[0][0].context.spaceIds).toEqual(['handbuch']);
   });
 
+  it('verdrahtet den Subagent-Kontext: Rollen, Grenzen, Tiefe 0, Basis-Ordner', async () => {
+    const deps = makeDeps({
+      loadSkill: jest.fn(async () => ({
+        ...baseSkill,
+        werkzeuge: ['subagent'],
+        ordner: ['/vertraege'],
+        rollen: [{ name: 'leser', prompt: 'p', werkzeuge: [], ergebnis: { felder: ['x'], max_zeichen: 2000 } }],
+      })),
+    });
+    await runSkill({ skillName: 'recherche', args: { thema: 'x' }, userId: 1 }, deps);
+    const ctx = deps.runLoop.mock.calls[0][0].context;
+    expect(ctx.rollen).toHaveLength(1);
+    expect(ctx.depth).toBe(0);
+    expect(ctx.limits).toBeDefined();
+    expect(ctx.limits.maxAufrufe).toBe(20);
+    expect(ctx.roleContextBase).toMatchObject({ roots: ['/vertraege'] });
+    expect(typeof ctx.recordSubagent).toBe('function');
+  });
+
+  it('schreibt einen echten Subagent-Aufruf mit Rohdaten mit — und der Orchestrator sieht nur das Verdichtete', async () => {
+    // Echte Schleife + echtes Subagent-Werkzeug; die Rolle liefert JSON plus
+    // ein verbotenes Rohfeld. Der Orchestrator darf das Rohfeld nie sehen; im
+    // Protokoll (recordSubagent → startStep/finishStep) muss es aber auftauchen.
+    const echterStore = {
+      createRun: jest.fn(async () => ({ id: 1 })),
+      startStep: jest.fn(async () => ({ id: 55 })),
+      finishStep: jest.fn(async () => ({})),
+      bumpSteps: jest.fn(async () => 1),
+      finishRun: jest.fn(async () => ({})),
+      getRun: jest.fn(async () => ({ id: 1, steps: [] })),
+    };
+    const realLoop = require('../../src/services/skills/toolLoop').runSkillLoop;
+    const SubagentTool = require('../../src/services/skills/subagent');
+
+    // Orchestrator-Runde: ruft subagent auf. Danach: Text.
+    // Rollen-Runde (der zweite Modell-Aufruf): liefert das JSON der Rolle.
+    axios.post
+      .mockResolvedValueOnce(
+        antwort({ toolCalls: [{ function: { name: 'subagent', arguments: { rolle: 'leser', auftrag: 'lies' } } }] })
+      )
+      .mockResolvedValueOnce(
+        antwort({ content: JSON.stringify({ fazit: 'kurz', roh: 'GEHEIMER SEITENINHALT' }) })
+      )
+      .mockResolvedValueOnce(antwort({ content: 'Orchestrator-Schlusswort.' }));
+
+    const deps = makeDeps({
+      store: echterStore,
+      makeTools: () => [new SubagentTool()],
+      runLoop: realLoop,
+      loadSkill: jest.fn(async () => ({
+        ...baseSkill,
+        werkzeuge: ['subagent'],
+        rollen: [{ name: 'leser', prompt: 'Lies.', werkzeuge: [], ergebnis: { felder: ['fazit'], max_zeichen: 2000 } }],
+      })),
+    });
+    await runSkill({ skillName: 'recherche', args: { thema: 'x' }, userId: 1 }, deps);
+
+    // Der Subagent-Schritt wurde als kind='subagent' mit Rohdaten gespeichert.
+    const subStart = echterStore.startStep.mock.calls.find(c => c[0].kind === 'subagent');
+    expect(subStart).toBeDefined();
+    const subFinish = echterStore.finishStep.mock.calls.find(c => /GEHEIMER SEITENINHALT/.test(c[0].rawOutput || ''));
+    expect(subFinish).toBeDefined(); // Rohdaten IM Protokoll
+    // Aber der Orchestrator-Modellaufruf (der dritte) sah das Rohfeld NICHT.
+    const orchestratorMessages = JSON.stringify(axios.post.mock.calls[2][1].messages);
+    expect(orchestratorMessages).not.toMatch(/GEHEIMER SEITENINHALT/);
+    expect(orchestratorMessages).toMatch(/fazit: kurz/);
+  });
+
   it('schließt den Lauf als "fehler" ab, wenn die Schleife einen error liefert', async () => {
     const deps = makeDeps({ runLoop: jest.fn(async () => ({ result: '', error: 'kaputt' })) });
     await runSkill({ skillName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps);
