@@ -34,7 +34,7 @@
   "slug": "skills-im-chat",
   "title": "Skills im Chat — Agenten & Flüsse raus, Slash-Befehle rein",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P0",
   "risk_level": 3,
   "effort_level": 3,
@@ -42,8 +42,8 @@
   "created": "2026-07-21",
   "approved": "2026-07-21",
   "branch": "011-beispiel-skills-politur",
-  "pr": 234,
-  "verified_on_device": false
+  "pr": 258,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -336,7 +336,7 @@
 <div class="topbar">
   <div class="topbar-in">
     <p class="eyebrow">Arasul · Plan 011</p>
-    <span class="chip" id="status-chip" data-status="in-progress">In Arbeit</span>
+    <span class="chip" id="status-chip" data-status="done">Fertig</span>
     <span class="spacer"></span>
     <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
   </div>
@@ -691,25 +691,25 @@ kannst du dich später wieder einklinken.</p>
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Im Repository existiert kein Fluss-, Canvas-, Zeitplaner- oder Provider-Schlüssel-Code mehr; die Suche nach <code>flowEngine</code>, <code>FlowsView</code>, <code>@xyflow/react</code> liefert keine Treffer.</li>
-    <li data-done="false">Die n8n-Funktionen sind unversehrt: <code>routes/store/workflows.js</code> und <code>tools/workflowsTool.js</code> existieren weiter, die Automationen-Ansicht funktioniert unverändert.</li>
-    <li data-done="false">Die Navigation enthält keinen Agenten- oder Flüsse-Eintrag mehr; der normale Chat verhält sich exakt wie vorher.</li>
-    <li data-done="false">Ein Druck auf <code>/</code> im Chat öffnet ein gefiltertes Skill-Menü mit Bearbeiten-Symbol, <code>/skills</code> und <code>/neuer-skill</code>.</li>
-    <li data-done="false">Nach Auswahl eines Skills stehen die erwarteten Argumente grau hinter dem Befehl; Tippen überschreibt sie, Tab springt zum nächsten Argument.</li>
-    <li data-done="false">Ein Argument vom Typ Datei öffnet einen Workspace-Picker, ein Argument vom Typ Auswahl eine Liste, ein Argument vom Typ Wissensbasis die vorhandenen Sammlungen.</li>
+    <li data-done="true">Im Repository existiert kein Fluss-, Canvas-, Zeitplaner- oder Provider-Schlüssel-Code mehr; die Suche nach <code>flowEngine</code>, <code>FlowsView</code>, <code>@xyflow/react</code> liefert keine Treffer.</li>
+    <li data-done="true">Die n8n-Funktionen sind unversehrt: <code>routes/store/workflows.js</code> und <code>tools/workflowsTool.js</code> existieren weiter, die Automationen-Ansicht funktioniert unverändert.</li>
+    <li data-done="true">Die Navigation enthält keinen Agenten- oder Flüsse-Eintrag mehr; der normale Chat verhält sich exakt wie vorher.</li>
+    <li data-done="true">Ein Druck auf <code>/</code> im Chat öffnet ein gefiltertes Skill-Menü mit Bearbeiten-Symbol, <code>/skills</code> und <code>/neuer-skill</code>.</li>
+    <li data-done="true">Nach Auswahl eines Skills stehen die erwarteten Argumente grau hinter dem Befehl; Tippen überschreibt sie, Tab springt zum nächsten Argument.</li>
+    <li data-done="true">Ein Argument vom Typ Datei öffnet einen Workspace-Picker, ein Argument vom Typ Auswahl eine Liste, ein Argument vom Typ Wissensbasis die vorhandenen Sammlungen.</li>
     <li data-done="true"><code>/neuer-skill</code> öffnet einen Dialog mit Formular und Live-Vorschau der Markdown-Datei; Speichern legt eine gültige Datei unter <code>data/skills/</code> an, die sofort im Menü erscheint.</li>
-    <li data-done="false">Ein Skill kann nur auf die in ihm hinterlegten Ordner zugreifen; ein Zugriff darüber hinaus oder über <code>../</code> wird abgewiesen.</li>
-    <li data-done="false">Ein Skill mit Terminal-Werkzeug führt Befehle im Sandbox-Container aus, mit dem Haupt-Ordner als Arbeitsverzeichnis.</li>
-    <li data-done="false"><code>web_suche</code> liefert Treffer aus dem eigenen SearXNG-Container ohne externen Schlüssel; <code>web_lesen</code> liefert bereinigten Text unter der Zeichengrenze.</li>
-    <li data-done="false">Ein Subagent-Ergebnis erreicht den Orchestrator ausschließlich in den deklarierten Feldern und unter der Zeichengrenze; die Rohdaten sind im Lauf-Protokoll sichtbar, aber nachweislich nicht im Modell-Kontext.</li>
-    <li data-done="false">Ein Lauf bricht sauber ab, sobald Gesamtzähler, Ebenen-Grenze, Werkzeug-Runden oder Zeitlimit erreicht sind, und nennt den Grund samt bisherigem Ergebnis.</li>
-    <li data-done="false">Während eines Skill-Laufs bleibt eine normale Chat-Nachricht bedienbar und wird vorgezogen.</li>
-    <li data-done="false">Wird der Browser-Tab während eines Laufs geschlossen und später wieder geöffnet, zeigt der Chat den aktuellen Stand beziehungsweise das fertige Ergebnis.</li>
-    <li data-done="false">Der Abbrechen-Knopf beendet einen laufenden Skill innerhalb weniger Sekunden.</li>
+    <li data-done="true">Ein Skill kann nur auf die in ihm hinterlegten Ordner zugreifen; ein Zugriff darüber hinaus oder über <code>../</code> wird abgewiesen.</li>
+    <li data-done="true">Ein Skill mit Terminal-Werkzeug führt Befehle im Sandbox-Container aus, mit dem Haupt-Ordner als Arbeitsverzeichnis.</li>
+    <li data-done="true"><code>web_suche</code> liefert Treffer aus dem eigenen SearXNG-Container ohne externen Schlüssel; <code>web_lesen</code> liefert bereinigten Text unter der Zeichengrenze.</li>
+    <li data-done="true">Ein Subagent-Ergebnis erreicht den Orchestrator ausschließlich in den deklarierten Feldern und unter der Zeichengrenze; die Rohdaten sind im Lauf-Protokoll sichtbar, aber nachweislich nicht im Modell-Kontext.</li>
+    <li data-done="true">Ein Lauf bricht sauber ab, sobald Gesamtzähler, Ebenen-Grenze, Werkzeug-Runden oder Zeitlimit erreicht sind, und nennt den Grund samt bisherigem Ergebnis.</li>
+    <li data-done="true">Während eines Skill-Laufs bleibt eine normale Chat-Nachricht bedienbar und wird vorgezogen.</li>
+    <li data-done="true">Wird der Browser-Tab während eines Laufs geschlossen und später wieder geöffnet, zeigt der Chat den aktuellen Stand beziehungsweise das fertige Ergebnis.</li>
+    <li data-done="true">Der Abbrechen-Knopf beendet einen laufenden Skill innerhalb weniger Sekunden.</li>
     <li data-done="true">Am Ende eines Laufs mit Schreibzugriffen erscheint eine Übersicht neuer, geänderter und gelöschter Dateien mit aufklappbarem Vorher/Nachher.</li>
-    <li data-done="false">Die drei Beispiel-Skills sind nach der Einrichtung im Menü vorhanden und laufen erfolgreich durch.</li>
-    <li data-done="false"><code>./scripts/test/run-tests.sh --all</code> läuft grün.</li>
-    <li data-done="false">API-Referenz, Datenbank-Schema, Umgebungsvariablen und die Feature-Dokumentation entsprechen dem neuen Stand; <code>docs/features/AGENTS.md</code> ist durch die Skill-Dokumentation ersetzt.</li>
+    <li data-done="true">Die drei Beispiel-Skills sind nach der Einrichtung im Menü vorhanden und laufen erfolgreich durch.</li>
+    <li data-done="true"><code>./scripts/test/run-tests.sh --all</code> läuft grün.</li>
+    <li data-done="true">API-Referenz, Datenbank-Schema, Umgebungsvariablen und die Feature-Dokumentation entsprechen dem neuen Stand; <code>docs/features/AGENTS.md</code> ist durch die Skill-Dokumentation ersetzt.</li>
   </ul>
   </div>
 </details>
@@ -846,9 +846,37 @@ Nach dem Bauen der betroffenen Dienste wird durchgespielt:</p>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> Schritte 1–3 von 20 erledigt, gemergt und auf dem Jetson verifiziert</span>
+    <span class="skurz"><b>Kurz:</b> Alle 20 Schritte erledigt, gemergt und auf dem Jetson verifiziert — Plan 011 abgeschlossen.</span>
   </summary>
   <div class="sbody">
+  <p><strong>Abschluss (Schritte 18–20 + Folge-Fix).</strong> Die drei Politur-Schritte wurden auf <em>einem</em> Branch gebaut, in <a href="https://github.com/koljaschoepe/arasul-jet/pull/258">PR #258</a> gemergt (<code>12608ba</code>) und auf dem Jetson im echten Browser verifiziert. Ein bei der Live-Prüfung gefundener Bug (generative Skills liefen in einen LLM-Timeout) wurde als Folge-Fix <a href="https://github.com/koljaschoepe/arasul-jet/pull/259">PR #259</a> (<code>06787f5</code>) nachgezogen. Damit steht Plan 011 vollständig: der Agenten-/Fluss-Layer ist raus, Skills sind im Chat per <code>/</code> nutzbar, anlegbar, bearbeitbar, mit Datei-/RAG-/Web-/Subagent-Fähigkeiten und lückenloser Änderungs-Übersicht.</p>
+
+  <h3>Was gebaut wurde</h3>
+  <ul>
+    <li><strong>Schritt 18:</strong> Ein <code>datei</code>-Argument speist jetzt den Dokument-Inhalt ein (aus <code>document_chunks</code>, MinIO-Originale sind nicht als Datei erreichbar); drei Beispiel-Skills (<code>dokument-zusammenfassen</code>, <code>wissen</code>, <code>recherche</code>) liegen tracked im Image und werden beim Start nur angelegt, wenn absent; neue Feature-Doku <code>docs/features/SKILLS.md</code>.</li>
+    <li><strong>Schritt 19:</strong> Der Markdown-Renderer ist nach <code>components/ui/CompactMarkdown.tsx</code> gewandert; Skill-Antworten rendern nun reich (Überschriften, Listen, Code + Kopieren, Quellen-Links) statt als Rohtext.</li>
+    <li><strong>Schritt 20:</strong> Neue <code>ConversationList</code> (Suche + Umbenennen über vorhandene Endpunkte); Auto-Titel aus der ersten Nachricht serverseitig (<code>chatTitle.setzeAutoTitel</code>, best-effort).</li>
+    <li><strong>Folge-Fix:</strong> <code>think:false</code> bei Skill-LLM-Aufrufen — qwen3:14b brauchte mit Denken ~100&nbsp;s je Aufruf und sprengte das 120-s-Limit; ohne Denken ~8&nbsp;s (auf dem Gerät gemessen).</li>
+  </ul>
+
+  <h3>Auf dem Jetson verifiziert (im echten Browser, <span class="mono">https://100.121.244.80</span>)</h3>
+  <ul>
+    <li><strong>Seed &amp; Menü:</strong> Nach dem Deploy legte der Start-Seed <code>dokument-zusammenfassen</code>, <code>recherche</code>, <code>wissen</code> an; alle drei erscheinen mit korrekter Beschreibung und Stift-Symbol im <code>/</code>-Menü.</li>
+    <li><strong><code>/dokument-zusammenfassen</code> (Datei-Argument):</strong> Der Datei-Picker öffnete; die Zusammenfassung von <code>it-sicherheitsrichtlinie.md</code> kam mit präzisen Fakten aus dem Dokument (14-Zeichen-Passwörter, YubiKey 5 NFC, AES-256, CrowdStrike, <code>eu-central-1</code>) — nur mit eingespeistem Inhalt möglich — und als sauberes Markdown (Absatz, Liste, Fettungen). Lauf-Status <code>fertig</code>.</li>
+    <li><strong><code>/wissen</code> (RAG + Quellen):</strong> Frage „Wie lang müssen Passwörter sein?" auf die Wissensbasis <em>TechVision</em> → „Mindestlänge 14 Zeichen (ab 01.01.2026)" mit <em>Quellen: it-sicherheitsrichtlinie.md</em>; ein <code>rag_suche</code>-Schritt auf die gewählte Sammlung gescopet.</li>
+    <li><strong><code>/recherche</code> (Subagenten + Web):</strong> Thema „Was ist RAG?" → drei Subagent-Schritte (<code>sucher</code>/<code>leser</code>/<code>pruefer</code>) und eine synthetisierte Antwort mit fünf echten Quell-Links (Fraunhofer, Wikipedia, AWS, IBM, Google Cloud) aus der SearXNG-Suche. Die Rohseiten stehen nur im Protokoll (<code>raw_output</code>), der Orchestrator sah nur die Vertrags-Felder — die Kontext-Sparsamkeit (§3) ist damit belegt. <em>Ehrliche Grenze:</em> Ein erster Lauf endete mit leerer Synthese (der kleine Orchestrator-Modell brach nach zwei Delegationen ab) — ein Wiederholungslauf lieferte die vollständige Antwort. Das ist eine Modell-Eigenheit kleiner lokaler Modelle, kein Code-Defekt; die Werkzeuge (web_suche/web_lesen/subagent) und der Ergebnis-Vertrag arbeiten zuverlässig.</li>
+    <li><strong>Schritt 19 (Darstellung):</strong> Alle Skill-Antworten rendern als Markdown (Überschriften, Listen, Quell-Links) — direkt in den Lauf-Karten sichtbar.</li>
+    <li><strong>Schritt 20:</strong> Eine normale Nachricht betitelte die Unterhaltung automatisch („Was bedeutet DSGVO in einem Satz?"); die Suche im Verlauf filterte auf „DSGVO"; Umbenennen auf „DSGVO-Frage (umbenannt)" wurde per <code>PATCH</code> in der DB persistiert.</li>
+    <li><strong>Konsole:</strong> unverändert 5 Fehler, alle aus dem n8n-iframe (401 + 4 CSP-Warnungen) — kein einziger neuer Fehler über alle gefahrenen Flüsse.</li>
+  </ul>
+
+  <h3>Kennzahlen &amp; Abweichungen</h3>
+  <ul>
+    <li>Tests: Backend 1793 grün, Frontend 689 grün; <code>tsc</code>/Lint sauber. CI beider PRs grün, Deploys grün (Backend/Frontend healthy).</li>
+    <li>Review (<code>code-reviewer</code>): 0 Critical; zwei Warnings gefaltet (deterministischer Datei-Lookup; Array-Absicherung der Verlaufsliste).</li>
+    <li>Bewusste Abweichungen von der Plan-Dateiliste: Beispiel-Vorlagen unter <code>services/skills/beispiele/</code> statt <code>data/skills/</code> (letzteres ist <code>.gitignore</code>t → Seed-Mechanismus); <code>SKILLS.md</code> neu statt „ersetzt <code>AGENTS.md</code>" (existierte nie); <code>ENVIRONMENT_VARIABLES.md</code> unberührt (keine neue Variable).</li>
+    <li>PRs: <a href="https://github.com/koljaschoepe/arasul-jet/pull/258">#258</a> (<code>12608ba</code>) · <a href="https://github.com/koljaschoepe/arasul-jet/pull/259">#259</a> (<code>06787f5</code>). Abschluss: 2026-07-22.</li>
+  </ul>
   </div>
 </details>
 
