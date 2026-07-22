@@ -255,6 +255,7 @@ describe('runSkill — Orchestrierung', () => {
       finishStep: jest.fn(async () => ({})),
       bumpSteps: jest.fn(async () => 1),
       finishRun: jest.fn(async () => ({ id: 42, status: 'fertig' })),
+      saveChanges: jest.fn(async () => {}),
       getRun: jest.fn(async () => ({ id: 42, status: 'fertig', result: 'R', steps: [] })),
     };
     return {
@@ -263,6 +264,12 @@ describe('runSkill — Orchestrierung', () => {
       makeTools: jest.fn(() => [fakeTool('web_suche')]),
       runLoop: jest.fn(async () => ({ result: 'R', runden: 1 })),
       ensureSandbox: jest.fn(async () => ({ containerId: 'c1', cwd: '/w' })),
+      // Änderungs-Verfolgung standardmäßig gemockt — kein echter Ordner-Abzug im
+      // Unit-Test. Einzeltests überschreiben `berechneAenderungen` bei Bedarf.
+      tracker: {
+        snapshot: jest.fn(async () => new Map()),
+        berechneAenderungen: jest.fn(() => ({ aenderungen: [], abgeschnitten: false })),
+      },
       resolveModel: jest.fn(async () => 'default-model'),
       ...overrides,
     };
@@ -438,6 +445,81 @@ describe('runSkill — Orchestrierung', () => {
     const orchestratorMessages = JSON.stringify(axios.post.mock.calls[2][1].messages);
     expect(orchestratorMessages).not.toMatch(/GEHEIMER SEITENINHALT/);
     expect(orchestratorMessages).toMatch(/fazit: kurz/);
+  });
+
+  it('verfolgt KEINE Datei-Änderungen für einen Skill ohne Schreib-Werkzeug', async () => {
+    // baseSkill hat nur web_suche — kein Abzug, kein saveChanges.
+    const deps = makeDeps();
+    await runSkill({ skillName: 'notiz', args: { thema: 'x' }, userId: 1 }, deps);
+    expect(deps.tracker.snapshot).not.toHaveBeenCalled();
+    expect(deps.store.saveChanges).not.toHaveBeenCalled();
+  });
+
+  it('zieht Abzüge vor/nach dem Lauf und speichert die Änderungen (Schreib-Werkzeug)', async () => {
+    const aenderungen = [{ pfad: 'a.txt', art: 'neu', vorher: null, nachher: 'hi', gekuerzt: false }];
+    const deps = makeDeps({
+      loadSkill: jest.fn(async () => ({
+        ...baseSkill,
+        werkzeuge: ['dateien_schreiben'],
+        ordner: ['/arbeit'],
+      })),
+    });
+    deps.tracker.berechneAenderungen.mockReturnValue({ aenderungen, abgeschnitten: false });
+    const evts = [];
+    await runSkill(
+      { skillName: 'schreiber', args: { thema: 'x' }, userId: 1, onEvent: e => evts.push(e) },
+      deps
+    );
+
+    // Zwei Abzüge (vorher/nachher) desselben Ordners.
+    expect(deps.tracker.snapshot).toHaveBeenCalledTimes(2);
+    expect(deps.tracker.snapshot).toHaveBeenCalledWith(['/arbeit']);
+    // Die Differenz landet am Lauf.
+    expect(deps.store.saveChanges).toHaveBeenCalledWith({ runId: 42, changes: aenderungen });
+    // Und wird live gemeldet, damit die offene Karte sie ohne Nachladen zeigt.
+    expect(evts).toContainEqual({ type: 'aenderungen', changes: aenderungen });
+  });
+
+  it('meldet keine leere Änderungs-Liste live, speichert sie aber (leer)', async () => {
+    const deps = makeDeps({
+      loadSkill: jest.fn(async () => ({ ...baseSkill, werkzeuge: ['terminal'], ordner: ['/a'] })),
+    });
+    const evts = [];
+    await runSkill(
+      { skillName: 't', args: { thema: 'x' }, userId: 1, onEvent: e => evts.push(e) },
+      deps
+    );
+    expect(deps.store.saveChanges).toHaveBeenCalledWith({ runId: 42, changes: [] });
+    expect(evts.some(e => e.type === 'aenderungen')).toBe(false);
+  });
+
+  it('speichert die Änderungen auch, wenn der Lauf mit Fehler endet', async () => {
+    const aenderungen = [{ pfad: 'x', art: 'geloescht', vorher: 'alt', nachher: null }];
+    const deps = makeDeps({
+      loadSkill: jest.fn(async () => ({ ...baseSkill, werkzeuge: ['terminal'], ordner: ['/a'] })),
+      runLoop: jest.fn(async () => {
+        throw new Error('Modell weg');
+      }),
+    });
+    deps.tracker.berechneAenderungen.mockReturnValue({ aenderungen, abgeschnitten: false });
+    await runSkill({ skillName: 't', args: { thema: 'x' }, userId: 1 }, deps);
+    expect(deps.store.finishRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'fehler' })
+    );
+    expect(deps.store.saveChanges).toHaveBeenCalledWith({ runId: 42, changes: aenderungen });
+  });
+
+  it('lässt den Lauf nicht scheitern, wenn die Änderungs-Übersicht wirft', async () => {
+    const deps = makeDeps({
+      loadSkill: jest.fn(async () => ({ ...baseSkill, werkzeuge: ['terminal'], ordner: ['/a'] })),
+    });
+    // Zweiter Abzug (Ende) wirft — der Lauf ist trotzdem 'fertig'.
+    deps.tracker.snapshot
+      .mockResolvedValueOnce(new Map())
+      .mockRejectedValueOnce(new Error('Platte weg'));
+    const run = await runSkill({ skillName: 't', args: { thema: 'x' }, userId: 1 }, deps);
+    expect(run.status).toBe('fertig');
+    expect(deps.store.saveChanges).not.toHaveBeenCalled();
   });
 
   it('schließt den Lauf als "fehler" ab, wenn die Schleife einen error liefert', async () => {

@@ -172,6 +172,26 @@ async function finishRun(
   return rows[0] || null;
 }
 
+/**
+ * Legt die Datei-Änderungs-Übersicht eines Laufs ab (Plan 011, Schritt 16).
+ *
+ * Bewusst OHNE `status = 'laeuft'`-Bedingung: Die Übersicht wird beim Abschluss
+ * geschrieben, wenn der Lauf-Status u. U. schon terminal ist (finishRun lief
+ * zuerst). Sie ist reine Nachschau, überschreibt keinen Status und darf einen
+ * bereits beendeten Lauf ergänzen.
+ *
+ * @param {object} p
+ * @param {number} p.runId
+ * @param {object[]} p.changes - [{ pfad, art, vorher, nachher, gekuerzt, hinweis }]
+ * @returns {Promise<void>}
+ */
+async function saveChanges({ runId, changes = [] }, { db = database } = {}) {
+  await db.query(`UPDATE skill_runs SET changes = $2::jsonb WHERE id = $1`, [
+    runId,
+    JSON.stringify(changes || []),
+  ]);
+}
+
 /** Zählt den Rundenzähler eines laufenden Laufs um `n` hoch (Standard 1). */
 async function bumpSteps({ runId, by = 1 }, { db = database } = {}) {
   const { rows } = await db.query(
@@ -265,6 +285,7 @@ module.exports = {
   startStep,
   finishStep,
   finishRun,
+  saveChanges,
   bumpSteps,
   cancelRun,
   getRun,

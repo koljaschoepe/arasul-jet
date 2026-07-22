@@ -2114,7 +2114,7 @@ its `runId` at once — the run keeps going regardless of the client. The client
 then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
 `EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
 with the stored run+steps first (so a **reconnecting** client sees everything up
-to now), then live frames (`tool_start`/`tool_result`/`text`/`done`/`error`),
+to now), then live frames (`tool_start`/`tool_result`/`text`/`done`/`error`/`aenderungen`),
 and closes on `ende`. Disconnecting does **not** stop the run. `abbrechen` sets
 the run's abort signal, so a running skill actually stops rather than only being
 marked cancelled in the DB. A backend restart marks any still-`laeuft` run as
@@ -2131,6 +2131,16 @@ a run belonging to another user returns `404`, never `403` — its existence is
 not revealed. Each step stores a condensed `output` (what reaches the
 orchestrator) separately from `raw_output` (page/file content, log-only, loaded
 only with `?raw=1`). Statuses: `laeuft | fertig | fehler | abgebrochen`.
+
+**File changes overview (Plan 011, Schritt 16).** A skill writes and deletes
+files without confirmation, so every run that _can_ change files (declares
+`dateien_schreiben` or `terminal`) is snapshotted before and after; the diff is
+stored on `skill_runs.changes` and returned inside the run object
+(`[{ pfad, art: neu|geaendert|geloescht, vorher, nachher, gekuerzt, hinweis }]`).
+A finishing run also emits it live as an `aenderungen` frame so the open run card
+shows it without a refetch; on reconnect it arrives inside the `verlauf` run.
+Bounded in count and per-file preview length; `null` (column) means not tracked
+(a read-only run). Never fails a run — a failed snapshot just omits the overview.
 
 `:name` and the `name` field are restricted to lowercase letters, digits and hyphens (1–50 chars), and must start and end with a letter or digit — the name becomes both the filename and the `/name` slash command in chat.
 

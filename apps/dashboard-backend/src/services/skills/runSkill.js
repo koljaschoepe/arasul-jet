@@ -24,6 +24,7 @@ const { buildTools } = require('./toolRegistry');
 const { runSkillLoop } = require('./toolLoop');
 const { fillPlaceholders } = require('./skillFile');
 const { ensureSkillSandbox } = require('./sandboxResolve');
+const changeTracker = require('./changeTracker');
 const { RunLimits } = require('./limits');
 const modelService = require('../llm/modelService');
 const logger = require('../../utils/logger');
@@ -101,6 +102,7 @@ async function runSkill(
     makeTools = buildTools,
     runLoop = runSkillLoop,
     ensureSandbox = ensureSkillSandbox,
+    tracker = changeTracker,
     resolveModel = () => modelService.getDefaultModel(),
   } = deps;
 
@@ -228,6 +230,68 @@ async function runSkill(
     }
   };
 
+  // 5b. Änderungs-Übersicht (Schritt 16): Nur wenn der Skill überhaupt Dateien
+  //     verändern KANN (Schreib-Werkzeug oder Terminal), einen Abzug der Ordner
+  //     VOR dem Lauf ziehen. Die Differenz zum Abzug NACH dem Lauf ist die
+  //     Übersicht. Read-only-Skills (nur RAG/Web) tun das nie — kein Aufwand.
+  //
+  //     GRENZE, ehrlich benannt: Der Abzug-Vergleich nimmt an, dass NUR dieser
+  //     Lauf die Ordner verändert. Griffe ein zweiter Lauf oder eine manuelle
+  //     Terminal-Aktion GLEICHZEITIG in denselben Ordner, schriebe die Differenz
+  //     dessen Änderungen fälschlich diesem Lauf zu. In der Praxis selten (ein
+  //     Skill arbeitet in seinem eigenen Ordner), aber es ist ein anderer
+  //     Fehlerfall als der TOCTOU-Schutz der Datei-Werkzeuge — hier nicht gelöst.
+  const verfolgtAenderungen =
+    Array.isArray(skill.werkzeuge) &&
+    (skill.werkzeuge.includes('dateien_schreiben') || skill.werkzeuge.includes('terminal'));
+  let startAbzug = null;
+  if (verfolgtAenderungen) {
+    try {
+      startAbzug = await tracker.snapshot(skill.ordner);
+    } catch (err) {
+      // Kein Abzug? Der Lauf läuft trotzdem — nur die Übersicht entfällt dann.
+      logger.warn(`Skill "${skillName}": Start-Abzug fehlgeschlagen: ${err.message}`);
+    }
+  }
+
+  // Zweiten Abzug ziehen, Differenz speichern und live melden. Wird in BEIDEN
+  // Abschluss-Pfaden (Fehler wie Erfolg) genau einmal gerufen. Wirft nie: eine
+  // gescheiterte Übersicht darf einen sonst gelungenen Lauf nicht kippen.
+  const aenderungenAbschliessen = async () => {
+    if (!startAbzug) {
+      return;
+    }
+    try {
+      const endAbzug = await tracker.snapshot(skill.ordner);
+      const { aenderungen, abgeschnitten } = tracker.berechneAenderungen(
+        startAbzug,
+        endAbzug,
+        skill.ordner || []
+      );
+      // Die Kürzung nicht still verschlucken (der Deckel greift erst bei sehr
+      // vielen Datei-Änderungen, z. B. `npm install`): wenigstens im Log ehrlich
+      // benennen, damit ein „nur 300 gelistet" nicht als vollständig missverstanden wird.
+      if (abgeschnitten) {
+        logger.warn(
+          `Skill "${skillName}": Änderungs-Übersicht auf ${aenderungen.length} Einträge gekürzt — weitere ausgelassen.`
+        );
+      }
+      await store.saveChanges({ runId: run.id, changes: aenderungen });
+      // Live melden, damit die offen zusehende Lauf-Karte die Übersicht ohne
+      // Nachladen zeigt. Beim Wiederverbinden liefert der gespeicherte Verlauf
+      // dieselben Daten (getRun gibt `changes` mit).
+      if (aenderungen.length > 0 && typeof onEvent === 'function') {
+        try {
+          onEvent({ type: 'aenderungen', changes: aenderungen });
+        } catch (err) {
+          logger.warn(`Skill "${skillName}": onEvent(aenderungen) warf: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      logger.warn(`Skill "${skillName}": Änderungs-Übersicht fehlgeschlagen: ${err.message}`);
+    }
+  };
+
   // 6. Schleife treiben.
   let ergebnis;
   try {
@@ -250,6 +314,8 @@ async function runSkill(
       error: err.message,
       stepsUsed: steps,
     });
+    // Auch ein gescheiterter Lauf kann bis zum Abbruch Dateien verändert haben.
+    await aenderungenAbschliessen();
     return store.getRun({ runId: run.id, userId });
   }
 
@@ -264,6 +330,8 @@ async function runSkill(
     error: ergebnis.error || null,
     stepsUsed: steps,
   });
+
+  await aenderungenAbschliessen();
 
   return store.getRun({ runId: run.id, userId });
 }

@@ -157,22 +157,14 @@ describe('dateien_schreiben', () => {
     expect(fs.existsSync(path.join(arbeit, 'tief/drin/datei.md'))).toBe(true);
   });
 
-  it('meldet Überschreiben als solches und liefert den alten Inhalt an onChange', async () => {
+  it('meldet Überschreiben als solches und ersetzt den Inhalt', async () => {
+    // Die inhaltliche Vorher/Nachher-Übersicht liefert der Runner über den
+    // Ordner-Abzug (changeTracker.js), nicht dieses Werkzeug — hier zählt nur,
+    // dass „ueberschrieben" gemeldet und der Inhalt wirklich ersetzt wird.
     fs.writeFileSync(path.join(arbeit, 'alt.md'), 'ALT');
-    const changes = [];
-    const out = await tool.execute(
-      { pfad: 'alt.md', inhalt: 'NEU' },
-      ctx({ onChange: c => changes.push(c) })
-    );
+    const out = await tool.execute({ pfad: 'alt.md', inhalt: 'NEU' }, ctx());
     expect(out).toMatch(/ueberschrieben/);
-    expect(changes).toHaveLength(1);
-    expect(changes[0]).toMatchObject({ art: 'geaendert', vorher: 'ALT', nachher: 'NEU' });
-  });
-
-  it('meldet eine Neuanlage als "neu" an onChange', async () => {
-    const changes = [];
-    await tool.execute({ pfad: 'frisch.md', inhalt: 'A' }, ctx({ onChange: c => changes.push(c) }));
-    expect(changes[0]).toMatchObject({ art: 'neu', vorher: null });
+    expect(fs.readFileSync(path.join(arbeit, 'alt.md'), 'utf8')).toBe('NEU');
   });
 
   it('schreibt NICHT ausserhalb der erlaubten Ordner', async () => {
@@ -201,19 +193,6 @@ describe('dateien_schreiben', () => {
     );
     expect(out).toMatch(/Limit/);
     expect(fs.existsSync(path.join(arbeit, 'zugross.txt'))).toBe(false);
-  });
-
-  it('lässt einen Fehler im Änderungsprotokoll den Schreibvorgang nicht kippen', async () => {
-    const out = await tool.execute(
-      { pfad: 'trotzdem.md', inhalt: 'da' },
-      ctx({
-        onChange: () => {
-          throw new Error('Protokoll kaputt');
-        },
-      })
-    );
-    expect(out).toMatch(/angelegt/);
-    expect(fs.readFileSync(path.join(arbeit, 'trotzdem.md'), 'utf8')).toBe('da');
   });
 });
 

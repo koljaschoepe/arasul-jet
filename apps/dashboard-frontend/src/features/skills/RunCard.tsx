@@ -14,6 +14,7 @@ import { Loader2, Square } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useSkillRun, type SkillRunStatus, type SkillRunStep } from '@/hooks/useSkillRun';
 import RunStep from './RunStep';
+import ChangeSummary from './ChangeSummary';
 
 const STATUS_TEXT: Record<SkillRunStatus, string> = {
   laeuft: 'läuft',
@@ -135,6 +136,9 @@ export default function RunCard({ runId, skillName, onFinished }: RunCardProps) 
           })}
         </div>
       )}
+
+      {/* Datei-Änderungen (neu / geändert / gelöscht, aufklappbar) */}
+      <ChangeSummary changes={run.changes} />
 
       {/* Antwort / Fehler */}
       {run.result != null && run.result !== '' && (

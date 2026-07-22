@@ -28,6 +28,7 @@ function base(overrides: Partial<SkillRunState> = {}): SkillRunState {
     steps: [],
     result: null,
     error: null,
+    changes: [],
     verbunden: true,
     ...overrides,
   };
@@ -90,6 +91,16 @@ test('Schritte erscheinen als Zeilen', () => {
   expect(screen.getAllByTestId('run-step')).toHaveLength(2);
   expect(screen.getByText('sucht: Umsatz')).toBeInTheDocument();
   expect(screen.getByText('leser: lesen')).toBeInTheDocument();
+});
+
+test('die Datei-Änderungen erscheinen in der Karte', () => {
+  runState = base({
+    status: 'fertig',
+    verbunden: false,
+    changes: [{ pfad: 'bericht.md', art: 'neu', vorher: null, nachher: '# Titel' }],
+  });
+  render(<RunCard runId={7} />);
+  expect(screen.getByTestId('change-summary')).toHaveTextContent('Datei-Änderungen (1)');
 });
 
 test('ein Fehler wird angezeigt', () => {

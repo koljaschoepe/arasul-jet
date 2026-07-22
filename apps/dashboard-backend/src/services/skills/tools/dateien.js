@@ -15,7 +15,6 @@
 const fs = require('fs').promises;
 const path = require('path');
 const BaseTool = require('../../../tools/baseTool');
-const logger = require('../../../utils/logger');
 const { resolveRealWithinRoots, normalizeRoots, assertFdWithinRoots } = require('../pathSafe');
 const fsc = require('fs').constants;
 
@@ -199,8 +198,12 @@ class DateienSchreibenTool extends BaseTool {
 
   /**
    * @param {{pfad?:string, inhalt?:string}} params
-   * @param {{roots:string[], onChange?:Function, spaceId?:string, slug?:string}} context
-   *   `onChange` meldet jede Änderung an die Änderungs-Übersicht (Schritt 16).
+   * @param {{roots:string[], spaceId?:string, slug?:string}} context
+   *
+   * Die Änderungs-Übersicht (Schritt 16) entsteht NICHT hier, sondern im Runner
+   * über einen Ordner-Abzug vor/nach dem Lauf (services/skills/changeTracker.js).
+   * So werden Terminal-Änderungen und Löschungen mit demselben Mechanismus
+   * erfasst — ein Schreib-Haken allein sähe beide nie.
    */
   async execute(params = {}, context = {}) {
     const roots = rootsFrom(context);
@@ -234,16 +237,16 @@ class DateienSchreibenTool extends BaseTool {
       return `Fehler: ${err.message}`;
     }
 
-    let vorher = null;
     let neu = true;
     let handle;
     try {
       await fs.mkdir(path.dirname(file), { recursive: true });
-      // O_RDWR statt O_WRONLY und bewusst OHNE O_TRUNC: Erst wird der bisherige
-      // Inhalt fuer die Aenderungs-Uebersicht gelesen, dann gekuerzt und neu
-      // geschrieben — alles auf DEMSELBEN Deskriptor. O_NOFOLLOW schliesst den
-      // Symlink als letzte Komponente aus, die Deskriptor-Pruefung danach auch
-      // getauschte Zwischenverzeichnisse (TOCTOU).
+      // Bewusst OHNE O_TRUNC: Vor dem Kürzen wird die Größe gelesen, um „angelegt"
+      // von „ueberschrieben" zu unterscheiden — mit O_TRUNC wäre die Datei beim
+      // Öffnen schon leer. O_NOFOLLOW schliesst den Symlink als letzte Komponente
+      // aus, die Deskriptor-Pruefung danach auch getauschte Zwischenverzeichnisse
+      // (TOCTOU). Die inhaltliche Vorher/Nachher-Übersicht liefert der Runner
+      // über den Ordner-Abzug (changeTracker.js), nicht dieses Werkzeug.
       handle = await fs.open(file, fsc.O_RDWR | fsc.O_CREAT | fsc.O_NOFOLLOW, 0o644);
     } catch (err) {
       if (err.code === 'ELOOP') {
@@ -259,7 +262,6 @@ class DateienSchreibenTool extends BaseTool {
         return `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.`;
       }
       if (stat.size > 0) {
-        vorher = await handle.readFile('utf8');
         neu = false;
       }
       await handle.truncate(0);
@@ -268,22 +270,6 @@ class DateienSchreibenTool extends BaseTool {
       return `Fehler beim Schreiben: ${err.message}`;
     } finally {
       await handle.close().catch(() => {});
-    }
-
-    if (typeof context.onChange === 'function') {
-      try {
-        context.onChange({
-          pfad,
-          datei: file,
-          art: neu ? 'neu' : 'geaendert',
-          vorher,
-          nachher: data,
-        });
-      } catch (err) {
-        // Die Protokollierung darf einen erfolgreichen Schreibvorgang nie
-        // nachträglich zum Fehler machen.
-        logger.warn(`dateien_schreiben: Änderungsprotokoll fehlgeschlagen: ${err.message}`);
-      }
     }
 
     return `Datei "${pfad}" ${neu ? 'angelegt' : 'ueberschrieben'} (${Buffer.byteLength(data, 'utf8')} Bytes).`;
