@@ -21,18 +21,24 @@ const werkzeug = (
 });
 
 describe('stepLabel', () => {
-  test('Datei-Werkzeug nennt Aktion und Pfad', () => {
-    expect(stepLabel(werkzeug('dateien', { aktion: 'read', pfad: '/berichte/q1.md' }))).toBe(
+  test('Datei-Werkzeuge nennen Aktion und Pfad (echte Werkzeugnamen)', () => {
+    expect(stepLabel(werkzeug('dateien_lesen', { aktion: 'read', pfad: '/berichte/q1.md' }))).toBe(
       'liest /berichte/q1.md'
     );
-    expect(stepLabel(werkzeug('dateien', { aktion: 'write', pfad: '/out.txt' }))).toBe(
+    expect(stepLabel(werkzeug('dateien_lesen', { aktion: 'list', pfad: '/berichte' }))).toBe(
+      'listet /berichte'
+    );
+    expect(stepLabel(werkzeug('dateien_schreiben', { pfad: '/out.txt' }))).toBe(
       'schreibt /out.txt'
     );
   });
 
-  test('RAG- und Web-Werkzeug zeigen die Suchanfrage', () => {
-    expect(stepLabel(werkzeug('rag', { frage: 'Umsatz 2025' }))).toBe('sucht: Umsatz 2025');
-    expect(stepLabel(werkzeug('web', { query: 'Wetter' }))).toBe('Web: Wetter');
+  test('RAG- und Web-Werkzeug zeigen die Suchanfrage (Backend-Parameterschlüssel)', () => {
+    expect(stepLabel(werkzeug('rag_suche', { frage: 'Umsatz 2025' }))).toBe('sucht: Umsatz 2025');
+    expect(stepLabel(werkzeug('web_suche', { suchbegriff: 'Wetter' }))).toBe('Web-Suche: Wetter');
+    expect(stepLabel(werkzeug('web_lesen', { adresse: 'https://x.de' }))).toBe(
+      'liest https://x.de'
+    );
   });
 
   test('Subagent nennt Rolle und Auftrag', () => {
@@ -60,7 +66,7 @@ describe('stepDauer', () => {
     expect(
       stepDauer(
         werkzeug(
-          'rag',
+          'rag_suche',
           {},
           { created_at: '2026-07-22T10:00:00.000Z', finished_at: '2026-07-22T10:00:01.500Z' }
         )
@@ -69,7 +75,7 @@ describe('stepDauer', () => {
     expect(
       stepDauer(
         werkzeug(
-          'rag',
+          'rag_suche',
           {},
           { created_at: '2026-07-22T10:00:00.000Z', finished_at: '2026-07-22T10:00:00.340Z' }
         )
@@ -78,7 +84,9 @@ describe('stepDauer', () => {
   });
 
   test('ohne Endzeitstempel leer', () => {
-    expect(stepDauer(werkzeug('rag', {}, { created_at: '2026-07-22T10:00:00.000Z' }))).toBe('');
+    expect(stepDauer(werkzeug('rag_suche', {}, { created_at: '2026-07-22T10:00:00.000Z' }))).toBe(
+      ''
+    );
   });
 });
 
@@ -87,7 +95,7 @@ describe('RunStep · Aufklappen', () => {
     const user = userEvent.setup();
     const onExpand = vi.fn();
     const step = werkzeug(
-      'rag',
+      'rag_suche',
       { frage: 'Umsatz' },
       { output: 'Der Umsatz lag bei 1 Mio.', position: 0 }
     );

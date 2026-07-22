@@ -14,6 +14,7 @@ import {
   Bot,
   ChevronRight,
   FileText,
+  Globe,
   Loader2,
   Search,
   Sparkles,
@@ -41,26 +42,30 @@ export function stepLabel(step: SkillRunStep): string {
   }
   if (step.kind === 'modell') return 'Modell-Antwort';
   if (step.kind === 'hinweis') return feld(step.input, 'text', 'hinweis') || step.name || 'Hinweis';
-  // Werkzeug: je nach Name eine sprechende Zeile.
+  // Werkzeug: je nach echtem Werkzeugnamen (siehe services/skills/tools/) eine
+  // sprechende Zeile — Parameterschlüssel wie im Backend (`frage`, `suchbegriff`, …).
   switch (step.name) {
-    case 'dateien': {
+    case 'dateien_lesen': {
       const aktion = feld(step.input, 'aktion').toLowerCase();
       const pfad = feld(step.input, 'pfad') || '/';
-      if (aktion === 'read') return `liest ${pfad}`;
-      if (aktion === 'write') return `schreibt ${pfad}`;
-      if (aktion === 'list') return `listet ${pfad}`;
-      return `Dateien: ${pfad}`;
+      return aktion === 'list' ? `listet ${pfad}` : `liest ${pfad}`;
     }
-    case 'rag': {
-      const q = feld(step.input, 'frage', 'query');
+    case 'dateien_schreiben':
+      return `schreibt ${feld(step.input, 'pfad') || '/'}`;
+    case 'rag_suche': {
+      const q = feld(step.input, 'frage');
       return q ? `sucht: ${q}` : 'durchsucht das Wissen';
     }
-    case 'web': {
-      const q = feld(step.input, 'frage', 'query', 'url');
-      return q ? `Web: ${q}` : 'durchsucht das Web';
+    case 'web_suche': {
+      const q = feld(step.input, 'suchbegriff');
+      return q ? `Web-Suche: ${q}` : 'sucht im Web';
+    }
+    case 'web_lesen': {
+      const u = feld(step.input, 'adresse');
+      return u ? `liest ${u}` : 'liest eine Webseite';
     }
     case 'terminal': {
-      const cmd = feld(step.input, 'befehl', 'command');
+      const cmd = feld(step.input, 'befehl');
       return cmd ? `führt aus: ${cmd}` : 'führt einen Befehl aus';
     }
     default:
@@ -72,11 +77,14 @@ function stepIcon(step: SkillRunStep) {
   if (step.kind === 'subagent') return <Bot className="size-3.5" />;
   if (step.kind === 'modell') return <Sparkles className="size-3.5" />;
   switch (step.name) {
-    case 'dateien':
+    case 'dateien_lesen':
+    case 'dateien_schreiben':
       return <FileText className="size-3.5" />;
-    case 'rag':
-    case 'web':
+    case 'rag_suche':
       return <Search className="size-3.5" />;
+    case 'web_suche':
+    case 'web_lesen':
+      return <Globe className="size-3.5" />;
     case 'terminal':
       return <TerminalSquare className="size-3.5" />;
     default:

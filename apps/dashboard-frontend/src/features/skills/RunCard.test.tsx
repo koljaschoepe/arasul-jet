@@ -70,7 +70,13 @@ test('ein beendeter Lauf zeigt kein Abbrechen, aber die Antwort', () => {
 test('Schritte erscheinen als Zeilen', () => {
   runState = base({
     steps: [
-      { kind: 'werkzeug', name: 'rag', input: { frage: 'Umsatz' }, status: 'fertig', position: 0 },
+      {
+        kind: 'werkzeug',
+        name: 'rag_suche',
+        input: { frage: 'Umsatz' },
+        status: 'fertig',
+        position: 0,
+      },
       {
         kind: 'subagent',
         name: 'leser',
@@ -99,7 +105,7 @@ test('das erste Aufklappen eines Schritts lädt die Rohdaten nach', async () => 
     steps: [
       {
         kind: 'werkzeug',
-        name: 'web',
+        name: 'web_lesen',
         input: { url: 'x' },
         output: 'kurz',
         status: 'fertig',
