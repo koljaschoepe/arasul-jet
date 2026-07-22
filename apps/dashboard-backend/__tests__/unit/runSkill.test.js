@@ -48,6 +48,14 @@ describe('runSkillLoop — Ablauf', () => {
     expect(r.truncated).toBeUndefined();
   });
 
+  it('ruft das Modell mit abgeschaltetem Denken auf (think:false)', async () => {
+    // Skills führen aus statt zu plaudern; der Reasoning-Trace kostet auf dem
+    // Jetson ein Vielfaches und sprengt das Aufruf-Zeitlimit.
+    axios.post.mockResolvedValue(antwort({ content: 'ok' }));
+    await runSkillLoop({ model: 'm', systemPrompt: 's', userInput: 'u', tools: [] });
+    expect(axios.post.mock.calls[0][1]).toMatchObject({ think: false, stream: false });
+  });
+
   it('führt einen Werkzeug-Aufruf aus und reicht das Ergebnis ans Modell zurück', async () => {
     const tool = fakeTool('web_suche', async () => 'Treffer A');
     axios.post
