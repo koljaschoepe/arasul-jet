@@ -37,7 +37,12 @@ const CALL_TIMEOUT_MS = parseInt(process.env.SKILL_LLM_TIMEOUT_MS || '120000', 1
  * @returns {Promise<object>} Das `message`-Objekt der Antwort.
  */
 function callOllama({ model, messages, tools }) {
-  const body = { model, messages, stream: false };
+  // `think: false` schaltet den Reasoning-Trace „denkender" Modelle (qwen3 &
+  // Co.) ab. Ein Skill FÜHRT AUS statt zu plaudern — der lange Gedankengang
+  // bringt hier nichts, kostet aber ein Vielfaches: auf dem Jetson braucht
+  // qwen3:14b mit Denken ~100 s je Aufruf (und sprengt so das 120-s-Limit),
+  // ohne Denken ~8 s. Modelle ohne Reasoning ignorieren die Option.
+  const body = { model, messages, stream: false, think: false };
   if (tools && tools.length > 0) {
     body.tools = tools;
   }
