@@ -5,8 +5,10 @@
  * das die alte Flow-Agenten-Palette ablöst — Filtern, Pfeiltasten, Enter
  * übernimmt, Stift bearbeitet, feste Befehle /skills und /neuer-skill.
  */
+import { useState } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import ComposerCard, { type ComposerModel } from './ComposerCard';
 import type { Skill } from '@/types/skills';
@@ -15,6 +17,11 @@ import type { Skill } from '@/types/skills';
 vi.mock('@/stores/workspaceStore', () => ({
   useWorkspaceStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({ chatScope: null, setChatScope: vi.fn() }),
+}));
+
+// Der ArgumentPicker (Schritt 14) liest über useApi/React Query — hier flach.
+vi.mock('@/hooks/useApi', () => ({
+  useApi: () => ({ get: vi.fn().mockResolvedValue({ data: [] }) }),
 }));
 
 const models: ComposerModel[] = [{ id: 'qwen3:7b', name: 'Qwen3 7B' }];
@@ -187,5 +194,85 @@ describe('ComposerCard', () => {
 
     await user.click(screen.getAllByLabelText('Bild entfernen')[1]!);
     expect(onRemoveImage).toHaveBeenCalledWith(1);
+  });
+});
+
+// --- Argument-Eingabe (Plan 011, Schritt 14) --------------------------------
+// Diese Fälle brauchen die echte kontrollierte Schleife (onChange → value),
+// weil die Argument-Eingabe den Feldwert selbst fortschreibt.
+
+const argSkills: Skill[] = [
+  {
+    name: 'recherche',
+    beschreibung: 'Web-Recherche',
+    argumente: [{ name: 'thema', typ: 'freitext', beschreibung: '', pflicht: true }],
+  },
+  {
+    name: 'stil',
+    beschreibung: 'Mit fester Auswahl',
+    argumente: [
+      { name: 'ton', typ: 'auswahl', beschreibung: '', pflicht: true, optionen: ['kurz', 'lang'] },
+    ],
+  },
+  {
+    name: 'wissen',
+    beschreibung: 'Zwei Argumente',
+    argumente: [
+      { name: 'frage', typ: 'freitext', beschreibung: '', pflicht: true },
+      { name: 'raum', typ: 'freitext', beschreibung: '', pflicht: true },
+    ],
+  },
+];
+
+/** Kontrollierte Harness: spiegelt onChange in value zurück (wie der echte Chat). */
+function Harness() {
+  const [value, setValue] = useState('/');
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={qc}>
+      <ComposerCard {...makeProps({ value, onChange: setValue, skills: argSkills })} />
+    </QueryClientProvider>
+  );
+}
+
+describe('ComposerCard · Argument-Eingabe (Schritt 14)', () => {
+  test('nach Skill-Auswahl steht der graue Argument-Hinweis im Feld', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByText('/recherche'));
+    const hints = screen.getByTestId('argument-hints');
+    expect(hints).toHaveTextContent('/recherche');
+    expect(hints).toHaveTextContent('<thema>');
+  });
+
+  test('Tippen überschreibt den grauen Hinweis', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByText('/recherche'));
+    await user.type(screen.getByLabelText('Nachricht an die KI'), 'Klimawandel');
+    // Sobald getippt wird, verschwindet der Platzhalter des aktiven Arguments.
+    expect(screen.queryByTestId('argument-hints')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Nachricht an die KI')).toHaveValue('/recherche Klimawandel');
+  });
+
+  test('Tab springt zum nächsten Argument', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByText('/wissen'));
+    const ta = screen.getByLabelText('Nachricht an die KI');
+    await user.type(ta, 'was kostet strom');
+    await user.tab();
+    // Zweites Argument ist jetzt aktiv und grau sichtbar.
+    expect(screen.getByTestId('argument-hints')).toHaveTextContent('<raum>');
+    expect(ta).toHaveValue('/wissen was kostet strom ');
+  });
+
+  test('ein Auswahl-Argument öffnet direkt den Picker', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByText('/stil'));
+    const picker = await screen.findByTestId('argument-picker');
+    expect(within(picker).getByText('kurz')).toBeInTheDocument();
+    expect(within(picker).getByText('lang')).toBeInTheDocument();
   });
 });
