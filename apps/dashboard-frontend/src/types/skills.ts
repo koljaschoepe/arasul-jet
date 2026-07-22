@@ -9,7 +9,7 @@
  */
 
 /** Argument-Typen, die ein Skill deklarieren kann. Spiegelt `ARG_TYPES` im Backend. */
-export type SkillArgumentType = 'text' | 'auswahl' | 'datei' | 'wissensbasis';
+export type SkillArgumentType = 'freitext' | 'datei' | 'auswahl' | 'wissensbasis';
 
 export interface SkillArgument {
   name: string;
