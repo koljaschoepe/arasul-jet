@@ -56,7 +56,12 @@ async function starten({ skillName, args = {}, userId, conversationId = null }, 
   // Den Lauf ZUERST anlegen, damit die zurückgegebene ID sofort streambar ist —
   // die SSE-Route kann sich verbinden, noch bevor der erste Schritt da ist.
   const angelegt = await store.createRun({ userId, skillName, arguments: args, conversationId });
-  const runId = angelegt.id;
+  // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
+  // ihren Pfad-Parameter dagegen in eine ZAHL. Würde die Registry unter dem
+  // String verschlüsselt, fände `abonnieren(7)` den Lauf nie — die
+  // Live-Übertragung liefe ins Leere (der Lauf selbst läuft weiter, aber ohne
+  // Strom). Deshalb hier und in allen Registry-Zugriffen konsequent als Zahl.
+  const runId = Number(angelegt.id);
 
   const bus = new EventEmitter();
   // Ein SSE-Abonnent pro Verbindung; mehrere Tabs sind möglich.
@@ -116,7 +121,7 @@ async function starten({ skillName, args = {}, userId, conversationId = null }, 
  *   (mehr) aktiv ist (dann gibt es nur noch den DB-Verlauf).
  */
 function abonnieren(runId, handler) {
-  const eintrag = aktive.get(runId);
+  const eintrag = aktive.get(Number(runId));
   if (!eintrag) {
     return null;
   }
@@ -126,7 +131,7 @@ function abonnieren(runId, handler) {
 
 /** Läuft dieser Lauf gerade aktiv im Speicher? */
 function istAktiv(runId) {
-  return aktive.has(runId);
+  return aktive.has(Number(runId));
 }
 
 /**
@@ -142,7 +147,7 @@ async function abbrechen({ runId, userId }, deps = {}) {
   if (!abgebrochen) {
     return null;
   }
-  const eintrag = aktive.get(runId);
+  const eintrag = aktive.get(Number(runId));
   if (eintrag) {
     eintrag.controller.abort();
     eintrag.bus.emit('evt', { type: 'ende', status: 'abgebrochen', runId });
