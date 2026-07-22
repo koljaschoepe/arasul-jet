@@ -25,6 +25,9 @@ import {
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { Skill } from '@/types/skills';
 import SkillMenu, { buildMenuItems, type SkillMenuItem } from '@/features/skills/SkillMenu';
+import ArgumentHints, { COMPOSER_TEXT_CLASSES } from '@/features/skills/ArgumentHints';
+import ArgumentPicker from '@/features/skills/ArgumentPicker';
+import { useSkillArgs } from '@/features/skills/useSkillArgs';
 
 export interface ComposerModel {
   id: string;
@@ -120,6 +123,13 @@ export default function ComposerCard({
   // auf 0 zurückgesetzt, damit Enter immer den obersten Treffer nimmt.
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // Argument-Eingabe (Schritt 14): grauer Hinweis + Tab-Sprung + Picker. Der Hook
+  // hält den Zustand und synchronisiert das Feld über onChange.
+  const args = useSkillArgs(value, onChange);
+  // Overlay/Picker nur zeigen, wenn der Feldwert wirklich noch zum Skill-Befehl
+  // gehört — doppelter Boden gegen einen kurz veralteten Zustand.
+  const inArgs = args.argState != null && value.startsWith(`/${args.argState.skill.name}`);
+
   // Slash-Menü: sichtbar, solange der Text nur „/<teilname>" ist (kein Leerzeichen)
   // und nicht per Escape geschlossen wurde. Auswahl setzt bei einem Skill „/<name> "
   // und schließt; feste Befehle (/skills, /neuer-skill) lösen ihre Aktion aus.
@@ -151,9 +161,10 @@ export default function ComposerCard({
       // späteres „/" öffnete das Menü dann nie wieder. Deshalb aktiv freigeben.
       setMenuDismissed(false);
       if (item.kind === 'skill') {
-        // Der Skill wandert als Befehl ins Feld; die grauen Argument-Hinweise
-        // folgen in Schritt 14, danach tippt der Nutzer die Argumente und sendet.
-        onChange(`/${item.name} `);
+        // Die Argument-Eingabe übernimmt: sie setzt „/<name> " ins Feld und zeigt
+        // die grauen Argument-Hinweise; ist das erste Argument eine Auswahl,
+        // öffnet sie gleich den Picker.
+        args.begin(item.skill);
         textareaRef.current?.focus();
         return;
       }
@@ -163,7 +174,7 @@ export default function ComposerCard({
       if (item.name === 'skills') onOpenSkillOverview?.();
       else onCreateSkill?.();
     },
-    [onChange, onOpenSkillOverview, onCreateSkill]
+    [onChange, onOpenSkillOverview, onCreateSkill, args.begin]
   );
 
   const autoGrow = useCallback(() => {
@@ -175,6 +186,15 @@ export default function ComposerCard({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Argument-Eingabe (Schritt 14): Tab springt zum nächsten Argument — aber
+      // NUR, wenn es eins gibt (`canAdvance`) und kein Picker offen ist (der hat
+      // dann selbst den Fokus). Am letzten Argument bleibt Tab normal und führt
+      // aus dem Feld heraus.
+      if (inArgs && !args.pickerArg && args.canAdvance && e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        args.advance();
+        return;
+      }
       if (showMenu) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -205,7 +225,17 @@ export default function ComposerCard({
         onSend();
       }
     },
-    [onSend, showMenu, menuItems, activeIndex, pickItem]
+    [
+      onSend,
+      showMenu,
+      menuItems,
+      activeIndex,
+      pickItem,
+      inArgs,
+      args.pickerArg,
+      args.canAdvance,
+      args.advance,
+    ]
   );
 
   const canSend =
@@ -230,6 +260,20 @@ export default function ComposerCard({
             onEditSkill?.(name);
           }}
           onHover={setActiveIndex}
+        />
+      )}
+      {/* Argument-Auswahl (Datei/Liste/Wissensbasis) — Plan 011, Schritt 14 */}
+      {inArgs && args.pickerArg && (
+        <ArgumentPicker
+          arg={args.pickerArg}
+          onPick={(v, label) => {
+            args.fill(v, label);
+            textareaRef.current?.focus();
+          }}
+          onClose={() => {
+            args.closePicker();
+            textareaRef.current?.focus();
+          }}
         />
       )}
       {hasChips && (
@@ -262,24 +306,36 @@ export default function ComposerCard({
         </div>
       )}
 
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={e => {
-          const v = e.target.value;
-          // Verlässt der Text den „/<teilname>"-Modus, die Escape-Sperre lösen,
-          // damit ein späteres „/" das Menü wieder öffnet.
-          if (!/^\/[^\s/]*$/.test(v)) setMenuDismissed(false);
-          onChange(v);
-          autoGrow();
-        }}
-        onKeyDown={handleKeyDown}
-        rows={1}
-        placeholder="Nachricht schreiben …"
-        disabled={disabled}
-        aria-label="Nachricht an die KI"
-        className="max-h-40 w-full resize-none bg-transparent px-2.5 py-2 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
-      />
+      <div className="relative">
+        {/* Grauer Argument-Hinweis, deckungsgleich hinter dem Getippten (Schritt 14) */}
+        {inArgs && <ArgumentHints value={value} ghost={args.ghost} />}
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={e => {
+            const v = e.target.value;
+            // In der Argument-Eingabe übernimmt der Hook die Änderung (grauer
+            // Hinweis, Picker-Schutz, Backspace-Rücksprung).
+            if (args.reconcile(v)) {
+              autoGrow();
+              return;
+            }
+            // Verlässt der Text den „/<teilname>"-Modus, die Escape-Sperre lösen,
+            // damit ein späteres „/" das Menü wieder öffnet.
+            if (!/^\/[^\s/]*$/.test(v)) setMenuDismissed(false);
+            onChange(v);
+            autoGrow();
+          }}
+          onKeyDown={handleKeyDown}
+          rows={1}
+          placeholder="Nachricht schreiben …"
+          disabled={disabled}
+          aria-label="Nachricht an die KI"
+          // Typografie/Abstände aus der geteilten Konstante, damit der graue
+          // Overlay-Hinweis exakt deckungsgleich sitzt.
+          className={`relative max-h-40 w-full resize-none bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none ${COMPOSER_TEXT_CLASSES}`}
+        />
+      </div>
 
       <div className="flex items-center gap-1 px-1.5 pb-1.5">
         <input
