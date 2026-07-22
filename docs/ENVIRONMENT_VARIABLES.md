@@ -518,16 +518,25 @@ Network modes (`sandbox_projects.network_mode`, CHECK in migration 100): `isolat
 
 ## Werkzeug-Schleife (Tool-Loop)
 
-Die Werkzeug-Schleife in `services/agents/toolLoop.js` bedient das lokale
-Modell mit echten Function-Calls. Sie ist das Fundament, auf dem die Skills
-aufsetzen (Plan 011). Beide Variablen sind optional mit sinnvollen Defaults.
+Der Skill-Runner (`services/skills/runSkill.js` → `toolLoop.js`) bedient das
+lokale Modell mit echten Function-Calls (Plan 011, Schritt 10). Die Grenzen
+eines Laufs — Werkzeug-Runden und Gesamt-Zeitlimit — kommen PRO Skill aus
+dessen Kopfdaten (`grenzen.werkzeug_runden` / `grenzen.zeitlimit_s`), nicht aus
+einer Umgebungsvariablen. Steuerbar per Env ist nur das Zeitlimit je einzelnem
+Modell-Aufruf:
 
-| Variable             | Default | Description                                                                             |
-| -------------------- | ------- | --------------------------------------------------------------------------------------- |
-| AGENT_LLM_TIMEOUT_MS | 120000  | Timeout (ms) für lokale Ollama-Aufrufe der Werkzeug-Schleife                            |
-| AGENT_MAX_ITERATIONS | 10      | Max. Runden der Werkzeug-Schleife (Function-Calling); danach endet der Lauf `truncated` |
+| Variable             | Default | Description                                                              |
+| -------------------- | ------- | ------------------------------------------------------------------------ |
+| SKILL_LLM_TIMEOUT_MS | 120000  | Timeout (ms) je Ollama-Aufruf eines Skill-Laufs (eigen, nicht `AGENT_*`) |
 
-> Die übrigen `AGENT_*`-Variablen des Fluss-Layers (`AGENT_CLOUD_TIMEOUT_MS`,
+> **GPU-Sperre:** Alle lokalen Modell-Aufrufe — Chat wie Skill — laufen durch
+> EINE gemeinsame Sperre (`services/skills/gpuQueue.js`); nie treffen zwei
+> zugleich auf die GPU (strikt einer nach dem anderen, keine Priorisierung).
+> Der Chat-Stream gibt sie spätestens nach `LLM_INACTIVITY_TIMEOUT_MS` (Default 600000) wieder frei, falls ein Stream hängt.
+
+> Die früheren `AGENT_LLM_TIMEOUT_MS` / `AGENT_MAX_ITERATIONS` gehörten zur
+> abgelösten Agenten-Werkzeugschleife (`services/agents/toolLoop.js`, jetzt
+> verwaist). Die übrigen `AGENT_*`-Variablen des Fluss-Layers (`AGENT_CLOUD_TIMEOUT_MS`,
 > `AGENT_MAX_TOKENS`, `AGENT_WEB_TIMEOUT_MS`, `AGENT_FLOW_CONCURRENCY`) sind mit
 > Plan 011 entfallen, ebenso die verschlüsselten Provider-Keys in der DB —
 > Arasul spricht wieder ausschließlich lokale Modelle an.
