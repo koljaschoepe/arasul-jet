@@ -126,14 +126,23 @@ export function reconcileState(
     return { state: { skill, slots: neue, active }, value: newValue };
   }
 
-  // Ab hier beginnt der Wert NICHT mit dem Präfix. Zwei Fälle sauber trennen —
+  // Ab hier beginnt der Wert NICHT mit dem Präfix. Drei Fälle sauber trennen —
   // sonst würde jede Bearbeitung eines bereits festgelegten Arguments (oder ein
   // Einfügen über die Grenze) fälschlich als Rücksprung gewertet und ginge
   // verloren:
+  //   0) Der Wert reicht nicht einmal mehr bis zum Befehl selbst („/<skill> ")
+  //      → alles gelöscht (auch: markiert und gelöscht) → Eingabe ganz verlassen.
+  //      OHNE diesen Fall würde ein „alles markieren + löschen" fälschlich nur EIN
+  //      Argument zurückpoppen (leerer Wert ist Anfang JEDES Präfixes), ein halber
+  //      Befehl bliebe stehen und ginge beim nächsten Enter als Chat-Nachricht raus.
   //   a) Der Wert ist ein ANFANG des Präfixes → der Nutzer hat vom Ende her ins
   //      Präfix zurückgelöscht (Backspace über die Grenze) → ein Argument zurück.
   //   b) Sonst wurde mitten im Festgelegten geändert → NICHT übernehmen, das Feld
   //      auf den erwarteten Wert zurücksetzen, Zustand unangetastet lassen.
+  const basis = `/${skill.name} `;
+  if (!newValue.startsWith(basis)) {
+    return { state: null, value: newValue };
+  }
   if (!prefix.startsWith(newValue)) {
     return { state, value: buildFieldValue(skill.name, slots, active) };
   }

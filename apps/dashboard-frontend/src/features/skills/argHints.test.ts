@@ -140,6 +140,37 @@ describe('reconcileState', () => {
     expect(r.value).toBe('/recherch');
   });
 
+  test('alles markiert und gelöscht (leerer Wert) verlässt die Eingabe ganz', () => {
+    // Regression (auf dem Jetson gefunden): Ctrl+A + Löschen darf NICHT nur ein
+    // Argument zurückpoppen — sonst bliebe ein halber Befehl stehen und ginge
+    // beim nächsten Enter als Chat-Nachricht raus.
+    const s = {
+      skill: multi,
+      slots: [
+        { value: 'was kostet strom', label: 'was kostet strom' },
+        { value: 'sp-1', label: 'Allgemein' },
+      ],
+      active: 1,
+    };
+    const r = reconcileState(s, '');
+    expect(r.state).toBeNull();
+    expect(r.value).toBe('');
+  });
+
+  test('bis in den Befehl gelöscht verlässt die Eingabe (kein Rücksprung)', () => {
+    const s = {
+      skill: multi,
+      slots: [
+        { value: 'was', label: 'was' },
+        { value: '', label: '' },
+      ],
+      active: 1,
+    };
+    const r = reconcileState(s, '/wiss'); // Befehl selbst angeknabbert
+    expect(r.state).toBeNull();
+    expect(r.value).toBe('/wiss');
+  });
+
   test('eine Änderung MITTEN im Festgelegten wird verworfen, nicht als Rücksprung gewertet', () => {
     // frage="was" steht, raum aktiv. Der Nutzer klickt in „was" und tippt ein
     // Zeichen → „wass". Das ist KEIN Backspace über die Grenze und darf weder das
