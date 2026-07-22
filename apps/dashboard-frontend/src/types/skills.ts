@@ -28,3 +28,59 @@ export interface Skill {
   beschreibung: string;
   argumente: SkillArgument[];
 }
+
+/** Werkzeugnamen, die ein Skill deklarieren darf. Spiegelt `VALID_TOOLS` im Backend. */
+export type SkillTool =
+  | 'dateien_lesen'
+  | 'dateien_schreiben'
+  | 'rag_suche'
+  | 'web_suche'
+  | 'web_lesen'
+  | 'terminal'
+  | 'subagent';
+
+/** Der Ergebnis-Vertrag einer Subagent-Rolle (§3 Kontext-Sparsamkeit). */
+export interface SkillRoleResult {
+  felder: string[];
+  max_zeichen: number;
+}
+
+/** Eine Subagent-Rolle eines Skills. */
+export interface SkillRole {
+  name: string;
+  beschreibung?: string;
+  modell?: string;
+  werkzeuge: SkillTool[];
+  ergebnis: SkillRoleResult;
+  prompt: string;
+}
+
+/** Die Notbremsen eines Skills (§7). */
+export interface SkillLimits {
+  max_aufrufe: number;
+  zeitlimit_s: number;
+  werkzeug_runden: number;
+}
+
+/**
+ * Die vollständige Skill-Definition, wie sie der Anlege-/Bearbeiten-Dialog
+ * (Schritt 17) bearbeitet und `GET /api/skills/:name` liefert. Nach außen heißt
+ * `systemPrompt` schlicht `prompt`.
+ */
+export interface SkillDefinition {
+  name: string;
+  beschreibung: string;
+  modell?: string;
+  argumente: SkillArgument[];
+  ordner: string[];
+  werkzeuge: SkillTool[];
+  rollen: SkillRole[];
+  grenzen: SkillLimits;
+  prompt: string;
+}
+
+/** Ein Werkzeug-Eintrag aus `GET /api/skills/werkzeuge`. */
+export interface SkillToolInfo {
+  name: SkillTool;
+  verfuegbar: boolean;
+}
