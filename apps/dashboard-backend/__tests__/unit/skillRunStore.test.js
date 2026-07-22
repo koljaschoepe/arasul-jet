@@ -90,8 +90,25 @@ describe('finishStep', () => {
     expect(params[3]).toBe('fertig');
   });
 
-  it('wirft NotFound, wenn der Schritt nicht existiert', async () => {
-    const db = fakeDb({ rows: [] });
+  it('schließt nur einen NOCH LAUFENDEN Schritt ab (Guard gegen Übertünchen)', async () => {
+    const db = fakeDb({ rows: [{ id: 20, status: 'fertig' }] });
+    await runStore.finishStep({ stepId: 20, output: 'x' }, { db });
+    // Die Bedingung ist im SQL, damit ein bereits abgebrochener Schritt nicht
+    // nachträglich auf 'fertig' zurückspringt.
+    expect(db.calls[0].sql).toMatch(/status = 'laeuft'/);
+  });
+
+  it('lässt einen bereits beendeten Schritt UNVERÄNDERT (kein Zurückspringen)', async () => {
+    // Der Abbruch-Fall: cancelRun hat den Schritt schon 'abgebrochen' gesetzt.
+    // Das UPDATE trifft nichts (WHERE laeuft), aber der Schritt existiert — also
+    // kein Fehler, sondern die abgebrochene Zeile unverändert zurück.
+    const db = fakeDb({ rows: [] }, { rows: [{ id: 20, status: 'abgebrochen' }] });
+    const r = await runStore.finishStep({ stepId: 20, status: 'fertig' }, { db });
+    expect(r.status).toBe('abgebrochen'); // NICHT zu 'fertig' gekippt
+  });
+
+  it('wirft NotFound, wenn der Schritt gar nicht existiert', async () => {
+    const db = fakeDb({ rows: [] }, { rows: [] });
     await expect(runStore.finishStep({ stepId: 999 }, { db })).rejects.toThrow(NotFoundError);
   });
 });

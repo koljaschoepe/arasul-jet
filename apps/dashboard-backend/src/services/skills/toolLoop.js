@@ -76,6 +76,7 @@ async function runSkillLoop({
   context = {},
   onEvent,
   now = () => Date.now(),
+  signal,
 } = {}) {
   // BEWUSST await: Der Ereignis-Handler schreibt jeden Schritt in den
   // Lauf-Speicher. Würde nicht gewartet, könnte ein `tool_result` eintreffen,
@@ -104,6 +105,13 @@ async function runSkillLoop({
 
   try {
     for (let runde = 0; runde < maxRunden; runde++) {
+      // Abbruch VOR dem nächsten Modell-Aufruf prüfen: Ein laufender Skill soll
+      // sich abbrechen lassen, ohne den teuren Modell-Aufruf noch zu starten.
+      if (signal && signal.aborted) {
+        const note = 'Abgebrochen.';
+        await emit({ type: 'done', result: note, truncated: true, aborted: true });
+        return { result: note, runden: runde, truncated: true, aborted: true };
+      }
       // Zeitlimit VOR dem Aufruf prüfen: Ein einzelner Modell-Aufruf kann lang
       // sein; überschreiten wir die Frist schon vor dem nächsten, brechen wir
       // sauber ab, statt sie noch einmal zu reißen.

@@ -92,7 +92,7 @@ function buildUserInput(declared = [], werte = {}) {
  * @returns {Promise<object>} Der abgeschlossene Lauf (aus runStore).
  */
 async function runSkill(
-  { skillName, args = {}, userId, conversationId = null, onEvent },
+  { skillName, args = {}, userId, conversationId = null, onEvent, existingRunId = null, signal },
   deps = {}
 ) {
   const {
@@ -142,8 +142,12 @@ async function runSkill(
     }
   }
 
-  // 5. Lauf anlegen.
-  const run = await store.createRun({ userId, skillName, arguments: werte, conversationId });
+  // 5. Lauf anlegen — ODER einen bereits angelegten weiterverwenden. Der
+  //    Lauf-Verwalter (Schritt 12) legt den Lauf VOR dem Start an, damit seine
+  //    ID sofort streambar ist, und reicht ihn hier herein.
+  const run = existingRunId
+    ? { id: existingRunId }
+    : await store.createRun({ userId, skillName, arguments: werte, conversationId });
 
   // Zähler und offene Schritte (weiter unten von `weiter` und `recordSubagent`
   // gemeinsam genutzt) — hier deklariert, damit beide Closures sie sehen.
@@ -181,6 +185,9 @@ async function runSkill(
     werkzeugRunden: skill.grenzen.werkzeug_runden,
     roleContextBase,
     recordSubagent,
+    // Das Abbruch-Signal fließt mit in den Kontext, damit auch die
+    // verschachtelten Rollen-Schleifen (Subagent) es prüfen und aufhören.
+    signal,
   };
 
   // Ereignisse der Schleife an den Lauf-Speicher UND an den optionalen Live-Sink
@@ -232,6 +239,7 @@ async function runSkill(
       maxRunden: skill.grenzen.werkzeug_runden,
       zeitlimitS: skill.grenzen.zeitlimit_s,
       context,
+      signal,
       onEvent: weiter,
     });
   } catch (err) {
@@ -245,8 +253,10 @@ async function runSkill(
     return store.getRun({ runId: run.id, userId });
   }
 
-  // 7. Lauf abschließen.
-  const status = ergebnis.error ? 'fehler' : 'fertig';
+  // 7. Lauf abschließen. Ein per Signal abgebrochener Lauf wird 'abgebrochen';
+  //    hat die Abbruch-Route den Status in der DB schon gesetzt, ist dieses
+  //    finishRun ohnehin ein Nichts (WHERE status='laeuft' greift nicht mehr).
+  const status = ergebnis.aborted ? 'abgebrochen' : ergebnis.error ? 'fehler' : 'fertig';
   await store.finishRun({
     runId: run.id,
     status,

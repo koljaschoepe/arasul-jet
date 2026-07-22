@@ -702,6 +702,16 @@ if (require.main === module) {
       logger.error(`Failed to initialize LLM Queue Service: ${err.message}`);
     }
 
+    // Skill-Läufe (Plan 011, Schritt 12): Ein Neustart bricht laufende Skills ab.
+    // In der DB stünden sie sonst ewig als 'laeuft', obwohl kein Prozess sie mehr
+    // fortsetzt — hier einmalig auf 'fehler' setzen.
+    try {
+      const skillRunner = require('./services/skills/skillRunner');
+      await skillRunner.verwaisteAufraeumen();
+    } catch (err) {
+      logger.error(`Failed to clean up orphaned skill runs: ${err.message}`);
+    }
+
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(

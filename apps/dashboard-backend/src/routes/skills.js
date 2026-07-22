@@ -23,13 +23,19 @@ const {
   SkillNameParams,
   RunIdParams,
   ListRunsQuery,
+  StartRunBody,
   VALID_TOOLS,
 } = require('../schemas/skills');
 const { NotFoundError } = require('../utils/errors');
+const { llmLimiter } = require('../middleware/rateLimit');
+const logger = require('../utils/logger');
 const registry = require('../services/skills/skillRegistry');
 const runStore = require('../services/skills/runStore');
+const skillRunner = require('../services/skills/skillRunner');
+const { resolveArguments } = require('../services/skills/runSkill');
 const { serializeSkillFile, parseSkillFile } = require('../services/skills/skillFile');
 const { implementedTools } = require('../services/skills/toolRegistry');
+const { initSSE, trackConnection } = require('../utils/sseHelper');
 
 /**
  * Formt eine interne Definition in die API-Antwort um. `systemPrompt` heißt
@@ -118,6 +124,130 @@ router.get(
   })
 );
 
+// POST /api/skills/laeufe — einen Lauf LOSGELÖST starten. Antwortet SOFORT mit
+// der Lauf-ID; der Lauf läuft serverseitig weiter (Schritt 12). Der Client
+// öffnet danach den Ereignis-Strom unter /laeufe/:id/stream.
+router.post(
+  '/laeufe',
+  requireAuth,
+  // Ein Lauf ist ein teurer GPU-Vorgang. Früher bremste die synchrone
+  // Ausführung von selbst (der Aufruf hing am Modell); jetzt kehrt der Start
+  // sofort zurück, deshalb hier ein Limiter gegen zu viele Läufe hintereinander.
+  llmLimiter,
+  validateBody(StartRunBody),
+  asyncHandler(async (req, res) => {
+    // FRÜH prüfen, solange der Request noch da ist: Skill-Existenz UND Argumente.
+    // Sonst käme ein Tippfehler (fehlendes Pflicht-Argument, unbekannter Skill)
+    // erst asynchron als gescheiterter Lauf zurück — der Aufrufer soll ihn aber
+    // sofort als 400/404 sehen. loadSkill wirft NotFound, resolveArguments wirft
+    // ValidationError; beide werden zu einer sauberen Fehlerantwort.
+    const skill = await registry.loadSkill(req.body.skill);
+    resolveArguments(skill.argumente, req.body.args);
+
+    const { runId } = await skillRunner.starten({
+      skillName: req.body.skill,
+      args: req.body.args,
+      userId: req.user.id,
+      conversationId: req.body.conversation_id ?? null,
+    });
+    res.status(202).json({ data: { runId }, timestamp: new Date().toISOString() });
+  })
+);
+
+// GET /api/skills/laeufe/:id/stream — der Ereignis-Strom eines Laufs (SSE).
+// Beim Verbinden wird ZUERST der gespeicherte Verlauf gesendet (Wiederverbinden:
+// der Browser sieht sofort alles bis hierher), dann hängt sich der Strom an die
+// Live-Ereignisse. Ist der Lauf schon beendet, kommt nur der Verlauf und der
+// Strom schließt. Ein Verbindungsabbruch beendet den LAUF NICHT.
+router.get(
+  '/laeufe/:id/stream',
+  requireAuth,
+  validateParams(RunIdParams),
+  asyncHandler(async (req, res) => {
+    const runId = req.params.id;
+    // Eigentümer-geprüft: getRun wirft NotFound bei fremd/unbekannt.
+    const run = await runStore.getRun({ runId, userId: req.user.id });
+
+    initSSE(res);
+    const verbindung = trackConnection(res);
+
+    const sende = evt => {
+      if (verbindung.isConnected() && !res.writableEnded) {
+        try {
+          res.write(`data: ${JSON.stringify(evt)}\n\n`);
+        } catch (err) {
+          logger.debug(`Skill-Stream ${runId}: Schreibfehler: ${err.message}`);
+        }
+      }
+    };
+
+    // 1. Verlauf zuerst — der Wiederverbinden-Fall.
+    sende({ type: 'verlauf', run });
+
+    // 2. Ist der Lauf schon beendet, gibt es nichts Live mehr.
+    if (run.status !== 'laeuft') {
+      sende({ type: 'ende', status: run.status });
+      res.end();
+      return;
+    }
+
+    // 3. An die Live-Ereignisse hängen. Läuft der Lauf gar nicht mehr aktiv im
+    //    Speicher (Nachlauf verpasst), ist er aber laut DB noch 'laeuft', dann
+    //    ist er verwaist — sauber schließen statt ewig offen zu halten.
+    let beendet = false;
+    const schliessen = () => {
+      if (beendet) {
+        return;
+      }
+      beendet = true;
+      if (typeof abmelden === 'function') {
+        abmelden();
+      }
+      if (!res.writableEnded) {
+        res.end();
+      }
+    };
+    const abmelden = skillRunner.abonnieren(runId, evt => {
+      sende(evt);
+      if (evt.type === 'ende') {
+        schliessen();
+      }
+    });
+
+    if (!abmelden) {
+      sende({ type: 'ende', status: run.status, hinweis: 'Lauf nicht mehr aktiv im Speicher' });
+      res.end();
+      return;
+    }
+
+    // WICHTIG (Wettlauf schließen): Zwischen dem ersten getRun oben und dem
+    // Abonnieren gerade eben kann der Lauf fertig geworden sein — dann ist sein
+    // 'ende'-Ereignis schon durch, bevor wir zuhörten, und der Bus feuert es nie
+    // wieder (EventEmitter wiederholt nichts). Ohne die folgende Nachprüfung
+    // hinge die Verbindung für immer. Deshalb JETZT — nach dem Abonnieren — den
+    // Status noch einmal lesen: Ist er terminal, schließen wir selbst. Feuerte
+    // 'ende' hingegen NACH dem Abonnieren, hat der Handler oben es bekommen.
+    runStore
+      .getRun({ runId, userId: req.user.id })
+      .then(aktuell => {
+        if (aktuell.status !== 'laeuft') {
+          sende({ type: 'ende', status: aktuell.status });
+          schliessen();
+        }
+      })
+      .catch(err => {
+        logger.debug(`Skill-Stream ${runId}: Nachprüfung fehlgeschlagen: ${err.message}`);
+      });
+
+    // Verbindungsabbruch: abmelden, aber den LAUF weiterlaufen lassen.
+    verbindung.onClose(() => {
+      if (typeof abmelden === 'function') {
+        abmelden();
+      }
+    });
+  })
+);
+
 // GET /api/skills/laeufe/:id — ein Lauf samt Schritten. `?raw=1` liefert auch
 // die Rohdaten der Schritte (für die Nachschau; sie können groß sein).
 router.get(
@@ -135,12 +265,15 @@ router.get(
 );
 
 // POST /api/skills/laeufe/:id/abbrechen — einen laufenden Lauf abbrechen.
+// Über den Lauf-Verwalter: Er setzt den DB-Status UND das Abbruch-Signal, damit
+// ein serverseitig laufender Lauf wirklich aufhört (Schritt 12), nicht nur in
+// der DB als abgebrochen steht, während er heimlich weiterrechnet.
 router.post(
   '/laeufe/:id/abbrechen',
   requireAuth,
   validateParams(RunIdParams),
   asyncHandler(async (req, res) => {
-    const run = await runStore.cancelRun({ runId: req.params.id, userId: req.user.id });
+    const run = await skillRunner.abbrechen({ runId: req.params.id, userId: req.user.id });
     if (!run) {
       // Entweder gibt es den Lauf nicht (fremd/unbekannt) oder er läuft nicht
       // mehr. In beiden Fällen NotFound — die Existenz fremder Läufe wird nicht

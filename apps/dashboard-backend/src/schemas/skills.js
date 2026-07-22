@@ -261,6 +261,17 @@ const SkillNameParams = z.object({ name: SkillName }).strict();
 /** `:id` eines Laufs in der URL (Plan 011, Schritt 9). */
 const RunIdParams = z.object({ id: z.coerce.number().int().positive() }).strict();
 
+/** Einen Lauf starten (Plan 011, Schritt 12). */
+const StartRunBody = z
+  .object({
+    skill: SkillName,
+    // Argumentwerte als name→Wert. Werte kommen als Strings aus dem Chat; der
+    // Runner prüft sie gegen die Deklaration des Skills.
+    args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
+    conversation_id: z.coerce.number().int().positive().nullish(),
+  })
+  .strict();
+
 /** Query der Lauf-Liste. */
 const ListRunsQuery = z
   .object({
@@ -281,6 +292,7 @@ module.exports = {
   SkillNameParams,
   RunIdParams,
   ListRunsQuery,
+  StartRunBody,
   VALID_TOOLS,
   ARG_TYPES,
   SKILL_NAME_RE,

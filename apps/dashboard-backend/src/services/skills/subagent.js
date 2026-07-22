@@ -116,6 +116,8 @@ class SubagentTool extends BaseTool {
       recordSubagent,
       makeTools,
       runLoop,
+      // Abbruch-Signal weiterreichen, damit auch Ebene 2 es prüft.
+      signal: context.signal,
     };
 
     // Der Rolle den Ergebnis-Vertrag ansagen. Das ist die Bitte an das Modell,
@@ -152,6 +154,9 @@ class SubagentTool extends BaseTool {
         // über den ganzen Lauf, nicht je Ebene neu.
         zeitlimitS: limits.restSekunden(),
         context: roleContext,
+        // Dasselbe Abbruch-Signal wie der Orchestrator: ein Abbruch stoppt auch
+        // eine gerade laufende Rolle vor ihrem nächsten Modell-Aufruf.
+        signal: context.signal,
         onEvent: rolleOnEvent,
       });
     } catch (err) {
