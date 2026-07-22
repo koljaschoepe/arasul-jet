@@ -14,6 +14,8 @@ import { History, Plus, Upload, X } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useSkills } from '@/hooks/useSkills';
+import { useToast } from '@/contexts/ToastContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +77,8 @@ export default function AgentChatPanel() {
 
   const chatScope = useWorkspaceStore(s => s.chatScope);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
+  const { skills } = useSkills();
+  const toast = useToast();
 
   const [chatId, setChatId] = useState<string | null>(
     () => localStorage.getItem(PANEL_CHAT_KEY) || null
@@ -470,6 +474,12 @@ export default function AgentChatPanel() {
           models={composerModels}
           selectedModel={selectedModel}
           onSelectModel={setSelectedModel}
+          skills={skills}
+          // Verwaltung (Übersicht, Anlegen, Bearbeiten) bekommt ihre Dialoge in
+          // Schritt 17. Bis dahin ein ehrlicher Hinweis statt eines toten Knopfs.
+          onOpenSkillOverview={() => toast.info('Die Skill-Übersicht folgt in Kürze.')}
+          onCreateSkill={() => toast.info('Der Anlege-Dialog für Skills folgt in Kürze.')}
+          onEditSkill={name => toast.info(`Der Bearbeiten-Dialog für „${name}" folgt in Kürze.`)}
         />
       </div>
 

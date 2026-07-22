@@ -5,10 +5,9 @@
  * bewusst KEINE Schalter mehr; die Orchestrierung läuft automatisch und wird
  * im Verlauf transparent gemacht (Schritte/Quellen).
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUp,
-  Bot,
   ChevronDown,
   FolderOpen,
   Image as ImageIcon,
@@ -24,6 +23,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import type { Skill } from '@/types/skills';
+import SkillMenu, { buildMenuItems, type SkillMenuItem } from '@/features/skills/SkillMenu';
 
 export interface ComposerModel {
   id: string;
@@ -80,8 +81,14 @@ interface ComposerCardProps {
   models: ComposerModel[];
   selectedModel: string;
   onSelectModel: (id: string) => void;
-  /** Flow-Agenten für die /-Palette (Plan 010, Schritt 6). */
-  flowAgents?: { id: number; name: string }[];
+  /** Skills fürs Slash-Menü (Plan 011, Schritt 13). */
+  skills?: Skill[];
+  /** Stift-Symbol an einem Skill geklickt (Bearbeiten-Dialog folgt in Schritt 17). */
+  onEditSkill?: (name: string) => void;
+  /** `/skills` gewählt — Übersicht öffnen (Schritt 17). */
+  onOpenSkillOverview?: () => void;
+  /** `/neuer-skill` gewählt — Anlege-Dialog öffnen (Schritt 17). */
+  onCreateSkill?: () => void;
 }
 
 export default function ComposerCard({
@@ -99,36 +106,64 @@ export default function ComposerCard({
   models,
   selectedModel,
   onSelectModel,
-  flowAgents = [],
+  skills = [],
+  onEditSkill,
+  onOpenSkillOverview,
+  onCreateSkill,
 }: ComposerCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScope = useWorkspaceStore(s => s.chatScope);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
-  const [paletteDismissed, setPaletteDismissed] = useState(false);
+  const [menuDismissed, setMenuDismissed] = useState(false);
+  // Welcher Eintrag ist per Pfeiltasten aktiv? Wird bei jedem neuen Filter (unten)
+  // auf 0 zurückgesetzt, damit Enter immer den obersten Treffer nimmt.
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  // /-Palette: sichtbar, solange der Text nur „/<teilname>" ist (kein Leerzeichen)
-  // und nicht per Escape geschlossen wurde. Auswahl setzt „/<name> " und
-  // schließt; danach tippt der Nutzer die Eingabe und sendet.
+  // Slash-Menü: sichtbar, solange der Text nur „/<teilname>" ist (kein Leerzeichen)
+  // und nicht per Escape geschlossen wurde. Auswahl setzt bei einem Skill „/<name> "
+  // und schließt; feste Befehle (/skills, /neuer-skill) lösen ihre Aktion aus.
   const slashMatch = value.match(/^\/([^\s/]*)$/);
-  const paletteMatches = slashMatch
-    ? flowAgents.filter(a => a.name.toLowerCase().startsWith((slashMatch[1] || '').toLowerCase()))
-    : [];
-  // Keine Palette bei Anhang: Flow-Agenten nehmen keine Uploads (wie @).
-  const showPalette =
-    Boolean(slashMatch) &&
-    !paletteDismissed &&
-    paletteMatches.length > 0 &&
+  const menuQuery = slashMatch ? slashMatch[1] || '' : null;
+  const menuItems = useMemo(
+    () => (menuQuery !== null ? buildMenuItems(menuQuery, skills) : []),
+    [menuQuery, skills]
+  );
+  // Kein Menü bei Anhang: ein Skill-Aufruf nimmt keine Uploads (wie @).
+  const showMenu =
+    menuQuery !== null &&
+    !menuDismissed &&
+    menuItems.length > 0 &&
     !attachedFile &&
     attachedImages.length === 0;
 
-  const pickFlowAgent = useCallback(
-    (name: string) => {
-      onChange(`/${name} `);
-      setPaletteDismissed(true);
-      textareaRef.current?.focus();
+  // Bei jedem neuen Filtertext die Auswahl auf den obersten Treffer zurücksetzen.
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [menuQuery]);
+
+  const pickItem = useCallback(
+    (item: SkillMenuItem) => {
+      // NICHT dismissen: Die Auswahl ändert den Feldwert selbst so, dass das Menü
+      // zu ist (Skill → „…name " mit Leerzeichen, Befehl → leer). Ein
+      // dismissed=true bliebe hier hängen, weil der programmatische onChange nicht
+      // durch den Textarea-onChange läuft, der die Sperre wieder löst — ein
+      // späteres „/" öffnete das Menü dann nie wieder. Deshalb aktiv freigeben.
+      setMenuDismissed(false);
+      if (item.kind === 'skill') {
+        // Der Skill wandert als Befehl ins Feld; die grauen Argument-Hinweise
+        // folgen in Schritt 14, danach tippt der Nutzer die Argumente und sendet.
+        onChange(`/${item.name} `);
+        textareaRef.current?.focus();
+        return;
+      }
+      // Feste Befehle: das Slash-Fragment aus dem Feld nehmen und die Aktion
+      // auslösen (Übersicht bzw. Anlege-Dialog kommen in Schritt 17).
+      onChange('');
+      if (item.name === 'skills') onOpenSkillOverview?.();
+      else onCreateSkill?.();
     },
-    [onChange]
+    [onChange, onOpenSkillOverview, onCreateSkill]
   );
 
   const autoGrow = useCallback(() => {
@@ -138,26 +173,39 @@ export default function ComposerCard({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, []);
 
-  const firstMatchName = paletteMatches[0]?.name;
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && showPalette) {
-        e.preventDefault();
-        setPaletteDismissed(true);
-        return;
+      if (showMenu) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setActiveIndex(i => (i + 1) % menuItems.length);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActiveIndex(i => (i - 1 + menuItems.length) % menuItems.length);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setMenuDismissed(true);
+          return;
+        }
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          // Bei offenem Menü übernimmt Enter den aktiven Eintrag (statt „/rec"
+          // wörtlich zu senden).
+          const item = menuItems[activeIndex];
+          if (item) pickItem(item);
+          return;
+        }
       }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        // Bei offener Palette wählt Enter den ersten Treffer (statt „/rec" wörtlich
-        // zu senden) — sonst normale Senden-Aktion.
-        if (showPalette && firstMatchName) {
-          pickFlowAgent(firstMatchName);
-          return;
-        }
         onSend();
       }
     },
-    [onSend, showPalette, firstMatchName, pickFlowAgent]
+    [onSend, showMenu, menuItems, activeIndex, pickItem]
   );
 
   const canSend =
@@ -171,33 +219,18 @@ export default function ComposerCard({
 
   return (
     <div className="relative rounded-lg border border-border bg-card focus-within:border-primary/40">
-      {/* /-Palette der Flow-Agenten (Plan 010, Schritt 6) */}
-      {showPalette && (
-        <div
-          className="absolute bottom-full left-0 z-20 mb-1 max-h-56 w-64 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md"
-          data-testid="flow-agent-palette"
-          role="listbox"
-          aria-label="Flow-Agenten"
-        >
-          <div className="px-2 py-1 text-ui-xs text-muted-foreground">Flow-Agenten</div>
-          {paletteMatches.map(a => (
-            <button
-              key={a.id}
-              type="button"
-              role="option"
-              aria-selected={false}
-              onMouseDown={e => {
-                // mousedown, damit der Textarea-Blur die Auswahl nicht abfängt.
-                e.preventDefault();
-                pickFlowAgent(a.name);
-              }}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-[13px] text-foreground hover:bg-accent"
-            >
-              <Bot className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">{a.name}</span>
-            </button>
-          ))}
-        </div>
+      {/* Slash-Menü der Skills (Plan 011, Schritt 13) */}
+      {showMenu && (
+        <SkillMenu
+          items={menuItems}
+          activeIndex={activeIndex}
+          onPick={pickItem}
+          onEdit={name => {
+            setMenuDismissed(true);
+            onEditSkill?.(name);
+          }}
+          onHover={setActiveIndex}
+        />
       )}
       {hasChips && (
         <div className="flex flex-wrap gap-1.5 px-2 pt-2" data-testid="composer-chips">
@@ -235,8 +268,8 @@ export default function ComposerCard({
         onChange={e => {
           const v = e.target.value;
           // Verlässt der Text den „/<teilname>"-Modus, die Escape-Sperre lösen,
-          // damit ein späteres „/" die Palette wieder öffnet.
-          if (!/^\/[^\s/]*$/.test(v)) setPaletteDismissed(false);
+          // damit ein späteres „/" das Menü wieder öffnet.
+          if (!/^\/[^\s/]*$/.test(v)) setMenuDismissed(false);
           onChange(v);
           autoGrow();
         }}

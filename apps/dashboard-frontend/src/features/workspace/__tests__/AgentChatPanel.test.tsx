@@ -43,6 +43,16 @@ vi.mock('@/contexts/ChatContext', () => ({
   useChatContext: () => chatContext,
 }));
 
+// Skill-Menü (Plan 011, Schritt 13): der Panel liest die Skill-Liste (React Query)
+// und zeigt Verwaltungs-Hinweise (Toast). Beides hier flach mocken, damit dieser
+// Test keinen QueryClient-/ToastProvider braucht.
+vi.mock('@/hooks/useSkills', () => ({
+  useSkills: () => ({ skills: [], fehlerhaft: [], isLoading: false }),
+}));
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }),
+}));
+
 function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
