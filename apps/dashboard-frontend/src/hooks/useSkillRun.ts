@@ -36,6 +36,20 @@ export interface SkillRunStep {
 
 export type SkillRunStatus = 'laeuft' | 'fertig' | 'fehler' | 'abgebrochen';
 
+/** Eine einzelne Datei-Änderung eines Laufs (Plan 011, Schritt 16). */
+export interface SkillRunChange {
+  pfad: string;
+  art: 'neu' | 'geaendert' | 'geloescht';
+  /** Inhalt vorher (null bei neu / zu groß / Binärdatei). */
+  vorher: string | null;
+  /** Inhalt nachher (null bei gelöscht / zu groß / Binärdatei). */
+  nachher: string | null;
+  /** Vorschau wurde für die Speicherung gekürzt. */
+  gekuerzt?: boolean;
+  /** Warum keine Vorschau vorliegt („Binärdatei" / „zu groß für Vorschau"). */
+  hinweis?: string | null;
+}
+
 export interface SkillRunState {
   runId: number | null;
   /** Name des laufenden Skills (aus dem Verlauf) — für die Kopfzeile der Lauf-Karte. */
@@ -48,12 +62,22 @@ export interface SkillRunState {
   /** Das Endergebnis (die Antwort des Skills), sobald vorhanden. */
   result: string | null;
   error: string | null;
+  /** Datei-Änderungen des Laufs (leer, solange keine anfielen). */
+  changes: SkillRunChange[];
   /** Läuft gerade eine Live-Verbindung? */
   verbunden: boolean;
 }
 
 interface StreamEvent {
-  type: 'verlauf' | 'tool_start' | 'tool_result' | 'text' | 'done' | 'error' | 'ende';
+  type:
+    | 'verlauf'
+    | 'tool_start'
+    | 'tool_result'
+    | 'text'
+    | 'done'
+    | 'error'
+    | 'aenderungen'
+    | 'ende';
   run?: {
     status: SkillRunStatus;
     steps?: SkillRunStep[];
@@ -61,6 +85,7 @@ interface StreamEvent {
     error?: string | null;
     skill_name?: string;
     arguments?: Record<string, string> | null;
+    changes?: SkillRunChange[] | null;
   };
   tool?: string;
   params?: unknown;
@@ -68,6 +93,7 @@ interface StreamEvent {
   content?: string;
   message?: string;
   status?: SkillRunStatus;
+  changes?: SkillRunChange[];
 }
 
 const LEER: SkillRunState = {
@@ -78,6 +104,7 @@ const LEER: SkillRunState = {
   steps: [],
   result: null,
   error: null,
+  changes: [],
   verbunden: false,
 };
 
@@ -119,6 +146,7 @@ export function useSkillRun() {
               steps: run?.steps ?? [],
               result: run?.result ?? s.result,
               error: run?.error ?? s.error,
+              changes: run?.changes ?? s.changes,
             };
           }
           case 'tool_start':
@@ -147,6 +175,8 @@ export function useSkillRun() {
             return { ...s, result: evt.result ?? s.result };
           case 'error':
             return { ...s, error: evt.message ?? s.error };
+          case 'aenderungen':
+            return { ...s, changes: evt.changes ?? s.changes };
           case 'ende':
             return { ...s, status: evt.status ?? s.status, verbunden: false };
           default:

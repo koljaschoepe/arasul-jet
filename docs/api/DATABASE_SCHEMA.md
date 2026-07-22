@@ -2270,8 +2270,11 @@
 | `result`          | text                     | ✅       |                                          |
 | `error`           | text                     | ✅       |                                          |
 | `steps_used`      | integer                  | ⛔       | `0`                                      |
+| `changes`         | jsonb                    | ✅       |                                          |
 | `created_at`      | timestamp with time zone | ⛔       | `now()`                                  |
 | `finished_at`     | timestamp with time zone | ✅       |                                          |
+
+> `changes` (Plan 011, Schritt 16): Datei-Änderungen des Laufs — `[{pfad, art (neu\|geaendert\|geloescht), vorher, nachher, gekuerzt, hinweis}]`, aus dem Ordner-Abzug vor/nach dem Lauf; gedeckelt in Zahl und Vorschau-Länge. `NULL` = nicht ermittelt (Lauf ohne Schreib-Werkzeug).
 
 **Primary key:** `id`
 
