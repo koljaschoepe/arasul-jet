@@ -276,3 +276,63 @@ describe('ComposerCard · Argument-Eingabe (Schritt 14)', () => {
     expect(within(picker).getByText('lang')).toBeInTheDocument();
   });
 });
+
+// --- Skill-Lauf statt Chat-Nachricht (Plan 011, Schritt 15) ------------------
+
+/** Kontrollierte Harness mit Lauf-/Sende-Spions. */
+function RunHarness({
+  onRunSkill,
+  onSend,
+  start = '/',
+}: {
+  onRunSkill: (name: string, args: Record<string, string>) => void;
+  onSend: () => void;
+  start?: string;
+}) {
+  const [value, setValue] = useState(start);
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={qc}>
+      <ComposerCard
+        {...makeProps({ value, onChange: setValue, skills: argSkills, onRunSkill, onSend })}
+      />
+    </QueryClientProvider>
+  );
+}
+
+describe('ComposerCard · Skill-Lauf abschicken (Schritt 15)', () => {
+  test('Enter bei einem Skill-Befehl startet einen Lauf mit den Argumenten', async () => {
+    const user = userEvent.setup();
+    const onRunSkill = vi.fn();
+    const onSend = vi.fn();
+    render(<RunHarness onRunSkill={onRunSkill} onSend={onSend} />);
+    await user.click(screen.getByText('/recherche'));
+    const ta = screen.getByLabelText('Nachricht an die KI');
+    await user.type(ta, 'Klimawandel 2026');
+    await user.keyboard('{Enter}');
+    expect(onRunSkill).toHaveBeenCalledWith('recherche', { thema: 'Klimawandel 2026' });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  test('eine normale Nachricht sendet ganz normal (kein Lauf)', async () => {
+    const user = userEvent.setup();
+    const onRunSkill = vi.fn();
+    const onSend = vi.fn();
+    render(<RunHarness onRunSkill={onRunSkill} onSend={onSend} start="hallo welt" />);
+    await user.click(screen.getByLabelText('Nachricht an die KI'));
+    await user.keyboard('{Enter}');
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onRunSkill).not.toHaveBeenCalled();
+  });
+
+  test('ein unbekannter /Befehl wird normal gesendet, nicht als Lauf', async () => {
+    const user = userEvent.setup();
+    const onRunSkill = vi.fn();
+    const onSend = vi.fn();
+    render(<RunHarness onRunSkill={onRunSkill} onSend={onSend} start="/unbekannt hallo" />);
+    await user.click(screen.getByLabelText('Nachricht an die KI'));
+    await user.keyboard('{Enter}');
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onRunSkill).not.toHaveBeenCalled();
+  });
+});

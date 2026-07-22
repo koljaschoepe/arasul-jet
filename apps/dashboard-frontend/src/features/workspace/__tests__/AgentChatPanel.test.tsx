@@ -31,6 +31,10 @@ const chatContext = {
   getBackgroundLoading: vi.fn().mockReturnValue(false),
   clearBackgroundState: vi.fn(),
   hasActiveStream: vi.fn().mockReturnValue(false),
+  // Skill-Läufe (Plan 011, Schritt 15)
+  getSkillRuns: vi.fn().mockReturnValue([]),
+  registerSkillRun: vi.fn(),
+  setChatSkillRuns: vi.fn(),
   installedModels: [
     { id: 'qwen3:8b', name: 'Qwen 3 8B', supports_thinking: true },
     { id: 'llama3.1:8b', name: 'Llama 3.1 8B' },
