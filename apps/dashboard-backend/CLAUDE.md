@@ -144,17 +144,31 @@ is preferred so `errorHandler` keeps structured fields.
 
 Der Agenten- und Fluss-Layer ist mit Plan 011 entfernt; an seine Stelle treten
 **Skills** (Markdown-Dateien unter `data/skills/`, im Chat per `/name`
-aufgerufen). Was aus Plan 008 als Fundament bleibt und von den Skills
-weiterverwendet wird, liegt weiterhin in `services/agents/`:
+aufgerufen). Der Skill-Layer lebt vollständig in `services/skills/` und bringt
+seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 
-- `toolLoop.js` — treibt die Ollama-Function-Calling-Schleife (Runden-Limit
-  `AGENT_MAX_ITERATIONS`, Timeout `AGENT_LLM_TIMEOUT_MS`).
-- `pathSafe.js` — symlink-sichere Pfad-Sperre. **Jeder** Dateizugriff eines
-  Werkzeugs läuft ausnahmslos hierdurch.
-- `agentFile.js` — Parser für Markdown + YAML-Frontmatter.
-- `tools/` — die drei path-gejailten Werkzeuge `dateien`, `rag`, `terminal`.
-- `gpuGate.js` / `workspaceIndexer.js` — Serialisierung der GPU-Aufrufe bzw.
-  Auto-Indexierung geschriebener Dateien.
+- `runSkill.js` — der Runner (Schritt 10): lädt den Skill, setzt Argumente ein,
+  stellt die Werkzeuge zusammen, baut den Kontext (Ordner, Wissensraum,
+  Sandbox-Container fürs Terminal) und treibt die Schleife; schreibt Lauf und
+  Schritte über `runStore.js` (Schritt 9) mit.
+- `toolLoop.js` — die Ollama-Function-Calling-Schleife. Grenzen kommen PRO
+  Skill (`grenzen.werkzeug_runden` / `zeitlimit_s`), nicht aus einer
+  Umgebungsvariablen. Per-Aufruf-Timeout: `SKILL_LLM_TIMEOUT_MS`.
+- `gpuQueue.js` — die **eine** GPU-Sperre, geteilt mit dem Chat: der
+  Ollama-Aufruf in `services/llm/llmOllamaStream.js` (`streamFromOllama`) geht
+  durch dieselbe `withGpuLock`. Nie treffen Chat und Skill zugleich auf die GPU
+  (Nutzer-Entscheidung: strikt einer nach dem anderen, keine Priorisierung).
+- `pathSafe.js` — symlink-sichere Pfad-Sperre über mehrere erlaubte Ordner;
+  schließt das TOCTOU-Fenster über Dateideskriptoren. **Jeder** Dateizugriff
+  läuft hierdurch.
+- `skillFile.js` — Parser/Serializer für Markdown + YAML-Frontmatter, plus
+  Platzhalter (`{{argument}}`).
+- `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
+  `dateien` (lesen/schreiben getrennt), `rag`, `terminal`, `web`.
+
+Die alten `services/agents/{toolLoop,gpuGate,agentFile,tools}` sind mit dem
+Fluss-Layer verwaist (kein Produktions-Aufrufer mehr, nur noch ihre Tests) und
+werden in einem separaten Aufräum-Schritt entfernt.
 
 Weiterhin gültige Konventionen rund um den Workspace:
 

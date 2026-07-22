@@ -9,6 +9,10 @@
 const http = require('http');
 const systemSettings = require('../system-settings/systemSettingsService');
 const { circuitBreakers } = require('../../utils/retry');
+// Die EINE GPU-Sperre, geteilt mit den Skill-Läufen (Plan 011, Schritt 10).
+// Nutzer-Entscheidung: strikt einer nach dem anderen — Chat und Skill dürfen
+// nie zugleich auf die GPU. Siehe services/skills/gpuQueue.js.
+const { withGpuLock } = require('../skills/gpuQueue');
 
 // OOM error patterns from Ollama/CUDA
 const OOM_PATTERNS = [
@@ -70,7 +74,22 @@ const ollamaAgent = new http.Agent({
   timeout: 600000,
 });
 
-async function streamFromOllama(
+/**
+ * Öffentlicher Einstieg: hält die GPU-Sperre für die GESAMTE Dauer des Streams.
+ *
+ * Die Sperre wird bewusst um den ganzen Aufruf gelegt, nicht nur um den
+ * Verbindungsaufbau: `_streamFromOllamaImpl` kehrt erst zurück, wenn der Stream
+ * vollständig gelesen ist (das innere Promise löst auf `end`). Genau so lange
+ * ist die GPU belegt — und genau so lange muss ein wartender Skill-Aufruf (oder
+ * ein zweiter Chat-Job) draußen bleiben. `withGpuLock` gibt die Sperre auch bei
+ * einem Fehler wieder frei (AsyncMutex: release im finally), ein hängender Chat
+ * kann die Warteschlange also nicht dauerhaft blockieren.
+ */
+function streamFromOllama(...args) {
+  return withGpuLock(() => _streamFromOllamaImpl(...args));
+}
+
+async function _streamFromOllamaImpl(
   ctx,
   jobId,
   prompt,
@@ -208,6 +227,13 @@ async function streamFromOllama(
   let responseStream = null;
   let streamHeartbeat = null;
   let inactivityTimer = null;
+  // DEADLOCK-001: Referenz auf das `resolve` des Stream-Promise (unten). Der
+  // Inaktivitäts-Timeout räumt die Stream-Listener ab, BEVOR ein 'error'/'end'
+  // feuern könnte — ohne diese Referenz bliebe das `await new Promise(...)`
+  // ewig hängen, die Funktion kehrte nie zurück, und (seit Plan 011/10) gäbe
+  // die gemeinsame GPU-Sperre nie mehr frei: ein einziger hängender Stream
+  // würde Chat UND alle Skills dauerhaft blockieren.
+  let settleStream = null;
 
   try {
     const abortController = new AbortController();
@@ -393,6 +419,15 @@ async function streamFromOllama(
           logger.error(
             `[QUEUE] Inactivity timeout handler failed for job ${jobId}: ${err.message}`
           );
+        } finally {
+          // DEADLOCK-001: In JEDEM Fall das Stream-Promise auflösen, sonst kehrt
+          // die Funktion nie zurück und die GPU-Sperre bleibt für immer belegt.
+          // `resolveStream` (nicht reject): die Fehlerbehandlung ist oben schon
+          // erledigt, ein weiterer Reject würde nur eine unbehandelte Ablehnung
+          // erzeugen.
+          if (settleStream) {
+            settleStream();
+          }
         }
       }, INACTIVITY_TIMEOUT_MS);
     };
@@ -420,6 +455,9 @@ async function streamFromOllama(
     // Without this, the finally block runs immediately after resume() and destroys
     // the stream before any data events can fire — the root cause of the timeout bug.
     await new Promise((resolveStream, _rejectStream) => {
+      // DEADLOCK-001: nach außen reichen, damit der Inaktivitäts-Timeout (der
+      // die Listener abräumt) den Await trotzdem beenden kann.
+      settleStream = resolveStream;
       responseStream.on('data', async chunk => {
         try {
           // Reset inactivity timer on each chunk
