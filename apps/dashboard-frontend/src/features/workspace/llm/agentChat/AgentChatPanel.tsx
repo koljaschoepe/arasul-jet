@@ -294,7 +294,11 @@ export default function AgentChatPanel() {
     if (!chatId) return;
     let cancelled = false;
     api
-      .get<{ data: { id: number; skill_name: string }[] }>(
+      // Die Lauf-ID kommt aus einer BIGINT-Spalte und erreicht den Client als
+      // String ("10"), während der Start-POST sie als Zahl (10) liefert. Beide
+      // MÜSSEN zur selben Zahl normalisiert werden — sonst scheitert der
+      // Dublettenschutz (10 !== "10") und derselbe Lauf erscheint doppelt.
+      .get<{ data: { id: number | string; skill_name: string }[] }>(
         `/skills/laeufe?conversation_id=${chatId}`,
         { showError: false }
       )
@@ -302,11 +306,11 @@ export default function AgentChatPanel() {
         if (cancelled) return;
         setChatSkillRuns(
           chatId,
-          d.data.map(r => r.id)
+          d.data.map(r => Number(r.id))
         );
         setRunNames(prev => {
           const next = { ...prev };
-          for (const r of d.data) next[r.id] = r.skill_name;
+          for (const r of d.data) next[Number(r.id)] = r.skill_name;
           return next;
         });
       })
@@ -327,12 +331,14 @@ export default function AgentChatPanel() {
       setError(null);
       try {
         const id = await ensureChat();
-        const res = await api.post<{ data: { runId: number } }>('/skills/laeufe', {
+        const res = await api.post<{ data: { runId: number | string } }>('/skills/laeufe', {
           skill: skillName,
           args,
           conversation_id: Number(id),
         });
-        const runId = res.data.runId;
+        // Wie in der Liste: die BIGINT-ID kann als String kommen — zur Zahl
+        // normalisieren, damit Registry-Schlüssel und Karten-ID konsistent sind.
+        const runId = Number(res.data.runId);
         setRunNames(prev => ({ ...prev, [runId]: skillName }));
         registerSkillRun(id, runId);
         stickToBottomRef.current = true;

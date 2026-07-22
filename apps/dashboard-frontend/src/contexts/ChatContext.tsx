@@ -26,6 +26,7 @@ import React, {
 import type { ChatInput } from '@arasul/shared-schemas';
 import useTokenBatching from '../hooks/useTokenBatching';
 import { useApi } from '../hooks/useApi';
+import { addSkillRun, mergeSkillRuns } from './skillRunRegistry';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import type { DocumentSource, MatchedSpace, QueueJob } from '../types';
 
@@ -354,21 +355,21 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     [skillRunsByChat]
   );
 
+  // Normalisierung + Dublettenschutz liegen als reine Helfer in
+  // `skillRunRegistry` (direkt testbar) — siehe dort zur BIGINT-Zahl/String-Falle.
   const registerSkillRun = useCallback((chatId: string, runId: number) => {
     setSkillRunsByChat(prev => {
       const vorhanden = prev[chatId] ?? [];
-      if (vorhanden.includes(runId)) return prev;
-      return { ...prev, [chatId]: [runId, ...vorhanden] };
+      const next = addSkillRun(vorhanden, runId);
+      return next === vorhanden ? prev : { ...prev, [chatId]: next };
     });
   }, []);
 
   const setChatSkillRuns = useCallback((chatId: string, runIds: number[]) => {
-    setSkillRunsByChat(prev => {
-      // Lokal schon bekannte IDs, die die Server-Liste (noch) nicht kennt, vorn
-      // behalten — ein gerade gestarteter Lauf darf nicht kurz verschwinden.
-      const zusatz = (prev[chatId] ?? []).filter(id => !runIds.includes(id));
-      return { ...prev, [chatId]: [...zusatz, ...runIds] };
-    });
+    setSkillRunsByChat(prev => ({
+      ...prev,
+      [chatId]: mergeSkillRuns(prev[chatId] ?? [], runIds),
+    }));
   }, []);
 
   // FH2: Full cleanup when a chat is deleted — prevents memory leaks
