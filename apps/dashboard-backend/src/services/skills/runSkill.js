@@ -24,6 +24,7 @@ const { buildTools } = require('./toolRegistry');
 const { runSkillLoop } = require('./toolLoop');
 const { fillPlaceholders } = require('./skillFile');
 const { ensureSkillSandbox } = require('./sandboxResolve');
+const { RunLimits } = require('./limits');
 const modelService = require('../llm/modelService');
 const logger = require('../../utils/logger');
 const { ValidationError } = require('../../utils/errors');
@@ -119,8 +120,11 @@ async function runSkill(
   // 3. Werkzeuge.
   const tools = makeTools(skill.werkzeuge);
 
-  // 4. Kontext für die Werkzeuge.
-  const context = { userId, roots: skill.ordner, spaceIds, slug: skillName };
+  // 4. Kontext für die Werkzeuge (die Basis, die auch Rollen für IHRE Werkzeuge
+  //    erben). Bewusst getrennt gehalten: `roleContextBase` sind die Ordner/
+  //    Wissensraum/Container-Angaben, `context` ist dieselbe Basis plus die
+  //    Lauf-weiten Subagent-Daten (Rollen, Grenzen, Tiefe).
+  const roleContextBase = { userId, roots: skill.ordner, spaceIds, slug: skillName };
 
   // Terminal braucht einen Sandbox-Container. Nur aufbauen, wenn der Skill das
   // Werkzeug auch deklariert — sonst kein Container für einen Skill, der ihn
@@ -128,9 +132,9 @@ async function runSkill(
   if (skill.werkzeuge.includes('terminal')) {
     try {
       const sandbox = await ensureSandbox(skill.ordner);
-      context.containerId = sandbox.containerId;
-      context.cwd = sandbox.cwd;
-      context.timeoutS = skill.grenzen.zeitlimit_s;
+      roleContextBase.containerId = sandbox.containerId;
+      roleContextBase.cwd = sandbox.cwd;
+      roleContextBase.timeoutS = skill.grenzen.zeitlimit_s;
     } catch (err) {
       // Kein Container? Der Lauf startet trotzdem; das Terminal-Werkzeug meldet
       // dann pro Aufruf eine klare Ursache, statt dass der ganze Skill scheitert.
@@ -141,14 +145,53 @@ async function runSkill(
   // 5. Lauf anlegen.
   const run = await store.createRun({ userId, skillName, arguments: werte, conversationId });
 
-  // Ereignisse der Schleife an den Lauf-Speicher UND an den optionalen Live-Sink
-  // durchreichen. Jeder Werkzeug-Aufruf wird ein Schritt.
+  // Zähler und offene Schritte (weiter unten von `weiter` und `recordSubagent`
+  // gemeinsam genutzt) — hier deklariert, damit beide Closures sie sehen.
   let steps = 0;
   const offeneSchritte = new Map(); // toolName → stepId (für den Abschluss)
 
+  // Notbremsen — EINE Instanz je Lauf, geteilt über alle Subagent-Ebenen.
+  const limits = new RunLimits({
+    maxAufrufe: skill.grenzen.max_aufrufe,
+    zeitlimitS: skill.grenzen.zeitlimit_s,
+  });
+
+  // Ein Subagent-Schritt hält BEIDE Seiten fest: das Verdichtete (output, das
+  // der Orchestrator sieht) und das Rohe (raw_output, nur fürs Protokoll).
+  const recordSubagent = async ({ rolle, auftrag, text, raw }) => {
+    const step = await store.startStep({
+      runId: run.id,
+      kind: 'subagent',
+      name: rolle,
+      input: { auftrag },
+    });
+    steps += 1;
+    await store.bumpSteps({ runId: run.id });
+    await store.finishStep({ stepId: step.id, output: text, rawOutput: raw, status: 'fertig' });
+  };
+
+  // Der volle Kontext: Werkzeug-Basis + die Lauf-weiten Subagent-Daten. `depth`
+  // 0 = Orchestrator; Rollen laufen ab Ebene 1.
+  const context = {
+    ...roleContextBase,
+    rollen: skill.rollen,
+    limits,
+    depth: 0,
+    model,
+    werkzeugRunden: skill.grenzen.werkzeug_runden,
+    roleContextBase,
+    recordSubagent,
+  };
+
+  // Ereignisse der Schleife an den Lauf-Speicher UND an den optionalen Live-Sink
+  // durchreichen. Jeder Werkzeug-Aufruf wird ein Schritt.
   const weiter = async evt => {
+    // `subagent` schreibt seinen eigenen, reicheren Schritt (mit Rohdaten) über
+    // `recordSubagent`. Hier NICHT zusätzlich als generischen Werkzeug-Schritt
+    // mitschreiben — sonst stünde die Delegation doppelt im Protokoll.
+    const istSubagent = evt.tool === 'subagent';
     try {
-      if (evt.type === 'tool_start') {
+      if (evt.type === 'tool_start' && !istSubagent) {
         const step = await store.startStep({
           runId: run.id,
           kind: 'werkzeug',
@@ -158,7 +201,7 @@ async function runSkill(
         offeneSchritte.set(evt.tool, step.id);
         steps += 1;
         await store.bumpSteps({ runId: run.id });
-      } else if (evt.type === 'tool_result') {
+      } else if (evt.type === 'tool_result' && !istSubagent) {
         const stepId = offeneSchritte.get(evt.tool);
         if (stepId) {
           await store.finishStep({ stepId, output: evt.result, status: 'fertig' });

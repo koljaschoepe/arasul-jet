@@ -285,21 +285,28 @@ describe('Werkzeug-Registry', () => {
     expect(buildTools([])).toEqual([]);
   });
 
-  it('meldet noch nicht gebaute Werkzeuge klar, statt still zu fehlen', async () => {
-    // Terminal (7) und Web (8) sind echt; der Subagent kommt erst mit Schritt 11.
-    const [sub] = buildTools(['subagent']);
-    expect(sub.name).toBe('subagent');
-    expect(await sub.execute({}, {})).toMatch(/noch nicht verfügbar.*Schritt 11/s);
-  });
-
   it('liefert für "terminal" das echte Werkzeug, keinen Platzhalter mehr', () => {
     const [tool] = buildTools(['terminal']);
     expect(tool).toBeInstanceOf(TerminalTool);
   });
 
-  it('nennt die heute wirklich benutzbaren Werkzeuge', () => {
+  it('liefert für "subagent" das echte Werkzeug', () => {
+    const SubagentTool = require('../../src/services/skills/subagent');
+    const [tool] = buildTools(['subagent']);
+    expect(tool).toBeInstanceOf(SubagentTool);
+  });
+
+  it('nennt die heute wirklich benutzbaren Werkzeuge (alle aus dem Plan)', () => {
     expect(implementedTools().sort()).toEqual(
-      ['dateien_lesen', 'dateien_schreiben', 'rag_suche', 'terminal', 'web_suche', 'web_lesen'].sort()
+      [
+        'dateien_lesen',
+        'dateien_schreiben',
+        'rag_suche',
+        'terminal',
+        'web_suche',
+        'web_lesen',
+        'subagent',
+      ].sort()
     );
   });
 });
