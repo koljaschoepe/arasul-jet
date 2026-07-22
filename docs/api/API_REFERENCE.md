@@ -2182,13 +2182,15 @@ Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `rag_suche`, `web_suche
 {
   "data": [
     { "name": "dateien_lesen", "verfuegbar": true },
-    { "name": "terminal", "verfuegbar": false }
+    { "name": "terminal", "verfuegbar": true }
   ],
   "timestamp": "2026-07-21T10:00:00.000Z"
 }
 ```
 
-A skill may declare a tool that is not built yet — the definition stays valid and saveable, and the tool reports why it did nothing when the skill runs. `verfuegbar: false` currently applies to `terminal`, `web_suche`, `web_lesen` and `subagent`.
+A skill may declare a tool that is not built yet — the definition stays valid and saveable, and the tool reports why it did nothing when the skill runs. As of Plan 011 Step 18 **all seven tools are built**, so every entry currently reports `verfuegbar: true`.
+
+**`datei` argument — content injection.** An argument of `typ: datei` yields the picked document's **filename**. Because document originals live in MinIO and are not reachable as files, the runner loads that document's indexed text (reassembled from `document_chunks`, or the stored `summary` if not yet chunked) and appends it to the model's user input inside `--- Inhalt der Datei "…" ---` markers, capped at 16 000 characters. A skill like `dokument-zusammenfassen` therefore needs no file tools — the argument delivers the content. If the document is unknown or not indexed, the runner appends an honest note instead so the model does not invent content.
 
 **Folders and paths.** A skill may declare several folders in `ordner`; the **first one is the working directory**. Relative paths in the file tools resolve against it, deliberately not against whichever folder happens to contain a matching file — otherwise the same path would write to different places depending on what exists. Another declared folder is addressed by its full path. Every access is symlink-checked, so a symlink pointing out of the allowed folders is rejected even though the link itself sits inside one.
 

@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import type { AgentToolStep, ChatMessage } from '@/contexts/ChatContext';
 import type { DocumentSource } from '@/types';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { CompactMarkdown } from './markdown';
+import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
 
 /** Einklappbare Ein-Zeilen-Row für Denk-/Tool-Schritte. */
 function StepRow({

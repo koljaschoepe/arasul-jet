@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Square } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
+import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
 import { useSkillRun, type SkillRunStatus, type SkillRunStep } from '@/hooks/useSkillRun';
 import RunStep from './RunStep';
 import ChangeSummary from './ChangeSummary';
@@ -140,13 +141,11 @@ export default function RunCard({ runId, skillName, onFinished }: RunCardProps) 
       {/* Datei-Änderungen (neu / geändert / gelöscht, aufklappbar) */}
       <ChangeSummary changes={run.changes} />
 
-      {/* Antwort / Fehler */}
+      {/* Antwort / Fehler — dieselbe reiche Markdown-Darstellung wie im Chat
+          (Überschriften, Listen, Codeblöcke mit Kopier-Knopf), Schritt 19. */}
       {run.result != null && run.result !== '' && (
-        <div
-          className="border-t border-border px-2.5 py-2 text-[13px] leading-relaxed text-foreground whitespace-pre-wrap [overflow-wrap:anywhere]"
-          data-testid="run-result"
-        >
-          {run.result}
+        <div className="border-t border-border px-2.5 py-2" data-testid="run-result">
+          <CompactMarkdown content={run.result} />
         </div>
       )}
       {run.error && (

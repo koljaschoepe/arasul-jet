@@ -1,8 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AgentChatPanel from '../llm/agentChat/AgentChatPanel';
 import CompactMessage from '../llm/agentChat/CompactMessage';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+
+/** Der Panel bindet über die ConversationList (Schritt 20) React Query ein. */
+function renderPanel() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <AgentChatPanel />
+    </QueryClientProvider>
+  );
+}
 
 const apiMock = {
   get: vi.fn((url: string) => {
@@ -73,7 +84,7 @@ describe('AgentChatPanel', () => {
   });
 
   it('zeigt den leeren Zustand mit Composer und Maskottchen', () => {
-    render(<AgentChatPanel />);
+    renderPanel();
     expect(screen.getByText('Frag dein Unternehmenswissen.')).toBeInTheDocument();
     expect(screen.getByLabelText('Nachricht an die KI')).toBeInTheDocument();
     // Maskottchen sichtbar (Statuszeile oben + großes Bild im leeren Zustand)
@@ -84,7 +95,7 @@ describe('AgentChatPanel', () => {
   });
 
   it('erstellt beim ersten Senden lazy einen Chat und sendet mit Auto-RAG', async () => {
-    render(<AgentChatPanel />);
+    renderPanel();
     fireEvent.change(screen.getByLabelText('Nachricht an die KI'), {
       target: { value: 'Was steht im Handbuch?' },
     });
@@ -103,7 +114,7 @@ describe('AgentChatPanel', () => {
     useWorkspaceStore.setState({
       chatScope: { spaceIds: ['s1', 's2'], label: 'Marketing' },
     });
-    render(<AgentChatPanel />);
+    renderPanel();
     expect(screen.getByText('Marketing')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Nachricht an die KI'), {
@@ -116,7 +127,7 @@ describe('AgentChatPanel', () => {
 
   it('lädt einen bestehenden Panel-Chat aus localStorage', async () => {
     localStorage.setItem('arasul_panel_chat_id', '7');
-    render(<AgentChatPanel />);
+    renderPanel();
     await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/chats/7', { showError: false }));
     await waitFor(() => expect(screen.getByText('Testchat')).toBeInTheDocument());
     expect(chatContext.registerMessageCallback).toHaveBeenCalled();

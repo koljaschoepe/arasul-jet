@@ -18,6 +18,7 @@ const {
   PatchChatSettingsBody,
 } = require('../schemas/chats');
 const { ValidationError, NotFoundError } = require('../utils/errors');
+const { setzeAutoTitel } = require('../services/chat/chatTitle');
 const { buildSetClauses } = require('../utils/queryBuilder');
 
 // PHASE3-FIX: Input validation helper for conversation_id
@@ -379,6 +380,10 @@ router.post(
          RETURNING id, role, content, thinking, created_at`,
       [id, role, content, thinking || null]
     );
+
+    // Auto-Titel aus der ersten Nutzer-Nachricht (Schritt 20). Best-effort im
+    // Service gekapselt — wirft nie und darf das Speichern nicht gefährden.
+    await setzeAutoTitel({ conversationId: id, role, content });
 
     res.json({
       message: result.rows[0],
