@@ -16,7 +16,12 @@ jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), e
 const axios = require('axios');
 const { runSkillLoop } = require('../../src/services/skills/toolLoop');
 const { withGpuLock, _gpuMutex } = require('../../src/services/skills/gpuQueue');
-const { runSkill, resolveArguments, buildUserInput } = require('../../src/services/skills/runSkill');
+const {
+  runSkill,
+  resolveArguments,
+  buildUserInput,
+  anreichernMitDateien,
+} = require('../../src/services/skills/runSkill');
 
 /** Ein Werkzeug-Doppel im BaseTool-Stil. */
 function fakeTool(name, fn) {
@@ -271,6 +276,7 @@ describe('runSkill — Orchestrierung', () => {
         berechneAenderungen: jest.fn(() => ({ aenderungen: [], abgeschnitten: false })),
       },
       resolveModel: jest.fn(async () => 'default-model'),
+      loadDocText: jest.fn(async () => ({ gefunden: false, titel: null, text: '', gekuerzt: false })),
       ...overrides,
     };
   }
@@ -365,6 +371,43 @@ describe('runSkill — Orchestrierung', () => {
     // Zwei Schritte begonnen UND zwei abgeschlossen — keiner verwaist.
     expect(echterStore.startStep).toHaveBeenCalledTimes(2);
     expect(echterStore.finishStep).toHaveBeenCalledTimes(2);
+  });
+
+  it('speist den Inhalt eines datei-Arguments in die Nutzer-Eingabe ein', async () => {
+    const deps = makeDeps({
+      loadSkill: jest.fn(async () => ({
+        ...baseSkill,
+        werkzeuge: [],
+        argumente: [{ name: 'datei', typ: 'datei', pflicht: true, beschreibung: 'Dokument' }],
+        systemPrompt: 'Fasse das Dokument zusammen.',
+      })),
+      loadDocText: jest.fn(async () => ({
+        gefunden: true,
+        titel: 'Vertrag',
+        text: 'GEHEIMER VERTRAGSTEXT',
+        gekuerzt: false,
+      })),
+    });
+    await runSkill({ skillName: 'zusammenfassen', args: { datei: 'vertrag.pdf' }, userId: 1 }, deps);
+    expect(deps.loadDocText).toHaveBeenCalledWith({ filename: 'vertrag.pdf' });
+    const userInput = deps.runLoop.mock.calls[0][0].userInput;
+    expect(userInput).toMatch(/Inhalt der Datei "vertrag.pdf"/);
+    expect(userInput).toMatch(/GEHEIMER VERTRAGSTEXT/);
+  });
+
+  it('vermerkt ehrlich, wenn der Dateiinhalt nicht geladen werden kann', async () => {
+    const deps = makeDeps({
+      loadSkill: jest.fn(async () => ({
+        ...baseSkill,
+        werkzeuge: [],
+        argumente: [{ name: 'datei', typ: 'datei', pflicht: true }],
+        systemPrompt: 'Fasse zusammen.',
+      })),
+      // loadDocText liefert standardmäßig gefunden:false
+    });
+    await runSkill({ skillName: 'zusammenfassen', args: { datei: 'weg.pdf' }, userId: 1 }, deps);
+    const userInput = deps.runLoop.mock.calls[0][0].userInput;
+    expect(userInput).toMatch(/nicht in der Wissensbasis indexiert/);
   });
 
   it('scopet die RAG-Suche auf das Wissensbasis-Argument', async () => {
@@ -546,5 +589,23 @@ describe('buildUserInput', () => {
   });
   it('gibt einen Standard-Auslöser, wenn keine Argumente gesetzt sind', () => {
     expect(buildUserInput([], {})).toMatch(/Bitte die beschriebene Aufgabe/);
+  });
+});
+
+describe('anreichernMitDateien', () => {
+  it('lässt die Eingabe unverändert, wenn kein datei-Argument gesetzt ist', async () => {
+    const load = jest.fn();
+    const decl = [{ name: 'thema', typ: 'freitext' }];
+    const out = await anreichernMitDateien('Angaben:\nThema: KI', decl, { thema: 'KI' }, load);
+    expect(out).toBe('Angaben:\nThema: KI');
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('hängt den Dokument-Block an und markiert eine Kürzung', async () => {
+    const load = jest.fn(async () => ({ gefunden: true, text: 'Inhalt', gekuerzt: true }));
+    const decl = [{ name: 'datei', typ: 'datei' }];
+    const out = await anreichernMitDateien('Angaben:\nDatei: a.pdf', decl, { datei: 'a.pdf' }, load);
+    expect(out).toMatch(/Inhalt der Datei "a.pdf" \(gekürzt\)/);
+    expect(out).toMatch(/Inhalt\n--- Ende der Datei ---/);
   });
 });

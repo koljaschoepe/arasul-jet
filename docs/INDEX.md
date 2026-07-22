@@ -71,13 +71,14 @@ docs/
 
 ## Features
 
-| Document                                                                             | Topic                                              |
-| ------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| [`features/WORKSPACE.md`](features/WORKSPACE.md)                                     | Workspace: Netzwerkmodi, Wissensraum, Claude-Login |
-| [`features/MINIO_SERVICE.md`](features/MINIO_SERVICE.md)                             | S3-compatible object storage                       |
-| [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                    |
-| [`features/JETSON_COMPATIBILITY.md`](features/JETSON_COMPATIBILITY.md)               | Multi-device support, GPU error handling           |
-| [`features/CUSTOMER_OAUTH_SETUP.md`](features/CUSTOMER_OAUTH_SETUP.md)               | OAuth onboarding for customer integrations         |
+| Document                                                                             | Topic                                                        |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| [`features/SKILLS.md`](features/SKILLS.md)                                           | Skills: Chat-Slash-Befehle, Argumente, Werkzeuge, Subagenten |
+| [`features/WORKSPACE.md`](features/WORKSPACE.md)                                     | Workspace: Netzwerkmodi, Wissensraum, Claude-Login           |
+| [`features/MINIO_SERVICE.md`](features/MINIO_SERVICE.md)                             | S3-compatible object storage                                 |
+| [`features/SELF_HEALING_IMPLEMENTATION.md`](features/SELF_HEALING_IMPLEMENTATION.md) | Self-healing agent architecture                              |
+| [`features/JETSON_COMPATIBILITY.md`](features/JETSON_COMPATIBILITY.md)               | Multi-device support, GPU error handling                     |
+| [`features/CUSTOMER_OAUTH_SETUP.md`](features/CUSTOMER_OAUTH_SETUP.md)               | OAuth onboarding for customer integrations                   |
 
 ---
 

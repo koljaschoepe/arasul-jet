@@ -49,6 +49,15 @@ async function bootstrap() {
   } catch (error) {
     logger.error(`Bootstrap: App-Container-Reconcile error: ${error.message}`);
   }
+
+  // Step 5: Beispiel-Skills anlegen (Plan 011, Schritt 18) — nur fehlende, nie
+  // überschreibend. Best-effort, blockiert den Boot nie.
+  try {
+    const { seedBeispielSkills } = require('./services/skills/beispielSeed');
+    await seedBeispielSkills();
+  } catch (error) {
+    logger.error(`Bootstrap: Beispiel-Skills-Seed error: ${error.message}`);
+  }
 }
 
 async function ensureAdminUser() {

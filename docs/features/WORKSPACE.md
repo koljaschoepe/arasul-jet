@@ -22,8 +22,8 @@ Jeder Workspace besitzt genau **einen unsichtbaren Wissensraum** (in der UI
 indiziert (kein manueller Upload), und die RAG-Suche bleibt auf diesen Raum
 beschränkt.
 
-> Skills (Chat-Slash-Befehle) ersetzen die früheren Agenten; Dokumentation
-> folgt mit ihrer Umsetzung.
+> Skills (Chat-Slash-Befehle) ersetzen die früheren Agenten — siehe
+> [`SKILLS.md`](SKILLS.md).
 
 ## Externe Anmeldung (Claude-Login)
 

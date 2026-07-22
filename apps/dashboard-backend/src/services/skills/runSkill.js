@@ -25,6 +25,7 @@ const { runSkillLoop } = require('./toolLoop');
 const { fillPlaceholders } = require('./skillFile');
 const { ensureSkillSandbox } = require('./sandboxResolve');
 const changeTracker = require('./changeTracker');
+const { ladeDokumentText } = require('./documentText');
 const { RunLimits } = require('./limits');
 const modelService = require('../llm/modelService');
 const logger = require('../../utils/logger');
@@ -81,6 +82,40 @@ function buildUserInput(declared = [], werte = {}) {
 }
 
 /**
+ * Speist den Inhalt der `datei`-Argumente in die Nutzer-Eingabe ein (Schritt 18).
+ *
+ * Ein `datei`-Argument liefert nur den Dateinamen — für „fasse dieses Dokument
+ * zusammen" braucht das Modell den Inhalt. Der wird hier aus dem indexierten
+ * Text geladen und als klar abgegrenzter Block angehängt. Ein nicht gefundenes
+ * Dokument wird ehrlich vermerkt, damit das Modell nicht rät.
+ *
+ * @returns {Promise<string>} Die Nutzer-Eingabe, ggf. um Dokument-Blöcke ergänzt.
+ */
+async function anreichernMitDateien(userInput, declared = [], werte = {}, loadDocText) {
+  const dateiArgs = declared.filter(a => a.typ === 'datei' && werte[a.name] != null);
+  if (dateiArgs.length === 0) {
+    return userInput;
+  }
+  const bloecke = [];
+  for (const arg of dateiArgs) {
+    const name = werte[arg.name];
+    const doc = await loadDocText({ filename: name });
+    if (doc.gefunden) {
+      const gekuerzt = doc.gekuerzt ? ' (gekürzt)' : '';
+      bloecke.push(
+        `--- Inhalt der Datei "${name}"${gekuerzt} ---\n${doc.text}\n--- Ende der Datei ---`
+      );
+    } else {
+      bloecke.push(
+        `--- Datei "${name}" ---\nHinweis: Der Inhalt konnte nicht geladen werden ` +
+          `(nicht in der Wissensbasis indexiert). Bitte weise darauf hin, statt zu raten.\n--- Ende ---`
+      );
+    }
+  }
+  return `${userInput}\n\n${bloecke.join('\n\n')}`;
+}
+
+/**
  * Führt einen Skill aus.
  *
  * @param {object} p
@@ -103,15 +138,22 @@ async function runSkill(
     runLoop = runSkillLoop,
     ensureSandbox = ensureSkillSandbox,
     tracker = changeTracker,
+    loadDocText = ladeDokumentText,
     resolveModel = () => modelService.getDefaultModel(),
   } = deps;
 
   const skill = await loadSkill(skillName);
 
-  // 1. Argumente → Werte, Platzhalter ersetzen.
+  // 1. Argumente → Werte, Platzhalter ersetzen. Ein `datei`-Argument reichert
+  //    die Nutzer-Eingabe zusätzlich um den Dokument-Inhalt an (Schritt 18).
   const { werte, spaceIds } = resolveArguments(skill.argumente, args);
   const filledPrompt = fillPlaceholders(skill.systemPrompt, werte);
-  const userInput = buildUserInput(skill.argumente, werte);
+  const userInput = await anreichernMitDateien(
+    buildUserInput(skill.argumente, werte),
+    skill.argumente,
+    werte,
+    loadDocText
+  );
 
   // 2. Modell.
   const model = skill.modell || (await resolveModel());
@@ -336,4 +378,4 @@ async function runSkill(
   return store.getRun({ runId: run.id, userId });
 }
 
-module.exports = { runSkill, resolveArguments, buildUserInput };
+module.exports = { runSkill, resolveArguments, buildUserInput, anreichernMitDateien };

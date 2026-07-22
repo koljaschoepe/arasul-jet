@@ -1,9 +1,12 @@
 /**
- * Kompakte Markdown-Darstellung für den Agent-Chat im rechten Panel.
+ * Kompakte Markdown-Darstellung — geteilt von der Chat-Nachricht (rechtes
+ * Panel) und der Skill-Lauf-Karte (Plan 011, Schritt 19).
  *
  * Bewusst dichter als die klassische Chat-Ansicht: kleinere Schrift,
  * eingedampfte Überschriften (nur Gewicht/Farbe differenziert), Codeblöcke
- * als Karte mit Kopierknopf und horizontalem Scroll statt Umbruch.
+ * als Karte mit Kopierknopf und horizontalem Scroll statt Umbruch. Weil zwei
+ * Features (workspace-Chat und skills) dieselbe Darstellung brauchen, liegt die
+ * Komponente hier in `components/ui/` und nicht mehr in einem Feature-Ordner.
  */
 import { useCallback, useState, type ComponentProps, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';

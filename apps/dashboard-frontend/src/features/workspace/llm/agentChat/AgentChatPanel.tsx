@@ -10,24 +10,17 @@
  * Quellen). Chats entstehen lazy beim ersten Senden.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { History, Plus, Upload, X } from 'lucide-react';
+import { Plus, Upload, X } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSkills } from '@/hooks/useSkills';
 import { useToast } from '@/contexts/ToastContext';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/shadcn/dropdown-menu';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Mascot } from '@/components/mascot/Mascot';
 import CompactMessage from './CompactMessage';
 import ComposerCard from './ComposerCard';
+import ConversationList from '../ConversationList';
 import RunCard from '@/features/skills/RunCard';
 import SkillDialog from '@/features/skills/SkillDialog';
 
@@ -39,23 +32,6 @@ const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif
 
 /** Drag-Payloads, die der Explorer setzt (Datei/Ordner → Chat-Kontext). */
 export const DND_SCOPE_TYPE = 'application/x-arasul-scope';
-
-interface RecentChat {
-  id: number;
-  title?: string;
-  updated_at?: string;
-}
-
-function relativeTime(iso?: string): string {
-  if (!iso) return '';
-  const diff = Date.now() - new Date(iso).getTime();
-  const min = Math.round(diff / 60000);
-  if (min < 1) return 'gerade eben';
-  if (min < 60) return `vor ${min} Min`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `vor ${h} Std`;
-  return `vor ${Math.round(h / 24)} Tg`;
-}
 
 export default function AgentChatPanel() {
   const api = useApi();
@@ -95,7 +71,6 @@ export default function AgentChatPanel() {
   const [input, setInput] = useState('');
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
-  const [recentChats, setRecentChats] = useState<RecentChat[]>([]);
   const [dragOver, setDragOver] = useState(false);
   // Skill-Namen je Lauf-ID — nur als Kopfzeilen-Hinweis, bevor der Lauf-Strom
   // ihn ohnehin bestätigt (Plan 011, Schritt 15).
@@ -375,13 +350,6 @@ export default function AgentChatPanel() {
     setChatId(String(id));
   }, []);
 
-  const loadRecent = useCallback(() => {
-    api
-      .get<{ chats?: RecentChat[] } | RecentChat[]>('/chats/recent', { showError: false })
-      .then(d => setRecentChats(Array.isArray(d) ? d : d.chats || []))
-      .catch(() => setRecentChats([]));
-  }, [api]);
-
   // --- Anhänge / Drag & Drop ----------------------------------------------
 
   const pickFile = useCallback((file: File) => {
@@ -470,33 +438,7 @@ export default function AgentChatPanel() {
         >
           <Plus className="size-3.5" />
         </button>
-        <DropdownMenu onOpenChange={open => open && loadRecent()}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Chat-Verlauf"
-              title="Chat-Verlauf"
-              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <History className="size-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>Letzte Chats</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {recentChats.length === 0 && (
-              <DropdownMenuItem disabled>Keine früheren Chats</DropdownMenuItem>
-            )}
-            {recentChats.slice(0, 15).map(c => (
-              <DropdownMenuItem key={c.id} onClick={() => switchChat(c.id)}>
-                <span className="min-w-0 flex-1 truncate">{c.title || `Chat ${c.id}`}</span>
-                <span className="ml-2 shrink-0 text-[10px] text-muted-foreground">
-                  {relativeTime(c.updated_at)}
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ConversationList onSelect={switchChat} />
       </div>
 
       {/* Verlauf */}
