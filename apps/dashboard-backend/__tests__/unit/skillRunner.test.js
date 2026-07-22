@@ -51,6 +51,29 @@ describe('starten', () => {
     expect(skillRunner.istAktiv(7)).toBe(true);
   });
 
+  it('findet den Lauf, auch wenn Postgres die ID als STRING liefert und die Route eine ZAHL nutzt', async () => {
+    // Der Fehler, der nur auf dem Gerät auftrat: createRun gibt "8" (String,
+    // BIGSERIAL), die SSE-Route wandelt ihren Pfad-Parameter in die Zahl 8.
+    // Ohne Normalisierung fände abonnieren(8) den unter "8" abgelegten Lauf nie.
+    const store = { createRun: jest.fn(async () => ({ id: '8' })), finishRun: jest.fn() };
+    let onEvent;
+    const run = jest.fn(async p => {
+      onEvent = p.onEvent;
+      return new Promise(() => {}); // läuft weiter
+    });
+    const { runId } = await skillRunner.starten({ skillName: 'notiz', userId: 1 }, { run, store });
+    expect(runId).toBe(8); // als ZAHL zurückgegeben, nicht als String
+    expect(typeof runId).toBe('number');
+
+    // Wie die Route: mit der ZAHL abonnieren.
+    const gesehen = [];
+    const ab = skillRunner.abonnieren(8, e => gesehen.push(e.type));
+    expect(ab).not.toBeNull(); // gefunden!
+    expect(skillRunner.istAktiv(8)).toBe(true);
+    onEvent({ type: 'text', content: 'x' });
+    expect(gesehen).toEqual(['text']);
+  });
+
   it('verteilt Live-Ereignisse des Laufs an die Abonnenten', async () => {
     let onEvent;
     const store = { createRun: jest.fn(async () => ({ id: 8 })), finishRun: jest.fn() };
