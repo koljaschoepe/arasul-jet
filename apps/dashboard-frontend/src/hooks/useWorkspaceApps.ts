@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabType } from '@/stores/workspaceStore';
+import type { AccessTier, ExtType } from '@/features/store/storeExtensionFilters';
 
 export interface WorkspaceApp {
   id: string;
@@ -16,6 +17,12 @@ export interface WorkspaceApp {
   description: string;
   tab: WorkspaceTabType;
   enabled: boolean;
+  /**
+   * Taxonomie aus Plan 012 Phase E. Optional, damit ein älteres Backend (das
+   * die Felder noch nicht schickt) die Ansicht nicht bricht.
+   */
+  type?: ExtType;
+  accessTier?: AccessTier;
 }
 
 const QUERY_KEY = ['workspace-apps'];

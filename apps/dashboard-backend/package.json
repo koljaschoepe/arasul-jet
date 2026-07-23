@@ -16,6 +16,7 @@
     "lint:report": "eslint src/ --ext .js --format json --output-file eslint-report.json"
   },
   "dependencies": {
+    "@arasul/shared-schemas": "file:../../packages/shared-schemas",
     "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
@@ -25,18 +26,18 @@
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "helmet": "^8.2.0",
+    "js-yaml": "^5.2.1",
     "jsonwebtoken": "^9.0.2",
     "minio": "^7.1.3",
     "multer": "^2.0.0",
     "pdfkit": "^0.14.0",
     "pg": "^8.11.3",
     "swagger-ui-express": "^5.0.0",
+    "tar": "^7.4.3",
     "uuid": "^9.0.1",
     "winston": "^3.11.0",
     "ws": "^8.16.0",
-    "js-yaml": "^5.2.1",
-    "zod": "^4.3.6",
-    "@arasul/shared-schemas": "file:../../packages/shared-schemas"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

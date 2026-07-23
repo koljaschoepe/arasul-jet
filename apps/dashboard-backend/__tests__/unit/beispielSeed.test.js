@@ -1,7 +1,7 @@
 /**
  * Beispiel-Skills bei der Einrichtung (Plan 011, Schritt 18).
  *
- * Prüft: die drei mitgelieferten Vorlagen parsen sauber, werden in einen leeren
+ * Prüft: die mitgelieferten Vorlagen parsen sauber, werden in einen leeren
  * Ordner kopiert, und ein zweiter Lauf überschreibt eine vorhandene (evtl. vom
  * Nutzer bearbeitete) Datei NICHT.
  */
@@ -19,7 +19,7 @@ describe('Beispiel-Vorlagen', () => {
   it('sind gültige Skills (parsen gegen das Schema)', () => {
     const dateien = fs.readdirSync(BEISPIELE_DIR).filter(f => f.endsWith('.md'));
     expect(dateien.sort()).toEqual(
-      ['dokument-zusammenfassen.md', 'recherche.md', 'wissen.md'].sort()
+      ['dokument-zusammenfassen.md', 'erweiterung.md', 'execute.md', 'recherche.md', 'wissen.md'].sort()
     );
     for (const f of dateien) {
       const text = fs.readFileSync(path.join(BEISPIELE_DIR, f), 'utf8');
@@ -37,11 +37,13 @@ describe('seedBeispielSkills', () => {
     await fsp.rm(ziel, { recursive: true, force: true });
   });
 
-  it('legt alle drei Beispiele in einem leeren Ordner an', async () => {
+  it('legt alle Beispiele in einem leeren Ordner an', async () => {
     const angelegt = await seedBeispielSkills({ ziel });
-    expect(angelegt.sort()).toEqual(['dokument-zusammenfassen', 'recherche', 'wissen'].sort());
+    expect(angelegt.sort()).toEqual(
+      ['dokument-zusammenfassen', 'erweiterung', 'execute', 'recherche', 'wissen'].sort()
+    );
     expect(fs.readdirSync(ziel).sort()).toEqual(
-      ['dokument-zusammenfassen.md', 'recherche.md', 'wissen.md'].sort()
+      ['dokument-zusammenfassen.md', 'erweiterung.md', 'execute.md', 'recherche.md', 'wissen.md'].sort()
     );
   });
 
@@ -51,7 +53,9 @@ describe('seedBeispielSkills', () => {
     expect(angelegt).not.toContain('wissen');
     expect(fs.readFileSync(path.join(ziel, 'wissen.md'), 'utf8')).toBe('meine version');
     // Die anderen beiden kamen trotzdem dazu.
-    expect(angelegt.sort()).toEqual(['dokument-zusammenfassen', 'recherche'].sort());
+    expect(angelegt.sort()).toEqual(
+      ['dokument-zusammenfassen', 'erweiterung', 'execute', 'recherche'].sort()
+    );
   });
 
   it('legt den Zielordner an, wenn er fehlt', async () => {

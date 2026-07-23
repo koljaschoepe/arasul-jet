@@ -1,0 +1,10 @@
+{
+  "id": "beispiel-flow",
+  "name": "Beispiel-Flow",
+  "description": "Ein minimaler n8n-Workflow als Automations-Erweiterung — Vorlage zum Import.",
+  "type": "flow",
+  "accessTier": "internal",
+  "version": "0.1.0",
+  "arasulExtensionVersion": 1,
+  "entry": "workflow.json"
+}

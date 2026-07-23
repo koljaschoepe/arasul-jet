@@ -39,9 +39,9 @@ describe('CreateProjectDialog — Netzwerkmodi', () => {
   test('zeigt alle drei Modus-Optionen an', () => {
     renderDialog();
 
-    expect(screen.getByText('Abgeschottet')).toBeInTheDocument();
-    expect(screen.getByText('Am System')).toBeInTheDocument();
-    expect(screen.getByText('Voller Zugriff')).toBeInTheDocument();
+    expect(screen.getByText('Nur Internet')).toBeInTheDocument();
+    expect(screen.getByText('Interne Dienste')).toBeInTheDocument();
+    expect(screen.getByText('Voller Systemzugriff (Admin)')).toBeInTheDocument();
   });
 
   test('Infrastruktur-Option nennt Repo-/Docker-Zugriff und Admin-Beschränkung', () => {
@@ -56,7 +56,7 @@ describe('CreateProjectDialog — Netzwerkmodi', () => {
     renderDialog();
 
     expect(screen.queryByText(/Host-Vollzugriff/)).not.toBeInTheDocument();
-    await user.click(screen.getByText('Voller Zugriff'));
+    await user.click(screen.getByText('Voller Systemzugriff (Admin)'));
     expect(screen.getByText(/Host-Vollzugriff/)).toBeInTheDocument();
   });
 
@@ -65,7 +65,7 @@ describe('CreateProjectDialog — Netzwerkmodi', () => {
     const { onCreated } = renderDialog();
 
     await user.type(screen.getByLabelText('Projektname'), 'Testprojekt');
-    await user.click(screen.getByText('Voller Zugriff'));
+    await user.click(screen.getByText('Voller Systemzugriff (Admin)'));
     await user.click(screen.getByRole('button', { name: /Erstellen/ }));
 
     await waitFor(() => {

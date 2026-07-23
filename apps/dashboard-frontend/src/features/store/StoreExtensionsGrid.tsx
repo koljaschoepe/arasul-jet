@@ -18,7 +18,14 @@ import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 import type { WorkspaceApp } from '@/hooks/useWorkspaceApps';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
-import { applyExtensionFilters, activeExtFilterCount } from './storeExtensionFilters';
+import { useExtensions } from '@/hooks/useExtensions';
+import type { InstalledExtension } from '@/hooks/useExtensions';
+import {
+  applyExtensionFilters,
+  activeExtFilterCount,
+  extTypeLabel,
+  accessTierLabel,
+} from './storeExtensionFilters';
 
 function ExtensionCard({
   app,
@@ -90,13 +97,105 @@ function ExtensionCard({
   );
 }
 
+/**
+ * Karte für ein installiertes Erweiterungs-Paket (Plan 012 Phase E · Schritt 16).
+ * Trägt zusätzlich Typ, Zugriffs-Stufe und Herkunft — genau die Attribute, nach
+ * denen die Sidebar filtert.
+ */
+function InstalledExtensionCard({
+  ext,
+  onToggle,
+}: {
+  ext: InstalledExtension;
+  onToggle: (id: string, enabled: boolean) => Promise<void>;
+}) {
+  const toast = useToast();
+  const selectExtension = useExtensionStore(s => s.selectExtension);
+  const [busy, setBusy] = useState(false);
+
+  const handleToggle = async (checked: boolean) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onToggle(ext.id, checked);
+      toast.success(checked ? `${ext.name} aktiviert` : `${ext.name} deaktiviert`);
+    } catch {
+      toast.error('Änderung konnte nicht gespeichert werden');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      data-testid={`ext-card-${ext.id}`}
+      className="flex flex-col rounded-lg border border-border bg-card transition-colors hover:border-primary/40"
+    >
+      <button
+        type="button"
+        data-testid={`ext-open-${ext.id}`}
+        onClick={() => selectExtension({ kind: 'extension', id: ext.id })}
+        className="flex flex-1 flex-col gap-2 rounded-t-lg p-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <div className="flex items-start gap-2">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary [&_svg]:size-3.5">
+            <Blocks aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1 truncate font-semibold text-foreground">{ext.name}</span>
+          <Badge
+            variant="outline"
+            className={cn(
+              'h-5 shrink-0 px-1.5 text-ui-xs',
+              ext.enabled
+                ? 'border-primary/30 bg-primary/10 text-primary'
+                : 'border-border bg-muted text-muted-foreground'
+            )}
+          >
+            {ext.enabled ? 'Aktiv' : 'Inaktiv'}
+          </Badge>
+        </div>
+        <p className="line-clamp-2 text-sm text-muted-foreground">{ext.description}</p>
+        <div className="flex flex-wrap gap-1">
+          <Badge variant="outline" className="h-5 px-1.5 text-ui-xs">
+            {extTypeLabel(ext.type)}
+          </Badge>
+          <Badge variant="outline" className="h-5 px-1.5 text-ui-xs">
+            {accessTierLabel(ext.accessTier)}
+          </Badge>
+          <Badge variant="outline" className="h-5 px-1.5 text-ui-xs text-muted-foreground">
+            v{ext.version}
+          </Badge>
+        </div>
+      </button>
+
+      <div className="flex items-center justify-between border-t border-border p-3">
+        <span className="text-xs font-medium text-muted-foreground">
+          {ext.source === 'built' ? 'Selbst gebaut' : 'Importiert'}
+        </span>
+        <Switch
+          checked={ext.enabled}
+          disabled={busy}
+          aria-label={`${ext.name} ${ext.enabled ? 'deaktivieren' : 'aktivieren'}`}
+          onCheckedChange={handleToggle}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function StoreExtensionsGrid() {
   const { apps, setAppEnabled } = useWorkspaceApps();
+  const { extensions, setExtensionEnabled } = useExtensions();
   const filters = useStoreFilterStore(s => s.extFilters);
   const selectExtension = useExtensionStore(s => s.selectExtension);
 
   const visible = useMemo(() => applyExtensionFilters(apps, filters), [apps, filters]);
+  const visibleExtensions = useMemo(
+    () => applyExtensionFilters(extensions, filters),
+    [extensions, filters]
+  );
   const isFiltered = activeExtFilterCount(filters) > 0;
+  const nothingVisible = visible.length === 0 && visibleExtensions.length === 0;
 
   return (
     <div
@@ -108,6 +207,10 @@ export function StoreExtensionsGrid() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map(app => (
             <ExtensionCard key={app.id} app={app} onToggle={setAppEnabled} />
+          ))}
+
+          {visibleExtensions.map(ext => (
+            <InstalledExtensionCard key={ext.id} ext={ext} onToggle={setExtensionEnabled} />
           ))}
 
           {/* Plan 012 Phase C Schritt 9: der frühere „kommt bald"-Platzhalter ist
@@ -135,7 +238,7 @@ export function StoreExtensionsGrid() {
           )}
         </div>
 
-        {visible.length === 0 && isFiltered && (
+        {nothingVisible && isFiltered && (
           <p className="px-4 py-12 text-center text-sm text-muted-foreground">
             Keine Erweiterungen passen zum Filter.
           </p>

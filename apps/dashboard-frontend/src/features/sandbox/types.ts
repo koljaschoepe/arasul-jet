@@ -8,6 +8,14 @@
  */
 export type SandboxNetworkMode = 'isolated' | 'internal' | 'infrastructure';
 
+/**
+ * Zweck einer Sandbox (Migration 115, Plan 012 Phase E · Schritt 13):
+ * - standard: leerer Workspace-Ordner mit Terminal
+ * - erweiterungs-werkstatt: beim Anlegen mit ANLEITUNG.md und
+ *   Beispiel-Erweiterungen bestückt (Vorlage für den Erweiterungs-Bau)
+ */
+export type SandboxWorkspaceType = 'standard' | 'erweiterungs-werkstatt';
+
 export interface SandboxProject {
   id: string;
   name: string;

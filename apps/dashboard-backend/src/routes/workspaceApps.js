@@ -27,6 +27,10 @@ const APP_MANIFEST = [
     name: 'n8n Automationen',
     description: 'Workflows und KI-Agenten — läuft inline als Automationen-Tab.',
     tab: 'automationen',
+    // Taxonomie aus Plan 012 Phase E: dieselben Facetten wie selbst gebaute
+    // Erweiterungen. n8n ist ein Automations-Flow und läuft im Backend-Netz.
+    type: 'flow',
+    accessTier: 'internal',
   },
 ];
 

@@ -121,14 +121,20 @@ Ende jedes Laufs mit Schreibzugriff: Du siehst hinterher, was passiert ist.
 
 ## Mitgelieferte Beispiel-Skills
 
-Bei der Einrichtung liegen drei Skills bereit, die je eine Fähigkeit vorführen —
-alle drei sind bearbeit- und löschbar:
+Bei der Einrichtung liegen fünf Skills bereit, die je eine Fähigkeit vorführen —
+alle sind bearbeit- und löschbar:
 
-| Skill                     | Führt vor        | Kern                                                                          |
-| ------------------------- | ---------------- | ----------------------------------------------------------------------------- |
-| `dokument-zusammenfassen` | Datei-Argument   | Ein `datei`-Argument liefert den Dokument-Inhalt; kein Werkzeug nötig.        |
-| `wissen`                  | RAG mit Quellen  | `rag_suche` auf eine gewählte Wissensbasis, Antwort mit Quellen.              |
-| `recherche`               | Subagenten + Web | `sucher` / `leser` / `pruefer` / `synthese` über `web_suche` und `web_lesen`. |
+| Skill                     | Führt vor          | Kern                                                                           |
+| ------------------------- | ------------------ | ------------------------------------------------------------------------------ |
+| `dokument-zusammenfassen` | Datei-Argument     | Ein `datei`-Argument liefert den Dokument-Inhalt; kein Werkzeug nötig.         |
+| `wissen`                  | RAG mit Quellen    | `rag_suche` auf eine gewählte Wissensbasis, Antwort mit Quellen.               |
+| `recherche`               | Subagenten + Web   | `sucher` / `leser` / `pruefer` / `synthese` über `web_suche` und `web_lesen`.  |
+| `erweiterung`             | Terminal + Dateien | Legt in der Erweiterungs-Werkstatt ein Erweiterungs-Gerüst an (App/Flow/Tool). |
+| `execute`                 | Terminal-Testlauf  | Prüft Manifest und Syntax der gebauten Erweiterung und meldet ehrlich zurück.  |
+
+`erweiterung` und `execute` gehören zum **Erweiterungs-Baukasten**
+([`EXTENSIONS.md`](EXTENSIONS.md)); sie arbeiten im Werkstatt-Ordner
+`/arasul/sandbox/projects/werkstatt`.
 
 Die Vorlagen liegen tracked im Backend-Image
 (`services/skills/beispiele/*.md`) und werden beim Start in den Skill-Ordner

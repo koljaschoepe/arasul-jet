@@ -19,6 +19,7 @@ const {
   getHostDataDir,
   getHostToolsDir,
   getHostRepoDir,
+  getDevTemplatesDir,
   getDockerSockGid,
   parseMemoryLimit,
 } = require('./sandboxShared');
@@ -26,6 +27,9 @@ const {
 // Gültige Netzwerkmodi (CHECK-Constraint aus Migration 100).
 // 'infrastructure' mountet Plattform-Repo (rw) + Docker-Socket — nur Admin.
 const VALID_NETWORK_MODES = ['isolated', 'internal', 'infrastructure'];
+
+// Gültige Sandbox-Typen (CHECK-Constraint aus Migration 115).
+const VALID_WORKSPACE_TYPES = ['standard', 'erweiterungs-werkstatt'];
 
 /**
  * Autorisierungs-Gate für den Infrastruktur-Modus: Rollenmodell ist
@@ -57,6 +61,7 @@ async function createProject({
   resourceLimits,
   environment,
   network_mode,
+  workspaceType,
   userId,
   userRole,
 }) {
@@ -80,6 +85,9 @@ async function createProject({
   const netMode = VALID_NETWORK_MODES.includes(network_mode) ? network_mode : 'isolated';
   assertInfrastructureAllowed(netMode, userRole);
 
+  // Validate workspace_type — default 'standard' (Plan 012 Phase E · Schritt 13).
+  const wsType = VALID_WORKSPACE_TYPES.includes(workspaceType) ? workspaceType : 'standard';
+
   // Plan 008 Schritt 13: der Workspace-INSERT und die Anlage seines EINEN
   // unsichtbaren Wissensraums laufen atomar in einer Transaktion. Entweder der
   // Workspace bekommt seinen verknüpften Space (RAG-Scoping der Agenten) — oder
@@ -96,8 +104,8 @@ async function createProject({
 
     const result = await client.query(
       `INSERT INTO sandbox_projects
-        (name, slug, description, icon, color, base_image, host_path, container_path, resource_limits, environment, network_mode, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, '/workspace', $8, $9, $10, $11)
+        (name, slug, description, icon, color, base_image, host_path, container_path, resource_limits, environment, network_mode, workspace_type, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, '/workspace', $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         name.trim(),
@@ -110,6 +118,7 @@ async function createProject({
         JSON.stringify(limits),
         JSON.stringify(environment || {}),
         netMode,
+        wsType,
         userId,
       ]
     );
@@ -162,7 +171,36 @@ async function createProject({
     logger.warn(`Could not create project dir ${localPath}: ${err.message}`);
   }
 
+  // Erweiterungs-Werkstatt: mit Referenz-/Template-Wissen bestücken, damit
+  // externe Agenten sofort wissen, wie man eine Arasul-Erweiterung baut
+  // (Plan 012 Phase E · Schritt 13). Best-effort — ein fehlendes Template-
+  // Verzeichnis (z. B. lokal ohne den ro-Mount) darf die Anlage nicht brechen.
+  if (wsType === 'erweiterungs-werkstatt') {
+    seedWerkstattTemplates(localPath);
+  }
+
   return project;
+}
+
+/**
+ * Kopiert die Werkstatt-Templates (ANLEITUNG.md + Beispiel-App/-Flow/-Tool)
+ * rekursiv in einen frisch angelegten Sandbox-Ordner. Best-effort und
+ * idempotent-freundlich: existierende Dateien werden nicht überschrieben.
+ */
+function seedWerkstattTemplates(targetDir) {
+  const src = getDevTemplatesDir();
+  try {
+    if (!fs.existsSync(src)) {
+      logger.warn(`Werkstatt-Templates nicht gefunden (${src}) — Sandbox bleibt leer`);
+      return;
+    }
+    fs.cpSync(src, targetDir, { recursive: true, force: false, errorOnExist: false });
+    logger.info(`Werkstatt-Templates kopiert: ${src} → ${targetDir}`);
+  } catch (err) {
+    logger.warn(
+      `Konnte Werkstatt-Templates nicht kopieren (${src} → ${targetDir}): ${err.message}`
+    );
+  }
 }
 
 /**

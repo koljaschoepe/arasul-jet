@@ -12,10 +12,11 @@ import { create } from 'zustand';
 
 /**
  * `builder` ist der Einstieg in den Erweiterungs-Baukasten (Plan 012 Phase C
- * Schritt 9): der frühere „kommt bald"-Platzhalter öffnet nun eine echte
- * Detailseite, die Phase E mit Leben füllt.
+ * Schritt 9); `extension` ist ein installiertes, selbst gebautes oder
+ * importiertes Paket (Phase E Schritt 16) — bewusst getrennt von `app`
+ * (kuratierte Kern-App wie n8n), weil beide andere Aktionen haben.
  */
-export type ExtensionKind = 'model' | 'app' | 'builder';
+export type ExtensionKind = 'model' | 'app' | 'builder' | 'extension';
 
 /** Reiter im Store-Tab: Modelle oder Erweiterungen. */
 export type StoreTab = 'models' | 'extensions';

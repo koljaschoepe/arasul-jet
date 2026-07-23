@@ -1,0 +1,10 @@
+{
+  "id": "beispiel-tool",
+  "name": "Beispiel-Tool",
+  "description": "Ein Tool-Konnektor als Skript — Vorlage: liest stdin, gibt JSON zurück.",
+  "type": "tool",
+  "accessTier": "internet",
+  "version": "0.1.0",
+  "arasulExtensionVersion": 1,
+  "entry": "tool.mjs"
+}

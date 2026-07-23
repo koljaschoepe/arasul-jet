@@ -9,6 +9,10 @@ import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { EMPTY_EXTENSION_FILTERS } from '../storeExtensionFilters';
 import { StoreExtensionsFilterPanel } from '../StoreExtensionsFilterPanel';
 
+vi.mock('@/hooks/useExtensions', () => ({
+  useExtensions: () => ({ extensions: [], isLoading: false, setExtensionEnabled: vi.fn() }),
+}));
+
 vi.mock('@/hooks/useWorkspaceApps', () => ({
   useWorkspaceApps: () => ({
     apps: [

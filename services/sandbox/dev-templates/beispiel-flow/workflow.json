@@ -1,0 +1,31 @@
+{
+  "name": "Beispiel-Flow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [{ "name": "gruss", "value": "Hallo aus der Beispiel-Erweiterung" }]
+        },
+        "options": {}
+      },
+      "id": "set",
+      "name": "Wert setzen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [480, 300]
+    }
+  ],
+  "connections": {
+    "Start": { "main": [[{ "node": "Wert setzen", "type": "main", "index": 0 }]] }
+  },
+  "settings": {},
+  "meta": { "arasulExtension": true }
+}

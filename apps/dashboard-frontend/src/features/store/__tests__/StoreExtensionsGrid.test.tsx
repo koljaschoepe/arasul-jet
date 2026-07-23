@@ -19,6 +19,13 @@ vi.mock('@/hooks/useWorkspaceApps', () => ({
   useWorkspaceApps: () => ({ apps, setAppEnabled, isLoading: false }),
 }));
 
+// Installierte Erweiterungs-Pakete (Plan 012 Phase E): hier bewusst leer —
+// dieser Test prüft die kuratierten Kern-Apps und den Baukasten-Einstieg.
+const setExtensionEnabled = vi.fn();
+vi.mock('@/hooks/useExtensions', () => ({
+  useExtensions: () => ({ extensions: [], isLoading: false, setExtensionEnabled }),
+}));
+
 const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() };
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => toast }));
 

@@ -1206,6 +1206,50 @@
 
 ---
 
+## `extensions`
+
+Register der installierten Erweiterungs-Pakete (Plan 012 Phase E, Migration
+`116_extensions.sql`). Das Paket selbst (Ordner mit `manifest.json` + Assets)
+liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
+`platform_apps` (kuratierte Kern-Apps wie n8n) und `app_installations`
+(Container-AppStore).
+
+| Column         | Type                     | Nullable | Default             |
+| -------------- | ------------------------ | -------- | ------------------- |
+| `id`           | text                     | ❌       | (Slug = Ordnername) |
+| `name`         | text                     | ❌       |                     |
+| `description`  | text                     | ❌       | `''`                |
+| `ext_type`     | text                     | ❌       | `'app'`             |
+| `access_tier`  | text                     | ❌       | `'internet'`        |
+| `version`      | text                     | ❌       | `'0.1.0'`           |
+| `source`       | text                     | ❌       | `'built'`           |
+| `manifest`     | jsonb                    | ❌       | `'{}'::jsonb`       |
+| `enabled`      | boolean                  | ❌       | `false`             |
+| `package_path` | text                     | ✅       |                     |
+| `created_by`   | integer                  | ✅       |                     |
+| `installed_at` | timestamp with time zone | ❌       | `now()`             |
+| `updated_at`   | timestamp with time zone | ❌       | `now()`             |
+
+**Primary key:** `id`
+
+**Constraints:**
+
+- `ext_type` ∈ (`app`, `flow`, `tool`)
+- `access_tier` ∈ (`internet`, `internal`, `full`)
+- `source` ∈ (`built`, `imported`)
+
+**Foreign Keys:**
+
+- `created_by` → `admin_users.id` (ON DELETE SET NULL)
+
+**Indexes:**
+
+- `extensions_pkey` — `CREATE UNIQUE INDEX extensions_pkey ON public.extensions USING btree (id)`
+- `idx_extensions_enabled` — `CREATE INDEX idx_extensions_enabled ON public.extensions USING btree (enabled)`
+- `idx_extensions_type` — `CREATE INDEX idx_extensions_type ON public.extensions USING btree (ext_type)`
+
+---
+
 ## `kg_entities`
 
 | Column          | Type                     | Nullable | Default                                   |
@@ -2068,6 +2112,7 @@
 | `created_at`             | timestamp with time zone | ✅       | `now()`                                    |
 | `updated_at`             | timestamp with time zone | ✅       | `now()`                                    |
 | `network_mode`           | character varying        | ✅       | `'internal'::character varying`            |
+| `workspace_type`         | character varying        | ❌       | `'standard'::character varying`            |
 | `user_id`                | integer                  | ✅       |                                            |
 | `agent_run_token_hash`   | text                     | ✅       |                                            |
 | `agent_run_token_set_at` | timestamp with time zone | ✅       |                                            |

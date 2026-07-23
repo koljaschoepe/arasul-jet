@@ -29,9 +29,11 @@ interface StoreFilterState {
   resetModelFilters: () => void;
 
   extFilters: ExtensionFilterState;
+  // NonNullable: die Facetten `types`/`tiers` sind optional (Rückwärts-
+  // kompatibilität), ihre Element-Typen bleiben so trotzdem ableitbar.
   toggleExtFilter: <K extends keyof ExtensionFilterState>(
     group: K,
-    value: ExtensionFilterState[K][number]
+    value: NonNullable<ExtensionFilterState[K]>[number]
   ) => void;
   resetExtFilters: () => void;
 }

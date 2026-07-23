@@ -1,0 +1,10 @@
+{
+  "id": "beispiel-app",
+  "name": "Beispiel-App",
+  "description": "Eine minimale App-Erweiterung als eigener Tab — Vorlage zum Kopieren.",
+  "type": "app",
+  "accessTier": "internet",
+  "version": "0.1.0",
+  "arasulExtensionVersion": 1,
+  "entry": "index.html"
+}

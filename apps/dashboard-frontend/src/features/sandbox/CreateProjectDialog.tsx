@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
-import type { SandboxProject, SandboxNetworkMode } from './types';
+import type { SandboxProject, SandboxNetworkMode, SandboxWorkspaceType } from './types';
 
 interface CreateProjectDialogProps {
   open: boolean;
@@ -30,6 +30,7 @@ export default function CreateProjectDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [networkMode, setNetworkMode] = useState<SandboxNetworkMode>('isolated');
+  const [workspaceType, setWorkspaceType] = useState<SandboxWorkspaceType>('standard');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +59,7 @@ export default function CreateProjectDialog({
           icon: 'terminal',
           color: DEFAULT_PROJECT_COLOR,
           network_mode: networkMode,
+          workspaceType,
         },
         { showError: false }
       );
@@ -76,6 +78,7 @@ export default function CreateProjectDialog({
     setName('');
     setDescription('');
     setNetworkMode('isolated');
+    setWorkspaceType('standard');
     setError(null);
   };
 
@@ -157,8 +160,47 @@ export default function CreateProjectDialog({
           />
         </div>
 
+        {/* Plan 012 Phase E · Schritt 13: Sandbox-Typ. Die Werkstatt wird beim
+            Anlegen mit ANLEITUNG.md und Beispiel-Erweiterungen bestückt. */}
         <div className="flex flex-col gap-1.5">
-          <Label>Was darf dieser Workspace?</Label>
+          <Label>Wofür ist dieser Workspace?</Label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-testid="ws-type-standard"
+              onClick={() => setWorkspaceType('standard')}
+              className={`flex-1 px-3 py-2 rounded-md border text-xs text-left transition-colors ${
+                workspaceType === 'standard'
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-muted text-muted-foreground hover:border-primary/50'
+              }`}
+            >
+              <div className="font-medium">Normaler Workspace</div>
+              <div className="text-[10px] opacity-70 mt-0.5">
+                Leerer Ordner mit Terminal — für eigene Projekte und externe Agenten.
+              </div>
+            </button>
+            <button
+              type="button"
+              data-testid="ws-type-werkstatt"
+              onClick={() => setWorkspaceType('erweiterungs-werkstatt')}
+              className={`flex-1 px-3 py-2 rounded-md border text-xs text-left transition-colors ${
+                workspaceType === 'erweiterungs-werkstatt'
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-muted text-muted-foreground hover:border-primary/50'
+              }`}
+            >
+              <div className="font-medium">Erweiterungs-Werkstatt</div>
+              <div className="text-[10px] opacity-70 mt-0.5">
+                Vorbestückt mit ANLEITUNG und Beispiel-Erweiterungen. Die Skills
+                <code> /erweiterung</code> und <code> /execute</code> bauen hier.
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>Zugriffs-Stufe — was darf dieser Workspace?</Label>
           <div className="flex gap-2">
             <button
               type="button"
@@ -169,7 +211,7 @@ export default function CreateProjectDialog({
                   : 'border-border bg-muted text-muted-foreground hover:border-primary/50'
               }`}
             >
-              <div className="font-medium">Abgeschottet</div>
+              <div className="font-medium">Nur Internet</div>
               <div className="text-[10px] opacity-70 mt-0.5">
                 Internet ja · dein System nein. Der Container sieht nur seine eigenen Dateien —
                 Datenbank, Speicher und Qdrant sind für ihn nicht erreichbar. Für externe Modelle
@@ -185,9 +227,10 @@ export default function CreateProjectDialog({
                   : 'border-border bg-muted text-muted-foreground hover:border-primary/50'
               }`}
             >
-              <div className="font-medium">Am System</div>
+              <div className="font-medium">Interne Dienste</div>
               <div className="text-[10px] opacity-70 mt-0.5">
-                Zugriff auf Datenbank, Speicher und RAG. Für lokale Agenten, die im System arbeiten.
+                Zusätzlich Zugriff auf Datenbank, Speicher und RAG — plus den eigenen
+                Workspace-Ordner. Für lokale Agenten, die im System arbeiten.
               </div>
             </button>
           </div>
@@ -202,7 +245,7 @@ export default function CreateProjectDialog({
           >
             <div className="font-medium flex items-center gap-1.5">
               <ShieldAlert className="size-3.5 shrink-0" />
-              Voller Zugriff
+              Voller Systemzugriff (Admin)
             </div>
             <div className="text-[10px] opacity-70 mt-0.5">
               Darf alles — inkl. Plattform-Repo (beschreibbar) und Docker. Die KI kann damit die

@@ -83,6 +83,19 @@ async function getHostRepoDir() {
   return path.posix.dirname(path.posix.dirname(path.posix.dirname(projectsDir)));
 }
 
+// Container-lokaler Pfad der Erweiterungs-Werkstatt-Templates (ANLEITUNG.md +
+// Beispiel-App/-Flow/-Tool). Die Quellen liegen tracked unter
+// services/sandbox/dev-templates/ und werden per compose read-only als
+// /arasul/sandbox-build gemountet. Beim Anlegen einer Werkstatt-Sandbox in den
+// Projekt-Ordner kopiert (Plan 012 Phase E · Schritt 13).
+const DEV_TEMPLATES_DIR =
+  process.env.SANDBOX_DEV_TEMPLATES_DIR || '/arasul/sandbox-build/dev-templates';
+
+/** Quellordner der Werkstatt-Templates (Container-lokal, read-only). */
+function getDevTemplatesDir() {
+  return DEV_TEMPLATES_DIR;
+}
+
 // Jetson-Standard für die docker-Gruppe (siehe compose.app.yaml group_add
 // '${DOCKER_GID:-994}' am dashboard-backend).
 const DEFAULT_DOCKER_SOCK_GID = 994;
@@ -132,6 +145,7 @@ module.exports = {
   getHostDataDir,
   getHostToolsDir,
   getHostRepoDir,
+  getDevTemplatesDir,
   getDockerSockGid,
   parseMemoryLimit,
 };

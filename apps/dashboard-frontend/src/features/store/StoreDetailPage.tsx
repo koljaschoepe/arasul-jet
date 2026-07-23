@@ -43,6 +43,9 @@ import useConfirm from '@/hooks/useConfirm';
 import { useStoreCatalog } from '@/hooks/useStoreCatalog';
 import type { CatalogModel, LoadedModel } from '@/hooks/useStoreCatalog';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
+import { useExtensions } from '@/hooks/useExtensions';
+import type { InstalledExtension } from '@/hooks/useExtensions';
+import { extTypeLabel, accessTierLabel } from './storeExtensionFilters';
 import type { WorkspaceApp } from '@/hooks/useWorkspaceApps';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { formatModelSize as formatSize } from '@/utils/formatting';
@@ -474,48 +477,291 @@ function ExtensionDetail({
 // --- Erweiterungs-Baukasten (Einstieg, Plan 012 Phase C Schritt 9) ---
 
 /**
- * Ehrlicher Einstieg in den Erweiterungs-Baukasten. Der frühere „kommt bald"-
- * Platzhalter im Raster öffnet jetzt diese echte Seite; Phase E (der eigentliche
- * Baukasten) füllt den Aktionsblock mit Vorlagen, Upload und Schnittstelle.
+ * Der Erweiterungs-Baukasten (Plan 012 Phase E · Schritt 16): eine in der
+ * Werkstatt-Sandbox gebaute Erweiterung zum Paket machen, oder ein fremdes
+ * Paket importieren. Beides landet danach als Karte im Erweiterungen-Raster.
  */
 function BuilderDetail({ onBack }: { onBack: () => void }) {
-  const steps = [
-    'Eine Erweiterung beschreiben (Name, Zweck, Typ)',
-    'Zugriffs-Stufe festlegen (nur Internet · interne Dienste · voll)',
-    'Aus einer Vorlage starten oder ein Paket hochladen',
-    'Aktivieren — die Erweiterung erscheint im Workspace',
-  ];
+  const api = useApi();
+  const toast = useToast();
+  const { buildFromSandbox, importPackage } = useExtensions();
+
+  const [slug, setSlug] = useState('');
+  const [subfolder, setSubfolder] = useState('.');
+  const [overwrite, setOverwrite] = useState(false);
+  const [datei, setDatei] = useState<File | null>(null);
+  const [busy, setBusy] = useState<'bauen' | 'import' | null>(null);
+
+  // Werkstätten zuerst: eine Erweiterung wird normalerweise dort gebaut.
+  const { data: projekte } = useQuery({
+    queryKey: ['sandbox-projects-for-build'],
+    queryFn: async () => {
+      const res = await api.get<{ projects: SandboxProjectLite[] }>('/sandbox/projects', {
+        showError: false,
+      });
+      return res.projects ?? [];
+    },
+    retry: 1,
+    staleTime: 30_000,
+  });
+
+  const sortiert = [...(projekte ?? [])].sort((a, b) => {
+    const wa = a.workspace_type === 'erweiterungs-werkstatt' ? 0 : 1;
+    const wb = b.workspace_type === 'erweiterungs-werkstatt' ? 0 : 1;
+    return wa - wb || a.name.localeCompare(b.name);
+  });
+
+  const handleBauen = async () => {
+    if (!slug || busy) return;
+    setBusy('bauen');
+    try {
+      const ext = await buildFromSandbox(slug, subfolder.trim() || '.', overwrite);
+      toast.success(`Erweiterung „${ext.name}" paketiert`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Paketieren fehlgeschlagen');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!datei || busy) return;
+    setBusy('import');
+    try {
+      const ext = await importPackage(datei, overwrite);
+      toast.success(`Erweiterung „${ext.name}" importiert`);
+      setDatei(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Import fehlgeschlagen');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <DetailShell
       onBack={onBack}
       icon={<Blocks />}
       title="Eigene Erweiterung bauen"
       badges={
-        <Badge variant="outline" className="border-border bg-muted text-muted-foreground">
-          In Arbeit
+        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+          Baukasten
         </Badge>
       }
       footer={
-        <Button disabled>
-          <Blocks className="size-4" /> Baukasten öffnen — bald verfügbar
+        <Button onClick={handleBauen} disabled={!slug || busy !== null} data-testid="builder-build">
+          <Package className="size-4" />
+          {busy === 'bauen' ? 'Paketiere …' : 'Aus Werkstatt paketieren'}
         </Button>
       }
     >
       <p className="leading-relaxed text-muted-foreground">
-        Der Erweiterungs-Baukasten macht Arasul offen: Über eine definierte Schnittstelle lassen
-        sich eigene Apps, n8n-Flows und Werkzeug-Konnektoren bauen und im Workspace bereitstellen —
-        vollständig lokal. Die Bau-Oberfläche folgt in Kürze; so wird der Ablauf aussehen:
+        Eine Erweiterung ist ein Ordner mit <code>manifest.json</code> und Assets. Bau sie in einer{' '}
+        <strong className="text-foreground">Erweiterungs-Werkstatt</strong> (Sandbox mit Terminal
+        und Vorlagen) — dort helfen die Skills <code>/erweiterung</code> und <code>/execute</code>.
+        Danach hier paketieren: das Paket lässt sich herunterladen, forken und auf einem anderen
+        Gerät wieder importieren.
       </p>
-      <ol className="mt-6 flex flex-col gap-2 border-t border-border pt-6">
-        {steps.map((step, i) => (
-          <li key={step} className="flex items-start gap-3 text-sm text-foreground">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-              {i + 1}
-            </span>
-            <span className="pt-0.5">{step}</span>
-          </li>
+
+      <div className="mt-6 flex flex-col gap-3 border-t border-border pt-6">
+        <h3 className="text-ui-sm font-semibold text-foreground">Aus Werkstatt paketieren</h3>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-foreground">Sandbox</span>
+          <select
+            data-testid="builder-slug"
+            value={slug}
+            onChange={e => setSlug(e.target.value)}
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+          >
+            <option value="">— Werkstatt wählen —</option>
+            {sortiert.map(p => (
+              <option key={p.slug} value={p.slug}>
+                {p.name}
+                {p.workspace_type === 'erweiterungs-werkstatt' ? ' · Werkstatt' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-foreground">Unterordner</span>
+          <input
+            data-testid="builder-subfolder"
+            value={subfolder}
+            onChange={e => setSubfolder(e.target.value)}
+            placeholder="."
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+          />
+          <span className="text-ui-xs text-muted-foreground">
+            Ordner mit der <code>manifest.json</code>; <code>.</code> = die Sandbox selbst.
+          </span>
+        </label>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            data-testid="builder-overwrite"
+            checked={overwrite}
+            onChange={e => setOverwrite(e.target.checked)}
+          />
+          Bestehende Erweiterung gleicher Id überschreiben
+        </label>
+      </div>
+
+      <div className="mt-6 flex flex-col gap-3 border-t border-border pt-6">
+        <h3 className="text-ui-sm font-semibold text-foreground">Paket importieren</h3>
+        <input
+          type="file"
+          accept=".tar.gz,.tgz"
+          data-testid="builder-import-file"
+          onChange={e => setDatei(e.target.files?.[0] ?? null)}
+          className="text-sm text-foreground"
+        />
+        <div>
+          <Button
+            variant="outline"
+            onClick={handleImport}
+            disabled={!datei || busy !== null}
+            data-testid="builder-import"
+          >
+            <Download className="size-4 rotate-180" />
+            {busy === 'import' ? 'Importiere …' : 'Paket importieren'}
+          </Button>
+        </div>
+      </div>
+    </DetailShell>
+  );
+}
+
+/** Minimal-Sicht auf ein Sandbox-Projekt, nur fürs Werkstatt-Auswahlfeld. */
+interface SandboxProjectLite {
+  slug: string;
+  name: string;
+  workspace_type?: string;
+}
+
+/**
+ * Detailseite eines installierten Erweiterungs-Pakets: Manifest-Fakten plus die
+ * vier Aktionen aus Schritt 16 — aktivieren, herunterladen, forken, entfernen.
+ */
+function InstalledExtensionDetail({
+  ext,
+  onBack,
+}: {
+  ext: InstalledExtension;
+  onBack: () => void;
+}) {
+  const toast = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const { setExtensionEnabled, forkExtension, removeExtension, downloadUrl } = useExtensions();
+  const [busy, setBusy] = useState(false);
+
+  const run = async (aktion: () => Promise<unknown>, erfolg: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await aktion();
+      toast.success(erfolg);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Aktion fehlgeschlagen');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const specs: Array<[string, string]> = [
+    ['Id', ext.id],
+    ['Typ', extTypeLabel(ext.type)],
+    ['Zugriffs-Stufe', accessTierLabel(ext.accessTier)],
+    ['Version', ext.version],
+    ['Herkunft', ext.source === 'built' ? 'Selbst gebaut' : 'Importiert'],
+    ['Startdatei', String(ext.manifest?.entry ?? '—')],
+  ];
+
+  return (
+    <DetailShell
+      onBack={onBack}
+      icon={<Blocks />}
+      title={ext.name}
+      badges={
+        <>
+          <Badge
+            variant="outline"
+            className={cn(
+              ext.enabled
+                ? 'border-primary/30 bg-primary/10 text-primary'
+                : 'border-border bg-muted text-muted-foreground'
+            )}
+          >
+            {ext.enabled ? 'Aktiv' : 'Inaktiv'}
+          </Badge>
+          <Badge variant="outline">{extTypeLabel(ext.type)}</Badge>
+          <Badge variant="outline">{accessTierLabel(ext.accessTier)}</Badge>
+        </>
+      }
+      footer={
+        <div className="flex flex-wrap gap-2">
+          <Button
+            data-testid="ext-detail-toggle"
+            disabled={busy}
+            onClick={() =>
+              run(
+                () => setExtensionEnabled(ext.id, !ext.enabled),
+                ext.enabled ? 'Erweiterung deaktiviert' : 'Erweiterung aktiviert'
+              )
+            }
+          >
+            {ext.enabled ? <PowerOff className="size-4" /> : <Power className="size-4" />}
+            {ext.enabled ? 'Deaktivieren' : 'Aktivieren'}
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={downloadUrl(ext.id)} download data-testid="ext-detail-download">
+              <Download className="size-4" /> Herunterladen
+            </a>
+          </Button>
+          <Button
+            variant="outline"
+            disabled={busy}
+            data-testid="ext-detail-fork"
+            onClick={() =>
+              run(() => forkExtension(ext.id), 'Fork als neue Werkstatt-Sandbox angelegt')
+            }
+          >
+            <Package className="size-4" /> Forken
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={busy}
+            data-testid="ext-detail-remove"
+            onClick={async () => {
+              const ok = await confirm({
+                title: `„${ext.name}" entfernen?`,
+                message: 'Register-Eintrag und Paket-Ordner werden gelöscht.',
+                confirmText: 'Entfernen',
+              });
+              if (ok) {
+                await run(() => removeExtension(ext.id), 'Erweiterung entfernt');
+                onBack();
+              }
+            }}
+          >
+            <Trash2 className="size-4" /> Entfernen
+          </Button>
+        </div>
+      }
+    >
+      {ConfirmDialog}
+      <p className="leading-relaxed text-muted-foreground">
+        {ext.description || 'Keine Beschreibung im Manifest hinterlegt.'}
+      </p>
+      <dl className="mt-6 grid grid-cols-1 gap-x-6 gap-y-3 border-t border-border pt-6 sm:grid-cols-2">
+        {specs.map(([label, value]) => (
+          <div key={label} className="flex flex-col">
+            <dt className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {label}
+            </dt>
+            <dd className="truncate text-sm text-foreground">{value}</dd>
+          </div>
         ))}
-      </ol>
+      </dl>
     </DetailShell>
   );
 }
@@ -546,10 +792,17 @@ export function StoreDetailPage({ onBack }: { onBack: () => void }) {
   const selected = useExtensionStore(s => s.selected);
   const { models, loadedModel, defaultModel, invalidateModels } = useStoreCatalog();
   const { apps: workspaceApps, setAppEnabled } = useWorkspaceApps();
+  const { extensions } = useExtensions();
 
   if (!selected) return <NotFound onBack={onBack} />;
 
   if (selected.kind === 'builder') return <BuilderDetail onBack={onBack} />;
+
+  if (selected.kind === 'extension') {
+    const ext = extensions.find(e => e.id === selected.id);
+    if (!ext) return <NotFound onBack={onBack} />;
+    return <InstalledExtensionDetail ext={ext} onBack={onBack} />;
+  }
 
   if (selected.kind === 'model') {
     const model = models.find(m => m.id === selected.id);

@@ -88,6 +88,10 @@ services:
       # Definition damit nicht ueberschreiben. Schreibbar, weil der Anlege-
       # Dialog hier Dateien erzeugt; ueberlebt Rebuilds und wandert ins Backup.
       - ../data/skills:/arasul/skills
+      # Erweiterungs-Pakete (Plan 012 Phase E): je ein Ordner mit manifest.json
+      # + Assets. Schreibbar (paketieren/importieren erzeugt hier Ordner),
+      # ueberlebt Rebuilds und wandert ins Backup.
+      - ../data/extensions:/arasul/extensions
     security_opt:
       - no-new-privileges:true
     depends_on:

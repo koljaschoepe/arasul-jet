@@ -993,10 +993,66 @@ Sichtbarkeit der kuratierten Kern-Apps (aktuell nur n8n) in der
 Workspace-Shell. Persistenz in `platform_apps`; deaktivierte Apps
 verschwinden aus ActivityBar/Tab-Angebot, die Dienste laufen weiter.
 
-| Method | Endpoint                  | Description                                        |
-| ------ | ------------------------- | -------------------------------------------------- |
-| GET    | `/api/workspace-apps`     | Manifest (id, name, description, tab) + `enabled`  |
-| PUT    | `/api/workspace-apps/:id` | App an-/abschalten — Body `{ "enabled": boolean }` |
+| Method | Endpoint                  | Description                                                             |
+| ------ | ------------------------- | ----------------------------------------------------------------------- |
+| GET    | `/api/workspace-apps`     | Manifest (id, name, description, tab, `type`, `accessTier`) + `enabled` |
+| PUT    | `/api/workspace-apps/:id` | App an-/abschalten — Body `{ "enabled": boolean }`                      |
+
+Seit Plan 012 Phase E tragen die kuratierten Kern-Apps dieselbe Taxonomie wie
+selbst gebaute Erweiterungen: `type` (`app` | `flow` | `tool`) und `accessTier`
+(`internet` | `internal` | `full`). Der Erweiterungen-Reiter filtert beide
+Quellen über dieselben Facetten.
+
+### Extensions (Erweiterungs-Baukasten)
+
+Eine Erweiterung ist ein **Ordner-Paket**: `manifest.json` (Pflichtfelder `id`,
+`name`, `type`, `accessTier`, `version`, `entry`, `arasulExtensionVersion: 1`)
+plus Assets. Pakete liegen unter `EXTENSIONS_DIR` (Default `/arasul/extensions`),
+das Register ist die Tabelle `extensions`. Der Ablauf: in einer
+Erweiterungs-Werkstatt bauen → paketieren → herunterladen → anderswo
+importieren → forken. Alle Routen erfordern Authentifizierung.
+
+| Method | Endpoint                       | Description                                             |
+| ------ | ------------------------------ | ------------------------------------------------------- |
+| GET    | `/api/extensions`              | Installierte Erweiterungen                              |
+| POST   | `/api/extensions/bauen`        | Ordner einer Sandbox paketieren + registrieren          |
+| POST   | `/api/extensions/import`       | Paket-Archiv (`.tar.gz`) hochladen und installieren     |
+| GET    | `/api/extensions/:id/download` | Paket als `.tar.gz` herunterladen                       |
+| POST   | `/api/extensions/:id/fork`     | Kopie als neue Werkstatt-Sandbox anlegen                |
+| PUT    | `/api/extensions/:id`          | Aktivieren/deaktivieren — Body `{ "enabled": boolean }` |
+| DELETE | `/api/extensions/:id`          | Deinstallieren (Register-Eintrag + Paket-Ordner)        |
+
+`POST /api/extensions/bauen` — Body:
+
+```json
+{ "slug": "meine-werkstatt", "subfolder": "meine-app", "overwrite": false }
+```
+
+`subfolder` ist relativ zum Sandbox-Ordner (`.` = die Sandbox selbst) und darf
+nicht aus ihr ausbrechen. Antwort (201):
+
+```json
+{
+  "data": {
+    "id": "meine-app",
+    "name": "Meine App",
+    "description": "…",
+    "type": "app",
+    "accessTier": "internet",
+    "version": "0.1.0",
+    "source": "built",
+    "enabled": false,
+    "manifest": { "entry": "index.html" },
+    "installedAt": "2026-07-23T22:00:00.000Z"
+  },
+  "timestamp": "2026-07-23T22:00:00.000Z"
+}
+```
+
+`POST /api/extensions/import` ist ein multipart-Upload (Feld `file`, optional
+`overwrite`). Einem Archiv wird nichts geglaubt: Symlinks, Hardlinks, absolute
+Pfade und `..`-Ausbrüche führen zur Abweisung; Obergrenzen sind 2000 Einträge
+und 64 MB entpackt.
 
 ### Store
 
@@ -2338,17 +2394,25 @@ for the calling user (credentials are per-user, the workspace is auth context).
   "name": "Mein Projekt",
   "description": "Optionale Beschreibung",
   "baseImage": "ubuntu:22.04", // optional
-  "network_mode": "isolated" // optional: isolated | internal | infrastructure
+  "network_mode": "isolated", // optional: isolated | internal | infrastructure
+  "workspaceType": "standard" // optional: standard | erweiterungs-werkstatt
 }
 ```
 
-**`network_mode` values** (also accepted on PUT `/api/sandbox/projects/:id`):
+**`network_mode` values** — die drei Zugriffs-Stufen aus Plan 012 Phase E
+Schritt 14 (also accepted on PUT `/api/sandbox/projects/:id`):
 
-| Value            | Network                       | Extra mounts                                         | Who                                        |
-| ---------------- | ----------------------------- | ---------------------------------------------------- | ------------------------------------------ |
-| `isolated`       | Docker bridge (Internet only) | —                                                    | every user (default)                       |
-| `internal`       | Backend network (LLM, DB, …)  | —                                                    | every user                                 |
-| `infrastructure` | Backend network               | Platform repo rw (`/workspace/repo`) + docker socket | **admin role only** (else `403 FORBIDDEN`) |
+| Value            | UI-Bezeichnung               | Network                       | Extra mounts                                         | Who                                        |
+| ---------------- | ---------------------------- | ----------------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| `isolated`       | Nur Internet                 | Docker bridge (Internet only) | —                                                    | every user (default)                       |
+| `internal`       | Interne Dienste              | Backend network (LLM, DB, …)  | —                                                    | every user                                 |
+| `infrastructure` | Voller Systemzugriff (Admin) | Backend network               | Platform repo rw (`/workspace/repo`) + docker socket | **admin role only** (else `403 FORBIDDEN`) |
+
+**`workspaceType`** (Plan 012 Phase E Schritt 13): `standard` legt einen leeren
+Workspace-Ordner an; `erweiterungs-werkstatt` bestückt ihn beim Anlegen mit den
+Vorlagen aus `services/sandbox/dev-templates/` (`ANLEITUNG.md`, `beispiel-app`,
+`beispiel-flow`, `beispiel-tool`) — die Bau-Skills `/erweiterung` und `/execute`
+arbeiten darin.
 
 Creating or switching a project to `infrastructure` is audit-logged on the backend (warn level). Container hardening (CapDrop ALL, no-new-privileges) applies to all modes; docker socket access works via the docker group GID (`GroupAdd`), not via extra capabilities.
 

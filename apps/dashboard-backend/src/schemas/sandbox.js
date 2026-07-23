@@ -20,6 +20,10 @@ const EnvironmentMap = z.record(z.string(), z.string()).optional();
 // hier blockierten jede Projekt-Anlage mit Netzwerkwahl.
 const NetworkMode = z.enum(['isolated', 'internal', 'infrastructure']).optional();
 
+// Plan 012 Phase E · Schritt 13: Sandbox-Typ. 'standard' = normale Terminal-
+// Sandbox; 'erweiterungs-werkstatt' = beim Anlegen mit Template-Wissen bestückt.
+const WorkspaceType = z.enum(['standard', 'erweiterungs-werkstatt']).optional();
+
 const CreateProjectBody = z
   .object({
     name: z.string().trim().min(1).max(64),
@@ -40,6 +44,7 @@ const CreateProjectBody = z
     resourceLimits: ResourceLimits.optional(),
     environment: EnvironmentMap,
     network_mode: NetworkMode,
+    workspaceType: WorkspaceType,
   })
   .strict();
 
