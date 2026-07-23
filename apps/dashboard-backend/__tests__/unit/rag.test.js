@@ -152,6 +152,18 @@ function setupRagMocks(options = {}) {
       return Promise.resolve({ rows: companyContext });
     }
 
+    // Plan 012: aktiver Workspace (system_settings) — im Test keiner aktiv.
+    if (queryLower.includes('system_settings')) {
+      return Promise.resolve({ rows: [] });
+    }
+
+    // Plan 012: Pins (pinned_documents) — im Test keine. MUSS vor dem
+    // generischen knowledge_spaces-Zweig stehen: der getPins-Query enthält
+    // einen LEFT JOIN knowledge_spaces und würde sonst dort verschluckt.
+    if (queryLower.includes('pinned_documents')) {
+      return Promise.resolve({ rows: [] });
+    }
+
     // Knowledge spaces query (with embeddings for routing)
     if (queryLower.includes('knowledge_spaces') && queryLower.includes('description_embedding')) {
       return Promise.resolve({ rows: spaces });

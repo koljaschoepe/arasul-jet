@@ -27,7 +27,10 @@ const {
   UpdateSpaceBody,
   UpsertContextFileBody,
   RouteQueryBody,
+  SetActiveWorkspaceBody,
+  CreatePinBody,
 } = require('../../schemas/spaces');
+const workspaceContext = require('../../services/rag/workspaceContext');
 const crypto = require('crypto');
 const minioService = require('../../services/documents/minioService');
 const { invalidateFolderContext } = require('../../services/rag/folderContextService');
@@ -129,6 +132,107 @@ router.get(
       documents,
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+// =============================================================================
+// AKTIVER WORKSPACE + PINS (Plan 012 Phase A) — literale Routen VOR GET /:id,
+// damit sie nicht als :id verschluckt werden.
+// =============================================================================
+
+/**
+ * GET /api/spaces/active-workspace
+ * Liefert den aktiven Top-Level-Workspace + seinen Teilbaum (space_ids).
+ */
+router.get(
+  '/active-workspace',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const activeId = await workspaceContext.getActiveWorkspaceId();
+    const subtreeIds = activeId ? await workspaceContext.expandSubtree(activeId) : [];
+
+    let space = null;
+    if (activeId) {
+      const result = await pool.query(
+        'SELECT id, name, slug, icon, color FROM knowledge_spaces WHERE id = $1',
+        [activeId]
+      );
+      space = result.rows[0] || null;
+    }
+
+    res.json({
+      active_workspace: space,
+      subtree_ids: subtreeIds,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * PUT /api/spaces/active-workspace
+ * Setzt (oder löscht mit space_id=null) den aktiven Workspace.
+ */
+router.put(
+  '/active-workspace',
+  requireAuth,
+  validateBody(SetActiveWorkspaceBody),
+  asyncHandler(async (req, res) => {
+    const activeId = await workspaceContext.setActiveWorkspaceId(req.body.space_id);
+    const subtreeIds = activeId ? await workspaceContext.expandSubtree(activeId) : [];
+
+    res.json({
+      active_workspace_id: activeId,
+      subtree_ids: subtreeIds,
+      message: activeId ? 'Aktiver Workspace gesetzt' : 'Aktiver Workspace aufgehoben',
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/spaces/pins
+ * Angeheftete Dokumente/Unterordner des Nutzers.
+ */
+router.get(
+  '/pins',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const pins = await workspaceContext.getPins(req.user.id);
+    res.json({ pins, total: pins.length, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/spaces/pins
+ * Heftet ein Dokument ODER einen Unterordner an (idempotent).
+ */
+router.post(
+  '/pins',
+  requireAuth,
+  validateBody(CreatePinBody),
+  asyncHandler(async (req, res) => {
+    const id = await workspaceContext.addPin(req.user.id, {
+      documentId: req.body.document_id || null,
+      spaceId: req.body.space_id || null,
+    });
+    res.status(201).json({ id, message: 'Angeheftet', timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * DELETE /api/spaces/pins/:pinId
+ * Entfernt einen Pin.
+ */
+router.delete(
+  '/pins/:pinId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const pinId = Number.parseInt(req.params.pinId, 10);
+    if (!Number.isInteger(pinId) || pinId <= 0) {
+      throw new ValidationError('Ungültige Pin-ID');
+    }
+    await workspaceContext.removePin(req.user.id, pinId);
+    res.json({ status: 'deleted', message: 'Entfernt', timestamp: new Date().toISOString() });
   })
 );
 

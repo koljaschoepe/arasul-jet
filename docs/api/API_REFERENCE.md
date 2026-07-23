@@ -756,6 +756,18 @@ Only accepts requests from localhost or Docker network IPs.
 | GET    | `/api/spaces/:id/context-file` | Kontextdatei des Ordners lesen (`{document, content}` oder nulls)                          |
 | PUT    | `/api/spaces/:id/context-file` | Kontextdatei anlegen/aktualisieren (`{content}`, max. 50.000)                              |
 | DELETE | `/api/spaces/:id/context-file` | Kontextdatei löschen (Soft-Delete)                                                         |
+| GET    | `/api/spaces/active-workspace` | Aktiver Top-Level-Ordner + Teilbaum-IDs (`{active_workspace, subtree_ids}`)                |
+| PUT    | `/api/spaces/active-workspace` | Aktiven Ordner setzen (`{space_id}`; `null` hebt die Bindung auf)                          |
+| GET    | `/api/spaces/pins`             | Angeheftete Dokumente/Unterordner (`{pins}`)                                               |
+| POST   | `/api/spaces/pins`             | Dokument ODER Unterordner anheften (`{document_id}` **oder** `{space_id}`, idempotent)     |
+| DELETE | `/api/spaces/pins/:pinId`      | Anheftung entfernen                                                                        |
+
+> **Aktiver Ordner-Kontext (Plan 012):** Ein aktiver Top-Level-Ordner bindet
+> Chat + Suche global — sein Teilbaum ist der Default-RAG-Scope
+> (`system_settings.active_workspace_space_id`, app-weit/Einzel-Admin).
+> Angeheftete Dokumente/Unterordner (`pinned_documents`) sind zusätzlich immer
+> im Kontext, unabhängig vom Auto-Routing. `POST /api/rag/query` löst beides
+> serverseitig auf (Client muss den Scope nicht mitsenden).
 
 > **Ordnerbaum & Kontextdateien (Plan `ide-workspace-shell`):** Spaces bilden
 > über `parent_id` einen verschachtelten Ordnerbaum (Workspace-Explorer).

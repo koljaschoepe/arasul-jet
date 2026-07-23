@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import type { TabThemeControls } from './TabContent';
 
 interface WorkspaceMenuBarProps {
@@ -106,6 +107,11 @@ export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <div className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+
+      {/* Aktiver Ordner-Kontext (Plan 012): Chat + Suche binden hieran. */}
+      <WorkspaceSwitcher />
 
       <div className="flex-1" />
 

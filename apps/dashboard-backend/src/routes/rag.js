@@ -53,6 +53,7 @@ const {
   RAG_FINAL_K,
 } = ragCore;
 const { getFolderContexts } = require('../services/rag/folderContextService');
+const workspaceContext = require('../services/rag/workspaceContext');
 
 // Environment variables (only those needed by routes, not core functions)
 const QDRANT_HOST = services.qdrant.host;
@@ -142,19 +143,31 @@ router.post(
         additionalTexts.length > 0 ? getEmbeddings(additionalTexts) : Promise.resolve([]),
         // Step 3: Space routing (runs in parallel with embedding)
         (async () => {
+          // Plan 012: der aktive Workspace + Pins bilden den Grundkontext.
+          // Grundkontext = aktiver Teilbaum ∪ Fokus (Client-Drag) ∪ Ordner-Pins.
+          // Dokument-Pins fließen separat als documentIds in den Qdrant-Filter.
+          const activeWorkspaceId = await workspaceContext.getActiveWorkspaceId();
+          const activeSubtree = activeWorkspaceId
+            ? await workspaceContext.expandSubtree(activeWorkspaceId)
+            : [];
+          const pins = await workspaceContext.resolvePinsForScope(req.user.id);
+          const focusIds = Array.isArray(space_ids) ? space_ids : [];
+
           let _targetSpaces = [];
           let _routingMethod = 'none';
-          let _targetSpaceIds = space_ids;
+          let _targetSpaceIds = null;
 
-          if (_targetSpaceIds && _targetSpaceIds.length > 0) {
-            const spacesResult = await db.query(
-              'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',
-              [_targetSpaceIds]
-            );
-            _targetSpaces = spacesResult.rows;
+          if (activeWorkspaceId) {
+            // Aktiver Ordner gesetzt: Suche bleibt IM aktiven Ordner (kein
+            // globales Auto-Routing). Fokus grenzt additiv ein, Pins immer dabei.
+            _targetSpaceIds = [...new Set([...activeSubtree, ...focusIds, ...pins.spaceIds])];
             _routingMethod = 'manual';
-            logger.debug(`Using ${_targetSpaces.length} pre-selected spaces`);
+          } else if (focusIds.length > 0) {
+            // Kein aktiver Ordner, aber expliziter Fokus (Alt-Verhalten).
+            _targetSpaceIds = [...new Set([...focusIds, ...pins.spaceIds])];
+            _routingMethod = 'manual';
           } else if (auto_routing) {
+            // Kein aktiver Ordner, kein Fokus: globales Auto-Routing (Alt-Verhalten).
             const routingResult = await routeToSpaces(queryEmbedding);
             _targetSpaces = routingResult.spaces;
             _routingMethod = routingResult.method;
@@ -165,22 +178,39 @@ router.post(
               _routingMethod === 'none' ||
               _routingMethod === 'fallback'
             ) {
-              _targetSpaceIds = null;
+              _targetSpaceIds = pins.spaceIds.length > 0 ? [...pins.spaceIds] : null;
             } else {
-              _targetSpaceIds = _targetSpaces.map(s => s.id);
+              _targetSpaceIds = [...new Set([..._targetSpaces.map(s => s.id), ...pins.spaceIds])];
             }
             logger.debug(`Auto-routing: ${_routingMethod}, ${_targetSpaces.length} spaces`);
+          } else {
+            // Auto-Routing aus, kein Scope: nur Pins (falls vorhanden).
+            _targetSpaceIds = pins.spaceIds.length > 0 ? [...pins.spaceIds] : null;
+          }
+
+          // Namen der gescopten Räume laden (für Folder-Context-Injektion + Antwort).
+          if (_routingMethod === 'manual' && _targetSpaceIds && _targetSpaceIds.length > 0) {
+            const spacesResult = await db.query(
+              'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',
+              [_targetSpaceIds]
+            );
+            _targetSpaces = spacesResult.rows;
+            logger.debug(
+              `Scope: ${_targetSpaces.length} Räume` +
+                (activeWorkspaceId ? ` (aktiver Workspace ${activeWorkspaceId})` : '')
+            );
           }
 
           return {
             targetSpaces: _targetSpaces,
             routingMethod: _routingMethod,
             targetSpaceIds: _targetSpaceIds,
+            documentIds: pins.documentIds,
           };
         })(),
       ]);
 
-      const { targetSpaces, routingMethod, targetSpaceIds } = spaceRouting;
+      const { targetSpaces, routingMethod, targetSpaceIds, documentIds } = spaceRouting;
       // Null-safe: getEmbeddings() may return null on embedding service failure
       const additionalEmbeddings = additionalEmbeddingsRaw || [];
 
@@ -201,9 +231,12 @@ router.post(
       // ('all'/'fallback'), which legitimately search across spaces. buildSpaceFilter(null)
       // yields an undefined filter, so proceeding would search the ENTIRE knowledge
       // base and answer off-topic questions from unrelated docs. Skip the search for 'none'.
+      // Plan 012: angeheftete Dokumente sind IMMER durchsuchbar — auch wenn das
+      // Space-Routing 'none' liefert, wird für Pins gesucht.
+      const hasPinnedDocs = Array.isArray(documentIds) && documentIds.length > 0;
       let searchResults = [];
       let graphEnrichment = [];
-      if (routingMethod === 'none') {
+      if (routingMethod === 'none' && !hasPinnedDocs) {
         logger.info(
           'Space routing method=none — no space matched and no default; skipping search to prevent hallucination'
         );
@@ -212,6 +245,7 @@ router.post(
           hybridSearch(query, queryEmbedding, top_k, spaceFilter, {
             additionalEmbeddings,
             decompoundedQuery: decompounded,
+            documentIds,
           }),
           graphEnrichedRetrieval(correctedQuery),
         ]);

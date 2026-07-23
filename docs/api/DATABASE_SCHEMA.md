@@ -1908,6 +1908,36 @@
 
 ---
 
+## `pinned_documents`
+
+> Plan 012: an den Chat angeheftete Dokumente/Unterordner — immer im RAG-Kontext,
+> unabhängig vom Auto-Routing. Genau EIN Ziel pro Zeile (CHECK).
+
+| Column        | Type                     | Nullable | Default                                   |
+| ------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`          | bigint                   | ⛔       | `nextval('pinned_documents_id_seq'::...)` |
+| `user_id`     | integer                  | ⛔       |                                           |
+| `document_id` | uuid                     | ✅       | (gesetzt bei Dokument-Pin)                |
+| `space_id`    | uuid                     | ✅       | (gesetzt bei Ordner-Pin)                  |
+| `created_at`  | timestamp with time zone | ⛔       | `now()`                                   |
+
+**Primary key:** `id`
+
+**Check:** `pinned_documents_exactly_one_target` — genau eines von `document_id`/`space_id`.
+
+**Foreign Keys:**
+
+- `user_id` → `admin_users.id` (ON DELETE CASCADE)
+- `document_id` → `documents.id` (ON DELETE CASCADE)
+- `space_id` → `knowledge_spaces.id` (ON DELETE CASCADE)
+
+**Indexes:** partielle Unique-Indizes je Ziel (`user_id, document_id` / `user_id, space_id`) + `user_id`.
+
+> **Verwandt:** `system_settings.active_workspace_space_id` (uuid, nullable, Plan 012)
+> hält den aktiven Top-Level-Ordner; `NULL` = keiner aktiv.
+
+---
+
 ## `platform_apps`
 
 > Kuratierte Plattform-Apps (Extensions-Tab): pro App an/aus. v1-Seed: n8n, telegram, database.

@@ -53,9 +53,29 @@ const RouteQueryBody = z
   })
   .strict();
 
+// Plan 012: aktiven Workspace setzen (space_id = null hebt die Bindung auf).
+const SetActiveWorkspaceBody = z
+  .object({
+    space_id: SpaceIdField.nullable(),
+  })
+  .strict();
+
+// Plan 012: Pin anlegen — genau eines von document_id / space_id.
+const CreatePinBody = z
+  .object({
+    document_id: SpaceIdField.nullable().optional(),
+    space_id: SpaceIdField.nullable().optional(),
+  })
+  .strict()
+  .refine(b => !!b.document_id !== !!b.space_id, {
+    message: 'Genau ein Ziel (document_id oder space_id) muss angegeben werden',
+  });
+
 module.exports = {
   CreateSpaceBody,
   UpdateSpaceBody,
   UpsertContextFileBody,
   RouteQueryBody,
+  SetActiveWorkspaceBody,
+  CreatePinBody,
 };

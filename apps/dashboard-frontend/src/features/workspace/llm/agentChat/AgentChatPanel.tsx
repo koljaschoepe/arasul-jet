@@ -14,6 +14,7 @@ import { Plus, Upload, X } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { usePins } from '../../useWorkspaceContext';
 import { useSkills } from '@/hooks/useSkills';
 import { useToast } from '@/contexts/ToastContext';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -59,6 +60,7 @@ export default function AgentChatPanel() {
   const chatScope = useWorkspaceStore(s => s.chatScope);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
   const { skills } = useSkills();
+  const { pins, removePin } = usePins();
   const toast = useToast();
 
   const [chatId, setChatId] = useState<string | null>(
@@ -505,6 +507,8 @@ export default function AgentChatPanel() {
           models={composerModels}
           selectedModel={selectedModel}
           onSelectModel={setSelectedModel}
+          pins={pins}
+          onRemovePin={id => removePin.mutate(id)}
           skills={skills}
           // Anlegen/Bearbeiten öffnen den Skill-Dialog (Schritt 17). `/skills`
           // (Gesamt-Übersicht) ist bewusst noch nicht gebaut — sie steht nicht

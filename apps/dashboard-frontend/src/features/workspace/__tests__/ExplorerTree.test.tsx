@@ -1,8 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ExplorerPanel, DND_DOC_TYPE } from '../explorer/ExplorerPanel';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+
+// ExplorerPanel liest die Pins (Plan 012) über React Query — Provider bereitstellen.
+function Providers({ children }: { children: ReactNode }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={qc}>
+      <ToastProvider>{children}</ToastProvider>
+    </QueryClientProvider>
+  );
+}
 
 // Upload-Hook mocken, damit Import-Drops die echte XHR-Kette nicht anfassen.
 const { uploadFilesMock } = vi.hoisted(() => ({ uploadFilesMock: vi.fn() }));
@@ -116,16 +128,16 @@ describe('ExplorerPanel (Ordner-Baum)', () => {
 
   const renderPanel = () =>
     render(
-      <ToastProvider>
+      <Providers>
         <ExplorerPanel />
-      </ToastProvider>
+      </Providers>
     );
 
   it('zeigt Wurzel-Ordner und Wurzel-Dateien als oberste Ebene', async () => {
     render(
-      <ToastProvider>
+      <Providers>
         <ExplorerPanel />
-      </ToastProvider>
+      </Providers>
     );
     await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
     // Wurzel-Ordner ohne Elternordner
@@ -139,9 +151,9 @@ describe('ExplorerPanel (Ordner-Baum)', () => {
 
   it('Ordner öffnet Unterordner und Dateien; Datei öffnet Dokument-Tab', async () => {
     render(
-      <ToastProvider>
+      <Providers>
         <ExplorerPanel />
-      </ToastProvider>
+      </Providers>
     );
     await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Marketing-Ordner'));
@@ -154,9 +166,9 @@ describe('ExplorerPanel (Ordner-Baum)', () => {
 
   it('Suche filtert den Baum und expandiert Treffer', async () => {
     render(
-      <ToastProvider>
+      <Providers>
         <ExplorerPanel />
-      </ToastProvider>
+      </Providers>
     );
     await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText('Explorer durchsuchen'), {
@@ -170,9 +182,9 @@ describe('ExplorerPanel (Ordner-Baum)', () => {
 
   it('Upload-Request aus der Menubar öffnet den Datei-Dialog', async () => {
     render(
-      <ToastProvider>
+      <Providers>
         <ExplorerPanel />
-      </ToastProvider>
+      </Providers>
     );
     await waitFor(() => expect(screen.getByText('Marketing-Ordner')).toBeInTheDocument());
     const input = screen.getByTestId('explorer-upload-input') as HTMLInputElement;

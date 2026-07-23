@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Upload,
   FolderUp,
+  Pin,
   X,
 } from 'lucide-react';
 import {
@@ -31,6 +32,7 @@ import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { useUploadDocuments } from '@/hooks/uploadDocuments';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { usePins } from '../useWorkspaceContext';
 import { cn } from '@/lib/utils';
 import { ExplorerDialogs } from './ExplorerDialogs';
 import type { ExplorerDialogState } from './ExplorerDialogs';
@@ -150,6 +152,7 @@ export function ExplorerPanel() {
   const toast = useToast();
   const openTab = useWorkspaceStore(s => s.openTab);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
+  const { addPin } = usePins();
 
   const [spaces, setSpaces] = useState<TreeSpace[]>([]);
   const [documents, setDocuments] = useState<TreeDocument[]>([]);
@@ -329,6 +332,27 @@ export function ExplorerPanel() {
     toast.success(`KI auf „${docLabel(doc)}“ eingegrenzt`);
   };
 
+  // Plan 012: an den Chat anheften — immer im Kontext, unabhängig vom Routing.
+  const pinFolder = (space: TreeSpace) => {
+    addPin.mutate(
+      { spaceId: space.id },
+      {
+        onSuccess: () => toast.success(`Ordner „${space.name}“ angeheftet`),
+        onError: () => toast.error('Anheften fehlgeschlagen'),
+      }
+    );
+  };
+
+  const pinDocument = (doc: TreeDocument) => {
+    addPin.mutate(
+      { documentId: doc.id },
+      {
+        onSuccess: () => toast.success(`„${docLabel(doc)}“ angeheftet`),
+        onError: () => toast.error('Anheften fehlgeschlagen'),
+      }
+    );
+  };
+
   /** Elternordner einer Datei (für »Neuer Ordner« als Geschwister). */
   const parentSpaceOf = (doc: TreeDocument): TreeSpace | null =>
     doc.space_id ? (spaces.find(s => s.id === doc.space_id) ?? null) : null;
@@ -435,6 +459,9 @@ export function ExplorerPanel() {
           <ContextMenuItem onSelect={() => chatWithDocument(doc)}>
             <FolderSearch className="mr-2 h-3.5 w-3.5" /> KI auf Datei eingrenzen
           </ContextMenuItem>
+          <ContextMenuItem onSelect={() => pinDocument(doc)}>
+            <Pin className="mr-2 h-3.5 w-3.5" /> An Chat anheften
+          </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem onSelect={() => setDialog({ kind: 'rename-document', document: doc })}>
             <Pencil className="mr-2 h-3.5 w-3.5" /> Umbenennen
@@ -514,6 +541,9 @@ export function ExplorerPanel() {
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => chatWithFolder(space)}>
               <FolderSearch className="mr-2 h-3.5 w-3.5" /> KI auf Ordner eingrenzen
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => pinFolder(space)}>
+              <Pin className="mr-2 h-3.5 w-3.5" /> An Chat anheften
             </ContextMenuItem>
             <ContextMenuItem onSelect={() => setDialog({ kind: 'context-file', space })}>
               <BookOpenText className="mr-2 h-3.5 w-3.5" /> Kontextdatei bearbeiten

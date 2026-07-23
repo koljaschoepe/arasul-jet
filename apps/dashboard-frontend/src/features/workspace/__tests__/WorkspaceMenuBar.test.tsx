@@ -4,6 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { WorkspaceMenuBar } from '../WorkspaceMenuBar';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
+// Der WorkspaceSwitcher (Plan 012) liest Server-State über React Query/useApi;
+// hier flach mocken, damit der MenuBar-Test auf die Menüleiste fokussiert bleibt.
+vi.mock('../WorkspaceSwitcher', () => ({
+  WorkspaceSwitcher: () => null,
+}));
+
 const themeControls = {
   theme: 'dark',
   onToggleTheme: vi.fn(),

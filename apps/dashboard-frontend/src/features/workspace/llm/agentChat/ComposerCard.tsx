@@ -12,6 +12,7 @@ import {
   FolderOpen,
   Image as ImageIcon,
   Paperclip,
+  Pin,
   Square,
   X,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import type { Pin as PinItem } from '../../useWorkspaceContext';
 import type { Skill } from '@/types/skills';
 import SkillMenu, { buildMenuItems, type SkillMenuItem } from '@/features/skills/SkillMenu';
 import ArgumentHints, { COMPOSER_TEXT_CLASSES } from '@/features/skills/ArgumentHints';
@@ -88,6 +90,10 @@ interface ComposerCardProps {
   skills?: Skill[];
   /** Stift-Symbol an einem Skill geklickt (Bearbeiten-Dialog folgt in Schritt 17). */
   onEditSkill?: (name: string) => void;
+  /** Angeheftete Dokumente/Ordner (Plan 012) — als Chips über dem Eingabefeld. */
+  pins?: PinItem[];
+  /** Anheftung lösen (Plan 012). */
+  onRemovePin?: (id: number) => void;
   /** `/skills` gewählt — Übersicht öffnen (Schritt 17). */
   onOpenSkillOverview?: () => void;
   /** `/neuer-skill` gewählt — Anlege-Dialog öffnen (Schritt 17). */
@@ -115,6 +121,8 @@ export default function ComposerCard({
   models,
   selectedModel,
   onSelectModel,
+  pins = [],
+  onRemovePin,
   skills = [],
   onEditSkill,
   onOpenSkillOverview,
@@ -267,7 +275,8 @@ export default function ComposerCard({
       selectedModel.split(':')[0]
     : 'Auto';
 
-  const hasChips = Boolean(chatScope) || Boolean(attachedFile) || attachedImages.length > 0;
+  const hasChips =
+    Boolean(chatScope) || pins.length > 0 || Boolean(attachedFile) || attachedImages.length > 0;
 
   return (
     <div className="relative rounded-lg border border-border bg-card focus-within:border-primary/40">
@@ -308,6 +317,16 @@ export default function ComposerCard({
               removeLabel="Ordner-Kontext entfernen"
             />
           )}
+          {/* Angeheftete Dokumente/Ordner (Plan 012): immer im Kontext. */}
+          {pins.map(pin => (
+            <AttachmentChip
+              key={pin.id}
+              icon={<Pin className="size-3.5 shrink-0 text-muted-foreground" />}
+              label={pin.label ?? (pin.kind === 'folder' ? 'Ordner' : 'Dokument')}
+              onRemove={() => onRemovePin?.(pin.id)}
+              removeLabel="Anheftung entfernen"
+            />
+          ))}
           {attachedFile && (
             <AttachmentChip
               icon={<Paperclip className="size-3.5 shrink-0 text-muted-foreground" />}

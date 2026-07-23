@@ -272,21 +272,29 @@ async function routeToSpaces(queryEmbedding, options = {}) {
 /**
  * Build Qdrant filter for space-based search.
  * Includes specified spaces + unassigned documents (null/empty space_id).
+ *
+ * Plan 012: `documentIds` (angeheftete Dokument-Pins) werden additiv als
+ * weitere `should`-Zweige aufgenommen — angeheftete Dokumente sind damit immer
+ * im Scope, unabhängig von ihrem Ordner.
  */
-function buildSpaceFilter(spaceIds) {
-  if (!spaceIds || spaceIds.length === 0) {
+function buildSpaceFilter(spaceIds, documentIds = null) {
+  const hasSpaces = spaceIds && spaceIds.length > 0;
+  const hasDocs = documentIds && documentIds.length > 0;
+  if (!hasSpaces && !hasDocs) {
     return undefined;
   }
-  return {
-    should: [
-      ...spaceIds.map(spaceId => ({
-        key: 'space_id',
-        match: { value: spaceId },
-      })),
+  const should = [];
+  if (hasSpaces) {
+    should.push(
+      ...spaceIds.map(spaceId => ({ key: 'space_id', match: { value: spaceId } })),
       { key: 'space_id', match: { value: '' } },
-      { is_null: { key: 'space_id' } },
-    ],
-  };
+      { is_null: { key: 'space_id' } }
+    );
+  }
+  if (hasDocs) {
+    should.push(...documentIds.map(docId => ({ key: 'document_id', match: { value: docId } })));
+  }
+  return { should };
 }
 
 /**
@@ -843,7 +851,7 @@ function buildHierarchicalContext(
  * @param {string} options.decompoundedQuery - Decompounded query for BM25
  */
 async function hybridSearch(query, embedding, limit = 5, spaceIds = null, options = {}) {
-  const { additionalEmbeddings = [], decompoundedQuery = null } = options;
+  const { additionalEmbeddings = [], decompoundedQuery = null, documentIds = null } = options;
 
   const rerankOn = systemSettings.getBool('rag_rerank_enabled', ENABLE_RERANKING);
   const hybridOn = systemSettings.getBool('rag_hybrid_search', HYBRID_SEARCH_ENABLED);
@@ -852,7 +860,7 @@ async function hybridSearch(query, embedding, limit = 5, spaceIds = null, option
   const sparseQuery = decompoundedQuery || query;
   const sparseVector = hybridOn ? await getSparseVector(sparseQuery) : null;
 
-  const filter = buildSpaceFilter(spaceIds);
+  const filter = buildSpaceFilter(spaceIds, documentIds);
   const prefetch = [];
 
   const denseParams = {
