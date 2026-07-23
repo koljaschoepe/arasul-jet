@@ -27,7 +27,6 @@ import type { TreeSpace, TreeDocument } from '../explorer/ExplorerPanel';
 
 // Schwere Shell-Kinder mocken — getestet wird die Panel-/Dialog-Interaktion.
 vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div /> }));
-vi.mock('../SidebarFooter', () => ({ SidebarFooter: () => <div /> }));
 vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
 vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));

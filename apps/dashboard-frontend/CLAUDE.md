@@ -20,10 +20,13 @@ src/
     workspace/     IDE-Shell (Cursor-Raster 3.1, **immer aktiv** — `/` landet
                    nach Login stets auf `/workspace`; es gibt keinen Fallback-Flag
                    mehr):
-                   WorkspaceMenuBar (Datei/Ansicht + **zwei** Layout-Toggles
-                   [Sidebar, rechtes Panel] + Settings oben rechts), ActivityBar
-                   (feste Drei-Bereiche-Navigation **Chat · Wissen · Automation**
-                   plus Extensions und Einstellungen — Plan 008), SidebarHost (Sidebar),
+                   WorkspaceMenuBar (Datei/Ansicht + Workspace-Switcher + **zwei**
+                   Layout-Toggles [Sidebar, rechtes Panel] + Settings oben rechts),
+                   ActivityBar (eigene, **immer sichtbare** schmale Spalte ganz
+                   links — außerhalb des einklappbaren Panels — mit fünf Ansichten
+                   **Dateien · Suche · Modelle · Erweiterungen · Skills**, den
+                   aktivierten App-Erweiterungen und dem Einstellungen-Zahnrad
+                   unten — Plan 012 Phase B), SidebarHost (Sidebar),
                    Tab-Bar/-Content (Mitte), RightPanel (rechts), StatusBar
                    (Modell + KI-RAM). Feature-Tabs laufen je in einem eigenen
                    IsolatedMemoryRouter (FeatureTabHost); Cross-Feature-Links
@@ -35,13 +38,16 @@ src/
                      (nie unmounten, nie als Mitte-Tab), die inaktive wird nur
                      per `data-shell-hidden` versteckt. Zustand im Store:
                      `rightPanelVisible` + `rightPanelMode` ('chat' | 'terminal').
-                   • **SidebarHost** — kontextabhängig: Dashboard → Dokumente/
-                     Projekte (Explorer). Erweiterungen (store) → Explorer bleibt
-                     (der Store ist ein Full-Width-Tab; die Datei-Sidebar wird
-                     NICHT mehr durch eine Extensions-Liste gekapert), Automation
-                     (n8n) → Explorer bleibt (Tab im Hauptbereich, kein
-                     Auto-Collapse). Die Präferenz (auf/zu) überlebt Reload via
-                     `sidebarVisible`/`sidebarRestore` (`syncSidebarForTab`).
+                   • **SidebarHost** — der Inhalt richtet sich nach der aktiven
+                     Activity-Bar-Ansicht (`activeView`, Store): files → Datei-
+                     Explorer, search → Suche, models/extensions → Store-Filter,
+                     skills → Skill-Liste (`features/workspace/sidebar/*Panel.tsx`).
+                     Der Explorer bleibt beim Wechsel gemountet (nur `hidden`),
+                     damit sein Baum-Zustand erhält. Die Bar wählt die Ansicht,
+                     `sidebarVisible` steuert nur das Auf/Zu (⌘B / erneuter Klick).
+                     Der Auto-Collapse für App-Tabs (`sidebarRestore`/
+                     `syncSidebarForTab`) bleibt verdrahtet, `APP_TAB_TYPES` ist
+                     derzeit leer (n8n läuft als Mitte-Tab).
                    • **Erweiterungen/Store** — Full-Width-Kartenlayout im
                      Mitte-Tab mit zwei Reitern [Modelle | Erweiterungen]
                      (StoreModelsGrid / StoreExtensionsGrid); ein Klick auf eine

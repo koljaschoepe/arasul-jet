@@ -16,13 +16,13 @@
  * Alte Deep-Links /store/models und /store/apps (auch mit ?highlight=…) leiten
  * auf /store um und setzen dabei die Auswahl im Extension-Store.
  */
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Cpu, Package } from 'lucide-react';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { cn } from '@/lib/utils';
 import { useExtensionStore } from '@/stores/extensionStore';
-import type { ExtensionKind } from '@/stores/extensionStore';
+import type { ExtensionKind, StoreTab } from '@/stores/extensionStore';
 import { StoreDetailPage } from './StoreDetailPage';
 import { StoreModelsGrid } from './StoreModelsGrid';
 import { StoreExtensionsGrid } from './StoreExtensionsGrid';
@@ -40,15 +40,16 @@ function HighlightRedirect({ kind }: { kind: ExtensionKind }) {
   return null;
 }
 
-type StoreTab = 'models' | 'extensions';
-
 const STORE_TABS: ReadonlyArray<{ value: StoreTab; label: string; icon: React.ReactNode }> = [
   { value: 'models', label: 'Modelle', icon: <Cpu aria-hidden="true" /> },
   { value: 'extensions', label: 'Erweiterungen', icon: <Package aria-hidden="true" /> },
 ];
 
 function StoreWorkspace() {
-  const [tab, setTab] = useState<StoreTab>('models');
+  // Reiter lebt im extensionStore (Plan 012 Phase B): so kann die Activity-Bar
+  // »Modelle«/»Erweiterungen« den passenden Reiter direkt aktivieren.
+  const tab = useExtensionStore(s => s.storeTab);
+  const setTab = useExtensionStore(s => s.setStoreTab);
   const selected = useExtensionStore(s => s.selected);
   const clearSelection = useExtensionStore(s => s.clearSelection);
 

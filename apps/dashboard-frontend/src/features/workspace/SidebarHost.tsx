@@ -1,39 +1,39 @@
 import { useEffect } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabType } from '@/stores/workspaceStore';
-import { ExplorerPanel } from './explorer/ExplorerPanel';
-import { ActivityBar } from './ActivityBar';
-import { SidebarFooter } from './SidebarFooter';
+import { FilesPanel } from './sidebar/FilesPanel';
+import { SearchPanel } from './sidebar/SearchPanel';
+import { ModelsPanel } from './sidebar/ModelsPanel';
+import { ExtensionsPanel } from './sidebar/ExtensionsPanel';
+import { SkillsPanel } from './sidebar/SkillsPanel';
 
 /**
- * Kontextabhängige Sidebar nach dem TabBridge-Muster: der aktive Tab-Typ
- * bestimmt den Inhalt der linken Fläche.
+ * SidebarHost — Inhalt der linken Sidebar nach der aktiven Activity-Bar-Ansicht
+ * (Plan 012 Phase B, Schritt 6). Die Activity-Bar selbst ist keine Zeile mehr
+ * IN dieser Sidebar, sondern eine eigene, immer sichtbare Spalte in der
+ * WorkspaceShell; das Einstellungen-Zahnrad sitzt dort unten.
  *
- *   Dashboard / Dokumente / Einstellungen → ExplorerPanel (Second-Brain-Baum)
- *   Erweiterungen (store)                 → ExplorerPanel bleibt (der Store ist
- *                                           ein Full-Width-Tab; die Datei-
- *                                           Sidebar wird NICHT mehr gekapert)
- *   Automation (n8n)                      → ExplorerPanel bleibt sichtbar (Tab
- *                                           im Hauptbereich, kein Auto-Collapse)
- *   App-Tabs (Datenbank)                  → Sidebar klappt automatisch zu
+ *   files       → Datei-Explorer (Baum)
+ *   search      → Suche (Trefferliste)
+ *   models      → Modell-Filter
+ *   extensions  → Erweiterungs-Filter
+ *   skills      → Skill-Liste
  *
- * Auto-Collapse: Beim Betreten eines App-Tabs wird die Sidebar eingeklappt und
- * die vorherige Nutzer-Präferenz gemerkt; beim Verlassen wird sie
- * wiederhergestellt. Die Zustandsmaschine (inkl. persistiertem `sidebarRestore`)
- * lebt im Store (`syncSidebarForTab`), damit die Präferenz auch einen Reload auf
- * einem App-Tab überlebt und nicht der bereits eingeklappte Zustand als
- * vermeintliche Präferenz übernommen wird. `sidebarVisible` bleibt die Quelle
- * der Wahrheit (die WorkspaceShell versteckt das Panel darüber), der Toggle
- * (⌘B / Menüleiste) bleibt jederzeit bedienbar — er kann die Sidebar auch auf
- * einem App-Tab wieder aufziehen, ohne dass das erneute Einklappen greift.
+ * Der Datei-Explorer bleibt beim Ansichtswechsel gemountet (nur per `hidden`
+ * versteckt), damit sein Baum-/Aufklapp-Zustand erhalten bleibt; die übrigen
+ * (zustandslosen) Ansichten werden bedarfsweise gerendert.
+ *
+ * Auto-Collapse für App-Tabs: `syncSidebarForTab` klappt die Sidebar beim
+ * Betreten eines App-Tabs ein und stellt die Präferenz beim Verlassen wieder
+ * her (die Zustandsmaschine inkl. persistiertem `sidebarRestore` lebt im Store).
+ * `APP_TAB_TYPES` ist derzeit leer — n8n läuft als Mitte-Tab, der Explorer
+ * bleibt stehen (Plan 005 · Schritt 1) — der Mechanismus bleibt aber verdrahtet.
  */
 
-// Tabs, die den Explorer automatisch einklappen. 'automationen' (n8n) ist
-// bewusst NICHT dabei: n8n läuft als Tab im Hauptbereich, der Explorer bleibt
-// stehen, damit der Nutzer seine Dateien nicht verliert (Plan 005 · Schritt 1).
 const APP_TAB_TYPES: ReadonlySet<WorkspaceTabType> = new Set([]);
 
 export function SidebarHost() {
+  const activeView = useWorkspaceStore(s => s.activeView);
   const tabs = useWorkspaceStore(s => s.tabs);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const syncSidebarForTab = useWorkspaceStore(s => s.syncSidebarForTab);
@@ -41,25 +41,20 @@ export function SidebarHost() {
   const activeType = tabs.find(t => t.id === activeTabId)?.type ?? null;
   const isAppTab = activeType != null && APP_TAB_TYPES.has(activeType);
 
-  // Kontextwechsel an die Store-Zustandsmaschine melden: Ein-/Austritt in den
-  // App-Tab-Kontext klappt ein bzw. stellt wieder her. Das Gate (sidebarRestore)
-  // sitzt im Store, deshalb ist kein Transition-Ref mehr nötig.
   useEffect(() => {
     syncSidebarForTab(isAppTab);
   }, [isAppTab, syncSidebarForTab]);
 
-  // Cursor-Aufbau (Plan 009): kompakte Icon-Zeile oben (Dateien/Extensions/
-  // Apps) · Dateibaum füllt die Höhe · Einstellungen-Zahnrad unten. Der Store
-  // lebt komplett im Mitte-Tab; die Datei-Sidebar wird nicht durch eine
-  // Extensions-Liste ersetzt. Alle drei teilen `bg-background` (eine
-  // Flächenfarbe), getrennt nur durch Hairline-Kanten.
   return (
-    <div className="flex h-full flex-col bg-background">
-      <ActivityBar />
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <ExplorerPanel />
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      {/* Explorer bleibt gemountet (Baum-Zustand), nur versteckt wenn inaktiv. */}
+      <div className={activeView === 'files' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+        <FilesPanel />
       </div>
-      <SidebarFooter />
+      {activeView === 'search' && <SearchPanel />}
+      {activeView === 'models' && <ModelsPanel />}
+      {activeView === 'extensions' && <ExtensionsPanel />}
+      {activeView === 'skills' && <SkillsPanel />}
     </div>
   );
 }

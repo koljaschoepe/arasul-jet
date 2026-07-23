@@ -131,9 +131,31 @@ export interface TerminalSession {
 /** Inhalt des rechten Panels: Chat oder Terminal (nie beide gleichzeitig). */
 export type RightPanelMode = 'chat' | 'terminal';
 
+/**
+ * Aktive Sidebar-Ansicht (Plan 012 Phase B): welche Activity-Bar-Rubrik die
+ * linke Sidebar füllt. Löst die frühere reine Boolean-Semantik ab — die
+ * (immer sichtbare) Activity-Bar wählt jetzt eine ANSICHT, `sidebarVisible`
+ * steuert nur noch das Auf/Zu des Panels.
+ *
+ *   files       → Datei-Explorer (Baum)
+ *   search      → Suche (Trefferliste; Anbindung in Schritt 19)
+ *   models      → Modell-Filter (ziehen in Schritt 7 hierher)
+ *   extensions  → Erweiterungs-Filter (Schritt 9)
+ *   skills      → Skill-Liste (Zentrale in Phase D)
+ */
+export type ActivityView = 'files' | 'search' | 'models' | 'extensions' | 'skills';
+
+const ACTIVITY_VIEWS = new Set<ActivityView>(['files', 'search', 'models', 'extensions', 'skills']);
+
 interface WorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
+  /**
+   * Aktive Sidebar-Ansicht (Activity-Bar-Auswahl). Die Bar wählt eine Ansicht,
+   * `sidebarVisible` steuert nur noch das Auf/Zu — so bleibt die Bar (und damit
+   * »Dateien«) erreichbar, auch wenn das Panel eingeklappt ist.
+   */
+  activeView: ActivityView;
   /** Linke Sidebar (Explorer/Workspace). */
   sidebarVisible: boolean;
   /**
@@ -161,6 +183,11 @@ interface WorkspaceState {
   /** Sidebar-Sichtbarkeit explizit setzen (Auto-Collapse des SidebarHost). */
   setSidebarVisible: (visible: boolean) => void;
   /**
+   * Activity-Bar-Klick (VS-Code-Semantik): dieselbe Ansicht bei offener Sidebar
+   * → einklappen; sonst die Ansicht wählen und das Panel aufziehen.
+   */
+  selectView: (view: ActivityView) => void;
+  /**
    * Auto-Collapse-Zustandsmaschine für Kontextwechsel: beim Betreten eines
    * App-Tabs die aktuelle Präferenz in `sidebarRestore` sichern und einklappen,
    * beim Verlassen wiederherstellen. Nur die Ein-/Austritts-Übergänge wirken
@@ -186,6 +213,7 @@ interface WorkspaceState {
 interface PersistedWorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
+  activeView: ActivityView;
   sidebarVisible: boolean;
   sidebarRestore: boolean | null;
   rightPanelVisible: boolean;
@@ -213,6 +241,8 @@ interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'ta
   // v4-Felder (eine Fläche mit Modus)
   rightPanelVisible?: boolean;
   rightPanelMode?: RightPanelMode;
+  // v6-Feld (Activity-Bar-Ansicht)
+  activeView?: ActivityView;
 }
 
 /**
@@ -234,6 +264,9 @@ interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'ta
  *   Plan 011 entfallenen 'agenten'-Tab aus bestehenden Sitzungen zu entfernen —
  *   ohne Versionssprung liefe der Filter unten für v4-Nutzer nie an und sie
  *   behielten einen Tab, den es nicht mehr gibt.
+ *
+ * - v6: additiv die Activity-Bar-Ansicht (`activeView`, Plan 012 Phase B).
+ *   Fehlt in v≤5-Ständen → 'files'. Das Panel-Layout bleibt unangetastet.
  *
  * 'sandbox'-Tabs (Terminal als Mitte-Tab), der frühere 'agenten'-Tab und
  * unbekannte Typen werden entfernt, übrige Tabs + aktiver Tab bleiben erhalten.
@@ -281,9 +314,17 @@ function migrateWorkspaceState(persisted: unknown, version: number): PersistedWo
     activeTerminalSessionId = null;
   }
 
+  // v6: die Activity-Bar-Ansicht. Ältere Stände (v≤5) kennen sie nicht → auf
+  // 'files' zurückfallen. Das Panel-Layout (Breiten, Sichtbarkeit) bleibt
+  // unberührt — nur ein additives Feld kommt hinzu.
+  const activeView = ACTIVITY_VIEWS.has(old.activeView as ActivityView)
+    ? (old.activeView as ActivityView)
+    : 'files';
+
   return {
     tabs,
     activeTabId,
+    activeView,
     sidebarVisible,
     sidebarRestore: null,
     rightPanelVisible,
@@ -298,6 +339,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     (set, get) => ({
       tabs: [],
       activeTabId: null,
+      activeView: 'files',
       sidebarVisible: true,
       sidebarRestore: null,
       rightPanelVisible: true,
@@ -370,6 +412,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
       toggleSidebar: () => set(state => ({ sidebarVisible: !state.sidebarVisible })),
       setSidebarVisible: visible => set({ sidebarVisible: visible }),
+      selectView: view =>
+        set(state =>
+          state.sidebarVisible && state.activeView === view
+            ? { sidebarVisible: false }
+            : { activeView: view, sidebarVisible: true }
+        ),
       syncSidebarForTab: isAppTab =>
         set(state => {
           // Betreten eines App-Tabs (nur der Eintritts-Übergang, Gate über
@@ -431,17 +479,20 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             ? { chatScope: scope, rightPanelVisible: true, rightPanelMode: 'chat' }
             : { chatScope: null }
         ),
-      // Menü-Aktion an den Explorer delegieren — blendet die Sidebar dafür ein
-      requestExplorerAction: action => set({ explorerRequest: action, sidebarVisible: true }),
+      // Menü-Aktion an den Explorer delegieren — blendet die Datei-Sidebar dafür
+      // ein (Ordner anlegen / hochladen brauchen den Baum sichtbar).
+      requestExplorerAction: action =>
+        set({ explorerRequest: action, sidebarVisible: true, activeView: 'files' }),
       clearExplorerRequest: () => set({ explorerRequest: null }),
     }),
     {
       name: 'arasul_workspace',
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => migrateWorkspaceState(persisted, version) as WorkspaceState,
       partialize: state => ({
         tabs: state.tabs,
         activeTabId: state.activeTabId,
+        activeView: state.activeView,
         sidebarVisible: state.sidebarVisible,
         sidebarRestore: state.sidebarRestore,
         rightPanelVisible: state.rightPanelVisible,

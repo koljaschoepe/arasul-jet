@@ -1,62 +1,71 @@
 /**
- * SidebarHost — kontextabhängige Sidebar (Plan 003 · Schritt 6).
- * Der aktive Tab-Typ bestimmt den Inhalt; App-Tabs klappen die Sidebar
- * automatisch zu und stellen die vorherige Nutzer-Präferenz beim Verlassen
- * wieder her.
+ * SidebarHost — Ansichts-Mapping (Plan 012 Phase B, Schritt 6).
+ * Die aktive Activity-Bar-Ansicht (`activeView`) bestimmt den Inhalt der
+ * linken Sidebar. Der Datei-Explorer bleibt beim Wechsel gemountet (nur
+ * versteckt), damit sein Baum-Zustand erhalten bleibt.
  */
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import type { WorkspaceTab } from '@/stores/workspaceStore';
 import { SidebarHost } from '../SidebarHost';
 
 vi.mock('../explorer/ExplorerPanel', () => ({
   ExplorerPanel: () => <div data-testid="explorer" />,
 }));
 
-// Cursor-Zeile oben + Zahnrad unten sind eigene, getestete Komponenten
-// (ActivityBar.test / SidebarFooter.test) — hier isolieren, damit dieser Test
-// nur das Kontext-Mapping des ExplorerPanels prüft und nicht useWorkspaceApps.
-vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div data-testid="nav-top" /> }));
-vi.mock('../SidebarFooter', () => ({ SidebarFooter: () => <div data-testid="nav-bottom" /> }));
+// Skills-Ansicht zieht echte Daten (useSkills) — hier isolieren.
+vi.mock('../sidebar/SkillsPanel', () => ({
+  SkillsPanel: () => <div data-testid="skills-panel" />,
+}));
 
-// Ein Nicht-Extensions-Tab (mappt auf den ExplorerPanel-Default). Früher der
-// Dashboard-Tab; die Startseite ist entfernt (Plan 008), daher Einstellungen.
-const DEFAULTLIKE: WorkspaceTab = { id: 'settings', type: 'settings', title: 'Einstellungen' };
-const STORE: WorkspaceTab = { id: 'store', type: 'store', title: 'Extensions' };
-const N8N: WorkspaceTab = { id: 'automationen', type: 'automationen', title: 'Automation' };
-
-function reset(tabs: WorkspaceTab[], activeTabId: string) {
-  useWorkspaceStore.setState({ tabs, activeTabId, sidebarVisible: true, sidebarRestore: null });
+function reset(activeView: 'files' | 'search' | 'models' | 'extensions' | 'skills') {
+  useWorkspaceStore.setState({
+    tabs: [],
+    activeTabId: null,
+    activeView,
+    sidebarVisible: true,
+    sidebarRestore: null,
+  });
 }
 
-describe('SidebarHost — Kontext-Mapping', () => {
-  beforeEach(() => {
-    reset([DEFAULTLIKE], 'settings');
-  });
+describe('SidebarHost — Ansichts-Mapping', () => {
+  beforeEach(() => reset('files'));
 
-  it('Nicht-Extensions-Tab → ExplorerPanel', () => {
-    render(<SidebarHost />);
-    expect(screen.getByTestId('explorer')).toBeInTheDocument();
-    expect(screen.queryByTestId('ext-list')).not.toBeInTheDocument();
-  });
-
-  it('Erweiterungen-Tab (store) → ExplorerPanel bleibt, keine Datei-Sidebar-Kaperung', () => {
-    // Der Store ist ein Full-Width-Tab; die linke Datei-Sidebar wird NICHT mehr
-    // durch die Extensions-Liste ersetzt.
-    reset([STORE], 'store');
+  it('files → Datei-Explorer', () => {
     render(<SidebarHost />);
     expect(screen.getByTestId('explorer')).toBeInTheDocument();
   });
 
-  it('Automation/n8n-Tab → ExplorerPanel bleibt, Sidebar wird NICHT eingeklappt', () => {
-    reset([DEFAULTLIKE, N8N], 'settings');
+  it('search → Such-Ansicht (Explorer bleibt gemountet, aber versteckt)', () => {
+    reset('search');
     render(<SidebarHost />);
-    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
-
-    // Wechsel auf den n8n-Tab → Explorer bleibt sichtbar, kein Auto-Collapse
-    act(() => useWorkspaceStore.setState({ activeTabId: 'automationen' }));
+    expect(screen.getByText('Suche')).toBeInTheDocument();
+    // Explorer bleibt für den Baum-Zustand im DOM (nur per `hidden` verborgen).
     expect(screen.getByTestId('explorer')).toBeInTheDocument();
-    expect(useWorkspaceStore.getState().sidebarVisible).toBe(true);
+  });
+
+  it('models → Modell-Ansicht', () => {
+    reset('models');
+    render(<SidebarHost />);
+    expect(screen.getByText('Modelle')).toBeInTheDocument();
+  });
+
+  it('extensions → Erweiterungs-Ansicht', () => {
+    reset('extensions');
+    render(<SidebarHost />);
+    expect(screen.getByText('Erweiterungen')).toBeInTheDocument();
+  });
+
+  it('skills → Skill-Ansicht', () => {
+    reset('skills');
+    render(<SidebarHost />);
+    expect(screen.getByTestId('skills-panel')).toBeInTheDocument();
+  });
+
+  it('reagiert auf einen Ansichtswechsel im Store', () => {
+    render(<SidebarHost />);
+    expect(screen.queryByText('Suche')).not.toBeInTheDocument();
+    act(() => useWorkspaceStore.setState({ activeView: 'search' }));
+    expect(screen.getByText('Suche')).toBeInTheDocument();
   });
 });

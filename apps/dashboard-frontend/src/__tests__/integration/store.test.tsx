@@ -131,7 +131,9 @@ function setupDefaultApiResponses() {
 describe('Store integration (Full-Width-Kartenlayout)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useExtensionStore.getState().clearSelection();
+    // storeTab lebt global im extensionStore (Plan 012 Phase B) — pro Test auf
+    // den Default-Reiter zurücksetzen, sonst leckt er zwischen Tests.
+    useExtensionStore.setState({ selected: null, storeTab: 'models' });
     setupDefaultApiResponses();
   });
 

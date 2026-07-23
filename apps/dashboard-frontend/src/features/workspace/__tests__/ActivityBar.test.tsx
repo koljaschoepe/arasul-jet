@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ActivityBar } from '../ActivityBar';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useExtensionStore } from '@/stores/extensionStore';
 
 // App-Gating deterministisch mocken (echte Datenbasis: GET /workspace-apps)
 const enabledApps = new Set<string>();
@@ -18,6 +19,7 @@ function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
     activeTabId: null,
+    activeView: 'files',
     sidebarVisible: true,
     rightPanelVisible: true,
     rightPanelMode: 'chat',
@@ -26,38 +28,68 @@ function resetStore() {
     chatScope: null,
     explorerRequest: null,
   });
+  useExtensionStore.setState({ storeTab: 'models', selected: null });
 }
 
-describe('ActivityBar — Cursor-Icon-Zeile oben: Dateien + Extensions + aktivierte Apps', () => {
+describe('ActivityBar — feste Spalte: Dateien · Suche · Modelle · Erweiterungen · Skills + Zahnrad', () => {
   beforeEach(() => {
     resetStore();
     enabledApps.clear();
   });
 
-  it('zeigt Dateien und Extensions — kein Chat/Wissen, kein festes Automation, und NICHT mehr Einstellungen (die sitzen im Footer)', () => {
+  it('zeigt die fünf Ansichten und das Einstellungen-Zahnrad (jetzt in der Bar)', () => {
     render(<ActivityBar />);
-    expect(screen.getByLabelText('Dateien')).toBeInTheDocument();
-    expect(screen.getByLabelText('Extensions')).toBeInTheDocument();
-    // Einstellungen wandern in den SidebarFooter (Cursor-Zahnrad unten links)
-    expect(screen.queryByLabelText('Einstellungen')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Chat')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Wissen')).not.toBeInTheDocument();
-    // Automation ist kein fester Bereich mehr — nur als aktivierte Erweiterung
+    for (const label of [
+      'Dateien',
+      'Suche',
+      'Modelle',
+      'Erweiterungen',
+      'Skills',
+      'Einstellungen',
+    ]) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+    }
+    // Automation ist kein fester Bereich — nur als aktivierte Erweiterung
     expect(screen.queryByLabelText('Automation')).not.toBeInTheDocument();
   });
 
-  it('Dateien blendet die Explorer-Sidebar um', () => {
+  it('Suche wählt die Ansicht und zieht die Sidebar auf', () => {
+    useWorkspaceStore.setState({ sidebarVisible: false });
+    render(<ActivityBar />);
+    fireEvent.click(screen.getByLabelText('Suche'));
+    const s = useWorkspaceStore.getState();
+    expect(s.activeView).toBe('search');
+    expect(s.sidebarVisible).toBe(true);
+  });
+
+  it('Dateien (aktiv + offen) klappt die Sidebar wieder ein', () => {
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Dateien'));
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
   });
 
-  it('Extensions öffnet den Store-Tab', () => {
+  it('Modelle öffnet den Store-Tab und aktiviert den Modelle-Reiter', () => {
     render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Extensions'));
+    fireEvent.click(screen.getByLabelText('Modelle'));
     const s = useWorkspaceStore.getState();
+    expect(s.activeView).toBe('models');
     expect(s.activeTabId).toBe('store');
-    expect(s.tabs.map(t => t.type)).toEqual(['store']);
+    expect(useExtensionStore.getState().storeTab).toBe('models');
+  });
+
+  it('Erweiterungen öffnet den Store-Tab und aktiviert den Erweiterungen-Reiter', () => {
+    render(<ActivityBar />);
+    fireEvent.click(screen.getByLabelText('Erweiterungen'));
+    const s = useWorkspaceStore.getState();
+    expect(s.activeView).toBe('extensions');
+    expect(s.activeTabId).toBe('store');
+    expect(useExtensionStore.getState().storeTab).toBe('extensions');
+  });
+
+  it('Einstellungen öffnet den Einstellungen-Tab', () => {
+    render(<ActivityBar />);
+    fireEvent.click(screen.getByLabelText('Einstellungen'));
+    expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
   });
 
   it('n8n (Automation) erscheint NUR wenn die Erweiterung aktiviert ist und öffnet den Automationen-Tab', () => {

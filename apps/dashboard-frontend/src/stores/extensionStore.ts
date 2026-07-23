@@ -12,6 +12,9 @@ import { create } from 'zustand';
 
 export type ExtensionKind = 'model' | 'app';
 
+/** Reiter im Store-Tab: Modelle oder Erweiterungen. */
+export type StoreTab = 'models' | 'extensions';
+
 export interface ExtensionSelection {
   kind: ExtensionKind;
   id: string;
@@ -20,12 +23,21 @@ export interface ExtensionSelection {
 interface ExtensionState {
   /** Aktuell in der Mitte angezeigte Extension, oder null (Leerzustand). */
   selected: ExtensionSelection | null;
+  /**
+   * Aktiver Reiter im Store (Plan 012 Phase B, Schritt 6): aus lokalem
+   * Component-State in den Store gehoben, damit die Activity-Bar »Modelle«/
+   * »Erweiterungen« direkt den passenden Reiter aktivieren kann.
+   */
+  storeTab: StoreTab;
   selectExtension: (selection: ExtensionSelection) => void;
   clearSelection: () => void;
+  setStoreTab: (tab: StoreTab) => void;
 }
 
 export const useExtensionStore = create<ExtensionState>()(set => ({
   selected: null,
+  storeTab: 'models',
   selectExtension: selection => set({ selected: selection }),
   clearSelection: () => set({ selected: null }),
+  setStoreTab: tab => set({ storeTab: tab }),
 }));

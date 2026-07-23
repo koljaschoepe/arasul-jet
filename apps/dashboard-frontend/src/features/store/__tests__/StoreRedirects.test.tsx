@@ -39,7 +39,9 @@ function renderAt(path: string) {
 
 describe('Store — Full-Width + Redirects', () => {
   beforeEach(() => {
-    useExtensionStore.getState().clearSelection();
+    // storeTab lebt jetzt global im extensionStore (Plan 012 Phase B) — pro Test
+    // auf den Default-Reiter zurücksetzen, sonst leckt er zwischen Tests.
+    useExtensionStore.setState({ selected: null, storeTab: 'models' });
   });
 
   it('/store/models?highlight=llama3 → Auswahl Modell + Redirect auf /store', async () => {

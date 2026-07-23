@@ -5,6 +5,7 @@ function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
     activeTabId: null,
+    activeView: 'files',
     sidebarVisible: true,
     sidebarRestore: null,
     rightPanelVisible: true,
@@ -97,7 +98,7 @@ describe('workspaceStore — Tabs', () => {
     const raw = localStorage.getItem('arasul_workspace');
     expect(raw).toBeTruthy();
     const parsed = JSON.parse(raw ?? '{}');
-    expect(parsed.version).toBe(5);
+    expect(parsed.version).toBe(6);
     expect(parsed.state.tabs).toHaveLength(1);
     expect(parsed.state.activeTabId).toBe('automationen');
     // chatScope ist ephemer und wird nicht persistiert
@@ -398,12 +399,14 @@ describe('workspaceStore — Migration v2 → v4', () => {
     expect(s.activeTabId).toBe('document:99');
   });
 
-  it('schreibt den migrierten Stand als version 4 zurück (Alt-Felder weg)', async () => {
+  it('schreibt den migrierten Stand als version 6 zurück (Alt-Felder weg)', async () => {
     await rehydrateFrom(V2_TERMINAL_MODE);
     // Ein Write triggert die Persistierung des migrierten Stands
     useWorkspaceStore.getState().toggleSidebar();
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
-    expect(parsed.version).toBe(5);
+    expect(parsed.version).toBe(6);
+    // v6 ergänzt additiv die Activity-Bar-Ansicht (Default 'files').
+    expect(parsed.state.activeView).toBe('files');
     expect(parsed.state.rightPanelVisible).toBe(true);
     expect(parsed.state.rightPanelMode).toBe('terminal');
     expect(parsed.state.llmPanelMode).toBeUndefined();
@@ -518,7 +521,7 @@ describe('workspaceStore — Migration v3 → v4', () => {
     });
     useWorkspaceStore.getState().toggleSidebar();
     const parsed = JSON.parse(localStorage.getItem('arasul_workspace') ?? '{}');
-    expect(parsed.version).toBe(5);
+    expect(parsed.version).toBe(6);
     expect(parsed.state.rightPanelVisible).toBe(true);
     expect(parsed.state.rightPanelMode).toBe('terminal');
     expect(parsed.state.chatVisible).toBeUndefined();
@@ -572,6 +575,77 @@ describe('workspaceStore — Migration v3 → v4', () => {
     expect(s.sidebarVisible).toBe(false);
     expect(s.terminalSessions).toEqual([{ id: 'p1', projectId: 'p1', title: 'proj' }]);
     expect(s.activeTerminalSessionId).toBe('p1');
+  });
+});
+
+describe('workspaceStore — Activity-Bar-Ansicht (selectView, Plan 012 Phase B)', () => {
+  beforeEach(resetStore);
+
+  it('Default-Ansicht ist »files«', () => {
+    expect(useWorkspaceStore.getState().activeView).toBe('files');
+  });
+
+  it('selectView wählt eine andere Ansicht und zieht die Sidebar auf', () => {
+    useWorkspaceStore.setState({ sidebarVisible: false });
+    useWorkspaceStore.getState().selectView('models');
+    const s = useWorkspaceStore.getState();
+    expect(s.activeView).toBe('models');
+    expect(s.sidebarVisible).toBe(true);
+  });
+
+  it('selectView auf die aktive Ansicht bei offener Sidebar klappt ein (VS-Code)', () => {
+    // files ist aktiv + sichtbar → erneuter Klick klappt ein
+    useWorkspaceStore.getState().selectView('files');
+    const s = useWorkspaceStore.getState();
+    expect(s.sidebarVisible).toBe(false);
+    // Ansicht bleibt erhalten, nur zugeklappt
+    expect(s.activeView).toBe('files');
+  });
+
+  it('selectView auf die aktive, aber eingeklappte Ansicht zieht wieder auf', () => {
+    useWorkspaceStore.setState({ activeView: 'search', sidebarVisible: false });
+    useWorkspaceStore.getState().selectView('search');
+    const s = useWorkspaceStore.getState();
+    expect(s.activeView).toBe('search');
+    expect(s.sidebarVisible).toBe(true);
+  });
+
+  it('requestExplorerAction erzwingt die Datei-Ansicht', () => {
+    useWorkspaceStore.setState({ activeView: 'skills', sidebarVisible: false });
+    useWorkspaceStore.getState().requestExplorerAction('upload-files');
+    const s = useWorkspaceStore.getState();
+    expect(s.activeView).toBe('files');
+    expect(s.sidebarVisible).toBe(true);
+  });
+});
+
+describe('workspaceStore — Migration v5 → v6 (activeView)', () => {
+  beforeEach(resetStore);
+
+  async function rehydrateFrom(persisted: unknown) {
+    localStorage.setItem('arasul_workspace', JSON.stringify(persisted));
+    await useWorkspaceStore.persist.rehydrate();
+  }
+
+  it('ergänzt activeView=»files« und lässt das Panel-Layout unberührt', async () => {
+    await rehydrateFrom({
+      state: {
+        tabs: [{ id: 'automationen', type: 'automationen', title: 'Dashboard' }],
+        activeTabId: 'automationen',
+        sidebarVisible: false,
+        rightPanelVisible: false,
+        rightPanelMode: 'terminal',
+        terminalSessions: [],
+        activeTerminalSessionId: null,
+      },
+      version: 5,
+    });
+    const s = useWorkspaceStore.getState();
+    expect(s.activeView).toBe('files');
+    // Layout (Sichtbarkeit + Modus) darf NICHT zurückgesetzt werden.
+    expect(s.sidebarVisible).toBe(false);
+    expect(s.rightPanelVisible).toBe(false);
+    expect(s.rightPanelMode).toBe('terminal');
   });
 });
 

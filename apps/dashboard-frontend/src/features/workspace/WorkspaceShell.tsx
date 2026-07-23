@@ -8,6 +8,7 @@ import { StatusBar } from './StatusBar';
 import { TabBar } from './TabBar';
 import { TabContent } from './TabContent';
 import type { TabThemeControls } from './TabContent';
+import { ActivityBar } from './ActivityBar';
 import { SidebarHost } from './SidebarHost';
 import { RightPanel } from './RightPanel';
 
@@ -144,6 +145,10 @@ export default function WorkspaceShell(props: TabThemeControls) {
     >
       <WorkspaceMenuBar themeControls={props} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Immer sichtbare Activity-Bar links, außerhalb des einklappbaren
+            Panels — so bleibt jede Ansicht (v. a. »Dateien«) erreichbar, auch
+            wenn die Sidebar zu ist (Plan 012 Phase B, Schritt 5). */}
+        <ActivityBar />
         <Group
           orientation="horizontal"
           className="flex-1"
