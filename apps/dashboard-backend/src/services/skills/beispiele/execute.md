@@ -17,28 +17,32 @@ grenzen:
   werkzeug_runden: 16
 ---
 
-Du testest eine Arasul-Erweiterung in der **Erweiterungs-Werkstatt** und meldest
-das Ergebnis ehrlich zurück.
+Du testest die Arasul-Erweiterung im Unterordner `{{ordner}}`.
 
-Zu prüfender Unterordner: `{{ordner}}` — ist der Wert leer, suche mit dem
-Werkzeug `dateien_lesen` (Aktion `list`) selbst nach Unterordnern, die eine
-`manifest.json` enthalten, und prüfe jeden davon.
+**Eiserne Regel: Du darfst NICHTS berichten, was nicht wörtlich in einer
+Werkzeug-Ausgabe steht.** Kein Wert, kein Prüfergebnis, kein Testlauf wird aus
+dem Gedächtnis oder aus Plausibilität erzeugt. Hast du einen Schritt nicht
+ausgeführt oder ist seine Ausgabe leer, schreibe dazu exakt
+`nicht geprüft`. Erfundene Ergebnisse sind der schlimmste mögliche Fehler —
+schlimmer als ein gefundener Defekt.
 
-Prüfe je Erweiterung in dieser Reihenfolge:
+Führe GENAU diese vier Werkzeug-Aufrufe der Reihe nach aus, einen pro Schritt:
 
-1. **Manifest**: `manifest.json` lesen. Sind `id`, `name`, `type`, `accessTier`,
-   `version`, `arasulExtensionVersion` und `entry` vorhanden und plausibel? Ist
-   `type` eines von app | flow | tool und `accessTier` eines von internet |
-   internal | full? Existiert die unter `entry` genannte Datei?
-2. **Syntax** (Werkzeug `terminal`, Arbeitsverzeichnis ist die Werkstatt):
-   - **tool**: `node --check <entry>` bzw. bei `.mjs` einen Import-Testlauf.
-   - **flow**: JSON-Gültigkeit der `workflow.json` prüfen.
-   - **app**: prüfen, dass die `index.html` existiert und ein `<html`-Element
-     enthält.
-3. **Testlauf**, wo sinnvoll: ein `tool` einmal mit einer Beispiel-Eingabe über
-   stdin aufrufen und die Ausgabe zeigen.
+1. `dateien_lesen` mit `aktion=read`, `pfad={{ordner}}/manifest.json`.
+2. `terminal` mit `befehl=cat {{ordner}}/manifest.json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const m=JSON.parse(s);console.log('FELDER',Object.keys(m).join(','));console.log('TYPE',m.type,'TIER',m.accessTier,'VERSION',m.version,'ENTRY',m.entry)})"`
+3. `terminal` mit `befehl=ls -l {{ordner}} && node --check {{ordner}}/$(node -pe "require('./{{ordner}}/manifest.json').entry")`
+4. `terminal` mit `befehl=echo '{"text":"hallo"}' | node {{ordner}}/$(node -pe "require('./{{ordner}}/manifest.json').entry")`
+   (nur bei `type` = `tool`; sonst diesen Schritt auslassen und als
+   `nicht geprüft` melden.)
 
-Melde am Ende **klar getrennt**, was funktioniert hat und was nicht. Nenne bei
-Fehlern die exakte Fehlermeldung und die betroffene Datei. Beschönige nichts —
-ein fehlgeschlagener Testlauf wird als fehlgeschlagen gemeldet, nicht als
-„vermutlich in Ordnung". Antworte auf Deutsch.
+Schreibe danach deinen Bericht. Für JEDE der vier Zeilen gilt: übernimm den
+Befund wörtlich aus der Werkzeug-Ausgabe des jeweiligen Schritts.
+
+- **Manifest gelesen:** die Feldwerte GENAU so, wie Schritt 1/2 sie ausgegeben
+  haben — nicht wie du sie erwarten würdest.
+- **Syntax-Prüfung:** die Ausgabe von Schritt 3. Exit-Code 0 ohne Meldung heißt
+  „in Ordnung"; jede Fehlermeldung wörtlich zitieren.
+- **Testlauf:** die Ausgabe von Schritt 4, wörtlich.
+- **Fazit:** ein Satz — brauchbar oder nicht, und warum.
+
+Antworte auf Deutsch.
