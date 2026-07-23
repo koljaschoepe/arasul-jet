@@ -3,6 +3,8 @@ import {
   sizeBucketOf,
   applyModelFilters,
   deriveModelFacets,
+  sortModels,
+  typeLabel,
   toggleValue,
   activeFilterCount,
   EMPTY_MODEL_FILTERS,
@@ -20,7 +22,6 @@ function model(p: Partial<CatalogModel>): CatalogModel {
     category: p.category ?? 'llm',
     install_status: p.install_status ?? 'available',
     model_type: p.model_type,
-    capabilities: p.capabilities,
     ...p,
   };
 }
@@ -30,7 +31,6 @@ const CATALOG: CatalogModel[] = [
     id: 'a',
     name: 'Llama',
     model_type: 'llm',
-    capabilities: ['chat'],
     ram_required_gb: 5,
     install_status: 'available',
   }),
@@ -38,7 +38,6 @@ const CATALOG: CatalogModel[] = [
     id: 'b',
     name: 'Llava',
     model_type: 'vision',
-    capabilities: ['chat', 'vision'],
     ram_required_gb: 12,
     install_status: 'available',
   }),
@@ -46,7 +45,6 @@ const CATALOG: CatalogModel[] = [
     id: 'c',
     name: 'BGE',
     model_type: 'embedding',
-    capabilities: ['embedding'],
     ram_required_gb: 20,
     install_status: 'available',
   }),
@@ -64,6 +62,17 @@ describe('sizeBucketOf', () => {
   });
 });
 
+describe('typeLabel', () => {
+  it('gibt klare Labels statt roher Katalogwerte', () => {
+    expect(typeLabel('llm')).toBe('Sprachmodell');
+    expect(typeLabel('ocr')).toBe('OCR');
+    expect(typeLabel('embedding')).toBe('Embedding');
+  });
+  it('fällt bei unbekanntem Typ auf Groß­schreibung zurück (kein „Llm")', () => {
+    expect(typeLabel('sonstiges')).toBe('Sonstiges');
+  });
+});
+
 describe('applyModelFilters', () => {
   it('leerer Filter + leere Suche → alle', () => {
     expect(applyModelFilters(CATALOG, EMPTY_MODEL_FILTERS, '')).toHaveLength(3);
@@ -72,20 +81,8 @@ describe('applyModelFilters', () => {
     const f: ModelFilterState = { ...EMPTY_MODEL_FILTERS, types: ['vision'] };
     expect(applyModelFilters(CATALOG, f, '').map(m => m.id)).toEqual(['b']);
   });
-  it('Fähigkeit ODER innerhalb der Gruppe', () => {
-    const f: ModelFilterState = { ...EMPTY_MODEL_FILTERS, capabilities: ['vision', 'embedding'] };
-    expect(
-      applyModelFilters(CATALOG, f, '')
-        .map(m => m.id)
-        .sort()
-    ).toEqual(['b', 'c']);
-  });
   it('Gruppen werden mit UND kombiniert', () => {
-    const f: ModelFilterState = {
-      ...EMPTY_MODEL_FILTERS,
-      capabilities: ['chat'],
-      sizes: ['klein'],
-    };
+    const f: ModelFilterState = { ...EMPTY_MODEL_FILTERS, types: ['llm'], sizes: ['klein'] };
     expect(applyModelFilters(CATALOG, f, '').map(m => m.id)).toEqual(['a']);
   });
   it('Suche filtert nach Name', () => {
@@ -93,11 +90,28 @@ describe('applyModelFilters', () => {
   });
 });
 
+describe('sortModels — Status → Größe', () => {
+  it('installierte Modelle zuerst, dann nach RAM-Bedarf aufsteigend', () => {
+    // install_status === 'available' bedeutet im Katalog „installiert".
+    const catalog = [
+      model({ id: 'big-inst', ram_required_gb: 30, install_status: 'available' }),
+      model({ id: 'small-avail', ram_required_gb: 4, install_status: 'not_installed' }),
+      model({ id: 'small-inst', ram_required_gb: 4, install_status: 'available' }),
+    ];
+    expect(sortModels(catalog).map(m => m.id)).toEqual(['small-inst', 'big-inst', 'small-avail']);
+  });
+  it('mutiert die Eingabe nicht', () => {
+    const input = [...CATALOG];
+    sortModels(input);
+    expect(input.map(m => m.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
 describe('deriveModelFacets', () => {
-  it('zählt Fähigkeiten, Typen, Größen, Status', () => {
+  it('zählt Typen, Größen, Status (keine Fähigkeit mehr)', () => {
     const f = deriveModelFacets(CATALOG);
-    expect(f.capabilities.find(c => c.value === 'chat')?.count).toBe(2);
     expect(f.types.map(t => t.value).sort()).toEqual(['embedding', 'llm', 'vision']);
+    expect(f.types.find(t => t.value === 'llm')?.label).toBe('Sprachmodell');
     expect(f.sizes.map(s => s.value)).toEqual(['klein', 'mittel', 'gross']);
     // Achtung: install_status === 'available' bedeutet im Katalog „installiert".
     expect(f.status.find(s => s.value === 'installed')?.count).toBe(3);
@@ -110,8 +124,6 @@ describe('toggleValue / activeFilterCount', () => {
     expect(toggleValue(['a', 'b'], 'a')).toEqual(['b']);
   });
   it('zählt aktive Filter über alle Gruppen', () => {
-    expect(
-      activeFilterCount({ capabilities: ['x'], types: ['y'], sizes: ['klein'], status: [] })
-    ).toBe(3);
+    expect(activeFilterCount({ types: ['y'], sizes: ['klein'], status: [] })).toBe(2);
   });
 });

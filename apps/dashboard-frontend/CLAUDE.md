@@ -48,13 +48,17 @@ src/
                      Der Auto-Collapse für App-Tabs (`sidebarRestore`/
                      `syncSidebarForTab`) bleibt verdrahtet, `APP_TAB_TYPES` ist
                      derzeit leer (n8n läuft als Mitte-Tab).
-                   • **Erweiterungen/Store** — Full-Width-Kartenlayout im
+                   • **Erweiterungen/Store** — Full-Width-Kartenraster im
                      Mitte-Tab mit zwei Reitern [Modelle | Erweiterungen]
                      (StoreModelsGrid / StoreExtensionsGrid); ein Klick auf eine
                      Karte öffnet die Detailseite (StoreDetailPage) mit
                      „← Zurück". Modelle = Katalog (Laden/Aktivieren), Erweiterungen
                      = Workspace-Apps (An/Aus über `PUT /workspace-apps/:id`). Die
-                     Auswahl läuft über den ephemeren extensionStore; alte
+                     Filter leben in der linken Sidebar (StoreModelsFilterPanel /
+                     StoreExtensionsFilterPanel), das Raster liest sie aus dem
+                     `storeFilterStore` (Plan 012 Phase C); Reiter + Auswahl laufen
+                     über den ephemeren extensionStore (`storeTab`), der
+                     „Eigene Erweiterung bauen"-Einstieg über `kind:'builder'`. Alte
                      /store/models|apps-Deep-Links leiten um.
                    • **Flächenfarbe** — alle Grundflächen (Sidebar, Mitte,
                      RightPanel) teilen `--background` (`bg-background`); Trennung

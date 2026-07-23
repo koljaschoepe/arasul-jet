@@ -13,9 +13,16 @@ vi.mock('../explorer/ExplorerPanel', () => ({
   ExplorerPanel: () => <div data-testid="explorer" />,
 }));
 
-// Skills-Ansicht zieht echte Daten (useSkills) — hier isolieren.
+// Ansichten mit Datenanbindung (useSkills / useStoreCatalog) hier isolieren —
+// dieser Test prüft nur das Ansichts-Mapping, nicht deren Innenleben.
 vi.mock('../sidebar/SkillsPanel', () => ({
   SkillsPanel: () => <div data-testid="skills-panel" />,
+}));
+vi.mock('../sidebar/ModelsPanel', () => ({
+  ModelsPanel: () => <div data-testid="models-panel" />,
+}));
+vi.mock('../sidebar/ExtensionsPanel', () => ({
+  ExtensionsPanel: () => <div data-testid="extensions-panel" />,
 }));
 
 function reset(activeView: 'files' | 'search' | 'models' | 'extensions' | 'skills') {
@@ -47,13 +54,13 @@ describe('SidebarHost — Ansichts-Mapping', () => {
   it('models → Modell-Ansicht', () => {
     reset('models');
     render(<SidebarHost />);
-    expect(screen.getByText('Modelle')).toBeInTheDocument();
+    expect(screen.getByTestId('models-panel')).toBeInTheDocument();
   });
 
   it('extensions → Erweiterungs-Ansicht', () => {
     reset('extensions');
     render(<SidebarHost />);
-    expect(screen.getByText('Erweiterungen')).toBeInTheDocument();
+    expect(screen.getByTestId('extensions-panel')).toBeInTheDocument();
   });
 
   it('skills → Skill-Ansicht', () => {

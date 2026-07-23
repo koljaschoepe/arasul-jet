@@ -22,6 +22,15 @@ const catalog = {
       speed_tier: 'balanced',
       context_window: 32768,
     },
+    {
+      id: 'llama3-mini',
+      name: 'Llama 3 Mini',
+      description: 'Kompakt',
+      size_bytes: 2_000_000_000,
+      ram_required_gb: 4,
+      category: 'medium',
+      install_status: 'not_installed',
+    },
   ],
   apps: [],
   loadedModel: null as { model_id: string; ram_usage_mb?: number } | null,
@@ -144,11 +153,27 @@ describe('StoreDetailPage', () => {
     );
   });
 
+  it('Modell-Detail: verwandte Modelle werden gezeigt und sind anklickbar', () => {
+    useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3' });
+    renderPage();
+    expect(screen.getByText('Verwandte Modelle')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('related-model-llama3-mini'));
+    expect(useExtensionStore.getState().selected).toEqual({ kind: 'model', id: 'llama3-mini' });
+  });
+
   it('Erweiterungs-Detail: Deaktivieren ruft setAppEnabled', async () => {
     useExtensionStore.getState().selectExtension({ kind: 'app', id: 'n8n' });
     renderPage();
     expect(screen.getByRole('heading', { name: 'n8n' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Deaktivieren/ }));
     await waitFor(() => expect(setAppEnabled).toHaveBeenCalledWith('n8n', false));
+  });
+
+  it('Baukasten-Einstieg (kind: builder) zeigt die Foundation-Seite', () => {
+    useExtensionStore.getState().selectExtension({ kind: 'builder', id: 'builder' });
+    renderPage();
+    expect(screen.getByRole('heading', { name: 'Eigene Erweiterung bauen' })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('store-detail-back'));
+    expect(onBack).toHaveBeenCalled();
   });
 });

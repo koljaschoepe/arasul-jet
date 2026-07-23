@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
+  Blocks,
   Cpu,
   Download,
   ExternalLink,
@@ -174,14 +175,61 @@ function DetailShell({
 
 // --- Model detail ---
 
+/**
+ * Verwandte Modelle (Plan 012 Phase C Schritt 8): weitere Modelle desselben
+ * Typs (Fallback: dieselbe Kategorie), damit die Detailseite gefüllt wirkt und
+ * zum Stöbern einlädt. Ein Klick öffnet die Detailseite des anderen Modells.
+ */
+function RelatedModels({ current, all }: { current: CatalogModel; all: CatalogModel[] }) {
+  const selectExtension = useExtensionStore(s => s.selectExtension);
+  const related = all
+    .filter(
+      m =>
+        m.id !== current.id &&
+        (current.model_type ? m.model_type === current.model_type : m.category === current.category)
+    )
+    .slice(0, 4);
+
+  if (related.length === 0) return null;
+
+  return (
+    <div className="mt-6 border-t border-border pt-6">
+      <h2 className="mb-3 text-sm font-semibold text-foreground">Verwandte Modelle</h2>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {related.map(m => (
+          <button
+            key={m.id}
+            type="button"
+            data-testid={`related-model-${m.id}`}
+            onClick={() => selectExtension({ kind: 'model', id: m.id })}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left transition-colors hover:border-primary/40"
+          >
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary [&_svg]:size-3.5">
+              <Cpu aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-foreground">{m.name}</span>
+              <span className="block truncate text-xs text-muted-foreground">
+                {formatSize(m.size_bytes)}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ModelDetail({
   model,
+  allModels,
   loadedModel,
   defaultModel,
   onChanged,
   onBack,
 }: {
   model: CatalogModel;
+  allModels: CatalogModel[];
   loadedModel: LoadedModel | null;
   defaultModel: string | null;
   onChanged: () => void;
@@ -344,6 +392,8 @@ function ModelDetail({
           </a>
         </div>
       )}
+
+      <RelatedModels current={model} all={allModels} />
       {ConfirmDialog}
     </DetailShell>
   );
@@ -421,6 +471,55 @@ function ExtensionDetail({
   );
 }
 
+// --- Erweiterungs-Baukasten (Einstieg, Plan 012 Phase C Schritt 9) ---
+
+/**
+ * Ehrlicher Einstieg in den Erweiterungs-Baukasten. Der frühere „kommt bald"-
+ * Platzhalter im Raster öffnet jetzt diese echte Seite; Phase E (der eigentliche
+ * Baukasten) füllt den Aktionsblock mit Vorlagen, Upload und Schnittstelle.
+ */
+function BuilderDetail({ onBack }: { onBack: () => void }) {
+  const steps = [
+    'Eine Erweiterung beschreiben (Name, Zweck, Typ)',
+    'Zugriffs-Stufe festlegen (nur Internet · interne Dienste · voll)',
+    'Aus einer Vorlage starten oder ein Paket hochladen',
+    'Aktivieren — die Erweiterung erscheint im Workspace',
+  ];
+  return (
+    <DetailShell
+      onBack={onBack}
+      icon={<Blocks />}
+      title="Eigene Erweiterung bauen"
+      badges={
+        <Badge variant="outline" className="border-border bg-muted text-muted-foreground">
+          In Arbeit
+        </Badge>
+      }
+      footer={
+        <Button disabled>
+          <Blocks className="size-4" /> Baukasten öffnen — bald verfügbar
+        </Button>
+      }
+    >
+      <p className="leading-relaxed text-muted-foreground">
+        Der Erweiterungs-Baukasten macht Arasul offen: Über eine definierte Schnittstelle lassen
+        sich eigene Apps, n8n-Flows und Werkzeug-Konnektoren bauen und im Workspace bereitstellen —
+        vollständig lokal. Die Bau-Oberfläche folgt in Kürze; so wird der Ablauf aussehen:
+      </p>
+      <ol className="mt-6 flex flex-col gap-2 border-t border-border pt-6">
+        {steps.map((step, i) => (
+          <li key={step} className="flex items-start gap-3 text-sm text-foreground">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              {i + 1}
+            </span>
+            <span className="pt-0.5">{step}</span>
+          </li>
+        ))}
+      </ol>
+    </DetailShell>
+  );
+}
+
 // --- Not found fallback ---
 
 function NotFound({ onBack }: { onBack: () => void }) {
@@ -450,12 +549,15 @@ export function StoreDetailPage({ onBack }: { onBack: () => void }) {
 
   if (!selected) return <NotFound onBack={onBack} />;
 
+  if (selected.kind === 'builder') return <BuilderDetail onBack={onBack} />;
+
   if (selected.kind === 'model') {
     const model = models.find(m => m.id === selected.id);
     if (!model) return <NotFound onBack={onBack} />;
     return (
       <ModelDetail
         model={model}
+        allModels={models}
         loadedModel={loadedModel}
         defaultModel={defaultModel}
         onChanged={invalidateModels}

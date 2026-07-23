@@ -8,8 +8,8 @@
  * Deaktivieren schließt der Hook offene Mitte-Tabs der App. Ein Klick auf die
  * Karte (nicht den Schalter) öffnet die Detailseite über den Extension-Store.
  */
-import { useState } from 'react';
-import { Package, Upload } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Package, Blocks } from 'lucide-react';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { Switch } from '@/components/ui/shadcn/switch';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 import type { WorkspaceApp } from '@/hooks/useWorkspaceApps';
 import { useExtensionStore } from '@/stores/extensionStore';
+import { useStoreFilterStore } from '@/stores/storeFilterStore';
+import { applyExtensionFilters, activeExtFilterCount } from './storeExtensionFilters';
 
 function ExtensionCard({
   app,
@@ -90,6 +92,11 @@ function ExtensionCard({
 
 export function StoreExtensionsGrid() {
   const { apps, setAppEnabled } = useWorkspaceApps();
+  const filters = useStoreFilterStore(s => s.extFilters);
+  const selectExtension = useExtensionStore(s => s.selectExtension);
+
+  const visible = useMemo(() => applyExtensionFilters(apps, filters), [apps, filters]);
+  const isFiltered = activeExtFilterCount(filters) > 0;
 
   return (
     <div
@@ -98,29 +105,41 @@ export function StoreExtensionsGrid() {
       aria-label="Erweiterungen"
     >
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-          {apps.map(app => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map(app => (
             <ExtensionCard key={app.id} app={app} onToggle={setAppEnabled} />
           ))}
 
-          {/* Plan 009: ehrlicher Ausblick auf den selbst-baubaren Marktplatz
-              (eigene Extension-Schnittstelle) — die echte Upload-Funktion kommt
-              in Plan 010. Bewusst nicht klickbar, kein Fake. */}
-          <div
-            data-testid="ext-coming-soon"
-            className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center"
-          >
-            <span className="flex size-9 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-4">
-              <Upload aria-hidden="true" />
-            </span>
-            <span className="text-ui-sm font-semibold text-foreground">
-              Eigene Erweiterungen hochladen
-            </span>
-            <span className="text-ui-xs text-muted-foreground">
-              Baue eigene Erweiterungen über eine definierte Schnittstelle — kommt bald.
-            </span>
-          </div>
+          {/* Plan 012 Phase C Schritt 9: der frühere „kommt bald"-Platzhalter ist
+              jetzt ein echter Einstieg in den Erweiterungs-Baukasten (öffnet die
+              Detailseite, kind:'builder'). Nur ohne aktive Filter zeigen — bei
+              gesetztem Filter ginge es um Erweiterungen, nicht ums Bauen. */}
+          {!isFiltered && (
+            <button
+              type="button"
+              data-testid="ext-builder-entry"
+              onClick={() => selectExtension({ kind: 'builder', id: 'builder' })}
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center outline-none transition-colors hover:border-primary/40 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary [&_svg]:size-4">
+                <Blocks aria-hidden="true" />
+              </span>
+              <span className="text-ui-sm font-semibold text-foreground">
+                Eigene Erweiterung bauen
+              </span>
+              <span className="text-ui-xs text-muted-foreground">
+                Apps, n8n-Flows und Konnektoren über eine definierte Schnittstelle — Einstieg
+                öffnen.
+              </span>
+            </button>
+          )}
         </div>
+
+        {visible.length === 0 && isFiltered && (
+          <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+            Keine Erweiterungen passen zum Filter.
+          </p>
+        )}
       </div>
     </div>
   );

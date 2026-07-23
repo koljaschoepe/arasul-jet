@@ -10,7 +10,12 @@ import { create } from 'zustand';
  * immer im Leerzustand („nichts gewählt", d. h. Raster) startet.
  */
 
-export type ExtensionKind = 'model' | 'app';
+/**
+ * `builder` ist der Einstieg in den Erweiterungs-Baukasten (Plan 012 Phase C
+ * Schritt 9): der frühere „kommt bald"-Platzhalter öffnet nun eine echte
+ * Detailseite, die Phase E mit Leben füllt.
+ */
+export type ExtensionKind = 'model' | 'app' | 'builder';
 
 /** Reiter im Store-Tab: Modelle oder Erweiterungen. */
 export type StoreTab = 'models' | 'extensions';

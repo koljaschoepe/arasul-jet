@@ -10,6 +10,8 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useExtensionStore } from '@/stores/extensionStore';
+import { useStoreFilterStore } from '@/stores/storeFilterStore';
+import { EMPTY_MODEL_FILTERS } from '../storeModelFilters';
 import { StoreModelsGrid } from '../StoreModelsGrid';
 
 type Model = {
@@ -21,6 +23,7 @@ type Model = {
   category: string;
   install_status: string;
   effective_ollama_name?: string;
+  model_type?: string;
 };
 
 const invalidateModels = vi.fn();
@@ -80,6 +83,8 @@ describe('StoreModelsGrid', () => {
     for (const k of Object.keys(downloadStates)) delete downloadStates[k];
     completeCallbacks.clear();
     useExtensionStore.getState().clearSelection();
+    // Filter leben jetzt im storeFilterStore (Plan 012 Phase C) — pro Test leeren.
+    useStoreFilterStore.setState({ modelQuery: '', modelFilters: EMPTY_MODEL_FILTERS });
   });
 
   it('zeigt Größe und Status „Installiert" für ein heruntergeladenes Modell', () => {
@@ -87,10 +92,19 @@ describe('StoreModelsGrid', () => {
     renderGrid();
     expect(screen.getByText('Qwen3 7B')).toBeInTheDocument();
     expect(screen.getByText('4.7 GB')).toBeInTheDocument();
-    // „Installiert" steht jetzt auch als Status-Facette in der Filter-Leiste —
-    // deshalb gezielt das Karten-Badge prüfen (Plan 009).
     const card = screen.getByTestId('model-card-qwen3-7b');
     expect(within(card).getByText('Installiert')).toBeInTheDocument();
+  });
+
+  it('liest Filter aus dem storeFilterStore (Sidebar steuert das Raster)', () => {
+    catalog.models = [
+      model({ id: 'llm-1', name: 'LLM Eins', model_type: 'llm' }),
+      model({ id: 'vis-1', name: 'Vision Eins', model_type: 'vision' }),
+    ];
+    useStoreFilterStore.setState({ modelFilters: { ...EMPTY_MODEL_FILTERS, types: ['vision'] } });
+    renderGrid();
+    expect(screen.getByText('Vision Eins')).toBeInTheDocument();
+    expect(screen.queryByText('LLM Eins')).not.toBeInTheDocument();
   });
 
   it('ein nicht installiertes Modell hat einen Laden-Button, der startDownload auslöst', () => {

@@ -57,8 +57,8 @@ function StoreWorkspace() {
   // ins richtige Raster führt.
   useEffect(() => {
     if (selected?.kind === 'model') setTab('models');
-    else if (selected?.kind === 'app') setTab('extensions');
-  }, [selected]);
+    else if (selected?.kind === 'app' || selected?.kind === 'builder') setTab('extensions');
+  }, [selected, setTab]);
 
   if (selected) {
     return (
