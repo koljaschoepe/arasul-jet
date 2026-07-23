@@ -31,6 +31,7 @@
  */
 
 const path = require('path');
+const fs = require('fs');
 const logger = require('../../utils/logger');
 const { ValidationError } = require('../../utils/errors');
 const { docker } = require('../core/docker');
@@ -119,6 +120,29 @@ async function assertImagePresent() {
   }
 }
 
+/**
+ * Legt die Skill-Ordner an, BEVOR sie als Bind-Mount verwendet werden.
+ *
+ * Der Grund ist unscheinbar, aber folgenreich: fehlt das Quellverzeichnis eines
+ * Bind-Mounts, legt der Docker-Daemon es selbst an — und zwar als **root**.
+ * Das Backend läuft als `node` (uid 1000) und kann danach nicht mehr in seinen
+ * eigenen Arbeitsordner schreiben; `dateien_schreiben` scheitert mit
+ * `EACCES: permission denied, mkdir …`. Legen WIR den Ordner vorher an, gehört
+ * er dem Backend und Docker findet ihn einfach vor.
+ *
+ * Best-effort: schlägt das Anlegen fehl (z. B. read-only Mount), läuft der
+ * bisherige Weg weiter — der Fehler zeigt sich dann wie zuvor beim Zugriff.
+ */
+function ensureRootDirs(roots) {
+  for (const root of roots) {
+    try {
+      fs.mkdirSync(root, { recursive: true });
+    } catch (err) {
+      logger.warn(`Skill-Ordner ${root} konnte nicht angelegt werden: ${err.message}`);
+    }
+  }
+}
+
 /** Erwartete Bind-Einträge (`host:container:rw`) für eine Ordnerliste. */
 async function bindsFor(roots) {
   const binds = [];
@@ -142,6 +166,9 @@ async function ensureSkillSandbox(roots) {
   // Container wegräumen.
   const run = async () => {
     await assertImagePresent();
+    // Ordner anlegen, BEVOR Docker sie als root anlegen würde (siehe
+    // ensureRootDirs) — sonst kann das Backend nicht hineinschreiben.
+    ensureRootDirs(list);
     const binds = await bindsFor(list);
     const cwd = list[0];
 

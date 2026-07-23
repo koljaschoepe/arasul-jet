@@ -228,6 +228,46 @@ describe('sandboxResolve — Container-Lebenszyklus', () => {
     });
   }
 
+  it('legt die Skill-Ordner an, BEVOR Docker sie als root anlegen würde', async () => {
+    // Live auf dem Jetson gefunden (Plan 012 Phase E): fehlt das Quell-
+    // verzeichnis eines Bind-Mounts, legt der Docker-Daemon es als root an.
+    // Das Backend (uid 1000) kann danach nicht mehr hineinschreiben —
+    // `dateien_schreiben` scheiterte mit EACCES. Deshalb muss ensureSkillSandbox
+    // die Ordner selbst anlegen, bevor der Container entsteht.
+    const fs = require('fs');
+    const mkdirSpy = jest.spyOn(fs, 'mkdirSync').mockImplementation(() => {});
+    verdrahte(
+      jest.fn().mockResolvedValue({
+        Id: 'sandbox-1',
+        State: { Running: true },
+        HostConfig: { Binds: [erwarteterBind] },
+      })
+    );
+
+    await sandboxResolve.ensureSkillSandbox(roots);
+
+    expect(mkdirSpy).toHaveBeenCalledWith('/arasul/berichte', { recursive: true });
+    mkdirSpy.mockRestore();
+  });
+
+  it('ein fehlgeschlagenes Anlegen bricht den Lauf nicht ab', async () => {
+    const fs = require('fs');
+    const mkdirSpy = jest.spyOn(fs, 'mkdirSync').mockImplementation(() => {
+      throw new Error('EROFS: read-only file system');
+    });
+    verdrahte(
+      jest.fn().mockResolvedValue({
+        Id: 'sandbox-1',
+        State: { Running: true },
+        HostConfig: { Binds: [erwarteterBind] },
+      })
+    );
+
+    const res = await sandboxResolve.ensureSkillSandbox(roots);
+    expect(res.containerId).toBe('sandbox-1');
+    mkdirSpy.mockRestore();
+  });
+
   it('verwendet einen laufenden Container mit GENAU den passenden Ordnern weiter', async () => {
     verdrahte(
       jest.fn().mockResolvedValue({
