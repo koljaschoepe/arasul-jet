@@ -62,6 +62,19 @@ src/
                      Markdown-Datei) und **Laufzeit-Prompt** (aufgelöster Prompt aus
                      `POST /skills/vorschau-laufzeit`) um. Der Tab ist keep-alive,
                      damit ein halb ausgefülltes Formular einen Tab-Wechsel überlebt.
+                   • **Erweiterungs-Baukasten** — selbst gebaute/importierte
+                     Pakete (Plan 012 Phase E). Datenquelle ist der eigene Hook
+                     `useExtensions` (`GET /extensions`), NICHT `useWorkspaceApps`
+                     (das bleibt den kuratierten Kern-Apps wie n8n vorbehalten).
+                     Beide Listen laufen aber durch dieselbe Filter-Logik
+                     (`storeExtensionFilters`, strukturell typisiert über
+                     `FilterableExtension`) und teilen die Facetten Typ ·
+                     Zugriffs-Stufe · Bereich · Status. Auswahl läuft über den
+                     `extensionStore` mit `kind:'extension'` (Paket) vs.
+                     `kind:'app'` (Kern-App) vs. `kind:'builder'` (Baukasten-
+                     Einstieg) — bewusst getrennt, weil die Aktionen andere sind
+                     (Download/Fork/Entfernen nur beim Paket). Siehe
+                     `docs/features/EXTENSIONS.md`.
                    • **Erweiterungen/Store** — Full-Width-Kartenraster im
                      Mitte-Tab mit zwei Reitern [Modelle | Erweiterungen]
                      (StoreModelsGrid / StoreExtensionsGrid); ein Klick auf eine

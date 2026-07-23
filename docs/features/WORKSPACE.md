@@ -1,19 +1,32 @@
 # Workspace
 
 Ein **Workspace** ist die einzige „Projekt"-Entität (`sandbox_projects`): ein
-Host-Ordner (`host_path`) plus ein Container, mit einem Besitzer und einem
-Netzwerkmodus.
+Host-Ordner (`host_path`) plus ein Container, mit einem Besitzer, einem
+Typ und einer Zugriffs-Stufe.
 
-## Netzwerkmodus
+## Typ (`workspace_type`)
 
-Der Netzwerkschalter („Was darf dieser Workspace?") steuert, was der Container
-erreichen darf (`VALID_NETWORK_MODES`):
+| Typ                      | Bedeutung                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `standard`               | Leerer Workspace-Ordner mit Terminal (Standard)                                                              |
+| `erweiterungs-werkstatt` | Beim Anlegen mit `ANLEITUNG.md` und Beispiel-Erweiterungen bestückt — siehe [`EXTENSIONS.md`](EXTENSIONS.md) |
 
-| Modus            | UI-Bezeichnung | Zugriff                                    |
-| ---------------- | -------------- | ------------------------------------------ |
-| `isolated`       | Abgeschottet   | Internet ja, Plattform nein (Standard)     |
-| `internal`       | Am System      | interne Dienste: DB / MinIO / Qdrant / RAG |
-| `infrastructure` | Voller Zugriff | Infrastruktur — **nur Admin**              |
+## Zugriffs-Stufe (`network_mode`)
+
+Die drei Stufen („Zugriffs-Stufe — was darf dieser Workspace?") steuern, was der
+Container erreichen darf (`VALID_NETWORK_MODES`):
+
+| Modus            | UI-Bezeichnung               | Zugriff                                    |
+| ---------------- | ---------------------------- | ------------------------------------------ |
+| `isolated`       | Nur Internet                 | Internet ja, Plattform nein (Standard)     |
+| `internal`       | Interne Dienste              | interne Dienste: DB / MinIO / Qdrant / RAG |
+| `infrastructure` | Voller Systemzugriff (Admin) | Infrastruktur — **nur Admin**              |
+
+> **Ordner-Umfang:** Jeder Workspace sieht genau **seinen eigenen** Ordner unter
+> `/workspace` (plus `/opt/tools` read-only); `infrastructure` bekommt zusätzlich
+> das Plattform-Repo und den Docker-Socket. Ein frei wählbarer Mount eines
+> beliebigen internen Ordners je Stufe ist **bewusst nicht** umgesetzt — das wäre
+> eine eigene Sicherheitsfläche und bleibt ein Folgeschritt.
 
 ## Wissensraum
 
