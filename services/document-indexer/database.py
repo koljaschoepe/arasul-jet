@@ -376,6 +376,50 @@ class DatabaseManager:
                     logger.warning(f"Marked {exhausted} retry-exhausted document(s) as 'failed'")
                 return recovered + exhausted
 
+    def repickup_partial_documents(
+        self, max_attempts: int = 2, limit: int = 5
+    ) -> int:
+        """
+        Nimmt 'partial' indexierte Dokumente begrenzt wieder auf
+        (Plan 012 Phase F Schritt 19).
+
+        'partial' heisst: durchsuchbar, aber unvollstaendig (einzelne Chunks
+        konnten nicht eingebettet werden). Bisher war das ein Endzustand — nur
+        ein manueller /reindex holte sie zurueck, sonst blieben sie fuer immer
+        lueckenhaft.
+
+        Die Wiederaufnahme ist HART begrenzt, sonst pinnt sie die Embedding-GPU:
+        - `retry_count` wird mitgezaehlt und begrenzt die Versuche je Dokument
+          dauerhaft (nicht pro Lauf),
+        - `limit` deckelt, wie viele Dokumente ein Durchlauf anfasst.
+
+        Returns: Anzahl der auf 'pending' zurueckgesetzten Dokumente.
+        """
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE documents
+                    SET status = 'pending',
+                        retry_count = retry_count + 1,
+                        processing_started_at = NULL
+                    WHERE id IN (
+                        SELECT id FROM documents
+                        WHERE status = 'partial'
+                        AND retry_count < %s
+                        AND deleted_at IS NULL
+                        ORDER BY uploaded_at ASC
+                        LIMIT %s
+                    )
+                    RETURNING id
+                """, (max_attempts, limit))
+                count = cur.rowcount
+                if count > 0:
+                    logger.info(
+                        f"{count} unvollstaendig indexierte(s) Dokument(e) zur "
+                        f"Wiederaufnahme auf 'pending' gesetzt"
+                    )
+                return count
+
     def get_pending_documents(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get documents pending processing"""
         with self.get_connection() as conn:

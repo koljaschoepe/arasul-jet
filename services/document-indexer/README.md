@@ -160,3 +160,30 @@ Returns `200 OK` when service is healthy.
 
 - [RAG System](../../CLAUDE.md#rag-system-retrieval-augmented-generation) - RAG overview
 - [Embedding Service](../embedding-service/README.md) - Vector generation
+
+## Robuste Neuindexierung (Plan 012 Phase F)
+
+- **Keine Zombie-Chunks.** Die Qdrant-Point-IDs sind deterministisch
+  (`md5(doc_id:global_index)`). Ein Re-Index überschrieb bisher nur `0..N-1`
+  und ließ `N..M` einer früheren, längeren Fassung stehen — gelöschter Text
+  blieb durchsuchbar. `_index_to_qdrant` löscht jetzt vor dem Upsert alle
+  Vektoren des Dokuments (`delete_document_vectors`), und zwar erst, nachdem
+  die 0-Chunk-Fälle abgefangen sind: ein Parser-Aussetzer darf ein gut
+  indexiertes Dokument nicht stillschweigend aus der Suche entfernen.
+  Regressionstest: `tests/test_zombie_chunks.py`.
+- **Content-Hash-Gate.** `run_indexing_pipeline(..., skip_if_unchanged=True)`
+  überspringt ein Dokument, das mit exakt diesem `content_hash` bereits
+  **vollständig** (`status='indexed'`, `chunk_count>0`) indexiert ist.
+  Default ist `False`, damit ein ausdrücklich angestoßener `/reindex` immer
+  neu baut. `partial` zählt nie als vollständig.
+- **Payload-Indizes idempotent.** `space_id`, `document_id` und `category`
+  werden bei **jedem** Start sichergestellt, nicht nur bei Neuanlage der
+  Collection — sonst bliebe eine ältere Collection dauerhaft ohne sie und der
+  ordner-optimierte Scope-Filter scannt linear. Ein fehlgeschlagener Index
+  bricht den Start nicht ab (langsamer, aber korrekt).
+- **`partial` ist kein Endzustand mehr.** Der Watchdog nimmt unvollständig
+  indexierte Dokumente hart gedeckelt wieder auf
+  (`PARTIAL_REPICKUP_INTERVAL_SECONDS`, `PARTIAL_REPICKUP_MAX_ATTEMPTS`,
+  `PARTIAL_REPICKUP_BATCH`). Die Deckelung ist der Punkt: ohne sie würde ein
+  dauerhaft unvollständiges Dokument die Embedding-GPU belegen, die sich Chat,
+  Skills und Indexer teilen.

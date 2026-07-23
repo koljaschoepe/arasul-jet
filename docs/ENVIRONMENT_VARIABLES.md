@@ -195,39 +195,42 @@ check a "web page" of `http://postgres-db:5432` would be a way into the stack.
 
 ## Document Indexer
 
-| Variable                             | Default                      | Description                                                                                              |
-| ------------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| DOCUMENT_INDEXER_HOST                | document-indexer             | Hostname des Document-Indexer                                                                            |
-| DOCUMENT_INDEXER_API_PORT            | 9102                         | API-Port des Document-Indexer                                                                            |
-| DOCUMENT_INDEXER_URL                 | http://document-indexer:9102 | Vollständige URL des Document-Indexer                                                                    |
-| DOCUMENT_INDEXER_INTERVAL            | 30                           | Scan interval (seconds)                                                                                  |
-| INDEXER_WATCHDOG_INTERVAL_SECONDS    | 300                          | Periodic recover_stuck_processing interval (s)                                                           |
-| INDEXER_LLM_CONTEXT_CACHE_MAX        | 1000                         | LRU max entries for LLM contextualization cache                                                          |
-| DOCUMENT_INDEXER_CHUNK_SIZE          | 500                          | Chunk size (chars)                                                                                       |
-| DOCUMENT_INDEXER_CHUNK_OVERLAP       | 50                           | Chunk overlap (chars)                                                                                    |
-| DOCUMENT_INDEXER_PARENT_CHUNK_SIZE   | 2000                         | Parent chunk size in tokens                                                                              |
-| DOCUMENT_INDEXER_CHILD_CHUNK_SIZE    | 400                          | Child chunk size in tokens                                                                               |
-| DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP | 50                           | Child chunk overlap in tokens                                                                            |
-| DOCUMENT_INDEXER_MINIO_BUCKET        | documents                    | Source bucket                                                                                            |
-| DOCUMENT_MAX_SIZE_MB                 | 100                          | Maximum file size (MB)                                                                                   |
-| BM25_INDEX_PATH                      | /data/bm25_index             | Path for BM25 index persistence                                                                          |
-| RAG_HYBRID_SEARCH                    | true                         | Enable hybrid keyword+vector search                                                                      |
-| RAG_ENABLE_MULTI_QUERY               | true                         | Enable multi-query generation                                                                            |
-| RAG_ENABLE_HYDE                      | true                         | Enable HyDE query expansion                                                                              |
-| RAG_ENABLE_DECOMPOUND                | true                         | Enable German word decompounding                                                                         |
-| RAG_ENABLE_RERANKING                 | true                         | Enable 2-stage reranking in RAG pipeline                                                                 |
-| RAG_QUERY_OPTIMIZER_MODEL            | ""                           | Model for query optimization (empty = default)                                                           |
-| SPACE_ROUTING_THRESHOLD              | 0.4                          | Space routing confidence threshold                                                                       |
-| SPACE_ROUTING_MAX_SPACES             | 3                            | Max spaces to search in RAG                                                                              |
-| RAG_RELEVANCE_THRESHOLD              | 0.55                         | Min rerank score to include document (0-1) — raised from 0.01 in plan llm-rag-store-routing-optimization |
-| RAG_VECTOR_SCORE_THRESHOLD           | 0.30                         | Min vector score when reranker is off (0-1) — raised from 0.005                                          |
-| RAG_TIMEOUT_RERANK_MS                | 8000                         | Per-request rerank timeout — reduced from 120000                                                         |
-| RAG_FINAL_K                          | 4                            | Final chunk count delivered to the LLM after MMR + dedupe                                                |
-| STAGE2_VRAM_FLOOR_MB                 | 2048                         | Skip BGE-CrossEncoder Stage 2 when free VRAM drops below this floor                                      |
-| DOCUMENT_INDEXER_CONTEXT_MODE        | heuristic                    | Chunk-context mode in indexer: `heuristic` (default, fast) or `llm` (high-recall, slow)                  |
-| RAG_ENABLE_GRAPH                     | false                        | Knowledge Graph für RAG aktivieren                                                                       |
-| RAG_GRAPH_MAX_ENTITIES               | 50                           | Max Entities pro Graph-Traversal                                                                         |
-| RAG_GRAPH_TRAVERSAL_DEPTH            | 2                            | Traversal-Tiefe im Knowledge Graph                                                                       |
+| Variable                             | Default                      | Description                                                                                                                  |
+| ------------------------------------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| DOCUMENT_INDEXER_HOST                | document-indexer             | Hostname des Document-Indexer                                                                                                |
+| DOCUMENT_INDEXER_API_PORT            | 9102                         | API-Port des Document-Indexer                                                                                                |
+| DOCUMENT_INDEXER_URL                 | http://document-indexer:9102 | Vollständige URL des Document-Indexer                                                                                        |
+| DOCUMENT_INDEXER_INTERVAL            | 30                           | Scan interval (seconds)                                                                                                      |
+| INDEXER_WATCHDOG_INTERVAL_SECONDS    | 300                          | Periodic recover_stuck_processing interval (s)                                                                               |
+| PARTIAL_REPICKUP_INTERVAL_SECONDS    | 3600                         | Takt, in dem unvollständig (`partial`) indexierte Dokumente wieder aufgenommen werden; `0` schaltet es ab (Plan 012 Phase F) |
+| PARTIAL_REPICKUP_MAX_ATTEMPTS        | 2                            | Wie oft ein einzelnes `partial`-Dokument insgesamt wieder aufgenommen wird (über `retry_count` gezählt)                      |
+| PARTIAL_REPICKUP_BATCH               | 5                            | Wie viele Dokumente ein Wiederaufnahme-Durchlauf höchstens anfasst                                                           |
+| INDEXER_LLM_CONTEXT_CACHE_MAX        | 1000                         | LRU max entries for LLM contextualization cache                                                                              |
+| DOCUMENT_INDEXER_CHUNK_SIZE          | 500                          | Chunk size (chars)                                                                                                           |
+| DOCUMENT_INDEXER_CHUNK_OVERLAP       | 50                           | Chunk overlap (chars)                                                                                                        |
+| DOCUMENT_INDEXER_PARENT_CHUNK_SIZE   | 2000                         | Parent chunk size in tokens                                                                                                  |
+| DOCUMENT_INDEXER_CHILD_CHUNK_SIZE    | 400                          | Child chunk size in tokens                                                                                                   |
+| DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP | 50                           | Child chunk overlap in tokens                                                                                                |
+| DOCUMENT_INDEXER_MINIO_BUCKET        | documents                    | Source bucket                                                                                                                |
+| DOCUMENT_MAX_SIZE_MB                 | 100                          | Maximum file size (MB)                                                                                                       |
+| BM25_INDEX_PATH                      | /data/bm25_index             | Path for BM25 index persistence                                                                                              |
+| RAG_HYBRID_SEARCH                    | true                         | Enable hybrid keyword+vector search                                                                                          |
+| RAG_ENABLE_MULTI_QUERY               | true                         | Enable multi-query generation                                                                                                |
+| RAG_ENABLE_HYDE                      | true                         | Enable HyDE query expansion                                                                                                  |
+| RAG_ENABLE_DECOMPOUND                | true                         | Enable German word decompounding                                                                                             |
+| RAG_ENABLE_RERANKING                 | true                         | Enable 2-stage reranking in RAG pipeline                                                                                     |
+| RAG_QUERY_OPTIMIZER_MODEL            | ""                           | Model for query optimization (empty = default)                                                                               |
+| SPACE_ROUTING_THRESHOLD              | 0.4                          | Space routing confidence threshold                                                                                           |
+| SPACE_ROUTING_MAX_SPACES             | 3                            | Max spaces to search in RAG                                                                                                  |
+| RAG_RELEVANCE_THRESHOLD              | 0.55                         | Min rerank score to include document (0-1) — raised from 0.01 in plan llm-rag-store-routing-optimization                     |
+| RAG_VECTOR_SCORE_THRESHOLD           | 0.30                         | Min vector score when reranker is off (0-1) — raised from 0.005                                                              |
+| RAG_TIMEOUT_RERANK_MS                | 8000                         | Per-request rerank timeout — reduced from 120000                                                                             |
+| RAG_FINAL_K                          | 4                            | Final chunk count delivered to the LLM after MMR + dedupe                                                                    |
+| STAGE2_VRAM_FLOOR_MB                 | 2048                         | Skip BGE-CrossEncoder Stage 2 when free VRAM drops below this floor                                                          |
+| DOCUMENT_INDEXER_CONTEXT_MODE        | heuristic                    | Chunk-context mode in indexer: `heuristic` (default, fast) or `llm` (high-recall, slow)                                      |
+| RAG_ENABLE_GRAPH                     | false                        | Knowledge Graph für RAG aktivieren                                                                                           |
+| RAG_GRAPH_MAX_ENTITIES               | 50                           | Max Entities pro Graph-Traversal                                                                                             |
+| RAG_GRAPH_TRAVERSAL_DEPTH            | 2                            | Traversal-Tiefe im Knowledge Graph                                                                                           |
 
 > **`system_settings` überschreibt env (Migration 094 + 096).** Die RAG/LLM-Tunables
 > oben (`RAG_HYBRID_SEARCH`, `RAG_ENABLE_RERANKING`, `SPACE_ROUTING_THRESHOLD`,

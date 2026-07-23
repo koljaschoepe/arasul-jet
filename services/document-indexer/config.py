@@ -60,6 +60,21 @@ INDEXER_MAX_RETRIES = int(os.getenv('DOCUMENT_INDEXER_MAX_RETRIES', '3'))
 # / OOM kills that happened mid-pipeline (the boot-time recover only fires once).
 INDEXER_WATCHDOG_INTERVAL_SECONDS = int(os.getenv('INDEXER_WATCHDOG_INTERVAL_SECONDS', '300'))
 
+# Plan 012 Phase F Schritt 19 — Wiederaufnahme unvollstaendig ('partial')
+# indexierter Dokumente. Bewusst traege und hart gedeckelt: die Embedding-GPU
+# teilt sich mit Chat und Skills, ein enger Takt wuerde sie dauerhaft belegen.
+# 0 schaltet die Wiederaufnahme ab.
+PARTIAL_REPICKUP_INTERVAL_SECONDS = int(
+    os.getenv('PARTIAL_REPICKUP_INTERVAL_SECONDS', '3600')
+)
+# Wie oft ein einzelnes Dokument insgesamt wieder aufgenommen wird (ueber
+# retry_count gezaehlt, also dauerhaft — nicht pro Neustart).
+PARTIAL_REPICKUP_MAX_ATTEMPTS = int(
+    os.getenv('PARTIAL_REPICKUP_MAX_ATTEMPTS', '2')
+)
+# Wie viele Dokumente ein Durchlauf hoechstens anfasst.
+PARTIAL_REPICKUP_BATCH = int(os.getenv('PARTIAL_REPICKUP_BATCH', '5'))
+
 # --- File Size Limit ---
 # CRITICAL-FIX: Maximum file size limit to prevent OOM (default: 100MB)
 MAX_FILE_SIZE_MB = int(os.getenv('DOCUMENT_MAX_SIZE_MB', '100'))

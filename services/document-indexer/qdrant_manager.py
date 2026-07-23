@@ -76,25 +76,17 @@ class QdrantManager:
                         f"Created Qdrant collection: {self.collection} "
                         f"(dense + sparse BM25)"
                     )
-
-                    # Create payload indices for efficient filtering
-                    client.create_payload_index(
-                        self.collection, "space_id", "keyword"
-                    )
-                    client.create_payload_index(
-                        self.collection, "document_id", "keyword"
-                    )
-                    client.create_payload_index(
-                        self.collection, "category", "keyword"
-                    )
-                    logger.info(
-                        f"Created payload indices for collection: "
-                        f"{self.collection}"
-                    )
                 else:
                     logger.info(
                         f"Qdrant collection '{self.collection}' ready"
                     )
+
+                # Plan 012 Phase F Schritt 18: Payload-Indizes bei JEDEM Start
+                # sicherstellen — nicht nur bei Neuanlage der Collection. Sonst
+                # bleibt eine Collection, die vor Einfuehrung der Indizes
+                # entstanden ist, dauerhaft ohne sie, und der ordner-optimierte
+                # space_id-Filter (Default-Scope) scannt linear.
+                self._ensure_payload_indexes(client)
 
                 return client
             except Exception as e:
@@ -106,6 +98,32 @@ class QdrantManager:
                     time.sleep(5)
                 else:
                     raise
+
+    # Payload-Felder, auf denen gefiltert wird (RAG-Scope + Reindex-Loeschung).
+    PAYLOAD_INDEX_FIELDS = ("space_id", "document_id", "category")
+
+    def _ensure_payload_indexes(self, client: QdrantClient) -> None:
+        """
+        Stellt die Payload-Indizes idempotent sicher.
+
+        `create_payload_index` ist bei einem bereits vorhandenen Index ein
+        No-op bzw. wirft — beides ist unkritisch, deshalb wird pro Feld einzeln
+        gefangen. Ein fehlgeschlagener Index darf den Start NICHT verhindern:
+        die Suche funktioniert dann langsamer, aber korrekt.
+        """
+        for field in self.PAYLOAD_INDEX_FIELDS:
+            try:
+                client.create_payload_index(self.collection, field, "keyword")
+                logger.info(
+                    f"Payload-Index sichergestellt: {self.collection}.{field}"
+                )
+            except Exception as e:
+                # Existiert bereits (haeufigster Fall) oder Qdrant lehnt ab —
+                # in beiden Faellen nur vermerken, nicht den Start abbrechen.
+                logger.debug(
+                    f"Payload-Index {self.collection}.{field} nicht neu "
+                    f"angelegt: {e}"
+                )
 
     def upsert_points(self, points: List[PointStruct]):
         """Upsert points into the Qdrant collection."""

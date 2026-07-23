@@ -327,6 +327,34 @@ def contextualize_chunk(
     )
 
 
+def is_unchanged_and_complete(db, doc_id: str, content_hash: str) -> bool:
+    """
+    Content-Hash-Gate (Plan 012 Phase F Schritt 17).
+
+    True, wenn genau dieser Inhalt bereits VOLLSTAENDIG indexiert ist — dann
+    kostet ein erneuter Lauf nur GPU-Zeit ohne Nutzen.
+
+    Bewusst streng: nur Status 'indexed' zaehlt. Ein 'partial' Dokument ist
+    unvollstaendig und muss neu indexiert werden, auch wenn sich der Inhalt
+    nicht geaendert hat. Bei fehlendem Dokument/Hash gilt "nicht uebersprungen"
+    (fail-open Richtung Arbeit, nie Richtung stiller Auslassung).
+    """
+    if not content_hash:
+        return False
+    try:
+        doc = db.get_document(doc_id)
+    except Exception as e:
+        logger.warning(f"Hash-Gate konnte {doc_id} nicht laden: {e}")
+        return False
+    if not doc:
+        return False
+    return (
+        doc.get('status') == 'indexed'
+        and doc.get('content_hash') == content_hash
+        and (doc.get('chunk_count') or 0) > 0
+    )
+
+
 def run_indexing_pipeline(
     doc_id: str,
     data: bytes,
@@ -337,7 +365,8 @@ def run_indexing_pipeline(
     embedding_client,
     qdrant_manager,
     graph_store,
-    enable_similarity: bool
+    enable_similarity: bool,
+    skip_if_unchanged: bool = False
 ) -> Optional[int]:
     """
     Shared indexing pipeline for both new and existing documents.
@@ -355,10 +384,25 @@ def run_indexing_pipeline(
         qdrant_manager: QdrantManager instance
         graph_store: GraphStore instance or None
         enable_similarity: Whether to calculate similarity scores
+        skip_if_unchanged: Wenn True, wird ein bereits vollstaendig indexiertes
+            Dokument mit identischem content_hash uebersprungen (Hash-Gate,
+            Plan 012 Phase F Schritt 17). Default False, damit ein
+            ausdruecklich angestossener /reindex IMMER neu baut — sonst waere
+            der Knopf wirkungslos, was niemand erwartet.
 
     Returns:
         Number of chunks indexed, or None on failure
     """
+    # Hash-Gate: identischer Inhalt + bereits vollstaendig indexiert -> nichts tun.
+    if skip_if_unchanged and is_unchanged_and_complete(db, doc_id, content_hash):
+        existing = db.get_document(doc_id) or {}
+        chunk_count = existing.get('chunk_count') or 0
+        logger.info(
+            f"Ueberspringe {filename}: Inhalt unveraendert und vollstaendig "
+            f"indexiert ({chunk_count} Chunks)"
+        )
+        return chunk_count
+
     # Pre-flight: check available disk space (need ~10x file size for chunks + embeddings)
     MIN_FREE_MB = 500
     try:
@@ -594,6 +638,30 @@ def _index_to_qdrant(
             f"Document {doc_id}: {len(parent_chunks)} parent chunks, "
             f"{total_children} child chunks to index"
         )
+
+        # Plan 012 Phase F Schritt 17 — delete-before-upsert.
+        #
+        # Die Point-IDs sind deterministisch: md5(f"{doc_id}:{global_index}").
+        # Ein Re-Index ueberschreibt damit zwar 0..N-1, laesst aber N..M einer
+        # frueheren, laengeren Fassung als "Zombie-Chunks" stehen — sie tauchen
+        # weiter in der Suche auf, obwohl der Text sie nicht mehr hergibt.
+        # Postgres ist bereits sauber (save_chunks/save_parent_chunks loeschen
+        # vorher); nur Qdrant leckte. Deshalb hier ERST alle Vektoren des
+        # Dokuments loeschen, DANN neu einfuegen.
+        #
+        # Bewusst an dieser Stelle: die 0-Chunk-Faelle sind oben schon per
+        # `return 0` abgefangen, es wird also nie geloescht, ohne dass gleich
+        # neue Chunks folgen.
+        try:
+            qdrant_manager.delete_document_vectors(doc_id)
+        except Exception as del_err:
+            # Nicht abbrechen: der Upsert danach stellt zumindest die aktuellen
+            # Chunks korrekt her. Aber sichtbar machen — es koennen Zombies
+            # zurueckbleiben.
+            logger.warning(
+                f"Alte Vektoren von {doc_id} nicht geloescht "
+                f"(moegliche Zombie-Chunks): {del_err}"
+            )
 
         # Save parent chunks to PostgreSQL and get their DB IDs
         parent_id_map = db.save_parent_chunks(doc_id, parent_chunks)

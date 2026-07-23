@@ -35,6 +35,9 @@ from config import (
     MINIO_BUCKET, QDRANT_COLLECTION,
     INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE, INDEXER_MAX_RETRIES,
     INDEXER_WATCHDOG_INTERVAL_SECONDS,
+    PARTIAL_REPICKUP_INTERVAL_SECONDS,
+    PARTIAL_REPICKUP_MAX_ATTEMPTS,
+    PARTIAL_REPICKUP_BATCH,
     MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES,
     ENABLE_AI_ANALYSIS, ENABLE_SIMILARITY, ENABLE_KNOWLEDGE_GRAPH,
     EMBEDDING_MODEL, POSTGRES_DSN
@@ -648,6 +651,10 @@ class EnhancedDocumentIndexer:
         """
         interval = INDEXER_WATCHDOG_INTERVAL_SECONDS
         logger.info(f"Indexer watchdog started (interval: {interval}s)")
+        # Plan 012 Phase F Schritt 19: die Wiederaufnahme unvollstaendiger
+        # Dokumente laeuft VIEL traeger als der Watchdog-Takt — wir zaehlen die
+        # Watchdog-Runden, statt einen zweiten Thread aufzumachen.
+        seconds_since_repickup = 0
         while not self._watchdog_stop.wait(interval):
             try:
                 recovered = self.db.recover_stuck_processing()
@@ -658,6 +665,25 @@ class EnhancedDocumentIndexer:
                     )
             except Exception as e:
                 logger.error(f"Watchdog recover error: {e}", exc_info=True)
+
+            if PARTIAL_REPICKUP_INTERVAL_SECONDS > 0:
+                seconds_since_repickup += interval
+                if seconds_since_repickup >= PARTIAL_REPICKUP_INTERVAL_SECONDS:
+                    seconds_since_repickup = 0
+                    try:
+                        repicked = self.db.repickup_partial_documents(
+                            max_attempts=PARTIAL_REPICKUP_MAX_ATTEMPTS,
+                            limit=PARTIAL_REPICKUP_BATCH,
+                        )
+                        if repicked:
+                            logger.info(
+                                f"Watchdog: {repicked} unvollstaendige(s) "
+                                f"Dokument(e) zur Neuindexierung vorgemerkt"
+                            )
+                    except Exception as e:
+                        logger.error(
+                            f"Watchdog partial-repickup error: {e}", exc_info=True
+                        )
         logger.info("Indexer watchdog stopped")
 
     def run(self):
