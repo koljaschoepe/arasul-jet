@@ -20,6 +20,7 @@ const { validateBody, validateParams, validateQuery } = require('../middleware/v
 const {
   CreateSkillBody,
   SaveSkillBody,
+  RuntimePreviewBody,
   SkillNameParams,
   RunIdParams,
   ListRunsQuery,
@@ -32,7 +33,7 @@ const logger = require('../utils/logger');
 const registry = require('../services/skills/skillRegistry');
 const runStore = require('../services/skills/runStore');
 const skillRunner = require('../services/skills/skillRunner');
-const { resolveArguments } = require('../services/skills/runSkill');
+const { resolveArguments, assembleRuntimePrompt } = require('../services/skills/runSkill');
 const { serializeSkillFile, parseSkillFile } = require('../services/skills/skillFile');
 const { implementedTools } = require('../services/skills/toolRegistry');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
@@ -322,6 +323,22 @@ router.post(
     const text = serializeSkillFile(definition);
     parseSkillFile(text, { name: req.body.name });
     res.json({ data: { datei: text }, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/skills/vorschau-laufzeit — der aufgelöste Laufzeit-Prompt (Plan 012,
+// Schritt 11). Zeigt, was der Runner dem Modell WIRKLICH gäbe: den Prompt mit
+// eingesetzten Beispiel-Argumenten, dazu die strukturell übergebenen Werkzeuge,
+// Ordner und Rollen. Führt nichts aus und schreibt nichts.
+router.post(
+  '/vorschau-laufzeit',
+  requireAuth,
+  validateBody(RuntimePreviewBody),
+  asyncHandler(async (req, res) => {
+    const { args, ...body } = req.body;
+    const definition = fromApi(body.name, body);
+    const prompt = assembleRuntimePrompt(definition, args);
+    res.json({ data: prompt, timestamp: new Date().toISOString() });
   })
 );
 

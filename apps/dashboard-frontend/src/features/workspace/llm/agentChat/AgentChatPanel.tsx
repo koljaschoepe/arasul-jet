@@ -14,16 +14,15 @@ import { Plus, Upload, X } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useSkillEditorStore } from '@/stores/skillEditorStore';
 import { usePins } from '../../useWorkspaceContext';
 import { useSkills } from '@/hooks/useSkills';
-import { useToast } from '@/contexts/ToastContext';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Mascot } from '@/components/mascot/Mascot';
 import CompactMessage from './CompactMessage';
 import ComposerCard from './ComposerCard';
 import ConversationList from '../ConversationList';
 import RunCard from '@/features/skills/RunCard';
-import SkillDialog from '@/features/skills/SkillDialog';
 
 const PANEL_CHAT_KEY = 'arasul_panel_chat_id';
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -59,9 +58,10 @@ export default function AgentChatPanel() {
 
   const chatScope = useWorkspaceStore(s => s.chatScope);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
+  const openTab = useWorkspaceStore(s => s.openTab);
+  const setEditTarget = useSkillEditorStore(s => s.setEditTarget);
   const { skills } = useSkills();
   const { pins, removePin } = usePins();
-  const toast = useToast();
 
   const [chatId, setChatId] = useState<string | null>(
     () => localStorage.getItem(PANEL_CHAT_KEY) || null
@@ -78,9 +78,15 @@ export default function AgentChatPanel() {
   // ihn ohnehin bestätigt (Plan 011, Schritt 15).
   const [runNames, setRunNames] = useState<Record<number, string>>({});
 
-  // Anlege-/Bearbeiten-Dialog (Plan 011, Schritt 17). `null` geschlossen;
-  // `{ editName: null }` = anlegen; `{ editName: 'name' }` = bearbeiten.
-  const [skillDialog, setSkillDialog] = useState<{ editName: string | null } | null>(null);
+  // Skills öffnen jetzt den zentralen Editor-Tab statt eines Popups (Plan 012
+  // Phase D): Ziel im `skillEditorStore` setzen, dann den `skill`-Tab öffnen.
+  const oeffneSkillEditor = useCallback(
+    (editName: string | null) => {
+      setEditTarget(editName);
+      openTab({ type: 'skill' });
+    },
+    [setEditTarget, openTab]
+  );
 
   // Die Lauf-IDs dieses Chats (neueste zuerst) — die Karten stehen chronologisch
   // unter den Nachrichten, also älteste zuerst.
@@ -510,17 +516,14 @@ export default function AgentChatPanel() {
           pins={pins}
           onRemovePin={id => removePin.mutate(id)}
           skills={skills}
-          // Anlegen/Bearbeiten öffnen den Skill-Dialog (Schritt 17). `/skills`
-          // (Gesamt-Übersicht) ist bewusst noch nicht gebaut — sie steht nicht
-          // in den Akzeptanzkriterien von Schritt 17; ein ehrlicher Hinweis
-          // führt zu den vorhandenen Wegen.
+          // Plan 012 Phase D: `/skills` öffnet die echte Übersicht (Sidebar-
+          // Ansicht »Skills«), `/neuer-skill` einen leeren Editor-Tab, das
+          // Stift-Symbol den Editor-Tab des jeweiligen Skills.
           onOpenSkillOverview={() =>
-            toast.info(
-              'Skills legst du mit /neuer-skill an oder bearbeitest sie über das Stift-Symbol.'
-            )
+            useWorkspaceStore.setState({ activeView: 'skills', sidebarVisible: true })
           }
-          onCreateSkill={() => setSkillDialog({ editName: null })}
-          onEditSkill={name => setSkillDialog({ editName: name })}
+          onCreateSkill={() => oeffneSkillEditor(null)}
+          onEditSkill={name => oeffneSkillEditor(name)}
           onRunSkill={handleRunSkill}
         />
       </div>
@@ -539,11 +542,6 @@ export default function AgentChatPanel() {
             </span>
           </div>
         </div>
-      )}
-
-      {/* Anlege-/Bearbeiten-Dialog für Skills (Plan 011, Schritt 17) */}
-      {skillDialog && (
-        <SkillDialog open editName={skillDialog.editName} onClose={() => setSkillDialog(null)} />
       )}
     </div>
   );

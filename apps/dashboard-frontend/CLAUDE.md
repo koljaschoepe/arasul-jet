@@ -48,6 +48,20 @@ src/
                      Der Auto-Collapse für App-Tabs (`sidebarRestore`/
                      `syncSidebarForTab`) bleibt verdrahtet, `APP_TAB_TYPES` ist
                      derzeit leer (n8n läuft als Mitte-Tab).
+                   • **Skills-Zentrale** — der Skill-Editor ist EIN Mitte-Tab
+                     (Singleton-Typ `skill`, kein Popup mehr; Plan 012 Phase D).
+                     Welchen Skill er zeigt, steht im ephemeren `skillEditorStore`
+                     (`editName === null` legt an, ein Name bearbeitet) — genau wie
+                     der Store-Tab seinen Inhalt aus dem `extensionStore` zieht.
+                     Aufrufer setzen erst das Ziel, dann `openTab({type:'skill'})`:
+                     die Sidebar-Ansicht »Skills« (`SkillsPanel`, klickbare Liste +
+                     »Neuer Skill«), `/skills` im Chat öffnet diese Übersicht,
+                     `/neuer-skill` einen leeren Editor-Tab. Der Editor
+                     (`features/skills/SkillEditorTab.tsx`) hält Formular + Vorschau;
+                     die `MarkdownPreview` schaltet zwischen **Datei** (erzeugte
+                     Markdown-Datei) und **Laufzeit-Prompt** (aufgelöster Prompt aus
+                     `POST /skills/vorschau-laufzeit`) um. Der Tab ist keep-alive,
+                     damit ein halb ausgefülltes Formular einen Tab-Wechsel überlebt.
                    • **Erweiterungen/Store** — Full-Width-Kartenraster im
                      Mitte-Tab mit zwei Reitern [Modelle | Erweiterungen]
                      (StoreModelsGrid / StoreExtensionsGrid); ein Klick auf eine

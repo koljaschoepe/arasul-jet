@@ -2111,6 +2111,7 @@ Skills are Markdown files with YAML front matter under `data/skills/` (container
 | GET    | `/api/skills/:name`                | Get a single skill                                        |
 | GET    | `/api/skills/:name/datei`          | Get the raw Markdown file (`text/markdown`)               |
 | POST   | `/api/skills/vorschau`             | Render the file that _would_ be written — without saving  |
+| POST   | `/api/skills/vorschau-laufzeit`    | Resolve the runtime prompt (with sample args) — no run    |
 | POST   | `/api/skills`                      | Create a skill (409 if the name exists)                   |
 | PUT    | `/api/skills/:name`                | Update an existing skill (404 if it does not exist)       |
 | DELETE | `/api/skills/:name`                | Delete a skill                                            |
@@ -2252,6 +2253,22 @@ A skill may declare a tool that is not built yet — the definition stays valid 
 ```json
 {
   "data": { "datei": "---\nname: recherche\n...\n---\n\nRecherchiere ..." },
+  "timestamp": "2026-07-21T10:00:00.000Z"
+}
+```
+
+`POST /api/skills/vorschau-laufzeit` (Plan 012 Phase D) takes the same body as `POST /api/skills` plus an optional `args` map (name → value) and returns the **resolved runtime prompt** — what the runner would actually send the model — without running anything. Missing arguments are filled with a visible `‹name›` placeholder (so the preview never fails on an unfilled required field). It honestly separates what goes into the model's **system message** (`systemPrompt`, placeholders filled) from the context the runner passes **structurally alongside** (tools, folders, roles — not concatenated into the prompt):
+
+```json
+{
+  "data": {
+    "systemPrompt": "Fasse Quartalszahlen zusammen.",
+    "userInput": "Angaben:\nThema: Quartalszahlen",
+    "werkzeuge": ["rag_suche"],
+    "ordner": ["berichte"],
+    "rollen": [{ "name": "sucher", "prompt": "Suche zu Quartalszahlen" }],
+    "beispielWerte": { "thema": "Quartalszahlen" }
+  },
   "timestamp": "2026-07-21T10:00:00.000Z"
 }
 ```

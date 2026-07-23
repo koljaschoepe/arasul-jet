@@ -1,14 +1,18 @@
 /**
- * SkillDialog Tests (Plan 011, Schritt 17).
- * EIN Dialog fürs Anlegen und Bearbeiten: Formular + Live-Vorschau, Speichern
- * (POST/PUT) macht die Skill-Liste frisch, Bearbeiten lädt den Skill und bietet
- * Löschen (mit Rückfrage).
+ * SkillEditorTab Tests (Plan 012 Phase D, Schritte 10–11).
+ *
+ * Der zentrale Skill-Editor als Mitte-Tab (löst das frühere SkillDialog-Popup
+ * ab). Ziel steht im `skillEditorStore`: `null` legt an, ein Name bearbeitet.
+ * Anlegen (POST) → wechselt in den Bearbeiten-Modus des neuen Skills; Bearbeiten
+ * (PUT, Name in der URL nicht im Body); Löschen (mit Rückfrage) schließt den Tab.
  */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import SkillDialog from '../SkillDialog';
+import { useSkillEditorStore } from '@/stores/skillEditorStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import SkillEditorTab from '../SkillEditorTab';
 import type { SkillDefinition } from '@/types/skills';
 
 const apiGet = vi.fn();
@@ -39,21 +43,39 @@ const RECHERCHE: SkillDefinition = {
   prompt: '# Recherche\n{{thema}}',
 };
 
-function renderDialog(editName: string | null, onClose = vi.fn()) {
+function renderTab(editName: string | null) {
+  useSkillEditorStore.setState({ editName });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <SkillDialog open editName={editName} onClose={onClose} />
+      <SkillEditorTab />
     </QueryClientProvider>
   );
-  return onClose;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useSkillEditorStore.setState({ editName: null });
+  useWorkspaceStore.setState({ tabs: [], activeTabId: null });
   apiGet.mockImplementation((url: string) => {
     if (url === '/skills/werkzeuge') return Promise.resolve({ data: WERKZEUGE });
     if (url === '/skills/recherche') return Promise.resolve({ data: RECHERCHE });
+    // Nach dem Anlegen wechselt der Tab in den Bearbeiten-Modus und lädt den
+    // frisch gespeicherten Skill — der Server gibt eine vollständige Definition.
+    if (url === '/skills/notiz') {
+      return Promise.resolve({
+        data: {
+          name: 'notiz',
+          beschreibung: '',
+          argumente: [],
+          ordner: [],
+          werkzeuge: [],
+          rollen: [],
+          grenzen: { max_aufrufe: 20, zeitlimit_s: 900, werkzeug_runden: 10 },
+          prompt: 'Schreibe etwas.',
+        },
+      });
+    }
     return Promise.resolve({ data: {} });
   });
   apiPost.mockResolvedValue({ data: { datei: '---\n---\n# x' } });
@@ -62,18 +84,17 @@ beforeEach(() => {
 });
 
 describe('Anlegen', () => {
-  it('zeigt den Anlege-Titel, Formular und Vorschau', async () => {
-    renderDialog(null);
+  it('zeigt den Anlege-Titel, Formular und Vorschau — kein Löschen', async () => {
+    renderTab(null);
     expect(await screen.findByText('Neuer Skill')).toBeInTheDocument();
     expect(screen.getByTestId('skill-form')).toBeInTheDocument();
     expect(screen.getByTestId('markdown-preview')).toBeInTheDocument();
-    // Kein Löschen-Knopf beim Anlegen.
-    expect(screen.queryByRole('button', { name: 'Löschen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Löschen/ })).not.toBeInTheDocument();
   });
 
-  it('Speichern schickt POST /skills mit den Eingaben und schließt', async () => {
+  it('Speichern schickt POST /skills und wechselt in den Bearbeiten-Modus', async () => {
     const user = userEvent.setup();
-    const onClose = renderDialog(null);
+    renderTab(null);
     await screen.findByText('Neuer Skill');
 
     await user.type(screen.getByLabelText('Name'), 'notiz');
@@ -83,15 +104,13 @@ describe('Anlegen', () => {
     await waitFor(() =>
       expect(apiPost).toHaveBeenCalledWith(
         '/skills',
-        expect.objectContaining({
-          name: 'notiz',
-          prompt: 'Schreibe etwas.',
-        }),
+        expect.objectContaining({ name: 'notiz', prompt: 'Schreibe etwas.' }),
         { showError: false }
       )
     );
-    expect(onClose).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalled();
+    // Nach dem Anlegen zeigt der Tab den neuen Skill (Bearbeiten-Modus).
+    await waitFor(() => expect(useSkillEditorStore.getState().editName).toBe('notiz'));
   });
 
   it('zeigt die Fehlermeldung des Servers, wenn Speichern scheitert', async () => {
@@ -103,7 +122,7 @@ describe('Anlegen', () => {
         );
       return Promise.resolve({ data: { datei: 'x' } });
     });
-    renderDialog(null);
+    renderTab(null);
     await screen.findByText('Neuer Skill');
     await user.type(screen.getByLabelText('Name'), 'notiz');
     await user.type(screen.getByLabelText('Prompt (Anweisung an das Modell)'), 'x');
@@ -114,40 +133,37 @@ describe('Anlegen', () => {
 
 describe('Bearbeiten', () => {
   it('lädt den Skill, sperrt den Namen und bietet Löschen', async () => {
-    renderDialog('recherche');
+    renderTab('recherche');
     expect(await screen.findByText('Skill bearbeiten: /recherche')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('recherche'));
     expect(screen.getByLabelText('Name')).toBeDisabled();
     expect(screen.getByRole('button', { name: /Löschen/ })).toBeInTheDocument();
   });
 
-  it('Speichern schickt PUT /skills/:name', async () => {
+  it('Speichern schickt PUT /skills/:name ohne Namen im Body', async () => {
     const user = userEvent.setup();
-    const onClose = renderDialog('recherche');
+    renderTab('recherche');
     await screen.findByText('Skill bearbeiten: /recherche');
     await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('recherche'));
     await user.click(screen.getByRole('button', { name: /Speichern/ }));
     await waitFor(() => expect(apiPut).toHaveBeenCalled());
-    // Der Name gehört in die URL, NICHT in den Body — `SaveSkillBody` ist strict.
     const [url, body] = apiPut.mock.calls[0]!;
     expect(url).toBe('/skills/recherche');
     expect(body).not.toHaveProperty('name');
     expect(body).toMatchObject({ prompt: '# Recherche\n{{thema}}' });
-    expect(onClose).toHaveBeenCalled();
   });
 
-  it('Löschen fragt nach und schickt dann DELETE', async () => {
+  it('Löschen fragt nach, schickt DELETE und schließt den Tab', async () => {
     const user = userEvent.setup();
-    const onClose = renderDialog('recherche');
+    renderTab('recherche');
     await screen.findByText('Skill bearbeiten: /recherche');
     await user.click(screen.getByRole('button', { name: /Löschen/ }));
-    // Rückfrage-Dialog erscheint; darin der bestätigende Löschen-Knopf.
     const dialog = await screen.findByText('Skill löschen');
     const confirmScope = dialog.closest('[role="dialog"]') as HTMLElement;
     await user.click(within(confirmScope).getByRole('button', { name: 'Löschen' }));
     await waitFor(() =>
       expect(apiDel).toHaveBeenCalledWith('/skills/recherche', { showError: false })
     );
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() => expect(useSkillEditorStore.getState().editName).toBeNull());
   });
 });

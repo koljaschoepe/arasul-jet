@@ -82,6 +82,66 @@ function buildUserInput(declared = [], werte = {}) {
 }
 
 /**
+ * Beispiel-Werte für die Laufzeit-Vorschau (Plan 012, Schritt 11).
+ *
+ * Anders als `resolveArguments` wirft das hier NIE: die Vorschau soll auch
+ * dann etwas zeigen, wenn ein Pflichtargument noch nicht ausgefüllt ist. Die
+ * Rangfolge je Argument: vom Aufrufer mitgegebener Wert → Standardwert → bei
+ * `auswahl` die erste Option → sonst ein sichtbarer Platzhalter »‹name›«, damit
+ * im aufgelösten Prompt klar erkennbar bleibt, wo ein Argument einsetzt.
+ */
+function sampleArgumentValues(declared = [], provided = {}) {
+  const werte = {};
+  for (const arg of declared) {
+    const roh = provided[arg.name];
+    if (roh != null && roh !== '') {
+      werte[arg.name] = String(roh);
+    } else if (arg.standard != null) {
+      werte[arg.name] = String(arg.standard);
+    } else if (arg.typ === 'auswahl' && Array.isArray(arg.optionen) && arg.optionen.length > 0) {
+      werte[arg.name] = String(arg.optionen[0]);
+    } else {
+      werte[arg.name] = `‹${arg.name}›`;
+    }
+  }
+  return werte;
+}
+
+/**
+ * Stellt den Laufzeit-Prompt einer Skill-Definition zusammen — so, wie ihn der
+ * Runner ans Modell gäbe (Plan 012, Schritt 11: das Herz des USP, volle
+ * Transparenz). Führt NICHTS aus, sondern setzt nur die Beispiel-Argumente ein.
+ *
+ * Ehrlich abgegrenzt: Die System-Nachricht an das Modell ist AUSSCHLIESSLICH
+ * der aufgelöste Prompt (`systemPrompt`). Werkzeuge, Ordner, Wissensräume und
+ * Subagenten-Rollen reicht der Runner STRUKTURELL daneben (Werkzeuge über den
+ * Ollama-`tools`-Parameter, Rollen als eigene Schleifen) — sie stehen NICHT im
+ * Prompt-Text. Die Vorschau gibt beides getrennt zurück, statt Kontext
+ * vorzugaukeln, der gar nicht im Prompt landet.
+ *
+ * @param {object} skill - interne Definition (mit `systemPrompt`).
+ * @param {object} [providedArgs] - name → Wert (optional, für gefüllte Vorschau).
+ * @returns {{ systemPrompt: string, userInput: string, werkzeuge: string[],
+ *   ordner: string[], rollen: {name:string,prompt:string}[],
+ *   beispielWerte: Record<string,string> }}
+ */
+function assembleRuntimePrompt(skill, providedArgs = {}) {
+  const argumente = Array.isArray(skill.argumente) ? skill.argumente : [];
+  const werte = sampleArgumentValues(argumente, providedArgs);
+  return {
+    systemPrompt: fillPlaceholders(skill.systemPrompt, werte),
+    userInput: buildUserInput(argumente, werte),
+    werkzeuge: Array.isArray(skill.werkzeuge) ? skill.werkzeuge : [],
+    ordner: Array.isArray(skill.ordner) ? skill.ordner : [],
+    rollen: (Array.isArray(skill.rollen) ? skill.rollen : []).map(r => ({
+      name: r.name,
+      prompt: fillPlaceholders(r.prompt, werte),
+    })),
+    beispielWerte: werte,
+  };
+}
+
+/**
  * Speist den Inhalt der `datei`-Argumente in die Nutzer-Eingabe ein (Schritt 18).
  *
  * Ein `datei`-Argument liefert nur den Dateinamen — für „fasse dieses Dokument
@@ -378,4 +438,11 @@ async function runSkill(
   return store.getRun({ runId: run.id, userId });
 }
 
-module.exports = { runSkill, resolveArguments, buildUserInput, anreichernMitDateien };
+module.exports = {
+  runSkill,
+  resolveArguments,
+  buildUserInput,
+  anreichernMitDateien,
+  assembleRuntimePrompt,
+  sampleArgumentValues,
+};

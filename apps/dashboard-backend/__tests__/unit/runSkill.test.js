@@ -21,6 +21,8 @@ const {
   resolveArguments,
   buildUserInput,
   anreichernMitDateien,
+  assembleRuntimePrompt,
+  sampleArgumentValues,
 } = require('../../src/services/skills/runSkill');
 
 /** Ein Werkzeug-Doppel im BaseTool-Stil. */
@@ -615,5 +617,51 @@ describe('anreichernMitDateien', () => {
     const out = await anreichernMitDateien('Angaben:\nDatei: a.pdf', decl, { datei: 'a.pdf' }, load);
     expect(out).toMatch(/Inhalt der Datei "a.pdf" \(gekürzt\)/);
     expect(out).toMatch(/Inhalt\n--- Ende der Datei ---/);
+  });
+});
+
+describe('sampleArgumentValues', () => {
+  it('bevorzugt mitgegebene Werte, dann Standard, dann erste Auswahl, dann Platzhalter', () => {
+    const decl = [
+      { name: 'thema', typ: 'freitext', pflicht: true },
+      { name: 'stil', typ: 'auswahl', optionen: ['kurz', 'lang'] },
+      { name: 'ton', typ: 'freitext', standard: 'sachlich' },
+      { name: 'ziel', typ: 'freitext' },
+    ];
+    expect(sampleArgumentValues(decl, { thema: 'KI' })).toEqual({
+      thema: 'KI',
+      stil: 'kurz',
+      ton: 'sachlich',
+      ziel: '‹ziel›',
+    });
+  });
+});
+
+describe('assembleRuntimePrompt', () => {
+  it('löst den System-Prompt mit Beispiel-Argumenten auf', () => {
+    const skill = {
+      systemPrompt: 'Fasse {{thema}} zusammen.',
+      argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
+      werkzeuge: ['rag_suche'],
+      ordner: ['berichte'],
+      rollen: [],
+    };
+    const out = assembleRuntimePrompt(skill, { thema: 'Quartalszahlen' });
+    expect(out.systemPrompt).toBe('Fasse Quartalszahlen zusammen.');
+    expect(out.werkzeuge).toEqual(['rag_suche']);
+    expect(out.ordner).toEqual(['berichte']);
+    expect(out.beispielWerte).toEqual({ thema: 'Quartalszahlen' });
+  });
+
+  it('setzt Rollen-Prompts ebenfalls ein und wirft bei fehlendem Pflichtargument nicht', () => {
+    const skill = {
+      systemPrompt: 'Prompt {{thema}}',
+      argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
+      werkzeuge: ['subagent'],
+      rollen: [{ name: 'sucher', prompt: 'Suche zu {{thema}}' }],
+    };
+    const out = assembleRuntimePrompt(skill);
+    expect(out.systemPrompt).toBe('Prompt ‹thema›');
+    expect(out.rollen).toEqual([{ name: 'sucher', prompt: 'Suche zu ‹thema›' }]);
   });
 });

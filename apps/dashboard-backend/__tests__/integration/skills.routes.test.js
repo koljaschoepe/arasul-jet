@@ -328,6 +328,42 @@ describe('Skills-Routen', () => {
     });
   });
 
+  describe('Vorschau-Laufzeit', () => {
+    test('löst den Prompt mit den mitgegebenen Argumenten auf', async () => {
+      const res = await auth(request(app).post('/api/skills/vorschau-laufzeit')).send({
+        ...NEU,
+        prompt: 'Fasse {{thema}} zusammen.',
+        argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
+        args: { thema: 'Quartalszahlen' },
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.data.systemPrompt).toBe('Fasse Quartalszahlen zusammen.');
+      expect(res.body.data.werkzeuge).toEqual([]);
+      expect(fs.readdirSync(TMP_SKILLS)).toHaveLength(0);
+    });
+
+    test('setzt ohne Angaben einen sichtbaren Platzhalter ein (wirft nicht)', async () => {
+      const res = await auth(request(app).post('/api/skills/vorschau-laufzeit')).send({
+        ...NEU,
+        prompt: 'Fasse {{thema}} zusammen.',
+        argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.data.systemPrompt).toBe('Fasse ‹thema› zusammen.');
+    });
+
+    test('gibt strukturellen Kontext (Werkzeuge/Ordner) getrennt zurück', async () => {
+      const res = await auth(request(app).post('/api/skills/vorschau-laufzeit')).send({
+        ...NEU,
+        werkzeuge: ['dateien_lesen'],
+        ordner: ['berichte'],
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.data.werkzeuge).toEqual(['dateien_lesen']);
+      expect(res.body.data.ordner).toEqual(['berichte']);
+    });
+  });
+
   // --- Läufe (Plan 011, Schritt 9) -----------------------------------------
   // Der Auth-Mock beantwortet die Auth-Abfragen per Teilstring; hier wird er um
   // die Lauf-Tabellen erweitert, damit die Routen echte Zeilen zurückbekommen.

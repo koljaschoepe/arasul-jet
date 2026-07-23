@@ -10,6 +10,7 @@ const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
 const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
+const SkillEditorTab = lazy(() => import('@/features/skills/SkillEditorTab'));
 
 export interface TabThemeControls {
   theme: string;
@@ -83,6 +84,8 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/';
     case 'document':
       return '/';
+    case 'skill':
+      return '/';
   }
 }
 
@@ -92,6 +95,7 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   settings: new Set(['settings']),
   store: new Set(['store']),
   automationen: new Set([]),
+  skill: new Set([]),
 };
 
 /**
@@ -154,11 +158,20 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   if (tab.type === 'automationen') {
     return <AutomationenTab />;
   }
+  if (tab.type === 'skill') {
+    return <SkillEditorTab />;
+  }
   return <FeatureTabHost tab={tab} themeControls={themeControls} />;
 }
 
-/** Tab-Typen, die beim Wechsel gemountet bleiben (eingebettete iframes). */
-const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['automationen']);
+/**
+ * Tab-Typen, die beim Wechsel gemountet bleiben. `automationen` wegen des
+ * eingebetteten iframes; `skill`, damit ein halb ausgefülltes Editor-Formular
+ * einen kurzen Tab-Wechsel (z. B. Blick in den Datei-Explorer) übersteht statt
+ * unbemerkt verloren zu gehen. Keep-Alive greift nur für tatsächlich geöffnete
+ * Tabs — ein nie geöffneter Skill-Tab wird dadurch nicht gemountet.
+ */
+const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['automationen', 'skill']);
 
 /**
  * Rendert den aktiven Tab (plus Keep-Alive-Tabs unsichtbar), jeweils mit

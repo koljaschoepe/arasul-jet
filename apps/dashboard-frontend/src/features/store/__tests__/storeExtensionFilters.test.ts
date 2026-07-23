@@ -8,13 +8,17 @@ import {
   type ExtensionFilterState,
 } from '../storeExtensionFilters';
 import type { WorkspaceApp } from '@/hooks/useWorkspaceApps';
+import type { WorkspaceTabType } from '@/stores/workspaceStore';
 
-function app(p: Partial<WorkspaceApp>): WorkspaceApp {
+// Der Bereich (`tab`) ist für die Filter-Logik ein offener String (App-Kategorie,
+// inkl. Alt-Kategorien wie „database" mit eigenem Label) — die Fixtures dürfen
+// daher jede Kategorie setzen, auch eine, die kein aktiver Tab-Typ (mehr) ist.
+function app(p: Partial<Omit<WorkspaceApp, 'tab'>> & { tab?: string }): WorkspaceApp {
   return {
     id: p.id ?? 'x',
     name: p.name ?? 'App',
     description: p.description ?? '',
-    tab: p.tab ?? 'automationen',
+    tab: (p.tab ?? 'automationen') as WorkspaceTabType,
     enabled: p.enabled ?? true,
   };
 }

@@ -255,6 +255,15 @@ const SaveSkillBody = z
 /** Beim Anlegen kommt der Name im Body dazu. */
 const CreateSkillBody = SaveSkillBody.extend({ name: SkillName });
 
+/**
+ * Body der Laufzeit-Vorschau (Plan 012, Schritt 11): derselbe Skill-Body wie
+ * beim Anlegen, plus optionale Beispiel-Argumente. Fehlen sie, füllt der Runner
+ * sichtbare Platzhalter ein — die Vorschau soll auch ohne Angaben etwas zeigen.
+ */
+const RuntimePreviewBody = CreateSkillBody.extend({
+  args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
+});
+
 /** `:name` in der URL. */
 const SkillNameParams = z.object({ name: SkillName }).strict();
 
@@ -289,6 +298,7 @@ module.exports = {
   SkillLimitsShape,
   SaveSkillBody,
   CreateSkillBody,
+  RuntimePreviewBody,
   SkillNameParams,
   RunIdParams,
   ListRunsQuery,

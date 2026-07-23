@@ -87,6 +87,17 @@ describe('workspaceStore — Tabs', () => {
     ]);
   });
 
+  it('der Skill-Editor ist ein Singleton-Tab mit Default-Titel', () => {
+    const { openTab } = useWorkspaceStore.getState();
+    openTab({ type: 'skill' });
+    openTab({ type: 'skill' });
+    const { tabs, activeTabId } = useWorkspaceStore.getState();
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]?.id).toBe('skill');
+    expect(tabs[0]?.title).toBe('Neuer Skill');
+    expect(activeTabId).toBe('skill');
+  });
+
   it('updateTabTitle ändert den Titel', () => {
     useWorkspaceStore.getState().openTab({ type: 'document', documentId: '7' });
     useWorkspaceStore.getState().updateTabTitle('document:7', 'rechnung.pdf');
@@ -656,6 +667,7 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
       { type: 'settings' as const },
       { type: 'automationen' as const },
       { type: 'store' as const },
+      { type: 'skill' as const },
     ];
     for (const spec of specs) {
       const tab = { id: tabId(spec), title: 'x', ...spec };

@@ -20,7 +20,7 @@ import { persist } from 'zustand/middleware';
  * Stores — Komponenten rendern die Sessions nur, sie besitzen sie nicht.
  */
 
-export type WorkspaceTabType = 'document' | 'settings' | 'store' | 'automationen';
+export type WorkspaceTabType = 'document' | 'settings' | 'store' | 'automationen' | 'skill';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
@@ -42,6 +42,7 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   settings: 'Einstellungen',
   store: 'Extensions',
   automationen: 'Automationen',
+  skill: 'Neuer Skill',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
@@ -64,6 +65,8 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/store';
     case 'automationen':
       return '/workspace/automationen';
+    case 'skill':
+      return '/workspace/skill';
   }
 }
 
@@ -81,6 +84,8 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'store' };
     case 'automationen':
       return { type: 'automationen' };
+    case 'skill':
+      return { type: 'skill' };
     default:
       // /workspace/terminal (v2) ist kein Tab mehr — Terminal lebt im Panel.
       return null;

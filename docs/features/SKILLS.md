@@ -4,7 +4,7 @@ Ein **Skill** ist eine vorkonfigurierte Aufgabe, die im Chat per `/name`
 aufgerufen wird — modelliert nach Claude Code. Technisch ist ein Skill eine
 Markdown-Datei mit YAML-Kopf unter `data/skills/` (im Container
 `/arasul/skills`, siehe `SKILLS_DIR`). Die Datei ist die Wahrheit; der
-Anlege-Dialog erzeugt sie nur.
+Editor erzeugt sie nur.
 
 Skills ersetzen den früheren Agenten- und Fluss-Layer (Plan 011). Statt
 Kästchen zu verbinden, baut man eine spezialisierte Aufgabe einmal und ruft sie
@@ -13,7 +13,15 @@ im Chat mit `/` ab.
 ## Im Chat benutzen
 
 - `/` öffnet ein Menü aller Skills. Tippen filtert; das Stift-Symbol bearbeitet,
-  `/neuer-skill` legt einen an.
+  `/neuer-skill` legt einen an. Bearbeiten und Anlegen öffnen den **zentralen
+  Skill-Editor** als eigenen Mitte-Tab (kein Popup mehr, Plan 012 Phase D);
+  `/skills` öffnet die **Skill-Übersicht** in der linken Sidebar (Activity-Bar-
+  Ansicht »Skills«), aus der ein Klick denselben Editor-Tab öffnet.
+- Der Editor zeigt links das Formular, rechts eine Live-Vorschau mit zwei
+  Ansichten: die **erzeugte Datei** und den **aufgelösten Laufzeit-Prompt** —
+  also genau das, was der Runner dem Modell gibt (Prompt mit eingesetzten
+  Beispiel-Argumenten; Werkzeuge/Ordner/Rollen werden strukturell daneben
+  übergeben, nicht in den Prompt-Text gefaltet).
 - Nach der Auswahl stehen die erwarteten Argumente grau hinter dem Befehl —
   Pflicht in `<spitzen>`, optional in `[eckigen]` Klammern. Tippen überschreibt
   das aktive Argument, Tab springt zum nächsten.
