@@ -36,12 +36,14 @@ Gewünschter Typ: {{typ}} (app | flow | tool).
 Gehe so vor:
 
 1. Wähle eine `id` in Kleinbuchstaben-mit-Bindestrichen, passend zur Aufgabe.
-   Lege dafür einen Unterordner an (Werkzeug `dateien_schreiben`).
-2. Schreibe eine gültige `manifest.json` in diesen Unterordner mit den Feldern
+   **Lege KEINEN Ordner separat an** — das Werkzeug `dateien_schreiben` schreibt
+   Dateien, keine Ordner, und erzeugt fehlende Ordner im Pfad automatisch mit.
+2. Schreibe als ERSTES die `manifest.json` unter dem Pfad `<id>/manifest.json`
+   (also z. B. `mein-tool/manifest.json`) — damit entsteht der Ordner. Felder:
    `id`, `name`, `description`, `type` (= {{typ}}), `accessTier` (die
    niedrigste, die reicht: internet | internal | full), `version` ("0.1.0"),
    `arasulExtensionVersion` (1) und `entry` (die Startdatei je Typ).
-3. Lege die Startdatei an:
+3. Lege danach die Startdatei unter `<id>/<entry>` an:
    - **app**: eine `index.html` (in sich geschlossen, keine externen Skripte).
    - **flow**: eine `workflow.json` (gültiges n8n-Workflow-JSON).
    - **tool**: ein ausführbares Skript (z. B. `tool.mjs`), das stdin liest und
