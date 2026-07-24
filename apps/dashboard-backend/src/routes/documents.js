@@ -334,6 +334,8 @@ router.post(
       '.txt': 'text/plain',
       '.yaml': 'text/yaml',
       '.yml': 'text/yaml',
+      '.html': 'text/html',
+      '.htm': 'text/html',
     };
 
     try {

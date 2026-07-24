@@ -2278,7 +2278,7 @@ grenzen:
 Recherchiere gründlich zum Thema {{thema}}.
 ```
 
-Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, grep with line numbers).
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers).
 
 `GET /api/skills/werkzeuge` returns each tool with a `verfuegbar` flag:
 

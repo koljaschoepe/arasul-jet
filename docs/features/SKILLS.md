@@ -94,10 +94,11 @@ Werkzeuge.
   der erste ist das Arbeitsverzeichnis. Jeder Zugriff ist symlink-geprüft und
   auf die erlaubten Ordner beschränkt — `../` und Ausbrüche werden abgewiesen.
 - `dateien_suchen` findet Dateien nach Namensmuster (Glob, z. B. `*.md`,
-  `**/*.js`) und/oder nach Textinhalt (grep, mit Zeilennummer) — erst damit lohnt
-  sich in großen Ordnern eine höhere `max_tiefe`, weil ein Subagent gezielt die
-  relevanten Dateien findet, statt blind zu listen. Treffer sind gedeckelt
-  (Kontext-Schutz).
+  `**/*.js`) und/oder nach Textinhalt (`text` = Teilzeichenkette, Groß-/
+  Kleinschreibung egal, mit Zeilennummer — kein Regulärer Ausdruck, das schützt
+  vor ReDoS). Erst damit lohnt sich in großen Ordnern eine höhere `max_tiefe`,
+  weil ein Subagent gezielt die relevanten Dateien findet, statt blind zu listen.
+  Treffer, Dateizahl und gelesene Bytes pro Datei sind gedeckelt (Kontext-Schutz).
 - `terminal` läuft in einem eigenen Sandbox-Container (`arasul-skills-sandbox`),
   nicht im Backend.
 - `web_suche` nutzt den lokalen SearXNG-Container (kein externer Schlüssel),

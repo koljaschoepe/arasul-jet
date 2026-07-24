@@ -19,13 +19,14 @@ const fs = require('fs').promises;
 const fsc = require('fs').constants;
 const path = require('path');
 const BaseTool = require('../../../tools/baseTool');
-const { resolveRealWithinRoots, normalizeRoots } = require('../pathSafe');
+const { resolveRealWithinRoots, normalizeRoots, assertFdWithinRoots } = require('../pathSafe');
 
 const MAX_SCAN_FILES = 4000; // so viele Dateien werden höchstens angesehen
 const MAX_GLOB_RESULTS = 200; // so viele Namens-Treffer werden gemeldet
 const MAX_GREP_MATCHES = 100; // so viele Text-Trefferzeilen werden gemeldet
 const MAX_FILE_BYTES = 256 * 1024; // pro Datei nur die ersten 256 KB durchsuchen
 const MAX_LINE_LEN = 240; // eine Trefferzeile wird hierauf gekürzt
+const MAX_TEXT_LEN = 2000; // Obergrenze für den Suchtext
 
 /** Holt die erlaubten Ordner aus dem Kontext; wirft nie, sondern liefert null. */
 function rootsFrom(context) {
@@ -74,17 +75,16 @@ function globToRegExp(glob) {
 }
 
 /**
- * Baut den Text-Matcher. Zuerst als Regulärer Ausdruck versucht; ist er
- * ungültig, wird der Text wörtlich gesucht (der Nutzer hat vermutlich einfach
- * einen Suchbegriff mit Sonderzeichen gemeint, keine kaputte Regex).
+ * Baut den Text-Matcher. BEWUSST wörtliche Teilzeichenketten-Suche (kein
+ * Regulärer Ausdruck): ein aus Nutzer-/Modell-Eingabe kompiliertes RegExp mit
+ * katastrophalem Backtracking (ReDoS) würde den EINEN Node-Prozess des Backends
+ * synchron blockieren — ein Promise-Timeout hilft dagegen nicht, weil der
+ * Event-Loop steht. Groß-/Kleinschreibung wird ignoriert; die Suche ist linear
+ * und kann nicht ausufern.
  */
 function buildTextMatcher(text) {
-  try {
-    return new RegExp(text, 'i');
-  } catch {
-    const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(escaped, 'i');
-  }
+  const needle = text.toLowerCase();
+  return { test: line => line.toLowerCase().includes(needle) };
 }
 
 /** Posix-Relativpfad von `base` zu `abs` (für Anzeige und Glob-Vergleich). */
@@ -117,8 +117,9 @@ class DateiSuchenTool extends BaseTool {
       text: {
         type: 'string',
         description:
-          'Text oder Regulärer Ausdruck, nach dem in den Dateien gesucht wird. ' +
-          'Optional. Mindestens muster ODER text muss angegeben sein.',
+          'Teilzeichenkette, nach der in den Dateien gesucht wird (Groß-/' +
+          'Kleinschreibung egal, kein Regulärer Ausdruck). Optional. Mindestens ' +
+          'muster ODER text muss angegeben sein.',
         required: false,
       },
       pfad: {
@@ -137,10 +138,18 @@ class DateiSuchenTool extends BaseTool {
       return 'Fehler: Für diesen Skill ist kein erlaubter Ordner hinterlegt.';
     }
 
-    const muster = typeof params.muster === 'string' ? params.muster.trim() : '';
+    // Führende Schrägstriche im Glob abstreifen: der Vergleich läuft gegen einen
+    // relativen Posix-Pfad (nie mit führendem "/"), "/*.md" träfe sonst nie.
+    const muster = (typeof params.muster === 'string' ? params.muster.trim() : '').replace(
+      /^\/+/,
+      ''
+    );
     const text = typeof params.text === 'string' ? params.text : '';
     if (!muster && !text.trim()) {
       return 'Fehler: Bitte "muster" (Dateiname-Glob) und/oder "text" (Suchtext) angeben.';
+    }
+    if (text.length > MAX_TEXT_LEN) {
+      return `Fehler: Suchtext ist zu lang (max. ${MAX_TEXT_LEN} Zeichen).`;
     }
 
     let base;
@@ -168,6 +177,9 @@ class DateiSuchenTool extends BaseTool {
     const grepHits = []; // grep: { rel, no, line }
     let scanned = 0;
     let truncated = false;
+    // EIN wiederverwendeter Lesepuffer für den grep-Pfad — pro Datei werden nur
+    // die ersten MAX_FILE_BYTES gelesen (nicht die ganze, evtl. riesige Datei).
+    const readBuf = matcher ? Buffer.allocUnsafe(MAX_FILE_BYTES) : null;
 
     // Iterativer Tiefendurchlauf (kein Rekursions-Stacklimit). Symlinks werden
     // nie verfolgt — weder als Verzeichnis noch als Datei.
@@ -213,17 +225,21 @@ class DateiSuchenTool extends BaseTool {
           continue;
         }
 
-        // grep: die Datei lesen. Bewusst KEIN zweiter realpath-Durchlauf — die
-        // Basis ist schon symlink-aufgelöst und in den Wurzeln, und der Baumlauf
-        // folgt keinen Symlinks; ein erneutes resolveRealWithinRoots vergliche auf
-        // macOS einen /private-Pfad gegen eine /var-Wurzel und schlüge grundlos
-        // fehl. O_NOFOLLOW fängt einen zwischenzeitlich untergeschobenen Symlink
-        // als letzte Komponente ab (gleiche Absicherung wie dateien_lesen).
+        // grep: die Datei öffnen und NUR die ersten MAX_FILE_BYTES lesen.
+        // O_NOFOLLOW weist einen Symlink als letzte Komponente ab;
+        // assertFdWithinRoots prüft danach über den offenen Deskriptor, dass die
+        // getroffene Datei wirklich in den erlaubten Ordnern liegt — das schließt
+        // das TOCTOU-Fenster, in dem ein ZWISCHENverzeichnis zwischen readdir und
+        // open gegen einen Symlink getauscht wird (dieselbe Absicherung wie
+        // dateien_lesen). Wirft assertFdWithinRoots (Ausbruch) oder schlägt das
+        // Lesen fehl, wird die Datei still übersprungen — kein Leak, kein Abbruch.
         let handle;
-        let buf;
+        let bytesRead = 0;
         try {
           handle = await fs.open(abs, fsc.O_RDONLY | fsc.O_NOFOLLOW);
-          buf = await handle.readFile();
+          assertFdWithinRoots(roots, handle.fd, rel);
+          const res = await handle.read(readBuf, 0, MAX_FILE_BYTES, 0);
+          bytesRead = res.bytesRead;
         } catch {
           if (handle) {
             await handle.close().catch(() => {});
@@ -231,10 +247,7 @@ class DateiSuchenTool extends BaseTool {
           continue;
         }
         await handle.close().catch(() => {});
-        const content =
-          buf.length > MAX_FILE_BYTES
-            ? buf.subarray(0, MAX_FILE_BYTES).toString('utf8')
-            : buf.toString('utf8');
+        const content = readBuf.subarray(0, bytesRead).toString('utf8');
         // Binärdateien (Nullbyte) überspringen — grep über Binärdaten ist Lärm.
         if (content.indexOf('\u0000') !== -1) {
           continue;

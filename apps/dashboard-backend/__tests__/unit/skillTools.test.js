@@ -315,6 +315,30 @@ describe('dateien_suchen', () => {
     const out = await tool.execute({ text: 'kommtnichtvor-xyz' }, sctx());
     expect(out).toMatch(/kein treffer/i);
   });
+
+  it('folgt keinem Symlink aus den erlaubten Ordnern heraus (grep)', async () => {
+    // Ein Symlink-Verzeichnis UND eine Symlink-Datei, beide auf „aussen"
+    // (enthält geheim.txt mit GEHEIM). Der Baumlauf darf ihnen nicht folgen.
+    const linkDir = path.join(suchbaum, 'aussen-link');
+    const linkFile = path.join(suchbaum, 'geheim-link.md');
+    fs.symlinkSync(aussen, linkDir);
+    fs.symlinkSync(path.join(aussen, 'geheim.txt'), linkFile);
+    try {
+      const out = await tool.execute({ text: 'GEHEIM' }, sctx());
+      // „Kein Treffer" echot den Suchbegriff — daher NICHT auf „GEHEIM" prüfen,
+      // sondern darauf, dass keine Trefferzeile (Datei:Zeile) durchs Symlink kam.
+      expect(out).toMatch(/kein treffer/i);
+      expect(out).not.toMatch(/geheim\.txt:|geheim-link|aussen-link/);
+    } finally {
+      fs.unlinkSync(linkDir);
+      fs.unlinkSync(linkFile);
+    }
+  });
+
+  it('weist einen zu langen Suchtext ab (ReDoS-/Aufwandsschutz)', async () => {
+    const out = await tool.execute({ text: 'x'.repeat(2001) }, sctx());
+    expect(out).toMatch(/zu lang/i);
+  });
 });
 
 describe('Werkzeug-Registry', () => {
