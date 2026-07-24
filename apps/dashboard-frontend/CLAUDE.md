@@ -23,8 +23,8 @@ src/
                    WorkspaceMenuBar (Datei/Ansicht + Workspace-Switcher + **zwei**
                    Layout-Toggles [Sidebar, rechtes Panel] + Settings oben rechts),
                    ActivityBar (eigene, **immer sichtbare** schmale Spalte ganz
-                   links — außerhalb des einklappbaren Panels — mit fünf Ansichten
-                   **Dateien · Suche · Modelle · Erweiterungen · Skills**, den
+                   links — außerhalb des einklappbaren Panels — mit vier Ansichten
+                   **Dateien · Modelle · Erweiterungen · Skills**, den
                    aktivierten App-Erweiterungen und dem Einstellungen-Zahnrad
                    unten — Plan 012 Phase B), SidebarHost (Sidebar),
                    Tab-Bar/-Content (Mitte), RightPanel (rechts), StatusBar
@@ -40,8 +40,10 @@ src/
                      `rightPanelVisible` + `rightPanelMode` ('chat' | 'terminal').
                    • **SidebarHost** — der Inhalt richtet sich nach der aktiven
                      Activity-Bar-Ansicht (`activeView`, Store): files → Datei-
-                     Explorer, search → Suche, models/extensions → Store-Filter,
-                     skills → Skill-Liste (`features/workspace/sidebar/*Panel.tsx`).
+                     Explorer, models → Modell-Filter, extensions → Erweiterungs-
+                     Suche, skills → Skill-Liste (`features/workspace/sidebar/*Panel.tsx`);
+                     jeder unbekannte/entfernte Wert (z. B. das alte 'search')
+                     fällt auf den Explorer zurück.
                      Der Explorer bleibt beim Wechsel gemountet (nur `hidden`),
                      damit sein Baum-Zustand erhält. Die Bar wählt die Ansicht,
                      `sidebarVisible` steuert nur das Auf/Zu (⌘B / erneuter Klick).
@@ -66,10 +68,12 @@ src/
                      Pakete (Plan 012 Phase E). Datenquelle ist der eigene Hook
                      `useExtensions` (`GET /extensions`), NICHT `useWorkspaceApps`
                      (das bleibt den kuratierten Kern-Apps wie n8n vorbehalten).
-                     Beide Listen laufen aber durch dieselbe Filter-Logik
+                     Beide Listen laufen durch dieselbe Filter-Logik
                      (`storeExtensionFilters`, strukturell typisiert über
-                     `FilterableExtension`) und teilen die Facetten Typ ·
-                     Zugriffs-Stufe · Bereich · Status. Auswahl läuft über den
+                     `FilterableExtension`); die Sidebar »Erweiterungen« ist seit
+                     der Neuausrichtung eine reine Freitext-Suche über Name/
+                     Beschreibung (`extQuery`), keine Facetten-Checkboxen mehr (die
+                     Facetten-Helfer bleiben für die Logik erhalten). Auswahl läuft über den
                      `extensionStore` mit `kind:'extension'` (Paket) vs.
                      `kind:'app'` (Kern-App) vs. `kind:'builder'` (Baukasten-
                      Einstieg) — bewusst getrennt, weil die Aktionen andere sind

@@ -22,7 +22,7 @@ import { useExtensions } from '@/hooks/useExtensions';
 import type { InstalledExtension } from '@/hooks/useExtensions';
 import {
   applyExtensionFilters,
-  activeExtFilterCount,
+  extensionQueryMatches,
   extTypeLabel,
   accessTierLabel,
 } from './storeExtensionFilters';
@@ -187,14 +187,26 @@ export function StoreExtensionsGrid() {
   const { apps, setAppEnabled } = useWorkspaceApps();
   const { extensions, setExtensionEnabled } = useExtensions();
   const filters = useStoreFilterStore(s => s.extFilters);
+  const query = useStoreFilterStore(s => s.extQuery);
   const selectExtension = useExtensionStore(s => s.selectExtension);
 
-  const visible = useMemo(() => applyExtensionFilters(apps, filters), [apps, filters]);
-  const visibleExtensions = useMemo(
-    () => applyExtensionFilters(extensions, filters),
-    [extensions, filters]
+  // Facetten-Logik bleibt (heute leer), zusätzlich die Freitext-Suche über Name
+  // und Beschreibung — das ist der aktive Filter in der Sidebar.
+  const visible = useMemo(
+    () =>
+      applyExtensionFilters(apps, filters).filter(a =>
+        extensionQueryMatches([a.name, a.description], query)
+      ),
+    [apps, filters, query]
   );
-  const isFiltered = activeExtFilterCount(filters) > 0;
+  const visibleExtensions = useMemo(
+    () =>
+      applyExtensionFilters(extensions, filters).filter(e =>
+        extensionQueryMatches([e.name, e.description], query)
+      ),
+    [extensions, filters, query]
+  );
+  const isFiltered = query.trim().length > 0;
   const nothingVisible = visible.length === 0 && visibleExtensions.length === 0;
 
   return (
@@ -240,7 +252,7 @@ export function StoreExtensionsGrid() {
 
         {nothingVisible && isFiltered && (
           <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-            Keine Erweiterungen passen zum Filter.
+            Keine Erweiterungen passen zur Suche.
           </p>
         )}
       </div>

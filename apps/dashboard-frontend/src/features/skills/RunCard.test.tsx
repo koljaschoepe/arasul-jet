@@ -103,7 +103,7 @@ test('Schritte erscheinen als Zeilen', () => {
   render(<RunCard runId={7} />);
   expect(screen.getAllByTestId('run-step')).toHaveLength(2);
   expect(screen.getByText('sucht: Umsatz')).toBeInTheDocument();
-  expect(screen.getByText('leser: lesen')).toBeInTheDocument();
+  expect(screen.getByText('leser · lesen')).toBeInTheDocument();
 });
 
 test('die Datei-Änderungen erscheinen in der Karte', () => {

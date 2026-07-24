@@ -31,34 +31,29 @@ function resetStore() {
   useExtensionStore.setState({ storeTab: 'models', selected: null });
 }
 
-describe('ActivityBar — feste Spalte: Dateien · Suche · Modelle · Erweiterungen · Skills + Zahnrad', () => {
+describe('ActivityBar — feste Spalte: Dateien · Modelle · Erweiterungen · Skills + Zahnrad', () => {
   beforeEach(() => {
     resetStore();
     enabledApps.clear();
   });
 
-  it('zeigt die fünf Ansichten und das Einstellungen-Zahnrad (jetzt in der Bar)', () => {
+  it('zeigt die vier Ansichten und das Einstellungen-Zahnrad (jetzt in der Bar)', () => {
     render(<ActivityBar />);
-    for (const label of [
-      'Dateien',
-      'Suche',
-      'Modelle',
-      'Erweiterungen',
-      'Skills',
-      'Einstellungen',
-    ]) {
+    for (const label of ['Dateien', 'Modelle', 'Erweiterungen', 'Skills', 'Einstellungen']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
+    // Die frühere »Suche«-Ansicht ist entfernt.
+    expect(screen.queryByLabelText('Suche')).not.toBeInTheDocument();
     // Automation ist kein fester Bereich — nur als aktivierte Erweiterung
     expect(screen.queryByLabelText('Automation')).not.toBeInTheDocument();
   });
 
-  it('Suche wählt die Ansicht und zieht die Sidebar auf', () => {
+  it('Skills wählt die Ansicht und zieht die Sidebar auf', () => {
     useWorkspaceStore.setState({ sidebarVisible: false });
     render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Suche'));
+    fireEvent.click(screen.getByLabelText('Skills'));
     const s = useWorkspaceStore.getState();
-    expect(s.activeView).toBe('search');
+    expect(s.activeView).toBe('skills');
     expect(s.sidebarVisible).toBe(true);
   });
 

@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Button } from '@/components/ui/shadcn/button';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { cn } from '@/lib/utils';
 import type {
   SkillArgument,
   SkillArgumentType,
@@ -99,21 +101,24 @@ export default function SkillForm({ value, onChange, mode, werkzeuge }: SkillFor
       <fieldset className="flex flex-col gap-1.5">
         <legend className="text-sm font-medium text-foreground">Werkzeuge</legend>
         <div className="grid grid-cols-2 gap-1.5">
-          {werkzeuge.map(w => (
-            <label
-              key={w.name}
-              className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-ui-xs hover:bg-accent/50"
-            >
-              <input
-                type="checkbox"
-                className="size-3.5 accent-[var(--primary)]"
-                checked={value.werkzeuge.includes(w.name)}
-                onChange={() => toggleWerkzeug(w.name)}
-              />
-              <span className="flex-1 truncate text-foreground">{w.name}</span>
-              {!w.verfuegbar && <span className="shrink-0 text-warning">kommt noch</span>}
-            </label>
-          ))}
+          {werkzeuge.map(w => {
+            const drin = value.werkzeuge.includes(w.name);
+            return (
+              <label
+                key={w.name}
+                className={cn(
+                  'flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-ui-xs transition-colors',
+                  drin
+                    ? 'border-primary/40 bg-primary/5 text-foreground'
+                    : 'border-border text-foreground hover:bg-accent/50'
+                )}
+              >
+                <Checkbox checked={drin} onCheckedChange={() => toggleWerkzeug(w.name)} />
+                <span className="flex-1 truncate">{w.name}</span>
+                {!w.verfuegbar && <span className="shrink-0 text-warning">kommt noch</span>}
+              </label>
+            );
+          })}
         </div>
       </fieldset>
 
@@ -201,12 +206,11 @@ export default function SkillForm({ value, onChange, mode, werkzeuge }: SkillFor
                   </option>
                 ))}
               </select>
-              <label className="flex items-center gap-1 text-ui-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  className="size-3.5 accent-[var(--primary)]"
+              <label className="flex cursor-pointer items-center gap-1.5 text-ui-xs text-muted-foreground">
+                <Checkbox
                   checked={a.pflicht}
-                  onChange={e => setArg(i, { pflicht: e.target.checked })}
+                  onCheckedChange={checked => setArg(i, { pflicht: checked })}
+                  aria-label={`Argument ${i + 1} ist Pflicht`}
                 />
                 Pflicht
               </label>
@@ -408,13 +412,17 @@ function RollenEditor({
                 return (
                   <label
                     key={w.name}
-                    className="flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                    className={cn(
+                      'flex cursor-pointer items-center gap-1.5 rounded border px-1.5 py-0.5 text-[11px] transition-colors',
+                      drin
+                        ? 'border-primary/40 bg-primary/5 text-foreground'
+                        : 'border-border text-muted-foreground hover:bg-accent/50'
+                    )}
                   >
-                    <input
-                      type="checkbox"
-                      className="size-3 accent-[var(--primary)]"
+                    <Checkbox
                       checked={drin}
-                      onChange={() =>
+                      aria-label={`Rolle ${i + 1}: Werkzeug ${w.name}`}
+                      onCheckedChange={() =>
                         setRolle(i, {
                           werkzeuge: drin
                             ? r.werkzeuge.filter(x => x !== w.name)

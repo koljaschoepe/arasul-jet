@@ -22,12 +22,14 @@ import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
 import { cn } from '@/lib/utils';
 
+type PreviewView = 'datei' | 'laufzeit';
+
 interface MarkdownPreviewProps {
   /** Der API-Body (aus skillForm.toBody) — die Eingaben in Roh-Form. */
   body: Record<string, unknown>;
+  /** Welche Ansicht beim Öffnen zuerst zeigt (Standard: erzeugte Datei). */
+  defaultView?: PreviewView;
 }
-
-type PreviewView = 'datei' | 'laufzeit';
 
 interface RuntimePreview {
   systemPrompt: string;
@@ -38,9 +40,9 @@ interface RuntimePreview {
   beispielWerte: Record<string, string>;
 }
 
-export default function MarkdownPreview({ body }: MarkdownPreviewProps) {
+export default function MarkdownPreview({ body, defaultView = 'datei' }: MarkdownPreviewProps) {
   const api = useApi();
-  const [view, setView] = useState<PreviewView>('datei');
+  const [view, setView] = useState<PreviewView>(defaultView);
   const [datei, setDatei] = useState<string | null>(null);
   const [laufzeit, setLaufzeit] = useState<RuntimePreview | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);

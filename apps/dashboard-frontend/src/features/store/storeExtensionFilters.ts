@@ -108,6 +108,17 @@ export function applyExtensionFilters<T extends FilterableExtension>(
   return apps.filter(a => extensionMatches(a, filters));
 }
 
+/**
+ * Freitext-Treffer über beliebige Felder (Name, Beschreibung). Leerer/whitespace-
+ * Query trifft immer. Case- und diakritik-tolerant genug für die Praxis (simple
+ * Kleinschreibung); bewusst kein Fuzzy — vorhersehbar schlägt clever.
+ */
+export function extensionQueryMatches(fields: Array<string | undefined>, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return fields.some(f => (f ?? '').toLowerCase().includes(q));
+}
+
 export interface ExtensionFacets {
   areas: FacetOption[];
   status: FacetOption<ExtStatusFacet>[];

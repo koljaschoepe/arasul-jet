@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { WorkspaceTabType } from '@/stores/workspaceStore';
 import { FilesPanel } from './sidebar/FilesPanel';
-import { SearchPanel } from './sidebar/SearchPanel';
 import { ModelsPanel } from './sidebar/ModelsPanel';
 import { ExtensionsPanel } from './sidebar/ExtensionsPanel';
 import { SkillsPanel } from './sidebar/SkillsPanel';
@@ -14,7 +13,6 @@ import { SkillsPanel } from './sidebar/SkillsPanel';
  * WorkspaceShell; das Einstellungen-Zahnrad sitzt dort unten.
  *
  *   files       → Datei-Explorer (Baum)
- *   search      → Suche (Trefferliste)
  *   models      → Modell-Filter
  *   extensions  → Erweiterungs-Filter
  *   skills      → Skill-Liste
@@ -47,11 +45,18 @@ export function SidebarHost() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      {/* Explorer bleibt gemountet (Baum-Zustand), nur versteckt wenn inaktiv. */}
-      <div className={activeView === 'files' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+      {/* Explorer bleibt gemountet (Baum-Zustand), nur versteckt wenn inaktiv.
+          Er ist zugleich der Fallback: jede Ansicht außer models/extensions/skills
+          (inkl. alter, entfernter Werte wie 'search') zeigt den Explorer. */}
+      <div
+        className={
+          activeView === 'models' || activeView === 'extensions' || activeView === 'skills'
+            ? 'hidden'
+            : 'flex min-h-0 flex-1 flex-col'
+        }
+      >
         <FilesPanel />
       </div>
-      {activeView === 'search' && <SearchPanel />}
       {activeView === 'models' && <ModelsPanel />}
       {activeView === 'extensions' && <ExtensionsPanel />}
       {activeView === 'skills' && <SkillsPanel />}

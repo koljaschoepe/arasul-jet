@@ -33,24 +33,22 @@ describe('StoreExtensionsGrid', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useExtensionStore.getState().clearSelection();
-    useStoreFilterStore.setState({ extFilters: EMPTY_EXTENSION_FILTERS });
+    useStoreFilterStore.setState({ extFilters: EMPTY_EXTENSION_FILTERS, extQuery: '' });
   });
 
-  it('zeigt ohne Filter alle Erweiterungen + den Baukasten-Einstieg', () => {
+  it('zeigt ohne Suche alle Erweiterungen + den Baukasten-Einstieg', () => {
     render(<StoreExtensionsGrid />);
     expect(screen.getByTestId('ext-card-n8n')).toBeInTheDocument();
     expect(screen.getByTestId('ext-card-db')).toBeInTheDocument();
     expect(screen.getByTestId('ext-builder-entry')).toBeInTheDocument();
   });
 
-  it('ein Bereichs-Filter grenzt das Raster ein und blendet den Einstieg aus', () => {
-    useStoreFilterStore.setState({
-      extFilters: { ...EMPTY_EXTENSION_FILTERS, areas: ['database'] },
-    });
+  it('eine Suche grenzt das Raster über Name/Beschreibung ein und blendet den Einstieg aus', () => {
+    useStoreFilterStore.setState({ extQuery: 'Datenbank' });
     render(<StoreExtensionsGrid />);
     expect(screen.getByTestId('ext-card-db')).toBeInTheDocument();
     expect(screen.queryByTestId('ext-card-n8n')).not.toBeInTheDocument();
-    // Bei aktivem Filter geht es um Erweiterungen, nicht ums Bauen.
+    // Bei aktiver Suche geht es um Erweiterungen, nicht ums Bauen.
     expect(screen.queryByTestId('ext-builder-entry')).not.toBeInTheDocument();
   });
 

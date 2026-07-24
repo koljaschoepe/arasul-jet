@@ -1,5 +1,5 @@
 import React from 'react';
-import { Files, Search, Cpu, Blocks, Sparkles, Workflow, Settings } from 'lucide-react';
+import { Files, Cpu, Blocks, Wand2, Workflow, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { ActivityView, WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useExtensionStore } from '@/stores/extensionStore';
@@ -38,10 +38,9 @@ export function ActivityButton({ label, onClick, active, children }: ActivityBut
 /** Die festen Sidebar-Ansichten (Plan 012 Phase B) in Anzeige-Reihenfolge. */
 const VIEW_ENTRIES: Array<{ view: ActivityView; label: string; icon: React.ReactNode }> = [
   { view: 'files', label: 'Dateien', icon: <Files className="h-[18px] w-[18px]" /> },
-  { view: 'search', label: 'Suche', icon: <Search className="h-[18px] w-[18px]" /> },
   { view: 'models', label: 'Modelle', icon: <Cpu className="h-[18px] w-[18px]" /> },
   { view: 'extensions', label: 'Erweiterungen', icon: <Blocks className="h-[18px] w-[18px]" /> },
-  { view: 'skills', label: 'Skills', icon: <Sparkles className="h-[18px] w-[18px]" /> },
+  { view: 'skills', label: 'Skills', icon: <Wand2 className="h-[18px] w-[18px]" /> },
 ];
 
 /**

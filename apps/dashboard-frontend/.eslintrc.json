@@ -24,6 +24,11 @@
   "settings": {
     "react": {
       "version": "detect"
+    },
+    "jsx-a11y": {
+      "components": {
+        "Checkbox": "input"
+      }
     }
   },
   "rules": {

@@ -43,12 +43,13 @@ describe('SidebarHost — Ansichts-Mapping', () => {
     expect(screen.getByTestId('explorer')).toBeInTheDocument();
   });
 
-  it('search → Such-Ansicht (Explorer bleibt gemountet, aber versteckt)', () => {
+  it('search (entfernt) → fällt auf den Datei-Explorer zurück', () => {
+    // Die »Suche«-Ansicht ist entfernt; ein alter persistierter Wert darf keine
+    // leere Sidebar erzeugen — der Explorer ist der Fallback.
     reset('search');
     render(<SidebarHost />);
-    expect(screen.getByText('Suche')).toBeInTheDocument();
-    // Explorer bleibt für den Baum-Zustand im DOM (nur per `hidden` verborgen).
     expect(screen.getByTestId('explorer')).toBeInTheDocument();
+    expect(screen.queryByTestId('models-panel')).not.toBeInTheDocument();
   });
 
   it('models → Modell-Ansicht', () => {
@@ -71,8 +72,8 @@ describe('SidebarHost — Ansichts-Mapping', () => {
 
   it('reagiert auf einen Ansichtswechsel im Store', () => {
     render(<SidebarHost />);
-    expect(screen.queryByText('Suche')).not.toBeInTheDocument();
-    act(() => useWorkspaceStore.setState({ activeView: 'search' }));
-    expect(screen.getByText('Suche')).toBeInTheDocument();
+    expect(screen.queryByTestId('models-panel')).not.toBeInTheDocument();
+    act(() => useWorkspaceStore.setState({ activeView: 'models' }));
+    expect(screen.getByTestId('models-panel')).toBeInTheDocument();
   });
 });

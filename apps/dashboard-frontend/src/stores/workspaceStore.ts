@@ -193,6 +193,13 @@ interface WorkspaceState {
    */
   selectView: (view: ActivityView) => void;
   /**
+   * Ansicht setzen OHNE Toggle-/Sichtbarkeits-Nebenwirkung. Für Sync-Fälle, in
+   * denen etwas anderes die Auswahl treibt (z. B. der Store-Reiter in der Mitte
+   * folgt dem Sidebar-Filter) — der bloße Klick auf einen Center-Reiter soll die
+   * Sidebar nicht ein-/ausklappen, nur ihren Inhalt passend stellen.
+   */
+  setActiveView: (view: ActivityView) => void;
+  /**
    * Auto-Collapse-Zustandsmaschine für Kontextwechsel: beim Betreten eines
    * App-Tabs die aktuelle Präferenz in `sidebarRestore` sichern und einklappen,
    * beim Verlassen wiederherstellen. Nur die Ein-/Austritts-Übergänge wirken
@@ -423,6 +430,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             ? { sidebarVisible: false }
             : { activeView: view, sidebarVisible: true }
         ),
+      setActiveView: view => set({ activeView: view }),
       syncSidebarForTab: isAppTab =>
         set(state => {
           // Betreten eines App-Tabs (nur der Eintritts-Übergang, Gate über

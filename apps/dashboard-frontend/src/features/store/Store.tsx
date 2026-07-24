@@ -16,13 +16,14 @@
  * Alte Deep-Links /store/models und /store/apps (auch mit ?highlight=…) leiten
  * auf /store um und setzen dabei die Auswahl im Extension-Store.
  */
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { Cpu, Package } from 'lucide-react';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { cn } from '@/lib/utils';
 import { useExtensionStore } from '@/stores/extensionStore';
 import type { ExtensionKind, StoreTab } from '@/stores/extensionStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { StoreDetailPage } from './StoreDetailPage';
 import { StoreModelsGrid } from './StoreModelsGrid';
 import { StoreExtensionsGrid } from './StoreExtensionsGrid';
@@ -49,9 +50,23 @@ function StoreWorkspace() {
   // Reiter lebt im extensionStore (Plan 012 Phase B): so kann die Activity-Bar
   // »Modelle«/»Erweiterungen« den passenden Reiter direkt aktivieren.
   const tab = useExtensionStore(s => s.storeTab);
-  const setTab = useExtensionStore(s => s.setStoreTab);
+  const setStoreTab = useExtensionStore(s => s.setStoreTab);
   const selected = useExtensionStore(s => s.selected);
   const clearSelection = useExtensionStore(s => s.clearSelection);
+  const setActiveView = useWorkspaceStore(s => s.setActiveView);
+
+  // Center-Reiter und Sidebar-Filter sind EINE Auswahl: ein Klick auf »Modelle«/
+  // »Erweiterungen« in der Mitte stellt zugleich die passende Sidebar-Ansicht,
+  // damit man nie die Erweiterungs-Facetten neben dem Modell-Raster sieht (der
+  // frühere Auseinanderlauf von activeView und storeTab). Ohne Toggle, damit der
+  // Reiter-Klick die Sidebar nicht ein-/ausklappt.
+  const setTab = useCallback(
+    (value: StoreTab) => {
+      setStoreTab(value);
+      setActiveView(value);
+    },
+    [setStoreTab, setActiveView]
+  );
 
   // Auswahl (Karte oder Deep-Link) → passenden Reiter aktivieren, damit „Zurück"
   // ins richtige Raster führt.

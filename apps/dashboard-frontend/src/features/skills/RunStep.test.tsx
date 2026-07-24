@@ -48,7 +48,23 @@ describe('stepLabel', () => {
       input: { auftrag: 'Kapitel 3 lesen' },
       status: 'laeuft',
     };
-    expect(stepLabel(s)).toBe('leser: Kapitel 3 lesen');
+    expect(stepLabel(s)).toBe('leser · Kapitel 3 lesen');
+  });
+
+  test('Subagent kürzt einen langen Auftrag auf eine knackige Zeile', () => {
+    const lang =
+      'Suche relevante Seiten zum Thema erneuerbare Energien und fasse die Kernaussagen zusammen';
+    const s: SkillRunStep = {
+      kind: 'subagent',
+      name: 'sucher',
+      input: { auftrag: lang },
+      status: 'laeuft',
+    };
+    const label = stepLabel(s);
+    expect(label.startsWith('sucher · ')).toBe(true);
+    expect(label.endsWith('…')).toBe(true);
+    // Rolle + Trenner + max 40 Zeichen Auftrag + Ellipse — deutlich kürzer als das Original.
+    expect(label.length).toBeLessThan(`sucher · ${lang}`.length);
   });
 
   test('Modell-Antwort und Hinweis haben eigene Kurzfassungen', () => {

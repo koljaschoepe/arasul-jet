@@ -1,4 +1,5 @@
 import type { FacetOption } from './storeModelFilters';
+import { Checkbox } from '@/components/ui/Checkbox';
 
 /**
  * Eine Facetten-Gruppe (Checkboxen + Zähler) für die Store-Filter in der
@@ -25,13 +26,11 @@ export function FacetGroup<T extends string>({
       {options.map(opt => (
         <label
           key={opt.value}
-          className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-ui-sm text-foreground hover:bg-accent"
+          className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-ui-sm text-foreground transition-colors hover:bg-accent"
         >
-          <input
-            type="checkbox"
-            className="size-3.5 shrink-0 accent-primary"
+          <Checkbox
             checked={selected.includes(opt.value)}
-            onChange={() => onToggle(opt.value)}
+            onCheckedChange={() => onToggle(opt.value)}
           />
           <span className="min-w-0 flex-1 truncate">{opt.label}</span>
           <span className="shrink-0 text-ui-xs tabular-nums text-muted-foreground">

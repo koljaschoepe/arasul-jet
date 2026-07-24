@@ -34,11 +34,25 @@ function feld(input: unknown, ...keys: string[]): string {
   return '';
 }
 
+/**
+ * Kürzt einen Text auf eine knackige Zeile: erste Zeile, hart auf `max` Zeichen
+ * gedeckelt, mit Ellipse. Bewusst NICHT am Punkt trennen — das zerhackt URLs und
+ * Befehle. Ein kleines Modell schreibt gern einen Absatz in den Auftrag; die
+ * Kopfzeile soll aber nur zeigen, WAS läuft, nicht den ganzen Prompt.
+ */
+function kuerze(text: string, max = 40): string {
+  const eineZeile = text.trim().split('\n', 1)[0]?.trim() ?? '';
+  if (eineZeile.length <= max) return eineZeile;
+  return eineZeile.slice(0, max).trimEnd() + '…';
+}
+
 /** Die Kurzfassung des Auftrags — eine Zeile, die sagt, was der Schritt tut. */
 export function stepLabel(step: SkillRunStep): string {
   if (step.kind === 'subagent') {
+    const name = step.name || 'Subagent';
     const auftrag = feld(step.input, 'auftrag', 'prompt', 'aufgabe');
-    return auftrag ? `${step.name || 'Subagent'}: ${auftrag}` : step.name || 'Subagent';
+    const kurz = kuerze(auftrag);
+    return kurz ? `${name} · ${kurz}` : name;
   }
   if (step.kind === 'modell') return 'Modell-Antwort';
   if (step.kind === 'hinweis') return feld(step.input, 'text', 'hinweis') || step.name || 'Hinweis';
@@ -54,19 +68,19 @@ export function stepLabel(step: SkillRunStep): string {
       return `schreibt ${feld(step.input, 'pfad') || '/'}`;
     case 'rag_suche': {
       const q = feld(step.input, 'frage');
-      return q ? `sucht: ${q}` : 'durchsucht das Wissen';
+      return q ? `sucht: ${kuerze(q)}` : 'durchsucht das Wissen';
     }
     case 'web_suche': {
       const q = feld(step.input, 'suchbegriff');
-      return q ? `Web-Suche: ${q}` : 'sucht im Web';
+      return q ? `Web-Suche: ${kuerze(q)}` : 'sucht im Web';
     }
     case 'web_lesen': {
       const u = feld(step.input, 'adresse');
-      return u ? `liest ${u}` : 'liest eine Webseite';
+      return u ? `liest ${kuerze(u, 48)}` : 'liest eine Webseite';
     }
     case 'terminal': {
       const cmd = feld(step.input, 'befehl');
-      return cmd ? `führt aus: ${cmd}` : 'führt einen Befehl aus';
+      return cmd ? `führt aus: ${kuerze(cmd, 48)}` : 'führt einen Befehl aus';
     }
     default:
       return `nutzt ${step.name || 'Werkzeug'}`;

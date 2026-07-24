@@ -3,21 +3,23 @@
  * Schritte 10 + 11). Löst das frühere Fullscreen-Popup (SkillDialog) ab.
  *
  * EIN Tab für Anlegen UND Bearbeiten: das Ziel steht im ephemeren
- * `skillEditorStore` (`editName === null` legt an, ein Name bearbeitet). Links
- * das Formular (`SkillForm`), rechts die Live-Vorschau (`MarkdownPreview`) mit
- * ihren zwei Ansichten — erzeugte Datei UND aufgelöster Laufzeit-Prompt
- * (Schritt 11). Speichern schreibt die vom Backend geprüfte Datei und macht die
- * Skill-Liste (`['skills']`) sofort frisch, sodass der neue/geänderte Skill
- * ohne Neuladen im Slash-Menü und in der Sidebar steht.
+ * `skillEditorStore` (`editName === null` legt an, ein Name bearbeitet). Das
+ * Formular (`SkillForm`) ist die Hauptansicht; die Live-Vorschau
+ * (`MarkdownPreview`, erzeugte Datei UND aufgelöster Laufzeit-Prompt) öffnet auf
+ * Wunsch über den »Vorschau«-Schalter in der Kopfzeile als schmale rechte Spalte
+ * — nicht mehr fest daneben. Speichern schreibt die vom Backend geprüfte Datei
+ * und macht die Skill-Liste (`['skills']`) sofort frisch, sodass der neue/
+ * geänderte Skill ohne Neuladen im Slash-Menü und in der Sidebar steht.
  *
  * Bewusst kein eigenes Markdown-Bauen im Client: Die Wahrheit ist die Datei,
  * und die erzeugt der Server (Vorschau wie Speichern über denselben Weg).
  */
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Plus, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, Eye, Plus, Save, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
+import { cn } from '@/lib/utils';
 import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -47,6 +49,10 @@ export default function SkillEditorTab() {
   const [speichert, setSpeichert] = useState(false);
   const [loeschDialog, setLoeschDialog] = useState(false);
   const [loescht, setLoescht] = useState(false);
+  // Das Formular ist die Hauptansicht; die Laufzeit-Vorschau ist ein kleiner,
+  // bewusst auszuklappender Blick auf den vollständigen Prompt — nicht mehr fest
+  // daneben (das drängte das Formular ab lg dauerhaft in die halbe Breite).
+  const [vorschauOffen, setVorschauOffen] = useState(false);
 
   // Die Werkzeugliste (mit „schon nutzbar?") — geteilt über den Cache.
   const { data: werkzeuge = [] } = useQuery({
@@ -139,12 +145,24 @@ export default function SkillEditorTab() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="skill-editor-tab">
-      {/* Kopfzeile: Titel + Aktionen (Neu · Löschen · Speichern) */}
-      <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
+      {/* Kopfzeile: eine ruhige Zeile — Titel links, Aktionen rechts, alles auf
+          gleicher Höhe (h-14, items-center). Vorschau · Neu · Löschen · Speichern. */}
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
         <span className="min-w-0 truncate text-sm font-semibold text-foreground">
           {bearbeiten ? `Skill bearbeiten: /${editName}` : 'Neuer Skill'}
         </span>
         <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            variant={vorschauOffen ? 'secondary' : 'outline'}
+            size="sm"
+            aria-pressed={vorschauOffen}
+            onClick={() => setVorschauOffen(v => !v)}
+            className={cn(vorschauOffen && 'border-primary/40')}
+          >
+            <Eye className="size-4" /> Vorschau
+          </Button>
+          <span className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
           <Button
             type="button"
             variant="outline"
@@ -180,9 +198,17 @@ export default function SkillEditorTab() {
         </div>
       )}
 
-      {/* Körper: links Formular, rechts Vorschau (ab lg zweispaltig) */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 p-4 lg:grid-cols-2">
-        <div className="min-h-0 overflow-y-auto pr-1">
+      {/* Körper: das Formular ist die Hauptansicht (bei geschlossener Vorschau
+          mittig begrenzt für gute Lesbarkeit). Die Vorschau öffnet als schmale
+          rechte Spalte — nur wenn angefordert, und zeigt gleich den vollen
+          Laufzeit-Prompt. */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div
+          className={cn(
+            'min-h-0 overflow-y-auto p-4',
+            vorschauOffen ? 'flex-1' : 'mx-auto w-full max-w-3xl'
+          )}
+        >
           <SkillForm
             value={form}
             onChange={setForm}
@@ -190,9 +216,11 @@ export default function SkillEditorTab() {
             werkzeuge={werkzeuge}
           />
         </div>
-        <div className="hidden min-h-0 lg:block">
-          <MarkdownPreview body={toBody(form)} />
-        </div>
+        {vorschauOffen && (
+          <div className="flex min-h-0 w-full max-w-[460px] shrink-0 flex-col border-l border-border p-4">
+            <MarkdownPreview body={toBody(form)} defaultView="laufzeit" />
+          </div>
+        )}
       </div>
 
       <ConfirmModal

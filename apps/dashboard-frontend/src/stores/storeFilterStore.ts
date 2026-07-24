@@ -28,6 +28,16 @@ interface StoreFilterState {
   ) => void;
   resetModelFilters: () => void;
 
+  /**
+   * Freitext-Suche der Erweiterungen. Ersetzt seit der Neuausrichtung die
+   * Facetten-Filter (Typ/Zugriffs-Stufe/…): eine einfache Suche über Name und
+   * Beschreibung passt hier besser als vier Checkbox-Gruppen. `extFilters`
+   * bleibt für die Filter-Logik erhalten (heute leer), das Raster liest primär
+   * `extQuery`.
+   */
+  extQuery: string;
+  setExtQuery: (query: string) => void;
+
   extFilters: ExtensionFilterState;
   // NonNullable: die Facetten `types`/`tiers` sind optional (Rückwärts-
   // kompatibilität), ihre Element-Typen bleiben so trotzdem ableitbar.
@@ -50,6 +60,9 @@ export const useStoreFilterStore = create<StoreFilterState>()(set => ({
       },
     })),
   resetModelFilters: () => set({ modelFilters: EMPTY_MODEL_FILTERS }),
+
+  extQuery: '',
+  setExtQuery: query => set({ extQuery: query }),
 
   extFilters: EMPTY_EXTENSION_FILTERS,
   toggleExtFilter: (group, value) =>

@@ -84,10 +84,15 @@ beforeEach(() => {
 });
 
 describe('Anlegen', () => {
-  it('zeigt den Anlege-Titel, Formular und Vorschau — kein Löschen', async () => {
+  it('zeigt den Anlege-Titel und das Formular — Vorschau erst auf Wunsch, kein Löschen', async () => {
+    const user = userEvent.setup();
     renderTab(null);
     expect(await screen.findByText('Neuer Skill')).toBeInTheDocument();
     expect(screen.getByTestId('skill-form')).toBeInTheDocument();
+    // Das Formular ist die Hauptansicht: die Vorschau ist zunächst zu.
+    expect(screen.queryByTestId('markdown-preview')).not.toBeInTheDocument();
+    // Der »Vorschau«-Schalter blendet sie ein.
+    await user.click(screen.getByRole('button', { name: /Vorschau/ }));
     expect(screen.getByTestId('markdown-preview')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Löschen/ })).not.toBeInTheDocument();
   });
