@@ -273,6 +273,7 @@ async function runSkill(
   const limits = new RunLimits({
     maxAufrufe: skill.grenzen.max_aufrufe,
     zeitlimitS: skill.grenzen.zeitlimit_s,
+    maxTiefe: skill.grenzen.max_tiefe,
   });
 
   // Ein Subagent-Schritt hält BEIDE Seiten fest: das Verdichtete (output, das

@@ -33,6 +33,7 @@ export interface Skill {
 export type SkillTool =
   | 'dateien_lesen'
   | 'dateien_schreiben'
+  | 'dateien_suchen'
   | 'rag_suche'
   | 'web_suche'
   | 'web_lesen'
@@ -60,6 +61,8 @@ export interface SkillLimits {
   max_aufrufe: number;
   zeitlimit_s: number;
   werkzeug_runden: number;
+  /** Maximale Verschachtelungstiefe der Subagent-Rollen (Orchestrator = 0). */
+  max_tiefe: number;
 }
 
 /**

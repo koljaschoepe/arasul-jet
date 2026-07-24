@@ -12,6 +12,7 @@
  */
 
 const { DateienLesenTool, DateienSchreibenTool } = require('./tools/dateien');
+const { DateiSuchenTool } = require('./tools/suche');
 const RagSucheTool = require('./tools/rag');
 const TerminalTool = require('./tools/terminal');
 const { WebSucheTool, WebLesenTool } = require('./tools/web');
@@ -47,6 +48,7 @@ class NochNichtVerfuegbarTool extends BaseTool {
 const FACTORIES = {
   dateien_lesen: () => new DateienLesenTool(),
   dateien_schreiben: () => new DateienSchreibenTool(),
+  dateien_suchen: () => new DateiSuchenTool(),
   rag_suche: () => new RagSucheTool(),
   terminal: () => new TerminalTool(),
   web_suche: () => new WebSucheTool(),

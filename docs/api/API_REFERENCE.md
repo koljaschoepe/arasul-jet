@@ -2259,11 +2259,12 @@ grenzen:
   max_aufrufe: 20 # Subagent-Aufrufe über ALLE Ebenen
   zeitlimit_s: 900
   werkzeug_runden: 10
+  max_tiefe: 2 # nesting depth of subagent roles (1–5, default 2)
 ---
 Recherchiere gründlich zum Thema {{thema}}.
 ```
 
-Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`.
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, grep with line numbers).
 
 `GET /api/skills/werkzeuge` returns each tool with a `verfuegbar` flag:
 
@@ -2303,7 +2304,7 @@ A skill may declare a tool that is not built yet — the definition stays valid 
           "prompt": "Lies die Seite und gib nur die belegten Fakten zurück."
         }
       ],
-      "grenzen": { "max_aufrufe": 20, "zeitlimit_s": 900, "werkzeug_runden": 10 },
+      "grenzen": { "max_aufrufe": 20, "zeitlimit_s": 900, "werkzeug_runden": 10, "max_tiefe": 2 },
       "prompt": "Recherchiere gründlich zum Thema {{thema}}."
     }
   ],

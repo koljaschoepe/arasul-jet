@@ -49,7 +49,7 @@ describe('parseSkillFile — gültige Definitionen', () => {
     expect(s.argumente).toEqual([]);
     expect(s.werkzeuge).toEqual([]);
     // Grenzen kommen aus dem Schema, nicht aus der Datei.
-    expect(s.grenzen).toEqual({ max_aufrufe: 20, zeitlimit_s: 900, werkzeug_runden: 10 });
+    expect(s.grenzen).toEqual({ max_aufrufe: 20, zeitlimit_s: 900, werkzeug_runden: 10, max_tiefe: 2 });
   });
 
   it('nimmt den Dateinamen, wenn die Kopfdaten keinen Namen tragen', () => {
@@ -88,7 +88,7 @@ Recherchiere {{thema}} in der Tiefe {{tiefe}}.
     expect(s.argumente[1]).toMatchObject({ typ: 'auswahl', optionen: ['kurz', 'lang'] });
     expect(s.rollen[0].ergebnis).toEqual({ felder: ['fakten', 'quellen'], max_zeichen: 1500 });
     // Nicht gesetzte Grenze faellt auf die Voreinstellung zurueck.
-    expect(s.grenzen).toEqual({ max_aufrufe: 8, zeitlimit_s: 300, werkzeug_runden: 10 });
+    expect(s.grenzen).toEqual({ max_aufrufe: 8, zeitlimit_s: 300, werkzeug_runden: 10, max_tiefe: 2 });
   });
 });
 

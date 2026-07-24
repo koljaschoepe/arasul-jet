@@ -17,6 +17,7 @@ const { z } = require('zod');
 const VALID_TOOLS = [
   'dateien_lesen',
   'dateien_schreiben',
+  'dateien_suchen',
   'rag_suche',
   'web_suche',
   'web_lesen',
@@ -134,6 +135,12 @@ const SkillLimitsShape = z
     max_aufrufe: z.coerce.number().int().min(1).max(200).default(20),
     zeitlimit_s: z.coerce.number().int().min(10).max(7200).default(900),
     werkzeug_runden: z.coerce.number().int().min(1).max(50).default(10),
+    // Wie tief Subagent-Rollen sich gegenseitig aufrufen dürfen (Orchestrator =
+    // Ebene 0). Früher hart auf 2 im Runner verdrahtet — jetzt pro Skill
+    // einstellbar, damit komplexe Skills tiefer verschachteln können. Obergrenze
+    // bewusst niedrig: die GPU arbeitet sequenziell, jede Ebene multipliziert die
+    // Laufzeit.
+    max_tiefe: z.coerce.number().int().min(1).max(5).default(2),
   })
   .strict();
 
@@ -226,7 +233,7 @@ const SkillDefinition = z
 
     // Dateizugriff ohne erlaubten Ordner ist wirkungslos — lieber beim Speichern
     // sagen als den Nutzer rätseln lassen, warum der Skill nichts findet.
-    const needsFolder = ['dateien_lesen', 'dateien_schreiben', 'terminal'];
+    const needsFolder = ['dateien_lesen', 'dateien_schreiben', 'dateien_suchen', 'terminal'];
     const usesFiles = skill.werkzeuge.some(t => needsFolder.includes(t));
     if (usesFiles && skill.ordner.length === 0) {
       ctx.addIssue({

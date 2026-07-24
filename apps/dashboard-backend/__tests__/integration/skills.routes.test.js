@@ -85,6 +85,7 @@ describe('Skills-Routen', () => {
         max_aufrufe: 20,
         zeitlimit_s: 900,
         werkzeug_runden: 10,
+        max_tiefe: 2,
       });
 
       const datei = path.join(TMP_SKILLS, 'notiz.md');
@@ -256,6 +257,7 @@ describe('Skills-Routen', () => {
         max_aufrufe: 5,
         zeitlimit_s: 60,
         werkzeug_runden: 3,
+        max_tiefe: 2,
       });
 
       // Und auch auf der Platte, nicht nur in der Antwort.

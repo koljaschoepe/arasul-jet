@@ -100,6 +100,20 @@ describe('RunLimits', () => {
     expect(l.subagentErlaubt(2)).toMatch(/zu tief/); // Ebene 2 → Ebene 3: nein
   });
 
+  it('respektiert eine konfigurierbare Tiefe (aus grenzen.max_tiefe)', () => {
+    // Flach: nur eine Ebene erlaubt.
+    const flach = new RunLimits({ maxAufrufe: 100, zeitlimitS: 100, maxTiefe: 1 });
+    expect(flach.subagentErlaubt(0)).toBeNull();
+    expect(flach.subagentErlaubt(1)).toMatch(/zu tief/);
+
+    // Tief: bis Ebene 3 erlaubt.
+    const tief = new RunLimits({ maxAufrufe: 100, zeitlimitS: 100, maxTiefe: 3 });
+    expect(tief.subagentErlaubt(0)).toBeNull();
+    expect(tief.subagentErlaubt(1)).toBeNull();
+    expect(tief.subagentErlaubt(2)).toBeNull();
+    expect(tief.subagentErlaubt(3)).toMatch(/zu tief/);
+  });
+
   it('blockt nach Ablauf der Frist und zählt dann nicht mehr', () => {
     let t = 1000;
     const l = new RunLimits({ maxAufrufe: 100, zeitlimitS: 10, now: () => t });

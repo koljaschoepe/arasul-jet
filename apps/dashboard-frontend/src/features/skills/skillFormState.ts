@@ -36,6 +36,7 @@ export const STANDARD_GRENZEN: SkillLimits = {
   max_aufrufe: 20,
   zeitlimit_s: 900,
   werkzeug_runden: 10,
+  max_tiefe: 2,
 };
 
 export const LEER_FORM: SkillFormState = {
@@ -66,7 +67,12 @@ export function leereRolle(): SkillRole {
 }
 
 /** Werkzeuge, die einen erlaubten Ordner voraussetzen. */
-export const ORDNER_WERKZEUGE: SkillTool[] = ['dateien_lesen', 'dateien_schreiben', 'terminal'];
+export const ORDNER_WERKZEUGE: SkillTool[] = [
+  'dateien_lesen',
+  'dateien_schreiben',
+  'dateien_suchen',
+  'terminal',
+];
 
 /** Baut eine Skill-Definition (SkillDefinition) in den Formular-Zustand um (Bearbeiten). */
 export function fromDefinition(def: SkillDefinition): SkillFormState {
@@ -142,6 +148,7 @@ export function toBody(state: SkillFormState): Record<string, unknown> {
       max_aufrufe: state.grenzen.max_aufrufe,
       zeitlimit_s: state.grenzen.zeitlimit_s,
       werkzeug_runden: state.grenzen.werkzeug_runden,
+      max_tiefe: state.grenzen.max_tiefe,
     },
   };
 }

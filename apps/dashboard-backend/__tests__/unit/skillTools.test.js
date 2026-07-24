@@ -18,6 +18,7 @@ const {
   DateienLesenTool,
   DateienSchreibenTool,
 } = require('../../src/services/skills/tools/dateien');
+const { DateiSuchenTool } = require('../../src/services/skills/tools/suche');
 const RagSucheTool = require('../../src/services/skills/tools/rag');
 const TerminalTool = require('../../src/services/skills/tools/terminal');
 const { buildTools, implementedTools } = require('../../src/services/skills/toolRegistry');
@@ -250,6 +251,72 @@ describe('rag_suche', () => {
   });
 });
 
+describe('dateien_suchen', () => {
+  const tool = new DateiSuchenTool();
+  let suchbaum, sub;
+
+  beforeAll(() => {
+    // Eigener kleiner Baum, damit die Glob-/grep-Zählungen stabil sind.
+    suchbaum = path.join(base, 'suche');
+    sub = path.join(suchbaum, 'unter');
+    fs.mkdirSync(sub, { recursive: true });
+    fs.writeFileSync(path.join(suchbaum, 'a.md'), 'Hallo Welt\nzweite Zeile mit TREFFER');
+    fs.writeFileSync(path.join(suchbaum, 'b.txt'), 'nur text ohne muster');
+    fs.writeFileSync(path.join(sub, 'c.md'), 'TREFFER auch hier tief');
+  });
+
+  const sctx = (extra = {}) => ({ roots: [suchbaum], ...extra });
+
+  it('heisst wie im Schema deklariert', () => {
+    expect(tool.name).toBe('dateien_suchen');
+  });
+
+  it('findet Dateien per Glob nach Namen', async () => {
+    const out = await tool.execute({ muster: '*.md' }, sctx());
+    expect(out).toContain('a.md');
+    expect(out).not.toContain('b.txt');
+  });
+
+  it('findet auch tiefer liegende Dateien per **-Glob', async () => {
+    const out = await tool.execute({ muster: '**/*.md' }, sctx());
+    expect(out).toContain('a.md');
+    expect(out).toContain('unter/c.md');
+  });
+
+  it('grept nach Textinhalt mit Zeilennummer', async () => {
+    const out = await tool.execute({ text: 'TREFFER' }, sctx());
+    expect(out).toMatch(/a\.md:2:/);
+    expect(out).toMatch(/unter\/c\.md:1:/);
+  });
+
+  it('kombiniert Glob und Text (nur passende Dateien durchsuchen)', async () => {
+    const out = await tool.execute({ muster: 'unter/*.md', text: 'TREFFER' }, sctx());
+    expect(out).toContain('unter/c.md');
+    expect(out).not.toMatch(/^a\.md/m);
+  });
+
+  it('meldet, wenn weder muster noch text angegeben ist', async () => {
+    const out = await tool.execute({}, sctx());
+    expect(out).toMatch(/muster.*text|text.*muster/i);
+  });
+
+  it('verweigert einen Suchpfad ausserhalb der erlaubten Ordner', async () => {
+    const out = await tool.execute({ muster: '*.txt', pfad: '../aussen' }, sctx());
+    expect(out).toMatch(/^Fehler:/);
+    expect(out).not.toContain('GEHEIM');
+  });
+
+  it('meldet fehlende Ordner-Freigabe verständlich', async () => {
+    const out = await tool.execute({ muster: '*' }, { roots: [] });
+    expect(out).toMatch(/kein erlaubter Ordner/i);
+  });
+
+  it('meldet „kein Treffer" statt zu werfen', async () => {
+    const out = await tool.execute({ text: 'kommtnichtvor-xyz' }, sctx());
+    expect(out).toMatch(/kein treffer/i);
+  });
+});
+
 describe('Werkzeug-Registry', () => {
   it('baut genau die deklarierten Werkzeuge', () => {
     const tools = buildTools(['dateien_lesen', 'rag_suche']);
@@ -280,6 +347,7 @@ describe('Werkzeug-Registry', () => {
       [
         'dateien_lesen',
         'dateien_schreiben',
+        'dateien_suchen',
         'rag_suche',
         'terminal',
         'web_suche',

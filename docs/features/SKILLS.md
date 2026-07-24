@@ -58,6 +58,7 @@ grenzen:
   max_aufrufe: 20 # Subagent-Aufrufe über ALLE Ebenen
   zeitlimit_s: 900
   werkzeug_runden: 10
+  max_tiefe: 2 # wie tief Rollen sich verschachteln dürfen (1–5)
 ---
 Recherchiere gründlich zum Thema {{thema}}.
 ```
@@ -84,12 +85,19 @@ vermerkt der Runner das ehrlich, statt das Modell raten zu lassen.
 
 ### Werkzeuge
 
-`dateien_lesen`, `dateien_schreiben`, `rag_suche`, `web_suche`, `web_lesen`,
-`terminal`, `subagent`. Ein Skill bekommt **genau** die deklarierten Werkzeuge.
+`dateien_lesen`, `dateien_schreiben`, `dateien_suchen`, `rag_suche`, `web_suche`,
+`web_lesen`, `terminal`, `subagent`. Ein Skill bekommt **genau** die deklarierten
+Werkzeuge.
 
-- Datei- und Terminal-Werkzeuge verlangen mindestens einen erlaubten `ordner`;
+- Datei- und Terminal-Werkzeuge (`dateien_lesen`, `dateien_schreiben`,
+  `dateien_suchen`, `terminal`) verlangen mindestens einen erlaubten `ordner`;
   der erste ist das Arbeitsverzeichnis. Jeder Zugriff ist symlink-geprüft und
   auf die erlaubten Ordner beschränkt — `../` und Ausbrüche werden abgewiesen.
+- `dateien_suchen` findet Dateien nach Namensmuster (Glob, z. B. `*.md`,
+  `**/*.js`) und/oder nach Textinhalt (grep, mit Zeilennummer) — erst damit lohnt
+  sich in großen Ordnern eine höhere `max_tiefe`, weil ein Subagent gezielt die
+  relevanten Dateien findet, statt blind zu listen. Treffer sind gedeckelt
+  (Kontext-Schutz).
 - `terminal` läuft in einem eigenen Sandbox-Container (`arasul-skills-sandbox`),
   nicht im Backend.
 - `web_suche` nutzt den lokalen SearXNG-Container (kein externer Schlüssel),
@@ -107,9 +115,12 @@ ein großes wirkt: gezielt wenig Kontext statt „alles ins Modell".
 
 ### Grenzen (Notbremsen)
 
-`max_aufrufe` (Subagent-Aufrufe über alle Ebenen), `zeitlimit_s` und
-`werkzeug_runden` bremsen einen Lauf. Wird eine Grenze erreicht, endet der Lauf
-sauber und nennt Grund und bisheriges Ergebnis.
+`max_aufrufe` (Subagent-Aufrufe über alle Ebenen), `zeitlimit_s`,
+`werkzeug_runden` und `max_tiefe` bremsen einen Lauf. `max_tiefe` (1–5, Standard 2) bestimmt, wie tief sich Subagent-Rollen gegenseitig aufrufen dürfen
+(Orchestrator = Ebene 0) — höher setzen, wenn ein komplexer Skill mehrstufig
+verschachteln soll; die GPU arbeitet sequenziell, jede Ebene kostet Laufzeit.
+Wird eine Grenze erreicht, endet der Lauf sauber und nennt Grund und bisheriges
+Ergebnis.
 
 ## Sicherheit — bewusst ohne Rückfrage
 

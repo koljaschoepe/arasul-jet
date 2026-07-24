@@ -74,8 +74,15 @@ describe('toBody', () => {
   });
 
   it('führt die Grenzen als Zahlen', () => {
-    const body = toBody(form({ grenzen: { max_aufrufe: 5, zeitlimit_s: 60, werkzeug_runden: 3 } }));
-    expect(body.grenzen).toEqual({ max_aufrufe: 5, zeitlimit_s: 60, werkzeug_runden: 3 });
+    const body = toBody(
+      form({ grenzen: { max_aufrufe: 5, zeitlimit_s: 60, werkzeug_runden: 3, max_tiefe: 3 } })
+    );
+    expect(body.grenzen).toEqual({
+      max_aufrufe: 5,
+      zeitlimit_s: 60,
+      werkzeug_runden: 3,
+      max_tiefe: 3,
+    });
   });
 
   it('verwirft Rollen ohne Namen', () => {
@@ -107,7 +114,7 @@ describe('fromDefinition / Rundreise', () => {
       ordner: ['/a'],
       werkzeuge: ['web_suche'],
       rollen: [],
-      grenzen: { max_aufrufe: 30, zeitlimit_s: 600, werkzeug_runden: 8 },
+      grenzen: { max_aufrufe: 30, zeitlimit_s: 600, werkzeug_runden: 8, max_tiefe: 2 },
       prompt: '# Titel',
     };
     const state = fromDefinition(def);

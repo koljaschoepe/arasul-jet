@@ -29,6 +29,20 @@ const ARG_TYP_LABEL: Record<SkillArgumentType, string> = {
   wissensbasis: 'Wissensbasis',
 };
 
+/** Lesbare deutsche Labels für die Werkzeug-Checkboxen (statt roher Namen). */
+const WERKZEUG_LABEL: Record<SkillTool, string> = {
+  dateien_lesen: 'Dateien lesen',
+  dateien_schreiben: 'Dateien schreiben',
+  dateien_suchen: 'Dateien suchen',
+  rag_suche: 'Wissens-Suche',
+  web_suche: 'Web-Suche',
+  web_lesen: 'Web lesen',
+  terminal: 'Terminal',
+  subagent: 'Subagenten',
+};
+
+const werkzeugLabel = (name: SkillTool): string => WERKZEUG_LABEL[name] ?? name;
+
 interface SkillFormProps {
   value: SkillFormState;
   onChange: (next: SkillFormState) => void;
@@ -114,7 +128,7 @@ export default function SkillForm({ value, onChange, mode, werkzeuge }: SkillFor
                 )}
               >
                 <Checkbox checked={drin} onCheckedChange={() => toggleWerkzeug(w.name)} />
-                <span className="flex-1 truncate">{w.name}</span>
+                <span className="flex-1 truncate">{werkzeugLabel(w.name)}</span>
                 {!w.verfuegbar && <span className="shrink-0 text-warning">kommt noch</span>}
               </label>
             );
@@ -264,7 +278,7 @@ export default function SkillForm({ value, onChange, mode, werkzeuge }: SkillFor
       <RollenEditor value={value} onChange={onChange} werkzeuge={werkzeuge} />
 
       {/* Grenzen */}
-      <fieldset className="grid grid-cols-3 gap-2">
+      <fieldset className="grid grid-cols-2 gap-2">
         <legend className="mb-1 text-sm font-medium text-foreground">Grenzen</legend>
         <GrenzeFeld
           label="Aufrufe"
@@ -280,6 +294,11 @@ export default function SkillForm({ value, onChange, mode, werkzeuge }: SkillFor
           label="Werkzeug-Runden"
           value={value.grenzen.werkzeug_runden}
           onChange={n => patch({ grenzen: { ...value.grenzen, werkzeug_runden: n } })}
+        />
+        <GrenzeFeld
+          label="Verschachtelungstiefe"
+          value={value.grenzen.max_tiefe}
+          onChange={n => patch({ grenzen: { ...value.grenzen, max_tiefe: n } })}
         />
       </fieldset>
     </div>
@@ -430,7 +449,7 @@ function RollenEditor({
                         })
                       }
                     />
-                    {w.name}
+                    {werkzeugLabel(w.name)}
                   </label>
                 );
               })}
