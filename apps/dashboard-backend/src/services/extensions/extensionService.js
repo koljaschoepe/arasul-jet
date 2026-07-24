@@ -129,7 +129,9 @@ async function buildFromSandbox({ slug, subfolder = '.', userId, overwrite = fal
       throw new ValidationError('Der angegebene Pfad ist kein Ordner');
     }
   } catch (err) {
-    if (err instanceof ValidationError) {throw err;}
+    if (err instanceof ValidationError) {
+      throw err;
+    }
     throw new NotFoundError(`Ordner "${subfolder}" existiert in dieser Sandbox nicht`);
   }
 
@@ -198,6 +200,80 @@ async function removeExtension(id) {
   return ext;
 }
 
+// Content-Type je Dateiendung für die ausgelieferte App-Oberfläche. Bewusst eng:
+// nur die Typen, die eine selbst-enthaltene HTML-App braucht.
+const APP_ASSET_MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.txt': 'text/plain; charset=utf-8',
+};
+
+/**
+ * Löst eine Datei INNERHALB des Paket-Ordners einer App-Erweiterung auf — die
+ * Grundlage, um ihre Oberfläche „in der Mitte" (wie n8n) zu rendern. Nur für
+ * `type = 'app'`; jeder Pfad wird symlink-sicher im Paket-Ordner eingesperrt
+ * (kein `..`, kein absoluter Pfad, kein Symlink aus dem Paket heraus). Ein
+ * leerer/`/`-Pfad liefert die Startdatei (`manifest.entry`).
+ */
+async function resolveAppAsset(id, relPath = '') {
+  const ext = await getExtension(id); // NotFound, wenn nicht installiert
+  if (ext.type !== 'app') {
+    throw new ValidationError('Nur App-Erweiterungen haben eine Oberfläche');
+  }
+
+  const entry = (ext.manifest && ext.manifest.entry) || 'index.html';
+  const wanted = !relPath || relPath === '/' ? entry : relPath;
+  // Führende Slashes/`..` abstreifen, danach hart auf Ausbruch prüfen.
+  const normalized = path.normalize(wanted).replace(/^([\\/]|\.\.([\\/]|$))+/, '');
+  if (path.isAbsolute(normalized) || normalized.split(/[\\/]/).includes('..')) {
+    throw new ValidationError('Ungültiger Pfad in der Erweiterung');
+  }
+
+  let baseReal;
+  try {
+    baseReal = await fsp.realpath(pkg.packageDirFor(id));
+  } catch {
+    throw new NotFoundError(`Paket-Ordner von "${id}" fehlt auf der Platte — neu importieren`);
+  }
+  const target = path.join(baseReal, normalized);
+  let targetReal;
+  try {
+    targetReal = await fsp.realpath(target);
+  } catch {
+    throw new NotFoundError('Datei in der Erweiterung nicht gefunden');
+  }
+  // Symlink-sichere Zugehörigkeit: der aufgelöste Zielpfad muss im Paket liegen.
+  if (targetReal !== baseReal && !targetReal.startsWith(baseReal + path.sep)) {
+    throw new ValidationError('Pfad verlässt das Erweiterungs-Paket');
+  }
+  const stat = await fsp.stat(targetReal);
+  if (!stat.isFile()) {
+    throw new NotFoundError('Datei in der Erweiterung nicht gefunden');
+  }
+
+  const fileExt = path.extname(targetReal).toLowerCase();
+  return {
+    filePath: targetReal,
+    contentType: APP_ASSET_MIME[fileExt] || 'application/octet-stream',
+    size: stat.size,
+  };
+}
+
 /**
  * Liefert einen Download-Stream (tar.gz) des Pakets plus Dateinamen.
  * Wirft, wenn die Erweiterung registriert, ihr Ordner aber verschwunden ist —
@@ -225,5 +301,6 @@ module.exports = {
   forkExtension,
   setEnabled,
   removeExtension,
+  resolveAppAsset,
   packageStream,
 };

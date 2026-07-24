@@ -10,6 +10,7 @@ const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
 const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
+const ExtensionAppTab = lazy(() => import('./viewers/ExtensionAppTab'));
 const SkillEditorTab = lazy(() => import('@/features/skills/SkillEditorTab'));
 
 export interface TabThemeControls {
@@ -86,6 +87,9 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/';
     case 'skill':
       return '/';
+    case 'extension':
+      // Direkt gerendert (kein FeatureTabHost), Wert wird nie genutzt.
+      return '/';
   }
 }
 
@@ -96,6 +100,7 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   store: new Set(['store']),
   automationen: new Set([]),
   skill: new Set([]),
+  extension: new Set([]),
 };
 
 /**
@@ -158,6 +163,9 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   if (tab.type === 'automationen') {
     return <AutomationenTab />;
   }
+  if (tab.type === 'extension') {
+    return <ExtensionAppTab extensionId={tab.extensionId ?? ''} title={tab.title} />;
+  }
   if (tab.type === 'skill') {
     return <SkillEditorTab />;
   }
@@ -171,7 +179,12 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
  * unbemerkt verloren zu gehen. Keep-Alive greift nur für tatsächlich geöffnete
  * Tabs — ein nie geöffneter Skill-Tab wird dadurch nicht gemountet.
  */
-const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set(['automationen', 'skill']);
+const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
+  'automationen',
+  'skill',
+  // App-Erweiterungen halten wie n8n ihren iframe-Zustand über Tab-Wechsel.
+  'extension',
+]);
 
 /**
  * Rendert den aktiven Tab (plus Keep-Alive-Tabs unsichtbar), jeweils mit

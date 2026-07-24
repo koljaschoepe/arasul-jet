@@ -5,6 +5,7 @@ import {
   Folder,
   FolderPlus,
   FileText,
+  FileCode,
   File as FileIcon,
   FileImage,
   FileUp,
@@ -109,7 +110,12 @@ export function collectSubtreeIds(spaces: TreeSpace[], rootId: string): string[]
 
 function docIcon(doc: TreeDocument) {
   const mime = doc.mime_type ?? '';
+  const ext = (doc.file_extension ?? '').toLowerCase();
   if (mime.startsWith('image/')) return <FileImage className="h-3.5 w-3.5 shrink-0" />;
+  // HTML vor dem allgemeinen text/-Zweig: es öffnet als gerenderte Vorschau,
+  // nicht als reiner Text — das eigene Icon macht das schon im Baum sichtbar.
+  if (mime === 'text/html' || ext === '.html' || ext === '.htm')
+    return <FileCode className="h-3.5 w-3.5 shrink-0" />;
   if (mime === 'application/pdf' || mime.startsWith('text/'))
     return <FileText className="h-3.5 w-3.5 shrink-0" />;
   return <FileIcon className="h-3.5 w-3.5 shrink-0" />;

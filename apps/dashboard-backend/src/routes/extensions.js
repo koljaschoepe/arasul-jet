@@ -117,6 +117,46 @@ router.get(
   })
 );
 
+/**
+ * GET /api/extensions/:id/app  und  /:id/app/*
+ * Liefert die Oberfläche einer App-Erweiterung, damit sie „in der Mitte" (wie
+ * n8n) in einem Sandbox-iframe laufen kann. Ohne Unterpfad = Startdatei
+ * (`manifest.entry`), sonst die angeforderte Datei aus dem Paket.
+ *
+ * Auth kommt hier über das `arasul_session`-Cookie (ein iframe-`src` kann keinen
+ * Bearer-Header setzen; `requireAuth` fällt auf das Cookie zurück). Der Inhalt
+ * ist Nutzer-HTML: die CSP-`sandbox`-Direktive zwingt ihm einen eigenen, opaken
+ * Origin auf — selbst direkt geöffnet kommt kein Skript an Dashboard-Cookies
+ * oder die API. Die Id prüft `resolveAppAsset` über `assertSafeId`.
+ */
+async function sendAppAsset(res, id, relPath) {
+  const asset = await extensionService.resolveAppAsset(id, relPath);
+  res.setHeader('Content-Type', asset.contentType);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', 'sandbox allow-scripts allow-popups allow-forms;');
+  res.setHeader('Cache-Control', 'no-store');
+  const stream = fs.createReadStream(asset.filePath);
+  stream.on('error', err => res.destroy(err));
+  res.on('close', () => stream.destroy());
+  stream.pipe(res);
+}
+
+router.get(
+  '/:id/app',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await sendAppAsset(res, req.params.id, '');
+  })
+);
+
+router.get(
+  '/:id/app/*',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await sendAppAsset(res, req.params.id, req.params[0] || '');
+  })
+);
+
 /** POST /api/extensions/:id/fork — Kopie als neue Werkstatt-Sandbox. */
 router.post(
   '/:id/fork',

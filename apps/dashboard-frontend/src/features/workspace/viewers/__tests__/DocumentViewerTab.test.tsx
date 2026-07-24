@@ -14,6 +14,11 @@ vi.mock('@/stores/workspaceStore', () => ({
     selector({ closeTab: mockCloseTab, updateTabTitle: mockUpdateTabTitle }),
 }));
 
+// Der HTML-Viewer nutzt Toasts beim Speichern — Provider hier nicht nötig.
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),
+}));
+
 // Der schwere TipTap-Editor wird gemockt — wir testen nur die Verdrahtung.
 // Der Stub spiegelt die relevanten Props als data-Attribute wider.
 vi.mock('@/components/editor/tiptap/TipTapEditor', () => ({
@@ -71,6 +76,23 @@ describe('DocumentViewerTab', () => {
 
     fireEvent.click(await screen.findByText('stub-close'));
     expect(mockCloseTab).toHaveBeenCalledWith('tab1');
+  });
+
+  it('öffnet eine HTML-Datei gerendert und schaltet auf den Code-Editor um', async () => {
+    mockDoc('.html', 'text/html', '<h1>Hi</h1>');
+    render(<DocumentViewerTab documentId="doc1" tabId="tab1" />);
+
+    // Vorschau zuerst: ein Sandbox-iframe mit dem HTML als srcDoc.
+    const frame = await screen.findByTestId('html-vorschau');
+    expect(frame).toHaveAttribute('srcdoc', '<h1>Hi</h1>');
+    expect(frame).toHaveAttribute('sandbox', expect.stringContaining('allow-scripts'));
+    // Kein TipTap — HTML rendert, statt als reiner Text zu öffnen.
+    expect(screen.queryByTestId('tiptap-stub')).not.toBeInTheDocument();
+
+    // Auf „Code" umschalten → Quelltext im Editor.
+    fireEvent.click(screen.getByTestId('html-view-code'));
+    const code = await screen.findByTestId('html-code');
+    expect(code).toHaveValue('<h1>Hi</h1>');
   });
 
   it('nicht-editierbare Dateien (PDF) öffnen keinen Editor', async () => {

@@ -104,6 +104,17 @@ describe('workspaceStore — Tabs', () => {
     expect(useWorkspaceStore.getState().tabs[0]?.title).toBe('rechnung.pdf');
   });
 
+  it('eine App-Erweiterung ist ein eigener Tab je Id (kein Singleton)', () => {
+    const { openTab } = useWorkspaceStore.getState();
+    openTab({ type: 'extension', extensionId: 'notiz-app', title: 'Notiz-App' });
+    openTab({ type: 'extension', extensionId: 'kalender', title: 'Kalender' });
+    const { tabs, activeTabId } = useWorkspaceStore.getState();
+    expect(tabs.map(t => t.id)).toEqual(['extension:notiz-app', 'extension:kalender']);
+    expect(tabs[0]?.extensionId).toBe('notiz-app');
+    expect(tabs[0]?.title).toBe('Notiz-App');
+    expect(activeTabId).toBe('extension:kalender');
+  });
+
   it('persistiert Tabs in localStorage (Reload-Restore)', () => {
     useWorkspaceStore.getState().openTab({ type: 'automationen' });
     const raw = localStorage.getItem('arasul_workspace');
@@ -668,6 +679,7 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
       { type: 'automationen' as const },
       { type: 'store' as const },
       { type: 'skill' as const },
+      { type: 'extension' as const, extensionId: 'notiz-app' },
     ];
     for (const spec of specs) {
       const tab = { id: tabId(spec), title: 'x', ...spec };

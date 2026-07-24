@@ -10,8 +10,12 @@ import { Button } from '@/components/ui/shadcn/button';
 // über GET/PUT /documents/:id/content (mit Re-Index) und wird hier inline
 // (embedded) gerendert — es gibt keine separate Vorschau mehr.
 const TipTapEditor = lazy(() => import('@/components/editor/tiptap/TipTapEditor'));
+// Der HTML-Viewer (Batch 3) ist eigenständig: er lädt/speichert den Quelltext
+// selbst und rendert die Vorschau in einem Sandbox-iframe.
+const HtmlDocumentViewer = lazy(() => import('./HtmlDocumentViewer'));
 
 const EDITABLE_EXTENSIONS = new Set(['.md', '.markdown', '.txt', '.yaml', '.yml']);
+const HTML_EXTENSIONS = new Set(['.html', '.htm']);
 
 interface DocumentMeta {
   id: string;
@@ -21,7 +25,7 @@ interface DocumentMeta {
   file_size?: number;
 }
 
-type ViewerKind = 'markdown' | 'text' | 'pdf' | 'image' | 'unsupported';
+type ViewerKind = 'markdown' | 'text' | 'html' | 'pdf' | 'image' | 'unsupported';
 
 const TEXT_EXTENSIONS = new Set(['.txt', '.yaml', '.yml']);
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown']);
@@ -30,6 +34,9 @@ function viewerKindFor(meta: DocumentMeta): ViewerKind {
   const ext = (meta.file_extension ?? '').toLowerCase();
   const mime = (meta.mime_type ?? '').toLowerCase();
   if (MARKDOWN_EXTENSIONS.has(ext)) return 'markdown';
+  // HTML VOR dem Text-Zweig: sein mime `text/html` würde sonst als „text"
+  // (TipTap) geöffnet, statt gerendert zu werden.
+  if (HTML_EXTENSIONS.has(ext) || mime === 'text/html') return 'html';
   if (TEXT_EXTENSIONS.has(ext) || mime.startsWith('text/')) return 'text';
   if (mime === 'application/pdf' || ext === '.pdf') return 'pdf';
   if (mime.startsWith('image/')) return 'image';
@@ -160,6 +167,16 @@ export default function DocumentViewerTab({
   }
 
   switch (kind) {
+    case 'html':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Lade HTML …" />}>
+          <HtmlDocumentViewer
+            documentId={documentId}
+            filename={meta.filename}
+            onDownload={downloadFile}
+          />
+        </Suspense>
+      );
     case 'pdf':
       return blobUrl ? (
         <iframe src={blobUrl} title={meta.filename} className="h-full w-full border-0" />

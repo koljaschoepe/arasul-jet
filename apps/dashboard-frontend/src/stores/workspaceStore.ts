@@ -20,13 +20,21 @@ import { persist } from 'zustand/middleware';
  * Stores — Komponenten rendern die Sessions nur, sie besitzen sie nicht.
  */
 
-export type WorkspaceTabType = 'document' | 'settings' | 'store' | 'automationen' | 'skill';
+export type WorkspaceTabType =
+  | 'document'
+  | 'settings'
+  | 'store'
+  | 'automationen'
+  | 'skill'
+  | 'extension';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
   title?: string;
   documentId?: string;
   slug?: string;
+  /** Nur bei type='extension': die installierte Erweiterung, die die Mitte füllt. */
+  extensionId?: string;
 }
 
 export interface WorkspaceTab {
@@ -35,6 +43,7 @@ export interface WorkspaceTab {
   title: string;
   documentId?: string;
   slug?: string;
+  extensionId?: string;
 }
 
 const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
@@ -43,12 +52,17 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   store: 'Extensions',
   automationen: 'Automationen',
   skill: 'Neuer Skill',
+  extension: 'Erweiterung',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
   switch (spec.type) {
     case 'document':
       return `document:${spec.documentId ?? ''}`;
+    // Jede Erweiterung ist ein eigener Tab (wie ein Dokument), damit man mehrere
+    // parallel offen haben kann.
+    case 'extension':
+      return `extension:${spec.extensionId ?? ''}`;
     default:
       return spec.type;
   }
@@ -67,6 +81,8 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/automationen';
     case 'skill':
       return '/workspace/skill';
+    case 'extension':
+      return `/workspace/ext/${tab.extensionId ?? ''}`;
   }
 }
 
@@ -86,6 +102,8 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'automationen' };
     case 'skill':
       return { type: 'skill' };
+    case 'ext':
+      return parts[1] ? { type: 'extension', extensionId: parts[1] } : null;
     default:
       // /workspace/terminal (v2) ist kein Tab mehr — Terminal lebt im Panel.
       return null;
@@ -375,6 +393,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           title: spec.title ?? DEFAULT_TITLES[spec.type],
           documentId: spec.documentId,
           slug: spec.slug,
+          extensionId: spec.extensionId,
         };
         set({ tabs: [...tabs, tab], activeTabId: id });
       },

@@ -55,6 +55,11 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 // Rest wird als „nur gespeichert" abgelegt (herunterladbar, siehe Indexer).
 const INDEXABLE_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yaml', '.yml'];
 
+// Dateitypen, deren Roh-Inhalt über GET/PUT /:id/content gelesen und bearbeitet
+// werden darf (Text-basiert). HTML (Plan 012 Batch 3) ist dabei: der
+// HTML-Viewer-Tab zeigt es gerendert und lässt den Quelltext bearbeiten.
+const EDITABLE_EXTENSIONS = ['.md', '.markdown', '.txt', '.yaml', '.yml', '.html', '.htm'];
+
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -682,8 +687,7 @@ router.get(
     const doc = docResult.rows[0];
 
     // Only allow text-based files
-    const editableExtensions = ['.md', '.markdown', '.txt', '.yaml', '.yml'];
-    if (!editableExtensions.includes(doc.file_extension)) {
+    if (!EDITABLE_EXTENSIONS.includes(doc.file_extension)) {
       throw new ValidationError('Dieser Dateityp kann nicht bearbeitet werden');
     }
 
@@ -749,8 +753,7 @@ router.put(
     const doc = docResult.rows[0];
 
     // Only allow text-based files
-    const editableExtensions = ['.md', '.markdown', '.txt', '.yaml', '.yml'];
-    if (!editableExtensions.includes(doc.file_extension)) {
+    if (!EDITABLE_EXTENSIONS.includes(doc.file_extension)) {
       throw new ValidationError('Dieser Dateityp kann nicht bearbeitet werden');
     }
 

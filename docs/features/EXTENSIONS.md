@@ -54,6 +54,19 @@ Ein Paket ist ein Ordner mit einer `manifest.json` im Wurzelverzeichnis:
 Die Startdatei je Typ: `app` → HTML-Seite, `flow` → `workflow.json`,
 `tool` → ausführbares Skript (liest stdin, schreibt JSON auf stdout).
 
+## App-Erweiterung „in der Mitte" öffnen
+
+Eine aktivierte `app`-Erweiterung läuft direkt in der Arbeitsfläche — wie n8n.
+Auf ihrer Detailseite (Erweiterungen → Karte anklicken) erscheint **„Öffnen"**;
+das lädt ihre Startdatei als eigenen Mitte-Tab in einem **Sandbox-iframe**.
+Technisch liefert `GET /api/extensions/:id/app/…` die Paket-Dateien same-origin
+(Auth über das Session-Cookie); die `Content-Security-Policy: sandbox`-Antwort
+plus das iframe-`sandbox`-Attribut geben dem Nutzer-HTML einen eigenen, opaken
+Origin — seine Skripte laufen, kommen aber nicht an das Dashboard, seine Cookies
+oder die API. Eine `app` ist deshalb bewusst eine **selbst-enthaltene**
+`index.html` (Assets im Paket, keine externen Skripte). Deaktivierte
+Erweiterungen lassen sich nicht öffnen.
+
 ## Zugriffs-Stufen
 
 Dieselben drei Stufen wie bei einer Sandbox — wähle immer die niedrigste, die

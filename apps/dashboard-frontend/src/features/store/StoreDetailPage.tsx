@@ -48,6 +48,7 @@ import type { InstalledExtension } from '@/hooks/useExtensions';
 import { extTypeLabel, accessTierLabel } from './storeExtensionFilters';
 import type { WorkspaceApp } from '@/hooks/useWorkspaceApps';
 import { useExtensionStore } from '@/stores/extensionStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { formatModelSize as formatSize } from '@/utils/formatting';
 import { sanitizeUrl } from '@/utils/sanitizeUrl';
 import ActivationButton from './ActivationButton';
@@ -652,6 +653,7 @@ function InstalledExtensionDetail({
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const { setExtensionEnabled, forkExtension, removeExtension, downloadUrl } = useExtensions();
+  const openTab = useWorkspaceStore(s => s.openTab);
   const [busy, setBusy] = useState(false);
 
   const run = async (aktion: () => Promise<unknown>, erfolg: string) => {
@@ -699,8 +701,19 @@ function InstalledExtensionDetail({
       }
       footer={
         <div className="flex flex-wrap gap-2">
+          {ext.type === 'app' && (
+            <Button
+              data-testid="ext-detail-open"
+              disabled={!ext.enabled}
+              title={ext.enabled ? 'In der Mitte öffnen' : 'Erst aktivieren'}
+              onClick={() => openTab({ type: 'extension', extensionId: ext.id, title: ext.name })}
+            >
+              <ExternalLink className="size-4" /> Öffnen
+            </Button>
+          )}
           <Button
             data-testid="ext-detail-toggle"
+            variant={ext.type === 'app' ? 'outline' : 'default'}
             disabled={busy}
             onClick={() =>
               run(

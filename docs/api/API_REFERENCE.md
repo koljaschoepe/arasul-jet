@@ -469,6 +469,10 @@ Request: `multipart/form-data` with `file` field.
 | GET    | `/api/documents/:id/content` | Get file content (text files) |
 | PUT    | `/api/documents/:id/content` | Update file content           |
 
+Editierbare Endungen (GET/PUT `/content`): `.md`, `.markdown`, `.txt`, `.yaml`,
+`.yml`, `.html`, `.htm`. HTML wird im Workspace als gerenderte Vorschau mit
+Code-Umschalter geöffnet (Plan 012 Batch 3); andere Typen liefern `400`.
+
 **POST /api/documents/upload:**
 
 - Content-Type: `multipart/form-data`
@@ -1038,9 +1042,19 @@ importieren → forken. Alle Routen erfordern Authentifizierung.
 | POST   | `/api/extensions/bauen`        | Ordner einer Sandbox paketieren + registrieren          |
 | POST   | `/api/extensions/import`       | Paket-Archiv (`.tar.gz`) hochladen und installieren     |
 | GET    | `/api/extensions/:id/download` | Paket als `.tar.gz` herunterladen                       |
+| GET    | `/api/extensions/:id/app`      | Oberfläche einer `app`-Erweiterung (Startdatei)         |
+| GET    | `/api/extensions/:id/app/*`    | Einzelne Datei aus dem Paket (Assets)                   |
 | POST   | `/api/extensions/:id/fork`     | Kopie als neue Werkstatt-Sandbox anlegen                |
 | PUT    | `/api/extensions/:id`          | Aktivieren/deaktivieren — Body `{ "enabled": boolean }` |
 | DELETE | `/api/extensions/:id`          | Deinstallieren (Register-Eintrag + Paket-Ordner)        |
+
+`GET /api/extensions/:id/app` (und `/app/*`) liefert die Oberfläche einer
+`app`-Erweiterung, damit sie „in der Mitte" (wie n8n) in einem Sandbox-iframe
+läuft. Nur für `type = 'app'`; jeder Pfad ist symlink-sicher im Paket-Ordner
+eingesperrt. Auth kommt über das `arasul_session`-Cookie (ein iframe-`src` kann
+keinen Bearer-Header setzen). Die Antwort trägt `Content-Security-Policy:
+sandbox …` — das ausgelieferte Nutzer-HTML bekommt einen eigenen, opaken Origin
+und kommt nicht an Dashboard-Cookies oder die API.
 
 `POST /api/extensions/bauen` — Body:
 
