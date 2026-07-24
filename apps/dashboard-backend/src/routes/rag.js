@@ -40,7 +40,6 @@ const {
   getEmbedding,
   getEmbeddings,
   getCompanyContext,
-  routeToSpaces,
   hybridSearch,
   rerankResults,
   filterByRelevance,
@@ -54,6 +53,12 @@ const {
 } = ragCore;
 const { getFolderContexts } = require('../services/rag/folderContextService');
 const workspaceContext = require('../services/rag/workspaceContext');
+const projectService = require('../services/rag/projectService');
+
+// Batch 2: nicht-matchende Sentinel-UUID. Ein leeres aktives Projekt (keine
+// Ordner, kein Fokus, keine Pins) darf NICHT auf die ganze Sammlung
+// zurückfallen — mit diesem Sentinel bleibt die Suche im (leeren) Projekt.
+const EMPTY_SCOPE_SENTINEL = '00000000-0000-0000-0000-000000000000';
 
 // Environment variables (only those needed by routes, not core functions)
 const QDRANT_HOST = services.qdrant.host;
@@ -79,8 +84,7 @@ router.post(
       top_k = systemSettings.getNumber('rag_top_k', 10),
       thinking,
       conversation_id,
-      space_ids = null, // RAG 2.0: Optional pre-selected spaces
-      auto_routing = true, // RAG 2.0: Enable automatic space routing
+      space_ids = null, // RAG 2.0: Optional pre-selected spaces (Fokus innerhalb des Projekts)
       model = null, // Optional: explicit model selection
     } = req.body;
     const enableThinking = thinking !== false;
@@ -143,67 +147,39 @@ router.post(
         additionalTexts.length > 0 ? getEmbeddings(additionalTexts) : Promise.resolve([]),
         // Step 3: Space routing (runs in parallel with embedding)
         (async () => {
-          // Plan 012: der aktive Workspace + Pins bilden den Grundkontext.
-          // Grundkontext = aktiver Teilbaum ∪ Fokus (Client-Drag) ∪ Ordner-Pins.
-          // Dokument-Pins fließen separat als documentIds in den Qdrant-Filter.
-          const activeWorkspaceId = await workspaceContext.getActiveWorkspaceId();
-          const activeSubtree = activeWorkspaceId
-            ? await workspaceContext.expandSubtree(activeWorkspaceId)
+          // Batch 2: Das AKTIVE PROJEKT ist die Grenze der Suche. Grundkontext =
+          // alle Ordner des aktiven Projekts; ein Fokus (Client-Drag „Mit Ordner
+          // chatten") grenzt INNERHALB des Projekts ein; Ordner-Pins sind immer
+          // dabei. Kein projektübergreifendes Auto-Routing mehr — der Nutzer will
+          // ausdrücklich nur im aktiven Projekt suchen.
+          const activeProjectId = await projectService.getActiveProjectId();
+          const projectSpaceIds = activeProjectId
+            ? await projectService.getProjectSpaceIds(activeProjectId)
             : [];
           const pins = await workspaceContext.resolvePinsForScope(req.user.id);
           const focusIds = Array.isArray(space_ids) ? space_ids : [];
 
-          let _targetSpaces = [];
-          let _routingMethod = 'none';
-          let _targetSpaceIds = null;
+          const base = focusIds.length > 0 ? focusIds : projectSpaceIds;
+          let _targetSpaceIds = [...new Set([...base, ...pins.spaceIds])];
 
-          if (activeWorkspaceId) {
-            // Aktiver Ordner gesetzt: Suche bleibt IM aktiven Ordner (kein
-            // globales Auto-Routing). Fokus grenzt additiv ein, Pins immer dabei.
-            _targetSpaceIds = [...new Set([...activeSubtree, ...focusIds, ...pins.spaceIds])];
-            _routingMethod = 'manual';
-          } else if (focusIds.length > 0) {
-            // Kein aktiver Ordner, aber expliziter Fokus (Alt-Verhalten).
-            _targetSpaceIds = [...new Set([...focusIds, ...pins.spaceIds])];
-            _routingMethod = 'manual';
-          } else if (auto_routing) {
-            // Kein aktiver Ordner, kein Fokus: globales Auto-Routing (Alt-Verhalten).
-            const routingResult = await routeToSpaces(queryEmbedding);
-            _targetSpaces = routingResult.spaces;
-            _routingMethod = routingResult.method;
-
-            if (
-              _routingMethod === 'error' ||
-              _routingMethod === 'all' ||
-              _routingMethod === 'none' ||
-              _routingMethod === 'fallback'
-            ) {
-              _targetSpaceIds = pins.spaceIds.length > 0 ? [...pins.spaceIds] : null;
-            } else {
-              _targetSpaceIds = [...new Set([..._targetSpaces.map(s => s.id), ...pins.spaceIds])];
-            }
-            logger.debug(`Auto-routing: ${_routingMethod}, ${_targetSpaces.length} spaces`);
-          } else {
-            // Auto-Routing aus, kein Scope: nur Pins (falls vorhanden).
-            _targetSpaceIds = pins.spaceIds.length > 0 ? [...pins.spaceIds] : null;
+          // Leeres Projekt (keine Ordner) ohne Fokus/Pins: NICHT auf die ganze
+          // Sammlung zurückfallen — Sentinel hält die Suche im leeren Projekt.
+          if (_targetSpaceIds.length === 0) {
+            _targetSpaceIds = [EMPTY_SCOPE_SENTINEL];
           }
 
           // Namen der gescopten Räume laden (für Folder-Context-Injektion + Antwort).
-          if (_routingMethod === 'manual' && _targetSpaceIds && _targetSpaceIds.length > 0) {
-            const spacesResult = await db.query(
-              'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',
-              [_targetSpaceIds]
-            );
-            _targetSpaces = spacesResult.rows;
-            logger.debug(
-              `Scope: ${_targetSpaces.length} Räume` +
-                (activeWorkspaceId ? ` (aktiver Workspace ${activeWorkspaceId})` : '')
-            );
-          }
+          const spacesResult = await db.query(
+            'SELECT id, name, slug, description FROM knowledge_spaces WHERE id = ANY($1::uuid[])',
+            [_targetSpaceIds]
+          );
+          logger.debug(
+            `Scope: ${spacesResult.rows.length} Räume (aktives Projekt ${activeProjectId || '—'})`
+          );
 
           return {
-            targetSpaces: _targetSpaces,
-            routingMethod: _routingMethod,
+            targetSpaces: spacesResult.rows,
+            routingMethod: 'project',
             targetSpaceIds: _targetSpaceIds,
             documentIds: pins.documentIds,
           };

@@ -27,6 +27,7 @@ const { ensureSkillSandbox } = require('./sandboxResolve');
 const changeTracker = require('./changeTracker');
 const { ladeDokumentText } = require('./documentText');
 const { RunLimits } = require('./limits');
+const projectService = require('../rag/projectService');
 const modelService = require('../llm/modelService');
 const logger = require('../../utils/logger');
 const { ValidationError } = require('../../utils/errors');
@@ -206,7 +207,17 @@ async function runSkill(
 
   // 1. Argumente → Werte, Platzhalter ersetzen. Ein `datei`-Argument reichert
   //    die Nutzer-Eingabe zusätzlich um den Dokument-Inhalt an (Schritt 18).
-  const { werte, spaceIds } = resolveArguments(skill.argumente, args);
+  const { werte, spaceIds: argSpaceIds } = resolveArguments(skill.argumente, args);
+
+  // Batch 2: Ohne explizite `wissensbasis`-Argumente scopt der Skill seine
+  // RAG-Suche auf das AKTIVE Projekt (statt zuvor auf die gesamte Wissensbasis) —
+  // Agenten arbeiten damit standardmäßig nur im aktiven Projekt. Explizit
+  // gewählte Wissensräume haben Vorrang.
+  let spaceIds = argSpaceIds;
+  if (spaceIds.length === 0) {
+    const activeProjectId = await projectService.getActiveProjectId();
+    spaceIds = await projectService.getProjectSpaceIds(activeProjectId);
+  }
   const filledPrompt = fillPlaceholders(skill.systemPrompt, werte);
   const userInput = await anreichernMitDateien(
     buildUserInput(skill.argumente, werte),

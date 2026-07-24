@@ -33,6 +33,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useUploadDocuments } from '@/hooks/uploadDocuments';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { usePins } from '../useWorkspaceContext';
+import { useActiveProject } from '../useProjects';
 import { cn } from '@/lib/utils';
 import { ExplorerDialogs } from './ExplorerDialogs';
 import type { ExplorerDialogState } from './ExplorerDialogs';
@@ -153,6 +154,9 @@ export function ExplorerPanel() {
   const openTab = useWorkspaceStore(s => s.openTab);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
   const { addPin } = usePins();
+  // Der Baum ist auf das aktive Projekt gescopt (Backend): wechselt es, muss der
+  // Explorer neu laden. `activeId` steuert das über die Effekt-Abhängigkeit.
+  const { activeId } = useActiveProject();
 
   const [spaces, setSpaces] = useState<TreeSpace[]>([]);
   const [documents, setDocuments] = useState<TreeDocument[]>([]);
@@ -185,7 +189,8 @@ export function ExplorerPanel() {
     loadTree();
     const timers = refreshTimersRef.current;
     return () => timers.forEach(clearTimeout);
-  }, [loadTree]);
+    // activeId in den Abhängigkeiten: ein Projektwechsel lädt den (gescopten) Baum neu.
+  }, [loadTree, activeId]);
 
   /** Nach Uploads mehrfach nachladen, damit pending→indexed sichtbar wird. */
   const scheduleRefresh = useCallback(() => {

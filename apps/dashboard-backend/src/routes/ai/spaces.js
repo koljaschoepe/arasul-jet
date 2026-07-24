@@ -31,6 +31,7 @@ const {
   CreatePinBody,
 } = require('../../schemas/spaces');
 const workspaceContext = require('../../services/rag/workspaceContext');
+const projectService = require('../../services/rag/projectService');
 const crypto = require('crypto');
 const minioService = require('../../services/documents/minioService');
 const { invalidateFolderContext } = require('../../services/rag/folderContextService');
@@ -60,7 +61,11 @@ router.get(
   requireAuth,
   cacheMiddleware(CACHE_KEY_SPACES, CACHE_TTL_SPACES),
   asyncHandler(async (req, res) => {
-    const result = await pool.query(`
+    // Batch 2: Ordner sind auf das AKTIVE Projekt gescopt. Der Cache ist statisch
+    // (spaces:list) und wird beim Projektwechsel invalidiert (siehe routes/ai/projects).
+    const activeProjectId = await projectService.getActiveProjectId();
+    const result = await pool.query(
+      `
         SELECT
             ks.*,
             COALESCE(doc_stats.doc_count, 0) as actual_document_count,
@@ -76,10 +81,12 @@ router.get(
             GROUP BY space_id
         ) doc_stats ON ks.id = doc_stats.space_id
         -- Plan 008 Schritt 13: die unsichtbaren Workspace-Wissensräume gehören
-        -- nicht in die Dokumenten-UI.
-        WHERE ks.is_workspace = FALSE
+        -- nicht in die Dokumenten-UI. Batch 2: nur Ordner des aktiven Projekts.
+        WHERE ks.is_workspace = FALSE AND ks.project_id = $1
         ORDER BY ks.sort_order, ks.name
-    `);
+    `,
+      [activeProjectId]
+    );
 
     res.json({
       spaces: result.rows,
@@ -100,13 +107,19 @@ router.get(
   '/tree',
   requireAuth,
   asyncHandler(async (req, res) => {
+    // Batch 2: der Explorer zeigt nur die Ordner des AKTIVEN Projekts. Dokumente
+    // werden anschließend auf die sichtbaren (projekt-gescopten) Ordner gefiltert.
+    const activeProjectId = await projectService.getActiveProjectId();
     const [spacesResult, docsResult] = await Promise.all([
-      pool.query(`
+      pool.query(
+        `
         SELECT id, name, slug, icon, color, parent_id, is_default, is_system, sort_order
           FROM knowledge_spaces
-         WHERE is_workspace = FALSE
+         WHERE is_workspace = FALSE AND project_id = $1
          ORDER BY sort_order, name
-      `),
+      `,
+        [activeProjectId]
+      ),
       pool.query(`
         SELECT id, filename, title, status, space_id, is_context_file,
                mime_type, file_extension, file_size
@@ -290,14 +303,22 @@ router.post(
   asyncHandler(async (req, res) => {
     const { name, description, icon = 'folder', color = '#6366f1', parent_id = null } = req.body;
 
-    // Ordnerbaum: Eltern-Ordner muss existieren
+    // Batch 2: Ein neuer Ordner gehört zu einem Projekt. Unterordner erben das
+    // Projekt ihres Elternordners; ein neuer Top-Level-Ordner landet im AKTIVEN
+    // Projekt.
+    let projectId;
     if (parent_id) {
-      const parentCheck = await pool.query('SELECT id FROM knowledge_spaces WHERE id = $1', [
-        parent_id,
-      ]);
+      const parentCheck = await pool.query(
+        'SELECT id, project_id FROM knowledge_spaces WHERE id = $1',
+        [parent_id]
+      );
       if (parentCheck.rows.length === 0) {
         throw new ValidationError('Übergeordneter Ordner nicht gefunden');
       }
+      projectId = parentCheck.rows[0].project_id;
+    }
+    if (!projectId) {
+      projectId = await projectService.getActiveProjectId();
     }
 
     // Generate slug
@@ -342,11 +363,21 @@ router.post(
       `
         INSERT INTO knowledge_spaces (
             name, slug, description, description_embedding,
-            icon, color, sort_order, parent_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            icon, color, sort_order, parent_id, project_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING *
     `,
-      [name.trim(), slug, description.trim(), embeddingJson, icon, color, sortOrder, parent_id]
+      [
+        name.trim(),
+        slug,
+        description.trim(),
+        embeddingJson,
+        icon,
+        color,
+        sortOrder,
+        parent_id,
+        projectId,
+      ]
     );
 
     logger.info(`Created knowledge space: ${name} (${slug})`);
@@ -372,7 +403,7 @@ router.put(
   validateBody(UpdateSpaceBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { name, description, icon, color, sort_order, parent_id } = req.body;
+    const { name, description, icon, color, sort_order, parent_id, project_id } = req.body;
 
     // Check if space exists and is not system
     const existingResult = await pool.query('SELECT * FROM knowledge_spaces WHERE id = $1', [id]);
@@ -382,6 +413,25 @@ router.put(
     }
 
     const existing = existingResult.rows[0];
+
+    // Batch 2: Ordner (samt Unterbaum) in ein anderes Projekt verschieben. Der
+    // ganze Teilbaum muss mitwandern — sonst verschwänden Unterordner aus dem
+    // Ziel- wie aus dem Quell-Projekt (project_id gescopte Tree-Abfrage).
+    if (project_id !== undefined) {
+      const projCheck = await pool.query('SELECT id FROM projects WHERE id = $1', [project_id]);
+      if (projCheck.rows.length === 0) {
+        throw new ValidationError('Projekt nicht gefunden');
+      }
+      await pool.query(
+        `WITH RECURSIVE subtree AS (
+           SELECT id FROM knowledge_spaces WHERE id = $1
+           UNION ALL
+           SELECT ks.id FROM knowledge_spaces ks JOIN subtree s ON ks.parent_id = s.id
+         )
+         UPDATE knowledge_spaces SET project_id = $2 WHERE id IN (SELECT id FROM subtree)`,
+        [id, project_id]
+      );
+    }
 
     // System spaces have limited edits
     if (existing.is_system && name && name !== existing.name) {
@@ -440,7 +490,17 @@ router.put(
       { includeUpdatedAt: false }
     );
 
+    // Nur ein Projekt-Move (ohne weitere Felder) ist eine gültige Änderung.
     if (setClauses.length === 0) {
+      if (project_id !== undefined) {
+        const moved = await pool.query('SELECT * FROM knowledge_spaces WHERE id = $1', [id]);
+        cacheService.invalidate(CACHE_KEY_SPACES);
+        return res.json({
+          space: moved.rows[0],
+          message: 'Ordner verschoben',
+          timestamp: new Date().toISOString(),
+        });
+      }
       throw new ValidationError('Keine Änderungen angegeben');
     }
 

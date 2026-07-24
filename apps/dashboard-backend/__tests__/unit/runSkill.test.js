@@ -13,6 +13,14 @@
 jest.mock('axios');
 jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
 
+// Batch 2: runSkill scopt die RAG-Suche ohne `wissensbasis`-Argument auf das
+// aktive Projekt. Fest gemockt, damit die Orchestrierungs-Tests nicht die echte
+// DB anfassen; leere Räume ⇒ unverändertes Verhalten (spaceIds bleiben leer).
+jest.mock('../../src/services/rag/projectService', () => ({
+  getActiveProjectId: jest.fn().mockResolvedValue('proj-test'),
+  getProjectSpaceIds: jest.fn().mockResolvedValue([]),
+}));
+
 const axios = require('axios');
 const { runSkillLoop } = require('../../src/services/skills/toolLoop');
 const { withGpuLock, _gpuMutex } = require('../../src/services/skills/gpuQueue');

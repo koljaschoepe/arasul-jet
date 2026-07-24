@@ -323,17 +323,16 @@ describe('RAG Routes', () => {
       }
     });
 
-    test('anti-hallucination: routing method=none short-circuits to no-docs response, no unfiltered search', async () => {
+    test('Batch 2: die Suche bleibt IMMER projektgebunden (nie über die ganze Sammlung)', async () => {
       const token = getAuthToken();
+      // Kein aktives Projekt / leeres Projekt: system_settings → [] (setupRagMocks)
+      // ⇒ getActiveProjectId → null ⇒ leerer Scope ⇒ Sentinel. Entscheidend: der
+      // Space-Filter ist NIE null (früher hätte method=none/„alles" die ganze
+      // Wissensbasis durchsucht und off-topic halluziniert).
       setupRagMocks({ companyContext: [], spaces: [], keywordResults: [] });
 
       // Spellcheck (fails silently)
       axios.post.mockRejectedValueOnce(new Error('Spellcheck unavailable'));
-
-      // routeToSpaces signals "no space matched and no default" — the deliberate
-      // anti-hallucination signal. The route must NOT translate this into an
-      // unfiltered (whole-knowledge-base) Qdrant search.
-      ragCore.routeToSpaces.mockResolvedValueOnce({ spaces: [], method: 'none' });
 
       llmJobService.createJob.mockResolvedValueOnce({ jobId: 'job-none', messageId: 'msg-none' });
       llmJobService.updateJobContent.mockResolvedValueOnce();
@@ -346,15 +345,16 @@ describe('RAG Routes', () => {
 
       expect(response.status).not.toBe(401);
 
-      // The critical assertion: no search happened. Previously method=none set
-      // the space filter to null → buildSpaceFilter(null)=undefined → hybridSearch
-      // ran across the ENTIRE knowledge base, enabling off-topic hallucination.
-      expect(ragCore.hybridSearch).not.toHaveBeenCalled();
+      // Die Suche läuft — aber gebunden: der 4. Parameter (spaceFilter) ist ein
+      // nicht-leeres Array (Sentinel bzw. Projekt-Räume), niemals null.
+      expect(ragCore.hybridSearch).toHaveBeenCalled();
+      const spaceFilterArg = ragCore.hybridSearch.mock.calls[0][3];
+      expect(Array.isArray(spaceFilterArg)).toBe(true);
+      expect(spaceFilterArg.length).toBeGreaterThan(0);
 
-      // And the user gets the honest "no relevant documents" response.
+      // Leeres Ergebnis ⇒ ehrliche „keine relevanten Dokumente"-Antwort.
       if (response.headers['content-type'] && response.headers['content-type'].includes('text/event-stream')) {
         expect(response.text).toContain('keine relevanten Dokumente');
-        // Not misreported as a backend outage.
         expect(response.text).not.toContain('vorübergehend nicht verfügbar');
       } else {
         expect(response.status).toBe(200);
@@ -543,10 +543,6 @@ describe('RAG Routes', () => {
       const token = getAuthToken();
       setupRagMocks();
 
-      // method='all' yields a null space filter but still runs the search — the
-      // exact shape this test asserts. (method='none' deliberately skips search.)
-      ragCore.routeToSpaces.mockResolvedValueOnce({ spaces: [], method: 'all' });
-
       llmJobService.createJob.mockResolvedValueOnce({
         jobId: 'job-123',
         messageId: 'msg-123'
@@ -562,12 +558,14 @@ describe('RAG Routes', () => {
         });
 
       // hybridSearch should be called with top_k = 10 (rerank candidate pool;
-      // RAG_FINAL_K=4 caps the LLM context after MMR + dedupe).
+      // RAG_FINAL_K=4 caps the LLM context after MMR + dedupe). Batch 2: der
+      // spaceFilter ist immer projektgebunden (hier ohne aktives Projekt/Räume:
+      // der Sentinel), niemals null.
       expect(ragCore.hybridSearch).toHaveBeenCalledWith(
         expect.any(String),     // query
         expect.any(Array),      // embedding
         10,                     // top_k default
-        null,                   // spaceFilter (no spaces configured)
+        expect.any(Array),      // spaceFilter (projektgebunden, nie null)
         expect.any(Object)      // options
       );
     });

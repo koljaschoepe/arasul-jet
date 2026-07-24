@@ -30,6 +30,8 @@ const UpdateSpaceBody = z
     sort_order: z.number().int().optional(),
     // Ordnerbaum: Verschieben (null = auf Wurzelebene)
     parent_id: SpaceIdField.nullable().optional(),
+    // Batch 2: Ordner (samt Unterbaum) in ein anderes Projekt verschieben.
+    project_id: z.uuid('Ungültige Projekt-ID').optional(),
   })
   .strict();
 

@@ -1370,6 +1370,7 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 | `owner_id`               | integer                  | ✅       |                                |
 | `parent_id`              | uuid                     | ✅       |                                |
 | `is_workspace`           | boolean                  | ⛔       | `false`                        |
+| `project_id`             | uuid                     | ✅       |                                |
 
 **Primary key:** `id`
 
@@ -1377,6 +1378,7 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 - `owner_id` → `admin_users.id`
 - `parent_id` → `knowledge_spaces.id`
+- `project_id` → `projects.id` (Batch 2; NULL nur bei unsichtbaren Workspace-Räumen)
 
 **Indexes:**
 
@@ -2084,6 +2086,34 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ---
 
+## `projects`
+
+> Batch 2 (Workspace-Neuausrichtung): oberste Ebene über den Ordnern. Ein Projekt
+> bündelt mehrere `knowledge_spaces` (via `knowledge_spaces.project_id`); das
+> aktive Projekt (`system_settings.active_project_id`) scopt Explorer + Suche/Agenten.
+
+| Column        | Type                     | Nullable | Default                        |
+| ------------- | ------------------------ | -------- | ------------------------------ |
+| `id`          | uuid                     | ⛔       | `gen_random_uuid()`            |
+| `name`        | character varying        | ⛔       |                                |
+| `slug`        | character varying        | ⛔       |                                |
+| `description` | text                     | ✅       |                                |
+| `icon`        | character varying        | ✅       | `'layers'::character varying`  |
+| `color`       | character varying        | ✅       | `'#6366f1'::character varying` |
+| `is_default`  | boolean                  | ⛔       | `false`                        |
+| `sort_order`  | integer                  | ⛔       | `0`                            |
+| `created_at`  | timestamp with time zone | ⛔       | `now()`                        |
+| `updated_at`  | timestamp with time zone | ⛔       | `now()`                        |
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `projects_slug_key` — UNIQUE auf `slug`
+- `idx_projects_single_default` — partieller UNIQUE-Index auf `is_default WHERE is_default = TRUE` (genau ein Standard-Projekt)
+
+---
+
 ## `sandbox_projects`
 
 > Persistent sandbox development environments with Docker containers
@@ -2454,6 +2484,8 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 | `rag_space_routing_threshold`     | double precision         | ✅       | `0.4`   |
 | `rag_space_routing_max_spaces`    | integer                  | ✅       | `3`     |
 | `llm_base_system_prompt`          | text                     | ✅       |         |
+| `active_workspace_space_id`       | uuid                     | ✅       |         |
+| `active_project_id`               | uuid                     | ✅       |         |
 
 **Primary key:** `id`
 
@@ -2462,6 +2494,8 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 - `telegram_disclaimer_accepted_by` → `admin_users.id`
 - `setup_completed_by` → `admin_users.id`
 - `ai_transparency_disabled_by` → `admin_users.id`
+- `active_workspace_space_id` → `knowledge_spaces.id` (Plan 012; abgelöst durch `active_project_id`)
+- `active_project_id` → `projects.id` (Batch 2; das aktive Projekt, scopt Explorer + Suche/Agenten)
 
 **Indexes:**
 

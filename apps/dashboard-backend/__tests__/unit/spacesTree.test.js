@@ -43,6 +43,12 @@ jest.mock('../../src/services/core/cacheService', () => ({
   cacheMiddleware: () => (req, res, next) => next()
 }));
 
+// Batch 2: Projekt-Scoping fest mocken (kein zusätzlicher db.query in /spaces/tree).
+jest.mock('../../src/services/rag/projectService', () => ({
+  getActiveProjectId: jest.fn().mockResolvedValue('00000000-0000-0000-0000-0000000000aa'),
+  getProjectSpaceIds: jest.fn().mockResolvedValue([])
+}));
+
 jest.mock('../../src/services/documents/minioService', () => ({
   uploadObject: jest.fn().mockResolvedValue(undefined),
   getObject: jest.fn(),
@@ -159,8 +165,10 @@ describe('Spaces Tree & Nesting (ide-workspace-shell)', () => {
 
     test('erstellt Unterordner mit gültigem parent_id', async () => {
       setupMocksWithAuth((query) => {
-        if (query.includes('SELECT id FROM knowledge_spaces WHERE id')) {
-          return Promise.resolve({ rows: [{ id: PARENT_ID }] });
+        // Batch 2: der Eltern-Check liest jetzt zusätzlich project_id
+        // (der Unterordner erbt das Projekt seines Elternordners).
+        if (query.includes('FROM knowledge_spaces WHERE id')) {
+          return Promise.resolve({ rows: [{ id: PARENT_ID, project_id: 'proj-x' }] });
         }
         if (query.includes('SELECT slug FROM knowledge_spaces')) {
           return Promise.resolve({ rows: [] });

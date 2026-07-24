@@ -741,12 +741,31 @@ Only accepts requests from localhost or Docker network IPs.
 }
 ```
 
+### Projects (Batch 2)
+
+Die oberste Ebene über den Ordnern: ein Projekt bündelt mehrere
+`knowledge_spaces`. Das **aktive Projekt** (`system_settings.active_project_id`,
+app-weit/Einzel-Admin) scopt Explorer, Suche und Skills/Agenten.
+
+| Method | Endpoint               | Description                                                                |
+| ------ | ---------------------- | -------------------------------------------------------------------------- |
+| GET    | `/api/projects`        | Alle Projekte mit Ordner-Zähler (`{data:[…]}`)                             |
+| GET    | `/api/projects/active` | Aktives Projekt + seine `space_ids` (`{data:{project, space_ids}}`)        |
+| PUT    | `/api/projects/active` | Aktives Projekt setzen (`{project_id}`)                                    |
+| POST   | `/api/projects`        | Projekt anlegen (`{name, description?, icon?, color?}`)                    |
+| PUT    | `/api/projects/:id`    | Projekt aktualisieren                                                      |
+| DELETE | `/api/projects/:id`    | Projekt löschen (403 beim Standard-Projekt, 409 solange es Ordner enthält) |
+
+> Neue Top-Level-Ordner landen im aktiven Projekt; Unterordner erben das Projekt
+> ihres Elternordners. `PUT /api/spaces/:id` mit `project_id` verschiebt einen
+> Ordner samt Unterbaum in ein anderes Projekt.
+
 ### Knowledge Spaces
 
 | Method | Endpoint                       | Description                                                                                |
 | ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
-| GET    | `/api/spaces`                  | List all knowledge spaces                                                                  |
-| GET    | `/api/spaces/tree`             | Explorer-Aggregat: alle Spaces (mit `parent_id`) + alle Dokumente                          |
+| GET    | `/api/spaces`                  | List knowledge spaces des aktiven Projekts                                                 |
+| GET    | `/api/spaces/tree`             | Explorer-Aggregat des **aktiven Projekts**: Ordner (mit `parent_id`) + Dokumente           |
 | GET    | `/api/spaces/:id`              | Get space details with documents                                                           |
 | POST   | `/api/spaces`                  | Create knowledge space (optional `parent_id` für Unterordner)                              |
 | PUT    | `/api/spaces/:id`              | Update knowledge space (`parent_id` = Verschieben, Zyklus-Schutz)                          |
@@ -762,12 +781,13 @@ Only accepts requests from localhost or Docker network IPs.
 | POST   | `/api/spaces/pins`             | Dokument ODER Unterordner anheften (`{document_id}` **oder** `{space_id}`, idempotent)     |
 | DELETE | `/api/spaces/pins/:pinId`      | Anheftung entfernen                                                                        |
 
-> **Aktiver Ordner-Kontext (Plan 012):** Ein aktiver Top-Level-Ordner bindet
-> Chat + Suche global — sein Teilbaum ist der Default-RAG-Scope
-> (`system_settings.active_workspace_space_id`, app-weit/Einzel-Admin).
-> Angeheftete Dokumente/Unterordner (`pinned_documents`) sind zusätzlich immer
-> im Kontext, unabhängig vom Auto-Routing. `POST /api/rag/query` löst beides
-> serverseitig auf (Client muss den Scope nicht mitsenden).
+> **Aktives Projekt = Suchgrenze (Batch 2):** Der RAG-Scope von `POST
+/api/rag/query` ist das aktive Projekt — alle seine Ordner-`space_ids`. Ein
+> optionaler `space_ids`-Fokus (»Mit Ordner chatten«) grenzt INNERHALB des
+> Projekts ein; angeheftete Dokumente/Unterordner (`pinned_documents`) sind
+> zusätzlich immer im Kontext. Kein projektübergreifendes Auto-Routing mehr; der
+> Client muss den Scope nicht mitsenden. Der frühere „aktive Ordner"
+> (`active_workspace_space_id`, Plan 012) ist damit abgelöst.
 
 > **Ordnerbaum & Kontextdateien (Plan `ide-workspace-shell`):** Spaces bilden
 > über `parent_id` einen verschachtelten Ordnerbaum (Workspace-Explorer).

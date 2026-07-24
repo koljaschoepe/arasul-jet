@@ -54,6 +54,14 @@ jest.mock('../../src/services/core/cacheService', () => ({
   cacheMiddleware: () => (req, res, next) => next()
 }));
 
+// Batch 2: die Projekt-Ebene scopt /spaces. Hier fest gemockt, damit die
+// db.query-Sequenzen der einzelnen Tests nicht durch die zusätzliche
+// getActiveProjectId-Abfrage verschoben werden.
+jest.mock('../../src/services/rag/projectService', () => ({
+  getActiveProjectId: jest.fn().mockResolvedValue('00000000-0000-0000-0000-0000000000aa'),
+  getProjectSpaceIds: jest.fn().mockResolvedValue([])
+}));
+
 const db = require('../../src/database');
 const { app } = require('../../src/server');
 const { generateTestToken, mockUser, mockSession } = require('../helpers/authMock');
