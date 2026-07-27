@@ -35,7 +35,6 @@ import './index.css';
 // PHASE 2: Code-Splitting - Lazy imports for secondary route components
 // These components are loaded on-demand when the user navigates to them
 const Settings = lazy(() => import('./features/settings/Settings'));
-const DocumentManager = lazy(() => import('./features/documents/DocumentManager'));
 const Store = lazy(() => import('./features/store'));
 const SandboxApp = lazy(() => import('./features/sandbox'));
 
@@ -455,15 +454,10 @@ function LegacyAppContent({
                 </RouteErrorBoundary>
               }
             />
-            <Route
-              path="/data"
-              element={
-                <RouteErrorBoundary routeName="Dokumente">
-                  <DocumentManager />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route path="/documents" element={<Navigate to="/data" replace />} />
+            {/* Dokumente/Wissensraum-Seite entfernt (B5) — Dateien leben im
+                Workspace-Explorer. Alt-Links leiten dorthin. */}
+            <Route path="/data" element={<Navigate to="/workspace" replace />} />
+            <Route path="/documents" element={<Navigate to="/workspace" replace />} />
             <Route
               path="/store/*"
               element={

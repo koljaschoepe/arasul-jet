@@ -30,9 +30,6 @@ vi.mock('../features/workspace', () => ({
 }));
 
 // Mock secondary route components (Legacy-Fallback-Routen)
-vi.mock('../features/documents/DocumentManager', () => ({
-  default: () => <div data-testid="document-manager">Documents Component</div>,
-}));
 vi.mock('../features/settings/Settings', () => ({
   default: () => <div data-testid="settings">Settings Component</div>,
 }));
