@@ -1,0 +1,212 @@
+<!doctype html>
+<!--
+  Arasul · Plan 013 — Workspace wird IDE + Flow-Orchestrierung + Branding
+  Quelle: Nutzer-Frontend-Review 2026-07-27 (frontend-review.html) + 3 Interview-Runden (11 Entscheidungen).
+  Ausführung: EIN Branch feat/013-ide-flow-plattform, 11 Batches, EIN Deploy am Ende (Nutzerwahl),
+  danach Jetson-Live-Verify. Kein Zwischen-Deploy.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arasul · Plan 013 — IDE &amp; Flow-Plattform</title>
+<style>
+  :root{
+    --bg:#0f1420; --card:#161d2c; --card2:#1c2536; --bd:#28324a; --fg:#e6ebf4;
+    --mut:#93a0b8; --acc:#3d85e1; --ok:#2fbf71; --warn:#e0a53f; --risk:#e0574f; --pill:#243049;
+  }
+  @media (prefers-color-scheme:light){
+    :root{ --bg:#f5f7fb; --card:#fff; --card2:#eef2f8; --bd:#d7deea; --fg:#1a2233; --mut:#586178; --pill:#e6ecf6; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:0}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:26px;margin:0 0 4px}
+  .sub{color:var(--mut);margin:0 0 24px}
+  h2{font-size:19px;margin:34px 0 12px;border-bottom:1px solid var(--bd);padding-bottom:6px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;margin:12px 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+  .dec{background:var(--card2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+  .dec b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin-bottom:3px}
+  .pill{display:inline-block;background:var(--pill);border-radius:20px;padding:2px 10px;font-size:12px;margin:2px 4px 2px 0}
+  .batch{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:0;margin:12px 0;overflow:hidden}
+  .batch>summary{cursor:pointer;padding:14px 18px;font-weight:600;list-style:none;display:flex;align-items:center;gap:10px}
+  .batch>summary::-webkit-details-marker{display:none}
+  .batch>summary::before{content:"▸";color:var(--acc);font-size:13px}
+  .batch[open]>summary::before{content:"▾"}
+  .batch .body{padding:0 18px 16px;border-top:1px solid var(--bd)}
+  .tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;margin-left:auto}
+  .fe{background:rgba(61,133,225,.16);color:var(--acc)}
+  .be{background:rgba(224,165,63,.16);color:var(--warn)}
+  .risk{background:rgba(224,87,79,.16);color:var(--risk)}
+  ul{margin:8px 0;padding-left:20px}
+  li{margin:3px 0}
+  code{background:var(--card2);border:1px solid var(--bd);border-radius:5px;padding:1px 5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .files{color:var(--mut);font-size:13px}
+  .v{color:var(--ok)}
+  .note{color:var(--warn)}
+  .foot{color:var(--mut);font-size:13px;margin-top:30px;border-top:1px solid var(--bd);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Plan 013 — Der Workspace wird eine echte IDE + Flow-Plattform</h1>
+<p class="sub">Aus dem Frontend-Review vom 27.07.2026 + 3 Interview-Runden · Branch <code>feat/013-ide-flow-plattform</code> · 11 Batches · <b>ein Deploy am Ende</b>, dann Jetson-Live-Verify.</p>
+
+<h2>Leitbild</h2>
+<div class="card">
+Arasul soll sich wie <b>Cursor / VS Code</b> anfühlen: eine konsistente Entwickler-Oberfläche, in der
+<b>„Flows"</b> (heute „Skills") als deterministisch orchestrierte, wartbare Schritt-Ketten gebaut, per
+Chat/Zeitplan/HTTP ausgelöst und deren Ordner mit <b>GitHub</b> synchronisiert werden. Der Chat ist die
+<b>ausführende Ebene</b>, nicht nur ein Frage-Antwort-Fenster. Durchgehendes Branding mit dem blauen
+Vogel-Maskottchen (zwinkert). Läuft weiter voll lokal &amp; DSGVO-konform auf dem Jetson.
+</div>
+
+<h2>Feste Entscheidungen (Interview)</h2>
+<div class="grid">
+  <div class="dec"><b>Umfang</b>Alles in einem Rutsch</div>
+  <div class="dec"><b>Flow-Umbenennung</b>Tief (API, Ordner, DB, Env) + Migration</div>
+  <div class="dec"><b>Dokumente-Bereich</b>Nur die Seite raus — RAG bleibt</div>
+  <div class="dec"><b>Login-Branding</b>Maskottchen + App-Theme jetzt</div>
+  <div class="dec"><b>Flow-Editor</b>Geordnete Schritt-Karten (kein Canvas)</div>
+  <div class="dec"><b>Orchestrierung</b>Immer orchestriert (Bestand migriert)</div>
+  <div class="dec"><b>GitHub</b>Zwei-Wege-Sync per Token</div>
+  <div class="dec"><b>Trigger</b>HTTP + Zeitplan + Chat-Steuerung</div>
+  <div class="dec"><b>Code-Editor</b>CodeMirror 6</div>
+  <div class="dec"><b>Deploy-Kadenz</b>Einmal am Ende</div>
+  <div class="dec"><b>Modelle-Gruppen</b>Nach Größe/RAM-Klasse</div>
+</div>
+
+<h2>Die 11 Batches</h2>
+
+<details class="batch" open><summary>B1 · Branding &amp; Login <span class="tag fe">Frontend</span></summary>
+<div class="body">
+<ul>
+  <li>Neue Vogel-Art als <code>assets/mascot/{idle,wink}.png</code> (transparent, aus icon.png/icon2.png).</li>
+  <li><code>Mascot</code>-Komponente (blinzelt/zwinkert schon) in Branding-Stellen wiederverwenden: Login-Hero, Menüleisten-Marke, Einstellungen-Kopf, dezente Leerzustände.</li>
+  <li><code>Login.tsx</code>: Maskottchen-Hero, Theme-Farben, „Passwort vergessen" → Website-Link + Support-Mail statt nacktem <code>mailto:</code>.</li>
+  <li>Favicon + Marken-Logo (bisher keins vorhanden).</li>
+</ul>
+<p class="files">Dateien: <code>features/system/Login.tsx</code> · <code>components/mascot/Mascot.tsx</code> · <code>assets/mascot/*</code> · <code>config/branding.ts</code> · <code>index.html</code></p>
+</div></details>
+
+<details class="batch"><summary>B2 · Sidebar-Einheitlichkeit &amp; Explorer <span class="tag fe">Frontend</span></summary>
+<div class="body">
+<ul>
+  <li>Alle Sidebar-Ansichten auf gemeinsamen <code>SidebarView</code>-Kopf + gleiche Suchleiste (Dateien nutzt heute Sonderkopf).</li>
+  <li>Bei Dateien oben der <b>aktive Projektname</b> statt „Suchen".</li>
+  <li>Lange Dateinamen laufen nicht mehr knapp an den Trennstrich (Abstände in <code>ExplorerPanel</code>-Zeilen).</li>
+  <li>Statusleiste interaktiv: Modell-Label → Umschalt-Popover heruntergeladener Modelle; „Verbunden" → Dienst-/Health-Popover.</li>
+</ul>
+<p class="files">Dateien: <code>features/workspace/sidebar/*</code> · <code>SidebarView.tsx</code> · <code>explorer/ExplorerPanel.tsx</code> · <code>StatusBar.tsx</code></p>
+</div></details>
+
+<details class="batch"><summary>B3 · Store / Modelle / Erweiterungen <span class="tag fe">Frontend</span> <span class="tag be">Backend</span></summary>
+<div class="body">
+<ul>
+  <li>Oberen Modelle/Erweiterungen-Umschalter entfernen (<code>Store.tsx</code>).</li>
+  <li>Modelle: 4 Karten/Reihe, kompakter, <b>Gruppen-Überschriften nach Größe/RAM-Klasse</b>; Mini-Live-Statusleiste (installiert / aktiv / lädt gerade).</li>
+  <li>Erweiterungen: Restfacetten raus; n8n mit <b>natürlichem Text, Links, Logo</b> (keine Gedankenstriche) über <code>APP_MANIFEST</code>; „Paket importieren" sauberer stylen.</li>
+  <li>Store-Detail: Modell- &amp; App-Beschreibungen anreichern + externe Links (HuggingFace/Ollama/n8n).</li>
+</ul>
+<p class="files">Dateien: <code>features/store/Store.tsx</code>, <code>StoreModelsGrid.tsx</code>, <code>StoreExtensionsGrid.tsx</code>, <code>StoreDetailPage.tsx</code> · <code>routes/workspaceApps.js</code> · <code>postgres/init/*_catalog.sql</code> (neue Migration)</p>
+</div></details>
+
+<details class="batch"><summary>B4 · Einstellungen-Umbau <span class="tag fe">Frontend</span></summary>
+<div class="body">
+<ul>
+  <li>Einstellungen wird eine <b>ActivityBar-Ansicht</b>: die Sektionen (Allgemein/KI/Sicherheit/Datenschutz/System/Fernzugriff) stehen links in der Sidebar wie die Flows; Mitte zeigt die gewählte Sektion.</li>
+  <li>Die innere 280px-Spalte („Tab im Tab") entfällt. 3. Ebene (KI→Profil/RAG-LLM, System→Dienste/Updates) bleibt als In-Sektion-Reiter.</li>
+</ul>
+<p class="files">Dateien: <code>features/settings/Settings.tsx</code> + <code>settings/*</code> · <code>ActivityBar.tsx</code> · <code>SidebarHost.tsx</code> · <code>workspaceStore.ts</code></p>
+</div></details>
+
+<details class="batch"><summary>B5 · Dokumente-Seite entfernen <span class="tag fe">Frontend</span> <span class="tag risk">Löschung</span></summary>
+<div class="body">
+<ul>
+  <li>Standalone <code>/data</code>-Seite raus: Ordner <code>features/documents/</code>, Routen (<code>/data</code>, <code>/documents</code>), Nav-Link in <code>Sidebar.tsx</code>.</li>
+  <li><b>Wissensbasis/RAG/Upload bleiben</b> — laufen über den Datei-Explorer (<code>hooks/uploadDocuments.ts</code>). Chat-Wissen &amp; Flows unberührt.</li>
+</ul>
+<p class="files">Dateien: <code>App.tsx</code> · <code>features/documents/*</code> (weg) · <code>components/layout/Sidebar.tsx</code></p>
+</div></details>
+
+<details class="batch"><summary>B6 · Skills → Flow: tiefe Umbenennung <span class="tag be">Backend</span> <span class="tag risk">Migration</span></summary>
+<div class="body">
+<ul>
+  <li>FE: Labels, Tab-Typ <code>'skill'→'flow'</code>, Route <code>/workspace/skill→/workspace/flow</code>, Testids, Icon <code>Wand2→Workflow</code>.</li>
+  <li>BE: <code>/api/skills→/api/flows</code>, <code>services/skills→services/flows</code>, Schemas.</li>
+  <li>DB-Migration: <code>skill_runs→flow_runs</code> (+ Schritt-Tabelle) mit Daten-Erhalt.</li>
+  <li>Env: <code>SKILLS_DIR→FLOWS_DIR</code>, <code>SKILL_LLM_TIMEOUT_MS→FLOW_...</code>; Docker-Mounts <code>data/skills→data/flows</code>; On-Disk-Migration bestehender Flows (Rückwärts-Fallback).</li>
+  <li><b>Nicht anfassen:</b> <code>.claude/skills/</code> (Claude-Code-Agenten, kein Produkt-Feature).</li>
+</ul>
+<p class="note">Risiko: On-Disk-Ordner + DB-Tabelle + Mounts müssen gemeinsam migriert werden. Migrationsskript verschiebt <code>data/skills → data/flows</code> auf dem Gerät vor dem Start.</p>
+</div></details>
+
+<details class="batch"><summary>B7 · Flow-Orchestrierung (Schritt-Kette) <span class="tag be">Backend</span> <span class="tag fe">Frontend</span></summary>
+<div class="body">
+<ul>
+  <li>Neues deklaratives <b>Schritt-Schema</b> in der Flow-Datei: <code>schritte: [{ typ: werkzeug|subagent, …, iterieren_bis }]</code> — feste Reihenfolge, pro Schritt Iteration möglich.</li>
+  <li>Deterministischer Executor (ersetzt/ergänzt den modellgetriebenen <code>toolLoop</code>). Innerhalb eines Schritts darf das Modell iterieren/Subagenten fächern.</li>
+  <li>Bestehende Beispiel-Flows in Schritt-Form migrieren (Einzel-Prompt → 1 Schritt).</li>
+  <li>UI: geordnete <b>Schritt-Karten</b> (hinzufügen/entfernen/umsortieren) mit Vorschau — minimalistisch, wartbar.</li>
+</ul>
+<p class="files">Dateien: <code>services/flows/{runFlow,stepExecutor,toolLoop}.js</code> · <code>schemas/flows.js</code> · <code>features/flows/{FlowForm,StepList}.tsx</code></p>
+</div></details>
+
+<details class="batch"><summary>B8 · Flow-Trigger &amp; Chat als ausführende Ebene <span class="tag be">Backend</span> <span class="tag fe">Frontend</span></summary>
+<div class="body">
+<ul>
+  <li>Pro Flow ein <b>API-Key-HTTP-Endpunkt</b> unter <code>/api/v1/external/flows/:name/run</code> — n8n kann triggern, Output zurück.</li>
+  <li><b>Zeitplan (cron)</b> + Ereignis-Trigger: DB-Tabelle + Scheduler-Dienst.</li>
+  <li>Chat zeigt <b>laufende &amp; geplante Flows</b>, triggert und plant sie von dort.</li>
+</ul>
+<p class="files">Dateien: <code>routes/external/externalApi.js</code> · <code>services/flows/scheduler.js</code> · <code>postgres/init/*_flow_schedules.sql</code> · <code>features/workspace/llm/agentChat/*</code></p>
+</div></details>
+
+<details class="batch"><summary>B9 · GitHub Zwei-Wege-Sync <span class="tag be">Backend</span> <span class="tag fe">Frontend</span></summary>
+<div class="body">
+<ul>
+  <li>Backend-Git-Dienst: Projektordner ↔ GitHub-Repo (clone/pull/push), Konflikte sauber melden.</li>
+  <li>Personal Access Token <b>verschlüsselt</b> gespeichert; Projekt↔Repo-Kopplung.</li>
+  <li>UI: „Synchronisieren"-Knopf; Status in der Statusleiste („Verbunden").</li>
+</ul>
+<p class="files">Dateien: <code>services/git/gitSyncService.js</code> · <code>routes/git.js</code> · <code>postgres/init/*_project_git.sql</code> · Frontend-Sync-UI</p>
+</div></details>
+
+<details class="batch"><summary>B10 · Code-Editor (CodeMirror 6) <span class="tag fe">Frontend</span></summary>
+<div class="body">
+<ul>
+  <li>CodeMirror 6 als Ansicht/Editor für Quelldateien im Mitte-Tab (Syntaxfarben, viele Sprachen, editierbar).</li>
+  <li>Neuer Code-Fall in <code>DocumentViewerTab</code> (heute fallen <code>.py/.js</code> auf „keine Vorschau").</li>
+  <li>HTML-Viewer Vorschau/Code-Umschalter kleiner/dezenter/einheitlich; Code-Ansicht farbig.</li>
+</ul>
+<p class="files">Dateien: <code>features/workspace/viewers/{DocumentViewerTab,CodeViewer,HtmlDocumentViewer}.tsx</code> · <code>package.json</code> (+CodeMirror)</p>
+</div></details>
+
+<details class="batch"><summary>B11 · Politur, Tests, Review, Deploy <span class="tag fe">Frontend</span> <span class="tag be">Backend</span></summary>
+<div class="body">
+<ul>
+  <li>Text/Umlaut/Gedankenstrich-Durchlauf über Store- &amp; Erweiterungs-Texte.</li>
+  <li>Docs synchron: <code>API_REFERENCE</code>, <code>DATABASE_SCHEMA</code>, <code>ENVIRONMENT_VARIABLES</code>, Skills→Flows-Doku, ROADMAP-Theme.</li>
+  <li>Volltest <code>run-tests.sh --all</code> + <code>code-reviewer</code>-Subagent.</li>
+  <li><b>Ein Deploy</b> auf den Jetson + Live-Browser-Verifikation jeder geänderten Fläche. Plan-Report schreiben.</li>
+</ul>
+</div></details>
+
+<h2>Querschnitt-Risiken</h2>
+<div class="card">
+<ul>
+  <li><b>Geteilte Dateien</b> (<code>workspaceStore.ts</code>, <code>ActivityBar.tsx</code>, <code>index.css</code>, <code>TabContent.tsx</code>) werden von mehreren Batches berührt → sequenziell bearbeiten, nicht parallel, um Konflikte zu vermeiden.</li>
+  <li><b>Tiefe Umbenennung (B6)</b> ist die riskanteste Fläche: Ordner + DB + Mounts + Env gemeinsam; On-Disk-Migration bestehender Flows auf dem Gerät zwingend vor dem Start.</li>
+  <li><b>Ein Deploy am Ende</b> = spätes Feedback; deshalb lokal je Batch <code>tsc</code>/Build/Tests grün halten und am Ende gründlich live prüfen.</li>
+  <li><b>Frontend-CI ist bewusst advisory</b> (Auto-Merge) — nicht auf blockierend umstellen.</li>
+  <li><b>Jetson-Git-Repo</b> hat bekannte Objekt-Korruption: vor Deploy <code>receive.denyCurrentBranch=updateInstead</code> prüfen + <code>gc.log</code> löschen.</li>
+</ul>
+</div>
+
+<p class="foot">Fortschritt wird in der Task-Liste (#17–#27) geführt. Nach Abschluss wandert diese Seite nach <code>docs/plans/</code> (done) und die ROADMAP bekommt das Theme + PR-Nummer. Nutzer-Notizen aus <code>frontend-review.html</code> sind bindende Eingabe.</p>
+
+</div>
+</body>
+</html>
