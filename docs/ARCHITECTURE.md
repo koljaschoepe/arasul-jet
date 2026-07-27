@@ -366,10 +366,11 @@ unsichtbaren Wissensraum, in den geschriebene Dateien automatisch indiziert
 werden. Details: [`docs/features/WORKSPACE.md`](features/WORKSPACE.md).
 
 Die path-gejailte Tool-Loop-Grundlage dafür liegt in
-`apps/dashboard-backend/src/services/agents/` (`toolLoop.js`, `pathSafe.js`,
-`gpuGate.js`, `workspaceIndexer.js`, `tools/`) und baut auf dem bestehenden
-`BaseTool`/`ToolRegistry`-Function-Calling auf. Skills (Chat-Slash-Befehle)
-ersetzen die früheren Agenten; Dokumentation folgt mit ihrer Umsetzung.
+`apps/dashboard-backend/src/services/flows/` (`toolLoop.js`, `pathSafe.js`,
+`gpuQueue.js`, `stepExecutor.js`, `scheduler.js`, `tools/`) und baut auf
+Ollama-Function-Calling auf. **Flows** (Chat-Slash-Befehle, Markdown-Dateien
+unter `data/flows/`) ersetzen die früheren Agenten — Details:
+[`docs/features/FLOWS.md`](features/FLOWS.md).
 
 ### AI Services (Python)
 

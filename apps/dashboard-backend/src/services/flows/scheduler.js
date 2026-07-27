@@ -60,29 +60,31 @@ async function starteAusloeser(schedule, deps = {}) {
  * Exportiert, damit Tests ihn direkt (ohne Intervall) auslösen können.
  */
 async function tick(deps = {}) {
-  const { store = scheduleStore, jetzt = new Date() } = deps;
+  const { store = scheduleStore } = deps;
+  const jetzt = deps.jetzt || new Date();
   const faellige = await store.faelligeZeitplaene({ jetzt });
   for (const schedule of faellige) {
-    const nextRun = naechsteFaelligkeit(schedule.cron, jetzt);
+    let runId = null;
+    let fehler = null;
     try {
-      const runId = await starteAusloeser(schedule, deps);
-      await store.markiereGefeuert({ id: schedule.id, runId, nextRunAt: nextRun, error: null });
+      runId = await starteAusloeser(schedule, deps);
       logger.info(
         `Scheduler: Flow „${schedule.flow_name}" per Zeitplan gestartet (Lauf ${runId}, Auslöser ${schedule.id})`
       );
     } catch (err) {
-      // Nächsten Zeitpunkt TROTZDEM setzen, damit ein kaputter Auslöser nicht
-      // jede Minute wieder als fällig gilt.
-      await store.markiereGefeuert({
-        id: schedule.id,
-        runId: null,
-        nextRunAt: nextRun,
-        error: err.message,
-      });
+      fehler = err.message;
       logger.error(
         `Scheduler: Auslöser ${schedule.id} („${schedule.flow_name}") gescheitert: ${err.message}`
       );
     }
+    // Nächsten Termin NACH dem Start-Versuch aus der JETZIGEN Zeit berechnen
+    // (nicht aus der Tick-Startzeit): ein langsamer Start dürfte den Termin sonst
+    // schon in die Vergangenheit legen → der Auslöser feuerte sofort wieder.
+    // Auch im Fehlerfall setzen, damit ein kaputter Auslöser nicht jede Minute
+    // erneut fällig ist. (Tests injizieren `jetzt` → deterministisch.)
+    const ref = deps.jetzt || new Date();
+    const nextRun = naechsteFaelligkeit(schedule.cron, ref);
+    await store.markiereGefeuert({ id: schedule.id, runId, nextRunAt: nextRun, error: fehler });
   }
   return faellige.length;
 }

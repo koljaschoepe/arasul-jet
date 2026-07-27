@@ -38,6 +38,13 @@ const COMMIT_NAME = 'Arasul';
 const COMMIT_EMAIL = 'arasul@localhost';
 
 /**
+ * In-Prozess-Sperre je Projekt: verhindert, dass zwei überlappende Syncs (Doppel-
+ * klick o.Ä.) gleichzeitig add/commit/fetch/merge/push auf demselben Checkout
+ * fahren und sich an `index.lock` / am Status ins Gehege kommen.
+ */
+const aktiveSyncs = new Set();
+
+/**
  * Ein Git-Aufruf. `pat` (optional) wird als Basic-Auth-Header injiziert und aus
  * jeglicher Fehlerausgabe wieder entfernt, damit er nie geloggt/zurückgegeben
  * wird. Gibt `{ stdout, stderr, code }` zurück; wirft NICHT bei Exit≠0 (der
@@ -116,22 +123,23 @@ function checkoutPfad(projectId) {
  * per `ls-remote` — so scheitert ein falscher PAT/URL SOFORT und sichtbar, nicht
  * erst beim ersten Sync. Ein leerer PAT lässt einen bereits gespeicherten Token
  * unverändert (Repo/Branch nachträglich ändern ohne PAT-Neueingabe).
+ *
+ * Reihenfolge bewusst: ERST prüfen, DANN speichern. Sonst überschriebe ein
+ * fehlgeschlagener „Verbinden" eine bereits funktionierende Kopplung (inkl. PAT),
+ * ohne Rückweg. Der lokale Checkout wird beim Repo-/Branch-Wechsel NICHT hier
+ * angefasst — der nächste Sync merkt die abweichende Ferne und klont neu.
  */
 async function verbinde({ projectId, repoUrl, branch = 'main', pat = null }, deps = {}) {
   const { run = gitRoh, store = gitStore } = deps;
-  const kopplung = await store.upsertKopplung({ projectId, repoUrl, branch, pat });
-  // Für die Prüfung den effektiven PAT bestimmen (neuer PAT oder gespeicherter).
+  // Effektiven PAT bestimmen (neuer PAT oder der bereits gespeicherte) — OHNE
+  // vorher etwas zu überschreiben.
   const effektiverPat = pat || (await store.entschluesselePat({ projectId }));
   const probe = await run(['ls-remote', '--heads', repoUrl], { pat: effektiverPat });
   if (probe.code !== 0) {
-    const detail = (probe.stderr || probe.stdout || '').trim().split('\n').slice(-2).join(' ');
-    await store.markiereSync({
-      projectId,
-      status: 'fehler',
-      error: `Repository nicht erreichbar — Token/URL/Branch prüfen: ${detail}`,
-    });
     throw new ValidationError('Repository nicht erreichbar — Token, URL oder Rechte prüfen.');
   }
+  // Erst nach erfolgreicher Probe schreiben.
+  const kopplung = await store.upsertKopplung({ projectId, repoUrl, branch, pat });
   logger.info(`Git-Kopplung gesetzt: Projekt ${projectId} → ${repoUrl} (${branch})`);
   return kopplung;
 }
@@ -157,13 +165,33 @@ async function synchronisiere({ projectId }, deps = {}) {
   if (!kopplung) {
     throw new NotFoundError('Für dieses Projekt ist kein Repository gekoppelt');
   }
+  // Sperre je Projekt — nie zwei Syncs gleichzeitig auf demselben Checkout.
+  if (aktiveSyncs.has(projectId)) {
+    throw new ConflictError('Für dieses Projekt läuft bereits eine Synchronisierung');
+  }
+  aktiveSyncs.add(projectId);
+
   const pat = await store.entschluesselePat({ projectId });
   const branch = kopplung.branch || 'main';
   const cwd = kopplung.local_path || checkoutPfad(projectId);
 
   try {
-    // (1) Checkout sicherstellen — fehlt er oder ist er kein Repo, frisch klonen.
-    if (!(await istRepo(cwd))) {
+    // (1) Checkout sicherstellen. Ein VORHANDENER Checkout muss noch auf DIESE
+    // Ferne + DIESEN Branch zeigen — nach einer Neukopplung (anderes Repo/anderer
+    // Branch) zeigt der alte Checkout sonst noch aufs alte origin, und wir pushten
+    // ins FALSCHE Repository. Passt etwas nicht, wird frisch geklont.
+    let brauchtKlon = !(await istRepo(cwd));
+    if (!brauchtKlon) {
+      const origin = await run(['-C', cwd, 'remote', 'get-url', 'origin']);
+      const aktBranch = await run(['-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD']);
+      const fernePasst = origin.code === 0 && origin.stdout.trim() === kopplung.repo_url;
+      const branchPasst = aktBranch.code === 0 && aktBranch.stdout.trim() === branch;
+      if (!fernePasst || !branchPasst) {
+        await fs.rm(cwd, { recursive: true, force: true });
+        brauchtKlon = true;
+      }
+    }
+    if (brauchtKlon) {
       await fs.mkdir(PROJECT_GIT_DIR, { recursive: true });
       await fs.rm(cwd, { recursive: true, force: true });
       const geklont = await run(
@@ -171,12 +199,30 @@ async function synchronisiere({ projectId }, deps = {}) {
         { pat }
       );
       if (geklont.code !== 0) {
-        // Branch existiert (noch) nicht remote (z.B. leeres Repo) → normal klonen
-        // und den Branch lokal anlegen; der erste Push erzeugt ihn dann remote.
+        // Häufigster Grund: der Branch existiert remote (noch) nicht (leeres Repo).
+        // Dann normal klonen und den Branch lokal anlegen; der erste Push erzeugt
+        // ihn remote. (Andere Klon-Fehler — Auth/Netz — schlagen unten beim Push
+        // erneut zu und landen sichtbar im Status.)
         await fs.rm(cwd, { recursive: true, force: true });
         await git(['clone', kopplung.repo_url, cwd], { pat });
         await git(['-C', cwd, 'checkout', '-B', branch]);
       }
+    }
+
+    // (1b) Schutz gegen einen zuvor unsauber abgebrochenen Merge: liegen noch
+    // ungemergte Pfade herum, würde `add -A` die Konfliktmarker als „gelöst"
+    // committen und ins Repo pushen. Stattdessen sichtbar als Konflikt melden.
+    const ungemergt = await run(['-C', cwd, 'ls-files', '-u']);
+    if (ungemergt.stdout.trim()) {
+      await store.markiereSync({
+        projectId,
+        status: 'konflikt',
+        error: 'Ungelöster Merge-Konflikt im Checkout — bitte im Repository auflösen',
+        localPath: cwd,
+      });
+      throw new ConflictError('Ungelöster Merge-Konflikt — bitte im Repository auflösen', {
+        conflicts: [],
+      });
     }
 
     // (2) Lokale Änderungen einsammeln (macht den Push zwei-wegig).
@@ -193,7 +239,9 @@ async function synchronisiere({ projectId }, deps = {}) {
       const merge = await run(['-C', cwd, 'merge', '--no-edit', `origin/${branch}`]);
       if (merge.code !== 0) {
         const konflikte = await run(['-C', cwd, 'diff', '--name-only', '--diff-filter=U']);
-        await run(['-C', cwd, 'merge', '--abort']);
+        // Baum wieder freiräumen — MUSS klappen, sonst bliebe ein halb-gemergter
+        // Baum stehen, den der nächste Lauf (1b) fängt.
+        await git(['-C', cwd, 'merge', '--abort']);
         const dateien = konflikte.stdout
           .split('\n')
           .map(s => s.trim())
@@ -236,6 +284,8 @@ async function synchronisiere({ projectId }, deps = {}) {
       localPath: cwd,
     });
     throw err;
+  } finally {
+    aktiveSyncs.delete(projectId);
   }
 }
 

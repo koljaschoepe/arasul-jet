@@ -85,7 +85,7 @@ router.delete(
   asyncHandler(async (req, res) => {
     await gitSyncService.trenne({ projectId: req.params.projectId });
     res.json({
-      status: 'disconnected',
+      data: { disconnected: true },
       message: 'Repository getrennt',
       timestamp: new Date().toISOString(),
     });

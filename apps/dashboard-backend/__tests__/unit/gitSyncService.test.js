@@ -15,6 +15,11 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs/promises');
 
+// PROJECT_GIT_DIR auf ein schreibbares Temp-Wurzelverzeichnis legen, BEVOR der
+// Dienst geladen wird (die Konstante wird beim Require gelesen). Sonst versuchte
+// der Neu-Klon-Pfad `mkdir /arasul/projects` und scheiterte im Test.
+process.env.PROJECT_GIT_DIR = path.join(os.tmpdir(), 'gitsync-root');
+
 const gitSyncService = require('../../src/services/git/gitSyncService');
 const { ConflictError } = require('../../src/utils/errors');
 
@@ -50,13 +55,15 @@ function fakeStore(kopplung) {
 describe('synchronisiere', () => {
   let cwd;
 
-  beforeAll(async () => {
-    // Ein Verzeichnis mit .git, damit istRepo() true liefert und nicht geklont wird.
+  // Pro Test frisch: ein Verzeichnis mit .git, damit istRepo() true liefert.
+  // Frisch je Test, weil der Neu-Klon-Pfad (Drift/Repo-Wechsel) den Checkout
+  // löscht — sonst fänden Folgetests kein Repo mehr vor.
+  beforeEach(async () => {
     cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'gitsync-'));
     await fs.mkdir(path.join(cwd, '.git'), { recursive: true });
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await fs.rm(cwd, { recursive: true, force: true });
   });
 
@@ -64,18 +71,30 @@ describe('synchronisiere', () => {
     return { project_id: 'p1', repo_url: 'https://github.com/o/r', branch: 'main', local_path: cwd };
   }
 
+  /** Overrides, die den Drift-Check bestehen lassen (Ferne + Branch passen). */
+  function driftPasst(extra = []) {
+    return [
+      ['remote get-url origin', { stdout: 'https://github.com/o/r' }],
+      ['rev-parse --abbrev-ref HEAD', { stdout: 'main' }],
+      ...extra,
+    ];
+  }
+
   test('sauberer Baum: kein Commit, aber fetch/merge/push und Erfolg', async () => {
     const store = fakeStore(kopplung());
-    const run = fakeRun([
-      ['status --porcelain', { stdout: '' }],
-      ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
-      ['rev-parse --short HEAD', { stdout: 'abc1234' }],
-    ]);
+    const run = fakeRun(
+      driftPasst([
+        ['status --porcelain', { stdout: '' }],
+        ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
+        ['rev-parse --short HEAD', { stdout: 'abc1234' }],
+      ])
+    );
 
     const res = await gitSyncService.synchronisiere({ projectId: 'p1' }, { run, store });
 
     expect(res.status).toBe('synchronisiert');
     expect(res.commit).toBe('abc1234');
+    expect(run.rief('clone')).toBe(false); // Ferne passt → kein Neu-Klon
     expect(run.rief('commit -m')).toBe(false); // sauber → kein Commit
     expect(run.rief('push origin HEAD:main')).toBe(true);
     expect(store.markiereSync).toHaveBeenCalledWith(
@@ -85,11 +104,13 @@ describe('synchronisiere', () => {
 
   test('lokale Änderungen werden vor dem Push committet', async () => {
     const store = fakeStore(kopplung());
-    const run = fakeRun([
-      ['status --porcelain', { stdout: ' M datei.txt' }],
-      ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
-      ['rev-parse --short HEAD', { stdout: 'abc1234' }],
-    ]);
+    const run = fakeRun(
+      driftPasst([
+        ['status --porcelain', { stdout: ' M datei.txt' }],
+        ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
+        ['rev-parse --short HEAD', { stdout: 'abc1234' }],
+      ])
+    );
 
     await gitSyncService.synchronisiere({ projectId: 'p1' }, { run, store });
 
@@ -99,12 +120,14 @@ describe('synchronisiere', () => {
 
   test('Merge-Konflikt: bricht ab, meldet Dateien, kein Push', async () => {
     const store = fakeStore(kopplung());
-    const run = fakeRun([
-      ['status --porcelain', { stdout: '' }],
-      ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
-      ['merge --no-edit origin/main', { code: 1, stdout: 'CONFLICT' }],
-      ['diff --name-only --diff-filter=U', { stdout: 'a.txt\nb.txt\n' }],
-    ]);
+    const run = fakeRun(
+      driftPasst([
+        ['status --porcelain', { stdout: '' }],
+        ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
+        ['merge --no-edit origin/main', { code: 1, stdout: 'CONFLICT' }],
+        ['diff --name-only --diff-filter=U', { stdout: 'a.txt\nb.txt\n' }],
+      ])
+    );
 
     const err = await gitSyncService
       .synchronisiere({ projectId: 'p1' }, { run, store })
@@ -119,6 +142,70 @@ describe('synchronisiere', () => {
     );
   });
 
+  test('ungemergter Baum aus vorherigem Lauf → Konflikt, kein Commit/Push', async () => {
+    const store = fakeStore(kopplung());
+    const run = fakeRun(driftPasst([['ls-files -u', { stdout: '100644 abc 1\tX.txt\n' }]]));
+
+    const err = await gitSyncService
+      .synchronisiere({ projectId: 'p1' }, { run, store })
+      .catch(e => e);
+    expect(err).toBeInstanceOf(ConflictError);
+    expect(run.rief('add -A')).toBe(false); // gar nicht erst stagen
+    expect(run.rief('push')).toBe(false);
+    expect(store.markiereSync).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 'p1', status: 'konflikt' })
+    );
+  });
+
+  test('Repo gewechselt (origin weicht ab) → alter Checkout wird neu geklont', async () => {
+    const store = fakeStore(kopplung());
+    const run = fakeRun([
+      // origin zeigt noch auf das ALTE Repo → Drift → Neu-Klon erzwingen.
+      ['remote get-url origin', { stdout: 'https://github.com/o/ALT' }],
+      ['rev-parse --abbrev-ref HEAD', { stdout: 'main' }],
+      ['status --porcelain', { stdout: '' }],
+      ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
+      ['rev-parse --short HEAD', { stdout: 'abc1234' }],
+    ]);
+
+    await gitSyncService.synchronisiere({ projectId: 'p1' }, { run, store });
+
+    expect(run.rief('clone')).toBe(true); // frisch geklont gegen die richtige Ferne
+    expect(run.rief('push origin HEAD:main')).toBe(true);
+  });
+
+  test('doppelter Sync desselben Projekts → zweiter läuft in ConflictError', async () => {
+    const store = fakeStore(kopplung());
+    // Ein Run, der lange „hängt", während der zweite Aufruf startet.
+    let freigeben;
+    const gate = new Promise(res => {
+      freigeben = res;
+    });
+    const run = fakeRun(
+      driftPasst([
+        ['rev-parse --verify origin/main', { code: 128 }],
+        ['rev-parse --short HEAD', { stdout: 'abc1234' }],
+        ['push', {}],
+      ])
+    );
+    const langsam = jest.fn(async (args, opts) => {
+      if (args.join(' ').includes('fetch')) {
+        await gate;
+      }
+      return run(args, opts);
+    });
+
+    const p1 = gitSyncService.synchronisiere({ projectId: 'p1' }, { run: langsam, store });
+    // Kurz warten, bis p1 die Sperre hält und am fetch hängt.
+    await new Promise(r => setImmediate(r));
+    const err = await gitSyncService
+      .synchronisiere({ projectId: 'p1' }, { run: langsam, store })
+      .catch(e => e);
+    expect(err).toBeInstanceOf(ConflictError);
+    freigeben();
+    await p1;
+  });
+
   test('ohne Kopplung → NotFound', async () => {
     const store = fakeStore(null);
     await expect(
@@ -128,11 +215,13 @@ describe('synchronisiere', () => {
 
   test('kein Remote-Branch: überspringt Merge, pusht trotzdem', async () => {
     const store = fakeStore(kopplung());
-    const run = fakeRun([
-      ['status --porcelain', { stdout: '' }],
-      ['rev-parse --verify origin/main', { code: 128, stderr: 'unknown revision' }],
-      ['rev-parse --short HEAD', { stdout: 'ffff000' }],
-    ]);
+    const run = fakeRun(
+      driftPasst([
+        ['status --porcelain', { stdout: '' }],
+        ['rev-parse --verify origin/main', { code: 128, stderr: 'unknown revision' }],
+        ['rev-parse --short HEAD', { stdout: 'ffff000' }],
+      ])
+    );
 
     const res = await gitSyncService.synchronisiere({ projectId: 'p1' }, { run, store });
 
@@ -143,7 +232,7 @@ describe('synchronisiere', () => {
 });
 
 describe('verbinde', () => {
-  test('prüft Erreichbarkeit per ls-remote; Fehler → ValidationError + markiereSync fehler', async () => {
+  test('nicht erreichbar → ValidationError, OHNE die bestehende Kopplung zu überschreiben', async () => {
     const store = {
       upsertKopplung: jest.fn(async () => ({ project_id: 'p1' })),
       entschluesselePat: jest.fn(async () => 'tok'),
@@ -158,9 +247,9 @@ describe('verbinde', () => {
       )
     ).rejects.toThrow(/nicht erreichbar/);
 
-    expect(store.markiereSync).toHaveBeenCalledWith(
-      expect.objectContaining({ projectId: 'p1', status: 'fehler' })
-    );
+    // Kein Schreibzugriff bei fehlgeschlagener Probe (keine Zerstörung).
+    expect(store.upsertKopplung).not.toHaveBeenCalled();
+    expect(store.markiereSync).not.toHaveBeenCalled();
   });
 
   test('erreichbares Repo → Kopplung zurück', async () => {

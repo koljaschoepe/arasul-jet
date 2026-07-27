@@ -23,7 +23,12 @@ const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
 const extractionService = require('../../services/documents/extractionService');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
+const {
+  ValidationError,
+  NotFoundError,
+  ForbiddenError,
+  ServiceUnavailableError,
+} = require('../../utils/errors');
 const { validateBody } = require('../../middleware/validate');
 const {
   ExternalLlmChatBody,
@@ -803,9 +808,15 @@ router.post(
     const args = req.body.args || {};
     const waitForResult = req.body.wait_for_result !== false;
 
-    // Läufe brauchen einen Besitzer (flow_runs.user_id ist NOT NULL). Wie die
-    // übrigen externen Routen: der Schlüssel-Ersteller, sonst der Erst-Admin.
-    const userId = req.apiKey.userId || 1;
+    // Läufe brauchen einen eindeutigen Besitzer. `req.apiKey.userId` ist der
+    // Schlüssel-Ersteller (api_keys.created_by) — es kann NULL sein, wenn dieser
+    // Nutzer gelöscht wurde (ON DELETE SET NULL). Dann NICHT still auf Admin (1)
+    // ausweichen: sonst liest/schreibt ein verwaister Schlüssel fremde Läufe
+    // (gleiche Klasse wie der Job-Guard oben). Owner-loser Schlüssel → ablehnen.
+    if (!req.apiKey.userId) {
+      throw new ForbiddenError('API-Schlüssel ohne gültigen Besitzer — bitte neu erstellen');
+    }
+    const userId = req.apiKey.userId;
 
     // FRÜH prüfen, solange der Request da ist: Flow existiert (→ 404) und die
     // Argumente passen (→ 400). Sonst käme der Fehler erst als toter Lauf.
@@ -856,7 +867,12 @@ router.get(
   requireApiKey,
   requireEndpoint('flow:run'),
   asyncHandler(async (req, res) => {
-    const userId = req.apiKey.userId || 1;
+    // Kein stiller Admin-Fallback: ein verwaister Schlüssel (userId NULL) darf
+    // NICHT die Läufe von Admin (1) lesen — exakt der Guard der Job-Status-Route.
+    if (!req.apiKey.userId) {
+      throw new NotFoundError('Lauf nicht gefunden');
+    }
+    const userId = req.apiKey.userId;
     const runId = Number(req.params.id);
     if (!Number.isInteger(runId) || runId <= 0) {
       throw new ValidationError('run id must be a positive integer');

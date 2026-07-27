@@ -65,6 +65,18 @@ describe('passt', () => {
     expect(passt(m, new Date(2026, 6, 27, 0, 0))).toBe(true); // Montag (nicht 15.)
     expect(passt(m, new Date(2026, 6, 28, 0, 0))).toBe(false); // Dienstag, nicht 15.
   });
+
+  test('voll ausgeschriebene Tages-Liste (1-31) zählt wie „*" — nur der Wochentag filtert', () => {
+    // Die Vixie-ODER-Regel greift nur, wenn BEIDE Felder eingeschränkt sind. Eine
+    // Liste, die den ganzen Bereich abdeckt, gilt bewusst als unbeschränkt — sonst
+    // wäre „0 9 1-31 * 1" (jeder Tag ODER Montag) faktisch täglich. Erwartet:
+    // identisch zu „0 9 * * 1" (nur montags).
+    const voll = parseCron('0 9 1-31 * 1');
+    const stern = parseCron('0 9 * * 1');
+    expect(passt(voll, new Date(2026, 6, 27, 9, 0))).toBe(passt(stern, new Date(2026, 6, 27, 9, 0))); // Montag → beide true
+    expect(passt(voll, new Date(2026, 6, 28, 9, 0))).toBe(passt(stern, new Date(2026, 6, 28, 9, 0))); // Dienstag → beide false
+    expect(passt(voll, new Date(2026, 6, 28, 9, 0))).toBe(false);
+  });
 });
 
 describe('naechsteFaelligkeit', () => {

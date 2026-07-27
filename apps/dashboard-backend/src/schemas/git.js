@@ -19,13 +19,18 @@ const RepoUrl = z
     'Nur HTTPS-URLs auf github.com (z.B. https://github.com/owner/repo)'
   );
 
-/** Branch-Name: kein Leerraum, keine Git-Sonderzeichen. */
+/**
+ * Branch-Name: kein Leerraum, keine Git-Sonderzeichen. Muss mit einem
+ * Buchstaben/Ziffer/Punkt/Unterstrich BEGINNEN — so kann ein Name wie `--all`
+ * oder `-x` nicht als Git-Option statt als Refspec durchrutschen (die Namen
+ * gehen als positionsbasierte Argumente an `git fetch`).
+ */
 const Branch = z
   .string()
   .trim()
   .min(1)
   .max(120)
-  .regex(/^[A-Za-z0-9._\-/]+$/, 'Ungültiger Branch-Name')
+  .regex(/^[A-Za-z0-9._][A-Za-z0-9._\-/]*$/, 'Ungültiger Branch-Name')
   .default('main');
 
 /**
