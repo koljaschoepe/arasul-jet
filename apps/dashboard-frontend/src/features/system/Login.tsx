@@ -7,7 +7,13 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/shadc
 import { Input } from '@/components/ui/shadcn/input';
 import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
-import { PLATFORM_NAME, PLATFORM_DESCRIPTION, SUPPORT_EMAIL } from '@/config/branding';
+import { Mascot } from '@/components/mascot/Mascot';
+import {
+  PLATFORM_NAME,
+  PLATFORM_DESCRIPTION,
+  SUPPORT_EMAIL,
+  PLATFORM_WEBSITE,
+} from '@/config/branding';
 
 const LoginSchema = z.object({
   username: z.string().min(1),
@@ -106,8 +112,13 @@ function Login({ onLoginSuccess }: LoginProps) {
     <div className="flex justify-center items-center min-h-screen bg-background p-4 max-md:items-start max-md:pt-[10vh] max-md:p-3">
       <Card className="w-full max-w-105 rounded-xl border-border bg-card p-10 shadow-lg max-md:max-w-[95vw] max-md:p-8 max-sm:p-6">
         <CardHeader className="p-0 text-center mb-8 max-md:mb-7 max-sm:mb-6">
+          <Mascot
+            state="idle"
+            label={`${PLATFORM_NAME} Maskottchen`}
+            className="mx-auto mb-4 h-20 w-20 max-sm:h-16 max-sm:w-16 drop-shadow-sm"
+          />
           <h1 className="text-[2rem] text-primary mb-2 font-bold min-[1728px]:text-[2.25rem] min-[1280px]:max-[1511px]:text-[1.875rem] max-md:text-[1.875rem] max-sm:text-[1.75rem] max-sm:mb-1 max-[375px]:text-2xl">
-            {PLATFORM_NAME} Platform
+            {PLATFORM_NAME}
           </h1>
           <p className="text-muted-foreground text-sm max-sm:text-sm max-[375px]:text-sm">
             {PLATFORM_DESCRIPTION}
@@ -176,7 +187,16 @@ function Login({ onLoginSuccess }: LoginProps) {
             Standard-Benutzername: <strong className="text-primary">admin</strong>
           </p>
           <p className="text-muted-foreground text-xs max-sm:text-[0.75rem]">
-            Passwort vergessen? Kontaktieren Sie{' '}
+            Passwort vergessen? Anleitung auf{' '}
+            <a
+              href={PLATFORM_WEBSITE}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              {PLATFORM_WEBSITE.replace(/^https?:\/\//, '')}
+            </a>{' '}
+            — oder{' '}
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
               {SUPPORT_EMAIL}
             </a>

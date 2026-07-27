@@ -11,3 +11,5 @@ export const PLATFORM_SUBTITLE = import.meta.env.VITE_PLATFORM_SUBTITLE || 'Edge
 export const PLATFORM_DESCRIPTION =
   import.meta.env.VITE_PLATFORM_DESCRIPTION || 'Edge-KI Verwaltungssystem';
 export const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || 'info@arasul.de';
+/** Öffentliche Website — u. a. für „Passwort vergessen"-Hilfe verlinkt. */
+export const PLATFORM_WEBSITE = import.meta.env.VITE_PLATFORM_WEBSITE || 'https://arasul.de';
