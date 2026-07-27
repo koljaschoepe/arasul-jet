@@ -154,6 +154,11 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 - `toolLoop.js` — die Ollama-Function-Calling-Schleife. Grenzen kommen PRO
   Flow (`grenzen.werkzeug_runden` / `zeitlimit_s`), nicht aus einer
   Umgebungsvariablen. Per-Aufruf-Timeout: `FLOW_LLM_TIMEOUT_MS`.
+- `stepExecutor.js` — der deterministische Schritt-Executor (B7): führt eine
+  deklarierte `schritte`-Kette in fester Reihenfolge aus (subagent-Rollen /
+  direkte Werkzeuge, mit Iteration), threadet die Ausgaben und lässt danach den
+  Rumpf-Prompt synthetisieren. `runFlow` verzweigt hierher, wenn ein Flow
+  `schritte` deklariert — sonst bleibt es beim modellgetriebenen `toolLoop`.
 - `gpuQueue.js` — die **eine** GPU-Sperre, geteilt mit dem Chat: der
   Ollama-Aufruf in `services/llm/llmOllamaStream.js` (`streamFromOllama`) geht
   durch dieselbe `withGpuLock`. Nie treffen Chat und Flow zugleich auf die GPU

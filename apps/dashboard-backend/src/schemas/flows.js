@@ -124,6 +124,74 @@ const SubagentRole = z
   .strict();
 
 /**
+ * Ein deklarativer Schritt (Plan 013, B7). Macht die Orchestrierung
+ * DETERMINISTISCH: statt dass das Orchestrator-Modell entscheidet, wann es an
+ * welche Rolle delegiert, gibt der Flow die Reihenfolge fest vor. Zwei Arten:
+ *
+ *   - `subagent`: delegiert an eine deklarierte `rolle` mit einem `auftrag`
+ *     (Vorlage mit {{argument}} UND {{schrittname}} für die Ausgaben früherer
+ *     Schritte). Innerhalb des Schritts darf das Rollen-Modell iterieren.
+ *   - `werkzeug`: ruft EIN Werkzeug direkt mit `parameter` auf (kein Modell) —
+ *     für rein mechanische Schritte.
+ *
+ * `iterationen` wiederholt den Schritt bis zu N-mal und reicht die vorige
+ * Ausgabe als {{vorher}} hinein (bewusst ein Zähler, nicht ein Modell-Urteil:
+ * minimalistisch und vorhersagbar). Voreinstellung 1.
+ */
+const FlowStep = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .regex(ARG_NAME_RE, 'Schrittname: Kleinbuchstaben, Ziffern, Unterstrich, max. 31 Zeichen'),
+    typ: z.enum(['subagent', 'werkzeug']),
+    // subagent-Schritt:
+    rolle: z.string().trim().max(60).optional(),
+    auftrag: z.string().trim().max(4000).optional(),
+    // werkzeug-Schritt:
+    werkzeug: z.enum(VALID_TOOLS).optional(),
+    parameter: z
+      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+      .default({})
+      .optional(),
+    iterationen: z.coerce.number().int().min(1).max(10).default(1),
+  })
+  .strict()
+  .superRefine((step, ctx) => {
+    if (step.typ === 'subagent') {
+      if (!step.rolle) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['rolle'],
+          message: `Schritt "${step.name}" (subagent) braucht eine "rolle"`,
+        });
+      }
+      if (!step.auftrag) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['auftrag'],
+          message: `Schritt "${step.name}" (subagent) braucht einen "auftrag"`,
+        });
+      }
+    } else if (step.typ === 'werkzeug') {
+      if (!step.werkzeug) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['werkzeug'],
+          message: `Schritt "${step.name}" (werkzeug) braucht ein "werkzeug"`,
+        });
+      }
+      if (step.werkzeug === 'subagent') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['werkzeug'],
+          message: `Schritt "${step.name}": "subagent" ist kein direktes Werkzeug — nutze typ "subagent" mit einer Rolle`,
+        });
+      }
+    }
+  });
+
+/**
  * Notbremsen (§7). Die Voreinstellungen sind bewusst konservativ: eine
  * sequenzielle GPU macht aus 20 Modell-Aufrufen schon Minuten. Je Flow
  * hochsetzbar, wenn man es bewusst will.
@@ -170,6 +238,11 @@ const FlowDefinition = z
     ordner: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
     werkzeuge: z.array(z.enum(VALID_TOOLS)).max(VALID_TOOLS.length).default([]),
     rollen: z.array(SubagentRole).max(10).default([]),
+    // B7: optionale deterministische Schritt-Kette. Leer → der Flow läuft
+    // modellgetrieben wie bisher (voll rückwärtskompatibel). Gefüllt → der
+    // Executor führt die Schritte in fester Reihenfolge aus, dann synthetisiert
+    // der Rumpf-Prompt die Antwort aus ihren Ausgaben.
+    schritte: z.array(FlowStep).max(20).default([]),
     grenzen: FlowLimits,
     systemPrompt: z.string().trim().min(1, 'Ein Flow braucht einen Prompt (Markdown-Rumpf)'),
   })
@@ -243,6 +316,46 @@ const FlowDefinition = z
           'Der Flow nutzt Datei- oder Terminal-Werkzeuge, hat aber keinen erlaubten Ordner ("ordner")',
       });
     }
+
+    // B7: Schritt-Kette gegen den Rest des Flows prüfen.
+    const stepNames = flow.schritte.map(s => s.name);
+    const dupStep = stepNames.find((n, i) => stepNames.indexOf(n) !== i);
+    if (dupStep) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['schritte'],
+        message: `Schritt "${dupStep}" ist doppelt vergeben`,
+      });
+    }
+    for (const step of flow.schritte) {
+      if (step.typ === 'subagent') {
+        // Ein subagent-Schritt braucht das Werkzeug UND die Rolle.
+        if (!flow.werkzeuge.includes('subagent')) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['werkzeuge'],
+            message: `Schritt "${step.name}" delegiert an eine Rolle, aber der Flow hat das Werkzeug "subagent" nicht`,
+          });
+        }
+        if (step.rolle && !roleNames.includes(step.rolle)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['schritte'],
+            message: `Schritt "${step.name}" nennt die Rolle "${step.rolle}", die nicht deklariert ist`,
+          });
+        }
+      } else if (step.typ === 'werkzeug') {
+        // Ein direkter Werkzeug-Schritt darf nur ein vom Flow freigegebenes
+        // Werkzeug nutzen — dieselbe Freigabe-Grenze wie bei den Rollen.
+        if (step.werkzeug && !flow.werkzeuge.includes(step.werkzeug)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['schritte'],
+            message: `Schritt "${step.name}" nutzt das Werkzeug "${step.werkzeug}", das der Flow selbst nicht hat`,
+          });
+        }
+      }
+    }
   });
 
 /** Body zum Anlegen/Ändern eines Flows über die API (ohne den Namen aus der URL). */
@@ -254,6 +367,7 @@ const SaveFlowBody = z
     ordner: z.array(z.string().trim().min(1).max(500)).max(10).optional(),
     werkzeuge: z.array(z.enum(VALID_TOOLS)).max(VALID_TOOLS.length).optional(),
     rollen: z.array(SubagentRole).max(10).optional(),
+    schritte: z.array(FlowStep).max(20).optional(),
     grenzen: FlowLimitsShape.optional(),
     prompt: z.string().trim().min(1).max(50000),
   })
@@ -299,6 +413,7 @@ const ListRunsQuery = z
 module.exports = {
   FlowDefinition,
   FlowArgument,
+  FlowStep,
   SubagentRole,
   ResultContract,
   FlowLimits,

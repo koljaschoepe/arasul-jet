@@ -234,3 +234,54 @@ describe('Platzhalter', () => {
     expect(fillPlaceholders('[{{x}}]', { x: '' })).toBe('[]');
   });
 });
+
+describe('parseFlowFile — Schritt-Ketten (B7)', () => {
+  const KETTE = `---
+name: kette
+argumente:
+  - name: q
+    typ: freitext
+werkzeuge: [subagent, web_suche]
+rollen:
+  - name: sucher
+    werkzeuge: [web_suche]
+    ergebnis: { felder: [treffer] }
+    prompt: Suche.
+schritte:
+  - name: s1
+    typ: subagent
+    rolle: sucher
+    auftrag: Finde {{q}}.
+  - name: s2
+    typ: werkzeug
+    werkzeug: web_suche
+    parameter: { query: "{{q}}" }
+---
+Antwort aus {{q}}.
+`;
+
+  it('parst eine gültige Schritt-Kette und setzt Voreinstellungen je Schritt', () => {
+    const flow = parseFlowFile(KETTE);
+    expect(flow.schritte).toHaveLength(2);
+    expect(flow.schritte[0]).toMatchObject({ name: 's1', typ: 'subagent', rolle: 'sucher' });
+    expect(flow.schritte[0].iterationen).toBe(1);
+    expect(flow.schritte[1]).toMatchObject({ name: 's2', typ: 'werkzeug', werkzeug: 'web_suche' });
+    // Serialisierung nimmt die Schritte mit (Datei bleibt die Wahrheit).
+    expect(serializeFlowFile(flow)).toContain('schritte:');
+  });
+
+  it('weist einen subagent-Schritt mit unbekannter Rolle ab', () => {
+    const bad = KETTE.replace('rolle: sucher', 'rolle: gibtsnicht');
+    expect(() => parseFlowFile(bad)).toThrow(/gibtsnicht/);
+  });
+
+  it('weist einen werkzeug-Schritt mit nicht freigegebenem Werkzeug ab', () => {
+    const bad = KETTE.replace('werkzeug: web_suche', 'werkzeug: terminal');
+    expect(() => parseFlowFile(bad)).toThrow(/terminal/);
+  });
+
+  it('weist einen subagent-Schritt ohne Auftrag ab', () => {
+    const bad = KETTE.replace('    auftrag: Finde {{q}}.\n', '');
+    expect(() => parseFlowFile(bad)).toThrow(/auftrag/);
+  });
+});

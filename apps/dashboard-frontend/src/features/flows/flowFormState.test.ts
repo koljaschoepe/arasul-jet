@@ -114,6 +114,7 @@ describe('fromDefinition / Rundreise', () => {
       ordner: ['/a'],
       werkzeuge: ['web_suche'],
       rollen: [],
+      schritte: [],
       grenzen: { max_aufrufe: 30, zeitlimit_s: 600, werkzeug_runden: 8, max_tiefe: 2 },
       prompt: '# Titel',
     };
@@ -137,5 +138,68 @@ describe('brauchtOrdner', () => {
     expect(brauchtOrdner(['rag_suche'])).toBe(false);
     expect(brauchtOrdner(['web_suche', 'dateien_lesen'])).toBe(true);
     expect(brauchtOrdner(['terminal'])).toBe(true);
+  });
+});
+
+describe('Schritt-Kette (B7)', () => {
+  it('nimmt Schritte in den API-Body und verwirft namenlose', () => {
+    const body = toBody(
+      form({
+        schritte: [
+          {
+            name: 'suchen',
+            typ: 'subagent',
+            rolle: 'sucher',
+            auftrag: 'Finde {{q}}',
+            iterationen: 1,
+          },
+          { name: '', typ: 'subagent', rolle: 'x', auftrag: 'y', iterationen: 1 },
+        ],
+      })
+    );
+    const schritte = body.schritte as Record<string, unknown>[];
+    expect(schritte).toHaveLength(1);
+    expect(schritte[0]).toMatchObject({ name: 'suchen', typ: 'subagent', rolle: 'sucher' });
+  });
+
+  it('werkzeug-Schritt: nur Werkzeug + gefüllte Parameter, keine Rollen-Felder', () => {
+    const body = toBody(
+      form({
+        schritte: [
+          {
+            name: 'w',
+            typ: 'werkzeug',
+            werkzeug: 'web_suche',
+            parameter: { query: '{{q}}', leer: '' },
+            iterationen: 2,
+          },
+        ],
+      })
+    );
+    const step = (body.schritte as Record<string, unknown>[])[0]!;
+    expect(step).toMatchObject({
+      name: 'w',
+      typ: 'werkzeug',
+      werkzeug: 'web_suche',
+      iterationen: 2,
+    });
+    expect(step.parameter).toEqual({ query: '{{q}}' });
+    expect(step.rolle).toBeUndefined();
+  });
+
+  it('Rundreise: fromDefinition übernimmt Schritte', () => {
+    const state = fromDefinition({
+      name: 'k',
+      beschreibung: '',
+      argumente: [],
+      ordner: [],
+      werkzeuge: ['subagent'],
+      rollen: [],
+      schritte: [{ name: 's', typ: 'subagent', rolle: 'r', auftrag: 'a', iterationen: 3 }],
+      grenzen: { max_aufrufe: 20, zeitlimit_s: 900, werkzeug_runden: 10, max_tiefe: 2 },
+      prompt: 'P',
+    });
+    expect(state.schritte).toHaveLength(1);
+    expect(state.schritte[0]).toMatchObject({ name: 's', iterationen: 3 });
   });
 });

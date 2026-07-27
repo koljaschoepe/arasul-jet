@@ -33,8 +33,8 @@ rollen:
         - quelle
       max_zeichen: 2000
     prompt: >-
-      Lies die genannte Seite mit dem Werkzeug web_lesen. Gib ausschließlich
-      Fakten zurück, die im Text stehen, und nenne unter „quelle" die URL.
+      Lies die genannten Seiten mit dem Werkzeug web_lesen. Gib ausschließlich
+      Fakten zurück, die im Text stehen, und nenne unter „quelle" die URLs.
       Erfinde nichts und fasse nicht zu weit zusammen.
   - name: pruefer
     beschreibung: Prüft die gesammelten Fakten auf Widersprüche.
@@ -45,28 +45,41 @@ rollen:
     prompt: >-
       Prüfe die gesammelten Fakten auf Widersprüche und offene Unsicherheiten.
       Nenne, was gut belegt ist und was auf nur einer Quelle beruht.
+schritte:
+  - name: suchen
+    typ: subagent
+    rolle: sucher
+    auftrag: >-
+      Finde relevante Seiten zum Thema {{thema}}.
+  - name: lesen
+    typ: subagent
+    rolle: leser
+    auftrag: >-
+      Lies die in diesem Ergebnis genannten Seiten und lies daraus die belegten
+      Fakten samt Quelle heraus:
+
+      {{suchen}}
+  - name: pruefen
+    typ: subagent
+    rolle: pruefer
+    auftrag: >-
+      Prüfe diese gesammelten Fakten auf Widersprüche und offene Unsicherheiten:
+
+      {{lesen}}
 grenzen:
   max_aufrufe: 30
   zeitlimit_s: 1200
   werkzeug_runden: 12
 ---
 
-Du recherchierst das Thema {{thema}} im Web und schreibst am Ende SELBST die
-Antwort. Führe die Werkzeuge nicht selbst aus — delegiere über das Werkzeug
-`subagent` an die Rollen:
+Du hast das Thema {{thema}} im Web recherchiert: relevante Seiten gesucht, die
+Fakten daraus gelesen und einmal auf Widersprüche geprüft. Die Ergebnisse dieser
+Schritte stehen dir unten zur Verfügung.
 
-1. `sucher`: relevante Seiten zum Thema finden lassen.
-2. `leser`: aus den zwei bis drei besten Seiten die Fakten herauslesen lassen
-   (eine Delegation pro Seite).
-3. `pruefer`: die gesammelten Fakten einmal auf Widersprüche prüfen lassen.
-
-Sobald du genug belegte Fakten hast (spätestens nach zwei bis drei gelesenen
-Seiten und einer Prüfung), HÖRE AUF zu delegieren und rufe KEINE Rolle mehr
-auf. Schreibe stattdessen deine **letzte Nachricht** — das ist die Antwort für
-den Nutzer, und sie darf niemals leer sein:
+Schreibe jetzt die **Antwort für den Nutzer** — sie darf niemals leer sein:
 
 - Zuerst ein kurzer, sachlicher Absatz, der das Thema {{thema}} beantwortet.
 - Danach eine Zeile „Quellen:" und darunter die verwendeten URLs als Liste.
 
-Stütze dich ausschließlich auf die Fakten, die die Rollen belegt
-zurückgeliefert haben. Erfinde nichts. Antworte auf Deutsch.
+Stütze dich ausschließlich auf die gelesenen und geprüften Fakten aus den
+Schritt-Ergebnissen. Erfinde nichts. Antworte auf Deutsch.

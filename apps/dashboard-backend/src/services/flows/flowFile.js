@@ -145,6 +145,7 @@ function serializeFlowFile(flow) {
     ...(flow.ordner && flow.ordner.length ? { ordner: flow.ordner } : {}),
     ...(flow.werkzeuge && flow.werkzeuge.length ? { werkzeuge: flow.werkzeuge } : {}),
     ...(flow.rollen && flow.rollen.length ? { rollen: flow.rollen } : {}),
+    ...(flow.schritte && flow.schritte.length ? { schritte: flow.schritte } : {}),
     ...(flow.grenzen ? { grenzen: flow.grenzen } : {}),
   };
 

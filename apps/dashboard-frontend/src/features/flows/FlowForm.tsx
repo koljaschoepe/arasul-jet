@@ -21,6 +21,7 @@ import type {
   FlowToolInfo,
 } from '@/types/flows';
 import { brauchtOrdner, leeresArgument, leereRolle, type FlowFormState } from './flowFormState';
+import StepList from './StepList';
 
 const ARG_TYP_LABEL: Record<FlowArgumentType, string> = {
   freitext: 'Freitext',
@@ -276,6 +277,9 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
 
       {/* Subagent-Rollen */}
       <RollenEditor value={value} onChange={onChange} werkzeuge={werkzeuge} />
+
+      {/* Deterministische Schritt-Kette (B7) */}
+      <StepList value={value} onChange={onChange} werkzeuge={werkzeuge} />
 
       {/* Grenzen */}
       <fieldset className="grid grid-cols-2 gap-2">

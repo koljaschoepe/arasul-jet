@@ -13,6 +13,7 @@ import type {
   FlowDefinition,
   FlowLimits,
   FlowRole,
+  FlowStep,
   FlowTool,
 } from '@/types/flows';
 
@@ -24,6 +25,7 @@ export interface FlowFormState {
   werkzeuge: FlowTool[];
   ordner: string[];
   rollen: FlowRole[];
+  schritte: FlowStep[];
   grenzen: FlowLimits;
   // Hinweis: `FlowDefinition.modell` (eigenes Modell je Flow) ist in Schritt 17
   // BEWUSST nicht im Formular — der Dialog fasst es nicht an. Beim Bearbeiten
@@ -47,6 +49,7 @@ export const LEER_FORM: FlowFormState = {
   werkzeuge: [],
   ordner: [],
   rollen: [],
+  schritte: [],
   grenzen: { ...STANDARD_GRENZEN },
 };
 
@@ -64,6 +67,11 @@ export function leereRolle(): FlowRole {
     ergebnis: { felder: [], max_zeichen: 2000 },
     prompt: '',
   };
+}
+
+/** Ein frischer, leerer Schritt (Voreinstellung: subagent, 1 Durchlauf). */
+export function leererSchritt(): FlowStep {
+  return { name: '', typ: 'subagent', rolle: '', auftrag: '', iterationen: 1 };
 }
 
 /** Werkzeuge, die einen erlaubten Ordner voraussetzen. */
@@ -90,6 +98,11 @@ export function fromDefinition(def: FlowDefinition): FlowFormState {
         max_zeichen: r.ergebnis?.max_zeichen ?? 2000,
       },
       werkzeuge: [...(r.werkzeuge ?? [])],
+    })),
+    schritte: (def.schritte ?? []).map(s => ({
+      ...s,
+      iterationen: s.iterationen ?? 1,
+      parameter: s.parameter ? { ...s.parameter } : undefined,
     })),
     grenzen: { ...STANDARD_GRENZEN, ...(def.grenzen ?? {}) },
   };
@@ -130,10 +143,32 @@ function roleToBody(r: FlowRole) {
   return out;
 }
 
+/** Einen Schritt in die API-Form bringen; verwirft die für den Typ irrelevanten Felder. */
+function stepToBody(s: FlowStep): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    name: s.name.trim(),
+    typ: s.typ,
+    iterationen: s.iterationen ?? 1,
+  };
+  if (s.typ === 'subagent') {
+    out.rolle = (s.rolle ?? '').trim();
+    out.auftrag = (s.auftrag ?? '').trim();
+  } else {
+    if (s.werkzeug) out.werkzeug = s.werkzeug;
+    // Leere Parameterwerte fallen weg, damit eine halb ausgefüllte Zeile nicht die Prüfung sprengt.
+    const params = Object.fromEntries(
+      Object.entries(s.parameter ?? {}).filter(([k, v]) => k.trim() && v !== '')
+    );
+    if (Object.keys(params).length > 0) out.parameter = params;
+  }
+  return out;
+}
+
 /**
  * Rechnet den Formular-Zustand in den API-Body (CreateFlowBody/SaveFlowBody).
- * Leere Zeilen (Ordner, Argumente ohne Namen, Rollen ohne Namen) fallen weg —
- * so sprengt eine noch nicht ausgefüllte Zusatzzeile nicht die Prüfung.
+ * Leere Zeilen (Ordner, Argumente ohne Namen, Rollen ohne Namen, Schritte ohne
+ * Namen) fallen weg — so sprengt eine noch nicht ausgefüllte Zusatzzeile nicht
+ * die Prüfung.
  */
 export function toBody(state: FlowFormState): Record<string, unknown> {
   return {
@@ -144,6 +179,7 @@ export function toBody(state: FlowFormState): Record<string, unknown> {
     werkzeuge: [...state.werkzeuge],
     ordner: state.ordner.map(o => o.trim()).filter(Boolean),
     rollen: state.rollen.filter(r => r.name.trim()).map(roleToBody),
+    schritte: state.schritte.filter(s => s.name.trim()).map(stepToBody),
     grenzen: {
       max_aufrufe: state.grenzen.max_aufrufe,
       zeitlimit_s: state.grenzen.zeitlimit_s,

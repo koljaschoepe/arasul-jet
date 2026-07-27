@@ -114,6 +114,43 @@ Seiteninhalte, Dateitexte) stehen nur im Lauf-Protokoll, erreichen aber nie den
 Orchestrator-Kontext. Das ist der Hebel, mit dem ein kleines lokales Modell wie
 ein großes wirkt: gezielt wenig Kontext statt „alles ins Modell".
 
+### Schritt-Kette (deterministische Orchestrierung)
+
+Standardmäßig ist ein Flow **modellgetrieben**: der Rumpf-Prompt sagt dem
+Orchestrator-Modell, wann es an welche Rolle delegiert — die Reihenfolge
+entscheidet das Modell. Wer die Reihenfolge **fest** vorgeben will (wie ein
+n8n-Graph aus geordneten Knoten), deklariert eine optionale `schritte`-Liste:
+
+```yaml
+schritte:
+  - name: suchen # eindeutiger Schrittname (dient zugleich als {{platzhalter}})
+    typ: subagent # an eine deklarierte Rolle delegieren
+    rolle: sucher
+    auftrag: Finde relevante Seiten zum Thema {{thema}}.
+  - name: lesen
+    typ: subagent
+    rolle: leser
+    auftrag: |
+      Lies die genannten Seiten und gib die Fakten samt Quelle zurück:
+      {{suchen}} # die Ausgabe des Schritts „suchen"
+    iterationen: 1 # Schritt bis zu N-mal wiederholen (Standard 1)
+  - name: aufraeumen
+    typ: werkzeug # EIN Werkzeug direkt aufrufen (kein Modell)
+    werkzeug: dateien_suchen
+    parameter: { muster: '*.tmp' }
+```
+
+Der Executor führt die Schritte in **fester Reihenfolge** aus und reicht die
+Ausgabe jedes Schritts als `{{schrittname}}` in die nächsten weiter; innerhalb
+einer Wiederholung steht die vorige Ausgabe als `{{vorher}}`. Danach
+synthetisiert der Rumpf-Prompt die Antwort aus den gesammelten
+Schritt-Ausgaben (ein letzter Modell-Aufruf, ohne Werkzeuge). Ein
+`subagent`-Schritt braucht das Werkzeug `subagent` und eine passende Rolle; ein
+`werkzeug`-Schritt darf nur ein vom Flow freigegebenes Werkzeug nutzen. Leer
+gelassen bleibt alles beim modellgetriebenen Verhalten — die Kette ist ein
+Angebot, kein Zwang. Bearbeitet wird sie im Flow-Editor als geordnete
+Schritt-Karten (hinzufügen/entfernen/umsortieren).
+
 ### Grenzen (Notbremsen)
 
 `max_aufrufe` (Subagent-Aufrufe über alle Ebenen), `zeitlimit_s`,

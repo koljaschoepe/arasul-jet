@@ -56,6 +56,25 @@ export interface FlowRole {
   prompt: string;
 }
 
+/** Art eines deklarativen Schritts (B7). */
+export type FlowStepType = 'subagent' | 'werkzeug';
+
+/**
+ * Ein deterministischer Schritt der Orchestrierungs-Kette (B7). `subagent`
+ * delegiert an eine deklarierte Rolle mit einem `auftrag` (Vorlage), `werkzeug`
+ * ruft ein Werkzeug direkt mit `parameter` auf. `iterationen` wiederholt den
+ * Schritt bis zu N-mal und reicht die vorige Ausgabe als {{vorher}} weiter.
+ */
+export interface FlowStep {
+  name: string;
+  typ: FlowStepType;
+  rolle?: string;
+  auftrag?: string;
+  werkzeug?: FlowTool;
+  parameter?: Record<string, string | number | boolean>;
+  iterationen: number;
+}
+
 /** Die Notbremsen eines Flows (§7). */
 export interface FlowLimits {
   max_aufrufe: number;
@@ -78,6 +97,8 @@ export interface FlowDefinition {
   ordner: string[];
   werkzeuge: FlowTool[];
   rollen: FlowRole[];
+  /** Optionale deterministische Schritt-Kette (B7). Leer → modellgetrieben. */
+  schritte: FlowStep[];
   grenzen: FlowLimits;
   prompt: string;
 }

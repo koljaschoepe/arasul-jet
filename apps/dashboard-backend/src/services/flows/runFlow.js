@@ -22,6 +22,7 @@ const registry = require('./flowRegistry');
 const runStore = require('./runStore');
 const { buildTools } = require('./toolRegistry');
 const { runFlowLoop } = require('./toolLoop');
+const { executeSteps } = require('./stepExecutor');
 const { fillPlaceholders } = require('./flowFile');
 const { ensureFlowSandbox } = require('./sandboxResolve');
 const changeTracker = require('./changeTracker');
@@ -406,20 +407,79 @@ async function runFlow(
     }
   };
 
-  // 6. Schleife treiben.
-  let ergebnis;
-  try {
-    ergebnis = await runLoop({
-      model,
-      systemPrompt: filledPrompt,
-      userInput,
-      tools,
-      maxRunden: flow.grenzen.werkzeug_runden,
-      zeitlimitS: flow.grenzen.zeitlimit_s,
-      context,
-      signal,
-      onEvent: weiter,
+  // Werkzeug-Schritt (B7): führt EIN Werkzeug direkt aus und schreibt den Schritt
+  // mit — das Gegenstück zu `recordSubagent`, aber für den deterministischen
+  // Executor. Liefert die Werkzeug-Ausgabe als String zurück (fürs Threading).
+  const recordWerkzeug = async ({ werkzeug, params }) => {
+    const step = await store.startStep({
+      runId: run.id,
+      kind: 'werkzeug',
+      name: werkzeug || '',
+      input: params || {},
     });
+    steps += 1;
+    await store.bumpSteps({ runId: run.id });
+    if (typeof onEvent === 'function') {
+      try {
+        onEvent({ type: 'tool_start', tool: werkzeug, params });
+      } catch (err) {
+        logger.warn(`Flow "${flowName}": onEvent(tool_start) warf: ${err.message}`);
+      }
+    }
+    let ausgabe;
+    try {
+      const [tool] = makeTools([werkzeug]);
+      if (!tool) {
+        throw new ValidationError(`Werkzeug "${werkzeug}" ist nicht verfügbar`);
+      }
+      ausgabe = String(await tool.execute(params, context));
+    } catch (err) {
+      await store.finishStep({
+        stepId: step.id,
+        output: `Fehler: ${err.message}`,
+        status: 'fehler',
+      });
+      throw err;
+    }
+    await store.finishStep({ stepId: step.id, output: ausgabe, status: 'fertig' });
+    if (typeof onEvent === 'function') {
+      try {
+        onEvent({ type: 'tool_result', tool: werkzeug, result: ausgabe });
+      } catch (err) {
+        logger.warn(`Flow "${flowName}": onEvent(tool_result) warf: ${err.message}`);
+      }
+    }
+    return ausgabe;
+  };
+
+  // 6. Ausführen — deterministische Schritt-Kette (B7), sonst modellgetrieben.
+  let ergebnis;
+  const hatSchritte = Array.isArray(flow.schritte) && flow.schritte.length > 0;
+  try {
+    ergebnis = hatSchritte
+      ? await executeSteps({
+          flow,
+          werte,
+          userInput,
+          model,
+          context,
+          makeTools,
+          runLoop,
+          recordWerkzeug,
+          emitLive: onEvent,
+          signal,
+        })
+      : await runLoop({
+          model,
+          systemPrompt: filledPrompt,
+          userInput,
+          tools,
+          maxRunden: flow.grenzen.werkzeug_runden,
+          zeitlimitS: flow.grenzen.zeitlimit_s,
+          context,
+          signal,
+          onEvent: weiter,
+        });
   } catch (err) {
     logger.error(`Flow "${flowName}" abgebrochen: ${err.message}`);
     await store.finishRun({

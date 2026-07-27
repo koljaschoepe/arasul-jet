@@ -2269,6 +2269,12 @@ rollen:
     werkzeuge: [web_lesen] # nie mehr als der Flow selbst darf
     ergebnis: { felder: [fakten], max_zeichen: 2000 }
     prompt: Lies die Seite und gib nur die belegten Fakten zurück.
+schritte: # optional (B7): deterministische, fest geordnete Kette
+  - name: lesen # Schrittname = {{platzhalter}} für spätere Schritte
+    typ: subagent # subagent (Rolle) | werkzeug (direkter Werkzeug-Aufruf)
+    rolle: leser
+    auftrag: Lies die gefundenen Seiten. # Vorlage: {{argument}}, {{schritt}}, {{vorher}}
+    iterationen: 1 # Schritt bis zu N-mal wiederholen (1–10, default 1)
 grenzen:
   max_aufrufe: 20 # Subagent-Aufrufe über ALLE Ebenen
   zeitlimit_s: 900
@@ -2279,6 +2285,8 @@ Recherchiere gründlich zum Thema {{thema}}.
 ```
 
 Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers).
+
+The optional `schritte` array (B7) makes orchestration deterministic: each step is either `typ: subagent` (delegates to a declared `rolle` with an `auftrag` template) or `typ: werkzeug` (calls one tool directly with `parameter`). Steps run in fixed order; a step's output is threaded into later steps as `{{stepname}}` (and `{{vorher}}` across `iterationen`), then the body prompt synthesizes the final answer. A `subagent` step requires the `subagent` tool and a matching role; a `werkzeug` step may only use a tool the flow itself declares. Empty `schritte` → the flow stays model-driven.
 
 `GET /api/flows/werkzeuge` returns each tool with a `verfuegbar` flag:
 

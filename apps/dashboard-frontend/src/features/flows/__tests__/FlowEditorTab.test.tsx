@@ -39,6 +39,7 @@ const RECHERCHE: FlowDefinition = {
   ordner: [],
   werkzeuge: ['rag_suche'],
   rollen: [],
+  schritte: [],
   grenzen: { max_aufrufe: 20, zeitlimit_s: 900, werkzeug_runden: 10, max_tiefe: 2 },
   prompt: '# Recherche\n{{thema}}',
 };
