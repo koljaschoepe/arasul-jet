@@ -10,7 +10,6 @@ import {
   FileImage,
   FileUp,
   Pencil,
-  Search,
   Trash2,
   FolderInput,
   FolderSearch,
@@ -19,7 +18,6 @@ import {
   Upload,
   FolderUp,
   Pin,
-  X,
 } from 'lucide-react';
 import {
   ContextMenu,
@@ -36,6 +34,8 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { usePins } from '../useWorkspaceContext';
 import { useActiveProject } from '../useProjects';
 import { cn } from '@/lib/utils';
+import { SidebarViewHeader } from '../sidebar/SidebarView';
+import { SidebarSearch } from '@/components/ui/SidebarSearch';
 import { ExplorerDialogs } from './ExplorerDialogs';
 import type { ExplorerDialogState } from './ExplorerDialogs';
 
@@ -162,7 +162,9 @@ export function ExplorerPanel() {
   const { addPin } = usePins();
   // Der Baum ist auf das aktive Projekt gescopt (Backend): wechselt es, muss der
   // Explorer neu laden. `activeId` steuert das über die Effekt-Abhängigkeit.
-  const { activeId } = useActiveProject();
+  // `activeProject.name` steht als Kopf-Titel — wie »Modelle«/»Erweiterungen«
+  // bei den anderen Ansichten (B2: einheitliche Kopfzeile, Projektname bei Dateien).
+  const { activeId, activeProject } = useActiveProject();
 
   const [spaces, setSpaces] = useState<TreeSpace[]>([]);
   const [documents, setDocuments] = useState<TreeDocument[]>([]);
@@ -443,7 +445,7 @@ export function ExplorerPanel() {
       <ContextMenu key={doc.id}>
         <ContextMenuTrigger asChild>
           <div
-            className="group flex min-h-ui-row cursor-pointer items-center gap-1.5 rounded pr-2 text-ui-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="group flex min-h-ui-row cursor-pointer items-center gap-1.5 rounded pr-3 text-ui-sm text-muted-foreground hover:bg-accent hover:text-foreground"
             style={{ paddingLeft: `${depth * 12 + 20}px` }}
             role="treeitem"
             aria-selected={false}
@@ -512,7 +514,7 @@ export function ExplorerPanel() {
           <ContextMenuTrigger asChild>
             <div
               className={cn(
-                'group flex min-h-ui-row cursor-pointer items-center gap-1 rounded pr-2 text-ui-sm hover:bg-accent',
+                'group flex min-h-ui-row cursor-pointer items-center gap-1 rounded pr-3 text-ui-sm hover:bg-accent',
                 dropTarget === rowKey && 'bg-accent outline-1 outline-dashed outline-primary/60'
               )}
               style={{ paddingLeft: `${depth * 12 + 4}px` }}
@@ -597,64 +599,58 @@ export function ExplorerPanel() {
       className="flex h-full min-w-0 flex-col bg-background"
       data-testid="workspace-explorer-panel"
     >
-      {/* Kopf: Suche + Aktionen */}
-      <div className="flex shrink-0 items-center gap-1 px-2 py-1.5">
-        <div className="flex min-w-0 flex-1 items-center gap-1 rounded-md bg-card px-1.5">
-          <Search className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Suchen…"
-            aria-label="Explorer durchsuchen"
-            className="h-ui-row w-full min-w-0 bg-transparent text-ui-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-          />
-          {query && (
+      {/* Einheitliche Kopfzeile: Projektname als Titel (wie »Modelle«/»Erweiterungen«),
+          die Ordner-/Upload-/Aktualisieren-Aktionen rechts. */}
+      <SidebarViewHeader
+        title={activeProject?.name ?? 'Dateien'}
+        actions={
+          <div className="flex items-center gap-0.5">
             <button
               type="button"
-              onClick={() => setQuery('')}
-              aria-label="Suche leeren"
-              className="text-muted-foreground hover:text-foreground"
+              title="Neuer Ordner"
+              aria-label="Neuer Ordner"
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => setDialog({ kind: 'create', parent: null })}
             >
-              <X className="h-3 w-3" />
+              <FolderPlus className="h-3.5 w-3.5" />
             </button>
-          )}
-        </div>
-        <button
-          type="button"
-          title="Neuer Ordner"
-          aria-label="Neuer Ordner"
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          onClick={() => setDialog({ kind: 'create', parent: null })}
-        >
-          <FolderPlus className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          title="Dateien importieren"
-          aria-label="Dateien importieren"
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          onClick={() => requestUpload(null)}
-        >
-          <Upload className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          title="Ordner importieren"
-          aria-label="Ordner importieren"
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          onClick={() => requestFolderUpload(null)}
-        >
-          <FolderUp className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          title="Aktualisieren"
-          aria-label="Explorer aktualisieren"
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          onClick={loadTree}
-        >
-          <RefreshCw className={cn('h-3.5 w-3.5', uploading && 'animate-spin')} />
-        </button>
+            <button
+              type="button"
+              title="Dateien importieren"
+              aria-label="Dateien importieren"
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => requestUpload(null)}
+            >
+              <Upload className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Ordner importieren"
+              aria-label="Ordner importieren"
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => requestFolderUpload(null)}
+            >
+              <FolderUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Aktualisieren"
+              aria-label="Explorer aktualisieren"
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={loadTree}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', uploading && 'animate-spin')} />
+            </button>
+          </div>
+        }
+      />
+      <div className="px-2 pt-2">
+        <SidebarSearch
+          value={query}
+          onChange={setQuery}
+          placeholder="Dateien durchsuchen…"
+          ariaLabel="Explorer durchsuchen"
+        />
       </div>
 
       <input

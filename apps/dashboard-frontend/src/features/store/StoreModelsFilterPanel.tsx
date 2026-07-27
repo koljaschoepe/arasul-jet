@@ -6,8 +6,7 @@
  * storeFilterStore mit dem Karten-Raster in der Mitte.
  */
 import { useMemo } from 'react';
-import { Search, X } from 'lucide-react';
-import { Input } from '@/components/ui/shadcn/input';
+import { SidebarSearch } from '@/components/ui/SidebarSearch';
 import { useStoreCatalog } from '@/hooks/useStoreCatalog';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { deriveModelFacets, activeFilterCount } from './storeModelFilters';
@@ -26,27 +25,12 @@ export function StoreModelsFilterPanel() {
 
   return (
     <div className="flex flex-col gap-4 p-3">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="text"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Modelle durchsuchen…"
-          aria-label="Modelle durchsuchen"
-          className="h-9 pl-8 pr-8"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            aria-label="Suche leeren"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <X className="size-4" />
-          </button>
-        )}
-      </div>
+      <SidebarSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Modelle durchsuchen…"
+        ariaLabel="Modelle durchsuchen"
+      />
 
       {activeCount > 0 && (
         <button

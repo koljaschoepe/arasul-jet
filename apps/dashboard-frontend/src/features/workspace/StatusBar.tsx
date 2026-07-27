@@ -1,7 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
-import { Cpu, FolderKanban } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Cpu, FolderKanban, Check, ChevronsUpDown, Wifi } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useApi } from '@/hooks/useApi';
+import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import {
+  isModelInstalled,
+  isModelActive,
+  STORE_MODELS_KEY,
+  STORE_MODEL_STATUS_KEY,
+  STORE_MODEL_DEFAULT_KEY,
+  type CatalogModel,
+  type LoadedModel,
+} from '@/hooks/useStoreCatalog';
 import type { MemoryBudget } from '@/types';
 
 /** Antwort des öffentlichen /health-Fast-Path (dashboard-backend). */
@@ -24,13 +36,16 @@ function toGb(mb: number): string {
 
 /**
  * Schlanke Statusleiste am unteren Rand der IDE-Shell (Cursor-Maß: 24px):
- * links Verbindungs-/Health-Punkt + Plattform-Version, mittig der Modellstatus
- * (KI-RAM-Budget), rechts das aktive Terminal-Projekt (sobald die
- * Session-Registry gefüllt ist). Bewusst token-basiert und kompakt — keine
- * Interaktion außer Statusanzeige.
+ * links Verbindungs-/Health-Punkt + Plattform-Version (klickbar → was ist
+ * verbunden?), mittig der Modellstatus (klickbar → heruntergeladenes Modell
+ * wählen), rechts das aktive Terminal-Projekt. Die beiden Popover laden ihre
+ * Detaildaten erst beim Öffnen (kein Dauer-Poll auf dem Jetson).
  */
 export function StatusBar() {
   const api = useApi();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [modelOpen, setModelOpen] = useState(false);
 
   const { data, isError } = useQuery({
     queryKey: ['workspace-health'],
@@ -49,6 +64,58 @@ export function StatusBar() {
     refetchInterval: 10_000,
     staleTime: 5_000,
     retry: 1,
+  });
+
+  // Modell-Umschalter: Katalog/Status/Standard nur laden, während das Popover
+  // offen ist. Teilt die Query-Keys mit der Store-Ansicht (Cache-Dedup).
+  const { data: catalog } = useQuery({
+    queryKey: STORE_MODELS_KEY,
+    queryFn: async () => {
+      const res = await api.get<{ models?: CatalogModel[] }>('/models/catalog', {
+        showError: false,
+      });
+      return res.models ?? [];
+    },
+    enabled: modelOpen,
+    staleTime: 30_000,
+  });
+  const { data: loaded } = useQuery({
+    queryKey: STORE_MODEL_STATUS_KEY,
+    queryFn: async () => {
+      const res = await api
+        .get<{ loaded_model?: LoadedModel | null }>('/models/status', { showError: false })
+        .catch(() => ({}) as { loaded_model?: LoadedModel | null });
+      return res.loaded_model ?? null;
+    },
+    enabled: modelOpen,
+    staleTime: 5_000,
+  });
+  const { data: defaultModelId } = useQuery({
+    queryKey: STORE_MODEL_DEFAULT_KEY,
+    queryFn: async () => {
+      const res = await api
+        .get<{ default_model?: string | null }>('/models/default', { showError: false })
+        .catch(() => ({}) as { default_model?: string | null });
+      return res.default_model ?? null;
+    },
+    enabled: modelOpen,
+    staleTime: 30_000,
+  });
+
+  const installedModels = (catalog ?? []).filter(isModelInstalled);
+  const loadedModelId = loaded?.model_id ?? null;
+
+  const setDefault = useMutation({
+    mutationFn: (modelId: string) =>
+      api.post<{ default_model?: string }>('/models/default', { model_id: modelId }),
+    onSuccess: (_res, modelId) => {
+      qc.invalidateQueries({ queryKey: STORE_MODEL_DEFAULT_KEY });
+      qc.invalidateQueries({ queryKey: MEMORY_BUDGET_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: STORE_MODEL_STATUS_KEY });
+      const m = installedModels.find(x => x.id === modelId);
+      toast.success(`Standardmodell: ${m?.name ?? modelId}`);
+      setModelOpen(false);
+    },
   });
 
   const terminalSessions = useWorkspaceStore(s => s.terminalSessions);
@@ -85,44 +152,134 @@ export function StatusBar() {
     : installedModel
       ? `${installedModel.name} · bereit`
       : 'kein Modell geladen';
-  const modelTooltip = hasModel
-    ? `${loadedModels
-        .map(m => `${m.name} (${toGb(m.ramMb)} GB)`)
-        .join(', ')} — belegt ${toGb(budget?.usedMb ?? 0)} von ${toGb(
-        budget?.totalBudgetMb ?? 0
-      )} GB, frei ${toGb(budget?.availableMb ?? 0)} GB`
-    : installedModel
-      ? `${installedModel.name} ist installiert und bereit — wird beim ersten Gebrauch in den Speicher geladen`
-      : 'Kein KI-Modell installiert';
 
   return (
     <footer
       className="flex h-6 shrink-0 items-center gap-3 border-t border-border bg-background px-3 text-xs text-muted-foreground select-none"
       data-testid="workspace-statusbar"
     >
-      <span className="flex items-center gap-1.5" title={`Backend: ${healthLabel}`}>
-        <span
-          className="inline-block h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: dotColor }}
-          aria-hidden="true"
-        />
-        {healthLabel}
-      </span>
+      {/* Verbindung — klickbar: zeigt, womit die Plattform verbunden ist. */}
+      <Popover>
+        <PopoverTrigger
+          className="flex items-center gap-1.5 rounded px-1 hover:bg-accent hover:text-foreground"
+          title="Verbindung anzeigen"
+        >
+          <span
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: dotColor }}
+            aria-hidden="true"
+          />
+          {healthLabel}
+        </PopoverTrigger>
+        <PopoverContent side="top" align="start" className="w-72 text-xs">
+          <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <Wifi className="h-4 w-4" aria-hidden="true" />
+            Verbindung
+          </div>
+          <dl className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Backend</dt>
+              <dd className="flex items-center gap-1.5 text-foreground">
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: dotColor }}
+                  aria-hidden="true"
+                />
+                {healthLabel}
+              </dd>
+            </div>
+            {data?.version && (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">Version</dt>
+                <dd className="text-foreground">v{data.version}</dd>
+              </div>
+            )}
+            {budget !== undefined && (
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted-foreground">KI-RAM</dt>
+                <dd className="text-foreground">
+                  {toGb(budget.usedMb ?? 0)} / {toGb(budget.totalBudgetMb ?? 0)} GB belegt · frei{' '}
+                  {toGb(budget.availableMb ?? 0)} GB
+                </dd>
+              </div>
+            )}
+            {loadedModels.length > 0 && (
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-muted-foreground">Modelle im RAM</dt>
+                <dd className="text-right text-foreground">
+                  {loadedModels.map(m => `${m.name} (${toGb(m.ramMb)} GB)`).join(', ')}
+                </dd>
+              </div>
+            )}
+          </dl>
+          <p className="mt-2 border-t border-border pt-2 text-muted-foreground">
+            Alles läuft lokal auf dem Gerät — keine Cloud.
+          </p>
+        </PopoverContent>
+      </Popover>
 
       {data?.version && <span className="text-muted-foreground/70">v{data.version}</span>}
 
+      {/* Modell — klickbar: heruntergeladenes Modell als Standard wählen. */}
       {budget !== undefined && (
-        <span
-          className="flex min-w-0 items-center gap-1.5"
-          title={modelTooltip}
-          data-testid="workspace-statusbar-model"
-        >
-          <Cpu
-            className={`h-3 w-3 shrink-0 ${hasModel || installedModel ? 'text-foreground/70' : ''}`}
-            aria-hidden="true"
-          />
-          <span className="truncate">{modelLabel}</span>
-        </span>
+        <Popover open={modelOpen} onOpenChange={setModelOpen}>
+          <PopoverTrigger
+            className="flex min-w-0 items-center gap-1.5 rounded px-1 hover:bg-accent hover:text-foreground"
+            title="Modell wählen"
+            data-testid="workspace-statusbar-model"
+          >
+            <Cpu
+              className={`h-3 w-3 shrink-0 ${hasModel || installedModel ? 'text-foreground/70' : ''}`}
+              aria-hidden="true"
+            />
+            <span className="truncate">{modelLabel}</span>
+            <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" aria-hidden="true" />
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-72 p-1 text-xs">
+            <p className="px-2 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
+              Heruntergeladene Modelle
+            </p>
+            {installedModels.length === 0 ? (
+              <p className="px-2 py-2 text-muted-foreground">
+                Noch keine Modelle heruntergeladen. Im Store „Modelle“ laden.
+              </p>
+            ) : (
+              <ul className="flex flex-col">
+                {installedModels.map(m => {
+                  const active = isModelActive(m, loadedModelId);
+                  const isDefault = defaultModelId === m.id;
+                  return (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        disabled={setDefault.isPending}
+                        onClick={() => setDefault.mutate(m.id)}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-accent disabled:opacity-60"
+                      >
+                        <Check
+                          className={`h-3.5 w-3.5 shrink-0 ${isDefault ? 'text-primary' : 'opacity-0'}`}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-foreground">{m.name}</span>
+                        {active && (
+                          <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-success">
+                            im RAM
+                          </span>
+                        )}
+                        <span className="shrink-0 text-muted-foreground">
+                          {m.ram_required_gb} GB
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <p className="mt-1 border-t border-border px-2 pt-2 text-muted-foreground">
+              Ausgewähltes Modell wird der Standard für neue Chats.
+            </p>
+          </PopoverContent>
+        </Popover>
       )}
 
       <div className="flex-1" />

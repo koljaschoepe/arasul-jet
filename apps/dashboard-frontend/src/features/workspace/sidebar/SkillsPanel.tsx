@@ -1,7 +1,9 @@
+import { useMemo, useState } from 'react';
 import { Plus, Sparkles } from 'lucide-react';
 import { useSkills } from '@/hooks/useSkills';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useSkillEditorStore } from '@/stores/skillEditorStore';
+import { SidebarSearch } from '@/components/ui/SidebarSearch';
 import { SidebarView } from './SidebarView';
 
 /**
@@ -15,6 +17,15 @@ export function SkillsPanel() {
   const { skills, isLoading } = useSkills();
   const openTab = useWorkspaceStore(s => s.openTab);
   const setEditTarget = useSkillEditorStore(s => s.setEditTarget);
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return skills;
+    return skills.filter(
+      s => s.name.toLowerCase().includes(q) || (s.beschreibung ?? '').toLowerCase().includes(q)
+    );
+  }, [skills, query]);
 
   const oeffneEditor = (editName: string | null) => {
     setEditTarget(editName);
@@ -51,31 +62,45 @@ export function SkillsPanel() {
           </button>
         </div>
       ) : (
-        <ul className="flex flex-col py-1">
-          {skills.map(skill => (
-            <li key={skill.name}>
-              <button
-                type="button"
-                data-testid={`skill-open-${skill.name}`}
-                onClick={() => oeffneEditor(skill.name)}
-                className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left hover:bg-accent/50"
-              >
-                <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                  <Sparkles
-                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  <span className="truncate">/{skill.name}</span>
-                </span>
-                {skill.beschreibung && (
-                  <span className="truncate pl-5 text-xs text-muted-foreground">
-                    {skill.beschreibung}
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="p-2">
+            <SidebarSearch
+              value={query}
+              onChange={setQuery}
+              placeholder="Skills durchsuchen…"
+              ariaLabel="Skills durchsuchen"
+            />
+          </div>
+          {filtered.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground">Kein Treffer für „{query}“.</p>
+          ) : (
+            <ul className="flex flex-col py-1">
+              {filtered.map(skill => (
+                <li key={skill.name}>
+                  <button
+                    type="button"
+                    data-testid={`skill-open-${skill.name}`}
+                    onClick={() => oeffneEditor(skill.name)}
+                    className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left hover:bg-accent/50"
+                  >
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <Sparkles
+                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">/{skill.name}</span>
+                    </span>
+                    {skill.beschreibung && (
+                      <span className="truncate pl-5 text-xs text-muted-foreground">
+                        {skill.beschreibung}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </SidebarView>
   );
