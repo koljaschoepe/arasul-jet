@@ -205,7 +205,20 @@ Vogel-Maskottchen (zwinkert). Läuft weiter voll lokal &amp; DSGVO-konform auf d
 </ul>
 </div>
 
-<p class="foot">Fortschritt wird in der Task-Liste (#17–#27) geführt. Nach Abschluss wandert diese Seite nach <code>docs/plans/</code> (done) und die ROADMAP bekommt das Theme + PR-Nummer. Nutzer-Notizen aus <code>frontend-review.html</code> sind bindende Eingabe.</p>
+<h2>Abschlussbericht (B11 · 2026-07-27)</h2>
+<div class="card">
+<p><b>Status: abgeschlossen</b> — 11 von 11 Batches, PR <a href="https://github.com/koljaschoepe/arasul-jet/pull/262">#262</a> (Branch <code>feat/013-ide-flow-plattform</code>). Roadmap-Theme <b>T21</b>.</p>
+<ul>
+  <li><b>Umsetzung:</b> B1 Branding/Login · B2 Sidebar/Statusleiste · B3 Store · B4 Einstellungen · B5 Dokumente-Seite raus · B6 Skills→Flow (Migration 119) · B7 Schritt-Ketten · B8 Trigger Cron/Ereignis/HTTP (Migration 120) · B9 GitHub-Sync + verschlüsselter PAT (Migration 121) · B10 CodeMirror-Editor · B11 Politur/Review/Deploy. Jeder Batch einzeln committet, lokal grün.</li>
+  <li><b>Politur:</b> Store-/Erweiterungs-Texte per Inventar geprüft — bereits sauber (Gedankenstrich/Anführungszeichen/Auslassungspunkte/Umlaute). Docs-Sync: tote <code>SKILLS.md</code>-Links → <code>FLOWS.md</code>, veralteter <code>services/agents/</code>-Pfad korrigiert; API_REFERENCE/DATABASE_SCHEMA/ENVIRONMENT_VARIABLES je Batch nachgezogen.</li>
+  <li><b>Code-Review</b> über den ganzen Zweig: 2 <b>kritische</b> Funde behoben — (1) kein stiller Admin-Fallback (<code>userId||1</code>) mehr bei den externen Flow-Run-Endpunkten (verwaiste API-Schlüssel konnten Admin-Läufe lesen/schreiben); (2) Git-Sync erkennt jetzt einen abweichenden Checkout (origin/Branch) und klont neu, statt ins falsche Repo zu pushen. Plus Härtung: probe-before-upsert, ungemergter-Baum-Guard, In-Prozess-Sync-Sperre, Scheduler-Neu-Terminierung nach dem Start, Branch-Flag-Schutz.</li>
+  <li><b>Tests:</b> <code>run-tests.sh --all</code> grün — Backend 1904 (Jest), Frontend 720 (Vitest), Python 16 (self-healing), Design-System + Code-Quality-Gates. <code>vite build</code> grün.</li>
+  <li><b>Deploy (einmalig, auf dem Jetson):</b> <code>data/skills</code>→<code>data/flows</code> migriert (5 Flows), <code>gc.log</code> entfernt, Branch ausgecheckt, Backend+Frontend neu gebaut. Belegt: Migrationen 119–121 angewandt, Flow-Scheduler läuft, <code>/api/flows</code> lädt 5 Flows, <code>/api/flows/zeitplaene</code>·<code>/api/git/:id</code>·<code>/api/projects</code> → 200, Frontend serviert neuen Build inkl. CodeMirror-Chunk. Alle 16 Container healthy.</li>
+  <li><b>Offen:</b> die <b>visuelle Browser-Abnahme</b> jeder geänderten Fläche (Login-Maskottchen, Sidebar, Store, Einstellungen, Statusleisten-Git-Steuerung, Code-Editor) liegt beim Nutzer — API-/Deploy-Ebene ist verifiziert, das Auge nicht.</li>
+</ul>
+</div>
+
+<p class="foot">Abgeschlossen 2026-07-27. Diese Seite liegt jetzt unter <code>docs/plans/done/</code>; ROADMAP-Theme T21 + PR #262 eingetragen. Nutzer-Notizen aus <code>frontend-review.html</code> waren bindende Eingabe.</p>
 
 </div>
 </body>
