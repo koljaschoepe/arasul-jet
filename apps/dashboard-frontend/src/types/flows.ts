@@ -108,3 +108,41 @@ export interface FlowToolInfo {
   name: FlowTool;
   verfuegbar: boolean;
 }
+
+/** Status eines Flow-Laufs (spiegelt `flow_run_status` im Backend). */
+export type FlowRunStatus = 'laeuft' | 'fertig' | 'fehler' | 'abgebrochen';
+
+/** Eine Lauf-Zeile aus `GET /api/flows/laeufe` (ohne Schritte, für Übersichten). */
+export interface FlowRunSummary {
+  id: number | string;
+  flow_name: string;
+  conversation_id: number | string | null;
+  status: FlowRunStatus;
+  steps_used: number;
+  created_at: string;
+  finished_at: string | null;
+}
+
+/** Auslöser-Art: fester Zeitplan (Cron) oder benanntes Ereignis (B8). */
+export type FlowTriggerType = 'zeitplan' | 'ereignis';
+
+/**
+ * Ein Auslöser aus `GET /api/flows/zeitplaene` (B8): startet einen Flow
+ * automatisch — per Cron (`trigger_type: 'zeitplan'`, `cron` gesetzt) oder auf
+ * ein Ereignis hin (`trigger_type: 'ereignis'`, `event_name` gesetzt).
+ */
+export interface FlowSchedule {
+  id: number;
+  flow_name: string;
+  trigger_type: FlowTriggerType;
+  cron: string | null;
+  event_name: string | null;
+  args: Record<string, string | number | boolean>;
+  enabled: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  last_run_id: number | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}

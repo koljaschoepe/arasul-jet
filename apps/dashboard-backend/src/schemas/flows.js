@@ -407,12 +407,16 @@ const ListRunsQuery = z
   .object({
     limit: z.coerce.number().int().min(1).max(200).default(50),
     conversation_id: z.coerce.number().int().positive().optional(),
+    // Optionaler Status-Filter, z. B. `?status=laeuft` für die „laufende Flows"-
+    // Anzeige im Chat (Plan 013, B8).
+    status: z.enum(['laeuft', 'fertig', 'fehler', 'abgebrochen']).optional(),
   })
   .strict();
 
 module.exports = {
   FlowDefinition,
   FlowArgument,
+  FlowName,
   FlowStep,
   SubagentRole,
   ResultContract,

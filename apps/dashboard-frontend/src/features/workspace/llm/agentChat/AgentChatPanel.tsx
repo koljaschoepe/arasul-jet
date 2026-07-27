@@ -23,6 +23,7 @@ import CompactMessage from './CompactMessage';
 import ComposerCard from './ComposerCard';
 import ConversationList from '../ConversationList';
 import RunCard from '@/features/flows/RunCard';
+import FlowActivity from '@/features/flows/FlowActivity';
 
 const PANEL_CHAT_KEY = 'arasul_panel_chat_id';
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -448,6 +449,9 @@ export default function AgentChatPanel() {
         </button>
         <ConversationList onSelect={switchChat} />
       </div>
+
+      {/* Flow-Steuerung: laufende & geplante Flows, hier anstoßen/planen (B8) */}
+      <FlowActivity flows={flows} onRunFlow={handleRunFlow} />
 
       {/* Verlauf */}
       <div

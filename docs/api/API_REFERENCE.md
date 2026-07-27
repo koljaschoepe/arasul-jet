@@ -2193,23 +2193,47 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
 
-| Method | Endpoint                          | Description                                               |
-| ------ | --------------------------------- | --------------------------------------------------------- |
-| GET    | `/api/flows`                      | List all flows (broken files reported separately)         |
-| GET    | `/api/flows/werkzeuge`            | Tool names a flow may declare, each with `verfuegbar`     |
-| GET    | `/api/flows/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)     |
-| GET    | `/api/flows/:name`                | Get a single flow                                         |
-| GET    | `/api/flows/:name/datei`          | Get the raw Markdown file (`text/markdown`)               |
-| POST   | `/api/flows/vorschau`             | Render the file that _would_ be written — without saving  |
-| POST   | `/api/flows/vorschau-laufzeit`    | Resolve the runtime prompt (with sample args) — no run    |
-| POST   | `/api/flows`                      | Create a flow (409 if the name exists)                    |
-| PUT    | `/api/flows/:name`                | Update an existing flow (404 if it does not exist)        |
-| DELETE | `/api/flows/:name`                | Delete a flow                                             |
-| GET    | `/api/flows/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`)     |
-| POST   | `/api/flows/laeufe`               | Start a run detached; returns `202 { runId }` immediately |
-| GET    | `/api/flows/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)  |
-| GET    | `/api/flows/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps  |
-| POST   | `/api/flows/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)           |
+| Method | Endpoint                          | Description                                                      |
+| ------ | --------------------------------- | ---------------------------------------------------------------- |
+| GET    | `/api/flows`                      | List all flows (broken files reported separately)                |
+| GET    | `/api/flows/werkzeuge`            | Tool names a flow may declare, each with `verfuegbar`            |
+| GET    | `/api/flows/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)            |
+| GET    | `/api/flows/:name`                | Get a single flow                                                |
+| GET    | `/api/flows/:name/datei`          | Get the raw Markdown file (`text/markdown`)                      |
+| POST   | `/api/flows/vorschau`             | Render the file that _would_ be written — without saving         |
+| POST   | `/api/flows/vorschau-laufzeit`    | Resolve the runtime prompt (with sample args) — no run           |
+| POST   | `/api/flows`                      | Create a flow (409 if the name exists)                           |
+| PUT    | `/api/flows/:name`                | Update an existing flow (404 if it does not exist)               |
+| DELETE | `/api/flows/:name`                | Delete a flow                                                    |
+| GET    | `/api/flows/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`, `?status`) |
+| POST   | `/api/flows/laeufe`               | Start a run detached; returns `202 { runId }` immediately        |
+| GET    | `/api/flows/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)         |
+| GET    | `/api/flows/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps         |
+| POST   | `/api/flows/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)                  |
+| GET    | `/api/flows/zeitplaene`           | List the caller's flow triggers (schedules + events)             |
+| POST   | `/api/flows/zeitplaene`           | Create a trigger (cron schedule or named event)                  |
+| PUT    | `/api/flows/zeitplaene/:id`       | Update a trigger (merges; 404 if not owned)                      |
+| DELETE | `/api/flows/zeitplaene/:id`       | Delete a trigger                                                 |
+
+**Flow triggers (Plan 013, B8).** A flow can start automatically — on a cron
+schedule or on a named event — via `flow_schedules`. `GET /laeufe?status=laeuft`
+lists the currently-running flows for the chat's activity strip. Create bodies
+are a discriminated union on `trigger_type`:
+
+```jsonc
+// Cron schedule
+{ "flow": "recherche", "trigger_type": "zeitplan", "cron": "0 8 * * *",
+  "args": { "thema": "Marktlage" }, "enabled": true }
+// Named event (fired via the external API, see below)
+{ "flow": "import", "trigger_type": "ereignis", "event_name": "neue-rechnung",
+  "args": {} }
+```
+
+`cron` is a 5-field expression (minute hour day-of-month month day-of-week),
+evaluated in the device's local time. The schedule stores the computed
+`next_run_at`; a scheduler service ticks every 60 s and starts the due triggers
+through the same detached runner as the chat. `PUT` merges — only supplied
+fields change; `trigger_type` is fixed (switch by recreating).
 
 **Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
 (`{ flow, args, conversation_id? }`) starts the run **server-side** and returns
@@ -2525,6 +2549,29 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 | GET    | `/api/v1/external/llm/job/:jobId` | API Key | Get job status              |
 | GET    | `/api/v1/external/llm/queue`      | API Key | Get queue status            |
 | GET    | `/api/v1/external/models`         | API Key | Get available models        |
+
+### Flows (Plan 013, B8)
+
+Trigger flows from n8n or your own automations with an API key. The endpoint
+scope is `flow:run` (included in the default endpoint set for new keys).
+
+| Method | Endpoint                           | Auth    | Description                                    |
+| ------ | ---------------------------------- | ------- | ---------------------------------------------- |
+| GET    | `/api/v1/external/flows`           | API Key | List available flows (name, description, args) |
+| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default    |
+| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result                     |
+| POST   | `/api/v1/external/events/:name`    | API Key | Fire a named event → starts all its triggers   |
+
+**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
+With `wait_for_result: true` (default) it blocks until the run reaches a terminal
+state and returns `{ success, run_id, status, result, error, steps_used }`; with
+`false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
+are owned by the API key's creator (or the primary admin for orphaned keys).
+
+**POST /api/v1/external/events/:name** starts every enabled `ereignis` trigger
+listening on that name and returns `{ success, event, triggered, runs }` — the
+bridge that lets an n8n webhook kick off one or more flows without knowing their
+names.
 
 **POST /api/v1/external/llm/chat:**
 

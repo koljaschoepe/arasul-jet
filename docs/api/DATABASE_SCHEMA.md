@@ -2392,6 +2392,39 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ---
 
+## `flow_schedules`
+
+> Flow-Auslöser (Plan 013, B8): startet einen Flow automatisch — per Cron-Zeitplan oder auf ein benanntes Ereignis hin. Eine Zeile je Auslöser; ein Flow darf mehrere haben.
+
+| Column         | Type                     | Nullable | Default                                      |
+| -------------- | ------------------------ | -------- | -------------------------------------------- |
+| `id`           | bigint                   | ⛔       | `nextval('flow_schedules_id_seq'::regclass)` |
+| `user_id`      | bigint                   | ⛔       |                                              |
+| `flow_name`    | character varying        | ⛔       |                                              |
+| `trigger_type` | character varying        | ⛔       | `CHECK IN ('zeitplan', 'ereignis')`          |
+| `cron`         | character varying        | ✅       | (nur bei `trigger_type = 'zeitplan'`)        |
+| `event_name`   | character varying        | ✅       | (nur bei `trigger_type = 'ereignis'`)        |
+| `args`         | jsonb                    | ⛔       | `'{}'::jsonb`                                |
+| `enabled`      | boolean                  | ⛔       | `true`                                       |
+| `next_run_at`  | timestamp with time zone | ✅       | (berechnet aus dem Cron)                     |
+| `last_run_at`  | timestamp with time zone | ✅       |                                              |
+| `last_run_id`  | bigint                   | ✅       | → `flow_runs.id` ON DELETE SET NULL          |
+| `last_error`   | text                     | ✅       |                                              |
+| `created_at`   | timestamp with time zone | ⛔       | `now()`                                      |
+| `updated_at`   | timestamp with time zone | ⛔       | `now()`                                      |
+
+> `CHECK (flow_schedules_trigger_shape)`: genau eines von `cron`/`event_name` ist passend zum `trigger_type` gesetzt — ein Zeitplan ohne Cron oder ein Ereignis ohne Namen wäre ein toter Auslöser.
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_flow_schedules_faellig` — `CREATE INDEX idx_flow_schedules_faellig ON arasul.flow_schedules USING btree (next_run_at) WHERE (enabled AND trigger_type = 'zeitplan')`
+- `idx_flow_schedules_ereignis` — `CREATE INDEX idx_flow_schedules_ereignis ON arasul.flow_schedules USING btree (event_name) WHERE (enabled AND trigger_type = 'ereignis')`
+- `idx_flow_schedules_user` — `CREATE INDEX idx_flow_schedules_user ON arasul.flow_schedules USING btree (user_id, id DESC)`
+
+---
+
 ## `space_members`
 
 > Phase 1.1: Per-Space-ACL. Owner ist immer implicit member with permission='owner'. Admins (admin_users.role = 'admin') haben Zugriff auf alle Spaces.

@@ -27,6 +27,12 @@ const {
   StartRunBody,
   VALID_TOOLS,
 } = require('../schemas/flows');
+const {
+  CreateScheduleBody,
+  UpdateScheduleBody,
+  ScheduleIdParams,
+} = require('../schemas/flowSchedules');
+const scheduleStore = require('../services/flows/scheduleStore');
 const { NotFoundError } = require('../utils/errors');
 const { llmLimiter } = require('../middleware/rateLimit');
 const logger = require('../utils/logger');
@@ -120,6 +126,7 @@ router.get(
       userId: req.user.id,
       limit: req.query.limit,
       conversationId: req.query.conversation_id ?? null,
+      status: req.query.status ?? null,
     });
     res.json({ data: runs, timestamp: new Date().toISOString() });
   })
@@ -282,6 +289,116 @@ router.post(
       throw new NotFoundError(`Kein laufender Flow-Lauf ${req.params.id}`);
     }
     res.json({ data: run, timestamp: new Date().toISOString() });
+  })
+);
+
+// ────────────────────────────────────────────────────────────────────────────
+// Auslöser (Plan 013, B8): Flows automatisch starten — per Zeitplan (Cron) oder
+// auf ein benanntes Ereignis hin. Die Routen liegen VOR `/:name`, sonst würde
+// „zeitplaene" als Flow-Name verstanden. Der Scheduler-Dienst liest dieselbe
+// Tabelle und startet die fälligen Läufe.
+// ────────────────────────────────────────────────────────────────────────────
+
+// GET /api/flows/zeitplaene — alle Auslöser des Nutzers.
+router.get(
+  '/zeitplaene',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const zeitplaene = await scheduleStore.listSchedules({ userId: req.user.id });
+    res.json({ data: zeitplaene, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/flows/zeitplaene — einen Auslöser anlegen.
+// Prüft FRÜH, dass es den Flow gibt und die hinterlegten Argumente passen —
+// sonst entstünde ein Auslöser, der bei jedem Feuern sofort scheitert.
+router.post(
+  '/zeitplaene',
+  requireAuth,
+  validateBody(CreateScheduleBody),
+  asyncHandler(async (req, res) => {
+    const flow = await registry.loadFlow(req.body.flow);
+    resolveArguments(flow.argumente, req.body.args);
+    const angelegt = await scheduleStore.createSchedule({
+      userId: req.user.id,
+      flowName: req.body.flow,
+      triggerType: req.body.trigger_type,
+      cron: req.body.trigger_type === 'zeitplan' ? req.body.cron : null,
+      eventName: req.body.trigger_type === 'ereignis' ? req.body.event_name : null,
+      args: req.body.args,
+      enabled: req.body.enabled,
+    });
+    res.status(201).json({ data: angelegt, timestamp: new Date().toISOString() });
+  })
+);
+
+// PUT /api/flows/zeitplaene/:id — einen Auslöser ändern (zusammenführend).
+router.put(
+  '/zeitplaene/:id',
+  requireAuth,
+  validateParams(ScheduleIdParams),
+  validateBody(UpdateScheduleBody),
+  asyncHandler(async (req, res) => {
+    // Nur gesetzte Felder übernehmen; die DB-Spalten heißen flow_name/event_name.
+    const patch = {};
+    if (req.body.flow !== undefined) {
+      patch.flow_name = req.body.flow;
+    }
+    if (req.body.cron !== undefined) {
+      patch.cron = req.body.cron;
+    }
+    if (req.body.event_name !== undefined) {
+      patch.event_name = req.body.event_name;
+    }
+    if (req.body.args !== undefined) {
+      patch.args = req.body.args;
+    }
+    if (req.body.enabled !== undefined) {
+      patch.enabled = req.body.enabled;
+    }
+
+    // Wenn der Ziel-Flow oder die Argumente geändert werden, gegen die
+    // Deklaration prüfen — bevor ein kaputter Auslöser gespeichert wird.
+    if (patch.flow_name !== undefined || patch.args !== undefined) {
+      const bestehend = await scheduleStore.getSchedule({
+        id: req.params.id,
+        userId: req.user.id,
+      });
+      if (!bestehend) {
+        throw new NotFoundError(`Auslöser ${req.params.id} nicht gefunden`);
+      }
+      const flowName = patch.flow_name ?? bestehend.flow_name;
+      const args = patch.args ?? bestehend.args;
+      const flow = await registry.loadFlow(flowName);
+      resolveArguments(flow.argumente, args);
+    }
+
+    const aktualisiert = await scheduleStore.updateSchedule({
+      id: req.params.id,
+      userId: req.user.id,
+      patch,
+    });
+    if (!aktualisiert) {
+      throw new NotFoundError(`Auslöser ${req.params.id} nicht gefunden`);
+    }
+    res.json({ data: aktualisiert, timestamp: new Date().toISOString() });
+  })
+);
+
+// DELETE /api/flows/zeitplaene/:id — einen Auslöser löschen.
+router.delete(
+  '/zeitplaene/:id',
+  requireAuth,
+  validateParams(ScheduleIdParams),
+  asyncHandler(async (req, res) => {
+    const geloescht = await scheduleStore.deleteSchedule({
+      id: req.params.id,
+      userId: req.user.id,
+    });
+    if (!geloescht) {
+      throw new NotFoundError(`Auslöser ${req.params.id} nicht gefunden`);
+    }
+    res.json({ deleted: true, timestamp: new Date().toISOString() });
   })
 );
 

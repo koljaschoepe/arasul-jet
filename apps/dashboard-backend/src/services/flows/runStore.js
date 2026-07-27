@@ -261,12 +261,19 @@ async function getRun({ runId, userId, includeRaw = false }, { db = database } =
 }
 
 /** Lädt die neuesten Läufe eines Nutzers (ohne Schritte, für eine Übersicht). */
-async function listRuns({ userId, limit = 50, conversationId = null }, { db = database } = {}) {
+async function listRuns(
+  { userId, limit = 50, conversationId = null, status = null },
+  { db = database } = {}
+) {
   const params = [userId];
   let filter = '';
   if (conversationId != null) {
     params.push(conversationId);
-    filter = `AND conversation_id = $${params.length}`;
+    filter += `AND conversation_id = $${params.length} `;
+  }
+  if (status != null) {
+    params.push(status);
+    filter += `AND status = $${params.length} `;
   }
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(
