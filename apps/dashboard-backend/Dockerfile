@@ -17,7 +17,9 @@ WORKDIR /app
 
 # git: the Projekt↔Repo-Sync (Plan 013, B9) shells out to the git CLI via
 # execFile (services/git/gitSyncService.js). alpine ships without it.
-RUN apk add --no-cache git
+# tzdata: makes the TZ env effective — flow schedules (cronExpr) run in
+# process-local time and must match the appliance's wall clock.
+RUN apk add --no-cache git tzdata
 
 # Root manifest + the single root lockfile (the only lock in the repo).
 COPY package.json package-lock.json ./

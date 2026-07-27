@@ -316,7 +316,6 @@ export default function AgentChatPanel() {
       // teure GPU-Vorgänge, zwei Karten) für eine Aktion. Erst nach dem POST frei.
       if (isLoading || runStartRef.current) return;
       runStartRef.current = true;
-      setInput('');
       setError(null);
       try {
         const id = await ensureChat();
@@ -325,6 +324,10 @@ export default function AgentChatPanel() {
           args,
           conversation_id: Number(id),
         });
+        // Erst NACH dem erfolgreichen Start leeren — schlägt er fehl (z. B.
+        // fehlendes Pflicht-Argument), bleibt der getippte Befehl zum
+        // Korrigieren stehen, statt verloren zu gehen.
+        setInput('');
         // Wie in der Liste: die BIGINT-ID kann als String kommen — zur Zahl
         // normalisieren, damit Registry-Schlüssel und Karten-ID konsistent sind.
         const runId = Number(res.data.runId);

@@ -10,6 +10,7 @@
  */
 
 const database = require('../../database');
+const { ValidationError } = require('../../utils/errors');
 const { naechsteFaelligkeit } = require('./cronExpr');
 
 /** Spalten, die nach außen gehen (kein internes Rauschen). */
@@ -64,6 +65,14 @@ async function updateSchedule({ id, userId, patch }, { db = database, jetzt = ne
   const bestehend = await getSchedule({ id, userId }, { db });
   if (!bestehend) {
     return null;
+  }
+  // Felder des jeweils ANDEREN Trigger-Typs nicht stillschweigend verwerfen
+  // (der Aufrufer bekäme sonst 200, obwohl sein Feld wirkungslos blieb):
+  if (bestehend.trigger_type === 'ereignis' && patch.cron !== undefined) {
+    throw new ValidationError('Dieser Auslöser reagiert auf ein Ereignis — "cron" gilt hier nicht');
+  }
+  if (bestehend.trigger_type === 'zeitplan' && patch.event_name !== undefined) {
+    throw new ValidationError('Dieser Auslöser läuft nach Zeitplan — "event_name" gilt hier nicht');
   }
   const naechst = { ...bestehend, ...patch };
   let nextRun = bestehend.next_run_at;

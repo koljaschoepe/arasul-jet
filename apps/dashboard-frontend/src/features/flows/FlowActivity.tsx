@@ -29,6 +29,13 @@ import { Switch } from '@/components/ui/shadcn/switch';
 import ScheduleDialog from './ScheduleDialog';
 import type { Flow, FlowRunSummary, FlowSchedule } from '@/types/flows';
 
+/** Zeitplan-Argumente (string|number|boolean) auf die Lauf-Form `string` bringen. */
+function stringArgs(args: FlowSchedule['args']): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(args ?? {})) out[k] = String(v);
+  return out;
+}
+
 /** Ein paar geläufige Cron-Ausdrücke lesbar machen; sonst roh anzeigen. */
 function cronText(cron: string): string {
   const map: Record<string, string> = {
@@ -218,7 +225,14 @@ export default function FlowActivity({
           ))}
 
           {schedules.map(s => (
-            <ScheduleRow key={s.id} schedule={s} onRunNow={flow => onRunFlow(flow, {})} />
+            <ScheduleRow
+              key={s.id}
+              schedule={s}
+              // „Jetzt starten" muss mit den GESPEICHERTEN Argumenten des
+              // Auslösers laufen — mit `{}` scheiterte jeder Zeitplan, dessen
+              // Flow ein Pflicht-Argument hat, sofort mit 400.
+              onRunNow={flow => onRunFlow(flow, stringArgs(s.args))}
+            />
           ))}
 
           {laufende.length === 0 && schedules.length === 0 && (

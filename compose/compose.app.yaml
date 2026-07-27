@@ -32,6 +32,9 @@ services:
       - '${DOCKER_GID:-994}'
     environment:
       NODE_ENV: production
+      # Flow-Zeitpläne (cronExpr) rechnen in Prozess-Lokalzeit; ohne TZ läuft der
+      # Container in UTC und „täglich 8 Uhr" feuert um 10 Uhr deutscher Zeit.
+      TZ: ${TZ:-Europe/Berlin}
       PORT: ${DASHBOARD_BACKEND_PORT}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}

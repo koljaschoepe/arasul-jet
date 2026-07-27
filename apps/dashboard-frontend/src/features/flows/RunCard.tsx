@@ -10,6 +10,7 @@
  * solange der Lauf läuft.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Loader2, Square } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
@@ -42,6 +43,9 @@ interface RawStep {
   position?: number;
   raw_output?: string | null;
 }
+
+/** Sieht der Wert wie eine UUID aus (Wissensbasis-Argument)? */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function RunCard({ runId, flowName, onFinished }: RunCardProps) {
   const api = useApi();
@@ -87,8 +91,26 @@ export default function RunCard({ runId, flowName, onFinished }: RunCardProps) {
 
   const status = run.status ?? 'laeuft';
   const name = run.flowName ?? flowName ?? '';
-  const argWerte = Object.values(run.args).filter(Boolean);
   const laeuft = status === 'laeuft';
+
+  // Wissensbasis-Argumente stehen im Lauf als Raum-UUID — in der Kopfzeile den
+  // NAMEN der Sammlung zeigen; eine UUID, die sich nicht auflösen lässt,
+  // lieber ausblenden als roh anzeigen. Die Sammlungen sind gecacht (gleicher
+  // Query-Key wie im ArgumentPicker) — das kostet keinen zusätzlichen Request.
+  const hatUuidArg = Object.values(run.args).some(v => UUID_RE.test(String(v)));
+  const sammlungen = useQuery({
+    queryKey: ['flows', 'sammlungen'],
+    queryFn: () =>
+      api.get<{ data: { id: string; name: string }[] }>('/flows/sammlungen', { showError: false }),
+    enabled: hatUuidArg,
+    staleTime: 60_000,
+  });
+  const sammlungsName = (id: string): string | null =>
+    (sammlungen.data?.data ?? []).find(s => s.id === id)?.name ?? null;
+  const argWerte = Object.values(run.args)
+    .filter(Boolean)
+    .map(v => (UUID_RE.test(String(v)) ? sammlungsName(String(v)) : String(v)))
+    .filter((v): v is string => v != null && v !== '');
 
   return (
     <div

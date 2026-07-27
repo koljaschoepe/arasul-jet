@@ -8,15 +8,16 @@ All variables are defined in `.env` file at repository root.
 
 ## System
 
-| Variable        | Default    | Description                        |
-| --------------- | ---------- | ---------------------------------- |
-| SYSTEM_NAME     | arasul     | System identifier                  |
-| SYSTEM_VERSION  | 1.0.0      | Current version                    |
-| BUILD_HASH      | dev-build  | Git commit hash                    |
-| JETPACK_VERSION | 6.0        | JetPack version                    |
-| NODE_ENV        | production | Node.js environment                |
-| NODE_VERSION    | 22         | Node.js version (Docker build arg) |
-| PYTHON_VERSION  | 3.11.12    | Python version (Docker build arg)  |
+| Variable        | Default       | Description                                                                                                                                                                   |
+| --------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SYSTEM_NAME     | arasul        | System identifier                                                                                                                                                             |
+| SYSTEM_VERSION  | 1.0.0         | Current version                                                                                                                                                               |
+| BUILD_HASH      | dev-build     | Git commit hash                                                                                                                                                               |
+| JETPACK_VERSION | 6.0           | JetPack version                                                                                                                                                               |
+| NODE_ENV        | production    | Node.js environment                                                                                                                                                           |
+| NODE_VERSION    | 22            | Node.js version (Docker build arg)                                                                                                                                            |
+| PYTHON_VERSION  | 3.11.12       | Python version (Docker build arg)                                                                                                                                             |
+| TZ              | Europe/Berlin | Zeitzone des Dashboard-Backends — Flow-Zeitpläne (Cron) rechnen in dieser Lokalzeit; ohne sie liefe der Container in UTC und „täglich 8 Uhr" feuerte um 10 Uhr deutscher Zeit |
 
 ---
 

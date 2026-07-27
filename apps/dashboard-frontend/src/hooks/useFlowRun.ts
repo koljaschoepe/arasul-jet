@@ -187,7 +187,14 @@ export function useFlowRun() {
     [setSicher]
   );
 
-  /** Öffnet den Ereignis-Strom eines Laufs und liest ihn bis zum Ende. */
+  /**
+   * Öffnet den Ereignis-Strom eines Laufs und liest ihn bis zum Ende.
+   *
+   * Reißt die Verbindung ab, BEVOR der Lauf terminal ist (Netz-Wackler,
+   * Proxy-Timeout, Backend-Schluckauf), verbindet sich der Hook selbst neu —
+   * sonst zeigte die Karte dauerhaft ein eingefrorenes „läuft", obwohl der
+   * Lauf serverseitig weiterarbeitet. Terminal erkannt = kein Reconnect.
+   */
   const verbinden = useCallback(
     async (runId: number) => {
       // Eine eventuell offene Verbindung zuerst schließen.
@@ -196,48 +203,75 @@ export function useFlowRun() {
       abortRef.current = controller;
       setSicher(s => ({ ...s, runId, verbunden: true }));
 
-      try {
-        const resp = await fetch(`${API_BASE}/flows/laeufe/${runId}/stream`, {
-          headers: getAuthHeaders(),
-          signal: controller.signal,
-        });
-        if (!resp.ok || !resp.body) {
-          throw new Error(`Stream-Fehler ${resp.status}`);
+      const RECONNECT_DELAY_MS = 3000;
+      const MAX_VERSUCHE = 20;
+      // Hat der Strom einen terminalen Stand gemeldet? (ende, done/error oder
+      // ein Verlauf mit nicht-laufendem Status)
+      let terminal = false;
+
+      for (let versuch = 0; versuch < MAX_VERSUCHE; versuch++) {
+        if (versuch > 0) {
+          await new Promise(r => setTimeout(r, RECONNECT_DELAY_MS));
+          if (controller.signal.aborted || !lebtRef.current) break;
+          setSicher(s => ({ ...s, verbunden: true }));
         }
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let puffer = '';
-        // SSE-Frames sind durch eine Leerzeile getrennt; Zeilen beginnen mit "data:".
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
+        try {
+          const resp = await fetch(`${API_BASE}/flows/laeufe/${runId}/stream`, {
+            headers: getAuthHeaders(),
+            signal: controller.signal,
+          });
+          if (!resp.ok || !resp.body) {
+            throw new Error(`Stream-Fehler ${resp.status}`);
           }
-          puffer += decoder.decode(value, { stream: true });
-          const teile = puffer.split('\n\n');
-          puffer = teile.pop() || '';
-          for (const block of teile) {
-            for (const zeile of block.split('\n')) {
-              const t = zeile.trim();
-              if (!t.startsWith('data:')) {
-                continue;
-              }
-              try {
-                anwenden(JSON.parse(t.replace(/^data:\s*/, '')) as StreamEvent);
-              } catch {
-                // Kaputtes Frame überspringen, statt den Strom abzureißen.
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let puffer = '';
+          // SSE-Frames sind durch eine Leerzeile getrennt; Zeilen beginnen mit "data:".
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
+            puffer += decoder.decode(value, { stream: true });
+            const teile = puffer.split('\n\n');
+            puffer = teile.pop() || '';
+            for (const block of teile) {
+              for (const zeile of block.split('\n')) {
+                const t = zeile.trim();
+                if (!t.startsWith('data:')) {
+                  continue;
+                }
+                try {
+                  const evt = JSON.parse(t.replace(/^data:\s*/, '')) as StreamEvent;
+                  if (
+                    evt.type === 'ende' ||
+                    evt.type === 'done' ||
+                    evt.type === 'error' ||
+                    (evt.type === 'verlauf' && evt.run?.status && evt.run.status !== 'laeuft')
+                  ) {
+                    terminal = true;
+                  }
+                  anwenden(evt);
+                } catch {
+                  // Kaputtes Frame überspringen, statt den Strom abzureißen.
+                }
               }
             }
           }
+        } catch (err) {
+          // Ein abgebrochener fetch (Unmount/Neu-Verbinden) beendet den Vorgang.
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            break;
+          }
+          // Verbindungsfehler: nicht als Lauf-Fehler anzeigen, sondern neu
+          // versuchen — erst der letzte gescheiterte Versuch wird gemeldet.
+          if (versuch === MAX_VERSUCHE - 1) {
+            setSicher(s => ({ ...s, error: (err as Error).message }));
+          }
         }
-      } catch (err) {
-        // Ein abgebrochener fetch (Unmount/Neu-Verbinden) ist kein Fehler.
-        if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          setSicher(s => ({ ...s, error: (err as Error).message }));
-        }
-      } finally {
-        setSicher(s => ({ ...s, verbunden: false }));
+        if (terminal || controller.signal.aborted || !lebtRef.current) break;
       }
+      setSicher(s => ({ ...s, verbunden: false }));
     },
     [anwenden, setSicher]
   );
