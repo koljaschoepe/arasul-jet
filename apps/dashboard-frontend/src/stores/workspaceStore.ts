@@ -166,9 +166,16 @@ export type RightPanelMode = 'chat' | 'terminal';
  *   extensions  → Erweiterungs-Filter (Schritt 9)
  *   skills      → Skill-Liste (Zentrale in Phase D)
  */
-export type ActivityView = 'files' | 'search' | 'models' | 'extensions' | 'skills';
+export type ActivityView = 'files' | 'search' | 'models' | 'extensions' | 'skills' | 'settings';
 
-const ACTIVITY_VIEWS = new Set<ActivityView>(['files', 'search', 'models', 'extensions', 'skills']);
+const ACTIVITY_VIEWS = new Set<ActivityView>([
+  'files',
+  'search',
+  'models',
+  'extensions',
+  'skills',
+  'settings',
+]);
 
 interface WorkspaceState {
   tabs: WorkspaceTab[];

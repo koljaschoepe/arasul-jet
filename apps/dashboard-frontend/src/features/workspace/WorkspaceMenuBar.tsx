@@ -83,6 +83,7 @@ export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
   const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
   const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
+  const selectView = useWorkspaceStore(s => s.selectView);
 
   return (
     <header
@@ -144,7 +145,10 @@ export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
         type="button"
         title="Einstellungen"
         aria-label="Einstellungen"
-        onClick={() => openTab({ type: 'settings' })}
+        onClick={() => {
+          selectView('settings');
+          openTab({ type: 'settings' });
+        }}
         className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
           activeTabId === 'settings'
             ? 'bg-accent text-foreground'

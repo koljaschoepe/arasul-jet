@@ -133,8 +133,13 @@ export function ActivityBar() {
 
       <ActivityButton
         label="Einstellungen"
-        active={activeTabId === 'settings'}
-        onClick={() => openTab({ type: 'settings' })}
+        active={sidebarVisible && activeView === 'settings'}
+        onClick={() => {
+          // Wie eine Sidebar-Ansicht: Sektionen erscheinen links (SettingsPanel),
+          // der Mitte-Tab zeigt die gewählte Sektion (B4).
+          selectView('settings');
+          openTab({ type: 'settings' });
+        }}
       >
         <Settings className="h-[18px] w-[18px]" />
       </ActivityButton>

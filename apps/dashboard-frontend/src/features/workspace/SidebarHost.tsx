@@ -5,6 +5,7 @@ import { FilesPanel } from './sidebar/FilesPanel';
 import { ModelsPanel } from './sidebar/ModelsPanel';
 import { ExtensionsPanel } from './sidebar/ExtensionsPanel';
 import { SkillsPanel } from './sidebar/SkillsPanel';
+import { SettingsPanel } from './sidebar/SettingsPanel';
 
 /**
  * SidebarHost — Inhalt der linken Sidebar nach der aktiven Activity-Bar-Ansicht
@@ -50,7 +51,10 @@ export function SidebarHost() {
           (inkl. alter, entfernter Werte wie 'search') zeigt den Explorer. */}
       <div
         className={
-          activeView === 'models' || activeView === 'extensions' || activeView === 'skills'
+          activeView === 'models' ||
+          activeView === 'extensions' ||
+          activeView === 'skills' ||
+          activeView === 'settings'
             ? 'hidden'
             : 'flex min-h-0 flex-1 flex-col'
         }
@@ -60,6 +64,7 @@ export function SidebarHost() {
       {activeView === 'models' && <ModelsPanel />}
       {activeView === 'extensions' && <ExtensionsPanel />}
       {activeView === 'skills' && <SkillsPanel />}
+      {activeView === 'settings' && <SettingsPanel />}
     </div>
   );
 }
