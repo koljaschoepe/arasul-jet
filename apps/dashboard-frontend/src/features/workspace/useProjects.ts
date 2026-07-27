@@ -55,6 +55,10 @@ export function useProjects() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
       qc.invalidateQueries({ queryKey: ACTIVE_PROJECT_QUERY_KEY });
+      // War das gelöschte Projekt aktiv, fällt das Backend auf Standard zurück —
+      // der (projekt-gescopte) Explorer-Baum muss dann neu laden.
+      qc.invalidateQueries({ queryKey: ['spaces-tree'] });
+      qc.invalidateQueries({ queryKey: ['spaces'] });
     },
   });
 

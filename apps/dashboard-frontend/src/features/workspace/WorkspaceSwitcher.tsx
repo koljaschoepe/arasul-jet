@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Boxes, Check, ChevronDown, Plus } from 'lucide-react';
+import { Boxes, Check, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,8 +20,9 @@ import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Button } from '@/components/ui/shadcn/button';
+import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/ToastContext';
-import { useProjects, useActiveProject } from './useProjects';
+import { useProjects, useActiveProject, type Project } from './useProjects';
 
 /**
  * Projekt-Switcher (Workspace-Neuausrichtung Batch 2) — prominenter Umschalter
@@ -31,14 +32,31 @@ import { useProjects, useActiveProject } from './useProjects';
  */
 export function WorkspaceSwitcher() {
   const toast = useToast();
-  const { projects, createProject } = useProjects();
+  const { projects, createProject, deleteProject } = useProjects();
   const { activeProject, setActive } = useActiveProject();
 
   const [dialogOffen, setDialogOffen] = useState(false);
   const [name, setName] = useState('');
   const [beschreibung, setBeschreibung] = useState('');
+  // Zu löschendes Projekt (öffnet den Bestätigungsdialog). Das Standard-Projekt
+  // ist nie hier — es lässt sich nicht löschen (Backend + fehlender Knopf).
+  const [loeschZiel, setLoeschZiel] = useState<Project | null>(null);
 
   const label = activeProject?.name ?? 'Standard';
+
+  const loeschen = async () => {
+    if (!loeschZiel) return;
+    const ziel = loeschZiel;
+    try {
+      await deleteProject.mutateAsync(ziel.id);
+      toast.success(`Projekt „${ziel.name}" gelöscht`);
+      setLoeschZiel(null);
+    } catch (err) {
+      // 409 (enthält noch Ordner) / 403 (Standard) tragen eine klare Meldung.
+      toast.error(err instanceof Error ? err.message : 'Projekt konnte nicht gelöscht werden');
+      setLoeschZiel(null);
+    }
+  };
 
   const anlegen = async () => {
     const trimmed = name.trim();
@@ -91,6 +109,23 @@ export function WorkspaceSwitcher() {
               </span>
               {activeProject?.id === project.id && (
                 <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              )}
+              {!project.is_default && (
+                <button
+                  type="button"
+                  aria-label={`Projekt „${project.name}" löschen`}
+                  title="Projekt löschen"
+                  // stopPropagation verhindert, dass der Zeilen-Klick (onSelect)
+                  // gleichzeitig das Projekt aktiviert — Radix ruft onSelect über
+                  // denselben onClick, den wir hier stoppen.
+                  onClick={e => {
+                    e.stopPropagation();
+                    setLoeschZiel(project);
+                  }}
+                  className="ml-0.5 shrink-0 rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
               )}
             </DropdownMenuItem>
           ))}
@@ -150,6 +185,17 @@ export function WorkspaceSwitcher() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={loeschZiel !== null}
+        onClose={() => setLoeschZiel(null)}
+        onConfirm={loeschen}
+        title="Projekt löschen"
+        message={`Das Projekt „${loeschZiel?.name ?? ''}" wirklich löschen? Ordner müssen zuvor entfernt oder verschoben sein. Dies kann nicht rückgängig gemacht werden.`}
+        confirmText="Löschen"
+        confirmVariant="danger"
+        isLoading={deleteProject.isPending}
+      />
     </>
   );
 }

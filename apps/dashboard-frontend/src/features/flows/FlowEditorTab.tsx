@@ -131,10 +131,16 @@ export default function FlowEditorTab() {
     try {
       await api.del(`/flows/${editName}`, { showError: false });
       toast.success(`Flow „${editName}" gelöscht`);
-      await queryClient.invalidateQueries({ queryKey: ['flows'] });
+      // Erst den Editor abbauen (Tab schließen + Ziel leeren), dann die
+      // Detail-Abfrage des gelöschten Flows verwerfen — sonst löst das breite
+      // invalidate(['flows']) noch ein Nachladen von GET /flows/<name> aus, das
+      // gegen den eben gelöschten Flow zwangsläufig 404 läuft. Danach nur die
+      // LISTE (exakt ['flows']) auffrischen, nicht die Detail-Keys.
       setLoeschDialog(false);
       closeTab(FLOW_TAB_ID);
       setEditTarget(null);
+      queryClient.removeQueries({ queryKey: ['flows', editName] });
+      await queryClient.invalidateQueries({ queryKey: ['flows'], exact: true });
     } catch (err) {
       setLoeschDialog(false);
       setFehler((err as ApiError).message || 'Löschen fehlgeschlagen');
