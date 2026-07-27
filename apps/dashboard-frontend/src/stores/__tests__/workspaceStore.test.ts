@@ -87,15 +87,15 @@ describe('workspaceStore — Tabs', () => {
     ]);
   });
 
-  it('der Skill-Editor ist ein Singleton-Tab mit Default-Titel', () => {
+  it('der Flow-Editor ist ein Singleton-Tab mit Default-Titel', () => {
     const { openTab } = useWorkspaceStore.getState();
-    openTab({ type: 'skill' });
-    openTab({ type: 'skill' });
+    openTab({ type: 'flow' });
+    openTab({ type: 'flow' });
     const { tabs, activeTabId } = useWorkspaceStore.getState();
     expect(tabs).toHaveLength(1);
-    expect(tabs[0]?.id).toBe('skill');
-    expect(tabs[0]?.title).toBe('Neuer Skill');
-    expect(activeTabId).toBe('skill');
+    expect(tabs[0]?.id).toBe('flow');
+    expect(tabs[0]?.title).toBe('Neuer Flow');
+    expect(activeTabId).toBe('flow');
   });
 
   it('updateTabTitle ändert den Titel', () => {
@@ -633,7 +633,7 @@ describe('workspaceStore — Activity-Bar-Ansicht (selectView, Plan 012 Phase B)
   });
 
   it('requestExplorerAction erzwingt die Datei-Ansicht', () => {
-    useWorkspaceStore.setState({ activeView: 'skills', sidebarVisible: false });
+    useWorkspaceStore.setState({ activeView: 'flows', sidebarVisible: false });
     useWorkspaceStore.getState().requestExplorerAction('upload-files');
     const s = useWorkspaceStore.getState();
     expect(s.activeView).toBe('files');
@@ -678,7 +678,7 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
       { type: 'settings' as const },
       { type: 'automationen' as const },
       { type: 'store' as const },
-      { type: 'skill' as const },
+      { type: 'flow' as const },
       { type: 'extension' as const, extensionId: 'notiz-app' },
     ];
     for (const spec of specs) {

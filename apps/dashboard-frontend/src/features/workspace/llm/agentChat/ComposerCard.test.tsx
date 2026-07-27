@@ -1,9 +1,9 @@
 /**
  * ComposerCard Tests (Plan 004, Schritt 4 · Slash-Menü Plan 011, Schritt 13)
  *
- * Fokus: sichtbares Anhang-Feedback, native Formulierung UND das Skill-Menü,
+ * Fokus: sichtbares Anhang-Feedback, native Formulierung UND das Flow-Menü,
  * das die alte Flow-Agenten-Palette ablöst — Filtern, Pfeiltasten, Enter
- * übernimmt, Stift bearbeitet, feste Befehle /skills und /neuer-skill.
+ * übernimmt, Stift bearbeitet, feste Befehle /flows und /neuer-flow.
  */
 import { useState } from 'react';
 import { render, screen, within } from '@testing-library/react';
@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import ComposerCard, { type ComposerModel } from './ComposerCard';
-import type { Skill } from '@/types/skills';
+import type { Flow } from '@/types/flows';
 
 // Ordner-Scope kommt aus dem workspaceStore — hier ohne aktiven Scope mocken.
 vi.mock('@/stores/workspaceStore', () => ({
@@ -70,49 +70,49 @@ describe('ComposerCard', () => {
     expect(onRemoveFile).toHaveBeenCalledTimes(1);
   });
 
-  const skills: Skill[] = [
+  const flows: Flow[] = [
     { name: 'recherche', beschreibung: 'Recherchiert im Web', argumente: [] },
     { name: 'zusammenfassen', beschreibung: 'Fasst Dokumente zusammen', argumente: [] },
   ];
 
-  test('/ öffnet das Skill-Menü samt festen Befehlen', () => {
-    render(<ComposerCard {...makeProps({ value: '/', skills })} />);
-    expect(screen.getByTestId('skill-menu')).toBeInTheDocument();
+  test('/ öffnet das Flow-Menü samt festen Befehlen', () => {
+    render(<ComposerCard {...makeProps({ value: '/', flows })} />);
+    expect(screen.getByTestId('flow-menu')).toBeInTheDocument();
     expect(screen.getByText('/recherche')).toBeInTheDocument();
     expect(screen.getByText('/zusammenfassen')).toBeInTheDocument();
     // Feste Befehle sind immer dabei.
-    expect(screen.getByText('/skills')).toBeInTheDocument();
-    expect(screen.getByText('/neuer-skill')).toBeInTheDocument();
+    expect(screen.getByText('/flows')).toBeInTheDocument();
+    expect(screen.getByText('/neuer-flow')).toBeInTheDocument();
   });
 
-  test('/rech filtert auf den passenden Skill', () => {
-    render(<ComposerCard {...makeProps({ value: '/rech', skills })} />);
+  test('/rech filtert auf den passenden Flow', () => {
+    render(<ComposerCard {...makeProps({ value: '/rech', flows })} />);
     expect(screen.getByText('/recherche')).toBeInTheDocument();
     expect(screen.queryByText('/zusammenfassen')).not.toBeInTheDocument();
     // Kein fester Befehl beginnt mit „rech".
-    expect(screen.queryByText('/neuer-skill')).not.toBeInTheDocument();
+    expect(screen.queryByText('/neuer-flow')).not.toBeInTheDocument();
   });
 
   test('Auswahl setzt /<name> und schließt das Menü', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<ComposerCard {...makeProps({ value: '/rech', skills, onChange })} />);
+    render(<ComposerCard {...makeProps({ value: '/rech', flows, onChange })} />);
     await user.click(screen.getByText('/recherche'));
     expect(onChange).toHaveBeenCalledWith('/recherche ');
   });
 
   test('keine Menü ohne / und keine bei Leerzeichen (Eingabe-Modus)', () => {
-    const { rerender } = render(<ComposerCard {...makeProps({ value: 'hallo', skills })} />);
-    expect(screen.queryByTestId('skill-menu')).not.toBeInTheDocument();
-    rerender(<ComposerCard {...makeProps({ value: '/recherche finde', skills })} />);
-    expect(screen.queryByTestId('skill-menu')).not.toBeInTheDocument();
+    const { rerender } = render(<ComposerCard {...makeProps({ value: 'hallo', flows })} />);
+    expect(screen.queryByTestId('flow-menu')).not.toBeInTheDocument();
+    rerender(<ComposerCard {...makeProps({ value: '/recherche finde', flows })} />);
+    expect(screen.queryByTestId('flow-menu')).not.toBeInTheDocument();
   });
 
   test('Enter bei offenem Menü übernimmt den aktiven Eintrag (statt zu senden)', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     const onSend = vi.fn();
-    render(<ComposerCard {...makeProps({ value: '/rech', skills, onChange, onSend })} />);
+    render(<ComposerCard {...makeProps({ value: '/rech', flows, onChange, onSend })} />);
     await user.click(screen.getByLabelText('Nachricht an die KI'));
     await user.keyboard('{Enter}');
     expect(onChange).toHaveBeenCalledWith('/recherche ');
@@ -122,29 +122,29 @@ describe('ComposerCard', () => {
   test('Pfeil-runter wählt den nächsten Eintrag, Enter übernimmt ihn', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<ComposerCard {...makeProps({ value: '/', skills, onChange })} />);
+    render(<ComposerCard {...makeProps({ value: '/', flows, onChange })} />);
     await user.click(screen.getByLabelText('Nachricht an die KI'));
     await user.keyboard('{ArrowDown}{Enter}');
     // Erster ist recherche, ein Schritt runter → zusammenfassen.
     expect(onChange).toHaveBeenCalledWith('/zusammenfassen ');
   });
 
-  test('/skills löst die Übersicht aus', async () => {
+  test('/flows löst die Übersicht aus', async () => {
     const user = userEvent.setup();
-    const onOpenSkillOverview = vi.fn();
-    render(<ComposerCard {...makeProps({ value: '/skills', skills, onOpenSkillOverview })} />);
-    // Innerhalb des Menüs klicken — der Textarea-Wert „/skills" trägt denselben
+    const onOpenFlowOverview = vi.fn();
+    render(<ComposerCard {...makeProps({ value: '/flows', flows, onOpenFlowOverview })} />);
+    // Innerhalb des Menüs klicken — der Textarea-Wert „/flows" trägt denselben
     // Text und würde sonst mitmatchen.
-    await user.click(within(screen.getByTestId('skill-menu')).getByText('/skills'));
-    expect(onOpenSkillOverview).toHaveBeenCalledTimes(1);
+    await user.click(within(screen.getByTestId('flow-menu')).getByText('/flows'));
+    expect(onOpenFlowOverview).toHaveBeenCalledTimes(1);
   });
 
-  test('/neuer-skill löst den Anlege-Weg aus', async () => {
+  test('/neuer-flow löst den Anlege-Weg aus', async () => {
     const user = userEvent.setup();
-    const onCreateSkill = vi.fn();
-    render(<ComposerCard {...makeProps({ value: '/neuer-skill', skills, onCreateSkill })} />);
-    await user.click(within(screen.getByTestId('skill-menu')).getByText('/neuer-skill'));
-    expect(onCreateSkill).toHaveBeenCalledTimes(1);
+    const onCreateFlow = vi.fn();
+    render(<ComposerCard {...makeProps({ value: '/neuer-flow', flows, onCreateFlow })} />);
+    await user.click(within(screen.getByTestId('flow-menu')).getByText('/neuer-flow'));
+    expect(onCreateFlow).toHaveBeenCalledTimes(1);
   });
 
   test('nach einem festen Befehl öffnet / das Menü wieder (Regression)', async () => {
@@ -152,30 +152,30 @@ describe('ComposerCard', () => {
     const onChange = vi.fn();
     const { rerender } = render(
       <ComposerCard
-        {...makeProps({ value: '/skills', skills, onChange, onOpenSkillOverview: vi.fn() })}
+        {...makeProps({ value: '/flows', flows, onChange, onOpenFlowOverview: vi.fn() })}
       />
     );
-    await user.click(within(screen.getByTestId('skill-menu')).getByText('/skills'));
+    await user.click(within(screen.getByTestId('flow-menu')).getByText('/flows'));
     // Der Befehl leert das Feld (onChange('')). Danach tippt der Nutzer wieder „/":
-    rerender(<ComposerCard {...makeProps({ value: '/', skills, onChange })} />);
-    expect(screen.getByTestId('skill-menu')).toBeInTheDocument();
+    rerender(<ComposerCard {...makeProps({ value: '/', flows, onChange })} />);
+    expect(screen.getByTestId('flow-menu')).toBeInTheDocument();
   });
 
-  test('Stift-Symbol bearbeitet den Skill, ohne ihn zu übernehmen', async () => {
+  test('Stift-Symbol bearbeitet den Flow, ohne ihn zu übernehmen', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    const onEditSkill = vi.fn();
-    render(<ComposerCard {...makeProps({ value: '/rech', skills, onChange, onEditSkill })} />);
+    const onEditFlow = vi.fn();
+    render(<ComposerCard {...makeProps({ value: '/rech', flows, onChange, onEditFlow })} />);
     await user.click(screen.getByLabelText(/bearbeiten/i));
-    expect(onEditSkill).toHaveBeenCalledWith('recherche');
+    expect(onEditFlow).toHaveBeenCalledWith('recherche');
     // Bearbeiten ist NICHT dasselbe wie Übernehmen.
     expect(onChange).not.toHaveBeenCalledWith('/recherche ');
   });
 
   test('keine Menü bei angehängter Datei', () => {
     const file = new File(['x'], 'a.pdf', { type: 'application/pdf' });
-    render(<ComposerCard {...makeProps({ value: '/', skills, attachedFile: file })} />);
-    expect(screen.queryByTestId('skill-menu')).not.toBeInTheDocument();
+    render(<ComposerCard {...makeProps({ value: '/', flows, attachedFile: file })} />);
+    expect(screen.queryByTestId('flow-menu')).not.toBeInTheDocument();
   });
 
   test('angehängte Bilder erscheinen je als eigener Chip', async () => {
@@ -201,7 +201,7 @@ describe('ComposerCard', () => {
 // Diese Fälle brauchen die echte kontrollierte Schleife (onChange → value),
 // weil die Argument-Eingabe den Feldwert selbst fortschreibt.
 
-const argSkills: Skill[] = [
+const argFlows: Flow[] = [
   {
     name: 'recherche',
     beschreibung: 'Web-Recherche',
@@ -230,13 +230,13 @@ function Harness() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return (
     <QueryClientProvider client={qc}>
-      <ComposerCard {...makeProps({ value, onChange: setValue, skills: argSkills })} />
+      <ComposerCard {...makeProps({ value, onChange: setValue, flows: argFlows })} />
     </QueryClientProvider>
   );
 }
 
 describe('ComposerCard · Argument-Eingabe (Schritt 14)', () => {
-  test('nach Skill-Auswahl steht der graue Argument-Hinweis im Feld', async () => {
+  test('nach Flow-Auswahl steht der graue Argument-Hinweis im Feld', async () => {
     const user = userEvent.setup();
     render(<Harness />);
     await user.click(screen.getByText('/recherche'));
@@ -277,15 +277,15 @@ describe('ComposerCard · Argument-Eingabe (Schritt 14)', () => {
   });
 });
 
-// --- Skill-Lauf statt Chat-Nachricht (Plan 011, Schritt 15) ------------------
+// --- Flow-Lauf statt Chat-Nachricht (Plan 011, Schritt 15) ------------------
 
 /** Kontrollierte Harness mit Lauf-/Sende-Spions. */
 function RunHarness({
-  onRunSkill,
+  onRunFlow,
   onSend,
   start = '/',
 }: {
-  onRunSkill: (name: string, args: Record<string, string>) => void;
+  onRunFlow: (name: string, args: Record<string, string>) => void;
   onSend: () => void;
   start?: string;
 }) {
@@ -294,45 +294,45 @@ function RunHarness({
   return (
     <QueryClientProvider client={qc}>
       <ComposerCard
-        {...makeProps({ value, onChange: setValue, skills: argSkills, onRunSkill, onSend })}
+        {...makeProps({ value, onChange: setValue, flows: argFlows, onRunFlow, onSend })}
       />
     </QueryClientProvider>
   );
 }
 
-describe('ComposerCard · Skill-Lauf abschicken (Schritt 15)', () => {
-  test('Enter bei einem Skill-Befehl startet einen Lauf mit den Argumenten', async () => {
+describe('ComposerCard · Flow-Lauf abschicken (Schritt 15)', () => {
+  test('Enter bei einem Flow-Befehl startet einen Lauf mit den Argumenten', async () => {
     const user = userEvent.setup();
-    const onRunSkill = vi.fn();
+    const onRunFlow = vi.fn();
     const onSend = vi.fn();
-    render(<RunHarness onRunSkill={onRunSkill} onSend={onSend} />);
+    render(<RunHarness onRunFlow={onRunFlow} onSend={onSend} />);
     await user.click(screen.getByText('/recherche'));
     const ta = screen.getByLabelText('Nachricht an die KI');
     await user.type(ta, 'Klimawandel 2026');
     await user.keyboard('{Enter}');
-    expect(onRunSkill).toHaveBeenCalledWith('recherche', { thema: 'Klimawandel 2026' });
+    expect(onRunFlow).toHaveBeenCalledWith('recherche', { thema: 'Klimawandel 2026' });
     expect(onSend).not.toHaveBeenCalled();
   });
 
   test('eine normale Nachricht sendet ganz normal (kein Lauf)', async () => {
     const user = userEvent.setup();
-    const onRunSkill = vi.fn();
+    const onRunFlow = vi.fn();
     const onSend = vi.fn();
-    render(<RunHarness onRunSkill={onRunSkill} onSend={onSend} start="hallo welt" />);
+    render(<RunHarness onRunFlow={onRunFlow} onSend={onSend} start="hallo welt" />);
     await user.click(screen.getByLabelText('Nachricht an die KI'));
     await user.keyboard('{Enter}');
     expect(onSend).toHaveBeenCalledTimes(1);
-    expect(onRunSkill).not.toHaveBeenCalled();
+    expect(onRunFlow).not.toHaveBeenCalled();
   });
 
   test('ein unbekannter /Befehl wird normal gesendet, nicht als Lauf', async () => {
     const user = userEvent.setup();
-    const onRunSkill = vi.fn();
+    const onRunFlow = vi.fn();
     const onSend = vi.fn();
-    render(<RunHarness onRunSkill={onRunSkill} onSend={onSend} start="/unbekannt hallo" />);
+    render(<RunHarness onRunFlow={onRunFlow} onSend={onSend} start="/unbekannt hallo" />);
     await user.click(screen.getByLabelText('Nachricht an die KI'));
     await user.keyboard('{Enter}');
     expect(onSend).toHaveBeenCalledTimes(1);
-    expect(onRunSkill).not.toHaveBeenCalled();
+    expect(onRunFlow).not.toHaveBeenCalled();
   });
 });

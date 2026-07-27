@@ -4,7 +4,7 @@
  * Links /store/models und /store/apps (auch mit ?highlight=…) leiten auf /store
  * um und setzen dabei die Auswahl im Extension-Store (öffnet die Detailseite).
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useExtensionStore } from '@/stores/extensionStore';
@@ -61,22 +61,24 @@ describe('Store — Full-Width + Redirects', () => {
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/store'));
   });
 
-  it('/store: zwei Reiter — Modelle (default) zeigt das Raster', () => {
+  it('/store: Default-Reiter „Modelle" zeigt das Raster', () => {
     renderAt('/store');
-    expect(screen.getByTestId('store-tab-models')).toBeInTheDocument();
-    expect(screen.getByTestId('store-tab-extensions')).toBeInTheDocument();
-    // Default-Reiter „Modelle" zeigt das Modell-Raster, keine Detailseite.
+    // Kein Umschalter mehr in der Mitte — der Default-Reiter „Modelle" (storeTab)
+    // zeigt das Modell-Raster, keine Detailseite.
     expect(screen.getByTestId('models-grid')).toBeInTheDocument();
     expect(screen.queryByTestId('extensions-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('detail')).not.toBeInTheDocument();
   });
 
-  it('/store: Reiter-Wechsel schaltet das Raster um', () => {
+  it('/store: Reiter-Wechsel (storeTab) schaltet das Raster um', () => {
     renderAt('/store');
-    fireEvent.click(screen.getByTestId('store-tab-extensions'));
+    expect(screen.getByTestId('models-grid')).toBeInTheDocument();
+    // Der Reiter lebt im extensionStore (die ActivityBar setzt ihn); ein Wechsel
+    // auf „Erweiterungen" tauscht das Raster in der Mitte.
+    act(() => useExtensionStore.setState({ storeTab: 'extensions' }));
     expect(screen.getByTestId('extensions-grid')).toBeInTheDocument();
     expect(screen.queryByTestId('models-grid')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('store-tab-models'));
+    act(() => useExtensionStore.setState({ storeTab: 'models' }));
     expect(screen.getByTestId('models-grid')).toBeInTheDocument();
   });
 });

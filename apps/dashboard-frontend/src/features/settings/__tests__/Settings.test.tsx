@@ -1,13 +1,18 @@
 /**
  * Settings shell tests.
  *
- * After the Settings refactor the page is a thin shell around 6 top-level tabs
- * (Allgemein · KI · Sicherheit · Datenschutz · System · Fernzugriff) driven by a
- * `?tab=` search param. These tests focus on the shell contract:
- *   - the six tabs render with the correct labels (old labels are gone),
- *   - clicking a tab mounts the right section,
- *   - `?tab=` deep-links (incl. legacy ids) resolve to the right tab,
- *   - the KI and System tabs expose their internal sub-navigation.
+ * After the B4 refactor the section list moved OUT of the Settings tab and into
+ * the left workspace sidebar (`SettingsPanel`). The active section now lives in
+ * a shared zustand store (`settingsStore`); the Settings tab renders only a
+ * header (Mascot + "Einstellungen" + the active section label) plus the active
+ * section's content — there is no second "tab in a tab" column anymore.
+ *
+ * These tests therefore split the contract across the two owners:
+ *   - the six sections (labels + descriptions) render in `SettingsPanel`,
+ *   - clicking a section in `SettingsPanel` sets the store and mounts the right
+ *     section content in `Settings`,
+ *   - `?tab=` deep-links (incl. legacy ids) resolve to the right section,
+ *   - the KI and System sections expose their internal sub-navigation.
  *
  * The heavy leaf components (which each do their own data fetching) are mocked
  * with lightweight stubs so the shell can be tested in isolation. The detailed
@@ -19,6 +24,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Settings from '../Settings';
+import { SettingsPanel } from '../../workspace/sidebar/SettingsPanel';
+import { SETTINGS_SECTIONS } from '../sections';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 // useApi is only used by the shell for the "logout everywhere" action, which
 // these tests don't exercise — a no-op mock keeps it from touching the network.
@@ -85,6 +93,8 @@ vi.mock('../../system/SelfHealingEvents', () => ({
   default: stub('selfhealing-events', 'Self-Healing'),
 }));
 
+// Renders the Settings tab on its own (used for deep-links and default state —
+// the section is driven by the store / `?tab=` search param, not by clicking).
 function renderSettings(route = '/settings') {
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -93,36 +103,49 @@ function renderSettings(route = '/settings') {
   );
 }
 
+// Renders the sidebar section list (`SettingsPanel`) alongside the Settings tab.
+// Both share the `settingsStore`, so clicking a section in the panel drives the
+// content shown in the tab — exactly how it works in the real workspace shell.
+function renderShell(route = '/settings') {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      <SettingsPanel />
+      <Settings handleLogout={vi.fn()} theme="light" onToggleTheme={vi.fn()} />
+    </MemoryRouter>
+  );
+}
+
 describe('Settings shell', () => {
+  beforeEach(() => {
+    // The active-section store is a module-level singleton — reset it so section
+    // state from one test never leaks into the next.
+    useSettingsStore.setState({ activeSection: 'general' });
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
 
   describe('Layout and navigation', () => {
-    test('renders the settings shell header', () => {
+    test('renders the settings tab header with the active section label', () => {
       renderSettings();
       expect(screen.getByText('Einstellungen')).toBeInTheDocument();
-      expect(screen.getByText('System-Konfiguration')).toBeInTheDocument();
+      // Header subtitle is the active section's label (general → "Allgemein").
+      expect(screen.getByText('Allgemein')).toBeInTheDocument();
     });
 
-    test('renders all six top-level tabs with the new labels', () => {
-      renderSettings();
-      // Each label appears in both the mobile and desktop nav.
-      for (const label of [
-        'Allgemein',
-        'KI',
-        'Sicherheit',
-        'Datenschutz',
-        'System',
-        'Fernzugriff',
-      ]) {
-        expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
+    test('the sidebar panel lists all six sections with the new labels', () => {
+      render(<SettingsPanel />);
+      for (const section of SETTINGS_SECTIONS) {
+        expect(screen.getByTestId(`settings-open-${section.id}`)).toBeInTheDocument();
+        expect(screen.getByText(section.label)).toBeInTheDocument();
       }
     });
 
     test('no longer shows the old top-level tabs', () => {
-      renderSettings();
+      renderShell();
       expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
+      // "RAG & LLM" / "Self-Healing" only appear once their section is active.
       expect(screen.queryByText('RAG & LLM')).not.toBeInTheDocument();
       expect(screen.queryByText('Self-Healing')).not.toBeInTheDocument();
     });
@@ -132,62 +155,58 @@ describe('Settings shell', () => {
       expect(screen.getByTestId('general-settings')).toBeInTheDocument();
     });
 
-    test('shows section descriptions in the desktop sidebar', () => {
-      renderSettings();
-      expect(screen.getByText('Systeminformationen und Konfiguration')).toBeInTheDocument();
-      expect(screen.getByText('Passwörter und Zugriffsverwaltung')).toBeInTheDocument();
+    test('shows section descriptions in the sidebar panel', () => {
+      render(<SettingsPanel />);
+      // Descriptions come from SETTINGS_SECTIONS (the single source of truth).
+      const general = SETTINGS_SECTIONS.find(s => s.id === 'general')!;
+      const security = SETTINGS_SECTIONS.find(s => s.id === 'security')!;
+      expect(screen.getByText(general.description)).toBeInTheDocument();
+      expect(screen.getByText(security.description)).toBeInTheDocument();
     });
   });
 
-  describe('Tab switching', () => {
+  describe('Section switching (via the sidebar panel)', () => {
     test('clicking Sicherheit mounts the security section', async () => {
       const user = userEvent.setup();
-      renderSettings();
-      await user.click(screen.getAllByText('Sicherheit')[0]!);
+      renderShell();
+      await user.click(screen.getByTestId('settings-open-security'));
       expect(screen.getByTestId('security-settings')).toBeInTheDocument();
     });
 
     test('clicking Datenschutz mounts the privacy section', async () => {
       const user = userEvent.setup();
-      renderSettings();
-      await user.click(screen.getAllByText('Datenschutz')[0]!);
+      renderShell();
+      await user.click(screen.getByTestId('settings-open-privacy'));
       expect(screen.getByTestId('privacy-settings')).toBeInTheDocument();
     });
 
     test('clicking Fernzugriff mounts the remote-access section', async () => {
       const user = userEvent.setup();
-      renderSettings();
-      await user.click(screen.getAllByText('Fernzugriff')[0]!);
+      renderShell();
+      await user.click(screen.getByTestId('settings-open-remote-access'));
       expect(screen.getByTestId('remote-access-settings')).toBeInTheDocument();
     });
 
-    test('marks the active tab', async () => {
+    test('marks the active section in the panel', async () => {
       const user = userEvent.setup();
-      renderSettings();
+      renderShell();
 
-      // Allgemein is active initially (desktop sidebar button carries bg-muted).
-      const allgemeinBtn = screen
-        .getAllByText('Allgemein')
-        .map(el => el.closest('button'))
-        .find(btn => btn?.classList.contains('bg-muted'));
-      expect(allgemeinBtn).toBeTruthy();
+      // Allgemein is active initially (aria-current on the panel button).
+      const allgemeinBtn = screen.getByTestId('settings-open-general');
+      expect(allgemeinBtn).toHaveAttribute('aria-current', 'true');
 
-      await user.click(screen.getAllByText('Sicherheit')[0]!);
+      await user.click(screen.getByTestId('settings-open-security'));
 
-      const activeSecurityBtn = screen
-        .getAllByText('Sicherheit')
-        .map(el => el.closest('button'))
-        .find(btn => btn?.classList.contains('bg-muted'));
-      expect(activeSecurityBtn).toBeTruthy();
-      expect(allgemeinBtn).not.toHaveClass('bg-muted');
+      expect(screen.getByTestId('settings-open-security')).toHaveAttribute('aria-current', 'true');
+      expect(allgemeinBtn).not.toHaveAttribute('aria-current');
     });
   });
 
-  describe('KI tab', () => {
+  describe('KI section', () => {
     test('mounts the KI wrapper with its Firmenprofil / RAG & LLM sub-navigation', async () => {
       const user = userEvent.setup();
-      renderSettings();
-      await user.click(screen.getAllByText('KI')[0]!);
+      renderShell();
+      await user.click(screen.getByTestId('settings-open-ki'));
 
       await waitFor(() => {
         expect(screen.getByText('Firmenprofil & Kontext')).toBeInTheDocument();
@@ -199,8 +218,8 @@ describe('Settings shell', () => {
 
     test('switches to the RAG & LLM sub-section', async () => {
       const user = userEvent.setup();
-      renderSettings();
-      await user.click(screen.getAllByText('KI')[0]!);
+      renderShell();
+      await user.click(screen.getByTestId('settings-open-ki'));
       await user.click(screen.getByText('RAG & LLM'));
 
       // Both sub-sections stay mounted; RAG becomes visible.
@@ -209,11 +228,11 @@ describe('Settings shell', () => {
     });
   });
 
-  describe('System tab', () => {
+  describe('System section', () => {
     test('mounts the System wrapper with its Services / Updates / Self-Healing sub-navigation', async () => {
       const user = userEvent.setup();
-      renderSettings();
-      await user.click(screen.getAllByText('System')[0]!);
+      renderShell();
+      await user.click(screen.getByTestId('settings-open-system'));
 
       await waitFor(() => {
         // Sub-nav label + stubbed leaf content can both carry the same text,
@@ -228,8 +247,8 @@ describe('Settings shell', () => {
 
     test('switches sub-sections within System (only active one mounted)', async () => {
       const user = userEvent.setup();
-      renderSettings();
-      await user.click(screen.getAllByText('System')[0]!);
+      renderShell();
+      await user.click(screen.getByTestId('settings-open-system'));
       await user.click(screen.getByText('Self-Healing'));
 
       expect(screen.getByTestId('selfhealing-events')).toBeInTheDocument();
@@ -277,8 +296,8 @@ describe('Settings shell', () => {
   });
 
   describe('Accessibility', () => {
-    test('navigation items are focusable', () => {
-      renderSettings();
+    test('section navigation items are focusable', () => {
+      render(<SettingsPanel />);
       const buttons = screen.getAllByRole('button');
       expect(buttons.length).toBeGreaterThan(0);
       buttons.forEach(btn => {

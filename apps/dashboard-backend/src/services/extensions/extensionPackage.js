@@ -26,7 +26,7 @@ const EXT_TYPES = ['app', 'flow', 'tool'];
 const ACCESS_TIERS = ['internet', 'internal', 'full'];
 const PACKAGE_FORMAT_VERSION = 1;
 
-// Gleiche Form wie Skill-Namen: Kleinbuchstaben/Ziffern/Bindestriche, kein
+// Gleiche Form wie Flow-Namen: Kleinbuchstaben/Ziffern/Bindestriche, kein
 // führender/abschließender Bindestrich. Der Wert wird zum Ordnernamen.
 const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$|^[a-z0-9]$/;
 
@@ -176,7 +176,9 @@ async function extractArchive(archivePath, targetDir) {
     preservePaths: false,
     noMtime: true,
     filter: (entryPath, entry) => {
-      if (verstoss) {return false;}
+      if (verstoss) {
+        return false;
+      }
       // Nur normale Dateien und Ordner — keine Symlinks/Hardlinks/Devices.
       if (entry.type !== 'File' && entry.type !== 'Directory') {
         verstoss = `unerlaubter Eintragstyp (${entry.type}) — nur Dateien und Ordner sind zulässig`;

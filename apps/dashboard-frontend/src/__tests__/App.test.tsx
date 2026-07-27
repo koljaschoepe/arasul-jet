@@ -166,7 +166,8 @@ describe('App Component', () => {
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByText('Arasul Platform')).toBeInTheDocument();
+        // Login-Titel ist seit B1 nur noch der Marken-Name (Maskottchen darüber).
+        expect(screen.getByRole('heading', { name: 'Arasul' })).toBeInTheDocument();
         expect(screen.getByLabelText(/benutzername/i)).toBeInTheDocument();
       });
     });

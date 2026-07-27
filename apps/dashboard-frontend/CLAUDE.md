@@ -24,7 +24,7 @@ src/
                    Layout-Toggles [Sidebar, rechtes Panel] + Settings oben rechts),
                    ActivityBar (eigene, **immer sichtbare** schmale Spalte ganz
                    links — außerhalb des einklappbaren Panels — mit vier Ansichten
-                   **Dateien · Modelle · Erweiterungen · Skills**, den
+                   **Dateien · Modelle · Erweiterungen · Flows**, den
                    aktivierten App-Erweiterungen und dem Einstellungen-Zahnrad
                    unten — Plan 012 Phase B), SidebarHost (Sidebar),
                    Tab-Bar/-Content (Mitte), RightPanel (rechts), StatusBar
@@ -41,7 +41,7 @@ src/
                    • **SidebarHost** — der Inhalt richtet sich nach der aktiven
                      Activity-Bar-Ansicht (`activeView`, Store): files → Datei-
                      Explorer, models → Modell-Filter, extensions → Erweiterungs-
-                     Suche, skills → Skill-Liste (`features/workspace/sidebar/*Panel.tsx`);
+                     Suche, flows → Flow-Liste (`features/workspace/sidebar/*Panel.tsx`);
                      jeder unbekannte/entfernte Wert (z. B. das alte 'search')
                      fällt auf den Explorer zurück.
                      Der Explorer bleibt beim Wechsel gemountet (nur `hidden`),
@@ -50,19 +50,19 @@ src/
                      Der Auto-Collapse für App-Tabs (`sidebarRestore`/
                      `syncSidebarForTab`) bleibt verdrahtet, `APP_TAB_TYPES` ist
                      derzeit leer (n8n läuft als Mitte-Tab).
-                   • **Skills-Zentrale** — der Skill-Editor ist EIN Mitte-Tab
-                     (Singleton-Typ `skill`, kein Popup mehr; Plan 012 Phase D).
-                     Welchen Skill er zeigt, steht im ephemeren `skillEditorStore`
+                   • **Flows-Zentrale** — der Flow-Editor ist EIN Mitte-Tab
+                     (Singleton-Typ `flow`, kein Popup mehr; Plan 012 Phase D).
+                     Welchen Flow er zeigt, steht im ephemeren `flowEditorStore`
                      (`editName === null` legt an, ein Name bearbeitet) — genau wie
                      der Store-Tab seinen Inhalt aus dem `extensionStore` zieht.
-                     Aufrufer setzen erst das Ziel, dann `openTab({type:'skill'})`:
-                     die Sidebar-Ansicht »Skills« (`SkillsPanel`, klickbare Liste +
-                     »Neuer Skill«), `/skills` im Chat öffnet diese Übersicht,
-                     `/neuer-skill` einen leeren Editor-Tab. Der Editor
-                     (`features/skills/SkillEditorTab.tsx`) hält Formular + Vorschau;
+                     Aufrufer setzen erst das Ziel, dann `openTab({type:'flow'})`:
+                     die Sidebar-Ansicht »Flows« (`FlowsPanel`, klickbare Liste +
+                     »Neuer Flow«), `/flows` im Chat öffnet diese Übersicht,
+                     `/neuer-flow` einen leeren Editor-Tab. Der Editor
+                     (`features/flows/FlowEditorTab.tsx`) hält Formular + Vorschau;
                      die `MarkdownPreview` schaltet zwischen **Datei** (erzeugte
                      Markdown-Datei) und **Laufzeit-Prompt** (aufgelöster Prompt aus
-                     `POST /skills/vorschau-laufzeit`) um. Der Tab ist keep-alive,
+                     `POST /flows/vorschau-laufzeit`) um. Der Tab ist keep-alive,
                      damit ein halb ausgefülltes Formular einen Tab-Wechsel überlebt.
                    • **Erweiterungs-Baukasten** — selbst gebaute/importierte
                      Pakete (Plan 012 Phase E). Datenquelle ist der eigene Hook

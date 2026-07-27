@@ -2328,56 +2328,56 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ---
 
-## `skill_run_steps`
+## `flow_run_steps`
 
 > Einzelne Schritte eines Skill-Laufs (Plan 011, Schritt 9): je Werkzeug-/Subagent-/Modell-Schritt eine Zeile, angehängt statt ein wachsendes JSONB neu zu schreiben.
 
-| Column        | Type                     | Nullable | Default                                    |
-| ------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`          | bigint                   | ⛔       | `nextval('skill_run_steps_id_seq'::reg...` |
-| `run_id`      | bigint                   | ⛔       |                                            |
-| `position`    | integer                  | ⛔       |                                            |
-| `kind`        | USER-DEFINED             | ⛔       |                                            |
-| `name`        | character varying        | ⛔       | `''::character varying`                    |
-| `input`       | jsonb                    | ⛔       | `'{}'::jsonb`                              |
-| `output`      | text                     | ✅       |                                            |
-| `raw_output`  | text                     | ✅       |                                            |
-| `status`      | USER-DEFINED             | ⛔       | `'laeuft'::skill_run_status`               |
-| `created_at`  | timestamp with time zone | ⛔       | `now()`                                    |
-| `finished_at` | timestamp with time zone | ✅       |                                            |
+| Column        | Type                     | Nullable | Default                                   |
+| ------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`          | bigint                   | ⛔       | `nextval('flow_run_steps_id_seq'::reg...` |
+| `run_id`      | bigint                   | ⛔       |                                           |
+| `position`    | integer                  | ⛔       |                                           |
+| `kind`        | USER-DEFINED             | ⛔       |                                           |
+| `name`        | character varying        | ⛔       | `''::character varying`                   |
+| `input`       | jsonb                    | ⛔       | `'{}'::jsonb`                             |
+| `output`      | text                     | ✅       |                                           |
+| `raw_output`  | text                     | ✅       |                                           |
+| `status`      | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`               |
+| `created_at`  | timestamp with time zone | ⛔       | `now()`                                   |
+| `finished_at` | timestamp with time zone | ✅       |                                           |
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
-- `run_id` → `skill_runs.id`
+- `run_id` → `flow_runs.id`
 
 **Indexes:**
 
-- `idx_skill_run_steps_run_id` — `CREATE INDEX idx_skill_run_steps_run_id ON arasul.skill_run_steps USING btree (run_id)`
-- `skill_run_steps_pkey` — `CREATE UNIQUE INDEX skill_run_steps_pkey ON arasul.skill_run_steps USING btree (id)`
-- `skill_run_steps_run_pos_uniq` — `CREATE UNIQUE INDEX skill_run_steps_run_pos_uniq ON arasul.skill_run_steps USING btree (run_id, "position")`
+- `idx_flow_run_steps_run_id` — `CREATE INDEX idx_flow_run_steps_run_id ON arasul.flow_run_steps USING btree (run_id)`
+- `flow_run_steps_pkey` — `CREATE UNIQUE INDEX flow_run_steps_pkey ON arasul.flow_run_steps USING btree (id)`
+- `flow_run_steps_run_pos_uniq` — `CREATE UNIQUE INDEX flow_run_steps_run_pos_uniq ON arasul.flow_run_steps USING btree (run_id, "position")`
 
 ---
 
-## `skill_runs`
+## `flow_runs`
 
 > Skill-Läufe (Plan 011, Schritt 9): ein Lauf je Aufruf von /name. Überlebt das Schließen des Tabs, damit die Live-Übertragung wiederverbinden kann.
 
-| Column            | Type                     | Nullable | Default                                  |
-| ----------------- | ------------------------ | -------- | ---------------------------------------- |
-| `id`              | bigint                   | ⛔       | `nextval('skill_runs_id_seq'::regclass)` |
-| `user_id`         | bigint                   | ⛔       |                                          |
-| `skill_name`      | character varying        | ⛔       |                                          |
-| `conversation_id` | bigint                   | ✅       |                                          |
-| `arguments`       | jsonb                    | ⛔       | `'{}'::jsonb`                            |
-| `status`          | USER-DEFINED             | ⛔       | `'laeuft'::skill_run_status`             |
-| `result`          | text                     | ✅       |                                          |
-| `error`           | text                     | ✅       |                                          |
-| `steps_used`      | integer                  | ⛔       | `0`                                      |
-| `changes`         | jsonb                    | ✅       |                                          |
-| `created_at`      | timestamp with time zone | ⛔       | `now()`                                  |
-| `finished_at`     | timestamp with time zone | ✅       |                                          |
+| Column            | Type                     | Nullable | Default                                 |
+| ----------------- | ------------------------ | -------- | --------------------------------------- |
+| `id`              | bigint                   | ⛔       | `nextval('flow_runs_id_seq'::regclass)` |
+| `user_id`         | bigint                   | ⛔       |                                         |
+| `flow_name`       | character varying        | ⛔       |                                         |
+| `conversation_id` | bigint                   | ✅       |                                         |
+| `arguments`       | jsonb                    | ⛔       | `'{}'::jsonb`                           |
+| `status`          | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`             |
+| `result`          | text                     | ✅       |                                         |
+| `error`           | text                     | ✅       |                                         |
+| `steps_used`      | integer                  | ⛔       | `0`                                     |
+| `changes`         | jsonb                    | ✅       |                                         |
+| `created_at`      | timestamp with time zone | ⛔       | `now()`                                 |
+| `finished_at`     | timestamp with time zone | ✅       |                                         |
 
 > `changes` (Plan 011, Schritt 16): Datei-Änderungen des Laufs — `[{pfad, art (neu\|geaendert\|geloescht), vorher, nachher, gekuerzt, hinweis}]`, aus dem Ordner-Abzug vor/nach dem Lauf; gedeckelt in Zahl und Vorschau-Länge. `NULL` = nicht ermittelt (Lauf ohne Schreib-Werkzeug).
 
@@ -2385,10 +2385,10 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 **Indexes:**
 
-- `idx_skill_runs_conversation` — `CREATE INDEX idx_skill_runs_conversation ON arasul.skill_runs USING btree (conversation_id)`
-- `idx_skill_runs_status` — `CREATE INDEX idx_skill_runs_status ON arasul.skill_runs USING btree (status) WHERE (status = 'laeuft'::skill_run_status)`
-- `idx_skill_runs_user_id` — `CREATE INDEX idx_skill_runs_user_id ON arasul.skill_runs USING btree (user_id)`
-- `skill_runs_pkey` — `CREATE UNIQUE INDEX skill_runs_pkey ON arasul.skill_runs USING btree (id)`
+- `idx_flow_runs_conversation` — `CREATE INDEX idx_flow_runs_conversation ON arasul.flow_runs USING btree (conversation_id)`
+- `idx_flow_runs_status` — `CREATE INDEX idx_flow_runs_status ON arasul.flow_runs USING btree (status) WHERE (status = 'laeuft'::flow_run_status)`
+- `idx_flow_runs_user_id` — `CREATE INDEX idx_flow_runs_user_id ON arasul.flow_runs USING btree (user_id)`
+- `flow_runs_pkey` — `CREATE UNIQUE INDEX flow_runs_pkey ON arasul.flow_runs USING btree (id)`
 
 ---
 

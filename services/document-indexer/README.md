@@ -186,4 +186,4 @@ Returns `200 OK` when service is healthy.
   (`PARTIAL_REPICKUP_INTERVAL_SECONDS`, `PARTIAL_REPICKUP_MAX_ATTEMPTS`,
   `PARTIAL_REPICKUP_BATCH`). Die Deckelung ist der Punkt: ohne sie würde ein
   dauerhaft unvollständiges Dokument die Embedding-GPU belegen, die sich Chat,
-  Skills und Indexer teilen.
+  Flows und Indexer teilen.

@@ -26,7 +26,7 @@ import React, {
 import type { ChatInput } from '@arasul/shared-schemas';
 import useTokenBatching from '../hooks/useTokenBatching';
 import { useApi } from '../hooks/useApi';
-import { addSkillRun, mergeSkillRuns } from './skillRunRegistry';
+import { addFlowRun, mergeFlowRuns } from './flowRunRegistry';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import type { DocumentSource, MatchedSpace, QueueJob } from '../types';
 
@@ -165,10 +165,10 @@ interface ChatContextValue {
   getBackgroundLoading: (chatId: string) => boolean;
   clearBackgroundState: (chatId: string) => void;
   hasActiveStream: (chatId: string) => boolean;
-  // Skill runs (Plan 011, Schritt 15) — welche Läufe im Verlauf eines Chats stehen
-  getSkillRuns: (chatId: string) => number[];
-  registerSkillRun: (chatId: string, runId: number) => void;
-  setChatSkillRuns: (chatId: string, runIds: number[]) => void;
+  // Flow runs (Plan 011, Schritt 15) — welche Läufe im Verlauf eines Chats stehen
+  getFlowRuns: (chatId: string) => number[];
+  registerFlowRun: (chatId: string, runId: number) => void;
+  setChatFlowRuns: (chatId: string, runIds: number[]) => void;
   // Cleanup
   cleanupChat: (chatId: string) => void;
 }
@@ -238,11 +238,11 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     selectedModelRef.current = selectedModel;
   }, [selectedModel]);
 
-  // === SKILL RUNS (Plan 011, Schritt 15) ===
-  // Welche Skill-Läufe gehören zu welchem Chat? So bleiben die Lauf-Karten im
+  // === FLOW RUNS (Plan 011, Schritt 15) ===
+  // Welche Flow-Läufe gehören zu welchem Chat? So bleiben die Lauf-Karten im
   // Verlauf auch nach einem Panel-Wechsel erhalten und ein frisch gestarteter
   // Lauf erscheint sofort — nicht erst nach dem nächsten Laden. Neueste ID zuerst.
-  const [skillRunsByChat, setSkillRunsByChat] = useState<Record<string, number[]>>({});
+  const [flowRunsByChat, setFlowRunsByChat] = useState<Record<string, number[]>>({});
 
   // --- Callback Registry ---
   // ChatView registers per-chat callbacks on mount, unregisters on unmount.
@@ -346,29 +346,29 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     return !!abortControllersRef.current[chatId];
   }, []);
 
-  // === SKILL RUNS ===
+  // === FLOW RUNS ===
   // Die Lauf-IDs eines Chats (neueste zuerst). Der Panel liest sie beim Laden
-  // frisch vom Server (`setChatSkillRuns`) und meldet neue Läufe hier an
-  // (`registerSkillRun`), damit die Karte sofort steht.
-  const getSkillRuns = useCallback(
-    (chatId: string): number[] => skillRunsByChat[chatId] ?? [],
-    [skillRunsByChat]
+  // frisch vom Server (`setChatFlowRuns`) und meldet neue Läufe hier an
+  // (`registerFlowRun`), damit die Karte sofort steht.
+  const getFlowRuns = useCallback(
+    (chatId: string): number[] => flowRunsByChat[chatId] ?? [],
+    [flowRunsByChat]
   );
 
   // Normalisierung + Dublettenschutz liegen als reine Helfer in
-  // `skillRunRegistry` (direkt testbar) — siehe dort zur BIGINT-Zahl/String-Falle.
-  const registerSkillRun = useCallback((chatId: string, runId: number) => {
-    setSkillRunsByChat(prev => {
+  // `flowRunRegistry` (direkt testbar) — siehe dort zur BIGINT-Zahl/String-Falle.
+  const registerFlowRun = useCallback((chatId: string, runId: number) => {
+    setFlowRunsByChat(prev => {
       const vorhanden = prev[chatId] ?? [];
-      const next = addSkillRun(vorhanden, runId);
+      const next = addFlowRun(vorhanden, runId);
       return next === vorhanden ? prev : { ...prev, [chatId]: next };
     });
   }, []);
 
-  const setChatSkillRuns = useCallback((chatId: string, runIds: number[]) => {
-    setSkillRunsByChat(prev => ({
+  const setChatFlowRuns = useCallback((chatId: string, runIds: number[]) => {
+    setFlowRunsByChat(prev => ({
       ...prev,
-      [chatId]: mergeSkillRuns(prev[chatId] ?? [], runIds),
+      [chatId]: mergeFlowRuns(prev[chatId] ?? [], runIds),
     }));
   }, []);
 
@@ -1300,10 +1300,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       getBackgroundLoading,
       clearBackgroundState,
       hasActiveStream,
-      // Skill runs
-      getSkillRuns,
-      registerSkillRun,
-      setChatSkillRuns,
+      // Flow runs
+      getFlowRuns,
+      registerFlowRun,
+      setChatFlowRuns,
       // Cleanup
       cleanupChat,
     }),
@@ -1333,9 +1333,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       getBackgroundLoading,
       clearBackgroundState,
       hasActiveStream,
-      getSkillRuns,
-      registerSkillRun,
-      setChatSkillRuns,
+      getFlowRuns,
+      registerFlowRun,
+      setChatFlowRuns,
       cleanupChat,
     ]
   );

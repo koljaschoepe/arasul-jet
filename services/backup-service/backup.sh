@@ -227,44 +227,44 @@ if [ "$QDRANT_OK" = true ] && [ "$DAY_OF_MONTH" = "01" ]; then
     echo "[$TIMESTAMP] Monthly Qdrant snapshot saved"
 fi
 
-# Skill definitions (Plan 011): Markdown files under data/skills, mounted here
+# Flow definitions (Plan 011): Markdown files under data/flows, mounted here
 # read-only. They are small but USER-AUTHORED and reproducible from nowhere else
 # — Postgres/MinIO/Qdrant do not contain them. A device loss without this would
-# silently take every self-built skill with it.
+# silently take every self-built flow with it.
 #
 # A missing directory is a WARNING, not a failure: older deployments have no
 # such mount, and flipping BACKUP_OK there would make the healthcheck report a
 # broken backup on a perfectly healthy box.
-mkdir -p /backups/skills /backups/skills/weekly
-SKILLS_SRC=${SKILLS_BACKUP_DIR:-/arasul/skills}
-SKILLS_OK=skipped
-if [ -d "$SKILLS_SRC" ]; then
-    if tar -czf /backups/skills/skills_$TIMESTAMP.tar.gz -C "$SKILLS_SRC" . 2>/dev/null \
-       && tar -tzf /backups/skills/skills_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
-        echo "[$TIMESTAMP] Skills backup completed and verified"
-        encrypt_file /backups/skills/skills_$TIMESTAMP.tar.gz
-        ln -sf skills_$TIMESTAMP.tar.gz /backups/skills/skills_latest.tar.gz
-        SKILLS_OK=true
+mkdir -p /backups/flows /backups/flows/weekly
+FLOWS_SRC=${FLOWS_BACKUP_DIR:-/arasul/flows}
+FLOWS_OK=skipped
+if [ -d "$FLOWS_SRC" ]; then
+    if tar -czf /backups/flows/flows_$TIMESTAMP.tar.gz -C "$FLOWS_SRC" . 2>/dev/null \
+       && tar -tzf /backups/flows/flows_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
+        echo "[$TIMESTAMP] Flows backup completed and verified"
+        encrypt_file /backups/flows/flows_$TIMESTAMP.tar.gz
+        ln -sf flows_$TIMESTAMP.tar.gz /backups/flows/flows_latest.tar.gz
+        FLOWS_OK=true
     else
-        echo "[$TIMESTAMP] [ERROR] Skills backup archive creation/verify failed"
-        SKILLS_OK=false
+        echo "[$TIMESTAMP] [ERROR] Flows backup archive creation/verify failed"
+        FLOWS_OK=false
         BACKUP_OK=false
     fi
 else
-    echo "[$TIMESTAMP] [WARNING] Skills directory ($SKILLS_SRC) not mounted — skipping"
+    echo "[$TIMESTAMP] [WARNING] Flows directory ($FLOWS_SRC) not mounted — skipping"
 fi
 
-# Weekly snapshot for skills
-if [ "$SKILLS_OK" = true ] && [ "$DAY_OF_WEEK" = "7" ]; then
-    cp /backups/skills/skills_$TIMESTAMP.tar.gz /backups/skills/weekly/
-    echo "[$TIMESTAMP] Weekly skills snapshot saved"
+# Weekly snapshot for flows
+if [ "$FLOWS_OK" = true ] && [ "$DAY_OF_WEEK" = "7" ]; then
+    cp /backups/flows/flows_$TIMESTAMP.tar.gz /backups/flows/weekly/
+    echo "[$TIMESTAMP] Weekly flows snapshot saved"
 fi
 
-# Monthly snapshot for skills
-if [ "$SKILLS_OK" = true ] && [ "$DAY_OF_MONTH" = "01" ]; then
-    mkdir -p /backups/skills/monthly
-    cp /backups/skills/skills_$TIMESTAMP.tar.gz /backups/skills/monthly/
-    echo "[$TIMESTAMP] Monthly skills snapshot saved"
+# Monthly snapshot for flows
+if [ "$FLOWS_OK" = true ] && [ "$DAY_OF_MONTH" = "01" ]; then
+    mkdir -p /backups/flows/monthly
+    cp /backups/flows/flows_$TIMESTAMP.tar.gz /backups/flows/monthly/
+    echo "[$TIMESTAMP] Monthly flows snapshot saved"
 fi
 
 # WAL archive backup: include in daily backup for PITR
@@ -282,7 +282,7 @@ if [ "$BACKUP_OK" = true ]; then
     find /backups/postgres -maxdepth 1 -name "*.sql.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/qdrant -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/skills -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
+    find /backups/flows -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
 
     # WAL archive cleanup: keep only retention period worth
     WAL_ARCHIVE_DELETED=$(find /backups/wal-archive -name "*.tar.gz" -mtime +$RETENTION_DAYS -print 2>/dev/null | wc -l)
@@ -298,13 +298,13 @@ if [ "$BACKUP_OK" = true ]; then
     find /backups/postgres/weekly -name "*.sql.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/qdrant/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/skills/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
+    find /backups/flows/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
 
     # Cleanup: monthly backups (5-year retention)
     find /backups/postgres/monthly -name "*.sql.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/qdrant/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/skills/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
+    find /backups/flows/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     echo "[$TIMESTAMP] Cleanup completed (daily: ${RETENTION_DAYS}d, weekly: ${WEEKLY_RETENTION_WEEKS}w, monthly: ${MONTHLY_RETENTION_MONTHS}mo)"
 else
     echo "[$TIMESTAMP] [WARNING] Skipping cleanup — backup had errors (WAL files preserved for recovery)"
@@ -340,8 +340,8 @@ cat > /backups/backup_report.json << EOF
   "minio_monthly": $(ls /backups/minio/monthly/*.tar.gz 2>/dev/null | wc -l),
   "minio_status": "$MINIO_OK",
   "qdrant_status": "$QDRANT_OK",
-  "skills_status": "$SKILLS_OK",
-  "skills_backups": $(find /backups/skills -maxdepth 1 -name '*.tar.gz' ! -name '*latest*' 2>/dev/null | wc -l),
+  "flows_status": "$FLOWS_OK",
+  "flows_backups": $(find /backups/flows -maxdepth 1 -name '*.tar.gz' ! -name '*latest*' 2>/dev/null | wc -l),
   "qdrant_backups": $(find /backups/qdrant -maxdepth 1 -name '*.tar.gz' ! -name '*latest*' 2>/dev/null | wc -l),
   "qdrant_size": "$QDRANT_SIZE",
   "retention_days": $RETENTION_DAYS,

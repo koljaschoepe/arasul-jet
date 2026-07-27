@@ -1,5 +1,5 @@
 import React from 'react';
-import { Files, Cpu, Blocks, Wand2, Workflow, Settings } from 'lucide-react';
+import { Files, Cpu, Blocks, Waypoints, Workflow, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { ActivityView, WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useExtensionStore } from '@/stores/extensionStore';
@@ -40,7 +40,7 @@ const VIEW_ENTRIES: Array<{ view: ActivityView; label: string; icon: React.React
   { view: 'files', label: 'Dateien', icon: <Files className="h-[18px] w-[18px]" /> },
   { view: 'models', label: 'Modelle', icon: <Cpu className="h-[18px] w-[18px]" /> },
   { view: 'extensions', label: 'Erweiterungen', icon: <Blocks className="h-[18px] w-[18px]" /> },
-  { view: 'skills', label: 'Skills', icon: <Wand2 className="h-[18px] w-[18px]" /> },
+  { view: 'flows', label: 'Flows', icon: <Waypoints className="h-[18px] w-[18px]" /> },
 ];
 
 /**
@@ -70,7 +70,7 @@ const APP_ENTRIES: Array<{
  * Dadurch bleibt »Dateien« (und jede andere Ansicht) erreichbar, auch wenn die
  * Sidebar eingeklappt ist (behebt den ⌘B-/»Dateien«-Bug).
  *
- * Oben die festen Ansichten (Dateien · Suche · Modelle · Erweiterungen · Skills),
+ * Oben die festen Ansichten (Dateien · Suche · Modelle · Erweiterungen · Flows),
  * darunter die aktivierten App-Erweiterungen, unten das Einstellungen-Zahnrad.
  * Ein Klick auf eine Ansicht wählt sie und zieht die Sidebar auf; erneuter Klick
  * auf die aktive Ansicht klappt sie wieder ein (VS-Code-Semantik, `selectView`).
@@ -91,7 +91,7 @@ export function ActivityBar() {
   const handleView = (view: ActivityView) => {
     selectView(view);
     // Modelle/Erweiterungen zeigen ihren Inhalt im Store-Mitte-Tab; der Reiter
-    // folgt der gewählten Ansicht. Skills bekommen ihre Zentrale in Phase D.
+    // folgt der gewählten Ansicht. Flows bekommen ihre Zentrale in Phase D.
     if (view === 'models') {
       setStoreTab('models');
       openTab({ type: 'store' });

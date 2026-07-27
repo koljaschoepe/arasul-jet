@@ -13,6 +13,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Login from '../../features/system/Login';
 import { createMockApi } from '../helpers/renderWithProviders';
+import { PLATFORM_NAME } from '@/config/branding';
 
 // ---- Mocks ----
 
@@ -211,7 +212,7 @@ describe('Login integration', () => {
   it('shows platform name in the header', () => {
     renderLogin();
 
-    expect(screen.getByText(/platform/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: PLATFORM_NAME })).toBeInTheDocument();
   });
 
   it('shows default username hint', () => {

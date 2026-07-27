@@ -25,7 +25,7 @@ export type WorkspaceTabType =
   | 'settings'
   | 'store'
   | 'automationen'
-  | 'skill'
+  | 'flow'
   | 'extension';
 
 export interface WorkspaceTabSpec {
@@ -51,7 +51,7 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   settings: 'Einstellungen',
   store: 'Extensions',
   automationen: 'Automationen',
-  skill: 'Neuer Skill',
+  flow: 'Neuer Flow',
   extension: 'Erweiterung',
 };
 
@@ -79,8 +79,8 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/store';
     case 'automationen':
       return '/workspace/automationen';
-    case 'skill':
-      return '/workspace/skill';
+    case 'flow':
+      return '/workspace/flow';
     case 'extension':
       return `/workspace/ext/${tab.extensionId ?? ''}`;
   }
@@ -100,8 +100,8 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'store' };
     case 'automationen':
       return { type: 'automationen' };
-    case 'skill':
-      return { type: 'skill' };
+    case 'flow':
+      return { type: 'flow' };
     case 'ext':
       return parts[1] ? { type: 'extension', extensionId: parts[1] } : null;
     default:
@@ -164,16 +164,16 @@ export type RightPanelMode = 'chat' | 'terminal';
  *   search      → Suche (Trefferliste; Anbindung in Schritt 19)
  *   models      → Modell-Filter (ziehen in Schritt 7 hierher)
  *   extensions  → Erweiterungs-Filter (Schritt 9)
- *   skills      → Skill-Liste (Zentrale in Phase D)
+ *   flows      → Flow-Liste (Zentrale in Phase D)
  */
-export type ActivityView = 'files' | 'search' | 'models' | 'extensions' | 'skills' | 'settings';
+export type ActivityView = 'files' | 'search' | 'models' | 'extensions' | 'flows' | 'settings';
 
 const ACTIVITY_VIEWS = new Set<ActivityView>([
   'files',
   'search',
   'models',
   'extensions',
-  'skills',
+  'flows',
   'settings',
 ]);
 

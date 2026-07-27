@@ -9,7 +9,7 @@ import { SidebarView } from './SidebarView';
  * Datenschutz/System/Fernzugriff) stehen jetzt hier links — wie die Flow-Liste —
  * statt in einer zweiten Spalte innerhalb des Tabs. Ein Klick setzt die aktive
  * Sektion (settingsStore) und öffnet den Einstellungen-Mitte-Tab. Gleiches Muster
- * wie Skills/Store: erst Ziel setzen, dann `openTab`.
+ * wie Flows/Store: erst Ziel setzen, dann `openTab`.
  */
 export function SettingsPanel() {
   const openTab = useWorkspaceStore(s => s.openTab);

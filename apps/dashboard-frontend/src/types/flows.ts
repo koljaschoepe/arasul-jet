@@ -1,0 +1,89 @@
+/**
+ * Flow-Typen fürs Frontend (Plan 011, Schritt 13).
+ *
+ * Ein Flow ist serverseitig eine Markdown-Datei unter `data/flows/`. Nach
+ * außen (API `/api/flows`) heißt `systemPrompt` schlicht `prompt`. Hier stehen
+ * nur die Felder, die die Chat-Oberfläche braucht — das Slash-Menü zeigt Name,
+ * Beschreibung und die Argumente; die grauen Argument-Hinweise (Schritt 14)
+ * lesen `typ`/`pflicht`/`optionen`.
+ */
+
+/** Argument-Typen, die ein Flow deklarieren kann. Spiegelt `ARG_TYPES` im Backend. */
+export type FlowArgumentType = 'freitext' | 'datei' | 'auswahl' | 'wissensbasis';
+
+export interface FlowArgument {
+  name: string;
+  typ: FlowArgumentType;
+  beschreibung: string;
+  pflicht: boolean;
+  /** Nur bei `typ: 'auswahl'` gesetzt — die erlaubten Werte. */
+  optionen?: string[];
+  /** Vorbelegung, falls das Argument leer bleibt. */
+  standard?: string;
+}
+
+/** Ein Flow, wie ihn `GET /api/flows` liefert (nur die im Chat genutzten Felder). */
+export interface Flow {
+  name: string;
+  beschreibung: string;
+  argumente: FlowArgument[];
+}
+
+/** Werkzeugnamen, die ein Flow deklarieren darf. Spiegelt `VALID_TOOLS` im Backend. */
+export type FlowTool =
+  | 'dateien_lesen'
+  | 'dateien_schreiben'
+  | 'dateien_suchen'
+  | 'rag_suche'
+  | 'web_suche'
+  | 'web_lesen'
+  | 'terminal'
+  | 'subagent';
+
+/** Der Ergebnis-Vertrag einer Subagent-Rolle (§3 Kontext-Sparsamkeit). */
+export interface FlowRoleResult {
+  felder: string[];
+  max_zeichen: number;
+}
+
+/** Eine Subagent-Rolle eines Flows. */
+export interface FlowRole {
+  name: string;
+  beschreibung?: string;
+  modell?: string;
+  werkzeuge: FlowTool[];
+  ergebnis: FlowRoleResult;
+  prompt: string;
+}
+
+/** Die Notbremsen eines Flows (§7). */
+export interface FlowLimits {
+  max_aufrufe: number;
+  zeitlimit_s: number;
+  werkzeug_runden: number;
+  /** Maximale Verschachtelungstiefe der Subagent-Rollen (Orchestrator = 0). */
+  max_tiefe: number;
+}
+
+/**
+ * Die vollständige Flow-Definition, wie sie der Anlege-/Bearbeiten-Dialog
+ * (Schritt 17) bearbeitet und `GET /api/flows/:name` liefert. Nach außen heißt
+ * `systemPrompt` schlicht `prompt`.
+ */
+export interface FlowDefinition {
+  name: string;
+  beschreibung: string;
+  modell?: string;
+  argumente: FlowArgument[];
+  ordner: string[];
+  werkzeuge: FlowTool[];
+  rollen: FlowRole[];
+  grenzen: FlowLimits;
+  prompt: string;
+}
+
+/** Ein Werkzeug-Eintrag aus `GET /api/flows/werkzeuge`. */
+export interface FlowToolInfo {
+  name: FlowTool;
+  verfuegbar: boolean;
+}

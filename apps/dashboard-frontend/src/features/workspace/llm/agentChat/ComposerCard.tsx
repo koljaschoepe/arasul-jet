@@ -25,11 +25,11 @@ import {
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { Pin as PinItem } from '../../useWorkspaceContext';
-import type { Skill } from '@/types/skills';
-import SkillMenu, { buildMenuItems, type SkillMenuItem } from '@/features/skills/SkillMenu';
-import ArgumentHints, { COMPOSER_TEXT_CLASSES } from '@/features/skills/ArgumentHints';
-import ArgumentPicker from '@/features/skills/ArgumentPicker';
-import { useSkillArgs } from '@/features/skills/useSkillArgs';
+import type { Flow } from '@/types/flows';
+import FlowMenu, { buildMenuItems, type FlowMenuItem } from '@/features/flows/FlowMenu';
+import ArgumentHints, { COMPOSER_TEXT_CLASSES } from '@/features/flows/ArgumentHints';
+import ArgumentPicker from '@/features/flows/ArgumentPicker';
+import { useFlowArgs } from '@/features/flows/useFlowArgs';
 
 export interface ComposerModel {
   id: string;
@@ -86,24 +86,24 @@ interface ComposerCardProps {
   models: ComposerModel[];
   selectedModel: string;
   onSelectModel: (id: string) => void;
-  /** Skills fürs Slash-Menü (Plan 011, Schritt 13). */
-  skills?: Skill[];
-  /** Stift-Symbol an einem Skill geklickt (Bearbeiten-Dialog folgt in Schritt 17). */
-  onEditSkill?: (name: string) => void;
+  /** Flows fürs Slash-Menü (Plan 011, Schritt 13). */
+  flows?: Flow[];
+  /** Stift-Symbol an einem Flow geklickt (Bearbeiten-Dialog folgt in Schritt 17). */
+  onEditFlow?: (name: string) => void;
   /** Angeheftete Dokumente/Ordner (Plan 012) — als Chips über dem Eingabefeld. */
   pins?: PinItem[];
   /** Anheftung lösen (Plan 012). */
   onRemovePin?: (id: number) => void;
-  /** `/skills` gewählt — Übersicht öffnen (Schritt 17). */
-  onOpenSkillOverview?: () => void;
-  /** `/neuer-skill` gewählt — Anlege-Dialog öffnen (Schritt 17). */
-  onCreateSkill?: () => void;
+  /** `/flows` gewählt — Übersicht öffnen (Schritt 17). */
+  onOpenFlowOverview?: () => void;
+  /** `/neuer-flow` gewählt — Anlege-Dialog öffnen (Schritt 17). */
+  onCreateFlow?: () => void;
   /**
-   * Ein Skill-Befehl wurde abgeschickt (Plan 011, Schritt 15). Statt einer
+   * Ein Flow-Befehl wurde abgeschickt (Plan 011, Schritt 15). Statt einer
    * Chat-Nachricht startet der Aufrufer einen Lauf und zeigt die Lauf-Karte.
    * Die Argumente kommen aus der Eingabehilfe (`collect()`), sonst leer.
    */
-  onRunSkill?: (skillName: string, args: Record<string, string>) => void;
+  onRunFlow?: (flowName: string, args: Record<string, string>) => void;
 }
 
 export default function ComposerCard({
@@ -123,11 +123,11 @@ export default function ComposerCard({
   onSelectModel,
   pins = [],
   onRemovePin,
-  skills = [],
-  onEditSkill,
-  onOpenSkillOverview,
-  onCreateSkill,
-  onRunSkill,
+  flows = [],
+  onEditFlow,
+  onOpenFlowOverview,
+  onCreateFlow,
+  onRunFlow,
 }: ComposerCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -140,21 +140,21 @@ export default function ComposerCard({
 
   // Argument-Eingabe (Schritt 14): grauer Hinweis + Tab-Sprung + Picker. Der Hook
   // hält den Zustand und synchronisiert das Feld über onChange.
-  const args = useSkillArgs(value, onChange);
-  // Overlay/Picker nur zeigen, wenn der Feldwert wirklich noch zum Skill-Befehl
+  const args = useFlowArgs(value, onChange);
+  // Overlay/Picker nur zeigen, wenn der Feldwert wirklich noch zum Flow-Befehl
   // gehört — doppelter Boden gegen einen kurz veralteten Zustand.
-  const inArgs = args.argState != null && value.startsWith(`/${args.argState.skill.name}`);
+  const inArgs = args.argState != null && value.startsWith(`/${args.argState.flow.name}`);
 
   // Slash-Menü: sichtbar, solange der Text nur „/<teilname>" ist (kein Leerzeichen)
-  // und nicht per Escape geschlossen wurde. Auswahl setzt bei einem Skill „/<name> "
-  // und schließt; feste Befehle (/skills, /neuer-skill) lösen ihre Aktion aus.
+  // und nicht per Escape geschlossen wurde. Auswahl setzt bei einem Flow „/<name> "
+  // und schließt; feste Befehle (/flows, /neuer-flow) lösen ihre Aktion aus.
   const slashMatch = value.match(/^\/([^\s/]*)$/);
   const menuQuery = slashMatch ? slashMatch[1] || '' : null;
   const menuItems = useMemo(
-    () => (menuQuery !== null ? buildMenuItems(menuQuery, skills) : []),
-    [menuQuery, skills]
+    () => (menuQuery !== null ? buildMenuItems(menuQuery, flows) : []),
+    [menuQuery, flows]
   );
-  // Kein Menü bei Anhang: ein Skill-Aufruf nimmt keine Uploads (wie @).
+  // Kein Menü bei Anhang: ein Flow-Aufruf nimmt keine Uploads (wie @).
   const showMenu =
     menuQuery !== null &&
     !menuDismissed &&
@@ -168,44 +168,44 @@ export default function ComposerCard({
   }, [menuQuery]);
 
   const pickItem = useCallback(
-    (item: SkillMenuItem) => {
+    (item: FlowMenuItem) => {
       // NICHT dismissen: Die Auswahl ändert den Feldwert selbst so, dass das Menü
-      // zu ist (Skill → „…name " mit Leerzeichen, Befehl → leer). Ein
+      // zu ist (Flow → „…name " mit Leerzeichen, Befehl → leer). Ein
       // dismissed=true bliebe hier hängen, weil der programmatische onChange nicht
       // durch den Textarea-onChange läuft, der die Sperre wieder löst — ein
       // späteres „/" öffnete das Menü dann nie wieder. Deshalb aktiv freigeben.
       setMenuDismissed(false);
-      if (item.kind === 'skill') {
+      if (item.kind === 'flow') {
         // Die Argument-Eingabe übernimmt: sie setzt „/<name> " ins Feld und zeigt
         // die grauen Argument-Hinweise; ist das erste Argument eine Auswahl,
         // öffnet sie gleich den Picker.
-        args.begin(item.skill);
+        args.begin(item.flow);
         textareaRef.current?.focus();
         return;
       }
       // Feste Befehle: das Slash-Fragment aus dem Feld nehmen und die Aktion
       // auslösen (Übersicht bzw. Anlege-Dialog kommen in Schritt 17).
       onChange('');
-      if (item.name === 'skills') onOpenSkillOverview?.();
-      else onCreateSkill?.();
+      if (item.name === 'flows') onOpenFlowOverview?.();
+      else onCreateFlow?.();
     },
-    [onChange, onOpenSkillOverview, onCreateSkill, args.begin]
+    [onChange, onOpenFlowOverview, onCreateFlow, args.begin]
   );
 
-  // Abschicken: Beginnt der Text mit einem bekannten Skill-Befehl, wird ein
+  // Abschicken: Beginnt der Text mit einem bekannten Flow-Befehl, wird ein
   // LAUF gestartet (Schritt 15) statt einer Chat-Nachricht — mit den Argumenten
-  // aus der Eingabehilfe. Ein Anhang schlägt das aus (ein Skill nimmt keine
+  // aus der Eingabehilfe. Ein Anhang schlägt das aus (ein Flow nimmt keine
   // Uploads). Sonst normal senden.
   const submit = useCallback(() => {
     const m = value.match(/^\/([^\s/]+)/);
-    const skill = m ? skills.find(s => s.name === m[1]) : undefined;
-    if (skill && onRunSkill && !attachedFile && attachedImages.length === 0) {
-      const collected = inArgs && args.argState?.skill.name === skill.name ? args.collect() : {};
-      onRunSkill(skill.name, collected);
+    const flow = m ? flows.find(s => s.name === m[1]) : undefined;
+    if (flow && onRunFlow && !attachedFile && attachedImages.length === 0) {
+      const collected = inArgs && args.argState?.flow.name === flow.name ? args.collect() : {};
+      onRunFlow(flow.name, collected);
       return;
     }
     onSend();
-  }, [value, skills, onRunSkill, onSend, inArgs, args, attachedFile, attachedImages]);
+  }, [value, flows, onRunFlow, onSend, inArgs, args, attachedFile, attachedImages]);
 
   const autoGrow = useCallback(() => {
     const el = textareaRef.current;
@@ -280,15 +280,15 @@ export default function ComposerCard({
 
   return (
     <div className="relative rounded-lg border border-border bg-card focus-within:border-primary/40">
-      {/* Slash-Menü der Skills (Plan 011, Schritt 13) */}
+      {/* Slash-Menü der Flows (Plan 011, Schritt 13) */}
       {showMenu && (
-        <SkillMenu
+        <FlowMenu
           items={menuItems}
           activeIndex={activeIndex}
           onPick={pickItem}
           onEdit={name => {
             setMenuDismissed(true);
-            onEditSkill?.(name);
+            onEditFlow?.(name);
           }}
           onHover={setActiveIndex}
         />

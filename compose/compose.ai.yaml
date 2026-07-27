@@ -254,7 +254,7 @@ services:
           memory: ${RAM_LIMIT_DOCUMENT_INDEXER:-2G}
           pids: 128
 
-  # 5. SearXNG — Meta-Suchmaschine fuer die Web-Recherche von Skills (Plan 011)
+  # 5. SearXNG — Meta-Suchmaschine fuer die Web-Recherche von Flows (Plan 011)
   #
   # Warum ein eigener Container statt einer Such-API: kein Drittanbieter-Konto,
   # kein Schluessel, keine Abfragen, die das Geraet einem Anbieter zuordnen.

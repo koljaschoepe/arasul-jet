@@ -31,7 +31,7 @@ function resetStore() {
   useExtensionStore.setState({ storeTab: 'models', selected: null });
 }
 
-describe('ActivityBar — feste Spalte: Dateien · Modelle · Erweiterungen · Skills + Zahnrad', () => {
+describe('ActivityBar — feste Spalte: Dateien · Modelle · Erweiterungen · Flows + Zahnrad', () => {
   beforeEach(() => {
     resetStore();
     enabledApps.clear();
@@ -39,7 +39,7 @@ describe('ActivityBar — feste Spalte: Dateien · Modelle · Erweiterungen · S
 
   it('zeigt die vier Ansichten und das Einstellungen-Zahnrad (jetzt in der Bar)', () => {
     render(<ActivityBar />);
-    for (const label of ['Dateien', 'Modelle', 'Erweiterungen', 'Skills', 'Einstellungen']) {
+    for (const label of ['Dateien', 'Modelle', 'Erweiterungen', 'Flows', 'Einstellungen']) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
     // Die frühere »Suche«-Ansicht ist entfernt.
@@ -48,12 +48,12 @@ describe('ActivityBar — feste Spalte: Dateien · Modelle · Erweiterungen · S
     expect(screen.queryByLabelText('Automation')).not.toBeInTheDocument();
   });
 
-  it('Skills wählt die Ansicht und zieht die Sidebar auf', () => {
+  it('Flows wählt die Ansicht und zieht die Sidebar auf', () => {
     useWorkspaceStore.setState({ sidebarVisible: false });
     render(<ActivityBar />);
-    fireEvent.click(screen.getByLabelText('Skills'));
+    fireEvent.click(screen.getByLabelText('Flows'));
     const s = useWorkspaceStore.getState();
-    expect(s.activeView).toBe('skills');
+    expect(s.activeView).toBe('flows');
     expect(s.sidebarVisible).toBe(true);
   });
 

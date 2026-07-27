@@ -143,25 +143,25 @@ is preferred so `errorHandler` keeps structured fields.
 ## Werkzeug-Schleife & Workspace (Plan 008 / 011)
 
 Der Agenten- und Fluss-Layer ist mit Plan 011 entfernt; an seine Stelle treten
-**Skills** (Markdown-Dateien unter `data/skills/`, im Chat per `/name`
-aufgerufen). Der Skill-Layer lebt vollständig in `services/skills/` und bringt
+**Flows** (Markdown-Dateien unter `data/flows/`, im Chat per `/name`
+aufgerufen). Der Flow-Layer lebt vollständig in `services/flows/` und bringt
 seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 
-- `runSkill.js` — der Runner (Schritt 10): lädt den Skill, setzt Argumente ein,
+- `runFlow.js` — der Runner (Schritt 10): lädt den Flow, setzt Argumente ein,
   stellt die Werkzeuge zusammen, baut den Kontext (Ordner, Wissensraum,
   Sandbox-Container fürs Terminal) und treibt die Schleife; schreibt Lauf und
   Schritte über `runStore.js` (Schritt 9) mit.
 - `toolLoop.js` — die Ollama-Function-Calling-Schleife. Grenzen kommen PRO
-  Skill (`grenzen.werkzeug_runden` / `zeitlimit_s`), nicht aus einer
-  Umgebungsvariablen. Per-Aufruf-Timeout: `SKILL_LLM_TIMEOUT_MS`.
+  Flow (`grenzen.werkzeug_runden` / `zeitlimit_s`), nicht aus einer
+  Umgebungsvariablen. Per-Aufruf-Timeout: `FLOW_LLM_TIMEOUT_MS`.
 - `gpuQueue.js` — die **eine** GPU-Sperre, geteilt mit dem Chat: der
   Ollama-Aufruf in `services/llm/llmOllamaStream.js` (`streamFromOllama`) geht
-  durch dieselbe `withGpuLock`. Nie treffen Chat und Skill zugleich auf die GPU
+  durch dieselbe `withGpuLock`. Nie treffen Chat und Flow zugleich auf die GPU
   (Nutzer-Entscheidung: strikt einer nach dem anderen, keine Priorisierung).
 - `pathSafe.js` — symlink-sichere Pfad-Sperre über mehrere erlaubte Ordner;
   schließt das TOCTOU-Fenster über Dateideskriptoren. **Jeder** Dateizugriff
   läuft hierdurch.
-- `skillFile.js` — Parser/Serializer für Markdown + YAML-Frontmatter, plus
+- `flowFile.js` — Parser/Serializer für Markdown + YAML-Frontmatter, plus
   Platzhalter (`{{argument}}`).
 - `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
   `dateien` (lesen/schreiben getrennt), `rag`, `terminal`, `web`.

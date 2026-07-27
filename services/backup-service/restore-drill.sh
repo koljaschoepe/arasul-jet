@@ -110,7 +110,7 @@ json_escape() {
     printf '%s' "$s"
 }
 
-# Skill-Archiv pruefen (Plan 011). Die Skills liegen in KEINER Datenbank, der
+# Flow-Archiv pruefen (Plan 011). Die Flows liegen in KEINER Datenbank, der
 # Postgres-Drill sagt ueber sie also nichts aus. Geprueft wird deshalb separat:
 # existiert das Archiv, ist es lesbar, und enthaelt es .md-Dateien?
 #
@@ -118,32 +118,32 @@ json_escape() {
 # kein gueltiges gzip mehr. Ein blindes `tar -tzf` wuerde dann "korrupt" melden,
 # obwohl alles in Ordnung ist. Deshalb erst die gzip-Magic-Bytes pruefen und
 # verschluesselte Archive als "encrypted" (ungeprueft) ausweisen, statt zu luegen.
-SKILLS_ARCHIVE="${BACKUP_DIR}/skills/skills_latest.tar.gz"
-skills_status="absent"
-skills_files=0
+FLOWS_ARCHIVE="${BACKUP_DIR}/flows/flows_latest.tar.gz"
+flows_status="absent"
+flows_files=0
 
-check_skills_archive() {
-    if [[ ! -f "$SKILLS_ARCHIVE" ]]; then
-        log "SKIP: kein Skill-Archiv unter ${SKILLS_ARCHIVE}"
-        skills_status="absent"
+check_flows_archive() {
+    if [[ ! -f "$FLOWS_ARCHIVE" ]]; then
+        log "SKIP: kein Flow-Archiv unter ${FLOWS_ARCHIVE}"
+        flows_status="absent"
         return 0
     fi
     # gzip beginnt mit 0x1f 0x8b; alles andere ist (erwartet) verschluesselt.
     local magic
-    magic=$(head -c 2 "$SKILLS_ARCHIVE" | od -An -tx1 | tr -d ' \n')
+    magic=$(head -c 2 "$FLOWS_ARCHIVE" | od -An -tx1 | tr -d ' \n')
     if [[ "$magic" != "1f8b" ]]; then
-        log "OK:   Skill-Archiv vorhanden, aber verschluesselt — Inhalt nicht pruefbar"
-        skills_status="encrypted"
+        log "OK:   Flow-Archiv vorhanden, aber verschluesselt — Inhalt nicht pruefbar"
+        flows_status="encrypted"
         return 0
     fi
-    if ! tar -tzf "$SKILLS_ARCHIVE" >/dev/null 2>&1; then
-        log "FAIL: Skill-Archiv ist beschaedigt (${SKILLS_ARCHIVE})"
-        skills_status="corrupt"
+    if ! tar -tzf "$FLOWS_ARCHIVE" >/dev/null 2>&1; then
+        log "FAIL: Flow-Archiv ist beschaedigt (${FLOWS_ARCHIVE})"
+        flows_status="corrupt"
         return 1
     fi
-    skills_files=$(tar -tzf "$SKILLS_ARCHIVE" 2>/dev/null | grep -c '\.md$' || true)
-    log "OK:   Skill-Archiv lesbar (${skills_files} Skill-Dateien)"
-    skills_status="ok"
+    flows_files=$(tar -tzf "$FLOWS_ARCHIVE" 2>/dev/null | grep -c '\.md$' || true)
+    log "OK:   Flow-Archiv lesbar (${flows_files} Flow-Dateien)"
+    flows_status="ok"
     return 0
 }
 
@@ -163,8 +163,8 @@ write_report() {
   "verified_tables": ${verified},
   "duration_seconds": ${duration},
   "backup_file": "$(json_escape "$basename")",
-  "skills_status": "$(json_escape "$skills_status")",
-  "skills_files": ${skills_files},
+  "flows_status": "$(json_escape "$flows_status")",
+  "flows_files": ${flows_files},
   "timestamp": "${ts}"
 }
 EOF
@@ -262,10 +262,10 @@ for tbl in "${CRITICAL_TABLES[@]}"; do
     verified=$((verified + 1))
 done
 
-# Skill-Archiv mitpruefen. Ein beschaedigtes Archiv laesst den Drill scheitern —
-# ein fehlendes nicht, denn auf Geraeten ohne Skills gibt es schlicht keines.
-skills_ok=true
-check_skills_archive || skills_ok=false
+# Flow-Archiv mitpruefen. Ein beschaedigtes Archiv laesst den Drill scheitern —
+# ein fehlendes nicht, denn auf Geraeten ohne Flows gibt es schlicht keines.
+flows_ok=true
+check_flows_archive || flows_ok=false
 
 duration=$(( $(date +%s) - DRILL_START ))
 
@@ -283,17 +283,17 @@ if (( ${#failed_tables[@]} > 0 )); then
     exit 1
 fi
 
-# Ein beschaedigtes Skill-Archiv darf den DATENBANK-Befund nicht ueberschreiben.
+# Ein beschaedigtes Flow-Archiv darf den DATENBANK-Befund nicht ueberschreiben.
 # Der Drill beantwortet in erster Linie die Frage "laesst sich die DB
 # zurueckspielen?" — diese Antwort muss sauber bleiben, sonst loest ein Problem
 # mit ein paar Textdateien einen DR-Fehlalarm aus und entwertet das Signal.
-# Das Skill-Problem bleibt sichtbar: im Log und als `skills_status` im Report,
+# Das Flow-Problem bleibt sichtbar: im Log und als `flows_status` im Report,
 # den das Ops-Widget anzeigt.
-if [[ "$skills_ok" != "true" ]]; then
-    write_report "ok" "all ${verified} critical tables verified; WARNUNG: Skill-Archiv beschaedigt (${SKILLS_ARCHIVE})" "$verified" "$duration"
-    log "Drill OK in ${duration}s (DB verified=${verified}) — ABER: Skill-Archiv beschaedigt, bitte pruefen"
+if [[ "$flows_ok" != "true" ]]; then
+    write_report "ok" "all ${verified} critical tables verified; WARNUNG: Flow-Archiv beschaedigt (${FLOWS_ARCHIVE})" "$verified" "$duration"
+    log "Drill OK in ${duration}s (DB verified=${verified}) — ABER: Flow-Archiv beschaedigt, bitte pruefen"
     exit 0
 fi
 
-write_report "ok" "all ${verified} critical tables verified (skills: ${skills_status})" "$verified" "$duration"
-log "Drill OK in ${duration}s (verified=${verified}, skills=${skills_status})"
+write_report "ok" "all ${verified} critical tables verified (flows: ${flows_status})" "$verified" "$duration"
+log "Drill OK in ${duration}s (verified=${verified}, flows=${flows_status})"

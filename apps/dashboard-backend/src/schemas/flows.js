@@ -1,0 +1,316 @@
+/**
+ * Zod-Schemas für Flows (Plan 011).
+ *
+ * Ein Flow ist eine Markdown-Datei mit YAML-Kopfdaten unter `data/flows/`.
+ * Dieses Schema ist die EINZIGE Wahrheit darüber, was ein gültiger Flow ist —
+ * es greift an beiden Enden: beim Schreiben über die API (ein kaputter Flow
+ * kann gar nicht erst gespeichert werden) und beim Laden von der Platte (eine
+ * von Hand editierte Datei kann den Runner nicht in undefiniertes Verhalten
+ * schicken). Genau deshalb liegt es hier und nicht im Parser.
+ */
+
+const { z } = require('zod');
+
+// Werkzeuge, die ein Flow deklarieren darf. Muss zu services/flows/tools/*
+// passen — ein Name, den die Registry nicht kennt, ist ein Schreibfehler und
+// wird abgewiesen, statt zur Laufzeit still zu fehlen.
+const VALID_TOOLS = [
+  'dateien_lesen',
+  'dateien_schreiben',
+  'dateien_suchen',
+  'rag_suche',
+  'web_suche',
+  'web_lesen',
+  'terminal',
+  'subagent',
+];
+
+// Argumenttypen. Jeder Typ entspricht einer eigenen Eingabehilfe im Chat und —
+// wichtiger — einer anderen Art, Kontext zu beschaffen: `datei` lädt genau eine
+// Datei, `wissensbasis` scopet die RAG-Suche auf genau eine Sammlung. Das ist
+// der Hebel für Kontext-Sparsamkeit (§3 des Plans).
+const ARG_TYPES = ['freitext', 'datei', 'auswahl', 'wissensbasis'];
+
+// Flow- und Argumentnamen sind bewusst eng: Kleinbuchstaben, Ziffern, Bindestrich.
+// Der Flow-Name wird zum Dateinamen UND zum Slash-Befehl — alles andere wäre
+// entweder ein Pfad-Risiko oder im Chat nicht tippbar.
+const FLOW_NAME_RE = /^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$|^[a-z0-9]$/;
+const ARG_NAME_RE = /^[a-z][a-z0-9_]{0,30}$/;
+
+const FlowName = z
+  .string()
+  .trim()
+  .regex(
+    FLOW_NAME_RE,
+    'Flow-Name darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten, ' +
+      'muss mit Buchstabe oder Ziffer beginnen und enden (1–50 Zeichen)'
+  );
+
+const FlowArgument = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .regex(ARG_NAME_RE, 'Argumentname: Kleinbuchstaben, Ziffern, Unterstrich'),
+    typ: z.enum(ARG_TYPES),
+    beschreibung: z.string().trim().max(200).default(''),
+    pflicht: z.coerce.boolean().default(false),
+    // Nur für typ=auswahl: die erlaubten Werte.
+    optionen: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
+    standard: z.string().trim().max(500).optional(),
+  })
+  .strict()
+  .superRefine((arg, ctx) => {
+    if (arg.typ === 'auswahl') {
+      if (!arg.optionen || arg.optionen.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['optionen'],
+          message: `Argument "${arg.name}": typ=auswahl braucht eine nicht-leere Liste "optionen"`,
+        });
+      } else if (arg.standard != null && !arg.optionen.includes(arg.standard)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['standard'],
+          message: `Argument "${arg.name}": "standard" muss einer der Werte aus "optionen" sein`,
+        });
+      }
+    } else if (arg.optionen != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['optionen'],
+        message: `Argument "${arg.name}": "optionen" ist nur bei typ=auswahl erlaubt`,
+      });
+    }
+    // Ein Pflichtargument mit Standardwert ist ein Widerspruch: der Standard
+    // würde die Pflicht stillschweigend erfüllen.
+    if (arg.pflicht && arg.standard != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['standard'],
+        message: `Argument "${arg.name}": pflicht=true und "standard" schließen sich aus`,
+      });
+    }
+  });
+
+/**
+ * Der Ergebnis-Vertrag einer Subagent-Rolle — das Herzstück der
+ * Kontext-Sparsamkeit (§3). Die Rolle MUSS genau diese Felder liefern, und die
+ * Antwort wird hart auf `max_zeichen` gekappt, bevor sie den Orchestrator
+ * erreicht. Rohdaten (Seiteninhalte, Dateitexte) landen nur im Lauf-Protokoll.
+ */
+const ResultContract = z
+  .object({
+    felder: z
+      .array(
+        z.string().trim().regex(ARG_NAME_RE, 'Feldname: Kleinbuchstaben, Ziffern, Unterstrich')
+      )
+      .min(1, 'Ein Ergebnis-Vertrag braucht mindestens ein Feld')
+      .max(10),
+    max_zeichen: z.coerce.number().int().min(100).max(20000).default(2000),
+  })
+  .strict();
+
+const SubagentRole = z
+  .object({
+    name: z.string().trim().regex(ARG_NAME_RE, 'Rollenname: Kleinbuchstaben, Ziffern, Unterstrich'),
+    beschreibung: z.string().trim().max(300).default(''),
+    // Ohne eigenes Modell erbt die Rolle das Modell des Flows.
+    modell: z.string().trim().max(100).optional(),
+    werkzeuge: z.array(z.enum(VALID_TOOLS)).max(VALID_TOOLS.length).default([]),
+    ergebnis: ResultContract,
+    prompt: z.string().trim().min(1, 'Eine Rolle braucht einen Prompt').max(20000),
+  })
+  .strict();
+
+/**
+ * Notbremsen (§7). Die Voreinstellungen sind bewusst konservativ: eine
+ * sequenzielle GPU macht aus 20 Modell-Aufrufen schon Minuten. Je Flow
+ * hochsetzbar, wenn man es bewusst will.
+ */
+const FlowLimitsShape = z
+  .object({
+    // Gesamtzahl der Subagent-Aufrufe ÜBER ALLE EBENEN — nicht pro Ebene.
+    // Bei zwei erlaubten Ebenen wäre ein Pro-Ebene-Zähler multiplikativ.
+    max_aufrufe: z.coerce.number().int().min(1).max(200).default(20),
+    zeitlimit_s: z.coerce.number().int().min(10).max(7200).default(900),
+    werkzeug_runden: z.coerce.number().int().min(1).max(50).default(10),
+    // Wie tief Subagent-Rollen sich gegenseitig aufrufen dürfen (Orchestrator =
+    // Ebene 0). Früher hart auf 2 im Runner verdrahtet — jetzt pro Flow
+    // einstellbar, damit komplexe Flows tiefer verschachteln können. Obergrenze
+    // bewusst niedrig: die GPU arbeitet sequenziell, jede Ebene multipliziert die
+    // Laufzeit.
+    max_tiefe: z.coerce.number().int().min(1).max(5).default(2),
+  })
+  .strict();
+
+// Fuer die Flow-Definition: fehlende Grenzen fallen auf die Voreinstellungen.
+// `.prefault` statt `.default`: in Zod 4 reicht `.default({})` das leere Objekt
+// UNVERÄNDERT durch, die Feld-Voreinstellungen blieben also aus und die
+// Notbremsen wären zur Laufzeit `undefined`. `.prefault` parst den Vorgabewert
+// durch das Schema und setzt damit die Voreinstellungen.
+//
+// In den API-Bodies wird BEWUSST `FlowLimitsShape` (ohne prefault) verwendet:
+// dort muss "nicht mitgeschickt" auch wirklich "nicht gesetzt" bedeuten, sonst
+// ueberschreibt ein PUT ohne `grenzen` die gespeicherten Werte mit den
+// Voreinstellungen.
+const FlowLimits = FlowLimitsShape.prefault({});
+
+/**
+ * Der vollständige, normalisierte Flow. `systemPrompt` kommt aus dem
+ * Markdown-Rumpf, nicht aus den Kopfdaten.
+ */
+const FlowDefinition = z
+  .object({
+    name: FlowName,
+    beschreibung: z.string().trim().max(300).default(''),
+    modell: z.string().trim().max(100).optional(),
+    argumente: z.array(FlowArgument).max(10).default([]),
+    // Erlaubte Ordner. Der ERSTE ist das Arbeitsverzeichnis (§8).
+    ordner: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
+    werkzeuge: z.array(z.enum(VALID_TOOLS)).max(VALID_TOOLS.length).default([]),
+    rollen: z.array(SubagentRole).max(10).default([]),
+    grenzen: FlowLimits,
+    systemPrompt: z.string().trim().min(1, 'Ein Flow braucht einen Prompt (Markdown-Rumpf)'),
+  })
+  .strict()
+  .superRefine((flow, ctx) => {
+    // Doppelte Argumentnamen — sonst überschreibt die Platzhalter-Ersetzung
+    // still den einen mit dem anderen.
+    const argNames = flow.argumente.map(a => a.name);
+    const dupArg = argNames.find((n, i) => argNames.indexOf(n) !== i);
+    if (dupArg) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['argumente'],
+        message: `Argument "${dupArg}" ist doppelt vergeben`,
+      });
+    }
+
+    const roleNames = flow.rollen.map(r => r.name);
+    const dupRole = roleNames.find((n, i) => roleNames.indexOf(n) !== i);
+    if (dupRole) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['rollen'],
+        message: `Rolle "${dupRole}" ist doppelt vergeben`,
+      });
+    }
+
+    // Rollen ohne das subagent-Werkzeug sind unerreichbar — das ist fast immer
+    // ein Versehen und würde sonst erst zur Laufzeit als "passiert nichts" auffallen.
+    if (flow.rollen.length > 0 && !flow.werkzeuge.includes('subagent')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['werkzeuge'],
+        message:
+          'Der Flow deklariert Rollen, aber nicht das Werkzeug "subagent" — die Rollen wären nicht aufrufbar',
+      });
+    }
+
+    // Umgekehrt: subagent ohne Rollen ist ein Werkzeug ins Leere.
+    if (flow.werkzeuge.includes('subagent') && flow.rollen.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['rollen'],
+        message: 'Der Flow hat das Werkzeug "subagent", aber keine Rollen definiert',
+      });
+    }
+
+    // Eine Rolle darf nicht mehr dürfen als der Flow selbst — sonst wäre die
+    // Werkzeug-Freigabe des Flows umgehbar, indem man sie an eine Rolle delegiert.
+    for (const role of flow.rollen) {
+      for (const tool of role.werkzeuge) {
+        if (!flow.werkzeuge.includes(tool)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['rollen'],
+            message: `Rolle "${role.name}" verlangt das Werkzeug "${tool}", das der Flow selbst nicht hat`,
+          });
+        }
+      }
+    }
+
+    // Dateizugriff ohne erlaubten Ordner ist wirkungslos — lieber beim Speichern
+    // sagen als den Nutzer rätseln lassen, warum der Flow nichts findet.
+    const needsFolder = ['dateien_lesen', 'dateien_schreiben', 'dateien_suchen', 'terminal'];
+    const usesFiles = flow.werkzeuge.some(t => needsFolder.includes(t));
+    if (usesFiles && flow.ordner.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ordner'],
+        message:
+          'Der Flow nutzt Datei- oder Terminal-Werkzeuge, hat aber keinen erlaubten Ordner ("ordner")',
+      });
+    }
+  });
+
+/** Body zum Anlegen/Ändern eines Flows über die API (ohne den Namen aus der URL). */
+const SaveFlowBody = z
+  .object({
+    beschreibung: z.string().trim().max(300).optional(),
+    modell: z.string().trim().max(100).optional(),
+    argumente: z.array(FlowArgument).max(10).optional(),
+    ordner: z.array(z.string().trim().min(1).max(500)).max(10).optional(),
+    werkzeuge: z.array(z.enum(VALID_TOOLS)).max(VALID_TOOLS.length).optional(),
+    rollen: z.array(SubagentRole).max(10).optional(),
+    grenzen: FlowLimitsShape.optional(),
+    prompt: z.string().trim().min(1).max(50000),
+  })
+  .strict();
+
+/** Beim Anlegen kommt der Name im Body dazu. */
+const CreateFlowBody = SaveFlowBody.extend({ name: FlowName });
+
+/**
+ * Body der Laufzeit-Vorschau (Plan 012, Schritt 11): derselbe Flow-Body wie
+ * beim Anlegen, plus optionale Beispiel-Argumente. Fehlen sie, füllt der Runner
+ * sichtbare Platzhalter ein — die Vorschau soll auch ohne Angaben etwas zeigen.
+ */
+const RuntimePreviewBody = CreateFlowBody.extend({
+  args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
+});
+
+/** `:name` in der URL. */
+const FlowNameParams = z.object({ name: FlowName }).strict();
+
+/** `:id` eines Laufs in der URL (Plan 011, Schritt 9). */
+const RunIdParams = z.object({ id: z.coerce.number().int().positive() }).strict();
+
+/** Einen Lauf starten (Plan 011, Schritt 12). */
+const StartRunBody = z
+  .object({
+    flow: FlowName,
+    // Argumentwerte als name→Wert. Werte kommen als Strings aus dem Chat; der
+    // Runner prüft sie gegen die Deklaration des Flows.
+    args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
+    conversation_id: z.coerce.number().int().positive().nullish(),
+  })
+  .strict();
+
+/** Query der Lauf-Liste. */
+const ListRunsQuery = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+    conversation_id: z.coerce.number().int().positive().optional(),
+  })
+  .strict();
+
+module.exports = {
+  FlowDefinition,
+  FlowArgument,
+  SubagentRole,
+  ResultContract,
+  FlowLimits,
+  FlowLimitsShape,
+  SaveFlowBody,
+  CreateFlowBody,
+  RuntimePreviewBody,
+  FlowNameParams,
+  RunIdParams,
+  ListRunsQuery,
+  StartRunBody,
+  VALID_TOOLS,
+  ARG_TYPES,
+  FLOW_NAME_RE,
+};
