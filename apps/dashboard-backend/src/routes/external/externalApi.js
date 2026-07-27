@@ -23,9 +23,23 @@ const llmJobService = require('../../services/llm/llmJobService');
 const modelService = require('../../services/llm/modelService');
 const extractionService = require('../../services/documents/extractionService');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../../utils/errors');
+const {
+  ValidationError,
+  NotFoundError,
+  ForbiddenError,
+  ServiceUnavailableError,
+} = require('../../utils/errors');
 const { validateBody } = require('../../middleware/validate');
-const { ExternalLlmChatBody, CreateApiKeyBody } = require('../../schemas/externalApi');
+const {
+  ExternalLlmChatBody,
+  ExternalFlowRunBody,
+  CreateApiKeyBody,
+} = require('../../schemas/externalApi');
+const flowRegistry = require('../../services/flows/flowRegistry');
+const flowRunner = require('../../services/flows/flowRunner');
+const flowRunStore = require('../../services/flows/runStore');
+const flowScheduler = require('../../services/flows/scheduler');
+const { resolveArguments } = require('../../services/flows/runFlow');
 
 // Multer for document upload endpoints (50MB limit)
 const upload = multer({
@@ -284,6 +298,7 @@ router.post(
         'llm:status',
         'document:extract',
         'document:analyze',
+        'flow:run',
       ],
       expiresAt: expires_at || null,
     });
@@ -739,6 +754,199 @@ async function waitForJobCompletion(jobId, timeoutMs, req) {
   }
 
   return { error: 'Job timed out' };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Flow-Trigger (Plan 013, B8)
+//
+// Ein Flow lässt sich von außen (n8n, eigene Automationen) per API-Key starten —
+// zwei Wege: direkt („starte Flow X") oder über ein benanntes Ereignis („es ist
+// etwas passiert, feuere alle Auslöser, die darauf hören"). Beide gehen durch
+// denselben Runner wie der Chat; der Lauf erscheint dort als Karte.
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/external/flows - Verfügbare Flows auflisten (für Discovery in n8n).
+ */
+router.get(
+  '/flows',
+  requireApiKey,
+  requireEndpoint('flow:run'),
+  asyncHandler(async (req, res) => {
+    const { flows } = await flowRegistry.listFlows();
+    res.json({
+      success: true,
+      flows: flows.map(f => ({
+        name: f.name,
+        beschreibung: f.beschreibung || '',
+        argumente: (f.argumente || []).map(a => ({
+          name: a.name,
+          typ: a.typ,
+          pflicht: a.pflicht === true,
+        })),
+      })),
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/v1/external/flows/:name/run - Einen Flow auslösen.
+ *
+ * Body: { args?, wait_for_result?=true, timeout_seconds?=300 }
+ * Bei wait_for_result=false kommt sofort die Lauf-ID zurück; sonst wird bis zum
+ * Ende (oder Timeout) gewartet und das Ergebnis mitgegeben.
+ */
+router.post(
+  '/flows/:name/run',
+  requireApiKey,
+  requireEndpoint('flow:run'),
+  validateBody(ExternalFlowRunBody),
+  asyncHandler(async (req, res) => {
+    const startTime = Date.now();
+    const flowName = req.params.name;
+    const args = req.body.args || {};
+    const waitForResult = req.body.wait_for_result !== false;
+
+    // Läufe brauchen einen eindeutigen Besitzer. `req.apiKey.userId` ist der
+    // Schlüssel-Ersteller (api_keys.created_by) — es kann NULL sein, wenn dieser
+    // Nutzer gelöscht wurde (ON DELETE SET NULL). Dann NICHT still auf Admin (1)
+    // ausweichen: sonst liest/schreibt ein verwaister Schlüssel fremde Läufe
+    // (gleiche Klasse wie der Job-Guard oben). Owner-loser Schlüssel → ablehnen.
+    if (!req.apiKey.userId) {
+      throw new ForbiddenError('API-Schlüssel ohne gültigen Besitzer — bitte neu erstellen');
+    }
+    const userId = req.apiKey.userId;
+
+    // FRÜH prüfen, solange der Request da ist: Flow existiert (→ 404) und die
+    // Argumente passen (→ 400). Sonst käme der Fehler erst als toter Lauf.
+    const flow = await flowRegistry.loadFlow(flowName);
+    resolveArguments(flow.argumente, args);
+
+    const { runId } = await flowRunner.starten({
+      flowName,
+      args,
+      userId,
+      conversationId: null,
+    });
+
+    logger.info(
+      `[External API] Flow "${flowName}" gestartet (Lauf ${runId}) von ${req.apiKey.name}`
+    );
+
+    if (!waitForResult) {
+      return res.status(202).json({
+        success: true,
+        run_id: runId,
+        status: 'laeuft',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const timeoutMs = Math.min((req.body.timeout_seconds || 300) * 1000, 1800000);
+    const run = await waitForRunCompletion(runId, userId, timeoutMs, req);
+
+    return res.json({
+      success: run.status === 'fertig',
+      run_id: runId,
+      status: run.status,
+      result: run.result || null,
+      error: run.error || null,
+      steps_used: run.steps_used ?? null,
+      processing_time_ms: Date.now() - startTime,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * GET /api/v1/external/flows/runs/:id - Status/Ergebnis eines Laufs abfragen.
+ */
+router.get(
+  '/flows/runs/:id',
+  requireApiKey,
+  requireEndpoint('flow:run'),
+  asyncHandler(async (req, res) => {
+    // Kein stiller Admin-Fallback: ein verwaister Schlüssel (userId NULL) darf
+    // NICHT die Läufe von Admin (1) lesen — exakt der Guard der Job-Status-Route.
+    if (!req.apiKey.userId) {
+      throw new NotFoundError('Lauf nicht gefunden');
+    }
+    const userId = req.apiKey.userId;
+    const runId = Number(req.params.id);
+    if (!Number.isInteger(runId) || runId <= 0) {
+      throw new ValidationError('run id must be a positive integer');
+    }
+    // getRun wirft NotFound bei fremd/unbekannt (eigentümer-geprüft).
+    const run = await flowRunStore.getRun({ runId, userId });
+    res.json({
+      success: true,
+      run_id: runId,
+      status: run.status,
+      result: run.result || null,
+      error: run.error || null,
+      steps_used: run.steps_used ?? null,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/v1/external/events/:name - Ein benanntes Ereignis feuern.
+ *
+ * Startet alle aktiven Ereignis-Auslöser, die auf diesen Namen hören. So kann
+ * ein n8n-Webhook einen (oder mehrere) Flow(s) anstoßen, ohne deren Namen zu
+ * kennen — die Kopplung liegt in den Auslösern.
+ */
+router.post(
+  '/events/:name',
+  requireApiKey,
+  requireEndpoint('flow:run'),
+  asyncHandler(async (req, res) => {
+    const eventName = req.params.name;
+    const { ausgeloest, laeufe } = await flowScheduler.feuerEreignis(eventName);
+    logger.info(
+      `[External API] Ereignis "${eventName}" gefeuert von ${req.apiKey.name}: ${ausgeloest} Auslöser`
+    );
+    res.json({
+      success: true,
+      event: eventName,
+      triggered: ausgeloest,
+      runs: laeufe.map(l => ({ schedule_id: l.scheduleId, run_id: l.runId })),
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * Helper: Wartet auf das Ende eines Flow-Laufs (Terminal-Status) mit Timeout.
+ * Bricht ab, wenn der API-Aufrufer die Verbindung schließt — der Lauf läuft
+ * serverseitig weiter (er ist losgelöst), wir hören nur auf zu warten.
+ */
+async function waitForRunCompletion(runId, userId, timeoutMs, req) {
+  const TERMINAL = new Set(['fertig', 'fehler', 'abgebrochen']);
+  const pollInterval = 750;
+  const startTime = Date.now();
+  let clientGone = false;
+  if (req) {
+    req.on('close', () => {
+      clientGone = true;
+    });
+  }
+
+  while (Date.now() - startTime < timeoutMs) {
+    if (clientGone) {
+      return { status: 'laeuft', error: 'Client disconnected' };
+    }
+    const run = await flowRunStore.getRun({ runId, userId });
+    if (TERMINAL.has(run.status)) {
+      return run;
+    }
+    await new Promise(resolve => {
+      setTimeout(resolve, pollInterval);
+    });
+  }
+  return { status: 'laeuft', error: 'Flow-Lauf hat das Zeitlimit überschritten' };
 }
 
 module.exports = router;

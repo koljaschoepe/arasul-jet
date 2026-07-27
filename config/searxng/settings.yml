@@ -1,4 +1,4 @@
-# SearXNG — Konfiguration für die Web-Recherche von Skills (Plan 011, Schritt 8)
+# SearXNG — Konfiguration für die Web-Recherche von Flows (Plan 011, Schritt 8)
 #
 # `use_default_settings: true` erbt die vollständige Standardkonfiguration des
 # Images (inklusive der langen Engine-Liste) und überschreibt nur, was hier
@@ -45,7 +45,7 @@ ui:
   static_use_hash: true
 
 outgoing:
-  # Kurze Fristen: Eine hängende Suchmaschine darf einen Skill-Lauf nicht
+  # Kurze Fristen: Eine hängende Suchmaschine darf einen Flow-Lauf nicht
   # blockieren. Lieber weniger Treffer als ein Lauf, der steht.
   request_timeout: 6.0
   max_request_timeout: 10.0

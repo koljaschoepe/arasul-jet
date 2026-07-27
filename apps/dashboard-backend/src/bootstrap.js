@@ -50,13 +50,13 @@ async function bootstrap() {
     logger.error(`Bootstrap: App-Container-Reconcile error: ${error.message}`);
   }
 
-  // Step 5: Beispiel-Skills anlegen (Plan 011, Schritt 18) — nur fehlende, nie
+  // Step 5: Beispiel-Flows anlegen (Plan 011, Schritt 18) — nur fehlende, nie
   // überschreibend. Best-effort, blockiert den Boot nie.
   try {
-    const { seedBeispielSkills } = require('./services/skills/beispielSeed');
-    await seedBeispielSkills();
+    const { seedBeispielFlows } = require('./services/flows/beispielSeed');
+    await seedBeispielFlows();
   } catch (error) {
-    logger.error(`Bootstrap: Beispiel-Skills-Seed error: ${error.message}`);
+    logger.error(`Bootstrap: Beispiel-Flows-Seed error: ${error.message}`);
   }
 }
 

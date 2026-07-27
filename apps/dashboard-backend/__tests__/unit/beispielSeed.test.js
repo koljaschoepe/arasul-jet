@@ -1,5 +1,5 @@
 /**
- * Beispiel-Skills bei der Einrichtung (Plan 011, Schritt 18).
+ * Beispiel-Flows bei der Einrichtung (Plan 011, Schritt 18).
  *
  * Prüft: die mitgelieferten Vorlagen parsen sauber, werden in einen leeren
  * Ordner kopiert, und ein zweiter Lauf überschreibt eine vorhandene (evtl. vom
@@ -12,33 +12,33 @@ const fs = require('fs');
 const fsp = require('fs').promises;
 const os = require('os');
 const path = require('path');
-const { seedBeispielSkills, BEISPIELE_DIR } = require('../../src/services/skills/beispielSeed');
-const { parseSkillFile } = require('../../src/services/skills/skillFile');
+const { seedBeispielFlows, BEISPIELE_DIR } = require('../../src/services/flows/beispielSeed');
+const { parseFlowFile } = require('../../src/services/flows/flowFile');
 
 describe('Beispiel-Vorlagen', () => {
-  it('sind gültige Skills (parsen gegen das Schema)', () => {
+  it('sind gültige Flows (parsen gegen das Schema)', () => {
     const dateien = fs.readdirSync(BEISPIELE_DIR).filter(f => f.endsWith('.md'));
     expect(dateien.sort()).toEqual(
       ['dokument-zusammenfassen.md', 'erweiterung.md', 'execute.md', 'recherche.md', 'wissen.md'].sort()
     );
     for (const f of dateien) {
       const text = fs.readFileSync(path.join(BEISPIELE_DIR, f), 'utf8');
-      expect(() => parseSkillFile(text, { name: f.replace(/\.md$/, '') })).not.toThrow();
+      expect(() => parseFlowFile(text, { name: f.replace(/\.md$/, '') })).not.toThrow();
     }
   });
 });
 
-describe('seedBeispielSkills', () => {
+describe('seedBeispielFlows', () => {
   let ziel;
   beforeEach(async () => {
-    ziel = await fsp.mkdtemp(path.join(os.tmpdir(), 'skills-seed-'));
+    ziel = await fsp.mkdtemp(path.join(os.tmpdir(), 'flows-seed-'));
   });
   afterEach(async () => {
     await fsp.rm(ziel, { recursive: true, force: true });
   });
 
   it('legt alle Beispiele in einem leeren Ordner an', async () => {
-    const angelegt = await seedBeispielSkills({ ziel });
+    const angelegt = await seedBeispielFlows({ ziel });
     expect(angelegt.sort()).toEqual(
       ['dokument-zusammenfassen', 'erweiterung', 'execute', 'recherche', 'wissen'].sort()
     );
@@ -49,7 +49,7 @@ describe('seedBeispielSkills', () => {
 
   it('überschreibt eine vorhandene Datei nicht (Nutzer-Bearbeitung bleibt)', async () => {
     await fsp.writeFile(path.join(ziel, 'wissen.md'), 'meine version', 'utf8');
-    const angelegt = await seedBeispielSkills({ ziel });
+    const angelegt = await seedBeispielFlows({ ziel });
     expect(angelegt).not.toContain('wissen');
     expect(fs.readFileSync(path.join(ziel, 'wissen.md'), 'utf8')).toBe('meine version');
     // Die anderen beiden kamen trotzdem dazu.
@@ -60,7 +60,7 @@ describe('seedBeispielSkills', () => {
 
   it('legt den Zielordner an, wenn er fehlt', async () => {
     const tief = path.join(ziel, 'gibt', 'es', 'noch', 'nicht');
-    await seedBeispielSkills({ ziel: tief });
+    await seedBeispielFlows({ ziel: tief });
     expect(fs.existsSync(path.join(tief, 'recherche.md'))).toBe(true);
   });
 });

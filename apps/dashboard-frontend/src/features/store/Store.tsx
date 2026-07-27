@@ -18,9 +18,7 @@
  */
 import { useCallback, useEffect } from 'react';
 import { Routes, Route, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
-import { Cpu, Package } from 'lucide-react';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
-import { cn } from '@/lib/utils';
 import { useExtensionStore } from '@/stores/extensionStore';
 import type { ExtensionKind, StoreTab } from '@/stores/extensionStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -40,11 +38,6 @@ function HighlightRedirect({ kind }: { kind: ExtensionKind }) {
   }, [highlight, kind, navigate, selectExtension]);
   return null;
 }
-
-const STORE_TABS: ReadonlyArray<{ value: StoreTab; label: string; icon: React.ReactNode }> = [
-  { value: 'models', label: 'Modelle', icon: <Cpu aria-hidden="true" /> },
-  { value: 'extensions', label: 'Erweiterungen', icon: <Package aria-hidden="true" /> },
-];
 
 function StoreWorkspace() {
   // Reiter lebt im extensionStore (Plan 012 Phase B): so kann die Activity-Bar
@@ -83,33 +76,13 @@ function StoreWorkspace() {
     );
   }
 
+  // Kein zweiter Modelle/Erweiterungen-Umschalter mehr in der Mitte (B3): die
+  // ActivityBar links wechselt bereits zwischen »Modelle« und »Erweiterungen«,
+  // und die Sidebar-Kopfzeile zeigt den aktiven Bereich. Der Reiter (`storeTab`)
+  // bleibt der Zustand, den die ActivityBar setzt; die Mitte rendert nur noch
+  // das passende Raster.
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="store">
-      <div
-        role="tablist"
-        aria-label="Store-Bereich"
-        className="flex shrink-0 gap-1 border-b border-border px-3 py-2"
-      >
-        {STORE_TABS.map(t => (
-          <button
-            key={t.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.value}
-            data-testid={`store-tab-${t.value}`}
-            onClick={() => setTab(t.value)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-ui-sm font-medium transition-colors [&_svg]:size-4',
-              tab === t.value
-                ? 'bg-accent text-foreground'
-                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-            )}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
-      </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         {tab === 'models' ? <StoreModelsGrid /> : <StoreExtensionsGrid />}
       </div>

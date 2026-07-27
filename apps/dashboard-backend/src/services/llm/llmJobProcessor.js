@@ -273,7 +273,7 @@ async function processChatJob(ctx, job) {
   }
 
   // Hinweis: streamFromOllama hält die gemeinsame GPU-Sperre (gpuQueue) für die
-  // Dauer des Streams — kann also kurz auf einen laufenden Skill-Modell-Aufruf
+  // Dauer des Streams — kann also kurz auf einen laufenden Flow-Modell-Aufruf
   // warten (Plan 011, Schritt 10).
   await streamFromOllama(
     ctx,
@@ -396,7 +396,7 @@ async function processRAGJob(ctx, job) {
   }
 
   // Hinweis: streamFromOllama hält die gemeinsame GPU-Sperre (gpuQueue) für die
-  // Dauer des Streams — kann also kurz auf einen laufenden Skill-Modell-Aufruf
+  // Dauer des Streams — kann also kurz auf einen laufenden Flow-Modell-Aufruf
   // warten (Plan 011, Schritt 10).
   await streamFromOllama(
     ctx,

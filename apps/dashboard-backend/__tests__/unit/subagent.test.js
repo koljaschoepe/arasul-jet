@@ -10,10 +10,10 @@ jest.mock('axios');
 jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
 
 const axios = require('axios');
-const { enforceContract, extractJsonObject } = require('../../src/services/skills/resultContract');
-const { RunLimits } = require('../../src/services/skills/limits');
-const SubagentTool = require('../../src/services/skills/subagent');
-const { runSkillLoop } = require('../../src/services/skills/toolLoop');
+const { enforceContract, extractJsonObject } = require('../../src/services/flows/resultContract');
+const { RunLimits } = require('../../src/services/flows/limits');
+const SubagentTool = require('../../src/services/flows/subagent');
+const { runFlowLoop } = require('../../src/services/flows/toolLoop');
 
 /* ------------------------------------------------------------- Ergebnis-Vertrag */
 
@@ -205,7 +205,7 @@ describe('SubagentTool', () => {
     expect(loopArg.context.depth).toBe(1);
   });
 
-  it('erbt das Skill-Modell, nutzt aber das Rollen-Modell wenn gesetzt', async () => {
+  it('erbt das Flow-Modell, nutzt aber das Rollen-Modell wenn gesetzt', async () => {
     const geerbt = baseCtx();
     await tool.execute({ rolle: 'leser', auftrag: 'x' }, geerbt);
     expect(geerbt.runLoop.mock.calls[0][0].model).toBe('default-model');
@@ -270,7 +270,7 @@ describe('SubagentTool', () => {
     const ctx = baseCtx({
       recordSubagent,
       makeTools: () => [werkzeug], // die Rolle bekommt das echte Werkzeug-Doppel
-      runLoop: runSkillLoop, // die ECHTE Schleife
+      runLoop: runFlowLoop, // die ECHTE Schleife
     });
     const out = await tool.execute({ rolle: 'leser', auftrag: 'Lies x' }, ctx);
 

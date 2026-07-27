@@ -11,7 +11,7 @@ const Store = lazy(() => import('@/features/store'));
 const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
 const ExtensionAppTab = lazy(() => import('./viewers/ExtensionAppTab'));
-const SkillEditorTab = lazy(() => import('@/features/skills/SkillEditorTab'));
+const FlowEditorTab = lazy(() => import('@/features/flows/FlowEditorTab'));
 
 export interface TabThemeControls {
   theme: string;
@@ -85,7 +85,7 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/';
     case 'document':
       return '/';
-    case 'skill':
+    case 'flow':
       return '/';
     case 'extension':
       // Direkt gerendert (kein FeatureTabHost), Wert wird nie genutzt.
@@ -99,7 +99,7 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   settings: new Set(['settings']),
   store: new Set(['store']),
   automationen: new Set([]),
-  skill: new Set([]),
+  flow: new Set([]),
   extension: new Set([]),
 };
 
@@ -166,22 +166,22 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   if (tab.type === 'extension') {
     return <ExtensionAppTab extensionId={tab.extensionId ?? ''} title={tab.title} />;
   }
-  if (tab.type === 'skill') {
-    return <SkillEditorTab />;
+  if (tab.type === 'flow') {
+    return <FlowEditorTab />;
   }
   return <FeatureTabHost tab={tab} themeControls={themeControls} />;
 }
 
 /**
  * Tab-Typen, die beim Wechsel gemountet bleiben. `automationen` wegen des
- * eingebetteten iframes; `skill`, damit ein halb ausgefülltes Editor-Formular
+ * eingebetteten iframes; `flow`, damit ein halb ausgefülltes Editor-Formular
  * einen kurzen Tab-Wechsel (z. B. Blick in den Datei-Explorer) übersteht statt
  * unbemerkt verloren zu gehen. Keep-Alive greift nur für tatsächlich geöffnete
- * Tabs — ein nie geöffneter Skill-Tab wird dadurch nicht gemountet.
+ * Tabs — ein nie geöffneter Flow-Tab wird dadurch nicht gemountet.
  */
 const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
   'automationen',
-  'skill',
+  'flow',
   // App-Erweiterungen halten wie n8n ihren iframe-Zustand über Tab-Wechsel.
   'extension',
 ]);

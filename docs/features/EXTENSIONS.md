@@ -114,4 +114,4 @@ Sandbox liegen. Eine frisch installierte Erweiterung ist zunächst
 - Datenbank: [`DATABASE_SCHEMA.md`](../api/DATABASE_SCHEMA.md) → `extensions`
 - Umgebungsvariablen: [`ENVIRONMENT_VARIABLES.md`](../ENVIRONMENT_VARIABLES.md)
   → `EXTENSIONS_DIR`, `SANDBOX_DEV_TEMPLATES_DIR`
-- Skills: [`SKILLS.md`](SKILLS.md) — `/erweiterung` und `/execute`
+- Flows: [`FLOWS.md`](FLOWS.md) — Chat-Slash-Befehle, Argumente, Werkzeuge, Auslöser

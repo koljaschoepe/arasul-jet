@@ -14,15 +14,16 @@ import { Plus, Upload, X } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useSkillEditorStore } from '@/stores/skillEditorStore';
+import { useFlowEditorStore } from '@/stores/flowEditorStore';
 import { usePins } from '../../useWorkspaceContext';
-import { useSkills } from '@/hooks/useSkills';
+import { useFlows } from '@/hooks/useFlows';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Mascot } from '@/components/mascot/Mascot';
 import CompactMessage from './CompactMessage';
 import ComposerCard from './ComposerCard';
 import ConversationList from '../ConversationList';
-import RunCard from '@/features/skills/RunCard';
+import RunCard from '@/features/flows/RunCard';
+import FlowActivity from '@/features/flows/FlowActivity';
 
 const PANEL_CHAT_KEY = 'arasul_panel_chat_id';
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -47,9 +48,9 @@ export default function AgentChatPanel() {
     getBackgroundLoading,
     clearBackgroundState,
     hasActiveStream,
-    getSkillRuns,
-    registerSkillRun,
-    setChatSkillRuns,
+    getFlowRuns,
+    registerFlowRun,
+    setChatFlowRuns,
     installedModels,
     defaultModel,
     selectedModel,
@@ -59,8 +60,8 @@ export default function AgentChatPanel() {
   const chatScope = useWorkspaceStore(s => s.chatScope);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
   const openTab = useWorkspaceStore(s => s.openTab);
-  const setEditTarget = useSkillEditorStore(s => s.setEditTarget);
-  const { skills } = useSkills();
+  const setEditTarget = useFlowEditorStore(s => s.setEditTarget);
+  const { flows } = useFlows();
   const { pins, removePin } = usePins();
 
   const [chatId, setChatId] = useState<string | null>(
@@ -74,23 +75,23 @@ export default function AgentChatPanel() {
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  // Skill-Namen je Lauf-ID — nur als Kopfzeilen-Hinweis, bevor der Lauf-Strom
+  // Flow-Namen je Lauf-ID — nur als Kopfzeilen-Hinweis, bevor der Lauf-Strom
   // ihn ohnehin bestätigt (Plan 011, Schritt 15).
   const [runNames, setRunNames] = useState<Record<number, string>>({});
 
-  // Skills öffnen jetzt den zentralen Editor-Tab statt eines Popups (Plan 012
-  // Phase D): Ziel im `skillEditorStore` setzen, dann den `skill`-Tab öffnen.
-  const oeffneSkillEditor = useCallback(
+  // Flows öffnen jetzt den zentralen Editor-Tab statt eines Popups (Plan 012
+  // Phase D): Ziel im `flowEditorStore` setzen, dann den `flow`-Tab öffnen.
+  const oeffneFlowEditor = useCallback(
     (editName: string | null) => {
       setEditTarget(editName);
-      openTab({ type: 'skill' });
+      openTab({ type: 'flow' });
     },
     [setEditTarget, openTab]
   );
 
   // Die Lauf-IDs dieses Chats (neueste zuerst) — die Karten stehen chronologisch
   // unter den Nachrichten, also älteste zuerst.
-  const runIds = chatId ? getSkillRuns(chatId) : [];
+  const runIds = chatId ? getFlowRuns(chatId) : [];
 
   const messagesRef = useRef<ChatMessage[]>(messages);
   useEffect(() => {
@@ -103,7 +104,7 @@ export default function AgentChatPanel() {
   // und der GET würde mit dem laufenden Stream um setMessages konkurrieren).
   const freshChatRef = useRef<string | null>(null);
   const wasLoadingRef = useRef(false);
-  // Sperrt eine zweite Skill-Lauf-Auslösung, bis der Start-POST durch ist.
+  // Sperrt eine zweite Flow-Lauf-Auslösung, bis der Start-POST durch ist.
   const runStartRef = useRef(false);
 
   // --- Chat-Lebenszyklus ------------------------------------------------
@@ -275,9 +276,9 @@ export default function AgentChatPanel() {
     sendMessage,
   ]);
 
-  // Beim Öffnen eines Chats seine Skill-Läufe vom Server holen (Quelle der
+  // Beim Öffnen eines Chats seine Flow-Läufe vom Server holen (Quelle der
   // Wahrheit); die Karten reihen sich unter die Nachrichten. Frisch gestartete
-  // Läufe bleiben durch `setChatSkillRuns` erhalten.
+  // Läufe bleiben durch `setChatFlowRuns` erhalten.
   useEffect(() => {
     if (!chatId) return;
     let cancelled = false;
@@ -286,19 +287,19 @@ export default function AgentChatPanel() {
       // String ("10"), während der Start-POST sie als Zahl (10) liefert. Beide
       // MÜSSEN zur selben Zahl normalisiert werden — sonst scheitert der
       // Dublettenschutz (10 !== "10") und derselbe Lauf erscheint doppelt.
-      .get<{ data: { id: number | string; skill_name: string }[] }>(
-        `/skills/laeufe?conversation_id=${chatId}`,
+      .get<{ data: { id: number | string; flow_name: string }[] }>(
+        `/flows/laeufe?conversation_id=${chatId}`,
         { showError: false }
       )
       .then(d => {
         if (cancelled) return;
-        setChatSkillRuns(
+        setChatFlowRuns(
           chatId,
           d.data.map(r => Number(r.id))
         );
         setRunNames(prev => {
           const next = { ...prev };
-          for (const r of d.data) next[Number(r.id)] = r.skill_name;
+          for (const r of d.data) next[Number(r.id)] = r.flow_name;
           return next;
         });
       })
@@ -306,10 +307,10 @@ export default function AgentChatPanel() {
     return () => {
       cancelled = true;
     };
-  }, [chatId, api, setChatSkillRuns]);
+  }, [chatId, api, setChatFlowRuns]);
 
-  const handleRunSkill = useCallback(
-    async (skillName: string, args: Record<string, string>) => {
+  const handleRunFlow = useCallback(
+    async (flowName: string, args: Record<string, string>) => {
       // Doppel-Auslösung sperren: `isLoading` ist der Chat-Stream, nicht der Lauf —
       // ohne eigene Sperre startete ein schnelles Doppel-Enter zwei Läufe (zwei
       // teure GPU-Vorgänge, zwei Karten) für eine Aktion. Erst nach dem POST frei.
@@ -319,25 +320,25 @@ export default function AgentChatPanel() {
       setError(null);
       try {
         const id = await ensureChat();
-        const res = await api.post<{ data: { runId: number | string } }>('/skills/laeufe', {
-          skill: skillName,
+        const res = await api.post<{ data: { runId: number | string } }>('/flows/laeufe', {
+          flow: flowName,
           args,
           conversation_id: Number(id),
         });
         // Wie in der Liste: die BIGINT-ID kann als String kommen — zur Zahl
         // normalisieren, damit Registry-Schlüssel und Karten-ID konsistent sind.
         const runId = Number(res.data.runId);
-        setRunNames(prev => ({ ...prev, [runId]: skillName }));
-        registerSkillRun(id, runId);
+        setRunNames(prev => ({ ...prev, [runId]: flowName }));
+        registerFlowRun(id, runId);
         stickToBottomRef.current = true;
       } catch (err) {
         // useApi zeigt die Fehlermeldung bereits als Toast; hier die Zeile oben.
-        setError((err as Error).message || 'Skill konnte nicht gestartet werden');
+        setError((err as Error).message || 'Flow konnte nicht gestartet werden');
       } finally {
         runStartRef.current = false;
       }
     },
-    [isLoading, ensureChat, api, registerSkillRun]
+    [isLoading, ensureChat, api, registerFlowRun]
   );
 
   const handleCancel = useCallback(() => {
@@ -449,6 +450,9 @@ export default function AgentChatPanel() {
         <ConversationList onSelect={switchChat} />
       </div>
 
+      {/* Flow-Steuerung: laufende & geplante Flows, hier anstoßen/planen (B8) */}
+      <FlowActivity flows={flows} onRunFlow={handleRunFlow} />
+
       {/* Verlauf */}
       <div
         ref={scrollerRef}
@@ -476,10 +480,10 @@ export default function AgentChatPanel() {
                 <CompactMessage message={m} isStreaming={isLoading && i === lastIndex} />
               </ComponentErrorBoundary>
             ))}
-            {/* Skill-Läufe chronologisch (älteste zuerst) unter den Nachrichten */}
+            {/* Flow-Läufe chronologisch (älteste zuerst) unter den Nachrichten */}
             {[...runIds].reverse().map(id => (
-              <ComponentErrorBoundary key={`run-${id}`} componentName="Skill-Lauf">
-                <RunCard runId={id} skillName={runNames[id]} />
+              <ComponentErrorBoundary key={`run-${id}`} componentName="Flow-Lauf">
+                <RunCard runId={id} flowName={runNames[id]} />
               </ComponentErrorBoundary>
             ))}
             <div ref={endRef} />
@@ -515,16 +519,16 @@ export default function AgentChatPanel() {
           onSelectModel={setSelectedModel}
           pins={pins}
           onRemovePin={id => removePin.mutate(id)}
-          skills={skills}
-          // Plan 012 Phase D: `/skills` öffnet die echte Übersicht (Sidebar-
-          // Ansicht »Skills«), `/neuer-skill` einen leeren Editor-Tab, das
-          // Stift-Symbol den Editor-Tab des jeweiligen Skills.
-          onOpenSkillOverview={() =>
-            useWorkspaceStore.setState({ activeView: 'skills', sidebarVisible: true })
+          flows={flows}
+          // Plan 012 Phase D: `/flows` öffnet die echte Übersicht (Sidebar-
+          // Ansicht »Flows«), `/neuer-flow` einen leeren Editor-Tab, das
+          // Stift-Symbol den Editor-Tab des jeweiligen Flows.
+          onOpenFlowOverview={() =>
+            useWorkspaceStore.setState({ activeView: 'flows', sidebarVisible: true })
           }
-          onCreateSkill={() => oeffneSkillEditor(null)}
-          onEditSkill={name => oeffneSkillEditor(name)}
-          onRunSkill={handleRunSkill}
+          onCreateFlow={() => oeffneFlowEditor(null)}
+          onEditFlow={name => oeffneFlowEditor(name)}
+          onRunFlow={handleRunFlow}
         />
       </div>
 

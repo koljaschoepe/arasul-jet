@@ -7,10 +7,10 @@
  *     und kommen weder an das Dashboard, seine Cookies noch an den Speicher —
  *     die Datei ist Nutzer-Inhalt und wird isoliert dargestellt (wie ein
  *     Artefakt).
- *   • „Code" — der HTML-Quelltext in einem einfachen Editor; „Speichern" schreibt
- *     über `PUT /documents/:id/content` zurück (HTML ist dort seit Batch 3
- *     freigegeben). Die Vorschau zeigt immer den AKTUELLEN Entwurf, auch vor dem
- *     Speichern — man sieht seine Änderung sofort.
+ *   • „Code" — der HTML-Quelltext farbig in CodeMirror 6 (Plan 013, B10);
+ *     „Speichern" schreibt über `PUT /documents/:id/content` zurück (HTML ist
+ *     dort seit Batch 3 freigegeben). Die Vorschau zeigt immer den AKTUELLEN
+ *     Entwurf, auch vor dem Speichern — man sieht seine Änderung sofort.
  */
 import { useEffect, useState } from 'react';
 import { Code2, Download, Eye, Save } from 'lucide-react';
@@ -20,6 +20,7 @@ import { useToast } from '@/contexts/ToastContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
+import CodeMirrorEditor from './CodeMirrorEditor';
 
 type HtmlView = 'vorschau' | 'code';
 
@@ -102,11 +103,8 @@ export default function HtmlDocumentViewer({
     <div className="flex h-full min-h-0 flex-col">
       {/* Kopfzeile: Umschalter links, Aktionen rechts — auf einer Höhe. */}
       <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
-        <div
-          role="group"
-          aria-label="HTML-Ansicht"
-          className="flex items-center gap-1 rounded-md border border-border p-0.5"
-        >
+        {/* Dezenter, borderloser Umschalter — einheitlich mit dem Code-Viewer. */}
+        <div role="group" aria-label="HTML-Ansicht" className="flex items-center gap-0.5">
           {(
             [
               { key: 'vorschau', label: 'Vorschau', icon: Eye },
@@ -120,9 +118,9 @@ export default function HtmlDocumentViewer({
               aria-pressed={view === t.key}
               onClick={() => setView(t.key)}
               className={cn(
-                'flex items-center gap-1.5 rounded px-2.5 py-1 text-ui-xs font-medium transition-colors',
+                'flex items-center gap-1 rounded px-2 py-0.5 text-ui-xs transition-colors',
                 view === t.key
-                  ? 'bg-accent text-foreground'
+                  ? 'bg-accent font-medium text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -170,14 +168,15 @@ export default function HtmlDocumentViewer({
             className="h-full w-full border-0 bg-white"
           />
         ) : (
-          <textarea
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            spellCheck={false}
-            aria-label="HTML-Quelltext"
-            data-testid="html-code"
-            className="h-full w-full resize-none border-0 bg-background p-3 font-mono text-[13px] leading-relaxed text-foreground outline-none"
-          />
+          <div className="h-full overflow-auto" data-testid="html-code">
+            <CodeMirrorEditor
+              value={draft}
+              onChange={setDraft}
+              fileExtension=".html"
+              ariaLabel="HTML-Quelltext"
+              testId="html-code-editor"
+            />
+          </div>
         )}
       </div>
     </div>

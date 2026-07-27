@@ -3,7 +3,7 @@
  *
  * Der Verlauf-Knopf im Chat-Kopf öffnet diese Liste: ein Suchfeld, die Treffer
  * (oder die letzten Chats, solange nicht gesucht wird) und je Zeile das
- * Umbenennen. So findet man Wochen später zum Skill-Lauf von damals zurück.
+ * Umbenennen. So findet man Wochen später zum Flow-Lauf von damals zurück.
  *
  * Suche und Umbenennen nutzen die vorhandenen Endpunkte (`GET /chats/search`,
  * `PATCH /chats/:id`); der Auto-Titel aus der ersten Nachricht kommt vom Server.

@@ -9,10 +9,10 @@
 const http = require('http');
 const systemSettings = require('../system-settings/systemSettingsService');
 const { circuitBreakers } = require('../../utils/retry');
-// Die EINE GPU-Sperre, geteilt mit den Skill-Läufen (Plan 011, Schritt 10).
-// Nutzer-Entscheidung: strikt einer nach dem anderen — Chat und Skill dürfen
-// nie zugleich auf die GPU. Siehe services/skills/gpuQueue.js.
-const { withGpuLock } = require('../skills/gpuQueue');
+// Die EINE GPU-Sperre, geteilt mit den Flow-Läufen (Plan 011, Schritt 10).
+// Nutzer-Entscheidung: strikt einer nach dem anderen — Chat und Flow dürfen
+// nie zugleich auf die GPU. Siehe services/flows/gpuQueue.js.
+const { withGpuLock } = require('../flows/gpuQueue');
 
 // OOM error patterns from Ollama/CUDA
 const OOM_PATTERNS = [
@@ -80,7 +80,7 @@ const ollamaAgent = new http.Agent({
  * Die Sperre wird bewusst um den ganzen Aufruf gelegt, nicht nur um den
  * Verbindungsaufbau: `_streamFromOllamaImpl` kehrt erst zurück, wenn der Stream
  * vollständig gelesen ist (das innere Promise löst auf `end`). Genau so lange
- * ist die GPU belegt — und genau so lange muss ein wartender Skill-Aufruf (oder
+ * ist die GPU belegt — und genau so lange muss ein wartender Flow-Aufruf (oder
  * ein zweiter Chat-Job) draußen bleiben. `withGpuLock` gibt die Sperre auch bei
  * einem Fehler wieder frei (AsyncMutex: release im finally), ein hängender Chat
  * kann die Warteschlange also nicht dauerhaft blockieren.
@@ -232,7 +232,7 @@ async function _streamFromOllamaImpl(
   // feuern könnte — ohne diese Referenz bliebe das `await new Promise(...)`
   // ewig hängen, die Funktion kehrte nie zurück, und (seit Plan 011/10) gäbe
   // die gemeinsame GPU-Sperre nie mehr frei: ein einziger hängender Stream
-  // würde Chat UND alle Skills dauerhaft blockieren.
+  // würde Chat UND alle Flows dauerhaft blockieren.
   let settleStream = null;
 
   try {

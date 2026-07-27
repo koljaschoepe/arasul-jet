@@ -167,9 +167,9 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ---
 
-## SearXNG (Web search for skills)
+## SearXNG (Web search for flows)
 
-Skills with the `web_suche` / `web_lesen` tools search through the platform's
+Flows with the `web_suche` / `web_lesen` tools search through the platform's
 own SearXNG container — no third-party account, no API key, no queries tied to
 the device by an external provider. The service is deliberately **not** exposed
 via Traefik; only the backend reaches it on the internal network.
@@ -523,19 +523,19 @@ Network modes (`sandbox_projects.network_mode`, CHECK in migration 100): `isolat
 
 ## Werkzeug-Schleife (Tool-Loop)
 
-Der Skill-Runner (`services/skills/runSkill.js` → `toolLoop.js`) bedient das
+Der Flow-Runner (`services/flows/runFlow.js` → `toolLoop.js`) bedient das
 lokale Modell mit echten Function-Calls (Plan 011, Schritt 10). Die Grenzen
-eines Laufs — Werkzeug-Runden und Gesamt-Zeitlimit — kommen PRO Skill aus
+eines Laufs — Werkzeug-Runden und Gesamt-Zeitlimit — kommen PRO Flow aus
 dessen Kopfdaten (`grenzen.werkzeug_runden` / `grenzen.zeitlimit_s`), nicht aus
 einer Umgebungsvariablen. Steuerbar per Env ist nur das Zeitlimit je einzelnem
 Modell-Aufruf:
 
-| Variable             | Default | Description                                                              |
-| -------------------- | ------- | ------------------------------------------------------------------------ |
-| SKILL_LLM_TIMEOUT_MS | 120000  | Timeout (ms) je Ollama-Aufruf eines Skill-Laufs (eigen, nicht `AGENT_*`) |
+| Variable            | Default | Description                                                             |
+| ------------------- | ------- | ----------------------------------------------------------------------- |
+| FLOW_LLM_TIMEOUT_MS | 120000  | Timeout (ms) je Ollama-Aufruf eines Flow-Laufs (eigen, nicht `AGENT_*`) |
 
-> **GPU-Sperre:** Alle lokalen Modell-Aufrufe — Chat wie Skill — laufen durch
-> EINE gemeinsame Sperre (`services/skills/gpuQueue.js`); nie treffen zwei
+> **GPU-Sperre:** Alle lokalen Modell-Aufrufe — Chat wie Flow — laufen durch
+> EINE gemeinsame Sperre (`services/flows/gpuQueue.js`); nie treffen zwei
 > zugleich auf die GPU (strikt einer nach dem anderen, keine Priorisierung).
 > Der Chat-Stream gibt sie spätestens nach `LLM_INACTIVITY_TIMEOUT_MS` (Default 600000) wieder frei, falls ein Stream hängt.
 
@@ -548,20 +548,22 @@ Modell-Aufruf:
 
 ---
 
-## Skills
+## Flows
 
-Skills sind Markdown-Dateien mit YAML-Kopfdaten — es gibt keine Tabelle. Die
-Dateien liegen auf dem Host unter `data/skills/` und werden in zwei Container
+Flows sind Markdown-Dateien mit YAML-Kopfdaten — es gibt keine Tabelle. Die
+Dateien liegen auf dem Host unter `data/flows/` und werden in zwei Container
 gemountet: schreibend ins Backend (`compose/compose.app.yaml`), lesend in den
 Backup-Dienst (`compose/compose.monitoring.yaml`). Beide Variablen sind
 optional; die Defaults passen zu diesen Mounts.
 
-| Variable          | Default        | Description                                                                                                          |
-| ----------------- | -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| SKILLS_DIR        | /arasul/skills | Verzeichnis der Skill-Dateien im Backend-Container; die Registry legt es beim Start an, falls es fehlt               |
-| SKILLS_BACKUP_DIR | /arasul/skills | Quellverzeichnis für die Skill-Sicherung im Backup-Dienst (`services/backup-service/backup.sh`, read-only gemountet) |
+| Variable         | Default          | Description                                                                                                                                                                              |
+| ---------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FLOWS_DIR        | /arasul/flows    | Verzeichnis der Flow-Dateien im Backend-Container; die Registry legt es beim Start an, falls es fehlt                                                                                    |
+| FLOWS_BACKUP_DIR | /arasul/flows    | Quellverzeichnis für die Flow-Sicherung im Backup-Dienst (`services/backup-service/backup.sh`, read-only gemountet)                                                                      |
+| PROJECT_GIT_DIR  | /arasul/projects | Wurzelverzeichnis der Projekt-Checkouts für die GitHub-Sync (Plan 013, B9); je Projekt ein Unterordner `<project_id>`. Der Dienst legt es bei Bedarf an und klont fehlende Checkouts neu |
+| GIT_TIMEOUT_MS   | 120000           | Wall-clock-Grenze pro Git-Aufruf (clone/fetch/merge/push) im Git-Sync-Dienst; `GIT_TERMINAL_PROMPT=0` verhindert Hängen an Auth-Prompts                                                  |
 
-> Bewusst getrennt vom Nutzer-Workspace: ein Skill mit Schreibrecht auf einen
+> Bewusst getrennt vom Nutzer-Workspace: ein Flow mit Schreibrecht auf einen
 > Arbeitsordner kann seine eigene Definition nicht überschreiben.
 
 ---

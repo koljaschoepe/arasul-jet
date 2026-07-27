@@ -30,9 +30,6 @@ vi.mock('../features/workspace', () => ({
 }));
 
 // Mock secondary route components (Legacy-Fallback-Routen)
-vi.mock('../features/documents/DocumentManager', () => ({
-  default: () => <div data-testid="document-manager">Documents Component</div>,
-}));
 vi.mock('../features/settings/Settings', () => ({
   default: () => <div data-testid="settings">Settings Component</div>,
 }));
@@ -169,7 +166,8 @@ describe('App Component', () => {
       render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByText('Arasul Platform')).toBeInTheDocument();
+        // Login-Titel ist seit B1 nur noch der Marken-Name (Maskottchen darüber).
+        expect(screen.getByRole('heading', { name: 'Arasul' })).toBeInTheDocument();
         expect(screen.getByLabelText(/benutzername/i)).toBeInTheDocument();
       });
     });

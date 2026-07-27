@@ -143,28 +143,58 @@ is preferred so `errorHandler` keeps structured fields.
 ## Werkzeug-Schleife & Workspace (Plan 008 / 011)
 
 Der Agenten- und Fluss-Layer ist mit Plan 011 entfernt; an seine Stelle treten
-**Skills** (Markdown-Dateien unter `data/skills/`, im Chat per `/name`
-aufgerufen). Der Skill-Layer lebt vollständig in `services/skills/` und bringt
+**Flows** (Markdown-Dateien unter `data/flows/`, im Chat per `/name`
+aufgerufen). Der Flow-Layer lebt vollständig in `services/flows/` und bringt
 seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 
-- `runSkill.js` — der Runner (Schritt 10): lädt den Skill, setzt Argumente ein,
+- `runFlow.js` — der Runner (Schritt 10): lädt den Flow, setzt Argumente ein,
   stellt die Werkzeuge zusammen, baut den Kontext (Ordner, Wissensraum,
   Sandbox-Container fürs Terminal) und treibt die Schleife; schreibt Lauf und
   Schritte über `runStore.js` (Schritt 9) mit.
 - `toolLoop.js` — die Ollama-Function-Calling-Schleife. Grenzen kommen PRO
-  Skill (`grenzen.werkzeug_runden` / `zeitlimit_s`), nicht aus einer
-  Umgebungsvariablen. Per-Aufruf-Timeout: `SKILL_LLM_TIMEOUT_MS`.
+  Flow (`grenzen.werkzeug_runden` / `zeitlimit_s`), nicht aus einer
+  Umgebungsvariablen. Per-Aufruf-Timeout: `FLOW_LLM_TIMEOUT_MS`.
+- `stepExecutor.js` — der deterministische Schritt-Executor (B7): führt eine
+  deklarierte `schritte`-Kette in fester Reihenfolge aus (subagent-Rollen /
+  direkte Werkzeuge, mit Iteration), threadet die Ausgaben und lässt danach den
+  Rumpf-Prompt synthetisieren. `runFlow` verzweigt hierher, wenn ein Flow
+  `schritte` deklariert — sonst bleibt es beim modellgetriebenen `toolLoop`.
+- `scheduler.js` + `scheduleStore.js` + `cronExpr.js` — die Auslöser (B8):
+  `flow_schedules` startet einen Flow automatisch per Cron-Zeitplan oder auf ein
+  benanntes Ereignis hin. `cronExpr.js` ist ein abhängigkeitsfreier 5-Feld-Cron-
+  Auswerter (kein Lockfile-Eintrag); `scheduler.start()` läuft im Server-Boot und
+  tickt alle 60 s über die fälligen Zeitpläne, `feuerEreignis(name)` startet die
+  Ereignis-Auslöser (aus `routes/external/externalApi.js` per API-Key gefeuert).
+  Beide gehen durch denselben `flowRunner.starten` wie der Chat.
 - `gpuQueue.js` — die **eine** GPU-Sperre, geteilt mit dem Chat: der
   Ollama-Aufruf in `services/llm/llmOllamaStream.js` (`streamFromOllama`) geht
-  durch dieselbe `withGpuLock`. Nie treffen Chat und Skill zugleich auf die GPU
+  durch dieselbe `withGpuLock`. Nie treffen Chat und Flow zugleich auf die GPU
   (Nutzer-Entscheidung: strikt einer nach dem anderen, keine Priorisierung).
 - `pathSafe.js` — symlink-sichere Pfad-Sperre über mehrere erlaubte Ordner;
   schließt das TOCTOU-Fenster über Dateideskriptoren. **Jeder** Dateizugriff
   läuft hierdurch.
-- `skillFile.js` — Parser/Serializer für Markdown + YAML-Frontmatter, plus
+- `flowFile.js` — Parser/Serializer für Markdown + YAML-Frontmatter, plus
   Platzhalter (`{{argument}}`).
 - `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
   `dateien` (lesen/schreiben getrennt), `rag`, `terminal`, `web`.
+
+## GitHub-Sync (Plan 013, B9)
+
+`services/git/` koppelt ein **Projekt** (`projects.id`) an EIN GitHub-Repo
+(`project_git`, 1:1) und gleicht einen container-lokalen Checkout unter
+`PROJECT_GIT_DIR/<project_id>` zwei-wegig ab:
+
+- `gitStore.js` — CRUD über `project_git`. Der PAT liegt AES-256-GCM-verschlüsselt
+  als `BYTEA` (`utils/tokenCrypto`, wie `user_external_credentials`); `SPALTEN`
+  gibt bewusst KEIN `pat_encrypted` nach außen, nur `pat_last4` zur Anzeige.
+- `gitSyncService.js` — die Fachlogik: `verbinde` (koppeln + `ls-remote`-Probe),
+  `synchronisiere` (commit → fetch → merge → push; Merge-Konflikt → `merge --abort`
+  - `ConflictError` mit `details.conflicts`), `trenne`. Git läuft über `execFile`
+    (Argument-Array, KEINE Shell); der PAT wird pro Aufruf als `http.extraHeader`
+    injiziert und landet NIE in `.git/config`. `run` (Git-Ausführung) + `store` sind
+    injizierbar → Fachlogik ohne echtes Git/Postgres testbar.
+- Kein neuer npm-Eintrag: das Git-CLI kommt per `apk add git` im Dockerfile
+  (Regel „minimalistisch/wartbar zuerst", Lockfile-root-only).
 
 Die alten `services/agents/{toolLoop,gpuGate,agentFile,tools}` sind mit dem
 Fluss-Layer verwaist (kein Produktions-Aufrufer mehr, nur noch ihre Tests) und

@@ -24,8 +24,20 @@ const logger = require('../utils/logger');
 const APP_MANIFEST = [
   {
     id: 'n8n',
-    name: 'n8n Automationen',
-    description: 'Workflows und KI-Agenten — läuft inline als Automationen-Tab.',
+    name: 'n8n',
+    description: 'Automationen und KI-Workflows visuell zusammenstecken und laufen lassen.',
+    // Ausführliche, natürliche Beschreibung für die Detailseite (kein Marketing-
+    // Kauderwelsch, keine Gedankenstriche). Der Store zeigt sie unter dem Titel.
+    longDescription:
+      'n8n ist ein offenes Automations-Werkzeug. Du verbindest Dienste, Datenquellen ' +
+      'und KI-Schritte zu einem Workflow und lässt ihn per Zeitplan oder Auslöser laufen, ' +
+      'ganz ohne Programmieren. In Arasul läuft n8n direkt als Tab in der Mitte und ' +
+      'vollständig lokal auf dem Gerät. So automatisierst du wiederkehrende Aufgaben und ' +
+      'verbindest deine Flows mit der lokalen KI.',
+    // Externe Anlaufstellen (Website + Doku). Werden auf der Detailseite als
+    // sichere, geprüfte Links angeboten.
+    homepage: 'https://n8n.io',
+    docsUrl: 'https://docs.n8n.io',
     tab: 'automationen',
     // Taxonomie aus Plan 012 Phase E: dieselben Facetten wie selbst gebaute
     // Erweiterungen. n8n ist ein Automations-Flow und läuft im Backend-Netz.

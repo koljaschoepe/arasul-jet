@@ -9,7 +9,7 @@
 
 jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
 
-const { ladeDokumentText } = require('../../src/services/skills/documentText');
+const { ladeDokumentText } = require('../../src/services/flows/documentText');
 
 /** Baut ein query-Doppel, das die Aufrufe der Reihe nach beantwortet. */
 function fakeQuery(antworten) {

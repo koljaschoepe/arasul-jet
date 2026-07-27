@@ -49,7 +49,8 @@ const API_ROUTE_GROUPS = [
   { prefix: '/spaces', group: 'ai' },
   { prefix: '/projects', group: 'ai' },
   { prefix: '/knowledge-graph', group: 'ai' },
-  { prefix: '/skills', group: 'ai' },
+  { prefix: '/flows', group: 'ai' },
+  { prefix: '/git', group: 'ai' },
   { prefix: '/apps', group: 'store' },
   { prefix: '/extensions', group: 'store' },
   { prefix: '/store', group: 'store' },
@@ -121,7 +122,8 @@ router.use('/memory', require('./ai/memory'));
 router.use('/spaces', require('./ai/spaces'));
 router.use('/projects', require('./ai/projects'));
 router.use('/knowledge-graph', require('./ai/knowledgeGraph'));
-router.use('/skills', require('./skills'));
+router.use('/flows', require('./flows'));
+router.use('/git', require('./git'));
 
 // --- Store ---
 router.use('/apps', require('./store/appstore'));

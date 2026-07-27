@@ -73,7 +73,7 @@ docs/
 
 | Document                                                                             | Topic                                                                 |
 | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| [`features/SKILLS.md`](features/SKILLS.md)                                           | Skills: Chat-Slash-Befehle, Argumente, Werkzeuge, Subagenten          |
+| [`features/FLOWS.md`](features/FLOWS.md)                                             | Flows: Chat-Slash-Befehle, Argumente, Werkzeuge, Subagenten, Auslöser |
 | [`features/EXTENSIONS.md`](features/EXTENSIONS.md)                                   | Erweiterungs-Baukasten: Werkstatt, Paketformat, Fork/Download/Install |
 | [`features/WORKSPACE.md`](features/WORKSPACE.md)                                     | Workspace: Netzwerkmodi, Wissensraum, Claude-Login                    |
 | [`features/MINIO_SERVICE.md`](features/MINIO_SERVICE.md)                             | S3-compatible object storage                                          |

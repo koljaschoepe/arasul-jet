@@ -702,14 +702,24 @@ if (require.main === module) {
       logger.error(`Failed to initialize LLM Queue Service: ${err.message}`);
     }
 
-    // Skill-Läufe (Plan 011, Schritt 12): Ein Neustart bricht laufende Skills ab.
+    // Flow-Läufe (Plan 011, Schritt 12): Ein Neustart bricht laufende Flows ab.
     // In der DB stünden sie sonst ewig als 'laeuft', obwohl kein Prozess sie mehr
     // fortsetzt — hier einmalig auf 'fehler' setzen.
     try {
-      const skillRunner = require('./services/skills/skillRunner');
-      await skillRunner.verwaisteAufraeumen();
+      const flowRunner = require('./services/flows/flowRunner');
+      await flowRunner.verwaisteAufraeumen();
     } catch (err) {
-      logger.error(`Failed to clean up orphaned skill runs: ${err.message}`);
+      logger.error(`Failed to clean up orphaned flow runs: ${err.message}`);
+    }
+
+    // Flow-Scheduler (Plan 013, B8): startet Flows automatisch per Zeitplan.
+    // Ein Tick alle 60 s prüft fällige Auslöser; Ereignis-Auslöser feuern über
+    // die externe API. Ein Fehler beim Start darf den Boot nicht kippen.
+    try {
+      const flowScheduler = require('./services/flows/scheduler');
+      flowScheduler.start();
+    } catch (err) {
+      logger.error(`Failed to start flow scheduler: ${err.message}`);
     }
 
     // LEAK-001: Track all intervals for graceful shutdown cleanup

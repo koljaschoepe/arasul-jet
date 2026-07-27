@@ -13,7 +13,7 @@ const {
   snapshot,
   berechneAenderungen,
   STORE_MAX_BYTES,
-} = require('../../src/services/skills/changeTracker');
+} = require('../../src/services/flows/changeTracker');
 
 let root;
 

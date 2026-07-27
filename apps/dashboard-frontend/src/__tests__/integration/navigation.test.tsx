@@ -67,11 +67,18 @@ describe('Sidebar navigation integration', () => {
   it('renders all primary navigation items', () => {
     renderSidebar();
 
-    // Dashboard- und Chat-Einträge sind entfernt (Plan 008).
+    // Dashboard-, Chat- und Daten-Einträge sind entfernt (Daten/Dokumente
+    // leiten inzwischen auf /workspace um).
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
     expect(screen.queryByText('Chat')).not.toBeInTheDocument();
-    expect(screen.getByText('Daten')).toBeInTheDocument();
+    expect(screen.queryByText('Daten')).not.toBeInTheDocument();
+
+    // Primäres Menü: nur noch Store.
     expect(screen.getByText('Store')).toBeInTheDocument();
+
+    // Footer: Workspace + Einstellungen.
+    expect(screen.getByText('Workspace')).toBeInTheDocument();
+    expect(screen.getByText('Einstellungen')).toBeInTheDocument();
   });
 
   it('renders settings link in footer', () => {
@@ -80,11 +87,13 @@ describe('Sidebar navigation integration', () => {
     expect(screen.getByText('Einstellungen')).toBeInTheDocument();
   });
 
-  it('highlights active route - Daten', () => {
-    renderSidebar({ route: '/data' });
+  it('highlights active route - Store (nested path)', () => {
+    // Der Daten-Eintrag existiert nicht mehr; wir prüfen die Aktiv-Markierung
+    // stattdessen über einen verschachtelten Store-Pfad (startsWith-Zweig).
+    renderSidebar({ route: '/store/models' });
 
-    const dataLink = screen.getByText('Daten').closest('a');
-    expect(dataLink?.className).toContain('active');
+    const storeLink = screen.getByText('Store').closest('a');
+    expect(storeLink?.className).toContain('active');
   });
 
   it('highlights active route - Store', () => {
@@ -149,18 +158,18 @@ describe('Sidebar navigation integration', () => {
     expect(screen.getByRole('menubar')).toBeInTheDocument();
 
     const menuItems = screen.getAllByRole('menuitem');
-    expect(menuItems.length).toBeGreaterThanOrEqual(2);
+    expect(menuItems.length).toBeGreaterThanOrEqual(1);
   });
 
   it('sets aria-current on active route', () => {
-    renderSidebar({ route: '/data' });
+    renderSidebar({ route: '/store' });
 
-    const dataLink = screen.getByText('Daten').closest('a');
-    expect(dataLink).toHaveAttribute('aria-current', 'page');
+    const storeLink = screen.getByText('Store').closest('a');
+    expect(storeLink).toHaveAttribute('aria-current', 'page');
   });
 
   it('does not set aria-current on inactive routes', () => {
-    renderSidebar({ route: '/data' });
+    renderSidebar({ route: '/settings' });
 
     const storeLink = screen.getByText('Store').closest('a');
     expect(storeLink).not.toHaveAttribute('aria-current');

@@ -2328,56 +2328,56 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ---
 
-## `skill_run_steps`
+## `flow_run_steps`
 
 > Einzelne Schritte eines Skill-Laufs (Plan 011, Schritt 9): je Werkzeug-/Subagent-/Modell-Schritt eine Zeile, angehängt statt ein wachsendes JSONB neu zu schreiben.
 
-| Column        | Type                     | Nullable | Default                                    |
-| ------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`          | bigint                   | ⛔       | `nextval('skill_run_steps_id_seq'::reg...` |
-| `run_id`      | bigint                   | ⛔       |                                            |
-| `position`    | integer                  | ⛔       |                                            |
-| `kind`        | USER-DEFINED             | ⛔       |                                            |
-| `name`        | character varying        | ⛔       | `''::character varying`                    |
-| `input`       | jsonb                    | ⛔       | `'{}'::jsonb`                              |
-| `output`      | text                     | ✅       |                                            |
-| `raw_output`  | text                     | ✅       |                                            |
-| `status`      | USER-DEFINED             | ⛔       | `'laeuft'::skill_run_status`               |
-| `created_at`  | timestamp with time zone | ⛔       | `now()`                                    |
-| `finished_at` | timestamp with time zone | ✅       |                                            |
+| Column        | Type                     | Nullable | Default                                   |
+| ------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`          | bigint                   | ⛔       | `nextval('flow_run_steps_id_seq'::reg...` |
+| `run_id`      | bigint                   | ⛔       |                                           |
+| `position`    | integer                  | ⛔       |                                           |
+| `kind`        | USER-DEFINED             | ⛔       |                                           |
+| `name`        | character varying        | ⛔       | `''::character varying`                   |
+| `input`       | jsonb                    | ⛔       | `'{}'::jsonb`                             |
+| `output`      | text                     | ✅       |                                           |
+| `raw_output`  | text                     | ✅       |                                           |
+| `status`      | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`               |
+| `created_at`  | timestamp with time zone | ⛔       | `now()`                                   |
+| `finished_at` | timestamp with time zone | ✅       |                                           |
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
-- `run_id` → `skill_runs.id`
+- `run_id` → `flow_runs.id`
 
 **Indexes:**
 
-- `idx_skill_run_steps_run_id` — `CREATE INDEX idx_skill_run_steps_run_id ON arasul.skill_run_steps USING btree (run_id)`
-- `skill_run_steps_pkey` — `CREATE UNIQUE INDEX skill_run_steps_pkey ON arasul.skill_run_steps USING btree (id)`
-- `skill_run_steps_run_pos_uniq` — `CREATE UNIQUE INDEX skill_run_steps_run_pos_uniq ON arasul.skill_run_steps USING btree (run_id, "position")`
+- `idx_flow_run_steps_run_id` — `CREATE INDEX idx_flow_run_steps_run_id ON arasul.flow_run_steps USING btree (run_id)`
+- `flow_run_steps_pkey` — `CREATE UNIQUE INDEX flow_run_steps_pkey ON arasul.flow_run_steps USING btree (id)`
+- `flow_run_steps_run_pos_uniq` — `CREATE UNIQUE INDEX flow_run_steps_run_pos_uniq ON arasul.flow_run_steps USING btree (run_id, "position")`
 
 ---
 
-## `skill_runs`
+## `flow_runs`
 
 > Skill-Läufe (Plan 011, Schritt 9): ein Lauf je Aufruf von /name. Überlebt das Schließen des Tabs, damit die Live-Übertragung wiederverbinden kann.
 
-| Column            | Type                     | Nullable | Default                                  |
-| ----------------- | ------------------------ | -------- | ---------------------------------------- |
-| `id`              | bigint                   | ⛔       | `nextval('skill_runs_id_seq'::regclass)` |
-| `user_id`         | bigint                   | ⛔       |                                          |
-| `skill_name`      | character varying        | ⛔       |                                          |
-| `conversation_id` | bigint                   | ✅       |                                          |
-| `arguments`       | jsonb                    | ⛔       | `'{}'::jsonb`                            |
-| `status`          | USER-DEFINED             | ⛔       | `'laeuft'::skill_run_status`             |
-| `result`          | text                     | ✅       |                                          |
-| `error`           | text                     | ✅       |                                          |
-| `steps_used`      | integer                  | ⛔       | `0`                                      |
-| `changes`         | jsonb                    | ✅       |                                          |
-| `created_at`      | timestamp with time zone | ⛔       | `now()`                                  |
-| `finished_at`     | timestamp with time zone | ✅       |                                          |
+| Column            | Type                     | Nullable | Default                                 |
+| ----------------- | ------------------------ | -------- | --------------------------------------- |
+| `id`              | bigint                   | ⛔       | `nextval('flow_runs_id_seq'::regclass)` |
+| `user_id`         | bigint                   | ⛔       |                                         |
+| `flow_name`       | character varying        | ⛔       |                                         |
+| `conversation_id` | bigint                   | ✅       |                                         |
+| `arguments`       | jsonb                    | ⛔       | `'{}'::jsonb`                           |
+| `status`          | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`             |
+| `result`          | text                     | ✅       |                                         |
+| `error`           | text                     | ✅       |                                         |
+| `steps_used`      | integer                  | ⛔       | `0`                                     |
+| `changes`         | jsonb                    | ✅       |                                         |
+| `created_at`      | timestamp with time zone | ⛔       | `now()`                                 |
+| `finished_at`     | timestamp with time zone | ✅       |                                         |
 
 > `changes` (Plan 011, Schritt 16): Datei-Änderungen des Laufs — `[{pfad, art (neu\|geaendert\|geloescht), vorher, nachher, gekuerzt, hinweis}]`, aus dem Ordner-Abzug vor/nach dem Lauf; gedeckelt in Zahl und Vorschau-Länge. `NULL` = nicht ermittelt (Lauf ohne Schreib-Werkzeug).
 
@@ -2385,10 +2385,66 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 **Indexes:**
 
-- `idx_skill_runs_conversation` — `CREATE INDEX idx_skill_runs_conversation ON arasul.skill_runs USING btree (conversation_id)`
-- `idx_skill_runs_status` — `CREATE INDEX idx_skill_runs_status ON arasul.skill_runs USING btree (status) WHERE (status = 'laeuft'::skill_run_status)`
-- `idx_skill_runs_user_id` — `CREATE INDEX idx_skill_runs_user_id ON arasul.skill_runs USING btree (user_id)`
-- `skill_runs_pkey` — `CREATE UNIQUE INDEX skill_runs_pkey ON arasul.skill_runs USING btree (id)`
+- `idx_flow_runs_conversation` — `CREATE INDEX idx_flow_runs_conversation ON arasul.flow_runs USING btree (conversation_id)`
+- `idx_flow_runs_status` — `CREATE INDEX idx_flow_runs_status ON arasul.flow_runs USING btree (status) WHERE (status = 'laeuft'::flow_run_status)`
+- `idx_flow_runs_user_id` — `CREATE INDEX idx_flow_runs_user_id ON arasul.flow_runs USING btree (user_id)`
+- `flow_runs_pkey` — `CREATE UNIQUE INDEX flow_runs_pkey ON arasul.flow_runs USING btree (id)`
+
+---
+
+## `flow_schedules`
+
+> Flow-Auslöser (Plan 013, B8): startet einen Flow automatisch — per Cron-Zeitplan oder auf ein benanntes Ereignis hin. Eine Zeile je Auslöser; ein Flow darf mehrere haben.
+
+| Column         | Type                     | Nullable | Default                                      |
+| -------------- | ------------------------ | -------- | -------------------------------------------- |
+| `id`           | bigint                   | ⛔       | `nextval('flow_schedules_id_seq'::regclass)` |
+| `user_id`      | bigint                   | ⛔       |                                              |
+| `flow_name`    | character varying        | ⛔       |                                              |
+| `trigger_type` | character varying        | ⛔       | `CHECK IN ('zeitplan', 'ereignis')`          |
+| `cron`         | character varying        | ✅       | (nur bei `trigger_type = 'zeitplan'`)        |
+| `event_name`   | character varying        | ✅       | (nur bei `trigger_type = 'ereignis'`)        |
+| `args`         | jsonb                    | ⛔       | `'{}'::jsonb`                                |
+| `enabled`      | boolean                  | ⛔       | `true`                                       |
+| `next_run_at`  | timestamp with time zone | ✅       | (berechnet aus dem Cron)                     |
+| `last_run_at`  | timestamp with time zone | ✅       |                                              |
+| `last_run_id`  | bigint                   | ✅       | → `flow_runs.id` ON DELETE SET NULL          |
+| `last_error`   | text                     | ✅       |                                              |
+| `created_at`   | timestamp with time zone | ⛔       | `now()`                                      |
+| `updated_at`   | timestamp with time zone | ⛔       | `now()`                                      |
+
+> `CHECK (flow_schedules_trigger_shape)`: genau eines von `cron`/`event_name` ist passend zum `trigger_type` gesetzt — ein Zeitplan ohne Cron oder ein Ereignis ohne Namen wäre ein toter Auslöser.
+
+**Primary key:** `id`
+
+**Indexes:**
+
+- `idx_flow_schedules_faellig` — `CREATE INDEX idx_flow_schedules_faellig ON arasul.flow_schedules USING btree (next_run_at) WHERE (enabled AND trigger_type = 'zeitplan')`
+- `idx_flow_schedules_ereignis` — `CREATE INDEX idx_flow_schedules_ereignis ON arasul.flow_schedules USING btree (event_name) WHERE (enabled AND trigger_type = 'ereignis')`
+- `idx_flow_schedules_user` — `CREATE INDEX idx_flow_schedules_user ON arasul.flow_schedules USING btree (user_id, id DESC)`
+
+---
+
+## `project_git`
+
+> Kopplung Projekt ↔ GitHub-Repo (Plan 013, B9): 1:1 (`project_id` ist PK). Der Backend-Git-Dienst hält dafür einen container-lokalen Checkout und gleicht ihn zwei-wegig ab. Der PAT liegt AES-256-GCM-verschlüsselt als `BYTEA` (IV‖AuthTag‖Ciphertext, `utils/tokenCrypto`, Schlüssel aus `JWT_SECRET`) — wie `user_external_credentials`; nur die letzten vier Zeichen stehen im Klartext.
+
+| Column           | Type                     | Nullable | Default                                                                       |
+| ---------------- | ------------------------ | -------- | ----------------------------------------------------------------------------- |
+| `project_id`     | uuid                     | ⛔       | → `projects.id` ON DELETE CASCADE (PK)                                        |
+| `repo_url`       | text                     | ⛔       |                                                                               |
+| `branch`         | character varying        | ⛔       | `'main'`                                                                      |
+| `pat_encrypted`  | bytea                    | ✅       | AES-256-GCM-Blob; NIE über die API                                            |
+| `pat_last4`      | character varying        | ✅       | letzte 4 Zeichen zur Anzeige                                                  |
+| `local_path`     | text                     | ✅       | Checkout-Pfad unter `PROJECT_GIT_DIR`                                         |
+| `last_synced_at` | timestamp with time zone | ✅       |                                                                               |
+| `last_status`    | character varying        | ⛔       | `'neu'` — `CHECK IN ('neu','verbunden','synchronisiert','konflikt','fehler')` |
+| `last_error`     | text                     | ✅       |                                                                               |
+| `last_commit`    | character varying        | ✅       | Kurz-SHA des letzten Syncs                                                    |
+| `created_at`     | timestamp with time zone | ⛔       | `now()`                                                                       |
+| `updated_at`     | timestamp with time zone | ⛔       | `now()`                                                                       |
+
+**Primary key:** `project_id`
 
 ---
 

@@ -13,6 +13,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Settings from '../../features/settings/Settings';
+import { SettingsPanel } from '../../features/workspace/sidebar/SettingsPanel';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { createMockApi, createMockToast } from '../helpers/renderWithProviders';
 
 // ---- Mocks ----
@@ -51,6 +53,10 @@ vi.mock('../../hooks/useConfirm', () => ({
 
 // ---- Helpers ----
 
+// After the B4 refactor the section list lives in the sidebar (`SettingsPanel`)
+// and drives the Settings tab through the shared `settingsStore`. We render both
+// together so a click in the panel switches the section shown in the tab —
+// exactly how it works in the real workspace shell.
 function renderSettings(props: Partial<Parameters<typeof Settings>[0]> = {}) {
   const defaultProps = {
     handleLogout: vi.fn(),
@@ -62,6 +68,7 @@ function renderSettings(props: Partial<Parameters<typeof Settings>[0]> = {}) {
     ...defaultProps,
     ...render(
       <MemoryRouter>
+        <SettingsPanel />
         <Settings {...defaultProps} {...props} />
       </MemoryRouter>
     ),
@@ -73,6 +80,9 @@ function renderSettings(props: Partial<Parameters<typeof Settings>[0]> = {}) {
 describe('Settings integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset the shared active-section store so section state never leaks between
+    // tests (the store is a module-level singleton).
+    useSettingsStore.setState({ activeSection: 'general' });
     // Default: return system info for General settings tab
     vi.mocked(mockApi.get).mockImplementation((path: string) => {
       if (path === '/system/info') {
@@ -99,10 +109,18 @@ describe('Settings integration', () => {
     });
   });
 
-  it('renders all six section tabs', () => {
+  it('lists all six sections in the sidebar panel', () => {
     renderSettings();
 
-    // Each top-level tab appears in both mobile and desktop navigation.
+    // The section list now lives in the sidebar panel (SettingsPanel).
+    expect(screen.getByTestId('settings-open-general')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-open-ki')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-open-security')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-open-privacy')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-open-system')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-open-remote-access')).toBeInTheDocument();
+
+    // Their labels render too.
     expect(screen.getAllByText('Allgemein').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('KI').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Sicherheit').length).toBeGreaterThanOrEqual(1);
@@ -110,7 +128,8 @@ describe('Settings integration', () => {
     expect(screen.getAllByText('System').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Fernzugriff').length).toBeGreaterThanOrEqual(1);
 
-    // Old top-level tabs no longer exist as top-level nav items.
+    // Old top-level tabs no longer exist as nav items (general is active, so the
+    // KI / System sub-section labels are not mounted).
     expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
     expect(screen.queryByText('RAG & LLM')).not.toBeInTheDocument();
     expect(screen.queryByText('Self-Healing')).not.toBeInTheDocument();
@@ -133,13 +152,12 @@ describe('Settings integration', () => {
     });
   });
 
-  it('switches sections on tab click', async () => {
+  it('switches sections on sidebar click', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    // Click on Sicherheit tab
-    const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]!);
+    // Click the Sicherheit entry in the sidebar panel.
+    await user.click(screen.getByTestId('settings-open-security'));
 
     await waitFor(() => {
       expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
@@ -187,8 +205,7 @@ describe('Settings integration', () => {
     const user = userEvent.setup();
     renderSettings();
 
-    const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]!);
+    await user.click(screen.getByTestId('settings-open-security'));
 
     await waitFor(() => {
       expect(screen.getByText('Passwortverwaltung')).toBeInTheDocument();
@@ -200,8 +217,7 @@ describe('Settings integration', () => {
     const user = userEvent.setup();
     renderSettings();
 
-    const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]!);
+    await user.click(screen.getByTestId('settings-open-security'));
 
     await waitFor(() => {
       expect(screen.getByText('Abmelden')).toBeInTheDocument();
@@ -213,8 +229,7 @@ describe('Settings integration', () => {
     const handleLogout = vi.fn();
     renderSettings({ handleLogout });
 
-    const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]!);
+    await user.click(screen.getByTestId('settings-open-security'));
 
     await waitFor(() => {
       expect(screen.getByText('Abmelden')).toBeInTheDocument();
@@ -228,8 +243,7 @@ describe('Settings integration', () => {
     const user = userEvent.setup();
     renderSettings();
 
-    const securityButtons = screen.getAllByText('Sicherheit');
-    await user.click(securityButtons[0]!);
+    await user.click(screen.getByTestId('settings-open-security'));
 
     await waitFor(() => {
       // Password management service tabs
@@ -268,17 +282,18 @@ describe('Settings integration', () => {
     });
   });
 
-  it('renders Settings page title in sidebar', () => {
+  it('renders the Settings title (sidebar panel + tab header)', () => {
     renderSettings();
 
-    expect(screen.getByText('Einstellungen')).toBeInTheDocument();
+    // "Einstellungen" appears both as the sidebar panel title and the tab header.
+    expect(screen.getAllByText('Einstellungen').length).toBeGreaterThanOrEqual(1);
   });
 
   it('opens the KI tab with its Firmenprofil / RAG & LLM sub-navigation', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(screen.getAllByText('KI')[0]!);
+    await user.click(screen.getByTestId('settings-open-ki'));
 
     await waitFor(() => {
       // Sub-nav labels rendered by the (real) KISettings wrapper. "RAG & LLM"
@@ -292,7 +307,7 @@ describe('Settings integration', () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(screen.getAllByText('System')[0]!);
+    await user.click(screen.getByTestId('settings-open-system'));
 
     await waitFor(() => {
       // Sub-nav labels rendered by SystemSettings; leaf content may repeat them.

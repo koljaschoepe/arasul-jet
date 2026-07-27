@@ -1,12 +1,11 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Database, Package, Download, Settings, ChevronLeft, PanelsTopLeft } from 'lucide-react';
+import { Package, Download, Settings, ChevronLeft, PanelsTopLeft } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { PLATFORM_NAME, PLATFORM_SUBTITLE } from '@/config/branding';
 
 // Preload functions for lazy-loaded route chunks (triggered on hover)
-const preloadDocuments = () => import('@/features/documents/DocumentManager');
 const preloadStore = () => import('@/features/store');
 const preloadSettings = () => import('@/features/settings/Settings');
 
@@ -79,17 +78,6 @@ const SidebarNav = React.memo(function SidebarNav({
       <ScrollArea className="flex-1 min-h-0">
         <nav id="sidebar-nav" className="navigation" aria-label="Hauptmenü">
           <ul className="nav-bar" role="menubar">
-            <li role="none">
-              <Link
-                to="/data"
-                className={isActive('/data')}
-                role="menuitem"
-                aria-current={isCurrent('/data') ? 'page' : undefined}
-                onMouseEnter={preloadDocuments}
-              >
-                <Database aria-hidden="true" /> <span>Daten</span>
-              </Link>
-            </li>
             <li role="none">
               <Link
                 to="/store"

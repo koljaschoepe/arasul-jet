@@ -19,6 +19,30 @@ vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),
 }));
 
+// CodeMirror ist im jsdom schwer (Layout-Messung) — durch ein Textarea-Stub
+// ersetzen, das value/onChange/testId spiegelt. So bleibt die Verdrahtung
+// (HTML-Code-Ansicht, Code-Viewer) prüfbar ohne echten Editor.
+vi.mock('../CodeMirrorEditor', () => ({
+  default: ({
+    value,
+    onChange,
+    testId,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange?: (v: string) => void;
+    testId?: string;
+    ariaLabel?: string;
+  }) => (
+    <textarea
+      data-testid={testId}
+      aria-label={ariaLabel}
+      value={value}
+      onChange={e => onChange?.(e.target.value)}
+    />
+  ),
+}));
+
 // Der schwere TipTap-Editor wird gemockt — wir testen nur die Verdrahtung.
 // Der Stub spiegelt die relevanten Props als data-Attribute wider.
 vi.mock('@/components/editor/tiptap/TipTapEditor', () => ({
@@ -89,10 +113,39 @@ describe('DocumentViewerTab', () => {
     // Kein TipTap — HTML rendert, statt als reiner Text zu öffnen.
     expect(screen.queryByTestId('tiptap-stub')).not.toBeInTheDocument();
 
-    // Auf „Code" umschalten → Quelltext im Editor.
+    // Auf „Code" umschalten → Quelltext im (CodeMirror-)Editor.
     fireEvent.click(screen.getByTestId('html-view-code'));
-    const code = await screen.findByTestId('html-code');
+    const code = await screen.findByTestId('html-code-editor');
     expect(code).toHaveValue('<h1>Hi</h1>');
+  });
+
+  it('öffnet Quelltext (.py) farbig im Code-Editor mit Sprach-Label und Speichern', async () => {
+    mockDoc('.py', 'text/x-python', 'print("hi")');
+    render(<DocumentViewerTab documentId="doc1" tabId="tab1" />);
+
+    // CodeMirror-Editor (Stub) trägt den Inhalt; kein TipTap-Fließtext.
+    const editor = await screen.findByTestId('code-editor');
+    expect(editor).toHaveValue('print("hi")');
+    expect(screen.queryByTestId('tiptap-stub')).not.toBeInTheDocument();
+    expect(screen.getByTestId('code-language')).toHaveTextContent('Python');
+    expect(screen.getByRole('button', { name: /Speichern/ })).toBeInTheDocument();
+  });
+
+  it('Code-Editor: Änderung aktiviert „Speichern" und schreibt den Inhalt zurück', async () => {
+    mockDoc('.js', 'text/javascript', 'const a = 1;');
+    (mockApi.put as Mock).mockResolvedValue({});
+    render(<DocumentViewerTab documentId="doc1" tabId="tab1" />);
+
+    const editor = await screen.findByTestId('code-editor');
+    // Vor der Änderung ist „Speichern" deaktiviert (nichts dirty).
+    expect(screen.getByRole('button', { name: /Speichern/ })).toBeDisabled();
+    fireEvent.change(editor, { target: { value: 'const a = 2;' } });
+    fireEvent.click(screen.getByRole('button', { name: /Speichern/ }));
+    await waitFor(() =>
+      expect(mockApi.put).toHaveBeenCalledWith('/documents/doc1/content', {
+        content: 'const a = 2;',
+      })
+    );
   });
 
   it('nicht-editierbare Dateien (PDF) öffnen keinen Editor', async () => {

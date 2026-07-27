@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { Mascot } from '@/components/mascot/Mascot';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import type { TabThemeControls } from './TabContent';
 
@@ -82,13 +83,17 @@ export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
   const setRightPanelMode = useWorkspaceStore(s => s.setRightPanelMode);
   const requestExplorerAction = useWorkspaceStore(s => s.requestExplorerAction);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
+  const selectView = useWorkspaceStore(s => s.selectView);
 
   return (
     <header
       className="flex h-9 shrink-0 items-center gap-1 bg-background px-2 select-none"
       data-testid="workspace-menubar"
     >
-      <span className="mr-1 px-1 text-xs font-semibold tracking-wide text-foreground">Arasul</span>
+      <span className="mr-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-foreground">
+        <Mascot state="idle" label="Arasul" className="h-5 w-5" />
+        Arasul
+      </span>
 
       <DropdownMenu>
         <MenuTriggerButton label="Datei" />
@@ -140,7 +145,10 @@ export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
         type="button"
         title="Einstellungen"
         aria-label="Einstellungen"
-        onClick={() => openTab({ type: 'settings' })}
+        onClick={() => {
+          selectView('settings');
+          openTab({ type: 'settings' });
+        }}
         className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${
           activeTabId === 'settings'
             ? 'bg-accent text-foreground'

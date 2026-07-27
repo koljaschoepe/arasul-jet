@@ -13,10 +13,10 @@ vi.mock('../explorer/ExplorerPanel', () => ({
   ExplorerPanel: () => <div data-testid="explorer" />,
 }));
 
-// Ansichten mit Datenanbindung (useSkills / useStoreCatalog) hier isolieren —
+// Ansichten mit Datenanbindung (useFlows / useStoreCatalog) hier isolieren —
 // dieser Test prüft nur das Ansichts-Mapping, nicht deren Innenleben.
-vi.mock('../sidebar/SkillsPanel', () => ({
-  SkillsPanel: () => <div data-testid="skills-panel" />,
+vi.mock('../sidebar/FlowsPanel', () => ({
+  FlowsPanel: () => <div data-testid="flows-panel" />,
 }));
 vi.mock('../sidebar/ModelsPanel', () => ({
   ModelsPanel: () => <div data-testid="models-panel" />,
@@ -25,7 +25,7 @@ vi.mock('../sidebar/ExtensionsPanel', () => ({
   ExtensionsPanel: () => <div data-testid="extensions-panel" />,
 }));
 
-function reset(activeView: 'files' | 'search' | 'models' | 'extensions' | 'skills') {
+function reset(activeView: 'files' | 'search' | 'models' | 'extensions' | 'flows') {
   useWorkspaceStore.setState({
     tabs: [],
     activeTabId: null,
@@ -64,10 +64,10 @@ describe('SidebarHost — Ansichts-Mapping', () => {
     expect(screen.getByTestId('extensions-panel')).toBeInTheDocument();
   });
 
-  it('skills → Skill-Ansicht', () => {
-    reset('skills');
+  it('flows → Flow-Ansicht', () => {
+    reset('flows');
     render(<SidebarHost />);
-    expect(screen.getByTestId('skills-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('flows-panel')).toBeInTheDocument();
   });
 
   it('reagiert auf einen Ansichtswechsel im Store', () => {

@@ -16,6 +16,17 @@ const ExternalLlmChatBody = z
   })
   .strict();
 
+// POST /flows/:name/run — einen Flow extern auslösen (Plan 013, B8).
+// Argumentwerte kommen als name→Wert (Strings/Zahlen/Booleans, wie im Chat);
+// der Runner prüft sie gegen die Deklaration des Flows.
+const ExternalFlowRunBody = z
+  .object({
+    args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+    wait_for_result: z.boolean().optional(),
+    timeout_seconds: z.number().int().positive().max(1800).optional(),
+  })
+  .strict();
+
 // POST /api-keys
 const CreateApiKeyBody = z
   .object({
@@ -29,5 +40,6 @@ const CreateApiKeyBody = z
 
 module.exports = {
   ExternalLlmChatBody,
+  ExternalFlowRunBody,
   CreateApiKeyBody,
 };

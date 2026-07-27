@@ -4,7 +4,8 @@ import type { WorkspaceTabType } from '@/stores/workspaceStore';
 import { FilesPanel } from './sidebar/FilesPanel';
 import { ModelsPanel } from './sidebar/ModelsPanel';
 import { ExtensionsPanel } from './sidebar/ExtensionsPanel';
-import { SkillsPanel } from './sidebar/SkillsPanel';
+import { FlowsPanel } from './sidebar/FlowsPanel';
+import { SettingsPanel } from './sidebar/SettingsPanel';
 
 /**
  * SidebarHost — Inhalt der linken Sidebar nach der aktiven Activity-Bar-Ansicht
@@ -15,7 +16,7 @@ import { SkillsPanel } from './sidebar/SkillsPanel';
  *   files       → Datei-Explorer (Baum)
  *   models      → Modell-Filter
  *   extensions  → Erweiterungs-Filter
- *   skills      → Skill-Liste
+ *   flows      → Flow-Liste
  *
  * Der Datei-Explorer bleibt beim Ansichtswechsel gemountet (nur per `hidden`
  * versteckt), damit sein Baum-/Aufklapp-Zustand erhalten bleibt; die übrigen
@@ -46,11 +47,14 @@ export function SidebarHost() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       {/* Explorer bleibt gemountet (Baum-Zustand), nur versteckt wenn inaktiv.
-          Er ist zugleich der Fallback: jede Ansicht außer models/extensions/skills
+          Er ist zugleich der Fallback: jede Ansicht außer models/extensions/flows
           (inkl. alter, entfernter Werte wie 'search') zeigt den Explorer. */}
       <div
         className={
-          activeView === 'models' || activeView === 'extensions' || activeView === 'skills'
+          activeView === 'models' ||
+          activeView === 'extensions' ||
+          activeView === 'flows' ||
+          activeView === 'settings'
             ? 'hidden'
             : 'flex min-h-0 flex-1 flex-col'
         }
@@ -59,7 +63,8 @@ export function SidebarHost() {
       </div>
       {activeView === 'models' && <ModelsPanel />}
       {activeView === 'extensions' && <ExtensionsPanel />}
-      {activeView === 'skills' && <SkillsPanel />}
+      {activeView === 'flows' && <FlowsPanel />}
+      {activeView === 'settings' && <SettingsPanel />}
     </div>
   );
 }

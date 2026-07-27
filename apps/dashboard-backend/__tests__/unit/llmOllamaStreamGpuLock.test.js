@@ -2,11 +2,11 @@
  * Regressionstest für den GPU-Sperr-Deadlock (Plan 011, Schritt 10).
  *
  * Seit Schritt 10 hält der Chat-Stream (streamFromOllama) die EINE GPU-Sperre
- * für seine gesamte Dauer — geteilt mit den Skills. Der Inaktivitäts-Timeout
+ * für seine gesamte Dauer — geteilt mit den Flows. Der Inaktivitäts-Timeout
  * räumt die Stream-Listener ab, BEVOR ein 'error'/'end' feuern könnte. Ohne
  * eine ausdrückliche Auflösung des Stream-Promise kehrte die Funktion nie
  * zurück, und die Sperre bliebe für immer belegt — ein einziger hängender
- * Stream würde Chat UND alle Skills dauerhaft blockieren.
+ * Stream würde Chat UND alle Flows dauerhaft blockieren.
  *
  * Dieser Test treibt den echten streamFromOllama mit einem Stream, der NIE
  * Daten liefert, und einem winzigen Inaktivitäts-Timeout. Er besteht nur, wenn
@@ -38,7 +38,7 @@ jest.mock('../../src/utils/retry', () => ({
 }));
 
 const { streamFromOllama } = require('../../src/services/llm/llmOllamaStream');
-const { withGpuLock, _gpuMutex } = require('../../src/services/skills/gpuQueue');
+const { withGpuLock, _gpuMutex } = require('../../src/services/flows/gpuQueue');
 
 function fakeCtx() {
   const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
@@ -82,7 +82,7 @@ describe('streamFromOllama — GPU-Sperre wird immer freigegeben', () => {
     // Kernaussage: Die gemeinsame GPU-Sperre ist wieder frei.
     expect(_gpuMutex._locked).toBe(false);
 
-    // Und ein nachfolgender Aufruf (Chat ODER Skill) kommt durch.
+    // Und ein nachfolgender Aufruf (Chat ODER Flow) kommt durch.
     let lief = false;
     await withGpuLock(async () => {
       lief = true;
@@ -92,7 +92,7 @@ describe('streamFromOllama — GPU-Sperre wird immer freigegeben', () => {
 
   it('hält die Sperre, solange der Stream läuft — ein zweiter Nutzer wartet', async () => {
     // Der eigentliche Punkt der gemeinsamen Sperre: Während der Stream die GPU
-    // hält, darf kein zweiter Nutzer (Chat ODER Skill) hinein.
+    // hält, darf kein zweiter Nutzer (Chat ODER Flow) hinein.
     const ctx = fakeCtx();
     const streamP = streamFromOllama(ctx, 'job2', 'p', false, 0.7, 100, 'model', '', null, null);
 

@@ -26,6 +26,7 @@ import {
   PowerOff,
   Star,
   Trash2,
+  Upload,
   Zap,
   CircleCheck,
   TriangleAlert,
@@ -462,7 +463,28 @@ function ExtensionDetail({
         </Button>
       }
     >
-      <p className="leading-relaxed text-muted-foreground">{app.description}</p>
+      <p className="leading-relaxed text-muted-foreground">
+        {app.longDescription ?? app.description}
+      </p>
+
+      {(app.homepage || app.docsUrl) && (
+        <div className="mt-5 flex flex-wrap gap-2">
+          {app.homepage && (
+            <a href={sanitizeUrl(app.homepage)} target="_blank" rel="noopener noreferrer">
+              <Button variant="secondary" size="sm">
+                <ExternalLink className="size-4" /> Website
+              </Button>
+            </a>
+          )}
+          {app.docsUrl && (
+            <a href={sanitizeUrl(app.docsUrl)} target="_blank" rel="noopener noreferrer">
+              <Button variant="secondary" size="sm">
+                <ExternalLink className="size-4" /> Dokumentation
+              </Button>
+            </a>
+          )}
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4 border-t border-border pt-6">
         <Spec label="Status">{app.enabled ? 'Aktiv' : 'Inaktiv'}</Spec>
@@ -559,7 +581,7 @@ function BuilderDetail({ onBack }: { onBack: () => void }) {
       <p className="leading-relaxed text-muted-foreground">
         Eine Erweiterung ist ein Ordner mit <code>manifest.json</code> und Assets. Bau sie in einer{' '}
         <strong className="text-foreground">Erweiterungs-Werkstatt</strong> (Sandbox mit Terminal
-        und Vorlagen) — dort helfen die Skills <code>/erweiterung</code> und <code>/execute</code>.
+        und Vorlagen) — dort helfen die Flows <code>/erweiterung</code> und <code>/execute</code>.
         Danach hier paketieren: das Paket lässt sich herunterladen, forken und auf einem anderen
         Gerät wieder importieren.
       </p>
@@ -609,13 +631,27 @@ function BuilderDetail({ onBack }: { onBack: () => void }) {
 
       <div className="mt-6 flex flex-col gap-3 border-t border-border pt-6">
         <h3 className="text-ui-sm font-semibold text-foreground">Paket importieren</h3>
-        <input
-          type="file"
-          accept=".tar.gz,.tgz"
-          data-testid="builder-import-file"
-          onChange={e => setDatei(e.target.files?.[0] ?? null)}
-          className="text-sm text-foreground"
-        />
+        <p className="text-ui-xs text-muted-foreground">
+          Ein zuvor exportiertes Paket von einem anderen Gerät einspielen.
+        </p>
+        <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-border bg-card px-3 py-3 transition-colors hover:border-primary/40">
+          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Upload className="size-4" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {datei ? datei.name : 'Datei auswählen …'}
+            </span>
+            <span className="block text-ui-xs text-muted-foreground">.tar.gz oder .tgz</span>
+          </span>
+          <input
+            type="file"
+            accept=".tar.gz,.tgz"
+            data-testid="builder-import-file"
+            onChange={e => setDatei(e.target.files?.[0] ?? null)}
+            className="sr-only"
+          />
+        </label>
         <div>
           <Button
             variant="outline"

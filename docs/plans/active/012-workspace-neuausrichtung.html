@@ -1,0 +1,924 @@
+<!doctype html>
+<!--
+  Arasul plan-page — Plan 012. Struktur-Contract wie Vorlage (.claude/templates/plan-page.html):
+  sec-1..sec-9, Schritte in §4 mit eindeutigem data-ref, #plan-meta als Maschinen-State.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 012 · Arbeitsumgebung neu ausgerichtet — Ein Ordner-Kontext, Marktplatz-Sidebar, Skills-Zentrale &amp; Erweiterungs-Baukasten</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "012",
+  "slug": "workspace-neuausrichtung",
+  "title": "Arbeitsumgebung neu ausgerichtet — Ein Ordner-Kontext, Marktplatz-Sidebar, Skills-Zentrale & Erweiterungs-Baukasten",
+  "type": "feature",
+  "status": "in-review",
+  "priority": "P0",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-07-23",
+  "approved": null,
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  .phase {
+    font-family: Charter, "Iowan Old Style", Georgia, serif;
+    font-size: 1.02rem; color: var(--accent-ink); font-weight: 700;
+    margin: 1.6rem 0 .2rem; padding-bottom: .25rem; border-bottom: 2px solid var(--wash);
+  }
+  .phase:first-child { margin-top: .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 012</p>
+    <span class="chip" id="status-chip" data-status="in-review">In Review</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Arbeitsumgebung neu ausgerichtet</h1>
+  <p class="lead">Ein aktiver Firmen-Ordner, an den Chat und Suche global binden. Eine feste Activity-Bar mit kontextabhängiger Sidebar. Skills raus aus dem Popup, rein in eine zentrale Ansicht mit echtem Prompt-Blick. Und ein Erweiterungs-Baukasten: eigene Apps, Flows und Tools live im Terminal bauen, forken, herunterladen.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="bad" data-level="3"></span>Hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>Hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">20</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Die VS-Code-artige Arbeitsumgebung wird um ein klares Fundament herum neu geordnet: <b>ein aktiver Top-Level-Ordner</b> (z.&nbsp;B. „Techvision") steuert Chat&nbsp;+&nbsp;Suche global; eine <b>feste Activity-Bar</b> mit kontextabhängiger Sidebar behebt die Einklapp-Bugs; <b>Skills</b> ziehen vom Popup in eine zentrale Tab-Ansicht mit Einstellungen&nbsp;+&nbsp;Live-Prompt; Modelle/Erweiterungen bekommen aufgeräumte Filter und volle Detailseiten; ein <b>Erweiterungs-Baukasten</b> (Dev-Sandbox + zwei Bau-Skills + Fork/Download) macht eigene Apps/Flows/Tools baubar; die <b>Indexierung</b> wird robust gegen häufige Dokument-Änderungen.</dd>
+      <dt>Warum jetzt</dt><dd>Die Umgebung ist seit dem Cursor-Umbau schnell gewachsen, aber die Teile passen nicht sauber zusammen (Filter am falschen Ort, Sidebar-Bug, Skill-Popup, Zombie-Chunks). Das ist der Moment, das Fundament zu ziehen, bevor der Erweiterungs-Baukasten — der eigentliche USP — darauf aufsetzt.</dd>
+      <dt>Größtes Risiko</dt><dd>Breite: der Plan berührt Frontend-Shell, Backend-RAG, Python-Indexer, DB-Migrationen und die Sandbox gleichzeitig. Gegenmittel: strikt phasenweise umsetzen, jede Phase einzeln auf dem Jetson verifizieren, additive Migrationen.</dd>
+      <dt>Du entscheidest</dt><dd><ul>
+        <li>Ob die Umsetzung als <b>eine große PR</b> oder <b>phasenweise PRs</b> laufen soll (Empfehlung: phasenweise, Phasen A–G).</li>
+        <li>Paket-/Installationsformat für Erweiterungen (§4 · Schritt 16 — Vorschlag steht, kommentierbar).</li>
+        <li>Benennung &amp; genauer Funktionsumfang der Bau-Skills <code>/erweiterung</code> und <code>/execute</code> (§4 · Schritt 15).</li>
+      </ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Ein Ordner-Kontext als Fundament — darauf ruhige Navigation, Skills als USP und ein Erweiterungs-Baukasten.</span>
+  </summary>
+  <div class="sbody">
+  <p>Heute besteht die Arbeitsumgebung aus vielen guten Einzelteilen, die aber nicht auf einem gemeinsamen Fundament stehen. Konkret aus dem Ist-Zustand (per Codebase-Recherche belegt):</p>
+  <ul>
+    <li><b>Es gibt keinen „aktiven Ordner".</b> Ordner (<code>knowledge_spaces</code>) und Terminal-Container (<code>sandbox_projects</code>) sind zwei getrennte Welten. Der Chat-Kontext wird heute per Drag&amp;Drop als Multi-Ordner-Set gesetzt — es gibt keine feste, global sichtbare Auswahl „welche Firma ist gerade aktiv".</li>
+    <li><b>Die Activity-Bar liegt <i>innerhalb</i> der einklappbaren Sidebar.</b> Klappt man die Sidebar ein, verschwindet auch der „Dateien"-Button — nur ⌘B holt sie zurück. Das ist der Kern-Bug, den du beschrieben hast.</li>
+    <li><b>Die Modell-Filter sitzen mitten im Store-Tab</b> (eine <code>w-52</code>-Leiste im Inhalt), nicht in der echten linken Sidebar. Facetten heute: Fähigkeit/Typ/Größe/Status — „Fähigkeit" soll raus.</li>
+    <li><b>Skills öffnen ein Fullscreen-Popup;</b> die Preview zeigt nur die erzeugte Markdown-Datei, nicht den echten Prompt, der ans Modell geht. Die <code>/skills</code>-Übersicht ist nur ein Toast-Platzhalter.</li>
+    <li><b>„Erweiterungen" sind real nur n8n</b> plus ein „kommt bald"-Platzhalter — der versprochene Eigenbau fehlt.</li>
+    <li><b>Die Indexierung hinterlässt Zombie-Chunks</b> bei geänderten Dokumenten: der saubere „alte Version löschen → neu einfügen"-Mechanismus existiert nur im Workspace-Pfad, nicht im normalen Upload/Scan-Pfad.</li>
+  </ul>
+  <p><b>Ziel:</b> Ein klares mentales Modell — „alles basiert auf der einen Ordnerstruktur". Ein aktiver Top-Level-Ordner steuert Chat und Suche. Die Navigation folgt dem VS-Code-Marktplatz-Muster (feste Icon-Leiste links, kontextabhängige Sidebar, Inhalt in der Mitte). Skills werden zur zentralen, transparenten Steuer-Oberfläche (der USP: Prozessschritte, Subagenten, Tools). Und obendrauf ein Erweiterungs-Baukasten, mit dem man live im Terminal eigene Apps, n8n-Flows und Tools baut, forkt und herunterlädt — sauber getrennt, damit man langfristig weiter daran bauen kann.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Fundament + Navigation + Store + Skills-Zentrale + Erweiterungs-Baukasten + Index/Suche. Kein Rollenmodell, kein OTA.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Aktiver Top-Level-Workspace (global) für Chat + Suche; einzelne Dateien anheftbar</li>
+      <li>Workspace-Switcher oben in der Shell</li>
+      <li>Feste Activity-Bar herauslösen + ⌘B/„Dateien"-Bug beheben</li>
+      <li>Kontextabhängige Sidebar (Dateien · Suche · Modelle · Erweiterungen · Skills)</li>
+      <li>Modell-Filter aufräumen (Fähigkeit raus), in die Sidebar, ruhiges 3er-Grid, reiche Detailseite</li>
+      <li>Erweiterungen-View neu, mit sinnvollen Filtern + Bugcheck</li>
+      <li>Skill-Editor als Tab (kein Popup) mit Einstellungen + Live-Laufzeit-Prompt</li>
+      <li>Skills-Übersicht als echte Ansicht statt Toast-Stub</li>
+      <li>Erweiterungs-Baukasten: Dev-Sandbox mit Seed-Kontext, Drei-Stufen-Zugriff, Bau-Skills, Fork/Download/Install</li>
+      <li>Indexierung: delete-before-upsert + Content-Hash-Gate + Payload-Indizes; themen-/ordner-optimierte Suche</li>
+      <li>Doku + Tests + saubere Feature-Trennung</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>Rollen-/Rechtekonzept (es bleibt bei einem Admin, der alles darf)</li>
+      <li>OTA-Updates, Netz-Trennung, <code>/healthz</code> (bewusst geparkt)</li>
+      <li>Öffentlicher Erweiterungs-Marktplatz mit Fremd-Uploads (später; hier nur lokaler Bau + Export/Import)</li>
+      <li>Neues Embedding-Modell / Chunking-Grundumbau (nur Robustheit + Scoping, keine Neu-Vektorisierung aller Bestände)</li>
+      <li>Terminal an einen <code>knowledge_space</code> koppeln (bewusst verworfen — Terminal ist die Sandbox-Welt mit Zugriffs-Stufen)</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Aktiver Ordner oben → Chat+Suche gescoped. Terminal = Sandbox-Welt mit Zugriffs-Stufen → Erweiterungs-Baukasten.</span>
+  </summary>
+  <div class="sbody">
+  <p>Zwei Welten, sauber getrennt, mit einer klaren Klammer oben:</p>
+  <ul>
+    <li><b>Wissens-Welt (links + Mitte + Chat):</b> Der Dateibaum sind die <code>knowledge_spaces</code>. Genau <b>ein</b> Top-Level-Ordner ist „aktiv" (Switcher oben). Chat und Suche binden standardmäßig an diesen Ordner-Teilbaum; einzelne Dateien lassen sich zusätzlich anheften. Die Suche (Qdrant) filtert über das bereits vorhandene <code>space_id</code>-Payload — das machen wir zum Default statt zum Sonderfall.</li>
+    <li><b>Sandbox-Welt (rechts, Terminal):</b> Das Terminal ist <b>nicht</b> an einen Wissensordner gekoppelt. Es ist die Umgebung für externe Agenten/Modelle (z.&nbsp;B. Claude Code) und für den <b>Erweiterungs-Bau</b>. Jede Sandbox hat eine von drei klaren Zugriffs-Stufen: nur Internet · genau ein interner Ordner · voller Systemzugriff. Eine spezielle „Werkstatt"-Sandbox ist mit Referenz-/Template-Wissen vorbereitet, sodass zwei Bau-Skills (<code>/erweiterung</code>, <code>/execute</code>) daraus fertige, forkbare, herunterladbare Erweiterungen machen.</li>
+  </ul>
+  <figure class="arch">
+    <svg viewBox="0 0 720 430" role="img" aria-label="Layout der neuen Arbeitsumgebung">
+      <style>
+        .b{fill:var(--surface);stroke:var(--line);stroke-width:1.5;rx:8}
+        .t{fill:var(--ink);font:600 12px system-ui}
+        .s{fill:var(--muted);font:11px system-ui}
+        .h{fill:var(--accent-ink);font:700 11px system-ui;letter-spacing:.06em}
+        .ac{fill:var(--wash);stroke:var(--accent);stroke-width:1.5}
+        .ar{stroke:var(--accent);stroke-width:1.6;fill:none;marker-end:url(#a)}
+      </style>
+      <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+
+      <!-- top switcher -->
+      <rect class="b ac" x="20" y="16" width="680" height="34" rx="8"/>
+      <text class="h" x="34" y="37">◆ AKTIVER ORDNER:</text>
+      <text class="t" x="168" y="37">Techvision ▾</text>
+      <text class="s" x="470" y="37">steuert Chat + Suche global</text>
+
+      <!-- activity bar -->
+      <rect class="b ac" x="20" y="64" width="46" height="330" rx="8"/>
+      <text class="h" x="43" y="84" text-anchor="middle" transform="rotate(-90 43 84)"></text>
+      <text class="t" x="43" y="92" text-anchor="middle">🗂</text>
+      <text class="t" x="43" y="126" text-anchor="middle">🔍</text>
+      <text class="t" x="43" y="160" text-anchor="middle">🧩</text>
+      <text class="t" x="43" y="194" text-anchor="middle">🧠</text>
+      <text class="t" x="43" y="228" text-anchor="middle">⚡</text>
+      <text class="s" x="43" y="380" text-anchor="middle">⚙</text>
+
+      <!-- sidebar -->
+      <rect class="b" x="74" y="64" width="150" height="330" rx="8"/>
+      <text class="h" x="86" y="86">SIDEBAR (kontext)</text>
+      <text class="s" x="86" y="110">Dateien → Baum</text>
+      <text class="s" x="86" y="130">Modelle → Filter</text>
+      <text class="s" x="86" y="150">Erweiterg → Filter</text>
+      <text class="s" x="86" y="170">Skills → Liste</text>
+      <text class="s" x="86" y="190">Suche → Treffer</text>
+
+      <!-- center -->
+      <rect class="b" x="232" y="64" width="270" height="330" rx="8"/>
+      <text class="h" x="246" y="86">MITTE (Tabs)</text>
+      <text class="s" x="246" y="112">Dokument · Store-Grid</text>
+      <text class="s" x="246" y="132">Skill-Editor (Einstellungen</text>
+      <text class="s" x="246" y="150">+ Live-Prompt-Preview)</text>
+      <text class="s" x="246" y="176">Modell-Detail (volle Cards)</text>
+      <text class="s" x="246" y="202">Erweiterungs-Detail</text>
+
+      <!-- right chat/terminal -->
+      <rect class="b" x="510" y="64" width="190" height="158" rx="8"/>
+      <text class="h" x="524" y="86">CHAT</text>
+      <text class="s" x="524" y="110">an aktiven Ordner</text>
+      <text class="s" x="524" y="128">gebunden (RAG-Scope)</text>
+      <text class="s" x="524" y="150">+ angeheftete Dateien</text>
+
+      <rect class="b ac" x="510" y="232" width="190" height="162" rx="8"/>
+      <text class="h" x="524" y="254">TERMINAL = SANDBOX</text>
+      <text class="s" x="524" y="278">Zugriff: nur Internet /</text>
+      <text class="s" x="524" y="296">ein Ordner / volles System</text>
+      <text class="s" x="524" y="320">„Werkstatt" + Seed-Wissen</text>
+      <text class="s" x="524" y="342">/erweiterung · /execute</text>
+      <text class="s" x="524" y="366">→ Fork · Download · Install</text>
+
+      <!-- flows -->
+      <path class="ar" d="M360 50 L360 62"/>
+      <path class="ar" d="M502 120 L508 120"/>
+      <path class="ar" d="M605 394 L605 405 L246 405 L246 396"/>
+      <text class="s" x="300" y="420" text-anchor="middle">gebaute Erweiterung erscheint links/Mitte, wird auswählbar</text>
+    </svg>
+    <figcaption>Ein aktiver Ordner oben klammert Wissens-Welt (links/Mitte/Chat) und Sandbox-Welt (Terminal). Gebaute Erweiterungen fließen zurück in Sidebar/Mitte.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 20 Schritte in 7 Phasen (A Fundament → G Qualität). Phasen einzeln auf dem Jetson verifizierbar.</span>
+  </summary>
+  <div class="sbody">
+
+  <p class="phase">Phase A · Fundament — ein aktiver Ordner-Kontext</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Datenmodell: aktiver Workspace + Pins">
+    <h3>Schritt 1 — Datenmodell: aktiver Workspace + angeheftete Dateien <span class="tag">Risiko: mittel</span></h3>
+    <p>Neues, additives Konzept „aktiver Top-Level-Workspace" (= ein Top-Level-<code>knowledge_spaces</code>-Ordner) als persistente Auswahl (Einzel-Admin → schlichte app-/user-scoped Einstellung). Plus Tabelle für an den Chat angeheftete Dokumente. Keine bestehenden Daten anfassen.</p>
+    <p class="files mono">services/postgres/init/114_active_workspace_pins.sql (neu) · apps/dashboard-backend/src/routes/ai/spaces.js · apps/dashboard-backend/src/routes/settings*.js · docs/api/DATABASE_SCHEMA.md</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Workspace-Switcher oben">
+    <h3>Schritt 2 — Workspace-Switcher in der Shell-Kopfzeile <span class="tag">Risiko: niedrig</span></h3>
+    <p>Gut sichtbarer Umschalter oben (Projekt-/Repo-Switcher-Muster): listet die Top-Level-Ordner, zeigt den aktiven, Wechsel setzt den globalen Kontext. Quelle = Top-Level-Knoten aus <code>GET /spaces/tree</code>. State in Zustand + Persistenz aus Schritt&nbsp;1.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/WorkspaceShell.tsx · WorkspaceMenuBar.tsx · features/workspace/WorkspaceSwitcher.tsx (neu) · src/stores/workspaceStore.ts</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Chat + Suche an aktiven Ordner binden">
+    <h3>Schritt 3 — Chat + Suche an den aktiven Ordner binden <span class="tag">Risiko: hoch</span></h3>
+    <p>Der aktive Workspace-Teilbaum wird der Default-RAG-Scope. Das heutige Multi-Ordner-Drag bleibt als „Fokus eingrenzen" (Unterordner) erhalten, aber der Grundkontext ist immer der aktive Ordner. <code>space_ids</code> = aktiver Teilbaum ∪ Pins ∪ Fokus. Auto-Routing nur noch innerhalb des aktiven Ordners.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/llm/agentChat/AgentChatPanel.tsx · contexts/ChatContext.tsx · apps/dashboard-backend/src/routes/rag.js · services/rag/ragCore.js (buildSpaceFilter/routeToSpaces) · stores/workspaceStore.ts (chatScope)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Datei/Unterordner anheften">
+    <h3>Schritt 4 — Dateien &amp; Unterordner an den Chat anheften <span class="tag">Risiko: niedrig</span></h3>
+    <p>Pin-Aktion im Explorer-Kontextmenü und ein Pin-Bereich im Chat-Kopf: angeheftete Dateien sind immer im Kontext, unabhängig vom Auto-Routing. Nutzt <code>pinned_documents</code> aus Schritt&nbsp;1.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/explorer/ExplorerPanel.tsx · llm/agentChat/AgentChatPanel.tsx · apps/dashboard-backend/src/routes/rag.js</p>
+  </div>
+
+  <p class="phase">Phase B · Navigation — feste Activity-Bar + kontextabhängige Sidebar</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Activity-Bar herauslösen, Sidebar-Bug beheben">
+    <h3>Schritt 5 — Activity-Bar aus der Sidebar lösen + ⌘B/„Dateien"-Bug beheben <span class="tag">Risiko: mittel</span></h3>
+    <p>Die Activity-Bar wird eine eigene, <b>immer sichtbare</b> schmale Spalte links (außerhalb des einklappbaren Panels). Damit bleibt „Dateien" erreichbar, auch wenn die Sidebar eingeklappt ist. Neuer State <code>activeView</code> ersetzt das bloße <code>sidebarVisible</code>; Store-Version hochziehen mit Migration (Layout darf nicht zurückgesetzt werden).</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/WorkspaceShell.tsx · ActivityBar.tsx · SidebarHost.tsx · stores/workspaceStore.ts (version-Migration) · src/index.css</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Kontextabhängige Sidebar-Views">
+    <h3>Schritt 6 — Sidebar zeigt je nach Activity-Auswahl den passenden Inhalt <span class="tag">Risiko: mittel</span></h3>
+    <p>Activity-Einträge: Dateien · Suche · Modelle · Erweiterungen · Skills. Auswahl steuert, was die linke Sidebar zeigt (Baum / Trefferliste / Filter / Filter / Skill-Liste); die Mitte zeigt den Inhalt. Das ist die Grundlage dafür, dass die Store-Filter (Schritt&nbsp;7) endlich <i>in</i> der Sidebar sitzen statt im Content.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/SidebarHost.tsx · ActivityBar.tsx · features/workspace/sidebar/*Panel.tsx (neu) · stores/workspaceStore.ts</p>
+  </div>
+
+  <p class="phase">Phase C · Store — Modelle &amp; Erweiterungen aufräumen</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Modell-Filter aufräumen + in die Sidebar + ruhiges Grid">
+    <h3>Schritt 7 — Modell-Filter: „Fähigkeit" raus, in die Sidebar, ruhiges 3er-Grid <span class="tag">Risiko: niedrig</span></h3>
+    <p>Facette „Fähigkeit" (capabilities) entfernen; es bleiben <b>Typ · Größe · Status</b> mit klaren deutschen Labels (statt „Llm"/„Ocr"). Die Filter-Leiste wandert aus dem Content in die linke Sidebar (Schritt&nbsp;6). Ruhigeres, breiteres Grid (Standard 3 pro Reihe) mit einer sinnvollen Default-Sortierung (Status → Größe).</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/store/storeModelFilters.ts · StoreModelsGrid.tsx · Store.tsx · features/store/__tests__/storeModelFilters.test.ts · StoreModelsGrid.test.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Modell-Detailseite anreichern">
+    <h3>Schritt 8 — Modell-Detailseite füllt die Seite mit Infos <span class="tag">Risiko: niedrig</span></h3>
+    <p>Mehr Karten rund um ein Modell: Spec-Grid (ID, Download-Größe, RAM, Geschwindigkeit, Kontextlänge), Hardware-Fit-Banner (vorhanden, prominenter), Einsatzzwecke („gut geeignet für"), verwandte Modelle, klarer Aktionsblock (Laden/Aktivieren/Standard/Löschen). Seite wirkt ausgefüllt, nicht leer.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/store/StoreDetailPage.tsx · hooks/useStoreCatalog.ts</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Erweiterungen-View + Filter + Bugcheck">
+    <h3>Schritt 9 — Erweiterungen-View neu: sinnvolle Filter, Bugcheck, Einstieg zum Eigenbau <span class="tag">Risiko: mittel</span></h3>
+    <p>Die Erweiterungen-Ansicht bekommt Filter, die zum neuen Modell passen: <b>Typ</b> (App / n8n-Flow / Tool-Konnektor), <b>Zugriffs-Stufe</b> (Internet / interne Dienste / voll) und <b>Status</b> (aktiv / verfügbar / in Arbeit). Bestehende Stellen (nur n8n + „kommt bald"-Platzhalter) werden auf echte Bugs geprüft. Der „kommt bald"-Platzhalter wird zum echten Einstieg in den Erweiterungs-Baukasten (Phase&nbsp;E).</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/store/StoreExtensionsGrid.tsx · hooks/useWorkspaceApps.ts · apps/dashboard-backend/src/routes/workspaceApps.js · routes/store/appstore.js</p>
+  </div>
+
+  <p class="phase">Phase D · Skills-Zentrale — Popup raus, Live-Prompt rein</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 10 — Skill-Editor als Tab statt Popup">
+    <h3>Schritt 10 — Skill-Editor wird ein zentraler Tab (kein Modal) <span class="tag">Risiko: mittel</span></h3>
+    <p>Neuer Workspace-Tab-Typ <code>skill</code>. Das heutige Fullscreen-Modal (<code>SkillDialog</code>) wird in einen Tab-Container überführt: links Einstellungen (bestehendes <code>SkillForm</code> — Prompt, Argumente, Werkzeuge, Ordner, Subagenten-Rollen, Grenzen), rechts die Preview (Schritt&nbsp;11). Slash-Befehle im Composer öffnen künftig den Tab statt des Popups.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/TabContent.tsx · stores/workspaceStore.ts (neuer Tab-Typ) · features/skills/SkillDialog.tsx → SkillEditorTab.tsx · features/workspace/llm/agentChat/ComposerCard.tsx · AgentChatPanel.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 11 — Preview zeigt echten Laufzeit-Prompt">
+    <h3>Schritt 11 — Preview zeigt den echten Prompt, der ans Modell geht <span class="tag">Risiko: mittel</span></h3>
+    <p>Die Prompt-Zusammenbau-Logik (<code>fillPlaceholders(systemPrompt)</code> + Subagenten-Rollen + Werkzeug-/Ordner-Kontext) wird in eine wiederverwendbare Funktion gezogen und über einen neuen Endpoint exponiert. Die Preview bekommt zwei Ansichten: <b>Skill-Datei</b> (wie heute) und <b>aufgelöster Laufzeit-Prompt</b> (mit eingesetzten Beispiel-Argumenten). Volle Transparenz — das Herz des USP.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/skills/runSkill.js (assembleRuntimePrompt extrahieren) · routes/skills.js (POST /skills/vorschau-laufzeit) · apps/dashboard-frontend/src/features/skills/MarkdownPreview.tsx (Zwei-Ansichten) · docs/api/API_REFERENCE.md</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 12 — Skills-Übersicht als echte Ansicht">
+    <h3>Schritt 12 — <code>/skills</code>-Übersicht als Ansicht statt Toast-Stub <span class="tag">Risiko: niedrig</span></h3>
+    <p>Der Skills-Activity-Eintrag (Schritt&nbsp;6) zeigt in der Sidebar die Liste aller Skills (öffnen/bearbeiten/neu); die Mitte zeigt den Editor-Tab. <code>/skills</code> im Chat öffnet diese Ansicht statt eines Toasts; <code>/neuer-skill</code> öffnet einen leeren Editor-Tab.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/skills/SkillsOverview.tsx (neu) · SkillMenu.tsx · features/workspace/llm/agentChat/AgentChatPanel.tsx (onOpenSkillOverview) · ComposerCard.tsx</p>
+  </div>
+
+  <p class="phase">Phase E · Erweiterungs-Baukasten — der USP zum Anfassen</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 13 — Dev-Sandbox „Werkstatt" mit Seed-Kontext">
+    <h3>Schritt 13 — Dev-Sandbox „Werkstatt" mit vorbereitetem Wissen <span class="tag">Risiko: mittel</span></h3>
+    <p>Ein auswählbarer Sandbox-Typ „Erweiterungs-Werkstatt": ein Terminal-Ordner, der schon mit Referenz-/Template-Wissen bestückt ist (eine <code>ANLEITUNG.md</code> im Cursor/CLAUDE.md-Stil, Beispiel-Erweiterungen, Ordnerkonventionen), damit externe Agenten sofort wissen, wie man eine Arasul-Erweiterung baut.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/sandbox/sandboxService.js · data/sandbox/dev-templates/ (neu: ANLEITUNG.md, Beispiel-App, Beispiel-Flow, Beispiel-Tool) · apps/dashboard-frontend/src/features/sandbox/CreateProjectDialog.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 14 — Drei-Stufen-Zugriff für Sandboxes">
+    <h3>Schritt 14 — Klares Drei-Stufen-Zugriffsmodell pro Sandbox <span class="tag">Risiko: mittel</span></h3>
+    <p>Statt technischer Netzmodi drei verständliche Stufen: <b>nur Internet</b> · <b>genau ein interner Ordner</b> · <b>voller Systemzugriff (Admin)</b>. Baut auf den vorhandenen <code>network_mode</code>-Werten (isolated/internal/infrastructure) auf und ergänzt die Ordner-Wahl. Klare Benennung + Warnhinweis bei „voll".</p>
+    <p class="files mono">apps/dashboard-backend/src/services/sandbox/sandboxService.js (network + Ordner-Mount) · routes/sandbox.js · apps/dashboard-frontend/src/features/sandbox/CreateProjectDialog.tsx · services/postgres/init/ (Migration nur falls neues Feld nötig)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 15 — Bau-Skills /erweiterung und /execute">
+    <h3>Schritt 15 — Zwei Bau-Skills: Gerüst bauen &amp; ausführen <span class="tag">Risiko: mittel</span></h3>
+    <p><code>/erweiterung</code> legt in der Werkstatt ein Erweiterungs-Gerüst an bzw. baut es iterativ weiter (App / n8n-Flow / Tool — geführt); <code>/execute</code> führt/testet die gebaute Erweiterung in der Sandbox aus und meldet das Ergebnis zurück. Beide als Skill-Dateien im vorhandenen Skill-System (Werkzeuge: Datei/Terminal/Subagent), sodass sie auch von kleinen lokalen Modellen bedienbar sind. <i>Benennung &amp; genauer Umfang: Vorschlag — bitte hier kommentieren.</i></p>
+    <p class="files mono">data/skills/erweiterung.md · data/skills/execute.md (neu) · apps/dashboard-backend/src/services/skills/toolRegistry.js · schemas/skills.js (nur falls neues Werkzeug) · services/skills/runSkill.js</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 16 — Erweiterung paketieren: Fork, Download, Install">
+    <h3>Schritt 16 — Erweiterungen forken, herunterladen, installieren <span class="tag">Risiko: hoch</span></h3>
+    <p>Eine gebaute Erweiterung = ein Ordner-Paket (Definition + Assets + Manifest). Aktionen: <b>Fork</b> (Kopie als neue Werkstatt), <b>Download</b> (Paket als Archiv), <b>Install</b> (Paket wieder in Arasul einspielen). Installierte Erweiterungen erscheinen in der Erweiterungen-View und können — je nach Typ — einen Activity-/Sidebar-Eintrag hinzufügen (wie heute n8n). <i>Paketformat &amp; Install-Mechanik: Vorschlag steht, kommentierbar.</i></p>
+    <p class="files mono">apps/dashboard-backend/src/routes/extensions.js (neu: build/export/import/fork) · services/extensions/* (neu) · apps/dashboard-frontend/src/features/store/StoreExtensionsGrid.tsx · features/workspace/ActivityBar.tsx (dynamische Einträge) · docs/api/API_REFERENCE.md</p>
+  </div>
+
+  <p class="phase">Phase F · Indexierung &amp; Suche — robust bei häufigen Änderungen</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 17 — delete-before-upsert + Content-Hash-Gate">
+    <h3>Schritt 17 — Keine Zombie-Chunks mehr bei geänderten Dokumenten <span class="tag">Risiko: hoch</span></h3>
+    <p>Der saubere Mechanismus aus <code>workspaceIndexer.js</code> (bei unverändertem Hash überspringen; bei Änderung alte Vektoren <b>löschen</b>, dann neu einfügen) wird in den Standard-Reindex-Pfad des Python-Indexers gezogen. Damit verschwinden veraltete Chunks, wenn ein Dokument weniger Chunks produziert. Regressionstest gegen das Zombie-Szenario.</p>
+    <p class="files mono">services/document-indexer/document_processor.py · qdrant_manager.py (delete_document_vectors vor upsert) · enhanced_indexer.py · services/document-indexer/tests/</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 18 — Payload-Indizes idempotent sicherstellen">
+    <h3>Schritt 18 — Payload-Indizes auch für bestehende Collection garantieren <span class="tag">Risiko: mittel</span></h3>
+    <p>Die Indizes auf <code>space_id</code>/<code>category</code>/<code>document_id</code> werden heute nur bei Neuanlage der Collection erstellt. Das wird idempotent gemacht (bei jedem Start sicherstellen), damit ordner-optimierte Filter schnell bleiben — Voraussetzung für den Default-Scope aus Schritt&nbsp;3.</p>
+    <p class="files mono">services/document-indexer/qdrant_manager.py (create_payload_index idempotent) · api_server.py (Startup-Hook)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 19 — Themen-/ordner-optimierte Suche + partial-Recovery">
+    <h3>Schritt 19 — Suche auf den aktiven Ordner optimieren <span class="tag">Risiko: mittel</span></h3>
+    <p>Aktiver-Workspace-Scope wird der Default-Filter (statt Auto-Routing über alle Ordner); Ordner-Kontextdateien werden auch bei aktivem Scope injiziert (heute nur bei manuellem Scope). „partial" markierte Dokumente werden vom Auto-Scan wieder aufgegriffen, statt terminal hängenzubleiben.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/rag/ragCore.js · routes/rag.js · services/rag/folderContextService.js · services/document-indexer/enhanced_indexer.py</p>
+  </div>
+
+  <p class="phase">Phase G · Qualität — Trennung, Tests, Doku</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 20 — Feature-Trennung, Tests &amp; Doku">
+    <h3>Schritt 20 — Sauber getrennt, getestet, dokumentiert <span class="tag">Risiko: niedrig</span></h3>
+    <p>Feature-Ordner klar schneiden (Workspace-Kontext / Store / Skills / Erweiterungs-Baukasten / RAG), damit man langfristig getrennt weiterbauen kann. Tests für Filter-Logik, Prompt-Assembly, Reindex-Gate, Zugriffs-Stufen. Doku synchronisieren.</p>
+    <p class="files mono">docs/api/API_REFERENCE.md · docs/api/DATABASE_SCHEMA.md · docs/ENVIRONMENT_VARIABLES.md · docs/features/WORKSPACE.md · ./scripts/test/run-tests.sh --all</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Aktiver Ordner steuert Chat+Suche, Bugs weg, Skills-Tab mit Live-Prompt, Erweiterung baubar, keine Zombie-Chunks.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Oben ist ein Workspace-Switcher; Wechsel schaltet sichtbar den Chat- und Such-Kontext um.</li>
+    <li data-done="false">Chat und Suche liefern standardmäßig nur Treffer aus dem aktiven Ordner; angeheftete Dateien sind immer im Kontext.</li>
+    <li data-done="false">Die Activity-Bar bleibt sichtbar, auch wenn die Sidebar eingeklappt ist; ein Klick auf „Dateien" bringt den Baum zuverlässig zurück (⌘B und Klick verhalten sich konsistent).</li>
+    <li data-done="false">Modell-Filter zeigen nur Typ/Größe/Status (keine „Fähigkeit") und sitzen in der linken Sidebar; das Grid ist ruhig (Standard 3 pro Reihe) und sinnvoll vorsortiert.</li>
+    <li data-done="false">Die Modell-Detailseite ist mit Karten gefüllt (Specs, Hardware-Fit, Einsatzzwecke, verwandte Modelle, Aktionen) und wirkt nicht leer.</li>
+    <li data-done="false">Die Erweiterungen-View hat verständliche Filter und keinen offensichtlichen Bug; der Eigenbau-Einstieg ist verlinkt.</li>
+    <li data-done="false">Ein Skill wird in einem zentralen Tab (kein Popup) angelegt/bearbeitet; die Preview zeigt umschaltbar Skill-Datei und echten Laufzeit-Prompt.</li>
+    <li data-done="false"><code>/skills</code> öffnet eine echte Übersicht (kein Toast); <code>/neuer-skill</code> öffnet einen leeren Editor-Tab.</li>
+    <li data-done="false">In der „Werkstatt"-Sandbox lässt sich mit <code>/erweiterung</code> + <code>/execute</code> eine Beispiel-Erweiterung bauen, testen, herunterladen und wieder installieren; sie erscheint danach in der Erweiterungen-View.</li>
+    <li data-done="false">Pro Sandbox lässt sich eine von drei Zugriffs-Stufen wählen; „voll" ist als Admin-Aktion markiert.</li>
+    <li data-done="false">Ein geändertes Dokument mit weniger Chunks hinterlässt keine veralteten Treffer mehr (Zombie-Chunk-Test grün).</li>
+    <li data-done="false"><code>./scripts/test/run-tests.sh --all</code> ist grün; Doku (API/DB/ENV/WORKSPACE) synchron.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Jede Phase einzeln bauen, deployen und im echten Browser prüfen — nichts als „fertig" melden, was nicht live lief.</span>
+  </summary>
+  <div class="sbody">
+  <p>Verifikation läuft strikt phasenweise auf dem Gerät — nicht erst am Ende. Nach jeder Phase:</p>
+  <ol>
+    <li><code>docker compose up -d --build &lt;service&gt;</code> für die berührten Dienste (Frontend, dashboard-backend, ggf. document-indexer).</li>
+    <li>Erreichbarkeit + echte Browser-Prüfung unter <code>https://192.168.0.197</code> (Login admin, Cert-Trust wie gehabt).</li>
+    <li>Phasen-spezifische Sicht-Prüfung im Browser:
+      <ul>
+        <li><b>A/B:</b> Switcher wechselt Kontext; Sidebar einklappen → „Dateien" bleibt erreichbar.</li>
+        <li><b>C:</b> Modell-Filter links, ruhiges Grid, Detailseite gefüllt.</li>
+        <li><b>D:</b> Skill-Tab öffnet ohne Popup; Live-Prompt-Ansicht zeigt echten Prompt.</li>
+        <li><b>E:</b> Beispiel-Erweiterung in der Werkstatt bauen → <code>/execute</code> → Download → Install → erscheint in der View.</li>
+        <li><b>F:</b> Dokument ändern (weniger Inhalt) → alte Treffer verschwinden aus der Suche.</li>
+      </ul>
+    </li>
+    <li>Backend-Verifies ohne Passwort via on-device JWT-Mint (siehe Memory) für API-Checks.</li>
+  </ol>
+  <p>Was nicht live verifiziert werden konnte, wird als „blockiert/deviation" im Report vermerkt — nicht als erledigt.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Breite ist das Hauptrisiko → phasenweise PRs, additive Migrationen, Feature pro Phase reversibel.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Plan ist sehr breit (Shell + RAG + Indexer + DB + Sandbox)</td><td>Hoch</td><td>Phasen A–G als getrennte PRs, jede einzeln auf dem Jetson verifiziert; Reihenfolge hält Abhängigkeiten ein (Fundament zuerst).</td></tr>
+      <tr><td>Reindex-Umbau löscht versehentlich gute Chunks</td><td>Mittel</td><td>Content-Hash-Gate + delete nur bei echter Änderung; Regressionstest gegen Zombie- und „gleich geblieben"-Fall vor dem Rollout.</td></tr>
+      <tr><td>Store-Version-Migration setzt gespeichertes Layout/Tabs zurück</td><td>Mittel</td><td>Explizite Migrationsfunktion beim Versionssprung; alte Felder auf neue mappen statt verwerfen; im Browser testen.</td></tr>
+      <tr><td>Default-Scope „aktiver Ordner" versteckt gewünschte Treffer</td><td>Mittel</td><td>Fokus-Eingrenzung + Pins bleiben; klarer Hinweis im Chat, welcher Ordner aktiv ist; Umschalten jederzeit möglich.</td></tr>
+      <tr><td>Sandbox-Stufe „voller Systemzugriff" als Sicherheitsfläche</td><td>Niedrig</td><td>Einzel-Admin-Modell (jeder darf alles ist gewollt); Stufe klar als Admin-Aktion markiert, Default = restriktiv.</td></tr>
+      <tr><td>GPU-Konkurrenz bei häufigem Reindex</td><td>Mittel</td><td>Heuristik-Kontextmodus als Default beibehalten; teure Schritte (LLM-Kontext, KG) nicht bei jedem Reindex erzwingen.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Jede Phase ist für sich revertierbar (eigener Branch/PR). DB-Migrationen sind additiv (neue Tabellen/Spalten, kein Drop) — ein Revert der App-Schicht lässt die Daten unberührt. Frontend-Store-Migrationen sind vorwärts-kompatibel; im Zweifel Store-Key zurücksetzen. Der Indexer-Umbau kann per Env-Flag deaktiviert werden, bis der Regressionstest grün ist.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Die zwölf Interview-Antworten, die den Zuschnitt bestimmen — inkl. der bewusst verworfenen Terminal-Kopplung.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Kontext-Modell</td><td>Ein aktiver Workspace, global</td><td>Chat + Suche binden an genau einen Top-Level-Ordner (Schritte 1–3).</td></tr>
+      <tr><td>Zugriffstiefe des Chats</td><td>Ganzer Ordner + einzelne Dateien anheftbar</td><td>Default = aktiver Teilbaum; Pins zusätzlich (Schritt 4).</td></tr>
+      <tr><td>Startpunkt</td><td>Fundament zuerst</td><td>Phase A vor allem anderen; alles baut darauf auf.</td></tr>
+      <tr><td>Deliverable</td><td>Ein großer Plan</td><td>Dieser Plan; Umsetzung intern in Phasen geschnitten.</td></tr>
+      <tr><td>Terminal-Bindung</td><td>NICHT an Wissensordner koppeln</td><td>Terminal = Sandbox-Welt mit Zugriffs-Stufen + Erweiterungs-Bau (Phase E).</td></tr>
+      <tr><td>Skill-Preview</td><td>Echter Laufzeit-Prompt</td><td>Prompt-Assembly wird exponiert (Schritt 11).</td></tr>
+      <tr><td>Was ist eine Erweiterung</td><td>Alles baubar: App, n8n-Flow, Tool</td><td>Typ-Facette + Bau-Skills decken alle drei ab (Schritte 9, 15, 16).</td></tr>
+      <tr><td>Umfang Extension-Plattform</td><td>Jetzt voll ausdetailliert</td><td>Phase E komplett im Plan (Werkstatt, Stufen, Skills, Fork/Download/Install).</td></tr>
+      <tr><td>Sandbox-Zugriff</td><td>Drei klare Stufen</td><td>Internet / ein Ordner / voll (Schritt 14).</td></tr>
+      <tr><td>Ordner-Auswahl</td><td>Workspace-Switcher oben</td><td>Prominenter Umschalter in der Shell (Schritt 2).</td></tr>
+      <tr><td>Sidebar/Navigation</td><td>Feste Activity-Bar + kontextabhängige Sidebar</td><td>VS-Code-Marktplatz-Muster (Schritte 5–6).</td></tr>
+      <tr><td>Modell-Filter</td><td>„Fähigkeit" raus; Typ/Größe/Status</td><td>Filter-Logik gekürzt, in Sidebar verschoben (Schritt 7).</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 012 · erstellt am 2026-07-23 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/012-workspace-neuausrichtung.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>

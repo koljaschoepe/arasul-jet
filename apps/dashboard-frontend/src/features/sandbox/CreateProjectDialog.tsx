@@ -192,7 +192,7 @@ export default function CreateProjectDialog({
             >
               <div className="font-medium">Erweiterungs-Werkstatt</div>
               <div className="text-[10px] opacity-70 mt-0.5">
-                Vorbestückt mit ANLEITUNG und Beispiel-Erweiterungen. Die Skills
+                Vorbestückt mit ANLEITUNG und Beispiel-Erweiterungen. Die Flows
                 <code> /erweiterung</code> und <code> /execute</code> bauen hier.
               </div>
             </button>

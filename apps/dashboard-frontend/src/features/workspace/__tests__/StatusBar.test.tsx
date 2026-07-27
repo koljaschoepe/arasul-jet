@@ -1,13 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from '../StatusBar';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { MemoryBudget } from '@/types';
+import type { CatalogModel } from '@/hooks/useStoreCatalog';
+
+/**
+ * Die neu geschriebene StatusBar rendert zwei interaktive shadcn-Popover und
+ * zieht Daten über React Query (`useApi`) + `useToast`. Die Tests spiegeln die
+ * etablierten Provider-/Mock-Muster des Repos: `useApi` per `vi.mock`, `useToast`
+ * per `vi.mock`, alles innerhalb eines frischen `QueryClientProvider`.
+ */
 
 const get = vi.fn();
+const post = vi.fn();
 vi.mock('@/hooks/useApi', () => ({
-  useApi: () => ({ get }),
+  useApi: () => ({ get, post }),
+}));
+
+const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() };
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => toast,
 }));
 
 const emptyBudget: MemoryBudget = {
@@ -19,14 +33,53 @@ const emptyBudget: MemoryBudget = {
   canLoadMore: true,
 };
 
-/** Routet die beiden StatusBar-Queries (/health + /models/memory-budget). */
-function mockApi(overrides: { health?: unknown; budget?: unknown } = {}) {
+/** Vollständiger Katalog-Eintrag (install_status 'available' = heruntergeladen). */
+function installedModel(over: Partial<CatalogModel> & { id: string; name: string }): CatalogModel {
+  return {
+    description: '',
+    size_bytes: 5_000_000_000,
+    ram_required_gb: 8,
+    category: 'medium',
+    install_status: 'available',
+    ...over,
+  };
+}
+
+interface ApiOverrides {
+  health?: unknown;
+  budget?: unknown;
+  catalog?: CatalogModel[];
+  loadedModelId?: string | null;
+  defaultModelId?: string | null;
+}
+
+/**
+ * Routet alle GET-Pfade der StatusBar (/health, /models/memory-budget sowie die
+ * beim Öffnen des Modell-Popover geladenen /models/catalog|status|default).
+ */
+function mockApi(overrides: ApiOverrides = {}) {
   const health = overrides.health ?? { status: 'OK', version: '1.2.3' };
   const budget = overrides.budget ?? emptyBudget;
+  const catalog = overrides.catalog ?? [];
+  const loadedModelId = overrides.loadedModelId ?? null;
+  const defaultModelId = overrides.defaultModelId ?? null;
   get.mockImplementation((path: string) => {
-    if (path === '/models/memory-budget') return Promise.resolve(budget);
-    return Promise.resolve(health);
+    switch (path) {
+      case '/models/memory-budget':
+        return Promise.resolve(budget);
+      case '/models/catalog':
+        return Promise.resolve({ models: catalog });
+      case '/models/status':
+        return Promise.resolve({
+          loaded_model: loadedModelId ? { model_id: loadedModelId } : null,
+        });
+      case '/models/default':
+        return Promise.resolve({ default_model: defaultModelId });
+      default:
+        return Promise.resolve(health);
+    }
   });
+  post.mockResolvedValue({ default_model: 'ok' });
 }
 
 function renderStatusBar() {
@@ -58,6 +111,8 @@ describe('StatusBar', () => {
   beforeEach(() => {
     resetStore();
     get.mockReset();
+    post.mockReset();
+    toast.success.mockReset();
   });
 
   it('zeigt Verbunden + Version, wenn /health OK meldet', async () => {
@@ -65,7 +120,7 @@ describe('StatusBar', () => {
     renderStatusBar();
 
     expect(await screen.findByText('Verbunden')).toBeInTheDocument();
-    expect(await screen.findByText('v1.2.3')).toBeInTheDocument();
+    expect(await screen.findAllByText('v1.2.3')).not.toHaveLength(0);
     expect(get).toHaveBeenCalledWith('/health', { showError: false });
   });
 
@@ -158,5 +213,75 @@ describe('StatusBar', () => {
     renderStatusBar();
 
     expect(await screen.findByText('Llama 3 +1 · KI-RAM 12.0/24.0 GB')).toBeInTheDocument();
+  });
+
+  it('öffnet das Verbindungs-Popover mit Backend-Status, Version und KI-RAM', async () => {
+    mockApi({
+      budget: {
+        totalBudgetMb: 24_576,
+        usedMb: 8_192,
+        availableMb: 16_384,
+        safetyBufferMb: 0,
+        canLoadMore: true,
+        loadedModels: [{ id: 'a', ollamaName: 'a', name: 'Llama 3', ramMb: 8_192 }],
+      } satisfies MemoryBudget,
+    });
+    renderStatusBar();
+
+    // Trigger erst nach dem ersten /health-Load klickbar machen.
+    const trigger = await screen.findByTitle('Verbindung anzeigen');
+    fireEvent.click(trigger);
+
+    // Popover-Inhalt (Portal) — eindeutige Texte des Detailbereichs.
+    expect(await screen.findByText('Backend')).toBeInTheDocument();
+    expect(screen.getByText('Version')).toBeInTheDocument();
+    // v1.2.3 steht sowohl in der Fußzeile als auch im Popover-Inhalt.
+    expect(screen.getAllByText('v1.2.3').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('KI-RAM')).toBeInTheDocument();
+    expect(screen.getByText('Modelle im RAM')).toBeInTheDocument();
+    expect(screen.getByText('Alles läuft lokal auf dem Gerät — keine Cloud.')).toBeInTheDocument();
+  });
+
+  it('listet heruntergeladene Modelle im Modell-Popover und markiert das Standardmodell', async () => {
+    mockApi({
+      catalog: [
+        installedModel({ id: 'llama3', name: 'Llama 3', ram_required_gb: 8 }),
+        installedModel({ id: 'qwen3', name: 'Qwen 3', ram_required_gb: 6 }),
+        // nicht heruntergeladen → darf nicht in der Liste auftauchen
+        installedModel({ id: 'gemma', name: 'Gemma', install_status: 'not_installed' }),
+      ],
+      loadedModelId: 'llama3',
+      defaultModelId: 'qwen3',
+    });
+    renderStatusBar();
+
+    fireEvent.click(await screen.findByTestId('workspace-statusbar-model'));
+
+    // Katalog wird erst beim Öffnen geladen (enabled: modelOpen).
+    expect(await screen.findByText('Llama 3')).toBeInTheDocument();
+    expect(screen.getByText('Qwen 3')).toBeInTheDocument();
+    expect(screen.queryByText('Gemma')).not.toBeInTheDocument();
+    // geladenes Modell trägt das „im RAM"-Badge
+    expect(screen.getByText('im RAM')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledWith('/models/catalog', { showError: false });
+  });
+
+  it('setzt beim Klick auf ein Modell den Standard via api.post(/models/default) und meldet es per Toast', async () => {
+    mockApi({
+      catalog: [installedModel({ id: 'llama3', name: 'Llama 3', ram_required_gb: 8 })],
+      defaultModelId: null,
+    });
+    renderStatusBar();
+
+    fireEvent.click(await screen.findByTestId('workspace-statusbar-model'));
+    const modelButton = await screen.findByRole('button', { name: /Llama 3/ });
+    fireEvent.click(modelButton);
+
+    await vi.waitFor(() => {
+      expect(post).toHaveBeenCalledWith('/models/default', { model_id: 'llama3' });
+    });
+    await vi.waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('Standardmodell: Llama 3');
+    });
   });
 });

@@ -42,10 +42,10 @@ const chatContext = {
   getBackgroundLoading: vi.fn().mockReturnValue(false),
   clearBackgroundState: vi.fn(),
   hasActiveStream: vi.fn().mockReturnValue(false),
-  // Skill-Läufe (Plan 011, Schritt 15)
-  getSkillRuns: vi.fn().mockReturnValue([]),
-  registerSkillRun: vi.fn(),
-  setChatSkillRuns: vi.fn(),
+  // Flow-Läufe (Plan 011, Schritt 15)
+  getFlowRuns: vi.fn().mockReturnValue([]),
+  registerFlowRun: vi.fn(),
+  setChatFlowRuns: vi.fn(),
   installedModels: [
     { id: 'qwen3:8b', name: 'Qwen 3 8B', supports_thinking: true },
     { id: 'llama3.1:8b', name: 'Llama 3.1 8B' },
@@ -58,11 +58,11 @@ vi.mock('@/contexts/ChatContext', () => ({
   useChatContext: () => chatContext,
 }));
 
-// Skill-Menü (Plan 011, Schritt 13): der Panel liest die Skill-Liste (React Query)
+// Flow-Menü (Plan 011, Schritt 13): der Panel liest die Flow-Liste (React Query)
 // und zeigt Verwaltungs-Hinweise (Toast). Beides hier flach mocken, damit dieser
 // Test keinen QueryClient-/ToastProvider braucht.
-vi.mock('@/hooks/useSkills', () => ({
-  useSkills: () => ({ skills: [], fehlerhaft: [], isLoading: false }),
+vi.mock('@/hooks/useFlows', () => ({
+  useFlows: () => ({ flows: [], fehlerhaft: [], isLoading: false }),
 }));
 vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() }),

@@ -1,20 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  Settings as SettingsIcon,
-  Lock,
-  Info,
-  Server,
-  Globe,
-  ShieldAlert,
-  Sparkles,
-} from 'lucide-react';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ScrollArea } from '@/components/ui/shadcn/scroll-area';
-import { cn } from '@/lib/utils';
+import { Mascot } from '@/components/mascot/Mascot';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { resolveTab, resolveSystemSub, sectionLabel } from './sections';
 import { GeneralSettings } from './GeneralSettings';
 import { KISettings } from './KISettings';
 import { SecuritySettings } from './SecuritySettings';
@@ -28,137 +21,29 @@ interface SettingsProps {
   onToggleTheme: () => void;
 }
 
-interface Section {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  description: string;
-}
-
-const sections: Section[] = [
-  {
-    id: 'general',
-    label: 'Allgemein',
-    icon: <Info className="size-5" />,
-    description: 'Systeminformationen und Konfiguration',
-  },
-  {
-    id: 'ki',
-    label: 'KI',
-    icon: <Sparkles className="size-5" />,
-    description: 'Firmenprofil, Kontext & RAG/LLM',
-  },
-  {
-    id: 'security',
-    label: 'Sicherheit',
-    icon: <Lock className="size-5" />,
-    description: 'Passwörter und Zugriffsverwaltung',
-  },
-  {
-    id: 'privacy',
-    label: 'Datenschutz',
-    icon: <ShieldAlert className="size-5" />,
-    description: 'DSGVO: Auskunft und Löschung',
-  },
-  {
-    id: 'system',
-    label: 'System',
-    icon: <Server className="size-5" />,
-    description: 'Services, Updates & Self-Healing',
-  },
-  {
-    id: 'remote-access',
-    label: 'Fernzugriff',
-    icon: <Globe className="size-5" />,
-    description: 'Tailscale VPN und Remote-Zugriff',
-  },
-];
-
-const validIds = sections.map(s => s.id);
-
 /**
- * Map legacy / pre-consolidation tab ids (and sub-section ids) onto the new
- * 6-tab structure so old bookmarks and in-app deep links keep working.
+ * Einstellungen-Mitte-Tab (B4). Die Sektionsauswahl lebt jetzt in der linken
+ * Sidebar (SettingsPanel, wie die Flows); dieser Tab zeigt NUR noch die aktive
+ * Sektion — keine zweite Spalte / kein „Tab im Tab" mehr. Die aktive Sektion
+ * steht im settingsStore, den beide Seiten teilen.
  */
-function resolveTab(param: string | null): string {
-  if (!param) return 'general';
-  const legacy: Record<string, string> = {
-    'ai-profile': 'ki',
-    'rag-llm': 'ki',
-    services: 'system',
-    updates: 'system',
-    selfhealing: 'system',
-  };
-  const resolved = legacy[param] ?? param;
-  return validIds.includes(resolved) ? resolved : 'general';
-}
-
-/**
- * Derive the initial System sub-section from a (possibly legacy) `?tab=` value,
- * so a bookmark like `?tab=selfhealing` lands directly on the Self-Healing
- * sub-tab instead of always defaulting to Services.
- */
-function resolveSystemSub(
-  param: string | null
-): 'services' | 'updates' | 'selfhealing' | undefined {
-  if (param === 'updates' || param === 'selfhealing' || param === 'services') return param;
-  return undefined;
-}
-
 function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   const api = useApi();
   const toast = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [activeSection, setActiveSection] = useState(() => resolveTab(searchParams.get('tab')));
+  const [searchParams] = useSearchParams();
+  const activeSection = useSettingsStore(s => s.activeSection);
+  const setActiveSection = useSettingsStore(s => s.setActiveSection);
   const [isDirty, setIsDirty] = useState(false);
   const [loggingOutAll, setLoggingOutAll] = useState(false);
 
-  // Keep activeSection in sync when the URL changes externally (e.g. a deep
-  // link from another page like the SystemHealthWidget). This path also honors
-  // the unsaved-changes guard so an external navigation can't silently discard
-  // in-progress edits.
+  // Alt-Deep-Link (/settings?tab=…) einmalig in den Store übernehmen, damit
+  // Lesezeichen weiter direkt auf der richtigen Sektion landen.
   useEffect(() => {
-    const resolved = resolveTab(searchParams.get('tab'));
-    if (resolved === activeSection) return;
-    if (isDirty) {
-      void (async () => {
-        const ok = await confirm({
-          title: 'Ungespeicherte Änderungen',
-          message: 'Du hast ungespeicherte Änderungen. Trotzdem den Reiter wechseln?',
-          confirmText: 'Wechseln',
-          cancelText: 'Bleiben',
-          confirmVariant: 'warning',
-        });
-        if (ok) {
-          setIsDirty(false);
-          setActiveSection(resolved);
-        } else {
-          // Reject the navigation: restore the URL to the current tab.
-          setSearchParams({ tab: activeSection }, { replace: true });
-        }
-      })();
-      return;
-    }
-    setActiveSection(resolved);
-  }, [searchParams, activeSection, isDirty, confirm, setSearchParams]);
-
-  const handleSectionChange = async (sectionId: string) => {
-    if (sectionId === activeSection) return;
-    if (isDirty) {
-      const ok = await confirm({
-        title: 'Ungespeicherte Änderungen',
-        message: 'Du hast ungespeicherte Änderungen. Trotzdem den Reiter wechseln?',
-        confirmText: 'Wechseln',
-        cancelText: 'Bleiben',
-        confirmVariant: 'warning',
-      });
-      if (!ok) return;
-      setIsDirty(false);
-    }
-    setActiveSection(sectionId);
-    setSearchParams({ tab: sectionId }, { replace: true });
-  };
+    const param = searchParams.get('tab');
+    if (param) setActiveSection(resolveTab(param));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const confirmThenLogout = async () => {
     const ok = await confirm({
@@ -246,79 +131,19 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   };
 
   return (
-    <div className="flex flex-col md:grid md:grid-cols-[280px_1fr] h-full animate-in fade-in">
-      {/* Sidebar Navigation - horizontal tabs on mobile, vertical sidebar on md+ */}
-      <div className="border-b md:border-b-0 md:border-r border-border flex flex-col animate-in slide-in-from-left">
-        <div className="hidden md:flex p-6 pb-4 border-b border-border items-center gap-3">
-          <SettingsIcon className="size-7 text-primary shrink-0" />
-          <div>
-            <h2 className="text-xl font-bold text-foreground leading-tight">Einstellungen</h2>
-            <p className="text-xs text-muted-foreground font-medium">System-Konfiguration</p>
-          </div>
+    <div className="flex h-full flex-col animate-in fade-in">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-4 max-md:px-4">
+        <Mascot state="idle" label="Arasul" className="h-8 w-8 shrink-0" />
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold leading-tight text-foreground">Einstellungen</h2>
+          <p className="truncate text-xs text-muted-foreground">{sectionLabel(activeSection)}</p>
         </div>
-
-        {/* Mobile: horizontal scrollable tabs */}
-        <div className="md:hidden overflow-x-auto scrollbar-none">
-          <nav className="flex gap-0.5 p-2">
-            {sections.map(section => (
-              <button
-                key={section.id}
-                type="button"
-                className={cn(
-                  'flex items-center gap-2 px-3 py-2 text-nowrap text-sm shrink-0 rounded-md transition-colors',
-                  activeSection === section.id
-                    ? 'text-foreground font-semibold bg-muted'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                onClick={() => void handleSectionChange(section.id)}
-              >
-                <div className={cn('shrink-0', activeSection === section.id && 'text-primary')}>
-                  {section.icon}
-                </div>
-                <span>{section.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Desktop: vertical sidebar */}
-        <ScrollArea className="hidden md:flex flex-1 min-h-0">
-          <nav className="p-3 flex flex-col gap-0.5">
-            {sections.map(section => (
-              <button
-                key={section.id}
-                type="button"
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 text-left rounded-md transition-colors',
-                  activeSection === section.id
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                onClick={() => void handleSectionChange(section.id)}
-              >
-                <div className={cn('shrink-0', activeSection === section.id && 'text-primary')}>
-                  {section.icon}
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <span
-                    className={cn(
-                      'text-sm leading-tight',
-                      activeSection === section.id ? 'font-semibold' : 'font-medium'
-                    )}
-                  >
-                    {section.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground leading-snug">
-                    {section.description}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </nav>
-        </ScrollArea>
-      </div>
-
-      {/* Main Content Area */}
+        {isDirty && (
+          <span className="ml-auto shrink-0 rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
+            Ungespeicherte Änderungen
+          </span>
+        )}
+      </header>
       <ScrollArea className="flex-1">
         <div className="max-w-225 p-6 max-md:p-4">{renderContent()}</div>
       </ScrollArea>

@@ -469,9 +469,13 @@ Request: `multipart/form-data` with `file` field.
 | GET    | `/api/documents/:id/content` | Get file content (text files) |
 | PUT    | `/api/documents/:id/content` | Update file content           |
 
-Editierbare Endungen (GET/PUT `/content`): `.md`, `.markdown`, `.txt`, `.yaml`,
-`.yml`, `.html`, `.htm`. HTML wird im Workspace als gerenderte Vorschau mit
-Code-Umschalter geöffnet (Plan 012 Batch 3); andere Typen liefern `400`.
+Editierbare Endungen (GET/PUT `/content`): Text/Markup (`.md`, `.markdown`,
+`.txt`, `.yaml`, `.yml`, `.html`, `.htm`) **plus Quelltext** (Plan 013, B10:
+`.js`, `.jsx`, `.ts`, `.tsx`, `.py`, `.json`, `.css`, `.sh`, `.sql`, `.go`,
+`.rs`, `.rb`, `.php`, `.java`, `.c`/`.h`/`.cpp`, `.toml`, `.ini`, `.xml`, … —
+siehe `CODE_EXTENSIONS` in `routes/documents.js`). HTML öffnet als gerenderte
+Vorschau mit Code-Umschalter (Plan 012 Batch 3); Quelltext öffnet farbig im
+CodeMirror-6-Editor (Syntaxfarben, editierbar); andere Typen liefern `400`.
 
 **POST /api/documents/upload:**
 
@@ -749,7 +753,7 @@ Only accepts requests from localhost or Docker network IPs.
 
 Die oberste Ebene über den Ordnern: ein Projekt bündelt mehrere
 `knowledge_spaces`. Das **aktive Projekt** (`system_settings.active_project_id`,
-app-weit/Einzel-Admin) scopt Explorer, Suche und Skills/Agenten.
+app-weit/Einzel-Admin) scopt Explorer, Suche und Flows/Agenten.
 
 | Method | Endpoint               | Description                                                                |
 | ------ | ---------------------- | -------------------------------------------------------------------------- |
@@ -763,6 +767,25 @@ app-weit/Einzel-Admin) scopt Explorer, Suche und Skills/Agenten.
 > Neue Top-Level-Ordner landen im aktiven Projekt; Unterordner erben das Projekt
 > ihres Elternordners. `PUT /api/spaces/:id` mit `project_id` verschiebt einen
 > Ordner samt Unterbaum in ein anderes Projekt.
+
+### Git-Sync (Plan 013, B9)
+
+Koppelt ein Projekt an EIN GitHub-Repo und gleicht den container-lokalen
+Projekt-Checkout zwei-wegig ab (commit → fetch → merge → push). Der Personal
+Access Token wird AES-256-GCM-verschlüsselt gespeichert (`project_git`,
+`utils/tokenCrypto`) und nie zurückgegeben — nur die letzten vier Zeichen
+(`pat_last4`) erscheinen zur Anzeige.
+
+| Method | Endpoint                      | Description                                                                      |
+| ------ | ----------------------------- | -------------------------------------------------------------------------------- |
+| GET    | `/api/git/:projectId`         | Kopplungs-/Sync-Status (`{data: link\|null}`)                                    |
+| POST   | `/api/git/:projectId/connect` | Repo koppeln (`{repo_url, branch?, pat?}`); prüft Erreichbarkeit per `ls-remote` |
+| POST   | `/api/git/:projectId/sync`    | Zwei-Wege-Sync; **409 CONFLICT** mit `details.conflicts:[…]` bei Merge-Konflikt  |
+| DELETE | `/api/git/:projectId`         | Kopplung lösen (verschlüsselter PAT + lokaler Checkout werden entfernt)          |
+
+> Nur HTTPS-Remotes auf `github.com`. Ein leerer `pat` beim erneuten Connect lässt
+> einen bereits gespeicherten Token unverändert (Repo/Branch ändern ohne Neueingabe).
+> `last_status`: `neu` · `verbunden` · `synchronisiert` · `konflikt` · `fehler`.
 
 ### Knowledge Spaces
 
@@ -2189,56 +2212,80 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 ---
 
-### Skills
+### Flows
 
-Skills are Markdown files with YAML front matter under `data/skills/` (container path `SKILLS_DIR`, default `/arasul/skills`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken skill can never reach the disk. All routes require authentication.
+Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
 
-| Method | Endpoint                           | Description                                               |
-| ------ | ---------------------------------- | --------------------------------------------------------- |
-| GET    | `/api/skills`                      | List all skills (broken files reported separately)        |
-| GET    | `/api/skills/werkzeuge`            | Tool names a skill may declare, each with `verfuegbar`    |
-| GET    | `/api/skills/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)     |
-| GET    | `/api/skills/:name`                | Get a single skill                                        |
-| GET    | `/api/skills/:name/datei`          | Get the raw Markdown file (`text/markdown`)               |
-| POST   | `/api/skills/vorschau`             | Render the file that _would_ be written — without saving  |
-| POST   | `/api/skills/vorschau-laufzeit`    | Resolve the runtime prompt (with sample args) — no run    |
-| POST   | `/api/skills`                      | Create a skill (409 if the name exists)                   |
-| PUT    | `/api/skills/:name`                | Update an existing skill (404 if it does not exist)       |
-| DELETE | `/api/skills/:name`                | Delete a skill                                            |
-| GET    | `/api/skills/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`)     |
-| POST   | `/api/skills/laeufe`               | Start a run detached; returns `202 { runId }` immediately |
-| GET    | `/api/skills/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)  |
-| GET    | `/api/skills/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps  |
-| POST   | `/api/skills/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)           |
+| Method | Endpoint                          | Description                                                      |
+| ------ | --------------------------------- | ---------------------------------------------------------------- |
+| GET    | `/api/flows`                      | List all flows (broken files reported separately)                |
+| GET    | `/api/flows/werkzeuge`            | Tool names a flow may declare, each with `verfuegbar`            |
+| GET    | `/api/flows/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)            |
+| GET    | `/api/flows/:name`                | Get a single flow                                                |
+| GET    | `/api/flows/:name/datei`          | Get the raw Markdown file (`text/markdown`)                      |
+| POST   | `/api/flows/vorschau`             | Render the file that _would_ be written — without saving         |
+| POST   | `/api/flows/vorschau-laufzeit`    | Resolve the runtime prompt (with sample args) — no run           |
+| POST   | `/api/flows`                      | Create a flow (409 if the name exists)                           |
+| PUT    | `/api/flows/:name`                | Update an existing flow (404 if it does not exist)               |
+| DELETE | `/api/flows/:name`                | Delete a flow                                                    |
+| GET    | `/api/flows/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`, `?status`) |
+| POST   | `/api/flows/laeufe`               | Start a run detached; returns `202 { runId }` immediately        |
+| GET    | `/api/flows/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)         |
+| GET    | `/api/flows/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps         |
+| POST   | `/api/flows/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)                  |
+| GET    | `/api/flows/zeitplaene`           | List the caller's flow triggers (schedules + events)             |
+| POST   | `/api/flows/zeitplaene`           | Create a trigger (cron schedule or named event)                  |
+| PUT    | `/api/flows/zeitplaene/:id`       | Update a trigger (merges; 404 if not owned)                      |
+| DELETE | `/api/flows/zeitplaene/:id`       | Delete a trigger                                                 |
+
+**Flow triggers (Plan 013, B8).** A flow can start automatically — on a cron
+schedule or on a named event — via `flow_schedules`. `GET /laeufe?status=laeuft`
+lists the currently-running flows for the chat's activity strip. Create bodies
+are a discriminated union on `trigger_type`:
+
+```jsonc
+// Cron schedule
+{ "flow": "recherche", "trigger_type": "zeitplan", "cron": "0 8 * * *",
+  "args": { "thema": "Marktlage" }, "enabled": true }
+// Named event (fired via the external API, see below)
+{ "flow": "import", "trigger_type": "ereignis", "event_name": "neue-rechnung",
+  "args": {} }
+```
+
+`cron` is a 5-field expression (minute hour day-of-month month day-of-week),
+evaluated in the device's local time. The schedule stores the computed
+`next_run_at`; a scheduler service ticks every 60 s and starts the due triggers
+through the same detached runner as the chat. `PUT` merges — only supplied
+fields change; `trigger_type` is fixed (switch by recreating).
 
 **Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
-(`{ skill, args, conversation_id? }`) starts the run **server-side** and returns
+(`{ flow, args, conversation_id? }`) starts the run **server-side** and returns
 its `runId` at once — the run keeps going regardless of the client. The client
 then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
 `EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
 with the stored run+steps first (so a **reconnecting** client sees everything up
 to now), then live frames (`tool_start`/`tool_result`/`text`/`done`/`error`/`aenderungen`),
 and closes on `ende`. Disconnecting does **not** stop the run. `abbrechen` sets
-the run's abort signal, so a running skill actually stops rather than only being
+the run's abort signal, so a running flow actually stops rather than only being
 marked cancelled in the DB. A backend restart marks any still-`laeuft` run as
 `fehler` (a detached run cannot survive the process).
 
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
-> `werkzeuge`, `sammlungen`, `vorschau`) is a reserved segment: a skill named
+> `werkzeuge`, `sammlungen`, `vorschau`) is a reserved segment: a flow named
 > exactly `laeufe` could not be fetched via `GET /:name`.
 
-**Runs (Plan 011, Schritt 9).** A run persists in the database (`skill_runs` +
-`skill_run_steps`) so it survives closing the browser tab; the live stream
+**Runs (Plan 011, Schritt 9).** A run persists in the database (`flow_runs` +
+`flow_run_steps`) so it survives closing the browser tab; the live stream
 (Schritt 12) reloads the stored history on reconnect. Runs are scoped by owner:
 a run belonging to another user returns `404`, never `403` — its existence is
 not revealed. Each step stores a condensed `output` (what reaches the
 orchestrator) separately from `raw_output` (page/file content, log-only, loaded
 only with `?raw=1`). Statuses: `laeuft | fertig | fehler | abgebrochen`.
 
-**File changes overview (Plan 011, Schritt 16).** A skill writes and deletes
+**File changes overview (Plan 011, Schritt 16).** A flow writes and deletes
 files without confirmation, so every run that _can_ change files (declares
 `dateien_schreiben` or `terminal`) is snapshotted before and after; the diff is
-stored on `skill_runs.changes` and returned inside the run object
+stored on `flow_runs.changes` and returned inside the run object
 (`[{ pfad, art: neu|geaendert|geloescht, vorher, nachher, gekuerzt, hinweis }]`).
 A finishing run also emits it live as an `aenderungen` frame so the open run card
 shows it without a refetch; on reconnect it arrives inside the `verlauf` run.
@@ -2247,7 +2294,7 @@ Bounded in count and per-file preview length; `null` (column) means not tracked
 
 `:name` and the `name` field are restricted to lowercase letters, digits and hyphens (1–50 chars), and must start and end with a letter or digit — the name becomes both the filename and the `/name` slash command in chat.
 
-**File format** (`data/skills/recherche.md`) — the YAML head declares what the skill needs and may do, the Markdown body is the prompt and carries `{{argument}}` placeholders. Every placeholder must have a matching entry in `argumente`, otherwise the file is rejected.
+**File format** (`data/flows/recherche.md`) — the YAML head declares what the flow needs and may do, the Markdown body is the prompt and carries `{{argument}}` placeholders. Every placeholder must have a matching entry in `argumente`, otherwise the file is rejected.
 
 ```yaml
 ---
@@ -2266,9 +2313,15 @@ werkzeuge: [web_suche, web_lesen, subagent]
 rollen:
   - name: leser
     beschreibung: Liest eine Seite und extrahiert Fakten
-    werkzeuge: [web_lesen] # nie mehr als der Skill selbst darf
+    werkzeuge: [web_lesen] # nie mehr als der Flow selbst darf
     ergebnis: { felder: [fakten], max_zeichen: 2000 }
     prompt: Lies die Seite und gib nur die belegten Fakten zurück.
+schritte: # optional (B7): deterministische, fest geordnete Kette
+  - name: lesen # Schrittname = {{platzhalter}} für spätere Schritte
+    typ: subagent # subagent (Rolle) | werkzeug (direkter Werkzeug-Aufruf)
+    rolle: leser
+    auftrag: Lies die gefundenen Seiten. # Vorlage: {{argument}}, {{schritt}}, {{vorher}}
+    iterationen: 1 # Schritt bis zu N-mal wiederholen (1–10, default 1)
 grenzen:
   max_aufrufe: 20 # Subagent-Aufrufe über ALLE Ebenen
   zeitlimit_s: 900
@@ -2280,7 +2333,9 @@ Recherchiere gründlich zum Thema {{thema}}.
 
 Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers).
 
-`GET /api/skills/werkzeuge` returns each tool with a `verfuegbar` flag:
+The optional `schritte` array (B7) makes orchestration deterministic: each step is either `typ: subagent` (delegates to a declared `rolle` with an `auftrag` template) or `typ: werkzeug` (calls one tool directly with `parameter`). Steps run in fixed order; a step's output is threaded into later steps as `{{stepname}}` (and `{{vorher}}` across `iterationen`), then the body prompt synthesizes the final answer. A `subagent` step requires the `subagent` tool and a matching role; a `werkzeug` step may only use a tool the flow itself declares. Empty `schritte` → the flow stays model-driven.
+
+`GET /api/flows/werkzeuge` returns each tool with a `verfuegbar` flag:
 
 ```json
 {
@@ -2292,13 +2347,13 @@ Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_suchen`, `rag_
 }
 ```
 
-A skill may declare a tool that is not built yet — the definition stays valid and saveable, and the tool reports why it did nothing when the skill runs. As of Plan 011 Step 18 **all seven tools are built**, so every entry currently reports `verfuegbar: true`.
+A flow may declare a tool that is not built yet — the definition stays valid and saveable, and the tool reports why it did nothing when the flow runs. As of Plan 011 Step 18 **all seven tools are built**, so every entry currently reports `verfuegbar: true`.
 
-**`datei` argument — content injection.** An argument of `typ: datei` yields the picked document's **filename**. Because document originals live in MinIO and are not reachable as files, the runner loads that document's indexed text (reassembled from `document_chunks`, or the stored `summary` if not yet chunked) and appends it to the model's user input inside `--- Inhalt der Datei "…" ---` markers, capped at 16 000 characters. A skill like `dokument-zusammenfassen` therefore needs no file tools — the argument delivers the content. If the document is unknown or not indexed, the runner appends an honest note instead so the model does not invent content.
+**`datei` argument — content injection.** An argument of `typ: datei` yields the picked document's **filename**. Because document originals live in MinIO and are not reachable as files, the runner loads that document's indexed text (reassembled from `document_chunks`, or the stored `summary` if not yet chunked) and appends it to the model's user input inside `--- Inhalt der Datei "…" ---` markers, capped at 16 000 characters. A flow like `dokument-zusammenfassen` therefore needs no file tools — the argument delivers the content. If the document is unknown or not indexed, the runner appends an honest note instead so the model does not invent content.
 
-**Folders and paths.** A skill may declare several folders in `ordner`; the **first one is the working directory**. Relative paths in the file tools resolve against it, deliberately not against whichever folder happens to contain a matching file — otherwise the same path would write to different places depending on what exists. Another declared folder is addressed by its full path. Every access is symlink-checked, so a symlink pointing out of the allowed folders is rejected even though the link itself sits inside one.
+**Folders and paths.** A flow may declare several folders in `ordner`; the **first one is the working directory**. Relative paths in the file tools resolve against it, deliberately not against whichever folder happens to contain a matching file — otherwise the same path would write to different places depending on what exists. Another declared folder is addressed by its full path. Every access is symlink-checked, so a symlink pointing out of the allowed folders is rejected even though the link itself sits inside one.
 
-**GET /api/skills Response** — a single unparsable file must not break the slash menu, so it is skipped and reported in `fehlerhaft` instead of failing the request. In the API the Markdown body is called `prompt`.
+**GET /api/flows Response** — a single unparsable file must not break the slash menu, so it is skipped and reported in `fehlerhaft` instead of failing the request. In the API the Markdown body is called `prompt`.
 
 ```json
 {
@@ -2322,12 +2377,12 @@ A skill may declare a tool that is not built yet — the definition stays valid 
       "prompt": "Recherchiere gründlich zum Thema {{thema}}."
     }
   ],
-  "fehlerhaft": [{ "name": "kaputt", "fehler": "Skill ist ungültig (werkzeuge.0): ..." }],
+  "fehlerhaft": [{ "name": "kaputt", "fehler": "Flow ist ungültig (werkzeuge.0): ..." }],
   "timestamp": "2026-07-21T10:00:00.000Z"
 }
 ```
 
-**POST /api/skills** — body is the API shape above with `prompt` instead of the Markdown body; everything except `name` and `prompt` is optional. Returns `201` with the normalized, saved definition in `data`.
+**POST /api/flows** — body is the API shape above with `prompt` instead of the Markdown body; everything except `name` and `prompt` is optional. Returns `201` with the normalized, saved definition in `data`.
 
 ```json
 {
@@ -2339,7 +2394,7 @@ A skill may declare a tool that is not built yet — the definition stays valid 
 }
 ```
 
-`PUT /api/skills/:name` takes the same body without `name` (it comes from the URL) and **merges**: fields omitted from the body keep their stored value. This is deliberate — sending only `{ "prompt": "…" }` to fix a typo must not silently wipe `werkzeuge`, `rollen`, `argumente`, `ordner` or `grenzen`. To actually clear a field, send it explicitly as an empty list. `POST /api/skills/vorschau` takes the same body as `POST /api/skills` but only returns the rendered file — nothing is written:
+`PUT /api/flows/:name` takes the same body without `name` (it comes from the URL) and **merges**: fields omitted from the body keep their stored value. This is deliberate — sending only `{ "prompt": "…" }` to fix a typo must not silently wipe `werkzeuge`, `rollen`, `argumente`, `ordner` or `grenzen`. To actually clear a field, send it explicitly as an empty list. `POST /api/flows/vorschau` takes the same body as `POST /api/flows` but only returns the rendered file — nothing is written:
 
 ```json
 {
@@ -2348,7 +2403,7 @@ A skill may declare a tool that is not built yet — the definition stays valid 
 }
 ```
 
-`POST /api/skills/vorschau-laufzeit` (Plan 012 Phase D) takes the same body as `POST /api/skills` plus an optional `args` map (name → value) and returns the **resolved runtime prompt** — what the runner would actually send the model — without running anything. Missing arguments are filled with a visible `‹name›` placeholder (so the preview never fails on an unfilled required field). It honestly separates what goes into the model's **system message** (`systemPrompt`, placeholders filled) from the context the runner passes **structurally alongside** (tools, folders, roles — not concatenated into the prompt):
+`POST /api/flows/vorschau-laufzeit` (Plan 012 Phase D) takes the same body as `POST /api/flows` plus an optional `args` map (name → value) and returns the **resolved runtime prompt** — what the runner would actually send the model — without running anything. Missing arguments are filled with a visible `‹name›` placeholder (so the preview never fails on an unfilled required field). It honestly separates what goes into the model's **system message** (`systemPrompt`, placeholders filled) from the context the runner passes **structurally alongside** (tools, folders, roles — not concatenated into the prompt):
 
 ```json
 {
@@ -2364,9 +2419,9 @@ A skill may declare a tool that is not built yet — the definition stays valid 
 }
 ```
 
-`DELETE /api/skills/:name` responds with `{ "deleted": true, "timestamp": "..." }`.
+`DELETE /api/flows/:name` responds with `{ "deleted": true, "timestamp": "..." }`.
 
-**Errors:** `VALIDATION_ERROR` (400) for an invalid name, an unknown placeholder or any schema violation (with a `details.issues` list of `{ pfad, meldung }`), `NOT_FOUND` (404) for an unknown skill, `CONFLICT` (409) when creating a skill that already exists.
+**Errors:** `VALIDATION_ERROR` (400) for an invalid name, an unknown placeholder or any schema violation (with a `details.issues` list of `{ pfad, meldung }`), `NOT_FOUND` (404) for an unknown flow, `CONFLICT` (409) when creating a flow that already exists.
 
 ---
 
@@ -2446,7 +2501,7 @@ Schritt 14 (also accepted on PUT `/api/sandbox/projects/:id`):
 **`workspaceType`** (Plan 012 Phase E Schritt 13): `standard` legt einen leeren
 Workspace-Ordner an; `erweiterungs-werkstatt` bestückt ihn beim Anlegen mit den
 Vorlagen aus `services/sandbox/dev-templates/` (`ANLEITUNG.md`, `beispiel-app`,
-`beispiel-flow`, `beispiel-tool`) — die Bau-Skills `/erweiterung` und `/execute`
+`beispiel-flow`, `beispiel-tool`) — die Bau-Flows `/erweiterung` und `/execute`
 arbeiten darin.
 
 Creating or switching a project to `infrastructure` is audit-logged on the backend (warn level). Container hardening (CapDrop ALL, no-new-privileges) applies to all modes; docker socket access works via the docker group GID (`GroupAdd`), not via extra capabilities.
@@ -2517,6 +2572,29 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 | GET    | `/api/v1/external/llm/job/:jobId` | API Key | Get job status              |
 | GET    | `/api/v1/external/llm/queue`      | API Key | Get queue status            |
 | GET    | `/api/v1/external/models`         | API Key | Get available models        |
+
+### Flows (Plan 013, B8)
+
+Trigger flows from n8n or your own automations with an API key. The endpoint
+scope is `flow:run` (included in the default endpoint set for new keys).
+
+| Method | Endpoint                           | Auth    | Description                                    |
+| ------ | ---------------------------------- | ------- | ---------------------------------------------- |
+| GET    | `/api/v1/external/flows`           | API Key | List available flows (name, description, args) |
+| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default    |
+| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result                     |
+| POST   | `/api/v1/external/events/:name`    | API Key | Fire a named event → starts all its triggers   |
+
+**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
+With `wait_for_result: true` (default) it blocks until the run reaches a terminal
+state and returns `{ success, run_id, status, result, error, steps_used }`; with
+`false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
+are owned by the API key's creator (or the primary admin for orphaned keys).
+
+**POST /api/v1/external/events/:name** starts every enabled `ereignis` trigger
+listening on that name and returns `{ success, event, triggered, runs }` — the
+bridge that lets an n8n webhook kick off one or more flows without knowing their
+names.
 
 **POST /api/v1/external/llm/chat:**
 
