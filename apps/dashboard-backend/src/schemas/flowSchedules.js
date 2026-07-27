@@ -17,9 +17,8 @@ const EVENT_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,58}[a-z0-9]$|^[a-z0-9]$/;
 const TriggerType = z.enum(['zeitplan', 'ereignis']);
 
 /** Argumentwerte, die dem Flow bei jedem Auto-Start mitgegeben werden. */
-const ScheduleArgs = z
-  .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-  .default({});
+const ScheduleArgsShape = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
+const ScheduleArgs = ScheduleArgsShape.default({});
 
 const Cron = z
   .string()
@@ -67,7 +66,11 @@ const UpdateScheduleBody = z
     flow: FlowName.optional(),
     cron: Cron.optional(),
     event_name: EventName.optional(),
-    args: ScheduleArgs.optional(),
+    // WICHTIG: die Form OHNE .default({}) — sonst injizierte der Parser bei
+    // jedem Teil-Update (z. B. nur `enabled`) ein leeres `args` und ersetzte
+    // damit die gespeicherten Argumente. Live-Folge: der An/Aus-Schalter
+    // scheiterte bei jedem Flow mit Pflicht-Argument mit 400 (2026-07-27).
+    args: ScheduleArgsShape.optional(),
     enabled: z.coerce.boolean().optional(),
   })
   .strict();
