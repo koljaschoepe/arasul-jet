@@ -178,6 +178,24 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 - `toolRegistry.js` — setzt die Werkzeug-Freigabe durch; `tools/` enthält
   `dateien` (lesen/schreiben getrennt), `rag`, `terminal`, `web`.
 
+## GitHub-Sync (Plan 013, B9)
+
+`services/git/` koppelt ein **Projekt** (`projects.id`) an EIN GitHub-Repo
+(`project_git`, 1:1) und gleicht einen container-lokalen Checkout unter
+`PROJECT_GIT_DIR/<project_id>` zwei-wegig ab:
+
+- `gitStore.js` — CRUD über `project_git`. Der PAT liegt AES-256-GCM-verschlüsselt
+  als `BYTEA` (`utils/tokenCrypto`, wie `user_external_credentials`); `SPALTEN`
+  gibt bewusst KEIN `pat_encrypted` nach außen, nur `pat_last4` zur Anzeige.
+- `gitSyncService.js` — die Fachlogik: `verbinde` (koppeln + `ls-remote`-Probe),
+  `synchronisiere` (commit → fetch → merge → push; Merge-Konflikt → `merge --abort`
+  - `ConflictError` mit `details.conflicts`), `trenne`. Git läuft über `execFile`
+    (Argument-Array, KEINE Shell); der PAT wird pro Aufruf als `http.extraHeader`
+    injiziert und landet NIE in `.git/config`. `run` (Git-Ausführung) + `store` sind
+    injizierbar → Fachlogik ohne echtes Git/Postgres testbar.
+- Kein neuer npm-Eintrag: das Git-CLI kommt per `apk add git` im Dockerfile
+  (Regel „minimalistisch/wartbar zuerst", Lockfile-root-only).
+
 Die alten `services/agents/{toolLoop,gpuGate,agentFile,tools}` sind mit dem
 Fluss-Layer verwaist (kein Produktions-Aufrufer mehr, nur noch ihre Tests) und
 werden in einem separaten Aufräum-Schritt entfernt.

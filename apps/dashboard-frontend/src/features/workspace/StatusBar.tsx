@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { GitSyncControl } from '@/features/workspace/GitSyncControl';
 import {
   isModelInstalled,
   isModelActive,
@@ -283,6 +284,9 @@ export function StatusBar() {
       )}
 
       <div className="flex-1" />
+
+      {/* GitHub-Sync des aktiven Projekts (Plan 013, B9). */}
+      <GitSyncControl />
 
       {activeSession && (
         <span className="flex min-w-0 items-center gap-1.5" title="Aktives Projekt">

@@ -89,8 +89,8 @@ class NotFoundError extends ApiError {
 }
 
 class ConflictError extends ApiError {
-  constructor(message = 'Resource conflict') {
-    super(message, { statusCode: 409, code: 'CONFLICT' });
+  constructor(message = 'Resource conflict', details = null) {
+    super(message, { statusCode: 409, code: 'CONFLICT', details });
   }
 }
 

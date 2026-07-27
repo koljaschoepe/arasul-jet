@@ -556,10 +556,12 @@ gemountet: schreibend ins Backend (`compose/compose.app.yaml`), lesend in den
 Backup-Dienst (`compose/compose.monitoring.yaml`). Beide Variablen sind
 optional; die Defaults passen zu diesen Mounts.
 
-| Variable         | Default       | Description                                                                                                         |
-| ---------------- | ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| FLOWS_DIR        | /arasul/flows | Verzeichnis der Flow-Dateien im Backend-Container; die Registry legt es beim Start an, falls es fehlt               |
-| FLOWS_BACKUP_DIR | /arasul/flows | Quellverzeichnis für die Flow-Sicherung im Backup-Dienst (`services/backup-service/backup.sh`, read-only gemountet) |
+| Variable         | Default          | Description                                                                                                                                                                              |
+| ---------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FLOWS_DIR        | /arasul/flows    | Verzeichnis der Flow-Dateien im Backend-Container; die Registry legt es beim Start an, falls es fehlt                                                                                    |
+| FLOWS_BACKUP_DIR | /arasul/flows    | Quellverzeichnis für die Flow-Sicherung im Backup-Dienst (`services/backup-service/backup.sh`, read-only gemountet)                                                                      |
+| PROJECT_GIT_DIR  | /arasul/projects | Wurzelverzeichnis der Projekt-Checkouts für die GitHub-Sync (Plan 013, B9); je Projekt ein Unterordner `<project_id>`. Der Dienst legt es bei Bedarf an und klont fehlende Checkouts neu |
+| GIT_TIMEOUT_MS   | 120000           | Wall-clock-Grenze pro Git-Aufruf (clone/fetch/merge/push) im Git-Sync-Dienst; `GIT_TERMINAL_PROMPT=0` verhindert Hängen an Auth-Prompts                                                  |
 
 > Bewusst getrennt vom Nutzer-Workspace: ein Flow mit Schreibrecht auf einen
 > Arbeitsordner kann seine eigene Definition nicht überschreiben.

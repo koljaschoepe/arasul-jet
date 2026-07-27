@@ -764,6 +764,25 @@ app-weit/Einzel-Admin) scopt Explorer, Suche und Flows/Agenten.
 > ihres Elternordners. `PUT /api/spaces/:id` mit `project_id` verschiebt einen
 > Ordner samt Unterbaum in ein anderes Projekt.
 
+### Git-Sync (Plan 013, B9)
+
+Koppelt ein Projekt an EIN GitHub-Repo und gleicht den container-lokalen
+Projekt-Checkout zwei-wegig ab (commit → fetch → merge → push). Der Personal
+Access Token wird AES-256-GCM-verschlüsselt gespeichert (`project_git`,
+`utils/tokenCrypto`) und nie zurückgegeben — nur die letzten vier Zeichen
+(`pat_last4`) erscheinen zur Anzeige.
+
+| Method | Endpoint                      | Description                                                                      |
+| ------ | ----------------------------- | -------------------------------------------------------------------------------- |
+| GET    | `/api/git/:projectId`         | Kopplungs-/Sync-Status (`{data: link\|null}`)                                    |
+| POST   | `/api/git/:projectId/connect` | Repo koppeln (`{repo_url, branch?, pat?}`); prüft Erreichbarkeit per `ls-remote` |
+| POST   | `/api/git/:projectId/sync`    | Zwei-Wege-Sync; **409 CONFLICT** mit `details.conflicts:[…]` bei Merge-Konflikt  |
+| DELETE | `/api/git/:projectId`         | Kopplung lösen (verschlüsselter PAT + lokaler Checkout werden entfernt)          |
+
+> Nur HTTPS-Remotes auf `github.com`. Ein leerer `pat` beim erneuten Connect lässt
+> einen bereits gespeicherten Token unverändert (Repo/Branch ändern ohne Neueingabe).
+> `last_status`: `neu` · `verbunden` · `synchronisiert` · `konflikt` · `fehler`.
+
 ### Knowledge Spaces
 
 | Method | Endpoint                       | Description                                                                                |

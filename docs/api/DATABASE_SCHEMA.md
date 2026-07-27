@@ -2425,6 +2425,29 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ---
 
+## `project_git`
+
+> Kopplung Projekt ↔ GitHub-Repo (Plan 013, B9): 1:1 (`project_id` ist PK). Der Backend-Git-Dienst hält dafür einen container-lokalen Checkout und gleicht ihn zwei-wegig ab. Der PAT liegt AES-256-GCM-verschlüsselt als `BYTEA` (IV‖AuthTag‖Ciphertext, `utils/tokenCrypto`, Schlüssel aus `JWT_SECRET`) — wie `user_external_credentials`; nur die letzten vier Zeichen stehen im Klartext.
+
+| Column           | Type                     | Nullable | Default                                                                       |
+| ---------------- | ------------------------ | -------- | ----------------------------------------------------------------------------- |
+| `project_id`     | uuid                     | ⛔       | → `projects.id` ON DELETE CASCADE (PK)                                        |
+| `repo_url`       | text                     | ⛔       |                                                                               |
+| `branch`         | character varying        | ⛔       | `'main'`                                                                      |
+| `pat_encrypted`  | bytea                    | ✅       | AES-256-GCM-Blob; NIE über die API                                            |
+| `pat_last4`      | character varying        | ✅       | letzte 4 Zeichen zur Anzeige                                                  |
+| `local_path`     | text                     | ✅       | Checkout-Pfad unter `PROJECT_GIT_DIR`                                         |
+| `last_synced_at` | timestamp with time zone | ✅       |                                                                               |
+| `last_status`    | character varying        | ⛔       | `'neu'` — `CHECK IN ('neu','verbunden','synchronisiert','konflikt','fehler')` |
+| `last_error`     | text                     | ✅       |                                                                               |
+| `last_commit`    | character varying        | ✅       | Kurz-SHA des letzten Syncs                                                    |
+| `created_at`     | timestamp with time zone | ⛔       | `now()`                                                                       |
+| `updated_at`     | timestamp with time zone | ⛔       | `now()`                                                                       |
+
+**Primary key:** `project_id`
+
+---
+
 ## `space_members`
 
 > Phase 1.1: Per-Space-ACL. Owner ist immer implicit member with permission='owner'. Admins (admin_users.role = 'admin') haben Zugriff auf alle Spaces.
