@@ -15,6 +15,11 @@ export interface WorkspaceApp {
   id: string;
   name: string;
   description: string;
+  /** Ausführliche Beschreibung für die Detailseite (optional). */
+  longDescription?: string;
+  /** Externe Anlaufstellen (optional): Website + Dokumentation. */
+  homepage?: string;
+  docsUrl?: string;
   tab: WorkspaceTabType;
   enabled: boolean;
   /**
