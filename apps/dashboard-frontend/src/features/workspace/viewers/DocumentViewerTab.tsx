@@ -4,6 +4,7 @@ import { useApi } from '@/hooks/useApi';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
+import { CODE_EXTENSIONS } from './codeLanguage';
 
 // Der WYSIWYG-Editor (TipTap) ist schwer — nur laden, wenn wirklich ein
 // editierbares Dokument geöffnet wird. Er lädt und speichert den Inhalt selbst
@@ -13,6 +14,9 @@ const TipTapEditor = lazy(() => import('@/components/editor/tiptap/TipTapEditor'
 // Der HTML-Viewer (Batch 3) ist eigenständig: er lädt/speichert den Quelltext
 // selbst und rendert die Vorschau in einem Sandbox-iframe.
 const HtmlDocumentViewer = lazy(() => import('./HtmlDocumentViewer'));
+// Der Code-Viewer (Plan 013, B10) öffnet Quelltext farbig/editierbar in
+// CodeMirror 6 — schwer (Lexer/Themes), daher lazy.
+const CodeViewer = lazy(() => import('./CodeViewer'));
 
 const EDITABLE_EXTENSIONS = new Set(['.md', '.markdown', '.txt', '.yaml', '.yml']);
 const HTML_EXTENSIONS = new Set(['.html', '.htm']);
@@ -25,7 +29,7 @@ interface DocumentMeta {
   file_size?: number;
 }
 
-type ViewerKind = 'markdown' | 'text' | 'html' | 'pdf' | 'image' | 'unsupported';
+type ViewerKind = 'markdown' | 'text' | 'code' | 'html' | 'pdf' | 'image' | 'unsupported';
 
 const TEXT_EXTENSIONS = new Set(['.txt', '.yaml', '.yml']);
 const MARKDOWN_EXTENSIONS = new Set(['.md', '.markdown']);
@@ -37,6 +41,9 @@ function viewerKindFor(meta: DocumentMeta): ViewerKind {
   // HTML VOR dem Text-Zweig: sein mime `text/html` würde sonst als „text"
   // (TipTap) geöffnet, statt gerendert zu werden.
   if (HTML_EXTENSIONS.has(ext) || mime === 'text/html') return 'html';
+  // Quelltext (B10) VOR dem generischen Text-Zweig: `.py/.js/…` sollen in den
+  // CodeMirror-Editor, nicht in den TipTap-Fließtext-Editor.
+  if (CODE_EXTENSIONS.has(ext)) return 'code';
   if (TEXT_EXTENSIONS.has(ext) || mime.startsWith('text/')) return 'text';
   if (mime === 'application/pdf' || ext === '.pdf') return 'pdf';
   if (mime.startsWith('image/')) return 'image';
@@ -173,6 +180,17 @@ export default function DocumentViewerTab({
           <HtmlDocumentViewer
             documentId={documentId}
             filename={meta.filename}
+            onDownload={downloadFile}
+          />
+        </Suspense>
+      );
+    case 'code':
+      return (
+        <Suspense fallback={<LoadingSpinner message="Lade Editor …" />}>
+          <CodeViewer
+            documentId={documentId}
+            filename={meta.filename}
+            fileExtension={(meta.file_extension ?? '').toLowerCase()}
             onDownload={downloadFile}
           />
         </Suspense>

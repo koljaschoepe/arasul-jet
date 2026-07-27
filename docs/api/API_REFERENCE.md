@@ -469,9 +469,13 @@ Request: `multipart/form-data` with `file` field.
 | GET    | `/api/documents/:id/content` | Get file content (text files) |
 | PUT    | `/api/documents/:id/content` | Update file content           |
 
-Editierbare Endungen (GET/PUT `/content`): `.md`, `.markdown`, `.txt`, `.yaml`,
-`.yml`, `.html`, `.htm`. HTML wird im Workspace als gerenderte Vorschau mit
-Code-Umschalter geöffnet (Plan 012 Batch 3); andere Typen liefern `400`.
+Editierbare Endungen (GET/PUT `/content`): Text/Markup (`.md`, `.markdown`,
+`.txt`, `.yaml`, `.yml`, `.html`, `.htm`) **plus Quelltext** (Plan 013, B10:
+`.js`, `.jsx`, `.ts`, `.tsx`, `.py`, `.json`, `.css`, `.sh`, `.sql`, `.go`,
+`.rs`, `.rb`, `.php`, `.java`, `.c`/`.h`/`.cpp`, `.toml`, `.ini`, `.xml`, … —
+siehe `CODE_EXTENSIONS` in `routes/documents.js`). HTML öffnet als gerenderte
+Vorschau mit Code-Umschalter (Plan 012 Batch 3); Quelltext öffnet farbig im
+CodeMirror-6-Editor (Syntaxfarben, editierbar); andere Typen liefern `400`.
 
 **POST /api/documents/upload:**
 

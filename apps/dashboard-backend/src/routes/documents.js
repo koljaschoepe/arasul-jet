@@ -58,7 +58,59 @@ const INDEXABLE_EXTENSIONS = ['.pdf', '.docx', '.md', '.markdown', '.txt', '.yam
 // Dateitypen, deren Roh-Inhalt über GET/PUT /:id/content gelesen und bearbeitet
 // werden darf (Text-basiert). HTML (Plan 012 Batch 3) ist dabei: der
 // HTML-Viewer-Tab zeigt es gerendert und lässt den Quelltext bearbeiten.
-const EDITABLE_EXTENSIONS = ['.md', '.markdown', '.txt', '.yaml', '.yml', '.html', '.htm'];
+//
+// Quelltext-Dateien (Plan 013, B10): der CodeMirror-Editor öffnet sie farbig
+// und editierbar im Mitte-Tab. Bewusst textbasiert; Binärformate bleiben außen
+// vor (die Magic-Byte-Prüfung greift ohnehin nur beim Upload).
+const CODE_EXTENSIONS = [
+  '.js',
+  '.jsx',
+  '.ts',
+  '.tsx',
+  '.mjs',
+  '.cjs',
+  '.py',
+  '.json',
+  '.css',
+  '.scss',
+  '.less',
+  '.sh',
+  '.bash',
+  '.zsh',
+  '.sql',
+  '.go',
+  '.rs',
+  '.rb',
+  '.php',
+  '.java',
+  '.c',
+  '.h',
+  '.cpp',
+  '.hpp',
+  '.cc',
+  '.cs',
+  '.kt',
+  '.swift',
+  '.toml',
+  '.ini',
+  '.conf',
+  '.env',
+  '.xml',
+  '.csv',
+  '.log',
+  '.dockerfile',
+  '.gitignore',
+];
+const EDITABLE_EXTENSIONS = [
+  '.md',
+  '.markdown',
+  '.txt',
+  '.yaml',
+  '.yml',
+  '.html',
+  '.htm',
+  ...CODE_EXTENSIONS,
+];
 
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
