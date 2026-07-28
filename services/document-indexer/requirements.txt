@@ -32,7 +32,7 @@ flask-cors==4.0.0
 python-magic==0.4.27
 
 # BM25 Search with German stemming
-bm25s==0.2.0
+bm25s==0.3.9
 PyStemmer==2.2.0.1
 
 # German decompounding
