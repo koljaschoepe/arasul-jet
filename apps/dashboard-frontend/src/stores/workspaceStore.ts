@@ -22,6 +22,7 @@ import { persist } from 'zustand/middleware';
 
 export type WorkspaceTabType =
   | 'document'
+  | 'projektdatei'
   | 'settings'
   | 'store'
   | 'automationen'
@@ -35,6 +36,9 @@ export interface WorkspaceTabSpec {
   slug?: string;
   /** Nur bei type='extension': die installierte Erweiterung, die die Mitte füllt. */
   extensionId?: string;
+  /** Nur bei type='projektdatei': Projekt + relativer Pfad in der Projektablage. */
+  projectId?: string;
+  filePath?: string;
 }
 
 export interface WorkspaceTab {
@@ -44,10 +48,13 @@ export interface WorkspaceTab {
   documentId?: string;
   slug?: string;
   extensionId?: string;
+  projectId?: string;
+  filePath?: string;
 }
 
 const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   document: 'Dokument',
+  projektdatei: 'Datei',
   settings: 'Einstellungen',
   store: 'Extensions',
   automationen: 'Automationen',
@@ -63,6 +70,9 @@ export function tabId(spec: WorkspaceTabSpec): string {
     // parallel offen haben kann.
     case 'extension':
       return `extension:${spec.extensionId ?? ''}`;
+    // Jede Projektablage-Datei ist ein eigener Tab (Projekt + Pfad).
+    case 'projektdatei':
+      return `projektdatei:${spec.projectId ?? ''}:${spec.filePath ?? ''}`;
     default:
       return spec.type;
   }
@@ -73,6 +83,9 @@ export function tabToPath(tab: WorkspaceTab): string {
   switch (tab.type) {
     case 'document':
       return `/workspace/doc/${tab.documentId ?? ''}`;
+    case 'projektdatei':
+      // Der Datei-Pfad enthält '/' — URL-kodiert, damit er EIN Segment bleibt.
+      return `/workspace/pfile/${tab.projectId ?? ''}/${encodeURIComponent(tab.filePath ?? '')}`;
     case 'settings':
       return '/workspace/settings';
     case 'store':
@@ -94,6 +107,18 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
   switch (head) {
     case 'doc':
       return parts[1] ? { type: 'document', documentId: parts[1] } : null;
+    case 'pfile': {
+      if (!parts[1] || !parts[2]) return null;
+      try {
+        return {
+          type: 'projektdatei',
+          projectId: parts[1],
+          filePath: decodeURIComponent(parts[2]),
+        };
+      } catch {
+        return null;
+      }
+    }
     case 'settings':
       return { type: 'settings' };
     case 'store':
@@ -401,6 +426,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           documentId: spec.documentId,
           slug: spec.slug,
           extensionId: spec.extensionId,
+          projectId: spec.projectId,
+          filePath: spec.filePath,
         };
         set({ tabs: [...tabs, tab], activeTabId: id });
       },

@@ -38,6 +38,7 @@ import { SidebarViewHeader } from '../sidebar/SidebarView';
 import { SidebarSearch } from '@/components/ui/SidebarSearch';
 import { ExplorerDialogs } from './ExplorerDialogs';
 import type { ExplorerDialogState } from './ExplorerDialogs';
+import { AblageSection } from './AblageSection';
 
 /** Drag-Payload Explorer → Agent-Chat (Datei/Ordner als Kontext). */
 export const DND_SCOPE_TYPE = 'application/x-arasul-scope';
@@ -712,6 +713,9 @@ export function ExplorerPanel() {
               )}
             </div>
           )}
+          {/* Projektablage: der echte Geräte-Ordner des aktiven Projekts —
+              gemeinsame Wahrheit mit Flows und Sandboxes. */}
+          <AblageSection projectId={activeProject?.id} />
         </div>
       </ScrollArea>
 

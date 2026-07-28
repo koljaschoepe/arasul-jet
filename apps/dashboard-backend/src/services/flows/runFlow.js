@@ -34,6 +34,31 @@ const logger = require('../../utils/logger');
 const { ValidationError } = require('../../utils/errors');
 
 /**
+ * Platzhalter in `ordner`: zeigt auf die Projektablage des AKTIVEN Projekts.
+ * So arbeitet ein Flow immer dort, wo auch Explorer und Sandbox arbeiten,
+ * ohne dass der Autor eine UUID in die Flow-Datei schreiben müsste.
+ */
+const PROJEKT_ORDNER_TOKEN = 'projekt://aktiv';
+
+/** Löst `projekt://aktiv` in den echten Ablage-Pfad auf (legt ihn an). */
+async function resolveOrdnerListe(ordner = [], deps = {}) {
+  const {
+    getActiveProjectId = projectService.getActiveProjectId,
+    projektOrdner = require('../projects/ablageService').projektOrdner,
+  } = deps;
+  const out = [];
+  for (const eintrag of ordner) {
+    if (eintrag === PROJEKT_ORDNER_TOKEN) {
+      const projectId = await getActiveProjectId();
+      out.push(await projektOrdner(projectId));
+    } else {
+      out.push(eintrag);
+    }
+  }
+  return out;
+}
+
+/**
  * Prüft die Argumente gegen die Deklaration und liefert die einzusetzenden
  * Werte plus die Wissensräume, auf die die RAG-Suche zu scopen ist.
  *
@@ -204,7 +229,13 @@ async function runFlow(
     resolveModel = () => modelService.getDefaultModel(),
   } = deps;
 
-  const flow = await loadFlow(flowName);
+  const geladen = await loadFlow(flowName);
+  // `projekt://aktiv` in den echten Ablage-Pfad auflösen — ab hier arbeitet der
+  // ganze Lauf (Werkzeuge, Sandbox, Änderungs-Übersicht) mit dem realen Ordner.
+  const flow = {
+    ...geladen,
+    ordner: await resolveOrdnerListe(geladen.ordner, deps),
+  };
 
   // 1. Argumente → Werte, Platzhalter ersetzen. Ein `datei`-Argument reichert
   //    die Nutzer-Eingabe zusätzlich um den Dokument-Inhalt an (Schritt 18).
@@ -530,4 +561,6 @@ module.exports = {
   anreichernMitDateien,
   assembleRuntimePrompt,
   sampleArgumentValues,
+  resolveOrdnerListe,
+  PROJEKT_ORDNER_TOKEN,
 };

@@ -350,8 +350,15 @@ export default function FlowDashboard({
                   Dateien schreibt dieser Flow in sein Arbeitsverzeichnis:
                 </p>
                 <code className="block truncate rounded-md border border-border bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
-                  {arbeitsordner}
+                  {arbeitsordner === 'projekt://aktiv'
+                    ? 'Projektablage des aktiven Projekts'
+                    : arbeitsordner}
                 </code>
+                {arbeitsordner === 'projekt://aktiv' && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Die Dateien erscheinen im Explorer unter „Projektablage&ldquo;.
+                  </p>
+                )}
               </Card>
             )}
 

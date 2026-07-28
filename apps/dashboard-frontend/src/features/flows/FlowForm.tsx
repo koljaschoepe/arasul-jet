@@ -160,15 +160,28 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
             </Button>
           </div>
         ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="self-start"
-          onClick={() => patch({ ordner: [...value.ordner, ''] })}
-        >
-          <Plus className="size-4" /> Ordner hinzufügen
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => patch({ ordner: [...value.ordner, ''] })}
+          >
+            <Plus className="size-4" /> Ordner hinzufügen
+          </Button>
+          {!value.ordner.includes('projekt://aktiv') && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              title="Der Flow arbeitet in der Projektablage des jeweils aktiven Projekts — dort, wo auch Explorer und Sandbox arbeiten."
+              onClick={() => patch({ ordner: [...value.ordner, 'projekt://aktiv'] })}
+              data-testid="ordner-projektablage"
+            >
+              <Plus className="size-4" /> Projektablage (aktives Projekt)
+            </Button>
+          )}
+        </div>
         {ordnerNoetig && value.ordner.filter(Boolean).length === 0 && (
           <p className="text-ui-xs text-warning" data-testid="ordner-hinweis">
             Datei- oder Terminal-Werkzeuge brauchen mindestens einen erlaubten Ordner.

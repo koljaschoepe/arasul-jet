@@ -9,6 +9,7 @@ import type { WorkspaceTab, WorkspaceTabSpec, WorkspaceTabType } from '@/stores/
 const Settings = lazy(() => import('@/features/settings/Settings'));
 const Store = lazy(() => import('@/features/store'));
 const DocumentViewerTab = lazy(() => import('./viewers/DocumentViewerTab'));
+const ProjectFileTab = lazy(() => import('./viewers/ProjectFileTab'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
 const ExtensionAppTab = lazy(() => import('./viewers/ExtensionAppTab'));
 const FlowEditorTab = lazy(() => import('@/features/flows/FlowEditorTab'));
@@ -85,6 +86,8 @@ function initialPathFor(tab: WorkspaceTab): string {
       return '/';
     case 'document':
       return '/';
+    case 'projektdatei':
+      return '/';
     case 'flow':
       return '/';
     case 'extension':
@@ -96,6 +99,7 @@ function initialPathFor(tab: WorkspaceTab): string {
 /** Welche Route-Keys gehören zum Tab selbst (statt zur Bridge)? */
 const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   document: new Set([]),
+  projektdatei: new Set([]),
   settings: new Set(['settings']),
   store: new Set(['store']),
   automationen: new Set([]),
@@ -159,6 +163,15 @@ function FeatureTabHost({
 function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   if (tab.type === 'document') {
     return <DocumentViewerTab documentId={tab.documentId ?? ''} tabId={tab.id} />;
+  }
+  if (tab.type === 'projektdatei') {
+    return (
+      <ProjectFileTab
+        projectId={tab.projectId ?? ''}
+        filePath={tab.filePath ?? ''}
+        tabId={tab.id}
+      />
+    );
   }
   if (tab.type === 'automationen') {
     return <AutomationenTab />;
