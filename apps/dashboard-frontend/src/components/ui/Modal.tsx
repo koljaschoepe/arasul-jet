@@ -56,6 +56,9 @@ function Modal({
           sizeClasses[size],
           className
         )}
+        // Kein DialogDescription-Element — Radix' a11y-Warnung explizit
+        // abschalten, statt sie in jeder Konsole stehen zu lassen.
+        aria-describedby={undefined}
         showCloseButton={false}
         onInteractOutside={closeOnOverlayClick ? undefined : e => e.preventDefault()}
         onEscapeKeyDown={closeOnEscape ? undefined : e => e.preventDefault()}

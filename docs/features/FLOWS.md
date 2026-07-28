@@ -178,28 +178,19 @@ verschachteln soll; die GPU arbeitet sequenziell, jede Ebene kostet Laufzeit.
 Wird eine Grenze erreicht, endet der Lauf sauber und nennt Grund und bisheriges
 Ergebnis.
 
-## Auslöser — Flows automatisch starten (B8)
+## Auslöser — Flows von außen starten
 
-Ein Flow muss nicht von Hand im Chat gestartet werden. Drei Wege lösen ihn aus,
-alle über denselben Runner (der Lauf erscheint als Karte im Chat):
+Ein Flow muss nicht von Hand im Chat gestartet werden:
 
-- **Zeitplan (Cron).** Ein Auslöser mit einem 5-Feld-Cron-Ausdruck (Minute
-  Stunde Tag Monat Wochentag, in Gerätezeit). Ein Scheduler-Dienst prüft im
-  Minutentakt die fälligen Auslöser und startet sie. Voreinstellungen im Dialog
-  decken die üblichen Fälle ab (stündlich, täglich 8 Uhr, wochentags 9 Uhr …).
-- **Ereignis.** Ein Auslöser hört auf einen frei gewählten Namen (z. B.
-  `neue-rechnung`). Ein n8n-Webhook feuert ihn über
-  `POST /api/v1/external/events/:name` (API-Key) — mehrere Flows dürfen auf
-  denselben Namen hören.
-- **HTTP direkt.** `POST /api/v1/external/flows/:name/run` (API-Key) startet
-  einen Flow sofort und gibt das Ergebnis zurück (oder `202` mit der Lauf-ID bei
-  `wait_for_result: false`). So triggert n8n einen Flow und liest die Antwort.
-
-Verwaltet werden Auslöser im Chat über die einklappbare **Flow-Steuerung** über
-dem Eingabefeld: Sie zeigt laufende Flows (mit Abbrechen) und geplante Auslöser
-(An/Aus, jetzt starten, löschen) und öffnet den „+ Zeitplan"-Dialog. Auslöser
-liegen in der Tabelle `flow_schedules`; hinterlegte Argumente werden bei jedem
-automatischen Start mitgegeben und wie im Chat gegen die Deklaration geprüft.
+- **HTTP direkt.** `POST /api/v1/external/flows/:name/run` (API-Key mit Scope
+  `flow:run`) startet einen Flow sofort und gibt das Ergebnis zurück (oder
+  `202` mit der Lauf-ID bei `wait_for_result: false`). So triggert n8n einen
+  Flow und liest die Antwort. Die Flow-Zentrale zeigt die Trigger-URL samt
+  kopierbarem curl-Beispiel und verwaltet die API-Schlüssel.
+- **Zeitpläne über n8n.** Wiederkehrende Starts (Cron) baut man als
+  n8n-Workflow (Schedule-Trigger → HTTP-Request auf die Trigger-URL). Der
+  frühere eingebaute Zeitplan-/Ereignis-Mechanismus (`flow_schedules`) wurde
+  am 2026-07-28 ersatzlos entfernt (Migration 123) — n8n deckt das ab.
 
 ## Sicherheit — bewusst ohne Rückfrage
 
