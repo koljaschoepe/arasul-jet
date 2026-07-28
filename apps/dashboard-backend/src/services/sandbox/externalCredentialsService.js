@@ -368,6 +368,119 @@ async function restoreClaudeLoginBestEffort(userId, workspace) {
   }
 }
 
+// ============================================================================
+// Zentraler KI-Zugang (Plan 013, 2026-07-28)
+// ============================================================================
+// Statt sich in JEDER Sandbox einzeln im Terminal anzumelden (kaputter OAuth-
+// Link), hinterlegt der Admin EINMAL zentral einen Zugang — entweder ein Abo-
+// Langzeit-Token (`claude setup-token` → CLAUDE_CODE_OAUTH_TOKEN, headless, 1 Jahr)
+// oder einen API-Key (ANTHROPIC_API_KEY, Abrechnung pro Nutzung). Der Wert wird
+// verschlüsselt gespeichert (eigener Provider, getrennt vom eingefangenen
+// Terminal-Login) und in JEDE Sandbox als Umgebungsvariable gebracht: beim
+// Container-Start über die Container-Env, in laufenden Containern über eine aus
+// `.bashrc` gesourcte Profildatei. So ist `claude` sofort angemeldet — ohne
+// interaktiven Login.
+
+const PROVIDER_CENTRAL = 'claude-central';
+const AUTH_FILE = '.arasul-claude-auth.sh';
+const SOURCE_LINE = `[ -f "$HOME/${AUTH_FILE}" ] && . "$HOME/${AUTH_FILE}"`;
+
+/** Umgebungsvariable je Zugangsart. */
+function envVarForMode(mode) {
+  return mode === 'apikey' ? 'ANTHROPIC_API_KEY' : 'CLAUDE_CODE_OAUTH_TOKEN';
+}
+
+/** Zentralen Zugang setzen (mode: 'token' = Abo, 'apikey' = API). */
+async function setCentralAuth(userId, mode, value) {
+  const m = mode === 'apikey' ? 'apikey' : 'token';
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error('value ist erforderlich');
+  }
+  await saveCredentials(userId, PROVIDER_CENTRAL, { mode: m, value: value.trim() });
+  return { mode: m };
+}
+
+/** Zentralen Zugang laden (inkl. Wert — nur für Injektion, NIE an den Client). */
+async function getCentralAuth(userId) {
+  const c = await loadCredentials(userId, PROVIDER_CENTRAL);
+  if (!c || typeof c.value !== 'string' || c.value.length === 0) {
+    return null;
+  }
+  return { mode: c.mode === 'apikey' ? 'apikey' : 'token', value: c.value };
+}
+
+/** Status für den Client — OHNE den Geheimwert. */
+async function getCentralAuthStatus(userId) {
+  const c = await getCentralAuth(userId);
+  return c ? { configured: true, mode: c.mode } : { configured: false, mode: null };
+}
+
+/** Zentralen Zugang löschen. */
+async function deleteCentralAuth(userId) {
+  return deleteCredentials(userId, PROVIDER_CENTRAL);
+}
+
+/**
+ * Env-Objekt für die Container-Env (createContainer) — leer, wenn kein zentraler
+ * Zugang hinterlegt ist. In `docker exec`-Shells (Terminal) sichtbar, damit
+ * `claude` in einer frischen Sandbox sofort angemeldet ist.
+ */
+async function getCentralAuthEnv(userId) {
+  const c = await getCentralAuth(userId);
+  if (!c) {
+    return {};
+  }
+  return { [envVarForMode(c.mode)]: c.value };
+}
+
+/**
+ * Den zentralen Zugang in einen LAUFENDEN Container schreiben (bzw. entfernen):
+ * eine aus `.bashrc` gesourcte Profildatei, damit auch bestehende Sandboxes den
+ * Zugang in neuen Shells bekommen — ohne Neubau. `auth === null` leert die Datei.
+ */
+async function applyCentralAuthToContainer(target, auth) {
+  const content = auth
+    ? `export ${envVarForMode(auth.mode)}=${shellSingleQuote(auth.value)}\n`
+    : '';
+  const b64 = Buffer.from(content, 'utf8').toString('base64');
+  const script =
+    `set -e; ` +
+    `printf '%s' ${shellSingleQuote(b64)} | base64 -d > "$HOME/${AUTH_FILE}"; ` +
+    `chmod 600 "$HOME/${AUTH_FILE}"; ` +
+    `touch "$HOME/.bashrc"; ` +
+    `grep -qF ${shellSingleQuote(AUTH_FILE)} "$HOME/.bashrc" || echo ${shellSingleQuote(SOURCE_LINE)} >> "$HOME/.bashrc"`;
+  await runExec(target, ['/bin/sh', '-c', script]);
+}
+
+/** Best-effort-Anwendung auf einen Workspace-Container (Start-Pfad). */
+async function applyCentralAuthBestEffort(userId, workspace) {
+  try {
+    const target = containerTarget(workspace);
+    if (!target) {
+      return;
+    }
+    const auth = await getCentralAuth(userId);
+    await applyCentralAuthToContainer(target, auth);
+  } catch (err) {
+    logger.warn(`applyCentralAuthBestEffort: unterdrückter Fehler: ${err.message}`);
+  }
+}
+
+/** Zentralen Zugang auf ALLE laufenden Container des Nutzers anwenden (bei Änderung). */
+async function applyCentralAuthToUserContainers(userId) {
+  const rows = (
+    await db.query(
+      `SELECT container_id, container_name FROM sandbox_projects
+        WHERE user_id = $1 AND container_status = 'running' AND container_id IS NOT NULL`,
+      [userId]
+    )
+  ).rows;
+  for (const w of rows) {
+    await applyCentralAuthBestEffort(userId, w);
+  }
+  return rows.length;
+}
+
 module.exports = {
   saveCredentials,
   loadCredentials,
@@ -377,6 +490,15 @@ module.exports = {
   restoreClaudeLogin,
   restoreClaudeLoginBestEffort,
   PROVIDER_CLAUDE,
+  // Zentraler KI-Zugang.
+  setCentralAuth,
+  getCentralAuth,
+  getCentralAuthStatus,
+  deleteCentralAuth,
+  getCentralAuthEnv,
+  applyCentralAuthBestEffort,
+  applyCentralAuthToUserContainers,
+  PROVIDER_CENTRAL,
   // Für Tests / Wiederverwendung.
-  _internals: { CLAUDE_CRED_FILES, shellSingleQuote },
+  _internals: { CLAUDE_CRED_FILES, shellSingleQuote, envVarForMode, AUTH_FILE },
 };

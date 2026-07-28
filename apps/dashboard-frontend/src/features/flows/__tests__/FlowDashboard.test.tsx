@@ -67,9 +67,10 @@ describe('FlowDashboard', () => {
     await userEvent.click(screen.getByRole('button', { name: /Neuer Schlüssel/ }));
 
     await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
-    const [path, body] = apiPost.mock.calls[0];
-    expect(path).toBe('/v1/external/api-keys');
-    expect(body.allowed_endpoints).toEqual(['flow:run']);
+    expect(apiPost).toHaveBeenCalledWith(
+      '/v1/external/api-keys',
+      expect.objectContaining({ allowed_endpoints: ['flow:run'] })
+    );
     expect(await screen.findByText('ak_live_geheim123')).toBeInTheDocument();
   });
 });

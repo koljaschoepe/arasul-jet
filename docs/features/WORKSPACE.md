@@ -38,9 +38,26 @@ beschränkt.
 > Flows (Chat-Slash-Befehle) ersetzen die früheren Agenten — siehe
 > [`FLOWS.md`](FLOWS.md).
 
-## Externe Anmeldung (Claude-Login)
+## KI-Zugang für die Sandboxes (Claude)
 
-Ein einmaliger Claude-Login in einem Sandbox-Terminal wird pro Nutzer
-verschlüsselt gespeichert (`user_external_credentials`, AES-256-GCM via
-`utils/tokenCrypto.js`) und beim Container-Start zurückgeschrieben — er
-überlebt damit ein `docker compose up -d --build`.
+**Zentraler Zugang (empfohlen, Plan 013).** Statt sich in jeder Sandbox einzeln
+im Terminal anzumelden (der interaktive OAuth-Link ist im Web-Terminal kaum
+kopierbar), hinterlegt der Admin über den Knopf **„KI-Zugang"** im Terminal-Kopf
+EINMAL einen Zugang:
+
+- **Abo-Token** — `claude setup-token` auf einem Rechner mit Browser ausführen und
+  das 1 Jahr gültige Token einfügen (→ `CLAUDE_CODE_OAUTH_TOKEN`), oder
+- **API-Key** — Anthropic-API-Key (→ `ANTHROPIC_API_KEY`, Abrechnung pro Nutzung).
+
+Der Wert wird verschlüsselt gespeichert (`user_external_credentials`, Provider
+`claude-central`, AES-256-GCM via `utils/tokenCrypto.js`) und in JEDE Sandbox als
+Umgebungsvariable gebracht: neue Container bekommen ihn über die Container-Env,
+laufende sofort über eine aus `.bashrc` gesourcte Profildatei. So ist `claude` im
+Terminal ohne Login angemeldet. Routen: `GET|PUT|DELETE /api/sandbox/claude-auth`.
+
+**Interaktiver Login einfangen (Alternative).** Wer sich lieber direkt im Terminal
+per `claude` anmeldet, kann diesen Login über „Aktuellen Login speichern"
+einfangen: er wird pro Nutzer verschlüsselt gespeichert (Provider `claude`) und
+beim Container-Start zurückgeschrieben — überlebt damit ein
+`docker compose up -d --build`. Routen: `.../claude-login/capture|status`,
+`DELETE .../claude-login`.

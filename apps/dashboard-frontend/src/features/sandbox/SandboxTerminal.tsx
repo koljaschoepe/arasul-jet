@@ -9,7 +9,7 @@
  * and only attempts connection when container is running.
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   RefreshCw,
   Maximize2,
@@ -20,6 +20,7 @@ import {
   Sparkles,
   Terminal,
   ShieldAlert,
+  KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import {
@@ -30,6 +31,7 @@ import {
 } from '@/components/ui/shadcn/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useTerminal } from './useTerminal';
+import KiZugangDialog from './KiZugangDialog';
 import type { SandboxNetworkMode } from './types';
 import '@xterm/xterm/css/xterm.css';
 
@@ -180,6 +182,9 @@ export default function SandboxTerminal({
     fontSize: isFullscreen ? 15 : 14,
   });
 
+  // Dialog für den zentralen KI-Zugang (einmal hinterlegen → in jeder Sandbox).
+  const [zugangOffen, setZugangOffen] = useState(false);
+
   // Refit beim Wieder-Einblenden (Panel-Toggle / Session-Wechsel): double-rAF,
   // damit display:none → flex bereits gelayoutet ist, bevor fit() misst.
   useEffect(() => {
@@ -258,6 +263,18 @@ export default function SandboxTerminal({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+
+            {/* Zentraler KI-Zugang — einmal hinterlegen, gilt in jeder Sandbox. */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setZugangOffen(true)}
+              className="ml-1 h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+              title="KI-Zugang (Claude) einmal hinterlegen — gilt in jeder Sandbox"
+            >
+              <KeyRound className="size-3" />
+              KI-Zugang
+            </Button>
           </div>
 
           <div className="flex items-center gap-1">
@@ -303,6 +320,10 @@ export default function SandboxTerminal({
           style={{ padding: '4px 0 0 4px' }}
         />
       </div>
+
+      {zugangOffen && (
+        <KiZugangDialog projectId={projectId} onClose={() => setZugangOffen(false)} />
+      )}
     </div>
   );
 }

@@ -67,9 +67,20 @@ const WorkspaceParams = z
   })
   .strict();
 
+// Zentraler KI-Zugang (Plan 013): Abo-Token (mode 'token' → CLAUDE_CODE_OAUTH_TOKEN)
+// oder API-Key (mode 'apikey' → ANTHROPIC_API_KEY). Der Wert wird verschlüsselt
+// abgelegt und nie an den Client zurückgegeben.
+const ClaudeAuthBody = z
+  .object({
+    mode: z.enum(['token', 'apikey']),
+    value: z.string().trim().min(10).max(8192),
+  })
+  .strict();
+
 module.exports = {
   CreateProjectBody,
   UpdateProjectBody,
   ListProjectsQuery,
   WorkspaceParams,
+  ClaudeAuthBody,
 };
