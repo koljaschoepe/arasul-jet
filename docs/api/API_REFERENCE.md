@@ -768,6 +768,35 @@ app-weit/Einzel-Admin) scopt Explorer, Suche und Flows/Agenten.
 > ihres Elternordners. `PUT /api/spaces/:id` mit `project_id` verschiebt einen
 > Ordner samt Unterbaum in ein anderes Projekt.
 
+#### Projektablage (Datei-API)
+
+Jedes Projekt besitzt einen echten Geräte-Ordner `data/projects/<uuid>`
+(Container: `/arasul/projects/<uuid>`, Compose-Mount in
+`compose/compose.app.yaml`) — derselbe Ordner, in dem auch der
+Git-Sync-Checkout (`PROJECT_GIT_DIR`) liegt. Explorer (Bereich
+„Projektablage"), Flows (`ordner`-Wert `projekt://aktiv`) und Sandboxes
+(Mount `/workspace/projekt`) arbeiten darin. Jeder Zugriff läuft
+symlink-sicher innerhalb des Projektordners (`resolveRealWithinRoots`);
+`.git`, `node_modules` u. Ä. werden beim Auflisten ausgeblendet.
+
+| Method | Endpoint                                    | Description                                                                               |
+| ------ | ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| GET    | `/api/projects/:id/dateien`                 | Datei-Baum (rekursiv, Budget-gedeckelt; `{eintraege, gekuerzt}`)                          |
+| GET    | `/api/projects/:id/dateien/inhalt?pfad=…`   | Datei-Inhalt für den Editor (Text, max. 1 MB; Binär/zu groß → Kennzeichen statt Inhalt)   |
+| PUT    | `/api/projects/:id/dateien/inhalt`          | Textdatei schreiben (`{pfad, inhalt}`; legt Zwischenordner an)                            |
+| POST   | `/api/projects/:id/dateien/ordner`          | Ordner anlegen (`{pfad}`, verschachtelt erlaubt)                                          |
+| DELETE | `/api/projects/:id/dateien?pfad=…`          | Datei oder Ordner (rekursiv) löschen — nie die Wurzel oder `.git`                         |
+| POST   | `/api/projects/:id/dateien/verschieben`     | Umbenennen/Verschieben innerhalb der Ablage (`{von, nach}`)                               |
+| POST   | `/api/projects/:id/dateien/upload`          | Multipart-Upload (`file` + optional `ordner`, max. 50 MB)                                 |
+| GET    | `/api/projects/:id/dateien/download?pfad=…` | Einzeldatei als Download; ohne `pfad` (oder für einen Ordner) ein `.tar.gz` (ohne `.git`) |
+| POST   | `/api/projects/:id/dateien/uebernehmen`     | Datei in den Wissensraum übernehmen (`{pfad, space_id?}`)                                 |
+
+> **Übernahme in den Wissensraum ist manuell:** `uebernehmen` lädt die Datei
+> nach MinIO und legt eine `documents`-Zeile mit `status='pending'` an — der
+> Document-Indexer holt sie sich von dort (gleicher Vertrag wie der
+> Dokument-Upload; das Projekt der Datei ist das Projekt der Ablage). `409
+CONFLICT` bei inhaltsgleichem, bereits vorhandenem Dokument.
+
 ### Git-Sync (Plan 013, B9)
 
 Koppelt ein Projekt an EIN GitHub-Repo und gleicht den container-lokalen
@@ -2216,23 +2245,23 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
 
-| Method | Endpoint                          | Description                                                      |
-| ------ | --------------------------------- | ---------------------------------------------------------------- |
-| GET    | `/api/flows`                      | List all flows (broken files reported separately)                |
-| GET    | `/api/flows/werkzeuge`            | Tool names a flow may declare, each with `verfuegbar`            |
-| GET    | `/api/flows/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)            |
-| GET    | `/api/flows/:name`                | Get a single flow                                                |
-| GET    | `/api/flows/:name/datei`          | Get the raw Markdown file (`text/markdown`)                      |
-| POST   | `/api/flows/vorschau`             | Render the file that _would_ be written — without saving         |
-| POST   | `/api/flows/vorschau-laufzeit`    | Resolve the runtime prompt (with sample args) — no run           |
-| POST   | `/api/flows`                      | Create a flow (409 if the name exists)                           |
-| PUT    | `/api/flows/:name`                | Update an existing flow (404 if it does not exist)               |
-| DELETE | `/api/flows/:name`                | Delete a flow                                                    |
-| GET    | `/api/flows/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`, `?status`) |
-| POST   | `/api/flows/laeufe`               | Start a run detached; returns `202 { runId }` immediately        |
-| GET    | `/api/flows/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)         |
-| GET    | `/api/flows/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps         |
-| POST   | `/api/flows/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)                  |
+| Method | Endpoint                          | Description                                                                                  |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
+| GET    | `/api/flows`                      | List all flows (broken files reported separately)                                            |
+| GET    | `/api/flows/werkzeuge`            | Tool names a flow may declare, each with `verfuegbar`                                        |
+| GET    | `/api/flows/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)                                        |
+| GET    | `/api/flows/:name`                | Get a single flow                                                                            |
+| GET    | `/api/flows/:name/datei`          | Get the raw Markdown file (`text/markdown`)                                                  |
+| POST   | `/api/flows/vorschau`             | Render the file that _would_ be written — without saving                                     |
+| POST   | `/api/flows/vorschau-laufzeit`    | Resolve the runtime prompt (with sample args) — no run                                       |
+| POST   | `/api/flows`                      | Create a flow (409 if the name exists)                                                       |
+| PUT    | `/api/flows/:name`                | Update an existing flow (404 if it does not exist)                                           |
+| DELETE | `/api/flows/:name`                | Delete a flow                                                                                |
+| GET    | `/api/flows/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter) |
+| POST   | `/api/flows/laeufe`               | Start a run detached; returns `202 { runId }` immediately                                    |
+| GET    | `/api/flows/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)                                     |
+| GET    | `/api/flows/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps                                     |
+| POST   | `/api/flows/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)                                              |
 
 **Starting flows.** A flow runs from the chat (slash command `/name`) or via the
 external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
@@ -2246,8 +2275,12 @@ its `runId` at once — the run keeps going regardless of the client. The client
 then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
 `EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
 with the stored run+steps first (so a **reconnecting** client sees everything up
-to now), then live frames (`tool_start`/`tool_result`/`text`/`done`/`error`/`aenderungen`),
-and closes on `ende`. Disconnecting does **not** stop the run. `abbrechen` sets
+to now), then live frames (`step_start`/`step_end`/`text`/`done`/`error`/`aenderungen`),
+and closes on `ende`. `step_start` fires when a step is **created** (for a
+subagent: before it executes), `step_end` when it finishes; both carry the full
+step row (including `parent_step_id` and `modell`) but never `raw_output` — the
+view loads raw data on demand via `?raw=1`. The former `tool_start`/`tool_result`
+frames are replaced by these step frames. Disconnecting does **not** stop the run. `abbrechen` sets
 the run's abort signal, so a running flow actually stops rather than only being
 marked cancelled in the DB. A backend restart marks any still-`laeuft` run as
 `fehler` (a detached run cannot survive the process).
@@ -2263,6 +2296,13 @@ a run belonging to another user returns `404`, never `403` — its existence is
 not revealed. Each step stores a condensed `output` (what reaches the
 orchestrator) separately from `raw_output` (page/file content, log-only, loaded
 only with `?raw=1`). Statuses: `laeuft | fertig | fehler | abgebrochen`.
+
+**Agenten-Baum (Migration 124).** Steps form a real tree: a subagent step is
+created **before** the role executes, and the role's inner tool calls become
+child steps via `flow_run_steps.parent_step_id`; `modell` records which model
+drove a subagent/model step. The run view (chat run card and the Flow-Zentrale
+run detail) renders each agent as a collapsible tree — live from the
+`step_start`/`step_end` frames, afterwards from the stored steps.
 
 **File changes overview (Plan 011, Schritt 16).** A flow writes and deletes
 files without confirmation, so every run that _can_ change files (declares
@@ -2467,7 +2507,8 @@ for the calling user (credentials are per-user, the workspace is auth context).
   "description": "Optionale Beschreibung",
   "baseImage": "ubuntu:22.04", // optional
   "network_mode": "isolated", // optional: isolated | internal | infrastructure
-  "workspaceType": "standard" // optional: standard | erweiterungs-werkstatt
+  "workspaceType": "standard", // optional: standard | erweiterungs-werkstatt
+  "project_id": "uuid" // optional: Projektablage anschließen (null = trennen)
 }
 ```
 
@@ -2485,6 +2526,13 @@ Workspace-Ordner an; `erweiterungs-werkstatt` bestückt ihn beim Anlegen mit den
 Vorlagen aus `services/sandbox/dev-templates/` (`ANLEITUNG.md`, `beispiel-app`,
 `beispiel-flow`, `beispiel-tool`) — die Bau-Flows `/erweiterung` und `/execute`
 arbeiten darin.
+
+**`project_id`** (Migration 125, also accepted on PUT
+`/api/sandbox/projects/:id`): schließt die Sandbox an ein Wissensraum-Projekt
+an — dessen **Projektablage** (`data/projects/<uuid>`) wird beim
+Container-Start rw als `/workspace/projekt` gemountet, was der Agent dort baut
+liegt sofort im Explorer. `null` trennt den Anschluss; ein gelöschtes Projekt
+kappt nur die Verbindung (`ON DELETE SET NULL`), die Sandbox bleibt.
 
 Creating or switching a project to `infrastructure` is audit-logged on the backend (warn level). Container hardening (CapDrop ALL, no-new-privileges) applies to all modes; docker socket access works via the docker group GID (`GroupAdd`), not via extra capabilities.
 

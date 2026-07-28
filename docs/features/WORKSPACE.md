@@ -31,12 +31,39 @@ Container erreichen darf (`VALID_NETWORK_MODES`):
 ## Wissensraum
 
 Jeder Workspace besitzt genau **einen unsichtbaren Wissensraum** (in der UI
-„Ordner"): Dateien, die im Workspace geschrieben werden, werden automatisch
-indiziert (kein manueller Upload), und die RAG-Suche bleibt auf diesen Raum
-beschränkt.
+„Ordner"), auf den seine RAG-Suche beschränkt bleibt. Dateien werden **nicht**
+automatisch indiziert (der frühere Workspace-Indexer ist entfernt): In den
+Wissensraum kommt eine Datei nur **manuell per Klick** — über „In den
+Wissensraum übernehmen" in der Projektablage (s. u.) oder den normalen
+Dokument-Upload.
 
 > Flows (Chat-Slash-Befehle) ersetzen die früheren Agenten — siehe
 > [`FLOWS.md`](FLOWS.md).
+
+## Projektablage
+
+Jedes Wissensraum-Projekt (`projects`) besitzt einen **echten Geräte-Ordner**
+`data/projects/<uuid>` (Container: `/arasul/projects/<uuid>`) — die
+**Projektablage**. Sie ist die gemeinsame Wahrheit für drei Welten:
+
+- **Explorer** — der Bereich „Projektablage" unter dem Wissensraum-Baum zeigt
+  die Ablage des aktiven Projekts: Dateien öffnen (eigener Editor-Tab mit
+  CodeMirror, Tab-Typ `projektdatei`), anlegen, umbenennen, löschen, hoch- und
+  herunterladen — und einzelne Dateien per Klick **in den Wissensraum
+  übernehmen** (erst dann kennt das RAG sie). API:
+  `/api/projects/:id/dateien/*` ([`API_REFERENCE.md`](../api/API_REFERENCE.md)).
+- **Flows** — der `ordner`-Wert `projekt://aktiv` wird zur Laufzeit in die
+  Ablage des aktiven Projekts aufgelöst ([`FLOWS.md`](FLOWS.md)).
+- **Sandboxes** — eine Sandbox kann an ein Projekt angeschlossen werden
+  (`sandbox_projects.project_id`, beim Anlegen/Bearbeiten: „Projektablage
+  anschließen"): dessen Ablage wird beim Container-Start **rw als
+  `/workspace/projekt`** gemountet. Was Claude Code dort baut, liegt sofort im
+  Explorer. „Kein Projekt" trennt den Anschluss; ein gelöschtes Projekt kappt
+  nur die Verbindung, die Sandbox bleibt.
+
+Der **Git-Sync-Checkout** (Plan 013, `PROJECT_GIT_DIR`) liegt im **selben**
+Ordner — ein Git-gekoppeltes Projekt sieht in der Ablage schlicht sein Repo.
+`.git` wird im Explorer ausgeblendet und ist vor Löschen/Umbenennen geschützt.
 
 ## KI-Zugang für die Sandboxes (Claude)
 

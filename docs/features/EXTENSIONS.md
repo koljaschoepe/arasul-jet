@@ -19,10 +19,20 @@ Erweiterungs-Werkstatt (Sandbox)  →  Paket  →  Register  →  Erweiterungen-
    weiter) und `/execute` (führt die Erweiterung aus und prüft sie).
    Alternativ von Hand oder mit einem externen Agenten im Terminal.
 3. **Paketieren** — Erweiterungen-Ansicht → „Eigene Erweiterung bauen" → Sandbox
-   und Unterordner wählen → _Aus Werkstatt paketieren_.
+   und Unterordner wählen → _Aus Werkstatt paketieren_. Oder direkt aus der
+   Werkstatt heraus: die **Werkstatt-Leiste** (s. u.).
 4. **Verteilen** — _Herunterladen_ liefert ein `.tar.gz`; auf einem anderen Gerät
    im selben Dialog _Paket importieren_.
 5. **Weiterbauen** — _Forken_ legt eine neue Werkstatt-Sandbox mit einer Kopie an.
+
+## Werkstatt-Leiste — „Erweiterung live schalten"
+
+Werkstatt-Sandboxes zeigen über dem Terminal eine schmale Leiste: Ordner mit
+der `manifest.json` angeben (`.` = die ganze Sandbox), Klick auf **„Erweiterung
+live schalten"** — die Leiste paketiert über den bestehenden Bau-Pfad
+(`POST /api/extensions/bauen`, mit `overwrite`), schaltet die Erweiterung frei
+und öffnet eine `app`-Erweiterung direkt als Mitte-Tab. Bauen, testen, live
+sehen — ohne den Umweg über die Erweiterungen-Ansicht.
 
 ## Das Paketformat
 

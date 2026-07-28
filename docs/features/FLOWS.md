@@ -31,6 +31,9 @@ im Chat mit `/` ab.
 - Ein Lauf erscheint als Karte im Verlauf: jeder Werkzeug- und Subagent-Schritt
   mit Dauer und Status, am Ende die Antwort und — bei Schreibzugriffen — eine
   Übersicht geänderter Dateien (neu / geändert / gelöscht, mit Vorher/Nachher).
+  Subagenten sind dabei **aufklappbare Bäume** (Agenten-Baum, s. u.); in der
+  Flow-Zentrale ist „Letzte Läufe" klickbar und öffnet die Lauf-Detailansicht
+  mit demselben Protokoll.
 - Läufe leben serverseitig: Tab schließen und später öffnen zeigt den aktuellen
   Stand bzw. das fertige Ergebnis. Der Abbrechen-Knopf stoppt einen Lauf
   innerhalb weniger Sekunden.
@@ -93,6 +96,11 @@ Werkzeuge.
   `dateien_suchen`, `terminal`) verlangen mindestens einen erlaubten `ordner`;
   der erste ist das Arbeitsverzeichnis. Jeder Zugriff ist symlink-geprüft und
   auf die erlaubten Ordner beschränkt — `../` und Ausbrüche werden abgewiesen.
+- Der besondere `ordner`-Wert **`projekt://aktiv`** wird zur Laufzeit in die
+  **Projektablage** des aktiven Projekts aufgelöst (`data/projects/<uuid>`,
+  siehe [`WORKSPACE.md`](WORKSPACE.md)) — der Flow arbeitet damit im selben
+  Ordner wie Explorer und Sandboxes, ohne dass eine UUID in der Flow-Datei
+  stünde.
 - `dateien_suchen` findet Dateien nach Namensmuster (Glob, z. B. `*.md`,
   `**/*.js`) und/oder nach Textinhalt (`text` = Teilzeichenkette, Groß-/
   Kleinschreibung egal, mit Zeilennummer — kein Regulärer Ausdruck, das schützt
@@ -113,6 +121,16 @@ deklarierten Feldern, hart auf `max_zeichen` gekappt. Die Rohdaten (ganze
 Seiteninhalte, Dateitexte) stehen nur im Lauf-Protokoll, erreichen aber nie den
 Orchestrator-Kontext. Das ist der Hebel, mit dem ein kleines lokales Modell wie
 ein großes wirkt: gezielt wenig Kontext statt „alles ins Modell".
+
+Im Lauf-Protokoll ist jeder Subagent ein **echter Baum** (Migration 124): sein
+Schritt entsteht schon **vor** der Ausführung, und die inneren Werkzeug-Aufrufe
+der Rolle werden Kind-Schritte (`flow_run_steps.parent_step_id`) statt eines
+Text-Blobs im Rohprotokoll; `modell` hält fest, welches Modell den Schritt
+getrieben hat. Live meldet der SSE-Strom jeden Schritt als
+`step_start`/`step_end` (die volle Schritt-Zeile, ohne Rohdaten — die lädt die
+Ansicht bei Bedarf nach); die früheren `tool_start`/`tool_result`-Ereignisse
+sind damit abgelöst. Chat-Lauf-Karte und die Lauf-Detailansicht der
+Flow-Zentrale zeigen denselben aufklappbaren Agenten-Baum, live wie nachher.
 
 ### Schritt-Kette (deterministische Orchestrierung)
 
