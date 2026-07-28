@@ -44,6 +44,9 @@ router.post(
       model_sequence, // Optional: for workflows, e.g. ['qwen3:7b', 'qwen3:32b']
       priority, // Optional: 0=normal, 1=high
       images, // Optional: base64-encoded images for vision models
+      agent, // Optional: Agent-Modus (Werkzeugschleife im Chat)
+      datei_modus, // Optional: Antwort ausdrücklich als Datei speichern
+      ablage_ziel, // Optional: relativer Ziel-Ordner in der Projektablage
     } = req.body;
     const enableThinking = thinking !== false;
 
@@ -76,7 +79,16 @@ router.post(
       } = await llmQueueService.enqueue(
         conversation_id,
         'chat',
-        { messages, temperature, max_tokens, thinking: enableThinking, images: validatedImages },
+        {
+          messages,
+          temperature,
+          max_tokens,
+          thinking: enableThinking,
+          images: validatedImages,
+          agent: agent === true,
+          datei_modus: datei_modus === true,
+          ablage_ziel: ablage_ziel || null,
+        },
         { model, modelSequence: model_sequence, priority: priority || 0 }
       );
 

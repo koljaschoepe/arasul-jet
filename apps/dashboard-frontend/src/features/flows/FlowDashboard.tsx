@@ -16,7 +16,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   Bot,
-  CheckCircle2,
   ChevronRight,
   Copy,
   KeyRound,
@@ -27,7 +26,6 @@ import {
   Trash2,
   Webhook,
   Wrench,
-  XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { useApi } from '@/hooks/useApi';
@@ -375,27 +373,30 @@ export default function FlowDashboard({
                     const meta = STATUS_META[r.status];
                     return (
                       <li key={r.id}>
+                        {/* Nutzer-Entscheid 2026-07-28: Status nur als Text & Farbe —
+                          keine Icon-Punkte am Zeilenanfang. Läuft-Zustand behält
+                          den Spinner als einzige Bewegung. */}
                         <button
                           type="button"
                           onClick={() => setLaufDetail(r)}
                           data-testid="flow-run-row"
                           className="-mx-1 flex w-full items-center gap-2 rounded px-1 py-1.5 text-left text-xs hover:bg-accent/50"
                         >
-                          {r.status === 'fertig' ? (
-                            <CheckCircle2 className="size-3.5 shrink-0 text-success" />
-                          ) : r.status === 'fehler' ? (
-                            <XCircle className="size-3.5 shrink-0 text-destructive" />
-                          ) : r.status === 'laeuft' ? (
-                            <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
-                          ) : (
-                            <XCircle className="size-3.5 shrink-0 text-muted-foreground" />
-                          )}
-                          <span className={`shrink-0 font-medium ${meta.cls}`}>{meta.label}</span>
-                          <span className="shrink-0 text-muted-foreground/70">
-                            {r.steps_used === 1 ? '1 Schritt' : `${r.steps_used} Schritte`}
-                          </span>
-                          <span className="ml-auto shrink-0 text-muted-foreground">
+                          <span className="shrink-0 text-muted-foreground">
                             {zeit(r.created_at)}
+                          </span>
+                          {r.steps_used > 0 && (
+                            <span className="shrink-0 text-muted-foreground/70">
+                              {r.steps_used === 1 ? '1 Schritt' : `${r.steps_used} Schritte`}
+                            </span>
+                          )}
+                          <span
+                            className={`ml-auto flex shrink-0 items-center gap-1.5 font-medium ${meta.cls}`}
+                          >
+                            {r.status === 'laeuft' && (
+                              <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                            )}
+                            {meta.label}
                           </span>
                           <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
                         </button>

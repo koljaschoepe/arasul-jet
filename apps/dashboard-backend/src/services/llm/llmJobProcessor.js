@@ -121,6 +121,15 @@ async function processChatJob(ctx, job) {
   const { id: jobId, request_data: requestData, requested_model } = job;
   const { messages, temperature, max_tokens, thinking, images } = requestData;
 
+  // Agent-Modus (2026-07-28): Text-Nachrichten laufen als Werkzeug-Lauf.
+  // Bild-Nachrichten bleiben auf dem Vision-Pfad unten (die Agent-Schleife
+  // spricht /api/chat ohne Bild-Unterstützung).
+  if (requestData.agent && !(images && images.length > 0)) {
+    const { processAgentChatJob } = require('./chatAgentRunner');
+    await processAgentChatJob(ctx, job);
+    return;
+  }
+
   // P2-001: Check if model supports thinking mode
   let modelSupportsThinking = true; // Default to true for backwards compatibility
   if (requested_model) {

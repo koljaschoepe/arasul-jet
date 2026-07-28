@@ -21,6 +21,22 @@ const llmQueueService = require('../services/llm/llmQueueService');
 const llmJobService = require('../services/llm/llmJobService');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
 
+// Reine Textformate: werden direkt aus dem Buffer gelesen (kein Umweg über
+// den Document-Indexer — der kennt z. B. .html/.csv/.json nicht als Parser).
+const TEXT_EXTENSIONS = new Set([
+  '.txt',
+  '.md',
+  '.markdown',
+  '.yaml',
+  '.yml',
+  '.csv',
+  '.json',
+  '.html',
+  '.htm',
+  '.xml',
+  '.log',
+]);
+
 // Multer: memory storage, 50MB limit
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -29,17 +45,13 @@ const upload = multer({
     const allowed = [
       '.pdf',
       '.docx',
-      '.txt',
-      '.md',
-      '.markdown',
-      '.yaml',
-      '.yml',
       '.png',
       '.jpg',
       '.jpeg',
       '.tiff',
       '.tif',
       '.bmp',
+      ...TEXT_EXTENSIONS,
     ];
     const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
     if (allowed.includes(ext)) {
@@ -115,11 +127,15 @@ router.post(
       [userMessageId, chatId, filename, file.originalname, minioPath, file.size, file.mimetype, ext]
     );
 
-    // 4. Extract text from document
+    // 4. Extract text from document. Reine Textformate direkt dekodieren —
+    //    zuverlässig und ohne Indexer-Abhängigkeit; nur PDF/DOCX/Bilder
+    //    brauchen den Extraktions-Dienst (Parser/OCR).
     let extractedText;
     let extractionMetadata;
     try {
-      const result = await extractionService.extractFromBuffer(file.buffer, filename);
+      const result = TEXT_EXTENSIONS.has(ext)
+        ? { text: file.buffer.toString('utf8'), metadata: { parser: 'plain-text' } }
+        : await extractionService.extractFromBuffer(file.buffer, filename);
       extractedText = result.text;
       extractionMetadata = result.metadata;
 

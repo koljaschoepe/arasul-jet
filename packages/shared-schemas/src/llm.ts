@@ -28,6 +28,20 @@ export const ChatBody = z
       .max(5, 'Maximal 5 Bilder pro Nachricht erlaubt')
       .optional()
       .nullable(),
+    // Agent-Modus (2026-07-28): Werkzeugschleife im Chat. `datei_modus` bittet
+    // den Agenten ausdrücklich um eine Datei; `ablage_ziel` ist ein relativer
+    // Zielordner in der Projektablage (per Drag & Drop gesetzt).
+    agent: z.boolean().optional(),
+    datei_modus: z.boolean().optional(),
+    ablage_ziel: z
+      .string()
+      .trim()
+      .max(500)
+      .refine(v => !v.startsWith('/') && !v.split('/').includes('..'), {
+        message: 'ablage_ziel muss relativ und ohne .. sein',
+      })
+      .optional()
+      .nullable(),
   })
   .strict();
 

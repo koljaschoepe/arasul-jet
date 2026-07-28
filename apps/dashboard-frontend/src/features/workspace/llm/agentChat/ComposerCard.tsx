@@ -239,6 +239,13 @@ export default function ComposerCard({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, []);
 
+  // Höhe folgt IMMER dem Wert — auch wenn er programmatisch geleert wird
+  // (Absenden setzt value=''; ohne diesen Effekt bliebe die Textarea auf der
+  // Höhe der letzten langen Nachricht stehen — live beobachtet 2026-07-28).
+  useEffect(() => {
+    autoGrow();
+  }, [value, autoGrow]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       // Argument-Eingabe (Schritt 14): Tab springt zum nächsten Argument — aber
@@ -421,6 +428,9 @@ export default function ComposerCard({
           ref={fileInputRef}
           type="file"
           className="hidden"
+          // Deckungsgleich mit der Backend-Whitelist (documentAnalysis.js) —
+          // sonst wählt der Nutzer eine Datei, die der Upload dann ablehnt.
+          accept=".pdf,.docx,.txt,.md,.markdown,.yaml,.yml,.csv,.json,.html,.htm,.xml,.log,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp,.gif"
           onChange={e => {
             const f = e.target.files?.[0];
             if (f) onPickFile(f);

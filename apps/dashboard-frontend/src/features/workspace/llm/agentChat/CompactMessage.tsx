@@ -11,6 +11,7 @@ import {
   ChevronRight,
   FilePlus2,
   FileText,
+  Globe,
   Paperclip,
   Search,
   Sparkles,
@@ -18,6 +19,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { dateiListe } from '@/contexts/ChatContext';
 import type { AgentToolStep, ChatMessage, MessageDatei } from '@/contexts/ChatContext';
 import type { DocumentSource } from '@/types';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -132,8 +134,13 @@ function SourcesFooter({ sources }: { sources: DocumentSource[] }) {
 function agentStepLabel(step: AgentToolStep): string {
   const p = step.params || {};
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  if (step.kind === 'subagent') {
+    const auftrag = str(p.auftrag);
+    return auftrag ? `Subagent ${step.tool}: ${auftrag}` : `Subagent ${step.tool}`;
+  }
   switch (step.tool) {
-    case 'dateien': {
+    case 'dateien':
+    case 'dateien_lesen': {
       const aktion = str(p.aktion).toLowerCase();
       const pfad = str(p.pfad) || '/';
       if (aktion === 'read') return `liest ${pfad}`;
@@ -141,10 +148,23 @@ function agentStepLabel(step: AgentToolStep): string {
       if (aktion === 'list') return `listet ${pfad}`;
       return `Dateien: ${pfad}`;
     }
-    case 'rag': {
-      const q = str(p.frage) || str(p.query);
-      return q ? `sucht: ${q}` : 'durchsucht das Wissen';
+    case 'dateien_schreiben':
+      return `schreibt ${str(p.pfad) || 'Datei'}`;
+    case 'dateien_suchen': {
+      const muster = str(p.muster) || str(p.suchbegriff) || str(p.query);
+      return muster ? `sucht Dateien: ${muster}` : 'durchsucht Dateien';
     }
+    case 'rag':
+    case 'rag_suche': {
+      const q = str(p.frage) || str(p.query);
+      return q ? `sucht im Wissen: ${q}` : 'durchsucht das Wissen';
+    }
+    case 'web_suche': {
+      const q = str(p.frage) || str(p.query) || str(p.suchbegriff);
+      return q ? `sucht im Web: ${q}` : 'sucht im Web';
+    }
+    case 'web_lesen':
+      return `liest ${str(p.url) || 'eine Webseite'}`;
     case 'terminal': {
       const cmd = str(p.befehl) || str(p.command);
       return cmd ? `führt aus: ${cmd}` : 'führt einen Befehl aus';
@@ -155,11 +175,21 @@ function agentStepLabel(step: AgentToolStep): string {
 }
 
 function agentStepIcon(step: AgentToolStep): React.ReactNode {
+  if (step.kind === 'subagent') {
+    return <Sparkles className="size-3" />;
+  }
   switch (step.tool) {
     case 'dateien':
+    case 'dateien_lesen':
+    case 'dateien_schreiben':
+    case 'dateien_suchen':
       return <FileText className="size-3" />;
     case 'rag':
+    case 'rag_suche':
+    case 'web_suche':
       return <Search className="size-3" />;
+    case 'web_lesen':
+      return <Globe className="size-3" />;
     case 'terminal':
       return <TerminalSquare className="size-3" />;
     default:
@@ -167,19 +197,42 @@ function agentStepIcon(step: AgentToolStep): React.ReactNode {
   }
 }
 
-/** Einzelne, inkrementell erscheinende Werkzeug-Schritte eines Agentenlaufs. */
-function AgentSteps({ steps }: { steps: AgentToolStep[] }) {
-  return (
-    <div className="mb-1" data-testid="agent-steps">
+/**
+ * Werkzeug-Schritte eines Agentenlaufs: während der Arbeit einzeln sichtbar
+ * (Live-Statuszeilen), nach Abschluss zu EINER einklappbaren Zeile gefaltet.
+ */
+function AgentSteps({ steps, laufend }: { steps: AgentToolStep[]; laufend: boolean }) {
+  const [offen, setOffen] = useState(false);
+  const liste = (
+    <div data-testid="agent-steps">
       {steps.map((step, i) => (
         <StepRow
-          key={i}
+          key={step.id ?? i}
           icon={agentStepIcon(step)}
           label={step.status === 'running' ? `${agentStepLabel(step)} …` : agentStepLabel(step)}
         >
           {step.result || undefined}
         </StepRow>
       ))}
+    </div>
+  );
+
+  if (laufend) {
+    return <div className="mb-1">{liste}</div>;
+  }
+  return (
+    <div className="mb-1">
+      <button
+        type="button"
+        onClick={() => setOffen(o => !o)}
+        className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-expanded={offen}
+        data-testid="agent-steps-toggle"
+      >
+        <ChevronRight className={cn('size-3 transition-transform', offen && 'rotate-90')} />
+        {steps.length} {steps.length === 1 ? 'Schritt' : 'Schritte'}
+      </button>
+      {offen && <div className="mt-0.5 pl-4">{liste}</div>}
     </div>
   );
 }
@@ -241,15 +294,16 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
   const [speichert, setSpeichert] = useState(false);
 
   if (message.role === 'user') {
+    const anhang = dateiListe(message.datei).find(d => d.art === 'anhang');
     return (
       <div className="my-2 rounded-lg border border-border bg-card px-2.5 py-2 text-[13px] leading-relaxed text-foreground">
-        {message.datei?.art === 'anhang' && (
+        {anhang && (
           <span
             className="mb-1 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-xs"
             data-testid="anhang-chip"
           >
             <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{message.datei.name}</span>
+            <span className="truncate">{anhang.name}</span>
           </span>
         )}
         {message.images && message.images.length > 0 && (
@@ -277,11 +331,11 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
   const matched = message.matchedSpaces || [];
 
   const steps = message.steps || [];
-  const gespeicherteDatei = message.datei?.art === 'projektdatei' ? message.datei : null;
+  const gespeicherteDateien = dateiListe(message.datei).filter(d => d.art === 'projektdatei');
 
   return (
     <div className="group/nachricht my-2" data-testid="assistant-message">
-      {steps.length > 0 && <AgentSteps steps={steps} />}
+      {steps.length > 0 && <AgentSteps steps={steps} laufend={isStreaming} />}
       {hasThinking && (
         <StepRow
           icon={<Sparkles className="size-3" />}
@@ -304,10 +358,18 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
         />
       )}
 
-      {gespeicherteDatei && !isStreaming ? (
+      {gespeicherteDateien.length > 0 && !isStreaming ? (
         <>
-          <DateiKarte datei={gespeicherteDatei} />
-          {message.content && (
+          {/* Kurzer Begleittext (Agent: „Datei gespeichert …") steht ÜBER den
+              Karten; lange Texte (Alt-Verhalten: kompletter Dokumentinhalt)
+              bleiben hinter dem Auf/Zu, damit nichts doppelt ausgebreitet wird. */}
+          {message.content && message.content.length <= 600 && (
+            <CompactMarkdown content={message.content} />
+          )}
+          {gespeicherteDateien.map((d, i) => (
+            <DateiKarte key={`${d.pfad}-${i}`} datei={d} />
+          ))}
+          {message.content && message.content.length > 600 && (
             <>
               <button
                 type="button"
@@ -340,27 +402,30 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
       {message.sources && message.sources.length > 0 && <SourcesFooter sources={message.sources} />}
 
       {/* Nachträglich als Datei speichern — dezent, erscheint beim Überfahren. */}
-      {!isStreaming && !gespeicherteDatei && message.content && onAlsDateiSpeichern && (
-        <div className="mt-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/nachricht:opacity-100">
-          <button
-            type="button"
-            disabled={speichert}
-            onClick={async () => {
-              setSpeichert(true);
-              try {
-                await onAlsDateiSpeichern(message);
-              } finally {
-                setSpeichert(false);
-              }
-            }}
-            className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
-            data-testid="als-datei-speichern"
-          >
-            <FilePlus2 className="size-3" />
-            {speichert ? 'Speichert …' : 'Als Datei speichern'}
-          </button>
-        </div>
-      )}
+      {!isStreaming &&
+        gespeicherteDateien.length === 0 &&
+        message.content &&
+        onAlsDateiSpeichern && (
+          <div className="mt-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/nachricht:opacity-100">
+            <button
+              type="button"
+              disabled={speichert}
+              onClick={async () => {
+                setSpeichert(true);
+                try {
+                  await onAlsDateiSpeichern(message);
+                } finally {
+                  setSpeichert(false);
+                }
+              }}
+              className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+              data-testid="als-datei-speichern"
+            >
+              <FilePlus2 className="size-3" />
+              {speichert ? 'Speichert …' : 'Als Datei speichern'}
+            </button>
+          </div>
+        )}
     </div>
   );
 }

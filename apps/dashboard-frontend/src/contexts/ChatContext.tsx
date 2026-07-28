@@ -37,10 +37,38 @@ import type { DocumentSource, MatchedSpace, QueueJob } from '../types';
  * `tool_start` (status 'running') and completed by `tool_result` (status 'done').
  */
 export interface AgentToolStep {
+  /** Stabile Schritt-Id des Agent-Laufs (Upsert bei Live-Events). */
+  id?: number;
+  /** 'werkzeug' | 'subagent' — Subagenten-Schritte tragen die Rolle in `tool`. */
+  kind?: string;
   tool: string;
   params?: Record<string, unknown>;
   result?: string;
-  status: 'running' | 'done';
+  status: 'running' | 'done' | 'error';
+}
+
+/** Rohform eines Agent-Schritts, wie das Backend sie streamt/persistiert. */
+interface AgentSchrittRoh {
+  id?: number;
+  kind?: string;
+  name?: string;
+  input?: Record<string, unknown> | string;
+  output?: string;
+  status?: string;
+}
+
+/** Backend-Schritt → UI-Schritt (AgentToolStep). */
+function mapAgentSchritt(s: AgentSchrittRoh): AgentToolStep {
+  const params =
+    s.input && typeof s.input === 'object' ? (s.input as Record<string, unknown>) : undefined;
+  return {
+    id: s.id,
+    kind: s.kind,
+    tool: s.name || '',
+    params,
+    result: s.output,
+    status: s.status === 'laeuft' ? 'running' : s.status === 'fehler' ? 'error' : 'done',
+  };
 }
 
 /**
@@ -79,7 +107,15 @@ export interface ChatMessage {
   visionFallbackVia?: string; // model_id of the vision model that captioned the user image (P6 auto-fallback)
   agent?: string; // Agent name when this assistant message is an @agent run (Schritt 11)
   steps?: AgentToolStep[]; // Live tool steps of an agent run
-  datei?: MessageDatei; // Gespeicherte Projektdatei / Anhang dieser Nachricht
+  /** Gespeicherte Projektdatei(en) / Anhang dieser Nachricht — der Chat-Agent
+   *  kann mehrere Dateien in einem Lauf schreiben (JSONB trägt beides). */
+  datei?: MessageDatei | MessageDatei[];
+}
+
+/** Normalisiert das datei-Feld (Objekt ODER Liste) zu einer Liste. */
+export function dateiListe(datei: ChatMessage['datei']): MessageDatei[] {
+  if (!datei) return [];
+  return Array.isArray(datei) ? datei : [datei];
 }
 
 export interface ChatSettings {
@@ -140,6 +176,8 @@ interface SendMessageOptions {
   alsDatei?: boolean;
   /** Ziel-Ordner fürs Speichern (aus dem Ablage-Baum gezogen); null = aktives Projekt, Wurzel. */
   dateiZiel?: { projectId: string; pfad: string } | null;
+  /** Agent-Modus (Werkzeugschleife im Backend) — Standard true für Text-Nachrichten. */
+  agent?: boolean;
 }
 
 interface LoadMessagesOptions {
@@ -470,7 +508,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     status: (msg.status as string) || 'completed',
     jobId: msg.job_id as string | undefined,
     jobStatus: msg.job_status as string | undefined,
-    datei: (msg.datei as MessageDatei | null) || undefined,
+    datei: (msg.datei as MessageDatei | MessageDatei[] | null) || undefined,
+    steps: Array.isArray(msg.schritte)
+      ? (msg.schritte as AgentSchrittRoh[]).map(mapAgentSchritt)
+      : undefined,
   });
 
   const loadMessages = useCallback(
@@ -807,9 +848,46 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
   // --- Antworten als Datei in der Projektablage speichern -------------------
 
-  /** Dateiname aus der ersten Markdown-Überschrift; sonst Datumsname. */
-  const dateiNameAus = (inhalt: string): string => {
-    const treffer = inhalt.match(/^#{1,3}\s+(.+)$/m);
+  /**
+   * Inhalt fürs Speichern normalisieren: Besteht die Antwort im Kern aus EINEM
+   * Code-Zaun (```html …```), wird der innere Inhalt gespeichert und die
+   * Endung aus der Zaun-Sprache abgeleitet — eine „HTML-Webseite" soll als
+   * .html landen, nicht als Markdown mit eingebettetem Codeblock.
+   */
+  const inhaltFuersSpeichern = (inhalt: string): { inhalt: string; endung: string } => {
+    const zaun = inhalt.match(/```([a-zA-Z0-9]*)\n([\s\S]*?)```/);
+    if (zaun && zaun[2] && zaun[2].trim().length >= inhalt.trim().length * 0.6) {
+      const sprache = (zaun[1] || '').toLowerCase();
+      const endungen: Record<string, string> = {
+        html: 'html',
+        css: 'css',
+        json: 'json',
+        csv: 'csv',
+        javascript: 'js',
+        js: 'js',
+        typescript: 'ts',
+        python: 'py',
+        yaml: 'yaml',
+        yml: 'yaml',
+        xml: 'xml',
+        svg: 'svg',
+        text: 'txt',
+      };
+      if (endungen[sprache]) {
+        return { inhalt: zaun[2].trim() + '\n', endung: endungen[sprache] };
+      }
+    }
+    const kopf = inhalt.trimStart().slice(0, 200).toLowerCase();
+    if (kopf.startsWith('<!doctype html') || kopf.startsWith('<html')) {
+      return { inhalt, endung: 'html' };
+    }
+    return { inhalt, endung: 'md' };
+  };
+
+  /** Dateiname aus Überschrift/Titel; sonst Datumsname. Endung je nach Inhalt. */
+  const dateiNameAus = (inhalt: string, endung: string): string => {
+    const treffer =
+      inhalt.match(/^#{1,3}\s+(.+)$/m) || inhalt.match(/<title>([^<]+)<\/title>/i) || null;
     if (treffer?.[1]) {
       const slug = treffer[1]
         .trim()
@@ -821,7 +899,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
         .slice(0, 60);
-      if (slug) return `${slug}.md`;
+      if (slug) return `${slug}.${endung}`;
     }
     const jetzt = new Date();
     const stempel = `${jetzt.getFullYear()}-${String(jetzt.getMonth() + 1).padStart(2, '0')}-${String(
@@ -829,7 +907,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     ).padStart(2, '0')}-${String(jetzt.getHours()).padStart(2, '0')}${String(
       jetzt.getMinutes()
     ).padStart(2, '0')}`;
-    return `dokument-${stempel}.md`;
+    return `dokument-${stempel}.${endung}`;
   };
 
   /**
@@ -856,7 +934,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       }
       if (!projectId) return null;
 
-      let name = dateiNameAus(inhalt);
+      const { inhalt: speicherInhalt, endung } = inhaltFuersSpeichern(inhalt);
+      let name = dateiNameAus(speicherInhalt, endung);
       let pfad = ordner ? `${ordner}/${name}` : name;
       try {
         await api.get(`/projects/${projectId}/dateien/inhalt?pfad=${encodeURIComponent(pfad)}`, {
@@ -867,13 +946,13 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         const suffix = `${String(jetzt.getHours()).padStart(2, '0')}${String(
           jetzt.getMinutes()
         ).padStart(2, '0')}${String(jetzt.getSeconds()).padStart(2, '0')}`;
-        name = name.replace(/\.md$/, `-${suffix}.md`);
+        name = name.replace(new RegExp(`\\.${endung}$`), `-${suffix}.${endung}`);
         pfad = ordner ? `${ordner}/${name}` : name;
       } catch {
         /* 404 = Name ist frei */
       }
 
-      await api.put(`/projects/${projectId}/dateien/inhalt`, { pfad, inhalt });
+      await api.put(`/projects/${projectId}/dateien/inhalt`, { pfad, inhalt: speicherInhalt });
       const datei: MessageDatei = { art: 'projektdatei', project_id: projectId, pfad, name };
       if (messageId) {
         await api
@@ -932,6 +1011,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       const userMessage = input.trim();
       const isRAG = useRAG && !file; // file uploads use their own pipeline
       const isFileUpload = !!file;
+      // Agent-Modus (Standard): Werkzeugschleife im Backend. Bilder laufen dort
+      // automatisch auf dem Vision-Pfad weiter; RAG- und Datei-Pipeline bleiben eigen.
+      const isAgent = options.agent !== false && !isRAG && !isFileUpload;
       const effectiveModel = model !== undefined ? model : selectedModelRef.current;
 
       // Save user message to DB (skip for file uploads — backend handles it)
@@ -1048,7 +1130,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             messages: newMessages.map((m, idx) => ({
               role: m.role,
               content:
-                options.alsDatei && idx === letzterIndex ? m.content + DATEI_ANWEISUNG : m.content,
+                !isAgent && options.alsDatei && idx === letzterIndex
+                  ? m.content + DATEI_ANWEISUNG
+                  : m.content,
             })),
             temperature: 0.7,
             max_tokens: 32768,
@@ -1057,6 +1141,15 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             conversation_id: chatId,
             model: effectiveModel || undefined,
             ...(images && images.length > 0 ? { images } : {}),
+            // Agent-Modus: das Backend führt die Werkzeugschleife; der Datei-
+            // Wunsch und der gezogene Ziel-Ordner gehen als Flags mit.
+            ...(isAgent
+              ? {
+                  agent: true,
+                  ...(options.alsDatei ? { datei_modus: true } : {}),
+                  ...(options.dateiZiel?.pfad ? { ablage_ziel: options.dateiZiel.pfad } : {}),
+                }
+              : {}),
           };
           fetchOptions = {
             method: 'POST',
@@ -1257,6 +1350,41 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                 });
               }
 
+              // Agent-Werkzeugschritte: live upserten (start → running, end → done).
+              if (data.type === 'agent_step' && data.step) {
+                const schritt = mapAgentSchritt(data.step as AgentSchrittRoh);
+                updateMessages(chatId, prev => {
+                  const u = [...prev];
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
+                    const vorhanden = cur.steps || [];
+                    const idx = vorhanden.findIndex(s => s.id != null && s.id === schritt.id);
+                    const steps =
+                      idx >= 0
+                        ? vorhanden.map((s, i) => (i === idx ? schritt : s))
+                        : [...vorhanden, schritt];
+                    u[assistantMessageIndex] = { ...cur, steps };
+                  }
+                  return u;
+                });
+              }
+
+              // Vom Agenten geschriebene Ablage-Datei → Karte sofort zeigen.
+              if (data.type === 'agent_datei' && data.datei) {
+                const neueDatei = data.datei as MessageDatei;
+                updateMessages(chatId, prev => {
+                  const u = [...prev];
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
+                    u[assistantMessageIndex] = {
+                      ...cur,
+                      datei: [...dateiListe(cur.datei), neueDatei],
+                    };
+                  }
+                  return u;
+                });
+              }
+
               // Token streaming
               if (data.type === 'thinking' && data.token) {
                 addTokenToBatch('thinking', data.token, assistantMessageIndex);
@@ -1313,10 +1441,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           );
         }
 
-        // Datei-Modus: die fertige Antwort automatisch in der Projektablage
-        // speichern und als Karte an die Nachricht hängen. Läuft losgelöst —
-        // der Chat ist fertig, die Karte erscheint, sobald die Datei liegt.
-        if (options.alsDatei && fullResponse) {
+        // Datei-Modus OHNE Agent (Fallback-Pfad): die fertige Antwort client-
+        // seitig in der Projektablage speichern. Im Agent-Modus schreibt das
+        // Backend die Datei selbst (dateien_schreiben) und persistiert den Verweis.
+        if (!isAgent && options.alsDatei && fullResponse) {
           const dateiChatId = chatId;
           void (async () => {
             try {

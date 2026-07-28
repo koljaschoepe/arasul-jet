@@ -227,6 +227,7 @@ router.get(
                 ELSE m.matched_spaces
             END as matched_spaces,
             m.datei,
+            m.schritte,
             m.created_at,
             COALESCE(m.status, 'completed') as status,
             m.job_id,

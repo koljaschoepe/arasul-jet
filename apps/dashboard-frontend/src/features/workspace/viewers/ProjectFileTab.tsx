@@ -7,7 +7,7 @@
  * Editors einen Download-Hinweis.
  */
 import { useEffect, useState } from 'react';
-import { Download, Save } from 'lucide-react';
+import { Code2, Download, Eye, Save } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -52,6 +52,11 @@ export default function ProjectFileTab({
 
   const dateiname = filePath.split('/').pop() ?? filePath;
   const endung = dateiname.includes('.') ? '.' + dateiname.split('.').pop() : '';
+  // HTML aus der Ablage (z. B. vom Chat-Agent erzeugte Webseiten) öffnet
+  // standardmäßig GERENDERT — wie eine kleine Webseite im Tab; der Quelltext
+  // bleibt einen Klick entfernt.
+  const istHtml = endung.toLowerCase() === '.html' || endung.toLowerCase() === '.htm';
+  const [ansicht, setAnsicht] = useState<'vorschau' | 'code'>('vorschau');
 
   // Tab-Titel = Dateiname (der Store kennt beim Öffnen nur den Pfad).
   useEffect(() => {
@@ -155,6 +160,25 @@ export default function ProjectFileTab({
           <span className="ml-2 text-muted-foreground/60">{spracheLabel(endung)}</span>
         </span>
         <div className="flex shrink-0 items-center gap-2">
+          {istHtml && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setAnsicht(a => (a === 'vorschau' ? 'code' : 'vorschau'))}
+              data-testid="html-ansicht-toggle"
+            >
+              {ansicht === 'vorschau' ? (
+                <>
+                  <Code2 className="mr-1.5 size-3.5" aria-hidden="true" /> Quelltext
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-1.5 size-3.5" aria-hidden="true" /> Vorschau
+                </>
+              )}
+            </Button>
+          )}
           {dirty && (
             <span className="text-ui-xs text-muted-foreground" data-testid="project-file-dirty">
               Nicht gespeichert
@@ -178,13 +202,25 @@ export default function ProjectFileTab({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <CodeMirrorEditor
-          value={draft}
-          onChange={setDraft}
-          fileExtension={endung}
-          ariaLabel={`Inhalt von ${dateiname}`}
-          testId="project-file-editor"
-        />
+        {istHtml && ansicht === 'vorschau' ? (
+          // Sandbox OHNE allow-same-origin: das gerenderte HTML darf Skripte
+          // ausführen, kommt aber nicht an Cookies/API der Plattform heran.
+          <iframe
+            srcDoc={draft}
+            sandbox="allow-scripts"
+            title={`Vorschau von ${dateiname}`}
+            className="h-full w-full border-0 bg-white"
+            data-testid="html-vorschau"
+          />
+        ) : (
+          <CodeMirrorEditor
+            value={draft}
+            onChange={setDraft}
+            fileExtension={endung}
+            ariaLabel={`Inhalt von ${dateiname}`}
+            testId="project-file-editor"
+          />
+        )}
       </div>
     </div>
   );
