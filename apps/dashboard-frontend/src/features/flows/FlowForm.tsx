@@ -13,15 +13,9 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Button } from '@/components/ui/shadcn/button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
-import type {
-  FlowArgument,
-  FlowArgumentType,
-  FlowRole,
-  FlowTool,
-  FlowToolInfo,
-} from '@/types/flows';
-import { brauchtOrdner, leeresArgument, leereRolle, type FlowFormState } from './flowFormState';
-import StepList from './StepList';
+import type { FlowArgument, FlowArgumentType, FlowTool, FlowToolInfo } from '@/types/flows';
+import { brauchtOrdner, leeresArgument, type FlowFormState } from './flowFormState';
+import AblaufEditor from './AblaufEditor';
 
 const ARG_TYP_LABEL: Record<FlowArgumentType, string> = {
   freitext: 'Freitext',
@@ -275,11 +269,9 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
         ))}
       </div>
 
-      {/* Subagent-Rollen */}
-      <RollenEditor value={value} onChange={onChange} werkzeuge={werkzeuge} />
-
-      {/* Deterministische Schritt-Kette (B7) */}
-      <StepList value={value} onChange={onChange} werkzeuge={werkzeuge} />
+      {/* Ablauf: Rollen (Bausteine) + optional feste Reihenfolge — EIN Block,
+          Rollen inline, Modus (modellgesteuert/fest) umschaltbar. */}
+      <AblaufEditor value={value} onChange={onChange} werkzeuge={werkzeuge} />
 
       {/* Grenzen */}
       <fieldset className="grid grid-cols-2 gap-2">
@@ -331,135 +323,6 @@ function GrenzeFeld({
         onChange={e => onChange(Number(e.target.value))}
         className="text-[13px]"
       />
-    </div>
-  );
-}
-
-/** Die Subagent-Rollen — nur relevant, wenn das Werkzeug „subagent" gewählt ist. */
-function RollenEditor({
-  value,
-  onChange,
-  werkzeuge,
-}: {
-  value: FlowFormState;
-  onChange: (next: FlowFormState) => void;
-  werkzeuge: FlowToolInfo[];
-}) {
-  const patch = (teil: Partial<FlowFormState>) => onChange({ ...value, ...teil });
-  const setRolle = (i: number, teil: Partial<FlowRole>) =>
-    patch({ rollen: value.rollen.map((r, j) => (j === i ? { ...r, ...teil } : r)) });
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Label>
-          Subagent-Rollen{' '}
-          <span className="font-normal text-muted-foreground text-xs">
-            {'(nur mit Werkzeug „subagent")'}
-          </span>
-        </Label>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => patch({ rollen: [...value.rollen, leereRolle()] })}
-        >
-          <Plus className="size-4" /> Rolle
-        </Button>
-      </div>
-      {value.rollen.map((r, i) => (
-        <div
-          key={i}
-          className="flex flex-col gap-2 rounded-md border border-border p-2.5"
-          data-testid="rolle-row"
-        >
-          <div className="flex items-center gap-2">
-            <Input
-              value={r.name}
-              onChange={e => setRolle(i, { name: e.target.value })}
-              placeholder="rollenname"
-              aria-label={`Name von Rolle ${i + 1}`}
-              className="flex-1 font-mono text-[13px]"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={`Rolle ${i + 1} entfernen`}
-              onClick={() => patch({ rollen: value.rollen.filter((_, j) => j !== i) })}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-          <Textarea
-            value={r.prompt}
-            onChange={e => setRolle(i, { prompt: e.target.value })}
-            placeholder="Anweisung an die Rolle"
-            aria-label={`Prompt von Rolle ${i + 1}`}
-            rows={2}
-            className="resize-y text-[13px]"
-          />
-          <div className="flex items-center gap-2">
-            <Input
-              value={(r.ergebnis.felder ?? []).join(', ')}
-              onChange={e =>
-                setRolle(i, {
-                  ergebnis: {
-                    ...r.ergebnis,
-                    felder: e.target.value
-                      .split(',')
-                      .map(s => s.trim())
-                      .filter(Boolean),
-                  },
-                })
-              }
-              placeholder="Ergebnis-Felder, Komma-getrennt: fazit, quelle"
-              aria-label={`Ergebnis-Felder von Rolle ${i + 1}`}
-              className="flex-1 text-[13px]"
-            />
-            <Input
-              type="number"
-              value={r.ergebnis.max_zeichen}
-              onChange={e =>
-                setRolle(i, { ergebnis: { ...r.ergebnis, max_zeichen: Number(e.target.value) } })
-              }
-              aria-label={`Max. Zeichen von Rolle ${i + 1}`}
-              className="w-24 text-[13px]"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {werkzeuge
-              .filter(w => w.name !== 'subagent')
-              .map(w => {
-                const drin = r.werkzeuge.includes(w.name);
-                return (
-                  <label
-                    key={w.name}
-                    className={cn(
-                      'flex cursor-pointer items-center gap-1.5 rounded border px-1.5 py-0.5 text-[11px] transition-colors',
-                      drin
-                        ? 'border-primary/40 bg-primary/5 text-foreground'
-                        : 'border-border text-muted-foreground hover:bg-accent/50'
-                    )}
-                  >
-                    <Checkbox
-                      checked={drin}
-                      aria-label={`Rolle ${i + 1}: Werkzeug ${w.name}`}
-                      onCheckedChange={() =>
-                        setRolle(i, {
-                          werkzeuge: drin
-                            ? r.werkzeuge.filter(x => x !== w.name)
-                            : [...r.werkzeuge, w.name],
-                        })
-                      }
-                    />
-                    {werkzeugLabel(w.name)}
-                  </label>
-                );
-              })}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
