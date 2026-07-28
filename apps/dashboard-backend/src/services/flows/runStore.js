@@ -72,18 +72,25 @@ async function createRun(
  * @param {'werkzeug'|'subagent'|'modell'|'hinweis'} p.kind
  * @param {string} [p.name]
  * @param {object} [p.input]
+ * @param {number|null} [p.parentStepId] - Eltern-Schritt (Subagent), dessen
+ *   innerer Werkzeug-Aufruf dieser Schritt ist. NULL = oberste Ebene.
+ * @param {string|null} [p.modell] - Das Modell, das diesen Schritt treibt
+ *   (Subagent-Rolle / Modell-Schritt). NULL bei reinen Werkzeug-Schritten.
  * @returns {Promise<object>} Der angelegte Schritt (Status 'laeuft').
  */
-async function startStep({ runId, kind, name = '', input = {} }, { db = database } = {}) {
+async function startStep(
+  { runId, kind, name = '', input = {}, parentStepId = null, modell = null },
+  { db = database } = {}
+) {
   const { rows } = await db.query(
-    `INSERT INTO flow_run_steps (run_id, position, kind, name, input)
+    `INSERT INTO flow_run_steps (run_id, position, kind, name, input, parent_step_id, modell)
      SELECT $1,
             COALESCE(MAX(position) + 1, 0),
-            $2, $3, $4::jsonb
+            $2, $3, $4::jsonb, $5, $6
        FROM flow_run_steps
       WHERE run_id = $1
      RETURNING *`,
-    [runId, kind, name, JSON.stringify(input || {})]
+    [runId, kind, name, JSON.stringify(input || {}), parentStepId, modell]
   );
   return rows[0];
 }
@@ -252,7 +259,7 @@ async function getRun({ runId, userId, includeRaw = false }, { db = database } =
   }
   const spalten = includeRaw
     ? '*'
-    : 'id, run_id, position, kind, name, input, output, status, created_at, finished_at';
+    : 'id, run_id, position, kind, name, input, output, status, created_at, finished_at, parent_step_id, modell';
   const stepsRes = await db.query(
     `SELECT ${spalten} FROM flow_run_steps WHERE run_id = $1 ORDER BY position ASC`,
     [runId]
@@ -262,7 +269,7 @@ async function getRun({ runId, userId, includeRaw = false }, { db = database } =
 
 /** Lädt die neuesten Läufe eines Nutzers (ohne Schritte, für eine Übersicht). */
 async function listRuns(
-  { userId, limit = 50, conversationId = null, status = null },
+  { userId, limit = 50, conversationId = null, status = null, flowName = null },
   { db = database } = {}
 ) {
   const params = [userId];
@@ -274,6 +281,10 @@ async function listRuns(
   if (status != null) {
     params.push(status);
     filter += `AND status = $${params.length} `;
+  }
+  if (flowName != null) {
+    params.push(flowName);
+    filter += `AND flow_name = $${params.length} `;
   }
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(

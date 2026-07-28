@@ -265,7 +265,7 @@ async function runFlow(
     ? { id: existingRunId }
     : await store.createRun({ userId, flowName, arguments: werte, conversationId });
 
-  // Zähler und offene Schritte (weiter unten von `weiter` und `recordSubagent`
+  // Zähler und offene Schritte (weiter unten von `weiter` und dem stepRecorder
   // gemeinsam genutzt) — hier deklariert, damit beide Closures sie sehen.
   let steps = 0;
   const offeneSchritte = new Map(); // toolName → stepId (für den Abschluss)
@@ -277,18 +277,51 @@ async function runFlow(
     maxTiefe: flow.grenzen.max_tiefe,
   });
 
-  // Ein Subagent-Schritt hält BEIDE Seiten fest: das Verdichtete (output, das
-  // der Orchestrator sieht) und das Rohe (raw_output, nur fürs Protokoll).
-  const recordSubagent = async ({ rolle, auftrag, text, raw }) => {
-    const step = await store.startStep({
-      runId: run.id,
-      kind: 'subagent',
-      name: rolle,
-      input: { auftrag },
-    });
-    steps += 1;
-    await store.bumpSteps({ runId: run.id });
-    await store.finishStep({ stepId: step.id, output: text, rawOutput: raw, status: 'fertig' });
+  const emitLive = evt => {
+    if (typeof onEvent === 'function') {
+      try {
+        onEvent(evt);
+      } catch (err) {
+        logger.warn(`Flow "${flowName}": onEvent-Handler warf: ${err.message}`);
+      }
+    }
+  };
+
+  // Live-Ereignisse tragen die Schritt-Zeile OHNE raw_output — die Rohdaten
+  // können 64 KB je Subagent sein und gehören nicht in jeden SSE-Frame; die
+  // Ansicht lädt sie bei Bedarf über `?raw=1` nach.
+  const oeffentlich = step => {
+    if (!step) {
+      return step;
+    }
+    const { raw_output: _weg, ...rest } = step;
+    return rest;
+  };
+
+  // Der EINE Schritt-Schreiber des Laufs. Jeder Schritt — Orchestrator-Werkzeug,
+  // Subagent, dessen innere Werkzeuge (parent_step_id) — läuft hierdurch und
+  // wird zugleich live gemeldet: `step_start` beim Anlegen, `step_end` beim
+  // Abschluss. Die Lauf-Ansicht baut daraus den Agenten-Baum, live wie nachher.
+  const stepRecorder = {
+    beginnen: async ({ kind, name = '', input = {}, parentStepId = null, modell = null }) => {
+      const step = await store.startStep({
+        runId: run.id,
+        kind,
+        name,
+        input,
+        parentStepId,
+        modell,
+      });
+      steps += 1;
+      await store.bumpSteps({ runId: run.id });
+      emitLive({ type: 'step_start', step: oeffentlich(step) });
+      return step;
+    },
+    abschliessen: async ({ stepId, output = null, rawOutput = null, status = 'fertig' }) => {
+      const step = await store.finishStep({ stepId, output, rawOutput, status });
+      emitLive({ type: 'step_end', step: oeffentlich(step) });
+      return step;
+    },
   };
 
   // Der volle Kontext: Werkzeug-Basis + die Lauf-weiten Subagent-Daten. `depth`
@@ -301,7 +334,7 @@ async function runFlow(
     model,
     werkzeugRunden: flow.grenzen.werkzeug_runden,
     roleContextBase,
-    recordSubagent,
+    stepRecorder,
     // Das Abbruch-Signal fließt mit in den Kontext, damit auch die
     // verschachtelten Rollen-Schleifen (Subagent) es prüfen und aufhören.
     signal,
@@ -310,25 +343,23 @@ async function runFlow(
   // Ereignisse der Schleife an den Lauf-Speicher UND an den optionalen Live-Sink
   // durchreichen. Jeder Werkzeug-Aufruf wird ein Schritt.
   const weiter = async evt => {
-    // `subagent` schreibt seinen eigenen, reicheren Schritt (mit Rohdaten) über
-    // `recordSubagent`. Hier NICHT zusätzlich als generischen Werkzeug-Schritt
-    // mitschreiben — sonst stünde die Delegation doppelt im Protokoll.
+    // `subagent` schreibt seinen eigenen, reicheren Schritt (mit Kind-Schritten
+    // und Rohdaten) über den stepRecorder selbst. Hier NICHT zusätzlich als
+    // generischen Werkzeug-Schritt mitschreiben — sonst stünde die Delegation
+    // doppelt im Protokoll.
     const istSubagent = evt.tool === 'subagent';
     try {
       if (evt.type === 'tool_start' && !istSubagent) {
-        const step = await store.startStep({
-          runId: run.id,
+        const step = await stepRecorder.beginnen({
           kind: 'werkzeug',
           name: evt.tool || '',
           input: evt.params || {},
         });
         offeneSchritte.set(evt.tool, step.id);
-        steps += 1;
-        await store.bumpSteps({ runId: run.id });
       } else if (evt.type === 'tool_result' && !istSubagent) {
         const stepId = offeneSchritte.get(evt.tool);
         if (stepId) {
-          await store.finishStep({ stepId, output: evt.result, status: 'fertig' });
+          await stepRecorder.abschliessen({ stepId, output: evt.result });
           offeneSchritte.delete(evt.tool);
         }
       }
@@ -336,12 +367,10 @@ async function runFlow(
       // Das Mitschreiben darf einen laufenden Flow nie zum Absturz bringen.
       logger.warn(`Flow "${flowName}": Schritt konnte nicht gespeichert werden: ${err.message}`);
     }
-    if (typeof onEvent === 'function') {
-      try {
-        onEvent(evt);
-      } catch (err) {
-        logger.warn(`Flow "${flowName}": onEvent-Handler warf: ${err.message}`);
-      }
+    // Werkzeug-Ereignisse gehen als step_start/step_end raus (siehe
+    // stepRecorder) — die rohen tool_*-Ereignisse hier NICHT doppelt senden.
+    if (evt.type !== 'tool_start' && evt.type !== 'tool_result') {
+      emitLive(evt);
     }
   };
 
@@ -408,24 +437,15 @@ async function runFlow(
   };
 
   // Werkzeug-Schritt (B7): führt EIN Werkzeug direkt aus und schreibt den Schritt
-  // mit — das Gegenstück zu `recordSubagent`, aber für den deterministischen
-  // Executor. Liefert die Werkzeug-Ausgabe als String zurück (fürs Threading).
+  // mit — für den deterministischen Executor. Der stepRecorder meldet Anfang und
+  // Ende bereits live (step_start/step_end); eigene tool_*-Ereignisse braucht es
+  // nicht mehr. Liefert die Werkzeug-Ausgabe als String zurück (fürs Threading).
   const recordWerkzeug = async ({ werkzeug, params }) => {
-    const step = await store.startStep({
-      runId: run.id,
+    const step = await stepRecorder.beginnen({
       kind: 'werkzeug',
       name: werkzeug || '',
       input: params || {},
     });
-    steps += 1;
-    await store.bumpSteps({ runId: run.id });
-    if (typeof onEvent === 'function') {
-      try {
-        onEvent({ type: 'tool_start', tool: werkzeug, params });
-      } catch (err) {
-        logger.warn(`Flow "${flowName}": onEvent(tool_start) warf: ${err.message}`);
-      }
-    }
     let ausgabe;
     try {
       const [tool] = makeTools([werkzeug]);
@@ -434,21 +454,14 @@ async function runFlow(
       }
       ausgabe = String(await tool.execute(params, context));
     } catch (err) {
-      await store.finishStep({
+      await stepRecorder.abschliessen({
         stepId: step.id,
         output: `Fehler: ${err.message}`,
         status: 'fehler',
       });
       throw err;
     }
-    await store.finishStep({ stepId: step.id, output: ausgabe, status: 'fertig' });
-    if (typeof onEvent === 'function') {
-      try {
-        onEvent({ type: 'tool_result', tool: werkzeug, result: ausgabe });
-      } catch (err) {
-        logger.warn(`Flow "${flowName}": onEvent(tool_result) warf: ${err.message}`);
-      }
-    }
+    await stepRecorder.abschliessen({ stepId: step.id, output: ausgabe });
     return ausgabe;
   };
 

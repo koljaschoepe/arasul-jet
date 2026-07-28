@@ -121,6 +121,7 @@ router.get(
       limit: req.query.limit,
       conversationId: req.query.conversation_id ?? null,
       status: req.query.status ?? null,
+      flowName: req.query.flow ?? null,
     });
     res.json({ data: runs, timestamp: new Date().toISOString() });
   })

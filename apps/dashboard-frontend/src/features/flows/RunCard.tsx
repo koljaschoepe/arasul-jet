@@ -93,6 +93,22 @@ export default function RunCard({ runId, flowName, onFinished }: RunCardProps) {
   const name = run.flowName ?? flowName ?? '';
   const laeuft = status === 'laeuft';
 
+  // Agenten-Baum: Wurzel-Schritte (ohne Eltern) in Reihenfolge; Kinder je
+  // Eltern-ID nachschlagbar. IDs sind BIGSERIAL — mal Zahl, mal String.
+  const wurzeln = run.steps.filter(s => s.parent_step_id == null);
+  const kinderVon = new Map<string, FlowRunStep[]>();
+  for (const s of run.steps) {
+    if (s.parent_step_id != null) {
+      const key = String(s.parent_step_id);
+      const liste = kinderVon.get(key) ?? [];
+      liste.push(s);
+      kinderVon.set(key, liste);
+    }
+  }
+  const holeKinder = (s: FlowRunStep) => (s.id != null ? (kinderVon.get(String(s.id)) ?? []) : []);
+  const holeRaw = (s: FlowRunStep) =>
+    rawByPos && typeof s.position === 'number' ? rawByPos[s.position] : undefined;
+
   // Wissensbasis-Argumente stehen im Lauf als Raum-UUID — in der Kopfzeile den
   // NAMEN der Sammlung zeigen; eine UUID, die sich nicht auflösen lässt,
   // lieber ausblenden als roh anzeigen. Die Sammlungen sind gecacht (gleicher
@@ -142,21 +158,21 @@ export default function RunCard({ runId, flowName, onFinished }: RunCardProps) {
         )}
       </div>
 
-      {/* Schritte */}
-      {run.steps.length > 0 && (
+      {/* Schritte — als Baum: innere Werkzeug-Aufrufe eines Subagenten hängen
+          unter ihrer Agenten-Zeile (parent_step_id), nicht flach dazwischen. */}
+      {wurzeln.length > 0 && (
         <div data-testid="run-steps">
-          {run.steps.map((step: FlowRunStep, i) => {
-            const pos = step.position ?? i;
-            return (
-              <RunStep
-                key={step.id ?? pos}
-                step={step}
-                rawOutput={rawByPos ? rawByPos[pos] : undefined}
-                rawLoading={rawLoading}
-                onExpand={ladeRaw}
-              />
-            );
-          })}
+          {wurzeln.map((step: FlowRunStep, i) => (
+            <RunStep
+              key={step.id ?? step.position ?? i}
+              step={step}
+              rawOutput={holeRaw(step)}
+              rawLoading={rawLoading}
+              onExpand={ladeRaw}
+              holeKinder={holeKinder}
+              holeRaw={holeRaw}
+            />
+          ))}
         </div>
       )}
 

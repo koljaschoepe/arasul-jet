@@ -137,12 +137,27 @@ interface RunStepProps {
   rawLoading?: boolean;
   /** Wird beim ersten Aufklappen gerufen — Anlass für die Karte, die Rohdaten zu laden. */
   onExpand?: () => void;
+  /** Kind-Schritte eines Schritts (Agenten-Baum) — für Subagent-Zeilen. */
+  holeKinder?: (step: FlowRunStep) => FlowRunStep[];
+  /** Rohdaten eines beliebigen Schritts — für die Kind-Zeilen. */
+  holeRaw?: (step: FlowRunStep) => string | null | undefined;
+  /** Verschachtelungstiefe (0 = oberste Ebene) — steuert nur die Optik. */
+  tiefe?: number;
 }
 
-export default function RunStep({ step, rawOutput, rawLoading, onExpand }: RunStepProps) {
+export default function RunStep({
+  step,
+  rawOutput,
+  rawLoading,
+  onExpand,
+  holeKinder,
+  holeRaw,
+  tiefe = 0,
+}: RunStepProps) {
   const [offen, setOffen] = useState(false);
   const dauer = stepDauer(step);
   const laeuft = step.status === 'laeuft';
+  const kinder = holeKinder ? holeKinder(step) : [];
 
   const toggle = () => {
     const neu = !offen;
@@ -164,6 +179,19 @@ export default function RunStep({ step, rawOutput, rawLoading, onExpand }: RunSt
         />
         <span className="shrink-0 text-muted-foreground">{stepIcon(step)}</span>
         <span className="min-w-0 flex-1 truncate text-foreground">{stepLabel(step)}</span>
+        {kinder.length > 0 && (
+          <span className="shrink-0 rounded bg-muted px-1 text-[10px] tabular-nums text-muted-foreground">
+            {kinder.length} {kinder.length === 1 ? 'Schritt' : 'Schritte'}
+          </span>
+        )}
+        {step.modell && (
+          <span
+            className="hidden shrink-0 truncate rounded bg-muted px-1 text-[10px] text-muted-foreground sm:inline"
+            title={`Modell: ${step.modell}`}
+          >
+            {step.modell}
+          </span>
+        )}
         {dauer && <span className="shrink-0 tabular-nums text-muted-foreground/70">{dauer}</span>}
         {laeuft ? (
           <Loader2 className="size-3 shrink-0 animate-spin text-primary" aria-label="läuft" />
@@ -184,6 +212,31 @@ export default function RunStep({ step, rawOutput, rawLoading, onExpand }: RunSt
                 : JSON.stringify(step.input ?? {}, null, 2)}
             </pre>
           </Abschnitt>
+
+          {/* Agenten-Baum: die inneren Werkzeug-Aufrufe dieses Subagenten als
+              eigene, wieder aufklappbare Zeilen. */}
+          {kinder.length > 0 && (
+            <Abschnitt titel="Arbeitsschritte des Agenten">
+              <div
+                className="overflow-hidden rounded-md border border-border/60"
+                data-testid="run-step-children"
+              >
+                {kinder.map((k, i) => (
+                  <RunStep
+                    key={k.id ?? `${tiefe}-${i}`}
+                    step={k}
+                    rawOutput={holeRaw ? holeRaw(k) : undefined}
+                    rawLoading={rawLoading}
+                    onExpand={onExpand}
+                    holeKinder={holeKinder}
+                    holeRaw={holeRaw}
+                    tiefe={tiefe + 1}
+                  />
+                ))}
+              </div>
+            </Abschnitt>
+          )}
+
           {step.output != null && step.output !== '' && (
             <Abschnitt titel="Ergebnis">
               <div className="whitespace-pre-wrap break-words text-foreground">{step.output}</div>
