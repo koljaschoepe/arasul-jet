@@ -101,7 +101,7 @@ src/
       shadcn/      shadcn/ui primitives (button, input, …) — generated.
     layout/        Sidebar, navigation chrome.
     editor/        Rich-text / code editors.
-  hooks/           Cross-feature hooks (useApi, useFetchData, useTheme, …).
+  hooks/           Cross-feature hooks (useApi, useTheme, …).
   contexts/        Global state (Auth, Toast, Chat, Download, Activation).
   stores/          zustand stores (workspaceStore: Tabs, Panels, Chat-Scope).
   lib/             queryClient, cn() helper.

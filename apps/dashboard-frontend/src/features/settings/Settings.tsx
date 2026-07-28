@@ -42,7 +42,6 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
   useEffect(() => {
     const param = searchParams.get('tab');
     if (param) setActiveSection(resolveTab(param));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const confirmThenLogout = async () => {

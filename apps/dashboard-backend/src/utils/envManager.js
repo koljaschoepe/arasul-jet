@@ -4,7 +4,6 @@
  */
 
 const fs = require('fs').promises;
-const path = require('path');
 const logger = require('./logger');
 
 // Path to .env file (in project root, mounted as volume)
