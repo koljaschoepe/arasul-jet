@@ -24,6 +24,7 @@ import ProjectListPanel from './ProjectListPanel';
 import CreateProjectDialog from './CreateProjectDialog';
 import EditProjectDialog from './EditProjectDialog';
 import SandboxTerminal from './SandboxTerminal';
+import WerkstattLeiste from './WerkstattLeiste';
 import { nextTerminalSession, type OpenSession } from './sessionModel';
 import type { SandboxProject, SandboxStats } from './types';
 
@@ -329,9 +330,14 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
         {openSessions.map(({ session, project }) => (
           <div
             key={session.id}
-            className="absolute inset-0"
+            className="absolute inset-0 flex-col"
             style={{ display: session.id === activeTabId ? 'flex' : 'none' }}
           >
+            {/* Werkstatt-Sandboxes bekommen die Live-Schalten-Leiste über dem
+                Terminal — bauen, freischalten, App-Tab öffnen in einem Klick. */}
+            {project.workspace_type === 'erweiterungs-werkstatt' && (
+              <WerkstattLeiste projekt={project} />
+            )}
             <SandboxTerminal
               projectId={project.id}
               terminalName={session.terminalName}

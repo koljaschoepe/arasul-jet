@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
+import { ProjektAnschlussSelect } from './ProjektAnschlussSelect';
 import type { SandboxProject, SandboxNetworkMode, SandboxWorkspaceType } from './types';
 
 interface CreateProjectDialogProps {
@@ -31,6 +32,7 @@ export default function CreateProjectDialog({
   const [description, setDescription] = useState('');
   const [networkMode, setNetworkMode] = useState<SandboxNetworkMode>('isolated');
   const [workspaceType, setWorkspaceType] = useState<SandboxWorkspaceType>('standard');
+  const [projektId, setProjektId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -60,6 +62,7 @@ export default function CreateProjectDialog({
           color: DEFAULT_PROJECT_COLOR,
           network_mode: networkMode,
           workspaceType,
+          project_id: projektId ?? undefined,
         },
         { showError: false }
       );
@@ -79,6 +82,7 @@ export default function CreateProjectDialog({
     setDescription('');
     setNetworkMode('isolated');
     setWorkspaceType('standard');
+    setProjektId(null);
     setError(null);
   };
 
@@ -262,6 +266,8 @@ export default function CreateProjectDialog({
             </div>
           )}
         </div>
+
+        <ProjektAnschlussSelect value={projektId} onChange={setProjektId} />
 
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border/50 text-xs text-muted-foreground">
           <Folder className="size-4 shrink-0" />
