@@ -9,10 +9,20 @@
  */
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { EMPTY_MODEL_FILTERS } from '../storeModelFilters';
 import { StoreModelsGrid } from '../StoreModelsGrid';
+
+// Das Kopf-Dashboard fragt /models/memory-budget + /models/default ab und zeigt
+// Toasts — hier stubben, der Test prüft das Kartenraster, nicht das Dashboard.
+vi.mock('@/hooks/useApi', () => ({
+  useApi: () => ({ get: vi.fn(async () => ({})), post: vi.fn(async () => ({})) }),
+}));
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+}));
 
 type Model = {
   id: string;
@@ -61,7 +71,12 @@ vi.mock('@/contexts/DownloadContext', () => ({
 }));
 
 function renderGrid() {
-  return render(<StoreModelsGrid />);
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <StoreModelsGrid />
+    </QueryClientProvider>
+  );
 }
 
 const model = (over: Partial<Model> = {}): Model => ({
@@ -90,9 +105,11 @@ describe('StoreModelsGrid', () => {
   it('zeigt Größe und Status „Installiert" für ein heruntergeladenes Modell', () => {
     catalog.models = [model({ install_status: 'available' })];
     renderGrid();
-    expect(screen.getByText('Qwen3 7B')).toBeInTheDocument();
-    expect(screen.getByText('4.7 GB')).toBeInTheDocument();
+    // „Qwen3 7B" steht jetzt auch in der Standardmodell-Auswahl des Dashboards —
+    // die Karten-Assertion daher auf die Karte scopen.
     const card = screen.getByTestId('model-card-qwen3-7b');
+    expect(within(card).getByText('Qwen3 7B')).toBeInTheDocument();
+    expect(within(card).getByText('4.7 GB')).toBeInTheDocument();
     expect(within(card).getByText('Installiert')).toBeInTheDocument();
   });
 

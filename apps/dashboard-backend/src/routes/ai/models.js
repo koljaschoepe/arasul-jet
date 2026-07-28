@@ -214,7 +214,14 @@ router.post(
     );
 
     if (typeResult.rows.length === 0) {
-      throw new NotFoundError(`Modell "${modelId}" nicht im Katalog gefunden`);
+      // Nicht im Katalog (z. B. ein direkt in Ollama geladenes Modell wie
+      // `qwen3:14b`, das im Modell-Dashboard „im RAM" auftaucht): modelId direkt
+      // als Ollama-Namen entladen. Entladen ist idempotent und harmlos — kein
+      // Grund, es an der Katalog-Lücke scheitern zu lassen.
+      const result = await modelService.unloadModel(modelId);
+      cacheService.invalidate(CACHE_KEYS.STATUS);
+      cacheService.invalidate(CACHE_KEYS.INSTALLED);
+      return res.json({ ...result, model: modelId });
     }
 
     if (typeResult.rows[0].model_type === 'ocr') {
