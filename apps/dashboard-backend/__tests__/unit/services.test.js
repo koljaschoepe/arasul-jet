@@ -486,7 +486,12 @@ describe('ModelService', () => {
             mockAxios.get.mockResolvedValueOnce({
                 data: { models: [{ name: 'model-1' }, { name: 'model-2' }] }
             });
-            mockDb.query.mockResolvedValue({ rows: [{ id: 'model-1' }] });
+            // Leere DB-Rows: die Sync-Helfer (markAvailable/markMissing/
+            // cleanupStale) und resumePausedDownloads laufen so sauber als No-op
+            // durch. Ein Blanket-Mock mit Rows ließe resumePausedDownloads einen
+            // vermeintlich pausierten Download finden und würde downloadModel()
+            // fire-and-forget auslösen (echter Pull → Retry-Fehler + Worker-Leak).
+            mockDb.query.mockResolvedValue({ rows: [] });
 
             const result = await service.syncWithOllama();
 
