@@ -27,6 +27,7 @@ import { useWorkspaceStore, tabId } from '@/stores/workspaceStore';
 import { useFlowEditorStore } from '@/stores/flowEditorStore';
 import type { FlowDefinition, FlowToolInfo } from '@/types/flows';
 import FlowForm from './FlowForm';
+import FlowDashboard from './FlowDashboard';
 import MarkdownPreview from './MarkdownPreview';
 import { fromDefinition, LEER_FORM, toBody, type FlowFormState } from './flowFormState';
 
@@ -38,11 +39,14 @@ export default function FlowEditorTab() {
   const queryClient = useQueryClient();
 
   const editName = useFlowEditorStore(s => s.editName);
+  const mode = useFlowEditorStore(s => s.mode);
   const setEditTarget = useFlowEditorStore(s => s.setEditTarget);
   const closeTab = useWorkspaceStore(s => s.closeTab);
   const updateTabTitle = useWorkspaceStore(s => s.updateTabTitle);
 
   const bearbeiten = editName !== null;
+  // Dashboard-Ansicht (Flow-Zentrale) vs. Editor. Der geladene Flow speist beide.
+  const ansicht = mode === 'view' && editName !== null;
 
   const [form, setForm] = useState<FlowFormState>(LEER_FORM);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -91,8 +95,11 @@ export default function FlowEditorTab() {
   // Der Tab-Titel folgt dem Ziel — so ist am Reiter erkennbar, welcher Flow
   // gerade offen ist (oder dass ein neuer entsteht).
   useEffect(() => {
-    updateTabTitle(FLOW_TAB_ID, editName ? `Flow: /${editName}` : 'Neuer Flow');
-  }, [editName, updateTabTitle]);
+    updateTabTitle(
+      FLOW_TAB_ID,
+      editName ? (ansicht ? `/${editName}` : `Flow: /${editName}`) : 'Neuer Flow'
+    );
+  }, [editName, ansicht, updateTabTitle]);
 
   const speichern = async () => {
     setSpeichert(true);
@@ -148,6 +155,31 @@ export default function FlowEditorTab() {
       setLoescht(false);
     }
   };
+
+  // Flow-Zentrale (Dashboard-Ansicht): read-only Betriebssicht mit Trigger-URL,
+  // Läufen, Ausgabeort und Pipeline. „Bearbeiten" wechselt in den Editor unten.
+  if (ansicht) {
+    return (
+      <>
+        <FlowDashboard
+          name={editName}
+          flow={geladen}
+          onEdit={() => setEditTarget(editName, 'edit')}
+          onDelete={() => setLoeschDialog(true)}
+        />
+        <ConfirmModal
+          isOpen={loeschDialog}
+          onClose={() => setLoeschDialog(false)}
+          onConfirm={loeschen}
+          title="Flow löschen"
+          message={`Den Flow „${editName}" wirklich löschen? Das kann nicht rückgängig gemacht werden.`}
+          confirmText="Löschen"
+          confirmVariant="danger"
+          isLoading={loescht}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="flow-editor-tab">

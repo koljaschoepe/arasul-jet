@@ -27,8 +27,9 @@ export function FlowsPanel() {
     );
   }, [flows, query]);
 
-  const oeffneEditor = (editName: string | null) => {
-    setEditTarget(editName);
+  // Klick auf einen Flow → Flow-Zentrale (Dashboard). »Neuer Flow« → leerer Editor.
+  const oeffneFlow = (editName: string | null, mode: 'view' | 'edit') => {
+    setEditTarget(editName, mode);
     openTab({ type: 'flow' });
   };
 
@@ -40,7 +41,7 @@ export function FlowsPanel() {
           type="button"
           aria-label="Neuer Flow"
           title="Neuer Flow"
-          onClick={() => oeffneEditor(null)}
+          onClick={() => oeffneFlow(null, 'edit')}
           className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
@@ -55,7 +56,7 @@ export function FlowsPanel() {
           <p className="text-sm text-muted-foreground">Noch keine Flows angelegt.</p>
           <button
             type="button"
-            onClick={() => oeffneEditor(null)}
+            onClick={() => oeffneFlow(null, 'edit')}
             className="text-sm font-medium text-primary hover:underline"
           >
             Flow anlegen
@@ -80,7 +81,7 @@ export function FlowsPanel() {
                   <button
                     type="button"
                     data-testid={`flow-open-${flow.name}`}
-                    onClick={() => oeffneEditor(flow.name)}
+                    onClick={() => oeffneFlow(flow.name, 'view')}
                     className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left hover:bg-accent/50"
                   >
                     <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
