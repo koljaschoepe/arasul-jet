@@ -229,7 +229,21 @@ async function processAgentChatJob(ctx, job) {
 
   // --- Kontext: aktives Projekt, Ablage-Wurzel, Ziel-Ordner, Wissensräume ----
   const projectId = await projectService.getActiveProjectId();
-  const spaceIds = projectId ? await projectService.getProjectSpaceIds(projectId) : [];
+  // Scope der Wissensraum-Suche: ein per Drag gesetzter Ordner-Fokus
+  // (space_ids) hat Vorrang; sonst alle Ordner des aktiven Projekts. NIE mit
+  // leerer Liste weiterarbeiten — rag_suche behandelt [] als „ohne Filter"
+  // und suchte dann über ALLE Räume (RAG-Isolationsregel). Der Sentinel hält
+  // ein ordnerloses Projekt auf sich selbst gescopt (wie routes/rag.js).
+  const EMPTY_SCOPE_SENTINEL = '00000000-0000-0000-0000-000000000000';
+  let spaceIds =
+    Array.isArray(requestData.space_ids) && requestData.space_ids.length > 0
+      ? requestData.space_ids
+      : projectId
+        ? await projectService.getProjectSpaceIds(projectId)
+        : [];
+  if (spaceIds.length === 0) {
+    spaceIds = [EMPTY_SCOPE_SENTINEL];
+  }
   const wurzel = await projektOrdner(projectId);
   let arbeitsOrdner = wurzel;
   let zielPrefix = '';
@@ -441,11 +455,18 @@ async function processAgentChatJob(ctx, job) {
           });
         }
 
-        // Geschriebene Ablage-Datei → Datei-Karte (live + persistiert).
-        if (toolName === 'dateien_schreiben' && /^Datei "/.test(result) && params.pfad) {
-          const relPfad = zielPrefix
-            ? path.posix.join(zielPrefix, String(params.pfad))
-            : String(params.pfad);
+        // Geschriebene Ablage-Datei → Datei-Karte (live + persistiert). Nur für
+        // saubere RELATIVE Pfade — ein absoluter Pfad (zeigt auf roots[1])
+        // ließe die Karte auf einen falsch zusammengesetzten Pfad zeigen.
+        const pfadStr = String(params.pfad || '');
+        if (
+          toolName === 'dateien_schreiben' &&
+          /^Datei "/.test(result) &&
+          pfadStr &&
+          !path.isAbsolute(pfadStr) &&
+          !pfadStr.split('/').includes('..')
+        ) {
+          const relPfad = zielPrefix ? path.posix.join(zielPrefix, pfadStr) : pfadStr;
           const datei = {
             art: 'projektdatei',
             project_id: projectId,

@@ -53,6 +53,8 @@ var ChatBody = import_zod.z.object({
   // Zielordner in der Projektablage (per Drag & Drop gesetzt).
   agent: import_zod.z.boolean().optional(),
   datei_modus: import_zod.z.boolean().optional(),
+  // Ordner-Fokus („Mit Ordner chatten"-Drag): scopt die rag_suche des Agenten.
+  space_ids: import_zod.z.array(import_zod.z.string().max(100)).max(20).optional().nullable(),
   ablage_ziel: import_zod.z.string().trim().max(500).refine((v) => !v.startsWith("/") && !v.split("/").includes(".."), {
     message: "ablage_ziel muss relativ und ohne .. sein"
   }).optional().nullable()

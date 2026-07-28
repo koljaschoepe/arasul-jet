@@ -151,7 +151,7 @@ function agentStepLabel(step: AgentToolStep): string {
     case 'dateien_schreiben':
       return `schreibt ${str(p.pfad) || 'Datei'}`;
     case 'dateien_suchen': {
-      const muster = str(p.muster) || str(p.suchbegriff) || str(p.query);
+      const muster = str(p.muster) || str(p.text) || str(p.suchbegriff) || str(p.query);
       return muster ? `sucht Dateien: ${muster}` : 'durchsucht Dateien';
     }
     case 'rag':
@@ -164,7 +164,7 @@ function agentStepLabel(step: AgentToolStep): string {
       return q ? `sucht im Web: ${q}` : 'sucht im Web';
     }
     case 'web_lesen':
-      return `liest ${str(p.url) || 'eine Webseite'}`;
+      return `liest ${str(p.adresse) || str(p.url) || 'eine Webseite'}`;
     case 'terminal': {
       const cmd = str(p.befehl) || str(p.command);
       return cmd ? `führt aus: ${cmd}` : 'führt einen Befehl aus';

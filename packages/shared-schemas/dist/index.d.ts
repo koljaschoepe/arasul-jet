@@ -17,6 +17,7 @@ declare const ChatBody: z.ZodObject<{
     images: z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodString>>>;
     agent: z.ZodOptional<z.ZodBoolean>;
     datei_modus: z.ZodOptional<z.ZodBoolean>;
+    space_ids: z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodString>>>;
     ablage_ziel: z.ZodNullable<z.ZodOptional<z.ZodString>>;
 }, z.core.$strict>;
 type ChatInput = z.infer<typeof ChatBody>;

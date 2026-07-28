@@ -56,6 +56,8 @@ const chatContext = {
 };
 vi.mock('@/contexts/ChatContext', () => ({
   useChatContext: () => chatContext,
+  // Reale Hilfsfunktion (kein Hook): normalisiert datei (Objekt|Liste) → Liste.
+  dateiListe: (datei: unknown) => (!datei ? [] : Array.isArray(datei) ? datei : [datei]),
 }));
 
 // Flow-Menü (Plan 011, Schritt 13): der Panel liest die Flow-Liste (React Query)
@@ -94,7 +96,7 @@ describe('AgentChatPanel', () => {
     expect(screen.queryByText(/Thinking/i)).not.toBeInTheDocument();
   });
 
-  it('erstellt beim ersten Senden lazy einen Chat und sendet mit Auto-RAG', async () => {
+  it('erstellt beim ersten Senden lazy einen Chat und sendet im Agent-Modus', async () => {
     renderPanel();
     fireEvent.change(screen.getByLabelText('Nachricht an die KI'), {
       target: { value: 'Was steht im Handbuch?' },
@@ -106,7 +108,9 @@ describe('AgentChatPanel', () => {
     const call = sendMessage.mock.calls[0]!;
     expect(call[0]).toBe('42');
     expect(call[1]).toBe('Was steht im Handbuch?');
-    expect(call[2].useRAG).toBe(true);
+    // Agent-Modus (2026-07-28): Werkzeugschleife statt Client-RAG-Vorlauf.
+    expect(call[2].agent).toBe(true);
+    expect(call[2].useRAG).toBe(false);
     expect(call[2].useThinking).toBe(true); // Default-Modell unterstützt Thinking
   });
 
@@ -187,21 +191,21 @@ describe('CompactMessage', () => {
           agent: 'texter',
           steps: [
             {
-              tool: 'dateien',
+              tool: 'dateien_lesen',
               params: { aktion: 'read', pfad: 'brief.md' },
               status: 'done',
               result: 'Inhalt',
             },
-            { tool: 'rag', params: { frage: 'Kündigungsfrist' }, status: 'running' },
-            { tool: 'terminal', params: { befehl: 'ls -la' }, status: 'done' },
+            { tool: 'rag_suche', params: { frage: 'Kündigungsfrist' }, status: 'running' },
+            { tool: 'dateien_schreiben', params: { pfad: 'angebot.html' }, status: 'done' },
           ],
         }}
       />
     );
     expect(screen.getByText('liest brief.md')).toBeInTheDocument();
     // Laufender Schritt bekommt das Ellipsis-Suffix
-    expect(screen.getByText('sucht: Kündigungsfrist …')).toBeInTheDocument();
-    expect(screen.getByText('führt aus: ls -la')).toBeInTheDocument();
+    expect(screen.getByText('sucht im Wissen: Kündigungsfrist …')).toBeInTheDocument();
+    expect(screen.getByText('schreibt angebot.html')).toBeInTheDocument();
     // Ergebnis eines Schritts ist einklappbar
     expect(screen.queryByText('Inhalt')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('liest brief.md'));

@@ -1148,6 +1148,8 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                   agent: true,
                   ...(options.alsDatei ? { datei_modus: true } : {}),
                   ...(options.dateiZiel?.pfad ? { ablage_ziel: options.dateiZiel.pfad } : {}),
+                  // Ordner-Fokus (gezogener Scope) scopt die Agent-Wissenssuche.
+                  ...(selectedSpaces.length > 0 ? { space_ids: selectedSpaces } : {}),
                 }
               : {}),
           };

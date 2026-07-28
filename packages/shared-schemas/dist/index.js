@@ -23,6 +23,8 @@ var ChatBody = z.object({
   // Zielordner in der Projektablage (per Drag & Drop gesetzt).
   agent: z.boolean().optional(),
   datei_modus: z.boolean().optional(),
+  // Ordner-Fokus („Mit Ordner chatten"-Drag): scopt die rag_suche des Agenten.
+  space_ids: z.array(z.string().max(100)).max(20).optional().nullable(),
   ablage_ziel: z.string().trim().max(500).refine((v) => !v.startsWith("/") && !v.split("/").includes(".."), {
     message: "ablage_ziel muss relativ und ohne .. sein"
   }).optional().nullable()
