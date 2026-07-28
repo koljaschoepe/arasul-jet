@@ -120,21 +120,27 @@ router.get(
       `,
         [activeProjectId]
       ),
-      pool.query(`
+      // Dokumente werden auf das AKTIVE Projekt gescopt (Migration 122). Das
+      // schließt Root-Dateien (space_id NULL) ein — genau die hingen früher an
+      // keinem Projekt und tauchten in jedem Projekt auf (Bug 2026-07-28).
+      pool.query(
+        `
         SELECT id, filename, title, status, space_id, is_context_file,
                mime_type, file_extension, file_size
           FROM documents
          WHERE deleted_at IS NULL AND status <> 'deleted'
+           AND project_id = $1
          ORDER BY filename
-      `),
+      `,
+        [activeProjectId]
+      ),
     ]);
 
-    // Plan 008 Schritt 13: Dokumente aus unsichtbaren Workspace-Wissensräumen
-    // gehören nicht in den Dokumenten-Explorer. Da die Spaces-Abfrage die
-    // is_workspace-Spaces bereits ausblendet, ist deren id nicht in der
-    // sichtbaren Menge — ein Dokument mit einer solchen (nicht sichtbaren)
-    // space_id wird hier herausgefiltert. Dokumente ohne space_id (null)
-    // bleiben erhalten.
+    // Zusätzliche Sicherung: Dokumente aus unsichtbaren Workspace-Wissensräumen
+    // (is_workspace = TRUE) gehören nicht in den Explorer. Diese tragen zwar
+    // project_id NULL und sind damit schon durch das Projekt-Scoping oben raus;
+    // die Space-Sichtbarkeitsprüfung bleibt als Backstop. Root-Dateien
+    // (space_id null) des aktiven Projekts bleiben erhalten.
     const visibleSpaceIds = new Set(spacesResult.rows.map(s => s.id));
     const documents = docsResult.rows.filter(
       d => d.space_id == null || visibleSpaceIds.has(d.space_id)
@@ -429,6 +435,18 @@ router.put(
            SELECT ks.id FROM knowledge_spaces ks JOIN subtree s ON ks.parent_id = s.id
          )
          UPDATE knowledge_spaces SET project_id = $2 WHERE id IN (SELECT id FROM subtree)`,
+        [id, project_id]
+      );
+      // Die Dokumente in diesen Ordnern folgen dem Projekt mit (Migration 122) —
+      // sonst hinge eine Datei in einem verschobenen Ordner am alten Projekt und
+      // verschwände aus beiden Explorer-Ansichten.
+      await pool.query(
+        `WITH RECURSIVE subtree AS (
+           SELECT id FROM knowledge_spaces WHERE id = $1
+           UNION ALL
+           SELECT ks.id FROM knowledge_spaces ks JOIN subtree s ON ks.parent_id = s.id
+         )
+         UPDATE documents SET project_id = $2 WHERE space_id IN (SELECT id FROM subtree)`,
         [id, project_id]
       );
     }

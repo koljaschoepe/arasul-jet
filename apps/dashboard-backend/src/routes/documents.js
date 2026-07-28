@@ -46,6 +46,22 @@ const minioService = require('../services/documents/minioService');
 const qdrantService = require('../services/documents/qdrantService');
 const documentService = require('../services/documents/documentService');
 
+/**
+ * SQL-Ausdruck für die Projekt-Zuordnung eines NEU erzeugten Dokuments — direkt
+ * in der INSERT-Query, damit kein zusätzlicher JS-Round-Trip nötig ist. `$N` ist
+ * der space_id-Parameter. Reihenfolge: Projekt des Ordners → aktives Projekt →
+ * Standard-Projekt. So erbt jede neue Datei genau das Projekt, in dem der Nutzer
+ * gerade ist, statt projektlos in jedem Projekt aufzutauchen (Bug 2026-07-28,
+ * Migration 122).
+ */
+function projectIdExpr(spaceParam) {
+  return `COALESCE(
+    (SELECT project_id FROM knowledge_spaces WHERE id = ${spaceParam}),
+    (SELECT active_project_id FROM system_settings WHERE id = 1),
+    (SELECT id FROM projects WHERE is_default = TRUE)
+  )`;
+}
+
 // Größen-Limit für Uploads.
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -395,8 +411,8 @@ router.post(
         `INSERT INTO documents (
               id, filename, original_filename, file_path, file_size,
               mime_type, file_extension, content_hash, file_hash,
-              status, uploaded_by, space_id
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+              status, uploaded_by, space_id, project_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, ${projectIdExpr('$12')})
           ON CONFLICT (content_hash) WHERE deleted_at IS NULL AND status <> 'deleted'
           DO NOTHING
           RETURNING id`,
@@ -593,17 +609,29 @@ router.put(
     const oldSpaceId = docResult.rows[0].space_id;
     const newSpaceId = space_id || null;
 
-    // Validate new space_id if provided
+    // Validate new space_id if provided — und dabei das Zielprojekt ermitteln.
+    let newSpaceProjectId = null;
     if (newSpaceId) {
-      const spaceCheck = await pool.query('SELECT id FROM knowledge_spaces WHERE id = $1', [
-        newSpaceId,
-      ]);
+      const spaceCheck = await pool.query(
+        'SELECT id, project_id FROM knowledge_spaces WHERE id = $1',
+        [newSpaceId]
+      );
       if (spaceCheck.rows.length === 0) {
         throw new ValidationError('Ungültiger Wissensbereich');
       }
+      newSpaceProjectId = spaceCheck.rows[0].project_id;
     }
 
     await documentService.moveDocument(id, oldSpaceId, newSpaceId);
+
+    // Das Dokument folgt dem Projekt seines neuen Ordners (Migration 122). Beim
+    // Verschieben in die Wurzel (kein Ordner) bleibt das Projekt unverändert.
+    if (newSpaceProjectId) {
+      await pool.query('UPDATE documents SET project_id = $1 WHERE id = $2', [
+        newSpaceProjectId,
+        id,
+      ]);
+    }
 
     res.json({
       status: 'moved',
@@ -1006,8 +1034,8 @@ router.post(
             id, filename, original_filename, file_path, file_size,
             mime_type, file_extension, content_hash, file_hash,
             status, uploaded_by, space_id, title,
-            char_count, word_count
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            char_count, word_count, project_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, ${projectIdExpr('$12')})
         ON CONFLICT (content_hash) WHERE deleted_at IS NULL AND status <> 'deleted'
         DO NOTHING
         RETURNING id`,
@@ -1171,17 +1199,27 @@ router.post(
     const newSpaceId = space_id || null;
 
     // Validate space
+    let newSpaceProjectId = null;
     if (newSpaceId) {
       const spaceCheck = await pool.query(
-        'SELECT id, name, slug FROM knowledge_spaces WHERE id = $1',
+        'SELECT id, name, slug, project_id FROM knowledge_spaces WHERE id = $1',
         [newSpaceId]
       );
       if (spaceCheck.rows.length === 0) {
         throw new ValidationError('Ungültiger Wissensbereich');
       }
+      newSpaceProjectId = spaceCheck.rows[0].project_id;
     }
 
     const result = await documentService.batchMove(ids, newSpaceId);
+
+    // Die verschobenen Dokumente folgen dem Projekt des Zielordners (Migration 122).
+    if (newSpaceProjectId) {
+      await pool.query('UPDATE documents SET project_id = $1 WHERE id = ANY($2)', [
+        newSpaceProjectId,
+        ids,
+      ]);
+    }
 
     res.json({
       moved: result.moved,
