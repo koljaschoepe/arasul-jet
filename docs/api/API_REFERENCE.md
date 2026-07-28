@@ -258,11 +258,25 @@ Marks the setup wizard as skipped. The wizard will not be shown again, but setti
   "message": "Your question here",
   "conversation_id": "uuid", // optional
   "model": "gemma4:26b-q4", // optional
-  "system_prompt": "..." // optional
+  "system_prompt": "...", // optional
+  "agent": true, // optional: Agent-Modus (Werkzeugschleife) — Standard im Workspace-Chat
+  "datei_modus": false, // optional: Antwort ausdrücklich als Ablage-Datei erzeugen
+  "ablage_ziel": "kunden/mueller" // optional: relativer Ziel-Ordner in der Projektablage
 }
 ```
 
 Response: Server-Sent Events (SSE) stream
+
+**Agent-Modus (2026-07-28):** Mit `agent: true` läuft die Nachricht als
+Werkzeug-Lauf (Ollama function calling): das Modell kann `rag_suche`,
+`dateien_lesen|schreiben|suchen` (Projektablage des aktiven Projekts),
+`web_suche`, `web_lesen` und `subagent` (Rolle „rechercheur") selbst aufrufen.
+Antwort-Token streamen wie bisher (`response`); zusätzlich kommen
+`agent_step`-Frames (`{phase: 'start'|'end', step}`) und `agent_datei`-Frames
+für geschriebene Ablage-Dateien. Schritte und Datei-Verweise werden an der
+Nachricht persistiert (`chat_messages.schritte` / `.datei`, Migrationen 127/128).
+Bild-Nachrichten und Modelle ohne Tool-Unterstützung fallen automatisch auf den
+klassischen Stream zurück (`warning`-Code `AGENT_TOOLS_UNSUPPORTED`).
 
 **SSE frame catalogue** (selected — full list in `services/llm/llmJobProcessor.js`):
 
@@ -271,11 +285,14 @@ Response: Server-Sent Events (SSE) stream
 | `job_started`                                     | —                              | Job entered the queue with an id.                                                                         |
 | `status`                                          | `VISION_PROCESSING`            | (P6) Image is being captioned by a vision model before primary stream starts. Payload: `vision_via`.      |
 | `warning`                                         | `THINKING_NOT_SUPPORTED`       | Requested think-mode but model lacks support; disabled silently.                                          |
+| `warning`                                         | `AGENT_TOOLS_UNSUPPORTED`      | Agent-Modus angefragt, Modell kann kein Tool-Calling — Antwort ohne Werkzeuge.                            |
 | `warning`                                         | `VISION_FALLBACK_ACTIVE`       | (P6) Image was captioned by a vision model; primary streams with caption injected. Payload: `vision_via`. |
 | `warning`                                         | `VISION_FALLBACK_SKIPPED`      | (P6) Vision fallback returned no caption; primary streams without image context.                          |
 | `warning`                                         | `NO_VISION_FALLBACK_AVAILABLE` | (P6) Primary is text-only and no vision model is installed; images dropped.                               |
 | `context_info`                                    | —                              | Token-budget breakdown for the request.                                                                   |
 | `compaction`                                      | —                              | Older messages were summarized to fit context budget.                                                     |
+| `agent_step`                                      | —                              | Agent-Werkzeugschritt: `{phase: 'start'\|'end', step: {id, kind, name, input, output, status}}`.          |
+| `agent_datei`                                     | —                              | Vom Agenten geschriebene Ablage-Datei: `{datei: {art, project_id, pfad, name}}`.                          |
 | `thinking` / `thinking_end` / `response` / `done` | —                              | Streaming content frames.                                                                                 |
 
 ### Chat Conversations

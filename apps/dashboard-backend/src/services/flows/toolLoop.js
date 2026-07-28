@@ -217,4 +217,4 @@ async function runFlowLoop({
   }
 }
 
-module.exports = { runFlowLoop, callOllama, CALL_TIMEOUT_MS, _clearOllamaNameCache };
+module.exports = { runFlowLoop, callOllama, zuOllamaName, CALL_TIMEOUT_MS, _clearOllamaNameCache };

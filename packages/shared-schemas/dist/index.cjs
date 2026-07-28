@@ -47,7 +47,17 @@ var ChatBody = import_zod.z.object({
   model: import_zod.z.string().max(200).optional().nullable(),
   model_sequence: import_zod.z.array(import_zod.z.string().max(200)).max(10).optional().nullable(),
   priority: import_zod.z.number().int().min(0).max(10).optional(),
-  images: import_zod.z.array(import_zod.z.string()).max(5, "Maximal 5 Bilder pro Nachricht erlaubt").optional().nullable()
+  images: import_zod.z.array(import_zod.z.string()).max(5, "Maximal 5 Bilder pro Nachricht erlaubt").optional().nullable(),
+  // Agent-Modus (2026-07-28): Werkzeugschleife im Chat. `datei_modus` bittet
+  // den Agenten ausdrücklich um eine Datei; `ablage_ziel` ist ein relativer
+  // Zielordner in der Projektablage (per Drag & Drop gesetzt).
+  agent: import_zod.z.boolean().optional(),
+  datei_modus: import_zod.z.boolean().optional(),
+  // Ordner-Fokus („Mit Ordner chatten"-Drag): scopt die rag_suche des Agenten.
+  space_ids: import_zod.z.array(import_zod.z.string().max(100)).max(20).optional().nullable(),
+  ablage_ziel: import_zod.z.string().trim().max(500).refine((v) => !v.startsWith("/") && !v.split("/").includes(".."), {
+    message: "ablage_ziel muss relativ und ohne .. sein"
+  }).optional().nullable()
 }).strict();
 
 // src/errors.ts

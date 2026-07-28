@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, FolderKanban, Check, ChevronsUpDown, Wifi } from 'lucide-react';
+import { Cpu, FolderKanban, ChevronsUpDown, Wifi } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -255,17 +255,24 @@ export function StatusBar() {
                   const isDefault = defaultModelId === m.id;
                   return (
                     <li key={m.id}>
+                      {/* Auswahl ohne Icon-Spalte (Nutzer-Entscheid 2026-07-28):
+                        das Standardmodell ist fett und dezent hinterlegt. */}
                       <button
                         type="button"
                         disabled={setDefault.isPending}
                         onClick={() => setDefault.mutate(m.id)}
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-accent disabled:opacity-60"
+                        aria-current={isDefault || undefined}
+                        className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-accent disabled:opacity-60 ${
+                          isDefault ? 'bg-accent/60' : ''
+                        }`}
                       >
-                        <Check
-                          className={`h-3.5 w-3.5 shrink-0 ${isDefault ? 'text-primary' : 'opacity-0'}`}
-                          aria-hidden="true"
-                        />
-                        <span className="min-w-0 flex-1 truncate text-foreground">{m.name}</span>
+                        <span
+                          className={`min-w-0 flex-1 truncate ${
+                            isDefault ? 'font-semibold text-foreground' : 'text-foreground'
+                          }`}
+                        >
+                          {m.name}
+                        </span>
                         {active && (
                           <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-success">
                             im RAM

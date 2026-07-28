@@ -766,11 +766,18 @@
 | `sources`         | jsonb                    | ✅       |                                            |
 | `matched_spaces`  | jsonb                    | ✅       |                                            |
 | `datei`           | jsonb                    | ✅       |                                            |
+| `schritte`        | jsonb                    | ✅       |                                            |
 
 `datei` (Migration 127): Datei-Verweis der Nachricht —
 `{ art: 'projektdatei', project_id, pfad, name }` für in der Projektablage
 gespeicherte Antworten (Karte im Chat) bzw. `{ art: 'anhang', name }` für
-hochgeladene Anhänge an Nutzer-Nachrichten.
+hochgeladene Anhänge an Nutzer-Nachrichten. Der Chat-Agent kann mehrere
+Dateien in einem Lauf schreiben — dann trägt `datei` eine **Liste** solcher
+Objekte (das Frontend normalisiert beides).
+
+`schritte` (Migration 128): Werkzeug-Schritte des Chat-Agenten an der
+Assistenten-Antwort (Liste, Ein-/Ausgaben gekürzt):
+`[{ id, kind: 'werkzeug'|'subagent', name, input, output, status, parent_step_id }]`.
 
 **Primary key:** `id`
 

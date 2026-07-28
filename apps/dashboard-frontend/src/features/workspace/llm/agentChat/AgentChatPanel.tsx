@@ -270,12 +270,13 @@ export default function AgentChatPanel() {
     try {
       const id = await ensureChat();
       sendMessage(id, msg, {
-        // Immer-an-Orchestrierung: RAG standardmäßig aktiv; Datei-Anhang
-        // nutzt die eigene Dokument-Pipeline, Thinking folgt dem Modell.
-        // Datei-Modus ist ein ERSTELL-Auftrag (Newsletter, Konzept …): der
-        // strikte RAG-Zitier-Modus verweigert solche Aufgaben („nicht in den
-        // Dokumenten") — live gesehen. Deshalb dort freies Schreiben.
-        useRAG: !file && !alsDatei,
+        // Agent-Modus (2026-07-28): das Backend führt die Werkzeugschleife —
+        // Wissensraum-Suche, Ablage lesen/schreiben, Web, Subagenten. Der
+        // frühere Client-RAG-Vorlauf (strikter Zitier-Modus, verweigerte
+        // Erstell-Aufgaben) entfällt; Datei-Anhänge behalten ihre eigene
+        // Dokument-Pipeline.
+        agent: !file,
+        useRAG: false,
         useThinking: model?.supports_thinking === true,
         selectedSpaces: scopeActive && chatScope ? chatScope.spaceIds : [],
         matchedSpaces: [],
@@ -412,6 +413,34 @@ export default function AgentChatPanel() {
     }
     if (file.size > MAX_FILE_SIZE) {
       setError(`Datei zu groß (max. 50 MB): ${file.name}`);
+      return;
+    }
+    // Deckungsgleich mit der Backend-Whitelist (documentAnalysis.js): lieber
+    // sofort eine klare Meldung als ein Upload-Fehler nach dem Absenden.
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    const erlaubt = [
+      '.pdf',
+      '.docx',
+      '.txt',
+      '.md',
+      '.markdown',
+      '.yaml',
+      '.yml',
+      '.csv',
+      '.json',
+      '.html',
+      '.htm',
+      '.xml',
+      '.log',
+      '.png',
+      '.jpg',
+      '.jpeg',
+      '.tiff',
+      '.tif',
+      '.bmp',
+    ];
+    if (!erlaubt.includes(ext)) {
+      setError(`Dateityp ${ext} wird nicht unterstützt (z. B. PDF, DOCX, MD, HTML, CSV).`);
       return;
     }
     setAttachedFile(file);
