@@ -159,13 +159,12 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   direkte Werkzeuge, mit Iteration), threadet die Ausgaben und lässt danach den
   Rumpf-Prompt synthetisieren. `runFlow` verzweigt hierher, wenn ein Flow
   `schritte` deklariert — sonst bleibt es beim modellgetriebenen `toolLoop`.
-- `scheduler.js` + `scheduleStore.js` + `cronExpr.js` — die Auslöser (B8):
-  `flow_schedules` startet einen Flow automatisch per Cron-Zeitplan oder auf ein
-  benanntes Ereignis hin. `cronExpr.js` ist ein abhängigkeitsfreier 5-Feld-Cron-
-  Auswerter (kein Lockfile-Eintrag); `scheduler.start()` läuft im Server-Boot und
-  tickt alle 60 s über die fälligen Zeitpläne, `feuerEreignis(name)` startet die
-  Ereignis-Auslöser (aus `routes/external/externalApi.js` per API-Key gefeuert).
-  Beide gehen durch denselben `flowRunner.starten` wie der Chat.
+- Flows werden per Slash-Befehl im Chat oder extern per HTTP-Trigger
+  (`POST /api/v1/external/flows/:name/run`, API-Key mit Scope `flow:run`)
+  gestartet. Der frühere Zeitplan-/Cron-Mechanismus (B8: `scheduler.js`,
+  `scheduleStore.js`, `cronExpr.js`, Tabelle `flow_schedules`, Routen
+  `/flows/zeitplaene`, externer `events/:name`-Endpunkt) ist am 2026-07-28
+  ersatzlos entfernt (Migration 123 droppt die Tabelle).
 - `gpuQueue.js` — die **eine** GPU-Sperre, geteilt mit dem Chat: der
   Ollama-Aufruf in `services/llm/llmOllamaStream.js` (`streamFromOllama`) geht
   durch dieselbe `withGpuLock`. Nie treffen Chat und Flow zugleich auf die GPU

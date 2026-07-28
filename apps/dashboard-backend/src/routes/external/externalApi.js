@@ -38,7 +38,6 @@ const {
 const flowRegistry = require('../../services/flows/flowRegistry');
 const flowRunner = require('../../services/flows/flowRunner');
 const flowRunStore = require('../../services/flows/runStore');
-const flowScheduler = require('../../services/flows/scheduler');
 const { resolveArguments } = require('../../services/flows/runFlow');
 
 // Multer for document upload endpoints (50MB limit)
@@ -886,33 +885,6 @@ router.get(
       result: run.result || null,
       error: run.error || null,
       steps_used: run.steps_used ?? null,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * POST /api/v1/external/events/:name - Ein benanntes Ereignis feuern.
- *
- * Startet alle aktiven Ereignis-Auslöser, die auf diesen Namen hören. So kann
- * ein n8n-Webhook einen (oder mehrere) Flow(s) anstoßen, ohne deren Namen zu
- * kennen — die Kopplung liegt in den Auslösern.
- */
-router.post(
-  '/events/:name',
-  requireApiKey,
-  requireEndpoint('flow:run'),
-  asyncHandler(async (req, res) => {
-    const eventName = req.params.name;
-    const { ausgeloest, laeufe } = await flowScheduler.feuerEreignis(eventName);
-    logger.info(
-      `[External API] Ereignis "${eventName}" gefeuert von ${req.apiKey.name}: ${ausgeloest} Auslöser`
-    );
-    res.json({
-      success: true,
-      event: eventName,
-      triggered: ausgeloest,
-      runs: laeufe.map(l => ({ schedule_id: l.scheduleId, run_id: l.runId })),
       timestamp: new Date().toISOString(),
     });
   })

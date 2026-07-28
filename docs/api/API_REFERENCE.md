@@ -2233,30 +2233,12 @@ Flows are Markdown files with YAML front matter under `data/flows/` (container p
 | GET    | `/api/flows/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)         |
 | GET    | `/api/flows/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps         |
 | POST   | `/api/flows/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)                  |
-| GET    | `/api/flows/zeitplaene`           | List the caller's flow triggers (schedules + events)             |
-| POST   | `/api/flows/zeitplaene`           | Create a trigger (cron schedule or named event)                  |
-| PUT    | `/api/flows/zeitplaene/:id`       | Update a trigger (merges; 404 if not owned)                      |
-| DELETE | `/api/flows/zeitplaene/:id`       | Delete a trigger                                                 |
 
-**Flow triggers (Plan 013, B8).** A flow can start automatically — on a cron
-schedule or on a named event — via `flow_schedules`. `GET /laeufe?status=laeuft`
-lists the currently-running flows for the chat's activity strip. Create bodies
-are a discriminated union on `trigger_type`:
-
-```jsonc
-// Cron schedule
-{ "flow": "recherche", "trigger_type": "zeitplan", "cron": "0 8 * * *",
-  "args": { "thema": "Marktlage" }, "enabled": true }
-// Named event (fired via the external API, see below)
-{ "flow": "import", "trigger_type": "ereignis", "event_name": "neue-rechnung",
-  "args": {} }
-```
-
-`cron` is a 5-field expression (minute hour day-of-month month day-of-week),
-evaluated in the device's local time. The schedule stores the computed
-`next_run_at`; a scheduler service ticks every 60 s and starts the due triggers
-through the same detached runner as the chat. `PUT` merges — only supplied
-fields change; `trigger_type` is fixed (switch by recreating).
+**Starting flows.** A flow runs from the chat (slash command `/name`) or via the
+external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
+`flow:run` — see the External API section). The former cron/event scheduling
+(`flow_schedules`, `/flows/zeitplaene`, external `events/:name`) was removed on
+2026-07-28; there is no schedule mechanism anymore.
 
 **Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
 (`{ flow, args, conversation_id? }`) starts the run **server-side** and returns
@@ -2583,18 +2565,14 @@ scope is `flow:run` (included in the default endpoint set for new keys).
 | GET    | `/api/v1/external/flows`           | API Key | List available flows (name, description, args) |
 | POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default    |
 | GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result                     |
-| POST   | `/api/v1/external/events/:name`    | API Key | Fire a named event → starts all its triggers   |
 
 **POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
 state and returns `{ success, run_id, status, result, error, steps_used }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
-are owned by the API key's creator (or the primary admin for orphaned keys).
-
-**POST /api/v1/external/events/:name** starts every enabled `ereignis` trigger
-listening on that name and returns `{ success, event, triggered, runs }` — the
-bridge that lets an n8n webhook kick off one or more flows without knowing their
-names.
+are owned by the API key's creator (or the primary admin for orphaned keys). This
+is the per-flow HTTP trigger the UI surfaces (Flow-Zentrale). The former named-event
+endpoint (`events/:name`) was removed with flow scheduling on 2026-07-28.
 
 **POST /api/v1/external/llm/chat:**
 

@@ -2394,9 +2394,12 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ---
 
-## `flow_schedules`
+## `flow_schedules` — ENTFERNT (Migration 123, 2026-07-28)
 
-> Flow-Auslöser (Plan 013, B8): startet einen Flow automatisch — per Cron-Zeitplan oder auf ein benanntes Ereignis hin. Eine Zeile je Auslöser; ein Flow darf mehrere haben.
+> Die Flow-Zeitpläne/Cron-Auslöser wurden ersatzlos entfernt (Migration 123
+> droppt die Tabelle). Flows starten jetzt per Slash-Befehl im Chat oder extern
+> per `POST /api/v1/external/flows/:name/run`. Die folgende Struktur ist nur noch
+> historisch (Stand vor 2026-07-28).
 
 | Column         | Type                     | Nullable | Default                                      |
 | -------------- | ------------------------ | -------- | -------------------------------------------- |

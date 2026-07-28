@@ -712,16 +712,6 @@ if (require.main === module) {
       logger.error(`Failed to clean up orphaned flow runs: ${err.message}`);
     }
 
-    // Flow-Scheduler (Plan 013, B8): startet Flows automatisch per Zeitplan.
-    // Ein Tick alle 60 s prüft fällige Auslöser; Ereignis-Auslöser feuern über
-    // die externe API. Ein Fehler beim Start darf den Boot nicht kippen.
-    try {
-      const flowScheduler = require('./services/flows/scheduler');
-      flowScheduler.start();
-    } catch (err) {
-      logger.error(`Failed to start flow scheduler: ${err.message}`);
-    }
-
     // LEAK-001: Track all intervals for graceful shutdown cleanup
     // Set up periodic cleanup of old completed jobs (every 30 minutes)
     globalIntervals.push(
