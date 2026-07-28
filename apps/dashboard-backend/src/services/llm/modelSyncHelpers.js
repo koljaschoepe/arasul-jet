@@ -40,6 +40,35 @@ function inOllama(ollamaModels, name) {
   return tagVarianten(name).some(v => ollamaModels.includes(v));
 }
 
+/** Tag-lose Normalform eines Ollama-Namens ('x:latest' → 'x'). */
+function ohneLatest(name) {
+  return name.endsWith(':latest') ? name.slice(0, -':latest'.length) : name;
+}
+
+/** Grobe Größenklasse für importierte Modelle (Katalog-CHECK: small…xlarge). */
+function kategorieFuerBytes(sizeBytes) {
+  const gb = (sizeBytes || 0) / 1e9;
+  if (gb < 8) {
+    return 'small';
+  }
+  if (gb < 16) {
+    return 'medium';
+  }
+  if (gb < 30) {
+    return 'large';
+  }
+  return 'xlarge';
+}
+
+/** Heuristik: Vision-Modell? (Familien aus /api/tags oder sprechender Name) */
+function istVisionModell(modelObj) {
+  const familien = (modelObj.details && modelObj.details.families) || [];
+  if (familien.some(f => /clip|mllama|vision/i.test(String(f)))) {
+    return true;
+  }
+  return /llava|vision|minicpm-v|paligemma/i.test(modelObj.name || '');
+}
+
 function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabilityCache }) {
   /**
    * Mark models as available that Ollama has (sync step 1)
@@ -177,10 +206,84 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
     return staleCount;
   }
 
+  /**
+   * Übernimmt Modelle, die NUR in Ollama existieren, in den Katalog (sync
+   * step 1b). Bisher waren solche Modelle für die Plattform unsichtbar: kein
+   * Katalog-Eintrag → kein Store-Eintrag, und ein als Default gesetzter
+   * Roh-Name ließ das Standardmodell als „Fehler" erscheinen (Live-Audit
+   * 2026-07-28, z. B. llava-phi3 und selbst gebaute qwen3-Varianten).
+   *
+   * Angelegt wird ein ehrlicher Minimal-Eintrag: id = tag-loser Ollama-Name,
+   * Größe aus /api/tags, Kategorie/RAM grob geschätzt, `jetson_tested = false`
+   * und eine Beschreibung, die die Herkunft benennt. Ein späterer kuratierter
+   * Eintrag gewinnt automatisch (ON CONFLICT DO NOTHING).
+   *
+   * @param {Array<{name:string,size?:number,details?:object}>} ollamaModelObjects
+   *   Die vollen Modell-Objekte aus GET /api/tags.
+   * @returns {Promise<number>} Zahl der neu übernommenen Modelle.
+   */
+  async function importUnknownModels(ollamaModelObjects) {
+    let importiert = 0;
+    for (const modelObj of ollamaModelObjects || []) {
+      const ollamaName = modelObj && modelObj.name;
+      if (!ollamaName) {
+        continue;
+      }
+      const varianten = tagVarianten(ollamaName);
+      const bekannt = await database.query(
+        `SELECT id FROM llm_model_catalog WHERE ollama_name = ANY($1) OR id = ANY($1)`,
+        [varianten]
+      );
+      if (bekannt.rows.length > 0) {
+        continue;
+      }
+
+      const id = ohneLatest(ollamaName);
+      const sizeBytes = Number(modelObj.size) || 0;
+      const ramGb = Math.max(2, Math.ceil((sizeBytes / 1e9) * 1.3));
+      const paramGroesse = (modelObj.details && modelObj.details.parameter_size) || null;
+      const beschreibung =
+        `Lokal in Ollama vorhandenes Modell${paramGroesse ? ` (${paramGroesse})` : ''} — ` +
+        'automatisch in den Katalog übernommen.';
+
+      const eingefuegt = await database.query(
+        `INSERT INTO llm_model_catalog
+           (id, name, description, size_bytes, ram_required_gb, category,
+            capabilities, recommended_for, jetson_tested, performance_tier, model_type)
+         VALUES ($1, $2, $3, $4, $5, $6, '[]'::jsonb, '[]'::jsonb, false, 2, $7)
+         ON CONFLICT (id) DO NOTHING
+         RETURNING id`,
+        [
+          id,
+          id,
+          beschreibung,
+          sizeBytes,
+          ramGb,
+          kategorieFuerBytes(sizeBytes),
+          istVisionModell(modelObj) ? 'vision' : 'llm',
+        ]
+      );
+      if (eingefuegt.rows.length === 0) {
+        continue; // Wettlauf mit einem parallelen Sync — der Erste gewinnt.
+      }
+      await database.query(
+        `INSERT INTO llm_installed_models (id, status, download_progress, downloaded_at)
+         VALUES ($1, 'available', 100, NOW())
+         ON CONFLICT (id) DO UPDATE SET
+             status = 'available', download_progress = 100, error_message = NULL`,
+        [id]
+      );
+      importiert += 1;
+      logger.info(`[SYNC] Ollama-Modell ohne Katalog-Eintrag übernommen: ${id}`);
+    }
+    return importiert;
+  }
+
   return {
     markAvailableModels,
     markMissingModels,
     cleanupStaleDownloads,
+    importUnknownModels,
   };
 }
 

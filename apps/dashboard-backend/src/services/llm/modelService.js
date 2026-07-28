@@ -1044,6 +1044,11 @@ function createModelService(deps = {}) {
         // 1. For each Ollama model, find matching catalog entry and mark as available
         await syncHelpers.markAvailableModels(ollamaModels);
 
+        // 1b. Modelle, die NUR in Ollama existieren (lokal importiert/gebaut),
+        //     als Minimal-Einträge in den Katalog übernehmen — sonst sind sie
+        //     für Store, Default-Auswahl und Flows unsichtbar.
+        await syncHelpers.importUnknownModels(response.data.models || []);
+
         // 2. Mark models as error if marked available in DB but not in Ollama
         await syncHelpers.markMissingModels(ollamaModels);
 
