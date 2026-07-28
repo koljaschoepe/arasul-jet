@@ -1037,8 +1037,19 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           };
         } else {
           endpoint = `${API_BASE}/llm/chat`;
+          // Datei-Modus: das Modell soll ein REINES Dokument liefern (Markdown,
+          // #-Überschrift → daraus wird der Dateiname), kein Meta-Gerede über
+          // Speichern/Dateien. Nur im Payload — die persistierte Nachricht
+          // bleibt der Originaltext des Nutzers.
+          const DATEI_ANWEISUNG =
+            '\n\n(Antworte NUR mit dem reinen Dokumentinhalt in Markdown und beginne mit einer #-Überschrift. Keine Vor- oder Nachbemerkungen und keine Aussagen über Dateien oder Speicherung — das Speichern übernimmt die Plattform.)';
+          const letzterIndex = newMessages.length - 1;
           const chatPayload: ChatInput = {
-            messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+            messages: newMessages.map((m, idx) => ({
+              role: m.role,
+              content:
+                options.alsDatei && idx === letzterIndex ? m.content + DATEI_ANWEISUNG : m.content,
+            })),
             temperature: 0.7,
             max_tokens: 32768,
             stream: true,
