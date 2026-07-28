@@ -272,7 +272,10 @@ export default function AgentChatPanel() {
       sendMessage(id, msg, {
         // Immer-an-Orchestrierung: RAG standardmäßig aktiv; Datei-Anhang
         // nutzt die eigene Dokument-Pipeline, Thinking folgt dem Modell.
-        useRAG: !file,
+        // Datei-Modus ist ein ERSTELL-Auftrag (Newsletter, Konzept …): der
+        // strikte RAG-Zitier-Modus verweigert solche Aufgaben („nicht in den
+        // Dokumenten") — live gesehen. Deshalb dort freies Schreiben.
+        useRAG: !file && !alsDatei,
         useThinking: model?.supports_thinking === true,
         selectedSpaces: scopeActive && chatScope ? chatScope.spaceIds : [],
         matchedSpaces: [],
