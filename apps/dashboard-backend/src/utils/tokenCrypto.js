@@ -2,7 +2,6 @@
  * Token Encryption/Decryption Utilities
  *
  * AES-256-GCM encryption using a key derived from JWT_SECRET.
- * Shared between telegramApp routes and telegramSetupPollingService.
  */
 
 const crypto = require('crypto');

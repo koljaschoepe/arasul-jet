@@ -7,7 +7,6 @@ const os = require('os');
 const fs = require('fs').promises;
 const { execFile } = require('child_process');
 const { promisify } = require('util');
-const logger = require('./logger');
 
 const execFileAsync = promisify(execFile);
 

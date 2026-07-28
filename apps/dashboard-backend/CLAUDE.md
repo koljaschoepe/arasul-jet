@@ -195,9 +195,10 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
 - Kein neuer npm-Eintrag: das Git-CLI kommt per `apk add git` im Dockerfile
   (Regel „minimalistisch/wartbar zuerst", Lockfile-root-only).
 
-Die alten `services/agents/{toolLoop,gpuGate,agentFile,tools}` sind mit dem
-Fluss-Layer verwaist (kein Produktions-Aufrufer mehr, nur noch ihre Tests) und
-werden in einem separaten Aufräum-Schritt entfernt.
+Das alte `services/agents/`-Subsystem (`toolLoop`, `agentFile`,
+`workspaceIndexer`, `pathSafe`, `tools/`) war mit dem Fluss-Layer verwaist —
+kein Produktions-Aufrufer mehr, nur noch seine Tests — und ist mit dem
+Aufräum-Schritt am 2026-07-28 samt Tests entfernt.
 
 Weiterhin gültige Konventionen rund um den Workspace:
 

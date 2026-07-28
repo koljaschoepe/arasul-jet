@@ -1,7 +1,7 @@
 /**
  * Werkzeug-Schleife für Flows (Plan 011, Schritt 10).
  *
- * Angelehnt an services/agents/toolLoop.js, aber an drei Stellen bewusst anders:
+ * Die Schleife ist an drei Stellen bewusst so aufgebaut:
  *
  *  1. WERKZEUGE: Sie kommen als fertige BaseTool-Instanzen herein (von
  *     toolRegistry.buildTools), nicht als Namen, die hier gegen eine feste
