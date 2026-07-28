@@ -32,17 +32,53 @@ const { withGpuLock } = require('./gpuQueue');
 // Zeitgrenze pro Modell-Aufruf unabhängig vom (abgelösten) Agenten-Pfad haben.
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
 
+// Katalog-ID → Ollama-Name (z. B. 'qwen3:7b-q8' → 'qwen3:8b'). Der Standard-
+// Modell-Weg liefert die KATALOG-ID; Ollama kennt aber nur seinen eigenen
+// Namen — ohne dieses Mapping scheitert jeder Flow-Lauf mit dem
+// Standardmodell an einem 404 (der Chat-Pfad mappt in llmOllamaStream längst).
+// Gecacht, damit nicht jede Runde die DB fragt; bei DB-Fehlern bleibt der
+// Name unverändert (rohe Ollama-Namen laufen so weiter durch).
+const ollamaNameCache = new Map();
+async function zuOllamaName(model) {
+  if (!model) {
+    return model;
+  }
+  if (ollamaNameCache.has(model)) {
+    return ollamaNameCache.get(model);
+  }
+  let name = model;
+  try {
+    const database = require('../../database');
+    const result = await database.query(
+      `SELECT COALESCE(ollama_name, id) AS effektiv FROM llm_model_catalog WHERE id = $1`,
+      [model]
+    );
+    if (result.rows.length > 0 && result.rows[0].effektiv) {
+      name = result.rows[0].effektiv;
+    }
+  } catch {
+    // Katalog nicht erreichbar (z. B. Tests) — Name unverändert verwenden.
+  }
+  ollamaNameCache.set(model, name);
+  return name;
+}
+
+/** Nur für Tests: den Namens-Cache leeren. */
+function _clearOllamaNameCache() {
+  ollamaNameCache.clear();
+}
+
 /**
  * Ein einzelner /api/chat-Aufruf, in die GPU-Sperre gewickelt.
  * @returns {Promise<object>} Das `message`-Objekt der Antwort.
  */
-function callOllama({ model, messages, tools }) {
+async function callOllama({ model, messages, tools }) {
   // `think: false` schaltet den Reasoning-Trace „denkender" Modelle (qwen3 &
   // Co.) ab. Ein Flow FÜHRT AUS statt zu plaudern — der lange Gedankengang
   // bringt hier nichts, kostet aber ein Vielfaches: auf dem Jetson braucht
   // qwen3:14b mit Denken ~100 s je Aufruf (und sprengt so das 120-s-Limit),
   // ohne Denken ~8 s. Modelle ohne Reasoning ignorieren die Option.
-  const body = { model, messages, stream: false, think: false };
+  const body = { model: await zuOllamaName(model), messages, stream: false, think: false };
   if (tools && tools.length > 0) {
     body.tools = tools;
   }
@@ -181,4 +217,4 @@ async function runFlowLoop({
   }
 }
 
-module.exports = { runFlowLoop, callOllama, CALL_TIMEOUT_MS };
+module.exports = { runFlowLoop, callOllama, CALL_TIMEOUT_MS, _clearOllamaNameCache };

@@ -410,6 +410,9 @@ const ListRunsQuery = z
     // Optionaler Status-Filter, z. B. `?status=laeuft` für die „laufende Flows"-
     // Anzeige im Chat (Plan 013, B8).
     status: z.enum(['laeuft', 'fertig', 'fehler', 'abgebrochen']).optional(),
+    // Optionaler Flow-Filter — die Flow-Zentrale zeigt „Letzte Läufe" EINES
+    // Flows, statt client-seitig aus der Gesamtliste zu sieben.
+    flow: FlowName.optional(),
   })
   .strict();
 

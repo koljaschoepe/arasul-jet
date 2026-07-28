@@ -2149,6 +2149,7 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 | `agent_run_token_hash`   | text                     | ✅       |                                            |
 | `agent_run_token_set_at` | timestamp with time zone | ✅       |                                            |
 | `space_id`               | uuid                     | ✅       |                                            |
+| `project_id`             | uuid                     | ✅       |                                            |
 
 **Primary key:** `id`
 
@@ -2156,6 +2157,7 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 - `space_id` → `knowledge_spaces.id`
 - `user_id` → `admin_users.id`
+- `project_id` → `projects.id` (ON DELETE SET NULL — Projektablage-Anschluss, Migration 125: die Ablage des Projekts wird beim Container-Start rw als `/workspace/projekt` gemountet)
 
 **Indexes:**
 
@@ -2163,6 +2165,7 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 - `idx_sandbox_projects_last_accessed` — `CREATE INDEX idx_sandbox_projects_last_accessed ON public.sandbox_projects USING btree (last_accessed_at DESC NULLS LAST) WHERE (status = 'active'::sandbox_project_status)`
 - `idx_sandbox_projects_slug` — `CREATE INDEX idx_sandbox_projects_slug ON public.sandbox_projects USING btree (slug)`
 - `idx_sandbox_projects_space_id` — `CREATE INDEX idx_sandbox_projects_space_id ON public.sandbox_projects USING btree (space_id)`
+- `idx_sandbox_projects_project_id` — `CREATE INDEX idx_sandbox_projects_project_id ON public.sandbox_projects USING btree (project_id)`
 - `idx_sandbox_projects_status` — `CREATE INDEX idx_sandbox_projects_status ON public.sandbox_projects USING btree (status)`
 - `idx_sandbox_projects_user_id` — `CREATE INDEX idx_sandbox_projects_user_id ON public.sandbox_projects USING btree (user_id)`
 - `sandbox_projects_pkey` — `CREATE UNIQUE INDEX sandbox_projects_pkey ON public.sandbox_projects USING btree (id)`
@@ -2332,31 +2335,35 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ## `flow_run_steps`
 
-> Einzelne Schritte eines Skill-Laufs (Plan 011, Schritt 9): je Werkzeug-/Subagent-/Modell-Schritt eine Zeile, angehängt statt ein wachsendes JSONB neu zu schreiben.
+> Einzelne Schritte eines Skill-Laufs (Plan 011, Schritt 9): je Werkzeug-/Subagent-/Modell-Schritt eine Zeile, angehängt statt ein wachsendes JSONB neu zu schreiben. Seit Migration 124 ein echter Baum: die inneren Werkzeug-Aufrufe eines Subagenten hängen als Kind-Schritte an dessen Schritt (`parent_step_id`); `modell` hält das Modell eines Subagent-/Modell-Schritts fest.
 
-| Column        | Type                     | Nullable | Default                                   |
-| ------------- | ------------------------ | -------- | ----------------------------------------- |
-| `id`          | bigint                   | ⛔       | `nextval('flow_run_steps_id_seq'::reg...` |
-| `run_id`      | bigint                   | ⛔       |                                           |
-| `position`    | integer                  | ⛔       |                                           |
-| `kind`        | USER-DEFINED             | ⛔       |                                           |
-| `name`        | character varying        | ⛔       | `''::character varying`                   |
-| `input`       | jsonb                    | ⛔       | `'{}'::jsonb`                             |
-| `output`      | text                     | ✅       |                                           |
-| `raw_output`  | text                     | ✅       |                                           |
-| `status`      | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`               |
-| `created_at`  | timestamp with time zone | ⛔       | `now()`                                   |
-| `finished_at` | timestamp with time zone | ✅       |                                           |
+| Column           | Type                     | Nullable | Default                                   |
+| ---------------- | ------------------------ | -------- | ----------------------------------------- |
+| `id`             | bigint                   | ⛔       | `nextval('flow_run_steps_id_seq'::reg...` |
+| `run_id`         | bigint                   | ⛔       |                                           |
+| `position`       | integer                  | ⛔       |                                           |
+| `kind`           | USER-DEFINED             | ⛔       |                                           |
+| `name`           | character varying        | ⛔       | `''::character varying`                   |
+| `input`          | jsonb                    | ⛔       | `'{}'::jsonb`                             |
+| `output`         | text                     | ✅       |                                           |
+| `raw_output`     | text                     | ✅       |                                           |
+| `status`         | USER-DEFINED             | ⛔       | `'laeuft'::flow_run_status`               |
+| `created_at`     | timestamp with time zone | ⛔       | `now()`                                   |
+| `finished_at`    | timestamp with time zone | ✅       |                                           |
+| `parent_step_id` | bigint                   | ✅       |                                           |
+| `modell`         | character varying        | ✅       |                                           |
 
 **Primary key:** `id`
 
 **Foreign Keys:**
 
 - `run_id` → `flow_runs.id`
+- `parent_step_id` → `flow_run_steps.id` (ON DELETE CASCADE — Kind-Schritte eines Subagenten, Agenten-Baum)
 
 **Indexes:**
 
 - `idx_flow_run_steps_run_id` — `CREATE INDEX idx_flow_run_steps_run_id ON arasul.flow_run_steps USING btree (run_id)`
+- `idx_flow_run_steps_parent` — `CREATE INDEX idx_flow_run_steps_parent ON arasul.flow_run_steps USING btree (parent_step_id)`
 - `flow_run_steps_pkey` — `CREATE UNIQUE INDEX flow_run_steps_pkey ON arasul.flow_run_steps USING btree (id)`
 - `flow_run_steps_run_pos_uniq` — `CREATE UNIQUE INDEX flow_run_steps_run_pos_uniq ON arasul.flow_run_steps USING btree (run_id, "position")`
 

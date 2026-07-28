@@ -19,7 +19,7 @@
  * Der Executor gibt dasselbe `{ result, error, aborted }` zurück wie
  * `runFlowLoop`, damit der Runner (runFlow.js) seinen Abschluss-Pfad unverändert
  * lässt. Die Schritt-Persistenz läuft über dieselben Hilfen wie der
- * modellgetriebene Pfad (`recordSubagent` im Kontext, `recordWerkzeug` als
+ * modellgetriebene Pfad (`stepRecorder` im Kontext, `recordWerkzeug` als
  * Parameter) — die Lauf-Karte im Frontend zeigt beide Pfade identisch.
  */
 
@@ -56,7 +56,7 @@ function buildSynthesisInput(userInput, schritte, outputs) {
  * @param {string} p.userInput - die zusammengebaute Nutzer-Eingabe.
  * @param {string} p.model - aufgelöstes Modell.
  * @param {object} p.context - der volle Runner-Kontext (rollen, limits, depth 0,
- *   recordSubagent, roleContextBase, …) — identisch zum modellgetriebenen Pfad.
+ *   stepRecorder, roleContextBase, …) — identisch zum modellgetriebenen Pfad.
  * @param {(names:string[])=>object[]} p.makeTools - buildTools.
  * @param {Function} [p.runLoop] - runFlowLoop (für Tests austauschbar).
  * @param {Function} p.recordWerkzeug - persistiert + führt einen Werkzeug-Schritt aus,
@@ -82,16 +82,6 @@ async function executeSteps({
   const subagentTool = new SubagentToolClass();
   const outputs = {};
 
-  const emit = evt => {
-    if (typeof emitLive === 'function') {
-      try {
-        emitLive(evt);
-      } catch {
-        // Ein Fehler im Live-Sink darf den Lauf nie kippen.
-      }
-    }
-  };
-
   for (const schritt of flow.schritte) {
     if (signal && signal.aborted) {
       return { result: null, aborted: true };
@@ -104,14 +94,13 @@ async function executeSteps({
       try {
         if (schritt.typ === 'subagent') {
           const auftrag = fillPlaceholders(schritt.auftrag, scope);
-          emit({ type: 'tool_start', tool: 'subagent', params: { rolle: schritt.rolle, auftrag } });
-          // SubagentTool schreibt den DB-Schritt (mit Rohdaten) über
-          // context.recordSubagent selbst; hier nur die Live-Meldung.
+          // SubagentTool schreibt den DB-Schritt (samt Kind-Schritten und
+          // Rohdaten) über context.stepRecorder selbst und meldet ihn live —
+          // hier keine eigene Meldung, sonst stünde die Delegation doppelt.
           ausgabe = await subagentTool.execute(
             { rolle: schritt.rolle, auftrag },
             { ...context, signal }
           );
-          emit({ type: 'tool_result', tool: 'subagent', result: ausgabe });
         } else {
           const params = resolveParams(schritt.parameter, scope);
           ausgabe = await recordWerkzeug({ werkzeug: schritt.werkzeug, params });

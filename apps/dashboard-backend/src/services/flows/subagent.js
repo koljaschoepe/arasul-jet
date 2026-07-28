@@ -58,8 +58,10 @@ class SubagentTool extends BaseTool {
    *   `rollen` (Rollen-Deklarationen), `limits` (RunLimits, geteilt),
    *   `depth` (Tiefe des Aufrufers, Orchestrator = 0), `model` (Vorgabe-Modell),
    *   `werkzeugRunden`, `roleContextBase` (Ordner/Wissensraum/Container für die
-   *   Werkzeuge der Rolle), `recordSubagent` (persistiert den Schritt mit
-   *   Rohdaten), `makeTools`, `runLoop` (austauschbar für Tests).
+   *   Werkzeuge der Rolle), `stepRecorder` (persistiert Schritte als Baum:
+   *   `beginnen`/`abschliessen`, siehe runFlow.js), `parentStepId` (Schritt des
+   *   AUFRUFENDEN Subagenten, falls verschachtelt), `makeTools`, `runLoop`
+   *   (austauschbar für Tests).
    */
   async execute(params = {}, context = {}) {
     const {
@@ -69,7 +71,8 @@ class SubagentTool extends BaseTool {
       model: defaultModel,
       werkzeugRunden = 10,
       roleContextBase = {},
-      recordSubagent,
+      stepRecorder,
+      parentStepId = null,
       makeTools = require('./toolRegistry').buildTools,
       runLoop = require('./toolLoop').runFlowLoop,
     } = context;
@@ -102,6 +105,26 @@ class SubagentTool extends BaseTool {
     // wieder ein SubagentTool — die nächste Ebene. Die Tiefe wird unten erhöht,
     // die Notbremse fängt eine zu tiefe Verschachtelung ab.
     const roleTools = makeTools(rolle.werkzeuge);
+    const rollenModell = rolle.modell || defaultModel;
+
+    // Den Subagent-Schritt VOR der Ausführung anlegen — so zeigt die Lauf-Ansicht
+    // den arbeitenden Agenten live, nicht erst nach seinem Abschluss. Alles, was
+    // die Rolle an Werkzeugen aufruft, hängt sich als Kind-Schritt darunter
+    // (parent_step_id) — der aufklappbare Agenten-Baum.
+    let eigenerSchritt = null;
+    if (stepRecorder) {
+      try {
+        eigenerSchritt = await stepRecorder.beginnen({
+          kind: 'subagent',
+          name: rolleName,
+          input: { auftrag },
+          parentStepId,
+          modell: rollenModell,
+        });
+      } catch (err) {
+        logger.warn(`Subagent "${rolleName}": Schritt nicht angelegt: ${err.message}`);
+      }
+    }
 
     // Kontext der Rolle: die Basis (Ordner, Wissensraum, Container) für ihre
     // eigenen Werkzeuge, PLUS die geteilten Lauf-Daten mit ERHÖHTER Tiefe.
@@ -113,7 +136,9 @@ class SubagentTool extends BaseTool {
       model: defaultModel,
       werkzeugRunden,
       roleContextBase,
-      recordSubagent,
+      stepRecorder,
+      // Delegiert die Rolle selbst weiter, hängt sich DEREN Schritt unter diesen.
+      parentStepId: eigenerSchritt ? eigenerSchritt.id : parentStepId,
       makeTools,
       runLoop,
       // Abbruch-Signal weiterreichen, damit auch Ebene 2 es prüft.
@@ -143,7 +168,9 @@ class SubagentTool extends BaseTool {
     let rawBytes = 0;
     let rawVoll = false;
     const rawPush = zeile => {
-      if (rawVoll) {return;}
+      if (rawVoll) {
+        return;
+      }
       const kurz =
         zeile.length > RAW_EINTRAG_MAX ? `${zeile.slice(0, RAW_EINTRAG_MAX)} … [gekürzt]` : zeile;
       if (rawBytes + kurz.length > RAW_GESAMT_MAX) {
@@ -154,11 +181,42 @@ class SubagentTool extends BaseTool {
       rawBytes += kurz.length;
       gelesenes.push(kurz);
     };
-    const rolleOnEvent = evt => {
+    // Innere Werkzeug-Aufrufe der Rolle als ECHTE Kind-Schritte mitschreiben
+    // (parent_step_id = dieser Subagent-Schritt) — zusätzlich zum Text-Verlauf
+    // in raw_output. Delegiert die Rolle an einen weiteren Subagenten, schreibt
+    // DESSEN execute den Schritt selbst — hier nicht doppelt anlegen.
+    const offeneKinder = new Map(); // toolName → stepId
+    const rolleOnEvent = async evt => {
       if (evt.type === 'tool_start') {
         rawPush(`→ ${evt.tool}(${JSON.stringify(evt.params || {})})`);
+        if (stepRecorder && eigenerSchritt && evt.tool !== 'subagent') {
+          try {
+            const kind = await stepRecorder.beginnen({
+              kind: 'werkzeug',
+              name: evt.tool || '',
+              input: evt.params || {},
+              parentStepId: eigenerSchritt.id,
+            });
+            offeneKinder.set(evt.tool, kind.id);
+          } catch (err) {
+            logger.warn(`Subagent "${rolleName}": Kind-Schritt nicht angelegt: ${err.message}`);
+          }
+        }
       } else if (evt.type === 'tool_result') {
         rawPush(`← ${evt.tool}: ${evt.result}`);
+        if (stepRecorder && evt.tool !== 'subagent') {
+          const kindId = offeneKinder.get(evt.tool);
+          if (kindId) {
+            offeneKinder.delete(evt.tool);
+            try {
+              await stepRecorder.abschliessen({ stepId: kindId, output: evt.result });
+            } catch (err) {
+              logger.warn(
+                `Subagent "${rolleName}": Kind-Schritt nicht abgeschlossen: ${err.message}`
+              );
+            }
+          }
+        }
       }
     };
 
@@ -184,9 +242,23 @@ class SubagentTool extends BaseTool {
       // Auch der Fehlertext geht gedeckelt zurück — die eine Rückgabe, die nicht
       // durch enforceContract läuft, darf den Orchestrator-Kontext nicht fluten.
       const msg = `Fehler: Rolle "${rolleName}" konnte nicht ausgeführt werden: ${err.message}`;
-      return msg.length > rolle.ergebnis.max_zeichen
-        ? msg.slice(0, rolle.ergebnis.max_zeichen)
-        : msg;
+      const gekappt =
+        msg.length > rolle.ergebnis.max_zeichen ? msg.slice(0, rolle.ergebnis.max_zeichen) : msg;
+      if (stepRecorder && eigenerSchritt) {
+        try {
+          await stepRecorder.abschliessen({
+            stepId: eigenerSchritt.id,
+            output: gekappt,
+            rawOutput: gelesenes.length
+              ? `[Werkzeug-Verlauf der Rolle]\n${gelesenes.join('\n')}`
+              : null,
+            status: 'fehler',
+          });
+        } catch (e) {
+          logger.warn(`Subagent "${rolleName}": Fehler-Schritt nicht gespeichert: ${e.message}`);
+        }
+      }
+      return gekappt;
     }
 
     const schlussText = ergebnis && ergebnis.result ? String(ergebnis.result) : '';
@@ -204,13 +276,13 @@ class SubagentTool extends BaseTool {
 
     // Rohdaten INS PROTOKOLL, nicht in die Antwort: Der Schritt hält beide
     // Seiten fest — das Verdichtete (output) und das Rohe (raw_output).
-    if (typeof recordSubagent === 'function') {
+    if (stepRecorder && eigenerSchritt) {
       try {
-        await recordSubagent({
-          rolle: rolleName,
-          auftrag,
-          text,
-          raw,
+        await stepRecorder.abschliessen({
+          stepId: eigenerSchritt.id,
+          output: text,
+          rawOutput: raw,
+          status: 'fertig',
           felder: felderObj,
         });
       } catch (err) {

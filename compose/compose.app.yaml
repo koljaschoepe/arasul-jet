@@ -95,6 +95,11 @@ services:
       # + Assets. Schreibbar (paketieren/importieren erzeugt hier Ordner),
       # ueberlebt Rebuilds und wandert ins Backup.
       - ../data/extensions:/arasul/extensions
+      # Projektablage: ein echter Geraete-Ordner je Projekt (/arasul/projects/
+      # <uuid>) — Datei-API des Explorers, Arbeitsverzeichnis fuer Flows,
+      # Mount fuer Sandboxes. Auch der Git-Sync-Checkout (PROJECT_GIT_DIR)
+      # liegt hier; ueberlebt Rebuilds und wandert ins Backup.
+      - ../data/projects:/arasul/projects
     security_opt:
       - no-new-privileges:true
     depends_on:

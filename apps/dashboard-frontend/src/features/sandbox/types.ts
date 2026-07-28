@@ -36,6 +36,9 @@ export interface SandboxProject {
   installed_packages: string[] | null;
   last_accessed_at: string | null;
   network_mode: SandboxNetworkMode;
+  workspace_type?: SandboxWorkspaceType;
+  /** Angeschlossene Projektablage (rw-Mount /workspace/projekt) — oder null. */
+  project_id?: string | null;
   total_terminal_seconds: number;
   created_at: string;
   updated_at: string;

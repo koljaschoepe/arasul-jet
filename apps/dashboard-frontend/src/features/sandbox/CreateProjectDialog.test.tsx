@@ -7,6 +7,7 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CreateProjectDialog from './CreateProjectDialog';
 import { createMockApi, createMockToast } from '../../__tests__/helpers/renderWithProviders';
 
@@ -32,7 +33,13 @@ describe('CreateProjectDialog — Netzwerkmodi', () => {
   });
 
   function renderDialog(onCreated = vi.fn()) {
-    render(<CreateProjectDialog open={true} onClose={vi.fn()} onCreated={onCreated} />);
+    // Der Projektablage-Anschluss im Dialog lädt die Projektliste per React Query.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <CreateProjectDialog open={true} onClose={vi.fn()} onCreated={onCreated} />
+      </QueryClientProvider>
+    );
     return { onCreated };
   }
 

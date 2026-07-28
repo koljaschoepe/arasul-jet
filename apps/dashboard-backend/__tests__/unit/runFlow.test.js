@@ -456,7 +456,8 @@ describe('runFlow — Orchestrierung', () => {
     expect(ctx.limits).toBeDefined();
     expect(ctx.limits.maxAufrufe).toBe(20);
     expect(ctx.roleContextBase).toMatchObject({ roots: ['/vertraege'] });
-    expect(typeof ctx.recordSubagent).toBe('function');
+    expect(typeof ctx.stepRecorder?.beginnen).toBe('function');
+    expect(typeof ctx.stepRecorder?.abschliessen).toBe('function');
   });
 
   it('schreibt einen echten Subagent-Aufruf mit Rohdaten mit — und der Orchestrator sieht nur das Verdichtete', async () => {

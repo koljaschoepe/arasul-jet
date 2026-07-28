@@ -54,6 +54,38 @@ async function getHostDataDir() {
   return _hostDirCache;
 }
 
+let _hostProjectsDirCache = null;
+
+/**
+ * Host-Pfad der Projektablage (data/projects, im Backend als /arasul/projects
+ * gemountet) — für den rw-Mount eines Projektordners in eine Sandbox
+ * (/workspace/projekt). Gleiche Auflösungs-Reihenfolge wie getHostDataDir:
+ * Env-Override → eigene Mount-Tabelle → Jetson-Fallback.
+ */
+async function getHostProjectsDir() {
+  if (process.env.SANDBOX_HOST_PROJECTS_DIR) {
+    return process.env.SANDBOX_HOST_PROJECTS_DIR;
+  }
+  if (_hostProjectsDirCache) {
+    return _hostProjectsDirCache;
+  }
+  try {
+    const container = docker.getContainer('dashboard-backend');
+    const info = await container.inspect();
+    const binds = info.HostConfig.Binds || [];
+    const projectsBind = binds.find(b => b.split(':')[1] === '/arasul/projects');
+    if (projectsBind) {
+      _hostProjectsDirCache = projectsBind.split(':')[0];
+      logger.info(`Projektablage host dir resolved: ${_hostProjectsDirCache}`);
+      return _hostProjectsDirCache;
+    }
+  } catch (err) {
+    logger.warn(`Could not resolve projects host dir from Docker: ${err.message}`);
+  }
+  _hostProjectsDirCache = '/opt/arasul/data/projects';
+  return _hostProjectsDirCache;
+}
+
 /**
  * Host-side path for read-only tool sources (e.g. open-ara), mounted into
  * sandbox containers at /opt/tools. Sibling of the projects dir:
@@ -145,6 +177,7 @@ module.exports = {
   getHostDataDir,
   getHostToolsDir,
   getHostRepoDir,
+  getHostProjectsDir,
   getDevTemplatesDir,
   getDockerSockGid,
   parseMemoryLimit,

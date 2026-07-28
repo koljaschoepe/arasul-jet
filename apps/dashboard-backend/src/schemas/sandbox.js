@@ -45,6 +45,9 @@ const CreateProjectBody = z
     environment: EnvironmentMap,
     network_mode: NetworkMode,
     workspaceType: WorkspaceType,
+    // Projektablage-Anschluss (Batch 3): der Ablage-Ordner dieses Projekts wird
+    // beim Container-Start rw als /workspace/projekt gemountet. null = trennen.
+    project_id: z.uuid('Ungültige Projekt-ID').nullish(),
   })
   .strict();
 

@@ -31,6 +31,9 @@ im Chat mit `/` ab.
 - Ein Lauf erscheint als Karte im Verlauf: jeder Werkzeug- und Subagent-Schritt
   mit Dauer und Status, am Ende die Antwort und — bei Schreibzugriffen — eine
   Übersicht geänderter Dateien (neu / geändert / gelöscht, mit Vorher/Nachher).
+  Subagenten sind dabei **aufklappbare Bäume** (Agenten-Baum, s. u.); in der
+  Flow-Zentrale ist „Letzte Läufe" klickbar und öffnet die Lauf-Detailansicht
+  mit demselben Protokoll.
 - Läufe leben serverseitig: Tab schließen und später öffnen zeigt den aktuellen
   Stand bzw. das fertige Ergebnis. Der Abbrechen-Knopf stoppt einen Lauf
   innerhalb weniger Sekunden.
@@ -93,6 +96,11 @@ Werkzeuge.
   `dateien_suchen`, `terminal`) verlangen mindestens einen erlaubten `ordner`;
   der erste ist das Arbeitsverzeichnis. Jeder Zugriff ist symlink-geprüft und
   auf die erlaubten Ordner beschränkt — `../` und Ausbrüche werden abgewiesen.
+- Der besondere `ordner`-Wert **`projekt://aktiv`** wird zur Laufzeit in die
+  **Projektablage** des aktiven Projekts aufgelöst (`data/projects/<uuid>`,
+  siehe [`WORKSPACE.md`](WORKSPACE.md)) — der Flow arbeitet damit im selben
+  Ordner wie Explorer und Sandboxes, ohne dass eine UUID in der Flow-Datei
+  stünde.
 - `dateien_suchen` findet Dateien nach Namensmuster (Glob, z. B. `*.md`,
   `**/*.js`) und/oder nach Textinhalt (`text` = Teilzeichenkette, Groß-/
   Kleinschreibung egal, mit Zeilennummer — kein Regulärer Ausdruck, das schützt
@@ -113,6 +121,16 @@ deklarierten Feldern, hart auf `max_zeichen` gekappt. Die Rohdaten (ganze
 Seiteninhalte, Dateitexte) stehen nur im Lauf-Protokoll, erreichen aber nie den
 Orchestrator-Kontext. Das ist der Hebel, mit dem ein kleines lokales Modell wie
 ein großes wirkt: gezielt wenig Kontext statt „alles ins Modell".
+
+Im Lauf-Protokoll ist jeder Subagent ein **echter Baum** (Migration 124): sein
+Schritt entsteht schon **vor** der Ausführung, und die inneren Werkzeug-Aufrufe
+der Rolle werden Kind-Schritte (`flow_run_steps.parent_step_id`) statt eines
+Text-Blobs im Rohprotokoll; `modell` hält fest, welches Modell den Schritt
+getrieben hat. Live meldet der SSE-Strom jeden Schritt als
+`step_start`/`step_end` (die volle Schritt-Zeile, ohne Rohdaten — die lädt die
+Ansicht bei Bedarf nach); die früheren `tool_start`/`tool_result`-Ereignisse
+sind damit abgelöst. Chat-Lauf-Karte und die Lauf-Detailansicht der
+Flow-Zentrale zeigen denselben aufklappbaren Agenten-Baum, live wie nachher.
 
 ### Schritt-Kette (deterministische Orchestrierung)
 
@@ -160,28 +178,19 @@ verschachteln soll; die GPU arbeitet sequenziell, jede Ebene kostet Laufzeit.
 Wird eine Grenze erreicht, endet der Lauf sauber und nennt Grund und bisheriges
 Ergebnis.
 
-## Auslöser — Flows automatisch starten (B8)
+## Auslöser — Flows von außen starten
 
-Ein Flow muss nicht von Hand im Chat gestartet werden. Drei Wege lösen ihn aus,
-alle über denselben Runner (der Lauf erscheint als Karte im Chat):
+Ein Flow muss nicht von Hand im Chat gestartet werden:
 
-- **Zeitplan (Cron).** Ein Auslöser mit einem 5-Feld-Cron-Ausdruck (Minute
-  Stunde Tag Monat Wochentag, in Gerätezeit). Ein Scheduler-Dienst prüft im
-  Minutentakt die fälligen Auslöser und startet sie. Voreinstellungen im Dialog
-  decken die üblichen Fälle ab (stündlich, täglich 8 Uhr, wochentags 9 Uhr …).
-- **Ereignis.** Ein Auslöser hört auf einen frei gewählten Namen (z. B.
-  `neue-rechnung`). Ein n8n-Webhook feuert ihn über
-  `POST /api/v1/external/events/:name` (API-Key) — mehrere Flows dürfen auf
-  denselben Namen hören.
-- **HTTP direkt.** `POST /api/v1/external/flows/:name/run` (API-Key) startet
-  einen Flow sofort und gibt das Ergebnis zurück (oder `202` mit der Lauf-ID bei
-  `wait_for_result: false`). So triggert n8n einen Flow und liest die Antwort.
-
-Verwaltet werden Auslöser im Chat über die einklappbare **Flow-Steuerung** über
-dem Eingabefeld: Sie zeigt laufende Flows (mit Abbrechen) und geplante Auslöser
-(An/Aus, jetzt starten, löschen) und öffnet den „+ Zeitplan"-Dialog. Auslöser
-liegen in der Tabelle `flow_schedules`; hinterlegte Argumente werden bei jedem
-automatischen Start mitgegeben und wie im Chat gegen die Deklaration geprüft.
+- **HTTP direkt.** `POST /api/v1/external/flows/:name/run` (API-Key mit Scope
+  `flow:run`) startet einen Flow sofort und gibt das Ergebnis zurück (oder
+  `202` mit der Lauf-ID bei `wait_for_result: false`). So triggert n8n einen
+  Flow und liest die Antwort. Die Flow-Zentrale zeigt die Trigger-URL samt
+  kopierbarem curl-Beispiel und verwaltet die API-Schlüssel.
+- **Zeitpläne über n8n.** Wiederkehrende Starts (Cron) baut man als
+  n8n-Workflow (Schedule-Trigger → HTTP-Request auf die Trigger-URL). Der
+  frühere eingebaute Zeitplan-/Ereignis-Mechanismus (`flow_schedules`) wurde
+  am 2026-07-28 ersatzlos entfernt (Migration 123) — n8n deckt das ab.
 
 ## Sicherheit — bewusst ohne Rückfrage
 

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/shadcn/label';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
+import { ProjektAnschlussSelect } from './ProjektAnschlussSelect';
 import type { SandboxProject, SandboxNetworkMode } from './types';
 
 interface EditProjectDialogProps {
@@ -25,6 +26,7 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [networkMode, setNetworkMode] = useState<SandboxNetworkMode>('isolated');
+  const [projektId, setProjektId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +50,7 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
           ? project.network_mode
           : 'isolated'
       );
+      setProjektId(project.project_id ?? null);
       setError(null);
     }
     // NOTE: effect deps intentionally scoped (exhaustive-deps reviewed)
@@ -71,6 +74,7 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
           name: name.trim(),
           description: description.trim() || null,
           network_mode: networkMode,
+          project_id: projektId,
         },
         { showError: false }
       );
@@ -211,6 +215,8 @@ export default function EditProjectDialog({ project, onClose, onUpdated }: EditP
             Netzwerk-Änderungen werden beim nächsten Container-Start wirksam.
           </p>
         </div>
+
+        <ProjektAnschlussSelect value={projektId} onChange={setProjektId} />
       </form>
     </Modal>
   );

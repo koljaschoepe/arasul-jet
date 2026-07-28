@@ -22,7 +22,8 @@ import { useApi } from './useApi';
 
 /** Ein Schritt eines Laufs, wie ihn der Verlauf/die Live-Ereignisse liefern. */
 export interface FlowRunStep {
-  id?: number;
+  /** Postgres BIGSERIAL — kommt je nach Pfad als Zahl ODER String an. */
+  id?: number | string;
   position?: number;
   kind: 'werkzeug' | 'subagent' | 'modell' | 'hinweis';
   name: string;
@@ -32,6 +33,10 @@ export interface FlowRunStep {
   /** Zeitstempel (nur im gespeicherten Verlauf/Wiederverbinden) — für die Dauer. */
   created_at?: string;
   finished_at?: string | null;
+  /** Eltern-Schritt (Agenten-Baum): innere Werkzeug-Aufrufe eines Subagenten. */
+  parent_step_id?: number | string | null;
+  /** Das Modell, das diesen Schritt getrieben hat (Subagent-Rolle/Modell-Schritt). */
+  modell?: string | null;
 }
 
 export type FlowRunStatus = 'laeuft' | 'fertig' | 'fehler' | 'abgebrochen';
@@ -71,6 +76,8 @@ export interface FlowRunState {
 interface StreamEvent {
   type:
     | 'verlauf'
+    | 'step_start'
+    | 'step_end'
     | 'tool_start'
     | 'tool_result'
     | 'text'
@@ -78,6 +85,8 @@ interface StreamEvent {
     | 'error'
     | 'aenderungen'
     | 'ende';
+  /** Bei step_start/step_end: die Schritt-Zeile (ohne Rohdaten). */
+  step?: FlowRunStep;
   run?: {
     status: FlowRunStatus;
     steps?: FlowRunStep[];
@@ -148,6 +157,24 @@ export function useFlowRun() {
               error: run?.error ?? s.error,
               changes: run?.changes ?? s.changes,
             };
+          }
+          case 'step_start': {
+            // Neuer Schritt (mit ID + Baum-Feldern) — anhängen, falls unbekannt.
+            // IDs sind BIGSERIAL und kommen mal als Zahl, mal als String an.
+            const step = evt.step;
+            if (!step) return s;
+            if (step.id != null && s.steps.some(x => String(x.id) === String(step.id))) return s;
+            return { ...s, steps: [...s.steps, step] };
+          }
+          case 'step_end': {
+            // Abgeschlossenen Schritt per ID ersetzen (robuster als Namens-Match).
+            const step = evt.step;
+            if (!step || step.id == null) return s;
+            const idx = s.steps.findIndex(x => String(x.id) === String(step.id));
+            if (idx < 0) return { ...s, steps: [...s.steps, step] };
+            const steps = [...s.steps];
+            steps[idx] = step;
+            return { ...s, steps };
           }
           case 'tool_start':
             return {

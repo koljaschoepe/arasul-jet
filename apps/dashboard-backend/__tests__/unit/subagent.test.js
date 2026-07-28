@@ -137,6 +137,16 @@ describe('SubagentTool', () => {
     ergebnis: { felder: ['fakten', 'quelle'], max_zeichen: 2000 },
   };
 
+  // Schritt-Schreiber-Doppel: `beginnen` vergibt fortlaufende IDs, damit sich
+  // die Eltern-Kind-Verkettung (parentStepId) prüfen lässt.
+  function makeStepRecorder() {
+    let naechsteId = 100;
+    return {
+      beginnen: jest.fn(async () => ({ id: naechsteId++ })),
+      abschliessen: jest.fn(async () => ({})),
+    };
+  }
+
   function baseCtx(overrides = {}) {
     return {
       rollen: [rolle],
@@ -145,7 +155,7 @@ describe('SubagentTool', () => {
       model: 'default-model',
       werkzeugRunden: 5,
       roleContextBase: { roots: ['/a'], spaceIds: null, userId: 1 },
-      recordSubagent: jest.fn(async () => {}),
+      stepRecorder: makeStepRecorder(),
       makeTools: jest.fn(() => [{ name: 'web_lesen' }]),
       // Die Rolle liefert brav JSON zurück.
       runLoop: jest.fn(async () => ({
@@ -181,16 +191,25 @@ describe('SubagentTool', () => {
     expect(out).not.toMatch(/SEITENINHALT/); // Rohdaten erreichen den Orchestrator NICHT
   });
 
-  it('protokolliert Rohdaten UND das Verdichtete über recordSubagent', async () => {
+  it('protokolliert Rohdaten UND das Verdichtete über den stepRecorder', async () => {
     const ctx = baseCtx({
       runLoop: jest.fn(async () => ({ result: 'Nur Prosa, kein JSON — das ist der Rohtext.' })),
     });
     await tool.execute({ rolle: 'leser', auftrag: 'Lies x' }, ctx);
-    expect(ctx.recordSubagent).toHaveBeenCalledTimes(1);
-    const arg = ctx.recordSubagent.mock.calls[0][0];
-    expect(arg.raw).toMatch(/das ist der Rohtext/); // roh im Protokoll
-    expect(arg.rolle).toBe('leser');
-    expect(arg.text).toMatch(/fakten:/); // verdichtet
+    // Der Schritt wird VOR der Ausführung angelegt (live sichtbar) …
+    expect(ctx.stepRecorder.beginnen).toHaveBeenCalledTimes(1);
+    expect(ctx.stepRecorder.beginnen.mock.calls[0][0]).toMatchObject({
+      kind: 'subagent',
+      name: 'leser',
+      input: { auftrag: 'Lies x' },
+      modell: 'default-model',
+    });
+    // … und am Ende mit Verdichtetem UND Rohdaten abgeschlossen.
+    expect(ctx.stepRecorder.abschliessen).toHaveBeenCalledTimes(1);
+    const ende = ctx.stepRecorder.abschliessen.mock.calls[0][0];
+    expect(ende.rawOutput).toMatch(/das ist der Rohtext/); // roh im Protokoll
+    expect(ende.output).toMatch(/fakten:/); // verdichtet
+    expect(ende.status).toBe('fertig');
   });
 
   it('führt die Rolle mit IHREN Werkzeugen und dem Vertrags-Hinweis aus', async () => {
@@ -266,9 +285,9 @@ describe('SubagentTool', () => {
         data: { message: { content: JSON.stringify({ fakten: 'Kurzfazit', quelle: 'x' }) } },
       });
 
-    const recordSubagent = jest.fn(async () => {});
+    const stepRecorder = makeStepRecorder();
     const ctx = baseCtx({
-      recordSubagent,
+      stepRecorder,
       makeTools: () => [werkzeug], // die Rolle bekommt das echte Werkzeug-Doppel
       runLoop: runFlowLoop, // die ECHTE Schleife
     });
@@ -277,9 +296,20 @@ describe('SubagentTool', () => {
     // Orchestrator sieht NUR den Vertrag, nicht das Rohmaterial.
     expect(out).toContain('Kurzfazit');
     expect(out).not.toMatch(/GANZER SEITENINHALT/);
-    // Im Protokoll steht das Rohmaterial sehr wohl.
-    const raw = recordSubagent.mock.calls[0][0].raw;
-    expect(raw).toMatch(/GANZER SEITENINHALT/);
-    expect(raw).toMatch(/Werkzeug-Verlauf der Rolle/);
+    // Im Protokoll steht das Rohmaterial sehr wohl — als raw_output des
+    // Subagent-Schritts UND als echter Kind-Schritt (Agenten-Baum).
+    const anfaenge = stepRecorder.beginnen.mock.calls.map(c => c[0]);
+    const subagentStart = anfaenge.find(a => a.kind === 'subagent');
+    const kindStart = anfaenge.find(a => a.kind === 'werkzeug');
+    expect(subagentStart).toMatchObject({ name: 'leser' });
+    expect(kindStart).toMatchObject({ name: 'web_lesen', parentStepId: 100 });
+
+    const enden = stepRecorder.abschliessen.mock.calls.map(c => c[0]);
+    const subagentEnde = enden.find(e => e.rawOutput != null);
+    expect(subagentEnde.rawOutput).toMatch(/GANZER SEITENINHALT/);
+    expect(subagentEnde.rawOutput).toMatch(/Werkzeug-Verlauf der Rolle/);
+    // Der Kind-Schritt trägt die volle Werkzeug-Ausgabe.
+    const kindEnde = enden.find(e => e.output === roheSeite);
+    expect(kindEnde).toBeTruthy();
   });
 });

@@ -19,6 +19,7 @@ const {
   getHostDataDir,
   getHostToolsDir,
   getHostRepoDir,
+  getHostProjectsDir,
   getDevTemplatesDir,
   getDockerSockGid,
   parseMemoryLimit,
@@ -62,6 +63,7 @@ async function createProject({
   environment,
   network_mode,
   workspaceType,
+  project_id,
   userId,
   userRole,
 }) {
@@ -88,6 +90,12 @@ async function createProject({
   // Validate workspace_type — default 'standard' (Plan 012 Phase E · Schritt 13).
   const wsType = VALID_WORKSPACE_TYPES.includes(workspaceType) ? workspaceType : 'standard';
 
+  // Projektablage-Anschluss: nur an existierende Projekte — wirft NotFound bei
+  // Geistern (und legt den Ablage-Ordner gleich an).
+  if (project_id) {
+    await require('../projects/ablageService').projektOrdner(project_id);
+  }
+
   // Plan 008 Schritt 13: der Workspace-INSERT und die Anlage seines EINEN
   // unsichtbaren Wissensraums laufen atomar in einer Transaktion. Entweder der
   // Workspace bekommt seinen verknüpften Space (RAG-Scoping der Agenten) — oder
@@ -104,8 +112,8 @@ async function createProject({
 
     const result = await client.query(
       `INSERT INTO sandbox_projects
-        (name, slug, description, icon, color, base_image, host_path, container_path, resource_limits, environment, network_mode, workspace_type, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, '/workspace', $8, $9, $10, $11, $12)
+        (name, slug, description, icon, color, base_image, host_path, container_path, resource_limits, environment, network_mode, workspace_type, project_id, user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, '/workspace', $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         name.trim(),
@@ -119,6 +127,7 @@ async function createProject({
         JSON.stringify(environment || {}),
         netMode,
         wsType,
+        project_id || null,
         userId,
       ]
     );
@@ -289,7 +298,7 @@ async function getProject(projectId, userId) {
  */
 async function updateProject(
   projectId,
-  { name, description, icon, color, environment, resourceLimits, network_mode },
+  { name, description, icon, color, environment, resourceLimits, network_mode, project_id },
   userId,
   userRole
 ) {
@@ -343,6 +352,15 @@ async function updateProject(
     }
     setClauses.push(`network_mode = $${idx++}`);
     params.push(network_mode);
+  }
+  if (project_id !== undefined) {
+    // Anschluss wechseln oder (null) trennen. Der Mount greift beim nächsten
+    // Container-Start — ein laufender Container behält seine Binds.
+    if (project_id) {
+      await require('../projects/ablageService').projektOrdner(project_id);
+    }
+    setClauses.push(`project_id = $${idx++}`);
+    params.push(project_id || null);
   }
 
   const result = await db.query(
@@ -531,6 +549,24 @@ async function startContainer(projectId, userId) {
     const hostToolsDir = await getHostToolsDir();
 
     const binds = [`${hostPath}:/workspace`, `${hostToolsDir}:/opt/tools:ro`];
+
+    // Projektablage-Anschluss: der Ablage-Ordner des verbundenen Projekts wird
+    // rw als /workspace/projekt eingebunden — was der Agent dort baut, liegt
+    // sofort in data/projects/<uuid> und damit im Explorer.
+    if (project.project_id) {
+      try {
+        // Ordner container-lokal sicherstellen (sonst legte Docker ihn als
+        // root an) — projektOrdner validiert zugleich, dass es das Projekt
+        // noch gibt.
+        await require('../projects/ablageService').projektOrdner(project.project_id);
+        const hostProjectsDir = await getHostProjectsDir();
+        binds.push(`${hostProjectsDir}/${project.project_id}:/workspace/projekt:rw`);
+      } catch (err) {
+        // Verwaister Anschluss (Projekt gelöscht): Container ohne Mount starten,
+        // statt die ganze Sandbox zu blockieren.
+        logger.warn(`Sandbox "${project.slug}": Projektablage-Mount übersprungen: ${err.message}`);
+      }
+    }
     const hostConfig = {
       Binds: binds,
       NetworkMode: networkMode,
