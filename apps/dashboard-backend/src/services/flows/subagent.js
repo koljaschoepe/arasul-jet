@@ -133,12 +133,32 @@ class SubagentTool extends BaseTool {
     // sein soll. Der Werkzeug-Verlauf der Rolle (ihre Seiten, Dateien, Treffer)
     // wird hier gesammelt und unten als `raw` weitergegeben — er landet im
     // raw_output des Subagent-Schritts, nicht in der Antwort an den Orchestrator.
+    // Gedeckelt: ein einzelnes Werkzeug-Ergebnis kann 256 KB groß sein
+    // (dateien_lesen), eine Rolle darf bis zu `werkzeugRunden` Aufrufe machen —
+    // ungedeckelt liefe raw_output in den zweistelligen MB-Bereich (Speicher +
+    // flow_run_steps). Pro Eintrag und in Summe hart begrenzen.
+    const RAW_EINTRAG_MAX = 4000;
+    const RAW_GESAMT_MAX = 64_000;
     const gelesenes = [];
+    let rawBytes = 0;
+    let rawVoll = false;
+    const rawPush = zeile => {
+      if (rawVoll) {return;}
+      const kurz =
+        zeile.length > RAW_EINTRAG_MAX ? `${zeile.slice(0, RAW_EINTRAG_MAX)} … [gekürzt]` : zeile;
+      if (rawBytes + kurz.length > RAW_GESAMT_MAX) {
+        gelesenes.push('… [weitere Werkzeug-Ausgaben gekürzt]');
+        rawVoll = true;
+        return;
+      }
+      rawBytes += kurz.length;
+      gelesenes.push(kurz);
+    };
     const rolleOnEvent = evt => {
       if (evt.type === 'tool_start') {
-        gelesenes.push(`→ ${evt.tool}(${JSON.stringify(evt.params || {})})`);
+        rawPush(`→ ${evt.tool}(${JSON.stringify(evt.params || {})})`);
       } else if (evt.type === 'tool_result') {
-        gelesenes.push(`← ${evt.tool}: ${evt.result}`);
+        rawPush(`← ${evt.tool}: ${evt.result}`);
       }
     };
 

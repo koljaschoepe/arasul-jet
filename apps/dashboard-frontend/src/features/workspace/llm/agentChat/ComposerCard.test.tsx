@@ -335,4 +335,30 @@ describe('ComposerCard · Flow-Lauf abschicken (Schritt 15)', () => {
     expect(onSend).toHaveBeenCalledTimes(1);
     expect(onRunFlow).not.toHaveBeenCalled();
   });
+
+  // Live-Bug 2026-07-27: Ein von Hand getippter/eingefügter Befehl lief ohne
+  // aktive Eingabehilfe mit LEEREN Argumenten los — der Text hinter dem Befehl
+  // ging verloren und Flows mit Pflicht-Argument scheiterten mit 400.
+  test('von Hand getippter Befehl bindet den Resttext an das erste Pflicht-Freitext-Argument', async () => {
+    const user = userEvent.setup();
+    const onRunFlow = vi.fn();
+    const onSend = vi.fn();
+    render(
+      <RunHarness onRunFlow={onRunFlow} onSend={onSend} start="/recherche Klimawandel 2026" />
+    );
+    await user.click(screen.getByLabelText('Nachricht an die KI'));
+    await user.keyboard('{Enter}');
+    expect(onRunFlow).toHaveBeenCalledWith('recherche', { thema: 'Klimawandel 2026' });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  test('von Hand getippter Befehl ohne Resttext startet mit leeren Argumenten', async () => {
+    const user = userEvent.setup();
+    const onRunFlow = vi.fn();
+    const onSend = vi.fn();
+    render(<RunHarness onRunFlow={onRunFlow} onSend={onSend} start="/recherche " />);
+    await user.click(screen.getByLabelText('Nachricht an die KI'));
+    await user.keyboard('{Enter}');
+    expect(onRunFlow).toHaveBeenCalledWith('recherche', {});
+  });
 });

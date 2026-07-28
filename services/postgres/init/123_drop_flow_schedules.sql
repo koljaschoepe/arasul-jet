@@ -1,0 +1,17 @@
+-- 123_drop_flow_schedules.sql — Flow-Zeitpläne/Cron entfernt.
+--
+-- Die Auslöser (Cron-Zeitpläne + benannte Ereignisse, Migration 120) werden
+-- ersatzlos entfernt (Nutzer-Entscheidung 2026-07-28): Flows werden künftig im
+-- Chat per Slash-Befehl oder extern per HTTP-Trigger
+-- (POST /api/v1/external/flows/:name/run) gestartet — ein Zeitplan-Mechanismus
+-- wird nicht mehr gebraucht. Der Scheduler-Dienst, die Routen /flows/zeitplaene
+-- und der externe Events-Endpunkt sind mit diesem Schritt aus dem Code entfernt.
+--
+-- Die Lauf-Historie (flow_runs / flow_run_steps) bleibt unberührt. flow_schedules
+-- hatte nur eine FK-Referenz AUF flow_runs (last_run_id, ON DELETE SET NULL) —
+-- das Droppen der Tabelle löst diese Abhängigkeit sauber, ohne flow_runs zu
+-- berühren.
+--
+-- Forward-only, idempotent. Es gibt keine Rückrichtung (die Tabelle ist weg);
+-- wer sie zurück will, spielt Migration 120 erneut ein.
+DROP TABLE IF EXISTS flow_schedules;

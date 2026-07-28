@@ -430,6 +430,11 @@ async function startContainer(projectId, userId) {
             container_id: project.container_id,
             container_name: project.container_name,
           });
+          // Zentralen KI-Zugang in den (wieder-)gestarteten Container spielen.
+          await externalCredentialsService.applyCentralAuthBestEffort(project.user_id, {
+            container_id: project.container_id,
+            container_name: project.container_name,
+          });
 
           logger.info(`Sandbox container started: ${project.container_name}`);
           return { success: true, message: 'Container gestartet' };
@@ -493,6 +498,19 @@ async function startContainer(projectId, userId) {
     envVars.push('ARASUL_OLLAMA_URL=http://llm-service:11434');
     if (project.environment && typeof project.environment === 'object') {
       envVars.push(`SANDBOX_ENV_JSON=${JSON.stringify(project.environment)}`);
+    }
+
+    // Zentraler KI-Zugang (Plan 013): einmal in den Einstellungen hinterlegtes
+    // Abo-Token / API-Key als Umgebungsvariable in JEDE Sandbox — so ist `claude`
+    // im Terminal sofort angemeldet, ohne interaktiven Login. `docker exec`-Shells
+    // erben diese Container-Env.
+    try {
+      const authEnv = await externalCredentialsService.getCentralAuthEnv(project.user_id);
+      for (const [k, v] of Object.entries(authEnv)) {
+        envVars.push(`${k}=${v}`);
+      }
+    } catch (err) {
+      logger.warn(`Zentralen KI-Zugang nicht ermittelt: ${err.message}`);
     }
 
     // Remove existing container with same name (zombie cleanup)
@@ -562,6 +580,12 @@ async function startContainer(projectId, userId) {
     // Plan 008 Schritt 14: gespeicherten Claude-Login in den frischen Container
     // spielen (best-effort — blockiert den Start nie).
     await externalCredentialsService.restoreClaudeLoginBestEffort(project.user_id, {
+      container_id: container.id,
+      container_name: containerName,
+    });
+    // Zentralen KI-Zugang zusätzlich als gesourcte Profildatei ablegen (belt &
+    // suspenders neben der Container-Env; wirkt auch nach einem Env-Reset).
+    await externalCredentialsService.applyCentralAuthBestEffort(project.user_id, {
       container_id: container.id,
       container_name: containerName,
     });

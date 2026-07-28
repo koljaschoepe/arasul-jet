@@ -20,6 +20,26 @@
  * @param {Map}    deps.modelAvailabilityCache
  * @returns {Object} Sync helper functions
  */
+/**
+ * Ollama behandelt `name` und `name:latest` als dasselbe Modell — der Katalog
+ * speichert meist die tag-lose Form, `/api/tags` liefert aber `:latest`.
+ * Ein exakter Stringvergleich meldete deshalb installierte Modelle als
+ * „nicht in Ollama gefunden" (live gesehen bei nomic-embed-text, 2026-07-27).
+ * @param {string} name
+ * @returns {string[]} beide Schreibweisen des Tags
+ */
+function tagVarianten(name) {
+  if (name.endsWith(':latest')) {
+    return [name, name.slice(0, -':latest'.length)];
+  }
+  return name.includes(':') ? [name] : [name, `${name}:latest`];
+}
+
+/** Ist `name` (in irgendeiner `:latest`-Schreibweise) in der Ollama-Liste? */
+function inOllama(ollamaModels, name) {
+  return tagVarianten(name).some(v => ollamaModels.includes(v));
+}
+
 function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabilityCache }) {
   /**
    * Mark models as available that Ollama has (sync step 1)
@@ -27,10 +47,11 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
    */
   async function markAvailableModels(ollamaModels) {
     for (const ollamaModelName of ollamaModels) {
+      const varianten = tagVarianten(ollamaModelName);
       const catalogResult = await database.query(
         `SELECT id FROM llm_model_catalog
-         WHERE ollama_name = $1 OR id = $1`,
-        [ollamaModelName]
+         WHERE ollama_name = ANY($1) OR id = ANY($1)`,
+        [varianten]
       );
 
       if (catalogResult.rows.length > 0) {
@@ -72,7 +93,7 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
     // This handles locally imported models (id matches) vs registry-pulled models (ollama_name matches)
     const missingIds = catalogWithOllama.rows
       .filter(
-        row => !ollamaModels.includes(row.effective_ollama_name) && !ollamaModels.includes(row.id)
+        row => !inOllama(ollamaModels, row.effective_ollama_name) && !inOllama(ollamaModels, row.id)
       )
       .map(row => row.id);
 
@@ -112,7 +133,7 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
         continue;
       }
 
-      if (ollamaModels.includes(row.effective_ollama_name) || ollamaModels.includes(row.id)) {
+      if (inOllama(ollamaModels, row.effective_ollama_name) || inOllama(ollamaModels, row.id)) {
         // Model is actually in Ollama - mark as available
         await database.query(
           `
@@ -163,4 +184,4 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
   };
 }
 
-module.exports = { createSyncHelpers };
+module.exports = { createSyncHelpers, tagVarianten, inOllama };

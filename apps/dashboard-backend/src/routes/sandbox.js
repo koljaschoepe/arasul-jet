@@ -14,6 +14,7 @@ const {
   UpdateProjectBody,
   ListProjectsQuery,
   WorkspaceParams,
+  ClaudeAuthBody,
 } = require('../schemas/sandbox');
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
@@ -212,6 +213,51 @@ router.delete(
       externalCredentialsService.PROVIDER_CLAUDE
     );
     res.json({ deleted, timestamp: new Date().toISOString() });
+  })
+);
+
+// ============================================================================
+// Zentraler KI-Zugang (Plan 013, 2026-07-28)
+// ============================================================================
+// EINMAL hinterlegter Abo-Token / API-Key, der in JEDE Sandbox als Umgebungs-
+// variable gebracht wird (siehe externalCredentialsService). Löst den kaputten
+// interaktiven Terminal-Login ab: jede Sandbox ist sofort angemeldet.
+
+// GET /api/sandbox/claude-auth — Status (ob + welche Art), NIE der Geheimwert.
+router.get(
+  '/claude-auth',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const status = await externalCredentialsService.getCentralAuthStatus(req.user.id);
+    res.json({ ...status, timestamp: new Date().toISOString() });
+  })
+);
+
+// PUT /api/sandbox/claude-auth — Zugang setzen/ändern und sofort auf alle
+// laufenden Sandboxes des Nutzers anwenden (neue erhalten ihn beim Start).
+router.put(
+  '/claude-auth',
+  requireAuth,
+  validateBody(ClaudeAuthBody),
+  asyncHandler(async (req, res) => {
+    const { mode } = await externalCredentialsService.setCentralAuth(
+      req.user.id,
+      req.body.mode,
+      req.body.value
+    );
+    const applied = await externalCredentialsService.applyCentralAuthToUserContainers(req.user.id);
+    res.json({ configured: true, mode, applied_to: applied, timestamp: new Date().toISOString() });
+  })
+);
+
+// DELETE /api/sandbox/claude-auth — Zugang entfernen (auch aus laufenden Sandboxes).
+router.delete(
+  '/claude-auth',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const deleted = await externalCredentialsService.deleteCentralAuth(req.user.id);
+    const applied = await externalCredentialsService.applyCentralAuthToUserContainers(req.user.id);
+    res.json({ deleted, applied_to: applied, timestamp: new Date().toISOString() });
   })
 );
 

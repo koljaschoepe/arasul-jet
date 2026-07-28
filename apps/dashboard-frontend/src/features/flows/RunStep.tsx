@@ -82,13 +82,22 @@ export function stepLabel(step: FlowRunStep): string {
       const cmd = feld(step.input, 'befehl');
       return cmd ? `führt aus: ${kuerze(cmd, 48)}` : 'führt einen Befehl aus';
     }
+    // Im Live-Stream kommt eine Delegation als WERKZEUG-Aufruf `subagent` an
+    // (erst der gespeicherte Verlauf trägt kind='subagent' + Rollenname) —
+    // gleiche Beschriftung wie oben, sonst zeigt dieselbe Karte vor und nach
+    // einem Reload verschiedene Zeilen.
+    case 'subagent': {
+      const rolle = feld(step.input, 'rolle') || 'Subagent';
+      const kurz = kuerze(feld(step.input, 'auftrag'));
+      return kurz ? `${rolle} · ${kurz}` : rolle;
+    }
     default:
       return `nutzt ${step.name || 'Werkzeug'}`;
   }
 }
 
 function stepIcon(step: FlowRunStep) {
-  if (step.kind === 'subagent') return <Bot className="size-3.5" />;
+  if (step.kind === 'subagent' || step.name === 'subagent') return <Bot className="size-3.5" />;
   if (step.kind === 'modell') return <Sparkles className="size-3.5" />;
   switch (step.name) {
     case 'dateien_lesen':

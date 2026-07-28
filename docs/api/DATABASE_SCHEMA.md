@@ -1137,46 +1137,47 @@
 
 > Main document metadata storage for RAG system
 
-| Column                    | Type                     | Nullable | Default                      |
-| ------------------------- | ------------------------ | -------- | ---------------------------- |
-| `id`                      | uuid                     | ⛔       | `gen_random_uuid()`          |
-| `filename`                | character varying        | ⛔       |                              |
-| `original_filename`       | character varying        | ⛔       |                              |
-| `file_path`               | character varying        | ⛔       |                              |
-| `file_size`               | bigint                   | ⛔       |                              |
-| `mime_type`               | character varying        | ✅       |                              |
-| `file_extension`          | character varying        | ✅       |                              |
-| `content_hash`            | character varying        | ⛔       |                              |
-| `file_hash`               | character varying        | ⛔       |                              |
-| `status`                  | USER-DEFINED             | ✅       | `'pending'::document_status` |
-| `processing_started_at`   | timestamp with time zone | ✅       |                              |
-| `processing_completed_at` | timestamp with time zone | ✅       |                              |
-| `processing_error`        | text                     | ✅       |                              |
-| `retry_count`             | integer                  | ✅       | `0`                          |
-| `title`                   | character varying        | ✅       |                              |
-| `author`                  | character varying        | ✅       |                              |
-| `language`                | character varying        | ✅       | `'de'::character varying`    |
-| `page_count`              | integer                  | ✅       |                              |
-| `word_count`              | integer                  | ✅       |                              |
-| `char_count`              | integer                  | ✅       |                              |
-| `chunk_count`             | integer                  | ✅       | `0`                          |
-| `embedding_model`         | character varying        | ✅       |                              |
-| `summary`                 | text                     | ✅       |                              |
-| `key_topics`              | ARRAY                    | ✅       |                              |
-| `category_id`             | integer                  | ✅       |                              |
-| `category_confidence`     | numeric                  | ✅       |                              |
-| `user_tags`               | ARRAY                    | ✅       |                              |
-| `user_notes`              | text                     | ✅       |                              |
-| `is_favorite`             | boolean                  | ✅       | `false`                      |
-| `uploaded_at`             | timestamp with time zone | ✅       | `now()`                      |
-| `indexed_at`              | timestamp with time zone | ✅       |                              |
-| `updated_at`              | timestamp with time zone | ✅       | `now()`                      |
-| `deleted_at`              | timestamp with time zone | ✅       |                              |
-| `uploaded_by`             | character varying        | ✅       | `'admin'::character varying` |
-| `space_id`                | uuid                     | ✅       |                              |
-| `document_summary`        | text                     | ✅       |                              |
-| `owner_id`                | integer                  | ✅       |                              |
-| `is_context_file`         | boolean                  | ⛔       | `false`                      |
+| Column                    | Type                     | Nullable | Default                       |
+| ------------------------- | ------------------------ | -------- | ----------------------------- |
+| `id`                      | uuid                     | ⛔       | `gen_random_uuid()`           |
+| `filename`                | character varying        | ⛔       |                               |
+| `original_filename`       | character varying        | ⛔       |                               |
+| `file_path`               | character varying        | ⛔       |                               |
+| `file_size`               | bigint                   | ⛔       |                               |
+| `mime_type`               | character varying        | ✅       |                               |
+| `file_extension`          | character varying        | ✅       |                               |
+| `content_hash`            | character varying        | ⛔       |                               |
+| `file_hash`               | character varying        | ⛔       |                               |
+| `status`                  | USER-DEFINED             | ✅       | `'pending'::document_status`  |
+| `processing_started_at`   | timestamp with time zone | ✅       |                               |
+| `processing_completed_at` | timestamp with time zone | ✅       |                               |
+| `processing_error`        | text                     | ✅       |                               |
+| `retry_count`             | integer                  | ✅       | `0`                           |
+| `title`                   | character varying        | ✅       |                               |
+| `author`                  | character varying        | ✅       |                               |
+| `language`                | character varying        | ✅       | `'de'::character varying`     |
+| `page_count`              | integer                  | ✅       |                               |
+| `word_count`              | integer                  | ✅       |                               |
+| `char_count`              | integer                  | ✅       |                               |
+| `chunk_count`             | integer                  | ✅       | `0`                           |
+| `embedding_model`         | character varying        | ✅       |                               |
+| `summary`                 | text                     | ✅       |                               |
+| `key_topics`              | ARRAY                    | ✅       |                               |
+| `category_id`             | integer                  | ✅       |                               |
+| `category_confidence`     | numeric                  | ✅       |                               |
+| `user_tags`               | ARRAY                    | ✅       |                               |
+| `user_notes`              | text                     | ✅       |                               |
+| `is_favorite`             | boolean                  | ✅       | `false`                       |
+| `uploaded_at`             | timestamp with time zone | ✅       | `now()`                       |
+| `indexed_at`              | timestamp with time zone | ✅       |                               |
+| `updated_at`              | timestamp with time zone | ✅       | `now()`                       |
+| `deleted_at`              | timestamp with time zone | ✅       |                               |
+| `uploaded_by`             | character varying        | ✅       | `'admin'::character varying`  |
+| `space_id`                | uuid                     | ✅       |                               |
+| `document_summary`        | text                     | ✅       |                               |
+| `owner_id`                | integer                  | ✅       |                               |
+| `is_context_file`         | boolean                  | ⛔       | `false`                       |
+| `project_id`              | uuid                     | ✅       | Projekt-Scope (Migration 122) |
 
 **Primary key:** `id`
 
@@ -1185,6 +1186,7 @@
 - `space_id` → `knowledge_spaces.id`
 - `category_id` → `document_categories.id`
 - `owner_id` → `admin_users.id`
+- `project_id` → `projects.id` (ON DELETE RESTRICT) — scopt den Workspace-Explorer; NULL nur bei Dokumenten unsichtbarer Workspace-Räume
 
 **Indexes:**
 
@@ -2392,9 +2394,12 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ---
 
-## `flow_schedules`
+## `flow_schedules` — ENTFERNT (Migration 123, 2026-07-28)
 
-> Flow-Auslöser (Plan 013, B8): startet einen Flow automatisch — per Cron-Zeitplan oder auf ein benanntes Ereignis hin. Eine Zeile je Auslöser; ein Flow darf mehrere haben.
+> Die Flow-Zeitpläne/Cron-Auslöser wurden ersatzlos entfernt (Migration 123
+> droppt die Tabelle). Flows starten jetzt per Slash-Befehl im Chat oder extern
+> per `POST /api/v1/external/flows/:name/run`. Die folgende Struktur ist nur noch
+> historisch (Stand vor 2026-07-28).
 
 | Column         | Type                     | Nullable | Default                                      |
 | -------------- | ------------------------ | -------- | -------------------------------------------- |

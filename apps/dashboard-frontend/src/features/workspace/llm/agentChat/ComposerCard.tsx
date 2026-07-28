@@ -199,8 +199,21 @@ export default function ComposerCard({
   const submit = useCallback(() => {
     const m = value.match(/^\/([^\s/]+)/);
     const flow = m ? flows.find(s => s.name === m[1]) : undefined;
-    if (flow && onRunFlow && !attachedFile && attachedImages.length === 0) {
-      const collected = inArgs && args.argState?.flow.name === flow.name ? args.collect() : {};
+    if (flow && m && onRunFlow && !attachedFile && attachedImages.length === 0) {
+      if (inArgs && args.argState?.flow.name === flow.name) {
+        onRunFlow(flow.name, args.collect());
+        return;
+      }
+      // Ohne aktive Eingabehilfe (von Hand getippt, eingefügt, nach Bearbeitung):
+      // den Text hinter dem Befehl nicht verwerfen, sondern dem ersten
+      // Freitext-Argument zuordnen — bevorzugt einem Pflicht-Argument. So
+      // funktioniert „/wissen Was ist …?" auch ohne den Weg übers Slash-Menü.
+      const rest = value.slice(m[0].length).trim();
+      const freitext =
+        flow.argumente.find(a => a.typ === 'freitext' && a.pflicht) ??
+        flow.argumente.find(a => a.typ === 'freitext');
+      const collected: Record<string, string> = {};
+      if (rest && freitext) collected[freitext.name] = rest;
       onRunFlow(flow.name, collected);
       return;
     }
