@@ -18,9 +18,6 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import {
   X,
   Save,
-  FileText,
-  Maximize2,
-  Minimize2,
   AlertCircle,
   AlignLeft,
   AlignCenter,
@@ -56,8 +53,7 @@ interface TipTapEditorProps {
   token: string;
   /**
    * Inline-Modus: der Editor füllt seinen Eltern-Container (flex column,
-   * height 100%) statt als fixed Vollbild-Overlay zu erscheinen. Der
-   * Vollbild-Toggle wechselt weiterhin in ein temporäres fixed Overlay.
+   * height 100%) statt als fixed Overlay zu erscheinen.
    */
   embedded?: boolean;
 }
@@ -77,7 +73,6 @@ const TipTapEditor = memo(function TipTapEditor({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -199,16 +194,14 @@ const TipTapEditor = memo(function TipTapEditor({
   });
 
   // Prevent body scroll while the editor is open — but not in embedded mode
-  // (there it lives inline in a tab and must not lock the whole page). When
-  // the embedded editor is toggled to fullscreen it covers the page, so lock
-  // then too.
+  // (there it lives inline in a tab and must not lock the whole page).
   useEffect(() => {
-    if (embedded && !isFullscreen) return;
+    if (embedded) return;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [embedded, isFullscreen]);
+  }, [embedded]);
 
   // Load document content
   useEffect(() => {
@@ -338,14 +331,10 @@ const TipTapEditor = memo(function TipTapEditor({
           handleSave();
         }
       }
-      // Escape — close or exit fullscreen
+      // Escape — close
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (isFullscreen) {
-          setIsFullscreen(false);
-        } else {
-          handleClose();
-        }
+        handleClose();
       }
       // Focus trap: cycle Tab within the editor container
       if (e.key === 'Tab' && containerRef.current) {
@@ -373,17 +362,15 @@ const TipTapEditor = memo(function TipTapEditor({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasChanges, saving, handleSave, handleClose, isFullscreen]);
+  }, [hasChanges, saving, handleSave, handleClose]);
 
   // Word/line count from the editor
   const charCount = editor?.storage.characterCount?.characters() ?? 0;
   const wordCount = editor?.storage.characterCount?.words() ?? 0;
 
-  // Root layout: fullscreen (fixed, page-covering) wins; otherwise embedded
-  // fills its parent inline; otherwise the classic fixed overlay.
-  const rootClass = `tiptap-editor-overlay ${
-    isFullscreen ? 'fullscreen' : embedded ? 'tiptap-editor-embedded' : ''
-  }`;
+  // Root layout: embedded fills its parent inline; otherwise the classic
+  // fixed overlay.
+  const rootClass = `tiptap-editor-overlay ${embedded ? 'tiptap-editor-embedded' : ''}`;
 
   // Reaktive Überlauf-Steuerung. Das Mess-Lineal wird NUR gerendert, solange
   // gemessen werden muss (measurePending), und danach wieder ausgehängt — sonst
@@ -411,11 +398,11 @@ const TipTapEditor = memo(function TipTapEditor({
     setMeasurePending(false);
   }, [loading, editor, measurePending, recomputeToolbar]);
 
-  // Ändert sich der Gruppensatz (Tabellen-Aktionen) oder das Layout (Vollbild),
-  // neu messen: Lineal wieder einhängen.
+  // Ändert sich der Gruppensatz (Tabellen-Aktionen), neu messen: Lineal wieder
+  // einhängen.
   useEffect(() => {
     setMeasurePending(true);
-  }, [tableActive, isFullscreen]);
+  }, [tableActive]);
 
   // Containerbreite beobachten → nur neu rechnen (aus gecachten Breiten).
   useEffect(() => {
@@ -796,8 +783,9 @@ const TipTapEditor = memo(function TipTapEditor({
         aria-modal="true"
         aria-label={`Editor: ${filename}`}
       >
-        {/* Header: Zeile 1 = Formatier-Leiste (strikt einzeilig, ⋯-Überlauf),
-            Zeile 2 = Dateiname + Autosave-Status + Aktionen. */}
+        {/* Header: EINE Zeile — links die Formatier-Leiste (strikt einzeilig,
+            ⋯-Überlauf), rechts Autosave-Status + Speichern + Schließen. Der
+            Dateiname steht bereits im Tab, deshalb hier nicht doppelt. */}
         <div className="tiptap-editor-header">
           <div
             className="tiptap-editor-toolbar"
@@ -853,46 +841,30 @@ const TipTapEditor = memo(function TipTapEditor({
             )}
           </div>
 
-          <div className="tiptap-editor-titlebar">
-            <div className="tiptap-editor-title">
-              <FileText />
-              <span>{filename}</span>
-              {hasChanges && <span className="tiptap-unsaved-indicator">*</span>}
-            </div>
+          <div className="tiptap-toolbar-group tiptap-editor-actions">
             <span className="tiptap-autosave-status" role="status" aria-live="polite">
               {saving ? 'Speichert…' : savedFlash ? 'Gespeichert' : ''}
             </span>
-            <div className="tiptap-toolbar-group tiptap-titlebar-actions">
-              <button
-                type="button"
-                className="tiptap-toolbar-btn"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
-                aria-label={isFullscreen ? 'Verkleinern' : 'Vollbild'}
-              >
-                {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              </button>
-              <button
-                type="button"
-                className={`tiptap-toolbar-btn tiptap-save-btn ${hasChanges ? 'has-changes' : ''}`}
-                onClick={handleSave}
-                disabled={!hasChanges || saving}
-                title="Speichern (Ctrl+S)"
-                aria-label="Speichern"
-              >
-                <Save size={16} />
-                {saving ? 'Speichert...' : 'Speichern'}
-              </button>
-              <button
-                type="button"
-                className="tiptap-toolbar-btn tiptap-close-btn"
-                onClick={handleClose}
-                title="Schließen"
-                aria-label="Schließen"
-              >
-                <X size={16} />
-              </button>
-            </div>
+            <button
+              type="button"
+              className={`tiptap-toolbar-btn tiptap-save-btn ${hasChanges ? 'has-changes' : ''}`}
+              onClick={handleSave}
+              disabled={!hasChanges || saving}
+              title="Speichern (Ctrl+S)"
+              aria-label="Speichern"
+            >
+              <Save size={16} />
+              {saving ? 'Speichert...' : 'Speichern'}
+            </button>
+            <button
+              type="button"
+              className="tiptap-toolbar-btn tiptap-close-btn"
+              onClick={handleClose}
+              title="Schließen"
+              aria-label="Schließen"
+            >
+              <X size={16} />
+            </button>
           </div>
 
           {/* Bild-Upload-Input (aus der Einfügen-Gruppe ausgelagert, damit es
