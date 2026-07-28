@@ -153,4 +153,39 @@ describe('resolveOrdnerListe (projekt://aktiv)', () => {
     });
     expect(ordner).toEqual(['/a', '/b']);
   });
+
+  it('löst projekt://aktiv/<unterordner> in einen Unterordner auf und legt ihn an', async () => {
+    const basis = fs.mkdtempSync(path.join(os.tmpdir(), 'ablage-ordner-'));
+    const ordner = await resolveOrdnerListe(['projekt://aktiv/kunden/mueller'], {
+      getActiveProjectId: async () => PROJEKT,
+      projektOrdner: async () => basis,
+    });
+    expect(ordner).toEqual([path.join(basis, 'kunden/mueller')]);
+    expect(fs.statSync(path.join(basis, 'kunden/mueller')).isDirectory()).toBe(true);
+    fs.rmSync(basis, { recursive: true, force: true });
+  });
+
+  it('löst projekt://<uuid> über die angegebene Projekt-ID auf', async () => {
+    const gesehen = [];
+    const ordner = await resolveOrdnerListe(['projekt://11111111-2222-3333-4444-555555555555'], {
+      getActiveProjectId: async () => {
+        throw new Error('darf nicht gerufen werden');
+      },
+      projektOrdner: async id => {
+        gesehen.push(id);
+        return `/arasul/projects/${id}`;
+      },
+    });
+    expect(gesehen).toEqual(['11111111-2222-3333-4444-555555555555']);
+    expect(ordner).toEqual(['/arasul/projects/11111111-2222-3333-4444-555555555555']);
+  });
+
+  it('weist .. im Unterpfad ab', async () => {
+    await expect(
+      resolveOrdnerListe(['projekt://aktiv/../ausbruch'], {
+        getActiveProjectId: async () => PROJEKT,
+        projektOrdner: async () => '/arasul/projects/x',
+      })
+    ).rejects.toThrow(/Ungültiger Ordner/);
+  });
 });

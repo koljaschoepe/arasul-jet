@@ -827,6 +827,7 @@ router.post(
       args,
       userId,
       conversationId: null,
+      ordnerZiel: req.body.ordner_ziel ?? null,
     });
 
     logger.info(

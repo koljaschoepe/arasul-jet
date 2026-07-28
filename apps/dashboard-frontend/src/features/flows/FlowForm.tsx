@@ -146,7 +146,7 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
               onChange={e =>
                 patch({ ordner: value.ordner.map((x, j) => (j === i ? e.target.value : x)) })
               }
-              placeholder="/arasul/sandbox/projects/mein-ordner"
+              placeholder="projekt://aktiv/unterordner  oder  /arasul/sandbox/projects/mein-ordner"
               className="font-mono text-[13px]"
             />
             <Button
@@ -182,6 +182,10 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
             </Button>
           )}
         </div>
+        <p className="text-ui-xs text-muted-foreground">
+          `projekt://aktiv/unterordner` zielt auf einen Ordner der Projektablage; beim externen
+          Trigger kann `ordner_ziel` das Arbeitsverzeichnis pro Lauf umlenken (z. B. Kundenordner).
+        </p>
         {ordnerNoetig && value.ordner.filter(Boolean).length === 0 && (
           <p className="text-ui-xs text-warning" data-testid="ordner-hinweis">
             Datei- oder Terminal-Werkzeuge brauchen mindestens einen erlaubten Ordner.

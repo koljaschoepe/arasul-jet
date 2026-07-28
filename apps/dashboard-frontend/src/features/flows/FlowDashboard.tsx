@@ -102,11 +102,13 @@ export default function FlowDashboard({
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const triggerUrl = `${origin}/api/v1/external/flows/${name}/run`;
+  // `ordner_ziel` (optional) lenkt die Enddateien des Laufs in einen
+  // Projektablage-Ordner, z. B. den Kundenordner: projekt://aktiv/kunden/x.
   const curl =
     `curl -X POST '${triggerUrl}' \\\n` +
     `  -H 'X-API-Key: DEIN_SCHLÜSSEL' \\\n` +
     `  -H 'Content-Type: application/json' \\\n` +
-    `  -d '{"args": {}}'`;
+    `  -d '{"args": {}, "ordner_ziel": "projekt://aktiv"}'`;
 
   // Letzte Läufe dieses Flows — serverseitig gefiltert (?flow=).
   const { data: runsRes } = useQuery({

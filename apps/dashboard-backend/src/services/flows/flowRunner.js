@@ -50,7 +50,10 @@ const NACHLAUF_MS = 30 * 1000;
  * @param {object} [deps] - für Tests austauschbar (`run` = runFlow).
  * @returns {Promise<{runId:number}>} die ID des angelegten Laufs.
  */
-async function starten({ flowName, args = {}, userId, conversationId = null }, deps = {}) {
+async function starten(
+  { flowName, args = {}, userId, conversationId = null, ordnerZiel = null },
+  deps = {}
+) {
   const { run = runFlow, store = runStore } = deps;
 
   // Den Lauf ZUERST anlegen, damit die zurückgegebene ID sofort streambar ist —
@@ -90,6 +93,7 @@ async function starten({ flowName, args = {}, userId, conversationId = null }, d
       onEvent,
       existingRunId: runId,
       signal: controller.signal,
+      ordnerZiel,
     },
     {}
   )

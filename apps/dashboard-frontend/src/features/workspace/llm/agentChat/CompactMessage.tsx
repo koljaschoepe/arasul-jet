@@ -7,9 +7,18 @@
  * einklappbare Ein-Zeilen-Rows, Quellen ein klickbarer Chip-Footer.
  */
 import { memo, useState } from 'react';
-import { ChevronRight, FileText, Search, Sparkles, TerminalSquare, Wrench } from 'lucide-react';
+import {
+  ChevronRight,
+  FilePlus2,
+  FileText,
+  Paperclip,
+  Search,
+  Sparkles,
+  TerminalSquare,
+  Wrench,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { AgentToolStep, ChatMessage } from '@/contexts/ChatContext';
+import type { AgentToolStep, ChatMessage, MessageDatei } from '@/contexts/ChatContext';
 import type { DocumentSource } from '@/types';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
@@ -82,7 +91,7 @@ function SourcesFooter({ sources }: { sources: DocumentSource[] }) {
         {docs.length} {docs.length === 1 ? 'Quelle' : 'Quellen'}
       </button>
       {open && (
-        <ul className="mt-1 flex flex-col gap-0.5 pl-1" data-testid="sources-list">
+        <ul className="mt-0.5 flex flex-col gap-0.5 pl-5" data-testid="sources-list">
           {docs.map((s, i) => (
             <li key={s.document_id || `${s.document_name}-${i}`}>
               <button
@@ -100,7 +109,6 @@ function SourcesFooter({ sources }: { sources: DocumentSource[] }) {
                 )}
                 title={s.space_name ? `${s.document_name} · ${s.space_name}` : s.document_name}
               >
-                <FileText className="mt-0.5 size-3 shrink-0 opacity-60" />
                 {/* Dateiname vollständig lesbar — umbrechen statt abschneiden
                     (Plan 005 · Schritt 4). */}
                 <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
@@ -176,16 +184,91 @@ function AgentSteps({ steps }: { steps: AgentToolStep[] }) {
   );
 }
 
+/**
+ * Klickbare Datei-Karte (wie Cursor): die gespeicherte Antwort als Datei —
+ * Klick öffnet sie im Editor-Tab, statt den langen Text inline auszubreiten.
+ */
+function DateiKarte({ datei }: { datei: MessageDatei }) {
+  const openTab = useWorkspaceStore(s => s.openTab);
+  const klickbar = Boolean(datei.project_id && datei.pfad);
+  return (
+    <button
+      type="button"
+      disabled={!klickbar}
+      onClick={() =>
+        klickbar &&
+        openTab({
+          type: 'projektdatei',
+          projectId: datei.project_id!,
+          filePath: datei.pfad!,
+          title: datei.name,
+        })
+      }
+      className={cn(
+        'group my-1 flex w-full items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-left',
+        klickbar && 'hover:border-primary/40 hover:bg-accent'
+      )}
+      data-testid="datei-karte"
+      title={datei.pfad}
+    >
+      <FileText className="size-4 shrink-0 text-primary" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-medium text-foreground">{datei.name}</span>
+        <span className="block truncate text-[11px] text-muted-foreground">
+          {datei.pfad || 'Projektablage'}
+        </span>
+      </span>
+      {klickbar && (
+        <span className="shrink-0 text-[11px] text-muted-foreground group-hover:text-foreground">
+          Öffnen
+        </span>
+      )}
+    </button>
+  );
+}
+
 interface CompactMessageProps {
   message: ChatMessage;
   isStreaming: boolean;
+  /** Nachträgliche Aktion „Als Datei speichern" an einer fertigen Antwort. */
+  onAlsDateiSpeichern?: (m: ChatMessage) => Promise<void> | void;
 }
 
-function CompactMessageInner({ message, isStreaming }: CompactMessageProps) {
+function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: CompactMessageProps) {
+  // Bei gespeicherter Datei ist die Karte die Hauptdarstellung; der volle
+  // Antwort-Text bleibt auf Klick erreichbar.
+  const [textOffen, setTextOffen] = useState(false);
+  const [speichert, setSpeichert] = useState(false);
+
   if (message.role === 'user') {
     return (
-      <div className="my-2 rounded-lg border border-border bg-card px-2.5 py-2 text-[13px] leading-relaxed text-foreground whitespace-pre-wrap [overflow-wrap:anywhere]">
-        {message.content}
+      <div className="my-2 rounded-lg border border-border bg-card px-2.5 py-2 text-[13px] leading-relaxed text-foreground">
+        {message.datei?.art === 'anhang' && (
+          <span
+            className="mb-1 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-xs"
+            data-testid="anhang-chip"
+          >
+            <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{message.datei.name}</span>
+          </span>
+        )}
+        {message.images && message.images.length > 0 && (
+          <span className="mb-1 flex flex-wrap gap-1.5">
+            {message.images.map((src, i) => (
+              <img
+                key={i}
+                src={src}
+                alt={`Angehängtes Bild ${i + 1}`}
+                className="h-16 w-16 rounded-md border border-border object-cover"
+              />
+            ))}
+          </span>
+        )}
+        {message.content && (
+          <span className="block whitespace-pre-wrap [overflow-wrap:anywhere]">
+            {message.content}
+          </span>
+        )}
       </div>
     );
   }
@@ -194,9 +277,10 @@ function CompactMessageInner({ message, isStreaming }: CompactMessageProps) {
   const matched = message.matchedSpaces || [];
 
   const steps = message.steps || [];
+  const gespeicherteDatei = message.datei?.art === 'projektdatei' ? message.datei : null;
 
   return (
-    <div className="my-2" data-testid="assistant-message">
+    <div className="group/nachricht my-2" data-testid="assistant-message">
       {steps.length > 0 && <AgentSteps steps={steps} />}
       {hasThinking && (
         <StepRow
@@ -220,7 +304,27 @@ function CompactMessageInner({ message, isStreaming }: CompactMessageProps) {
         />
       )}
 
-      {message.content ? (
+      {gespeicherteDatei && !isStreaming ? (
+        <>
+          <DateiKarte datei={gespeicherteDatei} />
+          {message.content && (
+            <>
+              <button
+                type="button"
+                onClick={() => setTextOffen(o => !o)}
+                className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-expanded={textOffen}
+              >
+                <ChevronRight
+                  className={cn('size-3 transition-transform', textOffen && 'rotate-90')}
+                />
+                {textOffen ? 'Antwort ausblenden' : 'Antwort anzeigen'}
+              </button>
+              {textOffen && <CompactMarkdown content={message.content} />}
+            </>
+          )}
+        </>
+      ) : message.content ? (
         <CompactMarkdown content={message.content} />
       ) : isStreaming && !hasThinking ? (
         <div className="my-1 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -234,6 +338,29 @@ function CompactMessageInner({ message, isStreaming }: CompactMessageProps) {
       )}
 
       {message.sources && message.sources.length > 0 && <SourcesFooter sources={message.sources} />}
+
+      {/* Nachträglich als Datei speichern — dezent, erscheint beim Überfahren. */}
+      {!isStreaming && !gespeicherteDatei && message.content && onAlsDateiSpeichern && (
+        <div className="mt-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/nachricht:opacity-100">
+          <button
+            type="button"
+            disabled={speichert}
+            onClick={async () => {
+              setSpeichert(true);
+              try {
+                await onAlsDateiSpeichern(message);
+              } finally {
+                setSpeichert(false);
+              }
+            }}
+            className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-60"
+            data-testid="als-datei-speichern"
+          >
+            <FilePlus2 className="size-3" />
+            {speichert ? 'Speichert …' : 'Als Datei speichern'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

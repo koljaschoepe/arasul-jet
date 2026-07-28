@@ -52,6 +52,14 @@ export interface AblageEintrag {
   geaendert: string | null;
 }
 
+/**
+ * DnD-Payload eines Ablage-Eintrags (Ordner/Datei der Projektablage). Wird vom
+ * Chat konsumiert: ein Ordner wird dort zum Datei-Ziel („speichere hier").
+ * Bewusst je Seite eigene Konstante (wie DND_SCOPE_TYPE), kein Cross-Import.
+ * Payload: { projectId, pfad, name, typ }.
+ */
+export const DND_ABLAGE_TYPE = 'application/x-arasul-ablage';
+
 interface AblageResponse {
   data: { eintraege: AblageEintrag[]; gekuerzt: boolean };
 }
@@ -212,6 +220,16 @@ export function AblageSection({ projectId }: { projectId: string | undefined }) 
     }
   };
 
+  // Eintrag als DnD-Quelle: Ordner in den Chat ziehen = Datei-Ziel setzen.
+  const dragStart = (e: AblageEintrag) => (ev: React.DragEvent) => {
+    if (!projectId) return;
+    ev.dataTransfer.setData(
+      DND_ABLAGE_TYPE,
+      JSON.stringify({ projectId, pfad: e.pfad, name: e.name, typ: e.typ })
+    );
+    ev.dataTransfer.effectAllowed = 'link';
+  };
+
   const renderEintrag = (e: AblageEintrag, tiefe: number) => {
     if (e.typ === 'ordner') {
       const auf = offeneOrdner.has(e.pfad);
@@ -225,6 +243,8 @@ export function AblageSection({ projectId }: { projectId: string | undefined }) 
                 className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs text-foreground hover:bg-accent/60"
                 style={{ paddingLeft: `${8 + tiefe * 14}px` }}
                 onClick={() => toggleOrdner(e.pfad)}
+                draggable
+                onDragStart={dragStart(e)}
                 data-testid="ablage-folder"
               >
                 {auf ? (
@@ -294,6 +314,8 @@ export function AblageSection({ projectId }: { projectId: string | undefined }) 
             className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs text-foreground hover:bg-accent/60"
             style={{ paddingLeft: `${8 + tiefe * 14 + 16}px` }}
             onClick={() => oeffneDatei(e)}
+            draggable
+            onDragStart={dragStart(e)}
             data-testid="ablage-file"
           >
             <span className="text-muted-foreground">{dateiIcon(e.name)}</span>

@@ -152,6 +152,7 @@ router.post(
       args: req.body.args,
       userId: req.user.id,
       conversationId: req.body.conversation_id ?? null,
+      ordnerZiel: req.body.ordner_ziel ?? null,
     });
     res.status(202).json({ data: { runId }, timestamp: new Date().toISOString() });
   })

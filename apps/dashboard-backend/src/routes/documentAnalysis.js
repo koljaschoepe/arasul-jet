@@ -89,15 +89,14 @@ router.post(
     const file = req.file;
     const filename = minioService.sanitizeFilename(file.originalname);
 
-    // 1. Save user message with attachment info
-    const userContent = prompt
-      ? `📎 ${filename}\n\n${prompt}`
-      : `📎 ${filename}\n\nBitte analysiere dieses Dokument.`;
+    // 1. Save user message; attachment lands structured in `datei` (Migration
+    //    127) statt als Emoji-Textpräfix — das Frontend zeigt daraus den Chip.
+    const userContent = prompt || 'Bitte analysiere dieses Dokument.';
 
     const userMsg = await database.query(
-      `INSERT INTO chat_messages (conversation_id, role, content, status)
-       VALUES ($1, 'user', $2, 'completed') RETURNING id`,
-      [chatId, userContent]
+      `INSERT INTO chat_messages (conversation_id, role, content, status, datei)
+       VALUES ($1, 'user', $2, 'completed', $3) RETURNING id`,
+      [chatId, userContent, JSON.stringify({ art: 'anhang', name: filename })]
     );
     const userMessageId = userMsg.rows[0].id;
 

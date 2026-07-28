@@ -765,6 +765,12 @@
 | `status`          | character varying        | ✅       | `'completed'::character varying`           |
 | `sources`         | jsonb                    | ✅       |                                            |
 | `matched_spaces`  | jsonb                    | ✅       |                                            |
+| `datei`           | jsonb                    | ✅       |                                            |
+
+`datei` (Migration 127): Datei-Verweis der Nachricht —
+`{ art: 'projektdatei', project_id, pfad, name }` für in der Projektablage
+gespeicherte Antworten (Karte im Chat) bzw. `{ art: 'anhang', name }` für
+hochgeladene Anhänge an Nutzer-Nachrichten.
 
 **Primary key:** `id`
 

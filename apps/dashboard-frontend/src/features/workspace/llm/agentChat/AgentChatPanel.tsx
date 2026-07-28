@@ -33,10 +33,23 @@ const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif
 /** Drag-Payloads, die der Explorer setzt (Datei/Ordner → Chat-Kontext). */
 export const DND_SCOPE_TYPE = 'application/x-arasul-scope';
 
+/** Drag-Payload des Ablage-Baums (Projektablage): Ordner → Datei-Ziel. */
+export const DND_ABLAGE_TYPE = 'application/x-arasul-ablage';
+
+/**
+ * Erkennung der Speicher-Absicht in der Nutzer-Eingabe: „speicher das als
+ * Datei", „erstelle eine Datei", „leg das ab" … aktiviert den Datei-Modus für
+ * diese eine Nachricht automatisch — kein Nachfragen, die Antwort landet
+ * direkt in der Projektablage.
+ */
+const SPEICHER_ABSICHT =
+  /(speicher|abspeicher|als datei|datei (anlegen|erstellen|ablegen)|\bin (der|die|den) ablage\b)/i;
+
 export default function AgentChatPanel() {
   const api = useApi();
   const {
     sendMessage,
+    speichereNachrichtAlsDatei,
     cancelJob,
     loadMessages,
     checkActiveJobs,
@@ -58,6 +71,8 @@ export default function AgentChatPanel() {
 
   const chatScope = useWorkspaceStore(s => s.chatScope);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
+  const chatDateiZiel = useWorkspaceStore(s => s.chatDateiZiel);
+  const setChatDateiZiel = useWorkspaceStore(s => s.setChatDateiZiel);
   const openTab = useWorkspaceStore(s => s.openTab);
   const setEditTarget = useFlowEditorStore(s => s.setEditTarget);
   const { flows } = useFlows();
@@ -74,6 +89,8 @@ export default function AgentChatPanel() {
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  // Datei-Modus: die nächste Antwort wird automatisch als Datei gespeichert.
+  const [dateiModus, setDateiModus] = useState(false);
   // Flow-Namen je Lauf-ID — nur als Kopfzeilen-Hinweis, bevor der Lauf-Strom
   // ihn ohnehin bestätigt (Plan 011, Schritt 15).
   const [runNames, setRunNames] = useState<Record<number, string>>({});
@@ -228,16 +245,22 @@ export default function AgentChatPanel() {
     const hasInput = input.trim() || attachedFile || attachedImages.length > 0;
     if (!hasInput || isLoading) return;
 
+    // Anhänge zeigt der Verlauf als Chip/Vorschau — kein Platzhaltertext mehr;
+    // nur Bilder ohne Text brauchen weiter einen (die Pipeline will Inhalt).
     const msg =
       input.trim() ||
       (attachedFile
-        ? `Dokument: ${attachedFile.name}`
+        ? ''
         : `[${attachedImages.length} Bild${attachedImages.length > 1 ? 'er' : ''}]`);
     const file = attachedFile;
     const images = attachedImages.map(i => i.base64);
+    // Datei-Modus: manuell umgeschaltet ODER aus der Eingabe erkannt
+    // („speicher das als Datei …") — gilt für genau diese Nachricht.
+    const alsDatei = !file && (dateiModus || SPEICHER_ABSICHT.test(input));
     setInput('');
     setAttachedFile(null);
     setAttachedImages([]);
+    setDateiModus(false);
     setError(null);
 
     const effectiveModelId = selectedModel || defaultModel;
@@ -257,6 +280,10 @@ export default function AgentChatPanel() {
         model: selectedModel || undefined,
         file: file || undefined,
         images: images.length > 0 ? images : undefined,
+        alsDatei,
+        dateiZiel: chatDateiZiel
+          ? { projectId: chatDateiZiel.projectId, pfad: chatDateiZiel.pfad }
+          : null,
       });
       stickToBottomRef.current = true;
     } catch {
@@ -268,6 +295,8 @@ export default function AgentChatPanel() {
     attachedImages,
     isLoading,
     chatScope,
+    chatDateiZiel,
+    dateiModus,
     selectedModel,
     defaultModel,
     installedModels,
@@ -389,6 +418,28 @@ export default function AgentChatPanel() {
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
+      // Ablage-Ordner → Datei-Ziel: „gespeicherte Antworten landen hier".
+      const ablagePayload = e.dataTransfer.getData(DND_ABLAGE_TYPE);
+      if (ablagePayload) {
+        try {
+          const parsed = JSON.parse(ablagePayload) as {
+            projectId?: string;
+            pfad?: string;
+            name?: string;
+            typ?: string;
+          };
+          if (parsed.projectId && parsed.typ === 'ordner') {
+            setChatDateiZiel({
+              projectId: parsed.projectId,
+              pfad: parsed.pfad ?? '',
+              label: parsed.name || 'Projektordner',
+            });
+            return;
+          }
+        } catch {
+          /* fällt durch zu Scope-/Datei-Handling */
+        }
+      }
       const scopePayload = e.dataTransfer.getData(DND_SCOPE_TYPE);
       if (scopePayload) {
         try {
@@ -405,13 +456,29 @@ export default function AgentChatPanel() {
         pickFile(file);
       }
     },
-    [pickFile, setChatScope]
+    [pickFile, setChatScope, setChatDateiZiel]
+  );
+
+  // Nachträgliche Aktion an einer fertigen Antwort: als Datei speichern.
+  const handleAlsDateiSpeichern = useCallback(
+    async (m: ChatMessage) => {
+      if (!chatId) return;
+      await speichereNachrichtAlsDatei(
+        chatId,
+        m,
+        chatDateiZiel ? { projectId: chatDateiZiel.projectId, pfad: chatDateiZiel.pfad } : null
+      );
+    },
+    [chatId, speichereNachrichtAlsDatei, chatDateiZiel]
   );
 
   const composerModels = installedModels
     .filter(
       m => (m.install_status ?? m.status ?? 'ready') === 'ready' || m.install_status === undefined
     )
+    // Nur Modelle, die tatsächlich chatten können — Embedding-/OCR-Modelle
+    // (z. B. nomic-embed-text) sind installiert, aber keine Gesprächspartner.
+    .filter(m => m.model_type !== 'embedding' && m.model_type !== 'ocr')
     .map(m => ({ id: m.id, name: m.name }));
 
   const lastIndex = messages.length - 1;
@@ -476,7 +543,11 @@ export default function AgentChatPanel() {
           <div className="py-2">
             {messages.map((m, i) => (
               <ComponentErrorBoundary key={m.id || m.jobId || `msg-${i}`} componentName="Nachricht">
-                <CompactMessage message={m} isStreaming={isLoading && i === lastIndex} />
+                <CompactMessage
+                  message={m}
+                  isStreaming={isLoading && i === lastIndex}
+                  onAlsDateiSpeichern={handleAlsDateiSpeichern}
+                />
               </ComponentErrorBoundary>
             ))}
             {/* Flow-Läufe chronologisch (älteste zuerst) unter den Nachrichten */}
@@ -513,6 +584,10 @@ export default function AgentChatPanel() {
           attachedImages={attachedImages}
           onRemoveImage={i => setAttachedImages(prev => prev.filter((_, idx) => idx !== i))}
           onPickFile={pickFile}
+          dateiModus={dateiModus}
+          onToggleDateiModus={() => setDateiModus(v => !v)}
+          dateiZiel={chatDateiZiel}
+          onClearDateiZiel={() => setChatDateiZiel(null)}
           models={composerModels}
           selectedModel={selectedModel}
           onSelectModel={setSelectedModel}

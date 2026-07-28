@@ -14,6 +14,7 @@ const { validateBody } = require('../middleware/validate');
 const {
   CreateChatBody,
   PostMessageBody,
+  PutMessageDateiBody,
   PatchChatBody,
   PatchChatSettingsBody,
 } = require('../schemas/chats');
@@ -225,6 +226,7 @@ router.get(
                 WHEN m.status = 'streaming' AND j.id IS NOT NULL THEN j.matched_spaces
                 ELSE m.matched_spaces
             END as matched_spaces,
+            m.datei,
             m.created_at,
             COALESCE(m.status, 'completed') as status,
             m.job_id,
@@ -392,6 +394,35 @@ router.post(
   })
 );
 
+// PUT /api/chats/:id/messages/:messageId/datei — Datei-Verweis an eine
+// Nachricht hängen (Karte „gespeicherte Datei" im Chat, Migration 127).
+// Wird gesetzt, NACHDEM die Datei über PUT /projects/:id/dateien/inhalt in
+// der Projektablage gelandet ist — hier steht nur der Verweis.
+router.put(
+  '/:id/messages/:messageId/datei',
+  requireAuth,
+  validateBody(PutMessageDateiBody),
+  asyncHandler(async (req, res) => {
+    const { id, messageId } = req.params;
+    if (!isValidConversationId(id) || !isValidConversationId(messageId)) {
+      throw new ValidationError('Ungültige ID');
+    }
+    await verifyOwnership(id, req.user.id);
+
+    const result = await db.query(
+      `UPDATE chat_messages SET datei = $1
+       WHERE id = $2 AND conversation_id = $3
+       RETURNING id, datei`,
+      [JSON.stringify(req.body), messageId, id]
+    );
+    if (result.rows.length === 0) {
+      throw new NotFoundError('Nachricht nicht gefunden');
+    }
+
+    res.json({ data: result.rows[0], timestamp: new Date().toISOString() });
+  })
+);
+
 // PATCH /api/chats/:id - Update chat (title)
 router.patch(
   '/:id',
@@ -542,7 +573,7 @@ router.get(
 
         // Add thinking block if present
         if (msg.thinking && msg.thinking.trim()) {
-          markdown += `<details>\n<summary>💭 Gedankengang</summary>\n\n${msg.thinking}\n\n</details>\n\n`;
+          markdown += `<details>\n<summary>Gedankengang</summary>\n\n${msg.thinking}\n\n</details>\n\n`;
         }
 
         // Add content
@@ -561,7 +592,7 @@ router.get(
 
         // Add sources if present
         if (msg.sources && Array.isArray(msg.sources) && msg.sources.length > 0) {
-          markdown += `<details>\n<summary>📚 Quellen (${msg.sources.length})</summary>\n\n`;
+          markdown += `<details>\n<summary>Quellen (${msg.sources.length})</summary>\n\n`;
           for (const source of msg.sources) {
             markdown += `- **${source.document_name || 'Unbekannt'}**\n`;
             if (source.text_preview) {

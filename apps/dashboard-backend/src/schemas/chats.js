@@ -14,6 +14,29 @@ const PostMessageBody = z
   })
   .strict();
 
+/**
+ * Relativer Ablage-Pfad (wie schemas/projects.js): nie absolut, nie mit '..'.
+ * Hier dupliziert statt importiert, damit die Chat-Schemas eigenständig bleiben.
+ */
+const DateiPfad = z
+  .string()
+  .trim()
+  .min(1)
+  .max(500)
+  .refine(p => !p.startsWith('/') && !p.split('/').includes('..'), {
+    message: 'Pfad muss relativ und ohne .. sein',
+  });
+
+/** Datei-Verweis einer Nachricht (Karte im Chat, Migration 127). */
+const PutMessageDateiBody = z
+  .object({
+    art: z.literal('projektdatei'),
+    project_id: z.uuid(),
+    pfad: DateiPfad,
+    name: z.string().trim().min(1).max(255),
+  })
+  .strict();
+
 const PatchChatBody = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
@@ -43,6 +66,7 @@ const PatchChatSettingsBody = z
 module.exports = {
   CreateChatBody,
   PostMessageBody,
+  PutMessageDateiBody,
   PatchChatBody,
   PatchChatSettingsBody,
 };

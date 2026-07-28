@@ -100,7 +100,14 @@ Werkzeuge.
   **Projektablage** des aktiven Projekts aufgelöst (`data/projects/<uuid>`,
   siehe [`WORKSPACE.md`](WORKSPACE.md)) — der Flow arbeitet damit im selben
   Ordner wie Explorer und Sandboxes, ohne dass eine UUID in der Flow-Datei
-  stünde.
+  stünde. Erweiterte Formen: `projekt://aktiv/unter/ordner` (Unterordner, wird
+  angelegt) und `projekt://<projekt-uuid>[/unter/ordner]` (bestimmtes Projekt).
+- **Ziel-Ordner pro Lauf:** Beim Start (`POST /flows/laeufe` wie auch am
+  externen Trigger `POST /api/v1/external/flows/:name/run`) kann `ordner_ziel`
+  mitgegeben werden — z. B. der Kundenordner `projekt://aktiv/kunden/mueller`.
+  Er wird zum Arbeitsverzeichnis des Laufs (Enddateien landen dort); die im
+  Flow deklarierten `ordner` bleiben zusätzlich erlaubt. Nur `projekt://…`-
+  Formen sind zulässig, rohe Gerätepfade werden abgewiesen.
 - `dateien_suchen` findet Dateien nach Namensmuster (Glob, z. B. `*.md`,
   `**/*.js`) und/oder nach Textinhalt (`text` = Teilzeichenkette, Groß-/
   Kleinschreibung egal, mit Zeilennummer — kein Regulärer Ausdruck, das schützt
