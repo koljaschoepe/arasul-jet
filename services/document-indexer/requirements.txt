@@ -39,7 +39,7 @@ PyStemmer==2.2.0.1
 compound-split>=1.0.1
 
 # Spell correction for typo-tolerant search
-symspellpy>=6.9.0
+symspellpy>=6.10.0
 
 # Named Entity Recognition for Knowledge Graph
 spacy>=3.7
