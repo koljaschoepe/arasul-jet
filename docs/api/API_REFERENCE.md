@@ -280,16 +280,17 @@ Response: Server-Sent Events (SSE) stream
 
 ### Chat Conversations
 
-| Method | Endpoint                  | Description                 |
-| ------ | ------------------------- | --------------------------- |
-| GET    | `/api/chats`              | List all conversations      |
-| POST   | `/api/chats`              | Create new conversation     |
-| GET    | `/api/chats/:id`          | Get conversation details    |
-| PATCH  | `/api/chats/:id`          | Update title                |
-| DELETE | `/api/chats/:id`          | Soft delete conversation    |
-| GET    | `/api/chats/:id/messages` | Get messages                |
-| POST   | `/api/chats/:id/messages` | Add message                 |
-| GET    | `/api/chats/:id/export`   | Export chat (JSON/Markdown) |
+| Method | Endpoint                                   | Description                       |
+| ------ | ------------------------------------------ | --------------------------------- |
+| GET    | `/api/chats`                               | List all conversations            |
+| POST   | `/api/chats`                               | Create new conversation           |
+| GET    | `/api/chats/:id`                           | Get conversation details          |
+| PATCH  | `/api/chats/:id`                           | Update title                      |
+| DELETE | `/api/chats/:id`                           | Soft delete conversation          |
+| GET    | `/api/chats/:id/messages`                  | Get messages                      |
+| POST   | `/api/chats/:id/messages`                  | Add message                       |
+| PUT    | `/api/chats/:id/messages/:messageId/datei` | Datei-Verweis an Nachricht hängen |
+| GET    | `/api/chats/:id/export`                    | Export chat (JSON/Markdown)       |
 
 **POST /api/chats:**
 
@@ -316,6 +317,25 @@ Response: Server-Sent Events (SSE) stream
   "thinking": "Optional thinking content"
 }
 ```
+
+**PUT /api/chats/:id/messages/:messageId/datei:**
+
+Hängt den Verweis auf eine in der Projektablage gespeicherte Datei an eine
+Nachricht (Karte „gespeicherte Datei" im Chat; Spalte `chat_messages.datei`,
+Migration 127). Die Datei selbst wird vorher über
+`PUT /api/projects/:id/dateien/inhalt` geschrieben.
+
+```json
+{
+  "art": "projektdatei",
+  "project_id": "<uuid>",
+  "pfad": "kunden/newsletter-juli.md",
+  "name": "newsletter-juli.md"
+}
+```
+
+`GET /api/chats/:id/messages` liefert das Feld als `datei` pro Nachricht zurück
+(bei Nutzer-Nachrichten mit Anhang: `{ "art": "anhang", "name": "bericht.pdf" }`).
 
 **GET /api/chats/:id/export:**
 
@@ -2270,8 +2290,13 @@ external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
 2026-07-28; there is no schedule mechanism anymore.
 
 **Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
-(`{ flow, args, conversation_id? }`) starts the run **server-side** and returns
-its `runId` at once — the run keeps going regardless of the client. The client
+(`{ flow, args, conversation_id?, ordner_ziel? }`) starts the run **server-side**
+and returns its `runId` at once — the run keeps going regardless of the client.
+`ordner_ziel` (optional, auch am externen Trigger) lenkt das Arbeitsverzeichnis
+des Laufs auf einen Projektablage-Ordner: `projekt://aktiv[/unter/ordner]` oder
+`projekt://<projekt-uuid>[/unter/ordner]` — nur diese Formen, nie rohe
+Gerätepfade. Der Ordner wird angelegt, die im Flow deklarierten `ordner` bleiben
+zusätzlich erlaubt. The client
 then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
 `EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
 with the stored run+steps first (so a **reconnecting** client sees everything up
@@ -2614,7 +2639,9 @@ scope is `flow:run` (included in the default endpoint set for new keys).
 | POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default    |
 | GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result                     |
 
-**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300 }`.
+**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "ordner_ziel"?: "projekt://aktiv/kunden/mueller" }`.
+`ordner_ziel` lenkt das Arbeitsverzeichnis des Laufs (Enddateien) auf einen
+Projektablage-Ordner — nur `projekt://…`-Formen sind zulässig.
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
 state and returns `{ success, run_id, status, result, error, steps_used }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs

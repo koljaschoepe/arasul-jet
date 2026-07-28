@@ -113,7 +113,16 @@ class ToolRegistry {
       })
       .join('\n');
 
-    return `## Tools\nFormat: [TOOL: name param=wert]\n${toolLines}`;
+    // Der Zusatz am Ende ist wichtig für kleine lokale Modelle: ohne ihn
+    // halten sie die System-Tools für ihre EINZIGEN Fähigkeiten und
+    // verweigern Schreib-/Erstell-Aufgaben („nicht in den Tools enthalten")
+    // — live gesehen 2026-07-28 (Newsletter-Fall).
+    return (
+      `## Tools\nFormat: [TOOL: name param=wert]\n${toolLines}\n` +
+      'Diese Tools sind NUR für Fragen zum Systemzustand gedacht. Alle anderen ' +
+      'Aufgaben (Texte oder Dokumente schreiben, zusammenfassen, allgemeine ' +
+      'Fragen) erledigst du normal selbst, ohne Tool und ohne Verweis auf die Tools.'
+    );
   }
 
   /**

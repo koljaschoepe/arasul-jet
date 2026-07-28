@@ -103,7 +103,11 @@ export function StatusBar() {
     staleTime: 30_000,
   });
 
-  const installedModels = (catalog ?? []).filter(isModelInstalled);
+  // Standardmodell = Gesprächsmodell für neue Chats: Embedding-/OCR-Modelle
+  // (z. B. nomic-embed-text) sind installiert, aber hier keine sinnvolle Wahl.
+  const installedModels = (catalog ?? [])
+    .filter(isModelInstalled)
+    .filter(m => m.model_type !== 'embedding' && m.model_type !== 'ocr');
   const loadedModelId = loaded?.model_id ?? null;
 
   const setDefault = useMutation({

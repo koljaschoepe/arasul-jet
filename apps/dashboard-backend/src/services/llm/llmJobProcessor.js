@@ -328,7 +328,7 @@ function buildRagSystemPrompt({ noRelevantDocs = false, marginalResults = false 
 7. Antworte auf Deutsch, es sei denn die Frage ist in einer anderen Sprache gestellt.`;
   }
 
-  return `Du bist ein professioneller Wissensassistent für ein Unternehmen. Du beantwortest Fragen auf Basis der internen Wissensbasis.
+  return `Du bist ein professioneller Wissensassistent für ein Unternehmen. Du beantwortest Fragen auf Basis der internen Wissensbasis. Verwende keine Emojis, es sei denn der Benutzer bittet ausdrücklich darum.
 
 ${ragRules}`;
 }

@@ -391,6 +391,29 @@ const FlowNameParams = z.object({ name: FlowName }).strict();
 /** `:id` eines Laufs in der URL (Plan 011, Schritt 9). */
 const RunIdParams = z.object({ id: z.coerce.number().int().positive() }).strict();
 
+/**
+ * Ziel-Ordner eines Laufs (Ziel-Ordner-Konzept, 2026-07-28). Erlaubt sind NUR
+ * `projekt://`-Formen — `projekt://aktiv[/unter/ordner]` oder
+ * `projekt://<uuid>[/unter/ordner]` — damit ein Aufrufer (insbesondere per
+ * API-Key von außen) keine beliebigen Gerätepfade als Arbeitsverzeichnis
+ * öffnen kann. Die Auflösung in echte Pfade macht runFlow.resolveOrdnerListe.
+ */
+const ProjektOrdnerZiel = z
+  .string()
+  .trim()
+  .min(1)
+  .max(500)
+  .refine(
+    v =>
+      v.startsWith('projekt://') &&
+      !v.slice('projekt://'.length).split('/').includes('..') &&
+      !v.slice('projekt://'.length).startsWith('/'),
+    {
+      message:
+        'Ziel-Ordner muss die Form projekt://aktiv[/pfad] oder projekt://<uuid>[/pfad] haben',
+    }
+  );
+
 /** Einen Lauf starten (Plan 011, Schritt 12). */
 const StartRunBody = z
   .object({
@@ -399,6 +422,9 @@ const StartRunBody = z
     // Runner prüft sie gegen die Deklaration des Flows.
     args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
     conversation_id: z.coerce.number().int().positive().nullish(),
+    // Ziel-Ordner des Laufs: wird zum Arbeitsverzeichnis (Enddateien landen
+    // dort). NUR projekt://-Formen — nie rohe Gerätepfade von außen.
+    ordner_ziel: ProjektOrdnerZiel.optional(),
   })
   .strict();
 
@@ -432,6 +458,7 @@ module.exports = {
   RunIdParams,
   ListRunsQuery,
   StartRunBody,
+  ProjektOrdnerZiel,
   VALID_TOOLS,
   ARG_TYPES,
   FLOW_NAME_RE,

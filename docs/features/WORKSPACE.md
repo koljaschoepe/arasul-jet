@@ -53,7 +53,19 @@ Jedes Wissensraum-Projekt (`projects`) besitzt einen **echten Geräte-Ordner**
   übernehmen** (erst dann kennt das RAG sie). API:
   `/api/projects/:id/dateien/*` ([`API_REFERENCE.md`](../api/API_REFERENCE.md)).
 - **Flows** — der `ordner`-Wert `projekt://aktiv` wird zur Laufzeit in die
-  Ablage des aktiven Projekts aufgelöst ([`FLOWS.md`](FLOWS.md)).
+  Ablage des aktiven Projekts aufgelöst; `projekt://aktiv/unterordner` zielt
+  auf einen Unterordner, und pro Lauf kann `ordner_ziel` (z. B. der
+  Kundenordner) das Arbeitsverzeichnis umlenken ([`FLOWS.md`](FLOWS.md)).
+- **Chat** — Antworten landen auf Wunsch direkt als Datei in der Ablage:
+  der **Datei-Modus** im Composer (Datei-Symbol) oder eine erkannte
+  Speicher-Absicht („speicher das als Datei …") speichert die Antwort
+  automatisch und zeigt im Verlauf eine klickbare **Datei-Karte** (öffnet den
+  Editor-Tab). Datei-Modus-Nachrichten laufen als Erstell-Auftrag ohne den
+  strikten RAG-Zitier-Modus (der Erstell-Aufgaben sonst verweigert). Ein aus dem Ablage-Baum in den Chat gezogener **Ordner** wird
+  zum Ziel („Speichern in: …"-Chip); ohne Ziel landet die Datei in der Wurzel
+  des aktiven Projekts. Jede fertige Antwort hat zusätzlich die Aktion
+  **„Als Datei speichern"**. Persistiert wird der Verweis an der Nachricht
+  (`chat_messages.datei`, Migration 127).
 - **Sandboxes** — eine Sandbox kann an ein Projekt angeschlossen werden
   (`sandbox_projects.project_id`, beim Anlegen/Bearbeiten: „Projektablage
   anschließen"): dessen Ablage wird beim Container-Start **rw als

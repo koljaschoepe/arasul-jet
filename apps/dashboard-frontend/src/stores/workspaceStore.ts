@@ -145,6 +145,17 @@ export interface ChatScope {
 }
 
 /**
+ * Datei-Ziel des Chats: der Projektablage-Ordner, in dem als Datei erzeugte
+ * Antworten landen (per Drag & Drop aus dem Ablage-Baum gesetzt). Ephemer.
+ * `pfad` ist relativ zur Ablage-Wurzel; `''` = Wurzel des Projekts.
+ */
+export interface ChatDateiZiel {
+  projectId: string;
+  pfad: string;
+  label: string;
+}
+
+/**
  * Aktionen, die die Menüleiste an den Explorer delegiert (der Dialog-State
  * lebt lokal im ExplorerPanel; die Menubar stellt nur eine Anfrage).
  */
@@ -228,6 +239,7 @@ interface WorkspaceState {
   terminalSessions: TerminalSession[];
   activeTerminalSessionId: string | null;
   chatScope: ChatScope | null;
+  chatDateiZiel: ChatDateiZiel | null;
   explorerRequest: ExplorerAction | null;
   openTab: (spec: WorkspaceTabSpec) => void;
   closeTab: (id: string) => void;
@@ -267,6 +279,7 @@ interface WorkspaceState {
   activateTerminalSession: (id: string) => void;
   updateTerminalSessionTitle: (id: string, title: string) => void;
   setChatScope: (scope: ChatScope | null) => void;
+  setChatDateiZiel: (ziel: ChatDateiZiel | null) => void;
   requestExplorerAction: (action: ExplorerAction) => void;
   clearExplorerRequest: () => void;
 }
@@ -409,6 +422,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       terminalSessions: [],
       activeTerminalSessionId: null,
       chatScope: null,
+      chatDateiZiel: null,
       explorerRequest: null,
 
       openTab: spec => {
@@ -538,6 +552,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }));
       },
 
+      // Datei-Ziel setzen blendet das Chat-Panel ein (dorthin wirkt es)
+      setChatDateiZiel: ziel =>
+        set(
+          ziel
+            ? { chatDateiZiel: ziel, rightPanelVisible: true, rightPanelMode: 'chat' }
+            : { chatDateiZiel: null }
+        ),
       // Scope setzen blendet das Chat-Panel ein (dorthin wirkt der Scope)
       setChatScope: scope =>
         set(

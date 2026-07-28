@@ -18,6 +18,8 @@
  * (gpuQueue), nie zugleich mit einem Chat-Aufruf.
  */
 
+const fs = require('fs/promises');
+const path = require('path');
 const registry = require('./flowRegistry');
 const runStore = require('./runStore');
 const { buildTools } = require('./toolRegistry');
@@ -37,10 +39,43 @@ const { ValidationError } = require('../../utils/errors');
  * Platzhalter in `ordner`: zeigt auf die Projektablage des AKTIVEN Projekts.
  * So arbeitet ein Flow immer dort, wo auch Explorer und Sandbox arbeiten,
  * ohne dass der Autor eine UUID in die Flow-Datei schreiben müsste.
+ *
+ * Erweiterte Formen (Ziel-Ordner-Konzept, 2026-07-28):
+ *   projekt://aktiv                → Ablage-Wurzel des aktiven Projekts
+ *   projekt://aktiv/kunden/mueller → Unterordner darin (wird angelegt)
+ *   projekt://<uuid>[/unterordner] → Ablage eines BESTIMMTEN Projekts
  */
 const PROJEKT_ORDNER_TOKEN = 'projekt://aktiv';
+const PROJEKT_PREFIX = 'projekt://';
 
-/** Löst `projekt://aktiv` in den echten Ablage-Pfad auf (legt ihn an). */
+/** Löst ein `projekt://…`-Token in den echten Ablage-Pfad auf (legt ihn an). */
+async function resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner }) {
+  const rest = eintrag.slice(PROJEKT_PREFIX.length);
+  const [kopf, ...teile] = rest.split('/');
+  const unterpfad = teile.join('/');
+
+  if (!kopf) {
+    throw new ValidationError(`Ungültiger Ordner "${eintrag}"`);
+  }
+  if (unterpfad.split('/').includes('..') || path.isAbsolute(unterpfad)) {
+    throw new ValidationError(`Ungültiger Ordner "${eintrag}": Pfad muss relativ und ohne .. sein`);
+  }
+
+  const projectId = kopf === 'aktiv' ? await getActiveProjectId() : kopf;
+  const basis = await projektOrdner(projectId);
+  if (!unterpfad) {
+    return basis;
+  }
+  const ziel = path.join(basis, unterpfad);
+  // path.join hat '..' bereits abgewiesen; der Gurt hier fängt Restfälle.
+  if (!ziel.startsWith(basis + path.sep)) {
+    throw new ValidationError(`Ungültiger Ordner "${eintrag}"`);
+  }
+  await fs.mkdir(ziel, { recursive: true });
+  return ziel;
+}
+
+/** Löst alle `projekt://…`-Einträge in echte Ablage-Pfade auf (legt sie an). */
 async function resolveOrdnerListe(ordner = [], deps = {}) {
   const {
     getActiveProjectId = projectService.getActiveProjectId,
@@ -48,9 +83,8 @@ async function resolveOrdnerListe(ordner = [], deps = {}) {
   } = deps;
   const out = [];
   for (const eintrag of ordner) {
-    if (eintrag === PROJEKT_ORDNER_TOKEN) {
-      const projectId = await getActiveProjectId();
-      out.push(await projektOrdner(projectId));
+    if (eintrag.startsWith(PROJEKT_PREFIX)) {
+      out.push(await resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner }));
     } else {
       out.push(eintrag);
     }
@@ -215,7 +249,16 @@ async function anreichernMitDateien(userInput, declared = [], werte = {}, loadDo
  * @returns {Promise<object>} Der abgeschlossene Lauf (aus runStore).
  */
 async function runFlow(
-  { flowName, args = {}, userId, conversationId = null, onEvent, existingRunId = null, signal },
+  {
+    flowName,
+    args = {},
+    userId,
+    conversationId = null,
+    onEvent,
+    existingRunId = null,
+    signal,
+    ordnerZiel = null,
+  },
   deps = {}
 ) {
   const {
@@ -230,11 +273,18 @@ async function runFlow(
   } = deps;
 
   const geladen = await loadFlow(flowName);
-  // `projekt://aktiv` in den echten Ablage-Pfad auflösen — ab hier arbeitet der
-  // ganze Lauf (Werkzeuge, Sandbox, Änderungs-Übersicht) mit dem realen Ordner.
+  // `projekt://…` in echte Ablage-Pfade auflösen — ab hier arbeitet der ganze
+  // Lauf (Werkzeuge, Sandbox, Änderungs-Übersicht) mit realen Ordnern.
+  // Ein pro Lauf mitgegebener Ziel-Ordner (`ordnerZiel`, z. B. der Kundenordner
+  // beim HTTP-Trigger) wird zum ARBEITSVERZEICHNIS (erster Eintrag) — dort
+  // landen die Enddateien; die im Flow deklarierten Ordner bleiben erlaubt.
+  // Nur `projekt://…`-Formen sind als Override zugelassen (die Routen-Schemas
+  // erzwingen das), damit ein API-Key-Aufrufer keine beliebigen Gerätepfade
+  // öffnen kann.
+  const ordnerListe = ordnerZiel ? [ordnerZiel, ...geladen.ordner] : geladen.ordner;
   const flow = {
     ...geladen,
-    ordner: await resolveOrdnerListe(geladen.ordner, deps),
+    ordner: await resolveOrdnerListe(ordnerListe, deps),
   };
 
   // 1. Argumente → Werte, Platzhalter ersetzen. Ein `datei`-Argument reichert

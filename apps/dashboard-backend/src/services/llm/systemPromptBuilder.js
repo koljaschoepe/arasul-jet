@@ -14,7 +14,8 @@ const systemSettings = require('../system-settings/systemSettingsService');
 // Layer 1: built-in global base. Operators can override it via
 // system_settings.llm_base_system_prompt (096) without a redeploy.
 const GLOBAL_BASE_PROMPT =
-  'Du bist ein hilfreicher KI-Assistent. Antworte präzise und strukturiert auf Deutsch, es sei denn der Benutzer schreibt in einer anderen Sprache.';
+  'Du bist ein hilfreicher KI-Assistent. Antworte präzise und strukturiert auf Deutsch, es sei denn der Benutzer schreibt in einer anderen Sprache. ' +
+  'Verwende keine Emojis, es sei denn der Benutzer bittet ausdrücklich darum.';
 
 /** Layer-1 prompt: DB override if set and non-empty, else the built-in default. */
 function getBasePrompt() {

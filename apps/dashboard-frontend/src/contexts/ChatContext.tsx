@@ -43,6 +43,18 @@ export interface AgentToolStep {
   status: 'running' | 'done';
 }
 
+/**
+ * Datei-Verweis einer Nachricht (Migration 127): bei Assistenten-Antworten die
+ * in der Projektablage gespeicherte Datei (Karte im Chat), bei Nutzer-
+ * Nachrichten der hochgeladene Anhang.
+ */
+export interface MessageDatei {
+  art: 'projektdatei' | 'anhang';
+  project_id?: string;
+  pfad?: string;
+  name: string;
+}
+
 export interface ChatMessage {
   id?: number;
   role: string;
@@ -67,6 +79,7 @@ export interface ChatMessage {
   visionFallbackVia?: string; // model_id of the vision model that captioned the user image (P6 auto-fallback)
   agent?: string; // Agent name when this assistant message is an @agent run (Schritt 11)
   steps?: AgentToolStep[]; // Live tool steps of an agent run
+  datei?: MessageDatei; // Gespeicherte Projektdatei / Anhang dieser Nachricht
 }
 
 export interface ChatSettings {
@@ -123,6 +136,10 @@ interface SendMessageOptions {
   model?: string;
   file?: File;
   images?: string[]; // Base64-encoded images for vision models
+  /** Antwort nach dem Stream automatisch als Datei in der Projektablage speichern. */
+  alsDatei?: boolean;
+  /** Ziel-Ordner fürs Speichern (aus dem Ablage-Baum gezogen); null = aktives Projekt, Wurzel. */
+  dateiZiel?: { projectId: string; pfad: string } | null;
 }
 
 interface LoadMessagesOptions {
@@ -148,6 +165,12 @@ interface ChatContextValue {
   spaces: Space[];
   // Functions
   sendMessage: (chatId: string, input: string, options?: SendMessageOptions) => Promise<void>;
+  /** Fertige Antwort nachträglich als Datei in der Projektablage speichern. */
+  speichereNachrichtAlsDatei: (
+    chatId: string,
+    message: ChatMessage,
+    ziel?: { projectId: string; pfad: string } | null
+  ) => Promise<MessageDatei | null>;
   reconnectToJob: (jobId: string, targetChatId: string) => Promise<void>;
   cancelJob: (chatId: string) => Promise<void>;
   abortExistingStream: (chatId: string) => void;
@@ -447,6 +470,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
     status: (msg.status as string) || 'completed',
     jobId: msg.job_id as string | undefined,
     jobStatus: msg.job_status as string | undefined,
+    datei: (msg.datei as MessageDatei | null) || undefined,
   });
 
   const loadMessages = useCallback(
@@ -781,6 +805,112 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
   // --- Streaming: Send Message ---
 
+  // --- Antworten als Datei in der Projektablage speichern -------------------
+
+  /** Dateiname aus der ersten Markdown-Überschrift; sonst Datumsname. */
+  const dateiNameAus = (inhalt: string): string => {
+    const treffer = inhalt.match(/^#{1,3}\s+(.+)$/m);
+    if (treffer?.[1]) {
+      const slug = treffer[1]
+        .trim()
+        .toLowerCase()
+        .replace(/ä/g, 'ae')
+        .replace(/ö/g, 'oe')
+        .replace(/ü/g, 'ue')
+        .replace(/ß/g, 'ss')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60);
+      if (slug) return `${slug}.md`;
+    }
+    const jetzt = new Date();
+    const stempel = `${jetzt.getFullYear()}-${String(jetzt.getMonth() + 1).padStart(2, '0')}-${String(
+      jetzt.getDate()
+    ).padStart(2, '0')}-${String(jetzt.getHours()).padStart(2, '0')}${String(
+      jetzt.getMinutes()
+    ).padStart(2, '0')}`;
+    return `dokument-${stempel}.md`;
+  };
+
+  /**
+   * Speichert einen Antwort-Text als Datei in der Projektablage und hängt den
+   * Verweis (sofern `messageId` bekannt) an die Nachricht in der DB.
+   * Ziel: `ziel` (per Drag & Drop gesetzter Ordner) oder die Wurzel des
+   * aktiven Projekts. Kollisionen bekommen einen Zeit-Suffix statt still zu
+   * überschreiben.
+   */
+  const speichereAlsDatei = useCallback(
+    async (
+      chatId: string,
+      messageId: number | undefined,
+      inhalt: string,
+      ziel?: { projectId: string; pfad: string } | null
+    ): Promise<MessageDatei | null> => {
+      let projectId = ziel?.projectId;
+      const ordner = ziel?.pfad ?? '';
+      if (!projectId) {
+        const aktiv = await api.get<{ data?: { project?: { id: string } } }>('/projects/active', {
+          showError: false,
+        });
+        projectId = aktiv?.data?.project?.id;
+      }
+      if (!projectId) return null;
+
+      let name = dateiNameAus(inhalt);
+      let pfad = ordner ? `${ordner}/${name}` : name;
+      try {
+        await api.get(`/projects/${projectId}/dateien/inhalt?pfad=${encodeURIComponent(pfad)}`, {
+          showError: false,
+        });
+        // Datei existiert schon → Zeit-Suffix statt Überschreiben.
+        const jetzt = new Date();
+        const suffix = `${String(jetzt.getHours()).padStart(2, '0')}${String(
+          jetzt.getMinutes()
+        ).padStart(2, '0')}${String(jetzt.getSeconds()).padStart(2, '0')}`;
+        name = name.replace(/\.md$/, `-${suffix}.md`);
+        pfad = ordner ? `${ordner}/${name}` : name;
+      } catch {
+        /* 404 = Name ist frei */
+      }
+
+      await api.put(`/projects/${projectId}/dateien/inhalt`, { pfad, inhalt });
+      const datei: MessageDatei = { art: 'projektdatei', project_id: projectId, pfad, name };
+      if (messageId) {
+        await api
+          .put(`/chats/${chatId}/messages/${messageId}/datei`, { ...datei }, { showError: false })
+          .catch(() => {});
+      }
+      return datei;
+    },
+    [api]
+  );
+
+  /**
+   * Nachträgliche Aktion „Als Datei speichern" an einer fertigen Antwort.
+   * Aktualisiert die Nachricht im UI-Zustand, sobald die Datei liegt.
+   */
+  const speichereNachrichtAlsDatei = useCallback(
+    async (
+      chatId: string,
+      message: ChatMessage,
+      ziel?: { projectId: string; pfad: string } | null
+    ): Promise<MessageDatei | null> => {
+      if (!message.content) return null;
+      const datei = await speichereAlsDatei(chatId, message.id, message.content, ziel);
+      if (datei) {
+        updateMessages(chatId, prev =>
+          prev.map(m =>
+            (message.id && m.id === message.id) || (!message.id && m === message)
+              ? { ...m, datei }
+              : m
+          )
+        );
+      }
+      return datei;
+    },
+    [speichereAlsDatei, updateMessages]
+  );
+
   const sendMessage = useCallback(
     async (chatId: string, input: string, options: SendMessageOptions = {}) => {
       const {
@@ -824,7 +954,13 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       // Update UI with user message + empty assistant message
       const newMessages: ChatMessage[] = [
         ...messages,
-        { role: 'user', content: userMessage, ...(images && images.length > 0 ? { images } : {}) },
+        {
+          role: 'user',
+          content: userMessage,
+          ...(images && images.length > 0 ? { images } : {}),
+          // Anhang sofort als Chip zeigen (persistiert wird er vom Backend).
+          ...(file ? { datei: { art: 'anhang' as const, name: file.name } } : {}),
+        },
       ];
       updateMessages(chatId, () => newMessages);
       updateIsLoading(chatId, true);
@@ -901,8 +1037,19 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           };
         } else {
           endpoint = `${API_BASE}/llm/chat`;
+          // Datei-Modus: das Modell soll ein REINES Dokument liefern (Markdown,
+          // #-Überschrift → daraus wird der Dateiname), kein Meta-Gerede über
+          // Speichern/Dateien. Nur im Payload — die persistierte Nachricht
+          // bleibt der Originaltext des Nutzers.
+          const DATEI_ANWEISUNG =
+            '\n\n(Antworte NUR mit dem reinen Dokumentinhalt in Markdown und beginne mit einer #-Überschrift. Keine Vor- oder Nachbemerkungen und keine Aussagen über Dateien oder Speicherung — das Speichern übernimmt die Plattform.)';
+          const letzterIndex = newMessages.length - 1;
           const chatPayload: ChatInput = {
-            messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+            messages: newMessages.map((m, idx) => ({
+              role: m.role,
+              content:
+                options.alsDatei && idx === letzterIndex ? m.content + DATEI_ANWEISUNG : m.content,
+            })),
             temperature: 0.7,
             max_tokens: 32768,
             stream: true,
@@ -1166,6 +1313,60 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           );
         }
 
+        // Datei-Modus: die fertige Antwort automatisch in der Projektablage
+        // speichern und als Karte an die Nachricht hängen. Läuft losgelöst —
+        // der Chat ist fertig, die Karte erscheint, sobald die Datei liegt.
+        if (options.alsDatei && fullResponse) {
+          const dateiChatId = chatId;
+          void (async () => {
+            try {
+              const datei = await speichereAlsDatei(
+                dateiChatId,
+                undefined,
+                fullResponse,
+                options.dateiZiel
+              );
+              if (!datei) return;
+              // Sofort im UI zeigen (die DB-Nachricht bekommt den Verweis gleich).
+              updateMessages(dateiChatId, prev => {
+                const kopie = [...prev];
+                for (let i = kopie.length - 1; i >= 0; i--) {
+                  const m = kopie[i];
+                  if (m && m.role === 'assistant') {
+                    kopie[i] = { ...m, datei };
+                    break;
+                  }
+                }
+                return kopie;
+              });
+              // Persistierte Nachricht finden (completeJob läuft async) und den
+              // Verweis in der DB anhängen, damit er den Reload überlebt.
+              for (let versuch = 0; versuch < 5; versuch++) {
+                await new Promise(r => setTimeout(r, 1500));
+                const result = await loadMessages(dateiChatId);
+                const letzte = [...result.messages]
+                  .reverse()
+                  .find(m => m.role === 'assistant' && m.id && m.content);
+                if (letzte?.id) {
+                  await api
+                    .put(
+                      `/chats/${dateiChatId}/messages/${letzte.id}/datei`,
+                      { ...datei },
+                      { showError: false }
+                    )
+                    .catch(() => {});
+                  updateMessages(dateiChatId, prev =>
+                    prev.map(m => (m.id === letzte.id ? { ...m, datei } : m))
+                  );
+                  break;
+                }
+              }
+            } catch (e) {
+              console.error('Antwort konnte nicht als Datei gespeichert werden:', e);
+            }
+          })();
+        }
+
         // DB-SYNC: Reload messages from database to ensure persistence.
         // Backend completeJob() runs async — give it time, then verify.
         // Extended retry: 1.5s initial + 5 retries × 2s = 11.5s max total wait.
@@ -1283,6 +1484,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       spaces,
       // Functions
       sendMessage,
+      speichereNachrichtAlsDatei,
       reconnectToJob,
       cancelJob,
       abortExistingStream,
@@ -1317,6 +1519,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       favoriteModels,
       spaces,
       sendMessage,
+      speichereNachrichtAlsDatei,
       reconnectToJob,
       cancelJob,
       abortExistingStream,

@@ -9,7 +9,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUp,
   ChevronDown,
+  FilePlus2,
   FolderOpen,
+  FolderOutput,
   Image as ImageIcon,
   Paperclip,
   Pin,
@@ -83,6 +85,12 @@ interface ComposerCardProps {
   attachedImages: { file: File; base64: string }[];
   onRemoveImage: (index: number) => void;
   onPickFile: (file: File) => void;
+  /** Datei-Modus: die nächste Antwort wird automatisch als Datei gespeichert. */
+  dateiModus?: boolean;
+  onToggleDateiModus?: () => void;
+  /** Ziel-Ordner fürs Speichern (per Drag & Drop aus dem Ablage-Baum). */
+  dateiZiel?: { projectId: string; pfad: string; label: string } | null;
+  onClearDateiZiel?: () => void;
   models: ComposerModel[];
   selectedModel: string;
   onSelectModel: (id: string) => void;
@@ -118,6 +126,10 @@ export default function ComposerCard({
   attachedImages,
   onRemoveImage,
   onPickFile,
+  dateiModus = false,
+  onToggleDateiModus,
+  dateiZiel = null,
+  onClearDateiZiel,
   models,
   selectedModel,
   onSelectModel,
@@ -289,7 +301,11 @@ export default function ComposerCard({
     : 'Auto';
 
   const hasChips =
-    Boolean(chatScope) || pins.length > 0 || Boolean(attachedFile) || attachedImages.length > 0;
+    Boolean(chatScope) ||
+    Boolean(dateiZiel) ||
+    pins.length > 0 ||
+    Boolean(attachedFile) ||
+    attachedImages.length > 0;
 
   return (
     <div className="relative rounded-lg border border-border bg-card focus-within:border-primary/40">
@@ -328,6 +344,15 @@ export default function ComposerCard({
               label={chatScope.label}
               onRemove={() => setChatScope(null)}
               removeLabel="Ordner-Kontext entfernen"
+            />
+          )}
+          {/* Datei-Ziel: dorthin speichert der Datei-Modus die Antwort. */}
+          {dateiZiel && (
+            <AttachmentChip
+              icon={<FolderOutput className="size-3.5 shrink-0 text-muted-foreground" />}
+              label={`Speichern in: ${dateiZiel.label}`}
+              onRemove={() => onClearDateiZiel?.()}
+              removeLabel="Datei-Ziel entfernen"
             />
           )}
           {/* Angeheftete Dokumente/Ordner (Plan 012): immer im Kontext. */}
@@ -410,6 +435,27 @@ export default function ComposerCard({
           className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <Paperclip className="size-3.5" />
+        </button>
+
+        {/* Datei-Modus: Antwort wird automatisch in der Projektablage gespeichert. */}
+        <button
+          type="button"
+          onClick={() => onToggleDateiModus?.()}
+          disabled={disabled}
+          aria-label="Antwort als Datei speichern"
+          aria-pressed={dateiModus}
+          title={
+            dateiModus
+              ? 'Datei-Modus an — die Antwort wird als Datei gespeichert'
+              : 'Antwort als Datei in der Projektablage speichern'
+          }
+          data-testid="composer-datei-modus"
+          className={cn(
+            'rounded p-1 hover:bg-accent hover:text-foreground',
+            dateiModus ? 'bg-primary/15 text-primary' : 'text-muted-foreground'
+          )}
+        >
+          <FilePlus2 className="size-3.5" />
         </button>
 
         <DropdownMenu>
