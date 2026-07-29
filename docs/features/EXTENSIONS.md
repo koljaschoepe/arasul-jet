@@ -18,21 +18,47 @@ Erweiterungs-Werkstatt (Sandbox)  →  Paket  →  Register  →  Erweiterungen-
 2. **Bauen** — im Chat `/erweiterung` aufrufen (legt das Gerüst an bzw. baut es
    weiter) und `/execute` (führt die Erweiterung aus und prüft sie).
    Alternativ von Hand oder mit einem externen Agenten im Terminal.
-3. **Paketieren** — Erweiterungen-Ansicht → „Eigene Erweiterung bauen" → Sandbox
-   und Unterordner wählen → _Aus Werkstatt paketieren_. Oder direkt aus der
-   Werkstatt heraus: die **Werkstatt-Leiste** (s. u.).
+3. **Registrieren — automatisch** — der Werkstatt-Watcher (s. u.) übernimmt
+   jeden Ordner mit gültiger `manifest.json` von selbst ins Register; die Karte
+   erscheint direkt in der Erweiterungen-Ansicht, Aktivieren bleibt EIN Klick.
+   Manuell geht es weiterhin: Erweiterungen-Ansicht → „Eigene Erweiterung
+   bauen" → _Aus Werkstatt paketieren_, oder die **Werkstatt-Leiste** (s. u.).
 4. **Verteilen** — _Herunterladen_ liefert ein `.tar.gz`; auf einem anderen Gerät
    im selben Dialog _Paket importieren_.
 5. **Weiterbauen** — _Forken_ legt eine neue Werkstatt-Sandbox mit einer Kopie an.
 
-## Werkstatt-Leiste — „Erweiterung live schalten"
+## Automatisch live — der Werkstatt-Watcher
 
-Werkstatt-Sandboxes zeigen über dem Terminal eine schmale Leiste: Ordner mit
-der `manifest.json` angeben (`.` = die ganze Sandbox), Klick auf **„Erweiterung
-live schalten"** — die Leiste paketiert über den bestehenden Bau-Pfad
-(`POST /api/extensions/bauen`, mit `overwrite`), schaltet die Erweiterung frei
-und öffnet eine `app`-Erweiterung direkt als Mitte-Tab. Bauen, testen, live
-sehen — ohne den Umweg über die Erweiterungen-Ansicht.
+Seit der Interview-Entscheidung vom 2026-07-29 gilt: **die Plattform erkennt
+Werkstatt-Erweiterungen von selbst.** Ein Watcher im Backend
+(`services/extensions/werkstattWatcher.js`, Takt `EXTENSIONS_WATCH_INTERVAL_MS`,
+Standard 15 s) scannt die Ordner aller Erweiterungs-Werkstätten — die Wurzel und
+jeden direkten Unterordner:
+
+- **Neue** Ordner mit gültiger `manifest.json` werden sofort registriert und
+  erscheinen als Karte in der Erweiterungen-Ansicht (deaktiviert — Aktivieren
+  bleibt eine bewusste Entscheidung, EIN Klick).
+- **Geänderte** Manifeste/Assets (erkannt über Größe/mtime des Ordnerbaums)
+  aktualisieren das Paket im Register; `enabled` bleibt dabei unverändert —
+  eine aktivierte Erweiterung bleibt aktiviert, eine deaktivierte deaktiviert.
+- **Fehlerhafte** Manifeste werden einmal im Log gemeldet (WARN) und dann in
+  Ruhe gelassen, bis sich der Ordner ändert.
+- Der Watcher **deinstalliert nie**: verschwindet ein Werkstatt-Ordner, bleibt
+  die registrierte Erweiterung bestehen (Entfernen bleibt Handarbeit).
+
+Die Oberfläche lädt die Erweiterungs-Liste alle 20 s nach — neue Karten und
+Seitenleisten-Einträge erscheinen ohne Reload.
+
+## Werkstatt-Leiste — der manuelle Sofort-Weg
+
+Werkstatt-Sandboxes zeigen über dem Terminal eine schmale Leiste. Da der
+Watcher Änderungen ohnehin automatisch übernimmt, ist sie der **Sofort-Weg mit
+Extra-Schritt**: Ordner mit der `manifest.json` angeben (`.` = die ganze
+Sandbox), Klick auf **„Erweiterung live schalten"** — die Leiste paketiert
+sofort über den bestehenden Bau-Pfad (`POST /api/extensions/bauen`, mit
+`overwrite`), **schaltet die Erweiterung zusätzlich frei** (das tut der Watcher
+bewusst nie) und öffnet eine `app`-Erweiterung direkt als Mitte-Tab. Bauen,
+testen, live sehen — ohne auf den nächsten Takt zu warten.
 
 ## Das Paketformat
 
@@ -98,7 +124,8 @@ entpacktes Verzeichnis wird gelöscht.
 
 Auch beim Paketieren gilt: der gewählte Unterordner muss **innerhalb** der
 Sandbox liegen. Eine frisch installierte Erweiterung ist zunächst
-**deaktiviert** und muss bewusst eingeschaltet werden.
+**deaktiviert** und muss bewusst eingeschaltet werden — das gilt auch für
+alles, was der Werkstatt-Watcher automatisch registriert.
 
 ## Ablageorte
 
@@ -108,12 +135,12 @@ Sandbox liegen. Eine frisch installierte Erweiterung ist zunächst
 | Werkstatt-Vorlagen | `/arasul/sandbox-build/dev-templates` | `services/sandbox/` (ro) |
 | Sandbox-Ordner     | `/arasul/sandbox/projects/<slug>`     | `data/sandbox/projects`  |
 
-## Grenzen (Stand Plan 012 Phase E)
+## Grenzen (Stand „Automatisch live", 2026-07-29)
 
-- Eine installierte Erweiterung erscheint als Karte in der Erweiterungen-Ansicht
-  und lässt sich aktivieren. Einen **eigenen Activity-Bar-Eintrag** bringt sie
-  noch nicht mit — dafür braucht es einen generischen Erweiterungs-Tab-Typ; das
-  ist bewusst ein Folgeschritt.
+- Eine **aktivierte** `app`-Erweiterung hat einen eigenen Eintrag in der
+  Activity-Bar (Puzzle-Icon, Klick öffnet ihren Mitte-Tab über den generischen
+  Tab-Typ `extension`) — die frühere Lücke ist geschlossen. Deaktivierte sowie
+  `flow`/`tool`-Pakete erscheinen dort nicht.
 - Die Zugriffs-Stufe ist im Manifest deklariert und wird angezeigt; sie steuert
   heute die Sandbox, in der gebaut wird, noch nicht eine eigene Laufzeit pro
   Erweiterung.
@@ -123,5 +150,5 @@ Sandbox liegen. Eine frisch installierte Erweiterung ist zunächst
 - API: [`API_REFERENCE.md`](../api/API_REFERENCE.md) → Abschnitt **Extensions**
 - Datenbank: [`DATABASE_SCHEMA.md`](../api/DATABASE_SCHEMA.md) → `extensions`
 - Umgebungsvariablen: [`ENVIRONMENT_VARIABLES.md`](../ENVIRONMENT_VARIABLES.md)
-  → `EXTENSIONS_DIR`, `SANDBOX_DEV_TEMPLATES_DIR`
+  → `EXTENSIONS_DIR`, `EXTENSIONS_WATCH_INTERVAL_MS`, `SANDBOX_DEV_TEMPLATES_DIR`
 - Flows: [`FLOWS.md`](FLOWS.md) — Chat-Slash-Befehle, Argumente, Werkzeuge, Auslöser

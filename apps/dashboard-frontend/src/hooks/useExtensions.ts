@@ -40,6 +40,12 @@ export function useExtensions() {
     },
     retry: 1,
     staleTime: 30_000,
+    // „Automatisch live": der Werkstatt-Watcher im Backend registriert neue/
+    // geänderte Erweiterungen selbstständig — hier alle 20 s nachladen, damit
+    // sie ohne Reload in ActivityBar und Erweiterungs-Raster auftauchen.
+    // Läuft nur, solange eine Komponente den Hook gemountet hat, und pausiert
+    // im Hintergrund (refetchIntervalInBackground bleibt false).
+    refetchInterval: 20_000,
   });
 
   const extensions = data ?? [];

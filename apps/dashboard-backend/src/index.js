@@ -790,6 +790,14 @@ if (require.main === module) {
       logger.error(`Ordner-Sync konnte nicht starten: ${err.message}`);
     }
 
+    // Werkstatt-Watcher: neue/geänderte manifest.json in Erweiterungs-
+    // Werkstätten automatisch registrieren („Automatisch live", 2026-07-29).
+    try {
+      require('./services/extensions/werkstattWatcher').starte();
+    } catch (err) {
+      logger.error(`Werkstatt-Watcher konnte nicht starten: ${err.message}`);
+    }
+
     // Startup readiness summary
     try {
       const { detectDevice, getGpuInfo, getLlmRamGB } = require('./utils/hardware');

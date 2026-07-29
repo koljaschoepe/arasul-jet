@@ -1,9 +1,10 @@
 import React from 'react';
-import { Files, Cpu, Blocks, Waypoints, Workflow, Settings } from 'lucide-react';
+import { Files, Cpu, Blocks, Waypoints, Workflow, Puzzle, Settings } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { ActivityView, WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
+import { useExtensions } from '@/hooks/useExtensions';
 
 interface ActivityButtonProps {
   label: string;
@@ -85,8 +86,13 @@ export function ActivityBar() {
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const setStoreTab = useExtensionStore(s => s.setStoreTab);
   const { isAppEnabled } = useWorkspaceApps();
+  const { extensions } = useExtensions();
 
   const apps = APP_ENTRIES.filter(a => isAppEnabled(a.appId));
+  // Aktivierte App-Erweiterungen (selbst gebaute/importierte Pakete) bekommen
+  // je einen eigenen Eintrag — ein Klick öffnet ihren Erweiterungs-Mitte-Tab.
+  // Deaktivierte oder flow/tool-Pakete tauchen hier nicht auf.
+  const appExtensions = extensions.filter(e => e.enabled && e.type === 'app');
 
   const handleView = (view: ActivityView) => {
     selectView(view);
@@ -117,7 +123,9 @@ export function ActivityBar() {
         </ActivityButton>
       ))}
 
-      {apps.length > 0 && <div className="my-1 h-px w-6 shrink-0 bg-border" aria-hidden="true" />}
+      {apps.length + appExtensions.length > 0 && (
+        <div className="my-1 h-px w-6 shrink-0 bg-border" aria-hidden="true" />
+      )}
       {apps.map(a => (
         <ActivityButton
           key={a.appId}
@@ -126,6 +134,16 @@ export function ActivityBar() {
           onClick={() => openTab(a.spec)}
         >
           {a.icon}
+        </ActivityButton>
+      ))}
+      {appExtensions.map(e => (
+        <ActivityButton
+          key={e.id}
+          label={e.name}
+          active={activeTabId === `extension:${e.id}`}
+          onClick={() => openTab({ type: 'extension', extensionId: e.id, title: e.name })}
+        >
+          <Puzzle className="h-[18px] w-[18px]" />
         </ActivityButton>
       ))}
 

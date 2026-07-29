@@ -2,10 +2,12 @@
  * WerkstattLeiste — „Erweiterung live schalten" für Werkstatt-Sandboxes.
  *
  * Erscheint über dem Terminal, wenn die aktive Sitzung in einer
- * Erweiterungs-Werkstatt läuft. Ein Klick paketiert den angegebenen Ordner
- * der Sandbox über den bestehenden Bau-Pfad (POST /extensions/bauen,
- * overwrite), schaltet die Erweiterung frei und öffnet App-Erweiterungen
- * direkt als Tab — bauen, testen, live sehen, ohne den Store-Umweg.
+ * Erweiterungs-Werkstatt läuft. Seit „Automatisch live" (2026-07-29) übernimmt
+ * der Werkstatt-Watcher im Backend Änderungen an manifest.json/Assets von
+ * selbst — die Leiste bleibt als manueller Sofort-Weg: ein Klick paketiert den
+ * angegebenen Ordner über den bestehenden Bau-Pfad (POST /extensions/bauen,
+ * overwrite), schaltet die Erweiterung zusätzlich FREI (das tut der Watcher
+ * bewusst nie) und öffnet App-Erweiterungen direkt als Tab.
  */
 import { useState } from 'react';
 import { Hammer, Loader2, Rocket } from 'lucide-react';
@@ -50,8 +52,11 @@ export default function WerkstattLeiste({ projekt }: { projekt: SandboxProject }
       data-testid="werkstatt-leiste"
     >
       <Hammer className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="hidden text-ui-xs text-muted-foreground sm:inline">
-        Erweiterungs-Werkstatt
+      <span
+        className="hidden text-ui-xs text-muted-foreground sm:inline"
+        title="Der Werkstatt-Watcher übernimmt neue und geänderte Erweiterungen automatisch ins Register (Aktivieren bleibt ein Klick). Der Knopf ist der Sofort-Weg: er schaltet zusätzlich frei und öffnet Apps als Tab."
+      >
+        Erweiterungs-Werkstatt — Änderungen werden automatisch übernommen
       </span>
       <div className="ml-auto flex items-center gap-2">
         <Input
