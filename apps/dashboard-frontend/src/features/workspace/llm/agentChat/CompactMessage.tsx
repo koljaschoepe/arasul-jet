@@ -12,6 +12,7 @@ import {
   FilePlus2,
   FileText,
   Globe,
+  ListTodo,
   Paperclip,
   Search,
   Sparkles,
@@ -134,6 +135,9 @@ function SourcesFooter({ sources }: { sources: DocumentSource[] }) {
 function agentStepLabel(step: AgentToolStep): string {
   const p = step.params || {};
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  if (step.kind === 'plan') {
+    return step.status === 'running' ? 'erstellt einen Plan' : 'Plan erstellt';
+  }
   if (step.kind === 'subagent') {
     const auftrag = str(p.auftrag);
     return auftrag ? `Subagent ${step.tool}: ${auftrag}` : `Subagent ${step.tool}`;
@@ -175,6 +179,9 @@ function agentStepLabel(step: AgentToolStep): string {
 }
 
 function agentStepIcon(step: AgentToolStep): React.ReactNode {
+  if (step.kind === 'plan') {
+    return <ListTodo className="size-3" />;
+  }
   if (step.kind === 'subagent') {
     return <Sparkles className="size-3" />;
   }

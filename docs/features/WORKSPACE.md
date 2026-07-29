@@ -65,16 +65,19 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   Projektordner des aktiven Projekts aufgelöst; `projekt://aktiv/unterordner`
   zielt auf einen Unterordner, und pro Lauf kann `ordner_ziel` (z. B. der
   Kundenordner) das Arbeitsverzeichnis umlenken ([`FLOWS.md`](FLOWS.md)).
-- **Chat (Agent-Modus, 2026-07-28)** — der Workspace-Chat ist ein Agent mit
-  Werkzeugschleife: das Modell ruft selbst **Wissensraum-Suche** (`rag_suche`),
-  **Datei-Werkzeuge** (lesen/schreiben/durchsuchen — der Projektordner des
-  aktiven Projekts), **Web-Suche/-Lesen** und **Subagenten** (Rolle
-  „rechercheur") auf, wenn die Aufgabe es braucht; einfache Fragen beantwortet
-  es direkt. Der frühere fest verdrahtete RAG-Zitier-Modus (der
-  Erstell-Aufgaben verweigerte) entfällt im Workspace-Chat — Quellen holt sich
-  der Agent als Material. Während der Arbeit zeigen kompakte
-  **Schritt-Zeilen** was passiert; nach Abschluss falten sie sich zu einer
-  „N Schritte"-Zeile. Erstellt der Agent Dokumente (Newsletter, Webseite,
+- **Chat (Orchestrator, 2026-07-29)** — der Workspace-Chat ist ein
+  Coding-Agent mit erzwungenem Protokoll: die **Ordnerstruktur des Projekts
+  steht immer im Kontext**; komplexe Aufträge beginnen mit einem stillen
+  **Plan-Schritt**, dann arbeitet das Modell mit **Wissensraum-Suche**
+  (`rag_suche`), **Datei-Werkzeugen**, **Web**, **Terminal**
+  (projektbeschränkt im Sandbox-Container) und **Subagenten** der
+  Rollen-Riege `rechercheur` / `autor` / `pruefer` / `entwickler`; bevor eine
+  Antwort mit erstellten Dateien fertig ist, kontrolliert der `pruefer`
+  automatisch (eine Korrektur-Schleife bei Mängeln). Es gibt **kein
+  Zeitlimit** — der Stop-Knopf bricht jederzeit ab, Teiltext und Schritte
+  bleiben erhalten. Einfache Fragen beantwortet das Modell weiter direkt.
+  Während der Arbeit zeigen kompakte **Schritt-Zeilen** was passiert; nach
+  Abschluss falten sie sich zu einer „N Schritte"-Zeile. Erstellt der Agent Dokumente (Newsletter, Webseite,
   Bericht …), schreibt er sie mit passender Endung (`.html`, `.md`, `.csv` …)
   in den Projektordner und der Verlauf zeigt klickbare **Datei-Karten** (öffnen
   den Editor-Tab; HTML öffnet gerendert). Der **Datei-Modus** im Composer
