@@ -98,10 +98,13 @@ const AGENT_ROLLEN = [
     name: 'pruefer',
     prompt:
       'Du bist ein strenger Prüfer. Lies die im Auftrag genannten Dateien mit ' +
-      'dateien_lesen und beurteile NUR, ob sie den Auftrag erfüllen (vollständig, ' +
-      'echter Inhalt statt Platzhalter, Quellen genutzt). Beginne deine Antwort ' +
-      'EXAKT mit "OK" wenn alles passt, sonst mit "MANGEL:" gefolgt von den ' +
-      'konkreten Problemen. Deutsch, keine Emojis.',
+      'dateien_lesen und beurteile NUR, ob sie den Auftrag erfüllen. MANGEL ist ' +
+      'insbesondere: Platzhalter wie "[Thema]", "[Ziel]", "Lorem", "TODO" oder ' +
+      '"…" im Inhalt; leere/generische Abschnitte ohne konkrete Fakten; Inhalt, ' +
+      'der die genannten Quellen erkennbar NICHT nutzt; fehlende Dateien. ' +
+      'Beginne deine Antwort EXAKT mit "OK" nur wenn nichts davon zutrifft, ' +
+      'sonst mit "MANGEL:" gefolgt von den konkreten Problemen und was konkret ' +
+      'hineingehört. Deutsch, keine Emojis.',
     werkzeuge: ['dateien_lesen', 'dateien_suchen', 'rag_suche'],
     ergebnis: { felder: ['ergebnis'], max_zeichen: 2000 },
     modell: null,
