@@ -18,6 +18,7 @@ const { validateBody, validateParams, validateQuery } = require('../../middlewar
 const { uploadLimiter } = require('../../middleware/rateLimit');
 const projectService = require('../../services/rag/projectService');
 const ablageService = require('../../services/projects/ablageService');
+const ordnerSyncService = require('../../services/projects/ordnerSyncService');
 const { cacheService } = require('../../services/core/cacheService');
 const { ValidationError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
@@ -32,7 +33,6 @@ const {
   AblageDeleteQuery,
   AblageMoveBody,
   AblageDownloadQuery,
-  AblageUebernehmenBody,
 } = require('../../schemas/projects');
 
 // Upload in die Projektablage: im Speicher (max. 50 MB), der Service legt die
@@ -140,14 +140,16 @@ router.put(
 
 /**
  * GET /api/projects/:id/dateien
- * Der Datei-Baum der Projektablage (rekursiv, Budget-gedeckelt).
+ * Der Datei-Baum des Projektordners (rekursiv, Budget-gedeckelt) — der EINE
+ * Baum des Ein-Ordner-Modells. Dateien tragen ihren Wissens-Status
+ * (`dokument: {id, status}`), Ordner ihren Wissensraum (`space_id`).
  */
 router.get(
   '/:id/dateien',
   requireAuth,
   validateParams(ProjectIdParams),
   asyncHandler(async (req, res) => {
-    const { eintraege, gekuerzt } = await ablageService.listTree(req.params.id);
+    const { eintraege, gekuerzt } = await ablageService.listTreeMitWissen(req.params.id);
     res.json({ data: { eintraege, gekuerzt }, timestamp: new Date().toISOString() });
   })
 );
@@ -178,6 +180,7 @@ router.put(
   validateBody(AblageWriteBody),
   asyncHandler(async (req, res) => {
     const datei = await ablageService.writeFile(req.params.id, req.body.pfad, req.body.inhalt);
+    ordnerSyncService.trigger(req.params.id);
     res.json({ data: datei, timestamp: new Date().toISOString() });
   })
 );
@@ -193,6 +196,7 @@ router.post(
   validateBody(AblageOrdnerBody),
   asyncHandler(async (req, res) => {
     const ordner = await ablageService.createDir(req.params.id, req.body.pfad);
+    ordnerSyncService.trigger(req.params.id);
     res.status(201).json({ data: ordner, timestamp: new Date().toISOString() });
   })
 );
@@ -208,6 +212,7 @@ router.delete(
   validateQuery(AblageDeleteQuery),
   asyncHandler(async (req, res) => {
     const geloescht = await ablageService.remove(req.params.id, req.query.pfad);
+    ordnerSyncService.trigger(req.params.id);
     res.json({ data: geloescht, timestamp: new Date().toISOString() });
   })
 );
@@ -223,6 +228,7 @@ router.post(
   validateBody(AblageMoveBody),
   asyncHandler(async (req, res) => {
     const ergebnis = await ablageService.move(req.params.id, req.body.von, req.body.nach);
+    ordnerSyncService.trigger(req.params.id);
     res.json({ data: ergebnis, timestamp: new Date().toISOString() });
   })
 );
@@ -258,6 +264,7 @@ router.post(
       req.file.originalname,
       req.file.buffer
     );
+    ordnerSyncService.trigger(req.params.id);
     res.status(201).json({ data: datei, timestamp: new Date().toISOString() });
   })
 );
@@ -293,26 +300,6 @@ router.get(
       res.end();
     });
     req.on('close', () => tar.kill('SIGKILL'));
-  })
-);
-
-/**
- * POST /api/projects/:id/dateien/uebernehmen
- * Eine Ablage-Datei in den Wissensraum übernehmen (MinIO + Indexierung).
- */
-router.post(
-  '/:id/dateien/uebernehmen',
-  requireAuth,
-  validateParams(ProjectIdParams),
-  validateBody(AblageUebernehmenBody),
-  asyncHandler(async (req, res) => {
-    const ergebnis = await ablageService.uebernehmen({
-      projectId: req.params.id,
-      relPfad: req.body.pfad,
-      spaceId: req.body.space_id ?? null,
-      username: req.user?.username || String(req.user?.id ?? 'unknown'),
-    });
-    res.status(201).json({ data: ergebnis, timestamp: new Date().toISOString() });
   })
 );
 

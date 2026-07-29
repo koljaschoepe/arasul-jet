@@ -782,6 +782,14 @@ if (require.main === module) {
       logger.error(`Failed to initialize Event Listener Service: ${err.message}`);
     }
 
+    // Ein-Ordner-Modell: Projektordner ↔ Wissensraum-Abgleich (materialisiert
+    // Altbestand aus MinIO auf die Platte, dann Intervall-Takt Platte → DB).
+    try {
+      require('./services/projects/ordnerSyncService').starte();
+    } catch (err) {
+      logger.error(`Ordner-Sync konnte nicht starten: ${err.message}`);
+    }
+
     // Startup readiness summary
     try {
       const { detectDevice, getGpuInfo, getLlmRamGB } = require('./utils/hardware');

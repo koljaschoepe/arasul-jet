@@ -546,6 +546,12 @@ async function processAgentChatJob(ctx, job) {
     timestamp: new Date().toISOString(),
   });
 
+  // Ein-Ordner-Modell: was der Agent geschrieben hat, sofort in den
+  // Wissens-Spiegel übernehmen (statt auf den nächsten Sync-Takt zu warten).
+  if (projectId) {
+    require('../projects/ordnerSyncService').trigger(projectId);
+  }
+
   const { onJobComplete } = require('./llmOllamaStream');
   onJobComplete(ctx, jobId);
 }

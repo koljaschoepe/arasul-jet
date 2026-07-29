@@ -22,7 +22,6 @@
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
-const crypto = require('crypto');
 const { resolveRealWithinRoots } = require('../flows/pathSafe');
 const projectService = require('../rag/projectService');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
@@ -37,8 +36,11 @@ const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // Upload in die Ablage
 const MAX_TREE_ENTRIES = 2000; // Baum-Budget (danach ehrlich „gekürzt")
 const MAX_TREE_DEPTH = 12;
 
-/** Ordner, die der Baum überspringt — Sync-Interna und Paket-Müllhalden. */
-const VERSTECKT = new Set(['.git', 'node_modules', '__pycache__', '.venv']);
+/**
+ * Einträge, die der Baum überspringt — Sync-Interna und Paket-Müllhalden.
+ * `.arasul` ist die Marker-Datei des Ordner-Syncs (Lösch-Sicherung).
+ */
+const VERSTECKT = new Set(['.git', 'node_modules', '__pycache__', '.venv', '.arasul']);
 
 /**
  * Liefert den (angelegten) Ablage-Ordner eines Projekts.
@@ -310,85 +312,40 @@ async function fuerDownload(projectId, relPfad, deps = {}) {
 }
 
 /**
- * Übernimmt eine Ablage-Datei in den Wissensraum (MinIO + documents-Zeile
- * mit status='pending' — der Indexer holt sie sich von dort). Gleicher
- * Vertrag wie der Dokument-Upload; das Projekt der Datei ist das Projekt
- * der Ablage.
+ * Der EINE Baum des Ein-Ordner-Modells: der Datei-Baum plus Wissens-Status.
+ * Dateien, die als Dokument gespiegelt sind, tragen `dokument: {id, status}`;
+ * Ordner mit Wissensraum-Spiegel tragen ihre `space_id` (für „Mit Ordner
+ * chatten" und die Wissenssuche-Scopes).
  */
-async function uebernehmen(
-  { projectId, relPfad, spaceId = null, username = 'unknown' },
-  deps = {}
-) {
-  const { minio = require('../documents/minioService'), db = require('../../database') } = deps;
-  const dir = await projektOrdner(projectId, deps);
-  const abs = sicher(dir, relPfad);
-  let stat;
-  try {
-    stat = await fsp.stat(abs);
-  } catch {
-    throw new NotFoundError(`Datei "${relPfad}" nicht gefunden`);
-  }
-  if (!stat.isFile()) {
-    throw new ValidationError('Nur Dateien können in den Wissensraum übernommen werden');
-  }
-  if (stat.size > MAX_UPLOAD_BYTES) {
-    throw new ValidationError('Datei zu groß für den Wissensraum (max. 50 MB)');
-  }
-  if (spaceId) {
-    const raum = await db.query('SELECT id FROM knowledge_spaces WHERE id = $1', [spaceId]);
-    if (raum.rows.length === 0) {
-      throw new ValidationError('Ungültiger Wissensbereich');
+async function listTreeMitWissen(projectId, deps = {}) {
+  const { db = require('../../database') } = deps;
+  const { eintraege, gekuerzt } = await listTree(projectId, deps);
+  const [docs, raeume] = await Promise.all([
+    db.query(
+      `SELECT id, rel_pfad, status FROM documents
+        WHERE project_id = $1 AND rel_pfad IS NOT NULL
+          AND deleted_at IS NULL AND status <> 'deleted'`,
+      [projectId]
+    ),
+    db.query(
+      `SELECT id, rel_pfad FROM knowledge_spaces
+        WHERE project_id = $1 AND rel_pfad IS NOT NULL`,
+      [projectId]
+    ),
+  ]);
+  const docJePfad = new Map(docs.rows.map(r => [r.rel_pfad, r]));
+  const raumJePfad = new Map(raeume.rows.map(r => [r.rel_pfad, r.id]));
+  for (const e of eintraege) {
+    if (e.typ === 'datei') {
+      const doc = docJePfad.get(e.pfad);
+      if (doc) {
+        e.dokument = { id: doc.id, status: doc.status };
+      }
+    } else if (raumJePfad.has(e.pfad)) {
+      e.space_id = raumJePfad.get(e.pfad);
     }
   }
-
-  const buffer = await fsp.readFile(abs);
-  const filename = minio.sanitizeFilename(path.basename(abs));
-  const fileExt = filename.includes('.') ? '.' + filename.split('.').pop().toLowerCase() : '';
-  const contentHash = crypto.createHash('sha256').update(buffer).digest('hex');
-  const fileHash = crypto.createHash('sha256').update(`${filename}:${buffer.length}`).digest('hex');
-
-  await minio.enforceQuota(buffer.length);
-  const objectName = `${Date.now()}_${filename}`;
-  await minio.uploadObject(objectName, buffer, buffer.length, {
-    'Content-Type': 'application/octet-stream',
-  });
-
-  const docId = crypto.randomUUID();
-  const insert = await db.query(
-    `INSERT INTO documents (
-        id, filename, original_filename, file_path, file_size,
-        mime_type, file_extension, content_hash, file_hash,
-        status, uploaded_by, space_id, project_id
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10, $11, $12)
-     ON CONFLICT (content_hash) WHERE deleted_at IS NULL AND status <> 'deleted'
-     DO NOTHING
-     RETURNING id`,
-    [
-      docId,
-      filename,
-      filename,
-      objectName,
-      buffer.length,
-      'application/octet-stream',
-      fileExt,
-      contentHash,
-      fileHash,
-      username,
-      spaceId,
-      projectId,
-    ]
-  );
-  if (insert.rows.length === 0) {
-    // Duplikat — die eben hochgeladene MinIO-Kopie wieder wegräumen.
-    try {
-      const client = minio.getMinioClient();
-      await client.removeObject(minio.MINIO_BUCKET, objectName);
-    } catch (err) {
-      logger.warn(`Projektablage: Duplikat-Aufräumen fehlgeschlagen: ${err.message}`);
-    }
-    throw new ConflictError('Ein Dokument mit gleichem Inhalt existiert bereits im Wissensraum');
-  }
-  return { documentId: docId, filename };
+  return { eintraege, gekuerzt };
 }
 
 module.exports = {
@@ -397,6 +354,7 @@ module.exports = {
   MAX_UPLOAD_BYTES,
   projektOrdner,
   listTree,
+  listTreeMitWissen,
   readFile,
   writeFile,
   createDir,
@@ -404,5 +362,4 @@ module.exports = {
   move,
   saveUpload,
   fuerDownload,
-  uebernehmen,
 };

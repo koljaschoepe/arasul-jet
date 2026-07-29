@@ -1150,47 +1150,48 @@ Assistenten-Antwort (Liste, Ein-/Ausgaben gekürzt):
 
 > Main document metadata storage for RAG system
 
-| Column                    | Type                     | Nullable | Default                       |
-| ------------------------- | ------------------------ | -------- | ----------------------------- |
-| `id`                      | uuid                     | ⛔       | `gen_random_uuid()`           |
-| `filename`                | character varying        | ⛔       |                               |
-| `original_filename`       | character varying        | ⛔       |                               |
-| `file_path`               | character varying        | ⛔       |                               |
-| `file_size`               | bigint                   | ⛔       |                               |
-| `mime_type`               | character varying        | ✅       |                               |
-| `file_extension`          | character varying        | ✅       |                               |
-| `content_hash`            | character varying        | ⛔       |                               |
-| `file_hash`               | character varying        | ⛔       |                               |
-| `status`                  | USER-DEFINED             | ✅       | `'pending'::document_status`  |
-| `processing_started_at`   | timestamp with time zone | ✅       |                               |
-| `processing_completed_at` | timestamp with time zone | ✅       |                               |
-| `processing_error`        | text                     | ✅       |                               |
-| `retry_count`             | integer                  | ✅       | `0`                           |
-| `title`                   | character varying        | ✅       |                               |
-| `author`                  | character varying        | ✅       |                               |
-| `language`                | character varying        | ✅       | `'de'::character varying`     |
-| `page_count`              | integer                  | ✅       |                               |
-| `word_count`              | integer                  | ✅       |                               |
-| `char_count`              | integer                  | ✅       |                               |
-| `chunk_count`             | integer                  | ✅       | `0`                           |
-| `embedding_model`         | character varying        | ✅       |                               |
-| `summary`                 | text                     | ✅       |                               |
-| `key_topics`              | ARRAY                    | ✅       |                               |
-| `category_id`             | integer                  | ✅       |                               |
-| `category_confidence`     | numeric                  | ✅       |                               |
-| `user_tags`               | ARRAY                    | ✅       |                               |
-| `user_notes`              | text                     | ✅       |                               |
-| `is_favorite`             | boolean                  | ✅       | `false`                       |
-| `uploaded_at`             | timestamp with time zone | ✅       | `now()`                       |
-| `indexed_at`              | timestamp with time zone | ✅       |                               |
-| `updated_at`              | timestamp with time zone | ✅       | `now()`                       |
-| `deleted_at`              | timestamp with time zone | ✅       |                               |
-| `uploaded_by`             | character varying        | ✅       | `'admin'::character varying`  |
-| `space_id`                | uuid                     | ✅       |                               |
-| `document_summary`        | text                     | ✅       |                               |
-| `owner_id`                | integer                  | ✅       |                               |
-| `is_context_file`         | boolean                  | ⛔       | `false`                       |
-| `project_id`              | uuid                     | ✅       | Projekt-Scope (Migration 122) |
+| Column                    | Type                     | Nullable | Default                                                                                    |
+| ------------------------- | ------------------------ | -------- | ------------------------------------------------------------------------------------------ |
+| `id`                      | uuid                     | ⛔       | `gen_random_uuid()`                                                                        |
+| `filename`                | character varying        | ⛔       |                                                                                            |
+| `original_filename`       | character varying        | ⛔       |                                                                                            |
+| `file_path`               | character varying        | ⛔       |                                                                                            |
+| `file_size`               | bigint                   | ⛔       |                                                                                            |
+| `mime_type`               | character varying        | ✅       |                                                                                            |
+| `file_extension`          | character varying        | ✅       |                                                                                            |
+| `content_hash`            | character varying        | ⛔       |                                                                                            |
+| `file_hash`               | character varying        | ⛔       |                                                                                            |
+| `status`                  | USER-DEFINED             | ✅       | `'pending'::document_status`                                                               |
+| `processing_started_at`   | timestamp with time zone | ✅       |                                                                                            |
+| `processing_completed_at` | timestamp with time zone | ✅       |                                                                                            |
+| `processing_error`        | text                     | ✅       |                                                                                            |
+| `retry_count`             | integer                  | ✅       | `0`                                                                                        |
+| `title`                   | character varying        | ✅       |                                                                                            |
+| `author`                  | character varying        | ✅       |                                                                                            |
+| `language`                | character varying        | ✅       | `'de'::character varying`                                                                  |
+| `page_count`              | integer                  | ✅       |                                                                                            |
+| `word_count`              | integer                  | ✅       |                                                                                            |
+| `char_count`              | integer                  | ✅       |                                                                                            |
+| `chunk_count`             | integer                  | ✅       | `0`                                                                                        |
+| `embedding_model`         | character varying        | ✅       |                                                                                            |
+| `summary`                 | text                     | ✅       |                                                                                            |
+| `key_topics`              | ARRAY                    | ✅       |                                                                                            |
+| `category_id`             | integer                  | ✅       |                                                                                            |
+| `category_confidence`     | numeric                  | ✅       |                                                                                            |
+| `user_tags`               | ARRAY                    | ✅       |                                                                                            |
+| `user_notes`              | text                     | ✅       |                                                                                            |
+| `is_favorite`             | boolean                  | ✅       | `false`                                                                                    |
+| `uploaded_at`             | timestamp with time zone | ✅       | `now()`                                                                                    |
+| `indexed_at`              | timestamp with time zone | ✅       |                                                                                            |
+| `updated_at`              | timestamp with time zone | ✅       | `now()`                                                                                    |
+| `deleted_at`              | timestamp with time zone | ✅       |                                                                                            |
+| `uploaded_by`             | character varying        | ✅       | `'admin'::character varying`                                                               |
+| `space_id`                | uuid                     | ✅       |                                                                                            |
+| `document_summary`        | text                     | ✅       |                                                                                            |
+| `owner_id`                | integer                  | ✅       |                                                                                            |
+| `is_context_file`         | boolean                  | ⛔       | `false`                                                                                    |
+| `project_id`              | uuid                     | ✅       | Projekt-Scope (Migration 122)                                                              |
+| `rel_pfad`                | text                     | ✅       | Pfad im Projektordner (Ein-Ordner-Modell, Migration 129); NULL = noch nicht materialisiert |
 
 **Primary key:** `id`
 
@@ -1218,6 +1219,7 @@ Assistenten-Antwort (Liste, Ein-/Ausgaben gekürzt):
 - `idx_documents_status_uploaded` — `CREATE INDEX idx_documents_status_uploaded ON public.documents USING btree (status, uploaded_at DESC)`
 - `idx_documents_unique_content_hash` — `CREATE UNIQUE INDEX idx_documents_unique_content_hash ON public.documents USING btree (content_hash) WHERE ((deleted_at IS NULL) AND (status <> 'deleted'::document_status))`
 - `idx_documents_uploaded_at` — `CREATE INDEX idx_documents_uploaded_at ON public.documents USING btree (uploaded_at DESC)`
+- `idx_documents_project_rel_pfad` — `CREATE UNIQUE INDEX ... ON documents (project_id, rel_pfad) WHERE rel_pfad IS NOT NULL AND deleted_at IS NULL AND status <> 'deleted'` (Ein-Ordner-Modell, Migration 129: ein Pfad = ein lebendes Dokument je Projekt)
 
 ---
 
@@ -1359,33 +1361,34 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 > Knowledge spaces (themed document collections) for hierarchical RAG
 
-| Column                   | Type                     | Nullable | Default                        |
-| ------------------------ | ------------------------ | -------- | ------------------------------ |
-| `id`                     | uuid                     | ⛔       | `gen_random_uuid()`            |
-| `name`                   | character varying        | ⛔       |                                |
-| `slug`                   | character varying        | ⛔       |                                |
-| `icon`                   | character varying        | ✅       | `'folder'::character varying`  |
-| `color`                  | character varying        | ✅       | `'#6366f1'::character varying` |
-| `sort_order`             | integer                  | ✅       | `0`                            |
-| `description`            | text                     | ⛔       |                                |
-| `description_embedding`  | text                     | ✅       |                                |
-| `auto_summary`           | text                     | ✅       |                                |
-| `auto_topics`            | jsonb                    | ✅       | `'[]'::jsonb`                  |
-| `auto_glossary`          | jsonb                    | ✅       | `'[]'::jsonb`                  |
-| `auto_generated_at`      | timestamp with time zone | ✅       |                                |
-| `auto_generation_status` | character varying        | ✅       | `'pending'::character varying` |
-| `auto_generation_error`  | text                     | ✅       |                                |
-| `document_count`         | integer                  | ✅       | `0`                            |
-| `total_chunks`           | integer                  | ✅       | `0`                            |
-| `total_size_bytes`       | bigint                   | ✅       | `0`                            |
-| `is_default`             | boolean                  | ✅       | `false`                        |
-| `is_system`              | boolean                  | ✅       | `false`                        |
-| `created_at`             | timestamp with time zone | ✅       | `now()`                        |
-| `updated_at`             | timestamp with time zone | ✅       | `now()`                        |
-| `owner_id`               | integer                  | ✅       |                                |
-| `parent_id`              | uuid                     | ✅       |                                |
-| `is_workspace`           | boolean                  | ⛔       | `false`                        |
-| `project_id`             | uuid                     | ✅       |                                |
+| Column                   | Type                     | Nullable | Default                                                                                        |
+| ------------------------ | ------------------------ | -------- | ---------------------------------------------------------------------------------------------- |
+| `id`                     | uuid                     | ⛔       | `gen_random_uuid()`                                                                            |
+| `name`                   | character varying        | ⛔       |                                                                                                |
+| `slug`                   | character varying        | ⛔       |                                                                                                |
+| `icon`                   | character varying        | ✅       | `'folder'::character varying`                                                                  |
+| `color`                  | character varying        | ✅       | `'#6366f1'::character varying`                                                                 |
+| `sort_order`             | integer                  | ✅       | `0`                                                                                            |
+| `description`            | text                     | ⛔       |                                                                                                |
+| `description_embedding`  | text                     | ✅       |                                                                                                |
+| `auto_summary`           | text                     | ✅       |                                                                                                |
+| `auto_topics`            | jsonb                    | ✅       | `'[]'::jsonb`                                                                                  |
+| `auto_glossary`          | jsonb                    | ✅       | `'[]'::jsonb`                                                                                  |
+| `auto_generated_at`      | timestamp with time zone | ✅       |                                                                                                |
+| `auto_generation_status` | character varying        | ✅       | `'pending'::character varying`                                                                 |
+| `auto_generation_error`  | text                     | ✅       |                                                                                                |
+| `document_count`         | integer                  | ✅       | `0`                                                                                            |
+| `total_chunks`           | integer                  | ✅       | `0`                                                                                            |
+| `total_size_bytes`       | bigint                   | ✅       | `0`                                                                                            |
+| `is_default`             | boolean                  | ✅       | `false`                                                                                        |
+| `is_system`              | boolean                  | ✅       | `false`                                                                                        |
+| `created_at`             | timestamp with time zone | ✅       | `now()`                                                                                        |
+| `updated_at`             | timestamp with time zone | ✅       | `now()`                                                                                        |
+| `owner_id`               | integer                  | ✅       |                                                                                                |
+| `parent_id`              | uuid                     | ✅       |                                                                                                |
+| `is_workspace`           | boolean                  | ⛔       | `false`                                                                                        |
+| `project_id`             | uuid                     | ✅       |                                                                                                |
+| `rel_pfad`               | text                     | ✅       | Ordner-Pfad im Projektordner (Ein-Ordner-Modell, Migration 129); NULL = Wurzel-/Workspace-Raum |
 
 **Primary key:** `id`
 
@@ -1405,6 +1408,13 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 - `idx_knowledge_spaces_updated` — `CREATE INDEX idx_knowledge_spaces_updated ON public.knowledge_spaces USING btree (updated_at DESC)`
 - `knowledge_spaces_pkey` — `CREATE UNIQUE INDEX knowledge_spaces_pkey ON public.knowledge_spaces USING btree (id)`
 - `knowledge_spaces_slug_key` — `CREATE UNIQUE INDEX knowledge_spaces_slug_key ON public.knowledge_spaces USING btree (slug)`
+- `idx_knowledge_spaces_project_rel_pfad` — `CREATE UNIQUE INDEX ... ON knowledge_spaces (project_id, rel_pfad) WHERE rel_pfad IS NOT NULL` (Ein-Ordner-Modell, Migration 129)
+
+> **Ein-Ordner-Modell (Migration 129, 2026-07-29):** Räume sind der
+> DB-Spiegel echter Ordner im Projektordner. `services/projects/ordnerSyncService.js`
+> legt/aktualisiert/löscht sie beim Platte-↔-DB-Abgleich; „Allgemein"
+> (`is_default`) bleibt ohne `rel_pfad` und ist die Heimat der Dateien in der
+> Projektwurzel.
 
 ---
 

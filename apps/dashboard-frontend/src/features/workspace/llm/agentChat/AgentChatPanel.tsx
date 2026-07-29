@@ -466,6 +466,23 @@ export default function AgentChatPanel() {
               pfad: parsed.pfad ?? '',
               label: parsed.name || 'Projektordner',
             });
+            // Ein-Ordner-Modell: derselbe Ordner ist auch Wissens-Scope.
+            // Liefert der Explorer eine space_id-Payload mit, wird der Chat
+            // gleich auf den Ordner eingegrenzt („Mit Ordner chatten").
+            const scopeAuchPayload = e.dataTransfer.getData(DND_SCOPE_TYPE);
+            if (scopeAuchPayload) {
+              try {
+                const scope = JSON.parse(scopeAuchPayload) as {
+                  spaceIds?: string[];
+                  label?: string;
+                };
+                if (scope.spaceIds?.length && scope.label) {
+                  setChatScope({ spaceIds: scope.spaceIds, label: scope.label });
+                }
+              } catch {
+                /* Scope-Payload defekt → nur das Datei-Ziel setzen */
+              }
+            }
             return;
           }
         } catch {

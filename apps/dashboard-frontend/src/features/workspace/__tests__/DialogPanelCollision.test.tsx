@@ -13,6 +13,10 @@
  * FIX: Die Sichtbarkeit hängt jetzt an `data-shell-hidden`, das AUSSCHLIESSLICH
  * die Shell setzt. `aria-hidden` wird für die A11y weiter gespiegelt, steuert
  * aber die Darstellung nicht mehr.
+ *
+ * Seit dem Ein-Ordner-Modell laufen die Explorer-Dialoge über Modal/
+ * ConfirmModal (beide Radix-basiert) direkt im ExplorerPanel — getestet wird
+ * hier deshalb genau diese Dialog-Schicht neben der Shell.
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
@@ -21,9 +25,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { ToastProvider } from '@/contexts/ToastContext';
 import WorkspaceShell from '../WorkspaceShell';
-import { ExplorerDialogs } from '../explorer/ExplorerDialogs';
-import type { ExplorerDialogState } from '../explorer/ExplorerDialogs';
-import type { TreeSpace, TreeDocument } from '../explorer/ExplorerPanel';
+import Modal, { ConfirmModal } from '@/components/ui/Modal';
 
 // Schwere Shell-Kinder mocken — getestet wird die Panel-/Dialog-Interaktion.
 vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div /> }));
@@ -31,11 +33,8 @@ vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
 vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));
 vi.mock('../TabContent', () => ({ TabContent: () => <div data-testid="mock-tabcontent" /> }));
-// ExplorerPanel-Mock: die echten ExplorerDialogs importieren collectSubtreeIds
-// aus diesem Modul, daher hier mitliefern.
 vi.mock('../explorer/ExplorerPanel', () => ({
   ExplorerPanel: () => <div data-testid="mock-explorer" />,
-  collectSubtreeIds: () => [],
 }));
 vi.mock('../llm/ChatPanel', () => ({ ChatPanel: () => <div data-testid="mock-chat" /> }));
 vi.mock('../terminal/TerminalPanel', () => ({
@@ -50,40 +49,6 @@ vi.mock('@/hooks/useWorkspaceApps', () => ({
     setAppEnabled: vi.fn(),
   }),
 }));
-// ExplorerDialogs laufen über useApi (context-file lädt beim Öffnen).
-vi.mock('@/hooks/useApi', () => ({
-  useApi: () => ({
-    get: vi.fn().mockResolvedValue({ content: null }),
-    post: vi.fn().mockResolvedValue({}),
-    put: vi.fn().mockResolvedValue({}),
-    del: vi.fn().mockResolvedValue({}),
-    patch: vi.fn().mockResolvedValue({}),
-    request: vi.fn().mockResolvedValue({}),
-  }),
-}));
-
-const space: TreeSpace = {
-  id: 's1',
-  name: 'Ordner A',
-  slug: 'ordner-a',
-  icon: null,
-  color: null,
-  parent_id: null,
-  is_default: false,
-  is_system: false,
-  sort_order: 0,
-};
-const doc: TreeDocument = {
-  id: 'd1',
-  filename: 'notiz.pdf',
-  title: null,
-  status: 'indexed',
-  space_id: null,
-  is_context_file: false,
-  mime_type: null,
-  file_extension: null,
-  file_size: null,
-};
 
 function resetStore() {
   useWorkspaceStore.setState({
@@ -120,13 +85,9 @@ describe('Ursache: Radix hideOthers ↔ aria-hidden-Kopplung', () => {
     document.body.appendChild(orphan);
 
     render(
-      <ToastProvider>
-        <ExplorerDialogs
-          dialog={{ kind: 'create', parent: null }}
-          onClose={() => {}}
-          onChanged={() => {}}
-        />
-      </ToastProvider>
+      <Modal isOpen onClose={() => {}} title="Neuer Ordner" size="small">
+        <p>Dialog-Inhalt</p>
+      </Modal>
     );
     await waitFor(() => expect(screen.getByText('Neuer Ordner')).toBeInTheDocument());
 
@@ -140,33 +101,30 @@ describe('Ursache: Radix hideOthers ↔ aria-hidden-Kopplung', () => {
 });
 
 describe('Fix: offene Explorer-Dialoge lassen die Shell-Panels sichtbar', () => {
-  const cases: { name: string; dialog: ExplorerDialogState; open: RegExp | string }[] = [
+  const cases: { name: string; dialog: React.ReactNode; open: RegExp | string }[] = [
     {
-      name: 'Neuer Ordner (create-folder)',
-      dialog: { kind: 'create', parent: null },
+      name: 'Name-Dialog (Neue Datei / Neuer Ordner / Umbenennen)',
+      dialog: (
+        <Modal isOpen onClose={() => {}} title="Neuer Ordner" size="small">
+          <p>Ordnername</p>
+        </Modal>
+      ),
       open: 'Neuer Ordner',
     },
     {
-      name: 'Neuer Unterordner (create in parent)',
-      dialog: { kind: 'create', parent: space },
-      open: /Neuer Unterordner/,
-    },
-    { name: 'Umbenennen (rename)', dialog: { kind: 'rename', space }, open: 'Ordner umbenennen' },
-    {
-      name: 'Verschieben (move)',
-      dialog: { kind: 'move', space, spaces: [space] },
-      open: /verschieben/,
-    },
-    { name: 'Löschen (delete)', dialog: { kind: 'delete', space }, open: /löschen/ },
-    {
-      name: 'Dokument verschieben (move-document)',
-      dialog: { kind: 'move-document', document: doc, spaces: [space] },
-      open: /verschieben/,
-    },
-    {
-      name: 'Kontextdatei (context-file)',
-      dialog: { kind: 'context-file', space },
-      open: /Kontextdatei/,
+      name: 'Bestätigungs-Dialog (Löschen)',
+      dialog: (
+        <ConfirmModal
+          isOpen
+          onClose={() => {}}
+          onConfirm={() => {}}
+          title="Datei löschen"
+          message="„notiz.md“ wirklich löschen?"
+          confirmText="Löschen"
+          confirmVariant="danger"
+        />
+      ),
+      open: 'Datei löschen',
     },
   ];
 
@@ -185,9 +143,7 @@ describe('Fix: offene Explorer-Dialoge lassen die Shell-Panels sichtbar', () => 
               />
             </Routes>
           </MemoryRouter>
-          <ToastProvider>
-            <ExplorerDialogs dialog={dialog} onClose={() => {}} onChanged={() => {}} />
-          </ToastProvider>
+          <ToastProvider>{dialog}</ToastProvider>
         </>
       );
 
