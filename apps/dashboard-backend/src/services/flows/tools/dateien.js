@@ -151,6 +151,20 @@ class DateienLesenTool extends BaseTool {
     } finally {
       await handle.close().catch(() => {});
     }
+    // Binärdateien (PDF/DOCX/Bilder …) nicht roh ins Modell kippen — das
+    // sprengt den Kontext mit Byte-Salat und das Modell erstickt daran.
+    // Stattdessen ein Hinweis, der zum richtigen Werkzeug führt: der INHALT
+    // solcher Dokumente steht über die Wissenssuche bereit.
+    {
+      const probe = Buffer.from(content.slice(0, 8000), 'utf8');
+      if (probe.includes(0) || content.slice(0, 4000).includes('�')) {
+        return (
+          `Hinweis: "${pfad}" ist eine Binärdatei (z. B. PDF/DOCX/Bild) und kann nicht als ` +
+          'Text gelesen werden. Nutze rag_suche mit einer inhaltlichen Frage, um den INHALT ' +
+          'dieses Dokuments aus dem Wissen zu holen.'
+        );
+      }
+    }
     // Die Kürzung ist hier Kontext-Schutz, nicht nur Speicherschutz: Eine
     // 5-MB-Datei würde den Kontext eines kleinen lokalen Modells sprengen.
     //
