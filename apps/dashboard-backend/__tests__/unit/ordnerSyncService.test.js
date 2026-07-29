@@ -204,6 +204,38 @@ describe('ordnerSyncService', () => {
     expect(dateien.map(d => d.rel)).toEqual(['kunden/mueller/angebot.md']);
   });
 
+  test('Materialisieren beansprucht eine inhaltsgleiche Datei statt eine „-2"-Kopie anzulegen', async () => {
+    const inhalt = '# Schon da';
+    await fsp.writeFile(path.join(dir, 'bericht.md'), inhalt);
+
+    const deps = fakeDeps();
+    deps.db.query = jest.fn(async (sql, params = []) => {
+      deps.db.queries.push({ sql, params });
+      if (sql.includes('FROM knowledge_spaces')) {
+        return { rows: [] };
+      }
+      if (sql.includes('FROM documents') && sql.includes('rel_pfad IS NULL')) {
+        return {
+          rows: [
+            { id: 'doc-alt', filename: 'bericht.md', original_filename: 'bericht.md', file_path: 'minio/bericht.md', space_id: null },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const { Readable } = require('stream');
+    deps.minio.getObject = jest.fn(async () => Readable.from([Buffer.from(inhalt)]));
+
+    await ordnerSync.materialisiere('projekt-1', deps);
+
+    // Kein Duplikat auf der Platte, Pfad zeigt auf die vorhandene Datei.
+    expect(fs.existsSync(path.join(dir, 'bericht-2.md'))).toBe(false);
+    const update = deps.db.queries.find(
+      q => q.sql.includes('UPDATE documents SET rel_pfad') && q.params[0] === 'bericht.md'
+    );
+    expect(update).toBeDefined();
+  });
+
   test('plattenName entschärft Pfad-Zeichen', () => {
     expect(ordnerSync._intern.plattenName('Kunde: A/B?')).toBe('Kunde- A-B-');
     expect(ordnerSync._intern.plattenName('..versteckt')).toBe('versteckt');

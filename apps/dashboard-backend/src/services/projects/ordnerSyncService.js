@@ -629,17 +629,27 @@ async function materialisiere(projectId, overrides = {}) {
     const basisName = path.basename(doc.original_filename || doc.filename || 'dokument');
     let rel = zielOrdner ? `${zielOrdner}/${basisName}` : basisName;
     try {
-      // Namens-Kollision auf der Platte → „-2", „-3", …
+      const buffer = await ladeObjekt(minio, doc.file_path);
+      // Namens-Kollision auf der Platte: Liegt dort bereits DIESELBE Datei
+      // (gleicher Inhalt), wird sie schlicht beansprucht statt als „-2"-Kopie
+      // dupliziert; nur bei anderem Inhalt weicht der Name aus.
+      const inhaltHash = crypto.createHash('sha256').update(buffer).digest('hex');
       let kandidat = rel;
       const ext = path.extname(basisName);
       const stamm = basisName.slice(0, basisName.length - ext.length);
+      let beansprucht = false;
       for (let i = 2; fs.existsSync(path.join(dir, kandidat)) && i < 100; i += 1) {
+        if ((await hashDatei(path.join(dir, kandidat))) === inhaltHash) {
+          beansprucht = true;
+          break;
+        }
         kandidat = zielOrdner ? `${zielOrdner}/${stamm}-${i}${ext}` : `${stamm}-${i}${ext}`;
       }
       rel = kandidat;
-      const buffer = await ladeObjekt(minio, doc.file_path);
-      await fsp.mkdir(path.dirname(path.join(dir, rel)), { recursive: true });
-      await fsp.writeFile(path.join(dir, rel), buffer);
+      if (!beansprucht) {
+        await fsp.mkdir(path.dirname(path.join(dir, rel)), { recursive: true });
+        await fsp.writeFile(path.join(dir, rel), buffer);
+      }
       await db.query('UPDATE documents SET rel_pfad = $1 WHERE id = $2', [rel, doc.id]);
       geholt += 1;
     } catch (err) {
