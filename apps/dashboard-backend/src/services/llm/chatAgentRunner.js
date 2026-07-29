@@ -34,18 +34,26 @@ const { zuOllamaName } = require('../flows/toolLoop');
 const { buildTools } = require('../flows/toolRegistry');
 const { RunLimits } = require('../flows/limits');
 const projectService = require('../rag/projectService');
-const { projektOrdner } = require('../projects/ablageService');
+const { projektOrdner, listTree } = require('../projects/ablageService');
+const { ensureFlowSandbox } = require('../flows/sandboxResolve');
 const { buildSystemPrompt } = require('./systemPromptBuilder');
 
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
-const MAX_RUNDEN = 8;
-const ZEITLIMIT_S = 600;
+// Kein praktisches Zeitlimit mehr (Interview 2026-07-29: „Unbegrenzt +
+// Abbruch-Knopf") — die Grenze ist der Nutzer-Abbruch; die Zahlen hier sind
+// nur Notbremsen gegen Endlosschleifen.
+const MAX_RUNDEN = 64;
+const ZEITLIMIT_S = 24 * 60 * 60;
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 8000;
 const KURZ_INPUT = 300;
 const KURZ_OUTPUT = 500;
+/** Wie oft der Lauf nachschaut, ob der Nutzer abgebrochen hat. */
+const ABBRUCH_POLL_MS = 2000;
+/** Struktur-Übersicht im Systemprompt: höchstens so viele Einträge. */
+const STRUKTUR_MAX_EINTRAEGE = 120;
 
-/** Werkzeuge des Chat-Agenten. Bewusst OHNE `terminal` — kein Shell-Zugriff aus dem Chat. */
+/** Werkzeuge des Chat-Agenten. `terminal` läuft projektbeschränkt im Flow-Sandbox-Container. */
 const AGENT_WERKZEUGE = [
   'rag_suche',
   'dateien_lesen',
@@ -53,13 +61,14 @@ const AGENT_WERKZEUGE = [
   'dateien_suchen',
   'web_suche',
   'web_lesen',
+  'terminal',
   'subagent',
 ];
 
 /**
- * Eingebaute Subagenten-Rolle des Chats. Flows deklarieren Rollen pro Flow;
- * der Chat bringt EINE generische Recherche-Rolle mit — genug für „such mit
- * mehreren Subagenten", ohne eine eigene Rollen-Verwaltung aufzumachen.
+ * Die Rollen-Riege des Orchestrators (Interview 2026-07-29). Flows deklarieren
+ * Rollen pro Flow; der Chat bringt vier feste mit — kleine Modelle arbeiten
+ * mit enger Rollenbeschreibung nachweislich fokussierter.
  */
 const AGENT_ROLLEN = [
   {
@@ -72,18 +81,56 @@ const AGENT_ROLLEN = [
     ergebnis: { felder: ['ergebnis'], max_zeichen: 4000 },
     modell: null,
   },
+  {
+    name: 'autor',
+    prompt:
+      'Du bist ein sorgfältiger Autor. Erstelle oder überarbeite die im Auftrag ' +
+      'genannten Dateien VOLLSTÄNDIG mit dateien_schreiben (passende Endung: .html ' +
+      'für Webseiten, .md für Texte, .csv für Tabellen; kurzer Dateiname ohne ' +
+      'Umlaute). Nutze mitgeliefertes Material und rag_suche/dateien_lesen als ' +
+      'Quelle — erfinde keine Fakten. Antworte am Ende nur mit einem Satz, was du ' +
+      'geschrieben hast. Deutsch, keine Emojis.',
+    werkzeuge: ['rag_suche', 'dateien_lesen', 'dateien_schreiben', 'dateien_suchen'],
+    ergebnis: { felder: ['ergebnis'], max_zeichen: 2000 },
+    modell: null,
+  },
+  {
+    name: 'pruefer',
+    prompt:
+      'Du bist ein strenger Prüfer. Lies die im Auftrag genannten Dateien mit ' +
+      'dateien_lesen und beurteile NUR, ob sie den Auftrag erfüllen (vollständig, ' +
+      'echter Inhalt statt Platzhalter, Quellen genutzt). Beginne deine Antwort ' +
+      'EXAKT mit "OK" wenn alles passt, sonst mit "MANGEL:" gefolgt von den ' +
+      'konkreten Problemen. Deutsch, keine Emojis.',
+    werkzeuge: ['dateien_lesen', 'dateien_suchen', 'rag_suche'],
+    ergebnis: { felder: ['ergebnis'], max_zeichen: 2000 },
+    modell: null,
+  },
+  {
+    name: 'entwickler',
+    prompt:
+      'Du bist ein Entwickler. Schreibe Code-Dateien mit dateien_schreiben und ' +
+      'FÜHRE sie mit terminal AUS, um sie zu prüfen (z. B. "python3 skript.py", ' +
+      '"node app.js"). Behebe Fehler, bis der Befehl sauber läuft. Antworte am ' +
+      'Ende nur mit einem Satz zum Ergebnis inkl. des Prüf-Befehls. Deutsch, keine Emojis.',
+    werkzeuge: ['dateien_lesen', 'dateien_schreiben', 'dateien_suchen', 'terminal'],
+    ergebnis: { felder: ['ergebnis'], max_zeichen: 2000 },
+    modell: null,
+  },
 ];
 
 const AGENT_ANWEISUNG = `
 
 ## Arbeitsweise
-Du bist der Arasul-Assistent mit Werkzeugen. Regeln:
+Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
 1. Einfache Fragen und Gespräche beantwortest du DIREKT, ohne Werkzeug.
-2. Fragen zu Dokumenten, Projekten oder Firmenwissen: nutze rag_suche und/oder dateien_lesen (die Projektablage), und verarbeite die Treffer frei als Material für deine Antwort.
-3. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben. Wähle die Dateiendung passend zum Inhalt (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen, .txt/.json wo passend) und einen kurzen, sprechenden Dateinamen ohne Umlaute. In der Antwort danach: EIN kurzer Satz, was du gespeichert hast — den Dateiinhalt NICHT noch einmal wiederholen.
-4. Für umfangreiche Recherchen kannst du mit subagent(rolle="rechercheur", auftrag=...) Teilaufgaben delegieren, auch mehrfach.
-5. Erfinde keine Fakten. Wenn Werkzeuge nichts liefern, sag das ehrlich.
-6. Antworte auf Deutsch, ohne Emojis (außer der Nutzer bittet darum).`;
+2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst, und lege neue Dateien in den passenden Ordner (relativer Pfad, z. B. "kunden/angebot.html").
+3. Fragen zu Dokumenten, Projekten oder Firmenwissen: nutze rag_suche und/oder dateien_lesen und verarbeite die Treffer frei als Material.
+4. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach: EIN kurzer Satz, was du gespeichert hast — den Dateiinhalt NICHT wiederholen.
+5. Zerlege größere Aufträge und delegiere an Subagenten, auch mehrfach parallel nacheinander: subagent(rolle="rechercheur", auftrag=…) sammelt Material, rolle="autor" schreibt Dateien aus Material, rolle="entwickler" schreibt UND testet Code per Terminal, rolle="pruefer" kontrolliert Ergebnisse. Gib jedem Subagenten einen präzisen, in sich vollständigen Auftrag inklusive Zielpfad.
+6. Mit terminal kannst du selbst Befehle im Projektordner ausführen (Skripte testen, Dateien umwandeln, Pakete bauen).
+7. Erfinde keine Fakten. Wenn Werkzeuge nichts liefern, sag das ehrlich.
+8. Antworte auf Deutsch, ohne Emojis (außer der Nutzer bittet darum).`;
 
 /** Kürzt Werte für die persistierte Schritt-Liste (Kontext-/Speicherschutz). */
 function kurz(wert, max) {
@@ -114,8 +161,11 @@ function kurzInput(input, maxJeWert) {
  *
  * @returns {Promise<{content:string, toolCalls:object[]}>}
  */
-async function streamChatRound({ model, messages, tools, onToken }) {
+async function streamChatRound({ model, messages, tools, onToken, signal }) {
   return withGpuLock(async () => {
+    if (signal?.aborted) {
+      throw new Error('Vom Nutzer abgebrochen');
+    }
     const body = { model, messages, stream: true, think: false };
     if (tools && tools.length > 0) {
       body.tools = tools;
@@ -133,14 +183,17 @@ async function streamChatRound({ model, messages, tools, onToken }) {
       let inactivity = null;
       let settled = false;
 
+      const onAbort = () => fail(new Error('Vom Nutzer abgebrochen'));
       const cleanup = () => {
         if (inactivity) {
           clearTimeout(inactivity);
           inactivity = null;
         }
+        signal?.removeEventListener('abort', onAbort);
         stream.removeAllListeners();
         stream.destroy();
       };
+      signal?.addEventListener('abort', onAbort, { once: true });
       const fail = err => {
         if (settled) {
           return;
@@ -292,7 +345,33 @@ async function processAgentChatJob(ctx, job) {
     },
   };
 
-  const limits = new RunLimits({ maxAufrufe: 6, zeitlimitS: ZEITLIMIT_S, maxTiefe: 2 });
+  // Abbruch-Knopf: Der Nutzer kann den Lauf jederzeit stoppen (DELETE
+  // /llm/jobs/:id setzt status='cancelled'). Ein Poller sieht das und reißt
+  // über das Signal den laufenden Modell-Stream und alle Subagenten mit ab.
+  const abbruch = new AbortController();
+  let abgebrochen = false;
+  abbruch.signal.addEventListener('abort', () => {
+    abgebrochen = true;
+  });
+  // Sofort-Weg: die Abbruch-Route feuert registrierte AbortController direkt.
+  if (typeof llmJobService.registerStream === 'function') {
+    llmJobService.registerStream(jobId, abbruch);
+  }
+  // Fallback-Weg: falls die Registrierung verloren geht (Prozess-Neustart der
+  // Route o. Ä.), sieht der Poller den 'cancelled'-Status in der DB.
+  const abbruchPoller = setInterval(() => {
+    database
+      .query('SELECT status FROM llm_jobs WHERE id = $1', [jobId])
+      .then(r => {
+        if (r.rows[0]?.status === 'cancelled' && !abgebrochen) {
+          abbruch.abort();
+        }
+      })
+      .catch(() => {});
+  }, ABBRUCH_POLL_MS);
+  abbruchPoller.unref?.();
+
+  const limits = new RunLimits({ maxAufrufe: 40, zeitlimitS: ZEITLIMIT_S, maxTiefe: 2 });
   const roleContextBase = { userId: job.user_id, roots, spaceIds, slug: 'chat-agent' };
   const context = {
     ...roleContextBase,
@@ -303,6 +382,27 @@ async function processAgentChatJob(ctx, job) {
     werkzeugRunden: MAX_RUNDEN,
     roleContextBase,
     stepRecorder,
+    signal: abbruch.signal,
+  };
+
+  // Terminal projektbeschränkt: Der Flow-Sandbox-Container wird erst
+  // bereitgestellt, wenn wirklich ein Befehl laufen soll — einfache Chats
+  // zahlen keinen Docker-Aufwand. Einmal aufgebaut, erben Subagenten den
+  // Container über roleContextBase (gleiche Objekt-Referenz).
+  let terminalBereit = null;
+  const stelleTerminalBereit = async () => {
+    if (context.containerId) {
+      return;
+    }
+    if (!terminalBereit) {
+      terminalBereit = ensureFlowSandbox([wurzel]).then(sb => {
+        context.containerId = sb.containerId;
+        context.cwd = sb.cwd;
+        roleContextBase.containerId = sb.containerId;
+        roleContextBase.cwd = sb.cwd;
+      });
+    }
+    await terminalBereit;
   };
 
   // --- System-Prompt (geschichtete Basis + Agent-Arbeitsweise) --------------
@@ -312,6 +412,28 @@ async function processAgentChatJob(ctx, job) {
     includeTools: false,
   });
   let systemPrompt = (basisPrompt || '') + AGENT_ANWEISUNG;
+
+  // Orchestrator-Protokoll (Interview 2026-07-29): Die Ordnerstruktur des
+  // Projekts kommt IMMER in den Kontext — der Server erzwingt das, statt zu
+  // hoffen, dass ein 7B-Modell von sich aus nachschaut. So weiß der Agent,
+  // was existiert und wohin neue Dateien gehören.
+  try {
+    const { eintraege, gekuerzt } = await listTree(projectId);
+    if (eintraege.length > 0) {
+      const zeilen = eintraege
+        .slice(0, STRUKTUR_MAX_EINTRAEGE)
+        .map(e => (e.typ === 'ordner' ? `${e.pfad}/` : e.pfad));
+      const rest = eintraege.length - zeilen.length;
+      systemPrompt +=
+        `\n\n## Projektordner (Struktur)\n` +
+        zeilen.join('\n') +
+        (rest > 0 || gekuerzt ? `\n… (${rest > 0 ? rest : 'weitere'} Einträge ausgelassen)` : '');
+    } else {
+      systemPrompt += `\n\n## Projektordner (Struktur)\n(leer)`;
+    }
+  } catch (err) {
+    log.warn(`[JOB ${jobId}] Struktur-Übersicht fehlgeschlagen: ${err.message}`);
+  }
   if (zielPrefix) {
     systemPrompt += `\n7. Zielordner des Nutzers: "${zielPrefix}" — dein Arbeitsverzeichnis zeigt bereits dorthin, schreibe Dateien einfach mit relativem Pfad.`;
   }
@@ -364,9 +486,92 @@ async function processAgentChatJob(ctx, job) {
   const deadline = Date.now() + ZEITLIMIT_S * 1000;
   let toolsAktiv = true;
   let fertigText = '';
+  let pruefungGemacht = false;
+
+  /**
+   * Lässt die pruefer-Rolle das Ergebnis gegen den Auftrag prüfen.
+   * @returns {Promise<string|null>} Mängel-Text oder null (in Ordnung/Prüfung unmöglich).
+   */
+  const pruefeErgebnis = async antwortText => {
+    const subagentTool = toolByName.get('subagent');
+    if (!subagentTool) {
+      return null;
+    }
+    const dateiListe = dateien.map(x => x.pfad).join(', ');
+    const auftrag =
+      `Auftrag des Nutzers: "${kurz(letzteNachricht, 600)}". ` +
+      `Erstellte Datei(en): ${dateiListe}. ` +
+      `Kurzfassung der Antwort: "${kurz(antwortText || '', 300)}". ` +
+      'Lies die Datei(en) und prüfe, ob sie den Auftrag erfüllen.';
+    try {
+      const urteil = String(await subagentTool.execute({ rolle: 'pruefer', auftrag }, context));
+      return /MANGEL/i.test(urteil) && !/^\s*OK\b/.test(urteil) ? urteil : null;
+    } catch (err) {
+      log.warn(`[JOB ${jobId}] Prüf-Schritt fehlgeschlagen: ${err.message}`);
+      return null;
+    }
+  };
+
+  // Erzwungener Plan-Schritt (Orchestrator-Protokoll): Bei erkennbar
+  // komplexen Aufträgen plant das Modell ERST in einer werkzeuglosen Runde —
+  // der Plan wird als Schritt-Zeile gezeigt und bindet die Arbeitsrunden.
+  // Kleine Modelle überspringen sonst Recherche und erfinden Inhalte.
+  const letzteNachricht = String(verlauf[verlauf.length - 1]?.content || '');
+  const istKomplex =
+    requestData.datei_modus ||
+    letzteNachricht.length > 280 ||
+    /erstell|schreib|generier|entwickl|entwirf|bau(e|t)?\b|recherchier|analysier|zusammenfass|überarbeit|newsletter|webseite|bericht|dokument|skript|subagent/i.test(
+      letzteNachricht
+    );
 
   try {
+    if (istKomplex && toolsAktiv && !abgebrochen) {
+      const planStep = await stepRecorder.beginnen({ kind: 'plan', name: 'plan', input: {} });
+      try {
+        const planErgebnis = await streamChatRound({
+          model: ollamaModel,
+          messages: [
+            ...messages,
+            {
+              role: 'user',
+              content:
+                'Erstelle ZUERST einen knappen nummerierten Plan (3-6 Schritte) für diesen ' +
+                'Auftrag: welche Werkzeuge/Subagenten du nutzt, welche Quellen du liest, ' +
+                'welche Dateien du wohin schreibst. NUR den Plan, keine Ausführung.',
+            },
+          ],
+          tools: [],
+          onToken: () => {}, // Plan läuft still — er erscheint als Schritt, nicht als Antwort
+          signal: abbruch.signal,
+        });
+        const plan = (planErgebnis.content || '').trim();
+        await stepRecorder.abschliessen({ stepId: planStep.id, output: plan || '(kein Plan)' });
+        if (plan) {
+          messages.push({ role: 'assistant', content: `Mein Plan:\n${plan}` });
+          messages.push({
+            role: 'user',
+            content: 'Gut. Führe den Plan jetzt vollständig aus.',
+          });
+        }
+      } catch (err) {
+        await stepRecorder.abschliessen({
+          stepId: planStep.id,
+          output: `Fehler: ${err.message}`,
+          status: 'fehler',
+        });
+        if (abgebrochen) {
+          throw err;
+        }
+        if (istToolsNichtUnterstuetzt(err)) {
+          toolsAktiv = false;
+        }
+      }
+    }
+
     for (let runde = 0; runde < MAX_RUNDEN; runde++) {
+      if (abgebrochen) {
+        break;
+      }
       if (Date.now() >= deadline) {
         onToken(`\n\n_Abgebrochen: Zeitlimit von ${ZEITLIMIT_S}s erreicht._`);
         break;
@@ -379,6 +584,7 @@ async function processAgentChatJob(ctx, job) {
           messages,
           tools: toolsAktiv ? toolDefs : [],
           onToken,
+          signal: abbruch.signal,
         });
       } catch (err) {
         if (toolsAktiv && istToolsNichtUnterstuetzt(err)) {
@@ -403,6 +609,27 @@ async function processAgentChatJob(ctx, job) {
       fertigText += content;
 
       if (!toolCalls.length) {
+        // Erzwungener Prüf-Schritt (Orchestrator-Protokoll): Bevor eine Antwort
+        // mit erstellten Dateien als fertig gilt, kontrolliert die pruefer-Rolle
+        // das Ergebnis. Findet sie Mängel, bekommt das Modell GENAU EINE
+        // Korrektur-Schleife — dieselben Runden, dieselben Werkzeuge.
+        if (!pruefungGemacht && dateien.length > 0 && toolsAktiv && !abgebrochen) {
+          pruefungGemacht = true;
+          const mangel = await pruefeErgebnis(content);
+          if (mangel) {
+            messages.push({ role: 'assistant', content });
+            messages.push({
+              role: 'user',
+              content:
+                `Ein automatischer Prüfer hat Mängel gefunden:\n${kurz(mangel, 1500)}\n` +
+                'Behebe sie jetzt: überschreibe die betroffenen Dateien mit dateien_schreiben ' +
+                'und bestätige danach mit einem Satz.',
+            });
+            separator();
+            fertigText += '\n\n';
+            continue;
+          }
+        }
         break; // fertige Antwort — Token sind bereits gestreamt
       }
 
@@ -413,6 +640,9 @@ async function processAgentChatJob(ctx, job) {
       }
 
       for (const call of toolCalls) {
+        if (abgebrochen) {
+          break;
+        }
         const toolName = call.function?.name;
         let params = call.function?.arguments || {};
         if (typeof params === 'string') {
@@ -439,6 +669,11 @@ async function processAgentChatJob(ctx, job) {
           result = `Fehler: Werkzeug "${toolName}" steht nicht zur Verfügung.`;
         } else {
           try {
+            // Terminal (auch für die entwickler-Rolle) braucht den
+            // projektbeschränkten Sandbox-Container — erst beim ersten Bedarf.
+            if (toolName === 'terminal' || (istSubagent && params.rolle === 'entwickler')) {
+              await stelleTerminalBereit();
+            }
             result = await tool.execute(params, context);
           } catch (err) {
             log.warn(`[JOB ${jobId}] Agent-Werkzeug "${toolName}" warf: ${err.message}`);
@@ -481,18 +716,26 @@ async function processAgentChatJob(ctx, job) {
       }
     }
   } catch (err) {
-    // Fehler NACH gestreamtem Inhalt: sauber abschließen statt werfen — der
-    // Nutzer soll den bisherigen Text behalten. Ohne Inhalt: werfen, die Queue
-    // markiert den Job als Fehler.
     if (dbFlushTimer) {
       clearTimeout(dbFlushTimer);
       dbFlushTimer = null;
     }
-    if (!fertigText && !dbPuffer) {
+    if (abgebrochen) {
+      // Nutzer-Abbruch ist kein Fehler: bisherigen Text und Schritte behalten.
+      log.info(`[JOB ${jobId}] Agent-Lauf vom Nutzer abgebrochen`);
+      onToken('\n\n_Abgebrochen._');
+    } else if (!fertigText && !dbPuffer) {
+      // Fehler VOR jedem Inhalt: werfen, die Queue markiert den Job als Fehler.
+      clearInterval(abbruchPoller);
       throw err;
+    } else {
+      // Fehler NACH gestreamtem Inhalt: sauber abschließen statt werfen — der
+      // Nutzer soll den bisherigen Text behalten.
+      log.error(`[JOB ${jobId}] Agent-Lauf nach Teilantwort gescheitert: ${err.message}`);
+      onToken(`\n\n_Abgebrochen: ${err.message}_`);
     }
-    log.error(`[JOB ${jobId}] Agent-Lauf nach Teilantwort gescheitert: ${err.message}`);
-    onToken(`\n\n_Abgebrochen: ${err.message}_`);
+  } finally {
+    clearInterval(abbruchPoller);
   }
 
   // --- Abschluss: Inhalt + Schritte + Dateien persistieren ------------------
@@ -503,23 +746,31 @@ async function processAgentChatJob(ctx, job) {
   await flushDb();
 
   let persisted = false;
-  try {
-    persisted = await llmJobService.completeJob(jobId);
-  } catch (err) {
-    log.error(`[JOB ${jobId}] completeJob (Agent) fehlgeschlagen: ${err.message}`);
+  if (abgebrochen) {
+    // Der Job steht bereits auf 'cancelled' (Abbruch-Route) — completeJob
+    // würde den Status überschreiben. Inhalt/Schritte sind trotzdem gesichert.
+    persisted = true;
+  } else {
     try {
-      await new Promise(r => {
-        setTimeout(r, 2000);
-      });
       persisted = await llmJobService.completeJob(jobId);
-    } catch (retryErr) {
-      log.error(`[JOB ${jobId}] completeJob (Agent) Retry fehlgeschlagen: ${retryErr.message}`);
+    } catch (err) {
+      log.error(`[JOB ${jobId}] completeJob (Agent) fehlgeschlagen: ${err.message}`);
+      try {
+        await new Promise(r => {
+          setTimeout(r, 2000);
+        });
+        persisted = await llmJobService.completeJob(jobId);
+      } catch (retryErr) {
+        log.error(`[JOB ${jobId}] completeJob (Agent) Retry fehlgeschlagen: ${retryErr.message}`);
+      }
     }
   }
 
   // Schritte/Datei an der persistierten Nachricht nachtragen. `datei` bleibt
   // beim Format aus Migration 127: EIN Objekt oder eine Liste (JSONB trägt beides).
-  if (schritte.length > 0 || dateien.length > 0) {
+  // Bei Nutzer-Abbruch zusätzlich den Teiltext sichern — completeJob (das ihn
+  // sonst überträgt) läuft dann nicht.
+  if (schritte.length > 0 || dateien.length > 0 || (abgebrochen && fertigText)) {
     try {
       const jobRow = await database.query(`SELECT message_id FROM llm_jobs WHERE id = $1`, [jobId]);
       const messageId = jobRow.rows[0]?.message_id;
@@ -529,6 +780,12 @@ async function processAgentChatJob(ctx, job) {
           `UPDATE chat_messages SET schritte = $1, datei = COALESCE($2, datei) WHERE id = $3`,
           [JSON.stringify(schritte), dateiWert ? JSON.stringify(dateiWert) : null, messageId]
         );
+        if (abgebrochen && fertigText) {
+          await database.query(
+            `UPDATE chat_messages SET content = $1, status = 'completed' WHERE id = $2`,
+            [`${fertigText}\n\n_Abgebrochen._`, messageId]
+          );
+        }
       }
     } catch (err) {
       log.warn(`[JOB ${jobId}] Schritte/Datei nicht persistiert: ${err.message}`);
@@ -538,6 +795,7 @@ async function processAgentChatJob(ctx, job) {
   service.notifySubscribers(jobId, {
     done: true,
     persisted,
+    cancelled: abgebrochen || undefined,
     model: requested_model || 'unknown',
     jobId,
     agent: true,

@@ -267,13 +267,30 @@ Marks the setup wizard as skipped. The wizard will not be shown again, but setti
 
 Response: Server-Sent Events (SSE) stream
 
-**Agent-Modus (2026-07-28):** Mit `agent: true` läuft die Nachricht als
-Werkzeug-Lauf (Ollama function calling): das Modell kann `rag_suche`,
-`dateien_lesen|schreiben|suchen` (Projektablage des aktiven Projekts),
-`web_suche`, `web_lesen` und `subagent` (Rolle „rechercheur") selbst aufrufen.
+**Agent-Modus / Orchestrator (2026-07-28, erweitert 2026-07-29):** Mit
+`agent: true` läuft die Nachricht als Werkzeug-Lauf (Ollama function calling):
+das Modell kann `rag_suche`, `dateien_lesen|schreiben|suchen` (Projektordner
+des aktiven Projekts), `web_suche`, `web_lesen`, `terminal` (projektbeschränkt
+im Flow-Sandbox-Container, lazy bereitgestellt) und `subagent` mit den Rollen
+`rechercheur`, `autor` (schreibt Dateien), `pruefer` (kontrolliert),
+`entwickler` (schreibt UND testet Code per Terminal) selbst aufrufen.
+
+Der Runner erzwingt ein **Orchestrator-Protokoll**: die Ordnerstruktur des
+Projekts steht IMMER im Systemkontext; bei erkennbar komplexen Aufträgen
+(Datei-Modus, Erstell-/Recherche-Verben, lange Nachricht) läuft zuerst ein
+stiller **Plan-Schritt** (`agent_step` mit `kind: 'plan'`), und bevor eine
+Antwort mit erstellten Dateien als fertig gilt, prüft die `pruefer`-Rolle das
+Ergebnis — bei Mängeln bekommt das Modell genau eine Korrektur-Schleife.
+
+Es gibt **kein praktisches Zeitlimit** (Notbremsen: 64 Runden / 24 h) — der
+Lauf wird über `DELETE /api/llm/jobs/:jobId` abgebrochen (Stop-Knopf im Chat);
+der Abbruch reißt den laufenden Modell-Stream und alle Subagenten sofort mit
+ab, Teiltext und Schritte bleiben an der Nachricht erhalten (`done`-Frame
+trägt dann `cancelled: true`).
+
 Antwort-Token streamen wie bisher (`response`); zusätzlich kommen
 `agent_step`-Frames (`{phase: 'start'|'end', step}`) und `agent_datei`-Frames
-für geschriebene Ablage-Dateien. Schritte und Datei-Verweise werden an der
+für geschriebene Dateien. Schritte und Datei-Verweise werden an der
 Nachricht persistiert (`chat_messages.schritte` / `.datei`, Migrationen 127/128).
 Bild-Nachrichten und Modelle ohne Tool-Unterstützung fallen automatisch auf den
 klassischen Stream zurück (`warning`-Code `AGENT_TOOLS_UNSUPPORTED`).
