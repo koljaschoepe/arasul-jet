@@ -488,6 +488,49 @@ async function processAgentChatJob(ctx, job) {
   let fertigText = '';
   let pruefungGemacht = false;
 
+  // --- Platten-Wahrheit: Welche Dateien hat dieser Lauf WIRKLICH angelegt? ---
+  // Kleine Modelle behaupten gern Erfolge („HTML-Datei erstellt"), ohne je
+  // dateien_schreiben gerufen zu haben — gerade in Subagenten. Deshalb zählt
+  // nicht die Behauptung, sondern der Baum-Vergleich: vor/nach Subagenten und
+  // am Ende des Laufs. Gefundene neue/geänderte Dateien werden zu Karten und
+  // füttern das Prüf-Gate; ein „erfolgreicher" Autor ohne Dateiänderung
+  // bekommt die Wahrheit als Warnung ins Ergebnis zurück.
+  const gemeldeteDateien = new Set(dateien.map(x => x.pfad));
+  const leseSnapshot = async () => {
+    try {
+      const { eintraege } = await listTree(projectId);
+      return new Map(
+        eintraege.filter(e => e.typ === 'datei').map(e => [e.pfad, `${e.groesse}:${e.geaendert}`])
+      );
+    } catch {
+      return null;
+    }
+  };
+  const meldeNeueDateien = (vorher, nachher) => {
+    if (!vorher || !nachher) {
+      return 0;
+    }
+    let neu = 0;
+    for (const [pfad, sig] of nachher) {
+      if (vorher.get(pfad) !== sig) {
+        neu += 1;
+        if (!gemeldeteDateien.has(pfad)) {
+          gemeldeteDateien.add(pfad);
+          const datei = {
+            art: 'projektdatei',
+            project_id: projectId,
+            pfad,
+            name: path.posix.basename(pfad),
+          };
+          dateien.push(datei);
+          service.notifySubscribers(jobId, { type: 'agent_datei', datei });
+        }
+      }
+    }
+    return neu;
+  };
+  const snapshotStart = await leseSnapshot();
+
   /**
    * Lässt die pruefer-Rolle das Ergebnis gegen den Auftrag prüfen.
    * @returns {Promise<string|null>} Mängel-Text oder null (in Ordnung/Prüfung unmöglich).
@@ -609,6 +652,9 @@ async function processAgentChatJob(ctx, job) {
       fertigText += content;
 
       if (!toolCalls.length) {
+        // Platten-Wahrheit nachziehen: auch Dateien aus Terminal-/Subagenten-
+        // Arbeit bekommen ihre Karte und zählen für das Prüf-Gate.
+        meldeNeueDateien(snapshotStart, await leseSnapshot());
         // Erzwungener Prüf-Schritt (Orchestrator-Protokoll): Bevor eine Antwort
         // mit erstellten Dateien als fertig gilt, kontrolliert die pruefer-Rolle
         // das Ergebnis. Findet sie Mängel, bekommt das Modell GENAU EINE
@@ -674,7 +720,22 @@ async function processAgentChatJob(ctx, job) {
             if (toolName === 'terminal' || (istSubagent && params.rolle === 'entwickler')) {
               await stelleTerminalBereit();
             }
+            const vorher = istSubagent ? await leseSnapshot() : null;
             result = await tool.execute(params, context);
+            if (istSubagent) {
+              // Platten-Wahrheit statt Subagenten-Behauptung: neue Dateien
+              // melden; ein Schreib-Auftrag ohne Dateiänderung wird als solcher
+              // benannt, damit der Orchestrator selbst schreibt statt dem
+              // erfundenen Erfolg zu glauben.
+              const geaendert = meldeNeueDateien(vorher, await leseSnapshot());
+              const sollteSchreiben = params.rolle === 'autor' || params.rolle === 'entwickler';
+              if (sollteSchreiben && geaendert === 0 && !/^Fehler/.test(String(result || ''))) {
+                result =
+                  `${result}\n\nWARNUNG (Platten-Prüfung): Der Subagent hat KEINE Datei ` +
+                  'geschrieben oder geändert — sein Erfolgsbericht stimmt nicht. Erstelle die ' +
+                  'Datei jetzt SELBST mit dateien_schreiben (vollständiger Inhalt, relativer Pfad).';
+              }
+            }
           } catch (err) {
             log.warn(`[JOB ${jobId}] Agent-Werkzeug "${toolName}" warf: ${err.message}`);
             result = `Fehler bei "${toolName}": ${err.message}`;
@@ -702,14 +763,17 @@ async function processAgentChatJob(ctx, job) {
           !pfadStr.split('/').includes('..')
         ) {
           const relPfad = zielPrefix ? path.posix.join(zielPrefix, pfadStr) : pfadStr;
-          const datei = {
-            art: 'projektdatei',
-            project_id: projectId,
-            pfad: relPfad,
-            name: path.posix.basename(relPfad),
-          };
-          dateien.push(datei);
-          service.notifySubscribers(jobId, { type: 'agent_datei', datei });
+          if (!gemeldeteDateien.has(relPfad)) {
+            gemeldeteDateien.add(relPfad);
+            const datei = {
+              art: 'projektdatei',
+              project_id: projectId,
+              pfad: relPfad,
+              name: path.posix.basename(relPfad),
+            };
+            dateien.push(datei);
+            service.notifySubscribers(jobId, { type: 'agent_datei', datei });
+          }
         }
 
         messages.push({ role: 'tool', content: result });
