@@ -483,6 +483,16 @@ async function runFlow(
   // Abschluss-Pfaden (Fehler wie Erfolg) genau einmal gerufen. Wirft nie: eine
   // gescheiterte Übersicht darf einen sonst gelungenen Lauf nicht kippen.
   const aenderungenAbschliessen = async () => {
+    // Ein-Ordner-Modell: Flow-Schreibzugriffe sofort in den Wissens-Spiegel
+    // übernehmen (der Lauf kann in der Projektablage gearbeitet haben).
+    try {
+      const aktivesProjekt = await projectService.getActiveProjectId();
+      if (aktivesProjekt) {
+        require('../projects/ordnerSyncService').trigger(aktivesProjekt);
+      }
+    } catch (err) {
+      logger.warn(`Flow "${flowName}": Ordner-Sync-Trigger fehlgeschlagen: ${err.message}`);
+    }
     if (!startAbzug) {
       return;
     }

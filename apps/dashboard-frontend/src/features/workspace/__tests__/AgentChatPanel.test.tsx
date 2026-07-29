@@ -75,6 +75,7 @@ function resetStore() {
     tabs: [],
     activeTabId: null,
     chatScope: null,
+    chatDateiZiel: null,
   });
 }
 
@@ -127,6 +128,40 @@ describe('AgentChatPanel', () => {
     fireEvent.click(screen.getByLabelText('Senden'));
     await waitFor(() => expect(sendMessage).toHaveBeenCalled());
     expect(sendMessage.mock.calls[0]![2].selectedSpaces).toEqual(['s1', 's2']);
+  });
+
+  it('Ordner-Drop aus dem Ein-Baum-Explorer setzt Speicherziel UND Chat-Scope', () => {
+    renderPanel();
+    // Der Explorer setzt beim Ordner-Drag beide Payloads: das Pfad-Ziel
+    // (Ablage) und den Wissens-Scope (space_ids des Ordner-Teilbaums).
+    const data: Record<string, string> = {
+      'application/x-arasul-ablage': JSON.stringify({
+        projectId: 'p1',
+        pfad: 'docs',
+        name: 'docs',
+        typ: 'ordner',
+      }),
+      'application/x-arasul-scope': JSON.stringify({
+        spaceIds: ['ks-1', 'ks-2'],
+        label: 'docs',
+      }),
+    };
+    fireEvent.drop(screen.getByTestId('agent-chat-panel'), {
+      dataTransfer: {
+        files: [] as unknown as FileList,
+        types: Object.keys(data),
+        getData: (type: string) => data[type] ?? '',
+      } as unknown as DataTransfer,
+    });
+    expect(useWorkspaceStore.getState().chatDateiZiel).toEqual({
+      projectId: 'p1',
+      pfad: 'docs',
+      label: 'docs',
+    });
+    expect(useWorkspaceStore.getState().chatScope).toEqual({
+      spaceIds: ['ks-1', 'ks-2'],
+      label: 'docs',
+    });
   });
 
   it('lädt einen bestehenden Panel-Chat aus localStorage', async () => {

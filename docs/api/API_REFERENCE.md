@@ -810,29 +810,44 @@ app-weit/Einzel-Admin) scopt Explorer, Suche und Flows/Agenten.
 Jedes Projekt besitzt einen echten Geräte-Ordner `data/projects/<uuid>`
 (Container: `/arasul/projects/<uuid>`, Compose-Mount in
 `compose/compose.app.yaml`) — derselbe Ordner, in dem auch der
-Git-Sync-Checkout (`PROJECT_GIT_DIR`) liegt. Explorer (Bereich
-„Projektablage"), Flows (`ordner`-Wert `projekt://aktiv`) und Sandboxes
-(Mount `/workspace/projekt`) arbeiten darin. Jeder Zugriff läuft
+Git-Sync-Checkout (`PROJECT_GIT_DIR`) liegt. Er ist seit dem
+**Ein-Ordner-Modell (2026-07-29)** die EINZIGE Wahrheit: Explorer, Flows
+(`ordner`-Wert `projekt://aktiv`), Chat-Agent und Sandboxes (Mount
+`/workspace/projekt`) arbeiten im selben Baum. Jeder Zugriff läuft
 symlink-sicher innerhalb des Projektordners (`resolveRealWithinRoots`);
 `.git`, `node_modules` u. Ä. werden beim Auflisten ausgeblendet.
 
 | Method | Endpoint                                    | Description                                                                               |
 | ------ | ------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| GET    | `/api/projects/:id/dateien`                 | Datei-Baum (rekursiv, Budget-gedeckelt; `{eintraege, gekuerzt}`)                          |
+| GET    | `/api/projects/:id/dateien`                 | Der EINE Baum (rekursiv, Budget-gedeckelt; `{eintraege, gekuerzt}`, s. u.)                |
 | GET    | `/api/projects/:id/dateien/inhalt?pfad=…`   | Datei-Inhalt für den Editor (Text, max. 1 MB; Binär/zu groß → Kennzeichen statt Inhalt)   |
 | PUT    | `/api/projects/:id/dateien/inhalt`          | Textdatei schreiben (`{pfad, inhalt}`; legt Zwischenordner an)                            |
 | POST   | `/api/projects/:id/dateien/ordner`          | Ordner anlegen (`{pfad}`, verschachtelt erlaubt)                                          |
 | DELETE | `/api/projects/:id/dateien?pfad=…`          | Datei oder Ordner (rekursiv) löschen — nie die Wurzel oder `.git`                         |
-| POST   | `/api/projects/:id/dateien/verschieben`     | Umbenennen/Verschieben innerhalb der Ablage (`{von, nach}`)                               |
+| POST   | `/api/projects/:id/dateien/verschieben`     | Umbenennen/Verschieben innerhalb des Projektordners (`{von, nach}`)                       |
 | POST   | `/api/projects/:id/dateien/upload`          | Multipart-Upload (`file` + optional `ordner`, max. 50 MB)                                 |
 | GET    | `/api/projects/:id/dateien/download?pfad=…` | Einzeldatei als Download; ohne `pfad` (oder für einen Ordner) ein `.tar.gz` (ohne `.git`) |
-| POST   | `/api/projects/:id/dateien/uebernehmen`     | Datei in den Wissensraum übernehmen (`{pfad, space_id?}`)                                 |
 
-> **Übernahme in den Wissensraum ist manuell:** `uebernehmen` lädt die Datei
-> nach MinIO und legt eine `documents`-Zeile mit `status='pending'` an — der
-> Document-Indexer holt sie sich von dort (gleicher Vertrag wie der
-> Dokument-Upload; das Projekt der Datei ist das Projekt der Ablage). `409
-CONFLICT` bei inhaltsgleichem, bereits vorhandenem Dokument.
+> **Ein-Ordner-Modell — Auto-Indexierung statt manueller Übernahme:** Die
+> frühere Route `POST …/dateien/uebernehmen` ist ENTFERNT. Ein Sync-Dienst
+> (`services/projects/ordnerSyncService.js`, Takt `ORDNER_SYNC_INTERVAL_MS`,
+> Standard 20 s, plus Sofort-Trigger nach jeder Datei-Operation) spiegelt den
+> Projektordner automatisch: jeder Unterordner wird eine
+> `knowledge_spaces`-Zeile, jede indexierbare Datei (`.pdf .docx .txt .md
+.markdown .csv .json .html .htm .xml .yaml .yml .log`, ≤ 50 MB) eine
+> `documents`-Zeile (`status='pending'` → Document-Indexer → Qdrant).
+> Umbenennen/Verschieben wird per Inhalts-Hash erkannt und kostet keine
+> Neu-Indexierung; gelöschte Dateien räumen Dokument, MinIO-Objekt und
+> Vektoren ab. Altbestand (nur in MinIO) wird beim Boot auf die Platte
+> **materialisiert**. Die Baum-Einträge tragen deshalb zusätzlich:
+> Dateien `dokument: {id, status}` (wenn im Wissen gespiegelt), Ordner
+> `space_id` (ihr Wissensraum-Spiegel, z. B. für „Mit Ordner chatten").
+> Inhaltsgleiche Dateien an zwei Pfaden: nur die erste bekommt einen
+> Index-Eintrag (content_hash-Schutz). **Lösch-Sicherung:** Dokumente/Räume
+> werden nur entfernt, wenn der Baum vollständig gelesen wurde und die
+> Marker-Datei `.arasul` im Projektordner liegt (sie entsteht erst, wenn
+> Platte und DB übereinstimmen) — ein leerer/fremder Ordner (nicht
+> gemountetes Volume) löst nie Massen-Löschungen aus.
 
 ### Git-Sync (Plan 013, B9)
 

@@ -28,37 +28,46 @@ Container erreichen darf (`VALID_NETWORK_MODES`):
 > beliebigen internen Ordners je Stufe ist **bewusst nicht** umgesetzt — das wäre
 > eine eigene Sicherheitsfläche und bleibt ein Folgeschritt.
 
-## Wissensraum
+## Wissensraum (Sandbox)
 
-Jeder Workspace besitzt genau **einen unsichtbaren Wissensraum** (in der UI
-„Ordner"), auf den seine RAG-Suche beschränkt bleibt. Dateien werden **nicht**
-automatisch indiziert (der frühere Workspace-Indexer ist entfernt): In den
-Wissensraum kommt eine Datei nur **manuell per Klick** — über „In den
-Wissensraum übernehmen" in der Projektablage (s. u.) oder den normalen
-Dokument-Upload.
+Jeder Workspace (Sandbox) besitzt genau **einen unsichtbaren Wissensraum**, auf
+den seine RAG-Suche beschränkt bleibt (`is_workspace = TRUE`, ohne
+Projekt-Zuordnung — vom Ein-Ordner-Modell unberührt).
 
 > Flows (Chat-Slash-Befehle) ersetzen die früheren Agenten — siehe
 > [`FLOWS.md`](FLOWS.md).
 
-## Projektablage
+## Der Projektordner — das Ein-Ordner-Modell (2026-07-29)
 
-Jedes Wissensraum-Projekt (`projects`) besitzt einen **echten Geräte-Ordner**
-`data/projects/<uuid>` (Container: `/arasul/projects/<uuid>`) — die
-**Projektablage**. Sie ist die gemeinsame Wahrheit für drei Welten:
+Jedes Projekt (`projects`) besitzt einen **echten Geräte-Ordner**
+`data/projects/<uuid>` (Container: `/arasul/projects/<uuid>`). Er ist seit dem
+Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
+(Wissensraum-Ordnerbaum + separate „Projektablage") ist abgeschafft:
 
-- **Explorer** — der Bereich „Projektablage" unter dem Wissensraum-Baum zeigt
-  die Ablage des aktiven Projekts: Dateien öffnen (eigener Editor-Tab mit
-  CodeMirror, Tab-Typ `projektdatei`), anlegen, umbenennen, löschen, hoch- und
-  herunterladen — und einzelne Dateien per Klick **in den Wissensraum
-  übernehmen** (erst dann kennt das RAG sie). API:
+- **Ein Baum.** Der Explorer zeigt genau den Plattenbaum des aktiven
+  Projekts. Jeder Unterordner wird automatisch als Wissensraum
+  (`knowledge_spaces.rel_pfad`) gespiegelt, jede indexierbare Datei (`.pdf
+.docx .md .txt .html .csv …`, ≤ 50 MB) automatisch als Dokument in die
+  Index-Pipeline gegeben (`documents.rel_pfad`, MinIO → Indexer → Qdrant).
+  „In den Wissensraum übernehmen" gibt es nicht mehr. Der Abgleich läuft in
+  `services/projects/ordnerSyncService.js` (Takt `ORDNER_SYNC_INTERVAL_MS`
+  = 20 s, plus Sofort-Trigger nach Datei-Operationen, Chat-Agent- und
+  Flow-Läufen); Umbenennen wird per Inhalts-Hash erkannt (kein Re-Index),
+  Löschen räumt Dokument, MinIO-Objekt und Vektoren ab. Beim ersten Start
+  wurde der Altbestand aus MinIO in die Ordner **materialisiert**.
+- **Index-Status im Baum:** Dateien tragen ihren Wissens-Status als dezenten
+  Text („wird indexiert", „Index fehlgeschlagen") — bewusst ohne Punkte oder
+  Icons; Ordner tragen ihre `space_id` (für „Mit Ordner chatten").
+- **Explorer-Aktionen:** öffnen (Editor-Tab `projektdatei`, PDFs/Binäres im
+  Dokument-Viewer), anlegen, umbenennen, löschen, hoch-/herunterladen. API:
   `/api/projects/:id/dateien/*` ([`API_REFERENCE.md`](../api/API_REFERENCE.md)).
-- **Flows** — der `ordner`-Wert `projekt://aktiv` wird zur Laufzeit in die
-  Ablage des aktiven Projekts aufgelöst; `projekt://aktiv/unterordner` zielt
-  auf einen Unterordner, und pro Lauf kann `ordner_ziel` (z. B. der
+- **Flows** — der `ordner`-Wert `projekt://aktiv` wird zur Laufzeit in den
+  Projektordner des aktiven Projekts aufgelöst; `projekt://aktiv/unterordner`
+  zielt auf einen Unterordner, und pro Lauf kann `ordner_ziel` (z. B. der
   Kundenordner) das Arbeitsverzeichnis umlenken ([`FLOWS.md`](FLOWS.md)).
 - **Chat (Agent-Modus, 2026-07-28)** — der Workspace-Chat ist ein Agent mit
   Werkzeugschleife: das Modell ruft selbst **Wissensraum-Suche** (`rag_suche`),
-  **Ablage-Werkzeuge** (lesen/schreiben/durchsuchen — die Projektablage des
+  **Datei-Werkzeuge** (lesen/schreiben/durchsuchen — der Projektordner des
   aktiven Projekts), **Web-Suche/-Lesen** und **Subagenten** (Rolle
   „rechercheur") auf, wenn die Aufgabe es braucht; einfache Fragen beantwortet
   es direkt. Der frühere fest verdrahtete RAG-Zitier-Modus (der
@@ -67,24 +76,25 @@ Jedes Wissensraum-Projekt (`projects`) besitzt einen **echten Geräte-Ordner**
   **Schritt-Zeilen** was passiert; nach Abschluss falten sie sich zu einer
   „N Schritte"-Zeile. Erstellt der Agent Dokumente (Newsletter, Webseite,
   Bericht …), schreibt er sie mit passender Endung (`.html`, `.md`, `.csv` …)
-  in die Ablage und der Verlauf zeigt klickbare **Datei-Karten** (öffnen den
-  Editor-Tab; HTML öffnet gerendert). Der **Datei-Modus** im Composer
+  in den Projektordner und der Verlauf zeigt klickbare **Datei-Karten** (öffnen
+  den Editor-Tab; HTML öffnet gerendert). Der **Datei-Modus** im Composer
   (Datei-Symbol) oder eine erkannte Speicher-Absicht („speicher das als
-  Datei …") erzwingt eine Datei; ein aus dem Ablage-Baum gezogener **Ordner**
+  Datei …") erzwingt eine Datei; ein aus dem Baum gezogener **Ordner**
   wird zum Ziel („Speichern in: …"-Chip). Jede fertige Antwort hat zusätzlich
   die Aktion **„Als Datei speichern"** (erkennt HTML/Code-Inhalte und wählt
   die Endung). Persistiert werden Datei-Verweise und Schritte an der
   Nachricht (`chat_messages.datei`/`.schritte`, Migrationen 127/128).
 - **Sandboxes** — eine Sandbox kann an ein Projekt angeschlossen werden
-  (`sandbox_projects.project_id`, beim Anlegen/Bearbeiten: „Projektablage
-  anschließen"): dessen Ablage wird beim Container-Start **rw als
+  (`sandbox_projects.project_id`, beim Anlegen/Bearbeiten: „Projektordner
+  anschließen"): dessen Ordner wird beim Container-Start **rw als
   `/workspace/projekt`** gemountet. Was Claude Code dort baut, liegt sofort im
-  Explorer. „Kein Projekt" trennt den Anschluss; ein gelöschtes Projekt kappt
-  nur die Verbindung, die Sandbox bleibt.
+  Explorer (und wandert per Ordner-Sync automatisch ins Wissen). „Kein
+  Projekt" trennt den Anschluss; ein gelöschtes Projekt kappt nur die
+  Verbindung, die Sandbox bleibt.
 
 Der **Git-Sync-Checkout** (Plan 013, `PROJECT_GIT_DIR`) liegt im **selben**
-Ordner — ein Git-gekoppeltes Projekt sieht in der Ablage schlicht sein Repo.
-`.git` wird im Explorer ausgeblendet und ist vor Löschen/Umbenennen geschützt.
+Ordner — ein Git-gekoppeltes Projekt sieht im Explorer schlicht sein Repo.
+`.git` wird ausgeblendet und ist vor Löschen/Umbenennen geschützt.
 
 ## KI-Zugang für die Sandboxes (Claude)
 

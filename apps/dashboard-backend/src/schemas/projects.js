@@ -72,13 +72,6 @@ const AblageDownloadQuery = z
   })
   .strict();
 
-const AblageUebernehmenBody = z
-  .object({
-    pfad: AblagePfad,
-    space_id: z.uuid('Ungültige Ordner-ID').nullable().optional(),
-  })
-  .strict();
-
 module.exports = {
   ProjectIdField,
   ProjectIdParams,
@@ -92,5 +85,4 @@ module.exports = {
   AblageDeleteQuery,
   AblageMoveBody,
   AblageDownloadQuery,
-  AblageUebernehmenBody,
 };
