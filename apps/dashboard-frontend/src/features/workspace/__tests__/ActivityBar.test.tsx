@@ -15,6 +15,18 @@ vi.mock('@/hooks/useWorkspaceApps', () => ({
   }),
 }));
 
+// Installierte Erweiterungs-Pakete mocken (echte Datenbasis: GET /extensions)
+interface MockExtension {
+  id: string;
+  name: string;
+  type: string;
+  enabled: boolean;
+}
+const installedExtensions: MockExtension[] = [];
+vi.mock('@/hooks/useExtensions', () => ({
+  useExtensions: () => ({ extensions: installedExtensions, isLoading: false }),
+}));
+
 function resetStore() {
   useWorkspaceStore.setState({
     tabs: [],
@@ -35,6 +47,7 @@ describe('ActivityBar — feste Spalte: Dateien · Modelle · Erweiterungen · F
   beforeEach(() => {
     resetStore();
     enabledApps.clear();
+    installedExtensions.length = 0;
   });
 
   it('zeigt die vier Ansichten und das Einstellungen-Zahnrad (jetzt in der Bar)', () => {
@@ -85,6 +98,25 @@ describe('ActivityBar — feste Spalte: Dateien · Modelle · Erweiterungen · F
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Einstellungen'));
     expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
+  });
+
+  it('aktivierte App-Erweiterungen bekommen einen eigenen Eintrag, der ihren Tab öffnet', () => {
+    installedExtensions.push(
+      { id: 'meine-app', name: 'Meine App', type: 'app', enabled: true },
+      { id: 'aus-geschaltet', name: 'Aus', type: 'app', enabled: false },
+      { id: 'werkzeug', name: 'Werkzeug', type: 'tool', enabled: true }
+    );
+    render(<ActivityBar />);
+
+    // Nur aktivierte App-Erweiterungen — deaktivierte und flow/tool-Pakete nicht.
+    expect(screen.queryByLabelText('Aus')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Werkzeug')).not.toBeInTheDocument();
+
+    const btn = screen.getByLabelText('Meine App');
+    fireEvent.click(btn);
+    const s = useWorkspaceStore.getState();
+    expect(s.activeTabId).toBe('extension:meine-app');
+    expect(s.tabs.some(t => t.type === 'extension' && t.extensionId === 'meine-app')).toBe(true);
   });
 
   it('n8n (Automation) erscheint NUR wenn die Erweiterung aktiviert ist und öffnet den Automationen-Tab', () => {
