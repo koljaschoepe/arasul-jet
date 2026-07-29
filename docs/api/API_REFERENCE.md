@@ -2314,23 +2314,24 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
 
-| Method | Endpoint                          | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/flows`                      | List all flows (broken files reported separately)                                            |
-| GET    | `/api/flows/werkzeuge`            | Tool names a flow may declare, each with `verfuegbar`                                        |
-| GET    | `/api/flows/sammlungen`           | Selectable knowledge spaces (for `typ: wissensbasis`)                                        |
-| GET    | `/api/flows/:name`                | Get a single flow                                                                            |
-| GET    | `/api/flows/:name/datei`          | Get the raw Markdown file (`text/markdown`)                                                  |
-| POST   | `/api/flows/vorschau`             | Render the file that _would_ be written — without saving                                     |
-| POST   | `/api/flows/vorschau-laufzeit`    | Resolve the runtime prompt (with sample args) — no run                                       |
-| POST   | `/api/flows`                      | Create a flow (409 if the name exists)                                                       |
-| PUT    | `/api/flows/:name`                | Update an existing flow (404 if it does not exist)                                           |
-| DELETE | `/api/flows/:name`                | Delete a flow                                                                                |
-| GET    | `/api/flows/laeufe`               | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter) |
-| POST   | `/api/flows/laeufe`               | Start a run detached; returns `202 { runId }` immediately                                    |
-| GET    | `/api/flows/laeufe/:id`           | One run with its steps (`?raw=1` includes raw step data)                                     |
-| GET    | `/api/flows/laeufe/:id/stream`    | SSE event stream: replay stored history, then live steps                                     |
-| POST   | `/api/flows/laeufe/:id/abbrechen` | Cancel a running run (404 if not running/owned)                                              |
+| Method | Endpoint                            | Description                                                                                                    |
+| ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/flows`                        | List all flows (broken files reported separately)                                                              |
+| GET    | `/api/flows/werkzeuge`              | Tool names a flow may declare, each with `verfuegbar`                                                          |
+| GET    | `/api/flows/sammlungen`             | Selectable knowledge spaces (for `typ: wissensbasis`)                                                          |
+| GET    | `/api/flows/:name`                  | Get a single flow                                                                                              |
+| GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`)                                                                    |
+| POST   | `/api/flows/vorschau`               | Render the file that _would_ be written — without saving                                                       |
+| POST   | `/api/flows/vorschau-laufzeit`      | Resolve the runtime prompt (with sample args) — no run                                                         |
+| POST   | `/api/flows`                        | Create a flow (409 if the name exists)                                                                         |
+| PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist)                                                             |
+| DELETE | `/api/flows/:name`                  | Delete a flow                                                                                                  |
+| GET    | `/api/flows/laeufe`                 | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter)                   |
+| POST   | `/api/flows/laeufe`                 | Start a run detached; returns `202 { runId }` immediately                                                      |
+| GET    | `/api/flows/laeufe/:id`             | One run with its steps (`?raw=1` includes raw step data)                                                       |
+| GET    | `/api/flows/laeufe/:id/stream`      | SSE event stream: replay stored history, then live steps                                                       |
+| POST   | `/api/flows/laeufe/:id/abbrechen`   | Cancel a running run (404 if not running/owned)                                                                |
+| POST   | `/api/flows/laeufe/:id/wiederholen` | Retry a **failed** run of a flow with a declared step chain (body `{}`); `202 { runId, uebernommeneSchritte }` |
 
 **Starting flows.** A flow runs from the chat (slash command `/name`) or via the
 external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
@@ -2358,6 +2359,16 @@ frames are replaced by these step frames. Disconnecting does **not** stop the ru
 the run's abort signal, so a running flow actually stops rather than only being
 marked cancelled in the DB. A backend restart marks any still-`laeuft` run as
 `fehler` (a detached run cannot survive the process).
+
+**Retry from failure (2026-07-29).** `POST /laeufe/:id/wiederholen` retries a
+run with `status: 'fehler'` of a flow that declares a `schritte` chain (the
+deterministic step editor is the default way to build flows). It starts a **new**
+run of the same flow with the same arguments; the outputs of the old run's
+successful top-level steps are reused (`vorabErgebnisse` in the step executor) —
+they appear in the new run's log as steps with input
+`(übernommen aus Lauf <id>)` and status `fertig` — and execution resumes at the
+first failed step. `400` if the run is not failed or the flow has no step chain;
+`404` if the run is unknown/foreign. Response: `202 { runId, uebernommeneSchritte }`.
 
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
 > `werkzeuge`, `sammlungen`, `vorschau`) is a reserved segment: a flow named

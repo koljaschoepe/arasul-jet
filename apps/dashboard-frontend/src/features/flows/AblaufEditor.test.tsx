@@ -10,7 +10,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import AblaufEditor from './AblaufEditor';
-import { LEER_FORM, type FlowFormState } from './flowFormState';
+import { LEER_FORM, toBody, type FlowFormState } from './flowFormState';
 
 const WERKZEUGE = [
   { name: 'rag_suche' as const, verfuegbar: true },
@@ -24,7 +24,13 @@ function Harness({ initial }: { initial?: Partial<FlowFormState> }) {
     <>
       <AblaufEditor value={state} onChange={setState} werkzeuge={WERKZEUGE} />
       <output data-testid="snapshot">
-        {JSON.stringify({ rollen: state.rollen, schritte: state.schritte })}
+        {JSON.stringify({
+          rollen: state.rollen,
+          schritte: state.schritte,
+          // Der API-Body, wie ihn Speichern/Vorschau schicken würden — so prüfen
+          // die Tests direkt die Serialisierung ins Payload, nicht nur den Zustand.
+          body: toBody(state),
+        })}
       </output>
     </>
   );
@@ -77,6 +83,59 @@ describe('AblaufEditor', () => {
     // Der Schritt trägt den Rollennamen und referenziert dieselbe Rolle.
     const s = snap();
     expect(s.schritte[0].rolle).toBe('sucher');
+  });
+
+  it('Hoch/Runter ordnet die Schritte um — auch im serialisierten Payload', async () => {
+    const user = userEvent.setup();
+    const rolle = (name: string) => ({
+      name,
+      prompt: 'p',
+      werkzeuge: [],
+      ergebnis: { felder: ['x'], max_zeichen: 2000 },
+    });
+    render(
+      <Harness
+        initial={{
+          werkzeuge: ['subagent'],
+          rollen: [rolle('erster'), rolle('zweiter')],
+          schritte: [
+            { name: 'erster', typ: 'subagent', rolle: 'erster', auftrag: 'a', iterationen: 1 },
+            { name: 'zweiter', typ: 'subagent', rolle: 'zweiter', auftrag: 'b', iterationen: 1 },
+          ],
+        }}
+      />
+    );
+
+    await user.click(screen.getByLabelText('Schritt 2 nach oben'));
+    const s = snap();
+    expect(s.schritte.map((x: { name: string }) => x.name)).toEqual(['zweiter', 'erster']);
+    // Der API-Body übernimmt die neue Reihenfolge 1:1.
+    expect(s.body.schritte.map((x: { name: string }) => x.name)).toEqual(['zweiter', 'erster']);
+
+    // Und zurück: der erste Schritt nach unten stellt die alte Ordnung wieder her.
+    await user.click(screen.getByLabelText('Schritt 1 nach unten'));
+    expect(snap().body.schritte.map((x: { name: string }) => x.name)).toEqual([
+      'erster',
+      'zweiter',
+    ]);
+  });
+
+  it('neuer Schritt landet serialisiert im Payload (Name, Typ, Rolle)', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={{ schritte: [], rollen: [] }} />);
+    await user.click(screen.getByRole('button', { name: 'Feste Reihenfolge' }));
+    await user.click(screen.getByRole('button', { name: 'Schritt' }));
+
+    const s = snap();
+    expect(s.body.schritte).toHaveLength(1);
+    expect(s.body.schritte[0]).toMatchObject({
+      name: 'rolle-1',
+      typ: 'subagent',
+      rolle: 'rolle-1',
+      iterationen: 1,
+    });
+    // Die gespiegelte Rolle steht ebenfalls im Payload.
+    expect((s.body.rollen as { name: string }[]).some(r => r.name === 'rolle-1')).toBe(true);
   });
 
   it('neuer Rollen-Schritt spiegelt 1:1 eine gleichnamige Rolle', async () => {

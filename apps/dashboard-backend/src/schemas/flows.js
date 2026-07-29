@@ -392,6 +392,14 @@ const FlowNameParams = z.object({ name: FlowName }).strict();
 const RunIdParams = z.object({ id: z.coerce.number().int().positive() }).strict();
 
 /**
+ * Body von POST /flows/laeufe/:id/wiederholen („Ab Fehler wiederholen",
+ * 2026-07-29). Bewusst leer und `.strict()`: Der Lauf bestimmt Flow und
+ * Argumente selbst — ein Body-Feld hier wäre ein Missverständnis des Aufrufers
+ * und soll als 400 auffallen, nicht still ignoriert werden.
+ */
+const WiederholenBody = z.object({}).strict();
+
+/**
  * Ziel-Ordner eines Laufs (Ziel-Ordner-Konzept, 2026-07-28). Erlaubt sind NUR
  * `projekt://`-Formen — `projekt://aktiv[/unter/ordner]` oder
  * `projekt://<uuid>[/unter/ordner]` — damit ein Aufrufer (insbesondere per
@@ -456,6 +464,7 @@ module.exports = {
   RuntimePreviewBody,
   FlowNameParams,
   RunIdParams,
+  WiederholenBody,
   ListRunsQuery,
   StartRunBody,
   ProjektOrdnerZiel,

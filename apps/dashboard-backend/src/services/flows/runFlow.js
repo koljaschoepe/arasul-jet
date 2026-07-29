@@ -258,6 +258,11 @@ async function runFlow(
     existingRunId = null,
     signal,
     ordnerZiel = null,
+    // „Ab Fehler wiederholen": Ausgaben erfolgreicher Schritte eines alten
+    // Laufs (Schritt-Index → Ausgabe) — nur der deterministische Executor
+    // wertet sie aus; der modellgetriebene Pfad ignoriert sie.
+    vorabErgebnisse = null,
+    vorabQuelleLaufId = null,
   },
   deps = {}
 ) {
@@ -572,6 +577,8 @@ async function runFlow(
           recordWerkzeug,
           emitLive: onEvent,
           signal,
+          vorabErgebnisse,
+          vorabQuelleLaufId,
         })
       : await runLoop({
           model,

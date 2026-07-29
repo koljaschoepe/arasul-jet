@@ -448,6 +448,100 @@ describe('Flows-Routen', () => {
     });
   });
 
+  // --- Wiederholen ab Fehler (2026-07-29) ----------------------------------
+  describe('Lauf wiederholen', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    /** Flow mit deterministischer Schritt-Kette (subagent → werkzeug). */
+    const KETTE = {
+      name: 'kette',
+      prompt: 'Fasse zusammen.',
+      werkzeuge: ['subagent', 'web_suche'],
+      rollen: [
+        {
+          name: 'sucher',
+          werkzeuge: ['web_suche'],
+          ergebnis: { felder: ['fazit'] },
+          prompt: 'Suche.',
+        },
+      ],
+      schritte: [
+        { name: 'suchen', typ: 'subagent', rolle: 'sucher', auftrag: 'Suche.' },
+        { name: 'nachschlagen', typ: 'werkzeug', werkzeug: 'web_suche', parameter: { suchbegriff: 'x' } },
+      ],
+    };
+
+    /** Verdrahtet db.query mit einem Altlauf samt Schritten. */
+    function mitAltlauf({ run, steps = [] }) {
+      setupAuthMocks(db);
+      const authImpl = db.query.getMockImplementation();
+      db.query.mockImplementation((sql, params) => {
+        const s = String(sql);
+        if (/FROM flow_runs WHERE id/.test(s)) {
+          return Promise.resolve({ rows: run ? [run] : [] });
+        }
+        if (/FROM flow_run_steps/.test(s)) {
+          return Promise.resolve({ rows: steps });
+        }
+        return authImpl(sql, params);
+      });
+    }
+
+    test('startet einen neuen Lauf und übernimmt die erfolgreichen Schritte', async () => {
+      await auth(request(app).post('/api/flows')).send(KETTE);
+      mitAltlauf({
+        run: { id: 3, flow_name: 'kette', status: 'fehler', arguments: {}, conversation_id: null },
+        steps: [
+          // Schritt 1 (subagent/sucher) gelang, Schritt 2 (werkzeug) scheiterte.
+          { id: 1, position: 0, kind: 'subagent', name: 'sucher', status: 'fertig', output: 'F1', parent_step_id: null, input: {} },
+          { id: 2, position: 1, kind: 'werkzeug', name: 'web_suche', status: 'fehler', output: 'Fehler: kaputt', parent_step_id: null, input: {} },
+        ],
+      });
+      const spy = jest.spyOn(flowRunner, 'starten').mockResolvedValue({ runId: 99 });
+
+      const res = await auth(request(app).post('/api/flows/laeufe/3/wiederholen')).send({});
+      expect(res.status).toBe(202);
+      expect(res.body.data.runId).toBe(99);
+      expect(res.body.data.uebernommeneSchritte).toBe(1);
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const aufruf = spy.mock.calls[0][0];
+      expect(aufruf.flowName).toBe('kette');
+      expect(aufruf.vorabQuelleLaufId).toBe(3);
+      expect([...aufruf.vorabErgebnisse.entries()]).toEqual([[0, 'F1']]);
+    });
+
+    test('ein nicht fehlgeschlagener Lauf wird mit 400 abgewiesen', async () => {
+      await auth(request(app).post('/api/flows')).send(KETTE);
+      mitAltlauf({
+        run: { id: 3, flow_name: 'kette', status: 'fertig', arguments: {}, conversation_id: null },
+      });
+      const spy = jest.spyOn(flowRunner, 'starten');
+
+      const res = await auth(request(app).post('/api/flows/laeufe/3/wiederholen')).send({});
+      expect(res.status).toBe(400);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    test('ein Flow OHNE Schritt-Kette wird mit 400 abgewiesen', async () => {
+      await auth(request(app).post('/api/flows')).send(NEU); // 'notiz' hat keine schritte
+      mitAltlauf({
+        run: { id: 4, flow_name: 'notiz', status: 'fehler', arguments: {}, conversation_id: null },
+      });
+      const spy = jest.spyOn(flowRunner, 'starten');
+
+      const res = await auth(request(app).post('/api/flows/laeufe/4/wiederholen')).send({});
+      expect(res.status).toBe(400);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    test('ein fremder/unbekannter Lauf gibt 404', async () => {
+      mitAltlauf({ run: null });
+      const res = await auth(request(app).post('/api/flows/laeufe/999/wiederholen')).send({});
+      expect(res.status).toBe(404);
+    });
+  });
+
   // --- Starten & Streamen (Plan 011, Schritt 12) ---------------------------
   describe('Läufe starten & streamen', () => {
     afterEach(() => jest.restoreAllMocks());

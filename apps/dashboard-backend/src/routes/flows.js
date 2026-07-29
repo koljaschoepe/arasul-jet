@@ -23,17 +23,19 @@ const {
   RuntimePreviewBody,
   FlowNameParams,
   RunIdParams,
+  WiederholenBody,
   ListRunsQuery,
   StartRunBody,
   VALID_TOOLS,
 } = require('../schemas/flows');
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, ValidationError } = require('../utils/errors');
 const { llmLimiter } = require('../middleware/rateLimit');
 const logger = require('../utils/logger');
 const registry = require('../services/flows/flowRegistry');
 const runStore = require('../services/flows/runStore');
 const flowRunner = require('../services/flows/flowRunner');
 const { resolveArguments, assembleRuntimePrompt } = require('../services/flows/runFlow');
+const { berechneVorabErgebnisse } = require('../services/flows/stepExecutor');
 const { serializeFlowFile, parseFlowFile } = require('../services/flows/flowFile');
 const { implementedTools } = require('../services/flows/toolRegistry');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
@@ -285,6 +287,57 @@ router.post(
       throw new NotFoundError(`Kein laufender Flow-Lauf ${req.params.id}`);
     }
     res.json({ data: run, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/flows/laeufe/:id/wiederholen — einen FEHLGESCHLAGENEN Lauf eines
+// Flows mit deklarierter Schritt-Kette ab dem ersten gescheiterten Schritt
+// wiederholen. Startet einen NEUEN Lauf desselben Flows mit denselben
+// Argumenten; die Ausgaben der erfolgreichen Schritte des alten Laufs werden
+// übernommen (im Protokoll als Schritte mit Vermerk), erst ab dem Fehler wird
+// echt ausgeführt. Nur für den deterministischen Pfad — beim modellgetriebenen
+// Lauf gibt es keine feste Kette, an der man wieder aufsetzen könnte.
+router.post(
+  '/laeufe/:id/wiederholen',
+  requireAuth,
+  // Wie beim Start: ein neuer Lauf ist ein teurer GPU-Vorgang.
+  llmLimiter,
+  validateParams(RunIdParams),
+  validateBody(WiederholenBody),
+  asyncHandler(async (req, res) => {
+    // Eigentümer-geprüft (getRun wirft NotFound bei fremd/unbekannt), samt
+    // Schritten — aus ihnen wird die Übernahme berechnet.
+    const alt = await runStore.getRun({ runId: req.params.id, userId: req.user.id });
+    if (alt.status !== 'fehler') {
+      throw new ValidationError(
+        `Nur fehlgeschlagene Läufe lassen sich wiederholen (Status: ${alt.status})`
+      );
+    }
+    const flow = await registry.loadFlow(alt.flow_name);
+    if (!Array.isArray(flow.schritte) || flow.schritte.length === 0) {
+      throw new ValidationError(
+        'Wiederholen ab Fehler gibt es nur für Flows mit deklarierter Schritt-Kette'
+      );
+    }
+    // Argumente FRÜH gegen die (womöglich inzwischen geänderte) Deklaration
+    // prüfen — wie beim normalen Start soll ein Fehler sofort als 400 kommen,
+    // nicht asynchron als gescheiterter Lauf.
+    const args = alt.arguments || {};
+    resolveArguments(flow.argumente, args);
+
+    const vorabErgebnisse = berechneVorabErgebnisse(flow.schritte, alt.steps);
+    const { runId } = await flowRunner.starten({
+      flowName: alt.flow_name,
+      args,
+      userId: req.user.id,
+      conversationId: alt.conversation_id ?? null,
+      vorabErgebnisse,
+      vorabQuelleLaufId: Number(alt.id),
+    });
+    res.status(202).json({
+      data: { runId, uebernommeneSchritte: vorabErgebnisse.size },
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 
