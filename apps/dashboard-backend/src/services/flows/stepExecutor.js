@@ -26,6 +26,7 @@
 const { fillPlaceholders } = require('./flowFile');
 const { runFlowLoop } = require('./toolLoop');
 const SubagentTool = require('./subagent');
+const logger = require('../../utils/logger');
 
 /**
  * Setzt Vorlagen in den `parameter`-Werten eines Werkzeug-Schritts ein.
@@ -37,6 +38,72 @@ function resolveParams(parameter = {}, scope = {}) {
     out[key] = typeof value === 'string' ? fillPlaceholders(value, scope) : value;
   }
   return out;
+}
+
+/**
+ * Bildet die Schritte eines ALTEN, fehlgeschlagenen Laufs auf die deklarierte
+ * Schritt-Kette ab: welche Ketten-Schritte waren vollständig erfolgreich, und
+ * mit welcher Ausgabe? („Ab Fehler wiederholen", 2026-07-29.)
+ *
+ * Grundlage sind die persistierten Schritte oberster Ebene (flow_run_steps mit
+ * parent_step_id NULL) — der Executor schreibt sie deterministisch in
+ * Ketten-Reihenfolge: je Ketten-Schritt `iterationen` Einträge, ein
+ * subagent-Schritt als kind='subagent'/name=rolle, ein Werkzeug-Schritt als
+ * kind='werkzeug'/name=werkzeug. Ein bereits übernommener Schritt (aus einer
+ * früheren Wiederholung) steht als EIN Eintrag mit `input.uebernommen = true`,
+ * unabhängig von `iterationen`.
+ *
+ * Die Abbildung ist bewusst STRENG: Passt Art oder Name nicht (z. B. weil die
+ * Flow-Definition seit dem alten Lauf geändert wurde) oder ist ein Eintrag
+ * nicht 'fertig', endet die Übernahme dort — ab da wird echt ausgeführt.
+ * Lieber einen Schritt zu viel wiederholen als eine falsche Ausgabe einsetzen.
+ *
+ * @param {object[]} schritte - flow.schritte (deklarierte Kette).
+ * @param {object[]} altSteps - Schritte des alten Laufs (aus runStore.getRun).
+ * @returns {Map<number, string>} Schritt-Index → Ausgabe (der letzten Iteration).
+ */
+function berechneVorabErgebnisse(schritte = [], altSteps = []) {
+  const top = altSteps.filter(
+    s => s.parent_step_id == null && (s.kind === 'werkzeug' || s.kind === 'subagent')
+  );
+  const vorab = new Map();
+  let cursor = 0;
+
+  for (const [index, schritt] of schritte.entries()) {
+    const kind = schritt.typ === 'subagent' ? 'subagent' : 'werkzeug';
+    const name = schritt.typ === 'subagent' ? schritt.rolle : schritt.werkzeug;
+    const passt = s => Boolean(s) && s.kind === kind && s.name === name && s.status === 'fertig';
+    const istUebernommen = s => Boolean(s && s.input && s.input.uebernommen === true);
+
+    // Fall 1: der Ketten-Schritt wurde im Altlauf selbst schon übernommen —
+    // genau EIN Protokoll-Eintrag, egal wie viele Iterationen deklariert sind.
+    const erster = top[cursor];
+    if (passt(erster) && istUebernommen(erster)) {
+      vorab.set(index, String(erster.output ?? ''));
+      cursor += 1;
+      continue;
+    }
+
+    // Fall 2: echt ausgeführt — es müssen ALLE Iterationen fertig dastehen.
+    const n = schritt.iterationen || 1;
+    let letzte = null;
+    let vollstaendig = true;
+    for (let i = 0; i < n; i++) {
+      const s = top[cursor + i];
+      if (!passt(s) || istUebernommen(s)) {
+        vollstaendig = false;
+        break;
+      }
+      letzte = s;
+    }
+    if (!vollstaendig) {
+      break; // erster nicht (voll) erfolgreicher Schritt — ab hier echt ausführen
+    }
+    cursor += n;
+    vorab.set(index, String(letzte.output ?? ''));
+  }
+
+  return vorab;
 }
 
 /** Baut den Synthese-Block aus den gesammelten Schritt-Ausgaben. */
@@ -63,6 +130,12 @@ function buildSynthesisInput(userInput, schritte, outputs) {
  *   liefert die Werkzeug-Ausgabe (String).
  * @param {(evt:object)=>void} [p.emitLive] - Live-Sink (roher onEvent des Laufs).
  * @param {AbortSignal} [p.signal]
+ * @param {Map<number,string>} [p.vorabErgebnisse] - „Ab Fehler wiederholen":
+ *   Schritt-Index → Ausgabe aus einem alten Lauf. Diese Schritte werden NICHT
+ *   ausgeführt, ihre Ausgabe fließt unverändert ins Threading; im Protokoll
+ *   stehen sie als übernommene Schritte mit Vermerk.
+ * @param {number|null} [p.vorabQuelleLaufId] - Lauf-ID, aus der die
+ *   übernommenen Ausgaben stammen (nur für den Vermerk).
  * @param {new()=>object} [p.SubagentToolClass] - für Tests austauschbar.
  * @returns {Promise<{result:string|null, error?:string, aborted?:boolean}>}
  */
@@ -77,15 +150,51 @@ async function executeSteps({
   recordWerkzeug,
   emitLive,
   signal,
+  vorabErgebnisse = null,
+  vorabQuelleLaufId = null,
   SubagentToolClass = SubagentTool,
 }) {
   const subagentTool = new SubagentToolClass();
   const outputs = {};
 
-  for (const schritt of flow.schritte) {
+  for (const [index, schritt] of flow.schritte.entries()) {
     if (signal && signal.aborted) {
       return { result: null, aborted: true };
     }
+
+    // Übernommener Schritt (Wiederholung ab Fehler): nicht ausführen, die alte
+    // Ausgabe ins Threading geben und den Schritt mit Vermerk protokollieren —
+    // mit derselben Art/demselben Namen wie eine echte Ausführung, damit die
+    // Lauf-Ansicht (und eine weitere Wiederholung) ihn genauso liest.
+    if (vorabErgebnisse && vorabErgebnisse.has(index)) {
+      const ausgabe = String(vorabErgebnisse.get(index) ?? '');
+      outputs[schritt.name] = ausgabe;
+      const recorder = context && context.stepRecorder;
+      if (recorder) {
+        try {
+          const step = await recorder.beginnen({
+            kind: schritt.typ === 'subagent' ? 'subagent' : 'werkzeug',
+            name: (schritt.typ === 'subagent' ? schritt.rolle : schritt.werkzeug) || schritt.name,
+            input: {
+              hinweis:
+                vorabQuelleLaufId != null
+                  ? `(übernommen aus Lauf ${vorabQuelleLaufId})`
+                  : '(übernommen aus früherem Lauf)',
+              uebernommen: true,
+            },
+          });
+          await recorder.abschliessen({ stepId: step.id, output: ausgabe });
+        } catch (err) {
+          // Das Mitschreiben darf die Wiederholung nicht kippen — die Ausgabe
+          // ist ja da, nur der Protokoll-Eintrag fehlt dann.
+          logger.warn(
+            `Flow-Schritt "${schritt.name}": Übernahme-Vermerk nicht gespeichert: ${err.message}`
+          );
+        }
+      }
+      continue;
+    }
+
     const iterationen = schritt.iterationen || 1;
     let ausgabe = '';
 
@@ -135,4 +244,4 @@ async function executeSteps({
   });
 }
 
-module.exports = { executeSteps, resolveParams, buildSynthesisInput };
+module.exports = { executeSteps, resolveParams, buildSynthesisInput, berechneVorabErgebnisse };

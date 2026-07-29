@@ -173,8 +173,30 @@ Schritt-Ausgaben (ein letzter Modell-Aufruf, ohne Werkzeuge). Ein
 `subagent`-Schritt braucht das Werkzeug `subagent` und eine passende Rolle; ein
 `werkzeug`-Schritt darf nur ein vom Flow freigegebenes Werkzeug nutzen. Leer
 gelassen bleibt alles beim modellgetriebenen Verhalten — die Kette ist ein
-Angebot, kein Zwang. Bearbeitet wird sie im Flow-Editor als geordnete
-Schritt-Karten (hinzufügen/entfernen/umsortieren).
+Angebot, kein Zwang.
+
+**Der Schritt-Editor ist der Standard-Weg, Flows zu bauen** (Interview-Entscheid
+2026-07-29: „besser kontrollieren, besser bearbeiten, Ablauf deterministischer").
+Im Flow-Editor heißt der Block „Ablauf": Der Umschalter „Feste Reihenfolge"
+zeigt die Kette als geordnete Schritt-Karten — je Schritt Name, Art
+(Rolle/Werkzeug), bei Rollen-Schritten Auftrag plus die Rolle **inline**
+(Prompt, Werkzeuge, Ergebnis-Vertrag), bei Werkzeug-Schritten Werkzeug-Auswahl
+und Parameter als `schluessel: wert`-Zeilen, dazu die Durchläufe (1–10).
+Schritte lassen sich hinzufügen, entfernen und per Hoch/Runter-Knöpfen
+umsortieren; die Datei-Vorschau zeigt die entstehende `schritte`-Liste im
+Frontmatter. Eine niedergeschriebene Kette macht Läufe nachvollziehbar und —
+siehe unten — ab einem Fehler wiederholbar.
+
+**Fehlgeschlagene Läufe ab dem Fehler wiederholen.** Scheitert ein Lauf eines
+Flows **mit** Schritt-Kette, bietet die Flow-Zentrale am Lauf den Knopf
+„Ab Fehler wiederholen" (`POST /api/flows/laeufe/:id/wiederholen`). Es startet
+ein **neuer** Lauf mit denselben Argumenten; die Ausgaben der erfolgreichen
+Schritte des alten Laufs werden übernommen (im Protokoll als Schritte mit dem
+Vermerk „übernommen aus Lauf N") und erst ab dem ersten gescheiterten Schritt
+wird wieder echt ausgeführt — teure, gelungene Vorarbeit (Recherche, gelesene
+Seiten) geht nicht verloren. Wurde die Flow-Definition zwischenzeitlich
+geändert, übernimmt die Wiederholung nur die noch passenden Schritte und führt
+den Rest neu aus.
 
 ### Grenzen (Notbremsen)
 

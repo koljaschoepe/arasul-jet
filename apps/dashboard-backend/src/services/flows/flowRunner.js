@@ -51,7 +51,17 @@ const NACHLAUF_MS = 30 * 1000;
  * @returns {Promise<{runId:number}>} die ID des angelegten Laufs.
  */
 async function starten(
-  { flowName, args = {}, userId, conversationId = null, ordnerZiel = null },
+  {
+    flowName,
+    args = {},
+    userId,
+    conversationId = null,
+    ordnerZiel = null,
+    // „Ab Fehler wiederholen": übernommene Schritt-Ausgaben eines alten Laufs
+    // (siehe stepExecutor.berechneVorabErgebnisse) — nur durchgereicht.
+    vorabErgebnisse = null,
+    vorabQuelleLaufId = null,
+  },
   deps = {}
 ) {
   const { run = runFlow, store = runStore } = deps;
@@ -94,6 +104,8 @@ async function starten(
       existingRunId: runId,
       signal: controller.signal,
       ordnerZiel,
+      vorabErgebnisse,
+      vorabQuelleLaufId,
     },
     {}
   )

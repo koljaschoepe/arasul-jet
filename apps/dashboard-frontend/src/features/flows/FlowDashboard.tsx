@@ -127,6 +127,27 @@ export default function FlowDashboard({
   // Karten-Übersicht, bis „Alle Läufe" zurückführt.
   const [laufDetail, setLaufDetail] = useState<FlowRunSummary | null>(null);
 
+  // „Ab Fehler wiederholen": startet einen neuen Lauf, der die Ausgaben der
+  // erfolgreichen Schritte des alten übernimmt (nur Flows mit Schritt-Kette).
+  const wiederholen = useMutation({
+    mutationFn: (runId: FlowRunSummary['id']) =>
+      api.post<{ data: { runId: number } }>(`/flows/laeufe/${runId}/wiederholen`, {}),
+    onSuccess: res => {
+      toast.success('Neuer Lauf gestartet — erfolgreiche Schritte werden übernommen');
+      qc.invalidateQueries({ queryKey: ['flow-runs', 'fuer-flow', name] });
+      // Direkt in den neuen Lauf springen — dort sieht man live, wo er aufsetzt.
+      setLaufDetail({
+        id: res.data.runId,
+        flow_name: name,
+        conversation_id: null,
+        status: 'laeuft',
+        steps_used: 0,
+        created_at: new Date().toISOString(),
+        finished_at: null,
+      });
+    },
+  });
+
   // API-Schlüssel mit Scope flow:run.
   const { data: keysRes } = useQuery({
     queryKey: ['external-api-keys'],
@@ -375,31 +396,54 @@ export default function FlowDashboard({
                       <li key={r.id}>
                         {/* Nutzer-Entscheid 2026-07-28: Status nur als Text & Farbe —
                           keine Icon-Punkte am Zeilenanfang. Läuft-Zustand behält
-                          den Spinner als einzige Bewegung. */}
-                        <button
-                          type="button"
-                          onClick={() => setLaufDetail(r)}
-                          data-testid="flow-run-row"
-                          className="-mx-1 flex w-full items-center gap-2 rounded px-1 py-1.5 text-left text-xs hover:bg-accent/50"
-                        >
-                          <span className="shrink-0 text-muted-foreground">
-                            {zeit(r.created_at)}
-                          </span>
-                          {r.steps_used > 0 && (
-                            <span className="shrink-0 text-muted-foreground/70">
-                              {r.steps_used === 1 ? '1 Schritt' : `${r.steps_used} Schritte`}
-                            </span>
-                          )}
-                          <span
-                            className={`ml-auto flex shrink-0 items-center gap-1.5 font-medium ${meta.cls}`}
+                          den Spinner als einzige Bewegung. Der Wiederholen-Knopf
+                          steht NEBEN der klickbaren Zeile (keine Knöpfe in Knöpfen). */}
+                        <div className="-mx-1 flex w-full items-center gap-2 rounded px-1 hover:bg-accent/50">
+                          <button
+                            type="button"
+                            onClick={() => setLaufDetail(r)}
+                            data-testid="flow-run-row"
+                            className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left text-xs"
                           >
-                            {r.status === 'laeuft' && (
-                              <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                            <span className="shrink-0 text-muted-foreground">
+                              {zeit(r.created_at)}
+                            </span>
+                            {r.steps_used > 0 && (
+                              <span className="shrink-0 text-muted-foreground/70">
+                                {r.steps_used === 1 ? '1 Schritt' : `${r.steps_used} Schritte`}
+                              </span>
                             )}
-                            {meta.label}
-                          </span>
-                          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" />
-                        </button>
+                            <span
+                              className={`ml-auto flex shrink-0 items-center gap-1.5 font-medium ${meta.cls}`}
+                            >
+                              {r.status === 'laeuft' && (
+                                <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+                              )}
+                              {meta.label}
+                            </span>
+                          </button>
+                          {r.status === 'fehler' && schritte.length > 0 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-6 shrink-0 px-2 text-[11px]"
+                              disabled={wiederholen.isPending}
+                              onClick={() => wiederholen.mutate(r.id)}
+                              data-testid="run-wiederholen"
+                            >
+                              {wiederholen.isPending ? 'Startet …' : 'Ab Fehler wiederholen'}
+                            </Button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setLaufDetail(r)}
+                            aria-label={`Lauf vom ${zeit(r.created_at)} öffnen`}
+                            className="shrink-0 py-1.5"
+                          >
+                            <ChevronRight className="size-3.5 text-muted-foreground/60" />
+                          </button>
+                        </div>
                       </li>
                     );
                   })}

@@ -115,11 +115,12 @@ function stepIcon(step: FlowRunStep) {
   }
 }
 
-const STATUS_FARBE: Record<FlowRunStatus, string> = {
-  laeuft: 'bg-primary',
-  fertig: 'bg-success',
-  fehler: 'bg-destructive',
-  abgebrochen: 'bg-muted-foreground',
+/** Status als Text & Farbe — keine Punkte/Icons (Nutzer-Entscheid 2026-07-28). */
+const STATUS_META: Record<FlowRunStatus, { label: string; cls: string }> = {
+  laeuft: { label: 'läuft', cls: 'text-primary' },
+  fertig: { label: 'fertig', cls: 'text-success' },
+  fehler: { label: 'Fehler', cls: 'text-destructive' },
+  abgebrochen: { label: 'abgebrochen', cls: 'text-muted-foreground' },
 };
 
 /** Die Dauer eines Schritts als „1,2 s" / „340 ms", wenn beide Zeitstempel da sind. */
@@ -196,17 +197,16 @@ export default function RunStep({
         {laeuft ? (
           <Loader2 className="size-3 shrink-0 animate-spin text-primary" aria-label="läuft" />
         ) : (
-          <span
-            className={`size-2 shrink-0 rounded-full ${STATUS_FARBE[step.status]}`}
-            aria-label={step.status}
-          />
+          <span className={`shrink-0 text-[10px] font-medium ${STATUS_META[step.status].cls}`}>
+            {STATUS_META[step.status].label}
+          </span>
         )}
       </button>
 
       {offen && (
         <div className="space-y-2 px-2 pb-2 pl-7 text-ui-xs" data-testid="run-step-detail">
           <Abschnitt titel="Auftrag">
-            <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-muted-foreground">
+            <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words font-mono text-[11px] text-muted-foreground">
               {typeof step.input === 'string'
                 ? step.input
                 : JSON.stringify(step.input ?? {}, null, 2)}
@@ -239,16 +239,18 @@ export default function RunStep({
 
           {step.output != null && step.output !== '' && (
             <Abschnitt titel="Ergebnis">
-              <div className="whitespace-pre-wrap break-words text-foreground">{step.output}</div>
+              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground">
+                {step.output}
+              </pre>
             </Abschnitt>
           )}
           <Abschnitt titel="Rohdaten (vom Modell nicht gesehen)">
             {rawLoading ? (
               <span className="text-muted-foreground">lädt …</span>
             ) : rawOutput ? (
-              <div className="whitespace-pre-wrap break-words text-muted-foreground">
+              <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words font-mono text-[11px] text-muted-foreground">
                 {rawOutput}
-              </div>
+              </pre>
             ) : (
               <span className="text-muted-foreground/60">keine Rohdaten</span>
             )}
