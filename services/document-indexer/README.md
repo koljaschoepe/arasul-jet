@@ -60,12 +60,21 @@ document-indexer/
 
 ## Supported Formats
 
-| Format   | Extension | Parser      |
-| -------- | --------- | ----------- |
-| PDF      | .pdf      | PyPDF2      |
-| Word     | .docx     | python-docx |
-| Text     | .txt      | Native      |
-| Markdown | .md       | markdown    |
+| Format   | Extension            | Parser                        |
+| -------- | -------------------- | ----------------------------- |
+| PDF      | .pdf                 | PyMuPDF (+ OCR-Fallback)      |
+| Word     | .docx                | python-docx                   |
+| Text     | .txt, .log           | Native                        |
+| Markdown | .md, .markdown       | Native (Struktur bleibt)      |
+| HTML/XML | .html, .htm, .xml    | stdlib HTMLParser (Tag-Strip) |
+| Daten    | .csv, .json          | Native (Klartext)             |
+| YAML     | .yaml, .yml          | PyYAML (Tabellen-Format)      |
+| Bilder   | .png .jpg .tiff .bmp | OCR                           |
+
+Die Liste ist deckungsgleich mit der `INDEXIERBAR`-Whitelist des
+Ordner-Syncs (`apps/dashboard-backend/src/services/projects/ordnerSyncService.js`) —
+eine dort indexierbare Endung MUSS hier einen Parser haben, sonst bleibt
+das Dokument dauerhaft `pending` („wird indexiert" im Explorer).
 
 ## Indexing Pipeline
 

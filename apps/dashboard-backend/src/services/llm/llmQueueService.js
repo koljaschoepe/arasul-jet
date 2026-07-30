@@ -747,7 +747,7 @@ function createLLMQueueService(deps = {}) {
           await llmJobService.recoverOrphanedMessages();
 
           // Then: find timed-out jobs and try to recover before marking as error
-          const timedOutJobs = await database.query(`
+          const timedOutCandidates = await database.query(`
                         SELECT j.id, j.status as old_status, j.content, j.thinking, j.sources, j.matched_spaces, j.message_id
                         FROM llm_jobs j
                         WHERE (
@@ -756,6 +756,23 @@ function createLLMQueueService(deps = {}) {
                           (j.status = 'streaming' AND j.last_update_at < NOW() - INTERVAL '10 minutes')
                         )
                     `);
+
+          // Agent-Läufe sind unbegrenzt (Nutzer-Entscheidung: Abbruch nur über
+          // den Stop-Knopf) und haben lange stille Phasen (Plan/Subagenten/
+          // Terminal) ohne Content-Updates. Ein in DIESEM Prozess registrierter
+          // Stream lebt — nicht killen. Ebenso wartet ein 'pending'-Job hinter
+          // einem aktiven Lauf legitim beliebig lange (GPU strikt seriell).
+          const timedOutJobs = {
+            rows: timedOutCandidates.rows.filter(row => {
+              if (llmJobService.isStreamActive(row.id)) {
+                return false;
+              }
+              if (row.old_status === 'pending' && this.processingJobId) {
+                return false;
+              }
+              return true;
+            }),
+          };
 
           if (timedOutJobs.rows.length > 0) {
             logger.warn(`Found ${timedOutJobs.rows.length} timed-out jobs`);

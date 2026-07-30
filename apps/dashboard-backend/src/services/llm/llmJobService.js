@@ -310,11 +310,15 @@ function createLLMJobService(deps = {}) {
         [jobId]
       );
       const job = result.rows[0];
-      if (!job) {return null;}
+      if (!job) {
+        return null;
+      }
       // With a LEFT JOIN the conversation may have been deleted in a parallel
       // race; normalise the now-optional joined column so callers get a sane
       // result (user_id null) instead of the whole row silently disappearing.
-      if (job.user_id === undefined) {job.user_id = null;}
+      if (job.user_id === undefined) {
+        job.user_id = null;
+      }
       return job;
     }
 
@@ -367,12 +371,21 @@ function createLLMJobService(deps = {}) {
       }
 
       await database.transaction(async client => {
+        // Nur nicht-terminale Jobs canceln — ein nachlaufender Cancel (z. B.
+        // Aufräum-DELETE eines Clients nach SSE-Abriss) darf einen bereits
+        // abgeschlossenen Job nicht zurück auf 'cancelled' setzen.
         await client.query(
-          `UPDATE llm_jobs SET status = 'cancelled', completed_at = NOW() WHERE id = $1`,
+          `UPDATE llm_jobs SET status = 'cancelled', completed_at = NOW()
+           WHERE id = $1 AND status IN ('pending', 'streaming')`,
           [jobId]
         );
 
-        await client.query(`UPDATE chat_messages SET status = 'error' WHERE job_id = $1`, [jobId]);
+        // Ebenso: nur eine noch streamende Nachricht als Fehler markieren —
+        // eine fertig persistierte ('completed') Antwort bleibt unangetastet.
+        await client.query(
+          `UPDATE chat_messages SET status = 'error' WHERE job_id = $1 AND status = 'streaming'`,
+          [jobId]
+        );
       });
 
       activeStreams.delete(jobId);
@@ -429,6 +442,18 @@ function createLLMJobService(deps = {}) {
       let recovered = 0;
       for (const row of result.rows) {
         try {
+          // Nur echte Waisen anfassen. Ein Job in der Warteschlange ('pending')
+          // oder ein in DIESEM Prozess aktiver Stream (Agent-Läufe sind
+          // unbegrenzt, stille Phasen sind normal) ist kein Orphan — sonst
+          // werden Nachrichten langer Läufe nach 2 Minuten fälschlich auf
+          // 'error' gesetzt. Hängende Streams killt der Timeout-Checker.
+          if (
+            row.job_id_found &&
+            (row.job_status === 'pending' ||
+              (row.job_status === 'streaming' && activeStreams.has(row.job_id_found)))
+          ) {
+            continue;
+          }
           if (row.job_id_found && (row.job_content || row.job_thinking)) {
             // Job exists and has content — transfer it to chat_messages
             // Serialize JSONB values — pg returns JS objects from jsonb columns

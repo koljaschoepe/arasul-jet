@@ -95,9 +95,20 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   Projekt" trennt den Anschluss; ein gelöschtes Projekt kappt nur die
   Verbindung, die Sandbox bleibt.
 
+- **Chat-Anhänge (2026-07-30)** — eine in den Chat gezogene Datei landet
+  ERST im Projektordner (Ziel-Ordner-Chip oder Wurzel) und läuft dann als
+  normaler Agent-Auftrag; die Nutzer-Nachricht trägt den Anhang als
+  klickbare Projektdatei-Karte. Kleine Text-Dateien (≤ 16 KB) gehen mit
+  exaktem Inhalt in den Auftrag (kleine Modelle überspringen sonst das
+  Lesen). Die frühere Dokument-Analyse-Pipeline bleibt nur als Fallback
+  ohne aktives Projekt.
+
 Der **Git-Sync-Checkout** (Plan 013, `PROJECT_GIT_DIR`) liegt im **selben**
 Ordner — ein Git-gekoppeltes Projekt sieht im Explorer schlicht sein Repo.
 `.git` wird ausgeblendet und ist vor Löschen/Umbenennen geschützt.
+**Git-gekoppelte Projekte sind vom Auto-Index ausgenommen** (der Checkout
+würde sonst hunderte Repo-Dateien durch die GPU-Analyse jagen); der
+Coding-Agent arbeitet dort über Datei-Werkzeuge und Terminal statt RAG.
 
 ## KI-Zugang für die Sandboxes (Claude)
 

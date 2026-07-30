@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Any
 
 from document_parsers import (
     parse_pdf, parse_pdf_streaming, parse_docx, parse_txt, parse_markdown,
-    parse_yaml_table, parse_image
+    parse_yaml_table, parse_image, parse_html
 )
 from metadata_extractor import extract_metadata, extract_key_topics
 from text_chunker import chunk_text_hierarchical, MIN_CHILD_WORDS
@@ -59,6 +59,14 @@ PARSERS = {
     '.docx': parse_docx,
     '.yaml': parse_yaml_table,
     '.yml': parse_yaml_table,
+    # Markup → plain text
+    '.html': parse_html,
+    '.htm': parse_html,
+    '.xml': parse_html,
+    # Plain-text data formats
+    '.csv': parse_txt,
+    '.json': parse_txt,
+    '.log': parse_txt,
     # Image formats (OCR)
     '.png': parse_image,
     '.jpg': parse_image,
@@ -76,6 +84,11 @@ SUPPORTED_MIMES = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
     'text/yaml': '.yaml',
     'application/x-yaml': '.yaml',
+    'text/html': '.html',
+    'application/xml': '.xml',
+    'text/xml': '.xml',
+    'text/csv': '.csv',
+    'application/json': '.json',
     # Image formats (OCR)
     'image/png': '.png',
     'image/jpeg': '.jpg',
@@ -105,6 +118,12 @@ def get_mime_type(filename: str) -> str:
         '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         '.yaml': 'text/yaml',
         '.yml': 'text/yaml',
+        '.html': 'text/html',
+        '.htm': 'text/html',
+        '.xml': 'application/xml',
+        '.csv': 'text/csv',
+        '.json': 'application/json',
+        '.log': 'text/plain',
     }
     return mime_map.get(ext, 'application/octet-stream')
 

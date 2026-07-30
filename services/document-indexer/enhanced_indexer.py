@@ -254,6 +254,19 @@ class EnhancedDocumentIndexer:
         # Check if file type is supported
         if file_ext not in self.parsers:
             logger.info(f"Skipping unsupported file: {filename}")
+            # A pending DB row for this content would otherwise stay
+            # "pending" forever and clog every scan cycle — fail it once.
+            try:
+                existing = self.db.get_document_by_hash(
+                    self.calculate_content_hash(data)
+                )
+                if existing and existing['status'] == 'pending':
+                    self.db.update_document_status(
+                        existing['id'], 'failed',
+                        f'Dateityp {file_ext} wird nicht unterstützt'
+                    )
+            except Exception as e:
+                logger.debug(f"Could not mark unsupported file as failed: {e}")
             return None
 
         # CRITICAL-FIX: File size validation to prevent OOM
@@ -299,6 +312,21 @@ class EnhancedDocumentIndexer:
                     f"Document already {existing['status']} (content match): "
                     f"{filename}"
                 )
+                # Backfill: rows created outside the indexer (Ordner-Sync) or
+                # with a stale hash (object renamed/moved) fail the scan loop's
+                # cheap file-hash pre-check every cycle — the object is then
+                # re-downloaded and burns a cap slot. With >=10 such objects,
+                # new documents behind them starve forever. Align the stored
+                # hash with the object we just matched by content.
+                if existing.get('file_hash') != file_hash:
+                    try:
+                        self.db.update_document(existing['id'], {'file_hash': file_hash})
+                        logger.info(
+                            f"file_hash backfilled for {filename} "
+                            f"(pre-check hits from next cycle)"
+                        )
+                    except Exception as e:
+                        logger.debug(f"file_hash backfill failed: {e}")
                 return existing['id']
             elif existing['status'] in ('pending', 'failed'):
                 doc_id = existing['id']

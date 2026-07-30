@@ -366,7 +366,7 @@ router.post(
   validateBody(PostMessageBody),
   asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { role, content, thinking } = req.body;
+    const { role, content, thinking, datei } = req.body;
 
     // PHASE3-FIX: Validate conversation_id
     if (!isValidConversationId(id)) {
@@ -378,10 +378,10 @@ router.post(
     // DB-001 FIX: The trigger_update_message_count on chat_messages already handles
     // both message_count increment and updated_at. Manual increment caused double-counting.
     const result = await db.query(
-      `INSERT INTO chat_messages (conversation_id, role, content, thinking, created_at)
-         VALUES ($1, $2, $3, $4, NOW())
-         RETURNING id, role, content, thinking, created_at`,
-      [id, role, content, thinking || null]
+      `INSERT INTO chat_messages (conversation_id, role, content, thinking, datei, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         RETURNING id, role, content, thinking, datei, created_at`,
+      [id, role, content, thinking || null, datei ? JSON.stringify(datei) : null]
     );
 
     // Auto-Titel aus der ersten Nutzer-Nachricht (Schritt 20). Best-effort im

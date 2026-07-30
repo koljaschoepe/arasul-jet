@@ -1,6 +1,6 @@
 """
 Document parsers for different file formats
-Supports PDF, DOCX, TXT, Markdown, and YAML tables
+Supports PDF, DOCX, TXT, Markdown, HTML/XML, CSV/JSON/Log, and YAML tables
 
 MEDIUM-PRIORITY-FIX 3.3: Added streaming PDF parser for memory-efficient processing
 OCR-INTEGRATION: Added automatic OCR fallback for scanned PDFs
@@ -395,6 +395,64 @@ def parse_markdown(file_obj: IO[bytes]) -> str:
 
     except Exception as e:
         logger.error(f"Error parsing Markdown: {e}")
+        raise
+
+
+def parse_html(file_obj: IO[bytes]) -> str:
+    """
+    Parse HTML/XML file and extract readable text.
+
+    Strips markup (including <script>/<style> contents), unescapes
+    entities, and normalizes whitespace so the result chunks cleanly.
+
+    Args:
+        file_obj: File object containing HTML/XML data
+
+    Returns:
+        Plain text extracted from the markup
+    """
+    from html.parser import HTMLParser
+
+    class _TextExtractor(HTMLParser):
+        SKIP_TAGS = {'script', 'style', 'noscript', 'template'}
+        BLOCK_TAGS = {
+            'p', 'div', 'section', 'article', 'header', 'footer', 'main',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'tr', 'br', 'hr',
+            'table', 'ul', 'ol', 'blockquote', 'pre', 'td', 'th'
+        }
+
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.parts = []
+            self._skip_depth = 0
+
+        def handle_starttag(self, tag, attrs):
+            if tag in self.SKIP_TAGS:
+                self._skip_depth += 1
+            elif tag in self.BLOCK_TAGS:
+                self.parts.append('\n')
+
+        def handle_endtag(self, tag):
+            if tag in self.SKIP_TAGS and self._skip_depth > 0:
+                self._skip_depth -= 1
+            elif tag in self.BLOCK_TAGS:
+                self.parts.append('\n')
+
+        def handle_data(self, data):
+            if not self._skip_depth and data.strip():
+                self.parts.append(data)
+
+    try:
+        raw = parse_txt(file_obj)
+        extractor = _TextExtractor()
+        extractor.feed(raw)
+        extractor.close()
+        text = ''.join(extractor.parts)
+        lines = [' '.join(line.split()) for line in text.splitlines()]
+        return '\n'.join(line for line in lines if line).strip()
+
+    except Exception as e:
+        logger.error(f"Error parsing HTML: {e}")
         raise
 
 

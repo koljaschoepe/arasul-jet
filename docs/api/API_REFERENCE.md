@@ -348,9 +348,20 @@ klassischen Stream zurück (`warning`-Code `AGENT_TOOLS_UNSUPPORTED`).
 {
   "role": "user|assistant",
   "content": "Message content",
-  "thinking": "Optional thinking content"
+  "thinking": "Optional thinking content",
+  "datei": {
+    "art": "projektdatei",
+    "project_id": "<uuid>",
+    "pfad": "test/notiz.txt",
+    "name": "notiz.txt"
+  }
 }
 ```
+
+`datei` (optional, Form wie beim PUT unten): Chat-Anhänge landen im
+Ein-Ordner-Modell zuerst per `POST /api/projects/:id/dateien/upload` im
+Projektordner; die Nutzer-Nachricht trägt den Verweis dann direkt beim
+Anlegen als klickbare Projektdatei-Karte.
 
 **PUT /api/chats/:id/messages/:messageId/datei:**
 
@@ -865,6 +876,12 @@ symlink-sicher innerhalb des Projektordners (`resolveRealWithinRoots`);
 > Marker-Datei `.arasul` im Projektordner liegt (sie entsteht erst, wenn
 > Platte und DB übereinstimmen) — ein leerer/fremder Ordner (nicht
 > gemountetes Volume) löst nie Massen-Löschungen aus.
+> **Git-gekoppelte Projekte sind vom Auto-Index AUSGENOMMEN** (2026-07-30):
+> ihr Ordner trägt einen kompletten Repo-Checkout — hunderte Repo-Dateien
+> würden Stunden GPU-Zeit für KI-Analysen verbrennen und den RAG-Index
+> vergiften. Der Coding-Agent arbeitet auf Repos über Datei-Werkzeuge und
+> Terminal, nicht über RAG; der Explorer zeigt den Baum weiterhin direkt
+> von der Platte.
 
 ### Git-Sync (Plan 013, B9)
 

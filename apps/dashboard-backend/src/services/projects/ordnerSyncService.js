@@ -662,11 +662,26 @@ async function materialisiere(projectId, overrides = {}) {
   return { dokumente: geholt };
 }
 
+/**
+ * Git-gekoppelte Projekte (project_git) tragen einen kompletten Repo-Checkout
+ * im Ordner. Der wird NICHT automatisch in die Wissens-Pipeline gegeben —
+ * hunderte Repo-Dateien (Configs, Lockfiles, Docs) würden Stunden GPU-Zeit
+ * für KI-Analysen verbrennen und den RAG-Index vergiften. Der Coding-Agent
+ * arbeitet auf Repos über Datei-Werkzeuge und Terminal, nicht über RAG.
+ */
+async function istGitGekoppelt(projectId, d) {
+  const { rows } = await d.db.query('SELECT 1 FROM project_git WHERE project_id = $1', [projectId]);
+  return rows.length > 0;
+}
+
 /** Einen Lauf je Projekt serialisieren (materialisieren + abgleichen). */
 function laufFuer(projectId, overrides = {}) {
   const kette = Promise.resolve(laufend.get(String(projectId)))
     .catch(() => {})
     .then(async () => {
+      if (await istGitGekoppelt(projectId, deps(overrides))) {
+        return null;
+      }
       await materialisiere(projectId, overrides);
       return synchronisiere(projectId, overrides);
     });

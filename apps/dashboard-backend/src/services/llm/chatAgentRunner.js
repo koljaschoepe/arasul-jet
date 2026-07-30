@@ -490,6 +490,7 @@ async function processAgentChatJob(ctx, job) {
   let toolsAktiv = true;
   let fertigText = '';
   let pruefungGemacht = false;
+  let ankuendigungNachgefasst = false;
 
   // --- Platten-Wahrheit: Welche Dateien hat dieser Lauf WIRKLICH angelegt? ---
   // Kleine Modelle behaupten gern Erfolge („HTML-Datei erstellt"), ohne je
@@ -678,6 +679,27 @@ async function processAgentChatJob(ctx, job) {
             fertigText += '\n\n';
             continue;
           }
+        }
+        // Ankündigungs-Wächter: kleine Modelle beenden Aufträge gern mit
+        // „Ich schreibe die Datei jetzt …" statt zu handeln. Eine angekündigte
+        // Aktion ohne Werkzeug-Aufruf bekommt genau EINE Nachfass-Runde.
+        const kuendigtNurAn =
+          /\b(ich\s+(schreibe|erstelle|lege|speichere|kopiere|beginne)|jetzt\s+(schreibe|erstelle|lege|speichere)|werde\s+ich\s+(die|den|das)?\s*\w*\s*(schreiben|erstellen|anlegen|speichern))\b/i.test(
+            content || ''
+          );
+        if (!ankuendigungNachgefasst && kuendigtNurAn && toolsAktiv && !abgebrochen) {
+          ankuendigungNachgefasst = true;
+          messages.push({ role: 'assistant', content });
+          messages.push({
+            role: 'user',
+            content:
+              'Du hast eine Aktion nur ANGEKÜNDIGT, aber nicht ausgeführt. ' +
+              'Führe sie JETZT mit deinen Werkzeugen aus (z. B. dateien_schreiben) ' +
+              'und antworte erst danach mit dem Ergebnis — ohne weitere Ankündigungen.',
+          });
+          separator();
+          fertigText += '\n\n';
+          continue;
         }
         break; // fertige Antwort — Token sind bereits gestreamt
       }
