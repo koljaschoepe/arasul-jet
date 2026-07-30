@@ -254,6 +254,19 @@ class EnhancedDocumentIndexer:
         # Check if file type is supported
         if file_ext not in self.parsers:
             logger.info(f"Skipping unsupported file: {filename}")
+            # A pending DB row for this content would otherwise stay
+            # "pending" forever and clog every scan cycle — fail it once.
+            try:
+                existing = self.db.get_document_by_hash(
+                    self.calculate_content_hash(data)
+                )
+                if existing and existing['status'] == 'pending':
+                    self.db.update_document_status(
+                        existing['id'], 'failed',
+                        f'Dateityp {file_ext} wird nicht unterstützt'
+                    )
+            except Exception as e:
+                logger.debug(f"Could not mark unsupported file as failed: {e}")
             return None
 
         # CRITICAL-FIX: File size validation to prevent OOM
