@@ -774,6 +774,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         resetReconnectTimeout();
 
+        // SSE-PUFFER-FIX: identisch zum Haupt-Stream — zerschnittene
+        // `data:`-Zeilen über Chunk-Grenzen hinweg zusammensetzen.
+        let sseRest = '';
+
         for (;;) {
           const readPromise = reader.read();
           const timeoutPromise = new Promise<never>((_, reject) => {
@@ -785,8 +789,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           isFirstReconnectRead = false;
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(l => l.trim().startsWith('data:'));
+          sseRest += decoder.decode(value, { stream: true });
+          const rawLines = sseRest.split('\n');
+          sseRest = rawLines.pop() ?? '';
+          const lines = rawLines.filter(l => l.trim().startsWith('data:'));
 
           for (const line of lines) {
             try {
@@ -1252,6 +1258,15 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         resetStreamTimeout();
 
+        // SSE-PUFFER-FIX (Harness v2): Eine `data:`-Zeile kann an JEDER
+        // Chunk-Grenze zerschnitten ankommen — ohne Zeilenpuffer wird das
+        // JSON-Fragment als Parse-Fehler verworfen und der Rest (ohne
+        // `data:`-Präfix) still weggefiltert. Bei kleinen Token-Events fiel
+        // das kaum auf; die größeren Agent-Events (Schritte, Gedankengang,
+        // Aufgabenlisten) rissen damit reihenweise ab. Der Puffer hält die
+        // letzte unvollständige Zeile bis zum nächsten Chunk zurück.
+        let sseRest = '';
+
         for (;;) {
           const readPromise = reader.read();
           // TIMEOUT-FIX: Create fresh reject ref per iteration and clear old timeout
@@ -1268,8 +1283,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           isFirstRead = false;
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(l => l.trim().startsWith('data:'));
+          sseRest += decoder.decode(value, { stream: true });
+          const rawLines = sseRest.split('\n');
+          sseRest = rawLines.pop() ?? '';
+          const lines = rawLines.filter(l => l.trim().startsWith('data:'));
 
           for (const line of lines) {
             try {
