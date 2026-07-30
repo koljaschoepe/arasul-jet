@@ -74,10 +74,12 @@ export function leererSchritt(): FlowStep {
   return { name: '', typ: 'subagent', rolle: '', auftrag: '', iterationen: 1 };
 }
 
-/** Werkzeuge, die einen erlaubten Ordner voraussetzen. */
+/** Werkzeuge, die einen erlaubten Ordner voraussetzen (spiegelt `needsFolder` im Backend). */
 export const ORDNER_WERKZEUGE: FlowTool[] = [
   'dateien_lesen',
   'dateien_schreiben',
+  'dateien_bearbeiten',
+  'dateien_anhaengen',
   'dateien_suchen',
   'terminal',
 ];
@@ -145,14 +147,21 @@ function roleToBody(r: FlowRole) {
 
 /** Einen Schritt in die API-Form bringen; verwirft die für den Typ irrelevanten Felder. */
 function stepToBody(s: FlowStep): Record<string, unknown> {
+  const wiederholeUeber = (s.wiederhole_ueber ?? '').trim();
   const out: Record<string, unknown> = {
     name: s.name.trim(),
     typ: s.typ,
-    iterationen: s.iterationen ?? 1,
+    // Backend lehnt wiederhole_ueber + iterationen > 1 zusammen ab — mit
+    // gesetzter Liste ist der Zähler bedeutungslos und wird auf 1 gezwungen.
+    iterationen: wiederholeUeber ? 1 : (s.iterationen ?? 1),
   };
+  if (wiederholeUeber) out.wiederhole_ueber = wiederholeUeber;
   if (s.typ === 'subagent') {
     out.rolle = (s.rolle ?? '').trim();
     out.auftrag = (s.auftrag ?? '').trim();
+    // Schritt-eigenes Modell (optional) — nur senden, wenn gesetzt.
+    const modell = (s.modell ?? '').trim();
+    if (modell) out.modell = modell;
   } else {
     if (s.werkzeug) out.werkzeug = s.werkzeug;
     // Leere Parameterwerte fallen weg, damit eine halb ausgefüllte Zeile nicht die Prüfung sprengt.

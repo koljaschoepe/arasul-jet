@@ -33,6 +33,8 @@ export interface Flow {
 export type FlowTool =
   | 'dateien_lesen'
   | 'dateien_schreiben'
+  | 'dateien_bearbeiten'
+  | 'dateien_anhaengen'
   | 'dateien_suchen'
   | 'rag_suche'
   | 'web_suche'
@@ -64,6 +66,11 @@ export type FlowStepType = 'subagent' | 'werkzeug';
  * delegiert an eine deklarierte Rolle mit einem `auftrag` (Vorlage), `werkzeug`
  * ruft ein Werkzeug direkt mit `parameter` auf. `iterationen` wiederholt den
  * Schritt bis zu N-mal und reicht die vorige Ausgabe als {{vorher}} weiter.
+ *
+ * `wiederhole_ueber` (Harness v2) macht den Schritt zur Schleife über eine
+ * Liste (Argument oder Ausgabe eines früheren Schritts; {{element}}, {{index}},
+ * {{anzahl}} im Scope) — schließt `iterationen` > 1 aus. `modell` überschreibt
+ * das Flow-Modell nur für diesen (Subagent-)Schritt.
  */
 export interface FlowStep {
   name: string;
@@ -73,6 +80,8 @@ export interface FlowStep {
   werkzeug?: FlowTool;
   parameter?: Record<string, string | number | boolean>;
   iterationen: number;
+  wiederhole_ueber?: string;
+  modell?: string;
 }
 
 /** Die Notbremsen eines Flows (§7). */

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { dateiListe } from '@/contexts/ChatContext';
-import type { AgentToolStep, ChatMessage, MessageDatei } from '@/contexts/ChatContext';
+import type { AgentToolStep, ChatMessage, MessageDatei, TodoEintrag } from '@/contexts/ChatContext';
 import type { DocumentSource } from '@/types';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
@@ -131,12 +131,69 @@ function SourcesFooter({ sources }: { sources: DocumentSource[] }) {
   );
 }
 
+/**
+ * Persistierte Aufgabenliste (Schritt kind='todos', output = Markdown-
+ * Checkboxen) → strukturierte Einträge. Spiegelt `parseTodos` im Backend:
+ * "- [ ]" offen, "- [~]" läuft, "- [x]" fertig.
+ */
+function parseTodoSchritt(output: string | undefined): TodoEintrag[] {
+  const todos: TodoEintrag[] = [];
+  for (const zeile of (output || '').split('\n')) {
+    const m = zeile.match(/^\s*[-*]\s*\[([ xX~])\]\s*(.+)$/);
+    if (m && m[2]) {
+      todos.push({
+        text: m[2].trim(),
+        status: m[1] === ' ' ? 'offen' : m[1] === '~' ? 'laeuft' : 'fertig',
+      });
+    }
+  }
+  return todos;
+}
+
+/**
+ * Aufgabenlisten-Panel eines Agentenlaufs: eine Zeile je Aufgabe, Status als
+ * Text-Stil + Farbe (fertig = durchgestrichen/gedämpft-grün, läuft = Akzent,
+ * offen = gedämpft) — bewusst ohne Status-Icons/-Punkte (Design-System).
+ */
+function TodoListe({ todos }: { todos: TodoEintrag[] }) {
+  if (todos.length === 0) return null;
+  const fertig = todos.filter(t => t.status === 'fertig').length;
+  return (
+    <div className="my-1 rounded border border-border px-2 py-1.5" data-testid="todo-liste">
+      <div className="mb-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <ListTodo className="size-3 shrink-0 opacity-70" />
+        <span>
+          Aufgaben · {fertig}/{todos.length} erledigt
+        </span>
+      </div>
+      <ul className="flex flex-col gap-0.5">
+        {todos.map((t, i) => (
+          <li
+            key={`${t.text}-${i}`}
+            className={cn(
+              'text-xs leading-snug [overflow-wrap:anywhere]',
+              t.status === 'fertig' && 'text-success/70 line-through',
+              t.status === 'laeuft' && 'text-primary',
+              t.status === 'offen' && 'text-muted-foreground'
+            )}
+          >
+            {t.text}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Kompakte deutsche Beschriftung eines Werkzeug-Schritts aus Name + Parametern. */
 function agentStepLabel(step: AgentToolStep): string {
   const p = step.params || {};
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
   if (step.kind === 'plan') {
     return step.status === 'running' ? 'erstellt einen Plan' : 'Plan erstellt';
+  }
+  if (step.kind === 'todos') {
+    return 'aktualisiert die Aufgabenliste';
   }
   if (step.kind === 'subagent') {
     const auftrag = str(p.auftrag);
@@ -154,6 +211,12 @@ function agentStepLabel(step: AgentToolStep): string {
     }
     case 'dateien_schreiben':
       return `schreibt ${str(p.pfad) || 'Datei'}`;
+    case 'dateien_bearbeiten':
+      return `ändert ${str(p.pfad) || 'Datei'}`;
+    case 'dateien_anhaengen':
+      return `ergänzt ${str(p.pfad) || 'Datei'}`;
+    case 'todo_liste':
+      return 'aktualisiert die Aufgabenliste';
     case 'dateien_suchen': {
       const muster = str(p.muster) || str(p.text) || str(p.suchbegriff) || str(p.query);
       return muster ? `sucht Dateien: ${muster}` : 'durchsucht Dateien';
@@ -179,7 +242,7 @@ function agentStepLabel(step: AgentToolStep): string {
 }
 
 function agentStepIcon(step: AgentToolStep): React.ReactNode {
-  if (step.kind === 'plan') {
+  if (step.kind === 'plan' || step.kind === 'todos') {
     return <ListTodo className="size-3" />;
   }
   if (step.kind === 'subagent') {
@@ -189,8 +252,12 @@ function agentStepIcon(step: AgentToolStep): React.ReactNode {
     case 'dateien':
     case 'dateien_lesen':
     case 'dateien_schreiben':
+    case 'dateien_bearbeiten':
+    case 'dateien_anhaengen':
     case 'dateien_suchen':
       return <FileText className="size-3" />;
+    case 'todo_liste':
+      return <ListTodo className="size-3" />;
     case 'rag':
     case 'rag_suche':
     case 'web_suche':
@@ -343,11 +410,23 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
   const hasThinking = Boolean(message.thinking && message.thinking.trim());
   const matched = message.matchedSpaces || [];
 
-  const steps = message.steps || [];
+  const alleSteps = message.steps || [];
+  // Aufgabenliste: live aus dem Stream (message.todos) oder aus dem
+  // persistierten Schritt kind='todos' (letzter Stand). Der Schritt selbst
+  // erscheint dann NICHT mehr als normale Schritt-Zeile (sonst doppelt).
+  const todoSchritt = [...alleSteps].reverse().find(s => s.kind === 'todos');
+  const todos =
+    message.todos && message.todos.length > 0
+      ? message.todos
+      : todoSchritt
+        ? parseTodoSchritt(todoSchritt.result)
+        : [];
+  const steps = todos.length > 0 ? alleSteps.filter(s => s.kind !== 'todos') : alleSteps;
   const gespeicherteDateien = dateiListe(message.datei).filter(d => d.art === 'projektdatei');
 
   return (
     <div className="group/nachricht my-2" data-testid="assistant-message">
+      {todos.length > 0 && <TodoListe todos={todos} />}
       {steps.length > 0 && <AgentSteps steps={steps} laufend={isStreaming} />}
       {hasThinking && (
         <StepRow

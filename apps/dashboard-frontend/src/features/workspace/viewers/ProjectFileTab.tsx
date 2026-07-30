@@ -6,7 +6,7 @@
  * Binärdateien und Übergrößen liefern kein `inhalt` — dann gibt es statt des
  * Editors einen Download-Hinweis.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Code2, Download, Eye, Save } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
@@ -91,6 +91,50 @@ export default function ProjectFileTab({
   }, [projectId, filePath, api]);
 
   const dirty = original !== null && draft !== original;
+
+  // Aktueller Zustand für die Fokus-Aktualisierung unten — der Listener soll
+  // nicht bei jedem Tastendruck neu registriert werden.
+  const zustandRef = useRef({ dirty, saving, loading, original });
+  useEffect(() => {
+    zustandRef.current = { dirty, saving, loading, original };
+  }, [dirty, saving, loading, original]);
+
+  // Externe Änderungen bemerken (z. B. der Chat-Agent schreibt dieselbe
+  // Datei): beim Zurückkehren ins Fenster die Datei still neu laden — aber
+  // NUR, wenn keine ungespeicherten Änderungen vorliegen. Kein Polling.
+  useEffect(() => {
+    let inFlight = false;
+    const refresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      const z = zustandRef.current;
+      if (inFlight || z.dirty || z.saving || z.loading) return;
+      inFlight = true;
+      api
+        .get<{ data: AblageInhalt }>(
+          `/projects/${projectId}/dateien/inhalt?pfad=${encodeURIComponent(filePath)}`,
+          { showError: false }
+        )
+        .then(res => {
+          const jetzt = zustandRef.current;
+          // Nichts überschreiben, wenn der Nutzer inzwischen tippt oder sich
+          // auf dem Server nichts geändert hat (erhält die Cursor-Position).
+          if (jetzt.dirty || res.data.inhalt === jetzt.original) return;
+          setMeta(res.data);
+          setOriginal(res.data.inhalt);
+          setDraft(res.data.inhalt ?? '');
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          inFlight = false;
+        });
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [api, projectId, filePath]);
 
   const save = async () => {
     setSaving(true);
