@@ -129,13 +129,13 @@ describe('AblaufEditor', () => {
     const s = snap();
     expect(s.body.schritte).toHaveLength(1);
     expect(s.body.schritte[0]).toMatchObject({
-      name: 'rolle-1',
+      name: 'rolle_1',
       typ: 'subagent',
-      rolle: 'rolle-1',
+      rolle: 'rolle_1',
       iterationen: 1,
     });
     // Die gespiegelte Rolle steht ebenfalls im Payload.
-    expect((s.body.rollen as { name: string }[]).some(r => r.name === 'rolle-1')).toBe(true);
+    expect((s.body.rollen as { name: string }[]).some(r => r.name === 'rolle_1')).toBe(true);
   });
 
   it('neuer Rollen-Schritt spiegelt 1:1 eine gleichnamige Rolle', async () => {

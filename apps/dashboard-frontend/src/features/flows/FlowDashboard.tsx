@@ -11,7 +11,7 @@
  * Bewusst read-only bis auf die Schlüssel-Verwaltung — die Definition ändert man
  * im Editor, hier geht es ums Betreiben.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
@@ -126,6 +126,12 @@ export default function FlowDashboard({
   // Aufgeklappter Lauf: die Detailansicht (Agenten-Baum, live) ersetzt die
   // Karten-Übersicht, bis „Alle Läufe" zurückführt.
   const [laufDetail, setLaufDetail] = useState<FlowRunSummary | null>(null);
+
+  // Flow-Wechsel schließt eine offene Lauf-Detailansicht — sonst zeigt die
+  // Zentrale des neuen Flows noch den Lauf des vorherigen.
+  useEffect(() => {
+    setLaufDetail(null);
+  }, [name]);
 
   // „Ab Fehler wiederholen": startet einen neuen Lauf, der die Ausgaben der
   // erfolgreichen Schritte des alten übernimmt (nur Flows mit Schritt-Kette).

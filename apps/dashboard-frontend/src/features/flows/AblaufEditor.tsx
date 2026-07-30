@@ -60,12 +60,13 @@ function textToParams(text: string): Record<string, string> {
   return out;
 }
 
-/** Ein eindeutiger Rollen-/Schrittname `rolle-N`. */
+/** Ein eindeutiger Rollen-/Schrittname `rolle_N` — Unterstrich, kein
+ *  Bindestrich: das Backend-Schema erlaubt nur `[a-z][a-z0-9_]`. */
 function neuerName(vorhandene: string[]): string {
   let i = vorhandene.length + 1;
   const set = new Set(vorhandene);
-  while (set.has(`rolle-${i}`)) i++;
-  return `rolle-${i}`;
+  while (set.has(`rolle_${i}`)) i++;
+  return `rolle_${i}`;
 }
 
 /** Die Inline-Rollen-Felder (Prompt/Werkzeuge/Ergebnis) — geteilt von beiden Modi. */
@@ -215,6 +216,36 @@ export default function AblaufEditor({
         { name, typ: 'subagent', rolle: name, auftrag: '', iterationen: 1 },
       ],
       rollen: [...value.rollen, { ...leereRolle(), name }],
+    });
+  };
+
+  // Art wechseln: die gespiegelte Inline-Rolle folgt dem Schritt — beim Wechsel
+  // zu „Werkzeug" verschwindet sie wieder (sonst schickte der Editor eine
+  // verwaiste, leere Rolle mit und das Speichern scheiterte am Schema).
+  const setSchrittTyp = (i: number, typ: FlowStep['typ']) => {
+    const step = value.schritte[i];
+    if (!step || step.typ === typ) return;
+    if (typ === 'werkzeug') {
+      const nochGenutzt = value.schritte.some(
+        (s, j) => j !== i && s.typ === 'subagent' && s.rolle === step.rolle
+      );
+      onChange({
+        ...value,
+        schritte: value.schritte.map((s, j) =>
+          j === i ? { ...s, typ, rolle: undefined, auftrag: undefined } : s
+        ),
+        rollen: nochGenutzt ? value.rollen : value.rollen.filter(r => r.name !== step.rolle),
+      });
+      return;
+    }
+    const name = step.name;
+    const vorhanden = value.rollen.some(r => r.name === name);
+    onChange({
+      ...value,
+      schritte: value.schritte.map((s, j) =>
+        j === i ? { ...s, typ, rolle: name, auftrag: s.auftrag ?? '' } : s
+      ),
+      rollen: vorhanden ? value.rollen : [...value.rollen, { ...leereRolle(), name }],
     });
   };
 
@@ -389,7 +420,7 @@ export default function AblaufEditor({
                 />
                 <select
                   value={s.typ}
-                  onChange={e => setSchritt(i, { typ: e.target.value as FlowStep['typ'] })}
+                  onChange={e => setSchrittTyp(i, e.target.value as FlowStep['typ'])}
                   aria-label={`Art von Schritt ${i + 1}`}
                   className={selectClass}
                 >
