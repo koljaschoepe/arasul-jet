@@ -312,13 +312,19 @@ class EnhancedDocumentIndexer:
                     f"Document already {existing['status']} (content match): "
                     f"{filename}"
                 )
-                # Backfill: rows created outside the indexer (e.g. Ordner-Sync)
-                # have no file_hash, so the scan loop's cheap pre-check misses
-                # every cycle, re-downloads the object and burns a cap slot —
-                # with >=10 such objects, new documents behind them starve.
-                if not existing.get('file_hash'):
+                # Backfill: rows created outside the indexer (Ordner-Sync) or
+                # with a stale hash (object renamed/moved) fail the scan loop's
+                # cheap file-hash pre-check every cycle — the object is then
+                # re-downloaded and burns a cap slot. With >=10 such objects,
+                # new documents behind them starve forever. Align the stored
+                # hash with the object we just matched by content.
+                if existing.get('file_hash') != file_hash:
                     try:
                         self.db.update_document(existing['id'], {'file_hash': file_hash})
+                        logger.info(
+                            f"file_hash backfilled for {filename} "
+                            f"(pre-check hits from next cycle)"
+                        )
                     except Exception as e:
                         logger.debug(f"file_hash backfill failed: {e}")
                 return existing['id']
