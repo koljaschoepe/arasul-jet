@@ -357,3 +357,171 @@ describe('berechneVorabErgebnisse', () => {
     expect(berechneVorabErgebnisse(schritte, []).size).toBe(0);
   });
 });
+
+describe('parseListe (wiederhole_ueber)', () => {
+  const { parseListe } = require('../../src/services/flows/stepExecutor');
+
+  test('liest ein reines JSON-Array', () => {
+    expect(parseListe('["a","b","c"]')).toEqual(['a', 'b', 'c']);
+  });
+
+  test('liest ein in Prosa eingebettetes JSON-Array', () => {
+    expect(parseListe('Hier die Gliederung:\n```json\n["Intro","Haupt"]\n```\nFertig.')).toEqual([
+      'Intro',
+      'Haupt',
+    ]);
+  });
+
+  test('fällt auf Zeilenform zurück und entfernt Aufzählungszeichen', () => {
+    expect(parseListe('- Intro\n2. Hauptteil\n* Schluss\n\n')).toEqual([
+      'Intro',
+      'Hauptteil',
+      'Schluss',
+    ]);
+  });
+
+  test('leerer Text ergibt leere Liste', () => {
+    expect(parseListe('   ')).toEqual([]);
+  });
+});
+
+describe('executeSteps mit wiederhole_ueber', () => {
+  test('läuft einmal je Element mit {{element}}/{{index}} und verkettet die Ausgaben', async () => {
+    const subMock = jest.fn(async params => `OUT(${params.auftrag})`);
+    const runLoop = jest.fn().mockResolvedValue({ result: 'FINAL' });
+
+    const flow = {
+      schritte: [
+        {
+          name: 'sektion',
+          typ: 'subagent',
+          rolle: 'autor',
+          auftrag: 'Schreibe {{element}} ({{index}}/{{anzahl}})',
+          iterationen: 1,
+          wiederhole_ueber: 'gliederung',
+        },
+      ],
+      systemPrompt: 'Body',
+      grenzen,
+    };
+
+    const res = await executeSteps({
+      flow,
+      werte: { gliederung: '- Intro\n- Schluss' },
+      userInput: 'UI',
+      model: 'm',
+      context: { rollen: [] },
+      makeTools: () => [],
+      runLoop,
+      recordWerkzeug: jest.fn(),
+      SubagentToolClass: makeFakeSubagent(subMock),
+    });
+
+    expect(res.result).toBe('FINAL');
+    expect(subMock).toHaveBeenCalledTimes(2);
+    expect(subMock.mock.calls[0][0].auftrag).toBe('Schreibe Intro (1/2)');
+    expect(subMock.mock.calls[1][0].auftrag).toBe('Schreibe Schluss (2/2)');
+    // Die Synthese sieht die verketteten Teil-Ausgaben.
+    const synthInput = runLoop.mock.calls[0][0].userInput;
+    expect(synthInput).toContain('OUT(Schreibe Intro (1/2))');
+    expect(synthInput).toContain('OUT(Schreibe Schluss (2/2))');
+  });
+
+  test('leere Liste beendet den Lauf mit klarem Fehler', async () => {
+    const flow = {
+      schritte: [
+        {
+          name: 's',
+          typ: 'subagent',
+          rolle: 'r',
+          auftrag: 'x {{element}}',
+          iterationen: 1,
+          wiederhole_ueber: 'liste',
+        },
+      ],
+      systemPrompt: 'Body',
+      grenzen,
+    };
+    const res = await executeSteps({
+      flow,
+      werte: { liste: '' },
+      userInput: 'UI',
+      model: 'm',
+      context: { rollen: [] },
+      makeTools: () => [],
+      runLoop: jest.fn(),
+      recordWerkzeug: jest.fn(),
+      SubagentToolClass: makeFakeSubagent(jest.fn()),
+    });
+    expect(res.result).toBeNull();
+    expect(res.error).toMatch(/Liste "liste" ist leer/);
+  });
+
+  test('ein Schritt-modell überschreibt das Kontext-Modell für die Delegation', async () => {
+    const subMock = jest.fn(async () => 'OK');
+    const runLoop = jest.fn().mockResolvedValue({ result: 'F' });
+    const flow = {
+      schritte: [
+        {
+          name: 's',
+          typ: 'subagent',
+          rolle: 'r',
+          auftrag: 'x',
+          iterationen: 1,
+          modell: 'qwen3:32b',
+        },
+      ],
+      systemPrompt: 'Body',
+      grenzen,
+    };
+    await executeSteps({
+      flow,
+      werte: {},
+      userInput: 'UI',
+      model: 'm',
+      context: { rollen: [], model: 'schnell' },
+      makeTools: () => [],
+      runLoop,
+      recordWerkzeug: jest.fn(),
+      SubagentToolClass: makeFakeSubagent(subMock),
+    });
+    expect(subMock.mock.calls[0][1].model).toBe('qwen3:32b');
+  });
+
+  test('berechneVorabErgebnisse übernimmt KEINEN wiederhole_ueber-Schritt', () => {
+    const kette = [
+      { name: 'a', typ: 'werkzeug', werkzeug: 'dateien_lesen', iterationen: 1 },
+      {
+        name: 'b',
+        typ: 'subagent',
+        rolle: 'r',
+        auftrag: 'x',
+        iterationen: 1,
+        wiederhole_ueber: 'a',
+      },
+      { name: 'c', typ: 'werkzeug', werkzeug: 'dateien_lesen', iterationen: 1 },
+    ];
+    const alt = [
+      { parent_step_id: null, kind: 'werkzeug', name: 'dateien_lesen', status: 'fertig', output: 'A' },
+      { parent_step_id: null, kind: 'subagent', name: 'r', status: 'fertig', output: 'B1' },
+      { parent_step_id: null, kind: 'subagent', name: 'r', status: 'fertig', output: 'B2' },
+      { parent_step_id: null, kind: 'werkzeug', name: 'dateien_lesen', status: 'fertig', output: 'C' },
+    ];
+    const vorab = berechneVorabErgebnisse(kette, alt);
+    // Nur Schritt a wird übernommen — ab dem Listen-Schritt wird echt ausgeführt.
+    expect([...vorab.entries()]).toEqual([[0, 'A']]);
+  });
+});
+
+describe('agentTodoTool', () => {
+  const { parseTodos } = require('../../src/services/llm/agentTodoTool');
+
+  test('parst Markdown-Checkboxen in Status-Einträge', () => {
+    const todos = parseTodos('- [x] Quellen lesen\n- [~] Entwurf\n- [ ] Prüfen\nkein todo');
+    expect(todos).toEqual([
+      { text: 'Quellen lesen', status: 'fertig' },
+      { text: 'Entwurf', status: 'laeuft' },
+      { text: 'Prüfen', status: 'offen' },
+    ]);
+  });
+});

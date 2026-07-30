@@ -21,6 +21,11 @@ const fsc = require('fs').constants;
 const MAX_READ_BYTES = 256 * 1024; // 256 KB
 const MAX_WRITE_BYTES = 1024 * 1024; // 1 MB
 const MAX_LIST_ENTRIES = 500;
+// Bearbeiten/Anhängen (Harness v2, 2026-07-30): Langdokumente entstehen
+// abschnittsweise per Anhängen statt in einem einzigen Riesen-Schreibaufruf —
+// ein kleines Modell kann keine 1 MB am Stück emittieren, wohl aber 50 Sektionen.
+const MAX_EDIT_BYTES = 4 * 1024 * 1024; // Dateigröße, bis zu der Suchen/Ersetzen erlaubt ist
+const MAX_APPEND_TOTAL = 16 * 1024 * 1024; // Obergrenze der Zieldatei beim Anhängen
 
 /** Holt die erlaubten Ordner aus dem Kontext; wirft nie, sondern liefert null. */
 function rootsFrom(context) {
@@ -290,4 +295,269 @@ class DateienSchreibenTool extends BaseTool {
   }
 }
 
-module.exports = { DateienLesenTool, DateienSchreibenTool };
+/**
+ * Öffnet eine Zieldatei symlink-sicher zum Schreiben (gemeinsamer Unterbau von
+ * Schreiben/Bearbeiten/Anhängen). Liefert {handle, stat} oder {fehler}.
+ */
+async function oeffneZumSchreiben(roots, pfad) {
+  try {
+    await fs.mkdir(roots[0], { recursive: true });
+  } catch (err) {
+    return {
+      fehler: `Fehler: Arbeitsverzeichnis "${roots[0]}" konnte nicht angelegt werden: ${err.message}`,
+    };
+  }
+  let file;
+  try {
+    file = resolveRealWithinRoots(roots, pfad);
+  } catch (err) {
+    return { fehler: `Fehler: ${err.message}` };
+  }
+  let handle;
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    handle = await fs.open(file, fsc.O_RDWR | fsc.O_CREAT | fsc.O_NOFOLLOW, 0o644);
+  } catch (err) {
+    if (err.code === 'ELOOP') {
+      return { fehler: `Fehler: "${pfad}" ist ein Symlink — der Schreibzugriff wird verweigert.` };
+    }
+    return { fehler: `Fehler beim Schreiben: ${err.message}` };
+  }
+  try {
+    assertFdWithinRoots(roots, handle.fd, pfad);
+    const stat = await handle.stat();
+    if (stat.isDirectory()) {
+      await handle.close().catch(() => {});
+      return { fehler: `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.` };
+    }
+    return { handle, stat };
+  } catch (err) {
+    await handle.close().catch(() => {});
+    return { fehler: `Fehler beim Schreiben: ${err.message}` };
+  }
+}
+
+class DateienBearbeitenTool extends BaseTool {
+  get name() {
+    return 'dateien_bearbeiten';
+  }
+
+  get description() {
+    return (
+      'Ändert eine Stelle in einer bestehenden Datei per Suchen/Ersetzen — ' +
+      'für gezielte Änderungen IMMER dies nutzen statt die Datei komplett neu zu schreiben'
+    );
+  }
+
+  get parameters() {
+    return {
+      pfad: {
+        type: 'string',
+        description: 'Pfad der bestehenden Datei relativ zum Arbeitsverzeichnis',
+        required: true,
+      },
+      suchen: {
+        type: 'string',
+        description:
+          'Der EXAKTE bestehende Textblock, der ersetzt werden soll (mit genug Zeilen, ' +
+          'dass er nur einmal vorkommt — Text 1:1 aus der Datei kopieren)',
+        required: true,
+      },
+      ersetzen: {
+        type: 'string',
+        description: 'Der neue Text, der an diese Stelle tritt (leer = Block löschen)',
+        required: true,
+      },
+      alle: {
+        type: 'boolean',
+        description: 'true = ALLE Vorkommen ersetzen (Standard: genau eines)',
+        required: false,
+      },
+    };
+  }
+
+  /**
+   * Suchen/Ersetzen mit zweistufiger Suche: erst exakt, dann Whitespace-tolerant
+   * (Zeilenenden-/Einrückungsdrift ist DER Normalfall, wenn ein Modell Text aus
+   * einer Werkzeug-Ausgabe zurückzitiert). Der Fehlertext ist bewusst eine
+   * Handlungsanweisung — das Modell soll beim nächsten Versuch mehr Kontextzeilen
+   * mitgeben, nicht raten.
+   */
+  async execute(params = {}, context = {}) {
+    const roots = rootsFrom(context);
+    if (!roots) {
+      return 'Fehler: Für diesen Flow ist kein erlaubter Ordner hinterlegt.';
+    }
+    const pfad = params.pfad;
+    const suchen = params.suchen == null ? '' : String(params.suchen);
+    const ersetzen = params.ersetzen == null ? '' : String(params.ersetzen);
+    if (!pfad) {
+      return 'Fehler: "pfad" ist erforderlich.';
+    }
+    if (!suchen) {
+      return 'Fehler: "suchen" darf nicht leer sein. Zum Neu-Anlegen dateien_schreiben nutzen.';
+    }
+
+    const auf = await oeffneZumSchreiben(roots, pfad);
+    if (auf.fehler) {
+      return auf.fehler;
+    }
+    const { handle, stat } = auf;
+    try {
+      if (stat.size === 0) {
+        return `Fehler: Datei "${pfad}" existiert nicht oder ist leer. Zum Neu-Anlegen dateien_schreiben nutzen.`;
+      }
+      if (stat.size > MAX_EDIT_BYTES) {
+        return `Fehler: Datei ist groesser als ${MAX_EDIT_BYTES} Bytes — Bearbeiten nicht moeglich.`;
+      }
+      const inhalt = await handle.readFile('utf8');
+      if (Buffer.from(inhalt.slice(0, 8000), 'utf8').includes(0)) {
+        return `Fehler: "${pfad}" ist eine Binärdatei und kann nicht bearbeitet werden.`;
+      }
+
+      let neuerInhalt = null;
+      let stellen = 0;
+      const exakt = inhalt.split(suchen).length - 1;
+      if (exakt > 0) {
+        stellen = exakt;
+        if (exakt > 1 && !params.alle) {
+          return (
+            `Fehler: "suchen" kommt ${exakt}-mal in "${pfad}" vor. ` +
+            'Gib mehr umgebende Zeilen mit, damit die Stelle eindeutig ist, oder setze alle=true.'
+          );
+        }
+        neuerInhalt = params.alle
+          ? inhalt.split(suchen).join(ersetzen)
+          : inhalt.replace(suchen, ersetzen);
+      } else {
+        // Whitespace-tolerante Suche: Zeilen ohne Rand-Whitespace vergleichen.
+        const norm = z => z.replace(/\s+$/g, '').replace(/^\s+/g, '');
+        const dateiZeilen = inhalt.split('\n');
+        const suchZeilen = suchen.replace(/\n$/, '').split('\n').map(norm);
+        const treffer = [];
+        for (let i = 0; i + suchZeilen.length <= dateiZeilen.length; i++) {
+          let passt = true;
+          for (let j = 0; j < suchZeilen.length; j++) {
+            if (norm(dateiZeilen[i + j]) !== suchZeilen[j]) {
+              passt = false;
+              break;
+            }
+          }
+          if (passt) {
+            treffer.push(i);
+          }
+        }
+        if (treffer.length === 0) {
+          return (
+            `Fehler: "suchen" wurde in "${pfad}" nicht gefunden. ` +
+            'Lies die Stelle zuerst mit dateien_lesen und kopiere den Text EXAKT (gleiche Einrückung, gleiche Zeilen).'
+          );
+        }
+        if (treffer.length > 1 && !params.alle) {
+          return (
+            `Fehler: "suchen" passt (Whitespace-tolerant) auf ${treffer.length} Stellen in "${pfad}". ` +
+            'Gib mehr umgebende Zeilen mit oder setze alle=true.'
+          );
+        }
+        stellen = params.alle ? treffer.length : 1;
+        const ersetzZeilen = ersetzen === '' ? [] : ersetzen.replace(/\n$/, '').split('\n');
+        // Von hinten ersetzen, damit frühere Indizes gültig bleiben.
+        const ziele = params.alle ? treffer.reverse() : [treffer[0]];
+        for (const start of ziele) {
+          dateiZeilen.splice(start, suchZeilen.length, ...ersetzZeilen);
+        }
+        neuerInhalt = dateiZeilen.join('\n');
+      }
+
+      if (Buffer.byteLength(neuerInhalt, 'utf8') > MAX_EDIT_BYTES) {
+        return `Fehler: Ergebnis ueberschreitet das Limit von ${MAX_EDIT_BYTES} Bytes.`;
+      }
+      await handle.truncate(0);
+      await handle.write(neuerInhalt, 0, 'utf8');
+      const altZeilen = suchen.split('\n').length;
+      const neuZeilen = ersetzen === '' ? 0 : ersetzen.split('\n').length;
+      return (
+        `Datei "${pfad}" geändert: ${stellen} Stelle${stellen === 1 ? '' : 'n'} ersetzt ` +
+        `(-${altZeilen}/+${neuZeilen} Zeilen je Stelle, jetzt ${Buffer.byteLength(neuerInhalt, 'utf8')} Bytes).`
+      );
+    } catch (err) {
+      return `Fehler beim Bearbeiten: ${err.message}`;
+    } finally {
+      await handle.close().catch(() => {});
+    }
+  }
+}
+
+class DateienAnhaengenTool extends BaseTool {
+  get name() {
+    return 'dateien_anhaengen';
+  }
+
+  get description() {
+    return (
+      'Hängt Text ans ENDE einer Datei an (legt sie bei Bedarf an) — ' +
+      'damit entstehen lange Dokumente abschnittsweise, Sektion für Sektion'
+    );
+  }
+
+  get parameters() {
+    return {
+      pfad: {
+        type: 'string',
+        description: 'Pfad der Zieldatei relativ zum Arbeitsverzeichnis',
+        required: true,
+      },
+      inhalt: {
+        type: 'string',
+        description: 'Der anzuhängende Abschnitt (er wird unverändert ans Dateiende gesetzt)',
+        required: true,
+      },
+    };
+  }
+
+  async execute(params = {}, context = {}) {
+    const roots = rootsFrom(context);
+    if (!roots) {
+      return 'Fehler: Für diesen Flow ist kein erlaubter Ordner hinterlegt.';
+    }
+    const pfad = params.pfad;
+    if (!pfad) {
+      return 'Fehler: "pfad" ist erforderlich.';
+    }
+    const data = params.inhalt == null ? '' : String(params.inhalt);
+    if (!data) {
+      return 'Fehler: "inhalt" darf nicht leer sein.';
+    }
+    if (Buffer.byteLength(data, 'utf8') > MAX_WRITE_BYTES) {
+      return `Fehler: Abschnitt ueberschreitet das Limit von ${MAX_WRITE_BYTES} Bytes je Aufruf.`;
+    }
+
+    const auf = await oeffneZumSchreiben(roots, pfad);
+    if (auf.fehler) {
+      return auf.fehler;
+    }
+    const { handle, stat } = auf;
+    try {
+      if (stat.size + Buffer.byteLength(data, 'utf8') > MAX_APPEND_TOTAL) {
+        return `Fehler: Zieldatei wuerde ${MAX_APPEND_TOTAL} Bytes ueberschreiten.`;
+      }
+      await handle.write(data, stat.size, 'utf8');
+      const gesamt = stat.size + Buffer.byteLength(data, 'utf8');
+      return (
+        `Abschnitt an "${pfad}" angehängt (${Buffer.byteLength(data, 'utf8')} Bytes, ` +
+        `Datei jetzt ${gesamt} Bytes).`
+      );
+    } catch (err) {
+      return `Fehler beim Anhängen: ${err.message}`;
+    } finally {
+      await handle.close().catch(() => {});
+    }
+  }
+}
+
+module.exports = {
+  DateienLesenTool,
+  DateienSchreibenTool,
+  DateienBearbeitenTool,
+  DateienAnhaengenTool,
+};

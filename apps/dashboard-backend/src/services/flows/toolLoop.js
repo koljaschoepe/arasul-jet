@@ -72,13 +72,14 @@ function _clearOllamaNameCache() {
  * Ein einzelner /api/chat-Aufruf, in die GPU-Sperre gewickelt.
  * @returns {Promise<object>} Das `message`-Objekt der Antwort.
  */
-async function callOllama({ model, messages, tools }) {
-  // `think: false` schaltet den Reasoning-Trace „denkender" Modelle (qwen3 &
-  // Co.) ab. Ein Flow FÜHRT AUS statt zu plaudern — der lange Gedankengang
-  // bringt hier nichts, kostet aber ein Vielfaches: auf dem Jetson braucht
-  // qwen3:14b mit Denken ~100 s je Aufruf (und sprengt so das 120-s-Limit),
-  // ohne Denken ~8 s. Modelle ohne Reasoning ignorieren die Option.
-  const body = { model: await zuOllamaName(model), messages, stream: false, think: false };
+async function callOllama({ model, messages, tools, think = false }) {
+  // `think: false` (Standard) schaltet den Reasoning-Trace „denkender" Modelle
+  // (qwen3 & Co.) ab. Ein Flow FÜHRT AUS statt zu plaudern — der lange
+  // Gedankengang bringt hier nichts, kostet aber ein Vielfaches: auf dem
+  // Jetson braucht qwen3:14b mit Denken ~100 s je Aufruf, ohne ~8 s.
+  // Der Chat-Agent kann Thinking für seine Subagenten gezielt anfordern
+  // (Interview 2026-07-30) — der Aufrufer prüft die Modell-Fähigkeit.
+  const body = { model: await zuOllamaName(model), messages, stream: false, think: think === true };
   if (tools && tools.length > 0) {
     body.tools = tools;
   }
@@ -118,6 +119,7 @@ async function runFlowLoop({
   onEvent,
   now = () => Date.now(),
   signal,
+  think = false,
 } = {}) {
   // BEWUSST await: Der Ereignis-Handler schreibt jeden Schritt in den
   // Lauf-Speicher. Würde nicht gewartet, könnte ein `tool_result` eintreffen,
@@ -162,7 +164,7 @@ async function runFlowLoop({
         return { result: note, runden: runde, truncated: true };
       }
 
-      const message = await callOllama({ model, messages, tools: toolDefs });
+      const message = await callOllama({ model, messages, tools: toolDefs, think });
       const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
 
       if (toolCalls.length === 0) {
