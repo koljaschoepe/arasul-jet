@@ -857,9 +857,10 @@ async function processAgentChatJob(ctx, job) {
 
   // Schritte/Datei an der persistierten Nachricht nachtragen. `datei` bleibt
   // beim Format aus Migration 127: EIN Objekt oder eine Liste (JSONB trägt beides).
-  // Bei Nutzer-Abbruch zusätzlich den Teiltext sichern — completeJob (das ihn
-  // sonst überträgt) läuft dann nicht.
-  if (schritte.length > 0 || dateien.length > 0 || (abgebrochen && fertigText)) {
+  // Bei Nutzer-Abbruch zusätzlich den (ggf. leeren) Teiltext sichern —
+  // completeJob (das ihn sonst überträgt) läuft dann nicht, und ohne diesen
+  // Schritt bliebe ein Sofort-Abbruch als leere 'error'-Nachricht zurück.
+  if (schritte.length > 0 || dateien.length > 0 || abgebrochen) {
     try {
       const jobRow = await database.query(`SELECT message_id FROM llm_jobs WHERE id = $1`, [jobId]);
       const messageId = jobRow.rows[0]?.message_id;
@@ -869,10 +870,10 @@ async function processAgentChatJob(ctx, job) {
           `UPDATE chat_messages SET schritte = $1, datei = COALESCE($2, datei) WHERE id = $3`,
           [JSON.stringify(schritte), dateiWert ? JSON.stringify(dateiWert) : null, messageId]
         );
-        if (abgebrochen && fertigText) {
+        if (abgebrochen) {
           await database.query(
             `UPDATE chat_messages SET content = $1, status = 'completed' WHERE id = $2`,
-            [`${fertigText}\n\n_Abgebrochen._`, messageId]
+            [fertigText ? `${fertigText}\n\n_Abgebrochen._` : '_Abgebrochen._', messageId]
           );
         }
       }
