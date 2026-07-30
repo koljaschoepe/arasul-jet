@@ -29,6 +29,24 @@ http:
         - websecure
       tls: {}
 
+    # Streaming-Endpunkte (SSE) OHNE body-limit (Harness v2, 2026-07-30).
+    # Traefiks buffering-Middleware (body-limit) puffert nicht nur Requests,
+    # sondern hält auch die RESPONSE zurück — SSE kam dadurch erst als
+    # End-Burst an ("der Lauf wirkt tot, dann steht alles auf einmal da").
+    # Für die Stream-Pfade gilt deshalb ein eigener Router ohne buffering;
+    # den Request-Größenschutz übernimmt dort das Express-JSON-Limit.
+    dashboard-api-stream:
+      rule: 'PathPrefix(`/api/llm`) || PathPrefix(`/api/rag`) || PathPrefix(`/api/document-analysis`) || PathPrefix(`/api/flows/laeufe`)'
+      service: dashboard-backend-service
+      priority: 15
+      middlewares:
+        - security-headers
+        - rate-limit-api
+        - compress
+      entryPoints:
+        - websecure
+      tls: {}
+
     # OpenAI-compatible API (/v1/chat/completions, /v1/embeddings, /v1/models)
     # Mounted at /v1 in dashboard-backend's app.js. API-key auth, no CSRF.
     dashboard-v1-openai:
