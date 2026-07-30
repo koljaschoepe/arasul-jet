@@ -171,6 +171,9 @@ interface SendMessageOptions {
   messages?: ChatMessage[];
   model?: string;
   file?: File;
+  /** Bereits in den Projektordner hochgeladener Anhang (Ein-Ordner-Modell):
+   *  die Nachricht läuft als normaler Agent-Auftrag, der Agent kennt den Pfad. */
+  anhang?: { projectId: string; pfad: string; name: string };
   images?: string[]; // Base64-encoded images for vision models
   /** Antwort nach dem Stream automatisch als Datei in der Projektablage speichern. */
   alsDatei?: boolean;
@@ -1000,9 +1003,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         messages = [],
         model,
         file,
+        anhang,
         images,
       } = options;
-      if ((!input.trim() && !file) || !chatId) return;
+      if ((!input.trim() && !file && !anhang) || !chatId) return;
 
       // RACE-002: Synchronous guard against double-send (React state updates are async)
       if (sendLockRef.current.has(chatId)) return;
@@ -1015,13 +1019,27 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       // automatisch auf dem Vision-Pfad weiter; RAG- und Datei-Pipeline bleiben eigen.
       const isAgent = options.agent !== false && !isRAG && !isFileUpload;
       const effectiveModel = model !== undefined ? model : selectedModelRef.current;
+      // Ein-Ordner-Modell: der Anhang liegt bereits im Projektordner — er hängt
+      // als klickbare Projektdatei-Karte an der Nutzer-Nachricht.
+      const anhangDatei: MessageDatei | null = anhang
+        ? {
+            art: 'projektdatei',
+            project_id: anhang.projectId,
+            pfad: anhang.pfad,
+            name: anhang.name,
+          }
+        : null;
 
       // Save user message to DB (skip for file uploads — backend handles it)
       if (!isFileUpload) {
         try {
           await api.post(
             `/chats/${chatId}/messages`,
-            { role: 'user', content: userMessage },
+            {
+              role: 'user',
+              content: userMessage,
+              ...(anhangDatei ? { datei: anhangDatei } : {}),
+            },
             { showError: false }
           );
         } catch (err) {
@@ -1040,8 +1058,12 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           role: 'user',
           content: userMessage,
           ...(images && images.length > 0 ? { images } : {}),
-          // Anhang sofort als Chip zeigen (persistiert wird er vom Backend).
-          ...(file ? { datei: { art: 'anhang' as const, name: file.name } } : {}),
+          // Anhang sofort als Chip/Karte zeigen.
+          ...(anhangDatei
+            ? { datei: anhangDatei }
+            : file
+              ? { datei: { art: 'anhang' as const, name: file.name } }
+              : {}),
         },
       ];
       updateMessages(chatId, () => newMessages);
@@ -1125,6 +1147,11 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           // bleibt der Originaltext des Nutzers.
           const DATEI_ANWEISUNG =
             '\n\n(Antworte NUR mit dem reinen Dokumentinhalt in Markdown und beginne mit einer #-Überschrift. Keine Vor- oder Nachbemerkungen und keine Aussagen über Dateien oder Speicherung — das Speichern übernimmt die Plattform.)';
+          // Anhang-Hinweis nur im Payload — die persistierte Nachricht bleibt
+          // der Originaltext, die Karte hängt als datei-Feld daran.
+          const ANHANG_HINWEIS = anhang
+            ? `\n\n(Der Nutzer hat die Datei "${anhang.pfad}" in den Projektordner gelegt — sie ist Teil dieses Auftrags. Text-Dateien liest du mit dateien_lesen, PDF/DOCX über rag_suche.)`
+            : '';
           const letzterIndex = newMessages.length - 1;
           const chatPayload: ChatInput = {
             messages: newMessages.map((m, idx) => ({
@@ -1132,7 +1159,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
               content:
                 !isAgent && options.alsDatei && idx === letzterIndex
                   ? m.content + DATEI_ANWEISUNG
-                  : m.content,
+                  : isAgent && ANHANG_HINWEIS && idx === letzterIndex
+                    ? m.content + ANHANG_HINWEIS
+                    : m.content,
             })),
             temperature: 0.7,
             max_tokens: 32768,

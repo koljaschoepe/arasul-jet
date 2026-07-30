@@ -6,14 +6,6 @@ const CreateChatBody = z
   })
   .strict();
 
-const PostMessageBody = z
-  .object({
-    role: z.enum(['user', 'assistant', 'system']),
-    content: z.string().min(1),
-    thinking: z.string().optional().nullable(),
-  })
-  .strict();
-
 /**
  * Relativer Ablage-Pfad (wie schemas/projects.js): nie absolut, nie mit '..'.
  * Hier dupliziert statt importiert, damit die Chat-Schemas eigenständig bleiben.
@@ -34,6 +26,17 @@ const PutMessageDateiBody = z
     project_id: z.uuid(),
     pfad: DateiPfad,
     name: z.string().trim().min(1).max(255),
+  })
+  .strict();
+
+const PostMessageBody = z
+  .object({
+    role: z.enum(['user', 'assistant', 'system']),
+    content: z.string().min(1),
+    thinking: z.string().optional().nullable(),
+    // Chat-Anhang (Ein-Ordner-Modell): der ins Projekt hochgeladene Anhang
+    // hängt als Projektdatei-Karte direkt an der Nutzer-Nachricht.
+    datei: PutMessageDateiBody.optional(),
   })
   .strict();
 

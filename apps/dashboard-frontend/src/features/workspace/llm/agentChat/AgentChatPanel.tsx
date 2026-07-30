@@ -16,6 +16,7 @@ import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useFlowEditorStore } from '@/stores/flowEditorStore';
 import { usePins } from '../../useWorkspaceContext';
+import { useActiveProject } from '../../useProjects';
 import { useFlows } from '@/hooks/useFlows';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Mascot } from '@/components/mascot/Mascot';
@@ -77,6 +78,7 @@ export default function AgentChatPanel() {
   const setEditTarget = useFlowEditorStore(s => s.setEditTarget);
   const { flows } = useFlows();
   const { pins, removePin } = usePins();
+  const { activeId: activeProjectId } = useActiveProject();
 
   const [chatId, setChatId] = useState<string | null>(
     () => localStorage.getItem(PANEL_CHAT_KEY) || null
@@ -250,7 +252,7 @@ export default function AgentChatPanel() {
     const msg =
       input.trim() ||
       (attachedFile
-        ? ''
+        ? `Sieh dir die Datei „${attachedFile.name}" an.`
         : `[${attachedImages.length} Bild${attachedImages.length > 1 ? 'er' : ''}]`);
     const file = attachedFile;
     const images = attachedImages.map(i => i.base64);
@@ -265,7 +267,31 @@ export default function AgentChatPanel() {
 
     const effectiveModelId = selectedModel || defaultModel;
     const model = installedModels.find(m => m.id === effectiveModelId);
-    const scopeActive = !file && !!chatScope && chatScope.spaceIds.length > 0;
+
+    // Ein-Ordner-Modell: ein Datei-Anhang landet ERST im Projektordner
+    // (Ziel-Ordner aus dem Baum oder Wurzel), dann läuft die Nachricht als
+    // normaler Agent-Auftrag mit bekanntem Datei-Pfad. Nur wenn kein Projekt
+    // aktiv ist, bleibt die alte Dokument-Analyse-Pipeline.
+    let anhang: { projectId: string; pfad: string; name: string } | undefined;
+    const anhangProjektId = chatDateiZiel?.projectId || activeProjectId;
+    if (file && anhangProjektId) {
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        if (chatDateiZiel?.pfad) form.append('ordner', chatDateiZiel.pfad);
+        const res = await api.post<{ data: { pfad: string } }>(
+          `/projects/${anhangProjektId}/dateien/upload`,
+          form,
+          { showError: false }
+        );
+        anhang = { projectId: anhangProjektId, pfad: res.data.pfad, name: file.name };
+      } catch {
+        setError(`„${file.name}" konnte nicht in den Projektordner gelegt werden`);
+        return;
+      }
+    }
+
+    const scopeActive = !!chatScope && chatScope.spaceIds.length > 0;
 
     try {
       const id = await ensureChat();
@@ -273,16 +299,16 @@ export default function AgentChatPanel() {
         // Agent-Modus (2026-07-28): das Backend führt die Werkzeugschleife —
         // Wissensraum-Suche, Ablage lesen/schreiben, Web, Subagenten. Der
         // frühere Client-RAG-Vorlauf (strikter Zitier-Modus, verweigerte
-        // Erstell-Aufgaben) entfällt; Datei-Anhänge behalten ihre eigene
-        // Dokument-Pipeline.
-        agent: !file,
+        // Erstell-Aufgaben) entfällt; Anhänge liegen als Projektdatei bereit.
+        agent: !file || !!anhang,
         useRAG: false,
         useThinking: model?.supports_thinking === true,
         selectedSpaces: scopeActive && chatScope ? chatScope.spaceIds : [],
         matchedSpaces: [],
         messages: messagesRef.current,
         model: selectedModel || undefined,
-        file: file || undefined,
+        file: anhang ? undefined : file || undefined,
+        anhang,
         images: images.length > 0 ? images : undefined,
         alsDatei,
         dateiZiel: chatDateiZiel
@@ -304,6 +330,8 @@ export default function AgentChatPanel() {
     selectedModel,
     defaultModel,
     installedModels,
+    activeProjectId,
+    api,
     ensureChat,
     sendMessage,
   ]);

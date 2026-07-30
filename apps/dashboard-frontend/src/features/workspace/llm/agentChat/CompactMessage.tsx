@@ -302,6 +302,9 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
 
   if (message.role === 'user') {
     const anhang = dateiListe(message.datei).find(d => d.art === 'anhang');
+    // Ein-Ordner-Modell: ein Anhang, der bereits im Projektordner liegt,
+    // erscheint als klickbare Datei-Karte (öffnet den Editor-Tab).
+    const projektAnhaenge = dateiListe(message.datei).filter(d => d.art === 'projektdatei');
     return (
       <div className="my-2 rounded-lg border border-border bg-card px-2.5 py-2 text-[13px] leading-relaxed text-foreground">
         {anhang && (
@@ -313,6 +316,9 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
             <span className="truncate">{anhang.name}</span>
           </span>
         )}
+        {projektAnhaenge.map((d, i) => (
+          <DateiKarte key={`${d.pfad}-${i}`} datei={d} />
+        ))}
         {message.images && message.images.length > 0 && (
           <span className="mb-1 flex flex-wrap gap-1.5">
             {message.images.map((src, i) => (
