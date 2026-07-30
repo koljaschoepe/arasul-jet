@@ -272,7 +272,7 @@ export default function AgentChatPanel() {
     // (Ziel-Ordner aus dem Baum oder Wurzel), dann läuft die Nachricht als
     // normaler Agent-Auftrag mit bekanntem Datei-Pfad. Nur wenn kein Projekt
     // aktiv ist, bleibt die alte Dokument-Analyse-Pipeline.
-    let anhang: { projectId: string; pfad: string; name: string } | undefined;
+    let anhang: { projectId: string; pfad: string; name: string; inhalt?: string } | undefined;
     const anhangProjektId = chatDateiZiel?.projectId || activeProjectId;
     if (file && anhangProjektId) {
       try {
@@ -285,6 +285,19 @@ export default function AgentChatPanel() {
           { showError: false }
         );
         anhang = { projectId: anhangProjektId, pfad: res.data.pfad, name: file.name };
+        // Kleine Text-Dateien: Inhalt direkt in den Auftrag geben — kleine
+        // Modelle überspringen sonst das Lesen und erfinden den Inhalt.
+        const TEXT_ENDUNGEN = /\.(txt|md|markdown|csv|json|log|html|htm|xml|ya?ml)$/i;
+        if (
+          file.size <= 16 * 1024 &&
+          (file.type.startsWith('text/') || TEXT_ENDUNGEN.test(file.name))
+        ) {
+          try {
+            anhang.inhalt = await file.text();
+          } catch {
+            // Ohne Inhalt bleibt der Lese-Hinweis im Payload.
+          }
+        }
       } catch {
         setError(`„${file.name}" konnte nicht in den Projektordner gelegt werden`);
         return;

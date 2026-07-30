@@ -172,8 +172,10 @@ interface SendMessageOptions {
   model?: string;
   file?: File;
   /** Bereits in den Projektordner hochgeladener Anhang (Ein-Ordner-Modell):
-   *  die Nachricht läuft als normaler Agent-Auftrag, der Agent kennt den Pfad. */
-  anhang?: { projectId: string; pfad: string; name: string };
+   *  die Nachricht läuft als normaler Agent-Auftrag, der Agent kennt den Pfad.
+   *  `inhalt` (kleine Text-Dateien) geht mit in den Payload — kleine Modelle
+   *  überspringen sonst das Lesen und konfabulieren den Inhalt. */
+  anhang?: { projectId: string; pfad: string; name: string; inhalt?: string };
   images?: string[]; // Base64-encoded images for vision models
   /** Antwort nach dem Stream automatisch als Datei in der Projektablage speichern. */
   alsDatei?: boolean;
@@ -1150,7 +1152,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           // Anhang-Hinweis nur im Payload — die persistierte Nachricht bleibt
           // der Originaltext, die Karte hängt als datei-Feld daran.
           const ANHANG_HINWEIS = anhang
-            ? `\n\n(Der Nutzer hat die Datei "${anhang.pfad}" in den Projektordner gelegt — sie ist Teil dieses Auftrags. Text-Dateien liest du mit dateien_lesen, PDF/DOCX über rag_suche.)`
+            ? `\n\n(Der Nutzer hat die Datei "${anhang.pfad}" in den Projektordner gelegt — sie liegt dort bereits, du musst sie nicht neu erstellen. ` +
+              (anhang.inhalt !== undefined
+                ? `Ihr exakter Inhalt:\n"""\n${anhang.inhalt}\n"""\nWenn du sie woanders ablegst, verwende GENAU diesen Inhalt.)`
+                : `Text-Dateien liest du mit dateien_lesen, PDF/DOCX über rag_suche.)`)
             : '';
           const letzterIndex = newMessages.length - 1;
           const chatPayload: ChatInput = {
