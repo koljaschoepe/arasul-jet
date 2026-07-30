@@ -30,6 +30,8 @@ import { leereRolle, type FlowFormState } from './flowFormState';
 const WERKZEUG_LABEL: Record<string, string> = {
   dateien_lesen: 'Dateien lesen',
   dateien_schreiben: 'Dateien schreiben',
+  dateien_bearbeiten: 'Dateien bearbeiten',
+  dateien_anhaengen: 'Dateien anhängen',
   dateien_suchen: 'Dateien suchen',
   rag_suche: 'Wissens-Suche',
   web_suche: 'Web-Suche',
@@ -515,22 +517,61 @@ export default function AblaufEditor({
                 </>
               )}
 
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground" htmlFor={`iter-${i}`}>
-                  Durchläufe
-                </Label>
-                <Input
-                  id={`iter-${i}`}
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={s.iterationen}
-                  onChange={e =>
-                    setSchritt(i, { iterationen: Math.max(1, Number(e.target.value) || 1) })
-                  }
-                  aria-label={`Durchläufe von Schritt ${i + 1}`}
-                  className="w-20 text-[13px]"
-                />
+              <div className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label className="text-xs text-muted-foreground" htmlFor={`iter-${i}`}>
+                    Durchläufe
+                  </Label>
+                  <Input
+                    id={`iter-${i}`}
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={s.iterationen}
+                    onChange={e =>
+                      setSchritt(i, { iterationen: Math.max(1, Number(e.target.value) || 1) })
+                    }
+                    aria-label={`Durchläufe von Schritt ${i + 1}`}
+                    // wiederhole_ueber und iterationen > 1 schließen sich im
+                    // Backend aus — mit gesetzter Liste ist der Zähler gesperrt.
+                    disabled={Boolean((s.wiederhole_ueber ?? '').trim())}
+                    className="w-20 text-[13px]"
+                  />
+                  <Label className="text-xs text-muted-foreground" htmlFor={`wdh-${i}`}>
+                    Wiederhole über
+                  </Label>
+                  <Input
+                    id={`wdh-${i}`}
+                    value={s.wiederhole_ueber ?? ''}
+                    onChange={e =>
+                      setSchritt(i, {
+                        wiederhole_ueber: e.target.value,
+                        ...(e.target.value.trim() ? { iterationen: 1 } : {}),
+                      })
+                    }
+                    placeholder="argument_oder_schritt"
+                    aria-label={`Wiederhole über von Schritt ${i + 1}`}
+                    className="w-44 font-mono text-[13px]"
+                  />
+                  {s.typ === 'subagent' && (
+                    <>
+                      <Label className="text-xs text-muted-foreground" htmlFor={`modell-${i}`}>
+                        Modell (optional)
+                      </Label>
+                      <Input
+                        id={`modell-${i}`}
+                        value={s.modell ?? ''}
+                        onChange={e => setSchritt(i, { modell: e.target.value })}
+                        placeholder="wie Flow"
+                        aria-label={`Modell von Schritt ${i + 1}`}
+                        className="w-40 text-[13px]"
+                      />
+                    </>
+                  )}
+                </div>
+                <p className="text-ui-xs text-muted-foreground">
+                  {'Schritt läuft einmal je Listeneintrag ({{element}}, {{index}}, {{anzahl}})'}
+                </p>
               </div>
             </div>
           ))}

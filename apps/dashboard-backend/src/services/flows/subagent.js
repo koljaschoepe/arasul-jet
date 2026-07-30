@@ -24,6 +24,10 @@
 const BaseTool = require('../../tools/baseTool');
 const logger = require('../../utils/logger');
 const { enforceContract } = require('./resultContract');
+const { kannDenken, thinkingGewuenscht } = require('../llm/agentConfig');
+
+/** Werkzeuge, deren erfolgreicher Aufruf als „hat wirklich geschrieben" zählt. */
+const SCHREIB_WERKZEUGE = new Set(['dateien_schreiben', 'dateien_bearbeiten', 'dateien_anhaengen']);
 
 class SubagentTool extends BaseTool {
   get name() {
@@ -148,10 +152,34 @@ class SubagentTool extends BaseTool {
     // Der Rolle den Ergebnis-Vertrag ansagen. Das ist die Bitte an das Modell,
     // sich daran zu halten; erzwungen wird er anschließend hart durch
     // enforceContract — der Prompt allein genügt kleinen Modellen nicht.
+    //
+    // AUSSER bei Schreib-Rollen (Harness v2): Der „antworte nur mit JSON"-
+    // Vertrag drängte autor/entwickler nachweislich dazu, den Dateiinhalt als
+    // JSON-TEXT zurückzugeben, statt dateien_schreiben zu rufen — die Wurzel
+    // des „Subagent schreibt nicht selbst"-Problems. Schreib-Rollen bekommen
+    // deshalb einen Schreib-Vertrag; enforceContract deckelt ihren Bericht
+    // über den Nicht-JSON-Rückfall trotzdem hart.
     const felder = rolle.ergebnis.felder;
-    const vertragsHinweis =
-      `\n\nAntworte AM ENDE ausschließlich mit einem JSON-Objekt mit genau diesen Feldern: ` +
-      `${felder.join(', ')}. Kein Text davor oder danach, keine weiteren Felder.`;
+    const schreibRolle =
+      rolle.schreibend === true || (rolle.werkzeuge || []).some(w => SCHREIB_WERKZEUGE.has(w));
+    const vertragsHinweis = schreibRolle
+      ? `\n\nWICHTIG: Führe die Schreibarbeit SELBST mit deinen Werkzeugen aus ` +
+        `(dateien_schreiben, dateien_anhaengen, dateien_bearbeiten) — gib den Inhalt ` +
+        `NIEMALS nur als Antwort-Text zurück. Antworte am Ende mit einem kurzen Bericht ` +
+        `(1-3 Sätze): welche Dateien du geschrieben oder geändert hast.`
+      : `\n\nAntworte AM ENDE ausschließlich mit einem JSON-Objekt mit genau diesen Feldern: ` +
+        `${felder.join(', ')}. Kein Text davor oder danach, keine weiteren Felder.`;
+
+    // Thinking (Interview 2026-07-30): Wenn der Aufrufer es wünscht
+    // (Chat-Agent setzt denkenSubagenten) und das Rollen-Modell denken kann,
+    // läuft die Rolle mit Reasoning — Flows bleiben unverändert schnell.
+    // require erst hier statt am Modulkopf: toolLoop wird oben bereits als
+    // Default für context.runLoop lazy geholt — derselbe Stil vermeidet eine
+    // Import-Verflechtung beim Modul-Load (subagent ↔ toolLoop-Umfeld).
+    const denkt =
+      context.denkenSubagenten === true &&
+      thinkingGewuenscht() &&
+      kannDenken(await require('./toolLoop').zuOllamaName(rollenModell));
 
     // Mitschreiben, WAS die Rolle liest. Genau das ist das Rohmaterial, das der
     // Orchestrator nie sehen darf, das aber laut §6 im Lauf-Protokoll sichtbar
@@ -186,7 +214,15 @@ class SubagentTool extends BaseTool {
     // in raw_output. Delegiert die Rolle an einen weiteren Subagenten, schreibt
     // DESSEN execute den Schritt selbst — hier nicht doppelt anlegen.
     const offeneKinder = new Map(); // toolName → stepId
+    let hatGeschrieben = false; // Platten-Wahrheit: kam ein ERFOLGREICHER Schreib-Aufruf?
     const rolleOnEvent = async evt => {
+      if (
+        evt.type === 'tool_result' &&
+        SCHREIB_WERKZEUGE.has(evt.tool) &&
+        !/^Fehler/.test(String(evt.result || ''))
+      ) {
+        hatGeschrieben = true;
+      }
       if (evt.type === 'tool_start') {
         rawPush(`→ ${evt.tool}(${JSON.stringify(evt.params || {})})`);
         if (stepRecorder && eigenerSchritt && evt.tool !== 'subagent') {
@@ -232,11 +268,45 @@ class SubagentTool extends BaseTool {
         // über den ganzen Lauf, nicht je Ebene neu.
         zeitlimitS: limits.restSekunden(),
         context: roleContext,
+        think: denkt,
         // Dasselbe Abbruch-Signal wie der Orchestrator: ein Abbruch stoppt auch
         // eine gerade laufende Rolle vor ihrem nächsten Modell-Aufruf.
         signal: context.signal,
         onEvent: rolleOnEvent,
       });
+
+      // Schreib-Verifikation IN der Rolle (Harness v2): Hat eine Schreib-Rolle
+      // den Lauf beendet, ohne je erfolgreich zu schreiben, bekommt sie EINE
+      // harte Nachfass-Schleife — statt dass erst der Orchestrator die Lüge
+      // per Platten-Diff entdeckt und die Arbeit selbst nachholen muss.
+      if (schreibRolle && !hatGeschrieben && !(context.signal && context.signal.aborted)) {
+        const nachfass = await runLoop({
+          model: rolle.modell || defaultModel,
+          systemPrompt: rolle.prompt + vertragsHinweis,
+          userInput:
+            `${auftrag}\n\nDu hast beim ersten Versuch KEINE Datei geschrieben — dein ` +
+            `Bericht war eine bloße Behauptung. Führe den Auftrag JETZT aus: rufe ` +
+            `dateien_schreiben (bzw. dateien_anhaengen/dateien_bearbeiten) mit dem ` +
+            `vollständigen Inhalt auf und berichte erst danach.`,
+          tools: roleTools,
+          maxRunden: Math.min(werkzeugRunden, 6),
+          zeitlimitS: limits.restSekunden(),
+          context: roleContext,
+          think: denkt,
+          signal: context.signal,
+          onEvent: rolleOnEvent,
+        });
+        if (hatGeschrieben) {
+          // Auch wenn die Nachfass-Schleife ohne Schluss-Text endete (z. B.
+          // maxRunden mitten im Werkzeug): der Schreib-Erfolg zählt — die
+          // ursprüngliche „ich habe geschrieben"-Behauptung darf nicht als
+          // Ergebnis stehen bleiben (Review PR #278).
+          ergebnis =
+            nachfass && nachfass.result
+              ? nachfass
+              : { result: 'Dateien wurden in der Nachfass-Runde geschrieben.' };
+        }
+      }
     } catch (err) {
       logger.warn(`Subagent-Rolle "${rolleName}" fehlgeschlagen: ${err.message}`);
       // Auch der Fehlertext geht gedeckelt zurück — die eine Rückgabe, die nicht

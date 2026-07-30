@@ -138,6 +138,46 @@ describe('AblaufEditor', () => {
     expect((s.body.rollen as { name: string }[]).some(r => r.name === 'rolle_1')).toBe(true);
   });
 
+  it('„Wiederhole über" landet im Payload, sperrt Durchläufe und zwingt iterationen auf 1', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initial={{
+          rollen: [
+            { name: 's', prompt: 'p', werkzeuge: [], ergebnis: { felder: [], max_zeichen: 2000 } },
+          ],
+          schritte: [{ name: 's', typ: 'subagent', rolle: 's', auftrag: 'a', iterationen: 3 }],
+        }}
+      />
+    );
+    await user.type(screen.getByLabelText('Wiederhole über von Schritt 1'), 'sektionen');
+
+    const s = snap();
+    expect(s.body.schritte[0].wiederhole_ueber).toBe('sektionen');
+    // Backend lehnt wiederhole_ueber + iterationen > 1 ab → der Body erzwingt 1.
+    expect(s.body.schritte[0].iterationen).toBe(1);
+    expect(screen.getByLabelText('Durchläufe von Schritt 1')).toBeDisabled();
+  });
+
+  it('„Modell (optional)" wird nur gefüllt gesendet — und nur bei Subagent-Schritten', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initial={{
+          rollen: [
+            { name: 's', prompt: 'p', werkzeuge: [], ergebnis: { felder: [], max_zeichen: 2000 } },
+          ],
+          schritte: [{ name: 's', typ: 'subagent', rolle: 's', auftrag: 'a', iterationen: 1 }],
+        }}
+      />
+    );
+    // Leer → kein modell-Feld im Payload.
+    expect(snap().body.schritte[0].modell).toBeUndefined();
+
+    await user.type(screen.getByLabelText('Modell von Schritt 1'), 'qwen3:32b');
+    expect(snap().body.schritte[0].modell).toBe('qwen3:32b');
+  });
+
   it('neuer Rollen-Schritt spiegelt 1:1 eine gleichnamige Rolle', async () => {
     const user = userEvent.setup();
     render(

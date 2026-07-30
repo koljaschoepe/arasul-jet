@@ -28,6 +28,44 @@ const { runFlowLoop } = require('./toolLoop');
 const SubagentTool = require('./subagent');
 const logger = require('../../utils/logger');
 
+/** Obergrenze der Elemente einer `wiederhole_ueber`-Schleife (Notbremse). */
+const MAX_MAP_ELEMENTE = 50;
+
+/**
+ * Liest eine Schritt-Ausgabe (oder ein Argument) als LISTE — die Quelle einer
+ * `wiederhole_ueber`-Schleife. Zwei Formen, in dieser Reihenfolge:
+ *
+ *  1. JSON-Array (auch in Prosa/```json-Zaun eingebettet — Modelle liefern
+ *     selten NUR das Array),
+ *  2. sonst eine Zeile je Eintrag, Aufzählungszeichen/Nummerierung entfernt.
+ *
+ * @param {string} text
+ * @returns {string[]}
+ */
+function parseListe(text) {
+  const s = String(text || '').trim();
+  if (!s) {
+    return [];
+  }
+  const zuStrings = arr => arr.map(x => (typeof x === 'string' ? x : JSON.stringify(x)));
+  const start = s.indexOf('[');
+  const ende = s.lastIndexOf(']');
+  if (start !== -1 && ende > start) {
+    try {
+      const arr = JSON.parse(s.slice(start, ende + 1));
+      if (Array.isArray(arr) && arr.length > 0) {
+        return zuStrings(arr);
+      }
+    } catch {
+      // kein JSON — Zeilenform versuchen
+    }
+  }
+  return s
+    .split('\n')
+    .map(z => z.replace(/^\s*(?:[-*+]|\d+[.)])\s*/, '').trim())
+    .filter(Boolean);
+}
+
 /**
  * Setzt Vorlagen in den `parameter`-Werten eines Werkzeug-Schritts ein.
  * Nur String-Werte werden ersetzt; Zahlen/Booleans bleiben unangetastet.
@@ -82,6 +120,14 @@ function berechneVorabErgebnisse(schritte = [], altSteps = []) {
       vorab.set(index, String(erster.output ?? ''));
       cursor += 1;
       continue;
+    }
+
+    // Listen-Schritte (wiederhole_ueber) haben eine DYNAMISCHE Zahl von
+    // Protokoll-Einträgen — auf die Kette abbilden lässt sich das nicht
+    // verlässlich. Übernahme endet hier; ab diesem Schritt wird echt
+    // ausgeführt (lieber wiederholen als falsch übernehmen).
+    if (schritt.wiederhole_ueber) {
+      break;
     }
 
     // Fall 2: echt ausgeführt — es müssen ALLE Iterationen fertig dastehen.
@@ -195,30 +241,85 @@ async function executeSteps({
       continue;
     }
 
-    const iterationen = schritt.iterationen || 1;
-    let ausgabe = '';
-
-    for (let i = 1; i <= iterationen; i++) {
-      const scope = { ...werte, ...outputs, vorher: ausgabe, iteration: String(i) };
-      try {
-        if (schritt.typ === 'subagent') {
-          const auftrag = fillPlaceholders(schritt.auftrag, scope);
-          // SubagentTool schreibt den DB-Schritt (samt Kind-Schritten und
-          // Rohdaten) über context.stepRecorder selbst und meldet ihn live —
-          // hier keine eigene Meldung, sonst stünde die Delegation doppelt.
-          ausgabe = await subagentTool.execute(
-            { rolle: schritt.rolle, auftrag },
-            { ...context, signal }
-          );
-        } else {
-          const params = resolveParams(schritt.parameter, scope);
-          ausgabe = await recordWerkzeug({ werkzeug: schritt.werkzeug, params });
-        }
-      } catch (err) {
-        return { result: null, error: `Schritt „${schritt.name}" fehlgeschlagen: ${err.message}` };
+    // Einen einzelnen Durchlauf ausführen (subagent oder werkzeug) — geteilt
+    // zwischen Zähl-Iteration und Listen-Schleife. Ein Schritt-Modell
+    // (schritt.modell) überschreibt das Flow-Modell für diese Delegation.
+    const einDurchlauf = async scope => {
+      if (schritt.typ === 'subagent') {
+        const auftrag = fillPlaceholders(schritt.auftrag, scope);
+        // SubagentTool schreibt den DB-Schritt (samt Kind-Schritten und
+        // Rohdaten) über context.stepRecorder selbst und meldet ihn live —
+        // hier keine eigene Meldung, sonst stünde die Delegation doppelt.
+        return subagentTool.execute(
+          { rolle: schritt.rolle, auftrag },
+          { ...context, signal, model: schritt.modell || context.model }
+        );
       }
-      if (signal && signal.aborted) {
-        return { result: null, aborted: true };
+      const params = resolveParams(schritt.parameter, scope);
+      return recordWerkzeug({ werkzeug: schritt.werkzeug, params });
+    };
+
+    let ausgabe = '';
+    if (schritt.wiederhole_ueber) {
+      // Listen-Schleife (Harness v2): der Schritt läuft einmal je Element der
+      // referenzierten Liste — der Baustein für Sektion-für-Sektion-Pipelines.
+      const quelle = { ...werte, ...outputs }[schritt.wiederhole_ueber];
+      const elemente = parseListe(quelle);
+      if (elemente.length === 0) {
+        return {
+          result: null,
+          error: `Schritt „${schritt.name}": Liste "${schritt.wiederhole_ueber}" ist leer oder nicht lesbar.`,
+        };
+      }
+      let gekuerztHinweis = '';
+      if (elemente.length > MAX_MAP_ELEMENTE) {
+        gekuerztHinweis =
+          `\n\n[Hinweis: Liste "${schritt.wiederhole_ueber}" hatte ${elemente.length} Elemente — ` +
+          `auf ${MAX_MAP_ELEMENTE} gekürzt, die übrigen wurden NICHT verarbeitet.]`;
+        logger.warn(
+          `Flow-Schritt "${schritt.name}": wiederhole_ueber-Liste von ${elemente.length} auf ${MAX_MAP_ELEMENTE} gekürzt`
+        );
+        elemente.length = MAX_MAP_ELEMENTE;
+      }
+      const teile = [];
+      for (const [i, element] of elemente.entries()) {
+        const scope = {
+          ...werte,
+          ...outputs,
+          element,
+          index: String(i + 1),
+          anzahl: String(elemente.length),
+          vorher: teile.length ? teile[teile.length - 1] : '',
+          iteration: String(i + 1),
+        };
+        try {
+          teile.push(await einDurchlauf(scope));
+        } catch (err) {
+          return {
+            result: null,
+            error: `Schritt „${schritt.name}" (Element ${i + 1}/${elemente.length}) fehlgeschlagen: ${err.message}`,
+          };
+        }
+        if (signal && signal.aborted) {
+          return { result: null, aborted: true };
+        }
+      }
+      ausgabe = teile.join('\n\n') + gekuerztHinweis;
+    } else {
+      const iterationen = schritt.iterationen || 1;
+      for (let i = 1; i <= iterationen; i++) {
+        const scope = { ...werte, ...outputs, vorher: ausgabe, iteration: String(i) };
+        try {
+          ausgabe = await einDurchlauf(scope);
+        } catch (err) {
+          return {
+            result: null,
+            error: `Schritt „${schritt.name}" fehlgeschlagen: ${err.message}`,
+          };
+        }
+        if (signal && signal.aborted) {
+          return { result: null, aborted: true };
+        }
       }
     }
 
@@ -244,4 +345,11 @@ async function executeSteps({
   });
 }
 
-module.exports = { executeSteps, resolveParams, buildSynthesisInput, berechneVorabErgebnisse };
+module.exports = {
+  executeSteps,
+  resolveParams,
+  buildSynthesisInput,
+  berechneVorabErgebnisse,
+  parseListe,
+  MAX_MAP_ELEMENTE,
+};

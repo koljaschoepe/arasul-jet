@@ -37,6 +37,8 @@ const projectService = require('../rag/projectService');
 const { projektOrdner, listTree } = require('../projects/ablageService');
 const { ensureFlowSandbox } = require('../flows/sandboxResolve');
 const { buildSystemPrompt } = require('./systemPromptBuilder');
+const agentConfig = require('./agentConfig');
+const { TodoListeTool } = require('./agentTodoTool');
 
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
 // Kein praktisches Zeitlimit mehr (Interview 2026-07-29: „Unbegrenzt +
@@ -52,12 +54,19 @@ const KURZ_OUTPUT = 500;
 const ABBRUCH_POLL_MS = 2000;
 /** Struktur-Übersicht im Systemprompt: höchstens so viele Einträge. */
 const STRUKTUR_MAX_EINTRAEGE = 120;
+/** Korrektur-Zyklen: Prüf-Gate und Ankündigungs-Wächter dürfen MEHRFACH greifen
+ * (Harness v2) — ein echter Entwurf-Prüfung-Korrektur-Kreis braucht mehr als
+ * die eine Runde von früher. Hart gedeckelt gegen Endlos-Pingpong. */
+const MAX_PRUEF_ZYKLEN = 2;
+const MAX_NACHFASS_ZYKLEN = 2;
 
 /** Werkzeuge des Chat-Agenten. `terminal` läuft projektbeschränkt im Flow-Sandbox-Container. */
 const AGENT_WERKZEUGE = [
   'rag_suche',
   'dateien_lesen',
   'dateien_schreiben',
+  'dateien_bearbeiten',
+  'dateien_anhaengen',
   'dateien_suchen',
   'web_suche',
   'web_lesen',
@@ -85,14 +94,24 @@ const AGENT_ROLLEN = [
     name: 'autor',
     prompt:
       'Du bist ein sorgfältiger Autor. Erstelle oder überarbeite die im Auftrag ' +
-      'genannten Dateien VOLLSTÄNDIG mit dateien_schreiben (passende Endung: .html ' +
-      'für Webseiten, .md für Texte, .csv für Tabellen; kurzer Dateiname ohne ' +
-      'Umlaute). Nutze mitgeliefertes Material und rag_suche/dateien_lesen als ' +
-      'Quelle — erfinde keine Fakten. Antworte am Ende nur mit einem Satz, was du ' +
-      'geschrieben hast. Deutsch, keine Emojis.',
-    werkzeuge: ['rag_suche', 'dateien_lesen', 'dateien_schreiben', 'dateien_suchen'],
+      'genannten Dateien VOLLSTÄNDIG mit deinen Schreib-Werkzeugen (passende Endung: ' +
+      '.html für Webseiten, .md für Texte, .csv für Tabellen; kurzer Dateiname ohne ' +
+      'Umlaute). Lange Dokumente baust du abschnittsweise: erst dateien_schreiben mit ' +
+      'dem Anfang, dann Abschnitt für Abschnitt dateien_anhaengen. Gezielte Änderungen ' +
+      'machst du mit dateien_bearbeiten statt alles neu zu schreiben. Nutze ' +
+      'mitgeliefertes Material und rag_suche/dateien_lesen als Quelle — erfinde keine ' +
+      'Fakten. Antworte am Ende nur mit einem Satz, was du geschrieben hast. Deutsch, keine Emojis.',
+    werkzeuge: [
+      'rag_suche',
+      'dateien_lesen',
+      'dateien_schreiben',
+      'dateien_bearbeiten',
+      'dateien_anhaengen',
+      'dateien_suchen',
+    ],
     ergebnis: { felder: ['ergebnis'], max_zeichen: 2000 },
     modell: null,
+    schreibend: true,
   },
   {
     name: 'pruefer',
@@ -114,11 +133,20 @@ const AGENT_ROLLEN = [
     prompt:
       'Du bist ein Entwickler. Schreibe Code-Dateien mit dateien_schreiben und ' +
       'FÜHRE sie mit terminal AUS, um sie zu prüfen (z. B. "python3 skript.py", ' +
-      '"node app.js"). Behebe Fehler, bis der Befehl sauber läuft. Antworte am ' +
-      'Ende nur mit einem Satz zum Ergebnis inkl. des Prüf-Befehls. Deutsch, keine Emojis.',
-    werkzeuge: ['dateien_lesen', 'dateien_schreiben', 'dateien_suchen', 'terminal'],
+      '"node app.js"). Fehler behebst du gezielt mit dateien_bearbeiten ' +
+      '(Suchen/Ersetzen), bis der Befehl sauber läuft. Antworte am Ende nur mit ' +
+      'einem Satz zum Ergebnis inkl. des Prüf-Befehls. Deutsch, keine Emojis.',
+    werkzeuge: [
+      'dateien_lesen',
+      'dateien_schreiben',
+      'dateien_bearbeiten',
+      'dateien_anhaengen',
+      'dateien_suchen',
+      'terminal',
+    ],
     ergebnis: { felder: ['ergebnis'], max_zeichen: 2000 },
     modell: null,
+    schreibend: true,
   },
 ];
 
@@ -127,13 +155,16 @@ const AGENT_ANWEISUNG = `
 ## Arbeitsweise
 Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
 1. Einfache Fragen und Gespräche beantwortest du DIREKT, ohne Werkzeug.
-2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst, und lege neue Dateien in den passenden Ordner (relativer Pfad, z. B. "kunden/angebot.html").
+2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst, und lege neue Dateien in den passenden Ordner (relativer Pfad, z. B. "kunden/angebot.html"). In großen Bäumen findest du Dateien gezielt mit dateien_suchen (Muster oder Textsuche) statt zu raten.
 3. Fragen zu Dokumenten, Projekten oder Firmenwissen: nutze rag_suche und/oder dateien_lesen und verarbeite die Treffer frei als Material. PDF/DOCX und andere Binärdateien liest du NICHT mit dateien_lesen — ihren INHALT holst du mit rag_suche (inhaltliche Frage stellen).
 4. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach: EIN kurzer Satz, was du gespeichert hast — den Dateiinhalt NICHT wiederholen.
-5. Zerlege größere Aufträge und delegiere an Subagenten, auch mehrfach parallel nacheinander: subagent(rolle="rechercheur", auftrag=…) sammelt Material, rolle="autor" schreibt Dateien aus Material, rolle="entwickler" schreibt UND testet Code per Terminal, rolle="pruefer" kontrolliert Ergebnisse. Gib jedem Subagenten einen präzisen, in sich vollständigen Auftrag inklusive Zielpfad.
-6. Mit terminal kannst du selbst Befehle im Projektordner ausführen (Skripte testen, Dateien umwandeln, Pakete bauen).
-7. Erfinde keine Fakten. Wenn Werkzeuge nichts liefern, sag das ehrlich.
-8. Antworte auf Deutsch, ohne Emojis (außer der Nutzer bittet darum).`;
+5. LANGE Dokumente (viele Abschnitte, große Webseiten) baust du abschnittsweise: dateien_schreiben mit dem Kopf/Anfang, danach Abschnitt für Abschnitt dateien_anhaengen — nie alles in einem einzigen Aufruf. Bestehende Dateien änderst du GEZIELT mit dateien_bearbeiten (exakten Textblock suchen/ersetzen) statt sie neu zu schreiben.
+6. Bei mehrschrittigen Aufträgen pflegst du mit todo_liste eine Aufgabenliste: zu Beginn anlegen, nach JEDEM erledigten Schritt aktualisieren ("- [x] …"). Sie hält dich auf Kurs.
+7. Zerlege größere Aufträge und delegiere an Subagenten: subagent(rolle="rechercheur", auftrag=…) sammelt Material, rolle="autor" schreibt Dateien aus Material, rolle="entwickler" schreibt UND testet Code per Terminal, rolle="pruefer" kontrolliert Ergebnisse. Gib jedem Subagenten einen präzisen, in sich vollständigen Auftrag inklusive Zielpfad.
+8. Mit terminal kannst du selbst Befehle im Projektordner ausführen (Skripte testen, Dateien umwandeln, Pakete bauen).
+9. Sage vor jedem Werkzeug-Block in EINEM kurzen Satz, was du gerade tust ("Ich lese zuerst die Preisliste.") — und rufe die Werkzeuge dann SOFORT in derselben Antwort auf. Niemals eine Aktion ankündigen, ohne sie auszuführen.
+10. Erfinde keine Fakten. Wenn Werkzeuge nichts liefern, sag das ehrlich.
+11. Antworte auf Deutsch, ohne Emojis (außer der Nutzer bittet darum).`;
 
 /** Kürzt Werte für die persistierte Schritt-Liste (Kontext-/Speicherschutz). */
 function kurz(wert, max) {
@@ -164,12 +195,22 @@ function kurzInput(input, maxJeWert) {
  *
  * @returns {Promise<{content:string, toolCalls:object[]}>}
  */
-async function streamChatRound({ model, messages, tools, onToken, signal }) {
+async function streamChatRound({ model, messages, tools, onToken, onThinking, think, signal }) {
   return withGpuLock(async () => {
     if (signal?.aborted) {
       throw new Error('Vom Nutzer abgebrochen');
     }
-    const body = { model, messages, stream: true, think: false };
+    // Explizite options statt Server-Defaults (Harness v2): Ollama schneidet
+    // Prompts über num_ctx STILL vorne ab — System-Prompt und Tools zuerst.
+    // Der Agent setzt sein Fenster deshalb selbst und haushaltet davor.
+    const body = {
+      model,
+      messages,
+      stream: true,
+      think: think === true,
+      keep_alive: agentConfig.KEEP_ALIVE,
+      options: { num_ctx: agentConfig.NUM_CTX, num_predict: agentConfig.NUM_PREDICT },
+    };
     if (tools && tools.length > 0) {
       body.tools = tools;
     }
@@ -237,6 +278,16 @@ async function streamChatRound({ model, messages, tools, onToken, signal }) {
             return;
           }
           const msg = data.message || {};
+          // Reasoning-Trace (qwen3 & Co.): Ollama liefert ihn als eigenes
+          // thinking-Feld. Live durchreichen — der Nutzer sieht den
+          // Gedankengang, in den Verlauf wandert er NICHT.
+          if (msg.thinking && typeof onThinking === 'function') {
+            try {
+              onThinking(msg.thinking);
+            } catch (err) {
+              logger.warn(`Chat-Agent onThinking warf: ${err.message}`);
+            }
+          }
           if (msg.content) {
             content += msg.content;
             try {
@@ -313,7 +364,7 @@ async function processAgentChatJob(ctx, job) {
   }
   const roots = arbeitsOrdner === wurzel ? [wurzel] : [arbeitsOrdner, wurzel];
 
-  const alleTools = buildTools(AGENT_WERKZEUGE);
+  const alleTools = [...buildTools(AGENT_WERKZEUGE), new TodoListeTool()];
   const toolByName = new Map(alleTools.map(t => [t.name, t]));
   const toolDefs = alleTools.map(t => t.toOllamaToolDefinition());
 
@@ -374,11 +425,26 @@ async function processAgentChatJob(ctx, job) {
   }, ABBRUCH_POLL_MS);
   abbruchPoller.unref?.();
 
+  // Auto-Eskalation (Interview 2026-07-30): Die Prüf-Rolle — der Schritt, an
+  // dem Qualität hängt — läuft auf dem Qualitätsmodell, wenn eines
+  // konfiguriert ist. Werkzeug-Runden bleiben auf dem schnellen Modell.
+  const qualModell = agentConfig.qualitaetsModell();
+  const rollen = qualModell
+    ? AGENT_ROLLEN.map(r => (r.name === 'pruefer' ? { ...r, modell: qualModell } : r))
+    : AGENT_ROLLEN;
+
   const limits = new RunLimits({ maxAufrufe: 40, zeitlimitS: ZEITLIMIT_S, maxTiefe: 2 });
-  const roleContextBase = { userId: job.user_id, roots, spaceIds, slug: 'chat-agent' };
+  const roleContextBase = {
+    userId: job.user_id,
+    roots,
+    spaceIds,
+    slug: 'chat-agent',
+    // Subagenten dürfen denken, wenn ihr Modell es kann (Interview 2026-07-30).
+    denkenSubagenten: true,
+  };
   const context = {
     ...roleContextBase,
-    rollen: AGENT_ROLLEN,
+    rollen,
     limits,
     depth: 0,
     model: requested_model,
@@ -455,6 +521,46 @@ async function processAgentChatJob(ctx, job) {
 
   const ollamaModel = await zuOllamaName(requested_model);
 
+  // --- Denk-Strom (Interview 2026-07-30: „voller Gedankengang, live") -------
+  // Modelle mit Reasoning (qwen3 …) denken sichtbar: thinking-Token gehen live
+  // als eigene SSE-Events raus (das UI hat dafür die Gedankengang-Zeile).
+  // Coder-Modelle ohne Reasoning liefern stattdessen die Erzähl-Sätze aus
+  // Regel 9 — der Nutzer sieht IMMER einen Arbeitsstrom.
+  const denken = agentConfig.thinkingGewuenscht() && agentConfig.kannDenken(ollamaModel);
+  let denktGerade = false;
+  const onThinking = token => {
+    denktGerade = true;
+    service.notifySubscribersBatched(jobId, { type: 'thinking', token });
+  };
+  const denkenEnde = () => {
+    if (denktGerade) {
+      denktGerade = false;
+      service.notifySubscribers(jobId, { type: 'thinking_end' });
+    }
+  };
+
+  // --- Aufgabenliste (TodoWrite-Muster): Zustand statt flüchtigem Plan ------
+  // Der Harness hält die Liste und hängt sie VOR JEDER Runde frisch ans
+  // Kontextende — sie kann nicht aus dem Fenster rutschen. Im Schritt-Protokoll
+  // lebt sie als EIN Schritt, der bei jeder Änderung aktualisiert wird.
+  let todoListe = '';
+  let todoStep = null;
+  const setTodos = (liste, todos) => {
+    todoListe = liste;
+    service.notifySubscribers(jobId, { type: 'agent_todos', liste, todos });
+    void (async () => {
+      try {
+        if (!todoStep) {
+          todoStep = await stepRecorder.beginnen({ kind: 'todos', name: 'aufgaben', input: {} });
+        }
+        await stepRecorder.abschliessen({ stepId: todoStep.id, output: liste });
+      } catch (err) {
+        log.warn(`[JOB ${jobId}] Aufgabenliste nicht protokolliert: ${err.message}`);
+      }
+    })();
+  };
+  context.setTodos = setTodos;
+
   // --- Token-Fluss: live an Client UND gebatcht in die DB -------------------
   let dbPuffer = '';
   let dbFlushTimer = null;
@@ -471,6 +577,7 @@ async function processAgentChatJob(ctx, job) {
     }
   };
   const onToken = token => {
+    denkenEnde(); // erster Antwort-Token schließt die Gedankengang-Zeile
     service.notifySubscribersBatched(jobId, { type: 'response', token });
     dbPuffer += token;
     if (!dbFlushTimer) {
@@ -489,8 +596,49 @@ async function processAgentChatJob(ctx, job) {
   const deadline = Date.now() + ZEITLIMIT_S * 1000;
   let toolsAktiv = true;
   let fertigText = '';
-  let pruefungGemacht = false;
-  let ankuendigungNachgefasst = false;
+  let pruefZyklen = 0;
+  let nachfassZyklen = 0;
+
+  // --- Kontext-Haushalt (Harness v2) ----------------------------------------
+  // Das Nachrichten-Array wächst über die Runden — jede Werkzeug-Ausgabe bleibt
+  // sonst bis zum Ende resident und lange Läufe sterben am stillen Ollama-
+  // Truncate (der zuerst den System-Prompt frisst). Deshalb: grob Token
+  // schätzen und über der Schwelle ALTE Werkzeug-Ausgaben eindampfen; die
+  // jüngsten Züge und der System-Prompt bleiben unangetastet. Die Details
+  // stehen weiterhin im Schritt-Protokoll.
+  const schaetzeTokens = list =>
+    list.reduce((n, m) => n + Math.ceil(String(m.content || '').length / 3.2) + 8, 0);
+  let kompaktierungGemeldet = false;
+  const kontextHaushalt = () => {
+    const budget = Math.floor(agentConfig.NUM_CTX * agentConfig.KONTEXT_SCHWELLE);
+    if (schaetzeTokens(messages) <= budget) {
+      return;
+    }
+    const SCHUTZ = 6; // die jüngsten Nachrichten bleiben immer vollständig
+    for (let i = 1; i < messages.length - SCHUTZ && schaetzeTokens(messages) > budget; i++) {
+      const m = messages[i];
+      if (m.role === 'tool' && typeof m.content === 'string' && m.content.length > 700) {
+        m.content = `${m.content.slice(0, 400)}\n… [ältere Werkzeug-Ausgabe gekürzt — Details im Schritt-Protokoll]`;
+      }
+    }
+    for (let i = 1; i < messages.length - SCHUTZ && schaetzeTokens(messages) > budget; i++) {
+      const m = messages[i];
+      if (
+        (m.role === 'user' || m.role === 'assistant') &&
+        typeof m.content === 'string' &&
+        m.content.length > 900
+      ) {
+        m.content = `${m.content.slice(0, 600)}\n… [gekürzt]`;
+      }
+    }
+    if (!kompaktierungGemeldet) {
+      kompaktierungGemeldet = true;
+      service.notifySubscribers(jobId, {
+        type: 'compaction',
+        message: 'Kontext eingedampft: ältere Werkzeug-Ausgaben wurden gekürzt.',
+      });
+    }
+  };
 
   // --- Platten-Wahrheit: Welche Dateien hat dieser Lauf WIRKLICH angelegt? ---
   // Kleine Modelle behaupten gern Erfolge („HTML-Datei erstellt"), ohne je
@@ -575,8 +723,13 @@ async function processAgentChatJob(ctx, job) {
     if (istKomplex && toolsAktiv && !abgebrochen) {
       const planStep = await stepRecorder.beginnen({ kind: 'plan', name: 'plan', input: {} });
       try {
+        // Auto-Eskalation: die Plan-Runde — der Schritt mit dem größten
+        // Qualitäts-Hebel — läuft auf dem Qualitätsmodell, wenn konfiguriert.
+        // Der Plan-Text streamt als Gedankengang live ins UI (nicht als
+        // Antwort): der Nutzer sieht das Modell planen, die Antwort bleibt sauber.
+        const planOllama = qualModell ? await zuOllamaName(qualModell) : ollamaModel;
         const planErgebnis = await streamChatRound({
-          model: ollamaModel,
+          model: planOllama,
           messages: [
             ...messages,
             {
@@ -588,9 +741,12 @@ async function processAgentChatJob(ctx, job) {
             },
           ],
           tools: [],
-          onToken: () => {}, // Plan läuft still — er erscheint als Schritt, nicht als Antwort
+          think: agentConfig.thinkingGewuenscht() && agentConfig.kannDenken(planOllama),
+          onThinking,
+          onToken: token => onThinking(token), // Plan-Text in die Gedankengang-Zeile
           signal: abbruch.signal,
         });
+        denkenEnde();
         const plan = (planErgebnis.content || '').trim();
         await stepRecorder.abschliessen({ stepId: planStep.id, output: plan || '(kein Plan)' });
         if (plan) {
@@ -624,15 +780,33 @@ async function processAgentChatJob(ctx, job) {
         break;
       }
 
+      // Kontext-Haushalt VOR jeder Runde; die Aufgabenliste kommt danach
+      // frisch ans Ende — sie ist Zustand des Harness, nicht des Verlaufs.
+      kontextHaushalt();
+      const rundenMessages = todoListe
+        ? [
+            ...messages,
+            {
+              role: 'system',
+              content:
+                `## Aufgabenliste (aktueller Stand)\n${todoListe}\n` +
+                'Arbeite die offenen Punkte ab und aktualisiere die Liste mit todo_liste.',
+            },
+          ]
+        : messages;
+
       let rundenErgebnis;
       try {
         rundenErgebnis = await streamChatRound({
           model: ollamaModel,
-          messages,
+          messages: rundenMessages,
           tools: toolsAktiv ? toolDefs : [],
+          think: denken,
+          onThinking,
           onToken,
           signal: abbruch.signal,
         });
+        denkenEnde();
       } catch (err) {
         if (toolsAktiv && istToolsNichtUnterstuetzt(err)) {
           // Modell kann keine Werkzeuge — eine werkzeuglose Runde ist der
@@ -661,10 +835,10 @@ async function processAgentChatJob(ctx, job) {
         meldeNeueDateien(snapshotStart, await leseSnapshot());
         // Erzwungener Prüf-Schritt (Orchestrator-Protokoll): Bevor eine Antwort
         // mit erstellten Dateien als fertig gilt, kontrolliert die pruefer-Rolle
-        // das Ergebnis. Findet sie Mängel, bekommt das Modell GENAU EINE
-        // Korrektur-Schleife — dieselben Runden, dieselben Werkzeuge.
-        if (!pruefungGemacht && dateien.length > 0 && toolsAktiv && !abgebrochen) {
-          pruefungGemacht = true;
+        // das Ergebnis. Findet sie Mängel, bekommt das Modell eine Korrektur-
+        // Schleife — bis zu MAX_PRUEF_ZYKLEN Mal (Entwurf→Prüfung→Korrektur).
+        if (pruefZyklen < MAX_PRUEF_ZYKLEN && dateien.length > 0 && toolsAktiv && !abgebrochen) {
+          pruefZyklen += 1;
           const mangel = await pruefeErgebnis(content);
           if (mangel) {
             messages.push({ role: 'assistant', content });
@@ -682,13 +856,14 @@ async function processAgentChatJob(ctx, job) {
         }
         // Ankündigungs-Wächter: kleine Modelle beenden Aufträge gern mit
         // „Ich schreibe die Datei jetzt …" statt zu handeln. Eine angekündigte
-        // Aktion ohne Werkzeug-Aufruf bekommt genau EINE Nachfass-Runde.
+        // Aktion ohne Werkzeug-Aufruf bekommt bis zu MAX_NACHFASS_ZYKLEN
+        // Nachfass-Runden.
         const kuendigtNurAn =
           /\b(ich\s+(schreibe|erstelle|lege|speichere|kopiere|beginne)|jetzt\s+(schreibe|erstelle|lege|speichere)|werde\s+ich\s+(die|den|das)?\s*\w*\s*(schreiben|erstellen|anlegen|speichern))\b/i.test(
             content || ''
           );
-        if (!ankuendigungNachgefasst && kuendigtNurAn && toolsAktiv && !abgebrochen) {
-          ankuendigungNachgefasst = true;
+        if (nachfassZyklen < MAX_NACHFASS_ZYKLEN && kuendigtNurAn && toolsAktiv && !abgebrochen) {
+          nachfassZyklen += 1;
           messages.push({ role: 'assistant', content });
           messages.push({
             role: 'user',
@@ -780,9 +955,13 @@ async function processAgentChatJob(ctx, job) {
         // saubere RELATIVE Pfade — ein absoluter Pfad (zeigt auf roots[1])
         // ließe die Karte auf einen falsch zusammengesetzten Pfad zeigen.
         const pfadStr = String(params.pfad || '');
+        const schreibWerkzeug =
+          toolName === 'dateien_schreiben' ||
+          toolName === 'dateien_bearbeiten' ||
+          toolName === 'dateien_anhaengen';
         if (
-          toolName === 'dateien_schreiben' &&
-          /^Datei "/.test(result) &&
+          schreibWerkzeug &&
+          !/^Fehler/.test(result) &&
           pfadStr &&
           !path.isAbsolute(pfadStr) &&
           !pfadStr.split('/').includes('..')

@@ -68,6 +68,7 @@ export default function AgentChatPanel() {
     defaultModel,
     selectedModel,
     setSelectedModel,
+    globalQueue,
   } = useChatContext();
 
   const chatScope = useWorkspaceStore(s => s.chatScope);
@@ -597,6 +598,12 @@ export default function AgentChatPanel() {
         >
           {isLoading ? 'Arasul denkt nach …' : title || 'Neuer Chat'}
         </span>
+        {/* Warteschlangen-Hinweis: erst ab >1 wartendem Auftrag interessant. */}
+        {isLoading && (globalQueue?.pending_count ?? 0) > 1 && (
+          <span className="shrink-0 text-xs text-muted-foreground" data-testid="queue-hinweis">
+            Warteschlange: {globalQueue.pending_count} Aufträge
+          </span>
+        )}
         <button
           type="button"
           onClick={startNewChat}

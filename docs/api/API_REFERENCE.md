@@ -2446,6 +2446,8 @@ schritte: # optional (B7): deterministische, fest geordnete Kette
     rolle: leser
     auftrag: Lies die gefundenen Seiten. # Vorlage: {{argument}}, {{schritt}}, {{vorher}}
     iterationen: 1 # Schritt bis zu N-mal wiederholen (1–10, default 1)
+    # wiederhole_ueber: gliederung  # optional: Schleife über eine LISTE (s. u.)
+    # modell: qwen3:32b            # optional: Modell nur für diesen Schritt
 grenzen:
   max_aufrufe: 20 # Subagent-Aufrufe über ALLE Ebenen
   zeitlimit_s: 900
@@ -2455,9 +2457,11 @@ grenzen:
 Recherchiere gründlich zum Thema {{thema}}.
 ```
 
-Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers).
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
 
 The optional `schritte` array (B7) makes orchestration deterministic: each step is either `typ: subagent` (delegates to a declared `rolle` with an `auftrag` template) or `typ: werkzeug` (calls one tool directly with `parameter`). Steps run in fixed order; a step's output is threaded into later steps as `{{stepname}}` (and `{{vorher}}` across `iterationen`), then the body prompt synthesizes the final answer. A `subagent` step requires the `subagent` tool and a matching role; a `werkzeug` step may only use a tool the flow itself declares. Empty `schritte` → the flow stays model-driven.
+
+**Map over a list (`wiederhole_ueber`, Harness v2 2026-07-30).** A step may declare `wiederhole_ueber: <name>` referencing a flow argument or an EARLIER step. Its value is parsed as a list (JSON array — also when embedded in prose/code fences — else one entry per line, bullets/numbering stripped) and the step runs once per element (max 50) with `{{element}}`, `{{index}}`, `{{anzahl}}` and `{{vorher}}` in scope; the step's output is the concatenation of all element outputs. Mutually exclusive with `iterationen > 1`; the reference is schema-validated. "Ab Fehler wiederholen" adopts completed steps only UP TO the first `wiederhole_ueber` step (its entry count is dynamic). A step-level `modell` overrides the flow model for that step's delegation (a role's own `modell` still wins). Typical long-document pipeline: step 1 (`gliederung`) produces the outline as a JSON array, step 2 loops over it (`wiederhole_ueber: gliederung`) and appends each section via `dateien_anhaengen`.
 
 `GET /api/flows/werkzeuge` returns each tool with a `verfuegbar` flag:
 

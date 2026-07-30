@@ -28,6 +28,8 @@ const ARG_TYP_LABEL: Record<FlowArgumentType, string> = {
 const WERKZEUG_LABEL: Record<FlowTool, string> = {
   dateien_lesen: 'Dateien lesen',
   dateien_schreiben: 'Dateien schreiben',
+  dateien_bearbeiten: 'Dateien bearbeiten',
+  dateien_anhaengen: 'Dateien anhängen',
   dateien_suchen: 'Dateien suchen',
   rag_suche: 'Wissens-Suche',
   web_suche: 'Web-Suche',

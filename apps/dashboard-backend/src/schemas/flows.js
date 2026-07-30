@@ -17,6 +17,8 @@ const { z } = require('zod');
 const VALID_TOOLS = [
   'dateien_lesen',
   'dateien_schreiben',
+  'dateien_bearbeiten',
+  'dateien_anhaengen',
   'dateien_suchen',
   'rag_suche',
   'web_suche',
@@ -120,6 +122,10 @@ const SubagentRole = z
     werkzeuge: z.array(z.enum(VALID_TOOLS)).max(VALID_TOOLS.length).default([]),
     ergebnis: ResultContract,
     prompt: z.string().trim().min(1, 'Eine Rolle braucht einen Prompt').max(20000),
+    // Schreib-Rolle: befreit vom „nur JSON"-Ergebnisvertrag und bekommt die
+    // Schreib-Verifikation (Harness v2). Ohne Angabe greift die Heuristik
+    // über die Schreib-Werkzeuge der Rolle (subagent.js).
+    schreibend: z.coerce.boolean().optional(),
   })
   .strict();
 
@@ -137,6 +143,18 @@ const SubagentRole = z
  * `iterationen` wiederholt den Schritt bis zu N-mal und reicht die vorige
  * Ausgabe als {{vorher}} hinein (bewusst ein Zähler, nicht ein Modell-Urteil:
  * minimalistisch und vorhersagbar). Voreinstellung 1.
+ *
+ * `wiederhole_ueber` (Harness v2, 2026-07-30) macht den Schritt zur Schleife
+ * ÜBER EINE LISTE: der genannte Platzhalter (Argument oder Ausgabe eines
+ * früheren Schritts) wird als Liste gelesen (JSON-Array oder eine Zeile je
+ * Eintrag), und der Schritt läuft einmal je Element — mit {{element}},
+ * {{index}} und {{anzahl}} im Scope. DAS ist der Baustein für
+ * Langdokument-Pipelines: Schritt 1 erzeugt die Gliederung, Schritt 2 läuft
+ * über jede Sektion und hängt sie per dateien_anhaengen an. Schließt
+ * `iterationen` > 1 aus.
+ *
+ * `modell` überschreibt für DIESEN Schritt das Flow-Modell (z. B. das
+ * Qualitätsmodell nur für den Architektur-Schritt).
  */
 const FlowStep = z
   .object({
@@ -155,6 +173,12 @@ const FlowStep = z
       .default({})
       .optional(),
     iterationen: z.coerce.number().int().min(1).max(10).default(1),
+    wiederhole_ueber: z
+      .string()
+      .trim()
+      .regex(ARG_NAME_RE, 'wiederhole_ueber: Name eines Arguments oder früheren Schritts')
+      .optional(),
+    modell: z.string().trim().min(1).max(120).optional(),
   })
   .strict()
   .superRefine((step, ctx) => {
@@ -188,6 +212,13 @@ const FlowStep = z
           message: `Schritt "${step.name}": "subagent" ist kein direktes Werkzeug — nutze typ "subagent" mit einer Rolle`,
         });
       }
+    }
+    if (step.wiederhole_ueber && step.iterationen > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['iterationen'],
+        message: `Schritt "${step.name}": "wiederhole_ueber" und "iterationen" > 1 schließen sich aus`,
+      });
     }
   });
 
@@ -306,7 +337,14 @@ const FlowDefinition = z
 
     // Dateizugriff ohne erlaubten Ordner ist wirkungslos — lieber beim Speichern
     // sagen als den Nutzer rätseln lassen, warum der Flow nichts findet.
-    const needsFolder = ['dateien_lesen', 'dateien_schreiben', 'dateien_suchen', 'terminal'];
+    const needsFolder = [
+      'dateien_lesen',
+      'dateien_schreiben',
+      'dateien_bearbeiten',
+      'dateien_anhaengen',
+      'dateien_suchen',
+      'terminal',
+    ];
     const usesFiles = flow.werkzeuge.some(t => needsFolder.includes(t));
     if (usesFiles && flow.ordner.length === 0) {
       ctx.addIssue({
@@ -327,7 +365,24 @@ const FlowDefinition = z
         message: `Schritt "${dupStep}" ist doppelt vergeben`,
       });
     }
-    for (const step of flow.schritte) {
+    for (const [stepIndex, step] of flow.schritte.entries()) {
+      if (step.wiederhole_ueber) {
+        // Die Listen-Quelle muss zur Laufzeit existieren: ein Argument oder die
+        // Ausgabe eines FRÜHEREN Schritts. Ein Tippfehler fällt sonst erst im
+        // Lauf als leere Liste auf.
+        const argNames = flow.argumente.map(a => a.name);
+        const fruehere = flow.schritte.slice(0, stepIndex).map(s => s.name);
+        if (
+          !argNames.includes(step.wiederhole_ueber) &&
+          !fruehere.includes(step.wiederhole_ueber)
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['schritte'],
+            message: `Schritt "${step.name}": "wiederhole_ueber" nennt "${step.wiederhole_ueber}" — weder ein Argument noch ein früherer Schritt`,
+          });
+        }
+      }
       if (step.typ === 'subagent') {
         // Ein subagent-Schritt braucht das Werkzeug UND die Rolle.
         if (!flow.werkzeuge.includes('subagent')) {

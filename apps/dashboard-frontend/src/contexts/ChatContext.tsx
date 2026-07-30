@@ -47,6 +47,17 @@ export interface AgentToolStep {
   status: 'running' | 'done' | 'error';
 }
 
+/**
+ * Ein Eintrag der live gepflegten Aufgabenliste des Agenten (Harness v2).
+ * Das Backend streamt bei jeder Änderung den VOLLEN aktuellen Stand als
+ * `agent_todos`-Event; persistiert liegt die Liste als Schritt kind='todos'
+ * (output = Markdown-Checkboxen) in `chat_messages.schritte`.
+ */
+export interface TodoEintrag {
+  text: string;
+  status: 'offen' | 'laeuft' | 'fertig';
+}
+
 /** Rohform eines Agent-Schritts, wie das Backend sie streamt/persistiert. */
 interface AgentSchrittRoh {
   id?: number;
@@ -107,6 +118,8 @@ export interface ChatMessage {
   visionFallbackVia?: string; // model_id of the vision model that captioned the user image (P6 auto-fallback)
   agent?: string; // Agent name when this assistant message is an @agent run (Schritt 11)
   steps?: AgentToolStep[]; // Live tool steps of an agent run
+  /** Live gepflegte Aufgabenliste des Agenten (agent_todos-Event, voller Stand). */
+  todos?: TodoEintrag[];
   /** Gespeicherte Projektdatei(en) / Anhang dieser Nachricht — der Chat-Agent
    *  kann mehrere Dateien in einem Lauf schreiben (JSONB trägt beides). */
   datei?: MessageDatei | MessageDatei[];
@@ -761,6 +774,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         resetReconnectTimeout();
 
+        // SSE-PUFFER-FIX: identisch zum Haupt-Stream — zerschnittene
+        // `data:`-Zeilen über Chunk-Grenzen hinweg zusammensetzen.
+        let sseRest = '';
+
         for (;;) {
           const readPromise = reader.read();
           const timeoutPromise = new Promise<never>((_, reject) => {
@@ -772,8 +789,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           isFirstReconnectRead = false;
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(l => l.trim().startsWith('data:'));
+          sseRest += decoder.decode(value, { stream: true });
+          const rawLines = sseRest.split('\n');
+          sseRest = rawLines.pop() ?? '';
+          const lines = rawLines.filter(l => l.trim().startsWith('data:'));
 
           for (const line of lines) {
             try {
@@ -1239,6 +1258,15 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
         resetStreamTimeout();
 
+        // SSE-PUFFER-FIX (Harness v2): Eine `data:`-Zeile kann an JEDER
+        // Chunk-Grenze zerschnitten ankommen — ohne Zeilenpuffer wird das
+        // JSON-Fragment als Parse-Fehler verworfen und der Rest (ohne
+        // `data:`-Präfix) still weggefiltert. Bei kleinen Token-Events fiel
+        // das kaum auf; die größeren Agent-Events (Schritte, Gedankengang,
+        // Aufgabenlisten) rissen damit reihenweise ab. Der Puffer hält die
+        // letzte unvollständige Zeile bis zum nächsten Chunk zurück.
+        let sseRest = '';
+
         for (;;) {
           const readPromise = reader.read();
           // TIMEOUT-FIX: Create fresh reject ref per iteration and clear old timeout
@@ -1255,8 +1283,10 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           isFirstRead = false;
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(l => l.trim().startsWith('data:'));
+          sseRest += decoder.decode(value, { stream: true });
+          const rawLines = sseRest.split('\n');
+          sseRest = rawLines.pop() ?? '';
+          const lines = rawLines.filter(l => l.trim().startsWith('data:'));
 
           for (const line of lines) {
             try {
@@ -1414,6 +1444,22 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                         ? vorhanden.map((s, i) => (i === idx ? schritt : s))
                         : [...vorhanden, schritt];
                     u[assistantMessageIndex] = { ...cur, steps };
+                  }
+                  return u;
+                });
+              }
+
+              // Aufgabenliste des Agenten: jedes Event trägt den VOLLEN aktuellen
+              // Stand — die Liste an der Nachricht wird komplett ersetzt.
+              if (data.type === 'agent_todos' && Array.isArray(data.todos)) {
+                const todos = (data.todos as TodoEintrag[]).filter(
+                  t => t && typeof t.text === 'string'
+                );
+                updateMessages(chatId, prev => {
+                  const u = [...prev];
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
+                    u[assistantMessageIndex] = { ...cur, todos };
                   }
                   return u;
                 });

@@ -66,7 +66,11 @@ services:
       LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-3600}
       OLLAMA_STARTUP_TIMEOUT: ${OLLAMA_STARTUP_TIMEOUT:-120}
       OLLAMA_FLASH_ATTENTION: '1'
-      OLLAMA_KV_CACHE_TYPE: 'q4_0'
+      # q8_0 statt q4_0 (Harness v2, 2026-07-30): halbiert den KV-Speicher
+      # gegenüber f16 bei praktisch verlustfreier Qualität; q4_0 sparte mehr,
+      # kostete aber messbar Antwortqualität — auf einem 64-GB-Orin ist der
+      # Speicher nicht der Engpass. Auf knappen 32-GB-Geräten via .env zurück.
+      OLLAMA_KV_CACHE_TYPE: '${OLLAMA_KV_CACHE_TYPE:-q8_0}'
       # Default-Kontextfenster für alle geladenen Modelle. n8n-Agent-Workflows
       # (Tools Agent + qwen3:8b) brauchen ≥32k — Ollamas Default (4k) schneidet
       # Tool-Definitionen + Verlauf sonst STILL ab und der Agent "vergisst"

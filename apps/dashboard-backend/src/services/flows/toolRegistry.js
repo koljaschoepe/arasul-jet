@@ -11,7 +11,12 @@
  * Runner reicht ihn beim Ausführen über den `context` durch (Schritt 11).
  */
 
-const { DateienLesenTool, DateienSchreibenTool } = require('./tools/dateien');
+const {
+  DateienLesenTool,
+  DateienSchreibenTool,
+  DateienBearbeitenTool,
+  DateienAnhaengenTool,
+} = require('./tools/dateien');
 const { DateiSuchenTool } = require('./tools/suche');
 const RagSucheTool = require('./tools/rag');
 const TerminalTool = require('./tools/terminal');
@@ -48,6 +53,8 @@ class NochNichtVerfuegbarTool extends BaseTool {
 const FACTORIES = {
   dateien_lesen: () => new DateienLesenTool(),
   dateien_schreiben: () => new DateienSchreibenTool(),
+  dateien_bearbeiten: () => new DateienBearbeitenTool(),
+  dateien_anhaengen: () => new DateienAnhaengenTool(),
   dateien_suchen: () => new DateiSuchenTool(),
   rag_suche: () => new RagSucheTool(),
   terminal: () => new TerminalTool(),

@@ -53,6 +53,7 @@ const chatContext = {
   defaultModel: 'qwen3:8b',
   selectedModel: '',
   setSelectedModel: vi.fn(),
+  globalQueue: { pending_count: 0, processing: null, queue: [] },
 };
 vi.mock('@/contexts/ChatContext', () => ({
   useChatContext: () => chatContext,
@@ -171,6 +172,35 @@ describe('AgentChatPanel', () => {
     await waitFor(() => expect(screen.getByText('Testchat')).toBeInTheDocument());
     expect(chatContext.registerMessageCallback).toHaveBeenCalled();
   });
+
+  it('zeigt die Warteschlange im Header, wenn ein Lauf läuft und Aufträge warten', async () => {
+    localStorage.setItem('arasul_panel_chat_id', '7');
+    chatContext.getBackgroundLoading.mockReturnValue(true);
+    chatContext.globalQueue = { pending_count: 3, processing: null, queue: [] };
+    try {
+      renderPanel();
+      await waitFor(() =>
+        expect(screen.getByTestId('queue-hinweis')).toHaveTextContent('Warteschlange: 3 Aufträge')
+      );
+    } finally {
+      chatContext.getBackgroundLoading.mockReturnValue(false);
+      chatContext.globalQueue = { pending_count: 0, processing: null, queue: [] };
+    }
+  });
+
+  it('zeigt KEINE Warteschlange bei nur einem wartenden Auftrag', async () => {
+    localStorage.setItem('arasul_panel_chat_id', '7');
+    chatContext.getBackgroundLoading.mockReturnValue(true);
+    chatContext.globalQueue = { pending_count: 1, processing: null, queue: [] };
+    try {
+      renderPanel();
+      await waitFor(() => expect(screen.getByText('Arasul denkt nach …')).toBeInTheDocument());
+      expect(screen.queryByTestId('queue-hinweis')).not.toBeInTheDocument();
+    } finally {
+      chatContext.getBackgroundLoading.mockReturnValue(false);
+      chatContext.globalQueue = { pending_count: 0, processing: null, queue: [] };
+    }
+  });
 });
 
 describe('CompactMessage', () => {
@@ -245,6 +275,74 @@ describe('CompactMessage', () => {
     expect(screen.queryByText('Inhalt')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('liest brief.md'));
     expect(screen.getByText('Inhalt')).toBeInTheDocument();
+  });
+
+  it('rendert die live gestreamte Aufgabenliste als Checkliste (Text + Farbe, keine Status-Icons)', () => {
+    render(
+      <CompactMessage
+        isStreaming
+        message={{
+          role: 'assistant',
+          content: '',
+          todos: [
+            { text: 'Quellen lesen', status: 'fertig' },
+            { text: 'Entwurf schreiben', status: 'laeuft' },
+            { text: 'Prüfen', status: 'offen' },
+          ],
+        }}
+      />
+    );
+    expect(screen.getByTestId('todo-liste')).toBeInTheDocument();
+    expect(screen.getByText('Aufgaben · 1/3 erledigt')).toBeInTheDocument();
+    // Status als Text-Stil + Farbe: fertig durchgestrichen, läuft im Akzent, offen gedämpft.
+    expect(screen.getByText('Quellen lesen').className).toMatch(/line-through/);
+    expect(screen.getByText('Entwurf schreiben').className).toMatch(/text-primary/);
+    expect(screen.getByText('Prüfen').className).toMatch(/text-muted-foreground/);
+  });
+
+  it('parst den persistierten todos-Schritt und zeigt ihn NICHT doppelt als Schritt-Zeile', () => {
+    render(
+      <CompactMessage
+        isStreaming={false}
+        message={{
+          role: 'assistant',
+          content: 'Fertig.',
+          steps: [
+            { tool: 'dateien_schreiben', params: { pfad: 'plan.md' }, status: 'done' },
+            {
+              kind: 'todos',
+              tool: 'aufgaben',
+              result: '- [x] Quellen lesen\n- [~] Entwurf schreiben\n- [ ] Prüfen',
+              status: 'done',
+            },
+          ],
+        }}
+      />
+    );
+    expect(screen.getByText('Aufgaben · 1/3 erledigt')).toBeInTheDocument();
+    expect(screen.getByText('Entwurf schreiben')).toBeInTheDocument();
+    // Der todos-Schritt zählt nicht als normale Schritt-Zeile: nur 1 Schritt bleibt.
+    fireEvent.click(screen.getByTestId('agent-steps-toggle'));
+    expect(screen.getByText('1 Schritt')).toBeInTheDocument();
+    expect(screen.queryByText('aktualisiert die Aufgabenliste')).not.toBeInTheDocument();
+  });
+
+  it('beschriftet die neuen Werkzeuge dateien_bearbeiten und dateien_anhaengen', () => {
+    render(
+      <CompactMessage
+        isStreaming
+        message={{
+          role: 'assistant',
+          content: '',
+          steps: [
+            { tool: 'dateien_bearbeiten', params: { pfad: 'brief.md' }, status: 'done' },
+            { tool: 'dateien_anhaengen', params: { pfad: 'bericht.md' }, status: 'running' },
+          ],
+        }}
+      />
+    );
+    expect(screen.getByText('ändert brief.md')).toBeInTheDocument();
+    expect(screen.getByText('ergänzt bericht.md …')).toBeInTheDocument();
   });
 
   it('zeigt Thinking als einklappbare Zeile', () => {

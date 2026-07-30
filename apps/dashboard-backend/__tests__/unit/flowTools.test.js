@@ -17,6 +17,8 @@ const ragCore = require('../../src/services/rag/ragCore');
 const {
   DateienLesenTool,
   DateienSchreibenTool,
+  DateienBearbeitenTool,
+  DateienAnhaengenTool,
 } = require('../../src/services/flows/tools/dateien');
 const { DateiSuchenTool } = require('../../src/services/flows/tools/suche');
 const RagSucheTool = require('../../src/services/flows/tools/rag');
@@ -197,6 +199,102 @@ describe('dateien_schreiben', () => {
   });
 });
 
+describe('dateien_bearbeiten', () => {
+  const tool = new DateienBearbeitenTool();
+
+  beforeEach(() => {
+    fs.writeFileSync(
+      path.join(arbeit, 'seite.html'),
+      '<html>\n<head>\n  <title>Alt</title>\n</head>\n<body>\n  <p>Text</p>\n</body>\n</html>\n'
+    );
+  });
+
+  it('ersetzt einen exakten Block genau einmal', async () => {
+    const out = await tool.execute(
+      { pfad: 'seite.html', suchen: '  <title>Alt</title>', ersetzen: '  <title>Neu</title>' },
+      ctx()
+    );
+    expect(out).toMatch(/1 Stelle ersetzt/);
+    expect(fs.readFileSync(path.join(arbeit, 'seite.html'), 'utf8')).toContain('<title>Neu</title>');
+  });
+
+  it('findet die Stelle auch mit abweichender Einrückung (Whitespace-tolerant)', async () => {
+    const out = await tool.execute(
+      { pfad: 'seite.html', suchen: '<title>Alt</title>', ersetzen: '<title>Neu</title>' },
+      ctx()
+    );
+    expect(out).toMatch(/1 Stelle ersetzt/);
+    expect(fs.readFileSync(path.join(arbeit, 'seite.html'), 'utf8')).toContain('<title>Neu</title>');
+  });
+
+  it('verweigert mehrdeutige Treffer ohne alle=true', async () => {
+    fs.writeFileSync(path.join(arbeit, 'doppel.txt'), 'x\nGLEICH\ny\nGLEICH\nz\n');
+    const out = await tool.execute(
+      { pfad: 'doppel.txt', suchen: 'GLEICH', ersetzen: 'ANDERS' },
+      ctx()
+    );
+    expect(out).toMatch(/^Fehler: .*2-mal/);
+  });
+
+  it('ersetzt mit alle=true jede Stelle', async () => {
+    fs.writeFileSync(path.join(arbeit, 'doppel.txt'), 'x\nGLEICH\ny\nGLEICH\nz\n');
+    const out = await tool.execute(
+      { pfad: 'doppel.txt', suchen: 'GLEICH', ersetzen: 'ANDERS', alle: true },
+      ctx()
+    );
+    expect(out).toMatch(/2 Stellen ersetzt/);
+    expect(fs.readFileSync(path.join(arbeit, 'doppel.txt'), 'utf8')).not.toContain('GLEICH');
+  });
+
+  it('gibt bei Nicht-Treffern eine Handlungsanweisung zurück', async () => {
+    const out = await tool.execute(
+      { pfad: 'seite.html', suchen: 'GIBT ES NICHT', ersetzen: 'x' },
+      ctx()
+    );
+    expect(out).toMatch(/^Fehler: .*nicht gefunden/);
+    expect(out).toMatch(/dateien_lesen/);
+  });
+
+  it('verweist bei fehlender Datei auf dateien_schreiben und hinterlässt KEINE leere Datei', async () => {
+    const out = await tool.execute({ pfad: 'fehlt.md', suchen: 'a', ersetzen: 'b' }, ctx());
+    expect(out).toMatch(/^Fehler: .*dateien_schreiben/);
+    // Review PR #278: O_CREAT im gemeinsamen Öffner legte hier eine leere
+    // Datei an — die der Platten-Diff dann als "neue Datei" meldete.
+    expect(fs.existsSync(path.join(arbeit, 'fehlt.md'))).toBe(false);
+  });
+});
+
+describe('dateien_anhaengen', () => {
+  const tool = new DateienAnhaengenTool();
+
+  it('legt die Datei an und hängt weitere Abschnitte hinten an', async () => {
+    const p = path.join(arbeit, 'lang.md');
+    fs.rmSync(p, { force: true });
+    const a = await tool.execute({ pfad: 'lang.md', inhalt: '# Kopf\n' }, ctx());
+    expect(a).toMatch(/angehängt/);
+    const b = await tool.execute({ pfad: 'lang.md', inhalt: 'Sektion 1\n' }, ctx());
+    expect(b).toMatch(/angehängt/);
+    expect(fs.readFileSync(p, 'utf8')).toBe('# Kopf\nSektion 1\n');
+  });
+
+  it('meldet die Gesamtgröße nach dem Anhängen', async () => {
+    fs.writeFileSync(path.join(arbeit, 'gross.md'), 'x'.repeat(100));
+    const out = await tool.execute({ pfad: 'gross.md', inhalt: 'y'.repeat(50) }, ctx());
+    expect(out).toMatch(/Datei jetzt 150 Bytes/);
+  });
+
+  it('schreibt NICHT ausserhalb der erlaubten Ordner', async () => {
+    const out = await tool.execute({ pfad: '../aussen/boese.txt', inhalt: 'X' }, ctx());
+    expect(out).toMatch(/^Fehler:/);
+    expect(fs.existsSync(path.join(aussen, 'boese.txt'))).toBe(false);
+  });
+
+  it('lehnt leeren Inhalt ab', async () => {
+    const out = await tool.execute({ pfad: 'lang.md', inhalt: '' }, ctx());
+    expect(out).toMatch(/^Fehler:/);
+  });
+});
+
 describe('rag_suche', () => {
   const tool = new RagSucheTool();
 
@@ -371,6 +469,8 @@ describe('Werkzeug-Registry', () => {
       [
         'dateien_lesen',
         'dateien_schreiben',
+        'dateien_bearbeiten',
+        'dateien_anhaengen',
         'dateien_suchen',
         'rag_suche',
         'terminal',
