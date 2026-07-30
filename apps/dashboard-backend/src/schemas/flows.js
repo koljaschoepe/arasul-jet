@@ -122,6 +122,10 @@ const SubagentRole = z
     werkzeuge: z.array(z.enum(VALID_TOOLS)).max(VALID_TOOLS.length).default([]),
     ergebnis: ResultContract,
     prompt: z.string().trim().min(1, 'Eine Rolle braucht einen Prompt').max(20000),
+    // Schreib-Rolle: befreit vom „nur JSON"-Ergebnisvertrag und bekommt die
+    // Schreib-Verifikation (Harness v2). Ohne Angabe greift die Heuristik
+    // über die Schreib-Werkzeuge der Rolle (subagent.js).
+    schreibend: z.coerce.boolean().optional(),
   })
   .strict();
 

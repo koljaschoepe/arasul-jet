@@ -271,7 +271,14 @@ async function executeSteps({
           error: `Schritt „${schritt.name}": Liste "${schritt.wiederhole_ueber}" ist leer oder nicht lesbar.`,
         };
       }
+      let gekuerztHinweis = '';
       if (elemente.length > MAX_MAP_ELEMENTE) {
+        gekuerztHinweis =
+          `\n\n[Hinweis: Liste "${schritt.wiederhole_ueber}" hatte ${elemente.length} Elemente — ` +
+          `auf ${MAX_MAP_ELEMENTE} gekürzt, die übrigen wurden NICHT verarbeitet.]`;
+        logger.warn(
+          `Flow-Schritt "${schritt.name}": wiederhole_ueber-Liste von ${elemente.length} auf ${MAX_MAP_ELEMENTE} gekürzt`
+        );
         elemente.length = MAX_MAP_ELEMENTE;
       }
       const teile = [];
@@ -297,7 +304,7 @@ async function executeSteps({
           return { result: null, aborted: true };
         }
       }
-      ausgabe = teile.join('\n\n');
+      ausgabe = teile.join('\n\n') + gekuerztHinweis;
     } else {
       const iterationen = schritt.iterationen || 1;
       for (let i = 1; i <= iterationen; i++) {

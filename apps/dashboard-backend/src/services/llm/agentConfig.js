@@ -14,10 +14,18 @@
  *     Der Harness fragt hier nach, statt think blind zu setzen.
  */
 
-const NUM_CTX = parseInt(process.env.AGENT_NUM_CTX || '32768', 10);
+/** parseInt mit NaN-Wächter — ein kaputter Env-Wert würde sonst als
+ * options.num_ctx=null genau den stillen Truncate zurückbringen, den
+ * dieses Modul beseitigt. */
+function ganzzahl(wert, standard) {
+  const n = parseInt(wert ?? '', 10);
+  return Number.isFinite(n) ? n : standard;
+}
+
+const NUM_CTX = ganzzahl(process.env.AGENT_NUM_CTX, 32768);
 
 /** Modell-Antwortlänge pro Runde: -1 = unbegrenzt (Ollama-Konvention). */
-const NUM_PREDICT = parseInt(process.env.AGENT_NUM_PREDICT || '-1', 10);
+const NUM_PREDICT = ganzzahl(process.env.AGENT_NUM_PREDICT, -1);
 
 /** Modell zwischen Runden im Speicher halten — Kaltstart kostet auf dem Jetson 6-30 s. */
 const KEEP_ALIVE = process.env.AGENT_KEEP_ALIVE || '30m';

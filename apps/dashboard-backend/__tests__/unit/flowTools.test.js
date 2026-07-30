@@ -255,9 +255,12 @@ describe('dateien_bearbeiten', () => {
     expect(out).toMatch(/dateien_lesen/);
   });
 
-  it('verweist bei fehlender Datei auf dateien_schreiben', async () => {
+  it('verweist bei fehlender Datei auf dateien_schreiben und hinterlässt KEINE leere Datei', async () => {
     const out = await tool.execute({ pfad: 'fehlt.md', suchen: 'a', ersetzen: 'b' }, ctx());
     expect(out).toMatch(/^Fehler: .*dateien_schreiben/);
+    // Review PR #278: O_CREAT im gemeinsamen Öffner legte hier eine leere
+    // Datei an — die der Platten-Diff dann als "neue Datei" meldete.
+    expect(fs.existsSync(path.join(arbeit, 'fehlt.md'))).toBe(false);
   });
 });
 

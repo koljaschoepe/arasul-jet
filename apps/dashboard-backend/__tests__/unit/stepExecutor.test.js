@@ -427,6 +427,42 @@ describe('executeSteps mit wiederhole_ueber', () => {
     expect(synthInput).toContain('OUT(Schreibe Schluss (2/2))');
   });
 
+  test('kürzt Listen über dem Cap und vermerkt das SICHTBAR in der Ausgabe', async () => {
+    const { MAX_MAP_ELEMENTE } = require('../../src/services/flows/stepExecutor');
+    const subMock = jest.fn(async () => 'X');
+    const runLoop = jest.fn().mockResolvedValue({ result: 'F' });
+    const liste = JSON.stringify(
+      Array.from({ length: MAX_MAP_ELEMENTE + 5 }, (_, i) => `E${i + 1}`)
+    );
+    const flow = {
+      schritte: [
+        {
+          name: 's',
+          typ: 'subagent',
+          rolle: 'r',
+          auftrag: '{{element}}',
+          iterationen: 1,
+          wiederhole_ueber: 'liste',
+        },
+      ],
+      systemPrompt: 'Body',
+      grenzen,
+    };
+    await executeSteps({
+      flow,
+      werte: { liste },
+      userInput: 'UI',
+      model: 'm',
+      context: { rollen: [] },
+      makeTools: () => [],
+      runLoop,
+      recordWerkzeug: jest.fn(),
+      SubagentToolClass: makeFakeSubagent(subMock),
+    });
+    expect(subMock).toHaveBeenCalledTimes(MAX_MAP_ELEMENTE);
+    expect(runLoop.mock.calls[0][0].userInput).toContain('gekürzt');
+  });
+
   test('leere Liste beendet den Lauf mit klarem Fehler', async () => {
     const flow = {
       schritte: [

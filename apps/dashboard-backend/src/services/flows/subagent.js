@@ -173,6 +173,9 @@ class SubagentTool extends BaseTool {
     // Thinking (Interview 2026-07-30): Wenn der Aufrufer es wünscht
     // (Chat-Agent setzt denkenSubagenten) und das Rollen-Modell denken kann,
     // läuft die Rolle mit Reasoning — Flows bleiben unverändert schnell.
+    // require erst hier statt am Modulkopf: toolLoop wird oben bereits als
+    // Default für context.runLoop lazy geholt — derselbe Stil vermeidet eine
+    // Import-Verflechtung beim Modul-Load (subagent ↔ toolLoop-Umfeld).
     const denkt =
       context.denkenSubagenten === true &&
       thinkingGewuenscht() &&
@@ -293,8 +296,15 @@ class SubagentTool extends BaseTool {
           signal: context.signal,
           onEvent: rolleOnEvent,
         });
-        if (hatGeschrieben && nachfass && nachfass.result) {
-          ergebnis = nachfass;
+        if (hatGeschrieben) {
+          // Auch wenn die Nachfass-Schleife ohne Schluss-Text endete (z. B.
+          // maxRunden mitten im Werkzeug): der Schreib-Erfolg zählt — die
+          // ursprüngliche „ich habe geschrieben"-Behauptung darf nicht als
+          // Ergebnis stehen bleiben (Review PR #278).
+          ergebnis =
+            nachfass && nachfass.result
+              ? nachfass
+              : { result: 'Dateien wurden in der Nachfass-Runde geschrieben.' };
         }
       }
     } catch (err) {

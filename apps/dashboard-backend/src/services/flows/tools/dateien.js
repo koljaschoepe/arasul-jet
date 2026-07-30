@@ -298,8 +298,10 @@ class DateienSchreibenTool extends BaseTool {
 /**
  * Öffnet eine Zieldatei symlink-sicher zum Schreiben (gemeinsamer Unterbau von
  * Schreiben/Bearbeiten/Anhängen). Liefert {handle, stat} oder {fehler}.
+ * `erstellen: false` öffnet OHNE O_CREAT — Bearbeiten darf auf einem
+ * fehlenden Pfad keine leere Datei zurücklassen (Review PR #278).
  */
-async function oeffneZumSchreiben(roots, pfad) {
+async function oeffneZumSchreiben(roots, pfad, { erstellen = true } = {}) {
   try {
     await fs.mkdir(roots[0], { recursive: true });
   } catch (err) {
@@ -316,10 +318,18 @@ async function oeffneZumSchreiben(roots, pfad) {
   let handle;
   try {
     await fs.mkdir(path.dirname(file), { recursive: true });
-    handle = await fs.open(file, fsc.O_RDWR | fsc.O_CREAT | fsc.O_NOFOLLOW, 0o644);
+    const flags = erstellen
+      ? fsc.O_RDWR | fsc.O_CREAT | fsc.O_NOFOLLOW
+      : fsc.O_RDWR | fsc.O_NOFOLLOW;
+    handle = await fs.open(file, flags, 0o644);
   } catch (err) {
     if (err.code === 'ELOOP') {
       return { fehler: `Fehler: "${pfad}" ist ein Symlink — der Schreibzugriff wird verweigert.` };
+    }
+    if (err.code === 'ENOENT' && !erstellen) {
+      return {
+        fehler: `Fehler: Datei "${pfad}" existiert nicht. Zum Neu-Anlegen dateien_schreiben nutzen.`,
+      };
     }
     return { fehler: `Fehler beim Schreiben: ${err.message}` };
   }
@@ -398,14 +408,14 @@ class DateienBearbeitenTool extends BaseTool {
       return 'Fehler: "suchen" darf nicht leer sein. Zum Neu-Anlegen dateien_schreiben nutzen.';
     }
 
-    const auf = await oeffneZumSchreiben(roots, pfad);
+    const auf = await oeffneZumSchreiben(roots, pfad, { erstellen: false });
     if (auf.fehler) {
       return auf.fehler;
     }
     const { handle, stat } = auf;
     try {
       if (stat.size === 0) {
-        return `Fehler: Datei "${pfad}" existiert nicht oder ist leer. Zum Neu-Anlegen dateien_schreiben nutzen.`;
+        return `Fehler: Datei "${pfad}" ist leer. Zum Befüllen dateien_schreiben nutzen.`;
       }
       if (stat.size > MAX_EDIT_BYTES) {
         return `Fehler: Datei ist groesser als ${MAX_EDIT_BYTES} Bytes — Bearbeiten nicht moeglich.`;
