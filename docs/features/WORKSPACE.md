@@ -65,19 +65,27 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   Projektordner des aktiven Projekts aufgelöst; `projekt://aktiv/unterordner`
   zielt auf einen Unterordner, und pro Lauf kann `ordner_ziel` (z. B. der
   Kundenordner) das Arbeitsverzeichnis umlenken ([`FLOWS.md`](FLOWS.md)).
-- **Chat (Orchestrator, 2026-07-29)** — der Workspace-Chat ist ein
-  Coding-Agent mit erzwungenem Protokoll: die **Ordnerstruktur des Projekts
-  steht immer im Kontext**; komplexe Aufträge beginnen mit einem stillen
-  **Plan-Schritt**, dann arbeitet das Modell mit **Wissensraum-Suche**
-  (`rag_suche`), **Datei-Werkzeugen**, **Web**, **Terminal**
+- **Chat (Orchestrator, 2026-07-29; Harness v2 2026-07-31)** — der
+  Workspace-Chat ist ein Coding-Agent mit erzwungenem Protokoll: die
+  **Ordnerstruktur des Projekts steht immer im Kontext**; komplexe Aufträge
+  beginnen mit einem **Plan-Schritt** (auf dem Qualitätsmodell
+  `AGENT_QUALITAETS_MODELL`, mit live gestreamtem **Gedankengang**), dann
+  arbeitet das Modell mit **Wissensraum-Suche** (`rag_suche`),
+  **Datei-Werkzeugen** (lesen/schreiben/**bearbeiten** per Suchen-Ersetzen/
+  **anhängen** für Langdokumente/suchen), **Web**, **Terminal**
   (projektbeschränkt im Sandbox-Container) und **Subagenten** der
-  Rollen-Riege `rechercheur` / `autor` / `pruefer` / `entwickler`; bevor eine
-  Antwort mit erstellten Dateien fertig ist, kontrolliert der `pruefer`
-  automatisch (eine Korrektur-Schleife bei Mängeln). Es gibt **kein
-  Zeitlimit** — der Stop-Knopf bricht jederzeit ab, Teiltext und Schritte
-  bleiben erhalten. Einfache Fragen beantwortet das Modell weiter direkt.
-  Während der Arbeit zeigen kompakte **Schritt-Zeilen** was passiert; nach
-  Abschluss falten sie sich zu einer „N Schritte"-Zeile. Erstellt der Agent Dokumente (Newsletter, Webseite,
+  Rollen-Riege `rechercheur` / `autor` / `pruefer` / `entwickler`. Bei
+  mehrschrittigen Aufträgen pflegt es eine **Aufgabenliste** (`todo_liste`),
+  die live als abhakbare Checkliste über den Schritt-Zeilen erscheint und
+  jede Runde neu in den Kontext kommt (Anti-Drift). Der Kontext wird pro
+  Runde **gehaushaltet** (num_ctx explizit, alte Werkzeug-Ausgaben werden
+  eingedampft statt still abgeschnitten). Bevor eine Antwort mit erstellten
+  Dateien fertig ist, kontrolliert der `pruefer` automatisch (bis zu zwei
+  Korrektur-Schleifen). Es gibt **kein Zeitlimit** — der Stop-Knopf bricht
+  jederzeit ab, Teiltext und Schritte bleiben erhalten. Einfache Fragen
+  beantwortet das Modell weiter direkt. Während der Arbeit streamen
+  **Gedankengang, Erzähl-Sätze und Schritt-Zeilen live**; nach Abschluss
+  falten sich die Schritte zu einer „N Schritte"-Zeile. Erstellt der Agent Dokumente (Newsletter, Webseite,
   Bericht …), schreibt er sie mit passender Endung (`.html`, `.md`, `.csv` …)
   in den Projektordner und der Verlauf zeigt klickbare **Datei-Karten** (öffnen
   den Editor-Tab; HTML öffnet gerendert). Der **Datei-Modus** im Composer
