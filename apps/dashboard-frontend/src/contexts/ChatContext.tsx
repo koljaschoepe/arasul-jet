@@ -606,13 +606,27 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
   const cancelJob = useCallback(
     async (chatId: string) => {
       // Get the jobId before clearing state
-      const jobId = activeJobIds[chatId];
+      let jobId: string | undefined = activeJobIds[chatId];
 
       // 1. Abort the local stream first (this is instant)
       const controller = abortControllersRef.current[chatId];
       if (controller) {
         controller.abort();
         delete abortControllersRef.current[chatId];
+      }
+
+      // 1b. Lokale Map leer (Race/Re-Mount)? Den aktiven Job serverseitig
+      // nachschlagen — sonst stoppt der Stop-Knopf nur die Anzeige und der
+      // Agent-Lauf brennt auf der GPU weiter.
+      if (!jobId) {
+        try {
+          const res = await api.get<{ jobs?: { id: string }[] }>(`/chats/${chatId}/jobs`, {
+            showError: false,
+          });
+          jobId = res.jobs?.[0]?.id;
+        } catch {
+          // Kein Job auffindbar — nichts zu canceln
+        }
       }
 
       // 2. Cancel on server — await so we confirm cancellation before updating state
