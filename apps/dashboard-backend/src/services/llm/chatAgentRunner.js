@@ -38,7 +38,7 @@ const { projektOrdner, listTree } = require('../projects/ablageService');
 const { ensureFlowSandbox } = require('../flows/sandboxResolve');
 const { buildSystemPrompt } = require('./systemPromptBuilder');
 const agentConfig = require('./agentConfig');
-const { TodoListeTool } = require('./agentTodoTool');
+const { TodoListeTool, todoErinnerung } = require('./agentTodoTool');
 
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
 // Kein praktisches Zeitlimit mehr (Interview 2026-07-29: „Unbegrenzt +
@@ -791,18 +791,14 @@ async function processAgentChatJob(ctx, job) {
       // Verschärfte Erinnerung, wenn die Liste offene Punkte hat und mehrere
       // Runden lang nicht angefasst wurde (kleine Modelle „vergessen"
       // todo_liste). Der Punkt-in-Arbeit-Marker `[~]` zählt nicht als offen.
-      const offenePunkte = /- \[ \]/.test(todoListe);
-      const todoErinnerung =
-        offenePunkte && rundenSeitTodoUpdate >= 2
-          ? 'WICHTIG: Du hast die Aufgabenliste seit mehreren Schritten nicht aktualisiert. ' +
-            'Markiere jetzt erledigte Punkte mit "[x]" und den aktuellen mit "[~]" über todo_liste, bevor du weiterarbeitest.'
-          : 'Arbeite die offenen Punkte ab und aktualisiere die Liste mit todo_liste.';
       const rundenMessages = todoListe
         ? [
             ...messages,
             {
               role: 'system',
-              content: `## Aufgabenliste (aktueller Stand)\n${todoListe}\n${todoErinnerung}`,
+              content:
+                `## Aufgabenliste (aktueller Stand)\n${todoListe}\n` +
+                todoErinnerung(todoListe, rundenSeitTodoUpdate),
             },
           ]
         : messages;

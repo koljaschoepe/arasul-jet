@@ -29,6 +29,10 @@ import { API_BASE, getAuthHeaders } from '@/config/api';
  */
 async function holeTerminalTicket(): Promise<string | null> {
   try {
+    // useApi-exception: useApi ist ein Hook und hier (Modul-Funktion außerhalb
+    // der Render-Phase, im async WS-Aufbau) nicht aufrufbar — wie in
+    // useWebSocketMetrics/DownloadContext. getAuthHeaders liefert denselben
+    // Bearer + CSRF wie useApi.
     const res = await fetch(`${API_BASE}/sandbox/terminal/ticket`, {
       method: 'POST',
       headers: getAuthHeaders(),
