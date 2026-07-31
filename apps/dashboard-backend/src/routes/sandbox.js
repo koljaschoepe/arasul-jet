@@ -19,6 +19,21 @@ const {
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
 const externalCredentialsService = require('../services/sandbox/externalCredentialsService');
+const wsTicketService = require('../services/sandbox/wsTicketService');
+
+// POST /api/sandbox/terminal/ticket — Einmal-Ticket für den WS-Aufbau.
+// Der Browser kann auf der WebSocket-Verbindung keinen Authorization-Header
+// setzen; dieser normal per Bearer authentifizierte Aufruf gibt ein
+// kurzlebiges Ticket aus, das der Client an die WS-URL hängt (s.
+// wsTicketService.js). So hängt das Terminal nicht mehr am Session-Cookie.
+router.post(
+  '/terminal/ticket',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { ticket, expiresInMs } = wsTicketService.issue(req.user.id);
+    res.json({ ticket, expiresInMs, timestamp: new Date().toISOString() });
+  })
+);
 
 // ============================================================================
 // Projects CRUD

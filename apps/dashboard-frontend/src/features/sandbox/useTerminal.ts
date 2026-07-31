@@ -18,6 +18,29 @@ import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { useTheme } from '@/hooks/useTheme';
 import { TERMINAL_THEMES } from '@/lib/terminalThemes';
+import { API_BASE, getAuthHeaders } from '@/config/api';
+
+/**
+ * Holt ein Einmal-Ticket für den WS-Aufbau (Bearer-authentifiziert wie jeder
+ * andere Aufruf). Der Browser kann auf der WebSocket-Verbindung selbst keinen
+ * Authorization-Header setzen — das Ticket schließt diese Lücke, ohne den
+ * langlebigen JWT in die WS-URL (und damit in Proxy-Logs) zu schreiben. Bei
+ * Fehler `null` → der Aufrufer verbindet ohne Ticket (Cookie-Fallback).
+ */
+async function holeTerminalTicket(): Promise<string | null> {
+  try {
+    const res = await fetch(`${API_BASE}/sandbox/terminal/ticket`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { ticket?: string };
+    return data.ticket ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_BASE = import.meta.env.VITE_WS_URL || `${WS_PROTOCOL}//${window.location.host}/api`;
@@ -144,6 +167,10 @@ export function useTerminal({
 
   const connect = useCallback(() => {
     if (!terminalRef.current) return;
+    // Das Container-Element jetzt festhalten: nach dem späteren `await`
+    // (Ticket-Abruf) ist `terminalRef.current` für TS wieder `| null` und die
+    // Null-Prüfung oben greift nicht mehr über die Async-Grenze hinweg.
+    const container = terminalRef.current;
 
     // Teardown previous connection
     teardown();
@@ -180,7 +207,7 @@ export function useTerminal({
     searchAddonRef.current = searchAddon;
 
     // Mount to DOM
-    term.open(terminalRef.current);
+    term.open(container);
 
     // Fit after mount
     requestAnimationFrame(() => {
@@ -191,130 +218,142 @@ export function useTerminal({
       }
     });
 
-    // Connect WebSocket.
-    // SEC: Do NOT put the JWT in the URL — WS URLs leak into Traefik access logs.
-    // The httpOnly `arasul_session` cookie is sent automatically on this
-    // same-origin WS upgrade handshake and the backend authenticates from it.
-    const terminalParam = terminalName ? `&terminal=${encodeURIComponent(terminalName)}` : '';
-    const wsUrl = `${WS_BASE}/sandbox/terminal/ws?projectId=${projectId}${terminalParam}`;
-    const ws = new WebSocket(wsUrl);
-    ws.binaryType = 'arraybuffer';
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      if (wsRef.current !== ws) return; // stale socket — schon ersetzt/abgebaut
-      setIsConnected(true);
-      setIsConnecting(false);
-      setError(null);
-      retryCountRef.current = 0;
-      hasConnectedRef.current = true;
-
-      // Send initial resize
-      const { cols, rows } = term;
-      sendControl({ type: 'resize', cols, rows });
-
-      onConnectedRef.current?.();
-    };
-
-    ws.onmessage = event => {
-      if (wsRef.current !== ws) return; // stale socket
-      if (event.data instanceof ArrayBuffer) {
-        term.write(new Uint8Array(event.data));
-      } else {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === 'error') {
-            setError(msg.message);
-          }
-          // pong and other control messages are silently handled
-        } catch {
-          term.write(event.data);
-        }
-      }
-    };
-
-    ws.onerror = () => {
-      if (wsRef.current !== ws) return; // stale socket
-      setError('Verbindungsfehler');
-      setIsConnecting(false);
-    };
-
-    ws.onclose = event => {
-      // Stale-Guard: close-Events treffen asynchron ein — nach reconnect()
-      // kann das 1006-Event der ALTEN Verbindung erst ankommen, wenn die neue
-      // längst steht (intentionalClose wieder false). Ohne Guard würde es
-      // einen Auto-Reconnect planen, der die gesunde Verbindung abreißt.
-      if (wsRef.current !== ws) return;
-      setIsConnected(false);
-      setIsConnecting(false);
-      onDisconnectedRef.current?.();
-
-      // Graceful close — no error, no retry
-      if (intentionalClose.current || event.code === 1000 || event.code === 1001) {
-        setError(null);
+    // Connect WebSocket. Der WS-Aufbau ist asynchron, weil er zuerst ein
+    // Einmal-Ticket über den normalen (Bearer-)Auth-Pfad holt — der Browser
+    // kann auf der WS-Verbindung selbst keinen Authorization-Header setzen, und
+    // das httpOnly-Cookie allein ist über LAN-IP/SameSite unzuverlässig. Das
+    // Ticket steht kurzlebig+einmalig in der URL (kein JWT-Log-Leck); ohne
+    // Ticket bleibt der Cookie-Fallback im Backend.
+    void (async () => {
+      const ticket = await holeTerminalTicket();
+      // Zwischen Ticket-Abruf und WS-Aufbau kann der Effekt bereits
+      // abgebaut/ersetzt worden sein (Tab-Wechsel, Reconnect) — dann NICHT mehr
+      // verbinden, sonst entsteht ein verwaister Socket.
+      if (intentionalClose.current || xtermRef.current !== term) {
         return;
       }
+      const terminalParam = terminalName ? `&terminal=${encodeURIComponent(terminalName)}` : '';
+      const ticketParam = ticket ? `&ticket=${encodeURIComponent(ticket)}` : '';
+      const wsUrl = `${WS_BASE}/sandbox/terminal/ws?projectId=${projectId}${terminalParam}${ticketParam}`;
+      const ws = new WebSocket(wsUrl);
+      ws.binaryType = 'arraybuffer';
+      wsRef.current = ws;
 
-      // Auto-reconnect with exponential backoff
-      if (retryCountRef.current < MAX_RETRIES) {
-        const delay = BASE_DELAY * Math.pow(2, retryCountRef.current);
-        retryCountRef.current++;
-        setError(`Neuversuch in ${Math.round(delay / 1000)}s...`);
-        reconnectTimerRef.current = setTimeout(() => {
-          intentionalClose.current = false;
-          connectRef.current();
-        }, delay);
-      } else {
-        setError('Verbindung fehlgeschlagen');
-        onErrorRef.current?.('Verbindung fehlgeschlagen');
-      }
-    };
+      ws.onopen = () => {
+        if (wsRef.current !== ws) return; // stale socket — schon ersetzt/abgebaut
+        setIsConnected(true);
+        setIsConnecting(false);
+        setError(null);
+        retryCountRef.current = 0;
+        hasConnectedRef.current = true;
 
-    // Pipe terminal input → WebSocket as binary
-    term.onData(data => {
-      if (ws.readyState === WebSocket.OPEN) {
-        const encoder = new TextEncoder();
-        ws.send(encoder.encode(data));
-      }
-    });
+        // Send initial resize
+        const { cols, rows } = term;
+        sendControl({ type: 'resize', cols, rows });
 
-    term.onBinary(data => {
-      if (ws.readyState === WebSocket.OPEN) {
-        const bytes = new Uint8Array(data.length);
-        for (let i = 0; i < data.length; i++) {
-          bytes[i] = data.charCodeAt(i) & 0xff;
-        }
-        ws.send(bytes);
-      }
-    });
+        onConnectedRef.current?.();
+      };
 
-    // Resize observer
-    if (resizeObserverRef.current) {
-      resizeObserverRef.current.disconnect();
-    }
-    const observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        if (fitAddonRef.current && xtermRef.current) {
+      ws.onmessage = event => {
+        if (wsRef.current !== ws) return; // stale socket
+        if (event.data instanceof ArrayBuffer) {
+          term.write(new Uint8Array(event.data));
+        } else {
           try {
-            fitAddonRef.current.fit();
-            const { cols, rows } = xtermRef.current;
-            sendControl({ type: 'resize', cols, rows });
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'error') {
+              setError(msg.message);
+            }
+            // pong and other control messages are silently handled
           } catch {
-            // ignore
+            term.write(event.data);
           }
         }
-      });
-    });
-    observer.observe(terminalRef.current);
-    resizeObserverRef.current = observer;
+      };
 
-    // Keepalive ping every 25s
-    if (pingIntervalRef.current) {
-      clearInterval(pingIntervalRef.current);
-    }
-    pingIntervalRef.current = setInterval(() => {
-      sendControl({ type: 'ping' });
-    }, 25000);
+      ws.onerror = () => {
+        if (wsRef.current !== ws) return; // stale socket
+        setError('Verbindungsfehler');
+        setIsConnecting(false);
+      };
+
+      ws.onclose = event => {
+        // Stale-Guard: close-Events treffen asynchron ein — nach reconnect()
+        // kann das 1006-Event der ALTEN Verbindung erst ankommen, wenn die neue
+        // längst steht (intentionalClose wieder false). Ohne Guard würde es
+        // einen Auto-Reconnect planen, der die gesunde Verbindung abreißt.
+        if (wsRef.current !== ws) return;
+        setIsConnected(false);
+        setIsConnecting(false);
+        onDisconnectedRef.current?.();
+
+        // Graceful close — no error, no retry
+        if (intentionalClose.current || event.code === 1000 || event.code === 1001) {
+          setError(null);
+          return;
+        }
+
+        // Auto-reconnect with exponential backoff
+        if (retryCountRef.current < MAX_RETRIES) {
+          const delay = BASE_DELAY * Math.pow(2, retryCountRef.current);
+          retryCountRef.current++;
+          setError(`Neuversuch in ${Math.round(delay / 1000)}s...`);
+          reconnectTimerRef.current = setTimeout(() => {
+            intentionalClose.current = false;
+            connectRef.current();
+          }, delay);
+        } else {
+          setError('Verbindung fehlgeschlagen');
+          onErrorRef.current?.('Verbindung fehlgeschlagen');
+        }
+      };
+
+      // Pipe terminal input → WebSocket as binary
+      term.onData(data => {
+        if (ws.readyState === WebSocket.OPEN) {
+          const encoder = new TextEncoder();
+          ws.send(encoder.encode(data));
+        }
+      });
+
+      term.onBinary(data => {
+        if (ws.readyState === WebSocket.OPEN) {
+          const bytes = new Uint8Array(data.length);
+          for (let i = 0; i < data.length; i++) {
+            bytes[i] = data.charCodeAt(i) & 0xff;
+          }
+          ws.send(bytes);
+        }
+      });
+
+      // Resize observer
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+      const observer = new ResizeObserver(() => {
+        requestAnimationFrame(() => {
+          if (fitAddonRef.current && xtermRef.current) {
+            try {
+              fitAddonRef.current.fit();
+              const { cols, rows } = xtermRef.current;
+              sendControl({ type: 'resize', cols, rows });
+            } catch {
+              // ignore
+            }
+          }
+        });
+      });
+      observer.observe(container);
+      resizeObserverRef.current = observer;
+
+      // Keepalive ping every 25s
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
+      pingIntervalRef.current = setInterval(() => {
+        sendControl({ type: 'ping' });
+      }, 25000);
+    })();
   }, [projectId, terminalName, fontSize, sendControl, teardown]);
 
   // Keep connectRef in sync

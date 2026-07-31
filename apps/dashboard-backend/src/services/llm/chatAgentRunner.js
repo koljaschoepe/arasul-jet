@@ -545,8 +545,13 @@ async function processAgentChatJob(ctx, job) {
   // lebt sie als EIN Schritt, der bei jeder Änderung aktualisiert wird.
   let todoListe = '';
   let todoStep = null;
+  // Wie viele Werkzeug-Runden ist die Aufgabenliste unverändert? Kleinere
+  // Modelle (8B/14B) vergessen das Nachpflegen mitten im Lauf; nach ein paar
+  // stummen Runden bei noch offenen Punkten wird die Aufforderung verschärft.
+  let rundenSeitTodoUpdate = 0;
   const setTodos = (liste, todos) => {
     todoListe = liste;
+    rundenSeitTodoUpdate = 0;
     service.notifySubscribers(jobId, { type: 'agent_todos', liste, todos });
     void (async () => {
       try {
@@ -783,17 +788,27 @@ async function processAgentChatJob(ctx, job) {
       // Kontext-Haushalt VOR jeder Runde; die Aufgabenliste kommt danach
       // frisch ans Ende — sie ist Zustand des Harness, nicht des Verlaufs.
       kontextHaushalt();
+      // Verschärfte Erinnerung, wenn die Liste offene Punkte hat und mehrere
+      // Runden lang nicht angefasst wurde (kleine Modelle „vergessen"
+      // todo_liste). Der Punkt-in-Arbeit-Marker `[~]` zählt nicht als offen.
+      const offenePunkte = /- \[ \]/.test(todoListe);
+      const todoErinnerung =
+        offenePunkte && rundenSeitTodoUpdate >= 2
+          ? 'WICHTIG: Du hast die Aufgabenliste seit mehreren Schritten nicht aktualisiert. ' +
+            'Markiere jetzt erledigte Punkte mit "[x]" und den aktuellen mit "[~]" über todo_liste, bevor du weiterarbeitest.'
+          : 'Arbeite die offenen Punkte ab und aktualisiere die Liste mit todo_liste.';
       const rundenMessages = todoListe
         ? [
             ...messages,
             {
               role: 'system',
-              content:
-                `## Aufgabenliste (aktueller Stand)\n${todoListe}\n` +
-                'Arbeite die offenen Punkte ab und aktualisiere die Liste mit todo_liste.',
+              content: `## Aufgabenliste (aktueller Stand)\n${todoListe}\n${todoErinnerung}`,
             },
           ]
         : messages;
+      if (todoListe) {
+        rundenSeitTodoUpdate += 1;
+      }
 
       let rundenErgebnis;
       try {
