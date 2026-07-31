@@ -550,7 +550,13 @@ describe('executeSteps mit wiederhole_ueber', () => {
 });
 
 describe('agentTodoTool', () => {
-  const { parseTodos } = require('../../src/services/llm/agentTodoTool');
+  const {
+    parseTodos,
+    todoErinnerung,
+    NUDGE_NORMAL,
+    NUDGE_STRENG,
+    MAX_TODO_STILL_RUNDEN,
+  } = require('../../src/services/llm/agentTodoTool');
 
   test('parst Markdown-Checkboxen in Status-Einträge', () => {
     const todos = parseTodos('- [x] Quellen lesen\n- [~] Entwurf\n- [ ] Prüfen\nkein todo');
@@ -559,5 +565,32 @@ describe('agentTodoTool', () => {
       { text: 'Entwurf', status: 'laeuft' },
       { text: 'Prüfen', status: 'offen' },
     ]);
+  });
+
+  describe('todoErinnerung', () => {
+    const offeneListe = '- [ ] Prüfen';
+
+    test('bleibt normal, solange die Runden-Schwelle nicht erreicht ist', () => {
+      expect(todoErinnerung(offeneListe, 0)).toBe(NUDGE_NORMAL);
+      expect(todoErinnerung(offeneListe, MAX_TODO_STILL_RUNDEN - 1)).toBe(NUDGE_NORMAL);
+    });
+
+    test('verschärft ab der Schwelle, wenn offene Punkte bestehen', () => {
+      expect(todoErinnerung(offeneListe, MAX_TODO_STILL_RUNDEN)).toBe(NUDGE_STRENG);
+    });
+
+    test('verschärft NICHT bei reinen [~]/[x]-Listen (kein offener Punkt)', () => {
+      expect(todoErinnerung('- [~] Entwurf\n- [x] Fertig', 5)).toBe(NUDGE_NORMAL);
+    });
+
+    test('erkennt offene Punkte auch bei *-Bullets und Einrückung (Format-Drift)', () => {
+      // Genau der Fall, den die frühere Regex `/- \[ \]/` verpasst hätte.
+      expect(todoErinnerung('* [ ] Sache', MAX_TODO_STILL_RUNDEN)).toBe(NUDGE_STRENG);
+      expect(todoErinnerung('   - [ ] eingerückt', MAX_TODO_STILL_RUNDEN)).toBe(NUDGE_STRENG);
+    });
+
+    test('leere Liste ergibt den normalen Hinweis', () => {
+      expect(todoErinnerung('', 9)).toBe(NUDGE_NORMAL);
+    });
   });
 });

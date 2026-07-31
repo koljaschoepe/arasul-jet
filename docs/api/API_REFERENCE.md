@@ -2569,10 +2569,22 @@ Isolated project environments with Docker containers and terminal WebSocket acce
 | POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                      |
 | GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                  |
 | GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project                       |
+| POST   | `/api/sandbox/terminal/ticket`                          | Issue a short-lived single-use ticket for the terminal WS  |
 | POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted |
 | GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user   |
 | DELETE | `/api/sandbox/projects/:workspace/claude-login`         | Delete the stored Claude login for the user                |
 | GET    | `/api/sandbox/stats`                                    | Overall sandbox statistics                                 |
+
+#### Terminal-WebSocket-Auth (2026-07-31)
+
+Die Browser-`WebSocket`-API kann keinen `Authorization`-Header setzen. Statt die
+Terminal-WS allein am httpOnly-Cookie `arasul_session` hängen zu lassen (das bei
+LAN-IP/SameSite fehlen oder vor dem Bearer-Token ablaufen kann), holt der Client
+über `POST /api/sandbox/terminal/ticket` (Bearer-authentifiziert wie jeder andere
+Aufruf) ein **kurzlebiges Einmal-Ticket** und hängt es als `?ticket=…` an die
+WS-URL. Der Upgrade-Handler verbraucht das Ticket (30 s gültig, genau einmal,
+an einen Nutzer gebunden → anders als ein JWT unbedenklich in der URL) und fällt
+sonst auf Cookie/Bearer zurück. Details: `services/sandbox/wsTicketService.js`.
 
 #### Claude-Login persistence (Plan 008, Schritt 14)
 

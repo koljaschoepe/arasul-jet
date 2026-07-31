@@ -579,10 +579,36 @@ if (require.main === module) {
             socket.destroy();
           });
       } else if (pathname === '/api/sandbox/terminal/ws') {
-        // SEC: Verify JWT before allowing Sandbox Terminal WebSocket upgrade. The
-        // token is NOT read from the query string — that leaks the JWT into Traefik
-        // access logs. Authenticate from the httpOnly session cookie or Bearer
-        // header only (mirrors the metrics WS handler above).
+        // Auth-Reihenfolge (2026-07-31):
+        // 1. Einmal-Ticket aus der Query (?ticket=…). Der Browser kann auf der
+        //    WS-Verbindung keinen Authorization-Header setzen; das Ticket wurde
+        //    zuvor per Bearer geholt (POST /terminal/ticket) und ist kurzlebig +
+        //    einmalig — daher (anders als ein JWT) unbedenklich in der URL.
+        //    So hängt das Terminal NICHT mehr am httpOnly-Session-Cookie, das
+        //    bei LAN-IP/SameSite fehlen oder vor dem Bearer-Token ablaufen kann.
+        // 2. Fallback: httpOnly-Session-Cookie oder Bearer-Header (Alt-Clients).
+        const wsTicketService = require('./services/sandbox/wsTicketService');
+        const sandboxUrl = new URL(request.url, 'http://localhost');
+        const sandboxTicket = sandboxUrl.searchParams.get('ticket');
+        const ticketUserId = sandboxTicket ? wsTicketService.consume(sandboxTicket) : null;
+
+        const akzeptiere = userId => {
+          request.userId = userId;
+          sandboxTerminalWss.handleUpgrade(request, socket, head, ws => {
+            sandboxTerminalWss.emit('connection', ws, request);
+          });
+        };
+        const verweigere = grund => {
+          logger.warn(`Sandbox Terminal WebSocket upgrade rejected: ${grund}`);
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+        };
+
+        if (ticketUserId != null) {
+          akzeptiere(ticketUserId);
+          return;
+        }
+
         const { verifyToken: verifySandboxToken } = require('./utils/jwt');
         const sandboxAuthHeader = request.headers['authorization'];
         const sandboxCookieHeader = request.headers['cookie'];
@@ -597,23 +623,12 @@ if (require.main === module) {
           }
         }
         if (!sandboxToken) {
-          logger.warn('Sandbox Terminal WebSocket upgrade rejected: no auth token');
-          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-          socket.destroy();
+          verweigere('no auth token or ticket');
           return;
         }
         verifySandboxToken(sandboxToken)
-          .then(decoded => {
-            request.userId = decoded.userId;
-            sandboxTerminalWss.handleUpgrade(request, socket, head, ws => {
-              sandboxTerminalWss.emit('connection', ws, request);
-            });
-          })
-          .catch(err => {
-            logger.warn(`Sandbox Terminal WebSocket upgrade rejected: ${err.message}`);
-            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-            socket.destroy();
-          });
+          .then(decoded => akzeptiere(decoded.userId))
+          .catch(err => verweigere(err.message));
       } else {
         socket.destroy();
       }

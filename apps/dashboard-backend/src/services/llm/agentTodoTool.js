@@ -16,6 +16,18 @@ const BaseTool = require('../../tools/baseTool');
 
 const MAX_LISTE_ZEICHEN = 4000;
 
+/**
+ * Ab so vielen Runden ohne Aktualisierung wird die Aufforderung verschärft,
+ * solange noch offene Punkte offen sind. Kleine Modelle (8B/14B) „vergessen"
+ * das Nachpflegen sonst mitten im Lauf.
+ */
+const MAX_TODO_STILL_RUNDEN = 2;
+
+const NUDGE_NORMAL = 'Arbeite die offenen Punkte ab und aktualisiere die Liste mit todo_liste.';
+const NUDGE_STRENG =
+  'WICHTIG: Du hast die Aufgabenliste seit mehreren Schritten nicht aktualisiert. ' +
+  'Markiere jetzt erledigte Punkte mit "[x]" und den aktuellen mit "[~]" über todo_liste, bevor du weiterarbeitest.';
+
 /** Parst Markdown-Checkboxen zu strukturierten Einträgen (für UI-Events). */
 function parseTodos(liste) {
   const todos = [];
@@ -75,4 +87,27 @@ class TodoListeTool extends BaseTool {
   }
 }
 
-module.exports = { TodoListeTool, parseTodos };
+/**
+ * Wählt den Erinnerungstext, der der Aufgabenliste je Runde beigelegt wird.
+ * Nutzt bewusst denselben Parser wie das Werkzeug (parseTodos) statt einer
+ * eigenen Regex — sonst löste die Verschärfung bei `*`-Bullets oder
+ * eingerückten Punkten nicht aus, also genau im Modell-Format-Drift-Fall,
+ * den sie abfangen soll.
+ *
+ * @param {string} todoListe - aktuelle Liste (leer = kein Zusatztext)
+ * @param {number} rundenSeitUpdate - Runden seit der letzten Aktualisierung
+ * @returns {string} normaler oder verschärfter Hinweis
+ */
+function todoErinnerung(todoListe, rundenSeitUpdate) {
+  const offen = parseTodos(todoListe).some(t => t.status === 'offen');
+  return offen && rundenSeitUpdate >= MAX_TODO_STILL_RUNDEN ? NUDGE_STRENG : NUDGE_NORMAL;
+}
+
+module.exports = {
+  TodoListeTool,
+  parseTodos,
+  todoErinnerung,
+  MAX_TODO_STILL_RUNDEN,
+  NUDGE_NORMAL,
+  NUDGE_STRENG,
+};

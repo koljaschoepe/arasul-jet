@@ -38,7 +38,7 @@ const { projektOrdner, listTree } = require('../projects/ablageService');
 const { ensureFlowSandbox } = require('../flows/sandboxResolve');
 const { buildSystemPrompt } = require('./systemPromptBuilder');
 const agentConfig = require('./agentConfig');
-const { TodoListeTool } = require('./agentTodoTool');
+const { TodoListeTool, todoErinnerung } = require('./agentTodoTool');
 
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
 // Kein praktisches Zeitlimit mehr (Interview 2026-07-29: „Unbegrenzt +
@@ -545,8 +545,13 @@ async function processAgentChatJob(ctx, job) {
   // lebt sie als EIN Schritt, der bei jeder Änderung aktualisiert wird.
   let todoListe = '';
   let todoStep = null;
+  // Wie viele Werkzeug-Runden ist die Aufgabenliste unverändert? Kleinere
+  // Modelle (8B/14B) vergessen das Nachpflegen mitten im Lauf; nach ein paar
+  // stummen Runden bei noch offenen Punkten wird die Aufforderung verschärft.
+  let rundenSeitTodoUpdate = 0;
   const setTodos = (liste, todos) => {
     todoListe = liste;
+    rundenSeitTodoUpdate = 0;
     service.notifySubscribers(jobId, { type: 'agent_todos', liste, todos });
     void (async () => {
       try {
@@ -783,6 +788,9 @@ async function processAgentChatJob(ctx, job) {
       // Kontext-Haushalt VOR jeder Runde; die Aufgabenliste kommt danach
       // frisch ans Ende — sie ist Zustand des Harness, nicht des Verlaufs.
       kontextHaushalt();
+      // Verschärfte Erinnerung, wenn die Liste offene Punkte hat und mehrere
+      // Runden lang nicht angefasst wurde (kleine Modelle „vergessen"
+      // todo_liste). Der Punkt-in-Arbeit-Marker `[~]` zählt nicht als offen.
       const rundenMessages = todoListe
         ? [
             ...messages,
@@ -790,10 +798,13 @@ async function processAgentChatJob(ctx, job) {
               role: 'system',
               content:
                 `## Aufgabenliste (aktueller Stand)\n${todoListe}\n` +
-                'Arbeite die offenen Punkte ab und aktualisiere die Liste mit todo_liste.',
+                todoErinnerung(todoListe, rundenSeitTodoUpdate),
             },
           ]
         : messages;
+      if (todoListe) {
+        rundenSeitTodoUpdate += 1;
+      }
 
       let rundenErgebnis;
       try {
