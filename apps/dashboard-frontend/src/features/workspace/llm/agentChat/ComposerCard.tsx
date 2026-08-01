@@ -273,10 +273,11 @@ export default function ComposerCard({
           setMenuDismissed(true);
           return;
         }
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
           e.preventDefault();
-          // Bei offenem Menü übernimmt Enter den aktiven Eintrag (statt „/rec"
-          // wörtlich zu senden).
+          // Bei offenem Menü übernehmen Enter UND Tab den aktiven Eintrag
+          // (statt „/rec" wörtlich zu senden bzw. den Fokus aus dem Feld zu
+          // werfen — Tab-Vervollständigung wie in jeder Kommandopalette).
           const item = menuItems[activeIndex];
           if (item) pickItem(item);
           return;

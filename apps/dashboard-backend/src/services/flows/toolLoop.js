@@ -27,6 +27,7 @@ const axios = require('axios');
 const services = require('../../config/services');
 const logger = require('../../utils/logger');
 const { withGpuLock } = require('./gpuQueue');
+const { parseTextToolCalls, enthaeltToolSyntax } = require('../llm/textToolCalls');
 
 // Eigene Umgebungsvariable, NICHT die AGENT_*-Namen: Der Flow-Pfad soll seine
 // Zeitgrenze pro Modell-Aufruf unabhängig vom (abgelösten) Agenten-Pfad haben.
@@ -166,19 +167,33 @@ async function runFlowLoop({
 
       const message = await callOllama({ model, messages, tools: toolDefs, think });
       const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+      let rundenContent = message.content || '';
+
+      // Fallback: Werkzeug-Aufruf als TEXT (fehlendes <tool_call>-Tag →
+      // Ollamas Parser greift nicht). Selbst parsen und normal ausführen,
+      // statt das rohe XML als Flow-Ergebnis zu liefern.
+      if (toolCalls.length === 0 && enthaeltToolSyntax(rundenContent)) {
+        const geparst = parseTextToolCalls(rundenContent);
+        if (geparst.calls.length > 0) {
+          logger.info(
+            `Flow-toolLoop: Text-Tool-Call-Fallback — ${geparst.calls.length} Aufruf(e) geparst`
+          );
+          toolCalls.push(...geparst.calls);
+          rundenContent = geparst.rest;
+        }
+      }
 
       if (toolCalls.length === 0) {
-        const content = message.content || '';
-        await emit({ type: 'text', content });
-        await emit({ type: 'done', result: content });
-        return { result: content, runden: runde + 1 };
+        await emit({ type: 'text', content: rundenContent });
+        await emit({ type: 'done', result: rundenContent });
+        return { result: rundenContent, runden: runde + 1 };
       }
 
       // Den Assistenten-Zug MIT seinen tool_calls festhalten, bevor die
       // Ergebnisse folgen — sonst versteht das Modell die tool-Antworten nicht.
       messages.push({
         role: 'assistant',
-        content: message.content || '',
+        content: rundenContent,
         tool_calls: toolCalls,
       });
 

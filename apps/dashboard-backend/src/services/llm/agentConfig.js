@@ -31,6 +31,18 @@ const NUM_PREDICT = ganzzahl(process.env.AGENT_NUM_PREDICT, -1);
 const KEEP_ALIVE = process.env.AGENT_KEEP_ALIVE || '30m';
 
 /**
+ * Token-Deckel für die Plan-Runde (Proportionalität, 2026-08-01): Das
+ * Thinking-Modell kann sich bei offenen Fragen minutenlang im Kreis drehen —
+ * live beobachtet: >5 Minuten Grübeln für eine Drei-Zeilen-Datei. Der Deckel
+ * begrenzt Thinking + Plan zusammen (num_predict zählt beides).
+ * GROSS: echte Groß-Aufträge (Recherche/Subagenten/Mehr-Datei) auf dem
+ * Qualitätsmodell · KLEIN: kleine Erstell-Aufgaben, kurzer Plan ohne Thinking
+ * auf dem Arbeitsmodell.
+ */
+const PLAN_NUM_PREDICT_GROSS = ganzzahl(process.env.AGENT_PLAN_TOKENS_GROSS, 2048);
+const PLAN_NUM_PREDICT_KLEIN = ganzzahl(process.env.AGENT_PLAN_TOKENS_KLEIN, 512);
+
+/**
  * Ab welchem Füllstand (Anteil von NUM_CTX) der Kontext-Haushalt alte
  * Werkzeug-Ausgaben eindampft. Puffer unter 1.0, weil die Token-Schätzung
  * (Zeichen/3.2) bewusst grob ist.
@@ -70,6 +82,8 @@ module.exports = {
   NUM_CTX,
   NUM_PREDICT,
   KEEP_ALIVE,
+  PLAN_NUM_PREDICT_GROSS,
+  PLAN_NUM_PREDICT_KLEIN,
   KONTEXT_SCHWELLE,
   qualitaetsModell,
   thinkingGewuenscht,

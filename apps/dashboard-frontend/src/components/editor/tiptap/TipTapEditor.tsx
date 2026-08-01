@@ -74,6 +74,10 @@ const TipTapEditor = memo(function TipTapEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  // Zähler als State: Das reine Auslesen beim Rendern verpasst das initiale
+  // setContent (löst keinen Re-Render aus, wenn hasChanges false bleibt) —
+  // die Fußzeile zeigte dann dauerhaft "0 Zeichen".
+  const [zaehler, setZaehler] = useState({ zeichen: 0, woerter: 0 });
   const [savedFlash, setSavedFlash] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -180,6 +184,10 @@ const TipTapEditor = memo(function TipTapEditor({
       const currentMd: string = storage.markdown?.getMarkdown?.() ?? '';
       const changed = currentMd !== originalContentRef.current;
       setHasChanges(changed);
+      setZaehler({
+        zeichen: e.storage.characterCount?.characters() ?? 0,
+        woerter: e.storage.characterCount?.words() ?? 0,
+      });
 
       // Kein Autosave während der initialen Hydration (verhindert Speicher-Loop).
       if (!hydratedRef.current) return;
@@ -364,9 +372,9 @@ const TipTapEditor = memo(function TipTapEditor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [hasChanges, saving, handleSave, handleClose]);
 
-  // Word/line count from the editor
-  const charCount = editor?.storage.characterCount?.characters() ?? 0;
-  const wordCount = editor?.storage.characterCount?.words() ?? 0;
+  // Word/line count — aus dem onUpdate-State (siehe zaehler oben).
+  const charCount = zaehler.zeichen;
+  const wordCount = zaehler.woerter;
 
   // Root layout: embedded fills its parent inline; otherwise the classic
   // fixed overlay.

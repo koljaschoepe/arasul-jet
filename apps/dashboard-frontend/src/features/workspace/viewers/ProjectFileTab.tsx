@@ -148,6 +148,28 @@ export default function ProjectFileTab({
       setSaving(false);
     }
   };
+  const saveRef = useRef(save);
+  saveRef.current = save;
+
+  // Strg+S/Cmd+S speichert — Editor-Grunderwartung; ohne den Handler frisst
+  // der Browser den Shortcut für seinen "Seite speichern"-Dialog. Der Tab
+  // selbst fängt den Shortcut (Capture), damit er auch im CodeMirror greift.
+  const wurzelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const wurzel = wurzelRef.current;
+    if (!wurzel) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        const z = zustandRef.current;
+        if (z.dirty && !z.saving && !z.loading) {
+          void saveRef.current();
+        }
+      }
+    };
+    wurzel.addEventListener('keydown', onKey, true);
+    return () => wurzel.removeEventListener('keydown', onKey, true);
+  }, [loading]);
 
   const download = async () => {
     try {
@@ -196,7 +218,7 @@ export default function ProjectFileTab({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="project-file-tab">
+    <div ref={wurzelRef} className="flex h-full min-h-0 flex-col" data-testid="project-file-tab">
       {/* Kopfzeile — einheitlich mit dem CodeViewer: Label links, Aktionen rechts. */}
       <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         <span className="min-w-0 truncate text-ui-xs font-medium text-muted-foreground">

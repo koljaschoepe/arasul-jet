@@ -19,6 +19,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const { mitNamensReparatur } = require('../utils/uploadName');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
@@ -130,16 +131,18 @@ const EDITABLE_EXTENSIONS = [
 
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: MAX_FILE_SIZE,
-  },
-  // Plan 009: keine Endungs-Whitelist mehr — beliebige Dateitypen sind erlaubt.
-  // Sicherheitsnetz bleibt: Größenlimit (oben) + Magic-Byte-Prüfung für bekannte
-  // Binärtypen (validateFileContent im Handler). Dateien werden ausschließlich
-  // gespeichert und als Download ausgeliefert, nie serverseitig ausgeführt.
-});
+const upload = multer(
+  mitNamensReparatur({
+    storage: storage,
+    limits: {
+      fileSize: MAX_FILE_SIZE,
+    },
+    // Plan 009: keine Endungs-Whitelist mehr — beliebige Dateitypen sind erlaubt.
+    // Sicherheitsnetz bleibt: Größenlimit (oben) + Magic-Byte-Prüfung für bekannte
+    // Binärtypen (validateFileContent im Handler). Dateien werden ausschließlich
+    // gespeichert und als Download ausgeliefert, nie serverseitig ausgeführt.
+  })
+);
 
 /**
  * GET /api/documents

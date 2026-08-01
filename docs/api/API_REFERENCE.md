@@ -845,16 +845,17 @@ Git-Sync-Checkout (`PROJECT_GIT_DIR`) liegt. Er ist seit dem
 symlink-sicher innerhalb des Projektordners (`resolveRealWithinRoots`);
 `.git`, `node_modules` u. Ä. werden beim Auflisten ausgeblendet.
 
-| Method | Endpoint                                    | Description                                                                               |
-| ------ | ------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| GET    | `/api/projects/:id/dateien`                 | Der EINE Baum (rekursiv, Budget-gedeckelt; `{eintraege, gekuerzt}`, s. u.)                |
-| GET    | `/api/projects/:id/dateien/inhalt?pfad=…`   | Datei-Inhalt für den Editor (Text, max. 1 MB; Binär/zu groß → Kennzeichen statt Inhalt)   |
-| PUT    | `/api/projects/:id/dateien/inhalt`          | Textdatei schreiben (`{pfad, inhalt}`; legt Zwischenordner an)                            |
-| POST   | `/api/projects/:id/dateien/ordner`          | Ordner anlegen (`{pfad}`, verschachtelt erlaubt)                                          |
-| DELETE | `/api/projects/:id/dateien?pfad=…`          | Datei oder Ordner (rekursiv) löschen — nie die Wurzel oder `.git`                         |
-| POST   | `/api/projects/:id/dateien/verschieben`     | Umbenennen/Verschieben innerhalb des Projektordners (`{von, nach}`)                       |
-| POST   | `/api/projects/:id/dateien/upload`          | Multipart-Upload (`file` + optional `ordner`, max. 50 MB)                                 |
-| GET    | `/api/projects/:id/dateien/download?pfad=…` | Einzeldatei als Download; ohne `pfad` (oder für einen Ordner) ein `.tar.gz` (ohne `.git`) |
+| Method | Endpoint                                    | Description                                                                                                                     |
+| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/projects/:id/dateien`                 | Der EINE Baum (rekursiv, Budget-gedeckelt; `{eintraege, gekuerzt}`, s. u.)                                                      |
+| GET    | `/api/projects/:id/dateien/suche?q=…`       | Rekursive Namenssuche über die KOMPLETTE Ablage (min. 2 Zeichen; flache Trefferliste `{eintraege, gekuerzt}`, max. 200 Treffer) |
+| GET    | `/api/projects/:id/dateien/inhalt?pfad=…`   | Datei-Inhalt für den Editor (Text, max. 1 MB; Binär/zu groß → Kennzeichen statt Inhalt)                                         |
+| PUT    | `/api/projects/:id/dateien/inhalt`          | Textdatei schreiben (`{pfad, inhalt}`; legt Zwischenordner an)                                                                  |
+| POST   | `/api/projects/:id/dateien/ordner`          | Ordner anlegen (`{pfad}`, verschachtelt erlaubt)                                                                                |
+| DELETE | `/api/projects/:id/dateien?pfad=…`          | Datei oder Ordner (rekursiv) löschen — nie die Wurzel oder `.git`                                                               |
+| POST   | `/api/projects/:id/dateien/verschieben`     | Umbenennen/Verschieben innerhalb des Projektordners (`{von, nach}`)                                                             |
+| POST   | `/api/projects/:id/dateien/upload`          | Multipart-Upload (`file` + optional `ordner`, max. 50 MB)                                                                       |
+| GET    | `/api/projects/:id/dateien/download?pfad=…` | Einzeldatei als Download; ohne `pfad` (oder für einen Ordner) ein `.tar.gz` (ohne `.git`)                                       |
 
 > **Ein-Ordner-Modell — Auto-Indexierung statt manueller Übernahme:** Die
 > frühere Route `POST …/dateien/uebernehmen` ist ENTFERNT. Ein Sync-Dienst

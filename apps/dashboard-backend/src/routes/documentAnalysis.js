@@ -9,6 +9,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const { mitNamensReparatur } = require('../utils/uploadName');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -38,29 +39,31 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 // Multer: memory storage, 50MB limit
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = [
-      '.pdf',
-      '.docx',
-      '.png',
-      '.jpg',
-      '.jpeg',
-      '.tiff',
-      '.tif',
-      '.bmp',
-      ...TEXT_EXTENSIONS,
-    ];
-    const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
-    if (allowed.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new ValidationError(`Dateityp ${ext} nicht unterstützt`));
-    }
-  },
-});
+const upload = multer(
+  mitNamensReparatur({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const allowed = [
+        '.pdf',
+        '.docx',
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.tiff',
+        '.tif',
+        '.bmp',
+        ...TEXT_EXTENSIONS,
+      ];
+      const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
+      if (allowed.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new ValidationError(`Dateityp ${ext} nicht unterstützt`));
+      }
+    },
+  })
+);
 
 /**
  * POST /api/document-analysis/analyze

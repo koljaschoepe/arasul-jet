@@ -15,6 +15,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const { mitNamensReparatur } = require('../../utils/uploadName');
 const logger = require('../../utils/logger');
 const { requireApiKey, requireEndpoint, generateApiKey } = require('../../middleware/apiKeyAuth');
 const { requireAuth } = require('../../middleware/auth');
@@ -41,33 +42,35 @@ const flowRunStore = require('../../services/flows/runStore');
 const { resolveArguments } = require('../../services/flows/runFlow');
 
 // Multer for document upload endpoints (50MB limit)
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = [
-      '.pdf',
-      '.docx',
-      '.txt',
-      '.md',
-      '.markdown',
-      '.yaml',
-      '.yml',
-      '.png',
-      '.jpg',
-      '.jpeg',
-      '.tiff',
-      '.tif',
-      '.bmp',
-    ];
-    const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
-    if (allowed.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new ValidationError(`File type ${ext} not supported`));
-    }
-  },
-});
+const upload = multer(
+  mitNamensReparatur({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const allowed = [
+        '.pdf',
+        '.docx',
+        '.txt',
+        '.md',
+        '.markdown',
+        '.yaml',
+        '.yml',
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.tiff',
+        '.tif',
+        '.bmp',
+      ];
+      const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
+      if (allowed.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new ValidationError(`File type ${ext} not supported`));
+      }
+    },
+  })
+);
 
 /**
  * POST /api/v1/external/llm/chat - LLM chat via queue (for n8n, automations)
