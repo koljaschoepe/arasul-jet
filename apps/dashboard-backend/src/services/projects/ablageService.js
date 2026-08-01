@@ -180,7 +180,8 @@ async function searchTree(projectId, suchtext, deps = {}) {
     let dirents;
     try {
       dirents = await fsp.readdir(abs, { withFileTypes: true });
-    } catch {
+    } catch (err) {
+      logger.warn(`Ablage-Suche ${projectId}: "${rel || '.'}" nicht lesbar: ${err.message}`);
       return;
     }
     dirents.sort((a, b) => a.name.localeCompare(b.name, 'de'));

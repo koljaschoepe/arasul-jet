@@ -311,6 +311,13 @@ export function ExplorerPanel() {
         void oeffneDatei(imBaum ?? t);
         return;
       }
+      // Ordner außerhalb des Budget-gedeckelten Baums: Aufklappen liefe ins
+      // Leere (der Knoten ist gar nicht geladen) — Suche stehen lassen und
+      // ehrlich sagen, statt scheinbar nichts zu tun.
+      if (!eintraege.some(k => k.pfad === t.pfad)) {
+        toast.info(`„${t.pfad}" liegt außerhalb des geladenen Baums (Baum gekürzt)`);
+        return;
+      }
       setQuery('');
       setExpanded(prev => {
         const neu = new Set(prev);
@@ -319,7 +326,7 @@ export function ExplorerPanel() {
         return neu;
       });
     },
-    [eintraege, oeffneDatei]
+    [eintraege, oeffneDatei, toast]
   );
 
   /** Relativen Pfad in die Zwischenablage kopieren (Kontextmenü). */

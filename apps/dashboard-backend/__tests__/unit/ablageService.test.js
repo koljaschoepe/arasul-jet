@@ -132,6 +132,32 @@ describe('ablageService', () => {
     expect(wurzel.typ).toBe('ordner');
     expect(wurzel.name).toBe('testprojekt');
   });
+
+  it('move: lehnt Ordner-in-eigenen-Unterbaum sauber ab (kein roher EINVAL)', async () => {
+    await ablage.createDir(PROJEKT, 'schachtel/innen', deps);
+    await expect(ablage.move(PROJEKT, 'schachtel', 'schachtel/innen/schachtel', deps)).rejects.toThrow(
+      ValidationError
+    );
+    await expect(ablage.move(PROJEKT, 'schachtel', 'schachtel', deps)).rejects.toThrow(
+      ValidationError
+    );
+  });
+
+  it('searchTree: findet tiefe Dateien case-insensitiv, flache Trefferliste', async () => {
+    await ablage.writeFile(PROJEKT, 'tief/a/b/SuchZiel.md', 'x', deps);
+    await ablage.writeFile(PROJEKT, 'tief/anderes.txt', 'x', deps);
+    const { eintraege, gekuerzt } = await ablage.searchTree(PROJEKT, 'suchziel', deps);
+    expect(gekuerzt).toBe(false);
+    expect(eintraege.map(e => e.pfad)).toEqual(['tief/a/b/SuchZiel.md']);
+    expect(eintraege[0].typ).toBe('datei');
+  });
+
+  it('searchTree: matcht auch Ordnernamen und liefert leer bei Leer-Suche', async () => {
+    const treffer = await ablage.searchTree(PROJEKT, 'schachtel', deps);
+    expect(treffer.eintraege.some(e => e.pfad === 'schachtel' && e.typ === 'ordner')).toBe(true);
+    const leer = await ablage.searchTree(PROJEKT, '   ', deps);
+    expect(leer.eintraege).toEqual([]);
+  });
 });
 
 describe('resolveOrdnerListe (projekt://aktiv)', () => {

@@ -148,6 +148,9 @@ async function runFlowLoop({
   ];
 
   try {
+    // Höchstens EINE Wiederholung wegen unparsebarer Text-Tool-Syntax —
+    // sonst könnte ein Modell, das das Format nie trifft, Runden verbrennen.
+    let syntaxNachfass = 0;
     for (let runde = 0; runde < maxRunden; runde++) {
       // Abbruch VOR dem nächsten Modell-Aufruf prüfen: Ein laufender Flow soll
       // sich abbrechen lassen, ohne den teuren Modell-Aufruf noch zu starten.
@@ -171,7 +174,8 @@ async function runFlowLoop({
 
       // Fallback: Werkzeug-Aufruf als TEXT (fehlendes <tool_call>-Tag →
       // Ollamas Parser greift nicht). Selbst parsen und normal ausführen,
-      // statt das rohe XML als Flow-Ergebnis zu liefern.
+      // statt das rohe XML als Flow-Ergebnis zu liefern. Nicht parsebare
+      // Syntax bekommt EINE Nachfass-Runde im echten Werkzeug-Format.
       if (toolCalls.length === 0 && enthaeltToolSyntax(rundenContent)) {
         const geparst = parseTextToolCalls(rundenContent);
         if (geparst.calls.length > 0) {
@@ -180,6 +184,17 @@ async function runFlowLoop({
           );
           toolCalls.push(...geparst.calls);
           rundenContent = geparst.rest;
+        } else if (syntaxNachfass < 1) {
+          syntaxNachfass += 1;
+          logger.warn('Flow-toolLoop: Tool-Syntax im Text nicht parsebar — Nachfass-Runde');
+          messages.push({ role: 'assistant', content: rundenContent });
+          messages.push({
+            role: 'user',
+            content:
+              'Dein letzter Werkzeug-Aufruf war fehlerhaft formatiert und wurde NICHT ausgeführt. ' +
+              'Rufe das Werkzeug jetzt erneut auf — über die Werkzeug-Schnittstelle, nicht als Text.',
+          });
+          continue;
         }
       }
 
