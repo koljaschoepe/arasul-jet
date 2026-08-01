@@ -307,6 +307,18 @@ async function runFlow(
     ordner: await resolveOrdnerListe(ordnerListe, deps, projektOrdnerMeta),
   };
 
+  // Deklarierte Ordner sofort anlegen: ein Flow darf seine erlaubten Ordner
+  // von Anfang an LESEN (dann eben leer), statt vor dem ersten Schreiben an
+  // „Keiner der erlaubten Ordner existiert" zu scheitern (Live-Befund:
+  // newsletter-Flow, dateien_lesen als 2. Schritt).
+  for (const o of flow.ordner) {
+    try {
+      await fs.mkdir(o, { recursive: true });
+    } catch (err) {
+      logger.warn(`Flow "${flowName}": Ordner "${o}" nicht anlegbar: ${err.message}`);
+    }
+  }
+
   // 1. Argumente → Werte, Platzhalter ersetzen. Ein `datei`-Argument reichert
   //    die Nutzer-Eingabe zusätzlich um den Dokument-Inhalt an (Schritt 18).
   const { werte, spaceIds: argSpaceIds } = resolveArguments(flow.argumente, args);

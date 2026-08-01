@@ -250,7 +250,15 @@ function createLLMQueueService(deps = {}) {
           [queuePos, resolvedModel, JSON.stringify(modelSequence), maxWaitSeconds, priority, jId]
         );
 
-        return { jobId: jId, messageId: mId, queuePosition: queuePos };
+        // Nach außen die ECHTE Warteposition melden (1 = als Nächstes dran):
+        // Anzahl wartender Jobs vor diesem + 1. `queuePos` (globale Sequenz)
+        // bleibt intern das FIFO-Ordnungskriterium, ist aber als "Position"
+        // irreführend (bei leerer Queue kam z. B. 71 heraus).
+        return {
+          jobId: jId,
+          messageId: mId,
+          queuePosition: parseInt(queueCount.rows[0].cnt) + 1,
+        };
       });
 
       logger.info(`Job ${jobId} enqueued for model ${resolvedModel} at position ${queuePosition}`);

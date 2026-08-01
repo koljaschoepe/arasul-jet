@@ -84,6 +84,19 @@ const errorHandler = (err, req, res, next) => {
     code = 'VALIDATION_ERROR';
     details = err.details || err.message;
     logger.warn(`${req.method} ${req.originalUrl}: ${message}`, errorContext);
+  } else if (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && 'body' in err)) {
+    // body-parser: kaputtes JSON im Request-Body ist ein Client-Fehler (400),
+    // kein Server-Fehler — vorher lief das als 500/INTERNAL_ERROR durch.
+    statusCode = 400;
+    message = 'Ungültiger Request-Body (kein gültiges JSON)';
+    code = 'VALIDATION_ERROR';
+    logger.warn(`${req.method} ${req.originalUrl}: Malformed JSON body`, errorContext);
+  } else if (err.type === 'entity.too.large') {
+    // body-parser: Body über dem Limit — ebenfalls ein Client-Fehler.
+    statusCode = 413;
+    message = 'Request-Body zu groß';
+    code = 'VALIDATION_ERROR';
+    logger.warn(`${req.method} ${req.originalUrl}: Body too large`, errorContext);
   } else if (err.code === 'ECONNREFUSED') {
     // Database/service connection error
     statusCode = 503;

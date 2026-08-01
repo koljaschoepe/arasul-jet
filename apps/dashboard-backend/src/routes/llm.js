@@ -13,6 +13,7 @@ const { requireAuth } = require('../middleware/auth');
 const { llmLimiter } = require('../middleware/rateLimit');
 const llmJobService = require('../services/llm/llmJobService');
 const llmQueueService = require('../services/llm/llmQueueService');
+const database = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
 const { PrioritizeJobBody, ChatBody } = require('../schemas/llm');
@@ -237,6 +238,18 @@ router.get(
       throw new NotFoundError('Job not found');
     }
 
+    // Echte Warteposition (1 = als Nächstes dran) statt der globalen
+    // queue_position-Sequenz — die ist nur internes Ordnungskriterium.
+    let wartePosition = null;
+    if (job.status === 'pending' && job.queue_position != null) {
+      const vorGelagert = await database.query(
+        `SELECT COUNT(*) AS cnt FROM llm_jobs
+         WHERE status = 'pending' AND queue_position <= $1`,
+        [job.queue_position]
+      );
+      wartePosition = parseInt(vorGelagert.rows[0].cnt) || 1;
+    }
+
     initSSE(res);
 
     // Send current content immediately
@@ -251,7 +264,7 @@ router.get(
         sources: job.sources,
         matchedSpaces: job.matched_spaces,
         status: job.status,
-        queuePosition: job.queue_position,
+        queuePosition: wartePosition,
       })}\n\n`
     );
 
@@ -277,7 +290,7 @@ router.get(
       res.write(
         `data: ${JSON.stringify({
           type: 'queued',
-          queuePosition: job.queue_position,
+          queuePosition: wartePosition,
           status: 'pending',
         })}\n\n`
       );

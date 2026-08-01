@@ -9,6 +9,7 @@ import json
 import subprocess
 import psutil
 import psycopg2
+import requests
 from datetime import datetime
 from typing import Dict
 
@@ -28,6 +29,17 @@ class CategoryHandlersMixin:
 
     # Restart backoff delays per attempt (exponential: 10s, 30s, 60s, 120s)
     RESTART_BACKOFF_DELAYS = [10, 30, 60, 120]
+
+    def _ollama_responsive(self) -> bool:
+        """Antwortet die Ollama-API? Unterscheidet 'GPU rechnet Inferenz'
+        (API antwortet trotz 99% Auslastung sofort) von 'GPU verklemmt'."""
+        llm_host = os.getenv('LLM_SERVICE_HOST', 'llm-service')
+        llm_port = os.getenv('LLM_SERVICE_PORT', '11434')
+        try:
+            response = requests.get(f"http://{llm_host}:{llm_port}/api/tags", timeout=5)
+            return response.status_code == 200
+        except Exception:
+            return False
 
     # Max restarts per service in a 30-minute window before entering alert-only mode
     MAX_RESTARTS_PER_30MIN = 5
@@ -275,20 +287,36 @@ class CategoryHandlersMixin:
                 # Between relief and overload threshold — hold, reset the streak.
                 self._n8n_ram_relief_count = 0
 
-        # GPU Overload
+        # GPU "Overload": 99%+ Auslastung ist bei laufender LLM-Inferenz
+        # NORMALZUSTAND, kein Fehler. Der Reset (Modell-Unload, im Fallback
+        # sogar Container-Restart) hat produktive Läufe abgeschossen. Er darf
+        # nur den wirklich verklemmten Fall treffen: Auslastung hoch UND
+        # Ollama antwortet nicht mehr — und das zwei Zyklen in Folge.
         if gpu > GPU_OVERLOAD_THRESHOLD:
-            action_key = 'gpu_overload'
-            last_action = self.last_overload_actions.get(action_key, 0)
-            if current_time - last_action > 300:
-                logger.warning(f"GPU overload detected: {gpu}% - resetting GPU session")
-                success = self.reset_gpu_session()
-                self.log_event(
-                    'gpu_overload', 'CRITICAL', f'GPU usage at {gpu}%',
-                    'Reset GPU session' if success else 'Failed to reset session',
-                    'llm-service', success
-                )
-                self.record_recovery_action('gpu_session_reset', 'llm-service', f'GPU overload: {gpu}%', success)
-                self.last_overload_actions[action_key] = current_time
+            if self._ollama_responsive():
+                # Ollama arbeitet — hohe GPU-Last ist Inferenz, Finger weg.
+                self._gpu_wedged_count = 0
+            else:
+                self._gpu_wedged_count = getattr(self, '_gpu_wedged_count', 0) + 1
+                action_key = 'gpu_overload'
+                last_action = self.last_overload_actions.get(action_key, 0)
+                if self._gpu_wedged_count >= 2 and current_time - last_action > 300:
+                    logger.warning(
+                        f"GPU wedged: {gpu}% and Ollama unresponsive for "
+                        f"{self._gpu_wedged_count} cycles - resetting GPU session"
+                    )
+                    success = self.reset_gpu_session()
+                    self.log_event(
+                        'gpu_overload', 'CRITICAL',
+                        f'GPU usage at {gpu}% with unresponsive Ollama',
+                        'Reset GPU session' if success else 'Failed to reset session',
+                        'llm-service', success
+                    )
+                    self.record_recovery_action('gpu_session_reset', 'llm-service', f'GPU wedged: {gpu}%', success)
+                    self.last_overload_actions[action_key] = current_time
+                    self._gpu_wedged_count = 0
+        else:
+            self._gpu_wedged_count = 0
 
         # Temperature Management with hysteresis and sliding window average
         self._temp_history.append(temp)

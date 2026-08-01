@@ -468,23 +468,37 @@ function createLLMJobService(deps = {}) {
             continue;
           }
           if (row.job_id_found && (row.job_content || row.job_thinking)) {
-            // Job exists and has content — transfer it to chat_messages
+            // Job exists and has content — transfer it to chat_messages.
+            // WICHTIG: Ein recovery-ter Lauf ist KEIN Erfolg. Ohne Kennzeichnung
+            // sah eine halb gestreamte Antwort nach Neustart wie eine fertige
+            // aus (bricht mitten im Satz ab, kein Artefakt, kein Hinweis) —
+            // deshalb eine sichtbare Unterbrechungs-Notiz anhängen und den Job
+            // als Fehler schließen, nicht als 'completed'.
             // Serialize JSONB values — pg returns JS objects from jsonb columns
             const srcJson = row.job_sources ? JSON.stringify(row.job_sources) : null;
             const spcJson = row.job_matched_spaces ? JSON.stringify(row.job_matched_spaces) : null;
+            const hinweis =
+              '\n\n> ⚠️ **Unterbrochen:** Dieser Lauf wurde durch einen Neustart abgebrochen — die Antwort ist unvollständig. Bitte die Anfrage erneut stellen.';
             await database.query(
               `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
-              [row.job_content || '', row.job_thinking, srcJson, spcJson, row.message_id]
+              [
+                (row.job_content || '') + hinweis,
+                row.job_thinking,
+                srcJson,
+                spcJson,
+                row.message_id,
+              ]
             );
             if (row.job_status === 'streaming' || row.job_status === 'pending') {
               await database.query(
-                `UPDATE llm_jobs SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+                `UPDATE llm_jobs SET status = 'error', completed_at = NOW(),
+                 error_message = 'Durch Neustart unterbrochen — Antwort unvollständig' WHERE id = $1`,
                 [row.job_id_found]
               );
             }
             recovered++;
             logger.info(
-              `Recovered orphaned message ${row.message_id} from job ${row.job_id_found} (conv: ${row.conversation_id})`
+              `Recovered orphaned message ${row.message_id} from job ${row.job_id_found} (conv: ${row.conversation_id}) — als unterbrochen markiert`
             );
           } else {
             // No job or no content — mark as error
@@ -529,18 +543,28 @@ function createLLMJobService(deps = {}) {
         activeStreams.delete(job.id);
         try {
           if (job.message_id && (job.content || job.thinking)) {
-            // Has content — try to complete rather than discard
+            // Has content — retten statt verwerfen, aber ehrlich als
+            // unterbrochen kennzeichnen (siehe recoverOrphanedMessages).
             await database.query(
               `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
-              [job.content || '', job.thinking, job.sources, job.matched_spaces, job.message_id]
+              [
+                (job.content || '') +
+                  '\n\n> ⚠️ **Unterbrochen:** Dieser Lauf wurde abgebrochen (Neustart oder Verbindungsverlust) — die Antwort ist unvollständig. Bitte die Anfrage erneut stellen.',
+                job.thinking,
+                job.sources,
+                job.matched_spaces,
+                job.message_id,
+              ]
             );
             await database.query(
-              `UPDATE llm_jobs SET status = 'completed', completed_at = NOW(),
-               error_message = 'Auto-recovered from stale state' WHERE id = $1`,
+              `UPDATE llm_jobs SET status = 'error', completed_at = NOW(),
+               error_message = 'Unterbrochen (stale) — Antwort unvollständig' WHERE id = $1`,
               [job.id]
             );
             recovered++;
-            logger.info(`Auto-recovered stale job ${job.id} with content`);
+            logger.info(
+              `Auto-recovered stale job ${job.id} with content — als unterbrochen markiert`
+            );
           } else {
             // No content — mark as error
             await database.query(
