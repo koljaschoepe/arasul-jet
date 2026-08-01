@@ -2411,7 +2411,10 @@ run detail) renders each agent as a collapsible tree — live from the
 files without confirmation, so every run that _can_ change files (declares
 `dateien_schreiben` or `terminal`) is snapshotted before and after; the diff is
 stored on `flow_runs.changes` and returned inside the run object
-(`[{ pfad, art: neu|geaendert|geloescht, vorher, nachher, gekuerzt, hinweis }]`).
+(`[{ pfad, art: neu|geaendert|geloescht, vorher, nachher, gekuerzt, hinweis, projekt? }]`).
+`projekt` (`{ projectId, pfad }`) is present when the file lives in a project's
+Ablage — the run UI uses it to open the artifact directly in the editor
+(ablage-relative path, device paths are never exposed).
 A finishing run also emits it live as an `aenderungen` frame so the open run card
 shows it without a refetch; on reconnect it arrives inside the `verlauf` run.
 Bounded in count and per-file preview length; `null` (column) means not tracked
