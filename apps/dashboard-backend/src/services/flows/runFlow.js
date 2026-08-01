@@ -48,7 +48,11 @@ const { ValidationError } = require('../../utils/errors');
 const PROJEKT_ORDNER_TOKEN = 'projekt://aktiv';
 const PROJEKT_PREFIX = 'projekt://';
 
-/** Löst ein `projekt://…`-Token in den echten Ablage-Pfad auf (legt ihn an). */
+/**
+ * Löst ein `projekt://…`-Token in den echten Ablage-Pfad auf (legt ihn an).
+ * Liefert neben dem Pfad auch Projekt-ID und Unterpfad — daraus baut die
+ * Änderungs-Übersicht später klickbare Ablage-Ziele.
+ */
 async function resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner }) {
   const rest = eintrag.slice(PROJEKT_PREFIX.length);
   const [kopf, ...teile] = rest.split('/');
@@ -64,7 +68,7 @@ async function resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner 
   const projectId = kopf === 'aktiv' ? await getActiveProjectId() : kopf;
   const basis = await projektOrdner(projectId);
   if (!unterpfad) {
-    return basis;
+    return { pfad: basis, projectId, unterpfad: '' };
   }
   const ziel = path.join(basis, unterpfad);
   // path.join hat '..' bereits abgewiesen; der Gurt hier fängt Restfälle.
@@ -72,11 +76,15 @@ async function resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner 
     throw new ValidationError(`Ungültiger Ordner "${eintrag}"`);
   }
   await fs.mkdir(ziel, { recursive: true });
-  return ziel;
+  return { pfad: ziel, projectId, unterpfad };
 }
 
-/** Löst alle `projekt://…`-Einträge in echte Ablage-Pfade auf (legt sie an). */
-async function resolveOrdnerListe(ordner = [], deps = {}) {
+/**
+ * Löst alle `projekt://…`-Einträge in echte Ablage-Pfade auf (legt sie an).
+ * `meta` (optional, Array) sammelt je Projekt-Ordner {pfad, projectId,
+ * unterpfad} — für die klickbare Änderungs-Übersicht.
+ */
+async function resolveOrdnerListe(ordner = [], deps = {}, meta = null) {
   const {
     getActiveProjectId = projectService.getActiveProjectId,
     projektOrdner = require('../projects/ablageService').projektOrdner,
@@ -84,7 +92,11 @@ async function resolveOrdnerListe(ordner = [], deps = {}) {
   const out = [];
   for (const eintrag of ordner) {
     if (eintrag.startsWith(PROJEKT_PREFIX)) {
-      out.push(await resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner }));
+      const info = await resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner });
+      out.push(info.pfad);
+      if (Array.isArray(meta)) {
+        meta.push(info);
+      }
     } else {
       out.push(eintrag);
     }
@@ -287,9 +299,12 @@ async function runFlow(
   // erzwingen das), damit ein API-Key-Aufrufer keine beliebigen Gerätepfade
   // öffnen kann.
   const ordnerListe = ordnerZiel ? [ordnerZiel, ...geladen.ordner] : geladen.ordner;
+  // Je aufgelöstem Projekt-Ordner {pfad, projectId, unterpfad} — die
+  // Änderungs-Übersicht macht damit Dateien in der Ablage klickbar.
+  const projektOrdnerMeta = [];
   const flow = {
     ...geladen,
-    ordner: await resolveOrdnerListe(ordnerListe, deps),
+    ordner: await resolveOrdnerListe(ordnerListe, deps, projektOrdnerMeta),
   };
 
   // 1. Argumente → Werte, Platzhalter ersetzen. Ein `datei`-Argument reichert
@@ -503,11 +518,22 @@ async function runFlow(
     }
     try {
       const endAbzug = await tracker.snapshot(flow.ordner);
-      const { aenderungen, abgeschnitten } = tracker.berechneAenderungen(
-        startAbzug,
-        endAbzug,
-        flow.ordner || []
-      );
+      const roh = tracker.berechneAenderungen(startAbzug, endAbzug, flow.ordner || []);
+      const abgeschnitten = roh.abgeschnitten;
+      // Ablage-Dateien klickbar machen: liegt der Ordner der Datei in einer
+      // Projektablage, bekommt der Eintrag `projekt` (Projekt-ID + Ablage-
+      // Pfad). Die internen Felder root/rel (Gerätepfade) werden gestrichen.
+      const aenderungen = roh.aenderungen.map(eintrag => {
+        const { root, rel, ...rest } = eintrag;
+        const m = projektOrdnerMeta.find(x => x.pfad === root);
+        if (!m || !m.projectId || rel == null) {
+          return rest;
+        }
+        return {
+          ...rest,
+          projekt: { projectId: m.projectId, pfad: m.unterpfad ? `${m.unterpfad}/${rel}` : rel },
+        };
+      });
       // Die Kürzung nicht still verschlucken (der Deckel greift erst bei sehr
       // vielen Datei-Änderungen, z. B. `npm install`): wenigstens im Log ehrlich
       // benennen, damit ein „nur 300 gelistet" nicht als vollständig missverstanden wird.
