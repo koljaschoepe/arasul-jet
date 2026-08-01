@@ -94,7 +94,12 @@ Hintergrund; getrennt wird nur durch feine Linien.
   Eintraege (Filter Alle · Sprachmodelle · Apps), in der Mitte der durchsuchbare
   **Store** mit **zwei Reitern (Modelle · Erweiterungen)**; ein Klick oeffnet
   die Detailseite mit allen Aktionen — KI-Modelle installieren/aktivieren,
-  Plattform-Apps (n8n) ein-/ausblenden. **Automation**
+  Plattform-Apps (n8n) ein-/ausblenden. Ueber dem Modell-Raster steht ein
+  **Modell-Dashboard**: KI-RAM-Balken (ein Segment je geladenem Modell),
+  die aktuell im RAM geladenen Modelle mit **Entladen** (der Chip zeigt
+  „entlaedt …", bis das Modell wirklich draussen ist), das **Standardmodell**
+  fuer neue Chats und **In den RAM laden** mit Live-Statusmeldungen waehrend
+  des Ladens. Die Detailseite hat zusaetzlich **Aus RAM entladen**. **Automation**
   oeffnet n8n direkt als Tab. Deaktivieren
   wirkt sofort (ohne Neuladen): das Symbol verschwindet aus der Activity Bar
   und offene Tabs der App werden geschlossen. (Alte Deep-Links auf die

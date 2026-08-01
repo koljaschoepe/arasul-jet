@@ -118,3 +118,56 @@ test('kein Knopf, wenn der Flow keine Schritt-Kette hat', async () => {
   expect(await screen.findByTestId('flow-run-row')).toBeInTheDocument();
   expect(screen.queryByTestId('run-wiederholen')).not.toBeInTheDocument();
 });
+
+// --- StartKarte: „Jetzt ausführen" direkt in der Zentrale (2026-08-01) ---
+
+test('Ausführen startet den Lauf mit den Formular-Argumenten und öffnet die Detailansicht', async () => {
+  const user = userEvent.setup();
+  mitLaeufen([]);
+  apiPost.mockResolvedValue({ data: { runId: 12 } });
+  const flow: FlowDefinition = {
+    ...FLOW_OHNE_SCHRITTE,
+    argumente: [
+      { name: 'thema', typ: 'freitext', beschreibung: 'Worum geht es?', pflicht: true },
+      {
+        name: 'ton',
+        typ: 'auswahl',
+        beschreibung: '',
+        pflicht: false,
+        optionen: ['locker', 'formell'],
+        standard: 'formell',
+      },
+    ],
+  };
+  render(<FlowDashboard name="kette" flow={flow} onEdit={vi.fn()} onDelete={vi.fn()} />);
+
+  // Pflicht-Argument leer → Knopf gesperrt.
+  const start = await screen.findByTestId('flow-start');
+  expect(start).toBeDisabled();
+
+  await user.type(screen.getByTestId('flow-arg-thema'), 'Datenschutz-Update');
+  expect(start).toBeEnabled();
+  await user.click(start);
+
+  expect(apiPost).toHaveBeenCalledWith('/flows/laeufe', {
+    flow: 'kette',
+    args: { thema: 'Datenschutz-Update', ton: 'formell' },
+  });
+  await waitFor(() => expect(screen.getByTestId('lauf-detail')).toHaveTextContent('Lauf 12'));
+});
+
+test('Flow ohne Argumente: Ausführen ist sofort möglich', async () => {
+  const user = userEvent.setup();
+  mitLaeufen([]);
+  apiPost.mockResolvedValue({ data: { runId: 3 } });
+  render(
+    <FlowDashboard name="kette" flow={FLOW_OHNE_SCHRITTE} onEdit={vi.fn()} onDelete={vi.fn()} />
+  );
+
+  const start = await screen.findByTestId('flow-start');
+  expect(start).toBeEnabled();
+  await user.click(start);
+
+  expect(apiPost).toHaveBeenCalledWith('/flows/laeufe', { flow: 'kette', args: {} });
+  await waitFor(() => expect(screen.getByTestId('lauf-detail')).toHaveTextContent('Lauf 3'));
+});

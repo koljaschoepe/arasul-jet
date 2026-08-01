@@ -53,6 +53,11 @@ export interface FlowRunChange {
   gekuerzt?: boolean;
   /** Warum keine Vorschau vorliegt („Binärdatei" / „zu groß für Vorschau"). */
   hinweis?: string | null;
+  /**
+   * Liegt die Datei in einer Projektablage, das klickbare Ziel: Projekt-ID +
+   * Ablage-relativer Pfad — damit öffnet die Übersicht das Artefakt im Editor.
+   */
+  projekt?: { projectId: string; pfad: string } | null;
 }
 
 export interface FlowRunState {

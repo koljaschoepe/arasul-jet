@@ -215,8 +215,11 @@ export function StoreExtensionsGrid() {
       data-testid="store-extensions-grid"
       aria-label="Erweiterungen"
     >
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {/* Spalten über Container-Queries: als Workspace-Mitte-Tab ist der
+          Container deutlich schmaler als der Viewport — Viewport-Breakpoints
+          quetschten hier zu viele Spalten hinein (Karteninhalt „…"). */}
+      <div className="@container min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
           {visible.map(app => (
             <ExtensionCard key={app.id} app={app} onToggle={setAppEnabled} />
           ))}

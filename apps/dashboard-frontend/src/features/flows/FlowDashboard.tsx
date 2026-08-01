@@ -30,7 +30,7 @@ import {
 import { Button } from '@/components/ui/shadcn/button';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
-import type { FlowDefinition, FlowRunSummary, FlowRunStatus } from '@/types/flows';
+import type { FlowArgument, FlowDefinition, FlowRunSummary, FlowRunStatus } from '@/types/flows';
 import FlowRunDetail from './FlowRunDetail';
 
 /** Ein API-Schlüssel, wie ihn GET /v1/external/api-keys liefert. */
@@ -80,6 +80,146 @@ function Card({ title, icon, children }: { title: string; icon: ReactNode; child
       </h3>
       {children}
     </section>
+  );
+}
+
+/**
+ * StartKarte — „Jetzt ausführen" direkt in der Zentrale: Argument-Formular aus
+ * der Flow-Deklaration, Start über POST /flows/laeufe (202 + runId), danach
+ * springt die Zentrale in die Live-Ansicht des Laufs. Damit kann man einen
+ * Flow OHNE Chat-Befehl und ohne curl bedienen — der Weg für Nicht-Techniker.
+ */
+function StartKarte({
+  name,
+  argumente,
+  onGestartet,
+}: {
+  name: string;
+  argumente: FlowArgument[];
+  onGestartet: (runId: number) => void;
+}) {
+  const api = useApi();
+  const toast = useToast();
+  const [werte, setWerte] = useState<Record<string, string>>({});
+
+  // Vorbelegungen aus der Deklaration übernehmen — je Flow neu.
+  useEffect(() => {
+    const initial: Record<string, string> = {};
+    for (const a of argumente) if (a.standard != null) initial[a.name] = String(a.standard);
+    setWerte(initial);
+  }, [name, argumente]);
+
+  const brauchtSammlungen = argumente.some(a => a.typ === 'wissensbasis');
+  const sammlungen = useQuery({
+    queryKey: ['flows', 'sammlungen'],
+    queryFn: () =>
+      api.get<{ data: { id: string; name: string }[] }>('/flows/sammlungen', { showError: false }),
+    enabled: brauchtSammlungen,
+    staleTime: 60_000,
+  });
+
+  const fehlend = argumente.filter(a => a.pflicht && !(werte[a.name] ?? '').trim());
+  const starten = useMutation({
+    mutationFn: () => {
+      const args: Record<string, string> = {};
+      for (const a of argumente) {
+        const w = (werte[a.name] ?? '').trim();
+        if (w) args[a.name] = w;
+      }
+      return api.post<{ data: { runId: number } }>('/flows/laeufe', { flow: name, args });
+    },
+    onSuccess: res => {
+      toast.success('Lauf gestartet');
+      onGestartet(res.data.runId);
+    },
+  });
+
+  const setzeWert = (argName: string, wert: string) =>
+    setWerte(prev => ({ ...prev, [argName]: wert }));
+
+  const feldKlasse =
+    'rounded-md border border-border bg-background px-2 py-1.5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+  return (
+    <Card title="Jetzt ausführen" icon={<Play className="size-4 text-primary" />}>
+      {argumente.length > 0 && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {argumente.map(arg => (
+            <label key={arg.name} className="flex min-w-0 flex-col gap-1 text-xs">
+              <span className="font-medium text-foreground">
+                {arg.name}
+                {arg.pflicht && <span className="text-destructive"> *</span>}
+              </span>
+              {arg.typ === 'auswahl' && arg.optionen?.length ? (
+                <select
+                  value={werte[arg.name] ?? ''}
+                  onChange={e => setzeWert(arg.name, e.target.value)}
+                  className={feldKlasse}
+                  data-testid={`flow-arg-${arg.name}`}
+                >
+                  <option value="">— wählen —</option>
+                  {arg.optionen.map(o => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              ) : arg.typ === 'wissensbasis' ? (
+                <select
+                  value={werte[arg.name] ?? ''}
+                  onChange={e => setzeWert(arg.name, e.target.value)}
+                  className={feldKlasse}
+                  data-testid={`flow-arg-${arg.name}`}
+                >
+                  <option value="">— wählen —</option>
+                  {(sammlungen.data?.data ?? []).map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={werte[arg.name] ?? ''}
+                  onChange={e => setzeWert(arg.name, e.target.value)}
+                  placeholder={arg.beschreibung || undefined}
+                  className={`${feldKlasse} placeholder:text-muted-foreground/60`}
+                  data-testid={`flow-arg-${arg.name}`}
+                />
+              )}
+              {arg.beschreibung && arg.typ !== 'freitext' && arg.typ !== 'datei' && (
+                <span className="text-muted-foreground">{arg.beschreibung}</span>
+              )}
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={fehlend.length > 0 || starten.isPending}
+          onClick={() => starten.mutate()}
+          data-testid="flow-start"
+        >
+          {starten.isPending ? (
+            <>
+              <Loader2 className="size-4 animate-spin" /> Startet …
+            </>
+          ) : (
+            <>
+              <Play className="size-4" /> Ausführen
+            </>
+          )}
+        </Button>
+        {fehlend.length > 0 && (
+          <span className="text-[11px] text-muted-foreground">
+            Pflichtfelder: {fehlend.map(a => a.name).join(', ')}
+          </span>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -229,7 +369,25 @@ export default function FlowDashboard({
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-            {/* Trigger */}
+            {/* Ausführen — die Primär-Aktion für Nicht-Techniker steht oben. */}
+            <StartKarte
+              name={name}
+              argumente={flow?.argumente ?? []}
+              onGestartet={runId => {
+                qc.invalidateQueries({ queryKey: ['flow-runs', 'fuer-flow', name] });
+                setLaufDetail({
+                  id: runId,
+                  flow_name: name,
+                  conversation_id: null,
+                  status: 'laeuft',
+                  steps_used: 0,
+                  created_at: new Date().toISOString(),
+                  finished_at: null,
+                });
+              }}
+            />
+
+            {/* Trigger (technisch) */}
             <Card
               title="So wird dieser Flow ausgelöst"
               icon={<Webhook className="size-4 text-primary" />}

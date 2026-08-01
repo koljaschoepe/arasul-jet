@@ -33,6 +33,11 @@ function ActivationButton({
     );
   }
 
+  // Das Backend streamt beim Laden ehrliche Indeterminate-Updates
+  // (progress: -1) statt erfundener Prozente — dann Spinner + Text zeigen,
+  // nie „-1%".
+  const hasPercent = activatingPercent > 0;
+
   return (
     <Button
       size={size}
@@ -40,7 +45,7 @@ function ActivationButton({
       onClick={onActivate}
       disabled={isActivating}
       style={
-        isActivating
+        isActivating && hasPercent
           ? {
               background: `linear-gradient(90deg, var(--success) ${activatingPercent}%, var(--card) ${activatingPercent}%)`,
               borderColor: 'var(--success)',
@@ -51,7 +56,8 @@ function ActivationButton({
     >
       {isActivating ? (
         <>
-          <RefreshCw className="size-4 animate-spin" /> {activatingPercent}%
+          <RefreshCw className="size-4 animate-spin" />
+          {hasPercent ? `${activatingPercent}%` : 'Lädt in RAM …'}
         </>
       ) : (
         <>

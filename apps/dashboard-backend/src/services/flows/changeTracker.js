@@ -261,6 +261,12 @@ function berechneAenderungen(vorher, nachher, roots = []) {
       nachher: nn.text,
       hinweis: hatVorschau ? null : nn.hinweis || vv.hinweis,
       gekuerzt: Boolean(vv.gekuerzt || nn.gekuerzt),
+      // Interne Zuordnung für den Aufrufer (runFlow): aus welchem Ordner die
+      // Datei stammt + der pure Relativpfad darin. runFlow leitet daraus das
+      // klickbare `projekt`-Ziel ab und STREICHT beide Felder vor dem
+      // Speichern (Gerätepfade gehören nicht in die API).
+      root,
+      rel: path.relative(root, abs) || path.basename(abs),
     });
   }
 
