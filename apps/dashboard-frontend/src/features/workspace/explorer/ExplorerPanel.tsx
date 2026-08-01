@@ -19,6 +19,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
   Download,
   File as FileIcon,
   FileCode,
@@ -218,6 +219,37 @@ export function ExplorerPanel() {
   const q = query.trim().toLowerCase();
   const matches = useCallback((name: string) => q === '' || name.toLowerCase().includes(q), [q]);
 
+  /**
+   * Serverseitige Suche ab 2 Zeichen: der Baum-Endpoint ist auf 2000 Einträge
+   * gedeckelt, tiefe Dateien findet nur `GET …/dateien/suche`. Der Suchtext
+   * wird entprellt (300 ms), damit nicht jeder Tastendruck eine Anfrage kostet.
+   */
+  const suchtext = query.trim();
+  const serverSucheAktiv = suchtext.length >= 2;
+  const [entprellteSuche, setEntprellteSuche] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setEntprellteSuche(suchtext), 300);
+    return () => clearTimeout(timer);
+  }, [suchtext]);
+
+  const {
+    data: sucheData,
+    isFetching: sucheFetching,
+    error: sucheFehler,
+  } = useQuery({
+    queryKey: ['projekt-dateien-suche', activeId, entprellteSuche],
+    enabled: !!activeId && entprellteSuche.length >= 2,
+    queryFn: () =>
+      api.get<AblageResponse>(
+        `/projects/${activeId}/dateien/suche?q=${encodeURIComponent(entprellteSuche)}`,
+        { showError: false }
+      ),
+    staleTime: 10_000,
+  });
+  const treffer = sucheData?.data.eintraege ?? [];
+  // „Suche …" solange die Entprellung hinterherhinkt oder die Anfrage läuft.
+  const sucheLaeuft = entprellteSuche !== suchtext || sucheFetching;
+
   /** Eintrag sichtbar, wenn er selbst oder (bei Ordnern) ein Nachfahre matcht. */
   const istSichtbar = useCallback(
     (e: AblageEintrag): boolean => {
@@ -265,6 +297,49 @@ export function ExplorerPanel() {
       openTab({ type: 'projektdatei', projectId: activeId, filePath: e.pfad, title: e.name });
     },
     [activeId, api, openTab]
+  );
+
+  /**
+   * Klick auf einen Suchtreffer: Dateien öffnen wie ein Baum-Klick (falls der
+   * Eintrag im geladenen Baum liegt, mit dessen Wissens-Spiegel für den
+   * Dokument-Viewer); Ordner klappen den Pfad im Baum auf und leeren die Suche.
+   */
+  const oeffneSuchtreffer = useCallback(
+    (t: AblageEintrag) => {
+      if (t.typ === 'datei') {
+        const imBaum = eintraege.find(k => k.pfad === t.pfad);
+        void oeffneDatei(imBaum ?? t);
+        return;
+      }
+      // Ordner außerhalb des Budget-gedeckelten Baums: Aufklappen liefe ins
+      // Leere (der Knoten ist gar nicht geladen) — Suche stehen lassen und
+      // ehrlich sagen, statt scheinbar nichts zu tun.
+      if (!eintraege.some(k => k.pfad === t.pfad)) {
+        toast.info(`„${t.pfad}" liegt außerhalb des geladenen Baums (Baum gekürzt)`);
+        return;
+      }
+      setQuery('');
+      setExpanded(prev => {
+        const neu = new Set(prev);
+        const teile = t.pfad.split('/');
+        for (let i = 1; i <= teile.length; i++) neu.add(teile.slice(0, i).join('/'));
+        return neu;
+      });
+    },
+    [eintraege, oeffneDatei, toast]
+  );
+
+  /** Relativen Pfad in die Zwischenablage kopieren (Kontextmenü). */
+  const pfadKopieren = useCallback(
+    async (pfad: string) => {
+      try {
+        await navigator.clipboard.writeText(pfad);
+        toast.success('Pfad kopiert');
+      } catch {
+        toast.error('Kopieren fehlgeschlagen');
+      }
+    },
+    [toast]
   );
 
   const download = useCallback(
@@ -425,26 +500,89 @@ export function ExplorerPanel() {
       }
     }
     ev.dataTransfer.setData('text/plain', e.name);
-    ev.dataTransfer.effectAllowed = 'link';
+    // 'copyMove': Move innerhalb des Baums UND weiterhin Drop in den Chat.
+    ev.dataTransfer.effectAllowed = 'copyMove';
   };
 
-  /** Drop-Handler für Ordner-/Wurzel-Zeilen: OS-Dateien hierher hochladen. */
-  const dropProps = (ziel: string | null, rowKey: string) => ({
-    onDragOver: (ev: React.DragEvent) => {
-      if (ev.dataTransfer.types.includes('Files')) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        ev.dataTransfer.dropEffect = 'copy';
-        setDropTarget(rowKey);
+  /**
+   * Eintrag innerhalb des Baums verschieben (Drop eines Explorer-Eintrags auf
+   * einen Ordner). Clientseitige Guards: gleiches Projekt, nicht auf sich
+   * selbst / in den eigenen Unterbaum, kein No-op in den aktuellen Elternordner.
+   */
+  const verschiebe = useCallback(
+    async (payload: { projectId: string; pfad: string; name: string }, ziel: string | null) => {
+      if (!activeId || payload.projectId !== activeId) return;
+      const von = payload.pfad;
+      const zielOrdner = ziel ?? '';
+      if (zielOrdner === von || zielOrdner.startsWith(`${von}/`)) return;
+      if (elternPfad(von) === zielOrdner) return; // schon dort — still ignorieren
+      const nach = zielOrdner ? `${zielOrdner}/${payload.name}` : payload.name;
+      try {
+        await api.post(
+          `/projects/${activeId}/dateien/verschieben`,
+          { von, nach },
+          { showError: false }
+        );
+        toast.success(`„${payload.name}“ verschoben`);
+        neuLaden();
+        scheduleRefresh();
+      } catch (err) {
+        const fehler = err as ApiError;
+        if (fehler.status === 409) toast.error(`„${payload.name}“ existiert bereits am Ziel`);
+        else toast.error(fehler.message || 'Verschieben fehlgeschlagen');
       }
     },
-    onDragLeave: () => setDropTarget(t => (t === rowKey ? null : t)),
+    [activeId, api, toast, neuLaden, scheduleRefresh]
+  );
+
+  /**
+   * Drop-Handler für Ordner-/Wurzel-Zeilen: OS-Dateien hierher hochladen ODER
+   * einen Explorer-Eintrag hierher verschieben (DND_ABLAGE_TYPE).
+   */
+  const dropProps = (ziel: string | null, rowKey: string) => ({
+    onDragOver: (ev: React.DragEvent) => {
+      const istFiles = ev.dataTransfer.types.includes('Files');
+      const istAblage = ev.dataTransfer.types.includes(DND_ABLAGE_TYPE);
+      if (!istFiles && !istAblage) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.dataTransfer.dropEffect = istFiles ? 'copy' : 'move';
+      setDropTarget(rowKey);
+    },
+    onDragLeave: (ev: React.DragEvent) => {
+      // Nur zurücksetzen, wenn der Zeiger das Element wirklich verlässt —
+      // Bewegungen über Kind-Elemente feuern sonst Flacker-Leaves.
+      const naechstes = ev.relatedTarget as Node | null;
+      if (naechstes && ev.currentTarget.contains(naechstes)) return;
+      setDropTarget(t => (t === rowKey ? null : t));
+    },
     onDrop: (ev: React.DragEvent) => {
       if (ev.dataTransfer.files.length > 0) {
         ev.preventDefault();
         ev.stopPropagation();
         setDropTarget(null);
         void hochladen(ev.dataTransfer.files, ziel);
+        return;
+      }
+      const roh = ev.dataTransfer.getData(DND_ABLAGE_TYPE);
+      if (!roh) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      setDropTarget(null);
+      try {
+        const payload = JSON.parse(roh) as {
+          projectId?: string;
+          pfad?: string;
+          name?: string;
+        };
+        if (payload.projectId && payload.pfad && payload.name) {
+          void verschiebe(
+            { projectId: payload.projectId, pfad: payload.pfad, name: payload.name },
+            ziel
+          );
+        }
+      } catch {
+        /* ungültige Payload — ignorieren */
       }
     },
   });
@@ -454,6 +592,9 @@ export function ExplorerPanel() {
   const renderDatei = (e: AblageEintrag, tiefe: number): React.ReactNode => {
     if (!matches(e.name)) return null;
     const suffix = e.dokument ? statusSuffix(e.dokument.status) : null;
+    // Drop auf eine Datei-Zeile = Upload/Move in DEREN Ordner (statt bis zur
+    // Wurzel durchzufallen); Highlight auf der Eltern-Ordner-Zeile.
+    const eltern = elternPfad(e.pfad);
     return (
       <ContextMenu key={e.pfad}>
         <ContextMenuTrigger asChild>
@@ -465,6 +606,7 @@ export function ExplorerPanel() {
             tabIndex={0}
             draggable
             onDragStart={dragStart(e)}
+            {...dropProps(eltern || null, eltern ? `ordner:${eltern}` : 'root')}
             onClick={() => void oeffneDatei(e)}
             onKeyDown={ev => {
               if (ev.key === 'Enter' || ev.key === ' ') {
@@ -487,6 +629,9 @@ export function ExplorerPanel() {
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => void download(e.pfad, e.name)}>
             <Download className="mr-2 h-3.5 w-3.5" /> Herunterladen
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={() => void pfadKopieren(e.pfad)}>
+            <Copy className="mr-2 h-3.5 w-3.5" /> Pfad kopieren
           </ContextMenuItem>
           {e.dokument && (
             <ContextMenuItem onSelect={() => anheften(e)}>
@@ -588,6 +733,9 @@ export function ExplorerPanel() {
             <ContextMenuItem onSelect={() => void download(e.pfad, `${e.name}.tar.gz`)}>
               <Download className="mr-2 h-3.5 w-3.5" /> Als Archiv herunterladen
             </ContextMenuItem>
+            <ContextMenuItem onSelect={() => void pfadKopieren(e.pfad)}>
+              <Copy className="mr-2 h-3.5 w-3.5" /> Pfad kopieren
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem
               onSelect={() => {
@@ -606,7 +754,9 @@ export function ExplorerPanel() {
           </ContextMenuContent>
         </ContextMenu>
         {offen && (
-          <div role="group">
+          // Der Kinder-Bereich nimmt Drops für SEINEN Ordner an (statt bis zur
+          // Wurzel durchzufallen); innerste Zeilen gewinnen per stopPropagation.
+          <div role="group" {...dropProps(e.pfad, rowKey)}>
             {kinder.map(k =>
               k.typ === 'ordner' ? renderOrdner(k, tiefe + 1) : renderDatei(k, tiefe + 1)
             )}
@@ -727,15 +877,61 @@ export function ExplorerPanel() {
           {!activeId && (
             <p className="px-2 py-1 text-xs text-muted-foreground">Kein Projekt aktiv</p>
           )}
-          {activeId && isLoading && (
+          {/* Serverseitige Suche (≥2 Zeichen): flache Trefferliste statt Baum. */}
+          {activeId && serverSucheAktiv && (
+            <div data-testid="explorer-suche">
+              {sucheLaeuft && <p className="px-2 py-1 text-xs text-muted-foreground">Suche …</p>}
+              {!sucheLaeuft && sucheFehler != null && (
+                <p className="px-2 py-1 text-xs text-destructive" role="alert">
+                  Suche fehlgeschlagen
+                </p>
+              )}
+              {!sucheLaeuft && sucheFehler == null && treffer.length === 0 && (
+                <p className="px-2 py-1 text-xs text-muted-foreground/60">
+                  Keine Treffer für „{suchtext}“
+                </p>
+              )}
+              {!sucheLaeuft &&
+                sucheFehler == null &&
+                treffer.map(t => (
+                  <button
+                    key={t.pfad}
+                    type="button"
+                    className="flex min-h-ui-row w-full cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-left text-ui-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                    onClick={() => oeffneSuchtreffer(t)}
+                    data-testid="explorer-suchtreffer"
+                  >
+                    {t.typ === 'ordner' ? (
+                      <Folder className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      dateiIcon(t.name)
+                    )}
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-foreground">{t.name}</span>
+                      {elternPfad(t.pfad) !== '' && (
+                        <span className="truncate text-[11px] text-muted-foreground/60">
+                          {elternPfad(t.pfad)}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                ))}
+              {!sucheLaeuft && sucheFehler == null && sucheData?.data.gekuerzt && (
+                <p className="px-2 py-1 text-[11px] text-muted-foreground/60">
+                  Erste 200 Treffer angezeigt
+                </p>
+              )}
+            </div>
+          )}
+          {activeId && !serverSucheAktiv && isLoading && (
             <p className="px-2 py-1 text-xs text-muted-foreground">Lade Dateien…</p>
           )}
-          {activeId && !isLoading && error != null && (
+          {activeId && !serverSucheAktiv && !isLoading && error != null && (
             <p className="px-2 py-1 text-xs text-destructive" role="alert">
               Explorer konnte nicht geladen werden
             </p>
           )}
-          {activeId && !isLoading && error == null && (
+          {activeId && !serverSucheAktiv && !isLoading && error == null && (
             <div data-testid="explorer-tree">
               {wurzel.map(e => (e.typ === 'ordner' ? renderOrdner(e, 0) : renderDatei(e, 0)))}
               {wurzel.length === 0 && (

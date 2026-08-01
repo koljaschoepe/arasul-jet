@@ -149,6 +149,70 @@ async function listTree(projectId, deps = {}) {
   return { eintraege, gekuerzt };
 }
 
+// Suche: eigenes, deutlich höheres Besuchs-Budget. Der Baum-Endpoint deckelt
+// bei MAX_TREE_ENTRIES (Repo-Projekte reißen das locker) — die Suche muss
+// trotzdem den GANZEN Bestand abdecken, sonst findet der Explorer tief
+// liegende Dateien nie. Gedeckelt wird über besuchte Einträge und Treffer.
+const MAX_SUCHE_BESUCHE = 50000;
+const MAX_SUCHE_TREFFER = 200;
+
+/**
+ * Rekursive Namenssuche über die komplette Projektablage.
+ * Case-insensitive Teilstring-Match auf Datei-/Ordnernamen.
+ *
+ * @returns {Promise<{eintraege: object[], gekuerzt: boolean}>} wie listTree,
+ *   nur auf Treffer reduziert (flache Liste, Pfade relativ).
+ */
+async function searchTree(projectId, suchtext, deps = {}) {
+  const dir = await projektOrdner(projectId, deps);
+  const nadel = String(suchtext || '')
+    .trim()
+    .toLowerCase();
+  const eintraege = [];
+  let besuche = 0;
+  let gekuerzt = false;
+
+  async function rekurse(abs, rel, tiefe) {
+    if (tiefe > MAX_TREE_DEPTH || eintraege.length >= MAX_SUCHE_TREFFER) {
+      gekuerzt = gekuerzt || eintraege.length >= MAX_SUCHE_TREFFER;
+      return;
+    }
+    let dirents;
+    try {
+      dirents = await fsp.readdir(abs, { withFileTypes: true });
+    } catch (err) {
+      logger.warn(`Ablage-Suche ${projectId}: "${rel || '.'}" nicht lesbar: ${err.message}`);
+      return;
+    }
+    dirents.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    for (const d of dirents) {
+      if (VERSTECKT.has(d.name) || d.isSymbolicLink()) {
+        continue;
+      }
+      if (besuche >= MAX_SUCHE_BESUCHE || eintraege.length >= MAX_SUCHE_TREFFER) {
+        gekuerzt = true;
+        return;
+      }
+      besuche += 1;
+      const kindRel = rel ? `${rel}/${d.name}` : d.name;
+      const passt = d.name.toLowerCase().includes(nadel);
+      if (d.isDirectory()) {
+        if (passt) {
+          eintraege.push({ pfad: kindRel, name: d.name, typ: 'ordner', groesse: null });
+        }
+        await rekurse(path.join(abs, d.name), kindRel, tiefe + 1);
+      } else if (d.isFile() && passt) {
+        eintraege.push({ pfad: kindRel, name: d.name, typ: 'datei', groesse: null });
+      }
+    }
+  }
+
+  if (nadel) {
+    await rekurse(dir, '', 0);
+  }
+  return { eintraege, gekuerzt };
+}
+
 /** Sieht der Puffer nach Binärdaten aus? (NUL-Byte im Anfangsstück) */
 function istBinaer(buffer) {
   const probe = buffer.subarray(0, 8000);
@@ -245,6 +309,11 @@ async function move(projectId, vonPfad, nachPfad, deps = {}) {
   const nach = sicher(dir, nachPfad);
   if (istWurzel(dir, von) || istWurzel(dir, nach)) {
     throw new ValidationError('Der Projektordner selbst kann nicht verschoben werden');
+  }
+  // Ein Ordner in seinen eigenen Unterbaum ergäbe von fsp.rename nur einen
+  // kryptischen EINVAL — vorher sauber ablehnen.
+  if (nach === von || nach.startsWith(von + path.sep)) {
+    throw new ValidationError('Ein Ordner kann nicht in sich selbst verschoben werden');
   }
   try {
     await fsp.access(von);
@@ -355,6 +424,7 @@ module.exports = {
   projektOrdner,
   listTree,
   listTreeMitWissen,
+  searchTree,
   readFile,
   writeFile,
   createDir,

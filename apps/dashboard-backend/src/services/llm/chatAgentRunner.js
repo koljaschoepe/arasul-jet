@@ -38,6 +38,7 @@ const { projektOrdner, listTree } = require('../projects/ablageService');
 const { ensureFlowSandbox } = require('../flows/sandboxResolve');
 const { buildSystemPrompt } = require('./systemPromptBuilder');
 const agentConfig = require('./agentConfig');
+const { parseTextToolCalls, enthaeltToolSyntax } = require('./textToolCalls');
 const { TodoListeTool, todoErinnerung } = require('./agentTodoTool');
 
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
@@ -195,7 +196,16 @@ function kurzInput(input, maxJeWert) {
  *
  * @returns {Promise<{content:string, toolCalls:object[]}>}
  */
-async function streamChatRound({ model, messages, tools, onToken, onThinking, think, signal }) {
+async function streamChatRound({
+  model,
+  messages,
+  tools,
+  onToken,
+  onThinking,
+  think,
+  signal,
+  numPredict,
+}) {
   return withGpuLock(async () => {
     if (signal?.aborted) {
       throw new Error('Vom Nutzer abgebrochen');
@@ -209,7 +219,10 @@ async function streamChatRound({ model, messages, tools, onToken, onThinking, th
       stream: true,
       think: think === true,
       keep_alive: agentConfig.KEEP_ALIVE,
-      options: { num_ctx: agentConfig.NUM_CTX, num_predict: agentConfig.NUM_PREDICT },
+      options: {
+        num_ctx: agentConfig.NUM_CTX,
+        num_predict: Number.isFinite(numPredict) ? numPredict : agentConfig.NUM_PREDICT,
+      },
     };
     if (tools && tools.length > 0) {
       body.tools = tools;
@@ -601,6 +614,10 @@ async function processAgentChatJob(ctx, job) {
   const deadline = Date.now() + ZEITLIMIT_S * 1000;
   let toolsAktiv = true;
   let fertigText = '';
+  // Hat der Text-Tool-Call-Fallback rohes XML aus einer Antwort entfernt?
+  // Dann muss am Ende fertigText (bereinigt) den gestreamten Roh-Inhalt in
+  // der DB ERSETZEN — der Token-Strom enthielt das XML bereits.
+  let inhaltBereinigt = false;
   let pruefZyklen = 0;
   let nachfassZyklen = 0;
 
@@ -702,7 +719,10 @@ async function processAgentChatJob(ctx, job) {
       `Auftrag des Nutzers: "${kurz(letzteNachricht, 600)}". ` +
       `Erstellte Datei(en): ${dateiListe}. ` +
       `Kurzfassung der Antwort: "${kurz(antwortText || '', 300)}". ` +
-      'Lies die Datei(en) und prüfe, ob sie den Auftrag erfüllen.';
+      'Lies die Datei(en) und prüfe, ob sie den Auftrag erfüllen. Prüfe NUR gegen ' +
+      'die AUSDRÜCKLICHEN Anforderungen des Auftrags — erfinde keine zusätzlichen ' +
+      '(Struktur, Überschriften, Umfang, Stil). Erfüllt die Datei das Verlangte, ' +
+      'antworte OK, auch wenn du selbst mehr geschrieben hättest.';
     try {
       const urteil = String(await subagentTool.execute({ rolle: 'pruefer', auftrag }, context));
       return /MANGEL/i.test(urteil) && !/^\s*OK\b/.test(urteil) ? urteil : null;
@@ -717,10 +737,23 @@ async function processAgentChatJob(ctx, job) {
   // der Plan wird als Schritt-Zeile gezeigt und bindet die Arbeitsrunden.
   // Kleine Modelle überspringen sonst Recherche und erfinden Inhalte.
   const letzteNachricht = String(verlauf[verlauf.length - 1]?.content || '');
+  // Proportionalität (2026-08-01): Nicht jedes "Erstelle …" verdient die
+  // teure Qualitätsmodell-Plan-Runde mit Thinking (live gemessen: >5 Minuten
+  // Grübeln für eine Drei-Zeilen-Datei). Zwei Stufen:
+  //  GROSS  → Recherche/Subagenten/Mehrteiler: Plan auf dem Qualitätsmodell,
+  //           mit Thinking, Deckel PLAN_NUM_PREDICT_GROSS.
+  //  KOMPLEX→ kleine Erstell-Aufgaben: knapper Plan auf dem Arbeitsmodell,
+  //           ohne Thinking, Deckel PLAN_NUM_PREDICT_KLEIN.
+  const istGross =
+    letzteNachricht.length > 600 ||
+    /recherchier|subagent|handbuch|webseite|newsletter|analysier|überarbeit|kapitel|abschnitt|mehrere\s+dateien/i.test(
+      letzteNachricht
+    );
   const istKomplex =
+    istGross ||
     requestData.datei_modus ||
     letzteNachricht.length > 280 ||
-    /erstell|schreib|generier|entwickl|entwirf|bau(e|t)?\b|recherchier|analysier|zusammenfass|überarbeit|newsletter|webseite|bericht|dokument|skript|subagent/i.test(
+    /erstell|schreib|generier|entwickl|entwirf|bau(e|t)?\b|zusammenfass|bericht|dokument|skript/i.test(
       letzteNachricht
     );
 
@@ -732,21 +765,27 @@ async function processAgentChatJob(ctx, job) {
         // Qualitäts-Hebel — läuft auf dem Qualitätsmodell, wenn konfiguriert.
         // Der Plan-Text streamt als Gedankengang live ins UI (nicht als
         // Antwort): der Nutzer sieht das Modell planen, die Antwort bleibt sauber.
-        const planOllama = qualModell ? await zuOllamaName(qualModell) : ollamaModel;
+        const planOllama = istGross && qualModell ? await zuOllamaName(qualModell) : ollamaModel;
         const planErgebnis = await streamChatRound({
           model: planOllama,
           messages: [
             ...messages,
             {
               role: 'user',
-              content:
-                'Erstelle ZUERST einen knappen nummerierten Plan (3-6 Schritte) für diesen ' +
-                'Auftrag: welche Werkzeuge/Subagenten du nutzt, welche Quellen du liest, ' +
-                'welche Dateien du wohin schreibst. NUR den Plan, keine Ausführung.',
+              content: istGross
+                ? 'Erstelle ZUERST einen knappen nummerierten Plan (3-6 Schritte) für diesen ' +
+                  'Auftrag: welche Werkzeuge/Subagenten du nutzt, welche Quellen du liest, ' +
+                  'welche Dateien du wohin schreibst. NUR den Plan, keine Ausführung.'
+                : 'Nenne in 2-4 knappen nummerierten Schritten, wie du diesen Auftrag ' +
+                  'ausführst (Werkzeug + Zieldatei). NUR die Schritte, keine Ausführung, ' +
+                  'keine Abwägungen.',
             },
           ],
           tools: [],
-          think: agentConfig.thinkingGewuenscht() && agentConfig.kannDenken(planOllama),
+          think: istGross && agentConfig.thinkingGewuenscht() && agentConfig.kannDenken(planOllama),
+          numPredict: istGross
+            ? agentConfig.PLAN_NUM_PREDICT_GROSS
+            : agentConfig.PLAN_NUM_PREDICT_KLEIN,
           onThinking,
           onToken: token => onThinking(token), // Plan-Text in die Gedankengang-Zeile
           signal: abbruch.signal,
@@ -758,8 +797,30 @@ async function processAgentChatJob(ctx, job) {
           messages.push({ role: 'assistant', content: `Mein Plan:\n${plan}` });
           messages.push({
             role: 'user',
-            content: 'Gut. Führe den Plan jetzt vollständig aus.',
+            content:
+              'Gut. Führe den Plan jetzt vollständig aus. Hake nach jedem erledigten ' +
+              'Schritt die Aufgabenliste mit todo_liste ab.',
           });
+          // Plan → Aufgabenliste, deterministisch durch den Harness: Die
+          // nummerierten Plan-Schritte werden sofort das Aufgaben-Panel,
+          // statt darauf zu hoffen, dass das Modell todo_liste selbst ruft
+          // (live beobachtet: es malt sonst nur Checkboxen in den Text).
+          if (!todoListe) {
+            const schritte = plan
+              .split('\n')
+              .map(zeile => zeile.match(/^\s*(?:\d+[.)]|[-*])\s+(.+)$/))
+              .filter(Boolean)
+              .map(m => m[1].replace(/\*\*/g, '').trim())
+              .filter(s => s.length > 3)
+              .slice(0, 12);
+            if (schritte.length >= 2) {
+              const liste = schritte.map(s => `- [ ] ${s}`).join('\n');
+              setTodos(
+                liste,
+                schritte.map(text => ({ text, status: 'offen' }))
+              );
+            }
+          }
         }
       } catch (err) {
         await stepRecorder.abschliessen({
@@ -837,7 +898,37 @@ async function processAgentChatJob(ctx, job) {
         throw err;
       }
 
-      const { content, toolCalls } = rundenErgebnis;
+      let { content } = rundenErgebnis;
+      const { toolCalls } = rundenErgebnis;
+
+      // Fallback: Manche Runden geben den Werkzeug-Aufruf als TEXT aus
+      // (fehlendes <tool_call>-Tag → Ollamas Parser greift nicht). Statt das
+      // rohe XML als Antwort stehen zu lassen, parsen wir es selbst und
+      // führen die Aufrufe normal aus; der Antworttext wird vom XML befreit.
+      if (!toolCalls.length && enthaeltToolSyntax(content)) {
+        const geparst = parseTextToolCalls(content);
+        if (geparst.calls.length > 0) {
+          log.info(
+            `[JOB ${jobId}] Text-Tool-Call-Fallback: ${geparst.calls.length} Aufruf(e) aus Antworttext geparst`
+          );
+          toolCalls.push(...geparst.calls);
+          content = geparst.rest;
+          inhaltBereinigt = true;
+        } else if (nachfassZyklen < MAX_NACHFASS_ZYKLEN && toolsAktiv && !abgebrochen) {
+          // Syntax erkannt, aber nicht parsebar — dem Modell eine saubere
+          // Wiederholung im echten Werkzeug-Format abverlangen.
+          nachfassZyklen += 1;
+          messages.push({ role: 'assistant', content });
+          messages.push({
+            role: 'user',
+            content:
+              'Dein letzter Werkzeug-Aufruf war fehlerhaft formatiert und wurde NICHT ausgeführt. ' +
+              'Rufe das Werkzeug jetzt erneut auf — über die Werkzeug-Schnittstelle, nicht als Text.',
+          });
+          separator();
+          continue;
+        }
+      }
       fertigText += content;
 
       if (!toolCalls.length) {
@@ -1023,6 +1114,14 @@ async function processAgentChatJob(ctx, job) {
     dbFlushTimer = null;
   }
   await flushDb();
+
+  if (inhaltBereinigt && !abgebrochen) {
+    try {
+      await llmJobService.setJobContent(jobId, fertigText);
+    } catch (err) {
+      log.warn(`[JOB ${jobId}] Bereinigter Inhalt nicht gesetzt: ${err.message}`);
+    }
+  }
 
   let persisted = false;
   if (abgebrochen) {

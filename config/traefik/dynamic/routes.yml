@@ -184,6 +184,20 @@ http:
         - websecure
       tls: {}
 
+    # n8n healthz (public — the embedded n8n editor polls its own heartbeat continuously;
+    # forward-auth here floods the browser console with 401s once the dashboard session
+    # expires while the n8n tab stays open. The endpoint only reports liveness, no data.)
+    n8n-healthz:
+      rule: 'Path(`/n8n/healthz`)'
+      service: n8n-service
+      priority: 110
+      middlewares:
+        - strip-n8n-prefix
+        - security-headers
+      entryPoints:
+        - websecure
+      tls: {}
+
     # n8n favicon (public — browsers fetch favicons on the login screen before any session cookie exists,
     # so forward-auth here would just produce 401 noise. security-headers added for hygiene.)
     n8n-favicon:

@@ -11,6 +11,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const { mitNamensReparatur } = require('../utils/uploadName');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -25,18 +26,20 @@ const minioService = require('../services/documents/minioService');
 const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
-const imageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_IMAGE_SIZE },
-  fileFilter: (req, file, cb) => {
-    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
-    if (ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Ungültiger Bildtyp. Erlaubt: ${ALLOWED_IMAGE_EXTENSIONS.join(', ')}`));
-    }
-  },
-});
+const imageUpload = multer(
+  mitNamensReparatur({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_IMAGE_SIZE },
+    fileFilter: (req, file, cb) => {
+      const ext = '.' + file.originalname.split('.').pop().toLowerCase();
+      if (ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`Ungültiger Bildtyp. Erlaubt: ${ALLOWED_IMAGE_EXTENSIONS.join(', ')}`));
+      }
+    },
+  })
+);
 
 // =============================================================================
 // Routes

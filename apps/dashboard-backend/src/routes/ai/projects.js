@@ -12,6 +12,7 @@ const router = express.Router();
 const path = require('path');
 const { spawn } = require('child_process');
 const multer = require('multer');
+const { mitNamensReparatur } = require('../../utils/uploadName');
 const { requireAuth } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../../middleware/validate');
@@ -28,6 +29,7 @@ const {
   SetActiveProjectBody,
   ProjectIdParams,
   AblageReadQuery,
+  AblageSucheQuery,
   AblageWriteBody,
   AblageOrdnerBody,
   AblageDeleteQuery,
@@ -37,10 +39,12 @@ const {
 
 // Upload in die Projektablage: im Speicher (max. 50 MB), der Service legt die
 // Datei sicher eingesperrt im Projektordner ab.
-const ablageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: ablageService.MAX_UPLOAD_BYTES, files: 1 },
-});
+const ablageUpload = multer(
+  mitNamensReparatur({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: ablageService.MAX_UPLOAD_BYTES, files: 1 },
+  })
+);
 
 // Der Ordner-/Baum-Cache (spaces:list) hängt am aktiven Projekt (die Listen sind
 // projektgescopt) — beim Wechsel/Änderungen invalidieren.
@@ -150,6 +154,22 @@ router.get(
   validateParams(ProjectIdParams),
   asyncHandler(async (req, res) => {
     const { eintraege, gekuerzt } = await ablageService.listTreeMitWissen(req.params.id);
+    res.json({ data: { eintraege, gekuerzt }, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/projects/:id/dateien/suche?q=…
+ * Rekursive Namenssuche über die KOMPLETTE Ablage — der Baum-Endpoint ist
+ * Budget-gedeckelt, die Suche nicht (eigenes, höheres Besuchs-Budget).
+ */
+router.get(
+  '/:id/dateien/suche',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  validateQuery(AblageSucheQuery),
+  asyncHandler(async (req, res) => {
+    const { eintraege, gekuerzt } = await ablageService.searchTree(req.params.id, req.query.q);
     res.json({ data: { eintraege, gekuerzt }, timestamp: new Date().toISOString() });
   })
 );

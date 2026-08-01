@@ -90,6 +90,17 @@ const apiMock = {
     if (path === '/projects/p1/dateien') {
       return Promise.resolve({ data: { eintraege, gekuerzt: false } });
     }
+    if (path.startsWith('/projects/p1/dateien/suche')) {
+      // Serverseitige Suche: findet auch Einträge unterhalb des Baum-Deckels.
+      return Promise.resolve({
+        data: {
+          eintraege: [
+            { pfad: 'docs/tief/bericht.pdf', name: 'bericht.pdf', typ: 'datei', groesse: null },
+          ],
+          gekuerzt: false,
+        },
+      });
+    }
     if (path.startsWith('/projects/p1/dateien/inhalt')) {
       const pfad = decodeURIComponent(path.split('pfad=')[1] ?? '');
       // PDFs sind binär → Dokument-Viewer; Markdown ist Text → Editor.
@@ -251,15 +262,23 @@ describe('ExplorerPanel (Ein-Ordner-Modell: EIN Baum aus /projects/:id/dateien)'
     expect(useWorkspaceStore.getState().explorerRequest).toBeNull();
   });
 
-  it('Suche filtert den Baum und expandiert Treffer', async () => {
+  it('Suche ab 2 Zeichen fragt den Server (entprellt) und zeigt eine flache Trefferliste', async () => {
     renderPanel();
     await waitFor(() => expect(screen.getByText('docs')).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText('Explorer durchsuchen'), {
       target: { value: 'bericht' },
     });
-    // Treffer sichtbar ohne manuelles Aufklappen
+    // Entprellt (~300 ms), dann geht die Anfrage an den Suche-Endpoint
+    await waitFor(() =>
+      expect(apiMock.get).toHaveBeenCalledWith(
+        '/projects/p1/dateien/suche?q=bericht',
+        expect.anything()
+      )
+    );
+    // Flache Trefferliste: Name + gedimmter Eltern-Pfad, Baum ausgeblendet
+    await waitFor(() => expect(screen.getByTestId('explorer-suchtreffer')).toBeInTheDocument());
     expect(screen.getByText('bericht.pdf')).toBeInTheDocument();
-    // Nicht-Treffer ausgeblendet
+    expect(screen.getByText('docs/tief')).toBeInTheDocument();
     expect(screen.queryByText('roh.bin')).not.toBeInTheDocument();
   });
 });

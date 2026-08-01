@@ -46,6 +46,10 @@ const ProjectIdParams = z.object({ id: ProjectIdField }).strict();
 
 const AblageReadQuery = z.object({ pfad: AblagePfad }).strict();
 
+const AblageSucheQuery = z
+  .object({ q: z.string().trim().min(2, 'Mindestens 2 Zeichen').max(200) })
+  .strict();
+
 const AblageWriteBody = z
   .object({
     pfad: AblagePfad,
@@ -80,6 +84,7 @@ module.exports = {
   SetActiveProjectBody,
   AblagePfad,
   AblageReadQuery,
+  AblageSucheQuery,
   AblageWriteBody,
   AblageOrdnerBody,
   AblageDeleteQuery,
