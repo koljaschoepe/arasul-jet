@@ -37,6 +37,12 @@ im Chat mit `/` ab.
 - Läufe leben serverseitig: Tab schließen und später öffnen zeigt den aktuellen
   Stand bzw. das fertige Ergebnis. Der Abbrechen-Knopf stoppt einen Lauf
   innerhalb weniger Sekunden.
+- **Jetzt ausführen (Flow-Zentrale):** Die Zentrale eines Flows hat als oberste
+  Karte ein Argument-Formular aus der Deklaration (Freitext/Datei → Eingabefeld,
+  `auswahl` → Dropdown der `optionen`, `wissensbasis` → Dropdown der Sammlungen;
+  Pflichtfelder sperren den Knopf, `standard` belegt vor). „Ausführen" startet
+  den Lauf über `POST /api/flows/laeufe` und springt direkt in die
+  Live-Detailansicht — ganz ohne Chat-Befehl oder curl.
 
 ## Aufbau einer Flow-Datei
 
