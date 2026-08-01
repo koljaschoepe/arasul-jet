@@ -70,6 +70,24 @@ vi.mock('@/contexts/DownloadContext', () => ({
   }),
 }));
 
+// Steuerbarer ActivationContext-Mock (das Dashboard lädt Modelle darüber in
+// den RAM und abonniert onActivationComplete).
+const startActivation = vi.fn();
+const activationCallbacks = new Set<(id: string, ok: boolean) => void>();
+vi.mock('@/contexts/ActivationContext', () => ({
+  useActivation: () => ({
+    activation: null,
+    startActivation,
+    cancelActivation: vi.fn(),
+    isActivating: () => false,
+    getActivationPercent: () => 0,
+    onActivationComplete: (cb: (id: string, ok: boolean) => void) => {
+      activationCallbacks.add(cb);
+      return () => activationCallbacks.delete(cb);
+    },
+  }),
+}));
+
 function renderGrid() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(

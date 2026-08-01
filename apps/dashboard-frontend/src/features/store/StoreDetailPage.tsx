@@ -24,6 +24,7 @@ import {
   Package,
   Power,
   PowerOff,
+  RefreshCw,
   Star,
   Trash2,
   Upload,
@@ -264,6 +265,30 @@ function ModelDetail({
   const isActivating = activation?.modelId === model.id && !activation?.error;
   const downloading = isDownloading(model.id);
   const downloadState = getDownloadState(model.id);
+  // Entladen ist synchron (Backend wartet auf Ollama) — der Spinner bleibt,
+  // bis die Antwort da ist; danach zieht onChanged die Ansichten nach.
+  const [unloading, setUnloading] = useState(false);
+
+  const handleUnload = async () => {
+    setUnloading(true);
+    try {
+      const res = await api.post<{ success?: boolean; error?: string }>(
+        `/models/${encodeURIComponent(model.id)}/unload`,
+        {},
+        { showError: false }
+      );
+      if (res?.success === false) {
+        toast.error(`Entladen fehlgeschlagen: ${res.error ?? 'unbekannter Fehler'}`);
+      } else {
+        toast.success(`„${model.name}" aus dem RAM entladen`);
+      }
+      onChanged();
+    } catch {
+      toast.error(`Entladen von „${model.name}" fehlgeschlagen`);
+    } finally {
+      setUnloading(false);
+    }
+  };
 
   const handleSetDefault = async () => {
     try {
@@ -319,6 +344,24 @@ function ModelDetail({
               onActivate={() => startActivation(model.id, model.name)}
               className="max-w-48"
             />
+          )}
+          {isLoaded && (
+            <Button
+              variant="secondary"
+              onClick={handleUnload}
+              disabled={unloading}
+              data-testid="model-unload"
+            >
+              {unloading ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" /> Entlädt …
+                </>
+              ) : (
+                <>
+                  <PowerOff className="size-4" /> Aus RAM entladen
+                </>
+              )}
+            </Button>
           )}
           {!isDefault && (isReady || isLoaded) && (
             <Button variant="secondary" onClick={handleSetDefault}>
