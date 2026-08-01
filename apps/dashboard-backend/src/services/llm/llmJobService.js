@@ -74,6 +74,19 @@ function createLLMJobService(deps = {}) {
      * @param {object|null} sources - RAG sources (replaces existing)
      * @param {object|null} matchedSpaces - RAG matched spaces (replaces existing)
      */
+    /**
+     * Ersetzt den Job-Inhalt KOMPLETT (statt anzuhängen). Für den Agent-Lauf:
+     * Wenn der Text-Tool-Call-Fallback rohes XML aus der Antwort entfernt hat,
+     * darf nicht der gestreamte Roh-Puffer persistiert werden, sondern der
+     * bereinigte Endtext.
+     */
+    async setJobContent(jobId, content) {
+      await database.query(
+        `UPDATE llm_jobs SET content = $2, last_update_at = NOW() WHERE id = $1`,
+        [jobId, String(content ?? '')]
+      );
+    }
+
     async updateJobContent(
       jobId,
       contentDelta = null,

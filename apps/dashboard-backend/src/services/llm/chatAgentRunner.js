@@ -614,6 +614,10 @@ async function processAgentChatJob(ctx, job) {
   const deadline = Date.now() + ZEITLIMIT_S * 1000;
   let toolsAktiv = true;
   let fertigText = '';
+  // Hat der Text-Tool-Call-Fallback rohes XML aus einer Antwort entfernt?
+  // Dann muss am Ende fertigText (bereinigt) den gestreamten Roh-Inhalt in
+  // der DB ERSETZEN — der Token-Strom enthielt das XML bereits.
+  let inhaltBereinigt = false;
   let pruefZyklen = 0;
   let nachfassZyklen = 0;
 
@@ -909,6 +913,7 @@ async function processAgentChatJob(ctx, job) {
           );
           toolCalls.push(...geparst.calls);
           content = geparst.rest;
+          inhaltBereinigt = true;
         } else if (nachfassZyklen < MAX_NACHFASS_ZYKLEN && toolsAktiv && !abgebrochen) {
           // Syntax erkannt, aber nicht parsebar — dem Modell eine saubere
           // Wiederholung im echten Werkzeug-Format abverlangen.
@@ -1109,6 +1114,14 @@ async function processAgentChatJob(ctx, job) {
     dbFlushTimer = null;
   }
   await flushDb();
+
+  if (inhaltBereinigt && !abgebrochen) {
+    try {
+      await llmJobService.setJobContent(jobId, fertigText);
+    } catch (err) {
+      log.warn(`[JOB ${jobId}] Bereinigter Inhalt nicht gesetzt: ${err.message}`);
+    }
+  }
 
   let persisted = false;
   if (abgebrochen) {
