@@ -2761,17 +2761,22 @@ Uses API key authentication instead of JWT. Create API keys via the web UI or PO
 Trigger flows from n8n or your own automations with an API key. The endpoint
 scope is `flow:run` (included in the default endpoint set for new keys).
 
-| Method | Endpoint                           | Auth    | Description                                    |
-| ------ | ---------------------------------- | ------- | ---------------------------------------------- |
-| GET    | `/api/v1/external/flows`           | API Key | List available flows (name, description, args) |
-| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default    |
-| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result                     |
+| Method | Endpoint                           | Auth    | Description                                                                                           |
+| ------ | ---------------------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/external/flows`           | API Key | List available flows — global **and** project-bound; each entry carries `projekt: null \| {id, name}` |
+| POST   | `/api/v1/external/flows/:name/run` | API Key | Run a flow; waits for the result by default                                                           |
+| GET    | `/api/v1/external/flows/runs/:id`  | API Key | Poll a run's status/result (incl. `annahmen`)                                                         |
 
-**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "ordner_ziel"?: "projekt://aktiv/kunden/mueller" }`.
+**POST /api/v1/external/flows/:name/run** — body `{ "args"?: {…}, "wait_for_result"?: true, "timeout_seconds"?: 300, "ordner_ziel"?: "projekt://aktiv/kunden/mueller", "projekt"?: "<uuid>" }`.
 `ordner_ziel` lenkt das Arbeitsverzeichnis des Laufs (Enddateien) auf einen
 Projektablage-Ordner — nur `projekt://…`-Formen sind zulässig.
+`projekt` (Plan 014, Phase 4) startet einen PROJEKTGEBUNDENEN Flow aus dem
+`flows/`-Ordner dieses Projekts — so ruft der n8n-Mail-Workflow den
+`/antwort`-Flow des Kundenservice-Projekts auf (Beispiel:
+[docs/integrations/N8N.md §6b](../integrations/N8N.md)); `projekt://aktiv` und
+der RAG-Scope zeigen dann auf DIESES Projekt.
 With `wait_for_result: true` (default) it blocks until the run reaches a terminal
-state and returns `{ success, run_id, status, result, error, steps_used }`; with
+state and returns `{ success, run_id, status, result, error, steps_used, annahmen }`; with
 `false` it returns `202 { success, run_id, status: "laeuft" }` immediately. Runs
 are owned by the API key's creator (or the primary admin for orphaned keys). This
 is the per-flow HTTP trigger the UI surfaces (Flow-Zentrale). The former named-event

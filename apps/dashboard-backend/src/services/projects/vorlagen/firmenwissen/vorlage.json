@@ -1,0 +1,9 @@
+{
+  "id": "firmenwissen",
+  "name": "Firmenwissen & Marke",
+  "beschreibung": "Der zentrale Wissens-Ort deiner Firma: Firmenprofil, Schreibregeln, Briefkopf und Stilvorlagen — Dokument-Flows aus anderen Projekten greifen darauf zu.",
+  "icon": "book-open",
+  "color": "#8b5cf6",
+  "version": 1,
+  "ordner": ["Marke", "_Vorlagen"]
+}

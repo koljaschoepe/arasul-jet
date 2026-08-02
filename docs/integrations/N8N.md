@@ -125,6 +125,48 @@ Run all three after every n8n image bump to catch regressions.
 
 ---
 
+## 6b. Kundenservice-Automatik (Plan 014, Phase 4)
+
+Das Standardprojekt **Kundenservice** (Vorlagen-Galerie) beantwortet
+Kundenfragen ausschließlich aus seinem eigenen `Wissen/`-Ordner. n8n verbindet
+es mit dem E-Mail-Postfach — der Muster-Workflow ist bewusst simpel:
+
+1. **E-Mail-Trigger** (IMAP/Gmail/Outlook-Node): liest eingehende
+   Support-Mails (Betreff + Text).
+2. **HTTP Request** auf die externe Flow-API — der Flow ist PROJEKTGEBUNDEN,
+   deshalb gehört die Projekt-ID des Kundenservice-Projekts in den Body
+   (im Dashboard: Projekt-Umschalter → das Projekt ist die UUID in der URL
+   der Dateien-API, oder per `GET /api/v1/external/flows` aus dem
+   `projekt`-Feld ablesen):
+
+   ```
+   POST https://<geraet>/api/v1/external/flows/antwort/run
+   Header:  X-API-Key: <Schlüssel mit Scope flow:run>
+   Body:    {
+     "projekt": "<uuid-des-kundenservice-projekts>",
+     "args": {
+       "frage": "{{ $json.textPlain }}",
+       "absender": "{{ $json.fromName }}"
+     },
+     "wait_for_result": true,
+     "timeout_seconds": 600
+   }
+   ```
+
+3. **E-Mail senden**: `{{ $json.result }}` enthält die Antwort in der festen
+   Struktur `ANTWORT: … QUELLEN: …`. (Das `annahmen`-Feld der Antwort bleibt
+   bei `/antwort` immer `null` — der Prüfschritt läuft nur bei Flows mit
+   Dokument-Ausgabe.)
+
+**Bewusste Entscheidung (Plan 014 §8):** Der Flow liefert KEIN maschinenlesbares
+Eskalations-Urteil — er antwortet immer. Die Absicherung liegt im Flow selbst
+(eiserne Regel: nur aus dem Projektwissen, sonst höflicher Verweis an einen
+Mitarbeiter) plus der Quellenliste in jeder Antwort. Wer statt Direktversand
+eine Entwurfs-Schleife will, lässt n8n die Antwort als Entwurf im Postfach
+ablegen (Gmail/Outlook „Create Draft") statt sie zu senden.
+
+---
+
 ## 7. Common failure modes
 
 | Symptom                                                       | Likely cause                                                                                                                                                                      |
