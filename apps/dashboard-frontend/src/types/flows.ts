@@ -24,11 +24,19 @@ export interface FlowArgument {
   standard?: string;
 }
 
+/** Projekt-Bezug eines projektgebundenen Flows (Plan 014, Phase 1). */
+export interface FlowProjektRef {
+  id: string;
+  name: string;
+}
+
 /** Ein Flow, wie ihn `GET /api/flows` liefert (nur die im Chat genutzten Felder). */
 export interface Flow {
   name: string;
   beschreibung: string;
   argumente: FlowArgument[];
+  /** Projekt eines projektgebundenen Flows (`<projekt>/flows/`); null/fehlend = global. */
+  projekt?: FlowProjektRef | null;
 }
 
 /** Werkzeugnamen, die ein Flow deklarieren darf. Spiegelt `VALID_TOOLS` im Backend. */

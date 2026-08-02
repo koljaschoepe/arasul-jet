@@ -4,6 +4,19 @@ import userEvent from '@testing-library/user-event';
 import { WorkspaceSwitcher } from '../WorkspaceSwitcher';
 
 const deleteMutateAsync = vi.fn().mockResolvedValue(undefined);
+const createMutateAsync = vi.fn().mockResolvedValue({ data: { id: 'p-neu' } });
+
+// Vorlagen der Galerie (Plan 014) — pro Test veränderbar.
+const galerie = vi.hoisted(() => ({
+  vorlagen: [] as {
+    id: string;
+    name: string;
+    beschreibung: string;
+    icon: string;
+    color: string;
+    version: number;
+  }[],
+}));
 
 // Die Projekt-Hooks liefern Server-State; hier deterministisch gemockt.
 vi.mock('../useProjects', () => ({
@@ -12,13 +25,14 @@ vi.mock('../useProjects', () => ({
       { id: 'p1', name: 'Standard', color: null, folder_count: 2, is_default: true },
       { id: 'p2', name: 'Marketing', color: '#ff0000', folder_count: 3, is_default: false },
     ],
-    createProject: { mutateAsync: vi.fn(), isPending: false },
+    createProject: { mutateAsync: createMutateAsync, isPending: false },
     deleteProject: { mutateAsync: deleteMutateAsync, isPending: false },
   }),
   useActiveProject: () => ({
     activeProject: { id: 'p2', name: 'Marketing' },
     setActive: { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false },
   }),
+  useProjectVorlagen: () => ({ vorlagen: galerie.vorlagen, isLoading: false }),
 }));
 
 vi.mock('@/contexts/ToastContext', () => ({
@@ -55,5 +69,36 @@ describe('WorkspaceSwitcher', () => {
       .find(b => b.textContent === 'Löschen');
     await user.click(confirm as HTMLElement);
     expect(deleteMutateAsync).toHaveBeenCalledWith('p2');
+  });
+
+  it('Vorlagen-Galerie (Plan 014): gewählte Vorlage wird beim Anlegen mitgeschickt', async () => {
+    galerie.vorlagen = [
+      {
+        id: 'kunden-auftraege',
+        name: 'Kunden & Aufträge',
+        beschreibung: 'CRM-Arbeitsbereich',
+        icon: 'users',
+        color: '#0ea5e9',
+        version: 1,
+      },
+    ];
+    const user = userEvent.setup();
+    render(<WorkspaceSwitcher />);
+    await user.click(screen.getByLabelText('Projekt wechseln'));
+    await user.click(await screen.findByText('Neues Projekt …'));
+
+    // Galerie zeigt „Leeres Projekt" + die Vorlage; Vorlage wählen.
+    expect(await screen.findByTestId('vorlage-leer')).toBeInTheDocument();
+    await user.click(screen.getByTestId('vorlage-kunden-auftraege'));
+
+    await user.type(screen.getByLabelText('Name'), 'Vertrieb');
+    await user.click(screen.getByRole('button', { name: /Anlegen/ }));
+
+    expect(createMutateAsync).toHaveBeenCalledWith({
+      name: 'Vertrieb',
+      description: null,
+      vorlage: 'kunden-auftraege',
+    });
+    galerie.vorlagen = [];
   });
 });

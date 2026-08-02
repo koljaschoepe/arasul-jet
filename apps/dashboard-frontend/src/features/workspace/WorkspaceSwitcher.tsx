@@ -1,5 +1,17 @@
 import { useState } from 'react';
-import { Boxes, Check, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import {
+  Boxes,
+  BookOpen,
+  Check,
+  ChevronDown,
+  FileText,
+  Headphones,
+  Landmark,
+  Plus,
+  Trash2,
+  Users,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +34,26 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Button } from '@/components/ui/shadcn/button';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { useToast } from '@/contexts/ToastContext';
-import { useProjects, useActiveProject, type Project } from './useProjects';
+import {
+  useProjects,
+  useActiveProject,
+  useProjectVorlagen,
+  type Project,
+  type ProjektVorlage,
+} from './useProjects';
+
+/** Lucide-Symbol je Vorlagen-Icon-Name — unbekannte Namen fallen auf Boxes zurück. */
+const VORLAGEN_ICONS: Record<string, LucideIcon> = {
+  users: Users,
+  'book-open': BookOpen,
+  headphones: Headphones,
+  landmark: Landmark,
+  'file-text': FileText,
+};
+
+function vorlagenIcon(name: string): LucideIcon {
+  return VORLAGEN_ICONS[name] ?? Boxes;
+}
 
 /**
  * Projekt-Switcher (Workspace-Neuausrichtung Batch 2) — prominenter Umschalter
@@ -38,6 +69,9 @@ export function WorkspaceSwitcher() {
   const [dialogOffen, setDialogOffen] = useState(false);
   const [name, setName] = useState('');
   const [beschreibung, setBeschreibung] = useState('');
+  // Vorlagen-Galerie (Plan 014, Phase 1): null = leeres Projekt.
+  const [vorlage, setVorlage] = useState<ProjektVorlage | null>(null);
+  const { vorlagen } = useProjectVorlagen(dialogOffen);
   // Zu löschendes Projekt (öffnet den Bestätigungsdialog). Das Standard-Projekt
   // ist nie hier — es lässt sich nicht löschen (Backend + fehlender Knopf).
   const [loeschZiel, setLoeschZiel] = useState<Project | null>(null);
@@ -65,12 +99,18 @@ export function WorkspaceSwitcher() {
       const res = await createProject.mutateAsync({
         name: trimmed,
         description: beschreibung.trim() || null,
+        vorlage: vorlage?.id ?? null,
       });
       await setActive.mutateAsync(res.data.id);
-      toast.success(`Projekt „${trimmed}" angelegt und aktiviert`);
+      toast.success(
+        vorlage
+          ? `Projekt „${trimmed}" aus Vorlage „${vorlage.name}" angelegt und aktiviert`
+          : `Projekt „${trimmed}" angelegt und aktiviert`
+      );
       setDialogOffen(false);
       setName('');
       setBeschreibung('');
+      setVorlage(null);
     } catch {
       toast.error('Projekt konnte nicht angelegt werden');
     }
@@ -138,15 +178,75 @@ export function WorkspaceSwitcher() {
       </DropdownMenu>
 
       <Dialog open={dialogOffen} onOpenChange={setDialogOffen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Neues Projekt</DialogTitle>
             <DialogDescription>
-              Ein Projekt bündelt mehrere Ordner. Das aktive Projekt begrenzt, welche Ordner
-              sichtbar sind und worüber Suche und Agenten laufen.
+              Starte leer — oder mit einer fertigen Vorlage: Sie bringt Ordnerstruktur,
+              Wissens-Dateien und passende Flows gleich mit.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-1">
+            {vorlagen.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Vorlage</Label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    data-testid="vorlage-leer"
+                    onClick={() => setVorlage(null)}
+                    className={`flex items-start gap-2.5 rounded-md border p-2.5 text-left transition-colors ${
+                      vorlage === null
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/40'
+                    }`}
+                  >
+                    <Boxes
+                      className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-foreground">
+                        Leeres Projekt
+                      </span>
+                      <span className="block text-ui-xs text-muted-foreground">
+                        Ohne Struktur starten — alles selbst aufbauen.
+                      </span>
+                    </span>
+                  </button>
+                  {vorlagen.map(v => {
+                    const Icon = vorlagenIcon(v.icon);
+                    const aktiv = vorlage?.id === v.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        data-testid={`vorlage-${v.id}`}
+                        onClick={() => setVorlage(v)}
+                        className={`flex items-start gap-2.5 rounded-md border p-2.5 text-left transition-colors ${
+                          aktiv
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-primary/40'
+                        }`}
+                      >
+                        <Icon
+                          className={`mt-0.5 h-4 w-4 shrink-0 ${aktiv ? 'text-primary' : 'text-muted-foreground'}`}
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground">
+                            {v.name}
+                          </span>
+                          <span className="line-clamp-2 block text-ui-xs text-muted-foreground">
+                            {v.beschreibung}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="projekt-name">Name</Label>
               <Input

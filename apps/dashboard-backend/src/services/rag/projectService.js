@@ -55,7 +55,8 @@ async function getProjectSpaceIds(projectId) {
 async function listProjects() {
   const result = await db.query(`
     SELECT p.id, p.name, p.slug, p.description, p.icon, p.color,
-           p.is_default, p.sort_order, p.created_at, p.updated_at,
+           p.is_default, p.sort_order, p.vorlage_id, p.vorlage_version,
+           p.created_at, p.updated_at,
            COALESCE(fc.folder_count, 0)::int AS folder_count
       FROM projects p
       LEFT JOIN (

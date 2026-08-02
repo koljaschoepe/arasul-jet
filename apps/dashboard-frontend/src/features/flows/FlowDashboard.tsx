@@ -37,6 +37,7 @@ import type {
   FlowArgument,
   FlowAusgabe,
   FlowDefinition,
+  FlowProjektRef,
   FlowRunSummary,
   FlowRunStatus,
 } from '@/types/flows';
@@ -141,11 +142,14 @@ function ausgabeText(ausgabe: FlowAusgabe | undefined): string {
 export default function FlowDashboard({
   name,
   flow,
+  projekt = null,
   onEdit,
   onDelete,
 }: {
   name: string;
   flow: FlowDefinition | undefined;
+  /** Projekt eines projektgebundenen Flows (Plan 014); null = global. */
+  projekt?: FlowProjektRef | null;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -253,7 +257,15 @@ export default function FlowDashboard({
       {/* Kopfzeile */}
       <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-foreground">/{name}</div>
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-semibold text-foreground">/{name}</span>
+            <span
+              data-testid="flow-scope-badge"
+              className="shrink-0 rounded-full border border-border bg-muted px-2 py-0.5 text-ui-xs text-muted-foreground"
+            >
+              {projekt ? `Projekt „${projekt.name}“` : 'Global'}
+            </span>
+          </div>
           {flow?.beschreibung && (
             <div className="truncate text-xs text-muted-foreground">{flow.beschreibung}</div>
           )}

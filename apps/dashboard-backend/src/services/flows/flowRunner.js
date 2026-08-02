@@ -61,6 +61,9 @@ async function starten(
     // (siehe stepExecutor.berechneVorabErgebnisse) — nur durchgereicht.
     vorabErgebnisse = null,
     vorabQuelleLaufId = null,
+    // Projektgebundener Flow (Plan 014, Phase 1): der Flow liegt im
+    // `flows/`-Ordner dieses Projekts, nicht im globalen Verzeichnis.
+    projektId = null,
   },
   deps = {}
 ) {
@@ -68,7 +71,13 @@ async function starten(
 
   // Den Lauf ZUERST anlegen, damit die zurückgegebene ID sofort streambar ist —
   // die SSE-Route kann sich verbinden, noch bevor der erste Schritt da ist.
-  const angelegt = await store.createRun({ userId, flowName, arguments: args, conversationId });
+  const angelegt = await store.createRun({
+    userId,
+    flowName,
+    arguments: args,
+    conversationId,
+    projektId,
+  });
   // WICHTIG: Postgres liefert BIGSERIAL als STRING ("7"). Die SSE-Route wandelt
   // ihren Pfad-Parameter dagegen in eine ZAHL. Würde die Registry unter dem
   // String verschlüsselt, fände `abonnieren(7)` den Lauf nie — die
@@ -106,6 +115,7 @@ async function starten(
       ordnerZiel,
       vorabErgebnisse,
       vorabQuelleLaufId,
+      projektId,
     },
     {}
   )

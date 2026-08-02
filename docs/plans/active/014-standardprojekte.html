@@ -17,14 +17,14 @@
   "slug": "standardprojekte",
   "title": "Standardprojekte &amp; verlässliche Flows",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P0",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-08-02",
   "approved": "2026-08-02",
-  "branch": null,
+  "branch": "014-standardprojekte-p1",
   "pr": null,
   "verified_on_device": false
 }
@@ -492,10 +492,11 @@
   </summary>
   <div class="sbody">
   <!-- One .step per phase; unique data-ref each. -->
-  <div class="step" data-status="pending" data-ref="&#167;4 &#183; Schritt 1 — Fundament: Vorlagen-Galerie &amp; Projekt-Flows">
+  <div class="step" data-status="done" data-ref="&#167;4 &#183; Schritt 1 — Fundament: Vorlagen-Galerie &amp; Projekt-Flows">
     <h3>Schritt 1 — Fundament: Vorlagen-Galerie &amp; Projekt-Flows <span class="tag">Risiko: mittel</span></h3>
     <p>Vorlagen liegen versioniert im Backend-Image (Muster der Beispiel-Flows). Der „Projekt anlegen“-Dialog wird zur Galerie: Vorlage wählen → Ordnerstruktur, Wissens-Dateien und Flows werden in den Projektordner kopiert (wx-Flag, überschreibt nie); das Projekt merkt sich Vorlage + Version (neue Migration). Flows bekommen die zweite Heimat <code>flows/</code> im Projektordner (vom Wissens-Index/Ordner-Sync ausgenommen): im Chat nur im aktiven Projekt sichtbar, zentrale Flow-Übersicht gruppiert nach Projekt/Global. Ordner-Argumente lernen <code>projekt://&lt;projekt&gt;/…</code>, damit globale Flows projektübergreifend arbeiten können (Picker mit Projektwahl). Leeres Anlegen bleibt unverändert möglich.</p>
     <p class="files mono">services/projects/vorlagen/* (neu) · vorlagenService.js (neu) · rag/projectService.js · flows/flowRegistry.js · flowFile.js · runFlow.js · routes/flows.js · routes/ai/projects.js · Migration NNN · Frontend: Projekt-Anlegen-Dialog, FlowDashboard, ArgumentPicker · Tests · docs</p>
+    <div class="result"><strong>Ergebnis:</strong> Umgesetzt wie geplant: Migration 130 (projects.vorlage_id/-version + flow_runs.projekt_id), Vorlage „kunden-auftraege" v1 im Image (vorlagenService, wx-Kopie, Galerie-Endpoint GET /projects/vorlagen), Flow-Registry mit zweiter Heimat &lt;projekt&gt;/flows/ (Chat-Filter aufs aktive Projekt, Übersicht gruppiert, ?projekt= an den Einzelrouten, Lauf merkt sich sein Projekt), projekt://&lt;uuid&gt;-Projektwahl im Ordner-Picker, flows/ (nur Wurzelebene) vom Wissens-Index ausgenommen. Tests: Backend 1968 ✓, Frontend 734 ✓, Lints sauber.</div>
   </div>
   <div class="step" data-status="pending" data-ref="&#167;4 &#183; Schritt 2 — Verlässlichkeit: Prüfschritt &amp; Annahmen-Protokoll">
     <h3>Schritt 2 — Verlässlichkeit: Prüfschritt &amp; Annahmen-Protokoll <span class="tag">Risiko: mittel</span></h3>

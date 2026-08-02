@@ -20,6 +20,19 @@ export interface Project {
   is_default: boolean;
   sort_order: number;
   folder_count: number;
+  /** Herkunfts-Vorlage (Plan 014): null = leer angelegt. */
+  vorlage_id?: string | null;
+  vorlage_version?: number | null;
+}
+
+/** Eine Standardprojekt-Vorlage aus `GET /projects/vorlagen` (Plan 014, Phase 1). */
+export interface ProjektVorlage {
+  id: string;
+  name: string;
+  beschreibung: string;
+  icon: string;
+  color: string;
+  version: number;
 }
 
 interface ProjectsResponse {
@@ -45,7 +58,7 @@ export function useProjects() {
   });
 
   const createProject = useMutation({
-    mutationFn: (body: { name: string; description?: string | null }) =>
+    mutationFn: (body: { name: string; description?: string | null; vorlage?: string | null }) =>
       api.post<{ data: Project }>('/projects', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY }),
   });
@@ -68,6 +81,18 @@ export function useProjects() {
     createProject,
     deleteProject,
   };
+}
+
+/** Die Vorlagen-Galerie fürs Anlegen (Plan 014, Phase 1). */
+export function useProjectVorlagen(enabled = true) {
+  const api = useApi();
+  const query = useQuery({
+    queryKey: ['projects', 'vorlagen'],
+    queryFn: () => api.get<{ data: ProjektVorlage[] }>('/projects/vorlagen', { showError: false }),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+  return { vorlagen: query.data?.data ?? [], isLoading: query.isLoading };
 }
 
 /**
