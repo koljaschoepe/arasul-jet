@@ -13,6 +13,7 @@ import {
   FolderOpen,
   FolderOutput,
   Image as ImageIcon,
+  Loader2,
   Paperclip,
   Pin,
   Square,
@@ -79,6 +80,8 @@ interface ComposerCardProps {
   onSend: () => void;
   onCancel: () => void;
   isLoading: boolean;
+  /** Stop wurde geklickt, der Lauf beendet sich gerade (sichtbares Feedback). */
+  stopping?: boolean;
   disabled?: boolean;
   attachedFile: File | null;
   onRemoveFile: () => void;
@@ -120,6 +123,7 @@ export default function ComposerCard({
   onSend,
   onCancel,
   isLoading,
+  stopping = false,
   disabled,
   attachedFile,
   onRemoveFile,
@@ -498,10 +502,19 @@ export default function ComposerCard({
             <button
               type="button"
               onClick={onCancel}
-              aria-label="Generierung stoppen"
-              className="rounded-md bg-accent p-1.5 text-foreground hover:bg-border"
+              disabled={stopping}
+              aria-label={stopping ? 'Wird gestoppt' : 'Generierung stoppen'}
+              title={stopping ? 'Wird gestoppt …' : 'Generierung stoppen'}
+              className={cn(
+                'rounded-md bg-accent p-1.5 text-foreground hover:bg-border',
+                stopping && 'cursor-wait opacity-60'
+              )}
             >
-              <Square className="size-3.5" />
+              {stopping ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Square className="size-3.5" />
+              )}
             </button>
           ) : (
             <button

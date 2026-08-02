@@ -45,6 +45,8 @@ export interface AgentToolStep {
   params?: Record<string, unknown>;
   result?: string;
   status: 'running' | 'done' | 'error';
+  /** Eltern-Schritt (Subagent) — daraus baut die Anzeige den Schritt-Baum. */
+  parentStepId?: number | null;
 }
 
 /**
@@ -66,6 +68,7 @@ interface AgentSchrittRoh {
   input?: Record<string, unknown> | string;
   output?: string;
   status?: string;
+  parent_step_id?: number | null;
 }
 
 /** Backend-Schritt → UI-Schritt (AgentToolStep). */
@@ -79,6 +82,7 @@ function mapAgentSchritt(s: AgentSchrittRoh): AgentToolStep {
     params,
     result: s.output,
     status: s.status === 'laeuft' ? 'running' : s.status === 'fehler' ? 'error' : 'done',
+    parentStepId: s.parent_step_id ?? null,
   };
 }
 
@@ -92,6 +96,9 @@ export interface MessageDatei {
   project_id?: string;
   pfad?: string;
   name: string;
+  /** Was der Agent mit der Datei getan hat (Platten-Wahrheit) — steuert das
+   *  Badge der Datei-Karte; fehlt bei direkten Schreib-Werkzeugen. */
+  aenderung?: 'neu' | 'geaendert' | 'geloescht';
 }
 
 export interface ChatMessage {
@@ -628,6 +635,30 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         delete abortControllersRef.current[chatId];
       }
 
+      // 1a. Die halb gestreamte Antwort ehrlich als abgebrochen markieren —
+      // sonst bleibt sie mitten im Wort stehen und sieht wie ein Hänger aus.
+      // (Das Backend hängt denselben Marker an die persistierte Fassung; der
+      // Regex-Wächter verhindert ein Doppel beim späteren Nachladen.)
+      updateMessages(chatId, prev => {
+        const next = [...prev];
+        for (let i = next.length - 1; i >= 0; i--) {
+          const m = next[i];
+          if (m && m.role === 'assistant') {
+            const content = (m.content || '').trimEnd();
+            if (!/_Abgebrochen\.?_\s*$/.test(content)) {
+              next[i] = {
+                ...m,
+                content: content ? `${content}\n\n_Abgebrochen._` : content,
+                streamStatus: undefined,
+                statusMessage: undefined,
+              };
+            }
+            break;
+          }
+        }
+        return next;
+      });
+
       // 1b. Lokale Map leer (Race/Re-Mount)? Den aktiven Job serverseitig
       // nachschlagen — sonst stoppt der Stop-Knopf nur die Anzeige und der
       // Agent-Lauf brennt auf der GPU weiter.
@@ -659,7 +690,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       });
       updateIsLoading(chatId, false);
     },
-    [activeJobIds, updateIsLoading, api]
+    [activeJobIds, updateIsLoading, updateMessages, api]
   );
 
   // Abort any existing stream for a chatId

@@ -74,3 +74,24 @@ describe('chatAgentRunner.streamChatRound', () => {
     ).rejects.toThrow(/does not support tools/);
   });
 });
+
+describe('verstaendlicherFehler (Agent-UX 2026-08-02)', () => {
+  const { verstaendlicherFehler } = require('../../src/services/llm/chatAgentRunner');
+
+  test('übersetzt Timeout, Verbindungs-, Modell- und Speicherfehler in Alltagssprache', () => {
+    expect(verstaendlicherFehler(new Error('Modell-Stream 120s ohne Daten — abgebrochen'))).toMatch(
+      /zu lange nicht geantwortet/
+    );
+    expect(verstaendlicherFehler(new Error('connect ECONNREFUSED 127.0.0.1:11434'))).toMatch(
+      /nicht erreichbar/
+    );
+    expect(verstaendlicherFehler(new Error('model "qwen9" not found'))).toMatch(/nicht geladen/);
+    expect(verstaendlicherFehler(new Error('CUDA out of memory'))).toMatch(/Speicher/);
+  });
+
+  test('unbekannte Fehler behalten eine gekürzte technische Spur', () => {
+    const text = verstaendlicherFehler(new Error('irgendwas Exotisches'));
+    expect(text).toMatch(/unerwartet gescheitert/);
+    expect(text).toContain('irgendwas Exotisches');
+  });
+});
