@@ -1,0 +1,830 @@
+<!doctype html>
+<!--
+  Arasul · Plan 014 — Standardprojekte & verlässliche Flows
+  Quelle: Nutzer-Auftrag 2026-08-02 (Unity-Ordner als Vorbild) + 5 Interview-Runden (19 Fragen)
+  + 2 Chat-Nachträge (Web-Recherche beim Kunden-Anlegen, projektübergreifende globale Flows)
+  + Codebase-Research + Web-Recherche (KMU-Adoption, Template-Onboarding, E-Rechnung).
+  Ausführung: 6 Phasen, je Phase eigener PR + Deploy + Jetson-Live-Verify (Qualität vor Paketen).
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 014 · Standardprojekte &amp; verlässliche Flows</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "014",
+  "slug": "standardprojekte",
+  "title": "Standardprojekte &amp; verlässliche Flows",
+  "type": "feature",
+  "status": "approved",
+  "priority": "P0",
+  "risk_level": 2,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-08-02",
+  "approved": "2026-08-02",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 014</p>
+    <span class="chip" id="status-chip" data-status="draft">Draft</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Standardprojekte &amp; verlässliche Flows</h1>
+  <p class="lead">Vier mitgelieferte Standardprojekte (Kunden &amp; Aufträge, Firmenwissen, Kundenservice, Finanzen), projektgebundene Flows mit Prüfschritt und ein ZUGFeRD-Rechnungsmodul machen Arasul ab dem ersten Tag produktiv — Vorbild ist das intern bewährte Unity-System.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">6 Phasen</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Arasul bekommt eine Vorlagen-Galerie mit vier fertigen Standardprojekten, projektgebundene Flows, einen Prüfschritt für verlässliche Ausgaben und ein ZUGFeRD-Rechnungsmodul — umgesetzt in sechs einzeln verifizierbaren Phasen.</dd>
+      <dt>Warum jetzt</dt><dd>Leere Geräte werden im Mittelstand nicht produktiv: Die Adoption scheitert an fehlender Struktur, kein Wettbewerber liefert ein fertiges Arbeitssystem — und die heutigen Flows sind autonom noch nicht verlässlich genug.</dd>
+      <dt>Größtes Risiko</dt><dd>ZUGFeRD-Rechtskonformität auf dem Gerät (ARM64-Bibliothek + Validierung) — abgesichert durch einen Machbarkeits-Spike zu Beginn von Phase 5 und den Fallback „Rechnungsentwurf + Nummernkreis“.</dd>
+      <dt>Du entscheidest</dt><dd><ul><li>Galerie statt Vorinstallation — das Gerät bleibt bis zum ersten Projekt leer</li><li>Kundenservice antwortet extern voll automatisch, bewusst ohne Eskalations-Urteil</li><li>Web-Recherche befüllt Steckbriefe ohne Bestätigungsschritt</li><li>ZUGFeRD kommt in diesen Plan (Phase 5) statt in ein späteres Thema</li></ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Leere Geräte werden nicht benutzt — Vorlagen nach dem Unity-Vorbild + verlässliche Flows machen Arasul sofort produktiv.</span>
+  </summary>
+  <div class="sbody">
+  
+  <p>Arasul kann heute viel — aber ein frisch eingerichtetes Gerät ist <b>leer</b>. Genau daran scheitert
+  KI im Mittelstand: Nur rund 15–20&nbsp;% der Betriebe nutzen KI produktiv, und die Top-Hürden sind fehlende
+  Kompetenz und fehlende Prozesse — nicht fehlende Technik. Ein leeres Werkzeug verlangt vom Kunden, sich
+  Struktur, Ordner, Vorlagen und Flows selbst auszudenken. Das passiert in der Praxis nicht. Auffällig:
+  Kein deutscher On-Prem-Wettbewerber liefert ein fertiges Arbeitssystem mit — alle verkaufen „Chat + Datenschutz“.
+  Mitgelieferte Standardprojekte sind also echte Differenzierung.</p>
+  <p>Das Vorbild existiert bereits und funktioniert täglich: das interne UNIT-IX-System („Unity“) — feste
+  Projektordner-Struktur, ein Wissens-Bereich mit Vorlagen und Schreibregeln, Dokument-Commands mit stillen
+  Qualitätsprüfungen. Dieser Plan bringt dieses Erfolgsmuster als <b>Vorlagen-Galerie</b> nach Arasul:
+  vier fertige Standardprojekte (Kunden &amp; Aufträge, Firmenwissen &amp; Marke, Kundenservice, Interne Finanzen),
+  die beim Anlegen kopiert und im geführten Einrichtungs-Interview mit den echten Firmendaten personalisiert werden.</p>
+  <p>Zweites Standbein: <b>Verlässlichkeit</b>. Flows laufen heute ungeprüft durch — deshalb fühlen sie sich
+  autonom noch nicht sicher an. Jeder Flow bekommt einen Prüfschritt (deterministische Checks + Prüfrunde +
+  Korrekturrunde) und ein Annahmen-Protokoll. Zahlen rechnet grundsätzlich Code, nie das Modell — bis hin zur
+  ZUGFeRD-Rechnung mit lückenlosem Nummernkreis.</p>
+  <p><b>Fertig heißt:</b> Ein neues Projekt aus der Vorlage „Kunden &amp; Aufträge“ ist in unter 10 Minuten mit den
+  eigenen Firmendaten eingerichtet; /neuer-kunde legt aus einer Webseite einen recherchierten Kundenordner an;
+  /angebot erzeugt ein geprüftes PDF im Firmenstil; der Kundenservice antwortet via n8n ausschließlich aus seinem
+  Projektwissen; eine Rechnung kommt als validiertes ZUGFeRD-PDF mit fortlaufender Nummer heraus — alles live auf
+  dem Jetson nachgewiesen.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Vier Vorlagen + Verlässlichkeits-Schicht + ZUGFeRD-Kern; Mail, Multi-User, Store-Verteilung und GoBD-Archiv bleiben draußen.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+    <li>Vorlagen-Galerie im „Projekt anlegen“-Dialog mit vier Vorlagen: Kunden &amp; Aufträge, Firmenwissen &amp; Marke, Kundenservice, Interne Finanzen</li>
+    <li>Einrichtungs-Interview nach dem Anlegen (Firmendaten, Briefkopf/Logo, erster Kunde) inkl. autonomer Web-Recherche über die Webseite</li>
+    <li>Projektgebundene Flows im Projektordner neben globalen Flows; globale Flows arbeiten projektübergreifend (projekt://-Adressen)</li>
+    <li>Prüfschritt je Flow (deterministische Checks + LLM-Prüfrunde + eine Korrekturrunde) und Annahmen-Protokoll statt Rückfragen</li>
+    <li>Kunden-Steckbriefe + automatische Kundenübersicht als Reiter im Projekt</li>
+    <li>Kundenservice-Vorlage mit /antwort-Flow, projektgebunden über die externe API (n8n) startbar</li>
+    <li>Rechnungsmodul Kern-Compliance: lückenloser Nummernkreis, Code-Summen, ZUGFeRD-PDF (PDF/A-3 + EN-16931-XML) mit Validierung, Schreibschutz</li>
+    <li>Vorlagen-Versionierung mit Update-Hinweis und Übernahme per Klick</li>
+</ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+    <li>E-Mail-Empfang/-Versand im Gerät — bleibt Sache von n8n</li>
+    <li>Mehrbenutzer/Rollen — das Einzel-Admin-Modell bleibt</li>
+    <li>Vorlagen-Verteilung über den Store (eigener Paket-Typ) — später, wenn sich der Kern bewährt</li>
+    <li>Aufgaben-/Projektmanagement (Boards, Fristen, Tasks)</li>
+    <li>Revisionssicheres GoBD-Archiv — Aufbewahrung bleibt beim Steuerbüro/DMS</li>
+    <li>Eigenständiges Meetings-Paket — Meetings leben beim Kunden</li>
+    <li>Vorinstallierte Projekte ab Werk — bewusste Entscheidung für die Galerie</li>
+</ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Vorlagen kopieren beim Anlegen ein fertiges Arbeitssystem ins Projekt; Flows leben global und im Projekt; ein Prüfschritt sichert jede Ausgabe.</span>
+  </summary>
+  <div class="sbody">
+  
+  <p><b>Vorlagen sind Teil des Geräts, Projekte gehören dem Nutzer.</b> Die vier Vorlagen liegen versioniert im
+  Backend-Image — genau wie heute schon die Beispiel-Flows. Beim Anlegen aus der Galerie wird alles in den
+  Projektordner kopiert: Ordnerstruktur, Wissens-Dateien, Flows, optional Beispieldaten. Ab da gilt wie bisher
+  Platte&nbsp;=&nbsp;Wahrheit — der Nutzer darf alles umbauen, nichts wird je von uns überschrieben. Das Projekt
+  merkt sich nur, aus welcher Vorlage und Version es entstand; darauf baut später der Update-Hinweis auf.</p>
+  <p><b>Flows bekommen zwei Heimaten.</b> Globale Flows bleiben, wo sie sind. Neu ist der Ordner
+  <code>flows/</code> im Projektordner: Diese Flows existieren nur für ihr Projekt, tauchen nur dort im Chat auf
+  und arbeiten nur dort. Damit bringt jede Vorlage ihre Flows einfach als Dateien mit — ohne globale
+  Namenskollisionen zwischen Paketen. Für Übergreifendes (Dateien zwischen Projekten bewegen, Infos aus zwei
+  Projekten zusammenführen) lernen die Ordner-Argumente globaler Flows, auf Ordner beliebiger Projekte zu zeigen.
+  Die externe API kann projektgebundene Flows gezielt starten — so ruft der n8n-Mail-Workflow den /antwort-Flow
+  im isolierten Kundenservice-Projekt auf.</p>
+  <p><b>Verlässlichkeit kommt aus Prüfung, nicht aus Hoffnung.</b> Zwischen Entwurf und Ausgabe steht künftig ein
+  fester Prüfschritt: deterministische Checks (Platzhalter, Pflichtfelder aus dem Steckbrief, Vorgaben aus dem
+  ausgabe-Objekt), dann eine Prüfrunde gegen den Auftrag, höchstens eine Korrekturrunde — alles sichtbar im
+  Laufprotokoll. Was sich rechnen lässt, rechnet Code: Angebotssummen, Rechnungsbeträge, Nummernkreise. Beim
+  Rechnungsmodul mündet das in ZUGFeRD-PDFs, die vor der Ausgabe validiert werden.</p>
+
+  <figure class="arch">
+    <svg viewBox="0 0 640 330" role="img" aria-label="Architektur: Vorlagen-Galerie, Projekt, Prüfschritt, n8n" style="max-width:100%;height:auto;color:var(--ink)">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"/>
+    </marker>
+  </defs>
+  <rect x="16" y="18" width="190" height="140" rx="10" style="fill:var(--wash);stroke:var(--line)"/>
+  <text x="111" y="44" text-anchor="middle" style="fill:var(--ink);font:700 14px sans-serif">Vorlagen-Galerie</text>
+  <text x="111" y="62" text-anchor="middle" style="fill:var(--muted);font:11px sans-serif">fest im Ger&#228;t eingebaut</text>
+  <text x="30" y="86" style="fill:var(--ink);font:12px sans-serif">&#183; Kunden &amp; Auftr&#228;ge</text>
+  <text x="30" y="104" style="fill:var(--ink);font:12px sans-serif">&#183; Firmenwissen &amp; Marke</text>
+  <text x="30" y="122" style="fill:var(--ink);font:12px sans-serif">&#183; Kundenservice</text>
+  <text x="30" y="140" style="fill:var(--ink);font:12px sans-serif">&#183; Interne Finanzen</text>
+  <line x1="206" y1="88" x2="258" y2="88" style="stroke:var(--accent);stroke-width:2" marker-end="url(#arr)"/>
+  <text x="232" y="76" text-anchor="middle" style="fill:var(--accent-ink);font:10px sans-serif">kopiert beim</text>
+  <text x="232" y="110" text-anchor="middle" style="fill:var(--accent-ink);font:10px sans-serif">Anlegen</text>
+  <rect x="262" y="18" width="200" height="140" rx="10" style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5"/>
+  <text x="362" y="44" text-anchor="middle" style="fill:var(--ink);font:700 14px sans-serif">Projekt des Nutzers</text>
+  <text x="362" y="62" text-anchor="middle" style="fill:var(--muted);font:11px sans-serif">Platte = Wahrheit, alles editierbar</text>
+  <text x="276" y="86" style="fill:var(--ink);font:12px sans-serif">&#183; Ordnerstruktur + Wissen</text>
+  <text x="276" y="104" style="fill:var(--ink);font:12px sans-serif">&#183; flows/ (Projekt-Flows)</text>
+  <text x="276" y="122" style="fill:var(--ink);font:12px sans-serif">&#183; Steckbriefe &#8594; &#220;bersicht</text>
+  <text x="276" y="140" style="fill:var(--muted);font:11px sans-serif">merkt sich Vorlagen-Version</text>
+  <rect x="496" y="30" width="128" height="64" rx="10" style="fill:var(--wash);stroke:var(--line)"/>
+  <text x="560" y="56" text-anchor="middle" style="fill:var(--ink);font:700 13px sans-serif">n8n</text>
+  <text x="560" y="74" text-anchor="middle" style="fill:var(--muted);font:11px sans-serif">E-Mail rein / raus</text>
+  <line x1="560" y1="94" x2="560" y2="204" style="stroke:var(--accent);stroke-width:2" marker-end="url(#arr)"/>
+  <text x="568" y="150" style="fill:var(--accent-ink);font:10px sans-serif">externe API,</text>
+  <text x="568" y="163" style="fill:var(--accent-ink);font:10px sans-serif">projektgebunden</text>
+  <line x1="362" y1="158" x2="362" y2="204" style="stroke:var(--accent);stroke-width:2" marker-end="url(#arr)"/>
+  <text x="370" y="185" style="fill:var(--accent-ink);font:10px sans-serif">/angebot, /antwort &#8230;</text>
+  <rect x="120" y="208" width="470" height="66" rx="10" style="fill:var(--surface);stroke:var(--line)"/>
+  <text x="355" y="234" text-anchor="middle" style="fill:var(--ink);font:700 13px sans-serif">Flow-Lauf mit Pr&#252;fschritt</text>
+  <text x="355" y="256" text-anchor="middle" style="fill:var(--ink);font:12px sans-serif">Kontext &#8594; Entwurf &#8594; Pr&#252;fung (Checks + Korrektur) &#8594; Ausgabe</text>
+  <line x1="355" y1="274" x2="355" y2="300" style="stroke:var(--accent);stroke-width:2" marker-end="url(#arr)"/>
+  <text x="365" y="292" style="fill:var(--muted);font:11px sans-serif">PDF / Word / ZUGFeRD-Rechnung + Annahmen-Protokoll</text>
+</svg>
+    <figcaption>Vorher: leeres Projekt, nur globale Flows, ungeprüfte Ausgabe. Nachher: Die Galerie kopiert ein fertiges Arbeitssystem ins Projekt, Flows laufen mit Prüfschritt, n8n erreicht projektgebundene Flows.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Sechs Phasen, jede einzeln merge- und live-verifizierbar: Fundament → Prüfschritt → CRM → Firmenwissen/Kundenservice → ZUGFeRD → Updates.</span>
+  </summary>
+  <div class="sbody">
+  <!-- One .step per phase; unique data-ref each. -->
+  <div class="step" data-status="pending" data-ref="&#167;4 &#183; Schritt 1 — Fundament: Vorlagen-Galerie &amp; Projekt-Flows">
+    <h3>Schritt 1 — Fundament: Vorlagen-Galerie &amp; Projekt-Flows <span class="tag">Risiko: mittel</span></h3>
+    <p>Vorlagen liegen versioniert im Backend-Image (Muster der Beispiel-Flows). Der „Projekt anlegen“-Dialog wird zur Galerie: Vorlage wählen → Ordnerstruktur, Wissens-Dateien und Flows werden in den Projektordner kopiert (wx-Flag, überschreibt nie); das Projekt merkt sich Vorlage + Version (neue Migration). Flows bekommen die zweite Heimat <code>flows/</code> im Projektordner (vom Wissens-Index/Ordner-Sync ausgenommen): im Chat nur im aktiven Projekt sichtbar, zentrale Flow-Übersicht gruppiert nach Projekt/Global. Ordner-Argumente lernen <code>projekt://&lt;projekt&gt;/…</code>, damit globale Flows projektübergreifend arbeiten können (Picker mit Projektwahl). Leeres Anlegen bleibt unverändert möglich.</p>
+    <p class="files mono">services/projects/vorlagen/* (neu) · vorlagenService.js (neu) · rag/projectService.js · flows/flowRegistry.js · flowFile.js · runFlow.js · routes/flows.js · routes/ai/projects.js · Migration NNN · Frontend: Projekt-Anlegen-Dialog, FlowDashboard, ArgumentPicker · Tests · docs</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="&#167;4 &#183; Schritt 2 — Verlässlichkeit: Prüfschritt &amp; Annahmen-Protokoll">
+    <h3>Schritt 2 — Verlässlichkeit: Prüfschritt &amp; Annahmen-Protokoll <span class="tag">Risiko: mittel</span></h3>
+    <p>Der Flow-Runner bekommt zwischen Entwurf und Ausgabe einen festen Prüfschritt: erst deterministische Checks (übrige [Platzhalter], Pflichtfelder aus dem Steckbrief, Länge/Gliederung/Sprache aus dem ausgabe-Objekt), dann eine LLM-Prüfrunde gegen Auftrag und Grenzen, höchstens eine automatische Korrekturrunde. Das Laufprotokoll zeigt jede Einzelprüfung. Statt Rückfragen gilt das Annahmen-Protokoll: der Runner erfasst getroffene Annahmen strukturiert und zeigt sie sichtbar im Ergebnis — auch bei n8n-Starts.</p>
+    <p class="files mono">services/flows/pruefung.js (neu) · runFlow.js · schemas/flows.js · dokumentAusgabe.js · Frontend: FlowRunDetail, Ergebnis-Karte · Tests · docs</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="&#167;4 &#183; Schritt 3 — CRM-Paket „Kunden &amp; Aufträge“">
+    <h3>Schritt 3 — CRM-Paket „Kunden &amp; Aufträge“ <span class="tag">Risiko: niedrig</span></h3>
+    <p>Die erste echte Vorlage: je Kunde ein Ordner (Steckbrief, Briefing/, Meetings/, Angebote/, Schriftverkehr/), dazu _Vorlagen/ und optionaler Beispielkunde. Flows: <code>/neuer-kunde</code> (fragt Name + Webseite, recherchiert voll autonom im Netz, legt Kundenordner mit befülltem Steckbrief inkl. Quellen an), <code>/angebot</code>, <code>/protokoll</code>, <code>/kundenbrief</code>. Nach dem Anlegen führt ein Einrichtungs-Interview durch Firmendaten, Logo/Briefkopf und ersten Kunden (mit Web-Recherche über die eigene Firmen-Webseite). Ein Steckbrief-Scanner speist den neuen Reiter „Übersicht“ im Projekt: Tabelle aller Kunden mit Status und letztem Kontakt, Klick öffnet den Ordner.</p>
+    <p class="files mono">services/projects/vorlagen/kunden-auftraege/* (neu) · steckbriefIndex.js (neu) · routes/ai/projects.js · Frontend: Einrichtungs-Dialog (neu), Projekt-Tab Übersicht · Tests · docs</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="&#167;4 &#183; Schritt 4 — Firmenwissen + Kundenservice + n8n-Anbindung">
+    <h3>Schritt 4 — Firmenwissen + Kundenservice + n8n-Anbindung <span class="tag">Risiko: mittel</span></h3>
+    <p>Zwei weitere Vorlagen: <b>Firmenwissen &amp; Marke</b> (Firmenprofil, Schreibregeln, Briefkopf, Standard-Stilvorlagen — Dokument-Flows anderer Projekte greifen darauf zu) und <b>Kundenservice</b> (bewusst isoliertes Projekt, nur Service-Wissen). Dessen <code>/antwort</code>-Flow beantwortet eine Frage ausschließlich aus dem Projektwissen und liefert strukturiert Antworttext + Quellenliste zurück — per Entscheidung ohne Eskalations-Urteil, dafür mit harter Prompt-Regel: nichts erfinden, bei fehlendem Wissen höflicher Verweis an einen Mitarbeiter. Die externe Flow-API kann projektgebundene Flows starten (bestehender API-Key-Scope), sodass der n8n-Mail-Workflow den Service-Flow direkt aufruft; Beispiel-Workflow wird dokumentiert.</p>
+    <p class="files mono">vorlagen/firmenwissen/*, vorlagen/kundenservice/* (neu) · externe Flow-Route · runFlow.js (Projekt-Auflösung) · docs/integrations/N8N.md · docs/api/API_REFERENCE.md · Tests</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="&#167;4 &#183; Schritt 5 — Finanzen + ZUGFeRD-Kern">
+    <h3>Schritt 5 — Finanzen + ZUGFeRD-Kern <span class="tag">Risiko: hoch</span></h3>
+    <p>Vorlage <b>Interne Finanzen</b> (Belege/, Auswertungen/, Rechnungen/, Meetings/). Kern-Compliance fürs Rechnungsmodul: lückenloser Rechnungsnummernkreis in der Datenbank (Nummer wird transaktional erst nach bestandener Validierung gezogen), der Rechnungs-Flow lässt das Modell nur strukturierte Positionen liefern — Netto/USt/Brutto rechnet Code. Ausgabe als ZUGFeRD (PDF/A-3 mit eingebettetem EN-16931-XML) über die bestehende PDF-Pipeline, mit eingebauter Validierung vor der Ausgabe; ausgestellte Rechnungen werden schreibgeschützt abgelegt. Erster Schritt der Phase ist ein Machbarkeits-Spike zur ARM64-tauglichen ZUGFeRD-Erzeugung/-Validierung; scheitert er, liefert die Phase Rechnungsentwurf + Nummernkreis und ZUGFeRD wird eigenes Roadmap-Thema. Keine revisionssichere Archivierung (bleibt beim Steuerbüro/DMS).</p>
+    <p class="files mono">Migration NNN_rechnungsnummern.sql · services/flows/rechnung/* (neu: nummernkreis, zugferd, validierung) · markdownPdf.js (PDF/A-3) · vorlagen/finanzen/* · Frontend-Kennzeichnung · Tests inkl. Validator-Fixtures · docs</p>
+  </div>
+  <div class="step" data-status="pending" data-ref="&#167;4 &#183; Schritt 6 — Vorlagen-Updates: Hinweis &amp; Übernahme">
+    <h3>Schritt 6 — Vorlagen-Updates: Hinweis &amp; Übernahme <span class="tag">Risiko: niedrig</span></h3>
+    <p>Projekte kennen ihre Vorlagen-Version (aus Schritt 1). Liegt im Image eine neuere Version, zeigt das Projekt ein Banner „Vorlage aktualisiert — Neuerungen ansehen“: ein Dialog listet Neuerungen (neuer Flow, neue Vorlagendatei) einzeln zur Übernahme per Klick. Bestehende Nutzer-Dateien werden nie verändert — Übernahmen sind ausschließlich additive Kopien (wx-Flag).</p>
+    <p class="files mono">services/projects/vorlagenUpdate.js (neu) · routes/ai/projects.js · Frontend: Banner + Übernahme-Dialog · Tests · docs</p>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Messbar: Galerie-Projekt vollständig, Flows richtig gescoped, Prüfschritt sichtbar, ZUGFeRD extern validiert, Updates zerstörungsfrei.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Ein aus der Galerie angelegtes CRM-Projekt enthält Ordnerstruktur, Wissens-Dateien und Flows; ein leeres Projekt anzulegen bleibt unverändert möglich.</li>
+    <li data-done="false">Ein Projekt-Flow (z. B. /angebot) erscheint im Chat nur, wenn sein Projekt aktiv ist; globale Flows erscheinen überall; die zentrale Übersicht gruppiert nach Projekt/Global.</li>
+    <li data-done="false">Ein globaler Flow verarbeitet in einem Lauf Ordner aus zwei verschiedenen Projekten (Datei-Transfer-Fall).</li>
+    <li data-done="false">Jeder Dokument-Flow-Lauf zeigt im Protokoll den Prüfschritt mit Einzel-Checks; ein präparierter Entwurf mit übrig gebliebenem [Platzhalter] wird automatisch korrigiert.</li>
+    <li data-done="false">Getroffene Annahmen erscheinen als eigener Block im Ergebnis — auch bei Starts über die externe API.</li>
+    <li data-done="false">/neuer-kunde legt mit Firmenname + Webseite ohne weitere Rückfrage einen Kundenordner mit befülltem Steckbrief inkl. Quellenangaben an.</li>
+    <li data-done="false">Der Reiter „Übersicht“ zeigt alle Kunden mit Status und letztem Kontakt; Klick öffnet den Kundenordner.</li>
+    <li data-done="false">/antwort beantwortet via externer API eine Servicefrage ausschließlich aus dem Kundenservice-Projekt; eine Testfrage nach CRM-Inhalten liefert keine fremden Daten.</li>
+    <li data-done="false">Zwei aufeinanderfolgende Rechnungsläufe erzeugen lückenlos aufsteigende Nummern; die Datei ist PDF/A-3 mit eingebettetem EN-16931-XML, besteht einen externen ZUGFeRD-Validator, und alle Summen im XML entsprechen der Code-Berechnung.</li>
+    <li data-done="false">Nach einem Vorlagen-Versionssprung erscheint der Update-Hinweis; die Übernahme eines neuen Flows funktioniert; keine bestehende Datei wird verändert.</li>
+    <li data-done="false">Backend- und Frontend-Testsuiten grün; keine Regression in den Chat-/RAG-Kernpfaden.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Jede Phase wird per Playwright im echten Browser auf dem Jetson durchgespielt; ZUGFeRD wird extern validiert.</span>
+  </summary>
+  <div class="sbody">
+  
+  <p>Jede Phase wird einzeln deployt (<code>docker compose up -d --build</code>) und per Playwright im echten Browser
+  (<span class="mono">https://192.168.0.197</span>, Admin-Login) durchgespielt, bevor sie gemergt gilt:</p>
+  <ul>
+    <li><b>Phase 1:</b> Galerie öffnen → CRM-Projekt anlegen → Ordner/Flows/Wissen im Explorer sichtbar; leeres Projekt weiterhin anlegbar; /angebot nur im CRM-Projekt im Chat-Menü; globaler Flow mit Ordnern aus zwei Projekten.</li>
+    <li><b>Phase 2:</b> Dokument-Flow-Lauf → Lauf-Detail zeigt Prüfschritt mit Einzel-Checks; präparierter Platzhalter-Fall wird korrigiert; Annahmen-Block im Ergebnis.</li>
+    <li><b>Phase 3:</b> Einrichtungs-Interview komplett durchspielen; /neuer-kunde mit echter Webseite → Steckbrief mit Quellen prüfen; /angebot Ende-zu-Ende → PDF aus der Änderungs-Übersicht öffnen; Übersicht-Tab.</li>
+    <li><b>Phase 4:</b> n8n-Workflow (bzw. curl mit API-Key) → /antwort → JSON mit Antwort + Quellen; Negativ-Test: Frage nach CRM-Daten bleibt unbeantwortet/verwiesen.</li>
+    <li><b>Phase 5:</b> Zwei Rechnungsläufe → Dateien vom Gerät ziehen → externe Validierung (z. B. Mustang-CLI auf dem Mac) grün; Nummern fortlaufend; Schreibschutz greift.</li>
+    <li><b>Phase 6:</b> Vorlagen-Version im Image erhöhen → Banner erscheint → Flow-Übernahme per Klick → eigene Dateien unverändert (Checksummen-Vergleich).</li>
+  </ul>
+  <p>Health nach jedem Deploy: <code>docker compose ps</code> alle healthy, Logs der betroffenen Services fehlerfrei, Traefik-Warmup nach Frontend-Rebuild abgewartet.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größte Risiken: Flow-Loader, ZUGFeRD auf ARM64, externe Service-Antworten — alle mit Gegenmaßnahme und Phase-für-Phase-Rollback.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Flow-Registry-Umbau destabilisiert den Chat-Slash-Start</td><td>mittel</td><td>Additiv bauen (globaler Ladepfad bleibt unverändert), bestehende Tests + Live-Verify vor Merge, Phase 1 als eigener PR</td></tr>
+      <tr><td>flows/-Systemordner landet im Wissens-Index oder Ordner-Sync</td><td>mittel</td><td>Ausnahmeliste in ordnerSync/Indexer + Test; Verify prüft, dass kein Wissensraum entsteht</td></tr>
+      <tr><td>Autonome Web-Recherche befüllt Steckbrief mit falscher Firma</td><td>mittel</td><td>Quellenpflicht im Steckbrief, Ergebnis wird im Einrichtungs-Interview direkt angezeigt, /neuer-kunde jederzeit wiederholbar</td></tr>
+      <tr><td>Kundenservice antwortet extern falsch (bewusst ohne Eskalations-Urteil)</td><td>mittel</td><td>Harte Prompt-Regel „nur aus Projektwissen, sonst Verweis“, Quellenliste in jeder Antwort, n8n-Beispiel dokumentiert die Entwurfs-Variante</td></tr>
+      <tr><td>ZUGFeRD-Erzeugung/-Validierung auf ARM64 schwieriger als erwartet</td><td>mittel–hoch</td><td>Machbarkeits-Spike als erster Schritt von Phase 5; Fallback: Rechnungsentwurf + Nummernkreis liefern, ZUGFeRD wird eigenes Roadmap-Thema</td></tr>
+      <tr><td>Nummernkreis-Lücken durch abgebrochene Läufe</td><td>niedrig</td><td>Nummer wird transaktional erst nach bestandener Validierung gezogen; expliziter Abbruch-Test</td></tr>
+      <tr><td>Vorlagen-Inhalte veralten (Formulierungen, Recht)</td><td>niedrig</td><td>Vorlagen sind normale Repo-Dateien (PR-Review) + Versionierung/Update-Weg aus Phase 6</td></tr>
+</tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  
+  <p>Jede Phase ist ein eigener PR mit eigenem Deploy — Rollback heißt: vorherigen Stand per Git auf das Gerät
+  bringen (ff-only-Muster) und Container neu bauen. Migrationen sind additiv (neue Tabellen/Spalten, Down-Pfad im
+  Migrations-Kommentar dokumentiert). Aus Vorlagen erzeugte Projekte sind normale Projekte aus normalen Dateien —
+  sie funktionieren auch ohne die neuen Code-Pfade weiter. Der Rechnungsnummernkreis bleibt bei einem Rollback
+  erhalten, damit keine Nummer doppelt vergeben wird.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 20 verbindliche Entscheidungen aus 5 Interview-Runden (19 Fragen) plus 2 Nachträge aus dem Chat.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>      <tr><td>Grundmodell der Standardprojekte</td><td>Vorlagen-Galerie beim Projekt-Anlegen (keine Vorinstallation ab Werk)</td><td>Galerie muss im Anlegen-Dialog prominent sein; der erste Eindruck des Geräts bleibt bewusst schlank</td></tr>
+      <tr><td>Welche Pakete</td><td>Kunden & Aufträge, Interne Finanzen, Firmenwissen & Marke, Kundenservice; Meetings & Protokolle nicht eigenständig</td><td>Vier Vorlagen werden voll durchgestaltet; Meetings leben als Ordner im Kundenordner</td></tr>
+      <tr><td>Kundenmodell</td><td>Ein CRM-Projekt, darin je Kunde ein Ordner (Unity-Muster)</td><td>Flows nutzen das ordner-Argument; kein Projekt-Umschalten pro Vorgang; RAG-Scope umfasst alle Kunden des CRM-Projekts</td></tr>
+      <tr><td>Flow-Bindung</td><td>Flows im Projektordner (projektgebunden) + weiterhin globale Flows</td><td>Neuer Ladepfad im Flow-Registry; Chat filtert nach aktivem Projekt</td></tr>
+      <tr><td>Projektübergreifende Flows (Nachtrag Freitext)</td><td>Globale Flows müssen Ordner aus mehreren Projekten verarbeiten können (Datei-Transfer, Infos aus 2 Projekten)</td><td>ordner-Argumente lernen projekt://&lt;projekt&gt;/…; Picker bekommt Projektwahl</td></tr>
+      <tr><td>Meetings-Überschneidung</td><td>Meetings gehören zum Kunden (Meetings/ im Kundenordner)</td><td>Kein eigenes Meetings-Paket; /protokoll ist Teil der CRM-Vorlage</td></tr>
+      <tr><td>Struktur der Kundendaten</td><td>Steckbrief.md je Kunde + automatischer Index (keine CRM-Tabellen)</td><td>Platte bleibt Wahrheit; Scanner erzeugt die Kundenübersicht; Flows ziehen Felder aus dem Steckbrief</td></tr>
+      <tr><td>Kundenservice-Konzept</td><td>Eigenes, isoliertes Kundenservice-Projekt; n8n ruft dessen Flow über die externe API auf</td><td>Externe Flow-API wird um projektgebundene Flows erweitert; Service-Wissen bleibt getrennt von Kundendaten</td></tr>
+      <tr><td>Einrichtung nach dem Anlegen</td><td>Geführtes Einrichtungs-Interview (Firmendaten, Briefkopf/Logo, erster Kunde)</td><td>Eigener Dialog im Dashboard; Vorlage wird direkt personalisiert</td></tr>
+      <tr><td>Webseite als Datenquelle (Nachtrag)</td><td>Beim Kunden-Anlegen und in der Einrichtung wird die Webseite abgefragt und automatisch per Web-Recherche ausgewertet</td><td>/neuer-kunde und Einrichtungs-Interview bekommen einen autonomen Recherche-Schritt</td></tr>
+      <tr><td>Verlässlichkeit</td><td>Prüfschritt je Flow: deterministische Checks + LLM-Prüfrunde + eine Korrekturrunde</td><td>Fester Bestandteil des Flow-Runners, sichtbar im Laufprotokoll — Phase 2, vor allen Paketen</td></tr>
+      <tr><td>Rückfragen bei Lücken</td><td>Flows fragen nie zurück; Annahmen-Protokoll sichtbar im Ergebnis</td><td>Falsche Annahmen landen im Dokument, sind aber dokumentiert und korrigierbar</td></tr>
+      <tr><td>Rechnungen</td><td>ZUGFeRD gleich mitbauen, Umfang Kern-Compliance (Nummernkreis, Code-Summen, Validierung, Schreibschutz; kein GoBD-Archiv)</td><td>Phase 5 wird das größte Einzelpaket; Machbarkeits-Spike zuerst, Fallback Rechnungsentwurf</td></tr>
+      <tr><td>Vorlagen-Updates</td><td>Hinweis + Übernahme per Klick; eigene Dateien werden nie angefasst</td><td>Projekte speichern Vorlagen-Version; Update-Dialog in Phase 6</td></tr>
+      <tr><td>Phasenreihenfolge</td><td>Qualität zuerst: Fundament → Prüfschritt → CRM → Firmenwissen/Kundenservice → ZUGFeRD → Updates</td><td>Jedes Paket läuft ab Tag 1 mit Prüfschritt</td></tr>
+      <tr><td>Autonomie der Web-Recherche</td><td>Voll autonom, kein Bestätigungsschritt</td><td>Als Ausgleich: Quellenpflicht im Steckbrief + sofortige Sichtbarkeit im Einrichtungs-Interview</td></tr>
+      <tr><td>Kundenübersicht</td><td>Reiter „Übersicht“ im CRM-Projekt (kein eigener Navigationsbereich)</td><td>Erscheint automatisch, sobald Steckbriefe existieren</td></tr>
+      <tr><td>Abgrenzung</td><td>E-Mail im Gerät, Mehrbenutzer/Rollen, Store-Verteilung der Vorlagen, Aufgaben-Management: alle vier raus</td><td>Eigene Roadmap-Themen, falls sich der Kern bewährt</td></tr>
+      <tr><td>Kundenservice-Eskalation</td><td>Immer antworten — kein maschinenlesbares Unsicherheits-Urteil an n8n</td><td>Bewusste Nutzer-Entscheidung trotz Halluzinationsrisiko; Gegenmaßnahmen: Prompt-Härtung + Quellenliste (§7)</td></tr>
+      <tr><td>Flow-Oberfläche</td><td>Globale + projektspezifische Flows; zentrale Übersicht bleibt und gruppiert</td><td>FlowDashboard zeigt Gruppen; Projekt-Arbeitsbereich zeigt seine Flows im Chat-Menü</td></tr></tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 014 · erstellt am 2026-08-02 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/014-standardprojekte.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // restore persisted state
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>

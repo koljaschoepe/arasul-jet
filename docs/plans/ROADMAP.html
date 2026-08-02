@@ -21,7 +21,7 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-07-21",
+  "updated": "2026-08-02",
   "migrated_from_master_plan": true,
   "gates": [
     { "id": "G1", "title": "Alle Features funktionieren nachweislich (Feature-Audit grün)", "state": "open" },
@@ -33,6 +33,7 @@
     { "id": "G7", "title": "7 Tage unattended stabil", "state": "open" }
   ],
   "themes": [
+    { "id": "T22", "title": "Standardprojekte & verlässliche Flows — Vorlagen-Galerie beim Projekt-Anlegen (Kunden & Aufträge/CRM mit Ordner je Kunde + Steckbrief-Übersicht, Firmenwissen & Marke, Kundenservice mit n8n-Antwort-Flow, Interne Finanzen mit ZUGFeRD-Kern), projektgebundene Flows neben globalen (projektübergreifende Ordner-Argumente), Einrichtungs-Interview mit autonomer Web-Recherche, Prüfschritt je Flow + Annahmen-Protokoll, Vorlagen-Update-Hinweise", "prio": "P0", "status": "planned", "source": "Interview 2026-08-02 (5 Runden, 19 Fragen + 2 Nachträge; Unity-Ordner als Vorbild)", "plan": "014", "pr": null, "note": "Qualität vor Paketen: 6 Phasen, je Phase eigener PR + Jetson-Live-Verify. Out of scope: Mail im Gerät, Multi-User, Store-Verteilung der Vorlagen, Aufgaben-Management, GoBD-Archiv." },
     { "id": "T18", "title": "Arasul wird Agenten-Orchestrierung — Neupositionierung zur Workflow-Bauer-Plattform: Telegram/Datentabellen/Dashboard/DB-Ansicht/Alt-Chat ersatzlos löschen (~14.000 Zeilen), Projekt-Entität konsolidieren, Agenten als Markdown-Dateien mit Werkzeug-Aufrufen, Chat als Kommandozentrale, n8n-HTTP-Trigger, Netz-Schalter je Workspace, Store-Neubau", "prio": "P0", "status": "done", "source": "Interview 2026-07-17 (6 Runden)", "plan": "008", "pr": 218, "note": "Löst T01/T17 ab; schluckt T02, T03, T04, T12, T16. 16 Schritte, gemergt (squash b670c2e) & live auf dem Jetson 2026-07-18. Funktionaler §6-Durchlauf im Live-Review-Feinschliff" },
     { "id": "T20", "title": "Skills im Chat — Agenten- und Fluss-Layer ersatzlos löschen (Canvas, Scheduler, Provider-Schlüssel, Agenten-Bereich, Workspace-Agenten); Chat bekommt Slash-Skills nach Claude-Code-Vorbild: Markdown-Skills unter data/skills/ mit Argumenten (Freitext/Datei/Auswahl/Wissensbasis), Ordner-Sandbox, Werkzeugen (Dateien, RAG, Websuche via SearXNG, Seiten lesen, Terminal im Sandbox-Container), Subagent-Rollen mit hartem Ergebnis-Vertrag, serverseitig weiterlaufenden Läufen, Lauf-Karte und Änderungs-Übersicht", "prio": "P0", "status": "done", "source": "Interview 2026-07-21 (6 Runden, 24 Fragen)", "plan": "011", "pr": "234,235,239,258,259,260", "note": "Alle 20 Schritte erledigt, gemergt und auf dem Jetson verifiziert. Abschluss: drei Beispiel-Skills (dokument-zusammenfassen/wissen/recherche) via Start-Seed, Datei-Argument speist Dokument-Inhalt ein, reiche Markdown-Darstellung der Skill-Antworten, Unterhaltungs-Suche/Umbenennen/Auto-Titel (#258); Folge-Fix think:false gegen LLM-Timeout bei generativen Skills (#259). Live belegt: Dokument-Zusammenfassung mit echten Fakten, RAG mit Quellen, Web-Recherche mit Subagenten + Quell-Links. Löste T18 und T19 ab" },
     { "id": "T21", "title": "Workspace wird IDE + Flow-Plattform — 11 Batches aus dem Frontend-Review: neues Vogel-Maskottchen + Login-Redesign, einheitliche Sidebar-Köpfe + interaktive Statusleiste, Store mit Modelle-Übersicht + n8n-Anreicherung, Einstellungen in die Sidebar, eigenständige Dokumente-Seite raus, tiefe Umbenennung Skills→Flow (Ordner/DB/Mounts/Env), deterministische Flow-Schritt-Ketten, Flow-Trigger (Cron-Zeitplan/Ereignis/HTTP) + Chat-Steuerung, GitHub-Zwei-Wege-Sync mit verschlüsseltem PAT, CodeMirror-6-Code-Editor, Politur/Review/Deploy", "prio": "P1", "status": "done", "source": "Frontend-Review (frontend-review.html) 2026-07", "plan": "013", "pr": "262", "note": "11 Batches (B1–B11) einzeln committet & lokal je Batch grün. Code-Review über den ganzen Zweig: 2 kritische Funde behoben (kein Admin-Fallback bei externen Flow-Run-Endpunkten; Git-Sync-Drift-Schutz gegen Push ins falsche Repo) plus Härtung (probe-before-upsert, ungemergter-Baum-Guard, Sync-Sperre, Scheduler-Neu-Terminierung). Volltest run-tests.sh --all grün: Backend 1904, Frontend 720, Python 16, Quality-Gates. Auf dem Jetson deployt (Migrationen 119–121 angewandt, Flow-Scheduler läuft, data/skills→data/flows migriert) und live geprüft: /api/flows lädt 5 Flows, /api/flows/zeitplaene + /api/git/:id + /api/projects antworten 200, Frontend serviert den neuen Build inkl. CodeMirror-Chunk. Visuelle Browser-Abnahme jeder Fläche beim Nutzer" },
@@ -302,6 +303,22 @@
   </div>
 
   <h2>Themen — anklicken für Details</h2>
+
+  <details class="card" id="T22" data-prio="P0" data-status="planned" data-ref="T22 Standardprojekte &amp; verlässliche Flows">
+    <summary><span class="prio">P0</span><span class="ttl">Standardprojekte &amp; verlässliche Flows — Vorlagen-Galerie, Prüfschritt, ZUGFeRD</span><span class="cbtn-slot"></span><span class="st">geplant (014)</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Ein frisch eingerichtetes Gerät ist heute leer — der Haupt-Adoptionskiller im Mittelstand. Nach dem
+      Vorbild des intern bewährten Unity-Systems bekommt Arasul eine <b>Vorlagen-Galerie</b> beim Projekt-Anlegen:
+      <b>Kunden &amp; Aufträge</b> (Ordner je Kunde, Steckbrief + automatische Übersicht, /neuer-kunde mit autonomer
+      Web-Recherche, /angebot, /protokoll), <b>Firmenwissen &amp; Marke</b>, <b>Kundenservice</b> (isoliertes Projekt,
+      /antwort via n8n-API) und <b>Interne Finanzen</b> inkl. ZUGFeRD-Rechnungskern (lückenloser Nummernkreis,
+      Code-Summen, Validierung). Flows lernen die zweite Heimat <code>flows/</code> im Projektordner; globale Flows
+      arbeiten projektübergreifend. Verlässlichkeit zuerst: jeder Flow bekommt einen <b>Prüfschritt</b>
+      (deterministische Checks + Korrekturrunde) und ein Annahmen-Protokoll, bevor die Pakete kommen.</p>
+      <div class="facts"><span>Macht Gate: <b>G1</b></span><span>Aufwand: <b>6 Phasen · 6 PRs</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/work 014</code><button type="button" data-copy="/work 014">Befehl kopieren</button></div>
+    </div>
+  </details>
 
   <details class="card" id="T18" data-prio="P0" data-status="done" data-ref="T18 Agenten-Orchestrierung">
     <summary><span class="prio">P0</span><span class="ttl">Arasul wird Agenten-Orchestrierung — Neuausrichtung, Entrümpelung, Härtung</span><span class="cbtn-slot"></span><span class="st">erledigt (008 · #218)</span><span class="chev">▶</span></summary>
