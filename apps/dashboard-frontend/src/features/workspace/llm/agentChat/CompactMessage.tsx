@@ -196,8 +196,7 @@ function agentStepLabel(step: AgentToolStep): string {
     return 'aktualisiert die Aufgabenliste';
   }
   if (step.kind === 'subagent') {
-    const auftrag = str(p.auftrag);
-    return auftrag ? `Subagent ${step.tool}: ${auftrag}` : `Subagent ${step.tool}`;
+    return step.status === 'running' ? `Helfer „${step.tool}" arbeitet` : `Helfer „${step.tool}"`;
   }
   switch (step.tool) {
     case 'dateien':
@@ -274,22 +273,53 @@ function agentStepIcon(step: AgentToolStep): React.ReactNode {
 /**
  * Werkzeug-Schritte eines Agentenlaufs: während der Arbeit einzeln sichtbar
  * (Live-Statuszeilen), nach Abschluss zu EINER einklappbaren Zeile gefaltet.
+ *
+ * Seit dem Agent-UX-Umbau (2026-08-02) als BAUM: die inneren Werkzeug-Schritte
+ * eines Helfers (Subagent) hängen eingerückt unter seiner Zeile — dieselbe
+ * Darstellung, die Flow-Läufe längst haben, statt einer flachen Liste, in der
+ * nicht erkennbar war, wer was tat.
  */
 function AgentSteps({ steps, laufend }: { steps: AgentToolStep[]; laufend: boolean }) {
   const [offen, setOffen] = useState(false);
-  const liste = (
-    <div data-testid="agent-steps">
-      {steps.map((step, i) => (
-        <StepRow
-          key={step.id ?? i}
-          icon={agentStepIcon(step)}
-          label={step.status === 'running' ? `${agentStepLabel(step)} …` : agentStepLabel(step)}
-        >
-          {step.result || undefined}
-        </StepRow>
-      ))}
-    </div>
-  );
+
+  const kinderVon = new Map<number, AgentToolStep[]>();
+  const wurzeln: AgentToolStep[] = [];
+  for (const step of steps) {
+    if (step.parentStepId != null) {
+      const liste = kinderVon.get(step.parentStepId) ?? [];
+      liste.push(step);
+      kinderVon.set(step.parentStepId, liste);
+    } else {
+      wurzeln.push(step);
+    }
+  }
+
+  const renderStufe = (stufe: AgentToolStep[]): React.ReactNode =>
+    stufe.map((step, i) => {
+      const kinder = step.id != null ? (kinderVon.get(step.id) ?? []) : [];
+      const auftrag =
+        step.kind === 'subagent' && typeof step.params?.auftrag === 'string'
+          ? step.params.auftrag
+          : undefined;
+      return (
+        <div key={step.id ?? i}>
+          <StepRow
+            icon={agentStepIcon(step)}
+            label={step.status === 'running' ? `${agentStepLabel(step)} …` : agentStepLabel(step)}
+            detail={auftrag}
+          >
+            {step.result || undefined}
+          </StepRow>
+          {kinder.length > 0 && (
+            <div className="ml-3.5 border-l border-border/60 pl-1.5" data-testid="agent-substeps">
+              {renderStufe(kinder)}
+            </div>
+          )}
+        </div>
+      );
+    });
+
+  const liste = <div data-testid="agent-steps">{renderStufe(wurzeln)}</div>;
 
   if (laufend) {
     return <div className="mb-1">{liste}</div>;
@@ -315,9 +345,24 @@ function AgentSteps({ steps, laufend }: { steps: AgentToolStep[]; laufend: boole
  * Klickbare Datei-Karte (wie Cursor): die gespeicherte Antwort als Datei —
  * Klick öffnet sie im Editor-Tab, statt den langen Text inline auszubreiten.
  */
+const AENDERUNG_BADGE: Record<
+  NonNullable<MessageDatei['aenderung']>,
+  { label: string; cls: string }
+> = {
+  neu: { label: 'Neu', cls: 'text-success border-success/40 bg-success/10' },
+  geaendert: { label: 'Geändert', cls: 'text-primary border-primary/40 bg-primary/10' },
+  geloescht: {
+    label: 'Gelöscht',
+    cls: 'text-destructive border-destructive/40 bg-destructive/10',
+  },
+};
+
 function DateiKarte({ datei }: { datei: MessageDatei }) {
   const openTab = useWorkspaceStore(s => s.openTab);
-  const klickbar = Boolean(datei.project_id && datei.pfad);
+  // Eine gelöschte Datei kann man nicht mehr öffnen — die Karte bleibt als
+  // ehrlicher Beleg der Änderung, aber ohne toten Klickpfad.
+  const klickbar = Boolean(datei.project_id && datei.pfad) && datei.aenderung !== 'geloescht';
+  const badge = datei.aenderung ? AENDERUNG_BADGE[datei.aenderung] : null;
   return (
     <button
       type="button"
@@ -340,11 +385,26 @@ function DateiKarte({ datei }: { datei: MessageDatei }) {
     >
       <FileText className="size-4 shrink-0 text-primary" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium text-foreground">{datei.name}</span>
+        <span
+          className={cn(
+            'block truncate text-[13px] font-medium text-foreground',
+            datei.aenderung === 'geloescht' && 'line-through opacity-70'
+          )}
+        >
+          {datei.name}
+        </span>
         <span className="block truncate text-[11px] text-muted-foreground">
           {datei.pfad || 'Projektablage'}
         </span>
       </span>
+      {badge && (
+        <span
+          className={cn('shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium', badge.cls)}
+          data-testid="datei-badge"
+        >
+          {badge.label}
+        </span>
+      )}
       {klickbar && (
         <span className="shrink-0 text-[11px] text-muted-foreground group-hover:text-foreground">
           Öffnen
@@ -457,6 +517,14 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
               bleiben hinter dem Auf/Zu, damit nichts doppelt ausgebreitet wird. */}
           {message.content && message.content.length <= 600 && (
             <CompactMarkdown content={message.content} />
+          )}
+          {gespeicherteDateien.length > 1 && (
+            <div
+              className="mt-1 text-xs font-medium text-muted-foreground"
+              data-testid="aenderungen-titel"
+            >
+              Änderungen · {gespeicherteDateien.length} Dateien
+            </div>
           )}
           {gespeicherteDateien.map((d, i) => (
             <DateiKarte key={`${d.pfad}-${i}`} datei={d} />

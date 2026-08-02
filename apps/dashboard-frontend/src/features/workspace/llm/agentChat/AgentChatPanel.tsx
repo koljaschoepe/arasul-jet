@@ -94,6 +94,12 @@ export default function AgentChatPanel() {
   const [dragOver, setDragOver] = useState(false);
   // Datei-Modus: die nächste Antwort wird automatisch als Datei gespeichert.
   const [dateiModus, setDateiModus] = useState(false);
+  // Agent-UX 2026-08-02: Eine während des Laufs abgeschickte Text-Nachricht
+  // verpufft nicht mehr stumm, sondern wartet sichtbar und wird nach dem
+  // Abschluss automatisch gesendet.
+  const [wartendeNachricht, setWartendeNachricht] = useState<string | null>(null);
+  // Sichtbares Feedback zwischen Stop-Klick und tatsächlichem Ende.
+  const [stoppt, setStoppt] = useState(false);
   // Flow-Namen je Lauf-ID — nur als Kopfzeilen-Hinweis, bevor der Lauf-Strom
   // ihn ohnehin bestätigt (Plan 011, Schritt 15).
   const [runNames, setRunNames] = useState<Record<number, string>>({});
@@ -244,9 +250,74 @@ export default function AgentChatPanel() {
     return id;
   }, [chatId, api]);
 
+  /**
+   * Reiner Text-Versand (ohne Anhänge) — der gemeinsame Weg für die wartende
+   * Nachricht und den „Erneut versuchen"-Knopf der Fehlerzeile.
+   */
+  const sendeNurText = useCallback(
+    async (msg: string) => {
+      setError(null);
+      const effectiveModelId = selectedModel || defaultModel;
+      const model = installedModels.find(m => m.id === effectiveModelId);
+      const scopeActive = !!chatScope && chatScope.spaceIds.length > 0;
+      try {
+        const id = await ensureChat();
+        sendMessage(id, msg, {
+          agent: true,
+          useRAG: false,
+          useThinking: model?.supports_thinking === true,
+          selectedSpaces: scopeActive && chatScope ? chatScope.spaceIds : [],
+          matchedSpaces: [],
+          messages: messagesRef.current,
+          model: selectedModel || undefined,
+          alsDatei: dateiModus || SPEICHER_ABSICHT.test(msg),
+          dateiZiel: chatDateiZiel
+            ? { projectId: chatDateiZiel.projectId, pfad: chatDateiZiel.pfad }
+            : null,
+        });
+        stickToBottomRef.current = true;
+      } catch {
+        setError('Chat konnte nicht erstellt werden');
+      }
+    },
+    [
+      selectedModel,
+      defaultModel,
+      installedModels,
+      chatScope,
+      chatDateiZiel,
+      dateiModus,
+      ensureChat,
+      sendMessage,
+    ]
+  );
+
+  // Lauf beendet (fertig, Fehler oder gestoppt): Stop-Feedback zurücksetzen
+  // und eine wartende Nachricht automatisch nachschicken.
+  useEffect(() => {
+    if (isLoading) return;
+    setStoppt(false);
+    if (wartendeNachricht) {
+      const msg = wartendeNachricht;
+      setWartendeNachricht(null);
+      void sendeNurText(msg);
+    }
+  }, [isLoading, wartendeNachricht, sendeNurText]);
+
   const handleSend = useCallback(async () => {
     const hasInput = input.trim() || attachedFile || attachedImages.length > 0;
-    if (!hasInput || isLoading) return;
+    if (!hasInput) return;
+    if (isLoading) {
+      // Nicht mehr stumm verschlucken: reiner Text wartet sichtbar und geht
+      // nach dem Abschluss automatisch raus; Anhänge brauchen den Nutzer.
+      if (input.trim() && !attachedFile && attachedImages.length === 0) {
+        setWartendeNachricht(input.trim());
+        setInput('');
+      } else {
+        setError('Der Agent arbeitet noch — bitte warten oder den Lauf stoppen.');
+      }
+      return;
+    }
 
     // Anhänge zeigt der Verlauf als Chip/Vorschau — kein Platzhaltertext mehr;
     // nur Bilder ohne Text brauchen weiter einen (die Pipeline will Inhalt).
@@ -419,7 +490,10 @@ export default function AgentChatPanel() {
   );
 
   const handleCancel = useCallback(() => {
-    if (chatId) cancelJob(chatId);
+    if (chatId) {
+      setStoppt(true);
+      cancelJob(chatId);
+    }
   }, [chatId, cancelJob]);
 
   const startNewChat = useCallback(() => {
@@ -658,11 +732,50 @@ export default function AgentChatPanel() {
         )}
       </div>
 
-      {/* Fehlerzeile */}
+      {/* Fehlerzeile — mit direktem „Erneut versuchen" statt Neu-Tippen. */}
       {error && (
         <div className="mx-2.5 mb-1 flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-xs text-destructive">
-          <span className="truncate">{error}</span>
-          <button type="button" onClick={() => setError(null)} aria-label="Fehler schließen">
+          <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">{error}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            {!isLoading &&
+              (() => {
+                const letzte = [...messages].reverse().find(m => m.role === 'user')?.content;
+                return letzte ? (
+                  <button
+                    type="button"
+                    onClick={() => void sendeNurText(letzte)}
+                    className="rounded border border-destructive/40 px-1.5 py-0.5 font-medium hover:bg-destructive/15"
+                    data-testid="fehler-erneut"
+                  >
+                    Erneut versuchen
+                  </button>
+                ) : null;
+              })()}
+            <button type="button" onClick={() => setError(null)} aria-label="Fehler schließen">
+              <X className="size-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Wartende Nachricht: geht automatisch raus, sobald der Agent fertig ist. */}
+      {wartendeNachricht && (
+        <div
+          className="mx-2.5 mb-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted px-2 py-1 text-xs text-muted-foreground"
+          data-testid="wartende-nachricht"
+        >
+          <span className="min-w-0 flex-1 truncate">
+            Wird gesendet, sobald der Agent fertig ist: „{wartendeNachricht}&ldquo;
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setInput(wartendeNachricht);
+              setWartendeNachricht(null);
+            }}
+            aria-label="Wartende Nachricht zurückholen"
+            className="shrink-0 hover:text-foreground"
+          >
             <X className="size-3" />
           </button>
         </div>
@@ -676,6 +789,7 @@ export default function AgentChatPanel() {
           onSend={handleSend}
           onCancel={handleCancel}
           isLoading={isLoading}
+          stopping={stoppt}
           attachedFile={attachedFile}
           onRemoveFile={() => setAttachedFile(null)}
           attachedImages={attachedImages}

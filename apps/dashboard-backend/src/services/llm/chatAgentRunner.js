@@ -175,6 +175,28 @@ function kurz(wert, max) {
 }
 
 /**
+ * Übersetzt einen technischen Fehler in einen Satz, den ein Nicht-Techniker
+ * versteht (Agent-UX 2026-08-02). Der rohe Text bleibt im Log — dem Nutzer
+ * gehört die Ursache in Alltagssprache plus ein klarer nächster Schritt.
+ */
+function verstaendlicherFehler(err) {
+  const roh = String(err?.message || err || '');
+  if (/ohne Daten|timeout|timed?\s*out|ETIMEDOUT/i.test(roh)) {
+    return 'Das Modell hat zu lange nicht geantwortet (Zeitüberschreitung). Bitte noch einmal versuchen — bei großen Aufträgen hilft es, sie in kleinere Schritte zu teilen.';
+  }
+  if (/ECONNREFUSED|ENOTFOUND|fetch failed|socket|ECONNRESET/i.test(roh)) {
+    return 'Der KI-Dienst ist gerade nicht erreichbar. Einen Moment warten und erneut versuchen.';
+  }
+  if (/model .*not found|no such model|nicht geladen|model_not_found/i.test(roh)) {
+    return 'Das gewählte Modell ist nicht geladen — bitte im Store laden oder ein anderes Modell wählen.';
+  }
+  if (/GPU|out of memory|OOM|Speicher/i.test(roh)) {
+    return 'Dem Gerät ist der KI-Speicher ausgegangen. Ein kleineres Modell wählen oder laufende Aufgaben beenden.';
+  }
+  return `Der Lauf ist unerwartet gescheitert (${kurz(roh, 140)}). Bitte erneut versuchen.`;
+}
+
+/**
  * Kürzt die Werkzeug-Parameter, behält aber die OBJEKT-Form — die UI baut
  * daraus die Schritt-Beschriftung („schreibt kunden/angebot.html").
  */
@@ -685,24 +707,42 @@ async function processAgentChatJob(ctx, job) {
     if (!vorher || !nachher) {
       return 0;
     }
-    let neu = 0;
+    let geaendertGesamt = 0;
+    const melde = (pfad, aenderung) => {
+      if (gemeldeteDateien.has(pfad)) {
+        return;
+      }
+      gemeldeteDateien.add(pfad);
+      const datei = {
+        art: 'projektdatei',
+        project_id: projectId,
+        pfad,
+        name: path.posix.basename(pfad),
+        // Kategorie für die Änderungs-Übersicht im Chat (Agent-UX 2026-08-02):
+        // neu | geaendert | geloescht — dieselbe Sprache wie bei Flow-Läufen.
+        aenderung,
+      };
+      dateien.push(datei);
+      service.notifySubscribers(jobId, { type: 'agent_datei', datei });
+    };
     for (const [pfad, sig] of nachher) {
-      if (vorher.get(pfad) !== sig) {
-        neu += 1;
-        if (!gemeldeteDateien.has(pfad)) {
-          gemeldeteDateien.add(pfad);
-          const datei = {
-            art: 'projektdatei',
-            project_id: projectId,
-            pfad,
-            name: path.posix.basename(pfad),
-          };
-          dateien.push(datei);
-          service.notifySubscribers(jobId, { type: 'agent_datei', datei });
-        }
+      if (!vorher.has(pfad)) {
+        geaendertGesamt += 1;
+        melde(pfad, 'neu');
+      } else if (vorher.get(pfad) !== sig) {
+        geaendertGesamt += 1;
+        melde(pfad, 'geaendert');
       }
     }
-    return neu;
+    // Gelöschte Dateien nicht verschlucken — sie sind genauso eine Änderung,
+    // die der Nutzer sehen muss (vorher unsichtbar verpufft).
+    for (const pfad of vorher.keys()) {
+      if (!nachher.has(pfad)) {
+        geaendertGesamt += 1;
+        melde(pfad, 'geloescht');
+      }
+    }
+    return geaendertGesamt;
   };
   const snapshotStart = await leseSnapshot();
 
@@ -1077,6 +1117,11 @@ async function processAgentChatJob(ctx, job) {
               project_id: projectId,
               pfad: relPfad,
               name: path.posix.basename(relPfad),
+              // Gab es die Datei beim Lauf-Start schon? Dann ist das eine
+              // Änderung, sonst eine Neuanlage — fürs Badge der Datei-Karte.
+              ...(snapshotStart
+                ? { aenderung: snapshotStart.has(relPfad) ? 'geaendert' : 'neu' }
+                : {}),
             };
             dateien.push(datei);
             service.notifySubscribers(jobId, { type: 'agent_datei', datei });
@@ -1097,13 +1142,15 @@ async function processAgentChatJob(ctx, job) {
       onToken('\n\n_Abgebrochen._');
     } else if (!fertigText && !dbPuffer) {
       // Fehler VOR jedem Inhalt: werfen, die Queue markiert den Job als Fehler.
+      // Dem Nutzer gehört die verständliche Fassung; die rohe steht im Log.
       clearInterval(abbruchPoller);
-      throw err;
+      log.error(`[JOB ${jobId}] Agent-Lauf gescheitert: ${err.message}`);
+      throw new Error(verstaendlicherFehler(err));
     } else {
       // Fehler NACH gestreamtem Inhalt: sauber abschließen statt werfen — der
       // Nutzer soll den bisherigen Text behalten.
       log.error(`[JOB ${jobId}] Agent-Lauf nach Teilantwort gescheitert: ${err.message}`);
-      onToken(`\n\n_Abgebrochen: ${err.message}_`);
+      onToken(`\n\n_Abgebrochen: ${verstaendlicherFehler(err)}_`);
     }
   } finally {
     clearInterval(abbruchPoller);
@@ -1194,4 +1241,10 @@ async function processAgentChatJob(ctx, job) {
   onJobComplete(ctx, jobId);
 }
 
-module.exports = { processAgentChatJob, AGENT_WERKZEUGE, AGENT_ROLLEN, streamChatRound };
+module.exports = {
+  processAgentChatJob,
+  AGENT_WERKZEUGE,
+  AGENT_ROLLEN,
+  streamChatRound,
+  verstaendlicherFehler,
+};
