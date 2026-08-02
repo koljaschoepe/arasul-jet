@@ -648,7 +648,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             if (!/_Abgebrochen\.?_\s*$/.test(content)) {
               next[i] = {
                 ...m,
-                content: content ? `${content}\n\n_Abgebrochen._` : content,
+                // Auch ein Stopp in der Denkphase (noch kein Text) hinterlässt
+                // einen sichtbaren Beleg statt einer leeren Nachricht.
+                content: content ? `${content}\n\n_Abgebrochen._` : '_Abgebrochen._',
                 streamStatus: undefined,
                 statusMessage: undefined,
               };

@@ -1117,6 +1117,11 @@ async function processAgentChatJob(ctx, job) {
               project_id: projectId,
               pfad: relPfad,
               name: path.posix.basename(relPfad),
+              // Gab es die Datei beim Lauf-Start schon? Dann ist das eine
+              // Änderung, sonst eine Neuanlage — fürs Badge der Datei-Karte.
+              ...(snapshotStart
+                ? { aenderung: snapshotStart.has(relPfad) ? 'geaendert' : 'neu' }
+                : {}),
             };
             dateien.push(datei);
             service.notifySubscribers(jobId, { type: 'agent_datei', datei });
