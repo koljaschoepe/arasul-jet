@@ -314,9 +314,28 @@ async function pruefeUndKorrigiere({
     }
   }
 
+  // Deterministisches Sicherheitsnetz (Live-Befund Phase-2-Verify): Lässt das
+  // Modell {{Platzhalter}}-Reste trotz Korrekturrunde stehen, löst CODE sie
+  // auf — jede Stelle wird zur sichtbaren [offenen Angabe] und protokolliert.
+  // Nichts wird erfunden; garantiert ist nur, dass kein technischer
+  // Vorlagen-Marker je im fertigen Dokument landet.
+  const reste = [...new Set(text.match(DOPPELT_RE) || [])];
+  const ausPlatzhaltern = new Set();
+  if (reste.length > 0) {
+    for (const rest of reste) {
+      const inner = rest.replace(/^\{\{\s*/, '').replace(/\s*\}\}$/, '');
+      text = text.split(rest).join(`[${inner}]`);
+      ausPlatzhaltern.add(inner);
+      annahmen.push(`Offen geblieben: [${inner}] (Platzhalter war unersetzt)`);
+    }
+    checks = deterministischeChecks(text, ausgabe);
+  }
+
   // Verbliebene offene Stellen ins Annahmen-Protokoll — dokumentiert, nicht erfunden.
   for (const offen of sammleOffeneStellen(text)) {
-    annahmen.push(`Offen geblieben: [${offen}]`);
+    if (!ausPlatzhaltern.has(offen)) {
+      annahmen.push(`Offen geblieben: [${offen}]`);
+    }
   }
 
   const protokoll =

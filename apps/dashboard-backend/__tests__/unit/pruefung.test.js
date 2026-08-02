@@ -210,6 +210,33 @@ describe('pruefeUndKorrigiere', () => {
     expect(out.korrigiert).toBe(false);
   });
 
+  test('vom Modell stehen gelassene {{Reste}} löst Code deterministisch auf (Live-Befund)', async () => {
+    const runLoop = jest
+      .fn()
+      .mockResolvedValueOnce({ result: '{"bestanden": true, "probleme": [], "annahmen": []}' })
+      // Korrektur lässt den Platzhalter stur stehen — wie qwen3-coder im Live-Verify.
+      .mockResolvedValueOnce({
+        result: 'Sehr geehrter {{ansprechpartner}}, hier unser vollständiges Angebot dazu.',
+      });
+    const rec = stepRecorderMock();
+
+    const out = await pruefeUndKorrigiere({
+      markdown: 'Sehr geehrter {{ansprechpartner}}, hier unser Angebot mit allen Details.',
+      flow,
+      userInput: 'Angebot',
+      model: 'test',
+      context: {},
+      stepRecorder: rec,
+      runLoop,
+    });
+
+    expect(out.text).not.toMatch(/\{\{/);
+    expect(out.text).toContain('[ansprechpartner]');
+    expect(out.annahmen).toContain('Offen geblieben: [ansprechpartner] (Platzhalter war unersetzt)');
+    // Kein Doppel-Eintrag durch die [offene-Stellen]-Sammlung.
+    expect(out.annahmen.filter(a => a.includes('ansprechpartner'))).toHaveLength(1);
+  });
+
   test('scheiternde Korrektur lässt den Entwurf unverändert (Schritt als Fehler)', async () => {
     const runLoop = jest
       .fn()
