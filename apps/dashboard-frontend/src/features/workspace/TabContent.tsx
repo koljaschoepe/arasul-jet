@@ -13,6 +13,7 @@ const ProjectFileTab = lazy(() => import('./viewers/ProjectFileTab'));
 const AutomationenTab = lazy(() => import('./viewers/AutomationenTab'));
 const ExtensionAppTab = lazy(() => import('./viewers/ExtensionAppTab'));
 const FlowEditorTab = lazy(() => import('@/features/flows/FlowEditorTab'));
+const KundenUebersichtTab = lazy(() => import('./viewers/KundenUebersichtTab'));
 
 export interface TabThemeControls {
   theme: string;
@@ -93,6 +94,8 @@ function initialPathFor(tab: WorkspaceTab): string {
     case 'extension':
       // Direkt gerendert (kein FeatureTabHost), Wert wird nie genutzt.
       return '/';
+    case 'kundenuebersicht':
+      return '/';
   }
 }
 
@@ -105,6 +108,7 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   automationen: new Set([]),
   flow: new Set([]),
   extension: new Set([]),
+  kundenuebersicht: new Set([]),
 };
 
 /**
@@ -181,6 +185,9 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
   }
   if (tab.type === 'flow') {
     return <FlowEditorTab />;
+  }
+  if (tab.type === 'kundenuebersicht') {
+    return <KundenUebersichtTab />;
   }
   return <FeatureTabHost tab={tab} themeControls={themeControls} />;
 }

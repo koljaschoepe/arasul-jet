@@ -11,7 +11,7 @@ argumente:
     beschreibung: Was soll angeboten werden? Leistungen, Umfang, Preisrahmen, Besonderheiten
     pflicht: false
 ordner:
-  - projekt://aktiv/_Vorlagen
+  - projekt://aktiv
 werkzeuge:
   - dateien_lesen
   - rag_suche
@@ -43,8 +43,9 @@ Gehe so vor:
 1. Lies mit dateien_lesen den `Steckbrief.md` im Kundenordner und alles, was im
    Unterordner `Briefing/` liegt — daraus ergibt sich, wer der Kunde ist und
    was er braucht.
-2. Lies die Stilvorlage `Angebots-Stil.md` im Ordner `_Vorlagen` und halte dich
-   an ihren Aufbau und Ton.
+2. Lies die Stilvorlage `_Vorlagen/Angebots-Stil.md` (in der Projekt-Wurzel)
+   und halte dich an ihren Aufbau und Ton. Lies außerdem `Firmenprofil.md` in
+   der Projekt-Wurzel, falls vorhanden — daraus ergibt sich der Absender.
 3. Schreibe den Angebotsentwurf. Berücksichtige dabei diese Hinweise des
    Nutzers (falls vorhanden): {{hinweise}}
 

@@ -39,6 +39,11 @@ vi.mock('@/contexts/ToastContext', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
 
+// Einrichtungs-Interview (Phase 3): der Switcher startet Flows über useApi.
+vi.mock('@/hooks/useApi', () => ({
+  useApi: () => ({ get: vi.fn(), post: vi.fn().mockResolvedValue({}) }),
+}));
+
 describe('WorkspaceSwitcher', () => {
   it('zeigt den Namen des aktiven Projekts im Umschalter', () => {
     render(<WorkspaceSwitcher />);

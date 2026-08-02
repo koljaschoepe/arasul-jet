@@ -34,6 +34,7 @@ import {
   RefreshCw,
   Trash2,
   Upload,
+  Users,
 } from 'lucide-react';
 import {
   ContextMenu,
@@ -172,6 +173,18 @@ export function ExplorerPanel() {
   const uploadZielRef = useRef<string | null>(null);
   const refreshTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  // Kundenübersicht (Plan 014, Phase 3): der Einstieg erscheint automatisch,
+  // sobald das aktive Projekt Kundenordner hat (CRM-Vorlage) — gleiche Daten
+  // wie der Übersichts-Tab (geteilter Query-Key).
+  const kundenQuery = useQuery({
+    queryKey: ['projekt-kunden', activeId],
+    queryFn: () =>
+      api.get<{ data: unknown[] }>(`/projects/${activeId}/kunden`, { showError: false }),
+    enabled: !!activeId,
+    staleTime: 30_000,
+  });
+  const hatKunden = (kundenQuery.data?.data?.length ?? 0) > 0;
 
   const queryKey = useMemo(() => ['projekt-dateien', activeId], [activeId]);
   const { data, isLoading, isFetching, refetch, error } = useQuery({
@@ -930,6 +943,18 @@ export function ExplorerPanel() {
             <p className="px-2 py-1 text-xs text-destructive" role="alert">
               Explorer konnte nicht geladen werden
             </p>
+          )}
+          {/* Kundenübersicht — Einstieg über dem Baum, sobald Kunden existieren. */}
+          {activeId && !serverSucheAktiv && hatKunden && (
+            <button
+              type="button"
+              data-testid="explorer-kundenuebersicht"
+              onClick={() => openTab({ type: 'kundenuebersicht' })}
+              className="mb-1 flex min-h-ui-row w-full cursor-pointer items-center gap-1.5 rounded border border-border/60 bg-muted/40 px-2 py-1 text-left text-ui-sm font-medium text-foreground hover:bg-accent"
+            >
+              <Users className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+              Kundenübersicht
+            </button>
           )}
           {activeId && !serverSucheAktiv && !isLoading && error == null && (
             <div data-testid="explorer-tree">

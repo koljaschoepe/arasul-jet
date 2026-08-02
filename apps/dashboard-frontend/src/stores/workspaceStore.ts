@@ -27,7 +27,8 @@ export type WorkspaceTabType =
   | 'store'
   | 'automationen'
   | 'flow'
-  | 'extension';
+  | 'extension'
+  | 'kundenuebersicht';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
@@ -60,6 +61,7 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   automationen: 'Automationen',
   flow: 'Neuer Flow',
   extension: 'Erweiterung',
+  kundenuebersicht: 'Kundenübersicht',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
@@ -96,6 +98,8 @@ export function tabToPath(tab: WorkspaceTab): string {
       return '/workspace/flow';
     case 'extension':
       return `/workspace/ext/${tab.extensionId ?? ''}`;
+    case 'kundenuebersicht':
+      return '/workspace/kunden';
   }
 }
 
@@ -127,6 +131,8 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'automationen' };
     case 'flow':
       return { type: 'flow' };
+    case 'kunden':
+      return { type: 'kundenuebersicht' };
     case 'ext':
       return parts[1] ? { type: 'extension', extensionId: parts[1] } : null;
     default:

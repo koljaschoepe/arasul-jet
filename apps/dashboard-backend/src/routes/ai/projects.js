@@ -21,6 +21,7 @@ const projectService = require('../../services/rag/projectService');
 const ablageService = require('../../services/projects/ablageService');
 const ordnerSyncService = require('../../services/projects/ordnerSyncService');
 const vorlagenService = require('../../services/projects/vorlagenService');
+const steckbriefIndex = require('../../services/projects/steckbriefIndex');
 const { cacheService } = require('../../services/core/cacheService');
 const { ValidationError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
@@ -183,6 +184,22 @@ router.put(
 // --- Projektablage: die Datei-API des echten Projektordners -----------------
 // (data/projects/<uuid> auf dem Gerät; Explorer-Bereich „Dateien", Flows und
 // Sandboxes arbeiten im selben Ordner.)
+
+/**
+ * GET /api/projects/:id/kunden
+ * Die Kundenübersicht des CRM-Pakets (Plan 014, Phase 3): je Unterordner von
+ * `Kunden/` ein Eintrag mit den Steckbrief-Feldern — direkt von der Platte
+ * gelesen (kein DB-Zustand, kein Drift).
+ */
+router.get(
+  '/:id/kunden',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  asyncHandler(async (req, res) => {
+    const { kunden } = await steckbriefIndex.listeKunden(req.params.id);
+    res.json({ data: kunden, total: kunden.length, timestamp: new Date().toISOString() });
+  })
+);
 
 /**
  * GET /api/projects/:id/dateien
