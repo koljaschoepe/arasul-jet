@@ -54,6 +54,9 @@ export function stepLabel(step: FlowRunStep): string {
     const kurz = kuerze(auftrag);
     return kurz ? `${name} · ${kurz}` : name;
   }
+  // Prüfschritt (Plan 014, Phase 2): eigene, sprechende Zeilen.
+  if (step.name === 'korrektur') return 'Korrekturrunde — Entwurf überarbeitet';
+  if (step.name === 'pruefung') return 'Prüfung des Entwurfs (Checks + Prüfrunde)';
   if (step.kind === 'modell') return 'Modell-Antwort';
   if (step.kind === 'hinweis') return feld(step.input, 'text', 'hinweis') || step.name || 'Hinweis';
   // Werkzeug: je nach echtem Werkzeugnamen (siehe services/flows/tools/) eine
@@ -98,6 +101,7 @@ export function stepLabel(step: FlowRunStep): string {
 
 function stepIcon(step: FlowRunStep) {
   if (step.kind === 'subagent' || step.name === 'subagent') return <Bot className="size-3.5" />;
+  if (step.name === 'pruefung') return <Search className="size-3.5" />;
   if (step.kind === 'modell') return <Sparkles className="size-3.5" />;
   switch (step.name) {
     case 'dateien_lesen':

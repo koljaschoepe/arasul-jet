@@ -856,6 +856,8 @@ router.post(
       result: run.result || null,
       error: run.error || null,
       steps_used: run.steps_used ?? null,
+      // Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2).
+      annahmen: run.annahmen ?? null,
       processing_time_ms: Date.now() - startTime,
       timestamp: new Date().toISOString(),
     });
@@ -889,6 +891,9 @@ router.get(
       result: run.result || null,
       error: run.error || null,
       steps_used: run.steps_used ?? null,
+      // Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2) — auch der
+      // n8n-Aufrufer sieht, welche Annahmen statt Rückfragen getroffen wurden.
+      annahmen: run.annahmen ?? null,
       timestamp: new Date().toISOString(),
     });
   })

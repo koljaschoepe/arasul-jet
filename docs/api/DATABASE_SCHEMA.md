@@ -2416,8 +2416,14 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 | `steps_used`      | integer                  | ⛔       | `0`                                     |
 | `changes`         | jsonb                    | ✅       |                                         |
 | `projekt_id`      | uuid                     | ✅       |                                         |
+| `annahmen`        | jsonb                    | ✅       |                                         |
 | `created_at`      | timestamp with time zone | ⛔       | `now()`                                 |
 | `finished_at`     | timestamp with time zone | ✅       |                                         |
+
+> `annahmen` (Migration 131, Plan 014 Phase 2): Annahmen-Protokoll des
+> Prüfschritts — JSON-Array von Klartext-Sätzen (Annahmen der Prüfrunde +
+> verbliebene `[offene Stellen]` im Dokument). `NULL` = kein Prüfschritt
+> gelaufen (Flow ohne Dokument-Ausgabe oder Lauf vor Phase 2).
 
 > `projekt_id` (Migration 130, Plan 014 Phase 1): Projekt eines
 > projektgebundenen Flows (`<projektordner>/flows/`); `NULL` = globaler Flow.

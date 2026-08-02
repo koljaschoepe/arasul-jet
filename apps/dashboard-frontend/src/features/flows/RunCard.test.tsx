@@ -37,6 +37,7 @@ function base(overrides: Partial<FlowRunState> = {}): FlowRunState {
     result: null,
     error: null,
     changes: [],
+    annahmen: [],
     verbunden: true,
     ...overrides,
   };
@@ -148,4 +149,16 @@ test('das erste Aufklappen eines Schritts lädt die Rohdaten nach', async () => 
   render(<RunCard runId={7} />);
   await user.click(screen.getByTestId('run-step').querySelector('button')!);
   expect(apiGet).toHaveBeenCalledWith('/flows/laeufe/7?raw=1', { showError: false });
+});
+
+test('zeigt das Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2)', () => {
+  runState = base({
+    status: 'fertig',
+    annahmen: ['Lieferzeit 2 Wochen angenommen', 'Offen geblieben: [Preis ergänzen]'],
+  });
+  render(<RunCard runId={7} />);
+  const block = screen.getByTestId('run-annahmen');
+  expect(block).toHaveTextContent('Getroffene Annahmen');
+  expect(block).toHaveTextContent('Lieferzeit 2 Wochen angenommen');
+  expect(block).toHaveTextContent('Offen geblieben: [Preis ergänzen]');
 });

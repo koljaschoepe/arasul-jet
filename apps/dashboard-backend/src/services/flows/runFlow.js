@@ -30,6 +30,7 @@ const { ensureFlowSandbox } = require('./sandboxResolve');
 const changeTracker = require('./changeTracker');
 const { ladeDokumentText } = require('./documentText');
 const { bauAusgabeAnweisungen, erzeugeDokument, DOKUMENT_FORMATE } = require('./dokumentAusgabe');
+const pruefungService = require('./pruefung');
 const { RunLimits } = require('./limits');
 const projectService = require('../rag/projectService');
 const modelService = require('../llm/modelService');
@@ -248,6 +249,7 @@ async function runFlow(
     tracker = changeTracker,
     loadDocText = ladeDokumentText,
     resolveModel = () => modelService.getDefaultModel(),
+    pruefe = pruefungService.pruefeUndKorrigiere,
   } = deps;
 
   const geladen = await loadFlow(flowName, { projektId });
@@ -623,6 +625,41 @@ async function runFlow(
     return store.getRun({ runId: run.id, userId });
   }
 
+  // 6a. Prüfschritt (Plan 014, Phase 2): Zwischen Entwurf und Ausgabe steht
+  //     bei Dokument-Flows ein fester Prüfschritt — deterministische Checks,
+  //     eine LLM-Prüfrunde gegen den Auftrag, höchstens eine Korrekturrunde.
+  //     Getroffene Annahmen (statt Rückfragen) landen strukturiert am Lauf.
+  //     Der Prüfschritt wirft nie: scheitert er selbst, läuft der Entwurf
+  //     unverändert weiter und das Protokoll benennt das.
+  let annahmen = null;
+  if (erzeugtDokument && !ergebnis.aborted && !ergebnis.error && ergebnis.result) {
+    try {
+      const geprueft = await pruefe({
+        markdown: ergebnis.result,
+        flow,
+        userInput,
+        model,
+        context,
+        signal,
+        stepRecorder,
+        runLoop,
+      });
+      ergebnis.result = geprueft.text;
+      annahmen = geprueft.annahmen;
+      if (annahmen.length > 0 && typeof onEvent === 'function') {
+        try {
+          onEvent({ type: 'annahmen', annahmen });
+        } catch (err) {
+          logger.warn(`Flow "${flowName}": onEvent(annahmen) warf: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      logger.warn(
+        `Flow "${flowName}": Prüfschritt fehlgeschlagen — Entwurf bleibt: ${err.message}`
+      );
+    }
+  }
+
   // 6b. Ausgabe-Dokument erzeugen (Flows-Umbau 2026-08-02): das Ergebnis-
   //     Markdown wird ins deklarierte Format gerendert und ins Arbeits-
   //     verzeichnis geschrieben — VOR der Änderungs-Übersicht, damit die Datei
@@ -687,6 +724,7 @@ async function runFlow(
     result: ergebnis.error ? null : ergebnis.result,
     error: ergebnis.error || dokumentFehler || null,
     stepsUsed: steps,
+    annahmen,
   });
 
   await aenderungenAbschliessen();

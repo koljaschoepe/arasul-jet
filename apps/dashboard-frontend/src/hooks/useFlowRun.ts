@@ -74,6 +74,8 @@ export interface FlowRunState {
   error: string | null;
   /** Datei-Änderungen des Laufs (leer, solange keine anfielen). */
   changes: FlowRunChange[];
+  /** Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2). */
+  annahmen: string[];
   /** Läuft gerade eine Live-Verbindung? */
   verbunden: boolean;
 }
@@ -89,6 +91,7 @@ interface StreamEvent {
     | 'done'
     | 'error'
     | 'aenderungen'
+    | 'annahmen'
     | 'ende';
   /** Bei step_start/step_end: die Schritt-Zeile (ohne Rohdaten). */
   step?: FlowRunStep;
@@ -100,6 +103,7 @@ interface StreamEvent {
     flow_name?: string;
     arguments?: Record<string, string> | null;
     changes?: FlowRunChange[] | null;
+    annahmen?: string[] | null;
   };
   tool?: string;
   params?: unknown;
@@ -108,6 +112,7 @@ interface StreamEvent {
   message?: string;
   status?: FlowRunStatus;
   changes?: FlowRunChange[];
+  annahmen?: string[];
 }
 
 const LEER: FlowRunState = {
@@ -119,6 +124,7 @@ const LEER: FlowRunState = {
   result: null,
   error: null,
   changes: [],
+  annahmen: [],
   verbunden: false,
 };
 
@@ -161,6 +167,7 @@ export function useFlowRun() {
               result: run?.result ?? s.result,
               error: run?.error ?? s.error,
               changes: run?.changes ?? s.changes,
+              annahmen: run?.annahmen ?? s.annahmen,
             };
           }
           case 'step_start': {
@@ -209,6 +216,8 @@ export function useFlowRun() {
             return { ...s, error: evt.message ?? s.error };
           case 'aenderungen':
             return { ...s, changes: evt.changes ?? s.changes };
+          case 'annahmen':
+            return { ...s, annahmen: evt.annahmen ?? s.annahmen };
           case 'ende':
             return { ...s, status: evt.status ?? s.status, verbunden: false };
           default:
