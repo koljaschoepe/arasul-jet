@@ -51,8 +51,14 @@ beforeEach(() => {
 });
 
 describe('FlowDashboard', () => {
-  it('zeigt die per-Flow-Trigger-URL', () => {
+  it('zeigt die per-Flow-Trigger-URL im aufgeklappten Integrations-Bereich', async () => {
     renderDash();
+    // Eingeklappt: Technik unsichtbar (Flows-Umbau 2026-08-02).
+    expect(
+      screen.queryByText(content => content.includes('/api/v1/external/flows/newsletter/run'))
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId('integration-toggle'));
     // Die URL steht sowohl im URL-Feld als auch im curl-Beispiel.
     expect(
       screen.getAllByText(content => content.includes('/api/v1/external/flows/newsletter/run'))
@@ -63,6 +69,7 @@ describe('FlowDashboard', () => {
   it('„Neuer Schlüssel" erzeugt einen Key mit Scope flow:run und zeigt ihn', async () => {
     apiPost.mockResolvedValueOnce({ api_key: 'ak_live_geheim123' });
     renderDash();
+    await userEvent.click(screen.getByTestId('integration-toggle'));
 
     await userEvent.click(screen.getByRole('button', { name: /Neuer Schlüssel/ }));
 

@@ -31,7 +31,12 @@ const VALID_TOOLS = [
 // wichtiger — einer anderen Art, Kontext zu beschaffen: `datei` lädt genau eine
 // Datei, `wissensbasis` scopet die RAG-Suche auf genau eine Sammlung. Das ist
 // der Hebel für Kontext-Sparsamkeit (§3 des Plans).
-const ARG_TYPES = ['freitext', 'datei', 'auswahl', 'wissensbasis'];
+//
+// `ordner` (Flows-Umbau 2026-08-02): der Kundenordner-Fall. Der Wert ist ein
+// `projekt://…`-Pfad; der ERSTE ordner-Argumentwert eines Laufs wird zum
+// Arbeitsverzeichnis (dort liegt der Kontext, dorthin schreibt der Flow seine
+// Enddateien) — genau wie `ordner_ziel` beim externen Trigger.
+const ARG_TYPES = ['freitext', 'datei', 'auswahl', 'wissensbasis', 'ordner'];
 
 // Flow- und Argumentnamen sind bewusst eng: Kleinbuchstaben, Ziffern, Bindestrich.
 // Der Flow-Name wird zum Dateinamen UND zum Slash-Befehl — alles andere wäre
@@ -223,6 +228,56 @@ const FlowStep = z
   });
 
 /**
+ * Die Ausgabe eines Flows (Flows-Umbau 2026-08-02) — was am Ende herauskommt.
+ *
+ * Der Runner setzt daraus zwei Dinge um: (1) Schreib-Anweisungen an das Modell
+ * (Sprache, Tonalität, Länge, Gliederung, Stilvorlage), (2) die eigentliche
+ * Dokument-Erzeugung NACH dem Lauf: das Ergebnis-Markdown wird als PDF, Word-
+ * oder Markdown-Datei ins Arbeitsverzeichnis geschrieben (dokumentAusgabe.js).
+ * `format: 'keins'` (Voreinstellung) = keine Datei, nur die Text-Antwort.
+ */
+const AUSGABE_FORMATE = ['keins', 'markdown', 'pdf', 'docx'];
+const LAENGEN_STUFEN = ['kurz', 'mittel', 'ausfuehrlich'];
+const TONALITAETEN = ['formell', 'neutral', 'locker'];
+
+const FlowAusgabe = z
+  .object({
+    format: z.enum(AUSGABE_FORMATE).default('keins'),
+    // Dateiname-Muster mit {{argument}}- und {{datum}}-Platzhaltern, OHNE
+    // Endung (die bestimmt das Format). Fehlt es: <flowname>-<datum>.
+    dateiname: z
+      .string()
+      .trim()
+      .max(120)
+      .refine(v => !v.includes('/') && !v.includes('..'), {
+        message: 'Dateiname-Muster darf keine Pfade enthalten',
+      })
+      .optional(),
+    // Dateiname einer hochgeladenen Stilvorlage unter data/flows/vorlagen/.
+    vorlage: z
+      .string()
+      .trim()
+      .max(200)
+      .refine(v => !v.includes('/') && !v.includes('..'), {
+        message: 'Vorlagenname darf keine Pfade enthalten',
+      })
+      .optional(),
+    laenge: z
+      .object({
+        stufe: z.enum(LAENGEN_STUFEN).default('mittel'),
+        // Konkrete Zielwortzahl — überstimmt die Stufe, wenn gesetzt.
+        wortzahl: z.coerce.number().int().min(50).max(100000).optional(),
+      })
+      .strict()
+      .optional(),
+    sprache: z.string().trim().min(1).max(40).optional(),
+    tonalitaet: z.enum(TONALITAETEN).optional(),
+    // Vorgegebene Abschnitte, an die sich das Dokument hält (in Reihenfolge).
+    gliederung: z.array(z.string().trim().min(1).max(120)).max(30).optional(),
+  })
+  .strict();
+
+/**
  * Notbremsen (§7). Die Voreinstellungen sind bewusst konservativ: eine
  * sequenzielle GPU macht aus 20 Modell-Aufrufen schon Minuten. Je Flow
  * hochsetzbar, wenn man es bewusst will.
@@ -275,6 +330,7 @@ const FlowDefinition = z
     // der Rumpf-Prompt die Antwort aus ihren Ausgaben.
     schritte: z.array(FlowStep).max(20).default([]),
     grenzen: FlowLimits,
+    ausgabe: FlowAusgabe.optional(),
     systemPrompt: z.string().trim().min(1, 'Ein Flow braucht einen Prompt (Markdown-Rumpf)'),
   })
   .strict()
@@ -345,13 +401,28 @@ const FlowDefinition = z
       'dateien_suchen',
       'terminal',
     ];
+    // Ein Argument vom Typ `ordner` liefert das Arbeitsverzeichnis erst beim
+    // Start (Kundenordner-Fall) — dann darf die Ordner-Liste hier leer sein.
+    const hatOrdnerArgument = flow.argumente.some(a => a.typ === 'ordner');
     const usesFiles = flow.werkzeuge.some(t => needsFolder.includes(t));
-    if (usesFiles && flow.ordner.length === 0) {
+    if (usesFiles && flow.ordner.length === 0 && !hatOrdnerArgument) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['ordner'],
         message:
-          'Der Flow nutzt Datei- oder Terminal-Werkzeuge, hat aber keinen erlaubten Ordner ("ordner")',
+          'Der Flow nutzt Datei- oder Terminal-Werkzeuge, hat aber keinen erlaubten Ordner ("ordner") und kein Argument vom Typ "ordner"',
+      });
+    }
+
+    // Ein Ausgabe-Dokument braucht ein Ziel: einen deklarierten Ordner oder ein
+    // ordner-Argument, das beim Start den Zielordner liefert.
+    const erzeugtDokument = flow.ausgabe && flow.ausgabe.format && flow.ausgabe.format !== 'keins';
+    if (erzeugtDokument && flow.ordner.length === 0 && !hatOrdnerArgument) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ausgabe'],
+        message:
+          'Der Flow erzeugt ein Dokument, hat aber weder einen erlaubten Ordner noch ein Argument vom Typ "ordner" als Ziel',
       });
     }
 
@@ -424,6 +495,7 @@ const SaveFlowBody = z
     rollen: z.array(SubagentRole).max(10).optional(),
     schritte: z.array(FlowStep).max(20).optional(),
     grenzen: FlowLimitsShape.optional(),
+    ausgabe: FlowAusgabe.optional(),
     prompt: z.string().trim().min(1).max(50000),
   })
   .strict();
@@ -432,13 +504,21 @@ const SaveFlowBody = z
 const CreateFlowBody = SaveFlowBody.extend({ name: FlowName });
 
 /**
- * Body der Laufzeit-Vorschau (Plan 012, Schritt 11): derselbe Flow-Body wie
- * beim Anlegen, plus optionale Beispiel-Argumente. Fehlen sie, füllt der Runner
- * sichtbare Platzhalter ein — die Vorschau soll auch ohne Angaben etwas zeigen.
+ * Name einer Stilvorlage unter `data/flows/vorlagen/` (URL-Parameter).
+ * Bewusst eng — der Name wird zum Dateinamen, keine Pfade, keine Tricks.
  */
-const RuntimePreviewBody = CreateFlowBody.extend({
-  args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
-});
+const VorlageNameParams = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .refine(v => !v.includes('/') && !v.includes('\\') && !v.includes('..'), {
+        message: 'Vorlagenname darf keine Pfade enthalten',
+      }),
+  })
+  .strict();
 
 /** `:name` in der URL. */
 const FlowNameParams = z.object({ name: FlowName }).strict();
@@ -514,10 +594,11 @@ module.exports = {
   ResultContract,
   FlowLimits,
   FlowLimitsShape,
+  FlowAusgabe,
   SaveFlowBody,
   CreateFlowBody,
-  RuntimePreviewBody,
   FlowNameParams,
+  VorlageNameParams,
   RunIdParams,
   WiederholenBody,
   ListRunsQuery,
@@ -525,5 +606,8 @@ module.exports = {
   ProjektOrdnerZiel,
   VALID_TOOLS,
   ARG_TYPES,
+  AUSGABE_FORMATE,
+  LAENGEN_STUFEN,
+  TONALITAETEN,
   FLOW_NAME_RE,
 };

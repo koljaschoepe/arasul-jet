@@ -8,8 +8,10 @@
  * lesen `typ`/`pflicht`/`optionen`.
  */
 
-/** Argument-Typen, die ein Flow deklarieren kann. Spiegelt `ARG_TYPES` im Backend. */
-export type FlowArgumentType = 'freitext' | 'datei' | 'auswahl' | 'wissensbasis';
+/** Argument-Typen, die ein Flow deklarieren kann. Spiegelt `ARG_TYPES` im Backend.
+ *  `ordner` (Flows-Umbau 2026-08-02): der Kundenordner-Fall — Wert ist ein
+ *  `projekt://…`-Pfad, der erste ordner-Wert wird zum Arbeitsverzeichnis des Laufs. */
+export type FlowArgumentType = 'freitext' | 'datei' | 'auswahl' | 'wissensbasis' | 'ordner';
 
 export interface FlowArgument {
   name: string;
@@ -93,6 +95,34 @@ export interface FlowLimits {
   max_tiefe: number;
 }
 
+/** Ausgabe-Formate eines Flows (Flows-Umbau 2026-08-02). */
+export type FlowAusgabeFormat = 'keins' | 'markdown' | 'pdf' | 'docx';
+export type FlowLaengeStufe = 'kurz' | 'mittel' | 'ausfuehrlich';
+export type FlowTonalitaet = 'formell' | 'neutral' | 'locker';
+
+/**
+ * Was am Ende eines Flows herauskommt: Format, Stilvorlage, Länge, Sprache,
+ * Tonalität, Gliederung und Dateiname-Muster. Spiegelt `FlowAusgabe` im Backend.
+ */
+export interface FlowAusgabe {
+  format: FlowAusgabeFormat;
+  /** Dateiname-Muster ohne Endung, mit {{argument}}- und {{datum}}-Platzhaltern. */
+  dateiname?: string;
+  /** Dateiname einer hochgeladenen Stilvorlage. */
+  vorlage?: string;
+  laenge?: { stufe: FlowLaengeStufe; wortzahl?: number };
+  sprache?: string;
+  tonalitaet?: FlowTonalitaet;
+  gliederung?: string[];
+}
+
+/** Eine Stilvorlage aus `GET /api/flows/vorlagen`. */
+export interface FlowVorlage {
+  name: string;
+  groesse: number;
+  hochgeladen: string;
+}
+
 /**
  * Die vollständige Flow-Definition, wie sie der Anlege-/Bearbeiten-Dialog
  * (Schritt 17) bearbeitet und `GET /api/flows/:name` liefert. Nach außen heißt
@@ -109,6 +139,7 @@ export interface FlowDefinition {
   /** Optionale deterministische Schritt-Kette (B7). Leer → modellgetrieben. */
   schritte: FlowStep[];
   grenzen: FlowLimits;
+  ausgabe?: FlowAusgabe;
   prompt: string;
 }
 

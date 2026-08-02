@@ -15,7 +15,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, Library, ListChecks } from 'lucide-react';
+import { FileText, FolderOpen, Library, ListChecks } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import type { FlowArgument } from '@/types/flows';
 
@@ -32,6 +32,12 @@ interface SammlungenResponse {
 interface TreeResponse {
   documents: { id: string; filename: string; title: string | null; space_id: string | null }[];
   spaces: { id: string; name: string }[];
+}
+interface AktivesProjektResponse {
+  data: { project: { id: string; name: string } | null };
+}
+interface AblageResponse {
+  data: { eintraege: { pfad: string; name: string; typ: 'ordner' | 'datei' }[] };
 }
 
 interface ArgumentPickerProps {
@@ -65,6 +71,23 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
     staleTime: 60_000,
   });
 
+  // Ordner der Projektablage nur für ein Ordner-Argument (Kundenordner-Fall).
+  // Bewusst über das AKTIVE Projekt (dieselbe Sicht wie der Explorer); der
+  // Wert ist die stabile projekt://aktiv-Form, die der Runner auflöst.
+  const aktivesProjekt = useQuery({
+    queryKey: ['projects', 'active'],
+    queryFn: () => api.get<AktivesProjektResponse>('/projects/active', { showError: false }),
+    enabled: arg.typ === 'ordner',
+    staleTime: 30_000,
+  });
+  const projektId = aktivesProjekt.data?.data.project?.id ?? null;
+  const ordnerBaum = useQuery({
+    queryKey: ['projekt-dateien', projektId],
+    queryFn: () => api.get<AblageResponse>(`/projects/${projektId}/dateien`, { showError: false }),
+    enabled: arg.typ === 'ordner' && !!projektId,
+    staleTime: 30_000,
+  });
+
   const alle: PickerItem[] = useMemo(() => {
     if (arg.typ === 'auswahl') {
       return (arg.optionen ?? []).map(o => ({ value: o, label: o }));
@@ -85,8 +108,21 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
         detail: d.space_id ? spaceName.get(d.space_id) : undefined,
       }));
     }
+    if (arg.typ === 'ordner') {
+      const ordner = (ordnerBaum.data?.data.eintraege ?? [])
+        .filter(e => e.typ === 'ordner')
+        .map(e => ({
+          value: `projekt://aktiv/${e.pfad}`,
+          label: e.name,
+          detail: e.pfad.includes('/') ? e.pfad : undefined,
+        }));
+      return [
+        { value: 'projekt://aktiv', label: 'Projektablage (Wurzel)', detail: 'gesamtes Projekt' },
+        ...ordner,
+      ];
+    }
     return [];
-  }, [arg, sammlungen.data, baum.data]);
+  }, [arg, sammlungen.data, baum.data, ordnerBaum.data]);
 
   const gefiltert = useMemo(() => {
     const q = suche.trim().toLowerCase();
@@ -100,7 +136,9 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
   }, [suche, arg]);
 
   const laedt =
-    (arg.typ === 'wissensbasis' && sammlungen.isLoading) || (arg.typ === 'datei' && baum.isLoading);
+    (arg.typ === 'wissensbasis' && sammlungen.isLoading) ||
+    (arg.typ === 'datei' && baum.isLoading) ||
+    (arg.typ === 'ordner' && (aktivesProjekt.isLoading || ordnerBaum.isLoading));
 
   const uebernehmen = (item: PickerItem | undefined) => {
     if (item) onPick(item.value, item.label);
@@ -122,13 +160,22 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
     }
   };
 
-  const Icon = arg.typ === 'datei' ? FileText : arg.typ === 'wissensbasis' ? Library : ListChecks;
+  const Icon =
+    arg.typ === 'datei'
+      ? FileText
+      : arg.typ === 'ordner'
+        ? FolderOpen
+        : arg.typ === 'wissensbasis'
+          ? Library
+          : ListChecks;
   const titel =
     arg.typ === 'datei'
       ? 'Datei wählen'
-      : arg.typ === 'wissensbasis'
-        ? 'Wissensbasis wählen'
-        : `Wert für „${arg.name}"`;
+      : arg.typ === 'ordner'
+        ? 'Ordner wählen'
+        : arg.typ === 'wissensbasis'
+          ? 'Wissensbasis wählen'
+          : `Wert für „${arg.name}"`;
 
   return (
     <div

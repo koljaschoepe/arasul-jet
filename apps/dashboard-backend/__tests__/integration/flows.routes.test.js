@@ -56,9 +56,9 @@ describe('Flows-Routen', () => {
     db.query.mockReset();
     setupAuthMocks(db);
     registry.clearCache();
-    // Verzeichnis zwischen den Tests leeren.
+    // Verzeichnis zwischen den Tests leeren (inkl. vorlagen/-Unterordner).
     for (const f of fs.readdirSync(TMP_FLOWS)) {
-      fs.unlinkSync(path.join(TMP_FLOWS, f));
+      fs.rmSync(path.join(TMP_FLOWS, f), { recursive: true, force: true });
     }
   });
 
@@ -313,56 +313,91 @@ describe('Flows-Routen', () => {
     });
   });
 
-  describe('Vorschau', () => {
-    test('zeigt die Datei, ohne sie zu schreiben', async () => {
-      const res = await auth(request(app).post('/api/flows/vorschau')).send(NEU);
-      expect(res.status).toBe(200);
-      expect(res.body.data.datei).toContain('name: notiz');
-      expect(fs.readdirSync(TMP_FLOWS)).toHaveLength(0);
+  describe('Ausgabe-Deklaration (Flows-Umbau 2026-08-02)', () => {
+    test('speichert und liefert das ausgabe-Objekt (Datei-Roundtrip)', async () => {
+      const res = await auth(request(app).post('/api/flows')).send({
+        ...NEU,
+        argumente: [
+          { name: 'kunde', typ: 'ordner', beschreibung: 'Kundenordner', pflicht: true },
+        ],
+        ausgabe: {
+          format: 'pdf',
+          dateiname: 'bericht-{{datum}}',
+          laenge: { stufe: 'mittel', wortzahl: 900 },
+          sprache: 'Deutsch',
+          tonalitaet: 'formell',
+          gliederung: ['Zusammenfassung', 'Details'],
+        },
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.data.ausgabe.format).toBe('pdf');
+
+      const geladen = await auth(request(app).get('/api/flows/notiz'));
+      expect(geladen.status).toBe(200);
+      expect(geladen.body.data.ausgabe).toEqual({
+        format: 'pdf',
+        dateiname: 'bericht-{{datum}}',
+        laenge: { stufe: 'mittel', wortzahl: 900 },
+        sprache: 'Deutsch',
+        tonalitaet: 'formell',
+        gliederung: ['Zusammenfassung', 'Details'],
+      });
+      expect(geladen.body.data.argumente[0].typ).toBe('ordner');
     });
 
-    test('meldet ungültige Eingaben, statt eine kaputte Vorschau zu zeigen', async () => {
-      const res = await auth(request(app).post('/api/flows/vorschau')).send({
+    test('lehnt ein Dokument-Format ohne Zielordner und ohne ordner-Argument ab', async () => {
+      const res = await auth(request(app).post('/api/flows')).send({
         ...NEU,
-        prompt: '{{fehlt}}',
+        ausgabe: { format: 'pdf' },
       });
       expect(res.status).toBe(400);
     });
+
+    test('ordner-Argument ersetzt die Ordner-Pflicht der Datei-Werkzeuge', async () => {
+      const res = await auth(request(app).post('/api/flows')).send({
+        ...NEU,
+        werkzeuge: ['dateien_schreiben'],
+        argumente: [{ name: 'ziel', typ: 'ordner', pflicht: true }],
+      });
+      expect(res.status).toBe(201);
+    });
   });
 
-  describe('Vorschau-Laufzeit', () => {
-    test('löst den Prompt mit den mitgegebenen Argumenten auf', async () => {
-      const res = await auth(request(app).post('/api/flows/vorschau-laufzeit')).send({
-        ...NEU,
-        prompt: 'Fasse {{thema}} zusammen.',
-        argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
-        args: { thema: 'Quartalszahlen' },
-      });
-      expect(res.status).toBe(200);
-      expect(res.body.data.systemPrompt).toBe('Fasse Quartalszahlen zusammen.');
-      expect(res.body.data.werkzeuge).toEqual([]);
-      expect(fs.readdirSync(TMP_FLOWS)).toHaveLength(0);
+  describe('Stilvorlagen', () => {
+    test('listet, speichert und löscht Vorlagen (Textformat, ohne Indexer)', async () => {
+      const leer = await auth(request(app).get('/api/flows/vorlagen'));
+      expect(leer.status).toBe(200);
+      expect(leer.body.data).toEqual([]);
+
+      const upload = await auth(request(app).post('/api/flows/vorlagen')).attach(
+        'datei',
+        Buffer.from('# Muster\n\nAufbau der Vorlage.'),
+        'muster.md'
+      );
+      expect(upload.status).toBe(201);
+      expect(upload.body.data.name).toBe('muster.md');
+
+      const liste = await auth(request(app).get('/api/flows/vorlagen'));
+      expect(liste.body.data.map(v => v.name)).toEqual(['muster.md']);
+
+      const del = await auth(request(app).delete('/api/flows/vorlagen/muster.md'));
+      expect(del.status).toBe(200);
+      const danach = await auth(request(app).get('/api/flows/vorlagen'));
+      expect(danach.body.data).toEqual([]);
     });
 
-    test('setzt ohne Angaben einen sichtbaren Platzhalter ein (wirft nicht)', async () => {
-      const res = await auth(request(app).post('/api/flows/vorschau-laufzeit')).send({
-        ...NEU,
-        prompt: 'Fasse {{thema}} zusammen.',
-        argumente: [{ name: 'thema', typ: 'freitext', pflicht: true }],
-      });
-      expect(res.status).toBe(200);
-      expect(res.body.data.systemPrompt).toBe('Fasse ‹thema› zusammen.');
+    test('lehnt nicht unterstützte Formate ab', async () => {
+      const res = await auth(request(app).post('/api/flows/vorlagen')).attach(
+        'datei',
+        Buffer.from('MZ...'),
+        'programm.exe'
+      );
+      expect(res.status).toBe(400);
     });
 
-    test('gibt strukturellen Kontext (Werkzeuge/Ordner) getrennt zurück', async () => {
-      const res = await auth(request(app).post('/api/flows/vorschau-laufzeit')).send({
-        ...NEU,
-        werkzeuge: ['dateien_lesen'],
-        ordner: ['berichte'],
-      });
-      expect(res.status).toBe(200);
-      expect(res.body.data.werkzeuge).toEqual(['dateien_lesen']);
-      expect(res.body.data.ordner).toEqual(['berichte']);
+    test('Löschen einer unbekannten Vorlage gibt 404', async () => {
+      const res = await auth(request(app).delete('/api/flows/vorlagen/gibtsnicht.md'));
+      expect(res.status).toBe(404);
     });
   });
 

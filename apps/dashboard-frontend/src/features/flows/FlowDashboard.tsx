@@ -1,36 +1,45 @@
 /**
- * FlowDashboard — die Flow-Zentrale (Detail-Ansicht eines Flows).
+ * FlowDashboard — der Klartext-Steckbrief eines Flows (Flows-Umbau 2026-08-02).
  *
- * Klickt man in der Sidebar auf einen Flow, öffnet der zentrale Flow-Tab NICHT
- * mehr direkt den Editor, sondern dieses Dashboard: auf einen Blick, wie der Flow
- * ausgelöst wird (Trigger-URL + kopierbares curl + API-Schlüssel mit Scope
- * `flow:run`), was er tut (Pipeline aus Schritten/Rollen), wohin er schreibt
- * (Arbeitsverzeichnis) und wann er zuletzt lief. Von hier führt „Bearbeiten" in
- * den Editor.
- *
- * Bewusst read-only bis auf die Schlüssel-Verwaltung — die Definition ändert man
- * im Editor, hier geht es ums Betreiben.
+ * Klickt man in der Sidebar auf einen Flow, zeigt der zentrale Flow-Tab diese
+ * Ansicht: in Alltagssprache, was der Flow tut, welche Eingaben er braucht,
+ * was am Ende herauskommt und wie man ihn startet (im Chat per /name — die
+ * frühere „Jetzt ausführen"-Karte ist bewusst entfernt: gestartet wird im Chat
+ * oder extern über n8n). Darunter die letzten Läufe mit den erzeugten
+ * Dokumenten. Die Integrations-Technik (Trigger-URL, curl, API-Schlüssel)
+ * liegt eingeklappt unter „Für Integrationen (n8n)".
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   Bot,
+  ChevronDown,
   ChevronRight,
   Copy,
+  FileText,
+  FolderOpen,
   KeyRound,
+  ListChecks,
   Loader2,
+  MessageSquareText,
   Pencil,
-  Play,
   Plus,
   Trash2,
   Webhook,
   Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
+import { cn } from '@/lib/utils';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
-import type { FlowArgument, FlowDefinition, FlowRunSummary, FlowRunStatus } from '@/types/flows';
+import type {
+  FlowArgument,
+  FlowAusgabe,
+  FlowDefinition,
+  FlowRunSummary,
+  FlowRunStatus,
+} from '@/types/flows';
 import FlowRunDetail from './FlowRunDetail';
 
 /** Ein API-Schlüssel, wie ihn GET /v1/external/api-keys liefert. */
@@ -59,6 +68,27 @@ const STATUS_META: Record<FlowRunStatus, { label: string; cls: string }> = {
   abgebrochen: { label: 'abgebrochen', cls: 'text-muted-foreground' },
 };
 
+const ARG_TYP_LABEL: Record<FlowArgument['typ'], string> = {
+  freitext: 'Freitext',
+  datei: 'Datei',
+  ordner: 'Ordner',
+  auswahl: 'Auswahl',
+  wissensbasis: 'Wissensbasis',
+};
+
+const FORMAT_LABEL: Record<FlowAusgabe['format'], string> = {
+  keins: 'Antwort im Chat (keine Datei)',
+  markdown: 'Markdown-Datei',
+  pdf: 'PDF-Dokument',
+  docx: 'Word-Dokument',
+};
+
+const STUFE_LABEL: Record<string, string> = {
+  kurz: 'kurz (½–1 Seite)',
+  mittel: 'mittel (2–4 Seiten)',
+  ausfuehrlich: 'ausführlich (5+ Seiten)',
+};
+
 function zeit(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -83,144 +113,29 @@ function Card({ title, icon, children }: { title: string; icon: ReactNode; child
   );
 }
 
-/**
- * StartKarte — „Jetzt ausführen" direkt in der Zentrale: Argument-Formular aus
- * der Flow-Deklaration, Start über POST /flows/laeufe (202 + runId), danach
- * springt die Zentrale in die Live-Ansicht des Laufs. Damit kann man einen
- * Flow OHNE Chat-Befehl und ohne curl bedienen — der Weg für Nicht-Techniker.
- */
-function StartKarte({
-  name,
-  argumente,
-  onGestartet,
-}: {
-  name: string;
-  argumente: FlowArgument[];
-  onGestartet: (runId: number) => void;
-}) {
-  const api = useApi();
-  const toast = useToast();
-  const [werte, setWerte] = useState<Record<string, string>>({});
-
-  // Vorbelegungen aus der Deklaration übernehmen — je Flow neu.
-  useEffect(() => {
-    const initial: Record<string, string> = {};
-    for (const a of argumente) if (a.standard != null) initial[a.name] = String(a.standard);
-    setWerte(initial);
-  }, [name, argumente]);
-
-  const brauchtSammlungen = argumente.some(a => a.typ === 'wissensbasis');
-  const sammlungen = useQuery({
-    queryKey: ['flows', 'sammlungen'],
-    queryFn: () =>
-      api.get<{ data: { id: string; name: string }[] }>('/flows/sammlungen', { showError: false }),
-    enabled: brauchtSammlungen,
-    staleTime: 60_000,
-  });
-
-  const fehlend = argumente.filter(a => a.pflicht && !(werte[a.name] ?? '').trim());
-  const starten = useMutation({
-    mutationFn: () => {
-      const args: Record<string, string> = {};
-      for (const a of argumente) {
-        const w = (werte[a.name] ?? '').trim();
-        if (w) args[a.name] = w;
-      }
-      return api.post<{ data: { runId: number } }>('/flows/laeufe', { flow: name, args });
-    },
-    onSuccess: res => {
-      toast.success('Lauf gestartet');
-      onGestartet(res.data.runId);
-    },
-  });
-
-  const setzeWert = (argName: string, wert: string) =>
-    setWerte(prev => ({ ...prev, [argName]: wert }));
-
-  const feldKlasse =
-    'rounded-md border border-border bg-background px-2 py-1.5 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring';
-
+/** Eine Zeile des Steckbriefs: Label links, Inhalt rechts. */
+function SteckbriefZeile({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <Card title="Jetzt ausführen" icon={<Play className="size-4 text-primary" />}>
-      {argumente.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {argumente.map(arg => (
-            <label key={arg.name} className="flex min-w-0 flex-col gap-1 text-xs">
-              <span className="font-medium text-foreground">
-                {arg.name}
-                {arg.pflicht && <span className="text-destructive"> *</span>}
-              </span>
-              {arg.typ === 'auswahl' && arg.optionen?.length ? (
-                <select
-                  value={werte[arg.name] ?? ''}
-                  onChange={e => setzeWert(arg.name, e.target.value)}
-                  className={feldKlasse}
-                  data-testid={`flow-arg-${arg.name}`}
-                >
-                  <option value="">— wählen —</option>
-                  {arg.optionen.map(o => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              ) : arg.typ === 'wissensbasis' ? (
-                <select
-                  value={werte[arg.name] ?? ''}
-                  onChange={e => setzeWert(arg.name, e.target.value)}
-                  className={feldKlasse}
-                  data-testid={`flow-arg-${arg.name}`}
-                >
-                  <option value="">— wählen —</option>
-                  {(sammlungen.data?.data ?? []).map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={werte[arg.name] ?? ''}
-                  onChange={e => setzeWert(arg.name, e.target.value)}
-                  placeholder={arg.beschreibung || undefined}
-                  className={`${feldKlasse} placeholder:text-muted-foreground/60`}
-                  data-testid={`flow-arg-${arg.name}`}
-                />
-              )}
-              {arg.beschreibung && arg.typ !== 'freitext' && arg.typ !== 'datei' && (
-                <span className="text-muted-foreground">{arg.beschreibung}</span>
-              )}
-            </label>
-          ))}
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          disabled={fehlend.length > 0 || starten.isPending}
-          onClick={() => starten.mutate()}
-          data-testid="flow-start"
-        >
-          {starten.isPending ? (
-            <>
-              <Loader2 className="size-4 animate-spin" /> Startet …
-            </>
-          ) : (
-            <>
-              <Play className="size-4" /> Ausführen
-            </>
-          )}
-        </Button>
-        {fehlend.length > 0 && (
-          <span className="text-[11px] text-muted-foreground">
-            Pflichtfelder: {fehlend.map(a => a.name).join(', ')}
-          </span>
-        )}
-      </div>
-    </Card>
+    <div className="flex gap-3 text-xs">
+      <span className="w-24 shrink-0 pt-0.5 text-muted-foreground">{label}</span>
+      <div className="min-w-0 flex-1 text-foreground">{children}</div>
+    </div>
   );
+}
+
+/** Die Ausgabe-Deklaration als lesbare Zeile(n). */
+function ausgabeText(ausgabe: FlowAusgabe | undefined): string {
+  if (!ausgabe || ausgabe.format === 'keins') {
+    return FORMAT_LABEL.keins;
+  }
+  const teile: string[] = [FORMAT_LABEL[ausgabe.format]];
+  if (ausgabe.vorlage) teile.push(`Vorlage „${ausgabe.vorlage}"`);
+  if (ausgabe.laenge?.wortzahl) teile.push(`~${ausgabe.laenge.wortzahl} Wörter`);
+  else if (ausgabe.laenge?.stufe)
+    teile.push(STUFE_LABEL[ausgabe.laenge.stufe] ?? ausgabe.laenge.stufe);
+  if (ausgabe.sprache) teile.push(ausgabe.sprache);
+  if (ausgabe.tonalitaet) teile.push(ausgabe.tonalitaet);
+  return teile.join(' · ');
 }
 
 export default function FlowDashboard({
@@ -267,11 +182,14 @@ export default function FlowDashboard({
   // Karten-Übersicht, bis „Alle Läufe" zurückführt.
   const [laufDetail, setLaufDetail] = useState<FlowRunSummary | null>(null);
 
-  // Flow-Wechsel schließt eine offene Lauf-Detailansicht — sonst zeigt die
-  // Zentrale des neuen Flows noch den Lauf des vorherigen.
+  // Flow-Wechsel schließt eine offene Lauf-Detailansicht — sonst zeigt der
+  // Steckbrief des neuen Flows noch den Lauf des vorherigen.
   useEffect(() => {
     setLaufDetail(null);
   }, [name]);
+
+  // Integrations-Bereich (n8n) — eingeklappt, Technik nur auf Wunsch.
+  const [integrationOffen, setIntegrationOffen] = useState(false);
 
   // „Ab Fehler wiederholen": startet einen neuen Lauf, der die Ausgaben der
   // erfolgreichen Schritte des alten übernimmt (nur Flows mit Schritt-Kette).
@@ -294,11 +212,12 @@ export default function FlowDashboard({
     },
   });
 
-  // API-Schlüssel mit Scope flow:run.
+  // API-Schlüssel mit Scope flow:run — erst laden, wenn der Bereich offen ist.
   const { data: keysRes } = useQuery({
     queryKey: ['external-api-keys'],
     queryFn: () => api.get<{ api_keys: ApiKey[] }>('/v1/external/api-keys', { showError: false }),
     staleTime: 30_000,
+    enabled: integrationOffen,
   });
   const flowKeys = useMemo(
     () =>
@@ -313,7 +232,7 @@ export default function FlowDashboard({
     mutationFn: () =>
       api.post<{ api_key: string }>('/v1/external/api-keys', {
         name: `Flow-Trigger ${name}`,
-        description: `Erzeugt in der Flow-Zentrale für /${name}`,
+        description: `Erzeugt in der Flow-Ansicht für /${name}`,
         allowed_endpoints: ['flow:run'],
       }),
     onSuccess: res => {
@@ -323,11 +242,11 @@ export default function FlowDashboard({
     },
   });
 
-  // Pipeline: bevorzugt die deterministische Schritt-Kette, sonst die Rollen,
-  // sonst „modellgetrieben".
+  const argumente = flow?.argumente ?? [];
   const schritte = flow?.schritte ?? [];
   const rollen = flow?.rollen ?? [];
-  const arbeitsordner = flow?.ordner?.find(Boolean) ?? null;
+  const ordnerArgument = argumente.find(a => a.typ === 'ordner');
+  const festerOrdner = flow?.ordner?.find(Boolean) ?? null;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="flow-dashboard">
@@ -369,189 +288,121 @@ export default function FlowDashboard({
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-            {/* Ausführen — die Primär-Aktion für Nicht-Techniker steht oben. */}
-            <StartKarte
-              name={name}
-              argumente={flow?.argumente ?? []}
-              onGestartet={runId => {
-                qc.invalidateQueries({ queryKey: ['flow-runs', 'fuer-flow', name] });
-                setLaufDetail({
-                  id: runId,
-                  flow_name: name,
-                  conversation_id: null,
-                  status: 'laeuft',
-                  steps_used: 0,
-                  created_at: new Date().toISOString(),
-                  finished_at: null,
-                });
-              }}
-            />
+            {/* Steckbrief — was dieser Flow ist, in Alltagssprache. */}
+            <Card title="Steckbrief" icon={<ListChecks className="size-4 text-primary" />}>
+              {flow?.beschreibung && <p className="text-xs text-foreground">{flow.beschreibung}</p>}
 
-            {/* Trigger (technisch) */}
-            <Card
-              title="So wird dieser Flow ausgelöst"
-              icon={<Webhook className="size-4 text-primary" />}
-            >
-              <p className="text-xs text-muted-foreground">
-                Im Chat per Slash-Befehl{' '}
-                <code className="rounded bg-muted px-1 py-0.5 text-foreground">/{name}</code> — oder
-                extern per HTTP an diese URL (POST):
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
-                  {triggerUrl}
-                </code>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copy(triggerUrl, toast, 'URL')}
-                >
-                  <Copy className="size-3.5" /> URL
-                </Button>
-              </div>
-              <div className="relative">
-                <pre className="overflow-x-auto rounded-md border border-border bg-muted p-3 font-mono text-[11px] leading-relaxed text-foreground">
-                  {curl}
-                </pre>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="absolute right-2 top-2"
-                  onClick={() => copy(curl, toast, 'curl-Beispiel')}
-                >
-                  <Copy className="size-3.5" /> curl
-                </Button>
-              </div>
+              <div className="flex flex-col gap-2">
+                <SteckbriefZeile label="Eingaben">
+                  {argumente.length === 0 ? (
+                    <span className="text-muted-foreground">keine — der Flow startet direkt</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {argumente.map(a => (
+                        <span
+                          key={a.name}
+                          title={a.beschreibung || undefined}
+                          className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5"
+                        >
+                          {a.typ === 'ordner' && (
+                            <FolderOpen className="size-3 text-muted-foreground" />
+                          )}
+                          {a.typ === 'datei' && (
+                            <FileText className="size-3 text-muted-foreground" />
+                          )}
+                          {a.name}
+                          <span className="text-muted-foreground">
+                            · {ARG_TYP_LABEL[a.typ]}
+                            {a.pflicht ? '' : ' (optional)'}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </SteckbriefZeile>
 
-              {/* Schlüssel-Verwaltung */}
-              <div className="flex flex-col gap-2 rounded-md border border-border/70 bg-background p-3">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                    <KeyRound className="size-3.5 text-muted-foreground" /> API-Schlüssel (Scope
-                    flow:run)
-                  </span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={erzeugeKey.isPending}
-                    onClick={() => erzeugeKey.mutate()}
-                  >
-                    {erzeugeKey.isPending ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Plus className="size-3.5" />
-                    )}
-                    Neuer Schlüssel
-                  </Button>
-                </div>
+                <SteckbriefZeile label="Ausgabe">{ausgabeText(flow?.ausgabe)}</SteckbriefZeile>
 
-                {neuerKey && (
-                  <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/5 p-2">
-                    <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
-                      {neuerKey}
-                    </code>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => copy(neuerKey, toast, 'Schlüssel')}
-                    >
-                      <Copy className="size-3.5" /> Kopieren
-                    </Button>
-                  </div>
-                )}
-
-                {flowKeys.length === 0 ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    Noch kein Schlüssel mit diesem Scope. Ohne Schlüssel lässt sich der Flow nur im
-                    Chat starten.
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-1">
-                    {flowKeys.map(k => (
-                      <li
-                        key={k.id}
-                        className="flex items-center gap-2 text-[11px] text-muted-foreground"
-                      >
-                        <KeyRound className="size-3 shrink-0" />
-                        <span className="truncate text-foreground">{k.name}</span>
-                        <code className="shrink-0 rounded bg-muted px-1">{k.key_prefix}…</code>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </Card>
-
-            {/* Pipeline */}
-            <Card title="Ablauf" icon={<Wrench className="size-4 text-primary" />}>
-              {schritte.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {schritte.map((s, i) => (
-                    <span key={i} className="flex items-center gap-1.5">
-                      <span className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs text-foreground">
-                        {s.typ === 'subagent' ? (
-                          <Bot className="size-3 text-muted-foreground" />
-                        ) : (
-                          <Wrench className="size-3 text-muted-foreground" />
-                        )}
-                        {s.typ === 'subagent' ? (s.rolle ?? 'Rolle') : (s.werkzeug ?? 'Werkzeug')}
-                      </span>
-                      {i < schritte.length - 1 && (
-                        <ArrowRight className="size-3 text-muted-foreground" />
-                      )}
+                <SteckbriefZeile label="Arbeitsordner">
+                  {ordnerArgument ? (
+                    <span>
+                      wird beim Start gewählt (Eingabe „{ordnerArgument.name}&ldquo;) — dort liest
+                      der Flow seinen Kontext und legt das Ergebnis ab
                     </span>
-                  ))}
-                </div>
-              ) : rollen.length > 0 ? (
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs text-muted-foreground">
-                    Modellgetrieben — das Modell ruft bei Bedarf diese Rollen:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {rollen.map(r => (
-                      <span
-                        key={r.name}
-                        className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs text-foreground"
-                      >
-                        <Bot className="size-3 text-muted-foreground" /> {r.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Modellgetrieben — der Prompt entscheidet selbst über die Werkzeuge.
-                </p>
-              )}
-            </Card>
+                  ) : festerOrdner ? (
+                    <code className="rounded bg-muted px-1 py-0.5">
+                      {festerOrdner === 'projekt://aktiv'
+                        ? 'Projektablage des aktiven Projekts'
+                        : festerOrdner}
+                    </code>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      keiner — der Flow schreibt keine Dateien
+                    </span>
+                  )}
+                </SteckbriefZeile>
 
-            {/* Ausgabe */}
-            {arbeitsordner && (
-              <Card title="Ausgabeort" icon={<Play className="size-4 text-primary" />}>
-                <p className="text-xs text-muted-foreground">
-                  Dateien schreibt dieser Flow in sein Arbeitsverzeichnis:
-                </p>
-                <code className="block truncate rounded-md border border-border bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
-                  {arbeitsordner === 'projekt://aktiv'
-                    ? 'Projektablage des aktiven Projekts'
-                    : arbeitsordner}
-                </code>
-                {arbeitsordner === 'projekt://aktiv' && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Die Dateien erscheinen im Explorer unter „Projektablage&ldquo;.
-                  </p>
+                <SteckbriefZeile label="Start">
+                  <span>
+                    im Chat mit{' '}
+                    <code className="rounded bg-muted px-1 py-0.5 text-foreground">/{name}</code> —
+                    oder automatisch über n8n (siehe unten)
+                  </span>
+                </SteckbriefZeile>
+
+                {/* Ablauf nur zeigen, wenn der Flow wirklich eine Pipeline hat —
+                    für den Standard-Flow ist das Rauschen. */}
+                {(schritte.length > 0 || rollen.length > 0) && (
+                  <SteckbriefZeile label="Ablauf">
+                    {schritte.length > 0 ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {schritte.map((s, i) => (
+                          <span key={i} className="flex items-center gap-1.5">
+                            <span className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5">
+                              {s.typ === 'subagent' ? (
+                                <Bot className="size-3 text-muted-foreground" />
+                              ) : (
+                                <Wrench className="size-3 text-muted-foreground" />
+                              )}
+                              {s.typ === 'subagent'
+                                ? (s.rolle ?? 'Rolle')
+                                : (s.werkzeug ?? 'Werkzeug')}
+                            </span>
+                            {i < schritte.length - 1 && (
+                              <ArrowRight className="size-3 text-muted-foreground" />
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-muted-foreground">
+                          modellgesteuert mit Bausteinen:
+                        </span>
+                        {rollen.map(r => (
+                          <span
+                            key={r.name}
+                            className="flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5"
+                          >
+                            <Bot className="size-3 text-muted-foreground" /> {r.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </SteckbriefZeile>
                 )}
-              </Card>
-            )}
+              </div>
+            </Card>
 
             {/* Letzte Läufe — jede Zeile öffnet die Detailansicht mit dem
-              aufklappbaren Agenten-Baum (laufende Läufe live). */}
-            <Card title="Letzte Läufe" icon={<Loader2 className="size-4 text-primary" />}>
+              aufklappbaren Agenten-Baum (laufende Läufe live) und den
+              erzeugten Dokumenten. */}
+            <Card title="Letzte Läufe" icon={<MessageSquareText className="size-4 text-primary" />}>
               {runs.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Noch keine Läufe.</p>
+                <p className="text-xs text-muted-foreground">
+                  Noch keine Läufe. Starte den Flow im Chat mit{' '}
+                  <code className="rounded bg-muted px-1 py-0.5 text-foreground">/{name}</code>.
+                </p>
               ) : (
                 <ul className="flex flex-col divide-y divide-border/60">
                   {runs.map(r => {
@@ -614,6 +465,122 @@ export default function FlowDashboard({
                 </ul>
               )}
             </Card>
+
+            {/* Für Integrationen (n8n) — eingeklappt, weil Technik. */}
+            <section className="rounded-lg border border-border bg-card">
+              <button
+                type="button"
+                onClick={() => setIntegrationOffen(o => !o)}
+                aria-expanded={integrationOffen}
+                data-testid="integration-toggle"
+                className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold text-foreground hover:bg-accent/40"
+              >
+                <ChevronDown
+                  className={cn(
+                    'size-4 text-muted-foreground transition-transform',
+                    !integrationOffen && '-rotate-90'
+                  )}
+                />
+                <Webhook className="size-4 text-primary" />
+                Für Integrationen (n8n)
+              </button>
+
+              {integrationOffen && (
+                <div className="flex flex-col gap-3 border-t border-border p-4">
+                  <p className="text-xs text-muted-foreground">
+                    Extern starten per HTTP (POST) — z. B. aus einem n8n-Workflow. Mit{' '}
+                    <code className="rounded bg-muted px-1 py-0.5">ordner_ziel</code> lenkst du das
+                    Ergebnis pro Aufruf in einen bestimmten Ordner (z. B. den Kundenordner).
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-muted px-2 py-1.5 font-mono text-xs text-foreground">
+                      {triggerUrl}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copy(triggerUrl, toast, 'URL')}
+                    >
+                      <Copy className="size-3.5" /> URL
+                    </Button>
+                  </div>
+                  <div className="relative">
+                    <pre className="overflow-x-auto rounded-md border border-border bg-muted p-3 font-mono text-[11px] leading-relaxed text-foreground">
+                      {curl}
+                    </pre>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="absolute right-2 top-2"
+                      onClick={() => copy(curl, toast, 'curl-Beispiel')}
+                    >
+                      <Copy className="size-3.5" /> curl
+                    </Button>
+                  </div>
+
+                  {/* Schlüssel-Verwaltung */}
+                  <div className="flex flex-col gap-2 rounded-md border border-border/70 bg-background p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                        <KeyRound className="size-3.5 text-muted-foreground" /> API-Schlüssel (Scope
+                        flow:run)
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={erzeugeKey.isPending}
+                        onClick={() => erzeugeKey.mutate()}
+                      >
+                        {erzeugeKey.isPending ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Plus className="size-3.5" />
+                        )}
+                        Neuer Schlüssel
+                      </Button>
+                    </div>
+
+                    {neuerKey && (
+                      <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/5 p-2">
+                        <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
+                          {neuerKey}
+                        </code>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => copy(neuerKey, toast, 'Schlüssel')}
+                        >
+                          <Copy className="size-3.5" /> Kopieren
+                        </Button>
+                      </div>
+                    )}
+
+                    {flowKeys.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Noch kein Schlüssel mit diesem Scope. Ohne Schlüssel lässt sich der Flow nur
+                        im Chat starten.
+                      </p>
+                    ) : (
+                      <ul className="flex flex-col gap-1">
+                        {flowKeys.map(k => (
+                          <li
+                            key={k.id}
+                            className="flex items-center gap-2 text-[11px] text-muted-foreground"
+                          >
+                            <KeyRound className="size-3 shrink-0" />
+                            <span className="truncate text-foreground">{k.name}</span>
+                            <code className="shrink-0 rounded bg-muted px-1">{k.key_prefix}…</code>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
           </div>
         </div>
       )}
