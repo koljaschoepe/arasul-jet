@@ -39,6 +39,7 @@ const {
 const flowRegistry = require('../../services/flows/flowRegistry');
 const flowRunner = require('../../services/flows/flowRunner');
 const flowRunStore = require('../../services/flows/runStore');
+const projectService = require('../../services/rag/projectService');
 const { resolveArguments } = require('../../services/flows/runFlow');
 
 // Multer for document upload endpoints (50MB limit)
@@ -775,18 +776,31 @@ router.get(
   requireApiKey,
   requireEndpoint('flow:run'),
   asyncHandler(async (req, res) => {
+    const zeile = (f, projekt = null) => ({
+      name: f.name,
+      beschreibung: f.beschreibung || '',
+      // Projektgebundene Flows (Plan 014, Phase 4): beim Start als
+      // body.projekt mitgeben. null = globaler Flow.
+      projekt,
+      argumente: (f.argumente || []).map(a => ({
+        name: a.name,
+        typ: a.typ,
+        pflicht: a.pflicht === true,
+      })),
+    });
+
     const { flows } = await flowRegistry.listFlows();
+    const alle = flows.map(f => zeile(f));
+    for (const p of await projectService.listProjects()) {
+      const projektErgebnis = await flowRegistry.listFlows({ projektId: p.id });
+      for (const f of projektErgebnis.flows) {
+        alle.push(zeile(f, { id: p.id, name: p.name }));
+      }
+    }
+
     res.json({
       success: true,
-      flows: flows.map(f => ({
-        name: f.name,
-        beschreibung: f.beschreibung || '',
-        argumente: (f.argumente || []).map(a => ({
-          name: a.name,
-          typ: a.typ,
-          pflicht: a.pflicht === true,
-        })),
-      })),
+      flows: alle,
       timestamp: new Date().toISOString(),
     });
   })
@@ -822,7 +836,8 @@ router.post(
 
     // FRÜH prüfen, solange der Request da ist: Flow existiert (→ 404) und die
     // Argumente passen (→ 400). Sonst käme der Fehler erst als toter Lauf.
-    const flow = await flowRegistry.loadFlow(flowName);
+    const projektId = req.body.projekt ?? null;
+    const flow = await flowRegistry.loadFlow(flowName, { projektId });
     resolveArguments(flow.argumente, args);
 
     const { runId } = await flowRunner.starten({
@@ -831,6 +846,7 @@ router.post(
       userId,
       conversationId: null,
       ordnerZiel: req.body.ordner_ziel ?? null,
+      projektId,
     });
 
     logger.info(

@@ -1,0 +1,9 @@
+{
+  "id": "kundenservice",
+  "name": "Kundenservice",
+  "beschreibung": "Ein bewusst abgeschottetes Service-Projekt: Antworten kommen ausschließlich aus dem hier abgelegten Service-Wissen — per n8n auch automatisch auf eingehende Kunden-Mails.",
+  "icon": "headphones",
+  "color": "#f59e0b",
+  "version": 1,
+  "ordner": []
+}
