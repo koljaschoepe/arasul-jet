@@ -9,7 +9,7 @@
  * Schaltern zeigt der Verlauf transparent, was passiert ist (Schritte,
  * Quellen). Chats entstehen lazy beim ersten Senden.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Upload, X } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
@@ -81,6 +81,13 @@ export default function AgentChatPanel() {
   const { pins, removePin } = usePins();
   const { activeId: activeProjectId } = useActiveProject();
 
+  // Projektgebundene Flows (Plan 014, Phase 1): im Slash-Menü erscheinen die
+  // globalen Flows plus NUR die Flows des aktiven Projekts.
+  const sichtbareFlows = useMemo(
+    () => flows.filter(f => !f.projekt || f.projekt.id === activeProjectId),
+    [flows, activeProjectId]
+  );
+
   const [chatId, setChatId] = useState<string | null>(
     () => localStorage.getItem(PANEL_CHAT_KEY) || null
   );
@@ -108,10 +115,13 @@ export default function AgentChatPanel() {
   // Phase D): Ziel im `flowEditorStore` setzen, dann den `flow`-Tab öffnen.
   const oeffneFlowEditor = useCallback(
     (editName: string | null) => {
-      setEditTarget(editName);
+      // Projektgebundene Flows (Plan 014): das Projekt mitgeben, damit der
+      // Editor-Tab die richtige Datei lädt (sonst 404 gegen den globalen Pfad).
+      const flow = editName ? flows.find(f => f.name === editName) : undefined;
+      setEditTarget(editName, 'edit', flow?.projekt ?? null);
       openTab({ type: 'flow' });
     },
-    [setEditTarget, openTab]
+    [setEditTarget, openTab, flows]
   );
 
   // Die Lauf-IDs dieses Chats (neueste zuerst) — die Karten stehen chronologisch
@@ -455,7 +465,7 @@ export default function AgentChatPanel() {
   }, [chatId, api, setChatFlowRuns]);
 
   const handleRunFlow = useCallback(
-    async (flowName: string, args: Record<string, string>) => {
+    async (flowName: string, args: Record<string, string>, projektId?: string | null) => {
       // Doppel-Auslösung sperren: `isLoading` ist der Chat-Stream, nicht der Lauf —
       // ohne eigene Sperre startete ein schnelles Doppel-Enter zwei Läufe (zwei
       // teure GPU-Vorgänge, zwei Karten) für eine Aktion. Erst nach dem POST frei.
@@ -468,6 +478,9 @@ export default function AgentChatPanel() {
           flow: flowName,
           args,
           conversation_id: Number(id),
+          // Projektgebundener Flow: das Backend sucht ihn im flows/-Ordner
+          // dieses Projekts (Plan 014, Phase 1).
+          ...(projektId ? { projekt: projektId } : {}),
         });
         // Erst NACH dem erfolgreichen Start leeren — schlägt er fehl (z. B.
         // fehlendes Pflicht-Argument), bleibt der getippte Befehl zum
@@ -804,7 +817,7 @@ export default function AgentChatPanel() {
           onSelectModel={setSelectedModel}
           pins={pins}
           onRemovePin={id => removePin.mutate(id)}
-          flows={flows}
+          flows={sichtbareFlows}
           // Plan 012 Phase D: `/flows` öffnet die echte Übersicht (Sidebar-
           // Ansicht »Flows«), `/neuer-flow` einen leeren Editor-Tab, das
           // Stift-Symbol den Editor-Tab des jeweiligen Flows.

@@ -37,7 +37,10 @@ export default function FlowEditorTab() {
 
   const editName = useFlowEditorStore(s => s.editName);
   const mode = useFlowEditorStore(s => s.mode);
+  const projekt = useFlowEditorStore(s => s.projekt);
   const setEditTarget = useFlowEditorStore(s => s.setEditTarget);
+  // Projektgebundene Flows (Plan 014): alle Einzel-Flow-Aufrufe tragen das Projekt.
+  const projektQuery = projekt ? `?projekt=${projekt.id}` : '';
   const closeTab = useWorkspaceStore(s => s.closeTab);
   const updateTabTitle = useWorkspaceStore(s => s.updateTabTitle);
 
@@ -65,9 +68,9 @@ export default function FlowEditorTab() {
 
   // Beim Bearbeiten den Flow laden; beim Anlegen mit dem leeren Formular starten.
   const { data: geladen } = useQuery({
-    queryKey: ['flows', editName],
+    queryKey: ['flows', editName, projekt?.id ?? null],
     queryFn: async () => {
-      const res = await api.get<{ data: FlowDefinition }>(`/flows/${editName}`, {
+      const res = await api.get<{ data: FlowDefinition }>(`/flows/${editName}${projektQuery}`, {
         showError: false,
       });
       return res.data;
@@ -106,7 +109,7 @@ export default function FlowEditorTab() {
         // (`CreateFlowBody`) gehört der Name in den Body.
         const { name: _name, ...ohneNamen } = body;
         void _name;
-        await api.put(`/flows/${editName}`, ohneNamen, { showError: false });
+        await api.put(`/flows/${editName}${projektQuery}`, ohneNamen, { showError: false });
         toast.success(`Flow „${editName}" gespeichert`);
         await queryClient.invalidateQueries({ queryKey: ['flows'] });
       } else {
@@ -129,7 +132,7 @@ export default function FlowEditorTab() {
   const loeschen = async () => {
     setLoescht(true);
     try {
-      await api.del(`/flows/${editName}`, { showError: false });
+      await api.del(`/flows/${editName}${projektQuery}`, { showError: false });
       toast.success(`Flow „${editName}" gelöscht`);
       // Erst den Editor abbauen (Tab schließen + Ziel leeren), dann die
       // Detail-Abfrage des gelöschten Flows verwerfen — sonst löst das breite
@@ -157,7 +160,8 @@ export default function FlowEditorTab() {
         <FlowDashboard
           name={editName}
           flow={geladen}
-          onEdit={() => setEditTarget(editName, 'edit')}
+          projekt={projekt}
+          onEdit={() => setEditTarget(editName, 'edit', projekt)}
           onDelete={() => setLoeschDialog(true)}
         />
         <ConfirmModal

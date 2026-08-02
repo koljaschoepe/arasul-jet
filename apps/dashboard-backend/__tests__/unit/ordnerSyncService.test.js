@@ -204,6 +204,19 @@ describe('ordnerSyncService', () => {
     expect(dateien.map(d => d.rel)).toEqual(['kunden/mueller/angebot.md']);
   });
 
+  test('leseBaum überspringt flows/ NUR auf der obersten Ebene (Plan 014)', async () => {
+    // Projektgebundene Flow-Definitionen gehören in die Registry, nicht in den
+    // Wissens-Index — ein Nutzer-Unterordner namens flows bleibt aber Wissen.
+    await fsp.mkdir(path.join(dir, 'flows'));
+    await fsp.writeFile(path.join(dir, 'flows', 'angebot.md'), 'x');
+    await fsp.mkdir(path.join(dir, 'projekte', 'flows'), { recursive: true });
+    await fsp.writeFile(path.join(dir, 'projekte', 'flows', 'notiz.md'), 'x');
+
+    const { ordner, dateien } = await ordnerSync._intern.leseBaum(dir);
+    expect(ordner.map(o => o.rel)).toEqual(['projekte', 'projekte/flows']);
+    expect(dateien.map(d => d.rel)).toEqual(['projekte/flows/notiz.md']);
+  });
+
   test('Materialisieren beansprucht eine inhaltsgleiche Datei statt eine „-2"-Kopie anzulegen', async () => {
     const inhalt = '# Schon da';
     await fsp.writeFile(path.join(dir, 'bericht.md'), inhalt);

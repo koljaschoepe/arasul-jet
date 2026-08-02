@@ -2117,18 +2117,25 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 > bündelt mehrere `knowledge_spaces` (via `knowledge_spaces.project_id`); das
 > aktive Projekt (`system_settings.active_project_id`) scopt Explorer + Suche/Agenten.
 
-| Column        | Type                     | Nullable | Default                        |
-| ------------- | ------------------------ | -------- | ------------------------------ |
-| `id`          | uuid                     | ⛔       | `gen_random_uuid()`            |
-| `name`        | character varying        | ⛔       |                                |
-| `slug`        | character varying        | ⛔       |                                |
-| `description` | text                     | ✅       |                                |
-| `icon`        | character varying        | ✅       | `'layers'::character varying`  |
-| `color`       | character varying        | ✅       | `'#6366f1'::character varying` |
-| `is_default`  | boolean                  | ⛔       | `false`                        |
-| `sort_order`  | integer                  | ⛔       | `0`                            |
-| `created_at`  | timestamp with time zone | ⛔       | `now()`                        |
-| `updated_at`  | timestamp with time zone | ⛔       | `now()`                        |
+| Column            | Type                     | Nullable | Default                        |
+| ----------------- | ------------------------ | -------- | ------------------------------ |
+| `id`              | uuid                     | ⛔       | `gen_random_uuid()`            |
+| `name`            | character varying        | ⛔       |                                |
+| `slug`            | character varying        | ⛔       |                                |
+| `description`     | text                     | ✅       |                                |
+| `icon`            | character varying        | ✅       | `'layers'::character varying`  |
+| `color`           | character varying        | ✅       | `'#6366f1'::character varying` |
+| `is_default`      | boolean                  | ⛔       | `false`                        |
+| `sort_order`      | integer                  | ⛔       | `0`                            |
+| `vorlage_id`      | text                     | ✅       |                                |
+| `vorlage_version` | integer                  | ✅       |                                |
+| `created_at`      | timestamp with time zone | ⛔       | `now()`                        |
+| `updated_at`      | timestamp with time zone | ⛔       | `now()`                        |
+
+> `vorlage_id`/`vorlage_version` (Migration 130, Plan 014 Phase 1): Herkunft
+> eines aus der Vorlagen-Galerie angelegten Projekts (z. B. `kunden-auftraege`)
+> samt Vorlagen-Version — Grundlage des Update-Hinweises (Phase 6). `NULL` =
+> leer angelegt.
 
 **Primary key:** `id`
 
@@ -2408,8 +2415,13 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 | `error`           | text                     | ✅       |                                         |
 | `steps_used`      | integer                  | ⛔       | `0`                                     |
 | `changes`         | jsonb                    | ✅       |                                         |
+| `projekt_id`      | uuid                     | ✅       |                                         |
 | `created_at`      | timestamp with time zone | ⛔       | `now()`                                 |
 | `finished_at`     | timestamp with time zone | ✅       |                                         |
+
+> `projekt_id` (Migration 130, Plan 014 Phase 1): Projekt eines
+> projektgebundenen Flows (`<projektordner>/flows/`); `NULL` = globaler Flow.
+> FK auf `projects(id)` mit `ON DELETE SET NULL`.
 
 > `changes` (Plan 011, Schritt 16): Datei-Änderungen des Laufs — `[{pfad, art (neu\|geaendert\|geloescht), vorher, nachher, gekuerzt, hinweis}]`, aus dem Ordner-Abzug vor/nach dem Lauf; gedeckelt in Zahl und Vorschau-Länge. `NULL` = nicht ermittelt (Lauf ohne Schreib-Werkzeug).
 

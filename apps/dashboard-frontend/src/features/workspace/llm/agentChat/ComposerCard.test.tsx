@@ -310,7 +310,7 @@ describe('ComposerCard · Flow-Lauf abschicken (Schritt 15)', () => {
     const ta = screen.getByLabelText('Nachricht an die KI');
     await user.type(ta, 'Klimawandel 2026');
     await user.keyboard('{Enter}');
-    expect(onRunFlow).toHaveBeenCalledWith('recherche', { thema: 'Klimawandel 2026' });
+    expect(onRunFlow).toHaveBeenCalledWith('recherche', { thema: 'Klimawandel 2026' }, null);
     expect(onSend).not.toHaveBeenCalled();
   });
 
@@ -348,7 +348,7 @@ describe('ComposerCard · Flow-Lauf abschicken (Schritt 15)', () => {
     );
     await user.click(screen.getByLabelText('Nachricht an die KI'));
     await user.keyboard('{Enter}');
-    expect(onRunFlow).toHaveBeenCalledWith('recherche', { thema: 'Klimawandel 2026' });
+    expect(onRunFlow).toHaveBeenCalledWith('recherche', { thema: 'Klimawandel 2026' }, null);
     expect(onSend).not.toHaveBeenCalled();
   });
 
@@ -359,6 +359,6 @@ describe('ComposerCard · Flow-Lauf abschicken (Schritt 15)', () => {
     render(<RunHarness onRunFlow={onRunFlow} onSend={onSend} start="/recherche " />);
     await user.click(screen.getByLabelText('Nachricht an die KI'));
     await user.keyboard('{Enter}');
-    expect(onRunFlow).toHaveBeenCalledWith('recherche', {});
+    expect(onRunFlow).toHaveBeenCalledWith('recherche', {}, null);
   });
 });

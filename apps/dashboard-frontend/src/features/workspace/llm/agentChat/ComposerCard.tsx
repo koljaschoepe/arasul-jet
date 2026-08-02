@@ -114,7 +114,7 @@ interface ComposerCardProps {
    * Chat-Nachricht startet der Aufrufer einen Lauf und zeigt die Lauf-Karte.
    * Die Argumente kommen aus der Eingabehilfe (`collect()`), sonst leer.
    */
-  onRunFlow?: (flowName: string, args: Record<string, string>) => void;
+  onRunFlow?: (flowName: string, args: Record<string, string>, projektId?: string | null) => void;
 }
 
 export default function ComposerCard({
@@ -217,7 +217,7 @@ export default function ComposerCard({
     const flow = m ? flows.find(s => s.name === m[1]) : undefined;
     if (flow && m && onRunFlow && !attachedFile && attachedImages.length === 0) {
       if (inArgs && args.argState?.flow.name === flow.name) {
-        onRunFlow(flow.name, args.collect());
+        onRunFlow(flow.name, args.collect(), flow.projekt?.id ?? null);
         return;
       }
       // Ohne aktive Eingabehilfe (von Hand getippt, eingefügt, nach Bearbeitung):
@@ -230,7 +230,7 @@ export default function ComposerCard({
         flow.argumente.find(a => a.typ === 'freitext');
       const collected: Record<string, string> = {};
       if (rest && freitext) collected[freitext.name] = rest;
-      onRunFlow(flow.name, collected);
+      onRunFlow(flow.name, collected, flow.projekt?.id ?? null);
       return;
     }
     onSend();

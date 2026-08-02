@@ -820,18 +820,27 @@ Die oberste Ebene über den Ordnern: ein Projekt bündelt mehrere
 `knowledge_spaces`. Das **aktive Projekt** (`system_settings.active_project_id`,
 app-weit/Einzel-Admin) scopt Explorer, Suche und Flows/Agenten.
 
-| Method | Endpoint               | Description                                                                |
-| ------ | ---------------------- | -------------------------------------------------------------------------- |
-| GET    | `/api/projects`        | Alle Projekte mit Ordner-Zähler (`{data:[…]}`)                             |
-| GET    | `/api/projects/active` | Aktives Projekt + seine `space_ids` (`{data:{project, space_ids}}`)        |
-| PUT    | `/api/projects/active` | Aktives Projekt setzen (`{project_id}`)                                    |
-| POST   | `/api/projects`        | Projekt anlegen (`{name, description?, icon?, color?}`)                    |
-| PUT    | `/api/projects/:id`    | Projekt aktualisieren                                                      |
-| DELETE | `/api/projects/:id`    | Projekt löschen (403 beim Standard-Projekt, 409 solange es Ordner enthält) |
+| Method | Endpoint                 | Description                                                                            |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------- |
+| GET    | `/api/projects`          | Alle Projekte mit Ordner-Zähler (`{data:[…]}`, inkl. `vorlage_id/-version`)            |
+| GET    | `/api/projects/active`   | Aktives Projekt + seine `space_ids` (`{data:{project, space_ids}}`)                    |
+| PUT    | `/api/projects/active`   | Aktives Projekt setzen (`{project_id}`)                                                |
+| GET    | `/api/projects/vorlagen` | Vorlagen-Galerie (Plan 014): `{data:[{id, name, beschreibung, icon, color, version}]}` |
+| POST   | `/api/projects`          | Projekt anlegen (`{name, description?, icon?, color?, vorlage?}`)                      |
+| PUT    | `/api/projects/:id`      | Projekt aktualisieren                                                                  |
+| DELETE | `/api/projects/:id`      | Projekt löschen (403 beim Standard-Projekt, 409 solange es Ordner enthält)             |
 
 > Neue Top-Level-Ordner landen im aktiven Projekt; Unterordner erben das Projekt
 > ihres Elternordners. `PUT /api/spaces/:id` mit `project_id` verschiebt einen
 > Ordner samt Unterbaum in ein anderes Projekt.
+
+> **Vorlagen-Galerie (Plan 014, Phase 1):** `POST /api/projects` mit
+> `vorlage: <id>` (z. B. `kunden-auftraege`) kopiert Ordnerstruktur,
+> Wissens-Dateien und projektgebundene Flows der Vorlage in den frischen
+> Projektordner (`wx` — vorhandene Dateien werden nie überschrieben) und setzt
+> `projects.vorlage_id/-version`. Eine unbekannte Vorlage → 404, bevor ein
+> Projekt entsteht. Die Vorlagen liegen versioniert im Backend-Image unter
+> `apps/dashboard-backend/src/services/projects/vorlagen/`.
 
 #### Projektablage (Datei-API)
 
@@ -2332,25 +2341,25 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
 
-| Method | Endpoint                            | Description                                                                                                    |
-| ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/flows`                        | List all flows (broken files reported separately)                                                              |
-| GET    | `/api/flows/werkzeuge`              | Tool names a flow may declare, each with `verfuegbar`                                                          |
-| GET    | `/api/flows/sammlungen`             | Selectable knowledge spaces (for `typ: wissensbasis`)                                                          |
-| GET    | `/api/flows/:name`                  | Get a single flow                                                                                              |
-| GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`)                                                                    |
-| GET    | `/api/flows/vorlagen`               | List uploaded style templates (`{ name, groesse, hochgeladen }`)                                               |
-| POST   | `/api/flows/vorlagen`               | Upload a style template (multipart field `datei`; .docx/.pdf/.md/.txt/.html, 20 MB)                            |
-| DELETE | `/api/flows/vorlagen/:name`         | Delete a style template                                                                                        |
-| POST   | `/api/flows`                        | Create a flow (409 if the name exists)                                                                         |
-| PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist)                                                             |
-| DELETE | `/api/flows/:name`                  | Delete a flow                                                                                                  |
-| GET    | `/api/flows/laeufe`                 | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter)                   |
-| POST   | `/api/flows/laeufe`                 | Start a run detached; returns `202 { runId }` immediately                                                      |
-| GET    | `/api/flows/laeufe/:id`             | One run with its steps (`?raw=1` includes raw step data)                                                       |
-| GET    | `/api/flows/laeufe/:id/stream`      | SSE event stream: replay stored history, then live steps                                                       |
-| POST   | `/api/flows/laeufe/:id/abbrechen`   | Cancel a running run (404 if not running/owned)                                                                |
-| POST   | `/api/flows/laeufe/:id/wiederholen` | Retry a **failed** run of a flow with a declared step chain (body `{}`); `202 { runId, uebernommeneSchritte }` |
+| Method | Endpoint                            | Description                                                                                                                         |
+| ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/flows`                        | List all flows — global **plus** project-bound (each entry carries `projekt: null \| {id, name}`); broken files reported separately |
+| GET    | `/api/flows/werkzeuge`              | Tool names a flow may declare, each with `verfuegbar`                                                                               |
+| GET    | `/api/flows/sammlungen`             | Selectable knowledge spaces (for `typ: wissensbasis`)                                                                               |
+| GET    | `/api/flows/:name`                  | Get a single flow (`?projekt=<uuid>` = project-bound flow)                                                                          |
+| GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`; `?projekt=` wie oben)                                                                   |
+| GET    | `/api/flows/vorlagen`               | List uploaded style templates (`{ name, groesse, hochgeladen }`)                                                                    |
+| POST   | `/api/flows/vorlagen`               | Upload a style template (multipart field `datei`; .docx/.pdf/.md/.txt/.html, 20 MB)                                                 |
+| DELETE | `/api/flows/vorlagen/:name`         | Delete a style template                                                                                                             |
+| POST   | `/api/flows`                        | Create a **global** flow (409 if the name exists)                                                                                   |
+| PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist; `?projekt=` wie oben)                                                            |
+| DELETE | `/api/flows/:name`                  | Delete a flow (`?projekt=` wie oben)                                                                                                |
+| GET    | `/api/flows/laeufe`                 | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter)                                        |
+| POST   | `/api/flows/laeufe`                 | Start a run detached; returns `202 { runId }` immediately                                                                           |
+| GET    | `/api/flows/laeufe/:id`             | One run with its steps (`?raw=1` includes raw step data)                                                                            |
+| GET    | `/api/flows/laeufe/:id/stream`      | SSE event stream: replay stored history, then live steps                                                                            |
+| POST   | `/api/flows/laeufe/:id/abbrechen`   | Cancel a running run (404 if not running/owned)                                                                                     |
+| POST   | `/api/flows/laeufe/:id/wiederholen` | Retry a **failed** run of a flow with a declared step chain (body `{}`); `202 { runId, uebernommeneSchritte }`                      |
 
 **Starting flows.** A flow runs from the chat (slash command `/name`) or via the
 external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
@@ -2358,8 +2367,20 @@ external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
 (`flow_schedules`, `/flows/zeitplaene`, external `events/:name`) was removed on
 2026-07-28; there is no schedule mechanism anymore.
 
+**Projektgebundene Flows (Plan 014, Phase 1).** Neben dem globalen Verzeichnis
+(`data/flows/`) hat jedes Projekt eine zweite Flow-Heimat:
+`<projektordner>/flows/*.md`. Diese Flows kommen als normale Dateien mit einer
+Projekt-Vorlage mit, erscheinen im Chat **nur im aktiven Projekt** und in der
+Flow-Übersicht gruppiert nach Global/Projekt. Der `flows/`-Ordner auf der
+obersten Projektebene ist vom Ordner-Sync/Wissens-Index ausgenommen (nur dort —
+tiefere Ordner namens `flows` bleiben normales Wissen). Ein Lauf eines
+Projekt-Flows merkt sich sein Projekt (`flow_runs.projekt_id`); `projekt://aktiv`
+und der RAG-Scope zeigen bei einem Projekt-Flow auf **sein** Projekt, egal
+welches gerade aktiv ist.
+
 **Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
-(`{ flow, args, conversation_id?, ordner_ziel? }`) starts the run **server-side**
+(`{ flow, args, conversation_id?, ordner_ziel?, projekt? }` — `projekt` = UUID
+für einen projektgebundenen Flow) starts the run **server-side**
 and returns its `runId` at once — the run keeps going regardless of the client.
 `ordner_ziel` (optional, auch am externen Trigger) lenkt das Arbeitsverzeichnis
 des Laufs auf einen Projektablage-Ordner: `projekt://aktiv[/unter/ordner]` oder

@@ -231,6 +231,11 @@ async function runFlow(
     // wertet sie aus; der modellgetriebene Pfad ignoriert sie.
     vorabErgebnisse = null,
     vorabQuelleLaufId = null,
+    // Projektgebundener Flow (Plan 014, Phase 1): der Flow liegt im
+    // `flows/`-Ordner dieses Projekts. Zusätzlich wird `projekt://aktiv` und
+    // der RAG-Scope dann auf DIESES Projekt bezogen — ein Projekt-Flow
+    // arbeitet in seinem Projekt, egal welches gerade aktiv ist.
+    projektId = null,
   },
   deps = {}
 ) {
@@ -245,7 +250,11 @@ async function runFlow(
     resolveModel = () => modelService.getDefaultModel(),
   } = deps;
 
-  const geladen = await loadFlow(flowName);
+  const geladen = await loadFlow(flowName, { projektId });
+
+  // Für Projekt-Flows zeigt `projekt://aktiv` auf das EIGENE Projekt (nicht
+  // auf das gerade aktive) — der Flow gehört zu seinem Projekt.
+  const ordnerDeps = projektId ? { ...deps, getActiveProjectId: async () => projektId } : deps;
 
   // Argumente FRÜH auflösen — ein Argument vom Typ `ordner` (Kundenordner)
   // bestimmt das Arbeitsverzeichnis des Laufs, noch bevor die Ordner-Liste
@@ -267,7 +276,7 @@ async function runFlow(
   const projektOrdnerMeta = [];
   const flow = {
     ...geladen,
-    ordner: await resolveOrdnerListe(ordnerListe, deps, projektOrdnerMeta),
+    ordner: await resolveOrdnerListe(ordnerListe, ordnerDeps, projektOrdnerMeta),
   };
 
   // Ausgabe-Vorgaben (Sprache, Tonalität, Länge, Gliederung, Stilvorlage) an
@@ -298,8 +307,9 @@ async function runFlow(
   // gewählte Wissensräume haben Vorrang.
   let spaceIds = argSpaceIds;
   if (spaceIds.length === 0) {
-    const activeProjectId = await projectService.getActiveProjectId();
-    spaceIds = await projectService.getProjectSpaceIds(activeProjectId);
+    // Projekt-Flows scopen auf IHR Projekt; globale Flows aufs aktive.
+    const scopeProjectId = projektId || (await projectService.getActiveProjectId());
+    spaceIds = await projectService.getProjectSpaceIds(scopeProjectId);
   }
   const filledPrompt = fillPlaceholders(flow.systemPrompt, werte);
   const userInput = await anreichernMitDateien(
@@ -345,7 +355,7 @@ async function runFlow(
   //    ID sofort streambar ist, und reicht ihn hier herein.
   const run = existingRunId
     ? { id: existingRunId }
-    : await store.createRun({ userId, flowName, arguments: werte, conversationId });
+    : await store.createRun({ userId, flowName, arguments: werte, conversationId, projektId });
 
   // Zähler und offene Schritte (weiter unten von `weiter` und dem stepRecorder
   // gemeinsam genutzt) — hier deklariert, damit beide Closures sie sehen.

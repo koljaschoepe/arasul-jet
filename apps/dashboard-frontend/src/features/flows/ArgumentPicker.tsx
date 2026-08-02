@@ -50,6 +50,9 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
   const api = useApi();
   const [suche, setSuche] = useState('');
   const [aktiv, setAktiv] = useState(0);
+  // Ordner-Argumente können auf ANDERE Projekte zeigen (Plan 014, Phase 1:
+  // projektübergreifende Flows). null = das aktive Projekt (projekt://aktiv).
+  const [gewaehltesProjekt, setGewaehltesProjekt] = useState<string | null>(null);
   const sucheRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,13 +83,26 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
     enabled: arg.typ === 'ordner',
     staleTime: 30_000,
   });
-  const projektId = aktivesProjekt.data?.data.project?.id ?? null;
+  const aktivId = aktivesProjekt.data?.data.project?.id ?? null;
+  // Für die Projektwahl: alle Projekte (nur beim Ordner-Argument geladen).
+  const projekte = useQuery({
+    queryKey: ['projects'],
+    queryFn: () =>
+      api.get<{ data: { id: string; name: string }[] }>('/projects', { showError: false }),
+    enabled: arg.typ === 'ordner',
+    staleTime: 30_000,
+  });
+  const projektId = gewaehltesProjekt ?? aktivId;
   const ordnerBaum = useQuery({
     queryKey: ['projekt-dateien', projektId],
     queryFn: () => api.get<AblageResponse>(`/projects/${projektId}/dateien`, { showError: false }),
     enabled: arg.typ === 'ordner' && !!projektId,
     staleTime: 30_000,
   });
+  // Werte im aktiven Projekt bleiben in der stabilen projekt://aktiv-Form;
+  // ein anderes Projekt wird über seine UUID adressiert (projekt://<uuid>).
+  const projektPrefix =
+    projektId && projektId !== aktivId ? `projekt://${projektId}` : 'projekt://aktiv';
 
   const alle: PickerItem[] = useMemo(() => {
     if (arg.typ === 'auswahl') {
@@ -112,17 +128,17 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
       const ordner = (ordnerBaum.data?.data.eintraege ?? [])
         .filter(e => e.typ === 'ordner')
         .map(e => ({
-          value: `projekt://aktiv/${e.pfad}`,
+          value: `${projektPrefix}/${e.pfad}`,
           label: e.name,
           detail: e.pfad.includes('/') ? e.pfad : undefined,
         }));
       return [
-        { value: 'projekt://aktiv', label: 'Projektablage (Wurzel)', detail: 'gesamtes Projekt' },
+        { value: projektPrefix, label: 'Projektablage (Wurzel)', detail: 'gesamtes Projekt' },
         ...ordner,
       ];
     }
     return [];
-  }, [arg, sammlungen.data, baum.data, ordnerBaum.data]);
+  }, [arg, sammlungen.data, baum.data, ordnerBaum.data, projektPrefix]);
 
   const gefiltert = useMemo(() => {
     const q = suche.trim().toLowerCase();
@@ -188,6 +204,27 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
         <Icon className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="text-ui-xs font-medium text-muted-foreground">{titel}</span>
       </div>
+      {/* Projektwahl beim Ordner-Argument (Plan 014): globale Flows dürfen auf
+          Ordner ANDERER Projekte zeigen — Standard bleibt das aktive Projekt. */}
+      {arg.typ === 'ordner' && (projekte.data?.data ?? []).length > 1 && (
+        <div className="flex items-center gap-2 border-b border-border px-2.5 py-1.5">
+          <span className="shrink-0 text-ui-xs text-muted-foreground">Projekt</span>
+          <select
+            value={projektId ?? ''}
+            onChange={e => setGewaehltesProjekt(e.target.value === aktivId ? null : e.target.value)}
+            aria-label="Projekt für den Ordner wählen"
+            data-testid="ordner-projekt-wahl"
+            className="min-w-0 flex-1 rounded border border-border bg-transparent px-1.5 py-0.5 text-ui-xs text-foreground focus:outline-none"
+          >
+            {(projekte.data?.data ?? []).map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.id === aktivId ? ' (aktiv)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {/* Das Suchfeld ist IMMER da — auch bei einer festen Auswahlliste. Es trägt
           den Fokus und die Tastatur (Pfeile/Enter/Escape); ohne es bliebe der
           Fokus in der Textarea und Enter würde den halben Befehl abschicken. */}

@@ -1,0 +1,14 @@
+{
+  "id": "kunden-auftraege",
+  "name": "Kunden & Aufträge",
+  "beschreibung": "Ein fertiger Arbeitsbereich für Kundenarbeit: je Kunde ein Ordner mit Steckbrief, Briefing, Meetings, Angeboten und Schriftverkehr — plus dem Flow /angebot für geprüfte Angebots-PDFs.",
+  "icon": "users",
+  "color": "#0ea5e9",
+  "version": 1,
+  "ordner": [
+    "Kunden/Beispiel GmbH/Briefing",
+    "Kunden/Beispiel GmbH/Meetings",
+    "Kunden/Beispiel GmbH/Angebote",
+    "Kunden/Beispiel GmbH/Schriftverkehr"
+  ]
+}

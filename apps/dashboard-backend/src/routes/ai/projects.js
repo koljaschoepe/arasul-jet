@@ -20,6 +20,7 @@ const { uploadLimiter } = require('../../middleware/rateLimit');
 const projectService = require('../../services/rag/projectService');
 const ablageService = require('../../services/projects/ablageService');
 const ordnerSyncService = require('../../services/projects/ordnerSyncService');
+const vorlagenService = require('../../services/projects/vorlagenService');
 const { cacheService } = require('../../services/core/cacheService');
 const { ValidationError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
@@ -103,15 +104,56 @@ router.put(
 );
 
 /**
+ * GET /api/projects/vorlagen
+ * Die Vorlagen-Galerie fürs Anlegen (Plan 014, Phase 1): alle mitgelieferten
+ * Standardprojekt-Vorlagen aus dem Backend-Image.
+ */
+router.get(
+  '/vorlagen',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const vorlagen = await vorlagenService.listeVorlagen();
+    res.json({ data: vorlagen, total: vorlagen.length, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
  * POST /api/projects
- * Neues Projekt anlegen.
+ * Neues Projekt anlegen — optional aus einer Vorlage (`vorlage: <id>`): dann
+ * werden Ordnerstruktur, Wissens-Dateien und Flows der Vorlage in den
+ * Projektordner kopiert (wx — überschreibt nie) und das Projekt merkt sich
+ * Vorlage + Version.
  */
 router.post(
   '/',
   requireAuth,
   validateBody(CreateProjectBody),
   asyncHandler(async (req, res) => {
-    const project = await projectService.createProject(req.body);
+    const { vorlage: vorlageId, ...felder } = req.body;
+
+    // Vorlage FRÜH laden — eine unbekannte Vorlage soll als 404 kommen,
+    // bevor ein Projekt entsteht.
+    const vorlage = vorlageId ? await vorlagenService.getVorlage(vorlageId) : null;
+
+    const project = await projectService.createProject({
+      ...felder,
+      icon: felder.icon || (vorlage ? vorlage.icon : undefined),
+      color: felder.color || (vorlage ? vorlage.color : undefined),
+      description: felder.description ?? (vorlage ? vorlage.beschreibung : null),
+    });
+
+    if (vorlage) {
+      const ergebnis = await vorlagenService.wendeVorlageAn(project.id, vorlage.id);
+      project.vorlage_id = vorlage.id;
+      project.vorlage_version = vorlage.version;
+      logger.info(
+        `Projekt "${project.name}" aus Vorlage "${vorlage.id}" angelegt ` +
+          `(${ergebnis.kopiert.length} Dateien)`
+      );
+      // Die kopierten Wissens-Dateien sollen zügig im Index landen.
+      ordnerSyncService.trigger(project.id);
+    }
+
     res.status(201).json({
       data: project,
       message: 'Projekt erstellt',

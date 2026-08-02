@@ -12,6 +12,9 @@ const CreateProjectBody = z
     description: z.string().trim().max(4000).nullable().optional(),
     icon: z.string().trim().max(50).optional(),
     color: z.string().trim().max(50).optional(),
+    // Vorlagen-Galerie (Plan 014, Phase 1): ID einer mitgelieferten Vorlage —
+    // ihr Inhalt wird nach dem Anlegen in den Projektordner kopiert.
+    vorlage: z.string().trim().max(50).nullish(),
   })
   .strict();
 

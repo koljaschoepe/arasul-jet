@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { FlowProjektRef } from '@/types/flows';
 
 /**
  * Ziel + Modus des zentralen Flow-Tabs (Plan 012 Phase D / Plan 013 Flow-Zentrale).
@@ -13,6 +14,8 @@ import { create } from 'zustand';
  * - `mode: 'view'` + ein Name → die Flow-Zentrale (Detail-Dashboard: Trigger-URL,
  *   letzte Läufe, Ausgabeort, Pipeline). Klick auf einen Flow in der Sidebar.
  * - `mode: 'edit'` → der Editor (Formular). `editName === null` legt neu an.
+ * - `projekt` (Plan 014, Phase 1): gesetzt bei einem projektgebundenen Flow —
+ *   alle API-Aufrufe des Tabs tragen dann `?projekt=<id>`.
  *
  * Aufrufer setzen erst das Ziel und öffnen dann den Tab — dasselbe Muster wie die
  * ActivityBar bei Modellen/Erweiterungen (`setStoreTab` + `openTab`).
@@ -24,12 +27,19 @@ interface FlowEditorState {
   editName: string | null;
   /** Dashboard-Ansicht (`view`) oder Editor (`edit`). */
   mode: FlowTabMode;
+  /** Projekt eines projektgebundenen Flows; null = globaler Flow. */
+  projekt: FlowProjektRef | null;
   /** Ziel setzen. Ohne `mode` → Editor (Rückwärtskompatibilität mit Altaufrufern). */
-  setEditTarget: (editName: string | null, mode?: FlowTabMode) => void;
+  setEditTarget: (
+    editName: string | null,
+    mode?: FlowTabMode,
+    projekt?: FlowProjektRef | null
+  ) => void;
 }
 
 export const useFlowEditorStore = create<FlowEditorState>(set => ({
   editName: null,
   mode: 'edit',
-  setEditTarget: (editName, mode = 'edit') => set({ editName, mode }),
+  projekt: null,
+  setEditTarget: (editName, mode = 'edit', projekt = null) => set({ editName, mode, projekt }),
 }));

@@ -5,13 +5,15 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useFlowEditorStore } from '@/stores/flowEditorStore';
 import { SidebarSearch } from '@/components/ui/SidebarSearch';
 import { SidebarView } from './SidebarView';
+import type { Flow } from '@/types/flows';
 
 /**
  * Sidebar-Ansicht »Flows« (Plan 012 Phase D, Schritt 12) — die echte
- * Übersicht. Listet alle Flows (echte Daten via `useFlows`); ein Klick öffnet
- * den zentralen Flow-Editor-Tab (Schritt 10) mit dem Flow, der Kopf-Knopf
- * »Neuer Flow« öffnet ihn leer. Ziel setzen + Tab öffnen läuft — wie bei
- * Modellen/Erweiterungen in der ActivityBar — über Ziel-Store + `openTab`.
+ * Übersicht. Listet alle Flows (echte Daten via `useFlows`), seit Plan 014
+ * gruppiert nach Global / Projekt; ein Klick öffnet den zentralen
+ * Flow-Editor-Tab (Schritt 10) mit dem Flow, der Kopf-Knopf »Neuer Flow«
+ * öffnet ihn leer. Ziel setzen + Tab öffnen läuft — wie bei Modellen/
+ * Erweiterungen in der ActivityBar — über Ziel-Store + `openTab`.
  */
 export function FlowsPanel() {
   const { flows, isLoading } = useFlows();
@@ -27,11 +29,50 @@ export function FlowsPanel() {
     );
   }, [flows, query]);
 
+  // Gruppen: zuerst Global, dann je Projekt (alphabetisch) — so bleibt die
+  // gewohnte Liste oben stabil und Projekt-Flows sind klar zugeordnet.
+  const gruppen = useMemo(() => {
+    const global: Flow[] = [];
+    const jeProjekt = new Map<string, { name: string; flows: Flow[] }>();
+    for (const flow of filtered) {
+      if (!flow.projekt) {
+        global.push(flow);
+      } else {
+        const eintrag = jeProjekt.get(flow.projekt.id) ?? { name: flow.projekt.name, flows: [] };
+        eintrag.flows.push(flow);
+        jeProjekt.set(flow.projekt.id, eintrag);
+      }
+    }
+    const projekte = [...jeProjekt.entries()]
+      .map(([id, e]) => ({ id, ...e }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    return { global, projekte };
+  }, [filtered]);
+
   // Klick auf einen Flow → Flow-Zentrale (Dashboard). »Neuer Flow« → leerer Editor.
-  const oeffneFlow = (editName: string | null, mode: 'view' | 'edit') => {
-    setEditTarget(editName, mode);
+  const oeffneFlow = (flow: Flow | null, mode: 'view' | 'edit') => {
+    setEditTarget(flow?.name ?? null, mode, flow?.projekt ?? null);
     openTab({ type: 'flow' });
   };
+
+  const flowZeile = (flow: Flow) => (
+    <li key={`${flow.projekt?.id ?? 'global'}:${flow.name}`}>
+      <button
+        type="button"
+        data-testid={`flow-open-${flow.name}`}
+        onClick={() => oeffneFlow(flow, 'view')}
+        className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left hover:bg-accent/50"
+      >
+        <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          <Waypoints className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="truncate">/{flow.name}</span>
+        </span>
+        {flow.beschreibung && (
+          <span className="truncate pl-5 text-xs text-muted-foreground">{flow.beschreibung}</span>
+        )}
+      </button>
+    </li>
+  );
 
   return (
     <SidebarView
@@ -75,31 +116,26 @@ export function FlowsPanel() {
           {filtered.length === 0 ? (
             <p className="px-3 py-3 text-sm text-muted-foreground">Kein Treffer für „{query}“.</p>
           ) : (
-            <ul className="flex flex-col py-1">
-              {filtered.map(flow => (
-                <li key={flow.name}>
-                  <button
-                    type="button"
-                    data-testid={`flow-open-${flow.name}`}
-                    onClick={() => oeffneFlow(flow.name, 'view')}
-                    className="flex w-full flex-col gap-0.5 px-3 py-1.5 text-left hover:bg-accent/50"
-                  >
-                    <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Waypoints
-                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      <span className="truncate">/{flow.name}</span>
-                    </span>
-                    {flow.beschreibung && (
-                      <span className="truncate pl-5 text-xs text-muted-foreground">
-                        {flow.beschreibung}
-                      </span>
-                    )}
-                  </button>
-                </li>
+            <div className="flex flex-col py-1">
+              {gruppen.global.length > 0 && (
+                <>
+                  {gruppen.projekte.length > 0 && (
+                    <p className="px-3 pb-0.5 pt-1.5 text-ui-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Global
+                    </p>
+                  )}
+                  <ul className="flex flex-col">{gruppen.global.map(flowZeile)}</ul>
+                </>
+              )}
+              {gruppen.projekte.map(gruppe => (
+                <div key={gruppe.id} data-testid={`flow-gruppe-${gruppe.id}`}>
+                  <p className="px-3 pb-0.5 pt-2 text-ui-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Projekt „{gruppe.name}“
+                  </p>
+                  <ul className="flex flex-col">{gruppe.flows.map(flowZeile)}</ul>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </>
       )}

@@ -75,6 +75,15 @@ const MAX_SYNC_ENTRIES = 20000;
 const MAX_SYNC_DEPTH = 20;
 const VERSTECKT = new Set(['.git', 'node_modules', '__pycache__', '.venv', '.arasul']);
 
+/**
+ * Systemordner NUR auf der obersten Ebene des Projektordners (Plan 014,
+ * Phase 1): `flows/` enthält die projektgebundenen Flow-Definitionen — die
+ * gehören in die Flow-Registry, nicht als Dokumente in den Wissens-Index.
+ * Bewusst nicht in VERSTECKT: ein Nutzer-Unterordner namens `flows` in
+ * größerer Tiefe bleibt normales Wissen.
+ */
+const SYSTEM_WURZELORDNER = new Set(['flows']);
+
 /** Marker eines gesunden Projektordners — Voraussetzung für Löschungen. */
 const MARKER_DATEI = '.arasul';
 const INTERVAL_MS = parseInt(process.env.ORDNER_SYNC_INTERVAL_MS || '20000', 10);
@@ -206,6 +215,9 @@ async function leseBaum(dir) {
     }
     for (const d of dirents) {
       if (VERSTECKT.has(d.name) || d.isSymbolicLink() || budget <= 0) {
+        continue;
+      }
+      if (rel === '' && d.isDirectory() && SYSTEM_WURZELORDNER.has(d.name)) {
         continue;
       }
       const kindRel = rel ? `${rel}/${d.name}` : d.name;

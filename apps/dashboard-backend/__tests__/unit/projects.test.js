@@ -123,6 +123,46 @@ describe('Projects Routes', () => {
     expect(response.body.data.name).toBe('Marketing');
   });
 
+  test('GET /api/projects/vorlagen — listet die mitgelieferten Vorlagen (Plan 014)', async () => {
+    setupMocksWithAuth(() => Promise.resolve({ rows: [] }));
+
+    const response = await request(app)
+      .get('/api/projects/vorlagen')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    const ids = response.body.data.map(v => v.id);
+    expect(ids).toContain('kunden-auftraege');
+    // Galerie-Felder sind vollständig — das Frontend rendert Karten daraus.
+    const crm = response.body.data.find(v => v.id === 'kunden-auftraege');
+    expect(crm).toMatchObject({
+      name: expect.any(String),
+      beschreibung: expect.any(String),
+      icon: expect.any(String),
+      color: expect.any(String),
+      version: expect.any(Number),
+    });
+  });
+
+  test('POST /api/projects — unbekannte Vorlage → 404, kein Projekt entsteht', async () => {
+    const insert = jest.fn();
+    setupMocksWithAuth(query => {
+      if (query.includes('INSERT INTO projects')) {
+        insert();
+        return Promise.resolve({ rows: [{ id: PROJECT_ID, name: 'X', slug: 'x' }] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .post('/api/projects')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'X', vorlage: 'gibtsnicht' });
+
+    expect(response.status).toBe(404);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
   test('PUT /api/projects/active — setzt das aktive Projekt (200)', async () => {
     setupMocksWithAuth(query => {
       if (query.includes('SELECT * FROM projects WHERE id')) {

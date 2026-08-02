@@ -557,6 +557,16 @@ const ProjektOrdnerZiel = z
     }
   );
 
+/**
+ * Projekt-Bezug eines projektgebundenen Flows (Plan 014, Phase 1): die UUID
+ * des Projekts, in dessen `flows/`-Ordner der Flow liegt. Fehlt das Feld,
+ * ist der globale Flow gemeint.
+ */
+const FlowProjektId = z.uuid('Ungültige Projekt-ID');
+
+/** Query der Flow-Einzelrouten (`?projekt=<uuid>` = projektgebundener Flow). */
+const FlowProjektQuery = z.object({ projekt: FlowProjektId.optional() }).strict();
+
 /** Einen Lauf starten (Plan 011, Schritt 12). */
 const StartRunBody = z
   .object({
@@ -568,6 +578,9 @@ const StartRunBody = z
     // Ziel-Ordner des Laufs: wird zum Arbeitsverzeichnis (Enddateien landen
     // dort). NUR projekt://-Formen — nie rohe Gerätepfade von außen.
     ordner_ziel: ProjektOrdnerZiel.optional(),
+    // Projektgebundener Flow: der Flow wird im `flows/`-Ordner dieses Projekts
+    // gesucht statt im globalen Verzeichnis.
+    projekt: FlowProjektId.nullish(),
   })
   .strict();
 
@@ -604,6 +617,8 @@ module.exports = {
   ListRunsQuery,
   StartRunBody,
   ProjektOrdnerZiel,
+  FlowProjektId,
+  FlowProjektQuery,
   VALID_TOOLS,
   ARG_TYPES,
   AUSGABE_FORMATE,
