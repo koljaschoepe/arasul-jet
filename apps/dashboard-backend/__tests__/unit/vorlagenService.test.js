@@ -114,20 +114,40 @@ describe('vorlagenService', () => {
     const vorlagen = await vorlagenService.listeVorlagen();
     const crm = vorlagen.find(v => v.id === 'kunden-auftraege');
     expect(crm).toBeDefined();
-    expect(crm.version).toBeGreaterThanOrEqual(1);
+    expect(crm.version).toBeGreaterThanOrEqual(2);
+  });
 
-    // Der mitgelieferte Projekt-Flow muss parsebar sein — sonst landet ein
-    // kaputter Flow in jedem neu angelegten CRM-Projekt.
-    const flowDatei = path.join(
-      vorlagenService.VORLAGEN_DIR,
-      'kunden-auftraege',
-      'inhalt',
-      'flows',
-      'angebot.md'
+  test('JEDER mitgelieferte Vorlagen-Flow ist parsebar (alle Vorlagen, alle Dateien)', async () => {
+    // Ein kaputter Flow landete sonst in jedem neu angelegten Projekt.
+    const vorlagen = fs
+      .readdirSync(vorlagenService.VORLAGEN_DIR, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => e.name);
+    expect(vorlagen.length).toBeGreaterThanOrEqual(1);
+
+    const geprueft = [];
+    for (const vorlage of vorlagen) {
+      const flowsDir = path.join(vorlagenService.VORLAGEN_DIR, vorlage, 'inhalt', 'flows');
+      if (!fs.existsSync(flowsDir)) {
+        continue;
+      }
+      for (const datei of fs.readdirSync(flowsDir).filter(f => f.endsWith('.md'))) {
+        const name = datei.slice(0, -3);
+        const text = fs.readFileSync(path.join(flowsDir, datei), 'utf8');
+        const flow = parseFlowFile(text, { name });
+        expect(flow.name).toBe(name);
+        geprueft.push(`${vorlage}/${name}`);
+      }
+    }
+    // Die CRM-Vorlage bringt ihr komplettes Flow-Paket mit (Phase 3).
+    expect(geprueft).toEqual(
+      expect.arrayContaining([
+        'kunden-auftraege/angebot',
+        'kunden-auftraege/neuer-kunde',
+        'kunden-auftraege/protokoll',
+        'kunden-auftraege/kundenbrief',
+        'kunden-auftraege/einrichtung',
+      ])
     );
-    const text = fs.readFileSync(flowDatei, 'utf8');
-    const flow = parseFlowFile(text, { name: 'angebot' });
-    expect(flow.name).toBe('angebot');
-    expect(flow.ausgabe.format).toBe('pdf');
   });
 });
