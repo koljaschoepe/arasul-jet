@@ -10,6 +10,7 @@
 import type {
   FlowArgument,
   FlowArgumentType,
+  FlowAusgabe,
   FlowDefinition,
   FlowLimits,
   FlowRole,
@@ -27,10 +28,12 @@ export interface FlowFormState {
   rollen: FlowRole[];
   schritte: FlowStep[];
   grenzen: FlowLimits;
-  // Hinweis: `FlowDefinition.modell` (eigenes Modell je Flow) ist in Schritt 17
-  // BEWUSST nicht im Formular — der Dialog fasst es nicht an. Beim Bearbeiten
-  // bleibt ein gesetztes Modell erhalten, weil PUT zusammenführt (fehlende
-  // Felder unverändert). Ein späterer Schritt kann das Feld ergänzen.
+  /** Die Ausgabe-Sektion (Flows-Umbau 2026-08-02) — immer gesetzt, `format:
+   *  'keins'` heißt „nur Text-Antwort, keine Datei". */
+  ausgabe: FlowAusgabe;
+  /** Eigenes Modell je Flow — leer = Standardmodell (seit dem Umbau im
+   *  Erweitert-Bereich sichtbar, vorher nur per Datei editierbar). */
+  modell: string;
 }
 
 /** Voreinstellung der Grenzen — deckungsgleich mit dem Backend-Schema (FlowLimits). */
@@ -40,6 +43,9 @@ export const STANDARD_GRENZEN: FlowLimits = {
   werkzeug_runden: 10,
   max_tiefe: 2,
 };
+
+/** Voreinstellung der Ausgabe: keine Datei, mittlere Länge. */
+export const STANDARD_AUSGABE: FlowAusgabe = { format: 'keins' };
 
 export const LEER_FORM: FlowFormState = {
   name: '',
@@ -51,6 +57,8 @@ export const LEER_FORM: FlowFormState = {
   rollen: [],
   schritte: [],
   grenzen: { ...STANDARD_GRENZEN },
+  ausgabe: { ...STANDARD_AUSGABE },
+  modell: '',
 };
 
 /** Ein frisches, leeres Argument (für „Zeile hinzufügen"). */
@@ -107,6 +115,14 @@ export function fromDefinition(def: FlowDefinition): FlowFormState {
       parameter: s.parameter ? { ...s.parameter } : undefined,
     })),
     grenzen: { ...STANDARD_GRENZEN, ...(def.grenzen ?? {}) },
+    ausgabe: def.ausgabe
+      ? {
+          ...def.ausgabe,
+          laenge: def.ausgabe.laenge ? { ...def.ausgabe.laenge } : undefined,
+          gliederung: def.ausgabe.gliederung ? [...def.ausgabe.gliederung] : undefined,
+        }
+      : { ...STANDARD_AUSGABE },
+    modell: def.modell ?? '',
   };
 }
 
@@ -173,6 +189,27 @@ function stepToBody(s: FlowStep): Record<string, unknown> {
   return out;
 }
 
+/** Die Ausgabe in die API-Form bringen; leere Zusatzfelder fallen weg. */
+function ausgabeToBody(a: FlowAusgabe): Record<string, unknown> {
+  const out: Record<string, unknown> = { format: a.format };
+  const dateiname = (a.dateiname ?? '').trim();
+  if (dateiname) out.dateiname = dateiname;
+  const vorlage = (a.vorlage ?? '').trim();
+  if (vorlage) out.vorlage = vorlage;
+  if (a.laenge) {
+    out.laenge = {
+      stufe: a.laenge.stufe,
+      ...(a.laenge.wortzahl ? { wortzahl: a.laenge.wortzahl } : {}),
+    };
+  }
+  const sprache = (a.sprache ?? '').trim();
+  if (sprache) out.sprache = sprache;
+  if (a.tonalitaet) out.tonalitaet = a.tonalitaet;
+  const gliederung = (a.gliederung ?? []).map(g => g.trim()).filter(Boolean);
+  if (gliederung.length > 0) out.gliederung = gliederung;
+  return out;
+}
+
 /**
  * Rechnet den Formular-Zustand in den API-Body (CreateFlowBody/SaveFlowBody).
  * Leere Zeilen (Ordner, Argumente ohne Namen, Rollen ohne Namen, Schritte ohne
@@ -195,6 +232,11 @@ export function toBody(state: FlowFormState): Record<string, unknown> {
       werkzeug_runden: state.grenzen.werkzeug_runden,
       max_tiefe: state.grenzen.max_tiefe,
     },
+    ausgabe: ausgabeToBody(state.ausgabe),
+    // Leeres Modell wird MITGESCHICKT: der zusammenführende PUT übernimmt es
+    // und der Serializer lässt '' weg — so lässt sich ein gesetztes Modell
+    // über das Formular auch wieder entfernen.
+    modell: state.modell.trim(),
   };
 }
 

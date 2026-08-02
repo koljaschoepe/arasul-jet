@@ -85,16 +85,17 @@ beforeEach(() => {
 });
 
 describe('Anlegen', () => {
-  it('zeigt den Anlege-Titel und das Formular — Vorschau erst auf Wunsch, kein Löschen', async () => {
-    const user = userEvent.setup();
+  it('zeigt den Anlege-Titel und das geführte Formular — keine Vorschau, kein Löschen', async () => {
     renderTab(null);
     expect(await screen.findByText('Neuer Flow')).toBeInTheDocument();
     expect(screen.getByTestId('flow-form')).toBeInTheDocument();
-    // Das Formular ist die Hauptansicht: die Vorschau ist zunächst zu.
-    expect(screen.queryByTestId('markdown-preview')).not.toBeInTheDocument();
-    // Der »Vorschau«-Schalter blendet sie ein.
-    await user.click(screen.getByRole('button', { name: /Vorschau/ }));
-    expect(screen.getByTestId('markdown-preview')).toBeInTheDocument();
+    // Die frühere Datei-/Laufzeit-Vorschau ist entfernt (Flows-Umbau 2026-08-02).
+    expect(screen.queryByRole('button', { name: /Vorschau/ })).not.toBeInTheDocument();
+    // Die geführten Abschnitte stehen da, der Erweitert-Bereich ist eingeklappt.
+    expect(screen.getByText('Was soll der Flow tun?')).toBeInTheDocument();
+    expect(screen.getByText('Was kommt am Ende heraus?')).toBeInTheDocument();
+    expect(screen.getByTestId('erweitert-toggle')).toBeInTheDocument();
+    expect(screen.queryByText('Werkzeuge')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Löschen/ })).not.toBeInTheDocument();
   });
 
@@ -104,7 +105,7 @@ describe('Anlegen', () => {
     await screen.findByText('Neuer Flow');
 
     await user.type(screen.getByLabelText('Name'), 'notiz');
-    await user.type(screen.getByLabelText('Prompt (Anweisung an das Modell)'), 'Schreibe etwas.');
+    await user.type(screen.getByLabelText('Auftrag'), 'Schreibe etwas.');
     await user.click(screen.getByRole('button', { name: /Speichern/ }));
 
     await waitFor(() =>
@@ -131,7 +132,7 @@ describe('Anlegen', () => {
     renderTab(null);
     await screen.findByText('Neuer Flow');
     await user.type(screen.getByLabelText('Name'), 'notiz');
-    await user.type(screen.getByLabelText('Prompt (Anweisung an das Modell)'), 'x');
+    await user.type(screen.getByLabelText('Auftrag'), 'x');
     await user.click(screen.getByRole('button', { name: /Speichern/ }));
     expect(await screen.findByText('Flow „notiz" existiert bereits')).toBeInTheDocument();
   });

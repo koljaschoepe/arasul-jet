@@ -13,6 +13,7 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const pool = require('../database');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -20,8 +21,8 @@ const { validateBody, validateParams, validateQuery } = require('../middleware/v
 const {
   CreateFlowBody,
   SaveFlowBody,
-  RuntimePreviewBody,
   FlowNameParams,
+  VorlageNameParams,
   RunIdParams,
   WiederholenBody,
   ListRunsQuery,
@@ -29,16 +30,39 @@ const {
   VALID_TOOLS,
 } = require('../schemas/flows');
 const { NotFoundError, ValidationError } = require('../utils/errors');
-const { llmLimiter } = require('../middleware/rateLimit');
+const { llmLimiter, uploadLimiter } = require('../middleware/rateLimit');
+const { mitNamensReparatur } = require('../utils/uploadName');
 const logger = require('../utils/logger');
 const registry = require('../services/flows/flowRegistry');
 const runStore = require('../services/flows/runStore');
 const flowRunner = require('../services/flows/flowRunner');
-const { resolveArguments, assembleRuntimePrompt } = require('../services/flows/runFlow');
+const { resolveArguments } = require('../services/flows/runFlow');
 const { berechneVorabErgebnisse } = require('../services/flows/stepExecutor');
-const { serializeFlowFile, parseFlowFile } = require('../services/flows/flowFile');
+const { serializeFlowFile } = require('../services/flows/flowFile');
 const { implementedTools } = require('../services/flows/toolRegistry');
+const vorlagenStore = require('../services/flows/vorlagenStore');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
+
+// Upload für Stilvorlagen (Word/PDF/Markdown/Text/HTML, max. 20 MB).
+const vorlagenUpload = multer(
+  mitNamensReparatur({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const erlaubt = ['.docx', '.pdf', '.md', '.markdown', '.txt', '.html', '.htm'];
+      const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
+      if (erlaubt.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(
+          new ValidationError(
+            `Vorlagenformat ${ext} nicht unterstützt (erlaubt: ${erlaubt.join(', ')})`
+          )
+        );
+      }
+    },
+  })
+);
 
 /**
  * Formt eine interne Definition in die API-Antwort um. `systemPrompt` heißt
@@ -105,6 +129,51 @@ router.get(
         ORDER BY name ASC`
     );
     res.json({ data: result.rows, timestamp: new Date().toISOString() });
+  })
+);
+
+// --- Stilvorlagen (Flows-Umbau 2026-08-02) ----------------------------------
+// BEWUSST vor `/:name` registriert (wie /laeufe), sonst finge die Flow-Route
+// "/vorlagen" als vermeintlichen Flow-Namen ab.
+
+// GET /api/flows/vorlagen — die hochgeladenen Stilvorlagen.
+router.get(
+  '/vorlagen',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const vorlagen = await vorlagenStore.listVorlagen();
+    res.json({ data: vorlagen, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/flows/vorlagen — eine Stilvorlage hochladen (multipart, Feld "datei").
+// Für PDF/Word wird der Text sofort extrahiert; scheitert das, kommt ein 400 —
+// eine Vorlage ohne lesbaren Text wäre zur Laufzeit wirkungslos.
+router.post(
+  '/vorlagen',
+  requireAuth,
+  uploadLimiter,
+  vorlagenUpload.single('datei'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      throw new ValidationError('Keine Datei hochgeladen (multipart-Feld "datei")');
+    }
+    const gespeichert = await vorlagenStore.saveVorlage({
+      name: req.file.originalname,
+      buffer: req.file.buffer,
+    });
+    res.status(201).json({ data: gespeichert, timestamp: new Date().toISOString() });
+  })
+);
+
+// DELETE /api/flows/vorlagen/:name — eine Stilvorlage löschen.
+router.delete(
+  '/vorlagen/:name',
+  requireAuth,
+  validateParams(VorlageNameParams),
+  asyncHandler(async (req, res) => {
+    await vorlagenStore.deleteVorlage(req.params.name);
+    res.json({ deleted: true, timestamp: new Date().toISOString() });
   })
 );
 
@@ -362,39 +431,6 @@ router.get(
   asyncHandler(async (req, res) => {
     const flow = await registry.loadFlow(req.params.name);
     res.type('text/markdown').send(serializeFlowFile(flow));
-  })
-);
-
-// POST /api/flows/vorschau — Markdown-Vorschau OHNE zu speichern.
-// Damit der Anlege-Dialog live zeigen kann, welche Datei entstehen würde —
-// inklusive der Fehlermeldung, wenn die Eingaben (noch) ungültig sind.
-router.post(
-  '/vorschau',
-  requireAuth,
-  validateBody(CreateFlowBody),
-  asyncHandler(async (req, res) => {
-    const definition = fromApi(req.body.name, req.body);
-    // Über die Registry-Prüfung laufen lassen, ohne zu schreiben: serialisieren
-    // und zurückparsen ist genau das, was `saveFlow` vor dem Schreiben tut.
-    const text = serializeFlowFile(definition);
-    parseFlowFile(text, { name: req.body.name });
-    res.json({ data: { datei: text }, timestamp: new Date().toISOString() });
-  })
-);
-
-// POST /api/flows/vorschau-laufzeit — der aufgelöste Laufzeit-Prompt (Plan 012,
-// Schritt 11). Zeigt, was der Runner dem Modell WIRKLICH gäbe: den Prompt mit
-// eingesetzten Beispiel-Argumenten, dazu die strukturell übergebenen Werkzeuge,
-// Ordner und Rollen. Führt nichts aus und schreibt nichts.
-router.post(
-  '/vorschau-laufzeit',
-  requireAuth,
-  validateBody(RuntimePreviewBody),
-  asyncHandler(async (req, res) => {
-    const { args, ...body } = req.body;
-    const definition = fromApi(body.name, body);
-    const prompt = assembleRuntimePrompt(definition, args);
-    res.json({ data: prompt, timestamp: new Date().toISOString() });
   })
 );
 

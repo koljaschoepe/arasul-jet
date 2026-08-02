@@ -29,6 +29,7 @@ const { fillPlaceholders } = require('./flowFile');
 const { ensureFlowSandbox } = require('./sandboxResolve');
 const changeTracker = require('./changeTracker');
 const { ladeDokumentText } = require('./documentText');
+const { bauAusgabeAnweisungen, erzeugeDokument, DOKUMENT_FORMATE } = require('./dokumentAusgabe');
 const { RunLimits } = require('./limits');
 const projectService = require('../rag/projectService');
 const modelService = require('../llm/modelService');
@@ -116,6 +117,7 @@ async function resolveOrdnerListe(ordner = [], deps = {}, meta = null) {
 function resolveArguments(declared = [], provided = {}) {
   const werte = {};
   const spaceIds = [];
+  let ordnerArg = null;
 
   for (const arg of declared) {
     let wert = provided[arg.name];
@@ -138,10 +140,24 @@ function resolveArguments(declared = [], provided = {}) {
     if (arg.typ === 'wissensbasis') {
       spaceIds.push(wert);
     }
+    // Kundenordner-Fall: Ein ordner-Argument MUSS eine projekt://-Form sein —
+    // dieselbe Grenze wie beim externen `ordner_ziel` (keine rohen Gerätepfade
+    // aus Nutzereingaben). Der ERSTE ordner-Wert wird zum Arbeitsverzeichnis.
+    if (arg.typ === 'ordner') {
+      const rest = wert.startsWith(PROJEKT_PREFIX) ? wert.slice(PROJEKT_PREFIX.length) : null;
+      if (rest == null || rest.split('/').includes('..') || rest.startsWith('/')) {
+        throw new ValidationError(
+          `Argument "${arg.name}": Ordner muss die Form projekt://aktiv[/pfad] oder projekt://<projekt-id>[/pfad] haben`
+        );
+      }
+      if (ordnerArg == null) {
+        ordnerArg = wert;
+      }
+    }
     werte[arg.name] = wert;
   }
 
-  return { werte, spaceIds };
+  return { werte, spaceIds, ordnerArg };
 }
 
 /** Baut aus den Argumentwerten die konkrete Nutzer-Eingabe für das Modell. */
@@ -152,66 +168,6 @@ function buildUserInput(declared = [], werte = {}) {
   return zeilen.length > 0
     ? `Angaben:\n${zeilen.join('\n')}`
     : 'Bitte die beschriebene Aufgabe ausführen.';
-}
-
-/**
- * Beispiel-Werte für die Laufzeit-Vorschau (Plan 012, Schritt 11).
- *
- * Anders als `resolveArguments` wirft das hier NIE: die Vorschau soll auch
- * dann etwas zeigen, wenn ein Pflichtargument noch nicht ausgefüllt ist. Die
- * Rangfolge je Argument: vom Aufrufer mitgegebener Wert → Standardwert → bei
- * `auswahl` die erste Option → sonst ein sichtbarer Platzhalter »‹name›«, damit
- * im aufgelösten Prompt klar erkennbar bleibt, wo ein Argument einsetzt.
- */
-function sampleArgumentValues(declared = [], provided = {}) {
-  const werte = {};
-  for (const arg of declared) {
-    const roh = provided[arg.name];
-    if (roh != null && roh !== '') {
-      werte[arg.name] = String(roh);
-    } else if (arg.standard != null) {
-      werte[arg.name] = String(arg.standard);
-    } else if (arg.typ === 'auswahl' && Array.isArray(arg.optionen) && arg.optionen.length > 0) {
-      werte[arg.name] = String(arg.optionen[0]);
-    } else {
-      werte[arg.name] = `‹${arg.name}›`;
-    }
-  }
-  return werte;
-}
-
-/**
- * Stellt den Laufzeit-Prompt einer Flow-Definition zusammen — so, wie ihn der
- * Runner ans Modell gäbe (Plan 012, Schritt 11: das Herz des USP, volle
- * Transparenz). Führt NICHTS aus, sondern setzt nur die Beispiel-Argumente ein.
- *
- * Ehrlich abgegrenzt: Die System-Nachricht an das Modell ist AUSSCHLIESSLICH
- * der aufgelöste Prompt (`systemPrompt`). Werkzeuge, Ordner, Wissensräume und
- * Subagenten-Rollen reicht der Runner STRUKTURELL daneben (Werkzeuge über den
- * Ollama-`tools`-Parameter, Rollen als eigene Schleifen) — sie stehen NICHT im
- * Prompt-Text. Die Vorschau gibt beides getrennt zurück, statt Kontext
- * vorzugaukeln, der gar nicht im Prompt landet.
- *
- * @param {object} flow - interne Definition (mit `systemPrompt`).
- * @param {object} [providedArgs] - name → Wert (optional, für gefüllte Vorschau).
- * @returns {{ systemPrompt: string, userInput: string, werkzeuge: string[],
- *   ordner: string[], rollen: {name:string,prompt:string}[],
- *   beispielWerte: Record<string,string> }}
- */
-function assembleRuntimePrompt(flow, providedArgs = {}) {
-  const argumente = Array.isArray(flow.argumente) ? flow.argumente : [];
-  const werte = sampleArgumentValues(argumente, providedArgs);
-  return {
-    systemPrompt: fillPlaceholders(flow.systemPrompt, werte),
-    userInput: buildUserInput(argumente, werte),
-    werkzeuge: Array.isArray(flow.werkzeuge) ? flow.werkzeuge : [],
-    ordner: Array.isArray(flow.ordner) ? flow.ordner : [],
-    rollen: (Array.isArray(flow.rollen) ? flow.rollen : []).map(r => ({
-      name: r.name,
-      prompt: fillPlaceholders(r.prompt, werte),
-    })),
-    beispielWerte: werte,
-  };
 }
 
 /**
@@ -290,15 +246,22 @@ async function runFlow(
   } = deps;
 
   const geladen = await loadFlow(flowName);
+
+  // Argumente FRÜH auflösen — ein Argument vom Typ `ordner` (Kundenordner)
+  // bestimmt das Arbeitsverzeichnis des Laufs, noch bevor die Ordner-Liste
+  // aufgelöst wird.
+  const { werte, spaceIds: argSpaceIds, ordnerArg } = resolveArguments(geladen.argumente, args);
+
   // `projekt://…` in echte Ablage-Pfade auflösen — ab hier arbeitet der ganze
   // Lauf (Werkzeuge, Sandbox, Änderungs-Übersicht) mit realen Ordnern.
-  // Ein pro Lauf mitgegebener Ziel-Ordner (`ordnerZiel`, z. B. der Kundenordner
-  // beim HTTP-Trigger) wird zum ARBEITSVERZEICHNIS (erster Eintrag) — dort
-  // landen die Enddateien; die im Flow deklarierten Ordner bleiben erlaubt.
-  // Nur `projekt://…`-Formen sind als Override zugelassen (die Routen-Schemas
-  // erzwingen das), damit ein API-Key-Aufrufer keine beliebigen Gerätepfade
-  // öffnen kann.
-  const ordnerListe = ordnerZiel ? [ordnerZiel, ...geladen.ordner] : geladen.ordner;
+  // Ein pro Lauf mitgegebener Ziel-Ordner wird zum ARBEITSVERZEICHNIS (erster
+  // Eintrag) — dort landen die Enddateien; die im Flow deklarierten Ordner
+  // bleiben erlaubt. Rangfolge: explizites `ordnerZiel` (HTTP-Trigger) vor dem
+  // ordner-Argument des Nutzers. Nur `projekt://…`-Formen sind zugelassen
+  // (Routen-Schema bzw. resolveArguments erzwingen das), damit ein Aufrufer
+  // keine beliebigen Gerätepfade öffnen kann.
+  const effektivesZiel = ordnerZiel || ordnerArg || null;
+  const ordnerListe = effektivesZiel ? [effektivesZiel, ...geladen.ordner] : geladen.ordner;
   // Je aufgelöstem Projekt-Ordner {pfad, projectId, unterpfad} — die
   // Änderungs-Übersicht macht damit Dateien in der Ablage klickbar.
   const projektOrdnerMeta = [];
@@ -306,6 +269,13 @@ async function runFlow(
     ...geladen,
     ordner: await resolveOrdnerListe(ordnerListe, deps, projektOrdnerMeta),
   };
+
+  // Ausgabe-Vorgaben (Sprache, Tonalität, Länge, Gliederung, Stilvorlage) an
+  // den Prompt hängen — wirkt in BEIDEN Pfaden (Schleife wie Schritt-Kette).
+  const ausgabeAnweisungen = await bauAusgabeAnweisungen(flow.ausgabe);
+  if (ausgabeAnweisungen) {
+    flow.systemPrompt = `${flow.systemPrompt}${ausgabeAnweisungen}`;
+  }
 
   // Deklarierte Ordner sofort anlegen: ein Flow darf seine erlaubten Ordner
   // von Anfang an LESEN (dann eben leer), statt vor dem ersten Schreiben an
@@ -319,10 +289,9 @@ async function runFlow(
     }
   }
 
-  // 1. Argumente → Werte, Platzhalter ersetzen. Ein `datei`-Argument reichert
-  //    die Nutzer-Eingabe zusätzlich um den Dokument-Inhalt an (Schritt 18).
-  const { werte, spaceIds: argSpaceIds } = resolveArguments(flow.argumente, args);
-
+  // 1. Platzhalter ersetzen (Argumente wurden oben schon aufgelöst). Ein
+  //    `datei`-Argument reichert die Nutzer-Eingabe zusätzlich um den
+  //    Dokument-Inhalt an (Schritt 18).
   // Batch 2: Ohne explizite `wissensbasis`-Argumente scopt der Flow seine
   // RAG-Suche auf das AKTIVE Projekt (statt zuvor auf die gesamte Wissensbasis) —
   // Agenten arbeiten damit standardmäßig nur im aktiven Projekt. Explizit
@@ -498,9 +467,11 @@ async function runFlow(
   //     dessen Änderungen fälschlich diesem Lauf zu. In der Praxis selten (ein
   //     Flow arbeitet in seinem eigenen Ordner), aber es ist ein anderer
   //     Fehlerfall als der TOCTOU-Schutz der Datei-Werkzeuge — hier nicht gelöst.
+  const erzeugtDokument = DOKUMENT_FORMATE.has(flow.ausgabe?.format);
   const verfolgtAenderungen =
-    Array.isArray(flow.werkzeuge) &&
-    (flow.werkzeuge.includes('dateien_schreiben') || flow.werkzeuge.includes('terminal'));
+    erzeugtDokument ||
+    (Array.isArray(flow.werkzeuge) &&
+      (flow.werkzeuge.includes('dateien_schreiben') || flow.werkzeuge.includes('terminal')));
   let startAbzug = null;
   if (verfolgtAenderungen) {
     try {
@@ -642,15 +613,69 @@ async function runFlow(
     return store.getRun({ runId: run.id, userId });
   }
 
+  // 6b. Ausgabe-Dokument erzeugen (Flows-Umbau 2026-08-02): das Ergebnis-
+  //     Markdown wird ins deklarierte Format gerendert und ins Arbeits-
+  //     verzeichnis geschrieben — VOR der Änderungs-Übersicht, damit die Datei
+  //     dort als klickbares Artefakt auftaucht. Als eigener Schritt im
+  //     Protokoll, damit sichtbar ist, WAS erzeugt wurde (oder woran es
+  //     scheiterte). Ein Dokument-Fehler macht den Lauf zum Fehler-Lauf — der
+  //     Nutzer wollte eine Datei, keine bloße Text-Antwort.
+  let dokumentFehler = null;
+  if (erzeugtDokument && !ergebnis.aborted && !ergebnis.error) {
+    const zielOrdner = flow.ordner[0];
+    let docStep = null;
+    try {
+      docStep = await stepRecorder.beginnen({
+        kind: 'werkzeug',
+        name: 'dokument_ausgabe',
+        input: { format: flow.ausgabe.format, ordner: zielOrdner || '' },
+      });
+      if (!zielOrdner) {
+        throw new ValidationError('Kein Zielordner für das Ausgabe-Dokument vorhanden');
+      }
+      const dok = await erzeugeDokument({
+        ausgabe: flow.ausgabe,
+        flowName,
+        markdown: ergebnis.result,
+        zielOrdner,
+        werte,
+      });
+      await stepRecorder.abschliessen({
+        stepId: docStep.id,
+        output: `Dokument erzeugt: ${dok.dateiname}`,
+      });
+    } catch (err) {
+      dokumentFehler = `Dokument konnte nicht erzeugt werden: ${err.message}`;
+      logger.error(`Flow "${flowName}": ${dokumentFehler}`);
+      if (docStep) {
+        try {
+          await stepRecorder.abschliessen({
+            stepId: docStep.id,
+            output: dokumentFehler,
+            status: 'fehler',
+          });
+        } catch (stepErr) {
+          logger.warn(
+            `Flow "${flowName}": Dokument-Schritt nicht abschließbar: ${stepErr.message}`
+          );
+        }
+      }
+    }
+  }
+
   // 7. Lauf abschließen. Ein per Signal abgebrochener Lauf wird 'abgebrochen';
   //    hat die Abbruch-Route den Status in der DB schon gesetzt, ist dieses
   //    finishRun ohnehin ein Nichts (WHERE status='laeuft' greift nicht mehr).
-  const status = ergebnis.aborted ? 'abgebrochen' : ergebnis.error ? 'fehler' : 'fertig';
+  const status = ergebnis.aborted
+    ? 'abgebrochen'
+    : ergebnis.error || dokumentFehler
+      ? 'fehler'
+      : 'fertig';
   await store.finishRun({
     runId: run.id,
     status,
     result: ergebnis.error ? null : ergebnis.result,
-    error: ergebnis.error || null,
+    error: ergebnis.error || dokumentFehler || null,
     stepsUsed: steps,
   });
 
@@ -664,8 +689,6 @@ module.exports = {
   resolveArguments,
   buildUserInput,
   anreichernMitDateien,
-  assembleRuntimePrompt,
-  sampleArgumentValues,
   resolveOrdnerListe,
   PROJEKT_ORDNER_TOKEN,
 };

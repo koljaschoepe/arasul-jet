@@ -119,55 +119,35 @@ test('kein Knopf, wenn der Flow keine Schritt-Kette hat', async () => {
   expect(screen.queryByTestId('run-wiederholen')).not.toBeInTheDocument();
 });
 
-// --- StartKarte: „Jetzt ausführen" direkt in der Zentrale (2026-08-01) ---
+// --- Steckbrief statt StartKarte (Flows-Umbau 2026-08-02): Ausführen gibt es
+// in der Flow-Ansicht bewusst NICHT mehr — gestartet wird im Chat oder per n8n.
 
-test('Ausführen startet den Lauf mit den Formular-Argumenten und öffnet die Detailansicht', async () => {
-  const user = userEvent.setup();
+test('zeigt keinen Ausführen-Bereich mehr, sondern den Start-Hinweis auf den Chat', async () => {
   mitLaeufen([]);
-  apiPost.mockResolvedValue({ data: { runId: 12 } });
   const flow: FlowDefinition = {
     ...FLOW_OHNE_SCHRITTE,
-    argumente: [
-      { name: 'thema', typ: 'freitext', beschreibung: 'Worum geht es?', pflicht: true },
-      {
-        name: 'ton',
-        typ: 'auswahl',
-        beschreibung: '',
-        pflicht: false,
-        optionen: ['locker', 'formell'],
-        standard: 'formell',
-      },
-    ],
+    argumente: [{ name: 'kunde', typ: 'ordner', beschreibung: 'Kundenordner', pflicht: true }],
+    ausgabe: { format: 'pdf', laenge: { stufe: 'mittel' }, sprache: 'Deutsch' },
   };
   render(<FlowDashboard name="kette" flow={flow} onEdit={vi.fn()} onDelete={vi.fn()} />);
 
-  // Pflicht-Argument leer → Knopf gesperrt.
-  const start = await screen.findByTestId('flow-start');
-  expect(start).toBeDisabled();
-
-  await user.type(screen.getByTestId('flow-arg-thema'), 'Datenschutz-Update');
-  expect(start).toBeEnabled();
-  await user.click(start);
-
-  expect(apiPost).toHaveBeenCalledWith('/flows/laeufe', {
-    flow: 'kette',
-    args: { thema: 'Datenschutz-Update', ton: 'formell' },
-  });
-  await waitFor(() => expect(screen.getByTestId('lauf-detail')).toHaveTextContent('Lauf 12'));
+  expect(await screen.findByText('Steckbrief')).toBeInTheDocument();
+  expect(screen.queryByTestId('flow-start')).not.toBeInTheDocument();
+  // Eingaben, Ausgabe und Start-Hinweis in Alltagssprache.
+  expect(screen.getAllByText(/kunde/).length).toBeGreaterThan(0);
+  expect(screen.getByText(/PDF-Dokument/)).toBeInTheDocument();
+  expect(screen.getAllByText(/\/kette/).length).toBeGreaterThan(0);
 });
 
-test('Flow ohne Argumente: Ausführen ist sofort möglich', async () => {
+test('die n8n-Integration ist eingeklappt und öffnet erst auf Klick', async () => {
   const user = userEvent.setup();
   mitLaeufen([]);
-  apiPost.mockResolvedValue({ data: { runId: 3 } });
   render(
     <FlowDashboard name="kette" flow={FLOW_OHNE_SCHRITTE} onEdit={vi.fn()} onDelete={vi.fn()} />
   );
 
-  const start = await screen.findByTestId('flow-start');
-  expect(start).toBeEnabled();
-  await user.click(start);
-
-  expect(apiPost).toHaveBeenCalledWith('/flows/laeufe', { flow: 'kette', args: {} });
-  await waitFor(() => expect(screen.getByTestId('lauf-detail')).toHaveTextContent('Lauf 3'));
+  const toggle = await screen.findByTestId('integration-toggle');
+  expect(screen.queryByText(/curl/)).not.toBeInTheDocument();
+  await user.click(toggle);
+  expect(await screen.findByText(/X-API-Key/)).toBeInTheDocument();
 });

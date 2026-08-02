@@ -16,7 +16,7 @@ export interface ArgSlot {
 }
 
 /** Argument-Typen, die NICHT frei getippt werden — sie öffnen eine Auswahl. */
-export const PICKER_TYPES = new Set(['datei', 'auswahl', 'wissensbasis']);
+export const PICKER_TYPES = new Set(['datei', 'auswahl', 'wissensbasis', 'ordner']);
 
 /** Öffnet dieses Argument eine Auswahl (Datei/Liste/Wissensbasis) statt Freitext? */
 export function istPicker(arg: FlowArgument | undefined): boolean {

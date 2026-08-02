@@ -2339,8 +2339,9 @@ Flows are Markdown files with YAML front matter under `data/flows/` (container p
 | GET    | `/api/flows/sammlungen`             | Selectable knowledge spaces (for `typ: wissensbasis`)                                                          |
 | GET    | `/api/flows/:name`                  | Get a single flow                                                                                              |
 | GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`)                                                                    |
-| POST   | `/api/flows/vorschau`               | Render the file that _would_ be written — without saving                                                       |
-| POST   | `/api/flows/vorschau-laufzeit`      | Resolve the runtime prompt (with sample args) — no run                                                         |
+| GET    | `/api/flows/vorlagen`               | List uploaded style templates (`{ name, groesse, hochgeladen }`)                                               |
+| POST   | `/api/flows/vorlagen`               | Upload a style template (multipart field `datei`; .docx/.pdf/.md/.txt/.html, 20 MB)                            |
+| DELETE | `/api/flows/vorlagen/:name`         | Delete a style template                                                                                        |
 | POST   | `/api/flows`                        | Create a flow (409 if the name exists)                                                                         |
 | PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist)                                                             |
 | DELETE | `/api/flows/:name`                  | Delete a flow                                                                                                  |
@@ -2389,8 +2390,12 @@ first failed step. `400` if the run is not failed or the flow has no step chain;
 `404` if the run is unknown/foreign. Response: `202 { runId, uebernommeneSchritte }`.
 
 > The `/laeufe` routes are registered before `/:name`, so `laeufe` (like
-> `werkzeuge`, `sammlungen`, `vorschau`) is a reserved segment: a flow named
+> `werkzeuge`, `sammlungen`, `vorlagen`) is a reserved segment: a flow named
 > exactly `laeufe` could not be fetched via `GET /:name`.
+>
+> The former preview endpoints `POST /api/flows/vorschau` and
+> `POST /api/flows/vorschau-laufzeit` were removed with the 2026-08-02 flows
+> rework (the editor no longer shows a file/runtime preview).
 
 **Runs (Plan 011, Schritt 9).** A run persists in the database (`flow_runs` +
 `flow_run_steps`) so it survives closing the browser tab; the live stream
@@ -2409,7 +2414,8 @@ run detail) renders each agent as a collapsible tree — live from the
 
 **File changes overview (Plan 011, Schritt 16).** A flow writes and deletes
 files without confirmation, so every run that _can_ change files (declares
-`dateien_schreiben` or `terminal`) is snapshotted before and after; the diff is
+`dateien_schreiben` or `terminal`, or a document-producing `ausgabe`) is
+snapshotted before and after; the diff is
 stored on `flow_runs.changes` and returned inside the run object
 (`[{ pfad, art: neu|geaendert|geloescht, vorher, nachher, gekuerzt, hinweis, projekt? }]`).
 `projekt` (`{ projectId, pfad }`) is present when the file lives in a project's
@@ -2431,7 +2437,7 @@ beschreibung: Recherchiert ein Thema im Web und fasst es zusammen.
 modell: gemma4:26b-q4 # optional, sonst das Standardmodell
 argumente:
   - name: thema
-    typ: freitext # freitext | datei | auswahl | wissensbasis
+    typ: freitext # freitext | datei | auswahl | wissensbasis | ordner
     beschreibung: Das zu recherchierende Thema
     pflicht: true
     # optionen: [...]   # nur bei typ=auswahl (pflicht dort)
@@ -2457,11 +2463,25 @@ grenzen:
   zeitlimit_s: 900
   werkzeug_runden: 10
   max_tiefe: 2 # nesting depth of subagent roles (1–5, default 2)
+ausgabe: # optional (Flows-Umbau 2026-08-02): was am Ende herauskommt
+  format: pdf # keins | markdown | pdf | docx (default: keins = nur Text-Antwort)
+  dateiname: 'angebot-{{kunde}}-{{datum}}' # Muster ohne Endung; default <flowname>-<datum>
+  vorlage: angebot-muster.docx # Stilvorlage aus data/flows/vorlagen/
+  laenge: { stufe: mittel, wortzahl: 900 } # kurz|mittel|ausfuehrlich; wortzahl überstimmt
+  sprache: Deutsch
+  tonalitaet: formell # formell | neutral | locker
+  gliederung: [Zusammenfassung, Details, Nächste Schritte]
 ---
 Recherchiere gründlich zum Thema {{thema}}.
 ```
 
-Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner`. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
+**Output (`ausgabe`, 2026-08-02).** Declares what a run produces. Before the run, the runner appends plain-language writing instructions to the system prompt (language, tonality, length band — `kurz` ≈ 300–600 words, `mittel` ≈ 800–2000, `ausfuehrlich` ≥ 2500, a concrete `wortzahl` wins —, the `gliederung` section list, and the extracted text of the `vorlage` as a style/structure reference). With a document format (`markdown|pdf|docx`) the model is additionally required to return the **complete document content as Markdown** as its final answer; after a successful run the runner renders that Markdown (pdfkit for PDF, the pure-JS `docx` package for Word) and writes it collision-free into the working directory (`fix.pdf`, `fix-2.pdf`, …). The write is recorded as a `dokument_ausgabe` step and shows up in the run's file-changes overview; a failed document render marks the run `fehler`. Filename pattern placeholders: `{{argument}}` and `{{datum}}` (YYYY-MM-DD).
+
+**`ordner` argument — the customer-folder case (2026-08-02).** An argument of `typ: ordner` is picked via a folder picker in chat; its value must be a `projekt://…` form (validated at run start, device paths are rejected). The **first** `ordner` argument value becomes the run's working directory — exactly like `ordner_ziel` on the external trigger (an explicit `ordner_ziel` wins). A flow with an `ordner` argument satisfies the "file tools need a folder" rule without declaring static `ordner` entries.
+
+**Style templates (`/api/flows/vorlagen`).** Uploaded files live in `FLOWS_DIR/vorlagen/` (same volume as the flows, included in backups). For `.pdf`/`.docx` the text is extracted **at upload time** via the Document Indexer and stored as a `<name>.extrahiert.txt` sidecar — a template whose text cannot be read is rejected with `400`, and runs never depend on the indexer. At run time the template text (capped at 8 000 chars) is injected into the prompt as a clearly delimited style/structure block; a missing template is silently skipped (the run must not fail because a template was deleted).
+
+Valid `werkzeuge`: `dateien_lesen`, `dateien_schreiben`, `dateien_bearbeiten`, `dateien_anhaengen`, `dateien_suchen`, `rag_suche`, `web_suche`, `web_lesen`, `terminal`, `subagent`. Declaring `rollen` requires `subagent` and vice versa; `dateien_*` / `terminal` require at least one entry in `ordner` **or an argument of `typ: ordner`**. `dateien_suchen` finds files by glob (`muster`) and/or content (`text`, a case-insensitive substring — not a regex — reported with line numbers). `dateien_bearbeiten` (Harness v2, 2026-07-30) replaces one exact text block via search/replace (whitespace-tolerant fallback, `alle: true` for all occurrences); `dateien_anhaengen` appends a section to the end of a file (creates it if missing, file cap 16 MB) — the building block for generating long documents section by section instead of one giant write.
 
 The optional `schritte` array (B7) makes orchestration deterministic: each step is either `typ: subagent` (delegates to a declared `rolle` with an `auftrag` template) or `typ: werkzeug` (calls one tool directly with `parameter`). Steps run in fixed order; a step's output is threaded into later steps as `{{stepname}}` (and `{{vorher}}` across `iterationen`), then the body prompt synthesizes the final answer. A `subagent` step requires the `subagent` tool and a matching role; a `werkzeug` step may only use a tool the flow itself declares. Empty `schritte` → the flow stays model-driven.
 
@@ -2526,30 +2546,7 @@ A flow may declare a tool that is not built yet — the definition stays valid a
 }
 ```
 
-`PUT /api/flows/:name` takes the same body without `name` (it comes from the URL) and **merges**: fields omitted from the body keep their stored value. This is deliberate — sending only `{ "prompt": "…" }` to fix a typo must not silently wipe `werkzeuge`, `rollen`, `argumente`, `ordner` or `grenzen`. To actually clear a field, send it explicitly as an empty list. `POST /api/flows/vorschau` takes the same body as `POST /api/flows` but only returns the rendered file — nothing is written:
-
-```json
-{
-  "data": { "datei": "---\nname: recherche\n...\n---\n\nRecherchiere ..." },
-  "timestamp": "2026-07-21T10:00:00.000Z"
-}
-```
-
-`POST /api/flows/vorschau-laufzeit` (Plan 012 Phase D) takes the same body as `POST /api/flows` plus an optional `args` map (name → value) and returns the **resolved runtime prompt** — what the runner would actually send the model — without running anything. Missing arguments are filled with a visible `‹name›` placeholder (so the preview never fails on an unfilled required field). It honestly separates what goes into the model's **system message** (`systemPrompt`, placeholders filled) from the context the runner passes **structurally alongside** (tools, folders, roles — not concatenated into the prompt):
-
-```json
-{
-  "data": {
-    "systemPrompt": "Fasse Quartalszahlen zusammen.",
-    "userInput": "Angaben:\nThema: Quartalszahlen",
-    "werkzeuge": ["rag_suche"],
-    "ordner": ["berichte"],
-    "rollen": [{ "name": "sucher", "prompt": "Suche zu Quartalszahlen" }],
-    "beispielWerte": { "thema": "Quartalszahlen" }
-  },
-  "timestamp": "2026-07-21T10:00:00.000Z"
-}
-```
+`PUT /api/flows/:name` takes the same body without `name` (it comes from the URL) and **merges**: fields omitted from the body keep their stored value. This is deliberate — sending only `{ "prompt": "…" }` to fix a typo must not silently wipe `werkzeuge`, `rollen`, `argumente`, `ordner` or `grenzen`. To actually clear a field, send it explicitly as an empty list.
 
 `DELETE /api/flows/:name` responds with `{ "deleted": true, "timestamp": "..." }`.
 

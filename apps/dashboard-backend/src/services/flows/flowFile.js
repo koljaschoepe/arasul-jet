@@ -147,6 +147,7 @@ function serializeFlowFile(flow) {
     ...(flow.rollen && flow.rollen.length ? { rollen: flow.rollen } : {}),
     ...(flow.schritte && flow.schritte.length ? { schritte: flow.schritte } : {}),
     ...(flow.grenzen ? { grenzen: flow.grenzen } : {}),
+    ...(flow.ausgabe ? { ausgabe: flow.ausgabe } : {}),
   };
 
   const front = yaml.dump(head, { lineWidth: 100, noRefs: true, quotingType: '"' });
