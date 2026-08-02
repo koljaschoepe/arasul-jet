@@ -2378,6 +2378,18 @@ Projekt-Flows merkt sich sein Projekt (`flow_runs.projekt_id`); `projekt://aktiv
 und der RAG-Scope zeigen bei einem Projekt-Flow auf **sein** Projekt, egal
 welches gerade aktiv ist.
 
+**Prüfschritt & Annahmen-Protokoll (Plan 014, Phase 2).** Bei Dokument-Flows
+(`ausgabe.format ≠ keins`) steht zwischen Entwurf und Ausgabe ein fester
+Prüfschritt: deterministische Checks (Platzhalter-Reste, offene `[Stellen]`,
+Gliederung, Ziel-Länge), eine LLM-Prüfrunde gegen Auftrag und Vorgaben,
+höchstens **eine** Korrekturrunde. Das Laufprotokoll zeigt die Einzelprüfungen
+als Schritt `pruefung` (plus ggf. `korrektur`). Statt Rückfragen gilt das
+Annahmen-Protokoll: getroffene Annahmen landen als `flow_runs.annahmen`
+(JSON-Array) am Lauf, kommen im SSE-Strom als Frame `{type:'annahmen'}` und in
+den Lauf-Antworten der externen API (`annahmen`-Feld) mit. Der Prüfschritt
+wirft nie — scheitert die Prüfrunde selbst, läuft der Entwurf unverändert
+weiter und das Protokoll benennt das.
+
 **Runs stream live and survive the tab (Plan 011, Schritt 12).** `POST /laeufe`
 (`{ flow, args, conversation_id?, ordner_ziel?, projekt? }` — `projekt` = UUID
 für einen projektgebundenen Flow) starts the run **server-side**
@@ -2390,7 +2402,7 @@ zusätzlich erlaubt. The client
 then opens `GET /laeufe/:id/stream` (SSE, consumed via `fetch`+`getReader`, not
 `EventSource`, so the Bearer token is sent). The stream sends a `verlauf` frame
 with the stored run+steps first (so a **reconnecting** client sees everything up
-to now), then live frames (`step_start`/`step_end`/`text`/`done`/`error`/`aenderungen`),
+to now), then live frames (`step_start`/`step_end`/`text`/`done`/`error`/`aenderungen`/`annahmen`),
 and closes on `ende`. `step_start` fires when a step is **created** (for a
 subagent: before it executes), `step_end` when it finishes; both carry the full
 step row (including `parent_step_id` and `modell`) but never `raw_output` — the

@@ -60,7 +60,12 @@ export function useProjects() {
   const createProject = useMutation({
     mutationFn: (body: { name: string; description?: string | null; vorlage?: string | null }) =>
       api.post<{ data: Project }>('/projects', body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
+      // Ein Vorlagen-Projekt bringt Projekt-Flows mit (Plan 014): die Flow-Liste
+      // (Slash-Menü, Sidebar) sofort auffrischen statt bis zu 30 s zu cachen.
+      qc.invalidateQueries({ queryKey: ['flows'], exact: true });
+    },
   });
 
   const deleteProject = useMutation({

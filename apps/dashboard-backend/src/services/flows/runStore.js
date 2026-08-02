@@ -156,7 +156,7 @@ async function finishStep(
  *   bereits beendet war.
  */
 async function finishRun(
-  { runId, status, result = null, error = null, stepsUsed },
+  { runId, status, result = null, error = null, stepsUsed, annahmen = null },
   { db = database } = {}
 ) {
   if (!ENDZUSTAENDE.has(status)) {
@@ -170,11 +170,20 @@ async function finishRun(
             result = $3,
             error = $4,
             steps_used = COALESCE($5, steps_used),
+            annahmen = $6::jsonb,
             finished_at = NOW()
       WHERE id = $1
         AND status = 'laeuft'
       RETURNING *`,
-    [runId, status, result, error, stepsUsed ?? null]
+    [
+      runId,
+      status,
+      result,
+      error,
+      stepsUsed ?? null,
+      // Annahmen-Protokoll (Plan 014, Phase 2): NULL = kein Prüfschritt gelaufen.
+      annahmen == null ? null : JSON.stringify(annahmen),
+    ]
   );
   return rows[0] || null;
 }

@@ -176,6 +176,24 @@ export default function RunCard({ runId, flowName, onFinished }: RunCardProps) {
         </div>
       )}
 
+      {/* Annahmen-Protokoll (Plan 014, Phase 2): Flows fragen nie zurück —
+          Lücken werden als Annahmen gefüllt und hier ehrlich benannt. */}
+      {run.annahmen.length > 0 && (
+        <div
+          className="border-t border-border bg-muted/40 px-2.5 py-1.5"
+          data-testid="run-annahmen"
+        >
+          <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+            Getroffene Annahmen
+          </div>
+          <ul className="list-disc space-y-0.5 pl-4 text-ui-xs text-muted-foreground">
+            {run.annahmen.map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Datei-Änderungen (neu / geändert / gelöscht, aufklappbar) */}
       <ChangeSummary changes={run.changes} />
 
