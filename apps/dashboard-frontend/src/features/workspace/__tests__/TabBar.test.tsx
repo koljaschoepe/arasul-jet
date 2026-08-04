@@ -16,6 +16,10 @@ vi.mock('@/hooks/useConfirm', () => ({
   }),
 }));
 
+vi.mock('@/contexts/ToastContext', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),
+}));
+
 function reset() {
   useWorkspaceStore.setState({
     tabs: [],
@@ -66,5 +70,64 @@ describe('TabBar — Schließen-Rückfrage bei ungespeicherten Änderungen', () 
     s.setTabDirty('projektdatei:p:d.md', true);
     render(<TabBar />);
     expect(screen.getByTestId('tab-dirty-dot')).toBeInTheDocument();
+  });
+});
+
+describe('TabBar — Umsortieren per Drag', () => {
+  beforeEach(reset);
+
+  it('Vorwärts-Zug: fügt VOR dem Ziel-Tab ein (Indikator = linker Rand)', () => {
+    const s = useWorkspaceStore.getState();
+    s.openTab({ type: 'automationen' });
+    s.openTab({ type: 'settings' });
+    s.openTab({ type: 'store' });
+    render(<TabBar />);
+    const tabEls = screen.getAllByRole('tab');
+    const erste = tabEls[0] as HTMLElement;
+    const dritte = tabEls[2] as HTMLElement;
+    // dataTransfer im jsdom selbst bereitstellen (sonst null).
+    const dt = { setData: vi.fn(), getData: vi.fn(), effectAllowed: '', dropEffect: '' };
+    fireEvent.dragStart(erste, { dataTransfer: dt });
+    fireEvent.dragOver(dritte, { dataTransfer: dt });
+    fireEvent.drop(dritte, { dataTransfer: dt });
+    // automationen landet VOR store — entspricht dem Indikator am linken Rand.
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
+      'settings',
+      'automationen',
+      'store',
+    ]);
+  });
+
+  it('Rückwärts-Zug: fügt VOR dem Ziel-Tab ein', () => {
+    const s = useWorkspaceStore.getState();
+    s.openTab({ type: 'automationen' });
+    s.openTab({ type: 'settings' });
+    s.openTab({ type: 'store' });
+    render(<TabBar />);
+    const tabEls = screen.getAllByRole('tab');
+    const erste = tabEls[0] as HTMLElement;
+    const dritte = tabEls[2] as HTMLElement;
+    const dt = { setData: vi.fn(), getData: vi.fn(), effectAllowed: '', dropEffect: '' };
+    fireEvent.dragStart(dritte, { dataTransfer: dt });
+    fireEvent.dragOver(erste, { dataTransfer: dt });
+    fireEvent.drop(erste, { dataTransfer: dt });
+    // store landet VOR automationen.
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
+      'store',
+      'automationen',
+      'settings',
+    ]);
+  });
+
+  it('Drop auf denselben Tab lässt die Reihenfolge unverändert', () => {
+    const s = useWorkspaceStore.getState();
+    s.openTab({ type: 'automationen' });
+    s.openTab({ type: 'settings' });
+    render(<TabBar />);
+    const erste = screen.getAllByRole('tab')[0] as HTMLElement;
+    const dt = { setData: vi.fn(), getData: vi.fn(), effectAllowed: '', dropEffect: '' };
+    fireEvent.dragStart(erste, { dataTransfer: dt });
+    fireEvent.drop(erste, { dataTransfer: dt });
+    expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['automationen', 'settings']);
   });
 });
