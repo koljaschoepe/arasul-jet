@@ -2368,6 +2368,21 @@ external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
 (`flow_schedules`, `/flows/zeitplaene`, external `events/:name`) was removed on
 2026-07-28; there is no schedule mechanism anymore.
 
+**ZUGFeRD-Rechnungen (Plan 014, Phase 5).** Das Flow-Werkzeug
+`rechnung_erstellen` stellt echte E-Rechnungen aus: Das Modell liefert NUR
+strukturierte Positionen (JSON-Array mit Netto-Einzelpreisen); Netto/USt/Brutto
+rechnet Code in ganzen Cent (`services/flows/rechnung/summen.js`). Der
+Verkäufer kommt aus dem `Firmenprofil.md` des Projekts. Nach der eingebauten
+Validierung (Pflichtangaben §14 UStG, Summen-Querprüfung, Probe-XML) wird die
+nächste Nummer des lückenlosen Kreises (`RE-<jahr>-<lfd>`, Migration 132:
+`rechnungsnummern` + `rechnungsnummern_zaehler`) **transaktional** gezogen —
+scheitert die Erzeugung, rollt alles zurück (keine Lücke). Ausgabe: PDF/A-3b
+mit eingebettetem EN-16931-XML (Factur-X BASIC, pure Node: pdfkit +
+node-zugferd; extern per Mustang validiert). Ausgestellte Rechnungen sind
+schreibgeschützt (Datei 0444 + `ablageService.pruefeRechnungsschutz` blockt
+Ändern/Verschieben/Löschen, auch über Eltern-Ordner). Die Vorlage „Interne
+Finanzen" bringt den passenden `/rechnung`-Flow mit.
+
 **Projektgebundene Flows (Plan 014, Phase 1).** Neben dem globalen Verzeichnis
 (`data/flows/`) hat jedes Projekt eine zweite Flow-Heimat:
 `<projektordner>/flows/*.md`. Diese Flows kommen als normale Dateien mit einer
@@ -2477,7 +2492,7 @@ argumente:
     # optionen: [...]   # nur bei typ=auswahl (pflicht dort)
     # standard: "..."   # schließt pflicht=true aus
 ordner: [/arasul/sandbox/projects/demo] # der ERSTE ist das Arbeitsverzeichnis
-werkzeuge: [web_suche, web_lesen, subagent]
+werkzeuge: [web_suche, web_lesen, subagent] # + rechnung_erstellen (Plan 014 Phase 5)
 rollen:
   - name: leser
     beschreibung: Liest eine Seite und extrahiert Fakten

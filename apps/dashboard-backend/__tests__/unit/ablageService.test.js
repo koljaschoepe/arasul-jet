@@ -17,7 +17,11 @@ const ablage = require('../../src/services/projects/ablageService');
 const { ValidationError, NotFoundError, ConflictError } = require('../../src/utils/errors');
 
 const PROJEKT = '11111111-2222-3333-4444-555555555555';
-const deps = { getProject: jest.fn(async id => ({ id, slug: 'testprojekt' })) };
+const deps = {
+  getProject: jest.fn(async id => ({ id, slug: 'testprojekt' })),
+  // Rechnungsschutz-Wächter (Plan 014, Phase 5): keine registrierten Rechnungen.
+  db: { query: jest.fn(async () => ({ rows: [] })) },
+};
 
 afterAll(() => {
   fs.rmSync(TMP, { recursive: true, force: true });
@@ -157,6 +161,48 @@ describe('ablageService', () => {
     expect(treffer.eintraege.some(e => e.pfad === 'schachtel' && e.typ === 'ordner')).toBe(true);
     const leer = await ablage.searchTree(PROJEKT, '   ', deps);
     expect(leer.eintraege).toEqual([]);
+  });
+
+  // Schreibschutz ausgestellter Rechnungen (Plan 014, Phase 5).
+  describe('Rechnungs-Schreibschutz', () => {
+    // db.query meldet den Pfad als registrierte Rechnung, sobald er (oder ein
+    // Elternteil) auf die Rechnungsdatei zeigt.
+    const schutzDeps = {
+      getProject: deps.getProject,
+      db: {
+        query: jest.fn(async (_sql, params) => {
+          const [, rel, prefix] = params;
+          const treffer =
+            rel === 'Rechnungen/RE-2026-00001.pdf' || prefix === 'Rechnungen/%';
+          return { rows: treffer ? [{ nummer: 'RE-2026-00001' }] : [] };
+        }),
+      },
+    };
+
+    it('write/remove/move/upload/createDir werfen ForbiddenError für eine Rechnung', async () => {
+      const p = 'Rechnungen/RE-2026-00001.pdf';
+      await expect(ablage.writeFile(PROJEKT, p, 'x', schutzDeps)).rejects.toThrow(/schreibgeschützt/);
+      await expect(ablage.remove(PROJEKT, p, schutzDeps)).rejects.toThrow(/schreibgeschützt/);
+      await expect(ablage.move(PROJEKT, p, 'woanders.pdf', schutzDeps)).rejects.toThrow(
+        /schreibgeschützt/
+      );
+      await expect(
+        ablage.saveUpload(PROJEKT, 'Rechnungen', 'RE-2026-00001.pdf', Buffer.from('x'), schutzDeps)
+      ).rejects.toThrow(/schreibgeschützt/);
+      // Elternordner der Rechnung darf nicht gelöscht/angelegt werden.
+      await expect(ablage.remove(PROJEKT, 'Rechnungen', schutzDeps)).rejects.toThrow(
+        /schreibgeschützt/
+      );
+      await expect(ablage.createDir(PROJEKT, 'Rechnungen', schutzDeps)).rejects.toThrow(
+        /schreibgeschützt/
+      );
+    });
+
+    it('lässt unbeteiligte Pfade unberührt', async () => {
+      await expect(
+        ablage.writeFile(PROJEKT, 'Notizen/frei.md', 'x', schutzDeps)
+      ).resolves.toMatchObject({ pfad: 'Notizen/frei.md' });
+    });
   });
 });
 

@@ -233,6 +233,13 @@ async function synchronisiere({ projectId }, deps = {}) {
     }
 
     // (3) Ferne holen und mergen — nur, wenn der Remote-Branch existiert.
+    // RESTGRENZE (Plan 014, Phase 5): Ein Merge, der eine Datei am Pfad einer
+    // ausgestellten Rechnung ändert, würde sie überschreiben (der 0444-Modus
+    // schützt nicht gegen git-Arbeitsbaum-Updates). Das ist eine bewusst
+    // ungeschützte, sehr unwahrscheinliche Kombination: Finanz-Projekte mit
+    // Rechnungen sind keine Code-Repos, und git-gekoppelte Projekte sind vom
+    // Auto-Index ausgenommen. Wer beides koppelt, verantwortet die Ablage
+    // seines Remotes selbst; der klare Zerstörungspfad (`trenne`) ist gesperrt.
     const fetch = await run(['-C', cwd, 'fetch', 'origin', branch], { pat });
     const remoteRef = await run(['-C', cwd, 'rev-parse', '--verify', `origin/${branch}`]);
     if (fetch.code === 0 && remoteRef.code === 0) {
@@ -292,9 +299,26 @@ async function synchronisiere({ projectId }, deps = {}) {
 /**
  * Löst die Kopplung (verschlüsselter PAT wird gelöscht) und entfernt den lokalen
  * Checkout. Best-effort beim Ordner — die DB-Wahrheit ist entscheidend.
+ *
+ * SCHUTZ (Plan 014, Phase 5): Enthält das Projekt ausgestellte, unveränderliche
+ * Rechnungen, würde das rekursive Löschen sie stillschweigend vernichten
+ * (chmod 0444 hilft nicht — Löschen hängt am Schreibrecht des Verzeichnisses,
+ * nicht am Dateimodus). Deshalb VOR dem Löschen prüfen und mit klarer Meldung
+ * ablehnen, statt einen rechtsverbindlichen Beleg zu zerstören.
  */
 async function trenne({ projectId }, deps = {}) {
-  const { store = gitStore } = deps;
+  const { store = gitStore, db = require('../../database') } = deps;
+  const { rows } = await db.query(
+    `SELECT COUNT(*)::int AS anzahl FROM rechnungsnummern WHERE projekt_id = $1`,
+    [projectId]
+  );
+  if ((rows[0]?.anzahl ?? 0) > 0) {
+    throw new ConflictError(
+      `Das Projekt enthält ${rows[0].anzahl} ausgestellte, unveränderliche Rechnung(en) — ` +
+        'die Git-Kopplung kann nicht getrennt werden, ohne diese Belege zu löschen. ' +
+        'Bitte die Rechnungen zuerst sichern/exportieren.'
+    );
+  }
   const geloescht = await store.loescheKopplung({ projectId });
   try {
     await fs.rm(checkoutPfad(projectId), { recursive: true, force: true });

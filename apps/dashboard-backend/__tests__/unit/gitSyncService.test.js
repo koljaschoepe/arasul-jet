@@ -231,6 +231,26 @@ describe('synchronisiere', () => {
   });
 });
 
+describe('trenne — Rechnungsschutz (Plan 014, Phase 5)', () => {
+  test('lehnt das Trennen ab, wenn das Projekt ausgestellte Rechnungen enthält', async () => {
+    const store = { loescheKopplung: jest.fn(async () => ({})) };
+    const db = { query: jest.fn(async () => ({ rows: [{ anzahl: 2 }] })) };
+    await expect(gitSyncService.trenne({ projectId: 'p1' }, { store, db })).rejects.toThrow(
+      /unveränderliche Rechnung/
+    );
+    // Weder Kopplung gelöscht noch der Ordner angefasst.
+    expect(store.loescheKopplung).not.toHaveBeenCalled();
+  });
+
+  test('trennt normal, wenn keine Rechnungen registriert sind', async () => {
+    const store = { loescheKopplung: jest.fn(async () => ({ getrennt: true })) };
+    const db = { query: jest.fn(async () => ({ rows: [{ anzahl: 0 }] })) };
+    const res = await gitSyncService.trenne({ projectId: 'p1' }, { store, db });
+    expect(store.loescheKopplung).toHaveBeenCalledWith({ projectId: 'p1' });
+    expect(res).toEqual({ getrennt: true });
+  });
+});
+
 describe('verbinde', () => {
   test('nicht erreichbar → ValidationError, OHNE die bestehende Kopplung zu überschreiben', async () => {
     const store = {

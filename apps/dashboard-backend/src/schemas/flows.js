@@ -25,6 +25,9 @@ const VALID_TOOLS = [
   'web_lesen',
   'terminal',
   'subagent',
+  // Plan 014, Phase 5: stellt ZUGFeRD-Rechnungen mit lückenlosem Nummernkreis
+  // aus — alle Summen rechnet Code, nie das Modell.
+  'rechnung_erstellen',
 ];
 
 // Argumenttypen. Jeder Typ entspricht einer eigenen Eingabehilfe im Chat und —

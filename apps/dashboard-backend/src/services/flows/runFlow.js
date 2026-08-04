@@ -336,6 +336,14 @@ async function runFlow(
   //    Lauf-weiten Subagent-Daten (Rollen, Grenzen, Tiefe).
   const roleContextBase = { userId, roots: flow.ordner, spaceIds, slug: flowName };
 
+  // Projekt-Bezug fürs Rechnungs-Werkzeug (Plan 014, Phase 5): das Projekt des
+  // Arbeitsverzeichnisses (erster aufgelöster projekt://-Ordner) — bei
+  // Projekt-Flows deckungsgleich mit projektId. Dazu der Ablage-relative
+  // Unterpfad, damit die Rechnung unter ihrem Ablage-Pfad registriert wird.
+  const arbeitsMeta = projektOrdnerMeta.find(m => m.pfad === flow.ordner[0]) || null;
+  roleContextBase.projektId = projektId || arbeitsMeta?.projectId || null;
+  roleContextBase.projektUnterpfad = arbeitsMeta?.unterpfad || '';
+
   // Terminal braucht einen Sandbox-Container. Nur aufbauen, wenn der Flow das
   // Werkzeug auch deklariert — sonst kein Container für einen Flow, der ihn
   // gar nicht nutzt.

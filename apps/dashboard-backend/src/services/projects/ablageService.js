@@ -24,7 +24,12 @@ const fsp = require('fs/promises');
 const path = require('path');
 const { resolveRealWithinRoots } = require('../flows/pathSafe');
 const projectService = require('../rag/projectService');
-const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  ForbiddenError,
+} = require('../../utils/errors');
 const logger = require('../../utils/logger');
 
 // Gleicher Standard wie gitSyncService — beide leben bewusst im selben Baum.
@@ -69,6 +74,33 @@ function beruehrtVersteckt(relPfad) {
   return String(relPfad || '')
     .split('/')
     .some(teil => VERSTECKT.has(teil));
+}
+
+/**
+ * Schreibschutz ausgestellter Rechnungen (Plan 014, Phase 5): Ein in
+ * `rechnungsnummern` registrierter Ablage-Pfad darf nie überschrieben,
+ * gelöscht oder verschoben werden — auch nicht über einen Eltern-Ordner
+ * (rekursives Löschen). Wirft ForbiddenError beim Treffer.
+ */
+async function pruefeRechnungsschutz(projectId, relPfade, deps = {}) {
+  const { db = require('../../database') } = deps;
+  for (const roh of relPfade) {
+    const rel = String(roh || '').replace(/\/+$/, '');
+    if (!rel) {
+      continue;
+    }
+    const { rows } = await db.query(
+      `SELECT nummer FROM rechnungsnummern
+        WHERE projekt_id = $1 AND (pfad = $2 OR pfad LIKE $3)
+        LIMIT 1`,
+      [projectId, rel, `${rel}/%`]
+    );
+    if (rows.length > 0) {
+      throw new ForbiddenError(
+        `Ausgestellte Rechnungen sind schreibgeschützt (${rows[0].nummer}) — sie dürfen nicht geändert, verschoben oder gelöscht werden`
+      );
+    }
+  }
 }
 
 /**
@@ -251,6 +283,7 @@ async function writeFile(projectId, relPfad, inhalt, deps = {}) {
   if (beruehrtVersteckt(relPfad)) {
     throw new ValidationError('Dieser Pfad ist für die Ablage gesperrt');
   }
+  await pruefeRechnungsschutz(projectId, [relPfad], deps);
   const text = String(inhalt ?? '');
   if (Buffer.byteLength(text, 'utf8') > MAX_EDITOR_BYTES) {
     throw new ValidationError('Datei zu groß für den Editor (max. 1 MB)');
@@ -271,6 +304,7 @@ async function createDir(projectId, relPfad, deps = {}) {
   if (beruehrtVersteckt(relPfad)) {
     throw new ValidationError('Dieser Pfad ist für die Ablage gesperrt');
   }
+  await pruefeRechnungsschutz(projectId, [relPfad], deps);
   const abs = sicher(dir, relPfad);
   if (istWurzel(dir, abs)) {
     throw new ValidationError('Pfad zeigt auf den Projektordner selbst');
@@ -285,6 +319,7 @@ async function remove(projectId, relPfad, deps = {}) {
   if (beruehrtVersteckt(relPfad)) {
     throw new ValidationError('Dieser Pfad ist für die Ablage gesperrt');
   }
+  await pruefeRechnungsschutz(projectId, [relPfad], deps);
   const abs = sicher(dir, relPfad);
   if (istWurzel(dir, abs)) {
     throw new ValidationError('Der Projektordner selbst kann nicht gelöscht werden');
@@ -305,6 +340,7 @@ async function move(projectId, vonPfad, nachPfad, deps = {}) {
   if (beruehrtVersteckt(vonPfad) || beruehrtVersteckt(nachPfad)) {
     throw new ValidationError('Dieser Pfad ist für die Ablage gesperrt');
   }
+  await pruefeRechnungsschutz(projectId, [vonPfad, nachPfad], deps);
   const von = sicher(dir, vonPfad);
   const nach = sicher(dir, nachPfad);
   if (istWurzel(dir, von) || istWurzel(dir, nach)) {
@@ -349,6 +385,9 @@ async function saveUpload(projectId, zielOrdner, originalname, buffer, deps = {}
   if (beruehrtVersteckt(relZiel)) {
     throw new ValidationError('Dieser Pfad ist für die Ablage gesperrt');
   }
+  // Eine ausgestellte Rechnung darf ein Upload nie überschreiben — sauberer
+  // ForbiddenError statt eines rohen EACCES vom 0444-Dateimodus.
+  await pruefeRechnungsschutz(projectId, [relZiel], deps);
   const abs = sicher(dir, relZiel);
   await fsp.mkdir(path.dirname(abs), { recursive: true });
   await fsp.writeFile(abs, buffer);
@@ -422,6 +461,7 @@ module.exports = {
   MAX_EDITOR_BYTES,
   MAX_UPLOAD_BYTES,
   projektOrdner,
+  pruefeRechnungsschutz,
   listTree,
   listTreeMitWissen,
   searchTree,

@@ -34,6 +34,17 @@ const FELDER = new Map([
   ['telefon', 'telefon'],
   ['status', 'status'],
   ['letzter kontakt', 'letzter_kontakt'],
+  // Anschrift + Steuer (Firmenprofil der Finanzen-Vorlage, Plan 014 Phase 5).
+  ['straße', 'strasse'],
+  ['strasse', 'strasse'],
+  ['adresse', 'strasse'],
+  ['plz', 'plz'],
+  ['ort', 'ort'],
+  ['land', 'land'],
+  ['ust-idnr.', 'ust_id'],
+  ['ust-idnr', 'ust_id'],
+  ['ust-id', 'ust_id'],
+  ['iban', 'iban'],
 ]);
 
 /**
