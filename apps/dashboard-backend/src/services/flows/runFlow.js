@@ -488,10 +488,13 @@ async function runFlow(
   //     Flow arbeitet in seinem eigenen Ordner), aber es ist ein anderer
   //     Fehlerfall als der TOCTOU-Schutz der Datei-Werkzeuge — hier nicht gelöst.
   const erzeugtDokument = DOKUMENT_FORMATE.has(flow.ausgabe?.format);
+  // Werkzeuge, die Dateien in die Ablage schreiben — ihre Ergebnisse sollen als
+  // klickbare Artefakte in der Änderungs-Übersicht auftauchen. `rechnung_erstellen`
+  // legt die ausgestellte ZUGFeRD-PDF ab (Plan 014, Phase 5).
+  const SCHREIBENDE_WERKZEUGE = ['dateien_schreiben', 'terminal', 'rechnung_erstellen'];
   const verfolgtAenderungen =
     erzeugtDokument ||
-    (Array.isArray(flow.werkzeuge) &&
-      (flow.werkzeuge.includes('dateien_schreiben') || flow.werkzeuge.includes('terminal')));
+    (Array.isArray(flow.werkzeuge) && flow.werkzeuge.some(w => SCHREIBENDE_WERKZEUGE.includes(w)));
   let startAbzug = null;
   if (verfolgtAenderungen) {
     try {
