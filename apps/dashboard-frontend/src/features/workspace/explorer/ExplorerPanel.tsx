@@ -603,6 +603,25 @@ export function ExplorerPanel() {
 
   // --- Rendering -----------------------------------------------------------
 
+  // Tastatur auf dem fokussierten Baum-Eintrag (VS-Code-Konvention): F2 =
+  // Umbenennen, Entf = Löschen. Nutzt die vorhandenen Modal-Dialoge, damit die
+  // Bestätigung/Validierung identisch zum Kontextmenü bleibt. Liefert true,
+  // wenn die Taste behandelt wurde (der Aufrufer stoppt dann).
+  const zeilenTastatur = (ev: React.KeyboardEvent, e: AblageEintrag): boolean => {
+    if (ev.key === 'F2') {
+      ev.preventDefault();
+      setDialogName(e.name);
+      setDialog({ kind: 'umbenennen', eintrag: e });
+      return true;
+    }
+    if (ev.key === 'Delete') {
+      ev.preventDefault();
+      setDialog({ kind: 'loeschen', eintrag: e });
+      return true;
+    }
+    return false;
+  };
+
   const renderDatei = (e: AblageEintrag, tiefe: number): React.ReactNode => {
     if (!matches(e.name)) return null;
     const suffix = e.dokument ? statusSuffix(e.dokument.status) : null;
@@ -623,6 +642,7 @@ export function ExplorerPanel() {
             {...dropProps(eltern || null, eltern ? `ordner:${eltern}` : 'root')}
             onClick={() => void oeffneDatei(e)}
             onKeyDown={ev => {
+              if (zeilenTastatur(ev, e)) return;
               if (ev.key === 'Enter' || ev.key === ' ') {
                 ev.preventDefault();
                 void oeffneDatei(e);
@@ -698,6 +718,7 @@ export function ExplorerPanel() {
               title={gesynct ? undefined : 'Wird noch übernommen — Chat-Drag folgt nach dem Sync'}
               onDragStart={gesynct ? dragStart(e) : undefined}
               onKeyDown={ev => {
+                if (zeilenTastatur(ev, e)) return;
                 if (ev.key === 'Enter' || ev.key === ' ') {
                   ev.preventDefault();
                   toggleOrdner(e.pfad);
