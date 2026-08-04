@@ -21,6 +21,7 @@ const projectService = require('../../services/rag/projectService');
 const ablageService = require('../../services/projects/ablageService');
 const ordnerSyncService = require('../../services/projects/ordnerSyncService');
 const vorlagenService = require('../../services/projects/vorlagenService');
+const vorlagenUpdate = require('../../services/projects/vorlagenUpdate');
 const steckbriefIndex = require('../../services/projects/steckbriefIndex');
 const { cacheService } = require('../../services/core/cacheService');
 const { ValidationError } = require('../../utils/errors');
@@ -34,6 +35,7 @@ const {
   AblageSucheQuery,
   AblageWriteBody,
   AblageOrdnerBody,
+  VorlagenUebernahmeBody,
   AblageDeleteQuery,
   AblageMoveBody,
   AblageDownloadQuery,
@@ -184,6 +186,42 @@ router.put(
 // --- Projektablage: die Datei-API des echten Projektordners -----------------
 // (data/projects/<uuid> auf dem Gerät; Explorer-Bereich „Dateien", Flows und
 // Sandboxes arbeiten im selben Ordner.)
+
+/**
+ * GET /api/projects/:id/vorlagen-update
+ * Vorlagen-Update-Stand (Plan 014, Phase 6): gibt es eine neuere Vorlagen-
+ * Version, und welche Neuerungen (fehlende Vorlagen-Dateien) sind übernehmbar?
+ */
+router.get(
+  '/:id/vorlagen-update',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  asyncHandler(async (req, res) => {
+    const stand = await vorlagenUpdate.pruefeUpdate(req.params.id);
+    res.json({ data: stand, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/projects/:id/vorlagen-update
+ * Ausgewählte Neuerungen übernehmen (ADDITIV, wx — nie überschreiben).
+ */
+router.post(
+  '/:id/vorlagen-update',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  validateBody(VorlagenUebernahmeBody),
+  asyncHandler(async (req, res) => {
+    // uebernehmeNeuerungen triggert den Ordner-Sync selbst (nur wenn wirklich
+    // kopiert wurde) — hier kein zweiter Aufruf.
+    const ergebnis = await vorlagenUpdate.uebernehmeNeuerungen(req.params.id, req.body.pfade);
+    res.json({
+      data: ergebnis,
+      message: `${ergebnis.uebernommen.length} Neuerung(en) übernommen`,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
 
 /**
  * GET /api/projects/:id/kunden

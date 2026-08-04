@@ -100,6 +100,53 @@ export function useProjectVorlagen(enabled = true) {
   return { vorlagen: query.data?.data ?? [], isLoading: query.isLoading };
 }
 
+/** Stand eines Vorlagen-Updates eines Projekts (Plan 014, Phase 6). */
+export interface VorlagenUpdateStand {
+  update: boolean;
+  vorlage_id: string | null;
+  projekt_version: number | null;
+  neue_version: number | null;
+  neuerungen: { pfad: string }[];
+}
+
+/**
+ * Vorlagen-Update eines Projekts: Stand abfragen + Neuerungen übernehmen
+ * (Plan 014, Phase 6). Der Banner-Check läuft je aktivem Projekt.
+ */
+export function useVorlagenUpdate(projectId: string | null) {
+  const api = useApi();
+  const qc = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ['projekt-vorlagen-update', projectId],
+    queryFn: () =>
+      api.get<{ data: VorlagenUpdateStand }>(`/projects/${projectId}/vorlagen-update`, {
+        showError: false,
+      }),
+    enabled: !!projectId,
+    staleTime: 60_000,
+  });
+
+  const uebernehmen = useMutation({
+    // showError: false — der Banner-Dialog toastet den Fehler selbst mit
+    // Kontext; ohne dies käme der useApi-Auto-Toast als Dublette dazu.
+    mutationFn: (pfade: string[]) =>
+      api.post<{ data: { uebernommen: string[]; version: number } }>(
+        `/projects/${projectId}/vorlagen-update`,
+        { pfade },
+        { showError: false }
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projekt-vorlagen-update', projectId] });
+      // Übernommene Flows/Dateien sollen sofort in Liste + Explorer auftauchen.
+      qc.invalidateQueries({ queryKey: ['flows'], exact: true });
+      qc.invalidateQueries({ queryKey: ['projekt-dateien', projectId] });
+    },
+  });
+
+  return { stand: query.data?.data ?? null, isLoading: query.isLoading, uebernehmen };
+}
+
 /**
  * Aktives Projekt + Setter. Beim Wechsel werden zusätzlich die (projekt-
  * gescopten) Explorer-/Ordner-Daten invalidiert, damit der Baum sofort das neue

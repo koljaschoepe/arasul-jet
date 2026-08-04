@@ -53,6 +53,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { usePins } from '../useWorkspaceContext';
 import { useActiveProject } from '../useProjects';
+import { VorlagenUpdateBanner } from '../VorlagenUpdateBanner';
 import { cn } from '@/lib/utils';
 import { SidebarViewHeader } from '../sidebar/SidebarView';
 import { SidebarSearch } from '@/components/ui/SidebarSearch';
@@ -853,6 +854,9 @@ export function ExplorerPanel() {
           </div>
         }
       />
+      {/* Vorlagen-Update-Banner (Plan 014, Phase 6) — nur wenn eine neuere
+          Vorlagen-Version für das aktive Projekt vorliegt. */}
+      <VorlagenUpdateBanner />
       <div className="px-2 pt-2">
         <SidebarSearch
           value={query}

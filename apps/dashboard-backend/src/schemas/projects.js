@@ -62,6 +62,13 @@ const AblageWriteBody = z
 
 const AblageOrdnerBody = z.object({ pfad: AblagePfad }).strict();
 
+// Vorlagen-Update-Übernahme (Plan 014, Phase 6): die ausgewählten Neuerungen.
+const VorlagenUebernahmeBody = z
+  .object({
+    pfade: z.array(AblagePfad).min(1, 'Mindestens eine Neuerung wählen').max(200),
+  })
+  .strict();
+
 const AblageDeleteQuery = z.object({ pfad: AblagePfad }).strict();
 
 const AblageMoveBody = z.object({ von: AblagePfad, nach: AblagePfad }).strict();
@@ -90,6 +97,7 @@ module.exports = {
   AblageSucheQuery,
   AblageWriteBody,
   AblageOrdnerBody,
+  VorlagenUebernahmeBody,
   AblageDeleteQuery,
   AblageMoveBody,
   AblageDownloadQuery,
