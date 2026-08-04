@@ -216,6 +216,22 @@ describe('ExplorerPanel (Ein-Ordner-Modell: EIN Baum aus /projects/:id/dateien)'
     );
   });
 
+  it('F2 auf einem Baum-Eintrag öffnet den Umbenennen-Dialog (vorbelegt)', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('notiz.md')).toBeInTheDocument());
+    fireEvent.keyDown(row('notiz.md'), { key: 'F2' });
+    const input = (await screen.findByDisplayValue('notiz.md')) as HTMLInputElement;
+    expect(input).toBeInTheDocument();
+  });
+
+  it('Entf auf einem Baum-Eintrag öffnet die Löschen-Bestätigung (löscht nicht sofort)', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('notiz.md')).toBeInTheDocument());
+    fireEvent.keyDown(row('notiz.md'), { key: 'Delete' });
+    expect(await screen.findByText(/wirklich löschen/)).toBeInTheDocument();
+    expect(apiMock.del).not.toHaveBeenCalled();
+  });
+
   it('Ordner-Drag liefert space_id (samt Unterordnern) und das Pfad-Ziel für den Composer', async () => {
     renderPanel();
     await waitFor(() => expect(screen.getByText('docs')).toBeInTheDocument());
