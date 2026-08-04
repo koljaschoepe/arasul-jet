@@ -166,6 +166,7 @@ export default function DocumentViewerTab({
             documentId={documentId}
             filename={meta.filename}
             token=""
+            tabId={tabId}
             onClose={() => closeTab(tabId)}
           />
         </Suspense>
@@ -181,6 +182,7 @@ export default function DocumentViewerTab({
             documentId={documentId}
             filename={meta.filename}
             onDownload={downloadFile}
+            tabId={tabId}
           />
         </Suspense>
       );
@@ -192,6 +194,7 @@ export default function DocumentViewerTab({
             filename={meta.filename}
             fileExtension={(meta.file_extension ?? '').toLowerCase()}
             onDownload={downloadFile}
+            tabId={tabId}
           />
         </Suspense>
       );

@@ -14,6 +14,7 @@ function resetStore() {
     activeTerminalSessionId: null,
     chatScope: null,
     explorerRequest: null,
+    dirtyTabs: new Set<string>(),
   });
   localStorage.removeItem('arasul_workspace');
 }
@@ -698,5 +699,47 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
   it('unbekannte Pfade ergeben null', () => {
     expect(pathToTabSpec('/unbekannt')).toBeNull();
     expect(pathToTabSpec('')).toBeNull();
+  });
+});
+
+describe('workspaceStore — Dirty-Register (Datenverlust-Schutz)', () => {
+  beforeEach(resetStore);
+
+  it('setTabDirty markiert und räumt einen Tab', () => {
+    const { setTabDirty } = useWorkspaceStore.getState();
+    setTabDirty('projektdatei:p:a.md', true);
+    expect(useWorkspaceStore.getState().dirtyTabs.has('projektdatei:p:a.md')).toBe(true);
+    setTabDirty('projektdatei:p:a.md', false);
+    expect(useWorkspaceStore.getState().dirtyTabs.has('projektdatei:p:a.md')).toBe(false);
+  });
+
+  it('setTabDirty ohne Änderung erzeugt keine neue Set-Referenz (kein Re-Render)', () => {
+    const { setTabDirty } = useWorkspaceStore.getState();
+    setTabDirty('t1', true);
+    const ref = useWorkspaceStore.getState().dirtyTabs;
+    setTabDirty('t1', true);
+    expect(useWorkspaceStore.getState().dirtyTabs).toBe(ref);
+  });
+
+  it('closeTab entfernt den Dirty-Merker des geschlossenen Tabs', () => {
+    const { openTab, setTabDirty, closeTab } = useWorkspaceStore.getState();
+    openTab({ type: 'projektdatei', projectId: 'p', filePath: 'a.md' });
+    const id = 'projektdatei:p:a.md';
+    setTabDirty(id, true);
+    expect(useWorkspaceStore.getState().dirtyTabs.has(id)).toBe(true);
+    closeTab(id);
+    expect(useWorkspaceStore.getState().dirtyTabs.has(id)).toBe(false);
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(0);
+  });
+
+  it('dirtyTabs aggregiert mehrere gleichzeitig ungespeicherte Tabs (beforeunload)', () => {
+    const { setTabDirty } = useWorkspaceStore.getState();
+    setTabDirty('a', true);
+    setTabDirty('b', true);
+    expect(useWorkspaceStore.getState().dirtyTabs.size).toBe(2);
+    setTabDirty('a', false);
+    const s = useWorkspaceStore.getState();
+    expect(s.dirtyTabs.size).toBe(1);
+    expect(s.dirtyTabs.has('b')).toBe(true);
   });
 });

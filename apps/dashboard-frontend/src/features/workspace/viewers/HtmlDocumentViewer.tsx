@@ -12,7 +12,7 @@
  *     dort seit Batch 3 freigegeben). Die Vorschau zeigt immer den AKTUELLEN
  *     Entwurf, auch vor dem Speichern — man sieht seine Änderung sofort.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Code2, Download, Eye, Save } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
@@ -20,6 +20,7 @@ import { useToast } from '@/contexts/ToastContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
+import { useReportTabDirty } from '@/hooks/useReportTabDirty';
 import CodeMirrorEditor from './CodeMirrorEditor';
 
 type HtmlView = 'vorschau' | 'code';
@@ -32,10 +33,13 @@ export default function HtmlDocumentViewer({
   documentId,
   filename,
   onDownload,
+  tabId,
 }: {
   documentId: string;
   filename: string;
   onDownload: () => void;
+  /** Tab, an den der Ungespeichert-Zustand gemeldet wird (Datenverlust-Schutz). */
+  tabId?: string;
 }) {
   const api = useApi();
   const toast = useToast();
@@ -70,6 +74,7 @@ export default function HtmlDocumentViewer({
   }, [documentId, api]);
 
   const dirty = original !== null && draft !== original;
+  useReportTabDirty(tabId, dirty);
 
   const save = async () => {
     setSaving(true);
@@ -83,6 +88,26 @@ export default function HtmlDocumentViewer({
       setSaving(false);
     }
   };
+
+  // Strg+S/Cmd+S speichert den Quelltext — root-scoped (Capture), damit bei
+  // mehreren gemounteten Keep-Alive-Editoren nur der fokussierte reagiert.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const saveRef = useRef<() => void>(() => {});
+  saveRef.current = () => {
+    if (dirty && !saving) void save();
+  };
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveRef.current();
+      }
+    };
+    el.addEventListener('keydown', onKey, true);
+    return () => el.removeEventListener('keydown', onKey, true);
+  }, [loading]);
 
   if (loading) {
     return <LoadingSpinner message="Lade HTML …" />;
@@ -100,7 +125,7 @@ export default function HtmlDocumentViewer({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col">
       {/* Kopfzeile: Umschalter links, Aktionen rechts — auf einer Höhe. */}
       <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         {/* Dezenter, borderloser Umschalter — einheitlich mit dem Code-Viewer. */}

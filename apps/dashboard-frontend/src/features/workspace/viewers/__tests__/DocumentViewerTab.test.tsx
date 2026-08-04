@@ -11,7 +11,11 @@ const mockCloseTab = vi.fn();
 const mockUpdateTabTitle = vi.fn();
 vi.mock('@/stores/workspaceStore', () => ({
   useWorkspaceStore: (selector: (s: unknown) => unknown) =>
-    selector({ closeTab: mockCloseTab, updateTabTitle: mockUpdateTabTitle }),
+    selector({
+      closeTab: mockCloseTab,
+      updateTabTitle: mockUpdateTabTitle,
+      setTabDirty: () => {},
+    }),
 }));
 
 // Der HTML-Viewer nutzt Toasts beim Speichern — Provider hier nicht nötig.

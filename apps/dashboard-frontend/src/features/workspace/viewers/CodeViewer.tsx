@@ -7,13 +7,14 @@
  * HTML-Viewer. „Speichern" ist nur aktiv, solange es ungespeicherte Änderungen
  * gibt.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Download, Save } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
+import { useReportTabDirty } from '@/hooks/useReportTabDirty';
 import CodeMirrorEditor from './CodeMirrorEditor';
 import { spracheLabel } from './codeLanguage';
 
@@ -26,11 +27,14 @@ export default function CodeViewer({
   filename,
   fileExtension,
   onDownload,
+  tabId,
 }: {
   documentId: string;
   filename: string;
   fileExtension: string;
   onDownload: () => void;
+  /** Tab, an den der Ungespeichert-Zustand gemeldet wird (Datenverlust-Schutz). */
+  tabId?: string;
 }) {
   const api = useApi();
   const toast = useToast();
@@ -64,6 +68,7 @@ export default function CodeViewer({
   }, [documentId, api]);
 
   const dirty = original !== null && draft !== original;
+  useReportTabDirty(tabId, dirty);
 
   const save = async () => {
     setSaving(true);
@@ -77,6 +82,27 @@ export default function CodeViewer({
       setSaving(false);
     }
   };
+
+  // Strg+S/Cmd+S speichert — root-scoped (Capture), damit bei mehreren
+  // gemounteten Keep-Alive-Editoren nur der fokussierte reagiert und der
+  // Browser nicht seinen „Seite speichern"-Dialog abfängt.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const saveRef = useRef<() => void>(() => {});
+  saveRef.current = () => {
+    if (dirty && !saving) void save();
+  };
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveRef.current();
+      }
+    };
+    el.addEventListener('keydown', onKey, true);
+    return () => el.removeEventListener('keydown', onKey, true);
+  }, [loading]);
 
   if (loading) {
     return <LoadingSpinner message="Lade Datei …" />;
@@ -94,7 +120,7 @@ export default function CodeViewer({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col">
       {/* Kopfzeile — einheitlich mit dem HTML-Viewer: Label links, Aktionen rechts. */}
       <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         <span className="text-ui-xs font-medium text-muted-foreground" data-testid="code-language">

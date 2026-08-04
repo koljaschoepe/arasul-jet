@@ -196,14 +196,19 @@ function renderTab(tab: WorkspaceTab, themeControls: TabThemeControls) {
  * Tab-Typen, die beim Wechsel gemountet bleiben. `automationen` wegen des
  * eingebetteten iframes; `flow`, damit ein halb ausgefülltes Editor-Formular
  * einen kurzen Tab-Wechsel (z. B. Blick in den Datei-Explorer) übersteht statt
- * unbemerkt verloren zu gehen. Keep-Alive greift nur für tatsächlich geöffnete
- * Tabs — ein nie geöffneter Flow-Tab wird dadurch nicht gemountet.
+ * unbemerkt verloren zu gehen. `projektdatei`/`document` aus DEMSELBEN Grund:
+ * ihre Editoren halten den Entwurf lokal — ohne Keep-Alive verwarf ein kurzer
+ * Tab-Wechsel jede ungespeicherte Änderung still (QA-Sweep-Befund). Keep-Alive
+ * greift nur für tatsächlich geöffnete Tabs.
  */
 const KEEP_ALIVE_TYPES: ReadonlySet<WorkspaceTabType> = new Set([
   'automationen',
   'flow',
   // App-Erweiterungen halten wie n8n ihren iframe-Zustand über Tab-Wechsel.
   'extension',
+  // Datei-Editoren: ungespeicherte Entwürfe überleben den Tab-Wechsel.
+  'projektdatei',
+  'document',
 ]);
 
 /**
