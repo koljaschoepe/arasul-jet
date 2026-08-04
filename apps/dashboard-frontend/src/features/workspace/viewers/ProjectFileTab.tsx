@@ -14,6 +14,7 @@ import { useToast } from '@/contexts/ToastContext';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useReportTabDirty } from '@/hooks/useReportTabDirty';
 import CodeMirrorEditor from './CodeMirrorEditor';
 import { spracheLabel } from './codeLanguage';
 
@@ -92,6 +93,15 @@ export default function ProjectFileTab({
 
   const dirty = original !== null && draft !== original;
 
+  // Ungespeicherten Zustand an den Store melden — Tab-Punkt, Schließen-Warnung
+  // und beforeunload-Guard hängen daran.
+  useReportTabDirty(tabId, dirty);
+
+  // Wurzel-Element: dient dem Strg+S-Handler UND als Sichtbarkeits-Prüfung —
+  // seit Datei-Tabs keep-alive sind, sind mehrere Editoren gleichzeitig
+  // gemountet; nur der sichtbare soll auf Fenster-Fokus neu laden.
+  const wurzelRef = useRef<HTMLDivElement | null>(null);
+
   // Aktueller Zustand für die Fokus-Aktualisierung unten — der Listener soll
   // nicht bei jedem Tastendruck neu registriert werden.
   const zustandRef = useRef({ dirty, saving, loading, original });
@@ -106,6 +116,9 @@ export default function ProjectFileTab({
     let inFlight = false;
     const refresh = () => {
       if (document.visibilityState === 'hidden') return;
+      // Versteckter Keep-Alive-Tab: nicht neu laden — sonst löst ein einziger
+      // Fenster-Fokus einen GET je offenem Datei-Tab aus (Request-Stampede).
+      if (wurzelRef.current?.closest('[hidden]')) return;
       const z = zustandRef.current;
       if (inFlight || z.dirty || z.saving || z.loading) return;
       inFlight = true;
@@ -154,7 +167,6 @@ export default function ProjectFileTab({
   // Strg+S/Cmd+S speichert — Editor-Grunderwartung; ohne den Handler frisst
   // der Browser den Shortcut für seinen "Seite speichern"-Dialog. Der Tab
   // selbst fängt den Shortcut (Capture), damit er auch im CodeMirror greift.
-  const wurzelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const wurzel = wurzelRef.current;
     if (!wurzel) return;

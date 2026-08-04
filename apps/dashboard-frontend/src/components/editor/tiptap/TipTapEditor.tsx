@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import useConfirm from '../../../hooks/useConfirm';
 import { useApi } from '../../../hooks/useApi';
+import { useReportTabDirty } from '../../../hooks/useReportTabDirty';
 import { createExtensions } from './extensions';
 import { computeInlineCount } from './toolbarOverflow';
 import './tiptap-editor.css';
@@ -56,6 +57,8 @@ interface TipTapEditorProps {
    * height 100%) statt als fixed Overlay zu erscheinen.
    */
   embedded?: boolean;
+  /** Tab, an den der Ungespeichert-Zustand gemeldet wird (Datenverlust-Schutz). */
+  tabId?: string;
 }
 
 const TipTapEditor = memo(function TipTapEditor({
@@ -64,6 +67,7 @@ const TipTapEditor = memo(function TipTapEditor({
   onClose,
   onSave,
   embedded = false,
+  tabId,
 }: TipTapEditorProps) {
   const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
@@ -74,6 +78,8 @@ const TipTapEditor = memo(function TipTapEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  // Ungespeicherten Zustand an den Store melden (Tab-Punkt / beforeunload).
+  useReportTabDirty(tabId, hasChanges);
   // Zähler als State: Das reine Auslesen beim Rendern verpasst das initiale
   // setContent (löst keinen Re-Render aus, wenn hasChanges false bleibt) —
   // die Fußzeile zeigte dann dauerhaft "0 Zeichen".
@@ -332,8 +338,12 @@ const TipTapEditor = memo(function TipTapEditor({
   // Keyboard shortcuts + focus trap
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S / Cmd+S — Save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      // Bei Keep-Alive können mehrere Editoren gleichzeitig gemountet sein —
+      // die versteckten (im `hidden`-Container) dürfen den Window-Shortcut
+      // NICHT mitbehandeln, sonst speichert/schließt Ctrl+S alle auf einmal.
+      if (containerRef.current?.closest('[hidden]')) return;
+      // Ctrl+S / Cmd+S — Save (Groß-/Kleinschreibung egal: Shift/Caps)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (hasChanges && !saving) {
           handleSave();

@@ -247,11 +247,20 @@ interface WorkspaceState {
   chatScope: ChatScope | null;
   chatDateiZiel: ChatDateiZiel | null;
   explorerRequest: ExplorerAction | null;
+  /**
+   * Tabs mit ungespeicherten Änderungen (ephemer, NICHT persistiert). Die
+   * Editoren melden ihren Dirty-Zustand über `setTabDirty`; die Tab-Leiste
+   * (Punkt + „Verwerfen?"-Rückfrage beim Schließen) und die Shell
+   * (beforeunload-Warnung) lesen daraus. Datenverlust-Schutz — Plan QA-Sweep.
+   */
+  dirtyTabs: Set<string>;
   openTab: (spec: WorkspaceTabSpec) => void;
   closeTab: (id: string) => void;
   activateTab: (id: string) => void;
   moveTab: (fromIndex: number, toIndex: number) => void;
   updateTabTitle: (id: string, title: string) => void;
+  /** Ungespeicherten-Zustand eines Tabs melden (Editor → Store). */
+  setTabDirty: (id: string, dirty: boolean) => void;
   toggleSidebar: () => void;
   /** Sidebar-Sichtbarkeit explizit setzen (Auto-Collapse des SidebarHost). */
   setSidebarVisible: (visible: boolean) => void;
@@ -430,6 +439,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       chatScope: null,
       chatDateiZiel: null,
       explorerRequest: null,
+      dirtyTabs: new Set<string>(),
 
       openTab: spec => {
         const id = tabId(spec);
@@ -453,7 +463,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       closeTab: id => {
-        const { tabs, activeTabId } = get();
+        const { tabs, activeTabId, dirtyTabs } = get();
         const index = tabs.findIndex(t => t.id === id);
         if (index === -1) return;
         const nextTabs = tabs.filter(t => t.id !== id);
@@ -462,7 +472,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const neighbor = nextTabs[index] ?? nextTabs[index - 1] ?? null;
           nextActive = neighbor ? neighbor.id : null;
         }
-        set({ tabs: nextTabs, activeTabId: nextActive });
+        // Dirty-Merker des geschlossenen Tabs mitentfernen, damit kein
+        // Geister-Eintrag die beforeunload-Warnung offen hält.
+        let nextDirty = dirtyTabs;
+        if (dirtyTabs.has(id)) {
+          nextDirty = new Set(dirtyTabs);
+          nextDirty.delete(id);
+        }
+        set({ tabs: nextTabs, activeTabId: nextActive, dirtyTabs: nextDirty });
       },
 
       activateTab: id => {
@@ -493,6 +510,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set(state => ({
           tabs: state.tabs.map(t => (t.id === id ? { ...t, title } : t)),
         }));
+      },
+
+      setTabDirty: (id, dirty) => {
+        set(state => {
+          // No-op wenn unverändert — verhindert unnötige Re-Renders bei jedem
+          // Tastendruck (Editoren melden den abgeleiteten Dirty-Zustand).
+          if (state.dirtyTabs.has(id) === dirty) return {};
+          const next = new Set(state.dirtyTabs);
+          if (dirty) next.add(id);
+          else next.delete(id);
+          return { dirtyTabs: next };
+        });
       },
 
       toggleSidebar: () => set(state => ({ sidebarVisible: !state.sidebarVisible })),

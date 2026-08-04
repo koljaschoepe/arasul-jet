@@ -128,6 +128,20 @@ export default function WorkspaceShell(props: TabThemeControls) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Browser-Reload/Schließen mit ungespeicherten Editor-Änderungen abfangen —
+  // die native „Seite verlassen?"-Warnung verhindert stillen Datenverlust
+  // (u. a. nach einem Deploy, wenn der Nutzer die Seite neu lädt).
+  const hatUngespeichertes = useWorkspaceStore(s => s.dirtyTabs.size > 0);
+  useEffect(() => {
+    if (!hatUngespeichertes) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [hatUngespeichertes]);
+
   // Das rechte Panel (Chat/Terminal) ist als Ganzes sichtbar oder nicht.
   const rightVisible = rightPanelVisible;
 
