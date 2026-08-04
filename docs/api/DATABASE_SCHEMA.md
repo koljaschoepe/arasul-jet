@@ -2399,6 +2399,25 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 
 ---
 
+## `rechnungsnummern` / `rechnungsnummern_zaehler`
+
+> Lückenloser Rechnungsnummernkreis (Migration 132, Plan 014 Phase 5). Je
+> Projekt+Jahr ein Zähler (`rechnungsnummern_zaehler.stand`, transaktional
+> hochgezählt — Rollback bei gescheiterter PDF-Erzeugung = keine Lücke) und je
+> AUSGESTELLTER Rechnung eine Register-Zeile.
+
+**rechnungsnummern:** `id BIGSERIAL PK · projekt_id UUID FK→projects (CASCADE) ·
+jahr INT · laufnummer INT · nummer TEXT (RE-<jahr>-<lfd 5-stellig>) · pfad TEXT
+(Ablage-relativ; Schreibschutz-Wächter in ablageService) · summen JSONB
+(Code-berechnet: netto/umsatzsteuer/brutto/ust_saetze/positionen) ·
+erstellt_am TIMESTAMPTZ` — UNIQUE (projekt_id, jahr, laufnummer) und
+(projekt_id, nummer); Index auf (projekt_id, pfad).
+
+**rechnungsnummern_zaehler:** `projekt_id UUID FK · jahr INT · stand INT` —
+PK (projekt_id, jahr).
+
+---
+
 ## `flow_runs`
 
 > Skill-Läufe (Plan 011, Schritt 9): ein Lauf je Aufruf von /name. Überlebt das Schließen des Tabs, damit die Live-Übertragung wiederverbinden kann.

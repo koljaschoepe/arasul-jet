@@ -50,7 +50,8 @@ export type FlowTool =
   | 'web_suche'
   | 'web_lesen'
   | 'terminal'
-  | 'subagent';
+  | 'subagent'
+  | 'rechnung_erstellen';
 
 /** Der Ergebnis-Vertrag einer Subagent-Rolle (§3 Kontext-Sparsamkeit). */
 export interface FlowRoleResult {

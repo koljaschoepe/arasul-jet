@@ -1,0 +1,9 @@
+{
+  "id": "finanzen",
+  "name": "Interne Finanzen",
+  "beschreibung": "Belege, Auswertungen und echte E-Rechnungen: /rechnung stellt ZUGFeRD-Rechnungen mit lückenlosem Nummernkreis aus — alle Summen rechnet das Gerät, nie die KI.",
+  "icon": "landmark",
+  "color": "#16a34a",
+  "version": 1,
+  "ordner": ["Belege", "Auswertungen", "Rechnungen", "Meetings"]
+}

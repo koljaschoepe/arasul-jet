@@ -41,6 +41,7 @@ const WERKZEUG_LABEL: Record<FlowTool, string> = {
   web_lesen: 'Web lesen',
   terminal: 'Terminal',
   subagent: 'Subagenten',
+  rechnung_erstellen: 'Rechnung ausstellen',
 };
 
 const werkzeugLabel = (name: FlowTool): string => WERKZEUG_LABEL[name] ?? name;

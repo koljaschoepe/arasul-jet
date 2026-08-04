@@ -477,6 +477,8 @@ describe('Werkzeug-Registry', () => {
         'web_suche',
         'web_lesen',
         'subagent',
+        // Plan 014, Phase 5: ZUGFeRD-Rechnungen mit Code-Summen.
+        'rechnung_erstellen',
       ].sort()
     );
   });
