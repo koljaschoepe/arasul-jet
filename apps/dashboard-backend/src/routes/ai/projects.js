@@ -13,6 +13,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const multer = require('multer');
 const { mitNamensReparatur } = require('../../utils/uploadName');
+const { attachmentHeader } = require('../../utils/contentDisposition');
 const { requireAuth } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../../middleware/validate');
@@ -404,7 +405,10 @@ router.get(
     // Ordner: als tar.gz streamen. `tar` gehört zur Alpine-Basis (busybox).
     const dateiname = `${ziel.name}.tar.gz`;
     res.setHeader('Content-Type', 'application/gzip');
-    res.setHeader('Content-Disposition', `attachment; filename="${dateiname}"`);
+    // Unicode-Ordnernamen (Umlaute, CJK, Emoji) RFC-5987-korrekt kodieren —
+    // der handgebaute filename="…"-Header warf sonst ERR_INVALID_CHAR → 500
+    // (QA-Sweep-Befund). Eigener Helfer statt (nur transitiver) Abhängigkeit.
+    res.setHeader('Content-Disposition', attachmentHeader(dateiname));
     const rel = path.relative(ziel.wurzel, ziel.abs) || '.';
     const tar = spawn('tar', ['-cz', '--exclude=.git', '-C', ziel.wurzel, rel]);
     tar.stdout.pipe(res);

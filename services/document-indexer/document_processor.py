@@ -634,15 +634,31 @@ def _index_to_qdrant(
             logger.warning(f"No chunks generated for document {doc_id}")
             return 0
 
-        # Filter out tiny child chunks — headers, page numbers, etc.
-        # produce poor embeddings and add noise to retrieval
-        for parent in parent_chunks:
-            parent.children = [c for c in parent.children if c.word_count >= MIN_CHILD_WORDS]
-        # Remove parents with no remaining children
-        parent_chunks = [p for p in parent_chunks if p.children]
-        if not parent_chunks:
-            logger.warning(f"No chunks above {MIN_CHILD_WORDS} words for document {doc_id}")
-            return 0
+        # Filter out tiny child chunks — headers, page numbers, etc. produce
+        # poor embeddings and add noise to retrieval. Compute the kept children
+        # per parent WITHOUT mutating yet, so we can fall back if the filter
+        # would wipe everything.
+        kept_by_parent = [
+            [c for c in parent.children if c.word_count >= MIN_CHILD_WORDS]
+            for parent in parent_chunks
+        ]
+        if any(kept_by_parent):
+            new_parents = []
+            for parent, kept in zip(parent_chunks, kept_by_parent):
+                if kept:
+                    parent.children = kept
+                    new_parents.append(parent)
+            parent_chunks = new_parents
+        else:
+            # Every chunk is below the threshold → the document is simply short
+            # (a brief note), not noise. Keep the original chunks so a short but
+            # non-empty document still indexes as one small chunk instead of
+            # failing with "No chunks created" (QA-Sweep: kurze Notizen wurden
+            # fälschlich als „Index fehlgeschlagen" markiert).
+            logger.info(
+                f"Document {doc_id}: all chunks below {MIN_CHILD_WORDS} words — "
+                f"short document, indexing as-is"
+            )
 
         # Re-index global child indices after filtering
         global_idx = 0

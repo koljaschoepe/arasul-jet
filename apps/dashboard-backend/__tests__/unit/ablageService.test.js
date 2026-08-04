@@ -163,6 +163,45 @@ describe('ablageService', () => {
     expect(leer.eintraege).toEqual([]);
   });
 
+  it('Upload überschreibt nie: gleicher Name weicht auf name-2.ext aus', async () => {
+    const a = await ablage.saveUpload(PROJEKT, 'up', 'doku.md', Buffer.from('erste'), deps);
+    expect(a.pfad).toBe('up/doku.md');
+    const b = await ablage.saveUpload(PROJEKT, 'up', 'doku.md', Buffer.from('zweite'), deps);
+    expect(b.pfad).toBe('up/doku-2.md');
+    // Das Original bleibt unangetastet (kein stiller Datenverlust).
+    expect((await ablage.readFile(PROJEKT, 'up/doku.md', deps)).inhalt).toBe('erste');
+    expect((await ablage.readFile(PROJEKT, 'up/doku-2.md', deps)).inhalt).toBe('zweite');
+  });
+
+  it('Upload weicht aus, wenn ein ORDNER den Namen belegt (kein roher EISDIR-500)', async () => {
+    await ablage.createDir(PROJEKT, 'kollision/ordnername', deps);
+    const r = await ablage.saveUpload(PROJEKT, 'kollision', 'ordnername', Buffer.from('x'), deps);
+    expect(r.pfad).toBe('kollision/ordnername-2');
+  });
+
+  it('Schreiben/Anlegen unter einem Datei-Vorfahr → ValidationError (kein roher 500)', async () => {
+    await ablage.writeFile(PROJEKT, 'einedatei', 'ich bin eine datei', deps);
+    await expect(ablage.createDir(PROJEKT, 'einedatei/unter', deps)).rejects.toThrow(ValidationError);
+    await expect(ablage.writeFile(PROJEKT, 'einedatei/unter.txt', 'x', deps)).rejects.toThrow(
+      ValidationError
+    );
+  });
+
+  it('Rechnungsschutz escaped LIKE-Sonderzeichen (_ / %) im Ordnernamen', async () => {
+    const capture = {
+      getProject: deps.getProject,
+      db: { query: jest.fn(async () => ({ rows: [] })) },
+    };
+    // Ordner existiert nicht → remove wirft NotFound, aber pruefeRechnungsschutz
+    // (und damit die Abfrage) läuft VORHER.
+    await ablage.remove(PROJEKT, 'Kunde_A', capture).catch(() => {});
+    const call = capture.db.query.mock.calls.find(c => c[1] && c[1][1] === 'Kunde_A');
+    expect(call).toBeTruthy();
+    expect(call[0]).toMatch(/ESCAPE/);
+    // Der Unterstrich ist escaped, sonst matchte „Kunde_A/%" auch „KundeXA/…".
+    expect(call[1][2]).toBe('Kunde\\_A/%');
+  });
+
   // Schreibschutz ausgestellter Rechnungen (Plan 014, Phase 5).
   describe('Rechnungs-Schreibschutz', () => {
     // db.query meldet den Pfad als registrierte Rechnung, sobald er (oder ein
@@ -250,6 +289,15 @@ describe('resolveOrdnerListe (projekt://aktiv)', () => {
     });
     expect(gesehen).toEqual(['11111111-2222-3333-4444-555555555555']);
     expect(ordner).toEqual(['/arasul/projects/11111111-2222-3333-4444-555555555555']);
+  });
+
+  it('weist eine Nicht-UUID-Projektkennung sauber ab (kein roher 22P02/500)', async () => {
+    await expect(
+      resolveOrdnerListe(['projekt://foo/x'], {
+        getActiveProjectId: async () => PROJEKT,
+        projektOrdner: async () => '/darf/nicht/aufgerufen/werden',
+      })
+    ).rejects.toThrow(ValidationError);
   });
 
   it('weist .. im Unterpfad ab', async () => {

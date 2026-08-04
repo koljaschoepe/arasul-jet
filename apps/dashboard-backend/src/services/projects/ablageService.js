@@ -89,11 +89,16 @@ async function pruefeRechnungsschutz(projectId, relPfade, deps = {}) {
     if (!rel) {
       continue;
     }
+    // Der Ordner-Pfad geht als LIKE-Muster in die Abfrage — `%`, `_` und `\`
+    // darin müssen escaped werden, sonst matcht z. B. „Kunde_A" auch
+    // „KundeXA" (Unterstrich = beliebiges Zeichen) und sperrt einen
+    // rechnungsfreien Ordner fälschlich (QA-Sweep-Befund).
+    const likePrefix = rel.replace(/([\\%_])/g, '\\$1') + '/%';
     const { rows } = await db.query(
       `SELECT nummer FROM rechnungsnummern
-        WHERE projekt_id = $1 AND (pfad = $2 OR pfad LIKE $3)
+        WHERE projekt_id = $1 AND (pfad = $2 OR pfad LIKE $3 ESCAPE '\\')
         LIMIT 1`,
-      [projectId, rel, `${rel}/%`]
+      [projectId, rel, likePrefix]
     );
     if (rows.length > 0) {
       throw new ForbiddenError(
@@ -277,6 +282,23 @@ async function readFile(projectId, relPfad, deps = {}) {
   return { inhalt: buffer.toString('utf8'), groesse: stat.size, binaer: false, zuGross: false };
 }
 
+/**
+ * `mkdir -p` mit sauberer Fehlerabbildung: liegt ein Vorfahr als DATEI im Weg
+ * (z. B. Ordner „notiz/sub" anlegen, während „notiz" eine Datei ist), wirft
+ * Node ENOTDIR/EEXIST. Das ist erwartbare Nutzereingabe → 4xx statt rohem 500
+ * (QA-Sweep-Befund).
+ */
+async function mkdirSicher(zielDir) {
+  try {
+    await fsp.mkdir(zielDir, { recursive: true });
+  } catch (err) {
+    if (err && (err.code === 'ENOTDIR' || err.code === 'EEXIST')) {
+      throw new ValidationError('Ein Teil des Pfads ist bereits eine Datei');
+    }
+    throw err;
+  }
+}
+
 /** Schreibt eine Textdatei (legt Zwischenordner an). */
 async function writeFile(projectId, relPfad, inhalt, deps = {}) {
   const dir = await projektOrdner(projectId, deps);
@@ -292,7 +314,7 @@ async function writeFile(projectId, relPfad, inhalt, deps = {}) {
   if (istWurzel(dir, abs)) {
     throw new ValidationError('Pfad zeigt auf den Projektordner selbst');
   }
-  await fsp.mkdir(path.dirname(abs), { recursive: true });
+  await mkdirSicher(path.dirname(abs));
   await fsp.writeFile(abs, text, 'utf8');
   const stat = await fsp.stat(abs);
   return { pfad: relPfad, groesse: stat.size, geaendert: stat.mtime.toISOString() };
@@ -309,7 +331,7 @@ async function createDir(projectId, relPfad, deps = {}) {
   if (istWurzel(dir, abs)) {
     throw new ValidationError('Pfad zeigt auf den Projektordner selbst');
   }
-  await fsp.mkdir(abs, { recursive: true });
+  await mkdirSicher(abs);
   return { pfad: relPfad };
 }
 
@@ -365,7 +387,7 @@ async function move(projectId, vonPfad, nachPfad, deps = {}) {
   if (nachExistiert) {
     throw new ConflictError(`"${nachPfad}" existiert bereits`);
   }
-  await fsp.mkdir(path.dirname(nach), { recursive: true });
+  await mkdirSicher(path.dirname(nach));
   await fsp.rename(von, nach);
   return { von: vonPfad, nach: nachPfad };
 }
@@ -388,10 +410,30 @@ async function saveUpload(projectId, zielOrdner, originalname, buffer, deps = {}
   // Eine ausgestellte Rechnung darf ein Upload nie überschreiben — sauberer
   // ForbiddenError statt eines rohen EACCES vom 0444-Dateimodus.
   await pruefeRechnungsschutz(projectId, [relZiel], deps);
-  const abs = sicher(dir, relZiel);
-  await fsp.mkdir(path.dirname(abs), { recursive: true });
-  await fsp.writeFile(abs, buffer);
-  return { pfad: relZiel, groesse: buffer.length };
+  await mkdirSicher(path.dirname(sicher(dir, relZiel)));
+  // Nie überschreiben: existiert der Name schon, weicht es auf name-2.ext,
+  // name-3.ext … aus (kein stiller Datenverlust — QA-Sweep-Befund). Die
+  // Nummerierung läuft auf der LOGISCHEN rel-Ebene, damit der zurückgegebene
+  // Pfad relativ bleibt (nicht über realpath-Differenzen stolpert).
+  const ext = path.extname(name);
+  const stamm = name.slice(0, name.length - ext.length);
+  for (let n = 1; n <= 1000; n++) {
+    const kandidatName = n === 1 ? name : `${stamm}-${n}${ext}`;
+    const kandidatRel = zielOrdner ? `${zielOrdner}/${kandidatName}` : kandidatName;
+    try {
+      await fsp.writeFile(sicher(dir, kandidatRel), buffer, { flag: 'wx' });
+      return { pfad: kandidatRel, groesse: buffer.length };
+    } catch (err) {
+      // EEXIST: gleichnamige Datei — nächsten Namen probieren.
+      // EISDIR: ein ORDNER belegt den Namen — ebenfalls ausweichen statt einen
+      // rohen 500 zu werfen (die name-N-Variante kollidiert nicht mit dem Ordner).
+      if (err && (err.code === 'EEXIST' || err.code === 'EISDIR')) {
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new ConflictError('Zu viele gleichnamige Dateien — bitte umbenennen');
 }
 
 /**
