@@ -515,6 +515,20 @@ describe('runFlow — Orchestrierung', () => {
     expect(deps.store.saveChanges).not.toHaveBeenCalled();
   });
 
+  it('verfolgt Datei-Änderungen auch für rechnung_erstellen (Plan 014, Phase 5)', async () => {
+    // Die ausgestellte ZUGFeRD-PDF soll als klickbares Artefakt erscheinen.
+    const deps = makeDeps({
+      loadFlow: jest.fn(async () => ({
+        ...baseFlow,
+        werkzeuge: ['rechnung_erstellen'],
+        ordner: ['/arbeit'],
+      })),
+    });
+    deps.tracker.berechneAenderungen.mockReturnValue({ aenderungen: [], abgeschnitten: false });
+    await runFlow({ flowName: 'rechnung', args: { thema: 'x' }, userId: 1 }, deps);
+    expect(deps.tracker.snapshot).toHaveBeenCalledTimes(2);
+  });
+
   it('zieht Abzüge vor/nach dem Lauf und speichert die Änderungen (Schreib-Werkzeug)', async () => {
     const aenderungen = [{ pfad: 'a.txt', art: 'neu', vorher: null, nachher: 'hi', gekuerzt: false }];
     const deps = makeDeps({
