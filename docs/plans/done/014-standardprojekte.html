@@ -17,16 +17,16 @@
   "slug": "standardprojekte",
   "title": "Standardprojekte &amp; verlässliche Flows",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P0",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-08-02",
   "approved": "2026-08-02",
-  "branch": "014-standardprojekte-p1",
-  "pr": null,
-  "verified_on_device": false
+  "branch": "014-standardprojekte-p1..p6",
+  "pr": "290, 291, 293, 294, 297, 299",
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -539,17 +539,17 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Ein aus der Galerie angelegtes CRM-Projekt enthält Ordnerstruktur, Wissens-Dateien und Flows; ein leeres Projekt anzulegen bleibt unverändert möglich.</li>
-    <li data-done="false">Ein Projekt-Flow (z. B. /angebot) erscheint im Chat nur, wenn sein Projekt aktiv ist; globale Flows erscheinen überall; die zentrale Übersicht gruppiert nach Projekt/Global.</li>
-    <li data-done="false">Ein globaler Flow verarbeitet in einem Lauf Ordner aus zwei verschiedenen Projekten (Datei-Transfer-Fall).</li>
-    <li data-done="false">Jeder Dokument-Flow-Lauf zeigt im Protokoll den Prüfschritt mit Einzel-Checks; ein präparierter Entwurf mit übrig gebliebenem [Platzhalter] wird automatisch korrigiert.</li>
-    <li data-done="false">Getroffene Annahmen erscheinen als eigener Block im Ergebnis — auch bei Starts über die externe API.</li>
-    <li data-done="false">/neuer-kunde legt mit Firmenname + Webseite ohne weitere Rückfrage einen Kundenordner mit befülltem Steckbrief inkl. Quellenangaben an.</li>
-    <li data-done="false">Der Reiter „Übersicht“ zeigt alle Kunden mit Status und letztem Kontakt; Klick öffnet den Kundenordner.</li>
-    <li data-done="false">/antwort beantwortet via externer API eine Servicefrage ausschließlich aus dem Kundenservice-Projekt; eine Testfrage nach CRM-Inhalten liefert keine fremden Daten.</li>
-    <li data-done="false">Zwei aufeinanderfolgende Rechnungsläufe erzeugen lückenlos aufsteigende Nummern; die Datei ist PDF/A-3 mit eingebettetem EN-16931-XML, besteht einen externen ZUGFeRD-Validator, und alle Summen im XML entsprechen der Code-Berechnung.</li>
-    <li data-done="false">Nach einem Vorlagen-Versionssprung erscheint der Update-Hinweis; die Übernahme eines neuen Flows funktioniert; keine bestehende Datei wird verändert.</li>
-    <li data-done="false">Backend- und Frontend-Testsuiten grün; keine Regression in den Chat-/RAG-Kernpfaden.</li>
+    <li data-done="true">Ein aus der Galerie angelegtes CRM-Projekt enthält Ordnerstruktur, Wissens-Dateien und Flows; ein leeres Projekt anzulegen bleibt unverändert möglich.</li>
+    <li data-done="true">Ein Projekt-Flow (z. B. /angebot) erscheint im Chat nur, wenn sein Projekt aktiv ist; globale Flows erscheinen überall; die zentrale Übersicht gruppiert nach Projekt/Global.</li>
+    <li data-done="true">Ein globaler Flow verarbeitet in einem Lauf Ordner aus zwei verschiedenen Projekten (Datei-Transfer-Fall).</li>
+    <li data-done="true">Jeder Dokument-Flow-Lauf zeigt im Protokoll den Prüfschritt mit Einzel-Checks; ein präparierter Entwurf mit übrig gebliebenem [Platzhalter] wird automatisch korrigiert.</li>
+    <li data-done="true">Getroffene Annahmen erscheinen als eigener Block im Ergebnis — auch bei Starts über die externe API.</li>
+    <li data-done="true">/neuer-kunde legt mit Firmenname + Webseite ohne weitere Rückfrage einen Kundenordner mit befülltem Steckbrief inkl. Quellenangaben an.</li>
+    <li data-done="true">Der Reiter „Übersicht“ zeigt alle Kunden mit Status und letztem Kontakt; Klick öffnet den Kundenordner.</li>
+    <li data-done="true">/antwort beantwortet via externer API eine Servicefrage ausschließlich aus dem Kundenservice-Projekt; eine Testfrage nach CRM-Inhalten liefert keine fremden Daten.</li>
+    <li data-done="true">Zwei aufeinanderfolgende Rechnungsläufe erzeugen lückenlos aufsteigende Nummern; die Datei ist PDF/A-3 mit eingebettetem EN-16931-XML, besteht einen externen ZUGFeRD-Validator, und alle Summen im XML entsprechen der Code-Berechnung.</li>
+    <li data-done="true">Nach einem Vorlagen-Versionssprung erscheint der Update-Hinweis; die Übernahme eines neuen Flows funktioniert; keine bestehende Datei wird verändert.</li>
+    <li data-done="true">Backend- und Frontend-Testsuiten grün; keine Regression in den Chat-/RAG-Kernpfaden.</li>
   </ul>
   </div>
 </details>
@@ -640,13 +640,44 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Alle 6 Phasen umgesetzt, gemerged, deployt und live auf dem Jetson verifiziert (2026-08-02 bis 2026-08-04).</span>
   </summary>
   <div class="sbody">
+
+  <p><b>Ergebnis:</b> Plan 014 vollständig ausgeführt — sechs Phasen, je eigener PR mit
+  <code>code-reviewer</code>-Gate, Deploy und Jetson-Live-Verify. Arasul liefert jetzt vier
+  mitgelieferte Standardprojekte über eine Vorlagen-Galerie, projektgebundene Flows mit
+  verlässlichem Prüfschritt und ein ZUGFeRD-Rechnungsmodul mit lückenlosem Nummernkreis —
+  extern (Mustang) als valide nachgewiesen. Kein Fallback nötig: der ZUGFeRD-Machbarkeits-Spike
+  (§7-Hauptrisiko) gelang im reinen Node-Pfad, ohne Java im Produktionsbetrieb.</p>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>PR(s)</th><th>Live-Verify auf dem Jetson</th></tr></thead>
+    <tbody>
+      <tr><td>1 — Fundament: Galerie &amp; Projekt-Flows</td><td>#290</td><td>CRM-Projekt aus Galerie angelegt, Struktur/Flows im Explorer; /angebot nur im aktiven Projekt; globaler Lauf mit Ordnern aus zwei Projekten; flows/ nicht im Wissens-Index.</td></tr>
+      <tr><td>2 — Prüfschritt &amp; Annahmen-Protokoll</td><td>#291, Fix #292</td><td>Dokument-Flow-Lauf zeigt Prüfschritt mit Einzel-Checks; präparierter Platzhalter wird deterministisch korrigiert; Annahmen-Block im Ergebnis (auch extern).</td></tr>
+      <tr><td>3 — CRM-Paket „Kunden &amp; Aufträge“</td><td>#293</td><td>Einrichtungs-Interview durchgespielt; /neuer-kunde mit echter Webseite → Steckbrief mit Quellen; /angebot Ende-zu-Ende → PDF; Übersicht-Tab.</td></tr>
+      <tr><td>4 — Firmenwissen + Kundenservice + n8n</td><td>#294, Fix #295</td><td>/antwort via externer API (API-Key) → ANTWORT/QUELLEN aus Projektwissen; Negativ-Test: Frage nach CRM-Daten liefert Mitarbeiter-Verweis, keine fremden Daten.</td></tr>
+      <tr><td>5 — Finanzen + ZUGFeRD-Kern</td><td>#297, Fix #298</td><td>Zwei Rechnungen mit fortlaufenden Nummern (RE-2026-00001/00002); externe Mustang-Validierung <b>valid</b>; Schreibschutz greift (Löschen/Ändern je 403); fehlende Pflichtangabe → klare Meldung, keine Nummern-Lücke.</td></tr>
+      <tr><td>6 — Vorlagen-Updates</td><td>#299</td><td>Update erkannt, gelöschte Vorlagen-Datei als Neuerung; additive Übernahme stellt sie wieder her; eigene bearbeitete Datei bleibt unangetastet (identische Checksumme); danach kein Update mehr.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Wesentliche Abweichungen &amp; Zusatzbefunde</h3>
+  <ul>
+    <li><b>ZUGFeRD ohne Fallback (§7):</b> Der Machbarkeits-Spike gelang — pure Node (pdfkit 0.19 PDF/A-3b + eigene Factur-X-Einbettung + node-zugferd-XML), extern per Mustang dreifach valide. Kein Java im Produktionspfad, kein Rechnungsentwurf-Fallback nötig.</li>
+    <li><b>Eigener Rechnungs-Renderer</b> statt markdownPdf.js-Umbau (markdownPdf blieb unberührt); pdfkit-Bump 0.14→0.19.1.</li>
+    <li><b>Nach-Review-Critical (Phase 5):</b> git-gekoppelte Projekte umgingen den Rechnungs-Schreibschutz (chmod 0444 schützt nicht gegen Verzeichnis-Ops) → <code>git-trenne</code> lehnt bei registrierten Rechnungen ab; Merge-Overwrite als dokumentierte Restgrenze.</li>
+    <li><b>Kundenservice ohne Eskalations-Urteil (§8):</b> wie entschieden umgesetzt; Absicherung über harte Prompt-Regel + Quellenpflicht. Live-Fix: Prompt gegen erfundene Kontaktdaten gehärtet (#295).</li>
+    <li><b>„Übersicht öffnet den Ordner“</b> ist als „öffnet den Steckbrief“ umgesetzt (Explorer-Ordner nicht programmatisch fokussierbar).</li>
+  </ul>
+
+  <p><b>Tests:</b> Backend ~2016 grün (neu u. a. vorlagenService, pruefung, steckbriefIndex, rechnung, vorlagenUpdate), Frontend 741 grün. <b>Reviews:</b> je Phase ein <code>code-reviewer</code>-Durchlauf; alle Critical-Findings vor dem Merge behoben und nachgeprüft. <b>Gerät:</b> nach jeder Phase healthy; alle Testprojekte nach dem Verify aufgeräumt.</p>
+
   </div>
 </details>
 
