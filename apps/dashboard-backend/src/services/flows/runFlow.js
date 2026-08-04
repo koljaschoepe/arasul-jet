@@ -66,6 +66,13 @@ async function resolveProjektToken(eintrag, { getActiveProjectId, projektOrdner 
   if (unterpfad.split('/').includes('..') || path.isAbsolute(unterpfad)) {
     throw new ValidationError(`Ungültiger Ordner "${eintrag}": Pfad muss relativ und ohne .. sein`);
   }
+  // `kopf` ist entweder „aktiv" oder eine Projekt-UUID. Ohne diese Prüfung
+  // ginge ein nicht-UUID-Kopf (aus einem von Hand geschriebenen Flow) roh an
+  // Postgres → 22P02 → 500 statt eines sauberen 4xx (QA-Sweep-Befund).
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (kopf !== 'aktiv' && !UUID_RE.test(kopf)) {
+    throw new ValidationError(`Ungültiger Ordner "${eintrag}": Projekt-Kennung erwartet`);
+  }
 
   const projectId = kopf === 'aktiv' ? await getActiveProjectId() : kopf;
   const basis = await projektOrdner(projectId);
@@ -510,11 +517,28 @@ async function runFlow(
   // gescheiterte Übersicht darf einen sonst gelungenen Lauf nicht kippen.
   const aenderungenAbschliessen = async () => {
     // Ein-Ordner-Modell: Flow-Schreibzugriffe sofort in den Wissens-Spiegel
-    // übernehmen (der Lauf kann in der Projektablage gearbeitet haben).
+    // übernehmen. Ein projektgebundener Lauf (projektId) oder ein Lauf mit
+    // projekt://<uuid>-Zielen schreibt evtl. in ein ANDERES Projekt als das
+    // gerade aktive — dann muss dessen Wissensraum aktualisiert werden, nicht
+    // nur der des aktiven Projekts (QA-Sweep-Befund). Union aller tatsächlich
+    // beschriebenen Projekte triggern (Trigger ist idempotent/günstig).
     try {
+      const zuSyncen = new Set();
       const aktivesProjekt = await projectService.getActiveProjectId();
       if (aktivesProjekt) {
-        require('../projects/ordnerSyncService').trigger(aktivesProjekt);
+        zuSyncen.add(aktivesProjekt);
+      }
+      if (projektId) {
+        zuSyncen.add(projektId);
+      }
+      for (const m of projektOrdnerMeta) {
+        if (m && m.projectId) {
+          zuSyncen.add(m.projectId);
+        }
+      }
+      const sync = require('../projects/ordnerSyncService');
+      for (const pid of zuSyncen) {
+        sync.trigger(pid);
       }
     } catch (err) {
       logger.warn(`Flow "${flowName}": Ordner-Sync-Trigger fehlgeschlagen: ${err.message}`);
