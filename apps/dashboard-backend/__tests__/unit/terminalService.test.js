@@ -19,8 +19,18 @@ jest.mock('../../src/services/sandbox/sandboxService', () => ({
   getProject: jest.fn(),
 }));
 
+jest.mock('../../src/services/sandbox/externalCredentialsService', () => ({
+  getCentralAuthEnv: jest.fn().mockResolvedValue({}),
+}));
+
+jest.mock('../../src/services/sandbox/claudeOauthService', () => ({
+  ensureFreshToken: jest.fn().mockResolvedValue(false),
+}));
+
 const terminalService = require('../../src/services/sandbox/terminalService');
 const sandboxService = require('../../src/services/sandbox/sandboxService');
+const externalCredentialsService = require('../../src/services/sandbox/externalCredentialsService');
+const { docker } = require('../../src/services/core/docker');
 const { ALLOWED_SESSION_TYPES, CUSTOM_COMMAND_RE, shellSingleQuote } =
   terminalService._internals;
 
@@ -167,6 +177,69 @@ describe('terminalService — input validation', () => {
           userId: 1,
         })
       ).rejects.toThrow(/Ungültiger tmux-Session-Name/);
+    });
+  });
+
+  describe('createSession — zentralen KI-Zugang sicher injizieren', () => {
+    const SECRET = 'sk-ant-oat01-SUPERSECRETVALUE';
+    let execMock;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      sandboxService.getProject.mockResolvedValue({
+        container_status: 'running',
+        container_id: 'c1',
+      });
+      const stream = { on: jest.fn(), pause: jest.fn(), resume: jest.fn() };
+      execMock = jest.fn().mockResolvedValue({
+        id: 'exec-1',
+        start: jest.fn().mockResolvedValue(stream),
+        resize: jest.fn(),
+      });
+      docker.getContainer.mockReturnValue({ exec: execMock });
+    });
+
+    async function runClaudeSession() {
+      await terminalService.createSession('p1', mockWs(), {
+        sessionType: 'claude-code',
+        userId: 1,
+      });
+      return execMock.mock.calls[0][0]; // exec-Optionen (Cmd + Env)
+    }
+
+    test('OAuth-Token steckt in der exec-Env, aber NIE als Wert in der Kommandozeile', async () => {
+      externalCredentialsService.getCentralAuthEnv.mockResolvedValue({
+        CLAUDE_CODE_OAUTH_TOKEN: SECRET,
+      });
+      const opts = await runClaudeSession();
+      // In der Env: ja.
+      expect(opts.Env).toContain(`CLAUDE_CODE_OAUTH_TOKEN=${SECRET}`);
+      // In der Kommandozeile (→ ps, DB-`command`): der WERT niemals.
+      const cmdline = opts.Cmd.join(' ');
+      expect(cmdline).not.toContain(SECRET);
+      // Nur per Variablen-NAME referenziert.
+      expect(cmdline).toContain('tmux setenv -g CLAUDE_CODE_OAUTH_TOKEN "$CLAUDE_CODE_OAUTH_TOKEN"');
+    });
+
+    test('bei Token-Modus wird ANTHROPIC_API_KEY komplett entfernt (unset)', async () => {
+      externalCredentialsService.getCentralAuthEnv.mockResolvedValue({
+        CLAUDE_CODE_OAUTH_TOKEN: SECRET,
+      });
+      const opts = await runClaudeSession();
+      const cmdline = opts.Cmd.join(' ');
+      expect(cmdline).toContain('unset ANTHROPIC_API_KEY');
+      expect(cmdline).toContain('tmux setenv -gu ANTHROPIC_API_KEY');
+      // Kein gesetzter API-Key in der Env.
+      expect(opts.Env.some(e => e.startsWith('ANTHROPIC_API_KEY='))).toBe(false);
+    });
+
+    test('apikey-Modus setzt ANTHROPIC_API_KEY und entfernt ihn NICHT', async () => {
+      externalCredentialsService.getCentralAuthEnv.mockResolvedValue({
+        ANTHROPIC_API_KEY: 'sk-ant-APIKEY',
+      });
+      const opts = await runClaudeSession();
+      expect(opts.Env).toContain('ANTHROPIC_API_KEY=sk-ant-APIKEY');
+      expect(opts.Cmd.join(' ')).not.toContain('unset ANTHROPIC_API_KEY');
     });
   });
 });
