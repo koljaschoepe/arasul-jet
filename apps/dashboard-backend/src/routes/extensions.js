@@ -21,6 +21,7 @@ const { validateBody, validateParams } = require('../middleware/validate');
 const { uploadLimiter } = require('../middleware/rateLimit');
 const { ValidationError } = require('../utils/errors');
 const extensionService = require('../services/extensions/extensionService');
+const werkstattWatcher = require('../services/extensions/werkstattWatcher');
 const {
   ExtensionIdParams,
   BuildExtensionBody,
@@ -59,6 +60,19 @@ router.get(
   asyncHandler(async (req, res) => {
     const data = await extensionService.listExtensions();
     res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/extensions/werkstatt/status — Watcher-Sicht: welche Werkstatt-Ordner
+ * gerade erkannt/übernommen wurden bzw. mit welchem Grund abgelehnt (z. B. eine
+ * kaputte manifest.json). Macht stille Ablehnungen in der UI sichtbar.
+ */
+router.get(
+  '/werkstatt/status',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.json({ data: werkstattWatcher.status(), timestamp: new Date().toISOString() });
   })
 );
 

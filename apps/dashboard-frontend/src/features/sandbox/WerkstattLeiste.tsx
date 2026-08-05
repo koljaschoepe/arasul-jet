@@ -10,21 +10,48 @@
  * bewusst nie) und öffnet App-Erweiterungen direkt als Tab.
  */
 import { useState } from 'react';
-import { Hammer, Loader2, Rocket } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, Hammer, Loader2, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { useExtensions } from '@/hooks/useExtensions';
+import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { ApiError } from '@/hooks/useApi';
 import type { SandboxProject } from './types';
 
+interface WerkstattStatus {
+  intervalMs: number;
+  kandidaten: Array<{
+    slug: string;
+    subfolder: string;
+    ok: boolean;
+    extId: string | null;
+    fehler: string | null;
+  }>;
+}
+
 export default function WerkstattLeiste({ projekt }: { projekt: SandboxProject }) {
   const toast = useToast();
+  const api = useApi();
   const { buildFromSandbox, setExtensionEnabled } = useExtensions();
   const openTab = useWorkspaceStore(s => s.openTab);
   const [ordner, setOrdner] = useState('.');
   const [laeuft, setLaeuft] = useState(false);
+
+  // Watcher-Sicht: abgelehnte Ordner (z. B. kaputte manifest.json) sichtbar machen.
+  // useApi.get liefert die volle Hülle { data, timestamp } — wie bei useExtensions
+  // das `.data` auspacken (sonst wäre `status.kandidaten` immer undefined).
+  const { data: status } = useQuery({
+    queryKey: ['werkstatt-status'],
+    queryFn: () =>
+      api
+        .get<{ data: WerkstattStatus }>('/extensions/werkstatt/status', { showError: false })
+        .then(res => res.data),
+    refetchInterval: 15000,
+  });
+  const fehler = (status?.kandidaten || []).filter(k => !k.ok);
 
   const liveSchalten = async () => {
     setLaeuft(true);
@@ -54,10 +81,22 @@ export default function WerkstattLeiste({ projekt }: { projekt: SandboxProject }
       <Hammer className="size-3.5 shrink-0 text-muted-foreground" />
       <span
         className="hidden text-ui-xs text-muted-foreground sm:inline"
-        title="Der Werkstatt-Watcher übernimmt neue und geänderte Erweiterungen automatisch ins Register (Aktivieren bleibt ein Klick). Der Knopf ist der Sofort-Weg: er schaltet zusätzlich frei und öffnet Apps als Tab."
+        title="Der Werkstatt-Watcher übernimmt neue und geänderte Erweiterungen automatisch ins Register (Aktivieren bleibt ein Klick). Der Knopf ist der Sofort-Weg: er schaltet zusätzlich frei und öffnet Apps als Tab. ANLEITUNG.md im Werkstatt-Ordner erklärt Details."
       >
-        Erweiterungs-Werkstatt — Änderungen werden automatisch übernommen
+        Werkstatt — im Chat{' '}
+        <code className="rounded bg-background px-1 font-mono text-[11px]">/erweiterung</code>{' '}
+        bauen, <code className="rounded bg-background px-1 font-mono text-[11px]">/execute</code>{' '}
+        prüfen; Änderungen werden automatisch übernommen
       </span>
+      {fehler.length > 0 && (
+        <span
+          className="flex items-center gap-1 text-ui-xs text-warning"
+          title={fehler.map(f => `${f.slug}/${f.subfolder}: ${f.fehler}`).join('\n')}
+        >
+          <AlertTriangle className="size-3.5" />
+          {fehler.length} Ordner abgelehnt
+        </span>
+      )}
       <div className="ml-auto flex items-center gap-2">
         <Input
           value={ordner}

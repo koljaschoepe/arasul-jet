@@ -42,7 +42,14 @@ jeden direkten Unterordner:
   aktualisieren das Paket im Register; `enabled` bleibt dabei unverändert —
   eine aktivierte Erweiterung bleibt aktiviert, eine deaktivierte deaktiviert.
 - **Fehlerhafte** Manifeste werden einmal im Log gemeldet (WARN) und dann in
-  Ruhe gelassen, bis sich der Ordner ändert.
+  Ruhe gelassen, bis sich der Ordner ändert. Der Grund wird zusätzlich gemerkt
+  und über `GET /api/extensions/werkstatt/status` ausgeliefert — die
+  Werkstatt-Leiste zeigt „N Ordner abgelehnt" mit Grund-Tooltip, damit eine
+  kaputte `manifest.json` nicht mehr still verschluckt wird.
+- Neben den echten Werkstätten scannt der Watcher **immer** den kanonischen
+  Ordner `<SANDBOX_DATA_DIR>/werkstatt` — dorthin bauen die beiden Chat-Bau-Flows
+  (`/erweiterung`, `/execute`, `flow.ordner` ist fest). So wird auch das per Flow
+  Gebaute registriert, ohne dass eine eigene Werkstatt-Sandbox nötig ist.
 - Der Watcher **deinstalliert nie**: verschwindet ein Werkstatt-Ordner, bleibt
   die registrierte Erweiterung bestehen (Entfernen bleibt Handarbeit).
 

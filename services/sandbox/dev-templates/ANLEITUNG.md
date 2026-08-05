@@ -32,7 +32,7 @@ Jede Erweiterung **muss** eine `manifest.json` im Wurzelordner haben:
 }
 ```
 
-- **`id`** — Kleinbuchstaben, Ziffern, Bindestriche. Wird zum Paket-Ordnernamen.
+- **`id`** — Kleinbuchstaben, Ziffern, Bindestriche; **2–50 Zeichen, kein Bindestrich am Anfang oder Ende** (sonst wird der Ordner still abgelehnt). Wird zum Paket-Ordnernamen.
 - **`type`** — `app` | `flow` | `tool`.
 - **`accessTier`** — Zugriffs-Stufe der Sandbox, in der die Erweiterung läuft:
   `internet` (nur Internet), `internal` (interne Dienste), `full` (voller
@@ -41,14 +41,18 @@ Jede Erweiterung **muss** eine `manifest.json` im Wurzelordner haben:
   `workflow.json`, bei `tool` das ausführbare Skript.
 - **`arasulExtensionVersion`** — Paketformat-Version, aktuell `1`.
 
-## Bau-Skills
+## Die zwei Bau-Flows
 
-Statt alles von Hand zu tippen, nutze die zwei mitgelieferten Skills im Chat:
+Statt alles von Hand zu tippen, nutze die zwei mitgelieferten Flows im Chat:
 
-- **`/erweiterung`** — legt hier ein Gerüst an bzw. baut es geführt weiter
+- **`/erweiterung`** — legt ein Gerüst an bzw. baut es geführt weiter
   (App/Flow/Tool). Schreibt `manifest.json` + Startdateien.
-- **`/execute`** — führt die gebaute Erweiterung in dieser Sandbox aus und
-  meldet das Ergebnis zurück (Syntax-Check, Testlauf, Manifest-Prüfung).
+- **`/execute`** — führt die gebaute Erweiterung aus und meldet das Ergebnis
+  zurück (Syntax-Check, Testlauf, Manifest-Prüfung).
+
+Alternativ baust du direkt im **Terminal** (z. B. mit einem KI-Agenten wie
+Claude Code oder dem lokalen Coder) in diesem Werkstatt-Ordner — der
+Werkstatt-Watcher registriert jede gültige `manifest.json` automatisch.
 
 ## Fertig? — Paketieren
 
