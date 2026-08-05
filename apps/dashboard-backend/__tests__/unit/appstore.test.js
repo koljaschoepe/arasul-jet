@@ -13,8 +13,6 @@
  * - POST /api/apps/:id/stop
  * - POST /api/apps/:id/restart
  * - POST /api/apps/sync
- * - GET /api/apps/claude-code/auth-status
- * - POST /api/apps/claude-code/auth-refresh
  * - GET /api/apps/:id/config
  * - POST /api/apps/:id/config
  * - GET /api/apps/:id/n8n-credentials
@@ -51,8 +49,6 @@ jest.mock('../../src/services/app/appService', () => ({
   restartApp: jest.fn(),
   recreateAppWithConfig: jest.fn(),
   syncSystemApps: jest.fn(),
-  getClaudeAuthStatus: jest.fn(),
-  refreshClaudeAuth: jest.fn(),
   getAppConfig: jest.fn(),
   setAppConfig: jest.fn(),
   getN8nCredentials: jest.fn()
@@ -488,63 +484,6 @@ describe('AppStore Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('message');
-      expect(response.body).toHaveProperty('timestamp');
-    });
-  });
-
-  // ============================================================================
-  // GET /api/apps/claude-code/auth-status
-  // ============================================================================
-  describe('GET /api/apps/claude-code/auth-status', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/apps/claude-code/auth-status');
-
-      expect(response.status).toBe(401);
-    });
-
-    test('should return Claude auth status', async () => {
-      const mockStatus = {
-        oauth_authenticated: true,
-        api_key_valid: true,
-        account_email: 'user@example.com'
-      };
-      appService.getClaudeAuthStatus.mockResolvedValue(mockStatus);
-
-      const response = await request(app)
-        .get('/api/apps/claude-code/auth-status')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('oauth_authenticated');
-      expect(response.body).toHaveProperty('timestamp');
-    });
-  });
-
-  // ============================================================================
-  // POST /api/apps/claude-code/auth-refresh
-  // ============================================================================
-  describe('POST /api/apps/claude-code/auth-refresh', () => {
-    test('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .post('/api/apps/claude-code/auth-refresh');
-
-      expect(response.status).toBe(401);
-    });
-
-    test('should refresh Claude auth', async () => {
-      const mockResult = {
-        success: true,
-        message: 'Token refreshed'
-      };
-      appService.refreshClaudeAuth.mockResolvedValue(mockResult);
-
-      const response = await request(app)
-        .post('/api/apps/claude-code/auth-refresh')
-        .set('Authorization', `Bearer ${authToken}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('timestamp');
     });
   });

@@ -1,11 +1,9 @@
 /**
  * Config Service
- * Manages app configuration, Claude workspace volumes, n8n credentials,
- * Claude auth status, and app event logging.
+ * Manages app configuration, n8n credentials, and app event logging.
  */
 
 const fs = require('fs').promises;
-const path = require('path');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 
@@ -162,35 +160,6 @@ async function getConfigOverrides(appId) {
 }
 
 /**
- * Get dynamic workspace volumes for claude-code from database
- * Returns array of { hostPath, containerPath } objects
- */
-async function getClaudeWorkspaceVolumes() {
-  try {
-    const result = await db.query(`
-                SELECT host_path, container_path
-                FROM claude_workspaces
-                WHERE is_active = TRUE
-                ORDER BY id ASC
-            `);
-
-    return result.rows.map(row => ({
-      hostPath: row.host_path,
-      containerPath: row.container_path,
-    }));
-  } catch (err) {
-    // If table doesn't exist yet, return default volumes
-    logger.warn(`Could not load workspace volumes: ${err.message}. Using defaults.`);
-    const projectDir = process.env.COMPOSE_PROJECT_DIR || '/opt/arasul';
-    const homeDir = require('os').homedir();
-    return [
-      { hostPath: projectDir, containerPath: '/workspace/arasul' },
-      { hostPath: path.join(homeDir, 'workspace'), containerPath: '/workspace/custom' },
-    ];
-  }
-}
-
-/**
  * Get n8n integration credentials for SSH access
  * Returns host IP, port, username, and private key for n8n SSH connection to host
  * @param {string} appId - App ID
@@ -261,133 +230,6 @@ async function getN8nCredentials(appId) {
 }
 
 /**
- * Get Claude Code OAuth authentication status
- * Reads credentials and config from the container volume
- * @returns {Promise<Object>} Auth status with oauth and apiKey info
- */
-async function getClaudeAuthStatus() {
-  try {
-    const containerService = require('./containerService');
-
-    // First try to read the status file written by token-refresh service
-    const statusResult = await containerService._execInContainer(
-      'claude-code',
-      'cat /home/claude/.claude/auth-status.json 2>/dev/null || echo "{}"'
-    );
-
-    if (statusResult && statusResult !== '{}') {
-      try {
-        const status = JSON.parse(statusResult);
-        if (status.oauth) {
-          return status;
-        }
-      } catch (e) {
-        logger.debug('Could not parse auth-status.json');
-      }
-    }
-
-    // Fallback: read credentials directly
-    const credentialsResult = await containerService._execInContainer(
-      'claude-code',
-      'cat /home/claude/.claude/.credentials.json 2>/dev/null || echo "{}"'
-    );
-
-    const configResult = await containerService._execInContainer(
-      'claude-code',
-      'cat /home/claude/.claude/config.json 2>/dev/null || echo "{}"'
-    );
-
-    let credentials = {};
-    let config = {};
-
-    try {
-      credentials = JSON.parse(credentialsResult);
-    } catch (e) {
-      logger.debug('Could not parse credentials.json');
-    }
-
-    try {
-      config = JSON.parse(configResult);
-    } catch (e) {
-      logger.debug('Could not parse config.json');
-    }
-
-    const now = Date.now();
-    const oauthData = credentials.claudeAiOauth || {};
-    const expiresAt = oauthData.expiresAt || 0;
-    const valid = expiresAt > now;
-
-    // Get API key status from our config
-    const appConfig = await getAppConfigRaw('claude-code');
-    const apiKey = appConfig.ANTHROPIC_API_KEY || '';
-    const apiKeySet = apiKey.length > 0 && apiKey !== 'sk-ant-test12345';
-
-    return {
-      oauth: {
-        valid,
-        expiresAt,
-        expiresIn: valid ? Math.floor((expiresAt - now) / 1000) : 0,
-        expiresInHours: valid ? ((expiresAt - now) / 3600000).toFixed(1) : '0',
-        hasRefreshToken: !!oauthData.refreshToken,
-        subscriptionType: oauthData.subscriptionType || null,
-        account: config.oauthAccount
-          ? {
-              email: config.oauthAccount.emailAddress || null,
-              displayName: config.oauthAccount.displayName || null,
-            }
-          : null,
-      },
-      apiKey: {
-        set: apiKeySet,
-        masked: apiKeySet ? '****' + apiKey.slice(-4) : null,
-      },
-      lastCheck: now,
-    };
-  } catch (error) {
-    logger.error(`Error getting Claude auth status: ${error.message}`);
-    return {
-      oauth: { valid: false, error: error.message },
-      apiKey: { set: false },
-      lastCheck: Date.now(),
-    };
-  }
-}
-
-/**
- * Trigger OAuth token refresh for Claude Code
- * @returns {Promise<Object>} Refresh result
- */
-async function refreshClaudeAuth() {
-  try {
-    const containerService = require('./containerService');
-
-    logger.info('Triggering Claude Code OAuth refresh...');
-
-    const result = await containerService._execInContainer(
-      'claude-code',
-      'claude auth refresh 2>&1'
-    );
-
-    logger.info(`Claude auth refresh result: ${result}`);
-
-    // Check new status after refresh
-    const status = await getClaudeAuthStatus();
-
-    return {
-      success: status.oauth.valid,
-      message: status.oauth.valid
-        ? `Token erfolgreich erneuert. Gültig für ${status.oauth.expiresInHours}h`
-        : 'Token-Refresh fehlgeschlagen. Bitte neu anmelden.',
-      output: result,
-      status,
-    };
-  } catch (error) {
-    logger.error(`Error refreshing Claude auth: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
  * Log an app event
  */
 async function logEvent(appId, eventType, message, details = null) {
@@ -429,10 +271,7 @@ module.exports = {
   getAppConfigRaw,
   setAppConfig,
   getConfigOverrides,
-  getClaudeWorkspaceVolumes,
   getN8nCredentials,
-  getClaudeAuthStatus,
-  refreshClaudeAuth,
   logEvent,
   getAppEvents,
 };

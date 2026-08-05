@@ -98,8 +98,7 @@ All config under `config/traefik/`:
 
 | Priority | Router                                      | Rule                                 |
 | -------- | ------------------------------------------- | ------------------------------------ |
-| 110      | claude-terminal-websocket                   | `/claude-terminal` + WS upgrade      |
-| 100      | minio-console, n8n, claude-terminal         | `/minio`, `/n8n`, `/claude-terminal` |
+| 100      | minio-console, n8n                          | `/minio`, `/n8n`                     |
 | 85       | n8n-favicon                                 | `/favicon.ico`                       |
 | 65       | dashboard-static                            | `/static/js`, `/static/css`, etc.    |
 | 50       | all websocket routers                       | WS upgrade header match              |

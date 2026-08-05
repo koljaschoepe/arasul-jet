@@ -503,7 +503,6 @@ describe('Store App Lifecycle', () => {
 
     jest.mock('../../src/services/app/configService', () => ({
       logEvent: jest.fn().mockResolvedValue(),
-      getClaudeWorkspaceVolumes: jest.fn().mockResolvedValue([]),
     }));
 
     installService = require('../../src/services/app/installService');

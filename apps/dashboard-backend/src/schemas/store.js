@@ -1,39 +1,5 @@
 const { z } = require('zod');
 
-// Workspaces
-const CreateWorkspaceBody = z
-  .object({
-    name: z
-      .string({ error: 'Name und Host-Pfad sind erforderlich' })
-      .trim()
-      .min(1, 'Name und Host-Pfad sind erforderlich')
-      .max(100)
-      .regex(
-        /^[a-zA-Z0-9\s\-_äöüÄÖÜß]+$/,
-        'Ungültiger Name. Nur Buchstaben, Zahlen, Leerzeichen und Bindestriche erlaubt.'
-      ),
-    description: z.string().max(1000).optional(),
-    hostPath: z
-      .string({ error: 'Name und Host-Pfad sind erforderlich' })
-      .trim()
-      .min(1, 'Name und Host-Pfad sind erforderlich')
-      .max(1000),
-  })
-  .strict();
-
-const UpdateWorkspaceBody = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1)
-      .max(100)
-      .regex(/^[a-zA-Z0-9\s\-_äöüÄÖÜß]+$/, 'Ungültiger Name')
-      .optional(),
-    description: z.string().max(1000).optional(),
-  })
-  .strict();
-
 // Workflows
 const WorkflowExecutionBody = z
   .object({
@@ -93,8 +59,6 @@ const AppInstallBody = z
   });
 
 module.exports = {
-  CreateWorkspaceBody,
-  UpdateWorkspaceBody,
   WorkflowExecutionBody,
   AppUninstallBody,
   AppRestartBody,

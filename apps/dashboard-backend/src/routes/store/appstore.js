@@ -82,43 +82,6 @@ router.post(
 );
 
 /**
- * GET /api/apps/claude-code/auth-status
- * Get Claude Code OAuth authentication status
- * ROUTE-001 FIX: Moved before /:id to prevent route shadowing
- */
-router.get(
-  '/claude-code/auth-status',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const authStatus = await appService.getClaudeAuthStatus();
-
-    res.json({
-      ...authStatus,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * POST /api/apps/claude-code/auth-refresh
- * Trigger OAuth token refresh for Claude Code
- * ROUTE-001 FIX: Moved before /:id to prevent route shadowing
- */
-router.post(
-  '/claude-code/auth-refresh',
-  requireAuth,
-  apiLimiter,
-  asyncHandler(async (req, res) => {
-    const result = await appService.refreshClaudeAuth();
-
-    res.json({
-      ...result,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
  * GET /api/apps/:id
  * Get single app details
  */

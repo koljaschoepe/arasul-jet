@@ -466,7 +466,6 @@ function LegacyAppContent({
                 </RouteErrorBoundary>
               }
             />
-            <Route path="/claude-code" element={<Navigate to="/terminal" replace />} />
             <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
             <Route
               path="/terminal"

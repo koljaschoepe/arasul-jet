@@ -18,7 +18,6 @@
 | `postgres/`           | DB image, migrations — **see `postgres/CLAUDE.md`**  | SQL     |
 | `mcp-remote-bash/`    | MCP server (remote bash for Claude Code)             | TS      |
 | `cloudflared/`        | Cloudflare tunnel client                             | config  |
-| `claude-code/`        | Containerized Claude Code runtime                    | config  |
 | `sandbox/`            | Per-user execution sandbox                           | config  |
 
 ## Service standard
