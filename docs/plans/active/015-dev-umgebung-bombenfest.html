@@ -1,0 +1,923 @@
+<!doctype html>
+<!--
+  Arasul · Plan 015 — Dev-Umgebung bombenfest: Terminal, KI-Login & On-Top-Bauen
+  Quelle: Nutzer-Auftrag 2026-08-05 (Vision „nie wieder Software kaufen", Terminal/Claude-Login kaputt)
+  + 1 Interview-Runde (4 Weichenstellungen) + 2 Chat-Präzisierungen (Login muss immer funktionieren, externe Konnektoren)
+  + Codebase-Research (4 Kartierungs-Agenten: Terminal, Auth-Flow, Sandbox/Extensions, kanonischer Claude-Auth)
+  + Web-Recherche (setup-token, PKCE-Handshake, code_challenge-Bug, Codex device-auth — quellenbelegt).
+  Ausführung: 7 Phasen, je Phase eigener PR + Deploy + Jetson-Live-Verify (Fundament vor Ausbau).
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 015 · Dev-Umgebung bombenfest — Terminal &amp; KI-Login</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "015",
+  "slug": "dev-umgebung-bombenfest",
+  "title": "Dev-Umgebung bombenfest — Terminal, KI-Login &amp; On-Top-Bauen",
+  "type": "feature",
+  "status": "approved",
+  "priority": "P0",
+  "risk_level": 2,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-08-05",
+  "approved": "2026-08-05",
+  "branch": "015-dev-umgebung-bombenfest-p1..p7",
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 015</p>
+    <span class="chip" id="status-chip" data-status="draft">Draft</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Dev-Umgebung bombenfest — Terminal, KI-Login &amp; On-Top-Bauen</h1>
+  <p class="lead">Arasul soll die selbstgehostete Entwicklungsumgebung sein, auf der Firmen ihre internen Tools und Dashboards bauen — statt Software zu kaufen. Das Fundament dafür (Terminal + KI-Coding-Agent im Browser) existiert, funktioniert aber nicht zuverlässig: das Terminal wird falsch dargestellt, und der Claude-Login scheitert am OAuth-Fehler <code>fehlender code_challenge Parameter</code>. Dieser Plan macht das Fundament in sieben einzeln verifizierbaren Phasen wasserdicht — ein Terminal-Stack, ein Login-Weg, der garantiert einmal funktioniert und für immer hält, lokal-first als Default.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">7 Phasen</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Der kaputte zweite Terminal-Stack (ttyd) fliegt raus, das Rendering wird am Gerät reproduziert und behoben, und der Claude-Login wird durch einen <b>eigenen OAuth-PKCE-Handshake im Backend</b> ersetzt — samt sauberem HTML-Login-Feld, verschlüsseltem Token-Tresor und Auto-Refresh. Lokales Coder-Modell wird Default, Claude/Codex opt-in. Zum Schluss: Werkstatt-Modus glätten und Doku radikal neu.</dd>
+      <dt>Warum jetzt</dt><dd>Ohne funktionierendes Terminal + KI-Login trägt die ganze Produktvision („nie wieder Software kaufen, alles on-top auf Arasul bauen") nicht. Es ist das Fundament — und es ist heute nachweislich kaputt.</dd>
+      <dt>Größtes Risiko</dt><dd>Der eigene OAuth-Handshake muss Anthropics <span class="mono">client_id</span>, <span class="mono">redirect_uri</span> und Scopes exakt treffen und gegen künftige CLI-Änderungen robust bleiben — abgesichert durch einen Machbarkeits-Spike zu Beginn von Phase 3 und den Fallback „URL-Sanitizer + geführtes <span class="mono">setup-token</span>-Einfügen".</dd>
+      <dt>Du entscheidest</dt><dd><ul><li>Ein Terminal-Stack — der alte ttyd-Pfad wird komplett entfernt, nicht repariert</li><li>Lokales Modell ist der Default-Coder; extern (Claude/Codex) ist opt-in pro Nutzer</li><li>Interaktiver <code>/login</code> im Terminal wird durch den Dashboard-Login-Flow ersetzt</li><li>Umfang = Dev-Umgebung bombenfest; Extension-KI-Laufzeit &amp; externe Konnektoren sind der nächste Plan (§9)</li></ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Die Vision steht und fällt mit dem Fundament — Browser-Terminal + KI-Coding-Agent. Das ist heute kaputt und wird hier bombenfest gemacht.</span>
+  </summary>
+  <div class="sbody">
+
+  <p>Die Vision ist scharf geworden: Arasul liefert nur das <b>Grundgerüst</b>, und Firmen bauen darauf Stück für Stück
+  ihren eigenen digitalen Betrieb — interne Tools, Dashboards, Übersichten — bis sie digital unabhängig sind. Der Hebel
+  dafür ist eine selbstgehostete Entwicklungsumgebung direkt auf dem Gerät: ein Browser-Terminal, in dem ein
+  KI-Coding-Agent (Claude Code, Codex oder ein lokales Modell) neue Erweiterungen baut. Genau dieses Fundament ist
+  bereits angelegt — die Architektur ist sogar gut: xterm.js über binäre WebSockets an ein echtes TTY per
+  <code>docker exec</code>, tmux-Persistenz, gehärteter Container, Resize-Propagation, eine „KI-Zugang"-UI und ein
+  verschlüsselter Credential-Tresor.</p>
+
+  <p>Aber es funktioniert nicht verlässlich. Zwei Symptome blockieren die ganze Vision: (1) <b>das Terminal wird falsch
+  dargestellt</b> — Claudes Vollbild-Oberfläche zerfällt —, und (2) <b>der Login scheitert</b> mit
+  <code>ungültige OAuth-Anfrage, fehlender code_challenge Parameter</code>. Beides ist kein Randproblem: Wer sich nicht
+  einloggen kann und ein zerfallendes Terminal sieht, baut nichts on-top. Das Fundament muss zuerst stehen.</p>
+
+  <p><b>Ziel dieses Plans:</b> Aus dem halb funktionierenden Fundament wird ein bombenfestes. Ein einziger Terminal-Stack,
+  sauber gerendert, mit einem Login-Weg, der <b>garantiert einmal funktioniert und dann über alle Sessions hält</b> —
+  im besten Fall nie wieder anmelden. Lokal-first als Default, damit der Kern ganz ohne externen Account und ohne
+  Policy-Risiko läuft; Claude/Codex bleiben als opt-in-Beschleuniger. Und der „hier baue ich etwas dazu"-Modus wird so
+  geglättet, dass der KI-Agent im Terminal die zwei Bau-Commands vorfindet und eine Erweiterung entstehen lassen kann.
+  Was bewusst <i>nicht</i> in diesem Plan liegt (Extension-KI-Laufzeit, externe Konnektoren als Framework), steht als
+  klar umrissener nächster Plan in §9.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Root-Cause-Diagnose">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Root-Cause-Diagnose — was wirklich kaputt ist</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Zwei parallele Terminal-Stacks, ein dreifacher CLI-URL-Bug beim OAuth, tmux um Claudes TUI und eine unterverdrahtete Token-Injektion. Kein „euer Server ist zu remote".</span>
+  </summary>
+  <div class="sbody">
+
+  <p>Vier Kartierungs-Agenten plus Web-Recherche haben das Bild geklärt. Die wichtigste Erkenntnis vorab: <b>Der
+  <code>code_challenge</code>-Fehler ist kein Arasul-Bug und hat nichts damit zu tun, dass ein Server sich anmeldet.</b>
+  Es sind vier konkrete, benennbare Ursachen:</p>
+
+  <ol>
+    <li><b>Zwei Terminal-Stacks existieren parallel.</b> Der alte Pfad <code>services/claude-code/</code> betreibt die
+    <code>claude</code>-CLI in <span class="mono">ttyd</span> hinter Traefik (<code>services/claude-code/entrypoint.sh</code>,
+    <code>token-refresh.sh</code>) mit interaktivem OAuth. Der neue Pfad ist die Sandbox mit
+    <code>docker exec</code>-TTY (<code>terminalService.js</code>). <b>Der ttyd-Pfad ist die Quelle des
+    <code>code_challenge</code>-Fehlers</b> und muss weg — nicht repariert werden.</li>
+
+    <li><b>Der OAuth-Fehler ist ein dreifacher, versionsabhängiger CLI-Bug</b> (belegt in den offiziellen Issues
+    <span class="mono">#29983</span>, <span class="mono">#43996</span>, <span class="mono">#45340</span>, alle „closed as
+    duplicate" ohne klare Fix-Version): die <code>claude</code>-CLI erzeugt auf Linux/Headless selbst eine kaputte
+    Authorize-URL — mit <code>code=true&amp;</code>-Präfix, mit dem Scope <code>org:create_api_key</code>, der bei einem
+    Abo-Login nicht gültig ist, oder gänzlich <b>ohne</b> <code>code_challenge</code>. Das ist nichts, was ein
+    Web-Terminal „falsch kopiert" — die URL ist schon falsch, bevor sie im Terminal steht.</li>
+
+    <li><b>Zusätzlich das Web-Terminal-Copy-Problem.</b> Selbst eine korrekte, sehr lange URL bricht im Terminal um; beim
+    Markieren fehlen Zeichen. Und der localhost-Callback der CLI kann den Browser deines Laptops nie erreichen (er zeigt
+    ins Container-Netz). Die Doku nennt das selbst „der kaputte, nicht kopierbare OAuth-Link"
+    (<code>KiZugangDialog.tsx</code>, <code>WORKSPACE.md</code>).</li>
+
+    <li><b>Die richtige Lösung ist halb gebaut, aber unterverdrahtet.</b> Der Token-Tresor
+    (<code>externalCredentialsService.js</code>, AES-256-GCM, Migration 107) injiziert
+    <code>CLAUDE_CODE_OAUTH_TOKEN</code> — aber nur beim Container-<i>Start</i> über eine <code>.bashrc</code>-Profildatei,
+    nicht in das <code>docker exec</code> der einzelnen Session (<code>terminalService.js</code> setzt dort nur
+    <code>TERM/COLUMNS/LINES</code>). Das ist timing-fragil, und niemand weiß, dass er den Token vorab per
+    <code>claude setup-token</code> auf einem Browser-Rechner erzeugen muss.</li>
+  </ol>
+
+  <p><b>Rendering.</b> Hauptverdacht ist die tmux-Schicht um Claudes Vollbild-TUI in Kombination mit einer
+  TERM-Fehlausrichtung: Das exec setzt <code>TERM=xterm-256color</code>, tmux erwartet innen eher
+  <code>tmux-256color</code>, und Claudes TUI will Truecolor + Alternate-Screen — drei Ebenen (xterm.js ↔ docker-exec ↔
+  tmux ↔ ink-TUI), an denen Zeichen, Farben und Resizes auseinanderlaufen. Wird in Phase 2 am Gerät reproduziert.</p>
+
+  <p><b>Policy-Realität (wichtig für die Vision).</b> Ein <i>einzelner geteilter</i> Abo-Token über mehrere Menschen
+  verstößt gegen Anthropics AUP; erlaubt ist „ein Mensch, ein eigenes Abo/Token". Da Arasul heute ein reines
+  Einzel-Admin-Modell ist, ist der zentrale Token = der Token des einen Betreibers → sauber. Sobald echte Mehrbenutzer
+  kommen, muss „pro Nutzer eigener Token" greifen. Deshalb der strategische Default: <b>lokales Modell</b> (kein Account,
+  kein Policy-Risiko, kohärent mit „100&nbsp;% lokal / DSGVO"); extern bleibt opt-in.</p>
+
+  <p><b>Der Vollständigkeit halber (nicht in diesem Scope):</b> Die Kern-Verkaufspromise „lokale KI-Flows in die eigene
+  App einbetten" ist heute nicht verdrahtet — die CSP-Sandbox-iframe blockiert bewusst jeden Zugriff einer ausgelieferten
+  Erweiterung auf <code>/api/llm</code> und <code>/api/rag</code>; <code>accessTier: internal/full</code> ist rein
+  deklarativ. Das ist die eigentliche Lücke zwischen Vision und Produkt — und der Inhalt des nächsten Plans (§9).</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Scope">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Terminal + KI-Login + Werkstatt-Modus + Doku bombenfest. Extension-KI-Laufzeit, Konnektor-Framework und echtes App-/Website-Hosting bleiben draußen (nächster Plan).</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+    <li>Alten ttyd-Terminal-Stack (<code>services/claude-code/</code>) komplett entfernen — ein Stack bleibt</li>
+    <li>Terminal-Rendering am Gerät reproduzieren und beheben (tmux/TERM/Truecolor/Resize/TUI-Apps)</li>
+    <li>Eigener OAuth-PKCE-Handshake im Backend + sauberes Dashboard-Login-Feld (URL bricht nie um, Copy-Button, Code-Eingabe)</li>
+    <li>Token robust in jede Session injizieren; <code>ANTHROPIC_API_KEY</code>-Falle vermeiden; Auto-Refresh + Ablauf-Warnung</li>
+    <li>Codex-Login über den offiziellen <code>--device-auth</code>-Flow gleichwertig anbieten</li>
+    <li>Lokales Coder-Modell (open-ara / qwen3-coder) als Default-Coder ohne externen Account</li>
+    <li>Werkstatt-Modus glätten: die zwei Bau-Commands sind sichtbar hinterlegt, der Agent kann eine Erweiterung entstehen lassen</li>
+    <li>Doku radikal neu (Terminal, KI-Zugang, Werkstatt) + geführter Erst-Anmeldungs-Wizard</li>
+</ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+    <li>Extension-KI-Laufzeit (SDK/Bridge, damit ausgelieferte Apps LLM-Flows + RAG nutzen) — nächster Plan (§9)</li>
+    <li>Konnektor-Framework für externe Systeme (CRM, andere Hoster) als generische Schicht — nächster Plan (§9)</li>
+    <li>Echtes PaaS: kundeneigene Dauer-Services, öffentliche Websites via Traefik-Subdomains, Per-App-DBs</li>
+    <li>Mehrbenutzer/Rollen — das Einzel-Admin-Modell bleibt</li>
+    <li>Reparatur des interaktiven <code>claude /login</code> im Terminal — bewusst ersetzt statt geflickt</li>
+    <li>Verteilung von Erweiterungen über einen Store</li>
+</ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Architektur">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Ein Terminal-Stack, ein eigener Login-Handshake im Backend, ein verschlüsselter Token-Tresor mit Auto-Refresh, lokal-first als Default.</span>
+  </summary>
+  <div class="sbody">
+
+  <p><b>Ein Terminal, kein zweites.</b> Die ganze Terminal-Welt läuft künftig ausschließlich über den Sandbox-Pfad:
+  xterm.js ↔ binäre WebSocket ↔ <code>docker exec</code>-TTY im <code>arasul-sandbox</code>-Container. Der ttyd-Dienst
+  verschwindet mitsamt seiner Traefik-Route. Damit ist die häufigste Fehlerquelle (zwei Wege, einer kaputt) weg.</p>
+
+  <p><b>Der Login gehört ins Dashboard, nicht ins Terminal.</b> Statt die (mal fehlerhafte) URL der CLI abzugreifen,
+  baut das Backend den winzigen OAuth-2.0-PKCE-Handshake selbst — es erzeugt <code>code_verifier</code> +
+  <code>code_challenge</code> (S256) selbst und stellt damit die <b>garantiert korrekte</b> Authorize-URL zusammen
+  (Vorbild: das quelloffene <code>grll/claude-code-login</code>). Diese URL erscheint in einem echten HTML-Feld, das
+  nie umbricht, mit Copy-Button und „im Browser öffnen"-Link. Du meldest dich auf deinem Laptop an, fügst den Rück-Code
+  einmal ins Dashboard ein — das Backend tauscht ihn gegen Access- + Refresh-Token, verschlüsselt beide im bestehenden
+  Tresor (<code>externalCredentialsService</code>, Provider <code>claude-central</code>) und injiziert
+  <code>CLAUDE_CODE_OAUTH_TOKEN</code> direkt ins <code>exec</code> jeder Session. Ergebnis: <code>claude</code> öffnen,
+  null Prompts, für immer.</p>
+
+  <p><b>„Für immer" heißt Auto-Refresh.</b> Weil wir den Refresh-Token selbst besitzen, erneuert ein Backend-Dienst den
+  Zugriff vor Ablauf (mit browser-ähnlichen Headern gegen Cloudflare) — der auf Headless bewusst kaputte CLI-eigene
+  Refresh entfällt damit. Fällt der Refresh doch aus, warnt das Dashboard rechtzeitig (Ablauf-Datum sichtbar) und der
+  Ein-Klick-Login-Flow erneuert alles. <code>ANTHROPIC_API_KEY</code> wird in der Sandbox-Env garantiert <i>nicht</i>
+  gesetzt (er würde den OAuth-Token still schlagen und auf API-Abrechnung umleiten), und <code>--bare</code> wird nie
+  benutzt (ignoriert den Token).</p>
+
+  <p><b>Lokal-first als Default.</b> Der Standard-Coding-Agent im Terminal ist ein lokales Modell (open-ara auf
+  <code>qwen3-coder</code> über <code>llm-service</code>) — kein Account, kein Policy-Risiko, voll DSGVO. Claude Code und
+  Codex sind der opt-in-Beschleuniger; Codex nutzt seinen offiziellen, selbst-refreshenden <code>--device-auth</code>-Flow.</p>
+
+  <figure class="arch">
+    <svg viewBox="0 0 640 340" role="img" aria-label="Architektur: Dashboard-Login-Handshake, Token-Tresor, ein Terminal-Stack, lokal-first" style="max-width:100%;height:auto;color:var(--ink)">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"/>
+    </marker>
+  </defs>
+  <rect x="16" y="16" width="200" height="96" rx="10" style="fill:var(--wash);stroke:var(--line)"/>
+  <text x="116" y="42" text-anchor="middle" style="fill:var(--ink);font:700 14px sans-serif">Dein Laptop-Browser</text>
+  <text x="116" y="62" text-anchor="middle" style="fill:var(--muted);font:11px sans-serif">einmalig anmelden</text>
+  <text x="30" y="86" style="fill:var(--ink);font:12px sans-serif">&#183; saubere URL &#246;ffnen</text>
+  <text x="30" y="102" style="fill:var(--ink);font:12px sans-serif">&#183; Code zur&#252;ck einf&#252;gen</text>
+  <line x1="216" y1="64" x2="266" y2="64" style="stroke:var(--accent);stroke-width:2" marker-end="url(#arr)"/>
+  <rect x="270" y="16" width="230" height="96" rx="10" style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5"/>
+  <text x="385" y="42" text-anchor="middle" style="fill:var(--ink);font:700 14px sans-serif">Dashboard-Backend</text>
+  <text x="385" y="62" text-anchor="middle" style="fill:var(--muted);font:11px sans-serif">eigener OAuth-PKCE-Handshake</text>
+  <text x="284" y="86" style="fill:var(--ink);font:12px sans-serif">&#183; code_challenge selbst erzeugt</text>
+  <text x="284" y="102" style="fill:var(--ink);font:12px sans-serif">&#183; Code &#8594; Token tauschen</text>
+  <rect x="512" y="20" width="112" height="88" rx="10" style="fill:var(--wash);stroke:var(--line)"/>
+  <text x="568" y="44" text-anchor="middle" style="fill:var(--ink);font:700 12px sans-serif">Token-Tresor</text>
+  <text x="568" y="62" text-anchor="middle" style="fill:var(--muted);font:10px sans-serif">AES-256-GCM</text>
+  <text x="568" y="80" text-anchor="middle" style="fill:var(--muted);font:10px sans-serif">Access+Refresh</text>
+  <text x="568" y="98" text-anchor="middle" style="fill:var(--accent-ink);font:10px sans-serif">Auto-Refresh</text>
+  <line x1="500" y1="64" x2="512" y2="64" style="stroke:var(--accent);stroke-width:2" marker-end="url(#arr)"/>
+  <line x1="385" y1="112" x2="385" y2="150" style="stroke:var(--accent);stroke-width:2" marker-end="url(#arr)"/>
+  <text x="395" y="136" style="fill:var(--accent-ink);font:10px sans-serif">CLAUDE_CODE_OAUTH_TOKEN &#8594; jede Session</text>
+  <rect x="120" y="152" width="510" height="80" rx="10" style="fill:var(--surface);stroke:var(--line)"/>
+  <text x="375" y="178" text-anchor="middle" style="fill:var(--ink);font:700 13px sans-serif">EIN Terminal-Stack</text>
+  <text x="375" y="200" text-anchor="middle" style="fill:var(--ink);font:12px sans-serif">xterm.js &#8596; WebSocket &#8596; docker exec (TTY) im arasul-sandbox</text>
+  <text x="375" y="219" text-anchor="middle" style="fill:var(--muted);font:11px sans-serif">tmux/TERM/Truecolor sauber ausgerichtet, ttyd entfernt</text>
+  <line x1="375" y1="232" x2="375" y2="262" style="stroke:var(--accent);stroke-width:2" marker-end="url(#arr)"/>
+  <rect x="60" y="266" width="180" height="58" rx="10" style="fill:var(--wash);stroke:var(--accent);stroke-width:1.5"/>
+  <text x="150" y="290" text-anchor="middle" style="fill:var(--ink);font:700 12px sans-serif">open-ara (lokal)</text>
+  <text x="150" y="308" text-anchor="middle" style="fill:var(--accent-ink);font:11px sans-serif">Default &#183; kein Account</text>
+  <rect x="250" y="266" width="140" height="58" rx="10" style="fill:var(--surface);stroke:var(--line)"/>
+  <text x="320" y="290" text-anchor="middle" style="fill:var(--ink);font:700 12px sans-serif">claude</text>
+  <text x="320" y="308" text-anchor="middle" style="fill:var(--muted);font:11px sans-serif">opt-in</text>
+  <rect x="400" y="266" width="140" height="58" rx="10" style="fill:var(--surface);stroke:var(--line)"/>
+  <text x="470" y="290" text-anchor="middle" style="fill:var(--ink);font:700 12px sans-serif">codex</text>
+  <text x="470" y="308" text-anchor="middle" style="fill:var(--muted);font:11px sans-serif">device-auth</text>
+</svg>
+    <figcaption>Vorher: zwei Terminal-Stacks, kaputte OAuth-URL aus dem Terminal, Token nur über fragile .bashrc-Profildatei. Nachher: ein Stack, der Login läuft als eigener Handshake im Backend, Token landet verschlüsselt im Tresor und wird in jede Session injiziert; lokal-first als Default.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Umsetzungsschritte">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Sieben Phasen, jede einzeln merge- und live-verifizierbar: ttyd raus → Rendering → Login-Handshake → Token+Refresh → Codex+lokal → Werkstatt → Doku+Wizard.</span>
+  </summary>
+  <div class="sbody">
+  <!-- One .step per phase; unique data-ref each. -->
+
+  <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 1 — Ein Terminal-Stack: ttyd raus">
+    <h3>Phase 1 — Ein Terminal-Stack: den kaputten ttyd-Pfad abreißen <span class="tag">Risiko: niedrig</span></h3>
+    <p>Der Legacy-Dienst <code>services/claude-code/</code> (ttyd + interaktiver OAuth = Quelle des
+    <code>code_challenge</code>-Fehlers) wird vollständig entfernt: Compose-Service, Traefik-Router/Labels, Dockerfile,
+    <code>entrypoint.sh</code>, <code>token-refresh.sh</code>, README, sowie alle Frontend- und Doku-Verweise auf
+    <code>/claude-terminal</code>. Die Sandbox bleibt der einzige Terminal-Weg. Ein Grep-Gate stellt sicher, dass kein
+    verwaister Verweis (Route, Link, Doku, Healthcheck) übrig bleibt. Reiner Rückbau — additiv nichts Neues, dadurch
+    risikoarm und sofort verifizierbar.</p>
+    <p class="files mono">services/claude-code/* (löschen) · compose/*.yaml (Service + Traefik-Labels raus) · config/traefik/* · Frontend-/Doku-Verweise auf /claude-terminal · CLAUDE.md-Doktabelle</p>
+  </div>
+
+  <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 2 — Terminal-Rendering bombenfest">
+    <h3>Phase 2 — Terminal-Rendering bombenfest <span class="tag">Risiko: mittel</span></h3>
+    <p>Zuerst am Gerät reproduzieren (Claude-TUI im Sandbox-Terminal, verschiedene Fenstergrößen), dann die Ebenen
+    ausrichten: TERM konsistent (<code>tmux-256color</code> innen, Truecolor-Passthrough via
+    <code>terminal-overrides</code>), <code>tmux.conf</code> für Vollbild-TUI-Apps tauglich machen
+    (<code>escape-time 0</code>, Fokus-Events, <code>aggressive-resize</code>, Mouse-Passthrough, Alternate-Screen sauber),
+    und — falls tmux die TUI weiter stört — für die Sessiontypen <code>claude-code</code>/<code>codex</code> eine
+    tmux-freie oder dediziert konfigurierte Variante wählen (Persistenz bleibt erhalten). Resize-Reihenfolge
+    entzerren (FitAddon → <code>exec.resize</code> → tmux, entprellt), xterm-Optionen prüfen
+    (<code>allowProposedApi</code>, Truecolor, Theme-Kontrast in <code>terminalThemes.ts</code>). Ziel: Claudes TUI und
+    <code>htop</code>/<code>vim</code> rendern in jeder Größe sauber, ohne Artefakte, ohne Eingabeverzögerung.</p>
+    <p class="files mono">services/sandbox/tmux.conf · services/sandbox/entrypoint.sh · apps/dashboard-backend/src/services/sandbox/terminalService.js (Env TERM, exec-Aufbau, resize) · apps/dashboard-frontend/src/features/sandbox/useTerminal.ts · SandboxTerminal.tsx · src/lib/terminalThemes.ts</p>
+  </div>
+
+  <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 3 — KI-Login: eigener PKCE-Handshake">
+    <h3>Phase 3 — KI-Login neu: eigener OAuth-PKCE-Handshake im Backend <span class="tag">Risiko: hoch</span></h3>
+    <p><b>Spike zuerst:</b> in einer Wegwerf-Umgebung den vollständigen Handshake gegen Anthropic durchspielen (korrekte
+    <code>client_id</code>, <code>redirect_uri</code>, Scopes, <code>code_challenge_method=S256</code>) und Access-+Refresh-Token
+    tauschen — Vorbild <code>grll/claude-code-login</code>. Erst wenn ein Token real zieht, wird gebaut. Dann ein
+    Backend-Service <code>claudeOauthService.js</code>: erzeugt <code>code_verifier</code>/<code>code_challenge</code>,
+    stellt die garantiert korrekte Authorize-URL zusammen (immun gegen die CLI-Bugs #29983/#43996/#45340), nimmt den
+    eingefügten Code, tauscht ihn, schreibt Access+Refresh+Ablauf verschlüsselt in den Tresor
+    (<code>externalCredentialsService</code>, Provider <code>claude-central</code>). Neue Routen unter
+    <code>/api/sandbox/claude-auth/*</code> (Start → liefert URL+State; Complete → nimmt Code). Frontend: der
+    <code>KiZugangDialog</code> bekommt „Mit Claude anmelden" — ein <b>echtes HTML-URL-Feld</b> (bricht nie um, Copy-Button,
+    „öffnen"-Link) und ein Code-Eingabefeld. Der URL-Sanitizer (strippt <code>code=true&amp;</code> und
+    <code>org:create_api_key</code>) bleibt als Break-Glass-Fallback erhalten.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/sandbox/claudeOauthService.js (neu) · externalCredentialsService.js · utils/tokenCrypto.js · routes/sandbox.js (claude-auth/start|complete) · schemas/sandbox.js · Frontend: KiZugangDialog.tsx · Tests · docs/api/API_REFERENCE.md</p>
+  </div>
+
+  <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 4 — Token robust injizieren + Auto-Refresh">
+    <h3>Phase 4 — Token robust injizieren &amp; Auto-Refresh <span class="tag">Risiko: mittel</span></h3>
+    <p><code>CLAUDE_CODE_OAUTH_TOKEN</code> wird künftig direkt in die <code>exec</code>-Env jeder Session gesetzt
+    (<code>terminalService.js</code>), nicht mehr nur über die <code>.bashrc</code>-Profildatei — auch für den
+    Sessiontyp <code>claude-code</code>. Harte Garantie: <code>ANTHROPIC_API_KEY</code> ist in der Sandbox-Env nicht
+    gesetzt (sonst stille API-Abrechnung), und kein Pfad benutzt <code>--bare</code>. Ein Backend-Refresher erneuert den
+    Access-Token vor Ablauf über den gespeicherten Refresh-Token (browser-ähnliche Header) und rotiert den Tresor;
+    schlägt das fehl, zeigt das Dashboard das Ablaufdatum und einen „jetzt erneuern"-Knopf. Die Sandbox pinnt eine
+    bekannt-gute <code>@anthropic-ai/claude-code</code>-Version (statt blind „latest" bei jedem ersten Start), damit ein
+    neuer CLI-Bug nicht alles kippt.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/sandbox/terminalService.js · sandboxService.js (Env-Aufbau, ohne API-Key) · externalCredentialsService.js (Refresh) · services/sandbox/claude.sh (Versions-Pin) · Frontend: KiZugangDialog Status/Ablauf · Tests · docs/ENVIRONMENT_VARIABLES.md</p>
+  </div>
+
+  <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 5 — Codex-Device-Auth + lokaler Default-Coder">
+    <h3>Phase 5 — Codex gleichwertig + lokaler Default-Coder <span class="tag">Risiko: mittel</span></h3>
+    <p><b>Codex:</b> den offiziellen, selbst-refreshenden <code>codex login --device-auth</code>-Flow über dieselbe
+    Dashboard-UI anbieten (Codex ist headless besser gestellt als Claude) — Device-Code anzeigen, Status pollen, fertig.
+    <b>Lokal-first:</b> open-ara auf <code>qwen3-coder</code> wird der sichtbare Default-Coder — Quick-Launch-Reihenfolge
+    stellt „lokal (kein Login nötig)" nach vorn, die <code>network_mode: internal</code>-Erreichbarkeit zu
+    <code>llm-service</code> wird verlässlich (klare Fehlermeldung statt stiller Hänger, wenn das Modell nicht geladen
+    ist), und die open-ara-TUI wird auf brauchbare Coding-UX poliert. Ergebnis: die Kern-Schleife „im Terminal etwas
+    bauen" funktioniert vollständig lokal, ohne jeden externen Account; Claude/Codex beschleunigen nur.</p>
+    <p class="files mono">services/sandbox/codex.sh · services/sandbox/open-ara.sh · data/sandbox/tools/open-ara/* · apps/dashboard-frontend/src/features/sandbox/SandboxTerminal.tsx (Quick-Launch) · terminalService.js (Sessiontyp codex device-auth) · Tests · docs/features/WORKSPACE.md</p>
+  </div>
+
+  <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 6 — Werkstatt-Modus &amp; On-Top-Bauen glätten">
+    <h3>Phase 6 — Werkstatt-Modus &amp; On-Top-Bauen wirklich benutzbar <span class="tag">Risiko: mittel</span></h3>
+    <p>Wer eine Erweiterung bauen will, wählt den <code>erweiterungs-werkstatt</code>-Workspace — und findet dort die
+    zwei Bau-Commands klar hinterlegt und erklärt (<code>ANLEITUNG.md</code>, Werkstatt-Leiste, Beispiel-Templates), sodass
+    der KI-Agent im Terminal sie direkt nutzen kann. Die Schleife wird end-to-end geglättet: Werkstatt anlegen → Agent
+    baut → Werkstatt-Watcher registriert → per Klick aktivieren → läuft als Tab. Reibungspunkte aus der Kartierung
+    beheben (Watcher-Signatur, klare Statusanzeige „erkannt/aktiv", verständliche Fehler beim Import/Bauen). Externe
+    Konnektoren werden hier nur <i>dokumentiert</i> als der empfohlene nächste Schritt — das Framework selbst ist §9.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/extensions/{extensionService,werkstattWatcher}.js · routes/extensions.js · services/sandbox/dev-templates/* · Frontend: Werkstatt-Leiste, Extensions-Ansicht · docs/features/EXTENSIONS.md · Tests</p>
+  </div>
+
+  <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 7 — Doku radikal + Onboarding-Wizard">
+    <h3>Phase 7 — Doku radikal neu + Erst-Anmeldungs-Wizard + Gesamt-Abnahme <span class="tag">Risiko: niedrig</span></h3>
+    <p>Die Doku wird radikal auf den neuen Stand gebracht: <code>WORKSPACE.md</code> (Terminal + KI-Zugang neu),
+    <code>EXTENSIONS.md</code> (Werkstatt-Weg), <code>ENVIRONMENT_VARIABLES.md</code> (Token-Variablen, kein
+    API-Key-Default), <code>API_REFERENCE.md</code> (neue claude-auth-Routen), <code>ADMIN_HANDBUCH.md</code>; jeder
+    Verweis auf den entfernten ttyd-Stack verschwindet. Neu: ein knapper Ein-Seiten-Guide „So meldest du dich <b>einmal</b>
+    an" und ein geführter Erst-Start-Wizard in der UI, der genau durch den Login-Handshake führt. Zum Abschluss die
+    Gesamt-Abnahme aus §6/§7 am Gerät.</p>
+    <p class="files mono">docs/features/WORKSPACE.md · docs/features/EXTENSIONS.md · docs/ENVIRONMENT_VARIABLES.md · docs/api/API_REFERENCE.md · docs/ops/ADMIN_HANDBUCH.md · CLAUDE.md · Frontend: Onboarding-Wizard · docs/plans/ROADMAP.html</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Messbar: ein Stack, sauberes Rendering, einmal anmelden → hält über Sessions &amp; Neustarts, lokal-first läuft ohne Account, Werkstatt-Schleife komplett.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Es existiert kein zweiter Terminal-Dienst mehr: kein ttyd-Container, keine <code>/claude-terminal</code>-Route, kein verwaister Verweis (Grep-Gate grün).</li>
+    <li data-done="false">Claude Code läuft im Sandbox-Terminal ohne Darstellungsfehler in mindestens drei Fenstergrößen; <code>htop</code> und <code>vim</code> rendern sauber; keine spürbare Eingabeverzögerung.</li>
+    <li data-done="false">Über den Dashboard-Login-Flow lässt sich einmalig anmelden, ohne je eine kaputte oder umbrechende URL zu sehen; der <code>code_challenge</code>-Fehler tritt nicht auf.</li>
+    <li data-done="false">Nach der Anmeldung startet <code>claude</code> in einer neuen Session, in einem neuen Terminal und nach einem Container-Neustart <b>ohne erneuten Login</b>.</li>
+    <li data-done="false">Der Ablauf wird vor Fristende sichtbar; der Auto-Refresh erneuert den Zugriff, oder der „jetzt erneuern"-Knopf stellt in einem Schritt wieder her.</li>
+    <li data-done="false">In der Sandbox-Env ist <code>ANTHROPIC_API_KEY</code> nicht gesetzt; ein <code>claude</code>-Lauf nutzt nachweislich den Abo-Token, nicht die API-Abrechnung.</li>
+    <li data-done="false">Codex meldet sich über <code>--device-auth</code> im Dashboard-Flow an und bleibt über Sessions angemeldet.</li>
+    <li data-done="false">Der lokale Default-Coder (open-ara/qwen3-coder) startet ohne jeden externen Account und kann eine kleine Code-Aufgabe im Workspace erledigen; ist das Modell nicht geladen, erscheint eine klare Meldung statt eines Hängers.</li>
+    <li data-done="false">In einem Werkstatt-Workspace sind die zwei Bau-Commands sichtbar hinterlegt; eine mit dem Agenten gebaute Beispiel-Erweiterung wird erkannt, aktiviert und öffnet als Tab.</li>
+    <li data-done="false">Keine Doku verweist mehr auf den ttyd-Stack; der Ein-Seiten-Login-Guide und der Wizard führen nachweislich durch die Erst-Anmeldung.</li>
+    <li data-done="false">Backend- und Frontend-Testsuiten grün; keine Regression in Terminal-, Sandbox- oder Extensions-Pfaden.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Jede Phase wird am echten Gerät im Browser durchgespielt; der Login-Weg wird bewusst mehrfach (Session, neues Terminal, Neustart) getestet.</span>
+  </summary>
+  <div class="sbody">
+
+  <p>Jede Phase wird einzeln deployt (<code>docker compose up -d --build</code>) und im echten Browser auf dem Jetson
+  (<span class="mono">https://192.168.0.197</span>, Admin-Login) durchgespielt, bevor sie als fertig gilt:</p>
+  <ul>
+    <li><b>Phase 1:</b> ttyd-Container ist weg (<code>docker compose ps</code>), <code>/claude-terminal</code> liefert 404, das Sandbox-Terminal öffnet weiter normal.</li>
+    <li><b>Phase 2:</b> <code>claude</code> öffnen, Fenster mehrfach vergrößern/verkleinern, <code>htop</code>/<code>vim</code> starten — kein Artefakt, kein Versatz, saubere Eingabe.</li>
+    <li><b>Phase 3:</b> Login-Flow im Dashboard komplett durchspielen; URL erscheint sauber und vollständig; Code einfügen → Erfolg; kein <code>code_challenge</code>-Fehler.</li>
+    <li><b>Phase 4:</b> Neues Terminal, neue Session, Container-Neustart — jeweils <code>claude</code> ohne Login; Ablauf-Anzeige stimmt; Negativtest: mit gesetztem API-Key würde der Token schlagen (bewusst nicht gesetzt).</li>
+    <li><b>Phase 5:</b> Codex <code>--device-auth</code> Ende-zu-Ende; open-ara ohne Account eine Datei im Workspace ändern lassen; Modell-nicht-geladen-Fall zeigt klare Meldung.</li>
+    <li><b>Phase 6:</b> Werkstatt anlegen → Beispiel-Erweiterung mit dem Agenten bauen → Watcher erkennt → aktivieren → als Tab öffnen.</li>
+    <li><b>Phase 7:</b> Wizard einmal durchklicken; Doku-Links stichprobenartig prüfen; Gesamt-Durchlauf der Akzeptanzliste.</li>
+  </ul>
+  <p>Health nach jedem Deploy: <code>docker compose ps</code> alle healthy, Logs der betroffenen Services fehlerfrei,
+  Traefik-Warmup nach Frontend-Rebuild abgewartet.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größte Risiken: der eigene OAuth-Handshake, Cloudflare beim Refresh, Rendering am Gerät — alle mit Gegenmaßnahme und Phase-für-Phase-Rollback.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Eigener OAuth-Handshake trifft client_id/redirect/Scopes nicht exakt</td><td>mittel–hoch</td><td>Machbarkeits-Spike als erster Schritt von Phase 3; erst bauen, wenn ein Token real zieht; Fallback: geführtes <code>claude setup-token</code>-Einfügen + URL-Sanitizer</td></tr>
+      <tr><td>Anthropic ändert den OAuth-Flow / blockt Refresh via Cloudflare</td><td>mittel</td><td>Browser-ähnliche Header beim Refresh; bei Ausfall sichtbare Ablauf-Warnung + Ein-Klick-Neuanmeldung; langlebiger 1-Jahres-Token als Basis, Refresh nur als Komfort</td></tr>
+      <tr><td>Neue Claude-CLI-Version bringt neuen URL-Bug</td><td>mittel</td><td>Unser Handshake umgeht die CLI-URL komplett; zusätzlich CLI-Version in der Sandbox gepinnt; Sanitizer bleibt als Break-Glass</td></tr>
+      <tr><td>Rendering am Gerät anders als in der Analyse vermutet</td><td>mittel</td><td>Phase 2 beginnt mit Repro am Gerät; tmux-freie Variante für TUI-Apps als Ausweichlösung; xterm-/TERM-Optionen einzeln absichern</td></tr>
+      <tr><td>ttyd-Rückbau reißt einen genutzten Verweis mit</td><td>niedrig</td><td>Grep-Gate über Routen/Links/Doku vor Merge; eigener kleiner PR, sofort am Gerät verifiziert</td></tr>
+      <tr><td>Token-Injektion ins exec kollidiert mit tmux-Session-Reuse</td><td>niedrig</td><td>Env am exec setzen (nicht nur Profildatei); Test „neue Session sieht Token"; Reattach-Fall explizit prüfen</td></tr>
+</tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Jede Phase ist ein eigener PR mit eigenem Deploy — Rollback heißt: vorherigen Stand per Git auf das Gerät bringen
+  (ff-only-Muster) und Container neu bauen. Der ttyd-Rückbau (Phase 1) ist bei Bedarf durch Wiederherstellen der
+  gelöschten Dateien reversibel, wird aber durch alle Folgephasen ersetzt. Die neuen claude-auth-Routen und der
+  Token-Tresor sind additiv; Migrationen (falls nötig für Refresh-Felder) sind additiv mit dokumentiertem Down-Pfad.
+  Gespeicherte Tokens lassen sich jederzeit über den bestehenden <code>DELETE</code>-Weg entfernen.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausblick — nächster Plan">
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausblick — der nächste Plan (bewusst nicht hier)</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Sobald das Fundament steht: Extension-KI-Laufzeit (SDK/Bridge) + externe Konnektoren, damit Dashboards lokale Flows nutzen und CRM/Fremdsysteme einfließen.</span>
+  </summary>
+  <div class="sbody">
+
+  <p>Dieser Plan macht die <i>Dev-Umgebung</i> bombenfest — bewusst begrenzt, damit das Fundament zuerst trägt. Der
+  logische Folge-Plan schließt dann die eigentliche Verkaufslücke und deine Konnektor-Anforderung:</p>
+  <ul>
+    <li><b>Extension-KI-Laufzeit:</b> eine scoped, sichere Bridge (postMessage + zeitlich begrenzter Extension-Token
+    oder <code>/api/extensions/:id/ai/*</code>), damit eine ausgelieferte App zur Laufzeit lokale LLM-Flows und RAG
+    nutzen kann — statt heute von der CSP-Sandbox blockiert zu werden. Damit wird <code>accessTier: internal/full</code>
+    endlich zur echten Laufzeit-Regel.</li>
+    <li><b>Externe Konnektoren:</b> ein einheitlicher Weg, Fremdsysteme (CRM, andere Hoster) anzubinden und ihre Daten in
+    interne Dashboards einfließen zu lassen — mit Arasul als Single Source of Truth. Baut auf dem verschlüsselten
+    Credential-Tresor dieses Plans auf.</li>
+    <li><b>Kontinuum offen:</b> die Architektur bleibt so gelegt, dass echtes App-/Website-Hosting (Traefik-Subdomains,
+    Per-App-Persistenz) später ohne Umbau andocken kann — primär bleibt es bei internen Tools &amp; Dashboards.</li>
+  </ul>
+  <p>So bleibt die Reihenfolge sauber: erst funktioniert das Bauen, dann wird das Gebaute mächtig.</p>
+
+  </div>
+</details>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // restore persisted state
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
