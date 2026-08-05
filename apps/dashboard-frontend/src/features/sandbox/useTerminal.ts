@@ -16,6 +16,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { useTheme } from '@/hooks/useTheme';
 import { TERMINAL_THEMES } from '@/lib/terminalThemes';
 import { API_BASE, getAuthHeaders } from '@/config/api';
@@ -91,7 +92,9 @@ export function useTerminal({
   const wsRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
+  const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const resizeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const intentionalClose = useRef(false);
@@ -129,10 +132,25 @@ export function useTerminal({
       resizeObserverRef.current.disconnect();
       resizeObserverRef.current = null;
     }
+    if (resizeDebounceRef.current) {
+      clearTimeout(resizeDebounceRef.current);
+      resizeDebounceRef.current = null;
+    }
     if (wsRef.current) {
       intentionalClose.current = true;
       wsRef.current.close();
       wsRef.current = null;
+    }
+    // WebGL-Addon explizit freigeben, damit der GPU-Kontext deterministisch VOR
+    // dem Terminal fällt. term.dispose() unten würde es zwar ebenfalls entsorgen
+    // (xterm schützt via isDisposed vor Doppel-Dispose) — explizit ist sauberer.
+    if (webglAddonRef.current) {
+      try {
+        webglAddonRef.current.dispose();
+      } catch {
+        // bereits entsorgt (z. B. nach Kontextverlust)
+      }
+      webglAddonRef.current = null;
     }
     if (xtermRef.current) {
       xtermRef.current.dispose();
@@ -212,6 +230,27 @@ export function useTerminal({
 
     // Mount to DOM
     term.open(container);
+
+    // GPU-Renderer (WebGL) für flüssiges Fullscreen-TUI-Rendering (Claude-TUI,
+    // htop, vim) ohne Ghosting/Teilzellen. Bei fehlender WebGL-Unterstützung oder
+    // Kontextverlust sauber auf den DOM-Standardrenderer zurückfallen — das
+    // Terminal darf dadurch NIE kaputtgehen.
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        try {
+          webglAddon.dispose();
+        } catch {
+          // bereits freigegeben
+        }
+        webglAddonRef.current = null;
+      });
+      term.loadAddon(webglAddon);
+      webglAddonRef.current = webglAddon;
+    } catch {
+      // WebGL nicht verfügbar → DOM-Renderer bleibt aktiv
+      webglAddonRef.current = null;
+    }
 
     // Fit after mount
     requestAnimationFrame(() => {
@@ -334,18 +373,23 @@ export function useTerminal({
       if (resizeObserverRef.current) {
         resizeObserverRef.current.disconnect();
       }
+      // Entprellt: schnelle Drag-Resizes fluten sonst fit()+WS-Resize pro Frame
+      // (Ruckeln, Neu-Zeichnen-Sturm). Ein 100ms-Fenster, danach genau EIN fit.
       const observer = new ResizeObserver(() => {
-        requestAnimationFrame(() => {
-          if (fitAddonRef.current && xtermRef.current) {
-            try {
-              fitAddonRef.current.fit();
-              const { cols, rows } = xtermRef.current;
-              sendControl({ type: 'resize', cols, rows });
-            } catch {
-              // ignore
+        if (resizeDebounceRef.current) clearTimeout(resizeDebounceRef.current);
+        resizeDebounceRef.current = setTimeout(() => {
+          requestAnimationFrame(() => {
+            if (fitAddonRef.current && xtermRef.current) {
+              try {
+                fitAddonRef.current.fit();
+                const { cols, rows } = xtermRef.current;
+                sendControl({ type: 'resize', cols, rows });
+              } catch {
+                // ignore
+              }
             }
-          }
-        });
+          });
+        }, 100);
       });
       observer.observe(container);
       resizeObserverRef.current = observer;

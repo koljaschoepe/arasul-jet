@@ -573,7 +573,7 @@
     <div class="result"><strong>Ergebnis:</strong> ttyd-Stack komplett entfernt (<code>services/claude-code/</code>, 5 Dateien). Der Verweis war schon weitgehend verwaist — Traefik-Config war bereits sauber, kein Compose-Service (ad-hoc gebaut), Frontend längst migriert. Mit-abgerissen: die exklusiv den Container bedienende Workspace-Mount-Schicht (<code>/api/workspaces</code>-Route, <code>configService.getClaudeAuthStatus/refreshClaudeAuth/getClaudeWorkspaceVolumes</code>, appstore-Auth-Endpunkte, containerService-Sonderbehandlung, Migration 133 droppt <code>claude_workspaces</code>) plus Doku-Referenzen (INFRASTRUCTURE/N8N/ARCHITECTURE/FRONTEND_HANDBOOK/DATABASE_SCHEMA). Bewusst behalten: das gleichnamige <code>/api/claude-terminal</code> (Ollama-LLM-Assistent, feature B) und der Sandbox-Sessiontyp <code>claude-code</code>. Grep-Gate grün, −1643 Zeilen, 84/84 betroffene Tests + Lint grün.</div>
   </div>
 
-  <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 2 — Terminal-Rendering bombenfest">
+  <div class="step" data-status="done" data-ref="&#167;5 &#183; Phase 2 — Terminal-Rendering bombenfest">
     <h3>Phase 2 — Terminal-Rendering bombenfest <span class="tag">Risiko: mittel</span></h3>
     <p>Zuerst am Gerät reproduzieren (Claude-TUI im Sandbox-Terminal, verschiedene Fenstergrößen), dann die Ebenen
     ausrichten: TERM konsistent (<code>tmux-256color</code> innen, Truecolor-Passthrough via
@@ -585,6 +585,7 @@
     (<code>allowProposedApi</code>, Truecolor, Theme-Kontrast in <code>terminalThemes.ts</code>). Ziel: Claudes TUI und
     <code>htop</code>/<code>vim</code> rendern in jeder Größe sauber, ohne Artefakte, ohne Eingabeverzögerung.</p>
     <p class="files mono">services/sandbox/tmux.conf · services/sandbox/entrypoint.sh · apps/dashboard-backend/src/services/sandbox/terminalService.js (Env TERM, exec-Aufbau, resize) · apps/dashboard-frontend/src/features/sandbox/useTerminal.ts · SandboxTerminal.tsx · src/lib/terminalThemes.ts</p>
+    <div class="result"><strong>Ergebnis:</strong> Am Gerät reproduziert (htop im Sandbox-Terminal: rechte Spalten unter <code>overflow-hidden</code> abgeschnitten). Ursachen behoben: (1) <b>WebGL-Renderer</b> (<code>@xterm/addon-webgl</code>) statt DOM-Renderer, mit sauberem Fallback bei Kontextverlust — flüssiges Fullscreen-TUI ohne Ghosting; (2) <b>asymmetrisches Padding</b> <code>4px 0 0 4px</code> → symmetrisch <code>4px</code>, damit FitAddon die sichtbare Breite exakt trifft (Clipping weg); (3) <b>Resize entprellt</b> (100&nbsp;ms) statt pro Frame; (4) exec-Env um <code>COLORTERM=truecolor</code>+<code>LANG/LC_ALL</code> ergänzt → 24-bit-Farbe statt 256; (5) <code>tmux.conf</code>: <code>default-terminal tmux-256color</code> (Terminfo im Image vorhanden, am Gerät geprüft), <code>terminal-features RGB</code>, <code>focus-events on</code>, <code>aggressive-resize on</code>, <code>escape-time 0</code>; (6) ANSI-Schwarz <code>#18181b</code>→<code>#2a2a30</code> für Kontrast. tmux bleibt für alle Sessiontypen (Persistenz). Kein <code>ncurses-term</code> nötig — Terminfo war schon da. tsc/eslint/25 Vitest grün.</div>
   </div>
 
   <div class="step" data-status="todo" data-ref="&#167;5 &#183; Phase 3 — KI-Login: eigener PKCE-Handshake">

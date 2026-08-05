@@ -110,7 +110,19 @@ async function createSession(
       AttachStdout: true,
       AttachStderr: true,
       Tty: true,
-      Env: [`TERM=xterm-256color`, `COLUMNS=${cols}`, `LINES=${rows}`],
+      // TERM=xterm-256color: was xterm.js außen emuliert. COLORTERM=truecolor
+      // ist entscheidend, damit TUIs (claude/codex nutzen chalk/supports-color)
+      // 24-bit-Farben ausgeben statt auf 256 herunterzustufen; tmux reicht die
+      // RGB-Sequenzen per terminal-features an xterm.js durch. LANG/LC_ALL
+      // sichern UTF-8 in der exec-Umgebung (Box-/Rahmenzeichen der TUIs).
+      Env: [
+        `TERM=xterm-256color`,
+        `COLORTERM=truecolor`,
+        `LANG=en_US.UTF-8`,
+        `LC_ALL=en_US.UTF-8`,
+        `COLUMNS=${cols}`,
+        `LINES=${rows}`,
+      ],
     });
   } catch (err) {
     if (err.statusCode === 404) {
