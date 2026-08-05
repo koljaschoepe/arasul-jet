@@ -12,12 +12,18 @@ set -euo pipefail
 export NPM_CONFIG_PREFIX="${NPM_CONFIG_PREFIX:-$HOME/.npm-global}"
 export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
 
-MARKER="$HOME/.codex-cli-installed"
+# Bewusst NICHT `latest`: Codex hat keinen `stable`-dist-tag, und eine
+# brandneue (evtl. alpha/beta) CLI kann Login-/Rendering-Regressionen bringen.
+# Standard ist eine konkrete, bekannt-gute Version; per CODEX_CLI_VERSION
+# überschreibbar. CODEX_CLI_VERSION ist Betreiber-Env (kein Nutzer-Input).
+CODEX_CLI_VERSION="${CODEX_CLI_VERSION:-0.146.0}"
+
+MARKER="$HOME/.codex-cli-installed-${CODEX_CLI_VERSION}"
 BIN="$NPM_CONFIG_PREFIX/bin/codex"
 
 if [ ! -f "$MARKER" ] || [ ! -x "$BIN" ]; then
-    echo "Installiere OpenAI Codex CLI (einmalig) ..."
-    npm install -g @openai/codex
+    echo "Installiere OpenAI Codex CLI ${CODEX_CLI_VERSION} (einmalig) ..."
+    npm install -g "@openai/codex@${CODEX_CLI_VERSION}"
     touch "$MARKER"
 fi
 
