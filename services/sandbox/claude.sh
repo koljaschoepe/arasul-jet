@@ -15,12 +15,21 @@ set -euo pipefail
 export NPM_CONFIG_PREFIX="${NPM_CONFIG_PREFIX:-$HOME/.npm-global}"
 export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
 
-MARKER="$HOME/.claude-cli-installed"
+# Bewusst NICHT `latest`: eine brandneue CLI-Version kann einen neuen
+# OAuth-URL-/Rendering-Bug einschleppen (siehe Plan 015). Standard ist Anthropics
+# eigener `stable`-dist-tag (bekannt-gut); per CLAUDE_CLI_VERSION exakt pinnbar.
+CLAUDE_CLI_VERSION="${CLAUDE_CLI_VERSION:-stable}"
+
+# Marker enthält die Version → ein Wechsel von CLAUDE_CLI_VERSION erzwingt eine
+# Neuinstallation, ohne bestehende Installationen bei gleicher Version anzufassen.
+# CLAUDE_CLI_VERSION ist eine vom Betreiber gesetzte Env (kein Nutzer-Input); ein
+# Wert mit „/" würde den Marker-Pfad verschieben — bewusst nicht validiert.
+MARKER="$HOME/.claude-cli-installed-${CLAUDE_CLI_VERSION}"
 BIN="$NPM_CONFIG_PREFIX/bin/claude"
 
 if [ ! -f "$MARKER" ] || [ ! -x "$BIN" ]; then
-    echo "Installiere Claude Code CLI (einmalig) ..."
-    npm install -g @anthropic-ai/claude-code
+    echo "Installiere Claude Code CLI ${CLAUDE_CLI_VERSION} (einmalig) ..."
+    npm install -g "@anthropic-ai/claude-code@${CLAUDE_CLI_VERSION}"
     touch "$MARKER"
 fi
 

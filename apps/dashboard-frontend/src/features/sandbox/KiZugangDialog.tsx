@@ -14,7 +14,17 @@
  */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, ExternalLink, KeyRound, Loader2, LogIn, ShieldCheck, Trash2, X } from 'lucide-react';
+import {
+  Copy,
+  ExternalLink,
+  KeyRound,
+  Loader2,
+  LogIn,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -113,6 +123,15 @@ export default function KiZugangDialog({
     },
   });
 
+  const erneuern = useMutation({
+    mutationFn: () =>
+      api.post<{ expiresAt: number | null }>('/sandbox/claude-auth/oauth/refresh', {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sandbox-claude-auth'] });
+      toast.success('Zugriff erneuert');
+    },
+  });
+
   const loginSpeichern = useMutation({
     mutationFn: () =>
       api.post<{ captured: boolean }>(
@@ -183,16 +202,34 @@ export default function KiZugangDialog({
                   <span className="text-muted-foreground">· {expiryText(status.expiresAt)}</span>
                 )}
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                disabled={entfernen.isPending}
-                onClick={() => entfernen.mutate()}
-              >
-                <Trash2 className="size-3.5" /> Entfernen
-              </Button>
+              <div className="flex items-center gap-1">
+                {status.mode === 'oauth' && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={erneuern.isPending}
+                    onClick={() => erneuern.mutate()}
+                  >
+                    {erneuern.isPending ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-3.5" />
+                    )}
+                    Erneuern
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={entfernen.isPending}
+                  onClick={() => entfernen.mutate()}
+                >
+                  <Trash2 className="size-3.5" /> Entfernen
+                </Button>
+              </div>
             </div>
           )}
 

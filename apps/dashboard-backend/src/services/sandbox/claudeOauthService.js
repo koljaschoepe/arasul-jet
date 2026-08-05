@@ -265,10 +265,51 @@ async function refreshClaudeOAuth(userId) {
   return { configured: true, mode: 'oauth', expiresAt: bundle.expiresAt, applied_to: appliedTo };
 }
 
+// Access-Token gilt als "bald ablaufend", wenn er in <5 min ausläuft.
+const REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+
+/**
+ * Lazy-Refresh: erneuert den Access-Token NUR, wenn er (fast) abgelaufen ist und
+ * ein Refresh-Token vorliegt. Wird vor jeder Token-Injektion aufgerufen. Wirft
+ * NIE — ein Refresh-Fehler (z. B. Rate-Limit) darf ein Terminal nicht blockieren;
+ * der bestehende Token wird dann weiter benutzt, bis er wirklich abläuft.
+ */
+async function ensureFreshToken(userId) {
+  let current;
+  try {
+    current = await ext.loadCredentials(userId, ext.PROVIDER_CENTRAL);
+  } catch {
+    return false;
+  }
+  if (!current || current.mode !== 'oauth' || !current.refreshToken || !current.expiresAt) {
+    return false;
+  }
+  if (current.expiresAt - Date.now() > REFRESH_THRESHOLD_MS) {
+    return false; // noch frisch genug
+  }
+  try {
+    await refreshClaudeOAuth(userId);
+    return true;
+  } catch (err) {
+    logger.warn(`Auto-Refresh übersprungen (Token bleibt bis Ablauf gültig): ${err.message}`);
+    return false;
+  }
+}
+
 module.exports = {
   startClaudeOAuth,
   completeClaudeOAuth,
   refreshClaudeOAuth,
+  ensureFreshToken,
   // Für Tests.
-  _internals: { CLIENT_ID, AUTHORIZE_URL, REDIRECT_URI, SCOPE, TOKEN_URLS, PENDING, toBundle },
+  _internals: {
+    CLIENT_ID,
+    AUTHORIZE_URL,
+    REDIRECT_URI,
+    SCOPE,
+    TOKEN_URLS,
+    PENDING,
+    toBundle,
+    REFRESH_THRESHOLD_MS,
+  },
 };

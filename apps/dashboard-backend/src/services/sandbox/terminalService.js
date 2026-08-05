@@ -9,6 +9,8 @@ const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
 const { ValidationError } = require('../../utils/errors');
 const sandboxService = require('./sandboxService');
+const externalCredentialsService = require('./externalCredentialsService');
+const claudeOauthService = require('./claudeOauthService');
 
 // Active sessions map: sessionId → { exec, stream, ws, projectId }
 const activeSessions = new Map();
@@ -35,6 +37,35 @@ const CUSTOM_COMMAND_RE = /^[A-Za-z0-9_.\-/ ]{1,200}$/;
 // Replaces every ' with '\'' so the result is safe inside bash -c '...'.
 function shellSingleQuote(str) {
   return `'${String(str).replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Zentralen KI-Zugang einer Session ermitteln.
+ * - Erneuert vorher (lazy) einen bald ablaufenden OAuth-Token — best effort.
+ * - `envList`: `KEY=VALUE`-Paare (Token bzw. API-Key) für die exec-Env.
+ * - `names`: die Variablennamen (für `tmux setenv`, per Referenz — nie als Wert).
+ * - `neutralize`: true, sobald NICHT der apikey-Modus aktiv ist. Dann muss
+ *   `ANTHROPIC_API_KEY` GANZ ENTFERNT werden (nicht nur geleert): ein geerbter
+ *   API-Key würde den Abo-/OAuth-Token still schlagen und auf metered
+ *   API-Billing umleiten. Vollständiges `unset` ist robust auch gegen eine CLI,
+ *   die auf ANWESENHEIT statt Wahrheitswert prüft.
+ * Fehler hier dürfen ein Terminal NIE blockieren → alles best effort.
+ */
+async function buildAuthEnv(userId) {
+  if (!userId) {
+    return { envList: [], names: [], neutralize: false };
+  }
+  try {
+    await claudeOauthService.ensureFreshToken(userId);
+    const authEnv = await externalCredentialsService.getCentralAuthEnv(userId);
+    const envList = Object.entries(authEnv).map(([k, v]) => `${k}=${v}`);
+    const names = Object.keys(authEnv);
+    const neutralize = !Object.prototype.hasOwnProperty.call(authEnv, 'ANTHROPIC_API_KEY');
+    return { envList, names, neutralize };
+  } catch (err) {
+    logger.warn(`buildAuthEnv: zentralen KI-Zugang übersprungen: ${err.message}`);
+    return { envList: [], names: [], neutralize: true };
+  }
 }
 
 /**
@@ -77,6 +108,31 @@ async function createSession(
   }
   // shell → no innerCmd (tmux starts default shell)
 
+  // Zentralen KI-Zugang DIREKT injizieren (robuster als nur die aus .bashrc
+  // gesourcte Profildatei, die timing-abhängig ist): so ist `claude`/`codex` in
+  // JEDER Session sofort angemeldet. Vorher (lazy) den OAuth-Token erneuern,
+  // falls er kurz vor Ablauf steht — scheitert nie hart.
+  const auth = await buildAuthEnv(userId);
+  // `claude`/`codex` laufen als tmux-Session-Kommando und sourcen KEINE .bashrc;
+  // ein bereits laufender tmux-Server erbt die exec-Env NICHT. Deshalb:
+  //  1) `unset ANTHROPIC_API_KEY` (falls Token-Modus) — entfernt einen geerbten
+  //     API-Key GANZ, robust gegen Anwesenheits-Prüfungen der CLI.
+  //  2) `tmux setenv -g NAME "$NAME"` spiegelt den Zugang in die tmux-Global-Env
+  //     (neue Sessions erben ihn) — per Variablen-NAME referenziert, damit der
+  //     Token-WERT NIE als Literal in die Kommandozeile (→ ps, DB-`command`) gerät.
+  //  3) `tmux setenv -gu ANTHROPIC_API_KEY` entfernt ihn auch aus einem bereits
+  //     laufenden tmux-Server.
+  // Hinweis: Ein bereits laufender `claude`/`codex`-Prozess behält beim Reattach
+  // seine Start-Env — ein frisch erneuerter Token greift erst beim nächsten Start.
+  const unsetPrefix = auth.neutralize ? 'unset ANTHROPIC_API_KEY; ' : '';
+  const tmuxSetenv = [
+    ...auth.names
+      .filter(name => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
+      .map(name => `tmux setenv -g ${name} "$${name}"`),
+    ...(auth.neutralize ? ['tmux setenv -gu ANTHROPIC_API_KEY'] : []),
+  ].join('; ');
+  const tmuxPrep = tmuxSetenv ? `${tmuxSetenv}; ` : '';
+
   // Use tmux for persistent sessions: attach if exists, create if not.
   // Falls back to plain shell if tmux is not installed (old containers).
   // innerCmd is validated above; still single-quote it for defense in depth.
@@ -89,13 +145,13 @@ async function createSession(
     cmd = [
       '/bin/bash',
       '-c',
-      `command -v tmux >/dev/null 2>&1 && tmux new-session -A -s ${tmuxSession} ${quoted} || exec ${quoted}`,
+      `${unsetPrefix}command -v tmux >/dev/null 2>&1 && { ${tmuxPrep}tmux new-session -A -s ${tmuxSession} ${quoted}; } || exec ${quoted}`,
     ];
   } else {
     cmd = [
       '/bin/bash',
       '-c',
-      `command -v tmux >/dev/null 2>&1 && tmux new-session -A -s ${tmuxSession} || exec /bin/bash`,
+      `${unsetPrefix}command -v tmux >/dev/null 2>&1 && { ${tmuxPrep}tmux new-session -A -s ${tmuxSession}; } || exec /bin/bash`,
     ];
   }
 
@@ -122,6 +178,7 @@ async function createSession(
         `LC_ALL=en_US.UTF-8`,
         `COLUMNS=${cols}`,
         `LINES=${rows}`,
+        ...auth.envList,
       ],
     });
   } catch (err) {

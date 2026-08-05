@@ -169,3 +169,57 @@ describe('claudeOauthService.refreshClaudeOAuth', () => {
     await expect(svc.refreshClaudeOAuth(3)).rejects.toThrow(/erneuerbarer OAuth-Zugang/);
   });
 });
+
+describe('claudeOauthService.ensureFreshToken (Lazy-Refresh)', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+    delete global.fetch;
+  });
+
+  it('erneuert, wenn der Token bald abläuft (<5 min)', async () => {
+    mockLoad.mockResolvedValue({
+      mode: 'oauth',
+      refreshToken: 'r',
+      expiresAt: Date.now() + 60 * 1000, // 1 min
+    });
+    global.fetch = jest.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      text: async () => JSON.stringify({ access_token: 'sk-ant-oat01-NEW', expires_in: 3600 }),
+    });
+    const did = await svc.ensureFreshToken(5);
+    expect(did).toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('lässt einen noch frischen Token unangetastet (kein Netz-Call)', async () => {
+    mockLoad.mockResolvedValue({
+      mode: 'oauth',
+      refreshToken: 'r',
+      expiresAt: Date.now() + 60 * 60 * 1000, // 1 h
+    });
+    global.fetch = jest.fn();
+    const did = await svc.ensureFreshToken(5);
+    expect(did).toBe(false);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('scheitert nie hart, wenn der Refresh fehlschlägt (429)', async () => {
+    mockLoad.mockResolvedValue({
+      mode: 'oauth',
+      refreshToken: 'r',
+      expiresAt: Date.now() + 60 * 1000,
+    });
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue({ status: 429, ok: false, text: async () => 'rate limited' });
+    const did = await svc.ensureFreshToken(5);
+    expect(did).toBe(false); // geschluckt, kein Wurf
+  });
+
+  it('ignoriert Nicht-OAuth-Modi', async () => {
+    mockLoad.mockResolvedValue({ mode: 'token', value: 'x' });
+    const did = await svc.ensureFreshToken(5);
+    expect(did).toBe(false);
+  });
+});
