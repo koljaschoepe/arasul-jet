@@ -36,6 +36,8 @@ Gewünschter Typ: {{typ}} (app | flow | tool).
 Gehe so vor:
 
 1. Wähle eine `id` in Kleinbuchstaben-mit-Bindestrichen, passend zur Aufgabe.
+   WICHTIG: 2–50 Zeichen, nur `a-z0-9-`, KEIN Bindestrich am Anfang oder Ende
+   (sonst lehnt der Watcher den Ordner still ab).
    **Lege KEINEN Ordner separat an** — das Werkzeug `dateien_schreiben` schreibt
    Dateien, keine Ordner, und erzeugt fehlende Ordner im Pfad automatisch mit.
 2. Schreibe als ERSTES die `manifest.json` unter dem Pfad `<id>/manifest.json`

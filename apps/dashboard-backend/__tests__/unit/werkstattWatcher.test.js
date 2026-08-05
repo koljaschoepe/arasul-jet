@@ -170,4 +170,36 @@ describe('werkstattWatcher', () => {
     expect(sql).toMatch(/workspace_type = 'erweiterungs-werkstatt'/);
     expect(sql).toMatch(/status = 'active'/);
   });
+
+  it('scannt die kanonische Flow-Werkstatt „werkstatt" auch OHNE DB-Zeile', async () => {
+    // Keine Werkstatt in der DB — aber die Bau-Flows bauen nach <base>/werkstatt.
+    db.query.mockResolvedValue({ rows: [] });
+    await legeWerkstattAn(werkstattWatcher.CANONICAL_WERKSTATT_SLUG, {
+      'flow-app': { 'manifest.json': manifest('flow-app'), 'index.html': '<h1>Flow</h1>' },
+    });
+
+    const stats = await scanne();
+
+    expect(stats.registriert).toBe(1);
+    expect(extensionService.buildFromSandbox).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'werkstatt', subfolder: 'flow-app' })
+    );
+  });
+
+  it('status() macht abgelehnte Ordner sichtbar (Grund gemerkt)', async () => {
+    await legeWerkstattAn('meine-werkstatt', {
+      kaputt: { 'manifest.json': '{ kein json' },
+    });
+    extensionService.buildFromSandbox.mockRejectedValue(
+      new ValidationError('manifest.json ist kein gültiges JSON')
+    );
+
+    await scanne();
+    const s = werkstattWatcher.status();
+    const abgelehnt = s.kandidaten.find(k => !k.ok);
+    expect(abgelehnt).toBeTruthy();
+    expect(abgelehnt.slug).toBe('meine-werkstatt');
+    expect(abgelehnt.subfolder).toBe('kaputt');
+    expect(abgelehnt.fehler).toMatch(/gültiges JSON/);
+  });
 });
