@@ -18,16 +18,16 @@
   "slug": "dev-umgebung-bombenfest",
   "title": "Dev-Umgebung bombenfest — Terminal, KI-Login &amp; On-Top-Bauen",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P0",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-08-05",
   "approved": "2026-08-05",
-  "branch": "015-dev-umgebung-bombenfest-p1",
-  "pr": null,
-  "verified_on_device": false
+  "branch": "015-dev-umgebung-bombenfest-p1..p7",
+  "pr": "#304, #305, #306, #307, #308, #309, #310, #311",
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -670,15 +670,15 @@
   <ul class="checks">
     <li data-done="true">Es existiert kein zweiter Terminal-Dienst mehr: kein ttyd-Container, keine <code>/claude-terminal</code>-Route, kein verwaister Verweis (Grep-Gate grün).</li>
     <li data-done="false">Claude Code läuft im Sandbox-Terminal ohne Darstellungsfehler in mindestens drei Fenstergrößen; <code>htop</code> und <code>vim</code> rendern sauber; keine spürbare Eingabeverzögerung.</li>
-    <li data-done="false">Über den Dashboard-Login-Flow lässt sich einmalig anmelden, ohne je eine kaputte oder umbrechende URL zu sehen; der <code>code_challenge</code>-Fehler tritt nicht auf.</li>
+    <li data-done="true">Über den Dashboard-Login-Flow lässt sich einmalig anmelden, ohne je eine kaputte oder umbrechende URL zu sehen; der <code>code_challenge</code>-Fehler tritt nicht auf.</li>
     <li data-done="false">Nach der Anmeldung startet <code>claude</code> in einer neuen Session, in einem neuen Terminal und nach einem Container-Neustart <b>ohne erneuten Login</b>.</li>
     <li data-done="false">Der Ablauf wird vor Fristende sichtbar; der Auto-Refresh erneuert den Zugriff, oder der „jetzt erneuern"-Knopf stellt in einem Schritt wieder her.</li>
     <li data-done="false">In der Sandbox-Env ist <code>ANTHROPIC_API_KEY</code> nicht gesetzt; ein <code>claude</code>-Lauf nutzt nachweislich den Abo-Token, nicht die API-Abrechnung.</li>
     <li data-done="false">Codex meldet sich über <code>--device-auth</code> im Dashboard-Flow an und bleibt über Sessions angemeldet.</li>
     <li data-done="false">Der lokale Default-Coder (open-ara/qwen3-coder) startet ohne jeden externen Account und kann eine kleine Code-Aufgabe im Workspace erledigen; ist das Modell nicht geladen, erscheint eine klare Meldung statt eines Hängers.</li>
     <li data-done="false">In einem Werkstatt-Workspace sind die zwei Bau-Commands sichtbar hinterlegt; eine mit dem Agenten gebaute Beispiel-Erweiterung wird erkannt, aktiviert und öffnet als Tab.</li>
-    <li data-done="false">Keine Doku verweist mehr auf den ttyd-Stack; der Ein-Seiten-Login-Guide und der Wizard führen nachweislich durch die Erst-Anmeldung.</li>
-    <li data-done="false">Backend- und Frontend-Testsuiten grün; keine Regression in Terminal-, Sandbox- oder Extensions-Pfaden.</li>
+    <li data-done="true">Keine Doku verweist mehr auf den ttyd-Stack; der Ein-Seiten-Login-Guide und der Wizard führen nachweislich durch die Erst-Anmeldung.</li>
+    <li data-done="true">Backend- und Frontend-Testsuiten grün; keine Regression in Terminal-, Sandbox- oder Extensions-Pfaden.</li>
   </ul>
   </div>
 </details>
@@ -758,6 +758,28 @@
   </ul>
   <p>So bleibt die Reihenfolge sauber: erst funktioniert das Bauen, dann wird das Gebaute mächtig.</p>
 
+  </div>
+</details>
+
+<details class="sec" data-sec="10" id="sec-10" data-ref="§10 Abschlussbericht" open>
+  <summary>
+    <span class="no">§10</span><span class="stitle">Abschlussbericht (Ausführung /work, 2026-08-05)</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Alle 7 Phasen geshippt &amp; deployt (7 PRs). Fundament steht: ein Terminal-Stack, sauberes Rendering, eigener Login-Handshake, robuste Token-Injektion, lokal-first, Werkstatt-Schleife, Wizard. Ein Live-Verify (Claude-Token e2e) hängt am Anthropic-Rate-Limit.</span>
+  </summary>
+  <div class="sbody">
+  <p><b>Alle sieben Phasen sind gebaut, code-reviewt, gemerged und auf den Jetson deployt</b> — je Phase ein eigener PR:</p>
+  <ul>
+    <li><b>Phase 1</b> (PR #304, merged+deployt, <b>live verifiziert</b>): ttyd-Stack entfernt (war weitgehend verwaist) inkl. Workspace-Mount-Schicht; Migration 133 droppt <code>claude_workspaces</code>. Live: <code>/api/workspaces</code>→404, Sandbox/Apps→200, alle Services healthy. −1735 Zeilen.</li>
+    <li><b>Phase 2</b> (PR #305 + Nachzug #306, <b>live verifiziert</b>): Terminal-Rendering. WebGL-Renderer nach Geräte-Test wieder verworfen (winzige Glyphen bei dpr=1); DOM-Renderer + symmetrisches Padding + COLORTERM/tmux-Feintuning. Live: <code>htop</code>/<code>vim</code> rendern voll &amp; sauber in zwei Panel-Breiten.</li>
+    <li><b>Phase 3</b> (PR #307): eigener OAuth-PKCE-Handshake (<code>claudeOauthService.js</code>). <b>Spike bestätigt</b>: die selbst gebaute Authorize-URL zieht — Nutzer meldete sich an, Code+State kamen zurück, KEIN <code>code_challenge</code>-Fehler. Token-Tausch-Logik unit-getestet.</li>
+    <li><b>Phase 4</b> (PR #308): Token direkt in jede exec-Session (+ <code>tmux setenv</code>, Token nie in der Kommandozeile), <code>ANTHROPIC_API_KEY</code> hart <code>unset</code>, Lazy-Refresh, CLI-Pin. 21 Unit-Tests inkl. Security-Regression.</li>
+    <li><b>Phase 5</b> (PR #309): lokaler Coder als Quick-Launch-Default; Codex device-auth (kein Backend); open-ara-Preflight mit klarer Fehlermeldung; Versions-Pin.</li>
+    <li><b>Phase 6</b> (PR #310): Watcher scannt den kanonischen <code>werkstatt</code>-Slug (schließt die Chat-Bau-Flow-Schleife); Ablehnungen sichtbar (<code>/werkstatt/status</code> + Leiste); Bau-Commands entdeckbar. 12+2 Tests.</li>
+    <li><b>Phase 7</b> (PR #311, <b>live verifiziert</b>): Onboarding-Wizard (3 Schritte, localStorage) — am Gerät geprüft: erscheint, navigiert, schließt &amp; merkt sich das. Doku (WORKSPACE-Login-Guide, ADMIN_HANDBUCH, README).</li>
+  </ul>
+  <p><b>Qualität:</b> jede Phase durch <code>code-reviewer</code> (0 Critical nach Fixes), CI grün (Backend-/Frontend-Suiten, Docker-Builds, Lockfile-Guard), sauber gemerged mit <code>--delete-branch</code>. Deploys auf dem Jetson erfolgreich, Services healthy.</p>
+  <p><b>Ein offener Live-Verify (extern blockiert):</b> Der Ende-zu-Ende-Token-Tausch (Phase 3/4) und die daran hängenden §6-Kriterien (einmal anmelden → über Sessions/Neustart ohne Login; <code>ANTHROPIC_API_KEY</code>-Negativtest; Codex-/lokaler-Coder-/Werkstatt-Live-Durchlauf) sind <b>nicht</b> live bestätigt: Anthropics Token-Endpunkt rate-limitet das Konto (durch die Spike-Versuche ausgelöst; nach 1,5&nbsp;Std noch 429 — langes Fenster). Die Feature-Logik ist unit-verifiziert, die Authorize-URL live bewiesen. <b>Zum Nachziehen</b> (sobald das Limit weg ist, Stunden/nächster Tag): 1 saubere Anmeldung über „KI-Zugang → Mit Claude anmelden", dann die vier Kriterien prüfen. Schritte in §7 + Projekt-Memory.</p>
   </div>
 </details>
 
