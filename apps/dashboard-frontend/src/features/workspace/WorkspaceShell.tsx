@@ -11,6 +11,7 @@ import type { TabThemeControls } from './TabContent';
 import { ActivityBar } from './ActivityBar';
 import { SidebarHost } from './SidebarHost';
 import { RightPanel } from './RightPanel';
+import OnboardingWizard from './OnboardingWizard';
 
 /**
  * Cursor-Raster der IDE-Shell:
@@ -210,6 +211,8 @@ export default function WorkspaceShell(props: TabThemeControls) {
         </Group>
       </div>
       <StatusBar />
+      {/* Geführter Erst-Start (erscheint einmal, localStorage-gated). */}
+      <OnboardingWizard />
     </div>
   );
 }

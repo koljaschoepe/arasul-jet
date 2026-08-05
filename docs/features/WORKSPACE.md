@@ -118,26 +118,58 @@ Ordner — ein Git-gekoppeltes Projekt sieht im Explorer schlicht sein Repo.
 würde sonst hunderte Repo-Dateien durch die GPU-Analyse jagen); der
 Coding-Agent arbeitet dort über Datei-Werkzeuge und Terminal statt RAG.
 
-## KI-Zugang für die Sandboxes (Claude)
+## Terminal & Coding-Agent
 
-**Zentraler Zugang (empfohlen, Plan 013).** Statt sich in jeder Sandbox einzeln
-im Terminal anzumelden (der interaktive OAuth-Link ist im Web-Terminal kaum
-kopierbar), hinterlegt der Admin über den Knopf **„KI-Zugang"** im Terminal-Kopf
-EINMAL einen Zugang:
+**Ein Terminal-Stack.** Das Browser-Terminal läuft ausschließlich über den
+Sandbox-Pfad: xterm.js ↔ binäre WebSocket ↔ `docker exec`-TTY im
+`arasul-sandbox`-Container (tmux-persistent). Der alte, kaputte ttyd-Pfad ist
+mit Plan 015 entfernt.
 
-- **Abo-Token** — `claude setup-token` auf einem Rechner mit Browser ausführen und
-  das 1 Jahr gültige Token einfügen (→ `CLAUDE_CODE_OAUTH_TOKEN`), oder
-- **API-Key** — Anthropic-API-Key (→ `ANTHROPIC_API_KEY`, Abrechnung pro Nutzung).
+**Lokal-first als Standard.** Der empfohlene Coder ist der **lokale** Agent
+(open-ara auf `qwen3-coder`, Quick-Launch „Lokaler Coder (empfohlen)") — kein
+Login, kein externer Account, voll DSGVO. Braucht Netzmodus `internal`
+(erreicht `llm-service`); im `isolated`-Modus meldet der Start eine klare
+Meldung statt eines Hängers. Claude Code und Codex sind opt-in-Beschleuniger.
 
-Der Wert wird verschlüsselt gespeichert (`user_external_credentials`, Provider
-`claude-central`, AES-256-GCM via `utils/tokenCrypto.js`) und in JEDE Sandbox als
-Umgebungsvariable gebracht: neue Container bekommen ihn über die Container-Env,
-laufende sofort über eine aus `.bashrc` gesourcte Profildatei. So ist `claude` im
-Terminal ohne Login angemeldet. Routen: `GET|PUT|DELETE /api/sandbox/claude-auth`.
+## KI-Zugang für die Sandboxes (Claude & Codex)
 
-**Interaktiver Login einfangen (Alternative).** Wer sich lieber direkt im Terminal
-per `claude` anmeldet, kann diesen Login über „Aktuellen Login speichern"
-einfangen: er wird pro Nutzer verschlüsselt gespeichert (Provider `claude`) und
-beim Container-Start zurückgeschrieben — überlebt damit ein
-`docker compose up -d --build`. Routen: `.../claude-login/capture|status`,
-`DELETE .../claude-login`.
+### So meldest du dich EINMAL an (Claude, empfohlener Weg)
+
+Öffne im Terminal-Kopf **„KI-Zugang"** → **„Mit Claude anmelden"**:
+
+1. Auf **„Anmeldung starten"** klicken → das Backend baut den OAuth-2.0-PKCE-
+   Handshake **selbst** (eigener `code_challenge`) und zeigt eine **garantiert
+   korrekte, kopierbare** Login-URL (bricht nie um, „öffnen"-Link + Copy-Knopf).
+2. Die URL im Browser öffnen, mit deinem Claude-Abo anmelden, den angezeigten
+   **Code** (`code#state`) kopieren.
+3. Den Code ins Feld einfügen → **„Anmeldung abschließen"**. Fertig.
+
+Das Backend tauscht den Code gegen Access-+Refresh-Token, legt sie verschlüsselt
+ab (`user_external_credentials`, Provider `claude-central`, AES-256-GCM) und
+injiziert `CLAUDE_CODE_OAUTH_TOKEN` in **jede** Terminal-Session. Danach ist
+`claude` in jeder Sandbox, in neuen Terminals und nach Container-Neustart
+angemeldet — **ohne erneuten Login**. Der Zugriff wird vor Ablauf lazy erneuert
+(Refresh-Token); ein „Erneuern"-Knopf + Ablauf-Anzeige stehen bereit.
+Dies ersetzt den kaputten interaktiven `claude /login` (Fehler „fehlender
+`code_challenge`") komplett. Routen: `POST /api/sandbox/claude-auth/oauth/start|complete|refresh`.
+
+**Alternativen** (gleicher Knopf): **Abo-Token** (`claude setup-token`,
+1-Jahres-Token → `CLAUDE_CODE_OAUTH_TOKEN`) oder **API-Key**
+(→ `ANTHROPIC_API_KEY`, Abrechnung pro Nutzung). `GET|PUT|DELETE /api/sandbox/claude-auth`.
+
+> **Wichtig:** Ist ein Abo-/OAuth-Token aktiv, wird `ANTHROPIC_API_KEY` in der
+> Sandbox-Env garantiert **entfernt** — ein API-Key würde den Abo-Token sonst
+> still schlagen und auf metered Billing umleiten. `--bare` wird nie benutzt.
+
+### Codex
+
+**„Codex anmelden"** im Quick-Launch startet `codex login --device-auth`: die
+Codex-CLI führt den Geräte-Code-Flow selbst (Code + Link im Browser),
+**self-refreshed** und speichert in `~/.codex/auth.json` (überlebt Sessions) —
+kein Backend nötig. (Team/Workspace-Accounts müssen Device-Code-Login ggf. erst
+in den ChatGPT-Einstellungen freischalten.)
+
+**Interaktiven Login einfangen (Alternative).** Ein direkter `claude`-Login im
+Terminal lässt sich über „Aktuellen Login speichern" einfangen (Provider
+`claude`), verschlüsselt ablegen und beim Container-Start zurückschreiben.
+Routen: `.../claude-login/capture|status`, `DELETE .../claude-login`.
