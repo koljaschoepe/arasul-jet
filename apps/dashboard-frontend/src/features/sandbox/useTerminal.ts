@@ -16,7 +16,6 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
-import { WebglAddon } from '@xterm/addon-webgl';
 import { useTheme } from '@/hooks/useTheme';
 import { TERMINAL_THEMES } from '@/lib/terminalThemes';
 import { API_BASE, getAuthHeaders } from '@/config/api';
@@ -92,7 +91,6 @@ export function useTerminal({
   const wsRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
-  const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const resizeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,17 +138,6 @@ export function useTerminal({
       intentionalClose.current = true;
       wsRef.current.close();
       wsRef.current = null;
-    }
-    // WebGL-Addon explizit freigeben, damit der GPU-Kontext deterministisch VOR
-    // dem Terminal fällt. term.dispose() unten würde es zwar ebenfalls entsorgen
-    // (xterm schützt via isDisposed vor Doppel-Dispose) — explizit ist sauberer.
-    if (webglAddonRef.current) {
-      try {
-        webglAddonRef.current.dispose();
-      } catch {
-        // bereits entsorgt (z. B. nach Kontextverlust)
-      }
-      webglAddonRef.current = null;
     }
     if (xtermRef.current) {
       xtermRef.current.dispose();
@@ -228,29 +215,11 @@ export function useTerminal({
     fitAddonRef.current = fitAddon;
     searchAddonRef.current = searchAddon;
 
-    // Mount to DOM
+    // Mount to DOM. Renderer = xterm.js DOM-Standardrenderer. Der WebGL-Addon
+    // wurde bewusst wieder entfernt: @xterm/addon-webgl@0.19.0 rendert in dieser
+    // Umgebung (dpr=1) mit einem 2×-Backing-Store → winzige Glyphen (am Gerät
+    // reproduziert). Der DOM-Renderer stellt Fullscreen-TUIs korrekt dar.
     term.open(container);
-
-    // GPU-Renderer (WebGL) für flüssiges Fullscreen-TUI-Rendering (Claude-TUI,
-    // htop, vim) ohne Ghosting/Teilzellen. Bei fehlender WebGL-Unterstützung oder
-    // Kontextverlust sauber auf den DOM-Standardrenderer zurückfallen — das
-    // Terminal darf dadurch NIE kaputtgehen.
-    try {
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => {
-        try {
-          webglAddon.dispose();
-        } catch {
-          // bereits freigegeben
-        }
-        webglAddonRef.current = null;
-      });
-      term.loadAddon(webglAddon);
-      webglAddonRef.current = webglAddon;
-    } catch {
-      // WebGL nicht verfügbar → DOM-Renderer bleibt aktiv
-      webglAddonRef.current = null;
-    }
 
     // Fit after mount
     requestAnimationFrame(() => {
