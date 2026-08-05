@@ -55,7 +55,6 @@ const API_ROUTE_GROUPS = [
   { prefix: '/extensions', group: 'store' },
   { prefix: '/store', group: 'store' },
   { prefix: '/workflows', group: 'store' },
-  { prefix: '/workspaces', group: 'store' },
   { prefix: '/automations', group: 'store' },
   { prefix: '/sandbox', group: 'sandbox' },
   { prefix: '/v1/external', group: 'external' },
@@ -131,7 +130,6 @@ router.use('/workspace-apps', require('./workspaceApps'));
 router.use('/extensions', require('./extensions'));
 router.use('/store', require('./store/store'));
 router.use('/workflows', require('./store/workflows'));
-router.use('/workspaces', require('./store/workspaces'));
 router.use('/automations', require('./automations'));
 
 // --- Sandbox ---

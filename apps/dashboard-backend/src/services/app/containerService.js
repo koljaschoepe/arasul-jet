@@ -359,16 +359,10 @@ async function _doRecreateContainer(appId, manifest, configOverrides) {
       logger.debug(`Remove during recreate: ${err.message}`);
     }
 
-    // Get dynamic workspace volumes for claude-code
     const configService = require('./configService');
-    let dynamicVolumes = [];
-    if (appId === 'claude-code') {
-      dynamicVolumes = await configService.getClaudeWorkspaceVolumes();
-      logger.info(`Loaded ${dynamicVolumes.length} workspace volumes for claude-code`);
-    }
 
-    // Build container config with database overrides and dynamic volumes
-    const containerConfig = buildContainerConfig(manifest, configOverrides, dynamicVolumes);
+    // Build container config with database overrides
+    const containerConfig = buildContainerConfig(manifest, configOverrides);
 
     // Create new container
     const newContainer = await docker.createContainer(containerConfig);
@@ -460,9 +454,8 @@ async function getAppLogs(appId, tail = 100) {
 
 /**
  * Build Docker container configuration from manifest
- * For claude-code, dynamically loads workspace volumes from database
  */
-function buildContainerConfig(manifest, overrides = {}, dynamicVolumes = []) {
+function buildContainerConfig(manifest, overrides = {}) {
   const config = {
     name: manifest.id,
     Image: manifest.docker.image,
@@ -497,13 +490,9 @@ function buildContainerConfig(manifest, overrides = {}, dynamicVolumes = []) {
     config.HostConfig.PortBindings[`${port.internal}/tcp`] = [{ HostPort: String(port.external) }];
   }
 
-  // Static volumes from manifest (non-workspace volumes like config, docker socket)
+  // Static volumes from manifest (config, docker socket, etc.)
   const path = require('path');
   for (const vol of manifest.docker.volumes || []) {
-    // Skip workspace volumes for claude-code - they come from database
-    if (manifest.id === 'claude-code' && vol.containerPath.startsWith('/workspace/')) {
-      continue;
-    }
     if (vol.type === 'volume') {
       config.HostConfig.Binds.push(`${vol.name}:${vol.containerPath}`);
     } else if (vol.type === 'bind') {
@@ -519,16 +508,6 @@ function buildContainerConfig(manifest, overrides = {}, dynamicVolumes = []) {
       }
       config.HostConfig.Binds.push(`${resolved}:${vol.containerPath}`);
     }
-  }
-
-  // Dynamic workspace volumes (from database)
-  for (const vol of dynamicVolumes) {
-    const resolved = path.resolve(vol.hostPath);
-    if (resolved !== vol.hostPath && vol.hostPath.includes('..')) {
-      logger.warn(`Blocked dynamic volume with path traversal: ${vol.hostPath}`);
-      continue;
-    }
-    config.HostConfig.Binds.push(`${resolved}:${vol.containerPath}`);
   }
 
   // Resource limits

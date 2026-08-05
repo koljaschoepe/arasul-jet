@@ -48,7 +48,7 @@ src/
 │   ├── telegram.js       # Telegram bot configuration
 │   ├── telegramApp.js    # Telegram app (15 endpoints, Zero-Config)
 │   ├── telegramBots.js   # Bot CRUD, Webhook, Commands (23 endpoints)
-│   ├── claudeTerminal.js # Claude Code terminal integration
+│   ├── claudeTerminal.js # /api/claude-terminal — Ollama-backed LLM assistant
 │   ├── externalApi.js    # External API for n8n/automations
 │   └── index.js          # Route registration
 ├── middleware/           # 5 middleware components
@@ -247,16 +247,6 @@ src/
 | POST   | `/api/terminal/query`   | Execute query |
 | GET    | `/api/terminal/history` | Query history |
 | DELETE | `/api/terminal/history` | Clear history |
-
-### Workspaces (Auth Required)
-
-| Method | Path                  | Description      |
-| ------ | --------------------- | ---------------- |
-| GET    | `/api/workspaces`     | List workspaces  |
-| POST   | `/api/workspaces`     | Create workspace |
-| GET    | `/api/workspaces/:id` | Get workspace    |
-| PUT    | `/api/workspaces/:id` | Update workspace |
-| DELETE | `/api/workspaces/:id` | Delete workspace |
 
 ### External API (API Key Auth)
 

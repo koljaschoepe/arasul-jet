@@ -34,7 +34,6 @@ apps/dashboard-frontend/src/
     sandbox/                 # CreateProjectDialog, workspace + network-mode UI
     settings/                # Settings, GeneralSettings, AIProfileSettings, System-Status
     store/                   # Store (Modelle · Erweiterungen tabs)
-    claude/                  # ClaudeCode, ClaudeTerminal
     system/                  # SetupWizard, UpdatePage, SelfHealingEvents, Login
 
   components/

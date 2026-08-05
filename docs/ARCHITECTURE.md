@@ -336,7 +336,6 @@ apps/dashboard-frontend/
 │   ├── sandbox/              # CreateProjectDialog, workspace + network-mode UI
 │   ├── settings/             # Settings, GeneralSettings, AIProfileSettings, System-Status
 │   ├── store/                # Store (Modelle · Erweiterungen tabs)
-│   ├── claude/               # ClaudeCode, ClaudeTerminal
 │   ├── system/               # SetupWizard, UpdatePage, Login
 │   └── workspace/            # IDE-Shell: ActivityBar (Chat · Wissen · Automation),
 │                             #   Explorer (Ordnerbaum), Tabs, TipTap editor, KI-Panel

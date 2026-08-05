@@ -43,7 +43,6 @@ jest.mock('../../src/services/app/manifestService', () => ({
 jest.mock('../../src/services/app/configService', () => ({
   logEvent: jest.fn().mockResolvedValue(true),
   getConfigOverrides: jest.fn().mockResolvedValue({}),
-  getClaudeWorkspaceVolumes: jest.fn().mockResolvedValue([]),
 }));
 
 // Mock installService
@@ -141,14 +140,14 @@ describe('Container Service', () => {
 
     test('handles builtin apps without docker', async () => {
       manifestService.loadManifests.mockResolvedValue({
-        'claude-code': { builtin: true },
+        'n8n': { builtin: true },
       });
 
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'claude-code', status: 'installed' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'installed' }] })
         .mockResolvedValueOnce({ rows: [] }); // Update status
 
-      const result = await containerService.startApp('claude-code');
+      const result = await containerService.startApp('n8n');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('aktiviert');
@@ -232,14 +231,14 @@ describe('Container Service', () => {
 
     test('handles builtin apps without docker', async () => {
       manifestService.loadManifests.mockResolvedValue({
-        'claude-code': { builtin: true },
+        'n8n': { builtin: true },
       });
 
       db.query
-        .mockResolvedValueOnce({ rows: [{ app_id: 'claude-code', status: 'running' }] })
+        .mockResolvedValueOnce({ rows: [{ app_id: 'n8n', status: 'running' }] })
         .mockResolvedValueOnce({ rows: [] }); // Update status
 
-      const result = await containerService.stopApp('claude-code');
+      const result = await containerService.stopApp('n8n');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('deaktiviert');
@@ -273,14 +272,14 @@ describe('Container Service', () => {
 
     test('handles builtin apps', async () => {
       manifestService.loadManifests.mockResolvedValue({
-        'claude-code': { builtin: true },
+        'n8n': { builtin: true },
       });
 
       db.query.mockResolvedValueOnce({
-        rows: [{ app_id: 'claude-code', status: 'running' }],
+        rows: [{ app_id: 'n8n', status: 'running' }],
       });
 
-      const result = await containerService.restartApp('claude-code');
+      const result = await containerService.restartApp('n8n');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('Built-in');
@@ -336,12 +335,12 @@ describe('Container Service', () => {
 
     test('returns info message for builtin apps', async () => {
       manifestService.loadManifests.mockResolvedValue({
-        'claude-code': { builtin: true },
+        'n8n': { builtin: true },
       });
 
-      db.query.mockResolvedValueOnce({ rows: [{ container_name: 'claude-code' }] });
+      db.query.mockResolvedValueOnce({ rows: [{ container_name: 'n8n' }] });
 
-      const logs = await containerService.getAppLogs('claude-code');
+      const logs = await containerService.getAppLogs('n8n');
 
       expect(logs).toContain('Built-in App');
       expect(logs).toContain('dashboard-backend');
@@ -357,7 +356,7 @@ describe('Container Service', () => {
   // =====================================================
   describe('App ID Validation', () => {
     test('accepts valid app IDs', async () => {
-      const validIds = ['n8n', 'telegram-bot', 'claude-code', 'my_app_123'];
+      const validIds = ['n8n', 'telegram-bot', 'code-server', 'my_app_123'];
 
       for (const id of validIds) {
         db.query.mockResolvedValueOnce({ rows: [] }); // Not installed

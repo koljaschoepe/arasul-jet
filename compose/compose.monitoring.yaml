@@ -89,7 +89,7 @@ services:
       DISK_CRITICAL_PERCENT: ${DISK_CRITICAL_PERCENT}
       DISK_REBOOT_PERCENT: ${DISK_REBOOT_PERCENT}
       HEARTBEAT_PORT: ${SELF_HEALING_HEARTBEAT_PORT:-9200}
-      EXCLUDED_CONTAINERS: 'claude-code'
+      EXCLUDED_CONTAINERS: ''
       DOCKER_HOST: tcp://docker-proxy:2375
     volumes:
       - ../logs:/arasul/logs

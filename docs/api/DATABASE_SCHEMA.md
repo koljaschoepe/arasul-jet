@@ -860,38 +860,6 @@ Assistenten-Antwort (Liste, Ein-/Ausgaben gekürzt):
 
 ---
 
-## `claude_workspaces`
-
-> Dynamic workspace management for Claude Code
-
-| Column           | Type                     | Nullable | Default                                    |
-| ---------------- | ------------------------ | -------- | ------------------------------------------ |
-| `id`             | integer                  | ⛔       | `nextval('claude_workspaces_id_seq'::r...` |
-| `name`           | character varying        | ⛔       |                                            |
-| `slug`           | character varying        | ⛔       |                                            |
-| `description`    | text                     | ✅       |                                            |
-| `host_path`      | character varying        | ⛔       |                                            |
-| `container_path` | character varying        | ⛔       |                                            |
-| `is_default`     | boolean                  | ✅       | `false`                                    |
-| `is_system`      | boolean                  | ✅       | `false`                                    |
-| `is_active`      | boolean                  | ✅       | `true`                                     |
-| `last_used_at`   | timestamp with time zone | ✅       |                                            |
-| `usage_count`    | integer                  | ✅       | `0`                                        |
-| `created_at`     | timestamp with time zone | ✅       | `now()`                                    |
-| `updated_at`     | timestamp with time zone | ✅       | `now()`                                    |
-
-**Primary key:** `id`
-
-**Indexes:**
-
-- `claude_workspaces_pkey` — `CREATE UNIQUE INDEX claude_workspaces_pkey ON public.claude_workspaces USING btree (id)`
-- `claude_workspaces_slug_key` — `CREATE UNIQUE INDEX claude_workspaces_slug_key ON public.claude_workspaces USING btree (slug)`
-- `idx_claude_workspaces_active` — `CREATE INDEX idx_claude_workspaces_active ON public.claude_workspaces USING btree (is_active, name)`
-- `idx_claude_workspaces_default` — `CREATE UNIQUE INDEX idx_claude_workspaces_default ON public.claude_workspaces USING btree (is_default) WHERE (is_default = true)`
-- `idx_claude_workspaces_slug` — `CREATE INDEX idx_claude_workspaces_slug ON public.claude_workspaces USING btree (slug)`
-
----
-
 ## `compaction_log`
 
 | Column               | Type                     | Nullable | Default                                    |
