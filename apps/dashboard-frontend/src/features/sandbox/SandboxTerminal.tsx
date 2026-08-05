@@ -44,14 +44,21 @@ interface QuickLaunchItem {
 // /claude, /codex, /gemini sind Bash-Funktionen aus /etc/profile.d/arasul-slash.sh
 // im Sandbox-Image; Erststart installiert die jeweilige CLI (Wrapper-Skripte).
 const QUICK_LAUNCH_ITEMS: QuickLaunchItem[] = [
-  { label: 'Claude Code', command: '/claude\n', description: 'Claude Code CLI starten' },
-  { label: 'Codex', command: '/codex\n', description: 'OpenAI Codex CLI starten' },
-  { label: 'Gemini', command: '/gemini\n', description: 'Google Gemini CLI starten' },
+  // Lokal-first: der lokale Coder ist der empfohlene Standard — kein Login, kein
+  // externer Account, voll DSGVO. Claude/Codex/Gemini sind opt-in-Beschleuniger.
   {
-    label: 'Open-ARA (lokaler Agent)',
+    label: 'Lokaler Coder (empfohlen)',
     command: 'open-ara\n',
-    description: 'Lokaler KI-Coding-Agent (Ollama)',
+    description: 'Lokaler KI-Coding-Agent (Ollama, kein Login nötig)',
   },
+  { label: 'Claude Code', command: '/claude\n', description: 'Claude Code CLI (opt-in)' },
+  { label: 'Codex', command: '/codex\n', description: 'OpenAI Codex CLI (opt-in)' },
+  {
+    label: 'Codex anmelden',
+    command: 'codex login --device-auth\n',
+    description: 'Codex per Geräte-Code anmelden (Code + Link im Browser)',
+  },
+  { label: 'Gemini', command: '/gemini\n', description: 'Google Gemini CLI (opt-in)' },
   { label: 'Python', command: 'python3\n', description: 'Python REPL starten' },
   { label: 'Node.js', command: 'node\n', description: 'Node.js REPL starten' },
   { label: 'htop', command: 'htop\n', description: 'Prozess-Monitor' },

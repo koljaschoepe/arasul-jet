@@ -514,6 +514,9 @@ async function startContainer(projectId, userId) {
     // Project-level environment (SANDBOX_ENV_JSON, exported by entrypoint.sh)
     // can override it per shell session.
     envVars.push('ARASUL_OLLAMA_URL=http://llm-service:11434');
+    // Default-Coder-Modell für den lokalen Agenten (open-ara/Preflight). Per
+    // Projekt-Env (SANDBOX_ENV_JSON) oder ARASUL_MODEL im Shell override-bar.
+    envVars.push('ARASUL_MODEL=qwen3-coder:30b');
     if (project.environment && typeof project.environment === 'object') {
       envVars.push(`SANDBOX_ENV_JSON=${JSON.stringify(project.environment)}`);
     }
