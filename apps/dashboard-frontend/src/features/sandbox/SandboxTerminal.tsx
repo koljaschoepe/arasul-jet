@@ -313,11 +313,13 @@ export default function SandboxTerminal({
           </div>
         </div>
 
-        {/* Terminal container */}
+        {/* Terminal container — symmetrisches Padding, damit FitAddon die
+            sichtbare Breite exakt trifft (asymmetrisch → rechte Spalte wird
+            unter overflow-hidden abgeschnitten). */}
         <div
           ref={terminalRef}
           className="flex-1 min-h-0 bg-background overflow-hidden"
-          style={{ padding: '4px 0 0 4px' }}
+          style={{ padding: '4px' }}
         />
       </div>
 

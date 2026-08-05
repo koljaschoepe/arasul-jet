@@ -10,7 +10,10 @@ import type { Theme } from '@/hooks/useTheme';
 
 /** Shared dark ANSI palette (black + dark backgrounds). */
 const DARK_ANSI = {
-  black: '#18181b',
+  // Etwas heller als die Terminal-Hintergründe (#0A0A0A / #181818), damit TUIs,
+  // die ANSI-Schwarz (Index 0) für dünne Ränder oder gedämpften Text nutzen,
+  // nicht unsichtbar auf dem Hintergrund verschwinden.
+  black: '#2a2a30',
   red: '#ef4444',
   green: '#22c55e',
   yellow: '#eab308',

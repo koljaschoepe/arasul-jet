@@ -49,6 +49,15 @@ vi.mock('@xterm/addon-fit', () => ({
 vi.mock('@xterm/addon-web-links', () => ({ WebLinksAddon: class {} }));
 vi.mock('@xterm/addon-search', () => ({ SearchAddon: class {} }));
 vi.mock('@xterm/addon-unicode11', () => ({ Unicode11Addon: class {} }));
+// WebGL-Addon deterministisch mocken: in jsdom gibt es keinen WebGL-Kontext,
+// der echte Addon würde beim Aktivieren werfen. So läuft der Konstruktor-/
+// onContextLoss-Pfad ohne echten GPU-Kontext durch (Fallback bleibt getestet).
+vi.mock('@xterm/addon-webgl', () => ({
+  WebglAddon: class {
+    onContextLoss(): void {}
+    dispose(): void {}
+  },
+}));
 
 const ANSI_KEYS = [
   'black',
