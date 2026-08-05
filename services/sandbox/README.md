@@ -16,7 +16,7 @@ General-purpose terminal-based development sandbox container. Lets an operator (
 
 ```
 sandbox/
-├── Dockerfile      node:20-slim + bash + git + curl + tmux
+├── Dockerfile      node:22-slim + bash + git + curl + tmux
 ├── entrypoint.sh   Container entry — starts tmux, attaches to default session
 ├── open-ara.sh     Launcher for the local AI coding agent (→ /usr/local/bin/open-ara)
 └── tmux.conf       tmux configuration (key bindings, status bar, scrollback)

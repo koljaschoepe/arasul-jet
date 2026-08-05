@@ -79,8 +79,12 @@ Hintergrund; getrennt wird nur durch feine Linien.
     Explorer grenzen die Suche ein.
   - **Terminal:** Projekt-Terminals (Modi: Isoliert = DSGVO-Testumgebung ohne
     Netzzugriff, Intern = Zugriff auf das lokale LLM, Infrastruktur =
-    Vollzugriff, nur Admins). In Terminals stehen `/claude`, `/codex`,
-    `/gemini` und `open-ara` bereit (Erststart installiert das jeweilige CLI).
+    Vollzugriff, nur Admins). Quick-Launch bietet oben den **lokalen Coder
+    (empfohlen, kein Login)** und darunter `/claude`, `/codex` (+ „Codex
+    anmelden" per Geraete-Code), `/gemini` (Erststart installiert das jeweilige
+    CLI). Claude einmalig per **KI-Zugang → „Mit Claude anmelden"** anmelden
+    (eigener OAuth-Handshake, kopierbare URL) — danach ist `claude` in jeder
+    Sandbox ohne erneuten Login angemeldet.
   - Der Wechsel zwischen Chat und Terminal unterbricht **nichts**: ein
     laufender Chat-Stream und eine laufende Terminal-Sitzung laufen im
     Hintergrund weiter; der zuletzt genutzte Modus wird nach einem Neuladen
