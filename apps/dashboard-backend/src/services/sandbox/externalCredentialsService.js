@@ -403,7 +403,19 @@ async function setCentralAuth(userId, mode, value) {
 /** Zentralen Zugang laden (inkl. Wert — nur für Injektion, NIE an den Client). */
 async function getCentralAuth(userId) {
   const c = await loadCredentials(userId, PROVIDER_CENTRAL);
-  if (!c || typeof c.value !== 'string' || c.value.length === 0) {
+  if (!c) {
+    return null;
+  }
+  // OAuth-Bündel (Dashboard-Login-Handshake): der Access-Token ist der injizierte
+  // Wert; Refresh-Token + Ablauf bleiben im Tresor und werden hier NICHT an den
+  // Injektions-Pfad durchgereicht (nur der reine CLAUDE_CODE_OAUTH_TOKEN).
+  if (c.mode === 'oauth') {
+    if (typeof c.accessToken !== 'string' || c.accessToken.length === 0) {
+      return null;
+    }
+    return { mode: 'oauth', value: c.accessToken, expiresAt: c.expiresAt || null };
+  }
+  if (typeof c.value !== 'string' || c.value.length === 0) {
     return null;
   }
   return { mode: c.mode === 'apikey' ? 'apikey' : 'token', value: c.value };
@@ -412,7 +424,14 @@ async function getCentralAuth(userId) {
 /** Status für den Client — OHNE den Geheimwert. */
 async function getCentralAuthStatus(userId) {
   const c = await getCentralAuth(userId);
-  return c ? { configured: true, mode: c.mode } : { configured: false, mode: null };
+  if (!c) {
+    return { configured: false, mode: null };
+  }
+  return {
+    configured: true,
+    mode: c.mode,
+    ...(c.mode === 'oauth' ? { expiresAt: c.expiresAt } : {}),
+  };
 }
 
 /** Zentralen Zugang löschen. */

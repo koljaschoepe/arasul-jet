@@ -80,10 +80,21 @@ const ClaudeAuthBody = z
   })
   .strict();
 
+// Abschluss des eigenen OAuth-PKCE-Handshakes (Plan 015, Phase 3): der Nutzer
+// fügt den auf der Anthropic-Callback-Seite angezeigten Code ein — Form `CODE#STATE`
+// oder nur `CODE` plus separates `state`-Feld. Der State schützt gegen CSRF.
+const ClaudeOAuthCompleteBody = z
+  .object({
+    code: z.string().trim().min(1).max(4096),
+    state: z.string().trim().min(1).max(512).optional(),
+  })
+  .strict();
+
 module.exports = {
   CreateProjectBody,
   UpdateProjectBody,
   ListProjectsQuery,
   WorkspaceParams,
   ClaudeAuthBody,
+  ClaudeOAuthCompleteBody,
 };
