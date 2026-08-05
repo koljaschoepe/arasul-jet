@@ -15,10 +15,12 @@ const {
   ListProjectsQuery,
   WorkspaceParams,
   ClaudeAuthBody,
+  ClaudeOAuthCompleteBody,
 } = require('../schemas/sandbox');
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
 const externalCredentialsService = require('../services/sandbox/externalCredentialsService');
+const claudeOauthService = require('../services/sandbox/claudeOauthService');
 const wsTicketService = require('../services/sandbox/wsTicketService');
 
 // POST /api/sandbox/terminal/ticket — Einmal-Ticket für den WS-Aufbau.
@@ -273,6 +275,51 @@ router.delete(
     const deleted = await externalCredentialsService.deleteCentralAuth(req.user.id);
     const applied = await externalCredentialsService.applyCentralAuthToUserContainers(req.user.id);
     res.json({ deleted, applied_to: applied, timestamp: new Date().toISOString() });
+  })
+);
+
+// ----------------------------------------------------------------------------
+// Eigener OAuth-PKCE-Handshake (Plan 015, Phase 3) — ersetzt den kaputten
+// interaktiven `claude /login`-Link. Der Nutzer meldet sich EINMAL über die
+// vom Backend erzeugte, garantiert korrekte Authorize-URL an.
+// ----------------------------------------------------------------------------
+
+// POST /api/sandbox/claude-auth/oauth/start — liefert die korrekte Authorize-URL
+// (mit selbst erzeugtem code_challenge) + State; Verifier bleibt serverseitig.
+router.post(
+  '/claude-auth/oauth/start',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { authorizeUrl, state } = claudeOauthService.startClaudeOAuth(req.user.id);
+    res.json({ authorizeUrl, state, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/sandbox/claude-auth/oauth/complete — nimmt den eingefügten Code,
+// tauscht ihn gegen Access-+Refresh-Token, legt sie verschlüsselt ab und spielt
+// den Token in alle laufenden Sandboxes ein.
+router.post(
+  '/claude-auth/oauth/complete',
+  requireAuth,
+  validateBody(ClaudeOAuthCompleteBody),
+  asyncHandler(async (req, res) => {
+    const result = await claudeOauthService.completeClaudeOAuth(
+      req.user.id,
+      req.body.code,
+      req.body.state
+    );
+    res.json({ ...result, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/sandbox/claude-auth/oauth/refresh — Access-Token über den
+// gespeicherten Refresh-Token erneuern (manueller „jetzt erneuern"-Weg).
+router.post(
+  '/claude-auth/oauth/refresh',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const result = await claudeOauthService.refreshClaudeOAuth(req.user.id);
+    res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
 

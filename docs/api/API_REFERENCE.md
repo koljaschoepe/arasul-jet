@@ -2572,6 +2572,12 @@ Isolated project environments with Docker containers and terminal WebSocket acce
 | POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted |
 | GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user   |
 | DELETE | `/api/sandbox/projects/:workspace/claude-login`         | Delete the stored Claude login for the user                |
+| GET    | `/api/sandbox/claude-auth`                              | Central KI access status (mode, no secret)                 |
+| PUT    | `/api/sandbox/claude-auth`                              | Set central token/API-key, apply to all sandboxes          |
+| DELETE | `/api/sandbox/claude-auth`                              | Remove central KI access                                   |
+| POST   | `/api/sandbox/claude-auth/oauth/start`                  | Begin the backend OAuth-PKCE handshake → authorize URL     |
+| POST   | `/api/sandbox/claude-auth/oauth/complete`               | Exchange the pasted code for tokens, inject into sandboxes |
+| POST   | `/api/sandbox/claude-auth/oauth/refresh`                | Refresh the access token via the stored refresh token      |
 | GET    | `/api/sandbox/stats`                                    | Overall sandbox statistics                                 |
 
 #### Terminal-WebSocket-Auth (2026-07-31)
@@ -2610,6 +2616,38 @@ for the calling user (credentials are per-user, the workspace is auth context).
 > depends on the device-local sandbox image and can only be confirmed on the
 > Jetson (login → rebuild → still logged in). The encrypt/decrypt round-trip and
 > the docker-exec plumbing are unit-tested.
+
+#### Zentraler KI-Zugang & OAuth-Login (Plan 013 / 015)
+
+One central Claude access is stored **encrypted per user** (same
+`user_external_credentials` vault, provider `claude-central`) and injected into
+**every** sandbox as an env var — no per-terminal login. `GET/PUT/DELETE
+/api/sandbox/claude-auth` manage a manually-pasted `token` (→
+`CLAUDE_CODE_OAUTH_TOKEN`) or `apikey` (→ `ANTHROPIC_API_KEY`); the secret is
+never returned, only `{ configured, mode, expiresAt? }`.
+
+The **OAuth-PKCE handshake** (Plan 015, Phase 3) replaces the broken interactive
+`claude /login` link. The backend builds the OAuth 2.0 + PKCE flow itself
+(`services/sandbox/claudeOauthService.js`) so it controls `client_id`,
+`redirect_uri`, `scope` and `code_challenge` (S256) — dodging the CLI's
+malformed-URL bugs (#29983/#43996/#45340):
+
+- **POST `/oauth/start`** → `{ authorizeUrl, state }`. The `code_verifier` stays
+  server-side (in-memory, 15-min TTL); the URL carries the self-generated
+  `code_challenge`. Shown in the dashboard as a copyable field.
+- **POST `/oauth/complete`** `{ code, state? }` — accepts the pasted `code#state`
+  (or plain code + state), verifies state (CSRF), exchanges the code for
+  access+refresh tokens **exactly once** per attempt (browser-like headers,
+  console→platform host + JSON→form fallbacks, aborts immediately on 429 to
+  avoid burning a single-use code), stores the `oauth` bundle, and injects the
+  access token into all running sandboxes. Returns `{ configured, mode:'oauth',
+expiresAt, applied_to }`.
+- **POST `/oauth/refresh`** — renews the access token via the stored refresh
+  token (keeps the old refresh token if Anthropic returns none) and re-injects.
+
+`ANTHROPIC_API_KEY` must **not** be set in the sandbox env when an OAuth/abo
+token is used (it silently outranks the token and routes to metered API
+billing). See `docs/features/WORKSPACE.md`.
 
 **GET /api/sandbox/projects Query Parameters:**
 
