@@ -13,8 +13,12 @@ const buttonVariants = cva(
         default:
           'bg-secondary text-primary border border-border hover:bg-secondary/80 active:bg-secondary/70',
         solid: 'bg-primary text-primary-foreground hover:bg-primary/85 active:bg-primary/75',
+        // Plan 016: entschärft — statt flächigem Rot (weiß auf Vollrot) ein
+        // ruhiger roter Ton mit rotem Text und dezentem Rahmen. Klar destruktiv,
+        // aber nicht mehr aggressiv; deckt sich mit dem weichen Löschen-Muster
+        // aus dem Flow-Editor und der „eine Flächenfarbe"-Regel.
         destructive:
-          'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive dark:hover:bg-destructive/90',
+          'bg-destructive/10 text-destructive border border-destructive/25 hover:bg-destructive/15 active:bg-destructive/20 focus-visible:ring-destructive/20',
         outline:
           'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',

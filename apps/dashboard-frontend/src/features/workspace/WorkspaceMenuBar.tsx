@@ -87,7 +87,7 @@ export function WorkspaceMenuBar(_props: WorkspaceMenuBarProps) {
 
   return (
     <header
-      className="flex h-9 shrink-0 items-center gap-1 bg-background px-2 select-none"
+      className="flex h-ui-header shrink-0 items-center gap-1 bg-background px-2 select-none"
       data-testid="workspace-menubar"
     >
       <span className="mr-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-foreground">

@@ -122,7 +122,7 @@ export default function CodeViewer({
   return (
     <div ref={rootRef} className="flex h-full min-h-0 flex-col">
       {/* Kopfzeile — einheitlich mit dem HTML-Viewer: Label links, Aktionen rechts. */}
-      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+      <div className="flex h-ui-header shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         <span className="text-ui-xs font-medium text-muted-foreground" data-testid="code-language">
           {spracheLabel(fileExtension)}
         </span>

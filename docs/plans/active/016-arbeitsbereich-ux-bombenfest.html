@@ -13,14 +13,14 @@
   "slug": "arbeitsbereich-ux-bombenfest",
   "title": "Arbeitsbereich-UX bombenfest",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 3,
   "created": "2026-08-06",
   "approved": "2026-08-06",
-  "branch": null,
+  "branch": "016-arbeitsbereich-ux-bombenfest",
   "pr": null,
   "verified_on_device": false
 }
@@ -463,40 +463,46 @@
   <div class="sbody">
   <p>Alles läuft auf <strong>einem</strong> Branch. Jeder Schritt wird committet und lässt den Code lauffähig, aber es wird <strong>nicht zwischendurch deployt</strong>. Erst Schritt 7 deployt einmal auf den Jetson und nimmt alles ab.</p>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Maß-System konsolidieren">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Maß-System konsolidieren">
     <h3>Schritt 1 — Maß-System konsolidieren (Fundament) <span class="tag">Risiko: Mittel</span></h3>
     <p>Einen gemeinsamen Kopfzeilen-Höhen-Token einführen und die bereits vorhandene geteilte Kopfzeilen-Komponente (<code>SidebarViewHeader</code>) über alle Arbeitsbereich-Köpfe ziehen; die vorhandene Abstands-/Schrift-Skala konsequent anwenden statt neuer Werte. Zuerst <code>index.css</code> vollständig lesen, um vorhandene Tokens nicht zu duplizieren. Reichweite dashboard-weit, wo Höhen/Abstände abweichen. Keine neuen Flächenfarben.</p>
     <p class="files mono">apps/dashboard-frontend/src/index.css · features/workspace/{WorkspaceMenuBar,TabBar,RightPanel}.tsx · sidebar/SidebarView.tsx (SidebarViewHeader) · llm/agentChat/AgentChatPanel.tsx · viewers/{ProjectFileTab,CodeViewer,HtmlDocumentViewer,KundenUebersichtTab}.tsx · docs/development/DESIGN_SYSTEM.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Neuer Token <code>--spacing-ui-header: 2.25rem</code> (36px) in der bestehenden <code>@theme</code>-Skala ergänzt (Utility <code>h-ui-header</code>/<code>min-h-ui-header</code>, gleiches Muster wie das schon genutzte <code>min-h-ui-row</code>). Alle Panel-Köpfe darauf gezogen: Menüleiste, Sidebar-Kopf, Chat-Kopf (waren h-9 → Token, Single-Source), Viewer-Köpfe (ProjectFile/Code/Html, h-11 → Token), Kundenübersicht &amp; Flow-Editor (h-14 → Token, px-4 → px-3), Flow-Übersicht (h-14 → <code>min-h-ui-header</code>, weil zweizeilig mit optionaler Beschreibung). <strong>Abweichung:</strong> TabBar &amp; RightPanel-Segmentleiste (beide h-8, borderlos, <code>items-end</code>/Segment-Buttons) bewusst <em>nicht</em> angefasst — sie sind Tab-Streifen, keine Panel-Köpfe; eine Angleichung hätte die Tab-Optik gebrochen.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Flow-Editor-Proportionen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Flow-Editor-Proportionen">
     <h3>Schritt 2 — Flow-Editor an Chat &amp; Übersicht angleichen <span class="tag">Risiko: Niedrig</span></h3>
     <p>Den Flow-Editor auf die in Schritt 1 vereinheitlichten Maße umstellen: Kopfhöhe, Innen-Abstände, Schriftgrößen und Karten-Radien so, dass er sich sichtbar wie „aus einem Guss“ mit dem Chat rechts und der Flow-Übersicht links anfühlt. Reine Anwendung der Tokens, keine Logik-Änderung.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/flows/FlowEditorTab.tsx · features/workspace/sidebar/* (Flow-Übersicht) · index.css (nur nutzen)</p>
+    <div class="result"><strong>Ergebnis:</strong> Flow-Editor-Kopf auf <code>h-ui-header</code> + <code>px-3</code> (vorher h-14/px-4) — jetzt deckungsgleich mit Chat- und Sidebar-Kopf. Körper nutzt bereits <code>p-4</code>/<code>max-w-3xl</code> wie die Flow-Übersicht (unverändert). <code>FlowForm</code> geprüft: keine überdimensionierten Elemente (kein text-lg/p-6/rounded-xl) — die Proportionen stimmen bereits; einzige nötige Änderung war die Kopfhöhe.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Chat-Bugs fixen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Chat-Bugs fixen">
     <h3>Schritt 3 — Chat: Eingabe &amp; Überschreiben fixen <span class="tag">Risiko: Mittel</span></h3>
     <p>Zwei präzise Fixes: (a) In <code>ChatContext.sendMessage</code> das Nachrichten-Update von „ganzes Array aus Momentaufnahme ersetzen + fester Index“ auf ein <em>anhängendes</em>, am aktuellen Stand orientiertes Update umstellen, sodass eine zweite Nachricht nie die erste überschreibt. Die vielen anderen Ereignis-Zweige (RAG, Agent-Schritte, Kompaktierung) bleiben unangetastet. (b) In <code>ComposerCard</code> die Auto-Grow-Eingabe so korrigieren, dass sie mitwächst und den Text nicht abschneidet. Regressionstest für schnelle Folge-Nachrichten.</p>
-    <p class="files mono">apps/dashboard-frontend/src/contexts/ChatContext.tsx · features/workspace/llm/agentChat/{ComposerCard,AgentChatPanel}.tsx · neuer Test ChatContext (append/overwrite) + ComposerCard</p>
+    <p class="files mono">apps/dashboard-frontend/src/contexts/ChatContext.tsx · contexts/chatMessageOrder.ts (neu) · features/workspace/llm/agentChat/ComposerCard.tsx · __tests__/contexts/chatMessageOrder.test.ts (neu)</p>
+    <div class="result"><strong>Ergebnis:</strong> (a) Die Überschreiben-Ursache war <code>updateMessages(chatId, () =&gt; newMessages)</code> — Ersetzen des ganzen Arrays aus der (über einen nachlaufenden Ref) evtl. veralteten Momentaufnahme. Jetzt wird an den LIVE-Zustand <code>prev</code> angehängt (neue reine Helfer-Funktion <code>appendOutgoingMessages</code>, 4 Regressionstests grün), <code>assistantMessageIndex</code> aus der echten Länge berechnet; die Momentaufnahme dient nur noch dem Backend-Verlauf (chatPayload, unverändert) und als Untergrenze. <strong>Zusatz:</strong> der Fehler-Pfad ersetzte ebenfalls aus der Momentaufnahme — jetzt entfernt er nur die gescheiterte Streaming-Antwort aus <code>prev</code> (kein Abschneiden). Die ~15 Streaming-Zweige (thinking/content/steps/todos/tool/subagent) bleiben unberührt. (b) Eingabe: <code>autoGrow</code> war rechnerisch korrekt (border-box, scrollHeight); die reale Abschneide-Ursache war fehlende Neuberechnung bei <em>Breiten</em>-Änderung (Panel schmaler ziehen) — ein breiten-gefilterter <code>ResizeObserver</code> (kein Höhen-Loop) hält die Höhe passend. tsc grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Markdown-Viewer Preview-first">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Markdown-Viewer Preview-first">
     <h3>Schritt 4 — Markdown als Vorschau-Editor <span class="tag">Risiko: Mittel</span></h3>
     <p>Projekt-Markdown im Center öffnet künftig als gerenderte TipTap-Vorschau (Default) mit dem vorhandenen „Vorschau/Code“-Umschalter; im Code-Modus das rohe Markdown bearbeitbar. Entprellter, dezenter Auto-Save (kein großer Knopf, „Gespeichert ✓“-Hinweis) — den existierenden Auto-Save aus <code>TipTapEditor</code>/<code>DocumentViewerTab</code> wiederverwenden. Roundtrip-Treue absichern: Frontmatter und Code-Blöcke dürfen sich beim Öffnen+Speichern nicht verändern; Auto-Save nur bei echter Nutzer-Änderung.</p>
-    <p class="files mono">apps/dashboard-frontend/src/features/workspace/viewers/ProjectFileTab.tsx · viewers/DocumentViewerTab.tsx · components/editor/tiptap/{TipTapEditor.tsx,extensions.ts,tiptap-editor.css} · docs/features/WORKSPACE.md</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/viewers/{ProjectFileTab,ProjectMarkdownEditor}.tsx · components/editor/tiptap/markdownFrontmatter.ts + Tests · docs/features/WORKSPACE.md</p>
+    <div class="result"><strong>Ergebnis:</strong> <code>.md</code>/<code>.markdown</code> öffnen jetzt als <strong>kontrollierter</strong> TipTap-WYSIWYG (neue Komponente <code>ProjectMarkdownEditor</code>, wiederverwendet <code>createExtensions()</code> + <code>tiptap-editor.css</code> — der „schöne Editor mit Animationen"). Kopf-Umschalter Vorschau⇄Quelltext (Default Vorschau, CodeMirror als Rohcode). <strong>Eine Quelle der Wahrheit:</strong> ProjectFileTab besitzt <code>draft</code>/<code>dirty</code>/Save; beide Editoren sind controlled → Umschalten verliert nichts. <strong>Roundtrip-Sicherheit (Ein-Ordner-Modell):</strong> reine Helfer <code>splitFrontmatter</code>/<code>joinFrontmatter</code> (6 Tests) trennen YAML-Frontmatter wörtlich ab und hängen es unverändert wieder an; Hydration-Sperre stellt sicher, dass <em>bloßes Öffnen nie</em> onChange auslöst → kein Auto-Save, keine Disk-Schreibung ohne echte Eingabe. Dezenter Auto-Save (1,2 s Debounce, „Gespeichert ✓" statt Knopf); Nicht-Markdown-Textdateien behalten CodeMirror + manuelles Speichern. tsc grün, 10 Unit-Tests grün. Roundtrip mit echter Agent-Datei wird in §6 live geprüft.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Löschen/Speichern entschärfen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 5 — Löschen/Speichern entschärfen">
     <h3>Schritt 5 — Löschen- &amp; Speichern-Buttons ruhiger <span class="tag">Risiko: Niedrig</span></h3>
     <p>Die auffällig aggressiven Aktionen optisch beruhigen: die solide-rote <code>destructive</code>-Nutzung (v.a. im Explorer) auf das bereits im Flow-Editor genutzte weichere Muster (<code>text-destructive hover:bg-destructive/10</code>) umstellen; Speichern-Buttons dezenter. <strong>Verhalten bleibt exakt gleich</strong> — kein Dialog, kein Toast. Referenz-Stil aus <code>FlowEditorTab</code> übernehmen, nicht neu erfinden.</p>
-    <p class="files mono">apps/dashboard-frontend/src/features/workspace/explorer/ExplorerPanel.tsx · components/ui/shadcn/button.tsx (nur wenn nötig) · Referenz: features/flows/FlowEditorTab.tsx</p>
+    <p class="files mono">apps/dashboard-frontend/src/components/ui/shadcn/button.tsx (destructive-Variante)</p>
+    <div class="result"><strong>Ergebnis:</strong> Die geteilte <code>destructive</code>-Button-Variante von flächigem Rot (weiß auf Vollrot) auf einen ruhigen Ton umgestellt: <code>bg-destructive/10 text-destructive border-destructive/25 hover:bg-destructive/15</code> — deckt sich mit dem weichen Löschen-Muster aus dem Flow-Editor und der „eine Flächenfarbe"-Regel. Ein zentraler Griff entschärft alle 13 destruktiven Buttons <em>und</em> die Löschen-Bestätigung (ConfirmModal <code>danger→destructive</code>) konsistent. Verhalten unverändert (kein Dialog/Toast neu). Speichern-Buttons nutzen bereits die neutrale <code>default</code>/<code>secondary</code>-Variante; Markdown speichert jetzt ohnehin dezent automatisch (Schritt 4). Explorer-Löschen ist ein ContextMenuItem (roter Text) — bereits ruhig, unangetastet. tsc grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — n8n-Automation reparieren">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 6 — n8n-Automation reparieren">
     <h3>Schritt 6 — n8n-Automation: Root-Cause &amp; Fix <span class="tag">Risiko: Mittel</span></h3>
     <p>Ursache live auf dem Gerät eingrenzen (n8n-Logs, Besitzer-Provisionierung, Sitzungs-Cookie, Secrets, Traefik-Route <code>/n8n/</code>, Runners-Sidecar) und gezielt reparieren, bis die Automations-Erweiterung wieder lädt und ein Workflow ausgelöst werden kann. Kein Blind-Umbau — erst Diagnose, dann minimaler Fix.</p>
-    <p class="files mono">apps/dashboard-backend/src/routes/automations.js · apps/dashboard-frontend/src/features/workspace/viewers/AutomationenTab.tsx · compose/compose.app.yaml · services/n8n/entrypoint.sh · docs/integrations/N8N.md</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/viewers/AutomationenTab.tsx · docs/integrations/N8N.md</p>
+    <div class="result"><strong>Ergebnis (Abweichung — Live-Diagnose):</strong> Auf dem deployten <code>main</code> ist die Automation über die dokumentierte URL (LAN-IP <span class="mono">https://192.168.0.197</span>) <strong>voll funktionsfähig</strong> — der n8n-Editor lädt authentifiziert (Workflows „Angebotskalkulation automatisch", „My workflow" sichtbar), alle <code>/n8n/rest/*</code> antworten mit 200, keine Login-Maske. Bewiesen: n8n-Container healthy, <code>resolveSecrets()</code> löst die Owner-Creds korrekt (index.js:6 vor allem anderen), <code>POST /rest/login</code> liefert 200 + Cookie. Die Log-Fehler (<code>api.n8n.io</code> DNS, MCP-Registry) sind harmloses Offline-Rauschen. <strong>Zwei echte Fragilitäten als Ursache für „funktioniert nicht mehr" identifiziert:</strong> (1) <strong>Kaltstart</strong> — das Session-Retry-Budget war nur ~14 s; nach einem Geräte-Neustart (5-Jahre-Betrieb!) braucht n8n länger → Tab blieb auf „nicht verfügbar". <em>Fix:</em> Budget auf ~60 s (8 Versuche, gedeckelter Backoff), „Erneut versuchen" lädt den iframe per Remount-Key neu. (2) <strong>Origin-Kopplung</strong> — <code>N8N_EDITOR_BASE_URL</code> ist absolut auf die LAN-IP festgenagelt; über eine andere Origin (Tailscale/Hostname) zeigen die absoluten Editor-/WS-Aufrufe des iframes weiter dorthin → cross-origin/Cookie-blockiert. Ein sicheres Umstellen ist nicht blind möglich (n8n leitet <code>urlBaseWebhook</code> aus dem internen Host <code>n8n:5678</code> ab → Unsetzen könnte den funktionierenden LAN-Pfad brechen); daher als Betriebs-Hinweis in <code>N8N.md</code> dokumentiert (Origin in <code>.env</code> setzen), nicht heute umgebaut. tsc grün. Voller Klick-Test + Workflow-Auslösen in §6.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Aufräumen + End-Deploy &amp; Abnahme">

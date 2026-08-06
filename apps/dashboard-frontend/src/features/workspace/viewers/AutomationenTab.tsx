@@ -14,16 +14,29 @@ import { Button } from '@/components/ui/shadcn/button';
  *
  * Robustheit (2026-07-28): n8n braucht nach einem (Neu-)Start einige Sekunden,
  * bis /rest/login antwortet — der erste Session-Versuch scheiterte dann und
- * der Tab blieb auf der Fehlermeldung stehen. Jetzt: bis zu 4 Versuche mit
+ * der Tab blieb auf der Fehlermeldung stehen. Jetzt: mehrere Versuche mit
  * wachsendem Abstand, und „Erneut versuchen" wiederholt nur die Session statt
  * die ganze Seite neu zu laden.
+ *
+ * Kaltstart-Härtung (Plan 016): Nach einem Geräte-Neustart (5-Jahre-Betrieb!)
+ * kann n8n deutlich länger als die früheren ~14 s brauchen, bis /rest/login
+ * antwortet — der Tab blieb dann auf „nicht verfügbar" stehen, obwohl n8n
+ * gleich bereit gewesen wäre („n8n funktioniert nicht mehr"). Jetzt: größeres
+ * Retry-Budget (~48 s) mit gedeckeltem Backoff, und „Erneut versuchen" lädt
+ * zusätzlich den iframe neu (über einen Remount-Schlüssel), damit ein bereits
+ * geladener, aber unauthentifizierter n8n-Rahmen sauber neu startet.
  */
-const VERSUCHE = 4;
-const BACKOFF_MS = [0, 2000, 4000, 8000];
+const VERSUCHE = 8;
+// Wachsend, dann gedeckelt bei 10 s — Summe der Wartezeiten ~48,5 s deckt einen
+// n8n-Kaltstart nach Geräte-Neustart ab.
+const BACKOFF_MS = [0, 1500, 3000, 5000, 8000, 10000, 10000, 10000];
 
 export default function AutomationenTab() {
   const api = useApi();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // Remount-Schlüssel: erzwingt beim erneuten Herstellen einen frischen iframe,
+  // damit ein zuvor unauthentifiziert geladener n8n-Rahmen neu startet.
+  const [frameKey, setFrameKey] = useState(0);
   const cancelledRef = useRef(false);
 
   const establishSession = useCallback(async () => {
@@ -31,13 +44,15 @@ export default function AutomationenTab() {
     for (let versuch = 0; versuch < VERSUCHE; versuch++) {
       if (cancelledRef.current) return;
       if (versuch > 0) {
-        await new Promise(r => setTimeout(r, BACKOFF_MS[versuch]));
+        await new Promise(r => setTimeout(r, BACKOFF_MS[versuch] ?? 10000));
         if (cancelledRef.current) return;
       }
       try {
         // Set-Cookie (n8n-auth) wird vom Browser gesetzt; Antwort-Body irrelevant.
         await api.get('/automations/session', { showError: false });
         if (cancelledRef.current) return;
+        // Frischen iframe erzwingen: die neue Session greift so garantiert.
+        setFrameKey(k => k + 1);
         setStatus('ready');
         return;
       } catch {
@@ -86,6 +101,7 @@ export default function AutomationenTab() {
 
   return (
     <iframe
+      key={frameKey}
       src="/n8n/"
       title="Automationen (n8n)"
       className="h-full w-full border-0 bg-background"

@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
  */
 export function SidebarViewHeader({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
-    <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+    <div className="flex h-ui-header shrink-0 items-center justify-between gap-2 border-b border-border px-3">
       <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </span>

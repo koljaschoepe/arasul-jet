@@ -677,7 +677,7 @@ export default function AgentChatPanel() {
       {/* Kopfzeile: Maskottchen-Status · Titel · neuer Chat · Verlauf.
           Das Maskottchen „lebt" oben in der Statuszeile (wie im Terminal) und
           gibt ab dem Absenden sofort sichtbares Feedback („denkt nach …"). */}
-      <div className="flex h-9 shrink-0 items-center gap-1.5 px-2">
+      <div className="flex h-ui-header shrink-0 items-center gap-1.5 px-2">
         <Mascot state={isLoading ? 'thinking' : 'idle'} className="size-5" />
         <span
           className="min-w-0 flex-1 truncate text-xs font-medium text-foreground"

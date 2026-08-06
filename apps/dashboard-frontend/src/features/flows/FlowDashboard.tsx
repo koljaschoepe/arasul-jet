@@ -255,7 +255,10 @@ export default function FlowDashboard({
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="flow-dashboard">
       {/* Kopfzeile */}
-      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
+      {/* Zweizeiliger Kopf (Titel + optionale Beschreibung): min-h-ui-header
+          hält die einheitliche Panel-Kopfhöhe (Plan 016) und wächst nur, wenn
+          eine Beschreibung vorhanden ist — statt fester Höhe, die klippt. */}
+      <div className="flex min-h-ui-header shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-1">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-semibold text-foreground">/{name}</span>
