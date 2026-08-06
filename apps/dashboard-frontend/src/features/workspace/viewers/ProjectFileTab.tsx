@@ -6,8 +6,8 @@
  * Binärdateien und Übergrößen liefern kein `inhalt` — dann gibt es statt des
  * Editors einen Download-Hinweis.
  */
-import { useEffect, useRef, useState } from 'react';
-import { Code2, Download, Eye, Save } from 'lucide-react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Check, Code2, Download, Eye, Save } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -17,6 +17,15 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useReportTabDirty } from '@/hooks/useReportTabDirty';
 import CodeMirrorEditor from './CodeMirrorEditor';
 import { spracheLabel } from './codeLanguage';
+
+// Der TipTap-WYSIWYG ist schwer — nur laden, wenn wirklich eine Markdown-Datei
+// in der Vorschau geöffnet wird.
+const ProjectMarkdownEditor = lazy(() => import('./ProjectMarkdownEditor'));
+
+/** Idle-Zeit (ms) nach der letzten Änderung, bevor Markdown automatisch gespeichert wird. */
+const AUTOSAVE_DELAY_MS = 1200;
+/** Wie lange der „Gespeichert ✓"-Hinweis sichtbar bleibt. */
+const SAVED_FLASH_MS = 2500;
 
 interface AblageInhalt {
   inhalt: string | null;
@@ -29,6 +38,19 @@ function groesseLabel(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} kB`;
   return `${bytes} B`;
+}
+
+// Roh-HTML-Blöcke, die der WYSIWYG (tiptap-markdown mit html:false) beim
+// Serialisieren NICHT 1:1 erhält — z. B. agent-geschriebene .md mit
+// eingebettetem <div>/<table>/<iframe>. Solche Dateien öffnen wir defensiv im
+// Quelltext-Modus (Vorschau bleibt einen Klick entfernt), damit eine WYSIWYG-
+// Bearbeitung das HTML nicht still verschluckt (Ein-Ordner-Modell: Platte ist
+// Wahrheit). Autolinks (<https://…>, <a@b>) und reine Prosa lösen NICHT aus.
+const ROH_HTML_RE =
+  /<\/?(div|table|thead|tbody|tr|td|th|section|article|header|footer|nav|aside|form|iframe|script|style|details|summary|figure|figcaption|main|span|button|input|label|img|hr|br)\b/i;
+
+function enthaeltRohesHtml(md: string): boolean {
+  return ROH_HTML_RE.test(md);
 }
 
 export default function ProjectFileTab({
@@ -49,6 +71,7 @@ export default function ProjectFileTab({
   const [meta, setMeta] = useState<AblageInhalt | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const dateiname = filePath.split('/').pop() ?? filePath;
@@ -57,6 +80,10 @@ export default function ProjectFileTab({
   // standardmäßig GERENDERT — wie eine kleine Webseite im Tab; der Quelltext
   // bleibt einen Klick entfernt.
   const istHtml = endung.toLowerCase() === '.html' || endung.toLowerCase() === '.htm';
+  // Markdown öffnet als gerenderte, direkt bearbeitbare TipTap-Vorschau (Default);
+  // ein Klick auf „Quelltext" zeigt das rohe Markdown in CodeMirror (Plan 016).
+  const istMarkdown = endung.toLowerCase() === '.md' || endung.toLowerCase() === '.markdown';
+  const hatVorschau = istHtml || istMarkdown;
   const [ansicht, setAnsicht] = useState<'vorschau' | 'code'>('vorschau');
 
   // Tab-Titel = Dateiname (der Store kennt beim Öffnen nur den Pfad).
@@ -78,6 +105,11 @@ export default function ProjectFileTab({
         setMeta(res.data);
         setOriginal(res.data.inhalt);
         setDraft(res.data.inhalt ?? '');
+        // Markdown mit Roh-HTML defensiv im Quelltext öffnen (siehe oben) —
+        // der Nutzer kann jederzeit auf Vorschau umschalten.
+        if (istMarkdown && res.data.inhalt && enthaeltRohesHtml(res.data.inhalt)) {
+          setAnsicht('code');
+        }
       })
       .catch((err: ApiError) => {
         if (cancelled) return;
@@ -89,7 +121,7 @@ export default function ProjectFileTab({
     return () => {
       cancelled = true;
     };
-  }, [projectId, filePath, api]);
+  }, [projectId, filePath, api, istMarkdown]);
 
   const dirty = original !== null && draft !== original;
 
@@ -149,12 +181,21 @@ export default function ProjectFileTab({
     };
   }, [api, projectId, filePath]);
 
-  const save = async () => {
+  const savedFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // `silent`: Markdown-Autosave meldet sich nur dezent über „Gespeichert ✓"
+  // (kein Toast pro 1,2 s Tippen); manuelles Speichern von Quelltext toastet.
+  const save = async (silent = false) => {
     setSaving(true);
     try {
       await api.put(`/projects/${projectId}/dateien/inhalt`, { pfad: filePath, inhalt: draft });
       setOriginal(draft);
-      toast.success('Gespeichert');
+      if (silent) {
+        setSavedFlash(true);
+        if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current);
+        savedFlashTimer.current = setTimeout(() => setSavedFlash(false), SAVED_FLASH_MS);
+      } else {
+        toast.success('Gespeichert');
+      }
     } catch {
       /* Toast kommt aus useApi */
     } finally {
@@ -163,6 +204,24 @@ export default function ProjectFileTab({
   };
   const saveRef = useRef(save);
   saveRef.current = save;
+
+  // Dezenter Auto-Save für Markdown (Plan 016): nach kurzer Tipp-Pause still
+  // speichern — kein großer Knopf. Nur bei echter Änderung; der Vorschau-Editor
+  // meldet Änderungen ohnehin erst nach echter Nutzer-Eingabe.
+  useEffect(() => {
+    if (!istMarkdown || !dirty || saving || loading) return;
+    const t = setTimeout(() => {
+      void saveRef.current(true);
+    }, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [istMarkdown, dirty, saving, loading, draft]);
+
+  // Flash-Timer beim Unmount aufräumen.
+  useEffect(() => {
+    return () => {
+      if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current);
+    };
+  }, []);
 
   // Strg+S/Cmd+S speichert — Editor-Grunderwartung; ohne den Handler frisst
   // der Browser den Shortcut für seinen "Seite speichern"-Dialog. Der Tab
@@ -232,19 +291,19 @@ export default function ProjectFileTab({
   return (
     <div ref={wurzelRef} className="flex h-full min-h-0 flex-col" data-testid="project-file-tab">
       {/* Kopfzeile — einheitlich mit dem CodeViewer: Label links, Aktionen rechts. */}
-      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+      <div className="flex h-ui-header shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         <span className="min-w-0 truncate text-ui-xs font-medium text-muted-foreground">
           {filePath}
           <span className="ml-2 text-muted-foreground/60">{spracheLabel(endung)}</span>
         </span>
         <div className="flex shrink-0 items-center gap-2">
-          {istHtml && (
+          {hatVorschau && (
             <Button
               type="button"
               size="sm"
               variant="ghost"
               onClick={() => setAnsicht(a => (a === 'vorschau' ? 'code' : 'vorschau'))}
-              data-testid="html-ansicht-toggle"
+              data-testid="ansicht-toggle"
             >
               {ansicht === 'vorschau' ? (
                 <>
@@ -257,15 +316,39 @@ export default function ProjectFileTab({
               )}
             </Button>
           )}
-          {dirty && (
-            <span className="text-ui-xs text-muted-foreground" data-testid="project-file-dirty">
-              Nicht gespeichert
+          {istMarkdown ? (
+            // Markdown speichert automatisch (dezent) — kein großer Knopf, nur
+            // ein ruhiger Status.
+            <span
+              className="flex items-center gap-1 text-ui-xs text-muted-foreground"
+              data-testid="project-file-status"
+              aria-live="polite"
+            >
+              {saving ? (
+                'Speichert …'
+              ) : savedFlash ? (
+                <>
+                  <Check className="size-3.5 text-primary" aria-hidden="true" /> Gespeichert
+                </>
+              ) : dirty ? (
+                'Nicht gespeichert'
+              ) : (
+                ''
+              )}
             </span>
+          ) : (
+            <>
+              {dirty && (
+                <span className="text-ui-xs text-muted-foreground" data-testid="project-file-dirty">
+                  Nicht gespeichert
+                </span>
+              )}
+              <Button type="button" size="sm" onClick={() => save()} disabled={!dirty || saving}>
+                <Save className="mr-1.5 size-3.5" aria-hidden="true" />
+                {saving ? 'Speichert …' : 'Speichern'}
+              </Button>
+            </>
           )}
-          <Button type="button" size="sm" onClick={save} disabled={!dirty || saving}>
-            <Save className="mr-1.5 size-3.5" aria-hidden="true" />
-            {saving ? 'Speichert …' : 'Speichern'}
-          </Button>
           <Button
             type="button"
             size="sm"
@@ -290,6 +373,14 @@ export default function ProjectFileTab({
             className="h-full w-full border-0 bg-white"
             data-testid="html-vorschau"
           />
+        ) : istMarkdown && ansicht === 'vorschau' ? (
+          <Suspense fallback={<LoadingSpinner message="Editor wird geladen …" />}>
+            <ProjectMarkdownEditor
+              value={draft}
+              onChange={setDraft}
+              ariaLabel={`Inhalt von ${dateiname}`}
+            />
+          </Suspense>
         ) : (
           <CodeMirrorEditor
             value={draft}

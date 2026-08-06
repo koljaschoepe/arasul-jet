@@ -181,8 +181,10 @@ export default function FlowEditorTab() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="flow-editor-tab">
       {/* Kopfzeile: eine ruhige Zeile — Titel links, Aktionen rechts, alles auf
-          gleicher Höhe (h-14, items-center). Neu · Löschen · Speichern. */}
-      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
+          gleicher Höhe. Einheitliche Panel-Kopfhöhe (h-ui-header, Plan 016),
+          damit der Editor mit Chat & Flow-Übersicht »aus einem Guss« wirkt.
+          Neu · Löschen · Speichern. */}
+      <div className="flex h-ui-header shrink-0 items-center justify-between gap-3 border-b border-border px-3">
         <span className="min-w-0 truncate text-sm font-semibold text-foreground">
           {bearbeiten ? `Flow bearbeiten: /${editName}` : 'Neuer Flow'}
         </span>

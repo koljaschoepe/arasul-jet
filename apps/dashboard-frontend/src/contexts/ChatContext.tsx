@@ -27,6 +27,7 @@ import type { ChatInput } from '@arasul/shared-schemas';
 import useTokenBatching from '../hooks/useTokenBatching';
 import { useApi } from '../hooks/useApi';
 import { addFlowRun, mergeFlowRuns } from './flowRunRegistry';
+import { appendOutgoingMessages } from './chatMessageOrder';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import type { DocumentSource, MatchedSpace, QueueJob } from '../types';
 
@@ -1119,37 +1120,55 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         }
       }
 
-      // Update UI with user message + empty assistant message
-      const newMessages: ChatMessage[] = [
-        ...messages,
-        {
-          role: 'user',
-          content: userMessage,
-          ...(images && images.length > 0 ? { images } : {}),
-          // Anhang sofort als Chip/Karte zeigen.
-          ...(anhangDatei
-            ? { datei: anhangDatei }
-            : file
-              ? { datei: { art: 'anhang' as const, name: file.name } }
-              : {}),
-        },
-      ];
-      updateMessages(chatId, () => newMessages);
-      updateIsLoading(chatId, true);
+      // Optimistische UI-Nachrichten als Objekte vorbereiten.
+      const userMessageObj: ChatMessage = {
+        role: 'user',
+        content: userMessage,
+        ...(images && images.length > 0 ? { images } : {}),
+        // Anhang sofort als Chip/Karte zeigen.
+        ...(anhangDatei
+          ? { datei: anhangDatei }
+          : file
+            ? { datei: { art: 'anhang' as const, name: file.name } }
+            : {}),
+      };
+      const assistantMessageObj: ChatMessage = {
+        role: 'assistant',
+        content: '',
+        thinking: '',
+        thinkingCollapsed: false,
+        hasThinking: false,
+        status: 'streaming',
+        ...(isRAG ? { sources: [], sourcesCollapsed: true } : {}),
+      };
 
+      // Backend-Verlauf (chatPayload weiter unten): aus der übergebenen
+      // Momentaufnahme + Nutzer-Nachricht. Der Aufrufer liefert die Momentaufnahme
+      // aus einem pro Render synchronisierten Ref, und `sendLockRef` verhindert
+      // parallele Sends — im Normalfall deckt sie sich mit dem Live-Zustand. Nur
+      // im (durch den Ref-Nachlauf) seltenen Fall kann der an das Modell gesandte
+      // Verlauf um die allerletzte Nachricht kürzer sein als die Anzeige; das ist
+      // das kleinere Übel gegenüber dem früheren UI-Überschreiben.
+      const newMessages: ChatMessage[] = [...messages, userMessageObj];
+
+      // Plan 016 — Fix „2. Nachricht überschreibt 1.": Der UI-Zustand wird NICHT
+      // mehr aus der (u. U. veralteten) Momentaufnahme ersetzt, sondern an den
+      // LIVE-Zustand (`prev`) angehängt. So kann eine schnelle Folge-Nachricht
+      // den Verlauf nie mehr abschneiden. `assistantMessageIndex` zeigt auf die
+      // tatsächliche Position der Assistenten-Nachricht im aktuellen Array; die
+      // vielen Streaming-Zweige unten lesen genau diesen Index unverändert.
+      // Timing: der Updater setzt `assistantMessageIndex`; erster Lesezugriff
+      // erfolgt erst NACH `await fetch(...)` weiter unten — die Netzwerk-Runde
+      // gibt React zuverlässig Zeit, den State-Updater auszuführen (der Fallback
+      // `newMessages.length` greift nur, falls der Updater wider Erwarten noch
+      // nicht lief).
       let assistantMessageIndex = newMessages.length;
-      updateMessages(chatId, () => [
-        ...newMessages,
-        {
-          role: 'assistant',
-          content: '',
-          thinking: '',
-          thinkingCollapsed: false,
-          hasThinking: false,
-          status: 'streaming',
-          ...(isRAG ? { sources: [], sourcesCollapsed: true } : {}),
-        },
-      ]);
+      updateMessages(chatId, prev => {
+        const next = appendOutgoingMessages(prev, messages, userMessageObj, assistantMessageObj);
+        assistantMessageIndex = next.assistantIndex;
+        return next.messages;
+      });
+      updateIsLoading(chatId, true);
 
       // Abort ALL existing streams — token batching only supports one active stream at a time.
       // If Chat A is streaming and user starts Chat B, Chat A's batched tokens would route
@@ -1696,7 +1715,18 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             (isRAG ? 'Fehler bei der RAG-Anfrage.' : 'Fehler beim Senden der Nachricht.')
         );
         updateIsLoading(chatId, false);
-        updateMessages(chatId, () => newMessages);
+        // Plan 016: nur die (gescheiterte) Streaming-Antwort aus dem LIVE-Zustand
+        // entfernen — nicht das ganze Array aus der Momentaufnahme ersetzen (das
+        // hätte einen inzwischen weitergelaufenen Verlauf abgeschnitten). Die
+        // Nutzer-Nachricht bleibt sichtbar, damit „Erneut versuchen" greift.
+        updateMessages(chatId, prev => {
+          const u = [...prev];
+          const cur = u[assistantMessageIndex];
+          if (cur?.role === 'assistant' && cur.status === 'streaming') {
+            u.splice(assistantMessageIndex, 1);
+          }
+          return u;
+        });
         setActiveJobIds(prev => {
           const n = { ...prev };
           delete n[chatId];

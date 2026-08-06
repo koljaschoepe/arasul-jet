@@ -250,6 +250,27 @@ export default function ComposerCard({
     autoGrow();
   }, [value, autoGrow]);
 
+  // Plan 016: die Höhe auch bei BREITEN-Änderungen neu berechnen. Ohne das
+  // bleibt eine mehrzeilige Nachricht auf ihrer alten Höhe stehen, wenn der
+  // Nutzer das rechte Panel schmaler zieht — der neu umgebrochene Text wird
+  // dann unten abgeschnitten („Eingabezeile abgeschnitten"). Nur auf BREITEN-
+  // Änderungen reagieren: autoGrow ändert die HÖHE, ein Höhen-getriggerter
+  // Observer liefe sonst endlos (ResizeObserver-Loop-Warnung).
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let lastWidth = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (w !== lastWidth) {
+        lastWidth = w;
+        autoGrow();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [autoGrow]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       // Argument-Eingabe (Schritt 14): Tab springt zum nächsten Argument — aber

@@ -127,7 +127,7 @@ export default function HtmlDocumentViewer({
   return (
     <div ref={rootRef} className="flex h-full min-h-0 flex-col">
       {/* Kopfzeile: Umschalter links, Aktionen rechts — auf einer Höhe. */}
-      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+      <div className="flex h-ui-header shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         {/* Dezenter, borderloser Umschalter — einheitlich mit dem Code-Viewer. */}
         <div role="group" aria-label="HTML-Ansicht" className="flex items-center gap-0.5">
           {(

@@ -60,6 +60,13 @@
      Utility: h-ui-row / min-h-ui-row. Die feine Trennlinie ist bereits
      --border (rgba …, ~8–10% Alpha) — kein zweiter Kanten-Token nötig. */
   --spacing-ui-row: 1.375rem;  /* ~22px kompakte Baum-/Listenzeile */
+
+  /* Plan 016: EIN gemeinsamer Kopfzeilen-Höhen-Token für alle Panel-Köpfe
+     (Arbeitsbereich, Viewer, Flow-Editor, Chat, Sidebar). Vorher liefen die
+     Köpfe auseinander (h-8/h-9/h-11/h-14); jetzt teilen sie diesen Wert, damit
+     der Arbeitsbereich »aus einem Guss« wirkt. Deckungsgleich mit der bisher
+     ruhigsten Shell-Höhe (h-9 = 36px). Utility: h-ui-header / min-h-ui-header. */
+  --spacing-ui-header: 2.25rem; /* 36px — einheitliche Panel-Kopfhöhe */
 }
 
 /* ========================================

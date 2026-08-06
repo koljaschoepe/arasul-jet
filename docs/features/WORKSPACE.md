@@ -61,6 +61,15 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
 - **Explorer-Aktionen:** öffnen (Editor-Tab `projektdatei`, PDFs/Binäres im
   Dokument-Viewer), anlegen, umbenennen, löschen, hoch-/herunterladen. API:
   `/api/projects/:id/dateien/*` ([`API_REFERENCE.md`](../api/API_REFERENCE.md)).
+- **Markdown-Editor (Plan 016):** `.md`/`.markdown` öffnen als gerenderte,
+  direkt bearbeitbare **TipTap-Vorschau** (Default) — dieselbe Engine wie der
+  Dokument-Editor. Der Kopf-Umschalter **Vorschau ⇄ Quelltext** zeigt das rohe
+  Markdown in CodeMirror. Gespeichert wird **dezent automatisch** (Auto-Save
+  nach kurzer Tipp-Pause, „Gespeichert ✓"-Hinweis; kein großer Knopf). YAML-
+  **Frontmatter** wird beim Öffnen wörtlich abgetrennt und beim Speichern
+  unverändert wieder angehängt; bloßes Öffnen schreibt nie auf die Platte
+  (Roundtrip-sicher fürs Ein-Ordner-Modell). Andere Textdateien (`.py`, `.json`
+  …) bleiben im CodeMirror-Editor mit manuellem Speichern.
 - **Flows** — der `ordner`-Wert `projekt://aktiv` wird zur Laufzeit in den
   Projektordner des aktiven Projekts aufgelöst; `projekt://aktiv/unterordner`
   zielt auf einen Unterordner, und pro Lauf kann `ordner_ziel` (z. B. der
