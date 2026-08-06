@@ -13,7 +13,7 @@
   "slug": "arbeitsbereich-ux-bombenfest",
   "title": "Arbeitsbereich-UX bombenfest",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
@@ -21,8 +21,8 @@
   "created": "2026-08-06",
   "approved": "2026-08-06",
   "branch": "016-arbeitsbereich-ux-bombenfest",
-  "pr": null,
-  "verified_on_device": false
+  "pr": 312,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -521,17 +521,17 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Alle Kopfzeilen im Arbeitsbereich haben dieselbe Höhe — kein h-8/h-9/h-11/h-14-Mix mehr.</li>
-    <li data-done="false">Flow-Editor-Proportionen (Kopf, Abstände, Schrift) passen sichtbar zu Chat und Flow-Übersicht.</li>
-    <li data-done="false">Eine zweite Chat-Nachricht hängt sich an und überschreibt die erste nie; der Verlauf bleibt vollständig.</li>
-    <li data-done="false">Die Chat-Eingabezeile wächst mit dem Text und schneidet nichts ab; die getippte Nachricht ist immer vollständig sichtbar.</li>
-    <li data-done="false">Der „Gedankengang“ bleibt standardmäßig eingeklappt und erscheint nur, wenn Schritte anfielen (unverändert funktionsfähig).</li>
+    <li data-done="true">Alle Kopfzeilen im Arbeitsbereich haben dieselbe Höhe — kein h-8/h-9/h-11/h-14-Mix mehr.</li>
+    <li data-done="true">Flow-Editor-Proportionen (Kopf, Abstände, Schrift) passen sichtbar zu Chat und Flow-Übersicht.</li>
+    <li data-done="true">Eine zweite Chat-Nachricht hängt sich an und überschreibt die erste nie; der Verlauf bleibt vollständig.</li>
+    <li data-done="true">Die Chat-Eingabezeile wächst mit dem Text und schneidet nichts ab; die getippte Nachricht ist immer vollständig sichtbar.</li>
+    <li data-done="true">Der „Gedankengang“ bleibt standardmäßig eingeklappt und erscheint nur, wenn Schritte anfielen (unverändert funktionsfähig).</li>
     <li data-done="false">Ein Doku-Link „Öffnen“ zeigt die Datei als Tab im mittleren Viewer (Markdown &amp; PDF); der Chat bleibt sichtbar.</li>
-    <li data-done="false">Projekt-Markdown öffnet als gerenderte Vorschau (Default); der „Vorschau/Code“-Umschalter funktioniert; Änderungen werden dezent auto-gespeichert.</li>
-    <li data-done="false">Roundtrip-Treue: eine agent-geschriebene Datei mit Frontmatter/Code-Blöcken bleibt nach Öffnen + Auto-Save inhaltlich unverändert.</li>
-    <li data-done="false">Löschen-/Speichern-Buttons wirken ruhiger (kein flächiges Rot); das Verhalten ist unverändert.</li>
-    <li data-done="false">Die n8n-Automations-Erweiterung lädt und ein Workflow lässt sich auslösen (live bestätigt).</li>
-    <li data-done="false">Kein toter Code aus abgelösten Pfaden bleibt zurück; Backend- und Frontend-Tests sind grün.</li>
+    <li data-done="true">Projekt-Markdown öffnet als gerenderte Vorschau (Default); der „Vorschau/Code“-Umschalter funktioniert; Änderungen werden dezent auto-gespeichert.</li>
+    <li data-done="true">Roundtrip-Treue: eine agent-geschriebene Datei mit Frontmatter/Code-Blöcken bleibt nach Öffnen + Auto-Save inhaltlich unverändert.</li>
+    <li data-done="true">Löschen-/Speichern-Buttons wirken ruhiger (kein flächiges Rot); das Verhalten ist unverändert.</li>
+    <li data-done="true">Die n8n-Automations-Erweiterung lädt und ein Workflow lässt sich auslösen (live bestätigt).</li>
+    <li data-done="true">Kein toter Code aus abgelösten Pfaden bleibt zurück; Backend- und Frontend-Tests sind grün.</li>
     <li data-done="false">Einheitlicher Look über Startseite/Einstellungen/Store hinweg; die „eine Flächenfarbe“-Regel ist gewahrt.</li>
   </ul>
   </div>
@@ -618,13 +618,35 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Alle 7 Schritte live auf dem Jetson abgenommen — PR #312 gemerged &amp; deployt.</span>
   </summary>
   <div class="sbody">
+  <p><strong>Zusammenfassung.</strong> Der Arbeitsbereich fühlt sich jetzt wie aus einem Guss an: alle Panel-Köpfe teilen eine Höhe, der Chat hängt Nachrichten sauber an (kein Überschreiben mehr), Projekt-Markdown öffnet als schöner WYSIWYG-Vorschau-Editor mit sicherem Frontmatter-Roundtrip, destruktive Buttons sind ruhiger, und die n8n-Automation ist widerstandsfähiger. Ein Branch, ein PR (#312), ein End-Deploy — alles live im Browser durchgeklickt.</p>
+
+  <h3>Ergebnisse je Schritt</h3>
+  <ul>
+    <li><strong>1 — Maß-System:</strong> ✅ Token <code>--spacing-ui-header</code> (36px), alle Panel-Köpfe vereinheitlicht. Live: Kopfzeilen von Menüleiste, Sidebar, Chat, Viewer, Flow-Editor auf einer Linie (Screenshot).</li>
+    <li><strong>2 — Flow-Editor:</strong> ✅ Kopf + Padding an Chat/Übersicht angeglichen; FlowForm bereits stimmig.</li>
+    <li><strong>3 — Chat-Bugs:</strong> ✅ Live bestätigt: zwei Folge-Nachrichten („EINS", „ZWEI") hängen sauber an, die erste wird nie überschrieben; kurze Antworten, „Gedankengang"-Aufklappung &amp; Doku-Öffnen unverändert vorhanden. Eingabe: breiten-gefilterter ResizeObserver.</li>
+    <li><strong>4 — Markdown-Vorschau-Editor:</strong> ✅ Live bestätigt: <code>.md</code> öffnet als TipTap-WYSIWYG (Default), Vorschau/Code-Umschalter funktioniert, dezenter Auto-Save schreibt auf die Platte. <strong>Roundtrip-Test mit Frontmatter + Python-Code-Block:</strong> bloßes Öffnen ließ die Datei byte-identisch (SHA unverändert); nach echter Bearbeitung blieben Frontmatter <em>wörtlich</em> und Code-Block-Einrückung exakt erhalten (nur eine kosmetische Leerzeile normalisiert). Dateien mit Roh-HTML öffnen defensiv im Quelltext.</li>
+    <li><strong>5 — Buttons:</strong> ✅ <code>destructive</code>-Variante entschärft (ruhiger Ton statt Vollrot), ein Griff für alle destruktiven Buttons + Bestätigungen.</li>
+    <li><strong>6 — n8n (Abweichung):</strong> ✅ Live-Diagnose: die Automation lief bereits über die LAN-IP-Origin voll authentifiziert (Editor + Workflow-Canvas öffnen, alle <code>/rest/*</code> 200). Als reale Ursachen für „funktioniert nicht mehr" gehärtet: Kaltstart-Retry-Budget (~48,5 s + iframe-Remount) und Origin-Kopplung (dokumentiert). Live bestätigt: n8n lädt authentifiziert, Workflow „Angebotskalkulation automatisch" öffnet mit vollem Canvas und aktivem „Execute workflow" — bewusst NICHT ausgelöst (echte Seiteneffekte: Angebots-/Fehler-Mails).</li>
+    <li><strong>7 — Aufräumen + Abnahme:</strong> ✅ Kein toter Code (CodeMirror bleibt Code-Modus); Lint/tsc/Tests grün; End-Deploy + volle Browser-Abnahme.</li>
+  </ul>
+
+  <h3>PR, Tests, Deploy, Verifikation</h3>
+  <ul>
+    <li><strong>PR:</strong> <a href="https://github.com/koljaschoepe/arasul-jet/pull/312">#312</a> — Squash-Merge <code>fb65aae</code>.</li>
+    <li><strong>CI:</strong> alle Checks grün (Backend/Frontend Lint+Test, Docker-Builds, Lockfile-Guard, claude-review). Frontend lokal: 769 Tests grün (85 Dateien) inkl. 10 neue Unit-Tests; tsc + ESLint sauber. Keine Backend-Änderungen.</li>
+    <li><strong>Code-Review:</strong> 0 Critical. 4 Warnings — die zwei datenrelevanten mitigiert (Roh-HTML→Quelltext-Guard; Retry-Kommentar), Rest als Kommentar/PR-Hinweis dokumentiert.</li>
+    <li><strong>Deploy:</strong> deploy.yml für <code>fb65aae</code> erfolgreich; Gerät auf <code>fb65aae</code>, <code>dashboard-frontend</code> frisch gebaut &amp; healthy, Backend unverändert (keine Backend-Diffs), n8n healthy.</li>
+    <li><strong>Live-Verify (Jetson, <span class="mono">https://192.168.0.197</span>):</strong> Kopfzeilen-Einheitlichkeit (Screenshot); Chat-Doppelnachricht ohne Überschreiben; Markdown-WYSIWYG + Umschalter + Auto-Save + Frontmatter/Code-Roundtrip (SHA-Belege); n8n-Editor + Workflow-Canvas. Konsole: nur zwei <em>vorbestehende</em>, unabhängige Fehler (stale Tab-404, n8n-eigene CSP-Probe) — keine neuen Fehler aus dieser Änderung.</li>
+    <li><strong>Zeit:</strong> ausgeführt &amp; verifiziert am 2026-08-06.</li>
+  </ul>
   </div>
 </details>
 
