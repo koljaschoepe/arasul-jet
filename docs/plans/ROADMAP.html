@@ -21,7 +21,7 @@
 <title>Arasul · Roadmap Feld-1.0.0</title>
 <script type="application/json" id="roadmap-meta">
 {
-  "updated": "2026-08-04",
+  "updated": "2026-08-06",
   "migrated_from_master_plan": true,
   "gates": [
     { "id": "G1", "title": "Alle Features funktionieren nachweislich (Feature-Audit grün)", "state": "open" },
@@ -33,6 +33,7 @@
     { "id": "G7", "title": "7 Tage unattended stabil", "state": "open" }
   ],
   "themes": [
+    { "id": "T23", "title": "Arbeitsbereich-UX bombenfest — Maß-System dashboard-weit vereinheitlichen (ein gemeinsamer Kopfzeilen-Höhen-Token, Flow-Editor an Chat/Übersicht angeglichen), zwei Chat-Bugs fixen (Eingabezeile abgeschnitten, 2. Nachricht überschreibt die 1.), Markdown-Viewer Preview-first (TipTap + Vorschau/Code-Umschalter + entprellter Auto-Save), Löschen/Speichern optisch entschärfen, n8n-Automations-Erweiterung reparieren, toter Code rund um Berührtes", "prio": "P1", "status": "planned", "source": "Interview 2026-08-06 (4 Runden, 15 Fragen)", "plan": "016", "pr": null, "note": "Ein Branch, ein PR, Deploy + volle Browser-Abnahme erst am Ende. Zahlt auf G2 (Aktions-Feedback) + G3 (UI-Konsistenz). Recherche: Token-Skala existiert schon (Plan 009) → anwenden statt neu definieren; „früherer schöner WYSIWYG“ = TipTap in DocumentViewerTab; Chat-Gedankengang & Doku-Öffnen sind bereits implementiert" },
     { "id": "T22", "title": "Standardprojekte & verlässliche Flows — Vorlagen-Galerie beim Projekt-Anlegen (Kunden & Aufträge/CRM mit Ordner je Kunde + Steckbrief-Übersicht, Firmenwissen & Marke, Kundenservice mit n8n-Antwort-Flow, Interne Finanzen mit ZUGFeRD-Kern), projektgebundene Flows neben globalen (projektübergreifende Ordner-Argumente), Einrichtungs-Interview mit autonomer Web-Recherche, Prüfschritt je Flow + Annahmen-Protokoll, Vorlagen-Update-Hinweise", "prio": "P0", "status": "done", "source": "Interview 2026-08-02 (5 Runden, 19 Fragen + 2 Nachträge; Unity-Ordner als Vorbild)", "plan": "014", "pr": "290,291,293,294,297,299", "note": "Erledigt 2026-08-04: alle 6 Phasen gemerged + Jetson-live-verifiziert; ZUGFeRD extern (Mustang) valide, kein Fallback nötig. Out of scope blieb: Mail im Gerät, Multi-User, Store-Verteilung der Vorlagen, Aufgaben-Management, GoBD-Archiv." },
     { "id": "T18", "title": "Arasul wird Agenten-Orchestrierung — Neupositionierung zur Workflow-Bauer-Plattform: Telegram/Datentabellen/Dashboard/DB-Ansicht/Alt-Chat ersatzlos löschen (~14.000 Zeilen), Projekt-Entität konsolidieren, Agenten als Markdown-Dateien mit Werkzeug-Aufrufen, Chat als Kommandozentrale, n8n-HTTP-Trigger, Netz-Schalter je Workspace, Store-Neubau", "prio": "P0", "status": "done", "source": "Interview 2026-07-17 (6 Runden)", "plan": "008", "pr": 218, "note": "Löst T01/T17 ab; schluckt T02, T03, T04, T12, T16. 16 Schritte, gemergt (squash b670c2e) & live auf dem Jetson 2026-07-18. Funktionaler §6-Durchlauf im Live-Review-Feinschliff" },
     { "id": "T20", "title": "Skills im Chat — Agenten- und Fluss-Layer ersatzlos löschen (Canvas, Scheduler, Provider-Schlüssel, Agenten-Bereich, Workspace-Agenten); Chat bekommt Slash-Skills nach Claude-Code-Vorbild: Markdown-Skills unter data/skills/ mit Argumenten (Freitext/Datei/Auswahl/Wissensbasis), Ordner-Sandbox, Werkzeugen (Dateien, RAG, Websuche via SearXNG, Seiten lesen, Terminal im Sandbox-Container), Subagent-Rollen mit hartem Ergebnis-Vertrag, serverseitig weiterlaufenden Läufen, Lauf-Karte und Änderungs-Übersicht", "prio": "P0", "status": "done", "source": "Interview 2026-07-21 (6 Runden, 24 Fragen)", "plan": "011", "pr": "234,235,239,258,259,260", "note": "Alle 20 Schritte erledigt, gemergt und auf dem Jetson verifiziert. Abschluss: drei Beispiel-Skills (dokument-zusammenfassen/wissen/recherche) via Start-Seed, Datei-Argument speist Dokument-Inhalt ein, reiche Markdown-Darstellung der Skill-Antworten, Unterhaltungs-Suche/Umbenennen/Auto-Titel (#258); Folge-Fix think:false gegen LLM-Timeout bei generativen Skills (#259). Live belegt: Dokument-Zusammenfassung mit echten Fakten, RAG mit Quellen, Web-Recherche mit Subagenten + Quell-Links. Löste T18 und T19 ab" },
@@ -409,6 +410,20 @@
       bleibt Trigger-Rückgrat.</p>
       <div class="facts"><span>Macht Gate: <b>G1</b></span><span>Aufwand: <b>7 Schritte · hoch</b></span><span>Hängt an: <b>T18 (008)</b></span></div>
       <div class="cmd"><code>/work 010</code><button type="button" data-copy="/work 010">Befehl kopieren</button></div>
+    </div>
+  </details>
+
+  <details class="card" id="T23" data-prio="P1" data-status="planned" data-ref="T23 Arbeitsbereich-UX bombenfest">
+    <summary><span class="prio">P1</span><span class="ttl">Arbeitsbereich-UX bombenfest</span><span class="cbtn-slot"></span><span class="st">geplant (016)</span><span class="chev">▶</span></summary>
+    <div class="cbody">
+      <p>Der Arbeitsbereich soll sich wie aus einem Guss anfühlen: gleiche Kopfzeilen-Höhen &amp;
+      Abstände dashboard-weit (ein gemeinsamer Höhen-Token, Flow-Editor an Chat/Übersicht
+      angeglichen), die zwei Chat-Bugs gefixt (Eingabezeile abgeschnitten, 2.&nbsp;Nachricht
+      überschreibt die 1.), Markdown als Preview-first-Editor (TipTap + „Vorschau/Code“-Umschalter
+      + entprellter Auto-Save), Löschen/Speichern optisch entschärft und die n8n-Automation
+      repariert. Ein Branch, ein PR, Deploy + volle Browser-Abnahme erst am Ende.</p>
+      <div class="facts"><span>Macht Gate: <b>zahlt auf G2/G3</b></span><span>Aufwand: <b>~2–3 Sessions</b></span><span>Hängt an: <b>—</b></span></div>
+      <div class="cmd"><code>/work 016</code><button type="button" data-copy="/work 016">Befehl kopieren</button></div>
     </div>
   </details>
 
