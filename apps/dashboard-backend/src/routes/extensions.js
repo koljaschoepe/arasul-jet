@@ -17,7 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { validateBody, validateParams } = require('../middleware/validate');
+const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const { uploadLimiter, llmLimiter, apiLimiter } = require('../middleware/rateLimit');
 const { ValidationError } = require('../utils/errors');
 const extensionService = require('../services/extensions/extensionService');
@@ -34,6 +34,7 @@ const {
   BrueckeFlowRunBody,
   BrueckeFlowParams,
   BrueckeRunParams,
+  WerkstattInventarQuery,
 } = require('../schemas/extensions');
 
 const UPLOAD_DIR = path.join(os.tmpdir(), 'arasul-extension-uploads');
@@ -80,6 +81,22 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     res.json({ data: werkstattWatcher.status(), timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/extensions/werkstatt/inventar?projekt=<slug> — die eine Datenquelle
+ * für das Werkstatt-Panel (Plan 017 Schritt 4/7): erkannte Ordner eines
+ * Projekts mit Status, Typ, Fähigkeiten, Version, Rollback-Verfügbarkeit +
+ * Ablehnungsgründe.
+ */
+router.get(
+  '/werkstatt/inventar',
+  requireAuth,
+  validateQuery(WerkstattInventarQuery),
+  asyncHandler(async (req, res) => {
+    const data = await extensionService.werkstattInventar(req.query.projekt);
+    res.json({ data, timestamp: new Date().toISOString() });
   })
 );
 
@@ -189,6 +206,20 @@ router.get(
   validateParams(ExtensionIdParams),
   asyncHandler(async (req, res) => {
     const data = await extensionService.flowStatus(req.params.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/extensions/:id/rollback — genau EINEN Schritt zurück auf den vor
+ * dem letzten Überschreiben gesicherten Stand (Plan 017 Schritt 4).
+ */
+router.post(
+  '/:id/rollback',
+  requireAuth,
+  validateParams(ExtensionIdParams),
+  asyncHandler(async (req, res) => {
+    const data = await extensionService.rollbackExtension(req.params.id);
     res.json({ data, timestamp: new Date().toISOString() });
   })
 );

@@ -17,6 +17,13 @@ const BuildExtensionBody = z
   })
   .strict();
 
+/** Werkstatt-Inventar eines Projekts (Plan 017 Schritt 4). */
+const WerkstattInventarQuery = z
+  .object({
+    projekt: z.string().trim().min(1).max(100),
+  })
+  .strict();
+
 /** Fork einer installierten Erweiterung in eine neue Werkstatt. */
 const ForkExtensionBody = z
   .object({
@@ -98,4 +105,5 @@ module.exports = {
   BrueckeFlowRunBody,
   BrueckeFlowParams,
   BrueckeRunParams,
+  WerkstattInventarQuery,
 };

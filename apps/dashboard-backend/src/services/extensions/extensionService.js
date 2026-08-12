@@ -19,9 +19,10 @@ const logger = require('../../utils/logger');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
 const { SANDBOX_DATA_DIR } = require('../sandbox/sandboxShared');
 const pkg = require('./extensionPackage');
-// Nur die Konstante — der Watcher selbst lädt extensionService seinerseits
-// ausschließlich lazy (deps()), es entsteht kein Require-Zyklus beim Laden.
-const { CANONICAL_WERKSTATT_SLUG } = require('./werkstattWatcher');
+// Der Watcher lädt extensionService seinerseits ausschließlich lazy (deps()),
+// deshalb ist der Top-Level-Import hier zyklenfrei.
+const werkstattWatcher = require('./werkstattWatcher');
+const { CANONICAL_WERKSTATT_SLUG } = werkstattWatcher;
 
 /** JSONB-Spalte defensiv als String-Array lesen (alte Zeilen: Spalte fehlt/null). */
 function alsListe(value) {
@@ -96,6 +97,14 @@ async function registerPackage({ sourceDir, source, userId, overwrite = false })
 
   pkg.ensureExtensionsDir();
   const target = pkg.packageDirFor(id);
+  // Rollback-Netz (Plan 017 Schritt 4): den aktuellen Stand als genau EINEN
+  // Rollback-Punkt sichern, bevor er überschrieben wird (best effort — ein
+  // fehlgeschlagener Snapshot darf das Bauen nicht blockieren).
+  try {
+    await pkg.saveSnapshot(id);
+  } catch (err) {
+    logger.warn(`Rollback-Snapshot für "${id}" nicht erstellt: ${err.message}`);
+  }
   // Vollständig ersetzen statt mischen: sonst überleben Dateien einer
   // früheren Version, die es im neuen Paket nicht mehr gibt.
   await pkg.removeDir(target);
@@ -309,6 +318,65 @@ async function setEnabled(id, enabled, { faehigkeitenFreigeben = false, userId =
   return aktualisiert;
 }
 
+/**
+ * Werkstatt-Inventar (Plan 017 Schritt 4): die EINE Datenquelle für das Panel
+ * (Schritt 7). Verbindet die Watcher-Sicht (erkannte Ordner eines Projekts,
+ * inkl. Ablehnungsgründe) mit dem Register (Status, Typ, Fähigkeiten, Version)
+ * und der Rollback-Verfügbarkeit.
+ *
+ * Status je Eintrag: `abgelehnt` (kaputtes Manifest + Grund) · `live`
+ * (registriert & aktiviert) · `registriert` (erkannt, noch nicht aktiv) ·
+ * `erkannt` (Watcher kennt den Ordner, aber noch kein Register-Eintrag).
+ */
+async function werkstattInventar(slug) {
+  const status = werkstattWatcher.status();
+  const kandidaten = (status.kandidaten || []).filter(k => k.slug === slug);
+
+  const eintraege = [];
+  for (const k of kandidaten) {
+    if (!k.ok) {
+      eintraege.push({
+        slug: k.slug,
+        subfolder: k.subfolder,
+        status: 'abgelehnt',
+        grund: k.fehler,
+        extId: null,
+      });
+      continue;
+    }
+    let ext = null;
+    if (k.extId) {
+      // Nur „nicht registriert" auf null abbilden (→ Status „erkannt"); ein
+      // echter DB-Fehler soll durchschlagen, nicht als „erkannt" verschleiert.
+      ext = await getExtension(k.extId).catch(err => {
+        if (err instanceof NotFoundError) {
+          return null;
+        }
+        throw err;
+      });
+    }
+    if (!ext) {
+      eintraege.push({ slug: k.slug, subfolder: k.subfolder, status: 'erkannt', extId: k.extId });
+      continue;
+    }
+    eintraege.push({
+      slug: k.slug,
+      subfolder: k.subfolder,
+      status: ext.enabled ? 'live' : 'registriert',
+      extId: ext.id,
+      name: ext.name,
+      type: ext.type,
+      version: ext.version,
+      accessTier: ext.accessTier,
+      faehigkeiten: ext.faehigkeiten,
+      n8nWorkflowId: ext.n8nWorkflowId,
+      rollbackVerfuegbar: await pkg.hasSnapshot(ext.id),
+      installedAt: ext.installedAt,
+    });
+  }
+  return { projekt: slug, intervalMs: status.intervalMs, eintraege };
+}
+
 /** n8n-Live-Status einer Flow-Erweiterung (aktiv? letzter Lauf?). */
 async function flowStatus(id) {
   const ext = await getExtension(id);
@@ -330,8 +398,60 @@ async function removeExtension(id) {
   await pkg.removeDir(pkg.packageDirFor(id)).catch(err => {
     logger.warn(`Paket-Ordner von "${id}" nicht gelöscht: ${err.message}`);
   });
+  await pkg.removeSnapshot(id);
   logger.info(`Erweiterung entfernt: ${id}`);
   return ext;
+}
+
+/**
+ * Rollback (Plan 017 Schritt 4): stellt genau den EINEN gesicherten Vorgänger-
+ * Stand wieder her — Paket-Dateien plus Register-Felder aus dessen Manifest.
+ * approved_capabilities bleibt unangetastet (die Freigabe des Admins gilt
+ * weiter); bei Flow-Erweiterungen wird der wiederhergestellte Workflow neu nach
+ * n8n gespielt, falls die Erweiterung aktiv ist.
+ */
+async function rollbackExtension(id) {
+  const vorher = await getExtension(id);
+  if (!(await pkg.hasSnapshot(id))) {
+    throw new NotFoundError(`Kein Rollback-Punkt für "${id}" vorhanden`);
+  }
+  const manifest = await pkg.restoreSnapshot(id);
+
+  const result = await db.query(
+    `UPDATE extensions SET
+       name = $2, description = $3, ext_type = $4, access_tier = $5, version = $6,
+       manifest = $7, declared_capabilities = $8, updated_at = now()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      id,
+      manifest.name,
+      manifest.description || '',
+      manifest.type,
+      manifest.accessTier,
+      manifest.version,
+      JSON.stringify(manifest),
+      JSON.stringify(manifest.faehigkeiten || []),
+    ]
+  );
+  let wiederhergestellt = toApi(result.rows[0]);
+
+  // Flow-Erweiterung: den zurückgerollten Workflow erneut aktivieren, wenn die
+  // Erweiterung aktiv ist — der n8n-Stand folgt dem Paket-Stand.
+  if (wiederhergestellt.type === 'flow' && wiederhergestellt.enabled) {
+    try {
+      const workflowId = await require('./flowDeployService').liveSchalten(wiederhergestellt);
+      await db.query('UPDATE extensions SET n8n_workflow_id = $2 WHERE id = $1', [id, workflowId]);
+      wiederhergestellt = { ...wiederhergestellt, n8nWorkflowId: workflowId };
+    } catch (err) {
+      logger.warn(`Rollback "${id}": n8n-Reimport fehlgeschlagen: ${err.message}`);
+    }
+  }
+
+  logger.info(
+    `Erweiterung "${id}" auf vorherigen Stand zurückgerollt (v${vorher.version} → v${manifest.version})`
+  );
+  return wiederhergestellt;
 }
 
 // Content-Type je Dateiendung für die ausgelieferte App-Oberfläche. Bewusst eng:
@@ -435,6 +555,8 @@ module.exports = {
   forkExtension,
   setEnabled,
   removeExtension,
+  rollbackExtension,
+  werkstattInventar,
   flowStatus,
   resolveAppAsset,
   packageStream,

@@ -15,6 +15,7 @@
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const crypto = require('crypto');
 const tar = require('tar');
 const { ValidationError } = require('../../utils/errors');
 
@@ -246,6 +247,89 @@ async function removeDir(dir) {
   await fsp.rm(dir, { recursive: true, force: true });
 }
 
+// ---------------------------------------------------------------------------
+// Rollback-Netz (Plan 017 Schritt 4): genau EIN Schritt zurück.
+// Vor jedem Überschreiben wird der aktuelle Paket-Stand als
+// EXTENSIONS_DIR/.rollback/<id>.tar.gz gesichert; ein Rollback stellt ihn her.
+// ---------------------------------------------------------------------------
+
+const ROLLBACK_DIR = path.join(EXTENSIONS_DIR, '.rollback');
+
+function snapshotPathFor(id) {
+  return path.join(ROLLBACK_DIR, `${assertSafeId(id)}.tar.gz`);
+}
+
+/**
+ * Sichert den aktuellen Paket-Ordner als Rollback-Punkt (überschreibt den
+ * vorherigen — es gibt bewusst nur EINEN Schritt zurück). No-op, wenn (noch)
+ * kein Paket-Ordner existiert. Atomar über temp + rename.
+ */
+async function saveSnapshot(id) {
+  const dir = packageDirFor(id);
+  try {
+    const stat = await fsp.stat(dir);
+    if (!stat.isDirectory()) {
+      return false;
+    }
+  } catch {
+    return false; // nichts zu sichern
+  }
+  await fsp.mkdir(ROLLBACK_DIR, { recursive: true });
+  const ziel = snapshotPathFor(id);
+  // Eindeutiger Temp-Name: zwei gleichzeitige Snapshots derselben id (Watcher-
+  // Takt trifft manuelles /bauen) dürfen sich nicht ins tar schreiben — jeder
+  // packt in seine eigene Datei, das rename ist atomar (letzter gewinnt).
+  const tmp = `${ziel}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+  try {
+    await tar.create({ file: tmp, gzip: true, cwd: dir, portable: true }, ['.']);
+    await fsp.rename(tmp, ziel);
+  } catch (err) {
+    await fsp.rm(tmp, { force: true }).catch(() => {});
+    throw err;
+  }
+  return true;
+}
+
+/** Gibt es einen Rollback-Punkt für diese Erweiterung? */
+async function hasSnapshot(id) {
+  try {
+    await fsp.access(snapshotPathFor(id));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Stellt den gesicherten Stand wieder her: entpackt das Snapshot-Archiv in
+ * einen temporären Ordner, validiert dort die manifest.json und tauscht es erst
+ * danach in den Paket-Ordner. Gibt das wiederhergestellte Manifest zurück.
+ */
+async function restoreSnapshot(id) {
+  const snap = snapshotPathFor(id);
+  try {
+    await fsp.access(snap);
+  } catch {
+    throw new ValidationError(`Kein Rollback-Punkt für "${id}" vorhanden`);
+  }
+  const tmpDir = await fsp.mkdtemp(path.join(require('os').tmpdir(), 'arasul-rollback-'));
+  try {
+    await tar.extract({ file: snap, cwd: tmpDir, preservePaths: false, noMtime: true });
+    const manifest = await readManifest(tmpDir);
+    const target = packageDirFor(id);
+    await removeDir(target);
+    await copyTree(tmpDir, target);
+    return manifest;
+  } finally {
+    await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/** Entfernt den Rollback-Punkt (beim Deinstallieren). Idempotent. */
+async function removeSnapshot(id) {
+  await fsp.rm(snapshotPathFor(id), { force: true }).catch(() => {});
+}
+
 /** Stellt sicher, dass EXTENSIONS_DIR existiert. */
 function ensureExtensionsDir() {
   fs.mkdirSync(EXTENSIONS_DIR, { recursive: true });
@@ -270,4 +354,10 @@ module.exports = {
   copyTree,
   removeDir,
   ensureExtensionsDir,
+  ROLLBACK_DIR,
+  snapshotPathFor,
+  saveSnapshot,
+  hasSnapshot,
+  restoreSnapshot,
+  removeSnapshot,
 };

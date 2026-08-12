@@ -347,3 +347,115 @@ describe('flowStatus (Plan 017 Schritt 3)', () => {
     await expect(extensionService.flowStatus('app1')).rejects.toThrow(/Flow-Erweiterungen/i);
   });
 });
+
+describe('rollbackExtension (Plan 017 Schritt 4)', () => {
+  const path2 = require('path');
+  const pkg = require('../../src/services/extensions/extensionPackage');
+
+  function extRow(overrides = {}) {
+    return {
+      id: 'app1',
+      name: 'App',
+      description: '',
+      ext_type: 'app',
+      access_tier: 'internet',
+      version: '2.0.0',
+      source: 'built',
+      enabled: false,
+      manifest: {},
+      declared_capabilities: [],
+      approved_capabilities: [],
+      n8n_workflow_id: null,
+      installed_at: new Date().toISOString(),
+      ...overrides,
+    };
+  }
+
+  it('wirft NotFound ohne Rollback-Punkt', async () => {
+    db.query.mockResolvedValue({ rows: [extRow()] });
+    jest.spyOn(pkg, 'hasSnapshot').mockResolvedValue(false);
+    await expect(extensionService.rollbackExtension('app1')).rejects.toThrow(/Rollback-Punkt/i);
+    pkg.hasSnapshot.mockRestore();
+  });
+
+  it('stellt Paket + Register-Felder aus dem Snapshot-Manifest wieder her', async () => {
+    db.query.mockImplementation(async sql =>
+      /UPDATE extensions SET\s+name/.test(sql)
+        ? { rows: [extRow({ version: '1.0.0', name: 'Alt' })] }
+        : { rows: [extRow({ version: '2.0.0', name: 'Neu' })] }
+    );
+    jest.spyOn(pkg, 'hasSnapshot').mockResolvedValue(true);
+    jest.spyOn(pkg, 'restoreSnapshot').mockResolvedValue({
+      id: 'app1',
+      name: 'Alt',
+      description: '',
+      type: 'app',
+      accessTier: 'internet',
+      version: '1.0.0',
+      entry: 'index.html',
+      faehigkeiten: [],
+    });
+
+    const ext = await extensionService.rollbackExtension('app1');
+    expect(ext.version).toBe('1.0.0');
+    const updateCall = db.query.mock.calls.find(([sql]) => /UPDATE extensions SET\s+name/.test(sql));
+    expect(updateCall[1]).toContain('1.0.0');
+
+    pkg.hasSnapshot.mockRestore();
+    pkg.restoreSnapshot.mockRestore();
+  });
+});
+
+describe('werkstattInventar (Plan 017 Schritt 4)', () => {
+  const watcher = require('../../src/services/extensions/werkstattWatcher');
+  const pkg = require('../../src/services/extensions/extensionPackage');
+
+  afterEach(() => {
+    if (watcher.status.mockRestore) {
+      watcher.status.mockRestore();
+    }
+  });
+
+  it('führt Watcher-Ablehnungen und Register-Status zusammen', async () => {
+    jest.spyOn(watcher, 'status').mockReturnValue({
+      intervalMs: 15000,
+      kandidaten: [
+        { slug: 'werk', subfolder: 'gut', ok: true, extId: 'gut-ext', fehler: null },
+        { slug: 'werk', subfolder: 'kaputt', ok: false, extId: null, fehler: 'manifest kaputt' },
+        { slug: 'anders', subfolder: 'x', ok: true, extId: 'fremd', fehler: null },
+      ],
+    });
+    db.query.mockResolvedValue({
+      rows: [
+        {
+          id: 'gut-ext',
+          name: 'Gut',
+          ext_type: 'app',
+          access_tier: 'internet',
+          version: '1.0.0',
+          source: 'built',
+          enabled: true,
+          manifest: {},
+          declared_capabilities: [],
+          approved_capabilities: [],
+          n8n_workflow_id: null,
+          installed_at: new Date().toISOString(),
+        },
+      ],
+    });
+    jest.spyOn(pkg, 'hasSnapshot').mockResolvedValue(true);
+
+    const inv = await extensionService.werkstattInventar('werk');
+    expect(inv.projekt).toBe('werk');
+    // Nur die beiden 'werk'-Kandidaten, nicht 'anders'.
+    expect(inv.eintraege).toHaveLength(2);
+    const live = inv.eintraege.find(e => e.subfolder === 'gut');
+    expect(live.status).toBe('live');
+    expect(live.rollbackVerfuegbar).toBe(true);
+    const abgelehnt = inv.eintraege.find(e => e.subfolder === 'kaputt');
+    expect(abgelehnt.status).toBe('abgelehnt');
+    expect(abgelehnt.grund).toBe('manifest kaputt');
+
+    pkg.hasSnapshot.mockRestore();
+  });
+});
