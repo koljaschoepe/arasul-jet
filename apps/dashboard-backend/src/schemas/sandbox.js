@@ -90,6 +90,79 @@ const ClaudeOAuthCompleteBody = z
   })
   .strict();
 
+// Projekt-Verbindungen (Plan 017 Schritt 5). `env` = eine Umgebungsvariable
+// (name = Variablenname, value = Geheimwert); `mcp` = ein MCP-Server (command +
+// args; value = optionaler Token, der als Env unter valueEnv injiziert wird).
+// Der Wert wird verschlüsselt abgelegt und nie zurückgegeben.
+const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// MCP-Server-Name: landet als TOML-Sektionskopf ([mcp_servers.<name>]) und als
+// JSON-Schlüssel in .mcp.json — daher hart auf ein sicheres Zeichenset
+// begrenzt (kein Punkt/Klammer/Whitespace, sonst Config-Injection möglich).
+const MCP_NAME_RE = /^[A-Za-z0-9_-]{1,60}$/;
+
+const CreateConnectionBody = z
+  .object({
+    kind: z.enum(['env', 'mcp']).default('env'),
+    name: z.string().trim().min(1).max(100),
+    value: z.string().max(8192).optional(),
+    // Nur für kind='mcp':
+    command: z.string().trim().max(200).optional(),
+    args: z.array(z.string().max(500)).max(50).optional(),
+    valueEnv: z.string().trim().regex(ENV_NAME_RE).max(100).optional(),
+  })
+  .strict()
+  .superRefine((val, ctx) => {
+    if (val.kind === 'env') {
+      if (!ENV_NAME_RE.test(val.name)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['name'],
+          message: 'Bei einer Env-Verbindung muss der Name ein gültiger Variablenname sein',
+        });
+      }
+      if (val.value === undefined || val.value.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['value'],
+          message: 'Bei einer Env-Verbindung ist ein Wert erforderlich',
+        });
+      }
+    }
+    if (val.kind === 'mcp') {
+      if (!val.command) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['command'],
+          message: 'Bei einem MCP-Server ist ein command erforderlich',
+        });
+      }
+      if (!MCP_NAME_RE.test(val.name)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['name'],
+          message: 'MCP-Server-Name: nur Buchstaben, Ziffern, _ und - (max. 60 Zeichen)',
+        });
+      }
+    }
+  });
+
+const UpdateConnectionBody = z
+  .object({
+    value: z.string().max(8192).optional(),
+    command: z.string().trim().min(1).max(200).optional(),
+    args: z.array(z.string().max(500)).max(50).optional(),
+    valueEnv: z.string().trim().regex(ENV_NAME_RE).max(100).optional(),
+  })
+  .strict();
+
+const ProjectIdParams = z.object({ id: z.string().trim().min(1).max(100) }).strict();
+const ConnectionIdParams = z
+  .object({
+    id: z.string().trim().min(1).max(100),
+    connId: z.string().uuid(),
+  })
+  .strict();
+
 module.exports = {
   CreateProjectBody,
   UpdateProjectBody,
@@ -97,4 +170,8 @@ module.exports = {
   WorkspaceParams,
   ClaudeAuthBody,
   ClaudeOAuthCompleteBody,
+  CreateConnectionBody,
+  UpdateConnectionBody,
+  ProjectIdParams,
+  ConnectionIdParams,
 };

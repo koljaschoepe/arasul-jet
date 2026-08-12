@@ -4,13 +4,63 @@
  * Handles WebSocket ↔ Docker exec stream piping for xterm.js clients.
  */
 
+const path = require('path');
+const fsp = require('fs/promises');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
 const { ValidationError } = require('../../utils/errors');
+const { SANDBOX_DATA_DIR } = require('./sandboxShared');
 const sandboxService = require('./sandboxService');
 const externalCredentialsService = require('./externalCredentialsService');
 const claudeOauthService = require('./claudeOauthService');
+const connectionsService = require('./connectionsService');
+
+// Container-lokaler Ablageort der generierten Codex-Konfiguration innerhalb des
+// Workspace (CODEX_HOME wird darauf gesetzt, s. u.).
+const CODEX_HOME_REL = '.codex';
+
+/**
+ * Projekt-Verbindungen (Plan 017 Schritt 5) in die Sitzung bringen:
+ *  - schreibt `/workspace/.mcp.json` (Claude Code) + `.codex/config.toml`
+ *    (Codex) in den Workspace-Ordner des Projekts. Diese Dateien sind
+ *    GENERIERT und werden bei jedem Sitzungs-Start aus den Verbindungen neu
+ *    geschrieben — manuelle Änderungen darin überleben nicht (die
+ *    Verbindungen sind die Wahrheit).
+ *  - liefert die Env-Paare + ob eine Codex-Konfig existiert (`hatCodex`), damit
+ *    `CODEX_HOME` nur dann umgebogen wird, wenn es wirklich Verbindungen gibt —
+ *    sonst bliebe ein vorhandener Codex-Standard-Login unsichtbar.
+ * Alles best effort — ein Fehler hier darf ein Terminal nie blockieren.
+ */
+async function buildConnectionEnv(projectId, slug) {
+  try {
+    const inj = await connectionsService.buildInjection(projectId);
+    if (!slug) {
+      return { env: inj.env || [], hatCodex: false };
+    }
+    const workspaceDir = path.join(SANDBOX_DATA_DIR, slug);
+    if (inj.mcpJson) {
+      await fsp.writeFile(path.join(workspaceDir, '.mcp.json'), inj.mcpJson).catch(err => {
+        logger.warn(`Verbindungen: .mcp.json nicht geschrieben (${slug}): ${err.message}`);
+      });
+    }
+    let hatCodex = false;
+    if (inj.codexToml) {
+      const codexDir = path.join(workspaceDir, CODEX_HOME_REL);
+      await fsp.mkdir(codexDir, { recursive: true }).catch(() => {});
+      try {
+        await fsp.writeFile(path.join(codexDir, 'config.toml'), inj.codexToml);
+        hatCodex = true;
+      } catch (err) {
+        logger.warn(`Verbindungen: Codex-Konfig nicht geschrieben (${slug}): ${err.message}`);
+      }
+    }
+    return { env: inj.env || [], hatCodex };
+  } catch (err) {
+    logger.warn(`buildConnectionEnv übersprungen (${projectId}): ${err.message}`);
+    return { env: [], hatCodex: false };
+  }
+}
 
 // Active sessions map: sessionId → { exec, stream, ws, projectId }
 const activeSessions = new Map();
@@ -125,6 +175,11 @@ async function createSession(
   // JEDER Session sofort angemeldet. Vorher (lazy) den OAuth-Token erneuern,
   // falls er kurz vor Ablauf steht — scheitert nie hart.
   const auth = await buildAuthEnv(userId);
+  // Projekt-Verbindungen (Plan 017 Schritt 5): Env-Werte + generierte
+  // .mcp.json/Codex-Konfig für diese Sandbox. Best effort.
+  const conn = await buildConnectionEnv(projectId, project.slug);
+  const connEnvList = conn.env.map(({ name, value }) => `${name}=${value}`);
+  const connNames = conn.env.map(p => p.name).filter(name => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name));
   // `claude`/`codex` laufen als tmux-Session-Kommando und sourcen KEINE .bashrc;
   // ein bereits laufender tmux-Server erbt die exec-Env NICHT. Deshalb:
   //  1) `unset ANTHROPIC_API_KEY` (falls Token-Modus) — entfernt einen geerbten
@@ -136,11 +191,16 @@ async function createSession(
   //     laufenden tmux-Server.
   // Hinweis: Ein bereits laufender `claude`/`codex`-Prozess behält beim Reattach
   // seine Start-Env — ein frisch erneuerter Token greift erst beim nächsten Start.
+  // CODEX_HOME nur dann auf den generierten Ordner biegen, wenn es tatsächlich
+  // eine Codex-Konfig aus Verbindungen gibt — sonst bliebe ein vorhandener
+  // Codex-Standard-Login ($HOME/.codex) unsichtbar.
+  const connSetenvNames = conn.hatCodex ? [...connNames, 'CODEX_HOME'] : connNames;
   const unsetPrefix = auth.neutralize ? 'unset ANTHROPIC_API_KEY; ' : '';
   const tmuxSetenv = [
     ...auth.names
       .filter(name => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
       .map(name => `tmux setenv -g ${name} "$${name}"`),
+    ...connSetenvNames.map(name => `tmux setenv -g ${name} "$${name}"`),
     ...(auth.neutralize ? ['tmux setenv -gu ANTHROPIC_API_KEY'] : []),
   ].join('; ');
   const tmuxPrep = tmuxSetenv ? `${tmuxSetenv}; ` : '';
@@ -190,7 +250,10 @@ async function createSession(
         `LC_ALL=en_US.UTF-8`,
         `COLUMNS=${cols}`,
         `LINES=${rows}`,
+        // CODEX_HOME nur setzen, wenn es eine generierte Codex-Konfig gibt.
+        ...(conn.hatCodex ? [`CODEX_HOME=/workspace/${CODEX_HOME_REL}`] : []),
         ...auth.envList,
+        ...connEnvList,
       ],
     });
   } catch (err) {

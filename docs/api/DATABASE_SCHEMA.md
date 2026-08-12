@@ -2183,6 +2183,27 @@ inert.
 
 ---
 
+## `sandbox_project_connections`
+
+> Projekt-Verbindungen (Plan 017 Schritt 5, Migration `136_sandbox_connections.sql`):
+> verschlüsselte externe Zugänge (`env`) + MCP-Server (`mcp`) je Sandbox-Projekt.
+> Beim Container-/Sitzungs-Start als Env + generierte `.mcp.json`/Codex-Konfig
+> injiziert. Der Wert wird nie über die API zurückgegeben.
+
+| Column             | Type        | Nullable | Default                                  |
+| ------------------ | ----------- | -------- | ---------------------------------------- |
+| `id`               | uuid        | ⛔       | `gen_random_uuid()`                      |
+| `project_id`       | uuid        | ⛔       | (FK sandbox_projects, ON DELETE CASCADE) |
+| `name`             | text        | ⛔       |                                          |
+| `kind`             | text        | ⛔       | `'env'`                                  |
+| `config`           | jsonb       | ⛔       | `'{}'::jsonb`                            |
+| `secret_encrypted` | bytea       | ✅       | (AES-256-GCM, tokenCrypto)               |
+| `created_by`       | integer     | ✅       | (FK admin_users, ON DELETE SET NULL)     |
+| `created_at`       | timestamptz | ⛔       | `now()`                                  |
+| `updated_at`       | timestamptz | ⛔       | `now()`                                  |
+
+**Constraints:** `kind` ∈ (`env`, `mcp`); unique `(project_id, name)`.
+
 ## `sandbox_terminal_sessions`
 
 > Active and historical terminal sessions within sandbox projects

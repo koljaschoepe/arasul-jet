@@ -590,7 +590,7 @@
     <div class="result"><strong>Ergebnis:</strong> Snapshot-Helfer in extensionPackage (save/has/restore/removeSnapshot → EXTENSIONS_DIR/.rollback/&lt;id&gt;.tar.gz, atomar); registerPackage sichert vor JEDEM Überschreiben den aktuellen Stand (best effort). <code>POST /api/extensions/:id/rollback</code> stellt genau einen Schritt her (Paket + Register-Felder aus dem Snapshot-Manifest; approved_capabilities bleibt; Flow-Reimport wenn aktiv), Deinstallieren räumt den Snapshot mit ab. Inventar-API <code>GET /werkstatt/inventar?projekt=&lt;slug&gt;</code> führt Watcher-Status (erkannt/abgelehnt+Grund) + Register (live/registriert) + Rollback-Verfügbarkeit + Typ/Fähigkeiten/Version zusammen. Echter Pack→Restore-Round-Trip getestet. 2080 Backend-Tests grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Projekt-Verbindungen + MCP">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 5 — Projekt-Verbindungen + MCP">
     <h3>Schritt 5 — Projekt-Verbindungen + MCP <span class="tag">Risiko: mittel</span></h3>
     <p>Migration: Tabelle <code>sandbox_project_connections</code> (Projekt, Name, Art
     <code>env</code>/<code>mcp</code>, Konfiguration, verschlüsselter Wert nach dem bestehenden
@@ -600,6 +600,7 @@
     <code>/workspace/.mcp.json</code> für Claude Code plus Codex-MCP-Konfiguration. So sind
     Supabase-&amp;-Co.-Zugänge und MCP-Server pro Projekt nutzbar, ohne Klartext im Workspace.</p>
     <p class="files mono">services/postgres/init/NNN_*.sql · apps/dashboard-backend/src/services/sandbox/{sandboxService,terminalService,connectionsService}.js · src/routes/sandbox.js · src/schemas/sandbox.js · utils/tokenCrypto.js (wiederverwendet) · Tests</p>
+    <div class="result"><strong>Ergebnis:</strong> Migration 136 (sandbox_project_connections, unique je Projekt+Name), connectionsService (CRUD, AES-256-GCM via tokenCrypto, Wert NIE zurückgegeben — nur hatWert). CRUD unter <code>/api/sandbox/projects/:id/verbindungen</code>. buildInjection liefert Env-Paare (env-Verbindungen + MCP-Token unter valueEnv) plus generierte <code>/workspace/.mcp.json</code> (Claude Code) und Codex-<code>config.toml</code> (CODEX_HOME=/workspace/.codex); MCP-Secrets stehen in den Konfigs NUR als <code>${ENV}</code>-Platzhalter. Injektion beim Sitzungs-Start (terminalService): Env per Variablen-NAME (tmux setenv, nie als Kommandozeilen-Literal), Konfig-Dateien in den Workspace. Tests belegen: Klartext taucht weder in DB-Buffer noch in .mcp.json/Codex-Konfig auf. <b>Review-Fixes:</b> MCP-Name auf sicheres Zeichenset begrenzt (kein TOML/JSON-Injection) + Defense-in-depth-Skip in buildInjection; ConflictError (409) statt ValidationError bei Doppel-Name; CODEX_HOME nur bei vorhandener Codex-Konfig (kein Verstecken eines Standard-Logins); feste ORDER-BY-Reihenfolge (deterministische Env bei Namenskollision); Update lehnt leeres command ab. UI folgt in Schritt 7. 2089 Backend-Tests grün. <b>Hinweis:</b> Verbindungs-Verwaltung ist backend-seitig (API); die Bedien-Oberfläche kommt mit dem Werkstatt-Panel/Projekt-Dialog in Schritt 7.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Terminal-Kopf + Sitzungen">
