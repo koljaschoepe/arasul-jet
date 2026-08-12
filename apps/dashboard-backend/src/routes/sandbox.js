@@ -41,17 +41,20 @@ router.post(
 // Projects CRUD
 // ============================================================================
 
-// GET /api/sandbox/projects — List all projects (filtered by user)
+// GET /api/sandbox/projects — Alle Projekte, geräteweit (Plan 017 Schritt 1).
+// `presence` je Projekt: wer ist gerade live per Terminal-WebSocket verbunden.
 router.get(
   '/projects',
   requireAuth,
   validateQuery(ListProjectsQuery),
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.listProjects({
-      ...req.query,
-      userId: req.user.id,
-    });
-    res.json({ ...result, timestamp: new Date().toISOString() });
+    const result = await sandboxService.listProjects(req.query);
+    const presence = terminalService.presenceSummary();
+    const projects = result.projects.map(p => ({
+      ...p,
+      presence: presence[String(p.id)] || { connections: 0, users: [] },
+    }));
+    res.json({ ...result, projects, timestamp: new Date().toISOString() });
   })
 );
 
@@ -77,8 +80,14 @@ router.get(
   '/projects/:id',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const project = await sandboxService.getProject(req.params.id, req.user.id);
-    res.json({ project, timestamp: new Date().toISOString() });
+    const project = await sandboxService.getProject(req.params.id);
+    res.json({
+      project: {
+        ...project,
+        presence: terminalService.presenceForProject(req.params.id),
+      },
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 
@@ -103,7 +112,7 @@ router.delete(
   '/projects/:id',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.deleteProject(req.params.id, req.user.id);
+    const result = await sandboxService.deleteProject(req.params.id);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -117,7 +126,7 @@ router.post(
   '/projects/:id/start',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.startContainer(req.params.id, req.user.id);
+    const result = await sandboxService.startContainer(req.params.id);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -127,7 +136,7 @@ router.post(
   '/projects/:id/stop',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.stopContainer(req.params.id, req.user.id);
+    const result = await sandboxService.stopContainer(req.params.id);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -137,7 +146,7 @@ router.post(
   '/projects/:id/commit',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const result = await sandboxService.commitContainer(req.params.id, req.user.id);
+    const result = await sandboxService.commitContainer(req.params.id);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
@@ -147,7 +156,7 @@ router.get(
   '/projects/:id/status',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const status = await sandboxService.getContainerStatus(req.params.id, req.user.id);
+    const status = await sandboxService.getContainerStatus(req.params.id);
     res.json({ status, timestamp: new Date().toISOString() });
   })
 );
@@ -163,7 +172,11 @@ router.get(
   asyncHandler(async (req, res) => {
     const includeCompleted = req.query.all === 'true';
     const sessions = await terminalService.listSessions(req.params.id, { includeCompleted });
-    res.json({ sessions, timestamp: new Date().toISOString() });
+    res.json({
+      sessions,
+      presence: terminalService.presenceForProject(req.params.id),
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 
@@ -184,11 +197,8 @@ router.post(
   requireAuth,
   validateParams(WorkspaceParams),
   asyncHandler(async (req, res) => {
-    // Existenz + Owner-or-Admin-Gate (fremder/unbekannter Workspace → 404).
-    const project = await sandboxService.loadWorkspace(req.params.workspace, {
-      userId: req.user.id,
-      userRole: req.user.role,
-    });
+    // Existenz-Check (unbekannter Workspace → 404); Workspaces sind geräteweit.
+    const project = await sandboxService.loadWorkspace(req.params.workspace);
     const result = await externalCredentialsService.captureClaudeLogin(req.user.id, project);
     res.json({ ...result, timestamp: new Date().toISOString() });
   })
@@ -202,10 +212,7 @@ router.get(
   requireAuth,
   validateParams(WorkspaceParams),
   asyncHandler(async (req, res) => {
-    await sandboxService.loadWorkspace(req.params.workspace, {
-      userId: req.user.id,
-      userRole: req.user.role,
-    });
+    await sandboxService.loadWorkspace(req.params.workspace);
     const stored = await externalCredentialsService.hasCredentials(
       req.user.id,
       externalCredentialsService.PROVIDER_CLAUDE
@@ -221,10 +228,7 @@ router.delete(
   requireAuth,
   validateParams(WorkspaceParams),
   asyncHandler(async (req, res) => {
-    await sandboxService.loadWorkspace(req.params.workspace, {
-      userId: req.user.id,
-      userRole: req.user.role,
-    });
+    await sandboxService.loadWorkspace(req.params.workspace);
     const deleted = await externalCredentialsService.deleteCredentials(
       req.user.id,
       externalCredentialsService.PROVIDER_CLAUDE

@@ -19,6 +19,9 @@ const logger = require('../../utils/logger');
 const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
 const { SANDBOX_DATA_DIR } = require('../sandbox/sandboxShared');
 const pkg = require('./extensionPackage');
+// Nur die Konstante — der Watcher selbst lädt extensionService seinerseits
+// ausschließlich lazy (deps()), es entsteht kein Require-Zyklus beim Laden.
+const { CANONICAL_WERKSTATT_SLUG } = require('./werkstattWatcher');
 
 /** DB-Zeile → API-Form (camelCase, ohne interne Pfade). */
 function toApi(row) {
@@ -122,6 +125,27 @@ async function buildFromSandbox({ slug, subfolder = '.', userId, overwrite = fal
   // Ausbruch aus dem Sandbox-Ordner ist nicht verhandelbar.
   if (resolved !== base && !resolved.startsWith(base + path.sep)) {
     throw new ValidationError('Der Unterordner muss innerhalb der Sandbox liegen');
+  }
+  // Plan 017 Schritt 1: der Slug muss eine existierende, aktive
+  // Erweiterungs-Werkstatt sein — sonst ließe sich JEDER Ordner unter
+  // data/sandbox/projects (auch fremde Standard-Sandboxes) als Paket
+  // exfiltrieren. Einzige Ausnahme: die kanonische Flow-Werkstatt „werkstatt“
+  // OHNE eigene sandbox_projects-Zeile (Bau-Flows schreiben fest dorthin —
+  // s. werkstattWatcher.CANONICAL_WERKSTATT_SLUG). Existiert eine Zeile mit
+  // diesem Slug, wird sie normal geprüft — sonst könnte eine Standard-Sandbox
+  // namens „werkstatt“ die Prüfung aushebeln.
+  const projectResult = await db.query(
+    `SELECT workspace_type FROM sandbox_projects WHERE slug = $1 AND status = 'active'`,
+    [slug]
+  );
+  if (projectResult.rows.length === 0) {
+    if (slug !== CANONICAL_WERKSTATT_SLUG) {
+      throw new NotFoundError(`Sandbox "${slug}" existiert nicht`);
+    }
+  } else if (projectResult.rows[0].workspace_type !== 'erweiterungs-werkstatt') {
+    throw new ValidationError(
+      'Pakete lassen sich nur aus einer Erweiterungs-Werkstatt bauen — dieses Projekt ist eine Standard-Sandbox'
+    );
   }
   try {
     const stat = await fsp.stat(resolved);

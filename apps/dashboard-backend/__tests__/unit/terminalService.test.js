@@ -243,3 +243,49 @@ describe('terminalService — input validation', () => {
     });
   });
 });
+
+describe('terminalService — Anwesenheit (Plan 017 Schritt 1)', () => {
+  const terminalService = require('../../src/services/sandbox/terminalService');
+  const { activeSessions } = terminalService._internals;
+
+  beforeEach(() => {
+    // Frühere createSession-Tests dieser Datei hinterlassen echte Einträge.
+    activeSessions.clear();
+  });
+
+  afterEach(() => {
+    activeSessions.clear();
+  });
+
+  test('presenceForProject zählt Verbindungen und Nutzer je tmux-Session', () => {
+    activeSessions.set('s1', { projectId: 'p1', userId: 1, username: 'admin', tmuxName: 'main' });
+    activeSessions.set('s2', { projectId: 'p1', userId: 2, username: 'kolja', tmuxName: 'main' });
+    activeSessions.set('s3', { projectId: 'p1', userId: 1, username: 'admin', tmuxName: 'main-2' });
+    activeSessions.set('s4', { projectId: 'p2', userId: 1, username: 'admin', tmuxName: 'main' });
+
+    const presence = terminalService.presenceForProject('p1');
+
+    expect(presence.connections).toBe(3);
+    expect(presence.users.sort()).toEqual(['admin', 'kolja']);
+    expect(presence.sessions.main).toEqual({ connections: 2, users: ['admin', 'kolja'] });
+    expect(presence.sessions['main-2']).toEqual({ connections: 1, users: ['admin'] });
+  });
+
+  test('presenceForProject liefert Nullwerte für Projekte ohne Verbindung', () => {
+    expect(terminalService.presenceForProject('leer')).toEqual({
+      connections: 0,
+      users: [],
+      sessions: {},
+    });
+  });
+
+  test('presenceSummary gruppiert über alle Projekte', () => {
+    activeSessions.set('s1', { projectId: 'p1', userId: 1, username: 'admin', tmuxName: 'main' });
+    activeSessions.set('s2', { projectId: 'p2', userId: 2, username: 'kolja', tmuxName: 'main' });
+
+    const summary = terminalService.presenceSummary();
+
+    expect(summary.p1).toEqual({ connections: 1, users: ['admin'] });
+    expect(summary.p2).toEqual({ connections: 1, users: ['kolja'] });
+  });
+});

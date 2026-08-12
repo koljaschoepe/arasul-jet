@@ -213,29 +213,25 @@ function seedWerkstattTemplates(targetDir) {
 }
 
 /**
- * List all projects with optional filters
+ * List all projects with optional filters.
+ * Plan 017 Schritt 1: Projekte sind geräteweit — KEIN Besitz-Filter mehr.
+ * `created_by` (Username des Anlegers) bleibt zur Anzeige erhalten.
  */
-async function listProjects({ status, search, limit = 50, offset = 0, userId } = {}) {
+async function listProjects({ status, search, limit = 50, offset = 0 } = {}) {
   const conditions = [];
   const params = [];
   let idx = 1;
 
-  // User isolation: only show projects belonging to this user
-  if (userId) {
-    conditions.push(`user_id = $${idx++}`);
-    params.push(userId);
-  }
-
   if (status) {
-    conditions.push(`status = $${idx++}`);
+    conditions.push(`sp.status = $${idx++}`);
     params.push(status);
   } else {
     // Default: only active projects
-    conditions.push(`status = 'active'`);
+    conditions.push(`sp.status = 'active'`);
   }
 
   if (search) {
-    conditions.push(`(name ILIKE $${idx} OR description ILIKE $${idx})`);
+    conditions.push(`(sp.name ILIKE $${idx} OR sp.description ILIKE $${idx})`);
     params.push(`%${search}%`);
     idx++;
   }
@@ -243,7 +239,7 @@ async function listProjects({ status, search, limit = 50, offset = 0, userId } =
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const countResult = await db.query(
-    `SELECT COUNT(*) FROM sandbox_projects ${whereClause}`,
+    `SELECT COUNT(*) FROM sandbox_projects sp ${whereClause}`,
     params
   );
   const total = parseInt(countResult.rows[0].count);
@@ -253,9 +249,11 @@ async function listProjects({ status, search, limit = 50, offset = 0, userId } =
 
   const result = await db.query(
     `SELECT sp.*,
+       au.username AS created_by,
        (SELECT COUNT(*) FROM sandbox_terminal_sessions st
         WHERE st.project_id = sp.id AND st.status = 'active') AS active_sessions
      FROM sandbox_projects sp
+     LEFT JOIN admin_users au ON au.id = sp.user_id
      ${whereClause}
      ORDER BY sp.last_accessed_at DESC NULLS LAST, sp.created_at DESC
      LIMIT $${idx++} OFFSET $${idx}`,
@@ -266,24 +264,20 @@ async function listProjects({ status, search, limit = 50, offset = 0, userId } =
 }
 
 /**
- * Get a single project by ID
+ * Get a single project by ID.
+ * Geräteweit (Plan 017 Schritt 1): jeder angemeldete Nutzer darf jedes Projekt
+ * öffnen — der frühere Besitz-Filter entfällt.
  */
-async function getProject(projectId, userId) {
-  const params = [projectId];
-  let userFilter = '';
-
-  if (userId) {
-    userFilter = ' AND sp.user_id = $2';
-    params.push(userId);
-  }
-
+async function getProject(projectId) {
   const result = await db.query(
     `SELECT sp.*,
+       au.username AS created_by,
        (SELECT COUNT(*) FROM sandbox_terminal_sessions st
         WHERE st.project_id = sp.id AND st.status = 'active') AS active_sessions
      FROM sandbox_projects sp
-     WHERE sp.id = $1${userFilter}`,
-    params
+     LEFT JOIN admin_users au ON au.id = sp.user_id
+     WHERE sp.id = $1`,
+    [projectId]
   );
 
   if (result.rows.length === 0) {
@@ -302,8 +296,8 @@ async function updateProject(
   userId,
   userRole
 ) {
-  // Verify project exists and belongs to user
-  await getProject(projectId, userId);
+  // Verify project exists (geräteweit — userId dient nur noch dem Audit-Log)
+  await getProject(projectId);
 
   const setClauses = ['updated_at = NOW()'];
   const params = [];
@@ -374,12 +368,12 @@ async function updateProject(
 /**
  * Delete (archive) a project
  */
-async function deleteProject(projectId, userId) {
-  const project = await getProject(projectId, userId);
+async function deleteProject(projectId) {
+  const project = await getProject(projectId);
 
-  // Stop container if running (userId already verified via getProject above)
+  // Stop container if running
   if (project.container_status === 'running') {
-    await stopContainer(projectId, userId);
+    await stopContainer(projectId);
   }
 
   // Remove container if it exists
@@ -412,19 +406,26 @@ async function deleteProject(projectId, userId) {
 // ============================================================================
 
 /**
- * Start (or create) the container for a project
+ * Start (or create) the container for a project.
+ * Plan 017 Schritt 1: der Status-Wechsel nach 'creating' ist ein atomarer
+ * bedingter UPDATE — zwei gleichzeitige Start-Klicks können den Container
+ * nicht mehr doppelt anlegen; der Verlierer bekommt eine freundliche
+ * "läuft schon"-Antwort statt eines error-Status.
  */
-async function startContainer(projectId, userId) {
-  const project = await getProject(projectId, userId);
+async function startContainer(projectId) {
+  // Existenz-Check (404 bei unbekanntem Projekt) — der eigentliche Claim folgt atomar.
+  await getProject(projectId);
 
-  if (['running', 'creating', 'committing'].includes(project.container_status)) {
-    return { success: true, message: 'Container wird bereits verarbeitet' };
+  const claim = await db.query(
+    `UPDATE sandbox_projects SET container_status = 'creating'
+     WHERE id = $1 AND container_status NOT IN ('running', 'creating', 'committing')
+     RETURNING *`,
+    [projectId]
+  );
+  if (claim.rows.length === 0) {
+    return { success: true, message: 'Container läuft bereits oder wird gerade verarbeitet' };
   }
-
-  // Update status to creating
-  await db.query(`UPDATE sandbox_projects SET container_status = 'creating' WHERE id = $1`, [
-    projectId,
-  ]);
+  const project = claim.rows[0];
 
   try {
     // If container exists (was stopped), just start it
@@ -643,8 +644,8 @@ async function startContainer(projectId, userId) {
 /**
  * Stop the container for a project (preserves container state)
  */
-async function stopContainer(projectId, userId) {
-  const project = await getProject(projectId, userId);
+async function stopContainer(projectId) {
+  const project = await getProject(projectId);
 
   if (
     !project.container_id ||
@@ -693,8 +694,8 @@ async function stopContainer(projectId, userId) {
 /**
  * Commit container state as a new image (preserves installed packages)
  */
-async function commitContainer(projectId, userId) {
-  const project = await getProject(projectId, userId);
+async function commitContainer(projectId) {
+  const project = await getProject(projectId);
 
   if (!project.container_id) {
     throw new ValidationError('Kein Container vorhanden zum Speichern');
@@ -739,8 +740,8 @@ async function commitContainer(projectId, userId) {
 /**
  * Get live container status from Docker (not just DB)
  */
-async function getContainerStatus(projectId, userId) {
-  const project = await getProject(projectId, userId);
+async function getContainerStatus(projectId) {
+  const project = await getProject(projectId);
 
   if (!project.container_id) {
     return { status: 'none', running: false };
@@ -797,15 +798,14 @@ async function getStatistics() {
 startIdleChecker();
 
 /**
- * Lädt einen aktiven Workspace per Id oder Slug und setzt das Owner-or-Admin-
- * Gate durch. Fehlschlag ist immer ein 404 — die Existenz fremder Workspaces
- * wird nicht preisgegeben. (Aus runWorkspaceAgent.js übernommen, Plan 011
- * Schritt 3: die Workspace-Agenten sind entfallen, die Claude-Login-Routen
- * brauchen die Auflösung weiterhin.)
+ * Lädt einen aktiven Workspace per Id oder Slug. Geräteweit (Plan 017
+ * Schritt 1): das frühere Owner-or-Admin-Gate entfällt — jeder angemeldete
+ * Nutzer darf jeden Workspace auflösen. Auth (requireAuth) bleibt Pflicht;
+ * nutzergebundene Dinge (KI-Zugänge, WS-Tickets) bleiben pro Nutzer.
  */
 const WORKSPACE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function loadWorkspace(workspaceRef, { userId, userRole } = {}) {
+async function loadWorkspace(workspaceRef) {
   const ref = String(workspaceRef || '').trim();
   if (!ref) {
     throw new NotFoundError('Workspace nicht gefunden');
@@ -819,13 +819,6 @@ async function loadWorkspace(workspaceRef, { userId, userRole } = {}) {
   );
   const project = result.rows[0];
   if (!project) {
-    throw new NotFoundError(`Workspace "${workspaceRef}" nicht gefunden`);
-  }
-  // Owner-or-admin gate — fail CLOSED. Non-owners (and any caller that omits a
-  // userId while not being admin) get the same 404 the owner-scoped sandbox
-  // routes produce (don't leak existence of other users' workspaces). Admins
-  // bypass the owner check; every non-admin caller MUST present the owning userId.
-  if (userRole !== 'admin' && (userId == null || project.user_id !== userId)) {
     throw new NotFoundError(`Workspace "${workspaceRef}" nicht gefunden`);
   }
   return project;
