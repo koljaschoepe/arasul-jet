@@ -11,6 +11,13 @@ import { useApi } from '@/hooks/useApi';
 import { API_BASE } from '@/config/api';
 import type { AccessTier, ExtType } from '@/features/store/storeExtensionFilters';
 
+/** Brücken-Fähigkeiten einer Erweiterung (Plan 017 Schritt 2). */
+export interface ExtensionCapabilities {
+  deklariert: string[];
+  freigegeben: string[];
+  wirksam: string[];
+}
+
 export interface InstalledExtension {
   id: string;
   name: string;
@@ -22,6 +29,23 @@ export interface InstalledExtension {
   enabled: boolean;
   installedAt: string;
   manifest: Record<string, unknown>;
+  faehigkeiten?: ExtensionCapabilities;
+  n8nWorkflowId?: string | null;
+}
+
+/** Ein Eintrag im Werkstatt-Inventar (Plan 017 Schritt 4/7). */
+export interface WerkstattInventarEintrag {
+  slug: string;
+  subfolder: string;
+  status: 'erkannt' | 'registriert' | 'live' | 'abgelehnt';
+  grund?: string | null;
+  extId?: string | null;
+  name?: string;
+  type?: ExtType;
+  version?: string;
+  accessTier?: AccessTier;
+  faehigkeiten?: ExtensionCapabilities;
+  rollbackVerfuegbar?: boolean;
 }
 
 const QUERY_KEY = ['extensions'];
@@ -69,14 +93,36 @@ export function useExtensions() {
   );
 
   const setExtensionEnabled = useCallback(
-    async (id: string, enabled: boolean) => {
-      await api.put(`/extensions/${id}`, { enabled }, { showError: false });
+    async (id: string, enabled: boolean, faehigkeitenFreigeben = false) => {
+      await api.put(`/extensions/${id}`, { enabled, faehigkeitenFreigeben }, { showError: false });
       queryClient.setQueryData<InstalledExtension[]>(QUERY_KEY, prev =>
         (prev ?? []).map(e => (e.id === id ? { ...e, enabled } : e))
       );
       invalidate();
     },
     [api, queryClient, invalidate]
+  );
+
+  /** Werkstatt-Inventar eines Projekts (Plan 017 Schritt 4/7). */
+  const loadInventar = useCallback(
+    async (projektSlug: string) => {
+      const res = await api.get<{ data: { eintraege: WerkstattInventarEintrag[] } }>(
+        `/extensions/werkstatt/inventar?projekt=${encodeURIComponent(projektSlug)}`,
+        { showError: false }
+      );
+      return res.data.eintraege || [];
+    },
+    [api]
+  );
+
+  /** Genau einen Schritt zurück (Plan 017 Schritt 4). */
+  const rollbackExtension = useCallback(
+    async (id: string) => {
+      const res = await api.post<{ data: InstalledExtension }>(`/extensions/${id}/rollback`, {});
+      invalidate();
+      return res.data;
+    },
+    [api, invalidate]
   );
 
   const forkExtension = useCallback(
@@ -131,5 +177,7 @@ export function useExtensions() {
     removeExtension,
     importPackage,
     downloadUrl,
+    loadInventar,
+    rollbackExtension,
   };
 }

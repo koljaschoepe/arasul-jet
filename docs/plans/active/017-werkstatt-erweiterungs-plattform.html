@@ -617,7 +617,7 @@
     <div class="result"><strong>Ergebnis:</strong> TerminalTabs auf EINE Zeile umgebaut (Projekt-Dropdown + Sitzungs-Tabs inline + „+" + Liste); die alte zweizeilige Kopfzeile weg. Serverseitige Sitzungs-Titel (Migration 137, Schlüssel Projekt+tmux; geräteweit), Auto-Name nach gestartetem Werkzeug (Claude Code/Codex/Lokaler Coder/Shell N), Umbenennen per Doppelklick bzw. F2 (PUT /projects/:id/sitzungen/:tmux/titel), Anwesenheits-Punkt an Kopf + je Tab (aus /sessions). Aufgeräumt: toter Vollbild-Pfad entfernt, „Codex anmelden" aus dem Quick-Launch (kommt in Schritt 8 in den Hub). <b>Review-Fixes:</b> Projekt-Sync überschreibt den Sitzungstitel nicht mehr (Umbenennung blieb sonst nicht stehen), Server-Titel werden in die Registry gespiegelt (StatusBar konsistent), Titel/Anwesenheit werden beim Projektwechsel zurückgesetzt (keine geteilten tmux-Titel des Vorprojekts), Rename-Edit an die Session-Id gebunden (kein Fremd-Feld bei externem Schließen); Integrationstests für die Rename-Route (Happy/404/400). 2097 Backend- + 769 Frontend-Tests grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Werkstatt-Panel + Freigabe-Dialog">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 7 — Werkstatt-Panel + Freigabe-Dialog">
     <h3>Schritt 7 — Werkstatt-Panel + Freigabe-Dialog <span class="tag">Risiko: niedrig</span></h3>
     <p>Die WerkstattLeiste wird zum auf-/zuklappbaren Panel über dem Terminal (nur in
     Werkstatt-Projekten): Liste aus der Inventar-API mit ruhigen Status-Punkten (● live · ○ bereit ·
@@ -627,6 +627,7 @@
     deklarierten Fähigkeiten den Freigabe-Dialog („Diese Erweiterung darf: …“) und bestätigt die
     Liste einmalig. Theme-Tokens statt Hex, Loading-/Fehler-Zustände konsequent.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/sandbox/WerkstattPanel.tsx (ersetzt WerkstattLeiste.tsx) · FreigabeDialog.tsx · useApi-Hooks · Tests (Vitest)</p>
+    <div class="result"><strong>Ergebnis:</strong> WerkstattLeiste.tsx (+Test) entfernt, ersetzt durch WerkstattPanel.tsx — auf-/zuklappbares Panel aus der Inventar-API mit ruhigen Status-Punkten (● live · ○ bereit · ○ erkannt · ▲ abgelehnt+Grund), pro Zeile Live-Schalten/Zurücknehmen/Rollback/Öffnen/Herunterladen; Bausteine-Ikonografie (lucide Blocks/Package), kein Freitext-Ordnerfeld, kein Rocket/Hammer. FreigabeDialog.tsx zeigt beim Live-Schalten mit deklarierten Fähigkeiten „Diese Erweiterung darf: …" und bestätigt einmalig (400 <code>freigabe_erforderlich</code> → Dialog → setEnabled mit Freigabe-Flag). useExtensions um loadInventar/rollbackExtension/Fähigkeiten-Freigabe erweitert. Theme-Tokens, Loading-/Fehler-Zustände. 769 Frontend-Tests grün (inkl. Panel-Inventar + Freigabe-Flow). <b>Review-Fixes:</b> Status-Punkt „live" nutzt jetzt das echte Token bg-success (nicht das nicht existente bg-ok); Busy-Zustand pro Erweiterung statt global (kein Cross-Row-Doppel-Submit); Freigabe-Dialog lässt sich während des Aufrufs nicht per Escape/Klick schließen (kein Wieder-Öffnen bei erneutem 400); aria-expanded + download-Attribut. <b>Hinweis:</b> Verbindungs-Bedien-UI (Schritt 5) bleibt vorerst API-seitig; Panel-Fokus ist die Erweiterungs-Verwaltung.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — KI-Zugangs-Hub + OAuth-Link-Fix">
