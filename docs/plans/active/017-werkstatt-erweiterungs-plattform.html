@@ -1,0 +1,978 @@
+<!doctype html>
+<!--
+  Arasul plan-page — 017 Werkstatt & Erweiterungs-Plattform. Structure per template v2.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 017 · Werkstatt &amp; Erweiterungs-Plattform</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "017",
+  "slug": "werkstatt-erweiterungs-plattform",
+  "title": "Werkstatt & Erweiterungs-Plattform — Terminal-UX, KI-Brücke, Verbindungen",
+  "type": "feature",
+  "status": "approved",
+  "priority": "P0",
+  "risk_level": 2,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-08-12",
+  "approved": "2026-08-12",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 017</p>
+    <span class="chip" id="status-chip" data-status="draft">Draft</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Werkstatt &amp; Erweiterungs-Plattform — Terminal-UX, KI-Brücke, Verbindungen</h1>
+  <p class="lead">Die Werkstatt wird vom „Terminal mit großem Knopf“ zur echten Bau-Plattform:
+  Erweiterungen sind sichtbar verwaltet, dürfen (nach Freigabe) die lokalen Arasul-Dienste wirklich
+  nutzen, Projekte gehören dem ganzen Gerät statt einem Account, und der Coding-Agent bekommt
+  Verbindungen, Kontext und einen geführten Plan/Execute-Arbeitsfluss.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">9</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Neun Schritte, Fundament zuerst: geräteweite Projekte + Robustheits-Fixes,
+      dann die KI-Brücke (Erweiterung → LLM/RAG/Dateien/n8n mit Fähigkeiten-Freigabe), Flow-Erweiterungen
+      live über n8n, Rollback-Netz, Projekt-Verbindungen (Tresor + MCP), danach die sichtbare UI:
+      einzeilige Terminal-Kopfzeile, umbenennbare Sitzungen, Werkstatt-Panel statt Rocket-Button,
+      KI-Zugangs-Hub mit OAuth-Link-Fix, minimales <code>/plan</code>+<code>/execute</code>-Agentenpaket.</dd>
+      <dt>Warum jetzt</dt><dd>Das Kern-Verkaufsversprechen — „mit externer KI sicher auf der lokalen
+      Basis aufbauen“ — ist heute nur halb wahr: Live geschaltete Erweiterungen können keine
+      Arasul-Dienste ansprechen, die Werkstatt-UI versteckt, was der Watcher längst weiß, und
+      Mehrbenutzer-Sichtbarkeit widerspricht dem Einzel-Admin-Modell.</dd>
+      <dt>Größtes Risiko</dt><dd>Die Brücke öffnet erstmals API-Zugriff für eingebettete Erweiterungen —
+      falsch gescoped wäre das ein Datenleck. Gegenmittel: kurzlebige Tokens, serverseitige
+      Fähigkeits-Prüfung pro Aufruf, Freigabe-Bestätigung durch den Admin, Abschalt-Flag.</dd>
+      <dt>Du entscheidest</dt><dd><ul>
+        <li>Bereits bindend entschieden (Interview, 6 Runden / 22 Fragen — siehe §8): geräteweite Projekte, ein Stand + 1 Rollback-Schritt, Fähigkeiten-Freigabe, kein eigenes Internet-Hosting.</li>
+        <li>Freigabe dieser Seite startet die Umsetzung via <code>/work</code> — Schritt-Reihenfolge ist Fundament zuerst.</li>
+        <li>OAuth wird mit maximal <b>einem</b> kontrollierten Live-Versuch getestet (Rate-Limit-Schutz).</li>
+      </ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Aus dem Terminal-Bereich wird die Bau-Plattform, die Arasul verkauft: sicher bauen, sichtbar verwalten, wirklich anbinden.</span>
+  </summary>
+  <div class="sbody">
+  <p>Arasul verspricht: Ein technikaffiner Admin beim Kunden baut mit externen Coding-Agents
+  (Claude Code, Codex) — oder dem lokalen Coder — Erweiterungen <em>auf</em> der lokalen Basis:
+  interne Tools, Dashboards, Automatisierungen. Die Logik dafür existiert (Sandboxes,
+  Paketformat, Watcher, Register), aber drei Dinge halten das Versprechen auf:</p>
+  <ul>
+    <li><b>Die Brücke fehlt.</b> Eine live geschaltete App läuft in einem komplett abgeriegelten
+    iframe und kann weder das lokale LLM noch RAG, Dateien oder n8n ansprechen. Die im Manifest
+    deklarierte Zugriffsstufe hat zur Laufzeit keine Wirkung.</li>
+    <li><b>Die Verwaltung fehlt.</b> Es gibt nur einen Freitext-Ordner + „Erweiterung live schalten“
+    (Rocket-Button). Was gebaut ist, was live ist, was abgelehnt wurde und warum — all das weiß das
+    Backend, aber die UI zeigt es nicht.</li>
+    <li><b>Der Alltag hakt.</b> Sitzungen heißen stur „Sitzung N“ und sind nicht umbenennbar, der
+    Kopfbereich stapelt drei Ebenen, Projekte sind pro Account versteckt statt geräteweit sichtbar,
+    der Claude-OAuth-Link ist nicht klick-/kopierbar, und drei bekannte Robustheits-Bugs nagen am
+    Vertrauen.</li>
+  </ul>
+  <p><b>Fertig heißt:</b> Ein Admin legt ein Projekt an (Zugriffsstufe pro Projekt wählbar), baut mit
+  seinem bevorzugten Agenten per <code>/plan</code> → <code>/execute</code> eine Erweiterung, sieht
+  sie im Werkstatt-Panel mit Status, schaltet sie mit einer klaren Fähigkeiten-Freigabe live — und
+  die App nutzt danach nachweislich LLM, RAG, Dateien und n8n-Flows der lokalen Basis. Sitzungen
+  sind benannt und umbenennbar, jeder am Gerät sieht alle Projekte, ein kaputter Stand ist einen
+  Klick vom Rollback entfernt.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Terminal-UX + Erweiterungs-Verwaltung + KI-Brücke + Verbindungen; kein eigenes Internet-Hosting, kein Rollenmodell, kein Marktplatz.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Geräteweite Sandbox-Projekte (alle sehen &amp; öffnen alles) + Anwesenheits-Anzeige an Sitzungen</li>
+      <li>3 Robustheits-Fixes: Bauen-Slug-Prüfung, Doppel-Start-Race, tote Sitzungs-Zeilen nach Crash</li>
+      <li>KI-Brücke: Manifest-Fähigkeiten, kurzlebige gescopte Tokens, Endpunkte für LLM, RAG, Dateien, n8n-Flows + kleines Client-SDK</li>
+      <li>Fähigkeiten-Freigabe beim Live-Schalten („Diese Erweiterung darf: …“)</li>
+      <li>Flow-Erweiterungen: Live schalten = n8n-Import + Aktivierung, Statusanzeige, Deaktivieren pausiert</li>
+      <li>Rollback-Netz: genau ein Schritt zurück (Paket + ggf. n8n-Workflow)</li>
+      <li>Werkstatt-Inventar-API + Werkstatt-Panel (Liste, Status, Aktionen, Ablehnungsgründe; Bausteine-Optik)</li>
+      <li>Projekt-Verbindungen: verschlüsselter Tresor + MCP-Einträge, Injektion als Env + <code>.mcp.json</code>/Codex-Konfig</li>
+      <li>Einzeilige Terminal-Kopfzeile; Sitzungen mit Auto-Namen + serverseitigem Umbenennen</li>
+      <li>KI-Zugangs-Hub (Claude/Codex/Gemini/lokaler Coder) + OAuth-Link-Fix (klickbar, kopierbar)</li>
+      <li>Agenten-Paket in der Werkstatt: <code>/plan</code>, <code>/execute</code>, kleiner <code>/info</code> + geräteneutrale Kontextdateien</li>
+      <li>Doku-Sync (EXTENSIONS, WORKSPACE, API_REFERENCE, DATABASE_SCHEMA, ENVIRONMENT_VARIABLES)</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>Eigenes Internet-Hosting von Erweiterungen (keine Traefik-Dynamik, keine Subdomains) — nach außen gerichtete Projekte werden extern gehostet und von hier nur <em>gemanagt</em></li>
+      <li>Rollen-/Rechtemodell — Einzel-Admin-Modell bleibt („jeder darf alles“)</li>
+      <li>Öffentlicher Marktplatz / Fremd-Uploads</li>
+      <li>Versions-Historie über den einen Rollback-Schritt hinaus</li>
+      <li>DGX-Spark-/Server-Portierung (nur: Kontextdateien werden geräteneutral formuliert)</li>
+      <li>open-ara-TUI-Politur (Quellen liegen nicht im Repo)</li>
+      <li>Eigene Laufzeit-Container pro Erweiterung</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Der Werkstatt-Kreislauf bleibt; neu sind Brücke (gescopter Zugriff auf Dienste), Verbindungs-Tresor und ein Inventar, das die UI speist.</span>
+  </summary>
+  <div class="sbody">
+  <p>Der bestehende Kreislauf bleibt unangetastet: In einer Sandbox (Projekt mit wählbarer
+  Zugriffsstufe) baut ein Agent eine Erweiterung, der Watcher erkennt und registriert sie, der Admin
+  schaltet sie live, und Apps laufen als iframe im Dashboard. Drei Bausteine kommen dazu.</p>
+  <p><b>Die Brücke.</b> Das Manifest deklariert künftig konkrete Fähigkeiten
+  (<code>llm</code>, <code>rag</code>, <code>dateien</code>, <code>flows</code>). Beim Live-Schalten
+  bestätigt der Admin diese Liste einmal — wie App-Berechtigungen. Das Dashboard reicht der App per
+  postMessage einen kurzlebigen, exakt auf diese Fähigkeiten gescopten Token; damit ruft sie
+  <code>/api/extensions/:id/bruecke/…</code> auf. Das Backend prüft bei <em>jedem</em> Aufruf Token,
+  Erweiterung und Fähigkeit — alles andere wird abgelehnt. Das abgeriegelte iframe bleibt (die App
+  kommt weiterhin nicht an Cookies oder fremde APIs), nur die Brücken-Routen akzeptieren den Token.
+  Ein Env-Flag kann die Brücke geräteweit abschalten.</p>
+  <p><b>Verbindungen &amp; Flows.</b> Pro Projekt lassen sich externe Zugänge (Supabase, Vercel, …)
+  und MCP-Server hinterlegen — Werte landen verschlüsselt im bestehenden Tresor-Muster und werden
+  beim Sandbox-Start als Env-Variablen plus generierter <code>.mcp.json</code>/Codex-Konfiguration
+  injiziert. So kann der Coding-Agent extern gehostete Systeme von hier aus mitverwalten, ohne dass
+  Klartext-Secrets im Workspace liegen. Flow-Erweiterungen werden beim Live-Schalten per n8n-API
+  importiert und aktiviert; ihre Karte zeigt den echten n8n-Status. Jedes Überschreiben sichert den
+  vorherigen Stand als Rollback-Punkt.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 680 400" width="680" role="img" aria-label="Architektur: Werkstatt-Kreislauf mit neuer KI-Brücke und Verbindungs-Tresor" style="font-family: ui-monospace, Menlo, monospace; font-size: 11px;">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g style="color: var(--muted);" fill="none" stroke="currentColor" stroke-width="1.4">
+        <!-- Sandbox -->
+        <rect x="14" y="26" width="200" height="120" rx="10"/>
+        <!-- Register -->
+        <rect x="270" y="26" width="170" height="120" rx="10"/>
+        <!-- App iframe -->
+        <rect x="494" y="26" width="172" height="120" rx="10"/>
+        <!-- Dienste -->
+        <rect x="270" y="300" width="396 " height="72" rx="10"/>
+        <!-- Tresor -->
+        <rect x="14" y="300" width="200" height="72" rx="10"/>
+        <!-- Pfeile -->
+        <path d="M214 86 H268" marker-end="url(#arr)"/>
+        <path d="M440 86 H492" marker-end="url(#arr)"/>
+        <path d="M114 146 V298" marker-end="url(#arr)" stroke-dasharray="4 3"/>
+      </g>
+      <!-- Brücke -->
+      <g style="color: var(--accent);" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="494" y="188" width="172" height="76" rx="10"/>
+        <path d="M580 146 V186" marker-end="url(#arr)"/>
+        <path d="M580 264 V298" marker-end="url(#arr)"/>
+      </g>
+      <g fill="currentColor" style="color: var(--ink);">
+        <text x="24" y="46" font-weight="bold">Werkstatt-Sandbox</text>
+        <text x="24" y="64" style="fill: var(--muted);">Agent: Claude Code /</text>
+        <text x="24" y="79" style="fill: var(--muted);">Codex / lokaler Coder</text>
+        <text x="24" y="100" style="fill: var(--muted);">/plan → /execute</text>
+        <text x="24" y="120" style="fill: var(--muted);">Env + .mcp.json aus</text>
+        <text x="24" y="135" style="fill: var(--muted);">Verbindungen</text>
+
+        <text x="280" y="46" font-weight="bold">Register + Inventar</text>
+        <text x="280" y="66" style="fill: var(--muted);">Watcher erkennt Paket</text>
+        <text x="280" y="82" style="fill: var(--muted);">ein Stand je Erweiterung</text>
+        <text x="280" y="98" style="fill: var(--muted);">+ 1 Rollback-Punkt</text>
+        <text x="280" y="118" style="fill: var(--muted);">Freigabe: „darf: llm,</text>
+        <text x="280" y="133" style="fill: var(--muted);">rag, dateien, flows“</text>
+
+        <text x="504" y="46" font-weight="bold">App im iframe</text>
+        <text x="504" y="66" style="fill: var(--muted);">weiter abgeriegelt,</text>
+        <text x="504" y="82" style="fill: var(--muted);">keine Cookies/APIs</text>
+        <text x="504" y="102" style="fill: var(--muted);">Flow-Erweiterung →</text>
+        <text x="504" y="117" style="fill: var(--muted);">läuft in n8n</text>
+
+        <text x="504" y="208" font-weight="bold" style="fill: var(--accent-ink);">KI-Brücke (neu)</text>
+        <text x="504" y="226" style="fill: var(--muted);">kurzlebiger Token,</text>
+        <text x="504" y="241" style="fill: var(--muted);">nur freigegebene</text>
+        <text x="504" y="256" style="fill: var(--muted);">Fähigkeiten</text>
+
+        <text x="280" y="322" font-weight="bold">Lokale Basis</text>
+        <text x="280" y="342" style="fill: var(--muted);">LLM · RAG · Dateien · n8n-Flows</text>
+        <text x="280" y="360" style="fill: var(--muted);">Prüfung bei jedem Aufruf</text>
+
+        <text x="24" y="322" font-weight="bold">Verbindungs-Tresor</text>
+        <text x="24" y="342" style="fill: var(--muted);">Supabase, MCP, Deploys —</text>
+        <text x="24" y="360" style="fill: var(--muted);">AES-verschlüsselt</text>
+      </g>
+    </svg>
+    <figcaption>Neu (grün): die Brücke zwischen live geschalteter Erweiterung und der lokalen Basis —
+    gescoped, bestätigt, jederzeit abschaltbar. Gestrichelt: Tresor-Injektion in die Sandbox.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 9 Schritte, Fundament zuerst (Backend 1–5), dann UI (6–8), zum Schluss Agenten-Paket + Doku (9). Jeder Schritt lässt das System lauffähig.</span>
+  </summary>
+  <div class="sbody">
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Geräteweite Projekte + Robustheit">
+    <h3>Schritt 1 — Geräteweite Projekte + Robustheit <span class="tag">Risiko: mittel</span></h3>
+    <p>Sandbox-Projekte werden geräteweit: Besitz-Filter in <code>listProjects/getProject/loadWorkspace</code>
+    fällt weg (Anzeige „erstellt von“ bleibt), WS-Tickets bleiben nutzergebunden. Anwesenheit: das Backend
+    weiß über <code>activeSessions</code>, wer verbunden ist, und liefert es je Projekt/Sitzung aus.
+    Dazu die drei Robustheits-Fixes: <code>POST /extensions/bauen</code> validiert, dass der Slug eine
+    existierende Werkstatt-Sandbox ist; Container-Start wird atomar (Status-Wechsel per bedingtem
+    <code>UPDATE … RETURNING</code>, kein Doppel-Start-409 mehr); beim Backend-Boot werden verwaiste
+    <code>active</code>-Sitzungs-Zeilen geschlossen (vorhandene SQL-Funktion endlich aufrufen).</p>
+    <p class="files mono">apps/dashboard-backend/src/services/sandbox/{sandboxService,terminalService,sandboxIdleChecker}.js · src/routes/sandbox.js · src/services/extensions/extensionService.js · Tests (Jest)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — KI-Brücke: Fähigkeiten, Token, Endpunkte">
+    <h3>Schritt 2 — KI-Brücke: Fähigkeiten, Token, Endpunkte <span class="tag">Risiko: hoch</span></h3>
+    <p>Manifest v2: optionales Feld <code>faehigkeiten</code> (<code>llm</code>, <code>rag</code>,
+    <code>dateien</code>, <code>flows</code>); Migration (nächste freie Nummer ≥ 134) erweitert
+    <code>extensions</code> um deklarierte + freigegebene Fähigkeiten. Live-Schalten/Aktivieren verlangt
+    ab jetzt die Freigabe der deklarierten Liste (API-seitig; UI in Schritt 7). Neue Brücken-Routen
+    <code>/api/extensions/:id/bruecke/{llm,rag,dateien,flows}</code>: Auth über kurzlebigen, pro
+    Erweiterung gescopten Token (Ausgabe an die iframe-App per postMessage-Handshake, erneuerbar),
+    serverseitige Fähigkeits-Prüfung bei jedem Aufruf, LLM gestreamt. CORS ausschließlich auf diesen
+    Routen für den opaken iframe-Origin. Env-Flag zum Abschalten der Brücke. Kleines Client-SDK
+    (<code>arasul-bruecke.js</code>) wandert in die Dev-Vorlagen. Backend-Regeln wie immer:
+    <code>asyncHandler</code>, Custom Errors, Zod-Schemas.</p>
+    <p class="files mono">services/postgres/init/NNN_*.sql · apps/dashboard-backend/src/routes/extensions.js · src/services/extensions/{extensionService,brueckeService}.js · src/schemas/extensions.js · services/sandbox/dev-templates/ · apps/dashboard-frontend/src/features/workspace/… (Token-Handshake im Extension-Tab) · Tests</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Flow-Erweiterungen live über n8n">
+    <h3>Schritt 3 — Flow-Erweiterungen live über n8n <span class="tag">Risiko: mittel</span></h3>
+    <p>Typ <code>flow</code> bekommt eine echte Laufzeit: Live schalten importiert
+    <code>workflow.json</code> per n8n-API (Muster aus Plan 014 wiederverwenden), aktiviert den
+    Workflow (inkl. Cron-Trigger) und merkt sich die n8n-Workflow-ID am Register-Eintrag. Erneutes
+    Live-Schalten überschreibt denselben Workflow; Deaktivieren der Erweiterung pausiert ihn; Löschen
+    räumt ihn ab. Das Inventar liefert n8n-Status (aktiv/Fehler/letzter Lauf) für die Karte. Die
+    Brücke aus Schritt 2 erlaubt Apps mit Fähigkeit <code>flows</code>, genau diese Workflows zu
+    starten und Ergebnisse abzuholen. n8n-Ausfälle degradieren sichtbar (Status „nicht erreichbar“),
+    brechen aber nichts.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/extensions/{extensionService,flowDeployService}.js · vorhandener n8n-API-Client (Plan 014) · src/routes/extensions.js · Tests</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Rollback-Netz + Werkstatt-Inventar">
+    <h3>Schritt 4 — Rollback-Netz + Werkstatt-Inventar <span class="tag">Risiko: niedrig</span></h3>
+    <p>Jedes Überschreiben (Bauen, Import, Watcher-Update) sichert vorher den aktuellen Stand als
+    <code>&lt;id&gt;.vorher.tar.gz</code> im Register. <code>POST /api/extensions/:id/rollback</code>
+    stellt genau diesen einen Stand wieder her — bei Flow-Erweiterungen inklusive n8n-Reimport.
+    Neue Inventar-API <code>GET /api/extensions/werkstatt/inventar?projekt=&lt;slug&gt;</code>:
+    alle erkannten Ordner des Projekts mit Status (erkannt · registriert · live · abgelehnt + Grund),
+    Typ, Fähigkeiten, Version, letzter Bau, Rollback-Verfügbarkeit — die eine Datenquelle für das
+    Panel in Schritt 7.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/extensions/{extensionService,werkstattWatcher}.js · src/routes/extensions.js · Tests</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Projekt-Verbindungen + MCP">
+    <h3>Schritt 5 — Projekt-Verbindungen + MCP <span class="tag">Risiko: mittel</span></h3>
+    <p>Migration: Tabelle <code>sandbox_project_connections</code> (Projekt, Name, Art
+    <code>env</code>/<code>mcp</code>, Konfiguration, verschlüsselter Wert nach dem bestehenden
+    AES-256-GCM-Tresor-Muster). CRUD unter <code>/api/sandbox/projects/:id/verbindungen</code> —
+    Werte werden nie zurückgegeben, nur Status. Beim Container-/Sitzungs-Start injiziert das Backend:
+    Env-Variablen (per Name, nie als Kommandozeilen-Literal) und generierte
+    <code>/workspace/.mcp.json</code> für Claude Code plus Codex-MCP-Konfiguration. So sind
+    Supabase-&amp;-Co.-Zugänge und MCP-Server pro Projekt nutzbar, ohne Klartext im Workspace.</p>
+    <p class="files mono">services/postgres/init/NNN_*.sql · apps/dashboard-backend/src/services/sandbox/{sandboxService,terminalService,connectionsService}.js · src/routes/sandbox.js · src/schemas/sandbox.js · utils/tokenCrypto.js (wiederverwendet) · Tests</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Terminal-Kopf + Sitzungen">
+    <h3>Schritt 6 — Terminal-Kopf + Sitzungen <span class="tag">Risiko: niedrig</span></h3>
+    <p>Eine kompakte Kopfzeile: Projekt-Dropdown links, daneben Sitzungs-Tabs, rechts „+“ und
+    Überlauf-Menü; die große Projektzeile entfällt, Netz-Modus/Verbindungsstatus wandern in die
+    bestehende Statusleiste. Sitzungen: Migration für serverseitige Titel (Schlüssel Projekt +
+    tmux-Name); neue Sitzungen bekommen Auto-Namen nach gestartetem Werkzeug („Claude Code“,
+    „Lokaler Coder“, sonst „Shell N“), Umbenennen per Doppelklick/Kontextmenü, Titel gelten in jedem
+    Browser. Anwesenheit aus Schritt 1 wird am Tab sichtbar („2 verbunden“). Aufräumen: toter
+    Vollbild-Pfad wird verdrahtet oder entfernt, „Codex anmelden“ fliegt aus dem Quick-Launch
+    (kommt in Schritt 8 in den Hub), No-op-Callbacks weg.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/sandbox/{TerminalTabs,SandboxApp,SandboxTerminal}.tsx · sessionModel.ts · src/stores/workspaceStore.ts · services/postgres/init/NNN_*.sql · apps/dashboard-backend/src/routes/sandbox.js · Tests (Vitest + Jest)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Werkstatt-Panel + Freigabe-Dialog">
+    <h3>Schritt 7 — Werkstatt-Panel + Freigabe-Dialog <span class="tag">Risiko: niedrig</span></h3>
+    <p>Die WerkstattLeiste wird zum auf-/zuklappbaren Panel über dem Terminal (nur in
+    Werkstatt-Projekten): Liste aus der Inventar-API mit ruhigen Status-Punkten (● live · ○ bereit ·
+    ▲ abgelehnt + Grund), pro Zeile „Live schalten“, Zurücknehmen, Rollback, Öffnen, Herunterladen.
+    Kein Freitext-Ordnerfeld, kein Rocket, kein Hammer — Bausteine-/Paket-Ikonografie (lucide
+    <code>Blocks</code>/<code>Package</code>), dezenter Primär-Button. „Live schalten“ öffnet bei
+    deklarierten Fähigkeiten den Freigabe-Dialog („Diese Erweiterung darf: …“) und bestätigt die
+    Liste einmalig. Theme-Tokens statt Hex, Loading-/Fehler-Zustände konsequent.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/sandbox/WerkstattPanel.tsx (ersetzt WerkstattLeiste.tsx) · FreigabeDialog.tsx · useApi-Hooks · Tests (Vitest)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — KI-Zugangs-Hub + OAuth-Link-Fix">
+    <h3>Schritt 8 — KI-Zugangs-Hub + OAuth-Link-Fix <span class="tag">Risiko: mittel</span></h3>
+    <p>Der KiZugangDialog wird Anbieter-Hub: Claude (drei Modi wie heute), Codex (geführter
+    <code>device-auth</code>-Ablauf mit Anmelde-Status aus dem Container), Gemini (Hinweis +
+    Terminal-Weg), lokaler Coder (Modell geladen?). OAuth-Fix: die Authorize-URL wird ein echter
+    Link (<code>target="_blank"</code>) plus Kopier-Button mit robustem Fallback
+    (<code>navigator.clipboard</code> scheitert bei nicht vertrautem Zertifikat still →
+    <code>execCommand</code>-Fallback + manuelles Auswahlfeld). Vorher kurze gezielte Recherche, ob
+    Anthropic den Flow aktiv drosselt und ob es einen stabileren Weg gibt — erst dann, beim
+    Live-Verify, maximal <b>ein</b> kontrollierter Ende-zu-Ende-Versuch; bei 429 sofort Abbruch und
+    sauberer Befund statt Wiederholungen.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/sandbox/KiZugangDialog.tsx (→ Hub) · SandboxTerminal.tsx (Quick-Launch bereinigt) · apps/dashboard-backend/src/routes/sandbox.js (Codex-Status) · Tests</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Agenten-Paket + Doku">
+    <h3>Schritt 9 — Agenten-Paket + Doku <span class="tag">Risiko: niedrig</span></h3>
+    <p>Jede Werkstatt-Sandbox wird mit einem minimalen Agenten-Paket bestückt:
+    <code>/plan</code> (stellt dem Nutzer im Terminal ausgiebig Rückfragen — Scope? App, Tool oder
+    Flow? Fehlen Verbindungen/MCP? — und schreibt eine anschaubare HTML-Plandatei in den Workspace),
+    <code>/execute &lt;plan&gt;</code> (arbeitet die Plandatei iterativ ab), kleiner <code>/info</code>
+    (zeigt Projekt-Kontext: Fähigkeiten, Verbindungen, Brücken-Referenz). Als Claude-Code-Commands
+    plus <code>AGENTS.md</code>-Pendant für Codex. Dazu kompakte, geräteneutrale Kontextdateien
+    (Brücken-API, Manifest/Fähigkeiten, Flow-Anbindung, Verbindungen) — formuliert für „NVIDIA-Gerät
+    oder Server“, nicht Jetson-spezifisch. Abschluss: Doku-Sync in EXTENSIONS.md, WORKSPACE.md,
+    API_REFERENCE.md, DATABASE_SCHEMA.md, ENVIRONMENT_VARIABLES.md.</p>
+    <p class="files mono">services/sandbox/dev-templates/ (Commands, AGENTS.md, ANLEITUNG.md, Kontextdateien) · apps/dashboard-backend/src/services/sandbox/sandboxService.js (Seed) · docs/features/{EXTENSIONS,WORKSPACE}.md · docs/api/* · docs/ENVIRONMENT_VARIABLES.md</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 14 konkret prüfbare Kriterien — von „Sitzung umbenennbar in jedem Browser“ bis „Brücke lehnt nicht freigegebene Fähigkeit mit 403 ab“.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Zwei Browser (oder zwei Accounts) sehen dieselbe geräteweite Projektliste; an einer offenen Sitzung ist sichtbar, dass jemand anderes verbunden ist.</li>
+    <li data-done="false">Doppelklick „Start“ auf dasselbe Projekt erzeugt keinen <code>error</code>-Status mehr; nach einem Backend-Neustart existieren keine aktiven Geister-Sitzungen in der DB.</li>
+    <li data-done="false"><code>POST /api/extensions/bauen</code> mit nicht existentem oder Nicht-Werkstatt-Slug wird mit Validierungsfehler abgelehnt.</li>
+    <li data-done="false">Der Terminal-Kopf ist genau eine Zeile (Projekt-Dropdown + Sitzungs-Tabs); die alte große Projektzeile ist weg; Statusleiste zeigt Netz-Modus + Verbindung.</li>
+    <li data-done="false">Eine per Quick-Launch „Claude Code“ gestartete Sitzung heißt automatisch „Claude Code“; Umbenennen per Doppelklick funktioniert und der Name erscheint identisch in einem zweiten Browser.</li>
+    <li data-done="false">Das Werkstatt-Panel listet alle erkannten Erweiterungs-Ordner mit Status und Ablehnungsgrund; Rocket-/Hammer-Icons und das Freitext-Ordnerfeld existieren nicht mehr.</li>
+    <li data-done="false">Live-Schalten einer Erweiterung mit deklarierten Fähigkeiten zeigt den Freigabe-Dialog; ohne Freigabe liefert jeder Brücken-Aufruf 403.</li>
+    <li data-done="false">Eine Beispiel-App-Erweiterung ruft über die Brücke nachweislich LLM (gestreamt) und RAG auf und zeigt die Antworten im iframe; eine nicht freigegebene Fähigkeit wird serverseitig abgelehnt.</li>
+    <li data-done="false">Eine Flow-Erweiterung wird beim Live-Schalten in n8n importiert und aktiviert; die Karte zeigt den n8n-Status; Deaktivieren pausiert den Workflow.</li>
+    <li data-done="false">Nach einem Überschreiben stellt „Rollback“ den vorherigen Stand wieder her (App-Paket bzw. n8n-Workflow) — genau ein Schritt zurück.</li>
+    <li data-done="false">Eine Projekt-Verbindung (z. B. Supabase-MCP) ist nach Sandbox-Neustart als Env-Variable + Eintrag in <code>.mcp.json</code> in der Sandbox nutzbar; der Klartext-Wert taucht weder in DB-Zeilen, Logs, <code>ps</code>-Ausgabe noch im Workspace auf.</li>
+    <li data-done="false">Im KI-Zugangs-Hub ist die Claude-Authorize-URL klickbar und kopierbar (auch bei nicht vertrautem Zertifikat); Codex zeigt seinen Anmelde-Status; „Codex anmelden“ ist aus dem Quick-Launch verschwunden.</li>
+    <li data-done="false">In einer frischen Werkstatt-Sandbox stellt <code>/plan</code> im Claude-Code-Terminal Rückfragen und erzeugt eine HTML-Plandatei; <code>/execute</code> arbeitet sie ab; das Pendant ist für Codex dokumentiert.</li>
+    <li data-done="false"><code>./scripts/test/run-tests.sh --all</code> ist grün; die fünf Doku-Dateien sind synchron (Stichprobe: neue Endpunkte in API_REFERENCE, neue Tabellen in DATABASE_SCHEMA, neue Env-Vars in ENVIRONMENT_VARIABLES).</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Jede Phase live im echten Browser auf https://192.168.0.197; Brücke zusätzlich per curl-Negativtest; OAuth mit genau einem kontrollierten Versuch.</span>
+  </summary>
+  <div class="sbody">
+  <p>Nach jedem Phasen-Deploy (<code>docker compose up -d --build</code> der betroffenen Services)
+  wird im echten Browser auf <code>https://192.168.0.197</code> verifiziert (Zertifikats-/Login-Rezept
+  aus dem Memory-Bestand):</p>
+  <ul>
+    <li><b>Terminal-Flows:</b> Projekt anlegen (Zugriffsstufe wählen) → Sitzung starten → Quick-Launch
+    „Lokaler Coder“ → Auto-Name prüfen → Sitzung umbenennen → zweiten Browser öffnen und geräteweite
+    Sichtbarkeit + Anwesenheits-Anzeige prüfen.</li>
+    <li><b>Werkstatt-Flows:</b> Beispiel-Erweiterung im Panel sichten → live schalten inkl.
+    Freigabe-Dialog → App-Tab öffnet sich → Brücken-Aufrufe (LLM/RAG) liefern sichtbar Ergebnisse →
+    absichtlich kaputtes Manifest bauen → Ablehnungsgrund erscheint im Panel → Überschreiben +
+    Rollback durchspielen.</li>
+    <li><b>Flow-Erweiterung:</b> live schalten → Workflow erscheint aktiv in n8n → Karte zeigt Status →
+    Deaktivieren pausiert in n8n (Gegenprobe in der n8n-Oberfläche).</li>
+    <li><b>Verbindungen:</b> Test-Verbindung anlegen → neue Sitzung → Env-Variable und
+    <code>.mcp.json</code> in der Sandbox prüfen → <code>docker logs</code>, DB-Stichprobe und
+    <code>ps</code> auf Klartext-Freiheit prüfen.</li>
+    <li><b>Brücken-Härtung:</b> per <code>curl</code> ohne Token, mit abgelaufenem Token und mit nicht
+    freigegebener Fähigkeit → jeweils 401/403; Env-Flag aus → Brücke antwortet deaktiviert.</li>
+    <li><b>OAuth (vorsichtig):</b> erst Link-Klickbarkeit/Kopieren im Hub prüfen (ohne Anmeldung),
+    dann genau <b>ein</b> Ende-zu-Ende-Versuch mit dem Nutzer; bei 429 sofort stoppen und Befund
+    festhalten. Danach <code>claude</code>-Start in der Sandbox gegen 401 prüfen.</li>
+    <li><b>Gesundheit:</b> <code>docker compose ps</code> (alle healthy), Backend-Logs auf Fehler-Spikes,
+    Watcher-Log-Stichprobe, <code>run-tests.sh --all</code> vor jedem Merge.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Größtes Risiko ist die Brücke (erstmals API-Zugriff aus dem iframe) — gescoped, bestätigt, per Flag abschaltbar; Migrationen bleiben additiv.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Brücke öffnet API-Fläche für eingebettete Apps (opaker Origin, CORS <code>null</code>)</td><td>mittel</td><td>Kurzlebige, pro Erweiterung gescopte Tokens; Fähigkeits-Prüfung bei jedem Aufruf; CORS nur auf Brücken-Routen; Admin-Freigabe Pflicht; Env-Flag als Notaus; Negativtests in §6</td></tr>
+      <tr><td>Geräteweites Projektmodell bricht versteckte Besitz-Annahmen (WS-Ticket, Idle-Stop, Credentials)</td><td>mittel</td><td>Schrittweise Umstellung mit Tests; WS-Tickets bleiben nutzergebunden; KI-Zugänge bleiben pro Nutzer; Anwesenheits-Anzeige gegen Doppel-Tippen</td></tr>
+      <tr><td>Anthropic-Rate-Limit beim OAuth-E2E erneut ausgelöst</td><td>mittel</td><td>Recherche vor dem Versuch; exakt ein Versuch; sofortiger Abbruch bei 429 (bestehende Sofort-Abbruch-Logik); Link-Fix ist unabhängig davon prüfbar</td></tr>
+      <tr><td>n8n-API nicht erreichbar oder Workflow-Import inkompatibel</td><td>niedrig–mittel</td><td>Status degradiert sichtbar („nicht erreichbar“) statt Fehler; Import-Muster aus Plan 014 wiederverwenden; Aktivierung idempotent</td></tr>
+      <tr><td>Secrets aus Verbindungen lecken (Logs, <code>ps</code>, Workspace)</td><td>niedrig</td><td>Injektion per Env-Name statt Literal (Muster aus Plan 015 Phase 4); Werte nie in API-Antworten; Klartext-Prüfung ist eigenes §6-Kriterium</td></tr>
+      <tr><td>Deploy auf dem Gerät scheitert an bekannter Repo-Korruption</td><td>niedrig</td><td>Per Push deployen, vorher <code>receive.denyCurrentBranch=updateInstead</code> + <code>gc.log</code> prüfen (Memory-Rezept); Migrationen idempotent</td></tr>
+      <tr><td>Watcher-/Inventar-Last auf dem Jetson steigt</td><td>niedrig</td><td>Bestehender 15-s-Takt + Signatur-Cache bleiben; Inventar nutzt Watcher-Zustand statt neuem Scan</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <ul>
+    <li><b>Pro Schritt ein PR</b> — jeder Schritt lässt das System lauffähig; Rückzug = <code>git revert</code> + Rebuild der betroffenen Services.</li>
+    <li><b>Migrationen additiv</b> (neue Tabelle, neue Spalten, keine Drops) — ein Code-Rollback läuft gegen das erweiterte Schema weiter; Down-Pfad je Migration dokumentiert.</li>
+    <li><b>Brücke:</b> Env-Flag deaktiviert alle Brücken-Routen sofort, ohne Redeploy der Erweiterungen.</li>
+    <li><b>Erweiterungen:</b> das <code>vorher</code>-Paket ist selbst der Produkt-Rollback; bei Flow-Erweiterungen inklusive n8n-Reimport.</li>
+    <li><b>Geräteweites Modell:</b> reine Code-Änderung (Filter), kein Datenverlust — revertierbar ohne Migration.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 22 Entscheidungen aus 6 Interview-Runden (2026-08-12) — alle bindend für /work.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Wer bedient die Werkstatt primär?</td><td>Technikaffiner Admin beim Kunden</td><td>UI führt und erklärt (Freigabe-Dialog, Status-Klartext, deutsche Labels), kein reines Profi-Werkzeug</td></tr>
+      <tr><td>Lebenszyklus einer Erweiterung</td><td>Ein Stand + Sicherheitsnetz</td><td>Genau ein Live-Stand; jedes Überschreiben behält den Vorgänger als einmaligen Rollback-Punkt</td></tr>
+      <tr><td>Datentrennung der Sandboxes</td><td>Pro Projekt wählbar</td><td>Die drei bestehenden Zugriffsstufen bleiben das Modell; Wahl beim Anlegen, klar erklärt</td></tr>
+      <tr><td>Umfang des Umbaus</td><td>UI + Verwaltungslogik neu (in R3 um Brücke erweitert)</td><td>Backend-Anteile ausdrücklich im Scope</td></tr>
+      <tr><td>Werkstatt-Verwaltung</td><td>Panel mit Erweiterungsliste</td><td>Inventar-API speist ein Panel; Freitext-Ordnerfeld und Rocket-Button entfallen</td></tr>
+      <tr><td>Mehrbenutzer-Modell</td><td>Projekte geräteweit sichtbar + öffenbar</td><td>Besitz-Filter fällt; Anwesenheits-Anzeige an Sitzungen; passt zum Einzel-Admin-Modell</td></tr>
+      <tr><td>Sitzungs-Benennung</td><td>Auto-Name + Umbenennen, serverseitig</td><td>Migration für Titel; Auto-Name nach Quick-Launch-Werkzeug; identisch in jedem Browser</td></tr>
+      <tr><td>Drei gefundene Robustheits-Bugs</td><td>Alle drei mitnehmen</td><td>Bauen-Slug-Prüfung, atomarer Start, Stale-Session-Cleanup in Schritt 1</td></tr>
+      <tr><td>KI-Brücke jetzt oder später?</td><td>Jetzt, vollständig — muss mit Flows zusammenspielen</td><td>Schritt 2+3 sind Kern des Plans; Fähigkeit <code>flows</code> verbindet beide Welten</td></tr>
+      <tr><td>Terminal-Kopfzeile</td><td>Eine Zeile, kompakt</td><td>Projekt-Dropdown + Tabs in einer Zeile; Statusinfos in die Statusleiste</td></tr>
+      <tr><td>KI-Zugänge</td><td>Ein Hub für alle Anbieter</td><td>Claude/Codex/Gemini/lokaler Coder in einem Dialog; Quick-Launch bereinigt</td></tr>
+      <tr><td>OAuth-Status</td><td>Funktioniert weiter nicht; Link nicht klick-/kopierbar; Vorsicht vor Rate-Limit</td><td>Link-Fix in Schritt 8; Recherche vor Live-Test; maximal ein E2E-Versuch, Abbruch bei 429</td></tr>
+      <tr><td>Eigenes Hosting + Internet-Exposition?</td><td>Kein eigenes Internet-Hosting („keine Traefik-Dynamik“)</td><td>Nach außen gerichtete Projekte werden extern gehostet; Arasul managt sie über Verbindungen/MCP</td></tr>
+      <tr><td>Brücke v1 Fähigkeiten</td><td>LLM + RAG + Dateien + Flows („eigentlich alles“)</td><td>Vier Fähigkeiten in Schritt 2; Architektur erweiterbar für weitere</td></tr>
+      <tr><td>Flow-Erweiterung live schalten</td><td>Importieren + aktivieren + Status; Deaktivieren pausiert</td><td>Schritt 3 komplett; seltener Fall, aber voll unterstützt</td></tr>
+      <tr><td>Externe Zugänge / MCP</td><td>Projekt-Verbindungen mit Tresor</td><td>Schritt 5: verschlüsselte Ablage + Injektion als Env + <code>.mcp.json</code>/Codex-Konfig</td></tr>
+      <tr><td>Agenten-Paket</td><td>Minimal: <code>/plan</code> + <code>/execute</code> (+ kleiner <code>/info</code>)</td><td>/plan interviewt ausgiebig und erzeugt eine HTML-Plandatei; kein komplexes Command-System</td></tr>
+      <tr><td>Geräte-Zukunft (DGX Spark, Server)</td><td>Nicht in diesem Plan; Kontextdateien geräteneutral</td><td>Formulierungen „NVIDIA-Gerät oder Server“ statt Jetson-spezifisch; Portierung als eigenes Thema später</td></tr>
+      <tr><td>Freigabe-Granularität</td><td>Fähigkeiten-Liste + einmalige Bestätigung</td><td>Manifest deklariert, Admin bestätigt beim Live-Schalten, Token trägt exakt diese Scopes</td></tr>
+      <tr><td>Vorgehen</td><td>Nur Plan-Seite heute, Bau später via /work</td><td>Diese Seite ist das Deliverable; Umsetzung nach Freigabe</td></tr>
+      <tr><td>Priorität</td><td>P0</td><td>Roadmap-Thema T24 mit P0; Nightly darf nach Freigabe ziehen</td></tr>
+      <tr><td>Phasen-Reihenfolge</td><td>Fundament zuerst</td><td>Backend (Schritte 1–5) vor UI (6–8), Agenten-Paket + Doku zum Schluss</td></tr>
+      <tr><td>Optik der Werkstatt</td><td>Bausteine-/Paket-Welt</td><td>lucide Blocks/Package, ruhige Status-Punkte, dezenter Primär-Button — kein Rocket/Hammer</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 017 · erstellt am 2026-08-12 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/017-werkstatt-erweiterungs-plattform.html</span><br>
+  Feedback: 💬 an jeder Karte oder Antwortfeld bei den offenen Fragen nutzen —
+  dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // restore persisted state
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
