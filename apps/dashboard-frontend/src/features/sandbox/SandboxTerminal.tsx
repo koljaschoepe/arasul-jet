@@ -201,103 +201,103 @@ export default function SandboxTerminal({
   const modeBadge = networkMode ? NETWORK_MODE_BADGES[networkMode] : null;
 
   return (
-    <div className={cn('flex flex-col h-full p-3', className)}>
-      {/* Terminal frame */}
-      <div className="flex flex-col flex-1 min-h-0 rounded-lg border border-border overflow-hidden shadow-sm">
-        {/* Terminal toolbar */}
-        <div className="flex items-center justify-between px-3 py-1.5 bg-background border-b border-border/50 shrink-0">
-          <div className="flex items-center gap-2">
-            {status.icon}
-            <span className="text-xs text-muted-foreground font-mono">{status.text}</span>
+    // Randlos: keine zweite gerahmte Box mehr über dem Terminal. EINE schlanke
+    // Statusleiste, danach füllt das Terminal die ganze Fläche (Nutzerkritik:
+    // „maximal nur das Terminal", zu viele Leisten/Rahmen).
+    <div className={cn('flex flex-col h-full min-h-0', className)}>
+      {/* Schlanke Statusleiste — einheitliche Schriftgröße (text-ui-xs) */}
+      <div className="flex items-center justify-between gap-2 px-2 py-1 bg-background border-b border-border shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          {status.icon}
+          <span className="text-ui-xs text-muted-foreground">{status.text}</span>
 
-            {/* Modus-Badge: Isoliert=neutral, Intern=ok, Infrastruktur=rot */}
-            {modeBadge && (
-              <span
-                title={modeBadge.title}
-                className={cn(
-                  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium leading-none',
-                  modeBadge.className
-                )}
-              >
-                {networkMode === 'infrastructure' && <ShieldAlert className="size-3 shrink-0" />}
-                {modeBadge.label}
-              </span>
-            )}
-
-            {/* Quick Launch — Radix DropdownMenu for portal-based rendering */}
-            {isConnected && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground hover:text-foreground h-6 px-2 text-xs gap-1 ml-2"
-                  >
-                    <Sparkles className="size-3" />
-                    Quick Launch
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-50">
-                  {QUICK_LAUNCH_ITEMS.map(item => (
-                    <DropdownMenuItem
-                      key={item.label}
-                      onClick={() => sendInput(item.command)}
-                      className="gap-3"
-                    >
-                      <Terminal className="size-3 text-primary shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs font-medium">{item.label}</div>
-                        <div className="text-[10px] text-muted-foreground">{item.description}</div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {/* Zentraler KI-Zugang — einmal hinterlegen, gilt in jeder Sandbox. */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setZugangOffen(true)}
-              className="ml-1 h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-              title="KI-Zugang (Claude) einmal hinterlegen — gilt in jeder Sandbox"
+          {/* Modus-Badge: Isoliert=neutral, Intern=ok, Infrastruktur=rot */}
+          {modeBadge && (
+            <span
+              title={modeBadge.title}
+              className={cn(
+                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-ui-xs font-medium leading-none',
+                modeBadge.className
+              )}
             >
-              <KeyRound className="size-3" />
-              KI-Zugang
-            </Button>
-          </div>
+              {networkMode === 'infrastructure' && <ShieldAlert className="size-3 shrink-0" />}
+              {modeBadge.label}
+            </span>
+          )}
 
-          <div className="flex items-center gap-1">
-            {error && (
-              <span className="text-xs text-destructive mr-2 flex items-center gap-1">
-                <AlertCircle className="size-3" />
-                {error}
-              </span>
-            )}
-            {status.showReconnect && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={reconnect}
-                title="Neu verbinden"
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <RefreshCw className="size-3.5" />
-              </Button>
-            )}
-          </div>
+          {/* Quick Launch — Radix DropdownMenu for portal-based rendering */}
+          {isConnected && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground h-6 px-2 text-ui-xs gap-1"
+                >
+                  <Sparkles className="size-3" />
+                  Quick Launch
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-50">
+                {QUICK_LAUNCH_ITEMS.map(item => (
+                  <DropdownMenuItem
+                    key={item.label}
+                    onClick={() => sendInput(item.command)}
+                    className="gap-3"
+                  >
+                    <Terminal className="size-3 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-ui-sm font-medium">{item.label}</div>
+                      <div className="text-ui-xs text-muted-foreground">{item.description}</div>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {/* Zentraler KI-Zugang — einmal hinterlegen, gilt in jeder Sandbox. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setZugangOffen(true)}
+            className="h-6 gap-1 px-2 text-ui-xs text-muted-foreground hover:text-foreground"
+            title="KI-Zugang (Claude) einmal hinterlegen — gilt in jeder Sandbox"
+          >
+            <KeyRound className="size-3" />
+            KI-Zugang
+          </Button>
         </div>
 
-        {/* Terminal container — symmetrisches Padding, damit FitAddon die
-            sichtbare Breite exakt trifft (asymmetrisch → rechte Spalte wird
-            unter overflow-hidden abgeschnitten). */}
-        <div
-          ref={terminalRef}
-          className="flex-1 min-h-0 bg-background overflow-hidden"
-          style={{ padding: '4px' }}
-        />
+        <div className="flex items-center gap-1 shrink-0">
+          {error && (
+            <span className="text-ui-xs text-destructive mr-1 flex items-center gap-1">
+              <AlertCircle className="size-3" />
+              {error}
+            </span>
+          )}
+          {status.showReconnect && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={reconnect}
+              title="Neu verbinden"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className="size-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Terminal container — symmetrisches Padding, damit FitAddon die
+          sichtbare Breite exakt trifft (asymmetrisch → rechte Spalte wird
+          unter overflow-hidden abgeschnitten). */}
+      <div
+        ref={terminalRef}
+        className="flex-1 min-h-0 bg-background overflow-hidden"
+        style={{ padding: '4px' }}
+      />
 
       {zugangOffen && (
         <KiZugangDialog projectId={projectId} onClose={() => setZugangOffen(false)} />

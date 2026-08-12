@@ -25,7 +25,7 @@ const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody } = require('../../middleware/validate');
 const { DownloadBody, DefaultModelBody } = require('../../schemas/models');
-const { NotFoundError } = require('../../utils/errors');
+const { NotFoundError, ValidationError } = require('../../utils/errors');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
@@ -264,6 +264,16 @@ router.post(
     const modelInfo = await modelService.getModelInfo(model_id);
     if (!modelInfo) {
       throw new NotFoundError(`Modell ${model_id} nicht im Katalog gefunden`);
+    }
+
+    // OCR-Engines (Tesseract/PaddleOCR) sind keine Ollama-Modelle — sie werden
+    // vom Dokument-Indexer verwaltet. Ein Ollama-Pull scheiterte hier immer mit
+    // „not found" und schrieb einen dauerhaften „Fehler"-Status in den Katalog.
+    // Sauber ablehnen, statt einen unmöglichen Download zu starten.
+    if (modelInfo.model_type === 'ocr') {
+      throw new ValidationError(
+        'OCR-Engines (Tesseract/PaddleOCR) werden vom Dokument-Indexer verwaltet und nicht über Ollama geladen.'
+      );
     }
 
     // DL-002: Check if model is already downloading or installed

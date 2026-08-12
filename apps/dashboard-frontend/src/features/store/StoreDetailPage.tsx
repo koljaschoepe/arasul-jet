@@ -118,9 +118,12 @@ function ModelFitBanner({ requiredGb }: { requiredGb: number }) {
   const Icon = tone === 'good' ? CircleCheck : tone === 'tight' ? TriangleAlert : CircleX;
 
   return (
+    // Standard-Tailwind-Skala (text-sm / gap-2.5 / px-3 py-2), damit das Banner
+    // in denselben Proportionen wie die restliche Detailseite steht (die Misch-
+    // ung aus ui-Skala + Standard-Icon wirkte zu klein/verrutscht).
     <div
       className={cn(
-        'mt-ui-4 flex items-center gap-2 rounded-lg border px-ui-3 py-ui-2 text-ui-sm font-medium',
+        'mt-4 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm font-medium',
         toneClass
       )}
     >
@@ -381,8 +384,10 @@ function ModelDetail({
       <ModelFitBanner requiredGb={model.ram_required_gb} />
 
       {downloading && downloadState && (
-        <div className="mt-ui-4 rounded-lg border border-border bg-card p-ui-3">
-          <div className="mb-ui-2 flex items-center gap-ui-1 text-ui-sm font-medium text-foreground">
+        // Gleiche Standard-Skala wie das Fit-Banner darüber und die Spec-Liste
+        // darunter — die Detailseite bleibt in EINER Proportion.
+        <div className="mt-4 rounded-lg border border-border bg-card p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
             <Download className="size-4 text-primary" /> Wird heruntergeladen
           </div>
           <DownloadProgress

@@ -204,6 +204,25 @@ describe('Models Routes', () => {
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toMatch(/text\/event-stream/);
     });
+
+    test('should reject OCR models with 400 (never triggers an Ollama pull)', async () => {
+      // OCR-Engines sind keine Ollama-Modelle — der Download muss sauber
+      // abgelehnt werden, statt einen Pull zu starten (der früher dauerhaft
+      // „Fehler" in den Katalog schrieb).
+      modelService.getModelInfo.mockResolvedValue({
+        id: 'tesseract:latest',
+        name: 'Tesseract OCR',
+        model_type: 'ocr'
+      });
+
+      const response = await request(app)
+        .post('/api/models/download')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ model_id: 'tesseract:latest' });
+
+      expect(response.status).toBe(400);
+      expect(modelService.downloadModel).not.toHaveBeenCalled();
+    });
   });
 
   // ============================================================================
