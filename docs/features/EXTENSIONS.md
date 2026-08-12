@@ -56,16 +56,53 @@ jeden direkten Unterordner:
 Die Oberfläche lädt die Erweiterungs-Liste alle 20 s nach — neue Karten und
 Seitenleisten-Einträge erscheinen ohne Reload.
 
-## Werkstatt-Leiste — der manuelle Sofort-Weg
+## Werkstatt-Panel — Erweiterungen verwalten (Plan 017 Schritt 7)
 
-Werkstatt-Sandboxes zeigen über dem Terminal eine schmale Leiste. Da der
-Watcher Änderungen ohnehin automatisch übernimmt, ist sie der **Sofort-Weg mit
-Extra-Schritt**: Ordner mit der `manifest.json` angeben (`.` = die ganze
-Sandbox), Klick auf **„Erweiterung live schalten"** — die Leiste paketiert
-sofort über den bestehenden Bau-Pfad (`POST /api/extensions/bauen`, mit
-`overwrite`), **schaltet die Erweiterung zusätzlich frei** (das tut der Watcher
-bewusst nie) und öffnet eine `app`-Erweiterung direkt als Mitte-Tab. Bauen,
-testen, live sehen — ohne auf den nächsten Takt zu warten.
+Werkstatt-Sandboxes zeigen über dem Terminal ein auf-/zuklappbares **Panel**
+(löst die alte „Werkstatt-Leiste" mit Freitext-Ordnerfeld + Rocket-Button ab).
+Datenquelle ist das Werkstatt-Inventar
+(`GET /api/extensions/werkstatt/inventar?projekt=<slug>`): jede erkannte
+Erweiterung mit ruhigem Status-Punkt — **● live · ○ bereit · ○ erkannt ·
+▲ abgelehnt** (mit Grund, z. B. kaputte `manifest.json`). Pro Zeile:
+**Live schalten · Zurücknehmen · Rollback · Öffnen · Herunterladen** (lucide
+Blocks/Package, kein Rocket/Hammer).
+
+**Freigabe-Dialog:** Schaltet man eine Erweiterung mit deklarierten
+Brücken-Fähigkeiten live, erscheint einmalig „Diese Erweiterung darf: …" —
+erst nach Bestätigung erhält sie die freigegebenen Fähigkeiten. Ohne Freigabe
+antwortet jeder Brücken-Aufruf mit `403`.
+
+**Rollback (ein Schritt zurück):** Jedes Überschreiben (Bauen, Import,
+Watcher-Update) sichert vorher den aktuellen Stand als genau einen
+Rollback-Punkt (`EXTENSIONS_DIR/.rollback/<id>.tar.gz`).
+`POST /api/extensions/:id/rollback` stellt ihn wieder her — bei Flow-
+Erweiterungen inkl. n8n-Reimport.
+
+## KI-Brücke — Erweiterungen nutzen die lokale Basis (Plan 017 Schritt 2/3)
+
+Eine live geschaltete App läuft weiter im abgeriegelten iframe (opaker Origin,
+keine Cookies/fremden APIs). Über die **KI-Brücke** kann sie kontrolliert LLM,
+RAG, einen eigenen Datentopf und n8n-Flows nutzen:
+
+- Das Manifest deklariert `faehigkeiten` (`llm`, `rag`, `dateien`, `flows`);
+  der Admin gibt sie beim Live-Schalten frei (wirksam = deklariert ∩ freigegeben).
+- Das Dashboard reicht der App per postMessage einen **kurzlebigen, pro
+  Erweiterung gescopten Token**; damit ruft sie
+  `/api/extensions/:id/bruecke/{llm,rag,dateien,flows}` auf. Das Backend prüft
+  Token + Erweiterung + Fähigkeit bei **jedem** Aufruf.
+- Ein Env-Flag `EXTENSIONS_BRUECKE_ENABLED=false` schaltet die Brücke geräteweit
+  ab. Client-SDK: `arasul-bruecke.js` (in den Dev-Vorlagen).
+- Flow-Erweiterungen werden beim Live-Schalten per n8n-API importiert +
+  aktiviert (`GET /api/extensions/:id/flow-status` zeigt aktiv/letzter Lauf);
+  fehlt `N8N_API_KEY` oder ist n8n aus, degradiert das sichtbar.
+
+## Agenten-Paket in der Werkstatt (Plan 017 Schritt 9)
+
+Jede Erweiterungs-Werkstatt wird mit einem minimalen Agenten-Paket bestückt:
+`/plan`, `/execute`, `/info` als Claude-Code-Commands (`.claude/commands/`) plus
+`AGENTS.md` für Codex, dazu geräteneutrale Kontextdateien unter `kontext/`
+(Brücke, Verbindungen, Paketformat). Ablauf: `/plan` (Interview → `PLAN.html`) →
+`/execute` (baut) → im Werkstatt-Panel live schalten.
 
 ## Das Paketformat
 

@@ -54,6 +54,22 @@ Alternativ baust du direkt im **Terminal** (z. B. mit einem KI-Agenten wie
 Claude Code oder dem lokalen Coder) in diesem Werkstatt-Ordner — der
 Werkstatt-Watcher registriert jede gültige `manifest.json` automatisch.
 
+## Das Agenten-Paket (Claude Code & Codex)
+
+In dieser Werkstatt liegen fertige Agenten-Befehle bereit:
+
+- **`/plan`** — stellt dir im Terminal ausführlich Rückfragen (App/Flow/Tool?
+  Fähigkeiten? Verbindungen? Prüfschritte?) und schreibt eine anschaubare
+  `PLAN.html` in den Workspace.
+- **`/execute <PLAN.html>`** — arbeitet den Plan iterativ ab und baut die
+  Erweiterung.
+- **`/info`** — zeigt den Projekt-Kontext (Fähigkeiten, Verbindungen, Brücke).
+
+Für Claude Code liegen sie unter `.claude/commands/`. **Codex** (und andere
+Agenten) folgen demselben Ablauf — siehe `AGENTS.md`. Die kompakten
+Kontext-Dateien unter `kontext/` (Brücke, Verbindungen, Paketformat) sind
+geräteneutral formuliert (NVIDIA-Gerät oder Server).
+
 ## Die KI-Brücke — auf LLM, RAG, Dateien und Flows zugreifen
 
 Eine live geschaltete App läuft in einem abgeriegelten iframe. Über die

@@ -645,7 +645,7 @@
     <div class="result"><strong>Ergebnis:</strong> OAuth-Link-Fix: robuste <code>copyText</code>-Hilfe (utils/clipboard) — navigator.clipboard nur im secure context, sonst execCommand-Fallback über ein verstecktes Textfeld; bei nicht vertrautem Zertifikat kopiert der Knopf jetzt trotzdem, sonst bleibt das markierbare Auswahlfeld. Die Authorize-URL ist zusätzlich ein sichtbarer echter Link („Anmelde-Seite öffnen", target=_blank) plus Hinweis auf manuelles Markieren. KiZugangDialog um einen Hub-Überblick „Weitere KI-Anbieter" erweitert (Lokaler Coder = open-ara/kein Login, Codex = <code>codex login --device-auth</code>, Gemini = <code>/gemini</code>) — der Quick-Launch war schon in Schritt 6 um „Codex anmelden" bereinigt. 3 Clipboard-Tests + 769 Frontend-Tests grün. <b>OAuth-E2E:</b> bewusst NICHT autonom ausgelöst — die Link-Klick-/Kopierbarkeit wird ohne Login verifiziert; der eine kontrollierte Ende-zu-Ende-Login-Versuch (Abbruch bei 429) bleibt einem Moment mit dem Nutzer vorbehalten (Rate-Limit-Schutz, §8).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Agenten-Paket + Doku">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 9 — Agenten-Paket + Doku">
     <h3>Schritt 9 — Agenten-Paket + Doku <span class="tag">Risiko: niedrig</span></h3>
     <p>Jede Werkstatt-Sandbox wird mit einem minimalen Agenten-Paket bestückt:
     <code>/plan</code> (stellt dem Nutzer im Terminal ausgiebig Rückfragen — Scope? App, Tool oder
@@ -657,6 +657,7 @@
     oder Server“, nicht Jetson-spezifisch. Abschluss: Doku-Sync in EXTENSIONS.md, WORKSPACE.md,
     API_REFERENCE.md, DATABASE_SCHEMA.md, ENVIRONMENT_VARIABLES.md.</p>
     <p class="files mono">services/sandbox/dev-templates/ (Commands, AGENTS.md, ANLEITUNG.md, Kontextdateien) · apps/dashboard-backend/src/services/sandbox/sandboxService.js (Seed) · docs/features/{EXTENSIONS,WORKSPACE}.md · docs/api/* · docs/ENVIRONMENT_VARIABLES.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Agenten-Paket in den Dev-Vorlagen (werden beim Anlegen einer Werkstatt in den Ordner kopiert): <code>.claude/commands/{plan,execute,info}.md</code> (Claude Code) + <code>AGENTS.md</code> (Codex-Pendant, gleicher Ablauf). Geräteneutrale Kontextdateien <code>kontext/{bruecke,verbindungen,erweiterungen}.md</code> („NVIDIA-Gerät oder Server", nicht Jetson-spezifisch); ANLEITUNG.md um den Agenten-Paket-Abschnitt ergänzt. Doku-Sync: EXTENSIONS.md (Werkstatt-Panel, KI-Brücke, Flow-Live, Rollback, Agenten-Paket), WORKSPACE.md (geräteweite Projekte + Anwesenheit, Verbindungen/MCP, einzeilige Kopfzeile + benannte Sitzungen); API_REFERENCE/DATABASE_SCHEMA/ENVIRONMENT_VARIABLES wurden über die Schritte 1–8 laufend mitgeführt. /plan → /execute → im Panel live schalten ist der eine dokumentierte Weg.</div>
   </div>
 
   </div>
