@@ -13,14 +13,14 @@
   "slug": "werkstatt-erweiterungs-plattform",
   "title": "Werkstatt & Erweiterungs-Plattform — Terminal-UX, KI-Brücke, Verbindungen",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P0",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-08-12",
   "approved": "2026-08-12",
-  "branch": null,
+  "branch": "017-werkstatt-erweiterungs-plattform",
   "pr": null,
   "verified_on_device": false
 }
@@ -534,7 +534,7 @@
   </summary>
   <div class="sbody">
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Geräteweite Projekte + Robustheit">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Geräteweite Projekte + Robustheit">
     <h3>Schritt 1 — Geräteweite Projekte + Robustheit <span class="tag">Risiko: mittel</span></h3>
     <p>Sandbox-Projekte werden geräteweit: Besitz-Filter in <code>listProjects/getProject/loadWorkspace</code>
     fällt weg (Anzeige „erstellt von“ bleibt), WS-Tickets bleiben nutzergebunden. Anwesenheit: das Backend
@@ -544,6 +544,7 @@
     <code>UPDATE … RETURNING</code>, kein Doppel-Start-409 mehr); beim Backend-Boot werden verwaiste
     <code>active</code>-Sitzungs-Zeilen geschlossen (vorhandene SQL-Funktion endlich aufrufen).</p>
     <p class="files mono">apps/dashboard-backend/src/services/sandbox/{sandboxService,terminalService,sandboxIdleChecker}.js · src/routes/sandbox.js · src/services/extensions/extensionService.js · Tests (Jest)</p>
+    <div class="result"><strong>Ergebnis:</strong> Besitz-Filter aus listProjects/getProject/loadWorkspace entfernt (created_by bleibt zur Anzeige, LEFT JOIN admin_users); Anwesenheit live aus activeSessions (presenceForProject/presenceSummary, je Projekt + je tmux-Sitzung mit Nutzernamen); /bauen prüft den Slug jetzt gegen aktive Erweiterungs-Werkstätten (Exfiltrations-Lücke zu); Container-Start atomar per bedingtem UPDATE…RETURNING (Doppel-Start → freundliche Antwort statt error); Boot-Cleanup schließt Geister-Sitzungen (cleanup_stale_sandbox_sessions() + Rest-UPDATE in bootstrap.js Step 6). 2021 Backend-Tests grün.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — KI-Brücke: Fähigkeiten, Token, Endpunkte">

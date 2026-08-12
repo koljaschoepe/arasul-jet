@@ -63,6 +63,11 @@ function setupMocks(projectOverrides = {}) {
     if (/SELECT sp\.\*/.test(sql)) {
       return { rows: [project] };
     }
+    // Atomarer Start-Claim (Plan 017 Schritt 1): der bedingte UPDATE nach
+    // 'creating' liefert die Projekt-Zeile zurück, wenn der Claim gelingt.
+    if (/SET container_status = 'creating'/.test(sql) && /RETURNING/.test(sql)) {
+      return { rows: [project], rowCount: 1 };
+    }
     return { rows: [] };
   });
 
@@ -182,6 +187,88 @@ describe('sandboxService.startContainer — createContainer config', () => {
       expect(config.HostConfig.GroupAdd).toBeUndefined();
       expect(config.HostConfig.Binds).toHaveLength(2);
     });
+  });
+});
+
+describe('sandboxService.startContainer — atomarer Start-Claim (Plan 017 Schritt 1)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.SANDBOX_HOST_TOOLS_DIR = '/home/arasul/arasul/arasul-jet/data/sandbox/tools';
+  });
+
+  afterEach(() => {
+    delete process.env.SANDBOX_HOST_TOOLS_DIR;
+  });
+
+  test('verlierender Doppel-Start bekommt eine freundliche Antwort statt eines zweiten Containers', async () => {
+    const project = { ...PROJECT_ROW };
+    db.query.mockImplementation(async sql => {
+      if (/SELECT sp\.\*/.test(sql)) {
+        return { rows: [project] };
+      }
+      // Claim schlägt fehl: ein paralleler Start hat den Status schon gesetzt.
+      if (/SET container_status = 'creating'/.test(sql) && /RETURNING/.test(sql)) {
+        return { rows: [], rowCount: 0 };
+      }
+      return { rows: [] };
+    });
+
+    const result = await sandboxService.startContainer('p1');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toMatch(/bereits|gerade/i);
+    expect(docker.createContainer).not.toHaveBeenCalled();
+  });
+
+  test('der Claim-UPDATE ist bedingt (NOT IN running/creating/committing)', async () => {
+    setupMocks();
+    await sandboxService.startContainer('p1');
+
+    const claimCall = db.query.mock.calls.find(
+      ([sql]) => /SET container_status = 'creating'/.test(sql) && /RETURNING/.test(sql)
+    );
+    expect(claimCall).toBeDefined();
+    expect(claimCall[0]).toMatch(/NOT IN \('running', 'creating', 'committing'\)/);
+  });
+});
+
+describe('sandboxService — geräteweite Projekte (Plan 017 Schritt 1)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('listProjects filtert NICHT mehr nach user_id und liefert created_by', async () => {
+    db.query.mockImplementation(async sql => {
+      if (/^\s*SELECT COUNT\(\*\) FROM sandbox_projects/.test(sql)) {
+        return { rows: [{ count: '1' }] };
+      }
+      return { rows: [{ ...PROJECT_ROW, created_by: 'admin' }] };
+    });
+
+    const result = await sandboxService.listProjects({ status: 'active' });
+
+    for (const [sql] of db.query.mock.calls) {
+      expect(sql).not.toMatch(/user_id\s*=\s*\$/);
+    }
+    const listCall = db.query.mock.calls.find(([sql]) => /SELECT sp\.\*/.test(sql));
+    expect(listCall[0]).toMatch(/LEFT JOIN admin_users/);
+    expect(result.projects[0].created_by).toBe('admin');
+  });
+
+  test('getProject lädt ohne Besitz-Filter', async () => {
+    db.query.mockImplementation(async () => ({ rows: [PROJECT_ROW] }));
+    await sandboxService.getProject('p1');
+    const [sql, params] = db.query.mock.calls[0];
+    expect(sql).not.toMatch(/user_id\s*=\s*\$/);
+    expect(params).toEqual(['p1']);
+  });
+
+  test('loadWorkspace löst jeden aktiven Workspace ohne Owner-Gate auf', async () => {
+    db.query.mockImplementation(async () => ({
+      rows: [{ ...PROJECT_ROW, user_id: 999 }],
+    }));
+    const project = await sandboxService.loadWorkspace('demo');
+    expect(project.slug).toBe('demo');
   });
 });
 

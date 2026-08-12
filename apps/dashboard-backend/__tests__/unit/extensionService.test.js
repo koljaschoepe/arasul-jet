@@ -42,6 +42,8 @@ describe('buildFromSandbox — Ausbruchsschutz', () => {
   });
 
   it('meldet einen nicht existierenden Unterordner als NotFound', async () => {
+    // Werkstatt-Check (Plan 017 Schritt 1) besteht, erst der stat() scheitert.
+    db.query.mockResolvedValue({ rows: [{ workspace_type: 'erweiterungs-werkstatt' }] });
     await expect(
       extensionService.buildFromSandbox({
         slug: 'werkstatt',
@@ -49,6 +51,43 @@ describe('buildFromSandbox — Ausbruchsschutz', () => {
         userId: 1,
       })
     ).rejects.toThrow(/existiert/i);
+  });
+
+  it('weist einen unbekannten Sandbox-Slug als NotFound ab (Plan 017 Schritt 1)', async () => {
+    db.query.mockResolvedValue({ rows: [] });
+    await expect(
+      extensionService.buildFromSandbox({ slug: 'gibt-es-nicht', subfolder: '.', userId: 1 })
+    ).rejects.toThrow(/existiert nicht/i);
+  });
+
+  it('weist eine Standard-Sandbox ab — nur Erweiterungs-Werkstätten dürfen bauen', async () => {
+    db.query.mockResolvedValue({ rows: [{ workspace_type: 'standard' }] });
+    await expect(
+      extensionService.buildFromSandbox({ slug: 'normale-sandbox', subfolder: '.', userId: 1 })
+    ).rejects.toThrow(/Erweiterungs-Werkstatt/i);
+  });
+
+  it('die kanonische Werkstatt "werkstatt" braucht keine sandbox_projects-Zeile', async () => {
+    // Kein Treffer in sandbox_projects → für den kanonischen Slug trotzdem
+    // erlaubt; der Pfad scheitert erst am fehlenden Ordner (NotFound des
+    // stat), nicht an der Werkstatt-Prüfung.
+    db.query.mockResolvedValue({ rows: [] });
+    await expect(
+      extensionService.buildFromSandbox({
+        slug: 'werkstatt',
+        subfolder: 'gibt-es-nicht',
+        userId: null,
+      })
+    ).rejects.toThrow(/Ordner "gibt-es-nicht" existiert/i);
+  });
+
+  it('eine ECHTE Standard-Sandbox mit Slug "werkstatt" wird trotzdem geprüft und abgelehnt', async () => {
+    // Die Ausnahme gilt nur, wenn KEINE Zeile existiert — eine angelegte
+    // Standard-Sandbox namens „werkstatt" darf die Prüfung nicht aushebeln.
+    db.query.mockResolvedValue({ rows: [{ workspace_type: 'standard' }] });
+    await expect(
+      extensionService.buildFromSandbox({ slug: 'werkstatt', subfolder: '.', userId: 1 })
+    ).rejects.toThrow(/Erweiterungs-Werkstatt/i);
   });
 
   it('der geprüfte Pfad liegt unter dem Sandbox-Ordner', () => {

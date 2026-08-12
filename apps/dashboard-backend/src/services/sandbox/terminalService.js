@@ -90,11 +90,23 @@ async function createSession(
     throw new ValidationError('Ungültiger tmux-Session-Name — nur [A-Za-z0-9_-], max 40 Zeichen');
   }
 
-  const project = await sandboxService.getProject(projectId, userId);
+  const project = await sandboxService.getProject(projectId);
 
   // Ensure container is running
   if (project.container_status !== 'running' || !project.container_id) {
     throw new ValidationError('Container ist nicht gestartet. Bitte zuerst den Container starten.');
+  }
+
+  // Anwesenheit (Plan 017 Schritt 1): Username des verbundenen Nutzers für die
+  // Presence-Anzeige auflösen — best effort, blockiert die Session nie.
+  let username = null;
+  if (userId != null) {
+    try {
+      const userResult = await db.query('SELECT username FROM admin_users WHERE id = $1', [userId]);
+      username = userResult.rows[0]?.username || null;
+    } catch (err) {
+      logger.debug(`Presence: Username für User ${userId} nicht auflösbar: ${err.message}`);
+    }
   }
 
   // Determine inner command for the tmux session
@@ -221,12 +233,15 @@ async function createSession(
   // Update project last_accessed_at
   await db.query(`UPDATE sandbox_projects SET last_accessed_at = NOW() WHERE id = $1`, [projectId]);
 
-  // Store active session
+  // Store active session (inkl. Presence-Infos: wer hängt an welcher tmux-Session)
   activeSessions.set(session.id, {
     exec,
     stream,
     ws,
     projectId,
+    userId: userId ?? null,
+    username,
+    tmuxName,
     createdAt: Date.now(),
   });
 
@@ -449,6 +464,54 @@ function getActiveSessionCount() {
 }
 
 /**
+ * Anwesenheit für EIN Projekt (Plan 017 Schritt 1): welche Nutzer sind live
+ * per WebSocket verbunden, aufgeschlüsselt nach tmux-Session — die Grundlage
+ * für „2 verbunden“-Badges an Projekt und Sitzungs-Tab.
+ */
+function presenceForProject(projectId) {
+  const sessions = {};
+  const users = new Map();
+  let connections = 0;
+  for (const s of activeSessions.values()) {
+    if (String(s.projectId) !== String(projectId)) {
+      continue;
+    }
+    connections++;
+    const name = s.tmuxName || TMUX_SESSION;
+    if (!sessions[name]) {
+      sessions[name] = { connections: 0, users: [] };
+    }
+    sessions[name].connections++;
+    if (s.username && !sessions[name].users.includes(s.username)) {
+      sessions[name].users.push(s.username);
+    }
+    if (s.userId != null && !users.has(s.userId)) {
+      users.set(s.userId, s.username);
+    }
+  }
+  return { connections, users: [...users.values()].filter(Boolean), sessions };
+}
+
+/**
+ * Anwesenheit über ALLE Projekte: projectId → { connections, users } — für die
+ * Projektliste, ohne pro Projekt einzeln zu fragen.
+ */
+function presenceSummary() {
+  const summary = {};
+  for (const s of activeSessions.values()) {
+    const key = String(s.projectId);
+    if (!summary[key]) {
+      summary[key] = { connections: 0, users: [] };
+    }
+    summary[key].connections++;
+    if (s.username && !summary[key].users.includes(s.username)) {
+      summary[key].users.push(s.username);
+    }
+  }
+  return summary;
+}
+
+/**
  * Cleanup all sessions (called on server shutdown)
  */
 async function cleanupAllSessions() {
@@ -484,11 +547,14 @@ module.exports = {
   closeProjectSessions,
   listSessions,
   getActiveSessionCount,
+  presenceForProject,
+  presenceSummary,
   cleanupAllSessions,
   // Exported for tests / defense-in-depth reuse
   _internals: {
     ALLOWED_SESSION_TYPES,
     CUSTOM_COMMAND_RE,
     shellSingleQuote,
+    activeSessions,
   },
 };

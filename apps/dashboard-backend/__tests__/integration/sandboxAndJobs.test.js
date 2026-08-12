@@ -26,6 +26,7 @@ jest.mock('../../src/services/llm/modelLifecycleService');
 const db = require('../../src/database');
 const logger = require('../../src/utils/logger');
 const sandboxService = require('../../src/services/sandbox/sandboxService');
+const terminalService = require('../../src/services/sandbox/terminalService');
 const llmJobService = require('../../src/services/llm/llmJobService');
 const llmQueueService = require('../../src/services/llm/llmQueueService');
 const { app } = require('../../src/server');
@@ -46,6 +47,14 @@ describe('Sandbox + LLM Jobs Integration', () => {
     jest.clearAllMocks();
     db.query.mockReset();
     setupAuthMocks(db);
+    // Anwesenheit (Plan 017 Schritt 1): die Projekt-Routen mischen Presence-
+    // Daten aus dem terminalService ein — der Auto-Mock braucht Rückgabewerte.
+    terminalService.presenceSummary.mockReturnValue({});
+    terminalService.presenceForProject.mockReturnValue({
+      connections: 0,
+      users: [],
+      sessions: {},
+    });
   });
 
   // ==========================================================================
@@ -70,9 +79,11 @@ describe('Sandbox + LLM Jobs Integration', () => {
       expect(res.body.projects).toHaveLength(2);
       expect(res.body.total).toBe(2);
       expect(res.body.timestamp).toBeDefined();
+      // Geräteweit (Plan 017 Schritt 1): kein Besitz-Filter mehr.
       expect(sandboxService.listProjects).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 1 })
+        expect.not.objectContaining({ userId: expect.anything() })
       );
+      expect(res.body.projects[0].presence).toEqual({ connections: 0, users: [] });
     });
 
     test('forwards query filters to service', async () => {
@@ -88,7 +99,6 @@ describe('Sandbox + LLM Jobs Integration', () => {
           search: 'demo',
           limit: 10,
           offset: 0,
-          userId: 1,
         })
       );
     });
@@ -150,7 +160,7 @@ describe('Sandbox + LLM Jobs Integration', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.project.id).toBe('p1');
-      expect(sandboxService.getProject).toHaveBeenCalledWith('p1', 1);
+      expect(sandboxService.getProject).toHaveBeenCalledWith('p1');
     });
 
     test('maps NotFoundError to 404', async () => {
@@ -175,7 +185,7 @@ describe('Sandbox + LLM Jobs Integration', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(sandboxService.deleteProject).toHaveBeenCalledWith('p1', 1);
+      expect(sandboxService.deleteProject).toHaveBeenCalledWith('p1');
     });
   });
 

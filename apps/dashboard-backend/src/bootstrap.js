@@ -58,6 +58,24 @@ async function bootstrap() {
   } catch (error) {
     logger.error(`Bootstrap: Beispiel-Flows-Seed error: ${error.message}`);
   }
+
+  // Step 6: Verwaiste Terminal-Sitzungen schließen (Plan 017 Schritt 1).
+  // Nach einem Backend-Neustart ist jede WebSocket-Verbindung tot — 'active'-
+  // Zeilen aus der Vorgänger-Instanz sind Geister. Erst die vorhandene
+  // SQL-Funktion (Container nicht mehr running), dann der Rest (Container
+  // läuft zwar noch, aber niemand ist verbunden). Best-effort.
+  try {
+    await db.query('SELECT cleanup_stale_sandbox_sessions()');
+    const orphaned = await db.query(
+      `UPDATE sandbox_terminal_sessions SET status = 'closed', ended_at = NOW()
+       WHERE status = 'active'`
+    );
+    if (orphaned.rowCount > 0) {
+      logger.info(`Bootstrap: ${orphaned.rowCount} verwaiste Terminal-Sitzung(en) geschlossen`);
+    }
+  } catch (error) {
+    logger.error(`Bootstrap: Terminal-Sitzungs-Cleanup error: ${error.message}`);
+  }
 }
 
 async function ensureAdminUser() {
