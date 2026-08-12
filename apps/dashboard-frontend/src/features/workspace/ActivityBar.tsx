@@ -3,6 +3,7 @@ import { Files, Cpu, Blocks, Waypoints, Workflow, Puzzle, Settings } from 'lucid
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { ActivityView, WorkspaceTabSpec } from '@/stores/workspaceStore';
 import { useExtensionStore } from '@/stores/extensionStore';
+import { useFlowEditorStore } from '@/stores/flowEditorStore';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 import { useExtensions } from '@/hooks/useExtensions';
 
@@ -85,6 +86,7 @@ export function ActivityBar() {
   const openTab = useWorkspaceStore(s => s.openTab);
   const activeTabId = useWorkspaceStore(s => s.activeTabId);
   const setStoreTab = useExtensionStore(s => s.setStoreTab);
+  const setFlowTarget = useFlowEditorStore(s => s.setEditTarget);
   const { isAppEnabled } = useWorkspaceApps();
   const { extensions } = useExtensions();
 
@@ -96,14 +98,17 @@ export function ActivityBar() {
 
   const handleView = (view: ActivityView) => {
     selectView(view);
-    // Modelle/Erweiterungen zeigen ihren Inhalt im Store-Mitte-Tab; der Reiter
-    // folgt der gewählten Ansicht. Flows bekommen ihre Zentrale in Phase D.
+    // Jede Ansicht zeigt ihren Inhalt auch in der Mitte: Modelle/Erweiterungen
+    // im Store-Tab, Flows auf ihrer Startseite (Anlegen + Übersicht).
     if (view === 'models') {
       setStoreTab('models');
       openTab({ type: 'store' });
     } else if (view === 'extensions') {
       setStoreTab('extensions');
       openTab({ type: 'store' });
+    } else if (view === 'flows') {
+      setFlowTarget(null, 'overview');
+      openTab({ type: 'flow' });
     }
   };
 

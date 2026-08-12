@@ -137,6 +137,12 @@
     color: inherit;
     font: inherit;
   }
+  /* Ebenfalls Preflight-Ersatz: UI-Listen ohne Browser-Disc-Marker. Inhalts-
+     Listen (Markdown/TipTap/Chat-Antworten) setzen ihre Marker selbst über
+     die prose-/Editor-Styles. */
+  ul, ol {
+    list-style: none;
+  }
   /* Komfort-Dichte (Plan 004): globaler Root-Hebel. 17px-Basis (statt 16px)
      skaliert ALLE rem-basierten Text-/Abstands-Utilities plattformweit ~6 %
      größer — auch Nicht-Shell-Flächen (Einstellungen, Chat, Datenbank,

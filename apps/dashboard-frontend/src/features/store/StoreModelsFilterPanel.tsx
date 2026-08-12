@@ -24,7 +24,7 @@ export function StoreModelsFilterPanel() {
   const activeCount = activeFilterCount(filters);
 
   return (
-    <div className="flex flex-col gap-4 p-3">
+    <div className="flex flex-col gap-3 p-3">
       <SidebarSearch
         value={query}
         onChange={setQuery}

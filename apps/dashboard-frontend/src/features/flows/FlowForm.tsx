@@ -337,7 +337,7 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
                     <label
                       key={w.name}
                       className={cn(
-                        'flex cursor-pointer items-center gap-1.5 rounded border px-2 py-1 text-ui-xs transition-colors',
+                        'flex cursor-pointer items-center gap-1.5 rounded border px-2 py-0.5 text-ui-xs transition-colors',
                         drin
                           ? 'border-primary/40 bg-primary/5 text-foreground'
                           : 'border-border text-muted-foreground hover:bg-accent/50'

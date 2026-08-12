@@ -26,7 +26,7 @@ export function FacetGroup<T extends string>({
       {options.map(opt => (
         <label
           key={opt.value}
-          className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-ui-sm text-foreground transition-colors hover:bg-accent"
+          className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-0.5 text-ui-xs text-foreground transition-colors hover:bg-accent"
         >
           <Checkbox
             checked={selected.includes(opt.value)}

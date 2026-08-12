@@ -65,6 +65,7 @@ export default function ProjectFileTab({
   const api = useApi();
   const toast = useToast();
   const updateTabTitle = useWorkspaceStore(s => s.updateTabTitle);
+  const closeTab = useWorkspaceStore(s => s.closeTab);
 
   const [original, setOriginal] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -265,9 +266,14 @@ export default function ProjectFileTab({
   }
 
   if (error) {
+    // Typischer Fall: der Tab wurde restauriert, aber die Datei ist inzwischen
+    // gelöscht/verschoben — dann ist Schließen die einzig sinnvolle Aktion.
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
-        <p>{error}</p>
+        <p className="text-sm">{error}</p>
+        <Button type="button" variant="secondary" onClick={() => closeTab(tabId)}>
+          Tab schließen
+        </Button>
       </div>
     );
   }

@@ -134,11 +134,12 @@ export default function ProjectMarkdownEditor({ value, onChange, ariaLabel }: Pr
   return (
     <div className="tiptap-editor-overlay tiptap-editor-embedded" role="presentation">
       <div className="tiptap-editor-container">
-        {/* Kompakte Formatier-Leiste (umbrechend statt Überlauf-Menü) — dieselben
-            Button-Stile wie der Dokument-Editor. */}
-        <div className="tiptap-editor-header">
+        {/* Formatier-Leiste — immer EINE Zeile; bei schmalem Panel verdichtet
+            die Container-Query die Buttons, darunter scrollt die Leiste
+            horizontal statt umzubrechen. */}
+        <div className="tiptap-editor-header tiptap-toolbar-slim">
           <div
-            className="flex flex-1 flex-wrap items-center gap-1.5"
+            className="flex flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto"
             role="toolbar"
             aria-label="Formatierung"
           >

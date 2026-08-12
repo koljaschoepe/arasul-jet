@@ -323,6 +323,18 @@ router.post(
   })
 );
 
+// POST /api/sandbox/claude-auth/test — hinterlegten Zugang live gegen die
+// Anthropic-API prüfen. Macht ein abgelaufenes/ungültiges Token im Dialog
+// sichtbar, statt erst als stiller 401 beim `claude`-Aufruf im Terminal.
+router.post(
+  '/claude-auth/test',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const result = await claudeOauthService.testCentralAuth(req.user.id);
+    res.json({ ...result, timestamp: new Date().toISOString() });
+  })
+);
+
 // ============================================================================
 // Statistics
 // ============================================================================

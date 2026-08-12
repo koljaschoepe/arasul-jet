@@ -189,10 +189,18 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
                 };
                 hasChanges = true;
               } else if (model.install_status === 'downloading') {
-                // Update progress from DB
-                if (current.progress !== model.download_progress) {
+                // Update progress from DB. Sobald echte Prozente da sind, ist
+                // die Init-Phase vorbei — sonst zeigt die UI dauerhaft
+                // „Initialisiere", obwohl der Download längst läuft (der
+                // Polling-Pfad kennt keine SSE-Status-Strings).
+                const phase =
+                  current.phase === 'init' && (model.download_progress || 0) > 0
+                    ? 'download'
+                    : current.phase;
+                if (current.progress !== model.download_progress || current.phase !== phase) {
                   updated[modelId] = {
                     ...current,
+                    phase,
                     progress: model.download_progress || 0,
                   };
                   hasChanges = true;

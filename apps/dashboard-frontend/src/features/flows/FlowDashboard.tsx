@@ -102,6 +102,14 @@ function zeit(iso: string | null): string {
   });
 }
 
+/** Kompakte Ein-Zeilen-Vorschau der Start-Argumente (z. B. das Thema). */
+function argumentVorschau(args: FlowRunSummary['arguments']): string {
+  if (!args) return '';
+  return Object.values(args)
+    .filter(v => typeof v === 'string' && v.trim() !== '')
+    .join(' · ');
+}
+
 function Card({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
@@ -258,7 +266,9 @@ export default function FlowDashboard({
       {/* Zweizeiliger Kopf (Titel + optionale Beschreibung): min-h-ui-header
           hält die einheitliche Panel-Kopfhöhe (Plan 016) und wächst nur, wenn
           eine Beschreibung vorhanden ist — statt fester Höhe, die klippt. */}
-      <div className="flex min-h-ui-header shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-1">
+      {/* Ruhiger Kopf: eine Akzentfarbe reicht — Bearbeiten als Outline,
+          Löschen nur als dezentes Icon (rot erst beim Überfahren). */}
+      <div className="flex min-h-ui-header shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-semibold text-foreground">/{name}</span>
@@ -274,17 +284,19 @@ export default function FlowDashboard({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button type="button" size="sm" onClick={onEdit}>
-            <Pencil className="size-4" /> Bearbeiten
+          <Button type="button" size="sm" variant="outline" onClick={onEdit}>
+            <Pencil className="size-3.5" /> Bearbeiten
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             onClick={onDelete}
+            aria-label="Flow löschen"
+            title="Flow löschen"
           >
-            <Trash2 className="size-4" /> Löschen
+            <Trash2 className="size-3.5" />
           </Button>
         </div>
       </div>
@@ -438,6 +450,11 @@ export default function FlowDashboard({
                             <span className="shrink-0 text-muted-foreground">
                               {zeit(r.created_at)}
                             </span>
+                            {argumentVorschau(r.arguments) && (
+                              <span className="min-w-0 truncate text-foreground/90">
+                                {argumentVorschau(r.arguments)}
+                              </span>
+                            )}
                             {r.steps_used > 0 && (
                               <span className="shrink-0 text-muted-foreground/70">
                                 {r.steps_used === 1 ? '1 Schritt' : `${r.steps_used} Schritte`}

@@ -93,6 +93,29 @@ body.sidebar-collapsed .tiptap-editor-overlay.tiptap-editor-embedded {
   gap: 8px;
 }
 
+/* Einzeilige Leiste (Projektdatei-Editor): Gruppen brechen nie um. Bei
+   schmalem Panel verdichtet die Container-Query die Buttons; reicht auch das
+   nicht, scrollt die Leiste horizontal (dezenter Scrollbalken). */
+.tiptap-toolbar-slim {
+  container-type: inline-size;
+}
+.tiptap-toolbar-slim .tiptap-toolbar-group {
+  flex-shrink: 0;
+}
+.tiptap-toolbar-slim [role='toolbar'] {
+  scrollbar-width: thin;
+}
+@container (max-width: 640px) {
+  .tiptap-toolbar-slim .tiptap-toolbar-btn {
+    padding: 4px 5px;
+    font-size: 12px;
+  }
+  .tiptap-toolbar-slim .tiptap-toolbar-group {
+    padding: 1px 2px;
+    gap: 1px;
+  }
+}
+
 /* Aktionen ganz rechts, schrumpfen nie — die Formatier-Leiste weicht davor
    ins ⋯-Menü aus (ihr clientWidth reserviert den Platz automatisch). */
 .tiptap-editor-actions {

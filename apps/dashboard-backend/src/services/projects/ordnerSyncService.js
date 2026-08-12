@@ -41,6 +41,7 @@ const fsp = require('fs/promises');
 const path = require('path');
 const crypto = require('crypto');
 const logger = require('../../utils/logger');
+const { dekodiereUploadName } = require('../../utils/uploadName');
 
 // Lazy geladen, damit Tests einzelne Abhängigkeiten ersetzen können.
 function deps(overrides = {}) {
@@ -638,7 +639,12 @@ async function materialisiere(projectId, overrides = {}) {
   for (const doc of docs) {
     const raum = doc.space_id ? jeId.get(doc.space_id) : null;
     const zielOrdner = raum?.rel_pfad || '';
-    const basisName = path.basename(doc.original_filename || doc.filename || 'dokument');
+    // Historische `original_filename`-Werte können latin1-Mojibake tragen
+    // („invoiceÂ·…") — vor dem multer-Fix hochgeladen. Idempotent reparieren,
+    // damit der kaputte Name nicht auf der Platte materialisiert wird.
+    const basisName = path.basename(
+      dekodiereUploadName(doc.original_filename || doc.filename || 'dokument')
+    );
     let rel = zielOrdner ? `${zielOrdner}/${basisName}` : basisName;
     try {
       const buffer = await ladeObjekt(minio, doc.file_path);

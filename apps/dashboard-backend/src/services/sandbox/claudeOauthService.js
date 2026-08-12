@@ -15,7 +15,7 @@
 
 const crypto = require('crypto');
 const logger = require('../../utils/logger');
-const { ValidationError, ServiceUnavailableError } = require('../../utils/errors');
+const { NotFoundError, ValidationError, ServiceUnavailableError } = require('../../utils/errors');
 const ext = require('./externalCredentialsService');
 
 // --- Konstanten (bewusst hartkodiert, kein process.env — feste Anthropic-Werte) ---
@@ -296,11 +296,59 @@ async function ensureFreshToken(userId) {
   }
 }
 
+/**
+ * Hinterlegten zentralen Zugang live gegen die Anthropic-API prüfen (Mini-
+ * Request mit max_tokens=1). 401/403 ⇒ ungültig; jede andere Antwort (200,
+ * 400, 429, …) beweist, dass die Authentifizierung durchgeht. Vorher läuft der
+ * Lazy-Refresh, damit ein bloß abgelaufener OAuth-Access-Token nicht fälschlich
+ * als kaputt gemeldet wird.
+ */
+async function testCentralAuth(userId) {
+  await ensureFreshToken(userId);
+  const current = await ext.loadCredentials(userId, ext.PROVIDER_CENTRAL);
+  if (!current) {
+    throw new NotFoundError('Kein zentraler KI-Zugang hinterlegt.');
+  }
+  const headers = { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' };
+  if (current.mode === 'apikey') {
+    headers['x-api-key'] = current.value;
+  } else {
+    // Abo-/Setup-Token und OAuth-Access-Token laufen beide als Bearer — mit dem
+    // OAuth-Beta-Header, den auch die claude-CLI sendet.
+    headers.Authorization = `Bearer ${current.mode === 'oauth' ? current.accessToken : current.value}`;
+    headers['anthropic-beta'] = 'oauth-2025-04-20';
+  }
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'ping' }],
+      }),
+    });
+  } catch (err) {
+    throw new ServiceUnavailableError(`Anthropic nicht erreichbar: ${err.message}`);
+  }
+  const valid = res.status !== 401 && res.status !== 403;
+  return {
+    valid,
+    status: res.status,
+    mode: current.mode,
+    message: valid
+      ? 'Zugang funktioniert.'
+      : `Anthropic lehnt den Zugang ab (${res.status}) — Token abgelaufen oder ungültig. Bitte neu anmelden oder ein frisches Token hinterlegen.`,
+  };
+}
+
 module.exports = {
   startClaudeOAuth,
   completeClaudeOAuth,
   refreshClaudeOAuth,
   ensureFreshToken,
+  testCentralAuth,
   // Für Tests.
   _internals: {
     CLIENT_ID,
