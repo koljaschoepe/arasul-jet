@@ -1199,21 +1199,33 @@ liegt unter `EXTENSIONS_DIR`; `package_path` zeigt darauf. Bewusst getrennt von
 `platform_apps` (kuratierte Kern-Apps wie n8n) und `app_installations`
 (Container-AppStore).
 
-| Column         | Type                     | Nullable | Default             |
-| -------------- | ------------------------ | -------- | ------------------- |
-| `id`           | text                     | ❌       | (Slug = Ordnername) |
-| `name`         | text                     | ❌       |                     |
-| `description`  | text                     | ❌       | `''`                |
-| `ext_type`     | text                     | ❌       | `'app'`             |
-| `access_tier`  | text                     | ❌       | `'internet'`        |
-| `version`      | text                     | ❌       | `'0.1.0'`           |
-| `source`       | text                     | ❌       | `'built'`           |
-| `manifest`     | jsonb                    | ❌       | `'{}'::jsonb`       |
-| `enabled`      | boolean                  | ❌       | `false`             |
-| `package_path` | text                     | ✅       |                     |
-| `created_by`   | integer                  | ✅       |                     |
-| `installed_at` | timestamp with time zone | ❌       | `now()`             |
-| `updated_at`   | timestamp with time zone | ❌       | `now()`             |
+| Column                     | Type                     | Nullable | Default             |
+| -------------------------- | ------------------------ | -------- | ------------------- |
+| `id`                       | text                     | ❌       | (Slug = Ordnername) |
+| `name`                     | text                     | ❌       |                     |
+| `description`              | text                     | ❌       | `''`                |
+| `ext_type`                 | text                     | ❌       | `'app'`             |
+| `access_tier`              | text                     | ❌       | `'internet'`        |
+| `version`                  | text                     | ❌       | `'0.1.0'`           |
+| `source`                   | text                     | ❌       | `'built'`           |
+| `manifest`                 | jsonb                    | ❌       | `'{}'::jsonb`       |
+| `enabled`                  | boolean                  | ❌       | `false`             |
+| `declared_capabilities`    | jsonb                    | ❌       | `'[]'::jsonb`       |
+| `approved_capabilities`    | jsonb                    | ❌       | `'[]'::jsonb`       |
+| `capabilities_approved_at` | timestamp with time zone | ✅       |                     |
+| `capabilities_approved_by` | integer                  | ✅       |                     |
+| `package_path`             | text                     | ✅       |                     |
+| `created_by`               | integer                  | ✅       |                     |
+| `installed_at`             | timestamp with time zone | ❌       | `now()`             |
+| `updated_at`               | timestamp with time zone | ❌       | `now()`             |
+
+Die vier `*_capabilities`-Spalten (Plan 017 Schritt 2, Migration
+`134_extension_faehigkeiten.sql`) tragen die KI-Brücke: `declared_capabilities`
+folgt dem Manifest-Feld `faehigkeiten` (Teilmenge von
+`["llm","rag","dateien","flows"]`), `approved_capabilities` wird beim
+Live-Schalten vom Admin freigegeben. Wirksam ist nur der Schnitt beider —
+deklariert ein Update neue Fähigkeiten, sind sie bis zur erneuten Freigabe
+inert.
 
 **Primary key:** `id`
 

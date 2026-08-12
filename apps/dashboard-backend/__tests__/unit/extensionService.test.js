@@ -142,9 +142,77 @@ describe('listExtensions — Abbildung auf die API-Form', () => {
       source: 'built',
       enabled: true,
       manifest: { entry: 'tool.mjs' },
+      // Alt-Zeilen ohne Fähigkeits-Spalten → leere Listen (Plan 017 Schritt 2).
+      faehigkeiten: { deklariert: [], freigegeben: [], wirksam: [] },
       installedAt: '2026-07-23T10:00:00.000Z',
     });
     // Interne Pfade gehören nicht in die API-Antwort.
     expect(ext).not.toHaveProperty('package_path');
+  });
+});
+
+describe('setEnabled — Fähigkeiten-Freigabe (Plan 017 Schritt 2)', () => {
+  function row(overrides = {}) {
+    return {
+      id: 'app1',
+      name: 'App',
+      description: '',
+      ext_type: 'app',
+      access_tier: 'internet',
+      version: '1.0.0',
+      source: 'built',
+      enabled: false,
+      manifest: {},
+      declared_capabilities: ['llm', 'rag'],
+      approved_capabilities: [],
+      installed_at: new Date().toISOString(),
+      ...overrides,
+    };
+  }
+
+  it('Aktivieren ohne Freigabe → Validierungsfehler mit fehlender Liste', async () => {
+    db.query.mockResolvedValue({ rows: [row()] });
+    await expect(extensionService.setEnabled('app1', true)).rejects.toMatchObject({
+      name: 'ValidationError',
+      details: { freigabe_erforderlich: true, fehlend: ['llm', 'rag'] },
+    });
+  });
+
+  it('Aktivieren mit faehigkeitenFreigeben übernimmt deklariert → freigegeben', async () => {
+    db.query.mockImplementation(async sql => {
+      if (/approved_capabilities = declared_capabilities/.test(sql)) {
+        return {
+          rows: [row({ enabled: true, approved_capabilities: ['llm', 'rag'] })],
+        };
+      }
+      return { rows: [row()] };
+    });
+    const ext = await extensionService.setEnabled('app1', true, {
+      faehigkeitenFreigeben: true,
+      userId: 1,
+    });
+    expect(ext.enabled).toBe(true);
+    expect(ext.faehigkeiten.wirksam.sort()).toEqual(['llm', 'rag']);
+    const freigabeCall = db.query.mock.calls.find(([sql]) =>
+      /approved_capabilities = declared_capabilities/.test(sql)
+    );
+    expect(freigabeCall[1]).toEqual(['app1', 1]);
+  });
+
+  it('Aktivieren ohne deklarierte Fähigkeiten braucht keine Freigabe', async () => {
+    db.query.mockResolvedValue({
+      rows: [row({ declared_capabilities: [], enabled: true })],
+    });
+    const ext = await extensionService.setEnabled('app1', true);
+    expect(ext.enabled).toBe(true);
+  });
+
+  it('Deaktivieren ist immer erlaubt und lässt die Freigabe stehen', async () => {
+    db.query.mockResolvedValue({
+      rows: [row({ enabled: false, approved_capabilities: ['llm'] })],
+    });
+    const ext = await extensionService.setEnabled('app1', false);
+    expect(ext.enabled).toBe(false);
+    expect(ext.faehigkeiten.freigegeben).toEqual(['llm']);
   });
 });

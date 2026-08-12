@@ -1187,17 +1187,17 @@ das Register ist die Tabelle `extensions`. Der Ablauf: in einer
 Erweiterungs-Werkstatt bauen → paketieren → herunterladen → anderswo
 importieren → forken. Alle Routen erfordern Authentifizierung.
 
-| Method | Endpoint                       | Description                                             |
-| ------ | ------------------------------ | ------------------------------------------------------- |
-| GET    | `/api/extensions`              | Installierte Erweiterungen                              |
-| POST   | `/api/extensions/bauen`        | Ordner einer Sandbox paketieren + registrieren          |
-| POST   | `/api/extensions/import`       | Paket-Archiv (`.tar.gz`) hochladen und installieren     |
-| GET    | `/api/extensions/:id/download` | Paket als `.tar.gz` herunterladen                       |
-| GET    | `/api/extensions/:id/app`      | Oberfläche einer `app`-Erweiterung (Startdatei)         |
-| GET    | `/api/extensions/:id/app/*`    | Einzelne Datei aus dem Paket (Assets)                   |
-| POST   | `/api/extensions/:id/fork`     | Kopie als neue Werkstatt-Sandbox anlegen                |
-| PUT    | `/api/extensions/:id`          | Aktivieren/deaktivieren — Body `{ "enabled": boolean }` |
-| DELETE | `/api/extensions/:id`          | Deinstallieren (Register-Eintrag + Paket-Ordner)        |
+| Method | Endpoint                       | Description                                                                                |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/extensions`              | Installierte Erweiterungen                                                                 |
+| POST   | `/api/extensions/bauen`        | Ordner einer Sandbox paketieren + registrieren                                             |
+| POST   | `/api/extensions/import`       | Paket-Archiv (`.tar.gz`) hochladen und installieren                                        |
+| GET    | `/api/extensions/:id/download` | Paket als `.tar.gz` herunterladen                                                          |
+| GET    | `/api/extensions/:id/app`      | Oberfläche einer `app`-Erweiterung (Startdatei)                                            |
+| GET    | `/api/extensions/:id/app/*`    | Einzelne Datei aus dem Paket (Assets)                                                      |
+| POST   | `/api/extensions/:id/fork`     | Kopie als neue Werkstatt-Sandbox anlegen                                                   |
+| PUT    | `/api/extensions/:id`          | Aktivieren/deaktivieren — Body `{ "enabled": boolean, "faehigkeitenFreigeben"?: boolean }` |
+| DELETE | `/api/extensions/:id`          | Deinstallieren (Register-Eintrag + Paket-Ordner)                                           |
 
 `GET /api/extensions/:id/app` (und `/app/*`) liefert die Oberfläche einer
 `app`-Erweiterung, damit sie „in der Mitte" (wie n8n) in einem Sandbox-iframe
@@ -1206,6 +1206,35 @@ eingesperrt. Auth kommt über das `arasul_session`-Cookie (ein iframe-`src` kann
 keinen Bearer-Header setzen). Die Antwort trägt `Content-Security-Policy:
 sandbox …` — das ausgelieferte Nutzer-HTML bekommt einen eigenen, opaken Origin
 und kommt nicht an Dashboard-Cookies oder die API.
+
+#### KI-Brücke (Plan 017 Schritt 2)
+
+Eine live geschaltete `app`-Erweiterung läuft im abgeriegelten iframe (opaker
+Origin). Über die **KI-Brücke** nutzt sie kontrolliert die lokale Basis. Ablauf:
+Die App deklariert im Manifest `faehigkeiten` (Teilmenge von
+`["llm","rag","dateien","flows"]`); der Admin gibt sie beim Live-Schalten frei
+(`PUT /api/extensions/:id` mit `faehigkeitenFreigeben: true`). Fehlt die
+Freigabe, antwortet das Aktivieren mit `400` (`details.freigabe_erforderlich`).
+
+| Method | Endpoint                                        | Zweck                                                       |
+| ------ | ----------------------------------------------- | ----------------------------------------------------------- |
+| POST   | `/api/extensions/:id/bruecke/token`             | Brücken-Token ausstellen (authentifizierte Dashboard-Seite) |
+| GET    | `/api/extensions/:id/bruecke/info`              | `{ id, name, faehigkeiten }` (wirksame Fähigkeiten)         |
+| POST   | `/api/extensions/:id/bruecke/llm`               | Fähigkeit `llm` — gestreamte Antwort (SSE)                  |
+| POST   | `/api/extensions/:id/bruecke/rag`               | Fähigkeit `rag` — Wissensbasis-Suche `{ treffer }`          |
+| POST   | `/api/extensions/:id/bruecke/dateien`           | Fähigkeit `dateien` — eigener Datentopf (list/read/write)   |
+| GET    | `/api/extensions/:id/bruecke/flows`             | Fähigkeit `flows` — verfügbare Flows                        |
+| POST   | `/api/extensions/:id/bruecke/flows/:name/run`   | Fähigkeit `flows` — Flow starten (`202 { runId }`)          |
+| GET    | `/api/extensions/:id/bruecke/flows/runs/:runId` | Fähigkeit `flows` — Lauf-Status/Ergebnis                    |
+
+Der Token (kurzlebig, In-Memory, Standard 15 min) wird der App per postMessage
+gereicht und als `Authorization: Bearer …` gesendet. Das Backend prüft bei
+JEDEM Aufruf: Notaus-Flag (`EXTENSIONS_BRUECKE_ENABLED`, sonst `503`), Token
+gültig/nicht abgelaufen/zur Erweiterung passend (`401`), Erweiterung aktiviert
+und Fähigkeit freigegeben (`403`). CORS ist nur auf den Brücken-Routen für den
+opaken Origin (`null`) geöffnet. `dateien` schreibt/liest ausschließlich im
+eigenen Ordner `/arasul/extensions-data/<id>` — nie in der Projektablage.
+Client-SDK: `services/sandbox/dev-templates/arasul-bruecke.js`.
 
 `POST /api/extensions/bauen` — Body:
 

@@ -26,6 +26,11 @@ const EXT_TYPES = ['app', 'flow', 'tool'];
 const ACCESS_TIERS = ['internet', 'internal', 'full'];
 const PACKAGE_FORMAT_VERSION = 1;
 
+// KI-Brücke (Plan 017 Schritt 2): Fähigkeiten, die eine Erweiterung im
+// Manifest deklarieren kann. Der Admin gibt sie beim Live-Schalten frei;
+// die Brücken-Routen erlauben zur Laufzeit nur den freigegebenen Schnitt.
+const BRUECKE_FAEHIGKEITEN = ['llm', 'rag', 'dateien', 'flows'];
+
 // Gleiche Form wie Flow-Namen: Kleinbuchstaben/Ziffern/Bindestriche, kein
 // führender/abschließender Bindestrich. Der Wert wird zum Ordnernamen.
 const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$|^[a-z0-9]$/;
@@ -105,6 +110,25 @@ function validateManifest(raw) {
     );
   }
 
+  // Optionale Brücken-Fähigkeiten (Plan 017 Schritt 2): eindeutige Teilmenge
+  // von BRUECKE_FAEHIGKEITEN. Fehlt das Feld, hat die Erweiterung keine.
+  let faehigkeiten = [];
+  if (raw.faehigkeiten !== undefined) {
+    if (!Array.isArray(raw.faehigkeiten)) {
+      throw new ValidationError(
+        `manifest.json: "faehigkeiten" muss eine Liste aus ${BRUECKE_FAEHIGKEITEN.join(' | ')} sein`
+      );
+    }
+    for (const f of raw.faehigkeiten) {
+      if (!BRUECKE_FAEHIGKEITEN.includes(f)) {
+        throw new ValidationError(
+          `manifest.json: unbekannte Fähigkeit "${f}" — erlaubt sind ${BRUECKE_FAEHIGKEITEN.join(' | ')}`
+        );
+      }
+    }
+    faehigkeiten = [...new Set(raw.faehigkeiten)];
+  }
+
   return {
     ...raw,
     id,
@@ -114,6 +138,7 @@ function validateManifest(raw) {
     accessTier,
     version,
     entry,
+    faehigkeiten,
     arasulExtensionVersion: PACKAGE_FORMAT_VERSION,
   };
 }
@@ -232,6 +257,7 @@ module.exports = {
   MANIFEST_NAME,
   EXT_TYPES,
   ACCESS_TIERS,
+  BRUECKE_FAEHIGKEITEN,
   PACKAGE_FORMAT_VERSION,
   EXTENSION_ID_RE,
   assertSafeId,

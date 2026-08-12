@@ -102,6 +102,11 @@ services:
       # + Assets. Schreibbar (paketieren/importieren erzeugt hier Ordner),
       # ueberlebt Rebuilds und wandert ins Backup.
       - ../data/extensions:/arasul/extensions
+      # KI-Bruecke, Faehigkeit "dateien" (Plan 017 Schritt 2): eigener Datentopf
+      # je live geschalteter Erweiterung (/arasul/extensions-data/<id>). Bewusst
+      # GETRENNT von /arasul/projects — eine Erweiterung darf NIE quer auf
+      # Kundendaten anderer Projekte zugreifen. Schreibbar, ueberlebt Rebuilds.
+      - ../data/extensions-data:/arasul/extensions-data
       # Projektablage: ein echter Geraete-Ordner je Projekt (/arasul/projects/
       # <uuid>) — Datei-API des Explorers, Arbeitsverzeichnis fuer Flows,
       # Mount fuer Sandboxes. Auch der Git-Sync-Checkout (PROJECT_GIT_DIR)
