@@ -547,7 +547,7 @@
     <div class="result"><strong>Ergebnis:</strong> Besitz-Filter aus listProjects/getProject/loadWorkspace entfernt (created_by bleibt zur Anzeige, LEFT JOIN admin_users); Anwesenheit live aus activeSessions (presenceForProject/presenceSummary, je Projekt + je tmux-Sitzung mit Nutzernamen); /bauen prüft den Slug jetzt gegen aktive Erweiterungs-Werkstätten (Exfiltrations-Lücke zu); Container-Start atomar per bedingtem UPDATE…RETURNING (Doppel-Start → freundliche Antwort statt error); Boot-Cleanup schließt Geister-Sitzungen (cleanup_stale_sandbox_sessions() + Rest-UPDATE in bootstrap.js Step 6). 2021 Backend-Tests grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — KI-Brücke: Fähigkeiten, Token, Endpunkte">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — KI-Brücke: Fähigkeiten, Token, Endpunkte">
     <h3>Schritt 2 — KI-Brücke: Fähigkeiten, Token, Endpunkte <span class="tag">Risiko: hoch</span></h3>
     <p>Manifest v2: optionales Feld <code>faehigkeiten</code> (<code>llm</code>, <code>rag</code>,
     <code>dateien</code>, <code>flows</code>); Migration (nächste freie Nummer ≥ 134) erweitert
@@ -560,6 +560,7 @@
     (<code>arasul-bruecke.js</code>) wandert in die Dev-Vorlagen. Backend-Regeln wie immer:
     <code>asyncHandler</code>, Custom Errors, Zod-Schemas.</p>
     <p class="files mono">services/postgres/init/NNN_*.sql · apps/dashboard-backend/src/routes/extensions.js · src/services/extensions/{extensionService,brueckeService}.js · src/schemas/extensions.js · services/sandbox/dev-templates/ · apps/dashboard-frontend/src/features/workspace/… (Token-Handshake im Extension-Tab) · Tests</p>
+    <div class="result"><strong>Ergebnis:</strong> Migration 134 (declared/approved_capabilities + Freigabe-Metadaten), Manifest-Feld <code>faehigkeiten</code> validiert in extensionPackage; Aktivieren verlangt Freigabe (400 mit <code>freigabe_erforderlich</code>, Freigabe setzt approved:=declared); Brücken-Routen /token /info /llm(SSE) /rag /dateien /flows mit kurzlebigen In-Memory-Tokens (15 min, erneuerbar, NaN-fest), Prüfung Token+Erweiterung+Fähigkeit (wirksam = deklariert ∩ freigegeben) bei jedem Aufruf, CORS nur auf Brücken-Routen (Origin null) + apiLimiter, Notaus EXTENSIONS_BRUECKE_ENABLED; LLM-Stream unter der einen GPU-Sperre über sseHelper (Client-Disconnect bricht Upstream ab, kein Prozess-Crash). <b>Review-Fixes (3 Criticals):</b> <code>dateien</code> schreibt/liest NUR im eigenen Datentopf /arasul/extensions-data/&lt;id&gt; (nie Projektablage) mit O_NOFOLLOW + assertFdWithinRoots gegen TOCTOU; SSE-Lifecycle gehärtet. SDK arasul-bruecke.js in Dev-Vorlagen + Beispiel-App (LLM/RAG); ExtensionAppTab reicht Token per postMessage (Auto-Erneuerung). Doku-Sync API_REFERENCE + DATABASE_SCHEMA + ENVIRONMENT_VARIABLES + ANLEITUNG. 2050 Backend- + 769 Frontend-Tests grün.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Flow-Erweiterungen live über n8n">

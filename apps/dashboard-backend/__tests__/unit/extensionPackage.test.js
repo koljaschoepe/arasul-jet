@@ -177,3 +177,32 @@ describe('Pack → Entpack', () => {
     await expect(fsp.access(path.join(ziel, '..', 'ausbruch.txt'))).rejects.toThrow();
   });
 });
+
+describe('validateManifest — Brücken-Fähigkeiten (Plan 017 Schritt 2)', () => {
+  const pkg = require('../../src/services/extensions/extensionPackage');
+  const basis = {
+    id: 'meine-app',
+    name: 'Meine App',
+    type: 'app',
+    entry: 'index.html',
+  };
+
+  it('ohne Feld → leere Liste', () => {
+    expect(pkg.validateManifest({ ...basis }).faehigkeiten).toEqual([]);
+  });
+
+  it('gültige Liste wird dedupliziert übernommen', () => {
+    const m = pkg.validateManifest({ ...basis, faehigkeiten: ['llm', 'rag', 'llm'] });
+    expect(m.faehigkeiten).toEqual(['llm', 'rag']);
+  });
+
+  it('unbekannte Fähigkeit wird abgewiesen', () => {
+    expect(() => pkg.validateManifest({ ...basis, faehigkeiten: ['llm', 'internet'] })).toThrow(
+      /unbekannte Fähigkeit/i
+    );
+  });
+
+  it('Nicht-Liste wird abgewiesen', () => {
+    expect(() => pkg.validateManifest({ ...basis, faehigkeiten: 'llm' })).toThrow(/Liste/i);
+  });
+});

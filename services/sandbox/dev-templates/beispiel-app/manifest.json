@@ -1,10 +1,11 @@
 {
   "id": "beispiel-app",
   "name": "Beispiel-App",
-  "description": "Eine minimale App-Erweiterung als eigener Tab — Vorlage zum Kopieren.",
+  "description": "Eine minimale App-Erweiterung als eigener Tab — Vorlage zum Kopieren, inkl. KI-Brücke (LLM + RAG).",
   "type": "app",
   "accessTier": "internet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "arasulExtensionVersion": 1,
-  "entry": "index.html"
+  "entry": "index.html",
+  "faehigkeiten": ["llm", "rag"]
 }

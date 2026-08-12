@@ -54,6 +54,35 @@ Alternativ baust du direkt im **Terminal** (z. B. mit einem KI-Agenten wie
 Claude Code oder dem lokalen Coder) in diesem Werkstatt-Ordner — der
 Werkstatt-Watcher registriert jede gültige `manifest.json` automatisch.
 
+## Die KI-Brücke — auf LLM, RAG, Dateien und Flows zugreifen
+
+Eine live geschaltete App läuft in einem abgeriegelten iframe. Über die
+**KI-Brücke** kann sie trotzdem kontrolliert die lokale Basis nutzen:
+
+1. Deklariere im `manifest.json`, was die App braucht:
+
+   ```json
+   "faehigkeiten": ["llm", "rag", "dateien", "flows"]
+   ```
+
+   - `llm` — Fragen ans lokale Modell (gestreamte Antwort)
+   - `rag` — Wissensbasis-Suche mit Quellen
+   - `dateien` — Projektablage lesen/schreiben
+   - `flows` — Flows auflisten, starten, Ergebnis abholen
+
+2. Lege `arasul-bruecke.js` (liegt in diesem Werkstatt-Ordner) mit in dein
+   Paket und binde es ein: `<script src="arasul-bruecke.js"></script>`.
+   Danach steht `ArasulBruecke` bereit — Beispiele in `beispiel-app/index.html`
+   und die vollständige API im Kopf von `arasul-bruecke.js`.
+
+3. Beim **Live-Schalten** bestätigt der Admin die deklarierte Liste einmal
+   („Diese Erweiterung darf: …"). Nicht freigegebene Fähigkeiten weist das
+   Backend bei jedem Aufruf mit 403 ab. Deklariert ein Update NEUE
+   Fähigkeiten, sind sie erst nach erneuter Freigabe nutzbar.
+
+Der Token dafür kommt automatisch vom Dashboard (postMessage) — deine App
+muss sich um Anmeldung oder Erneuerung nicht kümmern.
+
 ## Fertig? — Paketieren
 
 Wenn die Erweiterung steht:

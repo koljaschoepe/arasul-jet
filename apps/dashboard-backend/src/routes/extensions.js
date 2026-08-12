@@ -18,15 +18,22 @@ const fs = require('fs');
 const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody, validateParams } = require('../middleware/validate');
-const { uploadLimiter } = require('../middleware/rateLimit');
+const { uploadLimiter, llmLimiter, apiLimiter } = require('../middleware/rateLimit');
 const { ValidationError } = require('../utils/errors');
 const extensionService = require('../services/extensions/extensionService');
 const werkstattWatcher = require('../services/extensions/werkstattWatcher');
+const brueckeService = require('../services/extensions/brueckeService');
 const {
   ExtensionIdParams,
   BuildExtensionBody,
   ForkExtensionBody,
   SetEnabledBody,
+  BrueckeLlmBody,
+  BrueckeRagBody,
+  BrueckeDateienBody,
+  BrueckeFlowRunBody,
+  BrueckeFlowParams,
+  BrueckeRunParams,
 } = require('../schemas/extensions');
 
 const UPLOAD_DIR = path.join(os.tmpdir(), 'arasul-extension-uploads');
@@ -188,15 +195,159 @@ router.post(
   })
 );
 
-/** PUT /api/extensions/:id — aktivieren/deaktivieren. */
+/**
+ * PUT /api/extensions/:id — aktivieren/deaktivieren.
+ * Deklariert die Erweiterung Brücken-Fähigkeiten, verlangt das Aktivieren die
+ * ausdrückliche Freigabe (`faehigkeitenFreigeben: true`) — sonst kommt 400 mit
+ * `details.freigabe_erforderlich`, worauf die UI den Freigabe-Dialog zeigt.
+ */
 router.put(
   '/:id',
   requireAuth,
   validateParams(ExtensionIdParams),
   validateBody(SetEnabledBody),
   asyncHandler(async (req, res) => {
-    const data = await extensionService.setEnabled(req.params.id, req.body.enabled);
+    const data = await extensionService.setEnabled(req.params.id, req.body.enabled, {
+      faehigkeitenFreigeben: req.body.faehigkeitenFreigeben,
+      userId: req.user.id,
+    });
     res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
+// ============================================================================
+// KI-Brücke (Plan 017 Schritt 2)
+// ============================================================================
+// Die App im abgeriegelten iframe (opaker Origin) ruft diese Routen mit einem
+// kurzlebigen Brücken-Token auf, den ihr die Dashboard-Seite per postMessage
+// reicht. CORS ist AUSSCHLIESSLICH hier geöffnet (Origin "null"), Cookies
+// spielen keine Rolle — die Autorisierung trägt allein der Token, den das
+// Backend bei jedem Aufruf gegen Erweiterung + freigegebene Fähigkeit prüft.
+
+function brueckeCors(req, res, next) {
+  res.setHeader('Access-Control-Allow-Origin', 'null');
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Max-Age', '600');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+}
+
+function bearerFrom(req) {
+  const h = req.headers.authorization || '';
+  return h.startsWith('Bearer ') ? h.slice(7) : null;
+}
+
+router.use('/:id/bruecke', brueckeCors);
+// Grunddrossel für ALLE Brücken-Aufrufe (aus untrusted iframe-Code erreichbar);
+// die teuren LLM-/RAG-Routen bekommen zusätzlich den strengeren llmLimiter.
+router.use('/:id/bruecke', apiLimiter);
+
+/**
+ * POST /api/extensions/:id/bruecke/token — Brücken-Token ausstellen.
+ * Aufrufer ist die AUTHENTIFIZIERTE Dashboard-Seite (nicht das iframe); sie
+ * reicht den Token der App per postMessage. Erneuter Aufruf = frischer Token.
+ */
+router.post(
+  '/:id/bruecke/token',
+  requireAuth,
+  validateParams(ExtensionIdParams),
+  asyncHandler(async (req, res) => {
+    const data = await brueckeService.issueToken(req.params.id, req.user.id);
+    res.json({ ...data, timestamp: new Date().toISOString() });
+  })
+);
+
+/** GET /api/extensions/:id/bruecke/info — wer bin ich, was darf ich. */
+router.get(
+  '/:id/bruecke/info',
+  validateParams(ExtensionIdParams),
+  asyncHandler(async (req, res) => {
+    const { extension } = await brueckeService.autorisieren(req.params.id, bearerFrom(req), null);
+    res.json({
+      id: extension.id,
+      name: extension.name,
+      faehigkeiten: extension.faehigkeiten.wirksam,
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/** POST /api/extensions/:id/bruecke/llm — gestreamte Antwort des lokalen Modells (SSE). */
+router.post(
+  '/:id/bruecke/llm',
+  llmLimiter,
+  validateParams(ExtensionIdParams),
+  validateBody(BrueckeLlmBody),
+  asyncHandler(async (req, res) => {
+    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'llm');
+    await brueckeService.llmStream(req.body, res);
+  })
+);
+
+/** POST /api/extensions/:id/bruecke/rag — Wissensbasis-Suche mit Quellen. */
+router.post(
+  '/:id/bruecke/rag',
+  llmLimiter,
+  validateParams(ExtensionIdParams),
+  validateBody(BrueckeRagBody),
+  asyncHandler(async (req, res) => {
+    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'rag');
+    const treffer = await brueckeService.ragSuche(req.body);
+    res.json({ treffer, timestamp: new Date().toISOString() });
+  })
+);
+
+/** POST /api/extensions/:id/bruecke/dateien — Projektablage list/read/write. */
+router.post(
+  '/:id/bruecke/dateien',
+  validateParams(ExtensionIdParams),
+  validateBody(BrueckeDateienBody),
+  asyncHandler(async (req, res) => {
+    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'dateien');
+    const data = await brueckeService.dateien(req.params.id, req.body);
+    res.json({ ...data, timestamp: new Date().toISOString() });
+  })
+);
+
+/** GET /api/extensions/:id/bruecke/flows — verfügbare Flows. */
+router.get(
+  '/:id/bruecke/flows',
+  validateParams(ExtensionIdParams),
+  asyncHandler(async (req, res) => {
+    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'flows');
+    const flows = await brueckeService.flowsListe();
+    res.json({ flows, timestamp: new Date().toISOString() });
+  })
+);
+
+/** POST /api/extensions/:id/bruecke/flows/:name/run — Flow starten. */
+router.post(
+  '/:id/bruecke/flows/:name/run',
+  validateParams(BrueckeFlowParams),
+  validateBody(BrueckeFlowRunBody),
+  asyncHandler(async (req, res) => {
+    const { userId } = await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'flows');
+    const data = await brueckeService.flowStarten({
+      name: req.params.name,
+      args: req.body.args,
+      userId,
+    });
+    res.status(202).json({ ...data, status: 'laeuft', timestamp: new Date().toISOString() });
+  })
+);
+
+/** GET /api/extensions/:id/bruecke/flows/runs/:runId — Lauf-Status/Ergebnis. */
+router.get(
+  '/:id/bruecke/flows/runs/:runId',
+  validateParams(BrueckeRunParams),
+  asyncHandler(async (req, res) => {
+    const { userId } = await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'flows');
+    const data = await brueckeService.flowLauf({ runId: req.params.runId, userId });
+    res.json({ ...data, timestamp: new Date().toISOString() });
   })
 );
 

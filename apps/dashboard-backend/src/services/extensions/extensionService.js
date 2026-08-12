@@ -23,6 +23,22 @@ const pkg = require('./extensionPackage');
 // ausschließlich lazy (deps()), es entsteht kein Require-Zyklus beim Laden.
 const { CANONICAL_WERKSTATT_SLUG } = require('./werkstattWatcher');
 
+/** JSONB-Spalte defensiv als String-Array lesen (alte Zeilen: Spalte fehlt/null). */
+function alsListe(value) {
+  return Array.isArray(value) ? value.filter(v => typeof v === 'string') : [];
+}
+
+/**
+ * Wirksame Brücken-Fähigkeiten einer Zeile: deklariert ∩ freigegeben.
+ * Ein Update, das neue Fähigkeiten deklariert, macht sie damit NICHT
+ * automatisch nutzbar — erst die erneute Freigabe (Plan 017 Schritt 2).
+ */
+function wirksameFaehigkeiten(row) {
+  const deklariert = alsListe(row.declared_capabilities);
+  const freigegeben = new Set(alsListe(row.approved_capabilities));
+  return deklariert.filter(f => freigegeben.has(f));
+}
+
 /** DB-Zeile → API-Form (camelCase, ohne interne Pfade). */
 function toApi(row) {
   return {
@@ -35,6 +51,11 @@ function toApi(row) {
     source: row.source,
     enabled: row.enabled === true,
     manifest: row.manifest || {},
+    faehigkeiten: {
+      deklariert: alsListe(row.declared_capabilities),
+      freigegeben: alsListe(row.approved_capabilities),
+      wirksam: wirksameFaehigkeiten(row),
+    },
     installedAt: row.installed_at,
   };
 }
@@ -79,10 +100,13 @@ async function registerPackage({ sourceDir, source, userId, overwrite = false })
   await pkg.removeDir(target);
   await pkg.copyTree(sourceDir, target);
 
+  // declared_capabilities folgt immer dem Manifest; approved_capabilities
+  // bleibt beim Upsert unangetastet — wirksam ist nur der Schnitt, neue
+  // Fähigkeiten eines Updates sind bis zur erneuten Freigabe inert.
   const result = await db.query(
     `INSERT INTO extensions
-       (id, name, description, ext_type, access_tier, version, source, manifest, package_path, created_by, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+       (id, name, description, ext_type, access_tier, version, source, manifest, declared_capabilities, package_path, created_by, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
      ON CONFLICT (id) DO UPDATE SET
        name = EXCLUDED.name,
        description = EXCLUDED.description,
@@ -91,6 +115,7 @@ async function registerPackage({ sourceDir, source, userId, overwrite = false })
        version = EXCLUDED.version,
        source = EXCLUDED.source,
        manifest = EXCLUDED.manifest,
+       declared_capabilities = EXCLUDED.declared_capabilities,
        package_path = EXCLUDED.package_path,
        updated_at = now()
      RETURNING *`,
@@ -103,6 +128,7 @@ async function registerPackage({ sourceDir, source, userId, overwrite = false })
       manifest.version,
       source,
       JSON.stringify(manifest),
+      JSON.stringify(manifest.faehigkeiten || []),
       target,
       userId || null,
     ]
@@ -203,9 +229,48 @@ async function forkExtension({ id, name, userId, userRole }) {
   return { project, extension: ext };
 }
 
-/** Aktiviert/deaktiviert eine Erweiterung. */
-async function setEnabled(id, enabled) {
-  await getExtension(id);
+/**
+ * Aktiviert/deaktiviert eine Erweiterung.
+ *
+ * Plan 017 Schritt 2: Deklariert die Erweiterung Brücken-Fähigkeiten, die noch
+ * nicht freigegeben sind, verlangt das Aktivieren die ausdrückliche Freigabe
+ * (`faehigkeitenFreigeben: true` — der Freigabe-Dialog aus Schritt 7 setzt
+ * das). Ohne Freigabe kommt ein Validierungsfehler mit der fehlenden Liste,
+ * damit die UI den Dialog zeigen kann. Deaktivieren ist immer erlaubt und
+ * lässt die Freigabe stehen.
+ */
+async function setEnabled(id, enabled, { faehigkeitenFreigeben = false, userId = null } = {}) {
+  const ext = await getExtension(id);
+
+  if (enabled === true) {
+    const deklariert = ext.faehigkeiten.deklariert;
+    const freigegeben = new Set(ext.faehigkeiten.freigegeben);
+    const fehlend = deklariert.filter(f => !freigegeben.has(f));
+    if (fehlend.length > 0 && !faehigkeitenFreigeben) {
+      throw new ValidationError(
+        `Erweiterung "${id}" verlangt die Freigabe ihrer Fähigkeiten: ${deklariert.join(', ')}`,
+        { freigabe_erforderlich: true, faehigkeiten: deklariert, fehlend }
+      );
+    }
+    if (faehigkeitenFreigeben) {
+      const result = await db.query(
+        `UPDATE extensions
+            SET enabled = TRUE,
+                approved_capabilities = declared_capabilities,
+                capabilities_approved_at = now(),
+                capabilities_approved_by = $2,
+                updated_at = now()
+          WHERE id = $1
+          RETURNING *`,
+        [id, userId]
+      );
+      logger.info(
+        `Erweiterung "${id}" aktiviert — Fähigkeiten freigegeben: ${deklariert.join(', ') || '(keine)'}`
+      );
+      return toApi(result.rows[0]);
+    }
+  }
+
   const result = await db.query(
     'UPDATE extensions SET enabled = $2, updated_at = now() WHERE id = $1 RETURNING *',
     [id, enabled === true]

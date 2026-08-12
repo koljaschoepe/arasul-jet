@@ -18,14 +18,13 @@
         border: 1px solid #37453f;
         border-radius: 14px;
         padding: 2rem 2.4rem;
-        max-width: 32rem;
-        text-align: center;
+        max-width: 36rem;
+        width: calc(100% - 3rem);
       }
       h1 {
         margin: 0 0 0.6rem;
       }
       button {
-        margin-top: 1rem;
         font: inherit;
         border: 0;
         border-radius: 999px;
@@ -34,20 +33,110 @@
         color: #0b100e;
         cursor: pointer;
       }
+      button:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+      textarea,
+      input {
+        font: inherit;
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #37453f;
+        border-radius: 8px;
+        background: #121a16;
+        color: inherit;
+        padding: 0.5rem 0.7rem;
+      }
+      .zeile {
+        display: flex;
+        gap: 0.6rem;
+        margin: 0.8rem 0;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: #121a16;
+        border: 1px solid #37453f;
+        border-radius: 8px;
+        padding: 0.7rem;
+        min-height: 3rem;
+        max-height: 14rem;
+        overflow: auto;
+      }
+      .hinweis {
+        color: #9db4aa;
+        font-size: 0.85rem;
+      }
     </style>
   </head>
   <body>
     <div class="card">
       <h1>Beispiel-App</h1>
-      <p>Diese App-Erweiterung ist die Vorlage für einen eigenen Tab in Arasul.</p>
-      <button id="ping">Zählen</button>
-      <p id="out">0</p>
+      <p>
+        Diese Vorlage zeigt die <b>KI-Brücke</b>: Fragen ans lokale Modell (gestreamt) und die
+        Wissensbasis-Suche — direkt aus einer Erweiterung heraus.
+      </p>
+      <p class="hinweis" id="status">Brücke: warte auf Token …</p>
+
+      <div class="zeile">
+        <input id="frage" placeholder="Frage ans lokale Modell …" />
+        <button id="fragen">LLM</button>
+        <button id="suchen">RAG</button>
+      </div>
+      <pre id="out">–</pre>
     </div>
+
+    <script src="arasul-bruecke.js"></script>
     <script>
-      let n = 0;
       const out = document.getElementById('out');
-      document.getElementById('ping').addEventListener('click', () => {
-        out.textContent = String(++n);
+      const status = document.getElementById('status');
+      const frage = document.getElementById('frage');
+      const knopfLlm = document.getElementById('fragen');
+      const knopfRag = document.getElementById('suchen');
+
+      ArasulBruecke.bereit().then(async () => {
+        try {
+          const info = await ArasulBruecke.info();
+          status.textContent = 'Brücke aktiv — freigegeben: ' + (info.faehigkeiten.join(', ') || 'keine');
+        } catch (e) {
+          status.textContent = 'Brücke nicht verfügbar: ' + e.message;
+        }
+      });
+
+      knopfLlm.addEventListener('click', async () => {
+        const text = frage.value.trim();
+        if (!text) return;
+        knopfLlm.disabled = true;
+        out.textContent = '';
+        try {
+          await ArasulBruecke.llm(text, {
+            onChunk: (_delta, gesamt) => {
+              out.textContent = gesamt;
+            },
+          });
+        } catch (e) {
+          out.textContent = 'Fehler: ' + e.message;
+        } finally {
+          knopfLlm.disabled = false;
+        }
+      });
+
+      knopfRag.addEventListener('click', async () => {
+        const text = frage.value.trim();
+        if (!text) return;
+        knopfRag.disabled = true;
+        out.textContent = 'Suche …';
+        try {
+          const treffer = await ArasulBruecke.rag(text);
+          out.textContent = treffer.length
+            ? treffer.map((t, i) => i + 1 + '. [' + t.quelle + '] ' + t.text).join('\n\n')
+            : 'Nichts gefunden.';
+        } catch (e) {
+          out.textContent = 'Fehler: ' + e.message;
+        } finally {
+          knopfRag.disabled = false;
+        }
       });
     </script>
   </body>
