@@ -630,7 +630,7 @@
     <div class="result"><strong>Ergebnis:</strong> WerkstattLeiste.tsx (+Test) entfernt, ersetzt durch WerkstattPanel.tsx — auf-/zuklappbares Panel aus der Inventar-API mit ruhigen Status-Punkten (● live · ○ bereit · ○ erkannt · ▲ abgelehnt+Grund), pro Zeile Live-Schalten/Zurücknehmen/Rollback/Öffnen/Herunterladen; Bausteine-Ikonografie (lucide Blocks/Package), kein Freitext-Ordnerfeld, kein Rocket/Hammer. FreigabeDialog.tsx zeigt beim Live-Schalten mit deklarierten Fähigkeiten „Diese Erweiterung darf: …" und bestätigt einmalig (400 <code>freigabe_erforderlich</code> → Dialog → setEnabled mit Freigabe-Flag). useExtensions um loadInventar/rollbackExtension/Fähigkeiten-Freigabe erweitert. Theme-Tokens, Loading-/Fehler-Zustände. 769 Frontend-Tests grün (inkl. Panel-Inventar + Freigabe-Flow). <b>Review-Fixes:</b> Status-Punkt „live" nutzt jetzt das echte Token bg-success (nicht das nicht existente bg-ok); Busy-Zustand pro Erweiterung statt global (kein Cross-Row-Doppel-Submit); Freigabe-Dialog lässt sich während des Aufrufs nicht per Escape/Klick schließen (kein Wieder-Öffnen bei erneutem 400); aria-expanded + download-Attribut. <b>Hinweis:</b> Verbindungs-Bedien-UI (Schritt 5) bleibt vorerst API-seitig; Panel-Fokus ist die Erweiterungs-Verwaltung.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — KI-Zugangs-Hub + OAuth-Link-Fix">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 8 — KI-Zugangs-Hub + OAuth-Link-Fix">
     <h3>Schritt 8 — KI-Zugangs-Hub + OAuth-Link-Fix <span class="tag">Risiko: mittel</span></h3>
     <p>Der KiZugangDialog wird Anbieter-Hub: Claude (drei Modi wie heute), Codex (geführter
     <code>device-auth</code>-Ablauf mit Anmelde-Status aus dem Container), Gemini (Hinweis +
@@ -642,6 +642,7 @@
     Live-Verify, maximal <b>ein</b> kontrollierter Ende-zu-Ende-Versuch; bei 429 sofort Abbruch und
     sauberer Befund statt Wiederholungen.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/sandbox/KiZugangDialog.tsx (→ Hub) · SandboxTerminal.tsx (Quick-Launch bereinigt) · apps/dashboard-backend/src/routes/sandbox.js (Codex-Status) · Tests</p>
+    <div class="result"><strong>Ergebnis:</strong> OAuth-Link-Fix: robuste <code>copyText</code>-Hilfe (utils/clipboard) — navigator.clipboard nur im secure context, sonst execCommand-Fallback über ein verstecktes Textfeld; bei nicht vertrautem Zertifikat kopiert der Knopf jetzt trotzdem, sonst bleibt das markierbare Auswahlfeld. Die Authorize-URL ist zusätzlich ein sichtbarer echter Link („Anmelde-Seite öffnen", target=_blank) plus Hinweis auf manuelles Markieren. KiZugangDialog um einen Hub-Überblick „Weitere KI-Anbieter" erweitert (Lokaler Coder = open-ara/kein Login, Codex = <code>codex login --device-auth</code>, Gemini = <code>/gemini</code>) — der Quick-Launch war schon in Schritt 6 um „Codex anmelden" bereinigt. 3 Clipboard-Tests + 769 Frontend-Tests grün. <b>OAuth-E2E:</b> bewusst NICHT autonom ausgelöst — die Link-Klick-/Kopierbarkeit wird ohne Login verifiziert; der eine kontrollierte Ende-zu-Ende-Login-Versuch (Abbruch bei 429) bleibt einem Moment mit dem Nutzer vorbehalten (Rate-Limit-Schutz, §8).</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 9 — Agenten-Paket + Doku">

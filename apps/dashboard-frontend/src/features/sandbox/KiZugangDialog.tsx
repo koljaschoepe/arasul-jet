@@ -29,6 +29,7 @@ import {
 import { Button } from '@/components/ui/shadcn/button';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
+import { copyText } from '@/utils/clipboard';
 
 type Mode = 'oauth' | 'token' | 'apikey';
 type StoredMode = 'oauth' | 'token' | 'apikey';
@@ -123,11 +124,14 @@ export default function KiZugangDialog({
   });
 
   const copyUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(oauthUrl);
+    // Robust: navigator.clipboard fehlt bei nicht vertrautem Zertifikat still →
+    // execCommand-Fallback (utils/clipboard). Klappt auch das nicht, bleibt das
+    // markierbare Auswahlfeld daneben.
+    const ok = await copyText(oauthUrl);
+    if (ok) {
       toast.success('Link kopiert');
-    } catch {
-      toast.error('Kopieren nicht möglich — Link manuell markieren');
+    } else {
+      toast.error('Kopieren nicht möglich — Link im Feld markieren und kopieren');
     }
   };
 
@@ -379,17 +383,23 @@ export default function KiZugangDialog({
                       >
                         <Copy className="size-3.5" />
                       </Button>
-                      <Button type="button" variant="outline" size="icon" asChild>
-                        <a
-                          href={oauthUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label="Im Browser öffnen"
-                        >
-                          <ExternalLink className="size-3.5" />
-                        </a>
-                      </Button>
                     </div>
+                    {/* EIN sichtbarer echter Link (kein doppeltes Icon) — plus
+                        der Hinweis auf das Auswahlfeld, falls das Kopieren am
+                        Zertifikat scheitert. */}
+                    <a
+                      href={oauthUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex w-fit items-center gap-1 text-[11px] text-primary underline underline-offset-2 hover:text-primary/80"
+                    >
+                      <ExternalLink className="size-3" />
+                      Anmelde-Seite öffnen
+                    </a>
+                    <span className="text-[10px] text-text-secondary">
+                      Klappt das Kopieren nicht (nicht vertrautes Zertifikat), den Link im Feld
+                      markieren und mit Strg/Cmd+C kopieren.
+                    </span>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label htmlFor="oauth-code" className="text-xs font-medium text-foreground">
@@ -491,6 +501,27 @@ export default function KiZugangDialog({
               )}
               Aktuellen Login aus diesem Terminal speichern
             </Button>
+          </div>
+
+          {/* Weitere Anbieter (Hub-Überblick, Plan 017 Schritt 8). Claude wird
+              oben zentral verwaltet; die anderen laufen über das Terminal. */}
+          <div className="border-t border-border pt-3">
+            <p className="mb-1.5 text-xs font-medium text-foreground">Weitere KI-Anbieter</p>
+            <ul className="space-y-1 text-[11px] text-muted-foreground">
+              <li>
+                <span className="text-foreground">Lokaler Coder</span> — empfohlen, kein Login: im
+                Terminal <code className="rounded bg-muted px-1">open-ara</code>.
+              </li>
+              <li>
+                <span className="text-foreground">Codex</span> — im Terminal anmelden:{' '}
+                <code className="rounded bg-muted px-1">codex login --device-auth</code> (Code +
+                Link im Browser).
+              </li>
+              <li>
+                <span className="text-foreground">Gemini</span> — im Terminal:{' '}
+                <code className="rounded bg-muted px-1">/gemini</code> und dem Login-Hinweis folgen.
+              </li>
+            </ul>
           </div>
         </div>
       </div>
