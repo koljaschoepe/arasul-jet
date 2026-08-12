@@ -127,12 +127,37 @@ Ordner — ein Git-gekoppeltes Projekt sieht im Explorer schlicht sein Repo.
 würde sonst hunderte Repo-Dateien durch die GPU-Analyse jagen); der
 Coding-Agent arbeitet dort über Datei-Werkzeuge und Terminal statt RAG.
 
+## Geräteweite Projekte + Anwesenheit (Plan 017 Schritt 1)
+
+Sandbox-Projekte sind **geräteweit sichtbar und öffenbar** — jeder angemeldete
+Nutzer sieht und öffnet alle Projekte (Einzel-Admin-Modell; „erstellt von" bleibt
+zur Anzeige). An Projektliste, Projektdetail und Sitzungen liefert das Backend
+eine **Anwesenheits-Anzeige** (`presence`): wer ist gerade live per
+Terminal-WebSocket verbunden. WS-Tickets und die KI-Zugänge bleiben pro Nutzer.
+
+## Projekt-Verbindungen & MCP (Plan 017 Schritt 5)
+
+Pro Projekt lassen sich externe Zugänge (`env`, z. B. Supabase-Keys) und
+MCP-Server (`mcp`) hinterlegen — verschlüsselt im Tresor (AES-256-GCM), nie im
+Klartext zurückgegeben. Beim Sitzungs-Start injiziert das Backend die Werte als
+Env-Variablen (per Name, nie als Kommandozeilen-Literal) plus eine generierte
+`/workspace/.mcp.json` (Claude Code) und Codex-`config.toml` unter
+`$CODEX_HOME`; MCP-Secrets stehen dort nur als `${ENV}`-Platzhalter. CRUD:
+`/api/sandbox/projects/:id/verbindungen`.
+
 ## Terminal & Coding-Agent
 
 **Ein Terminal-Stack.** Das Browser-Terminal läuft ausschließlich über den
 Sandbox-Pfad: xterm.js ↔ binäre WebSocket ↔ `docker exec`-TTY im
 `arasul-sandbox`-Container (tmux-persistent). Der alte, kaputte ttyd-Pfad ist
 mit Plan 015 entfernt.
+
+**Einzeilige Kopfzeile + benannte Sitzungen (Plan 017 Schritt 6).** Der
+Terminal-Kopf ist eine kompakte Zeile: Projekt-Dropdown + Sitzungs-Tabs. Jede
+Sitzung trägt einen **serverseitigen Titel** (Schlüssel Projekt + tmux-Name,
+geräteweit gleich), automatisch nach dem gestarteten Werkzeug benannt (Claude
+Code / Codex / Lokaler Coder / Shell N) und per Doppelklick bzw. F2 umbenennbar
+(`PUT /api/sandbox/projects/:id/sitzungen/:tmux/titel`).
 
 **Lokal-first als Standard.** Der empfohlene Coder ist der **lokale** Agent
 (open-ara auf `qwen3-coder`, Quick-Launch „Lokaler Coder (empfohlen)") — kein
