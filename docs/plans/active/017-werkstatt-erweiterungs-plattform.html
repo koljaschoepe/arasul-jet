@@ -577,7 +577,7 @@
     <div class="result"><strong>Ergebnis:</strong> flowDeployService importiert/aktiviert workflow.json per n8n-API (POST create / PUT überschreiben / activate), merkt die Workflow-ID an <code>extensions.n8n_workflow_id</code> (Migration 135); setEnabled(flow) schaltet live bzw. pausiert (deactivate), removeExtension räumt den Workflow ab. Status-API (aktiv/letzter Lauf) degradiert sichtbar bei n8n-Ausfall/fehlendem Key (klare Fehlermeldungen für ECONNREFUSED/401/400). N8N_API_KEY + N8N_URL ins Backend durchgereicht (compose) und dokumentiert. <b>Abweichung:</b> die Brücken-Fähigkeit <code>flows</code> (Schritt 2) triggert die Arasul-Flow-Runner-Flows (sauberes runId/Ergebnis-Modell) — Flow-<em>Erweiterungen</em> laufen autonom in n8n und werden über Status/Inventar überwacht, nicht per Brücke getriggert (n8n-manualTrigger hat kein sauberes API-Trigger+Result). <b>Review-Fixes:</b> Import ZUERST, dann DB-Zustand kippen (kein „enabled, aber nichts in n8n" bei fehlendem Key/Ausfall); <code>GET /api/extensions/:id/flow-status</code> macht den n8n-Status abrufbar (Karte in Schritt 7); robuste ID-Extraktion + connections-null-Prüfung. 2072 Backend-Tests grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Rollback-Netz + Werkstatt-Inventar">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Rollback-Netz + Werkstatt-Inventar">
     <h3>Schritt 4 — Rollback-Netz + Werkstatt-Inventar <span class="tag">Risiko: niedrig</span></h3>
     <p>Jedes Überschreiben (Bauen, Import, Watcher-Update) sichert vorher den aktuellen Stand als
     <code>&lt;id&gt;.vorher.tar.gz</code> im Register. <code>POST /api/extensions/:id/rollback</code>
@@ -587,6 +587,7 @@
     Typ, Fähigkeiten, Version, letzter Bau, Rollback-Verfügbarkeit — die eine Datenquelle für das
     Panel in Schritt 7.</p>
     <p class="files mono">apps/dashboard-backend/src/services/extensions/{extensionService,werkstattWatcher}.js · src/routes/extensions.js · Tests</p>
+    <div class="result"><strong>Ergebnis:</strong> Snapshot-Helfer in extensionPackage (save/has/restore/removeSnapshot → EXTENSIONS_DIR/.rollback/&lt;id&gt;.tar.gz, atomar); registerPackage sichert vor JEDEM Überschreiben den aktuellen Stand (best effort). <code>POST /api/extensions/:id/rollback</code> stellt genau einen Schritt her (Paket + Register-Felder aus dem Snapshot-Manifest; approved_capabilities bleibt; Flow-Reimport wenn aktiv), Deinstallieren räumt den Snapshot mit ab. Inventar-API <code>GET /werkstatt/inventar?projekt=&lt;slug&gt;</code> führt Watcher-Status (erkannt/abgelehnt+Grund) + Register (live/registriert) + Rollback-Verfügbarkeit + Typ/Fähigkeiten/Version zusammen. Echter Pack→Restore-Round-Trip getestet. 2080 Backend-Tests grün.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Projekt-Verbindungen + MCP">

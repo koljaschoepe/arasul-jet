@@ -1187,18 +1187,28 @@ das Register ist die Tabelle `extensions`. Der Ablauf: in einer
 Erweiterungs-Werkstatt bauen → paketieren → herunterladen → anderswo
 importieren → forken. Alle Routen erfordern Authentifizierung.
 
-| Method | Endpoint                          | Description                                                                                |
-| ------ | --------------------------------- | ------------------------------------------------------------------------------------------ |
-| GET    | `/api/extensions`                 | Installierte Erweiterungen                                                                 |
-| POST   | `/api/extensions/bauen`           | Ordner einer Sandbox paketieren + registrieren                                             |
-| POST   | `/api/extensions/import`          | Paket-Archiv (`.tar.gz`) hochladen und installieren                                        |
-| GET    | `/api/extensions/:id/download`    | Paket als `.tar.gz` herunterladen                                                          |
-| GET    | `/api/extensions/:id/app`         | Oberfläche einer `app`-Erweiterung (Startdatei)                                            |
-| GET    | `/api/extensions/:id/app/*`       | Einzelne Datei aus dem Paket (Assets)                                                      |
-| GET    | `/api/extensions/:id/flow-status` | n8n-Live-Status einer `flow`-Erweiterung (aktiv/importiert/erreichbar + letzter Lauf)      |
-| POST   | `/api/extensions/:id/fork`        | Kopie als neue Werkstatt-Sandbox anlegen                                                   |
-| PUT    | `/api/extensions/:id`             | Aktivieren/deaktivieren — Body `{ "enabled": boolean, "faehigkeitenFreigeben"?: boolean }` |
-| DELETE | `/api/extensions/:id`             | Deinstallieren (Register-Eintrag + Paket-Ordner)                                           |
+| Method | Endpoint                                            | Description                                                                                |
+| ------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/extensions`                                   | Installierte Erweiterungen                                                                 |
+| POST   | `/api/extensions/bauen`                             | Ordner einer Sandbox paketieren + registrieren                                             |
+| POST   | `/api/extensions/import`                            | Paket-Archiv (`.tar.gz`) hochladen und installieren                                        |
+| GET    | `/api/extensions/werkstatt/inventar?projekt=<slug>` | Werkstatt-Inventar (erkannt/registriert/live/abgelehnt + Rollback-Verfügbarkeit)           |
+| GET    | `/api/extensions/:id/download`                      | Paket als `.tar.gz` herunterladen                                                          |
+| GET    | `/api/extensions/:id/app`                           | Oberfläche einer `app`-Erweiterung (Startdatei)                                            |
+| GET    | `/api/extensions/:id/app/*`                         | Einzelne Datei aus dem Paket (Assets)                                                      |
+| GET    | `/api/extensions/:id/flow-status`                   | n8n-Live-Status einer `flow`-Erweiterung (aktiv/importiert/erreichbar + letzter Lauf)      |
+| POST   | `/api/extensions/:id/rollback`                      | Genau einen Schritt zurück auf den vor dem letzten Überschreiben gesicherten Stand         |
+| POST   | `/api/extensions/:id/fork`                          | Kopie als neue Werkstatt-Sandbox anlegen                                                   |
+| PUT    | `/api/extensions/:id`                               | Aktivieren/deaktivieren — Body `{ "enabled": boolean, "faehigkeitenFreigeben"?: boolean }` |
+| DELETE | `/api/extensions/:id`                               | Deinstallieren (Register-Eintrag + Paket-Ordner)                                           |
+
+Jedes Überschreiben (Bauen, Import, Watcher-Update) sichert vorher den aktuellen
+Stand als genau EINEN Rollback-Punkt (Plan 017 Schritt 4); `POST
+/api/extensions/:id/rollback` stellt ihn wieder her. Das Werkstatt-Inventar
+(`GET /api/extensions/werkstatt/inventar?projekt=<slug>`) ist die eine
+Datenquelle für das Werkstatt-Panel: erkannte Ordner mit Status
+(`erkannt`/`registriert`/`live`/`abgelehnt` + Grund), Typ, Fähigkeiten, Version
+und Rollback-Verfügbarkeit.
 
 Eine `flow`-Erweiterung wird beim Aktivieren als n8n-Workflow importiert und
 aktiviert (Plan 017 Schritt 3); Deaktivieren pausiert ihn, Deinstallieren räumt
