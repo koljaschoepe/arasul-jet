@@ -163,6 +163,16 @@ const ConnectionIdParams = z
   })
   .strict();
 
+// Sitzungs-Titel umbenennen (Plan 017 Schritt 6): Schlüssel Projekt + tmux-Name.
+const TMUX_NAME_RE = /^[A-Za-z0-9_-]{1,40}$/;
+const SessionTitleParams = z
+  .object({
+    id: z.string().trim().min(1).max(100),
+    tmux: z.string().trim().regex(TMUX_NAME_RE, 'Ungültiger tmux-Name'),
+  })
+  .strict();
+const SessionTitleBody = z.object({ title: z.string().trim().min(1).max(80) }).strict();
+
 module.exports = {
   CreateProjectBody,
   UpdateProjectBody,
@@ -174,4 +184,6 @@ module.exports = {
   UpdateConnectionBody,
   ProjectIdParams,
   ConnectionIdParams,
+  SessionTitleParams,
+  SessionTitleBody,
 };

@@ -2204,6 +2204,22 @@ inert.
 
 **Constraints:** `kind` ∈ (`env`, `mcp`); unique `(project_id, name)`.
 
+## `sandbox_session_titles`
+
+> Serverseitige Terminal-Sitzungs-Titel (Plan 017 Schritt 6, Migration
+> `137_sandbox_session_titles.sql`), Schlüssel Projekt + tmux-Name — geräteweit
+> gleich, überleben Reconnects/Neustarts. Auto-Name beim ersten Start,
+> Umbenennen per Doppelklick/F2.
+
+| Column       | Type        | Nullable | Default                                  |
+| ------------ | ----------- | -------- | ---------------------------------------- |
+| `project_id` | uuid        | ⛔       | (FK sandbox_projects, ON DELETE CASCADE) |
+| `tmux_name`  | text        | ⛔       |                                          |
+| `title`      | text        | ⛔       |                                          |
+| `updated_at` | timestamptz | ⛔       | `now()`                                  |
+
+**Primary key:** `(project_id, tmux_name)`
+
 ## `sandbox_terminal_sessions`
 
 > Active and historical terminal sessions within sandbox projects

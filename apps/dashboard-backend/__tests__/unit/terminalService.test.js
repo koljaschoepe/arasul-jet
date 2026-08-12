@@ -289,3 +289,45 @@ describe('terminalService — Anwesenheit (Plan 017 Schritt 1)', () => {
     expect(summary.p2).toEqual({ connections: 1, users: ['kolja'] });
   });
 });
+
+describe('terminalService — Sitzungs-Titel (Plan 017 Schritt 6)', () => {
+  const terminalService = require('../../src/services/sandbox/terminalService');
+  const db = require('../../src/database');
+  const { autoTitleFor } = terminalService._internals;
+
+  it('autoTitleFor benennt nach Werkzeug', () => {
+    expect(autoTitleFor('claude-code', null, 'main')).toBe('Claude Code');
+    expect(autoTitleFor('codex', null, 'main')).toBe('Codex');
+    expect(autoTitleFor('custom', 'open-ara run', 'main')).toBe('Lokaler Coder');
+    expect(autoTitleFor('custom', '/usr/bin/htop', 'main')).toBe('htop');
+    expect(autoTitleFor('shell', null, 'main')).toBe('Shell 1');
+    expect(autoTitleFor('shell', null, 'main-3')).toBe('Shell 3');
+  });
+
+  it('getSessionTitles bildet Zeilen auf { tmux: title } ab', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [
+        { tmux_name: 'main', title: 'Claude Code' },
+        { tmux_name: 'main-2', title: 'Meine Shell' },
+      ],
+    });
+    const titles = await terminalService.getSessionTitles('p1');
+    expect(titles).toEqual({ main: 'Claude Code', 'main-2': 'Meine Shell' });
+  });
+
+  it('setSessionTitle upsertet und trimmt/kürzt', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const r = await terminalService.setSessionTitle('p1', 'main', '  Neuer Name  ');
+    expect(r).toEqual({ tmuxName: 'main', title: 'Neuer Name' });
+    const [sql, params] = db.query.mock.calls[0];
+    expect(sql).toMatch(/INSERT INTO sandbox_session_titles/);
+    expect(params).toEqual(['p1', 'main', 'Neuer Name']);
+  });
+
+  it('setSessionTitle lehnt leeren Titel ab', async () => {
+    const { ValidationError } = require('../../src/utils/errors');
+    await expect(terminalService.setSessionTitle('p1', 'main', '   ')).rejects.toThrow(
+      ValidationError
+    );
+  });
+});

@@ -20,6 +20,8 @@ const {
   UpdateConnectionBody,
   ProjectIdParams,
   ConnectionIdParams,
+  SessionTitleParams,
+  SessionTitleBody,
 } = require('../schemas/sandbox');
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
@@ -241,11 +243,31 @@ router.get(
   asyncHandler(async (req, res) => {
     const includeCompleted = req.query.all === 'true';
     const sessions = await terminalService.listSessions(req.params.id, { includeCompleted });
+    const titles = await terminalService.getSessionTitles(req.params.id);
     res.json({
       sessions,
+      titles,
       presence: terminalService.presenceForProject(req.params.id),
       timestamp: new Date().toISOString(),
     });
+  })
+);
+
+// PUT /api/sandbox/projects/:id/sitzungen/:tmux/titel — Sitzung umbenennen
+// (serverseitig, geräteweit; Schlüssel Projekt + tmux-Name).
+router.put(
+  '/projects/:id/sitzungen/:tmux/titel',
+  requireAuth,
+  validateParams(SessionTitleParams),
+  validateBody(SessionTitleBody),
+  asyncHandler(async (req, res) => {
+    await sandboxService.getProject(req.params.id); // 404 bei unbekanntem Projekt
+    const result = await terminalService.setSessionTitle(
+      req.params.id,
+      req.params.tmux,
+      req.body.title
+    );
+    res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
 

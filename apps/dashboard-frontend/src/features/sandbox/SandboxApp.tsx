@@ -80,6 +80,85 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
     [terminalSessions, projects]
   );
 
+  // Aktives Projekt (aus der aktiven Sitzung) — Schlüssel für Titel/Anwesenheit.
+  const activeProjectId = useMemo(
+    () => openSessions.find(({ session }) => session.id === activeTabId)?.project.id ?? null,
+    [openSessions, activeTabId]
+  );
+
+  // Sitzungs-Titel + Anwesenheit des aktiven Projekts (Plan 017 Schritt 6).
+  // Poll (10 s) hält die Anwesenheit frisch; Titel gelten geräteweit.
+  const [sessionTitles, setSessionTitles] = useState<Record<string, string>>({});
+  const [presence, setPresence] = useState<{
+    connections: number;
+    users: string[];
+    sessions?: Record<string, { connections: number; users: string[] }>;
+  } | null>(null);
+
+  const loadSessionMeta = useCallback(
+    async (projectId: string) => {
+      try {
+        const data = await api.get<{
+          titles?: Record<string, string>;
+          presence?: {
+            connections: number;
+            users: string[];
+            sessions?: Record<string, { connections: number; users: string[] }>;
+          };
+        }>(`/sandbox/projects/${projectId}/sessions`, { showError: false });
+        const titles = data.titles || {};
+        setSessionTitles(titles);
+        setPresence(data.presence || null);
+        // Server-Titel in die Registry spiegeln, damit auch die StatusBar
+        // (liest session.title) den Sitzungsnamen zeigt.
+        for (const s of useWorkspaceStore.getState().terminalSessions) {
+          if (s.projectId !== projectId) continue;
+          const t = titles[s.terminalName || 'main'];
+          if (t && t !== s.title) updateTerminalSessionTitle(s.id, t);
+        }
+      } catch {
+        /* Meta ist Beiwerk — Fehler still schlucken */
+      }
+    },
+    [api, updateTerminalSessionTitle]
+  );
+
+  useEffect(() => {
+    // Beim Projektwechsel die (tmux-Namen teilenden) Titel/Anwesenheit zurück-
+    // setzen, damit nicht kurz die Titel des vorigen Projekts erscheinen.
+    setSessionTitles({});
+    setPresence(null);
+    if (!activeProjectId) {
+      return;
+    }
+    void loadSessionMeta(activeProjectId);
+    const iv = setInterval(() => void loadSessionMeta(activeProjectId), 10000);
+    return () => clearInterval(iv);
+  }, [activeProjectId, loadSessionMeta]);
+
+  const handleRenameSession = useCallback(
+    async (tmuxName: string, title: string) => {
+      if (!activeProjectId) return;
+      // Optimistisch im lokalen Tab-Titel spiegeln, dann serverseitig setzen.
+      const sess = terminalSessions.find(
+        s => s.projectId === activeProjectId && (s.terminalName || 'main') === tmuxName
+      );
+      if (sess) updateTerminalSessionTitle(sess.id, title);
+      setSessionTitles(prev => ({ ...prev, [tmuxName]: title }));
+      try {
+        await api.put(
+          `/sandbox/projects/${activeProjectId}/sitzungen/${encodeURIComponent(tmuxName)}/titel`,
+          { title },
+          { showError: false }
+        );
+      } catch {
+        toast.error('Sitzung konnte nicht umbenannt werden');
+        void loadSessionMeta(activeProjectId);
+      }
+    },
+    [activeProjectId, terminalSessions, updateTerminalSessionTitle, api, toast, loadSessionMeta]
+  );
+
   // ---- Data loading ----
 
   const loadProjects = useCallback(async () => {
@@ -190,8 +269,10 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
 
   /**
    * Registry ↔ Projektliste synchron halten (nach jedem erfolgreichen Load):
-   * archivierte/gelöschte Projekte schließen ihre Session, Umbenennungen
-   * aktualisieren den Session-Titel (sichtbar u. a. in der StatusBar).
+   * archivierte/gelöschte Projekte schließen ihre Session. Den Session-Titel
+   * NICHT mehr auf den Projektnamen zurückzwingen — Sitzungen tragen seit
+   * Plan 017 Schritt 6 eigene, serverseitige Namen (sonst würde jede Umbenennung
+   * beim nächsten Projekt-Poll überschrieben).
    */
   useEffect(() => {
     if (!projectsLoaded || !bootstrappedRef.current) return;
@@ -199,11 +280,9 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
       const project = projects.find(p => p.id === session.projectId);
       if (!project || project.status !== 'active') {
         closeTerminalSession(session.id);
-      } else if (project.name !== session.title) {
-        updateTerminalSessionTitle(session.id, project.name);
       }
     }
-  }, [projectsLoaded, projects, closeTerminalSession, updateTerminalSessionTitle]);
+  }, [projectsLoaded, projects, closeTerminalSession]);
 
   // ---- Actions ----
 
@@ -314,12 +393,15 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
         openSessions={openSessions}
         activeTabId={activeTabId}
         allProjects={projects}
+        sessionTitles={sessionTitles}
+        presence={presence}
         onSelectTab={activateTerminalSession}
         onCloseTab={closeTerminalSession}
         onOpenProject={handleOpenProject}
         onNewSession={handleNewSession}
         onCreateProject={() => setShowCreateDialog(true)}
         onShowAllProjects={() => setShowProjectList(!showProjectList)}
+        onRenameSession={handleRenameSession}
       />
 
       {/* Terminal area */}

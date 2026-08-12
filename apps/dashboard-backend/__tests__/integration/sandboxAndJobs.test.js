@@ -175,6 +175,57 @@ describe('Sandbox + LLM Jobs Integration', () => {
     });
   });
 
+  describe('PUT /api/sandbox/projects/:id/sitzungen/:tmux/titel', () => {
+    test('renames a session (device-wide title)', async () => {
+      sandboxService.getProject.mockResolvedValue({ id: 'p1', name: 'test' });
+      terminalService.setSessionTitle.mockResolvedValue({ tmuxName: 'main', title: 'Mein Terminal' });
+
+      const res = await request(app)
+        .put('/api/sandbox/projects/p1/sitzungen/main/titel')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ title: 'Mein Terminal' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.title).toBe('Mein Terminal');
+      expect(terminalService.setSessionTitle).toHaveBeenCalledWith('p1', 'main', 'Mein Terminal');
+    });
+
+    test('unknown project → 404', async () => {
+      const { NotFoundError } = require('../../src/utils/errors');
+      sandboxService.getProject.mockRejectedValue(new NotFoundError('weg'));
+
+      const res = await request(app)
+        .put('/api/sandbox/projects/missing/sitzungen/main/titel')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ title: 'X' });
+
+      expect(res.status).toBe(404);
+      expect(terminalService.setSessionTitle).not.toHaveBeenCalled();
+    });
+
+    test('invalid tmux name → 400', async () => {
+      sandboxService.getProject.mockResolvedValue({ id: 'p1', name: 'test' });
+
+      const res = await request(app)
+        .put('/api/sandbox/projects/p1/sitzungen/bad%20name/titel')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ title: 'X' });
+
+      expect(res.status).toBe(400);
+    });
+
+    test('empty title → 400', async () => {
+      sandboxService.getProject.mockResolvedValue({ id: 'p1', name: 'test' });
+
+      const res = await request(app)
+        .put('/api/sandbox/projects/p1/sitzungen/main/titel')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ title: '   ' });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe('DELETE /api/sandbox/projects/:id', () => {
     test('archives project and returns success', async () => {
       sandboxService.deleteProject.mockResolvedValue({ success: true, archived: true });

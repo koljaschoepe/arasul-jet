@@ -2613,7 +2613,8 @@ Isolated project environments with Docker containers and terminal WebSocket acce
 | POST   | `/api/sandbox/projects/:id/stop`                        | Stop the project container                                                                  |
 | POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                                                       |
 | GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                                                   |
-| GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project                                                        |
+| GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project (incl. `titles` + `presence`)                          |
+| PUT    | `/api/sandbox/projects/:id/sitzungen/:tmux/titel`       | Rename a session (server-side, device-wide; key project + tmux name)                        |
 | GET    | `/api/sandbox/projects/:id/verbindungen`                | List project connections (env + MCP; values never returned, only `hatWert`)                 |
 | POST   | `/api/sandbox/projects/:id/verbindungen`                | Create a connection (`kind` env/mcp; value stored AES-256-GCM)                              |
 | PUT    | `/api/sandbox/projects/:id/verbindungen/:connId`        | Update a connection's value/config (name + kind stay)                                       |
