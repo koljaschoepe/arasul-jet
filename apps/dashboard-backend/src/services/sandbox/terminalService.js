@@ -296,6 +296,10 @@ async function createSession(
   // Update project last_accessed_at
   await db.query(`UPDATE sandbox_projects SET last_accessed_at = NOW() WHERE id = $1`, [projectId]);
 
+  // Auto-Name der Sitzung nach dem gestarteten Werkzeug (Plan 017 Schritt 6),
+  // nur wenn (Projekt, tmux) noch keinen Titel hat. Best effort.
+  await ensureAutoTitle(projectId, tmuxName, sessionType, command);
+
   // Store active session (inkl. Presence-Infos: wer hängt an welcher tmux-Session)
   activeSessions.set(session.id, {
     exec,
@@ -574,6 +578,81 @@ function presenceSummary() {
   return summary;
 }
 
+// ============================================================================
+// Sitzungs-Titel (Plan 017 Schritt 6): serverseitig, Schlüssel Projekt + tmux
+// ============================================================================
+
+const DEFAULT_TMUX = TMUX_SESSION;
+
+/** Auto-Name einer neuen Sitzung nach dem gestarteten Werkzeug. */
+function autoTitleFor(sessionType, command, tmuxName) {
+  if (sessionType === 'claude-code') {
+    return 'Claude Code';
+  }
+  if (sessionType === 'codex') {
+    return 'Codex';
+  }
+  if (sessionType === 'custom' && command) {
+    // Basisname des Kommandos (z. B. „open-ara" → „Lokaler Coder" wenn erkannt).
+    const base = String(command).trim().split(/\s+/)[0].split('/').pop();
+    if (/open-ara|coder/i.test(base)) {
+      return 'Lokaler Coder';
+    }
+    return base || 'Shell';
+  }
+  // shell → „Shell N" anhand des tmux-Index (main → 1, main-k → k).
+  const m = /^main(?:-(\d+))?$/.exec(tmuxName || DEFAULT_TMUX);
+  const n = m ? parseInt(m[1] || '1', 10) : 1;
+  return `Shell ${n}`;
+}
+
+/** Alle Titel eines Projekts als { [tmuxName]: title }. */
+async function getSessionTitles(projectId) {
+  const result = await db.query(
+    `SELECT tmux_name, title FROM sandbox_session_titles WHERE project_id = $1`,
+    [projectId]
+  );
+  const map = {};
+  for (const row of result.rows) {
+    map[row.tmux_name] = row.title;
+  }
+  return map;
+}
+
+/** Titel setzen/umbenennen (geräteweit gültig). */
+async function setSessionTitle(projectId, tmuxName, title) {
+  const clean = String(title || '')
+    .trim()
+    .slice(0, 80);
+  if (!clean) {
+    throw new ValidationError('Der Sitzungs-Titel darf nicht leer sein');
+  }
+  await db.query(
+    `INSERT INTO sandbox_session_titles (project_id, tmux_name, title, updated_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (project_id, tmux_name) DO UPDATE SET title = EXCLUDED.title, updated_at = now()`,
+    [projectId, tmuxName, clean]
+  );
+  return { tmuxName, title: clean };
+}
+
+/**
+ * Auto-Namen vergeben, falls für (Projekt, tmux) noch keiner existiert.
+ * Best effort — blockiert die Session nie.
+ */
+async function ensureAutoTitle(projectId, tmuxName, sessionType, command) {
+  try {
+    await db.query(
+      `INSERT INTO sandbox_session_titles (project_id, tmux_name, title)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (project_id, tmux_name) DO NOTHING`,
+      [projectId, tmuxName, autoTitleFor(sessionType, command, tmuxName)]
+    );
+  } catch (err) {
+    logger.debug(`Auto-Titel übersprungen (${projectId}/${tmuxName}): ${err.message}`);
+  }
+}
+
 /**
  * Cleanup all sessions (called on server shutdown)
  */
@@ -612,6 +691,8 @@ module.exports = {
   getActiveSessionCount,
   presenceForProject,
   presenceSummary,
+  getSessionTitles,
+  setSessionTitle,
   cleanupAllSessions,
   // Exported for tests / defense-in-depth reuse
   _internals: {
@@ -619,5 +700,6 @@ module.exports = {
     CUSTOM_COMMAND_RE,
     shellSingleQuote,
     activeSessions,
+    autoTitleFor,
   },
 };

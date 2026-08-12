@@ -2,18 +2,16 @@
  * SandboxTerminal - xterm.js based terminal component
  *
  * Renders a full interactive terminal connected to a sandbox container
- * via WebSocket. Includes connection status, reconnect, fullscreen,
- * and Quick-Launch buttons for common tools.
+ * via WebSocket. Includes connection status, reconnect, and Quick-Launch
+ * buttons for common tools.
  *
  * Container-aware: Shows appropriate status messages based on containerStatus
  * and only attempts connection when container is running.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   RefreshCw,
-  Maximize2,
-  Minimize2,
   Circle,
   Loader2,
   AlertCircle,
@@ -53,11 +51,8 @@ const QUICK_LAUNCH_ITEMS: QuickLaunchItem[] = [
   },
   { label: 'Claude Code', command: '/claude\n', description: 'Claude Code CLI (opt-in)' },
   { label: 'Codex', command: '/codex\n', description: 'OpenAI Codex CLI (opt-in)' },
-  {
-    label: 'Codex anmelden',
-    command: 'codex login --device-auth\n',
-    description: 'Codex per Geräte-Code anmelden (Code + Link im Browser)',
-  },
+  // „Codex anmelden" ist in den KI-Zugangs-Hub gewandert (Plan 017 Schritt 8) —
+  // Anmeldungen gehören dorthin, nicht in den Werkzeug-Schnellstart.
   { label: 'Gemini', command: '/gemini\n', description: 'Google Gemini CLI (opt-in)' },
   { label: 'Python', command: 'python3\n', description: 'Python REPL starten' },
   { label: 'Node.js', command: 'node\n', description: 'Node.js REPL starten' },
@@ -103,8 +98,6 @@ interface SandboxTerminalProps {
    * erst NACH dem Einblenden (double-rAF, Layout steht dann).
    */
   isVisible?: boolean;
-  isFullscreen?: boolean;
-  onToggleFullscreen?: () => void;
   className?: string;
 }
 
@@ -178,15 +171,13 @@ export default function SandboxTerminal({
   containerStatus,
   networkMode,
   isVisible = true,
-  isFullscreen = false,
-  onToggleFullscreen,
   className,
 }: SandboxTerminalProps) {
   const { terminalRef, isConnected, isConnecting, error, reconnect, fit, sendInput } = useTerminal({
     projectId,
     terminalName,
     containerStatus,
-    fontSize: isFullscreen ? 15 : 14,
+    fontSize: 14,
   });
 
   // Dialog für den zentralen KI-Zugang (einmal hinterlegen → in jeder Sandbox).
@@ -205,13 +196,6 @@ export default function SandboxTerminal({
       if (raf2) cancelAnimationFrame(raf2);
     };
   }, [isVisible, fit]);
-
-  const handleFullscreenToggle = useCallback(() => {
-    onToggleFullscreen?.();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(fit);
-    });
-  }, [onToggleFullscreen, fit]);
 
   const status = getStatusDisplay(containerStatus, isConnecting, isConnected, error);
   const modeBadge = networkMode ? NETWORK_MODE_BADGES[networkMode] : null;
@@ -300,21 +284,6 @@ export default function SandboxTerminal({
                 className="text-muted-foreground hover:text-foreground"
               >
                 <RefreshCw className="size-3.5" />
-              </Button>
-            )}
-            {onToggleFullscreen && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleFullscreenToggle}
-                title={isFullscreen ? 'Verkleinern' : 'Vollbild'}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {isFullscreen ? (
-                  <Minimize2 className="size-3.5" />
-                ) : (
-                  <Maximize2 className="size-3.5" />
-                )}
               </Button>
             )}
           </div>
