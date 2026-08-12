@@ -127,13 +127,17 @@ Ordner — ein Git-gekoppeltes Projekt sieht im Explorer schlicht sein Repo.
 würde sonst hunderte Repo-Dateien durch die GPU-Analyse jagen); der
 Coding-Agent arbeitet dort über Datei-Werkzeuge und Terminal statt RAG.
 
-## Geräteweite Projekte + Anwesenheit (Plan 017 Schritt 1)
+## Geräteweite Projekte (Plan 017 Schritt 1)
 
 Sandbox-Projekte sind **geräteweit sichtbar und öffenbar** — jeder angemeldete
 Nutzer sieht und öffnet alle Projekte (Einzel-Admin-Modell; „erstellt von" bleibt
-zur Anzeige). An Projektliste, Projektdetail und Sitzungen liefert das Backend
-eine **Anwesenheits-Anzeige** (`presence`): wer ist gerade live per
-Terminal-WebSocket verbunden. WS-Tickets und die KI-Zugänge bleiben pro Nutzer.
+zur Anzeige). WS-Tickets und die KI-Zugänge bleiben pro Nutzer.
+
+> **Keine Mehrbenutzer-Anzeige in der Oberfläche.** Die früheren
+> „Anwesenheits"-Punkte (wer ist gerade per Terminal-WebSocket verbunden) sind
+> aus der Terminal-Kopfzeile entfernt — sie widersprachen dem Einzel-Admin-
+> Modell und haben nur verwirrt. Das Backend kann Verbindungszahlen weiterhin
+> ermitteln; die Oberfläche zeigt sie nicht mehr an.
 
 ## Projekt-Verbindungen & MCP (Plan 017 Schritt 5)
 

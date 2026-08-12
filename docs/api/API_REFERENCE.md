@@ -1400,6 +1400,11 @@ und 64 MB entpackt.
 }
 ```
 
+> OCR-Engines (`model_type = "ocr"`, z. B. `tesseract:latest`, `paddleocr:latest`)
+> sind keine Ollama-Modelle — sie werden vom Dokument-Indexer verwaltet. Ein
+> `download` für ein OCR-Modell wird mit `400 VALIDATION_ERROR` abgelehnt, und
+> das Modell-Raster im Store blendet OCR-Einträge aus.
+
 Response: SSE stream with progress events:
 
 ```

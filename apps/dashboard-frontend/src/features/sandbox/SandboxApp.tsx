@@ -86,29 +86,18 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
     [openSessions, activeTabId]
   );
 
-  // Sitzungs-Titel + Anwesenheit des aktiven Projekts (Plan 017 Schritt 6).
-  // Poll (10 s) hält die Anwesenheit frisch; Titel gelten geräteweit.
+  // Sitzungs-Titel des aktiven Projekts (geräteweit gleich). Bewusst KEINE
+  // Anwesenheits-/Mehrbenutzer-Anzeige mehr — Einzel-Admin-Modell.
   const [sessionTitles, setSessionTitles] = useState<Record<string, string>>({});
-  const [presence, setPresence] = useState<{
-    connections: number;
-    users: string[];
-    sessions?: Record<string, { connections: number; users: string[] }>;
-  } | null>(null);
 
   const loadSessionMeta = useCallback(
     async (projectId: string) => {
       try {
         const data = await api.get<{
           titles?: Record<string, string>;
-          presence?: {
-            connections: number;
-            users: string[];
-            sessions?: Record<string, { connections: number; users: string[] }>;
-          };
         }>(`/sandbox/projects/${projectId}/sessions`, { showError: false });
         const titles = data.titles || {};
         setSessionTitles(titles);
-        setPresence(data.presence || null);
         // Server-Titel in die Registry spiegeln, damit auch die StatusBar
         // (liest session.title) den Sitzungsnamen zeigt.
         for (const s of useWorkspaceStore.getState().terminalSessions) {
@@ -124,16 +113,14 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
   );
 
   useEffect(() => {
-    // Beim Projektwechsel die (tmux-Namen teilenden) Titel/Anwesenheit zurück-
-    // setzen, damit nicht kurz die Titel des vorigen Projekts erscheinen.
+    // Beim Projektwechsel die (tmux-Namen teilenden) Titel zurücksetzen, damit
+    // nicht kurz die Titel des vorigen Projekts erscheinen. Titel ändern sich
+    // selten → einmal laden reicht (kein Dauer-Poll mehr).
     setSessionTitles({});
-    setPresence(null);
     if (!activeProjectId) {
       return;
     }
     void loadSessionMeta(activeProjectId);
-    const iv = setInterval(() => void loadSessionMeta(activeProjectId), 10000);
-    return () => clearInterval(iv);
   }, [activeProjectId, loadSessionMeta]);
 
   const handleRenameSession = useCallback(
@@ -394,7 +381,6 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
         activeTabId={activeTabId}
         allProjects={projects}
         sessionTitles={sessionTitles}
-        presence={presence}
         onSelectTab={activateTerminalSession}
         onCloseTab={closeTerminalSession}
         onOpenProject={handleOpenProject}

@@ -93,7 +93,13 @@ export function useStoreCatalog() {
       const res = await api.get<{ models?: CatalogModel[] }>('/models/catalog', {
         showError: false,
       });
-      return res.models ?? [];
+      // OCR-Engines (Tesseract/PaddleOCR) gehören NICHT ins Sprachmodell-Raster:
+      // sie sind keine Ollama-Modelle, sondern werden vom Dokument-Indexer
+      // verwaltet (services/document-indexer/ocr_service.py). Ihre Katalog-
+      // Karten hatten keinen funktionierenden Lade-Pfad und blieben dauerhaft
+      // auf „Fehler" stehen. Konsistent zum Modell-Picker & OpenAI-Kompat-
+      // Endpunkt, die OCR ebenfalls herausfiltern.
+      return (res.models ?? []).filter(m => m.model_type !== 'ocr');
     },
     staleTime: 30_000,
   });

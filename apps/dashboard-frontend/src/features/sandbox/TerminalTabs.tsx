@@ -1,26 +1,16 @@
 /**
- * TerminalTabs — EINE kompakte Kopfzeile (Plan 017 Schritt 6):
- * Projekt-Dropdown links · Sitzungs-Tabs · „+" · Überlauf-Liste rechts.
+ * TerminalTabs — EINE kompakte Kopfzeile:
+ * Projekt-Dropdown links · Sitzungs-Tabs · „+" · Alle-Projekte-Liste rechts.
  *
- * Sitzungen tragen serverseitige Titel (geräteweit gleich); Doppelklick auf
- * einen Tab benennt um. Ein Anwesenheits-Punkt an der Kopfzeile zeigt, wenn
- * außer einem selbst noch jemand im Projekt verbunden ist. Die frühere
- * zweizeilige Kopfzeile (große Projektzeile + separater Umschalter) entfällt;
- * Netz-Modus/Verbindungsstatus leben in der Terminal-Statusleiste.
+ * Sitzungen tragen serverseitige Titel (geräteweit gleich); Doppelklick (oder
+ * F2) auf einen Tab benennt um. Bewusst OHNE Anwesenheits-/Mehrbenutzer-Anzeige:
+ * Arasul hat genau einen Admin (kein Rechte-/Nutzermodell), die früheren
+ * „verbunden"-Punkte haben nur verwirrt. Netz-Modus/Verbindungsstatus leben in
+ * der schlanken Terminal-Statusleiste darunter.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  Plus,
-  List,
-  X,
-  Terminal,
-  FolderPlus,
-  Folder,
-  ChevronDown,
-  Check,
-  Users,
-} from 'lucide-react';
+import { Plus, List, X, Terminal, FolderPlus, Folder, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import {
   DropdownMenu,
@@ -35,21 +25,12 @@ import { DEFAULT_PROJECT_COLOR } from '@/lib/themeColors';
 import type { SandboxProject } from './types';
 import type { OpenSession } from './sessionModel';
 
-/** Anwesenheit je tmux-Session: welche Nutzer sind verbunden. */
-export interface SessionPresence {
-  connections: number;
-  users: string[];
-  sessions?: Record<string, { connections: number; users: string[] }>;
-}
-
 interface TerminalTabsProps {
   openSessions: OpenSession[];
   activeTabId: string | null;
   allProjects: SandboxProject[];
   /** Serverseitige Titel je tmux-Name des AKTIVEN Projekts. */
   sessionTitles?: Record<string, string>;
-  /** Anwesenheit im AKTIVEN Projekt (aus /sessions). */
-  presence?: SessionPresence | null;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string) => void;
   onOpenProject: (project: SandboxProject) => void;
@@ -65,7 +46,6 @@ export default function TerminalTabs({
   activeTabId,
   allProjects,
   sessionTitles = {},
-  presence = null,
   onSelectTab,
   onCloseTab,
   onOpenProject,
@@ -109,7 +89,7 @@ export default function TerminalTabs({
 
   // Editier-Zustand ist an die SESSION-Id gebunden (nicht den tmux-Namen, der
   // sich Projekte teilt) — sonst könnte ein extern geschlossener/neu belegter
-  // Tab ein fremdes Rename-Feld erben (Review Plan 017 Schritt 6).
+  // Tab ein fremdes Rename-Feld erben.
   const beginRename = (sessionId: string, tmuxName: string | undefined, index: number) => {
     if (!onRenameSession) return;
     setEditing(sessionId);
@@ -122,9 +102,6 @@ export default function TerminalTabs({
     }
     setEditing(null);
   };
-
-  // Anwesenheit anderer (der eigene Verbindungspunkt zählt nicht als „andere").
-  const otherPresent = (presence?.connections ?? 0) > sessionsOfActive.length;
 
   return (
     <div
@@ -148,14 +125,14 @@ export default function TerminalTabs({
         <DropdownMenuContent align="start" className="min-w-60">
           {openProjects.length > 0 && (
             <>
-              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+              <DropdownMenuLabel className="text-ui-xs uppercase tracking-wider text-muted-foreground font-medium">
                 Offen
               </DropdownMenuLabel>
               {openProjects.map(project => (
                 <DropdownMenuItem
                   key={project.id}
                   onClick={() => onOpenProject(project)}
-                  className="gap-2.5"
+                  className="gap-2.5 text-ui-sm"
                 >
                   <div
                     className="w-2 h-2 rounded-full shrink-0"
@@ -171,14 +148,14 @@ export default function TerminalTabs({
           )}
           {availableProjects.length > 0 && (
             <>
-              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+              <DropdownMenuLabel className="text-ui-xs uppercase tracking-wider text-muted-foreground font-medium">
                 Öffnen
               </DropdownMenuLabel>
               {availableProjects.map(project => (
                 <DropdownMenuItem
                   key={project.id}
                   onClick={() => onOpenProject(project)}
-                  className="gap-2.5"
+                  className="gap-2.5 text-ui-sm"
                 >
                   <div
                     className="w-2 h-2 rounded-full shrink-0"
@@ -193,7 +170,7 @@ export default function TerminalTabs({
             </>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onCreateProject} className="gap-2.5">
+          <DropdownMenuItem onClick={onCreateProject} className="gap-2.5 text-ui-sm">
             <FolderPlus className="size-3.5 text-primary shrink-0" />
             <span>Neues Projekt erstellen</span>
           </DropdownMenuItem>
@@ -203,11 +180,10 @@ export default function TerminalTabs({
       {/* Trenner */}
       {activeProject && <div className="h-4 w-px bg-border shrink-0" />}
 
-      {/* Sitzungs-Tabs (inline, gleiche Zeile) */}
+      {/* Sitzungs-Tabs (inline, gleiche Zeile, gleiche Schriftgröße wie das
+          Projekt-Dropdown) */}
       {sessionsOfActive.map(({ session }, index) => {
-        const tmux = session.terminalName || 'main';
         const isEditing = editing === session.id;
-        const perSession = presence?.sessions?.[tmux];
         return (
           <div
             key={session.id}
@@ -253,15 +229,6 @@ export default function TerminalTabs({
             ) : (
               <span className="truncate max-w-40">{titleFor(session.terminalName, index)}</span>
             )}
-            {perSession && perSession.users.length > 0 && (
-              <span
-                className="flex items-center gap-0.5 text-[10px] text-primary"
-                title={`Verbunden: ${perSession.users.join(', ')}`}
-              >
-                <Users className="size-3" />
-                {perSession.connections}
-              </span>
-            )}
             <button
               type="button"
               onClick={e => {
@@ -291,17 +258,8 @@ export default function TerminalTabs({
         </Button>
       )}
 
-      {/* Rechts: Anwesenheits-Hinweis + Alle-Projekte-Liste */}
+      {/* Rechts: Alle-Projekte-Liste */}
       <div className="ml-auto flex items-center gap-1 shrink-0">
-        {otherPresent && (
-          <span
-            className="flex items-center gap-0.5 text-ui-xs text-primary"
-            title={presence?.users?.length ? `Verbunden: ${presence.users.join(', ')}` : undefined}
-          >
-            <Users className="size-3.5" />
-            {presence?.connections}
-          </span>
-        )}
         <Button
           variant="ghost"
           size="icon-sm"
