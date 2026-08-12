@@ -56,6 +56,7 @@ function toApi(row) {
       freigegeben: alsListe(row.approved_capabilities),
       wirksam: wirksameFaehigkeiten(row),
     },
+    n8nWorkflowId: row.n8n_workflow_id || null,
     installedAt: row.installed_at,
   };
 }
@@ -241,8 +242,12 @@ async function forkExtension({ id, name, userId, userRole }) {
  */
 async function setEnabled(id, enabled, { faehigkeitenFreigeben = false, userId = null } = {}) {
   const ext = await getExtension(id);
+  const einschalten = enabled === true;
 
-  if (enabled === true) {
+  // Freigabe-Gate: Aktivieren mit noch nicht freigegebenen Fähigkeiten braucht
+  // die ausdrückliche Bestätigung.
+  let mitFreigabe = false;
+  if (einschalten) {
     const deklariert = ext.faehigkeiten.deklariert;
     const freigegeben = new Set(ext.faehigkeiten.freigegeben);
     const fehlend = deklariert.filter(f => !freigegeben.has(f));
@@ -252,35 +257,75 @@ async function setEnabled(id, enabled, { faehigkeitenFreigeben = false, userId =
         { freigabe_erforderlich: true, faehigkeiten: deklariert, fehlend }
       );
     }
-    if (faehigkeitenFreigeben) {
-      const result = await db.query(
+    mitFreigabe = faehigkeitenFreigeben && deklariert.length > 0;
+  }
+
+  const flowDeployService = require('./flowDeployService');
+
+  // Flow-Erweiterung ZUERST live schalten, DANN den Register-Zustand kippen:
+  // scheitert der n8n-Import (n8n aus, Key fehlt), bleibt enabled=false und der
+  // Fehler ist sichtbar — kein „enabled, aber nichts in n8n"-Widerspruch
+  // (Plan 017 Schritt 3). Deaktivieren pausiert nach dem DB-Update (best effort).
+  let workflowId = ext.n8nWorkflowId || null;
+  if (ext.type === 'flow' && einschalten) {
+    workflowId = await flowDeployService.liveSchalten(ext);
+  }
+
+  const result = mitFreigabe
+    ? await db.query(
         `UPDATE extensions
             SET enabled = TRUE,
                 approved_capabilities = declared_capabilities,
                 capabilities_approved_at = now(),
                 capabilities_approved_by = $2,
+                n8n_workflow_id = $3,
                 updated_at = now()
           WHERE id = $1
           RETURNING *`,
-        [id, userId]
+        [id, userId, workflowId]
+      )
+    : await db.query(
+        'UPDATE extensions SET enabled = $2, n8n_workflow_id = $3, updated_at = now() WHERE id = $1 RETURNING *',
+        [id, einschalten, workflowId]
       );
-      logger.info(
-        `Erweiterung "${id}" aktiviert — Fähigkeiten freigegeben: ${deklariert.join(', ') || '(keine)'}`
-      );
-      return toApi(result.rows[0]);
+  if (mitFreigabe) {
+    logger.info(
+      `Erweiterung "${id}" aktiviert — Fähigkeiten freigegeben: ${ext.faehigkeiten.deklariert.join(', ')}`
+    );
+  }
+
+  const aktualisiert = toApi(result.rows[0]);
+
+  if (aktualisiert.type === 'flow' && !einschalten) {
+    // Deaktivieren pausiert den Workflow; ein n8n-Fehler hier darf den bereits
+    // vollzogenen Deaktivierungs-Zustand nicht zurückdrehen.
+    try {
+      await flowDeployService.pausieren(aktualisiert);
+    } catch (err) {
+      logger.warn(`Flow-Erweiterung "${id}": Pausieren in n8n fehlgeschlagen: ${err.message}`);
     }
   }
 
-  const result = await db.query(
-    'UPDATE extensions SET enabled = $2, updated_at = now() WHERE id = $1 RETURNING *',
-    [id, enabled === true]
-  );
-  return toApi(result.rows[0]);
+  return aktualisiert;
+}
+
+/** n8n-Live-Status einer Flow-Erweiterung (aktiv? letzter Lauf?). */
+async function flowStatus(id) {
+  const ext = await getExtension(id);
+  if (ext.type !== 'flow') {
+    throw new ValidationError('Nur Flow-Erweiterungen haben einen n8n-Status');
+  }
+  return require('./flowDeployService').status(ext);
 }
 
 /** Entfernt Register-Eintrag und Paket-Ordner. */
 async function removeExtension(id) {
   const ext = await getExtension(id);
+  // Flow-Erweiterung: den n8n-Workflow mit abräumen. entfernen() ist best
+  // effort und wirft nicht — kein try/catch nötig.
+  if (ext.type === 'flow' && ext.n8nWorkflowId) {
+    await require('./flowDeployService').entfernen(ext);
+  }
   await db.query('DELETE FROM extensions WHERE id = $1', [id]);
   await pkg.removeDir(pkg.packageDirFor(id)).catch(err => {
     logger.warn(`Paket-Ordner von "${id}" nicht gelöscht: ${err.message}`);
@@ -390,6 +435,7 @@ module.exports = {
   forkExtension,
   setEnabled,
   removeExtension,
+  flowStatus,
   resolveAppAsset,
   packageStream,
 };

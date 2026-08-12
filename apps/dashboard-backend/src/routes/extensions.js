@@ -178,6 +178,21 @@ router.get(
   })
 );
 
+/**
+ * GET /api/extensions/:id/flow-status — n8n-Live-Status einer Flow-Erweiterung
+ * (Plan 017 Schritt 3): aktiv/importiert/erreichbar + letzter Lauf. Degradiert
+ * sichtbar bei n8n-Ausfall (erreichbar:false), bricht nie.
+ */
+router.get(
+  '/:id/flow-status',
+  requireAuth,
+  validateParams(ExtensionIdParams),
+  asyncHandler(async (req, res) => {
+    const data = await extensionService.flowStatus(req.params.id);
+    res.json({ data, timestamp: new Date().toISOString() });
+  })
+);
+
 /** POST /api/extensions/:id/fork — Kopie als neue Werkstatt-Sandbox. */
 router.post(
   '/:id/fork',

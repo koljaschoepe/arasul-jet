@@ -1187,17 +1187,24 @@ das Register ist die Tabelle `extensions`. Der Ablauf: in einer
 Erweiterungs-Werkstatt bauen → paketieren → herunterladen → anderswo
 importieren → forken. Alle Routen erfordern Authentifizierung.
 
-| Method | Endpoint                       | Description                                                                                |
-| ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
-| GET    | `/api/extensions`              | Installierte Erweiterungen                                                                 |
-| POST   | `/api/extensions/bauen`        | Ordner einer Sandbox paketieren + registrieren                                             |
-| POST   | `/api/extensions/import`       | Paket-Archiv (`.tar.gz`) hochladen und installieren                                        |
-| GET    | `/api/extensions/:id/download` | Paket als `.tar.gz` herunterladen                                                          |
-| GET    | `/api/extensions/:id/app`      | Oberfläche einer `app`-Erweiterung (Startdatei)                                            |
-| GET    | `/api/extensions/:id/app/*`    | Einzelne Datei aus dem Paket (Assets)                                                      |
-| POST   | `/api/extensions/:id/fork`     | Kopie als neue Werkstatt-Sandbox anlegen                                                   |
-| PUT    | `/api/extensions/:id`          | Aktivieren/deaktivieren — Body `{ "enabled": boolean, "faehigkeitenFreigeben"?: boolean }` |
-| DELETE | `/api/extensions/:id`          | Deinstallieren (Register-Eintrag + Paket-Ordner)                                           |
+| Method | Endpoint                          | Description                                                                                |
+| ------ | --------------------------------- | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/extensions`                 | Installierte Erweiterungen                                                                 |
+| POST   | `/api/extensions/bauen`           | Ordner einer Sandbox paketieren + registrieren                                             |
+| POST   | `/api/extensions/import`          | Paket-Archiv (`.tar.gz`) hochladen und installieren                                        |
+| GET    | `/api/extensions/:id/download`    | Paket als `.tar.gz` herunterladen                                                          |
+| GET    | `/api/extensions/:id/app`         | Oberfläche einer `app`-Erweiterung (Startdatei)                                            |
+| GET    | `/api/extensions/:id/app/*`       | Einzelne Datei aus dem Paket (Assets)                                                      |
+| GET    | `/api/extensions/:id/flow-status` | n8n-Live-Status einer `flow`-Erweiterung (aktiv/importiert/erreichbar + letzter Lauf)      |
+| POST   | `/api/extensions/:id/fork`        | Kopie als neue Werkstatt-Sandbox anlegen                                                   |
+| PUT    | `/api/extensions/:id`             | Aktivieren/deaktivieren — Body `{ "enabled": boolean, "faehigkeitenFreigeben"?: boolean }` |
+| DELETE | `/api/extensions/:id`             | Deinstallieren (Register-Eintrag + Paket-Ordner)                                           |
+
+Eine `flow`-Erweiterung wird beim Aktivieren als n8n-Workflow importiert und
+aktiviert (Plan 017 Schritt 3); Deaktivieren pausiert ihn, Deinstallieren räumt
+ihn ab. `GET /api/extensions/:id/flow-status` liefert den n8n-Live-Status; fehlt
+`N8N_API_KEY` oder ist n8n nicht erreichbar, degradiert das Live-Schalten
+sichtbar (klare Fehlermeldung) statt zu brechen.
 
 `GET /api/extensions/:id/app` (und `/app/*`) liefert die Oberfläche einer
 `app`-Erweiterung, damit sie „in der Mitte" (wie n8n) in einem Sandbox-iframe
