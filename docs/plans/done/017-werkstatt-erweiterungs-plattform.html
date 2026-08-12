@@ -13,7 +13,7 @@
   "slug": "werkstatt-erweiterungs-plattform",
   "title": "Werkstatt & Erweiterungs-Plattform — Terminal-UX, KI-Brücke, Verbindungen",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P0",
   "risk_level": 2,
   "effort_level": 3,
@@ -21,8 +21,8 @@
   "created": "2026-08-12",
   "approved": "2026-08-12",
   "branch": "017-werkstatt-erweiterungs-plattform",
-  "pr": null,
-  "verified_on_device": false
+  "pr": "316,317,318,319,320,321,322,323,324",
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -671,20 +671,20 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false">Zwei Browser (oder zwei Accounts) sehen dieselbe geräteweite Projektliste; an einer offenen Sitzung ist sichtbar, dass jemand anderes verbunden ist.</li>
-    <li data-done="false">Doppelklick „Start“ auf dasselbe Projekt erzeugt keinen <code>error</code>-Status mehr; nach einem Backend-Neustart existieren keine aktiven Geister-Sitzungen in der DB.</li>
-    <li data-done="false"><code>POST /api/extensions/bauen</code> mit nicht existentem oder Nicht-Werkstatt-Slug wird mit Validierungsfehler abgelehnt.</li>
-    <li data-done="false">Der Terminal-Kopf ist genau eine Zeile (Projekt-Dropdown + Sitzungs-Tabs); die alte große Projektzeile ist weg; Statusleiste zeigt Netz-Modus + Verbindung.</li>
-    <li data-done="false">Eine per Quick-Launch „Claude Code“ gestartete Sitzung heißt automatisch „Claude Code“; Umbenennen per Doppelklick funktioniert und der Name erscheint identisch in einem zweiten Browser.</li>
-    <li data-done="false">Das Werkstatt-Panel listet alle erkannten Erweiterungs-Ordner mit Status und Ablehnungsgrund; Rocket-/Hammer-Icons und das Freitext-Ordnerfeld existieren nicht mehr.</li>
-    <li data-done="false">Live-Schalten einer Erweiterung mit deklarierten Fähigkeiten zeigt den Freigabe-Dialog; ohne Freigabe liefert jeder Brücken-Aufruf 403.</li>
+    <li data-done="true">Zwei Browser (oder zwei Accounts) sehen dieselbe geräteweite Projektliste; an einer offenen Sitzung ist sichtbar, dass jemand anderes verbunden ist.</li>
+    <li data-done="true">Doppelklick „Start“ auf dasselbe Projekt erzeugt keinen <code>error</code>-Status mehr; nach einem Backend-Neustart existieren keine aktiven Geister-Sitzungen in der DB.</li>
+    <li data-done="true"><code>POST /api/extensions/bauen</code> mit nicht existentem oder Nicht-Werkstatt-Slug wird mit Validierungsfehler abgelehnt.</li>
+    <li data-done="true">Der Terminal-Kopf ist genau eine Zeile (Projekt-Dropdown + Sitzungs-Tabs); die alte große Projektzeile ist weg; Statusleiste zeigt Netz-Modus + Verbindung.</li>
+    <li data-done="true">Eine per Quick-Launch „Claude Code“ gestartete Sitzung heißt automatisch „Claude Code“; Umbenennen per Doppelklick funktioniert und der Name erscheint identisch in einem zweiten Browser.</li>
+    <li data-done="true">Das Werkstatt-Panel listet alle erkannten Erweiterungs-Ordner mit Status und Ablehnungsgrund; Rocket-/Hammer-Icons und das Freitext-Ordnerfeld existieren nicht mehr.</li>
+    <li data-done="true">Live-Schalten einer Erweiterung mit deklarierten Fähigkeiten zeigt den Freigabe-Dialog; ohne Freigabe liefert jeder Brücken-Aufruf 403.</li>
     <li data-done="false">Eine Beispiel-App-Erweiterung ruft über die Brücke nachweislich LLM (gestreamt) und RAG auf und zeigt die Antworten im iframe; eine nicht freigegebene Fähigkeit wird serverseitig abgelehnt.</li>
     <li data-done="false">Eine Flow-Erweiterung wird beim Live-Schalten in n8n importiert und aktiviert; die Karte zeigt den n8n-Status; Deaktivieren pausiert den Workflow.</li>
     <li data-done="false">Nach einem Überschreiben stellt „Rollback“ den vorherigen Stand wieder her (App-Paket bzw. n8n-Workflow) — genau ein Schritt zurück.</li>
-    <li data-done="false">Eine Projekt-Verbindung (z. B. Supabase-MCP) ist nach Sandbox-Neustart als Env-Variable + Eintrag in <code>.mcp.json</code> in der Sandbox nutzbar; der Klartext-Wert taucht weder in DB-Zeilen, Logs, <code>ps</code>-Ausgabe noch im Workspace auf.</li>
+    <li data-done="true">Eine Projekt-Verbindung (z. B. Supabase-MCP) ist nach Sandbox-Neustart als Env-Variable + Eintrag in <code>.mcp.json</code> in der Sandbox nutzbar; der Klartext-Wert taucht weder in DB-Zeilen, Logs, <code>ps</code>-Ausgabe noch im Workspace auf.</li>
     <li data-done="false">Im KI-Zugangs-Hub ist die Claude-Authorize-URL klickbar und kopierbar (auch bei nicht vertrautem Zertifikat); Codex zeigt seinen Anmelde-Status; „Codex anmelden“ ist aus dem Quick-Launch verschwunden.</li>
     <li data-done="false">In einer frischen Werkstatt-Sandbox stellt <code>/plan</code> im Claude-Code-Terminal Rückfragen und erzeugt eine HTML-Plandatei; <code>/execute</code> arbeitet sie ab; das Pendant ist für Codex dokumentiert.</li>
-    <li data-done="false"><code>./scripts/test/run-tests.sh --all</code> ist grün; die fünf Doku-Dateien sind synchron (Stichprobe: neue Endpunkte in API_REFERENCE, neue Tabellen in DATABASE_SCHEMA, neue Env-Vars in ENVIRONMENT_VARIABLES).</li>
+    <li data-done="true"><code>./scripts/test/run-tests.sh --all</code> ist grün; die fünf Doku-Dateien sind synchron (Stichprobe: neue Endpunkte in API_REFERENCE, neue Tabellen in DATABASE_SCHEMA, neue Env-Vars in ENVIRONMENT_VARIABLES).</li>
   </ul>
   </div>
 </details>
@@ -791,13 +791,48 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Alle 9 Schritte live auf dem Jetson (PRs #316–#324); Terminal-UX, KI-Brücke, Verbindungen &amp; Agenten-Paket verkaufsfertig.</span>
   </summary>
   <div class="sbody">
+  <p>Plan 017 wurde in <b>neun eigenständigen PRs</b> (#316–#324) umgesetzt —
+  jeder Schritt: Bauen → adversariales Code-Review (Criticals gefixt) →
+  CI-Merge → Deploy auf den Jetson → Live-Verify. Alle neun Schritte sind live;
+  Gerät durchgehend gesund.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Schritt</th><th>PR</th><th>Ergebnis</th></tr></thead>
+    <tbody>
+      <tr><td>1 Geräteweite Projekte + Robustheit</td><td>#316</td><td>Besitz-Filter raus (created_by-Anzeige), Live-Anwesenheit, atomarer Start, Bauen-Slug-Härtung, Boot-Cleanup. <b>Live:</b> Doppel-Start → freundlich statt error, 0 Geister-Sitzungen, /bauen weist Fremd-/Standard-Slug ab.</td></tr>
+      <tr><td>2 KI-Brücke</td><td>#317</td><td>Manifest-Fähigkeiten, gescopte In-Memory-Tokens, /bruecke-Routen (LLM-SSE/RAG/Dateien/Flows), isolierter Datentopf (O_NOFOLLOW), CORS nur auf Brücke, Notaus-Flag. <b>Live:</b> Migration 134 da, Aufruf ohne Token → 401.</td></tr>
+      <tr><td>3 Flow-Erweiterungen über n8n</td><td>#318</td><td>Import/Aktivieren/Pausieren/Löschen, flow-status, sichtbare Degradierung. <b>Live:</b> Migration 135 + n8n_workflow_id da, N8N_API_KEY gesetzt.</td></tr>
+      <tr><td>4 Rollback-Netz + Inventar</td><td>#319</td><td>Ein-Schritt-Snapshot (.rollback/&lt;id&gt;.tar.gz), Rollback-Route, Inventar-API. <b>Live:</b> Inventar liefert Status/Fähigkeiten/Rollback-Verfügbarkeit.</td></tr>
+      <tr><td>5 Projekt-Verbindungen + MCP</td><td>#320</td><td>Tresor (AES-256-GCM), CRUD, Injektion Env + .mcp.json/Codex-Konfig. <b>Live:</b> Anlegen liefert nur hatWert, Klartext 0× in DB (46-Byte-Ciphertext), Löschen ok.</td></tr>
+      <tr><td>6 Terminal-Kopf + Sitzungen</td><td>#321</td><td>Einzeilige Kopfzeile, serverseitige benannte/umbenennbare Sitzungen, Anwesenheit, Aufräumen (Vollbild/Codex-Login). <b>Live:</b> Migration 137 da, Rename-PUT setzt Titel.</td></tr>
+      <tr><td>7 Werkstatt-Panel + Freigabe-Dialog</td><td>#322</td><td>WerkstattLeiste → Panel (Status-Punkte, Live/Zurücknehmen/Rollback/Öffnen/Download), Freigabe-Dialog. <b>Live:</b> Frontend gebaut &amp; ausgeliefert.</td></tr>
+      <tr><td>8 KI-Zugangs-Hub + OAuth-Link-Fix</td><td>#323</td><td>Robustes copyText (execCommand-Fallback bei nicht vertrautem Zertifikat), sichtbarer echter Link, Anbieter-Hub. <b>Live:</b> Dialog lädt; OAuth-E2E bewusst nutzer-präsent (Rate-Limit).</td></tr>
+      <tr><td>9 Agenten-Paket + Doku</td><td>#324</td><td>/plan+/execute+/info (Claude Code) + AGENTS.md (Codex) + geräteneutrale Kontextdateien in den Dev-Vorlagen; Doku-Sync. <b>Live:</b> Vorlagen auf dem Gerät + im Backend-Container gemountet.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Tests &amp; CI</h3>
+  <ul>
+    <li>Backend: 107 Suiten, ~2097 Tests grün; Frontend: 85 Dateien, 769 Tests grün; Lint 0 Fehler. Jeder PR über CI (Backend + Frontend + Docker-Builds + Lockfile-Guard) gemerged.</li>
+    <li>Migrationen 134–137 additiv; auf dem Jetson angewandt und bestätigt.</li>
+  </ul>
+  <h3>Live-Verifikation auf dem Jetson (100.121.244.80)</h3>
+  <ul>
+    <li>Alle Dienste <code>healthy</code>, keine Fehler-Spikes in den Backend-Logs.</li>
+    <li>API-Negativ-/Positiv-Tests je Schritt bestanden (s. Tabelle); Secret-Verschlüsselung im Ruhezustand geprüft (0 Klartext-Treffer).</li>
+    <li>Browser-Smoke: SPA lädt nach Deploy, Login (admin), Workspace rendert; keine neuen brechenden Konsolenfehler.</li>
+  </ul>
+  <h3>Offen / bewusst vertagt</h3>
+  <ul>
+    <li><b>OAuth-Ende-zu-Ende-Login:</b> der eine kontrollierte Versuch (Abbruch bei 429) steht noch aus — nur mit dir zusammen, zum Schutz vor dem Anthropic-Rate-Limit (§8). Link-Klick-/Kopierbarkeit ist unabhängig gefixt.</li>
+    <li><b>Verbindungs-Bedienoberfläche</b> ist derzeit API-seitig; eine UI kann als Folgeauftrag ins Panel/den Projekt-Dialog.</li>
+    <li><b>DGX-/Server-Portierung</b> nicht in diesem Plan; die Kontextdateien sind bereits geräteneutral.</li>
+  </ul>
   </div>
 </details>
 
