@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Cpu, FolderKanban, ChevronsUpDown, Wifi } from 'lucide-react';
+import { Cpu, Download, FolderKanban, ChevronsUpDown, Wifi } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
+import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useExtensionStore } from '@/stores/extensionStore';
 import { GitSyncControl } from '@/features/workspace/GitSyncControl';
 import {
   isModelInstalled,
@@ -127,6 +129,22 @@ export function StatusBar() {
   const activeTerminalSessionId = useWorkspaceStore(s => s.activeTerminalSessionId);
   const activeSession = terminalSessions.find(s => s.id === activeTerminalSessionId) ?? null;
 
+  // Globales Download-Feedback: laufende Modell-Downloads sind sonst nur im
+  // Store sichtbar — hier bleiben sie es überall, ein Klick springt hin.
+  const { activeDownloadsList } = useDownloads();
+  const openTab = useWorkspaceStore(s => s.openTab);
+  const setStoreTab = useExtensionStore(s => s.setStoreTab);
+  const laufendeDownloads = activeDownloadsList.filter(
+    d => d.phase !== 'complete' && d.phase !== 'error'
+  );
+  const downloadProzent =
+    laufendeDownloads.length > 0
+      ? Math.round(
+          laufendeDownloads.reduce((sum, d) => sum + (d.progress || 0), 0) /
+            laufendeDownloads.length
+        )
+      : 0;
+
   const healthLabel = isError
     ? 'Getrennt'
     : data === undefined
@@ -242,7 +260,7 @@ export function StatusBar() {
           </PopoverTrigger>
           <PopoverContent side="top" align="start" className="w-72 p-1 text-xs">
             <p className="px-2 py-1.5 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
-              Heruntergeladene Modelle
+              Modell für neue Chats
             </p>
             {installedModels.length === 0 ? (
               <p className="px-2 py-2 text-muted-foreground">
@@ -292,6 +310,24 @@ export function StatusBar() {
             </p>
           </PopoverContent>
         </Popover>
+      )}
+
+      {laufendeDownloads.length > 0 && (
+        <button
+          type="button"
+          data-testid="statusbar-downloads"
+          title="Zum Modell-Store"
+          onClick={() => {
+            setStoreTab('models');
+            openTab({ type: 'store' });
+          }}
+          className="flex items-center gap-1.5 rounded px-1 text-primary hover:bg-accent"
+        >
+          <Download className="h-3 w-3 shrink-0 animate-pulse" aria-hidden="true" />
+          {laufendeDownloads.length === 1
+            ? `Modell lädt … ${downloadProzent}%`
+            : `${laufendeDownloads.length} Modelle laden … ${downloadProzent}%`}
+        </button>
       )}
 
       <div className="flex-1" />

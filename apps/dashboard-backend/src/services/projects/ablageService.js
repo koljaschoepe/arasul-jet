@@ -36,7 +36,9 @@ const logger = require('../../utils/logger');
 const ABLAGE_DIR = process.env.PROJECT_GIT_DIR || '/arasul/projects';
 
 // Deckel gegen Ausreißer: der Editor ist für Text gedacht, nicht für Videos.
-const MAX_EDITOR_BYTES = 1 * 1024 * 1024; // lesen/schreiben im Editor
+// 5 MB statt 1 MB (UX-Sweep 2026-08-12): agent-erzeugte HTML-Handbücher
+// überschritten 1 MB und waren dann nur noch als Download sichtbar.
+const MAX_EDITOR_BYTES = 5 * 1024 * 1024; // lesen/schreiben im Editor
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // Upload in die Ablage
 const MAX_TREE_ENTRIES = 2000; // Baum-Budget (danach ehrlich „gekürzt")
 const MAX_TREE_DEPTH = 12;
@@ -308,7 +310,7 @@ async function writeFile(projectId, relPfad, inhalt, deps = {}) {
   await pruefeRechnungsschutz(projectId, [relPfad], deps);
   const text = String(inhalt ?? '');
   if (Buffer.byteLength(text, 'utf8') > MAX_EDITOR_BYTES) {
-    throw new ValidationError('Datei zu groß für den Editor (max. 1 MB)');
+    throw new ValidationError('Datei zu groß für den Editor (max. 5 MB)');
   }
   const abs = sicher(dir, relPfad);
   if (istWurzel(dir, abs)) {

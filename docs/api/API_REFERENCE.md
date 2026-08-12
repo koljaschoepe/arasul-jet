@@ -2291,25 +2291,25 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
 
-| Method | Endpoint                            | Description                                                                                                                         |
-| ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/flows`                        | List all flows — global **plus** project-bound (each entry carries `projekt: null \| {id, name}`); broken files reported separately |
-| GET    | `/api/flows/werkzeuge`              | Tool names a flow may declare, each with `verfuegbar`                                                                               |
-| GET    | `/api/flows/sammlungen`             | Selectable knowledge spaces (for `typ: wissensbasis`)                                                                               |
-| GET    | `/api/flows/:name`                  | Get a single flow (`?projekt=<uuid>` = project-bound flow)                                                                          |
-| GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`; `?projekt=` wie oben)                                                                   |
-| GET    | `/api/flows/vorlagen`               | List uploaded style templates (`{ name, groesse, hochgeladen }`)                                                                    |
-| POST   | `/api/flows/vorlagen`               | Upload a style template (multipart field `datei`; .docx/.pdf/.md/.txt/.html, 20 MB)                                                 |
-| DELETE | `/api/flows/vorlagen/:name`         | Delete a style template                                                                                                             |
-| POST   | `/api/flows`                        | Create a **global** flow (409 if the name exists)                                                                                   |
-| PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist; `?projekt=` wie oben)                                                            |
-| DELETE | `/api/flows/:name`                  | Delete a flow (`?projekt=` wie oben)                                                                                                |
-| GET    | `/api/flows/laeufe`                 | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter)                                        |
-| POST   | `/api/flows/laeufe`                 | Start a run detached; returns `202 { runId }` immediately                                                                           |
-| GET    | `/api/flows/laeufe/:id`             | One run with its steps (`?raw=1` includes raw step data)                                                                            |
-| GET    | `/api/flows/laeufe/:id/stream`      | SSE event stream: replay stored history, then live steps                                                                            |
-| POST   | `/api/flows/laeufe/:id/abbrechen`   | Cancel a running run (404 if not running/owned)                                                                                     |
-| POST   | `/api/flows/laeufe/:id/wiederholen` | Retry a **failed** run of a flow with a declared step chain (body `{}`); `202 { runId, uebernommeneSchritte }`                      |
+| Method | Endpoint                            | Description                                                                                                                             |
+| ------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/flows`                        | List all flows — global **plus** project-bound (each entry carries `projekt: null \| {id, name}`); broken files reported separately     |
+| GET    | `/api/flows/werkzeuge`              | Tool names a flow may declare, each with `verfuegbar`                                                                                   |
+| GET    | `/api/flows/sammlungen`             | Selectable knowledge spaces (for `typ: wissensbasis`)                                                                                   |
+| GET    | `/api/flows/:name`                  | Get a single flow (`?projekt=<uuid>` = project-bound flow)                                                                              |
+| GET    | `/api/flows/:name/datei`            | Get the raw Markdown file (`text/markdown`; `?projekt=` wie oben)                                                                       |
+| GET    | `/api/flows/vorlagen`               | List uploaded style templates (`{ name, groesse, hochgeladen }`)                                                                        |
+| POST   | `/api/flows/vorlagen`               | Upload a style template (multipart field `datei`; .docx/.pdf/.md/.txt/.html, 20 MB)                                                     |
+| DELETE | `/api/flows/vorlagen/:name`         | Delete a style template                                                                                                                 |
+| POST   | `/api/flows`                        | Create a **global** flow (409 if the name exists)                                                                                       |
+| PUT    | `/api/flows/:name`                  | Update an existing flow (404 if it does not exist; `?projekt=` wie oben)                                                                |
+| DELETE | `/api/flows/:name`                  | Delete a flow (`?projekt=` wie oben)                                                                                                    |
+| GET    | `/api/flows/laeufe`                 | List the caller's runs (`?limit`, `?conversation_id`, `?status`, `?flow` = Flow-Name-Filter); rows include the run's `arguments` (JSON) |
+| POST   | `/api/flows/laeufe`                 | Start a run detached; returns `202 { runId }` immediately                                                                               |
+| GET    | `/api/flows/laeufe/:id`             | One run with its steps (`?raw=1` includes raw step data)                                                                                |
+| GET    | `/api/flows/laeufe/:id/stream`      | SSE event stream: replay stored history, then live steps                                                                                |
+| POST   | `/api/flows/laeufe/:id/abbrechen`   | Cancel a running run (404 if not running/owned)                                                                                         |
+| POST   | `/api/flows/laeufe/:id/wiederholen` | Retry a **failed** run of a flow with a declared step chain (body `{}`); `202 { runId, uebernommeneSchritte }`                          |
 
 **Starting flows.** A flow runs from the chat (slash command `/name`) or via the
 external HTTP trigger `POST /api/v1/external/flows/:name/run` (API key, scope
@@ -2556,29 +2556,30 @@ A flow may declare a tool that is not built yet — the definition stays valid a
 
 Isolated project environments with Docker containers and terminal WebSocket access. All routes require authentication.
 
-| Method | Endpoint                                                | Description                                                |
-| ------ | ------------------------------------------------------- | ---------------------------------------------------------- |
-| GET    | `/api/sandbox/projects`                                 | List all sandbox projects for current user                 |
-| POST   | `/api/sandbox/projects`                                 | Create a new sandbox project                               |
-| GET    | `/api/sandbox/projects/:id`                             | Get project details                                        |
-| PUT    | `/api/sandbox/projects/:id`                             | Update project name/description                            |
-| DELETE | `/api/sandbox/projects/:id`                             | Archive a project                                          |
-| POST   | `/api/sandbox/projects/:id/start`                       | Start the project container                                |
-| POST   | `/api/sandbox/projects/:id/stop`                        | Stop the project container                                 |
-| POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                      |
-| GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                  |
-| GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project                       |
-| POST   | `/api/sandbox/terminal/ticket`                          | Issue a short-lived single-use ticket for the terminal WS  |
-| POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted |
-| GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user   |
-| DELETE | `/api/sandbox/projects/:workspace/claude-login`         | Delete the stored Claude login for the user                |
-| GET    | `/api/sandbox/claude-auth`                              | Central KI access status (mode, no secret)                 |
-| PUT    | `/api/sandbox/claude-auth`                              | Set central token/API-key, apply to all sandboxes          |
-| DELETE | `/api/sandbox/claude-auth`                              | Remove central KI access                                   |
-| POST   | `/api/sandbox/claude-auth/oauth/start`                  | Begin the backend OAuth-PKCE handshake → authorize URL     |
-| POST   | `/api/sandbox/claude-auth/oauth/complete`               | Exchange the pasted code for tokens, inject into sandboxes |
-| POST   | `/api/sandbox/claude-auth/oauth/refresh`                | Refresh the access token via the stored refresh token      |
-| GET    | `/api/sandbox/stats`                                    | Overall sandbox statistics                                 |
+| Method | Endpoint                                                | Description                                                                                 |
+| ------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| GET    | `/api/sandbox/projects`                                 | List all sandbox projects for current user                                                  |
+| POST   | `/api/sandbox/projects`                                 | Create a new sandbox project                                                                |
+| GET    | `/api/sandbox/projects/:id`                             | Get project details                                                                         |
+| PUT    | `/api/sandbox/projects/:id`                             | Update project name/description                                                             |
+| DELETE | `/api/sandbox/projects/:id`                             | Archive a project                                                                           |
+| POST   | `/api/sandbox/projects/:id/start`                       | Start the project container                                                                 |
+| POST   | `/api/sandbox/projects/:id/stop`                        | Stop the project container                                                                  |
+| POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                                                       |
+| GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                                                   |
+| GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project                                                        |
+| POST   | `/api/sandbox/terminal/ticket`                          | Issue a short-lived single-use ticket for the terminal WS                                   |
+| POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted                                  |
+| GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user                                    |
+| DELETE | `/api/sandbox/projects/:workspace/claude-login`         | Delete the stored Claude login for the user                                                 |
+| GET    | `/api/sandbox/claude-auth`                              | Central KI access status (mode, no secret)                                                  |
+| PUT    | `/api/sandbox/claude-auth`                              | Set central token/API-key, apply to all sandboxes                                           |
+| DELETE | `/api/sandbox/claude-auth`                              | Remove central KI access                                                                    |
+| POST   | `/api/sandbox/claude-auth/oauth/start`                  | Begin the backend OAuth-PKCE handshake → authorize URL                                      |
+| POST   | `/api/sandbox/claude-auth/oauth/complete`               | Exchange the pasted code for tokens, inject into sandboxes                                  |
+| POST   | `/api/sandbox/claude-auth/oauth/refresh`                | Refresh the access token via the stored refresh token                                       |
+| POST   | `/api/sandbox/claude-auth/test`                         | Live-check the stored access against the Anthropic API → `{ valid, status, mode, message }` |
+| GET    | `/api/sandbox/stats`                                    | Overall sandbox statistics                                                                  |
 
 #### Terminal-WebSocket-Auth (2026-07-31)
 

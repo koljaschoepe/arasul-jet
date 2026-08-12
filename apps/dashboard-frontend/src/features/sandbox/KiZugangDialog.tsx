@@ -12,9 +12,10 @@
  * aus diesem Terminal speichern" fängt einen bereits erfolgten Terminal-Login ein
  * und spielt ihn künftig in jede Sandbox zurück.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  AlertTriangle,
   Copy,
   ExternalLink,
   KeyRound,
@@ -54,8 +55,36 @@ export default function KiZugangDialog({
     queryFn: () => api.get<AuthStatus>('/sandbox/claude-auth', { showError: false }),
   });
 
+  // Der hinterlegte Zugang wird beim Öffnen live gegen die Anthropic-API
+  // geprüft — ein abgelaufenes Token fiel sonst erst beim `claude`-Aufruf im
+  // Terminal auf (stiller 401).
+  const { data: pruefung, isFetching: prueft } = useQuery({
+    queryKey: ['sandbox-claude-auth', 'test'],
+    queryFn: () =>
+      api.post<{ valid: boolean; message: string }>(
+        '/sandbox/claude-auth/test',
+        {},
+        {
+          showError: false,
+        }
+      ),
+    enabled: !!status?.configured,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
+
   const [mode, setMode] = useState<Mode>('oauth');
   const [value, setValue] = useState('');
+
+  // Escape schließt den Dialog (eigenes Modal ohne Radix — sonst passiert nichts).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   // OAuth-Handshake-Zustand: Start liefert die kopierbare Authorize-URL + State;
   // der Nutzer meldet sich im Browser an und fügt den Rück-Code hier ein.
@@ -194,13 +223,34 @@ export default function KiZugangDialog({
           </p>
 
           {status?.configured && (
-            <div className="flex items-center justify-between gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2">
+            <div
+              className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 ${
+                pruefung?.valid === false
+                  ? 'border-destructive/30 bg-destructive/5'
+                  : 'border-success/30 bg-success/5'
+              }`}
+            >
               <span className="flex items-center gap-1.5 text-xs text-foreground">
-                <ShieldCheck className="size-3.5 text-success" />
+                {prueft ? (
+                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                ) : pruefung?.valid === false ? (
+                  <AlertTriangle className="size-3.5 text-destructive" />
+                ) : (
+                  <ShieldCheck className="size-3.5 text-success" />
+                )}
                 Hinterlegt: {modeLabel(status.mode)}
                 {status.mode === 'oauth' && expiryText(status.expiresAt) && (
                   <span className="text-muted-foreground">· {expiryText(status.expiresAt)}</span>
                 )}
+                {prueft ? (
+                  <span className="text-muted-foreground">· wird geprüft …</span>
+                ) : pruefung ? (
+                  <span
+                    className={pruefung.valid ? 'text-success' : 'font-medium text-destructive'}
+                  >
+                    · {pruefung.valid ? 'funktioniert' : 'ungültig'}
+                  </span>
+                ) : null}
               </span>
               <div className="flex items-center gap-1">
                 {status.mode === 'oauth' && (
@@ -231,6 +281,13 @@ export default function KiZugangDialog({
                 </Button>
               </div>
             </div>
+          )}
+
+          {status?.configured && pruefung?.valid === false && (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+              {pruefung.message ||
+                'Der hinterlegte Zugang wird von Anthropic abgelehnt (abgelaufen oder ungültig). Bitte neu anmelden oder ein frisches Token hinterlegen — bis dahin schlägt `claude` in den Sandboxes fehl.'}
+            </p>
           )}
 
           {/* Zugangsart */}

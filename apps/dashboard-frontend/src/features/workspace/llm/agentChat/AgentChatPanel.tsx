@@ -99,6 +99,25 @@ export default function AgentChatPanel() {
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  // Tiefenzähler statt einzelnem dragleave: dragenter/dragleave feuern für
+  // jedes Kind-Element erneut — nur wenn der Zähler auf 0 fällt, hat der
+  // Zeiger das Panel wirklich verlassen. Sonst bleibt das Overlay hängen.
+  const dragDepth = useRef(0);
+  // Sicherheitsnetz: Endet der Drag außerhalb des Panels (Drop in anderem
+  // Fenster, Abbruch per Escape), feuert am Panel kein Ereignis mehr — nur
+  // window bekommt dragend/drop mit.
+  useEffect(() => {
+    const reset = () => {
+      dragDepth.current = 0;
+      setDragOver(false);
+    };
+    window.addEventListener('dragend', reset);
+    window.addEventListener('drop', reset);
+    return () => {
+      window.removeEventListener('dragend', reset);
+      window.removeEventListener('drop', reset);
+    };
+  }, []);
   // Datei-Modus: die nächste Antwort wird automatisch als Datei gespeichert.
   const [dateiModus, setDateiModus] = useState(false);
   // Agent-UX 2026-08-02: Eine während des Laufs abgeschickte Text-Nachricht
@@ -664,14 +683,20 @@ export default function AgentChatPanel() {
   return (
     <div
       className="relative flex h-full min-h-0 flex-col"
-      onDragOver={e => {
+      onDragEnter={e => {
         e.preventDefault();
+        dragDepth.current += 1;
         setDragOver(true);
       }}
-      onDragLeave={e => {
-        if (e.currentTarget === e.target) setDragOver(false);
+      onDragOver={e => e.preventDefault()}
+      onDragLeave={() => {
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragOver(false);
       }}
-      onDrop={handleDrop}
+      onDrop={e => {
+        dragDepth.current = 0;
+        handleDrop(e);
+      }}
       data-testid="agent-chat-panel"
     >
       {/* Kopfzeile: Maskottchen-Status · Titel · neuer Chat · Verlauf.

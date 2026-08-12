@@ -13,9 +13,9 @@
  * Bewusst kein eigenes Markdown-Bauen im Client: Die Wahrheit ist die Datei,
  * und die erzeugt der Server.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Plus, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, Save, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { useApi } from '@/hooks/useApi';
@@ -26,6 +26,7 @@ import { useFlowEditorStore } from '@/stores/flowEditorStore';
 import type { FlowDefinition, FlowToolInfo } from '@/types/flows';
 import FlowForm from './FlowForm';
 import FlowDashboard from './FlowDashboard';
+import FlowOverview from './FlowOverview';
 import { fromDefinition, LEER_FORM, toBody, type FlowFormState } from './flowFormState';
 
 const FLOW_TAB_ID = tabId({ type: 'flow' });
@@ -47,6 +48,7 @@ export default function FlowEditorTab() {
   const bearbeiten = editName !== null;
   // Dashboard-Ansicht (Flow-Zentrale) vs. Editor. Der geladene Flow speist beide.
   const ansicht = mode === 'view' && editName !== null;
+  const uebersicht = mode === 'overview';
 
   const [form, setForm] = useState<FlowFormState>(LEER_FORM);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -93,9 +95,23 @@ export default function FlowEditorTab() {
   useEffect(() => {
     updateTabTitle(
       FLOW_TAB_ID,
-      editName ? (ansicht ? `/${editName}` : `Flow: /${editName}`) : 'Neuer Flow'
+      uebersicht
+        ? 'Flows'
+        : editName
+          ? ansicht
+            ? `/${editName}`
+            : `Flow: /${editName}`
+          : 'Neuer Flow'
     );
-  }, [editName, ansicht, updateTabTitle]);
+  }, [editName, ansicht, uebersicht, updateTabTitle]);
+
+  // Der Tab ist keep-alive: beim Wechsel des Ziels (anderer Flow, »Neuer Flow«)
+  // würde die alte Scroll-Position kleben — Formulare öffnen dann mitten im
+  // Dokument. Deshalb beim Zielwechsel nach oben springen.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [editName, mode]);
 
   const speichern = async () => {
     setSpeichert(true);
@@ -152,6 +168,11 @@ export default function FlowEditorTab() {
     }
   };
 
+  // Flow-Startseite (ActivityBar »Flows«): Anlegen + alle Flows als Karten.
+  if (uebersicht) {
+    return <FlowOverview />;
+  }
+
   // Flow-Zentrale (Dashboard-Ansicht): read-only Betriebssicht mit Trigger-URL,
   // Läufen, Ausgabeort und Pipeline. „Bearbeiten" wechselt in den Editor unten.
   if (ansicht) {
@@ -181,37 +202,30 @@ export default function FlowEditorTab() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-testid="flow-editor-tab">
       {/* Kopfzeile: eine ruhige Zeile — Titel links, Aktionen rechts, alles auf
-          gleicher Höhe. Einheitliche Panel-Kopfhöhe (h-ui-header, Plan 016),
-          damit der Editor mit Chat & Flow-Übersicht »aus einem Guss« wirkt.
-          Neu · Löschen · Speichern. */}
-      <div className="flex h-ui-header shrink-0 items-center justify-between gap-3 border-b border-border px-3">
+          gleicher Höhe. Einheitliche Panel-Kopfhöhe (h-ui-header, Plan 016).
+          Kein »Neu«-Knopf hier: Anlegen startet über die Flow-Startseite bzw.
+          das + in der Sidebar — im Editor selbst verwirrte er nur. */}
+      <div className="flex h-ui-header shrink-0 items-center justify-between gap-3 border-b border-border px-4">
         <span className="min-w-0 truncate text-sm font-semibold text-foreground">
           {bearbeiten ? `Flow bearbeiten: /${editName}` : 'Neuer Flow'}
         </span>
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setEditTarget(null)}
-            disabled={speichert}
-          >
-            <Plus className="size-4" /> Neu
-          </Button>
           {bearbeiten && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               onClick={() => setLoeschDialog(true)}
               disabled={speichert}
+              aria-label="Flow löschen"
+              title="Flow löschen"
             >
-              <Trash2 className="size-4" /> Löschen
+              <Trash2 className="size-3.5" />
             </Button>
           )}
           <Button type="button" size="sm" onClick={speichern} disabled={speichert}>
-            <Save className="size-4" />
+            <Save className="size-3.5" />
             {speichert ? 'Speichert …' : 'Speichern'}
           </Button>
         </div>
@@ -228,7 +242,7 @@ export default function FlowEditorTab() {
           Lesbarkeit. Die frühere Datei-/Laufzeit-Vorschau ist bewusst entfernt
           (Flows-Umbau 2026-08-02) — sie war technisches Rauschen für die
           eigentliche Zielgruppe. */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="mx-auto w-full max-w-3xl">
           <FlowForm
             value={form}

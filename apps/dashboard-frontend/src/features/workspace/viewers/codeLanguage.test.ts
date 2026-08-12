@@ -38,10 +38,13 @@ describe('spracheFuer', () => {
     expect(spracheFuer('.py').length).toBeGreaterThan(0);
     expect(spracheFuer('.ts').length).toBeGreaterThan(0);
     expect(spracheFuer('.json').length).toBeGreaterThan(0);
+    // UX-Sweep 2026-08-12: YAML/Shell/Env via lang-yaml bzw. legacy-modes.
+    expect(spracheFuer('.yaml').length).toBeGreaterThan(0);
+    expect(spracheFuer('.sh').length).toBeGreaterThan(0);
+    expect(spracheFuer('.env').length).toBeGreaterThan(0);
   });
 
   it('liefert leeres Array für unbekannte (aber textbasierte) Endungen', () => {
     expect(spracheFuer('.rs')).toEqual([]);
-    expect(spracheFuer('.env')).toEqual([]);
   });
 });

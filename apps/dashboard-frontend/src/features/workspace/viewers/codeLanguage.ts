@@ -6,12 +6,19 @@
  * auf „einfacher Text" (kein Highlighting, aber editierbar).
  */
 import type { Extension } from '@uiw/react-codemirror';
+import { StreamLanguage } from '@codemirror/language';
 import { python } from '@codemirror/lang-python';
 import { javascript } from '@codemirror/lang-javascript';
 import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
 import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
+import { yaml } from '@codemirror/lang-yaml';
+import { shell } from '@codemirror/legacy-modes/mode/shell';
+import { sql } from '@codemirror/legacy-modes/mode/sql';
+import { toml } from '@codemirror/legacy-modes/mode/toml';
+import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile';
+import { properties } from '@codemirror/legacy-modes/mode/properties';
 
 /** Endungen (mit führendem Punkt), die der Code-Editor öffnet — Spiegel des
  * Backend-Whitelists in `routes/documents.js` (CODE_EXTENSIONS). */
@@ -84,5 +91,12 @@ export function spracheFuer(ext: string): Extension[] {
   if (['.css', '.scss', '.less'].includes(e)) return [css()];
   if (e === '.json') return [json()];
   if (['.md', '.markdown'].includes(e)) return [markdown()];
+  if (['.yaml', '.yml'].includes(e)) return [yaml()];
+  if (['.sh', '.bash', '.zsh'].includes(e)) return [StreamLanguage.define(shell)];
+  if (e === '.sql') return [StreamLanguage.define(sql({}))];
+  if (e === '.toml') return [StreamLanguage.define(toml)];
+  if (e === '.dockerfile') return [StreamLanguage.define(dockerFile)];
+  if (['.ini', '.conf', '.env', '.gitignore'].includes(e))
+    return [StreamLanguage.define(properties)];
   return [];
 }

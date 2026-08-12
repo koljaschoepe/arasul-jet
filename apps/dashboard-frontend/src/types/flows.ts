@@ -170,4 +170,6 @@ export interface FlowRunSummary {
   steps_used: number;
   created_at: string;
   finished_at: string | null;
+  /** Start-Argumente des Laufs (z. B. thema) — für die Zeilen-Vorschau. */
+  arguments?: Record<string, string> | null;
 }

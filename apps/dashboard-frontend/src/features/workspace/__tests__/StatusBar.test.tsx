@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { DownloadProvider } from '@/contexts/DownloadContext';
 import { StatusBar } from '../StatusBar';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { MemoryBudget } from '@/types';
@@ -88,7 +89,9 @@ function renderStatusBar() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <StatusBar />
+      <DownloadProvider>
+        <StatusBar />
+      </DownloadProvider>
     </QueryClientProvider>
   );
 }

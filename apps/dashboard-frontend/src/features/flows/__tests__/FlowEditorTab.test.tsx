@@ -96,7 +96,7 @@ describe('Anlegen', () => {
     expect(screen.getByText('Was kommt am Ende heraus?')).toBeInTheDocument();
     expect(screen.getByTestId('erweitert-toggle')).toBeInTheDocument();
     expect(screen.queryByText('Werkzeuge')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Löschen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /löschen/i })).not.toBeInTheDocument();
   });
 
   it('Speichern schickt POST /flows und wechselt in den Bearbeiten-Modus', async () => {
@@ -144,7 +144,7 @@ describe('Bearbeiten', () => {
     expect(await screen.findByText('Flow bearbeiten: /recherche')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('recherche'));
     expect(screen.getByLabelText('Name')).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Löschen/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /löschen/i })).toBeInTheDocument();
   });
 
   it('Speichern schickt PUT /flows/:name ohne Namen im Body', async () => {
@@ -164,7 +164,7 @@ describe('Bearbeiten', () => {
     const user = userEvent.setup();
     renderTab('recherche');
     await screen.findByText('Flow bearbeiten: /recherche');
-    await user.click(screen.getByRole('button', { name: /Löschen/ }));
+    await user.click(screen.getByRole('button', { name: /löschen/i }));
     const dialog = await screen.findByText('Flow löschen');
     const confirmScope = dialog.closest('[role="dialog"]') as HTMLElement;
     await user.click(within(confirmScope).getByRole('button', { name: 'Löschen' }));

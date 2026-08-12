@@ -297,7 +297,7 @@ async function listRuns(
   }
   params.push(Math.min(Math.max(1, limit), 200));
   const { rows } = await db.query(
-    `SELECT id, flow_name, conversation_id, status, steps_used, created_at, finished_at
+    `SELECT id, flow_name, conversation_id, status, steps_used, created_at, finished_at, arguments
        FROM flow_runs
       WHERE user_id = $1 ${filter}
       ORDER BY id DESC

@@ -11,6 +11,8 @@ import type { FlowProjektRef } from '@/types/flows';
  * aus diesem Store. Bewusst NICHT persistiert: ein halb getippter neuer Flow soll
  * einen Reload nicht überdauern.
  *
+ * - `mode: 'overview'` → die Flow-Startseite (alle Flows + »Neuer Flow«).
+ *   Klick auf die ActivityBar-Ansicht »Flows«.
  * - `mode: 'view'` + ein Name → die Flow-Zentrale (Detail-Dashboard: Trigger-URL,
  *   letzte Läufe, Ausgabeort, Pipeline). Klick auf einen Flow in der Sidebar.
  * - `mode: 'edit'` → der Editor (Formular). `editName === null` legt neu an.
@@ -20,7 +22,7 @@ import type { FlowProjektRef } from '@/types/flows';
  * Aufrufer setzen erst das Ziel und öffnen dann den Tab — dasselbe Muster wie die
  * ActivityBar bei Modellen/Erweiterungen (`setStoreTab` + `openTab`).
  */
-export type FlowTabMode = 'view' | 'edit';
+export type FlowTabMode = 'overview' | 'view' | 'edit';
 
 interface FlowEditorState {
   /** `null` = neuen Flow anlegen; ein Name = diesen Flow anzeigen/bearbeiten. */

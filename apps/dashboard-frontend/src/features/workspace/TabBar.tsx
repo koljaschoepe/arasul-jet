@@ -146,7 +146,7 @@ export function TabBar() {
                     ziehIndex.current = null;
                     setDropIndex(null);
                   }}
-                  className={`group relative flex h-7 max-w-44 min-w-0 cursor-pointer items-center gap-1.5 rounded-t-md px-2.5 text-ui-sm select-none ${
+                  className={`group relative flex h-7 max-w-44 shrink-0 cursor-pointer items-center gap-1.5 rounded-t-md px-2.5 text-ui-sm select-none ${
                     isActive
                       ? 'bg-background font-medium text-foreground'
                       : 'text-muted-foreground/70 hover:bg-card/50 hover:text-foreground'

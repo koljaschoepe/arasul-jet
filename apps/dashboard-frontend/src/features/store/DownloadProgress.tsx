@@ -25,11 +25,12 @@ interface DownloadProgressProps {
 
 const phaseLabels: Record<string, string> = {
   init: 'Initialisiere',
-  download: 'Download',
+  download: 'Lädt herunter',
   pull: 'Image-Download',
   setup: 'Einrichtung',
   verify: 'Verifiziere',
   complete: 'Fertig',
+  paused: 'Pausiert',
   error: 'Fehler',
 };
 
