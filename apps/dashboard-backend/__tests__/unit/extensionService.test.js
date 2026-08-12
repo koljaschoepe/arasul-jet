@@ -13,8 +13,15 @@ jest.mock('../../src/database', () => ({
   query: jest.fn(),
   transaction: jest.fn(),
 }));
+jest.mock('../../src/services/extensions/flowDeployService', () => ({
+  liveSchalten: jest.fn(),
+  pausieren: jest.fn(),
+  entfernen: jest.fn(),
+  status: jest.fn(),
+}));
 
 const db = require('../../src/database');
+const flowDeployService = require('../../src/services/extensions/flowDeployService');
 const extensionService = require('../../src/services/extensions/extensionService');
 const { SANDBOX_DATA_DIR } = require('../../src/services/sandbox/sandboxShared');
 
@@ -144,6 +151,7 @@ describe('listExtensions — Abbildung auf die API-Form', () => {
       manifest: { entry: 'tool.mjs' },
       // Alt-Zeilen ohne Fähigkeits-Spalten → leere Listen (Plan 017 Schritt 2).
       faehigkeiten: { deklariert: [], freigegeben: [], wirksam: [] },
+      n8nWorkflowId: null,
       installedAt: '2026-07-23T10:00:00.000Z',
     });
     // Interne Pfade gehören nicht in die API-Antwort.
@@ -196,7 +204,8 @@ describe('setEnabled — Fähigkeiten-Freigabe (Plan 017 Schritt 2)', () => {
     const freigabeCall = db.query.mock.calls.find(([sql]) =>
       /approved_capabilities = declared_capabilities/.test(sql)
     );
-    expect(freigabeCall[1]).toEqual(['app1', 1]);
+    // App-Erweiterung → workflowId-Parameter ist null.
+    expect(freigabeCall[1]).toEqual(['app1', 1, null]);
   });
 
   it('Aktivieren ohne deklarierte Fähigkeiten braucht keine Freigabe', async () => {
@@ -214,5 +223,127 @@ describe('setEnabled — Fähigkeiten-Freigabe (Plan 017 Schritt 2)', () => {
     const ext = await extensionService.setEnabled('app1', false);
     expect(ext.enabled).toBe(false);
     expect(ext.faehigkeiten.freigegeben).toEqual(['llm']);
+  });
+});
+
+describe('setEnabled — Flow-Erweiterungen (Plan 017 Schritt 3)', () => {
+  function flowRow(overrides = {}) {
+    return {
+      id: 'mein-flow',
+      name: 'Flow',
+      description: '',
+      ext_type: 'flow',
+      access_tier: 'internal',
+      version: '1.0.0',
+      source: 'built',
+      enabled: false,
+      manifest: { entry: 'workflow.json' },
+      declared_capabilities: [],
+      approved_capabilities: [],
+      n8n_workflow_id: null,
+      installed_at: new Date().toISOString(),
+      ...overrides,
+    };
+  }
+
+  it('importiert ZUERST, schreibt die Workflow-ID im selben UPDATE', async () => {
+    flowDeployService.liveSchalten.mockResolvedValue('wf-42');
+    db.query.mockImplementation(async (_sql, params) => ({
+      rows: [flowRow({ enabled: true, n8n_workflow_id: params[2] })],
+    }));
+
+    const ext = await extensionService.setEnabled('mein-flow', true);
+
+    expect(flowDeployService.liveSchalten).toHaveBeenCalledTimes(1);
+    // Kein separater merke-Aufruf mehr — die ID geht in den enable-UPDATE.
+    const updateCall = db.query.mock.calls.find(([sql]) => /SET enabled/.test(sql));
+    expect(updateCall[1]).toContain('wf-42');
+    expect(ext.n8nWorkflowId).toBe('wf-42');
+  });
+
+  it('scheitert der n8n-Import, bleibt enabled=false (kein Register-Widerspruch)', async () => {
+    const { ServiceUnavailableError } = require('../../src/utils/errors');
+    flowDeployService.liveSchalten.mockRejectedValue(new ServiceUnavailableError('n8n aus'));
+    db.query.mockResolvedValue({ rows: [flowRow()] });
+
+    await expect(extensionService.setEnabled('mein-flow', true)).rejects.toThrow(
+      ServiceUnavailableError
+    );
+    // Kein enable-UPDATE, wenn der Import vorher scheitert.
+    const updateCall = db.query.mock.calls.find(([sql]) => /SET enabled/.test(sql));
+    expect(updateCall).toBeUndefined();
+  });
+
+  it('Deaktivieren pausiert den Workflow', async () => {
+    db.query.mockImplementation(async () => ({
+      rows: [flowRow({ enabled: false, n8n_workflow_id: 'wf-42' })],
+    }));
+
+    await extensionService.setEnabled('mein-flow', false);
+
+    expect(flowDeployService.pausieren).toHaveBeenCalledTimes(1);
+    expect(flowDeployService.liveSchalten).not.toHaveBeenCalled();
+  });
+
+  it('removeExtension räumt den n8n-Workflow ab', async () => {
+    db.query.mockImplementation(async sql =>
+      /DELETE FROM extensions/.test(sql)
+        ? { rows: [] }
+        : { rows: [flowRow({ enabled: true, n8n_workflow_id: 'wf-7' })] }
+    );
+
+    await extensionService.removeExtension('mein-flow');
+
+    expect(flowDeployService.entfernen).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('flowStatus (Plan 017 Schritt 3)', () => {
+  it('reicht den n8n-Status einer Flow-Erweiterung durch', async () => {
+    db.query.mockResolvedValue({
+      rows: [
+        {
+          id: 'mein-flow',
+          name: 'Flow',
+          description: '',
+          ext_type: 'flow',
+          access_tier: 'internal',
+          version: '1.0.0',
+          source: 'built',
+          enabled: true,
+          manifest: {},
+          declared_capabilities: [],
+          approved_capabilities: [],
+          n8n_workflow_id: 'wf-1',
+          installed_at: new Date().toISOString(),
+        },
+      ],
+    });
+    flowDeployService.status.mockResolvedValue({ erreichbar: true, aktiv: true });
+
+    const s = await extensionService.flowStatus('mein-flow');
+    expect(s).toEqual({ erreichbar: true, aktiv: true });
+    expect(flowDeployService.status).toHaveBeenCalledTimes(1);
+  });
+
+  it('lehnt Nicht-Flow-Erweiterungen ab', async () => {
+    db.query.mockResolvedValue({
+      rows: [
+        {
+          id: 'app1',
+          name: 'App',
+          ext_type: 'app',
+          access_tier: 'internet',
+          version: '1.0.0',
+          source: 'built',
+          enabled: true,
+          manifest: {},
+          declared_capabilities: [],
+          approved_capabilities: [],
+          installed_at: new Date().toISOString(),
+        },
+      ],
+    });
+    await expect(extensionService.flowStatus('app1')).rejects.toThrow(/Flow-Erweiterungen/i);
   });
 });

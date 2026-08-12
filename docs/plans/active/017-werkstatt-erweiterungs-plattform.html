@@ -563,7 +563,7 @@
     <div class="result"><strong>Ergebnis:</strong> Migration 134 (declared/approved_capabilities + Freigabe-Metadaten), Manifest-Feld <code>faehigkeiten</code> validiert in extensionPackage; Aktivieren verlangt Freigabe (400 mit <code>freigabe_erforderlich</code>, Freigabe setzt approved:=declared); Brücken-Routen /token /info /llm(SSE) /rag /dateien /flows mit kurzlebigen In-Memory-Tokens (15 min, erneuerbar, NaN-fest), Prüfung Token+Erweiterung+Fähigkeit (wirksam = deklariert ∩ freigegeben) bei jedem Aufruf, CORS nur auf Brücken-Routen (Origin null) + apiLimiter, Notaus EXTENSIONS_BRUECKE_ENABLED; LLM-Stream unter der einen GPU-Sperre über sseHelper (Client-Disconnect bricht Upstream ab, kein Prozess-Crash). <b>Review-Fixes (3 Criticals):</b> <code>dateien</code> schreibt/liest NUR im eigenen Datentopf /arasul/extensions-data/&lt;id&gt; (nie Projektablage) mit O_NOFOLLOW + assertFdWithinRoots gegen TOCTOU; SSE-Lifecycle gehärtet. SDK arasul-bruecke.js in Dev-Vorlagen + Beispiel-App (LLM/RAG); ExtensionAppTab reicht Token per postMessage (Auto-Erneuerung). Doku-Sync API_REFERENCE + DATABASE_SCHEMA + ENVIRONMENT_VARIABLES + ANLEITUNG. 2050 Backend- + 769 Frontend-Tests grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Flow-Erweiterungen live über n8n">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Flow-Erweiterungen live über n8n">
     <h3>Schritt 3 — Flow-Erweiterungen live über n8n <span class="tag">Risiko: mittel</span></h3>
     <p>Typ <code>flow</code> bekommt eine echte Laufzeit: Live schalten importiert
     <code>workflow.json</code> per n8n-API (Muster aus Plan 014 wiederverwenden), aktiviert den
@@ -574,6 +574,7 @@
     starten und Ergebnisse abzuholen. n8n-Ausfälle degradieren sichtbar (Status „nicht erreichbar“),
     brechen aber nichts.</p>
     <p class="files mono">apps/dashboard-backend/src/services/extensions/{extensionService,flowDeployService}.js · vorhandener n8n-API-Client (Plan 014) · src/routes/extensions.js · Tests</p>
+    <div class="result"><strong>Ergebnis:</strong> flowDeployService importiert/aktiviert workflow.json per n8n-API (POST create / PUT überschreiben / activate), merkt die Workflow-ID an <code>extensions.n8n_workflow_id</code> (Migration 135); setEnabled(flow) schaltet live bzw. pausiert (deactivate), removeExtension räumt den Workflow ab. Status-API (aktiv/letzter Lauf) degradiert sichtbar bei n8n-Ausfall/fehlendem Key (klare Fehlermeldungen für ECONNREFUSED/401/400). N8N_API_KEY + N8N_URL ins Backend durchgereicht (compose) und dokumentiert. <b>Abweichung:</b> die Brücken-Fähigkeit <code>flows</code> (Schritt 2) triggert die Arasul-Flow-Runner-Flows (sauberes runId/Ergebnis-Modell) — Flow-<em>Erweiterungen</em> laufen autonom in n8n und werden über Status/Inventar überwacht, nicht per Brücke getriggert (n8n-manualTrigger hat kein sauberes API-Trigger+Result). <b>Review-Fixes:</b> Import ZUERST, dann DB-Zustand kippen (kein „enabled, aber nichts in n8n" bei fehlendem Key/Ausfall); <code>GET /api/extensions/:id/flow-status</code> macht den n8n-Status abrufbar (Karte in Schritt 7); robuste ID-Extraktion + connections-null-Prüfung. 2072 Backend-Tests grün.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Rollback-Netz + Werkstatt-Inventar">

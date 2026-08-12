@@ -55,6 +55,11 @@ services:
       MINIO_PORT: ${MINIO_PORT}
       N8N_HOST: ${N8N_HOST}
       N8N_PORT: ${N8N_PORT}
+      # n8n Public-API-Zugang (Plan 017 Schritt 3): Flow-Erweiterungen werden per
+      # n8n-API importiert/aktiviert. Der Key wird in der n8n-Oberfläche erstellt
+      # und hier hinterlegt; fehlt er, degradiert das Live-Schalten sichtbar.
+      N8N_URL: ${N8N_URL:-http://n8n:5678}
+      N8N_API_KEY: ${N8N_API_KEY:-}
       QDRANT_HOST: ${QDRANT_HOST}
       QDRANT_PORT: ${QDRANT_PORT}
       QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME}
