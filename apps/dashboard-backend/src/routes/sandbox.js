@@ -16,9 +16,14 @@ const {
   WorkspaceParams,
   ClaudeAuthBody,
   ClaudeOAuthCompleteBody,
+  CreateConnectionBody,
+  UpdateConnectionBody,
+  ProjectIdParams,
+  ConnectionIdParams,
 } = require('../schemas/sandbox');
 const sandboxService = require('../services/sandbox/sandboxService');
 const terminalService = require('../services/sandbox/terminalService');
+const connectionsService = require('../services/sandbox/connectionsService');
 const externalCredentialsService = require('../services/sandbox/externalCredentialsService');
 const claudeOauthService = require('../services/sandbox/claudeOauthService');
 const wsTicketService = require('../services/sandbox/wsTicketService');
@@ -158,6 +163,70 @@ router.get(
   asyncHandler(async (req, res) => {
     const status = await sandboxService.getContainerStatus(req.params.id);
     res.json({ status, timestamp: new Date().toISOString() });
+  })
+);
+
+// ============================================================================
+// Projekt-Verbindungen + MCP (Plan 017 Schritt 5)
+// ============================================================================
+// Verschlüsselt hinterlegte externe Zugänge (env) und MCP-Server je Projekt.
+// Werte werden NIE zurückgegeben (nur `hatWert`); injiziert beim Sitzungs-Start.
+
+// GET /api/sandbox/projects/:id/verbindungen — Verbindungen auflisten
+router.get(
+  '/projects/:id/verbindungen',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  asyncHandler(async (req, res) => {
+    await sandboxService.getProject(req.params.id); // 404 bei unbekanntem Projekt
+    const verbindungen = await connectionsService.listConnections(req.params.id);
+    res.json({ verbindungen, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/sandbox/projects/:id/verbindungen — Verbindung anlegen
+router.post(
+  '/projects/:id/verbindungen',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  validateBody(CreateConnectionBody),
+  asyncHandler(async (req, res) => {
+    await sandboxService.getProject(req.params.id);
+    const verbindung = await connectionsService.createConnection(
+      req.params.id,
+      req.body,
+      req.user.id
+    );
+    res.status(201).json({ verbindung, timestamp: new Date().toISOString() });
+  })
+);
+
+// PUT /api/sandbox/projects/:id/verbindungen/:connId — Wert/Konfig ändern
+router.put(
+  '/projects/:id/verbindungen/:connId',
+  requireAuth,
+  validateParams(ConnectionIdParams),
+  validateBody(UpdateConnectionBody),
+  asyncHandler(async (req, res) => {
+    await sandboxService.getProject(req.params.id);
+    const verbindung = await connectionsService.updateConnection(
+      req.params.id,
+      req.params.connId,
+      req.body
+    );
+    res.json({ verbindung, timestamp: new Date().toISOString() });
+  })
+);
+
+// DELETE /api/sandbox/projects/:id/verbindungen/:connId — Verbindung löschen
+router.delete(
+  '/projects/:id/verbindungen/:connId',
+  requireAuth,
+  validateParams(ConnectionIdParams),
+  asyncHandler(async (req, res) => {
+    await sandboxService.getProject(req.params.id);
+    const result = await connectionsService.deleteConnection(req.params.id, req.params.connId);
+    res.json({ ...result, timestamp: new Date().toISOString() });
   })
 );
 

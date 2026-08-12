@@ -2604,7 +2604,7 @@ Isolated project environments with Docker containers and terminal WebSocket acce
 
 | Method | Endpoint                                                | Description                                                                                 |
 | ------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| GET    | `/api/sandbox/projects`                                 | List all sandbox projects for current user                                                  |
+| GET    | `/api/sandbox/projects`                                 | List all sandbox projects (device-wide; incl. `presence` + `created_by`)                    |
 | POST   | `/api/sandbox/projects`                                 | Create a new sandbox project                                                                |
 | GET    | `/api/sandbox/projects/:id`                             | Get project details                                                                         |
 | PUT    | `/api/sandbox/projects/:id`                             | Update project name/description                                                             |
@@ -2614,6 +2614,10 @@ Isolated project environments with Docker containers and terminal WebSocket acce
 | POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                                                       |
 | GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                                                   |
 | GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project                                                        |
+| GET    | `/api/sandbox/projects/:id/verbindungen`                | List project connections (env + MCP; values never returned, only `hatWert`)                 |
+| POST   | `/api/sandbox/projects/:id/verbindungen`                | Create a connection (`kind` env/mcp; value stored AES-256-GCM)                              |
+| PUT    | `/api/sandbox/projects/:id/verbindungen/:connId`        | Update a connection's value/config (name + kind stay)                                       |
+| DELETE | `/api/sandbox/projects/:id/verbindungen/:connId`        | Delete a connection                                                                         |
 | POST   | `/api/sandbox/terminal/ticket`                          | Issue a short-lived single-use ticket for the terminal WS                                   |
 | POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted                                  |
 | GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user                                    |
