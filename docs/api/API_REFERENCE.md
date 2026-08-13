@@ -2607,35 +2607,36 @@ A flow may declare a tool that is not built yet — the definition stays valid a
 
 Isolated project environments with Docker containers and terminal WebSocket access. All routes require authentication.
 
-| Method | Endpoint                                                | Description                                                                                 |
-| ------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| GET    | `/api/sandbox/projects`                                 | List all sandbox projects (device-wide; incl. `presence` + `created_by`)                    |
-| POST   | `/api/sandbox/projects`                                 | Create a new sandbox project                                                                |
-| GET    | `/api/sandbox/projects/:id`                             | Get project details                                                                         |
-| PUT    | `/api/sandbox/projects/:id`                             | Update project name/description                                                             |
-| DELETE | `/api/sandbox/projects/:id`                             | Archive a project                                                                           |
-| POST   | `/api/sandbox/projects/:id/start`                       | Start the project container                                                                 |
-| POST   | `/api/sandbox/projects/:id/stop`                        | Stop the project container                                                                  |
-| POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                                                       |
-| GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                                                   |
-| GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project (incl. `titles` + `presence`)                          |
-| PUT    | `/api/sandbox/projects/:id/sitzungen/:tmux/titel`       | Rename a session (server-side, device-wide; key project + tmux name)                        |
-| GET    | `/api/sandbox/projects/:id/verbindungen`                | List project connections (env + MCP; values never returned, only `hatWert`)                 |
-| POST   | `/api/sandbox/projects/:id/verbindungen`                | Create a connection (`kind` env/mcp; value stored AES-256-GCM)                              |
-| PUT    | `/api/sandbox/projects/:id/verbindungen/:connId`        | Update a connection's value/config (name + kind stay)                                       |
-| DELETE | `/api/sandbox/projects/:id/verbindungen/:connId`        | Delete a connection                                                                         |
-| POST   | `/api/sandbox/terminal/ticket`                          | Issue a short-lived single-use ticket for the terminal WS                                   |
-| POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted                                  |
-| GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user                                    |
-| DELETE | `/api/sandbox/projects/:workspace/claude-login`         | Delete the stored Claude login for the user                                                 |
-| GET    | `/api/sandbox/claude-auth`                              | Central KI access status (mode, no secret)                                                  |
-| PUT    | `/api/sandbox/claude-auth`                              | Set central token/API-key, apply to all sandboxes                                           |
-| DELETE | `/api/sandbox/claude-auth`                              | Remove central KI access                                                                    |
-| POST   | `/api/sandbox/claude-auth/oauth/start`                  | Begin the backend OAuth-PKCE handshake → authorize URL                                      |
-| POST   | `/api/sandbox/claude-auth/oauth/complete`               | Exchange the pasted code for tokens, inject into sandboxes                                  |
-| POST   | `/api/sandbox/claude-auth/oauth/refresh`                | Refresh the access token via the stored refresh token                                       |
-| POST   | `/api/sandbox/claude-auth/test`                         | Live-check the stored access against the Anthropic API → `{ valid, status, mode, message }` |
-| GET    | `/api/sandbox/stats`                                    | Overall sandbox statistics                                                                  |
+| Method | Endpoint                                                | Description                                                                                                                                           |
+| ------ | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/sandbox/projects`                                 | List all sandbox projects (device-wide; incl. `presence` + `created_by`)                                                                              |
+| POST   | `/api/sandbox/projects`                                 | Create a new sandbox project                                                                                                                          |
+| POST   | `/api/sandbox/projects/ensure`                          | Plan 018: Container zum aktiven Workspace-Projekt nachschlagen/anlegen+koppeln (Body `{project_id}`; `201` bei Neuanlage, `200` sonst; Netz „intern") |
+| GET    | `/api/sandbox/projects/:id`                             | Get project details                                                                                                                                   |
+| PUT    | `/api/sandbox/projects/:id`                             | Update project name/description                                                                                                                       |
+| DELETE | `/api/sandbox/projects/:id`                             | Archive a project                                                                                                                                     |
+| POST   | `/api/sandbox/projects/:id/start`                       | Start the project container                                                                                                                           |
+| POST   | `/api/sandbox/projects/:id/stop`                        | Stop the project container                                                                                                                            |
+| POST   | `/api/sandbox/projects/:id/commit`                      | Commit container state as a new image                                                                                                                 |
+| GET    | `/api/sandbox/projects/:id/status`                      | Get live container status                                                                                                                             |
+| GET    | `/api/sandbox/projects/:id/sessions`                    | List terminal sessions for a project (incl. `titles` + `presence`)                                                                                    |
+| PUT    | `/api/sandbox/projects/:id/sitzungen/:tmux/titel`       | Rename a session (server-side, device-wide; key project + tmux name)                                                                                  |
+| GET    | `/api/sandbox/projects/:id/verbindungen`                | List project connections (env + MCP; values never returned, only `hatWert`)                                                                           |
+| POST   | `/api/sandbox/projects/:id/verbindungen`                | Create a connection (`kind` env/mcp; value stored AES-256-GCM)                                                                                        |
+| PUT    | `/api/sandbox/projects/:id/verbindungen/:connId`        | Update a connection's value/config (name + kind stay)                                                                                                 |
+| DELETE | `/api/sandbox/projects/:id/verbindungen/:connId`        | Delete a connection                                                                                                                                   |
+| POST   | `/api/sandbox/terminal/ticket`                          | Issue a short-lived single-use ticket for the terminal WS                                                                                             |
+| POST   | `/api/sandbox/projects/:workspace/claude-login/capture` | Capture the container's Claude Code login, store encrypted                                                                                            |
+| GET    | `/api/sandbox/projects/:workspace/claude-login/status`  | Whether an encrypted Claude login is stored for the user                                                                                              |
+| DELETE | `/api/sandbox/projects/:workspace/claude-login`         | Delete the stored Claude login for the user                                                                                                           |
+| GET    | `/api/sandbox/claude-auth`                              | Central KI access status (mode, no secret)                                                                                                            |
+| PUT    | `/api/sandbox/claude-auth`                              | Set central token/API-key, apply to all sandboxes                                                                                                     |
+| DELETE | `/api/sandbox/claude-auth`                              | Remove central KI access                                                                                                                              |
+| POST   | `/api/sandbox/claude-auth/oauth/start`                  | Begin the backend OAuth-PKCE handshake → authorize URL                                                                                                |
+| POST   | `/api/sandbox/claude-auth/oauth/complete`               | Exchange the pasted code for tokens, inject into sandboxes                                                                                            |
+| POST   | `/api/sandbox/claude-auth/oauth/refresh`                | Refresh the access token via the stored refresh token                                                                                                 |
+| POST   | `/api/sandbox/claude-auth/test`                         | Live-check the stored access against the Anthropic API → `{ valid, status, mode, message }`                                                           |
+| GET    | `/api/sandbox/stats`                                    | Overall sandbox statistics                                                                                                                            |
 
 #### Terminal-WebSocket-Auth (2026-07-31)
 

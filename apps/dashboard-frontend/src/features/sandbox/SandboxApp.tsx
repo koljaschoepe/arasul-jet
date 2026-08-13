@@ -1,35 +1,30 @@
 /**
- * SandboxApp - Tab-based terminal app with project management
+ * SandboxApp — das Terminal des AKTIVEN Workspace-Projekts (Plan 018:
+ * Projekt-Vereinheitlichung).
  *
- * Layout:
- * - Tab bar: Open project tabs + [+] add button + [list] all projects
- * - Terminal area: xterm.js terminal for active session
- * - Welcome screen when no sessions are open
- * - ProjectListPanel overlay for managing all projects
+ * Das Terminal folgt seit Plan 018 dem oben gewählten Workspace-Projekt: es hat
+ * KEINEN eigenen Projekt-Umschalter mehr. Der gekoppelte Sandbox-Container wird
+ * über den ensure-Endpunkt aus `useActiveProject().activeId` abgeleitet (1:1-
+ * Kopplung) und bei Bedarf automatisch angelegt (Netz „intern") und gestartet.
  *
- * Session-State (welche Terminals offen sind, welches aktiv ist) lebt seit
- * Stufe 3 des Cursor-Shell-Neubaus NICHT mehr hier, sondern in der Terminal-
- * Session-Registry des workspaceStore (persistiert unter 'arasul_workspace').
- * Diese Komponente rendert die Sessions nur; der alte localStorage-Key
- * 'sandbox-open-tabs' wird einmalig in die Registry migriert.
+ * Session-State (welche Sitzungen offen sind, welche aktiv ist) lebt in der
+ * Terminal-Session-Registry des workspaceStore (persistiert unter
+ * 'arasul_workspace'); die Sitzungen sind über ihre `projectId` (= Container-Id)
+ * pro Projekt partitioniert und bleiben so beim Projektwechsel erhalten. Diese
+ * Komponente rendert nur die Sitzungen des aktuell gekoppelten Containers.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Loader2, TerminalSquare } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
-import useConfirm from '../../hooks/useConfirm';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useActiveProject } from '../workspace/useProjects';
 import TerminalTabs from './TerminalTabs';
-import ProjectListPanel from './ProjectListPanel';
-import CreateProjectDialog from './CreateProjectDialog';
-import EditProjectDialog from './EditProjectDialog';
 import SandboxTerminal from './SandboxTerminal';
-import WerkstattPanel from './WerkstattPanel';
 import { nextTerminalSession, type OpenSession } from './sessionModel';
-import type { SandboxProject, SandboxStats } from './types';
-
-/** Legacy-Key (v2): Tab-State lag im SandboxApp-Lokalstate + localStorage. */
-const LEGACY_TABS_KEY = 'sandbox-open-tabs';
+import type { SandboxProject } from './types';
 
 interface SandboxAppProps {
   /**
@@ -44,9 +39,10 @@ interface SandboxAppProps {
 export default function SandboxApp({ visible = true }: SandboxAppProps) {
   const api = useApi();
   const toast = useToast();
-  const { confirm: showConfirm, ConfirmDialog } = useConfirm();
+  const qc = useQueryClient();
+  const { activeProject, activeId } = useActiveProject();
 
-  // Session-Registry aus dem workspaceStore — die einzige Quelle der Wahrheit
+  // Session-Registry aus dem workspaceStore — die einzige Quelle der Wahrheit.
   const terminalSessions = useWorkspaceStore(s => s.terminalSessions);
   const activeTabId = useWorkspaceStore(s => s.activeTerminalSessionId);
   const openTerminalSession = useWorkspaceStore(s => s.openTerminalSession);
@@ -54,54 +50,85 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
   const activateTerminalSession = useWorkspaceStore(s => s.activateTerminalSession);
   const updateTerminalSessionTitle = useWorkspaceStore(s => s.updateTerminalSessionTitle);
 
-  // Data state
-  const [projects, setProjects] = useState<SandboxProject[]>([]);
-  const [stats, setStats] = useState<SandboxStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [projectsLoaded, setProjectsLoaded] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  // Gekoppelten Container aus dem aktiven Projekt ableiten (1:1). Der Query-Key
+  // wird mit der Projekt-Übersichtsseite geteilt → nur EIN ensure-Aufruf.
+  const {
+    data: container,
+    isLoading: containerLoading,
+    isError: containerError,
+  } = useQuery({
+    // useQuery statt useMutation, damit sich SandboxApp und die Projekt-
+    // Übersichtsseite EINEN ensure-Aufruf teilen (Key = aktives Projekt). Der
+    // Endpunkt ist idempotent (lookup-or-create), daher als Query unbedenklich.
+    queryKey: ['sandbox-ensure', activeId],
+    queryFn: () =>
+      api.post<{ project: SandboxProject }>(
+        '/sandbox/projects/ensure',
+        { project_id: activeId },
+        { showError: false }
+      ),
+    enabled: !!activeId,
+    staleTime: 60_000,
+    retry: false,
+    select: res => res.project,
+  });
 
-  // UI state
-  const [showProjectList, setShowProjectList] = useState(false);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [editProject, setEditProject] = useState<SandboxProject | null>(null);
+  const containerId = container?.id ?? null;
 
-  // Offene Sessions = Registry-Sessions, aufgelöst auf frische Projektdaten.
-  // Mehrere Sessions können dasselbe Projekt referenzieren (Mehrfach-Sitzungen);
-  // die Auflösung erfolgt daher über projectId, nicht über die Session-Id.
-  const openSessions = useMemo<OpenSession[]>(
+  // Live-Status des Containers, solange er (noch) nicht läuft — treibt den
+  // Verbindungs-/Spinner-Zustand von SandboxTerminal. Kein Poll mehr, sobald er
+  // läuft.
+  const { data: statusData } = useQuery({
+    queryKey: ['sandbox-status', containerId],
+    queryFn: () =>
+      api.get<{ status: { running: boolean; status?: string } }>(
+        `/sandbox/projects/${containerId}/status`,
+        { showError: false }
+      ),
+    enabled: !!containerId && visible,
+    refetchInterval: query => {
+      const running = (query.state.data as { status?: { running?: boolean } } | undefined)?.status
+        ?.running;
+      return running ? false : 2500;
+    },
+  });
+
+  const effectiveStatus: SandboxProject['container_status'] = statusData?.status?.running
+    ? 'running'
+    : (container?.container_status ?? 'none');
+
+  // Sitzungen des gekoppelten Containers (pro Projekt gemerkt).
+  const sessionsOfContainer = useMemo<OpenSession[]>(
     () =>
-      terminalSessions
-        .map(session => {
-          const project = projects.find(p => p.id === session.projectId);
-          return project && project.status === 'active' ? { session, project } : null;
-        })
-        .filter((x): x is OpenSession => x != null),
-    [terminalSessions, projects]
+      container
+        ? terminalSessions
+            .filter(session => session.projectId === container.id)
+            .map(session => ({ session, project: container }))
+        : [],
+    [terminalSessions, container]
   );
 
-  // Aktives Projekt (aus der aktiven Sitzung) — Schlüssel für Titel/Anwesenheit.
-  const activeProjectId = useMemo(
-    () => openSessions.find(({ session }) => session.id === activeTabId)?.project.id ?? null,
-    [openSessions, activeTabId]
-  );
+  // Effektiv aktive Sitzung: die Store-Auswahl, sofern sie zu diesem Container
+  // gehört — sonst die erste Sitzung des Containers.
+  const effectiveActiveId = useMemo(() => {
+    if (sessionsOfContainer.some(({ session }) => session.id === activeTabId)) return activeTabId;
+    return sessionsOfContainer[0]?.session.id ?? null;
+  }, [sessionsOfContainer, activeTabId]);
 
-  // Sitzungs-Titel des aktiven Projekts (geräteweit gleich). Bewusst KEINE
-  // Anwesenheits-/Mehrbenutzer-Anzeige mehr — Einzel-Admin-Modell.
+  // ---- Sitzungs-Titel (geräteweit gleich) ----
   const [sessionTitles, setSessionTitles] = useState<Record<string, string>>({});
 
   const loadSessionMeta = useCallback(
-    async (projectId: string) => {
+    async (cid: string) => {
       try {
-        const data = await api.get<{
-          titles?: Record<string, string>;
-        }>(`/sandbox/projects/${projectId}/sessions`, { showError: false });
+        const data = await api.get<{ titles?: Record<string, string> }>(
+          `/sandbox/projects/${cid}/sessions`,
+          { showError: false }
+        );
         const titles = data.titles || {};
         setSessionTitles(titles);
-        // Server-Titel in die Registry spiegeln, damit auch die StatusBar
-        // (liest session.title) den Sitzungsnamen zeigt.
         for (const s of useWorkspaceStore.getState().terminalSessions) {
-          if (s.projectId !== projectId) continue;
+          if (s.projectId !== cid) continue;
           const t = titles[s.terminalName || 'main'];
           if (t && t !== s.title) updateTerminalSessionTitle(s.id, t);
         }
@@ -113,372 +140,170 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
   );
 
   useEffect(() => {
-    // Beim Projektwechsel die (tmux-Namen teilenden) Titel zurücksetzen, damit
-    // nicht kurz die Titel des vorigen Projekts erscheinen. Titel ändern sich
-    // selten → einmal laden reicht (kein Dauer-Poll mehr).
     setSessionTitles({});
-    if (!activeProjectId) {
-      return;
-    }
-    void loadSessionMeta(activeProjectId);
-  }, [activeProjectId, loadSessionMeta]);
+    if (!containerId) return;
+    void loadSessionMeta(containerId);
+  }, [containerId, loadSessionMeta]);
 
   const handleRenameSession = useCallback(
     async (tmuxName: string, title: string) => {
-      if (!activeProjectId) return;
-      // Optimistisch im lokalen Tab-Titel spiegeln, dann serverseitig setzen.
+      if (!containerId) return;
       const sess = terminalSessions.find(
-        s => s.projectId === activeProjectId && (s.terminalName || 'main') === tmuxName
+        s => s.projectId === containerId && (s.terminalName || 'main') === tmuxName
       );
       if (sess) updateTerminalSessionTitle(sess.id, title);
       setSessionTitles(prev => ({ ...prev, [tmuxName]: title }));
       try {
         await api.put(
-          `/sandbox/projects/${activeProjectId}/sitzungen/${encodeURIComponent(tmuxName)}/titel`,
+          `/sandbox/projects/${containerId}/sitzungen/${encodeURIComponent(tmuxName)}/titel`,
           { title },
           { showError: false }
         );
       } catch {
         toast.error('Sitzung konnte nicht umbenannt werden');
-        void loadSessionMeta(activeProjectId);
+        void loadSessionMeta(containerId);
       }
     },
-    [activeProjectId, terminalSessions, updateTerminalSessionTitle, api, toast, loadSessionMeta]
+    [containerId, terminalSessions, updateTerminalSessionTitle, api, toast, loadSessionMeta]
   );
 
-  // ---- Data loading ----
+  // ---- Auto-Öffnen der ersten Sitzung + Auto-Start des Containers ----
+  // Nur wenn das Terminal sichtbar ist (sonst würde das Panel den Chat-Modus
+  // kapern). Je Container genau EINMAL — so kann der Nutzer die letzte Sitzung
+  // schließen, ohne dass sie sofort wieder aufpoppt.
+  const autoOpenedRef = useRef<Set<string>>(new Set());
+  const startedRef = useRef<Set<string>>(new Set());
 
-  const loadProjects = useCallback(async () => {
-    try {
-      const data = await api.get<{ projects: SandboxProject[]; total: number }>(
-        '/sandbox/projects',
-        { showError: false }
-      );
-      setProjects(data.projects);
-      setProjectsLoaded(true);
-    } catch {
-      toast.error('Projekte konnten nicht geladen werden');
-    } finally {
-      setLoading(false);
-    }
-  }, [api, toast]);
-
-  const loadStats = useCallback(async () => {
-    try {
-      const data = await api.get<{ stats: SandboxStats }>('/sandbox/stats', { showError: false });
-      setStats(data.stats);
-    } catch {
-      // Stats are non-critical
-    }
-  }, [api]);
-
-  useEffect(() => {
-    loadProjects();
-    loadStats();
-  }, [loadProjects, loadStats]);
-
-  // Auto-refresh while containers are running — oder eine offene Session noch
-  // auf ihren Container wartet (z. B. Auto-Start nach Reboot): ohne Poll bliebe
-  // das Terminal dauerhaft im »Container wird gestartet…«-Spinner, denn durch
-  // das Keep-alive im Panel gibt es keinen Remount-Reload mehr.
-  useEffect(() => {
-    const hasRunning = projects.some(
-      p => p.container_status === 'running' || p.container_status === 'creating'
+  const openNewSession = useCallback(() => {
+    if (!container) return;
+    openTerminalSession(
+      nextTerminalSession(
+        container.id,
+        container.name,
+        useWorkspaceStore.getState().terminalSessions
+      )
     );
-    const hasWaitingSession = terminalSessions.some(session => {
-      const project = projects.find(p => p.id === session.projectId);
-      return project != null && project.container_status !== 'running';
-    });
-    if (!hasRunning && !hasWaitingSession) return;
-    const interval = setInterval(loadProjects, 10000);
-    return () => clearInterval(interval);
-  }, [projects, terminalSessions, loadProjects]);
+  }, [container, openTerminalSession]);
 
-  /**
-   * Bootstrap (einmalig, nach dem ersten erfolgreichen Projekt-Load):
-   * 1. Legacy-Migration: 'sandbox-open-tabs' (v2, Lokalstate) → Store-Registry,
-   *    nur wenn die Registry noch leer ist; der Key wird danach entfernt.
-   * 2. Auto-Start gestoppter Container für alle Registry-Sessions —
-   *    gleiche Semantik wie der alte Tab-Restore.
-   */
-  const bootstrappedRef = useRef(false);
   useEffect(() => {
-    if (!projectsLoaded || bootstrappedRef.current) return;
-    bootstrappedRef.current = true;
+    if (!container || !visible) return;
+    const cid = container.id;
 
-    const saved = localStorage.getItem(LEGACY_TABS_KEY);
-    if (saved && useWorkspaceStore.getState().terminalSessions.length === 0) {
-      try {
-        const { tabs, activeId } = JSON.parse(saved) as {
-          tabs: string[];
-          activeId: string | null;
-        };
-        for (const id of tabs) {
-          const project = projects.find(p => p.id === id && p.status === 'active');
-          if (project) {
-            openTerminalSession({ id: project.id, projectId: project.id, title: project.name });
-          }
-        }
-        if (activeId) activateTerminalSession(activeId);
-      } catch {
-        // Korrupter localStorage-Eintrag — ignorieren
+    // 1. Erste Sitzung des Containers automatisch anlegen (einmal je Container).
+    if (sessionsOfContainer.length === 0) {
+      if (!autoOpenedRef.current.has(cid)) {
+        autoOpenedRef.current.add(cid);
+        openNewSession();
       }
+      return; // auf die Registrierung warten
     }
-    localStorage.removeItem(LEGACY_TABS_KEY);
 
-    // Container je Projekt nur EINMAL starten, auch wenn mehrere Sessions
-    // dasselbe Projekt referenzieren.
-    const startRequests: Array<Promise<unknown>> = [];
-    const startedProjects = new Set<string>();
-    for (const session of useWorkspaceStore.getState().terminalSessions) {
-      const project = projects.find(p => p.id === session.projectId);
-      if (
-        project &&
-        !startedProjects.has(project.id) &&
-        project.container_status !== 'running' &&
-        project.container_status !== 'creating'
-      ) {
-        startedProjects.add(project.id);
-        startRequests.push(
-          api
-            .post(`/sandbox/projects/${project.id}/start`, {}, { showError: false })
-            .catch(() => {})
-        );
-      }
+    // 2. Aktive Sitzung muss zu diesem Container gehören.
+    const first = sessionsOfContainer[0];
+    if (first && !sessionsOfContainer.some(({ session }) => session.id === activeTabId)) {
+      activateTerminalSession(first.session.id);
     }
-    if (startRequests.length > 0) {
-      // Nach den Starts die Projektliste nachziehen — erst mit
-      // container_status 'running' verbindet SandboxTerminal; sonst hinge
-      // der Restore dauerhaft im Spinner (kein Remount-Reload mehr).
-      Promise.allSettled(startRequests).then(() => loadProjects());
+
+    // 3. Container bei Bedarf starten (einmal je Container).
+    if (
+      effectiveStatus !== 'running' &&
+      effectiveStatus !== 'creating' &&
+      !startedRef.current.has(cid)
+    ) {
+      startedRef.current.add(cid);
+      api
+        .post(`/sandbox/projects/${cid}/start`, {}, { showError: false })
+        .then(() => qc.invalidateQueries({ queryKey: ['sandbox-status', cid] }))
+        .catch(() => {
+          // Fehlgeschlagener Auto-Start darf den Container nicht dauerhaft
+          // stranden lassen (Keep-alive-Komponente): Sperre lösen, damit ein
+          // Projektwechsel/„neue Sitzung" erneut startet, und den Nutzer
+          // informieren (es gibt keinen separaten Start-Knopf mehr).
+          startedRef.current.delete(cid);
+          toast.error('Terminal-Container konnte nicht gestartet werden — bitte erneut versuchen');
+        });
     }
-  }, [projectsLoaded, projects, api, openTerminalSession, activateTerminalSession, loadProjects]);
-
-  /**
-   * Registry ↔ Projektliste synchron halten (nach jedem erfolgreichen Load):
-   * archivierte/gelöschte Projekte schließen ihre Session. Den Session-Titel
-   * NICHT mehr auf den Projektnamen zurückzwingen — Sitzungen tragen seit
-   * Plan 017 Schritt 6 eigene, serverseitige Namen (sonst würde jede Umbenennung
-   * beim nächsten Projekt-Poll überschrieben).
-   */
-  useEffect(() => {
-    if (!projectsLoaded || !bootstrappedRef.current) return;
-    for (const session of useWorkspaceStore.getState().terminalSessions) {
-      const project = projects.find(p => p.id === session.projectId);
-      if (!project || project.status !== 'active') {
-        closeTerminalSession(session.id);
-      }
-    }
-  }, [projectsLoaded, projects, closeTerminalSession]);
-
-  // ---- Actions ----
-
-  const handleStop = useCallback(
-    async (project: SandboxProject) => {
-      setActionLoading(project.id);
-      try {
-        await api.post(`/sandbox/projects/${project.id}/stop`, {}, { showError: false });
-        toast.success(`Container für "${project.name}" gestoppt`);
-        await loadProjects();
-      } catch (err: unknown) {
-        const e = err as { data?: { message?: string }; message?: string };
-        toast.error(e.data?.message || e.message || 'Container konnte nicht gestoppt werden');
-      } finally {
-        setActionLoading(null);
-      }
-    },
-    [api, toast, loadProjects]
-  );
-
-  const handleDelete = useCallback(
-    async (project: SandboxProject) => {
-      const confirmed = await showConfirm({
-        message: `Projekt "${project.name}" wirklich archivieren? Der Container und alle installierten Pakete gehen verloren.`,
-      });
-      if (!confirmed) return;
-
-      setActionLoading(project.id);
-      try {
-        await api.del(`/sandbox/projects/${project.id}`, { showError: false });
-        toast.success(`Projekt "${project.name}" archiviert`);
-
-        // ALLE offenen Sessions dieses Projekts schließen (Store aktiviert den
-        // Nachbarn); mehrere Sitzungen pro Projekt sind möglich.
-        for (const session of useWorkspaceStore
-          .getState()
-          .terminalSessions.filter(s => s.projectId === project.id)) {
-          closeTerminalSession(session.id);
-        }
-
-        await loadProjects();
-        loadStats();
-      } catch (err: unknown) {
-        const e = err as { data?: { message?: string }; message?: string };
-        toast.error(e.data?.message || e.message || 'Fehler beim Archivieren');
-      } finally {
-        setActionLoading(null);
-      }
-    },
-    [api, toast, showConfirm, loadProjects, loadStats, closeTerminalSession]
-  );
-
-  // One-click open: fokussiert eine bestehende Session des Projekts oder legt
-  // die erste an; startet den Container bei Bedarf im Hintergrund.
-  const handleOpenProject = useCallback(
-    async (project: SandboxProject) => {
-      // 1. Bestehende Session des Projekts wiederverwenden (fokussieren) oder
-      //    erste anlegen. openTerminalSession dedupt nach Id → aktiviert + blendet
-      //    das Terminal-Panel ein.
-      const sessions = useWorkspaceStore.getState().terminalSessions;
-      const existing = sessions.find(s => s.projectId === project.id);
-      openTerminalSession(existing ?? nextTerminalSession(project.id, project.name, sessions));
-      setShowProjectList(false);
-
-      // 2. Start container in background if not running
-      if (project.container_status !== 'running') {
-        try {
-          await api.post(`/sandbox/projects/${project.id}/start`, {}, { showError: false });
-          await loadProjects();
-        } catch (err: unknown) {
-          const e = err as { data?: { message?: string }; message?: string };
-          toast.error(e.data?.message || e.message || 'Container konnte nicht gestartet werden');
-        }
-      }
-    },
-    [api, toast, loadProjects, openTerminalSession]
-  );
-
-  // "+ neue Sitzung": öffnet IMMER eine zusätzliche, unabhängige Session im
-  // angegebenen Projekt (eigener tmux-Screen). Der Container läuft bereits.
-  const handleNewSession = useCallback(
-    (projectId: string) => {
-      const state = useWorkspaceStore.getState();
-      const project = projects.find(p => p.id === projectId);
-      if (!project) return;
-      openTerminalSession(nextTerminalSession(projectId, project.name, state.terminalSessions));
-    },
-    [projects, openTerminalSession]
-  );
-
-  const handleProjectCreated = useCallback(() => {
-    setShowCreateDialog(false);
-    loadProjects();
-    loadStats();
-  }, [loadProjects, loadStats]);
-
-  const handleProjectUpdated = useCallback(() => {
-    setEditProject(null);
-    loadProjects();
-  }, [loadProjects]);
+  }, [
+    container,
+    visible,
+    sessionsOfContainer,
+    activeTabId,
+    effectiveStatus,
+    openNewSession,
+    activateTerminalSession,
+    api,
+    qc,
+    toast,
+  ]);
 
   // ---- Render ----
 
   return (
     <div className="flex flex-col h-full bg-background rounded-lg overflow-hidden border border-border">
-      {/* Kopfzeile: Projekt-Wechsler + „neue Sitzung" + Session-Umschalter */}
       <TerminalTabs
-        openSessions={openSessions}
-        activeTabId={activeTabId}
-        allProjects={projects}
+        projectName={activeProject?.name ?? container?.name ?? null}
+        sessions={sessionsOfContainer}
+        activeTabId={effectiveActiveId}
         sessionTitles={sessionTitles}
         onSelectTab={activateTerminalSession}
         onCloseTab={closeTerminalSession}
-        onOpenProject={handleOpenProject}
-        onNewSession={handleNewSession}
-        onCreateProject={() => setShowCreateDialog(true)}
-        onShowAllProjects={() => setShowProjectList(!showProjectList)}
+        onNewSession={openNewSession}
         onRenameSession={handleRenameSession}
       />
 
-      {/* Terminal area */}
       <div className="flex-1 min-h-0 relative">
-        {/* Terminals - hidden but alive for non-active sessions (genau EINE
-            useTerminal/WebSocket-Instanz pro Session, keyed by session id;
-            mehrere Sessions pro Projekt via distinktem tmux-Namen) */}
-        {openSessions.map(({ session, project }) => (
-          <div
-            key={session.id}
-            className="absolute inset-0 flex-col"
-            style={{ display: session.id === activeTabId ? 'flex' : 'none' }}
-          >
-            {/* Erweiterungs-Werkstätten bekommen das Werkstatt-Panel über dem
-                Terminal: Inventar mit Status, Live-Schalten (+ Freigabe),
-                Rollback, Öffnen, Herunterladen (Plan 017 Schritt 7). */}
-            {project.workspace_type === 'erweiterungs-werkstatt' && (
-              <WerkstattPanel projekt={project} />
+        {/* Terminals — hidden but alive für nicht-aktive Sitzungen (genau EINE
+            useTerminal/WebSocket-Instanz pro Session, keyed by session id). */}
+        {container &&
+          sessionsOfContainer.map(({ session }) => (
+            <div
+              key={session.id}
+              className="absolute inset-0 flex-col"
+              style={{ display: session.id === effectiveActiveId ? 'flex' : 'none' }}
+            >
+              <SandboxTerminal
+                projectId={container.id}
+                terminalName={session.terminalName}
+                containerStatus={effectiveStatus}
+                networkMode={container.network_mode}
+                isVisible={visible && session.id === effectiveActiveId}
+                className="flex-1"
+              />
+            </div>
+          ))}
+
+        {/* Zustände ohne offene Sitzung */}
+        {sessionsOfContainer.length === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+            {!activeId ? (
+              <p className="text-sm text-muted-foreground">Kein Projekt aktiv.</p>
+            ) : containerLoading ? (
+              <>
+                <Loader2 className="size-5 animate-spin text-primary" aria-hidden="true" />
+                <p className="text-sm text-muted-foreground">Terminal wird vorbereitet …</p>
+              </>
+            ) : containerError ? (
+              <p className="text-sm text-destructive">
+                Terminal konnte nicht vorbereitet werden. Bitte erneut versuchen.
+              </p>
+            ) : (
+              <>
+                <TerminalSquare className="size-6 text-muted-foreground" aria-hidden="true" />
+                <p className="text-sm text-muted-foreground">
+                  Keine offene Sitzung in „{activeProject?.name ?? 'diesem Projekt'}&ldquo;.
+                </p>
+                <button
+                  type="button"
+                  onClick={openNewSession}
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  Terminal-Sitzung starten
+                </button>
+              </>
             )}
-            <SandboxTerminal
-              projectId={project.id}
-              terminalName={session.terminalName}
-              containerStatus={project.container_status || 'none'}
-              networkMode={project.network_mode}
-              isVisible={visible && session.id === activeTabId}
-              className="flex-1"
-            />
           </div>
-        ))}
-
-        {/* Default view when no sessions open — show project list directly */}
-        {openSessions.length === 0 && (
-          <ProjectListPanel
-            variant="inline"
-            projects={projects}
-            stats={stats}
-            loading={loading}
-            actionLoading={actionLoading}
-            onClose={() => {}}
-            onOpenProject={handleOpenProject}
-            onStopProject={handleStop}
-            onDeleteProject={handleDelete}
-            onEditProject={setEditProject}
-            onCreateProject={() => setShowCreateDialog(true)}
-            onRefresh={() => {
-              setLoading(true);
-              loadProjects();
-              loadStats();
-            }}
-          />
-        )}
-
-        {/* Project list overlay (only when sessions are open) */}
-        {showProjectList && openSessions.length > 0 && (
-          <ProjectListPanel
-            projects={projects}
-            stats={stats}
-            loading={loading}
-            actionLoading={actionLoading}
-            onClose={() => setShowProjectList(false)}
-            onOpenProject={handleOpenProject}
-            onStopProject={handleStop}
-            onDeleteProject={handleDelete}
-            onEditProject={setEditProject}
-            onCreateProject={() => {
-              setShowCreateDialog(true);
-              setShowProjectList(false);
-            }}
-            onRefresh={() => {
-              setLoading(true);
-              loadProjects();
-              loadStats();
-            }}
-          />
         )}
       </div>
-
-      {/* Dialogs */}
-      <CreateProjectDialog
-        open={showCreateDialog}
-        onClose={() => setShowCreateDialog(false)}
-        onCreated={handleProjectCreated}
-      />
-
-      <EditProjectDialog
-        project={editProject}
-        onClose={() => setEditProject(null)}
-        onUpdated={handleProjectUpdated}
-      />
-
-      {ConfirmDialog}
     </div>
   );
 }

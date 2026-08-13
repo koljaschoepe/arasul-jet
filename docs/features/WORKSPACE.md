@@ -139,6 +139,39 @@ zur Anzeige). WS-Tickets und die KI-Zugänge bleiben pro Nutzer.
 > Modell und haben nur verwirrt. Das Backend kann Verbindungszahlen weiterhin
 > ermitteln; die Oberfläche zeigt sie nicht mehr an.
 
+## Ein aktives Projekt steuert alles (Plan 018)
+
+Seit Plan 018 gibt es **eine einzige, oben getroffene Projektauswahl** (der
+Projekt-Umschalter in der Menüleiste): ihr folgen **Dateien, Flows und
+Terminal** gemeinsam. Zuvor liefen zwei getrennte „Projekt"-Begriffe
+nebeneinander — der Explorer am Workspace-Projekt (`projects`), das Terminal an
+einem separat gewählten Sandbox-Container (`sandbox_projects`) —, sodass links
+„test" und rechts „Kunden" offen sein konnte.
+
+- **Terminal folgt dem aktiven Projekt.** Es hat **keinen eigenen
+  Projekt-Umschalter** mehr und man kann von dort **kein Projekt „öffnen"**. Der
+  gekoppelte Container wird über `POST /api/sandbox/projects/ensure`
+  (`{project_id}`) aus dem aktiven Projekt abgeleitet — 1:1 über
+  `sandbox_projects.project_id` — und beim ersten Öffnen automatisch angelegt
+  (Netz **„intern"**) und gestartet. Der partielle Unique-Index aus Migration
+  139 erzwingt „höchstens ein aktiver Container je Projekt".
+- **Sitzungen pro Projekt gemerkt.** Die Terminal-Session-Registry ist über die
+  Container-Id partitioniert; ein Projektwechsel verwirft nichts, die Sitzungen
+  des vorigen Projekts sind bei der Rückkehr wieder da.
+- **Projekt-Startseite + Übersichtsseite.** Der Projekt-Umschalter öffnet über
+  „Projekt-Übersicht" eine **Kachelliste aller Projekte** (Tab `projekte`); ein
+  Klick aktiviert das Projekt und öffnet seine **Übersichtsseite** (Tab
+  `projektuebersicht`, folgt dem aktiven Projekt) mit Info (Netzmodus/Ablage),
+  Schnellzugriff (Terminal/Dateien/Flows) und der **Werkstatt** — Letztere nur,
+  wenn Erweiterungen existieren. „← Projekte" führt zurück.
+- **Werkstatt aus dem Terminal heraus.** Das Werkstatt-Panel erscheint nicht
+  mehr über dem Terminal, sondern auf der Projekt-Übersichtsseite.
+- **Flows-Sidebar gescopt.** Sie zeigt nur die Flows des aktiven Projekts plus
+  die globalen (nicht mehr alle Projekte gleichzeitig).
+- **Backfill beim Boot.** Ein einmaliger, idempotenter Boot-Schritt koppelt
+  bestehende, ungekoppelte Container per Namensgleichheit an ein Workspace-
+  Projekt (bzw. legt eines an) — nichts verschwindet.
+
 ## Projekt-Verbindungen & MCP (Plan 017 Schritt 5)
 
 Pro Projekt lassen sich externe Zugänge (`env`, z. B. Supabase-Keys) und

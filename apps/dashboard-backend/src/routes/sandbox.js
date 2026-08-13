@@ -12,6 +12,7 @@ const { validateBody, validateQuery, validateParams } = require('../middleware/v
 const {
   CreateProjectBody,
   UpdateProjectBody,
+  EnsureProjectBody,
   ListProjectsQuery,
   WorkspaceParams,
   ClaudeAuthBody,
@@ -79,6 +80,24 @@ router.post(
       userRole: req.user.role,
     });
     res.status(201).json({ project, timestamp: new Date().toISOString() });
+  })
+);
+
+// POST /api/sandbox/projects/ensure — Container zum aktiven Workspace-Projekt
+// nachschlagen oder atomar anlegen+koppeln (Plan 018: Projekt-Vereinheitlichung).
+// Steht bewusst vor den '/projects/:id/*'-Routen; ein bloßes POST '/projects/:id'
+// gibt es zwar nicht (nur GET/PUT/DELETE), die Reihenfolge bleibt aber robust
+// gegen künftige Refactors.
+router.post(
+  '/projects/ensure',
+  requireAuth,
+  validateBody(EnsureProjectBody),
+  asyncHandler(async (req, res) => {
+    const { project, created } = await sandboxService.ensureProjectContainer(req.body.project_id, {
+      userId: req.user.id,
+      userRole: req.user.role,
+    });
+    res.status(created ? 201 : 200).json({ project, created, timestamp: new Date().toISOString() });
   })
 );
 

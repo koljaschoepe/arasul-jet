@@ -53,6 +53,13 @@ const CreateProjectBody = z
 
 const UpdateProjectBody = CreateProjectBody.partial();
 
+// Plan 018: Terminal-Container zum aktiven Workspace-Projekt nachschlagen/anlegen.
+const EnsureProjectBody = z
+  .object({
+    project_id: z.uuid('Ungültige Projekt-ID'),
+  })
+  .strict();
+
 const ListProjectsQuery = z
   .object({
     status: z.enum(['running', 'stopped', 'error', 'archived']).optional(),
@@ -176,6 +183,7 @@ const SessionTitleBody = z.object({ title: z.string().trim().min(1).max(80) }).s
 module.exports = {
   CreateProjectBody,
   UpdateProjectBody,
+  EnsureProjectBody,
   ListProjectsQuery,
   WorkspaceParams,
   ClaudeAuthBody,

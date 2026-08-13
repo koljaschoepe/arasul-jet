@@ -213,6 +213,71 @@ function seedWerkstattTemplates(targetDir) {
 }
 
 /**
+ * Container für ein Workspace-Projekt nachschlagen oder atomar anlegen+koppeln
+ * (Plan 018: Projekt-Vereinheitlichung). Das Terminal leitet seinen Container
+ * ab jetzt aus dem aktiven Workspace-Projekt ab — statt aus einer separaten
+ * Projektauswahl. Existiert bereits ein aktiver, gekoppelter Container, wird er
+ * zurückgegeben; sonst wird EINER angelegt (Netz-Default 'internal', damit der
+ * Coder/RAG die Plattform-Dienste erreicht) und über `project_id` gekoppelt.
+ *
+ * Race-fest: der partielle Unique-Index auf sandbox_projects(project_id)
+ * (Migration 139) verhindert zwei Container je Projekt; der Verlierer eines
+ * Doppelklicks fängt 23505 ab und liest den Gewinner nach.
+ */
+async function ensureProjectContainer(workspaceProjectId, { userId, userRole } = {}) {
+  const ref = String(workspaceProjectId || '').trim();
+  if (!ref) {
+    throw new ValidationError('project_id ist erforderlich');
+  }
+  // Workspace-Projekt muss existieren (404 bei Geistern) — nutzt dieselbe
+  // Projekt-Ebene wie Explorer/Flows, damit Kopplung nie ins Leere zeigt.
+  const wsProject = await require('../rag/projectService').getProject(ref);
+
+  const lookup = async () => {
+    const res = await db.query(
+      `SELECT sp.*,
+         au.username AS created_by,
+         (SELECT COUNT(*) FROM sandbox_terminal_sessions st
+          WHERE st.project_id = sp.id AND st.status = 'active') AS active_sessions
+       FROM sandbox_projects sp
+       LEFT JOIN admin_users au ON au.id = sp.user_id
+       WHERE sp.project_id = $1 AND sp.status = 'active'
+       LIMIT 1`,
+      [ref]
+    );
+    return res.rows[0] || null;
+  };
+
+  const existing = await lookup();
+  if (existing) {
+    return { project: existing, created: false };
+  }
+
+  try {
+    const project = await createProject({
+      name: wsProject.name,
+      network_mode: 'internal',
+      project_id: ref,
+      userId,
+      userRole,
+    });
+    // createProject liefert die frische Zeile ohne die Join-Felder (created_by,
+    // active_sessions) — für ein einheitliches Shape nachladen.
+    const withMeta = await getProject(project.id);
+    return { project: withMeta, created: true };
+  } catch (err) {
+    // Doppelklick-Race: der Unique-Index hat den zweiten Container verhindert.
+    if (err.code === '23505') {
+      const after = await lookup();
+      if (after) {
+        return { project: after, created: false };
+      }
+    }
+    throw err;
+  }
+}
+
+/**
  * List all projects with optional filters.
  * Plan 017 Schritt 1: Projekte sind geräteweit — KEIN Besitz-Filter mehr.
  * `created_by` (Username des Anlegers) bleibt zur Anzeige erhalten.
@@ -827,6 +892,7 @@ async function loadWorkspace(workspaceRef) {
 module.exports = {
   loadWorkspace,
   createProject,
+  ensureProjectContainer,
   listProjects,
   getProject,
   updateProject,

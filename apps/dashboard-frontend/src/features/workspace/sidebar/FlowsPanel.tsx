@@ -5,29 +5,39 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useFlowEditorStore } from '@/stores/flowEditorStore';
 import { SidebarSearch } from '@/components/ui/SidebarSearch';
 import { SidebarView } from './SidebarView';
+import { useActiveProject } from '../useProjects';
 import type { Flow } from '@/types/flows';
 
 /**
  * Sidebar-Ansicht »Flows« (Plan 012 Phase D, Schritt 12) — die echte
- * Übersicht. Listet alle Flows (echte Daten via `useFlows`), seit Plan 014
- * gruppiert nach Global / Projekt; ein Klick öffnet den zentralen
- * Flow-Editor-Tab (Schritt 10) mit dem Flow, der Kopf-Knopf »Neuer Flow«
- * öffnet ihn leer. Ziel setzen + Tab öffnen läuft — wie bei Modellen/
- * Erweiterungen in der ActivityBar — über Ziel-Store + `openTab`.
+ * Übersicht. Listet die Flows des AKTIVEN Projekts plus die globalen (Plan 018:
+ * Projekt-Vereinheitlichung — nicht mehr alle Projekte gleichzeitig); ein Klick
+ * öffnet den zentralen Flow-Editor-Tab (Schritt 10) mit dem Flow, der
+ * Kopf-Knopf »Neuer Flow« öffnet ihn leer. Ziel setzen + Tab öffnen läuft — wie
+ * bei Modellen/Erweiterungen in der ActivityBar — über Ziel-Store + `openTab`.
  */
 export function FlowsPanel() {
   const { flows, isLoading } = useFlows();
+  const { activeId } = useActiveProject();
   const openTab = useWorkspaceStore(s => s.openTab);
   const setEditTarget = useFlowEditorStore(s => s.setEditTarget);
   const [query, setQuery] = useState('');
 
+  // Auf das aktive Projekt scopen: globale Flows (ohne `projekt`) plus die des
+  // aktiven Projekts. `/flows` liefert weiterhin alle — die Auswahl ist rein
+  // clientseitig (Plan 018).
+  const scoped = useMemo(
+    () => flows.filter(f => !f.projekt || f.projekt.id === activeId),
+    [flows, activeId]
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return flows;
-    return flows.filter(
+    if (!q) return scoped;
+    return scoped.filter(
       s => s.name.toLowerCase().includes(q) || (s.beschreibung ?? '').toLowerCase().includes(q)
     );
-  }, [flows, query]);
+  }, [scoped, query]);
 
   // Gruppen: zuerst Global, dann je Projekt (alphabetisch) — so bleibt die
   // gewohnte Liste oben stabil und Projekt-Flows sind klar zugeordnet.
@@ -91,10 +101,10 @@ export function FlowsPanel() {
     >
       {isLoading ? (
         <p className="px-3 py-3 text-sm text-muted-foreground">Flows werden geladen …</p>
-      ) : flows.length === 0 ? (
+      ) : scoped.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
           <Waypoints className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-          <p className="text-sm text-muted-foreground">Noch keine Flows angelegt.</p>
+          <p className="text-sm text-muted-foreground">Noch keine Flows in diesem Projekt.</p>
           <button
             type="button"
             onClick={() => oeffneFlow(null, 'edit')}

@@ -76,6 +76,17 @@ async function bootstrap() {
   } catch (error) {
     logger.error(`Bootstrap: Terminal-Sitzungs-Cleanup error: ${error.message}`);
   }
+
+  // Step 7: Sandbox-Container an Workspace-Projekte koppeln (Plan 018:
+  // Projekt-Vereinheitlichung). Nach der Umstellung leitet das Terminal seinen
+  // Container aus dem aktiven Workspace-Projekt ab — jeder bisher eigenständige
+  // Container braucht daher eine 1:1-Kopplung. Idempotent + best-effort.
+  try {
+    const { backfillProjectLinks } = require('./services/sandbox/sandboxBackfill');
+    await backfillProjectLinks();
+  } catch (error) {
+    logger.error(`Bootstrap: Sandbox-Projekt-Backfill error: ${error.message}`);
+  }
 }
 
 async function ensureAdminUser() {

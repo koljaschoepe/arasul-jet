@@ -1,64 +1,77 @@
 /**
- * Tests: Terminal-Konsolidierung (Cursor-Shell Stufe 3).
+ * Tests: Terminal folgt dem aktiven Projekt (Plan 018: Projekt-Vereinheitlichung).
  *
- * 1. Dedup: Panel-Toggle (visible false→true, Keep-alive) und Session-Wechsel
- *    erzeugen KEINE zweite WebSocket-/xterm-Instanz — genau 1 Socket pro
- *    Session, Session-State im Store bleibt erhalten.
- * 2. Migration: der Legacy-Key 'sandbox-open-tabs' (v2, SandboxApp-Lokalstate)
- *    wird einmalig in die Store-Registry gehoben und danach entfernt.
+ * Das Terminal leitet seinen Container aus dem aktiven Workspace-Projekt ab
+ * (POST /sandbox/projects/ensure) und rendert nur dessen Sitzungen. Geprüft:
+ * 1. Dedup: genau 1 WebSocket/xterm je Sitzung, auch über Panel-Toggle
+ *    (Keep-alive) und Sitzungswechsel — zwei Sitzungen im selben Container
+ *    ergeben zwei distinkte Sockets (eigener tmux-Name).
+ * 2. Auto-Start: ohne offene Sitzung wird EINE angelegt und ein gestoppter
+ *    Container gestartet (POST /start).
  * 3. Refit: beim Wieder-Einblenden wird xterm neu gefittet (fit() auf
  *    verstecktem Container misst 0×0 — bekannte xterm-Falle).
  */
 
 import { render, act, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { ReactElement } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import SandboxApp from '../SandboxApp';
 import type { SandboxProject } from '../types';
 
 // ---- Mocks ----------------------------------------------------------------
 
-const { xtermInstances, fitInstances, apiState, apiMock, toastMock, confirmMock } = vi.hoisted(
-  () => {
-    const apiState = { projects: [] as unknown[] };
+const { xtermInstances, fitInstances, containerState, apiMock, toastMock, activeProjectMock } =
+  vi.hoisted(() => {
+    const containerState = {
+      running: true,
+      status: 'running' as SandboxProject['container_status'],
+    };
     return {
       xtermInstances: [] as unknown[],
       fitInstances: [] as Array<{ fit: ReturnType<typeof vi.fn> }>,
-      apiState,
-      // Stabile Singletons — neue Objekte pro Render würden die
-      // useCallback-Identitäten in SandboxApp kippen (Refetch-Schleife).
+      containerState,
       toastMock: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
-      confirmMock: { confirm: async () => true, ConfirmDialog: null },
+      activeProjectMock: {
+        activeProject: { id: 'ws1', name: 'Projekt Eins' } as { id: string; name: string } | null,
+        activeId: 'ws1' as string | null,
+        spaceIds: [] as string[],
+        isLoading: false,
+        setActive: { mutate: vi.fn(), isPending: false },
+      },
       apiMock: {
         get: vi.fn(async (path: string) => {
-          if (path.startsWith('/sandbox/projects')) {
-            return { projects: apiState.projects, total: apiState.projects.length };
+          if (path.includes('/status')) {
+            return { status: { running: containerState.running, status: containerState.status } };
           }
-          if (path.startsWith('/sandbox/stats')) {
+          if (path.includes('/sessions')) {
+            return { titles: {} };
+          }
+          return {};
+        }),
+        post: vi.fn(async (path: string) => {
+          if (path === '/sandbox/projects/ensure') {
             return {
-              stats: {
-                total_projects: apiState.projects.length,
-                active_projects: apiState.projects.length,
-                running_containers: 0,
-                stopped_containers: 0,
-                active_sessions: 0,
+              project: {
+                ...makeProject('c1', 'Projekt Eins'),
+                container_status: containerState.status,
               },
+              created: false,
             };
           }
           return {};
         }),
-        post: vi.fn(async () => ({})),
         put: vi.fn(async () => ({})),
         patch: vi.fn(async () => ({})),
         del: vi.fn(async () => ({})),
       },
     };
-  }
-);
+  });
 
 vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => toastMock }));
-vi.mock('@/hooks/useConfirm', () => ({ default: () => confirmMock }));
+vi.mock('@/features/workspace/useProjects', () => ({ useActiveProject: () => activeProjectMock }));
 
 vi.mock('@xterm/xterm', () => {
   class MockTerminal {
@@ -139,11 +152,17 @@ function makeProject(id: string, name: string): SandboxProject {
     environment: null,
     installed_packages: null,
     last_accessed_at: null,
-    network_mode: 'isolated',
+    network_mode: 'internal',
+    project_id: 'ws1',
     total_terminal_seconds: 0,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
   };
+}
+
+function renderWithClient(ui: ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
 function resetStore() {
@@ -164,19 +183,22 @@ const totalFitCalls = () => fitInstances.reduce((sum, f) => sum + f.fit.mock.cal
 
 // ---- Tests ------------------------------------------------------------------
 
-describe('SandboxApp Session-Registry (Stufe 3)', () => {
+describe('SandboxApp — Terminal folgt aktivem Projekt (Plan 018)', () => {
   beforeEach(() => {
     localStorage.clear();
     resetStore();
     xtermInstances.length = 0;
     fitInstances.length = 0;
     CountingWebSocket.instances.length = 0;
-    apiState.projects = [];
     apiMock.post.mockClear();
+    apiMock.get.mockClear();
+    containerState.running = true;
+    containerState.status = 'running';
+    activeProjectMock.activeId = 'ws1';
+    activeProjectMock.activeProject = { id: 'ws1', name: 'Projekt Eins' };
     vi.stubGlobal('WebSocket', CountingWebSocket);
     // jsdom kennt kein Layout → clientWidth/-Height sind immer 0. useTerminal
-    // fittet bewusst NICHT auf einen 0×0-Container (verhindert Fehlraster an
-    // tmux). Damit der Refit-Pfad hier trotzdem greift, echte Maße vortäuschen.
+    // fittet bewusst NICHT auf einen 0×0-Container. Echte Maße vortäuschen.
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(800);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
   });
@@ -186,166 +208,104 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
     vi.restoreAllMocks();
   });
 
-  it('hält genau 1 WebSocket pro Session über Panel-Toggle und Session-Wechsel', async () => {
-    apiState.projects = [makeProject('p1', 'Projekt Eins'), makeProject('p2', 'Projekt Zwei')];
+  it('hält für ZWEI Sitzungen im selben Container zwei distinkte, unabhängige Sockets', async () => {
     useWorkspaceStore.setState({
       terminalSessions: [
-        { id: 'p1', projectId: 'p1', title: 'Projekt Eins' },
-        { id: 'p2', projectId: 'p2', title: 'Projekt Zwei' },
+        { id: 'c1', projectId: 'c1', title: 'Sitzung 1', terminalName: 'main' },
+        { id: 'c1#2', projectId: 'c1', title: 'Sitzung 2', terminalName: 'main-2' },
       ],
-      activeTerminalSessionId: 'p1',
+      activeTerminalSessionId: 'c1',
       rightPanelVisible: true,
       rightPanelMode: 'terminal',
     });
 
-    const { rerender } = render(<SandboxApp visible />);
+    const { rerender } = renderWithClient(<SandboxApp visible />);
 
-    // Beide Sessions verbinden — genau eine Socket-Instanz je Session
-    await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(2));
-    expect(new Set(CountingWebSocket.instances.map(ws => ws.url)).size).toBe(2);
-
-    // Panel-Toggle (Keep-alive: verstecken, nicht unmounten) …
-    rerender(<SandboxApp visible={false} />);
-    rerender(<SandboxApp visible />);
-
-    // … und Session-Wechsel hin und zurück (entspricht Ansichtswechsel)
-    act(() => {
-      useWorkspaceStore.getState().activateTerminalSession('p2');
-    });
-    act(() => {
-      useWorkspaceStore.getState().activateTerminalSession('p1');
-    });
-
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 20));
-    });
-
-    // Keine neuen Sockets/Terminals, keine geschlossenen Verbindungen
-    expect(CountingWebSocket.instances).toHaveLength(2);
-    expect(CountingWebSocket.instances.every(ws => ws.readyState === CountingWebSocket.OPEN)).toBe(
-      true
-    );
-    expect(xtermInstances).toHaveLength(2);
-
-    // Session-State im Store unverändert erhalten
-    const state = useWorkspaceStore.getState();
-    expect(state.terminalSessions.map(s => s.id)).toEqual(['p1', 'p2']);
-    expect(state.activeTerminalSessionId).toBe('p1');
-  });
-
-  it('hält für ZWEI Sessions im selben Projekt zwei distinkte, unabhängige Sockets (eigener tmux-Name)', async () => {
-    apiState.projects = [makeProject('p1', 'Projekt Eins')];
-    // Zwei Sessions desselben Projekts: erste (tmux 'main', id === projectId),
-    // zweite (tmux 'main-2', id 'p1#2') — müssen DISTINKTE WS-URLs ergeben.
-    useWorkspaceStore.setState({
-      terminalSessions: [
-        { id: 'p1', projectId: 'p1', title: 'Projekt Eins', terminalName: 'main' },
-        { id: 'p1#2', projectId: 'p1', title: 'Projekt Eins', terminalName: 'main-2' },
-      ],
-      activeTerminalSessionId: 'p1',
-      rightPanelVisible: true,
-      rightPanelMode: 'terminal',
-    });
-
-    render(<SandboxApp visible />);
-
-    // Genau zwei Sockets, mit DISTINKTEN URLs (nur die zweite trägt terminal=main-2)
     await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(2));
     const urls = CountingWebSocket.instances.map(ws => ws.url);
     expect(new Set(urls).size).toBe(2);
-    // Beide Sessions zielen auf dasselbe Projekt, aber distinkte tmux-Namen
-    expect(urls.every(u => u.includes('projectId=p1'))).toBe(true);
+    expect(urls.every(u => u.includes('projectId=c1'))).toBe(true);
     expect(urls.some(u => u.includes('terminal=main-2'))).toBe(true);
-    expect(urls.some(u => u.includes('terminal=main&') || /terminal=main$/.test(u))).toBe(true);
-    // Zwei getrennte xterm-Instanzen (keine geteilte)
     expect(xtermInstances).toHaveLength(2);
 
-    // Beide Sessions bleiben in der Registry, dasselbe Projekt
-    const state = useWorkspaceStore.getState();
-    expect(state.terminalSessions.map(s => s.id)).toEqual(['p1', 'p1#2']);
-    expect(state.terminalSessions.every(s => s.projectId === 'p1')).toBe(true);
+    // Panel-Toggle (Keep-alive) + Sitzungswechsel erzeugen keine neuen Sockets
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <SandboxApp visible={false} />
+      </QueryClientProvider>
+    );
+    act(() => useWorkspaceStore.getState().activateTerminalSession('c1#2'));
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+    expect(CountingWebSocket.instances).toHaveLength(2);
+    expect(useWorkspaceStore.getState().terminalSessions.map(s => s.id)).toEqual(['c1', 'c1#2']);
   });
 
-  it('startet gestoppte Container beim Session-Restore und lädt die Projekte nach', async () => {
-    // Restore nach Reboot: Registry-Session existiert, Container ist gestoppt.
-    // Der Bootstrap muss POST /start feuern UND danach loadProjects() nachziehen,
-    // sonst bliebe das Terminal dauerhaft im Spinner (Keep-alive: kein Remount).
-    const stopped: SandboxProject = {
-      ...makeProject('p1', 'Projekt Eins'),
-      container_status: 'stopped',
-    };
-    apiState.projects = [stopped];
-    useWorkspaceStore.setState({
-      terminalSessions: [{ id: 'p1', projectId: 'p1', title: 'Projekt Eins' }],
-      activeTerminalSessionId: 'p1',
-      rightPanelVisible: true,
-      rightPanelMode: 'terminal',
-    });
-    // Nach dem Start-POST liefert die API den Container als 'running'
-    apiMock.post.mockImplementationOnce(async () => {
-      apiState.projects = [{ ...stopped, container_status: 'running' }];
-      return {};
-    });
+  it('legt automatisch eine Sitzung an und startet einen gestoppten Container', async () => {
+    containerState.running = false;
+    containerState.status = 'stopped';
 
-    render(<SandboxApp visible />);
+    renderWithClient(<SandboxApp visible />);
 
+    // Eine Sitzung wird automatisch für den gekoppelten Container angelegt …
+    await waitFor(() => {
+      const sess = useWorkspaceStore.getState().terminalSessions;
+      expect(sess.some(s => s.projectId === 'c1')).toBe(true);
+    });
+    // … und der gestoppte Container gestartet.
     await waitFor(() =>
       expect(apiMock.post).toHaveBeenCalledWith(
-        '/sandbox/projects/p1/start',
+        '/sandbox/projects/c1/start',
         {},
         { showError: false }
       )
     );
-
-    // loadProjects() nach dem Start → container_status 'running' kommt an
-    // → Terminal verbindet (genau 1 Socket), statt endlos zu warten
-    await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(1));
   });
 
-  it("migriert den Legacy-Key 'sandbox-open-tabs' einmalig in die Store-Registry", async () => {
-    apiState.projects = [makeProject('p1', 'Projekt Eins')];
-    localStorage.setItem('sandbox-open-tabs', JSON.stringify({ tabs: ['p1'], activeId: 'p1' }));
-
-    render(<SandboxApp visible />);
-
-    await waitFor(() => {
-      const state = useWorkspaceStore.getState();
-      expect(state.terminalSessions).toEqual([
-        { id: 'p1', projectId: 'p1', title: 'Projekt Eins' },
-      ]);
-      expect(state.activeTerminalSessionId).toBe('p1');
-    });
-
-    // Registry ist jetzt die Quelle der Wahrheit — Legacy-Key entfernt,
-    // Terminal-Panel eingeblendet, genau 1 Socket
-    expect(localStorage.getItem('sandbox-open-tabs')).toBeNull();
-    expect(useWorkspaceStore.getState().rightPanelVisible).toBe(true);
-    expect(useWorkspaceStore.getState().rightPanelMode).toBe('terminal');
-    await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(1));
-  });
-
-  it('fittet xterm beim Wieder-Einblenden neu (fit auf verstecktem Container schlägt fehl)', async () => {
-    apiState.projects = [makeProject('p1', 'Projekt Eins')];
+  it('verbindet genau einen Socket, sobald der Container läuft', async () => {
     useWorkspaceStore.setState({
-      terminalSessions: [{ id: 'p1', projectId: 'p1', title: 'Projekt Eins' }],
-      activeTerminalSessionId: 'p1',
+      terminalSessions: [{ id: 'c1', projectId: 'c1', title: 'Sitzung 1', terminalName: 'main' }],
+      activeTerminalSessionId: 'c1',
       rightPanelVisible: true,
       rightPanelMode: 'terminal',
     });
 
-    const { rerender } = render(<SandboxApp visible />);
+    renderWithClient(<SandboxApp visible />);
+    await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(1));
+    expect(CountingWebSocket.instances[0]?.url).toContain('projectId=c1');
+  });
+
+  it('fittet xterm beim Wieder-Einblenden neu (fit auf verstecktem Container schlägt fehl)', async () => {
+    useWorkspaceStore.setState({
+      terminalSessions: [{ id: 'c1', projectId: 'c1', title: 'Sitzung 1', terminalName: 'main' }],
+      activeTerminalSessionId: 'c1',
+      rightPanelVisible: true,
+      rightPanelMode: 'terminal',
+    });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(
+      <QueryClientProvider client={client}>
+        <SandboxApp visible />
+      </QueryClientProvider>
+    );
     await waitFor(() => expect(CountingWebSocket.instances).toHaveLength(1));
     await waitFor(() => expect(totalFitCalls()).toBeGreaterThan(0));
 
     const callsBefore = totalFitCalls();
+    rerender(
+      <QueryClientProvider client={client}>
+        <SandboxApp visible={false} />
+      </QueryClientProvider>
+    );
+    rerender(
+      <QueryClientProvider client={client}>
+        <SandboxApp visible />
+      </QueryClientProvider>
+    );
 
-    rerender(<SandboxApp visible={false} />);
-    rerender(<SandboxApp visible />);
-
-    // Double-rAF nach dem Einblenden → mindestens ein weiterer fit()
     await waitFor(() => expect(totalFitCalls()).toBeGreaterThan(callsBefore));
-
-    // Refit erzeugt weder neue Sockets noch neue Terminals
     expect(CountingWebSocket.instances).toHaveLength(1);
     expect(xtermInstances).toHaveLength(1);
   });
