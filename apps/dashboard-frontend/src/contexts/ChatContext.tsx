@@ -48,6 +48,9 @@ export interface AgentToolStep {
   status: 'running' | 'done' | 'error';
   /** Eltern-Schritt (Subagent) — daraus baut die Anzeige den Schritt-Baum. */
   parentStepId?: number | null;
+  /** Index der Aufgabe (Todo), zu der dieser Schritt gehört — nur für
+   *  Schritte der obersten Ebene (Plan 019: Schritte gruppiert unter Aufgabe). */
+  taskIndex?: number | null;
 }
 
 /**
@@ -70,6 +73,7 @@ interface AgentSchrittRoh {
   output?: string;
   status?: string;
   parent_step_id?: number | null;
+  task_index?: number | null;
 }
 
 /** Backend-Schritt → UI-Schritt (AgentToolStep). */
@@ -84,6 +88,7 @@ function mapAgentSchritt(s: AgentSchrittRoh): AgentToolStep {
     result: s.output,
     status: s.status === 'laeuft' ? 'running' : s.status === 'fehler' ? 'error' : 'done',
     parentStepId: s.parent_step_id ?? null,
+    taskIndex: s.task_index ?? null,
   };
 }
 

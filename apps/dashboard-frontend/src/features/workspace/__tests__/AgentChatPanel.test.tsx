@@ -277,7 +277,7 @@ describe('CompactMessage', () => {
     expect(screen.getByText('Inhalt')).toBeInTheDocument();
   });
 
-  it('rendert die live gestreamte Aufgabenliste als Checkliste (Text + Farbe, keine Status-Icons)', () => {
+  it('rendert die Aufgaben als gruppierte Zeilen (Zählerkopf + Status als Text + Farbe)', () => {
     render(
       <CompactMessage
         isStreaming
@@ -292,12 +292,54 @@ describe('CompactMessage', () => {
         }}
       />
     );
+    // Kurz-Zählerkopf im Verlauf (die feste Leiste unten lebt im Panel).
     expect(screen.getByTestId('todo-liste')).toBeInTheDocument();
     expect(screen.getByText('Aufgaben · 1/3 erledigt')).toBeInTheDocument();
-    // Status als Text-Stil + Farbe: fertig durchgestrichen, läuft im Akzent, offen gedämpft.
+    // Jede Aufgabe ist eine Gruppen-Zeile; Status als Text-Stil + Farbe:
+    // fertig durchgestrichen, läuft im Akzent, offen gedämpft.
+    expect(screen.getAllByTestId('task-group')).toHaveLength(3);
     expect(screen.getByText('Quellen lesen').className).toMatch(/line-through/);
     expect(screen.getByText('Entwurf schreiben').className).toMatch(/text-primary/);
     expect(screen.getByText('Prüfen').className).toMatch(/text-muted-foreground/);
+  });
+
+  it('gruppiert Schritte unter ihrer Aufgabe (task_index) und faltet fertige Aufgaben ein', () => {
+    render(
+      <CompactMessage
+        isStreaming
+        message={{
+          role: 'assistant',
+          content: '',
+          todos: [
+            { text: 'Quellen lesen', status: 'fertig' },
+            { text: 'Entwurf schreiben', status: 'laeuft' },
+          ],
+          steps: [
+            {
+              id: 1,
+              tool: 'dateien_lesen',
+              params: { aktion: 'read', pfad: 'quelle.md' },
+              status: 'done',
+              taskIndex: 0,
+            },
+            {
+              id: 2,
+              tool: 'dateien_schreiben',
+              params: { pfad: 'entwurf.md' },
+              status: 'running',
+              taskIndex: 1,
+            },
+          ],
+        }}
+      />
+    );
+    // Aufgabe 0 ist fertig → eingeklappt: ihr Schritt „liest quelle.md" ist
+    // zunächst versteckt, bis man die Aufgabe aufklappt.
+    expect(screen.queryByText('liest quelle.md')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Quellen lesen'));
+    expect(screen.getByText('liest quelle.md')).toBeInTheDocument();
+    // Aufgabe 1 läuft → aufgeklappt: der laufende Schritt ist direkt sichtbar.
+    expect(screen.getByText('schreibt entwurf.md …')).toBeInTheDocument();
   });
 
   it('parst den persistierten todos-Schritt und zeigt ihn NICHT doppelt als Schritt-Zeile', () => {
@@ -321,10 +363,70 @@ describe('CompactMessage', () => {
     );
     expect(screen.getByText('Aufgaben · 1/3 erledigt')).toBeInTheDocument();
     expect(screen.getByText('Entwurf schreiben')).toBeInTheDocument();
-    // Der todos-Schritt zählt nicht als normale Schritt-Zeile: nur 1 Schritt bleibt.
+    // Schritte ohne task_index (Alt-Nachrichten / Vorbereitung) falten wie der
+    // flache Pfad zu „N Schritte"; der todos-Schritt ist KEINE Schritt-Zeile.
     fireEvent.click(screen.getByTestId('agent-steps-toggle'));
-    expect(screen.getByText('1 Schritt')).toBeInTheDocument();
+    expect(screen.getByText('schreibt plan.md')).toBeInTheDocument();
     expect(screen.queryByText('aktualisiert die Aufgabenliste')).not.toBeInTheDocument();
+  });
+
+  it('ordnet Schritte mit ungültigem task_index der Vorbereitung zu (nie verschluckt)', () => {
+    render(
+      <CompactMessage
+        isStreaming
+        message={{
+          role: 'assistant',
+          content: '',
+          todos: [{ text: 'Nur eine Aufgabe', status: 'laeuft' }],
+          steps: [
+            // Index 7 zeigt nach dem Umschreiben der Liste ins Leere → Vorbereitung.
+            {
+              id: 1,
+              tool: 'web_suche',
+              params: { frage: 'Fakten' },
+              status: 'done',
+              taskIndex: 7,
+            },
+          ],
+        }}
+      />
+    );
+    // Läuft (isStreaming) → Vorbereitung flach sichtbar, Schritt geht nicht verloren.
+    expect(screen.getByText('sucht im Web: Fakten')).toBeInTheDocument();
+  });
+
+  it('verschachtelt Subagent-Kinder unter ihrem Schritt innerhalb der Aufgabe', () => {
+    render(
+      <CompactMessage
+        isStreaming
+        message={{
+          role: 'assistant',
+          content: '',
+          todos: [{ text: 'Recherche', status: 'laeuft' }],
+          steps: [
+            {
+              id: 1,
+              kind: 'subagent',
+              tool: 'rechercheur',
+              params: { auftrag: 'Quellen finden' },
+              status: 'running',
+              taskIndex: 0,
+            },
+            {
+              id: 2,
+              tool: 'web_suche',
+              params: { frage: 'Marktzahlen' },
+              status: 'done',
+              parentStepId: 1,
+            },
+          ],
+        }}
+      />
+    );
+    // Der Subagent hängt unter der Aufgabe, sein Werkzeug-Schritt eingerückt darunter.
+    expect(screen.getByText(/Helfer „rechercheur"/)).toBeInTheDocument();
+    expect(screen.getByTestId('agent-substeps')).toBeInTheDocument();
+    expect(screen.getByText('sucht im Web: Marktzahlen')).toBeInTheDocument();
   });
 
   it('beschriftet die neuen Werkzeuge dateien_bearbeiten und dateien_anhaengen', () => {

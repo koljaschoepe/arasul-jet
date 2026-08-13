@@ -20,7 +20,7 @@ import { useActiveProject } from '../../useProjects';
 import { useFlows } from '@/hooks/useFlows';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Mascot } from '@/components/mascot/Mascot';
-import CompactMessage from './CompactMessage';
+import CompactMessage, { TodoLeiste } from './CompactMessage';
 import ComposerCard from './ComposerCard';
 import ConversationList from '../ConversationList';
 import RunCard from '@/features/flows/RunCard';
@@ -818,6 +818,23 @@ export default function AgentChatPanel() {
           </button>
         </div>
       )}
+
+      {/* Feste Aufgaben-Leiste (Plan 019, Cursor-Stil): über dem Eingabefeld,
+          hakt live ab. Nur bei mehrschrittigen Aufgaben des laufenden Laufs. */}
+      {isLoading &&
+        (() => {
+          const laufendeTodos = messages[lastIndex]?.todos ?? [];
+          return laufendeTodos.length > 1 ? (
+            <div className="mx-2.5 mb-1">
+              <TodoLeiste
+                todos={laufendeTodos}
+                collapsible
+                testid="todo-leiste-unten"
+                className="bg-card"
+              />
+            </div>
+          ) : null;
+        })()}
 
       {/* Composer */}
       <div className="shrink-0 p-2 pt-1">

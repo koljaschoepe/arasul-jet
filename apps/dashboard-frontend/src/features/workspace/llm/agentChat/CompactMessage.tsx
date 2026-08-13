@@ -31,11 +31,14 @@ function StepRow({
   icon,
   label,
   detail,
+  running,
   children,
 }: {
   icon: React.ReactNode;
   label: string;
   detail?: string;
+  /** Läuft dieser Schritt gerade? → pulsierender Punkt + Akzentfarbe (Plan 019). */
+  running?: boolean;
   children?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -46,12 +49,15 @@ function StepRow({
         onClick={() => children && setOpen(o => !o)}
         className={cn(
           'flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs text-muted-foreground',
+          running && 'text-primary',
           children && 'hover:bg-accent hover:text-foreground'
         )}
         aria-expanded={children ? open : undefined}
       >
-        <span className="shrink-0 opacity-70">{icon}</span>
-        <span className="truncate">{label}</span>
+        <span className={cn('shrink-0 opacity-70', running && 'animate-pulse opacity-100')}>
+          {icon}
+        </span>
+        <span className={cn('truncate', running && 'animate-pulse')}>{label}</span>
         {detail && <span className="truncate opacity-60">· {detail}</span>}
         {children && (
           <ChevronRight
@@ -151,36 +157,292 @@ function parseTodoSchritt(output: string | undefined): TodoEintrag[] {
 }
 
 /**
- * Aufgabenlisten-Panel eines Agentenlaufs: eine Zeile je Aufgabe, Status als
- * Text-Stil + Farbe (fertig = durchgestrichen/gedämpft-grün, läuft = Akzent,
- * offen = gedämpft) — bewusst ohne Status-Icons/-Punkte (Design-System).
+ * Feste Aufgaben-Leiste (Plan 019, Cursor-Stil): eine Zeile je Aufgabe, Status
+ * als Text-Stil + Farbe (fertig = durchgestrichen/gedämpft-grün, läuft =
+ * Akzent + Puls, offen = gedämpft) — bewusst ohne Status-Icons/-Punkte
+ * (Design-System). Wird sowohl inline (Verlauf) als auch in der unten fest
+ * verankerten Leiste des Panels (`AgentChatPanel`) benutzt.
  */
-function TodoListe({ todos }: { todos: TodoEintrag[] }) {
+export function TodoLeiste({
+  todos,
+  className,
+  testid = 'todo-liste',
+  collapsible = false,
+}: {
+  todos: TodoEintrag[];
+  className?: string;
+  testid?: string;
+  /** Kopfzeile wird zum Auf/Zu-Schalter (feste Leiste unten im Panel). */
+  collapsible?: boolean;
+}) {
+  const [offen, setOffen] = useState(true);
   if (todos.length === 0) return null;
   const fertig = todos.filter(t => t.status === 'fertig').length;
+  const kopf = (
+    <span className="flex items-center gap-1.5">
+      {collapsible ? (
+        <ChevronRight
+          className={cn('size-3 shrink-0 transition-transform', offen && 'rotate-90')}
+        />
+      ) : (
+        <ListTodo className="size-3 shrink-0 opacity-70" />
+      )}
+      <span>
+        Aufgaben · {fertig}/{todos.length} erledigt
+      </span>
+    </span>
+  );
   return (
-    <div className="my-1 rounded border border-border px-2 py-1.5" data-testid="todo-liste">
-      <div className="mb-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+    <div className={cn('rounded border border-border px-2 py-1.5', className)} data-testid={testid}>
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setOffen(o => !o)}
+          className="mb-0.5 flex w-full items-center text-xs text-muted-foreground hover:text-foreground"
+          aria-expanded={offen}
+        >
+          {kopf}
+        </button>
+      ) : (
+        <div className="mb-0.5 flex items-center text-xs text-muted-foreground">{kopf}</div>
+      )}
+      {offen && (
+        <ul className="flex flex-col gap-0.5">
+          {todos.map((t, i) => (
+            <li
+              key={`${t.text}-${i}`}
+              className={cn(
+                'text-xs leading-snug [overflow-wrap:anywhere]',
+                t.status === 'fertig' && 'text-success/70 line-through',
+                t.status === 'laeuft' && 'animate-pulse text-primary',
+                t.status === 'offen' && 'text-muted-foreground'
+              )}
+            >
+              {t.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Eltern→Kinder-Karte aus den Schritten (Subagenten hängen unter ihrem Schritt). */
+function buildKinderVon(steps: AgentToolStep[]): Map<number, AgentToolStep[]> {
+  const kinderVon = new Map<number, AgentToolStep[]>();
+  for (const step of steps) {
+    if (step.parentStepId != null) {
+      const liste = kinderVon.get(step.parentStepId) ?? [];
+      liste.push(step);
+      kinderVon.set(step.parentStepId, liste);
+    }
+  }
+  return kinderVon;
+}
+
+/** Rekursive Schritt-Zeilen (mit eingerückten Subagent-Kindern). */
+function renderStepTree(
+  stufe: AgentToolStep[],
+  kinderVon: Map<number, AgentToolStep[]>
+): React.ReactNode {
+  return stufe.map((step, i) => {
+    const kinder = step.id != null ? (kinderVon.get(step.id) ?? []) : [];
+    const auftrag =
+      step.kind === 'subagent' && typeof step.params?.auftrag === 'string'
+        ? step.params.auftrag
+        : undefined;
+    return (
+      <div key={step.id ?? i}>
+        <StepRow
+          icon={agentStepIcon(step)}
+          label={step.status === 'running' ? `${agentStepLabel(step)} …` : agentStepLabel(step)}
+          detail={auftrag}
+          running={step.status === 'running'}
+        >
+          {step.result || undefined}
+        </StepRow>
+        {kinder.length > 0 && (
+          <div className="ml-3.5 border-l border-border/60 pl-1.5" data-testid="agent-substeps">
+            {renderStepTree(kinder, kinderVon)}
+          </div>
+        )}
+      </div>
+    );
+  });
+}
+
+/**
+ * Flacher Schritt-Baum — für einfache (einschrittige) Aufgaben ohne
+ * Aufgabenliste: während der Arbeit live sichtbar, danach zu EINER
+ * einklappbaren „N Schritte"-Zeile gefaltet.
+ */
+function AgentSteps({
+  steps,
+  kinderVon,
+  laufend,
+}: {
+  steps: AgentToolStep[];
+  kinderVon: Map<number, AgentToolStep[]>;
+  laufend: boolean;
+}) {
+  const [offen, setOffen] = useState(false);
+  const wurzeln = steps.filter(s => s.parentStepId == null);
+  const liste = <div data-testid="agent-steps">{renderStepTree(wurzeln, kinderVon)}</div>;
+
+  if (laufend) {
+    return <div className="mb-1">{liste}</div>;
+  }
+  return (
+    <div className="mb-1">
+      <button
+        type="button"
+        onClick={() => setOffen(o => !o)}
+        className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+        aria-expanded={offen}
+        data-testid="agent-steps-toggle"
+      >
+        <ChevronRight className={cn('size-3 transition-transform', offen && 'rotate-90')} />
+        {wurzeln.length} {wurzeln.length === 1 ? 'Schritt' : 'Schritte'}
+      </button>
+      {offen && <div className="mt-0.5 pl-4">{liste}</div>}
+    </div>
+  );
+}
+
+/**
+ * Eine Aufgabe (Todo) mit den darunter gruppierten Schritten (Plan 019).
+ * Läuft die Aufgabe, ist sie offen und pulsiert; ist sie fertig, klappt sie
+ * automatisch zu einer Ergebniszeile ein (jederzeit wieder aufklappbar).
+ */
+function TaskGroup({
+  todo,
+  wurzeln,
+  kinderVon,
+}: {
+  todo: TodoEintrag;
+  wurzeln: AgentToolStep[];
+  kinderVon: Map<number, AgentToolStep[]>;
+}) {
+  const fertig = todo.status === 'fertig';
+  const aktiv = todo.status === 'laeuft';
+  // Auto: fertige Aufgaben eingeklappt, laufende/offene aufgeklappt. Ein Klick
+  // überschreibt das dauerhaft (override).
+  const [override, setOverride] = useState<boolean | null>(null);
+  const offen = override ?? !fertig;
+  const hatSchritte = wurzeln.length > 0;
+
+  return (
+    <div data-testid="task-group">
+      <button
+        type="button"
+        onClick={() => hatSchritte && setOverride(() => !offen)}
+        className={cn(
+          'flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs',
+          hatSchritte && 'hover:bg-accent'
+        )}
+        aria-expanded={hatSchritte ? offen : undefined}
+      >
+        {hatSchritte ? (
+          <ChevronRight
+            className={cn('size-3 shrink-0 transition-transform', offen && 'rotate-90')}
+          />
+        ) : (
+          <span className="size-3 shrink-0" />
+        )}
+        <span
+          className={cn(
+            'min-w-0 flex-1 truncate leading-snug',
+            fertig && 'text-success/70 line-through',
+            aktiv && 'animate-pulse text-primary',
+            todo.status === 'offen' && 'text-muted-foreground'
+          )}
+        >
+          {todo.text}
+        </span>
+        {hatSchritte && !offen && (
+          <span className="shrink-0 opacity-60">
+            {wurzeln.length} {wurzeln.length === 1 ? 'Schritt' : 'Schritte'}
+          </span>
+        )}
+      </button>
+      {offen && hatSchritte && (
+        <div className="ml-3.5 border-l border-border/60 pl-1.5">
+          {renderStepTree(wurzeln, kinderVon)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Agent-Aktivität einer Nachricht: bei mehrschrittigen Aufgaben (Todos
+ * vorhanden) sind die Schritte GRUPPIERT unter ihrer Aufgabe; sonst ein
+ * schlichter flacher Baum. So folgt man Cursor-artig dem Ablauf statt einem
+ * flachen „listet/liest/sucht"-Strom (Plan 019).
+ */
+function AgentActivity({
+  steps,
+  todos,
+  laufend,
+}: {
+  steps: AgentToolStep[];
+  todos: TodoEintrag[];
+  laufend: boolean;
+}) {
+  // Die Todo-Zeilen selbst sind kein Schritt in der Gruppierung.
+  const echte = steps.filter(s => s.kind !== 'todos');
+  const kinderVon = buildKinderVon(echte);
+
+  if (todos.length === 0) {
+    return <AgentSteps steps={echte} kinderVon={kinderVon} laufend={laufend} />;
+  }
+
+  // Schritte der obersten Ebene in EINEM Durchgang nach Aufgabe gruppieren.
+  // Schritte ohne gültigen task_index (z. B. der Plan-Schritt, Schritte vor der
+  // ersten Aufgabe, oder ein veralteter Index nach Umschreiben der Liste) landen
+  // in der „Vorbereitung" — sie werden NIE stillschweigend verschluckt.
+  const wurzeln = echte.filter(s => s.parentStepId == null);
+  const proTask = new Map<number, AgentToolStep[]>();
+  const vorbereitung: AgentToolStep[] = [];
+  for (const s of wurzeln) {
+    const idx = s.taskIndex;
+    if (typeof idx === 'number' && idx >= 0 && idx < todos.length) {
+      const liste = proTask.get(idx) ?? [];
+      liste.push(s);
+      proTask.set(idx, liste);
+    } else {
+      vorbereitung.push(s);
+    }
+  }
+
+  const fertig = todos.filter(t => t.status === 'fertig').length;
+
+  return (
+    <div className="my-1 flex flex-col gap-0.5" data-testid="agent-activity">
+      {/* Kurz-Zusammenfassung für den Verlauf (im laufenden Lauf lebt die
+          Checkliste zusätzlich fest unten im Panel). */}
+      <div
+        className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground"
+        data-testid="todo-liste"
+      >
         <ListTodo className="size-3 shrink-0 opacity-70" />
         <span>
           Aufgaben · {fertig}/{todos.length} erledigt
         </span>
       </div>
-      <ul className="flex flex-col gap-0.5">
-        {todos.map((t, i) => (
-          <li
-            key={`${t.text}-${i}`}
-            className={cn(
-              'text-xs leading-snug [overflow-wrap:anywhere]',
-              t.status === 'fertig' && 'text-success/70 line-through',
-              t.status === 'laeuft' && 'text-primary',
-              t.status === 'offen' && 'text-muted-foreground'
-            )}
-          >
-            {t.text}
-          </li>
-        ))}
-      </ul>
+      {/* Vorbereitungs-/nicht zugeordnete Schritte falten (wie der flache Pfad)
+          zu „N Schritte", damit sie den Verlauf nicht dauerhaft zumüllen. */}
+      {vorbereitung.length > 0 && (
+        <AgentSteps steps={vorbereitung} kinderVon={kinderVon} laufend={laufend} />
+      )}
+      {todos.map((todo, i) => (
+        <TaskGroup
+          key={`${todo.text}-${i}`}
+          todo={todo}
+          wurzeln={proTask.get(i) ?? []}
+          kinderVon={kinderVon}
+        />
+      ))}
     </div>
   );
 }
@@ -268,77 +530,6 @@ function agentStepIcon(step: AgentToolStep): React.ReactNode {
     default:
       return <Wrench className="size-3" />;
   }
-}
-
-/**
- * Werkzeug-Schritte eines Agentenlaufs: während der Arbeit einzeln sichtbar
- * (Live-Statuszeilen), nach Abschluss zu EINER einklappbaren Zeile gefaltet.
- *
- * Seit dem Agent-UX-Umbau (2026-08-02) als BAUM: die inneren Werkzeug-Schritte
- * eines Helfers (Subagent) hängen eingerückt unter seiner Zeile — dieselbe
- * Darstellung, die Flow-Läufe längst haben, statt einer flachen Liste, in der
- * nicht erkennbar war, wer was tat.
- */
-function AgentSteps({ steps, laufend }: { steps: AgentToolStep[]; laufend: boolean }) {
-  const [offen, setOffen] = useState(false);
-
-  const kinderVon = new Map<number, AgentToolStep[]>();
-  const wurzeln: AgentToolStep[] = [];
-  for (const step of steps) {
-    if (step.parentStepId != null) {
-      const liste = kinderVon.get(step.parentStepId) ?? [];
-      liste.push(step);
-      kinderVon.set(step.parentStepId, liste);
-    } else {
-      wurzeln.push(step);
-    }
-  }
-
-  const renderStufe = (stufe: AgentToolStep[]): React.ReactNode =>
-    stufe.map((step, i) => {
-      const kinder = step.id != null ? (kinderVon.get(step.id) ?? []) : [];
-      const auftrag =
-        step.kind === 'subagent' && typeof step.params?.auftrag === 'string'
-          ? step.params.auftrag
-          : undefined;
-      return (
-        <div key={step.id ?? i}>
-          <StepRow
-            icon={agentStepIcon(step)}
-            label={step.status === 'running' ? `${agentStepLabel(step)} …` : agentStepLabel(step)}
-            detail={auftrag}
-          >
-            {step.result || undefined}
-          </StepRow>
-          {kinder.length > 0 && (
-            <div className="ml-3.5 border-l border-border/60 pl-1.5" data-testid="agent-substeps">
-              {renderStufe(kinder)}
-            </div>
-          )}
-        </div>
-      );
-    });
-
-  const liste = <div data-testid="agent-steps">{renderStufe(wurzeln)}</div>;
-
-  if (laufend) {
-    return <div className="mb-1">{liste}</div>;
-  }
-  return (
-    <div className="mb-1">
-      <button
-        type="button"
-        onClick={() => setOffen(o => !o)}
-        className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-        aria-expanded={offen}
-        data-testid="agent-steps-toggle"
-      >
-        <ChevronRight className={cn('size-3 transition-transform', offen && 'rotate-90')} />
-        {steps.length} {steps.length === 1 ? 'Schritt' : 'Schritte'}
-      </button>
-      {offen && <div className="mt-0.5 pl-4">{liste}</div>}
-    </div>
-  );
 }
 
 /**
@@ -481,13 +672,13 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
       : todoSchritt
         ? parseTodoSchritt(todoSchritt.result)
         : [];
-  const steps = todos.length > 0 ? alleSteps.filter(s => s.kind !== 'todos') : alleSteps;
   const gespeicherteDateien = dateiListe(message.datei).filter(d => d.art === 'projektdatei');
 
   return (
     <div className="group/nachricht my-2" data-testid="assistant-message">
-      {todos.length > 0 && <TodoListe todos={todos} />}
-      {steps.length > 0 && <AgentSteps steps={steps} laufend={isStreaming} />}
+      {(alleSteps.length > 0 || todos.length > 0) && (
+        <AgentActivity steps={alleSteps} todos={todos} laufend={isStreaming} />
+      )}
       {hasThinking && (
         <StepRow
           icon={<Sparkles className="size-3" />}
