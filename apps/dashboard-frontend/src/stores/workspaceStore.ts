@@ -28,7 +28,11 @@ export type WorkspaceTabType =
   | 'automationen'
   | 'flow'
   | 'extension'
-  | 'kundenuebersicht';
+  | 'kundenuebersicht'
+  // Plan 018: Projekt-Startseite (Kachelliste aller Projekte) + Projekt-
+  // Übersichtsseite (folgt dem aktiven Projekt: Info + Werkstatt + Schnellzugriff).
+  | 'projekte'
+  | 'projektuebersicht';
 
 export interface WorkspaceTabSpec {
   type: WorkspaceTabType;
@@ -62,6 +66,8 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   flow: 'Neuer Flow',
   extension: 'Erweiterung',
   kundenuebersicht: 'Kundenübersicht',
+  projekte: 'Projekte',
+  projektuebersicht: 'Projekt-Übersicht',
 };
 
 export function tabId(spec: WorkspaceTabSpec): string {
@@ -100,6 +106,10 @@ export function tabToPath(tab: WorkspaceTab): string {
       return `/workspace/ext/${tab.extensionId ?? ''}`;
     case 'kundenuebersicht':
       return '/workspace/kunden';
+    case 'projekte':
+      return '/workspace/projekte';
+    case 'projektuebersicht':
+      return '/workspace/projekt';
   }
 }
 
@@ -133,6 +143,10 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
       return { type: 'flow' };
     case 'kunden':
       return { type: 'kundenuebersicht' };
+    case 'projekte':
+      return { type: 'projekte' };
+    case 'projekt':
+      return { type: 'projektuebersicht' };
     case 'ext':
       return parts[1] ? { type: 'extension', extensionId: parts[1] } : null;
     default:

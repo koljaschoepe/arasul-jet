@@ -11,14 +11,14 @@
   "slug": "projekt-vereinheitlichung",
   "title": "Projekt-Vereinheitlichung im Workspace",
   "type": "feature",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
   "reversibility_level": 2,
   "created": "2026-08-13",
   "approved": "2026-08-13",
-  "branch": null,
+  "branch": "018-projekt-vereinheitlichung",
   "pr": null,
   "verified_on_device": false
 }
@@ -316,40 +316,46 @@
   <div class="sbody">
   <p class="ts" style="color:var(--muted)">Hinweis (deine Entscheidung): Rollout „in einem großen Wurf" — die folgenden Schritte sind die innere Gliederung, werden aber gemeinsam als <b>eine PR / ein Deploy</b> ausgeliefert und zusammen verifiziert.</p>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Backend: Container je Projekt nachschlagen/anlegen + Backfill">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Backend: Container je Projekt nachschlagen/anlegen + Backfill">
     <h3>Schritt 1 — Backend: „ensure-for-project" + Backfill <span class="tag">Risiko: Mittel</span></h3>
     <p>Neuer Endpunkt, der zu einer Workspace-Projekt-ID den gekoppelten Sandbox-Container liefert oder ihn <b>atomar anlegt+koppelt</b> (nutzt das bestehende <code>sandboxService.createProject()</code>, das <code>project_id</code> + eigenen Wissensraum in einer Transaktion anlegt), Netz-Default „intern". Migration <b>139</b> fügt einen partiellen Unique-Index auf <code>sandbox_projects(project_id)</code> hinzu (erzwingt 1:1, entschärft Doppelklick-Race). Zusätzlich ein <b>einmaliger Boot-Backfill-Service</b>, der bestehende ungekoppelte Container per Namensgleichheit einem Projekt zuordnet bzw. via <code>projectService.createProject()</code> ein Projekt anlegt (damit Ordner + DB zusammen entstehen — reines SQL kann den Ordner nicht anlegen).</p>
     <p class="files mono">apps/dashboard-backend/src/routes/sandbox.js · services/sandbox/sandboxService.js · schemas/sandbox.js · services/rag/projectService.js · neuer Backfill-Service (Boot) · services/postgres/init/139_sandbox_project_link.sql</p>
+    <div class="result"><strong>Ergebnis:</strong> <code>POST /api/sandbox/projects/ensure</code> (Schema <code>EnsureProjectBody</code>) + <code>sandboxService.ensureProjectContainer</code> (lookup-or-create+link, Netz „intern", 23505-Race-Rücklesung). Migration 139 = partieller Unique-Index (mit Dedup-Vorstufe). Boot-Backfill <code>sandboxBackfill.js</code> (Namensgleichheit → koppeln, sonst Projekt anlegen; idempotent) in <code>bootstrap.js</code> als Step 7. 6 neue Backend-Unit-Tests grün.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Store: Sitzungen pro Projekt + neue Tab-Typen">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 2 — Store: Sitzungen pro Projekt + neue Tab-Typen">
     <h3>Schritt 2 — Store: per-Projekt-Sitzungen + Tab-Typen <span class="tag">Risiko: Mittel</span></h3>
     <p><code>terminalSessions</code>/<code>activeTerminalSessionId</code> werden pro Projekt geführt (Registry je gekoppeltem Container) — inkl. <b>zustand-persist-Migration mit Versionsbump</b>, damit bestehende offene Sitzungen nach dem Deploy weder verloren gehen noch doppelt erscheinen. Neue Workspace-Tab-Typen <code>projekte</code> (Startseite) und <code>projektuebersicht</code> (projektgebunden, ID-parametrisiert) über die vier Touchpoints (Typ-Union · DEFAULT_TITLES · tabId · tabToPath/pathToTabSpec) plus die Verdrahtung in TabContent.</p>
     <p class="files mono">apps/dashboard-frontend/src/stores/workspaceStore.ts · features/workspace/TabContent.tsx</p>
+    <div class="result"><strong>Ergebnis (mit Abweichungen):</strong> Zwei neue Tab-Typen (<code>projekte</code>, <code>projektuebersicht</code>) über alle vier Touchpoints ergänzt. <b>Abweichung 1:</b> Keine zustand-persist-Migration/Versionsbump nötig — die Registry ist bereits über <code>session.projectId</code> (= Container-Id) pro Projekt partitioniert; das Schema bleibt unverändert, bestehende Sitzungen überleben ohne Transform (SandboxApp rendert nur noch die Sitzungen des gekoppelten Containers). <b>Abweichung 2:</b> <code>projektuebersicht</code> ist ein Singleton-Tab, der dem aktiven Projekt folgt (wie <code>kundenuebersicht</code>) statt ID-parametrisiert — einfacher und deckungsgleich mit „ein aktives Projekt steuert alles".</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Terminal folgt dem aktiven Projekt">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 3 — Terminal folgt dem aktiven Projekt">
     <h3>Schritt 3 — Terminal an aktives Projekt koppeln <span class="tag">Risiko: Hoch</span></h3>
     <p>SandboxApp/TerminalTabs: eigenen Projekt-Umschalter und die eigene Projektliste entfernen; den Container aus <code>useActiveProject().activeId</code> über den ensure-Endpunkt auflösen; beim Öffnen ohne Container automatisch anlegen (Netz „intern"); Sitzungen aus der per-Projekt-Registry rendern. Der fragile Bootstrap-/Auto-Restore-Effekt wird auf die neue Quelle umgestellt. <code>useTerminal</code> bleibt unverändert (nimmt die Container-ID weiterhin als opaken Parameter).</p>
     <p class="files mono">apps/dashboard-frontend/src/features/sandbox/SandboxApp.tsx · TerminalTabs.tsx · features/workspace/useProjects.ts (neuer Hook „gekoppelter Container") · ProjectListPanel.tsx (Rolle im Terminal entfällt)</p>
+    <div class="result"><strong>Ergebnis:</strong> SandboxApp komplett neu: leitet den Container per ensure-Query aus <code>useActiveProject().activeId</code> ab, pollt <code>/status</code> bis „läuft", auto-öffnet EINE Sitzung + startet den Container (je Container einmal, nur wenn sichtbar → kein Kapern des Chat-Modus). TerminalTabs zeigt den Projektnamen nur noch als Anzeige (gleiche Schriftgröße wie die Sitzungs-Tabs), ohne Umschalter/„Alle-Projekte". <code>useTerminal</code> unverändert. Die verwaisten <code>ProjectListPanel</code>/<code>CreateProjectDialog</code>/<code>EditProjectDialog</code> (+ Test) entfernt. SandboxApp-Sessions-Test auf das neue Modell umgeschrieben (4 grün).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Projekt-Startseite + Übersichtsseite + Werkstatt umziehen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Projekt-Startseite + Übersichtsseite + Werkstatt umziehen">
     <h3>Schritt 4 — Startseite + Übersicht + Werkstatt-Umzug <span class="tag">Risiko: Mittel</span></h3>
     <p>Neue <b>Projekt-Startseite</b> (Kachelliste aller Projekte, Klick öffnet die Übersicht) und <b>Projekt-Übersichtsseite</b> (Info: Netzmodus/Ablage; Werkstatt-Abschnitt nur wenn Erweiterungen existieren; Schnellzugriff-Buttons Terminal/Dateien/Flows; „← Projekte"-Button + Breadcrumb) — gebaut nach dem Muster von <code>KundenUebersichtTab</code>. Das <code>WerkstattPanel</code> wandert aus <code>SandboxApp</code> hierher (Komponente wiederverwendet).</p>
     <p class="files mono">neu: features/workspace/viewers/ProjekteStartTab.tsx · viewers/ProjektUebersichtTab.tsx · features/sandbox/SandboxApp.tsx (Werkstatt raus) · features/sandbox/WerkstattPanel.tsx (neuer Mount-Ort)</p>
+    <div class="result"><strong>Ergebnis:</strong> <code>ProjekteStartTab</code> (Kachelliste, Klick → Projekt aktiv + Übersicht) und <code>ProjektUebersichtTab</code> (folgt dem aktiven Projekt: Info Netzmodus/Ablage/Status + Schnellzugriff Terminal/Dateien/Flows + „← Projekte") neu unter <code>viewers/</code>. Werkstatt zieht dorthin — <code>WerkstattPanel</code> wird wiederverwendet und nur gezeigt, wenn Inventar existiert (geteilter Query-Key, kein Doppelaufruf); die Werkstatt-Einbindung in <code>SandboxApp</code> ist entfernt. Einstieg über den Projekt-Umschalter („Projekt-Übersicht öffnen"). Verdrahtung in TabContent (lazy) + workspaceStore (Pfade). <b>Hinweis:</b> ein bewusster Cross-Feature-Import (workspace→sandbox <code>WerkstattPanel</code>) — die vom Plan vorgesehene Wiederverwendung; TabContent importiert ohnehin über Feature-Grenzen.</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Flows-Sidebar auf aktives Projekt scopen">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 5 — Flows-Sidebar auf aktives Projekt scopen">
     <h3>Schritt 5 — Flows-Sidebar scopen <span class="tag">Risiko: Niedrig</span></h3>
     <p><code>FlowsPanel</code> zeigt nur noch die Flows des aktiven Projekts plus die globalen (heute: alle Projekte). Reine UI-Filterung — <code>/flows</code> liefert weiterhin alles, die Auswahl passiert clientseitig anhand von <code>useActiveProject</code>.</p>
     <p class="files mono">apps/dashboard-frontend/src/features/workspace/sidebar/FlowsPanel.tsx</p>
+    <div class="result"><strong>Ergebnis:</strong> <code>FlowsPanel</code> filtert clientseitig auf globale Flows + die des aktiven Projekts (<code>useActiveProject</code>); Leerzustand angepasst („keine Flows in diesem Projekt"). Neuer Scope-Test + bestehende Tests grün (5).</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Tests &amp; Doku">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 6 — Tests &amp; Doku">
     <h3>Schritt 6 — Tests &amp; Doku <span class="tag">Risiko: Niedrig</span></h3>
     <p>Betroffene Tests aktualisieren/ergänzen: <code>SandboxApp.sessions</code> (auf aktiv-projekt-getriebene Auflösung umschreiben), <code>workspaceStore</code> (neue Tab-Typen + per-Projekt-Sitzungen + persist-Migration), neue Tests für Übersichtsseite (Werkstatt-Gate) und FlowsPanel-Scope; Backend-Tests für ensure-Endpunkt + Backfill. Doku: WORKSPACE.md, API_REFERENCE.md, DATABASE_SCHEMA.md.</p>
     <p class="files mono">apps/dashboard-frontend/src/**/__tests__/* · apps/dashboard-backend/__tests__/* · docs/features/WORKSPACE.md · docs/api/API_REFERENCE.md · docs/api/DATABASE_SCHEMA.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Neue Backend-Tests (ensure + Backfill, 6), umgeschriebener SandboxApp-Sessions-Test (4), FlowsPanel-Scope-Test. Frontend-Suite 768/768 grün, betroffene Backend-Unit-Tests grün. Doku: WORKSPACE.md („Ein aktives Projekt steuert alles"), API_REFERENCE (ensure-Endpunkt), DATABASE_SCHEMA (Unique-Index 139).</div>
   </div>
   </div>
 </details>

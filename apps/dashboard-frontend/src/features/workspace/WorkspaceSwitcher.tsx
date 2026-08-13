@@ -34,8 +34,10 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Button } from '@/components/ui/shadcn/button';
 import { useRef } from 'react';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { LayoutGrid } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi } from '@/hooks/useApi';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import {
   useProjects,
   useActiveProject,
@@ -68,6 +70,7 @@ export function WorkspaceSwitcher() {
   const api = useApi();
   const { projects, createProject, deleteProject } = useProjects();
   const { activeProject, setActive } = useActiveProject();
+  const openTab = useWorkspaceStore(s => s.openTab);
 
   const [dialogOffen, setDialogOffen] = useState(false);
   const [name, setName] = useState('');
@@ -212,6 +215,11 @@ export function WorkspaceSwitcher() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuLabel>Projekt</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => openTab({ type: 'projekte' })}>
+            <LayoutGrid className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            Projekt-Übersicht öffnen
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           {projects.length === 0 && <DropdownMenuItem disabled>Keine Projekte</DropdownMenuItem>}
           {projects.map(project => (

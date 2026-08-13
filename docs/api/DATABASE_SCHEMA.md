@@ -2176,6 +2176,7 @@ inert.
 - `idx_sandbox_projects_slug` — `CREATE INDEX idx_sandbox_projects_slug ON public.sandbox_projects USING btree (slug)`
 - `idx_sandbox_projects_space_id` — `CREATE INDEX idx_sandbox_projects_space_id ON public.sandbox_projects USING btree (space_id)`
 - `idx_sandbox_projects_project_id` — `CREATE INDEX idx_sandbox_projects_project_id ON public.sandbox_projects USING btree (project_id)`
+- `idx_sandbox_projects_project_id_unique` — `CREATE UNIQUE INDEX idx_sandbox_projects_project_id_unique ON public.sandbox_projects USING btree (project_id) WHERE (project_id IS NOT NULL AND status = 'active')` (Plan 018 / Migration 139: 1:1-Kopplung — höchstens ein aktiver Container je Workspace-Projekt)
 - `idx_sandbox_projects_status` — `CREATE INDEX idx_sandbox_projects_status ON public.sandbox_projects USING btree (status)`
 - `idx_sandbox_projects_user_id` — `CREATE INDEX idx_sandbox_projects_user_id ON public.sandbox_projects USING btree (user_id)`
 - `sandbox_projects_pkey` — `CREATE UNIQUE INDEX sandbox_projects_pkey ON public.sandbox_projects USING btree (id)`
