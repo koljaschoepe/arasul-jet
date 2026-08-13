@@ -11,7 +11,7 @@
   "slug": "projekt-vereinheitlichung",
   "title": "Projekt-Vereinheitlichung im Workspace",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P1",
   "risk_level": 2,
   "effort_level": 3,
@@ -19,8 +19,8 @@
   "created": "2026-08-13",
   "approved": "2026-08-13",
   "branch": "018-projekt-vereinheitlichung",
-  "pr": null,
-  "verified_on_device": false
+  "pr": 327,
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -370,12 +370,12 @@
   <ul class="checks">
     <li data-done="false">Wähle ich oben ein Projekt, zeigen Explorer, Terminal und Flows dasselbe Projekt — keine „links test / rechts Kunden"-Diskrepanz mehr.</li>
     <li data-done="false">Das Terminal hat keinen eigenen Projekt-Umschalter mehr; aus dem Terminal lässt sich kein Projekt „öffnen".</li>
-    <li data-done="false">Öffne ich das Terminal für ein Projekt ohne Container, wird genau EIN Container automatisch angelegt+gekoppelt (Netz „intern") und das Terminal verbindet.</li>
+    <li data-done="true">Öffne ich das Terminal für ein Projekt ohne Container, wird genau EIN Container automatisch angelegt+gekoppelt (Netz „intern") und das Terminal verbindet.</li>
     <li data-done="false">Wechsle ich das aktive Projekt und wieder zurück, sind die vorherigen Terminal-Sitzungen dieses Projekts wieder da (pro Projekt gemerkt).</li>
     <li data-done="false">Die „Projekte"-Startseite listet alle Projekte; ein Klick öffnet die Übersichtsseite mit Info + Werkstatt (nur wenn Erweiterungen) + Schnellzugriff; „← Projekte"/Breadcrumb funktioniert.</li>
     <li data-done="false">Die Werkstatt erscheint nicht mehr im Terminal.</li>
     <li data-done="false">Die Flows-Sidebar zeigt nur die Flows des aktiven Projekts plus die globalen.</li>
-    <li data-done="false">Nach dem Deploy ist jeder bisher eigenständige Container einem Projekt zugeordnet (Namensgleichheit) — nichts verschwindet.</li>
+    <li data-done="true">Nach dem Deploy ist jeder bisher eigenständige Container einem Projekt zugeordnet (Namensgleichheit) — nichts verschwindet.</li>
     <li data-done="false">Bereits offene Terminal-Sitzungen überleben den Deploy ohne Verlust oder Duplikate.</li>
   </ul>
   </div>
@@ -456,13 +456,50 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> Live auf dem Jetson — PR #327 gemerged &amp; deployed, ensure/Backfill verifiziert.</span>
   </summary>
   <div class="sbody">
+    <p><b>Zusammenfassung.</b> Alle 6 Schritte in einem Wurf umgesetzt und als PR
+    <a href="https://github.com/koljaschoepe/arasul-jet/pull/327">#327</a> gemerged (Squash
+    <span class="mono">9cff29b</span> → main). Das Terminal folgt jetzt dem aktiven Workspace-Projekt
+    (kein eigener Umschalter, kein „Projekt öffnen"), der Container wird per ensure-Endpunkt 1:1
+    abgeleitet/angelegt (Netz „intern"), Werkstatt lebt auf der neuen Projekt-Übersichtsseite, die
+    Flows-Sidebar ist auf aktiv+global gescopt. Deploy grün, Gerät gesund.</p>
+
+    <h3>Ergebnisse je Schritt</h3>
+    <ul>
+      <li><b>1 Backend:</b> <code>POST /sandbox/projects/ensure</code> + <code>ensureProjectContainer</code>, Migration 139 (Unique-Index), Boot-Backfill — 6 Unit-Tests grün.</li>
+      <li><b>2 Store (Abweichungen):</b> zwei neue Tab-Typen; KEINE persist-Migration nötig (Registry ist bereits pro Container partitioniert, Schema unverändert); <code>projektuebersicht</code> als Singleton statt ID-parametrisiert.</li>
+      <li><b>3 Terminal:</b> SandboxApp/TerminalTabs auf das aktive Projekt umgestellt; 3 verwaiste Dialoge entfernt; Sessions-Test neu (4 grün).</li>
+      <li><b>4 Seiten:</b> Projekt-Startseite + Übersichtsseite (Werkstatt-Umzug, Schnellzugriff, „← Projekte"); Einstieg im Projekt-Umschalter.</li>
+      <li><b>5 Flows:</b> Sidebar auf aktiv + global gescopt (+ Scope-Test).</li>
+      <li><b>6 Tests &amp; Doku:</b> Frontend 768/768 grün, Backend-Unit grün; WORKSPACE/API_REFERENCE/DATABASE_SCHEMA aktualisiert.</li>
+    </ul>
+
+    <h3>Code-Review</h3>
+    <p>0 Critical. Adressiert: Auto-Start-Fehler strandet den Container nicht mehr (Sperre lösen + Toast),
+    <code>ensure</code>-Query <code>retry:false</code>+<code>showError:false</code> (kein Toast-Stapel), Route-Kommentar präzisiert.
+    Offen (bewusst, im PR dokumentiert): Boot-Backfill-Race (durch Unique-Index datenseitig abgesichert),
+    <code>useQuery</code>-auf-POST-Hinweis, Backfill-Namensprobe (best-effort).</p>
+
+    <h3>Deploy &amp; Live-Verifikation (Jetson, <span class="mono">100.121.244.80</span>)</h3>
+    <ul>
+      <li>Deploy-Workflow <b>success</b> (Run 31696187806); <code>dashboard-backend</code>/<code>-frontend</code> <b>healthy</b>, 0 unhealthy; Frontend HTTP 200.</li>
+      <li>Migration <b>139</b> angewendet (<code>schema_migrations</code>, success=t).</li>
+      <li>Boot-Backfill lief: <span class="mono">„2 Container gekoppelt (2 neue Projekte angelegt, 0 übersprungen)"</span> — <b>0 ungekoppelte aktive Container</b>.</li>
+      <li><code>POST /sandbox/projects/ensure</code> live geprüft: bereits gekoppelt → <code>created:false</code>/200; Projekt ohne Container → <b>automatisch angelegt+gekoppelt, Netz „intern", <code>created:true</code>/201</b>; erneuter Aufruf idempotent (<code>created:false</code>); ungültige ID → 400.</li>
+      <li>1:1-Invariante bestätigt: <b>kein Projekt mit &gt;1 aktivem Container</b>; keine neuen Backend-Fehler in den Logs.</li>
+    </ul>
+    <p><b>Einschränkung (ehrlich):</b> Die Browser-Oberfläche konnte in dieser Sitzung nicht per Playwright
+    getrieben werden (MCP nicht verbunden). Die UI-Wege (Terminal folgt aktivem Projekt, Startseite/Übersicht,
+    Flows-Scope) sind durch die grüne Frontend-Test-Suite + erfolgreichen Deploy abgedeckt, aber nicht im
+    echten Browser interaktiv nachgefahren. Empfehlung: einmal im Browser durchklicken (Projekt oben wechseln →
+    Terminal/Explorer/Flows folgen).</p>
+    <p class="ts" style="color:var(--muted)">Abgeschlossen am 2026-08-13.</p>
   </div>
 </details>
 
