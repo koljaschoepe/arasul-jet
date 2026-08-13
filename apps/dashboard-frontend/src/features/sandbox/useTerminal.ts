@@ -155,6 +155,13 @@ export function useTerminal({
 
   const fit = useCallback(() => {
     if (!fitAddonRef.current || !xtermRef.current) return;
+    // NIE auf einen versteckten/0×0-Container fitten: FitAddon rechnet dann
+    // einen winzigen Raster (z. B. 5 Spalten) aus und schickt das per resize an
+    // tmux — beim Wieder-Einblenden zeichnet tmux in dieses falsche Raster und
+    // hinterlässt Punkt-/Strich-Artefakte (Nutzerkritik). Der isVisible-Refit
+    // (double-rAF) holt den Fit nach, sobald echte Maße vorliegen.
+    const el = terminalRef.current;
+    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
     try {
       fitAddonRef.current.fit();
       const { cols, rows } = xtermRef.current;
@@ -221,8 +228,11 @@ export function useTerminal({
     // reproduziert). Der DOM-Renderer stellt Fullscreen-TUIs korrekt dar.
     term.open(container);
 
-    // Fit after mount
+    // Fit after mount — aber nur, wenn der Container schon echte Maße hat.
+    // Wird das Terminal versteckt gemountet (Panel zu), übernimmt der
+    // isVisible-Refit; ein Fit auf 0×0 würde ein Fehlraster an tmux schicken.
     requestAnimationFrame(() => {
+      if (container.clientWidth === 0 || container.clientHeight === 0) return;
       try {
         fitAddon.fit();
       } catch {
@@ -349,6 +359,8 @@ export function useTerminal({
         resizeDebounceRef.current = setTimeout(() => {
           requestAnimationFrame(() => {
             if (fitAddonRef.current && xtermRef.current) {
+              // 0×0 überspringen (Panel gerade versteckt) — kein Fehlraster an tmux.
+              if (container.clientWidth === 0 || container.clientHeight === 0) return;
               try {
                 fitAddonRef.current.fit();
                 const { cols, rows } = xtermRef.current;
