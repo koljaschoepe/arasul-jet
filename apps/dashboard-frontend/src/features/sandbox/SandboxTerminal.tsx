@@ -205,8 +205,10 @@ export default function SandboxTerminal({
     // Statusleiste, danach füllt das Terminal die ganze Fläche (Nutzerkritik:
     // „maximal nur das Terminal", zu viele Leisten/Rahmen).
     <div className={cn('flex flex-col h-full min-h-0', className)}>
-      {/* Schlanke Statusleiste — einheitliche Schriftgröße (text-ui-xs) */}
-      <div className="flex items-center justify-between gap-2 px-2 py-1 bg-background border-b border-border shrink-0">
+      {/* Schlanke Statusleiste — einheitliche Schriftgröße (text-ui-xs).
+          flex-wrap: bei sehr schmalem Panel rutscht der Reconnect in die nächste
+          Zeile, statt dass „Infrastruktur" & Co. ihn überlappen (Nutzerkritik). */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 py-1 bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           {status.icon}
           <span className="text-ui-xs text-muted-foreground">{status.text}</span>

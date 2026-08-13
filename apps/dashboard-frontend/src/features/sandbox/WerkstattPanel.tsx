@@ -196,10 +196,10 @@ export default function WerkstattPanel({ projekt }: { projekt: SandboxProject })
           {erweiterungen.map(e => (
             <div
               key={`${e.slug}/${e.subfolder}`}
-              className="flex items-center gap-2 rounded px-1.5 py-1.5 hover:bg-muted/40"
+              className="flex flex-wrap items-center gap-2 rounded px-1.5 py-1.5 hover:bg-muted/40"
             >
               <Package className="size-3.5 shrink-0 text-text-secondary" />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 basis-32">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-ui-sm text-foreground">
                     {e.name || e.subfolder}

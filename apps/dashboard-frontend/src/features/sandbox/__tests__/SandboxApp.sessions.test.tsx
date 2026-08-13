@@ -174,10 +174,16 @@ describe('SandboxApp Session-Registry (Stufe 3)', () => {
     apiState.projects = [];
     apiMock.post.mockClear();
     vi.stubGlobal('WebSocket', CountingWebSocket);
+    // jsdom kennt kein Layout → clientWidth/-Height sind immer 0. useTerminal
+    // fittet bewusst NICHT auf einen 0×0-Container (verhindert Fehlraster an
+    // tmux). Damit der Refit-Pfad hier trotzdem greift, echte Maße vortäuschen.
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(800);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('hält genau 1 WebSocket pro Session über Panel-Toggle und Session-Wechsel', async () => {
