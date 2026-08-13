@@ -1,0 +1,553 @@
+<!doctype html>
+<!-- Arasul plan-page v2 — /plan output. Struktur-Vertrag siehe Template-Kommentar. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 018 · Projekt-Vereinheitlichung im Workspace</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "018",
+  "slug": "projekt-vereinheitlichung",
+  "title": "Projekt-Vereinheitlichung im Workspace",
+  "type": "feature",
+  "status": "approved",
+  "priority": "P1",
+  "risk_level": 2,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-08-13",
+  "approved": "2026-08-13",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  code, .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; font-size: .875em; }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+  .topbar { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .topbar-in { max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem; display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+  .eyebrow { font-size: .72rem; letter-spacing: .13em; text-transform: uppercase; color: var(--accent-ink); font-weight: 700; margin: 0; }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px; padding: .25rem .8rem; cursor: pointer; }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chip { display: inline-flex; align-items: center; gap: .45em; font-size: .74rem; font-weight: 700; letter-spacing: .05em; border-radius: 999px; padding: .2rem .7rem; border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted); text-transform: uppercase; }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"] { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  header.plan { padding: 2.4rem 0 0; }
+  h1 { font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12; font-weight: 700; margin: 0 0 .5rem; text-wrap: balance; }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+  .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr)); gap: .6rem; margin: 0 0 .9rem; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: .6rem .8rem; box-shadow: var(--shadow); }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"] i.f { background: var(--ok); border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"] i.f { background: var(--bad); border-color: var(--bad); }
+  .brief { background: var(--surface); border: 1.5px solid var(--accent); border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem; }
+  .brief h2 { margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em; text-transform: uppercase; color: var(--accent-ink); font-weight: 800; }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+  details.sec { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden; }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary { list-style: none; cursor: pointer; padding: .85rem 1.1rem; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem; }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .74rem; color: var(--accent-ink); font-weight: 700; }
+  .sec .stitle { font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-size: 1.12rem; font-weight: 700; }
+  .sec .skurz { grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem; }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev { grid-row: 1; grid-column: 4; color: var(--muted); transition: transform .15s; font-size: .8rem; }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+  figure.arch { margin: 1rem 0; background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; overflow-x: auto; }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+  .step { position: relative; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0; }
+  .step[data-status="done"] { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"] { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag { font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem; }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0; }
+  ul.checks li::before { content: ""; position: absolute; left: .75rem; top: .78rem; width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px; }
+  ul.checks li[data-done="true"]::before { background: var(--ok); border-color: var(--ok); content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center; }
+  footer.colophon { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
+  .cbtn { border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600; padding: .12rem .55rem; cursor: pointer; white-space: nowrap; }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+  .comment { border: 1.5px solid var(--note); background: var(--note-bg); border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem; }
+  .comment .clabel { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--note); font-weight: 800; margin-bottom: .35rem; }
+  .comment .clabel button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .comment .clabel button:hover { color: var(--bad); }
+  .comment textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: .92rem; padding: .5rem .65rem; resize: vertical; min-height: 2.4rem; }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .cbar { position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%); display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw; background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px; padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600; }
+  .cbar.visible { display: flex; }
+  .cbar button { border: 1.5px solid var(--line); background: var(--wash); color: var(--ink); font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px; padding: .28rem .85rem; cursor: pointer; white-space: nowrap; }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 018</p>
+    <span class="chip" id="status-chip" data-status="draft">Draft</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Projekt-Vereinheitlichung im Workspace</h1>
+  <p class="lead">Ein einziges oben gewähltes Projekt steuert künftig Dateien, Flows und Terminal gemeinsam — Schluss mit „links test, rechts Kunden".</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P1</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="warn" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>Hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>Mittel</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">6</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Das oben gewählte Projekt wird zur einzigen Wahrheit: Dateien, Flows (nur dieses Projekt + globale) und Terminal folgen ihm. Der eigene Projekt-Umschalter im Terminal fällt weg. Die Werkstatt (Erweiterungen) zieht auf eine neue Projekt-Übersichtsseite; davor gibt es eine Projekt-Startseite mit „Zurück".</dd>
+      <dt>Warum jetzt</dt><dd>Heute laufen zwei getrennte Projekt-Begriffe nebeneinander — der Explorer zeigt „test", das Terminal „Kunden". Das ergibt keinen Sinn und verwirrt.</dd>
+      <dt>Größtes Risiko</dt><dd>Das Terminal ist die meistgenutzte Fläche. Der Umbau seiner Projekt-Herkunft plus eine Migration der offenen Sitzungen kann den Alltag stören, wenn etwas schiefgeht.</dd>
+      <dt>Du entscheidest</dt><dd><ul>
+        <li>Ein aktives Projekt steuert alles; das Terminal hat keinen eigenen Umschalter mehr.</li>
+        <li>Container werden beim Öffnen automatisch angelegt/gekoppelt (Netz „intern").</li>
+        <li>Werkstatt auf die Projekt-Übersichtsseite; Flows-Sidebar nur aktiv + global.</li>
+        <li>Ein großer Wurf (eine PR); bestehende Container per Namensgleichheit zugeordnet.</li>
+      </ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Ein Projekt oben steuert alles — heute driften Explorer und Terminal auseinander.</span>
+  </summary>
+  <div class="sbody">
+    <p>Im Workspace gibt es aktuell <b>zwei völlig getrennte „Projekt"-Begriffe</b>. Der Explorer und die Flows hängen am <em>Workspace-Projekt</em> (oben in der Menüleiste wählbar). Das Terminal hat einen <em>eigenen</em> Projekt-Umschalter und hängt an einem <em>Sandbox-Container</em> — einer anderen Liste. Beide wissen nichts voneinander. Ergebnis: Man kann links im Projekt „test" arbeiten und rechts im Terminal in „Kunden" sein. Das ist verwirrend und war der Kern deiner Rückmeldung.</p>
+    <p>Ziel ist <b>eine einzige, oben getroffene Projektauswahl</b>, der alles folgt: die Dateien, die Flows (nur die des aktiven Projekts plus die globalen) und das Terminal. Zusätzlich bekommt jedes Projekt eine <b>Übersichtsseite</b> (Info + Erweiterungen/Werkstatt + Schnellzugriff), erreichbar über eine <b>Projekt-Startseite</b> mit klarem „Zurück". Die Werkstatt verschwindet dafür aus dem Terminal.</p>
+    <p><b>Fertig heißt:</b> Ich wähle oben ein Projekt — und Dateien, Flows und Terminal zeigen alle genau dieses Projekt; das Terminal hat keinen zweiten Umschalter mehr; die Werkstatt lebt auf der Projektseite; und ich bewege mich über Liste → Projekt → Übersicht → Arbeiten sauber vor und zurück.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Terminal an das aktive Projekt koppeln + Projektseiten; kein Verschmelzen der Datenmodelle.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Terminal folgt dem aktiven Workspace-Projekt; eigener Projekt-Umschalter raus.</li>
+      <li>Container beim Öffnen automatisch anlegen/koppeln (über <code>project_id</code>), Netz „intern".</li>
+      <li>Terminal-Sitzungen werden pro Projekt gemerkt.</li>
+      <li>Neue Projekt-Startseite (Kachelliste) + Projekt-Übersichtsseite (Info + Werkstatt + Schnellzugriff), mit „← Projekte"/Breadcrumb.</li>
+      <li>Werkstatt aus dem Terminal auf die Übersichtsseite verschieben.</li>
+      <li>Flows-Sidebar auf aktives Projekt + global scopen.</li>
+      <li>Einmaliger Backfill: bestehende Container per Namensgleichheit einem Projekt zuordnen.</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>Kein Verschmelzen von Workspace- und Sandbox-Projekt zu einer Tabelle (bleibt 1:1-Kopplung).</li>
+      <li>Kein neues Rechte-/Mehrbenutzer-Modell (Einzel-Admin bleibt).</li>
+      <li>Keine Änderung an Chat/RAG-Scoping (folgt bereits dem aktiven Projekt).</li>
+      <li>Keine Idle-Abschaltung/Container-Quoten (nur als Risiko notiert, separater Schritt später).</li>
+      <li>Keine Terminal-interne Rendering-Politur (war Phase A, bereits live: PR #326).</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Zwei Projekt-Begriffe bleiben, werden aber 1:1 über <code>project_id</code> gekoppelt; das aktive Projekt ist die einzige Wahrheit.</span>
+  </summary>
+  <div class="sbody">
+    <p>Wir <b>verschmelzen die zwei Datenmodelle bewusst nicht</b> (das wäre ein großer, riskanter Umbau). Stattdessen koppeln wir sie <b>1:1</b>: Jedes Workspace-Projekt bekommt genau einen Sandbox-Container über das schon vorhandene Feld <code>sandbox_projects.project_id</code>. Die Oberfläche zeigt künftig nur noch Workspace-Projekte; das Terminal schlägt zum aktiven Projekt den gekoppelten Container nach — oder legt ihn beim ersten Öffnen automatisch an (Netz „intern").</p>
+    <p>Damit wird der obere Projekt-Umschalter (der den Explorer heute schon steuert) zur <b>einzigen Quelle der Wahrheit</b>. Das Terminal verliert seinen zweiten Umschalter und liest ab jetzt dasselbe „aktive Projekt". Offene Terminal-Sitzungen werden <b>pro Projekt</b> gemerkt, damit ein Projektwechsel nichts verwirft.</p>
+    <p>Neu sind zwei Seiten (als Workspace-Tabs, gebaut nach dem bestehenden Muster der „Kundenübersicht"): eine <b>Projekt-Startseite</b> (Kachelliste aller Projekte) und eine <b>Projekt-Übersichtsseite</b> pro Projekt (Info, die Werkstatt/Erweiterungen — nur wenn welche existieren — und Schnellzugriff zu Terminal/Dateien/Flows). Serverseitig kommt genau ein neuer Baustein dazu: ein Endpunkt, der zu einer Projekt-ID den Container liefert oder atomar anlegt+koppelt.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 640 330" role="img" aria-label="Vorher-Nachher-Diagramm der Projektkopplung">
+      <style>
+        .bx{fill:var(--surface);stroke:var(--line);stroke-width:1.5;}
+        .bxa{fill:var(--surface);stroke:var(--accent);stroke-width:2;}
+        .bxb{fill:var(--surface);stroke:var(--bad);stroke-width:2;}
+        .t{fill:var(--ink);font:600 13px system-ui,sans-serif;}
+        .ts{fill:var(--muted);font:500 11px system-ui,sans-serif;}
+        .lb{fill:var(--accent-ink);font:800 12px system-ui,sans-serif;letter-spacing:.08em;}
+        .ln{stroke:var(--muted);stroke-width:1.5;fill:none;}
+        .lna{stroke:var(--accent);stroke-width:2;fill:none;}
+      </style>
+      <!-- HEUTE -->
+      <text x="16" y="22" class="lb">HEUTE</text>
+      <rect class="bx" x="16" y="34" width="150" height="40" rx="8"/>
+      <text x="28" y="52" class="t">Auswahl oben</text>
+      <text x="28" y="67" class="ts">Projekt „test"</text>
+      <rect class="bx" x="210" y="30" width="120" height="30" rx="8"/>
+      <text x="222" y="49" class="t">Dateien · test</text>
+      <rect class="bx" x="210" y="66" width="120" height="30" rx="8"/>
+      <text x="222" y="85" class="t">Flows · test</text>
+      <path class="ln" d="M166 54 H210 M166 54 Q188 54 188 81 L210 81"/>
+      <rect class="bxb" x="410" y="46" width="210" height="44" rx="8"/>
+      <text x="424" y="66" class="t">Terminal · eigener Umschalter</text>
+      <text x="424" y="82" class="ts">Projekt „Kunden" (getrennt!)</text>
+      <text x="360" y="72" style="fill:var(--bad);font:800 20px system-ui">≠</text>
+      <!-- NEU -->
+      <text x="16" y="150" class="lb">NEU</text>
+      <rect class="bxa" x="16" y="164" width="180" height="46" rx="8"/>
+      <text x="28" y="184" class="t">Aktives Projekt (oben)</text>
+      <text x="28" y="199" class="ts">eine Wahrheit für alles</text>
+      <rect class="bx" x="300" y="130" width="150" height="30" rx="8"/>
+      <text x="312" y="149" class="t">Dateien</text>
+      <rect class="bx" x="300" y="168" width="150" height="30" rx="8"/>
+      <text x="312" y="187" class="t">Flows (aktiv + global)</text>
+      <rect class="bxa" x="300" y="206" width="320" height="44" rx="8"/>
+      <text x="312" y="226" class="t">Terminal → Container</text>
+      <text x="312" y="242" class="ts">nachgeschlagen/angelegt über project_id (1:1)</text>
+      <path class="lna" d="M196 187 H300"/>
+      <path class="lna" d="M196 187 Q250 187 250 145 L300 145"/>
+      <path class="lna" d="M196 187 Q250 187 250 228 L300 228"/>
+      <rect class="bx" x="300" y="262" width="320" height="40" rx="8"/>
+      <text x="312" y="282" class="t">Projekt-Startseite → Übersicht (Werkstatt, Info)</text>
+      <text x="312" y="296" class="ts">Liste → Projekt → Übersicht → Arbeiten, mit „← Zurück"</text>
+    </svg>
+    <figcaption>Vorher: Terminal hängt an einem separaten Projekt. Nachher: ein aktives Projekt steuert Dateien, Flows und Terminal; der Container wird über <code>project_id</code> 1:1 gekoppelt.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 6 logische Schritte, aber als EIN großer Wurf ausgeliefert (eine PR, ein Deploy).</span>
+  </summary>
+  <div class="sbody">
+  <p class="ts" style="color:var(--muted)">Hinweis (deine Entscheidung): Rollout „in einem großen Wurf" — die folgenden Schritte sind die innere Gliederung, werden aber gemeinsam als <b>eine PR / ein Deploy</b> ausgeliefert und zusammen verifiziert.</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Backend: Container je Projekt nachschlagen/anlegen + Backfill">
+    <h3>Schritt 1 — Backend: „ensure-for-project" + Backfill <span class="tag">Risiko: Mittel</span></h3>
+    <p>Neuer Endpunkt, der zu einer Workspace-Projekt-ID den gekoppelten Sandbox-Container liefert oder ihn <b>atomar anlegt+koppelt</b> (nutzt das bestehende <code>sandboxService.createProject()</code>, das <code>project_id</code> + eigenen Wissensraum in einer Transaktion anlegt), Netz-Default „intern". Migration <b>139</b> fügt einen partiellen Unique-Index auf <code>sandbox_projects(project_id)</code> hinzu (erzwingt 1:1, entschärft Doppelklick-Race). Zusätzlich ein <b>einmaliger Boot-Backfill-Service</b>, der bestehende ungekoppelte Container per Namensgleichheit einem Projekt zuordnet bzw. via <code>projectService.createProject()</code> ein Projekt anlegt (damit Ordner + DB zusammen entstehen — reines SQL kann den Ordner nicht anlegen).</p>
+    <p class="files mono">apps/dashboard-backend/src/routes/sandbox.js · services/sandbox/sandboxService.js · schemas/sandbox.js · services/rag/projectService.js · neuer Backfill-Service (Boot) · services/postgres/init/139_sandbox_project_link.sql</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Store: Sitzungen pro Projekt + neue Tab-Typen">
+    <h3>Schritt 2 — Store: per-Projekt-Sitzungen + Tab-Typen <span class="tag">Risiko: Mittel</span></h3>
+    <p><code>terminalSessions</code>/<code>activeTerminalSessionId</code> werden pro Projekt geführt (Registry je gekoppeltem Container) — inkl. <b>zustand-persist-Migration mit Versionsbump</b>, damit bestehende offene Sitzungen nach dem Deploy weder verloren gehen noch doppelt erscheinen. Neue Workspace-Tab-Typen <code>projekte</code> (Startseite) und <code>projektuebersicht</code> (projektgebunden, ID-parametrisiert) über die vier Touchpoints (Typ-Union · DEFAULT_TITLES · tabId · tabToPath/pathToTabSpec) plus die Verdrahtung in TabContent.</p>
+    <p class="files mono">apps/dashboard-frontend/src/stores/workspaceStore.ts · features/workspace/TabContent.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Terminal folgt dem aktiven Projekt">
+    <h3>Schritt 3 — Terminal an aktives Projekt koppeln <span class="tag">Risiko: Hoch</span></h3>
+    <p>SandboxApp/TerminalTabs: eigenen Projekt-Umschalter und die eigene Projektliste entfernen; den Container aus <code>useActiveProject().activeId</code> über den ensure-Endpunkt auflösen; beim Öffnen ohne Container automatisch anlegen (Netz „intern"); Sitzungen aus der per-Projekt-Registry rendern. Der fragile Bootstrap-/Auto-Restore-Effekt wird auf die neue Quelle umgestellt. <code>useTerminal</code> bleibt unverändert (nimmt die Container-ID weiterhin als opaken Parameter).</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/sandbox/SandboxApp.tsx · TerminalTabs.tsx · features/workspace/useProjects.ts (neuer Hook „gekoppelter Container") · ProjectListPanel.tsx (Rolle im Terminal entfällt)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Projekt-Startseite + Übersichtsseite + Werkstatt umziehen">
+    <h3>Schritt 4 — Startseite + Übersicht + Werkstatt-Umzug <span class="tag">Risiko: Mittel</span></h3>
+    <p>Neue <b>Projekt-Startseite</b> (Kachelliste aller Projekte, Klick öffnet die Übersicht) und <b>Projekt-Übersichtsseite</b> (Info: Netzmodus/Ablage; Werkstatt-Abschnitt nur wenn Erweiterungen existieren; Schnellzugriff-Buttons Terminal/Dateien/Flows; „← Projekte"-Button + Breadcrumb) — gebaut nach dem Muster von <code>KundenUebersichtTab</code>. Das <code>WerkstattPanel</code> wandert aus <code>SandboxApp</code> hierher (Komponente wiederverwendet).</p>
+    <p class="files mono">neu: features/workspace/viewers/ProjekteStartTab.tsx · viewers/ProjektUebersichtTab.tsx · features/sandbox/SandboxApp.tsx (Werkstatt raus) · features/sandbox/WerkstattPanel.tsx (neuer Mount-Ort)</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Flows-Sidebar auf aktives Projekt scopen">
+    <h3>Schritt 5 — Flows-Sidebar scopen <span class="tag">Risiko: Niedrig</span></h3>
+    <p><code>FlowsPanel</code> zeigt nur noch die Flows des aktiven Projekts plus die globalen (heute: alle Projekte). Reine UI-Filterung — <code>/flows</code> liefert weiterhin alles, die Auswahl passiert clientseitig anhand von <code>useActiveProject</code>.</p>
+    <p class="files mono">apps/dashboard-frontend/src/features/workspace/sidebar/FlowsPanel.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Tests &amp; Doku">
+    <h3>Schritt 6 — Tests &amp; Doku <span class="tag">Risiko: Niedrig</span></h3>
+    <p>Betroffene Tests aktualisieren/ergänzen: <code>SandboxApp.sessions</code> (auf aktiv-projekt-getriebene Auflösung umschreiben), <code>workspaceStore</code> (neue Tab-Typen + per-Projekt-Sitzungen + persist-Migration), neue Tests für Übersichtsseite (Werkstatt-Gate) und FlowsPanel-Scope; Backend-Tests für ensure-Endpunkt + Backfill. Doku: WORKSPACE.md, API_REFERENCE.md, DATABASE_SCHEMA.md.</p>
+    <p class="files mono">apps/dashboard-frontend/src/**/__tests__/* · apps/dashboard-backend/__tests__/* · docs/features/WORKSPACE.md · docs/api/API_REFERENCE.md · docs/api/DATABASE_SCHEMA.md</p>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Ein Projekt oben = alles gleich; Terminal ohne eigenen Umschalter; Werkstatt auf der Projektseite.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false">Wähle ich oben ein Projekt, zeigen Explorer, Terminal und Flows dasselbe Projekt — keine „links test / rechts Kunden"-Diskrepanz mehr.</li>
+    <li data-done="false">Das Terminal hat keinen eigenen Projekt-Umschalter mehr; aus dem Terminal lässt sich kein Projekt „öffnen".</li>
+    <li data-done="false">Öffne ich das Terminal für ein Projekt ohne Container, wird genau EIN Container automatisch angelegt+gekoppelt (Netz „intern") und das Terminal verbindet.</li>
+    <li data-done="false">Wechsle ich das aktive Projekt und wieder zurück, sind die vorherigen Terminal-Sitzungen dieses Projekts wieder da (pro Projekt gemerkt).</li>
+    <li data-done="false">Die „Projekte"-Startseite listet alle Projekte; ein Klick öffnet die Übersichtsseite mit Info + Werkstatt (nur wenn Erweiterungen) + Schnellzugriff; „← Projekte"/Breadcrumb funktioniert.</li>
+    <li data-done="false">Die Werkstatt erscheint nicht mehr im Terminal.</li>
+    <li data-done="false">Die Flows-Sidebar zeigt nur die Flows des aktiven Projekts plus die globalen.</li>
+    <li data-done="false">Nach dem Deploy ist jeder bisher eigenständige Container einem Projekt zugeordnet (Namensgleichheit) — nichts verschwindet.</li>
+    <li data-done="false">Bereits offene Terminal-Sitzungen überleben den Deploy ohne Verlust oder Duplikate.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Im echten Browser alle Flächen gegen dasselbe Projekt prüfen + Container-Anzahl/Health.</span>
+  </summary>
+  <div class="sbody">
+    <p><b>Im Browser</b> (<code>https://100.121.244.80/</code>, Playwright):</p>
+    <ul>
+      <li>Projekt oben wechseln → prüfen, dass Explorer-Titel, Terminal und Flows-Sidebar dasselbe Projekt zeigen.</li>
+      <li>Ein Projekt ohne Container öffnen → automatischer Container-Start; Terminal verbindet (Prompt erscheint), Netz-Badge „Intern".</li>
+      <li>Sitzung umbenennen, Projekt wechseln und zurück → Sitzung(en) wieder vorhanden.</li>
+      <li>Projekt-Startseite → Projekt → Übersicht: Werkstatt live-schalten + Rollback; „← Projekte" führt zurück.</li>
+      <li>Flows-Sidebar: nur aktives Projekt + global sichtbar; nach Projektwechsel entsprechend anders.</li>
+      <li>Konsole: keine neuen Fehler.</li>
+    </ul>
+    <p><b>Gesundheit/SSH</b> (<code>ssh arasul@100.121.244.80</code>):</p>
+    <ul>
+      <li><code>docker compose -p arasul-platform ps</code> — dashboard-frontend/-backend healthy, 0 unhealthy.</li>
+      <li>Container-Anzahl vor/nach mehreren Terminal-Öffnungen prüfen — kein Wildwuchs/Doppel-Container (Race).</li>
+      <li>DB: <code>SELECT count(*) FROM sandbox_projects WHERE project_id IS NULL;</code> → 0 (Backfill lief); Migration 139 in <code>schema_migrations</code>.</li>
+      <li>Backend-Logs auf Fehler beim ensure-Endpunkt/Backfill scannen.</li>
+    </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Terminal ist fragil + Migrationen; Rollback via git revert der einen PR, Deploy rollt bei Fehler selbst zurück.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Terminal-Regression (meistgenutzte Fläche, fragiler Bootstrap/Auto-Restore)</td><td>Mittel</td><td>Umstellung isoliert in Schritt 3; ausführliches Live-Verify im Browser; per-Projekt-Registry mit persist-Migration + Fallback auf leere Registry.</td></tr>
+      <tr><td>Doppelklick-Race beim Auto-Anlegen → zwei Container</td><td>Mittel</td><td>Atomarer ensure-Endpunkt (lookup-or-create in einer Transaktion) + partieller Unique-Index auf <code>project_id</code> (Migration 139).</td></tr>
+      <tr><td>Persist-Migration verliert/dupliziert offene Sitzungen</td><td>Mittel</td><td>zustand-persist Versionsbump mit expliziter Migrationsfunktion Alt→Neu; Unit-Test für die Migration.</td></tr>
+      <tr><td>Namensgleichheits-Backfill unsauber / DB-FS-Drift</td><td>Mittel</td><td>Backfill im Code über <code>projectService.createProject()</code> (Ordner + DB zusammen), idempotent; doppelte/uneindeutige Namen protokollieren statt raten.</td></tr>
+      <tr><td>Jetson-Ressourcen: viele Container/Sitzungen gleichzeitig</td><td>Niedrig</td><td>Nur das aktive Projekt hält Sitzungen aktiv; Container-Start nur on-demand; Idle-Abschaltung als späterer, separater Schritt notiert.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Ein großer Wurf = eine PR. Rollback per <code>git revert</code> des Squash-Commits über denselben Auto-Merge-Pfad; <code>deploy-local.sh</code> rollt bei einem fehlgeschlagenen Deploy ohnehin automatisch auf den vorherigen Stand zurück. Migration 139 ist additiv (nur ein Index); der Backfill ist idempotent und setzt nur <code>NULL → Wert</code> (Container/Projekte bleiben erhalten, nur die Kopplung entsteht). Die persist-Migration ist versioniert, sodass ein Zurückrollen die alte Registry weiterhin lesen kann.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 12 Entscheidungen aus dem Interview (3 Runden) — bindend für die Ausführung.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Datenmodell</td><td>1:1-Kopplung, zwei Tabellen bleiben</td><td>Kleiner Eingriff über <code>project_id</code>; kein Verschmelzen.</td></tr>
+      <tr><td>Terminal-Container-Herkunft</td><td>Automatisch beim Öffnen anlegen/koppeln</td><td>ensure-Endpunkt (lookup-or-create+link).</td></tr>
+      <tr><td>Bestehende eigenständige Container</td><td>Auto-koppeln per Namensgleichheit, sonst Projekt anlegen</td><td>Einmaliger, idempotenter Boot-Backfill.</td></tr>
+      <tr><td>Inhalt der Übersichtsseite</td><td>Info + Werkstatt + Schnellzugriff</td><td>Neuer Tab nach KundenUebersicht-Muster.</td></tr>
+      <tr><td>Einstieg „Liste"</td><td>Eigene Projekt-Startseite (Tab)</td><td>Neuer Tab-Typ <code>projekte</code>.</td></tr>
+      <tr><td>„Zurück"-Mechanik</td><td>Fester „← Projekte"-Button + Breadcrumb</td><td>Vorhersehbare Navigation, keine Browser-Historie.</td></tr>
+      <tr><td>Netzmodus auto-erstellter Container</td><td>Intern</td><td>Erreicht KI-Services + DB (lokaler Coder/RAG nutzbar).</td></tr>
+      <tr><td>Alter Terminal-Umschalter</td><td>Komplett entfernen</td><td>Projektwahl nur noch oben.</td></tr>
+      <tr><td>Terminal-Sitzungen bei Projektwechsel</td><td>Pro Projekt merken</td><td>Registry pro Projekt + persist-Migration.</td></tr>
+      <tr><td>Flows-Sidebar-Scope</td><td>Aktives Projekt + globale Flows</td><td>Clientseitige Filterung in FlowsPanel.</td></tr>
+      <tr><td>Reichweite Übersicht/Werkstatt</td><td>Alle Projekte; Werkstatt nur wenn befüllt</td><td>Übersichtsseite generisch, Werkstatt-Abschnitt bedingt.</td></tr>
+      <tr><td>Rollout</td><td>In einem großen Wurf</td><td>Eine PR / ein Deploy; §4-Schritte sind nur die innere Gliederung.</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 018 · erstellt am 2026-08-13 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/018-projekt-vereinheitlichung.html</span><br>
+  Feedback: 💬 an jeder Karte nutzen — dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved", "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) { prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : ""); }
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) { var dot = document.createElement("i"); if (i <= lvl) dot.className = "f"; d.appendChild(dot); }
+  });
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() { var open = allOpen(); tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen"; tAll.setAttribute("aria-pressed", open ? "true" : "false"); }
+  tAll.addEventListener("click", function () { var target = !allOpen(); secs.forEach(function (s) { s.open = target; }); syncToggleLabel(); });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+  var mem = null;
+  function load() { if (mem) return mem; try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { mem = mem || []; return mem; } }
+  function save(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) { mem = list; } }
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+  function containerBody(el) { return el.classList.contains("sec") ? el.querySelector(".sbody") : el; }
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); if (el.classList.contains("sec")) el.open = true; addComment(el, ""); });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn); else el.appendChild(btn);
+    return btn;
+  }
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML = '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span><button type=\"button\">entfernen</button></div><textarea placeholder=\"Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …\"></textarea>";
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+  function collect() { var out = []; document.querySelectorAll(".comment").forEach(function (box) { var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, ""); var ta = box.querySelector("textarea"); out.push({ ref: label, text: ta.value, key: label }); }); return out; }
+  function persist() {
+    var list = collect(); save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    Object.keys(btns).forEach(function (ref) { var has = list.some(function (c) { return c.key === ref && c.text.trim(); }); btns[ref].classList.toggle("has", has); btns[ref].textContent = has ? "💬 ✓" : "💬"; });
+  }
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+  document.getElementById("cclear").addEventListener("click", function () { document.querySelectorAll(".comment").forEach(function (c) { c.remove(); }); persist(); });
+  function copyText(txt) { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(function () { flash("Kopiert ✓ — in den Chat einfügen"); }, function () { fallbackCopy(txt); }); } else { fallbackCopy(txt); } }
+  function fallbackCopy(txt) { var ta = document.createElement("textarea"); ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); } catch (e) { window.prompt("Manuell kopieren:", txt); } ta.remove(); }
+  function flash(msg) { ccount.textContent = msg; setTimeout(persist, 2200); }
+  load().forEach(function (c) { if (!c.text || !c.key) return; var host = document.querySelector('[data-ref="' + c.key + '"]'); if (host) addComment(host, c.text, true); });
+  persist();
+})();
+</script>
+</body>
+</html>
