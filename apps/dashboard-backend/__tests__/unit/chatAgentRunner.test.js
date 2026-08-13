@@ -95,3 +95,34 @@ describe('verstaendlicherFehler (Agent-UX 2026-08-02)', () => {
     expect(text).toContain('irgendwas Exotisches');
   });
 });
+
+describe('aktiveTaskIndexAus (Plan 019: Schritte gruppiert unter der Aufgabe)', () => {
+  const { aktiveTaskIndexAus } = require('../../src/services/llm/chatAgentRunner');
+
+  test('bevorzugt die laufende Aufgabe', () => {
+    expect(
+      aktiveTaskIndexAus([
+        { text: 'A', status: 'fertig' },
+        { text: 'B', status: 'laeuft' },
+        { text: 'C', status: 'offen' },
+      ])
+    ).toBe(1);
+  });
+
+  test('fällt auf die erste offene Aufgabe zurück, wenn keine läuft', () => {
+    expect(
+      aktiveTaskIndexAus([
+        { text: 'A', status: 'fertig' },
+        { text: 'B', status: 'offen' },
+        { text: 'C', status: 'offen' },
+      ])
+    ).toBe(1);
+  });
+
+  test('liefert null, wenn alles fertig oder die Liste leer/ungültig ist', () => {
+    expect(aktiveTaskIndexAus([{ text: 'A', status: 'fertig' }])).toBeNull();
+    expect(aktiveTaskIndexAus([])).toBeNull();
+    expect(aktiveTaskIndexAus(undefined)).toBeNull();
+    expect(aktiveTaskIndexAus(null)).toBeNull();
+  });
+});

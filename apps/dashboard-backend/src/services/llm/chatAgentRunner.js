@@ -408,6 +408,12 @@ async function processAgentChatJob(ctx, job) {
   const schritte = [];
   let schrittZaehler = 0;
   const dateien = [];
+  // Cursor-Darstellung (Plan 019): jeder Werkzeug-Schritt der obersten Ebene
+  // gehört zur gerade aktiven Aufgabe (Todo). `aktiveTaskIndex` zeigt auf den
+  // Index der Aufgabe, die läuft (bzw. der nächsten offenen) — er wird bei
+  // jedem Todo-Update in `setTodos` nachgezogen. So kann das Frontend die
+  // Schritte GRUPPIERT unter ihrer Aufgabe zeigen, statt als flachen Strom.
+  let aktiveTaskIndex = null;
   const stepRecorder = {
     beginnen: async ({ kind, name = '', input = {}, parentStepId = null, modell = null }) => {
       schrittZaehler += 1;
@@ -417,6 +423,10 @@ async function processAgentChatJob(ctx, job) {
         name,
         input: kurzInput(input, KURZ_INPUT),
         parent_step_id: parentStepId,
+        // Nur Schritte der obersten Ebene hängen an einer Aufgabe; Kind-Schritte
+        // (Subagent-Innereien) hängen an ihrem Eltern-Schritt, nicht an einer Todo.
+        task_index:
+          parentStepId == null && kind !== 'todos' && kind !== 'plan' ? aktiveTaskIndex : null,
         modell,
         status: 'laeuft',
       };
@@ -588,6 +598,9 @@ async function processAgentChatJob(ctx, job) {
   const setTodos = (liste, todos) => {
     todoListe = liste;
     rundenSeitTodoUpdate = 0;
+    // Aktive Aufgabe bestimmen: danach beginnende Schritte werden ihr über
+    // task_index zugeordnet (Grundlage der gruppierten Darstellung, Plan 019).
+    aktiveTaskIndex = aktiveTaskIndexAus(todos);
     service.notifySubscribers(jobId, { type: 'agent_todos', liste, todos });
     void (async () => {
       try {
@@ -1241,10 +1254,31 @@ async function processAgentChatJob(ctx, job) {
   onJobComplete(ctx, jobId);
 }
 
+/**
+ * Aktive Aufgabe aus der Todo-Liste bestimmen (Plan 019): die gerade laufende
+ * Aufgabe, sonst die erste offene, sonst keine. Danach beginnende Schritte
+ * werden dieser Aufgabe zugeordnet (task_index) — Grundlage der gruppierten
+ * Cursor-Darstellung im Frontend.
+ * @param {Array<{status?: string}>} todos
+ * @returns {number|null}
+ */
+function aktiveTaskIndexAus(todos) {
+  if (!Array.isArray(todos) || todos.length === 0) {
+    return null;
+  }
+  const laufend = todos.findIndex(t => t && t.status === 'laeuft');
+  if (laufend >= 0) {
+    return laufend;
+  }
+  const offen = todos.findIndex(t => t && t.status === 'offen');
+  return offen >= 0 ? offen : null;
+}
+
 module.exports = {
   processAgentChatJob,
   AGENT_WERKZEUGE,
   AGENT_ROLLEN,
   streamChatRound,
   verstaendlicherFehler,
+  aktiveTaskIndexAus,
 };

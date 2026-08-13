@@ -5,9 +5,9 @@
  * Kind-Schritten statt flacher Liste), (2) Datei-Karten tragen die
  * Änderungs-Badges neu/geändert/gelöscht, gelöschte sind nicht klickbar.
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import CompactMessage from './CompactMessage';
+import CompactMessage, { TodoLeiste } from './CompactMessage';
 import type { ChatMessage } from '@/contexts/ChatContext';
 
 vi.mock('@/hooks/useApi', () => ({ useApi: () => ({ get: vi.fn(), post: vi.fn() }) }));
@@ -94,5 +94,32 @@ describe('Datei-Karten mit Änderungs-Badges', () => {
     const karten = screen.getAllByTestId('datei-karte');
     expect(karten[0]).toBeEnabled();
     expect(karten[1]).toBeDisabled();
+  });
+});
+
+describe('TodoLeiste (feste Aufgaben-Leiste, Plan 019)', () => {
+  it('zeigt den Zähler, listet Aufgaben und lässt sich einklappen', () => {
+    render(
+      <TodoLeiste
+        collapsible
+        testid="todo-leiste-unten"
+        todos={[
+          { text: 'Quellen lesen', status: 'fertig' },
+          { text: 'Entwurf schreiben', status: 'laeuft' },
+          { text: 'Prüfen', status: 'offen' },
+        ]}
+      />
+    );
+    expect(screen.getByTestId('todo-leiste-unten')).toBeInTheDocument();
+    expect(screen.getByText('Aufgaben · 1/3 erledigt')).toBeInTheDocument();
+    expect(screen.getByText('Entwurf schreiben')).toBeInTheDocument();
+    // Kopfzeile ist der Auf/Zu-Schalter: einklappen versteckt die Liste.
+    fireEvent.click(screen.getByRole('button', { expanded: true }));
+    expect(screen.queryByText('Entwurf schreiben')).not.toBeInTheDocument();
+  });
+
+  it('rendert nichts ohne Aufgaben', () => {
+    const { container } = render(<TodoLeiste todos={[]} />);
+    expect(container.firstChild).toBeNull();
   });
 });
