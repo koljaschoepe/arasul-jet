@@ -111,6 +111,12 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   diesen Teilbaum, und es gibt kein Ausweichen auf die restliche Projektablage
   oder nach „/". Ohne Anhang bleibt die ganze Projektablage die Wurzel. Ein
   ungültiges Ziel (`..`, absolut) fällt sicher auf die Projektwurzel zurück.
+- **PDF-/Bild-Viewer (Plan 019)** — PDFs und Bilder öffnen im Datei-Tab nicht
+  mehr als bloße Download-Karte, sondern in einem echten Viewer: PDFs
+  seitenweise über pdf.js (Canvas, selbst gehosteter Worker — kein CDN/iframe,
+  CSP-konform), Bilder mit Zoom. Beide streamen über
+  `GET …/dateien/vorschau` (inline, Range-fähig, bis 50 MB) statt über den
+  5-MB-Editor-Endpunkt; andere Binärformate behalten die Download-Karte.
 - **Sandboxes** — eine Sandbox kann an ein Projekt angeschlossen werden
   (`sandbox_projects.project_id`, beim Anlegen/Bearbeiten: „Projektordner
   anschließen"): dessen Ordner wird beim Container-Start **rw als

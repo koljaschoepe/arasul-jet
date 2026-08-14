@@ -83,6 +83,22 @@ describe('ablageService', () => {
     expect(pfade).toContain('notizen');
   });
 
+  it('fuerVorschau: Datei ok, Ordner + Übergröße abgelehnt (Plan 019 · Phase 3)', async () => {
+    await ablage.writeFile(PROJEKT, 'bild.png', 'x', deps);
+    const v = await ablage.fuerVorschau(PROJEKT, 'bild.png', deps);
+    expect(v.typ).toBe('datei');
+    expect(v.abs).toContain('bild.png');
+
+    await ablage.createDir(PROJEKT, 'ordnerV', deps);
+    await expect(ablage.fuerVorschau(PROJEKT, 'ordnerV', deps)).rejects.toThrow(ValidationError);
+
+    // Sparse-Datei über der Vorschau-Grenze → Ablehnung (kein echtes 50-MB-Schreiben).
+    const gross = path.join(TMP, PROJEKT, 'gross.pdf');
+    fs.writeFileSync(gross, '');
+    fs.truncateSync(gross, ablage.MAX_VORSCHAU_BYTES + 1);
+    await expect(ablage.fuerVorschau(PROJEKT, 'gross.pdf', deps)).rejects.toThrow(ValidationError);
+  });
+
   it('blendet .git aus und schützt es vor Schreiben/Löschen', async () => {
     fs.mkdirSync(path.join(TMP, PROJEKT, '.git'), { recursive: true });
     fs.writeFileSync(path.join(TMP, PROJEKT, '.git', 'HEAD'), 'ref: x');
