@@ -868,6 +868,7 @@ symlink-sicher innerhalb des Projektordners (`resolveRealWithinRoots`);
 | POST   | `/api/projects/:id/dateien/verschieben`     | Umbenennen/Verschieben innerhalb des Projektordners (`{von, nach}`)                                                             |
 | POST   | `/api/projects/:id/dateien/upload`          | Multipart-Upload (`file` + optional `ordner`, max. 50 MB)                                                                       |
 | GET    | `/api/projects/:id/dateien/download?pfad=…` | Einzeldatei als Download; ohne `pfad` (oder für einen Ordner) ein `.tar.gz` (ohne `.git`)                                       |
+| GET    | `/api/projects/:id/dateien/vorschau?pfad=…` | Inline-Vorschau einer Datei (PDF/Bild) gestreamt, `Content-Disposition: inline`, Range-fähig, `nosniff`, bis 50 MB (Plan 019)   |
 
 > **Ein-Ordner-Modell — Auto-Indexierung statt manueller Übernahme:** Die
 > frühere Route `POST …/dateien/uebernehmen` ist ENTFERNT. Ein Sync-Dienst

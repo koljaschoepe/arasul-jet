@@ -425,6 +425,31 @@ router.get(
 );
 
 /**
+ * GET /api/projects/:id/dateien/vorschau?pfad=…
+ * Inline-Vorschau einer Datei (PDF/Bild, Plan 019 · Phase 3): streamt die
+ * Datei mit Content-Type aus der Endung, `Content-Disposition: inline` und
+ * Range-Unterstützung (Express `sendFile`), bis MAX_VORSCHAU_BYTES (~50 MB) —
+ * anders als der 5-MB-gedeckelte Editor-JSON-Endpunkt. `nosniff` verhindert
+ * MIME-Raten; große Dateien landen so nie komplett im Speicher.
+ */
+router.get(
+  '/:id/dateien/vorschau',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  validateQuery(AblageReadQuery),
+  asyncHandler(async (req, res) => {
+    const ziel = await ablageService.fuerVorschau(req.params.id, req.query.pfad);
+    res.sendFile(ziel.abs, {
+      headers: {
+        'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(ziel.name)}`,
+        'Cache-Control': 'private, max-age=60',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
+  })
+);
+
+/**
  * DELETE /api/projects/:id
  * Projekt löschen (nur leer, nicht das Standard-Projekt).
  */

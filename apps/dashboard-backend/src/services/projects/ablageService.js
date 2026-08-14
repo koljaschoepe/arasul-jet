@@ -40,6 +40,7 @@ const ABLAGE_DIR = process.env.PROJECT_GIT_DIR || '/arasul/projects';
 // überschritten 1 MB und waren dann nur noch als Download sichtbar.
 const MAX_EDITOR_BYTES = 5 * 1024 * 1024; // lesen/schreiben im Editor
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // Upload in die Ablage
+const MAX_VORSCHAU_BYTES = 50 * 1024 * 1024; // Inline-Vorschau (PDF/Bild, Plan 019)
 const MAX_TREE_ENTRIES = 2000; // Baum-Budget (danach ehrlich „gekürzt")
 const MAX_TREE_DEPTH = 12;
 
@@ -475,6 +476,25 @@ async function fuerDownload(projectId, relPfad, deps = {}) {
 }
 
 /**
+ * Datei-Deskriptor für die Inline-Vorschau (Plan 019 · Phase 3): PDF-/Bild-
+ * Viewer im Workspace. Anders als der Editor (5-MB-Textgrenze) erlaubt die
+ * Vorschau große Binärdateien bis MAX_VORSCHAU_BYTES; die Route streamt sie
+ * dann (Range-fähig) statt sie als JSON zu laden. Nur Dateien, keine Ordner.
+ */
+async function fuerVorschau(projectId, relPfad, deps = {}) {
+  const ziel = await fuerDownload(projectId, relPfad, deps);
+  if (ziel.typ !== 'datei') {
+    throw new ValidationError('Vorschau ist nur für Dateien möglich');
+  }
+  if (typeof ziel.groesse === 'number' && ziel.groesse > MAX_VORSCHAU_BYTES) {
+    throw new ValidationError(
+      `Datei zu groß für die Vorschau (max. ${Math.round(MAX_VORSCHAU_BYTES / (1024 * 1024))} MB)`
+    );
+  }
+  return ziel;
+}
+
+/**
  * Der EINE Baum des Ein-Ordner-Modells: der Datei-Baum plus Wissens-Status.
  * Dateien, die als Dokument gespiegelt sind, tragen `dokument: {id, status}`;
  * Ordner mit Wissensraum-Spiegel tragen ihre `space_id` (für „Mit Ordner
@@ -515,6 +535,7 @@ module.exports = {
   ABLAGE_DIR,
   MAX_EDITOR_BYTES,
   MAX_UPLOAD_BYTES,
+  MAX_VORSCHAU_BYTES,
   projektOrdner,
   pruefeRechnungsschutz,
   listTree,
@@ -527,4 +548,5 @@ module.exports = {
   move,
   saveUpload,
   fuerDownload,
+  fuerVorschau,
 };

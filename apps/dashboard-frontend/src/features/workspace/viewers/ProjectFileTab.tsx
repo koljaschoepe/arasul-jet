@@ -21,6 +21,13 @@ import { spracheLabel } from './codeLanguage';
 // Der TipTap-WYSIWYG ist schwer — nur laden, wenn wirklich eine Markdown-Datei
 // in der Vorschau geöffnet wird.
 const ProjectMarkdownEditor = lazy(() => import('./ProjectMarkdownEditor'));
+// PDF-/Bild-Viewer (Plan 019 · Phase 3) — pdf.js ist schwer, daher lazy; nur
+// geladen, wenn wirklich eine PDF/ein Bild geöffnet wird.
+const PdfViewer = lazy(() => import('./PdfViewer'));
+const ImageViewer = lazy(() => import('./ImageViewer'));
+
+/** Endungen, die als Bild inline gezeigt werden (CSP erlaubt img-src blob:). */
+const BILD_ENDUNGEN = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.avif']);
 
 /** Idle-Zeit (ms) nach der letzten Änderung, bevor Markdown automatisch gespeichert wird. */
 const AUTOSAVE_DELAY_MS = 1200;
@@ -85,6 +92,9 @@ export default function ProjectFileTab({
   // ein Klick auf „Quelltext" zeigt das rohe Markdown in CodeMirror (Plan 016).
   const istMarkdown = endung.toLowerCase() === '.md' || endung.toLowerCase() === '.markdown';
   const hatVorschau = istHtml || istMarkdown;
+  // PDF/Bild → eigener gestreamter Viewer (Plan 019 · Phase 3) statt Download-Karte.
+  const istPdf = endung.toLowerCase() === '.pdf';
+  const istBild = BILD_ENDUNGEN.has(endung.toLowerCase());
   const [ansicht, setAnsicht] = useState<'vorschau' | 'code'>('vorschau');
 
   // Tab-Titel = Dateiname (der Store kennt beim Öffnen nur den Pfad).
@@ -278,7 +288,44 @@ export default function ProjectFileTab({
     );
   }
 
-  // Binär / zu groß: kein Editor, aber Download.
+  // PDF und Bild bekommen IMMER den echten Viewer (Plan 019 · Phase 3) — nach
+  // ENDUNG, nicht nach der Binär-Klassifizierung: eine SVG ist Text (kein
+  // NUL-Byte) und käme sonst fälschlich in den Editor statt in den Bild-Viewer.
+  if (istPdf || istBild) {
+    return (
+      <div ref={wurzelRef} className="flex h-full min-h-0 flex-col" data-testid="project-file-tab">
+        <div className="flex h-ui-header shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+          <span className="min-w-0 truncate text-ui-xs font-medium text-muted-foreground">
+            {filePath}
+            {meta && (
+              <span className="ml-2 text-muted-foreground/60">{groesseLabel(meta.groesse)}</span>
+            )}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={download}
+            aria-label="Herunterladen"
+            title="Herunterladen"
+          >
+            <Download className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1">
+          <Suspense fallback={<LoadingSpinner message="Vorschau wird geladen …" />}>
+            {istPdf ? (
+              <PdfViewer projectId={projectId} filePath={filePath} onDownload={download} />
+            ) : (
+              <ImageViewer projectId={projectId} filePath={filePath} onDownload={download} />
+            )}
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+
+  // Sonstige Binär-/Übergrößen-Dateien: Download-Karte.
   if (meta && meta.inhalt === null) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
