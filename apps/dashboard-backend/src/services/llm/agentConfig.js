@@ -50,6 +50,16 @@ const PLAN_NUM_PREDICT_KLEIN = ganzzahl(process.env.AGENT_PLAN_TOKENS_KLEIN, 512
 const KONTEXT_SCHWELLE = 0.7;
 
 /**
+ * Aggressivere Delegation (Plan 019 · Phase 5): Obergrenze der Subagent-Aufrufe
+ * über den GANZEN Lauf. Höher = der Orchestrator kann große Aufträge in viele
+ * kleine, in sich geschlossene Blöcke zerlegen — jeder Subagent arbeitet mit
+ * eigenem, frischem Kontext und gibt nur sein Ergebnis zurück, sodass der
+ * Hauptkontext schlank bleibt. Die Verschachtelung bleibt über maxTiefe hart
+ * begrenzt (keine Endlos-Schachtelung); die GPU arbeitet ohnehin sequenziell.
+ */
+const MAX_SUBAGENTEN = ganzzahl(process.env.AGENT_MAX_SUBAGENTEN, 60);
+
+/**
  * Optionales Qualitätsmodell für schwere Einzelschritte (Plan-Runde,
  * Prüf-Rolle). Leer = keine Eskalation. Interview 2026-07-30: automatische
  * Eskalation ist gewünscht; der konkrete Name kommt aus der Umgebung, damit
@@ -85,6 +95,7 @@ module.exports = {
   PLAN_NUM_PREDICT_GROSS,
   PLAN_NUM_PREDICT_KLEIN,
   KONTEXT_SCHWELLE,
+  MAX_SUBAGENTEN,
   qualitaetsModell,
   thinkingGewuenscht,
   kannDenken,
