@@ -134,6 +134,56 @@ describe('dateien_lesen', () => {
       fs.unlinkSync(datei);
     }
   });
+
+  it('liest gro\u00DFe Dateien chunked und nennt den n\u00E4chsten offset (Plan 019 \u00B7 Phase 4)', async () => {
+    const gross = path.join(arbeit, 'chunk.txt');
+    // 600 KB eindeutiger, ASCII-only Inhalt \u2192 mehrere Bl\u00F6cke \u00E0 256 KB.
+    const inhalt = Array.from({ length: 600 * 1024 }, (_, i) => String.fromCharCode(97 + (i % 26))).join('');
+    fs.writeFileSync(gross, inhalt);
+    try {
+      const teil1 = await tool.execute({ aktion: 'read', pfad: 'chunk.txt' }, ctx());
+      const m = teil1.match(/weiterlesen mit aktion=read, offset=(\d+)/);
+      expect(m).toBeTruthy();
+      const off = Number(m[1]);
+      expect(off).toBe(256 * 1024);
+      // Erster Block = Dateianfang.
+      expect(teil1.startsWith(inhalt.slice(0, 100))).toBe(true);
+
+      const teil2 = await tool.execute({ aktion: 'read', pfad: 'chunk.txt', offset: off }, ctx());
+      // Zweiter Block beginnt exakt an der Byte-Grenze (ASCII: 1 Byte = 1 Zeichen).
+      expect(teil2.startsWith(inhalt.slice(off, off + 100))).toBe(true);
+
+      // Offset hinter dem Dateiende \u2192 klarer Hinweis, kein Absturz.
+      const zuWeit = await tool.execute({ aktion: 'read', pfad: 'chunk.txt', offset: 10 * 1024 * 1024 }, ctx());
+      expect(zuWeit).toMatch(/hinter dem Dateiende/);
+    } finally {
+      fs.unlinkSync(gross);
+    }
+  });
+
+  it('behandelt ein Mehrbyte-Zeichen genau an der Blockgrenze sauber (Plan 019 \u00b7 Phase 4)', async () => {
+    const datei = path.join(arbeit, 'grenze.txt');
+    const MAX = 256 * 1024;
+    // '\u00fc' (2 Byte) liegt exakt auf der 256-KB-Grenze; danach ein ASCII-Marker.
+    const inhalt = 'a'.repeat(MAX - 1) + '\u00fc' + 'MARKER' + 'z'.repeat(1000);
+    fs.writeFileSync(datei, inhalt, 'utf8');
+    try {
+      const teil1 = await tool.execute({ aktion: 'read', pfad: 'grenze.txt' }, ctx());
+      const inhalt1 = teil1.split('\n... [gekuerzt')[0];
+      // Kein Ersatzzeichen geleakt, kein halbes '\u00fc', reine 'a'-Kette.
+      expect(inhalt1).toBe('a'.repeat(MAX - 1));
+      const off = Number(teil1.match(/offset=(\d+)/)[1]);
+      expect(off).toBe(MAX);
+
+      const teil2 = await tool.execute({ aktion: 'read', pfad: 'grenze.txt', offset: off }, ctx());
+      // Fortsetzung beginnt sauber beim Marker (das zerschnittene '\u00fc' entf\u00e4llt,
+      // aber KEIN Ersatzzeichen bleibt am Anfang stehen).
+      expect(teil2.startsWith('MARKER')).toBe(true);
+      expect(teil2).not.toMatch(/^\ufffd/);
+    } finally {
+      fs.unlinkSync(datei);
+    }
+  });
 });
 
 describe('dateien_schreiben', () => {

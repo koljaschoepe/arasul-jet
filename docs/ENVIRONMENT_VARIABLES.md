@@ -215,6 +215,9 @@ check a "web page" of `http://postgres-db:5432` would be a way into the stack.
 | DOCUMENT_INDEXER_CHILD_CHUNK_OVERLAP | 50                           | Child chunk overlap in tokens                                                                                                |
 | DOCUMENT_INDEXER_MINIO_BUCKET        | documents                    | Source bucket                                                                                                                |
 | DOCUMENT_MAX_SIZE_MB                 | 100                          | Maximum file size (MB)                                                                                                       |
+| OCR_LANGS                            | deu+eng                      | Tesseract-Sprachen für die lokale OCR bildbasierter PDFs (Plan 019); Pakete `tesseract-ocr-deu/-eng` im Indexer-Image        |
+| TESSERACT_HOST / TESSERACT_PORT      | tesseract / 8085             | Optionaler HTTP-OCR-Sidecar (Fallback; lokale Engine wird bevorzugt)                                                         |
+| PADDLEOCR_HOST / PADDLEOCR_PORT      | paddleocr / 8086             | Optionaler HTTP-OCR-Sidecar (Fallback)                                                                                       |
 | BM25_INDEX_PATH                      | /data/bm25_index             | Path for BM25 index persistence                                                                                              |
 | RAG_HYBRID_SEARCH                    | true                         | Enable hybrid keyword+vector search                                                                                          |
 | RAG_ENABLE_MULTI_QUERY               | true                         | Enable multi-query generation                                                                                                |

@@ -14,6 +14,32 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
+# Lokale Tesseract-Engine (Plan 019 · Phase 4): im Indexer-Image installiert
+# (tesseract-ocr + poppler-utils), damit OCR NICHT von separaten, oft nicht
+# laufenden Sidecar-Containern abhängt. Wird bevorzugt; die HTTP-Engines bleiben
+# optionaler Fallback.
+try:
+    import pytesseract
+
+    _HAS_PYTESSERACT = True
+except ImportError:  # pragma: no cover - nur ohne installiertes pytesseract
+    pytesseract = None
+    _HAS_PYTESSERACT = False
+
+# Sprachen für die lokale OCR (Debian-Pakete tesseract-ocr-deu/-eng).
+OCR_LANGS = os.getenv('OCR_LANGS', 'deu+eng')
+
+
+def _local_tesseract_available() -> bool:
+    """True, wenn pytesseract importierbar UND das tesseract-Binary da ist."""
+    if not _HAS_PYTESSERACT:
+        return False
+    try:
+        pytesseract.get_tesseract_version()
+        return True
+    except Exception:  # pragma: no cover - Binary fehlt/kaputt
+        return False
+
 # OCR Engine configuration
 OCR_ENGINES = {
     'paddleocr': {
@@ -85,7 +111,14 @@ def get_available_ocr_engine() -> Optional[str]:
     """
     global _available_engine, _engine_checked
 
-    # Return cached result if already checked
+    # Lokale Tesseract-Engine bevorzugen — im Image installiert, kein Netz nötig.
+    # BEI JEDEM Aufruf frisch prüfen (nicht cachen): so erholt sich der Indexer,
+    # falls das Binary beim allerersten Aufruf (langsamer Boot) noch nicht bereit
+    # war — die Prüfung ist billig und OCR ist kein Hot-Path.
+    if _local_tesseract_available():
+        return 'local'
+
+    # Return cached result if already checked (nur für die HTTP-Sidecars).
     if _engine_checked:
         return _available_engine
 
@@ -136,6 +169,18 @@ def ocr_image(image_data: bytes, engine: Optional[str] = None) -> OCRResult:
             success=False,
             error="No OCR engine available"
         )
+
+    # Lokale Engine: direkt via pytesseract, ohne HTTP.
+    if engine == 'local':
+        try:
+            img = Image.open(io.BytesIO(image_data))
+            text = pytesseract.image_to_string(img, lang=OCR_LANGS)
+            logger.debug(f"OCR (local tesseract) ok: {len(text)} chars")
+            return OCRResult(text=text, engine='local', confidence=0.0, success=True)
+        except Exception as e:  # noqa: BLE001 - Fehler sichtbar zurückgeben, nicht schlucken
+            error_msg = f"local tesseract error: {e}"
+            logger.error(error_msg)
+            return OCRResult(text="", engine='local', success=False, error=error_msg)
 
     config = OCR_ENGINES[engine]
     url = f"http://{config['host']}:{config['port']}{config['endpoint']}"
@@ -401,7 +446,12 @@ def parse_pdf_with_ocr_fallback(file_obj: IO[bytes]) -> Tuple[str, bool]:
     # Try OCR if available
     engine = get_available_ocr_engine()
     if engine is None:
-        logger.debug("PDF may need OCR but no engine available")
+        # Sichtbar melden (Plan 019 · Phase 4): eine Bild-PDF ohne OCR-Engine
+        # würde sonst still als „leer indexiert" durchgehen.
+        logger.warning(
+            "PDF ist bildbasiert (kein durchsuchbarer Text) und es ist KEINE "
+            "OCR-Engine verfügbar — Inhalt bleibt leer."
+        )
         return standard_text, False
 
     logger.info("PDF appears to be scanned, attempting OCR...")
@@ -412,10 +462,14 @@ def parse_pdf_with_ocr_fallback(file_obj: IO[bytes]) -> Tuple[str, bool]:
 
     ocr_result = ocr_pdf_full(pdf_bytes)
 
-    if ocr_result.success and ocr_result.text:
-        logger.info(f"OCR successful: {len(ocr_result.text)} chars extracted")
+    if ocr_result.success and ocr_result.text.strip():
+        logger.info(f"OCR successful ({ocr_result.engine}): {len(ocr_result.text)} chars extracted")
         return ocr_result.text, True
     else:
-        logger.warning(f"OCR failed: {ocr_result.error}")
-        # Return whatever we got from standard extraction
+        # Nicht mehr still verschlucken: eine Bild-PDF, deren OCR nichts liefert,
+        # ist ein echter Fehlerfall (sichtbar im Indexer-Log).
+        logger.error(
+            "OCR einer bildbasierten PDF lieferte keinen Text "
+            f"(engine={ocr_result.engine}, error={ocr_result.error})"
+        )
         return standard_text, False

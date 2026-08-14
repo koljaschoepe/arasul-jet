@@ -61,6 +61,14 @@ class DateienLesenTool extends BaseTool {
           'Bei list optional, Standard = Arbeitsverzeichnis.',
         required: false,
       },
+      offset: {
+        type: 'integer',
+        description:
+          'Nur bei read: Byte-Offset zum Weiterlesen großer Dateien. Standard 0 ' +
+          '(Dateianfang). Ist eine Datei länger als der Lese-Block, nennt die ' +
+          'Antwort den nächsten offset zum Weiterlesen.',
+        required: false,
+      },
     };
   }
 
@@ -74,7 +82,7 @@ class DateienLesenTool extends BaseTool {
       case 'list':
         return this._list(roots, params.pfad);
       case 'read':
-        return this._read(roots, params.pfad);
+        return this._read(roots, params.pfad, params.offset);
       default:
         return `Fehler: Unbekannte aktion "${params.aktion}". Erlaubt: list, read.`;
     }
@@ -113,10 +121,13 @@ class DateienLesenTool extends BaseTool {
     return `Inhalt von "${pfad || '.'}":\n${lines.join('\n')}${note}`;
   }
 
-  async _read(roots, pfad) {
+  async _read(roots, pfad, offset) {
     if (!pfad) {
       return 'Fehler: "pfad" ist zum Lesen erforderlich.';
     }
+    // Chunked-Lesen großer Dateien (Plan 019 · Phase 4): ab `offset` genau ein
+    // Lese-Block (MAX_READ_BYTES) — kein 5-MB-Editor-Limit, aber Kontextschutz.
+    const start = Math.max(0, Number.isFinite(Number(offset)) ? Math.floor(Number(offset)) : 0);
     let file;
     try {
       file = resolveRealWithinRoots(roots, pfad);
@@ -129,7 +140,8 @@ class DateienLesenTool extends BaseTool {
     // laesst sich der Pfad zwischen Pruefung und Zugriff nicht mehr tauschen
     // (TOCTOU) — die Faehigkeit dazu bringt das Terminal-Werkzeug mit.
     let handle;
-    let content;
+    let buf;
+    let gesamt = 0;
     try {
       handle = await fs.open(file, fsc.O_RDONLY | fsc.O_NOFOLLOW);
     } catch (err) {
@@ -150,7 +162,21 @@ class DateienLesenTool extends BaseTool {
       if (stat.isDirectory()) {
         return `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.`;
       }
-      content = await handle.readFile('utf8');
+      gesamt = stat.size;
+      if (start > 0 && start >= gesamt) {
+        return `Hinweis: offset ${start} liegt hinter dem Dateiende (${gesamt} Bytes).`;
+      }
+      // NUR das benötigte Fenster ab `start` lesen — eine 50-MB-Datei landet so
+      // nie komplett im Speicher (Chunked-Lesen).
+      const laenge = Math.min(MAX_READ_BYTES, Math.max(0, gesamt - start));
+      const roh = Buffer.alloc(laenge);
+      let gelesen = 0;
+      if (laenge > 0) {
+        ({ bytesRead: gelesen } = await handle.read(roh, 0, laenge, start));
+      }
+      // Nur die WIRKLICH gelesenen Bytes verwenden — schrumpft die Datei zwischen
+      // stat() und read(), blieben sonst Null-Bytes aus Buffer.alloc stehen.
+      buf = roh.subarray(0, gelesen);
     } catch (err) {
       return `Fehler beim Lesen: ${err.message}`;
     } finally {
@@ -160,32 +186,29 @@ class DateienLesenTool extends BaseTool {
     // sprengt den Kontext mit Byte-Salat und das Modell erstickt daran.
     // Stattdessen ein Hinweis, der zum richtigen Werkzeug führt: der INHALT
     // solcher Dokumente steht über die Wissenssuche bereit.
-    {
-      const probe = Buffer.from(content.slice(0, 8000), 'utf8');
-      if (probe.includes(0) || content.slice(0, 4000).includes('�')) {
-        return (
-          `Hinweis: "${pfad}" ist eine Binärdatei (z. B. PDF/DOCX/Bild) und kann nicht als ` +
-          'Text gelesen werden. Nutze rag_suche mit einer inhaltlichen Frage, um den INHALT ' +
-          'dieses Dokuments aus dem Wissen zu holen.'
-        );
-      }
+    if (buf.subarray(0, 8000).includes(0)) {
+      return (
+        `Hinweis: "${pfad}" ist eine Binärdatei (z. B. PDF/DOCX/Bild) und kann nicht als ` +
+        'Text gelesen werden. Nutze rag_suche mit einer inhaltlichen Frage, um den INHALT ' +
+        'dieses Dokuments aus dem Wissen zu holen.'
+      );
     }
-    // Die Kürzung ist hier Kontext-Schutz, nicht nur Speicherschutz: Eine
-    // 5-MB-Datei würde den Kontext eines kleinen lokalen Modells sprengen.
-    //
-    // Über den Buffer kappen, NICHT über `String.slice`: `slice` zählt
-    // UTF-16-Einheiten, nicht Bytes. Bei deutschem Text (Umlaute) oder CJK ist
-    // ein Zeichen zwei bis vier Bytes gross — eine 400-KB-Datei rutschte damit
-    // fast vollstaendig durch den 256-KB-Deckel. Das ist bei Fliesstext der
-    // Normalfall, nicht der Sonderfall.
-    const buf = Buffer.from(content, 'utf8');
-    if (buf.byteLength > MAX_READ_BYTES) {
-      // Ein Mehrbyte-Zeichen kann genau an der Grenze zerschnitten werden; der
-      // Decoder macht daraus ein Ersatzzeichen, das am Ende abgeschnitten wird.
-      const text = buf.subarray(0, MAX_READ_BYTES).toString('utf8').replace(/�+$/, '');
-      return `${text}\n... [gekuerzt bei ${MAX_READ_BYTES} Bytes]`;
+    // Mehrbyte-Zeichen kann am Fenster-Anfang/-Ende zerschnitten werden; der
+    // Decoder macht daraus GENAU EIN Ersatzzeichen an der Schnittstelle — nur
+    // dieses eine entfernen (nicht echte U+FFFD im Inhalt mitlöschen).
+    let text = buf.toString('utf8');
+    if (start > 0) {
+      text = text.replace(/^�/, '');
     }
-    return content;
+    const ende = start + buf.byteLength;
+    if (ende < gesamt) {
+      text = text.replace(/�$/, '');
+      return (
+        `${text}\n... [gekuerzt bei Byte ${ende} von ${gesamt} — ` +
+        `weiterlesen mit aktion=read, offset=${ende}]`
+      );
+    }
+    return text;
   }
 }
 
