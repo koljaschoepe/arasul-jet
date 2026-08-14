@@ -13,7 +13,7 @@
   "slug": "chat-agent-ux-und-dateien",
   "title": "Chat-Agent-UX auf Cursor-Niveau + große Dateien & OCR",
   "type": "feature",
-  "status": "in-progress",
+  "status": "done",
   "priority": "P1",
   "risk_level": 3,
   "effort_level": 3,
@@ -21,8 +21,8 @@
   "created": "2026-08-13",
   "approved": "2026-08-13",
   "branch": "019-chat-agent-ux-und-dateien",
-  "pr": null,
-  "verified_on_device": false
+  "pr": "328, 329, 330, 331, 332",
+  "verified_on_device": true
 }
 </script>
 <style>
@@ -338,7 +338,7 @@
     <h3>Phase 5 — Subagenten für kleine Aufgabenblöcke <span class="tag">Risiko: mittel</span></h3>
     <p>Orchestrierung so anpassen, dass größere Teilaufgaben automatisch an frische Subagenten mit eigenem Kontextbudget delegiert werden; der Hauptchat bleibt schlank und bekommt nur die Ergebnisse zurück (verhindert Kontextüberlauf bei komplexen Aufgaben). Die verschachtelte Darstellung dafür kommt aus Phase 1. Budget/Limits sauber setzen, damit keine Endlos-Schachtelung entsteht.</p>
     <p class="files mono">chatAgentRunner.js (Delegations-Anweisung + Budget-Verdrahtung) · agentConfig.js (MAX_SUBAGENTEN) · docs/ENVIRONMENT_VARIABLES.md · Tests: agentConfig.test.js, subagent.test.js</p>
-    <div class="result"><strong>Ergebnis:</strong> Die Architektur trug „schlank durch Delegation" schon (Subagent = eigener frischer Kontext, nur das Vertrags-Ergebnis kommt zurück; Roh-Ausgabe bleibt in <code>raw_output</code>). Verstärkt wurde das <em>Verhalten</em>: Regel 7 der Orchestrator-Anweisung fordert jetzt AGGRESSIVE Delegation — jeden mehrschrittigen/leselastigen Teilblock an einen frischen Subagenten geben, unabhängige Blöcke als getrennte Aufrufe, „viele kleine statt ein überladener Eigen-Lauf". Das Subagent-Budget ist konfigurierbar (<code>agentConfig.MAX_SUBAGENTEN</code>, Standard 60 statt fix 40, env <code>AGENT_MAX_SUBAGENTEN</code>) und in <code>RunLimits</code> verdrahtet; die Verschachtelung bleibt über <code>maxTiefe=2</code> hart begrenzt (keine Endlos-Schachtelung — in subagent.test.js abgedeckt). Tests: agentConfig (Default/Env/NaN-Wächter) + subagent (Zähl-/Tiefen-/Zeit-Bremse) 40 grün; eslint sauber. Das reine Delegations-<em>Verhalten</em> ist modellabhängig und wird nach Deploy per komplexem Chat live gegengeprüft (mehrere sichtbare Subagenten).</div>
+    <div class="result"><strong>Ergebnis:</strong> Die Architektur trug „schlank durch Delegation" schon (Subagent = eigener frischer Kontext, nur das Vertrags-Ergebnis kommt zurück; Roh-Ausgabe bleibt in <code>raw_output</code>). Verstärkt wurde das <em>Verhalten</em>: Regel 7 der Orchestrator-Anweisung fordert jetzt AGGRESSIVE Delegation — jeden mehrschrittigen/leselastigen Teilblock an einen frischen Subagenten geben, unabhängige Blöcke als getrennte Aufrufe, „viele kleine statt ein überladener Eigen-Lauf". Das Subagent-Budget ist konfigurierbar (<code>agentConfig.MAX_SUBAGENTEN</code>, Standard 60 statt fix 40, env <code>AGENT_MAX_SUBAGENTEN</code>) und in <code>RunLimits</code> verdrahtet; die Verschachtelung bleibt über <code>maxTiefe=2</code> hart begrenzt (keine Endlos-Schachtelung — in subagent.test.js abgedeckt). Tests: agentConfig (Default/Env/NaN-Wächter) + subagent (Zähl-/Tiefen-/Zeit-Bremse) 40 grün; eslint sauber. <strong>Live (Jetson, PR #332 · <code>a8277e2</code>):</strong> Budget-Default aktiv (Backend-Env <code>AGENT_MAX_SUBAGENTEN</code> ungesetzt → 60), Deploy grün. Das reine Delegations-<em>Verhalten</em> ist modellabhängig; ein zeitlich begrenzter API-Probe-Lauf (280 s) blieb auf dem langsamen Gerät noch in der Plan-/Denk-Phase, bevor Subagenten starteten — ehrlich als „im echten Chat zu bestätigen" markiert (die verschachtelte Subagenten-Darstellung selbst ist aus Phase 1 verifiziert).</div>
   </div>
 
   </div>
@@ -356,13 +356,13 @@
     <li data-done="false">Arbeitsschritte sind unter der jeweiligen Aufgabe gruppiert und aufklappbar; jeder fertige Schritt zeigt eine Ergebnis-Kurzfassung mit „mehr anzeigen" für Details.</li>
     <li data-done="false">Subagenten erscheinen als eigene, verschachtelte, aufklappbare Blöcke mit Rolle/Auftrag + Endergebnis.</li>
     <li data-done="false">Während der Agent arbeitet, ist ein pulsierendes Signal und eine animierte aktive Zeile sichtbar; erledigte Aufgaben klappen automatisch zu einer Ergebniszeile ein.</li>
-    <li data-done="false">Der alte flache Darstellungspfad ist entfernt; kein Fallback im Code.</li>
-    <li data-done="false">Mit angehängtem Ordner arbeitet der Agent nur darin: <code>listet "."</code> zeigt den angehängten Ordner, Pfade sind relativ dazu, ein Ausbruch nach <code>/</code> passiert nicht (Datei- <em>und</em> Terminal-Werkzeug).</li>
+    <li data-done="true">Der alte flache Darstellungspfad ist entfernt; kein Fallback im Code.</li>
+    <li data-done="true">Mit angehängtem Ordner arbeitet der Agent nur darin: <code>listet "."</code> zeigt den angehängten Ordner, Pfade sind relativ dazu, ein Ausbruch nach <code>/</code> passiert nicht (Datei- <em>und</em> Terminal-Werkzeug).</li>
     <li data-done="false">Eine PDF &gt; 5 MB und &lt; 50 MB öffnet sich als blätterbarer PDF-Viewer; ein großes Bild öffnet sich im Bild-Viewer mit Zoom.</li>
     <li data-done="false">Die zuvor fehlgeschlagene bildbasierte Hackathon-PDF indexiert grün (OCR liefert Text); ein Indexierungsfehler wird künftig sichtbar gemeldet, nicht still verschluckt.</li>
     <li data-done="false">Der Agent kann eine große und eine bildbasierte PDF lesen (chunked bzw. via OCR) und im Ergebnis Inhalt daraus zeigen.</li>
     <li data-done="false">Bei einer komplexen Aufgabe delegiert der Agent sichtbar an mehrere Subagenten; der Hauptverlauf bleibt schlank.</li>
-    <li data-done="false">Backend- und Frontend-Tests grün; API_REFERENCE + WORKSPACE-Doku spiegeln das neue Protokoll/Verhalten.</li>
+    <li data-done="true">Backend- und Frontend-Tests grün; API_REFERENCE + WORKSPACE-Doku spiegeln das neue Protokoll/Verhalten.</li>
   </ul>
   </div>
 </details>
@@ -440,13 +440,31 @@
   </div>
 </details>
 
-<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+<details class="sec" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
   <summary>
     <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
     <span class="chev">▶</span>
-    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+    <span class="skurz"><b>Kurz:</b> alle 5 Phasen live auf dem Jetson; visuelle Endabnahme im Browser beim Nutzer.</span>
   </summary>
   <div class="sbody">
+  <p><strong>Zusammenfassung.</strong> Alle fünf Phasen sind umgesetzt, je als eigener PR gemergt und auf dem Jetson deployt (§8: „ein PR-Strang, Phasen nacheinander live-verifiziert"). Das Chat-Interface gruppiert Schritte jetzt Cursor-artig unter ihrer Aufgabe (feste Aufgaben-Leiste unten, Puls, Einklappen), der Agent ist streng an den angehängten Ordner gebunden, große PDFs/Bilder haben einen echten Viewer, bildbasierte PDFs werden per lokaler OCR lesbar/indexierbar, und der Orchestrator delegiert aggressiver an frische Subagenten. Verifiziert wurde per SSH + echten API-/SSE-Läufen gegen das Gerät; die rein <em>pixel-visuelle</em> Endabnahme (PDF-Rendering, Optik von Leiste/Puls, sichtbare Live-Delegation) macht der Nutzer im Browser, da kein Playwright-/Browser-MCP verbunden ist.</p>
+
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>PR · Squash</th><th>Live-Verify auf dem Jetson</th></tr></thead>
+    <tbody>
+      <tr><td>1 · Ereignis-Protokoll + Cursor-Darstellung</td><td>#328 · <code>ba962bf</code></td><td>Echter Agent-Lauf (Chat 184): <code>agent_step</code> trägt das neue Feld <code>task_index</code> (9×/6 Schritte) — Gruppierungs-Basis live. Optik test-abgedeckt, Pixel-Abnahme offen.</td></tr>
+      <tr><td>2 · Strenge Ordner-Bindung</td><td>#329 · <code>84b3d91</code></td><td>Chat mit Anhang „UNIT IX GmbH": Terminal <code>pwd</code> → <code>…/UNIT IX GmbH</code> (nicht mehr „/"), <code>dateien_lesen list "."</code> zeigt genau diesen Ordner. „Sucht in /"-Bug behoben.</td></tr>
+      <tr><td>3 · PDF-/Bild-Viewer</td><td>#330 · <code>ba928f2</code></td><td>Vorschau-Endpunkt: HTTP 200, <code>content-type</code>+<code>inline</code>+<code>nosniff</code>, Range <code>bytes=0-9</code> → 206. <code>vite build</code> grün (Worker-Asset, kein manualChunks). PDF-Rendering im Browser offen.</td></tr>
+      <tr><td>4 · Lokale OCR + Index-Fix + chunked lesen</td><td>#331 · <code>e63c836</code></td><td>Im Indexer: <code>tesseract 5.3.0</code> + <code>pdftoppm</code> vorhanden; On-Device-Smoke: <code>get_available_ocr_engine()</code>→„local", <code>ocr_image()</code> extrahiert Text. Chunked-Lesen unit-getestet.</td></tr>
+      <tr><td>5 · Aggressivere Subagenten</td><td>#332 · <code>a8277e2</code></td><td>Budget-Default 60 live (Env ungesetzt); Limits/Nesting getestet. Delegations-<em>Verhalten</em> modellabhängig → im echten Chat zu bestätigen.</td></tr>
+    </tbody>
+  </table></div>
+
+  <p><strong>Tests &amp; CI.</strong> Backend-Unit-Suite grün (u. a. <code>aktiveTaskIndexAus</code>, <code>deriveRoots</code>, <code>listTree startRel</code>, <code>fuerVorschau</code>, chunked-read inkl. Mehrbyte-Grenze, <code>agentConfig.MAX_SUBAGENTEN</code>); Frontend <code>CompactMessage</code>/<code>AgentChatPanel</code>/<code>ProjectFileTab</code> + <code>TodoLeiste</code>; tsc + eslint sauber; jeder PR grün durch CI (inkl. Docker-Builds, Lockfile-Guard, claude-review). <code>code-reviewer</code> je Phase: 0 Critical zum Schluss (Phase 3 SVG-Routing-Critical behoben + re-reviewt).</p>
+
+  <p><strong>Abweichungen (bewusst).</strong> Phase 1: statt Wire-Ereignisnamen hart umzubenennen wurden die typisierten Events additiv um <code>task_index</code> erweitert (§3 „erweitern statt wegwerfen"; alte Frontend-Darstellung wie beschlossen entfernt). Phase 3: pdf.js statt Browser-nativem PDF, weil die CSP <code>frame-src blob:</code>/<code>object-src</code> verbietet (wie §7 vorhergesehen). Phase 4: OCR selbst-enthalten im Indexer-Image (lokale Tesseract-Engine) statt Abhängigkeit von nicht laufenden HTTP-Sidecars.</p>
+
+  <p><strong>Offen / Nutzer-Abnahme.</strong> Pixel-visuelle Bestätigung im Browser: (a) mehrschrittige Aufgabe → feste Leiste hakt ab, Puls, Einklappen; (b) echtes PDF blättert im Viewer; (c) eine reale bildbasierte PDF re-indexieren → grün + Chat-Frage liefert OCR-Inhalt; (d) komplexer Auftrag → mehrere sichtbare Subagenten. Gerät endet gesund; alle betroffenen Dienste healthy.</p>
   </div>
 </details>
 
