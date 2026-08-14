@@ -3,7 +3,11 @@ FROM python:${PYTHON_VERSION}-slim
 
 WORKDIR /app
 
-# Install system dependencies for document processing
+# Install system dependencies for document processing.
+# poppler-utils: pdf2image rasterisiert Bild-PDFs für die OCR.
+# tesseract-ocr (+ deu/eng): lokale OCR-Engine (Plan 019 · Phase 4) — kein
+# separater Sidecar-Container mehr nötig. Beide sind auf arm64 (Jetson) via apt
+# verfügbar.
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -11,6 +15,10 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
     libmupdf-dev \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-deu \
+    tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
