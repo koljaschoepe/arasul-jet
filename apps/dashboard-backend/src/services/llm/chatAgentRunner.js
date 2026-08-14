@@ -388,17 +388,11 @@ async function processAgentChatJob(ctx, job) {
     spaceIds = [EMPTY_SCOPE_SENTINEL];
   }
   const wurzel = await projektOrdner(projectId);
-  let arbeitsOrdner = wurzel;
-  let zielPrefix = '';
-  if (requestData.ablage_ziel) {
-    const ziel = path.join(wurzel, requestData.ablage_ziel);
-    if (ziel.startsWith(wurzel + path.sep)) {
-      await fs.mkdir(ziel, { recursive: true });
-      arbeitsOrdner = ziel;
-      zielPrefix = requestData.ablage_ziel.replace(/\/+$/, '');
-    }
+  // Strenge Ordner-Bindung (Plan 019 · Phase 2): angehängter Ordner = Wurzel.
+  const { arbeitsOrdner, zielPrefix, roots, scoped } = deriveRoots(wurzel, requestData.ablage_ziel);
+  if (scoped) {
+    await fs.mkdir(arbeitsOrdner, { recursive: true });
   }
-  const roots = arbeitsOrdner === wurzel ? [wurzel] : [arbeitsOrdner, wurzel];
 
   const alleTools = [...buildTools(AGENT_WERKZEUGE), new TodoListeTool()];
   const toolByName = new Map(alleTools.map(t => [t.name, t]));
@@ -510,7 +504,9 @@ async function processAgentChatJob(ctx, job) {
       return;
     }
     if (!terminalBereit) {
-      terminalBereit = ensureFlowSandbox([wurzel]).then(sb => {
+      // Terminal an DIESELBE Wurzel binden wie die Datei-Werkzeuge (Plan 019 ·
+      // Phase 2): cwd + Mount = angehängter Ordner, nicht die ganze Projektablage.
+      terminalBereit = ensureFlowSandbox(roots).then(sb => {
         context.containerId = sb.containerId;
         context.cwd = sb.cwd;
         roleContextBase.containerId = sb.containerId;
@@ -533,7 +529,10 @@ async function processAgentChatJob(ctx, job) {
   // hoffen, dass ein 7B-Modell von sich aus nachschaut. So weiß der Agent,
   // was existiert und wohin neue Dateien gehören.
   try {
-    const { eintraege, gekuerzt } = await listTree(projectId);
+    // Struktur-Übersicht auf die gebundene Wurzel scopen: ist ein Ordner
+    // angehängt, sieht der Agent NUR dessen Baum (relative Pfade) — keine
+    // unerreichbaren Projektpfade, die zu „verlässt die erlaubten Ordner" führen.
+    const { eintraege, gekuerzt } = await listTree(projectId, { startRel: zielPrefix });
     if (eintraege.length > 0) {
       const zeilen = eintraege
         .slice(0, STRUKTUR_MAX_EINTRAEGE)
@@ -1108,8 +1107,10 @@ async function processAgentChatJob(ctx, job) {
         }
 
         // Geschriebene Ablage-Datei → Datei-Karte (live + persistiert). Nur für
-        // saubere RELATIVE Pfade — ein absoluter Pfad (zeigt auf roots[1])
-        // ließe die Karte auf einen falsch zusammengesetzten Pfad zeigen.
+        // saubere RELATIVE Pfade: der Pfad ist relativ zur (einzigen) Wurzel und
+        // wird unten mit `zielPrefix` wieder projekt-relativ zusammengesetzt.
+        // Ein absoluter Pfad ließe die Karte auf einen falschen Pfad zeigen
+        // (und wird von den Werkzeugen bei strenger Bindung ohnehin abgelehnt).
         const pfadStr = String(params.pfad || '');
         const schreibWerkzeug =
           toolName === 'dateien_schreiben' ||
@@ -1274,6 +1275,39 @@ function aktiveTaskIndexAus(todos) {
   return offen >= 0 ? offen : null;
 }
 
+/**
+ * Wurzel-Ableitung der Agent-Werkzeuge (Plan 019 · Phase 2 „strenge
+ * Ordner-Bindung"). Hängt der Nutzer einen Ordner an (`ablage_ziel`, relativ
+ * zur Projektablage), IST DIESER die Wurzel — der Agent (Datei- UND Terminal-
+ * Werkzeug) arbeitet ausschließlich darin, kein Ausweichen auf die ganze
+ * Projektablage, kein Ausbruch nach „/". Ohne Anhang bleibt die Projektablage
+ * die Wurzel. Ein ungültiger/ausbrechender `ablage_ziel` (…/.., absolut) wird
+ * ignoriert und fällt sicher auf die Projektwurzel zurück.
+ *
+ * Rein & seiteneffektfrei (das mkdir des Zielordners macht der Aufrufer) →
+ * unit-testbar ohne echtes Dateisystem.
+ *
+ * @param {string} wurzel  Absoluter Pfad der Projektablage.
+ * @param {string|null|undefined} ablageZiel  Relativer Zielordner oder leer.
+ * @returns {{ arbeitsOrdner: string, zielPrefix: string, roots: string[], scoped: boolean }}
+ */
+function deriveRoots(wurzel, ablageZiel) {
+  let arbeitsOrdner = wurzel;
+  let zielPrefix = '';
+  if (ablageZiel && typeof ablageZiel === 'string' && ablageZiel.trim()) {
+    const ziel = path.resolve(wurzel, ablageZiel);
+    // Muss innerhalb der Projektwurzel liegen (kein .. / absoluter Ausbruch).
+    if (ziel === wurzel || ziel.startsWith(wurzel + path.sep)) {
+      arbeitsOrdner = ziel;
+      zielPrefix = path.relative(wurzel, ziel).split(path.sep).join('/');
+    }
+  }
+  const scoped = arbeitsOrdner !== wurzel;
+  // STRENG: genau EIN Wurzelordner — der angehängte, sonst das Projekt.
+  const roots = [arbeitsOrdner];
+  return { arbeitsOrdner, zielPrefix, roots, scoped };
+}
+
 module.exports = {
   processAgentChatJob,
   AGENT_WERKZEUGE,
@@ -1281,4 +1315,5 @@ module.exports = {
   streamChatRound,
   verstaendlicherFehler,
   aktiveTaskIndexAus,
+  deriveRoots,
 };

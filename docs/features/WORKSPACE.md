@@ -104,6 +104,13 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   die Aktion **„Als Datei speichern"** (erkennt HTML/Code-Inhalte und wählt
   die Endung). Persistiert werden Datei-Verweise und Schritte an der
   Nachricht (`chat_messages.datei`/`.schritte`, Migrationen 127/128).
+- **Strenge Ordner-Bindung (Plan 019)** — hängt man dem Chat einen Ordner an
+  („Speichern in: …"-Chip), IST dieser Ordner die Wurzel des Agenten: Datei-
+  **und** Terminal-Werkzeug arbeiten ausschließlich darin (Terminal-`cwd` +
+  Mount = angehängter Ordner), die Struktur-Übersicht im Kontext zeigt nur
+  diesen Teilbaum, und es gibt kein Ausweichen auf die restliche Projektablage
+  oder nach „/". Ohne Anhang bleibt die ganze Projektablage die Wurzel. Ein
+  ungültiges Ziel (`..`, absolut) fällt sicher auf die Projektwurzel zurück.
 - **Sandboxes** — eine Sandbox kann an ein Projekt angeschlossen werden
   (`sandbox_projects.project_id`, beim Anlegen/Bearbeiten: „Projektordner
   anschließen"): dessen Ordner wird beim Container-Start **rw als

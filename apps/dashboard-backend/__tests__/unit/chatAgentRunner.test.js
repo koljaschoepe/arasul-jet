@@ -126,3 +126,47 @@ describe('aktiveTaskIndexAus (Plan 019: Schritte gruppiert unter der Aufgabe)', 
     expect(aktiveTaskIndexAus(null)).toBeNull();
   });
 });
+
+describe('deriveRoots (Plan 019 · Phase 2: strenge Ordner-Bindung)', () => {
+  const path = require('path');
+  const { deriveRoots } = require('../../src/services/llm/chatAgentRunner');
+  const WURZEL = path.join('/arasul', 'projects', 'p1');
+
+  test('ohne Anhang: Projektablage bleibt die (einzige) Wurzel', () => {
+    const r = deriveRoots(WURZEL, undefined);
+    expect(r).toEqual({ arbeitsOrdner: WURZEL, zielPrefix: '', roots: [WURZEL], scoped: false });
+  });
+
+  test('mit Anhang: der Ordner IST die Wurzel — kein Ausweichen aufs Projekt', () => {
+    const r = deriveRoots(WURZEL, 'UNIT IX GmbH');
+    const ziel = path.join(WURZEL, 'UNIT IX GmbH');
+    expect(r.arbeitsOrdner).toBe(ziel);
+    expect(r.zielPrefix).toBe('UNIT IX GmbH');
+    expect(r.scoped).toBe(true);
+    // STRENG: genau der eine Ordner, die Projektwurzel ist NICHT erreichbar.
+    expect(r.roots).toEqual([ziel]);
+    expect(r.roots).not.toContain(WURZEL);
+  });
+
+  test('verschachtelter Zielordner + abschließender Slash', () => {
+    const r = deriveRoots(WURZEL, 'Kunden/Acme/');
+    expect(r.arbeitsOrdner).toBe(path.join(WURZEL, 'Kunden', 'Acme'));
+    expect(r.zielPrefix).toBe('Kunden/Acme');
+    expect(r.roots).toEqual([path.join(WURZEL, 'Kunden', 'Acme')]);
+  });
+
+  test('Ausbruchsversuch (..) fällt sicher auf die Projektwurzel zurück', () => {
+    for (const boese of ['../../etc', '..', '/etc/passwd', '../geheim']) {
+      const r = deriveRoots(WURZEL, boese);
+      expect(r.arbeitsOrdner).toBe(WURZEL);
+      expect(r.scoped).toBe(false);
+      expect(r.roots).toEqual([WURZEL]);
+    }
+  });
+
+  test('leerer/whitespace Anhang bleibt Projektwurzel', () => {
+    expect(deriveRoots(WURZEL, '').scoped).toBe(false);
+    expect(deriveRoots(WURZEL, '   ').scoped).toBe(false);
+    expect(deriveRoots(WURZEL, null).scoped).toBe(false);
+  });
+});

@@ -119,6 +119,17 @@ async function pruefeRechnungsschutz(projectId, relPfade, deps = {}) {
  */
 async function listTree(projectId, deps = {}) {
   const dir = await projektOrdner(projectId, deps);
+  // Optional auf einen Unterordner scopen (Plan 019: strenge Ordner-Bindung —
+  // der Agent sieht nur den angehängten Ordner). Der Startpfad muss innerhalb
+  // der Projektwurzel bleiben; ein Ausbruch (…/.., absolut) fällt sicher auf
+  // die Wurzel zurück. Die gelieferten Pfade sind relativ zum Startordner.
+  let startAbs = dir;
+  if (typeof deps.startRel === 'string' && deps.startRel.trim()) {
+    const kandidat = path.resolve(dir, deps.startRel);
+    if (kandidat === dir || kandidat.startsWith(dir + path.sep)) {
+      startAbs = kandidat;
+    }
+  }
   const eintraege = [];
   let budget = MAX_TREE_ENTRIES;
   let gekuerzt = false;
@@ -184,7 +195,7 @@ async function listTree(projectId, deps = {}) {
     }
   }
 
-  await rekurse(dir, '', 0);
+  await rekurse(startAbs, '', 0);
   return { eintraege, gekuerzt };
 }
 
