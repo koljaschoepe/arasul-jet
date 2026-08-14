@@ -63,6 +63,26 @@ describe('ablageService', () => {
     expect(pfade.indexOf('notizen')).toBeLessThan(pfade.indexOf('aaa.txt'));
   });
 
+  it('scopet den Baum auf einen Unterordner (startRel) mit relativen Pfaden (Plan 019)', async () => {
+    await ablage.writeFile(PROJEKT, 'Kunde/vertrag.md', 'V', deps);
+    await ablage.writeFile(PROJEKT, 'Kunde/unter/details.md', 'D', deps);
+    await ablage.writeFile(PROJEKT, 'anderer/geheim.md', 'X', deps);
+    const { eintraege } = await ablage.listTree(PROJEKT, { ...deps, startRel: 'Kunde' });
+    const pfade = eintraege.map(e => e.pfad);
+    // Pfade relativ ZUM Unterordner, nichts von außerhalb.
+    expect(pfade).toContain('vertrag.md');
+    expect(pfade).toContain('unter/details.md');
+    expect(pfade).not.toContain('anderer/geheim.md');
+    expect(pfade.some(p => p.startsWith('Kunde/'))).toBe(false);
+  });
+
+  it('startRel-Ausbruch (..) fällt sicher auf die Projektwurzel zurück', async () => {
+    const { eintraege } = await ablage.listTree(PROJEKT, { ...deps, startRel: '../..' });
+    // Kein Ausbruch: liefert den Projektbaum (enthält bekannte Einträge), nichts von außerhalb.
+    const pfade = eintraege.map(e => e.pfad);
+    expect(pfade).toContain('notizen');
+  });
+
   it('blendet .git aus und schützt es vor Schreiben/Löschen', async () => {
     fs.mkdirSync(path.join(TMP, PROJEKT, '.git'), { recursive: true });
     fs.writeFileSync(path.join(TMP, PROJEKT, '.git', 'HEAD'), 'ref: x');
