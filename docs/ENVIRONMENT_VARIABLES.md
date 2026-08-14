@@ -563,15 +563,16 @@ Modell-Aufruf:
 
 ### Chat-Agent (Harness v2, 2026-07-30, `services/llm/agentConfig.js`)
 
-| Variable                | Default | Description                                                                                                                                               |
-| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AGENT_NUM_CTX           | 32768   | Kontextfenster (Token), das der Chat-Agent PRO Aufruf explizit setzt — nie den Ollama-Server-Default nutzen (stiller Front-Truncate frisst System-Prompt) |
-| AGENT_NUM_PREDICT       | -1      | Max. Antwort-Token je Runde (-1 = unbegrenzt, Ollama-Konvention)                                                                                          |
-| AGENT_KEEP_ALIVE        | 30m     | Wie lange Ollama das Modell zwischen Runden geladen hält (Kaltstart auf dem Jetson: 6–30 s)                                                               |
-| AGENT_PLAN_TOKENS_GROSS | 2048    | Token-Deckel der Plan-Runde für GROSSE Aufträge (Recherche/Subagenten/Mehr-Datei; Qualitätsmodell mit Thinking — Deckel zählt Thinking + Plan zusammen)   |
-| AGENT_PLAN_TOKENS_KLEIN | 512     | Token-Deckel der knappen Plan-Runde für kleine Erstell-Aufgaben (Arbeitsmodell, ohne Thinking)                                                            |
-| AGENT_QUALITAETS_MODELL | (leer)  | Optionales größeres Modell für schwere Einzelschritte (Plan-Runde, pruefer-Rolle), z. B. `qwen3:32b`. Leer = keine Eskalation                             |
-| AGENT_THINKING          | an      | `aus` schaltet den live gestreamten Gedankengang (Reasoning-Trace) global ab; wirkt nur bei Modellen, die denken können (qwen3 u. a., nicht Coder/Gemma)  |
+| Variable                | Default | Description                                                                                                                                                                                   |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AGENT_NUM_CTX           | 32768   | Kontextfenster (Token), das der Chat-Agent PRO Aufruf explizit setzt — nie den Ollama-Server-Default nutzen (stiller Front-Truncate frisst System-Prompt)                                     |
+| AGENT_NUM_PREDICT       | -1      | Max. Antwort-Token je Runde (-1 = unbegrenzt, Ollama-Konvention)                                                                                                                              |
+| AGENT_KEEP_ALIVE        | 30m     | Wie lange Ollama das Modell zwischen Runden geladen hält (Kaltstart auf dem Jetson: 6–30 s)                                                                                                   |
+| AGENT_PLAN_TOKENS_GROSS | 2048    | Token-Deckel der Plan-Runde für GROSSE Aufträge (Recherche/Subagenten/Mehr-Datei; Qualitätsmodell mit Thinking — Deckel zählt Thinking + Plan zusammen)                                       |
+| AGENT_PLAN_TOKENS_KLEIN | 512     | Token-Deckel der knappen Plan-Runde für kleine Erstell-Aufgaben (Arbeitsmodell, ohne Thinking)                                                                                                |
+| AGENT_QUALITAETS_MODELL | (leer)  | Optionales größeres Modell für schwere Einzelschritte (Plan-Runde, pruefer-Rolle), z. B. `qwen3:32b`. Leer = keine Eskalation                                                                 |
+| AGENT_THINKING          | an      | `aus` schaltet den live gestreamten Gedankengang (Reasoning-Trace) global ab; wirkt nur bei Modellen, die denken können (qwen3 u. a., nicht Coder/Gemma)                                      |
+| AGENT_MAX_SUBAGENTEN    | 60      | Obergrenze der Subagent-Aufrufe je Lauf (Plan 019 · Phase 5, aggressive Delegation). Höher = mehr kleine, in sich geschlossene Blöcke; Verschachtelung bleibt über maxTiefe (2) hart begrenzt |
 
 > **GPU-Sperre:** Alle lokalen Modell-Aufrufe — Chat wie Flow — laufen durch
 > EINE gemeinsame Sperre (`services/flows/gpuQueue.js`); nie treffen zwei

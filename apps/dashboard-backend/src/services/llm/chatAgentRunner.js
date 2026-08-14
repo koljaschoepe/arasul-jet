@@ -162,7 +162,7 @@ Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
 4. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach: EIN kurzer Satz, was du gespeichert hast — den Dateiinhalt NICHT wiederholen.
 5. LANGE Dokumente (viele Abschnitte, große Webseiten) baust du abschnittsweise: dateien_schreiben mit dem Kopf/Anfang, danach Abschnitt für Abschnitt dateien_anhaengen — nie alles in einem einzigen Aufruf. Bestehende Dateien änderst du GEZIELT mit dateien_bearbeiten (exakten Textblock suchen/ersetzen) statt sie neu zu schreiben.
 6. Bei mehrschrittigen Aufträgen pflegst du mit todo_liste eine Aufgabenliste: zu Beginn anlegen, nach JEDEM erledigten Schritt aktualisieren ("- [x] …"). Sie hält dich auf Kurs.
-7. Zerlege größere Aufträge und delegiere an Subagenten: subagent(rolle="rechercheur", auftrag=…) sammelt Material, rolle="autor" schreibt Dateien aus Material, rolle="entwickler" schreibt UND testet Code per Terminal, rolle="pruefer" kontrolliert Ergebnisse. Gib jedem Subagenten einen präzisen, in sich vollständigen Auftrag inklusive Zielpfad.
+7. DELEGIERE AGGRESSIV: Zerlege größere Aufträge in kleine, in sich geschlossene Blöcke und gib JEDEN an einen frischen Subagenten — subagent(rolle="rechercheur", auftrag=…) sammelt Material, rolle="autor" schreibt Dateien aus Material, rolle="entwickler" schreibt UND testet Code per Terminal, rolle="pruefer" kontrolliert Ergebnisse. Jeder Subagent hat seinen EIGENEN frischen Kontext und gibt dir nur sein Ergebnis zurück — so bleibt dein Hauptkontext schlank, auch bei großen/komplexen Aufträgen. Faustregel: sobald ein Teilschritt selbst mehrere Werkzeug-Aufrufe braucht oder viel Text liest, delegiere ihn statt ihn selbst inline abzuarbeiten. Lieber viele kleine, präzise Subagenten-Aufträge (je mit Zielpfad und vollständigem Kontext) als ein überladener Eigen-Lauf. Unabhängige Blöcke gehen als getrennte Subagenten-Aufrufe.
 8. Mit terminal kannst du selbst Befehle im Projektordner ausführen (Skripte testen, Dateien umwandeln, Pakete bauen).
 9. Sage vor jedem Werkzeug-Block in EINEM kurzen Satz, was du gerade tust ("Ich lese zuerst die Preisliste.") — und rufe die Werkzeuge dann SOFORT in derselben Antwort auf. Niemals eine Aktion ankündigen, ohne sie auszuführen.
 10. Erfinde keine Fakten. Wenn Werkzeuge nichts liefern, sag das ehrlich.
@@ -473,7 +473,14 @@ async function processAgentChatJob(ctx, job) {
     ? AGENT_ROLLEN.map(r => (r.name === 'pruefer' ? { ...r, modell: qualModell } : r))
     : AGENT_ROLLEN;
 
-  const limits = new RunLimits({ maxAufrufe: 40, zeitlimitS: ZEITLIMIT_S, maxTiefe: 2 });
+  // Aggressivere Delegation (Plan 019 · Phase 5): das Subagent-Budget ist
+  // konfigurierbar (agentConfig.MAX_SUBAGENTEN) — viele kleine Blöcke halten den
+  // Hauptkontext schlank; maxTiefe 2 begrenzt die Verschachtelung hart.
+  const limits = new RunLimits({
+    maxAufrufe: agentConfig.MAX_SUBAGENTEN,
+    zeitlimitS: ZEITLIMIT_S,
+    maxTiefe: 2,
+  });
   const roleContextBase = {
     userId: job.user_id,
     roots,
