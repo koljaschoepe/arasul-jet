@@ -86,12 +86,20 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   Rollen-Riege `rechercheur` / `autor` / `pruefer` / `entwickler`. Bei
   mehrschrittigen Aufträgen pflegt es eine **Aufgabenliste** (`todo_liste`),
   die live als abhakbare Checkliste über den Schritt-Zeilen erscheint und
-  jede Runde neu in den Kontext kommt (Anti-Drift). Der Kontext wird pro
+  jede Runde neu in den Kontext kommt (Anti-Drift); beim echten Abschluss
+  werden noch offene Punkte deterministisch abgehakt, damit die Leiste nicht
+  auf „1/2" stehenbleibt (F-06). Nennt der Nutzer eine **bestimmte Datei**
+  beim Namen, liest der Agent gezielt genau diese Datei (`rag_suche` mit
+  `dateiname`) statt projektweit zu suchen — so wird kein Inhalt der falschen
+  Datei zugeschrieben (F-07). Der Kontext wird pro
   Runde **gehaushaltet** (num_ctx explizit, alte Werkzeug-Ausgaben werden
   eingedampft statt still abgeschnitten). Bevor eine Antwort mit erstellten
   Dateien fertig ist, kontrolliert der `pruefer` automatisch (bis zu zwei
   Korrektur-Schleifen). Es gibt **kein Zeitlimit** — der Stop-Knopf bricht
-  jederzeit ab, Teiltext und Schritte bleiben erhalten. Einfache Fragen
+  jederzeit ab, Teiltext und Schritte bleiben erhalten; ein **Fortschritts-
+  Wächter** beendet nur echten Stillstand (mehrere identische Runden ganz ohne
+  Fortschritt), damit kein Auftrag in einer Warteschleife hängt (F-06).
+  Einfache Fragen
   beantwortet das Modell weiter direkt. Während der Arbeit streamen
   **Gedankengang, Erzähl-Sätze und Schritt-Zeilen live**; nach Abschluss
   falten sich die Schritte zu einer „N Schritte"-Zeile. Erstellt der Agent Dokumente (Newsletter, Webseite,

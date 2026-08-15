@@ -82,4 +82,43 @@ describe('ladeDokumentText', () => {
     expect(r.gefunden).toBe(false);
     expect(r.text).toBe('');
   });
+
+  // F-07: optionaler Wissensraum-Zuschnitt gegen Namenskollisionen über Projekte.
+  describe('Space-Zuschnitt (F-07)', () => {
+    it('schränkt die Suche auf die übergebenen spaceIds ein', async () => {
+      const query = fakeQuery({
+        doc: { rows: [{ id: 'd1', title: 'Bericht' }] },
+        chunks: { rows: [{ chunk_text: 'Inhalt.' }] },
+      });
+      await ladeDokumentText({ filename: 'bericht.pdf', spaceIds: ['s1', 's2'] }, { query });
+      const docCall = query.calls.find(c => /FROM documents/i.test(c.sql));
+      expect(docCall.sql).toMatch(/space_id = ANY\(\$2::uuid\[\]\)/i);
+      // Regression (Review-Critical): space_id ist UUID — KEIN `= ''`-Vergleich,
+      // der die Query am Typ-Coercion scheitern ließe.
+      expect(docCall.sql).not.toMatch(/space_id = ''/);
+      expect(docCall.params).toEqual(['bericht.pdf', ['s1', 's2']]);
+    });
+
+    it('sucht ohne spaceIds projektübergreifend (kein space-Filter, ein Parameter)', async () => {
+      const query = fakeQuery({
+        doc: { rows: [{ id: 'd1', title: 'Bericht' }] },
+        chunks: { rows: [{ chunk_text: 'Inhalt.' }] },
+      });
+      await ladeDokumentText({ filename: 'bericht.pdf' }, { query });
+      const docCall = query.calls.find(c => /FROM documents/i.test(c.sql));
+      expect(docCall.sql).not.toMatch(/space_id = ANY/i);
+      expect(docCall.params).toEqual(['bericht.pdf']);
+    });
+
+    it('behandelt eine leere spaceIds-Liste wie „kein Zuschnitt"', async () => {
+      const query = fakeQuery({
+        doc: { rows: [{ id: 'd1', title: 'Bericht' }] },
+        chunks: { rows: [{ chunk_text: 'Inhalt.' }] },
+      });
+      await ladeDokumentText({ filename: 'bericht.pdf', spaceIds: [] }, { query });
+      const docCall = query.calls.find(c => /FROM documents/i.test(c.sql));
+      expect(docCall.sql).not.toMatch(/space_id = ANY/i);
+      expect(docCall.params).toEqual(['bericht.pdf']);
+    });
+  });
 });

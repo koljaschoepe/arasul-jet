@@ -25,11 +25,14 @@
 
 const BaseTool = require('../../../tools/baseTool');
 const ragCore = require('../../rag/ragCore');
+const { ladeDokumentText } = require('../documentText');
 const logger = require('../../../utils/logger');
 
 const DEFAULT_LIMIT = 5;
 const MAX_LIMIT = 15;
 const SNIPPET_CHARS = 400;
+/** Zeichen-Budget, wenn eine benannte Datei GEZIELT gelesen wird (F-07). */
+const DATEI_MAX_ZEICHEN = 12000;
 
 class RagSucheTool extends BaseTool {
   get name() {
@@ -52,17 +55,52 @@ class RagSucheTool extends BaseTool {
         description: `Wie viele Fundstellen höchstens (Standard ${DEFAULT_LIMIT}, max ${MAX_LIMIT})`,
         required: false,
       },
+      dateiname: {
+        type: 'string',
+        description:
+          'Optional: Nennt der Nutzer eine BESTIMMTE Datei (z. B. "bericht.pdf"), gib hier ' +
+          'genau diesen Dateinamen an — dann bekommst du gezielt den Inhalt DIESER Datei ' +
+          'statt projektweiter Treffer. Ohne Angabe wird die ganze Wissensbasis durchsucht.',
+        required: false,
+      },
     };
   }
 
   /**
-   * @param {{frage?:string, anzahl?:number}} params
+   * @param {{frage?:string, anzahl?:number, dateiname?:string}} params
    * @param {{spaceIds?:string[]|null}} context - Zuschnitt auf Sammlungen
    */
   async execute(params = {}, context = {}) {
     const query = String(params.frage || '').trim();
     if (!query) {
       return 'Fehler: "frage" darf nicht leer sein.';
+    }
+
+    const spaceIds =
+      Array.isArray(context.spaceIds) && context.spaceIds.length > 0 ? context.spaceIds : null;
+
+    // F-07: Ist eine bestimmte Datei benannt, wird sie GEZIELT gelesen statt
+    // projektweit gesucht — so kann kein Inhalt einer anderen Datei fälschlich
+    // der genannten zugeschrieben werden. Der indexierte Text (aus
+    // document_chunks) ist für Binärdateien wie PDF/DOCX das, was
+    // dateien_lesen nicht liefern kann.
+    const dateiname = String(params.dateiname || '').trim();
+    if (dateiname) {
+      const doc = await ladeDokumentText({
+        filename: dateiname,
+        maxZeichen: DATEI_MAX_ZEICHEN,
+        spaceIds,
+      });
+      if (!doc.gefunden) {
+        return (
+          `Die Datei "${dateiname}" wurde im Wissensraum nicht gefunden oder ist noch nicht ` +
+          'indexiert. Prüfe den genauen Dateinamen (dateien_suchen) oder frage ohne "dateiname", ' +
+          'um projektweit zu suchen.'
+        );
+      }
+      const titel = doc.titel ? ` — ${doc.titel}` : '';
+      const hinweis = doc.gekuerzt ? '\n\n[…Inhalt gekürzt — nur der Anfang der Datei.]' : '';
+      return `Inhalt von [${dateiname}${titel}]:\n${doc.text}${hinweis}`;
     }
 
     // Obergrenze hart durchsetzen: Ein Modell, das versehentlich 500 Treffer
@@ -76,8 +114,6 @@ class RagSucheTool extends BaseTool {
     let results;
     try {
       const embedding = await ragCore.getEmbedding(query);
-      const spaceIds =
-        Array.isArray(context.spaceIds) && context.spaceIds.length > 0 ? context.spaceIds : null;
       results = await ragCore.hybridSearch(query, embedding, limit, spaceIds);
     } catch (err) {
       logger.warn(`rag_suche fehlgeschlagen: ${err.message}`);

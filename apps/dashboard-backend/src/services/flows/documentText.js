@@ -32,10 +32,20 @@ const MAX_ZEICHEN = 16000;
  * @param {object} p
  * @param {string} p.filename - Der Dateiname (der Wert des `datei`-Arguments).
  * @param {number} [p.maxZeichen] - Zeichen-Budget; darüber wird gekürzt.
+ * @param {string[]|null} [p.spaceIds] - Optionaler Wissensraum-Zuschnitt. Ist
+ *   eine nicht-leere Liste gesetzt, wird die Suche auf diese Räume (plus
+ *   nicht zugeordnete Dokumente) beschränkt — spiegelt die Qdrant-Filter-Logik
+ *   in `ragCore.buildSpaceFilter` und verhindert, dass bei gleich benannten
+ *   Dateien in mehreren Projekten still der Inhalt eines fremden Projekts
+ *   eingespeist wird (F-07). Ohne Liste (null/[]) wird projektübergreifend
+ *   gesucht — das bisherige Flow-Verhalten.
  * @param {object} [deps] - Für Tests austauschbar (`query`).
  * @returns {Promise<{gefunden: boolean, titel: string|null, text: string, gekuerzt: boolean}>}
  */
-async function ladeDokumentText({ filename, maxZeichen = MAX_ZEICHEN }, deps = {}) {
+async function ladeDokumentText(
+  { filename, maxZeichen = MAX_ZEICHEN, spaceIds = null },
+  deps = {}
+) {
   const query = deps.query || db.query;
   const name = String(filename || '').trim();
   if (!name) {
@@ -50,14 +60,21 @@ async function ladeDokumentText({ filename, maxZeichen = MAX_ZEICHEN }, deps = {
     // `filename`-Treffer vor dem `original_filename`-Treffer, erst danach das
     // jüngere Dokument — so wird nicht bei zwei gleich benannten Uploads still
     // der falsche Inhalt eingespeist.
+    const scopeIds = Array.isArray(spaceIds) && spaceIds.length > 0 ? spaceIds : null;
+    // Space-Zuschnitt: die genannten Räume ODER nicht zugeordnete Dokumente
+    // (space_id IS NULL). `documents.space_id` ist eine UUID-Spalte — sie ist
+    // nie der Leerstring (anders als der Qdrant-Payload in buildSpaceFilter, der
+    // untypisiert ist); ein `= ''`-Zweig ließe die Query am UUID-Typ-Coercion
+    // scheitern. Array-Cast `::uuid[]` wie das etablierte Muster in routes/rag.js.
+    const scopeKlausel = scopeIds ? ` AND (space_id = ANY($2::uuid[]) OR space_id IS NULL)` : '';
     const doc = await query(
       `SELECT id, title
          FROM documents
         WHERE (filename = $1 OR original_filename = $1)
-          AND deleted_at IS NULL
+          AND deleted_at IS NULL${scopeKlausel}
         ORDER BY (filename = $1) DESC, uploaded_at DESC
         LIMIT 1`,
-      [name]
+      scopeIds ? [name, scopeIds] : [name]
     );
     const row = doc.rows[0];
     if (!row) {
