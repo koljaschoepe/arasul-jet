@@ -1,0 +1,940 @@
+<!doctype html>
+<!--
+  Arasul plan-page — Plan 020 · Arasul läuft überall
+  Erstellt via /plan. Struktur-Contract siehe .claude/templates/plan-page.html.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 020 · Arasul läuft überall</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "020",
+  "slug": "multi-plattform-portierung",
+  "title": "Arasul läuft überall: eine Codebase, zwei Builds, sechs Ziele",
+  "type": "refactor",
+  "status": "approved",
+  "priority": "P0",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 3,
+  "created": "2026-08-15",
+  "approved": "2026-08-15",
+  "branch": null,
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1;
+    --surface: #FFFFFF;
+    --ink: #101B17;
+    --muted: #46564F;
+    --line: #C7D3CD;
+    --accent: #0B5D4B;
+    --accent-ink: #094A3C;
+    --wash: #E3EDE8;
+    --ok: #1F7A45;
+    --warn: #A36B00;
+    --bad: #B02E27;
+    --note: #8A5A00;
+    --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  /* ---------- header + dashboard ---------- */
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  .comment textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .92rem; padding: .5rem .65rem;
+    resize: vertical; min-height: 2.4rem;
+  }
+  .comment textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- collapsible section cards ---------- */
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  /* ---------- comments ---------- */
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 020</p>
+    <span class="chip" id="status-chip" data-status="approved">Freigegeben</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Arasul läuft überall: eine Codebase, zwei Builds, sechs Ziele</h1>
+  <p class="lead">Die Plattform hängt heute am Jetson AGX Orin und am L4T-Sonderweg. Sie soll auf allen NVIDIA-Zielen laufen: Orin, Thor, DGX Spark, DGX Station, Workstation mit RTX PRO 6000 und einem eigenen Server. Der Hebel ist nicht die Hardware, sondern der Wechsel der Inferenz-Engine.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="bad" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="3"></span>gut</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">7</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Die Tegra-Kopplung fliegt raus und wird durch Plattform-Profile ersetzt. Ollama weicht <strong>SGLang</strong> — hinter einer Kompatibilitäts-Schicht, die den heutigen internen <code>/api/*</code>-Vertrag und den Modell-Download erhält. Danach baut <strong>ein Repo zentral zwei Container-Sätze</strong> (<code>linux/arm64</code>, <code>linux/amd64</code>) in eine private Registry, aus der alle sechs Zielgeräte ziehen.</dd>
+      <dt>Warum jetzt</dt><dd>Der L4T-Zweig, in dem dieses Repo steckt, ist eine Sackgasse mit Ablaufdatum: JetPack 7 stellt Thor auf SBSA, CUDA 13.2 zieht Orin nach — NVIDIA räumt den Sonderweg selbst ab. Das <code>l4t-pytorch</code>-Embedding-Image gibt es für Spark und x86 gar nicht, und Ollama muss pro Plattform neu zusammengeklebt werden. Der Umbau wird nie billiger als jetzt.</dd>
+      <dt>Größtes Risiko</dt><dd>Der Engine-Wechsel ist größer als „Dockerfile tauschen": ~15 Backend- und 4 Frontend-Dateien hängen an Ollamas API-Semantik, und SGLang/vLLM kennen kein Modell-Management (kein <code>/api/pull</code>). Die Kompat-Schicht + ein eigener Modell-Manager fangen das ab, sind aber der Löwenanteil von Schritt 3.</dd>
+      <dt>Nicht live prüfbar</dt><dd>Physisch da ist heute nur der Orin — und auf ihm läuft das SGLang-Zielmodell (NVFP4) mangels FP8/NVFP4-Hardware <em>nicht</em>. Live testbar ist jetzt nur der Orin-llama.cpp-Track plus Bau, HAL, Profile. Thor, Spark und die RTX-PRO-6000-Workstation werden per Emulation und durchdachtem Durchgang belegt; die echte Hardware-Validierung ist ein getrackter Folge-Plan.</dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Verkauft wird DGX Spark, validiert ist nur Jetson AGX Orin. Diese Lücke schließt der Plan.</span>
+  </summary>
+  <div class="sbody">
+
+  <h3>Der Auslöser</h3>
+  <p>Der Grund ist technische Schuld mit Ablaufdatum, nicht ein Feature-Wunsch. Dieses Repo hängt heute am Jetson AGX Orin und am L4T-Sonderweg: <code>services/embedding-service/Dockerfile</code> baut auf <code>dustynv/l4t-pytorch:r36.4.0</code>, ein Image, das es für DGX Spark und x86 <em>nie</em> geben wird, und <code>services/llm-service/Dockerfile</code> klebt das Ollama-Binary auf Ubuntu 22.04, nur um JetPack-6-glibc zu umgehen. <code>docs/features/JETSON_COMPATIBILITY.md</code> listet Thor 64/128GB als <em>Planned</em>, der DGX Spark taucht gar nicht auf. Zielbild ist aber, dass die Plattform genau auf diesen Geräten läuft. Jede neue Plattform würde die vorhandene Klebearbeit erneut anfassen — dieser Plan macht sie überflüssig.</p>
+
+  <h3>Der Workload ist asynchron, nicht interaktiv</h3>
+  <p>Die entscheidende Erkenntnis aus dem Interview: Bei Kunden warten drei bis fünf Leute nicht auf Antworten. Sie konfigurieren Flows, die den ganzen Tag durchlaufen und ihre Ergebnisse an andere Systeme zurückspielen. Die relevante Kennzahl ist damit <strong>Tokens pro Tag</strong>, nicht Tokens pro Sekunde.</p>
+  <p>Genau da verschenkt der aktuelle Stack den größten Teil der Hardware. Ollama macht <strong>kein Continuous Batching</strong>: auf einem DGX Spark hält es rund 42 bis 87 Tokens pro Sekunde — ob eine oder acht Anfragen gleichzeitig laufen. SGLang und vLLM schieben Anfragen bei jedem Decode-Schritt rein und raus und liefern auf identischer Hardware 116 bis 313 Tokens pro Sekunde bei acht parallelen Anfragen, also Faktor drei bis sechs. Beide Engines liefert NVIDIA als CUDA-13-Container mit <code>arm64-sbsa</code>- und x86-Tag aus einer Release-Linie, offiziell für Thor, Spark und RTX PRO 6000.</p>
+  <p><strong>Als Primär-Engine wird SGLang gesetzt.</strong> Der Kundenworkload ist RAG plus Agenten-Tool-Schleifen, also viel geteilter, wiederkehrender Kontext — genau der Fall, in dem SGLangs Prefix-Caching (RadixAttention) über den vLLM-üblichen Vorsprung hinausgeht. vLLM bleibt aus derselben Container-Familie baubar als Rückfall; der direkte Durchsatz-Vergleich der beiden wird nachgeholt, sobald echte Ziel-Hardware (Thor/Spark) vorliegt. <strong>Der Engine-Wechsel ist damit wichtiger als der Hardware-Port, und er ist zugleich dessen Voraussetzung:</strong> die Klebestelle im heutigen <code>llm-service</code> fällt komplett weg.</p>
+
+  <h3>NVIDIA räumt den Sonderweg selbst ab</h3>
+  <p>JetPack 7 stellt Jetson Thor auf SBSA, also den normalen ARM-Server-Standard, mit einheitlichem CUDA 13. Ab CUDA 13.2 gilt derselbe SBSA-Toolkit auch für Orin. NVIDIAs eigene Formulierung: einmal bauen, auf DGX Spark simulieren, dasselbe Binary ohne Codeänderung auf Thor deployen. Ein mit R39 geflashter AGX Orin läuft Standard-arm64-Container direkt, ohne Repackaging.</p>
+  <p>Der L4T-Zweig, in dem dieses Repo heute steckt, ist damit eine Sackgasse mit Ablaufdatum. <code>docs/features/JETSON_COMPATIBILITY.md</code> verweist bereits auf einen geplanten SBSA-Abstraction-Layer. Dieser Plan ist dieser Layer.</p>
+
+  <h3>Ziel</h3>
+  <p>Nach Abschluss läuft dieselbe Codebase nachweislich auf sechs Zielen, ohne plattformspezifische Dockerfiles. Hardwareunterschiede leben ausschließlich in Profil-Dateien.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Ziel</th><th>Arch</th><th>Compute</th><th>Speicher / Bandbreite</th><th>Rolle</th></tr></thead>
+    <tbody>
+      <tr><td>Jetson AGX Orin 64GB (auf R39)</td><td>arm64</td><td>sm_87</td><td>64 GB · 205 GB/s</td><td><strong>einziges physisch vorhandenes Gerät</strong>, llama.cpp-Track</td></tr>
+      <tr><td>Jetson AGX Thor T5000</td><td>arm64</td><td>sm_110*</td><td>128 GB · 273 GB/s</td><td>Leitgerät für Engine-Bench, noch nicht da</td></tr>
+      <tr><td>DGX Spark (GB10)</td><td>arm64</td><td>sm_121*</td><td>128 GB · 273 GB/s</td><td><strong>Verkaufsgerät</strong>, noch nicht da</td></tr>
+      <tr><td>DGX Station (GB300)</td><td>arm64</td><td>sm_103*</td><td>bis 748 GB</td><td>auf Anfrage, ungetestet</td></tr>
+      <tr><td>Workstation RTX PRO 6000 Blackwell</td><td>x86_64</td><td>sm_120</td><td>96 GB · 1.792 GB/s</td><td>Durchsatz-Gerät, auf Anfrage</td></tr>
+      <tr><td>Eigener Server mit NVIDIA-GPU</td><td>x86_64</td><td>sm_89 aufwärts</td><td>variabel</td><td>Kunde stellt Hardware</td></tr>
+    </tbody>
+  </table></div>
+  <p><small>* Die mit Stern markierten Compute-Capability-Werte sind laut <code>JETSON_COMPATIBILITY.md</code> im Repo selbst noch spekulativ und werden am echten Gerät bestätigt, nicht als Fakt in Code gegossen.</small></p>
+  <p>Die Bandbreiten in der Tabelle erklären die Produktentscheidung: Spark und Thor sind bandbreitenidentisch. Die RTX PRO 6000 liefert bei gleichem Batch das Sechs- bis Siebenfache. Für einen ganztägig laufenden Flow-Betrieb ist das der Unterschied zwischen ausreichend und komfortabel. <strong>Wichtig für die Ausführung:</strong> Von diesen sechs Zielen steht heute nur der Orin im Haus, und auf ihm läuft die NVFP4-MoE-Zielklasse mangels FP8/NVFP4-Einheiten nicht — er trägt deshalb einen eigenen llama.cpp-Pfad. Alle anderen Ziele werden in diesem Plan gebaut und per Emulation belegt, aber erst in einem Folge-Plan auf echter Hardware validiert.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> HAL, Engine-Wechsel, Multi-Arch-Build. Kein Feature, keine UI-Erweiterung.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Baseline-Mess-Harness (Tokens pro Tag statt pro Sekunde), auf dem Orin indikativ ausgeführt, für Thor/Spark vorbereitet</li>
+      <li>Hardware-Abstraktionsschicht: <code>tegrastats</code>, <code>nvpmodel</code>, <code>/proc/device-tree</code> hinter eine Schnittstelle, <code>nvidia-smi</code> als Primärpfad, plus ein positiver x86-Erkennungspfad (fehlt heute ganz)</li>
+      <li>Die zwei konkurrierenden GPU-Recovery-Module (<code>recovery_actions.py</code> Jetson-first, <code>gpu_recovery.py</code> nvidia-smi-first) auf einen Pfad zusammenführen</li>
+      <li>Plattform-Profile unter <code>config/platforms/*.json</code>, ein Profil je Zielgerät</li>
+      <li>Inferenz-Engine: SGLang als Standard, vLLM baubar als Rückfall</li>
+      <li>Kompatibilitäts-Schicht: interner <code>/api/*</code>-Vertrag + Modell-Download bleiben, Übersetzung auf <code>/v1</code>; neuer Modell-Manager auf Platten-Gewichten (SGLang/vLLM kennen kein <code>/api/pull</code>)</li>
+      <li>Kleiner llama.cpp/GGUF-Track nur für den Orin (kein FP8/NVFP4 auf Ampere)</li>
+      <li>Embedding: BGE-M3 als zweiter Engine-Prozess (Variante B), bespoke <code>l4t-pytorch</code>-Image entfällt</li>
+      <li><code>LD_LIBRARY_PATH</code> und CUDA-Pfade aus dem Compose ins Profil</li>
+      <li>Zentrale Multi-Arch-Builds (arm64 nativ, amd64 via QEMU) in eine private Registry; Geräte ziehen, build-on-device als Fallback</li>
+      <li>Profile je Zielgerät; Orin live grün, abwesende Ziele per Emulation + Durchgang belegt</li>
+      <li>Doku-Sync: <code>JETSON_COMPATIBILITY.md</code> wird zur Plattform-Matrix</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li><strong>Echt-Hardware-Validierung auf Thor/Spark/RTX (inkl. DGX-Spark-Verkaufsnachweis)</strong> — eigener Folge-Plan, sobald die Geräte da sind</li>
+      <li><strong>Direkter vLLM-vs-SGLang-Durchsatz-Vergleich</strong> auf echter Ziel-Hardware — mit dem Folge-Plan</li>
+      <li>Neue Produktfunktionen, UI-Umbauten, Flow-Erweiterungen</li>
+      <li>Ein gehostetes Angebot (Server mieten). Bewusste Entscheidung</li>
+      <li>Mandanten-Isolation und die übrigen offenen Roadmap-Gates</li>
+      <li>Kauf oder Validierung einer DGX Station. Nur auf Kundenanfrage, dann über Distributor</li>
+      <li>Training oder Fine-Tuning. Es bleibt bei Inferenz</li>
+      <li>Automatische Migration bestehender Kundengeräte. Der Orin bekommt einen dokumentierten Flash-Weg, keinen Auto-Upgrade</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Sechs Ziele kollabieren auf zwei Build-Targets, weil CUDA 13 alles vereinheitlicht.</span>
+  </summary>
+  <div class="sbody">
+
+  <p>Die sechs Zielgeräte sind technisch keine sechs Ziele. CUDA 13 SBSA deckt alle ARM-Geräte mit einem einzigen Toolkit ab, CUDA 13 x86_64 alle übrigen. Übrig bleiben zwei Container-Architekturen und eine Handvoll Profil-Dateien.</p>
+
+  <p>Heute sind die Hardware-Annahmen über gut ein Dutzend Dateien verstreut: <code>hardware.js</code> liest das Device-Tree, <code>recovery_actions.py</code> ruft <code>nvpmodel</code>, <code>compose.ai.yaml</code> hat <code>cuda_jetpack6</code> fest im <code>LD_LIBRARY_PATH</code>, und der Embedding-Dienst baut auf einem L4T-Image, das es für Spark und x86 nie geben wird. Ein Teil der HAL-Arbeit ist dabei schon halb getan — <code>hardware.js</code> und <code>gpu_recovery.py</code> fallen bereits auf <code>nvidia-smi</code> zurück, <code>gpu_monitor.py</code> ist schon ganz auf NVML umgestellt. Genau diese vorhandenen Fallback-Pfade werden zum Primärpfad erhoben, statt eine grüne Wiese zu bauen.</p>
+
+  <p>Nach dem Umbau kennt genau eine Stelle die Hardware. Alle anderen fragen sie.</p>
+
+  <figure class="arch">
+    <svg viewBox="0 0 720 470" role="img" aria-label="Architektur: ein Repo, zwei Build-Targets, sechs Zielgeräte, Profile steuern die Unterschiede">
+      <defs>
+        <marker id="a20" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"/>
+        </marker>
+      </defs>
+      <g font-family="ui-monospace, SF Mono, Menlo, monospace" font-size="12" fill="var(--ink)">
+
+        <!-- Repo -->
+        <rect x="240" y="10" width="240" height="42" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+        <text x="360" y="28" text-anchor="middle" font-weight="700">arasul-jet</text>
+        <text x="360" y="43" text-anchor="middle" font-size="10.5" fill="var(--muted)">eine Codebase, ~8–10 eigene Images</text>
+
+        <!-- Profile -->
+        <rect x="40" y="80" width="200" height="58" rx="8" fill="var(--wash)" stroke="var(--line)"/>
+        <text x="140" y="99" text-anchor="middle" font-weight="700" font-size="11">config/platforms/*.json</text>
+        <text x="140" y="114" text-anchor="middle" font-size="10" fill="var(--muted)">Speicherbudget, Modell,</text>
+        <text x="140" y="127" text-anchor="middle" font-size="10" fill="var(--muted)">GPU-Query, max-num-seqs</text>
+
+        <!-- HAL -->
+        <rect x="280" y="80" width="160" height="58" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="360" y="99" text-anchor="middle" font-weight="700" font-size="11">HAL</text>
+        <text x="360" y="114" text-anchor="middle" font-size="10" fill="var(--muted)">nvidia-smi zuerst,</text>
+        <text x="360" y="127" text-anchor="middle" font-size="10" fill="var(--muted)">tegrastats als Fallback</text>
+
+        <!-- Engine -->
+        <rect x="480" y="80" width="200" height="58" rx="8" fill="var(--wash)" stroke="var(--line)"/>
+        <text x="580" y="99" text-anchor="middle" font-weight="700" font-size="11">SGLang + Kompat-Schicht</text>
+        <text x="580" y="114" text-anchor="middle" font-size="10" fill="var(--muted)">Batching + Prefix-Cache,</text>
+        <text x="580" y="127" text-anchor="middle" font-size="10" fill="var(--muted)">/api/* → /v1, Modell-Manager</text>
+
+        <line x1="360" y1="52" x2="360" y2="80" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#a20)"/>
+        <line x1="240" y1="109" x2="278" y2="109" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#a20)"/>
+        <line x1="440" y1="109" x2="478" y2="109" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#a20)"/>
+
+        <!-- Build split -->
+        <line x1="360" y1="138" x2="360" y2="168" stroke="var(--muted)" stroke-width="1.3"/>
+        <line x1="190" y1="168" x2="530" y2="168" stroke="var(--muted)" stroke-width="1.3"/>
+        <line x1="190" y1="168" x2="190" y2="192" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#a20)"/>
+        <line x1="530" y1="168" x2="530" y2="192" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#a20)"/>
+
+        <rect x="70" y="192" width="240" height="46" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="190" y="211" text-anchor="middle" font-weight="700" font-size="11">linux/arm64</text>
+        <text x="190" y="227" text-anchor="middle" font-size="10" fill="var(--muted)">CUDA 13 SBSA</text>
+
+        <rect x="410" y="192" width="240" height="46" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="530" y="211" text-anchor="middle" font-weight="700" font-size="11">linux/amd64</text>
+        <text x="530" y="227" text-anchor="middle" font-size="10" fill="var(--muted)">CUDA 13 x86_64</text>
+
+        <!-- Devices arm -->
+        <line x1="190" y1="238" x2="190" y2="262" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#a20)"/>
+        <rect x="40" y="262" width="300" height="152" rx="8" fill="var(--wash)" stroke="var(--line)"/>
+        <text x="190" y="282" text-anchor="middle" font-size="10" fill="var(--muted)" letter-spacing="1">ARM-ZIELE</text>
+        <rect x="56" y="292" width="268" height="26" rx="5" fill="var(--surface)" stroke="var(--line)"/>
+        <text x="190" y="309" text-anchor="middle" font-size="11">Jetson AGX Orin · R39 · sm_87</text>
+        <rect x="56" y="323" width="268" height="26" rx="5" fill="var(--surface)" stroke="var(--line)"/>
+        <text x="190" y="340" text-anchor="middle" font-size="11">Jetson AGX Thor · sm_110</text>
+        <rect x="56" y="354" width="268" height="26" rx="5" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="190" y="371" text-anchor="middle" font-size="11" font-weight="700">DGX Spark · sm_121</text>
+        <rect x="56" y="385" width="268" height="26" rx="5" fill="var(--surface)" stroke="var(--line)"/>
+        <text x="190" y="402" text-anchor="middle" font-size="11">DGX Station · sm_103</text>
+
+        <!-- Devices x86 -->
+        <line x1="530" y1="238" x2="530" y2="262" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#a20)"/>
+        <rect x="380" y="262" width="300" height="152" rx="8" fill="var(--wash)" stroke="var(--line)"/>
+        <text x="530" y="282" text-anchor="middle" font-size="10" fill="var(--muted)" letter-spacing="1">X86-ZIELE</text>
+        <rect x="396" y="292" width="268" height="26" rx="5" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="530" y="309" text-anchor="middle" font-size="11" font-weight="700">RTX PRO 6000 · sm_120</text>
+        <rect x="396" y="323" width="268" height="26" rx="5" fill="var(--surface)" stroke="var(--line)"/>
+        <text x="530" y="340" text-anchor="middle" font-size="11">Eigener Server · sm_89 aufwärts</text>
+        <text x="530" y="376" text-anchor="middle" font-size="10" fill="var(--muted)">Kunde stellt die Hardware,</text>
+        <text x="530" y="391" text-anchor="middle" font-size="10" fill="var(--muted)">kein Hosting-Angebot von uns</text>
+
+        <text x="360" y="443" text-anchor="middle" font-size="10.5" fill="var(--muted)">Kein Dienst kennt sein Zielgerät. Er fragt die HAL, die HAL liest das Profil.</text>
+        <text x="360" y="459" text-anchor="middle" font-size="10.5" fill="var(--muted)">Neue Hardware = eine neue JSON-Datei, kein neues Dockerfile.</text>
+      </g>
+    </svg>
+    <figcaption>Sechs Zielgeräte, zwei Container-Architekturen, eine Codebase. Die Profil-Dateien sind der einzige Ort, an dem Hardware-Wissen liegt.</figcaption>
+  </figure>
+
+  <h3>Was heute wo klemmt</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Stelle</th><th>Bindung</th><th>Schwere</th></tr></thead>
+    <tbody>
+      <tr><td><code>services/embedding-service/Dockerfile</code></td><td>Basis <code>dustynv/l4t-pytorch:r36.4.0</code>, existiert für Spark und x86 nicht</td><td>harter Blocker</td></tr>
+      <tr><td><code>services/llm-service/Dockerfile</code></td><td>Ollama-Binary auf Ubuntu 22.04 geklebt, wegen JetPack-6-glibc</td><td>fällt mit dem Engine-Wechsel weg</td></tr>
+      <tr><td>~15 Backend- + 4 Frontend-Dateien am Ollama-API</td><td>Modell-Lifecycle, Chat-Streaming, Tool-Schleifen, Store-UI hängen an <code>/api/pull|tags|ps|show|chat</code></td><td>harter Blocker (Kompat-Schicht)</td></tr>
+      <tr><td><code>compose/compose.ai.yaml:88</code></td><td><code>cuda_jetpack6</code> und <code>aarch64-linux-gnu</code> fest im <code>LD_LIBRARY_PATH</code></td><td>mittel</td></tr>
+      <tr><td><code>apps/dashboard-backend/src/utils/hardware.js</code></td><td>Device-Tree/<code>nv_tegra_release</code> zuerst, ~6 Treffer — hat aber schon <code>nvidia-smi</code>-Fallback</td><td>mittel (Umkehr, kein Neubau)</td></tr>
+      <tr><td><code>scripts/setup/detect-jetson.sh</code> (+ <code>.test.sh</code>)</td><td>schon 5-stufig; echte Lücke: <strong>kein positiver x86-Erkennungspfad</strong>; Test muss mit umgeschrieben werden</td><td>mittel</td></tr>
+      <tr><td><code>recovery_actions.py</code> (Jetson-first) vs <code>gpu_recovery.py</code> (nvidia-smi-first)</td><td>zwei konkurrierende Recovery-Module — erst prüfen, welches <code>category_handlers.py</code> verdrahtet</td><td>mittel</td></tr>
+      <tr><td><code>services/metrics-collector/gpu_monitor.py</code></td><td>schon NVML-basiert mit Jetson-Fallback — braucht praktisch nichts</td><td>entfällt weitgehend</td></tr>
+      <tr><td><code>arasul</code> CLI (~28) + <code>diagnostics.sh</code> (~4)</td><td>überwiegend Ausgaben/Checks, ~32 Treffer (nicht 14)</td><td>klein</td></tr>
+      <tr><td>Vom Plan zuvor übersehen</td><td><code>scripts/deploy/factory-install.sh</code>, <code>create-deployment-image.sh</code>, Frontend-Jetson-Strings (<code>GeneralSettings.tsx</code>, <code>UpdatePage.tsx</code>), <code>configService.js</code>, <code>.github/workflows/deploy.yml</code></td><td>mittel</td></tr>
+    </tbody>
+  </table></div>
+  <p>Alles andere (Postgres, MinIO, Qdrant, n8n, Traefik, Loki, <code>node:alpine</code>, <code>python:slim</code>) ist bereits als Stock-Upstream-Image multi-arch und interessiert sich nicht für die Hardware — wir bauen nur unsere ~8–10 eigenen Images multi-arch.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Messen, abstrahieren, Engine tauschen, entkoppeln, multi-arch bauen, validieren, dokumentieren.</span>
+  </summary>
+  <div class="sbody">
+
+  <p>Sieben Schritte, je ein eigener PR mit code-reviewer-Gate. Grober Rahmen: sechs bis neun Wochen, davon der klare Löwenanteil in Schritt 3 (Engine + Kompat-Schicht + Modell-Manager). Verifiziert wird live nur auf dem Orin; alle anderen Ziele werden gebaut und per Emulation belegt (siehe §6).</p>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Mess-Harness und Engine-Baseline">
+    <h3>Schritt 1 — Mess-Harness und Engine-Baseline <span class="tag">Risiko: keins</span> <span class="tag">2 bis 3 Tage</span></h3>
+    <p>Ziel ist ein wiederholbares Mess-Werkzeug, kein einmaliger Zahlenwert. Der realistischste Kunden-Flow läuft als Skript, das <strong>verarbeitete Tokens gesamt</strong> (nicht Tokens pro Sekunde) bei 1, 4 und 16 parallelen Anfragen misst — so, dass es später ohne Umbau auf Thor und Spark läuft.</p>
+    <p><strong>Ehrliche Einschränkung:</strong> Der aussagekräftige Vergleich braucht Thor/Spark, die noch nicht da sind. Auf dem Orin läuft die NVFP4-MoE-Zielklasse gar nicht (kein FP8/NVFP4). Was jetzt geht, ist ein <em>indikativer</em> Lauf auf dem Orin mit einem FP16/INT4-Modell (llama.cpp gegen SGLang) — er belegt, dass das Harness funktioniert und Ollama nicht batcht, ersetzt aber nicht die Zielhardware-Messung. Die Engine-Wahl ist bereits getroffen (SGLang, siehe §8); der direkte vLLM-vs-SGLang-Durchsatz-Vergleich wandert in den Echt-Hardware-Folge-Plan.</p>
+    <p class="files mono">neu: scripts/test/measure-throughput.sh · docs/plans/active/020-baseline.md</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Hardware-Abstraktionsschicht und Plattform-Profile">
+    <h3>Schritt 2 — Hardware-Abstraktionsschicht und Plattform-Profile <span class="tag">Risiko: mittel</span> <span class="tag">ca. 1 Woche</span></h3>
+    <p>Eine Stelle weiß, auf welcher Hardware sie läuft, alle anderen fragen sie. Neu entsteht <code>config/platforms/*.json</code> mit einem Profil je Zielgerät: Speicherbudget, Default-Modell, GPU-Query-Kommando, <code>LD_LIBRARY_PATH</code>, <code>max-num-seqs</code>.</p>
+    <p>Die Erkennung dreht sich um: <code>nvidia-smi</code> wird Primärpfad — die vorhandenen Fallbacks in <code>hardware.js</code> und <code>gpu_recovery.py</code> werden hochgezogen, statt neu gebaut. <code>detect-jetson.sh</code> wird zu <code>detect-platform.sh</code>; die 5-stufige Jetson-Erkennung bleibt als Zweig, <strong>neu dazu kommt ein positiver x86-Erkennungspfad</strong> (heute endet das Skript auf x86 sofort bei „unknown"). Der begleitende Test <code>detect-jetson.test.sh</code> wird mit umgeschrieben.</p>
+    <p>Außerdem werden die zwei konkurrierenden GPU-Recovery-Module zusammengeführt: erst prüfen, welches <code>category_handlers.py</code> tatsächlich verdrahtet, dann auf den <code>nvidia-smi</code>-first-Pfad (<code>gpu_recovery.py</code>) vereinheitlichen, Jetson-Aufrufe als Fallback. <code>gpu_monitor.py</code> ist schon NVML-basiert und wird nur angefasst, wo die HAL-Schnittstelle greift.</p>
+    <p class="files mono">apps/dashboard-backend/src/utils/hardware.js · apps/dashboard-backend/src/services/app/configService.js · scripts/setup/detect-jetson.sh → detect-platform.sh · scripts/test/setup/detect-jetson.test.sh · services/self-healing-agent/gpu_recovery.py · recovery_actions.py · category_handlers.py · services/metrics-collector/gpu_monitor.py · compose/compose.ai.yaml · scripts/system/diagnostics.sh · arasul · neu: config/platforms/</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Inferenz-Engine: SGLang + Kompat-Schicht + Modell-Manager">
+    <h3>Schritt 3 — Inferenz-Engine: SGLang + Kompat-Schicht + Modell-Manager <span class="tag">Risiko: hoch</span> <span class="tag">3 bis 4 Wochen</span></h3>
+    <p>Der eigentliche Hebel — und der Schritt, den der Vorgänger-Plan grob unterschätzt hatte. Er ist <strong>kein Dockerfile-Tausch</strong>. Die Engine selbst ist leicht: NVIDIA liefert SGLang als CUDA-13-Container mit <code>arm64-sbsa</code>- und x86-Tag; die Klebearbeit im heutigen <code>llm-service</code> fällt weg. Der Aufwand steckt in zwei Dingen darum herum.</p>
+    <p><strong>Kompatibilitäts-Schicht (Sub-Schritt 3a).</strong> Heute hängen ~15 Backend- und 4 Frontend-Dateien an Ollamas API (Modell-Lifecycle, Chat-Streaming, Tool-Schleifen, Flows, Memory, Brücke, Store-UI mit Download-Fortschritt). SGLang spricht nur OpenAI-<code>/v1</code>. Statt alle Call-Sites umzuschreiben, kommt ein dünner Adapter davor, der den internen <code>/api/*</code>-Vertrag hält und auf <code>/v1</code> übersetzt — inklusive gefaktem Streaming- und Pull-Fortschritt. Frontend und die meisten Backend-Stellen bleiben unangetastet.</p>
+    <p><strong>Modell-Manager (Sub-Schritt 3b).</strong> SGLang/vLLM kennen kein <code>/api/pull</code> und keinen Laufzeit-Modellwechsel. Der Manager zieht Gewichte per <code>huggingface-cli</code> auf die Platte und schaltet zwischen vorgehaltenen Modellen per Sleep-Mode-Ansatz um (Neustart nur im Notfall). Das ist der größte versteckte Posten und der Grund für die 3–4 Wochen.</p>
+    <p><strong>Betriebsparameter:</strong> auf Spark/Thor <code>--max-num-seqs 4</code> oder niedriger, Pre-Warming gegen die ~25 s JIT der ersten Anfrage. Modellklasse: MoE mit 100–130B Gesamt-/10–15B aktiven Parametern in NVFP4. Dichte 70B-Modelle sind bei 273 GB/s mit unter 3 Tokens/s unbrauchbar. <strong>vLLM bleibt aus derselben Container-Familie baubar als Rückfall.</strong> Der <strong>Orin bekommt seinen eigenen llama.cpp/GGUF-Q4-Pfad</strong> — die NVFP4-Zielklasse läuft dort nicht.</p>
+    <p class="files mono">services/llm-service/ (Dockerfile, api_server.py, entrypoint.sh) · neu: Kompat-Adapter + Modell-Manager · apps/dashboard-backend/src/services/llm/ (modelService, ollamaReadiness, llmOllamaStream, chatAgentRunner) · services/flows/toolLoop.js · extensions/brueckeService.js · context/modelContextService.js · routes/system/services.js · routes/ai/models.js · config/services.js · Frontend: StoreModelsGrid.tsx · useStoreCatalog.ts · DownloadContext.tsx · StoreDetailPage.tsx · compose/compose.ai.yaml · config/platforms/</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Embedding von L4T lösen (Variante B)">
+    <h3>Schritt 4 — Embedding von L4T lösen (Variante B) <span class="tag">Risiko: mittel</span> <span class="tag">3 bis 4 Tage</span></h3>
+    <p>Der letzte harte L4T-Blocker. Entschieden ist <strong>Variante B</strong>: BGE-M3 wird von der Engine selbst serviert (SGLang, <code>--task embed</code>, OpenAI-<code>/v1/embeddings</code>), das bespoke <code>dustynv/l4t-pytorch</code>-Image entfällt. Ein Image-Typ weniger.</p>
+    <p><strong>Ehrliche Korrektur zur früheren Annahme:</strong> Das spart <em>keinen</em> Speicher und keinen GPU-Prozess — eine Engine fährt ein Modell pro Prozess, BGE-M3 läuft also als <em>zweiter</em> Prozess neben dem LLM. Der Indexer muss so gedrosselt werden, dass Embedding und Flow-Last sich die GPU nicht gegenseitig aushungern (Priorität LLM während aktiver Flows). Auf dem Orin läuft BGE-M3 als zweiter Prozess in FP16 mit — die Engine trägt den Encoder auch auf Ampere.</p>
+    <p class="files mono">services/embedding-service/ (Image entfällt, wird Engine-Prozess) · services/document-indexer/ (Drosselung) · compose/compose.ai.yaml · config/platforms/</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Zentrale Multi-Arch-Builds und private Registry">
+    <h3>Schritt 5 — Zentrale Multi-Arch-Builds und private Registry <span class="tag">Risiko: mittel</span> <span class="tag">1 bis 2 Wochen</span></h3>
+    <p><code>docker buildx</code> mit <code>--platform linux/arm64,linux/amd64</code> für unsere ~8–10 eigenen Images (die Stock-Upstream-Images sind schon multi-arch). Weil außer dem Orin keine Hardware da ist, laufen die Builds <strong>zentral</strong>: <code>arm64</code> baut der Orin nativ, <code>amd64</code> baut er per <code>buildx</code>+QEMU-Emulation. Die emulierten CUDA-Builds sind langsam, kosten aber nur Bauzeit, nicht Laufzeit.</p>
+    <p>Alle Images landen in einer <strong>privaten Registry</strong> — ein Ort, an dem die Images für alle sechs Ziele verwaltet werden; Geräte ziehen später statt zu bauen. Dazu gehören Hosting, Zugriffsschutz und Image-Signatur. <strong>build-on-device bleibt als Fallback</strong> bestehen, falls die Registry mal nicht erreichbar ist. Die bestehende Deploy-Logik (<code>deploy-local.sh</code>: DB-Backup vor Deploy + Healthcheck-Rollback) bleibt der Pfad fürs Orin-Gerät.</p>
+    <p class="files mono">.github/workflows/deploy.yml · Makefile · arasul (bootstrap) · scripts/deploy/factory-install.sh · scripts/deploy/create-deployment-image.sh · scripts/deploy/deploy-local.sh · neu: Registry-Konfig · compose/</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Profile und Emulations-Validierung je Zielgerät">
+    <h3>Schritt 6 — Profile und Emulations-Validierung je Zielgerät <span class="tag">Risiko: mittel</span> <span class="tag">1 bis 2 Wochen</span></h3>
+    <p>Je Ziel ein Profil. Live nachgewiesen wird jetzt nur, was auf dem Orin geht; die anderen Ziele werden gebaut, unter Emulation gebootet und per Durchgang belegt (Details in §6). Die echte Hardware-Validierung — mit dem DGX-Spark-Verkaufsnachweis obenan — ist der Folge-Plan.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Profil</th><th>Default-Modell</th><th>max-num-seqs</th><th>Nachweis in diesem Plan</th></tr></thead>
+      <tbody>
+        <tr><td><code>orin-64</code> (R39, llama.cpp)</td><td>GGUF Q4, ~30B</td><td>2</td><td><strong>live grün auf echter Hardware</strong></td></tr>
+        <tr><td><code>thor-128</code></td><td>120B MoE NVFP4</td><td>4</td><td>Build + Profil + Emulation, echt im Folge-Plan</td></tr>
+        <tr><td><code>dgx-spark</code></td><td>120B MoE NVFP4</td><td>4</td><td>Build + Profil + Emulation; <strong>Echt-Nachweis = Folge-Plan (Verkauf!)</strong></td></tr>
+        <tr><td><code>rtx-pro-6000</code></td><td>120B MoE FP8</td><td>32</td><td>Build (amd64/QEMU) + Profil, echt im Folge-Plan</td></tr>
+        <tr><td><code>server-generic</code></td><td>nach verfügbarem VRAM</td><td>nach VRAM</td><td>Build + Profil, ein Referenzlauf später</td></tr>
+        <tr><td><code>dgx-station</code></td><td>groß</td><td>64 aufwärts</td><td>Profil vorbereitet, bleibt ungetestet</td></tr>
+      </tbody>
+    </table></div>
+    <p>Der Orin wird für seinen Track auf R39 geflasht und trägt das generische arm64-Profil mit llama.cpp. Er bleibt so das ehrliche Regressionsgerät auf alter Hardware. Die spekulativen <code>sm_</code>-Werte der übrigen Profile werden als „am Gerät zu bestätigen" markiert, nicht hart in Code verdrahtet.</p>
+    <p class="files mono">config/platforms/*.json · scripts/setup/detect-platform.sh · docs/ops/DEPLOYMENT.md · docs/ops/FRESH_INSTALL_CHECKLIST.md</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Doku-Sync und Umbenennung">
+    <h3>Schritt 7 — Doku-Sync und Umbenennung <span class="tag">Risiko: niedrig</span> <span class="tag">2 bis 3 Tage</span></h3>
+    <p><code>docs/features/JETSON_COMPATIBILITY.md</code> wird zu <code>PLATFORM_COMPATIBILITY.md</code> mit der Matrix aus §1 — inklusive der Ampel, welche Ziele echt validiert und welche nur gebaut/emuliert sind. Die Jetson-Formulierungen in README, CLAUDE.md, ONBOARDING, DEPLOYMENT, TROUBLESHOOTING, den Frontend-Strings (<code>GeneralSettings.tsx</code>, <code>UpdatePage.tsx</code>) und den <code>.claude</code>-Kontextdateien werden geräteneutral. Der Repo-Name <code>arasul-jet</code> bleibt, eine Umbenennung wäre reines Risiko ohne Nutzen.</p>
+    <p>Die Kennzahl <strong>Tokens pro Tag je Gerät</strong> aus dem Mess-Harness ist die ehrlichere Aussage als jede Tokens-pro-Sekunde-Angabe. Sie wird dokumentiert, sobald echte Zielhardware sie liefert (Folge-Plan), nicht auf Basis der Emulation behauptet.</p>
+    <p class="files mono">docs/features/JETSON_COMPATIBILITY.md → PLATFORM_COMPATIBILITY.md · README.md · CLAUDE.md · docs/ARCHITECTURE.md · docs/development/ONBOARDING.md · docs/ops/ · apps/dashboard-frontend/src/features/{settings/GeneralSettings.tsx,system/UpdatePage.tsx} · .claude/</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Kein L4T-Image mehr, alles baut multi-arch, Orin live grün, Rest per Emulation belegt. Echt-HW = Folge-Plan.</span>
+  </summary>
+  <div class="sbody">
+  <h3>Stufe 1 — dieser Plan (jetzt erfüllbar)</h3>
+  <ul class="checks">
+    <li data-done="false">Kein Dockerfile im Repo referenziert noch ein L4T- oder JetPack-spezifisches Basis-Image.</li>
+    <li data-done="false"><code>grep -r "tegrastats\|nvpmodel\|nv_tegra_release"</code> trifft nur noch innerhalb der HAL und der Plattform-Profile, nicht mehr in Diensten oder im Dashboard.</li>
+    <li data-done="false">Alle ~8–10 eigenen Images bauen zentral für <code>linux/arm64</code> (nativ) und <code>linux/amd64</code> (QEMU) und liegen in der privaten Registry.</li>
+    <li data-done="false"><code>detect-platform.sh</code> erkennt sowohl arm64- als auch x86-Ziele positiv (nicht mehr „unknown" auf x86).</li>
+    <li data-done="false">Voller Systemstart plus Chat mit RAG nachweislich <strong>live grün auf dem Jetson AGX Orin</strong> (llama.cpp-Track).</li>
+    <li data-done="false">Für Thor, DGX Spark und die RTX-PRO-6000-Workstation: Image baut, Container startet unter Emulation, Profil ist vollständig, „würde-es-laufen"-Durchgang dokumentiert.</li>
+    <li data-done="false">Die Kompatibilitäts-Schicht hält den internen <code>/api/*</code>-Vertrag: Store-UI, Modell-Download und Chat-Streaming funktionieren gegen SGLang unverändert (auf dem Orin-Pfad belegt).</li>
+    <li data-done="false">Ein neues Zielgerät braucht nur eine neue Datei unter <code>config/platforms/</code>, keinen Code- und keinen Dockerfile-Eingriff.</li>
+    <li data-done="false">Nur ein GPU-Recovery-Pfad ist aktiv verdrahtet (die zwei Module sind zusammengeführt).</li>
+    <li data-done="false">Bestehende Kundengeräte laufen unverändert weiter, bis sie bewusst migriert werden.</li>
+    <li data-done="false">Testsuite <code>run-tests.sh --all</code> grün (Backend, Frontend, Python), inkl. neu geschriebenem <code>detect-platform.test.sh</code>.</li>
+  </ul>
+  <h3>Stufe 2 — Folge-Plan, sobald echte Hardware da ist</h3>
+  <ul class="checks">
+    <li data-done="false">Voller Systemstart plus Chat mit RAG live grün auf Thor, DGX Spark und RTX-PRO-6000-Workstation.</li>
+    <li data-done="false"><strong>DGX-Spark-Verkaufsnachweis:</strong> vollständiger Bootstrap von null auf einem Kundengerät.</li>
+    <li data-done="false">Durchsatz auf Thor gegen die Ollama-Baseline gemessen; Tokens pro Tag je Profil dokumentiert; vLLM vs SGLang direkt verglichen.</li>
+    <li data-done="false">Pre-Warming greift: erste Anfrage nach Neustart ohne die ~25 s JIT-Pause.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Orin wird live geprüft; alle anderen Ziele per Emulation + Durchgang. GPU-Inferenz auf abwesender Hardware ist nicht ausführbar, nur begründbar.</span>
+  </summary>
+  <div class="sbody">
+
+  <p>Realität: Physisch da ist nur der Jetson AGX Orin. Deshalb gilt hier eine zweistufige Regel — live prüfen, was auf dem Orin geht; für die abwesenden Ziele bauen, emulieren und durchdenken.</p>
+
+  <h3>Live auf dem Orin (echte Hardware)</h3>
+  <ul>
+    <li><code>./arasul status</code> vollständig grün, alle Dienste healthy</li>
+    <li>Chat mit RAG über ein echtes Dokument, mit Quellenangabe — über den <strong>llama.cpp/GGUF-Track</strong> (die NVFP4-Engine läuft auf Ampere nicht)</li>
+    <li>Store-UI: ein Modell herunterladen und wechseln — belegt, dass die Kompatibilitäts-Schicht den <code>/api/*</code>-Vertrag hält</li>
+    <li>Ein Flow von Hand ausgelöst, Ergebnis im Zielsystem angekommen</li>
+    <li><code>docker compose ps</code> ohne Restart-Schleifen über mindestens 30 Minuten; Kaltstart-Test (hart aus/an bis bedienbar)</li>
+  </ul>
+
+  <h3>Für Thor, DGX Spark, RTX PRO 6000 (per Emulation + Durchgang)</h3>
+  <ul>
+    <li>Das Ziel-Image baut sauber für die richtige Architektur (arm64-sbsa bzw. amd64) und liegt in der Registry</li>
+    <li>Der Container <strong>startet unter QEMU-Emulation</strong> bis zum Nicht-GPU-Health (API up, Config geladen, Profil greift)</li>
+    <li>Das Plattform-Profil ist vollständig und gegen NVIDIAs Support-Matrix (CUDA 13, arm64-sbsa / x86, Modell-Quantisierung) geprüft</li>
+    <li>Ein dokumentierter „würde-es-laufen"-Durchgang: Basis-Image, CUDA-Version, Kernel-Verfügbarkeit je <code>sm_</code>, Speicherbudget vs. Modellgröße</li>
+  </ul>
+
+  <h3>Ehrliche Grenze der Emulation</h3>
+  <p>QEMU emuliert die CPU-Architektur, <strong>nicht die GPU</strong>. Ein emulierter amd64-Start beweist „Image korrekt gebaut, bootet, Konfig gültig" — er beweist <em>nicht</em>, dass CUDA-Inferenz auf der echten Karte läuft. Das ist per Logik/Support-Matrix begründet, nicht ausgeführt. Genau deshalb ist die Echt-Hardware-Validierung ein eigener Folge-Plan und wird hier nicht als „grün" behauptet. Besondere Vorsicht: die NVFP4-Kernel-Auswahl auf der RTX PRO 6000 (sm_120) ist jung und war in vLLM zuletzt fehleranfällig — die Engine-Version wird gepinnt und erst am echten Gerät final bestätigt.</p>
+
+  <h3>Nicht nachweisbar in diesem Plan</h3>
+  <p>Die DGX Station bleibt ungetestet. Wir kaufen keine für 85.000 bis 123.000 Dollar mit vier bis dreizehn Wochen Lieferzeit. Sie steht im Profil-Satz und in der Doku als „vorbereitet, nicht validiert".</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Engine-Wechsel + Kompat-Schicht sind das Risiko. vLLM bleibt baubar als Rückfall, echte HW fehlt noch.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Die Kompatibilitäts-Schicht ist aufwendiger als gedacht (~15 BE + 4 FE Dateien am Ollama-API, gefakter Streaming-/Pull-Fortschritt)</td><td>hoch</td><td>Bewusst als Löwenanteil von Schritt 3 mit 3–4 Wochen eingeplant und in 3a/3b geteilt. Der Adapter hält den internen Vertrag, statt alle Call-Sites umzuschreiben — kleinster Blast-Radius.</td></tr>
+      <tr><td>Modell-Management fehlt in SGLang/vLLM ganz (kein <code>/api/pull</code>, kein Laufzeit-Wechsel)</td><td>hoch</td><td>Eigener Modell-Manager auf Platten-Gewichten + Sleep-Mode-Umschaltung (Sub-Schritt 3b). Der größte versteckte Posten, deshalb explizit als eigener Sub-Schritt sichtbar.</td></tr>
+      <tr><td>GPU-Inferenz auf abwesender Hardware ist per Emulation nicht ausführbar</td><td>trifft zu</td><td>Bewusst zweistufig: Stufe 1 belegt Bau + Boot + Profil per Emulation und Logik, Stufe 2 (Folge-Plan) belegt echte Inferenz. Der Plan behauptet nie „grün", wo nur emuliert wurde.</td></tr>
+      <tr><td>NVFP4-Kernel-Auswahl auf RTX PRO 6000 (sm_120) ist jung und war fehleranfällig</td><td>mittel</td><td>Engine-Version pinnen, nicht „latest". Final erst am echten Gerät (Folge-Plan). vLLM bleibt als zweite Engine baubar.</td></tr>
+      <tr><td>SGLang schlägt im echten Betrieb doch nicht vLLM</td><td>mittel</td><td>Beide aus derselben Container-Familie baubar, beide sprechen <code>/v1</code>, die Kompat-Schicht ist engine-neutral. Umschalten = Profil-Änderung, kein Code-Revert. Direktvergleich im Folge-Plan.</td></tr>
+      <tr><td>Embedding als 2. Prozess (Variante B) hungert unter Flow-Last die LLM-GPU aus</td><td>mittel</td><td>Indexer wird gedrosselt, LLM hat Vorrang während aktiver Flows. Rückweg auf einen eigenen CUDA-13-Embedding-Container bleibt offen.</td></tr>
+      <tr><td>amd64-Images per QEMU-Emulation bauen langsam / bergen Fehler</td><td>mittel</td><td>Emulation kostet nur Bauzeit, nicht Laufzeit. Korrektheit der amd64-CUDA-Kernel wird am echten x86-Gerät final bestätigt; bis dahin build-on-device als Fallback.</td></tr>
+      <tr><td>Private Registry als neuer Betriebsposten (Hosting, Auth, Signatur)</td><td>mittel</td><td>build-on-device bleibt als Fallback, falls die Registry ausfällt. Bestehende Deploy-Logik (Backup + Rollback) bleibt für das Orin-Gerät unangetastet.</td></tr>
+      <tr><td>Bestehende Kundengeräte brechen beim Update</td><td>niedrig</td><td>Kein Auto-Upgrade. Bestandsgeräte bleiben auf dem alten Stand, bis sie bewusst migriert werden. Der Orin-Flash auf R39 ist ein dokumentierter manueller Weg.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Rollback</h3>
+  <p>Je Schritt ein eigener PR, also ein Revert je Schritt. Der kritische Schritt 3 ist doppelt abgesichert: die Kompatibilitäts-Schicht ist engine-neutral, und mit vLLM steht eine zweite Engine aus derselben Container-Familie bereit. Ein Zurückschalten der Engine ist damit eine Profil-Änderung plus Container-Neustart, kein Code-Revert. Der Orin läuft ohnehin auf seinem eigenen llama.cpp-Pfad weiter.</p>
+  <p>Die Plattform-Profile sind additiv. Ein fehlerhaftes neues Profil betrifft nur Geräte, die es laden, nie ein bereits laufendes Gerät. Bestandsgeräte werden nicht angefasst, solange sie nicht bewusst migriert werden.</p>
+  <p>Einzige nicht triviale Rückabwicklung: der Orin-Flash auf R39. Der ist ein Neuaufsetzen des Geräts — und der Orin ist das einzige physisch vorhandene Gerät. Deshalb wird der Flash erst gemacht, wenn der neue Stack per Emulation/Durchgang belegt ist und ein zurückspielbares Backup des heutigen Orin-Zustands vorliegt.</p>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> SGLang hinter Kompat-Schicht, Ollama nur für Orin, zentrale Registry, zweistufige Abnahme mit Echt-HW im Folge-Plan.</span>
+  </summary>
+  <div class="sbody">
+  <p><small>Challenge-Runde am 2026-08-15 gegen den ursprünglichen Entwurf. Grundlage: Code-Recherche im Repo + aktuelle Engine-Recherche (Quellen im Ausführungs-Report).</small></p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Welche Zielgeräte werden unterstützt?</td><td>Alle sechs: Orin, Thor, DGX Spark, DGX Station, RTX-PRO-6000-Workstation, eigener Server</td><td>Kein Ziel wird abgekündigt. Der Orin läuft aber nicht „gratis" mit — er braucht einen eigenen llama.cpp-Track (kein FP8/NVFP4 auf Ampere).</td></tr>
+      <tr><td>Welche Inferenz-Engine?</td><td><strong>SGLang</strong> als Primär-Engine; vLLM baubar als Rückfall</td><td>RAG + Agenten-Tool-Schleifen sind prefix-lastig — SGLangs RadixAttention gewinnt dort über vLLM hinaus. Der direkte Durchsatz-Vergleich wird auf echte Hardware verschoben.</td></tr>
+      <tr><td>Wie wird der Ollama-API-Bruch überbrückt?</td><td><strong>Kompatibilitäts-Schicht</strong> vor der Engine</td><td>Interner <code>/api/*</code>-Vertrag + Modell-Download bleiben, Übersetzung auf <code>/v1</code>. Hält ~15 BE + 4 FE Dateien und das Store-UI weitgehend unverändert.</td></tr>
+      <tr><td>Bleibt der Engine-Wechsel in der Mitte des Plans?</td><td>Ja, bleibt Schritt 3 — aber ehrlich groß geschnitten (3–4 Wochen, Sub-Schritte 3a Schicht / 3b Modell-Manager)</td><td>Der Vorgänger-Plan veranschlagte „1–2 Wochen, Dockerfile tauschen". Real hängt das halbe Modell-Lifecycle- und Chat-Subsystem daran.</td></tr>
+      <tr><td>Was passiert mit Ollama?</td><td>Bleibt <strong>nur für den Orin</strong> (llama.cpp/GGUF-Q4), nicht fleet-weit</td><td>Hält Bestands-/Altgeräte am Leben. Auf Blackwell/Hopper-Zielen läuft ausschließlich SGLang.</td></tr>
+      <tr><td>Welche Kennzahl ist maßgeblich?</td><td>Tokens pro Tag, nicht Tokens pro Sekunde</td><td>Folgt aus dem Kundenworkload: Flows laufen ganztägig. Wird aber erst mit echter Hardware belegt, nicht per Emulation behauptet.</td></tr>
+      <tr><td>Wie wird die Website-/Preis-Begründung in §1 behandelt?</td><td>Preis-/Verkaufs-Narrativ <strong>raus</strong>; Begründung aus L4T-Sackgasse + NVIDIA-Roadmap</td><td>Die zitierte Datei <code>apps/web/lib/pricing.ts</code> liegt gar nicht in diesem Repo (separates Marketing-Repo). §1 stützt sich jetzt nur auf im Repo prüfbare Fakten.</td></tr>
+      <tr><td>Wie werden die Images gebaut?</td><td><strong>Zentral, beide Archs jetzt:</strong> arm64 nativ auf dem Orin, amd64 per QEMU-Emulation</td><td>build-on-device für abwesende Geräte ist unmöglich. Emulierte Builds sind langsam (nur Bauzeit). amd64-CUDA-Korrektheit erst am echten x86-Gerät final.</td></tr>
+      <tr><td>Kommt eine eigene Registry?</td><td>Ja, <strong>zentrale private Registry</strong>; build-on-device bleibt Fallback</td><td>Ein Ort, an dem die Images für alle sechs Ziele verwaltet werden. Neuer Betriebsposten (Hosting, Auth, Signatur).</td></tr>
+      <tr><td>Wann gilt der Plan als fertig?</td><td><strong>Zwei Stufen:</strong> Bau + Profile + Orin-live + Emulation jetzt; Echt-HW-Validierung als Folge-Plan</td><td>Nur der Orin ist physisch da. Der DGX-Spark-Verkaufsnachweis und der Durchsatz-Vergleich wandern in Stufe 2, sobald die Hardware da ist.</td></tr>
+      <tr><td>Wie wird das Embedding von L4T gelöst?</td><td><strong>Variante B:</strong> BGE-M3 als zweiter Engine-Prozess</td><td>Ein Image-Typ weniger. Korrektur: spart keinen Speicher (ein Modell pro Prozess) — Indexer muss unter Flow-Last gedrosselt werden.</td></tr>
+      <tr><td>Wie hart werden die <code>sm_</code>-Compute-Werte gesetzt?</td><td>Als „am Gerät zu bestätigen" markiert, nicht in Code verdrahtet</td><td>Die Werte für Thor/Spark/Station sind laut Repo-Doku selbst spekulativ. Modellwahl/Quantisierung leben im Profil, nicht im Code.</td></tr>
+      <tr><td>Wird eine DGX Station beschafft?</td><td>Nein</td><td>85.000–123.000 Dollar, 4–13 Wochen Lieferzeit. Profil vorbereitet, Validierung erst bei echter Kundenanfrage über den Distributor.</td></tr>
+      <tr><td>Kommt ein gehostetes Angebot (Server mieten)?</td><td>Nein, nicht in diesem Plan</td><td>Die Software wird serverfähig, das Geschäftsmodell bleibt Gerät plus Lizenz.</td></tr>
+      <tr><td>Wird das Repo umbenannt?</td><td>Nein, <code>arasul-jet</code> bleibt</td><td>Reines Risiko ohne Nutzen. Nur die Dokumentation wird geräteneutral.</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 020 · erstellt am 2026-08-15 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/020-multi-plattform-portierung.html</span><br>
+  Feedback: 💬 an jeder Karte nutzen — dann unten <strong>Alle kopieren</strong>
+  und den Text in den Claude-Chat einfügen. Alles, was dort ankommt, wird bei
+  Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  // status chip + PR tile mirror plan-meta
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  // render ampel dots (3 dots, data-level filled)
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  // expand/collapse all
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  // ---- storage (localStorage with in-memory fallback) ----
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  // ---- comment system: a 💬 button on every [data-ref] container ----
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    // walk all comment boxes in DOM order, key by their label
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    // mark buttons that have comments
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  // restore persisted state
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
