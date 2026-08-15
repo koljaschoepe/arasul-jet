@@ -23,7 +23,8 @@ import { useApi } from '@/hooks/useApi';
  */
 
 interface BrueckeTokenResponse {
-  token: string;
+  // null, wenn die Erweiterung deaktiviert ist (reguläre Antwort, kein Fehler).
+  token: string | null;
   expiresInMs: number;
   faehigkeiten: string[];
 }
@@ -49,6 +50,11 @@ export default function ExtensionAppTab({
         {},
         { showError: false }
       );
+      // Deaktivierte Erweiterung → kein Token (Backend antwortet regulär mit
+      // token:null, F-02). Dann nichts an die App schicken; sie läuft ohne Brücke.
+      if (!data.token) {
+        return;
+      }
       // Der iframe hat einen opaken Origin — gezieltes targetOrigin ist nicht
       // möglich, '*' ist hier korrekt. Der Token ist kurzlebig und nur für
       // die Brücken-Routen dieser einen Erweiterung gültig.

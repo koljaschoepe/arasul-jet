@@ -76,7 +76,12 @@ async function issueToken(extensionId, userId) {
   const extensionService = require('./extensionService');
   const ext = await extensionService.getExtension(extensionId);
   if (!ext.enabled) {
-    throw new ValidationError(`Erweiterung "${extensionId}" ist nicht aktiviert`);
+    // Eine deaktivierte Erweiterung ist ein NORMALER, erwarteter Zustand
+    // (ein wiederhergestellter Tab kann auf eine inzwischen deaktivierte App
+    // zeigen — siehe Datei-Header). Deshalb KEIN 400 werfen: das erschiene als
+    // roter Konsolen-Fehler im Browser (F-02). Stattdessen eine reguläre
+    // „kein Token"-Antwort — die App bleibt dann einfach ohne Brücke.
+    return { token: null, enabled: false, expiresInMs: 0, faehigkeiten: [] };
   }
   aufraeumen();
   const token = crypto.randomBytes(32).toString('base64url');

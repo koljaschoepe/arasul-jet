@@ -12,13 +12,15 @@ import ProjectFileTab from '../ProjectFileTab';
 
 const apiGet = vi.fn();
 vi.mock('@/hooks/useApi', () => ({ useApi: () => ({ get: apiGet, put: vi.fn() }) }));
+const toastInfo = vi.fn();
 vi.mock('@/contexts/ToastContext', () => ({
-  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: toastInfo, warning: vi.fn() }),
 }));
 vi.mock('@/hooks/useReportTabDirty', () => ({ useReportTabDirty: vi.fn() }));
+const closeTabMock = vi.fn();
 vi.mock('@/stores/workspaceStore', () => ({
   useWorkspaceStore: (sel: (s: unknown) => unknown) =>
-    sel({ updateTabTitle: vi.fn(), closeTab: vi.fn() }),
+    sel({ updateTabTitle: vi.fn(), closeTab: closeTabMock }),
 }));
 vi.mock('../PdfViewer', () => ({
   default: () => <div data-testid="pdf-viewer">PDF-Viewer</div>,
@@ -71,5 +73,20 @@ describe('ProjectFileTab Viewer-Routing', () => {
     expect(await screen.findByText('Herunterladen')).toBeInTheDocument();
     expect(screen.queryByTestId('pdf-viewer')).not.toBeInTheDocument();
     expect(screen.queryByTestId('image-viewer')).not.toBeInTheDocument();
+  });
+
+  // F-03: veralteter Tab auf gelöschte Datei → 404 schließt den Tab automatisch.
+  it('schließt den Tab automatisch, wenn die Datei 404 liefert (F-03)', async () => {
+    apiGet.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    render(<ProjectFileTab projectId="p1" filePath="notizen/geloescht.md" tabId="t5" />);
+    await vi.waitFor(() => expect(closeTabMock).toHaveBeenCalledWith('t5'));
+    expect(toastInfo).toHaveBeenCalled();
+  });
+
+  it('zeigt bei anderen Fehlern (500) den Fehlerzustand statt zu schließen', async () => {
+    apiGet.mockRejectedValue(Object.assign(new Error('Serverfehler'), { status: 500 }));
+    render(<ProjectFileTab projectId="p1" filePath="notizen/x.md" tabId="t6" />);
+    expect(await screen.findByText('Serverfehler')).toBeInTheDocument();
+    expect(closeTabMock).not.toHaveBeenCalled();
   });
 });
