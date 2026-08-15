@@ -12,8 +12,10 @@ const path = require('path');
 
 jest.mock('../../src/utils/logger');
 jest.mock('../../src/services/rag/ragCore');
+jest.mock('../../src/services/flows/documentText');
 
 const ragCore = require('../../src/services/rag/ragCore');
+const documentText = require('../../src/services/flows/documentText');
 const {
   DateienLesenTool,
   DateienSchreibenTool,
@@ -396,6 +398,61 @@ describe('rag_suche', () => {
     const out = await tool.execute({ frage: 'X' }, {});
     expect(out).toMatch(/nicht moeglich/i);
     expect(out).toContain('Embedding-Dienst weg');
+  });
+
+  // F-07: benannte Datei → gezielt lesen statt projektweit suchen.
+  describe('mit dateiname (F-07)', () => {
+    it('liest gezielt die genannte Datei statt projektweiter Suche', async () => {
+      documentText.ladeDokumentText.mockResolvedValue({
+        gefunden: true,
+        titel: 'Quartalsbericht',
+        text: 'NASHORN-4242 ist die Kennung aus dieser Datei.',
+        gekuerzt: false,
+      });
+      const out = await tool.execute(
+        { frage: 'Worum geht es?', dateiname: 'bericht.pdf' },
+        { spaceIds: ['s1'] }
+      );
+      // Gezielt gelesen, NICHT die Vektor-Suche benutzt (keine Fehl-Zuordnung).
+      expect(ragCore.hybridSearch).not.toHaveBeenCalled();
+      expect(out).toContain('bericht.pdf');
+      expect(out).toContain('NASHORN-4242');
+      // Space-Zuschnitt wird durchgereicht (Isolation / Namenskollisionen).
+      expect(documentText.ladeDokumentText).toHaveBeenCalledWith(
+        expect.objectContaining({ filename: 'bericht.pdf', spaceIds: ['s1'] })
+      );
+    });
+
+    it('meldet klar, wenn die genannte Datei nicht gefunden/indexiert ist', async () => {
+      documentText.ladeDokumentText.mockResolvedValue({
+        gefunden: false,
+        titel: null,
+        text: '',
+        gekuerzt: false,
+      });
+      const out = await tool.execute({ frage: 'X', dateiname: 'fehlt.pdf' }, {});
+      expect(out).toMatch(/nicht gefunden|nicht.*indiziert|nicht.*indexiert/i);
+      expect(out).toContain('fehlt.pdf');
+      expect(ragCore.hybridSearch).not.toHaveBeenCalled();
+    });
+
+    it('markiert eine Kürzung des Dateiinhalts ehrlich', async () => {
+      documentText.ladeDokumentText.mockResolvedValue({
+        gefunden: true,
+        titel: null,
+        text: 'Anfang…',
+        gekuerzt: true,
+      });
+      const out = await tool.execute({ frage: 'X', dateiname: 'gross.pdf' }, {});
+      expect(out).toMatch(/gek(ü|u)rzt/i);
+    });
+
+    it('sucht projektweit, wenn kein dateiname gesetzt ist (unverändert)', async () => {
+      const out = await tool.execute({ frage: 'X' }, {});
+      expect(documentText.ladeDokumentText).not.toHaveBeenCalled();
+      expect(ragCore.hybridSearch).toHaveBeenCalled();
+      expect(out).toContain('[Handbuch]');
+    });
   });
 });
 

@@ -127,6 +127,64 @@ describe('aktiveTaskIndexAus (Plan 019: Schritte gruppiert unter der Aufgabe)', 
   });
 });
 
+describe('alleTodosErledigt (F-06: Todos beim echten Abschluss abhaken)', () => {
+  const { alleTodosErledigt } = require('../../src/services/llm/chatAgentRunner');
+  const { parseTodos } = require('../../src/services/llm/agentTodoTool');
+
+  test('hakt offene und laufende Punkte ab, ohne den Text zu verändern', () => {
+    const vorher = '- [x] Quellen lesen\n- [~] Entwurf schreiben\n- [ ] Prüfen';
+    const nachher = alleTodosErledigt(vorher);
+    expect(nachher).toBe('- [x] Quellen lesen\n- [x] Entwurf schreiben\n- [x] Prüfen');
+    expect(parseTodos(nachher).every(t => t.status === 'fertig')).toBe(true);
+  });
+
+  test('erhält Einrückung und *-Bullets', () => {
+    expect(alleTodosErledigt('  * [ ] Unterpunkt')).toBe('  * [x] Unterpunkt');
+  });
+
+  test('lässt Nicht-Checkbox-Zeilen unberührt', () => {
+    const text = '# Überschrift\n- [ ] Aufgabe\nEinfacher Text';
+    expect(alleTodosErledigt(text)).toBe('# Überschrift\n- [x] Aufgabe\nEinfacher Text');
+  });
+
+  test('kommt mit leerer/ungültiger Eingabe zurecht', () => {
+    expect(alleTodosErledigt('')).toBe('');
+    expect(alleTodosErledigt(null)).toBe('');
+    expect(alleTodosErledigt(undefined)).toBe('');
+  });
+});
+
+describe('berechneToolSignatur (F-06: Fortschritts-Wächter)', () => {
+  const { berechneToolSignatur } = require('../../src/services/llm/chatAgentRunner');
+  const call = (name, args) => ({ function: { name, arguments: args } });
+
+  test('gleiche Werkzeuge mit gleichen Argumenten → gleiche Signatur (Stillstand)', () => {
+    const a = [call('rag_suche', { frage: 'x' })];
+    const b = [call('rag_suche', { frage: 'x' })];
+    expect(berechneToolSignatur(a)).toBe(berechneToolSignatur(b));
+  });
+
+  test('gleiches Werkzeug, ANDERE Argumente → andere Signatur (kein Fehlalarm)', () => {
+    const a = [call('dateien_anhaengen', { pfad: 'x.md', text: 'Abschnitt 1' })];
+    const b = [call('dateien_anhaengen', { pfad: 'x.md', text: 'Abschnitt 2' })];
+    expect(berechneToolSignatur(a)).not.toBe(berechneToolSignatur(b));
+  });
+
+  test('verträgt String-Argumente (Ollama liefert JSON-String) und Reihenfolge zählt', () => {
+    const s = berechneToolSignatur([call('t', '{"a":1}')]);
+    expect(typeof s).toBe('string');
+    const ab = berechneToolSignatur([call('a', {}), call('b', {})]);
+    const ba = berechneToolSignatur([call('b', {}), call('a', {})]);
+    expect(ab).not.toBe(ba);
+  });
+
+  test('leere/ungültige Eingabe → leere Signatur', () => {
+    expect(berechneToolSignatur([])).toBe('');
+    expect(berechneToolSignatur(null)).toBe('');
+    expect(berechneToolSignatur(undefined)).toBe('');
+  });
+});
+
 describe('deriveRoots (Plan 019 · Phase 2: strenge Ordner-Bindung)', () => {
   const path = require('path');
   const { deriveRoots } = require('../../src/services/llm/chatAgentRunner');

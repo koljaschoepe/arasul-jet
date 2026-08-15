@@ -39,7 +39,7 @@ const { ensureFlowSandbox } = require('../flows/sandboxResolve');
 const { buildSystemPrompt } = require('./systemPromptBuilder');
 const agentConfig = require('./agentConfig');
 const { parseTextToolCalls, enthaeltToolSyntax } = require('./textToolCalls');
-const { TodoListeTool, todoErinnerung } = require('./agentTodoTool');
+const { TodoListeTool, todoErinnerung, parseTodos } = require('./agentTodoTool');
 
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
 // Kein praktisches Zeitlimit mehr (Interview 2026-07-29: „Unbegrenzt +
@@ -60,6 +60,14 @@ const STRUKTUR_MAX_EINTRAEGE = 120;
  * die eine Runde von früher. Hart gedeckelt gegen Endlos-Pingpong. */
 const MAX_PRUEF_ZYKLEN = 2;
 const MAX_NACHFASS_ZYKLEN = 2;
+/** Fortschritts-Wächter (F-06): So viele aufeinanderfolgende PAAR-Vergleiche
+ * mit EXAKT derselben Werkzeug-Signatur UND ohne jeden Fortschritt (keine neue/
+ * geänderte Datei, keine Todo-Änderung) lösen den Abbruch aus — praktisch also
+ * ab der 4. identischen, fortschrittslosen Runde in Folge. Bewusst KEIN
+ * Zeitlimit (Nutzer-Entscheidung 2026-08-15): greift nur bei echtem Stillstand,
+ * nicht wenn schon viel abgearbeitet ist. Normale Arbeit variiert Argumente
+ * (z. B. Abschnitte anhängen) → andere Signatur → löst nicht aus. */
+const MAX_STAGNATION = 3;
 
 /** Werkzeuge des Chat-Agenten. `terminal` läuft projektbeschränkt im Flow-Sandbox-Container. */
 const AGENT_WERKZEUGE = [
@@ -158,7 +166,7 @@ const AGENT_ANWEISUNG = `
 Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
 1. Einfache Fragen und Gespräche beantwortest du DIREKT, ohne Werkzeug.
 2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst. Neue Dateien legst du GENAU dort an, wo der Nutzer es sagt — nennt er nur einen Dateinamen, speichere unter exakt diesem Namen (Wurzel des Arbeitsordners). ERFINDE KEINE Ordner oder Kunden-/Firmennamen; einen Unterordner nutzt du nur, wenn der Nutzer ihn nennt oder die Struktur-Übersicht einen eindeutig passenden BESTEHENDEN Ordner zeigt. In großen Bäumen findest du Dateien gezielt mit dateien_suchen (Muster oder Textsuche) statt zu raten.
-3. Fragen zu Dokumenten, Projekten oder Firmenwissen: nutze rag_suche und/oder dateien_lesen und verarbeite die Treffer frei als Material. PDF/DOCX und andere Binärdateien liest du NICHT mit dateien_lesen — ihren INHALT holst du mit rag_suche (inhaltliche Frage stellen).
+3. Fragen zu Dokumenten, Projekten oder Firmenwissen: nutze rag_suche und/oder dateien_lesen und verarbeite die Treffer frei als Material. PDF/DOCX und andere Binärdateien liest du NICHT mit dateien_lesen — ihren INHALT holst du mit rag_suche (inhaltliche Frage stellen). NENNT der Nutzer eine BESTIMMTE Datei beim Namen (z. B. "fasse bericht.pdf zusammen"), übergib diesen Dateinamen im Parameter "dateiname" an rag_suche — dann bekommst du gezielt den Inhalt GENAU dieser Datei und verwechselst ihn nie mit einer anderen. Nur ohne konkrete Datei suchst du projektweit (ohne "dateiname").
 4. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach: EIN kurzer Satz, was du gespeichert hast — den Dateiinhalt NICHT wiederholen.
 5. LANGE Dokumente (viele Abschnitte, große Webseiten) baust du abschnittsweise: dateien_schreiben mit dem Kopf/Anfang, danach Abschnitt für Abschnitt dateien_anhaengen — nie alles in einem einzigen Aufruf. Bestehende Dateien änderst du GEZIELT mit dateien_bearbeiten (exakten Textblock suchen/ersetzen) statt sie neu zu schreiben.
 6. Bei mehrschrittigen Aufträgen pflegst du mit todo_liste eine Aufgabenliste: zu Beginn anlegen, nach JEDEM erledigten Schritt aktualisieren ("- [x] …"). Sie hält dich auf Kurs.
@@ -167,6 +175,32 @@ Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
 9. Sage vor jedem Werkzeug-Block in EINEM kurzen Satz, was du gerade tust ("Ich lese zuerst die Preisliste.") — und rufe die Werkzeuge dann SOFORT in derselben Antwort auf. Niemals eine Aktion ankündigen, ohne sie auszuführen.
 10. Erfinde keine Fakten. Wenn Werkzeuge nichts liefern, sag das ehrlich.
 11. Antworte auf Deutsch, ohne Emojis (außer der Nutzer bittet darum).`;
+
+/**
+ * Hakt jede Checkbox einer Aufgabenliste ab ([ ]/[~] → [x]), Einrückung und
+ * Bullet-Zeichen bleiben erhalten (F-06). Wird NUR beim echten Abschluss
+ * aufgerufen — der letzte todo_liste-Aufruf fehlt kleinen Modellen oft, sodass
+ * die Leiste sonst auf „1/2" stehenbliebe, obwohl die Antwort fertig ist.
+ */
+function alleTodosErledigt(liste) {
+  return String(liste || '').replace(/^(\s*[-*]\s*)\[[ xX~]\]/gm, '$1[x]');
+}
+
+/**
+ * Signatur einer Werkzeug-Runde (F-06 Fortschritts-Wächter): Name + Argumente
+ * jedes Aufrufs, in Reihenfolge. Zwei Runden gelten nur dann als „gleich", wenn
+ * dieselben Werkzeuge mit EXAKT denselben Argumenten gerufen werden — variieren
+ * die Argumente (z. B. anderer Abschnitt beim Anhängen), unterscheiden sich die
+ * Signaturen und der Wächter löst nicht aus.
+ */
+function berechneToolSignatur(toolCalls) {
+  return (Array.isArray(toolCalls) ? toolCalls : [])
+    .map(c => {
+      const args = c.function?.arguments;
+      return `${c.function?.name}:${typeof args === 'string' ? args : JSON.stringify(args || {})}`;
+    })
+    .join('|');
+}
 
 /** Kürzt Werte für die persistierte Schritt-Liste (Kontext-/Speicherschutz). */
 function kurz(wert, max) {
@@ -662,6 +696,12 @@ async function processAgentChatJob(ctx, job) {
   let inhaltBereinigt = false;
   let pruefZyklen = 0;
   let nachfassZyklen = 0;
+  // Fortschritts-Wächter (F-06): Signatur der letzten Werkzeug-Runde + eine
+  // Fortschritts-Marke (Anzahl gemeldeter Dateien + aktuelle Todo-Liste). Bleibt
+  // beides mehrere Runden gleich, steht der Lauf → sauber beenden.
+  let letzteToolSignatur = null;
+  let letzteFortschrittMarke = null;
+  let stagnation = 0;
 
   // --- Kontext-Haushalt (Harness v2) ----------------------------------------
   // Das Nachrichten-Array wächst über die Runden — jede Werkzeug-Ausgabe bleibt
@@ -1038,7 +1078,48 @@ async function processAgentChatJob(ctx, job) {
           fertigText += '\n\n';
           continue;
         }
+        // F-06: Echter Abschluss (Modell fertig, keine Werkzeuge mehr, Prüf-/
+        // Nachfass-Zyklen durch). Offene Todos deterministisch abhaken, damit die
+        // Leiste nicht auf „1/2" hängenbleibt. Nur HIER — nicht bei Abbruch,
+        // Fehler oder Rundenlimit, damit ein echt unfertiger Lauf ehrlich bleibt.
+        // `!abgebrochen`: das vorangehende `await leseSnapshot()` gibt die
+        // Event-Loop frei — bricht der Nutzer genau dann ab, dürfen wir die
+        // Todos nicht doch noch als „fertig" persistieren.
+        if (!abgebrochen && todoListe && parseTodos(todoListe).some(t => t.status !== 'fertig')) {
+          const erledigt = alleTodosErledigt(todoListe);
+          setTodos(erledigt, parseTodos(erledigt));
+        }
         break; // fertige Antwort — Token sind bereits gestreamt
+      }
+
+      // F-06: Fortschritts-Wächter. Greift NUR, wenn mehrere Runden exakt
+      // dieselben Werkzeug-Aufrufe machen und dabei NICHTS entsteht (keine neue/
+      // geänderte Datei, keine Todo-Änderung) — der Bug-Fall „Output scheitert →
+      // Eskalation/Subagent wiederholt sich endlos". Kein Zeitlimit.
+      const toolSignatur = berechneToolSignatur(toolCalls);
+      const fortschrittMarke = `${dateien.length}::${todoListe}`;
+      if (toolSignatur === letzteToolSignatur && fortschrittMarke === letzteFortschrittMarke) {
+        stagnation += 1;
+      } else {
+        stagnation = 0;
+      }
+      letzteToolSignatur = toolSignatur;
+      letzteFortschrittMarke = fortschrittMarke;
+      if (stagnation >= MAX_STAGNATION) {
+        log.warn(
+          `[JOB ${jobId}] Agent-Lauf ohne Fortschritt beendet (${stagnation + 1} gleiche Runden in Folge)`
+        );
+        service.notifySubscribers(jobId, {
+          type: 'warning',
+          message:
+            'Der Lauf kam nicht weiter (mehrere Schritte ohne Fortschritt) und wurde beendet.',
+          code: 'AGENT_KEIN_FORTSCHRITT',
+        });
+        onToken(
+          '\n\n_Ich komme hier nicht weiter — die letzten Schritte brachten keinen Fortschritt. ' +
+            'Bitte formuliere den Auftrag anders oder teile ihn in kleinere Teile._'
+        );
+        break;
       }
 
       messages.push({ role: 'assistant', content, tool_calls: toolCalls });
@@ -1322,5 +1403,7 @@ module.exports = {
   streamChatRound,
   verstaendlicherFehler,
   aktiveTaskIndexAus,
+  alleTodosErledigt,
+  berechneToolSignatur,
   deriveRoots,
 };
