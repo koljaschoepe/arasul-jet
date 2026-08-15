@@ -123,7 +123,10 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   `/workspace/projekt`** gemountet. Was Claude Code dort baut, liegt sofort im
   Explorer (und wandert per Ordner-Sync automatisch ins Wissen). „Kein
   Projekt" trennt den Anschluss; ein gelöschtes Projekt kappt nur die
-  Verbindung, die Sandbox bleibt.
+  Verbindung, die Sandbox bleibt. **Neue Terminal-Sitzungen starten direkt in
+  `/workspace/projekt`**, sofern die Projektablage gemountet ist — ein blankes
+  `ls` zeigt sofort die Projektdateien statt nur des `projekt/`-Ordners; ohne
+  angeschlossenes Projekt bleibt der Start bei `/workspace`.
 
 - **Chat-Anhänge (2026-07-30)** — eine in den Chat gezogene Datei landet
   ERST im Projektordner (Ziel-Ordner-Chip oder Wurzel) und läuft dann als
