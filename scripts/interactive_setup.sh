@@ -295,11 +295,11 @@ generate_bcrypt_hash() {
 }
 
 # =============================================================================
-# Hardware-Erkennung (nutzt detect-jetson.sh)
+# Hardware-Erkennung (nutzt detect-platform.sh)
 # =============================================================================
 
 detect_hardware() {
-    local detect_script="${SCRIPT_DIR}/setup/detect-jetson.sh"
+    local detect_script="${SCRIPT_DIR}/setup/detect-platform.sh"
 
     if [ -f "$detect_script" ]; then
         # Funktionen importieren (Source-Guard verhindert main()-Ausfuehrung)
@@ -682,7 +682,7 @@ ENVEOF
     # Jetson-Profil: Inline aus bereits geladenen Funktionen generieren
     # (generate_env_config wird NICHT aufgerufen - das Bootstrap-Script
     #  entscheidet selbst, ob apply_jetson_profile noetig ist)
-    local detect_script="${SCRIPT_DIR}/setup/detect-jetson.sh"
+    local detect_script="${SCRIPT_DIR}/setup/detect-platform.sh"
     if [ -f "$detect_script" ]; then
         local profile_config
         profile_config=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null || true)

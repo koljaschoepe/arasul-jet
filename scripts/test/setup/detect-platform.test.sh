@@ -1,14 +1,15 @@
 #!/usr/bin/env bats
 # =============================================================================
-# BATS Tests for scripts/setup/detect-jetson.sh
-# Tests device detection, profile selection, and config generation.
+# BATS Tests for scripts/setup/detect-platform.sh
+# Tests device detection (Jetson + x86), profile selection, config generation,
+# and the config/platforms HAL mapping (Plan 020, Schritt 2).
 #
-# Usage: bats scripts/test/setup/detect-jetson.test.sh
+# Usage: bats scripts/test/setup/detect-platform.test.sh
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-DETECT_SCRIPT="$PROJECT_ROOT/scripts/setup/detect-jetson.sh"
+DETECT_SCRIPT="$PROJECT_ROOT/scripts/setup/detect-platform.sh"
 
 setup() {
     # Create temp directory for mock files
@@ -167,7 +168,7 @@ teardown() {
 
 @test "get_config_for_profile: thor_128gb sets correct LLM model" {
     result=$(get_config_for_profile "thor_128gb")
-    echo "$result" | grep -q "LLM_MODEL=qwen3:32b-q8"
+    echo "$result" | grep -q "LLM_MODEL=gemma4:31b-q4"
 }
 
 @test "get_config_for_profile: thor_128gb sets 88G LLM RAM limit" {
@@ -177,7 +178,7 @@ teardown() {
 
 @test "get_config_for_profile: agx_orin_64gb sets correct LLM model" {
     result=$(get_config_for_profile "agx_orin_64gb")
-    echo "$result" | grep -q "LLM_MODEL=qwen3:14b-q8"
+    echo "$result" | grep -q "LLM_MODEL=gemma4:26b-q4"
 }
 
 @test "get_config_for_profile: agx_orin_32gb enables FP16" {
@@ -225,9 +226,9 @@ teardown() {
     done
 }
 
-@test "get_config_for_profile: Thor has longest Ollama timeout (240s)" {
+@test "get_config_for_profile: Thor has longest Ollama timeout (300s)" {
     result=$(get_config_for_profile "thor_128gb")
-    echo "$result" | grep -q "OLLAMA_STARTUP_TIMEOUT=240"
+    echo "$result" | grep -q "OLLAMA_STARTUP_TIMEOUT=300"
 }
 
 # =============================================================================
@@ -351,4 +352,102 @@ teardown() {
         echo "Total RAM allocation ${total_mb}MB exceeds 92% of 64GB (${max_mb}MB)"
         return 1
     }
+}
+
+# =============================================================================
+# x86 detection path (Plan 020, Schritt 2) — früher endete x86 sofort bei
+# "unknown"; jetzt gibt es einen positiven Erkennungspfad.
+# =============================================================================
+
+@test "detect_x86_model: RTX PRO 6000 classified from nvidia-smi" {
+    nvidia-smi() { echo "NVIDIA RTX PRO 6000 Blackwell"; }
+    command() { [ "$2" = "nvidia-smi" ] && return 0; builtin command "$@"; }
+    result=$(detect_x86_model)
+    [[ "$result" == *"RTX PRO 6000"* ]]
+}
+
+@test "detect_x86_model: generic NVIDIA server when GPU is something else" {
+    nvidia-smi() { echo "NVIDIA L40S"; }
+    command() { [ "$2" = "nvidia-smi" ] && return 0; builtin command "$@"; }
+    result=$(detect_x86_model)
+    [[ "$result" == *"x86_64 NVIDIA Server"* ]]
+}
+
+@test "detect_x86_model: no nvidia-smi still yields an x86 server (not unknown)" {
+    command() { [ "$2" = "nvidia-smi" ] && return 1; builtin command "$@"; }
+    result=$(detect_x86_model)
+    [[ "$result" == *"x86_64 Server"* ]]
+    [[ "$result" != "unknown" ]]
+}
+
+@test "get_device_profile: x86 RTX PRO 6000 model returns rtx_pro_6000" {
+    detect_jetson_model() { echo "x86_64 NVIDIA RTX PRO 6000"; }
+    detect_ram_total() { echo 128; }
+    result=$(get_device_profile)
+    [[ "$result" == "rtx_pro_6000" ]]
+}
+
+@test "get_device_profile: generic x86 server model returns server_generic" {
+    detect_jetson_model() { echo "x86_64 NVIDIA Server (NVIDIA L40S)"; }
+    detect_ram_total() { echo 256; }
+    result=$(get_device_profile)
+    [[ "$result" == "server_generic" ]]
+}
+
+@test "detect_x86_model: nvidia-smi present but erroring yields x86 server (no abort)" {
+    nvidia-smi() { return 255; }  # simuliert "Failed to initialize NVML"
+    command() { [ "$2" = "nvidia-smi" ] && return 0; builtin command "$@"; }
+    result=$(detect_x86_model)
+    [[ "$result" == *"x86_64 Server"* ]]
+    [[ "$result" != "unknown" ]]
+}
+
+@test "get_device_profile: DGX Spark (arm64) model returns dgx_spark" {
+    detect_jetson_model() { echo "arm64 NVIDIA DGX Spark"; }
+    detect_ram_total() { echo 128; }
+    result=$(get_device_profile)
+    [[ "$result" == "dgx_spark" ]]
+}
+
+@test "get_device_profile: generic arm64 NVIDIA server returns server_generic" {
+    detect_jetson_model() { echo "arm64 NVIDIA Server (NVIDIA GH200)"; }
+    detect_ram_total() { echo 480; }
+    result=$(get_device_profile)
+    [[ "$result" == "server_generic" ]]
+}
+
+@test "detect_platform: x86_64 host reports x86_64" {
+    uname() { [ "$1" = "-m" ] && echo "x86_64" || builtin command uname "$@"; }
+    result=$(detect_platform)
+    [[ "$result" == "x86_64" ]]
+}
+
+# =============================================================================
+# HAL: config/platforms mapping (get_platform_profile_id / show_platform_profile)
+# =============================================================================
+
+@test "get_platform_profile_id: Jetson + x86 internal profiles map to catalog ids" {
+    [[ "$(get_platform_profile_id thor_128gb)" == "thor-128" ]]
+    [[ "$(get_platform_profile_id agx_orin_64gb)" == "orin-64" ]]
+    [[ "$(get_platform_profile_id orin_nx_16gb)" == "orin-64" ]]
+    [[ "$(get_platform_profile_id rtx_pro_6000)" == "rtx-pro-6000" ]]
+    [[ "$(get_platform_profile_id dgx_spark)" == "dgx-spark" ]]
+    [[ "$(get_platform_profile_id dgx_station)" == "dgx-station" ]]
+    [[ "$(get_platform_profile_id server_generic)" == "server-generic" ]]
+    [[ "$(get_platform_profile_id high_memory)" == "server-generic" ]]
+}
+
+@test "HAL: every mapped catalog id has a config/platforms JSON file" {
+    for id in thor-128 orin-64 rtx-pro-6000 dgx-station server-generic dgx-spark; do
+        [ -f "$PROJECT_ROOT/config/platforms/${id}.json" ] || {
+            echo "Missing config/platforms/${id}.json"
+            return 1
+        }
+    done
+}
+
+@test "show_platform_profile --json emits valid JSON for the detected profile" {
+    get_device_profile() { echo "agx_orin_64gb"; }
+    result=$(show_platform_profile --json)
+    echo "$result" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['id']=='orin-64'"
 }

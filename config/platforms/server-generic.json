@@ -1,0 +1,15 @@
+{
+  "id": "server-generic",
+  "display_name": "Generischer x86-Server mit NVIDIA-GPU",
+  "arch": "amd64",
+  "compute_capability": { "sm": "sm_89+", "confirmed": false },
+  "memory_budget_gb": null,
+  "default_model": "auto-by-vram",
+  "precision": "fp8",
+  "engine": "sglang",
+  "gpu_query": "nvidia-smi",
+  "ld_library_path": "/usr/local/cuda/lib64",
+  "max_num_seqs": null,
+  "verification": "follow-up",
+  "notes": "Fallback-Profil fuer beliebige x86-Server. memory_budget_gb und max_num_seqs werden zur Laufzeit aus dem verfuegbaren VRAM abgeleitet. Ein Referenzlauf spaeter."
+}

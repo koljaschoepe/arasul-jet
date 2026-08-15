@@ -1,0 +1,15 @@
+{
+  "id": "dgx-station",
+  "display_name": "NVIDIA DGX Station",
+  "arch": "amd64",
+  "compute_capability": { "sm": "sm_103", "confirmed": false },
+  "memory_budget_gb": 256,
+  "default_model": "moe-120b-fp8",
+  "precision": "fp8",
+  "engine": "sglang",
+  "gpu_query": "nvidia-smi",
+  "ld_library_path": "/usr/local/cuda/lib64",
+  "max_num_seqs": 64,
+  "verification": "follow-up",
+  "notes": "Bewusst nicht beschafft. Profil vorbereitet, bleibt in diesem Plan ungetestet. sm_103 spekulativ."
+}
