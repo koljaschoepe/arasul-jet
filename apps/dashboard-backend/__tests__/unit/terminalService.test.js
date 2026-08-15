@@ -242,6 +242,51 @@ describe('terminalService — input validation', () => {
       expect(opts.Cmd.join(' ')).not.toContain('unset ANTHROPIC_API_KEY');
     });
   });
+
+  describe('createSession — Start im Projektordner (F-09)', () => {
+    let execMock;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      sandboxService.getProject.mockResolvedValue({
+        container_status: 'running',
+        container_id: 'c1',
+      });
+      const stream = { on: jest.fn(), pause: jest.fn(), resume: jest.fn() };
+      execMock = jest.fn().mockResolvedValue({
+        id: 'exec-1',
+        start: jest.fn().mockResolvedValue(stream),
+        resize: jest.fn(),
+      });
+      docker.getContainer.mockReturnValue({ exec: execMock });
+    });
+
+    async function runSession(sessionType) {
+      await terminalService.createSession('p1', mockWs(), { sessionType, userId: 1 });
+      return execMock.mock.calls[0][0].Cmd.join(' ');
+    }
+
+    test('Shell-Session startet tmux in /workspace/projekt, wenn vorhanden', async () => {
+      const cmdline = await runSession('shell');
+      // Im Container geprüft: nur bei existierendem Ordner wird auf projekt gesetzt.
+      expect(cmdline).toContain('[ -d /workspace/projekt ] && STARTDIR=/workspace/projekt');
+      // tmux bekommt das geprüfte Verzeichnis (nie ein fehlendes → kein harter Abbruch).
+      expect(cmdline).toContain('tmux new-session -A -s \'main\' -c "$STARTDIR"');
+    });
+
+    test('Kommandozeile enthält einen best-effort cd-Fallback für tmux-lose Container', async () => {
+      // Die tmux-lose Laufzeit lässt sich im Unit-Test nicht auslösen (die
+      // `command -v tmux`-Prüfung läuft im Container). Wir sichern nur zu, dass
+      // der Fallback-Zweig den cd-Wechsel ins Projekt mitbringt.
+      const cmdline = await runSession('shell');
+      expect(cmdline).toContain('cd /workspace/projekt 2>/dev/null || cd /workspace');
+    });
+
+    test('auch CLI-Sessions (claude-code) starten im Projektordner', async () => {
+      const cmdline = await runSession('claude-code');
+      expect(cmdline).toContain('-c "$STARTDIR"');
+    });
+  });
 });
 
 describe('terminalService — Anwesenheit (Plan 017 Schritt 1)', () => {

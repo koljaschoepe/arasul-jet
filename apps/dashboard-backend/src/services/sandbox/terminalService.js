@@ -211,19 +211,29 @@ async function createSession(
   // tmuxName is validated against TMUX_NAME_RE above; still single-quote for
   // defense in depth. Distinct names → independent persistent shells per project.
   const tmuxSession = shellSingleQuote(tmuxName);
+  // F-09: Neue tmux-Sessions im Projektordner starten. Ist die Projektablage
+  // (Plan 018) unter /workspace/projekt gemountet, soll ein blankes `ls`
+  // direkt die Projektdateien zeigen — sonst /workspace. Die Prüfung läuft IM
+  // Container (robust gegen einen fehlgeschlagenen/fehlenden Mount): `tmux -c`
+  // bricht die Session hart ab, wenn das Verzeichnis nicht existiert, deshalb
+  // wird STARTDIR nur dann auf /workspace/projekt gesetzt, wenn der Ordner da
+  // ist. Mit `-A` (attach-if-exists) ignoriert tmux `-c` für bestehende
+  // Sessions → laufende Terminals bleiben unberührt.
+  const startDirPrep =
+    'STARTDIR=/workspace; [ -d /workspace/projekt ] && STARTDIR=/workspace/projekt; ';
   let cmd;
   if (innerCmd) {
     const quoted = shellSingleQuote(innerCmd);
     cmd = [
       '/bin/bash',
       '-c',
-      `${unsetPrefix}command -v tmux >/dev/null 2>&1 && { ${tmuxPrep}tmux new-session -A -s ${tmuxSession} ${quoted}; } || exec ${quoted}`,
+      `${unsetPrefix}command -v tmux >/dev/null 2>&1 && { ${tmuxPrep}${startDirPrep}tmux new-session -A -s ${tmuxSession} -c "$STARTDIR" ${quoted}; } || { cd /workspace/projekt 2>/dev/null || cd /workspace; exec ${quoted}; }`,
     ];
   } else {
     cmd = [
       '/bin/bash',
       '-c',
-      `${unsetPrefix}command -v tmux >/dev/null 2>&1 && { ${tmuxPrep}tmux new-session -A -s ${tmuxSession}; } || exec /bin/bash`,
+      `${unsetPrefix}command -v tmux >/dev/null 2>&1 && { ${tmuxPrep}${startDirPrep}tmux new-session -A -s ${tmuxSession} -c "$STARTDIR"; } || { cd /workspace/projekt 2>/dev/null || cd /workspace; exec /bin/bash; }`,
     ];
   }
 
