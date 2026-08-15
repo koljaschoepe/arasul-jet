@@ -67,28 +67,45 @@ export default function ProjectMarkdownEditor({ value, onChange, ariaLabel }: Pr
   // Sperrt das onChange während der initialen Hydration (setContent löst
   // onUpdate aus) — sonst gälte bloßes Öffnen als Änderung.
   const hydratedRef = useRef(false);
-  // Aktueller externer Wert für onCreate: TipTap v3 kann die Editor-Instanz
-  // beim Suspense-Reveal (frisch erzeugte .md / harter Reload = Lazy-Chunk)
-  // verwerfen und neu erzeugen; der [editor, value]-Effekt unten trifft dann
-  // evtl. die verworfene Instanz → Doc bleibt leer. onCreate liest hier den
-  // aktuellen Wert und befüllt JEDE tatsächlich erzeugte Instanz.
+  // Aktueller externer Wert für onCreate (liest den Wert zum Zeitpunkt der
+  // Instanz-Erzeugung, unabhängig vom Render-Closure).
   const valueRef = useRef(value);
   valueRef.current = value;
+  // Welche Editor-INSTANZ zuletzt befüllt wurde. Entscheidend gegen den
+  // Kaltstart-Bug: `lastEmittedRef` ist komponentenweit und überlebt einen
+  // Instanz-Tausch. Unter lazy()+<Suspense> erzeugt TipTap v3
+  // (immediatelyRender=undefined) den Editor WÄHREND des Renders; React
+  // verwirft den ersten Render, dessen Instanz per scheduleDestroy stirbt, und
+  // committet eine ZWEITE Instanz. Instanz A hatte lastEmittedRef bereits auf
+  // `value` gesetzt → Instanz B übersprang setContent → Editor blieb leer
+  // (Quelltext zeigte den Inhalt trotzdem). Fix hier zweifach:
+  //   1. immediatelyRender:false (unten) — Instanz erst im Commit erzeugen,
+  //      also GENAU EINE sichtbare Instanz, keine verworfene.
+  //   2. per-Instanz-Wächter — eine NEUE Instanz wird immer befüllt; der
+  //      lastEmittedRef-Echo-Schutz (Cursor halten) greift nur INNERHALB
+  //      derselben Instanz.
+  const hydratedEditorRef = useRef<Editor | null>(null);
 
-  // Externen Wert in die gegebene Editor-Instanz spiegeln. Eigene Echos
-  // (value === zuletzt gemeldet) überspringen, damit ein Tastendruck den
-  // Cursor nicht durch ein erneutes setContent verliert.
+  // Externen Wert in die gegebene Editor-Instanz spiegeln.
   const hydrate = (e: Editor, next: string) => {
-    if (next === lastEmittedRef.current) return;
+    const neueInstanz = hydratedEditorRef.current !== e;
+    // Eigenes Echo NUR bei gleicher Instanz überspringen (Cursor halten);
+    // eine frische Instanz wird immer neu befüllt.
+    if (!neueInstanz && next === lastEmittedRef.current) return;
     hydratedRef.current = false;
     const { frontmatter, body } = splitFrontmatter(next);
     frontmatterRef.current = frontmatter;
     e.commands.setContent(body);
     lastEmittedRef.current = next; // Grundlinie: Öffnen ist keine Änderung
     hydratedRef.current = true;
+    hydratedEditorRef.current = e;
   };
 
   const editor = useEditor({
+    // Editor NICHT während des Renders erzeugen (Kaltstart-Fix, s. o.):
+    // deferred im Commit-Effekt → genau eine, sichtbare Instanz. Ohne SSR
+    // unbedenklich.
+    immediatelyRender: false,
     extensions: createExtensions(),
     editorProps: {
       attributes: {
@@ -97,11 +114,7 @@ export default function ProjectMarkdownEditor({ value, onChange, ariaLabel }: Pr
         'aria-label': ariaLabel ?? 'Markdown-Editor',
       },
     },
-    // Inhalt an die TATSÄCHLICH erzeugte Instanz binden (deckt den Kaltstart
-    // mit Instanz-Neuerzeugung ab, den der Effekt unten verpassen kann).
-    // Annahme: TipTap ruft onCreate synchron im Commit des auslösenden Renders
-    // auf — dann ist `valueRef.current` aktuell und der Effekt unten kurzschließt
-    // wegen `next === lastEmittedRef.current` (kein Doppel-Anwenden).
+    // Inhalt an die TATSÄCHLICH erzeugte Instanz binden.
     onCreate: ({ editor: e }) => hydrate(e, valueRef.current),
     onUpdate: ({ editor: e }) => {
       if (!hydratedRef.current) return;
