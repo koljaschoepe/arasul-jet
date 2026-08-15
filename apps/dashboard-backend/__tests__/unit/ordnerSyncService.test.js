@@ -78,19 +78,24 @@ describe('ordnerSyncService', () => {
     await fsp.rm(dir, { recursive: true, force: true });
   });
 
-  test('neue indexierbare Datei wandert in die Pipeline (MinIO + INSERT pending)', async () => {
+  test('neue indexierbare Dateien (inkl. Bild → OCR) wandern in die Pipeline; Binäres bleibt draußen', async () => {
     await fsp.writeFile(path.join(dir, 'bericht.md'), '# Bericht');
-    await fsp.writeFile(path.join(dir, 'bild.png'), Buffer.from([0x89, 0x50])); // nicht indexierbar
+    // Bilder werden seit dem QA-Sweep 2026-08-15 indexiert (OCR im Indexer).
+    await fsp.writeFile(path.join(dir, 'scan.png'), Buffer.from([0x89, 0x50]));
+    // Echtes Binäres bleibt weiterhin außen vor.
+    await fsp.writeFile(path.join(dir, 'archiv.zip'), Buffer.from([0x50, 0x4b, 0x03, 0x04]));
 
     const deps = fakeDeps();
     const stats = await ordnerSync.synchronisiere('projekt-1', deps);
 
-    expect(stats.neu).toBe(1);
-    expect(deps.minio.uploadObject).toHaveBeenCalledTimes(1);
-    const insert = deps.db.queries.find(q => q.sql.includes('INSERT INTO documents'));
-    expect(insert).toBeDefined();
-    expect(insert.params).toContain('bericht.md'); // rel_pfad
-    expect(insert.params).toContain(raum.id); // Wurzel-Raum
+    expect(stats.neu).toBe(2); // bericht.md + scan.png, NICHT archiv.zip
+    expect(deps.minio.uploadObject).toHaveBeenCalledTimes(2);
+    const inserts = deps.db.queries.filter(q => q.sql.includes('INSERT INTO documents'));
+    const relPfade = inserts.flatMap(q => q.params);
+    expect(relPfade).toContain('bericht.md');
+    expect(relPfade).toContain('scan.png'); // Bild wird indexiert
+    expect(relPfade).not.toContain('archiv.zip'); // Binäres nicht
+    expect(relPfade).toContain(raum.id); // Wurzel-Raum
   });
 
   test('verschwundene Datei löscht ihr Dokument (samt Vektoren/MinIO über documentService)', async () => {
@@ -253,5 +258,16 @@ describe('ordnerSyncService', () => {
     expect(ordnerSync._intern.plattenName('Kunde: A/B?')).toBe('Kunde- A-B-');
     expect(ordnerSync._intern.plattenName('..versteckt')).toBe('versteckt');
     expect(ordnerSync._intern.plattenName('')).toBe('ordner');
+  });
+
+  test('INDEXIERBAR umfasst OCR-Bildformate (QA-Sweep 2026-08-15)', () => {
+    // Muss zu document_processor.PARSERS im Indexer passen, sonst würde ein
+    // Dokument-Record entstehen, den der Indexer nicht verarbeiten kann.
+    for (const ext of ['.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp']) {
+      expect(ordnerSync.INDEXIERBAR.has(ext)).toBe(true);
+    }
+    // Echtes Binäres bleibt draußen.
+    expect(ordnerSync.INDEXIERBAR.has('.zip')).toBe(false);
+    expect(ordnerSync.INDEXIERBAR.has('.exe')).toBe(false);
   });
 });

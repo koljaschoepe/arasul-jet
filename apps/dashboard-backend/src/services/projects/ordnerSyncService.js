@@ -54,7 +54,15 @@ function deps(overrides = {}) {
   };
 }
 
-/** Dateiendungen, die in die Index-Pipeline gehören. Bilder/Binäres bleibt draußen. */
+/**
+ * Dateiendungen, die in die Index-Pipeline gehören. Bilder sind seit dem
+ * QA-Sweep 2026-08-15 dabei: Der Indexer OCR't sie lokal (tesseract via
+ * `document_processor.PARSERS` → `parse_image`), damit hochgeladene Scans /
+ * Screenshots im RAG auffindbar werden — vorher lief OCR nur für Bild-PDFs,
+ * ein als PNG/JPG abgelegter Scan blieb unsichtbar. Die unterstützten
+ * Bildendungen MÜSSEN mit `PARSERS` im Indexer übereinstimmen. Echtes Binäres
+ * (Archive, Programme) bleibt weiter draußen.
+ */
 const INDEXIERBAR = new Set([
   '.pdf',
   '.docx',
@@ -69,6 +77,14 @@ const INDEXIERBAR = new Set([
   '.yaml',
   '.yml',
   '.log',
+  // Bilder → OCR im Indexer (muss zu document_processor.PARSERS passen).
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.tiff',
+  '.tif',
+  '.bmp',
+  '.webp',
 ]);
 
 const MAX_INDEX_BYTES = 50 * 1024 * 1024; // wie Upload-Deckel der Ablage
