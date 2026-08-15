@@ -124,6 +124,16 @@ export default function ProjectFileTab({
       })
       .catch((err: ApiError) => {
         if (cancelled) return;
+        // F-03: Ein wiederhergestellter Tab kann auf eine inzwischen gelöschte
+        // Datei (oder ein entferntes Projekt) zeigen (404). Dann den toten Tab
+        // automatisch schließen statt einen Fehlerzustand zu zeigen. Bewusst
+        // neutral formuliert, weil der 404 auch vom fehlenden Projekt kommen
+        // kann. Andere Fehler (500, Timeout) behalten den Fehlerzustand.
+        if (err?.status === 404) {
+          toast.info(`„${dateiname}" ist nicht mehr verfügbar — Tab geschlossen.`);
+          closeTab(tabId);
+          return;
+        }
         setError(err?.message ?? 'Datei konnte nicht geladen werden');
       })
       .finally(() => {
@@ -132,7 +142,7 @@ export default function ProjectFileTab({
     return () => {
       cancelled = true;
     };
-  }, [projectId, filePath, api, istMarkdown]);
+  }, [projectId, filePath, api, istMarkdown, dateiname, tabId, closeTab, toast]);
 
   const dirty = original !== null && draft !== original;
 

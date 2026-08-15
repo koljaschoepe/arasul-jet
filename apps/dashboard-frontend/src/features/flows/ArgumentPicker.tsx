@@ -26,6 +26,26 @@ interface PickerItem {
   detail?: string;
 }
 
+/**
+ * Sinnvoller Anzeige-Titel oder null (F-10). Viele PDF-Export-Werkzeuge betten
+ * die Literale „Untitled"/„Untitled document"/„Unbenannt" o. Ä. als PDF-Titel
+ * ein; die landen dann 1:1 in `documents.title`. Ein reiner Falsy-Check
+ * (`title || filename`) greift da nicht, weil der Titel technisch gefüllt ist.
+ * Deshalb zusätzlich leere/whitespace-Titel und die bekannten „ohne Titel"-
+ * Varianten (DE/EN/FR/IT/ES) als „kein Titel" behandeln → Dateiname anzeigen.
+ * Die Liste ist bewusst nicht erschöpfend (locale-abhängig), deckt aber die
+ * gemeldeten Fälle ab.
+ */
+const OHNE_TITEL =
+  /^(untitled|unbenannt|ohne titel|sans titre|senza titolo|sin t[íi]tulo)(\s+(document|dokument))?$/i;
+function sinnvollerTitel(title: string | null): string | null {
+  const t = (title ?? '').trim();
+  if (!t || OHNE_TITEL.test(t)) {
+    return null;
+  }
+  return t;
+}
+
 interface SammlungenResponse {
   data: { id: string; name: string; slug: string; description?: string }[];
 }
@@ -118,9 +138,10 @@ export default function ArgumentPicker({ arg, onPick, onClose }: ArgumentPickerP
     if (arg.typ === 'datei') {
       const spaceName = new Map((baum.data?.spaces ?? []).map(s => [s.id, s.name]));
       return (baum.data?.documents ?? []).map(d => ({
-        // Wert = Dateiname (Naht zu Schritt 15); Label = Titel, sonst Dateiname.
+        // Wert = Dateiname (Naht zu Schritt 15); Label = sinnvoller Titel, sonst
+        // Dateiname — nie „Untitled" (F-10).
         value: d.filename,
-        label: d.title || d.filename,
+        label: sinnvollerTitel(d.title) ?? d.filename,
         detail: d.space_id ? spaceName.get(d.space_id) : undefined,
       }));
     }

@@ -82,9 +82,12 @@ describe('brueckeService — Token ausstellen', () => {
     expect(faehigkeiten).toEqual(['llm']);
   });
 
-  test('deaktivierte Erweiterung bekommt keinen Token', async () => {
+  test('deaktivierte Erweiterung bekommt token:null statt eines Fehlers (F-02)', async () => {
     mockExtension({ enabled: false });
-    await expect(brueckeService.issueToken('meine-app', 1)).rejects.toThrow(ValidationError);
+    // Kein Wurf mehr: eine deaktivierte App ist ein normaler Zustand (z. B.
+    // wiederhergestellter Tab) — der frühere 400 erschien als Konsolen-Fehler.
+    const res = await brueckeService.issueToken('meine-app', 1);
+    expect(res).toEqual({ token: null, enabled: false, expiresInMs: 0, faehigkeiten: [] });
   });
 
   test('Notaus-Flag EXTENSIONS_BRUECKE_ENABLED=false → 503', async () => {

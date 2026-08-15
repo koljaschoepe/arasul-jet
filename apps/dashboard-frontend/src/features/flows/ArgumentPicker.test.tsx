@@ -11,6 +11,8 @@ import type { FlowArgument } from '@/types/flows';
 const apiMock = { get: vi.fn() };
 vi.mock('@/hooks/useApi', () => ({ useApi: () => apiMock }));
 
+type TreeDoc = { id: string; filename: string; title: string | null; space_id: string | null };
+
 function wrap(ui: React.ReactElement) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
@@ -72,5 +74,50 @@ describe('ArgumentPicker · Wissensbasis', () => {
     wrap(<ArgumentPicker arg={arg} onPick={vi.fn()} onClose={onClose} />);
     await user.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ArgumentPicker · Datei (F-10: Dateiname statt „untitled")', () => {
+  const arg: FlowArgument = { name: 'doc', typ: 'datei', beschreibung: '', pflicht: true };
+
+  function mockTree(documents: TreeDoc[]) {
+    apiMock.get.mockImplementation((url: string) =>
+      url.includes('/spaces/tree')
+        ? Promise.resolve({ documents, spaces: [] })
+        : Promise.resolve({ data: [] })
+    );
+  }
+
+  test('zeigt den Titel, wenn er sinnvoll ist', async () => {
+    mockTree([{ id: 'd1', filename: 'q2.pdf', title: 'Quartalsbericht Q2', space_id: null }]);
+    wrap(<ArgumentPicker arg={arg} onPick={vi.fn()} onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Quartalsbericht Q2')).toBeInTheDocument());
+    expect(screen.queryByText('q2.pdf')).not.toBeInTheDocument();
+  });
+
+  test('fällt bei title=null auf den Dateinamen zurück', async () => {
+    mockTree([{ id: 'd1', filename: 'bericht.pdf', title: null, space_id: null }]);
+    wrap(<ArgumentPicker arg={arg} onPick={vi.fn()} onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('bericht.pdf')).toBeInTheDocument());
+  });
+
+  test('zeigt bei eingebettetem „Untitled" den Dateinamen, nicht „Untitled"', async () => {
+    mockTree([{ id: 'd1', filename: 'bericht.pdf', title: 'Untitled', space_id: null }]);
+    wrap(<ArgumentPicker arg={arg} onPick={vi.fn()} onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('bericht.pdf')).toBeInTheDocument());
+    expect(screen.queryByText('Untitled')).not.toBeInTheDocument();
+  });
+
+  test('behandelt „Untitled document" und leeren/whitespace-Titel wie kein Titel', async () => {
+    mockTree([
+      { id: 'd1', filename: 'a.pdf', title: 'Untitled document', space_id: null },
+      { id: 'd2', filename: 'b.pdf', title: '   ', space_id: null },
+      { id: 'd3', filename: 'c.pdf', title: 'Unbenannt', space_id: null },
+    ]);
+    wrap(<ArgumentPicker arg={arg} onPick={vi.fn()} onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument());
+    expect(screen.getByText('b.pdf')).toBeInTheDocument();
+    expect(screen.getByText('c.pdf')).toBeInTheDocument();
+    expect(screen.queryByText(/Untitled|Unbenannt/)).not.toBeInTheDocument();
   });
 });
