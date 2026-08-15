@@ -14,14 +14,14 @@
   "slug": "multi-plattform-portierung",
   "title": "Arasul läuft überall: eine Codebase, zwei Builds, sechs Ziele",
   "type": "refactor",
-  "status": "approved",
+  "status": "in-progress",
   "priority": "P0",
   "risk_level": 3,
   "effort_level": 3,
   "reversibility_level": 3,
   "created": "2026-08-15",
   "approved": "2026-08-15",
-  "branch": null,
+  "branch": "020-mess-harness",
   "pr": null,
   "verified_on_device": false
 }
@@ -550,11 +550,12 @@
 
   <p>Sieben Schritte, je ein eigener PR mit code-reviewer-Gate. Grober Rahmen: sechs bis neun Wochen, davon der klare Löwenanteil in Schritt 3 (Engine + Kompat-Schicht + Modell-Manager). Verifiziert wird live nur auf dem Orin; alle anderen Ziele werden gebaut und per Emulation belegt (siehe §6).</p>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 1 — Mess-Harness und Engine-Baseline">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Mess-Harness und Engine-Baseline">
     <h3>Schritt 1 — Mess-Harness und Engine-Baseline <span class="tag">Risiko: keins</span> <span class="tag">2 bis 3 Tage</span></h3>
     <p>Ziel ist ein wiederholbares Mess-Werkzeug, kein einmaliger Zahlenwert. Der realistischste Kunden-Flow läuft als Skript, das <strong>verarbeitete Tokens gesamt</strong> (nicht Tokens pro Sekunde) bei 1, 4 und 16 parallelen Anfragen misst — so, dass es später ohne Umbau auf Thor und Spark läuft.</p>
     <p><strong>Ehrliche Einschränkung:</strong> Der aussagekräftige Vergleich braucht Thor/Spark, die noch nicht da sind. Auf dem Orin läuft die NVFP4-MoE-Zielklasse gar nicht (kein FP8/NVFP4). Was jetzt geht, ist ein <em>indikativer</em> Lauf auf dem Orin mit einem FP16/INT4-Modell (llama.cpp gegen SGLang) — er belegt, dass das Harness funktioniert und Ollama nicht batcht, ersetzt aber nicht die Zielhardware-Messung. Die Engine-Wahl ist bereits getroffen (SGLang, siehe §8); der direkte vLLM-vs-SGLang-Durchsatz-Vergleich wandert in den Echt-Hardware-Folge-Plan.</p>
     <p class="files mono">neu: scripts/test/measure-throughput.sh · docs/plans/active/020-baseline.md</p>
+    <div class="result"><strong>Ergebnis:</strong> Engine-neutrales Harness gebaut (<code>--api=ollama|openai</code>, überlebt den Engine-Wechsel), live auf dem Orin gegen das deployte Ollama (<code>gemma3:4b</code>) verifiziert. Durchsatz steigt 1→2 Parallel (46,8→77,6 Tokens/s), läuft dann bei 4 und 16 <strong>flach</strong> (81,2→81,4 Tokens/s) bei linear wachsender Wanduhr — der belegte Fingerabdruck fester 2-Slot-Bedienung ohne Continuous Batching (<code>OLLAMA_NUM_PARALLEL=2</code>). 32/32 parallele Anfragen fehlerfrei. Zahlen in <code>docs/plans/active/020-baseline.md</code>.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Hardware-Abstraktionsschicht und Plattform-Profile">
