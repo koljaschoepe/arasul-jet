@@ -186,16 +186,16 @@ fi
 ###############################################################################
 log_step 1 "Hardware erkennen"
 
-if [ -x "${SCRIPT_DIR}/detect-jetson.sh" ]; then
-  DEVICE_MODEL=$("${SCRIPT_DIR}/detect-jetson.sh" profile 2>/dev/null || echo "generic")
+if [ -x "${SCRIPT_DIR}/detect-platform.sh" ]; then
+  DEVICE_MODEL=$("${SCRIPT_DIR}/detect-platform.sh" profile 2>/dev/null || echo "generic")
   log_info "Geräteprofil: ${DEVICE_MODEL}"
 
   # Generate device-specific config
-  "${SCRIPT_DIR}/detect-jetson.sh" generate >/dev/null 2>&1 || true
+  "${SCRIPT_DIR}/detect-platform.sh" generate >/dev/null 2>&1 || true
   log_info "Gerätekonfiguration generiert"
 else
   DEVICE_MODEL="generic"
-  log_warn "detect-jetson.sh nicht gefunden, nutze generisches Profil"
+  log_warn "detect-platform.sh nicht gefunden, nutze generisches Profil"
 fi
 
 ###############################################################################

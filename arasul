@@ -315,7 +315,7 @@ check_ram() {
 
     log_info "Total RAM: ${TOTAL_RAM_GB}GB"
 
-    # Thresholds mirror the device profiles in scripts/setup/detect-jetson.sh,
+    # Thresholds mirror the device profiles in scripts/setup/detect-platform.sh,
     # which explicitly supports 8GB and 4GB Jetson boards. RAM below the
     # recommended 16GB is a warning (smaller models / reduced concurrency), not a
     # fatal error. Only sub-4GB boards are rejected as genuinely unsupported.
@@ -569,7 +569,7 @@ run_interactive_setup() {
 
 # Apply Jetson hardware profile (only if not already embedded by interactive_setup)
 apply_jetson_profile() {
-    local detect_script="${SCRIPT_DIR}/scripts/setup/detect-jetson.sh"
+    local detect_script="${SCRIPT_DIR}/scripts/setup/detect-platform.sh"
     if [ -f "$detect_script" ]; then
         # Skip if interactive_setup already embedded the profile in .env
         if grep -q "^JETSON_PROFILE=" .env 2>/dev/null; then
