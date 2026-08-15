@@ -80,7 +80,11 @@ MinIO scan → parse (PDF/DOCX/images) → chunk → embed → Qdrant + PostgreS
 ```
 
 - **Chunking:** Hierarchical strategy (2000-char parent chunks, 400-char child chunks)
-- **OCR:** PaddleOCR (priority) with Tesseract fallback
+- **OCR:** local Tesseract (poppler for image-PDFs). Applies to image-PDFs **and**
+  standalone image uploads — `.png/.jpg/.jpeg/.tiff/.tif/.bmp/.webp` are indexed
+  via `document_processor.PARSERS → parse_image` (QA-Sweep 2026-08-15). The
+  backend allow-list `ordnerSyncService.INDEXIERBAR` must stay in sync with
+  `PARSERS`, or a document row is created that the indexer can't parse.
 - **NER:** spaCy `de_core_news_lg` (German, lazy-loaded, ~880MB)
 - **BM25:** Keyword search with German stemming via `sparse_encoder.py`
 - **Spell correction:** SymSpellPy (optional)

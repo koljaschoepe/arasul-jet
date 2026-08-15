@@ -74,6 +74,7 @@ PARSERS = {
     '.tiff': parse_image,
     '.tif': parse_image,
     '.bmp': parse_image,
+    '.webp': parse_image,
 }
 
 # Supported MIME types mapping
@@ -94,6 +95,7 @@ SUPPORTED_MIMES = {
     'image/jpeg': '.jpg',
     'image/tiff': '.tiff',
     'image/bmp': '.bmp',
+    'image/webp': '.webp',
 }
 
 
@@ -124,6 +126,14 @@ def get_mime_type(filename: str) -> str:
         '.csv': 'text/csv',
         '.json': 'application/json',
         '.log': 'text/plain',
+        # Bilder (OCR) — konsistent mit PARSERS/SUPPORTED_MIMES.
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.tiff': 'image/tiff',
+        '.tif': 'image/tiff',
+        '.bmp': 'image/bmp',
+        '.webp': 'image/webp',
     }
     return mime_map.get(ext, 'application/octet-stream')
 
