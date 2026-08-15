@@ -7,6 +7,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useExtensionStore } from '@/stores/extensionStore';
+import { useActiveProject } from '@/features/workspace/useProjects';
 import { GitSyncControl } from '@/features/workspace/GitSyncControl';
 import {
   isModelInstalled,
@@ -41,8 +42,8 @@ function toGb(mb: number): string {
  * Schlanke Statusleiste am unteren Rand der IDE-Shell (Cursor-Maß: 24px):
  * links Verbindungs-/Health-Punkt + Plattform-Version (klickbar → was ist
  * verbunden?), mittig der Modellstatus (klickbar → heruntergeladenes Modell
- * wählen), rechts das aktive Terminal-Projekt. Die beiden Popover laden ihre
- * Detaildaten erst beim Öffnen (kein Dauer-Poll auf dem Jetson).
+ * wählen), rechts das aktive Workspace-Projekt (Plan 018). Die beiden Popover
+ * laden ihre Detaildaten erst beim Öffnen (kein Dauer-Poll auf dem Jetson).
  */
 export function StatusBar() {
   const api = useApi();
@@ -125,9 +126,11 @@ export function StatusBar() {
     },
   });
 
-  const terminalSessions = useWorkspaceStore(s => s.terminalSessions);
-  const activeTerminalSessionId = useWorkspaceStore(s => s.activeTerminalSessionId);
-  const activeSession = terminalSessions.find(s => s.id === activeTerminalSessionId) ?? null;
+  // Rechts in der Leiste steht das aktive WORKSPACE-Projekt (Plan 018:
+  // ein aktives Projekt steuert Dateien + Flows + Terminal). Bewusst NICHT
+  // der Terminal-Session-Titel — der zeigt bei umbenannten/mehreren Shells
+  // „Shell 1" statt des Projektnamens und war irreführend.
+  const { activeProject } = useActiveProject();
 
   // Globales Download-Feedback: laufende Modell-Downloads sind sonst nur im
   // Store sichtbar — hier bleiben sie es überall, ein Klick springt hin.
@@ -335,10 +338,10 @@ export function StatusBar() {
       {/* GitHub-Sync des aktiven Projekts (Plan 013, B9). */}
       <GitSyncControl />
 
-      {activeSession && (
+      {activeProject && (
         <span className="flex min-w-0 items-center gap-1.5" title="Aktives Projekt">
           <FolderKanban className="h-3 w-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">{activeSession.title}</span>
+          <span className="truncate">{activeProject.name}</span>
         </span>
       )}
     </footer>
