@@ -240,7 +240,7 @@ If a model is not yet pulled (skipped during bootstrap):
 docker exec llm-service ollama pull "$(grep ^LLM_MODEL .env | cut -d= -f2)"
 
 # See device-recommended models
-./scripts/setup/detect-jetson.sh recommend
+./scripts/setup/detect-platform.sh recommend
 ```
 
 ---
@@ -459,7 +459,7 @@ sudo netstat -tulpn | grep -E ':80|:443'    # port conflict?
 
 ### Hardware not detected
 
-If `detect-jetson.sh` cannot identify the device, check the 5-stage detection manually:
+If `detect-platform.sh` cannot identify the device, check the 5-stage detection manually:
 
 ```bash
 cat /proc/device-tree/model
@@ -501,13 +501,13 @@ sudo reboot
 
 ## 9. Related Documentation
 
-| Topic                         | Document                                                                       |
-| ----------------------------- | ------------------------------------------------------------------------------ |
-| Architecture & services       | [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md)                                   |
-| All environment variables     | [`docs/ENVIRONMENT_VARIABLES.md`](../ENVIRONMENT_VARIABLES.md)                 |
-| Backup system                 | [`docs/ops/BACKUP_SYSTEM.md`](BACKUP_SYSTEM.md)                                |
-| Disaster recovery             | [`docs/ops/DISASTER_RECOVERY.md`](DISASTER_RECOVERY.md)                        |
-| Detailed troubleshooting      | [`docs/ops/TROUBLESHOOTING.md`](TROUBLESHOOTING.md)                            |
-| Multi-device support          | [`docs/features/JETSON_COMPATIBILITY.md`](../features/JETSON_COMPATIBILITY.md) |
-| Admin handbook (German)       | [`docs/ops/ADMIN_HANDBUCH.md`](ADMIN_HANDBUCH.md)                              |
-| Customer quick start (German) | [`docs/ops/QUICK_START.md`](QUICK_START.md)                                    |
+| Topic                         | Document                                                                           |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| Architecture & services       | [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md)                                       |
+| All environment variables     | [`docs/ENVIRONMENT_VARIABLES.md`](../ENVIRONMENT_VARIABLES.md)                     |
+| Backup system                 | [`docs/ops/BACKUP_SYSTEM.md`](BACKUP_SYSTEM.md)                                    |
+| Disaster recovery             | [`docs/ops/DISASTER_RECOVERY.md`](DISASTER_RECOVERY.md)                            |
+| Detailed troubleshooting      | [`docs/ops/TROUBLESHOOTING.md`](TROUBLESHOOTING.md)                                |
+| Multi-device support          | [`docs/features/PLATFORM_COMPATIBILITY.md`](../features/PLATFORM_COMPATIBILITY.md) |
+| Admin handbook (German)       | [`docs/ops/ADMIN_HANDBUCH.md`](ADMIN_HANDBUCH.md)                                  |
+| Customer quick start (German) | [`docs/ops/QUICK_START.md`](QUICK_START.md)                                        |

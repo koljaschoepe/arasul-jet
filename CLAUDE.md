@@ -127,7 +127,7 @@ make logs s=dashboard-backend                      # Logs via Make
 | Onboarding             | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                                                   |
 | Testing                | [docs/development/TESTING.md](docs/development/TESTING.md)                                                                                         |
 | Environment variables  | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                                                                                     |
-| Jetson compatibility   | [docs/features/JETSON_COMPATIBILITY.md](docs/features/JETSON_COMPATIBILITY.md)                                                                     |
+| Platform compatibility | [docs/features/PLATFORM_COMPATIBILITY.md](docs/features/PLATFORM_COMPATIBILITY.md)                                                                 |
 | Admin handbook         | [docs/ops/ADMIN_HANDBUCH.md](docs/ops/ADMIN_HANDBUCH.md) (DE)                                                                                      |
 | Deployment             | [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)                                                                                                   |
 | Troubleshooting        | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                                                         |

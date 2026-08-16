@@ -626,19 +626,19 @@ optional; die Defaults passen zu diesen Mounts.
 
 ## Jetson Device Configuration
 
-These variables configure the platform for different NVIDIA Jetson devices. Use `./scripts/setup/detect-jetson.sh` to auto-detect and generate optimal values.
+These variables configure the platform for different NVIDIA Jetson devices. Use `./scripts/setup/detect-platform.sh` to auto-detect and generate optimal values.
 
 ### GPU & Base Image
 
-| Variable             | Default                 | Description                                                                      |
-| -------------------- | ----------------------- | -------------------------------------------------------------------------------- |
-| TORCH_CUDA_ARCH_LIST | 8.7                     | CUDA compute capability (10.0=Thor, 8.7=Orin, 7.2=Xavier, 5.3=Nano)              |
-| L4T_PYTORCH_TAG      | r36.4.0                 | dustynv/l4t-pytorch base image tag (build arg for embedding-service)             |
-| CUDA_ARCH_LIST       | (=TORCH_CUDA_ARCH_LIST) | Docker build arg alias, passed to embedding-service Dockerfile                   |
-| JETSON_PROFILE       | (auto)                  | Device profile name set by detect-jetson.sh (e.g. `thor_128gb`, `agx_orin_64gb`) |
-| JETSON_DESCRIPTION   | (auto)                  | Human-readable device description (e.g. "NVIDIA Jetson Thor 128GB")              |
-| JETSON_RAM_TOTAL     | (auto)                  | Detected total RAM in GB (read-only, set by detect-jetson.sh)                    |
-| JETSON_CPU_CORES     | (auto)                  | Detected CPU core count (read-only, set by detect-jetson.sh)                     |
+| Variable             | Default                 | Description                                                                        |
+| -------------------- | ----------------------- | ---------------------------------------------------------------------------------- |
+| TORCH_CUDA_ARCH_LIST | 8.7                     | CUDA compute capability (10.0=Thor, 8.7=Orin, 7.2=Xavier, 5.3=Nano)                |
+| L4T_PYTORCH_TAG      | r36.4.0                 | dustynv/l4t-pytorch base image tag (build arg for embedding-service)               |
+| CUDA_ARCH_LIST       | (=TORCH_CUDA_ARCH_LIST) | Docker build arg alias, passed to embedding-service Dockerfile                     |
+| JETSON_PROFILE       | (auto)                  | Device profile name set by detect-platform.sh (e.g. `thor_128gb`, `agx_orin_64gb`) |
+| JETSON_DESCRIPTION   | (auto)                  | Human-readable device description (e.g. "NVIDIA Jetson Thor 128GB")                |
+| JETSON_RAM_TOTAL     | (auto)                  | Detected total RAM in GB (read-only, set by detect-platform.sh)                    |
+| JETSON_CPU_CORES     | (auto)                  | Detected CPU core count (read-only, set by detect-platform.sh)                     |
 
 `TORCH_CUDA_ARCH_LIST` is used at both build time (as `CUDA_ARCH_LIST` build arg in `compose/compose.ai.yaml`) and runtime (passed to PyTorch inside the embedding-service container). The detection script sets this automatically based on device family. For Thor, the value `10.0` is speculative (Blackwell sm_100) and may need adjustment.
 
@@ -694,19 +694,19 @@ Pre-configured profiles for common Jetson devices:
 
 ```bash
 # Detect device and show profile
-./scripts/setup/detect-jetson.sh detect
+./scripts/setup/detect-platform.sh detect
 
 # Generate .env with optimal values
-./scripts/setup/detect-jetson.sh generate
+./scripts/setup/detect-platform.sh generate
 
 # Apply configuration
-./scripts/setup/detect-jetson.sh apply
+./scripts/setup/detect-platform.sh apply
 
 # See recommended models
-./scripts/setup/detect-jetson.sh recommend
+./scripts/setup/detect-platform.sh recommend
 ```
 
-See [docs/features/JETSON_COMPATIBILITY.md](features/JETSON_COMPATIBILITY.md) for full device compatibility guide.
+See [docs/features/PLATFORM_COMPATIBILITY.md](features/PLATFORM_COMPATIBILITY.md) for full device compatibility guide.
 
 ---
 
