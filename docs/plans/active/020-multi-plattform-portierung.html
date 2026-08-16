@@ -21,7 +21,7 @@
   "reversibility_level": 3,
   "created": "2026-08-15",
   "approved": "2026-08-15",
-  "branch": "020-hal-plattform-profile",
+  "branch": null,
   "pr": null,
   "verified_on_device": false
 }
@@ -609,11 +609,14 @@
     <p class="files mono">config/platforms/*.json · scripts/setup/detect-platform.sh · docs/ops/DEPLOYMENT.md · docs/ops/FRESH_INSTALL_CHECKLIST.md</p>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — Doku-Sync und Umbenennung">
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 7 — Doku-Sync und Umbenennung">
     <h3>Schritt 7 — Doku-Sync und Umbenennung <span class="tag">Risiko: niedrig</span> <span class="tag">2 bis 3 Tage</span></h3>
     <p><code>docs/features/JETSON_COMPATIBILITY.md</code> wird zu <code>PLATFORM_COMPATIBILITY.md</code> mit der Matrix aus §1 — inklusive der Ampel, welche Ziele echt validiert und welche nur gebaut/emuliert sind. Die Jetson-Formulierungen in README, CLAUDE.md, ONBOARDING, DEPLOYMENT, TROUBLESHOOTING, den Frontend-Strings (<code>GeneralSettings.tsx</code>, <code>UpdatePage.tsx</code>) und den <code>.claude</code>-Kontextdateien werden geräteneutral. Der Repo-Name <code>arasul-jet</code> bleibt, eine Umbenennung wäre reines Risiko ohne Nutzen.</p>
     <p>Die Kennzahl <strong>Tokens pro Tag je Gerät</strong> aus dem Mess-Harness ist die ehrlichere Aussage als jede Tokens-pro-Sekunde-Angabe. Sie wird dokumentiert, sobald echte Zielhardware sie liefert (Folge-Plan), nicht auf Basis der Emulation behauptet.</p>
     <p class="files mono">docs/features/JETSON_COMPATIBILITY.md → PLATFORM_COMPATIBILITY.md · README.md · CLAUDE.md · docs/ARCHITECTURE.md · docs/development/ONBOARDING.md · docs/ops/ · apps/dashboard-frontend/src/features/{settings/GeneralSettings.tsx,system/UpdatePage.tsx} · .claude/</p>
+    <div class="result"><strong>Ergebnis (Teil, geliefert):</strong> <code>JETSON_COMPATIBILITY.md</code> → <code>PLATFORM_COMPATIBILITY.md</code> mit geräteneutralem Kopf, Multi-Plattform-Matrix + ehrlicher Validierungs-Ampel (nur Orin live) und Verweis auf <code>config/platforms</code> als Single Source of Truth. Verbleibende <code>detect-jetson.sh</code>-Verweise in aktiven Docs auf <code>detect-platform.sh</code> gezogen, Querverweise (CLAUDE.md, INDEX, ENV, DEPLOYMENT) nachgezogen; Archiv-Pläne bewusst als Historie unangetastet.</div>
+    <div class="result"><strong>Zusätzlich (Provisioning-Kohärenz, außerhalb der Original-Schrittliste):</strong> Neue CLI-Kommandos <code>./arasul platform</code> und <code>./arasul platform-profile [--json]</code> (dünner Passthrough auf <code>detect-platform.sh</code>) — genau die Schnittstelle, die das Provisioning-Kit <code>ara-kit</code> generisch aufruft, um ein Gerät nach seiner Plattform zu fragen. Auf dem Orin live grün (<code>jetson</code> → <code>orin-64</code>). <code>ara-kit</code> selbst auf den Multi-Plattform-Stand gebracht (toter <code>STATE.json</code>-Verweis, geräteneutrale Flash-Host-Formulierung; selftest 15/15).</div>
+    <div class="result"><strong>Offen:</strong> geräteneutrale Formulierungen in README/ARCHITECTURE/ONBOARDING/TROUBLESHOOTING + Frontend-Strings (<code>GeneralSettings.tsx</code>, <code>UpdatePage.tsx</code>) und die Tokens-pro-Tag-Dokumentation (braucht echte Zielhardware). Sinnvoll gebündelt mit dem Engine-Wechsel (Schritt 3).</div>
   </div>
 
   </div>
