@@ -1741,6 +1741,30 @@ cmd_reset_password() {
     fi
 }
 
+# Show the detected hardware platform class (jetson | x86_64 | arm64 | unknown).
+# Stable, machine-readable interface used by provisioning tooling (ara-kit) to
+# ask a freshly set-up device what it is. Wraps scripts/setup/detect-platform.sh.
+cmd_platform() {
+    local detect_script="${SCRIPT_DIR}/scripts/setup/detect-platform.sh"
+    if [ ! -f "$detect_script" ]; then
+        log_error "Plattform-Erkennung nicht gefunden: scripts/setup/detect-platform.sh"
+        return 1
+    fi
+    bash "$detect_script" platform
+}
+
+# Show the matching config/platforms/<id> profile name, or its JSON with --json.
+# Same purpose as cmd_platform: the product's own answer to "which profile am I?",
+# read live by ara-kit instead of hardcoding a device catalog.
+cmd_platform_profile() {
+    local detect_script="${SCRIPT_DIR}/scripts/setup/detect-platform.sh"
+    if [ ! -f "$detect_script" ]; then
+        log_error "Plattform-Erkennung nicht gefunden: scripts/setup/detect-platform.sh"
+        return 1
+    fi
+    bash "$detect_script" platform-profile "$@"
+}
+
 # Help command
 cmd_help() {
     echo "Arasul Platform Management Tool"
@@ -1757,6 +1781,8 @@ cmd_help() {
     echo "  stop              - Stop all services"
     echo "  restart           - Restart all services"
     echo "  status            - Show status of all services"
+    echo "  platform          - Show detected platform class (jetson|x86_64|arm64)"
+    echo "  platform-profile [--json] - Show matching config/platforms profile"
     echo "  logs [service]    - Show logs (optionally for a specific service)"
     echo "  update            - Update to latest version"
     echo "  mdns              - Configure mDNS (arasul.local)"
@@ -1815,6 +1841,13 @@ case "${1:-help}" in
         ;;
     status)
         cmd_status
+        ;;
+    platform)
+        cmd_platform
+        ;;
+    platform-profile)
+        shift
+        cmd_platform_profile "$@"
         ;;
     logs)
         cmd_logs "$@"
