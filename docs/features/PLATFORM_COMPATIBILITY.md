@@ -1,10 +1,45 @@
-# NVIDIA Jetson Compatibility Guide
+# Platform Compatibility Guide
 
-This guide covers running the Arasul Platform on different NVIDIA Jetson devices.
+This guide covers running the Arasul Platform across its target hardware —
+NVIDIA Jetson devices **and** the non-Jetson targets added in Plan 020
+(DGX Spark, DGX Station, RTX PRO 6000 workstations, generic x86 NVIDIA servers).
 
-> ℹ️ **Stand 2026-04-21 — Thor noch nicht validiert:** Thor 64/128GB ist in den Profilen unten als _Planned_ markiert. JetPack 7.0 (Aug 2025), 7.1 (Jan 2026, Linux 38.4), 7.2 (Q2 2026 geplant, CUDA 13.2 unified SBSA) liefern die Basis, aber Compose-Files und Image-Tags nutzen aktuell JetPack-6-Defaults (CUDA 12.6, sm_87). Vollständige Thor-Validierung + SBSA-Abstraction-Layer: siehe `.claude/ANALYSIS_PLAN.md` Phase 3 und `.claude/analysis/19-jetson-research.md`.
+## Single source of truth: `config/platforms/`
 
-## Supported Devices
+The declarative catalog lives in [`config/platforms/*.json`](../../config/platforms/)
+(one profile per target, schema in
+[`config/platforms/README.md`](../../config/platforms/README.md)). The running
+device answers which profile it is via the product CLI — no catalog is
+hardcoded anywhere else:
+
+```bash
+./arasul platform                 # jetson | x86_64 | arm64 | unknown
+./arasul platform-profile         # matching catalog id, e.g. orin-64
+./arasul platform-profile --json  # the full catalog profile
+```
+
+## Validation status (honest, per Plan 020 §6)
+
+Only the AGX Orin is physically present and **live-verified**. Every other
+target is built and reasoned about; real-hardware validation (incl. the
+DGX-Spark sales proof) is the tracked follow-up plan. Speculative `sm_` values
+carry `confirmed:false` in the catalog and are **not** hardwired in code.
+
+| Catalog profile  | Target                        | Nachweis in Plan 020                                        |
+| ---------------- | ----------------------------- | ----------------------------------------------------------- |
+| `orin-64`        | Jetson AGX Orin (sm_87)       | **live grün auf echter Hardware**                           |
+| `thor-128`       | Jetson Thor 128GB             | Build + Profil + Emulation, echt später                     |
+| `dgx-spark`      | DGX Spark                     | Build + Profil + Emulation; **Echt = Folge-Plan (Verkauf)** |
+| `rtx-pro-6000`   | Workstation RTX PRO 6000      | Build (amd64/QEMU) + Profil, echt später                    |
+| `server-generic` | Generischer x86 NVIDIA-Server | Profil, ein Referenzlauf später                             |
+| `dgx-station`    | DGX Station                   | Profil vorbereitet, ungetestet                              |
+
+> **Engine-Hinweis:** Der Orin fährt einen eigenen llama.cpp/GGUF-Track (Ampere
+> ohne FP8/NVFP4). Die NVFP4/FP8-Zielklasse der übrigen Geräte läuft über den
+> Engine-Wechsel (Plan 020 Schritt 3, SGLang) — bis der auf echter Hardware
+> läuft, ist der Betrieb dieser Ziele nicht zugesichert, nur vorbereitet.
+
+## Supported Jetson devices
 
 | Device          | RAM   | GPU       | Status          | Default LLM    |
 | --------------- | ----- | --------- | --------------- | -------------- |
@@ -26,14 +61,14 @@ This guide covers running the Arasul Platform on different NVIDIA Jetson devices
 
 ```bash
 # Detect your device and generate configuration
-./scripts/setup/detect-jetson.sh detect
+./scripts/setup/detect-platform.sh detect
 
 # Generate and apply configuration
-./scripts/setup/detect-jetson.sh generate
-./scripts/setup/detect-jetson.sh apply
+./scripts/setup/detect-platform.sh generate
+./scripts/setup/detect-platform.sh apply
 
 # See recommended models
-./scripts/setup/detect-jetson.sh recommend
+./scripts/setup/detect-platform.sh recommend
 ```
 
 ### Manual Configuration
@@ -262,7 +297,7 @@ DISABLE_TELEGRAM=true
 
 **Setup differences:**
 
-- Thor detection uses a 5-level hierarchy in `detect-jetson.sh`: device-tree model, compatible string, chip ID (36/37/38), nvidia-smi GPU name, and RAM-based fallback (>=120GB).
+- Thor detection uses a 5-level hierarchy in `detect-platform.sh`: device-tree model, compatible string, chip ID (36/37/38), nvidia-smi GPU name, and RAM-based fallback (>=120GB).
 - Thor profiles set a longer `OLLAMA_STARTUP_TIMEOUT` (300s for 128GB, 240s for 64GB) because larger default models take more time to load.
 - The `L4T_PYTORCH_TAG` for Thor currently falls back to `r36.4.0`. The detection script includes `verify_l4t_tag()` which will automatically validate tag availability via `docker manifest inspect`. Update the Thor case to `r37.0.0` once dustynv publishes the JetPack 7.x / L4T r37 image.
 - FP16 embeddings are disabled by default on Thor (enough RAM for FP32), while most Orin variants use FP16 to save memory.
@@ -405,7 +440,7 @@ If a model doesn't fit in memory:
 
 ```bash
 # Download recommended model for your device
-./scripts/setup/detect-jetson.sh recommend
+./scripts/setup/detect-platform.sh recommend
 
 # Download a specific model
 docker exec llm-service ollama pull mistral:7b
