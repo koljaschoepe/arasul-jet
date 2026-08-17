@@ -6,10 +6,10 @@
   "memory_budget_gb": 90,
   "default_model": "moe-120b-fp8",
   "precision": "fp8",
-  "engine": "sglang",
+  "engine": "vllm",
   "gpu_query": "nvidia-smi",
   "ld_library_path": "/usr/local/cuda/lib64",
   "max_num_seqs": 32,
   "verification": "emulation",
-  "notes": "amd64-Build per QEMU-Emulation (nur Bauzeit). sm_120 NVFP4/FP8-Reife bei SGLang juenger als bei vLLM -> Engine-Version pinnen, vLLM baubar halten. Echt im Folge-Plan."
+  "notes": "amd64-Build per QEMU-Emulation (nur Bauzeit). sm_120 NVFP4/FP8: vLLM-Version pinnen. Engine vllm gesetzt in Plan 021 (loest SGLang ab). Echt im Folge-Plan."
 }

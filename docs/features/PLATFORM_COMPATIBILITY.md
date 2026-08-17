@@ -34,10 +34,14 @@ carry `confirmed:false` in the catalog and are **not** hardwired in code.
 | `server-generic` | Generischer x86 NVIDIA-Server | Profil, ein Referenzlauf später                             |
 | `dgx-station`    | DGX Station                   | Profil vorbereitet, ungetestet                              |
 
-> **Engine-Hinweis:** Der Orin fährt einen eigenen llama.cpp/GGUF-Track (Ampere
-> ohne FP8/NVFP4). Die NVFP4/FP8-Zielklasse der übrigen Geräte läuft über den
-> Engine-Wechsel (Plan 020 Schritt 3, SGLang) — bis der auf echter Hardware
-> läuft, ist der Betrieb dieser Ziele nicht zugesichert, nur vorbereitet.
+> **Engine-Hinweis (Plan 021):** Die Engine folgt der Hardware und steht im
+> Katalog-Feld `engine` (einzige Quelle der Wahrheit). Der Orin fährt
+> **`ollama`** (GGUF/llama.cpp-Track, Ampere ohne FP8/NVFP4, mit Idle-Unload).
+> Die NVFP4/FP8-Zielklasse der übrigen Geräte (Thor/x86) läuft über **`vllm`**
+> (löst die SGLang-Wahl aus Plan 020 ab) — bis das auf echter Hardware läuft, ist
+> der Betrieb dieser Ziele nicht zugesichert, nur vorbereitet. Die
+> Dev-Verifikation des vLLM-Pfads auf dem Orin-vLLM ist Plan-021-Schritt 7 und
+> noch offen.
 
 ## Supported Jetson devices
 

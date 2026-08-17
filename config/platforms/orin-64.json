@@ -6,10 +6,10 @@
   "memory_budget_gb": 48,
   "default_model": "gguf-q4-30b",
   "precision": "q4_gguf",
-  "engine": "llama.cpp",
+  "engine": "ollama",
   "gpu_query": "tegrastats",
   "ld_library_path": "/usr/local/cuda/lib64:/usr/lib/aarch64-linux-gnu/nvidia:/usr/lib/aarch64-linux-gnu",
   "max_num_seqs": 2,
   "verification": "live",
-  "notes": "Einziges physisch vorhandenes Gerät. Ampere ohne FP8/NVFP4 -> eigener llama.cpp/GGUF-Track. Auf R39 geflasht, ehrliches Regressionsgeraet auf alter Hardware."
+  "notes": "Einziges physisch vorhandenes Gerät. Ampere ohne FP8/NVFP4 -> GGUF-Track via Ollama (wrappt llama.cpp; Idle-Unload existiert). Auf R39 geflasht, ehrliches Regressionsgeraet auf alter Hardware. Engine ollama gesetzt in Plan 021 (loest llama.cpp ab)."
 }

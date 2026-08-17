@@ -21,12 +21,24 @@ Quelle, statt Hardware-Wissen erneut zu verteilen.
 | `memory_budget_gb`   | Für die Engine nutzbares Speicherbudget (unified/VRAM)                                       |
 | `default_model`      | Standard-Modell dieser Klasse                                                                |
 | `precision`          | Zielpräzision (`nvfp4`, `fp8`, `q4_gguf`, …)                                                 |
-| `engine`             | `sglang`, `vllm` oder `llama.cpp` (Orin)                                                     |
+| `engine`             | `ollama` (Orin) oder `vllm` (Thor/x86). **Einzige Engine-Quelle der Wahrheit** (Plan 021)    |
 | `gpu_query`          | Kommando zum Auslesen des GPU-Status (`nvidia-smi` vs. `tegrastats`)                         |
 | `ld_library_path`    | CUDA-Bibliothekspfad des Ziels (Schritt 3/5 parametrisiert Compose darüber)                  |
 | `max_num_seqs`       | Parallel-Grenze der Engine (Continuous-Batching-Slots)                                       |
 | `verification`       | Nachweisstufe in Plan 020 (`live`, `emulation`, `follow-up`)                                 |
 | `notes`              | Kontext/Vorbehalte                                                                           |
+
+## Engine-Routing (Plan 021)
+
+Das Feld `engine` ist die **einzige Quelle der Wahrheit** für die Inferenz-Engine
+eines Ziels. Es gilt genau:
+
+- `orin-64` → **`ollama`** (GGUF/llama.cpp-Track, Idle-Unload; einziges Live-Gerät).
+- Alle übrigen Ziele (Thor/x86) → **`vllm`** (löst die SGLang-Wahl aus Plan 020 ab).
+
+Der Modell-/Engine-Router liest ausschließlich dieses Feld — die
+Modell-Empfehlungen in `scripts/setup/detect-platform.sh` (`RECOMMENDED_MODELS`)
+sind nur Setup-Hinweise und **keine** Engine-Autorität.
 
 ## Ehrlichkeit
 

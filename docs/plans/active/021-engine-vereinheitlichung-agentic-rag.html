@@ -1,0 +1,791 @@
+<!doctype html>
+<!--
+  Arasul plan-page — Plan 021. Structural contract per template v2.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan 021 · Coding-Agent-Kern: Engine-Vereinheitlichung &amp; agentic RAG</title>
+<script type="application/json" id="plan-meta">
+{
+  "id": "021",
+  "slug": "engine-vereinheitlichung-agentic-rag",
+  "title": "Coding-Agent-Kern: Engine-Vereinheitlichung & agentic RAG",
+  "type": "platform",
+  "status": "in-progress",
+  "priority": "P0",
+  "risk_level": 3,
+  "effort_level": 3,
+  "reversibility_level": 2,
+  "created": "2026-08-17",
+  "approved": "2026-08-17",
+  "branch": "021-engine-vereinheitlichung-agentic-rag",
+  "pr": null,
+  "verified_on_device": false
+}
+</script>
+<style>
+  :root {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+      --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+      --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+      --note: #E4B04A; --note-bg: #2A2317;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #EFF3F1; --surface: #FFFFFF; --ink: #101B17; --muted: #46564F;
+    --line: #C7D3CD; --accent: #0B5D4B; --accent-ink: #094A3C; --wash: #E3EDE8;
+    --ok: #1F7A45; --warn: #A36B00; --bad: #B02E27;
+    --note: #8A5A00; --note-bg: #FFF7E6;
+    --shadow: 0 1px 2px rgba(16,27,23,.06), 0 6px 20px rgba(16,27,23,.07);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B100E; --surface: #17201C; --ink: #F1F6F3; --muted: #AABBB3;
+    --line: #37453F; --accent: #4FD6B4; --accent-ink: #7BE3C9; --wash: #202B26;
+    --ok: #62CE93; --warn: #E4B04A; --bad: #E2837B;
+    --note: #E4B04A; --note-bg: #2A2317;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .875em;
+  }
+  code { background: var(--wash); border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; }
+  .page { max-width: 48rem; margin: 0 auto; padding: 0 1.25rem 6rem; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-in {
+    max-width: 48rem; margin: 0 auto; padding: .55rem 1.25rem;
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+  }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--accent-ink); font-weight: 700; margin: 0;
+  }
+  .topbar .spacer { margin-left: auto; }
+  .tbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: .78rem; font-weight: 600; border-radius: 999px;
+    padding: .25rem .8rem; cursor: pointer;
+  }
+  .tbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .tbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: .45em;
+    font-size: .74rem; font-weight: 700; letter-spacing: .05em;
+    border-radius: 999px; padding: .2rem .7rem;
+    border: 1.5px solid var(--muted); background: var(--surface); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .chip::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--muted); }
+  .chip[data-status="in-review"]   { color: var(--warn); border-color: var(--warn); }
+  .chip[data-status="in-review"]::before { background: var(--warn); }
+  .chip[data-status="approved"], .chip[data-status="done"] { color: var(--ok); border-color: var(--ok); }
+  .chip[data-status="approved"]::before, .chip[data-status="done"]::before { background: var(--ok); }
+  .chip[data-status="in-progress"] { color: var(--accent-ink); border-color: var(--accent); }
+  .chip[data-status="in-progress"]::before { background: var(--accent); }
+  .chip[data-status="blocked"] { color: var(--bad); border-color: var(--bad); }
+  .chip[data-status="blocked"]::before { background: var(--bad); }
+
+  header.plan { padding: 2.4rem 0 0; }
+  h1 {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.12;
+    font-weight: 700; margin: 0 0 .5rem; text-wrap: balance;
+  }
+  .lead { font-size: 1.06rem; color: var(--muted); margin: 0 0 1.4rem; max-width: 60ch; }
+
+  .dash {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(7.6rem, 1fr));
+    gap: .6rem; margin: 0 0 .9rem;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .6rem .8rem; box-shadow: var(--shadow);
+  }
+  .tile .tl { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .tile .tv { font-size: 1rem; font-weight: 700; margin-top: .2rem; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: .45rem; }
+  .dots { display: inline-flex; gap: .25rem; }
+  .dots i { width: .6rem; height: .6rem; border-radius: 50%; background: transparent; border: 1.5px solid var(--line); }
+  .dots[data-tone="ok"]   i.f { background: var(--ok);   border-color: var(--ok); }
+  .dots[data-tone="warn"] i.f { background: var(--warn); border-color: var(--warn); }
+  .dots[data-tone="bad"]  i.f { background: var(--bad);  border-color: var(--bad); }
+
+  .brief {
+    background: var(--surface); border: 1.5px solid var(--accent);
+    border-radius: 14px; padding: 1rem 1.2rem; box-shadow: var(--shadow); margin: 0 0 .8rem;
+  }
+  .brief h2 {
+    margin: 0 0 .7rem; font-size: .72rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent-ink); font-weight: 800;
+  }
+  .brief dl { margin: 0; display: grid; grid-template-columns: 9.5rem 1fr; row-gap: .5rem; }
+  .brief dt { font-weight: 700; font-size: .9rem; }
+  .brief dd { margin: 0; font-size: .95rem; }
+  .brief dd ul { margin: 0; padding-left: 1.1rem; }
+  @media (max-width: 34rem) { .brief dl { grid-template-columns: 1fr; row-gap: .15rem; } .brief dd { margin-bottom: .5rem; } }
+
+  details.sec {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    margin: .7rem 0; box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.sec[open] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  details.sec > summary {
+    list-style: none; cursor: pointer; padding: .85rem 1.1rem;
+    display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; column-gap: .7rem;
+  }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary:hover { background: var(--wash); }
+  details.sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .sec .no {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .74rem; color: var(--accent-ink); font-weight: 700;
+  }
+  .sec .stitle {
+    font-family: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.12rem; font-weight: 700;
+  }
+  .sec .skurz {
+    grid-column: 2 / 4; font-size: .88rem; color: var(--muted); margin-top: .1rem;
+  }
+  .sec .skurz b { color: var(--ink); font-weight: 600; }
+  .sec .chev {
+    grid-row: 1; grid-column: 4; color: var(--muted);
+    transition: transform .15s; font-size: .8rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .sec .chev { transition: none; } }
+  details.sec[open] > summary .chev { transform: rotate(90deg); }
+  .sbody { padding: .2rem 1.1rem 1.1rem; border-top: 1px solid var(--line); }
+  .sbody > :first-child { margin-top: .9rem; }
+  .sbody p { max-width: 66ch; }
+  h3 { font-size: .98rem; margin: 1.2rem 0 .4rem; }
+  ul, ol { padding-left: 1.25rem; }
+  li { margin: .3rem 0; }
+  li::marker { color: var(--accent-ink); }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  th, td { text-align: left; padding: .55rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; background: var(--wash); }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width: 40rem) { .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--wash); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  .col h3 { margin: 0 0 .4rem; font-size: .74rem; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .col ul { margin: 0; }
+
+  figure.arch {
+    margin: 1rem 0; background: var(--wash); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+  }
+  figure.arch svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  figure.arch figcaption { font-size: .82rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+
+  .step {
+    position: relative;
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 10px; padding: .8rem 2.4rem .8rem 1rem; margin: .7rem 0;
+  }
+  .step[data-status="done"]      { border-left-color: var(--ok); }
+  .step[data-status="deviation"] { border-left-color: var(--warn); }
+  .step[data-status="blocked"]   { border-left-color: var(--bad); }
+  .step h3 { margin: 0 0 .3rem; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .step .files { font-size: .8rem; color: var(--muted); word-break: break-word; margin: .35rem 0 0; }
+  .step .tag {
+    font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: .08rem .4rem;
+  }
+  .result { margin-top: .6rem; padding: .55rem .75rem; border-radius: 8px; background: var(--wash); font-size: .88rem; }
+  .result strong { color: var(--accent-ink); }
+
+  ul.checks { list-style: none; padding: 0; }
+  ul.checks li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: .5rem .8rem .5rem 2.2rem; position: relative; margin: .45rem 0;
+  }
+  ul.checks li::before {
+    content: ""; position: absolute; left: .75rem; top: .78rem;
+    width: .8rem; height: .8rem; border: 2px solid var(--muted); border-radius: 4px;
+  }
+  ul.checks li[data-done="true"]::before {
+    background: var(--ok); border-color: var(--ok);
+    content: "✓"; color: #fff; font-size: .62rem; line-height: .8rem; text-align: center;
+  }
+
+  footer.colophon {
+    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+    font-size: .8rem; color: var(--muted);
+  }
+
+  .cbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+    border-radius: 999px; font: inherit; font-size: .74rem; font-weight: 600;
+    padding: .12rem .55rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbtn:hover, .cbtn:focus-visible { color: var(--accent-ink); border-color: var(--accent); }
+  .cbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cbtn.has { color: var(--note); border-color: var(--note); background: var(--note-bg); }
+  .step > .cbtn { position: absolute; top: .6rem; right: .6rem; }
+  summary .cbtn { grid-row: 1; grid-column: 3; }
+
+  .comment {
+    border: 1.5px solid var(--note); background: var(--note-bg);
+    border-radius: 10px; padding: .6rem .8rem; margin: .7rem 0; font-size: .9rem;
+  }
+  .comment .clabel {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .6rem;
+    font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--note); font-weight: 800; margin-bottom: .35rem;
+  }
+  .comment .clabel button {
+    border: 0; background: transparent; color: var(--muted); font: inherit;
+    font-size: .72rem; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .comment .clabel button:hover { color: var(--bad); }
+
+  .cbar {
+    position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%);
+    display: none; align-items: center; gap: .7rem; z-index: 50; max-width: 92vw;
+    background: var(--surface); border: 1.5px solid var(--ink); border-radius: 999px;
+    padding: .45rem .6rem .45rem 1.1rem; box-shadow: var(--shadow); font-size: .85rem; font-weight: 600;
+  }
+  .cbar.visible { display: flex; }
+  .cbar button {
+    border: 1.5px solid var(--line); background: var(--wash); color: var(--ink);
+    font: inherit; font-size: .8rem; font-weight: 700; border-radius: 999px;
+    padding: .28rem .85rem; cursor: pointer; white-space: nowrap;
+  }
+  .cbar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  :root[data-theme="dark"] .cbar button.primary { color: #0B100E; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cbar button.primary { color: #0B100E; } }
+  .cbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .is-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <p class="eyebrow">Arasul · Plan 021</p>
+    <span class="chip" id="status-chip" data-status="in-review">In Review</span>
+    <span class="spacer"></span>
+    <button class="tbtn" id="toggle-all" aria-pressed="false">Alles aufklappen</button>
+  </div>
+</div>
+
+<div class="page">
+
+<header class="plan">
+  <h1>Coding-Agent-Kern: Engine-Vereinheitlichung &amp; agentic RAG</h1>
+  <p class="lead">Eine hardware-geroutete Inferenz-Engine (Orin&nbsp;→&nbsp;Ollama, Thor/x86&nbsp;→&nbsp;vLLM), Qwen3.8-27B als Standard-Coder mit erzwungenen Toolcalls, volles agentic RAG (grep&nbsp;+&nbsp;Symbolindex) — und das klassische Vektor-RAG als letzter, rückrollbarer Schritt raus.</p>
+
+  <div class="dash">
+    <div class="tile"><div class="tl">Priorität</div><div class="tv">P0</div></div>
+    <div class="tile"><div class="tl">Risiko</div><div class="tv"><span class="dots" data-tone="bad" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Aufwand</div><div class="tv"><span class="dots" data-tone="warn" data-level="3"></span>hoch</div></div>
+    <div class="tile"><div class="tl">Umkehrbar</div><div class="tv"><span class="dots" data-tone="ok" data-level="2"></span>gestaffelt</div></div>
+    <div class="tile"><div class="tl">Schritte</div><div class="tv">8</div></div>
+    <div class="tile"><div class="tl">Branch / PR</div><div class="tv mono" id="meta-pr" style="font-size:.85rem">—</div></div>
+  </div>
+
+  <div class="brief">
+    <h2>In 30 Sekunden</h2>
+    <dl>
+      <dt>Was passiert</dt><dd>Die Plattform bekommt <b>eine</b> Modell-Schnittstelle, hinter der pro Gerät die passende Engine läuft (Orin: Ollama, Thor/x86: vLLM). <b>Qwen3.8-27B</b> wird der neue Standard-Coder, das alte MoE bleibt umschaltbar. Der Coding-Agent findet sich per <b>grep + Symbolindex</b> selbst durch die Ordner; das klassische Vektor-RAG (Qdrant + Embeddings) wird zuletzt entfernt.</dd>
+      <dt>Warum jetzt</dt><dd>Dein Workload ist sequenziell und langlaufend, nicht parallel — der Kaufgrund für Server-Batching entfällt, dafür zählen langer Kontext, Toolcall-Zuverlässigkeit und <b>Speicher</b>. Qdrant + Embeddings kosten auf 64&nbsp;GB Speicher, den der Coder braucht. Ein Engine-Chaos über drei Gerätetypen soll aufhören.</dd>
+      <dt>Größtes Risiko</dt><dd>Zwei GPU-Verbraucher (Ollama-Keep-Alive + vLLM-Container) gleichzeitig, wenn der vLLM-Start nicht über den einen GPU-Lock läuft — <code>gpuQueue.withGpuLock</code> ist Pflicht. Zweitgrößtes: eine RAG-Entfernungs-Migration, die versehentlich die geteilten Dokument-Tabellen mitnimmt.</dd>
+      <dt>Du entscheidest</dt><dd><ul>
+        <li>Engine pro Gerät: <b>Orin → Ollama, Thor/x86 → vLLM</b> (löst die SGLang-Wahl aus Plan 020 ab).</li>
+        <li>Standard-Coder <b>Qwen3.8-27B</b> (GGUF); altes MoE bleibt wählbar.</li>
+        <li>Klassisches RAG (Qdrant + Embeddings) wird <b>entfernt</b> — gestaffelt, als letzter rückrollbarer Schritt.</li>
+        <li>vLLM-Tier wird nur auf dem Orin <b>dev-verifiziert</b>; echte Thor/FP8-Abnahme kommt separat.</li>
+      </ul></dd>
+    </dl>
+  </div>
+
+</header>
+
+<details class="sec" data-sec="1" id="sec-1" data-ref="§1 Warum &amp; Ziel" open>
+  <summary>
+    <span class="no">§1</span><span class="stitle">Warum &amp; Ziel</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Eine Engine, ein Top-Coder, agentic RAG — kein Vektor-Ballast mehr auf 64&nbsp;GB.</span>
+  </summary>
+  <div class="sbody">
+  <p>Arasul soll ein exzellenter, lokaler Coding-Agent werden: ein Orchestrator, der über Stunden und Tage autonom an großen, komplexen Aufgaben arbeitet, Subagenten spawnt und sehr lange Dokumente/Code stückweise zusammensetzt und aktualisiert — vergleichbar mit dem, wie Claude Code große Aufgaben stemmt. Das läuft asynchron: man stößt einen Lauf an, er arbeitet durch.</p>
+  <p>Für diesen Workload gilt: <b>Parallelität ist kein Kaufgrund</b> (meist ein Agent gleichzeitig), aber <b>langer Kontext, Toolcall-Zuverlässigkeit und Speicher-Disziplin</b> entscheiden über Erfolg. Genau deshalb ist der reflexhafte Umstieg „alles auf vLLM" für den Orin falsch: das Wunschmodell Qwen3.8-27B braucht dort eine Engine-Version, die der Orin (JetPack&nbsp;6, vLLM&nbsp;~0.10.2) heute nicht fährt — nur der GGUF-Weg über Ollama/llama.cpp bringt es auf dem Orin zum Laufen. Auf Thor/x86 dagegen spielt vLLM seine Stärken (native FP8/NVFP4, Ökosystem, Context-Engineering) voll aus.</p>
+  <p>Gleichzeitig kostet das klassische RAG (Qdrant-Vektor-DB + Embedding-Service) dauerhaft Speicher und einen ganzen Wartungs-Stack — Speicher, den der Coder auf 64&nbsp;GB besser gebraucht. Für Code navigiert ein Agent mit <code>grep</code> + Symbolindex ohnehin gezielter als semantische Vektor-Suche.</p>
+  <p><b>Fertig heißt:</b> Auf dem Orin lädt die Plattform Qwen3.8-27B als Standard-Coder bei Bedarf, entlädt ihn im Leerlauf, und ein Agent löst eine mehrstufige Coding-Aufgabe gegen ein echtes Repo allein über grep + Symbolindex + Datei-Werkzeuge — ganz ohne Qdrant. Die Engine-Wahl folgt automatisch der erkannten Hardware (Orin&nbsp;→&nbsp;Ollama, Thor/x86&nbsp;→&nbsp;vLLM), der vLLM-Pfad ist auf dem Orin dev-verifiziert, und Qdrant&nbsp;+&nbsp;Embedding-Service sind entfernt, ohne die Dokument-/OCR-Funktion zu zerstören.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="2" id="sec-2" data-ref="§2 Scope">
+  <summary>
+    <span class="no">§2</span><span class="stitle">Scope</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Engine-Routing + Gateway + Qwen3.8-27B + agentic RAG in einem Plan; RAG-Entfernung zuletzt.</span>
+  </summary>
+  <div class="sbody">
+  <div class="cols">
+    <div class="col"><h3>Im Scope</h3><ul>
+      <li>Engine-Routing über die HAL: <code>config/platforms/*</code> → Orin=Ollama, Thor/x86=vLLM, mit manuellem Override.</li>
+      <li>Vereinheitlichung der HW-Klassifizierung auf <b>eine</b> Quelle (config/platforms), Ablösung der SGLang-Wahl aus Plan 020.</li>
+      <li>Modell-Gateway im Backend: eine <code>/models</code>-Sicht, zwei Backends (Ollama nativ / vLLM start-stop-on-idle).</li>
+      <li>Qwen3.8-27B als Standard-Coder (GGUF via Ollama), altes MoE umschaltbar; Toolcalls per erzwungenem Format/Grammatik.</li>
+      <li>Agentic RAG: gehärtete grep-Suche + neuer Tree-sitter/ctags-Symbolindex als Agent-Werkzeuge.</li>
+      <li>Dokument-Feature auf agentisch umstellen (Upload = Datei im Projektordner + OCR-Textlayer, Agent liest/grept gezielt).</li>
+      <li>vLLM-Engine-Tier: Compose-Service + Gateway-Anbindung, <b>dev-verifiziert auf dem Orin-vLLM</b> (Integrationsnachweis).</li>
+      <li>Klassisches RAG entfernen (Qdrant + Embedding-Service + Vektor-Pfad) — <b>letzter, rückrollbarer Schritt</b>.</li>
+    </ul></div>
+    <div class="col"><h3>Nicht im Scope</h3><ul>
+      <li>Echte Thor-/DGX-Hardware-Abnahme (kein Gerät da) — getrackter Folge-Plan, gekoppelt an die HAL.</li>
+      <li>SGLang (durch vLLM ersetzt; kein zweiter Server-Engine-Track).</li>
+      <li>Neues Chat-/Agenten-UI (bleibt wie in Plan 019); nur Modell-Auswahl + RAG-Einstellungen werden berührt.</li>
+      <li>Multi-User/Rollen (es bleibt Einzel-Admin).</li>
+      <li>Löschen der Postgres-Tabellen <code>documents</code>/<code>document_chunks</code> (tragen den OCR-Textlayer — bleiben erhalten).</li>
+      <li>Speculative Decoding / EAGLE-Feintuning (später auf Thor, wo es zählt).</li>
+    </ul></div>
+  </div>
+  </div>
+</details>
+
+<details class="sec" data-sec="3" id="sec-3" data-ref="§3 Architektur">
+  <summary>
+    <span class="no">§3</span><span class="stitle">Architektur — einfach erklärt</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Frontend → ein Modell-Gateway → HW-passende Engine; Agent sucht per grep/Symbol statt Vektor-DB.</span>
+  </summary>
+  <div class="sbody">
+  <p><b>Was ändert sich am System und warum so?</b> Heute spricht das Backend fest mit Ollama, und der RAG-Pfad schickt jede Frage durch Embedding → Qdrant. Das ist an ein Gerät und an eine Engine gebunden und trägt die Vektor-DB als Dauerlast mit.</p>
+  <p>Neu schiebt sich ein dünnes <b>Modell-Gateway</b> dazwischen: das Frontend sieht weiterhin nur eine <code>/models</code>-Schnittstelle, dahinter wählt das Gateway anhand der erkannten Hardware die Engine. Auf dem Orin ist das Ollama (das entlädt Modelle schon heute nutzungsabhängig über die adaptive Keep-Alive-Logik). Auf Thor/x86 startet das Gateway bei Bedarf den vLLM-Container und stoppt ihn nach Leerlauf — beides <b>über denselben GPU-Lock</b>, damit nie zwei Verbraucher gleichzeitig auf die GPU gehen.</p>
+  <p>Der zweite Umbau betrifft das Wissen: statt semantischer Vektor-Suche bekommt der Agent <b>direkte Werkzeuge</b> — eine gehärtete grep-Suche (die es als <code>dateien_suchen</code> schon gibt) plus einen neuen <b>Symbolindex</b> (Tree-sitter/ctags), der Funktionen, Klassen und Referenzen als navigierbare Karte liefert. Hochgeladene Dokumente landen als Dateien im Projektordner (mit OCR-Textlayer in Postgres) und werden vom Agenten gezielt gelesen — kein Qdrant mehr nötig. Alle Datei-Werkzeuge gehen weiter zwingend durch die Symlink-sichere Pfadprüfung.</p>
+  <figure class="arch">
+    <svg viewBox="0 0 720 320" role="img" aria-label="Architektur vorher/nachher" font-family="ui-monospace, Menlo, monospace" font-size="12">
+      <!-- divider -->
+      <line x1="360" y1="16" x2="360" y2="304" stroke="var(--line)" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="14" y="26" font-weight="700" fill="var(--muted)">VORHER</text>
+      <text x="374" y="26" font-weight="700" fill="var(--accent-ink)">NACHHER</text>
+
+      <!-- BEFORE -->
+      <rect x="14" y="40" width="150" height="34" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="89" y="61" text-anchor="middle" fill="var(--ink)">Frontend</text>
+      <line x1="89" y1="74" x2="89" y2="96" stroke="var(--muted)"/>
+      <rect x="14" y="96" width="150" height="34" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="89" y="117" text-anchor="middle" fill="var(--ink)">Backend</text>
+      <line x1="89" y1="130" x2="89" y2="152" stroke="var(--muted)"/>
+      <rect x="14" y="152" width="150" height="34" rx="7" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="89" y="173" text-anchor="middle" fill="var(--ink)">Ollama (fest)</text>
+      <!-- classic rag -->
+      <line x1="164" y1="113" x2="196" y2="113" stroke="var(--muted)"/>
+      <rect x="196" y="96" width="150" height="34" rx="7" fill="var(--surface)" stroke="var(--bad)"/>
+      <text x="271" y="112" text-anchor="middle" fill="var(--ink)">Embedding →</text>
+      <text x="271" y="126" text-anchor="middle" fill="var(--ink)">Qdrant (Vektor)</text>
+      <text x="196" y="176" fill="var(--muted)" font-size="11">an 1 Gerät + 1 Engine</text>
+      <text x="196" y="190" fill="var(--muted)" font-size="11">gebunden, Vektor-Dauerlast</text>
+
+      <!-- AFTER -->
+      <rect x="374" y="40" width="150" height="34" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="449" y="61" text-anchor="middle" fill="var(--ink)">Frontend</text>
+      <line x1="449" y1="74" x2="449" y2="96" stroke="var(--accent)"/>
+      <rect x="374" y="96" width="150" height="34" rx="7" fill="var(--surface)" stroke="var(--accent)"/>
+      <text x="449" y="112" text-anchor="middle" fill="var(--accent-ink)" font-weight="700">Modell-Gateway</text>
+      <text x="449" y="126" text-anchor="middle" fill="var(--muted)" font-size="10">eine /models-Sicht + GPU-Lock</text>
+      <!-- two engines -->
+      <line x1="449" y1="130" x2="449" y2="146" stroke="var(--accent)"/>
+      <line x1="410" y1="146" x2="560" y2="146" stroke="var(--accent)"/>
+      <line x1="410" y1="146" x2="410" y2="162" stroke="var(--accent)"/>
+      <line x1="560" y1="146" x2="560" y2="162" stroke="var(--accent)"/>
+      <rect x="360" y="162" width="100" height="34" rx="7" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="410" y="179" text-anchor="middle" fill="var(--ink)" font-size="11">Ollama</text>
+      <text x="410" y="191" text-anchor="middle" fill="var(--muted)" font-size="10">Orin</text>
+      <rect x="510" y="162" width="100" height="34" rx="7" fill="var(--wash)" stroke="var(--line)"/>
+      <text x="560" y="179" text-anchor="middle" fill="var(--ink)" font-size="11">vLLM</text>
+      <text x="560" y="191" text-anchor="middle" fill="var(--muted)" font-size="10">Thor / x86</text>
+      <!-- agentic rag -->
+      <rect x="374" y="224" width="236" height="60" rx="7" fill="var(--surface)" stroke="var(--accent)"/>
+      <text x="492" y="244" text-anchor="middle" fill="var(--accent-ink)" font-weight="700">Agentic RAG</text>
+      <text x="492" y="260" text-anchor="middle" fill="var(--ink)" font-size="11">grep + Symbolindex (Tree-sitter)</text>
+      <text x="492" y="274" text-anchor="middle" fill="var(--ink)" font-size="11">Dateien + OCR-Textlayer · kein Qdrant</text>
+    </svg>
+    <figcaption>Vorher: festes Ollama + Vektor-RAG an ein Gerät gebunden. Nachher: ein Gateway routet zur HW-passenden Engine; der Agent sucht selbst per grep/Symbolindex.</figcaption>
+  </figure>
+  </div>
+</details>
+
+<details class="sec" data-sec="4" id="sec-4" data-ref="§4 Umsetzungsschritte">
+  <summary>
+    <span class="no">§4</span><span class="stitle">Umsetzungsschritte</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 8 Schritte, jeder lässt das System lauffähig; die RAG-Entfernung ist der letzte, rückrollbare Schritt.</span>
+  </summary>
+  <div class="sbody">
+
+  <div class="step" data-status="done" data-ref="§4 · Schritt 1 — Engine-Routing &amp; HAL-Vereinheitlichung">
+    <h3>Schritt 1 — Engine-Routing &amp; HAL-Vereinheitlichung <span class="tag">Risiko: niedrig</span></h3>
+    <p>Im HAL-Katalog die Engine je Profil setzen: Orin&nbsp;→&nbsp;<code>ollama</code>, Thor/x86&nbsp;→&nbsp;<code>vllm</code> (ersetzt die SGLang-/llama.cpp-Werte aus Plan 020). Die zweite, ältere HW-Klassifizierung (<code>.env.jetson</code>/<code>JETSON_PROFILE</code>-Modelldefaults) als Quelle der Wahrheit entschärfen — es zählt nur noch <code>config/platforms</code>. Verhalten auf dem Orin ändert sich noch nicht (weiter Ollama).</p>
+    <p class="files mono">config/platforms/*.json · scripts/setup/detect-platform.sh · config/platforms/README.md · docs/features/PLATFORM_COMPATIBILITY.md</p>
+    <div class="result"><strong>Ergebnis:</strong> <code>orin-64.json</code> auf <code>engine:"ollama"</code> gesetzt, die 5 Thor/x86-Profile (thor-128, dgx-spark, dgx-station, rtx-pro-6000, server-generic) auf <code>engine:"vllm"</code>. README-Schema + neuer Abschnitt „Engine-Routing" markieren <code>engine</code> als einzige Quelle der Wahrheit (RECOMMENDED_MODELS ist nur Setup-Hinweis, keine Engine-Autorität); PLATFORM_COMPATIBILITY-Engine-Hinweis nachgezogen. Keine Code-Verdrahtung von Engine-Strings — <code>show_platform_profile</code> emittiert das Feld verbatim. Alle 42 <code>detect-platform</code>-bats-Tests grün (inkl. „emits valid JSON").</div>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Modell-Gateway (Engine-Abstraktion)">
+    <h3>Schritt 2 — Modell-Gateway (Engine-Abstraktion) <span class="tag">Risiko: mittel</span></h3>
+    <p>Die bestehende LLM-Service-Schicht zu einem engine-bewussten Gateway erweitern: eine <code>/models</code>-Sicht fürs Frontend, dahinter Backend-Auswahl nach HAL. Ollama-Pfad bleibt (die adaptive Keep-Alive-/Idle-Unload-Logik existiert bereits in <code>modelLifecycleService</code>). <code>config/services.js</code> bekommt einen <code>vllm</code>-Eintrag als Platzhalter-Endpunkt. Routen folgen dem <code>asyncHandler</code>+<code>utils/errors.js</code>-Muster.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/llm/{modelService,modelLifecycleService,agentConfig}.js · config/services.js · routes/llm.js</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Qwen3.8-27B als Default + Toolcall-Grammatik">
+    <h3>Schritt 3 — Qwen3.8-27B als Default + Toolcall-Grammatik <span class="tag">Risiko: mittel</span></h3>
+    <p>Qwen3.8-27B (GGUF) in den Modellkatalog aufnehmen und per Migration <b>140</b> als <code>is_default</code>-Coder setzen (altes MoE bleibt umschaltbar). <code>agentConfig</code> für das Modell tunen (großes <code>NUM_CTX</code> nutzt die Linear-Attention für lange Docs, Keep-Alive, <code>kannDenken()</code>). Toolcalls per erzwungenem Format absichern (Ollama structured outputs; GBNF auf dem vLLM/llama.cpp-Pfad) — gegen malformte Toolcalls im Stundenlauf.</p>
+    <p class="files mono">services/postgres/init/140_qwen3_default_coder.sql · services/llm/{agentConfig,systemPromptBuilder,textToolCalls}.js · features/store/StoreModelsGrid.tsx · features/sandbox/sessionModel.ts</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Agentic RAG: grep härten">
+    <h3>Schritt 4 — Agentic RAG: grep härten <span class="tag">Risiko: niedrig</span></h3>
+    <p>Das bestehende <code>dateien_suchen</code> (glob + literal-grep, Symlink-sicher, gedeckelt) als primäres Such-Werkzeug des Agenten härten/erweitern — optional ein echtes <code>ripgrep</code> <b>hinter</b> der Pfadprüfung, niemals mit Roh-Pfad ausgeschalt. Das klassische <code>rag_suche</code> auf den Datei-Pfad (<code>ladeDokumentText</code>) als Standard umstellen; der Qdrant-Zweig wird optional/hinter Flag, damit Schritt 8 ihn sauber entfernen kann.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/flows/tools/{suche,rag}.js · services/flows/toolRegistry.js · tools/baseTool.js</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Agentic RAG: Tree-sitter-Symbolindex">
+    <h3>Schritt 5 — Agentic RAG: Tree-sitter-Symbolindex <span class="tag">Risiko: mittel</span></h3>
+    <p>Neues Agent-Werkzeug (<code>symbol_suche</code>) als <code>BaseTool</code>, registriert in <code>toolRegistry</code>: baut/liest einen Tree-sitter/ctags-Symbolindex (Funktionen, Klassen, Referenzen) über die erlaubten Projektwurzeln — durch die Symlink-sichere Pfadprüfung. Systemprompt lehrt das Werkzeug. Damit findet der Agent Stellen, die reines Greppen verfehlt.</p>
+    <p class="files mono">apps/dashboard-backend/src/services/flows/tools/symbolIndex.js (neu) · services/flows/toolRegistry.js · services/llm/systemPromptBuilder.js · __tests__/unit/</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 6 — Dokument-Feature auf agentisch umstellen">
+    <h3>Schritt 6 — Dokument-Feature auf agentisch umstellen <span class="tag">Risiko: mittel</span></h3>
+    <p>Upload landet als Datei im Projektordner; der OCR-Textlayer bleibt (er liegt in Postgres <code>document_chunks.chunk_text</code>, unabhängig von Qdrant). Fragen zu Dokumenten laufen künftig über den Agenten (grep/lesen) statt Vektor-Suche. Admin-Einstellungen trimmen: LLM-Knöpfe bleiben, Vektor-RAG-Knöpfe raus. Kein separates „Wissensraum"-UI zu löschen — es ist unsichtbares Projekt-Scoping (<code>spaceIds</code>).</p>
+    <p class="files mono">routes/documents.js · routes/documentAnalysis.js · services/document-indexer/ (OCR bleibt) · features/settings/RagLlmSettings.tsx · features/workspace/.../ExplorerPanel.tsx</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 7 — vLLM-Engine-Tier (dev-verifiziert auf Orin)">
+    <h3>Schritt 7 — vLLM-Engine-Tier (dev-verifiziert auf Orin) <span class="tag">Risiko: hoch</span></h3>
+    <p>Compose-Service für vLLM anlegen; im Gateway den vLLM-Start/-Stop-on-idle implementieren — zwingend über <code>gpuQueue.withGpuLock</code>, damit nie Ollama und vLLM zugleich auf die GPU gehen. Als Integrationsnachweis auf dem <b>Orin-eigenen</b> älteren vLLM (~0.10.2) mit einem kleinen Modell smoke-testen (Start → Antwort → Idle-Stop). HAL-Routing (<code>engine=vllm</code>) hängt an diesem Pfad. Echte Thor/FP8-Validierung ist ausdrücklich Folge-Plan.</p>
+    <p class="files mono">compose/compose.ai.yaml · apps/dashboard-backend/src/services/llm/ (vLLM-Backend) · config/services.js · services/flows/gpuQueue.js</p>
+  </div>
+
+  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Klassisches RAG entfernen (letzter, rückrollbarer Schritt)">
+    <h3>Schritt 8 — Klassisches RAG entfernen <span class="tag">Risiko: hoch</span></h3>
+    <p>Erst wenn agentic RAG auf dem Orin live verifiziert ist: zuerst per Compose-Profil abschalten (rückrollbar), dann hart entfernen — <code>qdrant</code> + <code>embedding-service</code> + Vektor-Such-Code. Migration <b>141</b> droppt <b>nur</b> Qdrant-/Embedding-spezifische Tabellen — <code>documents</code>/<code>document_chunks</code> bleiben (OCR-Textlayer). Env + Doku aufräumen. Genaue Tabellenliste vor dem Drop aus den RAG-Migrationen ablesen, nicht aus Namen raten.</p>
+    <p class="files mono">compose/compose.ai.yaml · services/rag/*, services/documents/qdrantService.js, routes/rag.js · services/postgres/init/141_rag_vektor_ausbau.sql · docs/*</p>
+  </div>
+
+  </div>
+</details>
+
+<details class="sec" data-sec="5" id="sec-5" data-ref="§5 Akzeptanzkriterien">
+  <summary>
+    <span class="no">§5</span><span class="stitle">Akzeptanzkriterien</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Messbar: HW-Routing, Qwen3.8-27B-Default, agentic Aufgabe ohne Qdrant, Speicher frei im Leerlauf.</span>
+  </summary>
+  <div class="sbody">
+  <ul class="checks">
+    <li data-done="false"><code>./arasul platform</code> meldet auf dem Orin <code>engine=ollama</code>; das Thor-/x86-Profil liefert <code>engine=vllm</code>; der manuelle Override greift.</li>
+    <li data-done="false">Das Modell-Panel zeigt Qwen3.8-27B als Standard-Coder; das alte MoE ist umschaltbar; das Frontend spricht nur die eine <code>/models</code>-Schnittstelle.</li>
+    <li data-done="false">Der Coder wird bei Bedarf geladen und im Leerlauf entladen — nach dem Entladen ist der GPU-Speicher nachweislich frei (tegrastats/nvidia-smi).</li>
+    <li data-done="false">Ein Agent löst auf dem Orin eine mehrstufige Coding-Aufgabe gegen ein echtes Repo allein über grep + Symbolindex + Datei-Werkzeuge — ohne Qdrant.</li>
+    <li data-done="false">Das Symbol-Werkzeug findet eine Funktion/Klasse über ihren Namen, die eine reine Text-grep-Anfrage verfehlt.</li>
+    <li data-done="false">Ein hochgeladenes PDF wird per OCR-Textlayer beantwortet — der Agent liest/grept die Datei, ohne Embeddings/Qdrant.</li>
+    <li data-done="false">Über einen langen (mehrstufigen) Agentenlauf tritt kein malformter Toolcall auf — Format/Grammatik ist erzwungen.</li>
+    <li data-done="false">vLLM-Tier: das Gateway startet vLLM auf dem Orin-vLLM auf Anfrage und stoppt es nach Leerlauf — über den einen GPU-Lock, ohne zweiten GPU-Verbraucher.</li>
+    <li data-done="false">Nach Schritt 8: <code>qdrant</code>- und <code>embedding-service</code>-Container sind weg; <code>documents</code>/<code>document_chunks</code> intakt; Backend- und Frontend-Tests grün; Doku synchron.</li>
+  </ul>
+  </div>
+</details>
+
+<details class="sec" data-sec="6" id="sec-6" data-ref="§6 Verifikation auf dem Jetson">
+  <summary>
+    <span class="no">§6</span><span class="stitle">Verifikation auf dem Jetson</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> Echte Browser-Läufe auf dem Orin + GPU-Speicher-Nachweis + vLLM-Smoke; Thor deferred.</span>
+  </summary>
+  <div class="sbody">
+  <p>Alles wird im echten Browser auf dem Orin gefahren (<code>https://192.168.0.197</code>, Login <code>admin/2309</code>). Kein lokaler Dev-Server — Deploy per <code>docker compose up -d --build</code>.</p>
+  <h3>Flows im Browser</h3>
+  <ul>
+    <li>Modell-Panel: Qwen3.8-27B laden, im Agenten-Chat eine mehrstufige Coding-Aufgabe über ein Projekt starten, Todo-Leiste/Schritte live ablaufen sehen.</li>
+    <li>Idle-Unload auslösen (Leerlauf abwarten) und per <code>docker exec llm-service tegrastats</code>/nvidia-smi belegen, dass der GPU-Speicher frei wird.</li>
+    <li>PDF hochladen, Frage dazu stellen, agentische Antwort (grep/lesen) prüfen — kein Qdrant-Treffer im Log.</li>
+    <li>Symbol-Werkzeug: gezielte „finde Funktion X"-Aufgabe, die reines Greppen verfehlt.</li>
+    <li>vLLM-Smoke: über das Gateway den Orin-vLLM starten, Antwort erhalten, Idle-Stop — Logs + GPU-Lock prüfen.</li>
+  </ul>
+  <h3>Health &amp; Logs</h3>
+  <ul>
+    <li><code>docker compose ps</code> — alle Dienste healthy; nach Schritt 8 ohne qdrant/embedding.</li>
+    <li><code>./arasul platform</code> — meldet <code>engine=ollama</code> auf dem Orin.</li>
+    <li><code>docker compose logs -f llm-service dashboard-backend</code> — keine GPU-Lock-Kollision, keine Toolcall-Parse-Fehler.</li>
+  </ul>
+  <p><b>Deferred (kein Gerät da):</b> echte Thor-/DGX-Abnahme (vLLM mit FP8/NVFP4, Qwen3.8-27B nativ). Wird als Folge-Gate an die HAL gekoppelt — der Code-Pfad ist auf dem Orin dev-verifiziert, damit er auf neuer Hardware (auch via ara-Kit) direkt greift.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="7" id="sec-7" data-ref="§7 Risiken &amp; Rollback">
+  <summary>
+    <span class="no">§7</span><span class="stitle">Risiken &amp; Rollback</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> GPU-Doppelverbrauch &amp; RAG-Migration sind die scharfen Kanten; alles gestaffelt rückrollbar.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risiko</th><th>Wahrscheinlichkeit</th><th>Gegenmaßnahme</th></tr></thead>
+    <tbody>
+      <tr><td>Zwei GPU-Verbraucher gleichzeitig (Ollama-Keep-Alive + vLLM-Container)</td><td>Mittel</td><td>vLLM-Start/-Stop zwingend über <code>gpuQueue.withGpuLock</code>; Integrationstest, der die Kollision provoziert; harter Invariant im Review.</td></tr>
+      <tr><td>RAG-Entfernungs-Migration droppt geteilte Tabellen (<code>document_chunks</code>)</td><td>Mittel</td><td>Nur Qdrant-/Embedding-spezifische Tabellen droppen; Tabellenliste aus den echten Migrationen ablesen; <code>documents</code>/<code>document_chunks</code> ausgenommen; erst nach Live-Verifikation; down-Pfad in 141.</td></tr>
+      <tr><td>Qwen3.8-27B (Gated-DeltaNet) in der Ollama-Version noch nicht stabil</td><td>Mittel</td><td>Version am Gerät verifizieren vor dem Default-Flip; MoE bleibt Fallback-Default, bis Qwen3.8-27B live bestätigt ist (Schritt 3 vor Flip messen).</td></tr>
+      <tr><td>Grammatik-Zwang unterdrückt Toolcall-Qualität (Constraint-Tax)</td><td>Niedrig</td><td>An Qwen3.8-27B messen (Trefferquote); Zwang notfalls lockern/format statt strikte Grammatik.</td></tr>
+      <tr><td>Zwei HW-Klassifizierungsflächen driften auseinander</td><td>Mittel</td><td>Eine Quelle der Wahrheit (<code>config/platforms</code>); die <code>.env.jetson</code>-Modelldefaults als Router-Quelle entschärfen (Schritt 1).</td></tr>
+      <tr><td>vLLM-Tier nur dev-verifiziert — Thor real ungetestet</td><td>Hoch</td><td>An die HAL koppeln; kein Auto-Deploy von vLLM auf den Orin-Prod; echte Thor-Abnahme als getracktes Folge-Gate.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Rollback</h3>
+  <p>Gestaffelt und bis Schritt 8 jederzeit umkehrbar: Der Default-Modell-Flip (Migration 140) ist reversibel (<code>is_default</code> zurück aufs MoE). Der vLLM-Tier hängt hinter dem Engine-Override und dem Compose-Service — abschaltbar ohne den Orin-Pfad zu berühren. Das klassische RAG wird zuerst nur per Compose-Profil deaktiviert (sofort zurückholbar) und erst danach hart entfernt; Migration 141 bringt einen down-Pfad, der Qdrant/Embedding-Schema wiederherstellt. Jeder Schritt ist ein eigener PR mit code-reviewer-Gate; Deploy-Rollback per Branch-Restore auf dem Gerät.</p>
+  </div>
+</details>
+
+<details class="sec" data-sec="8" id="sec-8" data-ref="§8 Entscheidungs-Log">
+  <summary>
+    <span class="no">§8</span><span class="stitle">Entscheidungs-Log</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> 17 Interview-Entscheidungen + 3 aus der Code-Recherche übernommene Abweichungen.</span>
+  </summary>
+  <div class="sbody">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Frage</th><th>Entscheidung</th><th>Konsequenz</th></tr></thead>
+    <tbody>
+      <tr><td>Engine-Topologie über die Geräte</td><td>Eine Engine-Familie, hardware-geroutet</td><td>Modell-Gateway + HAL-Routing statt festem Ollama.</td></tr>
+      <tr><td>Modell-Strategie auf der GPU</td><td>Ein fixes Coder-Modell, nutzungsabhängig laden/entladen</td><td>Kein Dauer-Resident; Idle-Unload zwingend.</td></tr>
+      <tr><td>Rolle von klassischem RAG</td><td>Nur noch agentic RAG, klassisch killen</td><td>Qdrant + Embedding-Service raus, Speicher frei.</td></tr>
+      <tr><td>Parallelität am Orin</td><td>Nicht nötig — sequenziell, stunden-/tagelang</td><td>Server-Batching kein Kaufgrund; Fokus KV/Kontext.</td></tr>
+      <tr><td>Modell-Residenz</td><td>Nutzungsabhängig, nichts dauerhaft geladen</td><td>Gateway steuert Laden/Entladen je Engine.</td></tr>
+      <tr><td>Standard-Coding-Modell</td><td>Qwen3.8-27B (hybride Linear-Attention)</td><td>Billiger langer Kontext für lange Dokumente; GGUF-Pfad auf Orin.</td></tr>
+      <tr><td>Vektor-DB Qdrant</td><td>Komplett entfernen</td><td>Agentische Suche (grep/Symbol) ersetzt semantische Vektor-Suche.</td></tr>
+      <tr><td>Engine je Gerät konkret</td><td>Orin → Ollama, Thor/x86 → vLLM</td><td>Zwei Backends hinter einem Gateway.</td></tr>
+      <tr><td>Plan-Umfang</td><td>Ein großer Plan (Orin + vLLM-Tier + Gateway)</td><td>vLLM-Teil nur dev-verifiziert (keine Thor-HW).</td></tr>
+      <tr><td>Ausbau-Strategie RAG</td><td>Gestaffelt — erst ersetzen, dann killen</td><td>Entfernung ist der letzte, rückrollbare Schritt.</td></tr>
+      <tr><td>Verfügbare Verify-Hardware</td><td>Nur AGX Orin; vLLM dev-verifiziert auf Orin-vLLM</td><td>Thor/FP8-Abnahme als Folge-Gate an die HAL.</td></tr>
+      <tr><td>Tiefe von agentic RAG in v1</td><td>Voll — grep + Tree-sitter-Symbolindex sofort</td><td>Zwei Werkzeuge in diesem Plan.</td></tr>
+      <tr><td>Engine-Auswahl-Mechanismus</td><td>Auto nach Hardware via HAL + Override</td><td>config/platforms ist die Quelle der Wahrheit.</td></tr>
+      <tr><td>Dokument-/Wissensraum-Feature</td><td>Auf agentisch umstellen (Datei + OCR-Text)</td><td>Kein Vektor-Q&amp;A; Postgres-Tabellen bleiben.</td></tr>
+      <tr><td>Laden/Entladen (Model-Manager)</td><td>Einheitliches Gateway, zwei Backends</td><td>Ollama nativ keep_alive; vLLM start/stop-on-idle.</td></tr>
+      <tr><td>Default-Modell &amp; Toolcall-Absicherung</td><td>Qwen3.8-27B Default + Grammatik-Zwang</td><td>Kein malformter Toolcall im Stundenlauf.</td></tr>
+      <tr><td>Thor/x86-Engine vs. Plan 020 (SGLang)</td><td>vLLM ersetzt SGLang</td><td>Plan-020-Katalog + PLATFORM_COMPATIBILITY.md werden nachgezogen.</td></tr>
+      <tr><td>Abweichung (Recherche): „ripgrep"</td><td>Bestehendes <code>dateien_suchen</code> härten statt Roh-<code>rg</code></td><td>Symlink-sichere Pfadprüfung bleibt gewahrt.</td></tr>
+      <tr><td>Abweichung (Recherche): „Wissensraum-UI entfernen"</td><td>Existiert nicht als Seite — nur RagLlmSettings trimmen + spaceIds-Scoping</td><td>Scope korrigiert, nichts Falsches gelöscht.</td></tr>
+      <tr><td>Abweichung (Recherche): OCR-Textlayer</td><td>Lebt in Postgres <code>document_chunks</code></td><td><code>documents</code>/<code>document_chunks</code> bleiben; nur Qdrant/Embedding droppen.</td></tr>
+    </tbody>
+  </table></div>
+  </div>
+</details>
+
+<details class="sec is-hidden" data-sec="9" id="sec-9" data-ref="§9 Ausführungs-Report" open>
+  <summary>
+    <span class="no">§9</span><span class="stitle">Ausführungs-Report</span>
+    <span class="chev">▶</span>
+    <span class="skurz"><b>Kurz:</b> wird von /work gefüllt</span>
+  </summary>
+  <div class="sbody">
+  </div>
+</details>
+
+<footer class="colophon">
+  Plan 021 · erstellt am 2026-08-17 via <code>/plan</code> · Quelle:
+  <span class="mono">docs/plans/active/021-engine-vereinheitlichung-agentic-rag.html</span><br>
+  Feedback: 💬 an jeder Karte nutzen — dann unten <strong>Alle kopieren</strong> und den Text in den Claude-Chat einfügen.
+  Alles, was dort ankommt, wird bei Überarbeitung und Ausführung verbindlich berücksichtigt.
+</footer>
+
+</div>
+
+<div class="cbar" id="cbar" role="toolbar" aria-label="Kommentare">
+  <span id="ccount">0 Notizen</span>
+  <button id="ccopy" class="primary">Alle kopieren</button>
+  <button id="cclear">Leeren</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var meta = {};
+  try { meta = JSON.parse(document.getElementById("plan-meta").textContent); } catch (e) {}
+  var KEY = "arasul-plan-comments:" + (meta.id || location.pathname);
+
+  var chip = document.getElementById("status-chip");
+  var labels = { "draft": "Draft", "in-review": "In Review", "approved": "Approved",
+                 "in-progress": "In Arbeit", "done": "Done", "blocked": "Blockiert" };
+  if (meta.status && chip) { chip.dataset.status = meta.status; chip.textContent = labels[meta.status] || meta.status; }
+  var prCell = document.getElementById("meta-pr");
+  if (prCell && (meta.branch || meta.pr)) {
+    prCell.textContent = (meta.branch || "") + (meta.pr ? " · PR #" + meta.pr : "");
+  }
+
+  document.querySelectorAll(".dots").forEach(function (d) {
+    var lvl = parseInt(d.dataset.level, 10) || 0;
+    for (var i = 1; i <= 3; i++) {
+      var dot = document.createElement("i");
+      if (i <= lvl) dot.className = "f";
+      d.appendChild(dot);
+    }
+  });
+
+  var tAll = document.getElementById("toggle-all");
+  var secs = Array.prototype.slice.call(document.querySelectorAll("details.sec:not(.is-hidden)"));
+  function allOpen() { return secs.every(function (s) { return s.open; }); }
+  function syncToggleLabel() {
+    var open = allOpen();
+    tAll.textContent = open ? "Alles zuklappen" : "Alles aufklappen";
+    tAll.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  tAll.addEventListener("click", function () {
+    var target = !allOpen();
+    secs.forEach(function (s) { s.open = target; });
+    syncToggleLabel();
+  });
+  secs.forEach(function (s) { s.addEventListener("toggle", syncToggleLabel); });
+  syncToggleLabel();
+
+  var mem = null;
+  function load() {
+    if (mem) return mem;
+    try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+    catch (e) { mem = mem || []; return mem; }
+  }
+  function save(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); }
+    catch (e) { mem = list; }
+  }
+
+  var cbar = document.getElementById("cbar");
+  var ccount = document.getElementById("ccount");
+
+  function containerBody(el) {
+    return el.classList.contains("sec") ? el.querySelector(".sbody") : el;
+  }
+
+  function makeBtn(el) {
+    var btn = document.createElement("button");
+    btn.className = "cbtn"; btn.type = "button"; btn.textContent = "💬";
+    btn.setAttribute("aria-label", "Notiz zu: " + el.dataset.ref);
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (el.classList.contains("sec")) el.open = true;
+      addComment(el, "");
+    });
+    if (el.classList.contains("sec")) el.querySelector("summary").appendChild(btn);
+    else el.appendChild(btn);
+    return btn;
+  }
+
+  var targets = Array.prototype.slice.call(document.querySelectorAll("[data-ref]"));
+  var btns = {};
+  targets.forEach(function (el) { btns[el.dataset.ref] = makeBtn(el); });
+
+  function addComment(el, text, skipSave) {
+    var box = document.createElement("div");
+    box.className = "comment";
+    box.innerHTML =
+      '<div class="clabel"><span>Notiz · ' + el.dataset.ref + "</span>" +
+      '<button type="button">entfernen</button></div>' +
+      '<textarea placeholder="Anmerkung, Änderungswunsch, Hinweis für die Umsetzung …"></textarea>';
+    var ta = box.querySelector("textarea");
+    ta.value = text || "";
+    ta.addEventListener("input", persist);
+    box.querySelector(".clabel button").addEventListener("click", function () { box.remove(); persist(); });
+    containerBody(el).appendChild(box);
+    if (!skipSave) { ta.focus(); persist(); }
+  }
+
+  function collect() {
+    var out = [];
+    document.querySelectorAll(".comment").forEach(function (box) {
+      var label = box.querySelector(".clabel span").textContent.replace(/^Notiz · /, "");
+      var ta = box.querySelector("textarea");
+      out.push({ ref: label, text: ta.value, key: label });
+    });
+    return out;
+  }
+
+  function persist() {
+    var list = collect();
+    save(list);
+    var n = list.filter(function (c) { return c.text.trim(); }).length;
+    ccount.textContent = n + (n === 1 ? " Notiz" : " Notizen");
+    cbar.classList.toggle("visible", n > 0);
+    Object.keys(btns).forEach(function (ref) {
+      var has = list.some(function (c) { return c.key === ref && c.text.trim(); });
+      btns[ref].classList.toggle("has", has);
+      btns[ref].textContent = has ? "💬 ✓" : "💬";
+    });
+  }
+
+  document.getElementById("ccopy").addEventListener("click", function () {
+    var list = collect().filter(function (c) { return c.text.trim(); });
+    if (!list.length) { flash("Keine Notizen"); return; }
+    var head = "Notizen zu Plan " + (meta.id || "") + " — " + (meta.title || document.title) + ":";
+    var body = list.map(function (c) { return "· " + c.ref + "\n  → " + c.text.trim().replace(/\n/g, "\n  "); }).join("\n");
+    var txt = head + "\n" + body + "\n\nBitte verbindlich berücksichtigen (Plan überarbeiten bzw. bei der Ausführung beachten) und die Seite aktualisieren.";
+    copyText(txt);
+  });
+
+  document.getElementById("cclear").addEventListener("click", function () {
+    document.querySelectorAll(".comment").forEach(function (c) { c.remove(); });
+    persist();
+  });
+
+  function copyText(txt) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(
+        function () { flash("Kopiert ✓ — in den Chat einfügen"); },
+        function () { fallbackCopy(txt); }
+      );
+    } else { fallbackCopy(txt); }
+  }
+  function fallbackCopy(txt) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flash("Kopiert ✓ — in den Chat einfügen"); }
+    catch (e) { window.prompt("Manuell kopieren:", txt); }
+    ta.remove();
+  }
+  function flash(msg) {
+    ccount.textContent = msg;
+    setTimeout(persist, 2200);
+  }
+
+  load().forEach(function (c) {
+    if (!c.text || !c.key) return;
+    var host = document.querySelector('[data-ref="' + c.key + '"]');
+    if (host) addComment(host, c.text, true);
+  });
+  persist();
+})();
+</script>
+</body>
+</html>
