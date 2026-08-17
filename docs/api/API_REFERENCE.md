@@ -251,6 +251,24 @@ Marks the setup wizard as skipped. The wizard will not be shown again, but setti
 | GET    | `/api/llm/models` | List available models         | -          |
 | GET    | `/api/llm/status` | LLM service status            | -          |
 
+**GET /api/llm/models:** Eine engine-bewusste Sicht (Plan 021). Das Backend
+löst die aktive Inferenz-Engine nach Hardware/Override auf und liefert die
+Modelle des passenden Backends (auf dem Orin: Ollama):
+
+```json
+{
+  "models": [{ "name": "..." }],
+  "engine": "ollama", // aktive Engine: "ollama" | "vllm"
+  "engineSource": "default", // Herkunft: "override" | "hal" | "default"
+  "profileId": null, // aufgelöste config/platforms-Id oder null
+  "timestamp": "2026-..."
+}
+```
+
+Die Auflösung ist: `ARASUL_ENGINE` (Override) → HAL (`JETSON_PROFILE` →
+Katalog-Id → `engine`-Feld) → Default `ollama`. Für `engine: "vllm"` antwortet
+der Endpunkt bis Plan 021 Schritt 7 mit `503 SERVICE_UNAVAILABLE`.
+
 **POST /api/llm/chat:**
 
 ```json
