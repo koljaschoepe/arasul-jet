@@ -358,49 +358,87 @@ describe('rag_suche', () => {
     ]);
   });
 
-  it('gibt Fundstellen mit Quelle zurück', async () => {
-    const out = await tool.execute({ frage: 'Wie geht das?' }, {});
-    expect(out).toContain('[Handbuch]');
-    expect(out).toContain('Die Antwort steht hier.');
-  });
-
-  it('schneidet die Suche auf die übergebenen Sammlungen zu', async () => {
-    await tool.execute({ frage: 'X' }, { spaceIds: ['s1'] });
-    expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, ['s1']);
-  });
-
-  it('sucht ohne Zuschnitt über alles (spaceIds = null)', async () => {
-    await tool.execute({ frage: 'X' }, { spaceIds: [] });
-    expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, null);
-  });
-
-  it('deckelt die Trefferzahl, damit das Modell sich nicht selbst flutet', async () => {
-    await tool.execute({ frage: 'X', anzahl: 500 }, {});
-    expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 15, null);
-  });
-
-  it('fällt bei unsinniger Trefferzahl auf den Standard zurück', async () => {
-    await tool.execute({ frage: 'X', anzahl: -3 }, {});
-    expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, null);
-  });
-
   it('meldet eine leere Frage als Fehler', async () => {
     expect(await tool.execute({ frage: '  ' }, {})).toMatch(/^Fehler:/);
   });
 
-  it('gibt bei leerem Ergebnis eine klare Meldung statt eines Fehlers', async () => {
-    ragCore.hybridSearch.mockResolvedValue([]);
-    expect(await tool.execute({ frage: 'X' }, {})).toMatch(/Nichts gefunden/i);
+  // Standard (Plan 021): agentic RAG — ohne dateiname KEINE Vektor-Suche.
+  describe('Standard: agentic RAG (Vektor-Suche aus)', () => {
+    const alt = process.env.RAG_VEKTOR_SUCHE;
+    beforeEach(() => {
+      delete process.env.RAG_VEKTOR_SUCHE;
+    });
+    afterEach(() => {
+      if (alt === undefined) {
+        delete process.env.RAG_VEKTOR_SUCHE;
+      } else {
+        process.env.RAG_VEKTOR_SUCHE = alt;
+      }
+    });
+
+    it('ohne dateiname: keine Vektor-Suche, verweist auf dateien_suchen/dateiname', async () => {
+      const out = await tool.execute({ frage: 'Wie geht das?' }, {});
+      expect(ragCore.hybridSearch).not.toHaveBeenCalled();
+      expect(ragCore.getEmbedding).not.toHaveBeenCalled();
+      expect(out).toMatch(/dateien_suchen/);
+      expect(out).toMatch(/dateiname/);
+    });
   });
 
-  it('bricht den Lauf nicht ab, wenn die Suche ausfällt', async () => {
-    ragCore.getEmbedding.mockRejectedValue(new Error('Embedding-Dienst weg'));
-    const out = await tool.execute({ frage: 'X' }, {});
-    expect(out).toMatch(/nicht moeglich/i);
-    expect(out).toContain('Embedding-Dienst weg');
+  // Der Vektor-Zweig bleibt hinter dem Flag erreichbar, bis Schritt 8 ihn entfernt.
+  describe('Vektor-Suche (Flag RAG_VEKTOR_SUCHE=true)', () => {
+    const alt = process.env.RAG_VEKTOR_SUCHE;
+    beforeEach(() => {
+      process.env.RAG_VEKTOR_SUCHE = 'true';
+    });
+    afterEach(() => {
+      if (alt === undefined) {
+        delete process.env.RAG_VEKTOR_SUCHE;
+      } else {
+        process.env.RAG_VEKTOR_SUCHE = alt;
+      }
+    });
+
+    it('gibt Fundstellen mit Quelle zurück', async () => {
+      const out = await tool.execute({ frage: 'Wie geht das?' }, {});
+      expect(out).toContain('[Handbuch]');
+      expect(out).toContain('Die Antwort steht hier.');
+    });
+
+    it('schneidet die Suche auf die übergebenen Sammlungen zu', async () => {
+      await tool.execute({ frage: 'X' }, { spaceIds: ['s1'] });
+      expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, ['s1']);
+    });
+
+    it('sucht ohne Zuschnitt über alles (spaceIds = null)', async () => {
+      await tool.execute({ frage: 'X' }, { spaceIds: [] });
+      expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, null);
+    });
+
+    it('deckelt die Trefferzahl, damit das Modell sich nicht selbst flutet', async () => {
+      await tool.execute({ frage: 'X', anzahl: 500 }, {});
+      expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 15, null);
+    });
+
+    it('fällt bei unsinniger Trefferzahl auf den Standard zurück', async () => {
+      await tool.execute({ frage: 'X', anzahl: -3 }, {});
+      expect(ragCore.hybridSearch).toHaveBeenCalledWith('X', expect.anything(), 5, null);
+    });
+
+    it('gibt bei leerem Ergebnis eine klare Meldung statt eines Fehlers', async () => {
+      ragCore.hybridSearch.mockResolvedValue([]);
+      expect(await tool.execute({ frage: 'X' }, {})).toMatch(/Nichts gefunden/i);
+    });
+
+    it('bricht den Lauf nicht ab, wenn die Suche ausfällt', async () => {
+      ragCore.getEmbedding.mockRejectedValue(new Error('Embedding-Dienst weg'));
+      const out = await tool.execute({ frage: 'X' }, {});
+      expect(out).toMatch(/nicht moeglich/i);
+      expect(out).toContain('Embedding-Dienst weg');
+    });
   });
 
-  // F-07: benannte Datei → gezielt lesen statt projektweit suchen.
+  // F-07: benannte Datei → gezielt lesen statt projektweit suchen (flag-unabhängig).
   describe('mit dateiname (F-07)', () => {
     it('liest gezielt die genannte Datei statt projektweiter Suche', async () => {
       documentText.ladeDokumentText.mockResolvedValue({
@@ -445,13 +483,6 @@ describe('rag_suche', () => {
       });
       const out = await tool.execute({ frage: 'X', dateiname: 'gross.pdf' }, {});
       expect(out).toMatch(/gek(ü|u)rzt/i);
-    });
-
-    it('sucht projektweit, wenn kein dateiname gesetzt ist (unverändert)', async () => {
-      const out = await tool.execute({ frage: 'X' }, {});
-      expect(documentText.ladeDokumentText).not.toHaveBeenCalled();
-      expect(ragCore.hybridSearch).toHaveBeenCalled();
-      expect(out).toContain('[Handbuch]');
     });
   });
 });
@@ -543,6 +574,28 @@ describe('dateien_suchen', () => {
   it('weist einen zu langen Suchtext ab (ReDoS-/Aufwandsschutz)', async () => {
     const out = await tool.execute({ text: 'x'.repeat(2001) }, sctx());
     expect(out).toMatch(/zu lang/i);
+  });
+
+  // Plan 021: Rausch-Ordner standardmäßig überspringen (agentic Code-Suche).
+  it('überspringt Rausch-Ordner (node_modules) standardmäßig, findet sie mit alles=true', async () => {
+    const nm = path.join(suchbaum, 'node_modules', 'pkg');
+    fs.mkdirSync(nm, { recursive: true });
+    fs.writeFileSync(path.join(nm, 'index.js'), 'const TREFFER = 1;');
+    try {
+      const standard = await tool.execute({ text: 'TREFFER' }, sctx());
+      expect(standard).not.toMatch(/node_modules/);
+      const mitAllem = await tool.execute({ text: 'TREFFER', alles: true }, sctx());
+      expect(mitAllem).toMatch(/node_modules\/pkg\/index\.js/);
+    } finally {
+      fs.rmSync(path.join(suchbaum, 'node_modules'), { recursive: true, force: true });
+    }
+  });
+
+  it('gibt mit kontext Zeilen vor/nach der Fundstelle aus (grep-Stil)', async () => {
+    // a.md: Zeile 1 „Hallo Welt", Zeile 2 „zweite Zeile mit TREFFER".
+    const out = await tool.execute({ text: 'TREFFER', muster: 'a.md', kontext: 1 }, sctx());
+    expect(out).toMatch(/a\.md:2: .*TREFFER/);
+    expect(out).toMatch(/a\.md-1- Hallo Welt/);
   });
 });
 

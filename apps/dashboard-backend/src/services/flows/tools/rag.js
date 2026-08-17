@@ -34,13 +34,34 @@ const SNIPPET_CHARS = 400;
 /** Zeichen-Budget, wenn eine benannte Datei GEZIELT gelesen wird (F-07). */
 const DATEI_MAX_ZEICHEN = 12000;
 
+/**
+ * Ist die semantische Vektor-Suche (Qdrant + Embeddings) noch aktiv?
+ *
+ * Plan 021 (agentic RAG): Der Standard ist der agentische Pfad — für eine
+ * bestimmte Datei `dateiname` (→ `ladeDokumentText`, Postgres-Textlayer), sonst
+ * findet der Agent sich per `dateien_suchen`/`dateien_lesen` selbst durch die
+ * Projektdateien. Der Vektor-Zweig bleibt hinter dem Flag `RAG_VEKTOR_SUCHE`
+ * erreichbar (rückrollbar), damit Schritt 8 ihn samt Qdrant sauber entfernen
+ * kann. Das Flag wird bei jedem Aufruf gelesen (test- und laufzeit-umschaltbar).
+ */
+function vektorSucheAktiv(env = process.env) {
+  const v = String(env.RAG_VEKTOR_SUCHE || '')
+    .trim()
+    .toLowerCase();
+  return v === 'true' || v === '1' || v === 'on' || v === 'yes';
+}
+
 class RagSucheTool extends BaseTool {
   get name() {
     return 'rag_suche';
   }
 
   get description() {
-    return 'Durchsucht die Wissensbasis nach relevanten Textstellen und gibt sie mit Quelle zurück';
+    return (
+      'Liest den indexierten Text einer BESTIMMTEN hochgeladenen Datei (Argument ' +
+      '"dateiname", auch aus PDF/DOCX). Für allgemeines Suchen im Projekt nutze ' +
+      'stattdessen "dateien_suchen". (Die semantische Vektor-Suche ist standardmäßig aus.)'
+    );
   }
 
   get parameters() {
@@ -101,6 +122,18 @@ class RagSucheTool extends BaseTool {
       const titel = doc.titel ? ` — ${doc.titel}` : '';
       const hinweis = doc.gekuerzt ? '\n\n[…Inhalt gekürzt — nur der Anfang der Datei.]' : '';
       return `Inhalt von [${dateiname}${titel}]:\n${doc.text}${hinweis}`;
+    }
+
+    // Standard (Plan 021): kein `dateiname` → agentischer Pfad statt Vektor-Suche.
+    // Der Vektor-Zweig bleibt nur hinter dem Flag RAG_VEKTOR_SUCHE erreichbar.
+    if (!vektorSucheAktiv()) {
+      return (
+        'Für eine bestimmte Datei gib "dateiname" an — dann bekommst du gezielt ' +
+        'deren Inhalt (auch aus PDF/DOCX über den Textlayer). Zum Durchsuchen der ' +
+        'Projektdateien nutze "dateien_suchen" (Namensmuster und/oder Textsuche) ' +
+        'und lies Treffer mit "dateien_lesen". Die semantische Vektor-Suche ist ' +
+        'deaktiviert (agentic RAG).'
+      );
     }
 
     // Obergrenze hart durchsetzen: Ein Modell, das versehentlich 500 Treffer
