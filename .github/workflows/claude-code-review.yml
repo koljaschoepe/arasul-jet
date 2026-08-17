@@ -12,11 +12,13 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Dependabot-ausgelöste Läufe erhalten aus Sicherheitsgründen KEINE
+    # regulären Actions-Secrets (Dependabot hat einen eigenen Secret-Store).
+    # Ohne CLAUDE_CODE_OAUTH_TOKEN würde die Action zwangsläufig scheitern und
+    # jeden Dependabot-PR rot färben. Für reine Dependency-Bumps bringt ein
+    # LLM-Review ohnehin kaum Nutzen — daher hier überspringen. Menschen-PRs
+    # laufen unverändert durch.
+    if: ${{ github.actor != 'dependabot[bot]' }}
 
     runs-on: ubuntu-latest
     permissions:
@@ -54,4 +56,3 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://docs.claude.com/en/docs/claude-code/cli-reference for available options
           claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
-
