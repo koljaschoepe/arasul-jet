@@ -467,10 +467,11 @@
     <p class="files mono">services/postgres/init/140_qwen3_default_coder.sql · services/llm/{agentConfig,systemPromptBuilder,textToolCalls}.js · features/store/StoreModelsGrid.tsx · features/sandbox/sessionModel.ts</p>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 4 — Agentic RAG: grep härten">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 4 — Agentic RAG: grep härten">
     <h3>Schritt 4 — Agentic RAG: grep härten <span class="tag">Risiko: niedrig</span></h3>
     <p>Das bestehende <code>dateien_suchen</code> (glob + literal-grep, Symlink-sicher, gedeckelt) als primäres Such-Werkzeug des Agenten härten/erweitern — optional ein echtes <code>ripgrep</code> <b>hinter</b> der Pfadprüfung, niemals mit Roh-Pfad ausgeschalt. Das klassische <code>rag_suche</code> auf den Datei-Pfad (<code>ladeDokumentText</code>) als Standard umstellen; der Qdrant-Zweig wird optional/hinter Flag, damit Schritt 8 ihn sauber entfernen kann.</p>
     <p class="files mono">apps/dashboard-backend/src/services/flows/tools/{suche,rag}.js · services/flows/toolRegistry.js · tools/baseTool.js</p>
+    <div class="result"><strong>Ergebnis:</strong> <code>dateien_suchen</code> gehärtet (kein Roh-<code>rg</code>, §8-Entscheidung): überspringt jetzt standardmäßig Rausch-Ordner (<code>node_modules</code>/<code>.git</code>/<code>dist</code>/… — wie ripgrep; <code>alles:true</code> hebt es auf) und liefert optionale Kontextzeilen (<code>kontext</code> 0–3, grep-Stil) — die Symlink-/TOCTOU-Absicherung bleibt unangetastet. <code>rag_suche</code> ist auf den Datei-Pfad (<code>ladeDokumentText</code>, Postgres-Textlayer) als Standard umgestellt: ohne <code>dateiname</code> keine Vektor-Suche mehr, sondern Verweis auf <code>dateien_suchen</code>; der Qdrant-Zweig steckt hinter <code>RAG_VEKTOR_SUCHE</code> (Standard aus, rückrollbar → Schritt 8). Orchestrator-/autor-/rechercheur-Prompt + Rollen-Werkzeugsätze (chatAgentRunner) auf agentisch nachgezogen — <b>jede</b> Rolle mit <code>rag_suche</code> hat jetzt auch <code>dateien_suchen</code> (Review-Critical behoben: der Rechercheur wäre sonst ins Leere gelaufen). 102 Tests grün (flowTools/rag/chatAgentRunner), Lint 0 Fehler, Doku (ENV) synchron. Die klassische <code>/api/rag</code>-Route bleibt bis Schritt 8 unberührt.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 5 — Agentic RAG: Tree-sitter-Symbolindex">

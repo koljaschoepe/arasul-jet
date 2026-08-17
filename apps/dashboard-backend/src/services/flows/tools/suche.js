@@ -27,6 +27,37 @@ const MAX_GREP_MATCHES = 100; // so viele Text-Trefferzeilen werden gemeldet
 const MAX_FILE_BYTES = 256 * 1024; // pro Datei nur die ersten 256 KB durchsuchen
 const MAX_LINE_LEN = 240; // eine Trefferzeile wird hierauf gekürzt
 const MAX_TEXT_LEN = 2000; // Obergrenze für den Suchtext
+const MAX_KONTEXT = 3; // höchstens so viele Kontextzeilen je Seite einer Fundstelle
+
+/**
+ * Rausch-Verzeichnisse, die beim agentischen Code-Suchen (Plan 021) nur die
+ * Scan-Grenze aushungern und echte Treffer verdrängen. Werden standardmäßig
+ * übersprungen — wie es ein Werkzeug wie ripgrep von Haus aus tut. Mit
+ * `alles: true` wird auch hier gesucht. Vergleich rein über den Verzeichnisnamen
+ * (kein Pfad), damit die Symlink-/TOCTOU-Absicherung unberührt bleibt.
+ */
+const IGNORE_DIRS = new Set([
+  'node_modules',
+  '.git',
+  '.hg',
+  '.svn',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '.next',
+  '.nuxt',
+  '.cache',
+  '.venv',
+  'venv',
+  '__pycache__',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.gradle',
+  'target',
+  '.idea',
+  '.vscode',
+]);
 
 /** Holt die erlaubten Ordner aus dem Kontext; wirft nie, sondern liefert null. */
 function rootsFrom(context) {
@@ -129,6 +160,21 @@ class DateiSuchenTool extends BaseTool {
           'Optional, Standard = Arbeitsverzeichnis.',
         required: false,
       },
+      kontext: {
+        type: 'number',
+        description:
+          'Bei Textsuche: wie viele Zeilen VOR und NACH jeder Fundstelle mit ' +
+          `ausgegeben werden (0–${MAX_KONTEXT}, Standard 0). Hilft, den Fund im ` +
+          'Code einzuordnen.',
+        required: false,
+      },
+      alles: {
+        type: 'boolean',
+        description:
+          'Wenn true, werden auch Rausch-Ordner wie node_modules/.git/dist ' +
+          'durchsucht (Standard false: diese werden übersprungen).',
+        required: false,
+      },
     };
   }
 
@@ -173,8 +219,18 @@ class DateiSuchenTool extends BaseTool {
     const globUsesPath = muster.includes('/');
     const matcher = text.trim() ? buildTextMatcher(text) : null;
 
+    const alles = params.alles === true || params.alles === 'true';
+    let kontext = Number.parseInt(params.kontext, 10);
+    if (!Number.isFinite(kontext) || kontext < 0) {
+      kontext = 0;
+    }
+    kontext = Math.min(kontext, MAX_KONTEXT);
+    // Mit Kontextzeilen wächst die Ausgabe je Treffer — die Trefferzahl deckeln,
+    // damit der Modell-Kontext nicht geflutet wird.
+    const grepCap = kontext > 0 ? 40 : MAX_GREP_MATCHES;
+
     const fileHits = []; // nur-Glob: Relativpfade
-    const grepHits = []; // grep: { rel, no, line }
+    const grepHits = []; // grep: { rel, no, line, before[], after[] }
     let scanned = 0;
     let truncated = false;
     // EIN wiederverwendeter Lesepuffer für den grep-Pfad — pro Datei werden nur
@@ -198,6 +254,11 @@ class DateiSuchenTool extends BaseTool {
         }
         const abs = path.join(dir, e.name);
         if (e.isDirectory()) {
+          // Rausch-Ordner (node_modules/.git/…) standardmäßig überspringen — sie
+          // hungern sonst nur die Scan-Grenze aus. Vergleich rein über den Namen.
+          if (!alles && IGNORE_DIRS.has(e.name)) {
+            continue;
+          }
           stack.push(abs);
           continue;
         }
@@ -255,8 +316,10 @@ class DateiSuchenTool extends BaseTool {
         const lines = content.split(/\r?\n/);
         for (let ln = 0; ln < lines.length; ln++) {
           if (matcher.test(lines[ln])) {
-            grepHits.push({ rel, no: ln + 1, line: lines[ln] });
-            if (grepHits.length >= MAX_GREP_MATCHES) {
+            const before = kontext ? lines.slice(Math.max(0, ln - kontext), ln) : [];
+            const after = kontext ? lines.slice(ln + 1, ln + 1 + kontext) : [];
+            grepHits.push({ rel, no: ln + 1, line: lines[ln], before, after });
+            if (grepHits.length >= grepCap) {
               truncated = true;
               break outer;
             }
@@ -280,15 +343,27 @@ class DateiSuchenTool extends BaseTool {
       const mitGlob = muster ? ` in Dateien passend zu "${muster}"` : '';
       return `Kein Treffer für "${text}"${mitGlob}${wo}.`;
     }
+    // Eine Zeile für die Ausgabe kürzen (ohne führende/anhängende Leerzeichen zu
+    // verschlucken, die im Code Bedeutung haben — nur harte Längengrenze).
+    const kurz = s => (s.length > MAX_LINE_LEN ? s.slice(0, MAX_LINE_LEN) + '…' : s);
     const shown = grepHits.map(m => {
-      let line = m.line.trim();
-      if (line.length > MAX_LINE_LEN) {
-        line = line.slice(0, MAX_LINE_LEN) + '…';
+      if (!kontext) {
+        return `${m.rel}:${m.no}: ${kurz(m.line.trim())}`;
       }
-      return `${m.rel}:${m.no}: ${line}`;
+      // grep-Stil: Kontextzeilen mit "-", die Fundzeile mit ":".
+      const block = [];
+      m.before.forEach((l, i) => {
+        block.push(`${m.rel}-${m.no - m.before.length + i}- ${kurz(l)}`);
+      });
+      block.push(`${m.rel}:${m.no}: ${kurz(m.line)}`);
+      m.after.forEach((l, i) => {
+        block.push(`${m.rel}-${m.no + 1 + i}- ${kurz(l)}`);
+      });
+      return block.join('\n');
     });
-    const note = truncated ? `\n... (weitere Treffer ausgelassen, Grenze ${MAX_GREP_MATCHES})` : '';
-    return `${grepHits.length} Trefferzeile(n) für "${text}"${wo}:\n${shown.join('\n')}${note}`;
+    const trenner = kontext ? '\n--\n' : '\n';
+    const note = truncated ? `\n... (weitere Treffer ausgelassen, Grenze ${grepCap})` : '';
+    return `${grepHits.length} Trefferzeile(n) für "${text}"${wo}:\n${shown.join(trenner)}${note}`;
   }
 }
 
