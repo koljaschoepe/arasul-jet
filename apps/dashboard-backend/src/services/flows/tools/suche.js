@@ -367,4 +367,4 @@ class DateiSuchenTool extends BaseTool {
   }
 }
 
-module.exports = { DateiSuchenTool };
+module.exports = { DateiSuchenTool, IGNORE_DIRS };

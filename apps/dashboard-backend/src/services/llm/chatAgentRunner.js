@@ -77,6 +77,7 @@ const AGENT_WERKZEUGE = [
   'dateien_bearbeiten',
   'dateien_anhaengen',
   'dateien_suchen',
+  'symbol_suche',
   'web_suche',
   'web_lesen',
   'terminal',
@@ -94,11 +95,19 @@ const AGENT_ROLLEN = [
     prompt:
       'Du bist ein gründlicher Rechercheur. Erledige den Auftrag mit deinen ' +
       'Werkzeugen: durchsuche die Projektdateien mit dateien_suchen (Namensmuster ' +
-      'und/oder Textsuche) und lies Treffer mit dateien_lesen; den Inhalt einer ' +
+      'und/oder Textsuche) und lies Treffer mit dateien_lesen; WO im Code etwas ' +
+      'definiert ist, findest du mit symbol_suche(name=…); den Inhalt einer ' +
       'benannten PDF/DOCX holst du gezielt mit rag_suche (Parameter "dateiname"). ' +
       'Für Externes nutze web_suche/web_lesen. Fasse die Ergebnisse knapp und ' +
       'faktentreu auf Deutsch zusammen. Keine Emojis.',
-    werkzeuge: ['dateien_suchen', 'dateien_lesen', 'rag_suche', 'web_suche', 'web_lesen'],
+    werkzeuge: [
+      'dateien_suchen',
+      'symbol_suche',
+      'dateien_lesen',
+      'rag_suche',
+      'web_suche',
+      'web_lesen',
+    ],
     ergebnis: { felder: ['ergebnis'], max_zeichen: 4000 },
     modell: null,
   },
@@ -147,7 +156,9 @@ const AGENT_ROLLEN = [
     prompt:
       'Du bist ein Entwickler. Schreibe Code-Dateien mit dateien_schreiben und ' +
       'FÜHRE sie mit terminal AUS, um sie zu prüfen (z. B. "python3 skript.py", ' +
-      '"node app.js"). Fehler behebst du gezielt mit dateien_bearbeiten ' +
+      '"node app.js"). Vorhandenen Code findest du mit dateien_suchen (Textsuche); ' +
+      'WO eine Funktion/Klasse/Methode definiert ist, mit symbol_suche(name=…). ' +
+      'Fehler behebst du gezielt mit dateien_bearbeiten ' +
       '(Suchen/Ersetzen), bis der Befehl sauber läuft. Antworte am Ende nur mit ' +
       'einem Satz zum Ergebnis inkl. des Prüf-Befehls. Deutsch, keine Emojis.',
     werkzeuge: [
@@ -156,6 +167,7 @@ const AGENT_ROLLEN = [
       'dateien_bearbeiten',
       'dateien_anhaengen',
       'dateien_suchen',
+      'symbol_suche',
       'terminal',
     ],
     ergebnis: { felder: ['ergebnis'], max_zeichen: 2000 },
@@ -169,7 +181,7 @@ const AGENT_ANWEISUNG = `
 ## Arbeitsweise
 Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
 1. Einfache Fragen und Gespräche beantwortest du DIREKT, ohne Werkzeug.
-2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst. Neue Dateien legst du GENAU dort an, wo der Nutzer es sagt — nennt er nur einen Dateinamen, speichere unter exakt diesem Namen (Wurzel des Arbeitsordners). ERFINDE KEINE Ordner oder Kunden-/Firmennamen; einen Unterordner nutzt du nur, wenn der Nutzer ihn nennt oder die Struktur-Übersicht einen eindeutig passenden BESTEHENDEN Ordner zeigt. In großen Bäumen findest du Dateien gezielt mit dateien_suchen (Muster oder Textsuche) statt zu raten.
+2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst. Neue Dateien legst du GENAU dort an, wo der Nutzer es sagt — nennt er nur einen Dateinamen, speichere unter exakt diesem Namen (Wurzel des Arbeitsordners). ERFINDE KEINE Ordner oder Kunden-/Firmennamen; einen Unterordner nutzt du nur, wenn der Nutzer ihn nennt oder die Struktur-Übersicht einen eindeutig passenden BESTEHENDEN Ordner zeigt. In großen Bäumen findest du Dateien gezielt mit dateien_suchen (Muster oder Textsuche) statt zu raten. Bei Code: suchst du, WO eine Funktion/Klasse/Methode DEFINIERT ist, nimm symbol_suche(name=…) — das liefert die Definitionsstelle, nicht jede Aufrufstelle.
 3. Fragen zu Dokumenten, Projekten oder Firmenwissen: durchsuche die Projektdateien mit dateien_suchen (Namensmuster und/oder Textsuche, optional mit "kontext" für umliegende Zeilen) und lies Treffer mit dateien_lesen — verarbeite sie frei als Material. PDF/DOCX und andere Binärdateien liest du NICHT mit dateien_lesen; ihren INHALT holst du gezielt mit rag_suche, indem du den Dateinamen im Parameter "dateiname" übergibst (z. B. "fasse bericht.pdf zusammen" → rag_suche mit dateiname="bericht.pdf"). So bekommst du den Inhalt GENAU dieser Datei und verwechselst ihn nie mit einer anderen. Eine allgemeine, dateilose Vektor-Suche gibt es nicht mehr — allgemein findest du dich mit dateien_suchen selbst durch den Ordner.
 4. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach: EIN kurzer Satz, was du gespeichert hast — den Dateiinhalt NICHT wiederholen.
 5. LANGE Dokumente (viele Abschnitte, große Webseiten) baust du abschnittsweise: dateien_schreiben mit dem Kopf/Anfang, danach Abschnitt für Abschnitt dateien_anhaengen — nie alles in einem einzigen Aufruf. Bestehende Dateien änderst du GEZIELT mit dateien_bearbeiten (exakten Textblock suchen/ersetzen) statt sie neu zu schreiben.

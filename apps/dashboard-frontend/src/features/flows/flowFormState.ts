@@ -89,6 +89,7 @@ export const ORDNER_WERKZEUGE: FlowTool[] = [
   'dateien_bearbeiten',
   'dateien_anhaengen',
   'dateien_suchen',
+  'symbol_suche',
   'terminal',
 ];
 

@@ -18,6 +18,7 @@ const {
   DateienAnhaengenTool,
 } = require('./tools/dateien');
 const { DateiSuchenTool } = require('./tools/suche');
+const { SymbolSuchenTool } = require('./tools/symbolIndex');
 const RagSucheTool = require('./tools/rag');
 const TerminalTool = require('./tools/terminal');
 const { WebSucheTool, WebLesenTool } = require('./tools/web');
@@ -57,6 +58,7 @@ const FACTORIES = {
   dateien_bearbeiten: () => new DateienBearbeitenTool(),
   dateien_anhaengen: () => new DateienAnhaengenTool(),
   dateien_suchen: () => new DateiSuchenTool(),
+  symbol_suche: () => new SymbolSuchenTool(),
   rag_suche: () => new RagSucheTool(),
   terminal: () => new TerminalTool(),
   web_suche: () => new WebSucheTool(),

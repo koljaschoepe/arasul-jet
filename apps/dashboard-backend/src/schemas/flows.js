@@ -20,6 +20,7 @@ const VALID_TOOLS = [
   'dateien_bearbeiten',
   'dateien_anhaengen',
   'dateien_suchen',
+  'symbol_suche',
   'rag_suche',
   'web_suche',
   'web_lesen',
@@ -402,6 +403,7 @@ const FlowDefinition = z
       'dateien_bearbeiten',
       'dateien_anhaengen',
       'dateien_suchen',
+      'symbol_suche',
       'terminal',
     ];
     // Ein Argument vom Typ `ordner` liefert das Arbeitsverzeichnis erst beim
