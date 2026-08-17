@@ -131,7 +131,7 @@ describe('Settings integration', () => {
     // Old top-level tabs no longer exist as nav items (general is active, so the
     // KI / System sub-section labels are not mounted).
     expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
-    expect(screen.queryByText('RAG & LLM')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sprachmodell')).not.toBeInTheDocument();
     expect(screen.queryByText('Self-Healing')).not.toBeInTheDocument();
   });
 
@@ -289,17 +289,17 @@ describe('Settings integration', () => {
     expect(screen.getAllByText('Einstellungen').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('opens the KI tab with its Firmenprofil / RAG & LLM sub-navigation', async () => {
+  it('opens the KI tab with its Firmenprofil / Sprachmodell sub-navigation', async () => {
     const user = userEvent.setup();
     renderSettings();
 
     await user.click(screen.getByTestId('settings-open-ki'));
 
     await waitFor(() => {
-      // Sub-nav labels rendered by the (real) KISettings wrapper. "RAG & LLM"
+      // Sub-nav labels rendered by the (real) KISettings wrapper. "Sprachmodell"
       // also appears as a heading inside the RagLlmSettings leaf, so match >=1.
       expect(screen.getByText('Firmenprofil & Kontext')).toBeInTheDocument();
-      expect(screen.getAllByText('RAG & LLM').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Sprachmodell').length).toBeGreaterThanOrEqual(1);
     });
   });
 

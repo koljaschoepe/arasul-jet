@@ -234,14 +234,14 @@ Details: [docs/integrations/N8N.md](../integrations/N8N.md).
 Die Einstellungen sind in **6 Reiter** gegliedert (frueher 9 — verwandte Bereiche
 wurden zusammengelegt, damit die Navigation uebersichtlich bleibt):
 
-| Reiter          | Inhalt                                                       |
-| --------------- | ------------------------------------------------------------ |
-| **Allgemein**   | Systeminformationen, Theme                                   |
-| **KI**          | Zwei Unterbereiche: _Firmenprofil & Kontext_ und _RAG & LLM_ |
-| **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden     |
-| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung                  |
-| **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_    |
-| **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                             |
+| Reiter          | Inhalt                                                          |
+| --------------- | --------------------------------------------------------------- |
+| **Allgemein**   | Systeminformationen, Theme                                      |
+| **KI**          | Zwei Unterbereiche: _Firmenprofil & Kontext_ und _Sprachmodell_ |
+| **Sicherheit**  | Passwort aendern, Abmelden / von allen Geraeten abmelden        |
+| **Datenschutz** | DSGVO-Auskunft (Export) und Konto-Loeschung                     |
+| **System**      | Drei Unterbereiche: _Services_, _Updates_, _Self-Healing_       |
+| **Fernzugriff** | Tailscale-VPN und Remote-Zugriff                                |
 
 > Deep-Links funktionieren: `…/settings?tab=system` oeffnet direkt den System-Reiter.
 > Alte Links (z. B. `?tab=selfhealing`) werden automatisch auf den neuen Reiter umgeleitet.
@@ -258,26 +258,24 @@ wurden zusammengelegt, damit die Navigation uebersichtlich bleibt):
 - **Temperatur:** Kreativitaet der Antworten (0.0-1.0)
 - **Max Tokens:** Maximale Antwortlaenge
 
-### KI → RAG & LLM (Experten-Tunables)
+### KI → Sprachmodell (Experten-Tunables)
 
-Der Unterbereich **Einstellungen → KI → „RAG & LLM"** (nur fuer Administratoren) macht die
-Feinjustierung der Antwort-Pipeline ohne Neustart moeglich. Aenderungen wirken
+Der Unterbereich **Einstellungen → KI → „Sprachmodell"** (nur fuer Administratoren) macht die
+Feinjustierung der LLM-Standardwerte ohne Neustart moeglich. Aenderungen wirken
 sofort. Alle Werte haben sinnvolle Standardwerte — nur anpassen, wenn Sie die
 Auswirkung kennen.
 
-- **Generierung:** `Temperatur` (0–2, niedrig = quellentreu), `num_predict`
-  (max. Antwortlaenge in Tokens).
-- **Retrieval:** `final_k` (Anzahl Dokument-Abschnitte, die die KI erhaelt, 1–20),
-  `MMR-Lambda` (1 = reine Relevanz, 0 = maximale Vielfalt), `Dedup pro Dokument`
-  (max. Abschnitte je Quelldokument), `Hybrid-Suche` (dichte + BM25-Suche an/aus).
-- **Space-Routing:** `Schwelle` (Mindest-Aehnlichkeit, damit ein Wissens-Space in
-  die Anfrage einbezogen wird) und `max. Spaces` pro Anfrage.
+- **LLM-Standardwerte:** `Max. Tokens (LLM-Default)` (max. Antwortlaenge),
+  `Kontextfenster (LLM-Default)` (leer = Modell-Default) und `Keep-Alive`
+  (wie lange ein geladenes Modell im Speicher bleibt).
 - **Basis-System-Prompt:** frei editierbarer Grundtext, der jedem KI-Kontext
   vorangestellt wird. **Feld leeren = eingebauter Standard-Prompt.**
 
-Die Standardwerte entsprechen exakt den bisher fest verdrahteten Werten; ein
-frisch aufgesetztes System verhaelt sich also unveraendert, bis Sie hier etwas
-aendern.
+> **Agentic RAG (Plan 021):** Die frueheren Retrieval-/Rerank-/Space-Routing-Regler
+> sind entfernt — die Wissenssuche laeuft agentisch (die KI durchsucht die
+> Projektdateien selbst mit `dateien_suchen`/`symbol_suche`; den Inhalt einer
+> benannten PDF/DOCX holt sie ueber deren Textlayer). Es gibt daher keine
+> Vektor-Suche mehr zu justieren.
 
 ### Sicherheit
 

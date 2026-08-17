@@ -15,7 +15,7 @@ interface SubSection {
 
 const subSections: SubSection[] = [
   { id: 'profile', label: 'Firmenprofil & Kontext', icon: User },
-  { id: 'rag-llm', label: 'RAG & LLM', icon: SlidersHorizontal },
+  { id: 'rag-llm', label: 'Sprachmodell', icon: SlidersHorizontal },
 ];
 
 interface KISettingsProps {
@@ -23,7 +23,7 @@ interface KISettingsProps {
 }
 
 /**
- * "KI" settings tab — bundles the company/AI profile and the RAG & LLM tuning
+ * "KI" settings tab — bundles the company/AI profile and the Sprachmodell (LLM) tuning
  * into one tab with an internal sub-navigation. Both sub-sections stay mounted
  * (inactive one is visually hidden) so unsaved changes in one are preserved
  * when the user peeks at the other; the combined dirty state is reported up to
@@ -70,7 +70,7 @@ export function KISettings({ onDirtyChange }: KISettingsProps = {}) {
         </ComponentErrorBoundary>
       </div>
       <div className={cn(active !== 'rag-llm' && 'hidden')}>
-        <ComponentErrorBoundary componentName="RAG & LLM">
+        <ComponentErrorBoundary componentName="Sprachmodell">
           <RagLlmSettings onDirtyChange={setRagDirty} />
         </ComponentErrorBoundary>
       </div>
