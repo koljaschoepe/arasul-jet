@@ -61,22 +61,42 @@ async function ladeDokumentText(
     // jüngere Dokument — so wird nicht bei zwei gleich benannten Uploads still
     // der falsche Inhalt eingespeist.
     const scopeIds = Array.isArray(spaceIds) && spaceIds.length > 0 ? spaceIds : null;
+
+    // Ein Dokument über seinen Dateinamen suchen — optional auf Räume zugeschnitten.
     // Space-Zuschnitt: die genannten Räume ODER nicht zugeordnete Dokumente
     // (space_id IS NULL). `documents.space_id` ist eine UUID-Spalte — sie ist
     // nie der Leerstring (anders als der Qdrant-Payload in buildSpaceFilter, der
     // untypisiert ist); ein `= ''`-Zweig ließe die Query am UUID-Typ-Coercion
     // scheitern. Array-Cast `::uuid[]` wie das etablierte Muster in routes/rag.js.
-    const scopeKlausel = scopeIds ? ` AND (space_id = ANY($2::uuid[]) OR space_id IS NULL)` : '';
-    const doc = await query(
-      `SELECT id, title
-         FROM documents
-        WHERE (filename = $1 OR original_filename = $1)
-          AND deleted_at IS NULL${scopeKlausel}
-        ORDER BY (filename = $1) DESC, uploaded_at DESC
-        LIMIT 1`,
-      scopeIds ? [name, scopeIds] : [name]
-    );
-    const row = doc.rows[0];
+    const sucheDoc = async withScope => {
+      const scopeKlausel = withScope ? ` AND (space_id = ANY($2::uuid[]) OR space_id IS NULL)` : '';
+      const r = await query(
+        `SELECT id, title
+           FROM documents
+          WHERE (filename = $1 OR original_filename = $1)
+            AND deleted_at IS NULL${scopeKlausel}
+          ORDER BY (filename = $1) DESC, uploaded_at DESC
+          LIMIT 1`,
+        withScope ? [name, scopeIds] : [name]
+      );
+      return r.rows[0];
+    };
+
+    let row = await sucheDoc(!!scopeIds);
+    // Fallback (Plan 021, live gefunden): Der Nutzer hat die Datei EXPLIZIT beim
+    // Namen genannt. Findet der Space-Zuschnitt sie nicht (das Dokument liegt in
+    // einem anderen Raum/Projekt-Unterordner), ist für den Einzel-Admin (keine
+    // Mandanten, jeder darf alles) „die benannte Datei lesen" besser als
+    // „nicht gefunden" — sonst spekuliert das Modell aus dem Dateinamen. Der
+    // Zuschnitt bleibt die BEVORZUGTE Quelle (verhindert weiter die
+    // Fehl-Zuordnung bei gleich benannten Dateien, F-07); nur wenn er leer
+    // ausgeht, wird raumübergreifend gesucht.
+    if (!row && scopeIds) {
+      row = await sucheDoc(false);
+      if (row) {
+        logger.debug(`ladeDokumentText: "${name}" nur raumübergreifend (Fallback) gefunden`);
+      }
+    }
     if (!row) {
       return { gefunden: false, titel: null, text: '', gekuerzt: false };
     }
