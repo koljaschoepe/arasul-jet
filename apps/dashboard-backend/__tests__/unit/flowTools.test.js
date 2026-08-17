@@ -632,6 +632,7 @@ describe('Werkzeug-Registry', () => {
         'dateien_bearbeiten',
         'dateien_anhaengen',
         'dateien_suchen',
+        'symbol_suche',
         'rag_suche',
         'terminal',
         'web_suche',

@@ -36,6 +36,7 @@ const WERKZEUG_LABEL: Record<FlowTool, string> = {
   dateien_bearbeiten: 'Dateien bearbeiten',
   dateien_anhaengen: 'Dateien anhängen',
   dateien_suchen: 'Dateien suchen',
+  symbol_suche: 'Symbol-Suche',
   rag_suche: 'Wissens-Suche',
   web_suche: 'Web-Suche',
   web_lesen: 'Web lesen',
