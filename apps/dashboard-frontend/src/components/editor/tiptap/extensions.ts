@@ -5,7 +5,6 @@
  */
 
 import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 import TextAlign from '@tiptap/extension-text-align';
@@ -37,7 +36,8 @@ export function createExtensions() {
         },
       },
     }),
-    Underline,
+    // Underline liefert StarterKit v3 bereits mit — kein separater Eintrag mehr
+    // (sonst „Duplicate extension names: underline").
     // Text-Ausrichtung für Absätze und Überschriften (links/mittig/rechts).
     TextAlign.configure({
       types: ['heading', 'paragraph'],
