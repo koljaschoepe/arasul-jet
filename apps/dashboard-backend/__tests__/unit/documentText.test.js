@@ -7,7 +7,12 @@
  * Zusammenfassung ausweichen, und niemals werfen.
  */
 
-jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
+jest.mock('../../src/utils/logger', () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+}));
 
 const { ladeDokumentText } = require('../../src/services/flows/documentText');
 
@@ -119,6 +124,37 @@ describe('ladeDokumentText', () => {
       const docCall = query.calls.find(c => /FROM documents/i.test(c.sql));
       expect(docCall.sql).not.toMatch(/space_id = ANY/i);
       expect(docCall.params).toEqual(['bericht.pdf']);
+    });
+
+    // Plan 021 (live gefunden): eine explizit benannte, aber in einem anderen
+    // Raum indexierte Datei war unauffindbar → das Modell spekulierte aus dem
+    // Namen. Fallback: findet der Zuschnitt nichts, wird raumübergreifend gesucht.
+    it('fällt raumübergreifend zurück, wenn der Zuschnitt die benannte Datei nicht findet', async () => {
+      const query = jest.fn(async sql => {
+        if (/FROM documents/i.test(sql)) {
+          return /space_id = ANY/i.test(sql) ? { rows: [] } : { rows: [{ id: 'd9', title: 'Bericht' }] };
+        }
+        if (/FROM document_chunks/i.test(sql)) return { rows: [{ chunk_text: 'Echter Inhalt.' }] };
+        return { rows: [] };
+      });
+      const res = await ladeDokumentText({ filename: 'bericht.pdf', spaceIds: ['s1'] }, { query });
+      expect(res.gefunden).toBe(true);
+      expect(res.text).toContain('Echter Inhalt.');
+      const docCalls = query.mock.calls.filter(c => /FROM documents/i.test(c[0]));
+      expect(docCalls.length).toBe(2);
+      expect(/space_id = ANY/i.test(docCalls[0][0])).toBe(true); // zuerst scoped
+      expect(/space_id = ANY/i.test(docCalls[1][0])).toBe(false); // dann unscoped
+    });
+
+    it('KEIN Fallback, wenn der Zuschnitt schon trifft (F-07 bleibt bevorzugt)', async () => {
+      const query = jest.fn(async sql => {
+        if (/FROM documents/i.test(sql)) return { rows: [{ id: 'd1', title: 'Bericht' }] };
+        if (/FROM document_chunks/i.test(sql)) return { rows: [{ chunk_text: 'Inhalt.' }] };
+        return { rows: [] };
+      });
+      await ladeDokumentText({ filename: 'bericht.pdf', spaceIds: ['s1'] }, { query });
+      const docCalls = query.mock.calls.filter(c => /FROM documents/i.test(c[0]));
+      expect(docCalls.length).toBe(1); // nur die scoped Suche, kein Fallback
     });
   });
 });
