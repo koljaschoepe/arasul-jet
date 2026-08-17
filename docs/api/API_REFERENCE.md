@@ -468,7 +468,7 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 
 **GET /api/rag/settings** (admin only) — returns the raw `system_settings`
 values for every RAG/LLM tunable as `{ "data": { ... } }`. A `null` value means
-"use the built-in/env default". Backs the Settings → "RAG & LLM" admin tab.
+"use the built-in/env default". Backs the Settings → "Sprachmodell" admin tab.
 
 **PATCH /api/rag/settings** (admin only) — updates any subset of the tunables and
 `systemSettings.reload()`s the in-memory cache so the change takes effect

@@ -6,58 +6,34 @@ import { useToast } from '../../contexts/ToastContext';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
-import { Switch } from '@/components/ui/shadcn/switch';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { extractIssues } from './validationIssues';
 
 /**
- * RAG & LLM tunables — raw column values as returned by GET /rag/settings.
+ * LLM-Standardwerte — raw column values as returned by GET /rag/settings.
  * Bounds mirror UpdateRagSettingsBody in apps/dashboard-backend/src/schemas/rag.js.
- * Defined locally (not in src/types) since it is a settings-feature concern only.
+ *
+ * Plan 021 (agentic RAG): Die semantische Vektor-Suche (Qdrant + Embeddings) ist
+ * abgelöst — der Agent findet sich per dateien_suchen/symbol_suche selbst durch
+ * die Projektdateien. Die früheren Retrieval-/Rerank-/Space-Routing-Regler haben
+ * deshalb keine Wirkung mehr und sind aus dieser Oberfläche entfernt; nur die
+ * LLM-Standardwerte bleiben. Die zugehörigen Backend-Spalten verschwinden mit
+ * dem Ausbau des klassischen RAG (Schritt 8).
  */
-interface RagSettings {
-  rag_temperature: number;
-  rag_num_predict: number;
-  rag_top_k: number;
-  rag_final_k: number;
-  rag_score_threshold: number;
-  rag_relevance_threshold: number;
-  rag_mmr_lambda: number;
-  rag_dedup_max_per_doc: number;
-  rag_hybrid_search: boolean;
-  rag_rerank_enabled: boolean;
-  rag_timeout_rerank_ms: number;
-  rag_space_routing_threshold: number;
-  rag_space_routing_max_spaces: number;
+interface LlmSettings {
   llm_num_ctx_default: number | null;
   llm_keep_alive_seconds: number;
   llm_num_predict_default: number;
   llm_base_system_prompt: string | null;
 }
 
-/** GET /rag/settings envelope. */
+/** GET /rag/settings envelope (liefert weiterhin alle Spalten; wir lesen nur die LLM-Werte). */
 interface RagSettingsResponse {
-  data: RagSettings;
+  data: LlmSettings;
 }
 
-type NumberFieldKey =
-  | 'rag_temperature'
-  | 'rag_num_predict'
-  | 'rag_top_k'
-  | 'rag_final_k'
-  | 'rag_score_threshold'
-  | 'rag_relevance_threshold'
-  | 'rag_mmr_lambda'
-  | 'rag_dedup_max_per_doc'
-  | 'rag_timeout_rerank_ms'
-  | 'rag_space_routing_threshold'
-  | 'rag_space_routing_max_spaces'
-  | 'llm_num_ctx_default'
-  | 'llm_keep_alive_seconds'
-  | 'llm_num_predict_default';
-
-type BoolFieldKey = 'rag_hybrid_search' | 'rag_rerank_enabled';
+type NumberFieldKey = 'llm_num_predict_default' | 'llm_num_ctx_default' | 'llm_keep_alive_seconds';
 
 interface NumberFieldMeta {
   key: NumberFieldKey;
@@ -70,16 +46,8 @@ interface NumberFieldMeta {
   nullable?: boolean;
 }
 
-interface BoolFieldMeta {
-  key: BoolFieldKey;
-  label: string;
-  hint?: string;
-}
-
 // Bounds are copied verbatim from UpdateRagSettingsBody (Zod schema).
-const GENERATION_FIELDS: NumberFieldMeta[] = [
-  { key: 'rag_temperature', label: 'Temperatur (RAG)', min: 0, max: 2, step: 0.1 },
-  { key: 'rag_num_predict', label: 'Max. Tokens (RAG)', min: 64, max: 16384, step: 1 },
+const LLM_FIELDS: NumberFieldMeta[] = [
   {
     key: 'llm_num_predict_default',
     label: 'Max. Tokens (LLM-Default)',
@@ -99,58 +67,16 @@ const GENERATION_FIELDS: NumberFieldMeta[] = [
   { key: 'llm_keep_alive_seconds', label: 'Keep-Alive (Sekunden)', min: 0, max: 86400, step: 1 },
 ];
 
-const RETRIEVAL_FIELDS: NumberFieldMeta[] = [
-  { key: 'rag_top_k', label: 'Top-K (Kandidaten)', min: 1, max: 50, step: 1 },
-  { key: 'rag_final_k', label: 'Final-K (finale Treffer)', min: 1, max: 20, step: 1 },
-  { key: 'rag_score_threshold', label: 'Score-Schwelle', min: 0, max: 1, step: 0.01 },
-  { key: 'rag_relevance_threshold', label: 'Relevanz-Schwelle', min: 0, max: 1, step: 0.01 },
-  { key: 'rag_mmr_lambda', label: 'MMR-Lambda', min: 0, max: 1, step: 0.01 },
-  { key: 'rag_dedup_max_per_doc', label: 'Max. Chunks pro Dokument', min: 1, max: 10, step: 1 },
-  { key: 'rag_timeout_rerank_ms', label: 'Rerank-Timeout (ms)', min: 1000, max: 120000, step: 1 },
-];
-
-const RETRIEVAL_SWITCHES: BoolFieldMeta[] = [
-  { key: 'rag_hybrid_search', label: 'Hybride Suche' },
-  { key: 'rag_rerank_enabled', label: 'Reranking aktiv' },
-];
-
-const ROUTING_FIELDS: NumberFieldMeta[] = [
-  { key: 'rag_space_routing_threshold', label: 'Routing-Schwelle', min: 0, max: 1, step: 0.01 },
-  {
-    key: 'rag_space_routing_max_spaces',
-    label: 'Max. Spaces beim Routing',
-    min: 1,
-    max: 10,
-    step: 1,
-  },
-];
-
-const ALL_NUMBER_FIELDS: NumberFieldMeta[] = [
-  ...GENERATION_FIELDS,
-  ...RETRIEVAL_FIELDS,
-  ...ROUTING_FIELDS,
-];
-const BOOL_FIELD_KEYS: BoolFieldKey[] = RETRIEVAL_SWITCHES.map(f => f.key);
-
 type NumberValues = Record<NumberFieldKey, string>;
-type BoolValues = Record<BoolFieldKey, boolean>;
 
 function toInputString(value: number | null | undefined): string {
   return value === null || value === undefined ? '' : String(value);
 }
 
-function buildNumberValues(settings: RagSettings): NumberValues {
+function buildNumberValues(settings: LlmSettings): NumberValues {
   const values = {} as NumberValues;
-  for (const meta of ALL_NUMBER_FIELDS) {
+  for (const meta of LLM_FIELDS) {
     values[meta.key] = toInputString(settings[meta.key]);
-  }
-  return values;
-}
-
-function buildBoolValues(settings: RagSettings): BoolValues {
-  const values = {} as BoolValues;
-  for (const key of BOOL_FIELD_KEYS) {
-    values[key] = Boolean(settings[key]);
   }
   return values;
 }
@@ -165,15 +91,13 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
-  // Field-level validation errors keyed by column name (e.g. 'rag_temperature').
+  // Field-level validation errors keyed by column name (e.g. 'llm_num_predict_default').
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [numberValues, setNumberValues] = useState<NumberValues | null>(null);
-  const [boolValues, setBoolValues] = useState<BoolValues | null>(null);
   const [basePrompt, setBasePrompt] = useState('');
 
   const [originalNumberValues, setOriginalNumberValues] = useState<NumberValues | null>(null);
-  const [originalBoolValues, setOriginalBoolValues] = useState<BoolValues | null>(null);
   const [originalBasePrompt, setOriginalBasePrompt] = useState('');
 
   const fetchSettings = useCallback(
@@ -185,18 +109,15 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
         });
         const settings = res.data;
         const nums = buildNumberValues(settings);
-        const bools = buildBoolValues(settings);
         const prompt = settings.llm_base_system_prompt ?? '';
 
         setNumberValues(nums);
-        setBoolValues(bools);
         setBasePrompt(prompt);
         setOriginalNumberValues(nums);
-        setOriginalBoolValues(bools);
         setOriginalBasePrompt(prompt);
       } catch (error) {
         if (signal.aborted) return;
-        console.error('Error fetching RAG settings:', error);
+        console.error('Error fetching LLM settings:', error);
         setMessage({ type: 'error', text: 'Einstellungen konnten nicht geladen werden.' });
       } finally {
         setLoading(false);
@@ -211,11 +132,11 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
     return () => controller.abort();
   }, [fetchSettings]);
 
-  const buildPatchBody = useCallback((): Record<string, number | boolean | string | null> => {
-    const body: Record<string, number | boolean | string | null> = {};
-    if (!numberValues || !originalNumberValues || !boolValues || !originalBoolValues) return body;
+  const buildPatchBody = useCallback((): Record<string, number | string | null> => {
+    const body: Record<string, number | string | null> = {};
+    if (!numberValues || !originalNumberValues) return body;
 
-    for (const meta of ALL_NUMBER_FIELDS) {
+    for (const meta of LLM_FIELDS) {
       const raw = numberValues[meta.key];
       if (raw === originalNumberValues[meta.key]) continue;
       if (raw.trim() === '') {
@@ -227,24 +148,13 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
       body[meta.key] = num;
     }
 
-    for (const key of BOOL_FIELD_KEYS) {
-      if (boolValues[key] !== originalBoolValues[key]) body[key] = boolValues[key];
-    }
-
     if (basePrompt !== originalBasePrompt) {
       // Empty string tells the backend to reset llm_base_system_prompt to NULL.
       body.llm_base_system_prompt = basePrompt;
     }
 
     return body;
-  }, [
-    numberValues,
-    originalNumberValues,
-    boolValues,
-    originalBoolValues,
-    basePrompt,
-    originalBasePrompt,
-  ]);
+  }, [numberValues, originalNumberValues, basePrompt, originalBasePrompt]);
 
   const patchBody = buildPatchBody();
   const hasChanges = Object.keys(patchBody).length > 0;
@@ -267,12 +177,6 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
     clearFieldError(key);
   };
 
-  const handleBoolChange = (key: BoolFieldKey, value: boolean) => {
-    setBoolValues(prev => (prev ? { ...prev, [key]: value } : prev));
-    setMessage(null);
-    clearFieldError(key);
-  };
-
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
@@ -282,13 +186,12 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
       await api.patch<RagSettingsResponse>('/rag/settings', patchBody, { showError: false });
 
       if (numberValues) setOriginalNumberValues({ ...numberValues });
-      if (boolValues) setOriginalBoolValues({ ...boolValues });
       setOriginalBasePrompt(basePrompt);
 
-      toast.success('RAG- & LLM-Einstellungen erfolgreich gespeichert');
+      toast.success('LLM-Einstellungen erfolgreich gespeichert');
     } catch (error: unknown) {
       // Surface field-level validation issues next to the offending inputs.
-      // Issue paths mirror the column names (e.g. 'rag_temperature').
+      // Issue paths mirror the column names (e.g. 'llm_num_predict_default').
       const issues = extractIssues(error);
       const nextFieldErrors: Record<string, string> = {};
       for (const issue of issues) {
@@ -304,11 +207,11 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
     }
   };
 
-  if (loading || !numberValues || !boolValues) {
+  if (loading || !numberValues) {
     return (
       <div className="animate-in fade-in">
         <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-foreground mb-2">RAG &amp; LLM</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Sprachmodell</h1>
         </div>
         <SkeletonCard hasAvatar={false} lines={6} />
       </div>
@@ -342,53 +245,20 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
   return (
     <div className="animate-in fade-in">
       <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground mb-2">RAG &amp; LLM</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Sprachmodell</h1>
         <p className="text-sm text-muted-foreground">
-          Feineinstellungen für die RAG-Pipeline und das Sprachmodell. Werte außerhalb der
-          angegebenen Grenzen werden vom Backend abgelehnt.
+          Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom
+          Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die
+          Projektdateien selbst) — es gibt keine Retrieval-Regler mehr zu stellen.
         </p>
       </div>
 
       <div className="flex flex-col gap-8">
-        {/* Generation */}
+        {/* LLM-Standardwerte */}
         <section className="space-y-5">
-          <h3 className="text-sm font-semibold text-foreground">Generierung</h3>
+          <h3 className="text-sm font-semibold text-foreground">LLM-Standardwerte</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {GENERATION_FIELDS.map(renderNumberField)}
-          </div>
-        </section>
-
-        <div className="border-t border-border" />
-
-        {/* Retrieval */}
-        <section className="space-y-5">
-          <h3 className="text-sm font-semibold text-foreground">Retrieval</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {RETRIEVAL_FIELDS.map(renderNumberField)}
-          </div>
-          <div className="flex flex-col gap-4 pt-1">
-            {RETRIEVAL_SWITCHES.map(meta => (
-              <div key={meta.key} className="flex items-center justify-between gap-4">
-                <Label htmlFor={meta.key} className="cursor-pointer font-normal">
-                  {meta.label}
-                </Label>
-                <Switch
-                  id={meta.key}
-                  checked={boolValues[meta.key]}
-                  onCheckedChange={value => handleBoolChange(meta.key, value)}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <div className="border-t border-border" />
-
-        {/* Routing */}
-        <section className="space-y-5">
-          <h3 className="text-sm font-semibold text-foreground">Space-Routing</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {ROUTING_FIELDS.map(renderNumberField)}
+            {LLM_FIELDS.map(renderNumberField)}
           </div>
         </section>
 

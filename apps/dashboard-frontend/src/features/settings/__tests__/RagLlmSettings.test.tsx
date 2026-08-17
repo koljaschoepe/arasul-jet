@@ -1,9 +1,10 @@
 /**
  * RagLlmSettings Component Tests
  *
- * Tests für RagLlmSettings:
+ * Tests für RagLlmSettings (Plan 021: agentic RAG — nur noch LLM-Standardwerte):
  * - Laden der Tunables via GET /rag/settings
- * - Rendern der gruppierten Felder mit min/max aus dem Zod-Schema
+ * - Rendern der LLM-Felder mit min/max aus dem Zod-Schema
+ * - KEINE Retrieval-/Space-Routing-/Vektor-Regler mehr
  * - Speichern geänderter Felder via PATCH /rag/settings (nur Teilmenge)
  * - Reset des Basis-Prompts (leeres Feld)
  */
@@ -27,20 +28,16 @@ vi.mock('../../../hooks/useApi', () => ({
   useApi: () => mockApi,
 }));
 
+// Das Backend liefert weiterhin alle Spalten; die Oberfläche liest nur die
+// LLM-Werte. Die Vektor-/Retrieval-Spalten sind hier bewusst mit dabei, um zu
+// belegen, dass sie NICHT gerendert werden.
 const MOCK_SETTINGS = {
   rag_temperature: 0.7,
   rag_num_predict: 1024,
   rag_top_k: 20,
   rag_final_k: 5,
-  rag_score_threshold: 0.3,
-  rag_relevance_threshold: 0.5,
-  rag_mmr_lambda: 0.5,
-  rag_dedup_max_per_doc: 3,
   rag_hybrid_search: true,
   rag_rerank_enabled: true,
-  rag_timeout_rerank_ms: 15000,
-  rag_space_routing_threshold: 0.6,
-  rag_space_routing_max_spaces: 3,
   llm_num_ctx_default: 8192,
   llm_keep_alive_seconds: 300,
   llm_num_predict_default: 2048,
@@ -51,8 +48,7 @@ function mockGetSettings(settings = MOCK_SETTINGS) {
   mockApi.get.mockResolvedValue({ data: settings });
 }
 
-// RagLlmSettings calls useToast, so renders need the real ToastProvider
-// (same pattern as PasswordManagement.test.tsx).
+// RagLlmSettings calls useToast, so renders need the real ToastProvider.
 function renderRagLlmSettings() {
   return render(
     <ToastProvider>
@@ -76,40 +72,46 @@ describe('RagLlmSettings Component', () => {
     });
   });
 
-  test('rendert gruppierte Felder mit geladenen Werten', async () => {
+  test('rendert die LLM-Felder mit geladenen Werten', async () => {
     renderRagLlmSettings();
 
     await waitFor(() => {
-      expect(screen.getByText('Generierung')).toBeInTheDocument();
+      expect(screen.getByText('LLM-Standardwerte')).toBeInTheDocument();
     });
 
-    // Group headings
-    expect(screen.getByText('Retrieval')).toBeInTheDocument();
-    expect(screen.getByText('Space-Routing')).toBeInTheDocument();
     expect(screen.getByText('Basis-System-Prompt')).toBeInTheDocument();
 
-    // Loaded values are reflected in the inputs
-    expect(screen.getByLabelText('Temperatur (RAG)')).toHaveValue(0.7);
-    expect(screen.getByLabelText('Final-K (finale Treffer)')).toHaveValue(5);
+    expect(screen.getByLabelText('Max. Tokens (LLM-Default)')).toHaveValue(2048);
+    expect(screen.getByLabelText('Keep-Alive (Sekunden)')).toHaveValue(300);
     expect(screen.getByLabelText('Basis-System-Prompt')).toHaveValue(
       'Du bist ein hilfreicher Assistent.'
     );
+  });
+
+  test('zeigt KEINE Vektor-/Retrieval-Regler mehr (agentic RAG)', async () => {
+    renderRagLlmSettings();
+
+    await waitFor(() => {
+      expect(screen.getByText('LLM-Standardwerte')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Retrieval')).not.toBeInTheDocument();
+    expect(screen.queryByText('Space-Routing')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Temperatur (RAG)')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Final-K (finale Treffer)')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Hybride Suche')).not.toBeInTheDocument();
   });
 
   test('spiegelt min/max aus dem Zod-Schema in den Zahlen-Inputs', async () => {
     renderRagLlmSettings();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Temperatur (RAG)')).toBeInTheDocument();
+      expect(screen.getByLabelText('Max. Tokens (LLM-Default)')).toBeInTheDocument();
     });
 
-    const temperature = screen.getByLabelText('Temperatur (RAG)');
-    expect(temperature).toHaveAttribute('min', '0');
-    expect(temperature).toHaveAttribute('max', '2');
-
-    const finalK = screen.getByLabelText('Final-K (finale Treffer)');
-    expect(finalK).toHaveAttribute('min', '1');
-    expect(finalK).toHaveAttribute('max', '20');
+    const maxTokens = screen.getByLabelText('Max. Tokens (LLM-Default)');
+    expect(maxTokens).toHaveAttribute('min', '64');
+    expect(maxTokens).toHaveAttribute('max', '16384');
   });
 
   test('Speichern-Button ist ohne Änderungen deaktiviert', async () => {
@@ -126,11 +128,11 @@ describe('RagLlmSettings Component', () => {
     renderRagLlmSettings();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Final-K (finale Treffer)')).toBeInTheDocument();
+      expect(screen.getByLabelText('Keep-Alive (Sekunden)')).toBeInTheDocument();
     });
 
-    const finalK = screen.getByLabelText('Final-K (finale Treffer)');
-    fireEvent.change(finalK, { target: { value: '8' } });
+    const keepAlive = screen.getByLabelText('Keep-Alive (Sekunden)');
+    fireEvent.change(keepAlive, { target: { value: '600' } });
 
     const saveButton = screen.getByRole('button', { name: /Speichern/ });
     expect(saveButton).not.toBeDisabled();
@@ -139,7 +141,7 @@ describe('RagLlmSettings Component', () => {
     await waitFor(() => {
       expect(mockApi.patch).toHaveBeenCalledWith(
         '/rag/settings',
-        { rag_final_k: 8 },
+        { llm_keep_alive_seconds: 600 },
         expect.any(Object)
       );
     });
@@ -171,14 +173,15 @@ describe('RagLlmSettings Component', () => {
     });
   });
 
-  test('Boolean-Switch wird in den PATCH-Body aufgenommen', async () => {
+  test('leeres Kontextfenster wird als NULL gesendet (Modell-Default)', async () => {
     renderRagLlmSettings();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Hybride Suche')).toBeInTheDocument();
+      expect(screen.getByLabelText('Kontextfenster (LLM-Default)')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByLabelText('Hybride Suche'));
+    const ctx = screen.getByLabelText('Kontextfenster (LLM-Default)');
+    fireEvent.change(ctx, { target: { value: '' } });
 
     const saveButton = screen.getByRole('button', { name: /Speichern/ });
     fireEvent.click(saveButton);
@@ -186,7 +189,7 @@ describe('RagLlmSettings Component', () => {
     await waitFor(() => {
       expect(mockApi.patch).toHaveBeenCalledWith(
         '/rag/settings',
-        { rag_hybrid_search: false },
+        { llm_num_ctx_default: null },
         expect.any(Object)
       );
     });

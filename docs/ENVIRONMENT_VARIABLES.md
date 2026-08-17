@@ -247,7 +247,7 @@ check a "web page" of `http://postgres-db:5432` would be a way into the stack.
 > `SPACE_ROUTING_MAX_SPACES`, `RAG_RELEVANCE_THRESHOLD`, `RAG_VECTOR_SCORE_THRESHOLD`,
 > `RAG_TIMEOUT_RERANK_MS`, `RAG_FINAL_K` sowie Temperatur/`num_predict`/MMR/Dedup)
 > sind zur Laufzeit über die gleichnamigen `system_settings`-Spalten steuerbar und
-> werden im Admin-Dashboard unter **Settings → „RAG & LLM"** bearbeitet. Der env-Wert
+> werden im Admin-Dashboard unter **Settings → „Sprachmodell"** bearbeitet. Der env-Wert
 > ist nur noch der **Fallback**, falls die DB-Spalte `NULL`/leer ist. Änderungen über
 > `PATCH /api/rag/settings` wirken sofort (Cache-Reload, kein Neustart). Der
 > Basis-System-Prompt ist zusätzlich über die DB-Spalte `llm_base_system_prompt`

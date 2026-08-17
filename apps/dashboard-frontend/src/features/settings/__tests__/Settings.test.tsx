@@ -145,8 +145,8 @@ describe('Settings shell', () => {
     test('no longer shows the old top-level tabs', () => {
       renderShell();
       expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
-      // "RAG & LLM" / "Self-Healing" only appear once their section is active.
-      expect(screen.queryByText('RAG & LLM')).not.toBeInTheDocument();
+      // "Sprachmodell" / "Self-Healing" only appear once their section is active.
+      expect(screen.queryByText('Sprachmodell')).not.toBeInTheDocument();
       expect(screen.queryByText('Self-Healing')).not.toBeInTheDocument();
     });
 
@@ -203,24 +203,24 @@ describe('Settings shell', () => {
   });
 
   describe('KI section', () => {
-    test('mounts the KI wrapper with its Firmenprofil / RAG & LLM sub-navigation', async () => {
+    test('mounts the KI wrapper with its Firmenprofil / Sprachmodell sub-navigation', async () => {
       const user = userEvent.setup();
       renderShell();
       await user.click(screen.getByTestId('settings-open-ki'));
 
       await waitFor(() => {
         expect(screen.getByText('Firmenprofil & Kontext')).toBeInTheDocument();
-        expect(screen.getByText('RAG & LLM')).toBeInTheDocument();
+        expect(screen.getByText('Sprachmodell')).toBeInTheDocument();
       });
       // Profile sub-section is shown by default.
       expect(screen.getByTestId('ai-profile-settings')).toBeInTheDocument();
     });
 
-    test('switches to the RAG & LLM sub-section', async () => {
+    test('switches to the Sprachmodell sub-section', async () => {
       const user = userEvent.setup();
       renderShell();
       await user.click(screen.getByTestId('settings-open-ki'));
-      await user.click(screen.getByText('RAG & LLM'));
+      await user.click(screen.getByText('Sprachmodell'));
 
       // Both sub-sections stay mounted; RAG becomes visible.
       expect(screen.getByTestId('rag-llm-settings')).toBeInTheDocument();
