@@ -6,7 +6,7 @@
   "memory_budget_gb": null,
   "default_model": "auto-by-vram",
   "precision": "fp8",
-  "engine": "sglang",
+  "engine": "vllm",
   "gpu_query": "nvidia-smi",
   "ld_library_path": "/usr/local/cuda/lib64",
   "max_num_seqs": null,
