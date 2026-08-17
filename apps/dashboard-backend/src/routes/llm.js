@@ -7,21 +7,18 @@
 
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const logger = require('../utils/logger');
 const { requireAuth } = require('../middleware/auth');
 const { llmLimiter } = require('../middleware/rateLimit');
 const llmJobService = require('../services/llm/llmJobService');
 const llmQueueService = require('../services/llm/llmQueueService');
+const engineGateway = require('../services/llm/engineGateway');
 const database = require('../database');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody } = require('../middleware/validate');
 const { PrioritizeJobBody, ChatBody } = require('../schemas/llm');
-const { ValidationError, NotFoundError, ServiceUnavailableError } = require('../utils/errors');
+const { NotFoundError } = require('../utils/errors');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
-const services = require('../config/services');
-
-const LLM_SERVICE_URL = services.llm.url;
 
 /**
  * POST /api/llm/chat - Start a chat completion with Queue support
@@ -456,20 +453,23 @@ router.get(
 
 /**
  * GET /api/llm/models - Get available LLM models
+ *
+ * Eine engine-bewusste Sicht (Plan 021, Schritt 2): das Gateway löst die aktive
+ * Engine nach Hardware/Override auf und liefert die Modelle des passenden
+ * Backends. Auf dem Orin ist das Ollama — Verhalten unverändert.
  */
 router.get(
   '/models',
   requireAuth,
   asyncHandler(async (req, res) => {
-    let response;
-    try {
-      response = await axios.get(`${LLM_SERVICE_URL}/api/tags`, { timeout: 5000 });
-    } catch (error) {
-      throw new ServiceUnavailableError('Failed to get LLM models');
-    }
+    const { engine, source, profileId } = engineGateway.getEngineInfo();
+    const models = await engineGateway.listModels({ engine });
 
     res.json({
-      models: response.data.models || [],
+      models,
+      engine,
+      engineSource: source,
+      profileId,
       timestamp: new Date().toISOString(),
     });
   })

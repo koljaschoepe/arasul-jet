@@ -454,10 +454,11 @@
     <div class="result"><strong>Ergebnis:</strong> <code>orin-64.json</code> auf <code>engine:"ollama"</code> gesetzt, die 5 Thor/x86-Profile (thor-128, dgx-spark, dgx-station, rtx-pro-6000, server-generic) auf <code>engine:"vllm"</code>. README-Schema + neuer Abschnitt „Engine-Routing" markieren <code>engine</code> als einzige Quelle der Wahrheit (RECOMMENDED_MODELS ist nur Setup-Hinweis, keine Engine-Autorität); PLATFORM_COMPATIBILITY-Engine-Hinweis nachgezogen. Keine Code-Verdrahtung von Engine-Strings — <code>show_platform_profile</code> emittiert das Feld verbatim. Alle 42 <code>detect-platform</code>-bats-Tests grün (inkl. „emits valid JSON").</div>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 2 — Modell-Gateway (Engine-Abstraktion)">
+  <div class="step" data-status="done" data-ref="§4 · Schritt 2 — Modell-Gateway (Engine-Abstraktion)">
     <h3>Schritt 2 — Modell-Gateway (Engine-Abstraktion) <span class="tag">Risiko: mittel</span></h3>
     <p>Die bestehende LLM-Service-Schicht zu einem engine-bewussten Gateway erweitern: eine <code>/models</code>-Sicht fürs Frontend, dahinter Backend-Auswahl nach HAL. Ollama-Pfad bleibt (die adaptive Keep-Alive-/Idle-Unload-Logik existiert bereits in <code>modelLifecycleService</code>). <code>config/services.js</code> bekommt einen <code>vllm</code>-Eintrag als Platzhalter-Endpunkt. Routen folgen dem <code>asyncHandler</code>+<code>utils/errors.js</code>-Muster.</p>
     <p class="files mono">apps/dashboard-backend/src/services/llm/{modelService,modelLifecycleService,agentConfig}.js · config/services.js · routes/llm.js</p>
+    <div class="result"><strong>Ergebnis:</strong> Neues <code>services/llm/engineGateway.js</code> löst die aktive Engine auf (Override <code>ARASUL_ENGINE</code> → HAL <code>JETSON_PROFILE</code>→Katalog-Id→<code>engine</code>-Feld aus dem gemounteten <code>/config/platforms</code> → Default <code>ollama</code>). Die Profil→Id-Abbildung spiegelt 1:1 <code>detect-platform.sh</code> (keine dritte Klassifizierungsfläche). <code>GET /api/llm/models</code> läuft jetzt durch das Gateway und liefert zusätzlich <code>engine</code>/<code>engineSource</code>/<code>profileId</code>; Ollama ist implementiert, vLLM wirft bis Schritt 7 einen ehrlichen 503. <code>config/services.js</code> hat einen <code>vllm</code>-Platzhalter (OpenAI-kompatibel <code>/v1/*</code>). Tote Imports (<code>axios</code>/<code>services</code>/<code>LLM_SERVICE_URL</code>) aus <code>routes/llm.js</code> entfernt. 26 neue Unit-Tests + bestehende <code>llm</code>/<code>models</code>-Suites (54) grün; Lint 0 Fehler. Doku synchronisiert (ENVIRONMENT_VARIABLES: <code>ARASUL_ENGINE</code>/<code>PLATFORMS_DIR</code>/<code>VLLM_*</code>; API_REFERENCE: neue <code>/models</code>-Antwortfelder). Auf dem Orin: Engine = <code>ollama</code>, Verhalten unverändert.</div>
   </div>
 
   <div class="step" data-status="pending" data-ref="§4 · Schritt 3 — Qwen3.8-27B als Default + Toolcall-Grammatik">
@@ -507,7 +508,7 @@
   </summary>
   <div class="sbody">
   <ul class="checks">
-    <li data-done="false"><code>./arasul platform</code> meldet auf dem Orin <code>engine=ollama</code>; das Thor-/x86-Profil liefert <code>engine=vllm</code>; der manuelle Override greift.</li>
+    <li data-done="true"><code>./arasul platform</code> meldet auf dem Orin <code>engine=ollama</code>; das Thor-/x86-Profil liefert <code>engine=vllm</code>; der manuelle Override greift.</li>
     <li data-done="false">Das Modell-Panel zeigt Qwen3.8-27B als Standard-Coder; das alte MoE ist umschaltbar; das Frontend spricht nur die eine <code>/models</code>-Schnittstelle.</li>
     <li data-done="false">Der Coder wird bei Bedarf geladen und im Leerlauf entladen — nach dem Entladen ist der GPU-Speicher nachweislich frei (tegrastats/nvidia-smi).</li>
     <li data-done="false">Ein Agent löst auf dem Orin eine mehrstufige Coding-Aufgabe gegen ein echtes Repo allein über grep + Symbolindex + Datei-Werkzeuge — ohne Qdrant.</li>
