@@ -804,7 +804,18 @@ async function processAgentChatJob(ctx, job) {
       return null;
     }
   };
-  const meldeNeueDateien = (vorher, nachher) => {
+  // Prüft, ob eine (vermeintlich gelöschte) Datei auf der Platte noch existiert.
+  // Der Baum-Abzug (listTree) ist gedeckelt; er ist keine verlässliche Quelle
+  // für Löschungen. Die Platte ist es.
+  const existiertNoch = async pfad => {
+    try {
+      await fs.stat(path.join(wurzel, pfad));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const meldeNeueDateien = async (vorher, nachher) => {
     if (!vorher || !nachher) {
       return 0;
     }
@@ -836,9 +847,17 @@ async function processAgentChatJob(ctx, job) {
       }
     }
     // Gelöschte Dateien nicht verschlucken — sie sind genauso eine Änderung,
-    // die der Nutzer sehen muss (vorher unsichtbar verpufft).
+    // die der Nutzer sehen muss (vorher unsichtbar verpufft). ABER: der
+    // Baum-Abzug ist gedeckelt („Liste gekürzt"). Legt der Lauf eine neue Datei
+    // an, verschiebt sich die Kappungsgrenze und eine Randdatei fällt aus dem
+    // nachher-Abzug — ohne je gelöscht worden zu sein. Sonst meldeten wir dem
+    // Nutzer fälschlich, der Agent habe eine fremde Datei gelöscht. Darum jede
+    // vermeintliche Löschung gegen die Platte gegenprüfen.
     for (const pfad of vorher.keys()) {
       if (!nachher.has(pfad)) {
+        if (await existiertNoch(pfad)) {
+          continue;
+        }
         geaendertGesamt += 1;
         melde(pfad, 'geloescht');
       }
@@ -1078,7 +1097,7 @@ async function processAgentChatJob(ctx, job) {
       if (!toolCalls.length) {
         // Platten-Wahrheit nachziehen: auch Dateien aus Terminal-/Subagenten-
         // Arbeit bekommen ihre Karte und zählen für das Prüf-Gate.
-        meldeNeueDateien(snapshotStart, await leseSnapshot());
+        await meldeNeueDateien(snapshotStart, await leseSnapshot());
         // Erzwungener Prüf-Schritt (Orchestrator-Protokoll): Bevor eine Antwort
         // mit erstellten Dateien als fertig gilt, kontrolliert die pruefer-Rolle
         // das Ergebnis. Findet sie Mängel, bekommt das Modell eine Korrektur-
@@ -1214,7 +1233,7 @@ async function processAgentChatJob(ctx, job) {
               // melden; ein Schreib-Auftrag ohne Dateiänderung wird als solcher
               // benannt, damit der Orchestrator selbst schreibt statt dem
               // erfundenen Erfolg zu glauben.
-              const geaendert = meldeNeueDateien(vorher, await leseSnapshot());
+              const geaendert = await meldeNeueDateien(vorher, await leseSnapshot());
               const sollteSchreiben = params.rolle === 'autor' || params.rolle === 'entwickler';
               if (sollteSchreiben && geaendert === 0 && !/^Fehler/.test(String(result || ''))) {
                 result =

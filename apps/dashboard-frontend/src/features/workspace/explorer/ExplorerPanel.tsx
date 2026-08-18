@@ -154,6 +154,7 @@ export function ExplorerPanel() {
   const toast = useToast();
   const qc = useQueryClient();
   const openTab = useWorkspaceStore(s => s.openTab);
+  const verschiebeProjektdatei = useWorkspaceStore(s => s.verschiebeProjektdatei);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
   const { addPin } = usePins();
   // Der Baum ist der Projektordner des aktiven Projekts: wechselt es, wechselt
@@ -535,6 +536,9 @@ export function ExplorerPanel() {
           { showError: false }
         );
         toast.success(`„${payload.name}“ verschoben`);
+        // Offene Tabs dem neuen Pfad nachziehen (sonst zeigt der Tab-Breadcrumb
+        // noch den alten Ort und Speichern/Neuladen liefe ins Leere).
+        verschiebeProjektdatei(activeId, von, nach);
         neuLaden();
         scheduleRefresh();
       } catch (err) {
@@ -543,7 +547,7 @@ export function ExplorerPanel() {
         else toast.error(fehler.message || 'Verschieben fehlgeschlagen');
       }
     },
-    [activeId, api, toast, neuLaden, scheduleRefresh]
+    [activeId, api, toast, neuLaden, scheduleRefresh, verschiebeProjektdatei]
   );
 
   /**

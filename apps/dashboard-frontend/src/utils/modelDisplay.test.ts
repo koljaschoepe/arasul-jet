@@ -43,4 +43,17 @@ describe('modellAnzeigeName (Plan 022)', () => {
       })
     ).toBe('Qwen3.8 27B');
   });
+
+  it('humanisiert Ollama-name:tag-Ids ohne Slash (UI-Sweep F1)', () => {
+    // Genau die Form, die ein Direkt-Pull erzeugt und die vorher roh durchrutschte.
+    expect(modellAnzeigeName({ id: 'qwen3-coder:30b', name: 'qwen3-coder:30b' })).toBe(
+      'Qwen3 Coder 30B'
+    );
+    expect(modellAnzeigeName({ id: 'mistral:7b', name: 'mistral:7b' })).toBe('Mistral 7B');
+  });
+
+  it('lässt einen sauberen Namen mit Leerzeichen unangetastet', () => {
+    expect(modellAnzeigeName({ id: 'qwen3:8b', name: 'Qwen 3 8B' })).toBe('Qwen 3 8B');
+    expect(modellAnzeigeName({ id: 'gemma3:1b', name: 'Gemma 4 Kompakt' })).toBe('Gemma 4 Kompakt');
+  });
 });

@@ -75,6 +75,46 @@ describe('workspaceStore — Tabs', () => {
     expect(useWorkspaceStore.getState().activeTabId).toBe('settings');
   });
 
+  it('zieht einen offenen Projektdatei-Tab dem Verschieben nach (UI-Sweep F3)', () => {
+    const { openTab, verschiebeProjektdatei } = useWorkspaceStore.getState();
+    openTab({ type: 'projektdatei', projectId: 'p1', filePath: 'Wissen/x.md', title: 'x.md' });
+    useWorkspaceStore.getState().setTabDirty('projektdatei:p1:Wissen/x.md', true);
+    verschiebeProjektdatei('p1', 'Wissen/x.md', 'Wissen/Tools/x.md');
+    const { tabs, activeTabId, dirtyTabs } = useWorkspaceStore.getState();
+    expect(tabs[0]?.filePath).toBe('Wissen/Tools/x.md');
+    expect(tabs[0]?.id).toBe('projektdatei:p1:Wissen/Tools/x.md');
+    expect(activeTabId).toBe('projektdatei:p1:Wissen/Tools/x.md');
+    // Dirty-Merker wandert mit der neuen Tab-Id mit.
+    expect(dirtyTabs.has('projektdatei:p1:Wissen/Tools/x.md')).toBe(true);
+    expect(dirtyTabs.has('projektdatei:p1:Wissen/x.md')).toBe(false);
+  });
+
+  it('zieht Kinder eines verschobenen Ordners mit (UI-Sweep F3)', () => {
+    const { openTab, verschiebeProjektdatei } = useWorkspaceStore.getState();
+    openTab({ type: 'projektdatei', projectId: 'p1', filePath: 'A/b/c.md', title: 'c.md' });
+    verschiebeProjektdatei('p1', 'A/b', 'Z/b');
+    expect(useWorkspaceStore.getState().tabs[0]?.filePath).toBe('Z/b/c.md');
+  });
+
+  it('verwirft einen verwaisten Ziel-Tab statt doppelter Ids (UI-Sweep F3)', () => {
+    const { openTab, verschiebeProjektdatei } = useWorkspaceStore.getState();
+    // Verwaister Tab sitzt schon auf dem Zielpfad; dann wird x.md dorthin bewegt.
+    openTab({ type: 'projektdatei', projectId: 'p1', filePath: 'Tools/x.md', title: 'x.md' });
+    openTab({ type: 'projektdatei', projectId: 'p1', filePath: 'x.md', title: 'x.md' });
+    verschiebeProjektdatei('p1', 'x.md', 'Tools/x.md');
+    const { tabs } = useWorkspaceStore.getState();
+    const ids = tabs.map(t => t.id);
+    expect(ids).toEqual(['projektdatei:p1:Tools/x.md']);
+    expect(new Set(ids).size).toBe(ids.length); // keine doppelte Id
+  });
+
+  it('lässt unbeteiligte Tabs beim Verschieben unangetastet', () => {
+    const { openTab, verschiebeProjektdatei } = useWorkspaceStore.getState();
+    openTab({ type: 'projektdatei', projectId: 'p1', filePath: 'Wissen/y.md', title: 'y.md' });
+    verschiebeProjektdatei('p1', 'Wissen/x.md', 'Tools/x.md');
+    expect(useWorkspaceStore.getState().tabs[0]?.filePath).toBe('Wissen/y.md');
+  });
+
   it('moveTab ordnet Tabs um (stabile Reihenfolge)', () => {
     const { openTab } = useWorkspaceStore.getState();
     openTab({ type: 'automationen' });
