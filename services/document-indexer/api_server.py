@@ -73,12 +73,18 @@ def health():
             checks['database'] = 'ok'
         except Exception:
             checks['database'] = 'error'
-        # Check if Qdrant is reachable
-        try:
-            idx.qdrant_client.get_collections()
-            checks['qdrant'] = 'ok'
-        except Exception:
-            checks['qdrant'] = 'error'
+        # Check if Qdrant is reachable. Plan 021 (Schritt 8): ist der Vektor-Zweig
+        # abgeschaltet, ist Qdrant bewusst nicht da — dann NICHT prüfen (sonst
+        # meldet der Indexer dauerhaft 'degraded' und die Selbstheilung würde ein
+        # absichtlich abgeschaltetes Qdrant „reparieren" wollen).
+        if not config.EMBEDDING_ENABLED:
+            checks['qdrant'] = 'disabled'
+        else:
+            try:
+                idx.qdrant_client.get_collections()
+                checks['qdrant'] = 'ok'
+            except Exception:
+                checks['qdrant'] = 'error'
 
         has_errors = checks.get('database') == 'error' or checks.get('qdrant') == 'error'
         checks['status'] = 'degraded' if has_errors else 'healthy'

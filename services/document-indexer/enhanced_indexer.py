@@ -32,7 +32,7 @@ from graph_store import GraphStore
 
 from config import (
     MINIO_HOST, MINIO_PORT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD,
-    MINIO_BUCKET, QDRANT_COLLECTION,
+    MINIO_BUCKET, QDRANT_COLLECTION, EMBEDDING_ENABLED,
     INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE, INDEXER_MAX_RETRIES,
     INDEXER_WATCHDOG_INTERVAL_SECONDS,
     PARTIAL_REPICKUP_INTERVAL_SECONDS,
@@ -87,8 +87,13 @@ class EnhancedDocumentIndexer:
         # Embedding client
         self._embedding_client = EmbeddingClient()
 
-        # Verify embedding service is reachable
-        if not self._embedding_client.check_health():
+        # Verify embedding service is reachable. Plan 021 (Schritt 8): ist der
+        # Vektor-Zweig abgeschaltet, ist der embedding-service bewusst nicht da —
+        # die Prüfung überspringen (sonst Timeout/Warn-Spam beim Start).
+        if not EMBEDDING_ENABLED:
+            logger.info("Embedding abgeschaltet (INDEXER_EMBEDDING_ENABLED=false) "
+                        "- nur Textlayer-Indexierung, kein Qdrant")
+        elif not self._embedding_client.check_health():
             logger.warning(
                 "Embedding service is not reachable at startup "
                 "- embeddings will fail until service is available"
