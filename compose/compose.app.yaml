@@ -91,6 +91,11 @@ services:
     volumes:
       - ../.env:/arasul/config/.env
       - ../config:/config:ro
+      # JetPack-Version: dpkg-query fragt ein HOST-Paket ab und schlaegt im
+      # Container immer fehl. Ohne diesen Mount zeigt die Einstellungsseite
+      # dauerhaft "unknown". Die Datei existiert nur auf Jetson-Hosts, deshalb
+      # steht in der Compose-Ebene ein Default-Pfad, der auch leer sein darf.
+      - ${NV_TEGRA_RELEASE:-/etc/nv_tegra_release}:/etc/nv_tegra_release:ro
       - ../data/updates:/arasul/updates
       - ../data/backups:/arasul/backups:ro
       - ../data/appstore/manifests:/arasul/appstore/manifests:ro

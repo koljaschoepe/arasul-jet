@@ -140,7 +140,10 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const uptime = os.uptime();
-    const hostname = os.hostname();
+    // Device name from MDNS_NAME. os.hostname() runs inside the container and
+    // therefore returns "dashboard-backend" (compose sets it explicitly), never
+    // the name the device is reachable under. Same source as /system/network.
+    const hostname = (process.env.MDNS_NAME || os.hostname()).replace(/\.local$/, '');
 
     // Get JetPack version (if available)
     let jetpackVersion = 'unknown';
@@ -157,7 +160,18 @@ router.get(
         jetpackVersion = stdout.trim();
       }
     } catch {
-      // JetPack version not available
+      // dpkg-query queries a HOST package and always fails inside the container.
+      // Fall back to the L4T release file, which compose mounts read-only.
+      try {
+        const rel = await fs.readFile('/etc/nv_tegra_release', 'utf8');
+        // Example: "# R36 (release), REVISION: 4.7, GCID: 42132812, BOARD: ..."
+        const m = rel.match(/R(\d+).*?REVISION:\s*([\d.]+)/);
+        if (m) {
+          jetpackVersion = `L4T ${m[1]}.${m[2]}`;
+        }
+      } catch {
+        // Neither source available (non-Jetson host), stays "unknown"
+      }
     }
 
     // Detect device and GPU

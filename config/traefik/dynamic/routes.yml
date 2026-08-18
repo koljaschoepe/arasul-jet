@@ -225,8 +225,16 @@ http:
     # Traefik Dashboard (secured with dashboard session auth)
     # SEC-FIX: Use forward-auth (dashboard session) instead of basicAuth with unset placeholder.
     # The dashboard API on port 8080 is already restricted to localhost in traefik.yml.
+    #
+    # `/dashboard` gehoerte hier NICHT hin (entfernt 2026-08-19): das Produkt
+    # heisst "Arasul Dashboard", also ist /dashboard der Pfad, den ein Nutzer
+    # als Erstes eintippt. Er landete auf api@internal und bekam Traefiks nackte
+    # Textantwort "404 page not found" statt der gestalteten 404-Seite der App
+    # — live geprueft, auch im eingeloggten Zustand. Traefiks eigenes Dashboard
+    # funktionierte ueber diesen Pfad ohnehin nicht, weil der Prefix nicht
+    # gestrippt wird. Der Pfad faellt jetzt an den Frontend-Catch-All.
     traefik-dashboard:
-      rule: '(PathPrefix(`/api/traefik`) || PathPrefix(`/dashboard`))'
+      rule: 'PathPrefix(`/api/traefik`)'
       service: api@internal
       priority: 35
       middlewares:
