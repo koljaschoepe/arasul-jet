@@ -121,11 +121,18 @@ async function pruefeRechnungsschutz(projectId, relPfade, deps = {}) {
 }
 
 /**
- * Listet den Datei-Baum eines Projekts (rekursiv, Budget-gedeckelt).
+ * Listet den Datei-Baum eines Projekts (Budget-gedeckelt).
+ *
+ * Durchlaufen wird in BREITE (Ebene für Ebene), nicht in die Tiefe — sonst
+ * verbraucht ein einzelner tiefer Zweig das gemeinsame Budget und die Wurzel
+ * kommt unvollständig heraus. Die Reihenfolge über den ganzen Baum ist
+ * dadurch level-order; INNERHALB eines Ordners bleibt es bei „Ordner vor
+ * Dateien, alphabetisch". Mehr braucht der Explorer nicht: er gruppiert die
+ * flache Liste ohnehin nach Elternpfad (ExplorerPanel `kinderVon`).
  *
  * @returns {Promise<{eintraege: object[], gekuerzt: boolean}>}
  *   eintraege: [{ pfad, name, typ: 'ordner'|'datei', groesse, geaendert }],
- *   Ordner vor Dateien, alphabetisch, Pfade relativ mit '/'.
+ *   je Ordner erst Ordner, dann Dateien, alphabetisch; Pfade relativ mit '/'.
  */
 async function listTree(projectId, deps = {}) {
   const dir = await projektOrdner(projectId, deps);
@@ -144,68 +151,84 @@ async function listTree(projectId, deps = {}) {
   let budget = MAX_TREE_ENTRIES;
   let gekuerzt = false;
 
-  async function rekurse(abs, rel, tiefe) {
-    if (tiefe > MAX_TREE_DEPTH || budget <= 0) {
-      gekuerzt = gekuerzt || budget <= 0;
-      return;
-    }
-    let dirents;
-    try {
-      dirents = await fsp.readdir(abs, { withFileTypes: true });
-    } catch (err) {
-      logger.warn(`Projektablage ${projectId}: "${rel || '.'}" nicht lesbar: ${err.message}`);
-      return;
-    }
-    // Ordner zuerst, dann Dateien — jeweils alphabetisch (wie im Explorer üblich).
-    dirents.sort((a, b) => {
-      const da = a.isDirectory() ? 0 : 1;
-      const db = b.isDirectory() ? 0 : 1;
-      return da !== db ? da - db : a.name.localeCompare(b.name, 'de');
-    });
-    for (const d of dirents) {
-      if (VERSTECKT.has(d.name)) {
-        continue;
-      }
+  // Breitensuche statt Tiefensuche (2026-08-18). Vorher lief der Baum
+  // rekursiv in die Tiefe und teilte sich EIN Budget: In einem realistisch
+  // großen Team-Ordner (>2000 Einträge) fraß der erste Unterordner das
+  // gesamte Budget auf, und die Geschwister auf Ebene 1 wurden nie ausgegeben
+  // — im Explorer fehlten damit ausgerechnet die OBERSTEN Ordner, obwohl der
+  // Nutzer nur „Liste gekürzt" las. Ebene für Ebene heißt: die Wurzel ist
+  // immer vollständig, und gekürzt wird dort, wo es niemanden überrascht —
+  // in der Tiefe.
+  let ebene = [{ abs: startAbs, rel: '' }];
+  for (let tiefe = 0; tiefe <= MAX_TREE_DEPTH && ebene.length > 0; tiefe += 1) {
+    const naechste = [];
+    for (const ordner of ebene) {
       if (budget <= 0) {
+        // Dieser Ordner (und alles dahinter) bleibt ungelesen.
         gekuerzt = true;
-        return;
+        break;
       }
-      const kindRel = rel ? `${rel}/${d.name}` : d.name;
-      const kindAbs = path.join(abs, d.name);
-      // Symlinks nicht verfolgen — sie könnten aus der Ablage herausführen.
-      if (d.isSymbolicLink()) {
+      let dirents;
+      try {
+        dirents = await fsp.readdir(ordner.abs, { withFileTypes: true });
+      } catch (err) {
+        logger.warn(
+          `Projektablage ${projectId}: "${ordner.rel || '.'}" nicht lesbar: ${err.message}`
+        );
         continue;
       }
-      if (d.isDirectory()) {
-        budget -= 1;
-        eintraege.push({
-          pfad: kindRel,
-          name: d.name,
-          typ: 'ordner',
-          groesse: null,
-          geaendert: null,
-        });
-        await rekurse(kindAbs, kindRel, tiefe + 1);
-      } else if (d.isFile()) {
-        budget -= 1;
-        let stat = null;
-        try {
-          stat = await fsp.stat(kindAbs);
-        } catch {
+      // Ordner zuerst, dann Dateien — jeweils alphabetisch (wie im Explorer üblich).
+      dirents.sort((a, b) => {
+        const da = a.isDirectory() ? 0 : 1;
+        const db = b.isDirectory() ? 0 : 1;
+        return da !== db ? da - db : a.name.localeCompare(b.name, 'de');
+      });
+      for (const d of dirents) {
+        // Symlinks nicht verfolgen — sie könnten aus der Ablage herausführen.
+        if (VERSTECKT.has(d.name) || d.isSymbolicLink()) {
           continue;
         }
-        eintraege.push({
-          pfad: kindRel,
-          name: d.name,
-          typ: 'datei',
-          groesse: stat.size,
-          geaendert: stat.mtime.toISOString(),
-        });
+        if (budget <= 0) {
+          gekuerzt = true;
+          break;
+        }
+        const kindRel = ordner.rel ? `${ordner.rel}/${d.name}` : d.name;
+        const kindAbs = path.join(ordner.abs, d.name);
+        if (d.isDirectory()) {
+          budget -= 1;
+          eintraege.push({
+            pfad: kindRel,
+            name: d.name,
+            typ: 'ordner',
+            groesse: null,
+            geaendert: null,
+          });
+          naechste.push({ abs: kindAbs, rel: kindRel });
+        } else if (d.isFile()) {
+          budget -= 1;
+          let stat = null;
+          try {
+            stat = await fsp.stat(kindAbs);
+          } catch {
+            continue;
+          }
+          eintraege.push({
+            pfad: kindRel,
+            name: d.name,
+            typ: 'datei',
+            groesse: stat.size,
+            geaendert: stat.mtime.toISOString(),
+          });
+        }
       }
     }
+    ebene = naechste;
   }
-
-  await rekurse(startAbs, '', 0);
+  // Bleiben Ordner unbesucht — weil das Budget aufgebraucht ist oder die
+  // Tiefengrenze griff —, dann ist der Baum ehrlich als gekürzt zu melden.
+  if (ebene.length > 0) {
+    gekuerzt = true;
+  }
   return { eintraege, gekuerzt };
 }
 
@@ -607,6 +630,7 @@ module.exports = {
   MAX_EDITOR_BYTES,
   MAX_UPLOAD_BYTES,
   MAX_VORSCHAU_BYTES,
+  MAX_TREE_ENTRIES,
   projektOrdner,
   pruefeRechnungsschutz,
   listTree,
