@@ -43,4 +43,4 @@ compound-split>=1.0.1
 symspellpy>=6.10.0
 
 # Named Entity Recognition for Knowledge Graph
-spacy>=3.7
+spacy>=3.8.15
