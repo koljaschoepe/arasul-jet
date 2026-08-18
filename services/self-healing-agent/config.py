@@ -66,10 +66,12 @@ MAX_CRITICAL_EVENTS = 3
 MAX_REBOOTS_PER_HOUR = int(os.getenv('MAX_REBOOTS_PER_HOUR', '1'))
 REBOOT_COOLDOWN_MINUTES = int(os.getenv('REBOOT_COOLDOWN_MINUTES', '30'))
 
-# Application services (excluding system services)
+# Application services (excluding system services).
+# Plan 021 (Schritt 8): embedding-service ins Profil "classic-rag" (standardmäßig
+# aus) — NICHT mehr überwachen, sonst würde die Selbstheilung ein bewusst
+# abgeschaltetes embedding als „down" behandeln und neu starten.
 APPLICATION_SERVICES = [
     'llm-service',
-    'embedding-service',
     'n8n',
     'dashboard-backend',
     'dashboard-frontend'

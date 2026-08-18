@@ -14,6 +14,10 @@ x-security: &default-security
 services:
   # 1. Qdrant - Vector Database for RAG
   qdrant:
+    # Plan 021 (Schritt 8): klassisches Vektor-RAG abgelöst durch agentic RAG
+    # (grep/symbol/benanntes Datei-Lesen). Standardmäßig NICHT gestartet.
+    # Reaktivieren: `docker compose --profile classic-rag up -d qdrant`.
+    profiles: ['classic-rag']
     image: qdrant/qdrant:v1.16.1
     container_name: qdrant
     hostname: qdrant
@@ -127,6 +131,9 @@ services:
 
   # 3. Embedding Service
   embedding-service:
+    # Plan 021 (Schritt 8): nur für klassisches Vektor-RAG nötig — standardmäßig
+    # NICHT gestartet. Reaktivieren: `docker compose --profile classic-rag up -d embedding-service`.
+    profiles: ['classic-rag']
     build:
       context: ..
       dockerfile: services/embedding-service/Dockerfile
@@ -207,6 +214,9 @@ services:
       EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
       EMBEDDING_VECTOR_SIZE: ${EMBEDDING_VECTOR_SIZE}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL}
+      # Plan 021 (Schritt 8): klassisches Vektor-RAG aus → nur Textlayer, kein
+      # Qdrant/Embedding. Reaktivieren: auf "true" setzen + Profil classic-rag starten.
+      INDEXER_EMBEDDING_ENABLED: ${INDEXER_EMBEDDING_ENABLED:-false}
       LLM_SERVICE_HOST: ${LLM_SERVICE_HOST}
       LLM_SERVICE_PORT: ${LLM_SERVICE_PORT}
       LLM_MODEL: ${LLM_MODEL}
@@ -236,10 +246,11 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      qdrant:
-        condition: service_healthy
-      embedding-service:
-        condition: service_healthy
+      # Plan 021 (Schritt 8): qdrant/embedding-service sind ins Profil "classic-rag"
+      # gewandert (standardmäßig aus). Der Indexer darf NICHT mehr auf sie warten
+      # (sonst zöge depends_on sie wieder mit hoch); bei INDEXER_EMBEDDING_ENABLED=
+      # false indexiert er reinen Textlayer ohne Qdrant. Reaktivieren: Profil starten
+      # + Flag auf true.
       # llm-service dependency removed — indexer retries AI analysis when LLM becomes available
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:9102/health']
