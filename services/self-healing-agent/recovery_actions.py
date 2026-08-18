@@ -285,6 +285,11 @@ class RecoveryActionsMixin:
             logger.info("Restarting LLM and Embedding services to reset GPU state")
 
             services_to_restart = ['llm-service', 'embedding-service']
+            # Plan 021 (Schritt 8): embedding-service kann per Profil "classic-rag"
+            # abgeschaltet sein — dann nur tatsächlich vorhandene Container neu
+            # starten (sonst würde der GPU-Reset fälschlich als Fehlschlag gelten).
+            existing = {c.name for c in self.docker_client.containers.list(all=True)}
+            services_to_restart = [s for s in services_to_restart if s in existing]
             success_count = 0
 
             for service_name in services_to_restart:

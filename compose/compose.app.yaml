@@ -319,8 +319,9 @@ services:
       # downstream services anyway.
       llm-service:
         condition: service_started
-      embedding-service:
-        condition: service_started
+      # Plan 021 (Schritt 8): embedding-service ist ins Profil "classic-rag"
+      # gewandert (standardmäßig aus) — n8n darf nicht mehr auf ihn warten,
+      # sonst zöge depends_on ihn wieder mit hoch.
       minio:
         condition: service_healthy
     healthcheck:
