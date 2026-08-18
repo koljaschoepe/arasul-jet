@@ -42,6 +42,15 @@ EMBEDDING_PORT = int(os.getenv('EMBEDDING_SERVICE_PORT', '11435'))
 EMBEDDING_VECTOR_SIZE = int(os.getenv('EMBEDDING_VECTOR_SIZE', '1024'))
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-m3')
 
+# Plan 021 (agentic RAG): Ist der klassische Vektor-Zweig (Embedding + Qdrant)
+# abgeschaltet, indexiert der Indexer NUR noch den Textlayer (document_chunks) —
+# der agentische Pfad (ladeDokumentText / rag_suche dateiname) liest diesen
+# unabhängig von Embeddings. Default TRUE = unverändertes Verhalten; wird beim
+# Ausbau des klassischen RAG (Container-Abschaltung) auf false gesetzt.
+EMBEDDING_ENABLED = os.getenv('INDEXER_EMBEDDING_ENABLED', 'true').strip().lower() not in (
+    'false', '0', 'no', 'off'
+)
+
 # --- Chunking ---
 CHUNK_SIZE = int(os.getenv('DOCUMENT_INDEXER_CHUNK_SIZE', '500'))
 CHUNK_OVERLAP = int(os.getenv('DOCUMENT_INDEXER_CHUNK_OVERLAP', '50'))
