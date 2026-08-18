@@ -21,7 +21,7 @@ from qdrant_client.models import (
 from sparse_encoder import compute_sparse_vector
 from config import (
     QDRANT_HOST, QDRANT_PORT, QDRANT_COLLECTION,
-    EMBEDDING_VECTOR_SIZE, SIMILARITY_THRESHOLD
+    EMBEDDING_VECTOR_SIZE, SIMILARITY_THRESHOLD, EMBEDDING_ENABLED
 )
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,13 @@ class QdrantManager:
         self.host = host or QDRANT_HOST
         self.port = port or QDRANT_PORT
         self.collection = collection or QDRANT_COLLECTION
-        self.client = self._init_qdrant()
+        # Plan 021 (Schritt 8): Ist der Vektor-Zweig abgeschaltet, ist Qdrant
+        # gar nicht erreichbar — dann KEINE Verbindung aufbauen (sonst blockiert
+        # der Indexer-Start an den Retries). Der Manager bleibt als Objekt
+        # bestehen; nur die reinen Helfer (get_chunk_id/build_point) werden im
+        # Textlayer-only-Pfad noch gebraucht, die Netz-Methoden werden nie
+        # aufgerufen (document_processor gated sie am selben Flag).
+        self.client = self._init_qdrant() if EMBEDDING_ENABLED else None
 
     def _init_qdrant(self) -> QdrantClient:
         """Initialize Qdrant client and collection with hybrid dense+sparse vectors."""
