@@ -176,7 +176,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [metrics-collector, self-healing-agent]
+        service: [metrics-collector, self-healing-agent, document-indexer]
     steps:
       - uses: actions/checkout@v7
 
@@ -188,13 +188,39 @@ jobs:
       - name: Install dependencies
         working-directory: services/${{ matrix.service }}
         run: |
-          pip install -r requirements.txt
+          # document-indexer: seine Tests stubben die schweren Abhaengigkeiten
+          # (PyMuPDF, spacy, qdrant-client, psycopg2, …) selbst und laufen
+          # bewusst in einer nackten Umgebung. Sie zu installieren waere nur
+          # ein paar Minuten CI-Zeit fuer nichts.
+          if [ "${{ matrix.service }}" != "document-indexer" ]; then
+            pip install -r requirements.txt
+          fi
           pip install pytest pytest-cov pytest-mock || true
           if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
 
-      - name: Run pytest (non-blocking if no tests)
+      - name: Run pytest (green if a service has no tests yet)
         working-directory: services/${{ matrix.service }}
-        run: pytest --cov=. --cov-report=xml || echo "Tests not yet implemented (non-blocking)"
+        env:
+          # `libs/shared-python` (structured_logging & Co.) kopieren die
+          # Dockerfiles ins Image. Im CI-Checkout liegt es daneben statt darin,
+          # deshalb hier auf den Pfad — sonst scheitert der Import und der
+          # Testlauf bricht schon beim Einsammeln ab.
+          PYTHONPATH: ${{ github.workspace }}/libs/shared-python
+        run: |
+          # Frueher: `pytest … || echo "…"`. Das schluckte AUCH echte
+          # Fehlschlaege — der Job blieb gruen, egal was passierte. So fiel
+          # monatelang nicht auf, dass die document-indexer-Tests sich nicht
+          # einmal mehr einsammeln liessen. Jetzt wird nur der Fall
+          # „keine Tests gefunden" (pytest-Exitcode 5) durchgewunken.
+          set +e
+          pytest --cov=. --cov-report=xml
+          code=$?
+          set -e
+          if [ "$code" -eq 5 ]; then
+            echo "Keine Tests in diesem Service — ok."
+            exit 0
+          fi
+          exit "$code"
 
   # ----------------------------------------------------------------------------
   # Summary: aggregate pass/fail so branch protection can require a single

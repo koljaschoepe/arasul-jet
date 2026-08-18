@@ -39,8 +39,11 @@ class QdrantManager:
         # gar nicht erreichbar — dann KEINE Verbindung aufbauen (sonst blockiert
         # der Indexer-Start an den Retries). Der Manager bleibt als Objekt
         # bestehen; nur die reinen Helfer (get_chunk_id/build_point) werden im
-        # Textlayer-only-Pfad noch gebraucht, die Netz-Methoden werden nie
-        # aufgerufen (document_processor gated sie am selben Flag).
+        # Textlayer-only-Pfad noch gebraucht. Die Netz-Methoden gated
+        # document_processor am selben Flag — mit EINER Ausnahme:
+        # calculate_similarities haengt an ENABLE_SIMILARITY statt am
+        # Embedding-Flag und lief deshalb auch ohne Client. Die Methode
+        # prueft `self.client` daher selbst.
         self.client = self._init_qdrant() if EMBEDDING_ENABLED else None
 
     def _init_qdrant(self) -> QdrantClient:
@@ -248,6 +251,14 @@ class QdrantManager:
             doc_id: Document UUID
             db: DatabaseManager instance (for saving similarities)
         """
+        if self.client is None:
+            # Plan 021 (Schritt 8): Ohne Vektor-Zweig gibt es keine semantische
+            # Aehnlichkeit. Still aussteigen statt in self.client.scroll zu
+            # laufen — das warf pro Dokument ein „'NoneType' object has no
+            # attribute 'scroll'" ins Log und sah nach einem Defekt aus,
+            # obwohl nur eine abgeschaltete Funktion fehlte.
+            return
+
         try:
             # Get document's first chunk embedding as representative
             doc = db.get_document(doc_id)

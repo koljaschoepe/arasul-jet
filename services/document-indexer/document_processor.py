@@ -138,8 +138,37 @@ def get_mime_type(filename: str) -> str:
     return mime_map.get(ext, 'application/octet-stream')
 
 
+def strip_nul(text: str) -> str:
+    """
+    Entfernt NUL-Bytes (0x00) aus extrahiertem Text.
+
+    Postgres-`text` darf alles ausser 0x00 enthalten. Manche PDFs liefern beim
+    Extrahieren NUL-Bytes mit (fehlerhafte Font-/Encoding-Tabellen), und der
+    erste Schreibversuch scheiterte dann mit „A string literal cannot contain
+    NUL (0x00) characters" — das Dokument landete auf 'failed', obwohl der Text
+    bis auf ein paar unsichtbare Bytes brauchbar war. Hier ist die einzige
+    Stelle, an der ALLE Parser zusammenlaufen; wird hier bereinigt, sind auch
+    Chunks, Metadaten, Graph und Spell-Corrector sauber.
+    """
+    if not text:
+        return text
+    if '\x00' not in text:
+        return text
+    bereinigt = text.replace('\x00', '')
+    logger.warning(
+        f"{len(text) - len(bereinigt)} NUL-Byte(s) aus extrahiertem Text entfernt"
+    )
+    return bereinigt
+
+
 def parse_document(data: bytes, filename: str) -> Optional[str]:
-    """Parse document and extract text."""
+    """
+    Parse document and extract text.
+
+    Rueckgabe-Vertrag (der Aufrufer unterscheidet die beiden Faelle!):
+      None  -> nicht parsebar (unbekannter Typ oder Parser-Fehler)  -> 'failed'
+      ''    -> sauber geparst, aber ohne Textinhalt                 -> 'stored'
+    """
     _, ext = os.path.splitext(filename.lower())
 
     if ext not in PARSERS:
@@ -148,7 +177,7 @@ def parse_document(data: bytes, filename: str) -> Optional[str]:
 
     try:
         parser = PARSERS[ext]
-        text = parser(BytesIO(data))
+        text = strip_nul(parser(BytesIO(data)))
         logger.debug(f"Parsed {filename}: {len(text)} characters")
         return text
     except Exception as e:
@@ -460,9 +489,21 @@ def run_indexing_pipeline(
 
     # Parse document
     text = parse_document(data, filename)
-    if not text:
+    if text is None:
         db.update_document_status(doc_id, 'failed', 'Failed to parse document')
         return None
+    if not text.strip():
+        # Sauber geparst, nur ohne Text: ein Logo-PNG ohne Schrift, ein
+        # Whiteboard-Foto, das die OCR nicht lesen kann, eine 0-Byte-Datei.
+        # Das ist KEIN Fehler — vorher landeten genau diese Dateien auf
+        # 'failed' (inkl. drei sinnloser Wiederholungen) und standen danach
+        # dauerhaft als roter Fehler im Explorer. Gleiche Behandlung wie ein
+        # nicht-indexierbarer Typ: gespeichert, herunterladbar, nicht indexiert.
+        logger.info(
+            f"{filename}: kein extrahierbarer Text — gespeichert, nicht indexiert"
+        )
+        db.update_document_status(doc_id, 'stored')
+        return 0
 
     # Extract metadata
     file_ext = os.path.splitext(filename.lower())[1]
