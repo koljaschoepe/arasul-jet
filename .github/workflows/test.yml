@@ -200,6 +200,12 @@ jobs:
 
       - name: Run pytest (green if a service has no tests yet)
         working-directory: services/${{ matrix.service }}
+        env:
+          # `libs/shared-python` (structured_logging & Co.) kopieren die
+          # Dockerfiles ins Image. Im CI-Checkout liegt es daneben statt darin,
+          # deshalb hier auf den Pfad — sonst scheitert der Import und der
+          # Testlauf bricht schon beim Einsammeln ab.
+          PYTHONPATH: ${{ github.workspace }}/libs/shared-python
         run: |
           # Frueher: `pytest … || echo "…"`. Das schluckte AUCH echte
           # Fehlschlaege — der Job blieb gruen, egal was passierte. So fiel

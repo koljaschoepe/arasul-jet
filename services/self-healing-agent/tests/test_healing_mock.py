@@ -218,10 +218,30 @@ class TestSelfHealingEngine(unittest.TestCase):
             mock_resume.assert_not_called()
 
     def test_handle_category_b_gpu_overload(self):
-        """Test Category B: GPU Overload"""
+        """Category B: hohe GPU-Last allein loest NICHTS aus.
+
+        Der Reset wurde bewusst verschaerft: er greift nur, wenn die Auslastung
+        hoch ist UND Ollama nicht mehr antwortet, und das zwei Zyklen in Folge.
+        Hohe GPU-Last bei antwortendem Ollama ist schlicht Inferenz — da einen
+        GPU-Reset zu fahren, wuerde die laufende Antwort zerschiessen.
+
+        Die frueher hier stehende Erwartung („ein Aufruf, sofort") stammt aus
+        der Zeit davor und ist erst 2026-08-18 aufgefallen, als der Testschritt
+        im CI aufhoerte, Fehlschlaege zu schlucken.
+        """
         metrics = {'cpu': 50, 'ram': 50, 'gpu': 99, 'temperature': 60}
 
-        with patch.object(self.engine, 'reset_gpu_session') as mock_reset:
+        # Ollama antwortet -> Finger weg.
+        with patch.object(self.engine, 'reset_gpu_session') as mock_reset, \
+                patch.object(self.engine, '_ollama_responsive', return_value=True):
+            self.engine.handle_category_b_overload(metrics)
+            mock_reset.assert_not_called()
+
+        # Ollama antwortet nicht -> erst der ZWEITE Zyklus setzt zurueck.
+        with patch.object(self.engine, 'reset_gpu_session') as mock_reset, \
+                patch.object(self.engine, '_ollama_responsive', return_value=False):
+            self.engine.handle_category_b_overload(metrics)
+            mock_reset.assert_not_called()
             self.engine.handle_category_b_overload(metrics)
             mock_reset.assert_called_once()
 
