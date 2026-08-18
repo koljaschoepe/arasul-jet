@@ -37,7 +37,7 @@ bm25s==0.2.0
 PyStemmer==2.2.0.1
 
 # German decompounding
-compound-split>=1.0.1
+compound-split>=1.0.2
 
 # Spell correction for typo-tolerant search
 symspellpy>=6.10.0
