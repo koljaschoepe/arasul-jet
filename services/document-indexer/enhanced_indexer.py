@@ -25,6 +25,8 @@ from datetime import datetime
 from minio import Minio
 from minio.error import S3Error
 
+from psycopg2.errors import UniqueViolation
+
 from database import DatabaseManager
 from ai_services import AIServices, DocumentAnalyzer
 from entity_extractor import SPACY_AVAILABLE
@@ -372,6 +374,29 @@ class EnhancedDocumentIndexer:
                     doc_id, data, filename, content_hash, file_hash
                 )
 
+        # Gleicher INHALT unter einem anderen Pfad? Dann ist er schon indexiert.
+        #
+        # `documents.content_hash` traegt einen UNIQUE-Index (Migration 052).
+        # Der Ordner-Sync kennt das und legt Duplikate bewusst nur EINMAL an;
+        # dieser MinIO-Scanner tat es nicht und lief stattdessen in
+        # `create_document` -> UniqueViolation. Die Ausnahme flog in den
+        # allgemeinen Handler unten, wo `doc_id` noch None ist — es wurde also
+        # KEIN Status geschrieben, und dieselbe Datei scheiterte im naechsten
+        # Zyklus wieder. Bei `INDEXER_MAX_DOCS_PER_CYCLE=10` reichen zehn solcher
+        # Dateien, um das gesamte Zyklusbudget zu verbrauchen: die Warteschlange
+        # steht still, ohne dass irgendein Zaehler das anzeigt.
+        #
+        # Beobachtet 2026-08-18 an einer echten Ablage: mehrere identische Logos
+        # plus zwei 0-Byte-Dateien (die teilen sich den Leerstring-Hash
+        # e3b0c442…b855) legten die Indexierung bei 690 von 1014 Dokumenten lahm.
+        existing_by_content = self.db.get_document_by_hash(content_hash)
+        if existing_by_content:
+            logger.info(
+                f"Gleicher Inhalt bereits indexiert ({existing_by_content['status']}), "
+                f"kein zweiter Eintrag fuer {filename}"
+            )
+            return existing_by_content['id']
+
         with self._status_lock:
             self.status['current_document'] = filename
 
@@ -403,7 +428,20 @@ class EnhancedDocumentIndexer:
                 doc_id = existing_by_path['id']
                 self.db.update_document(doc_id, doc_data)
             else:
-                doc_id = self.db.create_document(doc_data)
+                try:
+                    doc_id = self.db.create_document(doc_data)
+                except UniqueViolation:
+                    # Wettlauf: der Ordner-Sync hat denselben Inhalt zwischen
+                    # der Pruefung oben und hier angelegt. Kein Fehlerfall —
+                    # den vorhandenen Eintrag nehmen statt endlos zu scheitern.
+                    vorhanden = self.db.get_document_by_hash(content_hash)
+                    if not vorhanden:
+                        raise
+                    logger.info(
+                        f"Inhalt parallel angelegt, uebernehme vorhandenen "
+                        f"Eintrag fuer {filename}"
+                    )
+                    return vorhanden['id']
 
             # Run shared indexing pipeline
             chunk_count = run_indexing_pipeline(

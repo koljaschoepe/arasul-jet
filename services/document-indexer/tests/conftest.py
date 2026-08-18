@@ -64,6 +64,20 @@ _stub("database", DatabaseManager=object)
 _stub("ai_services", AIServices=object, DocumentAnalyzer=object)
 _stub("embedding_client", EmbeddingClient=object)
 _stub("bm25_index", BM25Index=object)
+_stub("qdrant_manager", QdrantManager=object)
+_minio = _stub("minio", Minio=object)
+_stub("minio.error", S3Error=type("S3Error", (Exception,), {}))
+_minio.error = sys.modules["minio.error"]
+
+
+class _UniqueViolation(Exception):
+    """Steht fuer psycopg2.errors.UniqueViolation (echtes psycopg2 fehlt hier)."""
+
+
+_stub("psycopg2", errors=None)
+_stub("psycopg2.errors", UniqueViolation=_UniqueViolation)
+# `import psycopg2.errors` braucht das Attribut am Elternmodul.
+sys.modules["psycopg2"].errors = sys.modules["psycopg2.errors"]
 _stub("qdrant_client", QdrantClient=object)
 _stub(
     "qdrant_client.models",
