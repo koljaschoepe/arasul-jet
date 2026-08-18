@@ -314,7 +314,7 @@ class EnhancedDocumentIndexer:
             # 'partial' == indexed-but-incomplete. Treat it as terminal here so
             # the auto-scan never reprocesses it; the /reindex endpoints reset
             # status to 'pending' first and so still flow through the branch below.
-            if existing['status'] in ('indexed', 'partial'):
+            if existing['status'] in ('indexed', 'partial', 'stored'):
                 logger.info(
                     f"Document already {existing['status']} (content match): "
                     f"{filename}"
@@ -395,6 +395,21 @@ class EnhancedDocumentIndexer:
                 f"Gleicher Inhalt bereits indexiert ({existing_by_content['status']}), "
                 f"kein zweiter Eintrag fuer {filename}"
             )
+            # Denselben Backfill wie im Dateinamen-Zweig: ohne passenden
+            # file_hash faellt dieses Objekt naechsten Zyklus wieder durch die
+            # billige Vorpruefung, wird erneut heruntergeladen und belegt einen
+            # Platz im Zyklusdeckel. Genau daran hing die Warteschlange fest.
+            if existing_by_content.get('file_hash') != file_hash:
+                try:
+                    self.db.update_document(
+                        existing_by_content['id'], {'file_hash': file_hash}
+                    )
+                    logger.info(
+                        f"file_hash nachgetragen fuer {filename} "
+                        f"(Vorpruefung greift ab dem naechsten Zyklus)"
+                    )
+                except Exception as e:
+                    logger.debug(f"file_hash-Nachtrag fehlgeschlagen: {e}")
             return existing_by_content['id']
 
         with self._status_lock:
@@ -638,7 +653,13 @@ class EnhancedDocumentIndexer:
                     # /reindex endpoints (which reset status to 'pending' first).
                     # Otherwise every 30s cycle would re-download, re-analyse and
                     # fully re-embed it forever, pinning the embedding GPU.
-                    if existing and existing['status'] in ('indexed', 'partial'):
+                    # 'stored' gehoert genauso hierher: Plan 009 setzt ihn fuer
+                    # bewusst nicht indexierte Dateien (nicht-parsebarer Typ,
+                    # kein extrahierbarer Text). `update_document_status`
+                    # behandelt ihn als abgeschlossen — die Vorpruefung tat es
+                    # nicht, und damit wurde jede solche Datei in JEDEM Zyklus
+                    # neu heruntergeladen und verbrauchte einen Platz im Deckel.
+                    if existing and existing['status'] in ('indexed', 'partial', 'stored'):
                         logger.debug(
                             f"Document already {existing['status']} (content "
                             f"match): {os.path.basename(obj.object_name)}"
