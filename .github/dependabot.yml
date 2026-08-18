@@ -119,17 +119,31 @@ updates:
     commit-message:
       prefix: 'chore(deps-python)'
 
-  - package-ecosystem: 'pip'
-    directory: '/services/embedding-service'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-    open-pull-requests-limit: 3
-    labels:
-      - 'dependencies'
-      - 'python'
-    commit-message:
-      prefix: 'chore(deps-python)'
+  # embedding-service: BEWUSST nicht beobachtet (2026-08-18).
+  #
+  # Seit Plan 021 Schritt 8 (#364) haengen `embedding-service` und `qdrant` am
+  # Compose-Profil `classic-rag` und laufen im Standardbetrieb NICHT — der
+  # agentische RAG-Pfad liest den Textlayer aus Postgres und braucht weder
+  # Embeddings noch Vektorsuche. Woechentliche Bumps fuer einen geparkten
+  # Dienst fuellen nur die PR-Warteschlange (zuletzt #354/#355/#359, alle
+  # geschlossen) und bergen Risiko fuer den Tag, an dem er zurueckkommt:
+  # ein Sprung wie sentence-transformers 3 -> 4 gehoert dann mit echter
+  # Verifikation gemacht, nicht unbemerkt vorher.
+  #
+  # WIRD DER DIENST REAKTIVIERT: diesen Block wieder einkommentieren und die
+  # Abhaengigkeiten in EINEM geprueften Zug nachziehen.
+  #
+  # - package-ecosystem: 'pip'
+  #   directory: '/services/embedding-service'
+  #   schedule:
+  #     interval: 'weekly'
+  #     day: 'tuesday'
+  #   open-pull-requests-limit: 3
+  #   labels:
+  #     - 'dependencies'
+  #     - 'python'
+  #   commit-message:
+  #     prefix: 'chore(deps-python)'
 
   - package-ecosystem: 'pip'
     directory: '/services/document-indexer'
