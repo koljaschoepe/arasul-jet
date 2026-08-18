@@ -495,10 +495,11 @@
     <p class="files mono">compose/compose.ai.yaml · apps/dashboard-backend/src/services/llm/ (vLLM-Backend) · config/services.js · services/flows/gpuQueue.js</p>
   </div>
 
-  <div class="step" data-status="pending" data-ref="§4 · Schritt 8 — Klassisches RAG entfernen (letzter, rückrollbarer Schritt)">
-    <h3>Schritt 8 — Klassisches RAG entfernen <span class="tag">Risiko: hoch</span></h3>
+  <div class="step" data-status="deviation" data-ref="§4 · Schritt 8 — Klassisches RAG entfernen (letzter, rückrollbarer Schritt)">
+    <h3>Schritt 8 — Klassisches RAG entfernen (Teil A live) <span class="tag">Risiko: hoch</span></h3>
     <p>Erst wenn agentic RAG auf dem Orin live verifiziert ist: zuerst per Compose-Profil abschalten (rückrollbar), dann hart entfernen — <code>qdrant</code> + <code>embedding-service</code> + Vektor-Such-Code. Migration <b>141</b> droppt <b>nur</b> Qdrant-/Embedding-spezifische Tabellen — <code>documents</code>/<code>document_chunks</code> bleiben (OCR-Textlayer). Env + Doku aufräumen. Genaue Tabellenliste vor dem Drop aus den RAG-Migrationen ablesen, nicht aus Namen raten.</p>
-    <p class="files mono">compose/compose.ai.yaml · services/rag/*, services/documents/qdrantService.js, routes/rag.js · services/postgres/init/141_rag_vektor_ausbau.sql · docs/*</p>
+    <p class="files mono">compose/compose.ai.yaml · services/document-indexer/{config,document_processor}.py · services/documents/qdrantService.js · routes/rag.js · docs/*</p>
+    <div class="result"><strong>Ergebnis (Teil A live, Teil B gerätegebunden):</strong> <b>Kritischer Fund beim Live-Test:</b> der Python-Indexer koppelte den OCR-<b>Textlayer</b> (<code>document_chunks</code>) an erfolgreiches Embedding — ein Abschalten des <code>embedding-service</code> hätte genau die Grundlage der (verifizierten) agentic-RAG zerstört. <b>Teil A (PR, live+verifiziert):</b> Flag <code>INDEXER_EMBEDDING_ENABLED</code> (Default <b>true</b> = byte-identisch) entkoppelt Text von Embedding — bei <code>false</code> nur Textlayer, kein Qdrant. Per Upload-Test bewiesen: ein neues Dokument indexiert weiter korrekt (status=indexed). <b>Teil B (offen, braucht SSH):</b> Flag auf false flippen + <code>qdrant</code>/<code>embedding-service</code> per Compose abschalten (Speichergewinn) + Indexer-Start ohne Qdrant absichern — nur mit Geräte-Beobachtung (Indexer-Logs/Container-Status) sicher zu verifizieren. Tailscale-SSH war im Lauf abgelaufen (Nutzer-Re-Auth nötig). Migration 141 (Schema-Drop) bewusst offen: die RAG-Tabellen sind geteilt (knowledge_spaces/parent_chunks/document_chunks) — kein sicherer Drop ohne DB-Prüfung.</div>
   </div>
 
   </div>
