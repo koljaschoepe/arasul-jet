@@ -1,0 +1,7 @@
+# Nur was die Tests wirklich brauchen. Die schweren Laufzeit-Abhaengigkeiten
+# (PyMuPDF, pdfplumber, spacy, qdrant-client, psycopg2) stubben die Tests
+# selbst — siehe tests/conftest.py.
+#
+# PyYAML ist die Ausnahme: `parse_yaml_table` gegen eine Attrappe zu testen
+# wuerde nur die Attrappe pruefen. Reines Python, wenige Kilobyte.
+PyYAML==6.0.1

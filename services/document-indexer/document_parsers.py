@@ -484,52 +484,71 @@ def parse_yaml_table(file_obj: IO[bytes]) -> str:
         content = parse_txt(file_obj)
         data = yaml.safe_load(content)
 
-        if not data:
-            return ""
-
         text_parts = []
 
-        # Extract metadata
-        meta = data.get('_meta', {})
-        if meta.get('name'):
-            text_parts.append(f"Tabelle: {meta['name']}")
-        if meta.get('description'):
-            text_parts.append(f"Beschreibung: {meta['description']}")
+        # Nur ein Mapping kann das Arasul-Tabellenformat tragen. Alles
+        # andere (Top-Level-Liste, Skalar, None) faellt direkt in den
+        # Text-Fallback unten — vorher lief eine Liste hier in ein
+        # AttributeError auf `data.get`, und die Datei galt als
+        # „nicht parsebar".
+        if isinstance(data, dict):
+            # Extract metadata
+            meta = data.get('_meta', {})
+            if meta.get('name'):
+                text_parts.append(f"Tabelle: {meta['name']}")
+            if meta.get('description'):
+                text_parts.append(f"Beschreibung: {meta['description']}")
 
-        # Extract column information
-        columns = data.get('columns', [])
-        if columns:
-            col_names = [c.get('name', c.get('slug', '')) for c in columns]
-            text_parts.append(f"Spalten: {', '.join(col_names)}")
+            # Extract column information
+            columns = data.get('columns', [])
+            if columns:
+                col_names = [c.get('name', c.get('slug', '')) for c in columns]
+                text_parts.append(f"Spalten: {', '.join(col_names)}")
 
-            # Create a mapping of slug to name for row formatting
-            slug_to_name = {c.get('slug', ''): c.get('name', c.get('slug', '')) for c in columns}
+                # Create a mapping of slug to name for row formatting
+                slug_to_name = {c.get('slug', ''): c.get('name', c.get('slug', '')) for c in columns}
 
-        # Extract row data
-        rows = data.get('rows', [])
-        if rows:
-            text_parts.append(f"\nDaten ({len(rows)} Einträge):\n")
+            # Extract row data
+            rows = data.get('rows', [])
+            if rows:
+                text_parts.append(f"\nDaten ({len(rows)} Einträge):\n")
 
-            for i, row in enumerate(rows):
-                # Skip internal fields
-                row_values = []
-                for key, value in row.items():
-                    if key.startswith('_'):
-                        continue
-                    if value is not None and value != '':
-                        # Use column name if available, otherwise use key
-                        col_name = slug_to_name.get(key, key) if columns else key
-                        row_values.append(f"{col_name}: {value}")
+                for i, row in enumerate(rows):
+                    # Skip internal fields
+                    row_values = []
+                    for key, value in row.items():
+                        if key.startswith('_'):
+                            continue
+                        if value is not None and value != '':
+                            # Use column name if available, otherwise use key
+                            col_name = slug_to_name.get(key, key) if columns else key
+                            row_values.append(f"{col_name}: {value}")
 
-                if row_values:
-                    text_parts.append(' | '.join(row_values))
+                    if row_values:
+                        text_parts.append(' | '.join(row_values))
 
-                # Limit to first 500 rows for very large tables
-                if i >= 499:
-                    text_parts.append(f"... und {len(rows) - 500} weitere Einträge")
-                    break
+                    # Limit to first 500 rows for very large tables
+                    if i >= 499:
+                        text_parts.append(f"... und {len(rows) - 500} weitere Einträge")
+                        break
 
-        return '\n'.join(text_parts)
+        if text_parts:
+            return '\n'.join(text_parts)
+
+        # Kein Arasul-Tabellen-YAML (kein _meta/columns/rows), sondern
+        # irgendein anderes: OpenAPI-Spec, CI-Konfiguration,
+        # docker-compose. Frueher fiel so etwas hier als LEERER String
+        # heraus und galt als „geparst, aber kein Text" — die Datei landete
+        # auf 'stored' und war inhaltlich nicht auffindbar, ohne dass
+        # irgendwo ein Hinweis auftauchte. Der Rohtext ist fuer die Suche
+        # allemal besser als nichts und behaelt die Kommentare, die
+        # `safe_load` wegwirft.
+        if content.strip():
+            logger.info(
+                "YAML ohne Tabellenstruktur (_meta/columns/rows) — als Text indexiert"
+            )
+            return content
+        return ""
 
     except yaml.YAMLError as e:
         logger.error(f"Error parsing YAML: {e}")
