@@ -304,6 +304,38 @@ router.put(
 );
 
 /**
+ * GET /api/projects/:id/dateien/versionen?pfad=…
+ * Undo-Verlauf einer Datei (Plan 022): Anzahl Stufen + Text-Vorher-Stand für
+ * den Diff. Speist die Diff-/Undo-Leiste im Editor.
+ */
+router.get(
+  '/:id/dateien/versionen',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  validateQuery(AblageReadQuery),
+  asyncHandler(async (req, res) => {
+    const info = await ablageService.versionsInfo(req.params.id, req.query.pfad);
+    res.json({ data: info, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/projects/:id/dateien/undo
+ * Macht den jüngsten Schreibschritt einer Datei rückgängig (mehrstufig).
+ */
+router.post(
+  '/:id/dateien/undo',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  validateBody(AblageOrdnerBody),
+  asyncHandler(async (req, res) => {
+    const ergebnis = await ablageService.undoDatei(req.params.id, req.body.pfad);
+    ordnerSyncService.trigger(req.params.id);
+    res.json({ data: ergebnis, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
  * POST /api/projects/:id/dateien/ordner
  * Ordner anlegen (verschachtelt erlaubt).
  */

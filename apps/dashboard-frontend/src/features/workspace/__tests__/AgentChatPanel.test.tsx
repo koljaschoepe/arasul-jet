@@ -295,12 +295,20 @@ describe('CompactMessage', () => {
     // Kurz-Zählerkopf im Verlauf (die feste Leiste unten lebt im Panel).
     expect(screen.getByTestId('todo-liste')).toBeInTheDocument();
     expect(screen.getByText('Aufgaben · 1/3 erledigt')).toBeInTheDocument();
-    // Jede Aufgabe ist eine Gruppen-Zeile; Status als Text-Stil + Farbe:
-    // fertig durchgestrichen, läuft im Akzent, offen gedämpft.
+    // Jede Aufgabe ist eine Gruppen-Zeile; Status als Marker + Farbe (Plan 022):
+    // fertig = Accent-Blau + Haken (KEIN Durchstreichen), läuft im Akzent, offen
+    // gedämpft. Die Farbe sitzt am umschließenden Span des Textes.
     expect(screen.getAllByTestId('task-group')).toHaveLength(3);
-    expect(screen.getByText('Quellen lesen').className).toMatch(/line-through/);
-    expect(screen.getByText('Entwurf schreiben').className).toMatch(/text-primary/);
-    expect(screen.getByText('Prüfen').className).toMatch(/text-muted-foreground/);
+    const fertigZeile = screen.getByText('Quellen lesen').parentElement as HTMLElement;
+    expect(fertigZeile.className).not.toMatch(/line-through/);
+    expect(fertigZeile.className).toMatch(/text-primary/);
+    expect(screen.getByLabelText('erledigt')).toBeInTheDocument();
+    expect((screen.getByText('Entwurf schreiben').parentElement as HTMLElement).className).toMatch(
+      /text-primary/
+    );
+    expect((screen.getByText('Prüfen').parentElement as HTMLElement).className).toMatch(
+      /text-muted-foreground/
+    );
   });
 
   it('gruppiert Schritte unter ihrer Aufgabe (task_index) und faltet fertige Aufgaben ein', () => {

@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Upload, X } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
+import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
 import { useChatContext, type ChatMessage } from '@/contexts/ChatContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useFlowEditorStore } from '@/stores/flowEditorStore';
@@ -674,9 +675,10 @@ export default function AgentChatPanel() {
       m => (m.install_status ?? m.status ?? 'ready') === 'ready' || m.install_status === undefined
     )
     // Nur Modelle, die tatsächlich chatten können — Embedding-/OCR-Modelle
-    // (z. B. nomic-embed-text) sind installiert, aber keine Gesprächspartner.
-    .filter(m => m.model_type !== 'embedding' && m.model_type !== 'ocr')
-    .map(m => ({ id: m.id, name: m.name }));
+    // (z. B. nomic-embed-text) sind installiert, aber keine Gesprächspartner
+    // (Plan 022: fähigkeits-bewusster Filter, eine gemeinsame Quelle).
+    .filter(istChatModell)
+    .map(m => ({ id: m.id, name: modellAnzeigeName(m) }));
 
   const lastIndex = messages.length - 1;
 

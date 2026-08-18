@@ -6,11 +6,13 @@
  * fließt flach über die volle Breite. Denk- und Retrieval-Schritte sind
  * einklappbare Ein-Zeilen-Rows, Quellen ein klickbarer Chip-Footer.
  */
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
+  Check,
   ChevronRight,
   FilePlus2,
   FileText,
+  Gauge,
   Globe,
   ListTodo,
   Paperclip,
@@ -70,6 +72,100 @@ function StepRow({
           {children}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Denk-Ticker (Plan 022): der Gedankengang als EINE Zeile — während des
+ * Denkens ein Live-Ticker (pulsierend, zeigt die letzte Denk-Zeile), nach
+ * Abschluss ein „Nachgedacht · Ns"-Chip. Immer per Klick voll aufklappbar,
+ * damit man jederzeit sieht, dass etwas passiert, ohne den Verlauf zuzumüllen.
+ * Optional zeigt die Zeile am Ende die Tokens/Sekunde des Laufs.
+ */
+function DenkTicker({
+  thinking,
+  live,
+  seconds,
+  tokensPerSecond,
+}: {
+  thinking: string;
+  /** Läuft die Denkphase gerade (Tokens kommen noch)? */
+  live: boolean;
+  /** Gemessene Denkdauer in Sekunden (nach Abschluss). */
+  seconds?: number;
+  /** Tokens/Sekunde des Laufs (nach Abschluss). */
+  tokensPerSecond?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const letzteZeile = useMemo(() => {
+    const zeilen = thinking
+      .trimEnd()
+      .split('\n')
+      .map(z => z.trim())
+      .filter(Boolean);
+    return zeilen[zeilen.length - 1] || '';
+  }, [thinking]);
+
+  const label = live
+    ? 'Denkt nach'
+    : seconds != null && seconds > 0
+      ? `Nachgedacht · ${seconds}s`
+      : 'Gedankengang';
+
+  return (
+    <div className="my-0.5">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          'flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground',
+          live && 'text-primary'
+        )}
+        aria-expanded={open}
+        data-testid="denk-ticker"
+      >
+        <Sparkles
+          className={cn('size-3 shrink-0 opacity-70', live && 'animate-pulse opacity-100')}
+        />
+        <span className={cn('shrink-0 font-medium', live && 'animate-pulse')}>{label}</span>
+        {live && letzteZeile ? (
+          <span className="min-w-0 flex-1 truncate opacity-60" data-testid="denk-ticker-live">
+            · {letzteZeile}
+          </span>
+        ) : (
+          <span className="flex-1" />
+        )}
+        {tokensPerSecond != null && tokensPerSecond > 0 && (
+          <span
+            className="flex shrink-0 items-center gap-1 opacity-70"
+            data-testid="tokens-pro-sekunde"
+          >
+            <Gauge className="size-3" />
+            {tokensPerSecond} tok/s
+          </span>
+        )}
+        <ChevronRight className={cn('size-3 shrink-0 transition-transform', open && 'rotate-90')} />
+      </button>
+      {open && (
+        <div className="ml-5 mt-0.5 rounded border border-border bg-card px-2 py-1.5 text-xs text-muted-foreground whitespace-pre-wrap [overflow-wrap:anywhere]">
+          {thinking}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Kleiner Lauf-Metrik-Chip: Tokens/Sekunde ohne Denkphase (Plan 022). */
+function LaufMetrik({ tokensPerSecond }: { tokensPerSecond?: number }) {
+  if (tokensPerSecond == null || tokensPerSecond <= 0) return null;
+  return (
+    <div
+      className="mt-0.5 flex items-center gap-1 px-1 text-[11px] text-muted-foreground"
+      data-testid="tokens-pro-sekunde"
+    >
+      <Gauge className="size-3" />
+      {tokensPerSecond} tok/s
     </div>
   );
 }
@@ -157,11 +253,30 @@ function parseTodoSchritt(output: string | undefined): TodoEintrag[] {
 }
 
 /**
+ * Status-Marker einer Aufgabe (Plan 022): fertig = Haken im Accent-Blau,
+ * läuft = pulsierender Akzent-Punkt, offen = leerer Ring. Ersetzt das frühere
+ * grün-durchgestrichene „fertig" (Nutzer-Wunsch: ruhiges Blau, kein Streichen).
+ */
+function TodoMarker({ status }: { status: TodoEintrag['status'] }) {
+  if (status === 'fertig') {
+    return <Check className="mt-0.5 size-3 shrink-0 text-primary" aria-label="erledigt" />;
+  }
+  if (status === 'laeuft') {
+    return (
+      <span className="mt-1 inline-block size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />
+    );
+  }
+  return (
+    <span className="mt-1 inline-block size-1.5 shrink-0 rounded-full border border-muted-foreground/50" />
+  );
+}
+
+/**
  * Feste Aufgaben-Leiste (Plan 019, Cursor-Stil): eine Zeile je Aufgabe, Status
- * als Text-Stil + Farbe (fertig = durchgestrichen/gedämpft-grün, läuft =
- * Akzent + Puls, offen = gedämpft) — bewusst ohne Status-Icons/-Punkte
- * (Design-System). Wird sowohl inline (Verlauf) als auch in der unten fest
- * verankerten Leiste des Panels (`AgentChatPanel`) benutzt.
+ * als Marker + Farbe (fertig = Haken/Accent-Blau, läuft = Akzent + Puls, offen =
+ * gedämpft) — kein Durchstreichen mehr (Plan 022). Wird sowohl inline (Verlauf)
+ * als auch in der unten fest verankerten Leiste des Panels (`AgentChatPanel`)
+ * benutzt.
  */
 export function TodoLeiste({
   todos,
@@ -212,13 +327,16 @@ export function TodoLeiste({
             <li
               key={`${t.text}-${i}`}
               className={cn(
-                'text-xs leading-snug [overflow-wrap:anywhere]',
-                t.status === 'fertig' && 'text-success/70 line-through',
-                t.status === 'laeuft' && 'animate-pulse text-primary',
+                'flex items-start gap-1.5 text-xs leading-snug [overflow-wrap:anywhere]',
+                t.status === 'fertig' && 'text-primary',
+                t.status === 'laeuft' && 'text-primary',
                 t.status === 'offen' && 'text-muted-foreground'
               )}
             >
-              {t.text}
+              <TodoMarker status={t.status} />
+              <span className={cn('min-w-0 flex-1', t.status === 'laeuft' && 'animate-pulse')}>
+                {t.text}
+              </span>
             </li>
           ))}
         </ul>
@@ -351,13 +469,14 @@ function TaskGroup({
         )}
         <span
           className={cn(
-            'min-w-0 flex-1 truncate leading-snug',
-            fertig && 'text-success/70 line-through',
+            'flex min-w-0 flex-1 items-center gap-1.5 leading-snug',
+            fertig && 'text-primary',
             aktiv && 'animate-pulse text-primary',
             todo.status === 'offen' && 'text-muted-foreground'
           )}
         >
-          {todo.text}
+          {fertig && <Check className="size-3 shrink-0" aria-label="erledigt" />}
+          <span className="min-w-0 flex-1 truncate">{todo.text}</span>
         </span>
         {hatSchritte && !offen && (
           <span className="shrink-0 opacity-60">
@@ -680,12 +799,12 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
         <AgentActivity steps={alleSteps} todos={todos} laufend={isStreaming} />
       )}
       {hasThinking && (
-        <StepRow
-          icon={<Sparkles className="size-3" />}
-          label={isStreaming && !message.content ? 'Denkt nach …' : 'Gedankengang'}
-        >
-          {message.thinking}
-        </StepRow>
+        <DenkTicker
+          thinking={message.thinking || ''}
+          live={isStreaming && !message.thinkingCollapsed}
+          seconds={message.thinkingSeconds}
+          tokensPerSecond={isStreaming ? undefined : message.tokensPerSecond}
+        />
       )}
       {matched.length > 0 && (
         <StepRow
@@ -749,6 +868,10 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
       {isStreaming && message.content && (
         <span className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-primary align-text-bottom" />
       )}
+
+      {/* Tokens/Sekunde am Ende — ohne Denkphase steht die Metrik eigenständig
+          (mit Denkphase trägt sie der „Nachgedacht"-Chip). */}
+      {!isStreaming && !hasThinking && <LaufMetrik tokensPerSecond={message.tokensPerSecond} />}
 
       {message.sources && message.sources.length > 0 && <SourcesFooter sources={message.sources} />}
 

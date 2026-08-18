@@ -328,7 +328,7 @@ klassischen Stream zurück (`warning`-Code `AGENT_TOOLS_UNSUPPORTED`).
 | `compaction`                                      | —                              | Older messages were summarized to fit context budget.                                                                                                                                                                                                                                                                                                            |
 | `agent_step`                                      | —                              | Agent-Werkzeugschritt: `{phase: 'start'\|'end', step: {id, kind, name, input, output, status, parent_step_id, task_index}}` — `parent_step_id` hängt Helfer-Kinder als Baum unter ihren Subagent-Schritt (Agent-UX 2026-08-02); `task_index` ordnet Schritte der obersten Ebene der gerade aktiven Aufgabe (Todo) zu → gruppierte Cursor-Darstellung (Plan 019). |
 | `agent_datei`                                     | —                              | Vom Agenten geänderte Ablage-Datei: `{datei: {art, project_id, pfad, name, aenderung?}}` — `aenderung: 'neu'\|'geaendert'\|'geloescht'` aus dem Platten-Snapshot-Diff (gelöschte Dateien werden seit 2026-08-02 mitgemeldet).                                                                                                                                    |
-| `thinking` / `thinking_end` / `response` / `done` | —                              | Streaming content frames.                                                                                                                                                                                                                                                                                                                                        |
+| `thinking` / `thinking_end` / `response` / `done` | —                              | Streaming content frames. Der `done`-Frame trägt `performance: {tokens, tokens_per_second}` — Tokens/Sekunde des ganzen Laufs (auch für Agent-Läufe über alle Werkzeug-Runden summiert, Plan 022); das Frontend zeigt sie am Abschluss.                                                                                                                          |
 
 ### Chat Conversations
 
@@ -875,18 +875,20 @@ Git-Sync-Checkout (`PROJECT_GIT_DIR`) liegt. Er ist seit dem
 symlink-sicher innerhalb des Projektordners (`resolveRealWithinRoots`);
 `.git`, `node_modules` u. Ä. werden beim Auflisten ausgeblendet.
 
-| Method | Endpoint                                    | Description                                                                                                                     |
-| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/projects/:id/dateien`                 | Der EINE Baum (rekursiv, Budget-gedeckelt; `{eintraege, gekuerzt}`, s. u.)                                                      |
-| GET    | `/api/projects/:id/dateien/suche?q=…`       | Rekursive Namenssuche über die KOMPLETTE Ablage (min. 2 Zeichen; flache Trefferliste `{eintraege, gekuerzt}`, max. 200 Treffer) |
-| GET    | `/api/projects/:id/dateien/inhalt?pfad=…`   | Datei-Inhalt für den Editor (Text, max. 1 MB; Binär/zu groß → Kennzeichen statt Inhalt)                                         |
-| PUT    | `/api/projects/:id/dateien/inhalt`          | Textdatei schreiben (`{pfad, inhalt}`; legt Zwischenordner an)                                                                  |
-| POST   | `/api/projects/:id/dateien/ordner`          | Ordner anlegen (`{pfad}`, verschachtelt erlaubt)                                                                                |
-| DELETE | `/api/projects/:id/dateien?pfad=…`          | Datei oder Ordner (rekursiv) löschen — nie die Wurzel oder `.git`                                                               |
-| POST   | `/api/projects/:id/dateien/verschieben`     | Umbenennen/Verschieben innerhalb des Projektordners (`{von, nach}`)                                                             |
-| POST   | `/api/projects/:id/dateien/upload`          | Multipart-Upload (`file` + optional `ordner`, max. 50 MB)                                                                       |
-| GET    | `/api/projects/:id/dateien/download?pfad=…` | Einzeldatei als Download; ohne `pfad` (oder für einen Ordner) ein `.tar.gz` (ohne `.git`)                                       |
-| GET    | `/api/projects/:id/dateien/vorschau?pfad=…` | Inline-Vorschau einer Datei (PDF/Bild) gestreamt, `Content-Disposition: inline`, Range-fähig, `nosniff`, bis 50 MB (Plan 019)   |
+| Method | Endpoint                                     | Description                                                                                                                                                  |
+| ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/projects/:id/dateien`                  | Der EINE Baum (rekursiv, Budget-gedeckelt; `{eintraege, gekuerzt}`, s. u.)                                                                                   |
+| GET    | `/api/projects/:id/dateien/suche?q=…`        | Rekursive Namenssuche über die KOMPLETTE Ablage (min. 2 Zeichen; flache Trefferliste `{eintraege, gekuerzt}`, max. 200 Treffer)                              |
+| GET    | `/api/projects/:id/dateien/inhalt?pfad=…`    | Datei-Inhalt für den Editor (Text, max. 1 MB; Binär/zu groß → Kennzeichen statt Inhalt)                                                                      |
+| PUT    | `/api/projects/:id/dateien/inhalt`           | Textdatei schreiben (`{pfad, inhalt}`; legt Zwischenordner an; sichert vorher einen Undo-Snapshot)                                                           |
+| GET    | `/api/projects/:id/dateien/versionen?pfad=…` | Undo-Verlauf einer Datei (Plan 022): `{data: {pfad, anzahl, letzte?, vorherInhalt}}` — `anzahl` Undo-Stufen, `vorherInhalt` = Text-Vorher-Stand für den Diff |
+| POST   | `/api/projects/:id/dateien/undo`             | Macht den jüngsten Schreibschritt einer Datei rückgängig (`{pfad}`; mehrstufig aufrufbar). Gemeinsamer Snapshot-Stapel mit den Agent-Datei-Werkzeugen        |
+| POST   | `/api/projects/:id/dateien/ordner`           | Ordner anlegen (`{pfad}`, verschachtelt erlaubt)                                                                                                             |
+| DELETE | `/api/projects/:id/dateien?pfad=…`           | Datei oder Ordner (rekursiv) löschen — nie die Wurzel oder `.git`                                                                                            |
+| POST   | `/api/projects/:id/dateien/verschieben`      | Umbenennen/Verschieben innerhalb des Projektordners (`{von, nach}`)                                                                                          |
+| POST   | `/api/projects/:id/dateien/upload`           | Multipart-Upload (`file` + optional `ordner`, max. 50 MB)                                                                                                    |
+| GET    | `/api/projects/:id/dateien/download?pfad=…`  | Einzeldatei als Download; ohne `pfad` (oder für einen Ordner) ein `.tar.gz` (ohne `.git`)                                                                    |
+| GET    | `/api/projects/:id/dateien/vorschau?pfad=…`  | Inline-Vorschau einer Datei (PDF/Bild) gestreamt, `Content-Disposition: inline`, Range-fähig, `nosniff`, bis 50 MB (Plan 019)                                |
 
 > **Ein-Ordner-Modell — Auto-Indexierung statt manueller Übernahme:** Die
 > frühere Route `POST …/dateien/uebernehmen` ist ENTFERNT. Ein Sync-Dienst

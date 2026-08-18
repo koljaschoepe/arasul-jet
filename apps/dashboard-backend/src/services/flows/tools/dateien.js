@@ -16,6 +16,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const BaseTool = require('../../../tools/baseTool');
 const { resolveRealWithinRoots, normalizeRoots, assertFdWithinRoots } = require('../pathSafe');
+const snapshotService = require('../snapshotService');
 const fsc = require('fs').constants;
 
 const MAX_READ_BYTES = 256 * 1024; // 256 KB
@@ -34,6 +35,41 @@ function rootsFrom(context) {
   } catch {
     return null;
   }
+}
+
+/** Relativer '/'-Pfad, wenn `file` unter `base` liegt — sonst null. */
+function relUnter(base, file) {
+  const rel = path.relative(base, file);
+  if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+    return rel.split(path.sep).join('/');
+  }
+  return null;
+}
+
+/**
+ * Ordnet eine (bereits sicher aufgelöste) Datei ihrem Snapshot-Wurzelordner zu
+ * und liefert den relativen Pfad — Grundlage für die Undo-Sicherung (Plan 022).
+ *
+ * Bevorzugt `context.snapshotRoot` (der Projekt-Wurzelordner), damit ein auf
+ * einen Unterordner gebundener Agent-Lauf denselben Undo-Stapel/Schlüssel nutzt
+ * wie der Editor. Fällt sonst auf den enthaltenden erlaubten Ordner zurück.
+ * Liefert null, wenn die Datei zu keinem gehört (nach pathSafe unwahrscheinlich).
+ */
+function schnappZiel(roots, file, context) {
+  const base = context && context.snapshotRoot;
+  if (base) {
+    const rel = relUnter(base, file);
+    if (rel) {
+      return { root: base, rel };
+    }
+  }
+  for (const r of roots || []) {
+    const rel = relUnter(r, file);
+    if (rel) {
+      return { root: r, rel };
+    }
+  }
+  return null;
 }
 
 class DateienLesenTool extends BaseTool {
@@ -111,6 +147,7 @@ class DateienLesenTool extends BaseTool {
       return `Verzeichnis "${pfad || '.'}" ist leer.`;
     }
     const lines = entries
+      .filter(e => e.name !== snapshotService.VERSIONS_DIR)
       .slice(0, MAX_LIST_ENTRIES)
       .map(e => `${e.isDirectory() ? 'd' : '-'} ${e.name}`)
       .sort();
@@ -279,6 +316,16 @@ class DateienSchreibenTool extends BaseTool {
       return `Fehler: ${err.message}`;
     }
 
+    // Plan 022 — echte Vorher-Existenz (nicht bloß Größe): sonst würde eine
+    // bestehende LEERE Datei beim Überschreiben als „neu" gesichert und ein
+    // späteres Undo sie löschen statt zu leeren.
+    let existierteVorher = true;
+    try {
+      await fs.access(file, fsc.F_OK);
+    } catch {
+      existierteVorher = false;
+    }
+
     let neu = true;
     let handle;
     try {
@@ -305,6 +352,19 @@ class DateienSchreibenTool extends BaseTool {
       }
       if (stat.size > 0) {
         neu = false;
+      }
+      // Plan 022 — vor dem Überschreiben den alten Stand sichern (mehrstufiges
+      // Undo). Große Bestands-Dateien bekommen bewusst keine Stufe (statt einer
+      // irreführenden Leer-Kopie), neue Dateien nur den „löschen"-Marker. Die
+      // Existenz zählt (nicht die Größe): eine bestehende leere Datei wird als
+      // Leer-Inhalt gesichert, nicht als „neu".
+      const zuordnung = schnappZiel(roots, file, context);
+      if (zuordnung && (!existierteVorher || stat.size <= snapshotService.MAX_SNAPSHOT_BYTES)) {
+        const altInhalt = existierteVorher ? await handle.readFile('utf8') : null;
+        await snapshotService.sichereVorher(zuordnung.root, zuordnung.rel, {
+          existierte: existierteVorher,
+          altInhalt,
+        });
       }
       await handle.truncate(0);
       await handle.write(data, 0, 'utf8');
@@ -363,7 +423,7 @@ async function oeffneZumSchreiben(roots, pfad, { erstellen = true } = {}) {
       await handle.close().catch(() => {});
       return { fehler: `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.` };
     }
-    return { handle, stat };
+    return { handle, stat, file };
   } catch (err) {
     await handle.close().catch(() => {});
     return { fehler: `Fehler beim Schreiben: ${err.message}` };
@@ -435,7 +495,7 @@ class DateienBearbeitenTool extends BaseTool {
     if (auf.fehler) {
       return auf.fehler;
     }
-    const { handle, stat } = auf;
+    const { handle, stat, file } = auf;
     try {
       if (stat.size === 0) {
         return `Fehler: Datei "${pfad}" ist leer. Zum Befüllen dateien_schreiben nutzen.`;
@@ -505,6 +565,14 @@ class DateienBearbeitenTool extends BaseTool {
       if (Buffer.byteLength(neuerInhalt, 'utf8') > MAX_EDIT_BYTES) {
         return `Fehler: Ergebnis ueberschreitet das Limit von ${MAX_EDIT_BYTES} Bytes.`;
       }
+      // Plan 022 — alten Stand vor dem Ersetzen sichern (mehrstufiges Undo).
+      const zuordnungB = schnappZiel(roots, file, context);
+      if (zuordnungB) {
+        await snapshotService.sichereVorher(zuordnungB.root, zuordnungB.rel, {
+          existierte: true,
+          altInhalt: inhalt,
+        });
+      }
       await handle.truncate(0);
       await handle.write(neuerInhalt, 0, 'utf8');
       const altZeilen = suchen.split('\n').length;
@@ -569,10 +637,20 @@ class DateienAnhaengenTool extends BaseTool {
     if (auf.fehler) {
       return auf.fehler;
     }
-    const { handle, stat } = auf;
+    const { handle, stat, file } = auf;
     try {
       if (stat.size + Buffer.byteLength(data, 'utf8') > MAX_APPEND_TOTAL) {
         return `Fehler: Zieldatei wuerde ${MAX_APPEND_TOTAL} Bytes ueberschreiten.`;
+      }
+      // Plan 022 — Anhängen ist rein additiv: Undo = auf die alte Größe kürzen
+      // (billig, kein Voll-Snapshot). Neue Datei → „löschen"-Marker.
+      const zuordnungA = schnappZiel(roots, file, context);
+      if (zuordnungA) {
+        await snapshotService.sichereVorher(zuordnungA.root, zuordnungA.rel, {
+          existierte: stat.size > 0,
+          art: 'trunc',
+          altGroesse: stat.size,
+        });
       }
       await handle.write(data, stat.size, 'utf8');
       const gesamt = stat.size + Buffer.byteLength(data, 'utf8');

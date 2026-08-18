@@ -115,6 +115,10 @@ export interface ChatMessage {
   hasThinking?: boolean;
   thinkingCollapsed?: boolean;
   thinkingCollapsing?: boolean;
+  /** Live gemessene Dauer der Denkphase in Sekunden (Plan 022, Denk-Ticker). */
+  thinkingSeconds?: number;
+  /** Tokens/Sekunde des Laufs aus dem done-Event (Plan 022) — am Ende angezeigt. */
+  tokensPerSecond?: number;
   sources?: DocumentSource[];
   sourcesCollapsed?: boolean;
   status?: string;
@@ -142,6 +146,35 @@ export interface ChatMessage {
 export function dateiListe(datei: ChatMessage['datei']): MessageDatei[] {
   if (!datei) return [];
   return Array.isArray(datei) ? datei : [datei];
+}
+
+/**
+ * Plan 022 — die Lauf-Metriken (Tokens/Sekunde, Denkdauer) werden live im
+ * Stream gemessen und NICHT in der DB persistiert. Beim Nach-Sync-Reload der
+ * Nachrichten aus der DB würden sie sonst verschwinden; darum übertragen wir
+ * sie von der letzten live-Assistenten-Nachricht auf die letzte geladene.
+ */
+function uebertrageLaufMetriken(prev: ChatMessage[], geladen: ChatMessage[]): ChatMessage[] {
+  const live = [...prev]
+    .reverse()
+    .find(m => m.role === 'assistant' && (m.tokensPerSecond != null || m.thinkingSeconds != null));
+  if (!live) return geladen;
+  let zielIdx = -1;
+  for (let i = geladen.length - 1; i >= 0; i--) {
+    if (geladen[i]?.role === 'assistant') {
+      zielIdx = i;
+      break;
+    }
+  }
+  if (zielIdx < 0) return geladen;
+  const kopie = [...geladen];
+  const ziel = kopie[zielIdx]!;
+  kopie[zielIdx] = {
+    ...ziel,
+    ...(live.tokensPerSecond != null ? { tokensPerSecond: live.tokensPerSecond } : {}),
+    ...(live.thinkingSeconds != null ? { thinkingSeconds: live.thinkingSeconds } : {}),
+  };
+  return kopie;
 }
 
 export interface ChatSettings {
@@ -1192,6 +1225,9 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
       let currentJobId: string | null = null;
       let streamDone = false;
+      // Plan 022 — Denk-Ticker: Startzeit der Denkphase (erstes thinking-Token),
+      // um beim thinking_end die Dauer für den „Nachgedacht · Ns"-Chip zu messen.
+      let thinkingStartMs: number | null = null;
       try {
         let streamError = false;
         let ragSources: DocumentSource[] = [];
@@ -1540,11 +1576,16 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
 
               // Token streaming
               if (data.type === 'thinking' && data.token) {
+                if (thinkingStartMs === null) thinkingStartMs = Date.now();
                 addTokenToBatch('thinking', data.token, assistantMessageIndex);
               }
 
               if (data.type === 'thinking_end') {
                 flushTokenBatch(assistantMessageIndex, true);
+                const thinkingSeconds =
+                  thinkingStartMs !== null
+                    ? Math.round((Date.now() - thinkingStartMs) / 1000)
+                    : undefined;
                 updateMessages(chatId, prev => {
                   const u = [...prev];
                   const cur = u[assistantMessageIndex];
@@ -1552,6 +1593,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                     u[assistantMessageIndex] = {
                       ...cur,
                       thinkingCollapsed: true,
+                      ...(thinkingSeconds != null ? { thinkingSeconds } : {}),
                     };
                   }
                   return u;
@@ -1565,6 +1607,19 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
               // Stream complete
               if (data.type === 'done' || data.done) {
                 flushTokenBatch(assistantMessageIndex, true);
+                // Plan 022 — Tokens/Sekunde des Laufs am Abschluss festhalten
+                // (Backend liefert sie im done-Event unter performance).
+                const tps = Number(data.performance?.tokens_per_second);
+                if (Number.isFinite(tps) && tps > 0) {
+                  updateMessages(chatId, prev => {
+                    const u = [...prev];
+                    const cur = u[assistantMessageIndex];
+                    if (cur) {
+                      u[assistantMessageIndex] = { ...cur, tokensPerSecond: tps };
+                    }
+                    return u;
+                  });
+                }
                 updateIsLoading(chatId, false);
                 setActiveJobIds(prev => {
                   const n = { ...prev };
@@ -1679,7 +1734,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                   .reverse()
                   .find(m => m.role === 'assistant');
                 if (lastDbAssistant?.content || lastDbAssistant?.thinking) {
-                  updateMessages(syncChatId, () => result.messages);
+                  updateMessages(syncChatId, prev => uebertrageLaufMetriken(prev, result.messages));
                 } else if (retriesLeft > 0) {
                   const id = setTimeout(() => {
                     untrackTimer(id);

@@ -6,17 +6,41 @@
  * Binärdateien und Übergrößen liefern kein `inhalt` — dann gibt es statt des
  * Editors einen Download-Hinweis.
  */
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Check, Code2, Download, Eye, Save } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronRight, Code2, Download, Eye, GitCompare, Save, Undo2 } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
+import { cn } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useReportTabDirty } from '@/hooks/useReportTabDirty';
+import { lineDiff, diffZusammenfassung } from '@/utils/lineDiff';
 import CodeMirrorEditor from './CodeMirrorEditor';
 import { spracheLabel } from './codeLanguage';
+
+/** Breadcrumb-Pfad über dem Editor (Plan 022): Ordnersegmente + Dateiname. */
+function Breadcrumbs({ filePath }: { filePath: string }) {
+  const teile = filePath.split('/').filter(Boolean);
+  return (
+    <nav
+      className="flex min-w-0 items-center gap-0.5 overflow-hidden text-ui-xs text-muted-foreground"
+      aria-label="Dateipfad"
+      data-testid="breadcrumbs"
+    >
+      {teile.map((t, i) => {
+        const letzte = i === teile.length - 1;
+        return (
+          <span key={i} className="flex min-w-0 items-center gap-0.5">
+            {i > 0 && <ChevronRight className="size-3 shrink-0 opacity-50" aria-hidden="true" />}
+            <span className={cn('truncate', letzte && 'font-medium text-foreground')}>{t}</span>
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
 
 // Der TipTap-WYSIWYG ist schwer — nur laden, wenn wirklich eine Markdown-Datei
 // in der Vorschau geöffnet wird.
@@ -58,6 +82,45 @@ const ROH_HTML_RE =
 
 function enthaeltRohesHtml(md: string): boolean {
   return ROH_HTML_RE.test(md);
+}
+
+/** Inline-Diff „vorher gegen jetzt" (Plan 022) — speist aus dem Snapshot-Stand. */
+function DiffPanel({ vorher, jetzt }: { vorher: string; jetzt: string }) {
+  const zeilen = useMemo(() => lineDiff(vorher, jetzt), [vorher, jetzt]);
+  const { plus, minus } = useMemo(() => diffZusammenfassung(zeilen), [zeilen]);
+  const sichtbar = zeilen.slice(0, 800);
+  return (
+    <div
+      className="max-h-64 shrink-0 overflow-auto border-b border-border bg-card font-mono text-ui-xs"
+      data-testid="diff-panel"
+    >
+      <div className="sticky top-0 border-b border-border bg-card px-3 py-1 text-muted-foreground">
+        Vorher → Jetzt · <span className="text-primary">+{plus}</span> /{' '}
+        <span className="text-destructive">−{minus}</span>
+      </div>
+      {sichtbar.map((z, i) => (
+        <div
+          key={i}
+          className={cn(
+            'whitespace-pre-wrap px-3 [overflow-wrap:anywhere]',
+            z.art === 'plus' && 'bg-primary/10 text-primary',
+            z.art === 'minus' && 'bg-destructive/10 text-destructive',
+            z.art === 'gleich' && 'text-muted-foreground/70'
+          )}
+        >
+          <span className="select-none opacity-60">
+            {z.art === 'plus' ? '+ ' : z.art === 'minus' ? '− ' : '  '}
+          </span>
+          {z.text || ' '}
+        </div>
+      ))}
+      {zeilen.length > 800 && (
+        <div className="px-3 py-1 text-muted-foreground/60">
+          … {zeilen.length - 800} weitere Zeilen ausgelassen
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ProjectFileTab({
@@ -226,6 +289,56 @@ export default function ProjectFileTab({
   const saveRef = useRef(save);
   saveRef.current = save;
 
+  // Undo/Diff (Plan 022): der Snapshot-Dienst sichert jeden Schreibschritt —
+  // Agent wie Editor. Hier fragen wir Anzahl + Vorher-Stand ab und bieten
+  // mehrstufiges „Rückgängig" plus einen Inline-Diff „vorher gegen jetzt".
+  const [versionAnzahl, setVersionAnzahl] = useState(0);
+  const [vorherInhalt, setVorherInhalt] = useState<string | null>(null);
+  const [diffOffen, setDiffOffen] = useState(false);
+  const [undoLaeuft, setUndoLaeuft] = useState(false);
+
+  const ladeVersionen = useCallback(async () => {
+    try {
+      const res = await api.get<{ data: { anzahl: number; vorherInhalt: string | null } | null }>(
+        `/projects/${projectId}/dateien/versionen?pfad=${encodeURIComponent(filePath)}`,
+        { showError: false }
+      );
+      setVersionAnzahl(res.data?.anzahl ?? 0);
+      setVorherInhalt(res.data?.vorherInhalt ?? null);
+    } catch {
+      setVersionAnzahl(0);
+      setVorherInhalt(null);
+    }
+  }, [api, projectId, filePath]);
+
+  // Beim Öffnen und nach jedem Speichern die Undo-Historie nachziehen.
+  useEffect(() => {
+    if (!loading) void ladeVersionen();
+  }, [loading, ladeVersionen, original]);
+
+  const undo = async () => {
+    // Kein stiller Datenverlust: bei ungespeicherten Änderungen im Editor NICHT
+    // rückgängig machen — der Server-Restore würde den Entwurf überschreiben.
+    if (dirty || undoLaeuft) return;
+    setUndoLaeuft(true);
+    try {
+      await api.post(`/projects/${projectId}/dateien/undo`, { pfad: filePath });
+      const res = await api.get<{ data: AblageInhalt }>(
+        `/projects/${projectId}/dateien/inhalt?pfad=${encodeURIComponent(filePath)}`,
+        { showError: false }
+      );
+      setMeta(res.data);
+      setOriginal(res.data.inhalt);
+      setDraft(res.data.inhalt ?? '');
+      await ladeVersionen();
+      toast.success('Änderung rückgängig gemacht');
+    } catch {
+      /* Toast kommt aus useApi */
+    } finally {
+      setUndoLaeuft(false);
+    }
+  };
+
   // Dezenter Auto-Save für Markdown (Plan 016): nach kurzer Tipp-Pause still
   // speichern — kein großer Knopf. Nur bei echter Änderung; der Vorschau-Editor
   // meldet Änderungen ohnehin erst nach echter Nutzer-Eingabe.
@@ -355,10 +468,12 @@ export default function ProjectFileTab({
     <div ref={wurzelRef} className="flex h-full min-h-0 flex-col" data-testid="project-file-tab">
       {/* Kopfzeile — einheitlich mit dem CodeViewer: Label links, Aktionen rechts. */}
       <div className="flex h-ui-header shrink-0 items-center justify-between gap-2 border-b border-border px-3">
-        <span className="min-w-0 truncate text-ui-xs font-medium text-muted-foreground">
-          {filePath}
-          <span className="ml-2 text-muted-foreground/60">{spracheLabel(endung)}</span>
-        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <Breadcrumbs filePath={filePath} />
+          <span className="shrink-0 text-ui-xs text-muted-foreground/60">
+            {spracheLabel(endung)}
+          </span>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           {hatVorschau && (
             <Button
@@ -424,6 +539,44 @@ export default function ProjectFileTab({
           </Button>
         </div>
       </div>
+
+      {/* Diff-/Undo-Leiste (Plan 022): mehrstufiges Rückgängig + Inline-Diff,
+          gespeist aus dem Snapshot-Dienst (Agent- wie Editor-Änderungen). */}
+      {versionAnzahl > 0 && (
+        <div
+          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-3 py-1 text-ui-xs"
+          data-testid="undo-leiste"
+        >
+          <span className="text-muted-foreground">
+            {versionAnzahl} Schritt{versionAnzahl === 1 ? '' : 'e'} rückgängig machbar
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={undo}
+            disabled={undoLaeuft || dirty}
+            title={dirty ? 'Erst speichern oder Änderungen verwerfen' : undefined}
+            data-testid="undo-button"
+          >
+            <Undo2 className="mr-1.5 size-3.5" aria-hidden="true" />
+            {undoLaeuft ? 'Setzt zurück …' : 'Rückgängig'}
+          </Button>
+          {vorherInhalt != null && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setDiffOffen(o => !o)}
+              data-testid="diff-toggle"
+            >
+              <GitCompare className="mr-1.5 size-3.5" aria-hidden="true" />
+              {diffOffen ? 'Diff ausblenden' : 'Änderungen'}
+            </Button>
+          )}
+        </div>
+      )}
+      {diffOffen && vorherInhalt != null && <DiffPanel vorher={vorherInhalt} jetzt={draft} />}
 
       <div className="min-h-0 flex-1 overflow-auto">
         {istHtml && ansicht === 'vorschau' ? (

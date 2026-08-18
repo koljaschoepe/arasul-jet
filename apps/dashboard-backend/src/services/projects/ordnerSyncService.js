@@ -90,7 +90,17 @@ const INDEXIERBAR = new Set([
 const MAX_INDEX_BYTES = 50 * 1024 * 1024; // wie Upload-Deckel der Ablage
 const MAX_SYNC_ENTRIES = 20000;
 const MAX_SYNC_DEPTH = 20;
-const VERSTECKT = new Set(['.git', 'node_modules', '__pycache__', '.venv', '.arasul']);
+const VERSTECKT = new Set([
+  '.git',
+  'node_modules',
+  '__pycache__',
+  '.venv',
+  '.arasul',
+  // Snapshot-/Undo-Speicher (Plan 022): NICHT in Wissensräume spiegeln oder
+  // indexieren — sonst würde interne Undo-Buchführung (inkl. früherer
+  // Dateistände) im RAG auffindbar und ein Geister-Wissensraum entstünde.
+  '.arasul-versions',
+]);
 
 /**
  * Systemordner NUR auf der obersten Ebene des Projektordners (Plan 014,

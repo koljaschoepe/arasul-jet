@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { DND_ABLAGE_TYPE } from './dndTypes';
 import useConfirm from '@/hooks/useConfirm';
 import { useToast } from '@/contexts/ToastContext';
 import {
@@ -123,6 +124,22 @@ export function TabBar() {
                     e.dataTransfer.effectAllowed = 'move';
                     // Nutzlast setzen (Firefox startet den Drag sonst nicht).
                     e.dataTransfer.setData('text/x-arasul-tab', String(index));
+                    // Plan 022 — VS-Code-Geste: einen Datei-Tab in einen
+                    // Ordner des Explorers ziehen verschiebt die Datei dorthin.
+                    // Dieselbe Ablage-Nutzlast, die der Explorer beim Verschieben
+                    // nutzt; der Ordner-Drop-Handler dort greift sie auf.
+                    if (tab.type === 'projektdatei' && tab.projectId && tab.filePath) {
+                      const name = tab.filePath.split('/').pop() ?? tab.filePath;
+                      e.dataTransfer.setData(
+                        DND_ABLAGE_TYPE,
+                        JSON.stringify({
+                          projectId: tab.projectId,
+                          pfad: tab.filePath,
+                          name,
+                          typ: 'datei',
+                        })
+                      );
+                    }
                   }}
                   onDragOver={e => {
                     if (ziehIndex.current === null) return; // Fremd-Drag ignorieren
