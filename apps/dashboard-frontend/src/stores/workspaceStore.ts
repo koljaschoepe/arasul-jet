@@ -273,6 +273,13 @@ interface WorkspaceState {
   activateTab: (id: string) => void;
   moveTab: (fromIndex: number, toIndex: number) => void;
   updateTabTitle: (id: string, title: string) => void;
+  /**
+   * Offene Projektdatei-Tabs einem Verschieben in der Ablage nachziehen
+   * (Tab-Drag / Explorer-Move). Ohne das zeigte der Tab nach dem Move auf den
+   * alten Pfad — Breadcrumb veraltet und Speichern/Neuladen liefe ins Leere.
+   * Trifft die Datei selbst (filePath === von) UND Kinder eines Ordner-Moves.
+   */
+  verschiebeProjektdatei: (projectId: string, von: string, nach: string) => void;
   /** Ungespeicherten-Zustand eines Tabs melden (Editor → Store). */
   setTabDirty: (id: string, dirty: boolean) => void;
   toggleSidebar: () => void;
@@ -524,6 +531,63 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set(state => ({
           tabs: state.tabs.map(t => (t.id === id ? { ...t, title } : t)),
         }));
+      },
+
+      verschiebeProjektdatei: (projectId, von, nach) => {
+        const { tabs, activeTabId, dirtyTabs } = get();
+        // Neuen Pfad eines betroffenen Tabs berechnen (null = nicht betroffen).
+        const zielPfad = (pfad: string | undefined): string | null => {
+          if (pfad == null) return null;
+          if (pfad === von) return nach;
+          if (pfad.startsWith(`${von}/`)) return `${nach}${pfad.slice(von.length)}`;
+          return null;
+        };
+        // 1. Bewegte Tabs bestimmen (alte Id → neuer Tab mit neuer Id).
+        const bewegt = new Map<string, WorkspaceTab>();
+        for (const t of tabs) {
+          if (t.type !== 'projektdatei' || t.projectId !== projectId) continue;
+          const neu = zielPfad(t.filePath);
+          if (neu == null) continue;
+          const neuerTab: WorkspaceTab = { ...t, filePath: neu };
+          neuerTab.id = tabId(neuerTab);
+          bewegt.set(t.id, neuerTab);
+        }
+        if (bewegt.size === 0) return;
+        // 2. Zusammenbauen. Ein bereits offener Tab, der GENAU auf dem Zielpfad
+        // eines bewegten Tabs sitzt (verwaist — seine Datei wurde überschrieben),
+        // würde dieselbe Id tragen → verwerfen, sonst zwei Tabs mit gleichem
+        // React-Key/gleicher Id.
+        const neueIds = new Set([...bewegt.values()].map(t => t.id));
+        let nextActive = activeTabId;
+        let nextDirty = dirtyTabs;
+        const klonDirty = () => {
+          if (nextDirty === dirtyTabs) nextDirty = new Set(dirtyTabs);
+        };
+        const nextTabs: WorkspaceTab[] = [];
+        for (const t of tabs) {
+          const neuerTab = bewegt.get(t.id);
+          if (neuerTab) {
+            if (activeTabId === t.id) nextActive = neuerTab.id;
+            if (dirtyTabs.has(t.id)) {
+              klonDirty();
+              nextDirty.delete(t.id);
+              nextDirty.add(neuerTab.id);
+            }
+            nextTabs.push(neuerTab);
+            continue;
+          }
+          // Verwaister Ziel-Tab: seine Id lebt auf dem bewegten Tab weiter, also
+          // fällt er hier weg (aktiver Zustand bleibt gültig — dieselbe Id).
+          if (neueIds.has(t.id)) {
+            if (dirtyTabs.has(t.id)) {
+              klonDirty();
+              nextDirty.delete(t.id);
+            }
+            continue;
+          }
+          nextTabs.push(t);
+        }
+        set({ tabs: nextTabs, activeTabId: nextActive, dirtyTabs: nextDirty });
       },
 
       setTabDirty: (id, dirty) => {

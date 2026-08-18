@@ -57,27 +57,45 @@ export function istChatModell(m: ModellAnzeige): boolean {
   return true;
 }
 
-/** Sieht der String wie eine rohe Ollama-/hf.co-Modell-Id aus (statt eines Namens)? */
+/**
+ * Sieht der String wie eine rohe Ollama-/hf.co-Modell-Id aus (statt eines
+ * Namens)? Ein Name mit Leerzeichen ist NIE eine rohe Id ("Qwen3.8 27B" bleibt
+ * unangetastet); sonst gelten Pfad-Schrägstrich ODER Ollama-`name:tag` als roh
+ * (z. B. "qwen3-coder:30b" — genau die Form, die der Direkt-Pull erzeugt).
+ */
 function istRoheId(s: string): boolean {
-  return /^hf\.co\//i.test(s) || /^ollama\//i.test(s) || (s.includes('/') && s.includes(':'));
+  if (/\s/.test(s)) {
+    return false;
+  }
+  return /^hf\.co\//i.test(s) || /^ollama\//i.test(s) || s.includes('/') || s.includes(':');
 }
 
 /**
  * Aus einer Ollama-/hf.co-Id einen lesbaren Namen ableiten, falls der Katalog
  * keinen sauberen Namen liefert — z. B.
- * "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS" → "Qwen3.8 27B".
+ * "hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS" → "Qwen3.8 27B",
+ * "qwen3-coder:30b" → "Qwen3 Coder 30B". Wörter werden groß angesetzt und eine
+ * Größenangabe (…B) aus dem Tag angehängt, damit die Anzeige zum Rest passt.
  */
 function humanisiereId(id: string): string {
   const ohnePrefix = id.replace(/^hf\.co\//i, '').replace(/^ollama\//i, '');
   const letzterTeil = ohnePrefix.split('/').pop() || ohnePrefix;
-  const ohneTag = letzterTeil.split(':')[0] || letzterTeil;
-  return (
-    ohneTag
-      .replace(/[-_]+/g, ' ')
-      .replace(/\bGGUF\b/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim() || id
-  );
+  const basis = letzterTeil.split(':')[0] || letzterTeil;
+  const tag = letzterTeil.includes(':') ? letzterTeil.slice(letzterTeil.indexOf(':') + 1) : '';
+  const groesse = /(\d+(?:\.\d+)?)\s*b\b/i.exec(tag);
+  const worte = basis
+    .replace(/[-_]+/g, ' ')
+    .replace(/\bGGUF\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1));
+  let label = worte.join(' ');
+  if (groesse) {
+    label += ` ${groesse[1]}B`;
+  }
+  return label || id;
 }
 
 /**
