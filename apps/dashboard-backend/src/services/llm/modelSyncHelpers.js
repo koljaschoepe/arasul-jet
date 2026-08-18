@@ -69,6 +69,32 @@ function istVisionModell(modelObj) {
   return /llava|vision|minicpm-v|paligemma/i.test(modelObj.name || '');
 }
 
+/**
+ * Plan 022 — Embedding-Modelle beim Auto-Import als solche erkennen. Sonst
+ * landen direkt gezogene Embedder (bge-m3, all-minilm, …) als `model_type='llm'`
+ * im Katalog und tauchen fälschlich im Chat-Modell-Picker auf.
+ */
+function istEmbeddingModell(modelObj) {
+  const familien = (modelObj.details && modelObj.details.families) || [];
+  if (familien.some(f => /bert|embed/i.test(String(f)))) {
+    return true;
+  }
+  return /(?:^|[-_/])(?:nomic-embed|bge-m3|bge-large|all-minilm|e5-|gte-)|embed(?:ding)?\b/i.test(
+    modelObj.name || ''
+  );
+}
+
+/** Modelltyp eines nur in Ollama vorhandenen Modells bestimmen. */
+function modellTypFuer(modelObj) {
+  if (istEmbeddingModell(modelObj)) {
+    return 'embedding';
+  }
+  if (istVisionModell(modelObj)) {
+    return 'vision';
+  }
+  return 'llm';
+}
+
 function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabilityCache }) {
   /**
    * Mark models as available that Ollama has (sync step 1)
@@ -260,7 +286,7 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
           sizeBytes,
           ramGb,
           kategorieFuerBytes(sizeBytes),
-          istVisionModell(modelObj) ? 'vision' : 'llm',
+          modellTypFuer(modelObj),
         ]
       );
       if (eingefuegt.rows.length === 0) {

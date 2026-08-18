@@ -150,6 +150,11 @@ async function snapshot(roots = [], deps = {}) {
         if (e.isSymbolicLink()) {
           continue;
         }
+        // Der Snapshot-/Undo-Speicher (Plan 022) ist kein Nutzer-Inhalt und darf
+        // im Änderungs-Abzug nicht als „geändert" auftauchen.
+        if (e.isDirectory() && e.name === '.arasul-versions') {
+          continue;
+        }
         const abs = path.join(dir, e.name);
         if (e.isDirectory()) {
           stapel.push(abs);

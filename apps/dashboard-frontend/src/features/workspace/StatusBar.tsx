@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Cpu, Download, FolderKanban, ChevronsUpDown, Wifi } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useApi } from '@/hooks/useApi';
+import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -108,9 +109,7 @@ export function StatusBar() {
 
   // Standardmodell = Gesprächsmodell für neue Chats: Embedding-/OCR-Modelle
   // (z. B. nomic-embed-text) sind installiert, aber hier keine sinnvolle Wahl.
-  const installedModels = (catalog ?? [])
-    .filter(isModelInstalled)
-    .filter(m => m.model_type !== 'embedding' && m.model_type !== 'ocr');
+  const installedModels = (catalog ?? []).filter(isModelInstalled).filter(istChatModell);
   const loadedModelId = loaded?.model_id ?? null;
 
   const setDefault = useMutation({
@@ -121,7 +120,7 @@ export function StatusBar() {
       qc.invalidateQueries({ queryKey: MEMORY_BUDGET_QUERY_KEY });
       qc.invalidateQueries({ queryKey: STORE_MODEL_STATUS_KEY });
       const m = installedModels.find(x => x.id === modelId);
-      toast.success(`Standardmodell: ${m?.name ?? modelId}`);
+      toast.success(`Standardmodell: ${m ? modellAnzeigeName(m) : modelId}`);
       setModelOpen(false);
     },
   });
@@ -171,12 +170,15 @@ export function StatusBar() {
   // obwohl ein Modell installiert ist.
   const installedModel = budget?.installedModel ?? null;
   const extraModels = loadedModels.length > 1 ? ` +${loadedModels.length - 1}` : '';
+  // Plan 022 — der geladene/installierte Modellname kommt roh von Ollama
+  // (z. B. "hf.co/…"); einheitlich über den Anzeige-Helfer säubern.
+  const ladeName = (n?: string | null) => modellAnzeigeName({ id: n || '', name: n });
   const modelLabel = hasModel
-    ? `${primaryModel.name}${extraModels} · KI-RAM ${toGb(budget?.usedMb ?? 0)}/${toGb(
+    ? `${ladeName(primaryModel.name)}${extraModels} · KI-RAM ${toGb(budget?.usedMb ?? 0)}/${toGb(
         budget?.totalBudgetMb ?? 0
       )} GB`
     : installedModel
-      ? `${installedModel.name} · bereit`
+      ? `${ladeName(installedModel.name)} · bereit`
       : 'kein Modell geladen';
 
   return (
@@ -233,7 +235,7 @@ export function StatusBar() {
               <div className="flex items-start justify-between gap-3">
                 <dt className="text-muted-foreground">Modelle im RAM</dt>
                 <dd className="text-right text-foreground">
-                  {loadedModels.map(m => `${m.name} (${toGb(m.ramMb)} GB)`).join(', ')}
+                  {loadedModels.map(m => `${ladeName(m.name)} (${toGb(m.ramMb)} GB)`).join(', ')}
                 </dd>
               </div>
             )}
@@ -292,7 +294,7 @@ export function StatusBar() {
                             isDefault ? 'font-semibold text-foreground' : 'text-foreground'
                           }`}
                         >
-                          {m.name}
+                          {modellAnzeigeName(m)}
                         </span>
                         {active && (
                           <span className="shrink-0 rounded bg-success/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-success">

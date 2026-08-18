@@ -32,6 +32,7 @@ vi.mock('../ActivityBar', () => ({ ActivityBar: () => <div /> }));
 vi.mock('../WorkspaceMenuBar', () => ({ WorkspaceMenuBar: () => <div /> }));
 vi.mock('../StatusBar', () => ({ StatusBar: () => <div /> }));
 vi.mock('../TabBar', () => ({ TabBar: () => <div /> }));
+vi.mock('../QuickOpen', () => ({ QuickOpen: () => null }));
 vi.mock('../TabContent', () => ({ TabContent: () => <div data-testid="mock-tabcontent" /> }));
 vi.mock('../explorer/ExplorerPanel', () => ({
   ExplorerPanel: () => <div data-testid="mock-explorer" />,

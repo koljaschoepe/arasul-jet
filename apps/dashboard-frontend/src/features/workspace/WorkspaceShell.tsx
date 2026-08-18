@@ -11,6 +11,7 @@ import type { TabThemeControls } from './TabContent';
 import { ActivityBar } from './ActivityBar';
 import { SidebarHost } from './SidebarHost';
 import { RightPanel } from './RightPanel';
+import { QuickOpen } from './QuickOpen';
 import OnboardingWizard from './OnboardingWizard';
 
 /**
@@ -211,6 +212,8 @@ export default function WorkspaceShell(props: TabThemeControls) {
         </Group>
       </div>
       <StatusBar />
+      {/* Datei-Schnellsuche (Strg/⌘+P) — global im Workspace (Plan 022). */}
+      <QuickOpen />
       {/* Geführter Erst-Start (erscheint einmal, localStorage-gated). */}
       <OnboardingWizard />
     </div>

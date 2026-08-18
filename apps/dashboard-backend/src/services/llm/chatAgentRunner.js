@@ -388,7 +388,16 @@ async function streamChatRound({
           if (data.done && !settled) {
             settled = true;
             cleanup();
-            resolve({ content, toolCalls });
+            // Plan 022 — Generierungs-Metriken der Runde (Ollama done-Chunk):
+            // eval_count = erzeugte Tokens, eval_duration = reine Generierzeit
+            // in Nanosekunden. Der Aufrufer summiert sie über alle Runden für
+            // die Tokens/Sekunde-Anzeige am Ende.
+            resolve({
+              content,
+              toolCalls,
+              evalCount: Number(data.eval_count) || 0,
+              evalDurationNs: Number(data.eval_duration) || 0,
+            });
           }
         }
       });
@@ -397,7 +406,7 @@ async function streamChatRound({
         if (!settled) {
           settled = true;
           cleanup();
-          resolve({ content, toolCalls });
+          resolve({ content, toolCalls, evalCount: 0, evalDurationNs: 0 });
         }
       });
     });
@@ -497,6 +506,18 @@ async function processAgentChatJob(ctx, job) {
   abbruch.signal.addEventListener('abort', () => {
     abgebrochen = true;
   });
+  // Plan 022 — Generierungs-Metriken über ALLE Modell-Runden summieren
+  // (Plan-Runde + Werkzeug-Runden), damit die Tokens/Sekunde am Ende den
+  // ganzen Agent-Lauf widerspiegeln, nicht nur die letzte Runde.
+  let evalTokensGesamt = 0;
+  let evalDauerNsGesamt = 0;
+  const metrikSammeln = ergebnis => {
+    if (!ergebnis) {
+      return;
+    }
+    evalTokensGesamt += Number(ergebnis.evalCount) || 0;
+    evalDauerNsGesamt += Number(ergebnis.evalDurationNs) || 0;
+  };
   // Sofort-Weg: die Abbruch-Route feuert registrierte AbortController direkt.
   if (typeof llmJobService.registerStream === 'function') {
     llmJobService.registerStream(jobId, abbruch);
@@ -534,6 +555,11 @@ async function processAgentChatJob(ctx, job) {
   const roleContextBase = {
     userId: job.user_id,
     roots,
+    // Plan 022 — Snapshots/Undo IMMER am Projekt-Wurzelordner verankern, auch
+    // wenn der Agent auf einen Unterordner gebunden ist (scoped). So teilen
+    // Agent- und Editor-Änderungen denselben Undo-Stapel je Datei (Schlüssel =
+    // projektrelativer Pfad).
+    snapshotRoot: wurzel,
     spaceIds,
     slug: 'chat-agent',
     // Subagenten dürfen denken, wenn ihr Modell es kann (Interview 2026-07-30).
@@ -907,6 +933,7 @@ async function processAgentChatJob(ctx, job) {
           signal: abbruch.signal,
         });
         denkenEnde();
+        metrikSammeln(planErgebnis);
         const plan = (planErgebnis.content || '').trim();
         await stepRecorder.abschliessen({ stepId: planStep.id, output: plan || '(kein Plan)' });
         if (plan) {
@@ -995,6 +1022,7 @@ async function processAgentChatJob(ctx, job) {
           signal: abbruch.signal,
         });
         denkenEnde();
+        metrikSammeln(rundenErgebnis);
       } catch (err) {
         if (toolsAktiv && istToolsNichtUnterstuetzt(err)) {
           // Modell kann keine Werkzeuge — eine werkzeuglose Runde ist der
@@ -1337,6 +1365,11 @@ async function processAgentChatJob(ctx, job) {
     }
   }
 
+  // Plan 022 — Tokens/Sekunde des gesamten Agent-Laufs aus den summierten
+  // Generierungs-Metriken (reine eval-Zeit, ohne Prompt-Verarbeitung).
+  const tokensProSekunde =
+    evalDauerNsGesamt > 0 ? Number(((evalTokensGesamt * 1e9) / evalDauerNsGesamt).toFixed(1)) : 0;
+
   service.notifySubscribers(jobId, {
     done: true,
     persisted,
@@ -1346,6 +1379,10 @@ async function processAgentChatJob(ctx, job) {
     agent: true,
     schritte,
     datei: dateien.length === 0 ? null : dateien.length === 1 ? dateien[0] : dateien,
+    performance: {
+      tokens: evalTokensGesamt,
+      tokens_per_second: tokensProSekunde,
+    },
     timestamp: new Date().toISOString(),
   });
 

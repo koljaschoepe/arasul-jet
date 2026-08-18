@@ -51,6 +51,7 @@ import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { DND_SCOPE_TYPE, DND_ABLAGE_TYPE } from '../dndTypes';
 import { usePins } from '../useWorkspaceContext';
 import { useActiveProject } from '../useProjects';
 import { VorlagenUpdateBanner } from '../VorlagenUpdateBanner';
@@ -58,14 +59,10 @@ import { cn } from '@/lib/utils';
 import { SidebarViewHeader } from '../sidebar/SidebarView';
 import { SidebarSearch } from '@/components/ui/SidebarSearch';
 
-/** Drag-Payload Explorer → Agent-Chat (Ordner als Wissens-Scope). */
-export const DND_SCOPE_TYPE = 'application/x-arasul-scope';
-
-/**
- * Drag-Payload Explorer → Chat-Composer (Ordner als Speicherziel,
- * Pfad-basiert). Payload: { projectId, pfad, name, typ }.
- */
-export const DND_ABLAGE_TYPE = 'application/x-arasul-ablage';
+// Drag-Payload-Typen liegen im gemeinsamen `../dndTypes` (Plan 022), damit auch
+// die Tab-Leiste sie nutzen kann (Tab → Ordner), ohne dieses Modul zu laden.
+// Re-Export erhält bestehende Importe (Tests/Chat).
+export { DND_SCOPE_TYPE, DND_ABLAGE_TYPE };
 
 export type DokumentStatus =
   | 'pending'

@@ -122,4 +122,60 @@ describe('TodoLeiste (feste Aufgaben-Leiste, Plan 019)', () => {
     const { container } = render(<TodoLeiste todos={[]} />);
     expect(container.firstChild).toBeNull();
   });
+
+  it('zeigt erledigte Aufgaben blau mit Haken, ohne Durchstreichen (Plan 022)', () => {
+    render(<TodoLeiste todos={[{ text: 'Quellen lesen', status: 'fertig' }]} />);
+    // Kein Durchstreichen mehr …
+    const zeile = screen.getByText('Quellen lesen').closest('li');
+    expect(zeile?.className).not.toContain('line-through');
+    expect(zeile?.className).not.toContain('text-success');
+    expect(zeile?.className).toContain('text-primary');
+    // … dafür ein Haken.
+    expect(screen.getByLabelText('erledigt')).toBeInTheDocument();
+  });
+});
+
+describe('Denk-Ticker (Plan 022)', () => {
+  it('läuft während des Streams als „Denkt nach" mit letzter Zeile', () => {
+    render(
+      <CompactMessage
+        isStreaming={true}
+        message={nachricht({
+          thinking: 'Erst prüfe ich A.\nJetzt prüfe ich B.',
+          hasThinking: true,
+          thinkingCollapsed: false,
+        })}
+      />
+    );
+    expect(screen.getByTestId('denk-ticker')).toHaveTextContent('Denkt nach');
+    expect(screen.getByTestId('denk-ticker-live')).toHaveTextContent('Jetzt prüfe ich B.');
+  });
+
+  it('zeigt nach Abschluss „Nachgedacht · Ns" und Tokens/Sekunde', () => {
+    render(
+      <CompactMessage
+        isStreaming={false}
+        message={nachricht({
+          content: 'Fertig.',
+          thinking: 'Ausführlicher Gedankengang.',
+          hasThinking: true,
+          thinkingCollapsed: true,
+          thinkingSeconds: 12,
+          tokensPerSecond: 42,
+        })}
+      />
+    );
+    expect(screen.getByTestId('denk-ticker')).toHaveTextContent('Nachgedacht · 12s');
+    expect(screen.getByTestId('tokens-pro-sekunde')).toHaveTextContent('42 tok/s');
+  });
+
+  it('zeigt Tokens/Sekunde auch ohne Denkphase', () => {
+    render(
+      <CompactMessage
+        isStreaming={false}
+        message={nachricht({ content: 'Antwort.', tokensPerSecond: 55 })}
+      />
+    );
+    expect(screen.getByTestId('tokens-pro-sekunde')).toHaveTextContent('55 tok/s');
+  });
 });

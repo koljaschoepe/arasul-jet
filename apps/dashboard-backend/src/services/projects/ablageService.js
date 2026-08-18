@@ -23,6 +23,7 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 const { resolveRealWithinRoots } = require('../flows/pathSafe');
+const snapshotService = require('../flows/snapshotService');
 const projectService = require('../rag/projectService');
 const {
   ValidationError,
@@ -48,7 +49,15 @@ const MAX_TREE_DEPTH = 12;
  * Einträge, die der Baum überspringt — Sync-Interna und Paket-Müllhalden.
  * `.arasul` ist die Marker-Datei des Ordner-Syncs (Lösch-Sicherung).
  */
-const VERSTECKT = new Set(['.git', 'node_modules', '__pycache__', '.venv', '.arasul']);
+const VERSTECKT = new Set([
+  '.git',
+  'node_modules',
+  '__pycache__',
+  '.venv',
+  '.arasul',
+  // Snapshot-/Undo-Speicher (Plan 022) — nie im Explorer/Baum zeigen.
+  '.arasul-versions',
+]);
 
 /**
  * Liefert den (angelegten) Ablage-Ordner eines Projekts.
@@ -329,9 +338,71 @@ async function writeFile(projectId, relPfad, inhalt, deps = {}) {
     throw new ValidationError('Pfad zeigt auf den Projektordner selbst');
   }
   await mkdirSicher(path.dirname(abs));
+  // Plan 022 — vor dem Speichern den alten Stand sichern (mehrstufiges Undo,
+  // gemeinsamer Stapel mit den Agent-Schreibschritten). Der Schlüssel ist der
+  // kanonische Pfad relativ zum Projektordner — identisch zu dem, den die
+  // Agent-Werkzeuge bilden, damit beide auf denselben Verlauf greifen.
+  const relKanon = path.relative(dir, abs).split(path.sep).join('/');
+  await sichereVorherKanon(dir, relKanon, abs);
   await fsp.writeFile(abs, text, 'utf8');
   const stat = await fsp.stat(abs);
   return { pfad: relPfad, groesse: stat.size, geaendert: stat.mtime.toISOString() };
+}
+
+/** Snapshot des Ist-Stands einer Datei (best effort) vor dem Überschreiben. */
+async function sichereVorherKanon(dir, relKanon, abs) {
+  let existierte = true;
+  let altInhalt = null;
+  try {
+    const st = await fsp.stat(abs);
+    if (!st.isFile()) {
+      return;
+    }
+    if (st.size <= snapshotService.MAX_SNAPSHOT_BYTES) {
+      altInhalt = await fsp.readFile(abs, 'utf8');
+    } else {
+      // Zu groß für eine Kopie → keine Undo-Stufe (statt Leer-Kopie).
+      return;
+    }
+  } catch {
+    existierte = false;
+  }
+  await snapshotService.sichereVorher(dir, relKanon, { existierte, altInhalt });
+}
+
+/**
+ * Undo-Verlauf einer Projektdatei (Plan 022): Anzahl Stufen + ob ein Text-
+ * Vorher-Stand für den Diff verfügbar ist.
+ */
+async function versionsInfo(projectId, relPfad, deps = {}) {
+  const dir = await projektOrdner(projectId, deps);
+  const abs = sicher(dir, relPfad);
+  const relKanon = path.relative(dir, abs).split(path.sep).join('/');
+  const info = await snapshotService.versionsInfo(dir, relKanon);
+  if (!info) {
+    return { pfad: relPfad, anzahl: 0, vorherInhalt: null };
+  }
+  const vorherInhalt = await snapshotService.letzterInhalt(dir, relKanon);
+  return { pfad: relPfad, anzahl: info.anzahl, letzte: info.letzte, vorherInhalt };
+}
+
+/**
+ * Macht den jüngsten Schreibschritt einer Projektdatei rückgängig (mehrstufig).
+ * Danach den Ordner-Sync anstoßen, damit der Wissens-Spiegel nachzieht.
+ */
+async function undoDatei(projectId, relPfad, deps = {}) {
+  const dir = await projektOrdner(projectId, deps);
+  if (beruehrtVersteckt(relPfad)) {
+    throw new ValidationError('Dieser Pfad ist für die Ablage gesperrt');
+  }
+  await pruefeRechnungsschutz(projectId, [relPfad], deps);
+  const abs = sicher(dir, relPfad);
+  const relKanon = path.relative(dir, abs).split(path.sep).join('/');
+  const res = await snapshotService.wiederherstellen(dir, relKanon);
+  if (!res.ok) {
+    throw new NotFoundError(res.grund || 'Keine frühere Version vorhanden');
+  }
+  return { pfad: relPfad, verbleibend: res.verbleibend, art: res.art };
 }
 
 /** Legt einen (verschachtelten) Ordner an. */
@@ -549,4 +620,6 @@ module.exports = {
   saveUpload,
   fuerDownload,
   fuerVorschau,
+  versionsInfo,
+  undoDatei,
 };

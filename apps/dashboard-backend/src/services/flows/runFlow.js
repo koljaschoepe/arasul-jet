@@ -283,9 +283,30 @@ async function runFlow(
   // Je aufgelöstem Projekt-Ordner {pfad, projectId, unterpfad} — die
   // Änderungs-Übersicht macht damit Dateien in der Ablage klickbar.
   const projektOrdnerMeta = [];
+  let aufgeloesteOrdner = await resolveOrdnerListe(ordnerListe, ordnerDeps, projektOrdnerMeta);
+  // Plan 022 — Zielordner-Bindung härten: bleibt sonst KEIN Arbeitsordner übrig
+  // (kein explizites Ziel, kein Kundenordner-Argument, kein im Flow deklarierter
+  // Ordner), fällt der Lauf auf das AKTIVE Projekt zurück, damit Ergebnisse einen
+  // festen Platz haben. Scheitert das (z. B. kein aktives Projekt), bleibt es
+  // beim bisherigen Verhalten (kein Arbeitsordner) statt den Lauf zu kippen.
+  if (aufgeloesteOrdner.length === 0 && !effektivesZiel) {
+    try {
+      const fallbackMeta = [];
+      aufgeloesteOrdner = await resolveOrdnerListe(
+        [PROJEKT_ORDNER_TOKEN],
+        ordnerDeps,
+        fallbackMeta
+      );
+      projektOrdnerMeta.push(...fallbackMeta);
+    } catch (err) {
+      logger.warn(
+        `Flow "${flowName}": aktives Projekt als Zielordner nicht verfügbar: ${err.message}`
+      );
+    }
+  }
   const flow = {
     ...geladen,
-    ordner: await resolveOrdnerListe(ordnerListe, ordnerDeps, projektOrdnerMeta),
+    ordner: aufgeloesteOrdner,
   };
 
   // Ausgabe-Vorgaben (Sprache, Tonalität, Länge, Gliederung, Stilvorlage) an
