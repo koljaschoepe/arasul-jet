@@ -25,7 +25,7 @@ from entity_extractor import extract_from_document
 
 from config import (
     PARENT_CHUNK_SIZE, CHILD_CHUNK_SIZE, CHILD_CHUNK_OVERLAP,
-    ENABLE_AI_ANALYSIS, EMBEDDING_MODEL, CHUNK_CONTEXT_MODE
+    ENABLE_AI_ANALYSIS, EMBEDDING_MODEL, CHUNK_CONTEXT_MODE, EMBEDDING_ENABLED
 )
 
 logger = logging.getLogger(__name__)
@@ -697,16 +697,20 @@ def _index_to_qdrant(
         # Bewusst an dieser Stelle: die 0-Chunk-Faelle sind oben schon per
         # `return 0` abgefangen, es wird also nie geloescht, ohne dass gleich
         # neue Chunks folgen.
-        try:
-            qdrant_manager.delete_document_vectors(doc_id)
-        except Exception as del_err:
-            # Nicht abbrechen: der Upsert danach stellt zumindest die aktuellen
-            # Chunks korrekt her. Aber sichtbar machen — es koennen Zombies
-            # zurueckbleiben.
-            logger.warning(
-                f"Alte Vektoren von {doc_id} nicht geloescht "
-                f"(moegliche Zombie-Chunks): {del_err}"
-            )
+        # Plan 021: bei abgeschaltetem Embedding ist Qdrant i. d. R. gar nicht
+        # erreichbar — dann das Vektor-Löschen überspringen (spart einen sicher
+        # scheiternden Netzaufruf + Warn-Spam pro Dokument).
+        if EMBEDDING_ENABLED:
+            try:
+                qdrant_manager.delete_document_vectors(doc_id)
+            except Exception as del_err:
+                # Nicht abbrechen: der Upsert danach stellt zumindest die aktuellen
+                # Chunks korrekt her. Aber sichtbar machen — es koennen Zombies
+                # zurueckbleiben.
+                logger.warning(
+                    f"Alte Vektoren von {doc_id} nicht geloescht "
+                    f"(moegliche Zombie-Chunks): {del_err}"
+                )
 
         # Save parent chunks to PostgreSQL and get their DB IDs
         parent_id_map = db.save_parent_chunks(doc_id, parent_chunks)
@@ -743,19 +747,42 @@ def _index_to_qdrant(
                 batch_ctx_texts = contextualized_texts[i:i + batch_size]
                 batch_orig_texts = original_texts[i:i + batch_size]
                 batch_children = parent.children[i:i + batch_size]
-                embeddings = embedding_client.get_batch_embeddings(
-                    batch_ctx_texts
-                )
+                if EMBEDDING_ENABLED:
+                    embeddings = embedding_client.get_batch_embeddings(
+                        batch_ctx_texts
+                    )
+                else:
+                    # Plan 021 (klassisches RAG aus): kein Embedding-Aufruf —
+                    # nur der Textlayer (document_chunks) wird geschrieben.
+                    embeddings = [None] * len(batch_children)
 
                 for child, orig_text, embedding in zip(
                     batch_children, batch_orig_texts, embeddings
                 ):
                     if embedding is None:
-                        logger.warning(
-                            f"Failed to get embedding for child chunk "
-                            f"{child.global_index} "
-                            f"(parent {parent.parent_index})"
-                        )
+                        if EMBEDDING_ENABLED:
+                            logger.warning(
+                                f"Failed to get embedding for child chunk "
+                                f"{child.global_index} "
+                                f"(parent {parent.parent_index})"
+                            )
+                            continue
+                        # Embedding bewusst aus (Plan 021): den Textlayer
+                        # trotzdem aufzeichnen (kein Qdrant-Point), damit der
+                        # agentische Pfad document_chunks weiter lesen kann.
+                        chunk_records.append({
+                            'id': qdrant_manager.get_chunk_id(
+                                doc_id, child.global_index
+                            ),
+                            'chunk_index': child.global_index,
+                            'child_index': child.child_index,
+                            'parent_chunk_id': parent_db_id,
+                            'text': orig_text,
+                            'char_start': child.char_start,
+                            'char_end': child.char_end,
+                            'word_count': child.word_count,
+                        })
+                        domain_texts.append(orig_text)
                         continue
 
                     point = qdrant_manager.build_point(
@@ -788,14 +815,17 @@ def _index_to_qdrant(
 
                     domain_texts.append(orig_text)
 
-        # Validate embedding completeness — detect silent failures
+        # Validate embedding completeness — detect silent failures.
+        # Plan 021: bei bewusst abgeschaltetem Embedding sind 0 Qdrant-Points
+        # ERWARTET (nur Textlayer) — dann ist das KEIN Fehler, sondern der
+        # agentische Normalfall; die Vollständigkeits-/Abbruch-Prüfung entfällt.
         skipped_chunks = total_children - len(all_points)
         # P6-17: expose skip stats to the caller so a partial index is recorded
         # as status 'partial' (searchable but flagged), not silently 'indexed'.
         if stats is not None:
-            stats['skipped_chunks'] = skipped_chunks
+            stats['skipped_chunks'] = 0 if not EMBEDDING_ENABLED else skipped_chunks
             stats['total_children'] = total_children
-        if skipped_chunks > 0:
+        if EMBEDDING_ENABLED and skipped_chunks > 0:
             skip_pct = (skipped_chunks / total_children * 100) if total_children else 0
             logger.error(
                 f"Document {doc_id}: {skipped_chunks}/{total_children} chunks "
@@ -817,8 +847,13 @@ def _index_to_qdrant(
                 f"Indexed {total_points} child chunks for document "
                 f"{doc_id} (dense + sparse)"
             )
+        elif not EMBEDDING_ENABLED:
+            logger.info(
+                f"Textlayer-only indexed {len(chunk_records)} chunks for "
+                f"document {doc_id} (Embedding aus — kein Qdrant)"
+            )
 
-        # Save child chunk records to PostgreSQL
+        # Save child chunk records to PostgreSQL (Textlayer — auch ohne Embedding).
         db.save_chunks(doc_id, chunk_records)
 
         # Update domain dictionary for spell correction
@@ -830,7 +865,10 @@ def _index_to_qdrant(
                     f"Domain dictionary update failed (non-critical): {e}"
                 )
 
-        return total_points
+        # „chunk_count" fürs Status-Flag: mit Embedding = Qdrant-Points; ohne
+        # Embedding = die geschriebenen Textchunks (sonst würde ein rein
+        # textindexiertes Dokument fälschlich als „failed" gelten).
+        return total_points if EMBEDDING_ENABLED else len(chunk_records)
 
     except Exception as e:
         logger.error(
