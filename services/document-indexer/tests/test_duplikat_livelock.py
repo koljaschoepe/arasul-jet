@@ -41,7 +41,7 @@ class _DB:
     def get_document_by_hash(self, _content_hash):
         if not self.treffer_nach_hash:
             return None
-        return {'id': 'doc-vorhanden', 'status': 'stored'}
+        return {'id': 'doc-vorhanden', 'status': 'stored', 'file_hash': 'alt'}
 
     def create_document(self, data):
         if self.create_wirft:
@@ -115,3 +115,25 @@ def test_neuer_inhalt_wird_weiterhin_angelegt():
     assert len(db.created) == 1
     assert db.created[0]['filename'] == 'neu.png'
     assert db.created[0]['content_hash']
+
+
+def test_bekannter_inhalt_traegt_den_file_hash_nach():
+    """Ohne Nachtrag haengt die Warteschlange trotz Fix weiter fest.
+
+    Der Scan-Lauf prueft billig ueber `get_document_by_file_hash`, BEVOR er
+    herunterlaedt. Passt der gespeicherte file_hash nicht zum Objekt, faellt es
+    jeden Zyklus durch, wird erneut geladen und belegt einen Platz im Deckel
+    `INDEXER_MAX_DOCS_PER_CYCLE`. Zehn solche Objekte genuegen, und nichts
+    Neues kommt mehr dran — genau so stand die Indexierung am 2026-08-18 bei
+    690 von 1014, obwohl die Duplikat-Ausnahme schon behoben war.
+    """
+    db = _DB()
+    idx = _indexer(db)
+
+    idx.process_new_document('uploads/logo-kopie.png', b'gleicher inhalt')
+
+    assert len(db.updates) == 1
+    doc_id, felder = db.updates[0]
+    assert doc_id == 'doc-vorhanden'
+    assert list(felder) == ['file_hash']
+    assert felder['file_hash'] != 'alt'
