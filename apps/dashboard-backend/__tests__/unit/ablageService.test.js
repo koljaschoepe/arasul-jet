@@ -63,6 +63,46 @@ describe('ablageService', () => {
     expect(pfade.indexOf('notizen')).toBeLessThan(pfade.indexOf('aaa.txt'));
   });
 
+  it('Budget-Deckel kürzt in der TIEFE, nie die Wurzel (Breitensuche)', async () => {
+    // Regression: vorher lief der Baum tiefensuchend über EIN gemeinsames
+    // Budget. Ein einziger voller Unterordner fraß es auf, und die Geschwister
+    // auf Ebene 1 — hier `Zzz-Ordner` und `zzz-wichtig.md` — kamen im Explorer
+    // nie an. Genau so ist ein realistisch großer Team-Ordner (>2000 Einträge)
+    // gebaut: oben wenige Ordner, die Masse liegt darunter.
+    const PROJEKT_GROSS = '99999999-8888-7777-6666-555555555555';
+    const wurzel = await ablage.projektOrdner(PROJEKT_GROSS, deps);
+    const voll = path.join(wurzel, 'Aaa-voll');
+    fs.mkdirSync(voll, { recursive: true });
+    for (let i = 0; i < ablage.MAX_TREE_ENTRIES + 100; i += 1) {
+      fs.writeFileSync(path.join(voll, `datei-${String(i).padStart(5, '0')}.txt`), 'x');
+    }
+    fs.mkdirSync(path.join(wurzel, 'Zzz-Ordner'), { recursive: true });
+    fs.writeFileSync(path.join(wurzel, 'zzz-wichtig.md'), '# wichtig');
+
+    const { eintraege, gekuerzt } = await ablage.listTree(PROJEKT_GROSS, deps);
+    const pfade = eintraege.map(e => e.pfad);
+
+    // Die Wurzel ist VOLLSTÄNDIG — das ist der Kern des Fixes.
+    expect(pfade).toContain('Aaa-voll');
+    expect(pfade).toContain('Zzz-Ordner');
+    expect(pfade).toContain('zzz-wichtig.md');
+    // Gekürzt wurde trotzdem, und der Deckel hält.
+    expect(gekuerzt).toBe(true);
+    expect(eintraege.length).toBeLessThanOrEqual(ablage.MAX_TREE_ENTRIES);
+    // Gekürzt wurde in der Tiefe: nicht alle Kinder des vollen Ordners sind da.
+    const kinder = pfade.filter(p => p.startsWith('Aaa-voll/'));
+    expect(kinder.length).toBeGreaterThan(0);
+    expect(kinder.length).toBeLessThan(ablage.MAX_TREE_ENTRIES + 100);
+  });
+
+  it('meldet gekuerzt=false, solange alles in das Budget passt', async () => {
+    const PROJEKT_KLEIN = '77777777-6666-5555-4444-333333333333';
+    await ablage.writeFile(PROJEKT_KLEIN, 'a/b/c.md', 'x', deps);
+    const { eintraege, gekuerzt } = await ablage.listTree(PROJEKT_KLEIN, deps);
+    expect(gekuerzt).toBe(false);
+    expect(eintraege.map(e => e.pfad)).toEqual(expect.arrayContaining(['a', 'a/b', 'a/b/c.md']));
+  });
+
   it('scopet den Baum auf einen Unterordner (startRel) mit relativen Pfaden (Plan 019)', async () => {
     await ablage.writeFile(PROJEKT, 'Kunde/vertrag.md', 'V', deps);
     await ablage.writeFile(PROJEKT, 'Kunde/unter/details.md', 'D', deps);
@@ -139,9 +179,7 @@ describe('ablageService', () => {
     await ablage.move(PROJEKT, 'a.txt', 'unter/b.txt', deps);
     expect((await ablage.readFile(PROJEKT, 'unter/b.txt', deps)).inhalt).toBe('1');
     await ablage.writeFile(PROJEKT, 'a.txt', '2', deps);
-    await expect(ablage.move(PROJEKT, 'a.txt', 'unter/b.txt', deps)).rejects.toThrow(
-      ConflictError
-    );
+    await expect(ablage.move(PROJEKT, 'a.txt', 'unter/b.txt', deps)).rejects.toThrow(ConflictError);
   });
 
   it('löscht Dateien und Ordner rekursiv, aber nie die Wurzel', async () => {
@@ -175,9 +213,9 @@ describe('ablageService', () => {
 
   it('move: lehnt Ordner-in-eigenen-Unterbaum sauber ab (kein roher EINVAL)', async () => {
     await ablage.createDir(PROJEKT, 'schachtel/innen', deps);
-    await expect(ablage.move(PROJEKT, 'schachtel', 'schachtel/innen/schachtel', deps)).rejects.toThrow(
-      ValidationError
-    );
+    await expect(
+      ablage.move(PROJEKT, 'schachtel', 'schachtel/innen/schachtel', deps)
+    ).rejects.toThrow(ValidationError);
     await expect(ablage.move(PROJEKT, 'schachtel', 'schachtel', deps)).rejects.toThrow(
       ValidationError
     );
@@ -217,7 +255,9 @@ describe('ablageService', () => {
 
   it('Schreiben/Anlegen unter einem Datei-Vorfahr → ValidationError (kein roher 500)', async () => {
     await ablage.writeFile(PROJEKT, 'einedatei', 'ich bin eine datei', deps);
-    await expect(ablage.createDir(PROJEKT, 'einedatei/unter', deps)).rejects.toThrow(ValidationError);
+    await expect(ablage.createDir(PROJEKT, 'einedatei/unter', deps)).rejects.toThrow(
+      ValidationError
+    );
     await expect(ablage.writeFile(PROJEKT, 'einedatei/unter.txt', 'x', deps)).rejects.toThrow(
       ValidationError
     );
@@ -247,8 +287,7 @@ describe('ablageService', () => {
       db: {
         query: jest.fn(async (_sql, params) => {
           const [, rel, prefix] = params;
-          const treffer =
-            rel === 'Rechnungen/RE-2026-00001.pdf' || prefix === 'Rechnungen/%';
+          const treffer = rel === 'Rechnungen/RE-2026-00001.pdf' || prefix === 'Rechnungen/%';
           return { rows: treffer ? [{ nummer: 'RE-2026-00001' }] : [] };
         }),
       },
@@ -256,7 +295,9 @@ describe('ablageService', () => {
 
     it('write/remove/move/upload/createDir werfen ForbiddenError für eine Rechnung', async () => {
       const p = 'Rechnungen/RE-2026-00001.pdf';
-      await expect(ablage.writeFile(PROJEKT, p, 'x', schutzDeps)).rejects.toThrow(/schreibgeschützt/);
+      await expect(ablage.writeFile(PROJEKT, p, 'x', schutzDeps)).rejects.toThrow(
+        /schreibgeschützt/
+      );
       await expect(ablage.remove(PROJEKT, p, schutzDeps)).rejects.toThrow(/schreibgeschützt/);
       await expect(ablage.move(PROJEKT, p, 'woanders.pdf', schutzDeps)).rejects.toThrow(
         /schreibgeschützt/
