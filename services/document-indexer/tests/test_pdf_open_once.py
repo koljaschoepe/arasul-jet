@@ -120,6 +120,11 @@ def _install_stubs():
 
 _install_stubs()
 
+# Dieser Test braucht das ECHTE document_parsers (er prueft dessen
+# pdfplumber-Aufrufe). conftest.py legt fuer die uebrigen Tests einen Stub
+# unter demselben Namen ab — den hier gezielt verwerfen, sonst haengt es an
+# der Dateireihenfolge, ob dieser Test etwas Echtes misst.
+sys.modules.pop("document_parsers", None)
 import document_parsers  # noqa: E402
 
 

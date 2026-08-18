@@ -128,11 +128,18 @@ def test_partial_document_not_reprocessed():
     result = idx.process_new_document("uploads/report.txt", b"hello world")
 
     assert result == "doc-1"
-    # Terminal: no reprocessing, no status flip to 'pending', no record rewrite,
-    # no new record created.
+    # Terminal: no reprocessing, no status flip to 'pending', no new record.
     assert idx._reindex_calls == []
     assert db.status_updates == []
-    assert db.updates == []
+    # Der EINZIGE erlaubte Schreibzugriff ist das Nachtragen des file_hash —
+    # ein Vorfilter, damit der naechste Zyklus dieses Dokument billig
+    # ueberspringt. Frueher stand hier `== []`; die Erwartung ist veraltet,
+    # seit der Backfill dazukam (aufgefallen erst 2026-08-18, weil diese
+    # Testdatei sich lange gar nicht mehr einsammeln liess).
+    assert len(db.updates) == 1
+    doc, felder = db.updates[0]
+    assert doc == "doc-1"
+    assert list(felder) == ["file_hash"]
     assert db.created == []
 
 

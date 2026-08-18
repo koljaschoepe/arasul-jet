@@ -131,11 +131,19 @@ class _EmbeddingClient:
         return [[0.1, 0.2, 0.3] for _ in texts]
 
 
-def _index(qdrant, db, n_children, doc_id="doc-1"):
-    """Treibt _index_to_qdrant mit genau ``n_children`` Kind-Chunks."""
+def _index(qdrant, db, n_children, doc_id="doc-1", parents=None):
+    """Treibt _index_to_qdrant mit genau ``n_children`` Kind-Chunks.
+
+    ``parents`` erlaubt es, die Parent-Liste komplett vorzugeben — insbesondere
+    die LEERE Liste. Vorher setzte diese Funktion den Chunker bedingungslos auf
+    ``[_FakeParent(0, n_children)]`` und ueberschrieb damit still den Stub, den
+    der Aufrufer gerade gesetzt hatte; der Fall „das Chunking liefert gar
+    nichts" war so gar nicht pruefbar.
+    """
     original_chunker = dp.chunk_text_hierarchical
     original_ctx = dp.contextualize_chunk
-    dp.chunk_text_hierarchical = lambda *a, **k: [_FakeParent(0, n_children)]
+    fake_parents = [_FakeParent(0, n_children)] if parents is None else parents
+    dp.chunk_text_hierarchical = lambda *a, **k: fake_parents
     dp.contextualize_chunk = lambda chunk_text, *a, **k: chunk_text
     try:
         return dp._index_to_qdrant(
@@ -191,12 +199,9 @@ def test_kein_loeschen_wenn_keine_chunks_entstehen():
     qdrant = _RecordingQdrant()
     qdrant.points = {"doc-1:0", "doc-1:1"}
 
-    original_chunker = dp.chunk_text_hierarchical
-    dp.chunk_text_hierarchical = lambda *a, **k: []
-    try:
-        assert _index(qdrant, _FakeDB(), n_children=0) == 0
-    finally:
-        dp.chunk_text_hierarchical = original_chunker
+    # parents=[] == „der Chunker hat NICHTS geliefert". Der aeussere
+    # Chunker-Stub von frueher wurde von _index sofort wieder ueberschrieben.
+    assert _index(qdrant, _FakeDB(), n_children=0, parents=[]) == 0
 
     assert "delete" not in qdrant.calls
     assert qdrant.points == {"doc-1:0", "doc-1:1"}
