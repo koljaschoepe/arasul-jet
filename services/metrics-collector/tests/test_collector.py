@@ -32,23 +32,34 @@ class TestMetricsCollector:
         assert 'free' in disk
         assert 'total' in disk
         assert 'percent' in disk
-        # Allow for small rounding errors in disk usage calculation
-        assert abs((disk['used'] + disk['free']) - disk['total']) < 1000000  # Within 1MB
+        # used + free ist auf ext4 & Co. KLEINER als total: ein Teil der
+        # Bloecke ist fuer root reserviert und zaehlt in keinen der beiden
+        # Werte. Frueher stand hier „Differenz < 1 MB"; auf dem CI-Runner sind
+        # es 16 MB, und das ist voellig normal — die Erwartung war falsch, nicht
+        # der Code (der reicht psutil.disk_usage roh durch).
+        assert disk['total'] > 0
+        assert disk['used'] + disk['free'] <= disk['total']
         assert 0 <= disk['percent'] <= 100
 
-    @patch('collector.psutil.sensors_temperatures')
-    def test_get_temperature(self, mock_temps, collector):
-        mock_temps.return_value = {
-            'thermal-fan-est': [MagicMock(current=65.0)]
-        }
-        temp = collector.get_temperature()
-        assert temp == 65.0
+    def test_get_temperature(self, collector, tmp_path):
+        """Liest die Thermal-Zone und rechnet Milligrad in Grad um.
 
-    @patch('collector.psutil.sensors_temperatures')
-    def test_get_temperature_fallback(self, mock_temps, collector):
-        mock_temps.return_value = {}
-        temp = collector.get_temperature()
-        assert temp == 0.0
+        Frueher mockte dieser Test `psutil.sensors_temperatures` — das benutzt
+        `get_temperature` schon lange nicht mehr (es liest eine sysfs-Zone,
+        ersatzweise NVML). Der Mock lief also ins Leere und der Test verglich
+        die echte Runner-Temperatur (0.0) mit 65.0.
+        """
+        zone = tmp_path / "temp"
+        zone.write_text("65000\n")
+
+        with patch.object(collector, '_find_gpu_thermal_path', return_value=str(zone)):
+            assert collector.get_temperature() == 65.0
+
+    def test_get_temperature_fallback(self, collector):
+        """Weder Thermal-Zone noch NVML -> ehrliche 0.0 statt Raterei."""
+        with patch.object(collector, '_find_gpu_thermal_path', return_value=None):
+            collector.nvml_available = False
+            assert collector.get_temperature() == 0.0
 
 
 class TestDatabaseWriter:
@@ -77,7 +88,18 @@ class TestDatabaseWriter:
         db_writer.write_metrics(metrics)
 
         assert db_writer.get_connection.called
-        assert mock_cursor.execute.call_count == 5
+        # Sechs Zeitreihen: cpu, ram, swap, gpu, temperature, disk.
+        # Frueher stand hier 5 — swap kam spaeter dazu und niemand sah es,
+        # weil der CI-Schritt Fehlschlaege verschluckte.
+        assert mock_cursor.execute.call_count == 6
+        tabellen = [
+            aufruf.args[0].split('INSERT INTO ')[1].split(' ')[0]
+            for aufruf in mock_cursor.execute.call_args_list
+        ]
+        assert tabellen == [
+            'metrics_cpu', 'metrics_ram', 'metrics_swap',
+            'metrics_gpu', 'metrics_temperature', 'metrics_disk',
+        ]
         assert db_writer.release_connection.called
 
     def test_get_pool_stats(self, db_writer):
