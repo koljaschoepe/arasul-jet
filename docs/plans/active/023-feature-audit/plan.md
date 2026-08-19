@@ -6,6 +6,20 @@
 >
 > Stand: 2026-08-19. Umfang: elf Phasen, 61 Aufgaben, geschätzt 198 Stunden.
 
+## Stand
+
+| Phase                                 | Stand                                  | Belege                                                                                               |
+| ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                         |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                           |
+| C bis K                               | offen                                  |                                                                                                      |
+
+Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
+`scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
+Sie hat drei Fehler gefunden, die kein Testlauf gesehen hätte, darunter zwei,
+die die Stufe „Auslieferungszustand" wertlos gemacht hätten.
+
 ## Wozu dieser Plan da ist
 
 Arasul ist keine Sammlung von Werkzeugen mehr, sondern eine Entwicklungsumgebung.
@@ -70,7 +84,7 @@ Frontend sein. Das ist Phase H, nicht ein Neubau.
 
 ---
 
-# Phase A, Fundament: Entscheidungen und Zusagen
+# Phase A, Fundament: Entscheidungen und Zusagen (fertig)
 
 Geschätzt 10 Stunden. Kein Produktcode. Diese Phase entfernt eine Haftung und
 muss vor dem ersten Partnergespräch fertig sein.
@@ -128,7 +142,7 @@ MinIO mit Arasuls Root-Zugangsdaten, diese Zugangsdaten werden danach gewechselt
 
 ---
 
-# Phase S, Sicherung wiederherstellbar machen
+# Phase S, Sicherung wiederherstellbar machen (fertig)
 
 Geschätzt 14 Stunden. Nicht im ursprünglichen Plan. Aufgenommen am 19.08.2026,
 weil beim Prüfen einer einzigen AVV-Zeile in Phase A herauskam, dass Gate G6
@@ -254,7 +268,7 @@ die Datei schreibt und die Crontab dieselbe Ausgabe noch einmal umleitet. Bei
 
 ---
 
-# Phase B, Fundament: Aufräumen und Auslieferungszustand
+# Phase B, Fundament: Aufräumen und Auslieferungszustand (fertig)
 
 Geschätzt 22 Stunden. Nichts Neues, nur weniger. Diese Phase bestimmt, wie
 teuer jede spätere Phase wird.
@@ -308,6 +322,15 @@ erklären, wie man den ersten Eintrag anlegt.
 **Abnahme:** Nach einem Werksreset sind Erweiterungskatalog, Flow-Liste und
 n8n-Übersicht leer und zeigen jeweils einen Einstieg. Behebt F-09, F-12, F-16.
 
+**Erledigt am 20.08.2026** (#419). Der Start legte fünf Beispiel-Flows an;
+aufgefallen ist das erst in der Abnahme von B5, weil der Flow-Ordner nach dem
+Reset leer war und nach dem Neustart wieder fünf Dateien enthielt.
+
+E6 wörtlich genommen hätte den Zweck des Geräts getroffen: `erweiterung` und
+`execute` treiben den Erweiterungs-Baukasten. Aufgelöst ohne Abstrich an E6:
+nichts wird angelegt, alles wird angeboten. Die fünf stehen im Anlege-Dialog als
+Startpunkt, angelegt wird beim Speichern.
+
 ## B5 Werksreset
 
 Es gibt keinen. Für ein Gerät, das ausgeliefert und zurückgenommen wird, ist das
@@ -321,6 +344,21 @@ mit Eingabe des Gerätenamens.
 **Abnahme:** Werksreset über die Oberfläche ausgelöst, danach entspricht der
 Zustand B4. Ein Neustart überlebt das Ergebnis. Behebt F-36.
 
+**Erledigt am 19./20.08.2026** (#417, #418, #420, #422). Nachgewiesen auf dem
+Prüfstand mit `scripts/test/werksreset-abnahme.sh`, 18 von 18 Punkten. Drei
+Befunde kamen erst durch die Abnahme, keiner davon aus einem Testlauf:
+
+1. `ADMIN_PASSWORD` steht **zweimal** in der `.env`, und der Schreiber ersetzte
+   nur das erste Vorkommen. dotenv nimmt das spätere.
+2. Dasselbe Passwort kommt zusätzlich als Docker-Secret herein, das der Reset
+   nicht anfassen kann. Gelöst über den Merker `arasul.geraet`, der den Reset
+   überlebt und `bootstrap.js` davon abhält, den alten Zugang neu anzulegen.
+3. Das Migrationsbuch stand je nach `search_path` mal in `public`, mal in
+   `arasul`. Behoben in #421, der Rest als R29 im Register.
+
+Ohne Punkt 1 und 2 hätte sich ein zurückgegebenes Gerät mit dem alten Passwort
+weiter öffnen lassen.
+
 ## B6 Gedankenstriche raus, Anrede neutral
 
 Ein Durchgang über Oberfläche, Fehlermeldungen, Dokumentation und Kommentare.
@@ -331,6 +369,12 @@ Danach eine Prüfung im Testlauf, die neue Gedankenstriche in Oberflächentexten
 meldet.
 
 **Abnahme:** Die Prüfung läuft in der CI und ist grün. Behebt F-20.
+
+**Erledigt am 20.08.2026** (#423). 273 Stellen, davon 82 in Texten, die ein
+Kunde liest. `scripts/test/gedankenstriche.py` hält es. Kommentare bleiben außen
+vor, ein alleinstehender Strich als Platzhalter für „kein Wert" auch. Die Anrede
+ist an 16 Stellen von Sie auf neutral oder Du gezogen; das Kundenhandbuch behält
+sein Sie, das ist ein eigener Durchgang und gehört in Phase K.
 
 ## B7 Englische Beschriftungen raus
 
@@ -343,6 +387,15 @@ Modelle und Erweiterungen bekommen außerdem getrennte Tabs mit eigenem Titel.
 
 **Abnahme:** Ein Durchlauf durch alle Bildschirme findet kein englisches Wort in
 der Oberfläche außer Eigennamen. Behebt F-03, F-08, F-10, F-23.
+
+**Erledigt am 20.08.2026** (#424). Aus dem einen Tab „Extensions" sind zwei
+geworden, `modelle` und `erweiterungen`, jeder mit eigenem Titel und Pfad. Ein
+gespeicherter `store`-Tab wird beim Laden umgeschrieben statt verworfen.
+
+Beim Aufteilen ist ein Fehler entstanden, den erst der Review gefunden hat: der
+Routen-Schlüssel kam aus dem Tab-Typ statt aus dem Routennamen, damit wären
+beide Tabs dauerhaft leer geblieben. Ursache war ein Testaufbau, der die
+Verdrahtung übersprang. Der neue Test geht durch `FeatureTabHost`.
 
 ---
 
