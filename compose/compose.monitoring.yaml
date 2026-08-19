@@ -177,15 +177,32 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    # Plan 023 S7. Vorher galt `partial_failure` hier als gesund und der
+    # Wiederherstellungstest wurde gar nicht angesehen. Ergebnis: der Dienst
+    # meldete sieben Tage durchgehend `healthy`, waehrend jede Nacht
+    # `partial_failure` geschrieben wurde und der Test seit dem 16.08.2026
+    # fehlschlug. Ein Healthcheck, der nur prueft ob crond laeuft, prueft nichts.
     healthcheck:
       test:
         - CMD-SHELL
         - |
           pgrep crond > /dev/null || exit 1
           REPORT="${BACKUP_REPORT_PATH:-/backups/backup_report.json}"
-          [ -f "$$REPORT" ] || exit 0
-          [ $$(( $$(date +%s) - $$(stat -c %Y "$$REPORT") )) -lt 90000 ] || exit 1
-          grep -qE '"status": *"(completed|partial_failure)"' "$$REPORT" || exit 1
+          MARKE="/backups/.dienst_gestartet"
+          if [ ! -f "$$REPORT" ]; then
+            # Kein Bericht ist nur direkt nach dem Start in Ordnung.
+            [ ! -f "$$MARKE" ] && exit 0
+            [ $$(( $$(date +%s) - $$(stat -c %Y "$$MARKE") )) -lt 93600 ] || exit 1
+            exit 0
+          fi
+          [ $$(( $$(date +%s) - $$(stat -c %Y "$$REPORT") )) -lt 93600 ] || exit 1
+          grep -q '"status": *"completed"' "$$REPORT" || exit 1
+          DRILL="/backups/restore_drill_report.json"
+          if [ -f "$$DRILL" ]; then
+            # Der Test laeuft woechentlich; 8 Tage Toleranz, dann muss er da sein.
+            [ $$(( $$(date +%s) - $$(stat -c %Y "$$DRILL") )) -lt 691200 ] || exit 1
+            grep -q '"status": *"ok"' "$$DRILL" || exit 1
+          fi
       interval: 5m
       timeout: 10s
       retries: 2
