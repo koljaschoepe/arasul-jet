@@ -89,7 +89,11 @@ services:
       DOCKER_HOST: tcp://docker-proxy:2375
       DOCKER_NETWORK: arasul-platform_arasul-backend
     volumes:
-      - ../.env:/arasul/config/.env
+      # Sechste Trennung fuer den Pruefstand (siehe compose/pruefstand.vars):
+      # der Werksreset SCHREIBT in diese Datei, er entwertet ADMIN_PASSWORD.
+      # Ohne eigene Datei wuerde ein Reset auf dem Pruefstand das Erstpasswort
+      # des Normalbetriebs mit entwerten.
+      - ${ENV_DATEI:-../.env}:/arasul/config/.env
       - ../config:/config:ro
       # JetPack-Version: dpkg-query fragt ein HOST-Paket ab und schlaegt im
       # Container immer fehl. Ohne diesen Mount zeigt die Einstellungsseite

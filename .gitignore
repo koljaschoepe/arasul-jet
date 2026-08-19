@@ -99,3 +99,4 @@ apps/*/test-results.json
 # Pruefstand (Plan 023 B5): eigener Datentopf, nie eingecheckt
 data-pruefstand/
 logs-pruefstand/
+.env.pruefstand
