@@ -286,6 +286,15 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
 
   const nebenwirkungen = await raeumeUmsysteme({ stufe, modelleLoeschen });
 
+  if (stufe === 'auslieferung') {
+    // `admin_users` ist leer, aber `requireAuth` haelt jede Identitaet bis zu
+    // 60 Sekunden im Speicher. Ohne diese Zeile kaeme die Sitzung, die den
+    // Reset ausgeloest hat, danach noch eine Minute lang durch, gegen eine
+    // Datenbank ohne einen einzigen Administrator. Genau den Zustand soll die
+    // Stufe herstellen.
+    require('../../middleware/auth').clearUserCache();
+  }
+
   systemSettingsService
     .reload()
     .catch(err => logger.warn(`[werksreset] Einstellungen nicht neu geladen: ${err.message}`));
@@ -417,7 +426,9 @@ const WERKSWERT_RE =
   /^(-?\d+(\.\d+)?|true|false|NULL|'[^']*'(::[a-zA-Z_ ]+(\[\])?)?|now\(\)|CURRENT_TIMESTAMP)$/i;
 
 function werkswert(vorgabe) {
-  if (vorgabe === null || vorgabe === undefined) {return 'NULL';}
+  if (vorgabe === null || vorgabe === undefined) {
+    return 'NULL';
+  }
   const wert = String(vorgabe).trim();
   if (!WERKSWERT_RE.test(wert)) {
     logger.warn(

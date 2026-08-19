@@ -17,6 +17,11 @@ vi.mock('../../../hooks/useApi', () => ({
   useApi: () => ({ get, post, put: vi.fn(), patch: vi.fn(), del: vi.fn(), request: vi.fn() }),
 }));
 
+const logout = vi.fn();
+vi.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ logout, user: { username: 'kolja' }, isAuthenticated: true }),
+}));
+
 vi.mock('../../../contexts/ToastContext', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
 }));
@@ -39,6 +44,7 @@ const VORSCHAU = {
 beforeEach(() => {
   get.mockReset();
   post.mockReset();
+  logout.mockReset();
   get.mockResolvedValue(VORSCHAU);
   post.mockResolvedValue({ stufe: 'inhalte', zeilenGesamt: 412, dauerMs: 900, tabellen: { a: 1 } });
 });
@@ -144,4 +150,34 @@ test('gibt dem Reset mehr Zeit als die üblichen 30 Sekunden', async () => {
   await nutzer.click(screen.getByRole('button', { name: /jetzt ausführen/i }));
 
   expect(post.mock.calls[0]?.[2]).toHaveProperty('signal');
+});
+
+/**
+ * Nach dem Auslieferungszustand gibt es keinen Zugang mehr. Ein Tab, der
+ * weiterhin angemeldet aussieht, waere genau die Luege, die dieser Reset
+ * beseitigen soll. Die Sitzung im Backend faellt ohnehin, hier faellt sie
+ * sichtbar.
+ */
+test('meldet nach dem Auslieferungszustand ab, nach Inhalten nicht', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const nutzer = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  post.mockResolvedValue({
+    stufe: 'auslieferung',
+    zeilenGesamt: 90,
+    dauerMs: 1200,
+    tabellen: { a: 1 },
+  });
+  get.mockResolvedValue({ ...VORSCHAU, stufe: 'auslieferung' });
+
+  render(<Werksreset />);
+  await nutzer.click(screen.getByRole('button', { name: /Auslieferungszustand/i }));
+  await nutzer.click(screen.getByRole('button', { name: /Vorschau anzeigen/i }));
+  await nutzer.type(await screen.findByLabelText(/Gerätenamen eintippen/i), 'orin-vorfuehrer');
+  await nutzer.click(screen.getByRole('button', { name: /jetzt ausführen/i }));
+
+  await waitFor(() => expect(post).toHaveBeenCalled());
+  expect(logout).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(7000);
+  expect(logout).toHaveBeenCalled();
+  vi.useRealTimers();
 });

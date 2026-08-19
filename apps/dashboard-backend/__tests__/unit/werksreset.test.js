@@ -46,6 +46,8 @@ jest.mock('../../src/services/documents/qdrantService', () => ({
   deleteAllVectors: jest.fn(),
 }));
 
+jest.mock('../../src/middleware/auth', () => ({ clearUserCache: jest.fn() }));
+
 const db = require('../../src/database');
 const werksreset = require('../../src/services/werksreset/werksreset');
 const { INHALTE, AUSLIEFERUNG, MODELLE, BLEIBT } = require('../../src/services/werksreset/tabellen');
@@ -287,6 +289,7 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     docker.restartContainer.mockResolvedValue(true);
     minio.listAllObjects.mockResolvedValue([]);
     qdrant.deleteAllVectors.mockResolvedValue({ entfernt: 'alle' });
+    require('../../src/middleware/auth').clearUserCache.mockClear();
   });
 
   test('Auslieferung entwertet das Erstpasswort und setzt n8n neu auf', async () => {
@@ -302,6 +305,10 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     expect(clientAbfragen).toContain('DROP SCHEMA IF EXISTS n8n CASCADE');
     expect(clientAbfragen).toContain('CREATE SCHEMA n8n');
     expect(docker.restartContainer).toHaveBeenCalledWith('n8n');
+    // admin_users ist leer, aber requireAuth haelt Identitaeten bis zu 60 s im
+    // Speicher. Ohne das Leeren kaeme die ausloesende Sitzung danach noch eine
+    // Minute lang durch, gegen eine Datenbank ohne einen Administrator.
+    expect(require('../../src/middleware/auth').clearUserCache).toHaveBeenCalled();
     expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/flows');
     expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/extensions');
   });
@@ -315,6 +322,7 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     expect(envManager.updateEnvVariable).not.toHaveBeenCalled();
     expect(clientAbfragen.some(s => s.includes('DROP SCHEMA'))).toBe(false);
     expect(docker.restartContainer).not.toHaveBeenCalled();
+    expect(require('../../src/middleware/auth').clearUserCache).not.toHaveBeenCalled();
     expect(bericht.ordner.map(o => o.pfad)).not.toContain('/arasul/flows');
     expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/projects');
   });

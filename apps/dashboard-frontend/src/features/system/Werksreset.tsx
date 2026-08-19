@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/shadcn/label';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { cn } from '@/lib/utils';
 import { useApi } from '../../hooks/useApi';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 
 /**
@@ -104,6 +105,7 @@ const STUFEN: { id: Stufe; titel: string; text: string }[] = [
 export function Werksreset() {
   const api = useApi();
   const toast = useToast();
+  const { logout } = useAuth();
 
   const [stufe, setStufe] = useState<Stufe>('inhalte');
   const [modelleLoeschen, setModelleLoeschen] = useState(false);
@@ -151,10 +153,19 @@ export function Werksreset() {
       } else {
         toast.success(`Werksreset abgeschlossen: ${ergebnis.zeilenGesamt} Zeilen entfernt`);
       }
+      // Nach dem Auslieferungszustand gibt es keinen Zugang mehr. Diesen Tab
+      // weiter angemeldet stehen zu lassen, waere genau die Luege, die der
+      // Reset beseitigen soll. Kurz stehen lassen, damit das Ergebnis lesbar
+      // bleibt, dann abmelden: die Anwendung zeigt danach die Ersteinrichtung.
+      if (stufe === 'auslieferung' && offen.length === 0) {
+        setTimeout(() => {
+          void logout();
+        }, 6000);
+      }
     } finally {
       setLaeuft(false);
     }
-  }, [api, toast, vorschau, stufe, modelleLoeschen, eingabe]);
+  }, [api, toast, logout, vorschau, stufe, modelleLoeschen, eingabe]);
 
   const nameStimmt = vorschau !== null && eingabe.trim() === vorschau.geraetename;
   const betroffen = vorschau?.tabellen.filter(t => (t.zeilen ?? 0) > 0) ?? [];
@@ -309,7 +320,7 @@ export function Werksreset() {
                   {Math.round(bericht.dauerMs / 100) / 10} Sekunden.
                   {offen.length === 0 &&
                     bericht.stufe === 'auslieferung' &&
-                    ' Beim nächsten Aufruf startet die Ersteinrichtung.'}
+                    ' Diese Sitzung wird gleich beendet, danach startet die Ersteinrichtung.'}
                 </p>
                 {offen.length > 0 && (
                   <>

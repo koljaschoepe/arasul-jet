@@ -4,53 +4,45 @@
  * Zwei Endpunkte, beide nur für Administratoren. Die Vorschau ist kein Beiwerk,
  * sie ist der Nachweis: sie sagt vorher, welche Tabelle wie viele Zeilen
  * verliert, und sie meldet, wenn der Reset etwas nicht einordnen kann.
+ *
+ * Die Stufe hat in beiden Verträgen keinen Vorgabewert. Ein fehlendes Feld auf
+ * einen Wert zu legen hieße hier, im Zweifel die größere Zerstörung zu wählen.
  */
 
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { createUserRateLimiter } = require('../../middleware/rateLimit');
+const { validateBody, validateQuery } = require('../../middleware/validate');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const { ValidationError } = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
 const logger = require('../../utils/logger');
 const werksreset = require('../../services/werksreset/werksreset');
+const { WerksresetBody, WerksresetVorschauQuery } = require('../../schemas/werksreset');
 
-/**
- * Die Stufe muss dastehen. Ein fehlendes Feld auf einen Standardwert zu legen
- * hiesse hier, im Zweifel die groessere Zerstoerung zu waehlen: `auslieferung`
- * loescht auch Zugangsdaten, Erweiterungen und n8n. Ein Reset, der raet, ist
- * genau das, was dieser ganze Endpunkt nicht sein soll.
- */
-// Zwei Ausfuehrungen je Stunde. Der Geraetename als Bestaetigung schuetzt gegen
-// den Fehlgriff, nicht gegen eine uebernommene Sitzung, die den Endpunkt in
-// einer Schleife aufruft. Die Vorschau bleibt frei, sie aendert nichts.
+// Zwei Ausführungen je Stunde und Nutzer. Der Gerätename als Bestätigung
+// schützt gegen den Fehlgriff, nicht gegen eine übernommene Sitzung, die den
+// Endpunkt in einer Schleife aufruft.
 const werksresetLimiter = createUserRateLimiter(2, 60 * 60 * 1000);
 
-function stufeAus(wert) {
-  if (wert === undefined || wert === null || wert === '') {
-    throw new ValidationError(
-      `Stufe fehlt. Sie muss ausdruecklich dastehen: ${werksreset.STUFEN.join(' oder ')}`
-    );
-  }
-  const stufe = String(wert);
-  if (!werksreset.STUFEN.includes(stufe)) {
-    throw new ValidationError(
-      `Unbekannte Stufe: ${stufe}. Erlaubt: ${werksreset.STUFEN.join(', ')}`
-    );
-  }
-  return stufe;
-}
+// Die Vorschau ändert nichts, zählt aber achtzig Tabellen ab. Zwanzig Aufrufe
+// in fünf Minuten sind für einen Menschen reichlich und für eine Schleife wenig.
+const vorschauLimiter = createUserRateLimiter(20, 5 * 60 * 1000);
 
 // GET /api/werksreset/vorschau?stufe=auslieferung&modelle=true
 router.get(
   '/vorschau',
   requireAuth,
   requireAdmin,
+  vorschauLimiter,
+  validateQuery(WerksresetVorschauQuery),
   asyncHandler(async (req, res) => {
-    const stufe = stufeAus(req.query.stufe);
-    const modelleLoeschen = req.query.modelle === 'true';
-    res.json(await werksreset.vorschau({ stufe, modelleLoeschen }));
+    res.json(
+      await werksreset.vorschau({
+        stufe: req.query.stufe,
+        modelleLoeschen: req.query.modelle === 'true',
+      })
+    );
   })
 );
 
@@ -60,14 +52,9 @@ router.post(
   requireAuth,
   requireAdmin,
   werksresetLimiter,
+  validateBody(WerksresetBody),
   asyncHandler(async (req, res) => {
-    const stufe = stufeAus(req.body?.stufe);
-    const bestaetigung = req.body?.bestaetigung;
-    const modelleLoeschen = req.body?.modelleLoeschen === true;
-
-    if (typeof bestaetigung !== 'string' || bestaetigung.trim() === '') {
-      throw new ValidationError('Bestätigung fehlt: der Gerätename muss eingetippt werden');
-    }
+    const { stufe, bestaetigung, modelleLoeschen } = req.body;
 
     const bericht = await werksreset.ausfuehren({
       stufe,

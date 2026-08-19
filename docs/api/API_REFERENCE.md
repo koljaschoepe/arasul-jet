@@ -2078,6 +2078,15 @@ sonst eine Vollständigkeit, die er nicht hat.
 { "stufe": "auslieferung", "bestaetigung": "arasul", "modelleLoeschen": false }
 ```
 
+Beide Endpunkte sind gebremst: die Ausführung zwei Mal je Stunde und Nutzer, die
+Vorschau zwanzig Mal in fünf Minuten. Der Gerätename als Bestätigung schützt
+gegen den Fehlgriff, nicht gegen eine übernommene Sitzung in einer Schleife.
+
+Nach der Stufe `auslieferung` wird zusätzlich der Identitäts-Zwischenspeicher
+von `requireAuth` geleert und die Oberfläche meldet sich ab. Ohne das käme die
+auslösende Sitzung noch bis zu 60 Sekunden durch, gegen eine Datenbank ohne
+einen einzigen Administrator.
+
 `bestaetigung` muss dem Gerätenamen entsprechen (`system_settings.hostname`,
 ersatzweise `MDNS_NAME` oder der Hostname des Containers). Ein festes Wort wie
 „LÖSCHEN" tippt man im Zweifel auch auf dem falschen Gerät; ein Gerätename nicht.
