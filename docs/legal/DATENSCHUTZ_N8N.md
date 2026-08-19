@@ -54,8 +54,13 @@ Verarbeitungstätigkeiten (Art. 30 DSGVO) zu dokumentieren.
 
 - TLS-Pflicht für alle ausgehenden Verbindungen (Standard 443).
 - Credentials AES-256-verschlüsselt im PostgreSQL gespeichert; der
-  Verschlüsselungsschlüssel liegt als Docker-Secret und wird zusätzlich im
-  Backup-Escrow vorgehalten.
+  Verschlüsselungsschlüssel liegt als Docker-Secret.
+
+> **Offen zum Stand 19.08.2026 (Gate G6):** Der zusätzliche Backup-Escrow für
+> den Verschlüsselungsschlüssel war hier zugesagt und existiert nicht. Die
+> Ablage `/backups/escrow` auf dem Gerät ist seit dem 09.05.2026 leer. Geht der
+> Docker-Secret verloren, sind die n8n-Credentials nicht wiederherstellbar.
+
 - n8n-Editor nur erreichbar nach Dashboard-Login (Forward-Auth) und
   zusätzlich n8n-eigener Authentifizierung.
 - Webhook-Endpunkt rate-limited (10 req/s). HMAC-Validierung wird workflow-
