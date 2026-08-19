@@ -13,6 +13,17 @@ saeubern haette den Durchgang verdreifacht, ohne dass ein Kunde etwas davon
 merkt. Wer beim Schreiben eines Kommentars einen Gedankenstrich setzt, macht
 also nichts falsch.
 
+Geprueft wird JEDE Zeichenkette im Quelltext, auch eine englische. Die
+Alternative waere, deutsche von englischer Sprache zu erkennen, und das ist
+weder zuverlaessig noch den Aufwand wert: die englischen Zeichenketten im
+Backend sind Protokollzeilen aus der Zeit vor der Umstellung und werden mit der
+Zeit ohnehin deutsch. Eine Regel, die je nach vermuteter Sprache anders gilt,
+waere schwerer zu befolgen als eine, die ueberall gilt.
+
+Fuer ganze DOKUMENTE gilt das nicht: docs/integrations/N8N_OVERVIEW.md ist eine
+englische Kundenunterlage, dort ist der Gedankenstrich richtig gesetzt. Der
+Unterschied ist Prosa gegen Zeichenkette, nicht Deutsch gegen Englisch.
+
 Was NICHT gemeldet wird
 -----------------------
 Ein alleinstehender Geviertstrich als Platzhalter fuer "kein Wert", wie er in

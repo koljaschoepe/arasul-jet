@@ -29,7 +29,8 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 - **Lokale KI:** Alle Daten bleiben auf dem Geraet - keine Cloud erforderlich
 - **Chat-Assistent:** Fragen stellen, Texte analysieren, Aufgaben loesen
 - **Dokumenten-Analyse (RAG):** Eigene Dokumente hochladen und intelligent durchsuchen
-- **Workspace:** Eigener Arbeitsordner samt Container, mit Netzwerkmodus und automatisch indiziertem Wissensbereich
+- - **Workspace:** Eigener Arbeitsordner samt Container, mit Netzwerkmodus und
+    automatisch indiziertem Wissensbereich
 - **Automation (n8n):** Workflows bauen und Abläufe automatisieren
 - **Automatische Sicherung:** Taegliche Backups aller Daten
 - **Offline-faehig:** Funktioniert ohne Internetverbindung
@@ -52,15 +53,18 @@ Hintergrund; getrennt wird nur durch feine Linien.
 
 - **Activity Bar (ganz links):** schmale Icon-Leiste mit einer **festen
   Drei-Bereiche-Navigation**, **Chat** (Kommandozentrale, rechtes Panel),
-  **Wissen** (Dateien/Explorer, linke Sidebar) und **Automation** (n8n), darunter **Extensions**, ganz unten **Einstellungen** (inkl. System-Status).
+  **Wissen** (Dateien/Explorer, linke Sidebar) und **Automation** (n8n), darunter
+  **Extensions**, ganz unten **Einstellungen** (inkl. System-Status).
   Chat und Terminal wohnen im rechten Panel, der Explorer in der Sidebar.
-- **Sidebar (links, kontextabhaengig):** wechselt mit dem aktiven Tab, **Dashboard** zeigt den Dokumente-/Projekte-Explorer (Projekte → Ordner →
-  Dateien als Baum; Upload per Drag & Drop oder Kontextmenue, Indexierung
-  startet automatisch, Suchfeld filtert den Baum). **Extensions** zeigt links
-  eine Verwaltung mit **nur den installierten/aktiven** Apps und KI-Modellen, mit Filter **Alle · Sprachmodelle · Apps** und Suchfeld; gestoebert und
-  installiert wird im Katalog in der Mitte. Bei **Automation (n8n)** bleibt der
-  Explorer stehen (n8n oeffnet als Tab im Hauptbereich). Der Auf-/Zu-Zustand
-  bleibt ueber ein Neuladen erhalten.
+- - **Sidebar (links, kontextabhaengig):** wechselt mit dem aktiven Tab, **Dashboard**
+    zeigt den Dokumente-/Projekte-Explorer (Projekte → Ordner →
+    Dateien als Baum; Upload per Drag & Drop oder Kontextmenue, Indexierung
+    startet automatisch, Suchfeld filtert den Baum). **Extensions** zeigt links
+    eine Verwaltung mit **nur den installierten/aktiven** Apps und KI-Modellen, mit Filter
+    **Alle · Sprachmodelle · Apps** und Suchfeld; gestoebert und
+    installiert wird im Katalog in der Mitte. Bei **Automation (n8n)** bleibt der
+    Explorer stehen (n8n oeffnet als Tab im Hauptbereich). Der Auf-/Zu-Zustand
+    bleibt ueber ein Neuladen erhalten.
 - **Mitte (Tab-Leiste):** mehrere Tabs parallel (Extensions-Detail, Dokumente,
   Automation, Editor-Dateien, …), schliessbar, werden nach einem Neuladen
   wiederhergestellt. Chat und Terminal erscheinen nie als Tab.
