@@ -283,6 +283,7 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
     try {
       const { updateEnvVariable } = require('../../utils/envManager');
       await updateEnvVariable('ADMIN_PASSWORD', 'REDACTED_AFTER_BOOTSTRAP');
+      await pruefeEntwertung();
       delete process.env.ADMIN_PASSWORD;
     } catch (err) {
       throw new ConflictError(
@@ -364,6 +365,31 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
  * nicht erreichbarer Nachbardienst darf den Reset nicht zurücknehmen; er ist zu
  * diesem Zeitpunkt schon geschehen.
  */
+/**
+ * Nachlesen, ob das Entwerten wirklich gegriffen hat.
+ *
+ * Am 19.08.2026 in der Live-Abnahme aufgefallen: die .env des Geraets enthielt
+ * ADMIN_PASSWORD zweimal, dotenv liess das spaetere Vorkommen gewinnen, und
+ * der Schreiber ersetzte nur das erste. Der Reset meldete Erfolg, und der
+ * naechste Start legte den alten Zugang mit dem alten Passwort wieder an.
+ * Der Schreiber ist repariert; diese Probe sorgt dafuer, dass ein kuenftiger
+ * Fehler derselben Art auffaellt, statt still durchzugehen.
+ */
+async function pruefeEntwertung() {
+  const pfad = process.env.ENV_FILE_PATH || '/arasul/config/.env';
+  const inhalt = await fsp.readFile(pfad, 'utf8');
+  const offen = inhalt
+    .split('\n')
+    .filter(zeile => /^ADMIN_PASSWORD=/.test(zeile))
+    .filter(zeile => zeile.trim() !== 'ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP');
+
+  if (offen.length > 0) {
+    throw new Error(
+      `${offen.length} Zeile(n) mit ADMIN_PASSWORD stehen nach dem Entwerten noch anders da`
+    );
+  }
+}
+
 async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
   const ergebnis = {};
 

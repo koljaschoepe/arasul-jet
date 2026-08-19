@@ -63,6 +63,24 @@ sicherheitsnetz() {
   fi
 }
 
+# Alle Bind-Mount-Ordner vorher anlegen, und zwar als der aufrufende Benutzer.
+# Legt Docker sie selbst an, gehoeren sie root, und das Backend laeuft als node
+# (uid 1000). Es kann dann weder einen Flow noch eine Erweiterung schreiben.
+# Im Normalbetrieb gehoeren dieselben Ordner arasul (uid 1000), dort faellt das
+# nie auf. Die Liste wird aus dem gerenderten Compose gezogen, nicht gepflegt:
+# eine Liste von Hand waere beim naechsten neuen Mount falsch.
+ordner_anlegen() {
+  local pfad
+  while read -r pfad; do
+    [ -n "$pfad" ] || continue
+    mkdir -p "$pfad"
+  done < <(compose config 2>/dev/null |
+    grep -oE "source: ${WURZEL}/(data|logs)-pruefstand[^ ]*" |
+    sed 's/^source: //' |
+    grep -v '\.' |
+    sort -u)
+}
+
 # Eigene .env fuer den Pruefstand, einmalig als Kopie. Sie darf abweichen, aber
 # sie muss existieren, bevor der Stack startet: Compose bindet eine fehlende
 # Datei sonst als leeres VERZEICHNIS ein.
@@ -80,6 +98,7 @@ case "${1:-}" in
     eigene_env
     sicherheitsnetz
     mkdir -p data-pruefstand logs-pruefstand
+    ordner_anlegen
     compose up -d --build "${DIENSTE[@]}"
     echo ""
     echo "Pruefstand laeuft. Oberflaeche: https://$(hostname):8443"

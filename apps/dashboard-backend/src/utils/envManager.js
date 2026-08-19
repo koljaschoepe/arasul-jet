@@ -34,10 +34,18 @@ async function updateEnvVariable(key, value) {
     const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     // Pattern to match: KEY=value (with or without quotes)
-    const pattern = new RegExp(`^${escapedKey}=.*$`, 'm');
+    //
+    // Global: ein Schluessel kann mehrfach in der Datei stehen. Am 19.08.2026
+    // auf dem Geraet gefunden: ADMIN_PASSWORD in Zeile 19 und noch einmal in
+    // Zeile 169. dotenv laesst das SPAETERE Vorkommen gewinnen, ersetzt wurde
+    // aber nur das erste. Der Werksreset hat das Erstpasswort damit zu
+    // entwerten geglaubt und es stand danach unveraendert weiter drin. Wer
+    // einen Wert setzt, meint immer alle Vorkommen.
+    const pattern = new RegExp(`^${escapedKey}=.*$`, 'gm');
 
     if (pattern.test(content)) {
       // Update existing variable
+      pattern.lastIndex = 0;
       content = content.replace(pattern, `${key}=${value}`);
     } else {
       // Add new variable at the end
