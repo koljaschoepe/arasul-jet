@@ -122,17 +122,42 @@ run_frontend_tests() {
 }
 
 # Funktion: Python-Tests
+#
+# Bewusst NICHT blockierend, und zwar aus einem Grund, der in die Ausgabe
+# gehoert: Auf dem Entwicklungsrechner fehlen die Abhaengigkeiten der Dienste
+# (psycopg2, requests, docker, PyMuPDF …). Ein Fehlschlag hier heisst also
+# meistens "hier nicht pruefbar", nicht "kaputt". Verbindlich geprueft wird
+# Python in der CI (.github/workflows/test.yml, Job `python-services`) — dort
+# sind die Abhaengigkeiten installiert und ein Fehlschlag bricht den Lauf.
+#
+# Was sich am 19.08.2026 geaendert hat: Vorher verschwand dieser Unterschied
+# spurlos. Der Lauf meldete "ALL PASSED", obwohl `tests/unit` sich nicht einmal
+# einsammeln liess. Jetzt wird das Ergebnis mitgezaehlt und im Schlussbanner
+# genannt, damit niemand mehr eine Zusicherung liest, die es nicht gibt.
+PYTHON_UNGEPRUEFT=0
+WURZELTESTS_UNGEPRUEFT=0
+
 run_python_tests() {
   echo ""
-  echo "-> Running Python Tests (pytest)..."
+  echo "-> Running Python Tests (pytest, nicht blockierend — verbindlich ist die CI)..."
 
-  # Root-Level Tests
-  if [ -d "tests/unit" ] && command -v pytest &> /dev/null; then
-    echo "   Running tests/unit..."
-    if pytest tests/unit -v --tb=short -q 2>/dev/null; then
-      echo "   Python unit tests: PASSED"
+  # Root-Level Tests. ACHTUNG: fuer diesen Ordner gibt es KEINEN CI-Job — die
+  # Matrix in .github/workflows/test.yml deckt nur die drei Dienste unter
+  # services/ ab. Was hier durchfaellt, faellt nirgends sonst auf.
+  if [ -d "tests/unit" ]; then
+    if command -v pytest &> /dev/null; then
+      echo "   Running tests/unit..."
+      if pytest tests/unit -v --tb=short -q 2>/dev/null; then
+        echo "   Python unit tests: PASSED"
+      else
+        echo "   Python unit tests: NICHT BESTANDEN oder hier nicht pruefbar"
+        PYTHON_UNGEPRUEFT=$((PYTHON_UNGEPRUEFT + 1))
+        WURZELTESTS_UNGEPRUEFT=1
+      fi
     else
-      echo "   Python unit tests: FAILED (or skipped)"
+      echo "   tests/unit: UEBERSPRUNGEN (pytest nicht installiert)"
+      PYTHON_UNGEPRUEFT=$((PYTHON_UNGEPRUEFT + 1))
+      WURZELTESTS_UNGEPRUEFT=1
     fi
   fi
 
@@ -142,11 +167,22 @@ run_python_tests() {
       echo "   Running ${service_dir} tests..."
       cd "$PROJECT_ROOT/$service_dir"
       if command -v pytest &> /dev/null; then
-        pytest tests/ -v --tb=short -q 2>/dev/null || true
+        if pytest tests/ -v --tb=short -q 2>/dev/null; then
+          echo "   ${service_dir}: PASSED"
+        else
+          echo "   ${service_dir}: NICHT BESTANDEN oder nicht pruefbar (siehe CI)"
+          PYTHON_UNGEPRUEFT=$((PYTHON_UNGEPRUEFT + 1))
+        fi
       elif docker compose ps "$(basename "$service_dir")" 2>/dev/null | grep -q "Up\|running"; then
-        docker compose exec -T "$(basename "$service_dir")" pytest tests/ -v --tb=short -q 2>/dev/null || true
+        if docker compose exec -T "$(basename "$service_dir")" pytest tests/ -v --tb=short -q 2>/dev/null; then
+          echo "   ${service_dir}: PASSED"
+        else
+          echo "   ${service_dir}: NICHT BESTANDEN oder nicht pruefbar (siehe CI)"
+          PYTHON_UNGEPRUEFT=$((PYTHON_UNGEPRUEFT + 1))
+        fi
       else
         echo "   SKIPPED: pytest not available and container not running"
+        PYTHON_UNGEPRUEFT=$((PYTHON_UNGEPRUEFT + 1))
       fi
       cd "$PROJECT_ROOT"
     fi
@@ -265,10 +301,17 @@ fi
 
 echo ""
 echo "======================================================="
-if [ $EXIT_CODE -eq 0 ]; then
-  echo "  Test Run Complete - ALL PASSED"
-else
+if [ $EXIT_CODE -ne 0 ]; then
   echo "  Test Run Complete - SOME FAILURES"
+elif [ "$PYTHON_UNGEPRUEFT" -gt 0 ]; then
+  echo "  Test Run Complete - blockierende Tests bestanden"
+  echo "  ACHTUNG: $PYTHON_UNGEPRUEFT Python-Suite(n) nicht bestanden oder hier nicht pruefbar."
+  echo "  Fuer services/* ist die CI verbindlich (Job 'Python · <dienst>')."
+  if [ "$WURZELTESTS_UNGEPRUEFT" -eq 1 ]; then
+    echo "  Fuer tests/unit gibt es KEINEN CI-Job — dort prueft niemand nach."
+  fi
+else
+  echo "  Test Run Complete - ALL PASSED"
 fi
 echo "======================================================="
 

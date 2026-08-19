@@ -2,7 +2,12 @@
 
 # Environment files with secrets
 .env
-.env.bak
+# Stern mit Absicht: Auf dem Geraet lag am 19.08.2026 eine
+# `.env.bak-vor-import-2026-08-18` mit 16 Zeilen Passwoertern und Schluesseln,
+# und `git check-ignore` sagte ausdruecklich: nicht ignoriert. Weder `.env.bak`
+# noch `*.bak` noch `.env.backup.*` greifen bei so einem Namen. Ein `git add -A`
+# haette die Datei committet.
+.env.bak*
 .env.local
 .env.*.local
 .env.jetson
