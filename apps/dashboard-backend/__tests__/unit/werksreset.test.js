@@ -479,3 +479,31 @@ describe('Entwertung nachlesen', () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 });
+
+describe('Nachbarsysteme ohne Bestand', () => {
+  const fs = require('fs');
+  const minio = require('../../src/services/documents/minioService');
+  const qdrant = require('../../src/services/documents/qdrantService');
+
+  test('ein fehlender Dokumenten-Eimer ist kein Fehlschlag', async () => {
+    db.query.mockReset();
+    db.transaction.mockReset();
+    tabellenInDerDatenbank(ALLE);
+    db.transaction.mockResolvedValue({ 'public.documents': 0 });
+    fs.promises.readdir.mockResolvedValue([]);
+    qdrant.deleteAllVectors.mockResolvedValue({ uebersprungen: 'Sammlung nicht vorhanden' });
+    const fehler = new Error('S3Error: The specified bucket does not exist');
+    fehler.code = 'NoSuchBucket';
+    minio.listAllObjects.mockRejectedValue(fehler);
+
+    const bericht = await werksreset.ausfuehren({
+      stufe: 'inhalte',
+      bestaetigung: 'orin-vorfuehrer',
+    });
+
+    expect(bericht.objektspeicher).toEqual({
+      ok: true,
+      uebersprungen: 'kein Dokumenten-Eimer vorhanden',
+    });
+  });
+});
