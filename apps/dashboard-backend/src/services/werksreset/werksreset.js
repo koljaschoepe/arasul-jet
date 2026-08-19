@@ -112,22 +112,30 @@ async function geraetename() {
 /**
  * Was ein Werksreset dieser Stufe kosten würde, ohne etwas anzufassen.
  */
-async function vorschau({ stufe = 'auslieferung', modelleLoeschen = false } = {}) {
+async function vorschau({ stufe, modelleLoeschen = false } = {}) {
   const tabellen = tabellenFuer(stufe, modelleLoeschen);
   const unbekannt = await unbekannteTabellen();
 
+  // Achtzig Zaehlabfragen nacheinander machen die Vorschau spuerbar traege,
+  // achtzig gleichzeitig reissen den Verbindungspool leer (database.js klinkt
+  // bei mehr als zehn Wartenden aus, siehe gdprExport). Deshalb in Gruppen.
   const mitZahlen = [];
-  for (const eintrag of tabellen) {
-    let zeilen = null;
-    try {
-      const { rows } = await db.query(
-        `SELECT count(*)::int AS n FROM ${alsBezeichner(eintrag.name)}`
-      );
-      zeilen = rows[0].n;
-    } catch (err) {
-      logger.warn(`[werksreset] Vorschau für ${eintrag.name} fehlgeschlagen: ${err.message}`);
-    }
-    mitZahlen.push({ ...eintrag, zeilen });
+  const GLEICHZEITIG = 4;
+  for (let i = 0; i < tabellen.length; i += GLEICHZEITIG) {
+    const ergebnisse = await Promise.all(
+      tabellen.slice(i, i + GLEICHZEITIG).map(async eintrag => {
+        try {
+          const { rows } = await db.query(
+            `SELECT count(*)::int AS n FROM ${alsBezeichner(eintrag.name)}`
+          );
+          return { ...eintrag, zeilen: rows[0].n };
+        } catch (err) {
+          logger.warn(`[werksreset] Vorschau für ${eintrag.name} fehlgeschlagen: ${err.message}`);
+          return { ...eintrag, zeilen: null };
+        }
+      })
+    );
+    mitZahlen.push(...ergebnisse);
   }
 
   const ordner = [...ORDNER.inhalte, ...(stufe === 'auslieferung' ? ORDNER.auslieferung : [])];
@@ -316,13 +324,14 @@ async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
     // listAllObjects liefert ein Set von PFADEN, keine Objekte. Ein
     // `objekt.name` waere hier undefined und der Objektspeicher bliebe voll,
     // ohne dass es jemand merkt.
-    const pfade = await minio.listAllObjects();
-    let n = 0;
-    for (const pfad of pfade) {
-      await minio.removeObject(pfad);
-      n += 1;
+    const pfade = [...(await minio.listAllObjects())];
+    // Ein Aufruf je Datei laesst den Reset bei einem gefuellten Dokumentenspeicher
+    // in die Minuten laufen. In Stapeln bleibt er in Sekunden.
+    const STAPEL = 20;
+    for (let i = 0; i < pfade.length; i += STAPEL) {
+      await Promise.all(pfade.slice(i, i + STAPEL).map(pfad => minio.removeObject(pfad)));
     }
-    return { entfernt: n };
+    return { entfernt: pfade.length };
   });
 
   ergebnis.vektoren = await stillEntfernen('Vektoren', async () => {

@@ -1,10 +1,9 @@
 /**
  * Werksreset, Plan 023 B5.
  *
- * Zwei Endpunkte, bewusst getrennt: die Vorschau darf jeder Angemeldete sehen,
- * ausführen darf nur ein Administrator. Die Vorschau ist kein Beiwerk, sie ist
- * der Nachweis: sie sagt vorher, welche Tabelle wie viele Zeilen verliert, und
- * sie meldet, wenn der Reset etwas nicht einordnen kann.
+ * Zwei Endpunkte, beide nur für Administratoren. Die Vorschau ist kein Beiwerk,
+ * sie ist der Nachweis: sie sagt vorher, welche Tabelle wie viele Zeilen
+ * verliert, und sie meldet, wenn der Reset etwas nicht einordnen kann.
  */
 
 const express = require('express');
@@ -16,8 +15,19 @@ const { logSecurityEvent } = require('../../utils/auditLog');
 const logger = require('../../utils/logger');
 const werksreset = require('../../services/werksreset/werksreset');
 
+/**
+ * Die Stufe muss dastehen. Ein fehlendes Feld auf einen Standardwert zu legen
+ * hiesse hier, im Zweifel die groessere Zerstoerung zu waehlen: `auslieferung`
+ * loescht auch Zugangsdaten, Erweiterungen und n8n. Ein Reset, der raet, ist
+ * genau das, was dieser ganze Endpunkt nicht sein soll.
+ */
 function stufeAus(wert) {
-  const stufe = String(wert || 'auslieferung');
+  if (wert === undefined || wert === null || wert === '') {
+    throw new ValidationError(
+      `Stufe fehlt. Sie muss ausdruecklich dastehen: ${werksreset.STUFEN.join(' oder ')}`
+    );
+  }
+  const stufe = String(wert);
   if (!werksreset.STUFEN.includes(stufe)) {
     throw new ValidationError(
       `Unbekannte Stufe: ${stufe}. Erlaubt: ${werksreset.STUFEN.join(', ')}`

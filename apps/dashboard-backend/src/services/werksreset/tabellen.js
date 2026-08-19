@@ -120,8 +120,15 @@ const MODELLE = [['public.llm_installed_models', 'Installierte Modelle']];
 
 /** Wird nie geleert. Jede Zeile mit Grund. */
 const BLEIBT = [
-  ['public.schema_migrations', 'Schema-Buchführung, ohne sie laufen alle Migrationen erneut'],
-  ['arasul.schema_migrations', 'Schema-Buchführung des zweiten Schemas'],
+  // Es gibt sie wirklich zweimal, und die maßgebliche ist die im Schema
+  // `arasul`. `search_path` ist `"$user", public`, der Datenbanknutzer heißt
+  // arasul, also landet das `CREATE TABLE IF NOT EXISTS schema_migrations` aus
+  // migrationRunner.js im Schema arasul. Stand 19.08.2026 auf dem Gerät:
+  // arasul.schema_migrations 145 Zeilen (passend zu 145 Migrationsdateien),
+  // public.schema_migrations 93 Zeilen aus der Zeit vor dem zweiten Schema.
+  // Beide stehen hier, weil beide in der Datenbank stehen.
+  ['arasul.schema_migrations', 'Schema-Buchführung, ohne sie laufen alle Migrationen erneut'],
+  ['public.schema_migrations', 'Altbestand derselben Buchführung, vor dem Schema arasul'],
   ['public.llm_model_catalog', 'Werkskatalog der Modelle, kommt aus den Migrationen'],
   ['public.alert_thresholds', 'Werksschwellen für Warnungen, kommen aus den Migrationen'],
   ['public.alert_settings', 'Werksvorgabe für Warnungen'],

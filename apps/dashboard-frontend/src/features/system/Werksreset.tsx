@@ -46,11 +46,46 @@ interface Vorschau {
   durchfuehrbar: boolean;
 }
 
+/** Ergebnis eines Nachbarsystems: entweder ok, oder mit Grund. */
+interface Nebenwirkung {
+  ok: boolean;
+  fehler?: string;
+}
+
 interface Bericht {
   stufe: Stufe;
   zeilenGesamt: number;
   dauerMs: number;
   tabellen: Record<string, number>;
+  objektspeicher?: Nebenwirkung;
+  vektoren?: Nebenwirkung;
+  n8n?: Nebenwirkung;
+  modelle?: Nebenwirkung;
+  erstpasswort?: Nebenwirkung;
+  ordner?: { pfad: string; fehler?: string }[];
+}
+
+/**
+ * Was gescheitert ist, mit dem Satz daneben, der die Folge benennt. Die
+ * Datenbank ist zu diesem Zeitpunkt schon geleert; ein toter Nachbardienst
+ * nimmt das nicht zurueck. Genau deshalb darf die Oberflaeche hier nicht
+ * pauschal Erfolg melden.
+ */
+const FOLGE: Record<string, string> = {
+  erstpasswort:
+    'Das alte Passwort steht noch in der .env. Beim naechsten Neustart legt das Geraet den alten Zugang wieder an. Bitte ADMIN_PASSWORD von Hand auf REDACTED_AFTER_BOOTSTRAP setzen.',
+  n8n: 'n8n wurde nicht neu gestartet. Die Workflow-Oberflaeche bleibt bis zum naechsten Neustart des Dienstes leer oder fehlerhaft.',
+  vektoren:
+    'Die Vektoren der Dokumente stehen noch in Qdrant. Die Suche kann Treffer zu geloeschten Dokumenten liefern.',
+  objektspeicher: 'Die Dateien liegen noch im Objektspeicher, obwohl ihre Eintraege weg sind.',
+  modelle: 'Die Modelle liegen noch auf der Platte.',
+};
+
+function gescheiterteSchritte(bericht: Bericht): { name: string; fehler: string }[] {
+  return (Object.keys(FOLGE) as (keyof Bericht)[])
+    .map(name => ({ name: String(name), wert: bericht[name] as Nebenwirkung | undefined }))
+    .filter(e => e.wert && e.wert.ok === false)
+    .map(e => ({ name: e.name, fehler: e.wert?.fehler ?? 'ohne Meldung' }));
 }
 
 const STUFEN: { id: Stufe; titel: string; text: string }[] = [
@@ -98,15 +133,24 @@ export function Werksreset() {
     if (!vorschau) return;
     setLaeuft(true);
     try {
-      const ergebnis = await api.post<Bericht>('/werksreset', {
-        stufe,
-        modelleLoeschen,
-        bestaetigung: eingabe.trim(),
-      });
+      // Der Standard von useApi sind 30 Sekunden. Der Reset raeumt Tabellen,
+      // Ordner, Objektspeicher, Vektoren und startet n8n neu; bei gefuelltem
+      // Geraet reicht das nicht. Ein Abbruch im Browser wuerde den Reset nicht
+      // stoppen, sondern nur eine Fehlermeldung ueber einen gelungenen Reset legen.
+      const ergebnis = await api.post<Bericht>(
+        '/werksreset',
+        { stufe, modelleLoeschen, bestaetigung: eingabe.trim() },
+        { signal: AbortSignal.timeout(15 * 60 * 1000) }
+      );
       setBericht(ergebnis);
       setVorschau(null);
       setEingabe('');
-      toast.success(`Werksreset abgeschlossen: ${ergebnis.zeilenGesamt} Zeilen entfernt`);
+      const offen = gescheiterteSchritte(ergebnis);
+      if (offen.length > 0) {
+        toast.error(`Werksreset mit ${offen.length} offenen Punkten abgeschlossen`);
+      } else {
+        toast.success(`Werksreset abgeschlossen: ${ergebnis.zeilenGesamt} Zeilen entfernt`);
+      }
     } finally {
       setLaeuft(false);
     }
@@ -250,19 +294,43 @@ export function Werksreset() {
         </div>
       )}
 
-      {bericht && (
-        <Alert>
-          <AlertDescription>
-            Werksreset{' '}
-            {bericht.stufe === 'inhalte' ? 'Inhalte zurücksetzen' : 'Auslieferungszustand'}{' '}
-            abgeschlossen: {bericht.zeilenGesamt.toLocaleString('de-DE')} Zeilen in{' '}
-            {Object.keys(bericht.tabellen).length} Tabellen,{' '}
-            {Math.round(bericht.dauerMs / 100) / 10} Sekunden.
-            {bericht.stufe === 'auslieferung' &&
-              ' Beim nächsten Aufruf startet die Ersteinrichtung.'}
-          </AlertDescription>
-        </Alert>
-      )}
+      {bericht &&
+        (() => {
+          const offen = gescheiterteSchritte(bericht);
+          return (
+            <Alert variant={offen.length > 0 ? 'destructive' : undefined}>
+              {offen.length > 0 && <AlertTriangle className="size-4" />}
+              <AlertDescription>
+                <p>
+                  Werksreset{' '}
+                  {bericht.stufe === 'inhalte' ? 'Inhalte zurücksetzen' : 'Auslieferungszustand'}{' '}
+                  abgeschlossen: {bericht.zeilenGesamt.toLocaleString('de-DE')} Zeilen in{' '}
+                  {Object.keys(bericht.tabellen).length} Tabellen,{' '}
+                  {Math.round(bericht.dauerMs / 100) / 10} Sekunden.
+                  {offen.length === 0 &&
+                    bericht.stufe === 'auslieferung' &&
+                    ' Beim nächsten Aufruf startet die Ersteinrichtung.'}
+                </p>
+                {offen.length > 0 && (
+                  <>
+                    <p className="mt-2 font-medium">
+                      {offen.length} Schritte sind nicht durchgelaufen. Die Datenbank ist trotzdem
+                      geleert, das lässt sich nicht zurücknehmen.
+                    </p>
+                    <ul className="mt-1 list-disc pl-5">
+                      {offen.map(schritt => (
+                        <li key={schritt.name}>
+                          {FOLGE[schritt.name]}{' '}
+                          <span className="opacity-80">({schritt.fehler})</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </AlertDescription>
+            </Alert>
+          );
+        })()}
     </div>
   );
 }
