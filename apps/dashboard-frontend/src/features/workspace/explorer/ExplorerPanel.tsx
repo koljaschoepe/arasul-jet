@@ -155,6 +155,7 @@ export function ExplorerPanel() {
   const qc = useQueryClient();
   const openTab = useWorkspaceStore(s => s.openTab);
   const verschiebeProjektdatei = useWorkspaceStore(s => s.verschiebeProjektdatei);
+  const schliesseProjektdatei = useWorkspaceStore(s => s.schliesseProjektdatei);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
   const { addPin } = usePins();
   // Der Baum ist der Projektordner des aktiven Projekts: wechselt es, wechselt
@@ -455,10 +456,17 @@ export function ExplorerPanel() {
           von: dialog.eintrag.pfad,
           nach,
         });
+        // Wie beim Verschieben per Ziehen: offene Tabs dem neuen Pfad nachziehen.
+        // Sonst zeigt der Tab weiter auf den alten Namen und legt die Datei beim
+        // nächsten automatischen Speichern dort wieder an.
+        verschiebeProjektdatei(activeId, dialog.eintrag.pfad, nach);
       } else if (dialog.kind === 'loeschen') {
         await api.del(
           `/projects/${activeId}/dateien?pfad=${encodeURIComponent(dialog.eintrag.pfad)}`
         );
+        // Gelöscht heißt gelöscht: offene Tabs auf diesen Pfad schließen, sonst
+        // schreibt das automatische Speichern die Datei zurück.
+        schliesseProjektdatei(activeId, dialog.eintrag.pfad);
       }
       setDialog(null);
       setDialogName('');

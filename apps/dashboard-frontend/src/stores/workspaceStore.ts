@@ -280,6 +280,18 @@ interface WorkspaceState {
    * Trifft die Datei selbst (filePath === von) UND Kinder eines Ordner-Moves.
    */
   verschiebeProjektdatei: (projectId: string, von: string, nach: string) => void;
+  /**
+   * Offene Projektdatei-Tabs zu einem gelöschten Pfad schließen (Datei selbst
+   * UND alles unterhalb eines gelöschten Ordners).
+   *
+   * Ohne das blieb der Editor-Tab nach dem Löschen stehen und zeigte den alten
+   * Inhalt, als gäbe es die Datei noch. Wer dann hineintippte, legte sie über
+   * das automatische Speichern wieder an — am 19.08.2026 live nachgestellt: 88
+   * Byte gelöscht, ein Tastendruck später lagen 52 neue Byte am selben Pfad und
+   * wanderten erneut in den Index. Für eine Löschung, die auch eine
+   * Auskunfts-/Löschpflicht bedienen soll, ist das die falsche Richtung.
+   */
+  schliesseProjektdatei: (projectId: string, pfad: string) => void;
   /** Ungespeicherten-Zustand eines Tabs melden (Editor → Store). */
   setTabDirty: (id: string, dirty: boolean) => void;
   toggleSidebar: () => void;
@@ -499,6 +511,38 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         if (dirtyTabs.has(id)) {
           nextDirty = new Set(dirtyTabs);
           nextDirty.delete(id);
+        }
+        set({ tabs: nextTabs, activeTabId: nextActive, dirtyTabs: nextDirty });
+      },
+
+      schliesseProjektdatei: (projectId, pfad) => {
+        const { tabs, activeTabId, dirtyTabs } = get();
+        const betroffen = (t: WorkspaceTab): boolean =>
+          t.type === 'projektdatei' &&
+          t.projectId === projectId &&
+          t.filePath != null &&
+          (t.filePath === pfad || t.filePath.startsWith(`${pfad}/`));
+        const zuSchliessen = tabs.filter(betroffen);
+        if (zuSchliessen.length === 0) return;
+        const nextTabs = tabs.filter(t => !betroffen(t));
+        let nextActive = activeTabId;
+        if (activeTabId != null && zuSchliessen.some(t => t.id === activeTabId)) {
+          // Der Nachbar wird von der Stelle des AKTIVEN Tabs aus gesucht, nicht
+          // von der des ersten betroffenen. Beim Löschen eines Ordners fallen
+          // mehrere Tabs auf einmal weg, und die müssen nicht nebeneinander
+          // liegen: bei [foo, A/x, bar, A/y, baz] mit aktivem A/y landete der
+          // Fokus sonst auf bar statt auf baz.
+          const aktivIndex = tabs.findIndex(t => t.id === activeTabId);
+          const ueberlebendeDavor = tabs.slice(0, aktivIndex).filter(t => !betroffen(t)).length;
+          const nachbar = nextTabs[ueberlebendeDavor] ?? nextTabs[ueberlebendeDavor - 1] ?? null;
+          nextActive = nachbar ? nachbar.id : null;
+        }
+        let nextDirty = dirtyTabs;
+        for (const t of zuSchliessen) {
+          if (dirtyTabs.has(t.id)) {
+            if (nextDirty === dirtyTabs) nextDirty = new Set(dirtyTabs);
+            nextDirty.delete(t.id);
+          }
         }
         set({ tabs: nextTabs, activeTabId: nextActive, dirtyTabs: nextDirty });
       },
