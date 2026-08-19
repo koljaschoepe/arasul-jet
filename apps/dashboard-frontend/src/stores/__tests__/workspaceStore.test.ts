@@ -137,6 +137,24 @@ describe('workspaceStore — Tabs', () => {
     expect(pfade).toEqual(['A/b.md']);
   });
 
+  it('aktiviert beim Ordner-Löschen den Nachbarn des AKTIVEN Tabs', () => {
+    const { openTab, schliesseProjektdatei } = useWorkspaceStore.getState();
+    const datei = (filePath: string) =>
+      openTab({ type: 'projektdatei', projectId: 'p1', filePath, title: filePath });
+    // Zwei betroffene Tabs, nicht nebeneinander, aktiv ist der hintere.
+    datei('foo.md');
+    datei('A/x.md');
+    datei('bar.md');
+    datei('A/y.md');
+    datei('baz.md');
+    useWorkspaceStore.getState().activateTab('projektdatei:p1:A/y.md');
+    schliesseProjektdatei('p1', 'A');
+    const { tabs, activeTabId } = useWorkspaceStore.getState();
+    expect(tabs.map(t => t.filePath)).toEqual(['foo.md', 'bar.md', 'baz.md']);
+    // Rechter Nachbar von A/y.md, nicht der Nachbar des ersten betroffenen Tabs.
+    expect(activeTabId).toBe('projektdatei:p1:baz.md');
+  });
+
   it('lässt unbeteiligte Tabs beim Löschen stehen', () => {
     const { openTab, schliesseProjektdatei } = useWorkspaceStore.getState();
     openTab({ type: 'settings' });

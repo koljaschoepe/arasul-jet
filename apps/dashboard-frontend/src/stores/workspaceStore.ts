@@ -524,11 +524,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           (t.filePath === pfad || t.filePath.startsWith(`${pfad}/`));
         const zuSchliessen = tabs.filter(betroffen);
         if (zuSchliessen.length === 0) return;
-        const index = tabs.findIndex(betroffen);
         const nextTabs = tabs.filter(t => !betroffen(t));
         let nextActive = activeTabId;
         if (activeTabId != null && zuSchliessen.some(t => t.id === activeTabId)) {
-          const nachbar = nextTabs[index] ?? nextTabs[index - 1] ?? null;
+          // Der Nachbar wird von der Stelle des AKTIVEN Tabs aus gesucht, nicht
+          // von der des ersten betroffenen. Beim Löschen eines Ordners fallen
+          // mehrere Tabs auf einmal weg, und die müssen nicht nebeneinander
+          // liegen: bei [foo, A/x, bar, A/y, baz] mit aktivem A/y landete der
+          // Fokus sonst auf bar statt auf baz.
+          const aktivIndex = tabs.findIndex(t => t.id === activeTabId);
+          const ueberlebendeDavor = tabs.slice(0, aktivIndex).filter(t => !betroffen(t)).length;
+          const nachbar = nextTabs[ueberlebendeDavor] ?? nextTabs[ueberlebendeDavor - 1] ?? null;
           nextActive = nachbar ? nachbar.id : null;
         }
         let nextDirty = dirtyTabs;
