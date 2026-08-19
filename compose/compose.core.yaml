@@ -25,6 +25,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS}
+    # Plan 023 S5: setzt den Besitzer des WAL-Archivziels, bevor der offizielle
+    # Einstieg uebernimmt. Ohne das scheitert archive_command dauerhaft und
+    # pg_wal laeuft die Platte voll.
+    entrypoint: ['/usr/local/bin/entrypoint-wal.sh']
     command:
       - 'postgres'
       - '-c'
@@ -33,6 +37,7 @@ services:
       - arasul-postgres:/var/lib/postgresql/data
       - ../services/postgres/init:/docker-entrypoint-initdb.d
       - ../config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ../services/postgres/entrypoint-wal.sh:/usr/local/bin/entrypoint-wal.sh:ro
       - arasul-wal:/backups/wal
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
