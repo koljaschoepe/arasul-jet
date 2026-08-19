@@ -119,6 +119,27 @@ class CategoryHandlersMixin:
     # CATEGORY A: SERVICE DOWN
     # ========================================================================
 
+    # Docker-Meldungen, die kein Ausfall sind, sondern ein laufender Deploy:
+    # Compose ersetzt den Container, waehrend die Selbstheilung ihn noch
+    # anfassen will. Beobachtet am 19.08.2026 bei jedem automatischen Deploy —
+    # zweimal in 24 Stunden stand danach 'service_recovery_failed' als CRITICAL
+    # im Ereignisprotokoll, obwohl nur eine neue Version ausgerollt wurde.
+    #
+    # Bewusst nur Muster, die genau diesen Zustand beschreiben und im Log des
+    # Geraets auch so vorkamen. Ein zu weites Muster waere schlimmer als der
+    # Fehlalarm: es wuerde einen echten CRITICAL still zu einem INFO abwerten,
+    # und still ist genau das, was hier niemand will.
+    CONTAINER_BEING_REPLACED = (
+        'marked for removal',
+        'removal of container',
+        'no such container',
+    )
+
+    def _is_container_being_replaced(self, error) -> bool:
+        """Ist der Fehler nur ein Container-Wechsel (Deploy), kein Ausfall?"""
+        text = str(error).lower()
+        return any(pattern in text for pattern in self.CONTAINER_BEING_REPLACED)
+
     def handle_category_a_service_down(self, service_name: str, container):
         """Category A: Service Down - tiered restart strategies with exponential backoff"""
 
@@ -205,6 +226,25 @@ class CategoryHandlersMixin:
 
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
+            if self._is_container_being_replaced(e):
+                # Kein Ausfall: Compose tauscht den Container gerade aus. Als
+                # CRITICAL protokolliert stand im Dashboard eine gescheiterte
+                # Wiederherstellung, obwohl nur ein Deploy lief.
+                #
+                # Scheitert der Deploy wirklich, bleibt der Dienst ungesund und
+                # der Fehlerzaehler laeuft weiter (record_failure oben, ausserhalb
+                # dieses Zweigs) — die Eskalation nach Kategorie C greift also
+                # unveraendert. Dieser Zweig unterdrueckt die Meldung, nicht die
+                # Beobachtung.
+                logger.info(
+                    f"{service_name} wird gerade ersetzt (Deploy), keine Wiederherstellung noetig: {e}"
+                )
+                self.log_event(
+                    'service_replacement_detected', 'INFO',
+                    f'{service_name} wird gerade ersetzt (Deploy), kein Ausfall',
+                    'Kein Eingriff', service_name, True
+                )
+                return
             logger.error(f"Failed to recover {service_name}: {e}")
             self.log_event(
                 'service_recovery_failed', 'CRITICAL',
