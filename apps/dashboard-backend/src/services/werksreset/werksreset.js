@@ -360,12 +360,6 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
 }
 
 /**
- * Alles, was nicht in der Datenbank und nicht im Dateisystem des Backends liegt:
- * Objektspeicher, Vektoren, n8n, Modelle. Jeder Punkt einzeln abgesichert, ein
- * nicht erreichbarer Nachbardienst darf den Reset nicht zurücknehmen; er ist zu
- * diesem Zeitpunkt schon geschehen.
- */
-/**
  * Nachlesen, ob das Entwerten wirklich gegriffen hat.
  *
  * Am 19.08.2026 in der Live-Abnahme aufgefallen: die .env des Geraets enthielt
@@ -390,6 +384,12 @@ async function pruefeEntwertung() {
   }
 }
 
+/**
+ * Alles, was nicht in der Datenbank und nicht im Dateisystem des Backends liegt:
+ * Objektspeicher, Vektoren, n8n, Modelle. Jeder Punkt einzeln abgesichert, ein
+ * nicht erreichbarer Nachbardienst darf den Reset nicht zurücknehmen; er ist zu
+ * diesem Zeitpunkt schon geschehen.
+ */
 async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
   const ergebnis = {};
 
@@ -408,7 +408,9 @@ async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
     try {
       pfade = [...(await minio.listAllObjects())];
     } catch (err) {
-      if (fehlt(err)) {return { uebersprungen: 'kein Dokumenten-Eimer vorhanden' };}
+      if (fehlt(err)) {
+        return { uebersprungen: 'kein Dokumenten-Eimer vorhanden' };
+      }
       throw err;
     }
     // Ein Aufruf je Datei laesst den Reset bei einem gefuellten Dokumentenspeicher

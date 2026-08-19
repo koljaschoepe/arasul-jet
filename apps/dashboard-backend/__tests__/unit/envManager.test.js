@@ -64,3 +64,36 @@ test('haengt einen fehlenden Schluessel an', async () => {
 
   expect(geschriebeneDatei()).toContain('NEUER_SCHLUESSEL=wert');
 });
+
+/**
+ * Dieselbe Pruefung fuer die Mehrfach-Fassung. Sie wird beim Passwortwechsel
+ * benutzt (routes/admin/settings.js) und hatte denselben Fehler: nur das erste
+ * Vorkommen ersetzt. Ein Passwortwechsel haette Erfolg gemeldet, waehrend das
+ * alte Passwort nach dem naechsten Neustart weiter gilt.
+ */
+describe('updateEnvVariables', () => {
+  const { updateEnvVariables } = require('../../src/utils/envManager');
+
+  test('ersetzt jedes Vorkommen jedes Schluessels', async () => {
+    fs.readFile.mockResolvedValue(
+      ['ADMIN_PASSWORD=alt', 'ADMIN_HASH=alt-hash', 'ADMIN_PASSWORD=auch-alt'].join('\n')
+    );
+
+    await updateEnvVariables({ ADMIN_PASSWORD: 'neu', ADMIN_HASH: 'neu-hash' });
+
+    const datei = geschriebeneDatei();
+    expect(datei).not.toMatch(/alt(-hash)?$/m);
+    expect(datei.match(/^ADMIN_PASSWORD=neu$/gm)).toHaveLength(2);
+    expect(datei).toContain('ADMIN_HASH=neu-hash');
+  });
+
+  test('haengt fehlende Schluessel an, ohne vorhandene zu verlieren', async () => {
+    fs.readFile.mockResolvedValue('VORHANDEN=ja\n');
+
+    await updateEnvVariables({ VORHANDEN: 'immer-noch', NEU: 'dazu' });
+
+    const datei = geschriebeneDatei();
+    expect(datei).toContain('VORHANDEN=immer-noch');
+    expect(datei).toContain('NEU=dazu');
+  });
+});

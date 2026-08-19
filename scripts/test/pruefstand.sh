@@ -77,7 +77,10 @@ ordner_anlegen() {
   done < <(compose config 2>/dev/null |
     grep -oE "source: ${WURZEL}/(data|logs)-pruefstand[^ ]*" |
     sed 's/^source: //' |
-    grep -v '\.' |
+    # Datei-Mounts aussortieren, an ihrer Endung erkannt. Ein Ordner mit Punkt
+    # im Namen faellt hier faelschlich mit heraus; unter data-pruefstand gibt es
+    # keinen, und ein neuer waere ohnehin ein Grund, hier nachzusehen.
+    grep -vE '\.[a-z]{2,5}$' |
     sort -u)
 }
 
