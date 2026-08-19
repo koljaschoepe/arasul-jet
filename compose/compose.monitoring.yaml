@@ -19,7 +19,7 @@ services:
       dockerfile: services/metrics-collector/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.11.12}
-    container_name: metrics-collector
+    container_name: ${CONTAINER_PREFIX:-}metrics-collector
     hostname: metrics-collector
     restart: always
     networks:
@@ -66,7 +66,7 @@ services:
       dockerfile: services/self-healing-agent/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.11.12}
-    container_name: self-healing-agent
+    container_name: ${CONTAINER_PREFIX:-}self-healing-agent
     hostname: self-healing-agent
     restart: always
     networks:
@@ -92,13 +92,13 @@ services:
       EXCLUDED_CONTAINERS: ''
       DOCKER_HOST: tcp://docker-proxy:2375
     volumes:
-      - ../logs:/arasul/logs
+      - ${LOGS_PATH:-../logs}:/arasul/logs
       - /sys:/host/sys:ro
       - /proc:/host/proc:ro
       - /media:/media:ro
       - /mnt:/mnt:ro
-      - ../data/updates:/arasul/updates
-      - ${BACKUP_PATH:-../data/backups}:/arasul/backups
+      - ${DATA_PATH:-../data}/updates:/arasul/updates
+      - ${BACKUP_PATH:-${DATA_PATH:-../data}/backups}:/arasul/backups
     devices:
       - /dev/bus/usb:/dev/bus/usb
     cap_drop:
@@ -134,7 +134,7 @@ services:
     build:
       context: ../services/backup-service
       dockerfile: Dockerfile
-    container_name: backup-service
+    container_name: ${CONTAINER_PREFIX:-}backup-service
     hostname: backup-service
     restart: always
     networks:
@@ -166,12 +166,12 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       BACKUP_REPORT_PATH: ${BACKUP_REPORT_PATH:-/backups/backup_report.json}
     volumes:
-      - ${BACKUP_PATH:-../data/backups}:/backups
+      - ${BACKUP_PATH:-${DATA_PATH:-../data}/backups}:/backups
       - arasul-wal:/backups/wal
       - ../scripts/backup/backup.sh:/usr/local/bin/backup-full.sh:ro
       # Flow-Definitionen (Plan 011) nur-lesend: sie stecken in keiner Datenbank
       # und waeren bei Geraeteverlust sonst unwiederbringlich weg.
-      - ../data/flows:/arasul/flows:ro
+      - ${DATA_PATH:-../data}/flows:/arasul/flows:ro
     depends_on:
       postgres-db:
         condition: service_healthy
@@ -223,7 +223,7 @@ services:
   # 4. Loki - Log Aggregation (optional: docker compose --profile monitoring up)
   loki:
     image: grafana/loki:2.9.3
-    container_name: loki
+    container_name: ${CONTAINER_PREFIX:-}loki
     hostname: loki
     restart: always
     profiles:
@@ -262,7 +262,7 @@ services:
   # 5. Promtail - Log Collector (optional: docker compose --profile monitoring up)
   promtail:
     image: grafana/promtail:2.9.3
-    container_name: promtail
+    container_name: ${CONTAINER_PREFIX:-}promtail
     hostname: promtail
     restart: always
     profiles:
@@ -275,7 +275,7 @@ services:
       # Same bind-mount that reverse-proxy / self-healing-agent WRITE their logs
       # to (../logs). The old `arasul-logs` named volume was always empty here, so
       # the 'arasul' scrape job never saw any log files.
-      - ../logs:/arasul/logs:ro
+      - ${LOGS_PATH:-../logs}:/arasul/logs:ro
     command: -config.file=/etc/promtail/config.yaml
     depends_on:
       loki:
@@ -310,7 +310,7 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.30.0.128/26
+        - subnet: ${NETZ_BASIS:-172.30.0}.128/26
 
 volumes:
   arasul-metrics:
