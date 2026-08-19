@@ -37,6 +37,42 @@ router.get(
       requestId: req.headers['x-request-id'],
     });
 
+    /**
+     * Eine Kategorie holen. Fehler werden NICHT verschluckt.
+     *
+     * Bis zum 19.08.2026 stand an den meisten dieser Abfragen ein
+     * `.catch(() => ({ rows: [] }))`. Dadurch sah eine Kategorie, deren SQL
+     * gegen ein längst umgebautes Schema lief, im Export exakt so aus wie eine,
+     * zu der es wirklich nichts gibt. Live geprüft an dem Tag: von elf
+     * Kategorien waren sechs falsch — zwei brachten den Export mit 500 zum
+     * Absturz (`column "model" does not exist`), vier lieferten still nichts.
+     * Bei einer Auskunft nach Art. 15 ist "leer" eine Aussage. Die darf nicht
+     * geraten sein, also wird ein Fehlschlag mitgeliefert und protokolliert.
+     */
+    //
+    // Gefangen wird JEDER Fehler, nicht nur Schema-Drift: auch ein
+    // Verbindungsabbruch oder ein Timeout landet als `unvollstaendig` in der
+    // Antwort statt als 500. Das ist so gewollt — eine Auskunft, die zehn von
+    // elf Kategorien liefert und die elfte benennt, ist mehr wert als gar
+    // keine. Still ist sie dabei nie: der Grund steht in der Antwort und im
+    // Protokoll.
+    const unvollstaendig = [];
+    const hole = async (kategorie, sql, params) => {
+      try {
+        return await db.query(sql, params);
+      } catch (err) {
+        logger.error(`GDPR-Export: Kategorie "${kategorie}" nicht lesbar: ${err.message}`);
+        unvollstaendig.push({ kategorie, grund: err.message });
+        return { rows: [], fehler: err.message };
+      }
+    };
+    const block = (kategorie, result, extra = {}) => ({
+      count: result.rows.length,
+      ...(result.fehler ? { unvollstaendig: result.fehler } : {}),
+      ...extra,
+      data: result.rows,
+    });
+
     // Collect all user-related data in parallel
     const [
       profileResult,
@@ -50,26 +86,29 @@ router.get(
       auditResult,
       securityAuditResult,
       spacesResult,
+      projekteResult,
     ] = await Promise.all([
       // 1. User profile
-      db.query(
+      hole(
+        'profil',
         `SELECT id, username, email, created_at, last_login, is_active
          FROM admin_users WHERE id = $1`,
         [userId]
       ),
 
       // 2. Chat conversations
-      db.query(
-        `SELECT id, title, model, created_at, updated_at, message_count
+      hole(
+        'konversationen',
+        `SELECT id, title, preferred_model, created_at, updated_at, message_count
          FROM chat_conversations WHERE user_id = $1
          ORDER BY created_at DESC`,
         [userId]
       ),
 
       // 3. Chat messages (last 10000 to avoid huge exports)
-      db.query(
-        `SELECT m.id, m.conversation_id, m.role, m.content, m.model, m.created_at,
-                m.token_count, m.duration_ms
+      hole(
+        'nachrichten',
+        `SELECT m.id, m.conversation_id, m.role, m.content, m.thinking, m.status, m.created_at
          FROM chat_messages m
          JOIN chat_conversations c ON c.id = m.conversation_id
          WHERE c.user_id = $1
@@ -79,89 +118,102 @@ router.get(
       ),
 
       // 4. Chat attachments
-      db
-        .query(
-          `SELECT a.id, a.message_id, a.file_name, a.file_type, a.file_size, a.created_at
+      hole(
+        'anhaenge',
+        `SELECT a.id, a.message_id, a.filename, a.original_filename, a.mime_type,
+                a.file_size, a.created_at
          FROM chat_attachments a
          JOIN chat_messages m ON m.id = a.message_id
          JOIN chat_conversations c ON c.id = m.conversation_id
          WHERE c.user_id = $1
          ORDER BY a.created_at DESC`,
-          [userId]
-        )
-        .catch(() => ({ rows: [] })),
+        [userId]
+      ),
 
-      // 5. Documents uploaded by user
-      db
-        .query(
-          `SELECT id, title, filename, file_type, file_size, status, created_at, updated_at,
-                category_id, chunk_count
-         FROM documents WHERE uploaded_by = $1
-         ORDER BY created_at DESC`,
-          [userId]
-        )
-        .catch(() => ({ rows: [] })),
+      // 5. Dokumente. Zwei Spalten, weil die Ablage zwei Wege kennt:
+      //    `owner_id` (Migration 089, numerische Id) und `uploaded_by`, das
+      //    einen NAMEN enthält ('admin', 'ordner-sync', 'nightrun') und keine
+      //    Id. Die alte Abfrage verglich `uploaded_by` mit der Id — das trifft
+      //    nie und lieferte still eine leere Liste.
+      hole(
+        'dokumente',
+        `SELECT id, title, filename, original_filename, mime_type, file_size, status,
+                uploaded_at, updated_at, category_id, chunk_count, uploaded_by, owner_id
+         FROM documents
+         WHERE (owner_id = $1 OR uploaded_by = $2) AND deleted_at IS NULL
+         ORDER BY uploaded_at DESC`,
+        [userId, req.user.username]
+      ),
 
-      // 6. AI memories
-      db
-        .query(
-          `SELECT id, key, content, memory_type, created_at, updated_at, access_count
-         FROM ai_memories WHERE user_id = $1
+      // 6. KI-Erinnerungen. Die Tabelle hat KEINE Nutzerspalte — auf dieser
+      //    Box gehören sie allen. Sie hier wegzulassen wäre die schlechtere
+      //    Auskunft, also stehen sie vollständig drin, mit Hinweis.
+      hole(
+        'ki_erinnerungen',
+        `SELECT id, type, content, importance, source_conversation_id, created_at, updated_at
+         FROM ai_memories WHERE is_active = TRUE
          ORDER BY created_at DESC`,
-          [userId]
-        )
-        .catch(() => ({ rows: [] })),
+        []
+      ),
 
       // 7. Login history (last 500)
-      db
-        .query(
-          `SELECT username, ip_address, success, user_agent, attempted_at
+      hole(
+        'anmeldungen',
+        `SELECT username, ip_address, success, user_agent, attempted_at
          FROM login_attempts WHERE username = $1
          ORDER BY attempted_at DESC LIMIT 500`,
-          [req.user.username]
-        )
-        .catch(() => ({ rows: [] })),
+        [req.user.username]
+      ),
 
       // 8. Active sessions
-      db
-        .query(
-          `SELECT token_jti, ip_address, user_agent, created_at, expires_at, last_activity
+      hole(
+        'sitzungen',
+        `SELECT token_jti, ip_address, user_agent, created_at, expires_at, last_activity
          FROM active_sessions WHERE user_id = $1
          ORDER BY created_at DESC`,
-          [userId]
-        )
-        .catch(() => ({ rows: [] })),
+        [userId]
+      ),
 
       // 9. API audit trail (last 1000 actions)
-      db
-        .query(
-          `SELECT timestamp, action_type, target_endpoint, response_status, duration_ms,
+      hole(
+        'aktivitaet',
+        `SELECT timestamp, action_type, target_endpoint, response_status, duration_ms,
                 ip_address, user_agent
          FROM api_audit_logs WHERE user_id = $1
          ORDER BY timestamp DESC LIMIT 1000`,
-          [userId]
-        )
-        .catch(() => ({ rows: [] })),
+        [userId]
+      ),
 
       // 10. Security audit events
-      db
-        .query(
-          `SELECT timestamp, action, details, ip_address
+      hole(
+        'sicherheitsereignisse',
+        `SELECT timestamp, action, details, ip_address
          FROM audit_logs WHERE user_id = $1
          ORDER BY timestamp DESC`,
-          [userId]
-        )
-        .catch(() => ({ rows: [] })),
+        [userId]
+      ),
 
-      // 11. Knowledge spaces created by user
-      db
-        .query(
-          `SELECT id, name, description, created_at, updated_at, document_count
-         FROM knowledge_spaces WHERE created_by = $1
+      // 11. Wissensräume. `created_by` gibt es nicht; die Spalte heißt seit
+      //     Migration 089 `owner_id`.
+      hole(
+        'wissensraeume',
+        `SELECT id, name, slug, description, document_count, created_at, updated_at
+         FROM knowledge_spaces WHERE owner_id = $1
          ORDER BY created_at DESC`,
-          [userId]
-        )
-        .catch(() => ({ rows: [] })),
+        [userId]
+      ),
+
+      // 12. Projekte. Die Doku führt sie seit jeher als Kategorie, der Export
+      //     lieferte sie nie. Eine Besitzerspalte gibt es nicht: Migration 089
+      //     hatte `projects.owner_id` angelegt, 104 hat die damalige Tabelle
+      //     gedroppt und 118 sie ohne Besitzer neu aufgebaut. Also boxweit mit
+      //     Hinweis, wie bei den KI-Erinnerungen.
+      hole(
+        'projekte',
+        `SELECT id, name, slug, description, is_default, created_at, updated_at
+         FROM projects ORDER BY created_at DESC`,
+        []
+      ),
     ]);
 
     const exportData = {
@@ -173,61 +225,47 @@ router.get(
         userId,
         username: req.user.username,
         description: 'DSGVO/GDPR-konformer Datenexport aller personenbezogenen Daten',
+        // Leer heißt: jede Kategorie konnte gelesen werden. Steht hier etwas,
+        // ist der Export unvollständig und die Auskunft entsprechend zu geben.
+        unvollstaendig,
       },
       profile: profileResult.rows[0] || null,
-      conversations: {
-        count: chatsResult.rows.length,
-        data: chatsResult.rows,
-      },
-      messages: {
-        count: messagesResult.rows.length,
+      conversations: block('konversationen', chatsResult),
+      messages: block('nachrichten', messagesResult, {
         note:
           messagesResult.rows.length >= 10000
             ? 'Export limited to 10,000 most recent messages'
             : undefined,
-        data: messagesResult.rows,
-      },
-      attachments: {
-        count: attachmentsResult.rows.length,
+      }),
+      attachments: block('anhaenge', attachmentsResult, {
         note: 'File contents are stored in MinIO — this export contains metadata only. Request file export separately if needed.',
-        data: attachmentsResult.rows,
-      },
-      documents: {
-        count: documentsResult.rows.length,
+      }),
+      documents: block('dokumente', documentsResult, {
         note: 'Document files are stored in MinIO — this export contains metadata only.',
-        data: documentsResult.rows,
-      },
-      aiMemories: {
-        count: memoriesResult.rows.length,
-        data: memoriesResult.rows,
-      },
-      loginHistory: {
-        count: loginHistoryResult.rows.length,
-        data: loginHistoryResult.rows,
-      },
+      }),
+      aiMemories: block('ki_erinnerungen', memoriesResult, {
+        note: 'Diese Box führt KI-Erinnerungen ohne Nutzerbindung — der Export enthält daher alle aktiven Einträge.',
+      }),
+      loginHistory: block('anmeldungen', loginHistoryResult),
       activeSessions: {
         count: sessionsResult.rows.length,
+        ...(sessionsResult.fehler ? { unvollstaendig: sessionsResult.fehler } : {}),
         data: sessionsResult.rows.map(s => ({
           ...s,
           token_jti: s.token_jti ? `${s.token_jti.slice(0, 8)}...` : null, // Truncate JTI for security
         })),
       },
-      activityLog: {
-        count: auditResult.rows.length,
+      activityLog: block('aktivitaet', auditResult, {
         note:
           auditResult.rows.length >= 1000
             ? 'Export limited to 1,000 most recent entries'
             : undefined,
-        data: auditResult.rows,
-      },
-      securityEvents: {
-        count: securityAuditResult.rows.length,
-        data: securityAuditResult.rows,
-      },
-      knowledgeSpaces: {
-        count: spacesResult.rows.length,
-        data: spacesResult.rows,
-      },
+      }),
+      securityEvents: block('sicherheitsereignisse', securityAuditResult),
+      knowledgeSpaces: block('wissensraeume', spacesResult),
+      projects: block('projekte', projekteResult, {
+        note: 'Projekte sind auf dieser Box nicht nutzergebunden — der Export enthält daher alle.',
+      }),
     };
 
     // Set headers for download
@@ -251,18 +289,22 @@ router.get(
   asyncHandler(async (req, res) => {
     const userId = req.user.id;
 
-    const [chatCount, docCount, memoryCount, auditCount] = await Promise.all([
-      db.query('SELECT count(*) FROM chat_conversations WHERE user_id = $1', [userId]),
-      db
-        .query('SELECT count(*) FROM documents WHERE uploaded_by = $1', [userId])
-        .catch(() => ({ rows: [{ count: 0 }] })),
-      db
-        .query('SELECT count(*) FROM ai_memories WHERE user_id = $1', [userId])
-        .catch(() => ({ rows: [{ count: 0 }] })),
-      db
-        .query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId])
-        .catch(() => ({ rows: [{ count: 0 }] })),
-    ]);
+    // Dieselben Bedingungen wie im Export — sonst nennt die Übersicht andere
+    // Zahlen als die Auskunft. `documents.uploaded_by` enthält einen Namen,
+    // keine Id; `ai_memories` hat gar keine Nutzerspalte.
+    const [chatCount, docCount, memoryCount, auditCount, spaceCount, projektCount] =
+      await Promise.all([
+        db.query('SELECT count(*) FROM chat_conversations WHERE user_id = $1', [userId]),
+        db.query(
+          `SELECT count(*) FROM documents
+            WHERE (owner_id = $1 OR uploaded_by = $2) AND deleted_at IS NULL`,
+          [userId, req.user.username]
+        ),
+        db.query('SELECT count(*) FROM ai_memories WHERE is_active = TRUE'),
+        db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
+        db.query('SELECT count(*) FROM knowledge_spaces WHERE owner_id = $1', [userId]),
+        db.query('SELECT count(*) FROM projects'),
+      ]);
 
     res.json({
       categories: [
@@ -279,7 +321,8 @@ router.get(
         },
         {
           name: 'KI-Erinnerungen',
-          description: 'Vom KI-Assistenten gespeicherte Informationen',
+          description:
+            'Vom KI-Assistenten gespeicherte Informationen (boxweit, ohne Nutzerbindung)',
           count: parseInt(memoryCount.rows[0].count),
         },
         {
@@ -291,6 +334,16 @@ router.get(
         {
           name: 'Sicherheitsereignisse',
           description: 'Passwortänderungen, Konfigurationsänderungen',
+        },
+        {
+          name: 'Wissensräume',
+          description: 'Selbst angelegte Wissensräume',
+          count: parseInt(spaceCount.rows[0].count),
+        },
+        {
+          name: 'Projekte',
+          description: 'Projekte auf dieser Box (ohne Nutzerbindung)',
+          count: parseInt(projektCount.rows[0].count),
         },
       ],
       timestamp: new Date().toISOString(),
