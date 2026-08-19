@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect } from 'react';
-import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { IsolatedMemoryRouter } from './IsolatedMemoryRouter';
 import { ComponentErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
@@ -126,7 +126,7 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
  * funktionieren Router-gekoppelte Features (Store, Chat, Datenbank) ohne
  * Eingriff in ihren Code als Tab.
  */
-function FeatureTabHost({
+export function FeatureTabHost({
   tab,
   themeControls,
 }: {
@@ -136,11 +136,34 @@ function FeatureTabHost({
   const resetTo = initialPathFor(tab);
   const self = SELF_KEYS[tab.type];
 
+  // Der Suchteil der ECHTEN Adresse muss in den MemoryRouter dieses Tabs
+  // hinein, sonst kommt er nirgends an (Plan 023 B1, Nachtrag).
+  //
+  // `initialPathFor` liefert nur den Pfad. Ein Aufruf von
+  // `/workspace/settings?tab=remote-access` startete den Tab-Router also mit
+  // `/settings` ohne Suchteil, und `Settings.tsx` las über `useSearchParams`
+  // die LEERE Memory-Location statt der Adresszeile. Der Deep-Link zum
+  // Fernzugriff landete stumm auf „Allgemein". Am 19.08.2026 im Browser
+  // gegengeprüft, vorher und nachher.
+  //
+  // Das galt schon vor dem Entfernen der Legacy-Shell (Plan 023 B1), fiel aber
+  // nicht auf, weil `/settings` damals an der Shell hing und dort ein echter
+  // BrowserRouter las. Risiko R15 war gegen diesen Weg geprüft worden.
+  //
+  // Nur beim ersten Rendern relevant: `initialEntries` liest der MemoryRouter
+  // genau einmal. `resetTo` bleibt bewusst ohne Suchteil, damit ein Rücksprung
+  // den Parameter nicht endlos wieder anwendet.
+  const aussenLocation = useLocation();
+  const startEintrag =
+    tabToPath(tab) === aussenLocation.pathname && aussenLocation.search
+      ? `${resetTo}${aussenLocation.search}`
+      : resetTo;
+
   const routeFor = (key: string, feature: React.ReactNode, spec: WorkspaceTabSpec) =>
     self.has(key) ? feature : <TabBridge makeSpec={() => spec} resetTo={resetTo} />;
 
   return (
-    <IsolatedMemoryRouter initialEntries={[resetTo]}>
+    <IsolatedMemoryRouter initialEntries={[startEintrag]}>
       <Routes>
         {/* Kein Dashboard-Tab mehr (Plan 008): "/" fällt auf den Startpfad des
             jeweiligen Tabs zurück. */}
