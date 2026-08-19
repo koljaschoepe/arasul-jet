@@ -2479,6 +2479,24 @@ PK (projekt_id, jahr).
 
 ---
 
+## `arasul.geraet`
+
+> Eine Zeile, `id = 1`. Merker über einen Werksreset hinweg (Migration 146).
+> Der Werksreset setzt `werksreset_am`, die Ersteinrichtung löscht es wieder.
+> Solange es gesetzt ist, legt `bootstrap.js` **keinen** Administrator aus
+> `ADMIN_PASSWORD` an. Ohne diesen Merker legte der nächste Start nach einem
+> Werksreset den alten Zugang wieder an: das Entwerten in der `.env` allein
+> reicht nicht, dasselbe Passwort kommt zusätzlich als Docker-Secret herein
+> (`ADMIN_PASSWORD_FILE`, `/run/secrets/admin_password`, read-only im Container).
+>
+> Steht in der Klassifikation des Werksresets unter `BLEIBT`.
+
+| Column             | Type                     | Nullable | Default               |
+| ------------------ | ------------------------ | -------- | --------------------- |
+| `id`               | integer                  | ⛔       | `1`, `CHECK (id = 1)` |
+| `werksreset_am`    | timestamp with time zone | ✅       |                       |
+| `werksreset_stufe` | text                     | ✅       |                       |
+
 ## `avatar_*` — ENTFERNT (Migration 145, 2026-08-19)
 
 > Sechs Tabellen im Schema `arasul` (`avatar_best_slot`, `avatar_render_queue`,

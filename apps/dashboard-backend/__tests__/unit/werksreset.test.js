@@ -309,6 +309,9 @@ describe('ausfuehren, ganzer Durchlauf', () => {
       db.transaction.mock.invocationCallOrder[0]
     );
     expect(clientAbfragen).toContain('DROP SCHEMA IF EXISTS n8n CASCADE');
+    // Der Merker, ohne den bootstrap.js beim naechsten Start den alten Zugang
+    // aus dem Docker-Secret wieder anlegt.
+    expect(clientAbfragen.some(s => /INSERT INTO arasul\.geraet/.test(s))).toBe(true);
     expect(clientAbfragen).toContain('CREATE SCHEMA n8n');
     expect(docker.restartContainer).toHaveBeenCalledWith('n8n');
     // admin_users ist leer, aber requireAuth haelt Identitaeten bis zu 60 s im
@@ -327,6 +330,7 @@ describe('ausfuehren, ganzer Durchlauf', () => {
 
     expect(envManager.updateEnvVariable).not.toHaveBeenCalled();
     expect(clientAbfragen.some(s => s.includes('DROP SCHEMA'))).toBe(false);
+    expect(clientAbfragen.some(s => /arasul\.geraet/.test(s))).toBe(false);
     expect(docker.restartContainer).not.toHaveBeenCalled();
     expect(require('../../src/middleware/auth').clearUserCache).not.toHaveBeenCalled();
     expect(bericht.ordner.map(o => o.pfad)).not.toContain('/arasul/flows');

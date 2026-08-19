@@ -46,6 +46,19 @@ async function createFirstAdmin({ username, password, email }) {
     throw new ConflictError('Setup already completed — an admin account already exists');
   }
 
+  // Der Merker aus dem Werksreset hat seine Aufgabe erfuellt: es gibt wieder
+  // einen Administrator, und zwar diesen. Bliebe er stehen, wuerde nach jedem
+  // spaeteren Loeschen des letzten Kontos die Ersteinrichtung erzwungen, statt
+  // dass bootstrap.js aushilft. Best-effort: eine sehr alte Datenbank ohne
+  // Migration 146 hat die Tabelle nicht, und das Anlegen ist schon gelungen.
+  try {
+    await db.query(
+      'UPDATE arasul.geraet SET werksreset_am = NULL, werksreset_stufe = NULL WHERE id = 1'
+    );
+  } catch (error) {
+    logger.debug(`Setup: Geraetezustand nicht zuruecksetzbar (${error.message})`);
+  }
+
   logger.info(`Setup: created first admin user "${username}" via web onboarding`);
   return result.rows[0];
 }

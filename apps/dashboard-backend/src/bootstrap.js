@@ -87,6 +87,21 @@ async function bootstrap() {
   }
 }
 
+/**
+ * Steht der Werksreset-Merker? Fehlt die Tabelle (sehr alte Datenbank, bevor
+ * Migration 146 lief), gilt: kein Merker. Das ist der Zustand von vorher und
+ * damit die richtige Vorgabe.
+ */
+async function werksresetSteht() {
+  try {
+    const { rows } = await db.query('SELECT werksreset_am FROM arasul.geraet WHERE id = 1');
+    return Boolean(rows[0]?.werksreset_am);
+  } catch (error) {
+    logger.debug(`Bootstrap: Geraetezustand nicht lesbar (${error.message})`);
+    return false;
+  }
+}
+
 async function ensureAdminUser() {
   try {
     // Check if any admin user exists
@@ -95,6 +110,21 @@ async function ensureAdminUser() {
 
     if (count > 0) {
       logger.debug(`Bootstrap: ${count} admin user(s) exist, skipping`);
+      return;
+    }
+
+    // Nach einem Werksreset gibt es absichtlich keinen Administrator. Ohne
+    // diese Abfrage legte der naechste Start ihn wieder an, mit dem alten
+    // Passwort, und ein weitergegebenes Geraet liesse sich vom Vorbesitzer
+    // weiter oeffnen. Gefunden in der Live-Abnahme am 19.08.2026: das
+    // Entwerten in der .env allein reicht nicht, dasselbe Passwort kommt
+    // zusaetzlich als Docker-Secret (ADMIN_PASSWORD_FILE) herein.
+    // Den Merker loescht die Ersteinrichtung (services/auth/setupService.js).
+    if (await werksresetSteht()) {
+      logger.info(
+        'Bootstrap: Werksreset vermerkt, es wird kein Administrator angelegt. ' +
+          'Der naechste Aufruf zeigt die Ersteinrichtung.'
+      );
       return;
     }
 

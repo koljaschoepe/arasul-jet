@@ -376,7 +376,9 @@ weder antworten noch Dokumente durchsuchen.
 3. **Werksreset jetzt ausfuehren**.
 
 Nach _Auslieferungszustand_ ist kein Zugang mehr hinterlegt: beim naechsten
-Aufruf startet die Ersteinrichtung, so wie bei einem neuen Geraet.
+Aufruf startet die Ersteinrichtung, so wie bei einem neuen Geraet. Das gilt auch
+ueber einen Neustart hinweg. Das alte Passwort funktioniert danach nicht mehr,
+auch nicht das aus der ersten Einrichtung des Geraets.
 
 **Wenn der Werksreset gesperrt ist:** Die Vorschau meldet dann Tabellen, die er
 nicht einordnen kann, und verweigert die Ausfuehrung. Das ist Absicht. Ein
