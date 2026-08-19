@@ -507,7 +507,7 @@ async function synchronisiere(projectId, overrides = {}) {
         return;
       }
       const hash = await hashDatei(datei.abs);
-      cache.set(datei.rel, { size: datei.size, mtimeMs: datei.mtimeMs });
+      cache.set(datei.rel, { size: datei.size, mtimeMs: datei.mtimeMs, hash });
       if (hash === zeile.content_hash) {
         return;
       }
