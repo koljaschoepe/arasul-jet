@@ -19,6 +19,18 @@ MONTHLY_RETENTION_DAYS=$((MONTHLY_RETENTION_MONTHS * 30))
 BACKUP_ENCRYPT=${BACKUP_ENCRYPT:-false}
 BACKUP_ENCRYPT_KEY_FILE=${BACKUP_ENCRYPT_KEY_FILE:-/run/secrets/backup_encryption_key}
 
+# Meldet der Bericht die Absicht oder das Ergebnis? Frueher die Absicht:
+# `"encrypted": "$BACKUP_ENCRYPT"`. Faellt encrypt_file durch, weil openssl
+# fehlt oder der Schluessel nicht da ist, stand im Bericht trotzdem
+# verschluesselt, waehrend jede Datei im Klartext lag. Genau diese Sorte Zusage
+# hat Gate G6 aufgemacht. Deshalb wird jetzt mitgezaehlt, was wirklich passiert
+# ist (Plan 023 S3).
+VERSCHLUESSELUNG_ERFOLGT=true
+if [ "$BACKUP_ENCRYPT" = "true" ] && [ ! -f "$BACKUP_ENCRYPT_KEY_FILE" ]; then
+    echo "[$TIMESTAMP] [ERROR] BACKUP_ENCRYPT=true, aber der Schluessel fehlt (${BACKUP_ENCRYPT_KEY_FILE})"
+    VERSCHLUESSELUNG_ERFOLGT=false
+fi
+
 encrypt_file() {
     local src="$1"
     if [ "$BACKUP_ENCRYPT" = "true" ] && [ -f "$BACKUP_ENCRYPT_KEY_FILE" ]; then
@@ -29,8 +41,9 @@ encrypt_file() {
             echo "[$TIMESTAMP] Encrypted: $(basename "$src")"
             return 0
         else
-            echo "[$TIMESTAMP] [WARNING] Encryption failed for $(basename "$src"), keeping unencrypted"
+            echo "[$TIMESTAMP] [ERROR] Verschluesselung fehlgeschlagen fuer $(basename "$src"), Datei bleibt im Klartext"
             rm -f "${src}.enc"
+            VERSCHLUESSELUNG_ERFOLGT=false
             return 1
         fi
     fi
@@ -276,6 +289,13 @@ if [ -d /backups/wal ] && [ "$(ls -A /backups/wal 2>/dev/null)" ]; then
     echo "[$TIMESTAMP] WAL archive backup completed ($WAL_COUNT files)"
 fi
 
+# Wer Verschluesselung verlangt und Klartext bekommt, hat keine Sicherung nach
+# Zusage. Das muss laut sein, nicht als Warnung im Protokoll verschwinden.
+if [ "$BACKUP_ENCRYPT" = "true" ] && [ "$VERSCHLUESSELUNG_ERFOLGT" != true ]; then
+    echo "[$TIMESTAMP] [ERROR] Verschluesselung war verlangt, ist aber nicht durchgehend erfolgt"
+    BACKUP_OK=false
+fi
+
 # Cleanup: only run if backup succeeded (don't purge WAL if we might need it for recovery)
 if [ "$BACKUP_OK" = true ]; then
     # Cleanup: daily backups (short retention)
@@ -347,7 +367,8 @@ cat > /backups/backup_report.json << EOF
   "retention_days": $RETENTION_DAYS,
   "weekly_retention_weeks": $WEEKLY_RETENTION_WEEKS,
   "monthly_retention_months": $MONTHLY_RETENTION_MONTHS,
-  "encrypted": "$BACKUP_ENCRYPT",
+  "encrypted": "$([ "$BACKUP_ENCRYPT" = "true" ] && [ "$VERSCHLUESSELUNG_ERFOLGT" = true ] && echo true || echo false)",
+  "encryption_requested": "$BACKUP_ENCRYPT",
   "postgres_size": "$PG_SIZE",
   "minio_size": "$MINIO_SIZE",
   "wal_size": "$WAL_SIZE",

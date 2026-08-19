@@ -295,6 +295,34 @@ decrypt_if_needed() {
         fi
     fi
 
+    # Plan 023 S3: der Sicherungsdienst (services/backup-service/backup.sh)
+    # verschluesselt mit openssl AES-256-CBC und schreibt das Chiffrat unter
+    # DEMSELBEN Dateinamen zurueck. Eine Sicherung heisst also weiter .sql.gz
+    # oder .tar.gz und ist keine mehr. Ohne diesen Zweig haette dieses Skript
+    # gunzip auf Chiffrat angewandt: verschluesselte Sicherungen waeren
+    # geschrieben worden, die der dokumentierte Wiederherstellungsweg nicht
+    # lesen kann. Erkannt wird an den gzip-Magic-Bytes, nicht an der Endung.
+    local magic
+    magic=$(head -c 2 "${file}" 2>/dev/null | od -An -tx1 | tr -d ' \n')
+    if [[ -n "${magic}" && "${magic}" != "1f8b" ]]; then
+        local ossl_key="${BACKUP_ENCRYPT_KEY_FILE:-/run/secrets/backup_encryption_key}"
+        if [[ ! -f "${ossl_key}" ]]; then
+            log "ERROR" "Sicherung ist verschluesselt, Schluessel fehlt: ${ossl_key}"
+            log "ERROR" "BACKUP_ENCRYPT_KEY_FILE auf den Schluessel setzen"
+            return 1
+        fi
+        local klartext="${file}.klartext"
+        log "INFO" "Entschluesseln: $(basename "${file}")"
+        if openssl enc -d -aes-256-cbc -pbkdf2 -in "${file}" -out "${klartext}" \
+            -pass "file:${ossl_key}" 2>/dev/null; then
+            echo "${klartext}"
+            return 0
+        fi
+        log "ERROR" "Entschluesselung fehlgeschlagen: ${file}"
+        rm -f "${klartext}"
+        return 1
+    fi
+
     echo "${file}"
     return 0
 }
@@ -474,7 +502,9 @@ usage() {
     echo "  $0 --latest                    Restore from latest backups"
     echo "  $0 --list                      List available backups"
     echo ""
-    echo "Encrypted backups (.gpg) are auto-decrypted if BACKUP_ENCRYPTION_KEY_FILE is set."
+    echo "Verschluesselte Sicherungen werden automatisch entschluesselt: openssl-AES ueber"
+    echo "BACKUP_ENCRYPT_KEY_FILE (Standard /run/secrets/backup_encryption_key), aeltere .gpg"
+    echo "ueber BACKUP_ENCRYPTION_KEY_FILE."
     echo ""
     echo "Examples:"
     echo "  $0 --list"

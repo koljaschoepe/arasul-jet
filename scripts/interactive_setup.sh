@@ -756,6 +756,19 @@ ENVEOF
         printf 'A1%s' "$(generate_secret 24 | tr -d '\n')" > "$secrets_dir/n8n_owner_password"
     fi
 
+    # --- Plan 023 S3: Schluessel fuer verschluesselte Sicherungen -------------
+    # Ohne ihn laeuft backup.sh mit BACKUP_ENCRYPT=true in den Warnzweig und
+    # sichert unverschluesselt weiter. Nur erzeugen, wenn fehlend: ein Wechsel
+    # macht jede aeltere Sicherung unlesbar.
+    #
+    # ACHTUNG beim Betrieb: dieser Schluessel liegt auf demselben Geraet wie die
+    # Sicherungen. Gegen Diebstahl der Platte schuetzt das, gegen Verlust des
+    # Geraets nicht. Er gehoert zusaetzlich ausser Haus.
+    if [ ! -s "$secrets_dir/backup_encryption_key" ]; then
+        generate_secret 32 | tr -d '\n' > "$secrets_dir/backup_encryption_key"
+    fi
+    # --------------------------------------------------------------------------
+
     chmod 600 "$secrets_dir"/*
 
     echo ""
