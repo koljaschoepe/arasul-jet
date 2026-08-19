@@ -429,4 +429,26 @@ describe('Erstpasswort als Vorbedingung', () => {
 
     expect(envManager.updateEnvVariable).not.toHaveBeenCalled();
   });
+
+  test('eine gescheiterte Transaktion laesst die .env entwertet zurueck', async () => {
+    // Festgehalten, nicht behoben: harmlos, weil die Anmeldung gegen den Hash
+    // in der Datenbank laeuft. ADMIN_PASSWORD interessiert nur bootstrap.js,
+    // und den nur, solange kein Administrator existiert.
+    const envManager = require('../../src/utils/envManager');
+    envManager.updateEnvVariable.mockReset();
+    envManager.updateEnvVariable.mockResolvedValue(true);
+    db.query.mockReset();
+    db.transaction.mockReset();
+    tabellenInDerDatenbank(ALLE);
+    db.transaction.mockRejectedValue(new Error('Tabellen lassen sich nicht leeren'));
+
+    await expect(
+      werksreset.ausfuehren({ stufe: 'auslieferung', bestaetigung: 'orin-vorfuehrer' })
+    ).rejects.toThrow(/nicht leeren/);
+
+    expect(envManager.updateEnvVariable).toHaveBeenCalledWith(
+      'ADMIN_PASSWORD',
+      'REDACTED_AFTER_BOOTSTRAP'
+    );
+  });
 });

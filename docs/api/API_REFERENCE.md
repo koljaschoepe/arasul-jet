@@ -2078,9 +2078,10 @@ sonst eine Vollständigkeit, die er nicht hat.
 { "stufe": "auslieferung", "bestaetigung": "arasul", "modelleLoeschen": false }
 ```
 
-Beide Endpunkte sind gebremst: die Ausführung zwei Mal je Stunde und Nutzer, die
-Vorschau zwanzig Mal in fünf Minuten. Der Gerätename als Bestätigung schützt
-gegen den Fehlgriff, nicht gegen eine übernommene Sitzung in einer Schleife.
+Beide Endpunkte sind gebremst: die Ausführung fünf Mal je Stunde und Nutzer, die
+Vorschau zwanzig Mal in fünf Minuten. Gezählt werden alle Aufrufe, auch die mit
+falsch getipptem Gerätenamen. Der Gerätename als Bestätigung schützt gegen den
+Fehlgriff, nicht gegen eine übernommene Sitzung in einer Schleife.
 
 Vor jedem Löschen entwertet die Stufe `auslieferung` das Erstpasswort in der
 `.env` (`ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP`). Scheitert das, bricht der

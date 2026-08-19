@@ -20,10 +20,13 @@ const logger = require('../../utils/logger');
 const werksreset = require('../../services/werksreset/werksreset');
 const { WerksresetBody, WerksresetVorschauQuery } = require('../../schemas/werksreset');
 
-// Zwei Ausführungen je Stunde und Nutzer. Der Gerätename als Bestätigung
-// schützt gegen den Fehlgriff, nicht gegen eine übernommene Sitzung, die den
-// Endpunkt in einer Schleife aufruft.
-const werksresetLimiter = createUserRateLimiter(2, 60 * 60 * 1000);
+// Fünf Aufrufe je Stunde und Nutzer. Der Gerätename als Bestätigung schützt
+// gegen den Fehlgriff, nicht gegen eine übernommene Sitzung, die den Endpunkt in
+// einer Schleife aufruft. Gezählt werden ALLE Aufrufe, auch die mit falsch
+// getipptem Gerätenamen: die Bremse steht vor der Prüfung. Deshalb fünf und
+// nicht zwei, sonst sperrt sich aus, wer sich zweimal vertippt, ohne dass je
+// etwas gelöscht wurde.
+const werksresetLimiter = createUserRateLimiter(5, 60 * 60 * 1000);
 
 // Die Vorschau ändert nichts, zählt aber achtzig Tabellen ab. Zwanzig Aufrufe
 // in fünf Minuten sind für einen Menschen reichlich und für eine Schleife wenig.

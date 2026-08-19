@@ -272,6 +272,13 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
   // Datei in den Container gebunden. Docker haengt sie ueber ihren inode ein,
   // ein rename wuerde die Bindung zerreissen und der Container laese danach
   // dauerhaft die alte Fassung.
+  //
+  // Bewusste Schieflage: scheitert die Transaktion danach, ist die .env schon
+  // entwertet, ohne dass etwas geloescht wurde. Das ist harmlos, weil die
+  // Anmeldung gegen den Hash in der Datenbank laeuft und ADMIN_PASSWORD nur
+  // bootstrap.js interessiert, und zwar nur solange kein Administrator
+  // existiert. Ein Vorbereiten mit Ruecknahme waere hier mehr Mechanik als der
+  // Fall wert ist.
   if (stufe === 'auslieferung') {
     try {
       const { updateEnvVariable } = require('../../utils/envManager');
@@ -461,7 +468,7 @@ function werkswert(vorgabe) {
 
 async function werkseinstellungen(client) {
   const { rows } = await client.query(
-    `SELECT column_name, is_nullable, column_default
+    `SELECT column_name, column_default
        FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = 'system_settings'
         AND column_name <> 'id'`
