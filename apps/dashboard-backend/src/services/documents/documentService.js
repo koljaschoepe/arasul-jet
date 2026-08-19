@@ -71,9 +71,7 @@ async function deleteDocument(documentId, filePath) {
         });
         throw err;
       }
-      logger.warn(
-        `qdrant_cleanup_pending column missing — skipping cleanup mark for ${documentId}`
-      );
+      logger.warn(`qdrant_cleanup_pending column missing, skipping cleanup mark for ${documentId}`);
     }
   }
 }
@@ -267,7 +265,7 @@ async function cleanupOrphaned(dryRun) {
     minioPaths = await minioService.listAllObjects();
   } catch (err) {
     logger.error(`Cleanup: Failed to list MinIO objects: ${err.message}`);
-    throw new ValidationError('MinIO nicht erreichbar — Bereinigung nicht möglich');
+    throw new ValidationError('MinIO nicht erreichbar, Bereinigung nicht möglich');
   }
 
   // 3. Find orphaned MinIO files (in MinIO but not in DB)

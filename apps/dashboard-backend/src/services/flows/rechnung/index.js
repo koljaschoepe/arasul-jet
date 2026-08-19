@@ -99,7 +99,7 @@ class RechnungErstellenTool extends BaseTool {
       kaeufer_ort: { type: 'string', description: 'Ort', required: false },
       kaeufer_land: {
         type: 'string',
-        description: 'Ländercode (z. B. DE) — Standard DE',
+        description: 'Ländercode (z. B. DE), Standard DE',
         required: false,
       },
       positionen: {
@@ -144,7 +144,7 @@ class RechnungErstellenTool extends BaseTool {
     const projektId = context.projektId || null;
     if (!projektId) {
       return (
-        'Fehler: Für die Rechnung fehlt der Projekt-Bezug — der Flow braucht ein ' +
+        'Fehler: Für die Rechnung fehlt der Projekt-Bezug, der Flow braucht ein ' +
         'projekt://-Arbeitsverzeichnis (z. B. projekt://aktiv/Rechnungen).'
       );
     }
@@ -156,7 +156,7 @@ class RechnungErstellenTool extends BaseTool {
       profilText = await fs.readFile(path.join(wurzel, 'Firmenprofil.md'), 'utf8');
     } catch {
       return (
-        'Fehler: Firmenprofil.md fehlt in der Projekt-Wurzel — bitte zuerst /einrichtung ' +
+        'Fehler: Firmenprofil.md fehlt in der Projekt-Wurzel, bitte zuerst /einrichtung ' +
         'ausführen (füllt das Profil mit den Firmendaten).'
       );
     }
@@ -254,7 +254,7 @@ class RechnungErstellenTool extends BaseTool {
         await fs.unlink(geschriebeneDatei).catch(() => {});
       }
       logger.error(`rechnung_erstellen: ${err.message}`);
-      return `Fehler: Rechnung konnte nicht ausgestellt werden — ${err.message}`;
+      return `Fehler: Rechnung konnte nicht ausgestellt werden, ${err.message}`;
     }
 
     sync.trigger(projektId);
@@ -265,7 +265,7 @@ class RechnungErstellenTool extends BaseTool {
       `Empfänger: ${kaeufer.name}\n` +
       `Netto: ${s.netto} € · Umsatzsteuer: ${s.umsatzsteuer} € · Brutto: ${s.brutto} €\n` +
       `Datei (schreibgeschützt, ZUGFeRD/PDF-A-3): ${ergebnis.pfad}\n` +
-      `WICHTIG: Nenne dem Nutzer GENAU diese Beträge und diese Nummer — sie sind verbindlich berechnet.`
+      `WICHTIG: Nenne dem Nutzer GENAU diese Beträge und diese Nummer, sie sind verbindlich berechnet.`
     );
   }
 }

@@ -23,7 +23,7 @@ function zuCent(wert, feld) {
   const m = roh.match(/^(\d{1,10})(?:\.(\d{1,2}))?$/);
   if (!m) {
     throw new ValidationError(
-      `Rechnung: "${feld}" ist kein gültiger Betrag (${wert}) — erwartet z. B. 1200 oder 1200.50 (max. 2 Nachkommastellen)`
+      `Rechnung: "${feld}" ist kein gültiger Betrag (${wert}), erwartet z. B. 1200 oder 1200.50 (max. 2 Nachkommastellen)`
     );
   }
   return Number(m[1]) * 100 + Number((m[2] || '').padEnd(2, '0') || 0);
@@ -40,7 +40,7 @@ function zuTausendstel(wert, feld) {
   const m = roh.match(/^(\d{1,7})(?:\.(\d{1,3}))?$/);
   if (!m) {
     throw new ValidationError(
-      `Rechnung: "${feld}" ist keine gültige Menge (${wert}) — erwartet z. B. 2 oder 1.5 (max. 3 Nachkommastellen)`
+      `Rechnung: "${feld}" ist keine gültige Menge (${wert}), erwartet z. B. 2 oder 1.5 (max. 3 Nachkommastellen)`
     );
   }
   const tausendstel = Number(m[1]) * 1000 + Number((m[2] || '').padEnd(3, '0') || 0);
@@ -81,7 +81,7 @@ function berechneSummen(positionen) {
     const satz = Number(String(p.ust_satz ?? '').replace(',', '.'));
     if (![0, 7, 19].includes(satz)) {
       throw new ValidationError(
-        `Rechnung: Position ${i + 1} hat einen unbekannten USt-Satz (${p.ust_satz}) — erlaubt: 0, 7, 19`
+        `Rechnung: Position ${i + 1} hat einen unbekannten USt-Satz (${p.ust_satz}), erlaubt: 0, 7, 19`
       );
     }
     // Zeilensumme: reine Integer-Arithmetik (Tausendstel × Cent / 1000),

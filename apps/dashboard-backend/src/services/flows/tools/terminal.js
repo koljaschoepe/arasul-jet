@@ -73,7 +73,7 @@ class TerminalTool extends BaseTool {
       return `Fehler: Befehl ist länger als ${MAX_COMMAND_LEN} Zeichen.`;
     }
     if (!context.containerId) {
-      return 'Fehler: Für diesen Lauf wurde kein Sandbox-Container bereitgestellt — Terminalbefehle sind nicht möglich.';
+      return 'Fehler: Für diesen Lauf wurde kein Sandbox-Container bereitgestellt, Terminalbefehle sind nicht möglich.';
     }
     if (!context.cwd) {
       return 'Fehler: Für diesen Flow ist kein Arbeitsverzeichnis hinterlegt.';
@@ -102,7 +102,7 @@ class TerminalTool extends BaseTool {
       });
     } catch (err) {
       if (err.statusCode === 404) {
-        return 'Fehler: Der Sandbox-Container existiert nicht mehr — bitte den Flow erneut starten.';
+        return 'Fehler: Der Sandbox-Container existiert nicht mehr, bitte den Flow erneut starten.';
       }
       logger.warn(`terminal: exec konnte nicht angelegt werden: ${err.message}`);
       return `Fehler beim Ausführen: ${err.message}`;

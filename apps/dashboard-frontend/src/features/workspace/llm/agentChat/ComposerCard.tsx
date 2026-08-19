@@ -482,7 +482,7 @@ export default function ComposerCard({
           aria-pressed={dateiModus}
           title={
             dateiModus
-              ? 'Datei-Modus an — die Antwort wird als Datei gespeichert'
+              ? 'Datei-Modus an, die Antwort wird als Datei gespeichert'
               : 'Antwort als Datei in der Projektablage speichern'
           }
           data-testid="composer-datei-modus"

@@ -191,7 +191,7 @@ class ModelLifecycleService {
 
         if (inactiveMs > keepAliveMs) {
           logger.info(
-            `[ModelLifecycle] Unloading ${modelId} — inactive ${Math.round(inactiveMs / 60000)}min > ` +
+            `[ModelLifecycle] Unloading ${modelId}, inactive ${Math.round(inactiveMs / 60000)}min > ` +
               `${Math.round(keepAliveMs / 60000)}min (${phase} phase)`
           );
           await unloadModel(modelId, `adaptive_${phase}`);

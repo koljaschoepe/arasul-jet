@@ -67,7 +67,7 @@ function terminalSurface() {
   return document.querySelector<HTMLElement>('[data-shell-surface="terminal"]');
 }
 
-describe('RightPanel — Segment-Umschalter', () => {
+describe('RightPanel, Segment-Umschalter', () => {
   beforeEach(() => {
     resetStore();
     chatLog.mounts = 0;

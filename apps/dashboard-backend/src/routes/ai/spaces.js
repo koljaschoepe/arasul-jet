@@ -578,7 +578,7 @@ router.delete(
     );
     if ((childCheck.rows[0]?.child_count ?? 0) > 0) {
       throw new ConflictError(
-        'Ordner enthält Unterordner — bitte zuerst die Unterordner löschen oder verschieben'
+        'Ordner enthält Unterordner, bitte zuerst die Unterordner löschen oder verschieben'
       );
     }
 

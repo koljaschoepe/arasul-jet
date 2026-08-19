@@ -186,7 +186,7 @@ class DateienLesenTool extends BaseTool {
         return `Fehler: Datei "${pfad}" existiert nicht.`;
       }
       if (err.code === 'ELOOP') {
-        return `Fehler: "${pfad}" ist ein Symlink — der Zugriff wird verweigert.`;
+        return `Fehler: "${pfad}" ist ein Symlink, der Zugriff wird verweigert.`;
       }
       if (err.code === 'EISDIR') {
         return `Fehler: "${pfad}" ist ein Verzeichnis, keine Datei.`;
@@ -339,7 +339,7 @@ class DateienSchreibenTool extends BaseTool {
       handle = await fs.open(file, fsc.O_RDWR | fsc.O_CREAT | fsc.O_NOFOLLOW, 0o644);
     } catch (err) {
       if (err.code === 'ELOOP') {
-        return `Fehler: "${pfad}" ist ein Symlink — der Schreibzugriff wird verweigert.`;
+        return `Fehler: "${pfad}" ist ein Symlink, der Schreibzugriff wird verweigert.`;
       }
       return `Fehler beim Schreiben: ${err.message}`;
     }
@@ -407,7 +407,7 @@ async function oeffneZumSchreiben(roots, pfad, { erstellen = true } = {}) {
     handle = await fs.open(file, flags, 0o644);
   } catch (err) {
     if (err.code === 'ELOOP') {
-      return { fehler: `Fehler: "${pfad}" ist ein Symlink — der Schreibzugriff wird verweigert.` };
+      return { fehler: `Fehler: "${pfad}" ist ein Symlink, der Schreibzugriff wird verweigert.` };
     }
     if (err.code === 'ENOENT' && !erstellen) {
       return {
@@ -437,7 +437,7 @@ class DateienBearbeitenTool extends BaseTool {
 
   get description() {
     return (
-      'Ändert eine Stelle in einer bestehenden Datei per Suchen/Ersetzen — ' +
+      'Ändert eine Stelle in einer bestehenden Datei per Suchen/Ersetzen, ' +
       'für gezielte Änderungen IMMER dies nutzen statt die Datei komplett neu zu schreiben'
     );
   }
@@ -453,7 +453,7 @@ class DateienBearbeitenTool extends BaseTool {
         type: 'string',
         description:
           'Der EXAKTE bestehende Textblock, der ersetzt werden soll (mit genug Zeilen, ' +
-          'dass er nur einmal vorkommt — Text 1:1 aus der Datei kopieren)',
+          'dass er nur einmal vorkommt, Text 1:1 aus der Datei kopieren)',
         required: true,
       },
       ersetzen: {
@@ -501,7 +501,7 @@ class DateienBearbeitenTool extends BaseTool {
         return `Fehler: Datei "${pfad}" ist leer. Zum Befüllen dateien_schreiben nutzen.`;
       }
       if (stat.size > MAX_EDIT_BYTES) {
-        return `Fehler: Datei ist groesser als ${MAX_EDIT_BYTES} Bytes — Bearbeiten nicht moeglich.`;
+        return `Fehler: Datei ist groesser als ${MAX_EDIT_BYTES} Bytes, Bearbeiten nicht moeglich.`;
       }
       const inhalt = await handle.readFile('utf8');
       if (Buffer.from(inhalt.slice(0, 8000), 'utf8').includes(0)) {
@@ -596,7 +596,7 @@ class DateienAnhaengenTool extends BaseTool {
 
   get description() {
     return (
-      'Hängt Text ans ENDE einer Datei an (legt sie bei Bedarf an) — ' +
+      'Hängt Text ans ENDE einer Datei an (legt sie bei Bedarf an), ' +
       'damit entstehen lange Dokumente abschnittsweise, Sektion für Sektion'
     );
   }

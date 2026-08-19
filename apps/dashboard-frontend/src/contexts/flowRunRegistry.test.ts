@@ -13,7 +13,7 @@ describe('addFlowRun', () => {
     expect(addFlowRun([10], 11)).toEqual([11, 10]);
   });
 
-  test('meldet dieselbe ID nicht doppelt — auch als String nicht (Zahl/String-Falle)', () => {
+  test('meldet dieselbe ID nicht doppelt, auch als String nicht (Zahl/String-Falle)', () => {
     expect(addFlowRun([10], 10)).toEqual([10]);
     expect(addFlowRun([10], '10')).toEqual([10]);
   });

@@ -95,8 +95,8 @@ router.put(
       // Nicht still Erfolg vortäuschen: Flag ist gesetzt, aber die
       // Container-Operation ist teilweise fehlgeschlagen — sichtbar melden.
       body.warning = enabled
-        ? 'App aktiviert, aber der Container konnte nicht vollständig gestartet werden — wird beim nächsten Neustart erneut versucht.'
-        : 'App deaktiviert, aber der Container konnte nicht vollständig gestoppt werden — wird beim nächsten Neustart erneut versucht.';
+        ? 'App aktiviert, aber der Container konnte nicht vollständig gestartet werden, wird beim nächsten Neustart erneut versucht.'
+        : 'App deaktiviert, aber der Container konnte nicht vollständig gestoppt werden, wird beim nächsten Neustart erneut versucht.';
       logger.warn(`workspace-apps: Lifecycle für '${id}' (enabled=${enabled}) unvollständig`);
     }
     res.json(body);

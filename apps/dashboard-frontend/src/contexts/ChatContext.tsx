@@ -1274,11 +1274,11 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
           // Speichern/Dateien. Nur im Payload — die persistierte Nachricht
           // bleibt der Originaltext des Nutzers.
           const DATEI_ANWEISUNG =
-            '\n\n(Antworte NUR mit dem reinen Dokumentinhalt in Markdown und beginne mit einer #-Überschrift. Keine Vor- oder Nachbemerkungen und keine Aussagen über Dateien oder Speicherung — das Speichern übernimmt die Plattform.)';
+            '\n\n(Antworte NUR mit dem reinen Dokumentinhalt in Markdown und beginne mit einer #-Überschrift. Keine Vor- oder Nachbemerkungen und keine Aussagen über Dateien oder Speicherung, das Speichern übernimmt die Plattform.)';
           // Anhang-Hinweis nur im Payload — die persistierte Nachricht bleibt
           // der Originaltext, die Karte hängt als datei-Feld daran.
           const ANHANG_HINWEIS = anhang
-            ? `\n\n(Der Nutzer hat die Datei "${anhang.pfad}" in den Projektordner gelegt — sie liegt dort bereits, du musst sie nicht neu erstellen. ` +
+            ? `\n\n(Der Nutzer hat die Datei "${anhang.pfad}" in den Projektordner gelegt, sie liegt dort bereits, du musst sie nicht neu erstellen. ` +
               (anhang.inhalt !== undefined
                 ? `Ihr exakter Inhalt:\n"""\n${anhang.inhalt}\n"""\nWenn du sie woanders ablegst, verwende GENAU diesen Inhalt.)`
                 : `Text-Dateien liest du mit dateien_lesen, PDF/DOCX über rag_suche.)`)

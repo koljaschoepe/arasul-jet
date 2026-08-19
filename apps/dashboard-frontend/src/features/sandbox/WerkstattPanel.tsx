@@ -188,7 +188,7 @@ export default function WerkstattPanel({ projekt }: { projekt: SandboxProject })
             <p className="px-1 py-2 text-ui-xs text-text-secondary">
               Noch nichts gebaut. Im Terminal mit{' '}
               <code className="rounded bg-muted px-1">/plan</code> →{' '}
-              <code className="rounded bg-muted px-1">/execute</code> eine Erweiterung bauen — sie
+              <code className="rounded bg-muted px-1">/execute</code> eine Erweiterung bauen, sie
               erscheint hier automatisch.
             </p>
           )}

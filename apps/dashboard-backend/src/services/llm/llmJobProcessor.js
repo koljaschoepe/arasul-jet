@@ -233,7 +233,7 @@ async function processChatJob(ctx, job) {
       const fallback = await findVisionFallbackModel(database, requested_model, logger);
       if (!fallback) {
         logger.info(
-          `[JOB ${jobId}] No vision fallback installed; primary ${requested_model} is text-only — dropping ${images.length} image(s)`
+          `[JOB ${jobId}] No vision fallback installed; primary ${requested_model} is text-only, dropping ${images.length} image(s)`
         );
         service.notifySubscribers(jobId, {
           type: 'warning',
@@ -269,7 +269,7 @@ async function processChatJob(ctx, job) {
           });
         } else {
           logger.warn(
-            `[JOB ${jobId}] Vision fallback ${fallback.id} returned no caption — dropping images`
+            `[JOB ${jobId}] Vision fallback ${fallback.id} returned no caption, dropping images`
           );
           service.notifySubscribers(jobId, {
             type: 'warning',
@@ -312,7 +312,7 @@ function buildRagSystemPrompt({ noRelevantDocs = false, marginalResults = false 
     ragRules = `Regeln:
 1. Es wurden keine relevanten Dokumente in der Wissensbasis gefunden.
 2. Beginne deine Antwort IMMER mit: "**Hinweis:** Keine relevanten Dokumente gefunden. Die folgende Antwort basiert auf allgemeinem Wissen und nicht auf Unternehmensdokumenten."
-3. Danach darfst du die Frage aus allgemeinem Wissen beantworten — kennzeichne Unsicherheiten ausdrücklich.
+3. Danach darfst du die Frage aus allgemeinem Wissen beantworten, kennzeichne Unsicherheiten ausdrücklich.
 4. Erfinde KEINE Fakten, Zahlen, Preise oder spezifische Unternehmensinformationen. Nenne keine Quellenangaben wie [1], da keine Dokumente vorliegen.
 5. Strukturiere längere Antworten mit Absätzen oder Aufzählungen.
 6. Antworte auf Deutsch, es sei denn die Frage ist in einer anderen Sprache gestellt.`;

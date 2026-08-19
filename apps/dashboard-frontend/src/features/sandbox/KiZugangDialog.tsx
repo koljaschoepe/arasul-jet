@@ -118,7 +118,7 @@ export default function KiZugangDialog({
       setOauthState('');
       setOauthCode('');
       toast.success(
-        `Angemeldet — auf ${res.applied_to} laufende Sandbox(es) angewendet. Neue Terminals sind sofort angemeldet.`
+        `Angemeldet, auf ${res.applied_to} laufende Sandbox(es) angewendet. Neue Terminals sind sofort angemeldet.`
       );
     },
   });
@@ -131,7 +131,7 @@ export default function KiZugangDialog({
     if (ok) {
       toast.success('Link kopiert');
     } else {
-      toast.error('Kopieren nicht möglich — Link im Feld markieren und kopieren');
+      toast.error('Kopieren nicht möglich, Link im Feld markieren und kopieren');
     }
   };
 
@@ -142,7 +142,7 @@ export default function KiZugangDialog({
       qc.invalidateQueries({ queryKey: ['sandbox-claude-auth'] });
       setValue('');
       toast.success(
-        `Zugang gespeichert — auf ${res.applied_to} laufende Sandbox(es) angewendet. Neue Terminals sind sofort angemeldet.`
+        `Zugang gespeichert, auf ${res.applied_to} laufende Sandbox(es) angewendet. Neue Terminals sind sofort angemeldet.`
       );
     },
     onError: () => toast.error('Speichern fehlgeschlagen'),
@@ -174,7 +174,7 @@ export default function KiZugangDialog({
       ),
     onSuccess: res => {
       if (res.captured) {
-        toast.success('Terminal-Login gespeichert — er gilt jetzt in jeder Sandbox.');
+        toast.success('Terminal-Login gespeichert, er gilt jetzt in jeder Sandbox.');
       } else {
         toast.info('Kein aktiver Login im Terminal gefunden. Erst `claude` starten und anmelden.');
       }
@@ -223,7 +223,7 @@ export default function KiZugangDialog({
 
         <div className="flex flex-col gap-4 overflow-y-auto p-4">
           <p className="text-xs text-muted-foreground">
-            Einmal hinterlegen — gilt in jeder Sandbox. Kein Anmelden im Terminal mehr nötig.
+            Einmal hinterlegen, gilt in jeder Sandbox. Kein Anmelden im Terminal mehr nötig.
           </p>
 
           {status?.configured && (
@@ -290,7 +290,7 @@ export default function KiZugangDialog({
           {status?.configured && pruefung?.valid === false && (
             <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
               {pruefung.message ||
-                'Der hinterlegte Zugang wird von Anthropic abgelehnt (abgelaufen oder ungültig). Bitte neu anmelden oder ein frisches Token hinterlegen — bis dahin schlägt `claude` in den Sandboxes fehl.'}
+                'Der hinterlegte Zugang wird von Anthropic abgelehnt (abgelaufen oder ungültig). Bitte neu anmelden oder ein frisches Token hinterlegen, bis dahin schlägt `claude` in den Sandboxes fehl.'}
             </p>
           )}
 
@@ -345,7 +345,7 @@ export default function KiZugangDialog({
               {!oauthUrl ? (
                 <>
                   <p className="text-[11px] text-muted-foreground">
-                    Meldet dich einmal mit deinem Claude-Abo an — danach ist <code>claude</code> in
+                    Meldet dich einmal mit deinem Claude-Abo an, danach ist <code>claude</code> in
                     jeder Sandbox angemeldet, ohne kaputten Terminal-Link.
                   </p>
                   <Button
@@ -485,7 +485,7 @@ export default function KiZugangDialog({
           <div className="border-t border-border pt-3">
             <p className="mb-2 text-[11px] text-muted-foreground">
               Alternativ: Du hast dich gerade in diesem Terminal per <code>claude</code> angemeldet?
-              Dann kannst du diesen Login einfangen — er gilt danach in jeder Sandbox.
+              Dann kannst du diesen Login einfangen, er gilt danach in jeder Sandbox.
             </p>
             <Button
               type="button"
@@ -509,16 +509,16 @@ export default function KiZugangDialog({
             <p className="mb-1.5 text-xs font-medium text-foreground">Weitere KI-Anbieter</p>
             <ul className="space-y-1 text-[11px] text-muted-foreground">
               <li>
-                <span className="text-foreground">Lokaler Coder</span> — empfohlen, kein Login: im
+                <span className="text-foreground">Lokaler Coder</span> (empfohlen, kein Login): im
                 Terminal <code className="rounded bg-muted px-1">open-ara</code>.
               </li>
               <li>
-                <span className="text-foreground">Codex</span> — im Terminal anmelden:{' '}
+                <span className="text-foreground">Codex</span>, im Terminal anmelden:{' '}
                 <code className="rounded bg-muted px-1">codex login --device-auth</code> (Code +
                 Link im Browser).
               </li>
               <li>
-                <span className="text-foreground">Gemini</span> — im Terminal:{' '}
+                <span className="text-foreground">Gemini</span>, im Terminal:{' '}
                 <code className="rounded bg-muted px-1">/gemini</code> und dem Login-Hinweis folgen.
               </li>
             </ul>

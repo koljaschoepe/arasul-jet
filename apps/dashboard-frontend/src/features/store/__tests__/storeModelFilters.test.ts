@@ -90,7 +90,7 @@ describe('applyModelFilters', () => {
   });
 });
 
-describe('sortModels — Status → Größe', () => {
+describe('sortModels, Status → Größe', () => {
   it('installierte Modelle zuerst, dann nach RAM-Bedarf aufsteigend', () => {
     // install_status === 'available' bedeutet im Katalog „installiert".
     const catalog = [

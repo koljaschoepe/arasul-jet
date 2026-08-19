@@ -255,7 +255,7 @@ describe('StatusBar', () => {
     expect(screen.getAllByText('v1.2.3').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('KI-RAM')).toBeInTheDocument();
     expect(screen.getByText('Modelle im RAM')).toBeInTheDocument();
-    expect(screen.getByText('Alles läuft lokal auf dem Gerät — keine Cloud.')).toBeInTheDocument();
+    expect(screen.getByText('Alles läuft lokal auf dem Gerät, keine Cloud.')).toBeInTheDocument();
   });
 
   it('listet heruntergeladene Modelle im Modell-Popover und markiert das Standardmodell', async () => {

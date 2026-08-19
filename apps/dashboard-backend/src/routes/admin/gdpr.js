@@ -276,13 +276,13 @@ router.get(
             : undefined,
       }),
       attachments: block('anhaenge', attachmentsResult, {
-        note: 'File contents are stored in MinIO — this export contains metadata only. Request file export separately if needed.',
+        note: 'File contents are stored in MinIO, this export contains metadata only. Request file export separately if needed.',
       }),
       documents: block('dokumente', documentsResult, {
-        note: 'Document files are stored in MinIO — this export contains metadata only.',
+        note: 'Document files are stored in MinIO, this export contains metadata only.',
       }),
       aiMemories: block('ki_erinnerungen', memoriesResult, {
-        note: 'Diese Box führt KI-Erinnerungen ohne Nutzerbindung — der Export enthält daher alle aktiven Einträge.',
+        note: 'Diese Box führt KI-Erinnerungen ohne Nutzerbindung, der Export enthält daher alle aktiven Einträge.',
       }),
       loginHistory: block('anmeldungen', loginHistoryResult),
       activeSessions: {
@@ -302,7 +302,7 @@ router.get(
       securityEvents: block('sicherheitsereignisse', securityAuditResult),
       knowledgeSpaces: block('wissensraeume', spacesResult),
       projects: block('projekte', projekteResult, {
-        note: 'Projekte sind auf dieser Box nicht nutzergebunden — der Export enthält daher alle.',
+        note: 'Projekte sind auf dieser Box nicht nutzergebunden, der Export enthält daher alle.',
       }),
     };
 

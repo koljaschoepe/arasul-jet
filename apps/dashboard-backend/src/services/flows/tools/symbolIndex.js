@@ -161,7 +161,7 @@ class SymbolSuchenTool extends BaseTool {
   get description() {
     return (
       'Findet, WO ein Symbol (Funktion, Klasse, Methode, Konstante) im Code ' +
-      'DEFINIERT wird — anders als dateien_suchen, das jede Erwähnung/Aufrufstelle ' +
+      'DEFINIERT wird, anders als dateien_suchen, das jede Erwähnung/Aufrufstelle ' +
       'liefert. Gib den Namen an; du bekommst Datei:Zeile mit der Definition.'
     );
   }

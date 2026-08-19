@@ -92,17 +92,15 @@ function Login({ onLoginSuccess }: LoginProps) {
       if (e.status === 401) {
         message = 'Benutzername oder Passwort ist falsch.';
       } else if (e.status === 403) {
-        message =
-          'Ihr Konto ist gesperrt oder deaktiviert. Bitte kontaktieren Sie den Administrator.';
+        message = 'Dieses Konto ist gesperrt oder deaktiviert. Bitte den Administrator ansprechen.';
       } else if (e.status === 429) {
-        message =
-          'Zu viele Anmeldeversuche. Bitte warten Sie einen Moment und versuchen Sie es erneut.';
+        message = 'Zu viele Anmeldeversuche. Bitte einen Moment warten und erneut versuchen.';
       } else if (typeof e.status === 'number' && e.status >= 500) {
-        message = 'Der Server ist derzeit nicht erreichbar. Bitte versuchen Sie es später erneut.';
+        message = 'Der Server ist derzeit nicht erreichbar. Bitte später erneut versuchen.';
       } else if (e.status === undefined) {
-        message = 'Verbindung zum Server fehlgeschlagen. Bitte prüfen Sie Ihre Netzwerkverbindung.';
+        message = 'Verbindung zum Server fehlgeschlagen. Bitte die Netzwerkverbindung prüfen.';
       } else {
-        message = e.message || 'Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.';
+        message = e.message || 'Anmeldung fehlgeschlagen. Bitte die Zugangsdaten prüfen.';
       }
       setError(message);
     }
@@ -196,7 +194,7 @@ function Login({ onLoginSuccess }: LoginProps) {
             >
               {PLATFORM_WEBSITE.replace(/^https?:\/\//, '')}
             </a>{' '}
-            — oder{' '}
+            oder{' '}
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
               {SUPPORT_EMAIL}
             </a>

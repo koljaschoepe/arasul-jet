@@ -597,7 +597,7 @@ router.post(
     const { schema, instructions, model, timeout_seconds = '300' } = req.body;
 
     if (!schema) {
-      throw new ValidationError('schema is required — JSON schema describing desired output');
+      throw new ValidationError('schema is required, JSON schema describing desired output');
     }
 
     // Validate schema is valid JSON
@@ -830,7 +830,7 @@ router.post(
     // ausweichen: sonst liest/schreibt ein verwaister Schlüssel fremde Läufe
     // (gleiche Klasse wie der Job-Guard oben). Owner-loser Schlüssel → ablehnen.
     if (!req.apiKey.userId) {
-      throw new ForbiddenError('API-Schlüssel ohne gültigen Besitzer — bitte neu erstellen');
+      throw new ForbiddenError('API-Schlüssel ohne gültigen Besitzer, bitte neu erstellen');
     }
     const userId = req.apiKey.userId;
 

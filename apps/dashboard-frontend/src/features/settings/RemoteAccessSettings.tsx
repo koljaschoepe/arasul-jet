@@ -358,7 +358,7 @@ export function RemoteAccessSettings() {
         <div className="mb-8 pb-6 border-b border-border">
           <h1 className="text-2xl font-bold text-foreground mb-2">Fernzugriff</h1>
           <p className="text-sm text-muted-foreground">
-            Greife sicher von überall auf dein Gerät zu — über Tailscale VPN.
+            Greife sicher von überall auf dein Gerät zu, über Tailscale VPN.
           </p>
         </div>
         <Alert variant="destructive">
@@ -390,7 +390,7 @@ export function RemoteAccessSettings() {
           <div>
             <h1 className="text-2xl font-bold text-foreground mb-2">Fernzugriff</h1>
             <p className="text-sm text-muted-foreground">
-              Greife sicher von überall auf dein Gerät zu — über Tailscale VPN.
+              Greife sicher von überall auf dein Gerät zu, über Tailscale VPN.
             </p>
           </div>
           <Button
@@ -644,7 +644,7 @@ export function RemoteAccessSettings() {
               Schritt 3: HTTPS-Zertifikate freischalten
             </h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Das Gerät ist im Tailnet erreichbar — erreichbar heißt aber noch nicht
+              Das Gerät ist im Tailnet erreichbar, erreichbar heißt aber noch nicht
               vertrauenswürdig: Der Browser zeigt beim Zugriff eine Zertifikatswarnung. Dagegen
               hilft ein einmaliger Schalter in deiner Tailscale-Konsole. Er liegt außerhalb von
               Arasul, weil nur der Besitzer des Tailnets ihn setzen kann.
@@ -698,7 +698,7 @@ export function RemoteAccessSettings() {
                 onClick={() => setCertSkipped(true)}
                 className="h-8 text-xs text-muted-foreground"
               >
-                Später — vorerst über die IP
+                Später, vorerst über die IP-Adresse
               </Button>
             </div>
           </div>
@@ -712,8 +712,8 @@ export function RemoteAccessSettings() {
             </h3>
             <p className="text-xs text-muted-foreground mb-4">
               Die Zertifikate sind freigeschaltet. Jetzt fehlt nur noch, dass Arasul unter dem
-              Tailscale-Namen antwortet — statt unter einer IP-Adresse, der dein Browser nicht
-              traut. Ein Klick, danach ist der Fernzugriff fertig eingerichtet.
+              Tailscale-Namen antwortet, statt unter einer IP-Adresse, der dein Browser nicht traut.
+              Ein Klick, danach ist der Fernzugriff fertig eingerichtet.
             </p>
 
             {status?.dnsName && (

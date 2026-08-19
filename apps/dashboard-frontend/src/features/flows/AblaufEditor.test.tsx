@@ -85,7 +85,7 @@ describe('AblaufEditor', () => {
     expect(s.schritte[0].rolle).toBe('sucher');
   });
 
-  it('Hoch/Runter ordnet die Schritte um — auch im serialisierten Payload', async () => {
+  it('Hoch/Runter ordnet die Schritte um, auch im serialisierten Payload', async () => {
     const user = userEvent.setup();
     const rolle = (name: string) => ({
       name,
@@ -159,7 +159,7 @@ describe('AblaufEditor', () => {
     expect(screen.getByLabelText('Durchläufe von Schritt 1')).toBeDisabled();
   });
 
-  it('„Modell (optional)" wird nur gefüllt gesendet — und nur bei Subagent-Schritten', async () => {
+  it('„Modell (optional)" wird nur gefüllt gesendet, und nur bei Subagent-Schritten', async () => {
     const user = userEvent.setup();
     render(
       <Harness

@@ -629,7 +629,7 @@ function BuilderDetail({ onBack }: { onBack: () => void }) {
       <p className="leading-relaxed text-muted-foreground">
         Eine Erweiterung ist ein Ordner mit <code>manifest.json</code> und Assets. Bau sie in einer{' '}
         <strong className="text-foreground">Erweiterungs-Werkstatt</strong> (Sandbox mit Terminal
-        und Vorlagen) — dort helfen die Flows <code>/erweiterung</code> und <code>/execute</code>.
+        und Vorlagen), dort helfen die Flows <code>/erweiterung</code> und <code>/execute</code>.
         Danach hier paketieren: das Paket lässt sich herunterladen, forken und auf einem anderen
         Gerät wieder importieren.
       </p>
@@ -644,7 +644,7 @@ function BuilderDetail({ onBack }: { onBack: () => void }) {
             onChange={e => setSlug(e.target.value)}
             className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
           >
-            <option value="">— Werkstatt wählen —</option>
+            <option value="">Werkstatt wählen</option>
             {sortiert.map(p => (
               <option key={p.slug} value={p.slug}>
                 {p.name}

@@ -30,7 +30,7 @@ function reset() {
   h.calls = 0;
 }
 
-describe('TabBar — Schließen-Rückfrage bei ungespeicherten Änderungen', () => {
+describe('TabBar, Schließen-Rückfrage bei ungespeicherten Änderungen', () => {
   beforeEach(reset);
 
   it('schließt einen sauberen Tab ohne Rückfrage', async () => {
@@ -73,7 +73,7 @@ describe('TabBar — Schließen-Rückfrage bei ungespeicherten Änderungen', () 
   });
 });
 
-describe('TabBar — Umsortieren per Drag', () => {
+describe('TabBar, Umsortieren per Drag', () => {
   beforeEach(reset);
 
   it('Vorwärts-Zug: fügt VOR dem Ziel-Tab ein (Indikator = linker Rand)', () => {

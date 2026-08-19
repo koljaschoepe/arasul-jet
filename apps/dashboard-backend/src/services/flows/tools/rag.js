@@ -80,7 +80,7 @@ class RagSucheTool extends BaseTool {
         type: 'string',
         description:
           'Optional: Nennt der Nutzer eine BESTIMMTE Datei (z. B. "bericht.pdf"), gib hier ' +
-          'genau diesen Dateinamen an — dann bekommst du gezielt den Inhalt DIESER Datei ' +
+          'genau diesen Dateinamen an, dann bekommst du gezielt den Inhalt DIESER Datei ' +
           'statt projektweiter Treffer. Ohne Angabe wird die ganze Wissensbasis durchsucht.',
         required: false,
       },
@@ -120,7 +120,7 @@ class RagSucheTool extends BaseTool {
         );
       }
       const titel = doc.titel ? ` — ${doc.titel}` : '';
-      const hinweis = doc.gekuerzt ? '\n\n[…Inhalt gekürzt — nur der Anfang der Datei.]' : '';
+      const hinweis = doc.gekuerzt ? '\n\n[…Inhalt gekürzt, nur der Anfang der Datei.]' : '';
       return `Inhalt von [${dateiname}${titel}]:\n${doc.text}${hinweis}`;
     }
 
@@ -128,7 +128,7 @@ class RagSucheTool extends BaseTool {
     // Der Vektor-Zweig bleibt nur hinter dem Flag RAG_VEKTOR_SUCHE erreichbar.
     if (!vektorSucheAktiv()) {
       return (
-        'Für eine bestimmte Datei gib "dateiname" an — dann bekommst du gezielt ' +
+        'Für eine bestimmte Datei gib "dateiname" an, dann bekommst du gezielt ' +
         'deren Inhalt (auch aus PDF/DOCX über den Textlayer). Zum Durchsuchen der ' +
         'Projektdateien nutze "dateien_suchen" (Namensmuster und/oder Textsuche) ' +
         'und lies Treffer mit "dateien_lesen". Die semantische Vektor-Suche ist ' +
@@ -154,7 +154,7 @@ class RagSucheTool extends BaseTool {
     }
 
     if (!Array.isArray(results) || results.length === 0) {
-      return 'Nichts gefunden — die Wissensbasis enthaelt keine passenden Stellen.';
+      return 'Nichts gefunden, die Wissensbasis enthaelt keine passenden Stellen.';
     }
 
     const lines = results.map((r, i) => {

@@ -97,7 +97,7 @@ async function toHostPath(containerPath) {
 
   if (!best) {
     throw new ValidationError(
-      `Ordner "${containerPath}" ist im Backend nicht als Mount eingebunden — ` +
+      `Ordner "${containerPath}" ist im Backend nicht als Mount eingebunden, ` +
         'er kann deshalb nicht in den Sandbox-Container gereicht werden'
     );
   }
@@ -196,7 +196,7 @@ async function ensureFlowSandbox(roots) {
         return { containerId: info.Id, containerName: FLOW_CONTAINER_NAME, cwd };
       }
       logger.info(
-        `Flow-Sandbox wird neu aufgebaut — andere Ordner angefordert (${binds.join(', ')})`
+        `Flow-Sandbox wird neu aufgebaut, andere Ordner angefordert (${binds.join(', ')})`
       );
       await container.remove({ force: true });
     }

@@ -344,7 +344,7 @@ export default function AgentChatPanel() {
         setWartendeNachricht(input.trim());
         setInput('');
       } else {
-        setError('Der Agent arbeitet noch — bitte warten oder den Lauf stoppen.');
+        setError('Der Agent arbeitet noch, bitte warten oder den Lauf stoppen.');
       }
       return;
     }

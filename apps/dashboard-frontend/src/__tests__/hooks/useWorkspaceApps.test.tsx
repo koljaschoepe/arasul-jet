@@ -52,7 +52,7 @@ function renderWorkspaceApps() {
   return renderHook(() => useWorkspaceApps(), { wrapper });
 }
 
-describe('useWorkspaceApps — setAppEnabled schließt Tabs deaktivierter Apps', () => {
+describe('useWorkspaceApps, setAppEnabled schließt Tabs deaktivierter Apps', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetServerApps();

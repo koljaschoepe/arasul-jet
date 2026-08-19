@@ -32,7 +32,7 @@ export function SecuritySettings({
             Sitzungen
           </h3>
           <p className="text-xs text-muted-foreground mb-4">
-            Beenden Sie Ihre aktuelle Sitzung oder melden Sie sich auf allen Geräten ab.
+            Beende die aktuelle Sitzung oder melde dich auf allen Geräten ab.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" onClick={handleLogout}>

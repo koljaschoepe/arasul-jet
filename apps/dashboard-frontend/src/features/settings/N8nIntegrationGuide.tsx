@@ -226,7 +226,7 @@ export function N8nIntegrationGuide() {
               <div className="border-l-2 border-primary/30 pl-4">
                 <p className="text-xs text-muted-foreground">
                   Der <strong className="text-foreground">Arasul Embeddings</strong> Node erzeugt
-                  Vektoren aus Text — nützlich für semantische Suche, Ähnlichkeitsvergleiche oder
+                  Vektoren aus Text, nützlich für semantische Suche, Ähnlichkeitsvergleiche oder
                   eigene RAG-Pipelines in n8n.
                 </p>
               </div>

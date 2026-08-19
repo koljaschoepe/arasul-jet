@@ -148,7 +148,7 @@ function getDockerSockGid() {
     return fs.statSync('/var/run/docker.sock').gid;
   } catch {
     logger.warn(
-      `Docker-Socket-GID nicht ermittelbar (kein SANDBOX_DOCKER_SOCK_GID/DOCKER_GID, Socket nicht gemountet) — Fallback ${DEFAULT_DOCKER_SOCK_GID}`
+      `Docker-Socket-GID nicht ermittelbar (kein SANDBOX_DOCKER_SOCK_GID/DOCKER_GID, Socket nicht gemountet), Fallback ${DEFAULT_DOCKER_SOCK_GID}`
     );
     return DEFAULT_DOCKER_SOCK_GID;
   }

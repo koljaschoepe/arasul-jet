@@ -136,7 +136,7 @@ async function verbinde({ projectId, repoUrl, branch = 'main', pat = null }, dep
   const effektiverPat = pat || (await store.entschluesselePat({ projectId }));
   const probe = await run(['ls-remote', '--heads', repoUrl], { pat: effektiverPat });
   if (probe.code !== 0) {
-    throw new ValidationError('Repository nicht erreichbar — Token, URL oder Rechte prüfen.');
+    throw new ValidationError('Repository nicht erreichbar, Token, URL oder Rechte prüfen.');
   }
   // Erst nach erfolgreicher Probe schreiben.
   const kopplung = await store.upsertKopplung({ projectId, repoUrl, branch, pat });
@@ -217,10 +217,10 @@ async function synchronisiere({ projectId }, deps = {}) {
       await store.markiereSync({
         projectId,
         status: 'konflikt',
-        error: 'Ungelöster Merge-Konflikt im Checkout — bitte im Repository auflösen',
+        error: 'Ungelöster Merge-Konflikt im Checkout, bitte im Repository auflösen',
         localPath: cwd,
       });
-      throw new ConflictError('Ungelöster Merge-Konflikt — bitte im Repository auflösen', {
+      throw new ConflictError('Ungelöster Merge-Konflikt, bitte im Repository auflösen', {
         conflicts: [],
       });
     }
@@ -259,7 +259,7 @@ async function synchronisiere({ projectId }, deps = {}) {
           error: `Merge-Konflikt in ${dateien.length} Datei(en)`,
           localPath: cwd,
         });
-        throw new ConflictError('Merge-Konflikt — bitte im Repository auflösen', {
+        throw new ConflictError('Merge-Konflikt, bitte im Repository auflösen', {
           conflicts: dateien,
         });
       }
@@ -314,7 +314,7 @@ async function trenne({ projectId }, deps = {}) {
   );
   if ((rows[0]?.anzahl ?? 0) > 0) {
     throw new ConflictError(
-      `Das Projekt enthält ${rows[0].anzahl} ausgestellte, unveränderliche Rechnung(en) — ` +
+      `Das Projekt enthält ${rows[0].anzahl} ausgestellte, unveränderliche Rechnung(en), ` +
         'die Git-Kopplung kann nicht getrennt werden, ohne diese Belege zu löschen. ' +
         'Bitte die Rechnungen zuerst sichern/exportieren.'
     );

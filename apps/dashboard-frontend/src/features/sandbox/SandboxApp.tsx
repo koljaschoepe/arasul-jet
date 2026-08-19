@@ -220,7 +220,7 @@ export default function SandboxApp({ visible = true }: SandboxAppProps) {
           // Projektwechsel/„neue Sitzung" erneut startet, und den Nutzer
           // informieren (es gibt keinen separaten Start-Knopf mehr).
           startedRef.current.delete(cid);
-          toast.error('Terminal-Container konnte nicht gestartet werden — bitte erneut versuchen');
+          toast.error('Terminal-Container konnte nicht gestartet werden, bitte erneut versuchen');
         });
     }
   }, [

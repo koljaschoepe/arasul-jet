@@ -67,7 +67,7 @@ const NETWORK_MODE_BADGES: Record<
   isolated: {
     label: 'Isoliert',
     className: 'bg-muted text-muted-foreground border-border',
-    title: 'Nur Internet — kein Zugriff auf interne Services (DSGVO-Testumgebung)',
+    title: 'Nur Internet, kein Zugriff auf interne Services (DSGVO-Testumgebung)',
   },
   internal: {
     label: 'Intern',
@@ -77,7 +77,7 @@ const NETWORK_MODE_BADGES: Record<
   infrastructure: {
     label: 'Infrastruktur',
     className: 'bg-destructive/10 text-destructive border-destructive/40',
-    title: 'Voller Zugriff: Plattform-Repo (beschreibbar) + Docker — nur Admin',
+    title: 'Voller Zugriff: Plattform-Repo (beschreibbar) + Docker, nur Admin',
   },
 };
 
@@ -264,7 +264,7 @@ export default function SandboxTerminal({
             size="sm"
             onClick={() => setZugangOffen(true)}
             className="h-6 gap-1 px-2 text-ui-xs text-muted-foreground hover:text-foreground"
-            title="KI-Zugang (Claude) einmal hinterlegen — gilt in jeder Sandbox"
+            title="KI-Zugang (Claude) einmal hinterlegen, gilt in jeder Sandbox"
           >
             <KeyRound className="size-3" />
             KI-Zugang

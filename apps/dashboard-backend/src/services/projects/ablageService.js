@@ -114,7 +114,7 @@ async function pruefeRechnungsschutz(projectId, relPfade, deps = {}) {
     );
     if (rows.length > 0) {
       throw new ForbiddenError(
-        `Ausgestellte Rechnungen sind schreibgeschützt (${rows[0].nummer}) — sie dürfen nicht geändert, verschoben oder gelöscht werden`
+        `Ausgestellte Rechnungen sind schreibgeschützt (${rows[0].nummer}), sie dürfen nicht geändert, verschoben oder gelöscht werden`
       );
     }
   }
@@ -541,7 +541,7 @@ async function saveUpload(projectId, zielOrdner, originalname, buffer, deps = {}
       throw err;
     }
   }
-  throw new ConflictError('Zu viele gleichnamige Dateien — bitte umbenennen');
+  throw new ConflictError('Zu viele gleichnamige Dateien, bitte umbenennen');
 }
 
 /**

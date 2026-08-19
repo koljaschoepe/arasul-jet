@@ -86,7 +86,7 @@ function renderShell(initialPath: string) {
   );
 }
 
-describe('WorkspaceShell — URL-Sync', () => {
+describe('WorkspaceShell, URL-Sync', () => {
   beforeEach(() => {
     resetStore();
     disabledTabTypes.clear();

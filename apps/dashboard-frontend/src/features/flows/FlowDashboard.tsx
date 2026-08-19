@@ -209,7 +209,7 @@ export default function FlowDashboard({
     mutationFn: (runId: FlowRunSummary['id']) =>
       api.post<{ data: { runId: number } }>(`/flows/laeufe/${runId}/wiederholen`, {}),
     onSuccess: res => {
-      toast.success('Neuer Lauf gestartet — erfolgreiche Schritte werden übernommen');
+      toast.success('Neuer Lauf gestartet, erfolgreiche Schritte werden übernommen');
       qc.invalidateQueries({ queryKey: ['flow-runs', 'fuer-flow', name] });
       // Direkt in den neuen Lauf springen — dort sieht man live, wo er aufsetzt.
       setLaufDetail({
@@ -250,7 +250,7 @@ export default function FlowDashboard({
     onSuccess: res => {
       setNeuerKey(res.api_key);
       qc.invalidateQueries({ queryKey: ['external-api-keys'] });
-      toast.success('API-Schlüssel erzeugt — jetzt kopieren, er wird nur einmal gezeigt');
+      toast.success('API-Schlüssel erzeugt. Jetzt kopieren, er wird nur einmal gezeigt');
     },
   });
 
@@ -322,7 +322,7 @@ export default function FlowDashboard({
               <div className="flex flex-col gap-2">
                 <SteckbriefZeile label="Eingaben">
                   {argumente.length === 0 ? (
-                    <span className="text-muted-foreground">keine — der Flow startet direkt</span>
+                    <span className="text-muted-foreground">keine, der Flow startet direkt</span>
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
                       {argumente.map(a => (
@@ -353,7 +353,7 @@ export default function FlowDashboard({
                 <SteckbriefZeile label="Arbeitsordner">
                   {ordnerArgument ? (
                     <span>
-                      wird beim Start gewählt (Eingabe „{ordnerArgument.name}&ldquo;) — dort liest
+                      wird beim Start gewählt (Eingabe „{ordnerArgument.name}&ldquo;), dort liest
                       der Flow seinen Kontext und legt das Ergebnis ab
                     </span>
                   ) : festerOrdner ? (
@@ -364,7 +364,7 @@ export default function FlowDashboard({
                     </code>
                   ) : (
                     <span className="text-muted-foreground">
-                      keiner — der Flow schreibt keine Dateien
+                      keiner, denn der Flow schreibt keine Dateien
                     </span>
                   )}
                 </SteckbriefZeile>
@@ -520,7 +520,7 @@ export default function FlowDashboard({
               {integrationOffen && (
                 <div className="flex flex-col gap-3 border-t border-border p-4">
                   <p className="text-xs text-muted-foreground">
-                    Extern starten per HTTP (POST) — z. B. aus einem n8n-Workflow. Mit{' '}
+                    Extern starten per HTTP (POST), z. B. aus einem n8n-Workflow. Mit{' '}
                     <code className="rounded bg-muted px-1 py-0.5">ordner_ziel</code> lenkst du das
                     Ergebnis pro Aufruf in einen bestimmten Ordner (z. B. den Kundenordner).
                   </p>

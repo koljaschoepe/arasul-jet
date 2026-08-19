@@ -189,7 +189,7 @@ async function pruefeAdresse(roh) {
   const host = url.hostname.replace(/^\[|\]$/g, '');
   if (net.isIP(host)) {
     return istPrivateIp(host)
-      ? { ok: false, grund: `Die Adresse zeigt auf ein internes Netz (${host}) — abgewiesen.` }
+      ? { ok: false, grund: `Die Adresse zeigt auf ein internes Netz (${host}), abgewiesen.` }
       : { ok: true, url, ip: host };
   }
 
@@ -208,7 +208,7 @@ async function pruefeAdresse(roh) {
   if (intern) {
     return {
       ok: false,
-      grund: `"${host}" zeigt auf ein internes Netz (${intern.address}) — abgewiesen.`,
+      grund: `"${host}" zeigt auf ein internes Netz (${intern.address}), abgewiesen.`,
     };
   }
   return { ok: true, url, ip: adressen[0].address };
@@ -425,7 +425,7 @@ class WebSucheTool extends BaseTool {
       // Der haeufigste echte Fehler ist eine 403, weil das JSON-Format in
       // settings.yml fehlt. Das explizit sagen — sonst sucht man lange.
       if (err.response && err.response.status === 403) {
-        logger.warn('web_suche: SearXNG lieferte 403 — ist "json" in search.formats aktiviert?');
+        logger.warn('web_suche: SearXNG lieferte 403, ist "json" in search.formats aktiviert?');
         return 'Suche nicht möglich: Die Suchmaschine lehnt JSON-Abfragen ab (Konfiguration search.formats).';
       }
       if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'EAI_AGAIN') {
@@ -531,12 +531,12 @@ class WebLesenTool extends BaseTool {
     }
 
     if (!antwort) {
-      return `Fehler: Mehr als ${MAX_WEITERLEITUNGEN} Weiterleitungen — abgebrochen.`;
+      return `Fehler: Mehr als ${MAX_WEITERLEITUNGEN} Weiterleitungen, abgebrochen.`;
     }
 
     const typ = String((antwort.headers && antwort.headers['content-type']) || '').toLowerCase();
     if (typ && !/text\/html|text\/plain|application\/xhtml|text\/xml|application\/xml/.test(typ)) {
-      return `Fehler: Die Adresse liefert "${typ.split(';')[0]}" — nur Textseiten sind lesbar.`;
+      return `Fehler: Die Adresse liefert "${typ.split(';')[0]}", nur Textseiten sind lesbar.`;
     }
 
     const koerper = typeof antwort.data === 'string' ? antwort.data : String(antwort.data ?? '');

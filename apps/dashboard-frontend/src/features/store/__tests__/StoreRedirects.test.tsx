@@ -37,7 +37,7 @@ function renderAt(path: string) {
   );
 }
 
-describe('Store — Full-Width + Redirects', () => {
+describe('Store, Full-Width + Redirects', () => {
   beforeEach(() => {
     // storeTab lebt jetzt global im extensionStore (Plan 012 Phase B) — pro Test
     // auf den Default-Reiter zurücksetzen, sonst leckt er zwischen Tests.

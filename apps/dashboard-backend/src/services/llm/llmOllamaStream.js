@@ -49,7 +49,7 @@ async function attemptOomRecovery(logger) {
     if (response.ok) {
       const result = await response.json();
       logger.info(
-        `[OOM-RECOVERY] Success — freed ${result.freed_mb}MB, ` +
+        `[OOM-RECOVERY] Success, freed ${result.freed_mb}MB, ` +
           `${result.free_mb}MB now available, can_retry: ${result.can_retry}`
       );
       return result;
@@ -109,7 +109,7 @@ async function _streamFromOllamaImpl(
   const catalogModelId = model || (await modelService.getDefaultModel());
 
   if (!catalogModelId) {
-    throw new Error('Kein LLM-Model verfügbar. Bitte laden Sie ein Model im Model Store herunter.');
+    throw new Error('Kein Modell verfügbar. Bitte zuerst eines im Store laden.');
   }
 
   // Resolve ollama_name from catalog (catalog ID -> Ollama registry name)
@@ -631,7 +631,7 @@ async function _streamFromOllamaImpl(
             logger.warn(`[QUEUE] OOM detected for job ${jobId}, triggering GPU recovery`);
             service.notifySubscribers(jobId, {
               type: 'error',
-              error: 'GPU-Speicher voll — Modelle werden entladen. Bitte erneut versuchen.',
+              error: 'GPU-Speicher voll, Modelle werden entladen. Bitte erneut versuchen.',
               done: true,
             });
             await flushToDatabase(true);
@@ -711,7 +711,7 @@ async function _streamFromOllamaImpl(
       await llmJobService.errorJob(jobId, `OOM: ${error.message}`);
       service.notifySubscribers(jobId, {
         type: 'error',
-        error: 'GPU-Speicher voll — Modelle werden entladen. Bitte erneut versuchen.',
+        error: 'GPU-Speicher voll, Modelle werden entladen. Bitte erneut versuchen.',
         done: true,
       });
       attemptOomRecovery(logger).catch(() => {});

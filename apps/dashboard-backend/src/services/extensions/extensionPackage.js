@@ -45,7 +45,7 @@ const MAX_MANIFEST_BYTES = 64 * 1024;
 function assertSafeId(id) {
   if (typeof id !== 'string' || !EXTENSION_ID_RE.test(id)) {
     throw new ValidationError(
-      `Ungültige Erweiterungs-Id "${id}" — erlaubt sind Kleinbuchstaben, Ziffern und Bindestriche (2–50 Zeichen)`
+      `Ungültige Erweiterungs-Id "${id}", erlaubt sind Kleinbuchstaben, Ziffern und Bindestriche (2–50 Zeichen)`
     );
   }
   return id;
@@ -123,7 +123,7 @@ function validateManifest(raw) {
     for (const f of raw.faehigkeiten) {
       if (!BRUECKE_FAEHIGKEITEN.includes(f)) {
         throw new ValidationError(
-          `manifest.json: unbekannte Fähigkeit "${f}" — erlaubt sind ${BRUECKE_FAEHIGKEITEN.join(' | ')}`
+          `manifest.json: unbekannte Fähigkeit "${f}", erlaubt sind ${BRUECKE_FAEHIGKEITEN.join(' | ')}`
         );
       }
     }
@@ -207,7 +207,7 @@ async function extractArchive(archivePath, targetDir) {
       }
       // Nur normale Dateien und Ordner — keine Symlinks/Hardlinks/Devices.
       if (entry.type !== 'File' && entry.type !== 'Directory') {
-        verstoss = `unerlaubter Eintragstyp (${entry.type}) — nur Dateien und Ordner sind zulässig`;
+        verstoss = `unerlaubter Eintragstyp (${entry.type}), nur Dateien und Ordner sind zulässig`;
         return false;
       }
       const normalized = path.normalize(entryPath);
@@ -231,7 +231,7 @@ async function extractArchive(archivePath, targetDir) {
   if (verstoss) {
     // Nichts halb Entpacktes stehen lassen.
     await fsp.rm(targetDir, { recursive: true, force: true });
-    throw new ValidationError(`Archiv abgewiesen — ${verstoss}`);
+    throw new ValidationError(`Archiv abgewiesen, ${verstoss}`);
   }
 
   return readManifest(targetDir);

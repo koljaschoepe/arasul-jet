@@ -117,12 +117,12 @@ const AGENT_ROLLEN = [
       'Du bist ein sorgfältiger Autor. Erstelle oder überarbeite die im Auftrag ' +
       'genannten Dateien VOLLSTÄNDIG mit deinen Schreib-Werkzeugen (passende Endung: ' +
       '.html für Webseiten, .md für Texte, .csv für Tabellen; kurzer Dateiname ohne ' +
-      'Umlaute). Speichere unter EXAKT dem im Auftrag genannten Pfad/Dateinamen — ' +
+      'Umlaute). Speichere unter EXAKT dem im Auftrag genannten Pfad/Dateinamen, ' +
       'erfinde keine zusätzlichen Ordner. Lange Dokumente baust du abschnittsweise: erst dateien_schreiben mit ' +
       'dem Anfang, dann Abschnitt für Abschnitt dateien_anhaengen. Gezielte Änderungen ' +
       'machst du mit dateien_bearbeiten statt alles neu zu schreiben. Nutze ' +
       'mitgeliefertes Material und dateien_suchen/dateien_lesen als Quelle (Inhalt einer ' +
-      'benannten PDF/DOCX über rag_suche mit "dateiname") — erfinde keine ' +
+      'benannten PDF/DOCX über rag_suche mit "dateiname"), erfinde keine ' +
       'Fakten. Antworte am Ende nur mit einem Satz, was du geschrieben hast. Deutsch, keine Emojis.',
     werkzeuge: [
       'rag_suche',
@@ -181,14 +181,14 @@ const AGENT_ANWEISUNG = `
 ## Arbeitsweise
 Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
 1. Einfache Fragen und Gespräche beantwortest du DIREKT, ohne Werkzeug.
-2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst. Neue Dateien legst du GENAU dort an, wo der Nutzer es sagt — nennt er nur einen Dateinamen, speichere unter exakt diesem Namen (Wurzel des Arbeitsordners). ERFINDE KEINE Ordner oder Kunden-/Firmennamen; einen Unterordner nutzt du nur, wenn der Nutzer ihn nennt oder die Struktur-Übersicht einen eindeutig passenden BESTEHENDEN Ordner zeigt. In großen Bäumen findest du Dateien gezielt mit dateien_suchen (Muster oder Textsuche) statt zu raten. Bei Code: suchst du, WO eine Funktion/Klasse/Methode DEFINIERT ist, nimm symbol_suche(name=…) — das liefert die Definitionsstelle, nicht jede Aufrufstelle.
-3. Fragen zu Dokumenten, Projekten oder Firmenwissen: durchsuche die Projektdateien mit dateien_suchen (Namensmuster und/oder Textsuche, optional mit "kontext" für umliegende Zeilen) und lies Treffer mit dateien_lesen — verarbeite sie frei als Material. PDF/DOCX und andere Binärdateien liest du NICHT mit dateien_lesen; ihren INHALT holst du gezielt mit rag_suche, indem du den Dateinamen im Parameter "dateiname" übergibst (z. B. "fasse bericht.pdf zusammen" → rag_suche mit dateiname="bericht.pdf"). So bekommst du den Inhalt GENAU dieser Datei und verwechselst ihn nie mit einer anderen. Eine allgemeine, dateilose Vektor-Suche gibt es nicht mehr — allgemein findest du dich mit dateien_suchen selbst durch den Ordner.
-4. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach: EIN kurzer Satz, was du gespeichert hast — den Dateiinhalt NICHT wiederholen.
-5. LANGE Dokumente (viele Abschnitte, große Webseiten) baust du abschnittsweise: dateien_schreiben mit dem Kopf/Anfang, danach Abschnitt für Abschnitt dateien_anhaengen — nie alles in einem einzigen Aufruf. Bestehende Dateien änderst du GEZIELT mit dateien_bearbeiten (exakten Textblock suchen/ersetzen) statt sie neu zu schreiben.
+2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst. Neue Dateien legst du GENAU dort an, wo der Nutzer es sagt, nennt er nur einen Dateinamen, speichere unter exakt diesem Namen (Wurzel des Arbeitsordners). ERFINDE KEINE Ordner oder Kunden-/Firmennamen; einen Unterordner nutzt du nur, wenn der Nutzer ihn nennt oder die Struktur-Übersicht einen eindeutig passenden BESTEHENDEN Ordner zeigt. In großen Bäumen findest du Dateien gezielt mit dateien_suchen (Muster oder Textsuche) statt zu raten. Bei Code: suchst du, WO eine Funktion/Klasse/Methode DEFINIERT ist, nimm symbol_suche(name=…), das liefert die Definitionsstelle, nicht jede Aufrufstelle.
+3. Fragen zu Dokumenten, Projekten oder Firmenwissen: durchsuche die Projektdateien mit dateien_suchen (Namensmuster und/oder Textsuche, optional mit "kontext" für umliegende Zeilen) und lies Treffer mit dateien_lesen, verarbeite sie frei als Material. PDF/DOCX und andere Binärdateien liest du NICHT mit dateien_lesen; ihren INHALT holst du gezielt mit rag_suche, indem du den Dateinamen im Parameter "dateiname" übergibst (z. B. "fasse bericht.pdf zusammen" → rag_suche mit dateiname="bericht.pdf"). So bekommst du den Inhalt GENAU dieser Datei und verwechselst ihn nie mit einer anderen. Eine allgemeine, dateilose Vektor-Suche gibt es nicht mehr, allgemein findest du dich mit dateien_suchen selbst durch den Ordner.
+4. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach: EIN kurzer Satz, was du gespeichert hast, den Dateiinhalt NICHT wiederholen.
+5. LANGE Dokumente (viele Abschnitte, große Webseiten) baust du abschnittsweise: dateien_schreiben mit dem Kopf/Anfang, danach Abschnitt für Abschnitt dateien_anhaengen, nie alles in einem einzigen Aufruf. Bestehende Dateien änderst du GEZIELT mit dateien_bearbeiten (exakten Textblock suchen/ersetzen) statt sie neu zu schreiben.
 6. Bei mehrschrittigen Aufträgen pflegst du mit todo_liste eine Aufgabenliste: zu Beginn anlegen, nach JEDEM erledigten Schritt aktualisieren ("- [x] …"). Sie hält dich auf Kurs.
-7. DELEGIERE AGGRESSIV: Zerlege größere Aufträge in kleine, in sich geschlossene Blöcke und gib JEDEN an einen frischen Subagenten — subagent(rolle="rechercheur", auftrag=…) sammelt Material, rolle="autor" schreibt Dateien aus Material, rolle="entwickler" schreibt UND testet Code per Terminal, rolle="pruefer" kontrolliert Ergebnisse. Jeder Subagent hat seinen EIGENEN frischen Kontext und gibt dir nur sein Ergebnis zurück — so bleibt dein Hauptkontext schlank, auch bei großen/komplexen Aufträgen. Faustregel: sobald ein Teilschritt selbst mehrere Werkzeug-Aufrufe braucht oder viel Text liest, delegiere ihn statt ihn selbst inline abzuarbeiten. Lieber viele kleine, präzise Subagenten-Aufträge (je mit Zielpfad und vollständigem Kontext) als ein überladener Eigen-Lauf. Unabhängige Blöcke gehen als getrennte Subagenten-Aufrufe.
+7. DELEGIERE AGGRESSIV: Zerlege größere Aufträge in kleine, in sich geschlossene Blöcke und gib JEDEN an einen frischen Subagenten, subagent(rolle="rechercheur", auftrag=…) sammelt Material, rolle="autor" schreibt Dateien aus Material, rolle="entwickler" schreibt UND testet Code per Terminal, rolle="pruefer" kontrolliert Ergebnisse. Jeder Subagent hat seinen EIGENEN frischen Kontext und gibt dir nur sein Ergebnis zurück, so bleibt dein Hauptkontext schlank, auch bei großen/komplexen Aufträgen. Faustregel: sobald ein Teilschritt selbst mehrere Werkzeug-Aufrufe braucht oder viel Text liest, delegiere ihn statt ihn selbst inline abzuarbeiten. Lieber viele kleine, präzise Subagenten-Aufträge (je mit Zielpfad und vollständigem Kontext) als ein überladener Eigen-Lauf. Unabhängige Blöcke gehen als getrennte Subagenten-Aufrufe.
 8. Mit terminal kannst du selbst Befehle im Projektordner ausführen (Skripte testen, Dateien umwandeln, Pakete bauen).
-9. Sage vor jedem Werkzeug-Block in EINEM kurzen Satz, was du gerade tust ("Ich lese zuerst die Preisliste.") — und rufe die Werkzeuge dann SOFORT in derselben Antwort auf. Niemals eine Aktion ankündigen, ohne sie auszuführen.
+9. Sage vor jedem Werkzeug-Block in EINEM kurzen Satz, was du gerade tust ("Ich lese zuerst die Preisliste."), und rufe die Werkzeuge dann SOFORT in derselben Antwort auf. Niemals eine Aktion ankündigen, ohne sie auszuführen.
 10. Erfinde keine Fakten. Wenn Werkzeuge nichts liefern, sag das ehrlich.
 11. Antworte auf Deutsch, ohne Emojis (außer der Nutzer bittet darum).`;
 
@@ -232,13 +232,13 @@ function kurz(wert, max) {
 function verstaendlicherFehler(err) {
   const roh = String(err?.message || err || '');
   if (/ohne Daten|timeout|timed?\s*out|ETIMEDOUT/i.test(roh)) {
-    return 'Das Modell hat zu lange nicht geantwortet (Zeitüberschreitung). Bitte noch einmal versuchen — bei großen Aufträgen hilft es, sie in kleinere Schritte zu teilen.';
+    return 'Das Modell hat zu lange nicht geantwortet (Zeitüberschreitung). Bitte noch einmal versuchen, bei großen Aufträgen hilft es, sie in kleinere Schritte zu teilen.';
   }
   if (/ECONNREFUSED|ENOTFOUND|fetch failed|socket|ECONNRESET/i.test(roh)) {
     return 'Der KI-Dienst ist gerade nicht erreichbar. Einen Moment warten und erneut versuchen.';
   }
   if (/model .*not found|no such model|nicht geladen|model_not_found/i.test(roh)) {
-    return 'Das gewählte Modell ist nicht geladen — bitte im Store laden oder ein anderes Modell wählen.';
+    return 'Das gewählte Modell ist nicht geladen, bitte im Store laden oder ein anderes Modell wählen.';
   }
   if (/GPU|out of memory|OOM|Speicher/i.test(roh)) {
     return 'Dem Gerät ist der KI-Speicher ausgegangen. Ein kleineres Modell wählen oder laufende Aufgaben beenden.';
@@ -337,8 +337,7 @@ async function streamChatRound({
           clearTimeout(inactivity);
         }
         inactivity = setTimeout(
-          () =>
-            fail(new Error(`Modell-Stream ${CALL_TIMEOUT_MS / 1000}s ohne Daten — abgebrochen`)),
+          () => fail(new Error(`Modell-Stream ${CALL_TIMEOUT_MS / 1000}s ohne Daten, abgebrochen`)),
           CALL_TIMEOUT_MS
         );
       };
@@ -632,7 +631,7 @@ async function processAgentChatJob(ctx, job) {
     log.warn(`[JOB ${jobId}] Struktur-Übersicht fehlgeschlagen: ${err.message}`);
   }
   if (zielPrefix) {
-    systemPrompt += `\n7. Zielordner des Nutzers: "${zielPrefix}" — dein Arbeitsverzeichnis zeigt bereits dorthin, schreibe Dateien einfach mit relativem Pfad.`;
+    systemPrompt += `\n7. Zielordner des Nutzers: "${zielPrefix}", dein Arbeitsverzeichnis zeigt bereits dorthin, schreibe Dateien einfach mit relativem Pfad.`;
   }
   if (requestData.datei_modus) {
     systemPrompt += `\n8. Der Nutzer hat den Datei-Modus aktiviert: erstelle für diese Anfrage IN JEDEM FALL eine Datei mit dateien_schreiben (passende Endung), und antworte danach nur mit einem kurzen Bestätigungssatz.`;
@@ -773,7 +772,7 @@ async function processAgentChatJob(ctx, job) {
     for (let i = 1; i < messages.length - SCHUTZ && schaetzeTokens(messages) > budget; i++) {
       const m = messages[i];
       if (m.role === 'tool' && typeof m.content === 'string' && m.content.length > 700) {
-        m.content = `${m.content.slice(0, 400)}\n… [ältere Werkzeug-Ausgabe gekürzt — Details im Schritt-Protokoll]`;
+        m.content = `${m.content.slice(0, 400)}\n… [ältere Werkzeug-Ausgabe gekürzt, Details im Schritt-Protokoll]`;
       }
     }
     for (let i = 1; i < messages.length - SCHUTZ && schaetzeTokens(messages) > budget; i++) {
@@ -890,7 +889,7 @@ async function processAgentChatJob(ctx, job) {
       `Erstellte Datei(en): ${dateiListe}. ` +
       `Kurzfassung der Antwort: "${kurz(antwortText || '', 300)}". ` +
       'Lies die Datei(en) und prüfe, ob sie den Auftrag erfüllen. Prüfe NUR gegen ' +
-      'die AUSDRÜCKLICHEN Anforderungen des Auftrags — erfinde keine zusätzlichen ' +
+      'die AUSDRÜCKLICHEN Anforderungen des Auftrags, erfinde keine zusätzlichen ' +
       '(Struktur, Überschriften, Umfang, Stil). Erfüllt die Datei das Verlangte, ' +
       'antworte OK, auch wenn du selbst mehr geschrieben hättest.';
     try {
@@ -1056,11 +1055,11 @@ async function processAgentChatJob(ctx, job) {
           // Modell kann keine Werkzeuge — eine werkzeuglose Runde ist der
           // bisherige Chat. Einmal umschalten und weiter.
           log.info(
-            `[JOB ${jobId}] Modell ${requested_model} ohne Tool-Support — Agent-Werkzeuge deaktiviert`
+            `[JOB ${jobId}] Modell ${requested_model} ohne Tool-Support, Agent-Werkzeuge deaktiviert`
           );
           service.notifySubscribers(jobId, {
             type: 'warning',
-            message: `Modell "${requested_model}" unterstützt keine Werkzeuge — Antwort ohne Agent-Funktionen.`,
+            message: `Modell "${requested_model}" unterstützt keine Werkzeuge, Antwort ohne Agent-Funktionen.`,
             code: 'AGENT_TOOLS_UNSUPPORTED',
           });
           toolsAktiv = false;
@@ -1095,7 +1094,7 @@ async function processAgentChatJob(ctx, job) {
             role: 'user',
             content:
               'Dein letzter Werkzeug-Aufruf war fehlerhaft formatiert und wurde NICHT ausgeführt. ' +
-              'Rufe das Werkzeug jetzt erneut auf — über die Werkzeug-Schnittstelle, nicht als Text.',
+              'Rufe das Werkzeug jetzt erneut auf, über die Werkzeug-Schnittstelle, nicht als Text.',
           });
           separator();
           continue;
@@ -1144,7 +1143,7 @@ async function processAgentChatJob(ctx, job) {
             content:
               'Du hast eine Aktion nur ANGEKÜNDIGT, aber nicht ausgeführt. ' +
               'Führe sie JETZT mit deinen Werkzeugen aus (z. B. dateien_schreiben) ' +
-              'und antworte erst danach mit dem Ergebnis — ohne weitere Ankündigungen.',
+              'und antworte erst danach mit dem Ergebnis, ohne weitere Ankündigungen.',
           });
           separator();
           fertigText += '\n\n';
@@ -1188,7 +1187,7 @@ async function processAgentChatJob(ctx, job) {
           code: 'AGENT_KEIN_FORTSCHRITT',
         });
         onToken(
-          '\n\n_Ich komme hier nicht weiter — die letzten Schritte brachten keinen Fortschritt. ' +
+          '\n\n_Ich komme hier nicht weiter, die letzten Schritte brachten keinen Fortschritt. ' +
             'Bitte formuliere den Auftrag anders oder teile ihn in kleinere Teile._'
         );
         break;
@@ -1247,7 +1246,7 @@ async function processAgentChatJob(ctx, job) {
               if (sollteSchreiben && geaendert === 0 && !/^Fehler/.test(String(result || ''))) {
                 result =
                   `${result}\n\nWARNUNG (Platten-Prüfung): Der Subagent hat KEINE Datei ` +
-                  'geschrieben oder geändert — sein Erfolgsbericht stimmt nicht. Erstelle die ' +
+                  'geschrieben oder geändert, sein Erfolgsbericht stimmt nicht. Erstelle die ' +
                   'Datei jetzt SELBST mit dateien_schreiben (vollständiger Inhalt, relativer Pfad).';
               }
             }

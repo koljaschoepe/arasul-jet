@@ -632,7 +632,7 @@ async function synchronisiere(projectId, overrides = {}) {
     try {
       await fsp.writeFile(
         marker,
-        'Arasul-Projektordner — Marker des Ordner-Syncs, nicht löschen.\n',
+        'Arasul-Projektordner, Marker des Ordner-Syncs, nicht löschen.\n',
         {
           flag: 'wx',
         }

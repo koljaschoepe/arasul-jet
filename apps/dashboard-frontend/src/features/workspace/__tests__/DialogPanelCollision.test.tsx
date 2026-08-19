@@ -130,7 +130,7 @@ describe('Fix: offene Explorer-Dialoge lassen die Shell-Panels sichtbar', () => 
   ];
 
   it.each(cases)(
-    '$name — Sidebar, Chat und rechtes Panel bleiben sichtbar',
+    '$name, Sidebar, Chat und rechtes Panel bleiben sichtbar',
     async ({ dialog, open }) => {
       render(
         <>

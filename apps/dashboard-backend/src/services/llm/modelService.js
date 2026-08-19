@@ -91,7 +91,7 @@ function createModelService(deps = {}) {
     } else {
       const os = require('os');
       llmRamGB = Math.floor((os.totalmem() / 1024 ** 3) * 0.8);
-      logger.debug(`[ACTIVATE] RAM_LIMIT_LLM not set — using ${llmRamGB}GB (80% of system RAM)`);
+      logger.debug(`[ACTIVATE] RAM_LIMIT_LLM not set, using ${llmRamGB}GB (80% of system RAM)`);
     }
     if (!isNaN(llmRamGB) && llmRamGB > 0 && requiredRamGb > llmRamGB) {
       const errorMsg =

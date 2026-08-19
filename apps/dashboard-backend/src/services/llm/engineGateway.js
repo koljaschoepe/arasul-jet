@@ -102,7 +102,7 @@ function getEngineInfo(env = process.env, readFile = fs.readFileSync) {
       return { engine: override, source: 'override', profileId: null };
     }
     logger.warn(
-      `[engineGateway] ARASUL_ENGINE="${override}" ist unbekannt — ignoriert (gültig: ${VALID_ENGINES.join(', ')})`
+      `[engineGateway] ARASUL_ENGINE="${override}" ist unbekannt, ignoriert (gültig: ${VALID_ENGINES.join(', ')})`
     );
   }
 

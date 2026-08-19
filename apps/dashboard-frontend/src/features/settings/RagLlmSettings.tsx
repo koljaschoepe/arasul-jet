@@ -249,7 +249,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
         <p className="text-sm text-muted-foreground">
           Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom
           Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die
-          Projektdateien selbst) — es gibt keine Retrieval-Regler mehr zu stellen.
+          Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen.
         </p>
       </div>
 

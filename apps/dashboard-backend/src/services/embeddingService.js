@@ -38,7 +38,9 @@ const breaker = {
 };
 
 function breakerAllowsCall() {
-  if (breaker.state === 'closed') {return true;}
+  if (breaker.state === 'closed') {
+    return true;
+  }
   if (breaker.state === 'open' && Date.now() - breaker.openedAt >= CB_OPEN_MS) {
     // Transition to half-open and let exactly one caller through.
     if (!breaker.halfOpenInFlight) {
@@ -66,7 +68,7 @@ function breakerRecordFailure() {
     breaker.openedAt = Date.now();
     breaker.halfOpenInFlight = false;
     logger.warn(
-      `[embedding-breaker] half-open probe failed — re-opened, cooling down ${CB_OPEN_MS}ms`
+      `[embedding-breaker] half-open probe failed, re-opened, cooling down ${CB_OPEN_MS}ms`
     );
     return;
   }
@@ -74,14 +76,14 @@ function breakerRecordFailure() {
     breaker.state = 'open';
     breaker.openedAt = Date.now();
     logger.warn(
-      `[embedding-breaker] opened after ${breaker.failures} failures — cooling down ${CB_OPEN_MS}ms`
+      `[embedding-breaker] opened after ${breaker.failures} failures, cooling down ${CB_OPEN_MS}ms`
     );
   }
 }
 
 async function getEmbedding(text) {
   if (!breakerAllowsCall()) {
-    logger.debug('[embedding-breaker] open — skipping call');
+    logger.debug('[embedding-breaker] open, skipping call');
     return null;
   }
   try {
@@ -105,7 +107,7 @@ async function getEmbeddings(texts) {
   }
 
   if (!breakerAllowsCall()) {
-    logger.debug('[embedding-breaker] open — skipping batch call');
+    logger.debug('[embedding-breaker] open, skipping batch call');
     return null;
   }
   try {

@@ -214,7 +214,7 @@ router.post(
       let graphEnrichment = [];
       if (routingMethod === 'none' && !hasPinnedDocs) {
         logger.info(
-          'Space routing method=none — no space matched and no default; skipping search to prevent hallucination'
+          'Space routing method=none, no space matched and no default; skipping search to prevent hallucination'
         );
       } else {
         [searchResults, graphEnrichment] = await Promise.all([

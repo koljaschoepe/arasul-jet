@@ -272,7 +272,7 @@ function PasswordManagement() {
         Passwortverwaltung
       </h3>
       <p className="text-xs text-muted-foreground mb-6">
-        Ändern Sie die Passwörter für Dashboard und MinIO
+        Ändere die Passwörter für Dashboard und MinIO
       </p>
 
       <div className="space-y-6">

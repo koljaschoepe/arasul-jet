@@ -37,7 +37,7 @@ class SubagentTool extends BaseTool {
   get description() {
     return (
       'Delegiert eine Teilaufgabe an eine im Flow deklarierte Rolle. ' +
-      'Zurück kommt NUR das vertraglich vereinbarte, gekürzte Ergebnis — nie die Rohdaten.'
+      'Zurück kommt NUR das vertraglich vereinbarte, gekürzte Ergebnis, nie die Rohdaten.'
     );
   }
 
@@ -96,7 +96,7 @@ class SubagentTool extends BaseTool {
       return 'Fehler: "auftrag" darf nicht leer sein.';
     }
     if (!limits) {
-      return 'Fehler: Für diesen Lauf sind keine Grenzen gesetzt — Delegation nicht möglich.';
+      return 'Fehler: Für diesen Lauf sind keine Grenzen gesetzt, Delegation nicht möglich.';
     }
 
     // Notbremse: zählt den Aufruf nur, wenn er erlaubt ist.
@@ -164,7 +164,7 @@ class SubagentTool extends BaseTool {
       rolle.schreibend === true || (rolle.werkzeuge || []).some(w => SCHREIB_WERKZEUGE.has(w));
     const vertragsHinweis = schreibRolle
       ? `\n\nWICHTIG: Führe die Schreibarbeit SELBST mit deinen Werkzeugen aus ` +
-        `(dateien_schreiben, dateien_anhaengen, dateien_bearbeiten) — gib den Inhalt ` +
+        `(dateien_schreiben, dateien_anhaengen, dateien_bearbeiten), gib den Inhalt ` +
         `NIEMALS nur als Antwort-Text zurück. Antworte am Ende mit einem kurzen Bericht ` +
         `(1-3 Sätze): welche Dateien du geschrieben oder geändert hast.`
       : `\n\nAntworte AM ENDE ausschließlich mit einem JSON-Objekt mit genau diesen Feldern: ` +
@@ -284,7 +284,7 @@ class SubagentTool extends BaseTool {
           model: rolle.modell || defaultModel,
           systemPrompt: rolle.prompt + vertragsHinweis,
           userInput:
-            `${auftrag}\n\nDu hast beim ersten Versuch KEINE Datei geschrieben — dein ` +
+            `${auftrag}\n\nDu hast beim ersten Versuch KEINE Datei geschrieben, dein ` +
             `Bericht war eine bloße Behauptung. Führe den Auftrag JETZT aus: rufe ` +
             `dateien_schreiben (bzw. dateien_anhaengen/dateien_bearbeiten) mit dem ` +
             `vollständigen Inhalt auf und berichte erst danach.`,

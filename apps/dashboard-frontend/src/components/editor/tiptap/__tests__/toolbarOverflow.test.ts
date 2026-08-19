@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeInlineCount } from '../toolbarOverflow';
 
-describe('computeInlineCount — Editor-Leiste bleibt einzeilig', () => {
+describe('computeInlineCount, Editor-Leiste bleibt einzeilig', () => {
   const groups = [80, 140, 60, 120, 60, 50]; // 6 Gruppen
 
   it('alles passt → alle inline, kein ⋯', () => {

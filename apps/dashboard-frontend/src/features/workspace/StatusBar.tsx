@@ -241,7 +241,7 @@ export function StatusBar() {
             )}
           </dl>
           <p className="mt-2 border-t border-border pt-2 text-muted-foreground">
-            Alles läuft lokal auf dem Gerät — keine Cloud.
+            Alles läuft lokal auf dem Gerät, keine Cloud.
           </p>
         </PopoverContent>
       </Popover>

@@ -162,7 +162,7 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
             value={value.prompt}
             onChange={e => patch({ prompt: e.target.value })}
             placeholder={
-              'Beschreibe in normalen Sätzen, was der Flow tun soll — z. B.:\n„Erstelle aus der Anfrage im Zielordner ein Angebot. Nutze die Unterlagen im Ordner als Kontext."\nEingaben aus Schritt 2 setzt du mit {{argumentname}} ein.'
+              'Beschreibe in normalen Sätzen, was der Flow tun soll, z. B.:\n„Erstelle aus der Anfrage im Zielordner ein Angebot. Nutze die Unterlagen im Ordner als Kontext."\nEingaben aus Schritt 2 setzt du mit {{argumentname}} ein.'
             }
             rows={6}
             className="resize-y text-[13px]"
@@ -174,7 +174,7 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
       <Abschnitt
         nummer="2"
         titel="Welche Eingaben braucht der Flow?"
-        hinweis="Diese Angaben werden beim Start im Chat abgefragt — z. B. der Kundenordner oder ein Dokument."
+        hinweis="Diese Angaben werden beim Start im Chat abgefragt, z. B. der Kundenordner oder ein Dokument."
       >
         {value.argumente.map((a, i) => (
           <div
@@ -246,7 +246,7 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
             {a.typ === 'ordner' && (
               <p className="text-ui-xs text-muted-foreground">
                 Beim Start öffnet sich eine Ordner-Auswahl. Der gewählte Ordner wird zum
-                Arbeitsordner des Laufs — dort liest der Flow seinen Kontext und legt sein Ergebnis
+                Arbeitsordner des Laufs, dort liest der Flow seinen Kontext und legt sein Ergebnis
                 ab.
               </p>
             )}
@@ -328,7 +328,7 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
               <legend className="text-sm font-medium text-foreground">Werkzeuge</legend>
               <p className="text-ui-xs text-muted-foreground">
                 Nur für Flows, die selbst Dateien anfassen, im Web suchen oder Unteraufgaben
-                verteilen sollen. Ein reiner Dokument-Flow braucht keine Werkzeuge — die Datei
+                verteilen sollen. Ein reiner Dokument-Flow braucht keine Werkzeuge, die Datei
                 erzeugt Arasul aus Schritt 3 automatisch.
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -396,7 +396,7 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
                     type="button"
                     variant="outline"
                     size="sm"
-                    title="Der Flow arbeitet in der Projektablage des jeweils aktiven Projekts — dort, wo auch Explorer und Sandbox arbeiten."
+                    title="Der Flow arbeitet in der Projektablage des jeweils aktiven Projekts, dort, wo auch Explorer und Sandbox arbeiten."
                     onClick={() => patch({ ordner: [...value.ordner, 'projekt://aktiv'] })}
                     data-testid="ordner-projektablage"
                   >

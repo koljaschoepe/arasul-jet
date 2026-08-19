@@ -23,7 +23,7 @@ async function bootstrap() {
   try {
     const result = await runMigrations(db.pool);
     if (result.failed) {
-      logger.error(`Bootstrap: Migration ${result.failed} failed — admin user creation may fail`);
+      logger.error(`Bootstrap: Migration ${result.failed} failed, admin user creation may fail`);
     }
   } catch (error) {
     logger.error(`Bootstrap: Migration runner error: ${error.message}`);

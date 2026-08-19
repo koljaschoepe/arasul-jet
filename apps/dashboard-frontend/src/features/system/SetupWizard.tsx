@@ -663,7 +663,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                     type="text"
                     value={customIndustry}
                     onChange={e => setCustomIndustry(e.target.value)}
-                    placeholder="Ihre Branche eingeben..."
+                    placeholder="Branche eingeben…"
                     className="mt-2 bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
                   />
                 )}
@@ -909,7 +909,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 Netzwerk-Status
               </h2>
               <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
-                Überprüfung der Netzwerk-Konnektivität Ihres Systems.
+                Prüfung der Netzwerkverbindung dieses Geräts.
               </p>
 
               {networkLoading ? (
@@ -1006,7 +1006,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 KI-Modell auswählen
               </h2>
               <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 self-center max-sm:text-sm">
-                Wählen Sie ein Startmodell für Ihren KI-Assistenten. Es wird im Hintergrund
+                Wähle ein Startmodell für den KI-Assistenten. Es wird im Hintergrund
                 heruntergeladen.
               </p>
 
@@ -1134,7 +1134,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 Zusammenfassung
               </h2>
               <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
-                Ihre Einrichtung ist fast abgeschlossen. Überprüfen Sie die Konfiguration.
+                Die Einrichtung ist fast fertig. Bitte die Angaben prüfen.
               </p>
 
               <div className="w-full max-w-110">

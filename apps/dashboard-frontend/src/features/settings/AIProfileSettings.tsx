@@ -322,8 +322,8 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
           <AlertCircle className="size-4" />
           <AlertDescription className="flex flex-col items-start gap-3">
             <span>
-              KI-Profil konnte nicht geladen werden. Bitte prüfen Sie die Verbindung und versuchen
-              Sie es erneut.
+              KI-Profil konnte nicht geladen werden. Bitte die Verbindung prüfen und es erneut
+              versuchen.
             </span>
             <Button variant="outline" size="sm" onClick={handleRetry}>
               <RefreshCw className="size-4" />
@@ -397,7 +397,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
                 className="mt-2"
                 value={customIndustry}
                 onChange={e => setCustomIndustry(e.target.value)}
-                placeholder="Ihre Branche eingeben..."
+                placeholder="Branche eingeben…"
               />
             )}
           </div>
@@ -423,7 +423,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-foreground">Zusatzkontext</h3>
             <p className="text-xs text-muted-foreground">
-              Beschreibung Ihres Unternehmens, Ihrer Zielgruppen und Besonderheiten.
+              Beschreibung des Unternehmens, der Zielgruppen und Besonderheiten.
             </p>
           </div>
           <Textarea

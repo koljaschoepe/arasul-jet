@@ -55,7 +55,7 @@ export function stepLabel(step: FlowRunStep): string {
     return kurz ? `${name} · ${kurz}` : name;
   }
   // Prüfschritt (Plan 014, Phase 2): eigene, sprechende Zeilen.
-  if (step.name === 'korrektur') return 'Korrekturrunde — Entwurf überarbeitet';
+  if (step.name === 'korrektur') return 'Korrekturrunde, Entwurf überarbeitet';
   if (step.name === 'pruefung') return 'Prüfung des Entwurfs (Checks + Prüfrunde)';
   if (step.kind === 'modell') return 'Modell-Antwort';
   if (step.kind === 'hinweis') return feld(step.input, 'text', 'hinweis') || step.name || 'Hinweis';

@@ -237,7 +237,7 @@ function AppContent(): React.JSX.Element | null {
             {/* Update available banner (overlay, gilt für alte UI und Workspace) */}
             {updateAvailable && (
               <div className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-1.5 text-sm font-medium flex items-center justify-center gap-3">
-                <span>Update verfügbar — Seite neu laden</span>
+                <span>Update verfügbar, Seite neu laden</span>
                 <button
                   className="underline font-semibold hover:opacity-80"
                   onClick={() => window.location.reload()}

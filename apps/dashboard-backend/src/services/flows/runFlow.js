@@ -352,7 +352,7 @@ async function runFlow(
   // 2. Modell.
   const model = flow.modell || (await resolveModel());
   if (!model) {
-    throw new ValidationError('Kein Modell verfügbar — bitte im Model Store eines laden.');
+    throw new ValidationError('Kein Modell verfügbar, bitte im Model Store eines laden.');
   }
 
   // 3. Werkzeuge.
@@ -590,7 +590,7 @@ async function runFlow(
       // benennen, damit ein „nur 300 gelistet" nicht als vollständig missverstanden wird.
       if (abgeschnitten) {
         logger.warn(
-          `Flow "${flowName}": Änderungs-Übersicht auf ${aenderungen.length} Einträge gekürzt — weitere ausgelassen.`
+          `Flow "${flowName}": Änderungs-Übersicht auf ${aenderungen.length} Einträge gekürzt, weitere ausgelassen.`
         );
       }
       await store.saveChanges({ runId: run.id, changes: aenderungen });
@@ -710,9 +710,7 @@ async function runFlow(
         }
       }
     } catch (err) {
-      logger.warn(
-        `Flow "${flowName}": Prüfschritt fehlgeschlagen — Entwurf bleibt: ${err.message}`
-      );
+      logger.warn(`Flow "${flowName}": Prüfschritt fehlgeschlagen, Entwurf bleibt: ${err.message}`);
     }
   }
 

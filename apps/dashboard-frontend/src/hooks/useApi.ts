@@ -47,7 +47,7 @@ function normalizeErrorBody(
 } {
   if (body === null || body === undefined) {
     return {
-      message: 'Es ist ein unerwarteter Fehler aufgetreten. Bitte versuchen Sie es erneut.',
+      message: 'Es ist ein unerwarteter Fehler aufgetreten. Bitte erneut versuchen.',
     };
   }
   if (body && typeof body === 'object') {

@@ -474,7 +474,7 @@ router.post(
         stdout: stdout.slice(-500),
         stderr: stderr.slice(-500),
       });
-      throw new ServiceUnavailableError('Diagnostics collection failed — no result');
+      throw new ServiceUnavailableError('Diagnostics collection failed, no result');
     }
 
     const result = JSON.parse(jsonMatch[1]);

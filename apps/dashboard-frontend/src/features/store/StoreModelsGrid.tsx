@@ -329,7 +329,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
       // listet, den Schwebezustand auflösen statt ewig zu drehen.
       const timeout = setTimeout(() => {
         clearPendingUnload(id);
-        toast.error('Entladen dauert ungewöhnlich lange — Status unklar, Ansicht aktualisiert');
+        toast.error('Entladen dauert ungewöhnlich lange. Status unklar, Ansicht aktualisiert');
         invalidate();
       }, UNLOAD_TIMEOUT_MS);
       unloadTimeouts.current.set(id, timeout);
@@ -421,7 +421,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
         <span className="text-muted-foreground">Im RAM:</span>
         {loaded.length === 0 ? (
           <span className="text-muted-foreground">
-            kein Modell geladen — wird bei Bedarf automatisch geladen
+            kein Modell geladen, wird bei Bedarf automatisch geladen
           </span>
         ) : (
           loaded.map(m => {
@@ -504,7 +504,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
             className="rounded-md border border-border bg-background px-2 py-1 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             aria-label="Standardmodell wählen"
           >
-            {!defaultModel && <option value="">— wählen —</option>}
+            {!defaultModel && <option value="">Modell wählen</option>}
             {installed.map(m => (
               <option key={m.id} value={m.id}>
                 {m.name}

@@ -95,6 +95,16 @@ run_backend_tests() {
 # Funktion: Toter Code (Plan 023 B3)
 # Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
 # jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
+run_gedankenstrich_check() {
+  echo ""
+  echo "-> Pruefe auf Gedankenstriche als Trenner..."
+  if python3 "${PROJECT_ROOT}/scripts/test/gedankenstriche.py" --pfad "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_totercode_check() {
   echo ""
   echo "-> Pruefe auf toten Code..."
@@ -271,6 +281,7 @@ run_quality_gates() {
 
 # Toter Code laeuft immer, unabhaengig von der Auswahl.
 run_totercode_check
+run_gedankenstrich_check
 
 # Hauptlogik: Welche Tests laufen?
 if [ "$RUN_ALL" = true ]; then

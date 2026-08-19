@@ -100,7 +100,7 @@ async function saveVorlage({ name, buffer }, deps = {}) {
   const safe = assertSafeName(name);
   if (!istErlaubteEndung(safe)) {
     throw new ValidationError(
-      'Vorlagenformat nicht unterstützt — erlaubt: .docx, .pdf, .md, .txt, .html'
+      'Vorlagenformat nicht unterstützt, erlaubt: .docx, .pdf, .md, .txt, .html'
     );
   }
   await ensureDir();

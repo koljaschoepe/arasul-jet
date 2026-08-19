@@ -297,7 +297,7 @@ describe('useApi', () => {
         // Should fall back to default message when JSON parsing fails
         const apiErr = err as ApiError;
         expect(apiErr.message).toBe(
-          'Es ist ein unerwarteter Fehler aufgetreten. Bitte versuchen Sie es erneut.'
+          'Es ist ein unerwarteter Fehler aufgetreten. Bitte erneut versuchen.'
         );
         expect(apiErr.status).toBe(500);
       }

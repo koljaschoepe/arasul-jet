@@ -43,7 +43,7 @@ Die Arasul Platform laeuft auf einem NVIDIA Jetson AGX Orin und bietet:
 
 ### Workspace (IDE-Oberflaeche)
 
-Die Standard-Oberflaeche nach der Anmeldung ist der **Workspace** — aufgebaut
+Die Standard-Oberflaeche nach der Anmeldung ist der **Workspace**, aufgebaut
 wie eine Entwicklungsumgebung (Cursor/VS-Code-Raster), in drei Themes
 (Schwarz · Dunkel · Hell). Das Theme wird ausschliesslich unter **Einstellungen →
 Erscheinungsbild** gewaehlt (der fruehere Ansichtsmodus-Umschalter oben links
@@ -51,16 +51,13 @@ ist entfallen). Alle Flaechen (Sidebar, Mitte, rechtes Panel) teilen denselben
 Hintergrund; getrennt wird nur durch feine Linien.
 
 - **Activity Bar (ganz links):** schmale Icon-Leiste mit einer **festen
-  Drei-Bereiche-Navigation** — **Chat** (Kommandozentrale, rechtes Panel),
-  **Wissen** (Dateien/Explorer, linke Sidebar) und **Automation** (n8n) —
-  darunter **Extensions**, ganz unten **Einstellungen** (inkl. System-Status).
+  Drei-Bereiche-Navigation**, **Chat** (Kommandozentrale, rechtes Panel),
+  **Wissen** (Dateien/Explorer, linke Sidebar) und **Automation** (n8n), darunter **Extensions**, ganz unten **Einstellungen** (inkl. System-Status).
   Chat und Terminal wohnen im rechten Panel, der Explorer in der Sidebar.
-- **Sidebar (links, kontextabhaengig):** wechselt mit dem aktiven Tab —
-  **Dashboard** zeigt den Dokumente-/Projekte-Explorer (Projekte → Ordner →
+- **Sidebar (links, kontextabhaengig):** wechselt mit dem aktiven Tab, **Dashboard** zeigt den Dokumente-/Projekte-Explorer (Projekte → Ordner →
   Dateien als Baum; Upload per Drag & Drop oder Kontextmenue, Indexierung
   startet automatisch, Suchfeld filtert den Baum). **Extensions** zeigt links
-  eine Verwaltung mit **nur den installierten/aktiven** Apps und KI-Modellen —
-  mit Filter **Alle · Sprachmodelle · Apps** und Suchfeld; gestoebert und
+  eine Verwaltung mit **nur den installierten/aktiven** Apps und KI-Modellen, mit Filter **Alle · Sprachmodelle · Apps** und Suchfeld; gestoebert und
   installiert wird im Katalog in der Mitte. Bei **Automation (n8n)** bleibt der
   Explorer stehen (n8n oeffnet als Tab im Hauptbereich). Der Auf-/Zu-Zustand
   bleibt ueber ein Neuladen erhalten.
@@ -83,7 +80,7 @@ Hintergrund; getrennt wird nur durch feine Linien.
     (empfohlen, kein Login)** und darunter `/claude`, `/codex` (+ „Codex
     anmelden" per Geraete-Code), `/gemini` (Erststart installiert das jeweilige
     CLI). Claude einmalig per **KI-Zugang → „Mit Claude anmelden"** anmelden
-    (eigener OAuth-Handshake, kopierbare URL) — danach ist `claude` in jeder
+    (eigener OAuth-Handshake, kopierbare URL), danach ist `claude` in jeder
     Sandbox ohne erneuten Login angemeldet.
   - Der Wechsel zwischen Chat und Terminal unterbricht **nichts**: ein
     laufender Chat-Stream und eine laufende Terminal-Sitzung laufen im
@@ -93,11 +90,11 @@ Hintergrund; getrennt wird nur durch feine Linien.
   blenden die Sidebar und das rechte Panel unabhaengig ein/aus (mit Tooltip).
 - **Statusleiste (unten):** aktive Terminal-Session, Systemstatus sowie das
   aktuell geladene KI-Modell samt belegtem KI-RAM (aus der tatsaechlichen
-  Ollama-Auslastung — Details im Tooltip).
+  Ollama-Auslastung, Details im Tooltip).
 - **Extensions (Verwaltung + Katalog):** links die **installierten/aktiven**
   Eintraege (Filter Alle · Sprachmodelle · Apps), in der Mitte der durchsuchbare
   **Store** mit **zwei Reitern (Modelle · Erweiterungen)**; ein Klick oeffnet
-  die Detailseite mit allen Aktionen — KI-Modelle installieren/aktivieren,
+  die Detailseite mit allen Aktionen, KI-Modelle installieren/aktivieren,
   Plattform-Apps (n8n) ein-/ausblenden. Ueber dem Modell-Raster steht ein
   **Modell-Dashboard**: KI-RAM-Balken (ein Segment je geladenem Modell),
   die aktuell im RAM geladenen Modelle mit **Entladen** (der Chip zeigt
@@ -123,7 +120,7 @@ Das Dashboard ist bewusst schlank und zeigt auf einen Blick:
 - **Automatisierungen:** die letzten n8n-Workflow-Laeufe mit Status und
   Zeitpunkt; „n8n oeffnen" springt direkt in den Automation-Tab
 - **Chat starten/Dokument hochladen/Projekt oeffnen** sind als Aktions-Kacheln
-  entfallen — Chat lebt im rechten Panel, Upload im Explorer der Sidebar.
+  entfallen, Chat lebt im rechten Panel, Upload im Explorer der Sidebar.
 
 ### Status-Farben
 
@@ -210,7 +207,7 @@ Workspace?"):
 | ------------------ | ------------------------------------------------- |
 | **Abgeschottet**   | Internet ja, Plattform nein (Standard)            |
 | **Am System**      | interne Dienste: Datenbank / MinIO / Qdrant / RAG |
-| **Voller Zugriff** | Infrastruktur — **nur Admins**                    |
+| **Voller Zugriff** | Infrastruktur, **nur Admins**                     |
 
 Jeder Workspace hat genau einen unsichtbaren Wissensbereich („Ordner"): dort
 geschriebene Dateien werden **automatisch indiziert** (kein manueller Upload).
@@ -231,7 +228,7 @@ Details: [docs/integrations/N8N.md](../integrations/N8N.md).
 
 ## 7. Einstellungen
 
-Die Einstellungen sind in **6 Reiter** gegliedert (frueher 9 — verwandte Bereiche
+Die Einstellungen sind in **6 Reiter** gegliedert (frueher 9, verwandte Bereiche
 wurden zusammengelegt, damit die Navigation uebersichtlich bleibt):
 
 | Reiter          | Inhalt                                                          |
@@ -262,7 +259,7 @@ wurden zusammengelegt, damit die Navigation uebersichtlich bleibt):
 
 Der Unterbereich **Einstellungen → KI → „Sprachmodell"** (nur fuer Administratoren) macht die
 Feinjustierung der LLM-Standardwerte ohne Neustart moeglich. Aenderungen wirken
-sofort. Alle Werte haben sinnvolle Standardwerte — nur anpassen, wenn Sie die
+sofort. Alle Werte haben sinnvolle Standardwerte, nur anpassen, wenn Sie die
 Auswirkung kennen.
 
 - **LLM-Standardwerte:** `Max. Tokens (LLM-Default)` (max. Antwortlaenge),
@@ -272,7 +269,7 @@ Auswirkung kennen.
   vorangestellt wird. **Feld leeren = eingebauter Standard-Prompt.**
 
 > **Agentic RAG (Plan 021):** Die frueheren Retrieval-/Rerank-/Space-Routing-Regler
-> sind entfernt — die Wissenssuche laeuft agentisch (die KI durchsucht die
+> sind entfernt, die Wissenssuche laeuft agentisch (die KI durchsucht die
 > Projektdateien selbst mit `dateien_suchen`/`symbol_suche`; den Inhalt einer
 > benannten PDF/DOCX holt sie ueber deren Textlayer). Es gibt daher keine
 > Vektor-Suche mehr zu justieren.
@@ -444,7 +441,7 @@ Unter **Einstellungen → System → Updates → Verlauf** sehen Sie:
 
 Das System ist ueber das lokale Netzwerk erreichbar:
 
-- **Web:** `https://<hostname>.local` (selbstsigniertes Zertifikat — Warnung beim ersten Aufruf bestaetigen)
+- **Web:** `https://<hostname>.local` (selbstsigniertes Zertifikat, Warnung beim ersten Aufruf bestaetigen)
 - **SSH:** `ssh -p 2222 arasul@<jetson-ip>`
 
 ### Fernzugriff mit Tailscale (Opt-in)

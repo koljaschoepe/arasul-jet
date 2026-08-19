@@ -46,7 +46,7 @@ function assertSafeName(name) {
   const n = String(name || '').trim();
   if (!FLOW_NAME_RE.test(n)) {
     throw new ValidationError(
-      `Ungültiger Flow-Name "${name}" — erlaubt sind Kleinbuchstaben, Ziffern und Bindestriche`
+      `Ungültiger Flow-Name "${name}", erlaubt sind Kleinbuchstaben, Ziffern und Bindestriche`
     );
   }
   return n;
