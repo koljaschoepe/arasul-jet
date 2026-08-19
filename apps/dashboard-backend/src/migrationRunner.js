@@ -46,7 +46,7 @@ function checksum(content) {
  * `arasul`.
  *
  * Auf dem Geraet gefunden: arasul.schema_migrations mit 145 Zeilen und
- * public.schema_migrations mit 93 aus der Zeit davor. Auf einem frischen Gerraet
+ * public.schema_migrations mit 93 aus der Zeit davor. Auf einem frischen Geraet
  * landet das Buch beim ersten Start in `public`; beim zweiten Start findet der
  * Laeufer dort nichts mehr, legt es in `arasul` neu an und meldet
  * "Seeded 146 existing migrations". Er markiert also alles blind als erledigt,

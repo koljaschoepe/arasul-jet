@@ -2496,6 +2496,11 @@ PK (projekt_id, jahr).
 > `public.schema_migrations` mit 93 aus der Zeit davor. Auf einem frischen Gerät
 > legte der zweite Start das Buch neu an und markierte blind alle Migrationen
 > als erledigt.
+>
+> Dass auf dem Gerät zwei Kopien stehen, ist kein Versehen, sondern der Preis
+> dafür, nichts umzuziehen: ein Umzug würde dort die Migrationen 94 bis 146
+> erneut anwerfen. Das ist ein eigener, vorbereiteter Schritt (Plan 023 K) und
+> nichts, was nebenbei passiert.
 
 ## `arasul.geraet`
 

@@ -130,7 +130,12 @@ pruefe "Erweiterungen" "0" "$(sql 'SELECT count(*) FROM arasul.extensions')"
 pruefe "n8n-Workflows" "0" "$(sql 'SELECT count(*) FROM n8n.workflow_entity' 2>/dev/null || echo 0)"
 pruefe "Ersteinrichtung faellig" "f" "$(sql 'SELECT setup_completed FROM system_settings')"
 pruefe "Modellkatalog bleibt" "t" "$(sql 'SELECT count(*) > 0 FROM llm_model_catalog')"
-pruefe "Schema-Buchfuehrung bleibt" "t" "$(sql 'SELECT count(*) > 0 FROM arasul.schema_migrations')"
+# Das Migrationsbuch steht entweder in public oder in arasul, je nach Alter der
+# Datenbank (siehe migrationRunner.js, ermittleBuchOrt). Gefragt wird deshalb
+# nach dem Ort, nicht nach einem festen Namen.
+buchort=$(sql "SELECT table_schema FROM information_schema.tables WHERE table_name = 'schema_migrations' AND table_schema IN ('arasul','public') ORDER BY CASE table_schema WHEN 'arasul' THEN 0 ELSE 1 END LIMIT 1")
+pruefe "Migrationsbuch vorhanden" "t" "$([ -n "$buchort" ] && echo t || echo f)"
+pruefe "Migrationsbuch bleibt gefuellt" "t" "$(sql "SELECT count(*) > 0 FROM ${buchort:-public}.schema_migrations")"
 pruefe "Flow-Dateien" "0" "$(docker exec "$BACKEND" sh -c 'ls -A /arasul/flows | wc -l' | tr -d '[:space:]')"
 pruefe "Erweiterungs-Ordner" "0" "$(docker exec "$BACKEND" sh -c 'ls -A /arasul/extensions | wc -l' | tr -d '[:space:]')"
 # grep -c gibt bei null Treffern "0" aus UND endet mit 1. Ein `|| echo 0`
