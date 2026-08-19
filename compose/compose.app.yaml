@@ -19,7 +19,7 @@ services:
       dockerfile: apps/dashboard-backend/Dockerfile
       args:
         NODE_VERSION: ${NODE_VERSION:-22}
-    container_name: dashboard-backend
+    container_name: ${CONTAINER_PREFIX:-}dashboard-backend
     hostname: dashboard-backend
     restart: always
     networks:
@@ -96,32 +96,32 @@ services:
       # dauerhaft "unknown". Die Datei existiert nur auf Jetson-Hosts, deshalb
       # steht in der Compose-Ebene ein Default-Pfad, der auch leer sein darf.
       - ${NV_TEGRA_RELEASE:-/etc/nv_tegra_release}:/etc/nv_tegra_release:ro
-      - ../data/updates:/arasul/updates
-      - ../data/backups:/arasul/backups:ro
-      - ../data/appstore/manifests:/arasul/appstore/manifests:ro
-      - ../data/ssh-keys:/arasul/ssh-keys:ro
+      - ${DATA_PATH:-../data}/updates:/arasul/updates
+      - ${DATA_PATH:-../data}/backups:/arasul/backups:ro
+      - ${DATA_PATH:-../data}/appstore/manifests:/arasul/appstore/manifests:ro
+      - ${DATA_PATH:-../data}/ssh-keys:/arasul/ssh-keys:ro
       - ../services/postgres/init:/arasul/migrations:ro
-      - ../data/sandbox/projects:/arasul/sandbox/projects
+      - ${DATA_PATH:-../data}/sandbox/projects:/arasul/sandbox/projects
       - ../services/sandbox:/arasul/sandbox-build:ro
       # Flow-Definitionen (Plan 011): bewusst ein eigener Pfad, getrennt vom
       # Nutzer-Workspace — ein Flow mit Schreibrecht kann seine eigene
       # Definition damit nicht ueberschreiben. Schreibbar, weil der Anlege-
       # Dialog hier Dateien erzeugt; ueberlebt Rebuilds und wandert ins Backup.
-      - ../data/flows:/arasul/flows
+      - ${DATA_PATH:-../data}/flows:/arasul/flows
       # Erweiterungs-Pakete (Plan 012 Phase E): je ein Ordner mit manifest.json
       # + Assets. Schreibbar (paketieren/importieren erzeugt hier Ordner),
       # ueberlebt Rebuilds und wandert ins Backup.
-      - ../data/extensions:/arasul/extensions
+      - ${DATA_PATH:-../data}/extensions:/arasul/extensions
       # KI-Bruecke, Faehigkeit "dateien" (Plan 017 Schritt 2): eigener Datentopf
       # je live geschalteter Erweiterung (/arasul/extensions-data/<id>). Bewusst
       # GETRENNT von /arasul/projects — eine Erweiterung darf NIE quer auf
       # Kundendaten anderer Projekte zugreifen. Schreibbar, ueberlebt Rebuilds.
-      - ../data/extensions-data:/arasul/extensions-data
+      - ${DATA_PATH:-../data}/extensions-data:/arasul/extensions-data
       # Projektablage: ein echter Geraete-Ordner je Projekt (/arasul/projects/
       # <uuid>) — Datei-API des Explorers, Arbeitsverzeichnis fuer Flows,
       # Mount fuer Sandboxes. Auch der Git-Sync-Checkout (PROJECT_GIT_DIR)
       # liegt hier; ueberlebt Rebuilds und wandert ins Backup.
-      - ../data/projects:/arasul/projects
+      - ${DATA_PATH:-../data}/projects:/arasul/projects
     security_opt:
       - no-new-privileges:true
     depends_on:
@@ -161,7 +161,7 @@ services:
       dockerfile: apps/dashboard-frontend/Dockerfile
       args:
         NODE_VERSION: ${NODE_VERSION:-22}
-    container_name: dashboard-frontend
+    container_name: ${CONTAINER_PREFIX:-}dashboard-frontend
     hostname: dashboard-frontend
     restart: always
     networks:
@@ -211,7 +211,7 @@ services:
     build:
       context: ../services/n8n
       dockerfile: Dockerfile
-    container_name: n8n
+    container_name: ${CONTAINER_PREFIX:-}n8n
     hostname: n8n
     restart: always
     networks:
@@ -357,7 +357,7 @@ services:
   # gemeinsam bumpen. Image ist multi-arch (arm64 verifiziert, 2026-07).
   n8n-runners:
     image: n8nio/runners:2.29.10
-    container_name: n8n-runners
+    container_name: ${CONTAINER_PREFIX:-}n8n-runners
     hostname: n8n-runners
     restart: always
     networks:

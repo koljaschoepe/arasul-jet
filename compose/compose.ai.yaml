@@ -19,7 +19,7 @@ services:
     # Reaktivieren: `docker compose --profile classic-rag up -d qdrant`.
     profiles: ['classic-rag']
     image: qdrant/qdrant:v1.16.1
-    container_name: qdrant
+    container_name: ${CONTAINER_PREFIX:-}qdrant
     hostname: qdrant
     restart: always
     stop_grace_period: 30s
@@ -59,7 +59,7 @@ services:
     build:
       context: ..
       dockerfile: services/llm-service/Dockerfile
-    container_name: llm-service
+    container_name: ${CONTAINER_PREFIX:-}llm-service
     hostname: llm-service
     restart: always
     networks:
@@ -93,7 +93,7 @@ services:
     volumes:
       - arasul-llm-models:/home/ollama/.ollama
       - ../services/llm-service/healthcheck.sh:/healthcheck.sh:ro
-      - ../data/models:/host-models:ro
+      - ${DATA_PATH:-../data}/models:/host-models:ro
       # Mount host CUDA toolkit (cuBLAS, cuDNN, cuDart) for GPU inference
       - /usr/local/cuda/lib64:/usr/local/cuda/lib64:ro
     ports:
@@ -101,7 +101,7 @@ services:
       # LAN. Internal containers reach it via the network name (llm-service:11434);
       # host-local clients via 127.0.0.1. Remote/Tailscale access, if needed, must go
       # through an authenticated proxy (e.g. `tailscale serve tcp 11434`), not here.
-      - '127.0.0.1:11434:11434' # Ollama API (host-local only)
+      - '127.0.0.1:${LLM_API_PORT:-11434}:11434' # Ollama API (host-local only)
     runtime: nvidia
     tmpfs:
       - /tmp:noexec,nosuid,size=256M
@@ -140,7 +140,7 @@ services:
       args:
         L4T_PYTORCH_TAG: ${L4T_PYTORCH_TAG:-r36.4.0}
         CUDA_ARCH_LIST: ${TORCH_CUDA_ARCH_LIST:-8.7}
-    container_name: embedding-service
+    container_name: ${CONTAINER_PREFIX:-}embedding-service
     hostname: embedding-service
     restart: always
     networks:
@@ -197,7 +197,7 @@ services:
       dockerfile: services/document-indexer/Dockerfile
       args:
         PYTHON_VERSION: ${PYTHON_VERSION:-3.11.12}
-    container_name: document-indexer
+    container_name: ${CONTAINER_PREFIX:-}document-indexer
     hostname: document-indexer
     restart: always
     networks:
@@ -281,7 +281,7 @@ services:
   # spricht ihn ueber das interne Netz an.
   searxng:
     image: searxng/searxng:latest
-    container_name: searxng
+    container_name: ${CONTAINER_PREFIX:-}searxng
     hostname: searxng
     restart: always
     networks:

@@ -95,3 +95,7 @@ config/base/
 # Test output artifacts
 apps/*/jest-results.json
 apps/*/test-results.json
+
+# Pruefstand (Plan 023 B5): eigener Datentopf, nie eingecheckt
+data-pruefstand/
+logs-pruefstand/
