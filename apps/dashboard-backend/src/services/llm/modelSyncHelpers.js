@@ -268,9 +268,14 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
       const sizeBytes = Number(modelObj.size) || 0;
       const ramGb = Math.max(2, Math.ceil((sizeBytes / 1e9) * 1.3));
       const paramGroesse = (modelObj.details && modelObj.details.parameter_size) || null;
+      // Kundentext, keine Entwicklernotiz. Der Store zeigt diese Beschreibung
+      // unveraendert neben den kuratierten Modellen; "automatisch in den
+      // Katalog uebernommen" erklaerte dort die eigene Importmechanik statt
+      // das Modell. Der Hinweis auf die fehlende Pruefung bleibt, weil
+      // `jetson_tested = false` in der Oberflaeche (noch) nicht sichtbar ist.
       const beschreibung =
-        `Lokal in Ollama vorhandenes Modell${paramGroesse ? ` (${paramGroesse})` : ''} — ` +
-        'automatisch in den Katalog übernommen.';
+        `Auf diesem Gerät installiert${paramGroesse ? `, ${paramGroesse}` : ''}. ` +
+        'Nicht von Arasul geprüft.';
 
       const eingefuegt = await database.query(
         `INSERT INTO llm_model_catalog

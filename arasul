@@ -636,6 +636,17 @@ pull_images() {
 build_images() {
     log_info "Building custom Docker images..."
 
+    # BUILD_HASH aus dem echten Git-Stand. In .env.template steht woertlich
+    # "dev-build", und dieser Wert wird auf der Einstellungsseite als "Build"
+    # angezeigt — ein Kunde liest auf einem ausgelieferten Geraet also
+    # "dev-build". Kein Git-Repo (ausgeliefertes Geraet ohne .git): der Wert
+    # aus der .env bleibt stehen.
+    if git -C "${SCRIPT_DIR}" rev-parse --short HEAD >/dev/null 2>&1; then
+        BUILD_HASH="$(git -C "${SCRIPT_DIR}" rev-parse --short HEAD)"
+        export BUILD_HASH
+        log_info "BUILD_HASH=${BUILD_HASH}"
+    fi
+
     # Capture exit code separately from output filtering
     local build_output
     # All services with a build: directive must be listed here, otherwise they are
