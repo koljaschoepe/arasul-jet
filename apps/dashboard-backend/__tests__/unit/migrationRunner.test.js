@@ -89,6 +89,7 @@ describe('runMigrations', () => {
   test('returns zeros when no migration files found', async () => {
     queryResults = [
       {}, // SET statement_timeout
+      { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
     ];
 
@@ -104,6 +105,7 @@ describe('runMigrations', () => {
 
     queryResults = [
       {}, // SET statement_timeout
+      { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
       { rows: [{ count: '1' }] }, // seedExisting: COUNT schema_migrations (only version 0)
       { rows: [{ count: '2' }] }, // seedExisting: core tables check (admin_users, chats exist)
@@ -125,6 +127,7 @@ describe('runMigrations', () => {
 
     queryResults = [
       {}, // SET statement_timeout
+      { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
       { rows: [{ count: '48' }] }, // seedExisting: COUNT (>5, skip seed)
       { rows: [{ version: 1 }, { version: 5 }] }, // getAppliedVersions
@@ -143,6 +146,7 @@ describe('runMigrations', () => {
 
     queryResults = [
       {}, // SET statement_timeout
+      { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
       { rows: [{ count: '48' }] }, // seedExisting: COUNT (>5, skip seed)
       { rows: [] }, // getAppliedVersions (empty)
@@ -168,6 +172,7 @@ describe('runMigrations', () => {
 
     queryResults = [
       {}, // SET statement_timeout
+      { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
       { rows: [{ count: '48' }] }, // seedExisting: COUNT (>5, skip seed)
       { rows: [] }, // getAppliedVersions (empty)
@@ -180,5 +185,58 @@ describe('runMigrations', () => {
     const result = await runMigrations(mockPool);
     expect(result.applied).toBe(0);
     expect(result.failed).toBe('001_init.sql');
+  });
+
+  /**
+   * Wo das Migrationsbuch steht (Nacharbeit zur Live-Abnahme vom 19.08.2026).
+   *
+   * Der unqualifizierte Name `schema_migrations` loeste gegen `search_path`
+   * (`"$user", public`) auf. Der Datenbanknutzer heisst arasul, und seit
+   * Migration 090 gibt es auch ein Schema arasul. Damit hing der Ablageort davon
+   * ab, ob dieses Schema im Moment des CREATE schon existierte. Auf dem Geraet:
+   * arasul.schema_migrations mit 145 Zeilen UND public.schema_migrations mit 93.
+   * Auf einem frischen Geraet legte der zweite Start das Buch neu an und
+   * markierte blind 146 Migrationen als erledigt.
+   */
+  describe('Ort des Migrationsbuchs', () => {
+    function laufMit(ortZeilen) {
+      fs.existsSync.mockReturnValue(true);
+      fs.readdirSync.mockReturnValue([]);
+      queryResults = [
+        {}, // SET statement_timeout
+        { rows: ortZeilen }, // ermittleBuchOrt
+        {}, // CREATE TABLE
+      ];
+      return runMigrations(mockPool);
+    }
+
+    const sql = () => mockClient.query.mock.calls.map(c => (typeof c[0] === 'string' ? c[0] : ''));
+
+    test('bleibt bei arasul, wenn das Buch dort schon steht', async () => {
+      await laufMit([{ table_schema: 'arasul' }]);
+      expect(sql().some(s => s.includes('CREATE TABLE IF NOT EXISTS arasul.schema_migrations'))).toBe(
+        true
+      );
+    });
+
+    test('nimmt public, wenn es dort steht', async () => {
+      await laufMit([{ table_schema: 'public' }]);
+      expect(sql().some(s => s.includes('CREATE TABLE IF NOT EXISTS public.schema_migrations'))).toBe(
+        true
+      );
+    });
+
+    test('legt es auf einer frischen Datenbank in public an', async () => {
+      await laufMit([]);
+      expect(sql().some(s => s.includes('CREATE TABLE IF NOT EXISTS public.schema_migrations'))).toBe(
+        true
+      );
+    });
+
+    test('schreibt den Ort nirgends unqualifiziert', async () => {
+      await laufMit([{ table_schema: 'arasul' }]);
+      // Genau das war der Fehler: ohne Schema entscheidet der search_path.
+      expect(sql().some(s => /\b(FROM|INTO|EXISTS)\s+schema_migrations\b/.test(s))).toBe(false);
+    });
   });
 });

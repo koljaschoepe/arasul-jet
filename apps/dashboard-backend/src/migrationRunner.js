@@ -22,7 +22,9 @@ const MIGRATIONS_DIR = process.env.MIGRATIONS_DIR || '/arasul/migrations';
  */
 function extractVersion(filename) {
   const match = filename.match(/^(\d+)[a-z]?_/);
-  if (!match) {return null;}
+  if (!match) {
+    return null;
+  }
   return parseInt(match[1], 10);
 }
 
@@ -34,11 +36,45 @@ function checksum(content) {
 }
 
 /**
+ * Wo das Migrationsbuch steht.
+ *
+ * Bis zum 19.08.2026 stand hier ueberall der unqualifizierte Name
+ * `schema_migrations`. Der loest gegen `search_path` auf, und der ist
+ * `"$user", public`. Der Datenbanknutzer heisst arasul, und seit Migration 090
+ * gibt es auch ein Schema arasul. Damit haengt der Ablageort davon ab, ob
+ * dieses Schema im Moment des CREATE schon existiert: mal `public`, mal
+ * `arasul`.
+ *
+ * Auf dem Geraet gefunden: arasul.schema_migrations mit 145 Zeilen und
+ * public.schema_migrations mit 93 aus der Zeit davor. Auf einem frischen Geraet
+ * landet das Buch beim ersten Start in `public`; beim zweiten Start findet der
+ * Laeufer dort nichts mehr, legt es in `arasul` neu an und meldet
+ * "Seeded 146 existing migrations". Er markiert also alles blind als erledigt,
+ * ohne es geprueft zu haben. Heute folgenlos, weil die Docker-Initialisierung
+ * sie wirklich angewendet hat. Verlaesslich ist das Buch damit nicht.
+ *
+ * Deshalb wird der Ort einmal ermittelt und danach ueberall ausgeschrieben:
+ * gibt es `arasul.schema_migrations` schon, bleibt es dort. Sonst `public`.
+ * Kein bestehendes Buch zieht um, und ein neues Geraet bekommt einen festen Ort.
+ */
+async function ermittleBuchOrt(client) {
+  const { rows } = await client.query(
+    `SELECT table_schema
+       FROM information_schema.tables
+      WHERE table_name = 'schema_migrations'
+        AND table_schema IN ('arasul', 'public')
+      ORDER BY CASE table_schema WHEN 'arasul' THEN 0 ELSE 1 END
+      LIMIT 1`
+  );
+  return rows[0] ? `${rows[0].table_schema}.schema_migrations` : 'public.schema_migrations';
+}
+
+/**
  * Ensure schema_migrations table exists (bootstrap for existing databases)
  */
-async function ensureMigrationsTable(client) {
+async function ensureMigrationsTable(client, buch) {
   await client.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
+    CREATE TABLE IF NOT EXISTS ${buch} (
         version INTEGER PRIMARY KEY,
         filename VARCHAR(255) NOT NULL,
         applied_at TIMESTAMPTZ DEFAULT NOW(),
@@ -52,8 +88,8 @@ async function ensureMigrationsTable(client) {
 /**
  * Get set of already-applied migration versions
  */
-async function getAppliedVersions(client) {
-  const result = await client.query('SELECT version FROM schema_migrations WHERE success = true');
+async function getAppliedVersions(client, buch) {
+  const result = await client.query(`SELECT version FROM ${buch} WHERE success = true`);
   return new Set(result.rows.map(r => r.version));
 }
 
@@ -61,13 +97,15 @@ async function getAppliedVersions(client) {
  * Seed schema_migrations for an existing database that was set up by Docker init
  * (no tracking existed). Detects by checking if core tables exist but tracking is empty.
  */
-async function seedExistingMigrations(client, files) {
+async function seedExistingMigrations(client, files, buch) {
   // Check if this is an existing DB without tracking
-  const trackingCount = await client.query('SELECT COUNT(*) as count FROM schema_migrations');
+  const trackingCount = await client.query(`SELECT COUNT(*) as count FROM ${buch}`);
   const tracked = parseInt(trackingCount.rows[0].count, 10);
 
   // If we already have substantial tracking, no seed needed
-  if (tracked > 5) {return;}
+  if (tracked > 5) {
+    return;
+  }
 
   // Check if core tables from early migrations exist (Docker init ran them)
   const tableCheck = await client.query(`
@@ -76,20 +114,24 @@ async function seedExistingMigrations(client, files) {
   `);
   const coreTablesExist = parseInt(tableCheck.rows[0].count, 10) >= 2;
 
-  if (!coreTablesExist) {return;} // Fresh DB, no seeding needed
+  if (!coreTablesExist) {
+    return;
+  } // Fresh DB, no seeding needed
 
   // Seed: mark all migration files as "applied by Docker init"
   let seeded = 0;
   for (const migration of files) {
-    const exists = await client.query('SELECT 1 FROM schema_migrations WHERE version = $1', [
+    const exists = await client.query(`SELECT 1 FROM ${buch} WHERE version = $1`, [
       migration.version,
     ]);
-    if (exists.rows.length > 0) {continue;}
+    if (exists.rows.length > 0) {
+      continue;
+    }
 
     const sql = fs.readFileSync(migration.filepath, 'utf8');
     const hash = checksum(sql);
     await client.query(
-      `INSERT INTO schema_migrations (version, filename, checksum, execution_ms, success)
+      `INSERT INTO ${buch} (version, filename, checksum, execution_ms, success)
        VALUES ($1, $2, $3, 0, true)
        ON CONFLICT (version) DO NOTHING`,
       [migration.version, migration.filename, hash]
@@ -98,7 +140,7 @@ async function seedExistingMigrations(client, files) {
   }
 
   if (seeded > 0) {
-    logger.info(`Migration Runner: Seeded ${seeded} existing migrations (Docker init)`);
+    logger.info(`Migration Runner: Seeded ${seeded} existing migrations (Docker init) in ${buch}`);
   }
 }
 
@@ -121,7 +163,9 @@ function getMigrationFiles() {
     }))
     .filter(m => m.version !== null)
     .sort((a, b) => {
-      if (a.version !== b.version) {return a.version - b.version;}
+      if (a.version !== b.version) {
+        return a.version - b.version;
+      }
       return a.filename.localeCompare(b.filename);
     });
 }
@@ -138,7 +182,9 @@ async function runMigrations(pool) {
     // Remove the 30s statement timeout for migrations (some are long)
     await client.query('SET statement_timeout = 0');
 
-    await ensureMigrationsTable(client);
+    // Einmal ermitteln, danach ueberall ausgeschrieben. Siehe ermittleBuchOrt.
+    const buch = await ermittleBuchOrt(client);
+    await ensureMigrationsTable(client, buch);
 
     const files = getMigrationFiles();
     if (files.length === 0) {
@@ -147,9 +193,9 @@ async function runMigrations(pool) {
     }
 
     // Seed tracking for existing databases that Docker init already set up
-    await seedExistingMigrations(client, files);
+    await seedExistingMigrations(client, files, buch);
 
-    const applied = await getAppliedVersions(client);
+    const applied = await getAppliedVersions(client, buch);
 
     let appliedCount = 0;
     let skippedCount = 0;
@@ -172,7 +218,7 @@ async function runMigrations(pool) {
 
         // Record success
         await client.query(
-          `INSERT INTO schema_migrations (version, filename, checksum, execution_ms, success)
+          `INSERT INTO ${buch} (version, filename, checksum, execution_ms, success)
            VALUES ($1, $2, $3, $4, true)
            ON CONFLICT (version) DO UPDATE SET
              filename = EXCLUDED.filename,
@@ -196,7 +242,7 @@ async function runMigrations(pool) {
         // Record failure
         try {
           await client.query(
-            `INSERT INTO schema_migrations (version, filename, checksum, execution_ms, success)
+            `INSERT INTO ${buch} (version, filename, checksum, execution_ms, success)
              VALUES ($1, $2, $3, $4, false)
              ON CONFLICT (version) DO UPDATE SET
                filename = EXCLUDED.filename,
@@ -216,7 +262,9 @@ async function runMigrations(pool) {
     }
 
     if (appliedCount > 0) {
-      logger.info(`Migration Runner: ${appliedCount} applied, ${skippedCount} skipped`);
+      logger.info(
+        `Migration Runner: ${appliedCount} applied, ${skippedCount} skipped (Buch: ${buch})`
+      );
     } else {
       logger.debug(`Migration Runner: All ${skippedCount} migrations already applied`);
     }

@@ -2479,6 +2479,29 @@ PK (projekt_id, jahr).
 
 ---
 
+## `schema_migrations`
+
+> Das Migrationsbuch. Es steht **entweder** in `public` **oder** in `arasul`,
+> nie an beiden Orten gleichzeitig maßgeblich. Der Ort wird beim Start einmal
+> ermittelt (`migrationRunner.js`, `ermittleBuchOrt`) und danach überall
+> ausgeschrieben: gibt es `arasul.schema_migrations`, bleibt es dort, sonst
+> `public`.
+>
+> Warum das nötig ist: bis zum 19.08.2026 stand im Code der unqualifizierte
+> Name. Der löst gegen `search_path` auf, und der ist `"$user", public`. Der
+> Datenbanknutzer heißt `arasul`, und seit Migration 090 gibt es auch ein
+> Schema `arasul`. Damit hing der Ablageort davon ab, ob dieses Schema im
+> Moment des `CREATE` schon existierte. Auf dem Gerät stehen deshalb beide:
+> `arasul.schema_migrations` mit 145 Zeilen (maßgeblich) und
+> `public.schema_migrations` mit 93 aus der Zeit davor. Auf einem frischen Gerät
+> legte der zweite Start das Buch neu an und markierte blind alle Migrationen
+> als erledigt.
+>
+> Dass auf dem Gerät zwei Kopien stehen, ist kein Versehen, sondern der Preis
+> dafür, nichts umzuziehen: ein Umzug würde dort die Migrationen 94 bis 146
+> erneut anwerfen. Das ist ein eigener, vorbereiteter Schritt (Plan 023 K) und
+> nichts, was nebenbei passiert.
+
 ## `arasul.geraet`
 
 > Eine Zeile, `id = 1`. Merker über einen Werksreset hinweg (Migration 146).
