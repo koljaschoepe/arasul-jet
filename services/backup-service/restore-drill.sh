@@ -91,13 +91,17 @@ if ! { : >> "$REPORT_PATH"; } 2>/dev/null; then
     REPORT_PATH="/tmp/arasul_restore_drill_report.json"
 fi
 
+# Schreibt EINMAL. Frueher stand hier `| tee -a "$LOG_FILE"`, und weil die
+# Crontab die Standardausgabe zusaetzlich in dieselbe Datei umleitet
+# (`>> /backups/restore_drill.log`), landete jede Zeile doppelt. Von 28478
+# Zeilen war damit die Haelfte Rauschen.
 log() {
     local ts
     ts=$(date '+%Y-%m-%d %H:%M:%S')
     if [[ "$LOG_FILE" == "/dev/stderr" ]]; then
         echo "[${ts}] $*" >&2
     else
-        echo "[${ts}] $*" | tee -a "$LOG_FILE"
+        echo "[${ts}] $*" >> "$LOG_FILE"
     fi
 }
 
@@ -108,6 +112,44 @@ json_escape() {
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
     printf '%s' "$s"
+}
+
+# Entschluesselung (Plan 023 S2).
+#
+# `encrypt_file` in backup.sh schreibt das Chiffrat unter DEMSELBEN Dateinamen
+# zurueck (`mv "${src}.enc" "$src"`). Eine Sicherung heisst also weiter
+# `.sql.gz`, ist aber keine mehr. Ohne diese Erkennung wuerde `zcat` darauf
+# scheitern und der Test bei eingeschalteter Verschluesselung DAUERHAFT
+# fehlschlagen. Deshalb muss S2 vor S3 stehen.
+BACKUP_ENCRYPT_KEY_FILE="${BACKUP_ENCRYPT_KEY_FILE:-/run/secrets/backup_encryption_key}"
+
+# 0 = gzip (Klartext), 1 = etwas anderes (erwartet: verschluesselt)
+ist_gzip() {
+    local datei="$1"
+    local magic
+    magic=$(head -c 2 "$datei" | od -An -tx1 | tr -d ' \n')
+    [[ "$magic" == "1f8b" ]]
+}
+
+# Gibt den Inhalt der Sicherung als gzip auf die Standardausgabe, egal ob sie
+# verschluesselt ist. Fehlender Schluessel ist ein Fehler, kein stiller Erfolg:
+# eine Sicherung, die niemand lesen kann, ist keine.
+sicherung_lesen() {
+    local datei="$1"
+    if ist_gzip "$datei"; then
+        cat "$datei"
+        return 0
+    fi
+    if [[ ! -f "$BACKUP_ENCRYPT_KEY_FILE" ]]; then
+        log "FAIL: ${datei##*/} ist verschluesselt, aber der Schluessel fehlt (${BACKUP_ENCRYPT_KEY_FILE})"
+        return 1
+    fi
+    if ! openssl enc -d -aes-256-cbc -pbkdf2 -in "$datei" \
+            -pass "file:${BACKUP_ENCRYPT_KEY_FILE}" 2>/dev/null; then
+        log "FAIL: ${datei##*/} liess sich mit dem hinterlegten Schluessel nicht entschluesseln"
+        return 1
+    fi
+    return 0
 }
 
 # Flow-Archiv pruefen (Plan 011). Die Flows liegen in KEINER Datenbank, der
@@ -128,20 +170,26 @@ check_flows_archive() {
         flows_status="absent"
         return 0
     fi
-    # gzip beginnt mit 0x1f 0x8b; alles andere ist (erwartet) verschluesselt.
-    local magic
-    magic=$(head -c 2 "$FLOWS_ARCHIVE" | od -An -tx1 | tr -d ' \n')
-    if [[ "$magic" != "1f8b" ]]; then
-        log "OK:   Flow-Archiv vorhanden, aber verschluesselt — Inhalt nicht pruefbar"
-        flows_status="encrypted"
-        return 0
+    # Verschluesselte Archive werden jetzt entschluesselt statt als "nicht
+    # pruefbar" durchgewunken. Ein Archiv, dessen Inhalt niemand geprueft hat,
+    # ist genau die Sorte Zusage, wegen der Gate G6 aufgemacht wurde.
+    # Ueber eine temporaere Datei, NICHT ueber eine Variable: gzip ist binaer,
+    # und Kommandosubstitution verliert NUL-Bytes und abschliessende Zeilenumbrueche.
+    local klartext
+    klartext=$(mktemp)
+    if ! sicherung_lesen "$FLOWS_ARCHIVE" > "$klartext"; then
+        rm -f "$klartext"
+        flows_status="unreadable"
+        return 1
     fi
-    if ! tar -tzf "$FLOWS_ARCHIVE" >/dev/null 2>&1; then
+    if ! tar -tzf "$klartext" >/dev/null 2>&1; then
         log "FAIL: Flow-Archiv ist beschaedigt (${FLOWS_ARCHIVE})"
+        rm -f "$klartext"
         flows_status="corrupt"
         return 1
     fi
-    flows_files=$(tar -tzf "$FLOWS_ARCHIVE" 2>/dev/null | grep -c '\.md$' || true)
+    flows_files=$(tar -tzf "$klartext" 2>/dev/null | grep -c '\.md$' || true)
+    rm -f "$klartext"
     log "OK:   Flow-Archiv lesbar (${flows_files} Flow-Dateien)"
     flows_status="ok"
     return 0
@@ -216,10 +264,22 @@ docker run -d --rm \
     -e POSTGRES_DB="$DRILL_DB" \
     "$DRILL_IMAGE" >/dev/null
 
-# Wait for postgres to accept connections (up to 45s)
+# Warten, bis die ZIELDATENBANK antwortet, nicht bis der Server pingt.
+#
+# Hier stand `pg_isready -d "$DRILL_DB"`. Das prueft nur, ob ein Server auf dem
+# Socket antwortet, NICHT ob die Datenbank existiert: das Postgres-Image startet
+# waehrend seiner Initialisierung einen temporaeren Server, bevor `POSTGRES_DB`
+# angelegt ist. Der Wettlauf ging lange gut und kippte am 16.08.2026 — zwei
+# Sekunden nach dem Start meldete pg_isready bereit, und das Einspielen brach ab
+# mit `FATAL: database "arasul_drill" does not exist`. Der Test meldete
+# fehlgeschlagen, drei Tage lang bemerkte es niemand.
+#
+# `SELECT 1` gegen die Zieldatenbank ist erst dann erfolgreich, wenn der
+# Einstieg fertig ist und die Datenbank wirklich steht.
 ready=false
 for i in $(seq 1 45); do
-    if docker exec "$DRILL_CONTAINER" pg_isready -U "$DRILL_USER" -d "$DRILL_DB" >/dev/null 2>&1; then
+    if docker exec "$DRILL_CONTAINER" \
+            psql -U "$DRILL_USER" -d "$DRILL_DB" -tAc "SELECT 1" >/dev/null 2>&1; then
         ready=true
         break
     fi
@@ -237,7 +297,7 @@ log "Restoring backup into drill container"
 # to load. A broken backup must produce a non-zero exit so the drill
 # correctly reports failure.
 restore_ok=true
-if ! zcat "$BACKUP_FILE" | docker exec -i "$DRILL_CONTAINER" \
+if ! sicherung_lesen "$BACKUP_FILE" | zcat | docker exec -i "$DRILL_CONTAINER" \
         psql -U "$DRILL_USER" -d "$DRILL_DB" -v ON_ERROR_STOP=1 \
         >>"$LOG_FILE" 2>&1; then
     log "FAIL: psql aborted on first error — backup is not cleanly restorable"
