@@ -84,6 +84,18 @@ ordner_anlegen() {
     sort -u)
 }
 
+# Die GPU-Dienste kommen ueber depends_on mit hoch, obwohl sie nicht in DIENSTE
+# stehen. Auf dem Orin ist das nicht harmlos: eine zweite Ollama-Instanz streitet
+# mit der echten um den Speicher, und im Normalbetrieb stand danach ein
+# ungesunder pruef-llm-service in der Containerliste. Der Werksreset raeumt
+# Datenbank, Objektspeicher und Dateien, dafuer braucht es kein Modell.
+ohne_gpu() {
+  local dienst
+  for dienst in llm-service embedding-service document-indexer; do
+    compose rm -sf "$dienst" >/dev/null 2>&1 || true
+  done
+}
+
 # Eigene .env fuer den Pruefstand, einmalig als Kopie. Sie darf abweichen, aber
 # sie muss existieren, bevor der Stack startet: Compose bindet eine fehlende
 # Datei sonst als leeres VERZEICHNIS ein.
@@ -103,6 +115,7 @@ case "${1:-}" in
     mkdir -p data-pruefstand logs-pruefstand
     ordner_anlegen
     compose up -d --build "${DIENSTE[@]}"
+    ohne_gpu
     echo ""
     echo "Pruefstand laeuft. Oberflaeche: https://$(hostname):8443"
     ;;
