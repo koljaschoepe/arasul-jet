@@ -6,7 +6,8 @@
  * - "/" leitet immer auf die Workspace-Shell um (Plan 008; der frühere
  *   Legacy/Workspace-Umschalter ist entfernt)
  * - Session-Validierung
- * - Routing (Legacy-Fallback-Routen bleiben für Nicht-"/"-Pfade erreichbar)
+ * - Routing (Alt-Routen leiten in den Arbeitsbereich, Unbekanntes zeigt den
+ *   Weg zurück; die Legacy-Shell ist mit Plan 023 B1 entfernt)
  */
 
 import { render, screen, waitFor } from '@testing-library/react';
@@ -29,7 +30,7 @@ vi.mock('../features/workspace', () => ({
   default: () => <div data-testid="workspace-shell">Workspace</div>,
 }));
 
-// Mock secondary route components (Legacy-Fallback-Routen)
+// Mock secondary route components (jetzt im Arbeitsbereich, nicht mehr hier)
 vi.mock('../features/settings/Settings', () => ({
   default: () => <div data-testid="settings">Settings Component</div>,
 }));
@@ -271,15 +272,17 @@ describe('App Routing', () => {
     mockApi.post.mockResolvedValue({});
   });
 
-  test('Unbekannte Route rendert den Legacy-Fallback (404-Seite, kein Crash)', async () => {
+  test('Unbekannte Route zeigt den Weg zurueck, ohne Absturz', async () => {
     window.history.pushState({}, '', '/unknown-route');
 
     render(<App />);
 
-    // Nicht-"/"-Pfade bleiben in der Legacy-UI; eine unbekannte Route zeigt 404.
+    // Seit Plan 023 B1 gibt es keine zweite Shell mehr, in der eine unbekannte
+    // Adresse landen koennte. Uebrig bleibt die Komponente mit einem Weg zurueck.
     await waitFor(() => {
-      expect(screen.getByText(/seite nicht gefunden/i)).toBeInTheDocument();
+      expect(screen.getByText('Diese Adresse gibt es nicht.')).toBeInTheDocument();
     });
+    expect(screen.getByRole('link', { name: 'Zum Arbeitsbereich' })).toBeInTheDocument();
 
     window.history.pushState({}, '', '/');
   });
