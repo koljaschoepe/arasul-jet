@@ -14,7 +14,6 @@ jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), e
 
 const fs = require('fs');
 const fsp = require('fs').promises;
-const os = require('os');
 const path = require('path');
 const {
   listeBeispiele,
@@ -55,25 +54,42 @@ describe('Beispiel-Vorlagen', () => {
 });
 
 describe('Der Katalog legt nichts an', () => {
-  let flowOrdner;
+  /**
+   * Der eigentliche Punkt von B4, und er muss auch dann noch greifen, wenn
+   * jemand hier spaeter wieder etwas schreiben laesst. Ein Test, der einen
+   * fremden Ordner leer findet, waere keiner: er ginge auch durch, wenn das
+   * Modul nach /arasul/flows schriebe.
+   *
+   * Deshalb an der Quelle: waehrend die beiden Lesefunktionen laufen, darf
+   * keine schreibende fs-Funktion aufgerufen werden.
+   */
+  const SCHREIBENDE = ['writeFile', 'mkdir', 'appendFile', 'rm', 'unlink', 'copyFile', 'rename'];
 
-  beforeEach(async () => {
-    flowOrdner = await fsp.mkdtemp(path.join(os.tmpdir(), 'flows-'));
-    process.env.FLOWS_DIR = flowOrdner;
-  });
+  it('ruft keine einzige schreibende Dateifunktion auf', async () => {
+    const spione = SCHREIBENDE.map(name => jest.spyOn(fsp, name));
 
-  afterEach(async () => {
-    await fsp.rm(flowOrdner, { recursive: true, force: true });
-    delete process.env.FLOWS_DIR;
-  });
-
-  it('lässt den Flow-Ordner leer', async () => {
-    // Der eigentliche Punkt von B4. Ein Werksreset stellt den
-    // Auslieferungszustand her; würde hier wieder etwas angelegt, machte der
-    // nächste Start ihn kaputt.
     await listeBeispiele();
     await ladeBeispiel('wissen');
+    await ladeBeispiel('gibtsnicht');
 
-    expect(await fsp.readdir(flowOrdner)).toEqual([]);
+    for (const spion of spione) {
+      expect(spion).not.toHaveBeenCalled();
+      spion.mockRestore();
+    }
+  });
+
+  it('liest fuer ein einzelnes Beispiel nur dessen Datei', async () => {
+    const spion = jest.spyOn(fsp, 'readFile');
+
+    await ladeBeispiel('wissen');
+
+    expect(spion).toHaveBeenCalledTimes(1);
+    expect(spion.mock.calls[0][0]).toMatch(/wissen\.md$/);
+    spion.mockRestore();
+  });
+
+  it('faellt nicht auf einen Namen herein, der aus dem Ordner fuehrt', async () => {
+    await expect(ladeBeispiel('../../../etc/passwd')).resolves.toBeNull();
+    await expect(ladeBeispiel('../beispielKatalog')).resolves.toBeNull();
   });
 });

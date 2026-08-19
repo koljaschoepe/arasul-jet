@@ -55,12 +55,33 @@ async function listeBeispiele() {
 }
 
 /**
- * Ein einzelnes Beispiel.
+ * Ein einzelnes Beispiel. Liest genau die eine Datei, nicht alle fuenf.
+ *
+ * Der Name wird nicht in den Pfad eingesetzt, sondern gegen die vorhandenen
+ * Dateien geprueft. Ein Name wie `../../.env` waere sonst ein Weg aus dem
+ * Ordner heraus.
  * @returns {Promise<object|null>} Die Flow-Definition oder null.
  */
 async function ladeBeispiel(name) {
-  const beispiele = await listeBeispiele();
-  return beispiele.find(b => b.name === name)?.definition ?? null;
+  let dateien;
+  try {
+    dateien = (await fs.readdir(BEISPIELE_DIR)).filter(f => f.endsWith('.md'));
+  } catch (err) {
+    logger.warn(`[beispiele] Ordner nicht lesbar: ${err.message}`);
+    return null;
+  }
+
+  const datei = dateien.find(f => f === `${name}.md`);
+  if (!datei) {return null;}
+
+  try {
+    const inhalt = await fs.readFile(path.join(BEISPIELE_DIR, datei), 'utf8');
+    const definition = parseFlowFile(inhalt);
+    return definition.name === name ? definition : null;
+  } catch (err) {
+    logger.warn(`[beispiele] "${datei}" nicht lesbar: ${err.message}`);
+    return null;
+  }
 }
 
 module.exports = { listeBeispiele, ladeBeispiel, BEISPIELE_DIR };

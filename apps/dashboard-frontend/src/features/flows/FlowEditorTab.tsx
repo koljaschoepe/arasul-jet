@@ -23,18 +23,13 @@ import type { ApiError } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceStore, tabId } from '@/stores/workspaceStore';
 import { useFlowEditorStore } from '@/stores/flowEditorStore';
-import type { FlowDefinition, FlowToolInfo } from '@/types/flows';
+import type { FlowBeispiel, FlowDefinition, FlowToolInfo } from '@/types/flows';
 import FlowForm from './FlowForm';
 import FlowDashboard from './FlowDashboard';
 import FlowOverview from './FlowOverview';
 import { fromDefinition, LEER_FORM, toBody, type FlowFormState } from './flowFormState';
 
 const FLOW_TAB_ID = tabId({ type: 'flow' });
-
-interface FlowBeispiel {
-  name: string;
-  beschreibung: string;
-}
 
 export default function FlowEditorTab() {
   const api = useApi();
