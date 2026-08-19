@@ -405,6 +405,29 @@ async function stillEntfernen(was, fn) {
  * Die Einzelzeile `system_settings` auf Werkswerte. Nicht löschen: an `id = 1`
  * hängt ein Dutzend Abfragen, und die Spaltendefaults sind die Werkswerte.
  */
+/**
+ * Der Spalten-Vorgabewert wandert unveraendert in ein UPDATE. Heute kommt er
+ * ausschliesslich aus Migrationen, also aus dem eigenen Repository. Trotzdem
+ * wird er geprueft, statt ihm zu glauben: diese Datei besteht darauf, dass
+ * Vollstaendigkeit eine Pruefung ist und keine Fleissfrage, und dasselbe gilt
+ * fuer Vertrauen. Was nicht wie ein einfacher Literalwert aussieht, wird NULL.
+ * Das deckt auch `nextval(...)` ab, das hier nie gemeint sein kann.
+ */
+const WERKSWERT_RE =
+  /^(-?\d+(\.\d+)?|true|false|NULL|'[^']*'(::[a-zA-Z_ ]+(\[\])?)?|now\(\)|CURRENT_TIMESTAMP)$/i;
+
+function werkswert(vorgabe) {
+  if (vorgabe === null || vorgabe === undefined) {return 'NULL';}
+  const wert = String(vorgabe).trim();
+  if (!WERKSWERT_RE.test(wert)) {
+    logger.warn(
+      `[werksreset] Vorgabewert "${wert}" ist kein einfacher Literalwert, Spalte wird auf NULL gesetzt`
+    );
+    return 'NULL';
+  }
+  return wert;
+}
+
 async function werkseinstellungen(client) {
   const { rows } = await client.query(
     `SELECT column_name, is_nullable, column_default
@@ -413,12 +436,8 @@ async function werkseinstellungen(client) {
         AND column_name <> 'id'`
   );
   const zuweisungen = rows.map(spalte => {
-    const ziel =
-      spalte.column_default !== null && !/nextval\(/.test(spalte.column_default)
-        ? spalte.column_default
-        : 'NULL';
     // Nicht-nullbare Spalten ohne Default gäbe es nur als Fehler im Schema.
-    return `${escapeIdentifier(spalte.column_name)} = ${ziel}`;
+    return `${escapeIdentifier(spalte.column_name)} = ${werkswert(spalte.column_default)}`;
   });
   if (zuweisungen.length === 0) {
     return;
@@ -437,4 +456,5 @@ module.exports = {
   // für Tests
   _leereTabellen: leereTabellen,
   _werkseinstellungen: werkseinstellungen,
+  _werkswert: werkswert,
 };

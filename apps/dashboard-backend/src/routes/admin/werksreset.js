@@ -9,6 +9,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { createUserRateLimiter } = require('../../middleware/rateLimit');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { ValidationError } = require('../../utils/errors');
 const { logSecurityEvent } = require('../../utils/auditLog');
@@ -21,6 +22,11 @@ const werksreset = require('../../services/werksreset/werksreset');
  * loescht auch Zugangsdaten, Erweiterungen und n8n. Ein Reset, der raet, ist
  * genau das, was dieser ganze Endpunkt nicht sein soll.
  */
+// Zwei Ausfuehrungen je Stunde. Der Geraetename als Bestaetigung schuetzt gegen
+// den Fehlgriff, nicht gegen eine uebernommene Sitzung, die den Endpunkt in
+// einer Schleife aufruft. Die Vorschau bleibt frei, sie aendert nichts.
+const werksresetLimiter = createUserRateLimiter(2, 60 * 60 * 1000);
+
 function stufeAus(wert) {
   if (wert === undefined || wert === null || wert === '') {
     throw new ValidationError(
@@ -53,6 +59,7 @@ router.post(
   '/',
   requireAuth,
   requireAdmin,
+  werksresetLimiter,
   asyncHandler(async (req, res) => {
     const stufe = stufeAus(req.body?.stufe);
     const bestaetigung = req.body?.bestaetigung;

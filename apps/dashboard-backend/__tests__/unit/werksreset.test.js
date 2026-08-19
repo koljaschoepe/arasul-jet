@@ -222,6 +222,11 @@ describe('werkseinstellungen', () => {
             rows: [
               { column_name: 'setup_completed', is_nullable: 'NO', column_default: 'false' },
               { column_name: 'hostname', is_nullable: 'YES', column_default: null },
+              {
+                column_name: 'gezaehlt',
+                is_nullable: 'NO',
+                column_default: "nextval('x_seq'::regclass)",
+              },
             ],
           };
         }
@@ -234,6 +239,9 @@ describe('werkseinstellungen', () => {
     const update = gestellt.find(s => s.startsWith('UPDATE system_settings'));
     expect(update).toContain('"setup_completed" = false');
     expect(update).toContain('"hostname" = NULL');
+    // Ein Sequenz-Aufruf ist kein Werkswert und darf nicht in das UPDATE wandern.
+    expect(update).toContain('"gezaehlt" = NULL');
+    expect(update).not.toContain('nextval');
     expect(update).toContain('WHERE id = 1');
     expect(gestellt.some(s => /DELETE FROM system_settings/.test(s))).toBe(false);
   });
@@ -348,5 +356,24 @@ describe('Objektspeicher', () => {
     expect(minio.removeObject).toHaveBeenCalledWith('2026/rechnung.pdf');
     expect(minio.removeObject).toHaveBeenCalledWith('2026/angebot.pdf');
     expect(bericht.objektspeicher).toEqual({ ok: true, entfernt: 2 });
+  });
+});
+
+describe('werkswert', () => {
+  test('laesst einfache Literalwerte durch', () => {
+    for (const wert of ["'arasul'", 'true', 'false', '10', '0.30', 'now()', "'{}'::jsonb"]) {
+      expect(werksreset._werkswert(wert)).toBe(wert);
+    }
+  });
+
+  test('macht aus allem anderen NULL, statt es zu uebernehmen', () => {
+    for (const wert of [
+      "nextval('x_seq'::regclass)",
+      'gen_random_uuid()',
+      "(SELECT id FROM admin_users LIMIT 1)",
+      null,
+    ]) {
+      expect(werksreset._werkswert(wert)).toBe('NULL');
+    }
   });
 });
