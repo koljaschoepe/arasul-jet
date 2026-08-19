@@ -321,10 +321,10 @@ export function StatusBar() {
         <button
           type="button"
           data-testid="statusbar-downloads"
-          title="Zum Modell-Store"
+          title="Zu den Modellen"
           onClick={() => {
             setStoreTab('models');
-            openTab({ type: 'store' });
+            openTab({ type: 'modelle' });
           }}
           className="flex items-center gap-1.5 rounded px-1 text-primary hover:bg-accent"
         >

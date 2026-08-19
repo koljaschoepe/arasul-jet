@@ -132,7 +132,7 @@ describe('Settings integration', () => {
     // KI / System sub-section labels are not mounted).
     expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
     expect(screen.queryByText('Sprachmodell')).not.toBeInTheDocument();
-    expect(screen.queryByText('Self-Healing')).not.toBeInTheDocument();
+    expect(screen.queryByText('Selbstheilung')).not.toBeInTheDocument();
   });
 
   it('shows General section by default', async () => {
@@ -303,7 +303,7 @@ describe('Settings integration', () => {
     });
   });
 
-  it('opens the System tab with its Services / Updates / Self-Healing sub-navigation', async () => {
+  it('opens the System tab with its Dienste / Aktualisierungen / Selbstheilung sub-navigation', async () => {
     const user = userEvent.setup();
     renderSettings();
 
@@ -311,9 +311,9 @@ describe('Settings integration', () => {
 
     await waitFor(() => {
       // Sub-nav labels rendered by SystemSettings; leaf content may repeat them.
-      expect(screen.getAllByText('Services').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText('Updates').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText('Self-Healing').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Dienste').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Aktualisierungen').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Selbstheilung').length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -325,11 +325,11 @@ describe('Settings integration', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+      expect(screen.getByText('Selbstheilung')).toBeInTheDocument();
     });
   });
 
-  it('maps the legacy ?tab=selfhealing deep-link onto the System tab with the Self-Healing sub-section active', async () => {
+  it('maps the legacy ?tab=selfhealing deep-link onto the System tab with the Selbstheilung sub-section active', async () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=selfhealing']}>
         <Settings handleLogout={vi.fn()} theme="dark" onToggleTheme={vi.fn()} />
@@ -337,13 +337,13 @@ describe('Settings integration', () => {
     );
 
     await waitFor(() => {
-      // "Self-Healing" appears both as the active sub-nav tab and as the
+      // "Selbstheilung" appears both as the active sub-nav tab and as the
       // heading of the mounted SelfHealingEvents section.
-      expect(screen.getByRole('button', { name: 'Self-Healing' })).toHaveAttribute(
+      expect(screen.getByRole('button', { name: 'Selbstheilung' })).toHaveAttribute(
         'aria-current',
         'page'
       );
-      expect(screen.getAllByText('Self-Healing').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText('Selbstheilung').length).toBeGreaterThanOrEqual(2);
     });
   });
 });

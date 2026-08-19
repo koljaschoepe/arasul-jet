@@ -119,7 +119,7 @@ export function FlowsPanel() {
             <SidebarSearch
               value={query}
               onChange={setQuery}
-              placeholder="Flows durchsuchen…"
+              placeholder="Suchen…"
               ariaLabel="Flows durchsuchen"
             />
           </div>

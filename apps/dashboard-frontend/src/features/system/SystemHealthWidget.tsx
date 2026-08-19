@@ -210,7 +210,7 @@ const SystemHealthWidget: React.FC = () => {
         </div>
 
         <div className="flex min-w-0 items-center justify-between gap-ui-2">
-          <span className="min-w-0 truncate">Services</span>
+          <span className="min-w-0 truncate">Dienste</span>
           <span
             className="shrink-0 whitespace-nowrap"
             style={{ color: services.down > 0 ? 'var(--danger-color)' : 'var(--success-color)' }}

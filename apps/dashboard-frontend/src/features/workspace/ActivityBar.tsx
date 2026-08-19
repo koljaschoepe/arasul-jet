@@ -98,14 +98,15 @@ export function ActivityBar() {
 
   const handleView = (view: ActivityView) => {
     selectView(view);
-    // Jede Ansicht zeigt ihren Inhalt auch in der Mitte: Modelle/Erweiterungen
-    // im Store-Tab, Flows auf ihrer Startseite (Anlegen + Übersicht).
+    // Jede Ansicht zeigt ihren Inhalt auch in der Mitte: Modelle und
+    // Erweiterungen in je einem eigenen Tab (Plan 023 B7), Flows auf ihrer
+    // Startseite (Anlegen + Übersicht).
     if (view === 'models') {
       setStoreTab('models');
-      openTab({ type: 'store' });
+      openTab({ type: 'modelle' });
     } else if (view === 'extensions') {
       setStoreTab('extensions');
-      openTab({ type: 'store' });
+      openTab({ type: 'erweiterungen' });
     } else if (view === 'flows') {
       setFlowTarget(null, 'overview');
       openTab({ type: 'flow' });

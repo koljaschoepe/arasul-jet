@@ -152,10 +152,10 @@ function SystemStatusView({
     const threshold = t[metric];
     if (!threshold) return { status: 'Normal', variant: 'positive' };
     if (value >= threshold.critical) {
-      return { status: 'Critical', variant: 'negative' };
+      return { status: 'Kritisch', variant: 'negative' };
     }
     if (value >= threshold.warning) {
-      return { status: 'Warning', variant: 'warning' };
+      return { status: 'Warnung', variant: 'warning' };
     }
     return { status: 'Normal', variant: 'positive' };
   };
@@ -163,7 +163,7 @@ function SystemStatusView({
   const getTempStatusInfo = (value: number): { status: string; variant: StatBadgeVariant } => {
     const threshold = t.temperature;
     if (value >= threshold.critical) {
-      return { status: 'Hot', variant: 'negative' };
+      return { status: 'Heiß', variant: 'negative' };
     }
     if (value >= threshold.warning) {
       return { status: 'Warm', variant: 'warning' };
@@ -229,7 +229,7 @@ function SystemStatusView({
         Systemstatus
       </div>
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-ui-2">
-        <StatCard icon={<Activity className="h-5 w-5 text-primary" />} label="RAM Usage">
+        <StatCard icon={<Activity className="h-5 w-5 text-primary" />} label="Arbeitsspeicher">
           <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
             {metrics?.ram?.toFixed(1) || 0}
             <span className="text-ui-sm font-medium text-text-muted">%</span>
@@ -248,7 +248,7 @@ function SystemStatusView({
           )}
         </StatCard>
 
-        <StatCard icon={<Layers className="h-5 w-5 text-primary" />} label="Swap">
+        <StatCard icon={<Layers className="h-5 w-5 text-primary" />} label="Auslagerung">
           <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
             {metrics?.swap?.toFixed(1) || 0}
             <span className="text-ui-sm font-medium text-text-muted">%</span>
@@ -260,7 +260,7 @@ function SystemStatusView({
           </div>
         </StatCard>
 
-        <StatCard icon={<HardDrive className="h-5 w-5 text-primary" />} label="Storage">
+        <StatCard icon={<HardDrive className="h-5 w-5 text-primary" />} label="Speicherplatz">
           <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
             {metrics?.disk?.percent?.toFixed(0) || 0}
             <span className="text-ui-sm font-medium text-text-muted">%</span>
@@ -296,7 +296,7 @@ function SystemStatusView({
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-ui-2">
         <DashboardCard className="col-span-full">
           <div className="mb-ui-2 flex flex-wrap items-center justify-between gap-ui-2">
-            <DashboardCardTitle className="mb-0">Performance</DashboardCardTitle>
+            <DashboardCardTitle className="mb-0">Auslastung</DashboardCardTitle>
             <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
               {timeRangeOptions.map((hours: number) => (
                 <button
@@ -319,7 +319,7 @@ function SystemStatusView({
               <LineChart
                 data={chartData}
                 role="img"
-                aria-label={`Performance-Diagramm der letzten ${chartTimeRange} Stunden: CPU, RAM und GPU`}
+                aria-label={`Auslastung der letzten ${chartTimeRange} Stunden: Prozessor, Arbeitsspeicher und Grafikeinheit`}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-alpha-10)" />
                 <XAxis

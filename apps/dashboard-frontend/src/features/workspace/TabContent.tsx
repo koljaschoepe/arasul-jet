@@ -83,7 +83,9 @@ function initialPathFor(tab: WorkspaceTab): string {
   switch (tab.type) {
     case 'settings':
       return '/settings';
-    case 'store':
+    case 'modelle':
+      return '/store';
+    case 'erweiterungen':
       return '/store';
     case 'automationen':
       return '/';
@@ -110,7 +112,8 @@ const SELF_KEYS: Record<WorkspaceTabType, ReadonlySet<string>> = {
   document: new Set([]),
   projektdatei: new Set([]),
   settings: new Set(['settings']),
-  store: new Set(['store']),
+  modelle: new Set(['store']),
+  erweiterungen: new Set(['store']),
   automationen: new Set([]),
   flow: new Set([]),
   extension: new Set([]),
@@ -185,7 +188,20 @@ export function FeatureTabHost({
             Quell-Tab nur auf seinen Startpfad zurück. */}
         <Route path="/data" element={<Navigate to={resetTo} replace />} />
         <Route path="/documents" element={<Navigate to="/data" replace />} />
-        <Route path="/store/*" element={routeFor('store', <Store />, { type: 'store' })} />
+        {/* Plan 023 B7: derselbe innere Pfad, zwei Tabs. Welcher Bereich
+            gezeigt wird, entscheidet der Tab-Typ, nicht mehr ein Zustand
+            nebenan. */}
+        <Route
+          path="/store/*"
+          element={routeFor(
+            // Der Schluessel ist der ROUTEN-Name, nicht der Tab-Typ. Beide Tabs
+            // liegen auf demselben inneren Pfad /store, und SELF_KEYS sagt nur,
+            // ob dieser Pfad zum Tab selbst gehoert oder zur Bruecke.
+            'store',
+            <Store bereich={tab.type === 'modelle' ? 'models' : 'extensions'} />,
+            { type: tab.type === 'modelle' ? 'modelle' : 'erweiterungen' }
+          )}
+        />
         <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
         <Route path="/terminal" element={<TerminalPanelBridge resetTo={resetTo} />} />
         <Route path="*" element={<Navigate to={resetTo} replace />} />

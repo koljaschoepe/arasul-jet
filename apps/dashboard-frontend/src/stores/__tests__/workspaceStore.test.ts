@@ -51,12 +51,12 @@ describe('workspaceStore, Tabs', () => {
     const { openTab } = useWorkspaceStore.getState();
     openTab({ type: 'automationen' });
     openTab({ type: 'settings' });
-    openTab({ type: 'store' });
+    openTab({ type: 'erweiterungen' });
     useWorkspaceStore.getState().activateTab('settings');
     useWorkspaceStore.getState().closeTab('settings');
     const { tabs, activeTabId } = useWorkspaceStore.getState();
-    expect(tabs.map(t => t.id)).toEqual(['automationen', 'store']);
-    expect(activeTabId).toBe('store');
+    expect(tabs.map(t => t.id)).toEqual(['automationen', 'erweiterungen']);
+    expect(activeTabId).toBe('erweiterungen');
   });
 
   it('schließt den letzten Tab → kein aktiver Tab', () => {
@@ -167,11 +167,11 @@ describe('workspaceStore, Tabs', () => {
     const { openTab } = useWorkspaceStore.getState();
     openTab({ type: 'automationen' });
     openTab({ type: 'settings' });
-    openTab({ type: 'store' });
+    openTab({ type: 'erweiterungen' });
     useWorkspaceStore.getState().moveTab(0, 2);
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
       'settings',
-      'store',
+      'erweiterungen',
       'automationen',
     ]);
   });
@@ -450,6 +450,7 @@ describe('workspaceStore, Migration v2 → v4', () => {
   const V2_CHAT_MODE = {
     state: {
       tabs: [
+        // Bewusst der ALTE Typ: ein gespeicherter Stand von vor Plan 023 B7.
         { id: 'store', type: 'store', title: 'Extensions' },
         { id: 'document:99', type: 'document', title: 'Doc', documentId: '99' },
       ],
@@ -506,7 +507,11 @@ describe('workspaceStore, Migration v2 → v4', () => {
     expect(s.sidebarVisible).toBe(true);
     expect(s.rightPanelVisible).toBe(false);
     expect(s.rightPanelMode).toBe('chat');
-    expect(s.tabs.map(t => t.id)).toEqual(['store', 'document:99']);
+    // Der alte „store"-Tab wird umgeschrieben statt verworfen. Ohne das faellt
+    // er beim ersten Laden nach dem Update still aus der Leiste, und das sieht
+    // aus wie ein Fehler.
+    expect(s.tabs.map(t => t.id)).toEqual(['erweiterungen', 'document:99']);
+    expect(s.tabs[0]?.title).toBe('Erweiterungen');
     expect(s.activeTabId).toBe('document:99');
   });
 
@@ -766,7 +771,8 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
       { type: 'document' as const, documentId: '42' },
       { type: 'settings' as const },
       { type: 'automationen' as const },
-      { type: 'store' as const },
+      { type: 'modelle' as const },
+      { type: 'erweiterungen' as const },
       { type: 'flow' as const },
       { type: 'extension' as const, extensionId: 'notiz-app' },
     ];
@@ -778,6 +784,13 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
       expect(roundTripped).not.toBeNull();
       expect(tabId(roundTripped!)).toBe(tab.id);
     }
+  });
+
+  it('der alte /store-Pfad landet bei den Erweiterungen', () => {
+    // Plan 023 B7: aus dem einen Tab "Extensions" sind zwei geworden. Alte
+    // Lesezeichen sollen trotzdem irgendwo ankommen, und zwar dort, wo der Tab
+    // vorher hiess.
+    expect(pathToTabSpec('/store')).toEqual({ type: 'erweiterungen' });
   });
 
   it('Terminal ist kein Tab mehr, /terminal ergibt null', () => {

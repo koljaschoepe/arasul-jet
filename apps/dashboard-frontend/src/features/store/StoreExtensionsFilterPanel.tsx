@@ -19,7 +19,7 @@ export function StoreExtensionsFilterPanel() {
       <SidebarSearch
         value={query}
         onChange={setQuery}
-        placeholder="Erweiterungen durchsuchen…"
+        placeholder="Suchen…"
         ariaLabel="Erweiterungen durchsuchen"
       />
       <p className="px-1 text-ui-xs text-muted-foreground">

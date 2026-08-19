@@ -10,7 +10,7 @@
  * Getestet wird der Pfad /store mit echten Datenhooks (React Query) über einem
  * gemockten useApi.
  */
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import type { Mock } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -99,13 +99,13 @@ const sampleWorkspaceApps = [
 
 // ---- Helpers ----
 
-function renderStore(route = '/store') {
+function renderStore(route = '/store', bereich: 'models' | 'extensions' = 'models') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[route]}>
         <Routes>
-          <Route path="/store/*" element={<Store />} />
+          <Route path="/store/*" element={<Store bereich={bereich} />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>
@@ -137,27 +137,26 @@ describe('Store integration (Full-Width-Kartenlayout)', () => {
     setupDefaultApiResponses();
   });
 
-  it('beide Reiter erreichbar: Modelle (default) und Erweiterungen über storeTab', async () => {
-    renderStore();
-    // Default-Reiter „Modelle": das Modell-Raster ist sichtbar.
+  // Plan 023 B7: aus dem einen Tab sind zwei geworden, der Bereich kommt als
+  // Eigenschaft herein statt aus einem Zustand nebenan.
+  it('beide Bereiche zeigen ihr eigenes Raster', async () => {
+    const { unmount } = renderStore('/store', 'models');
     expect(await screen.findByTestId('store-models-grid')).toBeInTheDocument();
-    // Reiter „Erweiterungen" wird über den extensionStore aktiviert (die
-    // ActivityBar setzt `storeTab`, keinen Umschalter mehr in der Mitte);
-    // danach zeigt die Mitte das Erweiterungs-Raster.
-    act(() => useExtensionStore.setState({ storeTab: 'extensions' }));
+    unmount();
+
+    renderStore('/store', 'extensions');
     expect(await screen.findByTestId('store-extensions-grid')).toBeInTheDocument();
   });
 
-  it('Default-Reiter „Modelle": Kartenraster mit Katalog-Modellen', async () => {
+  it('Bereich „Modelle": Kartenraster mit Katalog-Modellen', async () => {
     renderStore();
     expect(await screen.findByTestId('store-models-grid')).toBeInTheDocument();
     expect(await screen.findByTestId('model-card-qwen3-14b')).toBeInTheDocument();
     expect(screen.getByTestId('model-card-llama3-8b')).toBeInTheDocument();
   });
 
-  it('Reiter „Erweiterungen": Kartenraster mit Workspace-Apps', async () => {
-    useExtensionStore.setState({ storeTab: 'extensions' });
-    renderStore();
+  it('Bereich „Erweiterungen": Kartenraster mit Workspace-Apps', async () => {
+    renderStore('/store', 'extensions');
     expect(await screen.findByTestId('store-extensions-grid')).toBeInTheDocument();
     expect(await screen.findByTestId('ext-card-n8n')).toBeInTheDocument();
     expect(screen.getByTestId('ext-card-database')).toBeInTheDocument();
@@ -179,8 +178,7 @@ describe('Store integration (Full-Width-Kartenlayout)', () => {
   });
 
   it('der Erweiterungs-Schalter kippt über PUT /workspace-apps/:id', async () => {
-    useExtensionStore.setState({ storeTab: 'extensions' });
-    renderStore();
+    renderStore('/store', 'extensions');
     const toggle = await screen.findByRole('switch', { name: 'n8n deaktivieren' });
     fireEvent.click(toggle);
     await waitFor(() =>

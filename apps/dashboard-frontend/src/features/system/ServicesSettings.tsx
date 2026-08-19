@@ -61,7 +61,7 @@ const SERVICE_INFO: Record<string, { icon: LucideIcon; displayName: string }> = 
   'dashboard-backend': { icon: Server, displayName: 'Dashboard API' },
   'dashboard-frontend': { icon: Monitor, displayName: 'Dashboard UI' },
   'metrics-collector': { icon: BarChart3, displayName: 'Metrics' },
-  'self-healing-agent': { icon: Wrench, displayName: 'Self-Healing' },
+  'self-healing-agent': { icon: Wrench, displayName: 'Selbstheilung' },
   'backup-service': { icon: Archive, displayName: 'Backup' },
 };
 

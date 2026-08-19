@@ -95,7 +95,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+        expect(screen.getByText('Selbstheilung')).toBeInTheDocument();
       });
     });
 
@@ -197,7 +197,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+        expect(screen.getByText('Selbstheilung')).toBeInTheDocument();
       });
 
       // Find filter buttons by aria-pressed attribute
@@ -218,7 +218,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+        expect(screen.getByText('Selbstheilung')).toBeInTheDocument();
       });
 
       const filterButtons = screen.getAllByRole('button');
@@ -238,7 +238,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+        expect(screen.getByText('Selbstheilung')).toBeInTheDocument();
       });
 
       const filterButtons = screen.getAllByRole('button');
@@ -339,7 +339,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+        expect(screen.getByText('Selbstheilung')).toBeInTheDocument();
       });
 
       // Click on Kritisch filter
@@ -374,7 +374,7 @@ describe('SelfHealingEvents Component', () => {
       render(<SelfHealingEvents />);
 
       await waitFor(() => {
-        expect(screen.getByText('Self-Healing')).toBeInTheDocument();
+        expect(screen.getByText('Selbstheilung')).toBeInTheDocument();
       });
 
       const checkbox = screen.getByRole('checkbox');

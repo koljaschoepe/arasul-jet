@@ -86,11 +86,11 @@ vi.mock('../RagLlmSettings', () => ({ RagLlmSettings: stub('rag-llm-settings', '
 // Leaves inside the (real) SystemSettings wrapper.
 vi.mock('../../system/SystemStatus', () => ({ SystemStatus: stub('system-status', 'Status') }));
 vi.mock('../../system/ServicesSettings', () => ({
-  ServicesSettings: stub('services-settings', 'Services'),
+  ServicesSettings: stub('services-settings', 'Dienste'),
 }));
-vi.mock('../../system/UpdatePage', () => ({ default: stub('update-page', 'Updates') }));
+vi.mock('../../system/UpdatePage', () => ({ default: stub('update-page', 'Aktualisierungen') }));
 vi.mock('../../system/SelfHealingEvents', () => ({
-  default: stub('selfhealing-events', 'Self-Healing'),
+  default: stub('selfhealing-events', 'Selbstheilung'),
 }));
 
 // Renders the Settings tab on its own (used for deep-links and default state —
@@ -145,9 +145,9 @@ describe('Settings shell', () => {
     test('no longer shows the old top-level tabs', () => {
       renderShell();
       expect(screen.queryByText('KI-Profil')).not.toBeInTheDocument();
-      // "Sprachmodell" / "Self-Healing" only appear once their section is active.
+      // "Sprachmodell" / "Selbstheilung" only appear once their section is active.
       expect(screen.queryByText('Sprachmodell')).not.toBeInTheDocument();
-      expect(screen.queryByText('Self-Healing')).not.toBeInTheDocument();
+      expect(screen.queryByText('Selbstheilung')).not.toBeInTheDocument();
     });
 
     test('starts on the Allgemein (general) section by default', () => {
@@ -229,7 +229,7 @@ describe('Settings shell', () => {
   });
 
   describe('System section', () => {
-    test('mounts the System wrapper with its Services / Updates / Self-Healing sub-navigation', async () => {
+    test('mounts the System wrapper with its Dienste / Aktualisierungen / Selbstheilung sub-navigation', async () => {
       const user = userEvent.setup();
       renderShell();
       await user.click(screen.getByTestId('settings-open-system'));
@@ -237,9 +237,9 @@ describe('Settings shell', () => {
       await waitFor(() => {
         // Sub-nav label + stubbed leaf content can both carry the same text,
         // so assert at-least-one match.
-        expect(screen.getAllByText('Services').length).toBeGreaterThanOrEqual(1);
-        expect(screen.getAllByText('Updates').length).toBeGreaterThanOrEqual(1);
-        expect(screen.getAllByText('Self-Healing').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('Dienste').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('Aktualisierungen').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('Selbstheilung').length).toBeGreaterThanOrEqual(1);
       });
       // System-Status sub-section is mounted by default (Plan 008).
       expect(screen.getByTestId('system-status')).toBeInTheDocument();
@@ -249,7 +249,7 @@ describe('Settings shell', () => {
       const user = userEvent.setup();
       renderShell();
       await user.click(screen.getByTestId('settings-open-system'));
-      await user.click(screen.getByText('Self-Healing'));
+      await user.click(screen.getByText('Selbstheilung'));
 
       expect(screen.getByTestId('selfhealing-events')).toBeInTheDocument();
       // System mounts only the active sub-section.

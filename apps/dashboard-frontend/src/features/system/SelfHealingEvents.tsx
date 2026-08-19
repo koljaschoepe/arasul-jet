@@ -174,7 +174,7 @@ const SelfHealingEvents = () => {
     return (
       <div className="animate-in fade-in">
         <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-xl font-bold text-foreground mb-2">Self-Healing</h1>
+          <h1 className="text-xl font-bold text-foreground mb-2">Selbstheilung</h1>
         </div>
         <SkeletonList count={5} hasAvatar={false} />
       </div>
@@ -187,7 +187,7 @@ const SelfHealingEvents = () => {
       <div className="mb-8 pb-6 border-b border-border">
         <div className="flex justify-between items-start flex-wrap gap-4">
           <div>
-            <h1 className="text-xl font-bold text-foreground mb-2">Self-Healing</h1>
+            <h1 className="text-xl font-bold text-foreground mb-2">Selbstheilung</h1>
             <p className="text-sm text-muted-foreground">Systemwiederherstellung und Wartung</p>
           </div>
           <div className="flex gap-2 items-center">

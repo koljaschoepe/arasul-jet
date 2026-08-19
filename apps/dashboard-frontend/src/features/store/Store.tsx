@@ -39,10 +39,11 @@ function HighlightRedirect({ kind }: { kind: ExtensionKind }) {
   return null;
 }
 
-function StoreWorkspace() {
-  // Reiter lebt im extensionStore (Plan 012 Phase B): so kann die Activity-Bar
-  // »Modelle«/»Erweiterungen« den passenden Reiter direkt aktivieren.
-  const tab = useExtensionStore(s => s.storeTab);
+function StoreWorkspace({ bereich }: { bereich: StoreTab }) {
+  // Plan 023 B7: welcher Bereich gezeigt wird, sagt der Tab, nicht mehr ein
+  // Zustand nebenan. Der Reiter im extensionStore bleibt trotzdem gesetzt: die
+  // Sidebar-Filter und die Detailseite lesen ihn.
+  const tab = bereich;
   const setStoreTab = useExtensionStore(s => s.setStoreTab);
   const selected = useExtensionStore(s => s.selected);
   const clearSelection = useExtensionStore(s => s.clearSelection);
@@ -60,6 +61,12 @@ function StoreWorkspace() {
     },
     [setStoreTab, setActiveView]
   );
+
+  // Der Tab sagt der Sidebar, welche Filter sie zeigen soll. Ohne das stuende
+  // beim Wechsel auf den Modelle-Tab noch der Erweiterungs-Filter daneben.
+  useEffect(() => {
+    setStoreTab(bereich);
+  }, [bereich, setStoreTab]);
 
   // Auswahl (Karte oder Deep-Link) → passenden Reiter aktivieren, damit „Zurück"
   // ins richtige Raster führt.
@@ -90,11 +97,11 @@ function StoreWorkspace() {
   );
 }
 
-function Store() {
+function Store({ bereich }: { bereich: StoreTab }) {
   return (
-    <ComponentErrorBoundary componentName="Erweiterungen">
+    <ComponentErrorBoundary componentName={bereich === 'models' ? 'Modelle' : 'Erweiterungen'}>
       <Routes>
-        <Route index element={<StoreWorkspace />} />
+        <Route index element={<StoreWorkspace bereich={bereich} />} />
         <Route path="models" element={<HighlightRedirect kind="model" />} />
         <Route path="apps" element={<HighlightRedirect kind="app" />} />
         <Route path="*" element={<Navigate to="/store" replace />} />
