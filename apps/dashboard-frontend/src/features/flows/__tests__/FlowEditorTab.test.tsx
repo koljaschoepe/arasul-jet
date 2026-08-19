@@ -60,6 +60,11 @@ beforeEach(() => {
   useWorkspaceStore.setState({ tabs: [], activeTabId: null });
   apiGet.mockImplementation((url: string) => {
     if (url === '/flows/werkzeuge') return Promise.resolve({ data: WERKZEUGE });
+    if (url === '/flows/beispiele')
+      return Promise.resolve({
+        data: [{ name: 'wissen', beschreibung: 'Beantwortet Fragen aus einer Wissensbasis' }],
+      });
+    if (url === '/flows/beispiele/wissen') return Promise.resolve({ data: RECHERCHE });
     if (url === '/flows/recherche') return Promise.resolve({ data: RECHERCHE });
     // Nach dem Anlegen wechselt der Tab in den Bearbeiten-Modus und lädt den
     // frisch gespeicherten Flow — der Server gibt eine vollständige Definition.
@@ -172,5 +177,38 @@ describe('Bearbeiten', () => {
       expect(apiDel).toHaveBeenCalledWith('/flows/recherche', { showError: false })
     );
     await waitFor(() => expect(useFlowEditorStore.getState().editName).toBeNull());
+  });
+});
+
+/**
+ * Beispiele als Einstieg (Plan 023 B4).
+ *
+ * Ab Werk liegt kein Flow auf dem Gerät (Entscheidung E6). Wer einen anlegt,
+ * soll trotzdem nicht vor einem leeren Blatt sitzen. Wichtig dabei: das
+ * Beispiel füllt nur das Formular. Legte es einen Flow an, wäre der
+ * Auslieferungszustand nach dem ersten Klick wieder kaputt.
+ */
+describe('Beispiele im Anlege-Dialog', () => {
+  it('bietet die mitgelieferten Startpunkte nur beim Anlegen an', async () => {
+    renderTab(null);
+    expect(await screen.findByText(/Aus einem Beispiel starten/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '/wissen' })).toBeInTheDocument();
+  });
+
+  it('zeigt sie beim Bearbeiten nicht', async () => {
+    renderTab('recherche');
+    await screen.findByDisplayValue('recherche');
+    expect(screen.queryByText(/Aus einem Beispiel starten/)).not.toBeInTheDocument();
+  });
+
+  it('füllt das Formular, ohne einen Flow anzulegen', async () => {
+    const nutzer = userEvent.setup();
+    renderTab(null);
+
+    await nutzer.click(await screen.findByRole('button', { name: '/wissen' }));
+
+    await waitFor(() => expect(screen.getByDisplayValue('recherche')).toBeInTheDocument());
+    expect(apiPost).not.toHaveBeenCalled();
+    expect(apiPut).not.toHaveBeenCalled();
   });
 });

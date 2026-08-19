@@ -10,10 +10,11 @@ import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { EMPTY_EXTENSION_FILTERS } from '../storeExtensionFilters';
 import { StoreExtensionsGrid } from '../StoreExtensionsGrid';
 
-const apps = [
+const STANDARD_APPS = [
   { id: 'n8n', name: 'n8n', description: 'Workflows', tab: 'automationen', enabled: true },
   { id: 'db', name: 'Datenbank', description: 'SQL', tab: 'database', enabled: false },
 ];
+let apps = STANDARD_APPS;
 const setAppEnabled = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/hooks/useWorkspaceApps', () => ({
   useWorkspaceApps: () => ({ apps, setAppEnabled, isLoading: false }),
@@ -34,6 +35,7 @@ describe('StoreExtensionsGrid', () => {
     vi.clearAllMocks();
     useExtensionStore.getState().clearSelection();
     useStoreFilterStore.setState({ extFilters: EMPTY_EXTENSION_FILTERS, extQuery: '' });
+    apps = STANDARD_APPS;
   });
 
   it('zeigt ohne Suche alle Erweiterungen + den Baukasten-Einstieg', () => {
@@ -50,6 +52,21 @@ describe('StoreExtensionsGrid', () => {
     expect(screen.queryByTestId('ext-card-n8n')).not.toBeInTheDocument();
     // Bei aktiver Suche geht es um Erweiterungen, nicht ums Bauen.
     expect(screen.queryByTestId('ext-builder-entry')).not.toBeInTheDocument();
+  });
+
+  // Plan 023 B4: ab Werk ist keine Erweiterung enthalten. Ohne einen Satz dazu
+  // stünde auf einem neuen Gerät eine einzelne gestrichelte Kachel in einer
+  // leeren Fläche und sähe aus, als hätte etwas nicht geladen.
+  it('erklärt den leeren Katalog, statt nur eine Kachel stehen zu lassen', () => {
+    apps = [];
+    render(<StoreExtensionsGrid />);
+    expect(screen.getByText('Noch keine Erweiterung')).toBeInTheDocument();
+    expect(screen.getByTestId('ext-builder-entry')).toBeInTheDocument();
+  });
+
+  it('sagt das nicht, solange etwas da ist', () => {
+    render(<StoreExtensionsGrid />);
+    expect(screen.queryByText('Noch keine Erweiterung')).not.toBeInTheDocument();
   });
 
   it('der Einstieg öffnet die Baukasten-Detailseite (kind: builder)', () => {

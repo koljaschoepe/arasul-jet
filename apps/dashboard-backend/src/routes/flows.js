@@ -43,6 +43,7 @@ const { berechneVorabErgebnisse } = require('../services/flows/stepExecutor');
 const { serializeFlowFile } = require('../services/flows/flowFile');
 const { implementedTools } = require('../services/flows/toolRegistry');
 const vorlagenStore = require('../services/flows/vorlagenStore');
+const beispielKatalog = require('../services/flows/beispielKatalog');
 const { initSSE, trackConnection } = require('../utils/sseHelper');
 
 // Upload für Stilvorlagen (Word/PDF/Markdown/Text/HTML, max. 20 MB).
@@ -148,6 +149,42 @@ router.get(
         ORDER BY name ASC`
     );
     res.json({ data: result.rows, timestamp: new Date().toISOString() });
+  })
+);
+
+// --- Beispiele (Plan 023 B4) ------------------------------------------------
+// BEWUSST vor `/:name` registriert, sonst finge die Flow-Route "/beispiele" als
+// vermeintlichen Flow-Namen ab.
+//
+// Ab Werk ist kein Flow enthalten (Entscheidung E6). Die fünf mitgelieferten
+// Vorlagen werden deshalb nicht mehr angelegt, sondern angeboten: der
+// Anlege-Dialog füllt sein Formular daraus, angelegt wird erst beim Speichern.
+
+// GET /api/flows/beispiele — die mitgelieferten Startpunkte.
+router.get(
+  '/beispiele',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const beispiele = await beispielKatalog.listeBeispiele();
+    res.json({
+      data: beispiele.map(({ name, beschreibung }) => ({ name, beschreibung })),
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// GET /api/flows/beispiele/:name — ein Beispiel als fertige Flow-Definition.
+router.get(
+  '/beispiele/:name',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const definition = await beispielKatalog.ladeBeispiel(req.params.name);
+    if (!definition) {
+      throw new NotFoundError(`Kein Beispiel mit dem Namen "${req.params.name}"`);
+    }
+    // Ueber toApi, damit das Beispiel genauso aussieht wie ein geladener Flow:
+    // das Formular im Frontend fuellt sich aus beiden mit demselben Code.
+    res.json({ data: toApi(definition), timestamp: new Date().toISOString() });
   })
 );
 

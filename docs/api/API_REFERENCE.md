@@ -2446,6 +2446,18 @@ Triggers LLM-based entity resolution and relation refinement in the document-ind
 
 ### Flows
 
+**Beispiele (Plan 023 B4).** Ab Werk liegt kein Flow auf dem Gerät. Die fünf
+mitgelieferten Vorlagen werden nicht angelegt, sondern angeboten:
+
+| Method | Endpoint                     | Auth | Description                                 |
+| ------ | ---------------------------- | ---- | ------------------------------------------- |
+| GET    | `/api/flows/beispiele`       | User | Namen und Beschreibungen der Startpunkte    |
+| GET    | `/api/flows/beispiele/:name` | User | Eine Vorlage in derselben Form wie ein Flow |
+
+Die Einzelabfrage liefert `prompt`, nicht `systemPrompt`, damit das Formular im
+Frontend sich aus Vorlage und geladenem Flow mit demselben Code füllt. Ein
+unbekannter Name ist ein `404 NOT_FOUND`. Beide Routen legen nichts an.
+
 Flows are Markdown files with YAML front matter under `data/flows/` (container path `FLOWS_DIR`, default `/arasul/flows`) — **there is no database table**. The file is the source of truth; these routes are a thin layer over the on-disk registry. Every write is validated against the schema _before_ it is persisted (serialize → re-parse → atomic rename), so a broken flow can never reach the disk. All routes require authentication.
 
 | Method | Endpoint                            | Description                                                                                                                             |
