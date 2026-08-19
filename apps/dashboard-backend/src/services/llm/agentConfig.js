@@ -88,6 +88,37 @@ function kannDenken(ollamaName) {
   return /qwen3|deepseek-r1|gpt-oss|magistral|glm-4|smallthinker/.test(name);
 }
 
+/**
+ * Soll dieser Lauf sichtbar denken?
+ *
+ * Drei Bedingungen, alle müssen zutreffen: Thinking ist überhaupt gewünscht,
+ * das Modell kann es, und die Frage ist es wert. Der dritte Teil ist neu
+ * (Audit 023, Befund F-28): die Einstufung aus `queryComplexityAnalyzer` lief
+ * bis zum 19.08.2026 nur im `llmJobProcessor`, nicht im Agent-Runner. Eine
+ * Frage wie „Nenne mir in drei Stichpunkten, was Arasul kann." kostete dadurch
+ * 37 Sekunden Denkzeit vor dem ersten Wort, obwohl der Analyzer sie als
+ * `simple` einstuft.
+ *
+ * @param {string} ollamaName Modellname, wie Ollama ihn kennt
+ * @param {string} letzteNutzerfrage ungekürzte letzte Nachricht des Nutzers
+ * @returns {{ denken: boolean, grund: string }} `grund` ist protokollierbar
+ */
+function sollDenken(ollamaName, letzteNutzerfrage) {
+  if (!thinkingGewuenscht()) {
+    return { denken: false, grund: 'per Einstellung aus' };
+  }
+  if (!kannDenken(ollamaName)) {
+    return { denken: false, grund: 'Modell denkt nicht' };
+  }
+
+  const { classifyQueryComplexity } = require('./queryComplexityAnalyzer');
+  const stufe = classifyQueryComplexity(letzteNutzerfrage || '');
+  if (stufe.level === 'trivial' || stufe.level === 'simple') {
+    return { denken: false, grund: `${stufe.level} (${stufe.reason})` };
+  }
+  return { denken: true, grund: `${stufe.level} (${stufe.reason})` };
+}
+
 module.exports = {
   NUM_CTX,
   NUM_PREDICT,
@@ -99,4 +130,5 @@ module.exports = {
   qualitaetsModell,
   thinkingGewuenscht,
   kannDenken,
+  sollDenken,
 };
