@@ -183,7 +183,32 @@ mkdir -p /backups/qdrant /backups/qdrant/weekly
 QDRANT_OK=skipped
 QDRANT_URL="http://${QDRANT_HOST:-qdrant}:6333"
 QDRANT_TMP=/tmp/qdrant_backup_$TIMESTAMP
-if curl -sf --max-time 30 -X POST "${QDRANT_URL}/snapshots" -H "Content-Type: application/json" -o /tmp/qdrant_snap_$TIMESTAMP.json 2>/dev/null; then
+
+# Qdrant liegt seit Plan 021 Schritt 8 im Compose-Profil `classic-rag` und
+# laeuft im Normalbetrieb NICHT. Vorher lief das hier in den Fehlerzweig, jeder
+# naechtliche Lauf meldete `partial_failure`, und ein Daueralarm verdeckt jeden
+# echten: dass der Wiederherstellungstest am 16.08.2026 fehlschlug, fiel drei
+# Tage lang niemandem auf.
+#
+# Unterschieden wird deshalb zwischen "gar nicht da" und "da und kaputt". Kein
+# Schalter in der Umgebung, sondern eine Erreichbarkeitsprobe: wird das Profil
+# aktiviert, zaehlt ein Fehlschlag von selbst wieder, ohne dass jemand daran
+# denken muss. Drei Versuche, damit ein kurzer Aussetzer eines LAUFENDEN Qdrant
+# nicht als "nicht vorhanden" durchgeht.
+QDRANT_ERREICHBAR=false
+for _versuch in 1 2 3; do
+    if curl -sf --max-time 5 "${QDRANT_URL}/readyz" >/dev/null 2>&1 \
+       || curl -sf --max-time 5 "${QDRANT_URL}/" >/dev/null 2>&1; then
+        QDRANT_ERREICHBAR=true
+        break
+    fi
+    sleep 2
+done
+
+if [ "$QDRANT_ERREICHBAR" != true ]; then
+    echo "[$TIMESTAMP] [INFO] Qdrant nicht erreichbar (${QDRANT_URL}) — Profil classic-rag offenbar nicht aktiv, uebersprungen"
+    QDRANT_OK=skipped
+elif curl -sf --max-time 30 -X POST "${QDRANT_URL}/snapshots" -H "Content-Type: application/json" -o /tmp/qdrant_snap_$TIMESTAMP.json 2>/dev/null; then
     QDRANT_SNAPSHOT=$(grep -o '"name":"[^"]*"' /tmp/qdrant_snap_$TIMESTAMP.json | head -1 | cut -d'"' -f4)
     rm -f /tmp/qdrant_snap_$TIMESTAMP.json
     if [ -n "$QDRANT_SNAPSHOT" ]; then

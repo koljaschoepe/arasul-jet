@@ -1,6 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+# Startmarke fuer den Healthcheck (Plan 023 S7). Ohne sie galt ein Container
+# ohne jeden Bericht dauerhaft als gesund: `[ -f "$REPORT" ] || exit 0`. Mit ihr
+# laesst sich unterscheiden zwischen "gerade erst gestartet, noch kein Bericht"
+# und "laeuft seit Tagen und hat nie gesichert".
+mkdir -p "${BACKUP_DIR:-/backups}"
+touch "${BACKUP_DIR:-/backups}/.dienst_gestartet"
+
 # Run initial backup
 echo "Running initial backup..."
 /usr/local/bin/backup.sh || echo "Initial backup skipped (services may not be ready)"
