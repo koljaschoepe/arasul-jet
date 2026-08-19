@@ -38,7 +38,7 @@ export default function ExtensionAppTab({
   title: string;
 }) {
   const api = useApi();
-  const { extensions } = useExtensions();
+  const { extensions, isLoading: erweiterungenLaden } = useExtensions();
   const frameRef = useRef<HTMLIFrameElement | null>(null);
 
   const sendeToken = useCallback(async () => {
@@ -100,8 +100,13 @@ export default function ExtensionAppTab({
   // Der Schalter im Katalog schaltet seit dem 19.08.2026 auch die Auslieferung
   // ab (403). Ohne diesen Hinweis stünde im Tab die rohe Fehlerantwort — der
   // Nutzer hat die Erweiterung aber selbst ausgeschaltet und soll lesen, wo er
-  // sie wieder einschaltet.
+  // sie wieder einschaltet. Solange die Liste noch lädt, wird der iframe NICHT
+  // gebaut: sonst blitzt beim Öffnen eines Tabs einmal die rohe 403-Antwort auf,
+  // bevor die Antwort da ist.
   const eintrag = extensions.find(e => e.id === extensionId);
+  if (erweiterungenLaden && !eintrag) {
+    return <div className="h-full w-full bg-background" aria-busy="true" />;
+  }
   if (eintrag && !eintrag.enabled) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-background px-6 text-center text-text-secondary">
