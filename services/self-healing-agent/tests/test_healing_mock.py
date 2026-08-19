@@ -155,7 +155,7 @@ class TestSelfHealingEngine(unittest.TestCase):
 
         mock_cat_c.assert_called_once()
 
-    def test_handle_category_a_deploy_ist_kein_ausfall(self):
+    def test_handle_category_a_deploy_is_not_an_outage(self):
         """Ein laufender Deploy darf keinen CRITICAL-Fehlalarm erzeugen."""
         container = MagicMock()
         container.restart.side_effect = Exception(
@@ -170,14 +170,14 @@ class TestSelfHealingEngine(unittest.TestCase):
              patch.object(self.engine, 'record_recovery_action') as mock_action:
             self.engine.handle_category_a_service_down('dashboard-backend', container)
 
-        typen = [c.args[0] for c in mock_log.call_args_list]
-        self.assertIn('service_replacement_detected', typen)
-        self.assertNotIn('service_recovery_failed', typen)
+        logged = [c.args[0] for c in mock_log.call_args_list]
+        self.assertIn('service_replacement_detected', logged)
+        self.assertNotIn('service_recovery_failed', logged)
         # Kein Eintrag in der Wiederherstellungs-Historie: es gab nichts zu heilen.
-        for aufruf in mock_action.call_args_list:
-            self.assertNotIn('Recovery attempt failed', str(aufruf))
+        for call in mock_action.call_args_list:
+            self.assertNotIn('Recovery attempt failed', str(call))
 
-    def test_handle_category_a_echter_fehler_bleibt_critical(self):
+    def test_handle_category_a_real_error_stays_critical(self):
         """Ein echter Fehler muss weiterhin als CRITICAL herauskommen."""
         container = MagicMock()
         container.restart.side_effect = Exception("connection refused")
@@ -189,8 +189,8 @@ class TestSelfHealingEngine(unittest.TestCase):
              patch.object(self.engine, 'record_recovery_action'):
             self.engine.handle_category_a_service_down('dashboard-backend', container)
 
-        typen = [c.args[0] for c in mock_log.call_args_list]
-        self.assertIn('service_recovery_failed', typen)
+        logged = [c.args[0] for c in mock_log.call_args_list]
+        self.assertIn('service_recovery_failed', logged)
 
     def test_handle_category_b_cpu_overload(self):
         """Test Category B: CPU Overload"""
