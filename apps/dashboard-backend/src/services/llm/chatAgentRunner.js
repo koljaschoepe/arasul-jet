@@ -654,7 +654,16 @@ async function processAgentChatJob(ctx, job) {
   // als eigene SSE-Events raus (das UI hat dafür die Gedankengang-Zeile).
   // Coder-Modelle ohne Reasoning liefern stattdessen die Erzähl-Sätze aus
   // Regel 9 — der Nutzer sieht IMMER einen Arbeitsstrom.
-  const denken = agentConfig.thinkingGewuenscht() && agentConfig.kannDenken(ollamaModel);
+  // Einfache Fragen denken nicht (Audit 023, Befund F-28). Die rohe Nachricht
+  // statt `verlauf`, weil dort schon gekürzt wurde und die Einstufung an
+  // Längenschwellen hängt.
+  const letzteNutzerfrage =
+    (Array.isArray(requestData.messages) ? requestData.messages : [])
+      .filter(m => m && m.role === 'user' && typeof m.content === 'string')
+      .pop()?.content || '';
+  const denkEntscheidung = agentConfig.sollDenken(ollamaModel, letzteNutzerfrage);
+  const denken = denkEntscheidung.denken;
+  log.info(`[JOB ${jobId}] Denken ${denken ? 'an' : 'aus'}: ${denkEntscheidung.grund}`);
   let denktGerade = false;
   const onThinking = token => {
     denktGerade = true;
