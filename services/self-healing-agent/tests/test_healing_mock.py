@@ -155,6 +155,43 @@ class TestSelfHealingEngine(unittest.TestCase):
 
         mock_cat_c.assert_called_once()
 
+    def test_handle_category_a_deploy_ist_kein_ausfall(self):
+        """Ein laufender Deploy darf keinen CRITICAL-Fehlalarm erzeugen."""
+        container = MagicMock()
+        container.restart.side_effect = Exception(
+            "500 Server Error: Internal Server Error "
+            "(\"container abc is marked for removal and cannot be started\")"
+        )
+
+        with patch.object(self.engine, 'record_failure'), \
+             patch.object(self.engine, 'is_in_cooldown', return_value=False), \
+             patch.object(self.engine, 'get_failure_count', return_value=1), \
+             patch.object(self.engine, 'log_event') as mock_log, \
+             patch.object(self.engine, 'record_recovery_action') as mock_action:
+            self.engine.handle_category_a_service_down('dashboard-backend', container)
+
+        typen = [c.args[0] for c in mock_log.call_args_list]
+        self.assertIn('service_replacement_detected', typen)
+        self.assertNotIn('service_recovery_failed', typen)
+        # Kein Eintrag in der Wiederherstellungs-Historie: es gab nichts zu heilen.
+        for aufruf in mock_action.call_args_list:
+            self.assertNotIn('Recovery attempt failed', str(aufruf))
+
+    def test_handle_category_a_echter_fehler_bleibt_critical(self):
+        """Ein echter Fehler muss weiterhin als CRITICAL herauskommen."""
+        container = MagicMock()
+        container.restart.side_effect = Exception("connection refused")
+
+        with patch.object(self.engine, 'record_failure'), \
+             patch.object(self.engine, 'is_in_cooldown', return_value=False), \
+             patch.object(self.engine, 'get_failure_count', return_value=1), \
+             patch.object(self.engine, 'log_event') as mock_log, \
+             patch.object(self.engine, 'record_recovery_action'):
+            self.engine.handle_category_a_service_down('dashboard-backend', container)
+
+        typen = [c.args[0] for c in mock_log.call_args_list]
+        self.assertIn('service_recovery_failed', typen)
+
     def test_handle_category_b_cpu_overload(self):
         """Test Category B: CPU Overload"""
         metrics = {'cpu': 95, 'ram': 50, 'gpu': 0, 'temperature': 60}

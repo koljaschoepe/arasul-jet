@@ -119,6 +119,23 @@ class CategoryHandlersMixin:
     # CATEGORY A: SERVICE DOWN
     # ========================================================================
 
+    # Docker-Meldungen, die kein Ausfall sind, sondern ein laufender Deploy:
+    # Compose ersetzt den Container, waehrend die Selbstheilung ihn noch
+    # anfassen will. Beobachtet am 19.08.2026 bei jedem automatischen Deploy —
+    # zweimal in 24 Stunden stand danach 'service_recovery_failed' als CRITICAL
+    # im Ereignisprotokoll, obwohl nur eine neue Version ausgerollt wurde.
+    CONTAINER_WIRD_ERSETZT = (
+        'marked for removal',
+        'removal of container',
+        'no such container',
+        'is already in progress',
+    )
+
+    def _container_wird_ersetzt(self, fehler) -> bool:
+        """Ist der Fehler nur ein Container-Wechsel (Deploy), kein Ausfall?"""
+        text = str(fehler).lower()
+        return any(muster in text for muster in self.CONTAINER_WIRD_ERSETZT)
+
     def handle_category_a_service_down(self, service_name: str, container):
         """Category A: Service Down - tiered restart strategies with exponential backoff"""
 
@@ -205,6 +222,19 @@ class CategoryHandlersMixin:
 
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
+            if self._container_wird_ersetzt(e):
+                # Kein Ausfall: Compose tauscht den Container gerade aus. Als
+                # CRITICAL protokolliert stand im Dashboard eine gescheiterte
+                # Wiederherstellung, obwohl nur ein Deploy lief.
+                logger.info(
+                    f"{service_name} wird gerade ersetzt (Deploy), keine Wiederherstellung noetig: {e}"
+                )
+                self.log_event(
+                    'service_replacement_detected', 'INFO',
+                    f'{service_name} wird gerade ersetzt (Deploy), kein Ausfall',
+                    'Kein Eingriff', service_name, True
+                )
+                return
             logger.error(f"Failed to recover {service_name}: {e}")
             self.log_event(
                 'service_recovery_failed', 'CRITICAL',
