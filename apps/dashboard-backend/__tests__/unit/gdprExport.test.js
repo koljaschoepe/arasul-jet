@@ -86,6 +86,26 @@ describe('GET /api/gdpr/export', () => {
     expect(res.body._meta.unvollstaendig).toEqual([]);
   });
 
+  test('feuert nicht alle Abfragen gleichzeitig los', async () => {
+    // Zwoelf parallele Abfragen reissen den Verbindungspool leer; database.js
+    // klinkt bei mehr als zehn Wartenden aus. Am 19.08.2026 kamen deshalb
+    // direkt nach dem Deploy zwei Kategorien als unvollstaendig zurueck.
+    let laufend = 0;
+    let hoechstwert = 0;
+    db.query.mockImplementation(async () => {
+      laufend += 1;
+      hoechstwert = Math.max(hoechstwert, laufend);
+      await new Promise(f => setTimeout(f, 5));
+      laufend -= 1;
+      return { rows: [] };
+    });
+
+    await request(buildApp()).get('/api/gdpr/export');
+
+    expect(db.query.mock.calls.length).toBeGreaterThanOrEqual(12);
+    expect(hoechstwert).toBeLessThanOrEqual(3);
+  });
+
   test('fragt keine Spalten ab, die es nicht gibt', async () => {
     await request(buildApp()).get('/api/gdpr/export');
     const sql = allesSql();
