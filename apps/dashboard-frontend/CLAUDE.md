@@ -79,9 +79,15 @@ src/
                      Einstieg) — bewusst getrennt, weil die Aktionen andere sind
                      (Download/Fork/Entfernen nur beim Paket). Siehe
                      `docs/features/EXTENSIONS.md`.
-                   • **Erweiterungen/Store** — Full-Width-Kartenraster im
-                     Mitte-Tab mit zwei Reitern [Modelle | Erweiterungen]
-                     (StoreModelsGrid / StoreExtensionsGrid); ein Klick auf eine
+                   • **Modelle und Erweiterungen** — seit Plan 023 B7 ZWEI
+                     eigene Mitte-Tabs (`modelle`, `erweiterungen`) statt eines
+                     Tabs namens „Extensions", der je nach Zustand das eine oder
+                     das andere zeigte. Welches Raster erscheint, sagt der Tab
+                     (`Store bereich="models"|"extensions"`), nicht mehr ein
+                     Zustand nebenan. Ein gespeicherter `store`-Tab aus der Zeit
+                     davor wird beim Laden auf `erweiterungen` umgeschrieben.
+                     Full-Width-Kartenraster (StoreModelsGrid /
+                     StoreExtensionsGrid); ein Klick auf eine
                      Karte öffnet die Detailseite (StoreDetailPage) mit
                      „← Zurück". Modelle = Katalog (Laden/Aktivieren), Erweiterungen
                      = Workspace-Apps (An/Aus über `PUT /workspace-apps/:id`). Die

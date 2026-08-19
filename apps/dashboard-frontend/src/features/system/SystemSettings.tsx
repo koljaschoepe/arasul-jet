@@ -18,9 +18,9 @@ interface SubSection {
 
 const subSections: SubSection[] = [
   { id: 'status', label: 'System-Status', icon: Activity },
-  { id: 'services', label: 'Services', icon: Server },
-  { id: 'updates', label: 'Updates', icon: Upload },
-  { id: 'selfhealing', label: 'Self-Healing', icon: Wrench },
+  { id: 'services', label: 'Dienste', icon: Server },
+  { id: 'updates', label: 'Aktualisierungen', icon: Upload },
+  { id: 'selfhealing', label: 'Selbstheilung', icon: Wrench },
   { id: 'werksreset', label: 'Werksreset', icon: RotateCcw },
 ];
 
@@ -71,17 +71,17 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
         </ComponentErrorBoundary>
       )}
       {active === 'services' && (
-        <ComponentErrorBoundary componentName="Services">
+        <ComponentErrorBoundary componentName="Dienste">
           <ServicesSettings />
         </ComponentErrorBoundary>
       )}
       {active === 'updates' && (
-        <ComponentErrorBoundary componentName="Updates">
+        <ComponentErrorBoundary componentName="Aktualisierungen">
           <UpdatePage />
         </ComponentErrorBoundary>
       )}
       {active === 'selfhealing' && (
-        <ComponentErrorBoundary componentName="Self-Healing">
+        <ComponentErrorBoundary componentName="Selbstheilung">
           <SelfHealingEvents />
         </ComponentErrorBoundary>
       )}

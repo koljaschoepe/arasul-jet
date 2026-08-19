@@ -28,7 +28,7 @@ export function StoreModelsFilterPanel() {
       <SidebarSearch
         value={query}
         onChange={setQuery}
-        placeholder="Modelle durchsuchen…"
+        placeholder="Suchen…"
         ariaLabel="Modelle durchsuchen"
       />
 

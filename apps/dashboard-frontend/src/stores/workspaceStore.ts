@@ -24,7 +24,11 @@ export type WorkspaceTabType =
   | 'document'
   | 'projektdatei'
   | 'settings'
-  | 'store'
+  // Plan 023 B7: aus dem einen Tab "Extensions", der je nach Zustand Modelle
+  // ODER Erweiterungen zeigte, sind zwei geworden. Der Titel sagt jetzt, was
+  // drinsteht, und beide lassen sich nebeneinander offen halten.
+  | 'modelle'
+  | 'erweiterungen'
   | 'automationen'
   | 'flow'
   | 'extension'
@@ -61,7 +65,8 @@ const DEFAULT_TITLES: Record<WorkspaceTabType, string> = {
   document: 'Dokument',
   projektdatei: 'Datei',
   settings: 'Einstellungen',
-  store: 'Extensions',
+  modelle: 'Modelle',
+  erweiterungen: 'Erweiterungen',
   automationen: 'Automationen',
   flow: 'Neuer Flow',
   extension: 'Erweiterung',
@@ -96,8 +101,10 @@ export function tabToPath(tab: WorkspaceTab): string {
       return `/workspace/pfile/${tab.projectId ?? ''}/${encodeURIComponent(tab.filePath ?? '')}`;
     case 'settings':
       return '/workspace/settings';
-    case 'store':
-      return '/workspace/store';
+    case 'modelle':
+      return '/workspace/modelle';
+    case 'erweiterungen':
+      return '/workspace/erweiterungen';
     case 'automationen':
       return '/workspace/automationen';
     case 'flow':
@@ -135,8 +142,14 @@ export function pathToTabSpec(subPath: string): WorkspaceTabSpec | null {
     }
     case 'settings':
       return { type: 'settings' };
+    case 'modelle':
+      return { type: 'modelle' };
+    case 'erweiterungen':
+      return { type: 'erweiterungen' };
+    // Alter Pfad aus der Zeit des einen Tabs. Er landet bei den Erweiterungen,
+    // weil der Tab so hiess.
     case 'store':
-      return { type: 'store' };
+      return { type: 'erweiterungen' };
     case 'automationen':
       return { type: 'automationen' };
     case 'flow':
@@ -399,13 +412,24 @@ interface PersistedLegacyState extends Partial<Omit<PersistedWorkspaceState, 'ta
 function migrateWorkspaceState(persisted: unknown, version: number): PersistedWorkspaceState {
   const old = (persisted ?? {}) as PersistedLegacyState;
   const valid = new Set(Object.keys(DEFAULT_TITLES));
-  const tabs = (Array.isArray(old.tabs) ? old.tabs : []).filter(t =>
-    valid.has(t.type)
-  ) as WorkspaceTab[];
+  // Plan 023 B7: der Tab „store" heisst jetzt „erweiterungen". Ohne diese
+  // Umschrift faellt er beim naechsten Laden still aus der Leiste, weil die
+  // Filterung unbekannte Typen verwirft. Ein Tab, der beim Aktualisieren
+  // verschwindet, sieht aus wie ein Fehler.
+  const umbenannt: Record<string, WorkspaceTabType> = { store: 'erweiterungen' };
+  const neueId: Record<string, string> = {};
+  const tabs = (Array.isArray(old.tabs) ? old.tabs : [])
+    .map(t => {
+      const neuerTyp = umbenannt[t.type];
+      if (!neuerTyp) return t;
+      const id = tabId({ type: neuerTyp });
+      neueId[t.id] = id;
+      return { ...t, type: neuerTyp, id, title: DEFAULT_TITLES[neuerTyp] };
+    })
+    .filter(t => valid.has(t.type)) as WorkspaceTab[];
+  const alterAktiver = old.activeTabId ? (neueId[old.activeTabId] ?? old.activeTabId) : null;
   const activeTabId =
-    old.activeTabId && tabs.some(t => t.id === old.activeTabId)
-      ? old.activeTabId
-      : (tabs[0]?.id ?? null);
+    alterAktiver && tabs.some(t => t.id === alterAktiver) ? alterAktiver : (tabs[0]?.id ?? null);
 
   let sidebarVisible: boolean;
   let rightPanelVisible: boolean;

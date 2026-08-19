@@ -110,7 +110,7 @@ describe('Extension-Toggle live (gemeinsamer Query-Cache)', () => {
     const user = userEvent.setup();
     useWorkspaceStore.setState({
       tabs: [
-        { id: 'store', type: 'store', title: 'Extensions' },
+        { id: 'erweiterungen', type: 'erweiterungen', title: 'Erweiterungen' },
         { id: 'automationen', type: 'automationen', title: 'Automationen' },
       ],
       activeTabId: 'automationen',
@@ -120,8 +120,8 @@ describe('Extension-Toggle live (gemeinsamer Query-Cache)', () => {
     await user.click(await screen.findByRole('switch', { name: 'n8n deaktivieren' }));
 
     await waitFor(() =>
-      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['store'])
+      expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['erweiterungen'])
     );
-    expect(useWorkspaceStore.getState().activeTabId).toBe('store');
+    expect(useWorkspaceStore.getState().activeTabId).toBe('erweiterungen');
   });
 });

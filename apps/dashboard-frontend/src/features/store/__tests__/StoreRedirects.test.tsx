@@ -4,7 +4,7 @@
  * Links /store/models und /store/apps (auch mit ?highlight=…) leiten auf /store
  * um und setzen dabei die Auswahl im Extension-Store (öffnet die Detailseite).
  */
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useExtensionStore } from '@/stores/extensionStore';
@@ -26,11 +26,11 @@ function Probe() {
   return <div data-testid="loc">{location.pathname}</div>;
 }
 
-function renderAt(path: string) {
+function renderAt(path: string, bereich: 'models' | 'extensions' = 'models') {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/store/*" element={<Store />} />
+        <Route path="/store/*" element={<Store bereich={bereich} />} />
       </Routes>
       <Probe />
     </MemoryRouter>
@@ -61,24 +61,26 @@ describe('Store, Full-Width + Redirects', () => {
     await waitFor(() => expect(screen.getByTestId('loc').textContent).toBe('/store'));
   });
 
-  it('/store: Default-Reiter „Modelle" zeigt das Raster', () => {
-    renderAt('/store');
-    // Kein Umschalter mehr in der Mitte — der Default-Reiter „Modelle" (storeTab)
-    // zeigt das Modell-Raster, keine Detailseite.
+  // Plan 023 B7: welches Raster in der Mitte steht, sagt seit dem Aufteilen der
+  // Tabs der Tab selbst, nicht mehr ein Zustand nebenan. Der Bereich kommt
+  // deshalb als Eigenschaft herein.
+  it('Bereich „Modelle" zeigt das Modell-Raster', () => {
+    renderAt('/store', 'models');
     expect(screen.getByTestId('models-grid')).toBeInTheDocument();
     expect(screen.queryByTestId('extensions-grid')).not.toBeInTheDocument();
     expect(screen.queryByTestId('detail')).not.toBeInTheDocument();
   });
 
-  it('/store: Reiter-Wechsel (storeTab) schaltet das Raster um', () => {
-    renderAt('/store');
-    expect(screen.getByTestId('models-grid')).toBeInTheDocument();
-    // Der Reiter lebt im extensionStore (die ActivityBar setzt ihn); ein Wechsel
-    // auf „Erweiterungen" tauscht das Raster in der Mitte.
-    act(() => useExtensionStore.setState({ storeTab: 'extensions' }));
+  it('Bereich „Erweiterungen" zeigt das Erweiterungs-Raster', () => {
+    renderAt('/store', 'extensions');
     expect(screen.getByTestId('extensions-grid')).toBeInTheDocument();
     expect(screen.queryByTestId('models-grid')).not.toBeInTheDocument();
-    act(() => useExtensionStore.setState({ storeTab: 'models' }));
-    expect(screen.getByTestId('models-grid')).toBeInTheDocument();
+  });
+
+  it('der Bereich stellt zugleich den Filter in der Sidebar', () => {
+    // Ohne das stuende beim Wechsel auf den Modelle-Tab noch der
+    // Erweiterungs-Filter daneben.
+    renderAt('/store', 'extensions');
+    expect(useExtensionStore.getState().storeTab).toBe('extensions');
   });
 });

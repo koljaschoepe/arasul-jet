@@ -80,7 +80,7 @@ describe('TabBar, Umsortieren per Drag', () => {
     const s = useWorkspaceStore.getState();
     s.openTab({ type: 'automationen' });
     s.openTab({ type: 'settings' });
-    s.openTab({ type: 'store' });
+    s.openTab({ type: 'erweiterungen' });
     render(<TabBar />);
     const tabEls = screen.getAllByRole('tab');
     const erste = tabEls[0] as HTMLElement;
@@ -94,7 +94,7 @@ describe('TabBar, Umsortieren per Drag', () => {
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
       'settings',
       'automationen',
-      'store',
+      'erweiterungen',
     ]);
   });
 
@@ -102,7 +102,7 @@ describe('TabBar, Umsortieren per Drag', () => {
     const s = useWorkspaceStore.getState();
     s.openTab({ type: 'automationen' });
     s.openTab({ type: 'settings' });
-    s.openTab({ type: 'store' });
+    s.openTab({ type: 'erweiterungen' });
     render(<TabBar />);
     const tabEls = screen.getAllByRole('tab');
     const erste = tabEls[0] as HTMLElement;
@@ -113,7 +113,7 @@ describe('TabBar, Umsortieren per Drag', () => {
     fireEvent.drop(erste, { dataTransfer: dt });
     // store landet VOR automationen.
     expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual([
-      'store',
+      'erweiterungen',
       'automationen',
       'settings',
     ]);

@@ -891,7 +891,7 @@ export function ExplorerPanel() {
         <SidebarSearch
           value={query}
           onChange={setQuery}
-          placeholder="Dateien durchsuchen…"
+          placeholder="Suchen…"
           ariaLabel="Explorer durchsuchen"
         />
       </div>

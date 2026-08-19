@@ -30,7 +30,10 @@ export function SidebarSearch({
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="h-9 pl-8 pr-8"
+        // Der Platz zwischen Lupe und Leeren-Knopf ist schmal. Ohne die
+        // Auslassung bricht ein langer Platzhalter mitten im Wort ab (F-10);
+        // mit ihr endet er sichtbar mit drei Punkten.
+        className="h-9 overflow-hidden text-ellipsis pl-8 pr-8"
       />
       {value && (
         <button

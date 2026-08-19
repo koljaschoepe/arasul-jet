@@ -76,21 +76,21 @@ describe('ActivityBar, feste Spalte: Dateien · Modelle · Erweiterungen · Flow
     expect(useWorkspaceStore.getState().sidebarVisible).toBe(false);
   });
 
-  it('Modelle öffnet den Store-Tab und aktiviert den Modelle-Reiter', () => {
+  it('Modelle öffnet den eigenen Modelle-Tab', () => {
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Modelle'));
     const s = useWorkspaceStore.getState();
     expect(s.activeView).toBe('models');
-    expect(s.activeTabId).toBe('store');
+    expect(s.activeTabId).toBe('modelle');
     expect(useExtensionStore.getState().storeTab).toBe('models');
   });
 
-  it('Erweiterungen öffnet den Store-Tab und aktiviert den Erweiterungen-Reiter', () => {
+  it('Erweiterungen öffnet den eigenen Erweiterungen-Tab', () => {
     render(<ActivityBar />);
     fireEvent.click(screen.getByLabelText('Erweiterungen'));
     const s = useWorkspaceStore.getState();
     expect(s.activeView).toBe('extensions');
-    expect(s.activeTabId).toBe('store');
+    expect(s.activeTabId).toBe('erweiterungen');
     expect(useExtensionStore.getState().storeTab).toBe('extensions');
   });
 
