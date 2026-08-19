@@ -73,7 +73,33 @@ router.get(
       data: result.rows,
     });
 
-    // Collect all user-related data in parallel
+    /**
+     * Die Kategorien laufen NICHT alle gleichzeitig.
+     *
+     * `Promise.all` über zwölf Abfragen reißt auf einer Box, auf der nebenher
+     * der Ordner-Abgleich und die Metrik-Abfragen laufen, den Verbindungspool
+     * leer: `database.js` klinkt bei mehr als zehn wartenden Anfragen aus
+     * ("Database pool saturated"). Am 19.08.2026 sofort nach dem Deploy
+     * beobachtet — Wissensräume und Projekte kamen als `unvollstaendig`
+     * zurück, obwohl beide Abfragen völlig in Ordnung sind.
+     *
+     * Ein Datenexport ist selten und wird heruntergeladen, nicht angestarrt.
+     * Drei gleichzeitig sind schnell genug und lassen dem Rest der Box Luft.
+     */
+    const nacheinander = async (aufgaben, gleichzeitig = 3) => {
+      const ergebnisse = new Array(aufgaben.length);
+      let naechste = 0;
+      const arbeiter = async () => {
+        while (naechste < aufgaben.length) {
+          const i = naechste;
+          naechste += 1;
+          ergebnisse[i] = await aufgaben[i]();
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(gleichzeitig, aufgaben.length) }, arbeiter));
+      return ergebnisse;
+    };
+
     const [
       profileResult,
       chatsResult,
@@ -87,133 +113,145 @@ router.get(
       securityAuditResult,
       spacesResult,
       projekteResult,
-    ] = await Promise.all([
+    ] = await nacheinander([
       // 1. User profile
-      hole(
-        'profil',
-        `SELECT id, username, email, created_at, last_login, is_active
+      () =>
+        hole(
+          'profil',
+          `SELECT id, username, email, created_at, last_login, is_active
          FROM admin_users WHERE id = $1`,
-        [userId]
-      ),
+          [userId]
+        ),
 
       // 2. Chat conversations
-      hole(
-        'konversationen',
-        `SELECT id, title, preferred_model, created_at, updated_at, message_count
+      () =>
+        hole(
+          'konversationen',
+          `SELECT id, title, preferred_model, created_at, updated_at, message_count
          FROM chat_conversations WHERE user_id = $1
          ORDER BY created_at DESC`,
-        [userId]
-      ),
+          [userId]
+        ),
 
       // 3. Chat messages (last 10000 to avoid huge exports)
-      hole(
-        'nachrichten',
-        `SELECT m.id, m.conversation_id, m.role, m.content, m.thinking, m.status, m.created_at
+      () =>
+        hole(
+          'nachrichten',
+          `SELECT m.id, m.conversation_id, m.role, m.content, m.thinking, m.status, m.created_at
          FROM chat_messages m
          JOIN chat_conversations c ON c.id = m.conversation_id
          WHERE c.user_id = $1
          ORDER BY m.created_at DESC
          LIMIT 10000`,
-        [userId]
-      ),
+          [userId]
+        ),
 
       // 4. Chat attachments
-      hole(
-        'anhaenge',
-        `SELECT a.id, a.message_id, a.filename, a.original_filename, a.mime_type,
+      () =>
+        hole(
+          'anhaenge',
+          `SELECT a.id, a.message_id, a.filename, a.original_filename, a.mime_type,
                 a.file_size, a.created_at
          FROM chat_attachments a
          JOIN chat_messages m ON m.id = a.message_id
          JOIN chat_conversations c ON c.id = m.conversation_id
          WHERE c.user_id = $1
          ORDER BY a.created_at DESC`,
-        [userId]
-      ),
+          [userId]
+        ),
 
       // 5. Dokumente. Zwei Spalten, weil die Ablage zwei Wege kennt:
       //    `owner_id` (Migration 089, numerische Id) und `uploaded_by`, das
       //    einen NAMEN enthält ('admin', 'ordner-sync', 'nightrun') und keine
       //    Id. Die alte Abfrage verglich `uploaded_by` mit der Id — das trifft
       //    nie und lieferte still eine leere Liste.
-      hole(
-        'dokumente',
-        `SELECT id, title, filename, original_filename, mime_type, file_size, status,
+      () =>
+        hole(
+          'dokumente',
+          `SELECT id, title, filename, original_filename, mime_type, file_size, status,
                 uploaded_at, updated_at, category_id, chunk_count, uploaded_by, owner_id
          FROM documents
          WHERE (owner_id = $1 OR uploaded_by = $2) AND deleted_at IS NULL
          ORDER BY uploaded_at DESC`,
-        [userId, req.user.username]
-      ),
+          [userId, req.user.username]
+        ),
 
       // 6. KI-Erinnerungen. Die Tabelle hat KEINE Nutzerspalte — auf dieser
       //    Box gehören sie allen. Sie hier wegzulassen wäre die schlechtere
       //    Auskunft, also stehen sie vollständig drin, mit Hinweis.
-      hole(
-        'ki_erinnerungen',
-        `SELECT id, type, content, importance, source_conversation_id, created_at, updated_at
+      () =>
+        hole(
+          'ki_erinnerungen',
+          `SELECT id, type, content, importance, source_conversation_id, created_at, updated_at
          FROM ai_memories WHERE is_active = TRUE
          ORDER BY created_at DESC`,
-        []
-      ),
+          []
+        ),
 
       // 7. Login history (last 500)
-      hole(
-        'anmeldungen',
-        `SELECT username, ip_address, success, user_agent, attempted_at
+      () =>
+        hole(
+          'anmeldungen',
+          `SELECT username, ip_address, success, user_agent, attempted_at
          FROM login_attempts WHERE username = $1
          ORDER BY attempted_at DESC LIMIT 500`,
-        [req.user.username]
-      ),
+          [req.user.username]
+        ),
 
       // 8. Active sessions
-      hole(
-        'sitzungen',
-        `SELECT token_jti, ip_address, user_agent, created_at, expires_at, last_activity
+      () =>
+        hole(
+          'sitzungen',
+          `SELECT token_jti, ip_address, user_agent, created_at, expires_at, last_activity
          FROM active_sessions WHERE user_id = $1
          ORDER BY created_at DESC`,
-        [userId]
-      ),
+          [userId]
+        ),
 
       // 9. API audit trail (last 1000 actions)
-      hole(
-        'aktivitaet',
-        `SELECT timestamp, action_type, target_endpoint, response_status, duration_ms,
+      () =>
+        hole(
+          'aktivitaet',
+          `SELECT timestamp, action_type, target_endpoint, response_status, duration_ms,
                 ip_address, user_agent
          FROM api_audit_logs WHERE user_id = $1
          ORDER BY timestamp DESC LIMIT 1000`,
-        [userId]
-      ),
+          [userId]
+        ),
 
       // 10. Security audit events
-      hole(
-        'sicherheitsereignisse',
-        `SELECT timestamp, action, details, ip_address
+      () =>
+        hole(
+          'sicherheitsereignisse',
+          `SELECT timestamp, action, details, ip_address
          FROM audit_logs WHERE user_id = $1
          ORDER BY timestamp DESC`,
-        [userId]
-      ),
+          [userId]
+        ),
 
       // 11. Wissensräume. `created_by` gibt es nicht; die Spalte heißt seit
       //     Migration 089 `owner_id`.
-      hole(
-        'wissensraeume',
-        `SELECT id, name, slug, description, document_count, created_at, updated_at
+      () =>
+        hole(
+          'wissensraeume',
+          `SELECT id, name, slug, description, document_count, created_at, updated_at
          FROM knowledge_spaces WHERE owner_id = $1
          ORDER BY created_at DESC`,
-        [userId]
-      ),
+          [userId]
+        ),
 
       // 12. Projekte. Die Doku führt sie seit jeher als Kategorie, der Export
       //     lieferte sie nie. Eine Besitzerspalte gibt es nicht: Migration 089
       //     hatte `projects.owner_id` angelegt, 104 hat die damalige Tabelle
       //     gedroppt und 118 sie ohne Besitzer neu aufgebaut. Also boxweit mit
       //     Hinweis, wie bei den KI-Erinnerungen.
-      hole(
-        'projekte',
-        `SELECT id, name, slug, description, is_default, created_at, updated_at
+      () =>
+        hole(
+          'projekte',
+          `SELECT id, name, slug, description, is_default, created_at, updated_at
          FROM projects ORDER BY created_at DESC`,
-        []
-      ),
+          []
+        ),
     ]);
 
     const exportData = {
