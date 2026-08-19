@@ -92,6 +92,20 @@ run_backend_tests() {
   fi
 }
 
+# Funktion: Toter Code (Plan 023 B3)
+# Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
+# jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
+run_totercode_check() {
+  echo ""
+  echo "-> Pruefe auf toten Code..."
+  if bash "${PROJECT_ROOT}/scripts/test/toter-code.sh"; then
+    echo "   Toter Code: KEINER"
+  else
+    echo "   Toter Code: GEFUNDEN"
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Frontend-Tests
 run_frontend_tests() {
   if [ -f "apps/dashboard-frontend/package.json" ]; then
@@ -254,6 +268,9 @@ run_quality_gates() {
     EXIT_CODE=1
   fi
 }
+
+# Toter Code laeuft immer, unabhaengig von der Auswahl.
+run_totercode_check
 
 # Hauptlogik: Welche Tests laufen?
 if [ "$RUN_ALL" = true ]; then
