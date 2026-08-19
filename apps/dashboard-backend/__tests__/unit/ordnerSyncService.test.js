@@ -235,7 +235,13 @@ describe('ordnerSyncService', () => {
       if (sql.includes('FROM documents') && sql.includes('rel_pfad IS NULL')) {
         return {
           rows: [
-            { id: 'doc-alt', filename: 'bericht.md', original_filename: 'bericht.md', file_path: 'minio/bericht.md', space_id: null },
+            {
+              id: 'doc-alt',
+              filename: 'bericht.md',
+              original_filename: 'bericht.md',
+              file_path: 'minio/bericht.md',
+              space_id: null,
+            },
           ],
         };
       }
@@ -252,6 +258,70 @@ describe('ordnerSyncService', () => {
       q => q.sql.includes('UPDATE documents SET rel_pfad') && q.params[0] === 'bericht.md'
     );
     expect(update).toBeDefined();
+  });
+
+  test('Doublette im selben Projekt läuft NICHT in jedem Takt durch MinIO', async () => {
+    // Zwei Dateien, ein Inhalt. Die eine hat ihre documents-Zeile, die andere
+    // kann wegen des eindeutigen content_hash nie eine bekommen. Vor dem
+    // 19.08.2026 wurde sie trotzdem bei JEDEM Takt hochgeladen und gleich
+    // wieder gelöscht — 57 Uploads pro Minute auf dem Testgerät.
+    const inhalt = '# Zweimal derselbe Text';
+    await fsp.writeFile(path.join(dir, 'original.md'), inhalt);
+    await fsp.writeFile(path.join(dir, 'kopie.md'), inhalt);
+    const hash = crypto.createHash('sha256').update(inhalt).digest('hex');
+
+    const deps = fakeDeps({
+      dokumente: [
+        {
+          id: 'doc-original',
+          rel_pfad: 'original.md',
+          content_hash: hash,
+          file_path: 'minio/original.md',
+          file_size: Buffer.byteLength(inhalt),
+          space_id: raum.id,
+          uploaded_at: new Date(),
+        },
+      ],
+    });
+
+    const ersterLauf = await ordnerSync.synchronisiere('projekt-1', deps);
+    expect(ersterLauf.doubletten).toBe(1);
+    expect(ersterLauf.neu).toBe(0);
+    expect(ersterLauf.verschoben).toBe(0);
+    expect(deps.minio.uploadObject).not.toHaveBeenCalled();
+    expect(deps.minio.removeObject).not.toHaveBeenCalled();
+    expect(deps.documentService.deleteDocument).not.toHaveBeenCalled();
+
+    // Zweiter Takt, nichts geändert: weiterhin kein MinIO-Verkehr.
+    const zweiterLauf = await ordnerSync.synchronisiere('projekt-1', deps);
+    expect(zweiterLauf.doubletten).toBe(1);
+    expect(deps.minio.uploadObject).not.toHaveBeenCalled();
+    expect(deps.minio.removeObject).not.toHaveBeenCalled();
+  });
+
+  test('Doublette aus einem ANDEREN Projekt wird vor dem Hochladen erkannt', async () => {
+    // `idx_documents_unique_content_hash` gilt projektübergreifend, die
+    // projektinterne Hash-Karte sieht so eine Doublette nicht. Die Vorprüfung
+    // im SELECT muss greifen, sonst lädt der Abgleich wieder ins Leere.
+    const inhalt = '# Liegt schon in einem anderen Projekt';
+    await fsp.writeFile(path.join(dir, 'fremd.md'), inhalt);
+
+    const deps = fakeDeps();
+    const original = deps.db.query;
+    deps.db.query = jest.fn(async (sql, params = []) => {
+      if (sql.includes('SELECT 1 FROM documents') && sql.includes('content_hash = $1')) {
+        deps.db.queries.push({ sql, params });
+        return { rows: [{ '?column?': 1 }] };
+      }
+      return original(sql, params);
+    });
+
+    const stats = await ordnerSync.synchronisiere('projekt-1', deps);
+
+    expect(stats.doubletten).toBe(1);
+    expect(stats.neu).toBe(0);
+    expect(deps.minio.uploadObject).not.toHaveBeenCalled();
+    expect(deps.minio.removeObject).not.toHaveBeenCalled();
   });
 
   test('plattenName entschärft Pfad-Zeichen', () => {

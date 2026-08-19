@@ -33,7 +33,10 @@
  *
  * Duplikate: identischer Inhalt an zwei Pfaden ist auf der Platte erlaubt,
  * indexiert wird er nur EINMAL (bestehender content_hash-Schutz). Die zweite
- * Datei bleibt sichtbar, bekommt aber keine eigene documents-Zeile.
+ * Datei bleibt sichtbar, bekommt aber keine eigene documents-Zeile. Erkannt
+ * wird sie VOR dem Hochladen (Hash im Merkzettel, projektintern über den
+ * Hash-Index, projektübergreifend über eine SELECT-Vorprüfung) — sie darf
+ * nicht in jedem Takt erneut durch MinIO laufen.
  */
 
 const fs = require('fs');
@@ -116,12 +119,14 @@ const MARKER_DATEI = '.arasul';
 const INTERVAL_MS = parseInt(process.env.ORDNER_SYNC_INTERVAL_MS || '20000', 10);
 
 /**
- * Merkzettel „schon geprüft": rel → { size, mtimeMs }. Verhindert, dass eine
- * Datei mit junger mtime (z. B. frisch aus Git ausgecheckt) bei JEDEM Takt neu
- * gehasht wird. Lebt nur im Speicher — nach einem Neustart wird einmal ehrlich
- * nachgehasht.
+ * Merkzettel „schon geprüft": rel → { size, mtimeMs, hash }. Verhindert, dass
+ * eine Datei mit junger mtime (z. B. frisch aus Git ausgecheckt) bei JEDEM Takt
+ * neu gehasht wird. Der Hash liegt mit drin, weil eine Datei OHNE eigene
+ * documents-Zeile (Doublette) sonst in jedem Takt komplett von der Platte
+ * gelesen werden müsste. Lebt nur im Speicher — nach einem Neustart wird einmal
+ * ehrlich nachgehasht.
  */
-const gesehen = new Map(); // projectId → Map(rel → {size, mtimeMs})
+const gesehen = new Map(); // projectId → Map(rel → {size, mtimeMs, hash})
 
 /** Läufe je Projekt serialisieren — zwei Abgleiche desselben Ordners nie parallel. */
 const laufend = new Map(); // projectId → Promise
@@ -360,9 +365,29 @@ async function syncRaeume(db, projectId, ordner, loeschenErlaubt) {
   return raumJeRel;
 }
 
-/** Neue Datei in die Index-Pipeline geben (MinIO + documents-Zeile 'pending'). */
-async function legeDokumentAn(d, { projectId, datei, spaceId }) {
+/**
+ * Neue Datei in die Index-Pipeline geben (MinIO + documents-Zeile 'pending').
+ *
+ * `hash` ist der bereits gestreamte SHA-256 des Inhalts, falls der Aufrufer ihn
+ * hat. Damit fällt die teure Runde (lesen, hochladen, am Eindeutigkeitsindex
+ * scheitern, Objekt wieder löschen) weg, wenn derselbe Inhalt schon lebt: der
+ * Index `idx_documents_unique_content_hash` gilt projektÜBERGREIFEND, die
+ * projektinterne Vorprüfung im Abgleich kann eine Doublette aus einem ANDEREN
+ * Projekt also nicht sehen.
+ */
+async function legeDokumentAn(d, { projectId, datei, spaceId, hash = null }) {
   const { db, minio } = d;
+  if (hash) {
+    const lebtSchon = await db.query(
+      `SELECT 1 FROM documents
+        WHERE content_hash = $1 AND deleted_at IS NULL AND status <> 'deleted'
+        LIMIT 1`,
+      [hash]
+    );
+    if (lebtSchon.rows.length > 0) {
+      return null;
+    }
+  }
   const buffer = await fsp.readFile(datei.abs);
   const filename = minio.sanitizeFilename(datei.name);
   const fileExt = filename.includes('.') ? '.' + filename.split('.').pop().toLowerCase() : '';
@@ -414,12 +439,12 @@ async function legeDokumentAn(d, { projectId, datei, spaceId }) {
 
 /**
  * Platte → DB für EIN Projekt abgleichen.
- * @returns {Promise<{neu:number, geaendert:number, verschoben:number, geloescht:number}>}
+ * @returns {Promise<{neu:number, geaendert:number, verschoben:number, geloescht:number, doubletten:number}>}
  */
 async function synchronisiere(projectId, overrides = {}) {
   const d = deps(overrides);
   const { db, documentService, qdrantService, ablage } = d;
-  const stats = { neu: 0, geaendert: 0, verschoben: 0, geloescht: 0 };
+  const stats = { neu: 0, geaendert: 0, verschoben: 0, geloescht: 0, doubletten: 0 };
 
   const dir = await ablage.projektOrdner(projectId);
   const { ordner, dateien, lesefehler } = await leseBaum(dir);
@@ -496,9 +521,17 @@ async function synchronisiere(projectId, overrides = {}) {
       return;
     }
 
-    // Kein Eintrag an diesem Pfad: Umzug? Alt-Dokument? Oder wirklich neu?
-    const hash = await hashDatei(datei.abs);
-    cache.set(datei.rel, { size: datei.size, mtimeMs: datei.mtimeMs });
+    // Kein Eintrag an diesem Pfad: Umzug? Doublette? Alt-Dokument? Oder neu?
+    // Der Hash wird im Cache mitgeführt, weil dieser Zweig sonst JEDE Datei
+    // ohne eigene Zeile bei JEDEM Takt komplett von der Platte liest.
+    const bekannt = cache.get(datei.rel);
+    let hash;
+    if (bekannt?.hash && bekannt.size === datei.size && bekannt.mtimeMs === datei.mtimeMs) {
+      hash = bekannt.hash;
+    } else {
+      hash = await hashDatei(datei.abs);
+    }
+    cache.set(datei.rel, { size: datei.size, mtimeMs: datei.mtimeMs, hash });
     const perHash = zeileJeHash.get(hash);
     if (perHash && !fs.existsSync(path.join(dir, perHash.rel_pfad))) {
       // Umbenannt/verschoben: Pfad + Raum nachziehen, KEINE Neu-Indexierung.
@@ -515,6 +548,18 @@ async function synchronisiere(projectId, overrides = {}) {
           .catch(err => logger.warn(`Ordner-Sync: Qdrant-Payload: ${err.message}`));
       }
       stats.verschoben += 1;
+      return;
+    }
+
+    // Doublette: derselbe Inhalt liegt im selben Projekt schon unter einem
+    // anderen Pfad, und die Datei dort ist noch da. Ein zweiter Eintrag ist
+    // wegen `idx_documents_unique_content_hash` unmöglich. Bis zum 19.08.2026
+    // lief die Datei trotzdem in jedem Takt durch `legeDokumentAn`: lesen, nach
+    // MinIO hochladen, INSERT am Konflikt scheitern lassen, Objekt wieder
+    // löschen. Auf dem Testgerät waren das 57 Uploads plus 57 Löschungen pro
+    // Minute, rund um die Uhr, ohne dass sich irgendetwas änderte.
+    if (perHash) {
+      stats.doubletten += 1;
       return;
     }
 
@@ -536,9 +581,14 @@ async function synchronisiere(projectId, overrides = {}) {
       return;
     }
 
-    const neuId = await legeDokumentAn(d, { projectId, datei, spaceId: raum?.id || null });
+    const neuId = await legeDokumentAn(d, { projectId, datei, spaceId: raum?.id || null, hash });
     if (neuId) {
       stats.neu += 1;
+    } else {
+      // Der Inhalt lebt in einem anderen Projekt — dieselbe Sackgasse wie oben,
+      // nur projektübergreifend. Nicht als „neu" zählen, sonst meldet das
+      // Protokoll bei jedem Takt Arbeit, die nie ankommt.
+      stats.doubletten += 1;
     }
   };
 
@@ -597,7 +647,8 @@ async function synchronisiere(projectId, overrides = {}) {
   if (stats.neu || stats.geaendert || stats.verschoben || stats.geloescht) {
     logger.info(
       `Ordner-Sync ${projectId}: ${stats.neu} neu, ${stats.geaendert} geändert, ` +
-        `${stats.verschoben} verschoben, ${stats.geloescht} gelöscht`
+        `${stats.verschoben} verschoben, ${stats.geloescht} gelöscht` +
+        (stats.doubletten ? `, ${stats.doubletten} Doublette(n) übersprungen` : '')
     );
   }
   return stats;
