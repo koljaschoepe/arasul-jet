@@ -16,7 +16,12 @@ const os = require('os');
 const path = require('path');
 const db = require('../../database');
 const logger = require('../../utils/logger');
-const { ValidationError, NotFoundError, ConflictError } = require('../../utils/errors');
+const {
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+  ForbiddenError,
+} = require('../../utils/errors');
 const { SANDBOX_DATA_DIR } = require('../sandbox/sandboxShared');
 const pkg = require('./extensionPackage');
 // Der Watcher lädt extensionService seinerseits ausschließlich lazy (deps()),
@@ -488,6 +493,16 @@ async function resolveAppAsset(id, relPath = '') {
   const ext = await getExtension(id); // NotFound, wenn nicht installiert
   if (ext.type !== 'app') {
     throw new ValidationError('Nur App-Erweiterungen haben eine Oberfläche');
+  }
+  // Deaktiviert heißt deaktiviert. Bis zum 19.08.2026 lieferte diese Route das
+  // Paket weiter aus: das Symbol verschwand aus der Aktivitätsleiste, ein schon
+  // offener Tab bediente die App aber unverändert weiter. Die Brücken-Route
+  // hält den Schalter längst ein (token:null, F-02) — die Oberfläche muss es
+  // genauso tun, sonst sagt der Schalter etwas anderes als er tut.
+  if (!ext.enabled) {
+    throw new ForbiddenError(
+      `Erweiterung "${ext.name || id}" ist deaktiviert — im Katalog wieder einschalten`
+    );
   }
 
   const entry = (ext.manifest && ext.manifest.entry) || 'index.html';

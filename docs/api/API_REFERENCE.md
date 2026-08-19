@@ -1243,7 +1243,9 @@ läuft. Nur für `type = 'app'`; jeder Pfad ist symlink-sicher im Paket-Ordner
 eingesperrt. Auth kommt über das `arasul_session`-Cookie (ein iframe-`src` kann
 keinen Bearer-Header setzen). Die Antwort trägt `Content-Security-Policy:
 sandbox …` — das ausgelieferte Nutzer-HTML bekommt einen eigenen, opaken Origin
-und kommt nicht an Dashboard-Cookies oder die API.
+und kommt nicht an Dashboard-Cookies oder die API. Eine **deaktivierte**
+Erweiterung wird nicht ausgeliefert (`403`, seit 19.08.2026) — vorher bediente
+ein schon offener Tab die App weiter, obwohl der Schalter im Katalog aus war.
 
 #### KI-Brücke (Plan 017 Schritt 2)
 

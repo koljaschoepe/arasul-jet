@@ -99,6 +99,20 @@ describe('resolveAppAsset', () => {
     }
   });
 
+  it('liefert eine deaktivierte Erweiterung nicht mehr aus', async () => {
+    // Vor dem 19.08.2026 bediente ein schon offener Tab die App unverändert
+    // weiter, obwohl der Schalter im Katalog aus war.
+    mockExt(appRow({ enabled: false }));
+    await expect(extensionService.resolveAppAsset('notiz-app', '')).rejects.toThrow(/deaktiviert/i);
+  });
+
+  it('deaktiviert gilt auch für Unterdateien, nicht nur für die Startdatei', async () => {
+    mockExt(appRow({ enabled: false }));
+    await expect(extensionService.resolveAppAsset('notiz-app', 'assets/app.js')).rejects.toThrow(
+      /deaktiviert/i
+    );
+  });
+
   it('meldet eine fehlende Datei als NotFound', async () => {
     mockExt(appRow());
     await expect(extensionService.resolveAppAsset('notiz-app', 'gibtsnicht.html')).rejects.toThrow(
