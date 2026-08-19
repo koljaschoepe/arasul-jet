@@ -67,6 +67,8 @@ describe('Setup-on-first-login', () => {
 
       expect(db.query.mock.calls[1][0]).toContain('UPDATE arasul.geraet');
       expect(db.query.mock.calls[1][0]).toContain('werksreset_am = NULL');
+      // Auch die Stufe, sonst bleibt ein Wert stehen, der nichts mehr bedeutet.
+      expect(db.query.mock.calls[1][0]).toContain('werksreset_stufe = NULL');
     });
 
     test('ein fehlender Merker haelt die Ersteinrichtung nicht auf', async () => {

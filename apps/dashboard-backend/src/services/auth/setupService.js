@@ -52,7 +52,9 @@ async function createFirstAdmin({ username, password, email }) {
   // dass bootstrap.js aushilft. Best-effort: eine sehr alte Datenbank ohne
   // Migration 146 hat die Tabelle nicht, und das Anlegen ist schon gelungen.
   try {
-    await db.query('UPDATE arasul.geraet SET werksreset_am = NULL WHERE id = 1');
+    await db.query(
+      'UPDATE arasul.geraet SET werksreset_am = NULL, werksreset_stufe = NULL WHERE id = 1'
+    );
   } catch (error) {
     logger.debug(`Setup: Geraetezustand nicht zuruecksetzbar (${error.message})`);
   }
