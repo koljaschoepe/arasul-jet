@@ -148,4 +148,13 @@ describe('GET /api/gdpr/categories', () => {
     const memories = db.query.mock.calls.find(c => c[0].includes('FROM ai_memories'));
     expect(memories[0]).not.toContain('user_id');
   });
+
+  test('nennt dieselben Kategorien, die der Export auch liefert', async () => {
+    const res = await request(buildApp()).get('/api/gdpr/categories');
+    const namen = res.body.categories.map(k => k.name);
+
+    // Wissensräume und Projekte fehlten hier, obwohl der Export sie ausgibt.
+    expect(namen).toContain('Wissensräume');
+    expect(namen).toContain('Projekte');
+  });
 });

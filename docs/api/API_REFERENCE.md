@@ -1806,7 +1806,8 @@ keine Nutzerspalte) und Projekte (`projects` ebenso). Dokumente werden über
 keine Id.
 
 Scheitert eine Kategorie, steht der Grund in ihrem Block als `unvollstaendig`
-und zusätzlich in `_meta.unvollstaendig`. Eine leere Liste heißt also wirklich
+(Zeichenkette) und zusätzlich in `_meta.unvollstaendig` (Liste aus
+`{ kategorie, grund }`). Eine leere Liste heißt also wirklich
 "dazu gibt es nichts" und nicht "die Abfrage ist kaputt" (Stand 19.08.2026:
 vorher verschluckte ein `.catch` jeden Fehler).
 

@@ -49,6 +49,13 @@ router.get(
      * Bei einer Auskunft nach Art. 15 ist "leer" eine Aussage. Die darf nicht
      * geraten sein, also wird ein Fehlschlag mitgeliefert und protokolliert.
      */
+    //
+    // Gefangen wird JEDER Fehler, nicht nur Schema-Drift: auch ein
+    // Verbindungsabbruch oder ein Timeout landet als `unvollstaendig` in der
+    // Antwort statt als 500. Das ist so gewollt — eine Auskunft, die zehn von
+    // elf Kategorien liefert und die elfte benennt, ist mehr wert als gar
+    // keine. Still ist sie dabei nie: der Grund steht in der Antwort und im
+    // Protokoll.
     const unvollstaendig = [];
     const hole = async (kategorie, sql, params) => {
       try {
@@ -197,9 +204,10 @@ router.get(
       ),
 
       // 12. Projekte. Die Doku führt sie seit jeher als Kategorie, der Export
-      //     lieferte sie nie. `projects` hat keine Besitzerspalte (Migration 089
-      //     hat sie für diese Tabelle nie angelegt), also boxweit mit Hinweis —
-      //     wie bei den KI-Erinnerungen.
+      //     lieferte sie nie. Eine Besitzerspalte gibt es nicht: Migration 089
+      //     hatte `projects.owner_id` angelegt, 104 hat die damalige Tabelle
+      //     gedroppt und 118 sie ohne Besitzer neu aufgebaut. Also boxweit mit
+      //     Hinweis, wie bei den KI-Erinnerungen.
       hole(
         'projekte',
         `SELECT id, name, slug, description, is_default, created_at, updated_at
@@ -284,16 +292,19 @@ router.get(
     // Dieselben Bedingungen wie im Export — sonst nennt die Übersicht andere
     // Zahlen als die Auskunft. `documents.uploaded_by` enthält einen Namen,
     // keine Id; `ai_memories` hat gar keine Nutzerspalte.
-    const [chatCount, docCount, memoryCount, auditCount] = await Promise.all([
-      db.query('SELECT count(*) FROM chat_conversations WHERE user_id = $1', [userId]),
-      db.query(
-        `SELECT count(*) FROM documents
-          WHERE (owner_id = $1 OR uploaded_by = $2) AND deleted_at IS NULL`,
-        [userId, req.user.username]
-      ),
-      db.query('SELECT count(*) FROM ai_memories WHERE is_active = TRUE'),
-      db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
-    ]);
+    const [chatCount, docCount, memoryCount, auditCount, spaceCount, projektCount] =
+      await Promise.all([
+        db.query('SELECT count(*) FROM chat_conversations WHERE user_id = $1', [userId]),
+        db.query(
+          `SELECT count(*) FROM documents
+            WHERE (owner_id = $1 OR uploaded_by = $2) AND deleted_at IS NULL`,
+          [userId, req.user.username]
+        ),
+        db.query('SELECT count(*) FROM ai_memories WHERE is_active = TRUE'),
+        db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
+        db.query('SELECT count(*) FROM knowledge_spaces WHERE owner_id = $1', [userId]),
+        db.query('SELECT count(*) FROM projects'),
+      ]);
 
     res.json({
       categories: [
@@ -323,6 +334,16 @@ router.get(
         {
           name: 'Sicherheitsereignisse',
           description: 'Passwortänderungen, Konfigurationsänderungen',
+        },
+        {
+          name: 'Wissensräume',
+          description: 'Selbst angelegte Wissensräume',
+          count: parseInt(spaceCount.rows[0].count),
+        },
+        {
+          name: 'Projekte',
+          description: 'Projekte auf dieser Box (ohne Nutzerbindung)',
+          count: parseInt(projektCount.rows[0].count),
         },
       ],
       timestamp: new Date().toISOString(),
