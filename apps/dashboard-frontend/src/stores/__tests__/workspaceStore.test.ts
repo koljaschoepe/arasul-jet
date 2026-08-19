@@ -115,6 +115,36 @@ describe('workspaceStore — Tabs', () => {
     expect(useWorkspaceStore.getState().tabs[0]?.filePath).toBe('Wissen/y.md');
   });
 
+  it('schließt den Tab einer gelöschten Datei (Nachprüfung 19.08.2026)', () => {
+    const { openTab, schliesseProjektdatei } = useWorkspaceStore.getState();
+    openTab({ type: 'projektdatei', projectId: 'p1', filePath: 'notiz.md', title: 'notiz.md' });
+    useWorkspaceStore.getState().setTabDirty('projektdatei:p1:notiz.md', true);
+    schliesseProjektdatei('p1', 'notiz.md');
+    const { tabs, activeTabId, dirtyTabs } = useWorkspaceStore.getState();
+    expect(tabs).toHaveLength(0);
+    expect(activeTabId).toBeNull();
+    // Sonst haelt ein Geister-Eintrag die beforeunload-Warnung offen.
+    expect(dirtyTabs.has('projektdatei:p1:notiz.md')).toBe(false);
+  });
+
+  it('schließt beim Löschen eines Ordners auch die Tabs darunter', () => {
+    const { openTab, schliesseProjektdatei } = useWorkspaceStore.getState();
+    openTab({ type: 'projektdatei', projectId: 'p1', filePath: 'A/b/c.md', title: 'c.md' });
+    openTab({ type: 'projektdatei', projectId: 'p1', filePath: 'A/b.md', title: 'b.md' });
+    schliesseProjektdatei('p1', 'A/b');
+    const pfade = useWorkspaceStore.getState().tabs.map(t => t.filePath);
+    // 'A/b.md' faengt zwar mit 'A/b' an, ist aber kein Kind von 'A/b'.
+    expect(pfade).toEqual(['A/b.md']);
+  });
+
+  it('lässt unbeteiligte Tabs beim Löschen stehen', () => {
+    const { openTab, schliesseProjektdatei } = useWorkspaceStore.getState();
+    openTab({ type: 'settings' });
+    openTab({ type: 'projektdatei', projectId: 'p2', filePath: 'notiz.md', title: 'notiz.md' });
+    schliesseProjektdatei('p1', 'notiz.md');
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(2);
+  });
+
   it('moveTab ordnet Tabs um (stabile Reihenfolge)', () => {
     const { openTab } = useWorkspaceStore.getState();
     openTab({ type: 'automationen' });
