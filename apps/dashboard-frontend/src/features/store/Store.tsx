@@ -97,7 +97,7 @@ function StoreWorkspace({ bereich }: { bereich: StoreTab }) {
   );
 }
 
-function Store({ bereich = 'extensions' }: { bereich?: StoreTab }) {
+function Store({ bereich }: { bereich: StoreTab }) {
   return (
     <ComponentErrorBoundary componentName={bereich === 'models' ? 'Modelle' : 'Erweiterungen'}>
       <Routes>

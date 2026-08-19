@@ -194,7 +194,10 @@ export function FeatureTabHost({
         <Route
           path="/store/*"
           element={routeFor(
-            tab.type === 'modelle' ? 'modelle' : 'erweiterungen',
+            // Der Schluessel ist der ROUTEN-Name, nicht der Tab-Typ. Beide Tabs
+            // liegen auf demselben inneren Pfad /store, und SELF_KEYS sagt nur,
+            // ob dieser Pfad zum Tab selbst gehoert oder zur Bruecke.
+            'store',
             <Store bereich={tab.type === 'modelle' ? 'models' : 'extensions'} />,
             { type: tab.type === 'modelle' ? 'modelle' : 'erweiterungen' }
           )}
