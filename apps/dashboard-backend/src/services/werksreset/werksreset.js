@@ -308,6 +308,17 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
       await client.query('DROP SCHEMA IF EXISTS n8n CASCADE');
       await client.query('CREATE SCHEMA n8n');
       await werkseinstellungen(client);
+      // Der Merker, ohne den bootstrap.js beim naechsten Start wieder einen
+      // Administrator aus ADMIN_PASSWORD anlegt. Das Entwerten in der .env
+      // allein reicht nicht: compose reicht dasselbe Passwort zusaetzlich als
+      // Docker-Secret durch, und die Datei liegt read-only im Container.
+      await client.query(
+        `INSERT INTO arasul.geraet (id, werksreset_am, werksreset_stufe)
+              VALUES (1, now(), $1)
+         ON CONFLICT (id) DO UPDATE
+                SET werksreset_am = now(), werksreset_stufe = EXCLUDED.werksreset_stufe`,
+        [stufe]
+      );
     }
     return ergebnis;
   });

@@ -136,6 +136,7 @@ const BLEIBT = [
   ['public.document_categories', 'Werkskategorien für Dokumente'],
   ['public.n8n_allowed_external_domains', 'Werksliste erlaubter Ziele für n8n'],
   ['arasul.platform_apps', 'Werksliste der Plattform-Anwendungen'],
+  ['arasul.geraet', 'Merker über den Werksreset hinweg, er muss ihn gerade überleben'],
   ['public.system_settings', 'Einzelzeile mit id=1, wird zurückgesetzt statt gelöscht'],
 ];
 

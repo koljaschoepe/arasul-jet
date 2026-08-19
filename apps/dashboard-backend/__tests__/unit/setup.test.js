@@ -50,6 +50,36 @@ describe('Setup-on-first-login', () => {
       expect(user).toEqual({ id: 1, username: 'boss', email: null });
     });
 
+    /**
+     * Der Werksreset setzt einen Merker, damit bootstrap.js beim naechsten
+     * Start nicht den alten Zugang aus dem Docker-Secret wieder anlegt. Sobald
+     * hier ein Administrator entsteht, hat der Merker seine Aufgabe erfuellt.
+     * Bliebe er stehen, wuerde nach jedem spaeteren Loeschen des letzten Kontos
+     * die Ersteinrichtung erzwungen, statt dass bootstrap.js aushilft.
+     */
+    test('loescht den Werksreset-Merker', async () => {
+      db.query.mockReset();
+      db.query
+        .mockResolvedValueOnce({ rows: [{ id: 1, username: 'boss', email: null }] })
+        .mockResolvedValueOnce({});
+
+      await createFirstAdmin({ username: 'boss', password: 'secret12' });
+
+      expect(db.query.mock.calls[1][0]).toContain('UPDATE arasul.geraet');
+      expect(db.query.mock.calls[1][0]).toContain('werksreset_am = NULL');
+    });
+
+    test('ein fehlender Merker haelt die Ersteinrichtung nicht auf', async () => {
+      db.query.mockReset();
+      db.query
+        .mockResolvedValueOnce({ rows: [{ id: 1, username: 'boss', email: null }] })
+        .mockRejectedValueOnce(new Error('relation "arasul.geraet" does not exist'));
+
+      await expect(
+        createFirstAdmin({ username: 'boss', password: 'secret12' })
+      ).resolves.toEqual({ id: 1, username: 'boss', email: null });
+    });
+
     test('rejects with ConflictError when the race is lost (insert wrote nothing)', async () => {
       db.query.mockReset();
       db.query.mockResolvedValueOnce({ rows: [] });

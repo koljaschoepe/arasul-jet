@@ -51,35 +51,75 @@ describe('ensureAdminUser', () => {
   test('creates admin user when table is empty', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ count: '0' }] }) // COUNT
+      .mockResolvedValueOnce({ rows: [{ werksreset_am: null }] }) // Merker
       .mockResolvedValueOnce({}); // INSERT
 
     await ensureAdminUser();
 
     expect(hashPassword).toHaveBeenCalledWith('testpass');
-    expect(db.query).toHaveBeenCalledTimes(2);
-    expect(db.query.mock.calls[1][0]).toContain('INSERT INTO admin_users');
+    expect(db.query).toHaveBeenCalledTimes(3);
+    expect(db.query.mock.calls[2][0]).toContain('INSERT INTO admin_users');
   });
 
   test('logs error when ADMIN_PASSWORD not set', async () => {
     delete process.env.ADMIN_PASSWORD;
-    db.query.mockResolvedValueOnce({ rows: [{ count: '0' }] });
+    db.query
+      .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+      .mockResolvedValueOnce({ rows: [{ werksreset_am: null }] });
     const logger = require('../../src/utils/logger');
 
     await ensureAdminUser();
 
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('ADMIN_PASSWORD'));
-    expect(db.query).toHaveBeenCalledTimes(1); // No INSERT
+    expect(db.query).toHaveBeenCalledTimes(2); // No INSERT
   });
 
   test('logs error when ADMIN_PASSWORD is redacted', async () => {
     process.env.ADMIN_PASSWORD = 'REDACTED_AFTER_BOOTSTRAP';
-    db.query.mockResolvedValueOnce({ rows: [{ count: '0' }] });
+    db.query
+      .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+      .mockResolvedValueOnce({ rows: [{ werksreset_am: null }] });
     const logger = require('../../src/utils/logger');
 
     await ensureAdminUser();
 
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('ADMIN_PASSWORD'));
-    expect(db.query).toHaveBeenCalledTimes(1); // No INSERT
+    expect(db.query).toHaveBeenCalledTimes(2); // No INSERT
+  });
+
+  /**
+   * Der zweite Weg zum alten Passwort, gefunden in der Live-Abnahme am
+   * 19.08.2026. Der Werksreset entwertet ADMIN_PASSWORD in der .env, aber
+   * compose reicht dasselbe Passwort zusaetzlich als Docker-Secret durch
+   * (ADMIN_PASSWORD_FILE), und resolveSecrets setzt process.env daraus. Der
+   * naechste Start legte damit den alten Zugang wieder an: ein
+   * zurueckgesetztes und weitergegebenes Geraet liesse sich vom Vorbesitzer
+   * weiter oeffnen.
+   */
+  test('legt nach einem Werksreset keinen Administrator an, auch mit gueltigem Passwort', async () => {
+    process.env.ADMIN_PASSWORD = 'das-alte-passwort';
+    db.query
+      .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+      .mockResolvedValueOnce({ rows: [{ werksreset_am: '2026-08-19T21:00:00Z' }] });
+    const logger = require('../../src/utils/logger');
+
+    await ensureAdminUser();
+
+    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(hashPassword).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Ersteinrichtung'));
+  });
+
+  test('ohne die Merker-Tabelle bleibt es beim Verhalten von vorher', async () => {
+    // Sehr alte Datenbank, Migration 146 noch nicht gelaufen.
+    db.query
+      .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+      .mockRejectedValueOnce(new Error('relation "arasul.geraet" does not exist'))
+      .mockResolvedValueOnce({});
+
+    await ensureAdminUser();
+
+    expect(db.query.mock.calls[2][0]).toContain('INSERT INTO admin_users');
   });
 
   test('handles missing table gracefully', async () => {

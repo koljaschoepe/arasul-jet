@@ -2085,7 +2085,11 @@ Fehlgriff, nicht gegen eine übernommene Sitzung in einer Schleife.
 
 Vor jedem Löschen entwertet die Stufe `auslieferung` das Erstpasswort in der
 `.env` (`ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP`). Scheitert das, bricht der
-Reset ab, bevor irgendetwas gelöscht ist. Die Reihenfolge ist Absicht:
+Reset ab, bevor irgendetwas gelöscht ist. Zusätzlich setzt er den Merker
+`arasul.geraet.werksreset_am`: dasselbe Passwort kommt auch als Docker-Secret
+herein (`ADMIN_PASSWORD_FILE`), und die Datei liegt read-only im Container.
+Solange der Merker steht, legt `bootstrap.js` keinen Administrator an; die
+Ersteinrichtung löscht ihn. Die Reihenfolge ist Absicht:
 `bootstrap.js` legt beim Start wieder einen Administrator an, sobald keiner
 existiert und `ADMIN_PASSWORD` noch gültig ist. Ein Stromausfall zwischen
 Löschen und Entwerten würde das Gerät also mit leerer Tabelle und gültigem alten
