@@ -254,6 +254,38 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
 
   const begonnen = Date.now();
   const tabellen = tabellenFuer(stufe, modelleLoeschen).map(t => t.name);
+
+  // ZUERST, vor jedem Loeschen: das Erstpasswort entwerten.
+  //
+  // bootstrap.js legt beim Start wieder einen Administrator an, sobald keiner
+  // existiert UND ADMIN_PASSWORD noch in der .env steht. Liefe das Entwerten
+  // erst nach der Transaktion, gaebe es ein Fenster: Stromausfall zwischen
+  // Commit und Dateischreiben, und das Geraet startet mit leerer Tabelle, aber
+  // gueltigem alten Passwort wieder hoch. Genau die Luege, gegen die dieser
+  // Schritt gebaut ist. Ein Geraet, das fuenf Jahre unbeaufsichtigt laufen
+  // soll, faellt irgendwann in dieses Fenster.
+  //
+  // Andersherum ist der Fehlerfall harmlos: entwertetes Passwort, Datenbank
+  // noch heil. Deshalb bricht ein Fehlschlag hier ab, statt weiterzumachen.
+  //
+  // Kein Schreiben ueber Zwischendatei und Umbenennen: die .env ist als EINZELNE
+  // Datei in den Container gebunden. Docker haengt sie ueber ihren inode ein,
+  // ein rename wuerde die Bindung zerreissen und der Container laese danach
+  // dauerhaft die alte Fassung.
+  if (stufe === 'auslieferung') {
+    try {
+      const { updateEnvVariable } = require('../../utils/envManager');
+      await updateEnvVariable('ADMIN_PASSWORD', 'REDACTED_AFTER_BOOTSTRAP');
+      delete process.env.ADMIN_PASSWORD;
+    } catch (err) {
+      throw new ConflictError(
+        `Werksreset abgebrochen, bevor etwas geloescht wurde: das Erstpasswort ` +
+          `laesst sich nicht entwerten (${err.message}). Ohne das legt das Geraet ` +
+          `beim naechsten Start den alten Zugang mit dem alten Passwort wieder an.`
+      );
+    }
+  }
+
   logger.warn(
     `[werksreset] Stufe "${stufe}" gestartet von ${ausgeloestVon || 'unbekannt'}, ` +
       `${tabellen.length} Tabellen, Modelle ${modelleLoeschen ? 'mit' : 'ohne'}`
@@ -349,18 +381,6 @@ async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
   });
 
   if (stufe === 'auslieferung') {
-    // Ohne diesen Schritt waere der Werksreset eine Luege: `bootstrap.js` legt
-    // beim naechsten Start wieder einen Administrator an, sobald keiner
-    // existiert UND `ADMIN_PASSWORD` noch in der .env steht. Das alte Passwort
-    // wuerde nach dem Zuruecksetzen also weiter funktionieren. Der Wert, den
-    // bootstrap.js als "nicht mehr verwendbar" liest, ist REDACTED_AFTER_BOOTSTRAP.
-    ergebnis.erstpasswort = await stillEntfernen('Erstpasswort', async () => {
-      const { updateEnvVariable } = require('../../utils/envManager');
-      await updateEnvVariable('ADMIN_PASSWORD', 'REDACTED_AFTER_BOOTSTRAP');
-      delete process.env.ADMIN_PASSWORD;
-      return { entwertet: true };
-    });
-
     ergebnis.n8n = await stillEntfernen('n8n', async () => {
       const docker = require('../core/docker');
       await docker.restartContainer('n8n');

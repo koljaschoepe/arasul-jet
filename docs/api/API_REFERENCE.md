@@ -2082,6 +2082,14 @@ Beide Endpunkte sind gebremst: die Ausführung zwei Mal je Stunde und Nutzer, di
 Vorschau zwanzig Mal in fünf Minuten. Der Gerätename als Bestätigung schützt
 gegen den Fehlgriff, nicht gegen eine übernommene Sitzung in einer Schleife.
 
+Vor jedem Löschen entwertet die Stufe `auslieferung` das Erstpasswort in der
+`.env` (`ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP`). Scheitert das, bricht der
+Reset ab, bevor irgendetwas gelöscht ist. Die Reihenfolge ist Absicht:
+`bootstrap.js` legt beim Start wieder einen Administrator an, sobald keiner
+existiert und `ADMIN_PASSWORD` noch gültig ist. Ein Stromausfall zwischen
+Löschen und Entwerten würde das Gerät also mit leerer Tabelle und gültigem alten
+Passwort hochfahren.
+
 Nach der Stufe `auslieferung` wird zusätzlich der Identitäts-Zwischenspeicher
 von `requireAuth` geleert und die Oberfläche meldet sich ab. Ohne das käme die
 auslösende Sitzung noch bis zu 60 Sekunden durch, gegen eine Datenbank ohne

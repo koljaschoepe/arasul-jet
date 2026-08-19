@@ -62,7 +62,6 @@ interface Bericht {
   vektoren?: Nebenwirkung;
   n8n?: Nebenwirkung;
   modelle?: Nebenwirkung;
-  erstpasswort?: Nebenwirkung;
   ordner?: { pfad: string; fehler?: string }[];
 }
 
@@ -73,8 +72,6 @@ interface Bericht {
  * pauschal Erfolg melden.
  */
 const FOLGE: Record<string, string> = {
-  erstpasswort:
-    'Das alte Passwort steht noch in der .env. Beim naechsten Neustart legt das Geraet den alten Zugang wieder an. Bitte ADMIN_PASSWORD von Hand auf REDACTED_AFTER_BOOTSTRAP setzen.',
   n8n: 'n8n wurde nicht neu gestartet. Die Workflow-Oberflaeche bleibt bis zum naechsten Neustart des Dienstes leer oder fehlerhaft.',
   vektoren:
     'Die Vektoren der Dokumente stehen noch in Qdrant. Die Suche kann Treffer zu geloeschten Dokumenten liefern.',

@@ -126,8 +126,8 @@ test('meldet gescheiterte Teilschritte, statt Erfolg zu behaupten', async () => 
     zeilenGesamt: 90,
     dauerMs: 1200,
     tabellen: { a: 1 },
-    erstpasswort: { ok: false, fehler: 'EACCES: permission denied' },
-    n8n: { ok: true },
+    n8n: { ok: false, fehler: 'container not found' },
+    vektoren: { ok: true },
   });
   const nutzer = userEvent.setup();
   render(<Werksreset />);
@@ -137,8 +137,8 @@ test('meldet gescheiterte Teilschritte, statt Erfolg zu behaupten', async () => 
   await nutzer.click(screen.getByRole('button', { name: /jetzt ausführen/i }));
 
   expect(await screen.findByText(/1 Schritte sind nicht durchgelaufen/)).toBeInTheDocument();
-  expect(screen.getByText(/alte Passwort steht noch in der .env/)).toBeInTheDocument();
-  expect(screen.getByText(/EACCES/)).toBeInTheDocument();
+  expect(screen.getByText(/n8n wurde nicht neu gestartet/)).toBeInTheDocument();
+  expect(screen.getByText(/container not found/)).toBeInTheDocument();
   expect(screen.queryByText(/startet die Ersteinrichtung/)).not.toBeInTheDocument();
 });
 

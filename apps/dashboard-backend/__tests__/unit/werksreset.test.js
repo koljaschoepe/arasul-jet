@@ -302,6 +302,11 @@ describe('ausfuehren, ganzer Durchlauf', () => {
       'ADMIN_PASSWORD',
       'REDACTED_AFTER_BOOTSTRAP'
     );
+    // Reihenfolge: erst entwerten, dann loeschen. Andersherum gaebe es ein
+    // Fenster, in dem admin_users leer ist und das alte Passwort noch gilt.
+    expect(envManager.updateEnvVariable.mock.invocationCallOrder[0]).toBeLessThan(
+      db.transaction.mock.invocationCallOrder[0]
+    );
     expect(clientAbfragen).toContain('DROP SCHEMA IF EXISTS n8n CASCADE');
     expect(clientAbfragen).toContain('CREATE SCHEMA n8n');
     expect(docker.restartContainer).toHaveBeenCalledWith('n8n');
@@ -383,5 +388,45 @@ describe('werkswert', () => {
     ]) {
       expect(werksreset._werkswert(wert)).toBe('NULL');
     }
+  });
+});
+
+/**
+ * Das Entwerten des Erstpassworts laeuft VOR der Transaktion. Scheitert es,
+ * darf nichts geloescht werden: entwertetes Passwort bei heiler Datenbank ist
+ * harmlos, leere Datenbank bei gueltigem Passwort ist die Luege, gegen die der
+ * ganze Schritt gebaut ist.
+ */
+describe('Erstpasswort als Vorbedingung', () => {
+  const fs = require('fs');
+  const envManager = require('../../src/utils/envManager');
+
+  beforeEach(() => {
+    db.query.mockReset();
+    db.transaction.mockReset();
+    tabellenInDerDatenbank(ALLE);
+    db.transaction.mockResolvedValue({});
+    fs.promises.readdir.mockResolvedValue([]);
+    envManager.updateEnvVariable.mockReset();
+  });
+
+  test('ein nicht schreibbares .env bricht den Reset ab, bevor etwas weg ist', async () => {
+    envManager.updateEnvVariable.mockRejectedValue(new Error('EACCES: permission denied'));
+
+    await expect(
+      werksreset.ausfuehren({ stufe: 'auslieferung', bestaetigung: 'orin-vorfuehrer' })
+    ).rejects.toThrow(/bevor etwas geloescht wurde/);
+
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  test('Stufe "inhalte" fasst die .env gar nicht an', async () => {
+    envManager.updateEnvVariable.mockRejectedValue(new Error('EACCES: permission denied'));
+
+    await expect(
+      werksreset.ausfuehren({ stufe: 'inhalte', bestaetigung: 'orin-vorfuehrer' })
+    ).resolves.toBeDefined();
+
+    expect(envManager.updateEnvVariable).not.toHaveBeenCalled();
   });
 });
