@@ -179,29 +179,37 @@ Kurzfassung:
 - **Integrität:** Eingabekontrolle (Audit-Log Postgres-Trigger auf
   workflow_entity / credentials_entity / user), Übertragungskontrolle (TLS
   ≥1.2 für jede ausgehende Verbindung, valide CA-signierte Zertifikate).
-- **Verfügbarkeit:** Tägliche Sicherung von Datenbank, Objektspeicher,
-  n8n-Abläufen und Flow-Definitionen um 02:00 UTC, Aufbewahrung 30 Tage
-  täglich, 12 Wochen wöchentlich, 60 Monate monatlich. Wöchentlicher
-  Wiederherstellungstest. Selbstheilungsdienst.
+- **Verfügbarkeit:** Tägliche, mit AES-256 verschlüsselte Sicherung von
+  Datenbank, Objektspeicher, n8n-Abläufen und Flow-Definitionen um 02:00 UTC,
+  Aufbewahrung 30 Tage täglich, 12 Wochen wöchentlich, 60 Monate monatlich.
+  Wöchentlicher automatischer Wiederherstellungstest, der die Sicherung in einen
+  eigenen Datenbankcontainer einspielt und die Inhalte zählt.
+  Selbstheilungsdienst.
 - **Belastbarkeit:** Ressourcenlimits, Rate-Limiting, Container-Isolation
   (`no-new-privileges`, `cap_drop=ALL`).
 - **Wiederherstellbarkeit:** Wochen- und Monats-Snapshots mit der oben
-  genannten Aufbewahrung.
+  genannten Aufbewahrung, fortlaufende WAL-Archivierung für die
+  Wiederherstellung auf einen Zeitpunkt, und ein Escrow des
+  n8n-Verschlüsselungsschlüssels neben der Sicherung, ohne den sich
+  Zugangsdaten aus einem Datenbankabzug nicht wiederherstellen ließen.
 - **Verfahren regelmäßiger Überprüfung:** wöchentlicher automatischer
   Wiederherstellungstest mit Protokoll, Audit-Log-Reviews.
 
-> **Offen zum Stand 19.08.2026, vor Vertragsabschluss zu schließen (Gate G6).**
-> Vier frühere Zusagen dieser Anlage sind gestrichen, weil sie am Gerät nicht
-> zutreffen, gemessen am 19.08.2026 auf dem Orin: die Sicherungen sind **nicht
-> verschlüsselt** (`backup_report.json`, `"encrypted": "false"`), eine
-> **WAL-Archivierung läuft nicht** (`archive_mode = off`, 0 archivierte
-> Segmente), ein **Schlüssel-Escrow existiert nicht** (Ablage seit dem
-> 09.05.2026 leer), und der **wöchentliche Wiederherstellungstest ist am
-> 16.08.2026 fehlgeschlagen** (`"status": "failed"`, 0 geprüfte Tabellen),
-> nachdem er bis zum 02.08. mit 6 geprüften Tabellen bestanden hatte. Solange
-> das nicht behoben ist, darf diese Anlage nichts davon zusagen. Ebenfalls
-> gestrichen: der jährliche Penetrationstest, der bisher zugesagt war und nie
-> stattgefunden hat.
+> **Nachgewiesen am 19.08.2026 auf dem Gerät.** Diese vier Zusagen standen am
+> Vormittag desselben Tages in dieser Anlage, ohne dass das Gerät sie erfüllte:
+> die Sicherungen waren unverschlüsselt, eine WAL-Archivierung lief nicht, ein
+> Schlüssel-Escrow existierte nicht, und der Wiederherstellungstest war am
+> 16.08.2026 fehlgeschlagen, ohne dass es jemandem auffiel. Sie wurden deshalb
+> zunächst gestrichen und stehen erst wieder hier, seit sie belegt sind:
+> `backup_report.json` meldet `"status": "completed"` und `"encrypted": "true"`,
+> `restore_drill_report.json` meldet `"status": "ok"` mit 6 geprüften Tabellen
+> und 8 geprüften Flow-Dateien aus einer verschlüsselten Sicherung,
+> `SHOW archive_mode` liefert `on` bei 0 fehlgeschlagenen Archivierungen, und
+> `/backups/escrow` enthält den Schlüssel mit Prüfsumme. Umgesetzt in
+> arasul-jet #407 bis #410 und #412.
+>
+> Der jährliche Penetrationstest bleibt gestrichen. Er war zugesagt und hat nie
+> stattgefunden.
 
 ---
 

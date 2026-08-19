@@ -54,12 +54,16 @@ Verarbeitungstätigkeiten (Art. 30 DSGVO) zu dokumentieren.
 
 - TLS-Pflicht für alle ausgehenden Verbindungen (Standard 443).
 - Credentials AES-256-verschlüsselt im PostgreSQL gespeichert; der
-  Verschlüsselungsschlüssel liegt als Docker-Secret.
+  Verschlüsselungsschlüssel liegt als Docker-Secret und wird zusätzlich mit
+  jeder Sicherung im Backup-Escrow abgelegt, selbst verschlüsselt und mit
+  Prüfsumme. Ohne ihn ließen sich die Zugangsdaten aus einem Datenbankabzug
+  nicht wiederherstellen.
 
-> **Offen zum Stand 19.08.2026 (Gate G6):** Der zusätzliche Backup-Escrow für
-> den Verschlüsselungsschlüssel war hier zugesagt und existiert nicht. Die
-> Ablage `/backups/escrow` auf dem Gerät ist seit dem 09.05.2026 leer. Geht der
-> Docker-Secret verloren, sind die n8n-Credentials nicht wiederherstellbar.
+> **Am 19.08.2026 nachgewiesen.** Diese Zusage stand hier, ohne erfüllt zu sein:
+> die Ablage `/backups/escrow` war seit dem 09.05.2026 leer, weil `backup.sh`
+> den Schlüssel bewusst nur bei eingeschalteter Verschlüsselung ablegt und die
+> Verschlüsselung aus war. Seit arasul-jet #409 liegt dort ein Schlüssel mit
+> Prüfsumme.
 
 - n8n-Editor nur erreichbar nach Dashboard-Login (Forward-Auth) und
   zusätzlich n8n-eigener Authentifizierung.
