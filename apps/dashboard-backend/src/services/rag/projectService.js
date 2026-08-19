@@ -185,7 +185,7 @@ async function deleteProject(id) {
   );
   if ((folderCount.rows[0]?.c ?? 0) > 0) {
     throw new ConflictError(
-      'Projekt enthält noch Ordner — bitte zuerst die Ordner löschen oder in ein anderes Projekt verschieben'
+      'Projekt enthält noch Ordner, bitte zuerst die Ordner löschen oder in ein anderes Projekt verschieben'
     );
   }
 

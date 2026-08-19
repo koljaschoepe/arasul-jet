@@ -88,7 +88,7 @@ export default function KundenUebersichtTab() {
           <EmptyState
             icon={<Users className="size-6" aria-hidden="true" />}
             title="Noch keine Kunden"
-            description="Lege im Chat mit /neuer-kunde den ersten Kunden an — die Firma wird automatisch im Web recherchiert."
+            description="Lege im Chat mit /neuer-kunde den ersten Kunden an, die Firma wird automatisch im Web recherchiert."
           />
         ) : (
           <div className="mx-auto w-full max-w-4xl overflow-x-auto rounded-lg border border-border">

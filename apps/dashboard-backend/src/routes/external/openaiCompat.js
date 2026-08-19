@@ -108,7 +108,7 @@ async function resolveModelOrThrow(requested) {
   const target = requested || fallback;
   if (!target) {
     throw new ServiceUnavailableError(
-      'No LLM model installed — install one via the Store before calling this endpoint.'
+      'No LLM model installed, install one via the Store before calling this endpoint.'
     );
   }
   return target;

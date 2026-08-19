@@ -190,8 +190,8 @@ export function WorkspaceSwitcher() {
       }
       toast.success(
         gestartet > 0
-          ? 'Einrichtung gestartet — der Fortschritt ist in der Flow-Zentrale und im Chat sichtbar'
-          : 'Einrichtung übersprungen — jederzeit im Chat mit /einrichtung nachholbar'
+          ? 'Einrichtung gestartet, der Fortschritt ist in der Flow-Zentrale und im Chat sichtbar'
+          : 'Einrichtung übersprungen, jederzeit im Chat mit /einrichtung nachholbar'
       );
       einrichtungSchliessen();
     } catch (err) {
@@ -279,8 +279,8 @@ export function WorkspaceSwitcher() {
             <DialogHeader>
               <DialogTitle>„{einrichtung.name}&ldquo; einrichten</DialogTitle>
               <DialogDescription>
-                Deine Webseite wird automatisch ausgewertet und füllt Firmenprofil und Briefkopf —
-                optional legst du gleich den ersten Kunden an (auch der wird selbstständig im Web
+                Deine Webseite wird automatisch ausgewertet und füllt Firmenprofil und Briefkopf.
+                Optional legst du gleich den ersten Kunden an (auch der wird selbstständig im Web
                 recherchiert).
               </DialogDescription>
             </DialogHeader>
@@ -382,7 +382,7 @@ export function WorkspaceSwitcher() {
             <DialogHeader>
               <DialogTitle>Neues Projekt</DialogTitle>
               <DialogDescription>
-                Starte leer — oder mit einer fertigen Vorlage: Sie bringt Ordnerstruktur,
+                Starte leer, oder mit einer fertigen Vorlage: Sie bringt Ordnerstruktur,
                 Wissens-Dateien und passende Flows gleich mit.
               </DialogDescription>
             </DialogHeader>
@@ -410,7 +410,7 @@ export function WorkspaceSwitcher() {
                           Leeres Projekt
                         </span>
                         <span className="block text-ui-xs text-muted-foreground">
-                          Ohne Struktur starten — alles selbst aufbauen.
+                          Ohne Struktur starten, alles selbst aufbauen.
                         </span>
                       </span>
                     </button>

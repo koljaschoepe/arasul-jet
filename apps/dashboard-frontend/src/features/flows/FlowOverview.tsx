@@ -70,7 +70,7 @@ export default function FlowOverview() {
             </span>
             <span className="text-sm font-medium text-foreground">Neuen Flow erstellen</span>
             <span className="max-w-md text-xs text-muted-foreground">
-              Ein Flow ist ein wiederverwendbarer Auftrag an die KI — im Chat per /name gestartet
+              Ein Flow ist ein wiederverwendbarer Auftrag an die KI, im Chat per /name gestartet
               oder automatisch über n8n.
             </span>
           </button>

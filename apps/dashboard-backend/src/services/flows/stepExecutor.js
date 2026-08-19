@@ -274,7 +274,7 @@ async function executeSteps({
       let gekuerztHinweis = '';
       if (elemente.length > MAX_MAP_ELEMENTE) {
         gekuerztHinweis =
-          `\n\n[Hinweis: Liste "${schritt.wiederhole_ueber}" hatte ${elemente.length} Elemente — ` +
+          `\n\n[Hinweis: Liste "${schritt.wiederhole_ueber}" hatte ${elemente.length} Elemente, ` +
           `auf ${MAX_MAP_ELEMENTE} gekürzt, die übrigen wurden NICHT verarbeitet.]`;
         logger.warn(
           `Flow-Schritt "${schritt.name}": wiederhole_ueber-Liste von ${elemente.length} auf ${MAX_MAP_ELEMENTE} gekürzt`

@@ -183,7 +183,7 @@ const totalFitCalls = () => fitInstances.reduce((sum, f) => sum + f.fit.mock.cal
 
 // ---- Tests ------------------------------------------------------------------
 
-describe('SandboxApp — Terminal folgt aktivem Projekt (Plan 018)', () => {
+describe('SandboxApp, Terminal folgt aktivem Projekt (Plan 018)', () => {
   beforeEach(() => {
     localStorage.clear();
     resetStore();

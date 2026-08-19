@@ -259,8 +259,7 @@ export function StoreExtensionsGrid() {
                 Eigene Erweiterung bauen
               </span>
               <span className="text-ui-xs text-muted-foreground">
-                Apps, n8n-Flows und Konnektoren über eine definierte Schnittstelle — Einstieg
-                öffnen.
+                Apps, n8n-Flows und Konnektoren über eine definierte Schnittstelle. Einstieg öffnen.
               </span>
             </button>
           )}

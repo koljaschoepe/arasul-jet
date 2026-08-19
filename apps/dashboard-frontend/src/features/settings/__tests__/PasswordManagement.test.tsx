@@ -110,9 +110,7 @@ describe('PasswordManagement Component', () => {
     test('rendert Beschreibung', async () => {
       renderPasswordManagement();
 
-      expect(
-        screen.getByText(/Ändern Sie die Passwörter für Dashboard und MinIO/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Ändere die Passwörter für Dashboard und MinIO/)).toBeInTheDocument();
     });
 
     test('zeigt Lock-Icon', async () => {

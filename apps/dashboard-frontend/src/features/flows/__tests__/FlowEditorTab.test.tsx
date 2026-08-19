@@ -90,7 +90,7 @@ beforeEach(() => {
 });
 
 describe('Anlegen', () => {
-  it('zeigt den Anlege-Titel und das geführte Formular — keine Vorschau, kein Löschen', async () => {
+  it('zeigt den Anlege-Titel und das geführte Formular, keine Vorschau, kein Löschen', async () => {
     renderTab(null);
     expect(await screen.findByText('Neuer Flow')).toBeInTheDocument();
     expect(screen.getByTestId('flow-form')).toBeInTheDocument();

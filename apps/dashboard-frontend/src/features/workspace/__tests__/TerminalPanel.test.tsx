@@ -74,7 +74,7 @@ describe('TerminalPanel Keep-alive', () => {
     expect(mountLog.mounts).toBe(1);
   });
 
-  it('Ausblenden unmountet NICHT — Sessions überleben den Toggle', async () => {
+  it('Ausblenden unmountet NICHT, Sessions überleben den Toggle', async () => {
     resetStore(true);
     render(<TerminalPanel />);
     await screen.findByTestId('mock-sandbox-app');

@@ -64,7 +64,7 @@ async function load() {
     // Column missing → pre-migration boot. Stay empty, consumers fall back.
     if (err.code === '42703' || /column .* does not exist/i.test(err.message || '')) {
       logger.warn(
-        '[system-settings] Migration 094 not yet applied — perf settings cache empty, using env defaults'
+        '[system-settings] Migration 094 not yet applied, perf settings cache empty, using env defaults'
       );
       cache = Object.create(null);
       loaded = true;

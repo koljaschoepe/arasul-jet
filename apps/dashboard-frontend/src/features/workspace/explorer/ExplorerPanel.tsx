@@ -399,7 +399,7 @@ export function ExplorerPanel() {
       }
       if (ok > 0) {
         toast.success(
-          `${ok} ${ok === 1 ? 'Datei' : 'Dateien'} hochgeladen — Indexierung läuft automatisch`
+          `${ok} ${ok === 1 ? 'Datei' : 'Dateien'} hochgeladen, Indexierung läuft automatisch`
         );
       }
       neuLaden();
@@ -724,7 +724,7 @@ export function ExplorerPanel() {
               aria-selected={false}
               tabIndex={0}
               draggable={gesynct}
-              title={gesynct ? undefined : 'Wird noch übernommen — Chat-Drag folgt nach dem Sync'}
+              title={gesynct ? undefined : 'Wird noch übernommen, Chat-Drag folgt nach dem Sync'}
               onDragStart={gesynct ? dragStart(e) : undefined}
               onKeyDown={ev => {
                 if (zeilenTastatur(ev, e)) return;
@@ -995,12 +995,12 @@ export function ExplorerPanel() {
               {wurzel.map(e => (e.typ === 'ordner' ? renderOrdner(e, 0) : renderDatei(e, 0)))}
               {wurzel.length === 0 && (
                 <p className="px-2 py-1 text-xs text-muted-foreground/60">
-                  Noch keine Dateien — einfach hierher ziehen; sie werden automatisch indexiert
+                  Noch keine Dateien, einfach hierher ziehen; sie werden automatisch indexiert
                 </p>
               )}
               {data?.data.gekuerzt && (
                 <p className="px-2 py-1 text-[11px] text-muted-foreground/60">
-                  Liste gekürzt — nicht alle Einträge werden angezeigt
+                  Liste gekürzt, nicht alle Einträge werden angezeigt
                 </p>
               )}
             </div>

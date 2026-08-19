@@ -187,13 +187,13 @@ class LicenseService {
         publicKey = await fs.readFile(LICENSE_PUBLIC_KEY, 'utf8');
       } catch {
         // No public key = can't verify, but allow grace mode
-        logger.warn('License public key not found — running in grace mode');
+        logger.warn('License public key not found, running in grace mode');
         return this._cacheResult({
           valid: true,
           graceMode: true,
           tier: 'professional',
           features: FEATURE_TIERS.professional,
-          warning: 'License key not configured — grace period active',
+          warning: 'License key not configured, grace period active',
         });
       }
 
@@ -260,7 +260,7 @@ class LicenseService {
           ? -Math.ceil((now - expiresAt) / 86400_000)
           : Math.ceil((expiresAt - now) / 86400_000),
         warning: isExpired
-          ? `License expired — grace period ends ${graceDeadline.toISOString().split('T')[0]}`
+          ? `License expired, grace period ends ${graceDeadline.toISOString().split('T')[0]}`
           : undefined,
       });
     } catch (error) {

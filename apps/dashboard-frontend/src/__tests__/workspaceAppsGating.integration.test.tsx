@@ -77,7 +77,7 @@ describe('Extension-Toggle live (gemeinsamer Query-Cache)', () => {
     resetStore();
   });
 
-  it('Deaktivieren propagiert sofort über den Cache — der Schalter kippt ohne Reload', async () => {
+  it('Deaktivieren propagiert sofort über den Cache, der Schalter kippt ohne Reload', async () => {
     const user = userEvent.setup();
     renderExtensions();
 

@@ -16,7 +16,7 @@ function attachmentHeader(dateiname) {
   // ASCII-Fallback: Nicht-druckbares/Nicht-ASCII → '_', Quote/Backslash entschärfen.
   // eslint-disable-next-line no-control-regex
   const ascii = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
-  // RFC 5987: prozentkodiert; encodeURIComponent lässt ' ( ) * roh — die für
+  // RFC 5987: prozentkodiert; encodeURIComponent lässt ' ( ) * roh, die für
   // die ext-value verboten sind, also zusätzlich kodieren.
   const encoded = encodeURIComponent(name).replace(
     /['()*]/g,

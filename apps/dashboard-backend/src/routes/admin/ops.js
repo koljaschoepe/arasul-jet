@@ -116,7 +116,7 @@ router.get(
         .query(
           `
         -- P8.5: pg_stat_user_tables.n_live_tup is an estimate maintained by
-        -- the planner — much cheaper than COUNT(*) on large tables. Off by
+        -- the planner, much cheaper than COUNT(*) on large tables. Off by
         -- a few rows is fine for an overview dashboard. Falls back to 0 if
         -- the row hasn't been written yet (fresh table, no analyze).
         SELECT

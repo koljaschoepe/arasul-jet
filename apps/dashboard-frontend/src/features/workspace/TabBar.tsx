@@ -104,7 +104,7 @@ export function TabBar() {
                   tabIndex={0}
                   draggable
                   data-dirty={isDirty || undefined}
-                  title={isDirty ? `${tab.title} — ungespeichert` : undefined}
+                  title={isDirty ? `${tab.title}, ungespeichert` : undefined}
                   onClick={() => activateTab(tab.id)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' || e.key === ' ') {

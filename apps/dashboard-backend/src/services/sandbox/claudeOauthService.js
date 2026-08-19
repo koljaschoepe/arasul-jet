@@ -154,7 +154,7 @@ async function exchange(bodyObj) {
         }
         logger.warn(`Claude-OAuth-Tausch abgebrochen (fatal): ${errors.join(' | ')}`);
         throw new ValidationError(
-          'Token-Tausch abgelehnt. Der Code ist vermutlich abgelaufen oder bereits benutzt — bitte die Anmeldung neu starten.'
+          'Token-Tausch abgelehnt. Der Code ist vermutlich abgelaufen oder bereits benutzt, bitte die Anmeldung neu starten.'
         );
       }
     }
@@ -339,7 +339,7 @@ async function testCentralAuth(userId) {
     mode: current.mode,
     message: valid
       ? 'Zugang funktioniert.'
-      : `Anthropic lehnt den Zugang ab (${res.status}) — Token abgelaufen oder ungültig. Bitte neu anmelden oder ein frisches Token hinterlegen.`,
+      : `Anthropic lehnt den Zugang ab (${res.status}), Token abgelaufen oder ungültig. Bitte neu anmelden oder ein frisches Token hinterlegen.`,
   };
 }
 

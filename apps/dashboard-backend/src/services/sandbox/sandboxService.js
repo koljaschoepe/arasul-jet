@@ -167,7 +167,7 @@ async function createProject({
   // (Repo rw + Docker-Socket beim Container-Start) — bewusst als warn.
   if (netMode === 'infrastructure') {
     logger.warn(
-      `AUDIT: Infrastruktur-Sandbox-Projekt angelegt: "${project.name}" (${slug}) durch User ${userId} — Repo-rw- und Docker-Socket-Mount beim Container-Start`
+      `AUDIT: Infrastruktur-Sandbox-Projekt angelegt: "${project.name}" (${slug}) durch User ${userId}, Repo-rw- und Docker-Socket-Mount beim Container-Start`
     );
   }
 
@@ -200,7 +200,7 @@ function seedWerkstattTemplates(targetDir) {
   const src = getDevTemplatesDir();
   try {
     if (!fs.existsSync(src)) {
-      logger.warn(`Werkstatt-Templates nicht gefunden (${src}) — Sandbox bleibt leer`);
+      logger.warn(`Werkstatt-Templates nicht gefunden (${src}), Sandbox bleibt leer`);
       return;
     }
     fs.cpSync(src, targetDir, { recursive: true, force: false, errorOnExist: false });
@@ -406,7 +406,7 @@ async function updateProject(
     assertInfrastructureAllowed(network_mode, userRole);
     if (network_mode === 'infrastructure') {
       logger.warn(
-        `AUDIT: Sandbox-Projekt ${projectId} auf Infrastruktur-Modus umgestellt durch User ${userId} — Repo-rw- und Docker-Socket-Mount beim nächsten Container-Start`
+        `AUDIT: Sandbox-Projekt ${projectId} auf Infrastruktur-Modus umgestellt durch User ${userId}, Repo-rw- und Docker-Socket-Mount beim nächsten Container-Start`
       );
     }
     setClauses.push(`network_mode = $${idx++}`);

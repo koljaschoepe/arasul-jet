@@ -190,7 +190,7 @@ async function isInstalled() {
     // it as a distinct 503 so callers (connect/disconnect/serve) don't mislead
     // the user with "nicht installiert"; do NOT cache a negative result.
     logger.error(
-      `isInstalled host probe failed — reporting detection error (NOT installed:false): ${err.message}`
+      `isInstalled host probe failed, reporting detection error (NOT installed:false): ${err.message}`
     );
     throw new ServiceUnavailableError(
       'Tailscale-Status konnte nicht geprüft werden (Host-Prüfung fehlgeschlagen)'
@@ -244,7 +244,7 @@ async function getStatus() {
     // last-known state instead of collapsing to the not-installed step 1.
     // Deliberately NOT cached, so the next poll retries the probe.
     logger.error(
-      `getStatus host probe failed — reporting detectionError (NOT installed:false): ${err.message}`
+      `getStatus host probe failed, reporting detectionError (NOT installed:false): ${err.message}`
     );
     return { ...emptyStatus, detectionError: true };
   }
@@ -387,7 +387,7 @@ async function install() {
   try {
     await runOnHost('systemctl enable --now tailscaled 2>&1', 15000);
   } catch {
-    logger.warn('Could not enable tailscaled service — may need manual start');
+    logger.warn('Could not enable tailscaled service, may need manual start');
   }
 
   cacheInvalidate(); // clear all caches after install

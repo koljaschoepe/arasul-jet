@@ -78,7 +78,7 @@ export function VorlagenUpdateBanner() {
       >
         <Sparkles className="size-4 shrink-0 text-primary" aria-hidden="true" />
         <span className="min-w-0 flex-1 text-ui-xs text-foreground">
-          Vorlage aktualisiert — {neuerungen.length} Neuerung
+          Vorlage aktualisiert, {neuerungen.length} Neuerung
           {neuerungen.length === 1 ? '' : 'en'} verfügbar.
         </span>
         <button
@@ -105,7 +105,7 @@ export function VorlagenUpdateBanner() {
             <DialogTitle>Vorlage aktualisiert</DialogTitle>
             <DialogDescription>
               Diese Dateien sind in der neuen Vorlagen-Version dazugekommen. Wähle aus, was
-              übernommen werden soll — deine eigenen Dateien bleiben dabei unangetastet.
+              übernommen werden soll, deine eigenen Dateien bleiben dabei unangetastet.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-72 overflow-y-auto py-1">

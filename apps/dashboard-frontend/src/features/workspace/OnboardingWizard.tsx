@@ -24,7 +24,7 @@ const SCHRITTE: Schritt[] = [
     titel: 'Deine Entwicklungsumgebung',
     text: (
       <>
-        Arasul ist das Grundgerüst, auf dem du deinen eigenen digitalen Betrieb baust — interne
+        Arasul ist das Grundgerüst, auf dem du deinen eigenen digitalen Betrieb baust, interne
         Tools, Dashboards, Automatisierungen. Herzstück ist das <b>Browser-Terminal</b> mit einem
         KI-Coding-Agenten, direkt auf dem Gerät, <b>100 % lokal und DSGVO-konform</b>.
       </>
@@ -32,7 +32,7 @@ const SCHRITTE: Schritt[] = [
   },
   {
     icon: <Wrench className="size-6 text-primary" />,
-    titel: 'Lokaler Coder — kein Login nötig',
+    titel: 'Lokaler Coder, kein Login nötig',
     text: (
       <>
         Öffne im Terminal <b>„Quick Launch → Lokaler Coder (empfohlen)“</b>. Er läuft vollständig
@@ -48,7 +48,7 @@ const SCHRITTE: Schritt[] = [
       <>
         Willst du Claude Code nutzen? Klick im Terminal-Kopf auf{' '}
         <b>„KI-Zugang“ → „Mit Claude anmelden“</b>: Du bekommst eine <b>kopierbare</b> Login-URL,
-        meldest dich einmal an, fügst den Code ein — fertig. Danach ist <code>claude</code> in{' '}
+        meldest dich einmal an, fügst den Code ein, fertig. Danach ist <code>claude</code> in{' '}
         <b>jeder</b> Sandbox angemeldet, auch nach Neustart. Kein kaputter Login-Link mehr.
       </>
     ),

@@ -184,7 +184,7 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
     for (const row of downloadingResult.rows) {
       // Skip models with an active download in this process
       if (activeDownloadIds.has(row.id)) {
-        logger.debug(`[SYNC] Skipping ${row.id} — active download in progress`);
+        logger.debug(`[SYNC] Skipping ${row.id}, active download in progress`);
         continue;
       }
 

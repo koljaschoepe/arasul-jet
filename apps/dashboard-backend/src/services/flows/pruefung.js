@@ -152,7 +152,7 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Objekt in genau dieser Form, ohne Text d
 
 - "bestanden": false, sobald es mindestens ein Problem gibt.
 - "probleme": konkrete Stellen, an denen der Entwurf den Auftrag oder die Vorgaben verfehlt (falsche Sprache, fehlende oder falsch benannte Abschnitte, erfundene Fakten, unpassender Ton). Kurze deutsche Sätze. Leer, wenn nichts zu beanstanden ist.
-- "annahmen": Annahmen, die der Entwurf stillschweigend trifft — Aussagen, die weder im Auftrag noch in den Unterlagen belegt sind. Kurze deutsche Sätze. Leer, wenn keine.
+- "annahmen": Annahmen, die der Entwurf stillschweigend trifft, Aussagen, die weder im Auftrag noch in den Unterlagen belegt sind. Kurze deutsche Sätze. Leer, wenn keine.
 
 Melde als Problem NUR, was sich aus Auftrag/Vorgaben ergibt. Stilfragen ohne Vorgabe sind kein Problem.`;
 
@@ -161,9 +161,9 @@ const KORREKTUR_PROMPT = `Du korrigierst einen Dokument-Entwurf anhand einer Mä
 Regeln:
 - Behebe ausschließlich die genannten Mängel; alles andere bleibt unverändert.
 - Erfinde KEINE Fakten. Fehlt eine Information, lass die [eckige Markierung] stehen oder formuliere die Stelle als ausdrücklich offene Angabe.
-- Ersetze übrig gebliebene {{Platzhalter}} nur, wenn sich der Wert eindeutig aus Auftrag oder Entwurf ergibt — sonst formuliere die Stelle ohne den Platzhalter als [offene Angabe].
+- Ersetze übrig gebliebene {{Platzhalter}} nur, wenn sich der Wert eindeutig aus Auftrag oder Entwurf ergibt, sonst formuliere die Stelle ohne den Platzhalter als [offene Angabe].
 
-Antworte AUSSCHLIESSLICH mit dem vollständigen, korrigierten Dokument — ohne Erklärungen davor oder danach.`;
+Antworte AUSSCHLIESSLICH mit dem vollständigen, korrigierten Dokument, ohne Erklärungen davor oder danach.`;
 
 /** Tolerantes JSON-Lesen einer Modell-Antwort. */
 function parsePruefJson(text) {
@@ -250,10 +250,10 @@ async function pruefeUndKorrigiere({
     }
     pruefung = parsePruefJson(antwort.result);
     if (!pruefung) {
-      logger.warn(`Prüfschritt: Prüfrunde lieferte kein auswertbares JSON — übersprungen`);
+      logger.warn(`Prüfschritt: Prüfrunde lieferte kein auswertbares JSON, übersprungen`);
     }
   } catch (err) {
-    logger.warn(`Prüfschritt: Prüfrunde fehlgeschlagen (${err.message}) — übersprungen`);
+    logger.warn(`Prüfschritt: Prüfrunde fehlgeschlagen (${err.message}), übersprungen`);
   }
   if (pruefung) {
     annahmen.push(...pruefung.annahmen);
@@ -305,7 +305,7 @@ async function pruefeUndKorrigiere({
         output: `Entwurf korrigiert (${probleme.length} ${probleme.length === 1 ? 'Mangel' : 'Mängel'})`,
       });
     } catch (err) {
-      logger.warn(`Prüfschritt: Korrekturrunde fehlgeschlagen (${err.message}) — Entwurf bleibt`);
+      logger.warn(`Prüfschritt: Korrekturrunde fehlgeschlagen (${err.message}), Entwurf bleibt`);
       await stepRecorder.abschliessen({
         stepId: korrekturStep.id,
         output: `Korrektur fehlgeschlagen: ${err.message}`,

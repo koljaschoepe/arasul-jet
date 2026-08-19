@@ -84,7 +84,7 @@ export function GitSyncControl() {
       const e = err as { code?: string; details?: { conflicts?: string[] }; message?: string };
       if (e.code === 'CONFLICT') {
         const n = e.details?.conflicts?.length ?? 0;
-        toast.error(`Merge-Konflikt in ${n} Datei(en) — bitte im Repository auflösen`);
+        toast.error(`Merge-Konflikt in ${n} Datei(en), bitte im Repository auflösen`);
       } else {
         toast.error(e.message ?? 'Synchronisieren fehlgeschlagen');
       }
@@ -171,7 +171,7 @@ export function GitSyncControl() {
               <p className="flex items-start gap-1.5 rounded bg-warning/10 px-2 py-1.5 text-warning">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
                 <span className="min-w-0 break-words">
-                  Merge-Konflikt offen — im Repository auflösen, dann erneut synchronisieren.
+                  Merge-Konflikt offen, im Repository auflösen, dann erneut synchronisieren.
                 </span>
               </p>
             )}

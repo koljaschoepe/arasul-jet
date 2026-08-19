@@ -215,7 +215,7 @@ function parseBlocks(markdown) {
   return bloecke;
 }
 
-/** Erster H1/H2 des Dokuments — wird zum Fußzeilen-Titel. */
+/** Erster H1/H2 des Dokuments, wird zum Fußzeilen-Titel. */
 function findeTitel(bloecke, fallback) {
   const h = bloecke.find(b => b.art === 'heading' && b.ebene <= 2);
   return h ? h.text.replace(/[*_`]/g, '') : fallback;

@@ -43,7 +43,7 @@ function resetStore() {
   useExtensionStore.setState({ storeTab: 'models', selected: null });
 }
 
-describe('ActivityBar — feste Spalte: Dateien · Modelle · Erweiterungen · Flows + Zahnrad', () => {
+describe('ActivityBar, feste Spalte: Dateien · Modelle · Erweiterungen · Flows + Zahnrad', () => {
   beforeEach(() => {
     resetStore();
     enabledApps.clear();

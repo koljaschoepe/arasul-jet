@@ -132,12 +132,12 @@ async function createSession(
   if (sessionType === 'custom') {
     if (!command || typeof command !== 'string' || !CUSTOM_COMMAND_RE.test(command)) {
       throw new ValidationError(
-        'Ungültiger command — nur [A-Za-z0-9_.-/ ] zulässig, max 200 Zeichen'
+        'Ungültiger command, nur [A-Za-z0-9_.-/ ] zulässig, max 200 Zeichen'
       );
     }
   }
   if (!TMUX_NAME_RE.test(tmuxName)) {
-    throw new ValidationError('Ungültiger tmux-Session-Name — nur [A-Za-z0-9_-], max 40 Zeichen');
+    throw new ValidationError('Ungültiger tmux-Session-Name, nur [A-Za-z0-9_-], max 40 Zeichen');
   }
 
   const project = await sandboxService.getProject(projectId);
@@ -278,10 +278,10 @@ async function createSession(
         [projectId]
       );
       logger.warn(
-        `Sandbox container for project ${projectId} vanished externally — state reset to 'stopped'`
+        `Sandbox container for project ${projectId} vanished externally, state reset to 'stopped'`
       );
       throw new ValidationError(
-        'Container wurde extern entfernt — bitte Projekt neu öffnen/starten.'
+        'Container wurde extern entfernt, bitte Projekt neu öffnen/starten.'
       );
     }
     throw err;

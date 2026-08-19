@@ -77,7 +77,7 @@ test('ein beendeter Lauf zeigt kein Abbrechen, aber die Antwort', () => {
   expect(screen.getByTestId('run-card')).toHaveTextContent('fertig');
 });
 
-test('die Antwort wird als Markdown gezeigt — Codeblock mit Kopier-Knopf (Schritt 19)', () => {
+test('die Antwort wird als Markdown gezeigt, Codeblock mit Kopier-Knopf (Schritt 19)', () => {
   runState = base({
     status: 'fertig',
     result: '# Ergebnis\n\n```js\nconst a = 1;\n```',

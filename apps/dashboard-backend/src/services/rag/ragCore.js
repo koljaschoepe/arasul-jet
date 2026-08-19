@@ -254,7 +254,7 @@ async function routeToSpaces(queryEmbedding, options = {}) {
       // this dilutes results and increases hallucination risk.
       // Return empty so the RAG pipeline can signal "no relevant docs".
       logger.info(
-        'No spaces matched and no default space — skipping broad search to prevent hallucination'
+        'No spaces matched and no default space, skipping broad search to prevent hallucination'
       );
       return { spaces: [], method: 'none' };
     }

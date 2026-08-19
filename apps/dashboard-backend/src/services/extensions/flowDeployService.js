@@ -45,7 +45,7 @@ function alsErreichbarkeit(err) {
   const status = err.response && err.response.status;
   if (status === 401 || status === 403) {
     return new ServiceUnavailableError(
-      'n8n-API-Zugang fehlt oder ist ungültig (N8N_API_KEY) — Flow-Erweiterung nicht importierbar'
+      'n8n-API-Zugang fehlt oder ist ungültig (N8N_API_KEY), Flow-Erweiterung nicht importierbar'
     );
   }
   if (status === 400) {

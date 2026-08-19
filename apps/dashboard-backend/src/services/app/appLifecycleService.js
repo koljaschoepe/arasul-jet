@@ -54,7 +54,7 @@ async function ensureContainerState(name, desired) {
         if (desired === 'stopped') {
           return { name, ok: true, reason: 'not_found' };
         }
-        logger.error(`appLifecycle: Container '${name}' nicht vorhanden — kann nicht starten`);
+        logger.error(`appLifecycle: Container '${name}' nicht vorhanden, kann nicht starten`);
         return { name, ok: false, reason: 'not_found' };
       }
       throw err;
@@ -93,7 +93,7 @@ async function ensureContainerState(name, desired) {
 async function startApp(appId) {
   const names = containersForApp(appId);
   if (names.length === 0) {
-    logger.debug(`appLifecycle: '${appId}' hat keinen Container-Lifecycle — startApp no-op`);
+    logger.debug(`appLifecycle: '${appId}' hat keinen Container-Lifecycle, startApp no-op`);
     return { appId, hasLifecycle: false, ok: true, containers: [] };
   }
 
@@ -111,9 +111,7 @@ async function startApp(appId) {
       .filter(c => !c.ok)
       .map(c => c.name)
       .join(', ');
-    logger.error(
-      `appLifecycle: Start von App '${appId}' unvollständig — fehlgeschlagen: ${failed}`
-    );
+    logger.error(`appLifecycle: Start von App '${appId}' unvollständig, fehlgeschlagen: ${failed}`);
   }
   return { appId, hasLifecycle: true, ok, containers };
 }
@@ -126,7 +124,7 @@ async function startApp(appId) {
 async function stopApp(appId) {
   const names = containersForApp(appId);
   if (names.length === 0) {
-    logger.debug(`appLifecycle: '${appId}' hat keinen Container-Lifecycle — stopApp no-op`);
+    logger.debug(`appLifecycle: '${appId}' hat keinen Container-Lifecycle, stopApp no-op`);
     return { appId, hasLifecycle: false, ok: true, containers: [] };
   }
 
@@ -144,9 +142,7 @@ async function stopApp(appId) {
       .filter(c => !c.ok)
       .map(c => c.name)
       .join(', ');
-    logger.error(
-      `appLifecycle: Stopp von App '${appId}' unvollständig — fehlgeschlagen: ${failed}`
-    );
+    logger.error(`appLifecycle: Stopp von App '${appId}' unvollständig, fehlgeschlagen: ${failed}`);
   }
   return { appId, hasLifecycle: true, ok, containers };
 }

@@ -81,7 +81,7 @@ class OllamaReadinessService {
       const shouldPreload = await modelLifecycleService.shouldPreloadOnStartup();
       if (!shouldPreload) {
         logger.info(
-          '[OllamaReadiness] Skipping preload — lifecycle phase is idle (will load on first request)'
+          '[OllamaReadiness] Skipping preload, lifecycle phase is idle (will load on first request)'
         );
         return;
       }

@@ -193,7 +193,7 @@ export default function ProjectFileTab({
         // neutral formuliert, weil der 404 auch vom fehlenden Projekt kommen
         // kann. Andere Fehler (500, Timeout) behalten den Fehlerzustand.
         if (err?.status === 404) {
-          toast.info(`„${dateiname}" ist nicht mehr verfügbar — Tab geschlossen.`);
+          toast.info(`„${dateiname}" ist nicht mehr verfügbar, Tab geschlossen.`);
           closeTab(tabId);
           return;
         }

@@ -1025,7 +1025,7 @@ router.post(
 
     logger.info(`Created markdown file in MinIO: ${objectName}`);
 
-    // Create document record — atomic duplicate check via ON CONFLICT
+    // Create document record, atomic duplicate check via ON CONFLICT
     const docId = crypto.randomUUID();
     const fileHash = crypto
       .createHash('sha256')

@@ -353,7 +353,7 @@ export default function AblaufEditor({
       {modus === 'modell' ? (
         <div className="flex flex-col gap-2">
           <p className="text-ui-xs text-muted-foreground">
-            Das Modell entscheidet selbst, wann es welchen Baustein ruft — auch mehrfach. Ohne
+            Das Modell entscheidet selbst, wann es welchen Baustein ruft, auch mehrfach. Ohne
             Bausteine läuft der Flow allein über den Prompt oben.
           </p>
           {value.rollen.map((r, i) => (
@@ -402,7 +402,7 @@ export default function AblaufEditor({
       ) : (
         <div className="flex flex-col gap-2">
           <p className="text-ui-xs text-muted-foreground">
-            Feste Reihenfolge — jeder Rollen-Schritt bringt seine Rolle direkt mit.
+            Feste Reihenfolge, jeder Rollen-Schritt bringt seine Rolle direkt mit.
           </p>
           {value.schritte.map((s, i) => (
             <div
@@ -466,7 +466,7 @@ export default function AblaufEditor({
                   <Textarea
                     value={s.auftrag ?? ''}
                     onChange={e => setSchritt(i, { auftrag: e.target.value })}
-                    placeholder="Auftrag an die Rolle — Vorlagen: {{argument}}, {{vorheriger-schritt}}"
+                    placeholder="Auftrag an die Rolle, Vorlagen: {{argument}}, {{vorheriger-schritt}}"
                     aria-label={`Auftrag von Schritt ${i + 1}`}
                     rows={2}
                     className="resize-y text-[13px]"
@@ -497,7 +497,7 @@ export default function AblaufEditor({
                       aria-label={`Werkzeug von Schritt ${i + 1}`}
                       className={cn(selectClass, 'flex-1')}
                     >
-                      <option value="">— Werkzeug wählen —</option>
+                      <option value="">Werkzeug wählen</option>
                       {werkzeuge
                         .filter(w => w.name !== 'subagent')
                         .map(w => (

@@ -50,7 +50,7 @@ export function PrivacySettings() {
       if (e.status === 403) {
         toast.error('Nur Admins dürfen exportieren.');
       } else if (e.name === 'TimeoutError') {
-        toast.error('Export hat zu lange gedauert — bitte erneut versuchen.');
+        toast.error('Export hat zu lange gedauert, bitte erneut versuchen.');
       } else {
         toast.error('Export fehlgeschlagen.');
       }
@@ -77,7 +77,7 @@ export function PrivacySettings() {
 
   const confirmDeletion = async () => {
     if (typedToken !== DELETE_CONFIRMATION_TOKEN) {
-      toast.warning('Löschvorgang abgebrochen — Bestätigungstoken falsch.');
+      toast.warning('Löschvorgang abgebrochen, Bestätigungstoken falsch.');
       return;
     }
 
@@ -90,7 +90,7 @@ export function PrivacySettings() {
         body: { confirm: typedToken },
         showError: false,
       });
-      toast.success('Konto gelöscht — du wirst abgemeldet.');
+      toast.success('Konto gelöscht, du wirst abgemeldet.');
       // Wait briefly for toast to render, then logout (server already invalidated session).
       setTimeout(() => {
         logout().finally(() => {
@@ -99,7 +99,7 @@ export function PrivacySettings() {
       }, 1500);
     } catch (err) {
       console.error('Delete error:', err);
-      toast.error('Löschung fehlgeschlagen — bitte erneut versuchen oder Admin kontaktieren.');
+      toast.error('Löschung fehlgeschlagen, bitte erneut versuchen oder Admin kontaktieren.');
       setDeleting(false);
     }
   };

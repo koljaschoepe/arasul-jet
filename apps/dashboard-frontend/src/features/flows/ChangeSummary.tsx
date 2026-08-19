@@ -130,7 +130,7 @@ function ChangeRow({ change }: { change: FlowRunChange }) {
           )}
           {change.gekuerzt && (
             <div className="text-muted-foreground/60">
-              … Vorschau gekürzt — die vollständige Datei liegt im erlaubten Ordner.
+              … Vorschau gekürzt, die vollständige Datei liegt im erlaubten Ordner.
             </div>
           )}
         </div>

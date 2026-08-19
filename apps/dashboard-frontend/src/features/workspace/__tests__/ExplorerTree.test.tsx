@@ -134,7 +134,7 @@ describe('ExplorerPanel (Ein-Ordner-Modell: EIN Baum aus /projects/:id/dateien)'
       </Providers>
     );
 
-  it('rendert EINEN Baum mit Index-Status als Text — ohne Punkte und ohne „Projektablage“-Bereich', async () => {
+  it('rendert EINEN Baum mit Index-Status als Text, ohne Punkte und ohne „Projektablage“-Bereich', async () => {
     renderPanel();
     await waitFor(() => expect(screen.getByText('docs')).toBeInTheDocument());
     // Wurzel-Einträge sichtbar, Unterordner erst nach Aufklappen

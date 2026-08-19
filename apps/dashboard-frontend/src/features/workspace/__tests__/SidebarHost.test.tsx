@@ -35,7 +35,7 @@ function reset(activeView: 'files' | 'search' | 'models' | 'extensions' | 'flows
   });
 }
 
-describe('SidebarHost — Ansichts-Mapping', () => {
+describe('SidebarHost, Ansichts-Mapping', () => {
   beforeEach(() => reset('files'));
 
   it('files → Datei-Explorer', () => {

@@ -19,7 +19,7 @@ function resetStore() {
   localStorage.removeItem('arasul_workspace');
 }
 
-describe('workspaceStore — Tabs', () => {
+describe('workspaceStore, Tabs', () => {
   beforeEach(resetStore);
 
   it('öffnet einen Tab und aktiviert ihn', () => {
@@ -217,7 +217,7 @@ describe('workspaceStore — Tabs', () => {
   });
 });
 
-describe('workspaceStore — Sidebar + rechtes Panel (Sichtbarkeit + Modus)', () => {
+describe('workspaceStore, Sidebar + rechtes Panel (Sichtbarkeit + Modus)', () => {
   beforeEach(resetStore);
 
   it('Defaults: Sidebar an, rechtes Panel sichtbar im Chat-Modus', () => {
@@ -303,7 +303,7 @@ describe('workspaceStore — Sidebar + rechtes Panel (Sichtbarkeit + Modus)', ()
   });
 });
 
-describe('workspaceStore — Sidebar-Auto-Collapse (syncSidebarForTab)', () => {
+describe('workspaceStore, Sidebar-Auto-Collapse (syncSidebarForTab)', () => {
   beforeEach(resetStore);
 
   it('Eintritt in App-Tab sichert die Präferenz und klappt ein; Austritt stellt wieder her', () => {
@@ -364,7 +364,7 @@ describe('workspaceStore — Sidebar-Auto-Collapse (syncSidebarForTab)', () => {
   });
 });
 
-describe('workspaceStore — Terminal-Session-Registry', () => {
+describe('workspaceStore, Terminal-Session-Registry', () => {
   beforeEach(resetStore);
 
   it('openTerminalSession registriert, aktiviert und blendet das Terminal ein', () => {
@@ -427,7 +427,7 @@ describe('workspaceStore — Terminal-Session-Registry', () => {
   });
 });
 
-describe('workspaceStore — Migration v2 → v4', () => {
+describe('workspaceStore, Migration v2 → v4', () => {
   beforeEach(resetStore);
 
   /** Echter v2-Persist-Stand (Terminal als Mitte-Tab, rechtes Panel im Terminal-Modus). */
@@ -547,7 +547,7 @@ describe('workspaceStore — Migration v2 → v4', () => {
   });
 });
 
-describe('workspaceStore — Migration v3 → v4', () => {
+describe('workspaceStore, Migration v3 → v4', () => {
   beforeEach(resetStore);
 
   async function rehydrateFrom(persisted: unknown) {
@@ -689,7 +689,7 @@ describe('workspaceStore — Migration v3 → v4', () => {
   });
 });
 
-describe('workspaceStore — Activity-Bar-Ansicht (selectView, Plan 012 Phase B)', () => {
+describe('workspaceStore, Activity-Bar-Ansicht (selectView, Plan 012 Phase B)', () => {
   beforeEach(resetStore);
 
   it('Default-Ansicht ist »files«', () => {
@@ -730,7 +730,7 @@ describe('workspaceStore — Activity-Bar-Ansicht (selectView, Plan 012 Phase B)
   });
 });
 
-describe('workspaceStore — Migration v5 → v6 (activeView)', () => {
+describe('workspaceStore, Migration v5 → v6 (activeView)', () => {
   beforeEach(resetStore);
 
   async function rehydrateFrom(persisted: unknown) {
@@ -780,7 +780,7 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
     }
   });
 
-  it('Terminal ist kein Tab mehr — /terminal ergibt null', () => {
+  it('Terminal ist kein Tab mehr, /terminal ergibt null', () => {
     expect(pathToTabSpec('/terminal')).toBeNull();
   });
 
@@ -790,7 +790,7 @@ describe('URL-Mapping (tabToPath / pathToTabSpec)', () => {
   });
 });
 
-describe('workspaceStore — Dirty-Register (Datenverlust-Schutz)', () => {
+describe('workspaceStore, Dirty-Register (Datenverlust-Schutz)', () => {
   beforeEach(resetStore);
 
   it('setTabDirty markiert und räumt einen Tab', () => {

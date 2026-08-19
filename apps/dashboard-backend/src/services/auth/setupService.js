@@ -43,7 +43,7 @@ async function createFirstAdmin({ username, password, email }) {
   );
 
   if (result.rows.length === 0) {
-    throw new ConflictError('Setup already completed — an admin account already exists');
+    throw new ConflictError('Setup already completed, an admin account already exists');
   }
 
   // Der Merker aus dem Werksreset hat seine Aufgabe erfuellt: es gibt wieder

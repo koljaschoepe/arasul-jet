@@ -127,7 +127,7 @@ export default function AusgabeEditor({
                 className={selectClass}
                 data-testid="ausgabe-vorlage"
               >
-                <option value="">Keine Vorlage — neutrales Layout</option>
+                <option value="">Keine Vorlage, neutrales Layout</option>
                 {vorlagen.map(v => (
                   <option key={v.name} value={v.name}>
                     {v.name}
@@ -168,7 +168,7 @@ export default function AusgabeEditor({
             </div>
             <p className="text-ui-xs text-muted-foreground">
               Eine eigene Datei (Word, PDF, Markdown, Text) als Vorbild: der Flow übernimmt Aufbau,
-              Abschnitte und Tonfall — nicht den Inhalt.
+              Abschnitte und Tonfall, nicht den Inhalt.
             </p>
           </div>
 

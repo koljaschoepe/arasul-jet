@@ -180,19 +180,19 @@ async function runFlowLoop({
         const geparst = parseTextToolCalls(rundenContent);
         if (geparst.calls.length > 0) {
           logger.info(
-            `Flow-toolLoop: Text-Tool-Call-Fallback — ${geparst.calls.length} Aufruf(e) geparst`
+            `Flow-toolLoop: Text-Tool-Call-Fallback, ${geparst.calls.length} Aufruf(e) geparst`
           );
           toolCalls.push(...geparst.calls);
           rundenContent = geparst.rest;
         } else if (syntaxNachfass < 1) {
           syntaxNachfass += 1;
-          logger.warn('Flow-toolLoop: Tool-Syntax im Text nicht parsebar — Nachfass-Runde');
+          logger.warn('Flow-toolLoop: Tool-Syntax im Text nicht parsebar, Nachfass-Runde');
           messages.push({ role: 'assistant', content: rundenContent });
           messages.push({
             role: 'user',
             content:
               'Dein letzter Werkzeug-Aufruf war fehlerhaft formatiert und wurde NICHT ausgeführt. ' +
-              'Rufe das Werkzeug jetzt erneut auf — über die Werkzeug-Schnittstelle, nicht als Text.',
+              'Rufe das Werkzeug jetzt erneut auf, über die Werkzeug-Schnittstelle, nicht als Text.',
           });
           continue;
         }

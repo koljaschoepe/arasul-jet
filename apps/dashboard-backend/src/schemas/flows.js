@@ -218,7 +218,7 @@ const FlowStep = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['werkzeug'],
-          message: `Schritt "${step.name}": "subagent" ist kein direktes Werkzeug — nutze typ "subagent" mit einer Rolle`,
+          message: `Schritt "${step.name}": "subagent" ist kein direktes Werkzeug, nutze typ "subagent" mit einer Rolle`,
         });
       }
     }
@@ -368,7 +368,7 @@ const FlowDefinition = z
         code: z.ZodIssueCode.custom,
         path: ['werkzeuge'],
         message:
-          'Der Flow deklariert Rollen, aber nicht das Werkzeug "subagent" — die Rollen wären nicht aufrufbar',
+          'Der Flow deklariert Rollen, aber nicht das Werkzeug "subagent", die Rollen wären nicht aufrufbar',
       });
     }
 
@@ -455,7 +455,7 @@ const FlowDefinition = z
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['schritte'],
-            message: `Schritt "${step.name}": "wiederhole_ueber" nennt "${step.wiederhole_ueber}" — weder ein Argument noch ein früherer Schritt`,
+            message: `Schritt "${step.name}": "wiederhole_ueber" nennt "${step.wiederhole_ueber}", weder ein Argument noch ein früherer Schritt`,
           });
         }
       }

@@ -15,7 +15,7 @@ describe('OnboardingWizard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
     expect(
-      screen.getByRole('heading', { name: 'Lokaler Coder — kein Login nötig' })
+      screen.getByRole('heading', { name: 'Lokaler Coder, kein Login nötig' })
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
     expect(

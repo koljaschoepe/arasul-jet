@@ -38,7 +38,7 @@ describe('ArgumentPicker · Auswahlliste', () => {
     expect(onPick).toHaveBeenCalledWith('ausführlich', 'ausführlich');
   });
 
-  test('hat ein fokussiertes Suchfeld — Enter wählt, statt zu senden', async () => {
+  test('hat ein fokussiertes Suchfeld, Enter wählt, statt zu senden', async () => {
     const user = userEvent.setup();
     const onPick = vi.fn();
     wrap(<ArgumentPicker arg={arg} onPick={onPick} onClose={vi.fn()} />);

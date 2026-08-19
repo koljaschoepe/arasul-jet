@@ -96,7 +96,7 @@ async function registerPackage({ sourceDir, source, userId, overwrite = false })
   const existing = await db.query('SELECT id FROM extensions WHERE id = $1', [id]);
   if (existing.rows.length > 0 && !overwrite) {
     throw new ConflictError(
-      `Erweiterung "${id}" ist bereits installiert — zum Ersetzen "überschreiben" wählen`
+      `Erweiterung "${id}" ist bereits installiert, zum Ersetzen "überschreiben" wählen`
     );
   }
 
@@ -185,7 +185,7 @@ async function buildFromSandbox({ slug, subfolder = '.', userId, overwrite = fal
     }
   } else if (projectResult.rows[0].workspace_type !== 'erweiterungs-werkstatt') {
     throw new ValidationError(
-      'Pakete lassen sich nur aus einer Erweiterungs-Werkstatt bauen — dieses Projekt ist eine Standard-Sandbox'
+      'Pakete lassen sich nur aus einer Erweiterungs-Werkstatt bauen, dieses Projekt ist eine Standard-Sandbox'
     );
   }
   try {
@@ -304,7 +304,7 @@ async function setEnabled(id, enabled, { faehigkeitenFreigeben = false, userId =
       );
   if (mitFreigabe) {
     logger.info(
-      `Erweiterung "${id}" aktiviert — Fähigkeiten freigegeben: ${ext.faehigkeiten.deklariert.join(', ')}`
+      `Erweiterung "${id}" aktiviert, Fähigkeiten freigegeben: ${ext.faehigkeiten.deklariert.join(', ')}`
     );
   }
 
@@ -501,7 +501,7 @@ async function resolveAppAsset(id, relPath = '') {
   // genauso tun, sonst sagt der Schalter etwas anderes als er tut.
   if (!ext.enabled) {
     throw new ForbiddenError(
-      `Erweiterung "${ext.name || id}" ist deaktiviert — im Katalog wieder einschalten`
+      `Erweiterung "${ext.name || id}" ist deaktiviert, im Katalog wieder einschalten`
     );
   }
 
@@ -517,7 +517,7 @@ async function resolveAppAsset(id, relPath = '') {
   try {
     baseReal = await fsp.realpath(pkg.packageDirFor(id));
   } catch {
-    throw new NotFoundError(`Paket-Ordner von "${id}" fehlt auf der Platte — neu importieren`);
+    throw new NotFoundError(`Paket-Ordner von "${id}" fehlt auf der Platte, neu importieren`);
   }
   const target = path.join(baseReal, normalized);
   let targetReal;
@@ -555,7 +555,7 @@ async function packageStream(id) {
     await fsp.access(dir);
   } catch {
     throw new NotFoundError(
-      `Paket-Ordner von "${id}" fehlt auf der Platte — Erweiterung neu importieren`
+      `Paket-Ordner von "${id}" fehlt auf der Platte, Erweiterung neu importieren`
     );
   }
   return { stream: pkg.packToStream(dir), filename: `${id}-${ext.version}.tar.gz`, extension: ext };

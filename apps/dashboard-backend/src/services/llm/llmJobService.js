@@ -276,7 +276,7 @@ function createLLMJobService(deps = {}) {
         }
       }
 
-      logger.error(`[JOB ${jobId}] completeJob PERMANENTLY FAILED — message may not be persisted`);
+      logger.error(`[JOB ${jobId}] completeJob PERMANENTLY FAILED, message may not be persisted`);
       return false;
     }
 
@@ -478,7 +478,7 @@ function createLLMJobService(deps = {}) {
             const srcJson = row.job_sources ? JSON.stringify(row.job_sources) : null;
             const spcJson = row.job_matched_spaces ? JSON.stringify(row.job_matched_spaces) : null;
             const hinweis =
-              '\n\n> ⚠️ **Unterbrochen:** Dieser Lauf wurde durch einen Neustart abgebrochen — die Antwort ist unvollständig. Bitte die Anfrage erneut stellen.';
+              '\n\n> ⚠️ **Unterbrochen:** Dieser Lauf wurde durch einen Neustart abgebrochen, die Antwort ist unvollständig. Bitte die Anfrage erneut stellen.';
             await database.query(
               `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
               [
@@ -492,13 +492,13 @@ function createLLMJobService(deps = {}) {
             if (row.job_status === 'streaming' || row.job_status === 'pending') {
               await database.query(
                 `UPDATE llm_jobs SET status = 'error', completed_at = NOW(),
-                 error_message = 'Durch Neustart unterbrochen — Antwort unvollständig' WHERE id = $1`,
+                 error_message = 'Durch Neustart unterbrochen, Antwort unvollständig' WHERE id = $1`,
                 [row.job_id_found]
               );
             }
             recovered++;
             logger.info(
-              `Recovered orphaned message ${row.message_id} from job ${row.job_id_found} (conv: ${row.conversation_id}) — als unterbrochen markiert`
+              `Recovered orphaned message ${row.message_id} from job ${row.job_id_found} (conv: ${row.conversation_id}), als unterbrochen markiert`
             );
           } else {
             // No job or no content — mark as error
@@ -549,7 +549,7 @@ function createLLMJobService(deps = {}) {
               `UPDATE chat_messages SET content = $1, thinking = $2, sources = $3, matched_spaces = $4, status = 'completed' WHERE id = $5`,
               [
                 (job.content || '') +
-                  '\n\n> ⚠️ **Unterbrochen:** Dieser Lauf wurde abgebrochen (Neustart oder Verbindungsverlust) — die Antwort ist unvollständig. Bitte die Anfrage erneut stellen.',
+                  '\n\n> ⚠️ **Unterbrochen:** Dieser Lauf wurde abgebrochen (Neustart oder Verbindungsverlust), die Antwort ist unvollständig. Bitte die Anfrage erneut stellen.',
                 job.thinking,
                 job.sources,
                 job.matched_spaces,
@@ -558,12 +558,12 @@ function createLLMJobService(deps = {}) {
             );
             await database.query(
               `UPDATE llm_jobs SET status = 'error', completed_at = NOW(),
-               error_message = 'Unterbrochen (stale) — Antwort unvollständig' WHERE id = $1`,
+               error_message = 'Unterbrochen (stale), Antwort unvollständig' WHERE id = $1`,
               [job.id]
             );
             recovered++;
             logger.info(
-              `Auto-recovered stale job ${job.id} with content — als unterbrochen markiert`
+              `Auto-recovered stale job ${job.id} with content, als unterbrochen markiert`
             );
           } else {
             // No content — mark as error

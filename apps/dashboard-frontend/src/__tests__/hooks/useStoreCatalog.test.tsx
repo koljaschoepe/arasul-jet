@@ -57,7 +57,7 @@ function renderCatalog() {
   return renderHook(() => useStoreCatalog(), { wrapper });
 }
 
-describe('useStoreCatalog — OCR-Modelle werden aus dem Katalog gefiltert', () => {
+describe('useStoreCatalog, OCR-Modelle werden aus dem Katalog gefiltert', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('blendet model_type="ocr" aus, behält Sprachmodelle', async () => {
