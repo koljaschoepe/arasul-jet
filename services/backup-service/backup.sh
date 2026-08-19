@@ -332,6 +332,19 @@ if [ "$BACKUP_OK" = true ]; then
     # WAL archive cleanup: keep only retention period worth
     WAL_ARCHIVE_DELETED=$(find /backups/wal-archive -name "*.tar.gz" -mtime +$RETENTION_DAYS -print 2>/dev/null | wc -l)
     find /backups/wal-archive -name "*.tar.gz" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
+
+    # Plan 023 S5: die Segmente selbst wurden bisher NIE geloescht. Solange
+    # archive_mode aus war, fiel das nicht auf, weil nichts ankam. Mit
+    # eingeschalteter Archivierung waere /backups/wal unbegrenzt gewachsen —
+    # auf einem Geraet, das fuenf Jahre unbeaufsichtigt laufen soll, ist das
+    # eine Zeitbombe. Geloescht wird nur, was aelter als die Aufbewahrungsfrist
+    # der taeglichen Sicherungen ist: aelter zurueck als die aelteste
+    # Basissicherung braucht niemand.
+    WAL_DELETED=$(find /backups/wal -type f -mtime +$RETENTION_DAYS -print 2>/dev/null | wc -l)
+    find /backups/wal -type f -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
+    if [ "$WAL_DELETED" -gt 0 ] 2>/dev/null; then
+        echo "[$TIMESTAMP] WAL-Segmente aufgeraeumt: $WAL_DELETED aelter als ${RETENTION_DAYS} Tage"
+    fi
     [ "$WAL_ARCHIVE_DELETED" -gt 0 ] && echo "[$TIMESTAMP] WAL archive cleanup: removed $WAL_ARCHIVE_DELETED archive(s) older than ${RETENTION_DAYS}d"
 
     # WAL segment cleanup: delete raw segments older than retention (already archived above)
