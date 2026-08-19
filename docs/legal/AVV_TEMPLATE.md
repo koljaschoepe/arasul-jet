@@ -171,19 +171,37 @@ Anlage 1 zu diesem Vertrag.
 Kurzfassung:
 
 - **Vertraulichkeit:** Zugangskontrolle (Dashboard-Login, JWT, BotFather-Tokens
-  AES-256-encrypted), Zutrittskontrolle (Hardware beim Auftraggeber),
-  Trennungskontrolle (Multi-User-Isolation, RBAC).
+  AES-256-verschlüsselt), Zutrittskontrolle (Hardware beim Auftraggeber),
+  Trennungskontrolle: **ein Gerät, ein Datenbestand.** Die Trennung verläuft
+  zwischen Geräten, nicht innerhalb eines Geräts. Ein Gerät hat einen Zugang,
+  eine Rollentrennung innerhalb des Geräts gibt es nicht und ist nicht
+  zugesagt. Wer mehrere Mandanten trennen muss, braucht mehrere Geräte.
 - **Integrität:** Eingabekontrolle (Audit-Log Postgres-Trigger auf
   workflow_entity / credentials_entity / user), Übertragungskontrolle (TLS
   ≥1.2 für jede ausgehende Verbindung, valide CA-signierte Zertifikate).
-- **Verfügbarkeit:** Tägliche Backups mit AES-256-Verschlüsselung,
-  monatliche Restore-Drills, Self-Healing-Agent.
+- **Verfügbarkeit:** Tägliche Sicherung von Datenbank, Objektspeicher,
+  n8n-Abläufen und Flow-Definitionen um 02:00 UTC, Aufbewahrung 30 Tage
+  täglich, 12 Wochen wöchentlich, 60 Monate monatlich. Wöchentlicher
+  Wiederherstellungstest. Selbstheilungsdienst.
 - **Belastbarkeit:** Ressourcenlimits, Rate-Limiting, Container-Isolation
   (`no-new-privileges`, `cap_drop=ALL`).
-- **Wiederherstellbarkeit:** WAL-Archivierung, Wochen-/Monats-Snapshots
-  (5-Jahre-Retention), Encryption-Key-Escrow.
-- **Verfahren regelmäßiger Überprüfung:** monatliche Backup-Tests, jährlicher
-  Penetration-Test, Audit-Log-Reviews.
+- **Wiederherstellbarkeit:** Wochen- und Monats-Snapshots mit der oben
+  genannten Aufbewahrung.
+- **Verfahren regelmäßiger Überprüfung:** wöchentlicher automatischer
+  Wiederherstellungstest mit Protokoll, Audit-Log-Reviews.
+
+> **Offen zum Stand 19.08.2026, vor Vertragsabschluss zu schließen (Gate G6).**
+> Vier frühere Zusagen dieser Anlage sind gestrichen, weil sie am Gerät nicht
+> zutreffen, gemessen am 19.08.2026 auf dem Orin: die Sicherungen sind **nicht
+> verschlüsselt** (`backup_report.json`, `"encrypted": "false"`), eine
+> **WAL-Archivierung läuft nicht** (`archive_mode = off`, 0 archivierte
+> Segmente), ein **Schlüssel-Escrow existiert nicht** (Ablage seit dem
+> 09.05.2026 leer), und der **wöchentliche Wiederherstellungstest ist am
+> 16.08.2026 fehlgeschlagen** (`"status": "failed"`, 0 geprüfte Tabellen),
+> nachdem er bis zum 02.08. mit 6 geprüften Tabellen bestanden hatte. Solange
+> das nicht behoben ist, darf diese Anlage nichts davon zusagen. Ebenfalls
+> gestrichen: der jährliche Penetrationstest, der bisher zugesagt war und nie
+> stattgefunden hat.
 
 ---
 
