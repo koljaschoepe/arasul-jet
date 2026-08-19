@@ -323,3 +323,30 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     expect(bericht.zeilenGesamt).toBeGreaterThan(0);
   });
 });
+
+describe('Objektspeicher', () => {
+  const fs = require('fs');
+  const minio = require('../../src/services/documents/minioService');
+  const qdrant = require('../../src/services/documents/qdrantService');
+
+  test('loescht die Pfade, die listAllObjects liefert, nicht deren .name', async () => {
+    db.query.mockReset();
+    db.transaction.mockReset();
+    tabellenInDerDatenbank(ALLE);
+    db.transaction.mockImplementation(async r => r({ query: jest.fn().mockResolvedValue({ rowCount: 1 }) }));
+    fs.promises.readdir.mockResolvedValue([]);
+    qdrant.deleteAllVectors.mockResolvedValue({});
+    // Der echte Dienst liefert ein Set von Zeichenketten.
+    minio.listAllObjects.mockResolvedValue(new Set(['2026/rechnung.pdf', '2026/angebot.pdf']));
+    minio.removeObject.mockResolvedValue(undefined);
+
+    const bericht = await werksreset.ausfuehren({
+      stufe: 'inhalte',
+      bestaetigung: 'orin-vorfuehrer',
+    });
+
+    expect(minio.removeObject).toHaveBeenCalledWith('2026/rechnung.pdf');
+    expect(minio.removeObject).toHaveBeenCalledWith('2026/angebot.pdf');
+    expect(bericht.objektspeicher).toEqual({ ok: true, entfernt: 2 });
+  });
+});

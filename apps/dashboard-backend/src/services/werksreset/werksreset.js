@@ -66,8 +66,12 @@ function tabellenFuer(stufe, modelleLoeschen = false) {
     throw new ValidationError(`Unbekannte Stufe: ${stufe}`);
   }
   const liste = [...INHALTE];
-  if (stufe === 'auslieferung') {liste.push(...AUSLIEFERUNG);}
-  if (modelleLoeschen) {liste.push(...MODELLE);}
+  if (stufe === 'auslieferung') {
+    liste.push(...AUSLIEFERUNG);
+  }
+  if (modelleLoeschen) {
+    liste.push(...MODELLE);
+  }
   return liste
     .map(([name, zweck]) => ({ name, zweck }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -96,7 +100,9 @@ async function geraetename() {
   try {
     const { rows } = await db.query('SELECT hostname FROM system_settings WHERE id = 1');
     const aus_db = rows[0]?.hostname;
-    if (aus_db && String(aus_db).trim()) {return String(aus_db).trim();}
+    if (aus_db && String(aus_db).trim()) {
+      return String(aus_db).trim();
+    }
   } catch (err) {
     logger.warn(`[werksreset] Gerätename nicht aus der Datenbank lesbar: ${err.message}`);
   }
@@ -198,7 +204,9 @@ async function leereOrdner(pfad) {
   try {
     eintraege = await fsp.readdir(pfad);
   } catch (err) {
-    if (err.code === 'ENOENT') {return { entfernt: 0, fehlend: true };}
+    if (err.code === 'ENOENT') {
+      return { entfernt: 0, fehlend: true };
+    }
     throw err;
   }
   for (const eintrag of eintraege) {
@@ -305,10 +313,13 @@ async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
 
   ergebnis.objektspeicher = await stillEntfernen('Objektspeicher', async () => {
     const minio = require('../documents/minioService');
-    const objekte = await minio.listAllObjects();
+    // listAllObjects liefert ein Set von PFADEN, keine Objekte. Ein
+    // `objekt.name` waere hier undefined und der Objektspeicher bliebe voll,
+    // ohne dass es jemand merkt.
+    const pfade = await minio.listAllObjects();
     let n = 0;
-    for (const objekt of objekte) {
-      await minio.removeObject(objekt.name);
+    for (const pfad of pfade) {
+      await minio.removeObject(pfad);
       n += 1;
     }
     return { entfernt: n };
@@ -400,7 +411,9 @@ async function werkseinstellungen(client) {
     // Nicht-nullbare Spalten ohne Default gäbe es nur als Fehler im Schema.
     return `${escapeIdentifier(spalte.column_name)} = ${ziel}`;
   });
-  if (zuweisungen.length === 0) {return;}
+  if (zuweisungen.length === 0) {
+    return;
+  }
   await client.query(`UPDATE system_settings SET ${zuweisungen.join(', ')} WHERE id = 1`);
 }
 
