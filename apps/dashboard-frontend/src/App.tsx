@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import {
-  BrowserRouter as Router,
-  Route,
-  Routes,
-  Link,
-  Navigate,
-  useLocation,
-} from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 
@@ -14,9 +7,8 @@ import { queryClient } from './lib/queryClient';
 import Login from './features/system/Login';
 import CreateAdmin from './features/system/CreateAdmin';
 import ErrorBoundary, { RouteErrorBoundary } from './components/ui/ErrorBoundary';
+import NichtGefunden from './components/ui/NichtGefunden';
 import LoadingSpinner from './components/ui/LoadingSpinner';
-import { SkeletonCard, SkeletonText } from './components/ui/Skeleton';
-import { Button } from './components/ui/shadcn/button';
 import SetupWizard from './features/system/SetupWizard';
 
 // PHASE 3: State Management - Contexts and Hooks
@@ -28,24 +20,14 @@ import { ChatProvider } from './contexts/ChatContext';
 
 import { useApi } from './hooks/useApi';
 import { useTheme } from './hooks/useTheme';
-import { useDashboardData } from './hooks/useDashboardData';
-import { SidebarWithDownloads } from './components/layout/Sidebar';
 import './index.css';
 
-// PHASE 2: Code-Splitting - Lazy imports for secondary route components
-// These components are loaded on-demand when the user navigates to them
-const Settings = lazy(() => import('./features/settings/Settings'));
-const Store = lazy(() => import('./features/store'));
-const SandboxApp = lazy(() => import('./features/sandbox'));
+// Einstellungen, Store und Terminal werden nicht mehr hier geladen, sondern
+// vom Arbeitsbereich (features/workspace/TabContent.tsx), seit die Legacy-Shell
+// entfernt ist (Plan 023 B1).
 
 // IDE-Workspace-Shell (Feature-Flag `workspace-shell`, Plan ide-workspace-shell)
 const WorkspaceShell = lazy(() => import('./features/workspace'));
-
-interface ThemeControls {
-  theme: string;
-  onToggleTheme: () => void;
-  onLogout: () => Promise<void>;
-}
 
 /**
  * Main App Component
@@ -292,17 +274,20 @@ function AppContent(): React.JSX.Element | null {
                   </RouteErrorBoundary>
                 }
               />
-              <Route
-                path="*"
-                element={
-                  <LegacyOrWorkspaceRedirect
-                    isAuthenticated={isAuthenticated}
-                    theme={theme}
-                    onToggleTheme={toggleTheme}
-                    onLogout={handleLogout}
-                  />
-                }
-              />
+              {/* Plan 023 B1: die Legacy-Shell ist entfernt. Sie war nur über
+                  getippte URLs erreichbar, hatte genau einen Menüeintrag und
+                  keine Navigation zu fünf der sechs Einstellungsbereiche. Ihre
+                  Routen zeigen jetzt in den Arbeitsbereich, der dieselben
+                  Inhalte als Tab kennt. Suchparameter bleiben erhalten, damit
+                  Deep-Links wie /settings?tab=remote-access weiter funktionieren. */}
+              <Route path="/" element={<InDenArbeitsbereich ziel="" />} />
+              <Route path="/settings" element={<InDenArbeitsbereich ziel="/settings" />} />
+              <Route path="/store/*" element={<InDenArbeitsbereich ziel="/store" />} />
+              <Route path="/terminal" element={<InDenArbeitsbereich ziel="/terminal" />} />
+              <Route path="/sandbox" element={<InDenArbeitsbereich ziel="/terminal" />} />
+              <Route path="/data" element={<InDenArbeitsbereich ziel="" />} />
+              <Route path="/documents" element={<InDenArbeitsbereich ziel="" />} />
+              <Route path="*" element={<NichtGefunden />} />
             </Routes>
           </Router>
         </ChatProvider>
@@ -311,190 +296,14 @@ function AppContent(): React.JSX.Element | null {
   );
 }
 
-interface LegacyAppContentProps extends ThemeControls {
-  isAuthenticated: boolean;
-}
-
 /**
- * Die Workspace-Shell ist die einzige Startseite: "/" leitet immer nach
- * /workspace um (der frühere Legacy/Workspace-Umschalter ist entfernt, Plan
- * 008). Für alle übrigen Pfade bleibt die Legacy-Sidebar-UI als Fallback für
- * ihre bestehenden Routen (/settings, /data, /store, …) erreichbar.
+ * Leitet eine Alt-Route in den Arbeitsbereich um und nimmt Suchparameter und
+ * Anker mit. Ohne das bräche `/settings?tab=remote-access`, das genau ein
+ * Bereich der Einstellungen auswertet.
  */
-function LegacyOrWorkspaceRedirect(props: LegacyAppContentProps): React.JSX.Element {
+export function InDenArbeitsbereich({ ziel }: { ziel: string }): React.JSX.Element {
   const location = useLocation();
-  if (location.pathname === '/') {
-    return <Navigate to={`/workspace${location.search}${location.hash}`} replace />;
-  }
-  return <LegacyAppContent {...props} />;
-}
-
-/**
- * Die bisherige Sidebar-UI (Fallback zur Workspace-Shell). Rendert für alle
- * Routen außer /workspace/* und bleibt funktional unverändert — sie ist der
- * Sekunden-Fallback, falls die neue Shell Probleme macht.
- */
-function LegacyAppContent({
-  isAuthenticated,
-  theme,
-  onToggleTheme,
-  onLogout,
-}: LegacyAppContentProps): React.JSX.Element {
-  // Die Dashboard-Startseite ist entfernt (Plan 008); die Legacy-UI nutzt aus
-  // useDashboardData nur noch den Lade-/Fehlerzustand und das Offline-Banner.
-  const { metrics, loading, error, retry } = useDashboardData(isAuthenticated);
-
-  // Sidebar collapsed state - persisted in localStorage
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('arasul_sidebar_collapsed');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      localStorage.removeItem('arasul_sidebar_collapsed');
-      return false;
-    }
-  });
-
-  // Toggle sidebar collapsed state
-  const toggleSidebar = useCallback(() => {
-    setSidebarCollapsed((prev: boolean) => {
-      const newState = !prev;
-      localStorage.setItem('arasul_sidebar_collapsed', JSON.stringify(newState));
-      return newState;
-    });
-  }, []);
-
-  // Apply sidebar state class to body (for components like markdown editor overlay)
-  useEffect(() => {
-    document.body.classList.remove('sidebar-expanded', 'sidebar-collapsed');
-    document.body.classList.add(sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded');
-  }, [sidebarCollapsed]);
-
-  // Keyboard shortcut: Cmd/Ctrl + B to toggle sidebar
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
-        e.preventDefault();
-        toggleSidebar();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebar]);
-
-  if (loading) {
-    return <LoadingSpinner message="Lade Dashboard..." fullscreen={true} />;
-  }
-
-  if (error) {
-    return (
-      <div className="app">
-        <div className="error-container">
-          <div className="error-icon">⚠️</div>
-          <h2>Fehler beim Laden</h2>
-          <p className="error-text">{error}</p>
-          <Button
-            type="button"
-            variant="solid"
-            size="lg"
-            onClick={retry}
-            className="mt-2 font-semibold transition-all hover:-translate-y-0.5 hover:shadow-md"
-          >
-            Erneut versuchen
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="app">
-      {/* PHASE 5: Skip-to-content link for keyboard navigation */}
-      <a href="#main-content" className="skip-to-content">
-        Zum Hauptinhalt springen
-      </a>
-
-      <SidebarWithDownloads collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
-
-      {/* Network offline banner */}
-      {metrics?.network && !metrics.network.online && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-muted border-b border-border text-foreground text-center py-1.5 text-sm font-medium">
-          Keine Internetverbindung
-        </div>
-      )}
-
-      <div
-        className="app-content animate-in fade-in duration-150"
-        id="main-content"
-        role="main"
-        tabIndex={-1}
-        ref={(el: HTMLDivElement | null) => {
-          if (el && window.location.hash === '#main-content') el.focus();
-        }}
-      >
-        {/* PHASE 2: Suspense wrapper for lazy-loaded route components */}
-        <Suspense
-          fallback={
-            <div className="flex flex-col gap-6 p-6 animate-in fade-in">
-              <SkeletonText lines={2} width="40%" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SkeletonCard hasAvatar={false} lines={3} />
-                <SkeletonCard hasAvatar={false} lines={3} />
-              </div>
-            </div>
-          }
-        >
-          <Routes>
-            <Route
-              path="/settings"
-              element={
-                <RouteErrorBoundary routeName="Einstellungen">
-                  <Settings handleLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
-                </RouteErrorBoundary>
-              }
-            />
-            {/* Dokumente/Wissensraum-Seite entfernt (B5) — Dateien leben im
-                Workspace-Explorer. Alt-Links leiten dorthin. */}
-            <Route path="/data" element={<Navigate to="/workspace" replace />} />
-            <Route path="/documents" element={<Navigate to="/workspace" replace />} />
-            <Route
-              path="/store/*"
-              element={
-                <RouteErrorBoundary routeName="Store">
-                  <Store />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route path="/sandbox" element={<Navigate to="/terminal" replace />} />
-            <Route
-              path="/terminal"
-              element={
-                <RouteErrorBoundary routeName="Terminal">
-                  <SandboxApp />
-                </RouteErrorBoundary>
-              }
-            />
-            <Route
-              path="*"
-              element={
-                <div className="flex flex-col items-center justify-center h-[60vh] text-muted-foreground">
-                  <h1 className="text-7xl font-bold m-0 text-foreground">404</h1>
-                  <p className="text-lg mt-2">Seite nicht gefunden</p>
-                  <Link
-                    to="/workspace"
-                    className="mt-6 px-6 py-2.5 bg-primary text-primary-foreground rounded-lg no-underline hover:opacity-90 transition-opacity"
-                  >
-                    Zum Workspace
-                  </Link>
-                </div>
-              }
-            />
-          </Routes>
-        </Suspense>
-      </div>
-    </div>
-  );
+  return <Navigate to={`/workspace${ziel}${location.search}${location.hash}`} replace />;
 }
 
 export default App;
