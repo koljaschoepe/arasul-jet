@@ -143,7 +143,25 @@ async function searchDocuments(queryVector, limit, filter) {
   return searchResponse.data.result || [];
 }
 
+/**
+ * Alle Vektoren der Sammlung entfernen, ohne die Sammlung selbst zu loeschen.
+ * Gebraucht vom Werksreset (Plan 023 B5): die Sammlung traegt Konfiguration
+ * (Dimension, Distanzmass, Indizes), die ein neu angelegter Ersatz nicht
+ * zwingend gleich haette. Ein leerer Filter trifft jeden Punkt.
+ * @returns {Promise<{entfernt: 'alle'}>}
+ */
+async function deleteAllVectors() {
+  await axios.post(
+    `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
+    { filter: {} },
+    { params: { wait: true }, timeout: 60000 }
+  );
+  logger.warn(`[qdrant] Alle Vektoren in "${QDRANT_COLLECTION}" entfernt`);
+  return { entfernt: 'alle' };
+}
+
 module.exports = {
+  deleteAllVectors,
   deleteDocumentVectors,
   deleteDocumentVectorsSimple,
   updateDocumentSpacePayload,

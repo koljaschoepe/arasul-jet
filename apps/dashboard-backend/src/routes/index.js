@@ -43,6 +43,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/gdpr', group: 'admin' },
   { prefix: '/backup', group: 'admin' },
   { prefix: '/ops', group: 'admin' },
+  { prefix: '/werksreset', group: 'admin' },
   { prefix: '/models', group: 'ai' },
   { prefix: '/embeddings', group: 'ai' },
   { prefix: '/memory', group: 'ai' },
@@ -113,6 +114,7 @@ router.use('/license', require('./admin/license'));
 router.use('/gdpr', require('./admin/gdpr'));
 router.use('/backup', require('./admin/backup'));
 router.use('/ops', require('./admin/ops'));
+router.use('/werksreset', require('./admin/werksreset'));
 
 // --- AI ---
 router.use('/models', require('./ai/models'));

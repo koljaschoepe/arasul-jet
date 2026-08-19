@@ -42,17 +42,42 @@ sicherheitsnetz() {
   # Der Pruefstand darf NIE auf die echten Daten zeigen. Wenn diese Pruefung
   # faellt, ist die Trennung kaputt und ein Werksreset wuerde den Arbeitsstand
   # loeschen. Lieber gar nicht starten.
-  local pfad
-  pfad=$(compose config 2>/dev/null | grep -oE "source: ${WURZEL}/data(/|$)" | head -1 || true)
+  local gerendert pfad envdatei
+  gerendert=$(compose config 2>/dev/null || true)
+
+  pfad=$(echo "$gerendert" | grep -oE "source: ${WURZEL}/data(/|$)" | head -1 || true)
   if [ -n "$pfad" ]; then
     echo "ABBRUCH: der Pruefstand zeigt auf ${WURZEL}/data, also auf die echten Daten."
     echo "DATA_PATH in ${UMGEBUNG} pruefen."
     exit 1
   fi
+
+  # Die .env ist keine Nebensache: der Werksreset SCHREIBT in sie und entwertet
+  # ADMIN_PASSWORD. Zeigt der Pruefstand auf die echte, nimmt ein Testlauf dem
+  # Normalbetrieb sein Erstpasswort.
+  envdatei=$(echo "$gerendert" | grep -oE "source: ${WURZEL}/\.env$" | head -1 || true)
+  if [ -n "$envdatei" ]; then
+    echo "ABBRUCH: der Pruefstand zeigt auf ${WURZEL}/.env, also auf die echte Umgebungsdatei."
+    echo "ENV_DATEI in ${UMGEBUNG} pruefen."
+    exit 1
+  fi
+}
+
+# Eigene .env fuer den Pruefstand, einmalig als Kopie. Sie darf abweichen, aber
+# sie muss existieren, bevor der Stack startet: Compose bindet eine fehlende
+# Datei sonst als leeres VERZEICHNIS ein.
+eigene_env() {
+  local ziel="${WURZEL}/.env.pruefstand"
+  if [ ! -f "$ziel" ]; then
+    cp "${WURZEL}/.env" "$ziel"
+    chmod 600 "$ziel"
+    echo "Eigene Umgebungsdatei angelegt: .env.pruefstand"
+  fi
 }
 
 case "${1:-}" in
   hoch)
+    eigene_env
     sicherheitsnetz
     mkdir -p data-pruefstand logs-pruefstand
     compose up -d --build "${DIENSTE[@]}"
@@ -67,7 +92,7 @@ case "${1:-}" in
     ;;
   weg)
     compose down -v
-    rm -rf data-pruefstand logs-pruefstand
+    rm -rf data-pruefstand logs-pruefstand .env.pruefstand
     echo "Pruefstand und seine Daten entfernt. Der Arbeitsstand ist unberuehrt."
     ;;
   *)

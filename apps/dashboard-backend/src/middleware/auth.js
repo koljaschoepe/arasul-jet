@@ -221,18 +221,28 @@ function invalidateUserCache(userId) {
 }
 
 /**
+ * Alle zwischengespeicherten Identitäten verwerfen. Gebraucht vom Werksreset
+ * (Plan 023 B5), der die ganze Tabelle `admin_users` leert: ohne das käme jede
+ * noch warme Zeile bis zu USER_CACHE_TTL (60 s) weiter durch `requireAuth`,
+ * obwohl es in der Datenbank keinen Administrator mehr gibt. Genau das soll die
+ * Stufe „Auslieferungszustand" ja gerade herstellen.
+ */
+function clearUserCache() {
+  userCache.clear();
+}
+
+/**
  * Test-only: clear the per-user auth cache so a suite that authenticates as
  * different users under the same userId (e.g. admin vs non-admin) does not
  * leak a stale role between tests. Mirrors systemSettings._setForTest.
  */
-function _clearUserCacheForTest() {
-  userCache.clear();
-}
+const _clearUserCacheForTest = clearUserCache;
 
 module.exports = {
   requireAuth,
   requireAdmin,
   optionalAuth,
   invalidateUserCache,
+  clearUserCache,
   _clearUserCacheForTest,
 };

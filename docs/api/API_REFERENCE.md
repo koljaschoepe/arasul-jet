@@ -2036,6 +2036,76 @@ Single consolidated endpoint that aggregates backup status, restore-drill status
 
 ---
 
+### Werksreset (Plan 023 B5)
+
+Setzt das Gerät zurück. Zwei Stufen: `inhalte` löscht alles, was der Nutzer
+erzeugt hat, und lässt die Einrichtung stehen; `auslieferung` löscht zusätzlich
+die Einrichtung selbst (Zugangsdaten, Erweiterungen, Flows, n8n-Workflows,
+hinterlegte Fremdzugänge, Protokolle, Messwerte), danach läuft wieder die
+Ersteinrichtung. `modelleLoeschen` entfernt zusätzlich alle Modelle aus Ollama.
+
+Welche Tabelle in welche Stufe fällt, steht ausschließlich in
+`src/services/werksreset/tabellen.js`. Diese Klassifikation wird zur Laufzeit
+gegen `information_schema` geprüft: findet sich eine Tabelle, die in keinem der
+vier Töpfe steht, liefert die Vorschau `durchfuehrbar: false` und die Ausführung
+antwortet mit `409 CONFLICT`. Ein Werksreset, der etwas stehen lässt, behauptet
+sonst eine Vollständigkeit, die er nicht hat.
+
+| Method | Endpoint                   | Auth  | Description                                     |
+| ------ | -------------------------- | ----- | ----------------------------------------------- |
+| GET    | `/api/werksreset/vorschau` | Admin | Zählt vorher ab, was eine Stufe entfernen würde |
+| POST   | `/api/werksreset`          | Admin | Führt den Werksreset aus                        |
+
+**GET /api/werksreset/vorschau?stufe=auslieferung&modelle=false**
+
+```json
+{
+  "stufe": "auslieferung",
+  "modelleLoeschen": false,
+  "geraetename": "arasul",
+  "tabellen": [{ "name": "public.chat_messages", "zweck": "Chatnachrichten", "zeilen": 412 }],
+  "zeilenGesamt": 412,
+  "ordner": [{ "pfad": "/arasul/flows", "zweck": "Flow-Definitionen", "eintraege": 8 }],
+  "n8nWirdGeleert": true,
+  "unbekannteTabellen": [],
+  "durchfuehrbar": true
+}
+```
+
+**POST /api/werksreset**
+
+```json
+{ "stufe": "auslieferung", "bestaetigung": "arasul", "modelleLoeschen": false }
+```
+
+Beide Endpunkte sind gebremst: die Ausführung fünf Mal je Stunde und Nutzer, die
+Vorschau zwanzig Mal in fünf Minuten. Gezählt werden alle Aufrufe, auch die mit
+falsch getipptem Gerätenamen. Der Gerätename als Bestätigung schützt gegen den
+Fehlgriff, nicht gegen eine übernommene Sitzung in einer Schleife.
+
+Vor jedem Löschen entwertet die Stufe `auslieferung` das Erstpasswort in der
+`.env` (`ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP`). Scheitert das, bricht der
+Reset ab, bevor irgendetwas gelöscht ist. Die Reihenfolge ist Absicht:
+`bootstrap.js` legt beim Start wieder einen Administrator an, sobald keiner
+existiert und `ADMIN_PASSWORD` noch gültig ist. Ein Stromausfall zwischen
+Löschen und Entwerten würde das Gerät also mit leerer Tabelle und gültigem alten
+Passwort hochfahren.
+
+Nach der Stufe `auslieferung` wird zusätzlich der Identitäts-Zwischenspeicher
+von `requireAuth` geleert und die Oberfläche meldet sich ab. Ohne das käme die
+auslösende Sitzung noch bis zu 60 Sekunden durch, gegen eine Datenbank ohne
+einen einzigen Administrator.
+
+`bestaetigung` muss dem Gerätenamen entsprechen (`system_settings.hostname`,
+ersatzweise `MDNS_NAME` oder der Hostname des Containers). Ein festes Wort wie
+„LÖSCHEN" tippt man im Zweifel auch auf dem falschen Gerät; ein Gerätename nicht.
+Bei Abweichung: `400 VALIDATION_ERROR`.
+
+Die Antwort ist der Bericht: geleerte Tabellen mit Zeilenzahl, geleerte Ordner,
+Ergebnis für Objektspeicher, Vektoren, n8n und Modelle, dazu die Dauer.
+
+---
+
 ### Memory (AI)
 
 Manages the AI assistant's persistent memory profile and individual memory entries. All routes require authentication.

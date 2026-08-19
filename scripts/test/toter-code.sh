@@ -38,7 +38,6 @@ AUSNAHMEN=(
 NUR_TESTS_OK=(
   "src/server.js|existiert genau dafuer: reicht die App an Integrationstests durch"
   "src/utils/urlGuard.js|SSRF-Schutz, Verbraucher kommt mit Plan 023 H1 (ausgehende Aufrufe der Erweiterungen)"
-  "src/utils/sqlIdentifier.js|Bezeichner-Escaping, Verbraucher kommt mit Plan 023 H1 (eigene Tabellen je Erweiterung)"
 )
 
 in_liste() {
