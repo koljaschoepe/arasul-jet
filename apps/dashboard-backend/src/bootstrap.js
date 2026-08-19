@@ -50,14 +50,12 @@ async function bootstrap() {
     logger.error(`Bootstrap: App-Container-Reconcile error: ${error.message}`);
   }
 
-  // Step 5: Beispiel-Flows anlegen (Plan 011, Schritt 18) — nur fehlende, nie
-  // überschreibend. Best-effort, blockiert den Boot nie.
-  try {
-    const { seedBeispielFlows } = require('./services/flows/beispielSeed');
-    await seedBeispielFlows();
-  } catch (error) {
-    logger.error(`Bootstrap: Beispiel-Flows-Seed error: ${error.message}`);
-  }
+  // Step 5 ist entfallen (Plan 023 B4, Entscheidung E6): der Start legte hier
+  // fünf Beispiel-Flows im Flow-Ordner an. Ab Werk ist nichts enthalten. Die
+  // Vorlagen gibt es weiter, aber als Angebot im Anlege-Dialog
+  // (`services/flows/beispielKatalog.js`, `GET /api/flows/beispiele`), nicht
+  // als Lieferumfang. Ohne diese Streichung stellt ein Werksreset den
+  // Auslieferungszustand her und der nächste Start macht ihn wieder kaputt.
 
   // Step 6: Verwaiste Terminal-Sitzungen schließen (Plan 017 Schritt 1).
   // Nach einem Backend-Neustart ist jede WebSocket-Verbindung tot — 'active'-

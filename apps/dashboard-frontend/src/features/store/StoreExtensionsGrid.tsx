@@ -219,6 +219,19 @@ export function StoreExtensionsGrid() {
           Container deutlich schmaler als der Viewport — Viewport-Breakpoints
           quetschten hier zu viele Spalten hinein (Karteninhalt „…"). */}
       <div className="@container min-h-0 flex-1 overflow-y-auto p-4">
+        {/* Ab Werk ist keine Erweiterung enthalten (Plan 023 B4, Entscheidung
+            E6). Ohne diesen Satz stünde auf einem neuen Gerät eine einzelne
+            gestrichelte Kachel in einer leeren Fläche und sähe aus, als hätte
+            etwas nicht geladen. */}
+        {nothingVisible && !isFiltered && (
+          <div className="mb-4">
+            <p className="text-ui-sm font-semibold text-foreground">Noch keine Erweiterung</p>
+            <p className="mt-0.5 text-ui-xs text-muted-foreground">
+              Das Gerät wird ohne Erweiterungen ausgeliefert. Baue die erste selbst oder importiere
+              ein fertiges Paket.
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
           {visible.map(app => (
             <ExtensionCard key={app.id} app={app} onToggle={setAppEnabled} />

@@ -235,12 +235,16 @@ ihm jedes Werkzeug geben, inklusive Terminal und Web-Zugriff. Flows laufen
 den Abbrechen-Knopf. Die Gegenleistung ist die lückenlose Änderungs-Übersicht am
 Ende jedes Laufs mit Schreibzugriff: Du siehst hinterher, was passiert ist.
 
-## Mitgelieferte Beispiel-Flows
+## Beispiele als Startpunkt
 
-Bei der Einrichtung liegen fünf Flows bereit, die je eine Fähigkeit vorführen —
-alle sind bearbeit- und löschbar:
+Ab Werk liegt **kein** Flow auf dem Gerät (Plan 023, Entscheidung E6). Die
+Flow-Liste eines neuen Geräts ist leer und zeigt einen Einstieg.
 
-| Flow                      | Führt vor          | Kern                                                                           |
+Fünf Vorlagen liefert das Backend trotzdem mit, aber als Angebot statt als
+Lieferumfang: Der Anlege-Dialog zeigt sie als Startpunkte, ein Klick füllt das
+Formular. Angelegt wird der Flow erst beim Speichern, und dann als deiner.
+
+| Vorlage                   | Führt vor          | Kern                                                                           |
 | ------------------------- | ------------------ | ------------------------------------------------------------------------------ |
 | `dokument-zusammenfassen` | Datei-Argument     | Ein `datei`-Argument liefert den Dokument-Inhalt; kein Werkzeug nötig.         |
 | `wissen`                  | RAG mit Quellen    | `rag_suche` auf eine gewählte Wissensbasis, Antwort mit Quellen.               |
@@ -252,12 +256,12 @@ alle sind bearbeit- und löschbar:
 ([`EXTENSIONS.md`](EXTENSIONS.md)); sie arbeiten im Werkstatt-Ordner
 `/arasul/sandbox/projects/werkstatt`.
 
-Die Vorlagen liegen tracked im Backend-Image
-(`services/flows/beispiele/*.md`) und werden beim Start in den Flow-Ordner
-(`FLOWS_DIR`) kopiert — aber **nur, wenn dort noch keine gleichnamige Datei
-liegt**. So überschreibt ein Update nie eine von dir bearbeitete oder bewusst
-gelöschte Beispiel-Datei. Danach sind sie ganz normale Flows unter
-`data/flows/` und dienen als Vorlage für eigene.
+Die Dateien liegen tracked im Backend-Image
+(`services/flows/beispiele/*.md`) und werden über
+`GET /api/flows/beispiele` beziehungsweise `GET /api/flows/beispiele/:name`
+gelesen. Bis zum 19.08.2026 kopierte der Start sie in den Flow-Ordner; das ist
+mit Plan 023 B4 entfallen. Der Grund: ein Werksreset stellt den
+Auslieferungszustand her, und der nächste Start hätte ihn wieder kaputt gemacht.
 
 ## Verwandte Dokumentation
 

@@ -174,3 +174,13 @@ export interface FlowRunSummary {
   /** Start-Argumente des Laufs (z. B. thema) — für die Zeilen-Vorschau. */
   arguments?: Record<string, string> | null;
 }
+
+/**
+ * Ein mitgelieferter Startpunkt fuer einen neuen Flow (Plan 023 B4).
+ * Ab Werk liegt kein Flow auf dem Geraet; diese fuenf werden angeboten, nicht
+ * angelegt. Die Liste traegt bewusst keinen Inhalt, den holt erst der Klick.
+ */
+export interface FlowBeispiel {
+  name: string;
+  beschreibung: string;
+}

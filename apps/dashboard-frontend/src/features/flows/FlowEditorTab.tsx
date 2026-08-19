@@ -15,7 +15,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, Save, Sparkles, Trash2 } from 'lucide-react';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/shadcn/button';
 import { useApi } from '@/hooks/useApi';
@@ -23,7 +23,7 @@ import type { ApiError } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { useWorkspaceStore, tabId } from '@/stores/workspaceStore';
 import { useFlowEditorStore } from '@/stores/flowEditorStore';
-import type { FlowDefinition, FlowToolInfo } from '@/types/flows';
+import type { FlowBeispiel, FlowDefinition, FlowToolInfo } from '@/types/flows';
 import FlowForm from './FlowForm';
 import FlowDashboard from './FlowDashboard';
 import FlowOverview from './FlowOverview';
@@ -67,6 +67,33 @@ export default function FlowEditorTab() {
     },
     staleTime: 5 * 60_000,
   });
+
+  // Die mitgelieferten Startpunkte (Plan 023 B4). Ab Werk liegt kein Flow auf
+  // dem Gerät; wer einen anlegt, soll trotzdem nicht vor einem leeren Blatt
+  // sitzen. Angelegt wird erst beim Speichern.
+  const { data: beispiele = [] } = useQuery({
+    queryKey: ['flow-beispiele'],
+    queryFn: async () => {
+      const res = await api.get<{ data: FlowBeispiel[] }>('/flows/beispiele', {
+        showError: false,
+      });
+      return res.data;
+    },
+    staleTime: 60 * 60_000,
+    enabled: !bearbeiten,
+  });
+
+  const beispielUebernehmen = async (name: string) => {
+    try {
+      const res = await api.get<{ data: FlowDefinition }>(`/flows/beispiele/${name}`, {
+        showError: false,
+      });
+      setForm(fromDefinition(res.data));
+      setFehler(null);
+    } catch (err) {
+      setFehler((err as ApiError).message || 'Beispiel konnte nicht geladen werden');
+    }
+  };
 
   // Beim Bearbeiten den Flow laden; beim Anlegen mit dem leeren Formular starten.
   const { data: geladen } = useQuery({
@@ -244,6 +271,30 @@ export default function FlowEditorTab() {
           eigentliche Zielgruppe. */}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="mx-auto w-full max-w-3xl">
+          {!bearbeiten && beispiele.length > 0 && (
+            <div className="mb-4 rounded-lg border border-border p-3">
+              <p className="flex items-center gap-1.5 text-ui-xs font-semibold text-foreground">
+                <Sparkles className="size-3.5 text-primary" aria-hidden="true" />
+                Aus einem Beispiel starten
+              </p>
+              <p className="mt-0.5 text-ui-xs text-muted-foreground">
+                Füllt das Formular. Angelegt wird der Flow erst beim Speichern.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {beispiele.map(beispiel => (
+                  <button
+                    key={beispiel.name}
+                    type="button"
+                    onClick={() => void beispielUebernehmen(beispiel.name)}
+                    title={beispiel.beschreibung}
+                    className="rounded-md border border-border px-2.5 py-1 text-ui-xs text-foreground transition-colors hover:border-primary/40 hover:bg-accent"
+                  >
+                    /{beispiel.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <FlowForm
             value={form}
             onChange={setForm}
