@@ -1799,6 +1799,17 @@ All endpoints require authentication. `export` and `categories` additionally req
 
 Returns a JSON file download (`Content-Disposition: attachment`) containing all personal data: profile, conversations, messages, attachments (metadata), documents (metadata), AI memories, login history, active sessions, activity log, security events, knowledge spaces, and projects. Limited to the 10,000 most recent messages and 1,000 most recent audit entries.
 
+Zwei Kategorien sind auf dieser Box **nicht nutzergebunden** und werden deshalb
+vollständig ausgegeben, jeweils mit `note`: KI-Erinnerungen (`ai_memories` hat
+keine Nutzerspalte) und Projekte (`projects` ebenso). Dokumente werden über
+`owner_id` **oder** `uploaded_by` gefunden — `uploaded_by` enthält einen Namen,
+keine Id.
+
+Scheitert eine Kategorie, steht der Grund in ihrem Block als `unvollstaendig`
+und zusätzlich in `_meta.unvollstaendig`. Eine leere Liste heißt also wirklich
+"dazu gibt es nichts" und nicht "die Abfrage ist kaputt" (Stand 19.08.2026:
+vorher verschluckte ein `.catch` jeden Fehler).
+
 ```json
 {
   "_meta": {
@@ -1806,7 +1817,8 @@ Returns a JSON file download (`Content-Disposition: attachment`) containing all 
     "exportVersion": "1.0",
     "system": "Arasul Platform",
     "userId": 1,
-    "username": "admin"
+    "username": "admin",
+    "unvollstaendig": []
   },
   "profile": { "id": 1, "username": "admin", "email": "...", "created_at": "..." },
   "conversations": { "count": 42, "data": [...] },
