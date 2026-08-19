@@ -135,19 +135,29 @@ run_frontend_tests() {
 # einsammeln liess. Jetzt wird das Ergebnis mitgezaehlt und im Schlussbanner
 # genannt, damit niemand mehr eine Zusicherung liest, die es nicht gibt.
 PYTHON_UNGEPRUEFT=0
+WURZELTESTS_UNGEPRUEFT=0
 
 run_python_tests() {
   echo ""
   echo "-> Running Python Tests (pytest, nicht blockierend — verbindlich ist die CI)..."
 
-  # Root-Level Tests
-  if [ -d "tests/unit" ] && command -v pytest &> /dev/null; then
-    echo "   Running tests/unit..."
-    if pytest tests/unit -v --tb=short -q 2>/dev/null; then
-      echo "   Python unit tests: PASSED"
+  # Root-Level Tests. ACHTUNG: fuer diesen Ordner gibt es KEINEN CI-Job — die
+  # Matrix in .github/workflows/test.yml deckt nur die drei Dienste unter
+  # services/ ab. Was hier durchfaellt, faellt nirgends sonst auf.
+  if [ -d "tests/unit" ]; then
+    if command -v pytest &> /dev/null; then
+      echo "   Running tests/unit..."
+      if pytest tests/unit -v --tb=short -q 2>/dev/null; then
+        echo "   Python unit tests: PASSED"
+      else
+        echo "   Python unit tests: NICHT BESTANDEN oder hier nicht pruefbar"
+        PYTHON_UNGEPRUEFT=$((PYTHON_UNGEPRUEFT + 1))
+        WURZELTESTS_UNGEPRUEFT=1
+      fi
     else
-      echo "   Python unit tests: NICHT BESTANDEN oder nicht pruefbar (siehe CI)"
+      echo "   tests/unit: UEBERSPRUNGEN (pytest nicht installiert)"
       PYTHON_UNGEPRUEFT=$((PYTHON_UNGEPRUEFT + 1))
+      WURZELTESTS_UNGEPRUEFT=1
     fi
   fi
 
@@ -296,7 +306,10 @@ if [ $EXIT_CODE -ne 0 ]; then
 elif [ "$PYTHON_UNGEPRUEFT" -gt 0 ]; then
   echo "  Test Run Complete - blockierende Tests bestanden"
   echo "  ACHTUNG: $PYTHON_UNGEPRUEFT Python-Suite(n) nicht bestanden oder hier nicht pruefbar."
-  echo "  Verbindlich ist die CI (Job 'Python · <dienst>')."
+  echo "  Fuer services/* ist die CI verbindlich (Job 'Python · <dienst>')."
+  if [ "$WURZELTESTS_UNGEPRUEFT" -eq 1 ]; then
+    echo "  Fuer tests/unit gibt es KEINEN CI-Job — dort prueft niemand nach."
+  fi
 else
   echo "  Test Run Complete - ALL PASSED"
 fi
