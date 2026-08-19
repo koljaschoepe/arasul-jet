@@ -1,0 +1,325 @@
+/**
+ * Werksreset (Plan 023 B5).
+ *
+ * Der Werksreset hat eine Eigenschaft, die schwerer wiegt als seine
+ * Vollständigkeit: er muss wissen, wann er unvollständig ist. Eine neue
+ * Migration mit einer neuen Tabelle darf nicht dazu führen, dass ab dem Tag
+ * still Daten stehen bleiben, während die Oberfläche „zurückgesetzt" meldet.
+ *
+ * Deshalb prüfen diese Tests vor allem das Verweigern.
+ */
+
+jest.mock('../../src/database', () => ({
+  query: jest.fn(),
+  transaction: jest.fn(),
+}));
+
+jest.mock('../../src/utils/logger', () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+}));
+
+jest.mock('../../src/services/system-settings/systemSettingsService', () => ({
+  reload: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('../../src/services/core/cacheService', () => ({
+  cacheService: { clear: jest.fn() },
+}));
+
+jest.mock('fs', () => ({
+  promises: { readdir: jest.fn(), rm: jest.fn() },
+}));
+
+jest.mock('../../src/utils/envManager', () => ({ updateEnvVariable: jest.fn() }));
+
+jest.mock('../../src/services/core/docker', () => ({ restartContainer: jest.fn() }));
+
+jest.mock('../../src/services/documents/minioService', () => ({
+  listAllObjects: jest.fn(),
+  removeObject: jest.fn(),
+}));
+
+jest.mock('../../src/services/documents/qdrantService', () => ({
+  deleteAllVectors: jest.fn(),
+}));
+
+const db = require('../../src/database');
+const werksreset = require('../../src/services/werksreset/werksreset');
+const { INHALTE, AUSLIEFERUNG, MODELLE, BLEIBT } = require('../../src/services/werksreset/tabellen');
+
+/** Antwortet auf die Abfrage der vorhandenen Tabellen. */
+function tabellenInDerDatenbank(namen) {
+  db.query.mockImplementation(async sql => {
+    if (sql.includes('information_schema.tables')) {
+      return { rows: namen.map(name => ({ name })) };
+    }
+    if (sql.includes('FROM system_settings')) {
+      return { rows: [{ hostname: 'orin-vorfuehrer' }] };
+    }
+    if (sql.startsWith('SELECT count(*)')) {
+      return { rows: [{ n: 7 }] };
+    }
+    return { rows: [] };
+  });
+}
+
+const ALLE = [...INHALTE, ...AUSLIEFERUNG, ...MODELLE, ...BLEIBT].map(([name]) => name);
+
+describe('Klassifikation', () => {
+  test('jede Tabelle steht in genau einem Topf', () => {
+    const doppelt = ALLE.filter((name, i) => ALLE.indexOf(name) !== i);
+    expect(doppelt).toEqual([]);
+  });
+
+  test('jeder Eintrag hat Schema, Name und einen Grund', () => {
+    for (const [name, grund] of [...INHALTE, ...AUSLIEFERUNG, ...MODELLE, ...BLEIBT]) {
+      expect(name).toMatch(/^(public|arasul)\.[a-z][a-z0-9_]*$/);
+      expect(grund.length).toBeGreaterThan(4);
+    }
+  });
+
+  test('Stufe "inhalte" fasst weder Zugangsdaten noch Erweiterungen an', () => {
+    const namen = werksreset.tabellenFuer('inhalte').map(t => t.name);
+    expect(namen).not.toContain('public.admin_users');
+    expect(namen).not.toContain('arasul.extensions');
+    expect(namen).not.toContain('arasul.user_external_credentials');
+    expect(namen).toContain('public.chat_messages');
+    expect(namen).toContain('arasul.projects');
+  });
+
+  test('Stufe "auslieferung" nimmt sie mit', () => {
+    const namen = werksreset.tabellenFuer('auslieferung').map(t => t.name);
+    expect(namen).toContain('public.admin_users');
+    expect(namen).toContain('arasul.extensions');
+    expect(namen).toContain('arasul.user_external_credentials');
+    expect(namen).toContain('public.chat_messages');
+  });
+
+  test('Modelle nur auf ausdrücklichen Wunsch', () => {
+    expect(werksreset.tabellenFuer('auslieferung').map(t => t.name)).not.toContain(
+      'public.llm_installed_models'
+    );
+    expect(werksreset.tabellenFuer('auslieferung', true).map(t => t.name)).toContain(
+      'public.llm_installed_models'
+    );
+  });
+
+  test('Schema-Buchführung und Werkskatalog bleiben in jeder Stufe stehen', () => {
+    for (const stufe of ['inhalte', 'auslieferung']) {
+      const namen = werksreset.tabellenFuer(stufe, true).map(t => t.name);
+      expect(namen).not.toContain('public.schema_migrations');
+      expect(namen).not.toContain('arasul.schema_migrations');
+      expect(namen).not.toContain('public.llm_model_catalog');
+      expect(namen).not.toContain('public.system_settings');
+    }
+  });
+});
+
+describe('unbekannteTabellen', () => {
+  beforeEach(() => db.query.mockReset());
+
+  test('meldet, was in keinem Topf steht', async () => {
+    tabellenInDerDatenbank([...ALLE, 'public.irgendwas_neues']);
+    await expect(werksreset.unbekannteTabellen()).resolves.toEqual(['public.irgendwas_neues']);
+  });
+
+  test('ist leer, wenn die Klassifikation die Datenbank abdeckt', async () => {
+    tabellenInDerDatenbank(ALLE);
+    await expect(werksreset.unbekannteTabellen()).resolves.toEqual([]);
+  });
+});
+
+describe('ausfuehren', () => {
+  beforeEach(() => {
+    db.query.mockReset();
+    db.transaction.mockReset();
+  });
+
+  test('verweigert, solange eine Tabelle nicht eingeordnet ist', async () => {
+    tabellenInDerDatenbank([...ALLE, 'public.spaeter_dazugekommen']);
+
+    await expect(
+      werksreset.ausfuehren({ stufe: 'inhalte', bestaetigung: 'orin-vorfuehrer' })
+    ).rejects.toThrow(/spaeter_dazugekommen/);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  test('verweigert bei falschem Gerätenamen', async () => {
+    tabellenInDerDatenbank(ALLE);
+
+    await expect(
+      werksreset.ausfuehren({ stufe: 'inhalte', bestaetigung: 'irgendwas' })
+    ).rejects.toThrow(/Gerätename/);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  test('verweigert eine unbekannte Stufe, bevor irgendetwas gelesen wird', async () => {
+    await expect(
+      werksreset.ausfuehren({ stufe: 'halb', bestaetigung: 'orin-vorfuehrer' })
+    ).rejects.toThrow(/Unbekannte Stufe/);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
+describe('leereTabellen', () => {
+  /** Ein Client, der bei bestimmten Tabellen erst beim zweiten Anlauf löscht. */
+  function clientMit({ blockiertBis = {} } = {}) {
+    const versuche = {};
+    const geloescht = [];
+    return {
+      geloescht,
+      query: jest.fn(async sql => {
+        if (/^(SAVEPOINT|RELEASE|ROLLBACK)/.test(sql)) return { rowCount: 0 };
+        const treffer = /DELETE FROM "([a-z]+)"\."([a-z_]+)"/.exec(sql);
+        if (!treffer) return { rowCount: 0 };
+        const name = `${treffer[1]}.${treffer[2]}`;
+        versuche[name] = (versuche[name] || 0) + 1;
+        if (versuche[name] <= (blockiertBis[name] || 0)) {
+          throw new Error(`update or delete on table "${treffer[2]}" violates foreign key`);
+        }
+        geloescht.push(name);
+        return { rowCount: 3 };
+      }),
+    };
+  }
+
+  test('löst die Reihenfolge über Wiederholung auf, statt sie zu kennen', async () => {
+    const client = clientMit({ blockiertBis: { 'public.documents': 1 } });
+    const ergebnis = await werksreset._leereTabellen(client, [
+      'public.documents',
+      'public.document_chunks',
+    ]);
+
+    expect(Object.keys(ergebnis).sort()).toEqual(['public.document_chunks', 'public.documents']);
+    // Das Kind zuerst, obwohl der Elternteil vorn in der Liste stand.
+    expect(client.geloescht[0]).toBe('public.document_chunks');
+  });
+
+  test('bricht ab, wenn eine ganze Runde nichts löschen kann', async () => {
+    const client = clientMit({ blockiertBis: { 'public.documents': 99, 'public.documents2': 99 } });
+    client.query.mockImplementation(async sql => {
+      if (/^(SAVEPOINT|RELEASE|ROLLBACK)/.test(sql)) return { rowCount: 0 };
+      throw new Error('Tabelle ist gesperrt');
+    });
+
+    await expect(
+      werksreset._leereTabellen(client, ['public.documents', 'public.chat_messages'])
+    ).rejects.toThrow(/lassen sich nicht leeren/);
+  });
+});
+
+describe('werkseinstellungen', () => {
+  test('setzt auf die Spalten-Vorgaben statt zu löschen', async () => {
+    const gestellt = [];
+    const client = {
+      query: jest.fn(async sql => {
+        gestellt.push(sql);
+        if (sql.includes('information_schema.columns')) {
+          return {
+            rows: [
+              { column_name: 'setup_completed', is_nullable: 'NO', column_default: 'false' },
+              { column_name: 'hostname', is_nullable: 'YES', column_default: null },
+            ],
+          };
+        }
+        return { rowCount: 1 };
+      }),
+    };
+
+    await werksreset._werkseinstellungen(client);
+
+    const update = gestellt.find(s => s.startsWith('UPDATE system_settings'));
+    expect(update).toContain('"setup_completed" = false');
+    expect(update).toContain('"hostname" = NULL');
+    expect(update).toContain('WHERE id = 1');
+    expect(gestellt.some(s => /DELETE FROM system_settings/.test(s))).toBe(false);
+  });
+});
+
+/**
+ * Der teuerste Fehler waere ein Werksreset, der wie einer aussieht und keiner
+ * ist. Zwei Wege dorthin sind hier abgesichert: das alte Passwort ueberlebt,
+ * weil bootstrap.js es beim naechsten Start aus der .env wieder einsetzt, und
+ * n8n behaelt seine Workflows, weil nur die eigene Datenbank geleert wurde.
+ */
+describe('ausfuehren, ganzer Durchlauf', () => {
+  const fs = require('fs');
+  const envManager = require('../../src/utils/envManager');
+  const docker = require('../../src/services/core/docker');
+  const minio = require('../../src/services/documents/minioService');
+  const qdrant = require('../../src/services/documents/qdrantService');
+
+  let clientAbfragen;
+
+  beforeEach(() => {
+    db.query.mockReset();
+    db.transaction.mockReset();
+    clientAbfragen = [];
+
+    tabellenInDerDatenbank(ALLE);
+
+    db.transaction.mockImplementation(async rueckruf =>
+      rueckruf({
+        query: jest.fn(async sql => {
+          clientAbfragen.push(sql);
+          if (sql.includes('information_schema.columns')) {
+            return { rows: [{ column_name: 'setup_completed', column_default: 'false' }] };
+          }
+          return { rowCount: 1 };
+        }),
+      })
+    );
+
+    fs.promises.readdir.mockResolvedValue(['eintrag']);
+    fs.promises.rm.mockResolvedValue(undefined);
+    envManager.updateEnvVariable.mockResolvedValue(true);
+    docker.restartContainer.mockResolvedValue(true);
+    minio.listAllObjects.mockResolvedValue([]);
+    qdrant.deleteAllVectors.mockResolvedValue({ entfernt: 'alle' });
+  });
+
+  test('Auslieferung entwertet das Erstpasswort und setzt n8n neu auf', async () => {
+    const bericht = await werksreset.ausfuehren({
+      stufe: 'auslieferung',
+      bestaetigung: 'orin-vorfuehrer',
+    });
+
+    expect(envManager.updateEnvVariable).toHaveBeenCalledWith(
+      'ADMIN_PASSWORD',
+      'REDACTED_AFTER_BOOTSTRAP'
+    );
+    expect(clientAbfragen).toContain('DROP SCHEMA IF EXISTS n8n CASCADE');
+    expect(clientAbfragen).toContain('CREATE SCHEMA n8n');
+    expect(docker.restartContainer).toHaveBeenCalledWith('n8n');
+    expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/flows');
+    expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/extensions');
+  });
+
+  test('Inhalte lässt Passwort, n8n, Flows und Erweiterungen in Ruhe', async () => {
+    const bericht = await werksreset.ausfuehren({
+      stufe: 'inhalte',
+      bestaetigung: 'orin-vorfuehrer',
+    });
+
+    expect(envManager.updateEnvVariable).not.toHaveBeenCalled();
+    expect(clientAbfragen.some(s => s.includes('DROP SCHEMA'))).toBe(false);
+    expect(docker.restartContainer).not.toHaveBeenCalled();
+    expect(bericht.ordner.map(o => o.pfad)).not.toContain('/arasul/flows');
+    expect(bericht.ordner.map(o => o.pfad)).toContain('/arasul/projects');
+  });
+
+  test('ein nicht erreichbarer Nachbardienst nimmt den Reset nicht zurück', async () => {
+    qdrant.deleteAllVectors.mockRejectedValue(new Error('Qdrant antwortet nicht'));
+
+    const bericht = await werksreset.ausfuehren({
+      stufe: 'inhalte',
+      bestaetigung: 'orin-vorfuehrer',
+    });
+
+    expect(bericht.vektoren).toEqual({ ok: false, fehler: 'Qdrant antwortet nicht' });
+    expect(bericht.zeilenGesamt).toBeGreaterThan(0);
+  });
+});

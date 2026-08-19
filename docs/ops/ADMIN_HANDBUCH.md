@@ -351,6 +351,41 @@ ssh -p 2222 arasul@<jetson-ip>
 
 ---
 
+## 9a. Werksreset
+
+**Einstellungen → System → Werksreset**
+
+Zwei Stufen. Beide sind endgueltig, es gibt kein Rueckgaengig. Was hier
+verschwindet, steht danach nur noch in einer Sicherung (Abschnitt 9).
+
+| Stufe                 | Weg                                                                                                             | Bleibt                                               |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Inhalte zuruecksetzen | Chats, Dokumente, Wissensraeume, Projekte, Sandboxes, Flow-Laeufe                                               | Zugang, Erweiterungen, Flows, Einstellungen, Modelle |
+| Auslieferungszustand  | zusaetzlich Zugangsdaten, Erweiterungen, Flows, n8n-Workflows, hinterlegte Fremdzugaenge, Protokolle, Messwerte | nur der Werkskatalog (Modelle, Warnschwellen)        |
+
+Optional laesst sich zusaetzlich ankreuzen, dass auch die heruntergeladenen
+Modelle geloescht werden. Ohne Modell kann das Geraet bis zum naechsten Download
+weder antworten noch Dokumente durchsuchen.
+
+**Ablauf**
+
+1. Stufe waehlen, dann **Vorschau anzeigen**. Die Vorschau zaehlt vorher ab, wie
+   viele Zeilen je Bereich verschwinden. Erst danach erscheint der Ausloeser.
+2. Zum Bestaetigen den **Geraetenamen** eintippen, der ueber dem Feld steht. Ein
+   festes Wort wie LOESCHEN tippt man im Zweifel auch auf dem falschen Geraet.
+3. **Werksreset jetzt ausfuehren**.
+
+Nach _Auslieferungszustand_ ist kein Zugang mehr hinterlegt: beim naechsten
+Aufruf startet die Ersteinrichtung, so wie bei einem neuen Geraet.
+
+**Wenn der Werksreset gesperrt ist:** Die Vorschau meldet dann Tabellen, die er
+nicht einordnen kann, und verweigert die Ausfuehrung. Das ist Absicht. Ein
+Werksreset, der etwas stehen laesst, waere schlimmer als keiner, weil er
+Vollstaendigkeit behauptet. In dem Fall gehoert die neue Tabelle in
+`src/services/werksreset/tabellen.js` eingeordnet.
+
+---
+
 ## 10. System-Updates
 
 ### USB-Update einspielen

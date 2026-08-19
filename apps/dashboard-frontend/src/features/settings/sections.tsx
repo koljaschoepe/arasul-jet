@@ -61,6 +61,7 @@ export function resolveTab(param: string | null): SettingsSectionId {
     services: 'system',
     updates: 'system',
     selfhealing: 'system',
+    werksreset: 'system',
   };
   const resolved = legacy[param] ?? param;
   return SETTINGS_SECTION_IDS.includes(resolved as SettingsSectionId)
@@ -71,8 +72,15 @@ export function resolveTab(param: string | null): SettingsSectionId {
 /** Initiale System-Unter-Sektion aus einem (evtl. alten) `?tab=`-Wert. */
 export function resolveSystemSub(
   param: string | null
-): 'services' | 'updates' | 'selfhealing' | undefined {
-  if (param === 'updates' || param === 'selfhealing' || param === 'services') return param;
+): 'services' | 'updates' | 'selfhealing' | 'werksreset' | undefined {
+  if (
+    param === 'updates' ||
+    param === 'selfhealing' ||
+    param === 'services' ||
+    param === 'werksreset'
+  ) {
+    return param;
+  }
   return undefined;
 }
 

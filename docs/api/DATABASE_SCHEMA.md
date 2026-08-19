@@ -2479,6 +2479,15 @@ PK (projekt_id, jahr).
 
 ---
 
+## `avatar_*` — ENTFERNT (Migration 145, 2026-08-19)
+
+> Sechs Tabellen im Schema `arasul` (`avatar_best_slot`, `avatar_render_queue`,
+> `avatar_script_history`, `avatar_topic_weight`, `avatar_video_performance`,
+> `avatar_weekly_report`) stammten aus dem Projekt livia und waren nie Teil von
+> Arasul. Keine Migration hat sie angelegt, kein Code hat sie gelesen. Migration
+> 145 entfernt sie, weil der Werksreset (Plan 023 B5) jede Tabelle der Datenbank
+> einordnen können muss und sonst den Dienst verweigert.
+
 ## `flow_schedules` — ENTFERNT (Migration 123, 2026-07-28)
 
 > Die Flow-Zeitpläne/Cron-Auslöser wurden ersatzlos entfernt (Migration 123

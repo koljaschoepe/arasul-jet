@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Activity, Server, Upload, Wrench, type LucideIcon } from 'lucide-react';
+import { Activity, RotateCcw, Server, Upload, Wrench, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ServicesSettings } from './ServicesSettings';
 import UpdatePage from './UpdatePage';
 import SelfHealingEvents from './SelfHealingEvents';
 import { SystemStatus } from './SystemStatus';
+import { Werksreset } from './Werksreset';
 
-type SubId = 'status' | 'services' | 'updates' | 'selfhealing';
+type SubId = 'status' | 'services' | 'updates' | 'selfhealing' | 'werksreset';
 
 interface SubSection {
   id: SubId;
@@ -20,6 +21,7 @@ const subSections: SubSection[] = [
   { id: 'services', label: 'Services', icon: Server },
   { id: 'updates', label: 'Updates', icon: Upload },
   { id: 'selfhealing', label: 'Self-Healing', icon: Wrench },
+  { id: 'werksreset', label: 'Werksreset', icon: RotateCcw },
 ];
 
 interface SystemSettingsProps {
@@ -81,6 +83,11 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
       {active === 'selfhealing' && (
         <ComponentErrorBoundary componentName="Self-Healing">
           <SelfHealingEvents />
+        </ComponentErrorBoundary>
+      )}
+      {active === 'werksreset' && (
+        <ComponentErrorBoundary componentName="Werksreset">
+          <Werksreset />
         </ComponentErrorBoundary>
       )}
     </div>

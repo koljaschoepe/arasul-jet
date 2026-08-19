@@ -1,0 +1,109 @@
+/**
+ * Werksreset (Plan 023 B5), Oberfläche.
+ *
+ * Die drei Dinge, die hier schiefgehen können und teuer sind:
+ * ein Klick löst aus, die Vorschau kommt nach dem Auslösen, oder die Sperre bei
+ * nicht eingeordneten Tabellen bleibt unsichtbar. Genau die stehen hier.
+ */
+
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Werksreset } from '../Werksreset';
+
+const get = vi.fn();
+const post = vi.fn();
+
+vi.mock('../../../hooks/useApi', () => ({
+  useApi: () => ({ get, post, put: vi.fn(), patch: vi.fn(), del: vi.fn(), request: vi.fn() }),
+}));
+
+vi.mock('../../../contexts/ToastContext', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+}));
+
+const VORSCHAU = {
+  stufe: 'inhalte',
+  modelleLoeschen: false,
+  geraetename: 'orin-vorfuehrer',
+  tabellen: [
+    { name: 'public.chat_messages', zweck: 'Chatnachrichten', zeilen: 412 },
+    { name: 'public.documents', zweck: 'Dokumente', zeilen: 0 },
+  ],
+  zeilenGesamt: 412,
+  ordner: [],
+  n8nWirdGeleert: false,
+  unbekannteTabellen: [],
+  durchfuehrbar: true,
+};
+
+beforeEach(() => {
+  get.mockReset();
+  post.mockReset();
+  get.mockResolvedValue(VORSCHAU);
+  post.mockResolvedValue({ stufe: 'inhalte', zeilenGesamt: 412, dauerMs: 900, tabellen: { a: 1 } });
+});
+
+test('ohne Vorschau gibt es keinen Auslöser', () => {
+  render(<Werksreset />);
+  expect(screen.queryByRole('button', { name: /jetzt ausführen/i })).not.toBeInTheDocument();
+});
+
+test('der Auslöser bleibt gesperrt, bis der Gerätename genau stimmt', async () => {
+  const nutzer = userEvent.setup();
+  render(<Werksreset />);
+
+  await nutzer.click(screen.getByRole('button', { name: /Vorschau anzeigen/i }));
+  const knopf = await screen.findByRole('button', { name: /jetzt ausführen/i });
+  expect(knopf).toBeDisabled();
+
+  const feld = screen.getByLabelText(/Gerätenamen eintippen/i);
+  await nutzer.type(feld, 'orin-vorfuehr');
+  expect(knopf).toBeDisabled();
+
+  await nutzer.type(feld, 'er');
+  await waitFor(() => expect(knopf).toBeEnabled());
+
+  await nutzer.click(knopf);
+  expect(post).toHaveBeenCalledWith('/werksreset', {
+    stufe: 'inhalte',
+    modelleLoeschen: false,
+    bestaetigung: 'orin-vorfuehrer',
+  });
+});
+
+test('zeigt vorher, was verschwindet, und zählt leere Bereiche nicht mit', async () => {
+  const nutzer = userEvent.setup();
+  render(<Werksreset />);
+  await nutzer.click(screen.getByRole('button', { name: /Vorschau anzeigen/i }));
+
+  expect(await screen.findByText(/412 Zeilen in 1 Tabellen/)).toBeInTheDocument();
+  expect(screen.getByText('Chatnachrichten')).toBeInTheDocument();
+  expect(screen.queryByText('Dokumente')).not.toBeInTheDocument();
+});
+
+test('bei nicht eingeordneten Tabellen gibt es keinen Auslöser, sondern eine Begründung', async () => {
+  get.mockResolvedValue({
+    ...VORSCHAU,
+    durchfuehrbar: false,
+    unbekannteTabellen: ['public.spaeter_dazugekommen'],
+  });
+  const nutzer = userEvent.setup();
+  render(<Werksreset />);
+  await nutzer.click(screen.getByRole('button', { name: /Vorschau anzeigen/i }));
+
+  expect(await screen.findByText(/gesperrt/i)).toBeInTheDocument();
+  expect(screen.getByText('public.spaeter_dazugekommen')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /jetzt ausführen/i })).not.toBeInTheDocument();
+});
+
+test('ein Stufenwechsel wirft die Vorschau weg', async () => {
+  const nutzer = userEvent.setup();
+  render(<Werksreset />);
+  await nutzer.click(screen.getByRole('button', { name: /Vorschau anzeigen/i }));
+  await screen.findByRole('button', { name: /jetzt ausführen/i });
+
+  await nutzer.click(screen.getByRole('button', { name: /Auslieferungszustand/i }));
+
+  expect(screen.queryByRole('button', { name: /jetzt ausführen/i })).not.toBeInTheDocument();
+  expect(get).toHaveBeenCalledTimes(1);
+});
