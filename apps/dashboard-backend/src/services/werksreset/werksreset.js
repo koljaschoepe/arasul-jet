@@ -283,6 +283,7 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
     try {
       const { updateEnvVariable } = require('../../utils/envManager');
       await updateEnvVariable('ADMIN_PASSWORD', 'REDACTED_AFTER_BOOTSTRAP');
+      await pruefeEntwertung();
       delete process.env.ADMIN_PASSWORD;
     } catch (err) {
       throw new ConflictError(
@@ -359,6 +360,31 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
 }
 
 /**
+ * Nachlesen, ob das Entwerten wirklich gegriffen hat.
+ *
+ * Am 19.08.2026 in der Live-Abnahme aufgefallen: die .env des Geraets enthielt
+ * ADMIN_PASSWORD zweimal, dotenv liess das spaetere Vorkommen gewinnen, und
+ * der Schreiber ersetzte nur das erste. Der Reset meldete Erfolg, und der
+ * naechste Start legte den alten Zugang mit dem alten Passwort wieder an.
+ * Der Schreiber ist repariert; diese Probe sorgt dafuer, dass ein kuenftiger
+ * Fehler derselben Art auffaellt, statt still durchzugehen.
+ */
+async function pruefeEntwertung() {
+  const pfad = process.env.ENV_FILE_PATH || '/arasul/config/.env';
+  const inhalt = await fsp.readFile(pfad, 'utf8');
+  const offen = inhalt
+    .split('\n')
+    .filter(zeile => /^ADMIN_PASSWORD=/.test(zeile))
+    .filter(zeile => zeile.trim() !== 'ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP');
+
+  if (offen.length > 0) {
+    throw new Error(
+      `${offen.length} Zeile(n) mit ADMIN_PASSWORD stehen nach dem Entwerten noch anders da`
+    );
+  }
+}
+
+/**
  * Alles, was nicht in der Datenbank und nicht im Dateisystem des Backends liegt:
  * Objektspeicher, Vektoren, n8n, Modelle. Jeder Punkt einzeln abgesichert, ein
  * nicht erreichbarer Nachbardienst darf den Reset nicht zurücknehmen; er ist zu
@@ -369,10 +395,24 @@ async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
 
   ergebnis.objektspeicher = await stillEntfernen('Objektspeicher', async () => {
     const minio = require('../documents/minioService');
+    // Ein fehlender Eimer ist kein Fehlschlag: ihn legt die Dokumenten-Pipeline
+    // beim ersten Hochladen an. Wo nie eine Datei lag, ist auch nichts zu
+    // raeumen. In der Abnahme vom 19.08.2026 stand dafuer ein rotes
+    // "The specified bucket does not exist" im Bericht, das nichts bedeutete.
+    const fehlt = err =>
+      err?.code === 'NoSuchBucket' || /bucket does not exist/i.test(err?.message || '');
     // listAllObjects liefert ein Set von PFADEN, keine Objekte. Ein
     // `objekt.name` waere hier undefined und der Objektspeicher bliebe voll,
     // ohne dass es jemand merkt.
-    const pfade = [...(await minio.listAllObjects())];
+    let pfade;
+    try {
+      pfade = [...(await minio.listAllObjects())];
+    } catch (err) {
+      if (fehlt(err)) {
+        return { uebersprungen: 'kein Dokumenten-Eimer vorhanden' };
+      }
+      throw err;
+    }
     // Ein Aufruf je Datei laesst den Reset bei einem gefuellten Dokumentenspeicher
     // in die Minuten laufen. In Stapeln bleibt er in Sekunden.
     const STAPEL = 20;

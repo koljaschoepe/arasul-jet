@@ -30,7 +30,7 @@ jest.mock('../../src/services/core/cacheService', () => ({
 }));
 
 jest.mock('fs', () => ({
-  promises: { readdir: jest.fn(), rm: jest.fn() },
+  promises: { readdir: jest.fn(), rm: jest.fn(), readFile: jest.fn() },
 }));
 
 jest.mock('../../src/utils/envManager', () => ({ updateEnvVariable: jest.fn() }));
@@ -284,6 +284,7 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     );
 
     fs.promises.readdir.mockResolvedValue(['eintrag']);
+    fs.promises.readFile.mockResolvedValue('ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP\n');
     fs.promises.rm.mockResolvedValue(undefined);
     envManager.updateEnvVariable.mockResolvedValue(true);
     docker.restartContainer.mockResolvedValue(true);
@@ -356,6 +357,7 @@ describe('Objektspeicher', () => {
     tabellenInDerDatenbank(ALLE);
     db.transaction.mockImplementation(async r => r({ query: jest.fn().mockResolvedValue({ rowCount: 1 }) }));
     fs.promises.readdir.mockResolvedValue([]);
+    fs.promises.readFile.mockResolvedValue('ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP\n');
     qdrant.deleteAllVectors.mockResolvedValue({});
     // Der echte Dienst liefert ein Set von Zeichenketten.
     minio.listAllObjects.mockResolvedValue(new Set(['2026/rechnung.pdf', '2026/angebot.pdf']));
@@ -407,6 +409,7 @@ describe('Erstpasswort als Vorbedingung', () => {
     tabellenInDerDatenbank(ALLE);
     db.transaction.mockResolvedValue({});
     fs.promises.readdir.mockResolvedValue([]);
+    fs.promises.readFile.mockResolvedValue('ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP\n');
     envManager.updateEnvVariable.mockReset();
   });
 
@@ -450,5 +453,57 @@ describe('Erstpasswort als Vorbedingung', () => {
       'ADMIN_PASSWORD',
       'REDACTED_AFTER_BOOTSTRAP'
     );
+  });
+});
+
+describe('Entwertung nachlesen', () => {
+  const fs = require('fs');
+  const envManager = require('../../src/utils/envManager');
+
+  test('ein zweites, nicht entwertetes ADMIN_PASSWORD bricht den Reset ab', async () => {
+    db.query.mockReset();
+    db.transaction.mockReset();
+    tabellenInDerDatenbank(ALLE);
+    db.transaction.mockResolvedValue({});
+    envManager.updateEnvVariable.mockReset();
+    envManager.updateEnvVariable.mockResolvedValue(true);
+    // Genau der Fund vom 19.08.2026: zwei Zeilen, nur die erste ersetzt.
+    fs.promises.readFile.mockResolvedValue(
+      'ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP\nADMIN_PASSWORD=nochdas-alte\n'
+    );
+
+    await expect(
+      werksreset.ausfuehren({ stufe: 'auslieferung', bestaetigung: 'orin-vorfuehrer' })
+    ).rejects.toThrow(/bevor etwas geloescht wurde/);
+
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('Nachbarsysteme ohne Bestand', () => {
+  const fs = require('fs');
+  const minio = require('../../src/services/documents/minioService');
+  const qdrant = require('../../src/services/documents/qdrantService');
+
+  test('ein fehlender Dokumenten-Eimer ist kein Fehlschlag', async () => {
+    db.query.mockReset();
+    db.transaction.mockReset();
+    tabellenInDerDatenbank(ALLE);
+    db.transaction.mockResolvedValue({ 'public.documents': 0 });
+    fs.promises.readdir.mockResolvedValue([]);
+    qdrant.deleteAllVectors.mockResolvedValue({ uebersprungen: 'Sammlung nicht vorhanden' });
+    const fehler = new Error('S3Error: The specified bucket does not exist');
+    fehler.code = 'NoSuchBucket';
+    minio.listAllObjects.mockRejectedValue(fehler);
+
+    const bericht = await werksreset.ausfuehren({
+      stufe: 'inhalte',
+      bestaetigung: 'orin-vorfuehrer',
+    });
+
+    expect(bericht.objektspeicher).toEqual({
+      ok: true,
+      uebersprungen: 'kein Dokumenten-Eimer vorhanden',
+    });
   });
 });

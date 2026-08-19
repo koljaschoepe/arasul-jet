@@ -37,13 +37,19 @@ pruefe() { # name, erwartet, tatsaechlich
 api() { curl -sk -H "Authorization: Bearer ${TOKEN}" "$@"; }
 sql() { docker exec "$DB" psql -U arasul -d arasul_db -tA -c "$1" | tr -d '[:space:]'; }
 
+# Warten heisst hier: eine 200 mit gueltigem JSON. Ein blosses "curl kam durch"
+# reicht nicht, Traefik antwortet auch mit 502, solange das Backend noch startet.
 warte_auf_backend() {
-    local i
-    for i in $(seq 1 90); do
-        if curl -sk "${BASIS}/auth/needs-setup" >/dev/null 2>&1; then return 0; fi
+    local i code
+    for i in $(seq 1 120); do
+        code=$(curl -sk -o /tmp/abnahme-probe.json -w '%{http_code}' "${BASIS}/auth/needs-setup" || true)
+        if [ "$code" = "200" ] && python3 -c 'import json,sys; json.load(open("/tmp/abnahme-probe.json"))' 2>/dev/null; then
+            return 0
+        fi
         sleep 2
     done
-    echo "ABBRUCH: der Pruefstand antwortet nicht auf ${BASIS}"
+    echo "ABBRUCH: der Pruefstand antwortet nicht brauchbar auf ${BASIS} (zuletzt HTTP ${code})"
+    docker logs --tail 30 "$BACKEND" 2>&1 | sed 's/^/    /'
     exit 1
 }
 
@@ -51,27 +57,41 @@ echo "== 1. Pruefstand hochfahren =="
 scripts/test/pruefstand.sh hoch >/dev/null
 warte_auf_backend
 
-echo "== 2. Erstadministrator anlegen =="
-antwort=$(curl -sk -X POST "${BASIS}/auth/setup" \
-    -H 'Content-Type: application/json' \
-    -d "{\"username\":\"${NUTZER}\",\"password\":\"${PASSWORT}\"}")
-TOKEN=$(echo "$antwort" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token",""))')
+echo "== 2. Eigener Administrator fuer die Abnahme =="
+# Bewusst NICHT der Zugang des Geraets: der Pruefstand soll ohne Kenntnis
+# irgendeines echten Passworts pruefbar sein, und die Abnahme soll nicht daran
+# scheitern, dass jemand sein Passwort in der Oberflaeche geaendert hat.
+# Der Pruefstand ist Wegwerfware, deshalb: Tabelle leeren, Ersteinrichtung
+# durchlaufen. Das ist derselbe Weg, den ein neues Geraet nimmt.
+# Kein Neustart des Backends dazwischen: bootstrap.js legt beim Start sofort
+# wieder einen Administrator aus ADMIN_PASSWORD an, solange das in der .env
+# steht. Genau dieser Mechanismus ist der Grund, warum der Werksreset das
+# Passwort entwertet, bevor er loescht. Schritt 9 weist ihn nach.
+sql "DELETE FROM active_sessions" >/dev/null
+sql "DELETE FROM admin_users" >/dev/null
+
+antwort=$(ABNAHME_NUTZER="$NUTZER" ABNAHME_PASSWORT="$PASSWORT" python3 -c 'import json,os; print(json.dumps({"username": os.environ["ABNAHME_NUTZER"], "password": os.environ["ABNAHME_PASSWORT"]}))' |
+    curl -sk -X POST "${BASIS}/auth/setup" -H 'Content-Type: application/json' --data-binary @-)
+
+TOKEN=$(echo "$antwort" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("token",""))' 2>/dev/null || true)
 if [ -z "$TOKEN" ]; then
-    echo "ABBRUCH: kein Token aus /auth/setup: $antwort"
+    echo "ABBRUCH: kein Token aus /auth/setup. Antwort ohne Zugangsdaten:"
+    echo "$antwort" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("error", list(d.keys())))' 2>/dev/null || echo "(keine JSON-Antwort)"
     exit 1
 fi
+echo "  Administrator \"${NUTZER}\" angelegt"
 
 echo "== 3. Inhalte erzeugen, damit es etwas zu loeschen gibt =="
 docker exec "$BACKEND" sh -c 'mkdir -p /arasul/flows /arasul/extensions/abnahme-app &&
     printf -- "---\nname: abnahme\nbeschreibung: Abnahme\n---\n\nText\n" > /arasul/flows/abnahme.md &&
     printf "{\"id\":\"abnahme-app\",\"name\":\"Abnahme\"}" > /arasul/extensions/abnahme-app/manifest.json'
-sql "INSERT INTO chat_conversations (id, user_id, title) VALUES (gen_random_uuid(), 1, 'Abnahme')" >/dev/null
+sql "INSERT INTO chat_conversations (user_id, title) SELECT id, 'Abnahme' FROM admin_users LIMIT 1" >/dev/null
 sql "UPDATE system_settings SET hostname = 'pruefstand', setup_completed = true WHERE id = 1" >/dev/null
 
-chats_vorher=$(sql "SELECT count(*) FROM chat_conversations")
-admins_vorher=$(sql "SELECT count(*) FROM admin_users")
-pruefe "Chats vor dem Reset" "1" "$chats_vorher"
-pruefe "Administratoren vor dem Reset" "1" "$admins_vorher"
+chats_vorher=$(sql "SELECT count(*) > 0 FROM chat_conversations")
+admins_vorher=$(sql "SELECT count(*) > 0 FROM admin_users")
+pruefe "Chats vor dem Reset vorhanden" "t" "$chats_vorher"
+pruefe "Administrator vor dem Reset vorhanden" "t" "$admins_vorher"
 
 echo "== 4. Vorschau =="
 vorschau=$(api "${BASIS}/werksreset/vorschau?stufe=auslieferung")
@@ -87,7 +107,7 @@ code=$(curl -sk -o /dev/null -w '%{http_code}' -X POST "${BASIS}/werksreset" \
     -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' \
     -d '{"stufe":"auslieferung","bestaetigung":"falsch"}')
 pruefe "HTTP-Code bei falschem Namen" "400" "$code"
-pruefe "Chats danach unveraendert" "1" "$(sql 'SELECT count(*) FROM chat_conversations')"
+pruefe "Chats danach unveraendert" "t" "$(sql 'SELECT count(*) > 0 FROM chat_conversations')"
 
 echo "== 6. Fehlende Stufe wird abgewiesen =="
 code=$(curl -sk -o /dev/null -w '%{http_code}' -X POST "${BASIS}/werksreset" \
@@ -108,13 +128,21 @@ pruefe "Chats" "0" "$(sql 'SELECT count(*) FROM chat_conversations')"
 pruefe "Administratoren" "0" "$(sql 'SELECT count(*) FROM admin_users')"
 pruefe "Erweiterungen" "0" "$(sql 'SELECT count(*) FROM arasul.extensions')"
 pruefe "n8n-Workflows" "0" "$(sql 'SELECT count(*) FROM n8n.workflow_entity' 2>/dev/null || echo 0)"
-pruefe "Ersteinrichtung faellig" "false" "$(sql 'SELECT setup_completed FROM system_settings')"
-pruefe "Modellkatalog bleibt" "true" "$(sql 'SELECT count(*) > 0 FROM llm_model_catalog')"
-pruefe "Schema-Buchfuehrung bleibt" "true" "$(sql 'SELECT count(*) > 0 FROM arasul.schema_migrations')"
+pruefe "Ersteinrichtung faellig" "f" "$(sql 'SELECT setup_completed FROM system_settings')"
+pruefe "Modellkatalog bleibt" "t" "$(sql 'SELECT count(*) > 0 FROM llm_model_catalog')"
+pruefe "Schema-Buchfuehrung bleibt" "t" "$(sql 'SELECT count(*) > 0 FROM arasul.schema_migrations')"
 pruefe "Flow-Dateien" "0" "$(docker exec "$BACKEND" sh -c 'ls -A /arasul/flows | wc -l' | tr -d '[:space:]')"
 pruefe "Erweiterungs-Ordner" "0" "$(docker exec "$BACKEND" sh -c 'ls -A /arasul/extensions | wc -l' | tr -d '[:space:]')"
-pruefe "Erstpasswort entwertet" "1" "$(grep -c '^ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP' .env.pruefstand || echo 0)"
-pruefe "Erstpasswort im Normalbetrieb unberuehrt" "0" "$(grep -c '^ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP' .env || echo 0)"
+# grep -c gibt bei null Treffern "0" aus UND endet mit 1. Ein `|| echo 0`
+# haengt dann eine zweite Null an und die Pruefung vergleicht "0" mit "0\n0".
+zaehle() { grep -c "$1" "$2" 2>/dev/null || true; }
+# Nicht "eine Zeile ist entwertet", sondern "keine Zeile ist es nicht". Genau
+# daran ist die erste Abnahme gescheitert: ADMIN_PASSWORD stand zweimal in der
+# Datei, ersetzt wurde nur das erste Vorkommen.
+offen=$(grep '^ADMIN_PASSWORD=' .env.pruefstand | grep -vc 'REDACTED_AFTER_BOOTSTRAP' || true)
+pruefe "Erstpasswort entwertet, keine Zeile offen" "0" "$offen"
+pruefe "Erstpasswort im Normalbetrieb unberuehrt" "0" \
+    "$(zaehle '^ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP' .env)"
 pruefe "alter Token gilt nicht mehr" "401" \
     "$(curl -sk -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TOKEN}" "${BASIS}/auth/me")"
 

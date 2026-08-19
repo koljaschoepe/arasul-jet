@@ -151,11 +151,22 @@ async function searchDocuments(queryVector, limit, filter) {
  * @returns {Promise<{entfernt: 'alle'}>}
  */
 async function deleteAllVectors() {
-  await axios.post(
-    `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
-    { filter: {} },
-    { params: { wait: true }, timeout: 60000 }
-  );
+  try {
+    await axios.post(
+      `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
+      { filter: {} },
+      { params: { wait: true }, timeout: 60000 }
+    );
+  } catch (err) {
+    // Eine noch nie angelegte Sammlung ist kein Fehlschlag: wo nie ein Dokument
+    // indiziert wurde, gibt es auch keine Vektoren. Ein nicht erreichbarer
+    // Qdrant dagegen schon, der fliegt weiter.
+    if (err.response?.status === 404) {
+      logger.warn(`[qdrant] Sammlung "${QDRANT_COLLECTION}" gibt es nicht, nichts zu entfernen`);
+      return { uebersprungen: 'Sammlung nicht vorhanden' };
+    }
+    throw err;
+  }
   logger.warn(`[qdrant] Alle Vektoren in "${QDRANT_COLLECTION}" entfernt`);
   return { entfernt: 'alle' };
 }
