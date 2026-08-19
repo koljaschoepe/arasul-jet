@@ -128,6 +128,132 @@ MinIO mit Arasuls Root-Zugangsdaten, diese Zugangsdaten werden danach gewechselt
 
 ---
 
+# Phase S, Sicherung wiederherstellbar machen
+
+Geschätzt 14 Stunden. Nicht im ursprünglichen Plan. Aufgenommen am 19.08.2026,
+weil beim Prüfen einer einzigen AVV-Zeile in Phase A herauskam, dass Gate G6
+nicht offen ist, sondern zurückgefallen. Läuft zwischen A und B, weil eine
+Sicherung, die nie wiederhergestellt wurde, keine Sicherung ist und jeder
+weitere Umbau darauf aufsetzt.
+
+## Ausgangslage, gemessen am 19.08.2026 auf dem Orin
+
+| Gemessen                 | Wert                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Täglicher Lauf           | 02:00 UTC, zuletzt 19.08., 1,4 GB Bestand                                                 |
+| Aufbewahrung             | 30 Tage, 12 Wochen, 60 Monate                                                             |
+| Verschlüsselung          | `"encrypted": "false"`                                                                    |
+| WAL-Archivierung         | `archive_mode = off`, 0 Segmente                                                          |
+| Schlüssel-Escrow         | `/backups/escrow` seit 09.05.2026 leer                                                    |
+| Wiederherstellungstest   | sonntags 04:00, **am 16.08. fehlgeschlagen**, 0 geprüfte Tabellen, davor bis 02.08. mit 6 |
+| Lücke im Zeitplan        | 07. bis 09.08. gar keine Sicherung, der Test am 09.08. fiel mit aus                       |
+| Gesamtstatus jeder Nacht | `partial_failure`                                                                         |
+
+## S1 Der Wiederherstellungstest wird wieder grün
+
+Ursache steht im Protokoll: `FATAL: database "arasul_drill" does not exist`,
+zwei Sekunden nach dem Start des Prüfcontainers. Die Bereitschaftsprüfung
+benutzt `pg_isready`, und das antwortet bereits, während der Postgres-Einstieg
+noch in seiner Startphase läuft und die Zieldatenbank noch nicht angelegt ist.
+Ein Wettlauf, der lange gutging und am 16.08. kippte, vermutlich weil das Gerät
+an dem Tag unter der Doublettenschleife stand, die erst am 19.08. behoben wurde.
+
+Behebung: nicht den Server anpingen, sondern die Zieldatenbank abfragen.
+
+**Abnahme:** Der Test läuft von Hand ausgelöst durch und meldet 6 geprüfte
+Tabellen. Ein künstlich verzögerter Start des Prüfcontainers ändert daran
+nichts.
+
+## S2 Der Test kann verschlüsselte Sicherungen lesen
+
+Muss vor S3 kommen, sonst tauscht man einen einmal gescheiterten Test gegen
+einen dauerhaft gescheiterten. `encrypt_file` in `services/backup-service/backup.sh`
+schreibt das Chiffrat unter demselben Namen zurück (`mv "${src}.enc" "$src"`).
+Die Datei heißt weiter `.sql.gz`, ist aber keine mehr. Der Test macht `zcat` darauf.
+
+Behebung: der Test erkennt am Magic-Byte, ob eine Datei verschlüsselt ist, und
+entschlüsselt sie vor dem Einspielen. Beim Flow-Archiv gibt es diese Erkennung
+schon, dort wird bisher aber nur "nicht prüfbar" gemeldet statt entschlüsselt.
+
+**Abnahme:** Der Test besteht mit verschlüsselten und mit unverschlüsselten
+Sicherungen. Bei fehlendem Schlüssel meldet er das als Fehler, nicht als Erfolg.
+
+## S3 Sicherungen werden verschlüsselt
+
+`BACKUP_ENCRYPT` steht auf `false`, und den Schlüssel gibt es nicht: das Secret
+`backup_encryption_key` ist in `compose/compose.secrets.yaml` nicht definiert
+und wird von keinem Einrichtungsskript erzeugt.
+
+Umfang: Secret definieren, Erzeugung in die Einrichtung aufnehmen, `BACKUP_ENCRYPT`
+einschalten, den Wiederherstellungsweg (`scripts/backup/restore.sh`) auf
+dasselbe Verfahren bringen. Achtung, es gibt zwei Sicherungssysteme mit
+verschiedenen Verfahren: der Container benutzt `openssl` und
+`BACKUP_ENCRYPT`, das Skript auf dem Wirt `gpg` und `BACKUP_ENCRYPTION_ENABLED`.
+Eins davon ist tot und fliegt raus, das ist gleichzeitig ein Posten für B3.
+
+**Abnahme:** `backup_report.json` meldet `"encrypted": "true"`. Eine Sicherung
+lässt sich mit dem Schlüssel wiederherstellen und ohne ihn nicht.
+
+## S4 Der Schlüssel-Escrow füllt sich
+
+Kein eigener Fehler, sondern eine Folge: `backup.sh` legt den n8n-Schlüssel
+bewusst nur dann zur Sicherung, wenn verschlüsselt wird, sonst läge er im
+Klartext neben der Sicherung. Diese Entscheidung ist richtig und bleibt. Mit S3
+löst sich das von selbst, zu prüfen ist nur, dass es dann auch passiert.
+
+**Abnahme:** Nach dem ersten verschlüsselten Lauf liegt in `/backups/escrow`
+ein Schlüssel mit Prüfsumme. Ohne ihn lassen sich die n8n-Zugangsdaten aus einer
+Datenbanksicherung nicht wiederherstellen, mit ihm schon. Beides geprüft.
+
+## S5 WAL-Archivierung einschalten
+
+`archive_mode` steht auf `off`, `/backups/wal` ist leer, und die tägliche
+Sicherung packt folgerichtig nichts ein. Ohne WAL gibt es keine
+Wiederherstellung auf einen Zeitpunkt, sondern nur auf 02:00 UTC des Vortags.
+Bei einem Ausfall um 23:00 sind das 21 Stunden Arbeit.
+
+**Abnahme:** `SHOW archive_mode` liefert `on`, `/backups/wal` füllt sich,
+`wal_segments` im Bericht ist größer als null, und eine Wiederherstellung auf
+einen Zeitpunkt zwischen zwei Sicherungen gelingt einmal nachweislich.
+
+## S6 Der Daueralarm verschwindet
+
+Jeder nächtliche Lauf meldet `partial_failure`, weil er Qdrant sichern will.
+Qdrant liegt seit Plan 021 Schritt 8 absichtlich im Compose-Profil `classic-rag`
+und läuft nicht. Ein Alarm, der immer an ist, verdeckt jeden echten.
+
+Behebung: Qdrant wird übersprungen, wenn das Profil nicht aktiv ist, und als
+`skipped` ausgewiesen statt als Fehler. `partial_failure` bedeutet danach wieder
+etwas.
+
+**Abnahme:** Der nächtliche Lauf meldet `success`, solange nichts kaputt ist.
+Wird Qdrant aktiviert, wird es wieder gesichert und ein Fehlschlag zählt wieder.
+
+## S7 Ein Fehlschlag fällt auf
+
+Der wichtigste Posten der Phase. Der Test scheiterte am 16.08. und niemand
+merkte es drei Tage lang. Vom 07. bis 09.08. gab es überhaupt keine Sicherung
+und auch das fiel nicht auf. Der Container meldete durchgehend `healthy`.
+
+Umfang: Ergebnis der Sicherung und des Wiederherstellungstests laufen in die
+vorhandene Alarmierung. Zwei Zustände lösen aus: der Test ist nicht bestanden,
+und seit mehr als 26 Stunden gab es keine erfolgreiche Sicherung. Sichtbar in
+den Einstellungen unter System, nicht nur im Protokoll.
+
+**Abnahme:** Ein absichtlich herbeigeführter Fehlschlag erzeugt innerhalb einer
+Stunde einen sichtbaren Alarm. Der Container gilt nicht mehr als gesund, wenn
+seit über 26 Stunden keine Sicherung durchlief.
+
+## S8 Doppelte Protokollzeilen
+
+Jede Zeile steht zweimal im Protokoll, weil die Protokollfunktion mit `tee` in
+die Datei schreibt und die Crontab dieselbe Ausgabe noch einmal umleitet. Bei
+28478 Zeilen ist die Hälfte Rauschen.
+
+**Abnahme:** Jede Zeile steht einmal.
+
+---
+
 # Phase B, Fundament: Aufräumen und Auslieferungszustand
 
 Geschätzt 22 Stunden. Nichts Neues, nur weniger. Diese Phase bestimmt, wie
@@ -862,6 +988,7 @@ Kein Verweis auf Entferntes. Jede gespiegelte Zahl trägt Stand und Quelle.
 | Phase | Inhalt                             | Stunden |
 | ----- | ---------------------------------- | ------- |
 | A     | Entscheidungen und Zusagen         | 10      |
+| S     | Sicherung wiederherstellbar        | 14      |
 | B     | Aufräumen und Auslieferungszustand | 22      |
 | C     | Komponentenset und Einstellungen   | 24      |
 | D     | Modelle                            | 20      |
@@ -872,7 +999,7 @@ Kein Verweis auf Entferntes. Jede gespiegelte Zahl trägt Stand und Quelle.
 | I     | Flows                              | 16      |
 | J     | Einstellungen, Funktion            | 14      |
 | K     | Dokumentation                      | 12      |
-|       | **Summe**                          | **200** |
+|       | **Summe**                          | **214** |
 
 Bei 12,5 Stunden Bauzeit pro Woche wären das 16 Wochen, also bis Mitte Dezember,
 und M5 mit zehn Partnergesprächen ginge daneben nicht mehr auf. Der Plan wird
@@ -893,12 +1020,12 @@ Partnergespräch fertig sein, weil die AVV-Vorlage mitgeht.
 | G3, Oberfläche einheitlich       | B6, B7, C1 bis C5, F1, F2, F5, H4        |
 | G4, Daten bleiben auf dem Gerät  | A3, A4, J4                               |
 | G5, DSGVO                        | A2, J3, J4                               |
-| G6, Sicherung                    | B5, J3                                   |
+| G6, Sicherung                    | S1 bis S8, B5, J3                        |
 | G7, sieben Tage unbeaufsichtigt  | B3, E2, G4                               |
 
 # Ablauf
 
-Die Phasen laufen in der Reihenfolge A bis K. Innerhalb einer Phase kann die
+Die Phasen laufen in der Reihenfolge A, S, B bis K. Phase S steht außerhalb der Buchstabenfolge, weil sie erst am 19.08.2026 aus einem Befund der Phase A entstanden ist. Innerhalb einer Phase kann die
 Reihenfolge sich nach Abhängigkeiten richten, mit zwei Ausnahmen, die bindend
 sind: B5 vor B4, weil ein leerer Auslieferungszustand ohne Werksreset genau
 einmal existiert, und E1 vor allem anderen in Phase E, weil eine Darstellung
