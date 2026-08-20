@@ -8,13 +8,13 @@
 
 ## Stand
 
-| Phase                                 | Stand                                  | Belege                                                                                               |
-| ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                         |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                           |
-| C, Fundament                          | C1 bis C3 fertig 20.08.2026            | #427 live auf `c7df62c`, #428, #429. `scripts/test/bausteine.py` hält das Raster. C4 bis C6 offen    |
-| D bis K                               | offen                                  |                                                                                                      |
+| Phase                                 | Stand                                        | Belege                                                                                                            |
+| ------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                        | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät              |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen       | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                      |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen       | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                                        |
+| C, Fundament                          | C1 bis C4 fertig 20.08.2026, live abgenommen | #427, #428, #429, #431. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen. C5 und C6 offen |
+| D bis K                               | offen                                        |                                                                                                                   |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -697,6 +697,29 @@ Station im Tabulatorlauf, so dass die erste Taste eines Tastaturnutzers den
 Erst-Start wegklicken konnte.
 
 Elf Tests, acht davon gehen gegen den Stand davor rot.
+
+### Live abgenommen am 20.08.2026
+
+Am Gerät gemessen, angemeldet als `pruefer` über `https://arasul.tail746d9b.ts.net`,
+Stand `510ababc`, 15 Container, keiner ungesund.
+
+| Abnahme                                               | Ergebnis                                                                                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Der Erst-Start erscheint nach dem Löschen des Merkers | ja                                                                                                                        |
+| Jeder Schritt nennt in Worten, der wievielte er ist   | „SCHRITT 1 VON 3" bis „SCHRITT 3 VON 3"                                                                                   |
+| Jeder Schritt nennt sein Ergebnis                     | drei Mal „Danach: …"                                                                                                      |
+| Jeder Schritt kündigt den nächsten mit Namen an       | „Als Nächstes: Ein KI-Coder ohne Konto", „Als Nächstes: Claude einmal anmelden (optional)", „Das war der letzte Schritt." |
+| Der Fokus liegt beim Öffnen im Dialog                 | ja, auf dem Dialog selbst                                                                                                 |
+| Das erste Shift+Tab bleibt im Dialog                  | ja, landet auf „Weiter"                                                                                                   |
+| „Zurück" von Schritt 2 auf 1 verliert den Fokus nicht | ja, Fokus bleibt im Dialog                                                                                                |
+| Beschreibung enthält Fortschritt und Inhalt           | „Schritt 1 von 3                                                                                                          | Arasul ist das Grundgerüst …" |
+| Konsolenfehler                                        | keine                                                                                                                     |
+
+Drei der vier Fehler, die diese Abnahme prüft, hat kein Testlauf gefunden,
+sondern die Review: das erste Shift+Tab, der Knopf „Zurück", der sich selbst
+entfernt, während er den Fokus hält, und der Fortschritt, der für ein
+Vorlesegerät gar nicht vorkam. Für jeden gibt es jetzt einen Test, und jeder
+dieser Tests ist gegen den Stand davor rot.
 
 ### Was dabei sichtbar wurde und nicht zu C4 gehört
 
