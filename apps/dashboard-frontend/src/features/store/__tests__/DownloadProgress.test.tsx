@@ -44,6 +44,22 @@ describe('DownloadProgress', () => {
     expect(screen.getByText('137 MB von 274 MB')).toBeInTheDocument();
   });
 
+  // "0 MB von 16,4 GB" neben einem Balken, der sich bewegt, sieht nach
+  // Stillstand aus. Der Anfang eines Pulls ist genau dieser Fall.
+  it('schreibt die ersten Kilobyte auch als Kilobyte', () => {
+    render(
+      <DownloadProgress
+        downloadState={{
+          progress: 2,
+          phase: 'download',
+          bytesCompleted: 480_000,
+          bytesTotal: 16_400_000_000,
+        }}
+      />
+    );
+    expect(screen.getByText('480 KB von 16,4 GB')).toBeInTheDocument();
+  });
+
   it('zeigt nichts, solange Ollama noch am Manifest haengt', () => {
     render(<DownloadProgress downloadState={{ progress: 1, phase: 'init' }} />);
     expect(screen.getByText('1%')).toBeInTheDocument();

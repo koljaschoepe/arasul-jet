@@ -105,8 +105,11 @@ describe('wechselGrund', () => {
     }
   });
 
-  it('uebersetzt das Laden', () => {
-    expect(wechselGrund('activated')).toBe('in den Speicher geladen');
+  // Das Laden erklaert sich von selbst, das Modell steht danach in der Leiste.
+  // Erklaerungsbeduerftig ist nur das Verschwinden. Das Backend liefert
+  // deshalb gar keine anderen Wechsel mehr.
+  it('sagt zum Laden nichts', () => {
+    expect(wechselGrund('activated')).toBeNull();
   });
 
   it('erfindet nichts fuer eine unbekannte Kennung', () => {

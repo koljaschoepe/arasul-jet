@@ -1484,9 +1484,10 @@ so ausliefert.
 }
 ```
 
-`lastSwitch` kommt aus Plan 023 D3 und nennt den letzten Wechsel der vergangenen
-zwei Stunden aus `llm_model_switches`; älter erklärt nichts mehr, was gerade zu
-sehen ist. `model` ist der Anzeigename aus dem Katalog, nicht die Kennung: die
+`lastSwitch` kommt aus Plan 023 D3 und nennt die letzte **automatische
+Entladung** der vergangenen zwei Stunden aus `llm_model_switches`; älter erklärt
+nichts mehr, was gerade zu sehen ist. Bewusst nur Entladungen: das Laden erklärt
+sich von selbst, das Modell steht danach in der Leiste. `model` ist der Anzeigename aus dem Katalog, nicht die Kennung: die
 Ableitung aus `gemma4:e4b-q4` ergäbe „Gemma 4" statt „Gemma 4 Kompakt", und das
 wäre derselbe Namensbruch, den D1 beseitigt hat. `reason` bleibt die rohe
 Kennung; übersetzt wird sie im Frontend (`utils/modellZustand.ts`).

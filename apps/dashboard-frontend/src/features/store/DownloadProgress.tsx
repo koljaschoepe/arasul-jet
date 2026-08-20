@@ -32,11 +32,15 @@ interface DownloadState {
  * 274000000 Bytes und "~274 MB" im Text).
  */
 function groesse(bytes: number): string {
-  const gb = bytes / 1_000_000_000;
-  if (gb >= 1) {
-    return `${gb.toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`;
+  if (bytes >= 1_000_000_000) {
+    return `${(bytes / 1_000_000_000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`;
   }
-  return `${(bytes / 1_000_000).toLocaleString('de-DE', { maximumFractionDigits: 0 })} MB`;
+  // Unter einem Megabyte in Kilobyte: "0 MB von 16,4 GB" neben einem Balken,
+  // der sich sichtbar bewegt, sieht nach Stillstand aus.
+  if (bytes >= 1_000_000) {
+    return `${(bytes / 1_000_000).toLocaleString('de-DE', { maximumFractionDigits: 0 })} MB`;
+  }
+  return `${(bytes / 1_000).toLocaleString('de-DE', { maximumFractionDigits: 0 })} KB`;
 }
 
 /** „1,2 von 16,4 GB", oder nichts, solange Ollama noch am Manifest haengt. */

@@ -89,6 +89,11 @@ export function kiRamZeile(budget: MemoryBudget | undefined): string {
 /**
  * Warum das System ein Modell von sich aus entladen hat.
  *
+ * Bewusst nur das Entladen. Das Laden erklaert sich von selbst: das Modell
+ * steht danach in der Leiste. Erklaerungsbeduerftig ist das Gegenteil, wenn es
+ * ohne Zutun verschwindet. Das Backend liefert deshalb gar keine anderen
+ * Wechsel mehr.
+ *
  * Die Gruende stehen als Kennung in `llm_model_switches.reason`, gesetzt in
  * `ollamaReadiness.unloadModelWithTracking` als `auto_unload_adaptive_<phase>`.
  * Die Phase kommt aus dem Nutzungsprofil der Stunde und entscheidet nur, WIE
@@ -108,9 +113,6 @@ export function wechselGrund(grund: string | null | undefined): string | null {
   }
   if (grund.startsWith('auto_unload_')) {
     return 'automatisch aus dem Speicher genommen';
-  }
-  if (grund === 'activated') {
-    return 'in den Speicher geladen';
   }
   return null;
 }

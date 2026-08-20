@@ -460,29 +460,48 @@ function createModelService(deps = {}) {
       // Nutzer gerade sieht, und stuende dann als Raetsel dort.
       let lastSwitch = null;
       try {
+        // Nur ENTLADUNGEN. Das Laden erklaert sich von selbst: das Modell
+        // steht danach in der Leiste. Erklaerungsbeduerftig ist das Gegenteil,
+        // wenn es ohne Zutun verschwindet. Ein Entladen von Hand schreibt
+        // ohnehin keine Zeile (`deactivate` ruft `record_model_switch` nicht),
+        // jede Zeile mit `to_model = 'unloaded'` ist also eine automatische.
+        //
         // Der Anzeigename kommt aus dem Katalog, genau wie bei den geladenen
         // und dem installierten Modell darueber. `llm_model_switches` traegt
         // die Kennung, und die Ableitung daraus ergaebe einen ANDEREN Namen:
         // aus `gemma4:e4b-q4` wuerde "Gemma 4" statt "Gemma 4 Kompakt". Genau
         // dieser Unterschied war der Fund aus D1, und er waere hier neu
-        // entstanden. Gefunden hat ihn der Test, nicht das Nachdenken.
+        // entstanden.
+        //
+        // Erst die eine Zeile suchen, dann den Namen dazuholen. Andersherum
+        // koennte der Verbund auffaechern: `ollama_name` traegt keinen
+        // Eindeutigkeitsschluessel, und die Zuordnung wurde in diesem Katalog
+        // schon mehrfach verschoben (Migrationen 027, 051, 126). Zwei
+        // passende Katalogzeilen, und `LIMIT 1` entschiede nach Laune der
+        // Datenbank, welcher Name erscheint. Heute gibt es keine
+        // Ueberschneidung, geprueft am 21.08.2026; die Abfrage soll aber nicht
+        // davon abhaengen, dass das so bleibt.
         const wechsel = await database.query(
-          `SELECT s.from_model, s.to_model, s.reason, s.switched_at,
-                  c.name AS anzeige
-             FROM llm_model_switches s
-             LEFT JOIN llm_model_catalog c
-               ON c.id = CASE WHEN s.to_model = 'unloaded' THEN s.from_model ELSE s.to_model END
-              OR COALESCE(c.ollama_name, c.id)
-                 = CASE WHEN s.to_model = 'unloaded' THEN s.from_model ELSE s.to_model END
-            WHERE s.switched_at > NOW() - INTERVAL '2 hours'
-            ORDER BY s.switched_at DESC
-            LIMIT 1`
+          `WITH letzte AS (
+             SELECT from_model, reason, switched_at
+               FROM llm_model_switches
+              WHERE to_model = 'unloaded'
+                AND switched_at > NOW() - INTERVAL '2 hours'
+              ORDER BY switched_at DESC
+              LIMIT 1
+           )
+           SELECT l.from_model, l.reason, l.switched_at,
+                  (SELECT c.name FROM llm_model_catalog c
+                    WHERE c.id = l.from_model
+                       OR COALESCE(c.ollama_name, c.id) = l.from_model
+                    ORDER BY CASE WHEN c.id = l.from_model THEN 0 ELSE 1 END, c.id
+                    LIMIT 1) AS anzeige
+             FROM letzte l`
         );
         if (wechsel.rows.length > 0) {
           const zeile = wechsel.rows[0];
-          const kennung = zeile.to_model === 'unloaded' ? zeile.from_model : zeile.to_model;
           lastSwitch = {
-            model: zeile.anzeige || kennung,
+            model: zeile.anzeige || zeile.from_model,
             reason: zeile.reason,
             at: zeile.switched_at,
           };
