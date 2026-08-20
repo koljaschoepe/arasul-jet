@@ -141,10 +141,16 @@ export default function OnboardingWizard() {
     return () => window.removeEventListener('keydown', onKey);
   }, [offen, schliessen]);
 
-  // Der Fokus landet auf dem Dialog, nicht irgendwo dahinter.
+  // Der Fokus landet auf dem Dialog, nicht irgendwo dahinter. Auch bei JEDEM
+  // Schrittwechsel, aus zwei Gruenden. Erstens sagt der Dialog seinen Namen
+  // nach dem laufenden Schritt (aria-labelledby), ein Vorlesegeraet liest also
+  // die neue Ueberschrift vor. Zweitens verschwindet der Knopf „Zurueck" beim
+  // Sprung von Schritt 2 auf 1 aus dem Dokument; ohne diese Zeile faellt der
+  // Fokus dabei auf <body>, also aus einem Dialog heraus, der sich per
+  // aria-modal als geschlossen ausgibt.
   useEffect(() => {
     if (offen) dialog.current?.focus();
-  }, [offen]);
+  }, [offen, i]);
 
   if (!offen) return null;
 
@@ -166,7 +172,7 @@ export default function OnboardingWizard() {
       <div
         ref={dialog}
         tabIndex={-1}
-        className="relative flex w-full max-w-md flex-col gap-4 rounded-lg border border-border bg-card p-6 shadow-xl outline-none"
+        className="relative flex w-full max-w-md flex-col gap-4 rounded-lg border border-border bg-card p-6 shadow-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titelId}

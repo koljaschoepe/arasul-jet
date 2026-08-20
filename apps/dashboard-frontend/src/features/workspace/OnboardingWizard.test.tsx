@@ -131,6 +131,22 @@ describe('OnboardingWizard', () => {
     expect(document.activeElement).toBe(knoepfe[knoepfe.length - 1]);
   });
 
+  // „Zurueck" gibt es nur ab Schritt 2. Wer ihn auf Schritt 2 drueckt, loescht
+  // damit den Knopf, auf dem sein eigener Fokus sitzt; der Browser setzt ihn
+  // dann auf <body>, also aus dem Dialog heraus.
+  it('verliert den Fokus nicht, wenn „Zurueck" sich selbst entfernt', async () => {
+    render(<OnboardingWizard />);
+    await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
+
+    const zurueck = screen.getByRole('button', { name: /Zurück/ });
+    zurueck.focus();
+    await userEvent.click(zurueck);
+
+    expect(screen.queryByRole('button', { name: /Zurück/ })).not.toBeInTheDocument();
+    const dialog = screen.getByTestId('onboarding-wizard');
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
   // Gegenprobe vorwaerts: das erste Tab landet auf dem ersten Knopf im Dialog,
   // nicht irgendwo dahinter.
   it('faengt auch das erste Tab ab', async () => {

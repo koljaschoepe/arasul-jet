@@ -711,8 +711,9 @@ Bekannt sind dort bereits F-20, F-23 und `SetupWizard.tsx:358`
 (`user?.username || 'admin'` bei der Neuanmeldung nach dem Passwortwechsel, mit
 verschlucktem Fehlschlag: der Standardname steht dort nicht auf dem Bildschirm,
 aber im Code, und für jeden anderen Benutzernamen schlägt die Neuanmeldung
-still fehl). Das ist eine eigene Aufgabe, keine Zeile in C4, und sie hat ein
-eigenes Datum in `company/follow-ups.md`.
+still fehl). Das ist eine eigene Aufgabe, keine Zeile in C4. Sie ist im
+Steuer-Repo zum 15.09.2026 als Wiedervorlage eingetragen; dieses Repo hat kein
+`company/`, der Pfad wäre hier nicht nachprüfbar.
 
 ## C5 Systemstatus lesbar machen
 
