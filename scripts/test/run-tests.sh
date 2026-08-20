@@ -181,6 +181,20 @@ run_modellnamen_check() {
   fi
 }
 
+# Funktion: Einheiten (Plan 023 D4)
+# Laeuft immer mit. Im Produkt standen fuenf Rechnungen fuer Bytegroessen, und
+# eine Kachel zeigte dadurch "261 MB" in der Kopfzeile und "~274 MB" im Text
+# darunter, fuer dieselbe Datei.
+run_einheiten_check() {
+  echo ""
+  echo "-> Pruefe die Einheiten..."
+  if python3 "${PROJECT_ROOT}/scripts/test/einheiten.py" --pfad "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Toter Code (Plan 023 B3)
 # Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
 # jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
@@ -363,6 +377,7 @@ run_totercode_check
 run_gedankenstrich_check
 run_bausteine_check
 run_modellnamen_check
+run_einheiten_check
 run_faden_check
 run_selbsttest_check
 

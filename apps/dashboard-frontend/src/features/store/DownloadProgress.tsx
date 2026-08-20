@@ -6,6 +6,7 @@
 
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatBytes } from '@/utils/formatting';
 
 interface DownloadState {
   progress: number;
@@ -20,35 +21,12 @@ interface DownloadState {
   bytesTotal?: number | null;
 }
 
-/**
- * Bytes zu einer lesbaren Groesse, deutsch geschrieben.
- *
- * Plan 023 D3: ein Prozentwert allein sagt nicht, ob die naechste Minute oder
- * die naechste Stunde gemeint ist. Bei einem Modell von 16 GB ist das der
- * Unterschied zwischen "gleich fertig" und "geh einen Kaffee holen".
- *
- * Tausenderschritte, keine 1024er: Ollama meldet Bytes, und der Katalog nennt
- * dieselben Modelle in derselben Zaehlweise (nomic-embed-text steht dort mit
- * 274000000 Bytes und "~274 MB" im Text).
- */
-function groesse(bytes: number): string {
-  if (bytes >= 1_000_000_000) {
-    return `${(bytes / 1_000_000_000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`;
-  }
-  // Unter einem Megabyte in Kilobyte: "0 MB von 16,4 GB" neben einem Balken,
-  // der sich sichtbar bewegt, sieht nach Stillstand aus.
-  if (bytes >= 1_000_000) {
-    return `${(bytes / 1_000_000).toLocaleString('de-DE', { maximumFractionDigits: 0 })} MB`;
-  }
-  return `${(bytes / 1_000).toLocaleString('de-DE', { maximumFractionDigits: 0 })} KB`;
-}
-
 /** „1,2 von 16,4 GB", oder nichts, solange Ollama noch am Manifest haengt. */
 function bytesZeile(zustand: DownloadState): string | null {
   if (!zustand.bytesTotal) {
     return null;
   }
-  return `${groesse(zustand.bytesCompleted ?? 0)} von ${groesse(zustand.bytesTotal)}`;
+  return `${formatBytes(zustand.bytesCompleted ?? 0)} von ${formatBytes(zustand.bytesTotal)}`;
 }
 
 interface DownloadProgressProps {

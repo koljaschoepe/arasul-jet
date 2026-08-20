@@ -73,17 +73,38 @@ export function modellage(budget: MemoryBudget | undefined): Modellage {
 }
 
 /**
- * Die KI-RAM-Zeile. Unveraendert uebernommen aus den beiden Stellen, an denen
- * sie stand, damit D3 den Zustand vereinheitlicht und D4 die Zahlen richtig
- * stellt, ohne dass sich beides in einem Schritt vermischt.
+ * Die KI-RAM-Zeile.
+ *
+ * Bis zum 21.08.2026 stand hier "0.0 / 32.0 GB belegt · frei 30.0 GB", und die
+ * Rechnung ging nicht auf: 32 minus 0 sind nicht 30. Falsch gerechnet war sie
+ * trotzdem nicht, sie verschwieg einen Posten. Das Backend zieht
+ * `MODEL_MEMORY_SAFETY_BUFFER_MB` (Vorgabe 2048) vom freien Speicher ab, damit
+ * ein Modell nicht bis auf das letzte Megabyte geladen wird und die Box
+ * anfaengt zu tauschen. Diese Reserve stand nirgends.
+ *
+ * Jetzt steht sie da, und die Zeile geht auf: belegt plus Reserve plus frei
+ * ergibt den Gesamtwert. Ist keine Reserve gesetzt, entfaellt der mittlere
+ * Posten, statt "0,0 GB Reserve" zu schreiben.
+ *
+ * Gerechnet wird in 1024er-Schritten, anders als bei Dateigroessen
+ * (`formatBytes`). Das ist kein Versehen: `RAM_LIMIT_LLM=32G` bedeutet fuer
+ * Docker 32 GiB, und genau diese Zahl steht hier. Wer hier in
+ * Tausenderschritten rechnete, bekaeme aus demselben Grenzwert 34,4 GB.
  */
 export function kiRamZeile(budget: MemoryBudget | undefined): string {
   if (!budget) {
     return '';
   }
-  return `${zuGb(budget.usedMb ?? 0)} / ${zuGb(budget.totalBudgetMb ?? 0)} GB belegt · frei ${zuGb(
-    budget.availableMb ?? 0
-  )} GB`;
+  // Gepruetft wird die ANGEZEIGTE Reserve, nicht die rohe. `zuGb` rundet auf
+  // eine Nachkommastelle; ein Puffer unter etwa 50 MB stuende sonst als
+  // "0,0 GB Reserve" da, und das waere genau die Zeile, die nicht aufgeht.
+  const reserve = zuGb(budget.safetyBufferMb ?? 0);
+  const teile = [
+    `${zuGb(budget.usedMb ?? 0)} von ${zuGb(budget.totalBudgetMb ?? 0)} GB belegt`,
+    Number(reserve.replace(',', '.')) > 0 ? `${reserve} GB Reserve` : null,
+    `frei ${zuGb(budget.availableMb ?? 0)} GB`,
+  ].filter(Boolean);
+  return teile.join(', ');
 }
 
 /**

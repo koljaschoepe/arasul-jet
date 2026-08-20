@@ -24,9 +24,15 @@ vi.mock('../../../contexts/AuthContext', () => ({
 }));
 
 // Mock formatDate
-vi.mock('../../../utils/formatting', () => ({
-  formatDate: vi.fn(() => '22.01.2026, 10:30'),
-}));
+// Plan 023 D4: die Seite hatte eine eigene Groessenrechnung, jetzt nimmt sie
+// formatBytes wie der Rest des Produkts. Der Mock muss das mitfuehren, sonst
+// scheitert die Seite beim Rendern statt an einer Erwartung.
+vi.mock('../../../utils/formatting', async () => {
+  const echt = await vi.importActual<typeof import('../../../utils/formatting')>(
+    '../../../utils/formatting'
+  );
+  return { ...echt, formatDate: vi.fn(() => '22.01.2026, 10:30') };
+});
 
 // Mock config/api
 vi.mock('../../../config/api', () => ({

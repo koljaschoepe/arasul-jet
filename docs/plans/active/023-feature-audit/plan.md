@@ -1369,6 +1369,32 @@ Kürzel hatte Vorrang vor dem Lizenztext. Migration 150.
 
 **Erledigt am 21.08.2026,** `arasul-jet` #446.
 
+### Was die Live-Abnahme danach fand: eine Lücke im eigenen Bau
+
+Der Zustandssatz stimmt an beiden Orten, gemessen im genau strittigen Fall
+(nichts im Speicher, ein Modell installiert): die Statusleiste sagt
+„Qwen 3.8 27B, bereit", das Raster sagt „Qwen 3.8 27B, bereit, wird bei Bedarf
+automatisch geladen". Vorher sagte das Raster „kein Modell geladen".
+
+Der Wechselgrund ließ sich nicht abnehmen, ohne einen Wechsel auszulösen. Also
+am Gerät `gemma3:1b` geladen. Das Protokoll sagt `keep_alive: 120s`, es war die
+Ruhephase. Danach: `/api/ps` leer, **kein Eintrag in `llm_model_switches`,
+keine Zeile im Protokoll.**
+
+**Ollama hat das Modell selbst entladen, und Arasul hat davon nichts gemerkt.**
+`checkAndUnload` schreibt nur eine Zeile, wenn es selbst entlädt; es überspringt
+Modelle, deren `expires_at` noch in der Zukunft liegt, und danach ist das Modell
+weg, bevor die Prüfung alle 30 Sekunden wieder greift. Da Arasul dieselbe Frist
+an Ollama durchreicht, die es selbst als Schwelle benutzt, gewinnt Ollama immer.
+
+Die 877 protokollierten Entladungen stammen also aus Pfaden, die Ollama eine
+längere Frist mitgeben als die Automatik selbst ansetzt, zum Beispiel dem
+Agentenpfad mit `AGENT_KEEP_ALIVE=30m`. Genau der Pfad, den D6 behandelt.
+
+Das ist eine Lücke in D3s eigener Abnahme: „Wechselt das System das Modell
+selbst, steht dabei, warum." Ollama ist das System. Nachgezogen in einem
+eigenen Schritt.
+
 ## D4 Speicherzahlen stimmen
 
 „0.0 von 32.0 GB belegt, frei 30.0 GB" ist arithmetisch falsch. Bei einer Kachel
@@ -1395,8 +1421,28 @@ Die KI-RAM-Zeile ist nicht falsch gerechnet, sie verschweigt einen Posten: das
 Backend zieht `MODEL_MEMORY_SAFETY_BUFFER_MB` (Vorgabe 2048) vom Freiwert ab.
 Belegt plus Reserve plus frei ergibt den Gesamtwert; die Reserve steht nirgends.
 
-Dazu eine dritte Größenrechnung: `formatFileSize` in `utils/formatting.ts` hat
-keinen Aufrufer, und `UpdatePage.tsx` bringt eine eigene lokale Fassung mit.
+Es waren nicht drei Rechnungen, sondern **fünf**: `formatModelSize` und
+`formatFileSize` in `utils/formatting.ts` (die zweite ohne jeden Aufrufer), je
+eine eigene in `UpdatePage.tsx`, `SetupWizard.tsx` und `ProjectFileTab.tsx`.
+Dazu die zwei Kopien von `toGb` für den KI-RAM, die D3 schon zusammengelegt hat.
+
+### Zwei Zählweisen statt der einen, die die Abnahme verlangt
+
+Das ist Absicht und der einzige Punkt, an dem D4 von seiner Abnahme abweicht.
+Welche gilt, hängt daran, womit der Kunde die Zahl vergleicht:
+
+- **Tausenderschritte** (`formatBytes`) für alles, was jemand anderes
+  ausgedruckt hat: Modellgrößen aus dem Katalog, Downloads,
+  Aktualisierungsdateien.
+- **1024er-Schritte** (`formatBytesBinaer`, `zuGb`) für alles, was das
+  Betriebssystem sagt: Platte, Arbeitsspeicher, Docker-Grenzwerte.
+
+Eine wäre falsch. Mit Tausenderschritten hieße die Platte dieses Geräts 2,0 TB,
+während `df -h` daneben 1,8T sagt, und `RAM_LIMIT_LLM=32G` wären 34,4 GB statt
+der 32 vom Datenblatt.
+
+**Erledigt am 21.08.2026,** `arasul-jet` #447. Gehalten von
+`scripts/test/einheiten.py` mit fünf Fällen im Wächter-Selbsttest.
 
 ## D5 Katalog ausdünnen und Standard je Aufgabe
 

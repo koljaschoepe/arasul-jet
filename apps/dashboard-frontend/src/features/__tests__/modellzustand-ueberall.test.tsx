@@ -160,7 +160,10 @@ describe('ein Zustand, ueberall gleich', () => {
 
   it('die KI-RAM-Zeile steht in beiden gleich', async () => {
     const raster = huelle(<StoreModelsGrid />);
-    expect(await screen.findByText('0,0 / 32,0 GB belegt · frei 30,0 GB')).toBeInTheDocument();
+    // Plan 023 D4: die Reserve steht jetzt mit da, und die Zeile geht auf.
+    expect(
+      await screen.findByText('0,0 von 32,0 GB belegt, 2,0 GB Reserve, frei 30,0 GB')
+    ).toBeInTheDocument();
     raster.unmount();
   });
 });

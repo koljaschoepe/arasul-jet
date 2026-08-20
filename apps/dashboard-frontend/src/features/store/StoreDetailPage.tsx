@@ -55,7 +55,7 @@ import { extTypeLabel, accessTierLabel } from './storeExtensionFilters';
 import type { WorkspaceApp } from '@/hooks/useWorkspaceApps';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { formatModelSize as formatSize } from '@/utils/formatting';
+import { formatBytes as formatSize } from '@/utils/formatting';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import { sanitizeUrl } from '@/utils/sanitizeUrl';
 import ActivationButton from './ActivationButton';

@@ -41,7 +41,7 @@ import {
 import type { CatalogModel } from '@/hooks/useStoreCatalog';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
-import { formatModelSize } from '@/utils/formatting';
+import { formatBytes } from '@/utils/formatting';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
 import { modellage, wechselGrund, kiRamZeile, zuGb as toGb } from '@/utils/modellZustand';
 import DownloadProgress from './DownloadProgress';
@@ -147,7 +147,7 @@ function ModelCard({ model, loadedId }: { model: CatalogModel; loadedId: string 
         </div>
         <div className="flex items-center gap-2">
           <span className="text-ui-xs font-medium text-muted-foreground">
-            {formatModelSize(model.size_bytes)}
+            {formatBytes(model.size_bytes)}
           </span>
           <Badge
             variant="outline"

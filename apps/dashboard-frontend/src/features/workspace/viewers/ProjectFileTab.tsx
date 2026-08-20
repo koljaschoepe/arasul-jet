@@ -7,6 +7,7 @@
  * Editors einen Download-Hinweis.
  */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { formatBytesBinaer } from '@/utils/formatting';
 import { Check, ChevronRight, Code2, Download, Eye, GitCompare, Save, Undo2 } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import type { ApiError } from '@/hooks/useApi';
@@ -63,12 +64,6 @@ interface AblageInhalt {
   groesse: number;
   binaer: boolean;
   zuGross: boolean;
-}
-
-function groesseLabel(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
-  if (bytes >= 1024) return `${Math.round(bytes / 1024)} kB`;
-  return `${bytes} B`;
 }
 
 // Roh-HTML-Blöcke, die der WYSIWYG (tiptap-markdown mit html:false) beim
@@ -421,7 +416,9 @@ export default function ProjectFileTab({
           <span className="min-w-0 truncate text-ui-xs font-medium text-muted-foreground">
             {filePath}
             {meta && (
-              <span className="ml-2 text-muted-foreground/60">{groesseLabel(meta.groesse)}</span>
+              <span className="ml-2 text-muted-foreground/60">
+                {formatBytesBinaer(meta.groesse)}
+              </span>
             )}
           </span>
           <Button
@@ -454,8 +451,8 @@ export default function ProjectFileTab({
       <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
         <p className="text-sm">
           {meta.binaer
-            ? `„${dateiname}" ist eine Binärdatei (${groesseLabel(meta.groesse)}).`
-            : `„${dateiname}" ist zu groß für den Editor (${groesseLabel(meta.groesse)}).`}
+            ? `„${dateiname}" ist eine Binärdatei (${formatBytesBinaer(meta.groesse)}).`
+            : `„${dateiname}" ist zu groß für den Editor (${formatBytesBinaer(meta.groesse)}).`}
         </p>
         <Button type="button" variant="secondary" onClick={download}>
           <Download className="mr-2 size-4" aria-hidden="true" /> Herunterladen

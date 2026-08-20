@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
+import { formatBytes } from '@/utils/formatting';
 
 interface ValidationResult {
   file_path?: string;
@@ -374,12 +375,6 @@ const UpdatePage = () => {
     return steps[step] || `Verarbeitung: ${step}`;
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-    if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  };
-
   // The update looks stuck if it has stayed in progress well past the expected
   // window (a permanently locked in_progress state would 409 any new apply).
   const isStuck =
@@ -417,7 +412,7 @@ const UpdatePage = () => {
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium text-foreground">{device.name}</span>
                       <p className="text-xs text-muted-foreground">
-                        {device.device} · {formatFileSize(device.size)}
+                        {device.device} · {formatBytes(device.size)}
                       </p>
                     </div>
                     <Button
@@ -533,7 +528,7 @@ const UpdatePage = () => {
                   <div className="flex justify-between px-4 py-2.5">
                     <span className="text-xs text-muted-foreground">Größe</span>
                     <span className="text-sm text-foreground">
-                      {formatFileSize(validationResult.size)}
+                      {formatBytes(validationResult.size)}
                     </span>
                   </div>
                 )}
