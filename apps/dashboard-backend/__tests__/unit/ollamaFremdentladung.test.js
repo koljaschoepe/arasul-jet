@@ -193,6 +193,37 @@ describe('was NICHT als Ollama-Entladung gilt', () => {
     expect(buchungen()).toHaveLength(0);
   });
 
+  /**
+   * Die Frist von zwei Minuten ist ungefaehr so lang wie die kuerzeste
+   * Haltezeit. Ohne Verbrauch koennte derselbe Eintrag zweimal greifen: von
+   * Hand entladen, fuer die naechste Anfrage neu geladen, dann von Ollama
+   * wegen Ruhe wieder entladen, alles innerhalb derselben zwei Minuten. Die
+   * zweite, echte Entladung fiele stillschweigend unter den Tisch.
+   */
+  test('ein Eintrag deckt genau ein Verschwinden, nicht zwei', async () => {
+    geladen('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+
+    // Von Hand entladen.
+    unloadRegistry.merkeEntladung('gemma3:1b');
+    geladen();
+    await ollamaReadiness.checkSmartUnload();
+    expect(buchungen()).toHaveLength(0);
+
+    // Wieder geladen fuer die naechste Anfrage.
+    geladen('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+
+    // Und jetzt laeuft es bei Ollama wegen Ruhe aus. Das gehoert ins
+    // Protokoll, obwohl die zwei Minuten noch nicht um sind.
+    geladen();
+    await ollamaReadiness.checkSmartUnload();
+
+    const gebucht = buchungen();
+    expect(gebucht).toHaveLength(1);
+    expect(gebucht[0][0]).toContain('auto_unload_ollama_keepalive');
+  });
+
   test('nach der Karenz gilt dieselbe Kennung wieder als fremd entladen', async () => {
     geladen('gemma3:1b');
     await ollamaReadiness.checkSmartUnload();

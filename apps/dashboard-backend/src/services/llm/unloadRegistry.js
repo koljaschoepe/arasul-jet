@@ -44,8 +44,21 @@ function merkeEntladung(kennung) {
 }
 
 /**
- * War das eine eigene Entladung? Abgelaufene Eintraege werden dabei entfernt,
- * damit die Ablage nicht waechst.
+ * War das eine eigene Entladung?
+ *
+ * Ein Treffer wird VERBRAUCHT. Das ist nicht Sparsamkeit, sondern noetig: die
+ * Frist von zwei Minuten ist ungefaehr so lang wie die kuerzeste Haltezeit
+ * (`MODEL_IDLE_KEEP_ALIVE_MINUTES`, Vorgabe 2). Ohne Verbrauch koennte
+ * derselbe Eintrag zweimal greifen, naemlich wenn ein Modell von Hand entladen,
+ * fuer die naechste Anfrage neu geladen und dann innerhalb derselben zwei
+ * Minuten von Ollama wegen Ruhe wieder entladen wird. Die zweite, echte
+ * Entladung fiele stillschweigend unter den Tisch, und der Nutzer saehe wieder
+ * ein Modell verschwinden, ohne dass jemand sagt warum.
+ *
+ * Jede eigene Entladung laesst genau ein Verschwinden erwarten, also passt
+ * genau ein Treffer dazu.
+ *
+ * Abgelaufene Eintraege werden dabei entfernt, damit die Ablage nicht waechst.
  */
 function warUnsereEntladung(kennung, jetzt = Date.now()) {
   for (const [name, zeit] of gemerkt) {
@@ -53,7 +66,7 @@ function warUnsereEntladung(kennung, jetzt = Date.now()) {
       gemerkt.delete(name);
     }
   }
-  return gemerkt.has(kennung);
+  return gemerkt.delete(kennung);
 }
 
 /** Nur fuer Tests. */

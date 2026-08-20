@@ -590,13 +590,14 @@ router.post(
 
     // Die Meldung richtet sich nach dem, was passiert ist. Bis zum 21.08.2026
     // stand hier "wurde entladen", auch wenn `success: false` danebenstand.
-    res.json({
-      ...result,
-      message:
-        result.success === false
-          ? `Modell ${modelId} konnte nicht entladen werden`
-          : `Modell ${modelId} wurde entladen`,
-    });
+    // Und wenn der Helfer schon eine eigene Meldung mitbringt (bei OCR wird
+    // ein Container gestoppt, nicht Speicher freigegeben), bleibt sie stehen.
+    const meldung =
+      result.message ??
+      (result.success === false
+        ? `Modell ${modelId} konnte nicht entladen werden`
+        : `Modell ${modelId} wurde entladen`);
+    res.json({ ...result, message: meldung });
   })
 );
 
