@@ -2,6 +2,7 @@ import { LogOut, MonitorOff } from 'lucide-react';
 import PasswordManagement from './PasswordManagement';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Button } from '@/components/ui/shadcn/button';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface SecuritySettingsProps {
   handleLogout: () => void;
@@ -16,10 +17,7 @@ export function SecuritySettings({
 }: SecuritySettingsProps) {
   return (
     <div className="animate-in fade-in">
-      <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Sicherheit</h1>
-        <p className="text-sm text-muted-foreground">Passwörter verwalten und Sitzungen beenden</p>
-      </div>
+      <PageHeader title="Sicherheit" description="Passwörter verwalten und Sitzungen beenden" />
 
       <div className="flex flex-col gap-8">
         <ComponentErrorBoundary componentName="Passwortverwaltung">

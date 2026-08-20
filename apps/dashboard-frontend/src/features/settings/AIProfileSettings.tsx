@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/shadcn/select';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const AI_INDUSTRIES = [
   'IT & Software',
@@ -304,9 +305,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-foreground mb-2">KI-Profil</h1>
-        </div>
+        <PageHeader title="KI-Profil" />
         <SkeletonCard hasAvatar={false} lines={4} />
       </div>
     );
@@ -315,9 +314,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
   if (loadError) {
     return (
       <div className="animate-in fade-in">
-        <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-foreground mb-2">KI-Profil</h1>
-        </div>
+        <PageHeader title="KI-Profil" />
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription className="flex flex-col items-start gap-3">
@@ -337,13 +334,10 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
 
   return (
     <div className="animate-in fade-in">
-      <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground mb-2">KI-Profil</h1>
-        <p className="text-sm text-muted-foreground">
-          Firmen- und KI-Verhalten konfigurieren. Diese Einstellungen werden automatisch bei jedem
-          Chat als Kontext mitgegeben.
-        </p>
-      </div>
+      <PageHeader
+        title="KI-Profil"
+        description="Firmen- und KI-Verhalten konfigurieren. Diese Einstellungen werden automatisch bei jedem Chat als Kontext mitgegeben."
+      />
 
       <div className="flex flex-col gap-8">
         {/* Firmenprofil */}

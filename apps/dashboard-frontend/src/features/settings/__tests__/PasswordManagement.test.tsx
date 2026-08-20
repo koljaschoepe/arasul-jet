@@ -116,10 +116,11 @@ describe('PasswordManagement Component', () => {
     test('zeigt Lock-Icon', async () => {
       renderPasswordManagement();
 
-      // Lock icon is rendered inside the h3 header alongside the title
-      const title = screen.getByText('Passwortverwaltung');
-      const svg = title.closest('h3')?.querySelector('svg');
-      expect(svg).toBeInTheDocument();
+      // Die Überschrift ist seit Plan 023 C1 ein Section-Baustein und damit
+      // ein h2 unter dem einen h1 der Seite, vorher ein h3 ohne h2 darüber.
+      const title = screen.getByRole('heading', { name: /Passwortverwaltung/ });
+      expect(title.tagName).toBe('H2');
+      expect(title.querySelector('svg')).toBeInTheDocument();
     });
 
     test('lädt Passwort-Anforderungen beim Mount', async () => {
@@ -155,7 +156,7 @@ describe('PasswordManagement Component', () => {
       renderPasswordManagement();
 
       const dashboardButton = screen.getByRole('tab', { name: /Dashboard/ });
-      expect(dashboardButton).toHaveAttribute('data-state', 'active');
+      expect(dashboardButton).toHaveAttribute('aria-selected', 'true');
     });
 
     test('wechselt zu MinIO bei Click', async () => {
@@ -165,7 +166,7 @@ describe('PasswordManagement Component', () => {
       await user.click(screen.getByRole('tab', { name: /MinIO/ }));
 
       const minioButton = screen.getByRole('tab', { name: /MinIO/ });
-      expect(minioButton).toHaveAttribute('data-state', 'active');
+      expect(minioButton).toHaveAttribute('aria-selected', 'true');
     });
 
     test('zeigt n8n-Hinweis-Sektion mit Link zu n8n', async () => {

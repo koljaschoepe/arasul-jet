@@ -9,6 +9,7 @@ import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
 
@@ -108,12 +109,10 @@ export function PrivacySettings() {
     <div className="animate-in fade-in">
       {ConfirmDialog}
 
-      <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Datenschutz</h1>
-        <p className="text-sm text-muted-foreground">
-          DSGVO-Rechte: Auskunft (Art. 15) und Löschung (Art. 17)
-        </p>
-      </div>
+      <PageHeader
+        title="Datenschutz"
+        description="DSGVO-Rechte: Auskunft (Art. 15) und Löschung (Art. 17)"
+      />
 
       <div className="flex flex-col gap-8">
         <section className="space-y-3">

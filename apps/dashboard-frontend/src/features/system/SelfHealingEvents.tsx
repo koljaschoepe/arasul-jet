@@ -18,6 +18,7 @@ import {
 import { formatRelativeDate } from '../../utils/formatting';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/shadcn/button';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface SelfHealingEvent {
   id: number;
@@ -173,9 +174,7 @@ const SelfHealingEvents = () => {
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-xl font-bold text-foreground mb-2">Selbstheilung</h1>
-        </div>
+        <PageHeader title="Selbstheilung" />
         <SkeletonList count={5} hasAvatar={false} />
       </div>
     );
@@ -184,12 +183,10 @@ const SelfHealingEvents = () => {
   return (
     <div className="animate-in fade-in">
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-border">
-        <div className="flex justify-between items-start flex-wrap gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-foreground mb-2">Selbstheilung</h1>
-            <p className="text-sm text-muted-foreground">Systemwiederherstellung und Wartung</p>
-          </div>
+      <PageHeader
+        title="Selbstheilung"
+        description="Systemwiederherstellung und Wartung"
+        action={
           <div className="flex gap-2 items-center">
             <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
               <input
@@ -210,8 +207,8 @@ const SelfHealingEvents = () => {
               <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} /> Aktualisieren
             </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Statistics - inline, minimal */}
       <div className="flex gap-6 mb-6 text-sm">

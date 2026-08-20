@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface Peer {
   id: string;
@@ -341,9 +342,7 @@ export function RemoteAccessSettings() {
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Fernzugriff</h1>
-        </div>
+        <PageHeader title="Fernzugriff" />
         <SkeletonCard hasAvatar={false} lines={3} />
       </div>
     );
@@ -355,12 +354,10 @@ export function RemoteAccessSettings() {
   if (statusError && !status) {
     return (
       <div className="animate-in fade-in">
-        <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Fernzugriff</h1>
-          <p className="text-sm text-muted-foreground">
-            Greife sicher von überall auf dein Gerät zu, über Tailscale VPN.
-          </p>
-        </div>
+        <PageHeader
+          title="Fernzugriff"
+          description="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
+        />
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription className="space-y-3">
@@ -385,14 +382,10 @@ export function RemoteAccessSettings() {
 
   return (
     <div className="animate-in fade-in">
-      <div className="mb-8 pb-6 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">Fernzugriff</h1>
-            <p className="text-sm text-muted-foreground">
-              Greife sicher von überall auf dein Gerät zu, über Tailscale VPN.
-            </p>
-          </div>
+      <PageHeader
+        title="Fernzugriff"
+        description="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
+        action={
           <Button
             variant="ghost"
             size="sm"
@@ -402,8 +395,8 @@ export function RemoteAccessSettings() {
           >
             <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} />
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Transient detection error — status shown below is the last-known one */}
       {statusError && (
