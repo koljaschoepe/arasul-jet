@@ -8,13 +8,13 @@
 
 ## Stand
 
-| Phase                                 | Stand                                        | Belege                                                                                                            |
-| ------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                        | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät              |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen       | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                      |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen       | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                                        |
-| C, Fundament                          | C1 bis C4 fertig 20.08.2026, live abgenommen | #427, #428, #429, #431. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen. C5 und C6 offen |
-| D bis K                               | offen                                        |                                                                                                                   |
+| Phase                                 | Stand                                        | Belege                                                                                                                   |
+| ------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                        | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                     |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen       | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                             |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen       | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                                               |
+| C, Fundament                          | C1 bis C5 fertig 20.08.2026, live abgenommen | #427, #428, #429, #431, #435. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen. C6 offen, C7 neu |
+| D bis K                               | offen                                        |                                                                                                                          |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -881,6 +881,32 @@ gehört nicht in C5.
 Speicherangabe sagt, worauf sie sich bezieht, und die Kachel im Systemstatus
 nennt den KI-Anteil aus derselben Quelle wie die Statusleiste. Die Temperatur
 steht auf einer Achse in Grad Celsius. Behebt F-24, F-25.
+
+### Live abgenommen am 20.08.2026
+
+Am Gerät gemessen, Stand `12f1105e`, angemeldet als `pruefer`, bei drei Breiten.
+
+| Abnahme               | 1440                                                          | 1024      | 390       |
+| --------------------- | ------------------------------------------------------------- | --------- | --------- |
+| Kacheln je Zeile      | 4                                                             | 4         | 1         |
+| Waagerechter Überlauf | nein                                                          | nein      | nein      |
+| Linienfarben          | nur `rgb(69,173,255)`, `rgb(129,161,193)`, `rgb(194,194,194)` | dieselben | dieselben |
+
+Auf dem Bildschirm steht jetzt „6,0 von 61 GB im ganzen Gerät" und darunter
+„Davon 32 GB für KI-Modelle reserviert". Die Statusleiste zeigt weiter „KI-RAM
+15,5/32,0 GB", und die beiden Zahlen widersprechen sich nicht mehr, sondern
+erklären einander.
+
+Das Diagramm hat zwei Achsen: links 0 %, 25 %, 50 %, 75 %, 100 %, rechts 40 °C,
+55 °C, 70 °C, 85 °C, 100 °C. Die Temperaturkurve liegt bei 47 bis 51 Grad
+unten im Bild, wo sie hingehört, statt auf der Linie mit der Aufschrift „50%".
+
+**Vier Anläufe für eine Kurve.** Der erste hat die Einheit gerichtet und die
+Spanne behalten, der zweite die Spanne gerichtet und die Decke festgenagelt,
+der dritte die Decke wachsen lassen und `NaN` übersehen. Jeden davon hat die
+Review gefunden, keinen ein Test. Das ist derselbe Verlauf wie bei C4, und beide
+Male ging es um dieselbe Sorte Fehler: eine Anzeige, die plausibel aussieht und
+etwas Falsches sagt.
 
 ## C6 Kleinkram in den Einstellungen
 
