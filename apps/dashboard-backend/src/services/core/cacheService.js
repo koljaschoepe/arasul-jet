@@ -28,6 +28,10 @@ class CacheService {
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, 60000);
+    // Aufräumen ist Hausarbeit und darf den Prozess nicht am Leben halten.
+    // Ohne dies hält jede Testdatei, die den Server lädt, ihren eigenen
+    // Zeitgeber offen; der Testlauf endet dann nie (R30).
+    this.cleanupInterval.unref?.();
   }
 
   /**

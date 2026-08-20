@@ -5,7 +5,10 @@
  * Uses Factory Pattern with Dependency Injection (same as services.test.js)
  */
 
-const { createLLMQueueService } = require('../../src/services/llm/llmQueueService');
+const {
+  createLLMQueueService,
+  pauseNachFehler,
+} = require('../../src/services/llm/llmQueueService');
 const { createLLMJobService } = require('../../src/services/llm/llmJobService');
 
 // Shared mock factories
@@ -48,6 +51,32 @@ function createMockJobService() {
     completeJob: jest.fn(),
   };
 }
+
+/**
+ * Scheitert `processNext`, wurde der nächste Versuch früher über `setImmediate`
+ * sofort angestoßen. Bleibt die Ursache bestehen, etwa weil die Datenbank weg
+ * ist, dreht der Dienst dann mit voller Last im Kreis: Fehler, sofort neu,
+ * Fehler. Am 20.08.2026 lief genau das im Testlauf, der Prozess beendete sich
+ * nicht mehr und verbrannte dabei einen Kern (R30). Deshalb wächst die Pause.
+ */
+describe('pauseNachFehler()', () => {
+  test('beginnt bei einer Sekunde und verdoppelt', () => {
+    expect(pauseNachFehler(1)).toBe(1000);
+    expect(pauseNachFehler(2)).toBe(2000);
+    expect(pauseNachFehler(3)).toBe(4000);
+  });
+
+  test('deckelt bei 30 Sekunden, damit die Pause nicht ins Endlose wächst', () => {
+    expect(pauseNachFehler(6)).toBe(30000);
+    expect(pauseNachFehler(50)).toBe(30000);
+  });
+
+  test('wartet auch beim ersten Fehlschlag, nie null', () => {
+    // Der teure Fehler wäre hier eine Null: dann wäre die Pause wieder keine.
+    expect(pauseNachFehler(0)).toBe(1000);
+    expect(pauseNachFehler(1)).toBeGreaterThan(0);
+  });
+});
 
 describe('LLMQueueService', () => {
   let service;

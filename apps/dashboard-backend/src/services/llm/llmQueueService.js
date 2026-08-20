@@ -21,6 +21,21 @@ const MAX_QUEUE_SIZE = parseInt(process.env.LLM_MAX_QUEUE_SIZE || '20');
 const MAX_JOB_SUBSCRIBERS = 500;
 
 /**
+ * Pause vor dem nächsten Versuch, nachdem `processNext` gescheitert ist.
+ * Vorher stand dort `setImmediate`, also gar keine Pause: bleibt die Ursache
+ * bestehen (Datenbank weg, Modell weg), dreht der Dienst mit voller Last im
+ * Kreis, frisst auf dem Orin einen Kern und flutet das Protokoll. Beobachtet
+ * am 20.08.2026 als Testlauf, der sich nicht beendete und dabei CPU verbrannte.
+ * Erste Wiederholung nach einer Sekunde, dann Verdopplung bis 30 Sekunden.
+ * @param {number} folge Anzahl der Fehlschläge hintereinander, beginnend bei 1
+ * @returns {number} Wartezeit in Millisekunden
+ */
+function pauseNachFehler(folge) {
+  const stufe = Math.max(1, folge);
+  return Math.min(1000 * 2 ** (stufe - 1), 30000);
+}
+
+/**
  * Factory function to create LLMQueueService with injected dependencies
  * @param {Object} deps - Dependencies
  * @param {Object} deps.database - Database module
@@ -84,6 +99,9 @@ function createLLMQueueService(deps = {}) {
         () => this.cleanupStaleSubscribers(),
         5 * 60 * 1000
       );
+      // Hausarbeit hält den Prozess nicht offen. Solange der Server läuft,
+      // tickt sie weiter; im Testlauf endet der Prozess sonst nie (R30).
+      this.subscriberCleanupInterval.unref?.();
     }
 
     /**
@@ -460,6 +478,10 @@ function createLLMQueueService(deps = {}) {
               status: 'model_loading',
             });
           }, 15000); // Every 15 seconds
+          // Ein Lebenszeichen darf den Prozess nicht offen halten. Bleibt der
+          // Modellwechsel hängen, tickt es sonst endlos weiter; im Testlauf
+          // endet der Prozess dann nie (R30, `enqueue()` in llmQueue.test.js).
+          heartbeatInterval.unref?.();
 
           // P2-006: Retry logic for transient failures
           const MAX_SWITCH_RETRIES = 2;
@@ -543,6 +565,9 @@ function createLLMQueueService(deps = {}) {
           }
         }
 
+        // Ab hier läuft wieder etwas: die Fehlerfolge ist gebrochen.
+        this.fehlerFolge = 0;
+
         logger.info(
           `Processing job ${job.id} (type: ${job.job_type}, model: ${requested_model || 'default'})`
         );
@@ -600,8 +625,10 @@ function createLLMQueueService(deps = {}) {
           }
         }
         this.processingJobId = null;
-        // Try processing next job
-        setImmediate(() => this.processNext());
+        // Mit Abstand weitermachen, nicht sofort. Siehe `pauseNachFehler`.
+        this.fehlerFolge = (this.fehlerFolge || 0) + 1;
+        const pause = setTimeout(() => this.processNext(), pauseNachFehler(this.fehlerFolge));
+        pause.unref?.();
       }
     }
 
@@ -749,6 +776,9 @@ function createLLMQueueService(deps = {}) {
      * Start periodic timeout checker
      */
     startTimeoutChecker() {
+      // Wie beim Aufräumtakt: die Uhr darf den Prozess nicht am Leben halten.
+      // `enqueue()` stößt diesen Prüfer im Hintergrund an, also auch dann noch,
+      // wenn eine Testdatei ihre Aufräumarbeit längst hinter sich hat (R30).
       this.timeoutInterval = setInterval(async () => {
         try {
           // First: try to recover orphaned messages periodically
@@ -851,6 +881,7 @@ function createLLMQueueService(deps = {}) {
           logger.error(`Error in timeout checker: ${err.message}`);
         }
       }, 60000); // Check every minute
+      this.timeoutInterval.unref?.();
     }
 
     /**
@@ -921,3 +952,4 @@ const defaultInstance = createLLMQueueService();
 // Export singleton for production use, factory for testing
 module.exports = defaultInstance;
 module.exports.createLLMQueueService = createLLMQueueService;
+module.exports.pauseNachFehler = pauseNachFehler;

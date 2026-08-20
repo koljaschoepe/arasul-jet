@@ -57,6 +57,10 @@ function startIdleChecker() {
     return;
   }
   _idleCheckTimer = setInterval(checkIdleContainers, IDLE_CHECK_INTERVAL_MS);
+  // Gleiche Begründung wie beim Cache-Aufräumer: eine Hintergrunduhr darf den
+  // Prozess nicht offen halten. sandboxService startet den Prüfer beim Laden
+  // des Moduls, also in jeder Testdatei, die den Server laedt.
+  _idleCheckTimer.unref?.();
   logger.info(
     `Sandbox idle checker started (timeout: ${IDLE_TIMEOUT_MS / 60000}min, interval: ${IDLE_CHECK_INTERVAL_MS / 60000}min)`
   );

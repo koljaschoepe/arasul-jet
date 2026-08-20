@@ -63,12 +63,32 @@ run_backend_tests() {
     # Dockerfile) — the prod container is --omit=dev so it has no jest binary.
     if check_npm; then
       cd apps/dashboard-backend
-      if npx jest $JEST_FLAGS; then
+      # Die Ausgabe wird mitgeschrieben, weil zwei Befunde nicht im Rueckgabewert
+      # stehen. Erstens Arbeit, die nach dem Abbau einer Testumgebung
+      # weiterläuft: ein Zeitgeber aus Datei A feuert, während Datei B dran
+      # ist, und was er auslöst, fällt B zur Last. Zweitens ein Arbeitsprozess,
+      # der sich nicht beendet. Beides hat den Lauf lange sporadisch rot gemacht,
+      # ohne dass eine einzige Zusage verletzt war (R30, 20.08.2026).
+      BACKEND_LOG="$(mktemp -t arasul-backend-tests)"
+      npx jest $JEST_FLAGS 2>&1 | tee "$BACKEND_LOG"
+      JEST_STATUS=${PIPESTATUS[0]}
+      if [ "$JEST_STATUS" -eq 0 ]; then
         echo "   Backend tests: PASSED"
       else
         echo "   Backend tests: FAILED"
         EXIT_CODE=1
       fi
+      if grep -q "after the Jest environment has been torn down" "$BACKEND_LOG"; then
+        echo "   Backend tests: FAILED — es läuft Arbeit über das Ende einer Testdatei hinaus."
+        echo "   Die Meldung nennt die Datei. Dort aufräumen (afterAll) oder den Dienst mocken."
+        EXIT_CODE=1
+      fi
+      if grep -q "failed to exit gracefully" "$BACKEND_LOG"; then
+        echo "   Backend tests: FAILED — ein Arbeitsprozess hat sich nicht beendet."
+        echo "   Ursache finden mit: npx jest __tests__/unit --detectOpenHandles"
+        EXIT_CODE=1
+      fi
+      rm -f "$BACKEND_LOG"
       cd "$PROJECT_ROOT"
     elif command -v docker &> /dev/null; then
       echo "   Building backend test image (--target test) ..."

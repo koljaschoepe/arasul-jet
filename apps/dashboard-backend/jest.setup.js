@@ -198,3 +198,62 @@ global.resetAllServices = () => {
     }
   });
 };
+// ============================================================================
+// Eigener Portbereich je Arbeitsprozess
+// ============================================================================
+
+/**
+ * supertest startet für jede Anfrage einen Server auf einem freien Port, den
+ * das Betriebssystem aussucht, und schließt ihn danach. Läuft die Suite mit
+ * mehreren Arbeitsprozessen, ziehen alle aus demselben Topf. Ein Port, den
+ * Prozess A gerade freigegeben hat, kann Prozess B im nächsten Moment
+ * bekommen. Trifft dann noch eine Anfrage von A darauf, antwortet die App von
+ * B. Das sieht aus wie ein Fehler im Test von A, ist aber eine fremde Antwort;
+ * typischerweise ein 401 aus `requireAuth` einer ganz anderen App.
+ *
+ * Deshalb bekommt jeder Arbeitsprozess hier einen eigenen, festen Bereich
+ * unterhalb der flüchtigen Ports des Systems (macOS ab 49152). Die Bereiche
+ * überschneiden sich nicht, also kann kein Prozess mehr im Port eines anderen
+ * landen. Siehe R30.
+ *
+ * Ist einer der Ports von etwas anderem auf dem Rechner belegt, scheitert das
+ * Binden laut und sofort. Das ist gewollt: lieber ein klarer Fehlschlag als
+ * wieder eine Antwort aus einer fremden App.
+ */
+const net = require('net');
+
+const ARBEITER = parseInt(process.env.JEST_WORKER_ID || '1', 10);
+const BEREICH_GROESSE = 2000;
+const BEREICH_START = 41000 + (ARBEITER - 1) * BEREICH_GROESSE;
+let naechsterPort = BEREICH_START;
+
+const echtesListen = net.Server.prototype.listen;
+net.Server.prototype.listen = function (...args) {
+  if (args.length > 0 && (args[0] === 0 || args[0] === '0')) {
+    naechsterPort += 1;
+    if (naechsterPort >= BEREICH_START + BEREICH_GROESSE) {
+      naechsterPort = BEREICH_START;
+    }
+    args[0] = naechsterPort;
+  }
+  return echtesListen.apply(this, args);
+};
+
+// TEMPORAER
+afterAll(() => {
+  const fs = require('fs');
+  const t = setTimeout(() => {
+    const h = process._getActiveHandles();
+    const zeilen = h.map(x => {
+      const n = x && x.constructor ? x.constructor.name : typeof x;
+      if (n === 'Timeout') {
+        const cb = x._onTimeout;
+        return `Timeout(${x._idleTimeout}ms) ${cb && cb.toString ? cb.toString().slice(0,200).replace(/\s+/g,' ') : '?'}`;
+      }
+      if (n === 'ChildProcess') return `ChildProcess(${(x.spawnargs||[]).slice(1).join(' ')})`;
+      return n;
+    });
+    fs.writeFileSync('/private/tmp/claude-501/-Users-koljaschope-Code-arasul/2ff6d5e5-e52a-4766-aabf-db6dfed40d51/scratchpad/handles-spaet.txt', `PID ${process.pid}\n` + zeilen.join('\n') + '\n');
+  }, 6000);
+  t.unref();
+});

@@ -858,9 +858,11 @@ async function getStatistics() {
   return result.rows[0];
 }
 
-// Auto-start the idle checker when the module is loaded.
-// The idle checker lazy-requires stopContainer from this module.
-startIdleChecker();
+// Der Leerlaufprüfer startete früher hier, beim Laden des Moduls. Das hieß: jede
+// Testdatei, die irgendwo über die Routen an dieses Modul kam, legte eine eigene
+// Uhr an, und die feuerte danach in einer abgebauten Umgebung. Gestartet wird
+// jetzt beim Hochfahren des Servers, wie beim Ordner-Abgleich auch (index.js).
+// Der Prüfer lädt `stopContainer` weiterhin verzögert aus diesem Modul.
 
 /**
  * Lädt einen aktiven Workspace per Id oder Slug. Geräteweit (Plan 017
