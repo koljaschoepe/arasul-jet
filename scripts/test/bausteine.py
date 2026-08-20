@@ -112,7 +112,10 @@ REGELN = [
         'Tab-Leiste von Hand. Gehoert in FilterBar (components/ui/FilterBar.tsx).',
     ),
     (
-        re.compile(r'role="dialog"'),
+        # Fasst die drei Schreibweisen: role="dialog", role={'dialog'} und
+        # role={"dialog"}. Ein zur Laufzeit berechnetes role bleibt unsichtbar,
+        # so wie bei den anderen Regeln auch.
+        re.compile(r'''role=(?:"dialog"|\{\s*['"]dialog['"]\s*\})'''),
         'Dialogmechanik von Hand. Gehoert in Modal (components/ui/Modal.tsx, auf Radix).',
     ),
 ]
