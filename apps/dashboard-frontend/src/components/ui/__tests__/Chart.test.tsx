@@ -79,6 +79,43 @@ describe('Chart', () => {
     expect(alle).not.toContain('--color-chart-3');
   });
 
+  // Eine Reihe mit anderer Einheit auf einer fremden Achse zeichnet eine
+  // falsche Aussage, nicht nur eine unschoene: 52 Grad landeten auf der Linie,
+  // an der „50%" steht.
+  it('bringt ohne Angabe genau eine Achse mit', () => {
+    const { container } = render(
+      <Chart data={DATEN} series={REIHEN} xKey="t" formatX={String} label="Auslastung" />
+    );
+    expect(container.querySelectorAll('.recharts-yAxis')).toHaveLength(1);
+  });
+
+  it('stellt für eine Reihe mit eigener Achse eine zweite bereit', () => {
+    const { container } = render(
+      <Chart
+        data={DATEN}
+        series={[
+          { key: 'RAM', name: 'Arbeitsspeicher', unit: '%' },
+          { key: 'Temp', name: 'Temperatur', unit: '°C', achse: 'rechts' },
+        ]}
+        xKey="t"
+        formatX={String}
+        formatY={wert => `${wert}%`}
+        yDomain={[0, 100]}
+        formatYRechts={wert => `${wert} °C`}
+        yDomainRechts={[0, 100]}
+        label="Auslastung"
+      />
+    );
+    // Nur die Achsen selbst, nicht ihre Zahlen: recharts rechnet die Marken
+    // aus der gemessenen Flaeche, und die ist in jsdom null. Was die Achse
+    // beschriftet, prueft der Aufrufer an seinem eigenen Text.
+    expect(container.querySelectorAll('.recharts-yAxis')).toHaveLength(2);
+    const seiten = Array.from(
+      container.querySelectorAll('.recharts-yAxis line.recharts-cartesian-axis-line')
+    ).map(knoten => knoten.getAttribute('x1'));
+    expect(new Set(seiten).size).toBe(2);
+  });
+
   it('bringt keine eigene Karte mit, die Fläche stellt der Aufrufer', () => {
     const { container } = render(
       <Chart data={DATEN} series={REIHEN} xKey="t" formatX={String} label="Auslastung" />

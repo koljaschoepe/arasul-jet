@@ -764,8 +764,74 @@ Grau und Blau. Die beiden widersprüchlichen Speicherangaben, 25,5 von 61 GB im
 Systemstatus gegen 15,5 von 32,0 GB bei den Modellen, werden auf eine Quelle
 zurückgeführt und beschriftet.
 
-**Abnahme:** Vier Kacheln je Zeile bei jeder Fensterbreite. Nur Blau und Grau im
-Diagramm. Eine einzige Speicherangabe im ganzen Produkt. Behebt F-24, F-25.
+**Abnahme, wie sie hier stand:** Vier Kacheln je Zeile bei jeder Fensterbreite.
+Nur Blau und Grau im Diagramm. Eine einzige Speicherangabe im ganzen Produkt.
+Behebt F-24, F-25.
+
+### Erst gemessen, dann gebaut: zwei dieser drei Abnahmen waren falsch
+
+Am 20.08.2026 am Gerät gemessen, angemeldet als `pruefer`, bei 1440, 1024 und
+390 Pixel Breite.
+
+**Die Hälfte war schon fertig.** C1 hat den sichtbaren Teil miterledigt: vier
+Kacheln ohne Symbole, das Diagramm ohne eigene Karte. Gemessene SVG-Farben:
+`rgb(69,173,255)`, `rgb(129,161,193)` und Grautöne. **Kein Orange, kein
+Violett.** F-25 war beim Beginn von C5 bereits eingelöst.
+
+**„Vier Kacheln je Zeile bei jeder Fensterbreite" ist falsch.** Gemessen: vier
+Spalten bei 1440 und 1024, eine bei 390. Das ist richtig so. Vier Kacheln
+nebeneinander auf einem Telefon sind 97 Pixel breit und unlesbar. Die Abnahme
+lautet daher: vier je Zeile ab 1024 Pixel, darunter so viele, wie lesbar
+bleiben, und kein waagerechter Überlauf. Gemessen: kein Überlauf bei keiner der
+drei Breiten.
+
+**„Eine einzige Speicherangabe im ganzen Produkt" ist ebenfalls falsch, und
+zwar folgenreich.** Beide Zahlen stimmen und meinen Verschiedenes:
+
+| Zahl  | Woher                                        | Was sie bedeutet                              |
+| ----- | -------------------------------------------- | --------------------------------------------- |
+| 61 GB | `os.totalmem()`                              | der ganze Arbeitsspeicher des Orin            |
+| 32 GB | `RAM_LIMIT_LLM=32G` in der `.env` des Geräts | der Anteil, der für KI-Modelle reserviert ist |
+
+Beides auf eine Zahl zusammenzuziehen würde eine wahre Angabe löschen. Der
+Kunde braucht beide: wie voll ist das Gerät, und wie viel vom Modellbudget ist
+belegt. Der Fehler war nie die Zweizahligkeit, sondern dass **keine der beiden
+sagte, worauf sie sich bezieht.** Die Statusleiste beschriftete ihre schon
+richtig mit „KI-RAM", die Kachel im Systemstatus sagte nur „Arbeitsspeicher".
+
+Gebaut wurde deshalb: die Kachel sagt „24,5 von 61 GB im ganzen Gerät" und
+darunter „Davon 32 GB für KI-Modelle reserviert". Damit erklärt der eine
+Bildschirm den anderen. Die Zahl kommt aus demselben Abfrageschlüssel
+(`MEMORY_BUDGET_QUERY_KEY`), den die Statusleiste benutzt: ein Cache-Eintrag,
+keine zweite Abfragelast auf dem Jetson, und keine zweite Quelle, die
+auseinanderlaufen kann.
+
+### Was die Messung gefunden hat und kein Befund nannte
+
+**Die Temperatur wurde auf der Prozentachse gezeichnet.** Das Diagramm hatte
+eine Y-Achse mit `yDomain={[0, 100]}` und `formatY` in Prozent, und die dritte
+Reihe war die Temperatur in Grad Celsius. 52 Grad landeten damit auf der Linie,
+an der „50%" steht. Wer die Seite ansah, sah eine halbvolle Maschine, wo eine
+kühle stand, und die Kurve konnte sich nie bewegen, weil ein Jetson zwischen
+40 und 85 Grad läuft und das auf einer Nullbisshundert-Skala eine fast gerade
+Linie ist. Ausgerechnet die Kurve, die Gate G7 belegen soll, sieben Tage
+unbeaufsichtigt, war die unbrauchbarste.
+
+Der Baustein `Chart` aus C1 kann jetzt eine zweite Achse rechts. Eine Reihe
+trägt dafür `achse: 'rechts'`. Das ist die Regel aus Phase C angewandt: nicht
+ein zweites Diagramm danebenbauen, sondern den gemeinsamen Baustein die zweite
+Einheit lernen lassen.
+
+**Nebenbei erklärt sich F-04.** „0.0 / 32.0 GB belegt · frei 30.0 GB" ist kein
+Rechenfehler: `availableMb` zieht zusätzlich `safetyBufferMb` ab, hier 2 GB.
+Der Puffer hat nur keinen Namen auf dem Bildschirm. Gehört zu F-04, nicht
+hierher.
+
+**Abnahme, neu gefasst:** Vier Kacheln je Zeile ab 1024 Pixel, kein waagerechter
+Überlauf bei 1440, 1024 und 390. Nur Blau und Grau im Diagramm. Jede
+Speicherangabe sagt, worauf sie sich bezieht, und die Kachel im Systemstatus
+nennt den KI-Anteil aus derselben Quelle wie die Statusleiste. Die Temperatur
+steht auf einer Achse in Grad Celsius. Behebt F-24, F-25.
 
 ## C6 Kleinkram in den Einstellungen
 
