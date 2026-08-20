@@ -43,6 +43,7 @@ import { useExtensionStore } from '@/stores/extensionStore';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { formatModelSize } from '@/utils/formatting';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
+import { modellage, wechselGrund, kiRamZeile, zuGb as toGb } from '@/utils/modellZustand';
 import DownloadProgress from './DownloadProgress';
 import {
   applyModelFilters,
@@ -55,11 +56,6 @@ import {
 
 /** Entladen gilt nach dieser Zeit ohne Budget-Bestätigung als „Status unklar". */
 const UNLOAD_TIMEOUT_MS = 45_000;
-
-/** MB → GB, eine Nachkommastelle. */
-function toGb(mb: number): string {
-  return (mb / 1024).toFixed(1);
-}
 
 type ModelStatus = 'downloading' | 'error' | 'active' | 'installed' | 'available';
 
@@ -264,8 +260,10 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
   const loadedIds = new Set(loaded.map(m => m.id));
   const usedMb = budget?.usedMb ?? 0;
   const totalMb = budget?.totalBudgetMb ?? 0;
-  const availableMb = budget?.availableMb ?? 0;
   const pct = totalMb > 0 ? Math.min(100, Math.round((usedMb / totalMb) * 100)) : 0;
+  // Plan 023 D3: derselbe Zustand wie in der Statusleiste, aus einer Quelle.
+  const lage = modellage(budget);
+  const grund = wechselGrund(budget?.lastSwitch?.reason);
   const defaultModel = installed.find(m => m.id === defaultModelId) ?? null;
   const defaultLoaded = defaultModel
     ? loadedIds.has(defaultModel.id) ||
@@ -378,9 +376,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">KI-RAM</span>
-          <span className="text-foreground">
-            {toGb(usedMb)} / {toGb(totalMb)} GB belegt · frei {toGb(availableMb)} GB
-          </span>
+          <span className="text-foreground">{kiRamZeile(budget)}</span>
         </div>
         <div
           className="flex h-2 w-full overflow-hidden rounded-full bg-muted"
@@ -413,8 +409,12 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="text-muted-foreground">Im RAM:</span>
         {loaded.length === 0 ? (
-          <span className="text-muted-foreground">
-            kein Modell geladen, wird bei Bedarf automatisch geladen
+          // Plan 023 D3: derselbe Satz wie in der Statusleiste. Bis zum
+          // 21.08.2026 stand hier "kein Modell geladen", waehrend die Leiste
+          // gleichzeitig ein bereites Modell nannte.
+          <span className="text-muted-foreground" data-testid="modelle-zustand">
+            {lage.text}
+            {lage.zustand === 'bereit' && ', wird bei Bedarf automatisch geladen'}
           </span>
         ) : (
           loaded.map(m => {
@@ -453,6 +453,16 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
           })
         )}
       </div>
+
+      {/* Plan 023 D3: warum das System zuletzt selbst etwas getan hat. Am
+          20.08.2026 standen 877 automatische Entladungen im Protokoll, und
+          keine davon war irgendwo zu sehen. Wer sein Modell aus dem Speicher
+          verschwinden sah, bekam dafuer keine Erklaerung. */}
+      {grund && budget?.lastSwitch && (
+        <p className="text-xs text-muted-foreground" data-testid="modelle-wechselgrund">
+          {modellAnzeigeName(budget.lastSwitch.model)} wurde {grund}.
+        </p>
+      )}
 
       {/* Laufendes Laden in den RAM — LIVE-Status aus dem ActivationContext */}
       {activation && (

@@ -60,18 +60,34 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
 
   /**
    * Update download progress in DB and notify callback
+   *
+   * Plan 023 D3: Ollama meldet in jeder Zeile `completed` und `total` in Bytes.
+   * Bis dahin wurde daraus nur ein Prozentwert gerechnet und die Bytes fallen
+   * gelassen, obwohl `llm_installed_models` seit Migration 083 zwei Spalten
+   * dafuer hat. Die standen also seit Monaten leer. Ein Prozentwert allein sagt
+   * nicht, ob die naechste Stunde oder die naechste Minute gemeint ist.
+   *
+   * Geschrieben wird im Takt des Prozentwerts, nicht jeder Zeile: Ollama
+   * schickt mehrere pro Sekunde, und ein Schreibvorgang je Prozent reicht fuer
+   * eine Anzeige.
+   *
    * @param {string} modelId - Model ID
    * @param {number} progress - Progress percentage (0-100)
    * @param {string} status - Status string from Ollama
    * @param {function|null} progressCallback - Optional callback
+   * @param {{completed: number, total: number}|null} bytes - Bytes aus dem Pull-Strom
    */
-  async function updateDownloadProgress(modelId, progress, status, progressCallback) {
-    await database.query('UPDATE llm_installed_models SET download_progress = $1 WHERE id = $2', [
-      progress,
-      modelId,
-    ]);
+  async function updateDownloadProgress(modelId, progress, status, progressCallback, bytes = null) {
+    await database.query(
+      `UPDATE llm_installed_models
+          SET download_progress = $1,
+              bytes_completed = COALESCE($3, bytes_completed),
+              bytes_total = COALESCE($4, bytes_total)
+        WHERE id = $2`,
+      [progress, modelId, bytes?.completed ?? null, bytes?.total ?? null]
+    );
     if (progressCallback) {
-      progressCallback(progress, status);
+      progressCallback(progress, status, bytes);
     }
   }
 
@@ -226,6 +242,7 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
             }
 
             // Improved progress calculation based on status
+            let bytes = null;
             if (data.status) {
               const statusLower = data.status.toLowerCase();
 
@@ -233,6 +250,7 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
                 progress = 1;
               } else if (data.total && data.completed) {
                 progress = 2 + Math.round((data.completed / data.total) * 93);
+                bytes = { completed: data.completed, total: data.total };
               } else if (statusLower.includes('verifying')) {
                 progress = 96;
               } else if (statusLower.includes('writing')) {
@@ -251,7 +269,8 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
                 modelId,
                 progress,
                 data.status || 'downloading',
-                progressCallback
+                progressCallback,
+                bytes
               );
             }
 

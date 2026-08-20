@@ -20,6 +20,14 @@ export interface CatalogModel {
   capabilities?: string[];
   recommended_for?: string[];
   install_status: string;
+  /**
+   * Diese beiden standen bis Plan 023 D3 nur in der zweiten, inzwischen
+   * geloeschten Beschreibung in `types/index.ts`, obwohl das Backend sie
+   * immer geliefert hat. Genau daran zeigt sich, warum zwei Typen fuer
+   * dieselbe Antwort nicht zusammenbleiben.
+   */
+  download_progress?: number;
+  install_error?: string;
   effective_ollama_name?: string;
   performance_tier?: number;
   speed_tier?: string;
@@ -39,6 +47,9 @@ export interface CatalogModel {
   measured_tps?: string | number | null;
   /** Zahl der Messungen, aus denen der Median stammt. */
   measured_runs?: string | number | null;
+  /** Plan 023 D3: Stand eines laufenden Downloads in Bytes, aus llm_installed_models. */
+  bytes_completed?: number | null;
+  bytes_total?: number | null;
 }
 
 export interface LoadedModel {

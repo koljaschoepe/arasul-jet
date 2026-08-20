@@ -358,10 +358,21 @@ router.post(
     try {
       await modelService.downloadModel(
         model_id,
-        (progress, status) => {
+        (progress, status, bytes) => {
           if (connection.isConnected()) {
             try {
-              res.write(`data: ${JSON.stringify({ progress, status, model_id })}\n\n`);
+              // Plan 023 D3: die Bytes gehen mit. Ein Prozentwert allein sagt
+              // nicht, ob die naechste Minute oder die naechste Stunde gemeint
+              // ist, und bei einem 16-GB-Modell ist das der Unterschied.
+              res.write(
+                `data: ${JSON.stringify({
+                  progress,
+                  status,
+                  model_id,
+                  bytes_completed: bytes?.completed ?? null,
+                  bytes_total: bytes?.total ?? null,
+                })}\n\n`
+              );
             } catch {
               // connection lost - trackConnection handles state
             }

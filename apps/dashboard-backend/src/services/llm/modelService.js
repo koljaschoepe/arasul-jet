@@ -251,7 +251,12 @@ function createModelService(deps = {}) {
                     i.downloaded_at,
                     i.error_message as install_error,
                     t.tokens_per_second as measured_tps,
-                    t.messungen as measured_runs
+                    t.messungen as measured_runs,
+                    -- Plan 023 D3: fuer die Anzeige in Megabyte, auch nach
+                    -- einem Neuladen der Seite. Der SSE-Strom ist dann weg,
+                    -- der Stand steht aber in der Zeile.
+                    i.bytes_completed,
+                    i.bytes_total
                 FROM llm_model_catalog c
                 LEFT JOIN llm_installed_models i ON c.id = i.id
                 LEFT JOIN LATERAL (
@@ -445,6 +450,47 @@ function createModelService(deps = {}) {
         /* nicht kritisch — Statusleiste fällt auf loadedModels zurück */
       }
 
+      // Plan 023 D3: der letzte Wechsel, den das System selbst ausgeloest hat.
+      // Bis dahin wurde jeder davon protokolliert und keiner angezeigt: am
+      // 20.08.2026 standen 1024 Zeilen in llm_model_switches, 877 davon
+      // automatische Entladungen. Wer sein Modell aus dem Speicher verschwinden
+      // sah, bekam dafuer keine Erklaerung.
+      //
+      // Nur die letzten zwei Stunden: aelter erklaert nichts mehr, was der
+      // Nutzer gerade sieht, und stuende dann als Raetsel dort.
+      let lastSwitch = null;
+      try {
+        // Der Anzeigename kommt aus dem Katalog, genau wie bei den geladenen
+        // und dem installierten Modell darueber. `llm_model_switches` traegt
+        // die Kennung, und die Ableitung daraus ergaebe einen ANDEREN Namen:
+        // aus `gemma4:e4b-q4` wuerde "Gemma 4" statt "Gemma 4 Kompakt". Genau
+        // dieser Unterschied war der Fund aus D1, und er waere hier neu
+        // entstanden. Gefunden hat ihn der Test, nicht das Nachdenken.
+        const wechsel = await database.query(
+          `SELECT s.from_model, s.to_model, s.reason, s.switched_at,
+                  c.name AS anzeige
+             FROM llm_model_switches s
+             LEFT JOIN llm_model_catalog c
+               ON c.id = CASE WHEN s.to_model = 'unloaded' THEN s.from_model ELSE s.to_model END
+              OR COALESCE(c.ollama_name, c.id)
+                 = CASE WHEN s.to_model = 'unloaded' THEN s.from_model ELSE s.to_model END
+            WHERE s.switched_at > NOW() - INTERVAL '2 hours'
+            ORDER BY s.switched_at DESC
+            LIMIT 1`
+        );
+        if (wechsel.rows.length > 0) {
+          const zeile = wechsel.rows[0];
+          const kennung = zeile.to_model === 'unloaded' ? zeile.from_model : zeile.to_model;
+          lastSwitch = {
+            model: zeile.anzeige || kennung,
+            reason: zeile.reason,
+            at: zeile.switched_at,
+          };
+        }
+      } catch {
+        /* nicht kritisch - die Anzeige laesst die Zeile dann weg */
+      }
+
       return {
         totalBudgetMb,
         usedMb,
@@ -453,6 +499,7 @@ function createModelService(deps = {}) {
         loadedModels: enriched,
         installedModel,
         installedCount,
+        lastSwitch,
         canLoadMore: availableMb > 0,
       };
     }

@@ -110,23 +110,11 @@ export interface InstalledModel {
   is_running?: boolean;
 }
 
-export interface CatalogModel {
-  id: string;
-  name: string;
-  description: string;
-  size_bytes: number;
-  ram_required_gb: number;
-  category: string;
-  model_type?: string;
-  capabilities?: string[];
-  recommended_for?: string[];
-  install_status: string;
-  download_progress?: number;
-  install_error?: string;
-  effective_ollama_name?: string;
-  performance_tier?: number;
-  ollama_library_url?: string;
-}
+// `CatalogModel` stand bis Plan 023 D3 hier UND in `hooks/useStoreCatalog.ts`.
+// Zwei Beschreibungen derselben Antwort, und sie liefen bereits auseinander:
+// D2 gab der einen sechs Felder, die der anderen fehlten. Der Kontext las die
+// hiesige, alles andere die aus dem Hook. Massgeblich ist der Hook, weil dort
+// auch die Abfrage steht.
 
 // --- Model Lifecycle ---
 
@@ -151,6 +139,12 @@ export interface MemoryBudget {
    */
   installedModel?: { id: string; name: string } | null;
   installedCount?: number;
+  /**
+   * Plan 023 D3: der letzte Wechsel, den das System selbst ausgeloest hat, aus
+   * `llm_model_switches`. Nur die letzten zwei Stunden; aelter erklaert nichts
+   * mehr, was gerade zu sehen ist. `null`, wenn in dieser Zeit nichts war.
+   */
+  lastSwitch?: { model: string; reason: string | null; at: string } | null;
   canLoadMore: boolean;
 }
 

@@ -15,6 +15,36 @@ interface DownloadState {
   // and the local StoreApps install-progress shape (error?: string) are both
   // assignable to this prop without a second, incompatible DownloadState type.
   error?: string | null;
+  /** Plan 023 D3: Bytes aus dem Pull-Strom von Ollama. */
+  bytesCompleted?: number | null;
+  bytesTotal?: number | null;
+}
+
+/**
+ * Bytes zu einer lesbaren Groesse, deutsch geschrieben.
+ *
+ * Plan 023 D3: ein Prozentwert allein sagt nicht, ob die naechste Minute oder
+ * die naechste Stunde gemeint ist. Bei einem Modell von 16 GB ist das der
+ * Unterschied zwischen "gleich fertig" und "geh einen Kaffee holen".
+ *
+ * Tausenderschritte, keine 1024er: Ollama meldet Bytes, und der Katalog nennt
+ * dieselben Modelle in derselben Zaehlweise (nomic-embed-text steht dort mit
+ * 274000000 Bytes und "~274 MB" im Text).
+ */
+function groesse(bytes: number): string {
+  const gb = bytes / 1_000_000_000;
+  if (gb >= 1) {
+    return `${gb.toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`;
+  }
+  return `${(bytes / 1_000_000).toLocaleString('de-DE', { maximumFractionDigits: 0 })} MB`;
+}
+
+/** „1,2 von 16,4 GB", oder nichts, solange Ollama noch am Manifest haengt. */
+function bytesZeile(zustand: DownloadState): string | null {
+  if (!zustand.bytesTotal) {
+    return null;
+  }
+  return `${groesse(zustand.bytesCompleted ?? 0)} von ${groesse(zustand.bytesTotal)}`;
 }
 
 interface DownloadProgressProps {
@@ -35,6 +65,7 @@ const phaseLabels: Record<string, string> = {
 };
 
 function DownloadProgress({ downloadState, onCancel, compact = false }: DownloadProgressProps) {
+  const mengen = bytesZeile(downloadState);
   const isComplete = downloadState.phase === 'complete';
   const isVerify = downloadState.phase === 'verify';
   const isError = downloadState.phase === 'error';
@@ -58,6 +89,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
               {phaseLabels[downloadState.phase] || downloadState.phase}
             </span>
             <div className="flex items-center gap-2">
+              {mengen && <span className="text-xs text-muted-foreground">{mengen}</span>}
               <span className="text-xs text-primary font-semibold">{downloadState.progress}%</span>
               {onCancel && !isComplete && (
                 <button
@@ -116,6 +148,7 @@ function DownloadProgress({ downloadState, onCancel, compact = false }: Download
           {phaseLabels[downloadState.phase] || downloadState.phase}
         </span>
         <div className="flex items-center gap-2">
+          {mengen && <span className="text-xs text-muted-foreground">{mengen}</span>}
           <span
             className={cn(
               'text-sm font-semibold',
