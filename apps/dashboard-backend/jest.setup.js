@@ -211,30 +211,50 @@ global.resetAllServices = () => {
  * B. Das sieht aus wie ein Fehler im Test von A, ist aber eine fremde Antwort;
  * typischerweise ein 401 aus `requireAuth` einer ganz anderen App.
  *
- * Deshalb bekommt jeder Arbeitsprozess hier einen eigenen, festen Bereich
- * unterhalb der flüchtigen Ports des Systems (macOS ab 49152). Die Bereiche
- * überschneiden sich nicht, also kann kein Prozess mehr im Port eines anderen
- * landen. Siehe R30.
+ * Deshalb bekommt jeder Arbeitsprozess hier einen eigenen, festen Bereich. Die
+ * Bereiche überschneiden sich nicht, also kann kein Prozess mehr im Port eines
+ * anderen landen. Siehe R30.
  *
- * Ist einer der Ports von etwas anderem auf dem Rechner belegt, scheitert das
- * Binden laut und sofort. Das ist gewollt: lieber ein klarer Fehlschlag als
- * wieder eine Antwort aus einer fremden App.
+ * Zwei Dinge, die beim ersten Anlauf schiefgingen und deshalb hier stehen:
+ *
+ * Erstens muss der Bereich UNTERHALB der flüchtigen Ports beider Systeme
+ * liegen. Linux vergibt ab 32768, macOS ab 49152. Lag der Bereich mittendrin,
+ * konnte der Kern denselben Port gleichzeitig als Quellport einer ausgehenden
+ * Verbindung vergeben.
+ *
+ * Zweitens reicht ein Zähler nicht. Ein Server, den niemand geschlossen hat,
+ * hält seinen Port; kommt der Zähler einmal herum, will er ihn erneut binden
+ * und der Lauf bricht mit EADDRINUSE ab. Deshalb merkt sich `vergeben`, welche
+ * Ports offen sind, und gibt sie erst beim Schließen wieder frei.
  */
 const net = require('net');
 
 const ARBEITER = parseInt(process.env.JEST_WORKER_ID || '1', 10);
 const BEREICH_GROESSE = 2000;
-const BEREICH_START = 41000 + (ARBEITER - 1) * BEREICH_GROESSE;
+const BEREICH_START = 20000 + (ARBEITER - 1) * BEREICH_GROESSE;
+const vergeben = new Set();
 let naechsterPort = BEREICH_START;
 
 const echtesListen = net.Server.prototype.listen;
 net.Server.prototype.listen = function (...args) {
-  if (args.length > 0 && (args[0] === 0 || args[0] === '0')) {
+  if (args.length === 0 || !(args[0] === 0 || args[0] === '0')) {
+    return echtesListen.apply(this, args);
+  }
+  for (let versuch = 0; versuch < BEREICH_GROESSE; versuch += 1) {
     naechsterPort += 1;
     if (naechsterPort >= BEREICH_START + BEREICH_GROESSE) {
       naechsterPort = BEREICH_START;
     }
-    args[0] = naechsterPort;
+    if (vergeben.has(naechsterPort)) {
+      continue;
+    }
+    const port = naechsterPort;
+    vergeben.add(port);
+    this.once('close', () => vergeben.delete(port));
+    return echtesListen.apply(this, [port, ...args.slice(1)]);
   }
-  return echtesListen.apply(this, args);
+  throw new Error(
+    `Alle ${BEREICH_GROESSE} Ports ab ${BEREICH_START} sind belegt. Das heißt: ` +
+      'Testserver werden geöffnet und nie geschlossen.'
+  );
 };
