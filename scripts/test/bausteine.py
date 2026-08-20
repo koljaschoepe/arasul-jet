@@ -38,6 +38,13 @@ Das ist bewusst in Kauf genommen: der Fehler, den er abfangen soll, ist das
 Kopieren einer fertigen Klassenkette von der vorigen Seite, und die kommt am
 Stueck. Wer sich auf ihn verlaesst, soll aber wissen, wo seine Grenze liegt.
 
+Umgekehrt gilt dasselbe: `border-b-2` heisst hier "Tab-Leiste", weil das heute
+die einzige Verwendung ist. Wer die Klasse eines Tages fuer eine dicke Linie
+benutzt, die keine Leiste ist, wird trotzdem gemeldet. Einen Ausweg fuer eine
+einzelne Zeile gibt es nicht, nur den Eintrag der ganzen Datei in AUSNAHMEN.
+Das ist die richtige Reibung: eine zweite Bedeutung fuer dieselbe Klasse ist
+selbst schon ein Befund.
+
 Ausnahmen
 ---------
 `AUSNAHMEN` traegt Pfade, die aus einem genannten Grund ausserhalb stehen. Ein
