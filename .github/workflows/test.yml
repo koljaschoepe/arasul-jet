@@ -273,7 +273,11 @@ jobs:
           echo "Python services: ${{ needs.python-services.result }}"
           echo "Lockfile guard:  ${{ needs.lockfile-guard.result }}"
           echo "Guards:          ${{ needs.guards.result }}"
-          case "${{ needs.backend.result }}-${{ needs.frontend.result }}-${{ needs.docker-build.result }}-${{ needs.lockfile-guard.result }}-${{ needs.guards.result }}" in
-            success-success-success-success-success) echo "All required jobs passed"; exit 0 ;;
+          # python-services stand bis zum 20.08.2026 zwar in `needs`, wurde in
+          # dieser Auswertung aber nie geprueft: ein roter Python-Dienst hat die
+          # Zusammenfassung durchgelassen. Dieselbe stille Luecke wie beim
+          # Frontend-Job, nur eine Zeile weiter.
+          case "${{ needs.backend.result }}-${{ needs.frontend.result }}-${{ needs.docker-build.result }}-${{ needs.lockfile-guard.result }}-${{ needs.guards.result }}-${{ needs.python-services.result }}" in
+            success-success-success-success-success-success) echo "All required jobs passed"; exit 0 ;;
             *) echo "One or more required jobs failed"; exit 1 ;;
           esac
