@@ -582,6 +582,28 @@ Bei 390 Pixeln begrenzt das Fenster die Breite, deshalb schrumpft dort nur die
 Höhe. Kein Querlauf bei keiner der drei Breiten. Konsole bei einem vollen
 Seitenaufruf gegen ein antwortendes Backend: leer.
 
+### Live abgenommen am 20.08.2026
+
+Gerät auf `854add85`, 0 von 15 laufenden Containern ungesund. Mit Playwright
+gegen `https://arasul.tail746d9b.ts.net`:
+
+| Schritt                                       | Konsole | Ergebnis                |
+| --------------------------------------------- | ------- | ----------------------- |
+| Anmeldeseite laden                            | leer    | keine Antwort mit 4xx   |
+| Anmelden als `pruefer`                        | leer    | landet auf `/workspace` |
+| Neu laden                                     | leer    | bleibt angemeldet       |
+| `arasul_token` löschen, nur Cookie, neu laden | leer    | **bleibt angemeldet**   |
+
+Die letzte Zeile ist der Punkt, an dem die ersten beiden Entwürfe gescheitert
+wären. Dazu am Server geprüft: `/api/auth/session` ohne Sitzung antwortet mit
+`200 {"authenticated":false,"user":null}`, mit reinem Cookie und ohne
+`Authorization`-Kopf mit `200 {"authenticated":true,…}`, und `/api/auth/me`
+antwortet ohne Sitzung unverändert mit 401.
+
+Nebenbei gesehen, ohne Folge: der Server liefert `id` als Zeichenkette
+(`"17"`), die Schnittstelle im Frontend sagt `number`. Das Feld wird im
+Frontend an keiner Stelle benutzt, deshalb hier nur vermerkt.
+
 **F-20 in `CreateAdmin` nachgezogen:** „Legen Sie Ihr Administrator-Konto an"
 ist zur Du-Form geworden, und aus „dieser Box" ist „dieses Geräts" geworden.
 Offen bleibt der `SetupWizard` (C4).
