@@ -527,6 +527,12 @@ Aufbau.
 **Abnahme:** Die drei Schritte sind ohne Vorwissen verständlich, jeder Schritt
 nennt sein Ergebnis.
 
+**Mitzunehmen aus C3:** `SetupWizard.tsx:358` meldet sich nach dem
+Passwortwechsel mit `user?.username || 'admin'` neu an. Der Standardname steht
+dort nicht auf dem Bildschirm, aber im Code, und für jeden anderen
+Benutzernamen schlägt die Neuanmeldung still fehl (der `catch` schluckt sie).
+Beim Neubau mitnehmen. Ebenso F-20 und F-23, die hier noch offen sind.
+
 ## C5 Systemstatus lesbar machen
 
 Zu viele Farben, Kacheln mit Icons, die nichts beitragen, Kennzahlen in drei plus

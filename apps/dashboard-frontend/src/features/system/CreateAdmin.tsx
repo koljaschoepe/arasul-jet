@@ -6,7 +6,7 @@ import { useApi } from '../../hooks/useApi';
 import { Input } from '@/components/ui/shadcn/input';
 import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
-import { AuthCard, AuthFehler, AUTH_FELD } from '@/components/ui/AuthCard';
+import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
 import { PLATFORM_NAME } from '@/config/branding';
 
 // First-run onboarding: the box ships without an admin, so the very first
@@ -102,7 +102,7 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
       }
     >
       <form onSubmit={handleSubmit(onSubmit)}>
-        {error && <AuthFehler id="create-admin-error">{error}</AuthFehler>}
+        {error && <AuthError id="create-admin-error">{error}</AuthError>}
 
         <div className="space-y-4">
           <div>
@@ -116,7 +116,7 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
               type="text"
               autoComplete="username"
               aria-describedby={error ? 'create-admin-error' : undefined}
-              className={AUTH_FELD}
+              className={AUTH_FIELD}
               {...usernameField}
               ref={el => {
                 usernameField.ref(el);
@@ -134,7 +134,7 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
               type="password"
               placeholder="Mindestens 8 Zeichen"
               autoComplete="new-password"
-              className={AUTH_FELD}
+              className={AUTH_FIELD}
               {...register('password')}
             />
           </div>
@@ -149,7 +149,7 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
               placeholder="Passwort wiederholen"
               autoComplete="new-password"
               aria-describedby={errors.confirmPassword ? 'confirm-error' : undefined}
-              className={AUTH_FELD}
+              className={AUTH_FIELD}
               {...register('confirmPassword')}
             />
             {errors.confirmPassword && (

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { AuthCard, AuthFehler, AUTH_FELD } from '../AuthCard';
+import { AuthCard, AuthError, AUTH_FIELD } from '../AuthCard';
 
 describe('AuthCard', () => {
   test('setzt genau ein h1 mit dem uebergebenen Titel', () => {
@@ -46,9 +46,9 @@ describe('AuthCard', () => {
   });
 });
 
-describe('AuthFehler', () => {
+describe('AuthError', () => {
   test('meldet sich als alert und behaelt die uebergebene Kennung', () => {
-    render(<AuthFehler id="login-error">Passwort falsch</AuthFehler>);
+    render(<AuthError id="login-error">Passwort falsch</AuthError>);
 
     const kasten = screen.getByRole('alert');
     expect(kasten).toHaveAttribute('id', 'login-error');
@@ -56,8 +56,8 @@ describe('AuthFehler', () => {
   });
 });
 
-describe('AUTH_FELD', () => {
+describe('AUTH_FIELD', () => {
   test('gibt dem Feld auf dem Telefon eine fingerbreite Hoehe', () => {
-    expect(AUTH_FELD).toContain('max-md:h-11');
+    expect(AUTH_FIELD).toContain('max-md:h-11');
   });
 });

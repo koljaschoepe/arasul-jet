@@ -4,18 +4,6 @@ import { Mascot } from '@/components/mascot/Mascot';
 import { PLATFORM_NAME } from '@/config/branding';
 import { cn } from '@/lib/utils';
 
-/**
- * Rahmen der beiden Seiten vor der Anmeldung: Anmeldung und erstes Konto.
- *
- * Beide standen vorher mit derselben Klassenkette da, einschliesslich einer
- * Ueberschrift mit fuenf Breakpoint-Ausnahmen. Der Rahmen gehoert deshalb an
- * eine Stelle. Das `h1` traegt hier den Produktnamen, nicht einen Seitentitel:
- * diese Seiten liegen ausserhalb der Shell und haben keine Kopfleiste, in die
- * ein `PageHeader` passen wuerde.
- *
- * Groessen folgen dem Design-System (Seitentitel `text-2xl`, Knopf `text-sm`),
- * nicht den gewachsenen Sonderwerten der alten Anmeldeseite.
- */
 interface AuthCardProps {
   /** Ueberschrift der Seite. */
   title: ReactNode;
@@ -30,6 +18,18 @@ interface AuthCardProps {
   className?: string;
 }
 
+/**
+ * Rahmen der beiden Seiten vor der Anmeldung: Anmeldung und erstes Konto.
+ *
+ * Beide standen vorher mit derselben Klassenkette da, einschliesslich einer
+ * Ueberschrift mit fuenf Breakpoint-Ausnahmen. Der Rahmen gehoert deshalb an
+ * eine Stelle. Das `h1` traegt hier den Produktnamen, nicht einen Seitentitel:
+ * diese Seiten liegen ausserhalb der Shell und haben keine Kopfleiste, in die
+ * ein `PageHeader` passen wuerde.
+ *
+ * Groessen folgen dem Design-System (Seitentitel `text-2xl`, Knopf `text-sm`),
+ * nicht den gewachsenen Sonderwerten der alten Anmeldeseite.
+ */
 export function AuthCard({
   title,
   description,
@@ -77,7 +77,7 @@ export function AuthCard({
  * Fehlerkasten ueber dem Formular. Die Kennung bleibt beim Aufrufer, damit sie
  * dort steht, wo das Feld sie ueber `aria-describedby` anzieht.
  */
-export function AuthFehler({ id, children }: { id: string; children: ReactNode }) {
+export function AuthError({ id, children }: { id: string; children: ReactNode }) {
   return (
     <div
       id={id}
@@ -89,6 +89,6 @@ export function AuthFehler({ id, children }: { id: string; children: ReactNode }
   );
 }
 
-/** Gemeinsame Feldgroesse der beiden Anmeldeseiten: etwas groesser als im
- *  Produkt, auf dem Telefon fingerbreit. */
-export const AUTH_FELD = 'h-10 text-base md:text-sm max-md:h-11';
+/** Gemeinsame Feldgroesse der beiden Anmeldeseiten: eine Stufe groesser als im
+ *  Produkt, auf dem Telefon fingerbreit. Schriftgroesse kommt aus `Input`. */
+export const AUTH_FIELD = 'h-10 max-md:h-11';

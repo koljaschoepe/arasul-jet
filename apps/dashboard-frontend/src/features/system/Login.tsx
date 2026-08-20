@@ -6,7 +6,7 @@ import { useApi } from '../../hooks/useApi';
 import { Input } from '@/components/ui/shadcn/input';
 import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
-import { AuthCard, AuthFehler, AUTH_FELD } from '@/components/ui/AuthCard';
+import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
 import {
   PLATFORM_NAME,
   PLATFORM_DESCRIPTION,
@@ -129,7 +129,7 @@ function Login({ onLoginSuccess }: LoginProps) {
       }
     >
       <form onSubmit={handleSubmit(onSubmit)}>
-        {error && <AuthFehler id="login-error">{error}</AuthFehler>}
+        {error && <AuthError id="login-error">{error}</AuthError>}
 
         <div className="space-y-4">
           <div>
@@ -143,7 +143,7 @@ function Login({ onLoginSuccess }: LoginProps) {
               type="text"
               autoComplete="username"
               aria-describedby={error ? 'login-error' : undefined}
-              className={AUTH_FELD}
+              className={AUTH_FIELD}
               {...usernameField}
               ref={el => {
                 registerUsernameRef(el);
@@ -160,7 +160,7 @@ function Login({ onLoginSuccess }: LoginProps) {
               id="password"
               type="password"
               autoComplete="current-password"
-              className={AUTH_FELD}
+              className={AUTH_FIELD}
               {...register('password')}
             />
           </div>
