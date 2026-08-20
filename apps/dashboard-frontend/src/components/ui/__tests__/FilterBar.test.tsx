@@ -93,6 +93,54 @@ describe('FilterBar', () => {
     expect(wechsel).toHaveBeenCalledWith('status');
   });
 
+  it('lässt den Fokus stehen, wenn der Aufrufer den Wechsel ablehnt', async () => {
+    // PasswordManagement fragt bei ausgefülltem Formular zurück. Wird
+    // abgebrochen, bleibt `active` stehen. Der Fokus muss das mitmachen,
+    // sonst liegt er auf einem Reiter, der gar nicht aktiv ist.
+    const wechsel = vi.fn();
+    zeichne('status', wechsel);
+    const status = screen.getByRole('tab', { name: 'Status' });
+    status.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(wechsel).toHaveBeenCalledWith('dienste');
+    expect(status).toHaveFocus();
+  });
+
+  it('zieht den Fokus nach, wenn der Wechsel durchgeht', async () => {
+    const { rerender } = zeichne('status');
+    screen.getByRole('tab', { name: 'Status' }).focus();
+    rerender(
+      <FilterBar items={EINTRAEGE} active="dienste" onChange={vi.fn()} label="Unterbereiche">
+        <p>Inhalt</p>
+      </FilterBar>
+    );
+    expect(screen.getByRole('tab', { name: 'Dienste' })).toHaveFocus();
+  });
+
+  it('greift nicht nach dem Fokus, wenn der Wechsel von außen kommt', async () => {
+    // Etwa über einen Tieflink. Wer gerade woanders tippt, soll nicht
+    // ungefragt in die Leiste gerissen werden.
+    const { rerender } = render(
+      <>
+        <input aria-label="woanders" />
+        <FilterBar items={EINTRAEGE} active="status" onChange={vi.fn()} label="Unterbereiche">
+          <p>Inhalt</p>
+        </FilterBar>
+      </>
+    );
+    const feld = screen.getByLabelText('woanders');
+    feld.focus();
+    rerender(
+      <>
+        <input aria-label="woanders" />
+        <FilterBar items={EINTRAEGE} active="dienste" onChange={vi.fn()} label="Unterbereiche">
+          <p>Inhalt</p>
+        </FilterBar>
+      </>
+    );
+    expect(feld).toHaveFocus();
+  });
+
   it('zeigt ein Icon nur dort, wo der Eintrag eines mitbringt', () => {
     const MitIcon = ({ className }: { className?: string }) => (
       <svg className={className} data-testid="eintrag-icon" />

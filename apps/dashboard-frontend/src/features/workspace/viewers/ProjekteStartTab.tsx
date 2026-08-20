@@ -36,7 +36,7 @@ export default function ProjekteStartTab() {
           <p className="text-sm text-muted-foreground">Projekte werden geladen …</p>
         ) : projects.length === 0 ? (
           <EmptyState
-            icon={<FolderKanban className="size-6" aria-hidden="true" />}
+            icon={<FolderKanban />}
             title="Noch keine Projekte"
             description="Lege oben links über den Projekt-Umschalter dein erstes Projekt an."
           />

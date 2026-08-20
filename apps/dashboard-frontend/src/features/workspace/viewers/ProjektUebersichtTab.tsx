@@ -90,7 +90,7 @@ export default function ProjektUebersichtTab() {
         {!activeId ? (
           <div className="p-4">
             <EmptyState
-              icon={<FolderGit2 className="size-6" aria-hidden="true" />}
+              icon={<FolderGit2 />}
               title="Kein Projekt aktiv"
               description="Wähle oben links ein Projekt oder öffne die Projektliste."
             />

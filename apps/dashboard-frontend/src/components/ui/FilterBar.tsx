@@ -17,12 +17,21 @@
  * Liegen beide Hälften in einer Hand, kann der Aufrufer sie nicht verfehlen.
  *
  * Tastatur nach WAI-ARIA: Pfeile wechseln umlaufend, Pos1 und Ende springen
- * an die Ränder, und nur der aktive Reiter liegt im Tabulator-Lauf.
+ * an die Ränder, und nur der aktive Reiter liegt im Tabulator-Lauf. Alle
+ * Reiter zeigen auf dieselbe Inhaltsfläche, weil es nur eine gibt und ihr
+ * Inhalt wechselt; das ist die Einzelflächen-Form des Musters.
  * Auf schmalen Fenstern rollt die Leiste seitlich, statt umzubrechen. Eine
  * umgebrochene Leiste mit `border-b` zerlegt die Trennlinie in Stücke.
  */
 
-import { useId, useRef, type ComponentType, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  type ComponentType,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { cn } from '@/lib/utils';
 
 export interface FilterBarItem<Id extends string = string> {
@@ -60,11 +69,27 @@ export function FilterBar<Id extends string>({
   const panelId = `${kennung}-panel`;
   const tabId = (id: Id) => `${kennung}-tab-${id}`;
 
+  /**
+   * Der Fokus folgt dem, was tatsächlich aktiv geworden ist, nicht der Absicht.
+   * `onChange` darf ablehnen: `PasswordManagement` fragt bei ausgefülltem
+   * Formular erst zurück. Wer beim Tastendruck sofort den Nachbarn fokussiert,
+   * setzt den Fokus auf einen Reiter, der nach dem Abbrechen gar nicht aktiv
+   * ist. Ändert sich `active` nicht, läuft dieser Effekt nicht, und der Fokus
+   * bleibt, wo er war.
+   *
+   * Die Bedingung auf `document.activeElement` hält den Effekt aus dem Weg,
+   * wenn der Wechsel von außen kommt, etwa über einen Tieflink.
+   */
+  useEffect(() => {
+    const liegtInDerLeiste = knoepfe.current.some(knopf => knopf === document.activeElement);
+    if (!liegtInDerLeiste) return;
+    const index = items.findIndex(item => item.id === active);
+    if (index >= 0) knoepfe.current[index]?.focus();
+  }, [active, items]);
+
   const springe = (ziel: number) => {
     const eintrag = items[ziel];
-    if (!eintrag) return;
-    onChange(eintrag.id);
-    knoepfe.current[ziel]?.focus();
+    if (eintrag) onChange(eintrag.id);
   };
 
   const beiTaste = (event: KeyboardEvent<HTMLElement>, index: number) => {
