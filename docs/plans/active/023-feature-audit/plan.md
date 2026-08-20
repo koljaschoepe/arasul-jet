@@ -1444,6 +1444,21 @@ der 32 vom Datenblatt.
 **Erledigt am 21.08.2026,** `arasul-jet` #447. Gehalten von
 `scripts/test/einheiten.py` mit fünf Fällen im Wächter-Selbsttest.
 
+### Live abgenommen am 21.08.2026
+
+| Ort                   | vorher                                | jetzt                                                  |
+| --------------------- | ------------------------------------- | ------------------------------------------------------ |
+| Kachel, Kopfzeile     | `261 MB`                              | `274 MB`                                               |
+| Kachel, Text darunter | `~274 MB`                             | `~274 MB`                                              |
+| KI-RAM                | `0.0 / 32.0 GB belegt · frei 30.0 GB` | `0,0 von 32,0 GB belegt, 2,0 GB Reserve, frei 30,0 GB` |
+
+Null plus zwei plus dreißig ergibt zweiunddreißig.
+
+Dabei ein eigener Fund aus D2: **der Modellkarten-Link stand zweimal auf der
+Seite**, einmal im Steckbrief und dreißig Zeilen tiefer als Knopf. Ich hatte
+den Steckbrief gebaut, ohne bis ans Ende der Datei zu sehen. Kein Test konnte
+das melden, weil beide Stellen für sich richtig waren.
+
 ## D5 Katalog ausdünnen und Standard je Aufgabe
 
 Der Katalog wird gegen die tatsächliche Verwendung geprüft. Jede Aufgabe bekommt
@@ -1473,6 +1488,21 @@ Nicht abgearbeitet, hier notiert, damit es nicht verlorengeht:
 - Die beiden Platzhalter-Beschreibungen aus `importUnknownModels` („Auf diesem
   Gerät installiert, 4B. Nicht von Arasul geprüft.") stehen im Katalog neben
   gepflegten Texten.
+
+### Und was die Messung am 21.08.2026 dazu ergab
+
+| Fund                      | gemessen                                                                                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `is_platform_default`     | steht bei **drei** Modellen auf `true`, und **keine Zeile im Backend liest die Spalte**. Ein Feld namens „der Standard" mit drei Werten und ohne Leser                 |
+| `paddleocr:latest`        | steht im Katalog, ist im Dokument-Indexer aber **nicht installiert** (`ModuleNotFoundError`). Tesseract 5.3.0 dagegen liegt dort                                       |
+| Ausweichmodell fürs Sehen | `findVisionFallbackModel` findet auf diesem Gerät **genau ein** Modell, `gemma4:e4b-q4`. Ist das gerade das Chatmodell, schließt die Abfrage es aus und liefert nichts |
+| `llava-phi3`              | trägt `model_type = 'vision'`, aber `supports_vision_input = false`. Es fällt damit aus der Ausweichsuche heraus, obwohl Ollama ihm die Fähigkeit `vision` bescheinigt |
+| `speed_tier`              | vermischt Tempo (`fast`, `balanced`, `quality`) und Rolle (`vision`, `ocr`, `embed`) in einer Spalte. Genau diese Spalte müsste die Aufgabe tragen                     |
+| `qwen3-coder:30b`         | trägt `speed_tier = 'fast'` und ist mit 6,6 Token/s das langsamste der drei gemessenen Modelle                                                                         |
+
+Die Abnahme von D5 („Ein Foto und eine PDF werden im Chat mit aktivem
+Coding-Modell korrekt ausgelesen") ist damit heute nicht erfüllbar: für das Foto
+gibt es nur ein einziges Ausweichmodell, und das ist oft selbst das Chatmodell.
 
 ## D6 Der Agentenpfad benutzt den Lebenszyklus
 
