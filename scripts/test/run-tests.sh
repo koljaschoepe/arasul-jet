@@ -70,9 +70,12 @@ run_backend_tests() {
       # der sich nicht beendet. Beides hat den Lauf lange sporadisch rot gemacht,
       # ohne dass eine einzige Zusage verletzt war (R30, 20.08.2026).
       BACKEND_LOG="$(mktemp -t arasul-backend-tests)"
-      npx jest $JEST_FLAGS 2>&1 | tee "$BACKEND_LOG"
-      JEST_STATUS=${PIPESTATUS[0]}
-      if [ "$JEST_STATUS" -eq 0 ]; then
+      # Die Pipeline steht in einem `if`, und das ist kein Stil, sondern noetig:
+      # das Skript laeuft mit `set -euo pipefail`. Als nackte Anweisung wuerde ein
+      # roter Jest-Lauf hier sofort das ganze Skript beenden, und dann liefen
+      # weder die beiden Pruefungen unten noch bei `--all` Frontend, Python und
+      # die Qualitaetstore. Bedingungen sind von `set -e` ausgenommen.
+      if npx jest $JEST_FLAGS 2>&1 | tee "$BACKEND_LOG"; then
         echo "   Backend tests: PASSED"
       else
         echo "   Backend tests: FAILED"

@@ -102,7 +102,7 @@ afterAll(() => {
  *
  * @param {Function} fn - Cleanup function to run
  */
-global.registerTestCleanup = (fn) => {
+global.registerTestCleanup = fn => {
   if (!global.__testCleanupFunctions) {
     global.__testCleanupFunctions = [];
   }
@@ -235,26 +235,37 @@ const BEREICH_START = 20000 + (ARBEITER - 1) * BEREICH_GROESSE;
 const vergeben = new Set();
 let naechsterPort = BEREICH_START;
 
-const echtesListen = net.Server.prototype.listen;
-net.Server.prototype.listen = function (...args) {
-  if (args.length === 0 || !(args[0] === 0 || args[0] === '0')) {
-    return echtesListen.apply(this, args);
-  }
-  for (let versuch = 0; versuch < BEREICH_GROESSE; versuch += 1) {
-    naechsterPort += 1;
-    if (naechsterPort >= BEREICH_START + BEREICH_GROESSE) {
-      naechsterPort = BEREICH_START;
+// Diese Datei laeuft je Testdatei, `net` liegt im Arbeitsprozess aber nur einmal.
+// Ohne die Marke legte jede Datei eine weitere Huelle ueber die vorige, und nach
+// hundert Dateien liefe jeder Aufruf durch hundert Schichten.
+const MARKE = Symbol.for('arasul.listenErsetzt');
+
+if (!net.Server.prototype.listen[MARKE]) {
+  const echtesListen = net.Server.prototype.listen;
+
+  const ersetzt = function (...args) {
+    if (args.length === 0 || !(args[0] === 0 || args[0] === '0')) {
+      return echtesListen.apply(this, args);
     }
-    if (vergeben.has(naechsterPort)) {
-      continue;
+    for (let versuch = 0; versuch < BEREICH_GROESSE; versuch += 1) {
+      naechsterPort += 1;
+      if (naechsterPort >= BEREICH_START + BEREICH_GROESSE) {
+        naechsterPort = BEREICH_START;
+      }
+      if (vergeben.has(naechsterPort)) {
+        continue;
+      }
+      const port = naechsterPort;
+      vergeben.add(port);
+      this.once('close', () => vergeben.delete(port));
+      return echtesListen.apply(this, [port, ...args.slice(1)]);
     }
-    const port = naechsterPort;
-    vergeben.add(port);
-    this.once('close', () => vergeben.delete(port));
-    return echtesListen.apply(this, [port, ...args.slice(1)]);
-  }
-  throw new Error(
-    `Alle ${BEREICH_GROESSE} Ports ab ${BEREICH_START} sind belegt. Das heißt: ` +
-      'Testserver werden geöffnet und nie geschlossen.'
-  );
-};
+    throw new Error(
+      `Alle ${BEREICH_GROESSE} Ports ab ${BEREICH_START} sind belegt. Das heißt: ` +
+        'Testserver werden geöffnet und nie geschlossen.'
+    );
+  };
+
+  ersetzt[MARKE] = true;
+  net.Server.prototype.listen = ersetzt;
+}

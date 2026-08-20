@@ -565,9 +565,6 @@ function createLLMQueueService(deps = {}) {
           }
         }
 
-        // Ab hier läuft wieder etwas: die Fehlerfolge ist gebrochen.
-        this.fehlerFolge = 0;
-
         logger.info(
           `Processing job ${job.id} (type: ${job.job_type}, model: ${requested_model || 'default'})`
         );
@@ -608,6 +605,10 @@ function createLLMQueueService(deps = {}) {
         } else if (job.job_type === 'rag') {
           await processRAGJob(ctx, job);
         }
+        // Erst hier ist die Fehlerfolge gebrochen, nicht schon beim Entnehmen
+        // des Auftrags. Sonst wüchse die Pause nie über eine Sekunde hinaus,
+        // wenn die Verarbeitung selbst scheitert und nicht die Abfrage davor.
+        this.fehlerFolge = 0;
       } catch (error) {
         logger.error(`Error in processNext: ${error.message}`);
         if (this.processingJobId) {
