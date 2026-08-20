@@ -15,18 +15,31 @@ benutzen, weil der Weg daran vorbei versperrt ist.
 
 Was gemeldet wird
 -----------------
-In `src/features/` und `src/components/layout/`:
+In allem unter `src/`, ausser `src/components/ui/`:
 
 1. `<h1>`                     Der Seitentitel gehoert in `PageHeader`.
 2. `pb-6 border-b border-border`
    und `mb-8 pb-6 border-b`   Die Trennlinie einer Feldgruppe gehoert in `Section`.
 3. `border-b-2` an einem Knopf
    in einer Leiste             Eine Tab-Leiste gehoert in `FilterBar`.
+4. `role="dialog"` von Hand   Ein Dialog gehoert in `Modal` (auf Radix).
+
+Zur vierten Regel: am 20.08.2026 trugen fuenf Dateien `role="dialog"` selbst,
+waehrend fuenf andere den gemeinsamen `Modal` benutzen. VIER der fuenf
+behaupteten `aria-modal="true"`, und ZWEI davon hatten keine Tabulatorfalle.
+Der Fokus lief also aus einem Dialog heraus, der sich als geschlossen ausgibt.
+Genau diesen Fehler hat Plan 023 C4 im OnboardingWizard in vier Anlaeufen von
+Hand behoben, mitsamt drei Sonderfaellen (erstes Tab, erstes Shift+Tab, und ein
+Knopf, der sich selbst entfernt, waehrend er den Fokus haelt). Radix hat das
+alles geprueft eingebaut. Eine handgebaute Dialogmechanik ist deshalb kein
+Geschmack, sondern eine Wette gegen eine getestete Bibliothek.
 
 Was NICHT gemeldet wird
 -----------------------
 `src/components/ui/` selbst, denn dort stehen die Bausteine. Testdateien, denn
-ein Test darf pruefen, was er will. Und `<h2>` bis `<h4>`: eine Ueberschrift
+ein Test darf pruefen, was er will. Bis zum 20.08.2026 blieben auch grosse
+Teile von `src/` ungeprueft, weil nur `features/` und `components/layout/`
+durchsucht wurden; darin verschwand ein handgebauter Dialog. Und `<h2>` bis `<h4>`: eine Ueberschrift
 innerhalb eines Abschnitts ist erlaubt, nur der Seitentitel ist es nicht.
 
 Was er NICHT sehen kann
@@ -73,6 +86,18 @@ AUSNAHMEN = {
     # Einstellungsseite, und PageHeader dafuer aufzubohren hiesse, einen
     # Baustein fuer einen einzigen Aufrufer zu verbiegen.
     'src/features/store/StoreDetailPage.tsx': 'feste Kopfleiste mit Zurueck-Knopf, andere Form',
+    # Vier handgebaute Dialoge, alle aelter als die vierte Regel. Sie stehen
+    # hier, damit die Regel ab heute NEUE Faelle verhindert; die vier selbst
+    # sind eine eigene Aufgabe im Plan 023, Abschnitt am Ende von C4. Jeder
+    # Eintrag nennt, was ihm fehlt.
+    'src/features/workspace/OnboardingWizard.tsx': 'Fokusfalle von Hand, in C4 repariert, gehoert trotzdem auf Modal',
+    'src/features/sandbox/KiZugangDialog.tsx': 'aria-modal ohne Tabulatorfalle, Hintergrund ist ein Knopf, derselbe Fehler wie vor C4',
+    'src/features/workspace/QuickOpen.tsx': 'aria-modal ohne Tabulatorfalle',
+    'src/features/flows/ArgumentPicker.tsx': 'role=dialog ohne aria-modal, immerhin keine falsche Zusage',
+    # Zwei Stellen, aber ein Dialog: derselbe Editor einmal im Ladezustand und
+    # einmal fertig. Die fertige Fassung hat eine Tabulatorfalle, die ladende
+    # nicht; dort ist aber auch nichts zu fokussieren.
+    'src/components/editor/tiptap/TipTapEditor.tsx': 'eigener Editor-Dialog mit eigener Tabulatorfalle, Ladezustand ohne',
 }
 
 REGELN = [
@@ -88,12 +113,26 @@ REGELN = [
         re.compile(r'border-b-2\b'),
         'Tab-Leiste von Hand. Gehoert in FilterBar (components/ui/FilterBar.tsx).',
     ),
+    (
+        # Fasst alle vier Schreibweisen: role="dialog", role='dialog',
+        # role={'dialog'} und role={"dialog"}. Ein zur Laufzeit berechnetes
+        # role bleibt unsichtbar, so wie bei den anderen Regeln auch.
+        re.compile(r'''role=(?:['"]dialog['"]|\{\s*['"]dialog['"]\s*\})'''),
+        'Dialogmechanik von Hand. Gehoert in Modal (components/ui/Modal.tsx, auf Radix).',
+    ),
 ]
 
-WURZELN = [
-    'apps/dashboard-frontend/src/features',
-    'apps/dashboard-frontend/src/components/layout',
-]
+# Geprueft wird alles unter src/, ausser den Bausteinen selbst und den
+# generierten shadcn-Teilen. Bis zum 20.08.2026 standen hier nur `features` und
+# `components/layout`, und genau dadurch war `components/editor/tiptap/
+# TipTapEditor.tsx` unsichtbar: ein handgebauter Dialog, den derselbe PR in
+# seiner eigenen Beschreibung aufzaehlte. Ein Waechter, dessen Suchbereich
+# kleiner ist als sein Anspruch, meldet Ruhe, wo keine ist.
+WURZELN = ['apps/dashboard-frontend/src']
+
+AUSGENOMMENE_ORDNER = (
+    'apps/dashboard-frontend/src/components/ui',  # dort stehen die Bausteine selbst
+)
 
 
 def pruefe(wurzel: Path) -> list[str]:
@@ -103,6 +142,9 @@ def pruefe(wurzel: Path) -> list[str]:
         if not ordner.is_dir():
             continue
         for datei in sorted(ordner.rglob('*.tsx')):
+            voll = datei.relative_to(wurzel).as_posix()
+            if any(voll.startswith(a + '/') for a in AUSGENOMMENE_ORDNER):
+                continue
             relativ = datei.relative_to(wurzel / 'apps/dashboard-frontend').as_posix()
             if '__tests__' in datei.parts or datei.name.endswith('.test.tsx'):
                 continue

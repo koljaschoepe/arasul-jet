@@ -77,9 +77,36 @@ folder. Read the closest one to where you're working:
 Deeper-dive context packs (one-off topics — n8n custom nodes, security
 review checklist, etc.) live under `.claude/context/`.
 
-## Quick reference
+## Woran gerade gearbeitet wird
 
-> **Der eine Faden:** [`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html) — Themenspeicher + 1.0.0-Gates. Die gesamte Weiterentwicklung läuft über **vier Commands** (`CONTRIBUTING.md` §8): `/plan` (Interview → HTML-Plan-Seite → Freigabe) → `/work` (autonome Ausführung bis Live-Verify auf dem Jetson) · `/audit` (Scan → Findings → Roadmap) · `/status` (Lagebild). Nightly: `scripts/util/nightly-run.sh`. Die Roadmap wurde am 2026-07-14 auf „voll verkaufbar" neu ausgerichtet und konsolidiert; der alte Master-Plan liegt jetzt als reine Historie unter [`docs/plans/archive/2026-07-07_field-1.0.0-master-plan.md`](docs/plans/archive/2026-07-07_field-1.0.0-master-plan.md).
+**Der laufende Plan ist [`docs/plans/active/023-feature-audit/plan.md`](docs/plans/active/023-feature-audit/plan.md).**
+Elf Phasen A bis K, 61 Aufgaben. Eine Aufgabe gilt erst als erledigt, wenn ihre
+Abnahme live auf dem Orin belegt ist, nicht wenn der Branch gemerged wurde.
+Der Stand jeder Phase steht in der Tabelle ganz oben im Plan selbst.
+
+`docs/plans/active/` enthält **genau einen** Plan. Das ist keine Konvention,
+sondern eine Prüfung: `scripts/test/plan-faden.py` schlägt fehl, sobald dort ein
+zweiter liegt. Angefangene, aber ruhende Pläne liegen unter
+[`docs/plans/paused/`](docs/plans/paused/README.md) mit einem Satz, warum sie
+ruhen und was noch offen ist.
+
+**Ziele kommen von außen.** Was dieses Repo bis wann können muss, entscheidet
+das Steuer-Repo (`Arasul-GmbH/arasul-os`, nicht öffentlich), nicht dieses hier.
+Hier steht, _wie_ gebaut wird. Wer ein Ziel ohne Bezug zu einem Meilenstein
+findet, hat eine Idee gefunden, keine Aufgabe.
+
+**Die sieben Verkaufs-Gates** stehen in
+[`docs/plans/ROADMAP.html`](docs/plans/ROADMAP.html). Achtung: der
+Themenspeicher auf derselben Seite stammt aus der Zeit **vor** Plan 023 und ist
+nicht der laufende Faden. Der Gate-Titel G4 sagt dort noch „Mandanten-Isolation",
+das Gate wurde am 19.08.2026 auf Geräte-Isolation umdefiniert.
+
+**Die vier Befehle** aus `CONTRIBUTING.md` §8 sind der Mechanismus, nicht die
+Quelle: `/plan` (Interview zu einer Planseite), `/work` (autonome Ausführung bis
+zum Live-Verify auf dem Jetson), `/audit` (Scan zu Befunden), `/status`
+(Lagebild). Nightly: `scripts/util/nightly-run.sh`.
+
+## Quick reference
 
 ### Entry points
 

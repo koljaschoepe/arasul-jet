@@ -77,7 +77,7 @@ arasul-jet/
 - **Environment variables:** [`docs/ENVIRONMENT_VARIABLES.md`](docs/ENVIRONMENT_VARIABLES.md)
 - **Troubleshooting:** [`docs/ops/TROUBLESHOOTING.md`](docs/ops/TROUBLESHOOTING.md)
 - **Contribution workflow:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- **Active roadmap:** [`docs/plans/active/`](docs/plans/active/)
+- **Laufender Plan:** [`docs/plans/active/`](docs/plans/active/) — genau einer, gehalten von `scripts/test/plan-faden.py`. Ruhende Pläne: [`docs/plans/paused/`](docs/plans/paused/README.md)
 
 ---
 
