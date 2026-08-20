@@ -349,7 +349,7 @@ box-shadow: 0 0 0 3px var(--primary-muted);
 
 > Stand: 2026-08-20 · Quelle: Plan 023 Phase C1
 
-Sechs Bausteine tragen die wiederkehrenden Formen. Wer eine Seite baut, nimmt
+Sieben Bausteine tragen die wiederkehrenden Formen. Wer eine Seite baut, nimmt
 sie, statt die Klassenkette erneut zu schreiben. Vor C1 standen dieselben
 Ketten an zwanzig Kopfstellen in elf Dateien und in drei verschiedenen
 Tab-Leisten, und sie liefen auseinander.
@@ -362,6 +362,7 @@ Tab-Leisten, und sie liefen auseinander.
 | `Chart` / `Sparkline`     | `ui/Chart.tsx`      | recharts-Linien, ausschließlich Blau nach Grau, ohne eigene Karte                           |
 | `Section` / `SectionList` | `ui/Section.tsx`    | Feldgruppe: `h2`, optionales Symbol, Beschreibung, Aktion; die Spalte setzt die Trennlinien |
 | `EmptyState`              | `ui/EmptyState.tsx` | leere Liste mit Titel und Einstieg                                                          |
+| `AuthCard`                | `ui/AuthCard.tsx`   | Rahmen der beiden Seiten vor der Anmeldung: Karte, Maskottchen, Titel, Fußzeile (C3)        |
 
 Drei Festlegungen, die der Aufrufer nicht mehr treffen kann:
 
@@ -391,7 +392,19 @@ von `components/ui`. Gegen den Stand vor Phase C fand er 39 Stellen. Der Grund
 für den Wächter: der Zustand davor ist nicht durch Nachlässigkeit entstanden,
 sondern dadurch, dass jede neue Seite die Klassen der vorigen kopiert hat.
 Einmal von Hand aufräumen hält das nicht auf. Ausnahmen stehen mit Grund in
-`AUSNAHMEN`; ein Eintrag ohne Grund ist keiner.
+`AUSNAHMEN`; ein Eintrag ohne Grund ist keiner. Nach C3 stehen dort noch zwei
+Dateien: der Erst-Start, den C4 neu baut, und die Store-Detailseite mit ihrer
+eigenen Kopfform. Die beiden Anmeldeseiten sind heraus, weil ihr `h1` seit C3
+in `AuthCard` steht.
+
+**`AuthCard` ist der einzige Baustein, der ein `h1` trägt, das kein Seitentitel
+ist.** Die Anmeldung und der erste Kontoanlauf liegen außerhalb der Shell und
+haben keine Kopfleiste, in die ein `PageHeader` passen würde; dort ist das `h1`
+die Wortmarke. Die Größe kommt trotzdem aus dieser Datei (`text-2xl`), nicht
+aus den fünf Breakpoint-Sonderwerten, die die alte Anmeldeseite mitgebracht
+hatte. Und die Karte setzt `gap-0`: die shadcn-`Card` bringt `gap-6` zwischen
+ihre Teile mit, das addiert sich sonst lautlos mit den Abständen des
+Aufrufers zu 48 Pixeln.
 
 **Welche Skala gilt wo.** Die Bausteine tragen keine eigene Meinung dazu, sie
 folgen der Fläche, auf der sie liegen. `StatTile`, `StatGrid` und `Sparkline`

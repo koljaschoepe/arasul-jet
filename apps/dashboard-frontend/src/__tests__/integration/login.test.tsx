@@ -215,10 +215,15 @@ describe('Login integration', () => {
     expect(screen.getByRole('heading', { name: PLATFORM_NAME })).toBeInTheDocument();
   });
 
-  it('shows default username hint', () => {
-    renderLogin();
+  // F-01: Vorher stand hier die Umkehrung dieses Tests. Der Standardname war
+  // Absicht und ein Hilfetext; er verschenkt die Haelfte jedes Zugangs an jeden,
+  // der den Bildschirm sieht. `\badmin\b` und nicht `/admin/i`, damit
+  // "Administrator" als Wort weiter erlaubt bleibt.
+  it('nennt nirgends einen Benutzernamen', () => {
+    const { container } = renderLogin();
 
-    expect(screen.getByText('admin')).toBeInTheDocument();
+    expect(container.innerHTML).not.toMatch(/\badmin\b/i);
+    expect(screen.getByLabelText(/benutzername/i)).not.toHaveAttribute('placeholder');
   });
 
   it('clears error message when user starts typing again', async () => {

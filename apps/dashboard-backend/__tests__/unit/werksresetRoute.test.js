@@ -20,6 +20,7 @@ jest.mock('../../src/utils/auditLog', () => ({ logSecurityEvent: jest.fn().mockR
 
 let mockRolle = 'admin';
 jest.mock('../../src/middleware/auth', () => ({
+  optionalAuth: (req, res, next) => next(),
   requireAuth: (req, res, next) => {
     req.user = { id: 1, username: 'kolja', role: mockRolle };
     next();

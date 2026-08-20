@@ -13,7 +13,7 @@
 | A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät |
 | S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                         |
 | B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                           |
-| C, Fundament                          | C1 und C2 fertig 20.08.2026            | #427 live auf `c7df62c`, #428. `scripts/test/bausteine.py` hält das Raster. C3 bis C6 offen          |
+| C, Fundament                          | C1 bis C3 fertig 20.08.2026            | #427 live auf `c7df62c`, #428, #429. `scripts/test/bausteine.py` hält das Raster. C4 bis C6 offen    |
 | D bis K                               | offen                                  |                                                                                                      |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
@@ -476,6 +476,166 @@ Anmeldung keinen Fehler mehr in die Konsole.
 **Abnahme:** Keine Nennung eines Benutzernamens auf der Seite. Konsole beim
 Laden leer. Behebt F-01, F-02.
 
+**Erledigt am 20.08.2026** (#429).
+
+Vorher gemessen, nicht vermutet: ein Aufruf der Anmeldeseite auf dem Gerät
+schrieb genau eine Zeile in die Konsole, `Failed to load resource: 401` für
+`/api/auth/me`. Die schreibt der Browser selbst, kein `try/catch` im Code
+fängt sie ab, weil es in JavaScript gar keine Ausnahme ist.
+
+**Der erste Versuch war der falsche und ist im Review zweimal beanstandet
+worden.** Er hat die Frage übersprungen, wenn kein Token im `localStorage`
+liegt. Das tauscht einen sicheren Fehler gegen einen seltenen: das
+Sitzungscookie `arasul_session` ist `httpOnly`, eine Seite sieht es nie, und ein
+Browser, der den `localStorage` räumt, ohne die `httpOnly`-Cookies zu räumen,
+hätte eine Sitzung verloren, die der Server noch anerkannt hätte. Der Einwand
+war doppelt richtig: `middleware/auth.js:34` hat den Cookie-Weg ausdrücklich
+„for LAN access support". Der Gegenvorschlag des Reviews, einfach immer zu
+fragen, war aber auch falsch, denn er macht F-02 wieder auf.
+
+**Gelöst über einen dritten Weg, den das Review selbst nennt:
+`GET /api/auth/session`.** Ein öffentlicher Prüfpunkt, der in beiden Fällen mit
+200 antwortet und im Rumpf sagt, welcher es ist. Damit gibt es den Handel
+überhaupt nicht: die Konsole bleibt leer, und über die Sitzung entscheidet
+weiter allein der Server. `/auth/me` bleibt unverändert die geschützte Route
+und antwortet ohne Sitzung weiter mit 401.
+
+**Dabei kam heraus, dass `optionalAuth` das Sitzungscookie nie gelesen hat.**
+`requireAuth` hat den Cookie-Weg seit jeher, `optionalAuth` nicht. Aufgefallen
+ist es nicht, weil `optionalAuth` im ganzen Backend keinen einzigen Aufrufer
+hatte. Der neue Prüfpunkt ist sein erster, und ohne die Ergänzung hätte er
+genau den Fall falsch beantwortet, um dessentwillen er gebaut wurde. Gegenprobe
+gesehen: ohne den Cookie-Weg wird der Test rot.
+
+**Und noch etwas hing daran, zweimal.** `jest.mock` ersetzt das ganze Modul,
+nicht nur den Teil, den eine Testdatei braucht. Wer eine geteilte Middleware so
+ersetzt und ihre Ausfuhren von Hand aufzählt, liefert jedem anderen Aufrufer
+`undefined`, und Express bricht beim Registrieren der Route ab mit
+`Route.get() requires a callback function but got a [object Undefined]`.
+
+- Neun Dateien ersetzen die Auth-Middleware, keine kannte `optionalAuth`. Eine
+  ist sofort gescheitert, die anderen acht hätten es beim nächsten Aufrufer
+  getan. Alle neun nachgezogen.
+- Sieben Dateien ersetzen die Rate-Limiter, keine kannte `sessionProbeLimiter`.
+  Fünf Suiten auf einen Schlag. Hier war die Aufzählung in allen sieben
+  identisch und ohne eigenes Verhalten, deshalb ist sie ersatzlos weg:
+  `__tests__/helpers/rateLimitMock.js` antwortet über einen Proxy auf **jeden**
+  Namen mit einer Middleware, die durchlässt. Der nächste Limiter braucht dort
+  nichts.
+
+Bei der Auth-Middleware ging das nicht, weil jede der neun ein eigenes
+`requireAuth` braucht. Dieselbe Falle steht dort also weiter offen; als
+Wiedervorlage notiert.
+
+**Review-Runde 3 hat einen Fehler gefunden, den der neue Prüfpunkt erst
+möglich gemacht hat.** `checkAuth` hat jede Antwort, die nicht `ok` war, als
+„nicht angemeldet" gewertet und den Token weggeworfen. Solange `/auth/me`
+gefragt wurde, ging das durch, denn dort war die 401 selbst die Aussage. Beim
+Prüfpunkt ist eine 429 aus dem Rate-Limiter oder ein 5xx **keine** Aussage über
+die Sitzung, und ein Serverschluckauf hätte einen angemeldeten Nutzer
+abgemeldet. Jetzt räumt nur eine Antwort auf, die der Server wirklich gegeben
+hat: 200 mit `authenticated: false`. Gegenprobe gesehen, drei Tests.
+
+**Dazu ein eigener Limiter.** Der Prüfpunkt lag zuerst hinter
+`generalAuthLimiter`, 30 Anfragen je Minute und IP, geteilt mit
+`/auth/needs-setup` und `/auth/logout`. Ein Seitenaufruf verbraucht davon
+bereits zwei, und mehrere Leute in einem Büro teilen sich hinter NAT eine IP.
+Fünfzehn Seitenaufrufe je Minute hätten begonnen, einem Prüfpunkt mit 429 zu
+antworten, dessen Zweck es ist, oft gefragt zu werden. Er hat jetzt
+`sessionProbeLimiter` mit 120 je Minute.
+
+Dieselbe Enge hat `/auth/needs-setup`, das ebenfalls bei jedem Seitenaufruf
+gefragt wird und weiter auf `generalAuthLimiter` steht. Dort ist die Folge
+milder, eine 429 landet im `catch` und zeigt die Anmeldung, es meldet also
+niemanden ab. Nicht mit angefasst, weil es nicht zu C3 gehört; als Wiedervorlage
+notiert.
+
+**Beim Eintragen in `docs/api/API_REFERENCE.md` waren drei Angaben falsch.**
+`logout` steht auf 30 pro Minute, nicht 30 pro 15 Minuten, und `logout-all` und
+`refresh-cookie` haben überhaupt keinen Limiter. Alle Werte in der Tabelle
+stammen jetzt aus dem Code, mit `Stand:` und `Quelle:`.
+
+**Dabei kam ein stiller Fehler in den Testfixtures heraus.** `App.test.tsx`
+legte `arasul_token = 'valid-token'` ab. Diese Zeichenkette hat `getValidToken`
+noch nie bestanden, sie wurde also schon vorher aus dem `Authorization`-Header
+geworfen; die Tests liefen unbemerkt über den Cookie-Weg. Jetzt steht dort ein
+Token in der Form, die der Server ausstellt.
+
+F-01 saß an drei Stellen, nicht an einer: in der Fußzeile der Anmeldung, als
+Platzhalter `admin` im Benutzernamenfeld und als Vorschlag `z. B. admin` beim
+Anlegen des ersten Kontos. Die beiden Tests, die den Hinweis vorher
+festgeschrieben haben, sind zu Wächtern umgedreht.
+
+Beide Seiten stehen jetzt auf einem gemeinsamen Baustein `AuthCard`; ihr `h1`
+liegt damit in `components/ui`, und die zwei Ausnahmen, die sie in
+`scripts/test/bausteine.py` hatten, sind ersatzlos weg.
+
+Gemessen, statt behauptet, bei drei Breiten (Karte in Pixeln):
+
+| Breite | vorher  | nachher | Fläche |
+| ------ | ------- | ------- | ------ |
+| 1440   | 433x725 | 363x503 | -42 %  |
+| 1024   | 446x749 | 374x518 | -42 %  |
+| 390    | 365x657 | 365x514 | -22 %  |
+
+Bei 390 Pixeln begrenzt das Fenster die Breite, deshalb schrumpft dort nur die
+Höhe. Kein Querlauf bei keiner der drei Breiten. Konsole bei einem vollen
+Seitenaufruf gegen ein antwortendes Backend: leer.
+
+**F-20 in `CreateAdmin` nachgezogen:** „Legen Sie Ihr Administrator-Konto an"
+ist zur Du-Form geworden, und aus „dieser Box" ist „dieses Geräts" geworden.
+Offen bleibt der `SetupWizard` (C4).
+
+**`PLATFORM_DESCRIPTION` steht auf dem Erst-Start absichtlich nicht mehr.** Die
+Anmeldung heißt „Arasul", dort erklärt die Zeile darunter, was das ist. Der
+Erst-Start heißt „Willkommen bei Arasul", dort ist die Marke schon im Titel,
+und die Zeile darunter muss sagen, was zu tun ist. Eine dritte Zeile mit dem
+Untertitel der Marke wäre dieselbe Doppelung, die C2 aus den Einstellungen
+entfernt hat. Auf der Anmeldung bleibt sie und wird weiter aus der Umgebung
+gespeist.
+
+## Was C3 nebenbei gefunden hat: der Erst-Start hing
+
+Der PR-Review hat angemerkt, dass `CreateAdmin` überhaupt keine Testdatei hat.
+Das stimmte, und beim Schreiben der ersten fiel ein Fehler auf, den niemand
+gesucht hatte.
+
+**Jede fehlgeschlagene Formularprüfung ließ die Seite hängen.**
+`@hookform/resolvers@3.10` prüft `Array.isArray(fehler.errors)`, um eine
+`ZodError` zu erkennen. `zod@4` hat diesen Alias entfernt, es gibt nur noch
+`issues`. Am Objekt belegt:
+
+```
+zod 4.3.6
+issues ist Array: true
+errors ist Array: false
+errors ist: undefined
+```
+
+Der Resolver warf die `ZodError` also weiter, statt sie in `formState.errors`
+zu schreiben. `handleSubmit` blieb hängen, `isSubmitting` blieb wahr, und der
+Knopf stand für immer auf „Konto wird angelegt …", ohne Meldung. Ein Kunde mit
+einem sechsstelligen Passwort kam auf dem ersten Bildschirm des Geräts nicht
+weiter und hätte neu laden müssen.
+
+**Und selbst danach wäre nichts zu sehen gewesen.** Angezeigt wurde nur
+`errors.confirmPassword`. Ein zu kurzes Passwort und ein leerer Benutzername
+schrieben ihre Meldung in `formState` und blieben unsichtbar.
+
+Behoben durch `@hookform/resolvers` auf `^5.9.1` (dessen Peer-Bereich `zod`
+`^3.25.0 || ^4.0.0` einschließt) und durch die fehlenden Fehlerzeilen samt
+`aria-invalid` an allen drei Feldern.
+
+Die Anmeldung trifft es nicht: ihre Prüfung kann nicht fehlschlagen, weil der
+Knopf bis zur Eingabe beider Felder gesperrt ist und es keine weitere Regel
+gibt. Es sind die einzigen zwei Formulare im Frontend mit `zodResolver`.
+
+**Warum das keine Suche gefunden hat.** Der Testlauf war grün, der Wächter war
+grün, die CI war grün. Der Bildschirm hatte keinen einzigen Test, und ein
+Formular, das nie einen Fehler zeigt, sieht von außen aus wie eines, das keine
+Fehler hat. Gefunden hat es die Frage des Reviews, wo die Tests für die zweite
+angefasste Datei sind.
+
 ## C4 Erst-Start neu
 
 Drei Schritte, aber der blaue Punkt in der Mitte sagt nichts. Der Fortschritt
@@ -484,6 +644,12 @@ Aufbau.
 
 **Abnahme:** Die drei Schritte sind ohne Vorwissen verständlich, jeder Schritt
 nennt sein Ergebnis.
+
+**Mitzunehmen aus C3:** `SetupWizard.tsx:358` meldet sich nach dem
+Passwortwechsel mit `user?.username || 'admin'` neu an. Der Standardname steht
+dort nicht auf dem Bildschirm, aber im Code, und für jeden anderen
+Benutzernamen schlägt die Neuanmeldung still fehl (der `catch` schluckt sie).
+Beim Neubau mitnehmen. Ebenso F-20 und F-23, die hier noch offen sind.
 
 ## C5 Systemstatus lesbar machen
 

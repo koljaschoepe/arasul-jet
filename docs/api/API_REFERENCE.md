@@ -58,17 +58,44 @@ list of error codes. No auth required.
 
 ### Authentication
 
-| Method | Endpoint                    | Description                                    | Rate Limit |
-| ------ | --------------------------- | ---------------------------------------------- | ---------- |
-| POST   | `/api/auth/login`           | Login with username/password (sets cookie)     | 10/15min   |
-| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie)       | 30/15min   |
-| POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user       | 30/15min   |
-| POST   | `/api/auth/change-password` | Change own password (invalidates all sessions) | 3/15min    |
-| POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token       | 30/15min   |
-| GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)        | -          |
-| GET    | `/api/auth/me`              | Get current user info                          | -          |
-| GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session | -          |
-| GET    | `/api/auth/sessions`        | List active sessions for current user          | -          |
+| Method | Endpoint                    | Description                                      | Rate Limit    |
+| ------ | --------------------------- | ------------------------------------------------ | ------------- |
+| GET    | `/api/auth/needs-setup`     | Public: is the box still without an admin?       | 30/min        |
+| POST   | `/api/auth/setup`           | Public, self-closing: create the FIRST admin     | 10/15min      |
+| POST   | `/api/auth/login`           | Login with username/password (sets cookie)       | 10/15min      |
+| GET    | `/api/auth/session`         | Public probe: 200 in both cases, `authenticated` | 120/min       |
+| POST   | `/api/auth/logout`          | Logout (blacklists token, clears cookie)         | 30/min        |
+| POST   | `/api/auth/logout-all`      | Invalidate all sessions for current user         | -             |
+| POST   | `/api/auth/change-password` | Change own password (invalidates all sessions)   | 3/15min, user |
+| POST   | `/api/auth/refresh-cookie`  | Re-sync session cookie from Bearer token         | -             |
+| GET    | `/api/auth/verify`          | Verify token (for Traefik forward-auth)          | -             |
+| GET    | `/api/auth/me`              | Get current user info                            | -             |
+| GET    | `/api/auth/csrf`            | Re-mint the CSRF token cookie for this session   | -             |
+| GET    | `/api/auth/sessions`        | List active sessions for current user            | -             |
+
+> Stand: 2026-08-20 · Quelle: `src/routes/auth.js`, `src/middleware/rateLimit.js`
+>
+> Beim Eintragen von `/api/auth/session` (Plan 023 C3) gegengeprüft: drei
+> Angaben in dieser Tabelle waren falsch. `logout` steht auf 30 **pro Minute**,
+> nicht 30 pro 15 Minuten, und `logout-all` und `refresh-cookie` haben
+> überhaupt keinen Limiter. `change-password` zählt je Nutzer, nicht je IP.
+> Alle Werte oben stammen jetzt aus dem Code, nicht aus dem vorigen Stand
+> dieser Datei.
+
+**GET /api/auth/session:**
+
+Der Prüfpunkt für „gibt es hier eine Sitzung". Antwortet in **beiden** Fällen
+mit 200, nie mit 401:
+
+```json
+{ "authenticated": false, "user": null, "timestamp": "2026-..." }
+```
+
+Damit die Oberfläche das bei jedem Seitenaufruf fragen kann, ohne dass der
+Browser für eine 401 eine Fehlerzeile in die Konsole schreibt (Befund F-02).
+Erkennt sowohl den `Authorization: Bearer`-Kopf als auch das
+`httpOnly`-Sitzungscookie `arasul_session`. `/api/auth/me` bleibt die
+geschützte Route und antwortet ohne Sitzung weiter mit 401.
 
 **POST /api/auth/logout-all:**
 

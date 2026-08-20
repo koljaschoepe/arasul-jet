@@ -44,6 +44,19 @@ interface MockUser {
   role?: string;
 }
 
+// Ein Token, wie ihn der Server ausstellt: drei Teile, base64url-Nutzlast, Ablauf
+// in der Zukunft. Die alte Attrappe 'valid-token' hat `getValidToken` nie
+// bestanden und wurde deshalb schon immer aus dem Authorization-Header
+// geworfen; die Tests liefen unbemerkt ueber den Cookie-Weg der Attrappe.
+// Aufgefallen ist das in Plan 023 C3.
+const gueltigerToken = (): string => {
+  const nutzlast = btoa(JSON.stringify({ sub: 1, exp: Math.floor(Date.now() / 1000) + 3600 }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `kopf.${nutzlast}.unterschrift`;
+};
+
 // Minimal Response stand-in for fetch mocks (AuthContext only reads ok/status/json).
 const fetchResponse = (body: unknown, init: { ok?: boolean; status?: number } = {}): Response =>
   ({
@@ -56,8 +69,11 @@ const fetchResponse = (body: unknown, init: { ok?: boolean; status?: number } = 
 const createFetchMock = (mockUser: MockUser): typeof fetch => {
   return (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url.includes('/auth/me')) {
-      return Promise.resolve(fetchResponse({ user: mockUser }));
+    // Plan 023 C3: AuthContext fragt /auth/session, einen Pruefpunkt, der in
+    // beiden Faellen mit 200 antwortet (F-02). /auth/me bleibt die geschuetzte
+    // Route und wird von der Oberflaeche nicht mehr aufgerufen.
+    if (url.includes('/auth/session')) {
+      return Promise.resolve(fetchResponse({ authenticated: true, user: mockUser }));
     }
     if (url.includes('/auth/logout')) {
       return Promise.resolve(fetchResponse({ success: true }));
@@ -156,9 +172,10 @@ describe('App Component', () => {
 
   describe('Unauthenticated State', () => {
     beforeEach(() => {
-      // AuthContext uses raw fetch for /auth/me - return 401
+      // /auth/session antwortet auch ohne Sitzung mit 200. Genau das ist der
+      // Sinn des Pruefpunkts: keine 401 auf dem Weg zur Anmeldeseite (F-02).
       global.fetch = vi.fn(() =>
-        Promise.resolve(fetchResponse({ message: 'Unauthorized' }, { ok: false, status: 401 }))
+        Promise.resolve(fetchResponse({ authenticated: false, user: null }))
       );
       mockApi.get.mockRejectedValue({ status: 401 });
     });
@@ -187,7 +204,7 @@ describe('App Component', () => {
     const mockUser = { id: 1, username: 'admin', role: 'admin' };
 
     beforeEach(() => {
-      localStorage.setItem('arasul_token', 'valid-token');
+      localStorage.setItem('arasul_token', gueltigerToken());
       localStorage.setItem('arasul_user', JSON.stringify(mockUser));
       global.fetch = vi.fn(createFetchMock(mockUser));
       mockApi.get.mockImplementation(createApiMock(mockUser));
@@ -232,7 +249,7 @@ describe('App Component', () => {
 
     test('App bleibt stabil, wenn Datenendpunkte fehlschlagen', async () => {
       const mockUser = { id: 1, username: 'admin' };
-      localStorage.setItem('arasul_token', 'valid-token');
+      localStorage.setItem('arasul_token', gueltigerToken());
       localStorage.setItem('arasul_user', JSON.stringify(mockUser));
 
       // Auth succeeds via fetch
@@ -265,7 +282,7 @@ describe('App Routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    localStorage.setItem('arasul_token', 'valid-token');
+    localStorage.setItem('arasul_token', gueltigerToken());
     localStorage.setItem('arasul_user', JSON.stringify(mockUser));
     global.fetch = vi.fn(createFetchMock(mockUser));
     mockApi.get.mockImplementation(createApiMock(mockUser));

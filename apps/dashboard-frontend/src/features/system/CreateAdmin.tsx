@@ -3,11 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useApi } from '../../hooks/useApi';
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/shadcn/card';
 import { Input } from '@/components/ui/shadcn/input';
 import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
-import { PLATFORM_NAME, PLATFORM_DESCRIPTION } from '@/config/branding';
+import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
+import { PLATFORM_NAME } from '@/config/branding';
 
 // First-run onboarding: the box ships without an admin, so the very first
 // visitor creates it here. This is the ONLY thing the setup ever asks. The
@@ -92,101 +92,102 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background p-4 max-md:items-start max-md:pt-[10vh] max-md:p-3">
-      <Card className="w-full max-w-[420px] rounded-xl border-border bg-card p-10 shadow-lg max-md:max-w-[95vw] max-md:p-8 max-sm:p-6">
-        <CardHeader className="p-0 text-center mb-8 max-md:mb-7 max-sm:mb-6">
-          <h1 className="text-[2rem] text-primary mb-2 font-bold min-[1728px]:text-[2.25rem] min-[1280px]:max-[1511px]:text-[1.875rem] max-md:text-[1.875rem] max-sm:text-[1.75rem] max-sm:mb-1 max-[375px]:text-2xl">
-            Willkommen bei {PLATFORM_NAME}
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Legen Sie Ihr Administrator-Konto an, um zu starten.
-          </p>
-          <p className="text-muted-foreground text-xs mt-1">{PLATFORM_DESCRIPTION}</p>
-        </CardHeader>
+    <AuthCard
+      title={`Willkommen bei ${PLATFORM_NAME}`}
+      description="Lege dein Administrator-Konto an, danach ist das Gerät bereit."
+      footer={
+        <p className="text-xs text-muted-foreground">
+          Dieses Konto ist der erste Administrator dieses Geräts. Danach ist diese Seite gesperrt.
+        </p>
+      }
+    >
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {error && <AuthError id="create-admin-error">{error}</AuthError>}
 
-        <CardContent className="p-0 mb-8 max-sm:mb-6">
-          <form onSubmit={handleSubmit(onSubmit)}>
-            {error && (
-              <div
-                id="create-admin-error"
-                className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm mb-6"
-                role="alert"
-              >
-                {error}
-              </div>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="username" className="mb-1.5 block text-sm font-medium">
+              Benutzername
+            </Label>
+            {/* Kein Vorschlag wie „admin": ein geratener Standardname ist die
+                halbe Zugangsangabe und stand vorher auf beiden Seiten (F-01). */}
+            <Input
+              id="username"
+              type="text"
+              autoComplete="username"
+              aria-invalid={errors.username ? true : undefined}
+              aria-describedby={
+                errors.username ? 'username-error' : error ? 'create-admin-error' : undefined
+              }
+              className={AUTH_FIELD}
+              {...usernameField}
+              ref={el => {
+                usernameField.ref(el);
+                usernameRef.current = el;
+              }}
+            />
+            {errors.username && (
+              <p id="username-error" className="mt-1.5 text-xs text-destructive">
+                {errors.username.message}
+              </p>
             )}
+          </div>
 
-            <div className="mb-6 max-sm:mb-5">
-              <Label htmlFor="username" className="block mb-2 text-sm font-medium">
-                Benutzername
-              </Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="z. B. admin"
-                autoComplete="username"
-                className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
-                {...usernameField}
-                ref={el => {
-                  usernameField.ref(el);
-                  usernameRef.current = el;
-                }}
-              />
-            </div>
+          <div>
+            <Label htmlFor="password" className="mb-1.5 block text-sm font-medium">
+              Passwort
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Mindestens 8 Zeichen"
+              autoComplete="new-password"
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={errors.password ? 'password-error' : undefined}
+              className={AUTH_FIELD}
+              {...register('password')}
+            />
+            {errors.password && (
+              <p id="password-error" className="mt-1.5 text-xs text-destructive">
+                {errors.password.message}
+              </p>
+            )}
+          </div>
 
-            <div className="mb-6 max-sm:mb-5">
-              <Label htmlFor="password" className="block mb-2 text-sm font-medium">
-                Passwort
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Mindestens 8 Zeichen"
-                autoComplete="new-password"
-                className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
-                {...register('password')}
-              />
-            </div>
+          <div>
+            <Label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium">
+              Passwort bestätigen
+            </Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="Passwort wiederholen"
+              autoComplete="new-password"
+              aria-invalid={errors.confirmPassword ? true : undefined}
+              aria-describedby={errors.confirmPassword ? 'confirm-error' : undefined}
+              className={AUTH_FIELD}
+              {...register('confirmPassword')}
+            />
+            {errors.confirmPassword && (
+              <p id="confirm-error" className="mt-1.5 text-xs text-destructive">
+                {errors.confirmPassword.message}
+              </p>
+            )}
+          </div>
+        </div>
 
-            <div className="mb-6 max-sm:mb-5">
-              <Label htmlFor="confirmPassword" className="block mb-2 text-sm font-medium">
-                Passwort bestätigen
-              </Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Passwort wiederholen"
-                autoComplete="new-password"
-                aria-describedby={errors.confirmPassword ? 'confirm-error' : undefined}
-                className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
-                {...register('confirmPassword')}
-              />
-              {errors.confirmPassword && (
-                <p id="confirm-error" className="text-destructive text-xs mt-2">
-                  {errors.confirmPassword.message}
-                </p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              variant="solid"
-              loading={isSubmitting}
-              disabled={!canSubmit}
-              className="w-full py-4 h-auto text-base font-bold uppercase tracking-wide hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 transition-all max-md:min-h-12 max-md:text-sm"
-            >
-              {isSubmitting ? 'Konto wird angelegt...' : 'Konto anlegen'}
-            </Button>
-          </form>
-        </CardContent>
-
-        <CardFooter className="flex-col p-0 pt-6 border-t border-border max-sm:pt-5">
-          <p className="text-muted-foreground text-xs text-center max-sm:text-[0.75rem]">
-            Dieses Konto ist der erste Administrator dieser Box. Danach ist diese Seite gesperrt.
-          </p>
-        </CardFooter>
-      </Card>
-    </div>
+        <Button
+          type="submit"
+          variant="solid"
+          size="lg"
+          loading={isSubmitting}
+          disabled={!canSubmit}
+          className="mt-6 w-full font-semibold max-md:h-11"
+        >
+          {isSubmitting ? 'Konto wird angelegt …' : 'Konto anlegen'}
+        </Button>
+      </form>
+    </AuthCard>
   );
 }
 

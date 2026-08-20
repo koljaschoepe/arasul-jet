@@ -18,6 +18,7 @@ jest.mock('../../src/services/llm/llmQueueService');
 jest.mock('../../src/services/llm/llmJobService');
 
 jest.mock('../../src/middleware/auth', () => ({
+    optionalAuth: (req, res, next) => next(),
     requireAuth: (req, res, next) => {
         req.user = { username: 'testuser', id: 1 };
         req.tokenData = { userId: 1, username: 'testuser', jti: 'test-jti', type: 'access' };
@@ -25,11 +26,7 @@ jest.mock('../../src/middleware/auth', () => ({
     },
 }));
 
-jest.mock('../../src/middleware/rateLimit', () => ({
-    uploadLimiter: (req, res, next) => next(),
-    generalLimiter: (req, res, next) => next(),
-    generalAuthLimiter: (req, res, next) => next(),
-}));
+jest.mock('../../src/middleware/rateLimit', () => require('../helpers/rateLimitMock'));
 
 const database = require('../../src/database');
 const logger = require('../../src/utils/logger');

@@ -24,6 +24,7 @@ jest.mock('../../src/middleware/auth', () => ({
         next();
     },
     requireAdmin: (req, res, next) => next(),
+  optionalAuth: (req, res, next) => next(),
 }));
 
 // Mock multer to bypass actual file handling

@@ -22,6 +22,7 @@ jest.mock('../../src/middleware/auth', () => ({
     next();
   },
   requireAdmin: (req, res, next) => next(),
+  optionalAuth: (req, res, next) => next(),
   invalidateUserCache: jest.fn(),
 }));
 

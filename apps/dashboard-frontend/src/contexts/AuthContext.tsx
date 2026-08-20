@@ -59,51 +59,81 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // let the user retry than to silently reanimate a revoked session.
   // P2.1.4: AbortController so that StrictMode double-invokes and rapid
   // logout-during-checkAuth do not race.
-  const checkAuth = useCallback(async (signal?: AbortSignal) => {
-    try {
-      // useApi-exception: AuthContext is the auth *primitive* useApi builds on
-      // (useApi calls useAuth().logout). Routing these calls through useApi
-      // would create a circular dependency + render loops (see useApi.ts:122)
-      // and a 401 here would trigger logout mid-check. Raw fetch is deliberate.
-      const response = await fetch(`${API_BASE}/auth/me`, {
-        headers: getAuthHeaders(),
-        signal,
-      });
+  // Kein Urteil ueber die Sitzung: die Oberflaeche zeigt "nicht angemeldet",
+  // aber der Token bleibt liegen. P2.1.1: aus dem localStorage wird NICHTS
+  // wiederbelebt, der Server koennte ihn widerrufen haben. Der naechste
+  // Versuch, etwa ein Neuladen, fragt erneut.
+  const keineAussage = useCallback((grund: string) => {
+    console.warn(grund);
+    setIsAuthenticated(false);
+    setUser(null);
+    setLoading(false);
+    return false;
+  }, []);
 
-      if (response.ok) {
+  const checkAuth = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        // useApi-exception: AuthContext is the auth *primitive* useApi builds on
+        // (useApi calls useAuth().logout). Routing these calls through useApi
+        // would create a circular dependency + render loops (see useApi.ts:122)
+        // and a 401 here would trigger logout mid-check. Raw fetch is deliberate.
+        // F-02: /auth/session statt /auth/me. Der Pruefpunkt antwortet in beiden
+        // Faellen mit 200 und sagt im Rumpf, welcher es ist. /auth/me antwortet
+        // ohne Sitzung mit 401, und fuer eine 401 schreibt der BROWSER selbst
+        // eine rote Zeile in die Konsole. Kein try/catch auf der Seite kann das
+        // abfangen, weil es in JS gar keine Ausnahme ist. Am 20.08.2026 auf dem
+        // Geraet gemessen: genau eine Konsolenzeile je Aufruf, diese.
+        //
+        // Nicht zu fragen waere der falsche Ausweg gewesen: das Sitzungscookie
+        // ist httpOnly, eine Seite sieht es nie, und ein Browser, der den
+        // localStorage ohne die httpOnly-Cookies raeumt, haette eine Sitzung
+        // verloren, die der Server noch anerkannt haette. Ein Pruefpunkt, der
+        // nie 401 antwortet, hat diesen Handel nicht noetig. Der Server
+        // entscheidet weiter allein.
+        const response = await fetch(`${API_BASE}/auth/session`, {
+          headers: getAuthHeaders(),
+          signal,
+        });
+
+        // Der Pruefpunkt antwortet auf beide Faelle mit 200. Alles andere, 429
+        // aus dem Rate-Limiter, 5xx, ein Proxy dazwischen, ist KEINE Aussage
+        // ueber die Sitzung. Nur eine Antwort, die der Server wirklich gegeben
+        // hat, darf den Token wegwerfen; sonst meldet ein Serverschluckauf einen
+        // angemeldeten Nutzer ab. Vor C3 war das nicht zu unterscheiden, weil
+        // /auth/me auf "nicht angemeldet" mit 401 antwortete, also selbst nicht
+        // ok war.
+        if (!response.ok) {
+          return keineAussage('Auth check failed (server unreachable)');
+        }
+
         const data = await response.json();
-        if (data.user) {
+        if (data.authenticated && data.user) {
           setIsAuthenticated(true);
           setUser(data.user);
           localStorage.setItem('arasul_user', JSON.stringify(data.user));
           setLoading(false);
           return true;
         }
-      }
 
-      // Token invalid or no user - clean up
-      localStorage.removeItem('arasul_token');
-      localStorage.removeItem('arasul_user');
-      setIsAuthenticated(false);
-      setUser(null);
-      setLoading(false);
-      return false;
-    } catch (err) {
-      // Aborted because the component unmounted or a fresh check was queued.
-      // Do not mutate state here — the next caller owns it.
-      if ((err as Error)?.name === 'AbortError') {
+        // Der Server hat geantwortet und sagt: keine Sitzung. Erst jetzt raeumen.
+        localStorage.removeItem('arasul_token');
+        localStorage.removeItem('arasul_user');
+        setIsAuthenticated(false);
+        setUser(null);
+        setLoading(false);
         return false;
+      } catch (err) {
+        // Aborted because the component unmounted or a fresh check was queued.
+        // Do not mutate state here — the next caller owns it.
+        if ((err as Error)?.name === 'AbortError') {
+          return false;
+        }
+        return keineAussage('Auth check failed (network error)');
       }
-      // Network error: do NOT restore from localStorage (would revive revoked
-      // tokens). Surface the failure as "not authenticated, please re-login".
-      // The user can retry by reloading; UI already handles isAuthenticated=false.
-      console.warn('Auth check failed (network error)');
-      setIsAuthenticated(false);
-      setUser(null);
-      setLoading(false);
-      return false;
-    }
-  }, []);
+    },
+    [keineAussage]
+  );
 
   // Verify auth on mount with AbortController so StrictMode double-mount /
   // rapid unmount don't write stale auth state.

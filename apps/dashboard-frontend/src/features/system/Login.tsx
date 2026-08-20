@@ -3,11 +3,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useApi } from '../../hooks/useApi';
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/shadcn/card';
 import { Input } from '@/components/ui/shadcn/input';
 import { Button } from '@/components/ui/shadcn/button';
 import { Label } from '@/components/ui/shadcn/label';
-import { Mascot } from '@/components/mascot/Mascot';
+import { AuthCard, AuthError, AUTH_FIELD } from '@/components/ui/AuthCard';
 import {
   PLATFORM_NAME,
   PLATFORM_DESCRIPTION,
@@ -107,101 +106,78 @@ function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background p-4 max-md:items-start max-md:pt-[10vh] max-md:p-3">
-      <Card className="w-full max-w-105 rounded-xl border-border bg-card p-10 shadow-lg max-md:max-w-[95vw] max-md:p-8 max-sm:p-6">
-        <CardHeader className="p-0 text-center mb-8 max-md:mb-7 max-sm:mb-6">
-          <Mascot
-            state="idle"
-            label={`${PLATFORM_NAME} Maskottchen`}
-            className="mx-auto mb-4 h-20 w-20 max-sm:h-16 max-sm:w-16 drop-shadow-sm"
-          />
-          <h1 className="text-[2rem] text-primary mb-2 font-bold min-[1728px]:text-[2.25rem] min-[1280px]:max-[1511px]:text-[1.875rem] max-md:text-[1.875rem] max-sm:text-[1.75rem] max-sm:mb-1 max-[375px]:text-2xl">
-            {PLATFORM_NAME}
-          </h1>
-          <p className="text-muted-foreground text-sm max-sm:text-sm max-[375px]:text-sm">
-            {PLATFORM_DESCRIPTION}
-          </p>
-        </CardHeader>
+    <AuthCard
+      mascot
+      title={PLATFORM_NAME}
+      description={PLATFORM_DESCRIPTION}
+      footer={
+        <p className="text-xs text-muted-foreground">
+          Passwort vergessen? Anleitung auf{' '}
+          <a
+            href={PLATFORM_WEBSITE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {PLATFORM_WEBSITE.replace(/^https?:\/\//, '')}
+          </a>{' '}
+          oder{' '}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+            {SUPPORT_EMAIL}
+          </a>
+        </p>
+      }
+    >
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {error && <AuthError id="login-error">{error}</AuthError>}
 
-        <CardContent className="p-0 mb-8 max-sm:mb-6">
-          <form onSubmit={handleSubmit(onSubmit)}>
-            {error && (
-              <div
-                id="login-error"
-                className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-sm mb-6"
-                role="alert"
-              >
-                {error}
-              </div>
-            )}
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="username" className="mb-1.5 block text-sm font-medium">
+              Benutzername
+            </Label>
+            {/* Kein Platzhalter: er waere die einzige Stelle, an der wieder ein
+                Benutzername auf der Seite steht (Befund F-01). */}
+            <Input
+              id="username"
+              type="text"
+              autoComplete="username"
+              aria-describedby={error ? 'login-error' : undefined}
+              className={AUTH_FIELD}
+              {...usernameField}
+              ref={el => {
+                registerUsernameRef(el);
+                usernameRef.current = el;
+              }}
+            />
+          </div>
 
-            <div className="mb-6 max-sm:mb-5">
-              <Label htmlFor="username" className="block mb-2 text-sm font-medium">
-                Benutzername
-              </Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="admin"
-                autoComplete="username"
-                aria-describedby={error ? 'login-error' : undefined}
-                className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
-                {...usernameField}
-                ref={el => {
-                  registerUsernameRef(el);
-                  usernameRef.current = el;
-                }}
-              />
-            </div>
+          <div>
+            <Label htmlFor="password" className="mb-1.5 block text-sm font-medium">
+              Passwort
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              className={AUTH_FIELD}
+              {...register('password')}
+            />
+          </div>
+        </div>
 
-            <div className="mb-6 max-sm:mb-5">
-              <Label htmlFor="password" className="block mb-2 text-sm font-medium">
-                Passwort
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Passwort eingeben"
-                autoComplete="current-password"
-                className="h-auto w-full py-3.5 px-4 bg-background border-border text-foreground text-base rounded-md placeholder:text-muted-foreground max-md:py-3 max-md:min-h-12"
-                {...register('password')}
-              />
-            </div>
-
-            <Button
-              type="submit"
-              variant="solid"
-              loading={isSubmitting}
-              disabled={!canSubmit}
-              className="w-full py-4 h-auto text-base font-bold uppercase tracking-wide hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 transition-all max-md:min-h-12 max-md:text-sm"
-            >
-              {isSubmitting ? 'Anmeldung...' : 'Anmelden'}
-            </Button>
-          </form>
-        </CardContent>
-
-        <CardFooter className="flex-col p-0 pt-6 border-t border-border max-sm:pt-5">
-          <p className="text-muted-foreground text-sm mb-2 max-sm:text-xs max-[375px]:text-[0.75rem]">
-            Standard-Benutzername: <strong className="text-primary">admin</strong>
-          </p>
-          <p className="text-muted-foreground text-xs max-sm:text-[0.75rem]">
-            Passwort vergessen? Anleitung auf{' '}
-            <a
-              href={PLATFORM_WEBSITE}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              {PLATFORM_WEBSITE.replace(/^https?:\/\//, '')}
-            </a>{' '}
-            oder{' '}
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
-              {SUPPORT_EMAIL}
-            </a>
-          </p>
-        </CardFooter>
-      </Card>
-    </div>
+        <Button
+          type="submit"
+          variant="solid"
+          size="lg"
+          loading={isSubmitting}
+          disabled={!canSubmit}
+          className="mt-6 w-full font-semibold max-md:h-11"
+        >
+          {isSubmitting ? 'Anmeldung läuft …' : 'Anmelden'}
+        </Button>
+      </form>
+    </AuthCard>
   );
 }
 
