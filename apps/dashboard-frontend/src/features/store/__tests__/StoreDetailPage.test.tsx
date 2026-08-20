@@ -199,12 +199,16 @@ describe('StoreDetailPage', () => {
     expect(screen.getByText(/aus 12 Läufen/)).toBeInTheDocument();
   });
 
-  it('Steckbrief: der Link auf die Modellkarte fuehrt zum Hersteller', () => {
+  it('der Link auf die Modellkarte steht genau einmal da', () => {
+    // Am 21.08.2026 live gesehen: D2 setzte einen zweiten Link in die
+    // Steckbrief-Liste, ohne den bestehenden Knopf zu sehen. Zwei Links auf
+    // dieselbe Seite, dreissig Zeilen auseinander.
     useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3' });
     renderPage();
-    const link = screen.getByRole('link', { name: 'Beim Hersteller nachlesen' });
-    expect(link).toHaveAttribute('href', 'https://ollama.com/library/llama3');
-    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    const links = screen.getAllByRole('link', { name: /Modellkarte beim Hersteller/ });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', 'https://ollama.com/library/llama3');
+    expect(links[0]).toHaveAttribute('rel', expect.stringContaining('noopener'));
   });
 
   it('Ohne Steckbrief steht dort kein leeres Feld, sondern der Grund', () => {
@@ -221,7 +225,7 @@ describe('StoreDetailPage', () => {
     useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3-mini' });
     renderPage();
     expect(
-      screen.queryByRole('link', { name: 'Beim Hersteller nachlesen' })
+      screen.queryByRole('link', { name: /Modellkarte beim Hersteller/ })
     ).not.toBeInTheDocument();
   });
 
