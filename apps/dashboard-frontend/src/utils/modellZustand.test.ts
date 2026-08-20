@@ -97,6 +97,14 @@ describe('kiRamZeile (Plan 023 D4)', () => {
     );
   });
 
+  it('auch eine Reserve, die auf 0,0 gerundet dastuende, entfaellt', () => {
+    // 32 MB sind gerundet 0,0 GB. Stuenden sie da, ginge die Zeile wieder
+    // nicht auf, nur an einer anderen Schwelle.
+    expect(kiRamZeile(budget({ safetyBufferMb: 32, availableMb: 32768 - 32 }))).toBe(
+      '0,0 von 32,0 GB belegt, frei 32,0 GB'
+    );
+  });
+
   it('ohne Budget bleibt sie leer statt NaN zu zeigen', () => {
     expect(kiRamZeile(undefined)).toBe('');
   });

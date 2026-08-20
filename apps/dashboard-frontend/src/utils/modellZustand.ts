@@ -95,10 +95,13 @@ export function kiRamZeile(budget: MemoryBudget | undefined): string {
   if (!budget) {
     return '';
   }
-  const reserve = budget.safetyBufferMb ?? 0;
+  // Gepruetft wird die ANGEZEIGTE Reserve, nicht die rohe. `zuGb` rundet auf
+  // eine Nachkommastelle; ein Puffer unter etwa 50 MB stuende sonst als
+  // "0,0 GB Reserve" da, und das waere genau die Zeile, die nicht aufgeht.
+  const reserve = zuGb(budget.safetyBufferMb ?? 0);
   const teile = [
     `${zuGb(budget.usedMb ?? 0)} von ${zuGb(budget.totalBudgetMb ?? 0)} GB belegt`,
-    reserve > 0 ? `${zuGb(reserve)} GB Reserve` : null,
+    Number(reserve.replace(',', '.')) > 0 ? `${reserve} GB Reserve` : null,
     `frei ${zuGb(budget.availableMb ?? 0)} GB`,
   ].filter(Boolean);
   return teile.join(', ');

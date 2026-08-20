@@ -43,9 +43,10 @@ export const formatBytes = (bytes: number | null | undefined): string => {
   // Null ist eine bekannte Groesse, keine unbekannte: am Anfang eines
   // Downloads ist noch nichts geladen, und "N/A von 16,4 GB" waere Unsinn.
   if (bytes === null || bytes === undefined) return 'N/A';
-  if (bytes === 0) return '0 KB';
-  // Unter einem Kilobyte in Bytes: "0 KB" sagt fuer eine Datei mit zwoelf
-  // Zeichen nichts, "12 B" schon.
+  // Unter einem Kilobyte in Bytes, genau wie `formatBytesBinaer`: "0 KB" sagt
+  // fuer eine Datei mit zwoelf Zeichen nichts, "12 B" schon. Zwei
+  // Schwesterfunktionen, die bei derselben Zahl verschiedene Einheiten
+  // schrieben, waeren in einem PR ueber Einheiten das falsche Vorbild.
   if (bytes < 1_000) return `${bytes} B`;
   if (bytes >= 1_000_000_000) {
     return `${(bytes / 1_000_000_000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`;

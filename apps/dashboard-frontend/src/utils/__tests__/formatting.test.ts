@@ -33,7 +33,10 @@ describe('formatBytes', () => {
   it('unterscheidet null Bytes von keiner Angabe', () => {
     // Null ist eine bekannte Groesse: am Anfang eines Downloads ist noch
     // nichts geladen. "N/A von 16,4 GB" waere Unsinn.
-    expect(formatBytes(0)).toBe('0 KB');
+    // Dieselbe Einheit wie bei der Schwesterfunktion. Zwei Funktionen in
+    // einem PR ueber Einheiten, die bei derselben Zahl verschieden schreiben,
+    // waeren das falsche Vorbild.
+    expect(formatBytes(0)).toBe('0 B');
     expect(formatBytes(null)).toBe('N/A');
     expect(formatBytes(undefined)).toBe('N/A');
   });
