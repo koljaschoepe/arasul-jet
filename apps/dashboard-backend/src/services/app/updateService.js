@@ -5,6 +5,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const { versionFuerVergleich } = require('../../utils/version');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const logger = require('../../utils/logger');
@@ -96,7 +97,7 @@ class UpdateService {
       }
 
       // 4. Check version compatibility
-      const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
+      const currentVersion = versionFuerVergleich();
 
       if (this.compareVersions(manifest.version, currentVersion) <= 0) {
         return {
@@ -169,10 +170,7 @@ class UpdateService {
       await fs.copyFile('/arasul/config/.env', path.join(backupPath, '.env'));
 
       // 5. Save current system version
-      await fs.writeFile(
-        path.join(backupPath, 'version.txt'),
-        process.env.SYSTEM_VERSION || '1.0.0'
-      );
+      await fs.writeFile(path.join(backupPath, 'version.txt'), versionFuerVergleich());
 
       logger.info(`Backup created successfully: ${backupPath}`);
       return { success: true, backupPath };
@@ -769,7 +767,7 @@ class UpdateService {
    * @returns {{ available: boolean, currentVersion: string, latestVersion?: string, releaseNotes?: string, downloadUrl?: string, size?: number, channel: string }}
    */
   async checkForUpdates() {
-    const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
+    const currentVersion = versionFuerVergleich();
 
     // Collect device info for update server (helps serve correct architecture/JetPack builds)
     let deviceInfo = {};
@@ -856,7 +854,7 @@ class UpdateService {
       const response = await axios.get(downloadUrl, {
         responseType: 'stream',
         timeout: 3600_000, // 1h for large packages
-        headers: { 'User-Agent': `Arasul/${process.env.SYSTEM_VERSION || '1.0.0'}` },
+        headers: { 'User-Agent': `Arasul/${versionFuerVergleich()}` },
       });
 
       const writer = require('fs').createWriteStream(filePath);

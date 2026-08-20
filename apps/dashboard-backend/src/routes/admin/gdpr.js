@@ -260,6 +260,11 @@ router.get(
         exportDate: new Date().toISOString(),
         exportVersion: '1.0',
         system: 'Arasul Platform',
+        // Bewusst die Anzeigefassung, nicht die Vergleichszahl: dieser Export
+        // geht an einen Menschen, der wissen will, welches System seine Daten
+        // hatte. Auf einem Geraet ohne gesetzte Version steht hier deshalb
+        // 'Vorserie' und keine erfundene 1.0.0. Wer das Feld maschinell liest,
+        // muss damit rechnen, dass es keine Versionsnummer ist.
         systemVersion: versionFuerAnzeige(),
         userId,
         username: req.user.username,

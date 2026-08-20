@@ -12,6 +12,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const { versionFuerVergleich } = require('../../utils/version');
 const crypto = require('crypto');
 const logger = require('../../utils/logger');
 const db = require('../../database');
@@ -110,7 +111,7 @@ async function verifySignature(updateFilePath, signatureFilePath) {
           `INSERT INTO update_events (version_from, version_to, status, source, details)
                        VALUES ($1, $2, $3, $4, $5)`,
           [
-            process.env.SYSTEM_VERSION || 'unknown',
+            versionFuerVergleich(),
             'pending',
             'signature_verified',
             'dashboard',
@@ -132,7 +133,7 @@ async function verifySignature(updateFilePath, signatureFilePath) {
           `INSERT INTO update_events (version_from, version_to, status, source, error)
                        VALUES ($1, $2, $3, $4, $5)`,
           [
-            process.env.SYSTEM_VERSION || 'unknown',
+            versionFuerVergleich(),
             'unknown',
             'signature_verification_failed',
             'dashboard',

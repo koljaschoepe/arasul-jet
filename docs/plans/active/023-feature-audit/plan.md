@@ -921,10 +921,15 @@ etwas Falsches sagt.
 
 ### Was jeder der vier wirklich war
 
-**F-19 saß an zwölf Stellen, nicht an einer.** `process.env.SYSTEM_VERSION ||
-'1.0.0'` stand zehnmal im Backend und zweimal als Rückfall im Frontend. Jede
-davon behauptet eine fertige 1.0.0, während von sieben Verkaufs-Gates keines
-geschlossen ist. Neu: `utils/version.js` mit **zwei** Werten, weil zwei Dinge
+**F-19 saß an siebzehn Stellen, nicht an einer.** Dieselbe Frage wurde
+fünfzehnmal im Backend beantwortet und zweimal als Rückfall im Frontend, und
+nicht einmal einheitlich: dreizehnmal mit `process.env.SYSTEM_VERSION ||
+'1.0.0'`, zweimal mit `|| 'unknown'` in derselben Datenbankspalte
+`update_events.version_from`. Jede der ersten behauptet eine fertige 1.0.0,
+während von sieben Verkaufs-Gates keines geschlossen ist. Sechs der Stellen
+sind mir beim ersten Anlauf durchgerutscht, darunter die in `checkForUpdates`,
+also ausgerechnet die, mit der ich begründet habe, warum es zwei Werte braucht.
+Gefunden hat es die Review. Neu: `utils/version.js` mit **zwei** Werten, weil zwei Dinge
 gebraucht werden und sie nicht dasselbe sind. `versionFuerAnzeige()` sagt ohne
 gesetzte Variable „Vorserie", also die Wahrheit über die Reife.
 `versionFuerVergleich()` bleibt bei `1.0.0`, weil

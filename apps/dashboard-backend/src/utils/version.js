@@ -1,8 +1,10 @@
 /**
  * Die Version des Systems, an einer Stelle.
  *
- * Warum es diese Datei gibt: `process.env.SYSTEM_VERSION || '1.0.0'` stand am
- * 20.08.2026 an zehn Stellen im Backend. Der Rueckfallwert behauptet damit
+ * Warum es diese Datei gibt: dieselbe Frage wurde am 20.08.2026 an FUENFZEHN
+ * Stellen im Backend beantwortet, und nicht einmal einheitlich: dreizehnmal mit
+ * `process.env.SYSTEM_VERSION || '1.0.0'`, zweimal mit `|| 'unknown'` in
+ * derselben Datenbankspalte `update_events.version_from`. Der Rueckfallwert behauptet damit
  * ueberall eine fertige 1.0.0, obwohl von sieben Verkaufs-Gates keines
  * geschlossen ist. Ein Partner, der das in den Einstellungen liest, bekommt
  * eine Zusage, die niemand gemacht hat (Befund F-19).
@@ -14,7 +16,9 @@
  * - `versionFuerVergleich()` ist das, was die Aktualisierungspruefung mit
  *   einer Zielversion vergleicht und was im Aktualisierungsbuch steht. Das
  *   muss eine Zahl bleiben, sonst laesst sich nichts vergleichen und die
- *   Protokollzeilen werden unbrauchbar.
+ *   Protokollzeilen werden unbrauchbar. Die beiden Stellen, die vorher
+ *   'unknown' schrieben, nehmen jetzt denselben Wert wie die uebrigen
+ *   Schreiber derselben Spalte.
  *
  * Sobald die Auslieferung versioniert ist (Ziel J3 im Steuer-Repo, Frist
  * 15.09.2026), setzt der Bau `SYSTEM_VERSION`, und beide liefern dieselbe Zahl.
