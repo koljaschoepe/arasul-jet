@@ -52,7 +52,8 @@ buchort() {
 	docker exec "$DB" psql -U arasul -d arasul_db -tA -c \
 		"SELECT table_schema FROM information_schema.tables
 		  WHERE table_name = 'schema_migrations' AND table_schema IN ('arasul','public')
-		  ORDER BY CASE table_schema WHEN 'arasul' THEN 0 ELSE 1 END LIMIT 1" | tr -d '[:space:]'
+		  ORDER BY CASE table_schema WHEN 'arasul' THEN 0 ELSE 1 END LIMIT 1" | tr -d '[:space:]' |
+		{ read -r schema; echo "${schema:-public}.schema_migrations"; }
 }
 
 # Gleichnamige Tabellen in beiden Schemata. `schema_migrations` darf das als

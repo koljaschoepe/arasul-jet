@@ -128,6 +128,44 @@ async function getAppliedVersions(client, buch) {
 }
 
 /**
+ * Widerspricht das Buch der Datenbank?
+ *
+ * Migration 090 legt `CREATE SCHEMA IF NOT EXISTS arasul` an. Existiert dieses
+ * Schema, hat jemand mindestens bis 090 angewendet. Steht 90 trotzdem nicht im
+ * Buch, ist das Buch keine Auskunft ueber den Stand, sondern eine Luecke, und
+ * der Runner wuerde 140 laengst angewendete Migrationen erneut anwenden.
+ *
+ * Genau das ist am 20.08.2026 passiert, zweimal: einmal, weil der Docker-Init
+ * nur sieben Zeilen schrieb, und einmal, weil das Skript, das die Zeilen
+ * nachtragen sollte, selbst abbrach. Die Zahl im Buch (`tracked > 5`) taugt als
+ * Merkmal nicht, sieben ist groesser als fuenf.
+ *
+ * Die 90 steht hier fest und darf das: eine bereits angewendete Migration wird
+ * nicht mehr geaendert (siehe services/postgres/CLAUDE.md, "Forbidden").
+ */
+const SCHEMA_MIGRATION = 90;
+
+async function buchWiderspricht(client, buch) {
+  const { rows: schema } = await client.query(
+    `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'arasul'`
+  );
+  if (schema.length === 0) {
+    return false;
+  }
+  const { rows: gebucht } = await client.query(`SELECT 1 FROM ${buch} WHERE version = $1`, [
+    SCHEMA_MIGRATION,
+  ]);
+  if (gebucht.length > 0) {
+    return false;
+  }
+  logger.warn(
+    `Migration Runner: das Schema arasul existiert, Migration ${SCHEMA_MIGRATION} steht aber nicht im Buch. ` +
+      'Das Buch wird als unvollstaendig behandelt und nachgetragen, statt alles erneut anzuwenden.'
+  );
+  return true;
+}
+
+/**
  * Seed schema_migrations for an existing database that was set up by Docker init
  * (no tracking existed). Detects by checking if core tables exist but tracking is empty.
  */
@@ -136,8 +174,9 @@ async function seedExistingMigrations(client, files, buch) {
   const trackingCount = await client.query(`SELECT COUNT(*) as count FROM ${buch}`);
   const tracked = parseInt(trackingCount.rows[0].count, 10);
 
-  // If we already have substantial tracking, no seed needed
-  if (tracked > 5) {
+  // If we already have substantial tracking, no seed needed — es sei denn, das
+  // Buch widerspricht der Datenbank. Siehe buchWiderspricht.
+  if (tracked > 5 && !(await buchWiderspricht(client, buch))) {
     return;
   }
 

@@ -46,7 +46,7 @@ verzeichnis="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Denselben Ort waehlen wie ermittleBuchOrt() im Runner: gibt es das Buch schon
 # in `arasul`, bleibt es dort, sonst `public`. Beim Erstlauf ist es `public`,
 # weil 000_schema_migrations.sql laeuft, bevor 090 das Schema arasul anlegt.
-ort=$(psql -v ON_ERROR_STOP=1 -tA --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-'EOSQL'
+schema=$(psql -v ON_ERROR_STOP=1 -tA --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-'EOSQL'
 	SELECT COALESCE(
 	  (SELECT table_schema FROM information_schema.tables
 	    WHERE table_name = 'schema_migrations'
@@ -56,6 +56,12 @@ ort=$(psql -v ON_ERROR_STOP=1 -tA --username "$POSTGRES_USER" --dbname "$POSTGRE
 	  'public');
 EOSQL
 )
+# Der volle Name, nicht nur das Schema. Genau daran ist der erste Anlauf am
+# 20.08.2026 gescheitert: `INSERT INTO public` ist keine Tabelle, psql brach ab,
+# der Postgres-Einstiegspunkt riss die Initialisierung mit, und der Container
+# startete in einen Zustand, in dem das Schema vollstaendig, das Buch aber leer
+# war. Also genau der Schaden, den diese Datei verhindern soll.
+ort="${schema}.schema_migrations"
 
 # Eine Anweisung je .sql-Datei, in einem Rutsch. Die Pruefsumme wird genauso
 # gebildet wie im Runner: sha256 des Inhalts, die ersten 16 Zeichen.
