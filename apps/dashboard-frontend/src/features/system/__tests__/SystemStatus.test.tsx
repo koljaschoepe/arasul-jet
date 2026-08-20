@@ -76,14 +76,27 @@ describe('SystemStatus', () => {
   // Die eigene Achse allein reicht nicht. Bekaeme sie wieder die Spanne 0 bis
   // 100, waere die Kurve so flach wie vorher, nur mit richtiger Einheit.
   it('gibt der Temperatur eine Spanne, in der man die Kurve sieht', () => {
-    const [unten, oben] = TEMPERATUR_ACHSE;
+    const [unten, obenAus] = TEMPERATUR_ACHSE;
     // Gemessen am 20.08.2026 auf dem Orin: 45,8 Grad im Tief, 72,5 im Hoch.
     expect(unten).toBeLessThanOrEqual(45);
-    expect(oben).toBeGreaterThanOrEqual(73);
+    const obenNormal = obenAus(72.5);
+    expect(obenNormal).toBeGreaterThanOrEqual(73);
     // Und die kritische Schwelle des Produkts muss im Bild bleiben.
-    expect(oben).toBeGreaterThanOrEqual(95);
+    expect(obenNormal).toBeGreaterThanOrEqual(95);
     // 0 bis 100 waere der alte Zustand unter neuem Namen.
-    expect(oben - unten).toBeLessThanOrEqual(65);
+    expect(obenNormal - unten).toBeLessThanOrEqual(65);
+  });
+
+  // Eine feste Decke schneidet den Ausreisser ab, wegen dem man hinsieht. Ein
+  // Geraet, das fuenf Jahre unbeaufsichtigt laufen soll, faellt irgendwann in
+  // genau diesen Fall.
+  it('schneidet einen Ausreisser nach oben nicht ab', () => {
+    const [, obenAus] = TEMPERATUR_ACHSE;
+    expect(obenAus(104)).toBeGreaterThanOrEqual(104);
+    expect(obenAus(131)).toBeGreaterThanOrEqual(131);
+    // Im Normalbetrieb bleibt die Achse trotzdem stehen, sonst waere jeder
+    // Tagesvergleich wertlos.
+    expect(obenAus(72.5)).toBe(obenAus(48.1));
   });
 
   it('nennt in der Diagrammbeschreibung beide Achsen mit ihrer Einheit', () => {

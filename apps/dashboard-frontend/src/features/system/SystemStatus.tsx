@@ -39,13 +39,21 @@ const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
  * Prozentachse zu nehmen und ihr dann dieselbe Spanne zu geben, haette den
  * Fehler nur umbenannt.
  *
- * Die Untergrenze schneidet nichts ab, die Obergrenze haelt die Alarmschwellen
- * des Produkts im Bild (Warnung 80, kritisch 95). Bewusst FEST und nicht
- * mitwachsend: eine Achse, die sich den Daten anpasst, macht aus zwei Grad
- * Schwankung ein Gebirge, und die Frage an dieses Diagramm lautet, ob das
- * Geraet ruhig laeuft.
+ * Die Untergrenze ist fest: eine Achse, die sich den Daten anpasst, macht aus
+ * zwei Grad Schwankung ein Gebirge, und die Frage an dieses Diagramm lautet, ob
+ * das Geraet ruhig laeuft. Die Obergrenze ist im Normalfall ebenfalls fest bei
+ * 100 und haelt damit die Alarmschwellen des Produkts im Bild (Warnung 80,
+ * kritisch 95). Sie waechst aber mit, sobald ein Messwert darueber liegt.
+ *
+ * Der zweite Teil kam aus der Review und ist wichtiger, als er aussieht: eine
+ * feste Decke schneidet den Ausreisser ab, wegen dem man ueberhaupt hinsieht.
+ * Ein Geraet, das fuenf Jahre unbeaufsichtigt laufen soll, faellt irgendwann in
+ * genau diesen Fall, und dann darf die Kurve nicht am oberen Rand verschwinden.
  */
-export const TEMPERATUR_ACHSE: [number, number] = [40, 100];
+export const TEMPERATUR_ACHSE: [number, (datenMax: number) => number] = [
+  40,
+  datenMax => Math.max(100, Math.ceil(datenMax / 10) * 10),
+];
 
 // Kompakt-Layout (Plan 002): alle Klassen auf der Dichte-Skala (text-ui-*
 // + ui-1…4-Abstände). min(100%, …) in den auto-fit-Grids verhindert

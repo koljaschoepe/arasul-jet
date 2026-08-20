@@ -81,7 +81,13 @@ interface ChartProps<Datum extends object> {
   yDomain?: [number, number];
   /** Nur noetig, wenn eine Reihe `achse: 'rechts'` traegt. */
   formatYRechts?: (value: number) => string;
-  yDomainRechts?: [number, number];
+  /**
+   * Die obere Grenze darf eine Funktion des groessten Messwerts sein. Damit
+   * bleibt eine Achse im Normalfall fest, waechst aber mit, statt einen
+   * Ausreisser abzuschneiden. Eine feste Decke verbirgt genau den Wert, wegen
+   * dem man hinsieht.
+   */
+  yDomainRechts?: [number, number | ((datenMax: number) => number)];
   height?: number;
   /** Beschreibung des Diagramms für Vorlesewerkzeuge. */
   label: string;

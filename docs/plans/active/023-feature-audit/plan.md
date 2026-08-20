@@ -834,12 +834,19 @@ Gerät gemessen, 20006 Werte aus sieben Tagen:
 | Mittel                              | 50,4 °C                  |
 | Anteil an einer Achse von 0 bis 100 | 27 %, im Alltag rund 6 % |
 
-Die Achse läuft jetzt von 40 bis 100 Grad. Die Untergrenze schneidet nichts ab,
-die Obergrenze hält die Alarmschwellen des Produkts im Bild (Warnung 80,
-kritisch 95). Bewusst fest und nicht mitwachsend: eine Achse, die sich den
-Daten anpasst, macht aus zwei Grad Schwankung ein Gebirge, und die Frage an
-dieses Diagramm lautet, ob das Gerät ruhig läuft. Ein Test hält beide Grenzen,
-damit niemand still auf 0 bis 100 zurückgeht.
+Die Achse läuft jetzt von 40 bis 100 Grad. Die Untergrenze ist fest: eine
+Achse, die sich den Daten anpasst, macht aus zwei Grad Schwankung ein Gebirge,
+und die Frage an dieses Diagramm lautet, ob das Gerät ruhig läuft. Die
+Obergrenze steht im Normalfall ebenfalls fest bei 100 und hält damit die
+Alarmschwellen des Produkts im Bild (Warnung 80, kritisch 95).
+
+**Sie wächst aber mit, sobald ein Messwert darüber liegt.** Auch das kam aus
+der Review und ist wichtiger, als es aussieht: eine feste Decke schneidet genau
+den Ausreißer ab, wegen dem man hinsieht. Ein Gerät, das fünf Jahre
+unbeaufsichtigt laufen soll, fällt irgendwann in diesen Fall, und dann darf die
+Kurve nicht am oberen Rand verschwinden. Zwei Tests halten beide Enden: die
+Grenzen gegen die gemessenen Werte, und dass 104 Grad nicht abgeschnitten
+werden, während die Achse im Alltag stehen bleibt.
 
 **Nebenbei erklärt sich F-04.** „0.0 / 32.0 GB belegt · frei 30.0 GB" ist kein
 Rechenfehler: `availableMb` zieht zusätzlich `safetyBufferMb` ab, hier 2 GB.
