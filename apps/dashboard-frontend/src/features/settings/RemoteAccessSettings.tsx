@@ -23,7 +23,7 @@ import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Section } from '@/components/ui/Section';
+import { Section, SectionList } from '@/components/ui/Section';
 
 interface Peer {
   id: string;
@@ -458,7 +458,7 @@ export function RemoteAccessSettings() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-8">
+      <SectionList>
         {/* Step 1: Installation */}
         {currentStep === 1 && (
           <Section
@@ -468,7 +468,6 @@ export function RemoteAccessSettings() {
               !installError &&
               'Tailscale wird direkt auf deinem Gerät installiert. Die Installation dauert ein bis zwei Minuten und benötigt eine Internetverbindung.'
             }
-            divider={false}
           >
             <div className="space-y-4">
               {installing && (
@@ -535,7 +534,7 @@ export function RemoteAccessSettings() {
 
         {/* Step 2: Auth-Key & Connect */}
         {currentStep === 2 && (
-          <Section title="Schritt 2: Mit Tailscale verbinden" divider={false}>
+          <Section title="Schritt 2: Mit Tailscale verbinden">
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Tailscale ist installiert{status?.version ? ` (v${status.version})` : ''}. Erstelle
@@ -634,7 +633,6 @@ export function RemoteAccessSettings() {
           <Section
             title="Schritt 3: HTTPS-Zertifikate freischalten"
             description="Das Gerät ist im Tailnet erreichbar, erreichbar heißt aber noch nicht vertrauenswürdig: Der Browser zeigt beim Zugriff eine Zertifikatswarnung. Dagegen hilft ein einmaliger Schalter in deiner Tailscale-Konsole. Er liegt außerhalb von Arasul, weil nur der Besitzer des Tailnets ihn setzen kann."
-            divider={false}
           >
             <ol className="mb-4 space-y-2 text-xs text-muted-foreground">
               <li className="flex gap-2">
@@ -695,7 +693,6 @@ export function RemoteAccessSettings() {
           <Section
             title="Schritt 4: Sicheren Namen aktivieren"
             description="Die Zertifikate sind freigeschaltet. Jetzt fehlt nur noch, dass Arasul unter dem Tailscale-Namen antwortet, statt unter einer IP-Adresse, der dein Browser nicht traut. Ein Klick, danach ist der Fernzugriff fertig eingerichtet."
-            divider={false}
           >
             {status?.dnsName && (
               <div className="mb-4 flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2">
@@ -724,7 +721,7 @@ export function RemoteAccessSettings() {
 
         {/* Step 5: Connected */}
         {currentStep === 5 && status && (
-          <div className="flex flex-col gap-8">
+          <SectionList>
             {/* Ein stabiler Name je Zusammenhang, die IP nur als Rueckfalltuer. */}
             <Section
               title="So erreichst du Arasul"
@@ -926,15 +923,15 @@ export function RemoteAccessSettings() {
 
             {/* Der Dashboard-Zugriff steht schon in der Karte darueber. */}
             {status.ip && (
-              <Section title="SSH-Zugriff" divider={false}>
+              <Section title="SSH-Zugriff">
                 <code className="rounded border border-border px-1 py-0.5 text-xs">
                   ssh arasul@{status.ip}
                 </code>
               </Section>
             )}
-          </div>
+          </SectionList>
         )}
-      </div>
+      </SectionList>
     </div>
   );
 }

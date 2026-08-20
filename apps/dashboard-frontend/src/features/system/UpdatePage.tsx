@@ -18,7 +18,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Section } from '@/components/ui/Section';
+import { Section, SectionList } from '@/components/ui/Section';
 
 interface ValidationResult {
   file_path?: string;
@@ -393,7 +393,7 @@ const UpdatePage = () => {
       {/* Header */}
       <PageHeader title="System-Updates" description="Updates sicher hochladen und installieren" />
 
-      <div className="flex flex-col gap-8">
+      <SectionList>
         {uploadStatus === 'idle' && (
           <Section
             title="USB-Update erkennen"
@@ -670,7 +670,7 @@ const UpdatePage = () => {
           )}
         </Section>
 
-        <Section title="Update-Verlauf" icon={<RefreshCw />} divider={false}>
+        <Section title="Update-Verlauf" icon={<RefreshCw />}>
           {updateHistory.length === 0 ? (
             <div className="border border-border/50 rounded-lg">
               <div className="px-4 py-3 border-b border-border/50">
@@ -731,7 +731,7 @@ const UpdatePage = () => {
             </div>
           )}
         </Section>
-      </div>
+      </SectionList>
     </div>
   );
 };

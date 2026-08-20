@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Chart, Sparkline } from '@/components/ui/Chart';
-import { Section } from '@/components/ui/Section';
+import { Section, SectionList } from '@/components/ui/Section';
 import { StatGrid, StatTile } from '@/components/ui/StatTile';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -240,58 +240,59 @@ function SystemStatusView({
           liest sich wie eine vergessene Formatierung, nicht wie Absicht.
         */}
         <DashboardCard className="col-span-full">
-          <Section
-            title="Auslastung"
-            divider={false}
-            action={
-              <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
-                {timeRangeOptions.map((hours: number) => (
-                  <button
-                    key={hours}
-                    type="button"
-                    className={`cursor-pointer rounded-sm px-ui-2 py-ui-1 text-ui-xs font-semibold transition-colors ${
-                      chartTimeRange === hours
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-text-muted hover:bg-[var(--primary-alpha-10)] hover:text-text-primary'
-                    }`}
-                    onClick={() => setChartTimeRange(hours)}
-                  >
-                    {hours}h
-                  </button>
-                ))}
-              </div>
-            }
-          >
-            <Chart
-              data={chartData}
-              series={[
-                { key: 'RAM', name: 'Arbeitsspeicher', unit: '%' },
-                { key: 'Swap', name: 'Auslagerung', unit: '%' },
-                { key: 'Temp', name: 'Temperatur', unit: '°C' },
-              ]}
-              xKey="timestamp"
-              xTicks={chartTicks}
-              formatX={ts =>
-                new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+          <SectionList>
+            <Section
+              title="Auslastung"
+              action={
+                <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
+                  {timeRangeOptions.map((hours: number) => (
+                    <button
+                      key={hours}
+                      type="button"
+                      className={`cursor-pointer rounded-sm px-ui-2 py-ui-1 text-ui-xs font-semibold transition-colors ${
+                        chartTimeRange === hours
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-text-muted hover:bg-[var(--primary-alpha-10)] hover:text-text-primary'
+                      }`}
+                      onClick={() => setChartTimeRange(hours)}
+                    >
+                      {hours}h
+                    </button>
+                  ))}
+                </div>
               }
-              formatY={wert => `${wert}%`}
-              yDomain={[0, 100]}
-              // Die alte Beschriftung nannte Prozessor, Arbeitsspeicher und
-              // Grafikeinheit. Gezeichnet wurden Arbeitsspeicher, Auslagerung
-              // und Temperatur. Wer die Seite vorlesen ließ, bekam drei falsche
-              // Namen.
-              label={`Auslastung der letzten ${chartTimeRange} Stunden: Arbeitsspeicher, Auslagerung und Temperatur`}
-            />
-            <div className="sr-only" role="status">
-              {metrics && (
-                <>
-                  Arbeitsspeicher: {metrics.ram?.toFixed(1)}%, Auslagerung:{' '}
-                  {metrics.swap?.toFixed(1)}
-                  %, Temperatur: {metrics.temperature?.toFixed(1)}°C
-                </>
-              )}
-            </div>
-          </Section>
+            >
+              <Chart
+                data={chartData}
+                series={[
+                  { key: 'RAM', name: 'Arbeitsspeicher', unit: '%' },
+                  { key: 'Swap', name: 'Auslagerung', unit: '%' },
+                  { key: 'Temp', name: 'Temperatur', unit: '°C' },
+                ]}
+                xKey="timestamp"
+                xTicks={chartTicks}
+                formatX={ts =>
+                  new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                }
+                formatY={wert => `${wert}%`}
+                yDomain={[0, 100]}
+                // Die alte Beschriftung nannte Prozessor, Arbeitsspeicher und
+                // Grafikeinheit. Gezeichnet wurden Arbeitsspeicher, Auslagerung
+                // und Temperatur. Wer die Seite vorlesen ließ, bekam drei falsche
+                // Namen.
+                label={`Auslastung der letzten ${chartTimeRange} Stunden: Arbeitsspeicher, Auslagerung und Temperatur`}
+              />
+              <div className="sr-only" role="status">
+                {metrics && (
+                  <>
+                    Arbeitsspeicher: {metrics.ram?.toFixed(1)}%, Auslagerung:{' '}
+                    {metrics.swap?.toFixed(1)}
+                    %, Temperatur: {metrics.temperature?.toFixed(1)}°C
+                  </>
+                )}
+              </div>
+            </Section>
+          </SectionList>
         </DashboardCard>
 
         <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>

@@ -1,20 +1,29 @@
 /**
- * Section — eine Feldgruppe innerhalb einer Seite.
+ * Section — eine Feldgruppe innerhalb einer Seite, und SectionList — die Spalte
+ * darum, die die Trennlinien setzt.
  *
- * Ersetzt die von Hand gesetzten Gruppen in Firmenprofil, Kontext,
- * Sprachmodell, Sicherheit und Datenschutz. Dieselbe Klassenkette stand dort
- * mehrfach, mal mit Trennlinie, mal ohne, mal mit `mb-4` unter der
- * Beschreibung, mal ohne.
+ * Ersetzt fünf Arten, eine Feldgruppe zu trennen: `pb-6 border-b`,
+ * `pt-6 border-t`, `space-y-3` ganz ohne Linie, `space-y-5` mit `mb-1` am
+ * Titel, und ein alleinstehendes `<div className="border-t border-border" />`
+ * als eigenes Trennstück zwischen zwei Abschnitten.
+ *
+ * **Die Trennlinie gehört zwischen die Abschnitte, nicht an sie.** Der erste
+ * Entwurf hatte eine Eigenschaft `divider`, die der letzte Abschnitt einer
+ * Seite abschalten musste. Das ist eine Falle: wer einen Abschnitt anhängt,
+ * muss daran denken, sie am alten letzten wieder einzuschalten. Genau so ist
+ * die doppelte Linie zwischen „Über Arasul" und der n8n-Anleitung entstanden,
+ * die dieser Plan gerade beseitigt hat. Jetzt trägt jeder Abschnitt seine
+ * Linie, und `SectionList` nimmt sie dem letzten wieder ab. Eine Stelle,
+ * die es entscheidet, und sie sieht die Reihenfolge.
  *
  * Das optionale Symbol bleibt: Passwortverwaltung, Theme-Auswahl,
  * USB-Erkennung und Update-Paket tragen heute eines in der Überschrift. Vier
- * Stellen sind kein Ausrutscher, und sie fallen zu lassen wäre eine
- * Gestaltungsänderung, die C1 nicht beauftragt ist.
+ * Stellen sind kein Ausrutscher.
  *
  * Überschriftenebene ist `h2`: unterhalb des einen `h1` aus PageHeader ist das
- * die nächste Ebene, und die Einstellungen tragen heute `h3` ohne ein `h2`
- * dazwischen. Die Schriftgröße bleibt `text-sm font-semibold` und folgt damit
- * der Zeile "Label" der Typografie-Tabelle; Ebene und Größe sind zwei Achsen.
+ * die nächste Ebene, und die Einstellungen trugen `h3` ohne ein `h2` dazwischen.
+ * Die Schriftgröße bleibt `text-sm font-semibold` und folgt damit der Zeile
+ * „Label" der Typografie-Tabelle; Ebene und Größe sind zwei Achsen.
  */
 
 import type { ReactNode } from 'react';
@@ -27,26 +36,13 @@ interface SectionProps {
   description?: ReactNode;
   /** Aktion rechts neben der Überschrift, etwa ein Schalter. */
   action?: ReactNode;
-  /**
-   * Trennlinie unter der Gruppe. Voreingestellt an, weil die Einstellungen
-   * die Gruppen so trennen. Die letzte Gruppe einer Seite setzt sie ab.
-   */
-  divider?: boolean;
   children: ReactNode;
   className?: string;
 }
 
-export function Section({
-  title,
-  icon,
-  description,
-  action,
-  divider = true,
-  children,
-  className,
-}: SectionProps) {
+export function Section({ title, icon, description, action, children, className }: SectionProps) {
   return (
-    <section className={cn(divider && 'pb-6 border-b border-border', className)}>
+    <section className={cn('pb-6 border-b border-border', className)}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -63,6 +59,37 @@ export function Section({
       </div>
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+interface SectionListProps {
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * Die Abstandsspalte einer Seite. `last-child` und ausdrücklich nicht
+ * `last-of-type`: Die Linie fällt nur weg, wenn nach dem Abschnitt gar nichts
+ * mehr kommt. Steht dahinter noch etwas, das kein Abschnitt ist, behält er sie.
+ * In „Allgemein" folgt die n8n-Anleitung, und dort trennt genau diese Linie.
+ * Mit `last-of-type` wäre sie verschwunden, weil der Wähler nur auf die
+ * Abschnitte untereinander sieht und nicht auf das, was danach steht.
+ *
+ * Ein Abschnitt, der bedingt gar nicht gezeichnet wird, zählt nicht mit: React
+ * schreibt für einen falschen Zweig nichts ins Dokument, und der Wähler greift
+ * auf das Dokument.
+ */
+export function SectionList({ children, className }: SectionListProps) {
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-8',
+        '[&>section:last-child]:border-b-0 [&>section:last-child]:pb-0',
+        className
+      )}
+    >
+      {children}
+    </div>
   );
 }
 

@@ -9,7 +9,7 @@ import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 import { N8nIntegrationGuide } from './N8nIntegrationGuide';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Section } from '@/components/ui/Section';
+import { Section, SectionList } from '@/components/ui/Section';
 
 const THEME_OPTIONS: ReadonlyArray<{
   value: Theme;
@@ -83,7 +83,7 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
     <div className="animate-in fade-in">
       <PageHeader title="Allgemein" description="Systeminformationen und Konfiguration" />
 
-      <div className="flex flex-col gap-8">
+      <SectionList>
         <Section
           title="Erscheinungsbild"
           icon={theme === 'light' ? <Sun /> : theme === 'dark' ? <Moon /> : <MoonStar />}
@@ -211,7 +211,7 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
         </Section>
 
         <N8nIntegrationGuide />
-      </div>
+      </SectionList>
     </div>
   );
 }

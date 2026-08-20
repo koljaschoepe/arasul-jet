@@ -10,7 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Section } from '@/components/ui/Section';
+import { Section, SectionList } from '@/components/ui/Section';
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
 
@@ -115,7 +115,7 @@ export function PrivacySettings() {
         description="DSGVO-Rechte: Auskunft (Art. 15) und Löschung (Art. 17)"
       />
 
-      <div className="flex flex-col gap-8">
+      <SectionList>
         <Section
           title="Meine Daten exportieren"
           icon={<Download />}
@@ -126,11 +126,7 @@ export function PrivacySettings() {
           </Button>
         </Section>
 
-        <Section
-          title="Konto löschen"
-          icon={<Trash2 className="text-destructive" />}
-          divider={false}
-        >
+        <Section title="Konto löschen" icon={<Trash2 className="text-destructive" />}>
           <Alert variant="destructive">
             <Info className="size-4" />
             <AlertDescription>
@@ -142,7 +138,7 @@ export function PrivacySettings() {
             {deleting ? 'Lösche...' : 'Konto endgültig löschen'}
           </Button>
         </Section>
-      </div>
+      </SectionList>
 
       <Modal
         isOpen={tokenModalOpen}

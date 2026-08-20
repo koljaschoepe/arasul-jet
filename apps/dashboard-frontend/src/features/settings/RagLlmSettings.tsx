@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { extractIssues } from './validationIssues';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Section } from '@/components/ui/Section';
+import { Section, SectionList } from '@/components/ui/Section';
 
 /**
  * LLM-Standardwerte — raw column values as returned by GET /rag/settings.
@@ -249,7 +249,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
         description="Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen."
       />
 
-      <div className="flex flex-col gap-8">
+      <SectionList>
         <Section title="LLM-Standardwerte">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {LLM_FIELDS.map(renderNumberField)}
@@ -259,7 +259,6 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
         <Section
           title="Basis-System-Prompt"
           description="Wird jedem LLM-Aufruf vorangestellt. Ein leeres Feld bedeutet: eingebauter Standard-Prompt."
-          divider={false}
         >
           <div className="space-y-4">
             <Textarea
@@ -303,7 +302,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
             Speichern
           </Button>
         </div>
-      </div>
+      </SectionList>
     </div>
   );
 }

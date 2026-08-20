@@ -3,7 +3,7 @@ import PasswordManagement from './PasswordManagement';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { Button } from '@/components/ui/shadcn/button';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Section } from '@/components/ui/Section';
+import { Section, SectionList } from '@/components/ui/Section';
 
 interface SecuritySettingsProps {
   handleLogout: () => void;
@@ -20,7 +20,7 @@ export function SecuritySettings({
     <div className="animate-in fade-in">
       <PageHeader title="Sicherheit" description="Passwörter verwalten und Sitzungen beenden" />
 
-      <div className="flex flex-col gap-8">
+      <SectionList>
         <ComponentErrorBoundary componentName="Passwortverwaltung">
           <PasswordManagement />
         </ComponentErrorBoundary>
@@ -29,7 +29,6 @@ export function SecuritySettings({
           title="Sitzungen"
           icon={<LogOut />}
           description="Beende die aktuelle Sitzung oder melde dich auf allen Geräten ab."
-          divider={false}
         >
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" onClick={handleLogout}>
@@ -41,7 +40,7 @@ export function SecuritySettings({
             </Button>
           </div>
         </Section>
-      </div>
+      </SectionList>
     </div>
   );
 }

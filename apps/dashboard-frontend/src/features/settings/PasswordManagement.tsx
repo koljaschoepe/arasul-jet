@@ -265,7 +265,11 @@ function PasswordManagement() {
   );
 
   return (
-    <div>
+    // Fragment, kein div: so ist der Abschnitt ein Geschwister der uebrigen
+    // Abschnitte in SecuritySettings, und die SectionList dort entscheidet
+    // ueber seine Trennlinie. In einem div waere er versteckt und traege sie
+    // auch dann, wenn er der letzte auf der Seite ist.
+    <>
       {ConfirmDialog}
 
       <Section
@@ -458,7 +462,7 @@ function PasswordManagement() {
           </div>
         </div>
       </Section>
-    </div>
+    </>
   );
 }
 

@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/shadcn/select';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Section } from '@/components/ui/Section';
+import { Section, SectionList } from '@/components/ui/Section';
 
 const AI_INDUSTRIES = [
   'IT & Software',
@@ -340,7 +340,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
         description="Firmen- und KI-Verhalten konfigurieren. Diese Einstellungen werden automatisch bei jedem Chat als Kontext mitgegeben."
       />
 
-      <div className="flex flex-col gap-8">
+      <SectionList>
         <Section title="Firmenprofil">
           <div className="space-y-5">
             <div className="space-y-2">
@@ -442,7 +442,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
           </div>
         </Section>
 
-        <Section title="KI-Verhalten" divider={false}>
+        <Section title="KI-Verhalten">
           <div className="space-y-5">
             <div className="space-y-2">
               <Label>Antwortlänge</Label>
@@ -502,7 +502,7 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
             Speichern
           </Button>
         </div>
-      </div>
+      </SectionList>
     </div>
   );
 }

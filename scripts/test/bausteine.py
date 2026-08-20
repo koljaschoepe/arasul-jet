@@ -29,6 +29,15 @@ Was NICHT gemeldet wird
 ein Test darf pruefen, was er will. Und `<h2>` bis `<h4>`: eine Ueberschrift
 innerhalb eines Abschnitts ist erlaubt, nur der Seitentitel ist es nicht.
 
+Was er NICHT sehen kann
+-----------------------
+Der Waechter liest Zeile fuer Zeile und kennt keinen Syntaxbaum. Ein ueber zwei
+Zeilen umgebrochenes `<h1\n  className=...>` und eine Klasse, die erst zur
+Laufzeit aus `cn()` oder einer Zeichenkettenschablone entsteht, rutschen durch.
+Das ist bewusst in Kauf genommen: der Fehler, den er abfangen soll, ist das
+Kopieren einer fertigen Klassenkette von der vorigen Seite, und die kommt am
+Stueck. Wer sich auf ihn verlaesst, soll aber wissen, wo seine Grenze liegt.
+
 Ausnahmen
 ---------
 `AUSNAHMEN` traegt Pfade, die aus einem genannten Grund ausserhalb stehen. Ein
