@@ -61,9 +61,13 @@ import sys
 from pathlib import Path
 
 AUSNAHMEN = {
-    # Der Erst-Start ist eine eigene Flaeche ohne Einstellungsrahmen und wird
-    # in Plan 023 C4 neu gebaut. Bis dahin bleibt er, wie er ist.
-    'src/features/system/SetupWizard.tsx': 'Plan 023 C4 baut ihn neu',
+    # Der Einrichtungsassistent ist eine eigene Flaeche ohne Einstellungsrahmen
+    # und traegt seinen Titel selbst. Die Begruendung stand hier bis zum
+    # 20.08.2026 falsch ("Plan 023 C4 baut ihn neu"): C4 meint den
+    # OnboardingWizard im Arbeitsbereich, nicht diese Datei. Sie ist bisher
+    # ungeprueft und hat eine eigene Aufgabe verdient, siehe Plan 023 C4,
+    # Abschnitt "Was dabei sichtbar wurde".
+    'src/features/system/SetupWizard.tsx': 'eigene Flaeche, bisher ungeprueft, eigene Aufgabe offen',
     # Die Detailseite im Store traegt eine feste Kopfleiste mit Zurueck-Knopf,
     # Symbol und Abzeichen. Das ist eine andere Form als der Seitenkopf einer
     # Einstellungsseite, und PageHeader dafuer aufzubohren hiesse, einen
