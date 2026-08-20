@@ -52,7 +52,11 @@ const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
  */
 export const TEMPERATUR_ACHSE: [number, (datenMax: number) => number] = [
   40,
-  datenMax => Math.max(100, Math.ceil(datenMax / 10) * 10),
+  // Der Wachtest auf endlich ist kein Zierrat: Math.max(100, NaN) ist NaN, und
+  // eine Achse mit NaN als Grenze zeichnet gar nichts, ohne einen Fehler zu
+  // melden. recharts kann in einem Zwischenschritt einen leeren Datensatz
+  // reichen, bevor der Verlauf geladen ist.
+  datenMax => (Number.isFinite(datenMax) ? Math.max(100, Math.ceil(datenMax / 10) * 10) : 100),
 ];
 
 // Kompakt-Layout (Plan 002): alle Klassen auf der Dichte-Skala (text-ui-*

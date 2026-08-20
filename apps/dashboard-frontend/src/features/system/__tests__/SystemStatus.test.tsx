@@ -99,6 +99,15 @@ describe('SystemStatus', () => {
     expect(obenAus(72.5)).toBe(obenAus(48.1));
   });
 
+  // Math.max(100, NaN) ist NaN, und eine Achse mit NaN als Grenze zeichnet gar
+  // nichts, ohne einen Fehler zu melden. Ohne Verlauf reicht recharts einen
+  // leeren Datensatz durch.
+  it('bleibt eine Achse, auch wenn noch kein Messwert da ist', () => {
+    const [, obenAus] = TEMPERATUR_ACHSE;
+    expect(obenAus(NaN)).toBe(100);
+    expect(obenAus(-Infinity)).toBe(100);
+  });
+
   it('nennt in der Diagrammbeschreibung beide Achsen mit ihrer Einheit', () => {
     const { container } = zeige();
     const diagramm = container.querySelector('[role="img"]');
