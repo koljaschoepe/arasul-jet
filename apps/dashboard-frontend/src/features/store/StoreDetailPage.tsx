@@ -4,9 +4,13 @@
  * prominenten „← Zurück"-Knopf, der zurück ins Raster führt, darunter Name,
  * Status-Badges, eine gut formatierte Info-Sektion und die Primär-Aktion.
  *
- *   - Modell: Beschreibung, Modell-ID/Größe/RAM/Geschwindigkeit/Kontextlänge,
- *     Fähigkeiten; Aktionen Herunterladen/Aktivieren/Als Standard/Löschen
- *     (DownloadContext/ActivationContext überleben Navigation).
+ *   - Modell: Beschreibung, dann der Steckbrief (Plan 023 D2): Modell-ID,
+ *     Parameter, Quantisierung, Größe, RAM, Einstufung, gemessene
+ *     Geschwindigkeit auf diesem Gerät, Kontextlänge, Lizenz und ein Link auf
+ *     die Modellkarte. Fähigkeiten; Aktionen Herunterladen/Aktivieren/Als
+ *     Standard/Löschen (DownloadContext/ActivationContext überleben
+ *     Navigation). Was Ollama zu einem Modell nicht meldet, bekommt kein
+ *     leeres Feld, sondern gar keins.
  *   - Erweiterung (Workspace-App): Beschreibung, Status/Bereich; Primär-Aktion
  *     ist der An/Aus-Schalter über `PUT /workspace-apps/:id`
  *     (useWorkspaceApps.setAppEnabled) — derselbe Fluss wie im Kartenraster.

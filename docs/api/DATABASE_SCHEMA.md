@@ -1515,6 +1515,15 @@ inert.
 | `supports_vision_input` | boolean                  | ✅       | `false`                         |
 | `is_platform_default`   | boolean                  | ✅       | `false`                         |
 | `speed_tier`            | character varying        | ✅       | `'balanced'::character varying` |
+| `parameter_label`       | character varying        | ✅       |                                 |
+| `quantization`          | character varying        | ✅       |                                 |
+| `license`               | character varying        | ✅       |                                 |
+| `profile_read_at`       | timestamp with time zone | ✅       |                                 |
+
+Die letzten vier stammen aus Migration 148 (Plan 023 D2) und werden nicht
+gepflegt, sondern beim Modell-Abgleich aus Ollamas `/api/show` gelesen.
+`profile_read_at` unterscheidet „noch nie gelesen" von „gelesen, das Modell
+trägt die Angabe nicht".
 
 **Primary key:** `id`
 

@@ -231,9 +231,14 @@ function createModelService(deps = {}) {
       // Geschwindigkeit aus zwei Laeufen ist keine Aussage, und der Leser soll
       // das sehen koennen.
       //
-      // Der Verbund geht ueber BEIDE Schreibweisen. `model_performance_metrics`
-      // traegt den Ollama-Namen (`qwen3:14b`), der Katalog die Katalog-Kennung
-      // (`qwen3:14b-q8`); ein Verbund nur ueber `c.id` faende nichts.
+      // Der Verbund geht ueber BEIDE Schreibweisen, und das ist nicht
+      // vorsorglich. Am 20.08.2026 auf dem Orin gemessen:
+      //   SELECT DISTINCT model_id FROM model_performance_metrics;
+      //   -> qwen3-coder:30b, qwen3:7b-q8, qwen3:14b
+      // Die ersten beiden sind Katalog-Kennungen, `qwen3:14b` ist es nicht: der
+      // Katalog kennt `qwen3:14b-q8` und `qwen3:14b-nothink`, und `qwen3:14b`
+      // ist der `ollama_name` des ersten. Die Schreibweise haengt also am
+      // Aufrufer. Ein Verbund nur ueber `c.id` verloere diese Messungen.
       const result = await database.query(`
                 SELECT
                     c.*,
@@ -258,6 +263,9 @@ function createModelService(deps = {}) {
                     FROM model_performance_metrics m
                     WHERE m.model_id IN (c.id, COALESCE(c.ollama_name, c.id))
                       AND m.tokens_per_second > 0
+                      -- Doppelt gesichert: cleanup_old_performance_metrics
+                      -- raeumt nach 30 Tagen. Die Grenze hier greift nur,
+                      -- wenn dieser Auftrag ausfaellt.
                       AND m.created_at > NOW() - INTERVAL '90 days'
                 ) t ON TRUE
                 ORDER BY c.performance_tier ASC, c.ram_required_gb ASC
@@ -1079,7 +1087,13 @@ function createModelService(deps = {}) {
         //     gerade importiertes Modell schon einen Eintrag hat, und stoert
         //     den Abgleich nicht, wenn Ollama dabei aussteigt.
         try {
-          await steckbriefeNachtragen(database);
+          // Hoechstens fuenf je Lauf: `syncWithOllama` haengt auch an
+          // POST /api/models/sync, und diese Route wird im Anfragefaden
+          // abgewartet. Beim ersten Lauf nach dieser Migration ist
+          // `profile_read_at` bei JEDEM installierten Modell leer; ohne Grenze
+          // waere die Antwortzeit die Zahl der Modelle mal zehn Sekunden. Der
+          // Abgleich laeuft ohnehin alle fuenf Minuten und holt den Rest nach.
+          await steckbriefeNachtragen(database, { hoechstens: 5 });
         } catch (err) {
           logger.warn(`[SYNC] Steckbriefe nicht nachgetragen: ${err.message}`);
         }

@@ -147,4 +147,14 @@ describe('steckbriefeNachtragen', () => {
     expect(query.mock.calls[0][0]).toContain("i.status = 'available'");
     expect(query.mock.calls[0][0]).toContain('profile_read_at IS NULL');
   });
+
+  // Der Aufrufer haengt an POST /api/models/sync, und diese Route wird im
+  // Anfragefaden abgewartet. Ohne Grenze waere die Antwortzeit beim ersten
+  // Lauf die Zahl der Modelle mal zehn Sekunden.
+  test('fasst je Lauf hoechstens fuenf Modelle an', async () => {
+    const query = jest.fn().mockResolvedValue({ rows: [] });
+    await steckbriefeNachtragen({ query });
+    expect(query.mock.calls[0][0]).toContain('LIMIT $2');
+    expect(query.mock.calls[0][1]).toEqual(['30', 5]);
+  });
 });

@@ -110,12 +110,22 @@ async function leseSteckbrief(ollamaName) {
  * Steckbrief fehlt oder aelter als `hoechstalterTage` ist.
  *
  * Bewusst nacheinander statt parallel: `/api/show` laedt bei einem entladenen
- * Modell die Metadaten von der Platte, und die Box hat eine Platte. Der Lauf
- * haengt am Modell-Abgleich, der ohnehin nicht zeitkritisch ist.
+ * Modell die Metadaten von der Platte, und die Box hat eine Platte.
  *
+ * Und bewusst begrenzt. Der Aufrufer haengt an `syncWithOllama`, und das haengt
+ * auch an POST /api/models/sync, einer Route, die im Anfragefaden abgewartet
+ * wird. Beim ersten Lauf nach der Migration ist `profile_read_at` bei jedem
+ * installierten Modell leer; ohne Grenze waere die Antwortzeit die Zahl der
+ * Modelle mal die Zeitgrenze. Der Abgleich laeuft alle fuenf Minuten und holt
+ * den Rest nach.
+ *
+ * @param {Object} database
+ * @param {Object} [optionen]
+ * @param {number} [optionen.hoechstalterTage] ab wann ein Steckbrief neu gelesen wird
+ * @param {number} [optionen.hoechstens] wie viele Modelle ein Lauf hoechstens anfasst
  * @returns {Promise<number>} Zahl der aktualisierten Eintraege
  */
-async function steckbriefeNachtragen(database, { hoechstalterTage = 30 } = {}) {
+async function steckbriefeNachtragen(database, { hoechstalterTage = 30, hoechstens = 5 } = {}) {
   let geschrieben = 0;
   const { rows } = await database.query(
     `SELECT c.id, COALESCE(c.ollama_name, c.id) AS ollama_name
@@ -123,8 +133,9 @@ async function steckbriefeNachtragen(database, { hoechstalterTage = 30 } = {}) {
        JOIN llm_installed_models i ON i.id = c.id
       WHERE i.status = 'available'
         AND (c.profile_read_at IS NULL OR c.profile_read_at < NOW() - ($1 || ' days')::interval)
-      ORDER BY c.id`,
-    [String(hoechstalterTage)]
+      ORDER BY c.id
+      LIMIT $2`,
+    [String(hoechstalterTage), hoechstens]
   );
 
   for (const zeile of rows) {

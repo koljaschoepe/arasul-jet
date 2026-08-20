@@ -1426,12 +1426,25 @@ und 64 MB entpackt.
       "jetson_tested": true,
       "is_installed": true,
       "is_loaded": false,
-      "is_default": true
+      "is_default": true,
+      "parameter_label": "8.2B",
+      "quantization": "Q4_K_M",
+      "license": "apache-2.0",
+      "profile_read_at": "2026-08-20T21:00:00Z",
+      "measured_tps": "14.3",
+      "measured_runs": "12"
     }
   ],
   "timestamp": "2026-01-07T12:00:00Z"
 }
 ```
+
+Die letzten sechs Felder kommen aus Plan 023 D2. Die ersten vier liest der
+Modell-Abgleich aus Ollamas `/api/show`, also aus den Gewichten; sie sind
+`null`, solange das Modell nicht auf dem Gerät liegt. `measured_tps` ist der
+Median der Ausgabegeschwindigkeit auf DIESEM Gerät, `measured_runs` die Zahl
+der Messungen dahinter. Beide kommen als Zeichenkette, weil Postgres `numeric`
+so ausliefert.
 
 **GET /api/models/status:**
 
