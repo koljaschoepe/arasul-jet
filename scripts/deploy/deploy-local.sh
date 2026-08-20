@@ -55,7 +55,33 @@ declare -A PATH2SVC=(
 cd "$DEPLOY_DIR" || { err "DEPLOY_DIR $DEPLOY_DIR fehlt"; exit 1; }
 
 # --- 1. Neuen Stand in den kanonischen Checkout holen ------------------------
-PREV_SHA="$(git rev-parse HEAD)"
+# Der Vergleichsstand kommt von GitHub (`github.event.before`), NICHT aus dem
+# Arbeitsverzeichnis. Bis zum 20.08.2026 stand hier `git rev-parse HEAD`, und
+# damit hing der Deploy davon ab, worauf jemand dieses Verzeichnis zuletzt
+# gestellt hat. Zweimal an einem Abend gesehen:
+#
+#   - Der Checkout lag auf einem Branch, der den Code schon enthielt. Der
+#     Vergleich fand nur noch Doku-Aenderungen, der Deploy meldete gruen und
+#     baute nichts. Der Code war gemergt und das Geraet lief weiter mit dem
+#     alten Stand.
+#   - Ein `git pull` von Hand kam dem Lauf zuvor. Dann war PREV gleich NEW,
+#     "Keine Dateiaenderungen", wieder gruen, wieder nichts gebaut.
+#
+# Beides faellt nur auf, wenn jemand auf die Laufzeit sieht: 12 Sekunden statt
+# anderthalb Minuten. Ein Deploy, der nicht ausrechnen kann, was sich geaendert
+# hat, muss ALLES bauen und nicht nichts. Diese Richtung ist die einzige, die
+# sich nicht als Erfolg tarnt.
+PREV_SHA="${GITHUB_EVENT_BEFORE:-}"
+ALLES_BAUEN=0
+NULLEN='0000000000000000000000000000000000000000'
+if [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "$NULLEN" ]; then
+  warn "Kein Vergleichsstand von GitHub. Es werden alle Services gebaut."
+  ALLES_BAUEN=1
+  PREV_SHA="$(git rev-parse HEAD)"
+elif [ "$PREV_SHA" = "$NEW_SHA" ]; then
+  warn "Vergleichsstand gleich neuem Stand. Es werden alle Services gebaut."
+  ALLES_BAUEN=1
+fi
 log "Deploy $PREV_SHA → $NEW_SHA (in $DEPLOY_DIR)"
 if ! git fetch --quiet "$SRC" "$NEW_SHA"; then
   err "git fetch aus _work-Checkout fehlgeschlagen"; exit 1
@@ -99,13 +125,29 @@ if [ ! -s "$SECRETS_DIR/n8n_owner_password" ]; then
 fi
 
 # --- 2. Geaenderte Dateien -> Services ---------------------------------------
-mapfile -t CHANGED < <(git diff --name-only "$PREV_SHA" "$NEW_SHA")
-if [ "${#CHANGED[@]}" -eq 0 ]; then
+# Der Rueckgabewert von `git diff` wird ausgewertet. Ohne das schluckt
+# `mapfile < <(...)` einen Fehlschlag und liefert eine leere Liste, und eine
+# leere Liste liest sich wie "nichts geaendert". Ein flacher Klon auf dem
+# Runner reicht schon, damit der Vergleichsstand nicht lesbar ist.
+CHANGED=()
+if [ "$ALLES_BAUEN" -eq 0 ]; then
+  if DIFF="$(git diff --name-only "$PREV_SHA" "$NEW_SHA" 2>&1)"; then
+    [ -n "$DIFF" ] && mapfile -t CHANGED <<< "$DIFF"
+  else
+    warn "Vergleich $PREV_SHA..$NEW_SHA nicht moeglich ($DIFF). Es werden alle Services gebaut."
+    ALLES_BAUEN=1
+  fi
+fi
+
+if [ "$ALLES_BAUEN" -eq 1 ]; then
+  mapfile -t CHANGED < <(git ls-files)
+  INFRA_CHANGE_ERZWUNGEN=1
+elif [ "${#CHANGED[@]}" -eq 0 ]; then
   ok "Keine Dateiaenderungen — nichts zu deployen."; summary "Deploy: no file changes."; exit 0
 fi
 
 declare -A SVC_SET=()
-INFRA_CHANGE=0
+INFRA_CHANGE="${INFRA_CHANGE_ERZWUNGEN:-0}"
 MIGRATION_CHANGE=0
 SANDBOX_CHANGE=0
 for f in "${CHANGED[@]}"; do

@@ -32,4 +32,9 @@ jobs:
         env:
           DEPLOY_DIR: /home/arasul/arasul/arasul-jet
           HEALTH_TIMEOUT: '240'
+          # Der Vergleichsstand kommt von GitHub, nicht aus dem Arbeits-
+          # verzeichnis auf dem Geraet. Warum, steht in deploy-local.sh
+          # ueber PREV_SHA. Kurz: wer dort von Hand etwas auscheckt oder
+          # zieht, machte den Deploy sonst zum Nulllauf mit gruenem Haken.
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
         run: bash scripts/deploy/deploy-local.sh
