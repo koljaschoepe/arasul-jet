@@ -143,6 +143,17 @@ run_faden_check() {
   fi
 }
 
+# Funktion: Selbsttest der Waechter
+# Ein Waechter, den niemand prueft, meldet irgendwann Ruhe, ohne dass es
+# auffaellt. Zweimal passiert, beide Male spaet gefunden.
+run_selbsttest_check() {
+  if bash "${PROJECT_ROOT}/scripts/test/waechter-selbsttest.sh"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Baustein-Set (Plan 023 C1 und C2)
 # Laeuft immer mit. Vor Phase C fand dieser Waechter 39 Stellen, an denen ein
 # Seitenkopf, eine Feldgruppe oder eine Tab-Leiste von Hand gebaut war.
@@ -338,6 +349,7 @@ run_totercode_check
 run_gedankenstrich_check
 run_bausteine_check
 run_faden_check
+run_selbsttest_check
 
 # Hauptlogik: Welche Tests laufen?
 if [ "$RUN_ALL" = true ]; then

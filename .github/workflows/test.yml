@@ -258,6 +258,9 @@ jobs:
       - name: Der Faden (ein Plan in docs/plans/active)
         run: python3 scripts/test/plan-faden.py --pfad .
 
+      - name: Selbsttest der Waechter
+        run: bash scripts/test/waechter-selbsttest.sh
+
       - name: Toter Code (Plan 023 B3)
         run: bash scripts/test/toter-code.sh
 
