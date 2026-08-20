@@ -19,18 +19,30 @@ import sys
 from pathlib import Path
 
 
-def plaene(ordner: Path) -> list[Path]:
-    """Ein Plan ist eine .md- oder .html-Datei oder ein Ordner mit plan.md."""
+def plaene(ordner: Path) -> tuple[list[Path], list[Path]]:
+    """Ein Plan ist eine .md- oder .html-Datei oder ein Ordner mit plan.md.
+
+    Liefert zwei Listen: die Plaene und alles andere. Der zweite Teil ist
+    Absicht. Wer nur zaehlt, was er erkennt, meldet gruen, waehrend im Ordner
+    ein halb umbenannter Plan ohne plan.md oder ein liegengebliebener
+    Anhangsordner steht. Genau diese Sorte blinder Fleck ist der Grund, warum
+    es diese Pruefung ueberhaupt gibt.
+    """
     gefunden = []
+    fremd = []
     for eintrag in sorted(ordner.iterdir()):
         if eintrag.name.startswith('.') or eintrag.name == 'README.md':
             continue
         if eintrag.is_dir():
             if (eintrag / 'plan.md').exists():
                 gefunden.append(eintrag)
+            else:
+                fremd.append(eintrag)
         elif eintrag.suffix in ('.md', '.html'):
             gefunden.append(eintrag)
-    return gefunden
+        else:
+            fremd.append(eintrag)
+    return gefunden, fremd
 
 
 def main() -> int:
@@ -43,7 +55,16 @@ def main() -> int:
         print(f'   Der Faden: {ordner} gibt es nicht')
         return 1
 
-    gefunden = plaene(ordner)
+    gefunden, fremd = plaene(ordner)
+    if fremd:
+        print(f'   Der Faden: {len(fremd)} Eintrag/Eintraege in docs/plans/active/,')
+        print('   die kein Plan sind:')
+        for eintrag in fremd:
+            print(f'     {eintrag.name}')
+        print('   Ein Ordner ohne plan.md ist entweder ein halb umbenannter Plan')
+        print('   oder gehoert nicht hierher. Beides muss aufgeloest werden.')
+        return 1
+
     if len(gefunden) == 1:
         print(f'   Der Faden: genau einer, {gefunden[0].name}')
         return 0
