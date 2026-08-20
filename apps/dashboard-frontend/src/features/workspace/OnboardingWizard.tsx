@@ -117,6 +117,18 @@ export default function OnboardingWizard() {
       const erstes = ziele[0];
       const letztes = ziele[ziele.length - 1];
       if (!erstes || !letztes) return;
+      // Beim Oeffnen liegt der Fokus auf dem Dialog SELBST, damit ein
+      // Vorlesegeraet seinen Namen ansagt. Der Container ist aber weder das
+      // erste noch das letzte Ziel, also griff die Umlaufregel unten nicht:
+      // ein Shift+Tab als allererste Taste lief rueckwaerts am Dialog vorbei
+      // in den Arbeitsbereich dahinter. Vorwaerts ging es nur deshalb gut,
+      // weil die Kinder in der Dokumentreihenfolge direkt dahinter stehen.
+      const aktiv = document.activeElement;
+      if (aktiv === dialog.current || !dialog.current.contains(aktiv)) {
+        e.preventDefault();
+        (e.shiftKey ? letztes : erstes).focus();
+        return;
+      }
       if (e.shiftKey && document.activeElement === erstes) {
         e.preventDefault();
         letztes.focus();
@@ -166,7 +178,11 @@ export default function OnboardingWizard() {
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Schritt {i + 1} von {SCHRITTE.length}
           </span>
-          <div className="flex items-center gap-1.5" aria-hidden="true">
+          <div
+            className="flex items-center gap-1.5"
+            aria-hidden="true"
+            data-testid="fortschritt-punkte"
+          >
             {SCHRITTE.map((_, idx) => (
               <span
                 key={idx}

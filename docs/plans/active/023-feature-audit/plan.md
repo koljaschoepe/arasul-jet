@@ -709,11 +709,10 @@ wieder falsch (`werksreset.js` setzt die Zeile auf die Spalten-Vorgaben,
 Anlegen des ersten Kontos 1296 Zeilen ungeprüfte Oberfläche mit sechs Schritten.
 Bekannt sind dort bereits F-20, F-23 und `SetupWizard.tsx:358`
 (`user?.username || 'admin'` bei der Neuanmeldung nach dem Passwortwechsel, mit
-verschlucktem Fehlschlag). Das ist eine eigene Aufgabe, keine Zeile in C4. `SetupWizard.tsx:358` meldet sich nach dem
-Passwortwechsel mit `user?.username || 'admin'` neu an. Der Standardname steht
-dort nicht auf dem Bildschirm, aber im Code, und für jeden anderen
-Benutzernamen schlägt die Neuanmeldung still fehl (der `catch` schluckt sie).
-Beim Neubau mitnehmen. Ebenso F-20 und F-23, die hier noch offen sind.
+verschlucktem Fehlschlag: der Standardname steht dort nicht auf dem Bildschirm,
+aber im Code, und für jeden anderen Benutzernamen schlägt die Neuanmeldung
+still fehl). Das ist eine eigene Aufgabe, keine Zeile in C4, und sie hat ein
+eigenes Datum in `company/follow-ups.md`.
 
 ## C5 Systemstatus lesbar machen
 

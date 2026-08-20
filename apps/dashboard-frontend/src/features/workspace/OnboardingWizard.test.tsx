@@ -83,8 +83,12 @@ describe('OnboardingWizard', () => {
   // Die Punkte sagen dasselbe wie der Text. Doppelt vorgelesen ist es Lärm.
   it('haelt die Punkte von Vorlesegeraeten fern', () => {
     const { container } = render(<OnboardingWizard />);
-    const punkte = container.querySelector('[aria-hidden="true"] > span');
+    const punkte = container.querySelector('[data-testid="fortschritt-punkte"]');
     expect(punkte).not.toBeNull();
+    expect(punkte).toHaveAttribute('aria-hidden', 'true');
+    // Genau ein Punkt je Schritt, sonst prueft der Test nur, dass irgendwo
+    // irgendein aria-hidden-Element steht.
+    expect(punkte!.querySelectorAll('span')).toHaveLength(3);
   });
 
   // Der Dialog nennt sich nach seinem Schritt, nicht generisch. Sonst hoert ein
@@ -110,6 +114,32 @@ describe('OnboardingWizard', () => {
     letzter.focus();
     await userEvent.tab();
     expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  // Der Fokus liegt beim Oeffnen auf dem Dialog selbst, damit sein Name
+  // vorgelesen wird. Der Container ist aber weder erstes noch letztes Ziel, und
+  // genau deshalb lief die Umlaufregel an ihm vorbei: Shift+Tab als ALLERERSTE
+  // Taste ging rueckwaerts aus dem Dialog heraus.
+  it('faengt auch das erste Shift+Tab ab, nicht erst das zweite', async () => {
+    render(<OnboardingWizard />);
+    const dialog = screen.getByTestId('onboarding-wizard');
+    expect(dialog).toHaveFocus();
+
+    await userEvent.tab({ shift: true });
+
+    const knoepfe = dialog.querySelectorAll('button');
+    expect(document.activeElement).toBe(knoepfe[knoepfe.length - 1]);
+  });
+
+  // Gegenprobe vorwaerts: das erste Tab landet auf dem ersten Knopf im Dialog,
+  // nicht irgendwo dahinter.
+  it('faengt auch das erste Tab ab', async () => {
+    render(<OnboardingWizard />);
+    const dialog = screen.getByTestId('onboarding-wizard');
+
+    await userEvent.tab();
+
+    expect(document.activeElement).toBe(dialog.querySelector('button'));
   });
 
   // Die Hintergrundflaeche schliesst per Klick, steht aber nicht im
