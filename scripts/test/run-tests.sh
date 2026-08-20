@@ -69,7 +69,9 @@ run_backend_tests() {
       # ist, und was er auslöst, fällt B zur Last. Zweitens ein Arbeitsprozess,
       # der sich nicht beendet. Beides hat den Lauf lange sporadisch rot gemacht,
       # ohne dass eine einzige Zusage verletzt war (R30, 20.08.2026).
-      BACKEND_LOG="$(mktemp -t arasul-backend-tests)"
+      # Die sechs X sind Pflicht: GNU-mktemp verlangt sie in der Vorlage, BSD-mktemp
+      # auf dem Mac kommt auch ohne aus. Das Skript laeuft auf beidem.
+      BACKEND_LOG="$(mktemp -t arasul-backend-tests.XXXXXX)"
       # Die Pipeline steht in einem `if`, und das ist kein Stil, sondern noetig:
       # das Skript laeuft mit `set -euo pipefail`. Als nackte Anweisung wuerde ein
       # roter Jest-Lauf hier sofort das ganze Skript beenden, und dann liefen

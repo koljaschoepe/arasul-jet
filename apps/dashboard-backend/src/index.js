@@ -535,8 +535,9 @@ if (alsServerGestartet) {
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
-// Only start server if not in test mode
-if (require.main === module) {
+// Only start server if not in test mode — dieselbe Bedingung wie oben, damit es
+// genau einen Namen dafür gibt.
+if (alsServerGestartet) {
   server.listen(PORT, '0.0.0.0', async () => {
     logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
     logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);

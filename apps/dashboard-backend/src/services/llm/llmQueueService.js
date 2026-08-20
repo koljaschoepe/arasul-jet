@@ -560,7 +560,7 @@ function createLLMQueueService(deps = {}) {
               done: true,
             });
             this.processingJobId = null;
-            setImmediate(() => this.processNext());
+            this.weiterNachFehler();
             return;
           }
         }
@@ -626,10 +626,7 @@ function createLLMQueueService(deps = {}) {
           }
         }
         this.processingJobId = null;
-        // Mit Abstand weitermachen, nicht sofort. Siehe `pauseNachFehler`.
-        this.fehlerFolge = (this.fehlerFolge || 0) + 1;
-        const pause = setTimeout(() => this.processNext(), pauseNachFehler(this.fehlerFolge));
-        pause.unref?.();
+        this.weiterNachFehler();
       }
     }
 
@@ -911,6 +908,19 @@ function createLLMQueueService(deps = {}) {
 
       // Remove all event listeners
       this.removeAllListeners();
+    }
+
+    /**
+     * Nach einem Fehlschlag mit wachsendem Abstand weitermachen. Zwei Stellen
+     * enden im Fehler und stossen den naechsten Versuch an: der allgemeine
+     * `catch` in `processNext` und der Abbruch nach einem gescheiterten
+     * Modellwechsel. Beide gehen hier durch, sonst dreht die zweite weiter
+     * ungebremst im Kreis, gerade bei einem dauerhaft fehlenden Modell.
+     */
+    weiterNachFehler() {
+      this.fehlerFolge = (this.fehlerFolge || 0) + 1;
+      const pause = setTimeout(() => this.processNext(), pauseNachFehler(this.fehlerFolge));
+      pause.unref?.();
     }
 
     /**

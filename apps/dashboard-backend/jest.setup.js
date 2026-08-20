@@ -243,8 +243,22 @@ const MARKE = Symbol.for('arasul.listenErsetzt');
 if (!net.Server.prototype.listen[MARKE]) {
   const echtesListen = net.Server.prototype.listen;
 
+  /** Beide Schreibweisen: `listen(0, …)` und `listen({ port: 0, … })`. */
+  const willFreienPort = args =>
+    args.length > 0 &&
+    (args[0] === 0 ||
+      args[0] === '0' ||
+      (args[0] !== null &&
+        typeof args[0] === 'object' &&
+        (args[0].port === 0 || args[0].port === '0')));
+
+  const mitPort = (args, port) =>
+    args[0] !== null && typeof args[0] === 'object'
+      ? [{ ...args[0], port }, ...args.slice(1)]
+      : [port, ...args.slice(1)];
+
   const ersetzt = function (...args) {
-    if (args.length === 0 || !(args[0] === 0 || args[0] === '0')) {
+    if (!willFreienPort(args)) {
       return echtesListen.apply(this, args);
     }
     for (let versuch = 0; versuch < BEREICH_GROESSE; versuch += 1) {
@@ -258,7 +272,7 @@ if (!net.Server.prototype.listen[MARKE]) {
       const port = naechsterPort;
       vergeben.add(port);
       this.once('close', () => vergeben.delete(port));
-      return echtesListen.apply(this, [port, ...args.slice(1)]);
+      return echtesListen.apply(this, mitPort(args, port));
     }
     throw new Error(
       `Alle ${BEREICH_GROESSE} Ports ab ${BEREICH_START} sind belegt. Das heißt: ` +
