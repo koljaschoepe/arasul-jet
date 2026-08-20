@@ -130,6 +130,19 @@ function ModelFitBanner({ requiredGb }: { requiredGb: number }) {
   );
 }
 
+/**
+ * Steckbrief-Werte (Plan 023 D2). Sie kommen aus Ollamas /api/show, also aus
+ * den Gewichten selbst, und stehen deshalb erst da, wenn das Modell auf diesem
+ * Geraet liegt. Ein leeres Feld wird nicht gefuellt, sondern weggelassen; die
+ * Zeile darunter sagt, warum.
+ */
+function zahlDeutsch(wert: string | number | null | undefined): string | null {
+  if (wert === null || wert === undefined || wert === '') return null;
+  const zahl = Number(wert);
+  if (!Number.isFinite(zahl)) return null;
+  return zahl.toLocaleString('de-DE', { maximumFractionDigits: 1 });
+}
+
 function Spec({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -261,6 +274,16 @@ function ModelDetail({
 
   // Plan 023 D1: ein Name fuer die Ueberschrift, jede Meldung und jeden Knopf.
   const anzeige = modellAnzeigeName(model);
+
+  // Plan 023 D2: der Steckbrief. `profile_read_at` unterscheidet "noch nie
+  // gelesen" von "gelesen, aber das Modell traegt die Angabe nicht".
+  const steckbriefDa = Boolean(model.profile_read_at);
+  const gemessen = zahlDeutsch(model.measured_tps);
+  const laeufe = zahlDeutsch(model.measured_runs);
+  // sanitizeUrl gibt '#' zurueck, wenn nichts Brauchbares dasteht. Ein Link
+  // auf '#' waere schlimmer als keiner: er sieht aus, als fuehre er irgendwohin.
+  const geprueft = model.ollama_library_url ? sanitizeUrl(model.ollama_library_url) : '#';
+  const kartenLink = geprueft === '#' ? null : geprueft;
 
   const isReady = model.install_status === 'available';
   const loadedId = loadedModel?.model_id ?? null;
@@ -403,13 +426,45 @@ function ModelDetail({
         <Spec label="Modell-ID">
           <code className="text-sm">{model.id}</code>
         </Spec>
+        {model.parameter_label && <Spec label="Parameter">{model.parameter_label}</Spec>}
+        {model.quantization && <Spec label="Quantisierung">{model.quantization}</Spec>}
         <Spec label="Download-Größe">{formatSize(model.size_bytes)}</Spec>
         <Spec label="RAM-Bedarf">{model.ram_required_gb} GB</Spec>
-        <Spec label="Geschwindigkeit">{speedLabel[model.speed_tier ?? ''] ?? 'Ausgewogen'}</Spec>
+        <Spec label="Einstufung">{speedLabel[model.speed_tier ?? ''] ?? 'Ausgewogen'}</Spec>
+        {gemessen && (
+          <Spec label="Gemessen auf diesem Gerät">
+            {gemessen} Token/s
+            {laeufe && (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                aus {laeufe} {laeufe === '1' ? 'Lauf' : 'Läufen'}
+              </span>
+            )}
+          </Spec>
+        )}
         {model.context_window != null && (
           <Spec label="Kontextlänge">{formatContextLength(model.context_window)}</Spec>
         )}
+        {model.license && <Spec label="Lizenz">{model.license}</Spec>}
+        {kartenLink && (
+          <Spec label="Modellkarte">
+            <a
+              href={kartenLink}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-sm text-primary underline-offset-2 hover:underline"
+            >
+              Beim Hersteller nachlesen
+            </a>
+          </Spec>
+        )}
       </div>
+
+      {!steckbriefDa && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Parameterzahl, Quantisierung und Lizenz liest Arasul aus den Gewichten. Sie stehen hier,
+          sobald das Modell auf diesem Gerät liegt.
+        </p>
+      )}
 
       {model.capabilities && model.capabilities.length > 0 && (
         <div className="mt-6 border-t border-border pt-6">

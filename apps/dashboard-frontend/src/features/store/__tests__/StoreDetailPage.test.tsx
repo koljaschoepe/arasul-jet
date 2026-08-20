@@ -21,6 +21,14 @@ const catalog = {
       install_status: 'available',
       speed_tier: 'balanced',
       context_window: 32768,
+      // Steckbrief, Plan 023 D2 — so, wie Ollama ihn auf dem Orin meldet.
+      parameter_label: '8.2B',
+      quantization: 'Q4_K_M',
+      license: 'apache-2.0',
+      profile_read_at: '2026-08-20T21:00:00Z',
+      measured_tps: '14.3',
+      measured_runs: '12',
+      ollama_library_url: 'https://ollama.com/library/llama3',
     },
     {
       id: 'llama3-mini',
@@ -167,6 +175,54 @@ describe('StoreDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'n8n' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Deaktivieren/ }));
     await waitFor(() => expect(setAppEnabled).toHaveBeenCalledWith('n8n', false));
+  });
+
+  // --- Steckbrief, Plan 023 D2 -------------------------------------------
+
+  it('Steckbrief: Parameter, Quantisierung und Lizenz stehen da', () => {
+    useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3' });
+    renderPage();
+    expect(screen.getByText('Parameter')).toBeInTheDocument();
+    expect(screen.getByText('8.2B')).toBeInTheDocument();
+    expect(screen.getByText('Quantisierung')).toBeInTheDocument();
+    expect(screen.getByText('Q4_K_M')).toBeInTheDocument();
+    expect(screen.getByText('Lizenz')).toBeInTheDocument();
+    expect(screen.getByText('apache-2.0')).toBeInTheDocument();
+  });
+
+  it('Steckbrief: die Messung nennt die Zahl der Laeufe und schreibt deutsch', () => {
+    useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3' });
+    renderPage();
+    expect(screen.getByText('Gemessen auf diesem Gerät')).toBeInTheDocument();
+    // 14.3 aus der Datenbank, 14,3 auf dem Bildschirm.
+    expect(screen.getByText(/14,3 Token\/s/)).toBeInTheDocument();
+    expect(screen.getByText(/aus 12 Läufen/)).toBeInTheDocument();
+  });
+
+  it('Steckbrief: der Link auf die Modellkarte fuehrt zum Hersteller', () => {
+    useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3' });
+    renderPage();
+    const link = screen.getByRole('link', { name: 'Beim Hersteller nachlesen' });
+    expect(link).toHaveAttribute('href', 'https://ollama.com/library/llama3');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  it('Ohne Steckbrief steht dort kein leeres Feld, sondern der Grund', () => {
+    // llama3-mini ist nicht installiert, also hat Ollama nichts zu melden.
+    useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3-mini' });
+    renderPage();
+    expect(screen.queryByText('Parameter')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lizenz')).not.toBeInTheDocument();
+    expect(screen.queryByText('Gemessen auf diesem Gerät')).not.toBeInTheDocument();
+    expect(screen.getByText(/sobald das Modell auf diesem Gerät liegt/)).toBeInTheDocument();
+  });
+
+  it('Ohne Modellkarte wird kein Link auf Nichts gebaut', () => {
+    useExtensionStore.getState().selectExtension({ kind: 'model', id: 'llama3-mini' });
+    renderPage();
+    expect(
+      screen.queryByRole('link', { name: 'Beim Hersteller nachlesen' })
+    ).not.toBeInTheDocument();
   });
 
   it('Baukasten-Einstieg (kind: builder) zeigt die Foundation-Seite', () => {
