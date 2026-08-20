@@ -86,7 +86,7 @@ export default function KundenUebersichtTab() {
           <p className="text-sm text-muted-foreground">Kunden werden geladen …</p>
         ) : kunden.length === 0 ? (
           <EmptyState
-            icon={<Users className="size-6" aria-hidden="true" />}
+            icon={<Users />}
             title="Noch keine Kunden"
             description="Lege im Chat mit /neuer-kunde den ersten Kunden an, die Firma wird automatisch im Web recherchiert."
           />

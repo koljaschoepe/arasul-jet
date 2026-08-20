@@ -338,10 +338,12 @@ describe('Settings integration', () => {
 
     await waitFor(() => {
       // "Selbstheilung" appears both as the active sub-nav tab and as the
-      // heading of the mounted SelfHealingEvents section.
-      expect(screen.getByRole('button', { name: 'Selbstheilung' })).toHaveAttribute(
-        'aria-current',
-        'page'
+      // heading of the mounted SelfHealingEvents section. Seit Plan 023 C1 ist
+      // die Unterleiste eine echte Tab-Leiste (FilterBar), vorher eine nav mit
+      // aria-current="page".
+      expect(screen.getByRole('tab', { name: 'Selbstheilung' })).toHaveAttribute(
+        'aria-selected',
+        'true'
       );
       expect(screen.getAllByText('Selbstheilung').length).toBeGreaterThanOrEqual(2);
     });

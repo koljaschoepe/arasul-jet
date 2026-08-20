@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Lock,
   Eye,
   EyeOff,
   Check,
@@ -8,6 +7,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Info,
+  Lock,
   Monitor,
   HardDrive,
   Zap,
@@ -20,7 +20,8 @@ import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
 import { Button } from '@/components/ui/shadcn/button';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/shadcn/tabs';
+import { FilterBar, type FilterBarItem } from '@/components/ui/FilterBar';
+import { Section } from '@/components/ui/Section';
 import { cn } from '@/lib/utils';
 
 interface PasswordRequirements {
@@ -45,9 +46,9 @@ interface ShowPasswordFields {
 
 type ServiceId = 'dashboard' | 'minio';
 
-const SERVICES: { id: ServiceId; label: string; icon: React.ReactNode }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <Monitor className="size-4" /> },
-  { id: 'minio', label: 'MinIO', icon: <HardDrive className="size-4" /> },
+const SERVICES: FilterBarItem<ServiceId>[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: Monitor },
+  { id: 'minio', label: 'MinIO', icon: HardDrive },
 ];
 
 function PasswordManagement() {
@@ -130,7 +131,7 @@ function PasswordManagement() {
   };
 
   const handleServiceSwitch = useCallback(
-    async (newService: string) => {
+    async (newService: ServiceId) => {
       const current = passwords[activeService];
       const hasInput = current.current || current.new || current.confirm;
 
@@ -148,7 +149,7 @@ function PasswordManagement() {
         ...prev,
         [activeService]: { current: '', new: '', confirm: '' },
       }));
-      setActiveService(newService as ServiceId);
+      setActiveService(newService);
       setMessage(null);
     },
     [activeService, passwords, confirm]
@@ -267,178 +268,174 @@ function PasswordManagement() {
     <div>
       {ConfirmDialog}
 
-      <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-        <Lock className="size-4 text-muted-foreground" />
-        Passwortverwaltung
-      </h3>
-      <p className="text-xs text-muted-foreground mb-6">
-        Ändere die Passwörter für Dashboard und MinIO
-      </p>
+      <Section
+        title="Passwortverwaltung"
+        icon={<Lock />}
+        description="Ändere die Passwörter für Dashboard und MinIO"
+        divider={false}
+      >
+        <FilterBar
+          items={SERVICES}
+          active={activeService}
+          onChange={handleServiceSwitch}
+          label="Dienst für den Passwortwechsel"
+          panelClassName="pt-6"
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {renderPasswordField(
+              'current',
+              // P2.1.6: previous code hardcoded "Dashboard-Passwort" labels even
+              // for MinIO. The hint text branched correctly but label/placeholder
+              // misled MinIO password-change flows.
+              activeService === 'dashboard'
+                ? 'Aktuelles Dashboard-Passwort'
+                : 'Aktuelles Dashboard-Admin-Passwort',
+              activeService === 'dashboard'
+                ? 'Dashboard-Passwort eingeben'
+                : 'Dashboard-Admin-Passwort eingeben',
+              activeService === 'dashboard'
+                ? 'Zur Sicherheit wird Ihr aktuelles Passwort benötigt'
+                : 'Zur Bestätigung wird Ihr Dashboard-Admin-Passwort benötigt'
+            )}
+            {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
+            {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
 
-      <div className="space-y-6">
-        {/* Service Selector */}
-        <Tabs value={activeService} onValueChange={handleServiceSwitch}>
-          <TabsList variant="line" className="w-full">
-            {SERVICES.map(service => (
-              <TabsTrigger key={service.id} value={service.id} className="flex-1">
-                {service.icon}
-                <span>{service.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+            {/* Password Requirements */}
+            {requirements && passwords[activeService].new && (
+              <div className="border-l-2 border-primary/30 pl-4 space-y-2">
+                <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
+                <ul className="space-y-1">
+                  <li
+                    className={cn(
+                      'flex items-center gap-2 text-xs',
+                      validations.minLength ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  >
+                    {validations.minLength ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
+                    Mindestens {requirements.minLength} Zeichen
+                  </li>
+                  {requirements.requireUppercase && (
+                    <li
+                      className={cn(
+                        'flex items-center gap-2 text-xs',
+                        validations.uppercase ? 'text-primary' : 'text-muted-foreground'
+                      )}
+                    >
+                      {validations.uppercase ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
+                      Mindestens ein Großbuchstabe
+                    </li>
+                  )}
+                  {requirements.requireLowercase && (
+                    <li
+                      className={cn(
+                        'flex items-center gap-2 text-xs',
+                        validations.lowercase ? 'text-primary' : 'text-muted-foreground'
+                      )}
+                    >
+                      {validations.lowercase ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
+                      Mindestens ein Kleinbuchstabe
+                    </li>
+                  )}
+                  {requirements.requireNumbers && (
+                    <li
+                      className={cn(
+                        'flex items-center gap-2 text-xs',
+                        validations.number ? 'text-primary' : 'text-muted-foreground'
+                      )}
+                    >
+                      {validations.number ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
+                      Mindestens eine Zahl
+                    </li>
+                  )}
+                  {requirements.requireSpecialChars && (
+                    <li
+                      className={cn(
+                        'flex items-center gap-2 text-xs',
+                        validations.special ? 'text-primary' : 'text-muted-foreground'
+                      )}
+                    >
+                      {validations.special ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <X className="size-3.5" />
+                      )}
+                      Mindestens ein Sonderzeichen
+                    </li>
+                  )}
+                  <li
+                    className={cn(
+                      'flex items-center gap-2 text-xs',
+                      validations.match ? 'text-primary' : 'text-muted-foreground'
+                    )}
+                  >
+                    {validations.match ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
+                    Passwörter stimmen überein
+                  </li>
+                </ul>
+              </div>
+            )}
 
-        {/* Password Change Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {renderPasswordField(
-            'current',
-            // P2.1.6: previous code hardcoded "Dashboard-Passwort" labels even
-            // for MinIO. The hint text branched correctly but label/placeholder
-            // misled MinIO password-change flows.
-            activeService === 'dashboard'
-              ? 'Aktuelles Dashboard-Passwort'
-              : 'Aktuelles Dashboard-Admin-Passwort',
-            activeService === 'dashboard'
-              ? 'Dashboard-Passwort eingeben'
-              : 'Dashboard-Admin-Passwort eingeben',
-            activeService === 'dashboard'
-              ? 'Zur Sicherheit wird Ihr aktuelles Passwort benötigt'
-              : 'Zur Bestätigung wird Ihr Dashboard-Admin-Passwort benötigt'
-          )}
-          {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
-          {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
+            {/* Message */}
+            {message && (
+              <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
+                <AlertCircle className="size-4" />
+                <AlertDescription>{message.text}</AlertDescription>
+              </Alert>
+            )}
 
-          {/* Password Requirements */}
-          {requirements && passwords[activeService].new && (
-            <div className="border-l-2 border-primary/30 pl-4 space-y-2">
-              <h4 className="text-sm font-semibold text-foreground">Passwortanforderungen</h4>
-              <ul className="space-y-1">
-                <li
-                  className={cn(
-                    'flex items-center gap-2 text-xs',
-                    validations.minLength ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                >
-                  {validations.minLength ? (
-                    <Check className="size-3.5" />
-                  ) : (
-                    <X className="size-3.5" />
-                  )}
-                  Mindestens {requirements.minLength} Zeichen
-                </li>
-                {requirements.requireUppercase && (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 text-xs',
-                      validations.uppercase ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {validations.uppercase ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <X className="size-3.5" />
-                    )}
-                    Mindestens ein Großbuchstabe
-                  </li>
-                )}
-                {requirements.requireLowercase && (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 text-xs',
-                      validations.lowercase ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {validations.lowercase ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <X className="size-3.5" />
-                    )}
-                    Mindestens ein Kleinbuchstabe
-                  </li>
-                )}
-                {requirements.requireNumbers && (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 text-xs',
-                      validations.number ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {validations.number ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <X className="size-3.5" />
-                    )}
-                    Mindestens eine Zahl
-                  </li>
-                )}
-                {requirements.requireSpecialChars && (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 text-xs',
-                      validations.special ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {validations.special ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <X className="size-3.5" />
-                    )}
-                    Mindestens ein Sonderzeichen
-                  </li>
-                )}
-                <li
-                  className={cn(
-                    'flex items-center gap-2 text-xs',
-                    validations.match ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                >
-                  {validations.match ? <Check className="size-3.5" /> : <X className="size-3.5" />}
-                  Passwörter stimmen überein
-                </li>
-              </ul>
+            {/* Submit Button */}
+            <div className="flex justify-end">
+              <Button type="submit" loading={loading} disabled={!isFormValid()}>
+                Passwort ändern
+              </Button>
             </div>
-          )}
 
-          {/* Message */}
-          {message && (
-            <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
-              <AlertCircle className="size-4" />
-              <AlertDescription>{message.text}</AlertDescription>
-            </Alert>
-          )}
+            {/* Recovery hint — no self-service reset by design; operator-only via CLI. */}
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Info className="size-3.5 shrink-0 mt-0.5" />
+              <p>
+                Passwort vergessen? Der Operator kann es per CLI zurücksetzen:{' '}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
+                  scripts/security/reset-password.sh
+                </code>
+              </p>
+            </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-end">
-            <Button type="submit" loading={loading} disabled={!isFormValid()}>
-              Passwort ändern
-            </Button>
-          </div>
+            {activeService === 'dashboard' && (
+              <p className="text-xs text-muted-foreground">
+                <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des
+                Dashboard-Passworts werden Sie automatisch abgemeldet.
+              </p>
+            )}
 
-          {/* Recovery hint — no self-service reset by design; operator-only via CLI. */}
-          <div className="flex items-start gap-2 text-xs text-muted-foreground">
-            <Info className="size-3.5 shrink-0 mt-0.5" />
-            <p>
-              Passwort vergessen? Der Operator kann es per CLI zurücksetzen:{' '}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
-                scripts/security/reset-password.sh
-              </code>
-            </p>
-          </div>
-
-          {activeService === 'dashboard' && (
-            <p className="text-xs text-muted-foreground">
-              <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des Dashboard-Passworts
-              werden Sie automatisch abgemeldet.
-            </p>
-          )}
-
-          {activeService === 'minio' && (
-            <p className="text-xs text-muted-foreground">
-              <Info className="size-3.5 inline" /> Der MinIO-Service wird nach der Passwortänderung
-              automatisch neu gestartet.
-            </p>
-          )}
-        </form>
+            {activeService === 'minio' && (
+              <p className="text-xs text-muted-foreground">
+                <Info className="size-3.5 inline" /> Der MinIO-Service wird nach der
+                Passwortänderung automatisch neu gestartet.
+              </p>
+            )}
+          </form>
+        </FilterBar>
 
         {/* n8n info */}
         <div className="mt-6 pt-6 border-t border-border">
@@ -461,7 +458,7 @@ function PasswordManagement() {
             </div>
           </div>
         </div>
-      </div>
+      </Section>
     </div>
   );
 }

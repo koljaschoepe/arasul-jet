@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/shadcn/button';
 import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { extractIssues } from './validationIssues';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 /**
  * LLM-Standardwerte — raw column values as returned by GET /rag/settings.
@@ -210,9 +211,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
   if (loading || !numberValues) {
     return (
       <div className="animate-in fade-in">
-        <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Sprachmodell</h1>
-        </div>
+        <PageHeader title="Sprachmodell" />
         <SkeletonCard hasAvatar={false} lines={6} />
       </div>
     );
@@ -244,14 +243,10 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
 
   return (
     <div className="animate-in fade-in">
-      <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Sprachmodell</h1>
-        <p className="text-sm text-muted-foreground">
-          Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom
-          Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die
-          Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen.
-        </p>
-      </div>
+      <PageHeader
+        title="Sprachmodell"
+        description="Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen."
+      />
 
       <div className="flex flex-col gap-8">
         {/* LLM-Standardwerte */}

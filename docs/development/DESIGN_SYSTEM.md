@@ -345,6 +345,55 @@ box-shadow: 0 0 0 3px var(--primary-muted);
 
 ## Komponenten-Patterns
 
+### Das gemeinsame Baustein-Set (`components/ui/`)
+
+> Stand: 2026-08-20 · Quelle: Plan 023 Phase C1
+
+Sechs Bausteine tragen die wiederkehrenden Formen. Wer eine Seite baut, nimmt
+sie, statt die Klassenkette erneut zu schreiben. Vor C1 standen dieselben
+Ketten an zwanzig Kopfstellen in elf Dateien und in drei verschiedenen
+Tab-Leisten, und sie liefen auseinander.
+
+| Baustein                | Datei               | Was er festlegt                                                                   |
+| ----------------------- | ------------------- | --------------------------------------------------------------------------------- |
+| `PageHeader`            | `ui/PageHeader.tsx` | Seitentitel als einziges `h1`, `text-2xl`, Beschreibung, Aktion rechts            |
+| `FilterBar`             | `ui/FilterBar.tsx`  | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`), Pfeile, Pos1/Ende, roving tabindex |
+| `StatTile` / `StatGrid` | `ui/StatTile.tsx`   | Kennzahl ohne Symbol; Raster fest auf 1/2/4 Spalten, nie drei plus eins           |
+| `Chart` / `Sparkline`   | `ui/Chart.tsx`      | recharts-Linien, ausschließlich Blau nach Grau, ohne eigene Karte                 |
+| `Section`               | `ui/Section.tsx`    | Feldgruppe: `h2`, optionales Symbol, Beschreibung, Aktion, Trennlinie             |
+| `EmptyState`            | `ui/EmptyState.tsx` | leere Liste mit Titel und Einstieg                                                |
+
+Drei Festlegungen, die der Aufrufer nicht mehr treffen kann:
+
+1. **Reihenfolge der Diagrammfarben** steht in `SERIENFARBEN`
+   (`--color-chart-1` → `--primary-color` → `--text-secondary` → `--text-muted`).
+   Violett (`--color-chart-2`) und Orange (`--color-chart-3`) sind aus den
+   Verlaufsdiagrammen heraus; drei Farben für drei Werte derselben Einheit
+   behaupten eine Bedeutung, die es nicht gibt.
+2. **Kennzahlraster** benutzt feste Spaltenzahlen statt `auto-fit`. `auto-fit`
+   füllt so viele Spalten, wie hineinpassen, und legt bei vier Kacheln je nach
+   Fensterbreite drei nebeneinander und eine allein darunter.
+3. **Die Filterleiste bringt ihre Inhaltsfläche mit.** `tab` und `tabpanel`
+   müssen über Kennungen aufeinander zeigen; liegen beide Hälften in einer
+   Hand, kann der Aufrufer sie nicht verfehlen.
+
+**Welche Skala gilt wo.** Die Bausteine tragen keine eigene Meinung dazu, sie
+folgen der Fläche, auf der sie liegen. `StatTile`, `StatGrid` und `Sparkline`
+stehen im Systemstatus, einer normierten Ansicht, und benutzen deshalb die
+Dichte-Skala (`p-ui-3`, `gap-ui-2`, `text-ui-xs`, `text-ui-sm`). `PageHeader`,
+`FilterBar`, `Section` und `EmptyState` stehen auf den Einstellungsseiten und
+benutzen die Tailwind-Voreinstellung, wie diese Seiten es tun. Farben tragen
+überall die shadcn-Namen (`bg-card`, `text-foreground`, `text-muted-foreground`);
+beide Token-Familien zeigen in `index.css` auf dieselben Werte, und dort steht
+der Rest des Codes.
+
+`DashboardCard` (`features/system/`) bleibt daneben bestehen: eine erhabene
+Fläche, kein Baustein des Sets. Das Diagramm bringt keine mit, aber der
+Aufrufer stellt eine, wo die Nachbarn welche haben. Im Systemstatus liegen
+vier Kennzahlkacheln darüber und die System-Gesundheit darunter, beide als
+Karte; ein flacher Block dazwischen liest sich wie eine vergessene
+Formatierung, nicht wie Absicht.
+
 ### Workspace-Shell (IDE-Layout)
 
 Die Workspace-Shell (`features/workspace/`, immer aktiv — `/` landet stets auf

@@ -1,16 +1,8 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
-import { Layers, HardDrive, Activity, Thermometer } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
+import { Chart, Sparkline } from '@/components/ui/Chart';
+import { Section } from '@/components/ui/Section';
+import { StatGrid, StatTile } from '@/components/ui/StatTile';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import type {
@@ -21,7 +13,7 @@ import type {
   ChartDataPoint,
 } from '@/hooks/useDashboardData';
 import type { Metrics } from '@/types';
-import { DashboardCard, DashboardCardTitle } from './DashboardCard';
+import { DashboardCard } from './DashboardCard';
 
 /**
  * SystemStatus — die Live-System-Status-Ansicht (RAM/Swap/Storage/Temperatur-
@@ -56,63 +48,6 @@ const STAT_BADGE_VARIANTS = {
 } as const;
 
 type StatBadgeVariant = keyof typeof STAT_BADGE_VARIANTS;
-
-function StatCard({
-  icon,
-  label,
-  children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-}): React.JSX.Element {
-  return (
-    <div className="flex min-w-0 items-center gap-ui-3 rounded-lg border border-border bg-bg-card p-ui-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--primary-alpha-10)]">
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-ui-xs font-semibold uppercase tracking-wider text-text-muted">
-          {label}
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-const TempSparkline = React.memo(function TempSparkline({
-  history,
-}: {
-  history?: (number | null)[];
-}): React.JSX.Element | null {
-  const points = useMemo(() => {
-    if (!history || history.length === 0) return [];
-    const tail = history.slice(-30);
-    return tail
-      .map((v, i) => ({ i, v: typeof v === 'number' && v > 0 ? v : null }))
-      .filter(p => p.v !== null);
-  }, [history]);
-
-  if (points.length < 2) return null;
-
-  return (
-    <div className="pointer-events-none mt-ui-1 w-full max-w-[120px] opacity-60" aria-hidden="true">
-      <ResponsiveContainer width="100%" height={18}>
-        <LineChart data={points} margin={{ top: 2, right: 0, bottom: 2, left: 0 }}>
-          <Line
-            type="monotone"
-            dataKey="v"
-            stroke="var(--primary-color)"
-            strokeWidth={1.5}
-            dot={false}
-            isAnimationActive={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-});
 
 interface SystemStatusViewProps {
   metrics: Metrics | null;
@@ -228,177 +163,135 @@ function SystemStatusView({
       <div className="text-ui-xs font-semibold uppercase tracking-wider text-text-muted">
         Systemstatus
       </div>
-      <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-ui-2">
-        <StatCard icon={<Activity className="h-5 w-5 text-primary" />} label="Arbeitsspeicher">
-          <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
-            {metrics?.ram?.toFixed(1) || 0}
-            <span className="text-ui-sm font-medium text-text-muted">%</span>
-          </div>
-          {deviceInfo?.total_memory_gb ? (
-            <div className="text-ui-sm text-text-secondary">
-              {(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} /{' '}
-              {deviceInfo.total_memory_gb} GB
-            </div>
-          ) : (
-            <div
-              className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getStatusInfo(metrics?.ram || 0, 'ram').variant]}`}
+      <StatGrid>
+        <StatTile
+          label="Arbeitsspeicher"
+          value={metrics?.ram?.toFixed(1) || 0}
+          unit="%"
+          note={
+            deviceInfo?.total_memory_gb ? (
+              `${(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} / ${deviceInfo.total_memory_gb} GB`
+            ) : (
+              <span
+                className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getStatusInfo(metrics?.ram || 0, 'ram').variant]}`}
+              >
+                {getStatusInfo(metrics?.ram || 0, 'ram').status}
+              </span>
+            )
+          }
+        />
+
+        <StatTile
+          label="Auslagerung"
+          value={metrics?.swap?.toFixed(1) || 0}
+          unit="%"
+          note={
+            <span
+              className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getStatusInfo(metrics?.swap || 0, 'swap').variant]}`}
             >
-              {getStatusInfo(metrics?.ram || 0, 'ram').status}
-            </div>
-          )}
-        </StatCard>
+              {getStatusInfo(metrics?.swap || 0, 'swap').status}
+            </span>
+          }
+        />
 
-        <StatCard icon={<Layers className="h-5 w-5 text-primary" />} label="Auslagerung">
-          <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
-            {metrics?.swap?.toFixed(1) || 0}
-            <span className="text-ui-sm font-medium text-text-muted">%</span>
-          </div>
-          <div
-            className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getStatusInfo(metrics?.swap || 0, 'swap').variant]}`}
-          >
-            {getStatusInfo(metrics?.swap || 0, 'swap').status}
-          </div>
-        </StatCard>
+        <StatTile
+          label="Speicherplatz"
+          value={metrics?.disk?.percent?.toFixed(0) || 0}
+          unit="%"
+          note={
+            <>
+              <div className="my-ui-1 h-1 w-full overflow-hidden rounded-full bg-border">
+                <div
+                  className="h-full rounded-full transition-[width]"
+                  style={{
+                    width: `${metrics?.disk?.percent || 0}%`,
+                    background: getProgressColor(metrics?.disk?.percent || 0, 'storage'),
+                  }}
+                />
+              </div>
+              {formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB
+            </>
+          }
+        />
 
-        <StatCard icon={<HardDrive className="h-5 w-5 text-primary" />} label="Speicherplatz">
-          <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
-            {metrics?.disk?.percent?.toFixed(0) || 0}
-            <span className="text-ui-sm font-medium text-text-muted">%</span>
-          </div>
-          <div className="my-ui-1 h-1 w-full overflow-hidden rounded-full bg-border">
-            <div
-              className="h-full rounded-full transition-[width]"
-              style={{
-                width: `${metrics?.disk?.percent || 0}%`,
-                background: getProgressColor(metrics?.disk?.percent || 0, 'storage'),
-              }}
-            />
-          </div>
-          <div className="text-ui-sm text-text-secondary">
-            {formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB
-          </div>
-        </StatCard>
-
-        <StatCard icon={<Thermometer className="h-5 w-5 text-primary" />} label="Temperatur">
-          <div className="flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-text-primary">
-            {metrics?.temperature?.toFixed(0) || 0}
-            <span className="text-ui-sm font-medium text-text-muted">°C</span>
-          </div>
-          <div
-            className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getTempStatusInfo(metrics?.temperature || 0).variant]}`}
-          >
-            {getTempStatusInfo(metrics?.temperature || 0).status}
-          </div>
-          <TempSparkline history={metricsHistory?.temperature} />
-        </StatCard>
-      </div>
+        <StatTile
+          label="Temperatur"
+          value={metrics?.temperature?.toFixed(0) || 0}
+          unit="°C"
+          note={
+            <>
+              <span
+                className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getTempStatusInfo(metrics?.temperature || 0).variant]}`}
+              >
+                {getTempStatusInfo(metrics?.temperature || 0).status}
+              </span>
+              <Sparkline values={metricsHistory?.temperature ?? []} />
+            </>
+          }
+        />
+      </StatGrid>
 
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-ui-2">
+        {/*
+          Die Karte steht hier beim Aufrufer, nicht im Diagramm. Der Baustein
+          bleibt flaechenlos, wie Plan 023 C5 es verlangt; auf dieser Seite
+          liegen aber vier Kennzahlkacheln darueber und die System-Gesundheit
+          darunter, beide als Karte. Ein einzelner flacher Block dazwischen
+          liest sich wie eine vergessene Formatierung, nicht wie Absicht.
+        */}
         <DashboardCard className="col-span-full">
-          <div className="mb-ui-2 flex flex-wrap items-center justify-between gap-ui-2">
-            <DashboardCardTitle className="mb-0">Auslastung</DashboardCardTitle>
-            <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
-              {timeRangeOptions.map((hours: number) => (
-                <button
-                  key={hours}
-                  type="button"
-                  className={`cursor-pointer rounded-sm px-ui-2 py-ui-1 text-ui-xs font-semibold transition-colors ${
-                    chartTimeRange === hours
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-text-muted hover:bg-[var(--primary-alpha-10)] hover:text-text-primary'
-                  }`}
-                  onClick={() => setChartTimeRange(hours)}
-                >
-                  {hours}h
-                </button>
-              ))}
+          <Section
+            title="Auslastung"
+            divider={false}
+            action={
+              <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
+                {timeRangeOptions.map((hours: number) => (
+                  <button
+                    key={hours}
+                    type="button"
+                    className={`cursor-pointer rounded-sm px-ui-2 py-ui-1 text-ui-xs font-semibold transition-colors ${
+                      chartTimeRange === hours
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-text-muted hover:bg-[var(--primary-alpha-10)] hover:text-text-primary'
+                    }`}
+                    onClick={() => setChartTimeRange(hours)}
+                  >
+                    {hours}h
+                  </button>
+                ))}
+              </div>
+            }
+          >
+            <Chart
+              data={chartData}
+              series={[
+                { key: 'RAM', name: 'Arbeitsspeicher', unit: '%' },
+                { key: 'Swap', name: 'Auslagerung', unit: '%' },
+                { key: 'Temp', name: 'Temperatur', unit: '°C' },
+              ]}
+              xKey="timestamp"
+              xTicks={chartTicks}
+              formatX={ts =>
+                new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+              }
+              formatY={wert => `${wert}%`}
+              yDomain={[0, 100]}
+              // Die alte Beschriftung nannte Prozessor, Arbeitsspeicher und
+              // Grafikeinheit. Gezeichnet wurden Arbeitsspeicher, Auslagerung
+              // und Temperatur. Wer die Seite vorlesen ließ, bekam drei falsche
+              // Namen.
+              label={`Auslastung der letzten ${chartTimeRange} Stunden: Arbeitsspeicher, Auslagerung und Temperatur`}
+            />
+            <div className="sr-only" role="status">
+              {metrics && (
+                <>
+                  Arbeitsspeicher: {metrics.ram?.toFixed(1)}%, Auslagerung:{' '}
+                  {metrics.swap?.toFixed(1)}
+                  %, Temperatur: {metrics.temperature?.toFixed(1)}°C
+                </>
+              )}
             </div>
-          </div>
-          <div className="min-w-0">
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart
-                data={chartData}
-                role="img"
-                aria-label={`Auslastung der letzten ${chartTimeRange} Stunden: Prozessor, Arbeitsspeicher und Grafikeinheit`}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-alpha-10)" />
-                <XAxis
-                  dataKey="timestamp"
-                  type="number"
-                  domain={['dataMin', 'dataMax']}
-                  ticks={chartTicks}
-                  tickFormatter={(ts: number) =>
-                    new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-                  }
-                  stroke="var(--text-muted)"
-                  tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
-                  axisLine={{ stroke: 'var(--text-muted)' }}
-                  tickLine={{ stroke: 'var(--text-muted)' }}
-                />
-                <YAxis
-                  stroke="var(--text-muted)"
-                  tick={{ fill: 'var(--text-muted)', fontSize: '0.75rem' }}
-                  axisLine={{ stroke: 'var(--text-muted)' }}
-                  tickLine={{ stroke: 'var(--text-muted)' }}
-                  domain={[0, 100]}
-                  tickFormatter={(value: number) => `${value}%`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-subtle) 100%)',
-                    border: '1px solid var(--primary-alpha-30)',
-                    borderRadius: '10px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)',
-                  }}
-                  labelStyle={{ color: 'var(--primary-color)', fontWeight: 600 }}
-                  labelFormatter={label =>
-                    new Date(Number(label)).toLocaleTimeString('de-DE', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  }
-                  formatter={(value, name) => {
-                    const unit = name === 'Temp' ? '°C' : '%';
-                    const num = typeof value === 'number' ? value : Number(value);
-                    return [`${num.toFixed(1)}${unit}`, String(name)];
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="RAM"
-                  stroke="var(--color-chart-2)"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Swap"
-                  stroke="var(--primary-color)"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Temp"
-                  stroke="var(--color-chart-3)"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="sr-only" role="status">
-            {metrics && (
-              <>
-                RAM: {metrics.ram?.toFixed(1)}%, Swap: {metrics.swap?.toFixed(1)}%, Temperatur:{' '}
-                {metrics.temperature?.toFixed(1)}°C
-              </>
-            )}
-          </div>
+          </Section>
         </DashboardCard>
 
         <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>

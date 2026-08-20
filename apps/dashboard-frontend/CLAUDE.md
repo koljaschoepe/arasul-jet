@@ -103,7 +103,16 @@ src/
                      vorbehalten (siehe DESIGN_SYSTEM.md, Regel „eine
                      Flächenfarbe").
   components/
-    ui/            App-wide primitives (Modal, ErrorBoundary, EmptyState, …).
+    ui/            App-wide primitives (Modal, ErrorBoundary, …). Darunter das
+                   Baustein-Set aus Plan 023 C1, das die wiederkehrenden Formen
+                   traegt: PageHeader (Seitenkopf), FilterBar (Tab-Leiste mit
+                   eigener Inhaltsflaeche), StatTile/StatGrid (Kennzahl, festes
+                   1/2/4-Raster), Chart/Sparkline (nur Blau nach Grau, ohne
+                   Karte), Section (Feldgruppe), EmptyState (leere Liste mit
+                   Einstieg). Eine neue Seite baut auf diesen sechs auf, statt
+                   die Klassenkette erneut zu schreiben; Festlegungen in
+                   `docs/development/DESIGN_SYSTEM.md`, Abschnitt
+                   „Das gemeinsame Baustein-Set".
       shadcn/      shadcn/ui primitives (button, input, …) — generated.
     layout/        Sidebar, navigation chrome.
     editor/        Rich-text / code editors.

@@ -17,6 +17,7 @@ import { formatDate } from '../../utils/formatting';
 import EmptyState from '../../components/ui/EmptyState';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface ValidationResult {
   file_path?: string;
@@ -389,10 +390,7 @@ const UpdatePage = () => {
   return (
     <div className="animate-in fade-in">
       {/* Header */}
-      <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-xl font-bold text-foreground mb-2">System-Updates</h1>
-        <p className="text-sm text-muted-foreground">Updates sicher hochladen und installieren</p>
-      </div>
+      <PageHeader title="System-Updates" description="Updates sicher hochladen und installieren" />
 
       {/* USB Device Detection */}
       {uploadStatus === 'idle' && (

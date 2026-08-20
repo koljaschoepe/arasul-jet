@@ -8,6 +8,7 @@ import { useApi } from '../../hooks/useApi';
 import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 import { N8nIntegrationGuide } from './N8nIntegrationGuide';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 const THEME_OPTIONS: ReadonlyArray<{
   value: Theme;
@@ -79,10 +80,7 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
 
   return (
     <div className="animate-in fade-in">
-      <div className="mb-8 pb-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-foreground mb-2">Allgemein</h1>
-        <p className="text-sm text-muted-foreground">Systeminformationen und Konfiguration</p>
-      </div>
+      <PageHeader title="Allgemein" description="Systeminformationen und Konfiguration" />
 
       <div className="flex flex-col gap-8">
         {/* Theme-Auswahl (Schwarz · Dunkel · Hell) */}

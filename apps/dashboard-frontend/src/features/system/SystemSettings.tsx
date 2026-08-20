@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Activity, RotateCcw, Server, Upload, Wrench, type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Activity, RotateCcw, Server, Upload, Wrench } from 'lucide-react';
+import { FilterBar, type FilterBarItem } from '@/components/ui/FilterBar';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { ServicesSettings } from './ServicesSettings';
 import UpdatePage from './UpdatePage';
@@ -10,13 +10,7 @@ import { Werksreset } from './Werksreset';
 
 type SubId = 'status' | 'services' | 'updates' | 'selfhealing' | 'werksreset';
 
-interface SubSection {
-  id: SubId;
-  label: string;
-  icon: LucideIcon;
-}
-
-const subSections: SubSection[] = [
+const subSections: FilterBarItem<SubId>[] = [
   { id: 'status', label: 'System-Status', icon: Activity },
   { id: 'services', label: 'Dienste', icon: Server },
   { id: 'updates', label: 'Aktualisierungen', icon: Upload },
@@ -40,31 +34,13 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
   const [active, setActive] = useState<SubId>(initial ?? 'status');
 
   return (
-    <div className="flex flex-col gap-6">
-      <nav className="flex gap-1 border-b border-border" aria-label="System-Unterbereiche">
-        {subSections.map(section => {
-          const Icon = section.icon;
-          const isActive = active === section.id;
-          return (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => setActive(section.id)}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 -mb-px text-sm border-b-2 transition-colors',
-                isActive
-                  ? 'border-primary text-foreground font-semibold'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <Icon className={cn('size-4 shrink-0', isActive && 'text-primary')} />
-              <span>{section.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-
+    <FilterBar
+      items={subSections}
+      active={active}
+      onChange={setActive}
+      label="System-Unterbereiche"
+      panelClassName="pt-6"
+    >
       {active === 'status' && (
         <ComponentErrorBoundary componentName="System-Status">
           <SystemStatus />
@@ -90,7 +66,7 @@ export function SystemSettings({ initial }: SystemSettingsProps = {}) {
           <Werksreset />
         </ComponentErrorBoundary>
       )}
-    </div>
+    </FilterBar>
   );
 }
 

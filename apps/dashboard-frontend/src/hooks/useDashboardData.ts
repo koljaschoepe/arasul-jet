@@ -10,6 +10,32 @@ import type { Metrics } from '../types';
  * Workspace-Shell gemeinsam genutzt — es rendert immer nur einer von beiden.
  */
 
+/**
+ * Null heisst bei der Temperatur nicht null Grad, sondern kein Messwert.
+ *
+ * `services/metrics-collector/collector.py` gibt in `get_temperature` 0.0
+ * zurueck, wenn keine Thermalzone gefunden wird und bei jedem Fehler beim
+ * Lesen; `gpu_monitor.py` ebenso ueber NVML. Danach macht
+ * `apps/dashboard-backend/src/routes/system/metrics.js` mit
+ * `parseFloat(...) || 0` aus jedem NULL und jedem NaN aus der Datenbank
+ * ebenfalls eine Null, in `/live` wie in `/history`.
+ *
+ * Damit ist auch die Grenze benannt: eine echte Messung von null Grad oder
+ * darunter wird ebenfalls verworfen. Auf einem Jetson-SoC im Betrieb gibt es
+ * die nicht, und unterscheidbar waeren beide Faelle ohnehin nicht, solange das
+ * Backend NULL zu 0 macht.
+ *
+ * Ein ausgefallener Sensor sieht also aus wie ein eiskaltes Geraet. Hier wird
+ * daraus wieder eine Luecke. Nur die Temperatur, denn bei Auslagerung sind
+ * null Prozent ein ganz normaler Messwert.
+ *
+ * Stand: 2026-08-20 · Quelle: collector.py, gpu_monitor.py, metrics.js
+ */
+export function ohneAusfallwerte(werte: (number | null)[] | undefined): (number | null)[] {
+  if (!Array.isArray(werte)) return [];
+  return werte.map(wert => (typeof wert === 'number' && wert > 0 ? wert : null));
+}
+
 export interface MetricsHistory {
   timestamps: string[];
   cpu: (number | null)[];
@@ -145,7 +171,10 @@ export function useDashboardData(isAuthenticated: boolean): DashboardData {
 
         if (metricsRes.status === 'fulfilled' && metricsRes.value) setMetrics(metricsRes.value);
         if (historyRes.status === 'fulfilled' && historyRes.value)
-          setMetricsHistory(historyRes.value);
+          setMetricsHistory({
+            ...historyRes.value,
+            temperature: ohneAusfallwerte(historyRes.value.temperature),
+          });
         if (servicesRes.status === 'fulfilled' && servicesRes.value) setServices(servicesRes.value);
         if (infoRes.status === 'fulfilled' && infoRes.value) setSystemInfo(infoRes.value);
         if (networkRes.status === 'fulfilled' && networkRes.value) setNetworkInfo(networkRes.value);

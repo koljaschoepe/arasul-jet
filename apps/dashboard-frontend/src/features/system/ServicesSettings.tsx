@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from '@/components/ui/shadcn/dialog';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface Service {
   id: string;
@@ -159,9 +160,7 @@ export function ServicesSettings() {
   if (loading) {
     return (
       <div className="animate-in fade-in">
-        <div className="mb-8 pb-6 border-b border-border">
-          <h1 className="text-xl font-bold text-foreground mb-2">Services</h1>
-        </div>
+        <PageHeader title="Services" />
         <SkeletonCard hasAvatar={false} lines={6} />
       </div>
     );
@@ -169,15 +168,10 @@ export function ServicesSettings() {
 
   return (
     <div className="animate-in fade-in">
-      <div className="mb-8 pb-6 border-b border-border">
-        <div className="flex justify-between items-start flex-wrap gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-foreground mb-2">Services</h1>
-            <p className="text-sm text-muted-foreground">
-              Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und
-              Dienste bei Bedarf neustarten.
-            </p>
-          </div>
+      <PageHeader
+        title="Services"
+        description="Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und Dienste bei Bedarf neustarten."
+        action={
           <Button
             variant="outline"
             size="sm"
@@ -188,8 +182,8 @@ export function ServicesSettings() {
             {!refreshing && <RefreshCw className="size-3.5" />}
             Aktualisieren
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {message && (
         <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className="mb-6">
