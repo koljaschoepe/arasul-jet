@@ -20,12 +20,26 @@ const DEFAULT_EMAIL = process.env.ADMIN_EMAIL || 'admin@arasul.local';
  */
 async function bootstrap() {
   // Step 1: Run any pending migrations
+  //
+  // `schemaKaputt` ist kein Protokollvermerk, sondern eine Sperre. Steht das
+  // Schema schief, wird KEIN Administrator ab Werk angelegt (Schritt 3).
+  // Warum das wichtiger ist, als es klingt: am 20.08.2026 lief auf dem
+  // Pruefstand ein fabrikneues Geraet, der Kunde legte sein Konto an, und ein
+  // einziger Neustart machte daraus einen Zustand, in dem sein Konto in einer
+  // verdeckten Tabelle unsichtbar wurde und an seiner Stelle ein Konto `admin`
+  // mit dem Passwort ab Werk entstand. Ein Geraet, das nicht startet, ist ein
+  // Ruf beim Support. Ein Geraet, das sich mit einem werksbekannten Passwort
+  // oeffnen laesst, waehrend der Besitzer ausgesperrt ist, ist etwas anderes.
+  let schemaKaputt = null;
   try {
     const result = await runMigrations(db.pool);
     if (result.failed) {
-      logger.error(`Bootstrap: Migration ${result.failed} failed, admin user creation may fail`);
+      schemaKaputt = `Migration ${result.failed} ist gescheitert`;
+    } else if (result.schatten && result.schatten.length > 0) {
+      schemaKaputt = `${result.schatten.length} Tabelle(n) liegen doppelt in arasul und public (${result.schatten.join(', ')})`;
     }
   } catch (error) {
+    schemaKaputt = `Migrationslauf abgebrochen: ${error.message}`;
     logger.error(`Bootstrap: Migration runner error: ${error.message}`);
   }
 
@@ -37,7 +51,16 @@ async function bootstrap() {
   }
 
   // Step 3: Ensure admin user exists
-  await ensureAdminUser();
+  if (schemaKaputt) {
+    logger.error(
+      `Bootstrap: KEIN Administrator ab Werk angelegt. ${schemaKaputt}. ` +
+        'Solange der Schemastand nicht belegt ist, darf hier kein Konto mit ' +
+        'einem werksbekannten Passwort entstehen. Das Geraet zeigt stattdessen ' +
+        'die Ersteinrichtung. Ursache beheben, dann neu starten.'
+    );
+  } else {
+    await ensureAdminUser();
+  }
 
   // Step 4: Reconcile optionale App-Container (z. B. n8n) an den gespeicherten
   // Aktivierungszustand. Lizenzsauber: n8n läuft nur, wenn die Extension aktiv

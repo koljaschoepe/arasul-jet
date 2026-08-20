@@ -91,10 +91,11 @@ describe('runMigrations', () => {
       {}, // SET statement_timeout
       { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
+      { rows: [] }, // schattentabellen (vorher)
     ];
 
     const result = await runMigrations(mockPool);
-    expect(result).toEqual({ applied: 0, skipped: 0, failed: null });
+    expect(result).toEqual({ applied: 0, skipped: 0, failed: null, schatten: [] });
     expect(mockClient.release).toHaveBeenCalled();
   });
 
@@ -107,6 +108,7 @@ describe('runMigrations', () => {
       {}, // SET statement_timeout
       { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
+      { rows: [] }, // schattentabellen (vorher)
       { rows: [{ count: '1' }] }, // seedExisting: COUNT schema_migrations (only version 0)
       { rows: [{ count: '2' }] }, // seedExisting: core tables check (admin_users, chats exist)
       { rows: [] }, // seedExisting: SELECT for version 1 (not tracked)
@@ -129,7 +131,9 @@ describe('runMigrations', () => {
       {}, // SET statement_timeout
       { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
+      { rows: [] }, // schattentabellen (vorher)
       { rows: [{ count: '48' }] }, // seedExisting: COUNT (>5, skip seed)
+      { rows: [] }, // buchWiderspricht: Schema arasul gibt es nicht
       { rows: [{ version: 1 }, { version: 5 }] }, // getAppliedVersions
     ];
 
@@ -148,7 +152,9 @@ describe('runMigrations', () => {
       {}, // SET statement_timeout
       { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
+      { rows: [] }, // schattentabellen (vorher)
       { rows: [{ count: '48' }] }, // seedExisting: COUNT (>5, skip seed)
+      { rows: [] }, // buchWiderspricht: Schema arasul gibt es nicht
       { rows: [] }, // getAppliedVersions (empty)
       {}, // BEGIN
       {}, // SQL content
@@ -174,7 +180,9 @@ describe('runMigrations', () => {
       {}, // SET statement_timeout
       { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
       {}, // CREATE TABLE schema_migrations
+      { rows: [] }, // schattentabellen (vorher)
       { rows: [{ count: '48' }] }, // seedExisting: COUNT (>5, skip seed)
+      { rows: [] }, // buchWiderspricht: Schema arasul gibt es nicht
       { rows: [] }, // getAppliedVersions (empty)
       {}, // BEGIN
       new Error('syntax error'), // SQL fails
@@ -206,6 +214,7 @@ describe('runMigrations', () => {
         {}, // SET statement_timeout
         { rows: ortZeilen }, // ermittleBuchOrt
         {}, // CREATE TABLE
+        { rows: [] }, // schattentabellen (vorher)
       ];
       return runMigrations(mockPool);
     }
@@ -237,6 +246,144 @@ describe('runMigrations', () => {
       await laufMit([{ table_schema: 'arasul' }]);
       // Genau das war der Fehler: ohne Schema entscheidet der search_path.
       expect(sql().some(s => /\b(FROM|INTO|EXISTS)\s+schema_migrations\b/.test(s))).toBe(false);
+    });
+  });
+
+  /**
+   * Das Buch widerspricht der Datenbank (Befund vom 20.08.2026).
+   *
+   * Der Docker-Init wendet alle 147 Migrationen an und trug bis zum 20.08.2026
+   * sieben Zeilen ins Buch ein. Sieben ist groesser als fuenf, also griff die
+   * bisherige Abkuerzung `tracked > 5`, der Runner hielt 140 Migrationen fuer
+   * offen und wendete sie erneut an. Das Merkmal darf deshalb nicht die Zahl
+   * der Zeilen sein, sondern der Widerspruch: Schema `arasul` da, Migration 90
+   * nicht gebucht.
+   */
+  describe('Buch widerspricht der Datenbank', () => {
+    function laufMit({ schemaDa, neunzigGebucht }) {
+      fs.existsSync.mockReturnValue(true);
+      fs.readdirSync.mockReturnValue(['001_init.sql']);
+      fs.readFileSync.mockReturnValue('SELECT 1;');
+      queryResults = [
+        {}, // SET statement_timeout
+        { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
+        {}, // CREATE TABLE
+        { rows: [] }, // schattentabellen (vorher)
+        { rows: [{ count: '7' }] }, // seedExisting: COUNT, genau der Fall vom 20.08.
+        { rows: schemaDa ? [{ '?column?': 1 }] : [] }, // buchWiderspricht: Schema arasul
+      ];
+      if (schemaDa) {
+        queryResults.push({ rows: neunzigGebucht ? [{ '?column?': 1 }] : [] }); // Version 90 im Buch?
+      }
+      if (schemaDa && !neunzigGebucht) {
+        queryResults.push(
+          { rows: [{ count: '3' }] }, // seedExisting: Kerntabellen da
+          { rows: [] }, // seedExisting: Version 1 noch nicht gebucht
+          {}, // seedExisting: INSERT
+          { rows: [{ version: 1 }] } // getAppliedVersions
+        );
+      } else {
+        queryResults.push({ rows: [{ version: 1 }] }); // getAppliedVersions
+      }
+      return runMigrations(mockPool);
+    }
+
+    const sql = () => mockClient.query.mock.calls.map(c => (typeof c[0] === 'string' ? c[0] : ''));
+
+    test('traegt nach, statt 140 Migrationen erneut anzuwenden', async () => {
+      const result = await laufMit({ schemaDa: true, neunzigGebucht: false });
+
+      expect(result.applied).toBe(0);
+      expect(result.skipped).toBe(1);
+      expect(sql()).not.toContain('BEGIN');
+      const logger = require('../../src/utils/logger');
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('steht aber nicht im Buch')
+      );
+    });
+
+    test('laesst ein vollstaendiges Buch in Ruhe', async () => {
+      await laufMit({ schemaDa: true, neunzigGebucht: true });
+
+      // Kein Nachtragen: keine INSERT-Anweisung ausserhalb eines Laufs.
+      expect(sql().some(s => s.includes('INSERT INTO public.schema_migrations'))).toBe(false);
+    });
+
+    test('greift nicht auf einer Datenbank ohne Schema arasul', async () => {
+      await laufMit({ schemaDa: false, neunzigGebucht: false });
+
+      const logger = require('../../src/utils/logger');
+      expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('steht aber nicht im Buch'));
+    });
+  });
+
+  /**
+   * Schattentabellen (Befund vom 20.08.2026, am Pruefstand gemessen).
+   *
+   * Ein fabrikneues Geraet lief, der Kunde legte sein Konto an, ein einziger
+   * Neustart des Backends erzeugte 47 gleichnamige, leere Tabellen im Schema
+   * `arasul`. Danach: Anmeldung des Kunden 401, `needsSetup` false, und in
+   * `arasul.admin_users` ein neues Konto `admin` mit dem Passwort ab Werk.
+   * Die Daten des Kunden lagen unerreichbar in `public`.
+   */
+  describe('Schattentabellen', () => {
+    function laufMit(schattenZeilen, dateien = ['001_init.sql']) {
+      fs.existsSync.mockReturnValue(true);
+      fs.readdirSync.mockReturnValue(dateien);
+      fs.readFileSync.mockReturnValue('SELECT 1;');
+      queryResults = [
+        {}, // SET statement_timeout
+        { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
+        {}, // CREATE TABLE
+        { rows: schattenZeilen }, // schattentabellen (vorher)
+        { rows: [{ count: '48' }] }, // seedExisting: COUNT (>5, kein Seed)
+      { rows: [] }, // buchWiderspricht: Schema arasul gibt es nicht
+        { rows: [{ version: 1 }] }, // getAppliedVersions
+      ];
+      return runMigrations(mockPool);
+    }
+
+    test('meldet doppelt liegende Tabellen und wendet nichts an', async () => {
+      const result = await laufMit([{ table_name: 'admin_users' }, { table_name: 'chat_messages' }]);
+
+      expect(result.schatten).toEqual(['admin_users', 'chat_messages']);
+      expect(result.applied).toBe(0);
+      // Kein BEGIN: auf einer verdeckten Datenbank wird nicht weitergebaut.
+      const sql = mockClient.query.mock.calls.map(c => (typeof c[0] === 'string' ? c[0] : ''));
+      expect(sql).not.toContain('BEGIN');
+    });
+
+    test('laesst schema_migrations durch, die steht auf dem Geraet wirklich doppelt', async () => {
+      const result = await laufMit([{ table_name: 'schema_migrations' }]);
+
+      expect(result.schatten).toEqual([]);
+      expect(result.failed).toBeNull();
+    });
+
+    test('meldet auch eine Doppelung, die erst der Lauf selbst erzeugt hat', async () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readdirSync.mockReturnValue(['001_init.sql']);
+      fs.readFileSync.mockReturnValue('SELECT 1;');
+      queryResults = [
+        {}, // SET statement_timeout
+        { rows: [{ table_schema: 'public' }] }, // ermittleBuchOrt
+        {}, // CREATE TABLE
+        { rows: [] }, // schattentabellen (vorher): sauber
+        { rows: [{ count: '48' }] }, // seedExisting: COUNT
+      { rows: [] }, // buchWiderspricht: Schema arasul gibt es nicht
+        { rows: [] }, // getAppliedVersions: nichts angewendet
+        {}, // BEGIN
+        {}, // SQL
+        {}, // INSERT ins Buch
+        {}, // COMMIT
+        { rows: [{ table_name: 'chat_messages' }] }, // schattentabellen (nachher)
+      ];
+
+      const result = await runMigrations(mockPool);
+
+      expect(result.applied).toBe(1);
+      expect(result.failed).toBeNull();
+      expect(result.schatten).toEqual(['chat_messages']);
     });
   });
 });

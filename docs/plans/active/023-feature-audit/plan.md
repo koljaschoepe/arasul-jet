@@ -8,13 +8,14 @@
 
 ## Stand
 
-| Phase                                 | Stand                                        | Belege                                                                                                                                                |
-| ------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                        | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                  |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen       | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                          |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen       | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                                                                            |
-| C, Fundament                          | C1 bis C6 fertig 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen. **C7 offen**, neu aufgenommen am 20.08. |
-| D bis K                               | offen                                        |                                                                                                                                                       |
+| Phase                                 | Stand                                        | Belege                                                                                                                                                                                    |
+| ------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                        | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                      |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen       | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                              |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen       | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                          |
+| C, Fundament                          | C1 bis C6 fertig 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen. **C7 offen**, neu aufgenommen am 20.08.                                     |
+| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen       | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle |
+| D bis K                               | offen                                        |                                                                                                                                                                                           |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -346,7 +347,8 @@ mit Eingabe des Gerätenamens.
 Zustand B4. Ein Neustart überlebt das Ergebnis. Behebt F-36.
 
 **Erledigt am 19./20.08.2026** (#417, #418, #420, #422). Nachgewiesen auf dem
-Prüfstand mit `scripts/test/werksreset-abnahme.sh`, 18 von 18 Punkten. Drei
+Prüfstand mit `scripts/test/werksreset-abnahme.sh`, 24 von 24 Punkten, am
+20.08. nach dem Frischgerät-Fund erneut bestanden. Drei
 Befunde kamen erst durch die Abnahme, keiner davon aus einem Testlauf:
 
 1. `ADMIN_PASSWORD` steht **zweimal** in der `.env`, und der Schreiber ersetzte
@@ -1002,6 +1004,72 @@ Hand auskommentiert und das Backend neu gestartet werden. Auf einem Gerät, das
 nach diesem Stand eingerichtet wird, passiert das nicht mehr. Auf jedem Gerät,
 das vorher eingerichtet wurde, muss die Zeile weg, sonst behauptet es weiter
 1.0.0.
+
+## Dazwischengekommen: das Gerät überlebt seinen ersten Neustart
+
+Das hier stand in keinem Plan. Es kam heraus, als der Prüfstand für C7 auf
+Werkszustand gefahren wurde, und es ist schwerer als alles andere in Phase C.
+
+### Was gemessen wurde
+
+Ein fabrikneues Gerät, aufgebaut aus diesem Stand. Der Kunde legt sein Konto an,
+`POST /auth/setup` antwortet 201, alles sieht richtig aus. Dann ein Neustart des
+Backends, sonst nichts. Danach:
+
+| Probe                   | vorher       | nach einem Neustart                        |
+| ----------------------- | ------------ | ------------------------------------------ |
+| Anmeldung des Kunden    | 201 angelegt | **401 Invalid username or password**       |
+| `needsSetup`            | true         | **false**, also keine zweite Chance        |
+| Konten in der Datenbank | `kunde`      | **`admin`**, angelegt aus `ADMIN_PASSWORD` |
+| gleichnamige Tabellen   | 0            | **47** in `arasul` und `public`            |
+
+Der Kunde ist aus seinem eigenen Gerät ausgesperrt, seine Daten liegen
+unerreichbar in `public`, und offen ist es nur noch mit einem Passwort, das ab
+Werk bekannt ist. Das ist kein Schönheitsfehler, das ist die Auslieferung.
+
+### Warum
+
+Der Docker-Init wendet alle 147 Migrationen an, trug ins Migrationsbuch aber nur
+die sieben Zeilen ein, die einzelne Dateien selbst schreiben. Beim nächsten
+Start las der Runner das Buch, hielt 140 Migrationen für offen und wendete sie
+erneut an. Migration 090 legt das Schema `arasul` an, der Datenbanknutzer heißt
+ebenfalls arasul, also löst `search_path` ab da zuerst dorthin auf: aus jedem
+erneuten `CREATE TABLE IF NOT EXISTS` wurde eine zweite, leere Tabelle vor der
+gefüllten. Migration 006 scheiterte danach, weil ihre Existenzprüfung
+schemablind ist und ihr `CREATE INDEX` nicht, und mit ihr blieben 140
+Migrationen ungelaufen.
+
+Kein Testlauf konnte das sehen. Auf einer gewachsenen Datenbank entsteht die
+Doppelung nicht, und die Prüfstand-Abnahme aus B5 prüft den Werksreset, nicht
+den Erstlauf. Ein Test hielt sogar das falsche Verhalten fest: „continues to
+admin user creation even if migrations fail".
+
+### Was gebaut wurde
+
+1. `services/postgres/init/zzz_migrationsbuch_fuellen.sh` läuft als letztes
+   Init-Skript und trägt jede `.sql` als angewendet ein. Keine Heuristik,
+   sondern eine Aussage: erreicht das Skript seine erste Zeile, ist jede
+   Migration fehlerfrei durchgelaufen, sonst hätte `ON_ERROR_STOP` abgebrochen.
+2. Ein zweiter, unabhängiger Riegel im Runner: existiert das Schema `arasul`,
+   steht Migration 90 aber nicht im Buch, wird nachgetragen statt erneut
+   angewendet. Das alte Merkmal `tracked > 5` taugte nicht, sieben ist größer
+   als fünf.
+3. `schattentabellen()` bricht den Lauf ab, sobald eine Tabelle in beiden
+   Schemata liegt, und prüft davor wie danach.
+4. `bootstrap.js` legt bei unbelegtem Schemastand **keinen** Administrator ab
+   Werk an. Ein Gerät, das nicht startet, ist ein Ruf beim Support. Ein Gerät,
+   das sich mit einem werksbekannten Passwort öffnen lässt, während der
+   Besitzer ausgesperrt ist, ist etwas anderes.
+
+Der erste Anlauf hat die eigene Abnahme nicht bestanden, und zwar an genau der
+Stelle, die der Fund beschreibt: das Init-Skript baute `INSERT INTO public`
+statt `INSERT INTO public.schema_migrations`. Das ist der Grund für Riegel 2.
+
+**Abnahme:** `scripts/test/frischgeraet-abnahme.sh`. Prüfstand von Null, Buch
+vollständig, keine verdeckten Tabellen, Kunde legt sein Konto an, **Neustart**,
+und danach dieselben Proben noch einmal, mit der Anmeldung als letzter.
+
+---
 
 ## C7 Der Einrichtungsassistent, zum ersten Mal angesehen
 

@@ -25,6 +25,7 @@ jest.mock('../../src/utils/logger', () => ({
 const db = require('../../src/database');
 const { hashPassword } = require('../../src/utils/password');
 const { runMigrations } = require('../../src/migrationRunner');
+const logger = require('../../src/utils/logger');
 const { bootstrap, ensureAdminUser } = require('../../src/bootstrap');
 
 describe('ensureAdminUser', () => {
@@ -143,19 +144,60 @@ describe('bootstrap', () => {
     delete process.env.ADMIN_PASSWORD;
   });
 
+  // ensureAdminUser fragt als Erstes die Zahl der Administratoren ab. Andere
+  // Bootstrap-Schritte reden ebenfalls mit der Datenbank, deshalb wird nicht
+  // "wurde db.query gerufen" geprueft, sondern genau diese Abfrage.
+  const adminZaehlungLief = () =>
+    db.query.mock.calls.some(([sql]) => typeof sql === 'string' && sql.includes('FROM admin_users'));
+
   test('runs migrations then ensures admin user', async () => {
     await bootstrap();
 
     expect(runMigrations).toHaveBeenCalledWith(db.pool);
-    expect(db.query).toHaveBeenCalled(); // ensureAdminUser
+    expect(adminZaehlungLief()).toBe(true);
   });
 
-  test('continues to admin user creation even if migrations fail', async () => {
-    runMigrations.mockRejectedValueOnce(new Error('migration error'));
+  // Bis zum 20.08.2026 stand hier das Gegenteil ("continues to admin user
+  // creation even if migrations fail"). Der Test hat den Fehler nicht
+  // uebersehen, er hat ihn festgeschrieben. Was daran haengt, steht in
+  // bootstrap.js ueber `schemaKaputt`.
+  test('legt keinen Administrator an, wenn eine Migration gescheitert ist', async () => {
+    runMigrations.mockResolvedValueOnce({
+      applied: 5,
+      skipped: 0,
+      failed: '006_llm_jobs_schema.sql',
+      schatten: [],
+    });
 
     await bootstrap();
 
-    // Should still try ensureAdminUser
-    expect(db.query).toHaveBeenCalled();
+    expect(adminZaehlungLief()).toBe(false);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('KEIN Administrator ab Werk angelegt')
+    );
+  });
+
+  test('legt keinen Administrator an, wenn Tabellen doppelt liegen', async () => {
+    runMigrations.mockResolvedValueOnce({
+      applied: 5,
+      skipped: 0,
+      failed: null,
+      schatten: ['admin_users', 'chat_messages'],
+    });
+
+    await bootstrap();
+
+    expect(adminZaehlungLief()).toBe(false);
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('admin_users, chat_messages'));
+  });
+
+  test('legt keinen Administrator an, wenn der Migrationslauf abbricht', async () => {
+    // Der Lauf ist abgebrochen, der Schemastand ist damit unbelegt. Ein Konto
+    // mit werksbekanntem Passwort darf dann nicht entstehen.
+    runMigrations.mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
+
+    await bootstrap();
+
+    expect(adminZaehlungLief()).toBe(false);
   });
 });

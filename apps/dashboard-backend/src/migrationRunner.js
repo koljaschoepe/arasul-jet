@@ -70,6 +70,40 @@ async function ermittleBuchOrt(client) {
 }
 
 /**
+ * Tabellen, die es in `public` UND in `arasul` gibt.
+ *
+ * Genau eine darf das: `schema_migrations`. Sie steht auf dem Geraet in beiden
+ * Schemata, weil das Buch frueher ohne Ortsangabe angelegt wurde (siehe
+ * ermittleBuchOrt). Jede andere Doppelung ist ein Schaden, kein Zustand:
+ * `search_path` ist `"$user", public`, der Datenbanknutzer heisst arasul, also
+ * gewinnt ab Migration 090 immer die Tabelle in `arasul`. Eine gleichnamige
+ * Tabelle dort verdeckt die gefuellte in `public` vollstaendig. Die Anwendung
+ * liest dann eine leere Tabelle und haelt das fuer die Wahrheit.
+ *
+ * Am 20.08.2026 auf dem Pruefstand gemessen: ein Neustart eines fabrikneuen
+ * Geraets erzeugte 47 solche Paare. Danach meldete `/auth/login` fuer das
+ * Konto des Kunden "Invalid username or password", `needsSetup` stand auf
+ * false, und in `arasul.admin_users` sass ein neu angelegtes `admin` mit dem
+ * Passwort ab Werk. Kein einziger Testlauf hat das je gesehen, weil auf einer
+ * gewachsenen Datenbank die Doppelung nicht entsteht.
+ */
+const SCHATTEN_ERLAUBT = new Set(['schema_migrations']);
+
+async function schattentabellen(client) {
+  const { rows } = await client.query(
+    `SELECT table_name
+       FROM information_schema.tables
+      WHERE table_schema = 'arasul'
+     INTERSECT
+     SELECT table_name
+       FROM information_schema.tables
+      WHERE table_schema = 'public'
+      ORDER BY 1`
+  );
+  return rows.map(r => r.table_name).filter(name => !SCHATTEN_ERLAUBT.has(name));
+}
+
+/**
  * Ensure schema_migrations table exists (bootstrap for existing databases)
  */
 async function ensureMigrationsTable(client, buch) {
@@ -94,6 +128,44 @@ async function getAppliedVersions(client, buch) {
 }
 
 /**
+ * Widerspricht das Buch der Datenbank?
+ *
+ * Migration 090 legt `CREATE SCHEMA IF NOT EXISTS arasul` an. Existiert dieses
+ * Schema, hat jemand mindestens bis 090 angewendet. Steht 90 trotzdem nicht im
+ * Buch, ist das Buch keine Auskunft ueber den Stand, sondern eine Luecke, und
+ * der Runner wuerde 140 laengst angewendete Migrationen erneut anwenden.
+ *
+ * Genau das ist am 20.08.2026 passiert, zweimal: einmal, weil der Docker-Init
+ * nur sieben Zeilen schrieb, und einmal, weil das Skript, das die Zeilen
+ * nachtragen sollte, selbst abbrach. Die Zahl im Buch (`tracked > 5`) taugt als
+ * Merkmal nicht, sieben ist groesser als fuenf.
+ *
+ * Die 90 steht hier fest und darf das: eine bereits angewendete Migration wird
+ * nicht mehr geaendert (siehe services/postgres/CLAUDE.md, "Forbidden").
+ */
+const SCHEMA_MIGRATION = 90;
+
+async function buchWiderspricht(client, buch) {
+  const { rows: schema } = await client.query(
+    `SELECT 1 FROM information_schema.schemata WHERE schema_name = 'arasul'`
+  );
+  if (schema.length === 0) {
+    return false;
+  }
+  const { rows: gebucht } = await client.query(`SELECT 1 FROM ${buch} WHERE version = $1`, [
+    SCHEMA_MIGRATION,
+  ]);
+  if (gebucht.length > 0) {
+    return false;
+  }
+  logger.warn(
+    `Migration Runner: das Schema arasul existiert, Migration ${SCHEMA_MIGRATION} steht aber nicht im Buch. ` +
+      'Das Buch wird als unvollstaendig behandelt und nachgetragen, statt alles erneut anzuwenden.'
+  );
+  return true;
+}
+
+/**
  * Seed schema_migrations for an existing database that was set up by Docker init
  * (no tracking existed). Detects by checking if core tables exist but tracking is empty.
  */
@@ -102,8 +174,9 @@ async function seedExistingMigrations(client, files, buch) {
   const trackingCount = await client.query(`SELECT COUNT(*) as count FROM ${buch}`);
   const tracked = parseInt(trackingCount.rows[0].count, 10);
 
-  // If we already have substantial tracking, no seed needed
-  if (tracked > 5) {
+  // If we already have substantial tracking, no seed needed — es sei denn, das
+  // Buch widerspricht der Datenbank. Siehe buchWiderspricht.
+  if (tracked > 5 && !(await buchWiderspricht(client, buch))) {
     return;
   }
 
@@ -186,10 +259,23 @@ async function runMigrations(pool) {
     const buch = await ermittleBuchOrt(client);
     await ensureMigrationsTable(client, buch);
 
+    // Vor jeder Anweisung: steht die Datenbank schon schief, wird nichts mehr
+    // angewendet. Weitere DDL auf einem verdeckten Schema vertieft den Schaden
+    // nur, und das Ergebnis waere nicht mehr zu unterscheiden von einem, das
+    // nie kaputt war.
+    const schattenVorher = await schattentabellen(client);
+    if (schattenVorher.length > 0) {
+      logger.error(
+        `Migration Runner: ABBRUCH, ${schattenVorher.length} Tabelle(n) liegen doppelt in arasul und public: ` +
+          `${schattenVorher.join(', ')}. Es wurde nichts angewendet.`
+      );
+      return { applied: 0, skipped: 0, failed: null, schatten: schattenVorher };
+    }
+
     const files = getMigrationFiles();
     if (files.length === 0) {
       logger.info('Migration Runner: No migration files found');
-      return { applied: 0, skipped: 0, failed: null };
+      return { applied: 0, skipped: 0, failed: null, schatten: [] };
     }
 
     // Seed tracking for existing databases that Docker init already set up
@@ -257,7 +343,12 @@ async function runMigrations(pool) {
         }
 
         logger.error(`Migration ${migration.filename} FAILED: ${error.message}`);
-        return { applied: appliedCount, skipped: skippedCount, failed: migration.filename };
+        return {
+          applied: appliedCount,
+          skipped: skippedCount,
+          failed: migration.filename,
+          schatten: await schattentabellen(client),
+        };
       }
     }
 
@@ -269,10 +360,26 @@ async function runMigrations(pool) {
       logger.debug(`Migration Runner: All ${skippedCount} migrations already applied`);
     }
 
-    return { applied: appliedCount, skipped: skippedCount, failed: null };
+    // Danach noch einmal: eine Migration kann selbst eine Doppelung erzeugen,
+    // ohne dabei zu scheitern. Genau so ist der Schaden am 19.08.2026
+    // entstanden, und niemand hat es bemerkt.
+    const schattenNachher = await schattentabellen(client);
+    if (schattenNachher.length > 0) {
+      logger.error(
+        `Migration Runner: ${schattenNachher.length} Tabelle(n) liegen jetzt doppelt in arasul und public: ` +
+          `${schattenNachher.join(', ')}. Die Anwendung liest ab hier die leere.`
+      );
+    }
+
+    return {
+      applied: appliedCount,
+      skipped: skippedCount,
+      failed: null,
+      schatten: schattenNachher,
+    };
   } finally {
     client.release();
   }
 }
 
-module.exports = { runMigrations, getMigrationFiles, extractVersion };
+module.exports = { runMigrations, getMigrationFiles, extractVersion, schattentabellen };
