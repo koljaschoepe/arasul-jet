@@ -24,8 +24,21 @@ export interface CatalogModel {
   performance_tier?: number;
   speed_tier?: string;
   ollama_library_url?: string;
-  /** Nutzbares Kontextfenster in Tokens (catalog-Spalte, für Gemma seeded in Migration 101). */
+  /** Nutzbares Kontextfenster in Tokens. Seit Plan 023 D2 aus den Gewichten gelesen. */
   context_window?: number;
+  // --- Steckbrief, Plan 023 D2. Gelesen aus Ollamas /api/show, nicht gepflegt.
+  /** Parametergroesse, wie Ollama sie meldet, z. B. "27.3B". */
+  parameter_label?: string | null;
+  /** Quantisierung der installierten Gewichte, z. B. "IQ4_XS". */
+  quantization?: string | null;
+  /** Lizenzbezeichnung aus den Gewichten, z. B. "Apache License 2.0". */
+  license?: string | null;
+  /** Wann der Steckbrief zuletzt gelesen wurde. null = noch nie. */
+  profile_read_at?: string | null;
+  /** Median der gemessenen Ausgabegeschwindigkeit auf DIESEM Geraet, Token/s. */
+  measured_tps?: string | number | null;
+  /** Zahl der Messungen, aus denen der Median stammt. */
+  measured_runs?: string | number | null;
 }
 
 export interface LoadedModel {

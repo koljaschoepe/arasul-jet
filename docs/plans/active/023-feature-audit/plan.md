@@ -1272,6 +1272,53 @@ Link zur Modellkarte bei Hugging Face. Nichts Ausgedachtes, nur was belegbar ist
 **Abnahme:** Jedes Modell im Katalog hat alle Felder gefüllt, jeder Link führt
 auf die richtige Modellkarte.
 
+### Erst gemessen: woher die Angaben belegbar kommen
+
+Ollamas `/api/show` liefert auf dem Orin Parametergröße, Quantisierung und
+Kontextlänge für alle elf installierten Modelle, für zehn davon eine Lizenz.
+Lokal, ohne Netz, aus den Gewichten selbst. Dabei kam heraus:
+
+| Fund                                | gemessen am 20.08.2026                                           |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| Der Katalog widerspricht dem Modell | `qwen3:14b-q8` behauptet 32768 Token, das Modell meldet 40960    |
+| Neun Katalogeinträge                | haben gar keine Kontextlänge                                     |
+| Ein Modellkarten-Link ist tot       | `paligemma-3b-mix` zeigt auf `ollama.com/library/paligemma`, 404 |
+| Vier Einträge                       | tragen gar keinen Link, alle vier per Direkt-Pull entstanden     |
+| `gemma4:e4b`                        | ist ein 8B-Modell, der Name „Gemma 4 Kompakt" sagt das nicht     |
+
+Alle 19 hinterlegten Links wurden abgerufen, nicht überflogen.
+
+Und die Beschreibungen selbst tragen Behauptungen, die die Messung nicht deckt:
+`gemma3:4b` nennt „32K Kontext", das Modell meldet 131072. `qwen3-coder:30b`
+nennt „~35 tok/s auf dem Orin", gemessen sind 6,6 über zwei Läufe. Zwei
+Beschreibungen tragen außerdem einen Gedankenstrich als Trenner, den kein
+Wächter sieht, weil `gedankenstriche.py` die SQL-Dateien nicht durchsucht. Das
+gehört nicht in D2, es steht in D5 und in den Nacharbeiten.
+
+### Was daraus wurde
+
+`services/llm/modelProfile.js` liest den Steckbrief beim Modell-Abgleich nach.
+Migration 148 legt `parameter_label`, `quantization`, `license` und
+`profile_read_at` an. **Keine zweite Spalte für die Kontextlänge:**
+`context_window` ist die Spalte dafür, und eine zweite danebenzustellen wäre
+genau der Fehler, den D1 gerade beseitigt hat. Migration 149 setzt den toten
+Link richtig und trägt drei fehlende nach; `paddleocr` und `tesseract` bekommen
+bewusst keinen, sie sind keine Ollama-Modelle.
+
+Die Geschwindigkeit kommt als Median aus `model_performance_metrics`, mit der
+Zahl der Läufe daneben. Eine Geschwindigkeit aus zwei Läufen ist keine Aussage,
+und der Leser soll das sehen können.
+
+**Die Abnahme oben ist so nicht erfüllbar, und das aus einem guten Grund.** Elf
+der 22 Modelle sind nicht installiert; ihre Parameterzahl und Lizenz stehen in
+Gewichten, die nicht auf dem Gerät liegen. Sie anders zu beschaffen hieße, sie
+aus einer Webseite abzuschreiben. Geliefert ist deshalb: alle Felder für jedes
+installierte Modell, jeder gezeigte Link führt auf die richtige Karte, und wo
+nichts steht, steht warum.
+
+**Erledigt am 20.08.2026,** `arasul-jet` #445. Dreizehn Backend-Tests, fünf
+Frontend-Tests.
+
 ## D3 Rückmeldung beim Laden und Entladen
 
 Heute sagt der Kopfbereich „kein Modell geladen", während die Statusleiste

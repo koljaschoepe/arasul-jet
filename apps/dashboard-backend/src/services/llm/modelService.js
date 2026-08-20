@@ -20,6 +20,7 @@ const readFileAsync = promisify(fs.readFile);
 
 const { createDownloadHelpers } = require('./modelDownloadHelpers');
 const { createSyncHelpers } = require('./modelSyncHelpers');
+const { steckbriefeAnstossen } = require('./modelProfile');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
@@ -223,6 +224,21 @@ function createModelService(deps = {}) {
      * migration 101), so the catalog response surfaces it without a contract change.
      */
     async getCatalog() {
+      // Plan 023 D2: die gemessene Ausgabegeschwindigkeit kommt mit, damit die
+      // Detailseite eine Zahl von DIESEM Geraet zeigen kann statt einer aus
+      // einer Beschreibung. Der Median statt des Mittels, weil ein einzelner
+      // Kaltstart das Mittel kippt, und die Zahl der Messungen dazu: eine
+      // Geschwindigkeit aus zwei Laeufen ist keine Aussage, und der Leser soll
+      // das sehen koennen.
+      //
+      // Der Verbund geht ueber BEIDE Schreibweisen, und das ist nicht
+      // vorsorglich. Am 20.08.2026 auf dem Orin gemessen:
+      //   SELECT DISTINCT model_id FROM model_performance_metrics;
+      //   -> qwen3-coder:30b, qwen3:7b-q8, qwen3:14b
+      // Die ersten beiden sind Katalog-Kennungen, `qwen3:14b` ist es nicht: der
+      // Katalog kennt `qwen3:14b-q8` und `qwen3:14b-nothink`, und `qwen3:14b`
+      // ist der `ollama_name` des ersten. Die Schreibweise haengt also am
+      // Aufrufer. Ein Verbund nur ueber `c.id` verloere diese Messungen.
       const result = await database.query(`
                 SELECT
                     c.*,
@@ -233,9 +249,25 @@ function createModelService(deps = {}) {
                     i.last_used_at,
                     i.usage_count,
                     i.downloaded_at,
-                    i.error_message as install_error
+                    i.error_message as install_error,
+                    t.tokens_per_second as measured_tps,
+                    t.messungen as measured_runs
                 FROM llm_model_catalog c
                 LEFT JOIN llm_installed_models i ON c.id = i.id
+                LEFT JOIN LATERAL (
+                    SELECT
+                        round(percentile_cont(0.5) WITHIN GROUP (
+                            ORDER BY m.tokens_per_second
+                        )::numeric, 1) AS tokens_per_second,
+                        count(*) AS messungen
+                    FROM model_performance_metrics m
+                    WHERE m.model_id IN (c.id, COALESCE(c.ollama_name, c.id))
+                      AND m.tokens_per_second > 0
+                      -- Doppelt gesichert: cleanup_old_performance_metrics
+                      -- raeumt nach 30 Tagen. Die Grenze hier greift nur,
+                      -- wenn dieser Auftrag ausfaellt.
+                      AND m.created_at > NOW() - INTERVAL '90 days'
+                ) t ON TRUE
                 ORDER BY c.performance_tier ASC, c.ram_required_gb ASC
             `);
       return result.rows;
@@ -1048,6 +1080,19 @@ function createModelService(deps = {}) {
         //     als Minimal-Einträge in den Katalog übernehmen — sonst sind sie
         //     für Store, Default-Auswahl und Flows unsichtbar.
         await syncHelpers.importUnknownModels(response.data.models || []);
+
+        // 1c. Steckbrief aus den Gewichten nachtragen (Plan 023 D2):
+        //     Parametergroesse, Quantisierung, Lizenz und die WIRKLICHE
+        //     Kontextlaenge. Laeuft nach markAvailableModels, damit auch ein
+        //     gerade importiertes Modell schon einen Eintrag hat, und stoert
+        //     den Abgleich nicht, wenn Ollama dabei aussteigt.
+        // Angestossen, nicht abgewartet. `syncWithOllama` haengt auch an
+        // POST /api/models/sync, und diese Route wird im Anfragefaden
+        // abgewartet; fuenf Modelle mal zehn Sekunden Zeitgrenze waeren im
+        // schlechtesten Fall fuenfzig Sekunden obendrauf. Der Steckbrief
+        // beschreibt Modelle, die schon da sind, und darf spaeter fertig
+        // werden. Fehler landen im Protokoll, nicht in der Antwort.
+        steckbriefeAnstossen(database);
 
         // 2. Mark models as error if marked available in DB but not in Ollama
         await syncHelpers.markMissingModels(ollamaModels);
