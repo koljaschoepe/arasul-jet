@@ -518,6 +518,56 @@ Seitenaufruf gegen ein antwortendes Backend: leer.
 ist zur Du-Form geworden, und aus „dieser Box" ist „dieses Geräts" geworden.
 Offen bleibt der `SetupWizard` (C4).
 
+**`PLATFORM_DESCRIPTION` steht auf dem Erst-Start absichtlich nicht mehr.** Die
+Anmeldung heißt „Arasul", dort erklärt die Zeile darunter, was das ist. Der
+Erst-Start heißt „Willkommen bei Arasul", dort ist die Marke schon im Titel,
+und die Zeile darunter muss sagen, was zu tun ist. Eine dritte Zeile mit dem
+Untertitel der Marke wäre dieselbe Doppelung, die C2 aus den Einstellungen
+entfernt hat. Auf der Anmeldung bleibt sie und wird weiter aus der Umgebung
+gespeist.
+
+## Was C3 nebenbei gefunden hat: der Erst-Start hing
+
+Der PR-Review hat angemerkt, dass `CreateAdmin` überhaupt keine Testdatei hat.
+Das stimmte, und beim Schreiben der ersten fiel ein Fehler auf, den niemand
+gesucht hatte.
+
+**Jede fehlgeschlagene Formularprüfung ließ die Seite hängen.**
+`@hookform/resolvers@3.10` prüft `Array.isArray(fehler.errors)`, um eine
+`ZodError` zu erkennen. `zod@4` hat diesen Alias entfernt, es gibt nur noch
+`issues`. Am Objekt belegt:
+
+```
+zod 4.3.6
+issues ist Array: true
+errors ist Array: false
+errors ist: undefined
+```
+
+Der Resolver warf die `ZodError` also weiter, statt sie in `formState.errors`
+zu schreiben. `handleSubmit` blieb hängen, `isSubmitting` blieb wahr, und der
+Knopf stand für immer auf „Konto wird angelegt …", ohne Meldung. Ein Kunde mit
+einem sechsstelligen Passwort kam auf dem ersten Bildschirm des Geräts nicht
+weiter und hätte neu laden müssen.
+
+**Und selbst danach wäre nichts zu sehen gewesen.** Angezeigt wurde nur
+`errors.confirmPassword`. Ein zu kurzes Passwort und ein leerer Benutzername
+schrieben ihre Meldung in `formState` und blieben unsichtbar.
+
+Behoben durch `@hookform/resolvers` auf `^5.9.1` (dessen Peer-Bereich `zod`
+`^3.25.0 || ^4.0.0` einschließt) und durch die fehlenden Fehlerzeilen samt
+`aria-invalid` an allen drei Feldern.
+
+Die Anmeldung trifft es nicht: ihre Prüfung kann nicht fehlschlagen, weil der
+Knopf bis zur Eingabe beider Felder gesperrt ist und es keine weitere Regel
+gibt. Es sind die einzigen zwei Formulare im Frontend mit `zodResolver`.
+
+**Warum das keine Suche gefunden hat.** Der Testlauf war grün, der Wächter war
+grün, die CI war grün. Der Bildschirm hatte keinen einzigen Test, und ein
+Formular, das nie einen Fehler zeigt, sieht von außen aus wie eines, das keine
+Fehler hat. Gefunden hat es die Frage des Reviews, wo die Tests für die zweite
+angefasste Datei sind.
+
 ## C4 Erst-Start neu
 
 Drei Schritte, aber der blaue Punkt in der Mitte sagt nichts. Der Fortschritt

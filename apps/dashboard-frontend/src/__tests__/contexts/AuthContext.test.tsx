@@ -30,6 +30,7 @@ describe('AuthContext, Sitzungspruefung beim Start', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    document.cookie = 'arasul_csrf=; max-age=0; path=/';
     fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ user: { id: 1, username: 'pruefer' } }),
@@ -77,6 +78,22 @@ describe('AuthContext, Sitzungspruefung beim Start', () => {
 
     await waitFor(() => expect(screen.getByText('abgemeldet')).toBeInTheDocument());
     expect(localStorage.getItem('arasul_user')).toBeNull();
+  });
+
+  // Der Token liegt im localStorage, arasul_csrf im Cookie-Speicher. Raeumt der
+  // Browser den einen ohne den anderen weg, darf der Server nicht uebergangen
+  // werden: er allein weiss, ob die Sitzung noch gilt.
+  test('fragt /auth/me, wenn nur das CSRF-Cookie da ist', async () => {
+    document.cookie = 'arasul_csrf=abc123; path=/';
+
+    render(
+      <AuthProvider>
+        <Anzeige />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(screen.getByText('angemeldet')).toBeInTheDocument());
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   test('fragt /auth/me weiterhin, wenn ein gueltiger Token da ist', async () => {

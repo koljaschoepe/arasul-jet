@@ -63,11 +63,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // F-02: Ohne Sitzungsmerkmal gar nicht erst fragen. Vor der Anmeldung
     // beantwortet der Server /auth/me mit 401, und der Browser schreibt dafuer
     // von sich aus eine Fehlerzeile in die Konsole, die kein try/catch abfaengt.
-    // Der Bearer-Token im localStorage und das httpOnly-Cookie arasul_session
-    // entstehen zusammen (routes/auth.js Zeile 126 und 199) und laufen zusammen
-    // ab, deshalb ist der Token hier ein zulaessiger Stellvertreter fuer beide.
+    //
+    // Gefragt wird, sobald EINES von beiden da ist. Der Bearer-Token liegt im
+    // localStorage, das Cookie arasul_csrf im Cookie-Speicher; beide entstehen
+    // in derselben Antwort wie die Sitzung selbst (routes/auth.js 126/136 fuer
+    // die Anmeldung, 199/208 fuer das erste Konto) und werden beim Abmelden in
+    // derselben Antwort wieder geloescht (:242 und :250). Zwei getrennte
+    // Speicher, ein Zustand: raeumt der Browser den einen ohne den anderen weg
+    // (Safari-ITP, "Website-Daten loeschen" in Teilen, Privatsphaere-Erweiterungen),
+    // bleibt der andere als Hinweis stehen, und der Server entscheidet weiter
+    // selbst ueber die Sitzung. Nur wenn beide fehlen, gibt es nichts zu fragen.
+    //
+    // arasul_csrf bekommt nie jemand ohne Sitzung: middleware/csrf.js:75 steigt
+    // ohne arasul_session sofort aus, und rotiert wird nur darunter.
     // getValidToken raeumt abgelaufene Token gleich weg.
-    if (!getValidToken()) {
+    if (!getValidToken() && !getCsrfToken()) {
       localStorage.removeItem('arasul_user');
       setIsAuthenticated(false);
       setUser(null);

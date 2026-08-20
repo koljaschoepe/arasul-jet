@@ -115,7 +115,10 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
               id="username"
               type="text"
               autoComplete="username"
-              aria-describedby={error ? 'create-admin-error' : undefined}
+              aria-invalid={errors.username ? true : undefined}
+              aria-describedby={
+                errors.username ? 'username-error' : error ? 'create-admin-error' : undefined
+              }
               className={AUTH_FIELD}
               {...usernameField}
               ref={el => {
@@ -123,6 +126,11 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
                 usernameRef.current = el;
               }}
             />
+            {errors.username && (
+              <p id="username-error" className="mt-1.5 text-xs text-destructive">
+                {errors.username.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -134,9 +142,16 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
               type="password"
               placeholder="Mindestens 8 Zeichen"
               autoComplete="new-password"
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={errors.password ? 'password-error' : undefined}
               className={AUTH_FIELD}
               {...register('password')}
             />
+            {errors.password && (
+              <p id="password-error" className="mt-1.5 text-xs text-destructive">
+                {errors.password.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -148,6 +163,7 @@ function CreateAdmin({ onCreated }: CreateAdminProps) {
               type="password"
               placeholder="Passwort wiederholen"
               autoComplete="new-password"
+              aria-invalid={errors.confirmPassword ? true : undefined}
               aria-describedby={errors.confirmPassword ? 'confirm-error' : undefined}
               className={AUTH_FIELD}
               {...register('confirmPassword')}
