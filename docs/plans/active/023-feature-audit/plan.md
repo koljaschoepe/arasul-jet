@@ -822,6 +822,25 @@ trägt dafür `achse: 'rechts'`. Das ist die Regel aus Phase C angewandt: nicht
 ein zweites Diagramm danebenbauen, sondern den gemeinsamen Baustein die zweite
 Einheit lernen lassen.
 
+**Der erste Anlauf hat den Fehler nur umbenannt.** Die zweite Achse bekam
+wieder die Spanne 0 bis 100, diesmal in Grad. Die Einheit stimmte damit, die
+flache Linie blieb. Aufgefallen ist es in der Review, nicht mir. Danach am
+Gerät gemessen, 20006 Werte aus sieben Tagen:
+
+|                                     | Wert                     |
+| ----------------------------------- | ------------------------ |
+| Tiefster gemessener Wert            | 45,8 °C                  |
+| Höchster                            | 72,5 °C                  |
+| Mittel                              | 50,4 °C                  |
+| Anteil an einer Achse von 0 bis 100 | 27 %, im Alltag rund 6 % |
+
+Die Achse läuft jetzt von 40 bis 100 Grad. Die Untergrenze schneidet nichts ab,
+die Obergrenze hält die Alarmschwellen des Produkts im Bild (Warnung 80,
+kritisch 95). Bewusst fest und nicht mitwachsend: eine Achse, die sich den
+Daten anpasst, macht aus zwei Grad Schwankung ein Gebirge, und die Frage an
+dieses Diagramm lautet, ob das Gerät ruhig läuft. Ein Test hält beide Grenzen,
+damit niemand still auf 0 bis 100 zurückgeht.
+
 **Nebenbei erklärt sich F-04.** „0.0 / 32.0 GB belegt · frei 30.0 GB" ist kein
 Rechenfehler: `availableMb` zieht zusätzlich `safetyBufferMb` ab, hier 2 GB.
 Der Puffer hat nur keinen Namen auf dem Bildschirm. Gehört zu F-04, nicht

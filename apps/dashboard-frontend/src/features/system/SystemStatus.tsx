@@ -29,6 +29,24 @@ import { DashboardCard } from './DashboardCard';
 
 const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
 
+/**
+ * Die Temperaturachse, 40 bis 100 Grad statt 0 bis 100.
+ *
+ * Am 20.08.2026 auf dem Orin gemessen, 20006 Werte aus sieben Tagen: 45,8 Grad
+ * im Tief, 72,5 im Hoch, 50,4 im Mittel. Auf einer Achse ab null belegt das 27
+ * Prozent der Hoehe und im Alltag rund 6, also wieder die fast gerade Linie,
+ * gegen die dieser Schritt ueberhaupt gebaut ist. Die Temperatur von der
+ * Prozentachse zu nehmen und ihr dann dieselbe Spanne zu geben, haette den
+ * Fehler nur umbenannt.
+ *
+ * Die Untergrenze schneidet nichts ab, die Obergrenze haelt die Alarmschwellen
+ * des Produkts im Bild (Warnung 80, kritisch 95). Bewusst FEST und nicht
+ * mitwachsend: eine Achse, die sich den Daten anpasst, macht aus zwei Grad
+ * Schwankung ein Gebirge, und die Frage an dieses Diagramm lautet, ob das
+ * Geraet ruhig laeuft.
+ */
+export const TEMPERATUR_ACHSE: [number, number] = [40, 100];
+
 // Kompakt-Layout (Plan 002): alle Klassen auf der Dichte-Skala (text-ui-*
 // + ui-1…4-Abstände). min(100%, …) in den auto-fit-Grids verhindert
 // horizontales Scrollen, wenn der Container schmaler als eine Karte ist.
@@ -298,7 +316,7 @@ function SystemStatusView({
                 formatY={wert => `${wert}%`}
                 yDomain={[0, 100]}
                 formatYRechts={wert => `${wert} °C`}
-                yDomainRechts={[0, 100]}
+                yDomainRechts={TEMPERATUR_ACHSE}
                 // Die alte Beschriftung nannte Prozessor, Arbeitsspeicher und
                 // Grafikeinheit. Gezeichnet wurden Arbeitsspeicher, Auslagerung
                 // und Temperatur. Wer die Seite vorlesen ließ, bekam drei falsche

@@ -52,13 +52,6 @@ import {
   type SizeBucket,
 } from './storeModelFilters';
 
-/**
- * React-Query-Key des KI-RAM-Budgets — bewusst wertgleich zu dem der Fußzeilen-
- * Statusleiste, damit sich beide denselben Cache-Eintrag teilen (kein doppelter
- * Poll auf dem Jetson). Als lokale Konstante gehalten, weil ein Feature-Modul
- * nicht aus einem anderen Feature (features/workspace) importieren darf.
- */
-
 /** Entladen gilt nach dieser Zeit ohne Budget-Bestätigung als „Status unklar". */
 const UNLOAD_TIMEOUT_MS = 45_000;
 

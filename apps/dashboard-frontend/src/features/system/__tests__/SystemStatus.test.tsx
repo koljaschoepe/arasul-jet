@@ -9,7 +9,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SystemStatus } from '../SystemStatus';
+import { SystemStatus, TEMPERATUR_ACHSE } from '../SystemStatus';
 
 // recharts misst seine Groesse im Browser, jsdom liefert ueberall null.
 vi.mock('recharts', async () => {
@@ -71,6 +71,19 @@ describe('SystemStatus', () => {
   it('erklaert die zweite Speicherzahl, die die Statusleiste zeigt (F-24)', async () => {
     zeige();
     expect(await screen.findByText(/Davon 32 GB für KI-Modelle reserviert/)).toBeInTheDocument();
+  });
+
+  // Die eigene Achse allein reicht nicht. Bekaeme sie wieder die Spanne 0 bis
+  // 100, waere die Kurve so flach wie vorher, nur mit richtiger Einheit.
+  it('gibt der Temperatur eine Spanne, in der man die Kurve sieht', () => {
+    const [unten, oben] = TEMPERATUR_ACHSE;
+    // Gemessen am 20.08.2026 auf dem Orin: 45,8 Grad im Tief, 72,5 im Hoch.
+    expect(unten).toBeLessThanOrEqual(45);
+    expect(oben).toBeGreaterThanOrEqual(73);
+    // Und die kritische Schwelle des Produkts muss im Bild bleiben.
+    expect(oben).toBeGreaterThanOrEqual(95);
+    // 0 bis 100 waere der alte Zustand unter neuem Namen.
+    expect(oben - unten).toBeLessThanOrEqual(65);
   });
 
   it('nennt in der Diagrammbeschreibung beide Achsen mit ihrer Einheit', () => {
