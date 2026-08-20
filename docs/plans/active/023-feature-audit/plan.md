@@ -1333,6 +1333,42 @@ Rückmeldung. Wechselt das System das Modell selbst, steht dabei, warum.
 allen drei Anzeigeorten gleichzeitig sichtbar und stimmen überein. Behebt F-06,
 F-13.
 
+### Erst gemessen
+
+Der Widerspruch entsteht nicht aus den Daten. Statusleiste und Modellraster
+lesen dieselbe Antwort von `/models/memory-budget`; die Leiste unterscheidet
+drei Zustände, das Raster nur zwei. Dieselbe KI-RAM-Zeile stand wortgleich in
+beiden Dateien, mit zwei eigenen Kopien von `toGb` daneben.
+
+| Fund                                  | gemessen                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `bytes_completed`, `bytes_total`      | seit Migration 083 vorhanden, nie beschrieben. Ollama liefert die Werte in jeder Zeile des Pull-Stroms |
+| `llm_model_switches`                  | 1024 Wechsel protokolliert, 877 automatische Entladungen, keine einzige angezeigt                      |
+| `CatalogModel`                        | steht doppelt, in `types/index.ts` und im Hook, und lief bereits auseinander                           |
+| Die dokumentierte Form des SSE-Stroms | falsch: `type`/`percent`/`downloaded_gb` gegen `progress`/`status`/`model_id`                          |
+
+### Was daraus wurde
+
+`utils/modellZustand.ts` ist die eine Herleitung für den Zustandssatz und die
+KI-RAM-Zeile. Die Zahlen selbst ändert D4; wer die Einheiten anfasst, findet
+sie ab jetzt an einer Stelle.
+
+Die Übersetzung der Wechselgründe ist belegt, nicht geraten: die Kennungen
+entstehen in `ollamaReadiness.unloadModelWithTracking` als
+`auto_unload_adaptive_<phase>`, und die Phase entscheidet ausweislich
+`modelLifecycleService` nur, wie lange ein Modell ungenutzt bleiben darf
+(30/10/2 Minuten), nicht warum es geht.
+
+**Der neue Test fand sofort einen eigenen Fehler:** die Wechselzeile zeigte
+`Gemma 4` statt `Gemma 4 Kompakt`, weil `llm_model_switches` die Kennung trägt.
+Genau der Namensbruch aus D1, in D3 neu entstanden.
+
+**Und die Live-Abnahme von D2 fand einen weiteren:** dieselbe Lizenz stand an
+sieben Modellen als „Apache License 2.0" und an dreien als „apache-2.0". Das
+Kürzel hatte Vorrang vor dem Lizenztext. Migration 150.
+
+**Erledigt am 21.08.2026,** `arasul-jet` #446.
+
 ## D4 Speicherzahlen stimmen
 
 „0.0 von 32.0 GB belegt, frei 30.0 GB" ist arithmetisch falsch. Bei einer Kachel
