@@ -31,6 +31,27 @@ let unloadCheckIntervalId = null;
 const modelUsageTracker = new Map(); // modelId -> { lastUsed: Date, activeRequests: number }
 const activeRequests = new Map(); // requestId -> { modelId, startTime }
 
+/**
+ * Was beim letzten Durchgang im Speicher lag (Plan 023 D3, Nachtrag).
+ *
+ * Am 21.08.2026 am Geraet gemessen: `gemma3:1b` geladen, das Protokoll sagte
+ * `keep_alive: 120s`, danach war `/api/ps` leer, `llm_model_switches` hatte
+ * KEINE Zeile und das Protokoll keine Meldung. Ollama hatte das Modell selbst
+ * entladen, und Arasul hat davon nichts gemerkt.
+ *
+ * Das ist kein Zufall, sondern die Regel: Arasul reicht dieselbe Frist an
+ * Ollama durch, die es selbst als Schwelle benutzt. Ollama entlaedt genau bei
+ * Ablauf, `checkAndUnload` prueft alle 30 Sekunden und ueberspringt Modelle,
+ * deren `expires_at` noch in der Zukunft liegt. Ollama gewinnt also immer,
+ * ausser der Aufrufer hat eine laengere Frist mitgegeben (der Agentenpfad tut
+ * das mit `AGENT_KEEP_ALIVE`).
+ *
+ * Fuer die Anzeige heisst das: das Modell verschwindet aus der Statusleiste,
+ * und niemand sagt warum. Genau das sollte D3 beenden. Der Vergleich mit dem
+ * vorigen Durchgang schliesst die Luecke.
+ */
+let zuletztGeladen = new Set();
+
 class OllamaReadinessService {
   constructor() {
     this.modelService = null; // Will be set on initialize
@@ -223,14 +244,66 @@ class OllamaReadinessService {
   }
 
   /**
-   * Delegate unload checks to modelLifecycleService
+   * Delegate unload checks to modelLifecycleService, und danach nachsehen, ob
+   * Ollama von sich aus etwas entladen hat (Plan 023 D3, Nachtrag).
    */
   async checkSmartUnload() {
+    // Einmal abfragen, zweimal benutzt: die Automatik entscheidet daraus, und
+    // derselbe Stand dient als Vergleich mit dem vorigen Durchgang.
+    const geladen = await this._getLoadedModelsFromOllama();
+    const jetzt = new Set(geladen.map(m => m.name || m.model).filter(Boolean));
+    const selbstEntladen = new Set();
+
     await modelLifecycleService.checkAndUnload({
-      getLoadedModels: () => this._getLoadedModelsFromOllama(),
+      getLoadedModels: async () => geladen,
       modelUsageTracker,
-      unloadModel: (modelId, reason) => this.unloadModelWithTracking(modelId, reason),
+      unloadModel: (modelId, reason) => {
+        selbstEntladen.add(modelId);
+        return this.unloadModelWithTracking(modelId, reason);
+      },
     });
+
+    for (const modelId of zuletztGeladen) {
+      if (!jetzt.has(modelId) && !selbstEntladen.has(modelId)) {
+        await this._protokolliereFremdentladung(modelId);
+      }
+    }
+
+    // Was wir selbst entladen haben, ist beim naechsten Durchgang schon
+    // gebucht und darf dort nicht ein zweites Mal als fremd gelten.
+    for (const modelId of selbstEntladen) {
+      jetzt.delete(modelId);
+    }
+    zuletztGeladen = jetzt;
+  }
+
+  /**
+   * Eine Entladung buchen, die nicht von Arasul kam.
+   *
+   * Der Grund traegt bewusst das Praefix `auto_unload_`, damit die Anzeige ihn
+   * ohne Sonderfall uebersetzt: fuer den Nutzer ist es dieselbe Sache, ein
+   * Modell ist wegen Ruhe aus dem Speicher genommen worden. Wer es getan hat,
+   * ist eine Frage der Innereien und steht in der Kennung.
+   */
+  async _protokolliereFremdentladung(modelId) {
+    try {
+      modelUsageTracker.delete(modelId);
+      await database.query(
+        `INSERT INTO llm_model_switches (from_model, to_model, reason, switch_duration_ms)
+         VALUES ($1, 'unloaded', 'auto_unload_ollama_keepalive', 0)`,
+        [modelId]
+      );
+      logger.info(`[OllamaReadiness] Model ${modelId} was unloaded by Ollama itself (keep_alive)`);
+    } catch (err) {
+      logger.error(
+        `[OllamaReadiness] Could not record Ollama unload of ${modelId}: ${err.message}`
+      );
+    }
+  }
+
+  /** Nur fuer Tests: den Vergleichsstand zuruecksetzen. */
+  _vergleichsstandZuruecksetzen() {
+    zuletztGeladen = new Set();
   }
 
   /**

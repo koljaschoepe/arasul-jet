@@ -1490,7 +1490,11 @@ nichts mehr, was gerade zu sehen ist. Bewusst nur Entladungen: das Laden erklär
 sich von selbst, das Modell steht danach in der Leiste. `model` ist der Anzeigename aus dem Katalog, nicht die Kennung: die
 Ableitung aus `gemma4:e4b-q4` ergäbe „Gemma 4" statt „Gemma 4 Kompakt", und das
 wäre derselbe Namensbruch, den D1 beseitigt hat. `reason` bleibt die rohe
-Kennung; übersetzt wird sie im Frontend (`utils/modellZustand.ts`).
+Kennung; übersetzt wird sie im Frontend (`utils/modellZustand.ts`). Bekannte
+Kennungen: `auto_unload_adaptive_idle|normal|peak` (Arasul hat entladen, weil
+das Modell länger ungenutzt war) und `auto_unload_ollama_keepalive` (Ollama hat
+es selbst entladen, bevor Arasul dazu kam). Für den Nutzer ist beides dasselbe,
+deshalb tragen beide dasselbe Präfix und werden gleich übersetzt.
 
 **POST /api/models/download:**
 
