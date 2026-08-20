@@ -464,9 +464,9 @@ export function RemoteAccessSettings() {
           <Section
             title="Schritt 1: Tailscale installieren"
             description={
-              !installing &&
-              !installError &&
-              'Tailscale wird direkt auf deinem Gerät installiert. Die Installation dauert ein bis zwei Minuten und benötigt eine Internetverbindung.'
+              installing || installError
+                ? undefined
+                : 'Tailscale wird direkt auf deinem Gerät installiert. Die Installation dauert ein bis zwei Minuten und benötigt eine Internetverbindung.'
             }
           >
             <div className="space-y-4">
@@ -534,9 +534,10 @@ export function RemoteAccessSettings() {
 
         {/* Step 2: Auth-Key & Connect */}
         {currentStep === 2 && (
-          <Section title="Schritt 2: Mit Tailscale verbinden">
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+          <Section
+            title="Schritt 2: Mit Tailscale verbinden"
+            description={
+              <>
                 Tailscale ist installiert{status?.version ? ` (v${status.version})` : ''}. Erstelle
                 einen Auth-Key in deinem{' '}
                 <a
@@ -548,8 +549,10 @@ export function RemoteAccessSettings() {
                   Tailscale Admin-Panel <ExternalLink className="size-3" />
                 </a>{' '}
                 und füge ihn hier ein.
-              </p>
-
+              </>
+            }
+          >
+            <div className="space-y-4">
               <div className="flex gap-2">
                 <input
                   type="password"
@@ -923,11 +926,14 @@ export function RemoteAccessSettings() {
 
             {/* Der Dashboard-Zugriff steht schon in der Karte darueber. */}
             {status.ip && (
-              <Section title="SSH-Zugriff">
-                <code className="rounded border border-border px-1 py-0.5 text-xs">
+              /* Ein Randhinweis, kein Abschnitt: er steht nicht auf derselben
+                 Ebene wie "So erreichst du Arasul" und "Verbunden". */
+              <div className="space-y-1 border-l-2 border-primary/30 pl-4">
+                <p className="text-xs font-medium text-foreground">SSH-Zugriff:</p>
+                <code className="rounded border border-border px-1 py-0.5 text-xs text-muted-foreground">
                   ssh arasul@{status.ip}
                 </code>
-              </Section>
+              </div>
             )}
           </SectionList>
         )}

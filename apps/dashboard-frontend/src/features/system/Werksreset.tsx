@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, RotateCcw, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
@@ -172,6 +172,7 @@ export function Werksreset() {
     <div className="max-w-3xl">
       <PageHeader
         title="Werksreset"
+        icon={<RotateCcw className="text-primary" />}
         description="Setzt das Gerät zurück. Es gibt kein Rückgängig. Was hier verschwindet, ist nur noch in einer Sicherung vorhanden."
       />
 

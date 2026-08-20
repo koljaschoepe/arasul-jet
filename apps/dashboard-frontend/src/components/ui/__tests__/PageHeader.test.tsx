@@ -25,6 +25,19 @@ describe('PageHeader', () => {
     expect(container.querySelector('p')).toBeNull();
   });
 
+  it('zeigt ein Symbol nur, wenn eines übergeben wird', () => {
+    // Der Werksreset trug eines neben dem Titel. Auf einer Seite, die Daten
+    // unwiderruflich löscht, ist das keine Verzierung.
+    const ohne = render(<PageHeader title="Allgemein" />);
+    expect(ohne.container.querySelectorAll('svg')).toHaveLength(0);
+    ohne.unmount();
+
+    const mit = render(<PageHeader title="Werksreset" icon={<svg data-testid="warnung" />} />);
+    const symbol = mit.container.querySelector('[data-testid="warnung"]');
+    expect(symbol).not.toBeNull();
+    expect(symbol?.closest('[aria-hidden="true"]')).not.toBeNull();
+  });
+
   it('nimmt eine Aktion rechts auf', () => {
     render(<PageHeader title="Services" action={<button type="button">Neu laden</button>} />);
     expect(screen.getByRole('button', { name: 'Neu laden' })).toBeInTheDocument();

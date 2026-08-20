@@ -144,7 +144,7 @@ export function ServicesSettings() {
       if (err.status === 429) {
         setMessage({
           type: 'error',
-          text: err.data?.message || 'Bitte kurz warten, bevor dieser Dienst erneut neu startet',
+          text: err.data?.message || 'Bitte kurz warten, bevor dieser Dienst wieder neu startet',
         });
       } else {
         setMessage({

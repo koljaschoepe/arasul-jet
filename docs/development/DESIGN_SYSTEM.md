@@ -356,7 +356,7 @@ Tab-Leisten, und sie liefen auseinander.
 
 | Baustein                  | Datei               | Was er festlegt                                                                             |
 | ------------------------- | ------------------- | ------------------------------------------------------------------------------------------- |
-| `PageHeader`              | `ui/PageHeader.tsx` | Seitentitel als einziges `h1`, `text-2xl`, Beschreibung, Aktion rechts                      |
+| `PageHeader`              | `ui/PageHeader.tsx` | Seitentitel als einziges `h1`, `text-2xl`, optionales Symbol, Beschreibung, Aktion rechts   |
 | `FilterBar`               | `ui/FilterBar.tsx`  | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`), Pfeile, Pos1/Ende, roving tabindex           |
 | `StatTile` / `StatGrid`   | `ui/StatTile.tsx`   | Kennzahl ohne Symbol; Raster fest auf 1/2/4 Spalten, nie drei plus eins                     |
 | `Chart` / `Sparkline`     | `ui/Chart.tsx`      | recharts-Linien, ausschließlich Blau nach Grau, ohne eigene Karte                           |
