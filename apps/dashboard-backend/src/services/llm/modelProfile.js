@@ -112,12 +112,9 @@ async function leseSteckbrief(ollamaName) {
  * Bewusst nacheinander statt parallel: `/api/show` laedt bei einem entladenen
  * Modell die Metadaten von der Platte, und die Box hat eine Platte.
  *
- * Und bewusst begrenzt. Der Aufrufer haengt an `syncWithOllama`, und das haengt
- * auch an POST /api/models/sync, einer Route, die im Anfragefaden abgewartet
- * wird. Beim ersten Lauf nach der Migration ist `profile_read_at` bei jedem
- * installierten Modell leer; ohne Grenze waere die Antwortzeit die Zahl der
- * Modelle mal die Zeitgrenze. Der Abgleich laeuft alle fuenf Minuten und holt
- * den Rest nach.
+ * Und bewusst begrenzt: hoechstens fuenf Modelle je Lauf, damit ein Durchgang
+ * eine bekannte Obergrenze hat. Die Antwortzeit einer Anfrage haengt trotzdem
+ * nicht daran, dafuer sorgt `steckbriefeAnstossen`.
  *
  * @param {Object} database
  * @param {Object} [optionen]
@@ -172,4 +169,41 @@ async function steckbriefeNachtragen(database, { hoechstalterTage = 30, hoechste
   return geschrieben;
 }
 
-module.exports = { leseSteckbrief, steckbriefeNachtragen, lizenzBezeichnung, kontextLaenge };
+/**
+ * Laeuft gerade ein Nachtrag? Ein zweiter waehrenddessen brauchte niemanden:
+ * er faende dieselben Modelle und liefe in dieselben Zeitgrenzen.
+ */
+let laeuft = false;
+
+/**
+ * Den Nachtrag anstossen, ohne auf ihn zu warten.
+ *
+ * `syncWithOllama` haengt an POST /api/models/sync, und diese Route wird im
+ * Anfragefaden abgewartet. Fuenf Modelle mal zehn Sekunden Zeitgrenze waeren im
+ * schlechtesten Fall fuenfzig Sekunden obendrauf; das Frontend bricht nach
+ * dreissig ab (`useApi`), der Server nach sechzig. Der Steckbrief ist aber kein
+ * Teil dessen, was der Aufrufer wissen will: er beschreibt Modelle, die schon
+ * da sind, und darf beliebig spaeter fertig werden.
+ *
+ * Bewusst ohne Rueckgabewert. Wer darauf warten will, ruft
+ * `steckbriefeNachtragen` direkt, so wie die Tests es tun.
+ */
+function steckbriefeAnstossen(database, optionen) {
+  if (laeuft) {
+    return;
+  }
+  laeuft = true;
+  steckbriefeNachtragen(database, optionen)
+    .catch(fehler => logger.warn(`[STECKBRIEF] Nachtrag abgebrochen: ${fehler.message}`))
+    .finally(() => {
+      laeuft = false;
+    });
+}
+
+module.exports = {
+  leseSteckbrief,
+  steckbriefeNachtragen,
+  steckbriefeAnstossen,
+  lizenzBezeichnung,
+  kontextLaenge,
+};

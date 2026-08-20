@@ -284,9 +284,10 @@ function ModelDetail({
   const steckbriefDa = Boolean(model.profile_read_at);
   const gemessen = zahlDeutsch(model.measured_tps);
   const laeufe = zahlDeutsch(model.measured_runs);
-  // sanitizeUrl gibt '#' zurueck, wenn nichts Brauchbares dasteht. Ein Link
-  // auf '#' waere schlimmer als keiner: er sieht aus, als fuehre er irgendwohin.
-  const geprueft = model.ollama_library_url ? sanitizeUrl(model.ollama_library_url) : '#';
+  // sanitizeUrl gibt '#' zurueck, wenn nichts Brauchbares dasteht, auch bei
+  // undefined. Ein Link auf '#' waere schlimmer als keiner: er sieht aus, als
+  // fuehre er irgendwohin.
+  const geprueft = sanitizeUrl(model.ollama_library_url);
   const kartenLink = geprueft === '#' ? null : geprueft;
 
   const isReady = model.install_status === 'available';

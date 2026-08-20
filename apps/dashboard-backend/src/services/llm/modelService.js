@@ -20,7 +20,7 @@ const readFileAsync = promisify(fs.readFile);
 
 const { createDownloadHelpers } = require('./modelDownloadHelpers');
 const { createSyncHelpers } = require('./modelSyncHelpers');
-const { steckbriefeNachtragen } = require('./modelProfile');
+const { steckbriefeAnstossen } = require('./modelProfile');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
@@ -1086,17 +1086,13 @@ function createModelService(deps = {}) {
         //     Kontextlaenge. Laeuft nach markAvailableModels, damit auch ein
         //     gerade importiertes Modell schon einen Eintrag hat, und stoert
         //     den Abgleich nicht, wenn Ollama dabei aussteigt.
-        try {
-          // Hoechstens fuenf je Lauf: `syncWithOllama` haengt auch an
-          // POST /api/models/sync, und diese Route wird im Anfragefaden
-          // abgewartet. Beim ersten Lauf nach dieser Migration ist
-          // `profile_read_at` bei JEDEM installierten Modell leer; ohne Grenze
-          // waere die Antwortzeit die Zahl der Modelle mal zehn Sekunden. Der
-          // Abgleich laeuft ohnehin alle fuenf Minuten und holt den Rest nach.
-          await steckbriefeNachtragen(database, { hoechstens: 5 });
-        } catch (err) {
-          logger.warn(`[SYNC] Steckbriefe nicht nachgetragen: ${err.message}`);
-        }
+        // Angestossen, nicht abgewartet. `syncWithOllama` haengt auch an
+        // POST /api/models/sync, und diese Route wird im Anfragefaden
+        // abgewartet; fuenf Modelle mal zehn Sekunden Zeitgrenze waeren im
+        // schlechtesten Fall fuenfzig Sekunden obendrauf. Der Steckbrief
+        // beschreibt Modelle, die schon da sind, und darf spaeter fertig
+        // werden. Fehler landen im Protokoll, nicht in der Antwort.
+        steckbriefeAnstossen(database);
 
         // 2. Mark models as error if marked available in DB but not in Ollama
         await syncHelpers.markMissingModels(ollamaModels);

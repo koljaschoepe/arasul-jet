@@ -21,7 +21,9 @@ const {
   kontextLaenge,
   leseSteckbrief,
   steckbriefeNachtragen,
+  steckbriefeAnstossen,
 } = require('../../src/services/llm/modelProfile');
+const logger = require('../../src/utils/logger');
 
 describe('lizenzBezeichnung', () => {
   test('nimmt das Kuerzel, wenn Ollama eines liefert', () => {
@@ -148,13 +150,61 @@ describe('steckbriefeNachtragen', () => {
     expect(query.mock.calls[0][0]).toContain('profile_read_at IS NULL');
   });
 
-  // Der Aufrufer haengt an POST /api/models/sync, und diese Route wird im
-  // Anfragefaden abgewartet. Ohne Grenze waere die Antwortzeit beim ersten
-  // Lauf die Zahl der Modelle mal zehn Sekunden.
+  // Ein Durchgang soll eine bekannte Obergrenze haben, auch wenn er niemanden
+  // mehr aufhaelt.
   test('fasst je Lauf hoechstens fuenf Modelle an', async () => {
     const query = jest.fn().mockResolvedValue({ rows: [] });
     await steckbriefeNachtragen({ query });
     expect(query.mock.calls[0][0]).toContain('LIMIT $2');
     expect(query.mock.calls[0][1]).toEqual(['30', 5]);
+  });
+});
+
+/**
+ * Die Route POST /api/models/sync wird im Anfragefaden abgewartet. Fuenf
+ * Modelle mal zehn Sekunden Zeitgrenze waeren im schlechtesten Fall fuenfzig
+ * Sekunden; das Frontend bricht nach dreissig ab. Deshalb wird der Nachtrag
+ * angestossen, nicht abgewartet.
+ */
+describe('steckbriefeAnstossen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    delete global.fetch;
+  });
+
+  test('kehrt sofort zurueck, ohne auf die Datenbank zu warten', () => {
+    let aufloesen;
+    const query = jest.fn(() => new Promise(res => (aufloesen = res)));
+
+    // Kein await: was hier zurueckkommt, ist nichts.
+    expect(steckbriefeAnstossen({ query })).toBeUndefined();
+    aufloesen({ rows: [] });
+  });
+
+  test('ein zweiter Anstoss waehrend des ersten laeuft ins Leere', async () => {
+    let aufloesen;
+    const query = jest.fn(() => new Promise(res => (aufloesen = res)));
+
+    steckbriefeAnstossen({ query });
+    steckbriefeAnstossen({ query });
+    expect(query).toHaveBeenCalledTimes(1);
+
+    aufloesen({ rows: [] });
+    await new Promise(res => setImmediate(res));
+
+    // Nach dem Ende ist der Weg wieder frei.
+    steckbriefeAnstossen({ query: jest.fn().mockResolvedValue({ rows: [] }) });
+  });
+
+  test('ein Fehler landet im Protokoll, nicht als unbehandelte Ablehnung', async () => {
+    const query = jest.fn().mockRejectedValue(new Error('keine Verbindung'));
+
+    steckbriefeAnstossen({ query });
+    await new Promise(res => setImmediate(res));
+
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('keine Verbindung'));
   });
 });
