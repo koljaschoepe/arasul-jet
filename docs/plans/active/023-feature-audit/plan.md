@@ -507,11 +507,53 @@ hatte. Der neue Prüfpunkt ist sein erster, und ohne die Ergänzung hätte er
 genau den Fall falsch beantwortet, um dessentwillen er gebaut wurde. Gegenprobe
 gesehen: ohne den Cookie-Weg wird der Test rot.
 
-**Und noch etwas hing daran:** neun Testdateien ersetzen die Auth-Middleware
-per `jest.mock`, und keine davon kannte `optionalAuth`. `jest.mock` ersetzt das
-ganze Modul, also bekam jeder andere Importeur `undefined`. Eine der neun ist
-sofort gescheitert, die anderen acht hätten es beim nächsten Aufrufer getan.
-Alle neun nachgezogen.
+**Und noch etwas hing daran, zweimal.** `jest.mock` ersetzt das ganze Modul,
+nicht nur den Teil, den eine Testdatei braucht. Wer eine geteilte Middleware so
+ersetzt und ihre Ausfuhren von Hand aufzählt, liefert jedem anderen Aufrufer
+`undefined`, und Express bricht beim Registrieren der Route ab mit
+`Route.get() requires a callback function but got a [object Undefined]`.
+
+- Neun Dateien ersetzen die Auth-Middleware, keine kannte `optionalAuth`. Eine
+  ist sofort gescheitert, die anderen acht hätten es beim nächsten Aufrufer
+  getan. Alle neun nachgezogen.
+- Sieben Dateien ersetzen die Rate-Limiter, keine kannte `sessionProbeLimiter`.
+  Fünf Suiten auf einen Schlag. Hier war die Aufzählung in allen sieben
+  identisch und ohne eigenes Verhalten, deshalb ist sie ersatzlos weg:
+  `__tests__/helpers/rateLimitMock.js` antwortet über einen Proxy auf **jeden**
+  Namen mit einer Middleware, die durchlässt. Der nächste Limiter braucht dort
+  nichts.
+
+Bei der Auth-Middleware ging das nicht, weil jede der neun ein eigenes
+`requireAuth` braucht. Dieselbe Falle steht dort also weiter offen; als
+Wiedervorlage notiert.
+
+**Review-Runde 3 hat einen Fehler gefunden, den der neue Prüfpunkt erst
+möglich gemacht hat.** `checkAuth` hat jede Antwort, die nicht `ok` war, als
+„nicht angemeldet" gewertet und den Token weggeworfen. Solange `/auth/me`
+gefragt wurde, ging das durch, denn dort war die 401 selbst die Aussage. Beim
+Prüfpunkt ist eine 429 aus dem Rate-Limiter oder ein 5xx **keine** Aussage über
+die Sitzung, und ein Serverschluckauf hätte einen angemeldeten Nutzer
+abgemeldet. Jetzt räumt nur eine Antwort auf, die der Server wirklich gegeben
+hat: 200 mit `authenticated: false`. Gegenprobe gesehen, drei Tests.
+
+**Dazu ein eigener Limiter.** Der Prüfpunkt lag zuerst hinter
+`generalAuthLimiter`, 30 Anfragen je Minute und IP, geteilt mit
+`/auth/needs-setup` und `/auth/logout`. Ein Seitenaufruf verbraucht davon
+bereits zwei, und mehrere Leute in einem Büro teilen sich hinter NAT eine IP.
+Fünfzehn Seitenaufrufe je Minute hätten begonnen, einem Prüfpunkt mit 429 zu
+antworten, dessen Zweck es ist, oft gefragt zu werden. Er hat jetzt
+`sessionProbeLimiter` mit 120 je Minute.
+
+Dieselbe Enge hat `/auth/needs-setup`, das ebenfalls bei jedem Seitenaufruf
+gefragt wird und weiter auf `generalAuthLimiter` steht. Dort ist die Folge
+milder, eine 429 landet im `catch` und zeigt die Anmeldung, es meldet also
+niemanden ab. Nicht mit angefasst, weil es nicht zu C3 gehört; als Wiedervorlage
+notiert.
+
+**Beim Eintragen in `docs/api/API_REFERENCE.md` waren drei Angaben falsch.**
+`logout` steht auf 30 pro Minute, nicht 30 pro 15 Minuten, und `logout-all` und
+`refresh-cookie` haben überhaupt keinen Limiter. Alle Werte in der Tabelle
+stammen jetzt aus dem Code, mit `Stand:` und `Quelle:`.
 
 **Dabei kam ein stiller Fehler in den Testfixtures heraus.** `App.test.tsx`
 legte `arasul_token = 'valid-token'` ab. Diese Zeichenkette hat `getValidToken`

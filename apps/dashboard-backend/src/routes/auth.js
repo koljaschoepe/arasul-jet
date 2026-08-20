@@ -18,6 +18,7 @@ const { requireAuth, optionalAuth } = require('../middleware/auth');
 const {
   loginLimiter,
   generalAuthLimiter,
+  sessionProbeLimiter,
   createUserRateLimiter,
 } = require('../middleware/rateLimit');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -373,7 +374,7 @@ router.get(
 // answers correctly for both the normal and the LAN/cookie-only path.
 router.get(
   '/session',
-  generalAuthLimiter,
+  sessionProbeLimiter,
   optionalAuth,
   asyncHandler((req, res) => {
     res.json({

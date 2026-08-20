@@ -118,4 +118,24 @@ describe('AuthContext, Sitzungspruefung beim Start', () => {
 
     await waitFor(() => expect(screen.getByText('abgemeldet')).toBeInTheDocument());
   });
+
+  // Der Pruefpunkt antwortet auf beide Faelle mit 200. Alles andere ist keine
+  // Aussage ueber die Sitzung, und ein Serverschluckauf darf keinen angemeldeten
+  // Nutzer abmelden. Vor C3 war das nicht zu unterscheiden, weil /auth/me auf
+  // "nicht angemeldet" selbst mit 401 antwortete.
+  describe.each([
+    [429, 'einer Sperre durch den Rate-Limiter'],
+    [503, 'einem Serverfehler'],
+    [502, 'einem Proxy dazwischen'],
+  ])('bei %i, %s', (status: number) => {
+    test('bleibt der Token liegen', async () => {
+      localStorage.setItem('arasul_token', token(3600));
+      antwortet({ error: { code: 'RATE_LIMITED' } }, false);
+      fetchSpy.mockResolvedValue({ ok: false, status, json: async () => ({}) });
+      zeichne();
+
+      await waitFor(() => expect(screen.getByText('abgemeldet')).toBeInTheDocument());
+      expect(localStorage.getItem('arasul_token')).not.toBeNull();
+    });
+  });
 });

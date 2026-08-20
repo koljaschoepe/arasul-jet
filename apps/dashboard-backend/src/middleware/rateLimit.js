@@ -161,6 +161,25 @@ const generalAuthLimiter = createLimiter(
   'Too many requests, please try again later'
 );
 
+/**
+ * Session probe rate limiter - 120 requests per minute per IP.
+ *
+ * Plan 023 C3: GET /api/auth/session is asked on every page load, and several
+ * people in one office share one IP behind NAT. generalAuthLimiter allows 30
+ * per minute for the whole group of endpoints it guards, and a single page load
+ * already spends two of them (/session plus /needs-setup). Fifteen page loads
+ * a minute from one office would have started answering 429 to a probe whose
+ * whole purpose is to be asked often. The endpoint is a cheap read and returns
+ * nothing to a caller without a session, so the ceiling is here against abuse,
+ * not against use.
+ */
+const sessionProbeLimiter = createLimiter(
+  'SessionProbe',
+  60 * 1000,
+  120,
+  'Too many requests, please try again later'
+);
+
 /** Tailscale rate limiter - 5 requests per minute (install/connect are heavy) */
 const tailscaleLimiter = createLimiter(
   'Tailscale',
@@ -179,6 +198,7 @@ module.exports = {
   metricsLimiter,
   webhookLimiter,
   generalAuthLimiter,
+  sessionProbeLimiter,
   tailscaleLimiter,
   uploadLimiter,
   createUserRateLimiter,

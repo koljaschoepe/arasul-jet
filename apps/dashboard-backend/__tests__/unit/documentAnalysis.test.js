@@ -26,11 +26,7 @@ jest.mock('../../src/middleware/auth', () => ({
     },
 }));
 
-jest.mock('../../src/middleware/rateLimit', () => ({
-    uploadLimiter: (req, res, next) => next(),
-    generalLimiter: (req, res, next) => next(),
-    generalAuthLimiter: (req, res, next) => next(),
-}));
+jest.mock('../../src/middleware/rateLimit', () => require('../helpers/rateLimitMock'));
 
 const database = require('../../src/database');
 const logger = require('../../src/utils/logger');

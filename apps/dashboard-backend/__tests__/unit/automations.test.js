@@ -20,17 +20,7 @@ jest.mock('../../src/utils/logger', () => ({
 
 jest.mock('axios');
 
-jest.mock('../../src/middleware/rateLimit', () => ({
-  apiLimiter: (req, res, next) => next(),
-  metricsLimiter: (req, res, next) => next(),
-  loginLimiter: (req, res, next) => next(),
-  llmLimiter: (req, res, next) => next(),
-  webhookLimiter: (req, res, next) => next(),
-  generalAuthLimiter: (req, res, next) => next(),
-  tailscaleLimiter: (req, res, next) => next(),
-  uploadLimiter: (req, res, next) => next(),
-  createUserRateLimiter: () => (req, res, next) => next(),
-}));
+jest.mock('../../src/middleware/rateLimit', () => require('../helpers/rateLimitMock'));
 
 jest.mock('../../src/config/services', () => ({
   metrics: { url: 'http://localhost:9100', host: 'localhost', port: 9100 },
