@@ -20,7 +20,7 @@
  *    aus dem Dialog heraus in den Arbeitsbereich dahinter, und die
  *    Hintergrundfläche war die erste Station im Tabulatorlauf.
  */
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, KeyRound, TerminalSquare, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 
@@ -148,7 +148,10 @@ export default function OnboardingWizard() {
   // Sprung von Schritt 2 auf 1 aus dem Dokument; ohne diese Zeile faellt der
   // Fokus dabei auf <body>, also aus einem Dialog heraus, der sich per
   // aria-modal als geschlossen ausgibt.
-  useEffect(() => {
+  // useLayoutEffect, nicht useEffect: beim Sprung von Schritt 2 auf 1 faellt der
+  // Fokus zwischendurch auf <body>. Mit useEffect liegt ein Bild dazwischen, in
+  // dem ein Vorlesegeraet diesen Zwischenzustand ansagen kann.
+  useLayoutEffect(() => {
     if (offen) dialog.current?.focus();
   }, [offen, i]);
 
@@ -160,11 +163,11 @@ export default function OnboardingWizard() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* tabIndex -1: anklickbar, aber nicht die erste Station im Tabulatorlauf.
+      {/* Eine Flaeche zum Wegklicken, kein Knopf. Als <button> war sie fuer
+          Vorlesegeraete ein Bedienelement, das gleichzeitig aria-hidden trug,
+          und ein Mausklick gab ihr in Chromium fuer einen Moment den Fokus.
           Der Tastaturweg hinaus ist Escape und der Knopf „Überspringen“. */}
-      <button
-        type="button"
-        tabIndex={-1}
+      <div
         aria-hidden="true"
         className="absolute inset-0 cursor-default bg-black/50"
         onClick={schliessen}
