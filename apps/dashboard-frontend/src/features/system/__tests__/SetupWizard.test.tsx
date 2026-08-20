@@ -28,13 +28,30 @@ vi.mock('../../../contexts/DownloadContext', () => ({
 
 const KATALOG = {
   models: [
+    // Genau der Fall vom Geraet: das empfohlene Modell traegt den Typ `vision`,
+    // weil Gemma 4 Bilder lesen kann. Bis zum 20.08.2026 filterte der Assistent
+    // auf `llm` und warf damit seine eigene Empfehlung aus der Liste.
     {
       id: 'gemma4:e4b-q4',
       name: 'Gemma 4 E4B',
       description: 'Allzweckmodell',
       size_bytes: 4 * 1024 ** 3,
       ram_required_gb: 8,
-      model_type: 'llm',
+      model_type: 'vision',
+      install_status: 'not_installed',
+    },
+    {
+      id: 'bge-m3',
+      name: 'BGE M3',
+      description: 'Einbettungen',
+      model_type: 'embedding',
+      install_status: 'not_installed',
+    },
+    {
+      id: 'tesseract:latest',
+      name: 'Tesseract',
+      description: 'Texterkennung',
+      model_type: 'ocr',
       install_status: 'not_installed',
     },
     {
@@ -231,6 +248,64 @@ describe('SetupWizard', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/nicht abgeschlossen/);
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  // Am 20.08.2026 am Pruefstand live gesehen: Schritt 2 zeigte GAR KEIN Modell.
+  // `GET /models/recommended` empfiehlt dort `gemma4:26b-q4`, der Katalog fuehrt
+  // es als `vision`, und der Assistent filterte auf `llm`. Die Auswahl stand
+  // damit auf einer Kennung, die die Liste nicht enthielt. Derselbe Fehler war
+  // im alten Assistenten drin, nur unsichtbar: dort stand auf dem
+  // Zusammenfassungs-Bildschirm die rohe Kennung statt eines Namens, und der
+  // Download startete nie.
+  test('zeigt die Empfehlung auch dann, wenn sie Bilder lesen kann', async () => {
+    const nutzer = userEvent.setup();
+    render(<SetupWizard onComplete={onComplete} onSkip={onSkip} />);
+    await bisSchrittZwei(nutzer);
+
+    expect(await screen.findByText('Gemma 4 E4B')).toBeInTheDocument();
+    expect(screen.getByText('Empfohlen')).toBeInTheDocument();
+  });
+
+  test('bietet weder Einbettungs- noch Texterkennungsmodelle an', async () => {
+    const nutzer = userEvent.setup();
+    render(<SetupWizard onComplete={onComplete} onSkip={onSkip} />);
+    await bisSchrittZwei(nutzer);
+    await screen.findByText('Gemma 4 E4B');
+
+    await nutzer.click(screen.getByRole('button', { name: /Anderes Modell wählen/ }));
+    expect(screen.getByText('Qwen 3 8B')).toBeInTheDocument();
+    expect(screen.queryByText('BGE M3')).toBeNull();
+    expect(screen.queryByText('Tesseract')).toBeNull();
+  });
+
+  // Empfiehlt das Geraet etwas, das der Katalog gar nicht kennt, darf die
+  // Auswahl nicht ins Leere zeigen.
+  test('faellt auf das erste Modell zurueck, wenn die Empfehlung fehlt', async () => {
+    const nutzer = userEvent.setup();
+    mockApi.get.mockImplementation((pfad: string) => {
+      if (pfad === '/system/network') return Promise.resolve({ internet_reachable: true });
+      if (pfad === '/models/catalog') return Promise.resolve(KATALOG);
+      if (pfad === '/models/recommended')
+        return Promise.resolve({ recommended_model: 'gibt-es-nicht:99b' });
+      return Promise.resolve({});
+    });
+    render(<SetupWizard onComplete={onComplete} onSkip={onSkip} />);
+    await bisSchrittZwei(nutzer);
+
+    expect(await screen.findByText('Gemma 4 E4B')).toBeInTheDocument();
+    expect(screen.queryByText('Empfohlen')).toBeNull();
+  });
+
+  test('zaehlt die weiteren Modelle richtig', async () => {
+    const nutzer = userEvent.setup();
+    render(<SetupWizard onComplete={onComplete} onSkip={onSkip} />);
+    await bisSchrittZwei(nutzer);
+    await screen.findByText('Gemma 4 E4B');
+
+    // Zwei waehlbare Modelle im Katalog, eines sichtbar, also eines weiteres.
+    expect(
+      screen.getByRole('button', { name: /Anderes Modell wählen \(1 weitere\)/ })
+    ).toBeInTheDocument();
   });
 
   test('sagt bei fehlendem Internet, wie das Modell trotzdem herkommt', async () => {

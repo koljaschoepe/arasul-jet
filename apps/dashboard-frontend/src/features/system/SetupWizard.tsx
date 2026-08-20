@@ -101,7 +101,7 @@ const TEAMGROESSEN: Auswahl[] = [
   { wert: '5', label: '1 bis 5', icon: User },
   { wert: '20', label: '6 bis 20', icon: Users },
   { wert: '100', label: '21 bis 100', icon: LayoutGrid },
-  { wert: '100+', label: 'ueber 100', icon: Briefcase },
+  { wert: '100+', label: 'über 100', icon: Briefcase },
 ];
 
 const ANTWORTSTILE: Auswahl[] = [
@@ -112,6 +112,25 @@ const ANTWORTSTILE: Auswahl[] = [
 ];
 
 const EMPFEHLUNG_FALLBACK = 'gemma4:e4b-q4';
+
+/**
+ * Was hier NICHT zur Wahl steht.
+ *
+ * Bis zum 20.08.2026 lief der Filter andersherum: `model_type === 'llm'`, alles
+ * andere weg. Am Geraet gemessen ist das falsch. `GET /models/recommended`
+ * empfiehlt dort `gemma4:26b-q4`, und dieses Modell traegt im Katalog den Typ
+ * `vision`, weil Gemma 4 Bilder lesen kann. Es fiel also aus genau der Liste
+ * heraus, in der es haette stehen sollen. Die Folge war nicht bloss ein
+ * fehlender Eintrag: `handleComplete` suchte das gewaehlte Modell in derselben
+ * Liste, fand es nicht und startete keinen Download. Auf dem
+ * Zusammenfassungs-Bildschirm stand deshalb die rohe Kennung `gemma4:26b-q4`
+ * statt eines Namens, das war das sichtbare Zeichen dafuer.
+ *
+ * Ein Modell, das Bilder lesen kann, ist ein Chatmodell mit einer Faehigkeit
+ * mehr. Ausgeschlossen gehoeren nur die, die im Chat gar nicht antworten:
+ * Einbettungsmodelle und Texterkennung.
+ */
+const NICHT_WAEHLBAR = new Set(['embedding', 'ocr']);
 
 function groesse(bytes: number | null | undefined): string {
   if (!bytes) return '';
@@ -251,11 +270,22 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     ])
       .then(([katalog, rat]) => {
         if (abgebrochen) return;
-        const llm = (katalog.models || []).filter(m => (m.model_type || 'llm') === 'llm');
-        setModelle(llm);
+        const waehlbar = (katalog.models || []).filter(
+          m => !NICHT_WAEHLBAR.has(m.model_type || 'llm')
+        );
+        setModelle(waehlbar);
         const empfohlen = rat?.recommended_model || EMPFEHLUNG_FALLBACK;
         setEmpfehlung(empfohlen);
-        setModellWahl(vorher => vorher || empfohlen);
+        // Steht die Empfehlung nicht im Katalog, zeigt eine Auswahl auf sie
+        // ins Leere. Am 20.08.2026 live gesehen: Schritt 2 zeigte gar kein
+        // Modell, weil die Auswahl auf einer Kennung stand, die die Liste
+        // nicht enthielt.
+        const vorhanden = (kennung: string) => waehlbar.some(m => m.id === kennung);
+        setModellWahl(vorher => {
+          if (vorher && vorhanden(vorher)) return vorher;
+          if (vorhanden(empfohlen)) return empfohlen;
+          return waehlbar[0]?.id ?? '';
+        });
       })
       .catch(() => {
         if (!abgebrochen) setModelle([]);
@@ -497,7 +527,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                 >
                   {alleZeigen
                     ? 'Nur das gewählte zeigen'
-                    : `Anderes Modell wählen (${modelle.length - 1} weitere)`}
+                    : `Anderes Modell wählen (${modelle.length - sichtbareModelle.length} weitere)`}
                 </Button>
               )}
             </>

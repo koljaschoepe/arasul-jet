@@ -1168,6 +1168,30 @@ untereinander. Jetzt ein Baustein, drei Aufrufer.
 nicht gab, darunter je einer für die Sackgasse, die verschluckten Fehlschläge
 und die Container-Adresse.
 
+### Was die Live-Abnahme danach noch fand
+
+Der neue Assistent lief am Prüfstand von der leeren Box bis in den
+Arbeitsbereich durch, ohne Handgriff daneben, ohne HTTP-Fehler, ohne Meldung in
+der Konsole. Und Schritt 2 zeigte **gar kein Modell**.
+
+`GET /models/recommended` empfiehlt auf dem Orin `gemma4:26b-q4`. Im Katalog
+trägt dieses Modell den Typ `vision`, weil Gemma 4 Bilder lesen kann. Der
+Assistent filterte auf `model_type === 'llm'` und warf damit seine eigene
+Empfehlung aus der Liste.
+
+**Der Fehler ist älter als der Umbau.** Im alten Assistenten war er nur
+unsichtbar: die Liste zeigte zwölf andere Modelle, und dass die Auswahl auf
+etwas zeigte, das nicht darin stand, sah man nur an einer Stelle. Auf dem
+Zusammenfassungs-Bildschirm stand `gemma4:26b-q4` als rohe Kennung statt eines
+Namens, weil `models.find(...)` nichts fand. Dieselbe Suche entscheidet, ob der
+Download startet. **Auf diesem Gerät hat die Ersteinrichtung noch nie ein
+Modell heruntergeladen.**
+
+Behoben: ausgeschlossen sind nur noch Einbettungs- und Texterkennungsmodelle,
+und die Auswahl fällt auf den ersten Eintrag zurück, wenn die Empfehlung nicht
+im Katalog steht. Vier weitere Tests, gegengeprüft rot: mit dem alten Filter
+fallen sieben von sechzehn.
+
 ---
 
 # Phase D, Modelle
