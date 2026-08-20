@@ -17,6 +17,7 @@
  *    bringt nur die Linien mit.
  */
 
+import { memo, useMemo } from 'react';
 import {
   CartesianGrid,
   Legend,
@@ -150,12 +151,32 @@ interface SparklineProps {
 /**
  * Verlauf ohne Achsen, für die Kennzahlkachel. Trägt keine eigene Aussage,
  * die nicht schon in der Zahl daneben steht, deshalb `aria-hidden`.
+ *
+ * `memo` und `useMemo`, weil `SystemStatus` bei jedem Messwert neu zeichnet.
+ * Der Vorläufer `TempSparkline` hatte beides, und dreissig Werte sind zwar
+ * wenig, aber es gibt keinen Grund, sie viermal je Minute neu zu falten.
+ *
+ * Lücken kommen als null herein. Wer eine Ausfallkennung hat, die wie ein
+ * gültiger Wert aussieht, wandelt sie vorher um: die Temperatur macht das in
+ * `useDashboardData.ohneAusfallwerte`, weil null Grad dort kein Messwert ist,
+ * sondern ein stummer Sensor.
  */
-export function Sparkline({ values, fenster = 30, height = 18, className }: SparklineProps) {
-  const punkte = values
-    .slice(-fenster)
-    .map((wert, index) => ({ index, wert }))
-    .filter((punkt): punkt is { index: number; wert: number } => typeof punkt.wert === 'number');
+export const Sparkline = memo(function Sparkline({
+  values,
+  fenster = 30,
+  height = 18,
+  className,
+}: SparklineProps) {
+  const punkte = useMemo(
+    () =>
+      values
+        .slice(-fenster)
+        .map((wert, index) => ({ index, wert }))
+        .filter(
+          (punkt): punkt is { index: number; wert: number } => typeof punkt.wert === 'number'
+        ),
+    [values, fenster]
+  );
 
   // Eine einzelne Zahl ergibt keine Linie, gar nichts ist ehrlicher als ein Punkt.
   if (punkte.length < 2) return null;
@@ -179,6 +200,6 @@ export function Sparkline({ values, fenster = 30, height = 18, className }: Spar
       </ResponsiveContainer>
     </div>
   );
-}
+});
 
 export default Chart;
