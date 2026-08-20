@@ -23,10 +23,15 @@ export const MEMORY_BUDGET_QUERY_KEY = ['models', 'memory-budget'] as const;
 
 interface Optionen {
   /**
-   * Abfrageabstand in Millisekunden. Das Modellraster geht waehrend eines
-   * laufenden Ladevorgangs auf 2000 herunter, alle anderen bleiben bei 10000.
+   * Abfrageabstand in Millisekunden, oder `false` fuer einmal lesen.
+   *
+   * Das Modellraster geht waehrend eines laufenden Ladevorgangs auf 2000
+   * herunter, die Statusleiste und die Speicherkachel bleiben bei 10000, und
+   * die Modell-Detailseite fragt gar nicht nach: sie zeigt einmal an, ob ein
+   * Modell in das Budget passt, und dafuer braucht es keinen Takt auf dem
+   * Jetson.
    */
-  refetchInterval?: number;
+  refetchInterval?: number | false;
   staleTime?: number;
 }
 

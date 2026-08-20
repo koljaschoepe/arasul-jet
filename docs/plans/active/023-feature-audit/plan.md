@@ -855,9 +855,11 @@ Der erste Entwurf holte den Abfrageschlüssel mit
 Schritt, dessen Zweck es ist, zwei Quellen auf eine zurückzuführen.
 
 Richtig aufgelöst nach der Platzierungsregel desselben Dokuments: der Hook
-liegt jetzt in `hooks/useMemoryBudget.ts`. Damit sind auch die beiden
-abgeschriebenen Zeichenketten in `StoreModelsGrid` weg. Vier Verbraucher, eine
-Stelle.
+liegt jetzt in `hooks/useMemoryBudget.ts`. Vier Verbraucher, eine Stelle:
+Statusleiste, Modellraster, Modell-Detailseite und die Speicherkachel. Der
+vierte, `ModelFitBanner` in `StoreDetailPage`, ist beim ersten Anlauf
+übersehen worden und in der Review aufgefallen; er fragt einmal und ohne Takt,
+weil er nur anzeigt, ob ein Modell ins Budget passt.
 
 **Beim Zählen dabei aufgefallen:** zehn weitere Stellen importieren quer durch
 Bereiche, alle aus `workspace/` heraus in `flows/`, `store/`, `sandbox/` und
