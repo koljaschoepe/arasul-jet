@@ -246,7 +246,7 @@ human review. Humans focus on:
   - `docker compose ps` and the failing `docker compose logs <service>`.
   - Expected vs. actual behavior.
   - Branch, commit hash, hardware (Jetson Orin / Thor / x86).
-- **Feature proposals** — for anything non-trivial, draft a one-page plan in `docs/plans/active/<NAME>_PLAN.md` (see [`docs/plans/README.md`](docs/plans/README.md)) and open the PR for the plan first. Discuss before building.
+- **Feature proposals** — for anything non-trivial, write a plan first and open the PR for the plan before building. Use `/plan`; it knows the numbering and the one-plan rule. Do **not** drop a second file into `docs/plans/active/` by hand: exactly one plan lives there and `scripts/test/plan-faden.py` fails the build otherwise. See [`docs/plans/README.md`](docs/plans/README.md).
 - **Security issues** — do **not** open a public issue. Email the team directly.
 
 ---

@@ -15,7 +15,7 @@ benutzen, weil der Weg daran vorbei versperrt ist.
 
 Was gemeldet wird
 -----------------
-In `src/features/` und `src/components/layout/`:
+In allem unter `src/`, ausser `src/components/ui/`:
 
 1. `<h1>`                     Der Seitentitel gehoert in `PageHeader`.
 2. `pb-6 border-b border-border`
@@ -37,7 +37,9 @@ Geschmack, sondern eine Wette gegen eine getestete Bibliothek.
 Was NICHT gemeldet wird
 -----------------------
 `src/components/ui/` selbst, denn dort stehen die Bausteine. Testdateien, denn
-ein Test darf pruefen, was er will. Und `<h2>` bis `<h4>`: eine Ueberschrift
+ein Test darf pruefen, was er will. Bis zum 20.08.2026 blieben auch grosse
+Teile von `src/` ungeprueft, weil nur `features/` und `components/layout/`
+durchsucht wurden; darin verschwand ein handgebauter Dialog. Und `<h2>` bis `<h4>`: eine Ueberschrift
 innerhalb eines Abschnitts ist erlaubt, nur der Seitentitel ist es nicht.
 
 Was er NICHT sehen kann
