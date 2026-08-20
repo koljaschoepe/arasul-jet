@@ -233,7 +233,8 @@ const ARBEITER = parseInt(process.env.JEST_WORKER_ID || '1', 10);
 const BEREICH_GROESSE = 2000;
 const BEREICH_START = 20000 + (ARBEITER - 1) * BEREICH_GROESSE;
 const vergeben = new Set();
-let naechsterPort = BEREICH_START;
+// Eins darunter, damit der erste Zugriff genau BEREICH_START vergibt.
+let naechsterPort = BEREICH_START - 1;
 
 // Diese Datei laeuft je Testdatei, `net` liegt im Arbeitsprozess aber nur einmal.
 // Ohne die Marke legte jede Datei eine weitere Huelle ueber die vorige, und nach
