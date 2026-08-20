@@ -8,13 +8,13 @@
 
 ## Stand
 
-| Phase                                 | Stand                                        | Belege                                                                                                                   |
-| ------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                        | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                     |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen       | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                             |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen       | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                                               |
-| C, Fundament                          | C1 bis C5 fertig 20.08.2026, live abgenommen | #427, #428, #429, #431, #435. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen. C6 offen, C7 neu |
-| D bis K                               | offen                                        |                                                                                                                          |
+| Phase                                 | Stand                                        | Belege                                                                                                                                                |
+| ------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                        | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                  |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen       | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                          |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen       | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                                                                            |
+| C, Fundament                          | C1 bis C6 fertig 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen. **C7 offen**, neu aufgenommen am 20.08. |
+| D bis K                               | offen                                        |                                                                                                                                                       |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -981,6 +981,88 @@ Meldung in der Kopfzeile stehen, nachdem der Bereich weg ist.
 
 **Abnahme:** Alle vier live am Gerät nachgeprüft.
 
+### Live abgenommen am 20.08.2026
+
+Stand `0beb6897`, angemeldet als `pruefer`, alle Container gesund.
+
+| Abnahme                                             | Ergebnis                                       |
+| --------------------------------------------------- | ---------------------------------------------- |
+| `GET /api/_meta` nennt die Version                  | `"version":"Vorserie"`                         |
+| Einstellungen, Allgemein enthält noch „1.0.0"       | nein                                           |
+| Irgendwo steht „vVorserie"                          | nein                                           |
+| Sicherheit nennt den ganzen Weg zum Zurücksetzen    | ja, mit SSH, Ordner und Benutzernamen          |
+| „Ungespeicherte Änderungen" vor der Eingabe         | nein                                           |
+| dieselbe Meldung nach einem Zeichen im Passwortfeld | ja                                             |
+| Fernzugriff, Schritt 5                              | „Fertig, erledigt", alle fünf Kreise mit Haken |
+
+**Ein Handgriff am Gerät war nötig und ist Teil des Befunds.** Die `.env` auf
+dem Orin enthielt `SYSTEM_VERSION=1.0.0`, weil die Vorlagen sie so geschrieben
+hatten. Der Deploy fasst die `.env` nicht an, also musste die Zeile dort von
+Hand auskommentiert und das Backend neu gestartet werden. Auf einem Gerät, das
+nach diesem Stand eingerichtet wird, passiert das nicht mehr. Auf jedem Gerät,
+das vorher eingerichtet wurde, muss die Zeile weg, sonst behauptet es weiter
+1.0.0.
+
+## C7 Der Einrichtungsassistent, zum ersten Mal angesehen
+
+Der `SetupWizard` ist der **erste Bildschirm eines ausgelieferten Geräts**, 1296
+Zeilen, sechs Schritte, und bis zum 20.08.2026 hat nie jemand hingesehen. Der
+Rundgang konnte ihn nicht sehen: er erscheint nur, wenn
+`system_settings.setup_completed` falsch ist, und auf dem Prüfgerät war die
+Einrichtung längst abgeschlossen. Nach `werksreset --stufe auslieferung` steht
+er wieder an.
+
+### Was das Codelesen am 20.08. schon gefunden hat
+
+**Schritt 3 verlangt zwingend einen Passwortwechsel, den es nicht braucht.**
+Die Auslieferung läuft immer über `CreateAdmin`: `werksreset` leert
+`admin_users` und entwertet `ADMIN_PASSWORD` in der `.env`, bevor es irgendetwas
+löscht (`werksreset.js`, Abschnitt „ZUERST, vor jedem Loeschen"), also legt
+`bootstrap.js` keinen Zugang mehr an und `/auth/needs-setup` schickt den Kunden
+auf `CreateAdmin`. Dort setzt er sein Passwort selbst. Zwei Bildschirme später
+zwingt ihn der Assistent, dasselbe Passwort zu ändern, und weiter geht es nicht:
+`canAdvance()` gibt bei Schritt 3 `false` zurück, solange `passwordChanged`
+falsch ist. Der Schritt stammt aus einer Zeit, in der das Gerät mit einem
+Standardpasswort kam.
+
+**Und er kann die Sitzung still zerstören.** `SetupWizard.tsx:358` meldet sich
+nach dem Wechsel mit `user?.username || 'admin'` neu an, weil das Backend alle
+Token nach einer Passwortänderung entwertet. Schlägt die Neuanmeldung fehl,
+schluckt der `catch` sie und der Assistent geht weiter. Jede folgende Anfrage
+läuft dann gegen einen entwerteten Token.
+
+**Jeder Wert wird mit `showError: false` geschrieben, jeder Fehlschlag
+verschluckt.** `saveStepProgress` fängt ab und tut nichts („Non-critical,
+silently ignore"), `/models/default` hängt ein `.catch(() => {})` an,
+`setup-skip` ruft `onSkip()` auch dann, wenn der Aufruf scheitert. Wenn nichts
+gespeichert wird, sieht der Kunde trotzdem Erfolg. Das ist dieselbe Bauart wie
+R25, die Löschung nach Art. 17, die Erfolg meldet, ohne zu löschen.
+
+**Dazu die bekannten F-20 und F-23:** Siezen mitten im geduzten Produkt
+(„Ihr Edge-AI-System ist bereit für die Einrichtung. Dieser Assistent führt Sie
+durch …") und handgeschriebene Klassenketten (`text-[1.75rem]`,
+`text-[0.7rem]`, `max-w-180`, `bg-primary text-white` statt eines Tokens).
+
+### Was zu tun ist
+
+1. **Erst ansehen, dann bauen.** Am Prüfstand, nicht am Arbeitsgerät:
+   `scripts/test/pruefstand.sh hoch`, dort den Werksreset auf
+   „Auslieferungszustand" fahren und die sechs Schritte durchgehen. Was dabei
+   auffällt, kommt hierher, bevor eine Zeile geändert wird.
+2. **Kurz, minimalistisch, präzise.** Kolja hat das am 20.08. so entschieden.
+   Kein Schritt, der nur bestätigt, was der vorige getan hat.
+3. Der Passwortschritt entfällt auf dem Auslieferungsweg.
+4. Kein verschluckter Fehlschlag mehr: was nicht gespeichert wurde, sagt der
+   Assistent.
+5. Auf den Bausteinen aus C1 und C3 aufbauen, damit die Ausnahme in
+   `scripts/test/bausteine.py` ersatzlos entfallen kann.
+
+**Abnahme:** Am Prüfstand nach einem Werksreset auf „Auslieferungszustand" von
+der leeren Box bis zum Arbeitsbereich durchgelaufen, ohne Handgriff daneben.
+Kein Schritt verlangt etwas, das schon erledigt ist. Jeder Fehlschlag beim
+Speichern erscheint auf dem Bildschirm. Die Ausnahme in `bausteine.py` ist weg.
+Behebt F-20 und F-23 dort, und `SetupWizard.tsx:358`.
+
 ---
 
 # Phase D, Modelle
@@ -1541,6 +1623,12 @@ Kein Verweis auf Entferntes. Jede gespiegelte Zahl trägt Stand und Quelle.
 ---
 
 # Rechnung
+
+> Die Rechnung ist vom 19.08.2026 und stimmt seither nicht mehr genau: C7 ist am
+> 20.08. dazugekommen (geschätzt 6 Stunden), und Phase C hat mit C1 bis C6 mehr
+> gekostet als die 24, weil jeder Schritt Fehler freigelegt hat, die kein Befund
+> nannte. Sie wird beim nächsten Wochenlauf neu gerechnet, nicht hier von Hand
+> nachgebessert.
 
 | Phase | Inhalt                             | Stunden |
 | ----- | ---------------------------------- | ------- |
