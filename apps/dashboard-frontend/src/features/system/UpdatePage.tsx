@@ -680,7 +680,7 @@ const UpdatePage = () => {
                 <div className="bg-background px-4 py-3">
                   <span className="text-xs text-muted-foreground block">Version</span>
                   <span className="text-sm font-medium text-foreground">
-                    {systemInfo?.version || '1.0.0'}
+                    {systemInfo?.version || 'Vorserie'}
                   </span>
                 </div>
                 <div className="bg-background px-4 py-3">

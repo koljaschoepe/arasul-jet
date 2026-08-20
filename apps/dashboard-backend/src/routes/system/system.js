@@ -3,6 +3,7 @@
  * Handles system status, info, and network information
  */
 
+const { versionFuerAnzeige } = require('../../utils/version');
 const express = require('express');
 const router = express.Router();
 const db = require('../../database');
@@ -178,7 +179,7 @@ router.get(
     const [device, gpu] = await Promise.all([detectDevice(), getGpuInfo()]);
 
     res.json({
-      version: process.env.SYSTEM_VERSION || '1.0.0',
+      version: versionFuerAnzeige(),
       build_hash: process.env.BUILD_HASH || 'dev',
       jetpack_version: jetpackVersion,
       uptime_seconds: Math.floor(uptime),
@@ -571,7 +572,7 @@ router.get(
       services: dockerInfo,
       database: dbInfo.rows[0] || {},
       disk: diskInfo,
-      version: process.env.SYSTEM_VERSION || '1.0.0',
+      version: versionFuerAnzeige(),
       timestamp: new Date().toISOString(),
     });
   })

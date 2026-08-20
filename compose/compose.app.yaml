@@ -68,7 +68,8 @@ services:
       DOCUMENT_INDEXER_MINIO_BUCKET: ${DOCUMENT_INDEXER_MINIO_BUCKET:-documents}
       JWT_EXPIRY: ${JWT_EXPIRY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
-      SYSTEM_VERSION: ${SYSTEM_VERSION}
+      # Leer statt Warnung: ungesetzt ist der Normalfall, siehe .env.example.
+      SYSTEM_VERSION: ${SYSTEM_VERSION:-}
       BUILD_HASH: ${BUILD_HASH}
       LOG_LEVEL: ${LOG_LEVEL}
       # Shared secret for the /api/events/webhook/self-healing endpoint. When set,

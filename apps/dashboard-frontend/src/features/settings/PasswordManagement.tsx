@@ -51,7 +51,18 @@ const SERVICES: FilterBarItem<ServiceId>[] = [
   { id: 'minio', label: 'MinIO', icon: HardDrive },
 ];
 
-function PasswordManagement() {
+interface PasswordManagementProps {
+  /**
+   * Meldet nach oben, ob im Formular etwas steht, das noch nicht abgeschickt
+   * ist. Bis Plan 023 C6 hat das nur der KI-Bereich gemeldet: die
+   * Passwortverwaltung hielt eingetippte Felder ueber einen Bereichswechsel
+   * hinweg, ohne dass die Kopfzeile davon wusste (Befund F-41). Wer die Seite
+   * wechselte, verlor die Eingabe wortlos.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
+function PasswordManagement({ onDirtyChange }: PasswordManagementProps = {}) {
   const api = useApi();
   const { confirm, ConfirmDialog } = useConfirm();
   const { logout } = useAuth();
@@ -65,6 +76,18 @@ function PasswordManagement() {
     dashboard: { current: false, new: false, confirm: false },
     minio: { current: false, new: false, confirm: false },
   });
+  // Beide Dienste zusammen: ein halb ausgefuelltes MinIO-Formular ist auch dann
+  // ungespeichert, wenn gerade der Dashboard-Reiter offen ist.
+  const etwasEingetippt = Object.values(passwords).some(felder =>
+    Object.values(felder).some(wert => wert.length > 0)
+  );
+  useEffect(() => {
+    onDirtyChange?.(etwasEingetippt);
+  }, [etwasEingetippt, onDirtyChange]);
+  // Beim Verlassen zuruecksetzen, sonst bliebe die Meldung in der Kopfzeile
+  // stehen, nachdem der Bereich weg ist.
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+
   const [requirements, setRequirements] = useState<PasswordRequirements | null>(null);
   const [validations, setValidations] = useState({
     minLength: false,
@@ -413,15 +436,31 @@ function PasswordManagement() {
               </Button>
             </div>
 
-            {/* Recovery hint — no self-service reset by design; operator-only via CLI. */}
+            {/* Es gibt bewusst kein Zuruecksetzen per Mail: dafuer braeuchte das
+                Geraet einen Postausgang nach draussen. Der Weg fuehrt deshalb
+                ueber das Geraet selbst. Bis Plan 023 C6 stand hier nur der
+                nackte Pfad „scripts/security/reset-password.sh", ohne zu sagen,
+                auf welchem Rechner und in welchem Ordner (Befund F-22). */}
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <Info className="size-3.5 shrink-0 mt-0.5" />
-              <p>
-                Passwort vergessen? Der Operator kann es per CLI zurücksetzen:{' '}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-foreground">
-                  scripts/security/reset-password.sh
+              <div className="space-y-1">
+                <p>
+                  Passwort vergessen? Dann hilft nur der Zugang zum Gerät selbst, über SSH oder mit
+                  Tastatur und Bildschirm. Das ist Absicht: ein Zurücksetzen per Mail bräuchte einen
+                  Weg nach draußen.
+                </p>
+                <p>
+                  Melde dich am Gerät an, wechsle in den Ordner, in den Arasul installiert wurde,
+                  und starte dort:
+                </p>
+                <code className="block w-fit rounded bg-muted px-1.5 py-1 font-mono text-foreground">
+                  ./scripts/security/reset-password.sh dein-benutzername
                 </code>
-              </p>
+                <p>
+                  Ohne Benutzernamen nimmt das Skript <code className="font-mono">admin</code>. Es
+                  setzt das Passwort direkt in der Datenbank neu und fragt vorher nach.
+                </p>
+              </div>
             </div>
 
             {activeService === 'dashboard' && (

@@ -73,6 +73,23 @@ export interface ServeInfo {
 /** Direktziel fuer den einen Klick, den nur der Tailnet-Besitzer machen kann. */
 const TAILSCALE_DNS_ADMIN = 'https://login.tailscale.com/admin/dns';
 
+/** „Fertig". Kein Schritt, den man noch vor sich hat, sondern der Zustand danach. */
+export const LETZTER_SCHRITT = 5;
+
+/**
+ * Ist dieser Schritt abgehakt?
+ *
+ * Bis Plan 023 C6 hiess das schlicht `n < currentStep`. Damit stand der letzte
+ * Schritt „Fertig" als offene Nummer da, waehrend die Verbindung nachweislich
+ * stand (Befund F-26): der Assistent widersprach dem, was einen Absatz weiter
+ * unten auf demselben Bildschirm zu lesen war. „Fertig" ist kein Schritt, den
+ * man noch vor sich hat, sondern der Zustand danach.
+ */
+export function istErledigt(n: number, currentStep: number): boolean {
+  if (currentStep === LETZTER_SCHRITT) return n <= LETZTER_SCHRITT;
+  return n < currentStep;
+}
+
 /**
  * Aktueller Schritt im Assistenten.
  *
@@ -380,6 +397,7 @@ export function RemoteAccessSettings() {
   }
 
   const currentStep = getStep(status, serveInfo, certSkipped);
+  const erledigt = (n: number) => istErledigt(n, currentStep);
 
   return (
     <div className="animate-in fade-in">
@@ -436,14 +454,15 @@ export function RemoteAccessSettings() {
               <div
                 className={cn(
                   'size-5 rounded-full flex items-center justify-center text-xs font-medium',
-                  n < currentStep
+                  erledigt(n)
                     ? 'bg-primary text-primary-foreground'
                     : n === currentStep
                       ? 'border-2 border-primary text-primary'
                       : 'border border-border text-muted-foreground'
                 )}
+                aria-hidden="true"
               >
-                {n < currentStep ? <Check className="size-3" /> : n}
+                {erledigt(n) ? <Check className="size-3" /> : n}
               </div>
               <span
                 className={cn(
@@ -452,6 +471,13 @@ export function RemoteAccessSettings() {
                 )}
               >
                 {label}
+                <span className="sr-only">
+                  {erledigt(n)
+                    ? ', erledigt'
+                    : n === currentStep
+                      ? ', dieser Schritt ist dran'
+                      : ', offen'}
+                </span>
               </span>
             </div>
           </div>

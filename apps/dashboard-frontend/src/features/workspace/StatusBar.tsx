@@ -206,7 +206,7 @@ export function StatusBar() {
             {data?.version && (
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted-foreground">Version</dt>
-                <dd className="text-foreground">v{data.version}</dd>
+                <dd className="text-foreground">{data.version}</dd>
               </div>
             )}
             {budget !== undefined && (
@@ -233,7 +233,9 @@ export function StatusBar() {
         </PopoverContent>
       </Popover>
 
-      {data?.version && <span className="text-muted-foreground/70">v{data.version}</span>}
+      {/* Ohne das feste „v": die Version sagt seit Plan 023 C6 „Vorserie",
+          solange keine gesetzt ist, und „vVorserie" waere Unsinn. */}
+      {data?.version && <span className="text-muted-foreground/70">{data.version}</span>}
 
       {/* Modell — klickbar: heruntergeladenes Modell als Standard wählen. */}
       {budget !== undefined && (

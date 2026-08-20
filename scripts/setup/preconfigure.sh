@@ -279,7 +279,11 @@ EMBEDDING_PORT=11435
 EMBEDDING_MODEL=nomic-embed-text
 
 # System
-SYSTEM_VERSION=1.0.0
+# SYSTEM_VERSION bleibt bewusst UNGESETZT, solange die Auslieferung nicht
+# versioniert ist. Ungesetzt liest ein Mensch ueberall "Vorserie" statt einer
+# fertigen 1.0.0, die es nicht gibt (Plan 023 C6, Befund F-19). Sobald es
+# Releases gibt, setzt der Bau hier die Nummer aus dem Tag.
+# SYSTEM_VERSION=1.2.0
 LOG_LEVEL=INFO
 NODE_ENV=production
 EOF

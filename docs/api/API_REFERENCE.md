@@ -44,10 +44,16 @@ Returns a description of the live API surface — used by the frontend and
 external clients to discover available route groups and the canonical
 list of error codes. No auth required.
 
+`version` is what a human should read, not a parseable number: without
+`SYSTEM_VERSION` set it is the literal string `Vorserie` (see
+`utils/version.js`). The same holds for `version` in `GET /api/health` and
+`GET /api/system/info`.
+Stand: 2026-08-20. Quelle: `apps/dashboard-backend/src/utils/version.js`.
+
 ```json
 {
   "name": "arasul-dashboard-backend",
-  "version": "1.0.0",
+  "version": "Vorserie",
   "node": "v22.x.x",
   "uptimeSeconds": 12345,
   "routes": { "core": ["..."], "sandbox": ["..."], "system": ["..."], "...": [] },

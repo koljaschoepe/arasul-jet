@@ -919,6 +919,66 @@ etwas Falsches sagt.
 - F-41: „Ungespeicherte Änderungen" wird nur von den KI-Einstellungen gemeldet,
   die Passwortverwaltung hält Formularinhalt und meldet ihn nicht.
 
+### Was jeder der vier wirklich war
+
+**F-19 saß an siebzehn Stellen, nicht an einer.** Dieselbe Frage wurde
+fünfzehnmal im Backend beantwortet und zweimal als Rückfall im Frontend, und
+nicht einmal einheitlich: dreizehnmal mit `process.env.SYSTEM_VERSION ||
+'1.0.0'`, zweimal mit `|| 'unknown'` in derselben Datenbankspalte
+`update_events.version_from`. Jede der ersten behauptet eine fertige 1.0.0,
+während von sieben Verkaufs-Gates keines geschlossen ist. Sechs der Stellen
+sind mir beim ersten Anlauf durchgerutscht, darunter die in `checkForUpdates`,
+also ausgerechnet die, mit der ich begründet habe, warum es zwei Werte braucht.
+Gefunden hat es die Review. Neu: `utils/version.js` mit **zwei** Werten, weil zwei Dinge
+gebraucht werden und sie nicht dasselbe sind. `versionFuerAnzeige()` sagt ohne
+gesetzte Variable „Vorserie", also die Wahrheit über die Reife.
+`versionFuerVergleich()` bleibt bei `1.0.0`, weil
+`updateService.checkForUpdates` diesen Wert mit der angebotenen Fassung
+vergleicht; ein Wechsel auf `0.0.0` würde auf jedem Gerät ohne gesetzte Version
+plötzlich jede Fassung als neuer gelten lassen. Das ist eine Änderung am
+Aktualisierungsverhalten und gehört zu Ziel J3, nicht in einen Schritt über
+Beschriftungen. Die Statusleiste hat dabei ihr fest davorgeschriebenes „v"
+verloren, sonst stünde dort „vVorserie".
+
+**Und die Reparatur wäre unsichtbar geblieben.** Der Rückfall auf „Vorserie"
+greift nur, wenn `SYSTEM_VERSION` gar nicht gesetzt ist. Auf einem echten Gerät
+ist sie gesetzt: `.env.example`, `.env.template`, `interactive_setup.sh` und
+`preconfigure.sh` schreiben alle vier `SYSTEM_VERSION=1.0.0` in die `.env`, und
+am 20.08.2026 auf dem Orin nachgesehen steht die Zeile genau so drin. Der
+gesamte Umbau hätte also nur im Testlauf gewirkt. Gefunden hat es die Review,
+nachgeprüft habe ich es am Gerät.
+
+Die vier Vorlagen setzen die Variable jetzt nicht mehr, sondern zeigen sie
+auskommentiert. Dazu zwei Folgeänderungen, ohne die das nicht funktioniert:
+`compose.app.yaml` liest sie als `${SYSTEM_VERSION:-}`, sonst warnt Docker bei
+jedem Start, und `validate-config.sh` verlangt sie nicht mehr als Pflichtfeld,
+sonst zwingt die Prüfung das Setup, eine Zahl zu erfinden.
+
+**F-22 war kein falscher Pfad, sondern ein Satz ohne Ort.** Das Skript
+`scripts/security/reset-password.sh` gibt es, und es wird mit ausgeliefert. Auf
+dem Bildschirm stand aber nur der nackte Pfad, ohne zu sagen, auf welchem
+Rechner und in welchem Ordner, und ohne den Benutzernamen, der seit C3 nicht
+mehr `admin` heißen muss. Neu steht dort der ganze Weg: über SSH oder Tastatur
+ans Gerät, in den Installationsordner, `./scripts/security/reset-password.sh
+dein-benutzername`. Dazu, warum es kein Zurücksetzen per Mail gibt: dafür
+bräuchte das Gerät einen Weg nach draußen.
+
+**F-26 war eine Regel, die einen Schritt zu früh aufhörte.** Der Haken kam aus
+`n < currentStep`. Der letzte Schritt heißt „Fertig" und ist kein Schritt, den
+man noch vor sich hat, sondern der Zustand danach; also blieb er ewig offen,
+während vier Haken davor standen und die Verbindung lief. Der Assistent
+widersprach dem, was einen Absatz weiter unten auf demselben Bildschirm zu
+lesen war. Neu als eigene Funktion `istErledigt`, damit die Regel prüfbar ist,
+und die Ziffernkreise bekommen für Vorlesegeräte einen Zusatz („erledigt",
+„dieser Schritt ist dran", „offen"), den sie vorher gar nicht hatten.
+
+**F-41 war ein durchgereichter Melder, der eine Stelle ausließ.** Der Mechanismus
+existierte (`onDirtyChange`), nur der Sicherheitsbereich hing nicht daran. Jetzt
+meldet die Passwortverwaltung beides zusammen: ein halb ausgefülltes
+MinIO-Formular ist auch dann ungespeichert, wenn gerade der Dashboard-Reiter
+offen ist. Und sie meldet sich beim Verlassen wieder ab, sonst bliebe die
+Meldung in der Kopfzeile stehen, nachdem der Bereich weg ist.
+
 **Abnahme:** Alle vier live am Gerät nachgeprüft.
 
 ---

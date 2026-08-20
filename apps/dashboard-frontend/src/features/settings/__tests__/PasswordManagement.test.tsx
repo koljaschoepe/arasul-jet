@@ -75,10 +75,10 @@ function mockPasswordFetch(
   });
 }
 
-function renderPasswordManagement() {
+function renderPasswordManagement(props: { onDirtyChange?: (d: boolean) => void } = {}) {
   return render(
     <ToastProvider>
-      <PasswordManagement />
+      <PasswordManagement {...props} />
     </ToastProvider>
   );
 }
@@ -134,6 +134,40 @@ describe('PasswordManagement Component', () => {
           })
         );
       });
+    });
+  });
+
+  // =====================================================
+  // Ungespeicherte Aenderungen (F-41)
+  // =====================================================
+  // Bis Plan 023 C6 hat nur der KI-Bereich gemeldet, dass etwas im Formular
+  // steht. Die Passwortverwaltung hielt eingetippte Felder ueber einen
+  // Bereichswechsel hinweg, ohne dass die Kopfzeile davon wusste: wer die Seite
+  // wechselte, verlor die Eingabe wortlos.
+  describe('Ungespeicherte Änderungen', () => {
+    test('meldet beim Laden, dass nichts eingetippt ist', async () => {
+      const gemeldet = vi.fn();
+      renderPasswordManagement({ onDirtyChange: gemeldet });
+      await waitFor(() => expect(gemeldet).toHaveBeenCalledWith(false));
+    });
+
+    test('meldet eine Eingabe nach oben', async () => {
+      const gemeldet = vi.fn();
+      renderPasswordManagement({ onDirtyChange: gemeldet });
+      const felder = await screen.findAllByPlaceholderText(/Passwort/i);
+      await userEvent.type(felder[0]!, 'a');
+      await waitFor(() => expect(gemeldet).toHaveBeenCalledWith(true));
+    });
+
+    test('meldet beim Verlassen wieder ab', async () => {
+      const gemeldet = vi.fn();
+      const { unmount } = renderPasswordManagement({ onDirtyChange: gemeldet });
+      const felder = await screen.findAllByPlaceholderText(/Passwort/i);
+      await userEvent.type(felder[0]!, 'a');
+      await waitFor(() => expect(gemeldet).toHaveBeenCalledWith(true));
+      gemeldet.mockClear();
+      unmount();
+      expect(gemeldet).toHaveBeenCalledWith(false);
     });
   });
 

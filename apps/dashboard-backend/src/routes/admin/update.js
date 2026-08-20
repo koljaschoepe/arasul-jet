@@ -3,6 +3,7 @@
  * Handles system updates via dashboard upload
  */
 
+const { versionFuerVergleich } = require('../../utils/version');
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -112,7 +113,7 @@ router.post(
     const manifest = validation.manifest;
 
     // Log update event
-    const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
+    const currentVersion = versionFuerVergleich();
     await db.query(
       `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
          VALUES ($1, $2, $3, $4, $5)`,
@@ -333,7 +334,7 @@ router.post(
     const manifest = validation.manifest;
 
     // Log update event
-    const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
+    const currentVersion = versionFuerVergleich();
     await db.query(
       `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
          VALUES ($1, $2, $3, $4, $5)`,
@@ -409,7 +410,7 @@ router.post(
           // Auto-validate the downloaded package
           const validation = await updateService.validateUpdate(result.filePath);
           if (validation.valid) {
-            const currentVersion = process.env.SYSTEM_VERSION || '1.0.0';
+            const currentVersion = versionFuerVergleich();
             await db.query(
               `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
                VALUES ($1, $2, $3, $4, $5)`,

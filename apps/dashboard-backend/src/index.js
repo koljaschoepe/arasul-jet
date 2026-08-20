@@ -45,6 +45,7 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
+const { versionFuerAnzeige } = require('./utils/version');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -189,7 +190,7 @@ app.get('/api/health', async (req, res) => {
       status: 'OK',
       timestamp: new Date().toISOString(),
       service: 'dashboard-backend',
-      version: process.env.SYSTEM_VERSION || '1.0.0',
+      version: versionFuerAnzeige(),
     });
   }
 
@@ -253,7 +254,7 @@ app.get('/api/health', async (req, res) => {
     status: hasCritical ? 'CRITICAL' : allOk ? 'OK' : 'DEGRADED',
     timestamp: new Date().toISOString(),
     service: 'dashboard-backend',
-    version: process.env.SYSTEM_VERSION || '1.0.0',
+    version: versionFuerAnzeige(),
     build_hash: process.env.BUILD_HASH || 'dev',
     checks,
     eventLoop,

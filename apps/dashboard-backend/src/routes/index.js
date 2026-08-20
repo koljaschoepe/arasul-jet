@@ -12,6 +12,7 @@
  * Core routes (auth, chats, documents, llm, rag) stay at the top level.
  */
 
+const { versionFuerAnzeige } = require('../utils/version');
 const express = require('express');
 const router = express.Router();
 
@@ -79,7 +80,7 @@ const ERROR_CODES = [
 router.get('/_meta', (req, res) => {
   res.json({
     name: 'arasul-dashboard-backend',
-    version: process.env.SYSTEM_VERSION || '1.0.0',
+    version: versionFuerAnzeige(),
     node: process.version,
     uptimeSeconds: Math.round(process.uptime()),
     routes: API_ROUTE_GROUPS,
