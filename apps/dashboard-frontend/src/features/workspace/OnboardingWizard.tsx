@@ -1,24 +1,18 @@
 /**
- * OnboardingWizard — geführter Erst-Start (Plan 015 Phase 7, überarbeitet in
- * Plan 023 C4).
+ * OnboardingWizard — geführter Erst-Start über dem Arbeitsbereich.
  *
- * Erscheint EINMAL (localStorage-Flag) und führt knapp durch das Fundament der
- * Entwicklungsumgebung. Rein informativ, kein Backend-Zustand.
+ * Erscheint EINMAL (localStorage-Flag) und führt in drei Schritten durch das
+ * Fundament der Entwicklungsumgebung. Rein informativ, kein Backend-Zustand.
  *
- * Was C4 daran geändert hat und warum:
+ * Zwei Festlegungen, die man dem Code sonst nicht ansieht:
  *
- * 1. Der Fortschritt war ein blauer Punkt zwischen zwei grauen. Er sagte weder,
- *    der wievielte Schritt läuft, noch was danach kommt. Jetzt steht beides als
- *    Text da; die Punkte sind nur noch Bild und deshalb `aria-hidden`.
- * 2. Jeder Schritt nennt sein Ergebnis. Vorher stand dort, was Arasul kann,
- *    nicht, was der Leser danach hat.
- * 3. Die Schritte zitierten Dinge, die nirgends so heissen. `internal` ist der
- *    rohe Aufzählungswert; auf dem Bildschirm steht „Intern (KI-Dienste +
- *    Datenbank)" (`ProjektUebersichtTab.tsx`, `NETZ_LABEL`). Alles, was hier in
- *    Anführungszeichen steht, ist gegen die Oberfläche geprüft.
- * 4. `aria-modal` behauptete einen Fokus, den es nicht gab: der Tabulator lief
- *    aus dem Dialog heraus in den Arbeitsbereich dahinter, und die
- *    Hintergrundfläche war die erste Station im Tabulatorlauf.
+ * - Jeder Schritt nennt sein Ergebnis, also was der Leser danach hat, nicht was
+ *   das Gerät kann.
+ * - Alles, was hier in Anführungszeichen steht, ist an der Oberfläche geprüft
+ *   und muss es bleiben. `internal` etwa ist der rohe Aufzählungswert, auf dem
+ *   Bildschirm steht „Intern (KI-Dienste + Datenbank)" (`NETZ_LABEL` in
+ *   `ProjektUebersichtTab.tsx`). Ein Erst-Start, der auf Knöpfe zeigt, die es
+ *   nicht gibt, ist schlimmer als keiner.
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, KeyRound, TerminalSquare, Wrench } from 'lucide-react';
@@ -89,6 +83,7 @@ export default function OnboardingWizard() {
   const [i, setI] = useState(0);
   const kennung = useId();
   const titelId = `${kennung}-titel`;
+  const inhaltId = `${kennung}-inhalt`;
   const dialog = useRef<HTMLDivElement | null>(null);
 
   const schliessen = useCallback(() => {
@@ -141,16 +136,14 @@ export default function OnboardingWizard() {
     return () => window.removeEventListener('keydown', onKey);
   }, [offen, schliessen]);
 
-  // Der Fokus landet auf dem Dialog, nicht irgendwo dahinter. Auch bei JEDEM
-  // Schrittwechsel, aus zwei Gruenden. Erstens sagt der Dialog seinen Namen
-  // nach dem laufenden Schritt (aria-labelledby), ein Vorlesegeraet liest also
-  // die neue Ueberschrift vor. Zweitens verschwindet der Knopf „Zurueck" beim
-  // Sprung von Schritt 2 auf 1 aus dem Dokument; ohne diese Zeile faellt der
-  // Fokus dabei auf <body>, also aus einem Dialog heraus, der sich per
-  // aria-modal als geschlossen ausgibt.
-  // useLayoutEffect, nicht useEffect: beim Sprung von Schritt 2 auf 1 faellt der
-  // Fokus zwischendurch auf <body>. Mit useEffect liegt ein Bild dazwischen, in
-  // dem ein Vorlesegeraet diesen Zwischenzustand ansagen kann.
+  // Der Fokus landet auf dem Dialog, nicht irgendwo dahinter, und zwar bei
+  // JEDEM Schrittwechsel. Der Dialog heisst nach dem laufenden Schritt
+  // (aria-labelledby), ein Vorlesegeraet liest also die neue Ueberschrift vor.
+  // Und der Knopf „Zurueck" verschwindet beim Sprung von Schritt 2 auf 1 aus
+  // dem Dokument; ohne diese Zeile faellt der Fokus dabei auf <body>, also aus
+  // einem Dialog heraus, der sich per aria-modal als geschlossen ausgibt.
+  // useLayoutEffect statt useEffect, weil mit useEffect ein gezeichnetes Bild
+  // dazwischenliegt, in dem dieser Zwischenzustand angesagt werden kann.
   useLayoutEffect(() => {
     if (offen) dialog.current?.focus();
   }, [offen, i]);
@@ -172,6 +165,9 @@ export default function OnboardingWizard() {
         className="absolute inset-0 cursor-default bg-black/50"
         onClick={schliessen}
       />
+      {/* aria-describedby zeigt auf den Inhalt, nicht nur die Ueberschrift:
+          der Fokus landet bei jedem Schrittwechsel hier, und ein
+          Vorlesegeraet soll dann den ganzen Schritt bekommen. */}
       <div
         ref={dialog}
         tabIndex={-1}
@@ -179,6 +175,7 @@ export default function OnboardingWizard() {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titelId}
+        aria-describedby={inhaltId}
         data-testid="onboarding-wizard"
       >
         {/* Der Fortschritt als Text. Die Punkte daneben sagen dasselbe noch
@@ -209,12 +206,14 @@ export default function OnboardingWizard() {
             {s.titel}
           </h2>
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">{s.text}</p>
+        <div id={inhaltId}>
+          <p className="text-sm leading-relaxed text-muted-foreground">{s.text}</p>
 
-        <p className="border-l-2 border-primary/30 pl-3 text-sm text-foreground">
-          <span className="font-semibold">Danach: </span>
-          {s.ergebnis}
-        </p>
+          <p className="mt-4 border-l-2 border-primary/30 pl-3 text-sm text-foreground">
+            <span className="font-semibold">Danach: </span>
+            {s.ergebnis}
+          </p>
+        </div>
 
         <p className="text-xs text-muted-foreground">
           {naechster ? `Als Nächstes: ${naechster.titel}` : 'Das war der letzte Schritt.'}
