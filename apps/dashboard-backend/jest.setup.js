@@ -102,7 +102,7 @@ afterAll(() => {
  *
  * @param {Function} fn - Cleanup function to run
  */
-global.registerTestCleanup = (fn) => {
+global.registerTestCleanup = fn => {
   if (!global.__testCleanupFunctions) {
     global.__testCleanupFunctions = [];
   }
@@ -198,3 +198,89 @@ global.resetAllServices = () => {
     }
   });
 };
+// ============================================================================
+// Eigener Portbereich je Arbeitsprozess
+// ============================================================================
+
+/**
+ * supertest startet für jede Anfrage einen Server auf einem freien Port, den
+ * das Betriebssystem aussucht, und schließt ihn danach. Läuft die Suite mit
+ * mehreren Arbeitsprozessen, ziehen alle aus demselben Topf. Ein Port, den
+ * Prozess A gerade freigegeben hat, kann Prozess B im nächsten Moment
+ * bekommen. Trifft dann noch eine Anfrage von A darauf, antwortet die App von
+ * B. Das sieht aus wie ein Fehler im Test von A, ist aber eine fremde Antwort;
+ * typischerweise ein 401 aus `requireAuth` einer ganz anderen App.
+ *
+ * Deshalb bekommt jeder Arbeitsprozess hier einen eigenen, festen Bereich. Die
+ * Bereiche überschneiden sich nicht, also kann kein Prozess mehr im Port eines
+ * anderen landen. Siehe R30.
+ *
+ * Zwei Dinge, die beim ersten Anlauf schiefgingen und deshalb hier stehen:
+ *
+ * Erstens muss der Bereich UNTERHALB der flüchtigen Ports beider Systeme
+ * liegen. Linux vergibt ab 32768, macOS ab 49152. Lag der Bereich mittendrin,
+ * konnte der Kern denselben Port gleichzeitig als Quellport einer ausgehenden
+ * Verbindung vergeben.
+ *
+ * Zweitens reicht ein Zähler nicht. Ein Server, den niemand geschlossen hat,
+ * hält seinen Port; kommt der Zähler einmal herum, will er ihn erneut binden
+ * und der Lauf bricht mit EADDRINUSE ab. Deshalb merkt sich `vergeben`, welche
+ * Ports offen sind, und gibt sie erst beim Schließen wieder frei.
+ */
+const net = require('net');
+
+const ARBEITER = parseInt(process.env.JEST_WORKER_ID || '1', 10);
+const BEREICH_GROESSE = 2000;
+const BEREICH_START = 20000 + (ARBEITER - 1) * BEREICH_GROESSE;
+const vergeben = new Set();
+// Eins darunter, damit der erste Zugriff genau BEREICH_START vergibt.
+let naechsterPort = BEREICH_START - 1;
+
+// Diese Datei laeuft je Testdatei, `net` liegt im Arbeitsprozess aber nur einmal.
+// Ohne die Marke legte jede Datei eine weitere Huelle ueber die vorige, und nach
+// hundert Dateien liefe jeder Aufruf durch hundert Schichten.
+const MARKE = Symbol.for('arasul.listenErsetzt');
+
+if (!net.Server.prototype.listen[MARKE]) {
+  const echtesListen = net.Server.prototype.listen;
+
+  /** Beide Schreibweisen: `listen(0, …)` und `listen({ port: 0, … })`. */
+  const willFreienPort = args =>
+    args.length > 0 &&
+    (args[0] === 0 ||
+      args[0] === '0' ||
+      (args[0] !== null &&
+        typeof args[0] === 'object' &&
+        (args[0].port === 0 || args[0].port === '0')));
+
+  const mitPort = (args, port) =>
+    args[0] !== null && typeof args[0] === 'object'
+      ? [{ ...args[0], port }, ...args.slice(1)]
+      : [port, ...args.slice(1)];
+
+  const ersetzt = function (...args) {
+    if (!willFreienPort(args)) {
+      return echtesListen.apply(this, args);
+    }
+    for (let versuch = 0; versuch < BEREICH_GROESSE; versuch += 1) {
+      naechsterPort += 1;
+      if (naechsterPort >= BEREICH_START + BEREICH_GROESSE) {
+        naechsterPort = BEREICH_START;
+      }
+      if (vergeben.has(naechsterPort)) {
+        continue;
+      }
+      const port = naechsterPort;
+      vergeben.add(port);
+      this.once('close', () => vergeben.delete(port));
+      return echtesListen.apply(this, mitPort(args, port));
+    }
+    throw new Error(
+      `Alle ${BEREICH_GROESSE} Ports ab ${BEREICH_START} sind belegt. Das heißt: ` +
+        'Testserver werden geöffnet und nie geschlossen.'
+    );
+  };
+
+  ersetzt[MARKE] = true;
+  net.Server.prototype.listen = ersetzt;
+}

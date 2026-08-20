@@ -11,6 +11,17 @@
  */
 
 jest.mock('axios');
+/**
+ * Ein Flow-Lauf stoesst am Ende den Ordner-Abgleich an. Der ist entprellt und
+ * feuert 500 ms später, also regelmäßig erst, wenn diese Datei längst durch
+ * ist. Der Rückruf läuft dann in einer abgebauten Umgebung, wirft dort und
+ * fällt der Testdatei zur Last, die gerade dran ist. Hier interessiert nur,
+ * DASS angestoßen wird, nicht was der Abgleich tut.
+ */
+jest.mock('../../src/services/projects/ordnerSyncService', () => ({
+  trigger: jest.fn(),
+  stoppe: jest.fn(),
+}));
 jest.mock('../../src/utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }));
 
 // Batch 2: runFlow scopt die RAG-Suche ohne `wissensbasis`-Argument auf das
@@ -312,6 +323,18 @@ describe('runFlow — Orchestrierung', () => {
       expect.objectContaining({ runId: 42, status: 'fertig', result: 'R' })
     );
     expect(run.status).toBe('fertig');
+  });
+
+  /**
+   * Am Ende eines Laufs muss der Ordner-Abgleich des Projekts angestoßen
+   * werden, sonst sieht der Nutzer die Dateien, die der Flow geschrieben hat,
+   * erst beim nächsten Takt. Der Dienst ist in dieser Datei gemockt; ohne
+   * diese Zusage prüfte danach niemand mehr, dass es überhaupt passiert.
+   */
+  it('stößt am Ende den Ordner-Abgleich des Projekts an', async () => {
+    const sync = require('../../src/services/projects/ordnerSyncService');
+    await runFlow({ flowName: 'notiz', args: { thema: 'x' }, userId: 1 }, makeDeps());
+    expect(sync.trigger).toHaveBeenCalledWith('proj-test');
   });
 
   it('nimmt das Modell des Flows, sonst das Standardmodell', async () => {

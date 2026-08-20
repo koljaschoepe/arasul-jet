@@ -360,22 +360,35 @@ wss.on('connection', ws => {
   });
 });
 
-// WS-001: Heartbeat interval to detect and clean up dead metrics WS connections
-// LEAK-001: Reduced from 30s to 15s for faster zombie detection
-const metricsHeartbeat = setInterval(() => {
-  wss.clients.forEach(ws => {
-    if (ws.isAlive === false) {
-      logger.debug('Terminating dead metrics WebSocket connection');
-      return ws.terminate();
-    }
-    ws.isAlive = false;
-    ws.ping();
-  });
-}, 15000);
+/**
+ * Prozessweite Vorkehrungen gehören dem laufenden Server, nicht jeder Datei,
+ * die dieses Modul einbindet. 28 Testdateien laden `server.js` und damit diese
+ * Datei. Ohne diese Abgrenzung liegen danach 28 Uhren mit 15 Sekunden Takt und
+ * 28 Prozess-Handler im selben Arbeitsprozess, und sie laufen weiter, während
+ * längst eine andere Testdatei an der Reihe ist. Der Rückruf greift dann auf
+ * eine abgebaute Umgebung zu; was er auslöst, fällt einem fremden Test zur
+ * Last. Dieselbe Bedingung steht weiter unten schon vor `server.listen`.
+ */
+const alsServerGestartet = require.main === module;
 
-wss.on('close', () => {
-  clearInterval(metricsHeartbeat);
-});
+if (alsServerGestartet) {
+  // WS-001: Heartbeat interval to detect and clean up dead metrics WS connections
+  // LEAK-001: Reduced from 30s to 15s for faster zombie detection
+  const metricsHeartbeat = setInterval(() => {
+    wss.clients.forEach(ws => {
+      if (ws.isAlive === false) {
+        logger.debug('Terminating dead metrics WebSocket connection');
+        return ws.terminate();
+      }
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 15000);
+
+  wss.on('close', () => {
+    clearInterval(metricsHeartbeat);
+  });
+}
 
 // LEAK-001: Track all intervals/timeouts for graceful shutdown
 const globalIntervals = [];
@@ -385,29 +398,35 @@ const globalTimeouts = [];
 module.exports = { app, server, wss };
 
 // ROBUST-001: Uncaught exception and unhandled rejection handlers
-process.on('uncaughtException', error => {
-  logger.error(`Uncaught exception: ${error.message}`, { stack: error.stack });
-  // Give time for log to flush, then exit
-  setTimeout(() => process.exit(1), 1000);
-});
+// Nur der laufende Server darf den Prozess beenden. Unter Jest wuerde dieser
+// Handler den Arbeitsprozess abschießen, in dem gerade fremde Tests laufen.
+if (alsServerGestartet) {
+  process.on('uncaughtException', error => {
+    logger.error(`Uncaught exception: ${error.message}`, { stack: error.stack });
+    // Give time for log to flush, then exit
+    setTimeout(() => process.exit(1), 1000);
+  });
+}
 
 let unhandledRejectionCount = 0;
 const MAX_UNHANDLED_REJECTIONS = 10;
 
-process.on('unhandledRejection', reason => {
-  unhandledRejectionCount++;
-  const message = reason instanceof Error ? reason.message : String(reason);
-  const stack = reason instanceof Error ? reason.stack : undefined;
-  logger.error(
-    `Unhandled rejection (${unhandledRejectionCount}/${MAX_UNHANDLED_REJECTIONS}): ${message}`,
-    { stack }
-  );
+if (alsServerGestartet) {
+  process.on('unhandledRejection', reason => {
+    unhandledRejectionCount++;
+    const message = reason instanceof Error ? reason.message : String(reason);
+    const stack = reason instanceof Error ? reason.stack : undefined;
+    logger.error(
+      `Unhandled rejection (${unhandledRejectionCount}/${MAX_UNHANDLED_REJECTIONS}): ${message}`,
+      { stack }
+    );
 
-  if (unhandledRejectionCount >= MAX_UNHANDLED_REJECTIONS) {
-    logger.error('Max unhandled rejections reached, initiating graceful shutdown');
-    gracefulShutdown('MAX_REJECTIONS');
-  }
-});
+    if (unhandledRejectionCount >= MAX_UNHANDLED_REJECTIONS) {
+      logger.error('Max unhandled rejections reached, initiating graceful shutdown');
+      gracefulShutdown('MAX_REJECTIONS');
+    }
+  });
+}
 
 // ROBUST-002: Graceful shutdown handler
 let shuttingDown = false;
@@ -511,11 +530,14 @@ async function gracefulShutdown(signal) {
   process.exit(0);
 }
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+if (alsServerGestartet) {
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
 
-// Only start server if not in test mode
-if (require.main === module) {
+// Only start server if not in test mode — dieselbe Bedingung wie oben, damit es
+// genau einen Namen dafür gibt.
+if (alsServerGestartet) {
   server.listen(PORT, '0.0.0.0', async () => {
     logger.info(`ARASUL DASHBOARD BACKEND - Port ${PORT}`);
     logger.info(`WebSocket server ready at ws://0.0.0.0:${PORT}/api/metrics/live-stream`);
@@ -803,6 +825,14 @@ if (require.main === module) {
       require('./services/projects/ordnerSyncService').starte();
     } catch (err) {
       logger.error(`Ordner-Sync konnte nicht starten: ${err.message}`);
+    }
+
+    // Sandbox-Container, die niemand mehr benutzt, nach einer halben Stunde
+    // anhalten. Startet hier statt beim Laden des Moduls, siehe sandboxService.
+    try {
+      require('./services/sandbox/sandboxIdleChecker').startIdleChecker();
+    } catch (err) {
+      logger.error(`Sandbox-Leerlaufprüfer konnte nicht starten: ${err.message}`);
     }
 
     // Werkstatt-Watcher: neue/geänderte manifest.json in Erweiterungs-
