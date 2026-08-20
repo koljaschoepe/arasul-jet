@@ -83,9 +83,16 @@ keep scope, different approach / re-plan).
 
 ## Phase 3 — Write the plan page
 
-1. Number: `NNN` = highest 3-digit prefix across `docs/plans/active/` and
-   `docs/plans/done/` (both `.md` and `.html`) + 1. Slug: lowercase-hyphenated
-   German-free-of-filler. File: `docs/plans/active/NNN-<slug>.html`.
+0. **`docs/plans/active/` holds exactly one plan** — `scripts/test/plan-faden.py`
+   fails otherwise, and it runs in CI. If a plan is already there, it must first
+   be moved: to `docs/plans/done/` if it is finished, or to
+   `docs/plans/paused/` with a paragraph in that folder's `README.md` saying why
+   it is paused and what is still open. Never leave two plans side by side; a
+   folder with two plans in it does not say which one counts.
+1. Number: `NNN` = highest 3-digit prefix across `docs/plans/active/`,
+   `docs/plans/paused/` and `docs/plans/done/` (both `.md` and `.html`) + 1.
+   Slug: lowercase-hyphenated German-free-of-filler.
+   File: `docs/plans/active/NNN-<slug>.html`.
 2. Copy the template and fill **every** `{{TOKEN}}` and section — no leftover
    placeholders. Read the template's header comment first (it is the structural
    contract). Specifics:

@@ -22,6 +22,17 @@ In `src/features/` und `src/components/layout/`:
    und `mb-8 pb-6 border-b`   Die Trennlinie einer Feldgruppe gehoert in `Section`.
 3. `border-b-2` an einem Knopf
    in einer Leiste             Eine Tab-Leiste gehoert in `FilterBar`.
+4. `role="dialog"` von Hand   Ein Dialog gehoert in `Modal` (auf Radix).
+
+Zur vierten Regel: am 20.08.2026 trugen fuenf Dateien `role="dialog"` selbst,
+waehrend fuenf andere den gemeinsamen `Modal` benutzen. DREI der fuenf
+behaupteten `aria-modal="true"`, und ZWEI davon hatten keine Tabulatorfalle.
+Der Fokus lief also aus einem Dialog heraus, der sich als geschlossen ausgibt.
+Genau diesen Fehler hat Plan 023 C4 im OnboardingWizard in vier Anlaeufen von
+Hand behoben, mitsamt drei Sonderfaellen (erstes Tab, erstes Shift+Tab, und ein
+Knopf, der sich selbst entfernt, waehrend er den Fokus haelt). Radix hat das
+alles geprueft eingebaut. Eine handgebaute Dialogmechanik ist deshalb kein
+Geschmack, sondern eine Wette gegen eine getestete Bibliothek.
 
 Was NICHT gemeldet wird
 -----------------------
@@ -73,6 +84,14 @@ AUSNAHMEN = {
     # Einstellungsseite, und PageHeader dafuer aufzubohren hiesse, einen
     # Baustein fuer einen einzigen Aufrufer zu verbiegen.
     'src/features/store/StoreDetailPage.tsx': 'feste Kopfleiste mit Zurueck-Knopf, andere Form',
+    # Vier handgebaute Dialoge, alle aelter als die vierte Regel. Sie stehen
+    # hier, damit die Regel ab heute NEUE Faelle verhindert; die vier selbst
+    # sind eine eigene Aufgabe im Plan 023, Abschnitt am Ende von C4. Jeder
+    # Eintrag nennt, was ihm fehlt.
+    'src/features/workspace/OnboardingWizard.tsx': 'Fokusfalle von Hand, in C4 repariert, gehoert trotzdem auf Modal',
+    'src/features/sandbox/KiZugangDialog.tsx': 'aria-modal ohne Tabulatorfalle, Hintergrund ist ein Knopf, derselbe Fehler wie vor C4',
+    'src/features/workspace/QuickOpen.tsx': 'aria-modal ohne Tabulatorfalle',
+    'src/features/flows/ArgumentPicker.tsx': 'role=dialog ohne aria-modal, immerhin keine falsche Zusage',
 }
 
 REGELN = [
@@ -87,6 +106,10 @@ REGELN = [
     (
         re.compile(r'border-b-2\b'),
         'Tab-Leiste von Hand. Gehoert in FilterBar (components/ui/FilterBar.tsx).',
+    ),
+    (
+        re.compile(r'role="dialog"'),
+        'Dialogmechanik von Hand. Gehoert in Modal (components/ui/Modal.tsx, auf Radix).',
     ),
 ]
 

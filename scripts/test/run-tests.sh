@@ -117,13 +117,26 @@ run_backend_tests() {
   fi
 }
 
-# Funktion: Toter Code (Plan 023 B3)
-# Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
-# jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
+# Funktion: Gedankenstriche als Trenner (Plan 023 B6)
+# Laeuft immer mit, egal welche Auswahl.
 run_gedankenstrich_check() {
   echo ""
   echo "-> Pruefe auf Gedankenstriche als Trenner..."
   if python3 "${PROJECT_ROOT}/scripts/test/gedankenstriche.py" --pfad "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
+# Funktion: Der Faden (genau ein Plan in docs/plans/active/)
+# Laeuft immer mit. Am 20.08.2026 lagen dort vier Eintraege, drei aus der Zeit
+# vor dem laufenden Plan, und CLAUDE.md nannte als "den einen Faden" eine Seite,
+# die den laufenden Plan gar nicht kennt.
+run_faden_check() {
+  echo ""
+  echo "-> Pruefe den Faden (ein Plan in docs/plans/active/)..."
+  if python3 "${PROJECT_ROOT}/scripts/test/plan-faden.py" --pfad "${PROJECT_ROOT}"; then
     :
   else
     EXIT_CODE=1
@@ -143,6 +156,9 @@ run_bausteine_check() {
   fi
 }
 
+# Funktion: Toter Code (Plan 023 B3)
+# Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
+# jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
 run_totercode_check() {
   echo ""
   echo "-> Pruefe auf toten Code..."
@@ -321,6 +337,7 @@ run_quality_gates() {
 run_totercode_check
 run_gedankenstrich_check
 run_bausteine_check
+run_faden_check
 
 # Hauptlogik: Welche Tests laufen?
 if [ "$RUN_ALL" = true ]; then

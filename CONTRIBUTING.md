@@ -257,4 +257,6 @@ human review. Humans focus on:
 - [`docs/development/ONBOARDING.md`](docs/development/ONBOARDING.md) — 30-min cold-start.
 - [`docs/INDEX.md`](docs/INDEX.md) — full doc map.
 - [`CLAUDE.md`](CLAUDE.md) — non-negotiables for AI assistants.
-- [`docs/plans/active/`](docs/plans/active/) — what's in flight.
+- [`docs/plans/active/`](docs/plans/active/) — what's in flight. **Exactly one plan lives here**;
+  `scripts/test/plan-faden.py` fails otherwise and runs in CI. Started but dormant plans go to
+  [`docs/plans/paused/`](docs/plans/paused/README.md) with a stated reason.
