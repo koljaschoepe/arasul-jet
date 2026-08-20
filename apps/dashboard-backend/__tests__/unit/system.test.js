@@ -505,4 +505,41 @@ describe('System Routes', () => {
       );
     });
   });
+
+  /**
+   * Der Schrittzaehler der Ersteinrichtung.
+   *
+   * Bis zum 20.08.2026 schrieben beide Abschluss-Endpunkte `setup_step = 5`,
+   * die Nummer des sechsten Schritts aus der Zeit, als der Assistent sechs
+   * hatte. Seit Plan 023 C7 hat er zwei. Am Pruefstand gemessen stand nach
+   * einer vollstaendigen Einrichtung mit zwei Schritten eine 5 in der
+   * Datenbank.
+   */
+  describe('Abschluss der Ersteinrichtung', () => {
+    beforeEach(() => {
+      db.query.mockReset();
+      db.query.mockResolvedValue({ rows: [] });
+    });
+
+    const sql = () =>
+      db.query.mock.calls.map(([q]) => (typeof q === 'string' ? q : '')).join('\n');
+
+    test('setup-complete schreibt keine abgeschriebene Schrittnummer', async () => {
+      const antwort = await request(app)
+        .post('/api/system/setup-complete')
+        .send({ companyName: 'Abnahme GmbH', selectedModel: 'gemma4:26b-q4' });
+
+      expect(antwort.status).toBe(200);
+      expect(sql()).toContain('setup_completed = TRUE');
+      expect(sql()).not.toMatch(/setup_step\s*=\s*\d/);
+    });
+
+    test('setup-skip schreibt keine abgeschriebene Schrittnummer', async () => {
+      const antwort = await request(app).post('/api/system/setup-skip').send({});
+
+      expect(antwort.status).toBe(200);
+      expect(sql()).toContain('setup_completed = TRUE');
+      expect(sql()).not.toMatch(/setup_step\s*=\s*\d/);
+    });
+  });
 });

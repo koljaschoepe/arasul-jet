@@ -613,6 +613,13 @@ router.get(
 );
 
 /**
+ * Beide Abschluss-Endpunkte schreiben `setup_step` NICHT mehr. Bis zum
+ * 20.08.2026 stand hier `setup_step = 5`, die Nummer des sechsten Schritts aus
+ * der Zeit, als der Assistent sechs hatte. Seit Plan 023 C7 hat er zwei, und
+ * eine abgeschriebene Zahl waere ab dem naechsten Umbau wieder falsch. Der
+ * Zaehler sagt ohnehin nur, wie weit eine LAUFENDE Einrichtung gekommen ist;
+ * sobald `setup_completed` steht, liest ihn niemand mehr.
+ *
  * POST /api/system/setup-complete
  * Mark the initial setup as completed.
  * Requires auth - only admin can complete setup.
@@ -631,8 +638,7 @@ router.post(
         setup_completed_by = $1,
         company_name = COALESCE($2, company_name),
         hostname = COALESCE($3, hostname),
-        selected_model = COALESCE($4, selected_model),
-        setup_step = 5
+        selected_model = COALESCE($4, selected_model)
       WHERE id = 1`,
       [req.user.id, companyName || null, hostname || null, selectedModel || null]
     );
@@ -698,8 +704,7 @@ router.post(
       `UPDATE system_settings SET
         setup_completed = TRUE,
         setup_completed_at = NOW(),
-        setup_completed_by = $1,
-        setup_step = 5
+        setup_completed_by = $1
       WHERE id = 1`,
       [req.user.id]
     );
