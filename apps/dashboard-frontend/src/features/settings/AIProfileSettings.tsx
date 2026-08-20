@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/shadcn/select';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Section } from '@/components/ui/Section';
 
 const AI_INDUSTRIES = [
   'IT & Software',
@@ -340,159 +341,154 @@ export function AIProfileSettings({ onDirtyChange }: AIProfileSettingsProps = {}
       />
 
       <div className="flex flex-col gap-8">
-        {/* Firmenprofil */}
-        <section className="space-y-5">
-          <h3 className="text-sm font-semibold text-foreground">Firmenprofil</h3>
+        <Section title="Firmenprofil">
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="companyName">Firmenname</Label>
+              <Input
+                id="companyName"
+                value={companyName}
+                onChange={e => {
+                  setCompanyName(e.target.value);
+                  setFieldErrors(prev => {
+                    if (!prev.companyName) return prev;
+                    const { companyName: _omit, ...rest } = prev;
+                    return rest;
+                  });
+                }}
+                placeholder="z.B. Muster GmbH"
+                aria-invalid={Boolean(fieldErrors.companyName)}
+              />
+              {fieldErrors.companyName && (
+                <p className="text-xs text-destructive">{fieldErrors.companyName}</p>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="companyName">Firmenname</Label>
-            <Input
-              id="companyName"
-              value={companyName}
+            <div className="space-y-2">
+              <Label>Branche</Label>
+              <Select
+                value={industry}
+                onValueChange={val => {
+                  setIndustry(val);
+                  if (val !== 'custom') setCustomIndustry('');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Bitte wählen --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AI_INDUSTRIES.map(ind => (
+                    <SelectItem key={ind} value={ind}>
+                      {ind}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">Sonstige...</SelectItem>
+                </SelectContent>
+              </Select>
+              {industry === 'custom' && (
+                <Input
+                  className="mt-2"
+                  value={customIndustry}
+                  onChange={e => setCustomIndustry(e.target.value)}
+                  placeholder="Branche eingeben…"
+                />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="products">
+                Produkte & Services{' '}
+                <span className="text-muted-foreground text-xs">(optional)</span>
+              </Label>
+              <Input
+                id="products"
+                value={products}
+                onChange={e => setProducts(e.target.value)}
+                placeholder="z.B. Webentwicklung, Cloud-Hosting, Beratung"
+              />
+              <p className="text-xs text-muted-foreground">Komma-getrennt eingeben</p>
+            </div>
+          </div>
+        </Section>
+
+        <Section
+          title="Zusatzkontext"
+          description="Beschreibung des Unternehmens, der Zielgruppen und Besonderheiten."
+        >
+          <div className="space-y-4">
+            <Textarea
+              className="min-h-50 font-mono text-sm"
+              value={contextContent}
               onChange={e => {
-                setCompanyName(e.target.value);
+                setContextContent(e.target.value);
                 setFieldErrors(prev => {
-                  if (!prev.companyName) return prev;
-                  const { companyName: _omit, ...rest } = prev;
+                  if (!prev.context) return prev;
+                  const { context: _omit, ...rest } = prev;
                   return rest;
                 });
               }}
-              placeholder="z.B. Muster GmbH"
-              aria-invalid={Boolean(fieldErrors.companyName)}
+              placeholder="Beschreibe dein Unternehmen, Kunden, Besonderheiten..."
+              spellCheck={false}
+              aria-invalid={Boolean(fieldErrors.context)}
             />
-            {fieldErrors.companyName && (
-              <p className="text-xs text-destructive">{fieldErrors.companyName}</p>
+            {fieldErrors.context && (
+              <p className="text-xs text-destructive">{fieldErrors.context}</p>
+            )}
+            {lastUpdated && (
+              <p className="text-xs text-muted-foreground">
+                Zuletzt aktualisiert: {formatDate(lastUpdated)}
+              </p>
             )}
           </div>
+        </Section>
 
-          <div className="space-y-2">
-            <Label>Branche</Label>
-            <Select
-              value={industry}
-              onValueChange={val => {
-                setIndustry(val);
-                if (val !== 'custom') setCustomIndustry('');
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="-- Bitte wählen --" />
-              </SelectTrigger>
-              <SelectContent>
-                {AI_INDUSTRIES.map(ind => (
-                  <SelectItem key={ind} value={ind}>
-                    {ind}
-                  </SelectItem>
+        <Section title="KI-Verhalten" divider={false}>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Label>Antwortlänge</Label>
+              <RadioGroup
+                value={answerLength}
+                onValueChange={setAnswerLength}
+                className="flex flex-wrap gap-3"
+              >
+                {[
+                  { value: 'kurz', label: 'Kurz' },
+                  { value: 'mittel', label: 'Mittel' },
+                  { value: 'ausfuehrlich', label: 'Ausführlich' },
+                ].map(opt => (
+                  <div key={opt.value} className="flex items-center gap-2">
+                    <RadioGroupItem value={opt.value} id={`len-${opt.value}`} />
+                    <Label htmlFor={`len-${opt.value}`} className="cursor-pointer font-normal">
+                      {opt.label}
+                    </Label>
+                  </div>
                 ))}
-                <SelectItem value="custom">Sonstige...</SelectItem>
-              </SelectContent>
-            </Select>
-            {industry === 'custom' && (
-              <Input
-                className="mt-2"
-                value={customIndustry}
-                onChange={e => setCustomIndustry(e.target.value)}
-                placeholder="Branche eingeben…"
-              />
-            )}
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Formalität</Label>
+              <RadioGroup
+                value={formality}
+                onValueChange={setFormality}
+                className="flex flex-wrap gap-3"
+              >
+                {[
+                  { value: 'formell', label: 'Formell' },
+                  { value: 'normal', label: 'Normal' },
+                  { value: 'locker', label: 'Locker' },
+                ].map(opt => (
+                  <div key={opt.value} className="flex items-center gap-2">
+                    <RadioGroupItem value={opt.value} id={`form-${opt.value}`} />
+                    <Label htmlFor={`form-${opt.value}`} className="cursor-pointer font-normal">
+                      {opt.label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="products">
-              Produkte & Services <span className="text-muted-foreground text-xs">(optional)</span>
-            </Label>
-            <Input
-              id="products"
-              value={products}
-              onChange={e => setProducts(e.target.value)}
-              placeholder="z.B. Webentwicklung, Cloud-Hosting, Beratung"
-            />
-            <p className="text-xs text-muted-foreground">Komma-getrennt eingeben</p>
-          </div>
-        </section>
-
-        <div className="border-t border-border" />
-
-        {/* Zusatzkontext */}
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-foreground">Zusatzkontext</h3>
-            <p className="text-xs text-muted-foreground">
-              Beschreibung des Unternehmens, der Zielgruppen und Besonderheiten.
-            </p>
-          </div>
-          <Textarea
-            className="min-h-50 font-mono text-sm"
-            value={contextContent}
-            onChange={e => {
-              setContextContent(e.target.value);
-              setFieldErrors(prev => {
-                if (!prev.context) return prev;
-                const { context: _omit, ...rest } = prev;
-                return rest;
-              });
-            }}
-            placeholder="Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten..."
-            spellCheck={false}
-            aria-invalid={Boolean(fieldErrors.context)}
-          />
-          {fieldErrors.context && <p className="text-xs text-destructive">{fieldErrors.context}</p>}
-          {lastUpdated && (
-            <p className="text-xs text-muted-foreground">
-              Zuletzt aktualisiert: {formatDate(lastUpdated)}
-            </p>
-          )}
-        </section>
-
-        <div className="border-t border-border" />
-
-        {/* KI-Verhalten */}
-        <section className="space-y-5">
-          <h3 className="text-sm font-semibold text-foreground">KI-Verhalten</h3>
-
-          <div className="space-y-2">
-            <Label>Antwortlänge</Label>
-            <RadioGroup
-              value={answerLength}
-              onValueChange={setAnswerLength}
-              className="flex flex-wrap gap-3"
-            >
-              {[
-                { value: 'kurz', label: 'Kurz' },
-                { value: 'mittel', label: 'Mittel' },
-                { value: 'ausfuehrlich', label: 'Ausführlich' },
-              ].map(opt => (
-                <div key={opt.value} className="flex items-center gap-2">
-                  <RadioGroupItem value={opt.value} id={`len-${opt.value}`} />
-                  <Label htmlFor={`len-${opt.value}`} className="cursor-pointer font-normal">
-                    {opt.label}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Formalität</Label>
-            <RadioGroup
-              value={formality}
-              onValueChange={setFormality}
-              className="flex flex-wrap gap-3"
-            >
-              {[
-                { value: 'formell', label: 'Formell' },
-                { value: 'normal', label: 'Normal' },
-                { value: 'locker', label: 'Locker' },
-              ].map(opt => (
-                <div key={opt.value} className="flex items-center gap-2">
-                  <RadioGroupItem value={opt.value} id={`form-${opt.value}`} />
-                  <Label htmlFor={`form-${opt.value}`} className="cursor-pointer font-normal">
-                    {opt.label}
-                  </Label>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
-        </section>
+        </Section>
 
         {/* Save Footer */}
         <div className="flex items-center justify-between py-2">

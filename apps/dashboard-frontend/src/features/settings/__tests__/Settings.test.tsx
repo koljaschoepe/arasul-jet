@@ -127,11 +127,14 @@ describe('Settings shell', () => {
   });
 
   describe('Layout and navigation', () => {
-    test('renders the settings tab header with the active section label', () => {
+    test('der Rahmen nennt den Bereich nicht ein zweites Mal', () => {
+      // Seit Plan 023 C2 ist der Rahmen bleibende Umgebung, keine Ueberschrift:
+      // vorher stand hier ein h2 "Einstellungen" mit dem Bereichsnamen darunter,
+      // und vierzig Pixel tiefer derselbe Name noch einmal als h1 des Bereichs.
       renderSettings();
       expect(screen.getByText('Einstellungen')).toBeInTheDocument();
-      // Header subtitle is the active section's label (general → "Allgemein").
-      expect(screen.getByText('Allgemein')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Einstellungen' })).toBeNull();
+      expect(screen.queryByText('Allgemein')).toBeNull();
     });
 
     test('the sidebar panel lists all six sections with the new labels', () => {

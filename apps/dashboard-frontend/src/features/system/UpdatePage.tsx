@@ -18,6 +18,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Section } from '@/components/ui/Section';
 
 interface ValidationResult {
   file_path?: string;
@@ -392,353 +393,344 @@ const UpdatePage = () => {
       {/* Header */}
       <PageHeader title="System-Updates" description="Updates sicher hochladen und installieren" />
 
-      {/* USB Device Detection */}
-      {uploadStatus === 'idle' && (
-        <div className="pb-6 border-b border-border mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <HardDrive className="size-4 text-muted-foreground" />
-              USB-Update erkennen
-            </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={scanUsbDevices}
-              disabled={usbScanning}
-              className="h-7 w-7 p-0"
-            >
-              <RefreshCw className={cn('size-3.5', usbScanning && 'animate-spin')} />
-            </Button>
-          </div>
-
-          {usbDevices.length > 0 ? (
-            <div className="border border-border/50 rounded-lg divide-y divide-border/50">
-              {usbDevices.map((device, idx) => (
-                <div key={idx} className="flex items-center justify-between px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-foreground">{device.name}</span>
-                    <p className="text-xs text-muted-foreground">
-                      {device.device} · {formatFileSize(device.size)}
-                    </p>
+      <div className="flex flex-col gap-8">
+        {uploadStatus === 'idle' && (
+          <Section
+            title="USB-Update erkennen"
+            icon={<HardDrive />}
+            action={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={scanUsbDevices}
+                disabled={usbScanning}
+                className="h-7 w-7 p-0"
+              >
+                <RefreshCw className={cn('size-3.5', usbScanning && 'animate-spin')} />
+              </Button>
+            }
+          >
+            {usbDevices.length > 0 ? (
+              <div className="border border-border/50 rounded-lg divide-y divide-border/50">
+                {usbDevices.map((device, idx) => (
+                  <div key={idx} className="flex items-center justify-between px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-foreground">{device.name}</span>
+                      <p className="text-xs text-muted-foreground">
+                        {device.device} · {formatFileSize(device.size)}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => handleUsbInstall(device)}
+                    >
+                      Installieren
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => handleUsbInstall(device)}
-                  >
-                    Installieren
-                  </Button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<HardDrive />}
+                title={usbScanning ? 'USB-Geräte werden gesucht...' : 'Kein USB-Gerät gefunden'}
+                description={
+                  usbScanning ? undefined : 'Bitte USB-Stick einstecken und erneut scannen.'
+                }
+              />
+            )}
+          </Section>
+        )}
+
+        <Section title="Update-Paket hochladen" icon={<Package />}>
+          {uploadStatus === 'idle' && (
+            <div className="flex flex-col gap-3">
+              <label
+                htmlFor="update-file"
+                className="flex items-center gap-3 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer transition-colors hover:bg-muted/30"
+              >
+                <Package className="size-4 text-muted-foreground shrink-0" />
+                <span className="text-sm text-muted-foreground">
+                  {selectedFile ? selectedFile.name : '.araupdate Datei auswählen'}
+                </span>
+              </label>
+              <input
+                id="update-file"
+                type="file"
+                accept=".araupdate"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
+              <label
+                htmlFor="signature-file"
+                className="flex items-center gap-3 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer transition-colors hover:bg-muted/30"
+              >
+                <Lock className="size-4 text-muted-foreground shrink-0" />
+                <span className="text-sm text-muted-foreground">
+                  {signatureFile
+                    ? signatureFile.name
+                    : '.sig Signaturdatei auswählen (erforderlich)'}
+                </span>
+              </label>
+              <input
+                id="signature-file"
+                type="file"
+                accept=".sig"
+                onChange={handleSignatureSelect}
+                className="hidden"
+              />
+
+              {errorMessage && (
+                <p className="text-sm text-foreground flex items-center gap-2">
+                  <AlertCircle className="size-4 shrink-0" />
+                  {errorMessage}
+                </p>
+              )}
+
+              <Button
+                onClick={handleUpload}
+                // This button only renders while uploadStatus === 'idle', so a
+                // file/signature check is sufficient to guard against a premature
+                // submit; the in-flight states are handled by the conditional
+                // rendering that swaps this block out.
+                disabled={!selectedFile || !signatureFile}
+                className="w-full"
+              >
+                Hochladen & Validieren
+              </Button>
+            </div>
+          )}
+
+          {uploadStatus === 'uploading' && (
+            <div className="py-6">
+              <p className="text-sm text-muted-foreground mb-3">Upload läuft...</p>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-[width] duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-sm font-medium text-foreground mt-2">{uploadProgress}%</p>
+            </div>
+          )}
+
+          {uploadStatus === 'validated' && validationResult && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="size-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Update-Paket validiert</span>
+              </div>
+
+              <div className="border border-border/50 rounded-lg divide-y divide-border/50">
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-xs text-muted-foreground">Version</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {validationResult.version}
+                  </span>
+                </div>
+                {validationResult.size && (
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-xs text-muted-foreground">Größe</span>
+                    <span className="text-sm text-foreground">
+                      {formatFileSize(validationResult.size)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-xs text-muted-foreground">Komponenten</span>
+                  <span className="text-sm text-foreground">
+                    {validationResult.components?.length || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-xs text-muted-foreground">Neustart erforderlich</span>
+                  <span className="text-sm text-foreground">
+                    {validationResult.requires_reboot ? 'Ja' : 'Nein'}
+                  </span>
+                </div>
+                {validationResult.source === 'usb' && (
+                  <div className="flex justify-between px-4 py-2.5">
+                    <span className="text-xs text-muted-foreground">Quelle</span>
+                    <span className="text-sm text-foreground">USB-Gerät</span>
+                  </div>
+                )}
+              </div>
+
+              {validationResult.components && validationResult.components.length > 0 && (
+                <div className="border-l-2 border-primary/30 pl-4">
+                  <p className="text-xs font-medium text-foreground mb-2">
+                    Aktualisierte Komponenten:
+                  </p>
+                  <ul className="space-y-1">
+                    {validationResult.components.map((comp, idx) => (
+                      <li key={idx} className="text-xs text-muted-foreground">
+                        {typeof comp === 'string' ? comp : comp.name || String(comp)}{' '}
+                        {typeof comp !== 'string' && comp.version_to && `(v${comp.version_to})`}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button onClick={handleApplyUpdate} className="flex-1">
+                  Update installieren
+                </Button>
+                <Button variant="outline" onClick={handleReset} className="flex-1">
+                  Abbrechen
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {uploadStatus === 'applying' && (
+            <div className="py-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <Settings className="size-4 text-primary animate-spin" />
+                <span className="text-sm font-medium text-foreground">
+                  Update wird installiert...
+                </span>
+              </div>
+
+              {connectionLost ? (
+                <div className="border-l-2 border-primary/30 pl-4 flex items-start gap-2">
+                  <RefreshCw className="size-3.5 mt-0.5 shrink-0 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Verbindung verloren – das Update läuft weiter, versuche erneut zu verbinden…
+                  </p>
+                </div>
+              ) : (
+                <div className="border-l-2 border-primary/30 pl-4">
+                  <p className="text-sm text-primary">
+                    {getCurrentStepDescription(updateStatus?.currentStep || '')}
+                  </p>
+                </div>
+              )}
+
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full w-full animate-pulse" />
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Bitte diese Seite nicht schließen und das Gerät nicht ausschalten.
+              </p>
+
+              {isStuck && (
+                <div className="border-l-2 border-primary/30 pl-4">
+                  <p className="text-xs text-muted-foreground">
+                    <AlertCircle className="size-3.5 inline mr-1" />
+                    Das Update dauert länger als gewöhnlich. Falls es weiterhin hängt, prüfe die
+                    System-Logs – solange der Status „in Bearbeitung“ bleibt, kann kein neues Update
+                    gestartet werden.
+                  </p>
+                </div>
+              )}
+
+              {updateStatus?.startTime && (
+                <p className="text-xs text-muted-foreground">
+                  Gestartet: {formatDate(updateStatus.startTime)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {uploadStatus === 'success' && (
+            <div className="py-6 text-center space-y-3">
+              <CheckCircle className="size-8 text-primary mx-auto" />
+              <h4 className="text-sm font-semibold text-foreground">
+                Update erfolgreich installiert!
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                Das System wurde auf Version {validationResult?.version} aktualisiert.
+              </p>
+              {validationResult?.requires_reboot && (
+                <div className="border-l-2 border-primary/30 pl-4 text-left">
+                  <p className="text-xs text-muted-foreground">
+                    <AlertCircle className="size-3.5 inline mr-1" />
+                    Systemneustart erforderlich. Bitte starte das System neu.
+                  </p>
+                </div>
+              )}
+              <Button variant="outline" size="sm" onClick={handleReset}>
+                Weiteres Update hochladen
+              </Button>
+            </div>
+          )}
+
+          {uploadStatus === 'error' && errorMessage && (
+            <div className="py-6 text-center space-y-3">
+              <XCircle className="size-8 text-foreground mx-auto" />
+              <h4 className="text-sm font-semibold text-foreground">Update fehlgeschlagen</h4>
+              <p className="text-sm text-muted-foreground">{errorMessage}</p>
+              <Button variant="outline" size="sm" onClick={handleReset}>
+                Erneut versuchen
+              </Button>
+            </div>
+          )}
+        </Section>
+
+        <Section title="Update-Verlauf" icon={<RefreshCw />} divider={false}>
+          {updateHistory.length === 0 ? (
+            <div className="border border-border/50 rounded-lg">
+              <div className="px-4 py-3 border-b border-border/50">
+                <span className="text-xs font-medium text-muted-foreground">Aktueller Stand</span>
+              </div>
+              <div className="grid grid-cols-2 gap-px bg-border/50">
+                <div className="bg-background px-4 py-3">
+                  <span className="text-xs text-muted-foreground block">Version</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {systemInfo?.version || '1.0.0'}
+                  </span>
+                </div>
+                <div className="bg-background px-4 py-3">
+                  <span className="text-xs text-muted-foreground block">Build</span>
+                  <span className="text-sm font-mono text-foreground">
+                    {systemInfo?.build_hash ? systemInfo.build_hash.substring(0, 7) : '—'}
+                  </span>
+                </div>
+                <div className="bg-background px-4 py-3">
+                  <span className="text-xs text-muted-foreground block">JetPack</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {systemInfo?.jetpack_version || '—'}
+                  </span>
+                </div>
+                <div className="bg-background px-4 py-3">
+                  <span className="text-xs text-muted-foreground block">Letztes Update</span>
+                  <span className="text-sm text-muted-foreground">
+                    Noch kein Update durchgeführt
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="border border-border/50 rounded-lg divide-y divide-border/50">
+              {updateHistory.map(update => (
+                <div key={update.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-foreground">
+                      {update.version_from} → {update.version_to}
+                    </span>
+                    {getStatusLabel(update.status)}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>{formatDate(update.started_at || update.timestamp || '')}</span>
+                    <span>
+                      {update.source === 'usb'
+                        ? 'USB'
+                        : update.source === 'dashboard'
+                          ? 'Dashboard'
+                          : update.source}
+                    </span>
+                    {update.duration_seconds && (
+                      <span>{Math.round(update.duration_seconds / 60)}m</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
-          ) : (
-            <EmptyState
-              icon={<HardDrive />}
-              title={usbScanning ? 'USB-Geräte werden gesucht...' : 'Kein USB-Gerät gefunden'}
-              description={
-                usbScanning ? undefined : 'Bitte USB-Stick einstecken und erneut scannen.'
-              }
-            />
           )}
-        </div>
-      )}
-
-      {/* Upload Section */}
-      <div className="pb-6 border-b border-border mb-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Package className="size-4 text-muted-foreground" />
-          Update-Paket hochladen
-        </h3>
-
-        {uploadStatus === 'idle' && (
-          <div className="flex flex-col gap-3">
-            <label
-              htmlFor="update-file"
-              className="flex items-center gap-3 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer transition-colors hover:bg-muted/30"
-            >
-              <Package className="size-4 text-muted-foreground shrink-0" />
-              <span className="text-sm text-muted-foreground">
-                {selectedFile ? selectedFile.name : '.araupdate Datei auswählen'}
-              </span>
-            </label>
-            <input
-              id="update-file"
-              type="file"
-              accept=".araupdate"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-
-            <label
-              htmlFor="signature-file"
-              className="flex items-center gap-3 px-4 py-3 border border-dashed border-border rounded-lg cursor-pointer transition-colors hover:bg-muted/30"
-            >
-              <Lock className="size-4 text-muted-foreground shrink-0" />
-              <span className="text-sm text-muted-foreground">
-                {signatureFile ? signatureFile.name : '.sig Signaturdatei auswählen (erforderlich)'}
-              </span>
-            </label>
-            <input
-              id="signature-file"
-              type="file"
-              accept=".sig"
-              onChange={handleSignatureSelect}
-              className="hidden"
-            />
-
-            {errorMessage && (
-              <p className="text-sm text-foreground flex items-center gap-2">
-                <AlertCircle className="size-4 shrink-0" />
-                {errorMessage}
-              </p>
-            )}
-
-            <Button
-              onClick={handleUpload}
-              // This button only renders while uploadStatus === 'idle', so a
-              // file/signature check is sufficient to guard against a premature
-              // submit; the in-flight states are handled by the conditional
-              // rendering that swaps this block out.
-              disabled={!selectedFile || !signatureFile}
-              className="w-full"
-            >
-              Hochladen & Validieren
-            </Button>
-          </div>
-        )}
-
-        {uploadStatus === 'uploading' && (
-          <div className="py-6">
-            <p className="text-sm text-muted-foreground mb-3">Upload läuft...</p>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-[width] duration-300"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-            <p className="text-sm font-medium text-foreground mt-2">{uploadProgress}%</p>
-          </div>
-        )}
-
-        {uploadStatus === 'validated' && validationResult && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="size-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">Update-Paket validiert</span>
-            </div>
-
-            <div className="border border-border/50 rounded-lg divide-y divide-border/50">
-              <div className="flex justify-between px-4 py-2.5">
-                <span className="text-xs text-muted-foreground">Version</span>
-                <span className="text-sm font-medium text-foreground">
-                  {validationResult.version}
-                </span>
-              </div>
-              {validationResult.size && (
-                <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-xs text-muted-foreground">Größe</span>
-                  <span className="text-sm text-foreground">
-                    {formatFileSize(validationResult.size)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between px-4 py-2.5">
-                <span className="text-xs text-muted-foreground">Komponenten</span>
-                <span className="text-sm text-foreground">
-                  {validationResult.components?.length || 0}
-                </span>
-              </div>
-              <div className="flex justify-between px-4 py-2.5">
-                <span className="text-xs text-muted-foreground">Neustart erforderlich</span>
-                <span className="text-sm text-foreground">
-                  {validationResult.requires_reboot ? 'Ja' : 'Nein'}
-                </span>
-              </div>
-              {validationResult.source === 'usb' && (
-                <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-xs text-muted-foreground">Quelle</span>
-                  <span className="text-sm text-foreground">USB-Gerät</span>
-                </div>
-              )}
-            </div>
-
-            {validationResult.components && validationResult.components.length > 0 && (
-              <div className="border-l-2 border-primary/30 pl-4">
-                <p className="text-xs font-medium text-foreground mb-2">
-                  Aktualisierte Komponenten:
-                </p>
-                <ul className="space-y-1">
-                  {validationResult.components.map((comp, idx) => (
-                    <li key={idx} className="text-xs text-muted-foreground">
-                      {typeof comp === 'string' ? comp : comp.name || String(comp)}{' '}
-                      {typeof comp !== 'string' && comp.version_to && `(v${comp.version_to})`}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <Button onClick={handleApplyUpdate} className="flex-1">
-                Update installieren
-              </Button>
-              <Button variant="outline" onClick={handleReset} className="flex-1">
-                Abbrechen
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {uploadStatus === 'applying' && (
-          <div className="py-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Settings className="size-4 text-primary animate-spin" />
-              <span className="text-sm font-medium text-foreground">
-                Update wird installiert...
-              </span>
-            </div>
-
-            {connectionLost ? (
-              <div className="border-l-2 border-primary/30 pl-4 flex items-start gap-2">
-                <RefreshCw className="size-3.5 mt-0.5 shrink-0 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Verbindung verloren – das Update läuft weiter, versuche erneut zu verbinden…
-                </p>
-              </div>
-            ) : (
-              <div className="border-l-2 border-primary/30 pl-4">
-                <p className="text-sm text-primary">
-                  {getCurrentStepDescription(updateStatus?.currentStep || '')}
-                </p>
-              </div>
-            )}
-
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full w-full animate-pulse" />
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              Bitte diese Seite nicht schließen und das Gerät nicht ausschalten.
-            </p>
-
-            {isStuck && (
-              <div className="border-l-2 border-primary/30 pl-4">
-                <p className="text-xs text-muted-foreground">
-                  <AlertCircle className="size-3.5 inline mr-1" />
-                  Das Update dauert länger als gewöhnlich. Falls es weiterhin hängt, prüfen Sie die
-                  System-Logs – solange der Status „in Bearbeitung“ bleibt, kann kein neues Update
-                  gestartet werden.
-                </p>
-              </div>
-            )}
-
-            {updateStatus?.startTime && (
-              <p className="text-xs text-muted-foreground">
-                Gestartet: {formatDate(updateStatus.startTime)}
-              </p>
-            )}
-          </div>
-        )}
-
-        {uploadStatus === 'success' && (
-          <div className="py-6 text-center space-y-3">
-            <CheckCircle className="size-8 text-primary mx-auto" />
-            <h4 className="text-sm font-semibold text-foreground">
-              Update erfolgreich installiert!
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              Das System wurde auf Version {validationResult?.version} aktualisiert.
-            </p>
-            {validationResult?.requires_reboot && (
-              <div className="border-l-2 border-primary/30 pl-4 text-left">
-                <p className="text-xs text-muted-foreground">
-                  <AlertCircle className="size-3.5 inline mr-1" />
-                  Systemneustart erforderlich. Bitte starten Sie das System neu.
-                </p>
-              </div>
-            )}
-            <Button variant="outline" size="sm" onClick={handleReset}>
-              Weiteres Update hochladen
-            </Button>
-          </div>
-        )}
-
-        {uploadStatus === 'error' && errorMessage && (
-          <div className="py-6 text-center space-y-3">
-            <XCircle className="size-8 text-foreground mx-auto" />
-            <h4 className="text-sm font-semibold text-foreground">Update fehlgeschlagen</h4>
-            <p className="text-sm text-muted-foreground">{errorMessage}</p>
-            <Button variant="outline" size="sm" onClick={handleReset}>
-              Erneut versuchen
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Update History */}
-      <div>
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <RefreshCw className="size-4 text-muted-foreground" />
-          Update-Verlauf
-        </h3>
-
-        {updateHistory.length === 0 ? (
-          <div className="border border-border/50 rounded-lg">
-            <div className="px-4 py-3 border-b border-border/50">
-              <span className="text-xs font-medium text-muted-foreground">Aktueller Stand</span>
-            </div>
-            <div className="grid grid-cols-2 gap-px bg-border/50">
-              <div className="bg-background px-4 py-3">
-                <span className="text-xs text-muted-foreground block">Version</span>
-                <span className="text-sm font-medium text-foreground">
-                  {systemInfo?.version || '1.0.0'}
-                </span>
-              </div>
-              <div className="bg-background px-4 py-3">
-                <span className="text-xs text-muted-foreground block">Build</span>
-                <span className="text-sm font-mono text-foreground">
-                  {systemInfo?.build_hash ? systemInfo.build_hash.substring(0, 7) : '—'}
-                </span>
-              </div>
-              <div className="bg-background px-4 py-3">
-                <span className="text-xs text-muted-foreground block">JetPack</span>
-                <span className="text-sm font-medium text-foreground">
-                  {systemInfo?.jetpack_version || '—'}
-                </span>
-              </div>
-              <div className="bg-background px-4 py-3">
-                <span className="text-xs text-muted-foreground block">Letztes Update</span>
-                <span className="text-sm text-muted-foreground">Noch kein Update durchgeführt</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="border border-border/50 rounded-lg divide-y divide-border/50">
-            {updateHistory.map(update => (
-              <div key={update.id} className="px-4 py-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-foreground">
-                    {update.version_from} → {update.version_to}
-                  </span>
-                  {getStatusLabel(update.status)}
-                </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span>{formatDate(update.started_at || update.timestamp || '')}</span>
-                  <span>
-                    {update.source === 'usb'
-                      ? 'USB'
-                      : update.source === 'dashboard'
-                        ? 'Dashboard'
-                        : update.source}
-                  </span>
-                  {update.duration_seconds && (
-                    <span>{Math.round(update.duration_seconds / 60)}m</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        </Section>
       </div>
     </div>
   );

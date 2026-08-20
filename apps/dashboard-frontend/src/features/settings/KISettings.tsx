@@ -1,19 +1,14 @@
 import { useEffect, useState } from 'react';
-import { User, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { User, SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FilterBar, type FilterBarItem } from '@/components/ui/FilterBar';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { AIProfileSettings } from './AIProfileSettings';
 import { RagLlmSettings } from './RagLlmSettings';
 
 type SubId = 'profile' | 'rag-llm';
 
-interface SubSection {
-  id: SubId;
-  label: string;
-  icon: LucideIcon;
-}
-
-const subSections: SubSection[] = [
+const subSections: FilterBarItem<SubId>[] = [
   { id: 'profile', label: 'Firmenprofil & Kontext', icon: User },
   { id: 'rag-llm', label: 'Sprachmodell', icon: SlidersHorizontal },
 ];
@@ -39,31 +34,18 @@ export function KISettings({ onDirtyChange }: KISettingsProps = {}) {
   }, [profileDirty, ragDirty, onDirtyChange]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <nav className="flex gap-1 border-b border-border" aria-label="KI-Unterbereiche">
-        {subSections.map(section => {
-          const Icon = section.icon;
-          const isActive = active === section.id;
-          return (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => setActive(section.id)}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 -mb-px text-sm border-b-2 transition-colors',
-                isActive
-                  ? 'border-primary text-foreground font-semibold'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <Icon className={cn('size-4 shrink-0', isActive && 'text-primary')} />
-              <span>{section.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-
+    <FilterBar
+      items={subSections}
+      active={active}
+      onChange={setActive}
+      label="KI-Unterbereiche"
+      panelClassName="pt-6"
+    >
+      {/*
+        Beide Haelften bleiben gemountet und werden nur versteckt, damit ein
+        halb ausgefuelltes Formular den Blick in die andere Haelfte ueberlebt.
+        Deshalb liegen sie zusammen in der einen Inhaltsflaeche der Leiste.
+      */}
       <div className={cn(active !== 'profile' && 'hidden')}>
         <ComponentErrorBoundary componentName="Firmenprofil & Kontext">
           <AIProfileSettings onDirtyChange={setProfileDirty} />
@@ -74,7 +56,7 @@ export function KISettings({ onDirtyChange }: KISettingsProps = {}) {
           <RagLlmSettings onDirtyChange={setRagDirty} />
         </ComponentErrorBoundary>
       </div>
-    </div>
+    </FilterBar>
   );
 }
 

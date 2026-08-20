@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Section } from '@/components/ui/Section';
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
 
@@ -115,25 +116,21 @@ export function PrivacySettings() {
       />
 
       <div className="flex flex-col gap-8">
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Download className="size-4 text-muted-foreground" />
-            Meine Daten exportieren
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Lädt eine JSON-Datei mit allen zu deinem Account gespeicherten Daten herunter (Profil,
-            Chats, Dokument-Metadaten, Projekte, API-Keys, Audit-Log).
-          </p>
+        <Section
+          title="Meine Daten exportieren"
+          icon={<Download />}
+          description="Lädt eine JSON-Datei mit allen zu deinem Konto gespeicherten Daten herunter: Profil, Chats, Dokument-Metadaten, Projekte, API-Schlüssel, Prüfprotokoll."
+        >
           <Button onClick={handleExport} disabled={exporting} variant="outline">
             {exporting ? 'Exportiere...' : 'Datenexport herunterladen'}
           </Button>
-        </section>
+        </Section>
 
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Trash2 className="size-4 text-destructive" />
-            Konto löschen
-          </h3>
+        <Section
+          title="Konto löschen"
+          icon={<Trash2 className="text-destructive" />}
+          divider={false}
+        >
           <Alert variant="destructive">
             <Info className="size-4" />
             <AlertDescription>
@@ -141,10 +138,10 @@ export function PrivacySettings() {
               Wiederherstellung ist nicht möglich.
             </AlertDescription>
           </Alert>
-          <Button onClick={handleDelete} disabled={deleting} variant="destructive">
+          <Button onClick={handleDelete} disabled={deleting} variant="destructive" className="mt-3">
             {deleting ? 'Lösche...' : 'Konto endgültig löschen'}
           </Button>
-        </section>
+        </Section>
       </div>
 
       <Modal

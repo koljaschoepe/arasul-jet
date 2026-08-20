@@ -7,7 +7,7 @@ import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../contexts/ToastContext';
 import useConfirm from '../../hooks/useConfirm';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { resolveTab, resolveSystemSub, sectionLabel } from './sections';
+import { resolveTab, resolveSystemSub } from './sections';
 import { GeneralSettings } from './GeneralSettings';
 import { KISettings } from './KISettings';
 import { SecuritySettings } from './SecuritySettings';
@@ -131,12 +131,15 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
 
   return (
     <div className="flex h-full flex-col animate-in fade-in">
+      {/*
+        Kein Ueberschriftenelement: Der Rahmen ist bleibende Umgebung, nicht die
+        Ueberschrift der Seite. Die steht als einziges h1 im Bereich darunter,
+        aus dem PageHeader. Vorher stand hier ein h2 ueber einem h1, und der
+        Bereichsname darunter noch einmal im h1, vierzig Pixel tiefer.
+      */}
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-6 py-4 max-md:px-4">
         <Mascot state="idle" label="Arasul" className="h-8 w-8 shrink-0" />
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold leading-tight text-foreground">Einstellungen</h2>
-          <p className="truncate text-xs text-muted-foreground">{sectionLabel(activeSection)}</p>
-        </div>
+        <div className="min-w-0 text-lg font-bold leading-tight text-foreground">Einstellungen</div>
         {isDirty && (
           <span className="ml-auto shrink-0 rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
             Ungespeicherte Änderungen

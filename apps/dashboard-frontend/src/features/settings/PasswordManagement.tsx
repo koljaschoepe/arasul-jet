@@ -171,7 +171,7 @@ function PasswordManagement() {
     if (!isFormValid()) {
       setMessage({
         type: 'error',
-        text: 'Bitte überprüfen Sie alle Felder und Anforderungen',
+        text: 'Bitte alle Felder und Anforderungen prüfen',
       });
       return;
     }
@@ -272,7 +272,6 @@ function PasswordManagement() {
         title="Passwortverwaltung"
         icon={<Lock />}
         description="Ändere die Passwörter für Dashboard und MinIO"
-        divider={false}
       >
         <FilterBar
           items={SERVICES}
@@ -294,8 +293,8 @@ function PasswordManagement() {
                 ? 'Dashboard-Passwort eingeben'
                 : 'Dashboard-Admin-Passwort eingeben',
               activeService === 'dashboard'
-                ? 'Zur Sicherheit wird Ihr aktuelles Passwort benötigt'
-                : 'Zur Bestätigung wird Ihr Dashboard-Admin-Passwort benötigt'
+                ? 'Zur Sicherheit wird dein aktuelles Passwort benötigt'
+                : 'Zur Bestätigung wird dein Dashboard-Admin-Passwort benötigt'
             )}
             {renderPasswordField('new', 'Neues Passwort', 'Neues Passwort eingeben')}
             {renderPasswordField('confirm', 'Passwort bestätigen', 'Neues Passwort bestätigen')}
@@ -424,7 +423,7 @@ function PasswordManagement() {
             {activeService === 'dashboard' && (
               <p className="text-xs text-muted-foreground">
                 <AlertTriangle className="size-3.5 inline" /> Nach dem Ändern des
-                Dashboard-Passworts werden Sie automatisch abgemeldet.
+                Dashboard-Passworts wirst du automatisch abgemeldet.
               </p>
             )}
 

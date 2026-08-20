@@ -83,7 +83,3 @@ export function resolveSystemSub(
   }
   return undefined;
 }
-
-export function sectionLabel(id: SettingsSectionId): string {
-  return SETTINGS_SECTIONS.find(s => s.id === id)?.label ?? 'Einstellungen';
-}
