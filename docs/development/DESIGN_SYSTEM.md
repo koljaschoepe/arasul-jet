@@ -354,14 +354,14 @@ sie, statt die Klassenkette erneut zu schreiben. Vor C1 standen dieselben
 Ketten an zwanzig Kopfstellen in elf Dateien und in drei verschiedenen
 Tab-Leisten, und sie liefen auseinander.
 
-| Baustein                | Datei               | Was er festlegt                                                                   |
-| ----------------------- | ------------------- | --------------------------------------------------------------------------------- |
-| `PageHeader`            | `ui/PageHeader.tsx` | Seitentitel als einziges `h1`, `text-2xl`, Beschreibung, Aktion rechts            |
-| `FilterBar`             | `ui/FilterBar.tsx`  | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`), Pfeile, Pos1/Ende, roving tabindex |
-| `StatTile` / `StatGrid` | `ui/StatTile.tsx`   | Kennzahl ohne Symbol; Raster fest auf 1/2/4 Spalten, nie drei plus eins           |
-| `Chart` / `Sparkline`   | `ui/Chart.tsx`      | recharts-Linien, ausschließlich Blau nach Grau, ohne eigene Karte                 |
-| `Section`               | `ui/Section.tsx`    | Feldgruppe: `h2`, optionales Symbol, Beschreibung, Aktion, Trennlinie             |
-| `EmptyState`            | `ui/EmptyState.tsx` | leere Liste mit Titel und Einstieg                                                |
+| Baustein                  | Datei               | Was er festlegt                                                                             |
+| ------------------------- | ------------------- | ------------------------------------------------------------------------------------------- |
+| `PageHeader`              | `ui/PageHeader.tsx` | Seitentitel als einziges `h1`, `text-2xl`, optionales Symbol, Beschreibung, Aktion rechts   |
+| `FilterBar`               | `ui/FilterBar.tsx`  | echte Tab-Leiste (`tablist`/`tab`/`tabpanel`), Pfeile, Pos1/Ende, roving tabindex           |
+| `StatTile` / `StatGrid`   | `ui/StatTile.tsx`   | Kennzahl ohne Symbol; Raster fest auf 1/2/4 Spalten, nie drei plus eins                     |
+| `Chart` / `Sparkline`     | `ui/Chart.tsx`      | recharts-Linien, ausschließlich Blau nach Grau, ohne eigene Karte                           |
+| `Section` / `SectionList` | `ui/Section.tsx`    | Feldgruppe: `h2`, optionales Symbol, Beschreibung, Aktion; die Spalte setzt die Trennlinien |
+| `EmptyState`              | `ui/EmptyState.tsx` | leere Liste mit Titel und Einstieg                                                          |
 
 Drei Festlegungen, die der Aufrufer nicht mehr treffen kann:
 
@@ -373,9 +373,25 @@ Drei Festlegungen, die der Aufrufer nicht mehr treffen kann:
 2. **Kennzahlraster** benutzt feste Spaltenzahlen statt `auto-fit`. `auto-fit`
    füllt so viele Spalten, wie hineinpassen, und legt bei vier Kacheln je nach
    Fensterbreite drei nebeneinander und eine allein darunter.
-3. **Die Filterleiste bringt ihre Inhaltsfläche mit.** `tab` und `tabpanel`
+3. **Die Trennlinie gehört zwischen die Abschnitte, nicht an sie.** Jeder
+   `Section` trägt sie, und `SectionList` nimmt sie dem letzten Kind wieder ab.
+   Der erste Entwurf hatte eine Eigenschaft `divider`, die der letzte Abschnitt
+   abschalten musste; wer einen anhängte, musste daran denken, sie am alten
+   letzten wieder einzuschalten. Genau so entsteht die doppelte Linie, die
+   Phase C beseitigt hat. `last-child` und nicht `last-of-type`: steht hinter
+   dem Abschnitt noch etwas, das keiner ist, trennt seine Linie genau das.
+4. **Die Filterleiste bringt ihre Inhaltsfläche mit.** `tab` und `tabpanel`
    müssen über Kennungen aufeinander zeigen; liegen beide Hälften in einer
    Hand, kann der Aufrufer sie nicht verfehlen.
+
+**Der Weg daran vorbei ist versperrt.** `scripts/test/bausteine.py` läuft im
+Testlauf mit und meldet ein `<h1>`, eine Feldgruppen-Trennlinie
+(`pb-6 border-b border-border`) oder eine Tab-Leiste (`border-b-2`) außerhalb
+von `components/ui`. Gegen den Stand vor Phase C fand er 39 Stellen. Der Grund
+für den Wächter: der Zustand davor ist nicht durch Nachlässigkeit entstanden,
+sondern dadurch, dass jede neue Seite die Klassen der vorigen kopiert hat.
+Einmal von Hand aufräumen hält das nicht auf. Ausnahmen stehen mit Grund in
+`AUSNAHMEN`; ein Eintrag ohne Grund ist keiner.
 
 **Welche Skala gilt wo.** Die Bausteine tragen keine eigene Meinung dazu, sie
 folgen der Fläche, auf der sie liegen. `StatTile`, `StatGrid` und `Sparkline`

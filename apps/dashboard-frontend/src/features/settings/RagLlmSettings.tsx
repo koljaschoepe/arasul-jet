@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/shadcn/textarea';
 import { Alert, AlertDescription } from '@/components/ui/shadcn/alert';
 import { extractIssues } from './validationIssues';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Section, SectionList } from '@/components/ui/Section';
 
 /**
  * LLM-Standardwerte — raw column values as returned by GET /rag/settings.
@@ -248,44 +249,38 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
         description="Standardwerte für das Sprachmodell. Werte außerhalb der angegebenen Grenzen werden vom Backend abgelehnt. Die Wissenssuche läuft agentisch (der Agent durchsucht die Projektdateien selbst), es gibt keine Retrieval-Regler mehr zu stellen."
       />
 
-      <div className="flex flex-col gap-8">
-        {/* LLM-Standardwerte */}
-        <section className="space-y-5">
-          <h3 className="text-sm font-semibold text-foreground">LLM-Standardwerte</h3>
+      <SectionList>
+        <Section title="LLM-Standardwerte">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {LLM_FIELDS.map(renderNumberField)}
           </div>
-        </section>
+        </Section>
 
-        <div className="border-t border-border" />
-
-        {/* Base system prompt */}
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-foreground">Basis-System-Prompt</h3>
-            <p className="text-xs text-muted-foreground">
-              Wird jedem LLM-Aufruf vorangestellt. Leeres Feld = eingebauter Standard-Prompt.
-            </p>
+        <Section
+          title="Basis-System-Prompt"
+          description="Wird jedem LLM-Aufruf vorangestellt. Ein leeres Feld bedeutet: eingebauter Standard-Prompt."
+        >
+          <div className="space-y-4">
+            <Textarea
+              id="llm_base_system_prompt"
+              aria-label="Basis-System-Prompt"
+              className="min-h-40 font-mono text-sm"
+              value={basePrompt}
+              onChange={e => {
+                setBasePrompt(e.target.value);
+                setMessage(null);
+                clearFieldError('llm_base_system_prompt');
+              }}
+              placeholder="Leer lassen für den eingebauten Standard-Prompt..."
+              spellCheck={false}
+              maxLength={4000}
+              aria-invalid={Boolean(fieldErrors.llm_base_system_prompt)}
+            />
+            {fieldErrors.llm_base_system_prompt && (
+              <p className="text-xs text-destructive">{fieldErrors.llm_base_system_prompt}</p>
+            )}
           </div>
-          <Textarea
-            id="llm_base_system_prompt"
-            aria-label="Basis-System-Prompt"
-            className="min-h-40 font-mono text-sm"
-            value={basePrompt}
-            onChange={e => {
-              setBasePrompt(e.target.value);
-              setMessage(null);
-              clearFieldError('llm_base_system_prompt');
-            }}
-            placeholder="Leer lassen für den eingebauten Standard-Prompt..."
-            spellCheck={false}
-            maxLength={4000}
-            aria-invalid={Boolean(fieldErrors.llm_base_system_prompt)}
-          />
-          {fieldErrors.llm_base_system_prompt && (
-            <p className="text-xs text-destructive">{fieldErrors.llm_base_system_prompt}</p>
-          )}
-        </section>
+        </Section>
 
         {/* Load error (save feedback goes through toasts) */}
         {message && (
@@ -307,7 +302,7 @@ export function RagLlmSettings({ onDirtyChange }: RagLlmSettingsProps = {}) {
             Speichern
           </Button>
         </div>
-      </div>
+      </SectionList>
     </div>
   );
 }

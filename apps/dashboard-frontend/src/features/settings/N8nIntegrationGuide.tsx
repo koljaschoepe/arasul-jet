@@ -42,8 +42,12 @@ export function N8nIntegrationGuide() {
   const [activeSection, setActiveSection] = useState<Section>('llm');
 
   return (
-    <div className="border-t border-border pt-6 mt-2">
-      {/* Header — always visible */}
+    <div>
+      {/*
+        Keine eigene Trennlinie mehr. Der Abschnitt darueber bringt bereits eine
+        mit; zwei Linien mit acht Pixeln Abstand dazwischen sahen aus wie ein
+        Fehler, und genau solche Doppelungen raeumt Phase C weg.
+      */}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
@@ -52,9 +56,9 @@ export function N8nIntegrationGuide() {
         <div className="flex items-start gap-3">
           <Zap className="size-5 text-primary shrink-0 mt-0.5" />
           <div>
-            <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+            <h2 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
               n8n KI-Integration
-            </h3>
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               So nutzt du die lokalen KI-Services in deinen n8n-Workflows
             </p>

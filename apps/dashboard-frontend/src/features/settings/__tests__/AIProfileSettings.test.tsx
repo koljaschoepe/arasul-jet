@@ -43,7 +43,7 @@ vi.mock('../../../contexts/ToastContext', () => ({
   useToast: () => mockToast,
 }));
 
-const CONTEXT_PLACEHOLDER = 'Beschreiben Sie Ihr Unternehmen, Kunden, Besonderheiten...';
+const CONTEXT_PLACEHOLDER = 'Beschreibe dein Unternehmen, Kunden, Besonderheiten...';
 
 /**
  * Wire up api.get for the two GETs the component makes on mount.

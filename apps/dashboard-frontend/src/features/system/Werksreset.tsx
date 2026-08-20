@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useApi } from '../../hooks/useApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 /**
  * Werksreset (Plan 023 B5).
@@ -168,177 +169,179 @@ export function Werksreset() {
   const betroffen = vorschau?.tabellen.filter(t => (t.zeilen ?? 0) > 0) ?? [];
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl">
-      <div>
-        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <RotateCcw className="size-5 text-primary" />
-          Werksreset
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Setzt das Gerät zurück. Es gibt kein Rückgängig. Was hier verschwindet, ist nur noch in
-          einer Sicherung vorhanden.
-        </p>
-      </div>
+    <div className="max-w-3xl">
+      <PageHeader
+        title="Werksreset"
+        icon={<RotateCcw className="text-primary" />}
+        description="Setzt das Gerät zurück. Es gibt kein Rückgängig. Was hier verschwindet, ist nur noch in einer Sicherung vorhanden."
+      />
 
-      <fieldset className="flex flex-col gap-3" disabled={laeuft}>
-        <legend className="sr-only">Stufe wählen</legend>
-        {STUFEN.map(eintrag => (
-          <button
-            key={eintrag.id}
+      <div className="flex flex-col gap-6">
+        <fieldset className="flex flex-col gap-3" disabled={laeuft}>
+          <legend className="sr-only">Stufe wählen</legend>
+          {STUFEN.map(eintrag => (
+            <button
+              key={eintrag.id}
+              type="button"
+              onClick={() => {
+                setStufe(eintrag.id);
+                setVorschau(null);
+                setBericht(null);
+              }}
+              aria-pressed={stufe === eintrag.id}
+              className={cn(
+                'text-left rounded-lg border p-4 transition-colors',
+                stufe === eintrag.id
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-muted-foreground/40'
+              )}
+            >
+              <span className="block font-medium text-foreground">{eintrag.titel}</span>
+              <span className="block text-sm text-muted-foreground mt-1">{eintrag.text}</span>
+            </button>
+          ))}
+
+          <label className="flex items-start gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={modelleLoeschen}
+              onChange={e => {
+                setModelleLoeschen(e.target.checked);
+                setVorschau(null);
+              }}
+            />
+            <span>
+              Auch die heruntergeladenen Modelle löschen. Ohne Modelle kann das Gerät bis zum
+              nächsten Download weder antworten noch Dokumente durchsuchen.
+            </span>
+          </label>
+        </fieldset>
+
+        <div>
+          <Button
             type="button"
-            onClick={() => {
-              setStufe(eintrag.id);
-              setVorschau(null);
-              setBericht(null);
-            }}
-            aria-pressed={stufe === eintrag.id}
-            className={cn(
-              'text-left rounded-lg border p-4 transition-colors',
-              stufe === eintrag.id
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-muted-foreground/40'
-            )}
+            variant="outline"
+            onClick={vorschauLaden}
+            disabled={laedt || laeuft}
           >
-            <span className="block font-medium text-foreground">{eintrag.titel}</span>
-            <span className="block text-sm text-muted-foreground mt-1">{eintrag.text}</span>
-          </button>
-        ))}
+            {laedt ? 'Wird geprüft …' : 'Vorschau anzeigen'}
+          </Button>
+        </div>
 
-        <label className="flex items-start gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={modelleLoeschen}
-            onChange={e => {
-              setModelleLoeschen(e.target.checked);
-              setVorschau(null);
-            }}
-          />
-          <span>
-            Auch die heruntergeladenen Modelle löschen. Ohne Modelle kann das Gerät bis zum nächsten
-            Download weder antworten noch Dokumente durchsuchen.
-          </span>
-        </label>
-      </fieldset>
-
-      <div>
-        <Button type="button" variant="outline" onClick={vorschauLaden} disabled={laedt || laeuft}>
-          {laedt ? 'Wird geprüft …' : 'Vorschau anzeigen'}
-        </Button>
-      </div>
-
-      {vorschau && !vorschau.durchfuehrbar && (
-        <Alert variant="destructive">
-          <ShieldAlert className="size-4" />
-          <AlertDescription>
-            Der Werksreset ist gesperrt. {vorschau.unbekannteTabellen.length} Tabellen sind in der
-            Klassifikation nicht eingeordnet:{' '}
-            <code className="text-xs">{vorschau.unbekannteTabellen.join(', ')}</code>. Ein Reset,
-            der etwas stehen lässt, behauptet Vollständigkeit, die er nicht hat.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {vorschau && vorschau.durchfuehrbar && (
-        <div className="flex flex-col gap-4 rounded-lg border border-border p-4">
+        {vorschau && !vorschau.durchfuehrbar && (
           <Alert variant="destructive">
-            <AlertTriangle className="size-4" />
+            <ShieldAlert className="size-4" />
             <AlertDescription>
-              {vorschau.zeilenGesamt.toLocaleString('de-DE')} Zeilen in {betroffen.length} Tabellen
-              werden gelöscht
-              {vorschau.n8nWirdGeleert ? ', dazu alle n8n-Workflows' : ''}
-              {vorschau.modelleLoeschen ? ' und alle Modelle' : ''}.
+              Der Werksreset ist gesperrt. {vorschau.unbekannteTabellen.length} Tabellen sind in der
+              Klassifikation nicht eingeordnet:{' '}
+              <code className="text-xs">{vorschau.unbekannteTabellen.join(', ')}</code>. Ein Reset,
+              der etwas stehen lässt, behauptet Vollständigkeit, die er nicht hat.
             </AlertDescription>
           </Alert>
+        )}
 
-          {betroffen.length > 0 && (
-            <div className="max-h-56 overflow-y-auto rounded border border-border">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted text-muted-foreground">
-                  <tr>
-                    <th className="text-left font-medium px-3 py-2">Bereich</th>
-                    <th className="text-right font-medium px-3 py-2">Zeilen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {betroffen.map(t => (
-                    <tr key={t.name} className="border-t border-border">
-                      <td className="px-3 py-1.5 text-foreground">{t.zweck}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">
-                        {(t.zeilen ?? 0).toLocaleString('de-DE')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="werksreset-bestaetigung">
-              Zum Bestätigen den Gerätenamen eintippen: <strong>{vorschau.geraetename}</strong>
-            </Label>
-            <Input
-              id="werksreset-bestaetigung"
-              value={eingabe}
-              autoComplete="off"
-              spellCheck={false}
-              onChange={e => setEingabe(e.target.value)}
-              placeholder={vorschau.geraetename}
-              disabled={laeuft}
-            />
-          </div>
-
-          <div>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={ausfuehren}
-              disabled={!nameStimmt || laeuft}
-            >
-              {laeuft ? 'Läuft …' : 'Werksreset jetzt ausführen'}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {bericht &&
-        (() => {
-          const offen = gescheiterteSchritte(bericht);
-          return (
-            <Alert variant={offen.length > 0 ? 'destructive' : undefined}>
-              {offen.length > 0 && <AlertTriangle className="size-4" />}
+        {vorschau && vorschau.durchfuehrbar && (
+          <div className="flex flex-col gap-4 rounded-lg border border-border p-4">
+            <Alert variant="destructive">
+              <AlertTriangle className="size-4" />
               <AlertDescription>
-                <p>
-                  Werksreset{' '}
-                  {bericht.stufe === 'inhalte' ? 'Inhalte zurücksetzen' : 'Auslieferungszustand'}{' '}
-                  abgeschlossen: {bericht.zeilenGesamt.toLocaleString('de-DE')} Zeilen in{' '}
-                  {Object.keys(bericht.tabellen).length} Tabellen,{' '}
-                  {Math.round(bericht.dauerMs / 100) / 10} Sekunden.
-                  {offen.length === 0 &&
-                    bericht.stufe === 'auslieferung' &&
-                    ' Diese Sitzung wird gleich beendet, danach startet die Ersteinrichtung.'}
-                </p>
-                {offen.length > 0 && (
-                  <>
-                    <p className="mt-2 font-medium">
-                      {offen.length} Schritte sind nicht durchgelaufen. Die Datenbank ist trotzdem
-                      geleert, das lässt sich nicht zurücknehmen.
-                    </p>
-                    <ul className="mt-1 list-disc pl-5">
-                      {offen.map(schritt => (
-                        <li key={schritt.name}>
-                          {FOLGE[schritt.name]}{' '}
-                          <span className="opacity-80">({schritt.fehler})</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
+                {vorschau.zeilenGesamt.toLocaleString('de-DE')} Zeilen in {betroffen.length}{' '}
+                Tabellen werden gelöscht
+                {vorschau.n8nWirdGeleert ? ', dazu alle n8n-Workflows' : ''}
+                {vorschau.modelleLoeschen ? ' und alle Modelle' : ''}.
               </AlertDescription>
             </Alert>
-          );
-        })()}
+
+            {betroffen.length > 0 && (
+              <div className="max-h-56 overflow-y-auto rounded border border-border">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-muted text-muted-foreground">
+                    <tr>
+                      <th className="text-left font-medium px-3 py-2">Bereich</th>
+                      <th className="text-right font-medium px-3 py-2">Zeilen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {betroffen.map(t => (
+                      <tr key={t.name} className="border-t border-border">
+                        <td className="px-3 py-1.5 text-foreground">{t.zweck}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">
+                          {(t.zeilen ?? 0).toLocaleString('de-DE')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="werksreset-bestaetigung">
+                Zum Bestätigen den Gerätenamen eintippen: <strong>{vorschau.geraetename}</strong>
+              </Label>
+              <Input
+                id="werksreset-bestaetigung"
+                value={eingabe}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={e => setEingabe(e.target.value)}
+                placeholder={vorschau.geraetename}
+                disabled={laeuft}
+              />
+            </div>
+
+            <div>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={ausfuehren}
+                disabled={!nameStimmt || laeuft}
+              >
+                {laeuft ? 'Läuft …' : 'Werksreset jetzt ausführen'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {bericht &&
+          (() => {
+            const offen = gescheiterteSchritte(bericht);
+            return (
+              <Alert variant={offen.length > 0 ? 'destructive' : undefined}>
+                {offen.length > 0 && <AlertTriangle className="size-4" />}
+                <AlertDescription>
+                  <p>
+                    Werksreset{' '}
+                    {bericht.stufe === 'inhalte' ? 'Inhalte zurücksetzen' : 'Auslieferungszustand'}{' '}
+                    abgeschlossen: {bericht.zeilenGesamt.toLocaleString('de-DE')} Zeilen in{' '}
+                    {Object.keys(bericht.tabellen).length} Tabellen,{' '}
+                    {Math.round(bericht.dauerMs / 100) / 10} Sekunden.
+                    {offen.length === 0 &&
+                      bericht.stufe === 'auslieferung' &&
+                      ' Diese Sitzung wird gleich beendet, danach startet die Ersteinrichtung.'}
+                  </p>
+                  {offen.length > 0 && (
+                    <>
+                      <p className="mt-2 font-medium">
+                        {offen.length} Schritte sind nicht durchgelaufen. Die Datenbank ist trotzdem
+                        geleert, das lässt sich nicht zurücknehmen.
+                      </p>
+                      <ul className="mt-1 list-disc pl-5">
+                        {offen.map(schritt => (
+                          <li key={schritt.name}>
+                            {FOLGE[schritt.name]}{' '}
+                            <span className="opacity-80">({schritt.fehler})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </AlertDescription>
+              </Alert>
+            );
+          })()}
+      </div>
     </div>
   );
 }

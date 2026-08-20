@@ -144,7 +144,7 @@ export function ServicesSettings() {
       if (err.status === 429) {
         setMessage({
           type: 'error',
-          text: err.data?.message || 'Bitte warten Sie, bevor Sie diesen Service erneut neustarten',
+          text: err.data?.message || 'Bitte kurz warten, bevor dieser Dienst wieder neu startet',
         });
       } else {
         setMessage({
@@ -170,7 +170,7 @@ export function ServicesSettings() {
     <div className="animate-in fade-in">
       <PageHeader
         title="Services"
-        description="Verwalten Sie die Arasul Platform Dienste. Hier können Sie den Status einsehen und Dienste bei Bedarf neustarten."
+        description="Die Dienste der Arasul-Plattform. Hier siehst du den Zustand und startest einen Dienst bei Bedarf neu."
         action={
           <Button
             variant="outline"
@@ -270,7 +270,7 @@ export function ServicesSettings() {
           <DialogHeader>
             <DialogTitle>Service neustarten?</DialogTitle>
             <DialogDescription>
-              Möchten Sie den Service{' '}
+              Soll der Dienst{' '}
               <strong>
                 {confirmRestart ? getServiceInfo(confirmRestart.name).displayName : ''}
               </strong>{' '}

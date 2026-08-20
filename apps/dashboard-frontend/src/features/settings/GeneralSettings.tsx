@@ -9,6 +9,7 @@ import { useTheme, type Theme } from '@/hooks/useTheme';
 import { PLATFORM_NAME, SUPPORT_EMAIL } from '@/config/branding';
 import { N8nIntegrationGuide } from './N8nIntegrationGuide';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Section, SectionList } from '@/components/ui/Section';
 
 const THEME_OPTIONS: ReadonlyArray<{
   value: Theme;
@@ -82,22 +83,12 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
     <div className="animate-in fade-in">
       <PageHeader title="Allgemein" description="Systeminformationen und Konfiguration" />
 
-      <div className="flex flex-col gap-8">
-        {/* Theme-Auswahl (Schwarz · Dunkel · Hell) */}
-        <div className="pb-6 border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-            {theme === 'light' ? (
-              <Sun className="size-4 text-muted-foreground" />
-            ) : theme === 'dark' ? (
-              <Moon className="size-4 text-muted-foreground" />
-            ) : (
-              <MoonStar className="size-4 text-muted-foreground" />
-            )}
-            Erscheinungsbild
-          </h3>
-          <p className="text-xs text-muted-foreground mb-4">
-            Wählen Sie zwischen schwarzem, dunklem und hellem Design
-          </p>
+      <SectionList>
+        <Section
+          title="Erscheinungsbild"
+          icon={theme === 'light' ? <Sun /> : theme === 'dark' ? <Moon /> : <MoonStar />}
+          description="Wähle zwischen schwarzem, dunklem und hellem Design"
+        >
           <RadioGroup
             value={theme}
             onValueChange={value => setTheme(value as Theme)}
@@ -135,25 +126,22 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
               );
             })}
           </RadioGroup>
-        </div>
+        </Section>
 
-        {/* System Information */}
         {loading ? (
           <SkeletonCard hasAvatar={false} lines={3} />
         ) : systemInfo ? (
-          <div className="pb-6 border-b border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-1">Systeminformationen</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Aktuelle System- und Versionsinformationen
-            </p>
+          <Section title="Systeminformationen" description="Aktuelle System- und Versionsangaben">
             <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
               {[
-                { label: 'Platform Version', value: systemInfo.version },
-                { label: 'Hostname', value: systemInfo.hostname },
-                { label: 'JetPack Version', value: systemInfo.jetpack_version },
+                // Beschriftungen deutsch. B7 hat die englischen aus dem
+                // System-Bereich geholt und diese fünf uebersehen.
+                { label: 'Version', value: systemInfo.version },
+                { label: 'Gerätename', value: systemInfo.hostname },
+                { label: 'JetPack', value: systemInfo.jetpack_version },
                 { label: 'Build', value: systemInfo.build_hash },
                 {
-                  label: 'Uptime',
+                  label: 'Laufzeit',
                   value: formatUptime(systemInfo.uptime_seconds),
                   icon: <Clock className="size-3.5 text-muted-foreground" />,
                 },
@@ -170,17 +158,16 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
                 </div>
               ))}
             </div>
-          </div>
+          </Section>
         ) : (
-          <p className="text-sm text-muted-foreground pb-6 border-b border-border">
-            Systeminformationen konnten nicht geladen werden.
-          </p>
+          <Section title="Systeminformationen">
+            <p className="text-sm text-muted-foreground">
+              Systeminformationen konnten nicht geladen werden.
+            </p>
+          </Section>
         )}
 
-        {/* Platform Info */}
-        <div>
-          <h3 className="text-sm font-semibold text-foreground mb-1">{`Über ${PLATFORM_NAME} Platform`}</h3>
-          <p className="text-xs text-muted-foreground mb-4">Edge-AI-Plattform für NVIDIA Jetson</p>
+        <Section title={`Über ${PLATFORM_NAME}`} description="Edge-AI-Plattform für NVIDIA Jetson">
           <p className="text-sm text-muted-foreground mb-4">
             {PLATFORM_NAME} ist eine autonome Edge-AI-Plattform, die auf NVIDIA Jetson AGX Orin
             läuft. Die Plattform bietet lokale KI-Funktionen, Multi-Jahres-Betrieb ohne Wartung und
@@ -215,17 +202,16 @@ export function GeneralSettings(_props: GeneralSettingsProps) {
           </div>
           <div className="mt-4 pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground">
-              Support:{' '}
+              Unterstützung:{' '}
               <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
                 {SUPPORT_EMAIL}
               </a>
             </p>
           </div>
-        </div>
+        </Section>
 
-        {/* n8n KI-Integration Guide */}
         <N8nIntegrationGuide />
-      </div>
+      </SectionList>
     </div>
   );
 }

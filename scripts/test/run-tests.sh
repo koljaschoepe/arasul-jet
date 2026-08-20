@@ -130,6 +130,19 @@ run_gedankenstrich_check() {
   fi
 }
 
+# Funktion: Baustein-Set (Plan 023 C1 und C2)
+# Laeuft immer mit. Vor Phase C fand dieser Waechter 39 Stellen, an denen ein
+# Seitenkopf, eine Feldgruppe oder eine Tab-Leiste von Hand gebaut war.
+run_bausteine_check() {
+  echo ""
+  echo "-> Pruefe das Baustein-Set..."
+  if python3 "${PROJECT_ROOT}/scripts/test/bausteine.py" --pfad "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_totercode_check() {
   echo ""
   echo "-> Pruefe auf toten Code..."
@@ -307,6 +320,7 @@ run_quality_gates() {
 # Toter Code laeuft immer, unabhaengig von der Auswahl.
 run_totercode_check
 run_gedankenstrich_check
+run_bausteine_check
 
 # Hauptlogik: Welche Tests laufen?
 if [ "$RUN_ALL" = true ]; then

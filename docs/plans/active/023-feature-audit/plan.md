@@ -4,7 +4,7 @@
 > desselben Tages (`nachpruefung-2026-08-19.md`, acht Befunde behoben) und die
 > Rückmeldung von Kolja vom 19.08.2026 mit 29 Anmerkungen.
 >
-> Stand: 2026-08-19. Umfang: elf Phasen, 61 Aufgaben, geschätzt 198 Stunden.
+> Stand: 2026-08-20. Umfang: elf Phasen, 61 Aufgaben, geschätzt 198 Stunden.
 
 ## Stand
 
@@ -13,7 +13,8 @@
 | A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät |
 | S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                         |
 | B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                           |
-| C bis K                               | offen                                  |                                                                                                      |
+| C, Fundament                          | C1 und C2 fertig 20.08.2026            | #427 live auf `c7df62c`, #428. `scripts/test/bausteine.py` hält das Raster. C3 bis C6 offen          |
+| D bis K                               | offen                                  |                                                                                                      |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -422,6 +423,16 @@ und Verhalten auf schmalen Fenstern.
 **Abnahme:** Alle sechs liegen in `src/components/ui`, haben Tests und werden
 mindestens zweimal verwendet. Kein Hexwert im Code, nur Themenwerte.
 
+**Erledigt am 20.08.2026** (#427), live auf `c7df62c`. Gemessen statt aus dem
+Rundgang übernommen: zwanzig Kopfstellen in elf Dateien, nicht elf in sieben.
+Der Seitenkopf trägt fünfzehn Stellen, die Filterleiste drei, der Leerzustand
+fünf. Drei Fehler kamen dabei heraus, keiner aus dem Rundgang: die
+Vorlese-Beschriftung des Auslastungsdiagramms nannte die falschen drei Werte,
+der Fokus der Tab-Leiste sprang auf einen Reiter, der nach einer abgelehnten
+Rückfrage gar nicht aktiv wurde, und der Filter `v > 0` am Temperaturverlauf
+war nicht beiläufig, sondern der einzige Schutz gegen die Ausfallkennung 0.0
+des Sensors.
+
 ## C2 Einstellungen auf die Bausteine umbauen
 
 Alle sechs Bereiche: Allgemein, KI, Sicherheit, Datenschutz, System, Fernzugriff.
@@ -432,6 +443,29 @@ Der Abstand zwischen Maskottchen und Firmenprofil, die uneinheitlichen Abstände
 **Abnahme:** Ein Bildvergleich der sechs Bereiche zeigt identische Kopfzeile,
 identische Tab-Leiste und identisches Abstandsraster. Bei 1440, 1024 und 390
 Pixel Breite bricht nichts.
+
+**Erledigt am 20.08.2026** (#428). Vorher gab es fünf Arten, eine Feldgruppe zu
+trennen, und eine vierte handgebaute Tab-Leiste in `KISettings`, die C1 nicht
+gesehen hatte. Zwei Doppelungen sind weg: der Rahmen nannte den Bereichsnamen,
+den das `h1` vierzig Pixel tiefer noch einmal trug, und zwischen dem letzten
+Abschnitt von „Allgemein" und der n8n-Anleitung standen zwei Trennlinien mit
+acht Pixeln dazwischen.
+
+Der strukturelle Teil der Abnahme hält jetzt ein Wächter,
+`scripts/test/bausteine.py` im Testlauf: er meldet ein `<h1>`, eine
+Feldgruppen-Trennlinie oder eine Tab-Leiste außerhalb von `components/ui`.
+Gegen den Stand vor Phase C findet er 39 Stellen, gegen den jetzigen keine.
+Der Bildvergleich bei den drei Breiten steht noch aus und ist Handarbeit;
+im Code gibt es keine feste Breite, die bei 390 Pixeln bräche.
+
+**Dabei kam heraus, dass F-20 und F-23 nicht behoben sind, obwohl B6 und B7 sie
+so führen.** B6 hat die Abnahme an eine CI-Prüfung gehängt, die es nur für
+Gedankenstriche gibt, nicht für die Anrede. Allein in den Bereichen, die C2
+anfasst, standen zehn Sie-Formen, darunter „Verwalten Sie die Arasul Platform
+Dienste" als Beschreibung eines ganzen Bereichs. Bei B7 waren es „Platform
+Version", „Hostname", „JetPack Version" und „Uptime" in den
+Systeminformationen. Beides in den angefassten Dateien nachgezogen; offen
+bleiben `SetupWizard` (C4) und `CreateAdmin` (C3).
 
 ## C3 Login kleiner und ohne Standardnamen
 
