@@ -377,9 +377,22 @@ Drei Festlegungen, die der Aufrufer nicht mehr treffen kann:
    müssen über Kennungen aufeinander zeigen; liegen beide Hälften in einer
    Hand, kann der Aufrufer sie nicht verfehlen.
 
+**Welche Skala gilt wo.** Die Bausteine tragen keine eigene Meinung dazu, sie
+folgen der Fläche, auf der sie liegen. `StatTile`, `StatGrid` und `Sparkline`
+stehen im Systemstatus, einer normierten Ansicht, und benutzen deshalb die
+Dichte-Skala (`p-ui-3`, `gap-ui-2`, `text-ui-xs`, `text-ui-sm`). `PageHeader`,
+`FilterBar`, `Section` und `EmptyState` stehen auf den Einstellungsseiten und
+benutzen die Tailwind-Voreinstellung, wie diese Seiten es tun. Farben tragen
+überall die shadcn-Namen (`bg-card`, `text-foreground`, `text-muted-foreground`);
+beide Token-Familien zeigen in `index.css` auf dieselben Werte, und dort steht
+der Rest des Codes.
+
 `DashboardCard` (`features/system/`) bleibt daneben bestehen: eine erhabene
-Fläche, kein Baustein des Sets. Seit C1 hat sie nur noch einen Verwender
-(`SystemHealthWidget`), weil das Diagramm seine Karte verloren hat.
+Fläche, kein Baustein des Sets. Das Diagramm bringt keine mit, aber der
+Aufrufer stellt eine, wo die Nachbarn welche haben. Im Systemstatus liegen
+vier Kennzahlkacheln darüber und die System-Gesundheit darunter, beide als
+Karte; ein flacher Block dazwischen liest sich wie eine vergessene
+Formatierung, nicht wie Absicht.
 
 ### Workspace-Shell (IDE-Layout)
 

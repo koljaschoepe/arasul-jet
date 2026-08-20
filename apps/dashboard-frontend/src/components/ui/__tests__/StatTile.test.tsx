@@ -23,6 +23,16 @@ describe('StatTile', () => {
     const { container } = render(<StatTile label="Temperatur" value="47" unit="°C" />);
     expect(container.querySelectorAll('svg')).toHaveLength(0);
   });
+
+  it('bleibt auf der Dichte-Skala, nicht auf Tailwinds Voreinstellung', () => {
+    // Der Systemstatus ist eine normierte Ansicht; DESIGN_SYSTEM.md schreibt
+    // dort p-ui-3 als Karten-Innenabstand vor. Die Kachel steht unmittelbar
+    // neben Flächen, die dieser Skala folgen.
+    const { container } = render(<StatTile label="Temperatur" value="47" unit="°C" />);
+    const klassen = container.firstElementChild?.className ?? '';
+    expect(klassen).toContain('p-ui-3');
+    expect(klassen).not.toContain('p-4');
+  });
 });
 
 describe('StatGrid', () => {
@@ -35,6 +45,7 @@ describe('StatGrid', () => {
       </StatGrid>
     );
     const klassen = container.firstElementChild?.className ?? '';
+    expect(klassen).toContain('gap-ui-2');
     expect(klassen).toContain('grid-cols-1');
     expect(klassen).toContain('sm:grid-cols-2');
     expect(klassen).toContain('lg:grid-cols-4');

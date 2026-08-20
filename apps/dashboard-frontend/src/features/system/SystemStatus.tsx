@@ -232,58 +232,67 @@ function SystemStatusView({
       </StatGrid>
 
       <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-ui-2">
-        <Section
-          title="Auslastung"
-          divider={false}
-          className="col-span-full"
-          action={
-            <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
-              {timeRangeOptions.map((hours: number) => (
-                <button
-                  key={hours}
-                  type="button"
-                  className={`cursor-pointer rounded-sm px-ui-2 py-ui-1 text-ui-xs font-semibold transition-colors ${
-                    chartTimeRange === hours
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-text-muted hover:bg-[var(--primary-alpha-10)] hover:text-text-primary'
-                  }`}
-                  onClick={() => setChartTimeRange(hours)}
-                >
-                  {hours}h
-                </button>
-              ))}
-            </div>
-          }
-        >
-          <Chart
-            data={chartData}
-            series={[
-              { key: 'RAM', name: 'Arbeitsspeicher', unit: '%' },
-              { key: 'Swap', name: 'Auslagerung', unit: '%' },
-              { key: 'Temp', name: 'Temperatur', unit: '°C' },
-            ]}
-            xKey="timestamp"
-            xTicks={chartTicks}
-            formatX={ts =>
-              new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+        {/*
+          Die Karte steht hier beim Aufrufer, nicht im Diagramm. Der Baustein
+          bleibt flaechenlos, wie Plan 023 C5 es verlangt; auf dieser Seite
+          liegen aber vier Kennzahlkacheln darueber und die System-Gesundheit
+          darunter, beide als Karte. Ein einzelner flacher Block dazwischen
+          liest sich wie eine vergessene Formatierung, nicht wie Absicht.
+        */}
+        <DashboardCard className="col-span-full">
+          <Section
+            title="Auslastung"
+            divider={false}
+            action={
+              <div className="flex gap-ui-1 rounded-md bg-secondary p-ui-1">
+                {timeRangeOptions.map((hours: number) => (
+                  <button
+                    key={hours}
+                    type="button"
+                    className={`cursor-pointer rounded-sm px-ui-2 py-ui-1 text-ui-xs font-semibold transition-colors ${
+                      chartTimeRange === hours
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-text-muted hover:bg-[var(--primary-alpha-10)] hover:text-text-primary'
+                    }`}
+                    onClick={() => setChartTimeRange(hours)}
+                  >
+                    {hours}h
+                  </button>
+                ))}
+              </div>
             }
-            formatY={wert => `${wert}%`}
-            yDomain={[0, 100]}
-            // Die alte Beschriftung nannte Prozessor, Arbeitsspeicher und
-            // Grafikeinheit. Gezeichnet wurden Arbeitsspeicher, Auslagerung
-            // und Temperatur. Wer die Seite vorlesen ließ, bekam drei falsche
-            // Namen.
-            label={`Auslastung der letzten ${chartTimeRange} Stunden: Arbeitsspeicher, Auslagerung und Temperatur`}
-          />
-          <div className="sr-only" role="status">
-            {metrics && (
-              <>
-                Arbeitsspeicher: {metrics.ram?.toFixed(1)}%, Auslagerung: {metrics.swap?.toFixed(1)}
-                %, Temperatur: {metrics.temperature?.toFixed(1)}°C
-              </>
-            )}
-          </div>
-        </Section>
+          >
+            <Chart
+              data={chartData}
+              series={[
+                { key: 'RAM', name: 'Arbeitsspeicher', unit: '%' },
+                { key: 'Swap', name: 'Auslagerung', unit: '%' },
+                { key: 'Temp', name: 'Temperatur', unit: '°C' },
+              ]}
+              xKey="timestamp"
+              xTicks={chartTicks}
+              formatX={ts =>
+                new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+              }
+              formatY={wert => `${wert}%`}
+              yDomain={[0, 100]}
+              // Die alte Beschriftung nannte Prozessor, Arbeitsspeicher und
+              // Grafikeinheit. Gezeichnet wurden Arbeitsspeicher, Auslagerung
+              // und Temperatur. Wer die Seite vorlesen ließ, bekam drei falsche
+              // Namen.
+              label={`Auslastung der letzten ${chartTimeRange} Stunden: Arbeitsspeicher, Auslagerung und Temperatur`}
+            />
+            <div className="sr-only" role="status">
+              {metrics && (
+                <>
+                  Arbeitsspeicher: {metrics.ram?.toFixed(1)}%, Auslagerung:{' '}
+                  {metrics.swap?.toFixed(1)}
+                  %, Temperatur: {metrics.temperature?.toFixed(1)}°C
+                </>
+              )}
+            </div>
+          </Section>
+        </DashboardCard>
 
         <Suspense fallback={<DashboardCard className="min-h-[200px]" />}>
           <SystemHealthWidget />

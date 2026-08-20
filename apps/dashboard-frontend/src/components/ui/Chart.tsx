@@ -183,7 +183,7 @@ export const Sparkline = memo(function Sparkline({
 
   return (
     <div
-      className={cn('pointer-events-none mt-1 w-full max-w-32 opacity-60', className)}
+      className={cn('pointer-events-none mt-ui-1 w-full max-w-32 opacity-60', className)}
       aria-hidden="true"
     >
       <ResponsiveContainer width="100%" height={height}>

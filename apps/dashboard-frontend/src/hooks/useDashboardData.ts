@@ -20,6 +20,11 @@ import type { Metrics } from '../types';
  * `parseFloat(...) || 0` aus jedem NULL und jedem NaN aus der Datenbank
  * ebenfalls eine Null, in `/live` wie in `/history`.
  *
+ * Damit ist auch die Grenze benannt: eine echte Messung von null Grad oder
+ * darunter wird ebenfalls verworfen. Auf einem Jetson-SoC im Betrieb gibt es
+ * die nicht, und unterscheidbar waeren beide Faelle ohnehin nicht, solange das
+ * Backend NULL zu 0 macht.
+ *
  * Ein ausgefallener Sensor sieht also aus wie ein eiskaltes Geraet. Hier wird
  * daraus wieder eine Luecke. Nur die Temperatur, denn bei Auslagerung sind
  * null Prozent ein ganz normaler Messwert.

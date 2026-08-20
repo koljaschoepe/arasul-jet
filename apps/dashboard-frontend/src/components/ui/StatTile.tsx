@@ -6,6 +6,15 @@
  *
  * 1. Kein Icon. Ein Herz neben "Arbeitsspeicher" trägt nichts bei, was die
  *    Beschriftung nicht schon sagt, kostet aber ein Drittel der Kachelbreite.
+ * Abstände und Schriftgrößen kommen aus der Dichte-Skala (`*-ui-*`), nicht
+ * aus der Tailwind-Voreinstellung. `docs/development/DESIGN_SYSTEM.md` schreibt
+ * sie für normierte Ansichten vor, und der Systemstatus ist eine davon; er
+ * stammt aus der entfernten Dashboard-Startseite. Der abgelöste `StatCard`
+ * folgte ihr, und die Kachel steht unmittelbar neben Flächen, die es weiter
+ * tun. Farben dagegen tragen die shadcn-Namen, denn dort steht der Rest des
+ * Codes: `text-foreground` an 400 Stellen gegen `text-text-primary` an 7.
+ * Beide Familien zeigen in `index.css` auf dieselben Werte.
+ *
  * 2. Das Raster liegt hier und nicht beim Aufrufer. `SystemStatus` benutzte
  *    `repeat(auto-fit, minmax(11rem, 1fr))`. Auto-fit füllt so viele Spalten,
  *    wie hineinpassen, und bei vier Kacheln ergibt das je nach Fensterbreite
@@ -29,15 +38,15 @@ interface StatTileProps {
 
 export function StatTile({ label, value, unit, note }: StatTileProps) {
   return (
-    <div className="min-w-0 rounded-lg border border-border bg-card p-4">
-      <div className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="min-w-0 rounded-lg border border-border bg-card p-ui-3">
+      <div className="truncate text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1 flex items-baseline gap-1 text-xl font-bold leading-tight text-foreground">
+      <div className="mt-ui-1 flex items-baseline gap-ui-1 text-xl font-bold leading-tight text-foreground">
         {value}
-        {unit && <span className="text-sm font-medium text-muted-foreground">{unit}</span>}
+        {unit && <span className="text-ui-sm font-medium text-muted-foreground">{unit}</span>}
       </div>
-      {note && <div className="mt-1 text-sm text-muted-foreground">{note}</div>}
+      {note && <div className="mt-ui-1 text-ui-sm text-muted-foreground">{note}</div>}
     </div>
   );
 }
@@ -50,7 +59,9 @@ interface StatGridProps {
 /** Feste Spaltenzahl statt auto-fit, siehe Kopfkommentar Punkt 2. */
 export function StatGrid({ children, className }: StatGridProps) {
   return (
-    <div className={cn('grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4', className)}>
+    <div
+      className={cn('grid min-w-0 grid-cols-1 gap-ui-2 sm:grid-cols-2 lg:grid-cols-4', className)}
+    >
       {children}
     </div>
   );
