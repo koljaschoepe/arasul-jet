@@ -82,6 +82,30 @@ mkdir -p "$UI"
 echo 'export const E = () => <div role="dialog" />;' > "$UI/Modal.tsx"
 pruefe "Bausteine: components/ui bleibt ausgenommen" 0 python3 "$WURZEL/scripts/test/bausteine.py" --pfad "$TMP/bau"
 
+# --- modellnamen.py ---------------------------------------------------------
+MOD="$TMP/mod/apps/dashboard-frontend/src/features/beispiel"
+mkdir -p "$MOD"
+
+# Ohne Modellbezug ist "m.name" ein Flow oder eine Datei, kein Befund.
+echo 'export const A = ({ m }) => <span>{m.name}</span>;' > "$MOD/Fremd.tsx"
+pruefe "Namensregister: Datei ohne Modellbezug bleibt still" 0 python3 "$WURZEL/scripts/test/modellnamen.py" --pfad "$TMP/mod"
+
+printf 'import type { CatalogModel } from "x";\nexport const B = ({ model }: { model: CatalogModel }) => <span>{model.name}</span>;\n' > "$MOD/Roh.tsx"
+pruefe "Namensregister: {model.name} in einer Modellflaeche ist rot" 1 python3 "$WURZEL/scripts/test/modellnamen.py" --pfad "$TMP/mod"
+
+printf 'import type { CatalogModel } from "x";\nexport const B = ({ model }: { model: CatalogModel }) => <span>{modellAnzeigeName(model)}</span>;\n' > "$MOD/Roh.tsx"
+pruefe "Namensregister: ueber modellAnzeigeName ist gruen" 0 python3 "$WURZEL/scripts/test/modellnamen.py" --pfad "$TMP/mod"
+rm "$MOD/Roh.tsx"
+
+printf 'const x = "/models/catalog";\nconst y = modelName || modelId;\n' > "$MOD/Rueckfall.ts"
+pruefe "Namensregister: Rueckfall auf die Kennung ist rot" 1 python3 "$WURZEL/scripts/test/modellnamen.py" --pfad "$TMP/mod"
+rm "$MOD/Rueckfall.ts"
+
+# Das Register selbst darf, es ist die Quelle.
+mkdir -p "$TMP/mod/apps/dashboard-frontend/src/utils"
+printf 'export interface ModellAnzeige { id: string }\nexport const f = (m) => m.name;\n' > "$TMP/mod/apps/dashboard-frontend/src/utils/modelDisplay.ts"
+pruefe "Namensregister: das Register selbst bleibt ausgenommen" 0 python3 "$WURZEL/scripts/test/modellnamen.py" --pfad "$TMP/mod"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else

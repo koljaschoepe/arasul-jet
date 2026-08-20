@@ -17,6 +17,7 @@ import {
   type ReactNode,
 } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
+import { modellAnzeigeName } from '../utils/modelDisplay';
 
 // --- Types ---
 
@@ -80,7 +81,8 @@ export function ActivationProvider({ children }: ActivationProviderProps) {
 
     setActivation({
       modelId,
-      modelName: modelName || modelId,
+      // Plan 023 D1: nie die rohe Kennung, auch nicht als Rueckfall.
+      modelName: modellAnzeigeName({ id: modelId, name: modelName }),
       progress: 0,
       message: 'Initialisiere...',
       error: null,

@@ -52,6 +52,7 @@ import type { WorkspaceApp } from '@/hooks/useWorkspaceApps';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { formatModelSize as formatSize } from '@/utils/formatting';
+import { modellAnzeigeName } from '@/utils/modelDisplay';
 import { sanitizeUrl } from '@/utils/sanitizeUrl';
 import ActivationButton from './ActivationButton';
 import DownloadProgress from './DownloadProgress';
@@ -213,7 +214,9 @@ function RelatedModels({ current, all }: { current: CatalogModel; all: CatalogMo
               <Cpu aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-foreground">{m.name}</span>
+              <span className="block truncate text-sm font-medium text-foreground">
+                {modellAnzeigeName(m)}
+              </span>
               <span className="block truncate text-xs text-muted-foreground">
                 {formatSize(m.size_bytes)}
               </span>
@@ -256,6 +259,9 @@ function ModelDetail({
     };
   }, [onDownloadComplete, onActivationComplete, onChanged]);
 
+  // Plan 023 D1: ein Name fuer die Ueberschrift, jede Meldung und jeden Knopf.
+  const anzeige = modellAnzeigeName(model);
+
   const isReady = model.install_status === 'available';
   const loadedId = loadedModel?.model_id ?? null;
   const isLoaded =
@@ -279,11 +285,11 @@ function ModelDetail({
       if (res?.success === false) {
         toast.error(`Entladen fehlgeschlagen: ${res.error ?? 'unbekannter Fehler'}`);
       } else {
-        toast.success(`„${model.name}" aus dem RAM entladen`);
+        toast.success(`„${anzeige}" aus dem RAM entladen`);
       }
       onChanged();
     } catch {
-      toast.error(`Entladen von „${model.name}" fehlgeschlagen`);
+      toast.error(`Entladen von „${anzeige}" fehlgeschlagen`);
     } finally {
       setUnloading(false);
     }
@@ -292,20 +298,20 @@ function ModelDetail({
   const handleSetDefault = async () => {
     try {
       await api.post('/models/default', { model_id: model.id }, { showError: false });
-      toast.success(`„${model.name}" als Standard gesetzt`);
+      toast.success(`„${anzeige}" als Standard gesetzt`);
       onChanged();
     } catch {
-      toast.error(`Fehler beim Setzen von „${model.name}" als Standard`);
+      toast.error(`Fehler beim Setzen von „${anzeige}" als Standard`);
     }
   };
 
   const handleDelete = async () => {
-    if (!(await confirm({ message: `Modell „${model.name}" wirklich löschen?` }))) return;
+    if (!(await confirm({ message: `Modell „${anzeige}" wirklich löschen?` }))) return;
     try {
       await api.del(`/models/${model.id}`, { showError: false });
       onChanged();
     } catch {
-      toast.error(`Fehler beim Löschen von „${model.name}"`);
+      toast.error(`Fehler beim Löschen von „${anzeige}"`);
     }
   };
 
@@ -313,7 +319,7 @@ function ModelDetail({
     <DetailShell
       onBack={onBack}
       icon={<Cpu />}
-      title={model.name}
+      title={anzeige}
       badges={
         <div className="flex items-center gap-2">
           {isLoaded && (
@@ -331,7 +337,7 @@ function ModelDetail({
       footer={
         <>
           {!isReady && !downloading && (
-            <Button onClick={() => startDownload(model.id, model.name)}>
+            <Button onClick={() => startDownload(model.id, anzeige)}>
               <Download className="size-4" /> Herunterladen
             </Button>
           )}
@@ -340,7 +346,7 @@ function ModelDetail({
               isActivating={!!isActivating}
               isLoaded={!!isLoaded}
               activatingPercent={activation?.progress || 0}
-              onActivate={() => startActivation(model.id, model.name)}
+              onActivate={() => startActivation(model.id, anzeige)}
               className="max-w-48"
             />
           )}

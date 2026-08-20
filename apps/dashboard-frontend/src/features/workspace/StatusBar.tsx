@@ -158,14 +158,14 @@ export function StatusBar() {
   const installedModel = budget?.installedModel ?? null;
   const extraModels = loadedModels.length > 1 ? ` +${loadedModels.length - 1}` : '';
   // Plan 022 — der geladene/installierte Modellname kommt roh von Ollama
-  // (z. B. "hf.co/…"); einheitlich über den Anzeige-Helfer säubern.
-  const ladeName = (n?: string | null) => modellAnzeigeName({ id: n || '', name: n });
+  // (z. B. "hf.co/…"); einheitlich über das Namensregister säubern. Seit
+  // Plan 023 D1 nimmt es die Kennung direkt, ohne Zwischenschritt.
   const modelLabel = hasModel
-    ? `${ladeName(primaryModel.name)}${extraModels} · KI-RAM ${toGb(budget?.usedMb ?? 0)}/${toGb(
-        budget?.totalBudgetMb ?? 0
-      )} GB`
+    ? `${modellAnzeigeName(primaryModel.name)}${extraModels} · KI-RAM ${toGb(
+        budget?.usedMb ?? 0
+      )}/${toGb(budget?.totalBudgetMb ?? 0)} GB`
     : installedModel
-      ? `${ladeName(installedModel.name)} · bereit`
+      ? `${modellAnzeigeName(installedModel.name)} · bereit`
       : 'kein Modell geladen';
 
   return (
@@ -222,7 +222,9 @@ export function StatusBar() {
               <div className="flex items-start justify-between gap-3">
                 <dt className="text-muted-foreground">Modelle im RAM</dt>
                 <dd className="text-right text-foreground">
-                  {loadedModels.map(m => `${ladeName(m.name)} (${toGb(m.ramMb)} GB)`).join(', ')}
+                  {loadedModels
+                    .map(m => `${modellAnzeigeName(m.name)} (${toGb(m.ramMb)} GB)`)
+                    .join(', ')}
                 </dd>
               </div>
             )}

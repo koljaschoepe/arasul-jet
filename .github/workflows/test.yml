@@ -246,6 +246,9 @@ jobs:
       - name: Baustein-Set (Plan 023 C1, C2)
         run: python3 scripts/test/bausteine.py --pfad .
 
+      - name: Namensregister (Plan 023 D1)
+        run: python3 scripts/test/modellnamen.py --pfad .
+
       - name: Gedankenstriche als Trenner
         run: python3 scripts/test/gedankenstriche.py --pfad .
 

@@ -18,6 +18,7 @@ import {
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { useApi } from '../hooks/useApi';
 import type { CatalogModel } from '../types';
+import { modellAnzeigeName } from '../utils/modelDisplay';
 
 // --- Types ---
 
@@ -128,7 +129,7 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
               status: 'Download läuft...',
               phase: 'download',
               error: null,
-              modelName: m.name,
+              modelName: modellAnzeigeName(m),
             };
           });
           setActiveDownloads(prev => ({ ...prev, ...newDownloads }));
@@ -261,7 +262,8 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
           status: 'Starte Download...',
           phase: 'init',
           error: null,
-          modelName: modelName || modelId,
+          // Plan 023 D1: nie die rohe Kennung, auch nicht als Rueckfall.
+          modelName: modellAnzeigeName({ id: modelId, name: modelName }),
         },
       }));
 
