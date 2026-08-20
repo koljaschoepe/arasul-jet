@@ -42,6 +42,12 @@ export interface FilterBarItem<Id extends string = string> {
 }
 
 interface FilterBarProps<Id extends string> {
+  /**
+   * Am besten eine Konstante ausserhalb der Komponente. Der Fokus-Effekt
+   * haengt an dieser Liste; ein bei jedem Rendern neu gebautes Array laesst
+   * ihn jedes Mal laufen. Er ist billig und tut dann nichts, aber alle
+   * heutigen Aufrufer geben eine feste Liste, und das soll so bleiben.
+   */
   items: readonly FilterBarItem<Id>[];
   active: Id;
   onChange: (id: Id) => void;

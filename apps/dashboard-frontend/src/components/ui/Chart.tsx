@@ -30,6 +30,14 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
+/**
+ * Vier Werte von kraeftigem Blau nach Grau. Die Namen stammen aus zwei
+ * Familien, und das bleibt so: recharts nimmt die rohe CSS-Variable, und
+ * `--color-chart-1` ist der einzige Blauton dieser Reihe, der ueberhaupt einen
+ * Tailwind-Namen hat. Die uebrigen drei gibt es nur unter ihrem rohen Namen.
+ * `index.css` bildet beide Familien auf dieselben Werte ab; wer hier
+ * vereinheitlicht, vereinheitlicht Namen, nicht Farben.
+ */
 export const SERIENFARBEN = [
   'var(--color-chart-1)',
   'var(--primary-color)',
