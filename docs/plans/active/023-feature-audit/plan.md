@@ -1131,6 +1131,43 @@ Kein Schritt verlangt etwas, das schon erledigt ist. Jeder Fehlschlag beim
 Speichern erscheint auf dem Bildschirm. Die Ausnahme in `bausteine.py` ist weg.
 Behebt F-20 und F-23 dort, und `SetupWizard.tsx:358`.
 
+### Was der Rundgang am 20.08.2026 gezeigt hat
+
+Durchgelaufen am Prüfstand nach einem Werksreset auf „Auslieferungszustand",
+mit Playwright, sechs Bilder. Vier Befunde, die das Codelesen nicht hatte:
+
+1. **Schritt 3 war eine Sackgasse, live gemessen.** `Weiter` blieb gesperrt,
+   der einzige Weg weiter war „Überspringen", und das überspringt den ganzen
+   Assistenten samt Modellwahl. Der Text sprach vom „Standard-Passwort", das
+   es nach einem Werksreset nicht gibt.
+2. **`PUT /system/setup-step` antwortete 400.** Die Oberfläche zählt 1 bis 6,
+   der Vertrag in `schemas/system.js` erlaubt 0 bis 5. Der letzte Schritt wurde
+   nie vermerkt, und der Fehlschlag wurde verschluckt.
+3. **Die Zusammenfassung zeigte eine Adresse, die niemand erreichen kann.**
+   „IP-Adresse 172.31.0.69" ist die Adresse des Containers. `/system/network`
+   liest `os.networkInterfaces()` im Container. Am Arbeitsgerät gegengeprüft:
+   dort stehen 172.30.x.x, während das Gerät unter 192.168.0.197 erreichbar
+   ist. Einziger Verbraucher dieser Angabe war der Assistent.
+4. **Die Modellliste zeigte zuerst das Falsche.** Vier Kategorieüberschriften,
+   und das empfohlene Modell stand so weit unten, dass es im Fenster nicht
+   sichtbar war.
+
+### Was daraus wurde
+
+Sechs Schritte werden zwei: das Unternehmen, dann das Modell. Der Passwort-,
+der Netzwerk- und der Zusammenfassungsschritt entfallen. Aus dem Netzwerkschritt
+bleibt ein Satz in Schritt 2, weil ohne Internet kein Modell lädt; die falsche
+Adresse verschwindet ersatzlos. Der Rahmen ist `AuthCard`, derselbe wie in
+`CreateAdmin` und `Login`: die drei Bildschirme gehören zusammen. Damit fällt
+die handgebaute Kopfzeile weg und mit ihr der Eintrag in `bausteine.py`.
+
+Die drei Kachelraster liefen vorher als drei fast gleiche Klassenketten
+untereinander. Jetzt ein Baustein, drei Aufrufer.
+
+**Erledigt am 20.08.2026.** 1296 Zeilen werden 549. Zwölf Tests, die es vorher
+nicht gab, darunter je einer für die Sackgasse, die verschluckten Fehlschläge
+und die Container-Adresse.
+
 ---
 
 # Phase D, Modelle

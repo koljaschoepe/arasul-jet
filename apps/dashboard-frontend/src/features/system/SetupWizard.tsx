@@ -1,48 +1,66 @@
 /**
- * SetupWizard - First-Run Setup Experience
+ * SetupWizard, die Ersteinrichtung eines ausgelieferten Geraets.
  *
- * Multi-step wizard shown after first login when setup is not yet completed.
- * Steps: 1) Welcome, 2) KI-Profil, 3) Password Change, 4) Network Check, 5) AI Models, 6) Summary
+ * Erscheint einmal, direkt nach `CreateAdmin`, und fragt genau das, was sonst
+ * niemand fragt: fuer wen die KI schreibt, und mit welchem Modell sie anfaengt.
+ *
+ * Vorher waren es sechs Schritte und 1296 Zeilen. Am 20.08.2026 wurde der
+ * Assistent zum ersten Mal am Pruefstand durchgelaufen, nach einem Werksreset
+ * auf Auslieferungszustand. Was dabei herauskam:
+ *
+ * - **Schritt 3 war eine Sackgasse.** Der Kunde legt sein Passwort in
+ *   `CreateAdmin` selbst an, zwei Bildschirme spaeter verlangte der Assistent,
+ *   dasselbe Passwort zu aendern, "Dies ist ein Pflichtschritt", und `Weiter`
+ *   blieb gesperrt. Der Text sprach vom "Standard-Passwort", das es seit dem
+ *   Werksreset nicht mehr gibt. Einziger Ausweg war `Ueberspringen`, und das
+ *   ueberspringt den ganzen Assistenten samt Modellwahl.
+ * - **Der Fortschritt wurde nie gespeichert.** `PUT /system/setup-step`
+ *   antwortete 400: die Oberflaeche zaehlt 1 bis 6, der Vertrag laesst 0 bis 5.
+ *   Der Fehlschlag wurde verschluckt ("Non-critical, silently ignore").
+ * - **Die Zusammenfassung zeigte eine falsche Adresse.** "IP-Adresse
+ *   172.31.0.69" ist die Adresse des Containers. `/system/network` liest
+ *   `os.networkInterfaces()` im Container und sieht das Netz des Kunden nie.
+ *   Auch am Arbeitsgeraet gegengeprueft: dort stehen 172.30.x.x, waehrend das
+ *   Geraet unter 192.168.0.197 erreichbar ist. Ein Zahlenwert, den niemand
+ *   anwaehlen kann, ist schlimmer als keiner.
+ * - **Die Zusammenfassung wiederholte nur die Schritte davor.** Kolja am
+ *   20.08.2026: kein Schritt, der nur bestaetigt, was der vorige getan hat.
+ *
+ * Geblieben sind zwei Schritte. Der Rahmen ist `AuthCard`, derselbe wie in
+ * `CreateAdmin` und `Login`: die drei Bildschirme gehoeren zusammen und sollen
+ * auch so aussehen. Damit faellt die handgebaute Kopfzeile weg und mit ihr der
+ * Eintrag dieser Datei in `scripts/test/bausteine.py`.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  Check,
-  ChevronRight,
-  ChevronLeft,
-  AlertCircle,
-  Loader2,
-  Wifi,
-  WifiOff,
-  Cpu,
-  HardDrive,
-  Server,
-  Shield,
-  SkipForward,
-  Code,
-  ShoppingCart,
-  Settings,
   Briefcase,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Code,
+  Coffee,
+  Download,
+  FileText,
   Heart,
+  LayoutGrid,
+  Loader2,
+  MessageCircle,
   Pencil,
+  Settings,
+  ShoppingCart,
   User,
   Users,
-  LayoutGrid,
-  MessageCircle,
-  FileText,
+  Wifi,
+  WifiOff,
   Zap,
-  Coffee,
-  Star,
-  Download,
-  Info,
 } from 'lucide-react';
 import { useDownloads } from '../../contexts/DownloadContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { useApi } from '../../hooks/useApi';
+import { AuthCard, AuthError } from '@/components/ui/AuthCard';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
-import { Badge } from '@/components/ui/shadcn/badge';
 import { cn } from '@/lib/utils';
 import { PLATFORM_NAME } from '@/config/branding';
 
@@ -51,1245 +69,480 @@ interface SetupWizardProps {
   onSkip: () => void;
 }
 
-interface Step {
-  id: number;
-  title: string;
-  description: string;
-}
-
-interface IndustryOption {
+interface Auswahl {
+  wert: string;
   label: string;
-  value: string;
+  zusatz?: string;
   icon: LucideIcon;
 }
 
-interface TeamSizeOption {
-  label: string;
-  sublabel: string;
-  value: string;
-  icon: LucideIcon;
-}
-
-interface AnswerStyleOption {
-  label: string;
-  desc: string;
-  value: string;
-  icon: LucideIcon;
-}
-
-interface ModelCategoryInfo {
-  title: string;
-  desc: string;
-}
-
-interface NetworkInfo {
-  ip_addresses?: string[];
-  internet_reachable?: boolean;
-  mdns?: string;
-  error?: boolean;
-}
-
-interface SetupCatalogModel {
+interface KatalogModell {
   id: string;
   name: string;
   description?: string;
   size_bytes?: number;
   ram_required_gb?: number;
-  category?: string;
   model_type?: string;
   install_status?: string;
-  download_progress?: number;
-  performance_tier?: number;
 }
 
-interface SystemInfo {
-  hostname?: string;
-  uptime?: number;
-  platform?: string;
-  version?: string;
-  [key: string]: unknown;
-}
+const LETZTER_SCHRITT = 2;
 
-interface DeviceInfo {
-  model?: string;
-  name?: string;
-  ram_total_gb?: number;
-  storage_total_gb?: number;
-  [key: string]: unknown;
-}
-
-interface LoginResponse {
-  token: string;
-  user: Record<string, unknown>;
-}
-
-const STEPS: Step[] = [
-  { id: 1, title: 'Willkommen', description: 'System einrichten' },
-  { id: 2, title: 'KI-Profil', description: 'Ihr Unternehmen' },
-  { id: 3, title: 'Passwort', description: 'Admin-Passwort ändern' },
-  { id: 4, title: 'Netzwerk', description: 'Konnektivität prüfen' },
-  { id: 5, title: 'KI-Modelle', description: 'Modell auswählen' },
-  { id: 6, title: 'Zusammenfassung', description: 'Einrichtung abschließen' },
+const BRANCHEN: Auswahl[] = [
+  { wert: 'IT & Software', label: 'IT und Software', icon: Code },
+  { wert: 'Handel & E-Commerce', label: 'Handel', icon: ShoppingCart },
+  { wert: 'Produktion & Fertigung', label: 'Produktion', icon: Settings },
+  { wert: 'Beratung & Dienstleistungen', label: 'Beratung', icon: Briefcase },
+  { wert: 'Gesundheit & Medizin', label: 'Gesundheit', icon: Heart },
+  { wert: 'custom', label: 'Andere', icon: Pencil },
 ];
 
-const INDUSTRIES: IndustryOption[] = [
-  { label: 'IT & Software', value: 'IT & Software', icon: Code },
-  { label: 'Handel & E-Commerce', value: 'Handel & E-Commerce', icon: ShoppingCart },
-  { label: 'Produktion & Fertigung', value: 'Produktion & Fertigung', icon: Settings },
-  { label: 'Beratung & Dienstleistung', value: 'Beratung & Dienstleistungen', icon: Briefcase },
-  { label: 'Gesundheit & Medizin', value: 'Gesundheit & Medizin', icon: Heart },
-  { label: 'Andere Branche', value: 'custom', icon: Pencil },
+const TEAMGROESSEN: Auswahl[] = [
+  { wert: '5', label: '1 bis 5', icon: User },
+  { wert: '20', label: '6 bis 20', icon: Users },
+  { wert: '100', label: '21 bis 100', icon: LayoutGrid },
+  { wert: '100+', label: 'ueber 100', icon: Briefcase },
 ];
 
-const TEAM_SIZES: TeamSizeOption[] = [
-  { label: '1-5', sublabel: 'Kleinteam', value: '5', icon: User },
-  { label: '6-20', sublabel: 'Mittelgroß', value: '20', icon: Users },
-  { label: '21-100', sublabel: 'Unternehmen', value: '100', icon: LayoutGrid },
-  { label: '100+', sublabel: 'Konzern', value: '100+', icon: Briefcase },
+const ANTWORTSTILE: Auswahl[] = [
+  { wert: 'kurz', label: 'Kurz', zusatz: 'direkt zum Punkt', icon: Zap },
+  { wert: 'ausfuehrlich', label: 'Ausführlich', zusatz: 'mit Erklärung', icon: FileText },
+  { wert: 'formell', label: 'Formell', zusatz: 'geschäftlicher Ton', icon: MessageCircle },
+  { wert: 'locker', label: 'Locker', zusatz: 'wie ein Kollege', icon: Coffee },
 ];
 
-const ANSWER_STYLES: AnswerStyleOption[] = [
-  {
-    label: 'Kurz & prägnant',
-    desc: 'Kompakte Antworten, direkt zum Punkt',
-    value: 'kurz',
-    icon: Zap,
-  },
-  {
-    label: 'Ausführlich',
-    desc: 'Detaillierte Erklärungen mit Kontext',
-    value: 'ausfuehrlich',
-    icon: FileText,
-  },
-  {
-    label: 'Professionell',
-    desc: 'Formeller Ton, geschäftliche Sprache',
-    value: 'formell',
-    icon: MessageCircle,
-  },
-  {
-    label: 'Locker & direkt',
-    desc: 'Ungezwungen, wie ein Kollege',
-    value: 'locker',
-    icon: Coffee,
-  },
-];
+const EMPFEHLUNG_FALLBACK = 'gemma4:e4b-q4';
 
-const MODEL_CATEGORIES: Record<string, ModelCategoryInfo> = {
-  small: { title: 'Schnell & Kompakt', desc: '7-12 GB RAM' },
-  medium: { title: 'Ausgewogen', desc: '15-25 GB RAM' },
-  large: { title: 'Leistungsstark', desc: '30-40 GB RAM' },
-  xlarge: { title: 'Maximum', desc: '45+ GB RAM' },
-};
-
-const RECOMMENDED_MODEL_FALLBACK = 'gemma4:e4b-q4';
-
-const formatModelSize = (bytes: number | null | undefined): string => {
-  if (!bytes) return 'N/A';
-  const gb = bytes / (1024 * 1024 * 1024);
+function groesse(bytes: number | null | undefined): string {
+  if (!bytes) return '';
+  const gb = bytes / 1024 ** 3;
   return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(gb * 1024).toFixed(0)} MB`;
-};
+}
+
+/**
+ * Eine Kachel, dreimal benutzt: Branche, Teamgroesse, Antwortstil. Vorher stand
+ * dieselbe Klassenkette dreimal untereinander in dieser Datei, jedes Mal ein
+ * bisschen anders. Ein Baustein, drei Aufrufer.
+ */
+function Kachel({
+  eintrag,
+  gewaehlt,
+  onClick,
+}: {
+  eintrag: Auswahl;
+  gewaehlt: boolean;
+  onClick: () => void;
+}) {
+  const Symbol = eintrag.icon;
+  return (
+    <button
+      type="button"
+      aria-pressed={gewaehlt}
+      onClick={onClick}
+      className={cn(
+        'flex flex-col items-center gap-1 rounded-md border-2 border-border bg-background px-2 py-3 text-center text-muted-foreground transition-colors',
+        'hover:border-primary/30 hover:text-foreground',
+        gewaehlt && 'border-primary bg-primary/10 text-primary'
+      )}
+    >
+      <Symbol className="size-5 shrink-0" aria-hidden="true" />
+      <span className="text-xs font-semibold leading-tight">{eintrag.label}</span>
+      {eintrag.zusatz && <span className="text-[0.7rem] leading-tight">{eintrag.zusatz}</span>}
+    </button>
+  );
+}
+
+function Feldgruppe({ titel, children }: { titel: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        {titel}
+      </h3>
+      {children}
+    </div>
+  );
+}
 
 function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
   const api = useApi();
-  const { user, login } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { startDownload } = useDownloads();
 
-  // Step 1: Welcome
-  const [companyName, setCompanyName] = useState('');
+  const [schritt, setSchritt] = useState(1);
+  const [laeuft, setLaeuft] = useState(false);
+  const [fehler, setFehler] = useState('');
+  const [hinweis, setHinweis] = useState('');
 
-  // Step 2: KI-Profil
-  const [industry, setIndustry] = useState('');
-  const [customIndustry, setCustomIndustry] = useState('');
-  const customIndustryRef = useRef<HTMLInputElement>(null);
-  const [teamSize, setTeamSize] = useState('');
-  const [products, setProducts] = useState('');
-  const [answerStyle, setAnswerStyle] = useState('');
-  const [profileSaved, setProfileSaved] = useState(false);
+  const [firma, setFirma] = useState('');
+  const [branche, setBranche] = useState('');
+  const [eigeneBranche, setEigeneBranche] = useState('');
+  const [teamgroesse, setTeamgroesse] = useState('');
+  const [antwortstil, setAntwortstil] = useState('');
 
-  // Focus the custom-industry field when that option is selected (replaces autoFocus).
-  useEffect(() => {
-    if (industry === 'custom') customIndustryRef.current?.focus();
-  }, [industry]);
+  const [modelle, setModelle] = useState<KatalogModell[]>([]);
+  const [modellWahl, setModellWahl] = useState('');
+  const [empfehlung, setEmpfehlung] = useState(EMPFEHLUNG_FALLBACK);
+  const [modelleLaden, setModelleLaden] = useState(false);
+  const [alleZeigen, setAlleZeigen] = useState(false);
+  const [online, setOnline] = useState<boolean | null>(null);
 
-  // Step 3: Password
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordChanged, setPasswordChanged] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordTouched, setPasswordTouched] = useState(false);
-  const [pwMinLength, setPwMinLength] = useState(4); // default fallback
-
-  // Step 4: Network
-  const [networkInfo, setNetworkInfo] = useState<NetworkInfo | null>(null);
-  const [networkLoading, setNetworkLoading] = useState(false);
-
-  // Step 5: AI Models
-  const [models, setModels] = useState<SetupCatalogModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState('');
-  const [recommendedModel, setRecommendedModel] = useState(RECOMMENDED_MODEL_FALLBACK);
-  const [modelsLoading, setModelsLoading] = useState(false);
-
-  // Step 6: System info
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
-
-  // Downloads (DownloadContext)
-  const { startDownload, getDownloadState } = useDownloads();
-
-  // Save step progress
-  const saveStepProgress = useCallback(
-    async (step: number) => {
+  // Der Fortschritt wird mitgeschrieben, damit ein geschlossener Browser die
+  // Einrichtung nicht von vorn anfangen laesst. Ein Fehlschlag ist kein Grund,
+  // den Kunden aufzuhalten, aber er wird gesagt: bis zum 20.08.2026 antwortete
+  // dieser Aufruf 400 und niemand hat es gemerkt.
+  const fortschrittMerken = useCallback(
+    async (naechster: number) => {
       try {
         await api.put(
           '/system/setup-step',
           {
-            step,
-            companyName: companyName || undefined,
-            selectedModel: selectedModel || undefined,
+            step: naechster,
+            companyName: firma || undefined,
+            selectedModel: modellWahl || undefined,
           },
           { showError: false }
         );
       } catch {
-        // Non-critical, silently ignore
+        setHinweis(
+          'Der Fortschritt lässt sich gerade nicht speichern. Wenn du das Fenster schließt, fängt die Einrichtung von vorn an.'
+        );
       }
     },
-    [api, companyName, selectedModel]
+    [api, firma, modellWahl]
   );
 
-  // Save KI-Profil
-  const saveProfile = async () => {
-    try {
-      const selectedIndustry = customIndustry || industry;
-      const productList = products
-        ? products
-            .split(',')
-            .map((p: string) => p.trim())
-            .filter(Boolean)
-        : [];
-
-      await api.post(
-        '/memory/profile',
-        {
-          companyName: companyName || 'Mein Unternehmen',
-          industry: selectedIndustry,
-          teamSize: teamSize,
-          products: productList,
-          preferences: {
-            antwortlaenge: answerStyle || 'mittel',
-            formalitaet: answerStyle === 'formell' ? 'formell' : 'locker',
-          },
+  const profilSpeichern = useCallback(async () => {
+    const gewaehlteBranche = branche === 'custom' ? eigeneBranche.trim() : branche;
+    await api.post(
+      '/memory/profile',
+      {
+        companyName: firma.trim() || 'Mein Unternehmen',
+        industry: gewaehlteBranche,
+        teamSize: teamgroesse,
+        products: [],
+        preferences: {
+          antwortlaenge: antwortstil || 'mittel',
+          formalitaet: antwortstil === 'formell' ? 'formell' : 'locker',
         },
-        { showError: false }
-      );
-      setProfileSaved(true);
-    } catch {
-      // Non-critical
-    }
-  };
+      },
+      { showError: false }
+    );
+  }, [api, branche, eigeneBranche, firma, teamgroesse, antwortstil]);
 
-  // Step navigation
-  const goNext = useCallback(() => {
-    if (currentStep < 6) {
-      if (currentStep === 2 && !profileSaved) {
-        saveProfile();
-      }
-      // Trigger model download when leaving step 5
-      if (currentStep === 5 && selectedModel) {
-        const model = models.find((m: SetupCatalogModel) => m.id === selectedModel);
-        if (model && model.install_status !== 'available') {
-          startDownload(selectedModel, model.name);
-        }
-      }
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      setError('');
-      saveStepProgress(nextStep);
-    }
-  }, [
-    currentStep,
-    saveStepProgress,
-    profileSaved,
-    selectedModel,
-    models,
-    startDownload,
-    saveProfile,
-  ]);
-
-  const goBack = useCallback(() => {
-    if (currentStep > 1) {
-      setCurrentStep(prev => prev - 1);
-      setError('');
-    }
-  }, [currentStep]);
-
-  // Step 3: Change password
-  const handlePasswordChange = async () => {
-    setPasswordError('');
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Alle Felder müssen ausgefüllt werden');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Neue Passwörter stimmen nicht überein');
-      return;
-    }
-
-    if (newPassword.length < pwMinLength) {
-      setPasswordError(`Passwort muss mindestens ${pwMinLength} Zeichen lang sein`);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await api.post(
-        '/auth/change-password',
-        { currentPassword, newPassword },
-        { showError: false }
-      );
-
-      // Re-login immediately — backend blacklists all tokens after password change
-      const username = user?.username || 'admin';
-      try {
-        const loginData = await api.post<LoginResponse>(
-          '/auth/login',
-          { username, password: newPassword },
-          { showError: false }
-        );
-        localStorage.setItem('arasul_token', loginData.token);
-        localStorage.setItem('arasul_user', JSON.stringify(loginData.user));
-        login(loginData as Parameters<typeof login>[0]);
-      } catch {
-        // If re-login fails, at least store that password was changed
-      }
-      setPasswordChanged(true);
-    } catch (err: unknown) {
-      const e = err as { message?: string };
-      setPasswordError(e.message || String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Step 4: Fetch network info
-  const fetchNetworkInfo = useCallback(async () => {
-    setNetworkLoading(true);
-    try {
-      const data = await api.get<NetworkInfo>('/system/network', { showError: false });
-      setNetworkInfo(data);
-    } catch {
-      setNetworkInfo({ ip_addresses: [], internet_reachable: false, error: true });
-    } finally {
-      setNetworkLoading(false);
-    }
-  }, [api]);
-
-  // Step 5: Fetch model catalog + hardware-based recommendation
-  const fetchModels = useCallback(async () => {
-    setModelsLoading(true);
-    try {
-      const [catalogData, recData] = await Promise.all([
-        api.get<{ models?: SetupCatalogModel[] }>('/models/catalog', { showError: false }),
-        api
-          .get<{ recommended_model?: string }>('/models/recommended', { showError: false })
-          .catch(() => null),
-      ]);
-      const llmModels = (catalogData.models || []).filter(
-        (m: SetupCatalogModel) => (m.model_type || 'llm') === 'llm'
-      );
-      setModels(llmModels);
-
-      // Use hardware-recommended model, with fallback
-      const hwRecommended = recData?.recommended_model || RECOMMENDED_MODEL_FALLBACK;
-      setRecommendedModel(hwRecommended);
-      if (!selectedModel) {
-        setSelectedModel(hwRecommended);
-      }
-    } catch {
-      setModels([]);
-    } finally {
-      setModelsLoading(false);
-    }
-  }, [api]);
-
-  // Step 6: Fetch system info
-  const fetchSystemInfo = useCallback(async () => {
-    try {
-      const [infoData, thresholdData] = await Promise.all([
-        api.get<SystemInfo>('/system/info', { showError: false }).catch(() => null),
-        api
-          .get<{ device?: DeviceInfo }>('/system/thresholds', { showError: false })
-          .catch(() => null),
-      ]);
-
-      if (infoData) setSystemInfo(infoData);
-      if (thresholdData) setDeviceInfo(thresholdData.device ?? null);
-    } catch {
-      // Non-critical
-    }
-  }, [api]);
-
-  // Load data when step changes
+  // Netz und Katalog gehoeren zu Schritt 2 und werden erst dort geholt.
   useEffect(() => {
-    if (currentStep === 4) fetchNetworkInfo();
-    if (currentStep === 5) fetchModels();
-    if (currentStep === 6) fetchSystemInfo();
-  }, [currentStep, fetchNetworkInfo, fetchModels, fetchSystemInfo]);
+    if (schritt !== LETZTER_SCHRITT) return;
+    let abgebrochen = false;
 
-  // Fetch password requirements from backend (no auth required)
-  useEffect(() => {
     api
-      .get<{ requirements: { minLength: number } }>('/settings/password-requirements', {
-        showError: false,
+      .get<{ internet_reachable?: boolean }>('/system/network', { showError: false })
+      .then(daten => {
+        if (!abgebrochen) setOnline(Boolean(daten?.internet_reachable));
       })
-      .then(data => {
-        if (data?.requirements?.minLength) setPwMinLength(data.requirements.minLength);
+      .catch(() => {
+        if (!abgebrochen) setOnline(null);
+      });
+
+    setModelleLaden(true);
+    Promise.all([
+      api.get<{ models?: KatalogModell[] }>('/models/catalog', { showError: false }),
+      api
+        .get<{ recommended_model?: string }>('/models/recommended', { showError: false })
+        .catch(() => null),
+    ])
+      .then(([katalog, rat]) => {
+        if (abgebrochen) return;
+        const llm = (katalog.models || []).filter(m => (m.model_type || 'llm') === 'llm');
+        setModelle(llm);
+        const empfohlen = rat?.recommended_model || EMPFEHLUNG_FALLBACK;
+        setEmpfehlung(empfohlen);
+        setModellWahl(vorher => vorher || empfohlen);
       })
-      .catch(() => {});
-  }, [api]);
+      .catch(() => {
+        if (!abgebrochen) setModelle([]);
+      })
+      .finally(() => {
+        if (!abgebrochen) setModelleLaden(false);
+      });
 
-  // Complete setup
-  const handleComplete = async () => {
-    setLoading(true);
-    setError('');
+    return () => {
+      abgebrochen = true;
+    };
+  }, [schritt, api]);
 
+  const weiter = async () => {
+    setFehler('');
+    setLaeuft(true);
     try {
-      // Set default model if already installed
-      if (selectedModel) {
-        const model = models.find((m: SetupCatalogModel) => m.id === selectedModel);
-        if (model?.install_status === 'available') {
-          await api
-            .post('/models/default', { model_id: selectedModel }, { showError: false })
-            .catch(() => {});
-        }
-      }
+      await profilSpeichern();
+      setSchritt(LETZTER_SCHRITT);
+      await fortschrittMerken(LETZTER_SCHRITT);
+    } catch (err: unknown) {
+      // Kein stiller Fehlschlag mehr: wer hier nichts sagt, laesst den Kunden
+      // glauben, sein Profil sei gespeichert.
+      const e = err as { message?: string };
+      setFehler(
+        `Dein Profil konnte nicht gespeichert werden: ${e.message || String(err)}. Versuch es noch einmal oder überspring die Einrichtung.`
+      );
+    } finally {
+      setLaeuft(false);
+    }
+  };
 
+  const abschliessen = async () => {
+    setFehler('');
+    setLaeuft(true);
+    try {
+      const modell = modelle.find(m => m.id === modellWahl);
+      if (modell && modell.install_status !== 'available') {
+        startDownload(modell.id, modell.name);
+      }
+      if (modell?.install_status === 'available') {
+        await api.post('/models/default', { model_id: modellWahl }, { showError: false });
+      }
       await api.post(
         '/system/setup-complete',
         {
-          companyName: companyName || undefined,
-          selectedModel: selectedModel || undefined,
-          hostname: networkInfo?.mdns || undefined,
+          companyName: firma.trim() || undefined,
+          selectedModel: modellWahl || undefined,
         },
         { showError: false }
       );
-
       onComplete();
     } catch (err: unknown) {
       const e = err as { message?: string };
-      setError(e.message || String(err));
+      setFehler(`Die Einrichtung konnte nicht abgeschlossen werden: ${e.message || String(err)}`);
     } finally {
-      setLoading(false);
+      setLaeuft(false);
     }
   };
 
-  // Skip setup
-  const handleSkip = async () => {
-    setLoading(true);
+  const ueberspringen = async () => {
+    setFehler('');
+    setLaeuft(true);
     try {
       await api.post('/system/setup-skip', {}, { showError: false });
       onSkip();
-    } catch {
-      onSkip();
+    } catch (err: unknown) {
+      // Vorher rief das `onSkip()` auch dann, wenn der Aufruf scheiterte. Der
+      // Assistent stand beim naechsten Start wieder da, ohne dass jemand wusste
+      // warum.
+      const e = err as { message?: string };
+      setFehler(`Überspringen hat nicht geklappt: ${e.message || String(err)}`);
     } finally {
-      setLoading(false);
+      setLaeuft(false);
     }
   };
 
-  // Can advance to next step?
-  const canAdvance = () => {
-    if (currentStep === 3 && !passwordChanged) return false;
-    return true;
-  };
-
-  // Inline validation hints for password step
-  const passwordMismatch =
-    passwordTouched && confirmPassword.length > 0 && newPassword !== confirmPassword;
-  const passwordTooShort =
-    passwordTouched && newPassword.length > 0 && newPassword.length < pwMinLength;
+  const sichtbareModelle = alleZeigen ? modelle : modelle.filter(m => m.id === modellWahl);
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-180 shadow-lg flex flex-col max-h-[90vh] md:max-h-[90vh] max-md:max-w-full max-md:rounded-lg max-md:max-h-[95vh]">
-        {/* Header */}
-        <div className="text-center py-8 px-8 pb-4 max-md:py-6 max-md:px-6 max-md:pb-3 max-sm:p-4">
-          <h1 className="text-[1.75rem] text-primary m-0 mb-1 font-bold max-md:text-2xl">
-            {PLATFORM_NAME} Platform
-          </h1>
-          <p className="text-muted-foreground text-sm m-0">Ersteinrichtung</p>
-        </div>
+    <AuthCard
+      title={`Willkommen bei ${PLATFORM_NAME}`}
+      description="Zwei Schritte, dann kannst du loslegen."
+      className="max-w-2xl"
+    >
+      <p className="mb-4 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Schritt {schritt} von {LETZTER_SCHRITT}
+      </p>
 
-        {/* Progress Steps */}
-        <div
-          className="flex justify-center gap-2 py-4 px-8 border-b border-border max-md:py-3 max-md:px-4 max-md:gap-1"
-          role="navigation"
-          aria-label="Setup-Fortschritt"
-        >
-          {STEPS.map(step => {
-            const isActive = currentStep === step.id;
-            const isCompleted = currentStep > step.id;
-            return (
-              <div
-                key={step.id}
-                className={cn(
-                  'flex flex-col items-center gap-1 flex-1 max-w-25 transition-opacity',
-                  isActive ? 'opacity-100' : isCompleted ? 'opacity-80' : 'opacity-40'
-                )}
-              >
-                <div
-                  className={cn(
-                    'size-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all max-md:size-7 max-md:text-xs',
-                    isActive
-                      ? 'bg-primary text-white border-primary'
-                      : isCompleted
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-background text-muted-foreground border-border'
-                  )}
-                >
-                  {isCompleted ? <Check className="size-4" aria-hidden="true" /> : step.id}
-                </div>
-                <span
-                  className={cn(
-                    'text-[0.7rem] text-muted-foreground text-center whitespace-nowrap max-md:text-[0.6rem]',
-                    isActive && 'text-foreground font-semibold'
-                  )}
-                >
-                  {step.title}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+      {fehler && <AuthError id="setup-fehler">{fehler}</AuthError>}
 
-        {/* Step Content */}
-        <div className="p-8 flex-1 overflow-y-auto max-md:p-6 max-sm:p-4">
-          {/* Step 1: Welcome */}
-          {currentStep === 1 && (
-            <div className="flex flex-col items-center">
-              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary max-sm:size-12">
-                <Server className="size-7 max-sm:size-5" />
-              </div>
-              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
-                Willkommen bei {PLATFORM_NAME}
-              </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
-                Ihr Edge-AI-System ist bereit für die Einrichtung. Dieser Assistent führt Sie durch
-                die wichtigsten Konfigurationsschritte.
-              </p>
+      {schritt === 1 && (
+        <div>
+          <h2 className="mb-1 text-lg font-semibold text-foreground">Dein Unternehmen</h2>
+          <p className="mb-5 text-sm text-muted-foreground">
+            Damit die KI weiß, für wen sie schreibt. Änderbar unter Einstellungen, KI.
+          </p>
 
-              <div className="w-full max-w-110 mb-4">
-                <label
-                  htmlFor="company-name"
-                  className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
-                >
-                  Firmenname (optional)
-                </label>
-                <Input
-                  id="company-name"
-                  type="text"
-                  value={companyName}
-                  onChange={e => setCompanyName(e.target.value)}
-                  placeholder="z.B. Meine Firma GmbH"
-                  className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
+          <Feldgruppe titel="Firma">
+            <Input
+              id="firma"
+              type="text"
+              value={firma}
+              onChange={e => setFirma(e.target.value)}
+              placeholder="Name deiner Firma"
+            />
+          </Feldgruppe>
+
+          <Feldgruppe titel="Branche">
+            <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-2">
+              {BRANCHEN.map(eintrag => (
+                <Kachel
+                  key={eintrag.wert}
+                  eintrag={eintrag}
+                  gewaehlt={branche === eintrag.wert}
+                  onClick={() => {
+                    setBranche(eintrag.wert);
+                    if (eintrag.wert !== 'custom') setEigeneBranche('');
+                  }}
                 />
-              </div>
-
-              <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full max-w-110 mt-4">
-                <Shield className="size-5 shrink-0 text-primary mt-0.5" />
-                <div>
-                  <strong className="block text-foreground mb-1 text-sm">
-                    Was wird eingerichtet?
-                  </strong>
-                  <ul className="m-0 mt-1 pl-5 text-muted-foreground text-sm">
-                    <li className="mb-0.5">Sicheres Admin-Passwort</li>
-                    <li className="mb-0.5">Netzwerk-Konnektivität</li>
-                    <li>KI-Modell-Auswahl</li>
-                  </ul>
-                </div>
-              </div>
+              ))}
             </div>
+            {branche === 'custom' && (
+              <Input
+                type="text"
+                value={eigeneBranche}
+                onChange={e => setEigeneBranche(e.target.value)}
+                placeholder="Welche Branche?"
+                className="mt-2"
+              />
+            )}
+          </Feldgruppe>
+
+          <Feldgruppe titel="Teamgröße">
+            <div className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
+              {TEAMGROESSEN.map(eintrag => (
+                <Kachel
+                  key={eintrag.wert}
+                  eintrag={eintrag}
+                  gewaehlt={teamgroesse === eintrag.wert}
+                  onClick={() => setTeamgroesse(eintrag.wert)}
+                />
+              ))}
+            </div>
+          </Feldgruppe>
+
+          <Feldgruppe titel="Antwortstil">
+            <div className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
+              {ANTWORTSTILE.map(eintrag => (
+                <Kachel
+                  key={eintrag.wert}
+                  eintrag={eintrag}
+                  gewaehlt={antwortstil === eintrag.wert}
+                  onClick={() => setAntwortstil(eintrag.wert)}
+                />
+              ))}
+            </div>
+          </Feldgruppe>
+        </div>
+      )}
+
+      {schritt === LETZTER_SCHRITT && (
+        <div>
+          <h2 className="mb-1 text-lg font-semibold text-foreground">Dein erstes Modell</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Es lädt im Hintergrund. Weitere findest du später im Store.
+          </p>
+
+          {online !== null && (
+            <p className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+              {online ? (
+                <Wifi className="size-4 shrink-0 text-primary" aria-hidden="true" />
+              ) : (
+                <WifiOff className="size-4 shrink-0" aria-hidden="true" />
+              )}
+              {online
+                ? 'Internet verbunden, das Modell lädt gleich los.'
+                : 'Kein Internet. Das Modell lässt sich später per USB einspielen.'}
+            </p>
           )}
 
-          {/* Step 2: KI-Profil */}
-          {currentStep === 2 && (
-            <div className="flex flex-col items-stretch max-w-140 w-full mx-auto">
-              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary self-center max-sm:size-12">
-                <Cpu className="size-7 max-sm:size-5" />
-              </div>
-              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center self-center max-sm:text-[1.15rem]">
-                KI-Profil einrichten
-              </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 self-center max-sm:text-sm">
-                Damit die KI Sie optimal unterstützt, erzählen Sie kurz etwas über Ihr Unternehmen.
-              </p>
-
-              {/* Industry */}
-              <div className="mb-6 w-full">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 mb-2.5 flex items-center gap-2">
-                  Branche
-                </h3>
-                <div className="grid grid-cols-3 gap-2 w-full max-md:grid-cols-2 max-sm:grid-cols-2">
-                  {INDUSTRIES.map(ind => {
-                    const Icon = ind.icon;
-                    const isSelected = industry === ind.value;
-                    return (
+          {modelleLaden ? (
+            <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Katalog wird geladen.
+            </p>
+          ) : modelle.length === 0 ? (
+            <p className="py-6 text-sm text-muted-foreground">
+              Der Katalog ist gerade nicht erreichbar. Du kannst ein Modell später im Store holen.
+            </p>
+          ) : (
+            <>
+              <ul className="space-y-2">
+                {sichtbareModelle.map(modell => {
+                  const gewaehlt = modellWahl === modell.id;
+                  return (
+                    <li key={modell.id}>
                       <button
-                        key={ind.value}
                         type="button"
+                        aria-pressed={gewaehlt}
+                        onClick={() => setModellWahl(modell.id)}
                         className={cn(
-                          'flex flex-col items-center gap-1.5 py-3.5 px-2 bg-background border-2 border-border rounded-md cursor-pointer transition-all text-muted-foreground text-center hover:border-primary/30 hover:bg-card hover:text-foreground',
-                          isSelected &&
-                            'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
+                          'w-full rounded-md border-2 border-border bg-background px-4 py-3 text-left transition-colors hover:border-primary/30',
+                          gewaehlt && 'border-primary bg-primary/5'
                         )}
-                        onClick={() => {
-                          setIndustry(ind.value);
-                          if (ind.value !== 'custom') setCustomIndustry('');
-                        }}
                       >
-                        <Icon className={cn('size-5 shrink-0', isSelected && 'text-primary')} />
-                        <span className="text-xs font-semibold leading-tight">{ind.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {industry === 'custom' && (
-                  <Input
-                    ref={customIndustryRef}
-                    type="text"
-                    value={customIndustry}
-                    onChange={e => setCustomIndustry(e.target.value)}
-                    placeholder="Branche eingeben…"
-                    className="mt-2 bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
-                  />
-                )}
-              </div>
-
-              {/* Team Size */}
-              <div className="mb-6 w-full">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 mb-2.5 flex items-center gap-2">
-                  Teamgröße
-                </h3>
-                <div className="grid grid-cols-4 gap-2 w-full max-md:grid-cols-2 max-sm:grid-cols-2">
-                  {TEAM_SIZES.map(ts => {
-                    const Icon = ts.icon;
-                    const isSelected = teamSize === ts.value;
-                    return (
-                      <button
-                        key={ts.value}
-                        type="button"
-                        className={cn(
-                          'flex flex-col items-center gap-1.5 py-3 px-1.5 bg-background border-2 border-border rounded-md cursor-pointer transition-all text-muted-foreground text-center hover:border-primary/30 hover:bg-card hover:text-foreground',
-                          isSelected &&
-                            'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
-                        )}
-                        onClick={() => setTeamSize(ts.value)}
-                      >
-                        <Icon className={cn('size-5 shrink-0', isSelected && 'text-primary')} />
-                        <span className="text-xs font-semibold leading-tight">{ts.label}</span>
-                        <span
-                          className={cn(
-                            'text-[0.65rem] text-muted-foreground font-normal',
-                            isSelected && 'text-primary opacity-70'
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-bold text-foreground">{modell.name}</span>
+                          {modell.id === empfehlung && (
+                            <span className="shrink-0 text-[0.65rem] font-bold uppercase tracking-wide text-primary">
+                              Empfohlen
+                            </span>
                           )}
-                        >
-                          {ts.sublabel}
+                        </span>
+                        {modell.description && (
+                          <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
+                            {modell.description}
+                          </span>
+                        )}
+                        <span className="mt-1 flex gap-3 text-[0.75rem] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Download className="size-3" aria-hidden="true" />
+                            {groesse(modell.size_bytes)}
+                          </span>
+                          {modell.ram_required_gb ? (
+                            <span>{modell.ram_required_gb} GB Arbeitsspeicher</span>
+                          ) : null}
                         </span>
                       </button>
-                    );
-                  })}
-                </div>
-              </div>
+                    </li>
+                  );
+                })}
+              </ul>
 
-              {/* Products */}
-              <div className="mb-6 w-full">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 mb-2.5 flex items-center gap-2">
-                  Produkte & Services{' '}
-                  <span className="text-[0.65rem] font-medium normal-case tracking-normal text-muted-foreground bg-background py-0.5 px-1.5 rounded-sm border border-border">
-                    optional
-                  </span>
-                </h3>
-                <Input
-                  type="text"
-                  value={products}
-                  onChange={e => setProducts(e.target.value)}
-                  placeholder="z.B. Webentwicklung, Cloud-Hosting, Beratung"
-                  className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
-                />
-                <span className="block text-[0.72rem] text-muted-foreground mt-1">
-                  Komma-getrennt eingeben
-                </span>
-              </div>
-
-              {/* Answer Style */}
-              <div className="mb-6 w-full">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 mb-2.5 flex items-center gap-2">
-                  Antwort-Stil
-                </h3>
-                <div className="grid grid-cols-2 gap-2 w-full max-sm:grid-cols-1">
-                  {ANSWER_STYLES.map(style => {
-                    const Icon = style.icon;
-                    const isSelected = answerStyle === style.value;
-                    return (
-                      <button
-                        key={style.value}
-                        type="button"
-                        className={cn(
-                          'flex flex-row items-center text-left py-3.5 px-4 gap-3 bg-background border-2 border-border rounded-md cursor-pointer transition-all text-muted-foreground hover:border-primary/30 hover:bg-card hover:text-foreground max-sm:py-3 max-sm:px-3.5',
-                          isSelected &&
-                            'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
-                        )}
-                        onClick={() => setAnswerStyle(style.value)}
-                      >
-                        <div
-                          className={cn(
-                            'size-9 rounded-sm bg-card flex items-center justify-center shrink-0 transition-all',
-                            isSelected && 'bg-primary/15 text-primary'
-                          )}
-                        >
-                          <Icon className="size-4" />
-                        </div>
-                        <div className="flex flex-col gap-0.5 min-w-0">
-                          <span className="text-xs font-semibold leading-tight">{style.label}</span>
-                          <span
-                            className={cn(
-                              'text-[0.72rem] text-muted-foreground font-normal leading-snug',
-                              isSelected && 'text-muted-foreground'
-                            )}
-                          >
-                            {style.desc}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {profileSaved && (
-                <div className="flex items-center gap-1.5 text-primary text-xs font-medium mt-2 self-center">
-                  <Check className="size-4" /> Profil gespeichert
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 3: Password Change */}
-          {currentStep === 3 && (
-            <div className="flex flex-col items-center">
-              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary max-sm:size-12">
-                <Shield className="size-7 max-sm:size-5" />
-              </div>
-              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
-                Admin-Passwort ändern
-              </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
-                Ändern Sie das Standard-Passwort für mehr Sicherheit. Dies ist ein Pflichtschritt.
-              </p>
-
-              {passwordChanged ? (
-                <div className="flex items-center gap-3 bg-primary/10 border border-primary text-primary p-5 rounded-md w-full max-w-110 text-base font-semibold">
-                  <Check className="size-6 shrink-0" />
-                  <p className="m-0">Passwort wurde erfolgreich geändert!</p>
-                </div>
-              ) : (
-                <>
-                  {passwordError && (
-                    <div
-                      className="flex items-center gap-2 bg-destructive/10 border border-destructive text-destructive py-3 px-4 rounded-md w-full max-w-110 mb-4 text-sm"
-                      role="alert"
-                    >
-                      <AlertCircle className="size-4 shrink-0" /> {passwordError}
-                    </div>
-                  )}
-
-                  <div className="w-full max-w-110 mb-4">
-                    <label
-                      htmlFor="current-password"
-                      className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
-                    >
-                      Aktuelles Passwort
-                    </label>
-                    <Input
-                      id="current-password"
-                      type="password"
-                      value={currentPassword}
-                      onChange={e => setCurrentPassword(e.target.value)}
-                      placeholder="Aktuelles Passwort eingeben"
-                      autoComplete="current-password"
-                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
-                    />
-                  </div>
-
-                  <div className="w-full max-w-110 mb-4">
-                    <label
-                      htmlFor="new-password"
-                      className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
-                    >
-                      Neues Passwort
-                    </label>
-                    <Input
-                      id="new-password"
-                      type="password"
-                      value={newPassword}
-                      onChange={e => {
-                        setNewPassword(e.target.value);
-                        setPasswordTouched(true);
-                      }}
-                      placeholder={`Mindestens ${pwMinLength} Zeichen`}
-                      autoComplete="new-password"
-                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
-                    />
-                    {passwordTooShort && (
-                      <p className="text-xs text-destructive mt-1">
-                        Mindestens {pwMinLength} Zeichen erforderlich
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="w-full max-w-110 mb-4">
-                    <label
-                      htmlFor="confirm-password"
-                      className="block mb-1.5 text-muted-foreground font-semibold text-sm uppercase tracking-wide"
-                    >
-                      Passwort bestätigen
-                    </label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={e => {
-                        setConfirmPassword(e.target.value);
-                        setPasswordTouched(true);
-                      }}
-                      placeholder="Neues Passwort wiederholen"
-                      autoComplete="new-password"
-                      className="bg-background border-border text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/15"
-                    />
-                    {passwordMismatch && (
-                      <p className="text-xs text-destructive mt-1">
-                        Passwörter stimmen nicht überein
-                      </p>
-                    )}
-                  </div>
-
-                  <Button
-                    variant="solid"
-                    onClick={handlePasswordChange}
-                    disabled={loading || !currentPassword || !newPassword || !confirmPassword}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" /> Wird geändert...
-                      </>
-                    ) : (
-                      'Passwort ändern'
-                    )}
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Step 4: Network Check */}
-          {currentStep === 4 && (
-            <div className="flex flex-col items-center">
-              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary max-sm:size-12">
-                {networkInfo?.internet_reachable ? (
-                  <Wifi className="size-7 max-sm:size-5" />
-                ) : (
-                  <WifiOff className="size-7 max-sm:size-5" />
-                )}
-              </div>
-              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
-                Netzwerk-Status
-              </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
-                Prüfung der Netzwerkverbindung dieses Geräts.
-              </p>
-
-              {networkLoading ? (
-                <div className="flex flex-col items-center gap-3 py-8 text-muted-foreground">
-                  <Loader2 className="size-6 animate-spin text-primary" />
-                  <p className="m-0">Netzwerk wird geprüft...</p>
-                </div>
-              ) : networkInfo ? (
-                <div className="w-full max-w-110">
-                  <div className="flex items-start gap-3 py-3 border-b border-border/30">
-                    <div
-                      className={cn(
-                        'size-7 rounded-full flex items-center justify-center shrink-0 text-sm',
-                        networkInfo.internet_reachable
-                          ? 'bg-primary/15 text-primary'
-                          : 'bg-muted-foreground/15 text-muted-foreground'
-                      )}
-                    >
-                      {networkInfo.internet_reachable ? (
-                        <Check className="size-3.5" />
-                      ) : (
-                        <WifiOff className="size-3.5" />
-                      )}
-                    </div>
-                    <div>
-                      <strong className="block text-foreground text-sm mb-0.5">Internet</strong>
-                      <p className="text-muted-foreground text-sm m-0">
-                        {networkInfo.internet_reachable
-                          ? 'Verbunden'
-                          : 'Nicht verfügbar (Offline-Modus)'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 py-3 border-b border-border/30">
-                    <div className="size-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-primary/15 text-primary">
-                      <Check className="size-3.5" />
-                    </div>
-                    <div>
-                      <strong className="block text-foreground text-sm mb-0.5">IP-Adressen</strong>
-                      <p className="text-muted-foreground text-sm m-0">
-                        {networkInfo.ip_addresses?.join(', ') || 'Keine gefunden'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 py-3">
-                    <div className="size-7 rounded-full flex items-center justify-center shrink-0 text-sm bg-primary/15 text-primary">
-                      <Check className="size-3.5" />
-                    </div>
-                    <div>
-                      <strong className="block text-foreground text-sm mb-0.5">mDNS</strong>
-                      <p className="text-muted-foreground text-sm m-0">
-                        {networkInfo.mdns || 'arasul.local'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {!networkInfo.internet_reachable && (
-                    <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full mt-4">
-                      <AlertCircle className="size-5 shrink-0 text-primary mt-0.5" />
-                      <div>
-                        <strong className="block text-foreground mb-1 text-sm">
-                          Offline-Modus
-                        </strong>
-                        <p className="text-muted-foreground text-sm m-0">
-                          Das System funktioniert vollständig ohne Internet. Updates können per USB
-                          eingespielt werden.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    onClick={fetchNetworkInfo}
-                    disabled={networkLoading}
-                    className="mt-4"
-                  >
-                    Erneut prüfen
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          )}
-
-          {/* Step 5: AI Models */}
-          {currentStep === 5 && (
-            <div className="flex flex-col items-stretch max-w-145 w-full mx-auto">
-              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary self-center max-sm:size-12">
-                <Cpu className="size-7 max-sm:size-5" />
-              </div>
-              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center self-center max-sm:text-[1.15rem]">
-                KI-Modell auswählen
-              </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 self-center max-sm:text-sm">
-                Wähle ein Startmodell für den KI-Assistenten. Es wird im Hintergrund
-                heruntergeladen.
-              </p>
-
-              {modelsLoading ? (
-                <div className="flex flex-col items-center gap-3 py-8 text-muted-foreground">
-                  <Loader2 className="size-6 animate-spin text-primary" />
-                  <p className="m-0">Modell-Katalog wird geladen...</p>
-                </div>
-              ) : models.length > 0 ? (
-                <>
-                  {(['small', 'medium', 'large', 'xlarge'] as const).map((cat: string) => {
-                    const catModels = models.filter((m: SetupCatalogModel) => m.category === cat);
-                    if (catModels.length === 0) return null;
-                    const catInfo = MODEL_CATEGORIES[cat];
-                    if (!catInfo) return null;
-                    return (
-                      <div key={cat} className="w-full mb-4">
-                        <div className="flex items-baseline gap-2 mb-1.5 pb-1 border-b border-border/30">
-                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            {catInfo.title}
-                          </span>
-                          <span className="text-[0.7rem] text-muted-foreground opacity-70">
-                            {catInfo.desc}
-                          </span>
-                        </div>
-                        {catModels.map((model: SetupCatalogModel) => {
-                          const isSelected = selectedModel === model.id;
-                          const isRecommended = model.id === recommendedModel;
-                          const isInstalled = model.install_status === 'available';
-                          const dlState = getDownloadState(model.id);
-                          return (
-                            <button
-                              key={model.id}
-                              type="button"
-                              className={cn(
-                                'flex flex-col gap-1 py-3 px-4 bg-background border-2 border-border rounded-md cursor-pointer transition-all text-left w-full mb-1.5 text-muted-foreground hover:border-primary/30 hover:bg-card',
-                                isSelected && 'border-primary bg-primary/5'
-                              )}
-                              onClick={() => setSelectedModel(model.id)}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm font-bold text-foreground">
-                                  {model.name}
-                                </span>
-                                <div className="flex gap-1.5 shrink-0">
-                                  {isRecommended && (
-                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase tracking-wide py-0.5 px-2 rounded-sm bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/30">
-                                      <Star className="w-2.5 h-2.5" /> Empfohlen
-                                    </Badge>
-                                  )}
-                                  {isInstalled && (
-                                    <Badge className="inline-flex items-center gap-0.5 text-[0.6rem] font-bold uppercase py-0.5 px-2 rounded-sm bg-primary/10 text-primary border border-primary/30">
-                                      <Check className="w-2.5 h-2.5" /> Installiert
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <span className="text-xs text-muted-foreground leading-snug">
-                                {model.description}
-                              </span>
-                              <div className="flex gap-3 text-[0.75rem] text-muted-foreground mt-0.5">
-                                <span className="inline-flex items-center gap-1">
-                                  <Download className="size-3" />{' '}
-                                  {formatModelSize(model.size_bytes)}
-                                </span>
-                                <span className="inline-flex items-center gap-1">
-                                  <HardDrive className="size-3" /> {model.ram_required_gb} GB RAM
-                                </span>
-                              </div>
-                              {dlState && (
-                                <div className="mt-1.5">
-                                  <div className="h-1 bg-border rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full bg-primary rounded-full transition-[width] duration-300"
-                                      style={{ width: `${dlState.progress}%` }}
-                                    />
-                                  </div>
-                                  <span className="block text-[0.7rem] text-primary mt-0.5">
-                                    {dlState.status} ({dlState.progress}%)
-                                  </span>
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-
-                  <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full mt-4">
-                    <Info className="size-5 shrink-0 text-primary mt-0.5" />
-                    <div>
-                      <p className="text-muted-foreground text-sm m-0">
-                        Das Standardmodell kann später jederzeit unter{' '}
-                        <strong>Store &rarr; Modelle</strong> geändert werden. Weitere Modelle
-                        können dort ebenfalls heruntergeladen werden.
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex gap-3 p-4 bg-primary/10 border border-primary/20 rounded-md w-full max-w-110 self-center mt-4">
-                  <AlertCircle className="size-5 shrink-0 text-primary mt-0.5" />
-                  <div>
-                    <strong className="block text-foreground mb-1 text-sm">
-                      Keine Modelle verfügbar
-                    </strong>
-                    <p className="text-muted-foreground text-sm m-0">
-                      Der Modell-Katalog konnte nicht geladen werden. Modelle können später im Store
-                      heruntergeladen werden.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 6: Summary */}
-          {currentStep === 6 && (
-            <div className="flex flex-col items-center">
-              <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary max-sm:size-12">
-                <Check className="size-7 max-sm:size-5" />
-              </div>
-              <h2 className="text-foreground text-[1.35rem] m-0 mb-2 text-center max-sm:text-[1.15rem]">
-                Zusammenfassung
-              </h2>
-              <p className="text-muted-foreground text-center mb-6 text-sm max-w-110 max-sm:text-sm">
-                Die Einrichtung ist fast fertig. Bitte die Angaben prüfen.
-              </p>
-
-              <div className="w-full max-w-110">
-                {companyName && (
-                  <div className="flex justify-between items-center py-3 border-b border-border/30">
-                    <span className="text-muted-foreground text-sm">Firma</span>
-                    <span className="text-foreground font-semibold text-sm">{companyName}</span>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center py-3 border-b border-border/30">
-                  <span className="text-muted-foreground text-sm">Passwort</span>
-                  <span className="text-foreground font-semibold text-sm">
-                    {passwordChanged ? (
-                      <span className="inline-flex items-center gap-1 text-primary">
-                        <Check className="size-4" /> Geändert
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                        <AlertCircle className="size-4" /> Nicht geändert
-                      </span>
-                    )}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center py-3 border-b border-border/30">
-                  <span className="text-muted-foreground text-sm">Netzwerk</span>
-                  <span className="text-foreground font-semibold text-sm">
-                    {networkInfo?.internet_reachable ? (
-                      <span className="inline-flex items-center gap-1 text-primary">
-                        <Wifi className="size-4" /> Online
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-muted-foreground">
-                        <WifiOff className="size-4" /> Offline-Modus
-                      </span>
-                    )}
-                  </span>
-                </div>
-
-                {networkInfo?.ip_addresses?.[0] && (
-                  <div className="flex justify-between items-center py-3 border-b border-border/30">
-                    <span className="text-muted-foreground text-sm">IP-Adresse</span>
-                    <span className="text-foreground font-semibold text-sm">
-                      {networkInfo.ip_addresses[0]}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center py-3 border-b border-border/30">
-                  <span className="text-muted-foreground text-sm">KI-Modell</span>
-                  <span className="text-foreground font-semibold text-sm">
-                    {selectedModel ? (
-                      <>
-                        {models.find((m: SetupCatalogModel) => m.id === selectedModel)?.name ||
-                          selectedModel}
-                        {(() => {
-                          const dlState = getDownloadState(selectedModel);
-                          if (!dlState) return null;
-                          if (dlState.phase === 'complete')
-                            return (
-                              <span className="inline-flex items-center gap-1 text-primary ml-2">
-                                <Check className="size-4" /> Fertig
-                              </span>
-                            );
-                          if (dlState.phase === 'error')
-                            return (
-                              <span className="inline-flex items-center gap-1 text-muted-foreground ml-2">
-                                <AlertCircle className="size-4" /> Fehler
-                              </span>
-                            );
-                          return (
-                            <span className="inline-flex items-center gap-1 text-muted-foreground ml-2">
-                              <Loader2 className="size-4 animate-spin" /> {dlState.progress}%
-                            </span>
-                          );
-                        })()}
-                      </>
-                    ) : (
-                      'Keins ausgewählt'
-                    )}
-                  </span>
-                </div>
-
-                {deviceInfo && (
-                  <div className="flex justify-between items-center py-3 border-b border-border/30">
-                    <span className="text-muted-foreground text-sm">Gerät</span>
-                    <span className="text-foreground font-semibold text-sm">{deviceInfo.name}</span>
-                  </div>
-                )}
-
-                {systemInfo && (
-                  <div className="flex justify-between items-center py-3">
-                    <span className="text-muted-foreground text-sm">Version</span>
-                    <span className="text-foreground font-semibold text-sm">
-                      {systemInfo.version || 'Vorserie'}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {error && (
-                <div
-                  className="flex items-center gap-2 bg-destructive/10 border border-destructive text-destructive py-3 px-4 rounded-md w-full max-w-110 mb-4 mt-4 text-sm"
-                  role="alert"
+              {modelle.length > 1 && (
+                <Button
+                  variant="ghost"
+                  className="mt-2 px-0 text-xs"
+                  onClick={() => setAlleZeigen(offen => !offen)}
                 >
-                  <AlertCircle className="size-4 shrink-0" /> {error}
-                </div>
+                  {alleZeigen
+                    ? 'Nur das gewählte zeigen'
+                    : `Anderes Modell wählen (${modelle.length - 1} weitere)`}
+                </Button>
               )}
-            </div>
+            </>
           )}
         </div>
+      )}
 
-        {/* Footer Navigation */}
-        <div className="flex justify-between items-center p-4 px-8 border-t border-border max-md:px-6 max-md:py-3 max-md:flex-wrap max-md:gap-2">
-          <div className="flex items-center">
-            {currentStep > 1 && (
-              <Button variant="ghost" onClick={goBack}>
-                <ChevronLeft className="size-4" /> Zurück
-              </Button>
-            )}
-          </div>
+      {hinweis && <p className="mt-4 text-xs text-muted-foreground">{hinweis}</p>}
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              onClick={handleSkip}
-              disabled={loading}
-              title="Einrichtung überspringen (für erfahrene Admins)"
-              className="text-xs opacity-70 hover:opacity-100"
-            >
-              <SkipForward className="size-3.5" /> Überspringen
+      <div className="mt-6 flex items-center justify-between gap-2 border-t border-border pt-4">
+        <div>
+          {schritt > 1 && (
+            <Button variant="ghost" onClick={() => setSchritt(1)} disabled={laeuft}>
+              <ChevronLeft className="size-4" aria-hidden="true" /> Zurück
             </Button>
-
-            {currentStep < 6 ? (
-              <Button variant="solid" onClick={goNext} disabled={!canAdvance()}>
-                Weiter <ChevronRight className="size-4" />
-              </Button>
-            ) : (
-              <Button variant="solid" onClick={handleComplete} disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" /> Wird abgeschlossen...
-                  </>
-                ) : (
-                  <>
-                    <Check className="size-4" /> Einrichtung abschließen
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={ueberspringen} disabled={laeuft} className="text-xs">
+            Überspringen
+          </Button>
+          {schritt < LETZTER_SCHRITT ? (
+            <Button variant="solid" onClick={weiter} disabled={laeuft}>
+              {laeuft ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <>
+                  Weiter <ChevronRight className="size-4" aria-hidden="true" />
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button variant="solid" onClick={abschliessen} disabled={laeuft}>
+              {laeuft ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <>
+                  <Check className="size-4" aria-hidden="true" /> Fertig
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
-    </div>
+    </AuthCard>
   );
 }
 
