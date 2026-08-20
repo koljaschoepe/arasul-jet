@@ -1333,6 +1333,42 @@ Rückmeldung. Wechselt das System das Modell selbst, steht dabei, warum.
 allen drei Anzeigeorten gleichzeitig sichtbar und stimmen überein. Behebt F-06,
 F-13.
 
+### Erst gemessen
+
+Der Widerspruch entsteht nicht aus den Daten. Statusleiste und Modellraster
+lesen dieselbe Antwort von `/models/memory-budget`; die Leiste unterscheidet
+drei Zustände, das Raster nur zwei. Dieselbe KI-RAM-Zeile stand wortgleich in
+beiden Dateien, mit zwei eigenen Kopien von `toGb` daneben.
+
+| Fund                                  | gemessen                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `bytes_completed`, `bytes_total`      | seit Migration 083 vorhanden, nie beschrieben. Ollama liefert die Werte in jeder Zeile des Pull-Stroms |
+| `llm_model_switches`                  | 1024 Wechsel protokolliert, 877 automatische Entladungen, keine einzige angezeigt                      |
+| `CatalogModel`                        | steht doppelt, in `types/index.ts` und im Hook, und lief bereits auseinander                           |
+| Die dokumentierte Form des SSE-Stroms | falsch: `type`/`percent`/`downloaded_gb` gegen `progress`/`status`/`model_id`                          |
+
+### Was daraus wurde
+
+`utils/modellZustand.ts` ist die eine Herleitung für den Zustandssatz und die
+KI-RAM-Zeile. Die Zahlen selbst ändert D4; wer die Einheiten anfasst, findet
+sie ab jetzt an einer Stelle.
+
+Die Übersetzung der Wechselgründe ist belegt, nicht geraten: die Kennungen
+entstehen in `ollamaReadiness.unloadModelWithTracking` als
+`auto_unload_adaptive_<phase>`, und die Phase entscheidet ausweislich
+`modelLifecycleService` nur, wie lange ein Modell ungenutzt bleiben darf
+(30/10/2 Minuten), nicht warum es geht.
+
+**Der neue Test fand sofort einen eigenen Fehler:** die Wechselzeile zeigte
+`Gemma 4` statt `Gemma 4 Kompakt`, weil `llm_model_switches` die Kennung trägt.
+Genau der Namensbruch aus D1, in D3 neu entstanden.
+
+**Und die Live-Abnahme von D2 fand einen weiteren:** dieselbe Lizenz stand an
+sieben Modellen als „Apache License 2.0" und an dreien als „apache-2.0". Das
+Kürzel hatte Vorrang vor dem Lizenztext. Migration 150.
+
+**Erledigt am 21.08.2026,** `arasul-jet` #446.
+
 ## D4 Speicherzahlen stimmen
 
 „0.0 von 32.0 GB belegt, frei 30.0 GB" ist arithmetisch falsch. Bei einer Kachel
@@ -1341,6 +1377,26 @@ die Verwechslung von MiB und MB.
 
 **Abnahme:** Belegt plus frei ergibt den Gesamtwert. Eine Einheit im ganzen
 Produkt. Behebt F-04, F-05.
+
+### Erst gemessen, am 21.08.2026 am Gerät auf einem Bildschirm
+
+| Ort                         | zeigt                                 |
+| --------------------------- | ------------------------------------- |
+| Kachel, Kopfzeile           | `261 MB`                              |
+| Kachel, Text darunter       | `~274 MB`                             |
+| Detailseite, Download-Größe | `261 MB`                              |
+| KI-RAM                      | `0.0 / 32.0 GB belegt · frei 30.0 GB` |
+
+274000000 Bytes sind 274 MB. Die 261 entstehen, weil `formatModelSize` durch
+1024³ teilt und trotzdem „MB" darüberschreibt. Der Katalogtext nennt denselben
+Wert richtig, weil er von Hand geschrieben ist.
+
+Die KI-RAM-Zeile ist nicht falsch gerechnet, sie verschweigt einen Posten: das
+Backend zieht `MODEL_MEMORY_SAFETY_BUFFER_MB` (Vorgabe 2048) vom Freiwert ab.
+Belegt plus Reserve plus frei ergibt den Gesamtwert; die Reserve steht nirgends.
+
+Dazu eine dritte Größenrechnung: `formatFileSize` in `utils/formatting.ts` hat
+keinen Aufrufer, und `UpdatePage.tsx` bringt eine eigene lokale Fassung mit.
 
 ## D5 Katalog ausdünnen und Standard je Aufgabe
 
@@ -1355,6 +1411,22 @@ Modellwechsel.
 
 **Abnahme:** Der Katalog nennt je Aufgabe einen Standard. Ein Foto und eine PDF
 werden im Chat mit aktivem Coding-Modell korrekt ausgelesen.
+
+### Was auf dem Weg durch D1 bis D3 schon aufgefallen ist
+
+Nicht abgearbeitet, hier notiert, damit es nicht verlorengeht:
+
+- `gemma3:4b` nennt in der Beschreibung „32K Kontext". Das Modell meldet 131072.
+- `qwen3-coder:30b` nennt „~35 tok/s auf dem Orin". Gemessen sind 6,6 über zwei
+  Läufe. Eine Zahl in einer Beschreibung ist eine Behauptung, die niemand prüft.
+- `paligemma-3b-mix` trägt als `ollama_name` `paligemma:3b-mix-448-q4_0`. Die
+  Modellkarte dazu antwortet mit 404, der Eintrag ist vermutlich nicht ladbar.
+- Zwei Beschreibungen tragen einen Gedankenstrich als Trenner. Der Wächter
+  `gedankenstriche.py` durchsucht die SQL-Dateien nicht, sieht sie also nie,
+  obwohl der Kunde sie auf jeder Kachel liest.
+- Die beiden Platzhalter-Beschreibungen aus `importUnknownModels` („Auf diesem
+  Gerät installiert, 4B. Nicht von Arasul geprüft.") stehen im Katalog neben
+  gepflegten Texten.
 
 ## D6 Der Agentenpfad benutzt den Lebenszyklus
 

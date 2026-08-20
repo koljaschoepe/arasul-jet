@@ -251,7 +251,12 @@ function createModelService(deps = {}) {
                     i.downloaded_at,
                     i.error_message as install_error,
                     t.tokens_per_second as measured_tps,
-                    t.messungen as measured_runs
+                    t.messungen as measured_runs,
+                    -- Plan 023 D3: fuer die Anzeige in Megabyte, auch nach
+                    -- einem Neuladen der Seite. Der SSE-Strom ist dann weg,
+                    -- der Stand steht aber in der Zeile.
+                    i.bytes_completed,
+                    i.bytes_total
                 FROM llm_model_catalog c
                 LEFT JOIN llm_installed_models i ON c.id = i.id
                 LEFT JOIN LATERAL (
@@ -445,6 +450,66 @@ function createModelService(deps = {}) {
         /* nicht kritisch — Statusleiste fällt auf loadedModels zurück */
       }
 
+      // Plan 023 D3: der letzte Wechsel, den das System selbst ausgeloest hat.
+      // Bis dahin wurde jeder davon protokolliert und keiner angezeigt: am
+      // 20.08.2026 standen 1024 Zeilen in llm_model_switches, 877 davon
+      // automatische Entladungen. Wer sein Modell aus dem Speicher verschwinden
+      // sah, bekam dafuer keine Erklaerung.
+      //
+      // Nur die letzten zwei Stunden: aelter erklaert nichts mehr, was der
+      // Nutzer gerade sieht, und stuende dann als Raetsel dort.
+      let lastSwitch = null;
+      try {
+        // Nur ENTLADUNGEN. Das Laden erklaert sich von selbst: das Modell
+        // steht danach in der Leiste. Erklaerungsbeduerftig ist das Gegenteil,
+        // wenn es ohne Zutun verschwindet. Ein Entladen von Hand schreibt
+        // ohnehin keine Zeile (`deactivate` ruft `record_model_switch` nicht),
+        // jede Zeile mit `to_model = 'unloaded'` ist also eine automatische.
+        //
+        // Der Anzeigename kommt aus dem Katalog, genau wie bei den geladenen
+        // und dem installierten Modell darueber. `llm_model_switches` traegt
+        // die Kennung, und die Ableitung daraus ergaebe einen ANDEREN Namen:
+        // aus `gemma4:e4b-q4` wuerde "Gemma 4" statt "Gemma 4 Kompakt". Genau
+        // dieser Unterschied war der Fund aus D1, und er waere hier neu
+        // entstanden.
+        //
+        // Erst die eine Zeile suchen, dann den Namen dazuholen. Andersherum
+        // koennte der Verbund auffaechern: `ollama_name` traegt keinen
+        // Eindeutigkeitsschluessel, und die Zuordnung wurde in diesem Katalog
+        // schon mehrfach verschoben (Migrationen 027, 051, 126). Zwei
+        // passende Katalogzeilen, und `LIMIT 1` entschiede nach Laune der
+        // Datenbank, welcher Name erscheint. Heute gibt es keine
+        // Ueberschneidung, geprueft am 21.08.2026; die Abfrage soll aber nicht
+        // davon abhaengen, dass das so bleibt.
+        const wechsel = await database.query(
+          `WITH letzte AS (
+             SELECT from_model, reason, switched_at
+               FROM llm_model_switches
+              WHERE to_model = 'unloaded'
+                AND switched_at > NOW() - INTERVAL '2 hours'
+              ORDER BY switched_at DESC
+              LIMIT 1
+           )
+           SELECT l.from_model, l.reason, l.switched_at,
+                  (SELECT c.name FROM llm_model_catalog c
+                    WHERE c.id = l.from_model
+                       OR COALESCE(c.ollama_name, c.id) = l.from_model
+                    ORDER BY CASE WHEN c.id = l.from_model THEN 0 ELSE 1 END, c.id
+                    LIMIT 1) AS anzeige
+             FROM letzte l`
+        );
+        if (wechsel.rows.length > 0) {
+          const zeile = wechsel.rows[0];
+          lastSwitch = {
+            model: zeile.anzeige || zeile.from_model,
+            reason: zeile.reason,
+            at: zeile.switched_at,
+          };
+        }
+      } catch {
+        /* nicht kritisch - die Anzeige laesst die Zeile dann weg */
+      }
+
       return {
         totalBudgetMb,
         usedMb,
@@ -453,6 +518,7 @@ function createModelService(deps = {}) {
         loadedModels: enriched,
         installedModel,
         installedCount,
+        lastSwitch,
         canLoadMore: availableMb > 0,
       };
     }

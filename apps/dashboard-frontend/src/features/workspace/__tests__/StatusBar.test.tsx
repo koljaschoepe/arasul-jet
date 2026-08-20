@@ -179,14 +179,18 @@ describe('StatusBar', () => {
     expect(get).toHaveBeenCalledWith('/models/memory-budget', { showError: false });
   });
 
-  it('zeigt "kein Modell geladen" nur, wenn gar nichts installiert ist', async () => {
+  // Plan 023 D3: der Satz heisst jetzt "kein Modell installiert" und kommt aus
+  // `utils/modellZustand`, damit das Modellraster denselben zeigt. Bis dahin
+  // sagte das Raster "kein Modell geladen", waehrend hier gleichzeitig ein
+  // bereites Modell stand.
+  it('zeigt "kein Modell installiert" nur, wenn gar nichts installiert ist', async () => {
     mockApi();
     renderStatusBar();
 
-    expect(await screen.findByText('kein Modell geladen')).toBeInTheDocument();
+    expect(await screen.findByText('kein Modell installiert')).toBeInTheDocument();
   });
 
-  it('zeigt "<Modell> · bereit", wenn ein Modell installiert, aber nicht im RAM geladen ist (Plan 009)', async () => {
+  it('zeigt "<Modell>, bereit", wenn ein Modell installiert, aber nicht im RAM geladen ist (Plan 009)', async () => {
     mockApi({
       budget: {
         totalBudgetMb: 24_576,
@@ -201,8 +205,8 @@ describe('StatusBar', () => {
     });
     renderStatusBar();
 
-    expect(await screen.findByText('Llama 3 · bereit')).toBeInTheDocument();
-    expect(screen.queryByText('kein Modell geladen')).not.toBeInTheDocument();
+    expect(await screen.findByText('Llama 3, bereit')).toBeInTheDocument();
+    expect(screen.queryByText('kein Modell installiert')).not.toBeInTheDocument();
   });
 
   it('zeigt Modellname und KI-RAM-Belegung, wenn ein Modell geladen ist', async () => {
@@ -218,7 +222,7 @@ describe('StatusBar', () => {
     });
     renderStatusBar();
 
-    expect(await screen.findByText('Llama 3 · KI-RAM 8.0/24.0 GB')).toBeInTheDocument();
+    expect(await screen.findByText('Llama 3 · KI-RAM 8,0/24,0 GB')).toBeInTheDocument();
   });
 
   it('zählt weitere geladene Modelle mit +N', async () => {
@@ -237,7 +241,7 @@ describe('StatusBar', () => {
     });
     renderStatusBar();
 
-    expect(await screen.findByText('Llama 3 +1 · KI-RAM 12.0/24.0 GB')).toBeInTheDocument();
+    expect(await screen.findByText('Llama 3 +1 · KI-RAM 12,0/24,0 GB')).toBeInTheDocument();
   });
 
   it('öffnet das Verbindungs-Popover mit Backend-Status, Version und KI-RAM', async () => {

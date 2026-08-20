@@ -17,7 +17,7 @@ import {
 } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { useApi } from '../hooks/useApi';
-import type { CatalogModel } from '../types';
+import type { CatalogModel } from '../hooks/useStoreCatalog';
 import { modellAnzeigeName } from '../utils/modelDisplay';
 
 // --- Types ---
@@ -33,6 +33,14 @@ interface DownloadState {
   phase: DownloadPhase;
   error: string | null;
   modelName?: string;
+  /**
+   * Plan 023 D3: geladene und gesamte Bytes aus dem Pull-Strom von Ollama.
+   * Ein Prozentwert allein sagt nicht, ob die naechste Minute oder die
+   * naechste Stunde gemeint ist, und bei einem 16-GB-Modell ist das der
+   * Unterschied. `null`, solange Ollama noch am Manifest haengt.
+   */
+  bytesCompleted?: number | null;
+  bytesTotal?: number | null;
 }
 
 interface DownloadListItem extends DownloadState {
@@ -130,6 +138,10 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
               phase: 'download',
               error: null,
               modelName: modellAnzeigeName(m),
+              // Nach einem Neuladen der Seite ist der SSE-Strom weg, der Stand
+              // steht aber in der Zeile.
+              bytesCompleted: m.bytes_completed ?? null,
+              bytesTotal: m.bytes_total ?? null,
             };
           });
           setActiveDownloads(prev => ({ ...prev, ...newDownloads }));
@@ -358,6 +370,11 @@ export function DownloadProvider({ children }: DownloadProviderProps) {
 
                     if (data.progress !== undefined) {
                       update.progress = data.progress;
+                    }
+
+                    if (data.bytes_total) {
+                      update.bytesCompleted = data.bytes_completed ?? null;
+                      update.bytesTotal = data.bytes_total;
                     }
 
                     if (data.status) {

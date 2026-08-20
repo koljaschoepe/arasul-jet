@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/
 import { useApi } from '@/hooks/useApi';
 import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudget';
 import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
+import { modellage, wechselGrund, kiRamZeile, zuGb } from '@/utils/modellZustand';
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -25,11 +26,6 @@ import {
 interface HealthResponse {
   status?: string;
   version?: string;
-}
-
-/** MB → GB, kompakt auf eine Nachkommastelle. */
-function toGb(mb: number): string {
-  return (mb / 1024).toFixed(1);
 }
 
 /**
@@ -150,23 +146,21 @@ export function StatusBar() {
         : 'var(--warning)';
 
   const loadedModels = budget?.loadedModels ?? [];
-  const primaryModel = loadedModels[0] ?? null;
-  const hasModel = primaryModel !== null;
-  // Plan 009: installiertes Modell, das gerade NICHT im RAM liegt (Ollama
-  // entlädt Idle-Modelle). Verhindert das fälschliche „kein Modell geladen",
-  // obwohl ein Modell installiert ist.
+  const hasModel = loadedModels.length > 0;
   const installedModel = budget?.installedModel ?? null;
-  const extraModels = loadedModels.length > 1 ? ` +${loadedModels.length - 1}` : '';
-  // Plan 022 — der geladene/installierte Modellname kommt roh von Ollama
-  // (z. B. "hf.co/…"); einheitlich über das Namensregister säubern. Seit
-  // Plan 023 D1 nimmt es die Kennung direkt, ohne Zwischenschritt.
+  // Plan 023 D3: der Zustandssatz kommt aus `utils/modellZustand`, damit hier
+  // und im Modellraster dasselbe steht. Bis dahin sagte das Raster „kein Modell
+  // geladen", während hier gleichzeitig ein bereites Modell stand.
+  const lage = modellage(budget);
+  const grund = wechselGrund(budget?.lastSwitch?.reason);
+  // Der Name kommt aus dem Namensregister (D1), der Zustand aus der
+  // gemeinsamen Lage (D3). Angehängt wird hier nur, was hier hingehört: die
+  // KI-RAM-Zahl, für die im Raster ein Balken steht.
   const modelLabel = hasModel
-    ? `${modellAnzeigeName(primaryModel.name)}${extraModels} · KI-RAM ${toGb(
+    ? `${lage.name}${lage.weitere > 0 ? ` +${lage.weitere}` : ''} · KI-RAM ${zuGb(
         budget?.usedMb ?? 0
-      )}/${toGb(budget?.totalBudgetMb ?? 0)} GB`
-    : installedModel
-      ? `${modellAnzeigeName(installedModel.name)} · bereit`
-      : 'kein Modell geladen';
+      )}/${zuGb(budget?.totalBudgetMb ?? 0)} GB`
+    : lage.text;
 
   return (
     <footer
@@ -212,10 +206,7 @@ export function StatusBar() {
             {budget !== undefined && (
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted-foreground">KI-RAM</dt>
-                <dd className="text-foreground">
-                  {toGb(budget.usedMb ?? 0)} / {toGb(budget.totalBudgetMb ?? 0)} GB belegt · frei{' '}
-                  {toGb(budget.availableMb ?? 0)} GB
-                </dd>
+                <dd className="text-foreground">{kiRamZeile(budget)}</dd>
               </div>
             )}
             {loadedModels.length > 0 && (
@@ -223,7 +214,7 @@ export function StatusBar() {
                 <dt className="text-muted-foreground">Modelle im RAM</dt>
                 <dd className="text-right text-foreground">
                   {loadedModels
-                    .map(m => `${modellAnzeigeName(m.name)} (${toGb(m.ramMb)} GB)`)
+                    .map(m => `${modellAnzeigeName(m.name)} (${zuGb(m.ramMb)} GB)`)
                     .join(', ')}
                 </dd>
               </div>
@@ -300,6 +291,18 @@ export function StatusBar() {
                   );
                 })}
               </ul>
+            )}
+            {/* Plan 023 D3: warum das System zuletzt selbst etwas getan hat.
+                Bis dahin verschwand ein Modell aus dem Speicher, ohne dass
+                irgendwo stand, warum: 877 automatische Entladungen im
+                Protokoll, keine einzige davon sichtbar. */}
+            {grund && budget?.lastSwitch && (
+              <p
+                className="mt-1 border-t border-border px-2 pt-2 text-muted-foreground"
+                data-testid="statusbar-wechselgrund"
+              >
+                {modellAnzeigeName(budget.lastSwitch.model)} wurde {grund}.
+              </p>
             )}
             <p className="mt-1 border-t border-border px-2 pt-2 text-muted-foreground">
               Ausgewähltes Modell wird der Standard für neue Chats.

@@ -1395,18 +1395,19 @@ und 64 MB entpackt.
 
 ### Model Management
 
-| Method | Endpoint                     | Description                        |
-| ------ | ---------------------------- | ---------------------------------- |
-| GET    | `/api/models/catalog`        | List curated model catalog         |
-| GET    | `/api/models/installed`      | List installed models              |
-| GET    | `/api/models/status`         | Current loaded model + queue stats |
-| GET    | `/api/models/loaded`         | Get currently loaded model         |
-| GET    | `/api/models/default`        | Get default model                  |
-| POST   | `/api/models/default`        | Set default model                  |
-| POST   | `/api/models/download`       | Download model (SSE progress)      |
-| DELETE | `/api/models/:id`            | Delete installed model             |
-| POST   | `/api/models/:id/activate`   | Load model into RAM                |
-| POST   | `/api/models/:id/deactivate` | Unload model from RAM              |
+| Method | Endpoint                     | Description                                    |
+| ------ | ---------------------------- | ---------------------------------------------- |
+| GET    | `/api/models/catalog`        | List curated model catalog                     |
+| GET    | `/api/models/installed`      | List installed models                          |
+| GET    | `/api/models/status`         | Current loaded model + queue stats             |
+| GET    | `/api/models/memory-budget`  | KI-RAM-Lage, geladene Modelle, letzter Wechsel |
+| GET    | `/api/models/loaded`         | Get currently loaded model                     |
+| GET    | `/api/models/default`        | Get default model                              |
+| POST   | `/api/models/default`        | Set default model                              |
+| POST   | `/api/models/download`       | Download model (SSE progress)                  |
+| DELETE | `/api/models/:id`            | Delete installed model                         |
+| POST   | `/api/models/:id/activate`   | Load model into RAM                            |
+| POST   | `/api/models/:id/deactivate` | Unload model from RAM                          |
 
 **GET /api/models/catalog:**
 
@@ -1461,6 +1462,36 @@ so ausliefert.
 }
 ```
 
+**GET /api/models/memory-budget:**
+
+```json
+{
+  "totalBudgetMb": 32768,
+  "usedMb": 15872,
+  "availableMb": 14848,
+  "safetyBufferMb": 2048,
+  "loadedModels": [
+    { "id": "gemma4:e4b-q4", "ollamaName": "gemma4:e4b", "name": "Gemma 4 Kompakt", "ramMb": 15872 }
+  ],
+  "installedModel": { "id": "gemma4:e4b-q4", "name": "Gemma 4 Kompakt" },
+  "installedCount": 11,
+  "lastSwitch": {
+    "model": "Gemma 4 Kompakt",
+    "reason": "auto_unload_adaptive_idle",
+    "at": "2026-08-21T00:00:00Z"
+  },
+  "canLoadMore": true
+}
+```
+
+`lastSwitch` kommt aus Plan 023 D3 und nennt die letzte **automatische
+Entladung** der vergangenen zwei Stunden aus `llm_model_switches`; älter erklärt
+nichts mehr, was gerade zu sehen ist. Bewusst nur Entladungen: das Laden erklärt
+sich von selbst, das Modell steht danach in der Leiste. `model` ist der Anzeigename aus dem Katalog, nicht die Kennung: die
+Ableitung aus `gemma4:e4b-q4` ergäbe „Gemma 4" statt „Gemma 4 Kompakt", und das
+wäre derselbe Namensbruch, den D1 beseitigt hat. `reason` bleibt die rohe
+Kennung; übersetzt wird sie im Frontend (`utils/modellZustand.ts`).
+
 **POST /api/models/download:**
 
 ```json
@@ -1474,12 +1505,22 @@ so ausliefert.
 > `download` für ein OCR-Modell wird mit `400 VALIDATION_ERROR` abgelehnt, und
 > das Modell-Raster im Store blendet OCR-Einträge aus.
 
-Response: SSE stream with progress events:
+Response: SSE stream with progress events.
+
+Die Form unten stand bis zum 21.08.2026 falsch hier: dokumentiert waren
+`type`, `percent`, `downloaded_gb` und `total_gb`, gesendet werden andere
+Felder. Nachgetragen aus `routes/ai/models.js`.
 
 ```
-data: {"type": "progress", "percent": 45, "downloaded_gb": 3.6, "total_gb": 8.0}
-data: {"type": "done", "model_id": "qwen3:7b-q8"}
+data: {"status": "starting", "model_id": "qwen3:7b-q8", "progress": 0}
+data: {"progress": 45, "status": "pulling …", "model_id": "qwen3:7b-q8", "bytes_completed": 3600000000, "bytes_total": 8000000000}
+data: {"done": true, "success": true, "model_id": "qwen3:7b-q8"}
 ```
+
+`bytes_completed` und `bytes_total` kommen aus Plan 023 D3 und stehen erst da,
+sobald Ollama das Manifest aufgelöst hat und Daten fließen; davor sind sie
+`null`. Sie werden zusätzlich in `llm_installed_models` geschrieben, damit der
+Stand ein Neuladen der Seite überlebt.
 
 **POST /api/models/:id/activate:**
 Loads model into RAM. Only one model can be loaded at a time.

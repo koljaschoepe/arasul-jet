@@ -26,8 +26,24 @@ const {
 const logger = require('../../src/utils/logger');
 
 describe('lizenzBezeichnung', () => {
-  test('nimmt das Kuerzel, wenn Ollama eines liefert', () => {
-    expect(lizenzBezeichnung('apache-2.0', 'irgendein langer Text')).toBe('apache-2.0');
+  /**
+   * Der Text hat Vorrang vor dem Kuerzel. Bis zum 21.08.2026 war es
+   * umgekehrt, und auf dem Orin hiess dieselbe Lizenz dadurch an sieben
+   * Modellen "Apache License 2.0" und an dreien "apache-2.0".
+   */
+  test('nimmt den Text, auch wenn ein Kuerzel danebensteht', () => {
+    expect(
+      lizenzBezeichnung('apache-2.0', 'Apache License\n   Version 2.0, January 2004\n')
+    ).toBe('Apache License 2.0');
+  });
+
+  test('normalisiert ein Kuerzel, wenn es keinen Text gibt', () => {
+    // Genau der Fall von hf.co/unsloth/Qwen3.8-27B-GGUF auf dem Orin.
+    expect(lizenzBezeichnung('apache-2.0', null)).toBe('Apache License 2.0');
+  });
+
+  test('laesst ein unbekanntes Kuerzel stehen, statt es zu erfinden', () => {
+    expect(lizenzBezeichnung('irgendwas-1.0', null)).toBe('irgendwas-1.0');
   });
 
   test('faellt auf die erste Zeile des Lizenztextes zurueck', () => {
@@ -79,7 +95,7 @@ describe('leseSteckbrief', () => {
     await expect(leseSteckbrief('qwen3:8b')).resolves.toEqual({
       parameterLabel: '8.2B',
       quantization: 'Q4_K_M',
-      license: 'apache-2.0',
+      license: 'Apache License 2.0',
       contextLength: 40960,
     });
   });

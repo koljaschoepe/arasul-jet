@@ -22,32 +22,53 @@ const LLM_SERVICE_URL = services.llm.url;
 const ZEITGRENZE_MS = 10000;
 
 /**
- * Aus einem Lizenztext eine kurze Bezeichnung machen.
+ * Kuerzel, die Ollama als `general.license` liefert, in die Bezeichnung, die
+ * im Lizenztext derselben Modelle steht.
+ *
+ * Die Zuordnung ist nicht ausgedacht, sie ist an denselben Modellen abgelesen:
+ * `qwen3:8b` und `qwen3-coder:30b` liefern BEIDES, das Kuerzel `apache-2.0`
+ * und einen Text, dessen erste Zeilen "Apache License" und "Version 2.0"
+ * lauten. Wer nur das Kuerzel hat (`hf.co/unsloth/Qwen3.8-27B-GGUF`, am
+ * 21.08.2026 geprueft), soll deshalb dieselbe Bezeichnung bekommen.
+ *
+ * Ein unbekanntes Kuerzel bleibt, wie es ist. Lieber eine ungewohnte
+ * Schreibweise als eine erfundene.
+ */
+const KUERZEL = {
+  'apache-2.0': 'Apache License 2.0',
+  mit: 'MIT License',
+};
+
+/**
+ * Aus den Lizenzangaben eines Modells eine Bezeichnung machen.
  *
  * Ollama liefert zweierlei: `model_info['general.license']` als Kuerzel
- * ("apache-2.0"), aber nur bei einem Teil der Modelle, und `license` als
- * vollen Text. Aus dem Text traegt die erste nicht-leere Zeile die
- * Bezeichnung ("Apache License", "Gemma Terms of Use"). Bei Apache steht die
- * Version in der zweiten Zeile, deshalb wird sie angehaengt.
+ * ("apache-2.0") und `license` als vollen Text. **Der Text hat Vorrang**, und
+ * das ist der Punkt: er ist das Dokument selbst, und seine erste Zeile traegt
+ * die Bezeichnung ("Apache License", "Gemma Terms of Use"). Bei Apache steht
+ * die Version in der zweiten Zeile und wird angehaengt.
+ *
+ * Bis zum 21.08.2026 hatte das Kuerzel Vorrang. Auf dem Orin fuehrte das dazu,
+ * dass dieselbe Lizenz an sieben Modellen "Apache License 2.0" hiess und an
+ * dreien "apache-2.0". Derselbe Fehler wie in D1, nur im Lizenzfeld.
  */
 function lizenzBezeichnung(kuerzel, text) {
+  if (typeof text === 'string' && text.trim()) {
+    const zeilen = text
+      .split('\n')
+      .map(z => z.trim())
+      .filter(Boolean);
+    if (zeilen.length > 0) {
+      const erste = zeilen[0];
+      const version = /^Version\s+([\d.]+)/i.exec(zeilen[1] || '');
+      return (version ? `${erste} ${version[1]}` : erste).slice(0, 120);
+    }
+  }
   if (kuerzel && typeof kuerzel === 'string') {
-    return kuerzel.trim().slice(0, 120);
+    const roh = kuerzel.trim();
+    return (KUERZEL[roh.toLowerCase()] || roh).slice(0, 120);
   }
-  if (!text || typeof text !== 'string') {
-    return null;
-  }
-  const zeilen = text
-    .split('\n')
-    .map(z => z.trim())
-    .filter(Boolean);
-  if (zeilen.length === 0) {
-    return null;
-  }
-  const erste = zeilen[0];
-  const version = /^Version\s+([\d.]+)/i.exec(zeilen[1] || '');
-  const name = version ? `${erste} ${version[1]}` : erste;
-  return name.slice(0, 120);
+  return null;
 }
 
 /** Die Kontextlaenge steht je nach Architektur unter einem anderen Schluessel. */
