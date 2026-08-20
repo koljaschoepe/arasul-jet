@@ -74,9 +74,27 @@ describe('modellage (Plan 023 D3)', () => {
   });
 });
 
-describe('kiRamZeile', () => {
-  it('schreibt deutsch, mit Komma', () => {
-    expect(kiRamZeile(budget({ usedMb: 15872 }))).toBe('15,5 / 32,0 GB belegt · frei 30,0 GB');
+describe('kiRamZeile (Plan 023 D4)', () => {
+  /**
+   * Bis zum 21.08.2026 stand da "0.0 / 32.0 GB belegt · frei 30.0 GB", und
+   * die Rechnung ging nicht auf. Falsch gerechnet war sie trotzdem nicht:
+   * das Backend zieht MODEL_MEMORY_SAFETY_BUFFER_MB vom freien Speicher ab,
+   * und dieser Posten stand nirgends.
+   */
+  it('nennt die Reserve, damit die Zeile aufgeht', () => {
+    expect(kiRamZeile(budget())).toBe('0,0 von 32,0 GB belegt, 2,0 GB Reserve, frei 30,0 GB');
+  });
+
+  it('belegt plus Reserve plus frei ergibt den Gesamtwert', () => {
+    const b = budget({ usedMb: 15872, availableMb: 32768 - 15872 - 2048 });
+    expect(kiRamZeile(b)).toBe('15,5 von 32,0 GB belegt, 2,0 GB Reserve, frei 14,5 GB');
+    expect(15872 + 2048 + (32768 - 15872 - 2048)).toBe(32768);
+  });
+
+  it('ohne Reserve entfaellt der Posten, statt 0,0 GB zu schreiben', () => {
+    expect(kiRamZeile(budget({ safetyBufferMb: 0, availableMb: 32768 }))).toBe(
+      '0,0 von 32,0 GB belegt, frei 32,0 GB'
+    );
   });
 
   it('ohne Budget bleibt sie leer statt NaN zu zeigen', () => {

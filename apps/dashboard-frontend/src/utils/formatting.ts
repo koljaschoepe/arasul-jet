@@ -21,27 +21,74 @@ export const formatDate = (dateString: string | null | undefined): string => {
 };
 
 /**
- * Format model size in bytes to GB/MB (e.g., "3.5 GB", "512 MB")
- * @param bytes - Model size in bytes
- * @returns Formatted size or 'N/A'
+ * Eine Bytezahl in die Groesse, die daneben geschrieben steht (Plan 023 D4).
+ *
+ * Am 21.08.2026 auf dem Geraet gemessen, alles auf einer Kachel: in der
+ * Kopfzeile stand `261 MB`, im Text derselben Kachel `~274 MB`, auf der
+ * Detailseite noch einmal `261 MB`. Der Katalogwert ist 274000000 Bytes, und
+ * das sind 274 MB. Die 261 entstanden, weil hier durch 1024³ geteilt und
+ * trotzdem "MB" darueber geschrieben wurde: das ist MiB mit falschem Etikett.
+ *
+ * Gerechnet wird jetzt in Tausenderschritten, weil die Quelle es so meint.
+ * `size_bytes` kommt aus dem Katalog, und der beschreibt dasselbe Modell im
+ * Fliesstext als "~274 MB". Ollama meldet im Pull-Strom ebenfalls Bytes, und
+ * Modellanbieter geben ihre Groessen in Tausenderschritten an. Wer 1024er
+ * rechnen will, muss auch GiB darueber schreiben, und das liest kein Kunde.
+ *
+ * Der Arbeitsspeicher folgt einer anderen Regel und hat deshalb eine eigene
+ * Funktion (`zuGb` in `utils/modellZustand.ts`): `RAM_LIMIT_LLM=32G` ist fuer
+ * Docker 32 GiB, und die Hardware wird ueberall als "32 GB" verkauft.
  */
-export const formatModelSize = (bytes: number | null | undefined): string => {
-  if (!bytes) return 'N/A';
-  const gb = bytes / (1024 * 1024 * 1024);
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(gb * 1024).toFixed(0)} MB`;
+export const formatBytes = (bytes: number | null | undefined): string => {
+  // Null ist eine bekannte Groesse, keine unbekannte: am Anfang eines
+  // Downloads ist noch nichts geladen, und "N/A von 16,4 GB" waere Unsinn.
+  if (bytes === null || bytes === undefined) return 'N/A';
+  if (bytes === 0) return '0 KB';
+  // Unter einem Kilobyte in Bytes: "0 KB" sagt fuer eine Datei mit zwoelf
+  // Zeichen nichts, "12 B" schon.
+  if (bytes < 1_000) return `${bytes} B`;
+  if (bytes >= 1_000_000_000) {
+    return `${(bytes / 1_000_000_000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`;
+  }
+  if (bytes >= 1_000_000) {
+    return `${(bytes / 1_000_000).toLocaleString('de-DE', { maximumFractionDigits: 0 })} MB`;
+  }
+  return `${(bytes / 1_000).toLocaleString('de-DE', { maximumFractionDigits: 0 })} KB`;
 };
 
 /**
- * Format bytes to human-readable file size
- * @param bytes - File size in bytes
- * @returns Formatted file size (e.g., "1.5 MB")
+ * Dieselbe Bytezahl, aber in 1024er-Schritten (Plan 023 D4).
+ *
+ * Es gibt genau zwei Zaehlweisen im Produkt, und welche gilt, haengt daran,
+ * womit der Kunde die Zahl vergleicht:
+ *
+ * - `formatBytes`, Tausenderschritte: alles, was jemand anderes ausgedruckt
+ *   hat. Modellgroessen aus dem Katalog, Downloads, Aktualisierungsdateien.
+ *   Der Anbieter schreibt "274 MB" auf seine Seite, also steht das auch hier.
+ * - `formatBytesBinaer`, 1024er-Schritte: alles, was das Betriebssystem sagt.
+ *   `df -h` nennt die Platte dieses Geraets "1,8T", nicht "2,0T", und wer im
+ *   Terminal nachsieht, soll dieselbe Zahl finden. Dasselbe gilt fuer
+ *   Docker-Grenzwerte: `RAM_LIMIT_LLM=32G` sind 32 GiB.
+ *
+ * Zwei Zaehlweisen sind eine mehr als der Plan verlangt. Eine waere aber
+ * falsch: mit Tausenderschritten hiesse dieselbe Platte 2,0 TB und derselbe
+ * Grenzwert 34,4 GB, und beides widerspraeche dem, was danebensteht.
+ *
+ * Fuer den KI-RAM gibt es `zuGb` in `utils/modellZustand.ts`, weil das Budget
+ * schon in Megabyte hereinkommt und die Zahl dort ohne Einheit gebraucht wird.
  */
-export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+export const formatBytesBinaer = (bytes: number | null | undefined): string => {
+  if (bytes === null || bytes === undefined) return 'N/A';
+  if (bytes < 1024) return `${bytes} B`;
+  const gib = 1024 ** 3;
+  const mib = 1024 ** 2;
+  if (bytes >= gib) {
+    return `${(bytes / gib).toLocaleString('de-DE', { maximumFractionDigits: 1 })} GB`;
+  }
+  if (bytes >= mib) {
+    return `${(bytes / mib).toLocaleString('de-DE', { maximumFractionDigits: 0 })} MB`;
+  }
+  return `${(bytes / 1024).toLocaleString('de-DE', { maximumFractionDigits: 0 })} KB`;
 };
 
 /**

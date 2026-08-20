@@ -127,7 +127,11 @@ describe('StoreModelsGrid', () => {
     // die Karten-Assertion daher auf die Karte scopen.
     const card = screen.getByTestId('model-card-qwen3-7b');
     expect(within(card).getByText('Qwen3 7B')).toBeInTheDocument();
-    expect(within(card).getByText('4.7 GB')).toBeInTheDocument();
+    // Plan 023 D4: 5000000000 Bytes sind 5 GB. Bis zum 21.08.2026 stand hier
+    // 4.7, weil durch 1024³ geteilt und trotzdem "GB" darueber geschrieben
+    // wurde. Auf derselben Kachel nannte der Beschreibungstext die richtige
+    // Zahl, weil er von Hand geschrieben ist.
+    expect(within(card).getByText('5 GB')).toBeInTheDocument();
     expect(within(card).getByText('Installiert')).toBeInTheDocument();
   });
 

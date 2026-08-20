@@ -106,6 +106,31 @@ mkdir -p "$TMP/mod/apps/dashboard-frontend/src/utils"
 printf 'export interface ModellAnzeige { id: string }\nexport const f = (m) => m.name;\n' > "$TMP/mod/apps/dashboard-frontend/src/utils/modelDisplay.ts"
 pruefe "Namensregister: das Register selbst bleibt ausgenommen" 0 python3 "$WURZEL/scripts/test/modellnamen.py" --pfad "$TMP/mod"
 
+# --- einheiten.py -----------------------------------------------------------
+EIN="$TMP/ein/apps/dashboard-frontend/src/features/beispiel"
+mkdir -p "$EIN"
+
+echo 'export const A = () => <span>{formatBytes(x)}</span>;' > "$EIN/Sauber.tsx"
+pruefe "Einheiten: ueber die gemeinsame Funktion ist gruen" 0 python3 "$WURZEL/scripts/test/einheiten.py" --pfad "$TMP/ein"
+
+printf 'const s = `${(b / 1024 / 1024).toFixed(1)} MB`;\n' > "$EIN/Eigen.tsx"
+pruefe "Einheiten: eigene 1024er-Rechnung mit Etikett ist rot" 1 python3 "$WURZEL/scripts/test/einheiten.py" --pfad "$TMP/ein"
+rm "$EIN/Eigen.tsx"
+
+printf 'const s = `${(b / 1_000_000).toFixed(0)} MB`;\n' > "$EIN/Eigen.ts"
+pruefe "Einheiten: eigene Tausender-Rechnung mit Etikett ist rot" 1 python3 "$WURZEL/scripts/test/einheiten.py" --pfad "$TMP/ein"
+rm "$EIN/Eigen.ts"
+
+# Eine Grenze ohne Beschriftung ist keine Anzeige.
+printf 'const MAX_FILE_SIZE = 50 * 1024 * 1024;\n' > "$EIN/Grenze.ts"
+pruefe "Einheiten: eine Grenze ohne Etikett bleibt still" 0 python3 "$WURZEL/scripts/test/einheiten.py" --pfad "$TMP/ein"
+rm "$EIN/Grenze.ts"
+
+# Die beiden Quellen selbst duerfen rechnen.
+mkdir -p "$TMP/ein/apps/dashboard-frontend/src/utils"
+printf 'export const f = (b) => `${(b / 1024).toFixed(0)} KB`;\n' > "$TMP/ein/apps/dashboard-frontend/src/utils/formatting.ts"
+pruefe "Einheiten: die Quelle selbst bleibt ausgenommen" 0 python3 "$WURZEL/scripts/test/einheiten.py" --pfad "$TMP/ein"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else

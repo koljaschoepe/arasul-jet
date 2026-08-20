@@ -64,6 +64,7 @@ import { Input } from '@/components/ui/shadcn/input';
 import { cn } from '@/lib/utils';
 import { PLATFORM_NAME } from '@/config/branding';
 import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
+import { formatBytes } from '@/utils/formatting';
 
 interface SetupWizardProps {
   onComplete: () => void;
@@ -136,10 +137,15 @@ const EMPFEHLUNG_FALLBACK = 'gemma4:e4b-q4';
  * aus dem Namensregister an allen drei Stellen.
  */
 
+/**
+ * Plan 023 D4: die Groesse kommt aus dem Katalog, also aus derselben Quelle
+ * wie im Store, und wird genauso geschrieben. Vorher rechnete diese Datei in
+ * 1024er-Schritten und schrieb trotzdem GB darueber; dasselbe Modell hiess
+ * hier anders als zwei Bildschirme weiter.
+ */
 function groesse(bytes: number | null | undefined): string {
   if (!bytes) return '';
-  const gb = bytes / 1024 ** 3;
-  return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(gb * 1024).toFixed(0)} MB`;
+  return formatBytes(bytes);
 }
 
 /**

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import { formatBytesBinaer } from '@/utils/formatting';
 import { Button } from '@/components/ui/shadcn/button';
 import { Chart, Sparkline } from '@/components/ui/Chart';
 import { Section, SectionList } from '@/components/ui/Section';
@@ -192,10 +193,6 @@ function SystemStatusView({
     return 'var(--primary-color)';
   };
 
-  const formatBytes = (bytes: number): string => {
-    return (bytes / 1024 / 1024 / 1024).toFixed(0);
-  };
-
   const totalDisk = (metrics?.disk?.used || 0) + (metrics?.disk?.free || 0);
   const usedDisk = metrics?.disk?.used || 0;
 
@@ -257,7 +254,10 @@ function SystemStatusView({
                   }}
                 />
               </div>
-              {formatBytes(usedDisk)} / {formatBytes(totalDisk)} GB
+              {/* Plan 023 D4: binaer, weil `df -h` auf diesem Geraet "1,8T"
+                  sagt und nicht "2,0T". Wer im Terminal nachsieht, soll
+                  dieselbe Zahl finden. */}
+              {formatBytesBinaer(usedDisk)} von {formatBytesBinaer(totalDisk)}
             </>
           }
         />
