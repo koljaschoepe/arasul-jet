@@ -16,7 +16,7 @@ import {
 } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { getCsrfToken } from '../utils/csrf';
-import { getTokenExpiration } from '../utils/token';
+import { getTokenExpiration, getValidToken } from '../utils/token';
 import { queryClient } from '../lib/queryClient';
 
 interface User {
@@ -60,6 +60,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // P2.1.4: AbortController so that StrictMode double-invokes and rapid
   // logout-during-checkAuth do not race.
   const checkAuth = useCallback(async (signal?: AbortSignal) => {
+    // F-02: Ohne Sitzungsmerkmal gar nicht erst fragen. Vor der Anmeldung
+    // beantwortet der Server /auth/me mit 401, und der Browser schreibt dafuer
+    // von sich aus eine Fehlerzeile in die Konsole, die kein try/catch abfaengt.
+    // Der Bearer-Token im localStorage und das httpOnly-Cookie arasul_session
+    // entstehen zusammen (routes/auth.js Zeile 126 und 199) und laufen zusammen
+    // ab, deshalb ist der Token hier ein zulaessiger Stellvertreter fuer beide.
+    // getValidToken raeumt abgelaufene Token gleich weg.
+    if (!getValidToken()) {
+      localStorage.removeItem('arasul_user');
+      setIsAuthenticated(false);
+      setUser(null);
+      setLoading(false);
+      return false;
+    }
     try {
       // useApi-exception: AuthContext is the auth *primitive* useApi builds on
       // (useApi calls useAuth().logout). Routing these calls through useApi

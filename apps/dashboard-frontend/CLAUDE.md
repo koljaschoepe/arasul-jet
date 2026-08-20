@@ -109,8 +109,9 @@ src/
                    eigener Inhaltsflaeche), StatTile/StatGrid (Kennzahl, festes
                    1/2/4-Raster), Chart/Sparkline (nur Blau nach Grau, ohne
                    Karte), Section (Feldgruppe), EmptyState (leere Liste mit
-                   Einstieg). Eine neue Seite baut auf diesen sechs auf, statt
-                   die Klassenkette erneut zu schreiben; Festlegungen in
+                   Einstieg) und AuthCard (Rahmen der beiden Seiten vor der
+                   Anmeldung, C3). Eine neue Seite baut auf diesen sieben auf,
+                   statt die Klassenkette erneut zu schreiben; Festlegungen in
                    `docs/development/DESIGN_SYSTEM.md`, Abschnitt
                    „Das gemeinsame Baustein-Set".
       shadcn/      shadcn/ui primitives (button, input, …) — generated.

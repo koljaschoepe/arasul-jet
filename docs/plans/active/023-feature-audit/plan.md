@@ -13,7 +13,7 @@
 | A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät |
 | S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                         |
 | B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 18 von 18                           |
-| C, Fundament                          | C1 und C2 fertig 20.08.2026            | #427 live auf `c7df62c`, #428. `scripts/test/bausteine.py` hält das Raster. C3 bis C6 offen          |
+| C, Fundament                          | C1 bis C3 fertig 20.08.2026            | #427 live auf `c7df62c`, #428, #429. `scripts/test/bausteine.py` hält das Raster. C4 bis C6 offen    |
 | D bis K                               | offen                                  |                                                                                                      |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
@@ -475,6 +475,48 @@ Anmeldung keinen Fehler mehr in die Konsole.
 
 **Abnahme:** Keine Nennung eines Benutzernamens auf der Seite. Konsole beim
 Laden leer. Behebt F-01, F-02.
+
+**Erledigt am 20.08.2026** (#429).
+
+Vorher gemessen, nicht vermutet: ein Aufruf der Anmeldeseite auf dem Gerät
+schrieb genau eine Zeile in die Konsole, `Failed to load resource: 401` für
+`/api/auth/me`. Die schreibt der Browser selbst, kein `try/catch` im Code
+fängt sie ab. Der einzige Weg dahin, dass sie ausbleibt, ist, nicht zu fragen,
+solange es nichts zu fragen gibt: `checkAuth` bricht jetzt ab, wenn
+`getValidToken()` nichts hergibt. Zulässig ist das, weil Bearer-Token und das
+`httpOnly`-Cookie `arasul_session` in beiden Anmeldewegen zusammen entstehen
+(`routes/auth.js` Zeile 126 und 199) und zusammen nach vier Stunden ablaufen.
+
+**Dabei kam ein stiller Fehler in den Testfixtures heraus.** `App.test.tsx`
+legte `arasul_token = 'valid-token'` ab. Diese Zeichenkette hat `getValidToken`
+noch nie bestanden, sie wurde also schon vorher aus dem `Authorization`-Header
+geworfen; die Tests liefen unbemerkt über den Cookie-Weg. Jetzt steht dort ein
+Token in der Form, die der Server ausstellt.
+
+F-01 saß an drei Stellen, nicht an einer: in der Fußzeile der Anmeldung, als
+Platzhalter `admin` im Benutzernamenfeld und als Vorschlag `z. B. admin` beim
+Anlegen des ersten Kontos. Die beiden Tests, die den Hinweis vorher
+festgeschrieben haben, sind zu Wächtern umgedreht.
+
+Beide Seiten stehen jetzt auf einem gemeinsamen Baustein `AuthCard`; ihr `h1`
+liegt damit in `components/ui`, und die zwei Ausnahmen, die sie in
+`scripts/test/bausteine.py` hatten, sind ersatzlos weg.
+
+Gemessen, statt behauptet, bei drei Breiten (Karte in Pixeln):
+
+| Breite | vorher  | nachher | Fläche |
+| ------ | ------- | ------- | ------ |
+| 1440   | 433x725 | 363x503 | -42 %  |
+| 1024   | 446x749 | 374x518 | -42 %  |
+| 390    | 365x657 | 365x514 | -22 %  |
+
+Bei 390 Pixeln begrenzt das Fenster die Breite, deshalb schrumpft dort nur die
+Höhe. Kein Querlauf bei keiner der drei Breiten. Konsole bei einem vollen
+Seitenaufruf gegen ein antwortendes Backend: leer.
+
+**F-20 in `CreateAdmin` nachgezogen:** „Legen Sie Ihr Administrator-Konto an"
+ist zur Du-Form geworden, und aus „dieser Box" ist „dieses Geräts" geworden.
+Offen bleibt der `SetupWizard` (C4).
 
 ## C4 Erst-Start neu
 

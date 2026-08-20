@@ -64,10 +64,6 @@ AUSNAHMEN = {
     # Der Erst-Start ist eine eigene Flaeche ohne Einstellungsrahmen und wird
     # in Plan 023 C4 neu gebaut. Bis dahin bleibt er, wie er ist.
     'src/features/system/SetupWizard.tsx': 'Plan 023 C4 baut ihn neu',
-    # Die Anmeldung ist die einzige Seite ohne Rahmen darum und traegt ihren
-    # Titel selbst. Plan 023 C3 fasst sie an.
-    'src/features/system/Login.tsx': 'Plan 023 C3 fasst sie an',
-    'src/features/system/CreateAdmin.tsx': 'gehoert zur Anmeldung, Plan 023 C3',
     # Die Detailseite im Store traegt eine feste Kopfleiste mit Zurueck-Knopf,
     # Symbol und Abzeichen. Das ist eine andere Form als der Seitenkopf einer
     # Einstellungsseite, und PageHeader dafuer aufzubohren hiesse, einen

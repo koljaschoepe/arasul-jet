@@ -44,6 +44,19 @@ interface MockUser {
   role?: string;
 }
 
+// Ein Token, wie ihn der Server ausstellt: drei Teile, base64url-Nutzlast, Ablauf
+// in der Zukunft. Seit Plan 023 C3 fragt AuthContext /auth/me nur noch, wenn
+// `getValidToken()` etwas hergibt (F-02), und die alte Attrappe 'valid-token'
+// hat diese Pruefung nie bestanden — sie wurde schon vorher aus dem
+// Authorization-Header geworfen, nur ist es niemandem aufgefallen.
+const gueltigerToken = (): string => {
+  const nutzlast = btoa(JSON.stringify({ sub: 1, exp: Math.floor(Date.now() / 1000) + 3600 }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `kopf.${nutzlast}.unterschrift`;
+};
+
 // Minimal Response stand-in for fetch mocks (AuthContext only reads ok/status/json).
 const fetchResponse = (body: unknown, init: { ok?: boolean; status?: number } = {}): Response =>
   ({
@@ -187,7 +200,7 @@ describe('App Component', () => {
     const mockUser = { id: 1, username: 'admin', role: 'admin' };
 
     beforeEach(() => {
-      localStorage.setItem('arasul_token', 'valid-token');
+      localStorage.setItem('arasul_token', gueltigerToken());
       localStorage.setItem('arasul_user', JSON.stringify(mockUser));
       global.fetch = vi.fn(createFetchMock(mockUser));
       mockApi.get.mockImplementation(createApiMock(mockUser));
@@ -232,7 +245,7 @@ describe('App Component', () => {
 
     test('App bleibt stabil, wenn Datenendpunkte fehlschlagen', async () => {
       const mockUser = { id: 1, username: 'admin' };
-      localStorage.setItem('arasul_token', 'valid-token');
+      localStorage.setItem('arasul_token', gueltigerToken());
       localStorage.setItem('arasul_user', JSON.stringify(mockUser));
 
       // Auth succeeds via fetch
@@ -265,7 +278,7 @@ describe('App Routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    localStorage.setItem('arasul_token', 'valid-token');
+    localStorage.setItem('arasul_token', gueltigerToken());
     localStorage.setItem('arasul_user', JSON.stringify(mockUser));
     global.fetch = vi.fn(createFetchMock(mockUser));
     mockApi.get.mockImplementation(createApiMock(mockUser));

@@ -43,11 +43,20 @@ describe('Login Component', () => {
       expect(screen.getByRole('button', { name: /anmelden/i })).toBeInTheDocument();
     });
 
-    test('zeigt Hilfetext für Standard-Credentials', () => {
+    // F-01: Weder als Fusszeile noch als Platzhalter. Der frueheste Bildschirm
+    // des Produkts nannte den Standardnamen im Klartext.
+    test('nennt keinen Benutzernamen, auch nicht als Platzhalter', () => {
+      const { container } = render(<Login onLoginSuccess={mockOnLoginSuccess} />);
+
+      expect(screen.queryByText(/standard-benutzername/i)).not.toBeInTheDocument();
+      expect(container.innerHTML).not.toMatch(/\badmin\b/i);
+      expect(screen.getByLabelText(/benutzername/i)).not.toHaveAttribute('placeholder');
+    });
+
+    test('bietet weiter einen Weg bei vergessenem Passwort', () => {
       render(<Login onLoginSuccess={mockOnLoginSuccess} />);
 
-      expect(screen.getByText(/standard-benutzername/i)).toBeInTheDocument();
-      expect(screen.getByText('admin')).toBeInTheDocument();
+      expect(screen.getByText(/passwort vergessen/i)).toBeInTheDocument();
     });
 
     test('Username-Feld hat Autofocus', () => {
