@@ -1504,6 +1504,49 @@ Die Abnahme von D5 („Ein Foto und eine PDF werden im Chat mit aktivem
 Coding-Modell korrekt ausgelesen") ist damit heute nicht erfüllbar: für das Foto
 gibt es nur ein einziges Ausweichmodell, und das ist oft selbst das Chatmodell.
 
+### Wo der Standard je Aufgabe heute wirklich steht
+
+Nicht im Katalog. `utils/hardware.js` trägt eine fest verdrahtete Karte von
+Gerätetyp auf Modell, mit den Rollen `model`, `fast_model`, `vision_model` und
+`embedding_model`. Das ist genau die Struktur, die D5 verlangt, nur an der
+falschen Stelle und ohne Abgleich mit dem Katalog. Gemessen:
+
+**Acht von siebzehn Kennungen in dieser Karte gibt es im Katalog nicht:**
+`bge-m3`, `gemma:2b`, `mistral:7b`, `phi3:mini`, `qwen3:32b-q8`, `qwen3:8b-q8`,
+`qwen:0.5b`, `tinyllama:1.1b`.
+
+Für ein Xavier NX oder einen Orin Nano empfiehlt die Karte damit `phi3:mini`,
+ein Modell, das im Katalog nicht steht und also nicht geladen werden kann. Auf
+einem 64-GB-Orin ist das empfohlene Einbettungsmodell `bge-m3`, ebenfalls nicht
+im Katalog.
+
+Bei `bge-m3` ist das kein Fehler, sondern eine Folge: Plan 021 Schritt 8 hat das
+klassische Vektor-RAG durch agentisches ersetzt, `qdrant` und
+`embedding-service` liegen seither im Compose-Profil `classic-rag` und laufen
+nicht. Am Gerät bestätigt, beide Container fehlen in `docker ps`. Die Karte
+zeigt noch auf die alte Welt.
+
+**Die Architekturskizze in der Wurzel-`CLAUDE.md` ebenfalls:** sie führt
+`Embedding-Service (:11435)` und `Qdrant Vector DB (:6333)` auf, als liefen sie.
+
+### Tatsächliche Verwendung, gemessen am 21.08.2026
+
+| Modell                                                                                              | `usage_count` | zuletzt                            |
+| --------------------------------------------------------------------------------------------------- | ------------- | ---------------------------------- |
+| `qwen3:32b-q4`                                                                                      | 51            | 16.07.2026                         |
+| `qwen3-coder:30b`                                                                                   | 27            | 20.08.2026                         |
+| `qwen3:7b-q8`                                                                                       | 22            | 20.08.2026                         |
+| `hf.co/…Qwen3.8-27B`                                                                                | 9             | 20.08.2026                         |
+| `gemma3:1b`                                                                                         | 2             | 20.08.2026 (mein eigener Prüflauf) |
+| `llava-phi3`, `qwen3:14b-nothink`, `gemma3:4b`, `gemma4:e4b-q4`, `nomic-embed-text`, `qwen3:14b-q8` | **0**         | nie                                |
+
+Dazu dreizehn Katalogeinträge, die nie installiert wurden.
+
+**Einschränkung, die dazugehört:** das ist ein Entwicklungsgerät, kein
+Kundengerät. `usage_count` zählt, was dieses eine Gerät protokolliert hat. Als
+Beleg dafür, dass ein Modell im Katalog überflüssig IST, reicht das nicht. Als
+Beleg dafür, dass niemand geprüft hat, ob es gebraucht wird, reicht es.
+
 ## D6 Der Agentenpfad benutzt den Lebenszyklus
 
 `modelLifecycleService.js` stuft jede Stunde nach Nutzungsprofil ein und liefert
