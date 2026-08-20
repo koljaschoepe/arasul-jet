@@ -1395,19 +1395,19 @@ und 64 MB entpackt.
 
 ### Model Management
 
-| Method | Endpoint                     | Description                                    |
-| ------ | ---------------------------- | ---------------------------------------------- |
-| GET    | `/api/models/catalog`        | List curated model catalog                     |
-| GET    | `/api/models/installed`      | List installed models                          |
-| GET    | `/api/models/status`         | Current loaded model + queue stats             |
-| GET    | `/api/models/memory-budget`  | KI-RAM-Lage, geladene Modelle, letzter Wechsel |
-| GET    | `/api/models/loaded`         | Get currently loaded model                     |
-| GET    | `/api/models/default`        | Get default model                              |
-| POST   | `/api/models/default`        | Set default model                              |
-| POST   | `/api/models/download`       | Download model (SSE progress)                  |
-| DELETE | `/api/models/:id`            | Delete installed model                         |
-| POST   | `/api/models/:id/activate`   | Load model into RAM                            |
-| POST   | `/api/models/:id/deactivate` | Unload model from RAM                          |
+| Method | Endpoint                     | Description                                     |
+| ------ | ---------------------------- | ----------------------------------------------- |
+| GET    | `/api/models/catalog`        | List curated model catalog                      |
+| GET    | `/api/models/installed`      | List installed models                           |
+| GET    | `/api/models/status`         | Current loaded model + queue stats              |
+| GET    | `/api/models/memory-budget`  | KI-RAM-Lage, geladene Modelle, letzter Wechsel  |
+| GET    | `/api/models/loaded`         | Get currently loaded model                      |
+| GET    | `/api/models/default`        | Get default model                               |
+| POST   | `/api/models/default`        | Set default model                               |
+| POST   | `/api/models/download`       | Download model (SSE progress)                   |
+| DELETE | `/api/models/:id`            | Delete installed model                          |
+| POST   | `/api/models/:id/activate`   | Load model into RAM                             |
+| POST   | `/api/models/:id/deactivate` | Unload model from RAM (identisch mit `/unload`) |
 
 **GET /api/models/catalog:**
 
@@ -1461,6 +1461,12 @@ so ausliefert.
   "timestamp": "2026-01-07T12:00:00Z"
 }
 ```
+
+`/unload` und `/deactivate` tun seit Plan 023 D3 dasselbe und laufen durch
+denselben Helfer. Bis dahin löste nur `/unload` die Katalog-Kennung auf den
+Ollama-Namen auf; `/deactivate` reichte sie roh durch und entlud dadurch nichts,
+meldete aber „wurde entladen". Beide nehmen die **Katalog-Kennung**
+(`qwen3:7b-q8`), nicht den Ollama-Namen.
 
 **GET /api/models/memory-budget:**
 

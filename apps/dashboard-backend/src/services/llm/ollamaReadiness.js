@@ -279,9 +279,15 @@ class OllamaReadinessService {
     await modelLifecycleService.checkAndUnload({
       getLoadedModels: async () => geladen,
       modelUsageTracker,
-      unloadModel: (modelId, reason) => {
-        selbstEntladen.add(modelId);
-        return this.unloadModelWithTracking(modelId, reason);
+      unloadModel: async (modelId, reason) => {
+        // Erst merken, wenn es geklappt hat. Sonst faellt das Modell aus dem
+        // Vergleichsstand, obwohl es noch geladen ist, und eine spaetere
+        // echte Entladung bliebe einen Takt lang unbemerkt.
+        const geschafft = await this.unloadModelWithTracking(modelId, reason);
+        if (geschafft) {
+          selbstEntladen.add(modelId);
+        }
+        return geschafft;
       },
     });
 
@@ -384,8 +390,10 @@ class OllamaReadinessService {
       );
 
       logger.info(`[OllamaReadiness] Model ${modelId} unloaded (reason: ${reason})`);
+      return true;
     } catch (err) {
       logger.error(`[OllamaReadiness] Failed to unload model ${modelId}: ${err.message}`);
+      return false;
     }
   }
 

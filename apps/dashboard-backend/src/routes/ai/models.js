@@ -197,6 +197,58 @@ router.post(
 );
 
 /**
+ * Ein Modell aus dem Speicher nehmen, egal ueber welche der beiden Routen.
+ *
+ * Es gab zwei Routen fuer dieselbe Sache, und sie taten NICHT dasselbe:
+ * `/unload` loeste die Katalog-Kennung auf den Ollama-Namen auf, `/deactivate`
+ * reichte sie roh durch. Am 21.08.2026 am Geraet gemessen:
+ *
+ *   POST /api/models/qwen3:7b-q8/deactivate
+ *   -> {"success":false,"error":"Request failed with status code 404",
+ *       "message":"Modell qwen3:7b-q8 wurde entladen"}
+ *   curl /api/ps -> ['qwen3:8b']   (also weiterhin geladen)
+ *
+ * Zwei Fehler in einer Antwort: die Route entlaedt nichts, weil Ollama die
+ * Katalog-Kennung nicht kennt (`ollama_name` ist `qwen3:8b`, Migration 027),
+ * und sie meldet trotzdem "wurde entladen", waehrend `success: false`
+ * danebensteht.
+ *
+ * Seit Plan 023 D3 haengt daran mehr als die Route selbst: der Abgleich merkt
+ * sich eigene Entladungen unter dem Namen, mit dem entladen wurde. Unter der
+ * falschen Kennung gemerkt, findet er sie nicht wieder und bucht die spaetere,
+ * echte Entladung als "automatisch wegen Ruhe". Genau die falsche
+ * Herkunftsangabe, die D3 beseitigen sollte.
+ *
+ * Ein Helfer statt zwei Routen: so koennen sie nicht wieder auseinanderlaufen.
+ */
+async function modellEntladen(modelId) {
+  const database = require('../../database');
+  const typeResult = await database.query(
+    'SELECT model_type, COALESCE(ollama_name, id) as ollama_name FROM llm_model_catalog WHERE id = $1',
+    [modelId]
+  );
+
+  if (typeResult.rows.length === 0) {
+    // Nicht im Katalog (z. B. ein direkt in Ollama geladenes Modell wie
+    // `qwen3:14b`, das im Modell-Dashboard „im RAM" auftaucht): modelId direkt
+    // als Ollama-Namen entladen. Entladen ist idempotent und harmlos, kein
+    // Grund, es an der Katalog-Luecke scheitern zu lassen.
+    return { ...(await modelService.unloadModel(modelId)), model: modelId };
+  }
+
+  if (typeResult.rows[0].model_type === 'ocr') {
+    // OCR: Stop Docker container
+    const containerService = require('../../services/app/containerService');
+    const appId = modelId.split(':')[0];
+    const result = await containerService.stopApp(appId);
+    return { message: `OCR-Modell ${modelId} wurde gestoppt`, ...result, model: modelId };
+  }
+
+  const ollamaName = typeResult.rows[0].ollama_name;
+  return { ...(await modelService.unloadModel(ollamaName)), model: modelId };
+}
+
+/**
  * POST /api/models/:modelId/unload
  * Unload model from RAM (LLM) or stop container (OCR)
  */
@@ -204,42 +256,10 @@ router.post(
   '/:modelId/unload',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { modelId } = req.params;
-    const database = require('../../database');
-
-    // Check model type
-    const typeResult = await database.query(
-      'SELECT model_type, COALESCE(ollama_name, id) as ollama_name, name FROM llm_model_catalog WHERE id = $1',
-      [modelId]
-    );
-
-    if (typeResult.rows.length === 0) {
-      // Nicht im Katalog (z. B. ein direkt in Ollama geladenes Modell wie
-      // `qwen3:14b`, das im Modell-Dashboard „im RAM" auftaucht): modelId direkt
-      // als Ollama-Namen entladen. Entladen ist idempotent und harmlos — kein
-      // Grund, es an der Katalog-Lücke scheitern zu lassen.
-      const result = await modelService.unloadModel(modelId);
-      cacheService.invalidate(CACHE_KEYS.STATUS);
-      cacheService.invalidate(CACHE_KEYS.INSTALLED);
-      return res.json({ ...result, model: modelId });
-    }
-
-    if (typeResult.rows[0].model_type === 'ocr') {
-      // OCR: Stop Docker container
-      const containerService = require('../../services/app/containerService');
-      const appId = modelId.split(':')[0];
-      const result = await containerService.stopApp(appId);
-      cacheService.invalidate(CACHE_KEYS.STATUS);
-      cacheService.invalidate(CACHE_KEYS.INSTALLED);
-      res.json({ message: `OCR-Modell ${modelId} wurde gestoppt`, ...result, model: modelId });
-    } else {
-      // LLM: Unload from VRAM via Ollama
-      const ollamaName = typeResult.rows[0].ollama_name;
-      const result = await modelService.unloadModel(ollamaName);
-      cacheService.invalidate(CACHE_KEYS.STATUS);
-      cacheService.invalidate(CACHE_KEYS.INSTALLED);
-      res.json({ ...result, model: modelId });
-    }
+    const result = await modellEntladen(req.params.modelId);
+    cacheService.invalidate(CACHE_KEYS.STATUS);
+    cacheService.invalidate(CACHE_KEYS.INSTALLED);
+    res.json(result);
   })
 );
 
@@ -563,15 +583,19 @@ router.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     const { modelId } = req.params;
+    const result = await modellEntladen(modelId);
 
-    const result = await modelService.unloadModel(modelId);
-
-    // Invalidate status cache after deactivation
     cacheService.invalidate(CACHE_KEYS.STATUS);
+    cacheService.invalidate(CACHE_KEYS.INSTALLED);
 
+    // Die Meldung richtet sich nach dem, was passiert ist. Bis zum 21.08.2026
+    // stand hier "wurde entladen", auch wenn `success: false` danebenstand.
     res.json({
       ...result,
-      message: `Modell ${modelId} wurde entladen`,
+      message:
+        result.success === false
+          ? `Modell ${modelId} konnte nicht entladen werden`
+          : `Modell ${modelId} wurde entladen`,
     });
   })
 );
