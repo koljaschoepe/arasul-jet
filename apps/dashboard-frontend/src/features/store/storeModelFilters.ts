@@ -12,6 +12,7 @@
  */
 import type { CatalogModel } from '@/hooks/useStoreCatalog';
 import { isModelInstalled } from '@/hooks/useStoreCatalog';
+import { modellAnzeigeName } from '@/utils/modelDisplay';
 
 export type SizeBucket = 'klein' | 'mittel' | 'gross';
 export type StatusFacet = 'installed' | 'available';
@@ -98,7 +99,8 @@ export function modelMatches(
 ): boolean {
   const q = query.trim().toLowerCase();
   if (q !== '') {
-    const hay = `${model.name} ${model.description}`.toLowerCase();
+    // Plan 023 D1: gesucht wird in dem Namen, den der Nutzer auch sieht.
+    const hay = `${modellAnzeigeName(model)} ${model.description}`.toLowerCase();
     if (!hay.includes(q)) return false;
   }
   if (filters.types.length > 0 && !(model.model_type && filters.types.includes(model.model_type))) {

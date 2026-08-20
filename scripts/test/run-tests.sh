@@ -167,6 +167,20 @@ run_bausteine_check() {
   fi
 }
 
+# Funktion: Namensregister (Plan 023 D1)
+# Laeuft immer mit. Ein Modellname darf nur ueber modellAnzeigeName in die
+# Oberflaeche, sonst sagt der Chat "Gemma", wo der Katalog "Gemma 4 Kompakt"
+# sagt. Genau so stand es am 20.08.2026 auf dem Geraet.
+run_modellnamen_check() {
+  echo ""
+  echo "-> Pruefe das Namensregister..."
+  if python3 "${PROJECT_ROOT}/scripts/test/modellnamen.py" --pfad "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Toter Code (Plan 023 B3)
 # Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
 # jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
@@ -348,6 +362,7 @@ run_quality_gates() {
 run_totercode_check
 run_gedankenstrich_check
 run_bausteine_check
+run_modellnamen_check
 run_faden_check
 run_selbsttest_check
 

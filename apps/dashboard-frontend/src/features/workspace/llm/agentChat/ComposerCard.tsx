@@ -33,6 +33,7 @@ import FlowMenu, { buildMenuItems, type FlowMenuItem } from '@/features/flows/Fl
 import ArgumentHints, { COMPOSER_TEXT_CLASSES } from '@/features/flows/ArgumentHints';
 import ArgumentPicker from '@/features/flows/ArgumentPicker';
 import { useFlowArgs } from '@/features/flows/useFlowArgs';
+import { modellAnzeigeName } from '@/utils/modelDisplay';
 
 export interface ComposerModel {
   id: string;
@@ -328,9 +329,12 @@ export default function ComposerCard({
 
   const canSend =
     !disabled && !isLoading && (value.trim() || attachedFile || attachedImages.length > 0);
+  // Plan 023 D1: derselbe Name wie im Katalog, in der Statusleiste und in der
+  // Auswahlliste darunter. Bis zum 20.08.2026 stand hier nur das erste Wort,
+  // am Geraet gemessen: "Gemma" statt "Gemma 4 Kompakt", "Qwen3.8" statt
+  // "Qwen3.8 27B". Die Breite haelt jetzt das Layout, nicht der Text.
   const modelLabel = selectedModel
-    ? models.find(m => m.id === selectedModel)?.name?.split(/[\s:]/)[0] ||
-      selectedModel.split(':')[0]
+    ? modellAnzeigeName(models.find(m => m.id === selectedModel) ?? { id: selectedModel })
     : 'Auto';
 
   const hasChips =
@@ -500,10 +504,11 @@ export default function ComposerCard({
               type="button"
               disabled={disabled}
               aria-label="Modell wählen"
+              title={modelLabel}
               className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              {modelLabel}
-              <ChevronDown className="size-3" />
+              <span className="max-w-[11rem] truncate">{modelLabel}</span>
+              <ChevronDown className="size-3 shrink-0" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
@@ -512,7 +517,9 @@ export default function ComposerCard({
             </DropdownMenuItem>
             {models.map(m => (
               <DropdownMenuItem key={m.id} onClick={() => onSelectModel(m.id)}>
-                <span className={cn(selectedModel === m.id && 'font-semibold')}>{m.name}</span>
+                <span className={cn(selectedModel === m.id && 'font-semibold')}>
+                  {modellAnzeigeName(m)}
+                </span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

@@ -1202,12 +1202,65 @@ Geschätzt 20 Stunden. Zahlt auf G2 und G3.
 
 Heute steht im Katalog ein Name, im Chat ein anderer, in der Statusleiste ein
 dritter, teilweise der rohe Dateiname aus Ollama. Künftig gibt es genau eine
-Quelle für Anzeigenamen, aufgebaut nach Familie und Parameterzahl, zum Beispiel
-„Qwen 3.8, 27B". `utils/modelDisplay.ts` wird diese Quelle, alle anderen Stellen
-lesen daraus.
+Quelle für Anzeigenamen. `utils/modelDisplay.ts` wird diese Quelle, alle anderen
+Stellen lesen daraus.
 
 **Abnahme:** Derselbe Name im Katalog, im Chat, in der Statusleiste unten links,
 in der Modellauswahl und in jeder Meldung. Ein Test hält das fest.
+
+### Erst gemessen: was davon stimmte
+
+Rundgang am Gerät am 20.08.2026, angemeldet als `pruefer`, alle vier Orte in
+einem Durchlauf:
+
+| Ort                      | zeigte                           |
+| ------------------------ | -------------------------------- |
+| Katalog                  | `Gemma 4 Kompakt`, `Qwen3.8 27B` |
+| Statusleiste unten links | `Qwen3.8 27B · bereit`           |
+| Auswahlliste im Chat     | `Gemma 4 Kompakt`, `Qwen3.8 27B` |
+| **Modellknopf im Chat**  | **`Gemma`**, **`Qwen3.8`**       |
+
+Drei von vier stimmten überein. Der vierte kürzte auf das erste Wort, mit
+`?.name?.split(/[\s:]/)[0]`, drei Zeilen über der Liste, die den vollen Namen
+zeigt. Die Behauptung „im Katalog ein Name, im Chat ein anderer, in der
+Statusleiste ein dritter" war also zu breit; **eine** Stelle wich ab, und die
+richtig.
+
+Im Code dazu, was der Rundgang nicht sehen konnte:
+
+- `modelName || modelId` im Download- und im Aktivierungs-Kontext. Ohne
+  mitgegebenen Namen stand `hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` im
+  Fortschrittsband.
+- Der Einrichtungsassistent trug die Chatmodell-Regel ein drittes Mal selbst,
+  neben Statusleiste und Chat. Genau daraus entstand der Fund aus C7.
+- Die Ableitung machte aus `gemma4:e4b` ein `Gemma4 4B`. E4B heißt vier
+  _wirksame_ Milliarden, nicht vier.
+- Ein Katalogname brach das Muster aller anderen: `Qwen3.8 27B` neben
+  `Qwen 3 32B` und `Gemma 3 1B`.
+
+### Was daraus wurde
+
+Das Register nimmt jetzt auch eine bloße Kennung, nicht nur ein Modellobjekt.
+Vorher baute sich jeder Aufrufer, der nur die Kennung hatte, sein eigenes
+`{ id, name }` zusammen, und genau solche Zwischenschritte sind der Weg, auf dem
+die Anzeige auseinanderläuft. Daraus lesen jetzt: Katalog, Detailseite,
+Statusleiste, Chat-Knopf, Auswahlliste, Assistent, beide Kontexte, und die Suche
+im Katalog, denn gesucht werden soll in dem Namen, den man sieht.
+
+Der Assistent filtert über `istChatModell` statt über eine eigene Liste.
+Migration 147 setzt `Qwen 3.8 27B`.
+
+**Nicht gemacht:** die Namen `Gemma 4 Kompakt`, `Standard` und `Pro` durch
+Parameterzahlen ersetzt. Der Plan nannte „Familie und Parameterzahl" als Muster,
+aber diese drei Namen sind eine bewusste Produktstaffel, und für einen
+Mittelständler sagt `Kompakt` mehr als `E4B`. Die Parameterzahl gehört in den
+Steckbrief in D2, nicht in den Namen.
+
+**Erledigt am 20.08.2026,** `arasul-jet` #444. Gehalten von
+`scripts/test/modellnamen.py` mit fünf Fällen im Wächter-Selbsttest, und von
+einem Test, der Katalog, Statusleiste und Chat-Knopf mit demselben Modell
+rendert und dieselbe Zeichenkette verlangt. Gegenprobe gemacht: mit der alten
+Kürzung fällt er um.
 
 ## D2 Modell-Detailansicht
 

@@ -63,6 +63,7 @@ import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { cn } from '@/lib/utils';
 import { PLATFORM_NAME } from '@/config/branding';
+import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
 
 interface SetupWizardProps {
   onComplete: () => void;
@@ -129,8 +130,11 @@ const EMPFEHLUNG_FALLBACK = 'gemma4:e4b-q4';
  * Ein Modell, das Bilder lesen kann, ist ein Chatmodell mit einer Faehigkeit
  * mehr. Ausgeschlossen gehoeren nur die, die im Chat gar nicht antworten:
  * Einbettungsmodelle und Texterkennung.
+ *
+ * Plan 023 D1: die Regel stand hier ein drittes Mal, neben Statusleiste und
+ * Chat. Genau so entstand der Fehler oben. Jetzt entscheidet `istChatModell`
+ * aus dem Namensregister an allen drei Stellen.
  */
-const NICHT_WAEHLBAR = new Set(['embedding', 'ocr']);
 
 function groesse(bytes: number | null | undefined): string {
   if (!bytes) return '';
@@ -270,9 +274,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     ])
       .then(([katalog, rat]) => {
         if (abgebrochen) return;
-        const waehlbar = (katalog.models || []).filter(
-          m => !NICHT_WAEHLBAR.has(m.model_type || 'llm')
-        );
+        const waehlbar = (katalog.models || []).filter(istChatModell);
         setModelle(waehlbar);
         const empfohlen = rat?.recommended_model || EMPFEHLUNG_FALLBACK;
         setEmpfehlung(empfohlen);
@@ -324,7 +326,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
     try {
       const modell = modelle.find(m => m.id === modellWahl);
       if (modell && modell.install_status !== 'available') {
-        startDownload(modell.id, modell.name);
+        startDownload(modell.id, modellAnzeigeName(modell));
       }
       if (modell?.install_status === 'available') {
         await api.post('/models/default', { model_id: modellWahl }, { showError: false });
@@ -492,7 +494,9 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                         )}
                       >
                         <span className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-bold text-foreground">{modell.name}</span>
+                          <span className="text-sm font-bold text-foreground">
+                            {modellAnzeigeName(modell)}
+                          </span>
                           {modell.id === empfehlung && (
                             <span className="shrink-0 text-[0.65rem] font-bold uppercase tracking-wide text-primary">
                               Empfohlen

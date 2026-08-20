@@ -42,6 +42,7 @@ import type { CatalogModel } from '@/hooks/useStoreCatalog';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { formatModelSize } from '@/utils/formatting';
+import { modellAnzeigeName } from '@/utils/modelDisplay';
 import DownloadProgress from './DownloadProgress';
 import {
   applyModelFilters,
@@ -116,9 +117,12 @@ function ModelCard({ model, loadedId }: { model: CatalogModel; loadedId: string 
     if (downloadState) setStarting(false);
   }, [downloadState]);
 
+  // Plan 023 D1: der Name kommt aus dem Register, nicht aus dem Rohfeld.
+  const anzeige = modellAnzeigeName(model);
+
   const onStart = () => {
     setStarting(true);
-    void startDownload(model.id, model.name);
+    void startDownload(model.id, anzeige);
   };
 
   return (
@@ -139,10 +143,10 @@ function ModelCard({ model, loadedId }: { model: CatalogModel; loadedId: string 
             <Cpu aria-hidden="true" />
           </span>
           <span
-            title={model.name}
+            title={anzeige}
             className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground"
           >
-            {model.name}
+            {anzeige}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -178,7 +182,7 @@ function ModelCard({ model, loadedId }: { model: CatalogModel; loadedId: string 
               size="sm"
               className="w-full"
               data-testid={`model-download-${model.id}`}
-              aria-label={`${model.name} herunterladen`}
+              aria-label={`${anzeige} herunterladen`}
               onClick={onStart}
             >
               <Download className="size-4" /> Laden
@@ -340,7 +344,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
     onSuccess: (_r, id) => {
       invalidate();
       const m = installed.find(x => x.id === id);
-      toast.success(`Standardmodell: ${m?.name ?? id}`);
+      toast.success(`Standardmodell: ${modellAnzeigeName(m ?? { id })}`);
     },
   });
 
@@ -390,7 +394,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
             loaded.map((m, i) => (
               <div
                 key={m.id}
-                title={`${m.name}: ${toGb(m.ramMb)} GB`}
+                title={`${modellAnzeigeName(m)}: ${toGb(m.ramMb)} GB`}
                 className={cn(
                   'h-full transition-all',
                   pct >= 90 ? 'bg-destructive' : 'bg-primary',
@@ -415,6 +419,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
         ) : (
           loaded.map(m => {
             const unloading = pendingUnload.has(m.id);
+            const anzeige = modellAnzeigeName(m);
             return (
               <span
                 key={m.id}
@@ -424,7 +429,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
                   unloading && 'opacity-70'
                 )}
               >
-                <span className="font-medium">{m.name}</span>
+                <span className="font-medium">{anzeige}</span>
                 <span className="text-primary/70">{toGb(m.ramMb)} GB</span>
                 {unloading ? (
                   <span className="flex items-center gap-1" aria-live="polite">
@@ -436,8 +441,8 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
                     type="button"
                     disabled={busy}
                     onClick={() => unload.mutate(m.id)}
-                    title={`${m.name} aus dem RAM entladen`}
-                    aria-label={`${m.name} entladen`}
+                    title={`${anzeige} aus dem RAM entladen`}
+                    aria-label={`${anzeige} entladen`}
                     className="rounded-full p-0.5 hover:bg-primary/20 disabled:opacity-50"
                   >
                     <Power className="size-3" aria-hidden="true" />
@@ -496,7 +501,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
             {!defaultModel && <option value="">Modell wählen</option>}
             {installed.map(m => (
               <option key={m.id} value={m.id}>
-                {m.name}
+                {modellAnzeigeName(m)}
               </option>
             ))}
           </select>
@@ -505,7 +510,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
               size="sm"
               variant="outline"
               disabled={busy}
-              onClick={() => void startActivation(defaultModel.id, defaultModel.name)}
+              onClick={() => void startActivation(defaultModel.id, modellAnzeigeName(defaultModel))}
               className="h-7"
               data-testid="load-default-model"
             >
