@@ -4,6 +4,7 @@
  * Generates a JSON archive containing all personal data stored in the system.
  */
 
+const { versionFuerAnzeige } = require('../../utils/version');
 const express = require('express');
 const router = express.Router();
 const { requireAuth, requireAdmin, invalidateUserCache } = require('../../middleware/auth');
@@ -259,7 +260,7 @@ router.get(
         exportDate: new Date().toISOString(),
         exportVersion: '1.0',
         system: 'Arasul Platform',
-        systemVersion: process.env.SYSTEM_VERSION || '1.0.0',
+        systemVersion: versionFuerAnzeige(),
         userId,
         username: req.user.username,
         description: 'DSGVO/GDPR-konformer Datenexport aller personenbezogenen Daten',

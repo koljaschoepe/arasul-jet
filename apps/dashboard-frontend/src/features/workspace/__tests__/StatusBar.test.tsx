@@ -132,8 +132,17 @@ describe('StatusBar', () => {
     renderStatusBar();
 
     expect(await screen.findByText('Verbunden')).toBeInTheDocument();
-    expect(await screen.findAllByText('v1.2.3')).not.toHaveLength(0);
+    expect(await screen.findAllByText('1.2.3')).not.toHaveLength(0);
     expect(get).toHaveBeenCalledWith('/health', { showError: false });
+  });
+
+  // Das feste „v" davor ist seit Plan 023 C6 weg. Ohne gesetzte Version sagt
+  // das Backend „Vorserie", und „vVorserie" waere Unsinn (Befund F-19).
+  it('zeigt die Version so, wie das Backend sie nennt', async () => {
+    mockApi({ health: { status: 'OK', version: 'Vorserie' } });
+    renderStatusBar();
+    expect(await screen.findAllByText('Vorserie')).not.toHaveLength(0);
+    expect(screen.queryByText('vVorserie')).not.toBeInTheDocument();
   });
 
   it('zeigt Getrennt, wenn /health nicht erreichbar ist', async () => {
@@ -251,8 +260,8 @@ describe('StatusBar', () => {
     // Popover-Inhalt (Portal) — eindeutige Texte des Detailbereichs.
     expect(await screen.findByText('Backend')).toBeInTheDocument();
     expect(screen.getByText('Version')).toBeInTheDocument();
-    // v1.2.3 steht sowohl in der Fußzeile als auch im Popover-Inhalt.
-    expect(screen.getAllByText('v1.2.3').length).toBeGreaterThanOrEqual(2);
+    // Die Version steht sowohl in der Fußzeile als auch im Popover-Inhalt.
+    expect(screen.getAllByText('1.2.3').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('KI-RAM')).toBeInTheDocument();
     expect(screen.getByText('Modelle im RAM')).toBeInTheDocument();
     expect(screen.getByText('Alles läuft lokal auf dem Gerät, keine Cloud.')).toBeInTheDocument();

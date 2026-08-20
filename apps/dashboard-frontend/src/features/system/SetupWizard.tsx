@@ -1230,7 +1230,7 @@ function SetupWizard({ onComplete, onSkip }: SetupWizardProps) {
                   <div className="flex justify-between items-center py-3">
                     <span className="text-muted-foreground text-sm">Version</span>
                     <span className="text-foreground font-semibold text-sm">
-                      {systemInfo.version || '1.0.0'}
+                      {systemInfo.version || 'Vorserie'}
                     </span>
                   </div>
                 )}

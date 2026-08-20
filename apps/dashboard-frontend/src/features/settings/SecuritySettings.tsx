@@ -9,12 +9,15 @@ interface SecuritySettingsProps {
   handleLogout: () => void;
   loggingOutAll: boolean;
   onLogoutAll: () => void;
+  /** Reicht die Meldung der Passwortverwaltung an die Kopfzeile durch. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export function SecuritySettings({
   handleLogout,
   loggingOutAll,
   onLogoutAll,
+  onDirtyChange,
 }: SecuritySettingsProps) {
   return (
     <div className="animate-in fade-in">
@@ -22,7 +25,7 @@ export function SecuritySettings({
 
       <SectionList>
         <ComponentErrorBoundary componentName="Passwortverwaltung">
-          <PasswordManagement />
+          <PasswordManagement onDirtyChange={onDirtyChange} />
         </ComponentErrorBoundary>
 
         <Section

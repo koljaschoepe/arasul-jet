@@ -99,6 +99,7 @@ function Settings({ handleLogout, theme, onToggleTheme }: SettingsProps) {
               handleLogout={confirmThenLogout}
               loggingOutAll={loggingOutAll}
               onLogoutAll={handleLogoutAll}
+              onDirtyChange={setIsDirty}
             />
           </ComponentErrorBoundary>
         );
