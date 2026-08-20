@@ -463,9 +463,13 @@ class UpdateService {
         `INSERT INTO update_events (version_from, version_to, status, source, components_updated)
                  VALUES ($1, $2, $3, $4, $5)`,
         [
+          // Heute unerreichbar: createBackup wirft oben, wenn kein Pfad
+          // herauskommt. Trotzdem kein festes '1.0.0' mehr: genau so eine
+          // vergessene Zeile ist der Grund, warum dieselbe Frage vorher an
+          // fuenfzehn Stellen verschieden beantwortet wurde.
           backupResult.backupPath
             ? await fs.readFile(path.join(backupPath, 'version.txt'), 'utf8')
-            : '1.0.0',
+            : versionFuerVergleich(),
           manifest.version,
           'completed',
           'dashboard',
