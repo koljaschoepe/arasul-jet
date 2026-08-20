@@ -29,10 +29,16 @@ const axios = require('axios');
 const database = require('../../src/database');
 const modelLifecycleService = require('../../src/services/llm/modelLifecycleService');
 const ollamaReadiness = require('../../src/services/llm/ollamaReadiness');
+const unloadRegistry = require('../../src/services/llm/unloadRegistry');
 
 /** Was `/api/ps` beim naechsten Durchgang meldet. */
 function geladen(...namen) {
   axios.get.mockResolvedValue({ data: { models: namen.map(name => ({ name })) } });
+}
+
+/** Ollama antwortet nicht. Sieht ohne Sorgfalt aus wie "nichts geladen". */
+function nichtErreichbar() {
+  axios.get.mockRejectedValue(new Error('timeout of 5000ms exceeded'));
 }
 
 const buchungen = () =>
@@ -46,6 +52,7 @@ describe('Ollama entlaedt selbst', () => {
     database.query.mockResolvedValue({ rows: [] });
     modelLifecycleService.checkAndUnload.mockResolvedValue(undefined);
     ollamaReadiness._vergleichsstandZuruecksetzen();
+    unloadRegistry.zuruecksetzen();
     // `unloadModelWithTracking` ruft den ModelService. Ohne ihn wirft es, und
     // die Buchung faende nie statt.
     ollamaReadiness.modelService = { unloadModel: jest.fn().mockResolvedValue(undefined) };
@@ -117,5 +124,107 @@ describe('Ollama entlaedt selbst', () => {
 
     const uebergeben = await modelLifecycleService.checkAndUnload.mock.calls[0][0].getLoadedModels();
     expect(uebergeben).toEqual([{ name: 'gemma3:1b' }]);
+  });
+});
+
+/**
+ * Die zwei Faelle, in denen der Vergleich das Falsche schliessen wuerde. Beide
+ * kommen aus der Review von #448 und beide sind echt.
+ */
+describe('was NICHT als Ollama-Entladung gilt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    database.query.mockResolvedValue({ rows: [] });
+    modelLifecycleService.checkAndUnload.mockResolvedValue(undefined);
+    ollamaReadiness._vergleichsstandZuruecksetzen();
+    unloadRegistry.zuruecksetzen();
+    ollamaReadiness.modelService = { unloadModel: jest.fn().mockResolvedValue(undefined) };
+  });
+
+  /**
+   * Eine gescheiterte Abfrage sieht aus wie eine leere. Ohne Unterscheidung
+   * buchte EIN Zeitueberschreiten gegen /api/ps jedes geladene Modell als
+   * "wegen Ruhe entladen". Auf einem Geraet, das gerade rechnet, ist das kein
+   * Gedankenspiel.
+   */
+  test('eine gescheiterte Abfrage bucht nichts', async () => {
+    geladen('gemma3:1b', 'qwen3:8b');
+    await ollamaReadiness.checkSmartUnload();
+
+    nichtErreichbar();
+    await ollamaReadiness.checkSmartUnload();
+
+    expect(buchungen()).toHaveLength(0);
+  });
+
+  test('nach einer gescheiterten Abfrage gilt weiter der letzte gute Stand', async () => {
+    geladen('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+
+    nichtErreichbar();
+    await ollamaReadiness.checkSmartUnload();
+
+    // Jetzt antwortet Ollama wieder, und das Modell ist wirklich weg.
+    geladen();
+    await ollamaReadiness.checkSmartUnload();
+
+    const gebucht = buchungen();
+    expect(gebucht).toHaveLength(1);
+    expect(gebucht[0][0]).toContain('auto_unload_ollama_keepalive');
+  });
+
+  /**
+   * Vier Wege fuehren zu einer eigenen Entladung, und nur einer laeuft ueber
+   * checkAndUnload: der Knopf im Dashboard, das Loeschen und das Verdraengen
+   * gehen direkt an modelService.unloadModel. Ohne die Ablage haette der
+   * Nutzer gelesen, sein Modell sei ungenutzt gewesen, waehrend er selbst auf
+   * Entladen geklickt hat.
+   */
+  test('ein Entladen per Knopf gilt nicht als Ollama-Entladung', async () => {
+    geladen('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+
+    // So, wie es POST /models/:id/unload tut: direkt, an checkAndUnload vorbei.
+    unloadRegistry.merkeEntladung('gemma3:1b');
+
+    geladen();
+    await ollamaReadiness.checkSmartUnload();
+
+    expect(buchungen()).toHaveLength(0);
+  });
+
+  test('nach der Karenz gilt dieselbe Kennung wieder als fremd entladen', async () => {
+    geladen('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+    unloadRegistry.merkeEntladung('gemma3:1b');
+
+    // Das Modell kommt zurueck und laeuft spaeter wirklich aus.
+    geladen('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+    expect(unloadRegistry.warUnsereEntladung('gemma3:1b', Date.now() + unloadRegistry.KARENZ_MS + 1)).toBe(false);
+  });
+
+  /**
+   * Der Wecker feuert alle 30 Sekunden, ohne zu fragen, ob der vorige
+   * Durchgang fertig ist.
+   */
+  test('zwei Durchgaenge ueberholen sich nicht', async () => {
+    geladen('gemma3:1b');
+    let freigeben;
+    modelLifecycleService.checkAndUnload.mockImplementationOnce(
+      () => new Promise(res => (freigeben = res))
+    );
+
+    const erster = ollamaReadiness.checkSmartUnload();
+    // Einen Takt warten, damit der erste Durchgang wirklich in checkAndUnload
+    // haengt und nicht noch bei der Abfrage steht.
+    await new Promise(res => setImmediate(res));
+
+    await ollamaReadiness.checkSmartUnload();
+    // Der zweite ist sofort zurueck, ohne /api/ps ein zweites Mal zu fragen.
+    expect(axios.get).toHaveBeenCalledTimes(1);
+
+    freigeben();
+    await erster;
   });
 });

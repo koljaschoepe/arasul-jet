@@ -14,6 +14,7 @@ const logger = require('../../utils/logger');
 const database = require('../../database');
 const services = require('../../config/services');
 const modelLifecycleService = require('./modelLifecycleService');
+const { warUnsereEntladung } = require('./unloadRegistry');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
@@ -51,6 +52,13 @@ const activeRequests = new Map(); // requestId -> { modelId, startTime }
  * vorigen Durchgang schliesst die Luecke.
  */
 let zuletztGeladen = new Set();
+
+/**
+ * Laeuft gerade ein Durchgang? Der Wecker feuert alle 30 Sekunden, ohne zu
+ * fragen, ob der vorige fertig ist. Zwei gleichzeitige Durchgaenge schrieben
+ * `zuletztGeladen` durcheinander.
+ */
+let vergleichLaeuft = false;
 
 class OllamaReadinessService {
   constructor() {
@@ -248,9 +256,23 @@ class OllamaReadinessService {
    * Ollama von sich aus etwas entladen hat (Plan 023 D3, Nachtrag).
    */
   async checkSmartUnload() {
+    if (vergleichLaeuft) {
+      logger.debug('[OllamaReadiness] Unload-Pruefung laeuft noch, dieser Takt entfaellt');
+      return;
+    }
+    vergleichLaeuft = true;
+    try {
+      await this._checkSmartUnload();
+    } finally {
+      vergleichLaeuft = false;
+    }
+  }
+
+  async _checkSmartUnload() {
     // Einmal abfragen, zweimal benutzt: die Automatik entscheidet daraus, und
     // derselbe Stand dient als Vergleich mit dem vorigen Durchgang.
-    const geladen = await this._getLoadedModelsFromOllama();
+    const stand = await this._ladeStandVonOllama();
+    const geladen = stand.models;
     const jetzt = new Set(geladen.map(m => m.name || m.model).filter(Boolean));
     const selbstEntladen = new Set();
 
@@ -263,10 +285,26 @@ class OllamaReadinessService {
       },
     });
 
+    // Eine gescheiterte Abfrage sieht aus wie eine leere. Ohne diese
+    // Unterscheidung buchte EIN Zeitueberschreiten gegen /api/ps jedes
+    // geladene Modell als "wegen Ruhe entladen", obwohl nichts entladen wurde.
+    // Auf einem Geraet, das gerade rechnet, ist das kein Gedankenspiel.
+    if (!stand.erreichbar) {
+      return;
+    }
+
     for (const modelId of zuletztGeladen) {
-      if (!jetzt.has(modelId) && !selbstEntladen.has(modelId)) {
-        await this._protokolliereFremdentladung(modelId);
+      if (jetzt.has(modelId) || selbstEntladen.has(modelId)) {
+        continue;
       }
+      // Vier Wege fuehren zu einer eigenen Entladung, und nur einer davon
+      // laeuft ueber `checkAndUnload`. Die anderen drei (Knopf im Dashboard,
+      // Loeschen, Verdraengen fuer ein anderes Modell) merkt sich
+      // `modelService.unloadModel` in der Ablage.
+      if (warUnsereEntladung(modelId)) {
+        continue;
+      }
+      await this._protokolliereFremdentladung(modelId);
     }
 
     // Was wir selbst entladen haben, ist beim naechsten Durchgang schon
@@ -304,18 +342,29 @@ class OllamaReadinessService {
   /** Nur fuer Tests: den Vergleichsstand zuruecksetzen. */
   _vergleichsstandZuruecksetzen() {
     zuletztGeladen = new Set();
+    vergleichLaeuft = false;
   }
 
   /**
    * Get all currently loaded models from Ollama /api/ps
    */
   async _getLoadedModelsFromOllama() {
+    return (await this._ladeStandVonOllama()).models;
+  }
+
+  /**
+   * Wie `_getLoadedModelsFromOllama`, sagt aber dazu, ob Ollama geantwortet
+   * hat. Eine gescheiterte Abfrage und ein leerer Speicher sehen sonst gleich
+   * aus, und fuer den Vergleich zweier Durchgaenge ist das der Unterschied
+   * zwischen "nichts geladen" und "keine Ahnung".
+   */
+  async _ladeStandVonOllama() {
     try {
       const response = await axios.get(`${LLM_SERVICE_URL}/api/ps`, { timeout: 5000 });
-      return response.data?.models || [];
+      return { erreichbar: true, models: response.data?.models || [] };
     } catch (err) {
       logger.debug(`[OllamaReadiness] Could not query loaded models: ${err.message}`);
-      return [];
+      return { erreichbar: false, models: [] };
     }
   }
 

@@ -1496,6 +1496,12 @@ das Modell länger ungenutzt war) und `auto_unload_ollama_keepalive` (Ollama hat
 es selbst entladen, bevor Arasul dazu kam). Für den Nutzer ist beides dasselbe,
 deshalb tragen beide dasselbe Präfix und werden gleich übersetzt.
 
+Was ein Mensch selbst ausgelöst hat, erscheint hier **nicht**: der Knopf im
+Dashboard, das Löschen eines Modells und das Verdrängen für ein anderes laufen
+alle durch `modelService.unloadModel` und werden dort in
+`services/llm/unloadRegistry.js` gemerkt, damit der Vergleich sie nicht für
+eine Entladung wegen Ruhe hält.
+
 **POST /api/models/download:**
 
 ```json
