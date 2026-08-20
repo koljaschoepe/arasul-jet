@@ -266,18 +266,29 @@ jobs:
     if: always()
     steps:
       - name: Aggregate results
+        env:
+          # Eine Liste statt einer von Hand gepflegten Zeichenkette. Zweimal ist
+          # hier ein Job aus dem Vergleich gefallen, ohne dass es auffiel:
+          # python-services stand nur in `needs`, guards kam am 20.08.2026 neu
+          # dazu. Jeder Job steht jetzt genau einmal, in einer Zeile, und wer
+          # einen vergisst, sieht die Luecke statt sie in einer Kette aus
+          # Bindestrichen zu uebersehen.
+          ERGEBNISSE: |
+            Backend=${{ needs.backend.result }}
+            Frontend=${{ needs.frontend.result }}
+            Docker=${{ needs.docker-build.result }}
+            Python=${{ needs.python-services.result }}
+            Lockfile=${{ needs.lockfile-guard.result }}
+            Guards=${{ needs.guards.result }}
         run: |
-          echo "Backend:         ${{ needs.backend.result }}"
-          echo "Frontend:        ${{ needs.frontend.result }}"
-          echo "Docker build:    ${{ needs.docker-build.result }}"
-          echo "Python services: ${{ needs.python-services.result }}"
-          echo "Lockfile guard:  ${{ needs.lockfile-guard.result }}"
-          echo "Guards:          ${{ needs.guards.result }}"
-          # python-services stand bis zum 20.08.2026 zwar in `needs`, wurde in
-          # dieser Auswertung aber nie geprueft: ein roter Python-Dienst hat die
-          # Zusammenfassung durchgelassen. Dieselbe stille Luecke wie beim
-          # Frontend-Job, nur eine Zeile weiter.
-          case "${{ needs.backend.result }}-${{ needs.frontend.result }}-${{ needs.docker-build.result }}-${{ needs.lockfile-guard.result }}-${{ needs.guards.result }}-${{ needs.python-services.result }}" in
-            success-success-success-success-success-success) echo "All required jobs passed"; exit 0 ;;
-            *) echo "One or more required jobs failed"; exit 1 ;;
-          esac
+          fehler=0
+          while IFS='=' read -r name ergebnis; do
+            [ -z "$name" ] && continue
+            printf '%-10s %s\n' "$name" "$ergebnis"
+            [ "$ergebnis" = "success" ] || fehler=1
+          done <<< "$ERGEBNISSE"
+          if [ "$fehler" = "1" ]; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi
+          echo "All required jobs passed"
