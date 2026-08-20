@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/shadcn/badge';
 import { Button } from '@/components/ui/shadcn/button';
 import { cn } from '@/lib/utils';
 import { useApi } from '@/hooks/useApi';
+import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudget';
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useActivation } from '@/contexts/ActivationContext';
@@ -38,7 +39,6 @@ import {
   STORE_MODEL_DEFAULT_KEY,
 } from '@/hooks/useStoreCatalog';
 import type { CatalogModel } from '@/hooks/useStoreCatalog';
-import type { MemoryBudget } from '@/types';
 import { useExtensionStore } from '@/stores/extensionStore';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { formatModelSize } from '@/utils/formatting';
@@ -58,7 +58,6 @@ import {
  * Poll auf dem Jetson). Als lokale Konstante gehalten, weil ein Feature-Modul
  * nicht aus einem anderen Feature (features/workspace) importieren darf.
  */
-const MEMORY_BUDGET_QUERY_KEY = ['models', 'memory-budget'] as const;
 
 /** Entladen gilt nach dieser Zeit ohne Budget-Bestätigung als „Status unklar". */
 const UNLOAD_TIMEOUT_MS = 45_000;
@@ -248,12 +247,9 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
 
   // Solange etwas lädt/entlädt, das Budget schnell pollen — sonst gemütlich.
   const busyPolling = pendingUnload.size > 0 || activation !== null;
-  const { data: budget } = useQuery({
-    queryKey: MEMORY_BUDGET_QUERY_KEY,
-    queryFn: () => api.get<MemoryBudget>('/models/memory-budget', { showError: false }),
+  const { data: budget } = useMemoryBudget({
     refetchInterval: busyPolling ? 2_000 : 10_000,
     staleTime: busyPolling ? 0 : 5_000,
-    retry: 1,
   });
   const { data: defaultModelId } = useQuery({
     queryKey: STORE_MODEL_DEFAULT_KEY,

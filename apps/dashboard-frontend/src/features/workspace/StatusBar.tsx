@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Cpu, Download, FolderKanban, ChevronsUpDown, Wifi } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useApi } from '@/hooks/useApi';
+import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudget';
 import { istChatModell, modellAnzeigeName } from '@/utils/modelDisplay';
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -19,20 +20,12 @@ import {
   type CatalogModel,
   type LoadedModel,
 } from '@/hooks/useStoreCatalog';
-import type { MemoryBudget } from '@/types';
 
 /** Antwort des öffentlichen /health-Fast-Path (dashboard-backend). */
 interface HealthResponse {
   status?: string;
   version?: string;
 }
-
-/**
- * React-Query-Key des KI-RAM-Budgets. Bewusst identisch zu dem Key, den ein
- * künftiger useModelStatus-Query nutzt, damit sich beide Verbraucher denselben
- * Cache-Eintrag teilen und es keine doppelte Poll-Last auf dem Jetson gibt.
- */
-export const MEMORY_BUDGET_QUERY_KEY = ['models', 'memory-budget'] as const;
 
 /** MB → GB, kompakt auf eine Nachkommastelle. */
 function toGb(mb: number): string {
@@ -63,13 +56,7 @@ export function StatusBar() {
   // KI-RAM-Budget: teilt sich Key + Cache mit useModelStatus, daher kein
   // zweiter Poll-Zyklus. 10 s Intervall spiegelt die bisherige Kadenz der
   // (entfallenen) Dashboard-KI-Karte.
-  const { data: budget } = useQuery({
-    queryKey: MEMORY_BUDGET_QUERY_KEY,
-    queryFn: () => api.get<MemoryBudget>('/models/memory-budget', { showError: false }),
-    refetchInterval: 10_000,
-    staleTime: 5_000,
-    retry: 1,
-  });
+  const { data: budget } = useMemoryBudget();
 
   // Modell-Umschalter: Katalog/Status/Standard nur laden, während das Popover
   // offen ist. Teilt die Query-Keys mit der Store-Ansicht (Cache-Dedup).

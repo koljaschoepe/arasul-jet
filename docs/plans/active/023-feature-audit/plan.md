@@ -827,6 +827,27 @@ Rechenfehler: `availableMb` zieht zusätzlich `safetyBufferMb` ab, hier 2 GB.
 Der Puffer hat nur keinen Namen auf dem Bildschirm. Gehört zu F-04, nicht
 hierher.
 
+### Und ein eigener Fehler, den die Review gefunden hat
+
+Der erste Entwurf holte den Abfrageschlüssel mit
+`import { MEMORY_BUDGET_QUERY_KEY } from '@/features/workspace/StatusBar'`.
+`apps/dashboard-frontend/CLAUDE.md` verbietet das wörtlich: „A component in
+`features/X/` must not be imported from `features/Y/`". Ausgerechnet in einem
+Schritt, dessen Zweck es ist, zwei Quellen auf eine zurückzuführen.
+
+Richtig aufgelöst nach der Platzierungsregel desselben Dokuments: der Hook
+liegt jetzt in `hooks/useMemoryBudget.ts`. Damit sind auch die beiden
+abgeschriebenen Zeichenketten in `StoreModelsGrid` weg. Vier Verbraucher, eine
+Stelle.
+
+**Beim Zählen dabei aufgefallen:** zehn weitere Stellen importieren quer durch
+Bereiche, alle aus `workspace/` heraus in `flows/`, `store/`, `sandbox/` und
+`settings/`. Das ist nicht dasselbe wie der Fehler oben: `workspace` ist die
+Hülle, die die anderen Bereiche einbettet, und eine Hülle darf ihren Inhalt
+kennen. Ob die Regel deshalb eine Ausnahme für die Hülle braucht oder ob die
+zehn Stellen umziehen müssen, ist eine Entscheidung, keine Aufräumarbeit, und
+gehört nicht in C5.
+
 **Abnahme, neu gefasst:** Vier Kacheln je Zeile ab 1024 Pixel, kein waagerechter
 Überlauf bei 1440, 1024 und 390. Nur Blau und Grau im Diagramm. Jede
 Speicherangabe sagt, worauf sie sich bezieht, und die Kachel im Systemstatus

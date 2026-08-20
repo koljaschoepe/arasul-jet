@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/shadcn/button';
 import { Chart, Sparkline } from '@/components/ui/Chart';
 import { Section, SectionList } from '@/components/ui/Section';
@@ -13,9 +12,8 @@ import type {
   DeviceInfo,
   ChartDataPoint,
 } from '@/hooks/useDashboardData';
-import type { Metrics, MemoryBudget } from '@/types';
-import { useApi } from '@/hooks/useApi';
-import { MEMORY_BUDGET_QUERY_KEY } from '@/features/workspace/StatusBar';
+import type { Metrics } from '@/types';
+import { useMemoryBudget } from '@/hooks/useMemoryBudget';
 import { DashboardCard } from './DashboardCard';
 
 /**
@@ -78,13 +76,7 @@ function SystemStatusView({
   // „24,5 / 61 GB" und „KI-RAM 15,5/32,0 GB" nebeneinander, ohne dass eine
   // Zeile sagte, dass die 32 ein Teil der 61 sind (RAM_LIMIT_LLM in der .env
   // des Geraets). Beide Zahlen waren richtig, keine erklaerte die andere.
-  const api = useApi();
-  const { data: kiBudget } = useQuery({
-    queryKey: MEMORY_BUDGET_QUERY_KEY,
-    queryFn: () => api.get<MemoryBudget>('/models/memory-budget', { showError: false }),
-    refetchInterval: 10_000,
-    staleTime: 5_000,
-  });
+  const { data: kiBudget } = useMemoryBudget();
   const kiRamGb =
     kiBudget?.totalBudgetMb != null ? (kiBudget.totalBudgetMb / 1024).toFixed(0) : null;
 
