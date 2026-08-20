@@ -70,6 +70,40 @@ async function ermittleBuchOrt(client) {
 }
 
 /**
+ * Tabellen, die es in `public` UND in `arasul` gibt.
+ *
+ * Genau eine darf das: `schema_migrations`. Sie steht auf dem Geraet in beiden
+ * Schemata, weil das Buch frueher ohne Ortsangabe angelegt wurde (siehe
+ * ermittleBuchOrt). Jede andere Doppelung ist ein Schaden, kein Zustand:
+ * `search_path` ist `"$user", public`, der Datenbanknutzer heisst arasul, also
+ * gewinnt ab Migration 090 immer die Tabelle in `arasul`. Eine gleichnamige
+ * Tabelle dort verdeckt die gefuellte in `public` vollstaendig. Die Anwendung
+ * liest dann eine leere Tabelle und haelt das fuer die Wahrheit.
+ *
+ * Am 20.08.2026 auf dem Pruefstand gemessen: ein Neustart eines fabrikneuen
+ * Geraets erzeugte 47 solche Paare. Danach meldete `/auth/login` fuer das
+ * Konto des Kunden "Invalid username or password", `needsSetup` stand auf
+ * false, und in `arasul.admin_users` sass ein neu angelegtes `admin` mit dem
+ * Passwort ab Werk. Kein einziger Testlauf hat das je gesehen, weil auf einer
+ * gewachsenen Datenbank die Doppelung nicht entsteht.
+ */
+const SCHATTEN_ERLAUBT = new Set(['schema_migrations']);
+
+async function schattentabellen(client) {
+  const { rows } = await client.query(
+    `SELECT table_name
+       FROM information_schema.tables
+      WHERE table_schema = 'arasul'
+     INTERSECT
+     SELECT table_name
+       FROM information_schema.tables
+      WHERE table_schema = 'public'
+      ORDER BY 1`
+  );
+  return rows.map(r => r.table_name).filter(name => !SCHATTEN_ERLAUBT.has(name));
+}
+
+/**
  * Ensure schema_migrations table exists (bootstrap for existing databases)
  */
 async function ensureMigrationsTable(client, buch) {
@@ -186,10 +220,23 @@ async function runMigrations(pool) {
     const buch = await ermittleBuchOrt(client);
     await ensureMigrationsTable(client, buch);
 
+    // Vor jeder Anweisung: steht die Datenbank schon schief, wird nichts mehr
+    // angewendet. Weitere DDL auf einem verdeckten Schema vertieft den Schaden
+    // nur, und das Ergebnis waere nicht mehr zu unterscheiden von einem, das
+    // nie kaputt war.
+    const schattenVorher = await schattentabellen(client);
+    if (schattenVorher.length > 0) {
+      logger.error(
+        `Migration Runner: ABBRUCH, ${schattenVorher.length} Tabelle(n) liegen doppelt in arasul und public: ` +
+          `${schattenVorher.join(', ')}. Es wurde nichts angewendet.`
+      );
+      return { applied: 0, skipped: 0, failed: null, schatten: schattenVorher };
+    }
+
     const files = getMigrationFiles();
     if (files.length === 0) {
       logger.info('Migration Runner: No migration files found');
-      return { applied: 0, skipped: 0, failed: null };
+      return { applied: 0, skipped: 0, failed: null, schatten: [] };
     }
 
     // Seed tracking for existing databases that Docker init already set up
@@ -257,7 +304,12 @@ async function runMigrations(pool) {
         }
 
         logger.error(`Migration ${migration.filename} FAILED: ${error.message}`);
-        return { applied: appliedCount, skipped: skippedCount, failed: migration.filename };
+        return {
+          applied: appliedCount,
+          skipped: skippedCount,
+          failed: migration.filename,
+          schatten: await schattentabellen(client),
+        };
       }
     }
 
@@ -269,10 +321,26 @@ async function runMigrations(pool) {
       logger.debug(`Migration Runner: All ${skippedCount} migrations already applied`);
     }
 
-    return { applied: appliedCount, skipped: skippedCount, failed: null };
+    // Danach noch einmal: eine Migration kann selbst eine Doppelung erzeugen,
+    // ohne dabei zu scheitern. Genau so ist der Schaden am 19.08.2026
+    // entstanden, und niemand hat es bemerkt.
+    const schattenNachher = await schattentabellen(client);
+    if (schattenNachher.length > 0) {
+      logger.error(
+        `Migration Runner: ${schattenNachher.length} Tabelle(n) liegen jetzt doppelt in arasul und public: ` +
+          `${schattenNachher.join(', ')}. Die Anwendung liest ab hier die leere.`
+      );
+    }
+
+    return {
+      applied: appliedCount,
+      skipped: skippedCount,
+      failed: null,
+      schatten: schattenNachher,
+    };
   } finally {
     client.release();
   }
 }
 
-module.exports = { runMigrations, getMigrationFiles, extractVersion };
+module.exports = { runMigrations, getMigrationFiles, extractVersion, schattentabellen };

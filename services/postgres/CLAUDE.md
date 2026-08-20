@@ -77,6 +77,39 @@ docker exec postgres-db psql -U arasul -d arasul_db -c "SELECT version, filename
 A `/create-migration` slash command is planned (Stage 5+); until then,
 follow the recipe above.
 
+## Zwei Schemata, ein `search_path`: die Falle in diesem Ordner
+
+Migration 090 legt das Schema `arasul` an. Der Datenbanknutzer heißt ebenfalls
+`arasul`, und `search_path` ist `"$user", public`. **Ab Migration 090 landet
+deshalb jedes unqualifizierte `CREATE TABLE` in `arasul`, nicht in `public`**,
+und `CREATE TABLE IF NOT EXISTS` prüft dann auch nur dort. Wird eine frühe
+Migration ein zweites Mal angewendet, entsteht keine Fehlermeldung, sondern
+eine zweite, leere Tabelle, die die gefüllte in `public` vollständig verdeckt.
+
+Am 20.08.2026 am Prüfstand gemessen: ein einziger Neustart eines fabrikneuen
+Geräts erzeugte 47 solcher Paare. Der Kunde konnte sich danach nicht mehr
+anmelden, seine Daten lagen unerreichbar in `public`, und an seiner Stelle
+stand ein neues Konto `admin` mit dem Passwort ab Werk.
+
+Drei Dinge halten das seitdem auf:
+
+1. `zzz_migrationsbuch_fuellen.sh` läuft als **letztes** Init-Skript und
+   trägt jede `.sql` als angewendet ins Buch ein. Vorher schrieb der Init nur
+   die sieben Zeilen, die einzelne Dateien selbst setzen; der Runner hielt den
+   Rest für offen und wendete ihn erneut an. Die Datei trägt bewusst **keine
+   Nummer**: sie ist keine Migration, sondern die Schlussnotiz darüber, und
+   eine `999` würde die Regel „nächste Nummer = höchste plus eins" zerstören.
+2. `migrationRunner.js` bricht ab, wenn eine Tabelle in beiden Schemata liegt
+   (`schattentabellen()`, Ausnahme: `schema_migrations`, die steht auf
+   gewachsenen Geräten wirklich doppelt).
+3. `bootstrap.js` legt bei kaputtem Schema **keinen** Administrator ab Werk an.
+
+Nachstellen: `scripts/test/frischgeraet-abnahme.sh`.
+
+Wer eine Migration ab 090 schreibt, qualifiziert das Schema am besten
+ausdrücklich (`arasul.foo` oder `public.foo`), statt sich auf den
+`search_path` zu verlassen.
+
 ## Forbidden
 
 - ❌ Editing an already-applied migration file. Checksums diverge → the
