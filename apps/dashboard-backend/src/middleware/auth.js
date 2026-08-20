@@ -146,18 +146,30 @@ async function requireAuth(req, res, next) {
  * PHASE1-FIX (HIGH-B02): Improved error handling - only silence expected errors
  */
 async function optionalAuth(req, res, next) {
+  let token = null;
+
   const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-    return next();
+  if (authHeader) {
+    const parts = authHeader.split(' ');
+    if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+      token = parts[1];
+    }
   }
 
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') {
-    return next();
+  // Fallback to cookie for LAN access support, same order as requireAuth above.
+  // Plan 023 C3: this fallback was missing here, so a caller authenticated only
+  // by the httpOnly `arasul_session` cookie (LAN access, forward-auth, a browser
+  // whose localStorage was cleared by a privacy extension that cannot touch
+  // httpOnly cookies) looked anonymous to every optionalAuth route. requireAuth
+  // has had the fallback since day one; the two must not disagree about what
+  // counts as a session.
+  if (!token && req.cookies && req.cookies.arasul_session) {
+    token = req.cookies.arasul_session;
   }
 
-  const token = parts[1];
+  if (!token) {
+    return next();
+  }
 
   // PHASE1-FIX: Separate try-catch for token vs database errors
   let decoded;

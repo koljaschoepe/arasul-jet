@@ -41,6 +41,7 @@ jest.mock('../../src/middleware/auth', () => {
     __clearUser: () => {
       mockUser = null;
     },
+    optionalAuth: (req, res, next) => next(),
     requireAuth: (req, res, next) => {
       if (!mockUser) {
         return res

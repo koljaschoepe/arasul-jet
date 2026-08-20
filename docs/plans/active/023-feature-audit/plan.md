@@ -481,11 +481,37 @@ Laden leer. Behebt F-01, F-02.
 Vorher gemessen, nicht vermutet: ein Aufruf der Anmeldeseite auf dem Gerät
 schrieb genau eine Zeile in die Konsole, `Failed to load resource: 401` für
 `/api/auth/me`. Die schreibt der Browser selbst, kein `try/catch` im Code
-fängt sie ab. Der einzige Weg dahin, dass sie ausbleibt, ist, nicht zu fragen,
-solange es nichts zu fragen gibt: `checkAuth` bricht jetzt ab, wenn
-`getValidToken()` nichts hergibt. Zulässig ist das, weil Bearer-Token und das
-`httpOnly`-Cookie `arasul_session` in beiden Anmeldewegen zusammen entstehen
-(`routes/auth.js` Zeile 126 und 199) und zusammen nach vier Stunden ablaufen.
+fängt sie ab, weil es in JavaScript gar keine Ausnahme ist.
+
+**Der erste Versuch war der falsche und ist im Review zweimal beanstandet
+worden.** Er hat die Frage übersprungen, wenn kein Token im `localStorage`
+liegt. Das tauscht einen sicheren Fehler gegen einen seltenen: das
+Sitzungscookie `arasul_session` ist `httpOnly`, eine Seite sieht es nie, und ein
+Browser, der den `localStorage` räumt, ohne die `httpOnly`-Cookies zu räumen,
+hätte eine Sitzung verloren, die der Server noch anerkannt hätte. Der Einwand
+war doppelt richtig: `middleware/auth.js:34` hat den Cookie-Weg ausdrücklich
+„for LAN access support". Der Gegenvorschlag des Reviews, einfach immer zu
+fragen, war aber auch falsch, denn er macht F-02 wieder auf.
+
+**Gelöst über einen dritten Weg, den das Review selbst nennt:
+`GET /api/auth/session`.** Ein öffentlicher Prüfpunkt, der in beiden Fällen mit
+200 antwortet und im Rumpf sagt, welcher es ist. Damit gibt es den Handel
+überhaupt nicht: die Konsole bleibt leer, und über die Sitzung entscheidet
+weiter allein der Server. `/auth/me` bleibt unverändert die geschützte Route
+und antwortet ohne Sitzung weiter mit 401.
+
+**Dabei kam heraus, dass `optionalAuth` das Sitzungscookie nie gelesen hat.**
+`requireAuth` hat den Cookie-Weg seit jeher, `optionalAuth` nicht. Aufgefallen
+ist es nicht, weil `optionalAuth` im ganzen Backend keinen einzigen Aufrufer
+hatte. Der neue Prüfpunkt ist sein erster, und ohne die Ergänzung hätte er
+genau den Fall falsch beantwortet, um dessentwillen er gebaut wurde. Gegenprobe
+gesehen: ohne den Cookie-Weg wird der Test rot.
+
+**Und noch etwas hing daran:** neun Testdateien ersetzen die Auth-Middleware
+per `jest.mock`, und keine davon kannte `optionalAuth`. `jest.mock` ersetzt das
+ganze Modul, also bekam jeder andere Importeur `undefined`. Eine der neun ist
+sofort gescheitert, die anderen acht hätten es beim nächsten Aufrufer getan.
+Alle neun nachgezogen.
 
 **Dabei kam ein stiller Fehler in den Testfixtures heraus.** `App.test.tsx`
 legte `arasul_token = 'valid-token'` ab. Diese Zeichenkette hat `getValidToken`

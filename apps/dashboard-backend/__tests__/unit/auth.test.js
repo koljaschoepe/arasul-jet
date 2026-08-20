@@ -263,6 +263,67 @@ describe('Authentication Routes', () => {
   });
 
   // ============================================================================
+  // GET /api/auth/session
+  //
+  // Plan 023 C3, Befund F-02. Der Pruefpunkt antwortet in BEIDEN Faellen mit
+  // 200. Eine 401 hier waere kein Fehler im Code, aber der Browser schreibt
+  // fuer jede 401 von sich aus eine rote Zeile in die Konsole, und die sieht
+  // ein Partner bei jeder Vorfuehrung.
+  // ============================================================================
+  describe('GET /api/auth/session', () => {
+    test('answers 200 with authenticated:false when there is no session', async () => {
+      const response = await request(app).get('/api/auth/session');
+
+      expect(response.status).toBe(200);
+      expect(response.body.authenticated).toBe(false);
+      expect(response.body.user).toBeNull();
+    });
+
+    test('answers 200 with the user when the Bearer token is valid', async () => {
+      setupAuthMocks(db);
+
+      const response = await request(app)
+        .get('/api/auth/session')
+        .set('Authorization', `Bearer ${generateTestToken()}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.authenticated).toBe(true);
+      expect(response.body.user).toHaveProperty('username');
+    });
+
+    // Der eigentliche Grund, warum das Frontend nicht selbst entscheiden darf:
+    // arasul_session ist httpOnly und fuer die Seite unsichtbar. Ohne diesen
+    // Weg wuerde eine gueltige Sitzung im LAN-Fall weggeworfen.
+    test('answers 200 with the user when only the session cookie is present', async () => {
+      setupAuthMocks(db);
+
+      const response = await request(app)
+        .get('/api/auth/session')
+        .set('Cookie', [`arasul_session=${generateTestToken()}`]);
+
+      expect(response.status).toBe(200);
+      expect(response.body.authenticated).toBe(true);
+      expect(response.body.user).toHaveProperty('username');
+    });
+
+    test('answers 200 with authenticated:false for a broken token', async () => {
+      const response = await request(app)
+        .get('/api/auth/session')
+        .set('Authorization', 'Bearer kein.echter.token');
+
+      expect(response.status).toBe(200);
+      expect(response.body.authenticated).toBe(false);
+    });
+
+    // /auth/me bleibt die geschuetzte Route und aendert ihr Verhalten nicht.
+    test('leaves GET /api/auth/me answering 401 without a session', async () => {
+      const response = await request(app).get('/api/auth/me');
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  // ============================================================================
   // POST /api/auth/change-password
   // ============================================================================
   describe('POST /api/auth/change-password', () => {

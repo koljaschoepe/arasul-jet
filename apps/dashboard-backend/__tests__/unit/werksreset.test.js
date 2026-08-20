@@ -46,7 +46,10 @@ jest.mock('../../src/services/documents/qdrantService', () => ({
   deleteAllVectors: jest.fn(),
 }));
 
-jest.mock('../../src/middleware/auth', () => ({ clearUserCache: jest.fn() }));
+jest.mock('../../src/middleware/auth', () => ({
+  clearUserCache: jest.fn(),
+  optionalAuth: (req, res, next) => next(),
+}));
 
 const db = require('../../src/database');
 const werksreset = require('../../src/services/werksreset/werksreset');

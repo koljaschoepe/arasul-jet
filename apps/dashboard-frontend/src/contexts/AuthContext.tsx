@@ -16,7 +16,7 @@ import {
 } from 'react';
 import { API_BASE, getAuthHeaders } from '../config/api';
 import { getCsrfToken } from '../utils/csrf';
-import { getTokenExpiration, getValidToken } from '../utils/token';
+import { getTokenExpiration } from '../utils/token';
 import { queryClient } from '../lib/queryClient';
 
 interface User {
@@ -60,43 +60,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // P2.1.4: AbortController so that StrictMode double-invokes and rapid
   // logout-during-checkAuth do not race.
   const checkAuth = useCallback(async (signal?: AbortSignal) => {
-    // F-02: Ohne Sitzungsmerkmal gar nicht erst fragen. Vor der Anmeldung
-    // beantwortet der Server /auth/me mit 401, und der Browser schreibt dafuer
-    // von sich aus eine Fehlerzeile in die Konsole, die kein try/catch abfaengt.
-    //
-    // Gefragt wird, sobald EINES von beiden da ist. Der Bearer-Token liegt im
-    // localStorage, das Cookie arasul_csrf im Cookie-Speicher; beide entstehen
-    // in derselben Antwort wie die Sitzung selbst (routes/auth.js 126/136 fuer
-    // die Anmeldung, 199/208 fuer das erste Konto) und werden beim Abmelden in
-    // derselben Antwort wieder geloescht (:242 und :250). Zwei getrennte
-    // Speicher, ein Zustand: raeumt der Browser den einen ohne den anderen weg
-    // (Safari-ITP, "Website-Daten loeschen" in Teilen, Privatsphaere-Erweiterungen),
-    // bleibt der andere als Hinweis stehen, und der Server entscheidet weiter
-    // selbst ueber die Sitzung. Nur wenn beide fehlen, gibt es nichts zu fragen.
-    //
-    // arasul_csrf bekommt nie jemand ohne Sitzung: middleware/csrf.js:75 steigt
-    // ohne arasul_session sofort aus, und rotiert wird nur darunter.
-    // getValidToken raeumt abgelaufene Token gleich weg.
-    if (!getValidToken() && !getCsrfToken()) {
-      localStorage.removeItem('arasul_user');
-      setIsAuthenticated(false);
-      setUser(null);
-      setLoading(false);
-      return false;
-    }
     try {
       // useApi-exception: AuthContext is the auth *primitive* useApi builds on
       // (useApi calls useAuth().logout). Routing these calls through useApi
       // would create a circular dependency + render loops (see useApi.ts:122)
       // and a 401 here would trigger logout mid-check. Raw fetch is deliberate.
-      const response = await fetch(`${API_BASE}/auth/me`, {
+      // F-02: /auth/session statt /auth/me. Der Pruefpunkt antwortet in beiden
+      // Faellen mit 200 und sagt im Rumpf, welcher es ist. /auth/me antwortet
+      // ohne Sitzung mit 401, und fuer eine 401 schreibt der BROWSER selbst
+      // eine rote Zeile in die Konsole. Kein try/catch auf der Seite kann das
+      // abfangen, weil es in JS gar keine Ausnahme ist. Am 20.08.2026 auf dem
+      // Geraet gemessen: genau eine Konsolenzeile je Aufruf, diese.
+      //
+      // Nicht zu fragen waere der falsche Ausweg gewesen: das Sitzungscookie
+      // ist httpOnly, eine Seite sieht es nie, und ein Browser, der den
+      // localStorage ohne die httpOnly-Cookies raeumt, haette eine Sitzung
+      // verloren, die der Server noch anerkannt haette. Ein Pruefpunkt, der
+      // nie 401 antwortet, hat diesen Handel nicht noetig. Der Server
+      // entscheidet weiter allein.
+      const response = await fetch(`${API_BASE}/auth/session`, {
         headers: getAuthHeaders(),
         signal,
       });
 
       if (response.ok) {
         const data = await response.json();
-        if (data.user) {
+        if (data.authenticated && data.user) {
           setIsAuthenticated(true);
           setUser(data.user);
           localStorage.setItem('arasul_user', JSON.stringify(data.user));

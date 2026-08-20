@@ -14,7 +14,7 @@ const {
 } = require('../utils/jwt');
 const { verifyPassword } = require('../utils/password');
 const { changeDashboardPassword } = require('../services/auth/passwordService');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, optionalAuth } = require('../middleware/auth');
 const {
   loginLimiter,
   generalAuthLimiter,
@@ -347,6 +347,40 @@ router.get(
         username: req.user.username,
         email: req.user.email,
       },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// GET /api/auth/session
+// Public session probe. Answers 200 in BOTH cases, with `authenticated` saying
+// which one it is. /auth/me stays as it is: it is the protected endpoint and
+// answers 401 without a session.
+//
+// Plan 023 C3, Befund F-02: the dashboard asks on every page load whether a
+// session exists. Asking /auth/me meant a 401 before login, and for a 401 the
+// BROWSER itself writes a red line into the console. No try/catch on the page
+// can suppress that, because it is not an exception in JS at all. Measured on
+// the device on 2026-08-20: exactly one console line per visit, that one.
+//
+// The first attempt was to skip the request when no token is in localStorage.
+// That trades a certain defect for a narrow one: the session cookie is
+// httpOnly, so a page can never see it, and a browser that clears localStorage
+// without clearing httpOnly cookies would drop a session the server would
+// still have honoured. A probe that never 401s has no such trade.
+//
+// optionalAuth reads the Bearer header AND the arasul_session cookie, so this
+// answers correctly for both the normal and the LAN/cookie-only path.
+router.get(
+  '/session',
+  generalAuthLimiter,
+  optionalAuth,
+  asyncHandler((req, res) => {
+    res.json({
+      authenticated: Boolean(req.user),
+      user: req.user
+        ? { id: req.user.id, username: req.user.username, email: req.user.email }
+        : null,
       timestamp: new Date().toISOString(),
     });
   })

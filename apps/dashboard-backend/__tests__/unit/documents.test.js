@@ -36,6 +36,7 @@ logger.debug = jest.fn();
 // Mock auth middleware - bypasses auth for route testing
 // For auth flow tests, see auth.test.js which uses generateTestToken + setupAuthMocks
 jest.mock('../../src/middleware/auth', () => ({
+    optionalAuth: (req, res, next) => next(),
     requireAuth: (req, res, next) => {
         req.user = { username: 'testuser', id: 1 };
         req.tokenData = { userId: 1, username: 'testuser', jti: 'test-jti', type: 'access' };
