@@ -84,6 +84,7 @@ export default function OnboardingWizard() {
   const kennung = useId();
   const titelId = `${kennung}-titel`;
   const inhaltId = `${kennung}-inhalt`;
+  const fortschrittId = `${kennung}-fortschritt`;
   const dialog = useRef<HTMLDivElement | null>(null);
 
   const schliessen = useCallback(() => {
@@ -175,13 +176,16 @@ export default function OnboardingWizard() {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titelId}
-        aria-describedby={inhaltId}
+        aria-describedby={`${fortschrittId} ${inhaltId}`}
         data-testid="onboarding-wizard"
       >
         {/* Der Fortschritt als Text. Die Punkte daneben sagen dasselbe noch
             einmal als Bild und sind deshalb fuer Vorlesegeraete unsichtbar. */}
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <span
+            id={fortschrittId}
+            className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          >
             Schritt {i + 1} von {SCHRITTE.length}
           </span>
           <div
@@ -213,11 +217,11 @@ export default function OnboardingWizard() {
             <span className="font-semibold">Danach: </span>
             {s.ergebnis}
           </p>
-        </div>
 
-        <p className="text-xs text-muted-foreground">
-          {naechster ? `Als Nächstes: ${naechster.titel}` : 'Das war der letzte Schritt.'}
-        </p>
+          <p className="mt-4 text-xs text-muted-foreground">
+            {naechster ? `Als Nächstes: ${naechster.titel}` : 'Das war der letzte Schritt.'}
+          </p>
+        </div>
 
         <div className="flex items-center justify-between gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={schliessen}>

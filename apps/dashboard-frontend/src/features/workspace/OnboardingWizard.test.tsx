@@ -102,6 +102,21 @@ describe('OnboardingWizard', () => {
     expect(screen.getByRole('dialog')).toHaveAccessibleName('Ein KI-Coder ohne Konto');
   });
 
+  // Der Fokus landet bei jedem Schrittwechsel auf dem Dialog. Was dann
+  // vorgelesen wird, ist Name plus Beschreibung. Stand der Fortschritt
+  // ausserhalb der Beschreibung, bekaeme ein Vorlesegeraet genau das nicht,
+  // was C4 lesbar machen sollte.
+  it('nimmt Fortschritt, Inhalt und Ausblick in die Beschreibung', () => {
+    render(<OnboardingWizard />);
+    const dialog = screen.getByRole('dialog');
+    const ids = dialog.getAttribute('aria-describedby')!.split(' ');
+    const text = ids.map(id => document.getElementById(id)?.textContent ?? '').join(' ');
+
+    expect(text).toContain('Schritt 1 von 3');
+    expect(text).toContain('Danach:');
+    expect(text).toContain('Als Nächstes: Ein KI-Coder ohne Konto');
+  });
+
   // aria-modal behauptet, dass hinter dem Dialog nichts bedienbar ist. Ohne
   // Fokusfalle war das falsch: der Tabulator lief in den Arbeitsbereich.
   it('behaelt den Fokus im Dialog', async () => {
