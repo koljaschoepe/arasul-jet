@@ -715,6 +715,19 @@ still fehl). Das ist eine eigene Aufgabe, keine Zeile in C4. Sie ist im
 Steuer-Repo zum 15.09.2026 als Wiedervorlage eingetragen; dieses Repo hat kein
 `company/`, der Pfad wäre hier nicht nachprüfbar.
 
+**Die Hälfte der Dialoge im Produkt baut die Dialogmechanik selbst.** Gefunden
+in der Review dieses PRs, gemessen am 20.08.2026: fünf Dateien tragen
+`role="dialog"` von Hand (`TipTapEditor`, `ArgumentPicker`, `KiZugangDialog`,
+`OnboardingWizard`, `QuickOpen`), fünf weitere benutzen den gemeinsamen
+`components/ui/Modal.tsx`, der Radix umschließt und Fokusfalle, Fokusrückgabe
+und Portal mitbringt. **Drei der fünf behaupten `aria-modal="true"`, und zwei
+davon haben keine Tabulatorfalle:** `KiZugangDialog` und `QuickOpen` tragen
+damit genau den Fehler, den C4 hier gerade in vier Anläufen von Hand behoben
+hat. Das ist kein Einzelfall, sondern das Muster, das Phase C bei den Seiten
+schon einmal aufgelöst hat: sechs Bausteine statt 39 handgeschriebener
+Klassenketten. Bei Dialogen steht dieselbe Arbeit noch aus, und der Wächter
+`scripts/test/bausteine.py` kennt die Regel bisher nicht.
+
 ## C5 Systemstatus lesbar machen
 
 Zu viele Farben, Kacheln mit Icons, die nichts beitragen, Kennzahlen in drei plus
