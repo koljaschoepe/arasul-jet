@@ -238,22 +238,3 @@ net.Server.prototype.listen = function (...args) {
   }
   return echtesListen.apply(this, args);
 };
-
-// TEMPORAER
-afterAll(() => {
-  const fs = require('fs');
-  const t = setTimeout(() => {
-    const h = process._getActiveHandles();
-    const zeilen = h.map(x => {
-      const n = x && x.constructor ? x.constructor.name : typeof x;
-      if (n === 'Timeout') {
-        const cb = x._onTimeout;
-        return `Timeout(${x._idleTimeout}ms) ${cb && cb.toString ? cb.toString().slice(0,200).replace(/\s+/g,' ') : '?'}`;
-      }
-      if (n === 'ChildProcess') return `ChildProcess(${(x.spawnargs||[]).slice(1).join(' ')})`;
-      return n;
-    });
-    fs.writeFileSync('/private/tmp/claude-501/-Users-koljaschope-Code-arasul/2ff6d5e5-e52a-4766-aabf-db6dfed40d51/scratchpad/handles-spaet.txt', `PID ${process.pid}\n` + zeilen.join('\n') + '\n');
-  }, 6000);
-  t.unref();
-});
