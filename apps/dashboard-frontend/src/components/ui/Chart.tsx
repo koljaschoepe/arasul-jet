@@ -52,6 +52,16 @@ export interface ChartSeries {
   name: string;
   /** Einheit hinter dem Wert im Tooltip, etwa "%" oder "°C". */
   unit?: string;
+  /**
+   * Welche Achse die Reihe bemisst. Ohne Angabe die linke.
+   *
+   * Es gibt sie, weil eine Reihe mit anderer Einheit auf einer fremden Achse
+   * eine falsche Aussage zeichnet, nicht nur eine unschoene. Im Systemstatus
+   * lief die Temperatur bis zum 20.08.2026 auf der Prozentachse: 52 Grad
+   * landeten auf der Linie, an der „50%" steht, und ein Leser sah eine
+   * halbvolle Maschine, wo eine kuehle stand.
+   */
+  achse?: 'links' | 'rechts';
 }
 
 /**
@@ -69,6 +79,15 @@ interface ChartProps<Datum extends object> {
   formatX: (value: number) => string;
   formatY?: (value: number) => string;
   yDomain?: [number, number];
+  /** Nur noetig, wenn eine Reihe `achse: 'rechts'` traegt. */
+  formatYRechts?: (value: number) => string;
+  /**
+   * Die obere Grenze darf eine Funktion des groessten Messwerts sein. Damit
+   * bleibt eine Achse im Normalfall fest, waechst aber mit, statt einen
+   * Ausreisser abzuschneiden. Eine feste Decke verbirgt genau den Wert, wegen
+   * dem man hinsieht.
+   */
+  yDomainRechts?: [number, number | ((datenMax: number) => number)];
   height?: number;
   /** Beschreibung des Diagramms für Vorlesewerkzeuge. */
   label: string;
@@ -90,11 +109,14 @@ export function Chart<Datum extends object>({
   formatX,
   formatY,
   yDomain,
+  formatYRechts,
+  yDomainRechts,
   height = 280,
   label,
   className,
 }: ChartProps<Datum>) {
   const einheiten = new Map(series.map(reihe => [reihe.name, reihe.unit ?? '']));
+  const zweiteAchse = series.some(reihe => reihe.achse === 'rechts');
 
   return (
     <div className={cn('min-w-0', className)}>
@@ -110,10 +132,20 @@ export function Chart<Datum extends object>({
             {...ACHSE}
           />
           <YAxis
+            yAxisId="links"
             {...(yDomain ? { domain: yDomain } : {})}
             {...(formatY ? { tickFormatter: formatY } : {})}
             {...ACHSE}
           />
+          {zweiteAchse && (
+            <YAxis
+              yAxisId="rechts"
+              orientation="right"
+              {...(yDomainRechts ? { domain: yDomainRechts } : {})}
+              {...(formatYRechts ? { tickFormatter: formatYRechts } : {})}
+              {...ACHSE}
+            />
+          )}
           <Tooltip
             contentStyle={{
               background: 'var(--bg-card)',
@@ -135,6 +167,7 @@ export function Chart<Datum extends object>({
               type="monotone"
               dataKey={reihe.key}
               name={reihe.name}
+              yAxisId={reihe.achse === 'rechts' ? 'rechts' : 'links'}
               stroke={SERIENFARBEN[index % SERIENFARBEN.length]}
               strokeWidth={2}
               dot={false}

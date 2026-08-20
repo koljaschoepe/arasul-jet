@@ -13,6 +13,7 @@ import type {
   ChartDataPoint,
 } from '@/hooks/useDashboardData';
 import type { Metrics } from '@/types';
+import { useMemoryBudget } from '@/hooks/useMemoryBudget';
 import { DashboardCard } from './DashboardCard';
 
 /**
@@ -27,6 +28,36 @@ import { DashboardCard } from './DashboardCard';
  */
 
 const SystemHealthWidget = lazy(() => import('./SystemHealthWidget'));
+
+/**
+ * Die Temperaturachse, 40 bis 100 Grad statt 0 bis 100.
+ *
+ * Am 20.08.2026 auf dem Orin gemessen, 20006 Werte aus sieben Tagen: 45,8 Grad
+ * im Tief, 72,5 im Hoch, 50,4 im Mittel. Auf einer Achse ab null belegt das 27
+ * Prozent der Hoehe und im Alltag rund 6, also wieder die fast gerade Linie,
+ * gegen die dieser Schritt ueberhaupt gebaut ist. Die Temperatur von der
+ * Prozentachse zu nehmen und ihr dann dieselbe Spanne zu geben, haette den
+ * Fehler nur umbenannt.
+ *
+ * Die Untergrenze ist fest: eine Achse, die sich den Daten anpasst, macht aus
+ * zwei Grad Schwankung ein Gebirge, und die Frage an dieses Diagramm lautet, ob
+ * das Geraet ruhig laeuft. Die Obergrenze ist im Normalfall ebenfalls fest bei
+ * 100 und haelt damit die Alarmschwellen des Produkts im Bild (Warnung 80,
+ * kritisch 95). Sie waechst aber mit, sobald ein Messwert darueber liegt.
+ *
+ * Der zweite Teil kam aus der Review und ist wichtiger, als er aussieht: eine
+ * feste Decke schneidet den Ausreisser ab, wegen dem man ueberhaupt hinsieht.
+ * Ein Geraet, das fuenf Jahre unbeaufsichtigt laufen soll, faellt irgendwann in
+ * genau diesen Fall, und dann darf die Kurve nicht am oberen Rand verschwinden.
+ */
+export const TEMPERATUR_ACHSE: [number, (datenMax: number) => number] = [
+  40,
+  // Der Wachtest auf endlich ist kein Zierrat: Math.max(100, NaN) ist NaN, und
+  // eine Achse mit NaN als Grenze zeichnet gar nichts, ohne einen Fehler zu
+  // melden. recharts kann in einem Zwischenschritt einen leeren Datensatz
+  // reichen, bevor der Verlauf geladen ist.
+  datenMax => (Number.isFinite(datenMax) ? Math.max(100, Math.ceil(datenMax / 10) * 10) : 100),
+];
 
 // Kompakt-Layout (Plan 002): alle Klassen auf der Dichte-Skala (text-ui-*
 // + ui-1…4-Abstände). min(100%, …) in den auto-fit-Grids verhindert
@@ -69,6 +100,16 @@ function SystemStatusView({
   thresholds,
   deviceInfo,
 }: SystemStatusViewProps): React.JSX.Element {
+  // Dasselbe Budget, das die Statusleiste unten anzeigt, aus demselben
+  // Abfrageschluessel: ein Cache-Eintrag, keine zweite Abfragelast auf dem
+  // Jetson. Genau das ist der Kern von F-24. Auf einem Bildschirm standen
+  // „24,5 / 61 GB" und „KI-RAM 15,5/32,0 GB" nebeneinander, ohne dass eine
+  // Zeile sagte, dass die 32 ein Teil der 61 sind (RAM_LIMIT_LLM in der .env
+  // des Geraets). Beide Zahlen waren richtig, keine erklaerte die andere.
+  const { data: kiBudget } = useMemoryBudget();
+  const kiRamGb =
+    kiBudget?.totalBudgetMb != null ? (kiBudget.totalBudgetMb / 1024).toFixed(0) : null;
+
   const defaultThresholds: Thresholds = {
     cpu: { warning: 70, critical: 90 },
     ram: { warning: 70, critical: 90 },
@@ -170,7 +211,14 @@ function SystemStatusView({
           unit="%"
           note={
             deviceInfo?.total_memory_gb ? (
-              `${(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} / ${deviceInfo.total_memory_gb} GB`
+              <>
+                {`${(((metrics?.ram || 0) / 100) * deviceInfo.total_memory_gb).toFixed(1)} von ${deviceInfo.total_memory_gb} GB im ganzen Gerät`}
+                {kiRamGb !== null && (
+                  <div className="mt-ui-1 text-ui-xs text-text-muted">
+                    {`Davon ${kiRamGb} GB für KI-Modelle reserviert`}
+                  </div>
+                )}
+              </>
             ) : (
               <span
                 className={`${STAT_BADGE_BASE} ${STAT_BADGE_VARIANTS[getStatusInfo(metrics?.ram || 0, 'ram').variant]}`}
@@ -267,7 +315,10 @@ function SystemStatusView({
                 series={[
                   { key: 'RAM', name: 'Arbeitsspeicher', unit: '%' },
                   { key: 'Swap', name: 'Auslagerung', unit: '%' },
-                  { key: 'Temp', name: 'Temperatur', unit: '°C' },
+                  // Eigene Achse rechts. Auf der Prozentachse landeten 52 Grad
+                  // auf der Linie, an der „50%" steht: ein Leser sah eine
+                  // halbvolle Maschine, wo eine kuehle stand.
+                  { key: 'Temp', name: 'Temperatur', unit: '°C', achse: 'rechts' },
                 ]}
                 xKey="timestamp"
                 xTicks={chartTicks}
@@ -276,11 +327,13 @@ function SystemStatusView({
                 }
                 formatY={wert => `${wert}%`}
                 yDomain={[0, 100]}
+                formatYRechts={wert => `${wert} °C`}
+                yDomainRechts={TEMPERATUR_ACHSE}
                 // Die alte Beschriftung nannte Prozessor, Arbeitsspeicher und
                 // Grafikeinheit. Gezeichnet wurden Arbeitsspeicher, Auslagerung
                 // und Temperatur. Wer die Seite vorlesen ließ, bekam drei falsche
                 // Namen.
-                label={`Auslastung der letzten ${chartTimeRange} Stunden: Arbeitsspeicher, Auslagerung und Temperatur`}
+                label={`Auslastung der letzten ${chartTimeRange} Stunden: Arbeitsspeicher und Auslagerung in Prozent auf der linken Achse, Temperatur in Grad Celsius auf der rechten`}
               />
               <div className="sr-only" role="status">
                 {metrics && (

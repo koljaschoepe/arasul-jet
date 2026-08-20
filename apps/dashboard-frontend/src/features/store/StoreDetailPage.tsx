@@ -33,11 +33,11 @@ import {
   TriangleAlert,
   CircleX,
 } from 'lucide-react';
-import type { MemoryBudget } from '@/types';
 import { Button } from '@/components/ui/shadcn/button';
 import { Badge } from '@/components/ui/shadcn/badge';
 import { cn } from '@/lib/utils';
 import { useApi } from '@/hooks/useApi';
+import { useMemoryBudget } from '@/hooks/useMemoryBudget';
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useActivation } from '@/contexts/ActivationContext';
@@ -79,19 +79,15 @@ function formatContextLength(tokens: number): string {
 
 /**
  * HW-Fit-Banner (Plan 009): schätzt anhand des RAM-Bedarfs des Modells gegen
- * das KI-RAM-Budget dieser Jetson-Box, ob es flüssig läuft. Nutzt denselben
- * React-Query-Key wie die StatusBar (['models','memory-budget']) → kein
- * zusätzlicher Poll. Das ist der Alleinstellungs-Vorteil eines Edge-Stores
- * (bekannte Hardware): rechnen statt raten.
+ * das KI-RAM-Budget dieser Jetson-Box, ob es flüssig läuft. Nutzt den
+ * gemeinsamen Hook `useMemoryBudget`, also denselben Cache-Eintrag wie die
+ * Statusleiste, das Modellraster und die Speicherkachel im Systemstatus. Ohne
+ * eigenen Takt: die Seite zeigt einmal an, ob das Modell ins Budget passt, und
+ * dafür braucht es keinen Poll auf dem Jetson. Das ist der Vorteil eines
+ * Edge-Stores mit bekannter Hardware: rechnen statt raten.
  */
 function ModelFitBanner({ requiredGb }: { requiredGb: number }) {
-  const api = useApi();
-  const { data: budget } = useQuery({
-    queryKey: ['models', 'memory-budget'],
-    queryFn: () => api.get<MemoryBudget>('/models/memory-budget', { showError: false }),
-    staleTime: 5_000,
-    retry: 1,
-  });
+  const { data: budget } = useMemoryBudget({ refetchInterval: false });
 
   if (!budget || !requiredGb || requiredGb <= 0) return null;
   const totalGb = budget.totalBudgetMb / 1024;
