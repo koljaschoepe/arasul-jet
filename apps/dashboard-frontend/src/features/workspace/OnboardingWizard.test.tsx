@@ -1,5 +1,9 @@
 /**
  * OnboardingWizard — erscheint einmal, merkt sich das Wegklicken.
+ *
+ * Die Prüfungen zum Fortschritt und zum Ergebnis stammen aus Plan 023 C4.
+ * Vorher war der Fortschritt ein blauer Punkt zwischen zwei grauen, und kein
+ * Schritt sagte, was der Leser danach hat.
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -14,9 +18,7 @@ describe('OnboardingWizard', () => {
     expect(screen.getByText('Deine Entwicklungsumgebung')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
-    expect(
-      screen.getByRole('heading', { name: 'Lokaler Coder, kein Login nötig' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ein KI-Coder ohne Konto' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
     expect(
       screen.getByRole('heading', { name: 'Claude einmal anmelden (optional)' })
@@ -37,6 +39,90 @@ describe('OnboardingWizard', () => {
   it('„Überspringen" schließt und merkt es sich', async () => {
     render(<OnboardingWizard />);
     await userEvent.click(screen.getByRole('button', { name: 'Überspringen' }));
+    expect(screen.queryByTestId('onboarding-wizard')).not.toBeInTheDocument();
+    expect(localStorage.getItem('arasul-onboarding-seen-v1')).toBe('1');
+  });
+
+  // C4: der wievielte Schritt läuft, steht als Text da, nicht nur als Punkt.
+  it('nennt den Schritt in Worten, auf jedem Schritt', async () => {
+    render(<OnboardingWizard />);
+    expect(screen.getByText('Schritt 1 von 3')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
+    expect(screen.getByText('Schritt 2 von 3')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
+    expect(screen.getByText('Schritt 3 von 3')).toBeInTheDocument();
+  });
+
+  // C4: jeder Schritt nennt sein Ergebnis, also was der Leser danach hat.
+  it('nennt auf jedem Schritt sein Ergebnis', async () => {
+    render(<OnboardingWizard />);
+    expect(screen.getByText(/Du weißt, wo gearbeitet wird/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
+    expect(screen.getByText(/ohne Anmeldung und ohne Internetverbindung/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
+    expect(screen.getByText(/auch nach einem Neustart des Geräts/)).toBeInTheDocument();
+  });
+
+  // C4: was danach kommt, steht mit Namen da, und am Ende steht, dass Schluss ist.
+  it('kündigt den nächsten Schritt mit Namen an und meldet das Ende', async () => {
+    render(<OnboardingWizard />);
+    expect(screen.getByText('Als Nächstes: Ein KI-Coder ohne Konto')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
+    expect(screen.getByText('Als Nächstes: Claude einmal anmelden (optional)')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
+    expect(screen.getByText('Das war der letzte Schritt.')).toBeInTheDocument();
+    expect(screen.queryByText(/Als Nächstes/)).not.toBeInTheDocument();
+  });
+
+  // Die Punkte sagen dasselbe wie der Text. Doppelt vorgelesen ist es Lärm.
+  it('haelt die Punkte von Vorlesegeraeten fern', () => {
+    const { container } = render(<OnboardingWizard />);
+    const punkte = container.querySelector('[aria-hidden="true"] > span');
+    expect(punkte).not.toBeNull();
+  });
+
+  // Der Dialog nennt sich nach seinem Schritt, nicht generisch. Sonst hoert ein
+  // Vorlesegeraet dreimal dasselbe Wort.
+  it('traegt den Titel des laufenden Schritts als Namen', async () => {
+    render(<OnboardingWizard />);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAccessibleName('Deine Entwicklungsumgebung');
+
+    await userEvent.click(screen.getByRole('button', { name: /Weiter/ }));
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Ein KI-Coder ohne Konto');
+  });
+
+  // aria-modal behauptet, dass hinter dem Dialog nichts bedienbar ist. Ohne
+  // Fokusfalle war das falsch: der Tabulator lief in den Arbeitsbereich.
+  it('behaelt den Fokus im Dialog', async () => {
+    render(<OnboardingWizard />);
+    const dialog = screen.getByTestId('onboarding-wizard');
+    expect(dialog).toHaveFocus();
+
+    const knoepfe = dialog.querySelectorAll('button');
+    const letzter = knoepfe[knoepfe.length - 1] as HTMLElement;
+    letzter.focus();
+    await userEvent.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  // Die Hintergrundflaeche schliesst per Klick, steht aber nicht im
+  // Tabulatorlauf: sonst waere die erste Taste eines Tastaturnutzers ein
+  // versehentliches Wegklicken des Erst-Starts.
+  it('macht die Hintergrundflaeche nicht zur ersten Station', () => {
+    render(<OnboardingWizard />);
+    expect(screen.queryByRole('button', { name: /schließen/i })).not.toBeInTheDocument();
+  });
+
+  it('Escape schließt und merkt es sich', async () => {
+    render(<OnboardingWizard />);
+    await userEvent.keyboard('{Escape}');
     expect(screen.queryByTestId('onboarding-wizard')).not.toBeInTheDocument();
     expect(localStorage.getItem('arasul-onboarding-seen-v1')).toBe('1');
   });

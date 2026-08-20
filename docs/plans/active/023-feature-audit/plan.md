@@ -667,7 +667,49 @@ Aufbau.
 **Abnahme:** Die drei Schritte sind ohne Vorwissen verständlich, jeder Schritt
 nennt sein Ergebnis.
 
-**Mitzunehmen aus C3:** `SetupWizard.tsx:358` meldet sich nach dem
+**Erledigt am 20.08.2026** (#431).
+
+**Zuerst ein Etikettenfehler in diesem Plan.** C4 meint nicht `SetupWizard.tsx`.
+Der hat sechs Schritte mit Titel und Beschreibung. Gemeint ist
+`features/workspace/OnboardingWizard.tsx`, eine Überlagerung über dem
+Arbeitsbereich mit genau drei Schritten und drei Punkten darunter; das Bild
+`screens/B02-erststart-1.png` zeigt sie. Die Ausnahme für `SetupWizard.tsx` in
+`scripts/test/bausteine.py` trug bis heute die Begründung „Plan 023 C4 baut ihn
+neu". Das stimmte nie.
+
+Geändert wurde dreierlei:
+
+1. **Der Fortschritt steht als Text da.** „Schritt 2 von 3" und „Als Nächstes:
+   Claude einmal anmelden (optional)". Die Punkte bleiben als Bild und sind für
+   Vorlesegeräte unsichtbar, weil sie dasselbe noch einmal sagen.
+2. **Jeder Schritt nennt sein Ergebnis.** Vorher stand dort, was Arasul kann,
+   nicht, was der Leser danach hat.
+3. **Die Schritte zitierten Dinge, die nirgends so heißen.** `internal` war der
+   rohe Aufzählungswert; auf dem Bildschirm steht „Intern (KI-Dienste +
+   Datenbank)" (`ProjektUebersichtTab.tsx`, `NETZ_LABEL`). „Claude Code und
+   Codex sind optionale Beschleuniger" nannte zwei Namen, die vorher nie
+   eingeführt wurden. Jedes Zitat ist jetzt gegen die Oberfläche geprüft.
+
+Dazu eine Reparatur, die keiner Abnahme entspringt: `aria-modal` behauptete
+einen Fokus, den es nicht gab. Der Tabulator lief aus dem Dialog in den
+Arbeitsbereich dahinter, und die Hintergrundfläche war als Knopf die erste
+Station im Tabulatorlauf, so dass die erste Taste eines Tastaturnutzers den
+Erst-Start wegklicken konnte.
+
+Elf Tests, acht davon gehen gegen den Stand davor rot.
+
+### Was dabei sichtbar wurde und nicht zu C4 gehört
+
+**Der `SetupWizard` ist der erste Bildschirm eines ausgelieferten Geräts, und
+niemand hat ihn je angesehen.** Der Rundgang konnte ihn nicht sehen: er
+erscheint nur, wenn `system_settings.setup_completed` falsch ist, und auf dem
+Prüfgerät war die Einrichtung längst abgeschlossen. Nach einem Werksreset ist er
+wieder falsch (`werksreset.js` setzt die Zeile auf die Spalten-Vorgaben,
+`038_system_settings.sql:12` hat `DEFAULT FALSE`). Ein Kunde sieht also nach dem
+Anlegen des ersten Kontos 1296 Zeilen ungeprüfte Oberfläche mit sechs Schritten.
+Bekannt sind dort bereits F-20, F-23 und `SetupWizard.tsx:358`
+(`user?.username || 'admin'` bei der Neuanmeldung nach dem Passwortwechsel, mit
+verschlucktem Fehlschlag). Das ist eine eigene Aufgabe, keine Zeile in C4. `SetupWizard.tsx:358` meldet sich nach dem
 Passwortwechsel mit `user?.username || 'admin'` neu an. Der Standardname steht
 dort nicht auf dem Bildschirm, aber im Code, und für jeden anderen
 Benutzernamen schlägt die Neuanmeldung still fehl (der `catch` schluckt sie).
