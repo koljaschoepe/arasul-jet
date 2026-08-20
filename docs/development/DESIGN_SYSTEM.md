@@ -377,6 +377,15 @@ Drei Festlegungen, die der Aufrufer nicht mehr treffen kann:
    müssen über Kennungen aufeinander zeigen; liegen beide Hälften in einer
    Hand, kann der Aufrufer sie nicht verfehlen.
 
+**Der Weg daran vorbei ist versperrt.** `scripts/test/bausteine.py` läuft im
+Testlauf mit und meldet ein `<h1>`, eine Feldgruppen-Trennlinie
+(`pb-6 border-b border-border`) oder eine Tab-Leiste (`border-b-2`) außerhalb
+von `components/ui`. Gegen den Stand vor Phase C fand er 39 Stellen. Der Grund
+für den Wächter: der Zustand davor ist nicht durch Nachlässigkeit entstanden,
+sondern dadurch, dass jede neue Seite die Klassen der vorigen kopiert hat.
+Einmal von Hand aufräumen hält das nicht auf. Ausnahmen stehen mit Grund in
+`AUSNAHMEN`; ein Eintrag ohne Grund ist keiner.
+
 **Welche Skala gilt wo.** Die Bausteine tragen keine eigene Meinung dazu, sie
 folgen der Fläche, auf der sie liegen. `StatTile`, `StatGrid` und `Sparkline`
 stehen im Systemstatus, einer normierten Ansicht, und benutzen deshalb die
