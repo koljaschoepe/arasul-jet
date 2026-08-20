@@ -277,7 +277,10 @@ echo ""
 
 log_info "Validating System Configuration..."
 
-validate_required_var "SYSTEM_VERSION"
+# SYSTEM_VERSION ist ABSICHTLICH nicht Pflicht. Ungesetzt heisst "Vorserie",
+# und das ist auf einem Geraet mit null geschlossenen Verkaufs-Gates die
+# richtige Antwort (Plan 023 C6, Befund F-19). Eine Pflichtpruefung hier hat
+# das Setup gezwungen, eine Zahl zu erfinden.
 validate_required_var "BUILD_HASH"
 validate_required_var "LOG_LEVEL"
 

@@ -940,6 +940,20 @@ Aktualisierungsverhalten und gehört zu Ziel J3, nicht in einen Schritt über
 Beschriftungen. Die Statusleiste hat dabei ihr fest davorgeschriebenes „v"
 verloren, sonst stünde dort „vVorserie".
 
+**Und die Reparatur wäre unsichtbar geblieben.** Der Rückfall auf „Vorserie"
+greift nur, wenn `SYSTEM_VERSION` gar nicht gesetzt ist. Auf einem echten Gerät
+ist sie gesetzt: `.env.example`, `.env.template`, `interactive_setup.sh` und
+`preconfigure.sh` schreiben alle vier `SYSTEM_VERSION=1.0.0` in die `.env`, und
+am 20.08.2026 auf dem Orin nachgesehen steht die Zeile genau so drin. Der
+gesamte Umbau hätte also nur im Testlauf gewirkt. Gefunden hat es die Review,
+nachgeprüft habe ich es am Gerät.
+
+Die vier Vorlagen setzen die Variable jetzt nicht mehr, sondern zeigen sie
+auskommentiert. Dazu zwei Folgeänderungen, ohne die das nicht funktioniert:
+`compose.app.yaml` liest sie als `${SYSTEM_VERSION:-}`, sonst warnt Docker bei
+jedem Start, und `validate-config.sh` verlangt sie nicht mehr als Pflichtfeld,
+sonst zwingt die Prüfung das Setup, eine Zahl zu erfinden.
+
 **F-22 war kein falscher Pfad, sondern ein Satz ohne Ort.** Das Skript
 `scripts/security/reset-password.sh` gibt es, und es wird mit ausgeliefert. Auf
 dem Bildschirm stand aber nur der nackte Pfad, ohne zu sagen, auf welchem
