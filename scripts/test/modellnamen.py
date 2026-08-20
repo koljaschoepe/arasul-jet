@@ -34,8 +34,16 @@ Was er NICHT sehen kann
 -----------------------
 Er liest Zeile fuer Zeile und kennt keinen Syntaxbaum. Ein ueber zwei Zeilen
 umgebrochener Zugriff rutscht durch, und ein Modell, das in einer Variablen
-namens `eintrag` steckt, ebenfalls. Das ist bewusst in Kauf genommen: der
+namens `steckbrief` steckt, ebenfalls. Das ist bewusst in Kauf genommen: der
 Fehler, den er abfangen soll, ist die kopierte Zeile, und die kommt am Stueck.
+
+Umgekehrt kann er zu viel melden. `m` steht in BEZEICHNER, und ob eine Datei
+als Modellflaeche gilt, entscheidet die ganze Datei. Eine Datei, die einen
+Modelltyp benutzt und daneben `apps.map(m => m.name)` schreibt, wird gemeldet,
+obwohl dort kein Modell steht. Heute gibt es diesen Fall nicht, geprueft am
+20.08.2026. Wenn er kommt, ist die Antwort ein sprechender Bezeichner an dieser
+Stelle, nicht ein Eintrag in AUSNAHMEN: eine Datei ganz freizugeben, waere ein
+Loch fuer alle ihre Modellzeilen.
 
 Ausnahmen
 ---------

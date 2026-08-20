@@ -419,6 +419,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
         ) : (
           loaded.map(m => {
             const unloading = pendingUnload.has(m.id);
+            const anzeige = modellAnzeigeName(m);
             return (
               <span
                 key={m.id}
@@ -428,7 +429,7 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
                   unloading && 'opacity-70'
                 )}
               >
-                <span className="font-medium">{modellAnzeigeName(m)}</span>
+                <span className="font-medium">{anzeige}</span>
                 <span className="text-primary/70">{toGb(m.ramMb)} GB</span>
                 {unloading ? (
                   <span className="flex items-center gap-1" aria-live="polite">
@@ -440,8 +441,8 @@ function ModelsDashboard({ models, shown }: { models: CatalogModel[]; shown: num
                     type="button"
                     disabled={busy}
                     onClick={() => unload.mutate(m.id)}
-                    title={`${modellAnzeigeName(m)} aus dem RAM entladen`}
-                    aria-label={`${modellAnzeigeName(m)} entladen`}
+                    title={`${anzeige} aus dem RAM entladen`}
+                    aria-label={`${anzeige} entladen`}
                     className="rounded-full p-0.5 hover:bg-primary/20 disabled:opacity-50"
                   >
                     <Power className="size-3" aria-hidden="true" />
