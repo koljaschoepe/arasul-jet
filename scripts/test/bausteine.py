@@ -25,7 +25,7 @@ In `src/features/` und `src/components/layout/`:
 4. `role="dialog"` von Hand   Ein Dialog gehoert in `Modal` (auf Radix).
 
 Zur vierten Regel: am 20.08.2026 trugen fuenf Dateien `role="dialog"` selbst,
-waehrend fuenf andere den gemeinsamen `Modal` benutzen. DREI der fuenf
+waehrend fuenf andere den gemeinsamen `Modal` benutzen. VIER der fuenf
 behaupteten `aria-modal="true"`, und ZWEI davon hatten keine Tabulatorfalle.
 Der Fokus lief also aus einem Dialog heraus, der sich als geschlossen ausgibt.
 Genau diesen Fehler hat Plan 023 C4 im OnboardingWizard in vier Anlaeufen von
@@ -92,6 +92,10 @@ AUSNAHMEN = {
     'src/features/sandbox/KiZugangDialog.tsx': 'aria-modal ohne Tabulatorfalle, Hintergrund ist ein Knopf, derselbe Fehler wie vor C4',
     'src/features/workspace/QuickOpen.tsx': 'aria-modal ohne Tabulatorfalle',
     'src/features/flows/ArgumentPicker.tsx': 'role=dialog ohne aria-modal, immerhin keine falsche Zusage',
+    # Zwei Stellen, aber ein Dialog: derselbe Editor einmal im Ladezustand und
+    # einmal fertig. Die fertige Fassung hat eine Tabulatorfalle, die ladende
+    # nicht; dort ist aber auch nichts zu fokussieren.
+    'src/components/editor/tiptap/TipTapEditor.tsx': 'eigener Editor-Dialog mit eigener Tabulatorfalle, Ladezustand ohne',
 }
 
 REGELN = [
@@ -113,10 +117,17 @@ REGELN = [
     ),
 ]
 
-WURZELN = [
-    'apps/dashboard-frontend/src/features',
-    'apps/dashboard-frontend/src/components/layout',
-]
+# Geprueft wird alles unter src/, ausser den Bausteinen selbst und den
+# generierten shadcn-Teilen. Bis zum 20.08.2026 standen hier nur `features` und
+# `components/layout`, und genau dadurch war `components/editor/tiptap/
+# TipTapEditor.tsx` unsichtbar: ein handgebauter Dialog, den derselbe PR in
+# seiner eigenen Beschreibung aufzaehlte. Ein Waechter, dessen Suchbereich
+# kleiner ist als sein Anspruch, meldet Ruhe, wo keine ist.
+WURZELN = ['apps/dashboard-frontend/src']
+
+AUSGENOMMENE_ORDNER = (
+    'apps/dashboard-frontend/src/components/ui',  # dort stehen die Bausteine selbst
+)
 
 
 def pruefe(wurzel: Path) -> list[str]:
@@ -126,6 +137,9 @@ def pruefe(wurzel: Path) -> list[str]:
         if not ordner.is_dir():
             continue
         for datei in sorted(ordner.rglob('*.tsx')):
+            voll = datei.relative_to(wurzel).as_posix()
+            if any(voll.startswith(a + '/') for a in AUSGENOMMENE_ORDNER):
+                continue
             relativ = datei.relative_to(wurzel / 'apps/dashboard-frontend').as_posix()
             if '__tests__' in datei.parts or datei.name.endswith('.test.tsx'):
                 continue

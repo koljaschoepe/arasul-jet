@@ -720,13 +720,16 @@ in der Review dieses PRs, gemessen am 20.08.2026: fünf Dateien tragen
 `role="dialog"` von Hand (`TipTapEditor`, `ArgumentPicker`, `KiZugangDialog`,
 `OnboardingWizard`, `QuickOpen`), fünf weitere benutzen den gemeinsamen
 `components/ui/Modal.tsx`, der Radix umschließt und Fokusfalle, Fokusrückgabe
-und Portal mitbringt. **Drei der fünf behaupten `aria-modal="true"`, und zwei
+und Portal mitbringt. **Vier der fünf behaupten `aria-modal="true"`, und zwei
 davon haben keine Tabulatorfalle:** `KiZugangDialog` und `QuickOpen` tragen
 damit genau den Fehler, den C4 hier gerade in vier Anläufen von Hand behoben
 hat. Das ist kein Einzelfall, sondern das Muster, das Phase C bei den Seiten
 schon einmal aufgelöst hat: sechs Bausteine statt 39 handgeschriebener
 Klassenketten. Bei Dialogen steht dieselbe Arbeit noch aus, und der Wächter
-`scripts/test/bausteine.py` kennt die Regel bisher nicht.
+`scripts/test/bausteine.py` kennt die Regel seit dem 20.08.2026 (#433): ein
+von Hand geschriebenes `role="dialog"` ist ein Befund, die fünf bestehenden
+stehen mit Grund in den Ausnahmen. Ihre Migration auf `Modal` ist eine eigene
+Aufgabe.
 
 ## C5 Systemstatus lesbar machen
 
