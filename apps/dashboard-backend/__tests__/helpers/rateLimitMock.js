@@ -14,6 +14,12 @@
  *
  * Benutzung:
  *   jest.mock('../../src/middleware/rateLimit', () => require('../helpers/rateLimitMock'));
+ *
+ * ACHTUNG: hier laesst JEDER Limiter durch. Wer pruefen will, dass eine Route
+ * wirklich mit 429 antwortet, darf diesen Ersatz nicht einsetzen, sonst geht
+ * die Erwartung still ins Leere. Fuer so einen Test entweder gar nicht mocken
+ * und die echten Limiter laufen lassen, oder in dieser einen Datei einen
+ * eigenen Ersatz schreiben, der fuer den fraglichen Namen 429 antwortet.
  */
 
 const durchlassen = (req, res, next) => next();
