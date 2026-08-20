@@ -8,14 +8,14 @@
 
 ## Stand
 
-| Phase                                 | Stand                                        | Belege                                                                                                                                                                                    |
-| ------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                        | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                      |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen       | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                              |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen       | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                          |
-| C, Fundament                          | C1 bis C6 fertig 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen. **C7 offen**, neu aufgenommen am 20.08.                                     |
-| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen       | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle |
-| D bis K                               | offen                                        |                                                                                                                                                                                           |
+| Phase                                 | Stand                                  | Belege                                                                                                                                                                                    |
+| ------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                      |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                              |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                          |
+| C, Fundament                          | **fertig** 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten     |
+| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle |
+| D bis K                               | offen                                  |                                                                                                                                                                                           |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
