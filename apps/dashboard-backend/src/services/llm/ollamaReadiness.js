@@ -50,6 +50,17 @@ const activeRequests = new Map(); // requestId -> { modelId, startTime }
  * Fuer die Anzeige heisst das: das Modell verschwindet aus der Statusleiste,
  * und niemand sagt warum. Genau das sollte D3 beenden. Der Vergleich mit dem
  * vorigen Durchgang schliesst die Luecke.
+ *
+ * Was der Vergleich NICHT sehen kann, und das ist Absicht: ein Modell, das
+ * zwischen zwei Durchgaengen entladen UND wieder geladen wird. Dann hat auch
+ * niemand eine Luecke gesehen, es gibt also nichts zu erklaeren.
+ *
+ * Und was er nicht darf: aus "diesmal nicht gesehen" auf "Ollama hat entladen"
+ * schliessen. Drei Wege fuehren daran vorbei, und jeder einzelne wuerde eine
+ * falsche Herkunft ins Protokoll schreiben: eine gescheiterte Abfrage sieht
+ * aus wie ein leerer Speicher, eine Entladung von Hand sieht aus wie eine
+ * automatische, und ein alter Merkposten sieht aus wie der passende. Alle drei
+ * sind in `_checkSmartUnload` ausgeschlossen, jeder mit einem eigenen Test.
  */
 let zuletztGeladen = new Set();
 
