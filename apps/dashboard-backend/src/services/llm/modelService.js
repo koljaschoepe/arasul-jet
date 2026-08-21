@@ -232,6 +232,23 @@ function createModelService(deps = {}) {
       // Geschwindigkeit aus zwei Laeufen ist keine Aussage, und der Leser soll
       // das sehen koennen.
       //
+      // AUSGABEgeschwindigkeit, nicht Ende zu Ende. Die Spalte
+      // `tokens_per_second` rechnet `tokens_generated / total_duration_ms`,
+      // und `total_duration_ms` ist die Wanduhrzeit des ganzen Stroms: Warten
+      // auf die GPU, Kaltstart, Vorverarbeitung, Erzeugung. Am 21.08.2026 auf
+      // dem Orin gemessen, was das ausmacht:
+      //
+      //   qwen3-coder:30b   Ende zu Ende 13,1 und 0,2   Ausgabe 32,6 und 25,0
+      //   qwen3:7b-q8       Ende zu Ende 5,1 bis 18,9   Ausgabe 17,4 bis 24,1
+      //
+      // Die Ende-zu-Ende-Werte streuen um das Zehnfache und sagen vor allem,
+      // wie lange gewartet wurde. Die Ausgabegeschwindigkeit ist stabil und
+      // eine Eigenschaft des Modells. Auf der Detailseite steht "Gemessen auf
+      // diesem Geraet"; dort gehoert die stabile Zahl hin.
+      //
+      // Gerechnet wird sie als erzeugte Tokens durch die Zeit NACH dem ersten
+      // Token. Das braucht keine neue Spalte.
+      //
       // Der Verbund geht ueber BEIDE Schreibweisen, und das ist nicht
       // vorsorglich. Am 20.08.2026 auf dem Orin gemessen:
       //   SELECT DISTINCT model_id FROM model_performance_metrics;
@@ -263,12 +280,16 @@ function createModelService(deps = {}) {
                 LEFT JOIN LATERAL (
                     SELECT
                         round(percentile_cont(0.5) WITHIN GROUP (
-                            ORDER BY m.tokens_per_second
+                            ORDER BY m.tokens_generated * 1000.0
+                                     / NULLIF(m.total_duration_ms
+                                              - COALESCE(m.time_to_first_token_ms, 0), 0)
                         )::numeric, 1) AS tokens_per_second,
                         count(*) AS messungen
                     FROM model_performance_metrics m
                     WHERE m.model_id IN (c.id, COALESCE(c.ollama_name, c.id))
-                      AND m.tokens_per_second > 0
+                      -- Nur Laeufe, aus denen sich eine Rate rechnen laesst.
+                      AND m.tokens_generated > 0
+                      AND m.total_duration_ms - COALESCE(m.time_to_first_token_ms, 0) > 0
                       -- Doppelt gesichert: cleanup_old_performance_metrics
                       -- raeumt nach 30 Tagen. Die Grenze hier greift nur,
                       -- wenn dieser Auftrag ausfaellt.

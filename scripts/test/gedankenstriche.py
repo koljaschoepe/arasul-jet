@@ -24,6 +24,18 @@ Fuer ganze DOKUMENTE gilt das nicht: docs/integrations/N8N_OVERVIEW.md ist eine
 englische Kundenunterlage, dort ist der Gedankenstrich richtig gesetzt. Der
 Unterschied ist Prosa gegen Zeichenkette, nicht Deutsch gegen Englisch.
 
+Seit dem 21.08.2026 auch die MIGRATIONEN unter services/postgres/init/. Sie
+tragen die Texte, die im Katalog auf jeder Modellkachel stehen, und zwei davon
+hatten einen Gedankenstrich als Trenner. Der Waechter hat sie nie gesehen,
+weil er nur Quelltext durchsuchte; der Kunde hat sie jeden Tag gesehen.
+
+Geprueft wird dort erst ab einer Nummerngrenze (siehe SQL_AB_NUMMER). Eine
+angewandte Migration wird nicht mehr geaendert, ihre Pruefsumme steht im
+Migrationsbuch. Die aelteren nachtraeglich zu saeubern hiesse, Geschichte
+umzuschreiben, und brachte niemandem etwas: was in ihnen steht, ist laengst in
+der Datenbank und wird dort durch eine NEUE Migration richtiggestellt, so wie
+152 es tut.
+
 Was NICHT gemeldet wird
 -----------------------
 Ein alleinstehender Geviertstrich als Platzhalter fuer "kein Wert", wie er in
@@ -102,11 +114,34 @@ def pruefe_datei(pfad):
     if STRICHE not in text:
         return []
 
+    # In SQL beginnt ein Zeilenkommentar mit `--`. Der Handparser oben kennt
+    # nur die Schreibweisen aus JavaScript; fuer SQL wird deshalb vorher
+    # gekuerzt. Dieselbe Regel wie dort: ein Kommentar ist kein Text, den
+    # jemand liest, der das Produkt benutzt.
+    if pfad.endswith('.sql'):
+        zeilen = [z.split('--', 1)[0] if '--' in z else z for z in text.split('\n')]
+        text = '\n'.join(zeilen)
+        gesaeubert = text
+    else:
+        gesaeubert = ohne_kommentare(text)
+
     treffer = []
-    for nummer, zeile in enumerate(ohne_kommentare(text).split('\n'), start=1):
+    for nummer, zeile in enumerate(gesaeubert.split('\n'), start=1):
         if STRICHE in zeile and TRENNER.search(zeile):
             treffer.append((nummer, zeile.strip()))
     return treffer
+
+
+# Ab dieser Migrationsnummer gilt die Regel. Alles davor ist angewandte
+# Geschichte: die Pruefsumme steht im Migrationsbuch, und der Inhalt ist laengst
+# in der Datenbank. Richtiggestellt wird er dort durch eine neue Migration.
+SQL_AB_NUMMER = 153
+
+
+def sql_geprueft(pfad):
+    name = os.path.basename(pfad)
+    treffer = re.match(r'^(\d+)', name)
+    return bool(treffer) and int(treffer.group(1)) >= SQL_AB_NUMMER
 
 
 def sammle(wurzel):
@@ -120,6 +155,9 @@ def sammle(wurzel):
         for pfad in glob.glob(os.path.join(wurzel, m), recursive=True):
             if 'node_modules' not in pfad:
                 dateien.append(pfad)
+    for pfad in glob.glob(os.path.join(wurzel, 'services/postgres/init/*.sql')):
+        if sql_geprueft(pfad):
+            dateien.append(pfad)
     return sorted(dateien)
 
 

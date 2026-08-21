@@ -131,6 +131,26 @@ mkdir -p "$TMP/ein/apps/dashboard-frontend/src/utils"
 printf 'export const f = (b) => `${(b / 1024).toFixed(0)} KB`;\n' > "$TMP/ein/apps/dashboard-frontend/src/utils/formatting.ts"
 pruefe "Einheiten: die Quelle selbst bleibt ausgenommen" 0 python3 "$WURZEL/scripts/test/einheiten.py" --pfad "$TMP/ein"
 
+# --- gedankenstriche.py, SQL-Teil (Plan 023 D5) ------------------------------
+SQL="$TMP/sql/services/postgres/init"
+mkdir -p "$SQL"
+
+printf "UPDATE t SET beschreibung = 'Ein Modell, schnell und klein.';\n" > "$SQL/153_probe.sql"
+pruefe "Striche: sauberer Katalogtext ist gruen" 0 python3 "$WURZEL/scripts/test/gedankenstriche.py" --pfad "$TMP/sql"
+
+printf "UPDATE t SET beschreibung = 'Ein Modell — schnell und klein.';\n" > "$SQL/153_probe.sql"
+pruefe "Striche: Trenner in einem Katalogtext ist rot" 1 python3 "$WURZEL/scripts/test/gedankenstriche.py" --pfad "$TMP/sql"
+
+printf -- "-- Ein Kommentar — mit Trenner, das ist erlaubt.\nSELECT 1;\n" > "$SQL/153_probe.sql"
+pruefe "Striche: im SQL-Kommentar bleibt es still" 0 python3 "$WURZEL/scripts/test/gedankenstriche.py" --pfad "$TMP/sql"
+rm "$SQL/153_probe.sql"
+
+# Angewandte Migrationen werden nicht mehr geaendert, ihre Pruefsumme steht im
+# Migrationsbuch. Deshalb gilt die Regel erst ab der Nummerngrenze.
+printf "UPDATE t SET beschreibung = 'Ein Modell — schnell und klein.';\n" > "$SQL/090_alt.sql"
+pruefe "Striche: alte Migrationen bleiben ausgenommen" 0 python3 "$WURZEL/scripts/test/gedankenstriche.py" --pfad "$TMP/sql"
+rm "$SQL/090_alt.sql"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else
