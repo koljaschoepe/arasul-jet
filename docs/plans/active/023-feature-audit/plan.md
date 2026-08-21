@@ -1677,6 +1677,25 @@ Verhalten bei falschem Inhalt"; das trifft nur den ersten Fall, wo im Kontext
 tatsächlich Arasul als Firma steht. Bei einem Kunden ist es eine Halluzination
 über das Produkt, das er gerade gekauft hat, im ersten Gespräch.
 
+**Nachgeprüft über drei Modelle, denn ein Modell ist keine Messung.** Der
+Auslieferungszustand, dieselbe Frage:
+
+| Modell                                                    | ohne Beschreibung                                                                            | mit Beschreibung                                                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `qwen3-coder:30b` (Coding-Standard, läuft im Agentenpfad) | „ein deutscher Anbieter von Softwarelösungen für die Lebensmittelindustrie … ERP … HACCP"    | „ein lokaler KI-Assistent … Arasul-Gerät … NVIDIA-Jetson"                |
+| `gemma4:e4b`                                              | „Da Sie nicht angegeben haben, was Arasul ist, kann ich keine spezifische Antwort geben"     | „Ich bin ein hilfreicher KI-Assistent, der auf einem Arasul-Gerät läuft" |
+| `qwen3:8b`                                                | „ein KI-gestütztes Chatbot-System, das präzise und strukturierte Antworten auf Deutsch gibt" | „ein KI-System, das auf einem Arasul-Gerät läuft"                        |
+
+**Nicht jedes Modell halluziniert.** `gemma4:e4b` fragt ehrlich nach, `qwen3:8b`
+leitet aus dem Basisprompt ab. Erfunden hat nur `qwen3-coder:30b`, und das ist
+ausgerechnet das Modell, das im Agentenpfad antwortet, also der Normalfall im
+Chat. Der schlimmste Fall ist damit auch der wahrscheinlichste.
+
+**Die Beschreibung wirkt bei allen dreien.** Ihr Nutzen ist deshalb nicht nur,
+eine Halluzination zu verhindern, sondern dass das Gerät überhaupt weiß, was es
+ist. Ohne sie war die beste der drei Antworten ein ehrliches „ich weiß es
+nicht".
+
 **Die Ursache liegt woanders als vermutet.** Nicht der Zusatzkontext ist
 falsch, der gehört dem Kunden und beschreibt zu Recht dessen Firma. Es fehlt
 eine Beschreibung des Produkts. Der Basisprompt waren zwei Sätze über
