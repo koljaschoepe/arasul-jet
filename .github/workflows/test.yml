@@ -319,6 +319,9 @@ jobs:
       - name: Der Faden (ein Plan in docs/plans/active)
         run: python3 scripts/test/plan-faden.py --pfad .
 
+      - name: Pfadfilter deckt die Kopierquellen ab (aus der Review von #454)
+        run: python3 scripts/test/pfadfilter.py --pfad .
+
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh
 

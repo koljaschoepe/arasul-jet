@@ -131,6 +131,35 @@ mkdir -p "$TMP/ein/apps/dashboard-frontend/src/utils"
 printf 'export const f = (b) => `${(b / 1024).toFixed(0)} KB`;\n' > "$TMP/ein/apps/dashboard-frontend/src/utils/formatting.ts"
 pruefe "Einheiten: die Quelle selbst bleibt ausgenommen" 0 python3 "$WURZEL/scripts/test/einheiten.py" --pfad "$TMP/ein"
 
+# -----------------------------------------------------------------------------
+# Pfadfilter (aus der Review von #454)
+# -----------------------------------------------------------------------------
+# Der Waechter liest den grep-Ausdruck und die Bild-Matrix aus
+# .github/workflows/test.yml. Beides kann jemand aendern, ohne an ihn zu denken.
+# Geprueft wird deshalb an einer Kopie des echten Workflows, dass er die zwei
+# Faelle findet, die wirklich weh tun: eine fehlende Kopierquelle im Filter, und
+# ein Filter, den es gar nicht mehr gibt.
+PF="$TMP/pfadfilter"
+mkdir -p "$PF/.github/workflows"
+cp -R "$WURZEL/apps" "$WURZEL/services" "$PF/" 2>/dev/null
+mkdir -p "$PF/packages" "$PF/libs"
+cp "$WURZEL/.github/workflows/test.yml" "$PF/.github/workflows/test.yml"
+
+pruefe "Pfadfilter: der echte Workflow ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+
+# libs/ raus: libs/shared-python wird in beide Python-Images kopiert.
+sed -i.sicherung 's#packages/|libs/|#packages/|#' "$PF/.github/workflows/test.yml"
+pruefe "Pfadfilter: fehlende Kopierquelle ist rot" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
+
+# Kein Ausdruck mehr: der Waechter muss sich melden, statt Ruhe zu geben.
+sed -i.sicherung "s|grep -qE '[^']*'|grep -q platzhalter|" "$PF/.github/workflows/test.yml"
+pruefe "Pfadfilter: verschwundener Ausdruck ist rot" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else
