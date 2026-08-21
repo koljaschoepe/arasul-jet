@@ -69,9 +69,35 @@ function warUnsereEntladung(kennung, jetzt = Date.now()) {
   return gemerkt.delete(kennung);
 }
 
+/**
+ * Einen Eintrag verwerfen, weil das Modell wieder geladen ist.
+ *
+ * Ein gemerkter Eintrag sagt: "gleich verschwindet etwas, das waren wir". Ist
+ * das Modell beim naechsten Blick wieder da, ist das Verschwinden entweder
+ * gar nicht aufgefallen oder schon vorbei. Der Eintrag erklaert dann nichts
+ * mehr, und liegen zu bleiben ist nicht harmlos:
+ *
+ * Die Automatik entlaedt um 0 Uhr und hinterlaesst einen Eintrag. Das Modell
+ * wird um 0:30 fuer eine Anfrage neu geladen. Um 1:30 laeuft es bei Ollama
+ * wegen Ruhe aus, ein echtes, erklaerungsbeduerftiges Ereignis. Ohne dieses
+ * Verwerfen faende der Vergleich den alten Eintrag, verbrauchte ihn und
+ * schwiege. Genau der Fall, den D3 beenden sollte, durch eine engere Tuer
+ * wieder hereingekommen. Und weil die Frist von zwei Minuten so lang ist wie
+ * die kuerzeste Haltezeit, ist das auf einem ruhigen Geraet der Normalfall.
+ */
+function vergissEntladung(kennung) {
+  gemerkt.delete(kennung);
+}
+
 /** Nur fuer Tests. */
 function zuruecksetzen() {
   gemerkt.clear();
 }
 
-module.exports = { merkeEntladung, warUnsereEntladung, zuruecksetzen, KARENZ_MS };
+module.exports = {
+  merkeEntladung,
+  warUnsereEntladung,
+  vergissEntladung,
+  zuruecksetzen,
+  KARENZ_MS,
+};

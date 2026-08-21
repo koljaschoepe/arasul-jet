@@ -14,7 +14,7 @@ const logger = require('../../utils/logger');
 const database = require('../../database');
 const services = require('../../config/services');
 const modelLifecycleService = require('./modelLifecycleService');
-const { warUnsereEntladung } = require('./unloadRegistry');
+const { warUnsereEntladung, vergissEntladung } = require('./unloadRegistry');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
@@ -318,6 +318,14 @@ class OllamaReadinessService {
     for (const modelId of selbstEntladen) {
       jetzt.delete(modelId);
     }
+
+    // Was jetzt geladen ist, kann keine offene Entladung mehr haben. Ein
+    // liegengebliebener Eintrag verschluckte sonst ein spaeteres, echtes
+    // Auslaufen desselben Modells.
+    for (const modelId of jetzt) {
+      vergissEntladung(modelId);
+    }
+
     zuletztGeladen = jetzt;
   }
 

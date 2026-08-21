@@ -241,7 +241,10 @@ async function modellEntladen(modelId) {
     const containerService = require('../../services/app/containerService');
     const appId = modelId.split(':')[0];
     const result = await containerService.stopApp(appId);
-    return { message: `OCR-Modell ${modelId} wurde gestoppt`, ...result, model: modelId };
+    // Die eigene Meldung NACH dem Spread: `stopApp` bringt eine allgemeine mit
+    // ("App gestoppt"), und die stand bisher da, obwohl die spezifischere
+    // schon geschrieben war. Alt, aber dieser Schritt raeumt die Meldungen auf.
+    return { ...result, message: `OCR-Modell ${modelId} wurde gestoppt`, model: modelId };
   }
 
   const ollamaName = typeResult.rows[0].ollama_name;

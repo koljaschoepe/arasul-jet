@@ -224,6 +224,41 @@ describe('was NICHT als Ollama-Entladung gilt', () => {
     expect(gebucht[0][0]).toContain('auto_unload_ollama_keepalive');
   });
 
+  /**
+   * Der Fall aus der zweiten Review. Die Automatik entlaedt und hinterlaesst
+   * einen Eintrag, obwohl `selbstEntladen` denselben Takt schon abdeckt. Wird
+   * das Modell danach neu geladen und laeuft binnen der zwei Minuten bei
+   * Ollama wegen Ruhe aus, verschluckte der alte Eintrag dieses zweite,
+   * echte Ereignis. Auf einem ruhigen Geraet ist das kein Sonderfall, weil
+   * die Frist so lang ist wie die kuerzeste Haltezeit.
+   */
+  test('ein Eintrag der Automatik verschluckt kein spaeteres Auslaufen', async () => {
+    geladen('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+
+    // Die Automatik entlaedt. Sie bucht selbst, und modelService.unloadModel
+    // hinterlaesst nebenbei einen Eintrag in der Ablage.
+    geladen('gemma3:1b');
+    modelLifecycleService.checkAndUnload.mockImplementationOnce(async ({ unloadModel }) => {
+      await unloadModel('gemma3:1b', 'adaptive_idle');
+    });
+    unloadRegistry.merkeEntladung('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+    expect(buchungen()).toHaveLength(1);
+
+    // Neu geladen fuer die naechste Anfrage.
+    geladen('gemma3:1b');
+    await ollamaReadiness.checkSmartUnload();
+
+    // Und jetzt laeuft es bei Ollama aus, innerhalb der zwei Minuten.
+    geladen();
+    await ollamaReadiness.checkSmartUnload();
+
+    const gebucht = buchungen();
+    expect(gebucht).toHaveLength(2);
+    expect(gebucht[1][0]).toContain('auto_unload_ollama_keepalive');
+  });
+
   test('nach der Karenz gilt dieselbe Kennung wieder als fremd entladen', async () => {
     geladen('gemma3:1b');
     await ollamaReadiness.checkSmartUnload();
