@@ -1658,25 +1658,49 @@ zu erzeugen. Damit lässt sich jeder Bestandteil einzeln wiegen, ohne dass etwas
 ausgeliefert werden muss. Am 21.08.2026 auf dem Orin, Modell `qwen3-coder:30b`,
 jeder Posten so aufgebaut, wie `chatAgentRunner` ihn zusammensetzt:
 
-| Posten                              | Token | dazu      | Anteil |
-| ----------------------------------- | ----- | --------- | ------ |
-| nur die Frage                       | 20    |           |        |
-| Basis-Systemprompt                  | 89    | +69       | 1 %    |
-| Unternehmenskontext                 | 156   | +67       | 1 %    |
-| Agent-Anweisung                     | 1293  | **+1137** | 19 %   |
-| Projektordner, 120 Einträge         | 3240  | **+1947** | 33 %   |
-| Werkzeuge, 12 strukturell           | 5895  | **+2655** | 45 %   |
-| Verlauf, 12 gewöhnliche Nachrichten | 6519  | +624      |        |
-| Verlauf an der Kappungsgrenze       | 17955 | +12060    |        |
+| Posten                              | Token | dazu      | Anteil   |
+| ----------------------------------- | ----- | --------- | -------- |
+| nur die Frage                       | 20    |           |          |
+| Basis-Systemprompt                  | 89    | +69       | 2 %      |
+| Unternehmenskontext                 | 156   | +67       | 1 %      |
+| Agent-Anweisung                     | 1293  | **+1137** | 25 %     |
+| Projektordner, echte Struktur       | 1847  | +554      | 12 %     |
+| Werkzeuge, 12 strukturell           | 4502  | **+2655** | **59 %** |
+| Verlauf, 12 gewöhnliche Nachrichten | 5126  | +624      |          |
+| Verlauf an der Kappungsgrenze       | 16562 | +12060    |          |
 
-**Der Grundvorlauf ohne Verlauf sind 5895 Token.** Das deckt sich mit der
-Messung vom 19.08. („5200 Token"). Bei 262 Token je Sekunde Vorverarbeitung
-sind das rund 22 Sekunden, bevor das erste Wort kommt, und auch das deckt sich
-mit den dort gemessenen 20.
+**Der Grundvorlauf ohne Verlauf sind 4502 Token.** Die Messung vom 19.08.
+nannte 5200; der Unterschied liegt am Projekt, das dabei angehängt war. Bei 262
+Token je Sekunde Vorverarbeitung sind das rund 17 Sekunden, bevor das erste Wort
+kommt; der Rundgang maß 20.
 
-**Drei Posten machen 97 Prozent aus:** die Werkzeugbeschreibungen (2655), die
-Ordnerstruktur (1947) und die Agent-Anweisung (1137). Zusammen 5739 von 5895.
-Systemprompt und Unternehmenskontext zusammen sind 136 Token, also Rundung.
+**Ein Posten macht die Mehrheit aus: die Werkzeugbeschreibungen mit 2655 Token,
+59 Prozent.** Dahinter die Agent-Anweisung mit 1137. Systemprompt und
+Unternehmenskontext zusammen sind 136 Token, also Rundung.
+
+#### Eine eigene Fehlmessung, korrigiert
+
+Der erste Durchgang wies der Ordnerstruktur **1947 Token** zu und machte sie zum
+zweitgrößten Posten. Das war ein Artefakt: ich hatte 120 erfundene Pfade der
+Form `Projekte/Development/modul-N/datei-N.ts` gewogen, die länger sind als
+echte, und angenommen, die Kappung bei 120 schneide alphabetisch aus 1388
+Einträgen.
+
+Beides falsch. `listTree` läuft seit dem 18.08. in **Breitensuche**, Ebene für
+Ebene, Ordner vor Dateien. Die ersten 120 Einträge sind damit Tiefe 1
+vollständig (35) und Tiefe 2 fast vollständig (85). Am größten Projekt auf dem
+Gerät gemessen, 1388 Einträge:
+
+| Zuschnitt                      | Zeilen | Token   |
+| ------------------------------ | ------ | ------- |
+| heute: Breitensuche, erste 120 | 120    | **559** |
+| Tiefe 1 und 2 vollständig      | 125    | 595     |
+| Tiefe 1 bis 3                  | 450    | 3300    |
+
+**Der bestehende Zuschnitt ist bereits der beste der drei.** Hätte ich meiner
+ersten Messung geglaubt, hätte ich an der Ordnerstruktur gekürzt, also an der
+Stelle, die schon in Ordnung ist, während der eigentliche Posten unberührt
+geblieben wäre.
 
 ### Was das für die Abnahme heißt
 
@@ -1687,16 +1711,27 @@ Vorlauf unter 2500 Token."
 mit 20 Nachrichten im Vorlauf: `MAX_HISTORY_MESSAGES` ist 12, es gehen nie mehr
 mit. Die Zahl im Plan beschreibt eine Unterhaltung, nicht den Vorlauf.
 
-Zweitens: unter 2500 zu kommen heißt, alle drei großen Posten mindestens zu
+Zweitens: unter 2500 zu kommen heißt, die Werkzeugbeschreibungen und die
+Agent-Anweisung zusammen um rund 2000 Token zu drücken, also beide etwa zu
 halbieren. Der Verlauf ist dabei nicht das Problem, solange die Nachrichten
 gewöhnlich lang sind (624 Token für zwölf). Er wird eins an der Kappungsgrenze:
 `MAX_MESSAGE_CHARS` erlaubt 8000 Zeichen je Nachricht, zwölf davon sind 12060
 Token allein für den Verlauf. Genau dort greift „Verlauf ab einer Schwelle
 zusammenfassen".
 
-Die Reihenfolge für Schritt 2 ergibt sich damit aus der Messung, nicht aus
-einer Vermutung: erst die Werkzeuge, dann die Ordnerstruktur, dann die
-Anweisung, und die Zusammenfassung des Verlaufs als Sicherung nach oben.
+**Werkzeuge wegzulassen bringt wenig**, gemessen: die drei selteneren
+(`subagent`, `web_suche`, `web_lesen`) sparen zusammen 386 Token, weil ihre
+Beschreibungen kurz sind. Die teuren sind die, die man immer braucht:
+`dateien_suchen` (1170 Zeichen), `rag_suche` (826), `dateien_lesen` (764). Der
+Hebel ist also nicht die Auswahl, sondern die Länge der Beschreibungen.
+
+Die Reihenfolge für Schritt 2 ergibt sich damit aus der Messung: erst die
+Werkzeugbeschreibungen straffen, dann die Agent-Anweisung. Die Ordnerstruktur
+bleibt, wie sie ist.
+
+**Und eine Warnung dazu:** beide Kürzungen ändern Text, an dem das Verhalten des
+Agenten hängt. Ob er die Werkzeuge danach noch richtig benutzt, zeigt kein
+Testlauf, sondern nur eine echte Unterhaltung am Gerät.
 
 ## D8 Zusatzkontext beschreibt das Produkt
 
