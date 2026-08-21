@@ -295,7 +295,99 @@ async function getRecommendedModel() {
   }
 
   const recommendation = PROFILE_MODELS[profile] || PROFILE_MODELS.generic;
-  return { ...recommendation, profile };
+  return { ...(await gegenKatalogPruefen(recommendation)), profile };
+}
+
+/**
+ * Die Empfehlung gegen den Katalog pruefen (Plan 023 D5).
+ *
+ * Die Karte oben sagt, welche GROESSENKLASSE auf welches Geraet passt. Das ist
+ * Hardwarewissen und gehoert hierher. Welches Modell diese Klasse fuellt, sagt
+ * der Katalog, und bis zum 21.08.2026 stimmten die beiden nicht ueberein:
+ *
+ *   ACHT der siebzehn Kennungen in der Karte gibt es im Katalog nicht.
+ *   bge-m3, gemma:2b, mistral:7b, phi3:mini, qwen3:32b-q8, qwen3:8b-q8,
+ *   qwen:0.5b, tinyllama:1.1b
+ *
+ * Auf einem Xavier NX empfahl der Einrichtungsassistent damit `phi3:mini`, ein
+ * Modell, das im Katalog nicht steht und also nicht geladen werden kann. Bei
+ * `bge-m3` ist es kein Tippfehler, sondern ein Rest: Plan 021 Schritt 8 hat das
+ * klassische Vektor-RAG abgeloest, `embedding-service` und `qdrant` liegen
+ * seither im Compose-Profil `classic-rag` und laufen nicht.
+ *
+ * Statt die Karte von Hand nachzupflegen, faellt eine Kennung, die der Katalog
+ * nicht kennt, auf den Standard ihrer Aufgabe zurueck (`is_task_default`, seit
+ * Migration 151 hoechstens einer je Aufgabe). Eine Empfehlung zeigt damit nie
+ * mehr auf etwas, das es nicht gibt, und wer die Karte erweitert, bekommt eine
+ * Warnung statt eines stillen Fehlgriffs.
+ */
+const ROLLE_ZU_AUFGABE = {
+  model: 'text',
+  fast_model: 'text',
+  vision_model: 'vision',
+  embedding_model: 'embedding',
+};
+
+async function gegenKatalogPruefen(empfehlung) {
+  let database;
+  let logger;
+  try {
+    database = require('../database');
+    logger = require('./logger');
+  } catch {
+    return empfehlung; // ohne Datenbank bleibt es bei der Karte
+  }
+
+  let vorhanden = new Set();
+  const standard = {};
+  try {
+    const { rows } = await database.query(
+      'SELECT id, task, is_task_default FROM llm_model_catalog'
+    );
+    vorhanden = new Set(rows.map(r => r.id));
+    for (const r of rows) {
+      if (r.is_task_default && r.task) {
+        standard[r.task] = r.id;
+      }
+    }
+  } catch (fehler) {
+    logger.debug(`[hardware] Katalog nicht lesbar, Empfehlung ungeprueft: ${fehler.message}`);
+    return empfehlung;
+  }
+  if (vorhanden.size === 0) {
+    return empfehlung;
+  }
+
+  const geprueft = { ...empfehlung };
+  for (const [rolle, aufgabe] of Object.entries(ROLLE_ZU_AUFGABE)) {
+    const kennung = empfehlung[rolle];
+    if (!kennung || vorhanden.has(kennung)) {
+      continue;
+    }
+    const ersatz = standard[aufgabe] || null;
+    logger.warn(
+      `[hardware] Empfohlenes Modell "${kennung}" (${rolle}) steht nicht im Katalog. ` +
+        (ersatz
+          ? `Es gilt der Standard der Aufgabe ${aufgabe}: ${ersatz}.`
+          : `Kein Ersatz fuer die Aufgabe ${aufgabe}.`)
+    );
+    geprueft[rolle] = ersatz;
+  }
+
+  // Die Liste `models` ist der Vorschlag fuer den Einrichtungsassistenten.
+  // Was es nicht gibt, gehoert nicht hinein.
+  if (Array.isArray(empfehlung.models)) {
+    const uebrig = empfehlung.models.filter(id => vorhanden.has(id));
+    const fehlend = empfehlung.models.filter(id => !vorhanden.has(id));
+    if (fehlend.length > 0) {
+      logger.warn(
+        `[hardware] Nicht im Katalog und deshalb nicht vorgeschlagen: ${fehlend.join(', ')}`
+      );
+    }
+    geprueft.models = uebrig.length > 0 ? uebrig : [geprueft.model].filter(Boolean);
+  }
+
+  return geprueft;
 }
 
 module.exports = {

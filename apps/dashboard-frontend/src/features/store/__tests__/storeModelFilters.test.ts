@@ -63,10 +63,20 @@ describe('sizeBucketOf', () => {
 });
 
 describe('typeLabel', () => {
-  it('gibt klare Labels statt roher Katalogwerte', () => {
+  // Plan 023 D5: gefiltert wird nach der Aufgabe, nicht nach dem Typ, und die
+  // Aufgaben heissen auf Deutsch. "OCR" und "Embedding" waren Fachwoerter in
+  // einer Oberflaeche, die sonst durchgaengig deutsch ist.
+  it('nennt die Aufgabe auf Deutsch', () => {
+    expect(typeLabel('text')).toBe('Text');
+    expect(typeLabel('coding')).toBe('Programmieren');
+    expect(typeLabel('vision')).toBe('Sehen');
+    expect(typeLabel('ocr')).toBe('Texterkennung');
+    expect(typeLabel('embedding')).toBe('Einbettung');
+  });
+
+  it('kennt den alten Typ weiter, fuer Kataloge ohne Aufgabe', () => {
     expect(typeLabel('llm')).toBe('Sprachmodell');
-    expect(typeLabel('ocr')).toBe('OCR');
-    expect(typeLabel('embedding')).toBe('Embedding');
+    expect(typeLabel('reranker')).toBe('Reranker');
   });
   it('fällt bei unbekanntem Typ auf Groß­schreibung zurück (kein „Llm")', () => {
     expect(typeLabel('sonstiges')).toBe('Sonstiges');
@@ -112,6 +122,7 @@ describe('deriveModelFacets', () => {
     const f = deriveModelFacets(CATALOG);
     expect(f.types.map(t => t.value).sort()).toEqual(['embedding', 'llm', 'vision']);
     expect(f.types.find(t => t.value === 'llm')?.label).toBe('Sprachmodell');
+    expect(f.types.find(t => t.value === 'vision')?.label).toBe('Sehen');
     expect(f.sizes.map(s => s.value)).toEqual(['klein', 'mittel', 'gross']);
     // Achtung: install_status === 'available' bedeutet im Katalog „installiert".
     expect(f.status.find(s => s.value === 'installed')?.count).toBe(3);

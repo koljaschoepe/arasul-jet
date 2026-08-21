@@ -83,7 +83,22 @@ async function captionImagesWithVisionModel(visionOllamaName, images, logger) {
 }
 
 /**
- * Find the smallest installed vision-capable model to use as auto-fallback.
+ * Das installierte Modell finden, das ein Bild lesen soll.
+ *
+ * Bis zum 21.08.2026 entschied allein `supports_vision_input`, und das war zu
+ * eng: `llava-phi3` traegt `model_type = 'vision'`, aber die Spalte steht auf
+ * false, also fiel es heraus, obwohl Ollama ihm die Faehigkeit `vision`
+ * bescheinigt. Auf dem Orin blieb dadurch GENAU EIN Bewerber uebrig,
+ * `gemma4:e4b-q4`, und der wird ausgeschlossen, sobald er selbst das
+ * Chatmodell ist. Dann gab es fuer ein Foto gar nichts.
+ *
+ * Seit Migration 151 sagt `task = 'vision'`, wofuer ein Modell vorgesehen ist,
+ * und `is_task_default`, welches davon voreingestellt ist. Die Rangfolge:
+ * erst der Standard der Aufgabe, dann das kleinste Modell der Aufgabe, dann
+ * das kleinste mit der alten Faehigkeitsspalte. Der letzte Schritt bleibt,
+ * damit ein Geraet, dessen Katalog noch keine Aufgaben traegt, nicht schlechter
+ * dasteht als vorher.
+ *
  * Returns { id, ollama_name } or null if none available.
  */
 async function findVisionFallbackModel(database, primaryModelId, logger) {
@@ -92,10 +107,13 @@ async function findVisionFallbackModel(database, primaryModelId, logger) {
       `SELECT c.id, c.ollama_name, c.ram_required_gb
        FROM llm_model_catalog c
        JOIN llm_installed_models i ON i.id = c.id
-       WHERE c.supports_vision_input = true
-         AND i.status = 'available'
+       WHERE i.status = 'available'
          AND c.id <> $1
-       ORDER BY c.ram_required_gb ASC, c.id ASC
+         AND (c.task = 'vision' OR c.supports_vision_input = true)
+       ORDER BY (c.task = 'vision' AND c.is_task_default) DESC,
+                (c.task = 'vision') DESC,
+                c.ram_required_gb ASC,
+                c.id ASC
        LIMIT 1`,
       [primaryModelId || '']
     );

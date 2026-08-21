@@ -43,6 +43,7 @@ import { useExtensionStore } from '@/stores/extensionStore';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { formatBytes } from '@/utils/formatting';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
+import { typeLabel } from './storeModelFilters';
 import { modellage, wechselGrund, kiRamZeile, zuGb as toGb } from '@/utils/modellZustand';
 import DownloadProgress from './DownloadProgress';
 import {
@@ -155,6 +156,14 @@ function ModelCard({ model, loadedId }: { model: CatalogModel; loadedId: string 
           >
             {meta.label}
           </Badge>
+          {/* Plan 023 D5: welches Modell fuer seine Aufgabe voreingestellt ist.
+              Bewusst nicht "Standard": so heisst schon das Modell, das der
+              Nutzer selbst fuer neue Chats gewaehlt hat. */}
+          {model.is_task_default && model.task && (
+            <span className="shrink-0 text-ui-xs font-medium text-primary">
+              Empfohlen für {typeLabel(model.task)}
+            </span>
+          )}
         </div>
         <p className="line-clamp-2 text-xs text-muted-foreground">{model.description}</p>
       </button>

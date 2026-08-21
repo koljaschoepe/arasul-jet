@@ -41,10 +41,24 @@ export const STATUS_LABELS: Record<StatusFacet, string> = {
 };
 
 /**
- * Klare Labels für den Modell-Typ (statt der rohen, klein geschriebenen
- * Katalogwerte „llm"/„ocr"). Unbekannte Typen werden auf Groß­schreibung des
- * ersten Buchstabens zurückgeführt.
+ * Wofür ein Modell da ist (Plan 023 D5).
+ *
+ * Gefiltert wurde bis zum 21.08.2026 nach `model_type`, und der sagt, was ein
+ * Modell KANN, nicht wofür es vorgesehen ist. Gemma 4 kann Bilder lesen und
+ * stand deshalb unter „Vision", obwohl es das Textmodell des Geräts ist. Wer
+ * ein Sprachmodell suchte, fand es unter dem falschen Punkt.
+ *
+ * `task` sagt es (Migration 151). Die alten Bezeichnungen bleiben als
+ * Rückfall, für Geräte, deren Katalog die Spalte noch nicht trägt.
  */
+export const TASK_LABELS: Record<string, string> = {
+  text: 'Text',
+  coding: 'Programmieren',
+  vision: 'Sehen',
+  ocr: 'Texterkennung',
+  embedding: 'Einbettung',
+};
+
 export const TYPE_LABELS: Record<string, string> = {
   llm: 'Sprachmodell',
   chat: 'Sprachmodell',
@@ -56,7 +70,12 @@ export const TYPE_LABELS: Record<string, string> = {
 };
 
 export function typeLabel(value: string): string {
-  return TYPE_LABELS[value] ?? value.charAt(0).toUpperCase() + value.slice(1);
+  return TASK_LABELS[value] ?? TYPE_LABELS[value] ?? value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** Die Aufgabe eines Modells, mit dem alten Typ als Rückfall. */
+export function aufgabeVon(model: CatalogModel): string | undefined {
+  return model.task ?? model.model_type;
 }
 
 /** RAM-Bedarf (GB) eines Modells, Fallback Dateigröße; 0 wenn unbekannt. */
@@ -103,7 +122,8 @@ export function modelMatches(
     const hay = `${modellAnzeigeName(model)} ${model.description}`.toLowerCase();
     if (!hay.includes(q)) return false;
   }
-  if (filters.types.length > 0 && !(model.model_type && filters.types.includes(model.model_type))) {
+  const aufgabe = aufgabeVon(model);
+  if (filters.types.length > 0 && !(aufgabe && filters.types.includes(aufgabe))) {
     return false;
   }
   if (filters.sizes.length > 0 && !filters.sizes.includes(sizeBucketOf(model))) {
@@ -161,8 +181,9 @@ export function deriveModelFacets(models: CatalogModel[]): ModelFacets {
   const statusCount = new Map<StatusFacet, number>();
 
   for (const m of models) {
-    if (m.model_type) {
-      typeCount.set(m.model_type, (typeCount.get(m.model_type) ?? 0) + 1);
+    const aufgabe = aufgabeVon(m);
+    if (aufgabe) {
+      typeCount.set(aufgabe, (typeCount.get(aufgabe) ?? 0) + 1);
     }
     const bucket = sizeBucketOf(m);
     sizeCount.set(bucket, (sizeCount.get(bucket) ?? 0) + 1);
