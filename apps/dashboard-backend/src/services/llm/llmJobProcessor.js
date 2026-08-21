@@ -446,4 +446,7 @@ module.exports = {
   streamFromOllama,
   onJobComplete,
   destroyOllamaAgent,
+  // Plan 023 D5: die Abfrage, die entscheidet, welches Modell ein Bild liest.
+  // Der Plan nennt sie als Abnahmekriterium, also gehoert sie unter Test.
+  findVisionFallbackModel,
 };
