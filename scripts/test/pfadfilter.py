@@ -63,12 +63,24 @@ def ausdruck_lesen(wurzel):
     if not datei.exists():
         return None, f"{WORKFLOW} fehlt"
     text = datei.read_text(encoding="utf-8")
-    treffer = re.search(r"grep -qE '([^']+)'", text)
+    # Nur im Job `changes` suchen. Vorher stand hier eine Suche ueber die ganze
+    # Datei: ein zweiter `grep -qE` in einem anderen Job haette den Waechter
+    # still gegen den falschen Ausdruck pruefen lassen. Aus der Review von #454.
+    anfang = text.find("\n  changes:")
+    if anfang < 0:
+        return None, (
+            f"In {WORKFLOW} gibt es keinen Job `changes`. Der Pfadfilter wurde "
+            "umgebaut oder entfernt; dieser Waechter kann dann nichts pruefen."
+        )
+    rest = text[anfang + 1:]
+    weiter = re.search(r"\n  [A-Za-z0-9_-]+:", rest)
+    block = rest[: weiter.start()] if weiter else rest
+    treffer = re.search(r"grep -qE '([^']+)'", block)
     if not treffer:
         return None, (
-            f"In {WORKFLOW} steht kein `grep -qE '...'`. Entweder wurde der Job "
-            "'Betroffene Pfade' umgebaut oder entfernt. Dieser Waechter kann "
-            "dann nichts pruefen und meldet deshalb einen Fehler statt Ruhe."
+            f"Im Job `changes` von {WORKFLOW} steht kein `grep -qE '...'`. "
+            "Der Filter wurde umgebaut oder entfernt. Dieser Waechter kann dann "
+            "nichts pruefen und meldet deshalb einen Fehler statt Ruhe."
         )
     return treffer.group(1), None
 
@@ -140,7 +152,17 @@ def kopierquellen(wurzel, dockerfiles):
             for quelle in teile[:-1]:            # das letzte ist das Ziel
                 if quelle.startswith("/"):
                     continue
-                quellen.add(vorsatz + quelle.lstrip("./").rstrip("/"))
+                # `lstrip("./")` entfernt eine ZEICHENMENGE, keinen Praefix.
+                # `COPY . .` waere damit zu "" geworden und weiter unten still
+                # weggefallen, `.npmrc` zu "npmrc". Beides Loecher der Sorte,
+                # gegen die dieses Skript gebaut ist. Aus der Review von #454.
+                quelle = quelle.removeprefix("./").rstrip("/")
+                if quelle in ("", "."):
+                    # Der ganze Kontext wird kopiert. Dann deckt kein Filter der
+                    # Welt das ab, und Schweigen waere hier das Schlimmste.
+                    quellen.add("!!ganzerkontext:" + name)
+                    continue
+                quellen.add(vorsatz + quelle)
     return sorted(q for q in quellen if q)
 
 
@@ -172,7 +194,16 @@ def main():
 
     quellen = kopierquellen(wurzel, dockerfiles)
     fehlend = [q[len("!!fehlt:"):] for q in quellen if q.startswith("!!fehlt:")]
-    quellen = [q for q in quellen if not q.startswith("!!fehlt:")]
+    ganzer = [q[len("!!ganzerkontext:"):] for q in quellen if q.startswith("!!ganzerkontext:")]
+    quellen = [q for q in quellen if not q.startswith("!!")]
+    if ganzer:
+        print("FEHLER: diese Dockerfiles kopieren den GANZEN Kontext (`COPY . .`): "
+              + ", ".join(ganzer)
+              + "\n       Damit kann jede Datei im Repo das Image aendern und der "
+                "Pfadfilter\n       ist nicht mehr zu rechtfertigen. Entweder das "
+                "Dockerfile enger fassen\n       oder den Filter fuer dieses Image "
+                "aufgeben.")
+        return 1
     if fehlend:
         print("FEHLER: in der Matrix steht ein Dockerfile, das es nicht gibt: "
               + ", ".join(fehlend))

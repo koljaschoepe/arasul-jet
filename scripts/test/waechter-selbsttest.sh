@@ -141,7 +141,9 @@ pruefe "Einheiten: die Quelle selbst bleibt ausgenommen" 0 python3 "$WURZEL/scri
 # ein Filter, den es gar nicht mehr gibt.
 PF="$TMP/pfadfilter"
 mkdir -p "$PF/.github/workflows"
-cp -R "$WURZEL/apps" "$WURZEL/services" "$PF/" 2>/dev/null
+# Ohne 2>/dev/null: schlaegt das Kopieren fehl, will man den Grund sehen und
+# nicht eine verwirrende Folgemeldung aus pfadfilter.py. Aus der Review von #454.
+cp -R "$WURZEL/apps" "$WURZEL/services" "$PF/"
 mkdir -p "$PF/packages" "$PF/libs"
 cp "$WURZEL/.github/workflows/test.yml" "$PF/.github/workflows/test.yml"
 
@@ -160,6 +162,14 @@ mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
 printf 'COPY \\\n  sonstiges/hilfsmittel \\\n  ./ziel/\n' \
   >> "$PF/apps/dashboard-backend/Dockerfile"
 pruefe "Pfadfilter: mehrzeiliges COPY wird gelesen" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+cp "$WURZEL/apps/dashboard-backend/Dockerfile" "$PF/apps/dashboard-backend/Dockerfile"
+
+# `COPY . .` kopiert den ganzen Kontext. Vorher wurde die Quelle durch ein
+# lstrip("./") zu einer leeren Zeichenkette und fiel still weg. Aus der Review
+# von #454.
+printf 'COPY . .\n' >> "$PF/apps/dashboard-backend/Dockerfile"
+pruefe "Pfadfilter: COPY des ganzen Kontexts ist rot" 1 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
 cp "$WURZEL/apps/dashboard-backend/Dockerfile" "$PF/apps/dashboard-backend/Dockerfile"
 

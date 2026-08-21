@@ -355,10 +355,14 @@ jobs:
           fehler=0
           while IFS='=' read -r name ergebnis; do
             [ -z "$name" ] && continue
-            # Nur Docker darf uebersprungen werden, und nur dann, wenn die
-            # Pfadpruefung selbst erfolgreich war. Faellt die Pfadpruefung aus,
-            # steht sie oben in der Liste und macht den Lauf rot. Damit kann ein
-            # kaputter Filter die Bauten nicht stillschweigend wegnehmen.
+            # Nur Docker darf uebersprungen werden. Diese Bedingung prueft die
+            # Pfadpruefung NICHT mit, sie laesst `skipped` bedingungslos durch.
+            # Abgesichert ist der Fall trotzdem, aber woanders: `Pfadpruefung`
+            # steht als eigene Zeile in derselben Liste. Faellt der Filter aus,
+            # wird docker-build ueber `needs` ohnehin uebersprungen, und die
+            # Pfadpruefungszeile setzt fehler=1. Wer hier etwas aendert, darf
+            # sich also nicht auf eine Reihenfolge verlassen, die dieser Block
+            # gar nicht erzwingt. Aus der Review von #454.
             if [ "$name" = "Docker" ] && [ "$ergebnis" = "skipped" ]; then
               printf '%-13s %s (keine betroffenen Pfade)\n' "$name" "$ergebnis"
               continue
