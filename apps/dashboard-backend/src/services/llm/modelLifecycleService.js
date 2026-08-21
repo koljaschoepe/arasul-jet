@@ -286,7 +286,7 @@ class ModelLifecycleService {
    */
   async getLifecycleStatus() {
     const profile = await this.getUsageProfile();
-    const { keepAliveMinutes, phase } = await this.getCurrentKeepAlive();
+    const { keepAliveMinutes, phase, recentRequests } = await this.getCurrentKeepAlive();
     const currentHour = new Date().getHours();
 
     // Find next phase change
@@ -309,6 +309,12 @@ class ModelLifecycleService {
       nextPhaseChange: `${String(nextPhaseChangeHour).padStart(2, '0')}:00`,
       nextPhase,
       currentHour,
+      // Plan 023 D6: woher die aktuelle Haltezeit kommt. Ohne diese beiden
+      // Angaben laesst sich am Geraet nicht unterscheiden, ob eine erhoehte
+      // Haltezeit aus der Geschichte stammt oder daraus, dass gerade jemand
+      // arbeitet. Genau diese Frage stellt sich, wenn jemand nachsieht.
+      recentRequests,
+      activityWindowMinutes: FENSTER_MS / 60000,
       usageProfile: profile.map(p => ({
         hour: p.hour,
         avgRequests: p.avgRequests,
@@ -319,6 +325,7 @@ class ModelLifecycleService {
         peakKeepAliveMin: PEAK_KEEP_ALIVE_MIN,
         normalKeepAliveMin: NORMAL_KEEP_ALIVE_MIN,
         idleKeepAliveMin: IDLE_KEEP_ALIVE_MIN,
+        activityPeakRequests: ANFRAGEN_FUER_PEAK,
       },
     };
   }

@@ -280,7 +280,6 @@ function kurzInput(input, maxJeWert) {
 async function haltezeit() {
   try {
     const modelLifecycleService = require('./modelLifecycleService');
-    modelLifecycleService.anfrageGesehen();
     const lage = await modelLifecycleService.getCurrentKeepAlive();
     return lage.keepAliveSeconds;
   } catch {
@@ -451,6 +450,21 @@ function istToolsNichtUnterstuetzt(err) {
  * persistiert über llmJobService (updateJobContent/completeJob).
  */
 async function processAgentChatJob(ctx, job) {
+  // Plan 023 D6: EINE Anfrage je Auftrag, nicht je Werkzeugrunde. Ein Auftrag
+  // ist eine Frage des Nutzers; eine Antwort darauf kann bis zu MAX_RUNDEN
+  // Runden brauchen, und jede einzelne zu zaehlen hiesse, dass eine gewoehnliche
+  // agentische Antwort (suchen, lesen, schreiben) allein schon die Schwelle
+  // fuer die lange Haltezeit reisst. Die Stufe dazwischen waere damit vom
+  // Agentenpfad aus nie erreichbar.
+  //
+  // Waehrend der Auftrag laeuft, schuetzt ohnehin `activeRequests` vor dem
+  // Entladen; die Haltezeit zaehlt erst danach.
+  try {
+    require('./modelLifecycleService').anfrageGesehen();
+  } catch {
+    /* ohne Lebenszyklus laeuft der Auftrag trotzdem */
+  }
+
   const { database, logger: log, llmJobService } = ctx.deps;
   const service = ctx.service;
   const { id: jobId, request_data: requestData, requested_model } = job;
