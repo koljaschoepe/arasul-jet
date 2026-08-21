@@ -1660,6 +1660,51 @@ Auslieferungszustand des Zusatzkontexts beschreibt künftig das Produkt.
 **Abnahme:** Die Frage aus dem Rundgang liefert drei Stichpunkte über das Gerät,
 nicht über die Beratungsleistung.
 
+### Erst gemessen: es ist schlimmer als beschrieben
+
+Am 21.08.2026 mit `qwen3-coder:30b` und derselben Prompt-Zusammensetzung wie im
+Produkt, drei Fälle, dieselbe Frage „Was kann Arasul?":
+
+| Fall                                          | Antwort                                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Entwicklungsgerät (Profil = Arasul selbst)    | „ein Unternehmen, das sich auf lokale KI-Hardware sowie Beratungs- und Support-Dienstleistungen spezialisiert hat" |
+| **Auslieferungszustand** (Platzhalter-Profil) | **„ein deutscher Anbieter von Softwarelösungen für die Lebensmittelindustrie … ERP-Systeme … HACCP"**              |
+| **Kundengerät** (fremdes Profil)              | **„ein deutscher Hersteller spezialisiert auf Klebetechnik und Oberflächenbehandlung"**                            |
+
+**Auf einem ausgelieferten Gerät erfindet der Chat, was Arasul ist**, und zwar
+überzeugend und passend zur Branche des Kunden. Der Plan nennt das „korrektes
+Verhalten bei falschem Inhalt"; das trifft nur den ersten Fall, wo im Kontext
+tatsächlich Arasul als Firma steht. Bei einem Kunden ist es eine Halluzination
+über das Produkt, das er gerade gekauft hat, im ersten Gespräch.
+
+**Die Ursache liegt woanders als vermutet.** Nicht der Zusatzkontext ist
+falsch, der gehört dem Kunden und beschreibt zu Recht dessen Firma. Es fehlt
+eine Beschreibung des Produkts. Der Basisprompt waren zwei Sätze über
+Höflichkeit; der einzige Eigenname weit und breit stand im Kundenprofil, und
+darauf hat das Modell geantwortet.
+
+### Was daraus wurde
+
+Die Beschreibung steht in `GLOBAL_BASE_PROMPT`, also im Teil, der mit dem Gerät
+ausgeliefert wird, nicht im Zusatzkontext. Sechs Sätze, rund 130 Token in jeder
+Anfrage, also drei Prozent des Grundvorlaufs von 4502. D7 kürzt an anderer
+Stelle deutlich mehr; ein erfundenes Produkt ist der teurere Posten.
+
+Gemessen mit demselben Aufbau, dieselbe Frage:
+
+| Fall                 | mit Beschreibung                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Auslieferungszustand | „ein lokaler KI-Assistent, der auf einem speziellen Rechner namens Arasul-Gerät läuft … NVIDIA-Jetson-Prozessor … vor Ort"                       |
+| Kundengerät          | „ein auf einem NVIDIA-Jetson-Prozessor laufendes Gerät … lokale Dateien, Browser-Terminal mit Coding-Agent, Abläufe, Katalog von Sprachmodellen" |
+
+**Ein Satz wurde dabei zurückgenommen.** Der erste Entwurf sagte „keine Cloud,
+keine Daten nach draußen". Das ist falsch: die Websuche geht ins Internet.
+Phase A hat gerade fünf unerfüllte Zusagen von der Website genommen; eine
+sechste im Systemprompt wäre der falsche Ort. Jetzt steht dort, was zutrifft:
+die Antworten entstehen auf dem Gerät, und einzelne Werkzeuge gehen ins
+Internet, wenn der Agent sie benutzt. Ein Test hält fest, dass die Zusage nicht
+zurückkommt.
+
 ## D9 Externes Cloud-Modell dazuschalten
 
 Die Website verspricht es, es gibt keinen Schalter. Gebraucht wird es, um mit
