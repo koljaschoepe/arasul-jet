@@ -35,12 +35,27 @@ const KARENZ_MS = 120000;
 /** Kennung (so wie sie beim Entladen benutzt wurde) -> Zeitpunkt. */
 const gemerkt = new Map();
 
-/** Eine eigene Entladung merken. Kennung ist der Name, den Ollama kennt. */
+/**
+ * Eine eigene Entladung merken. Kennung ist der Name, den Ollama kennt.
+ *
+ * Beim Eintragen wird aufgeraeumt, nicht nur beim Nachsehen. `/unload` und
+ * `/deactivate` nehmen eine beliebige Kennung aus dem Pfad, und was nicht im
+ * Katalog steht, geht roh an Ollama. Wer die Route oft genug mit erfundenen
+ * Kennungen aufruft, liesse die Ablage sonst wachsen, denn das Nachsehen
+ * greift nur bei Modellen, die wirklich verschwinden. Bei einem Geraet, das
+ * fuenf Jahre ohne Betreuung laufen soll, ist das kein Randfall.
+ */
 function merkeEntladung(kennung) {
   if (!kennung) {
     return;
   }
-  gemerkt.set(kennung, Date.now());
+  const jetzt = Date.now();
+  for (const [name, zeit] of gemerkt) {
+    if (jetzt - zeit > KARENZ_MS) {
+      gemerkt.delete(name);
+    }
+  }
+  gemerkt.set(kennung, jetzt);
 }
 
 /**

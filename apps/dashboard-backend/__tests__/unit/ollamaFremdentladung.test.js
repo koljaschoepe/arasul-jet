@@ -259,6 +259,25 @@ describe('was NICHT als Ollama-Entladung gilt', () => {
     expect(gebucht[1][0]).toContain('auto_unload_ollama_keepalive');
   });
 
+  /**
+   * `modelService.unloadModel` wirft nicht, es meldet. Genau dieser
+   * Unterschied ist am 21.08.2026 am Geraet aufgefallen: eine Antwort mit
+   * success: false und "wurde entladen" daneben. Wer nur auf einen Fehlschlag
+   * horcht, bucht eine Entladung, die nicht stattgefunden hat.
+   */
+  test('eine gemeldete, nicht geworfene Fehlschlag-Entladung wird nicht gebucht', async () => {
+    ollamaReadiness.modelService = {
+      unloadModel: jest.fn().mockResolvedValue({ success: false, error: '404' }),
+    };
+    geladen('gemma3:1b');
+    modelLifecycleService.checkAndUnload.mockImplementationOnce(async ({ unloadModel }) => {
+      await expect(unloadModel('gemma3:1b', 'adaptive_idle')).resolves.toBe(false);
+    });
+    await ollamaReadiness.checkSmartUnload();
+
+    expect(buchungen()).toHaveLength(0);
+  });
+
   test('nach der Karenz gilt dieselbe Kennung wieder als fremd entladen', async () => {
     geladen('gemma3:1b');
     await ollamaReadiness.checkSmartUnload();

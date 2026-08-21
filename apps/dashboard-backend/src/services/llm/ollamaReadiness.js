@@ -398,7 +398,17 @@ class OllamaReadinessService {
    */
   async unloadModelWithTracking(modelId, reason) {
     try {
-      await this.modelService.unloadModel(modelId);
+      // `unloadModel` wirft nicht, es meldet. Genau dieser Unterschied ist am
+      // 21.08.2026 am Geraet aufgefallen: eine Antwort mit `success: false`
+      // und der Meldung "wurde entladen" daneben. Wer hier nur auf einen
+      // Fehlschlag horcht, buchte eine Entladung, die nicht stattgefunden hat.
+      const ergebnis = await this.modelService.unloadModel(modelId);
+      if (ergebnis && ergebnis.success === false) {
+        logger.warn(
+          `[OllamaReadiness] Unload attempt for ${modelId} failed: ${ergebnis.error || 'unbekannt'}`
+        );
+        return false;
+      }
       modelUsageTracker.delete(modelId);
 
       // Log to database for monitoring (to_model = 'unloaded' since column is NOT NULL)
