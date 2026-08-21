@@ -385,6 +385,12 @@ async function gegenKatalogPruefen(empfehlung) {
       );
     }
     geprueft.models = uebrig.length > 0 ? uebrig : [geprueft.model].filter(Boolean);
+    // Die Hauptempfehlung gehoert in ihre eigene Alternativliste. Wurde sie
+    // gerade ersetzt, steht sie sonst nicht darin, und der Assistent schluege
+    // alles vor ausser dem, was er empfiehlt.
+    if (geprueft.model && !geprueft.models.includes(geprueft.model)) {
+      geprueft.models.unshift(geprueft.model);
+    }
   }
 
   return geprueft;

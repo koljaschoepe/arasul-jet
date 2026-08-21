@@ -57,8 +57,22 @@ UPDATE llm_model_catalog SET task = 'coding'
 UPDATE llm_model_catalog SET task = 'vision'
  WHERE id IN ('llava:7b', 'llava-phi3', 'minicpm-v:8b', 'paligemma-3b-mix') AND task IS NULL;
 
--- Alles Uebrige ist Text.
-UPDATE llm_model_catalog SET task = 'text' WHERE task IS NULL;
+-- Alles Uebrige ist Text, AUSSER Audio.
+--
+-- `model_type` kennt seit Migration 035 auch 'audio', und der Plan 023 nennt
+-- fuenf Aufgaben: Text, Coding, Sehen, Texterkennung, Einbettung. Audio ist
+-- keine davon. Ein Audiomodell hier unter 'text' einzusortieren waere still
+-- falsch: es stuende im Filter unter Text, und niemand faende den Fehler.
+--
+-- Es bleibt deshalb ohne Aufgabe. Die Anzeige faellt dann auf `model_type`
+-- zurueck und schreibt "Audio", also das, was zutrifft. Wer Audio zu einer
+-- Aufgabe machen will, erweitert die Pruefbedingung und `TASK_LABELS`; bis
+-- dahin wird nichts behauptet.
+--
+-- Heute traegt kein Katalogeintrag diesen Typ. Der Zweig steht hier, damit der
+-- erste, der ihn traegt, nicht falsch einsortiert wird.
+UPDATE llm_model_catalog SET task = 'text'
+ WHERE task IS NULL AND COALESCE(model_type, 'llm') <> 'audio';
 
 -- Ein nicht ladbarer Eintrag faellt weg, bevor er Standard werden koennte.
 -- `paligemma` steht in der Ollama-Registrierung nicht, weder mit dem

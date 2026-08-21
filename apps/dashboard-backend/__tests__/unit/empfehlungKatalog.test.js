@@ -109,6 +109,22 @@ describe('getRecommendedModel gegen den Katalog', () => {
     expect(e.vision_model).toBeNull();
   });
 
+  /**
+   * Wird die Hauptempfehlung ersetzt, gehoert sie in ihre eigene
+   * Alternativliste. Sonst schlaegt der Assistent alles vor ausser dem, was
+   * er empfiehlt.
+   */
+  test('die ersetzte Hauptempfehlung steht in ihrer eigenen Liste', async () => {
+    process.env.JETSON_PROFILE = 'xavier_nx_8gb';
+    katalog(...STANDARDS, { id: 'gemma:2b', task: 'text', is_task_default: false });
+
+    const e = await getRecommendedModel();
+
+    // phi3:mini gibt es nicht, ersetzt durch den Text-Standard.
+    expect(e.model).toBe('gemma4:26b-q4');
+    expect(e.models[0]).toBe('gemma4:26b-q4');
+  });
+
   test('ohne lesbaren Katalog bleibt es bei der Karte, statt zu scheitern', async () => {
     process.env.JETSON_PROFILE = 'xavier_nx_8gb';
     database.query.mockRejectedValue(new Error('connect ECONNREFUSED'));

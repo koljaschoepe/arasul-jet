@@ -67,6 +67,10 @@ export const TYPE_LABELS: Record<string, string> = {
   reranker: 'Reranker',
   ocr: 'OCR',
   code: 'Code',
+  // Audio ist bewusst KEINE Aufgabe (siehe Migration 151): Plan 023 nennt fünf,
+  // und Audio ist keine davon. Ein Audiomodell bleibt ohne Aufgabe und wird
+  // über diesen Eintrag benannt, statt still unter „Text" zu landen.
+  audio: 'Audio',
 };
 
 export function typeLabel(value: string): string {
