@@ -481,10 +481,19 @@ async function vorlaufFesthalten({
   vorlaufDauerNs,
   evalTokens,
   evalDauerNs,
+  vorlaufZeichen,
 }) {
   if (!vorlaufTokens && !evalTokens) {
     return;
   }
+  // Aus der Review von #451: das ist die Vorverarbeitung der ERSTEN Runde plus
+  // die Generierungszeit ALLER Runden. Die Vorverarbeitung der Runden zwei bis
+  // n fehlt, und die kostet echte Zeit, weil jede Runde einen gewachsenen
+  // Kontext neu verarbeitet. Bei mehrrundigen Laeufen ist `total_duration_ms`
+  // damit zu klein und die daraus gerechnete Spalte `tokens_per_second`
+  // systematisch zu hoch. Bewusst so: D7 misst den Vorlauf der ersten Runde,
+  // und die ist die Zahl, die der Nutzer als Wartezeit erlebt. Wer spaeter
+  // echte Wanduhrzeit braucht, misst sie und rechnet sie nicht aus Teilen.
   const gesamtMs = Math.round((vorlaufDauerNs + evalDauerNs) / 1e6);
   try {
     await database.query(
@@ -510,7 +519,13 @@ async function vorlaufFesthalten({
       gesamtMs || 0,
       Math.round(vorlaufDauerNs / 1e6) || null,
       false,
-      vorlaufTokens || null,
+      // Achter Parameter ist `context_length`, und der ist im Schema als
+      // ZEICHENZAHL dokumentiert. `llmOllamaStream` schreibt dort
+      // `prompt.length`. Hier stand bis zur Review von #451 die Tokenzahl,
+      // womit dieselbe Spalte je nach Pfad zweierlei bedeutet haette, rund um
+      // den Faktor drei bis vier auseinander. Die Tokenzahl geht oben nach
+      // `llm_jobs.prompt_tokens`, hier stehen Zeichen.
+      vorlaufZeichen || null,
     ]);
   } catch (err) {
     log.warn(`[JOB ${jobId}] Messung nicht gespeichert: ${err.message}`);
@@ -637,7 +652,17 @@ async function processAgentChatJob(ctx, job) {
   let vorlaufErsteRunde = 0;
   let vorlaufDauerErsteNs = 0;
   let vorlaufGesamt = 0;
-  const metrikSammeln = ergebnis => {
+  // Plan 023 D7, aus der Review von #451: `context_length` ist im Schema als
+  // ZEICHENZAHL dokumentiert (`030_model_performance_metrics.sql`), und
+  // `llmOllamaStream` schreibt dort `prompt.length`. Wer hier die Tokenzahl
+  // hineinschreibt, gibt derselben Spalte je nach Pfad zwei Bedeutungen. Die
+  // Tokenzahl steht ohnehin in `llm_jobs.prompt_tokens`.
+  let zeichenErsteRunde = 0;
+  const zeichenZaehlen = nachrichten =>
+    Array.isArray(nachrichten)
+      ? nachrichten.reduce((summe, n) => summe + String(n?.content ?? '').length, 0)
+      : 0;
+  const metrikSammeln = (ergebnis, gesendeteNachrichten) => {
     if (!ergebnis) {
       return;
     }
@@ -647,6 +672,7 @@ async function processAgentChatJob(ctx, job) {
     if (vorlaufErsteRunde === 0 && vorlauf > 0) {
       vorlaufErsteRunde = vorlauf;
       vorlaufDauerErsteNs = Number(ergebnis.promptDurationNs) || 0;
+      zeichenErsteRunde = zeichenZaehlen(gesendeteNachrichten);
     }
     vorlaufGesamt += vorlauf;
   };
@@ -1068,21 +1094,24 @@ async function processAgentChatJob(ctx, job) {
         // Der Plan-Text streamt als Gedankengang live ins UI (nicht als
         // Antwort): der Nutzer sieht das Modell planen, die Antwort bleibt sauber.
         const planOllama = istGross && qualModell ? await zuOllamaName(qualModell) : ollamaModel;
+        // In einer Variablen, damit die Zeichenzahl derselben Nachrichten
+        // gemessen werden kann, die auch gesendet wurden.
+        const planNachrichten = [
+          ...messages,
+          {
+            role: 'user',
+            content: istGross
+              ? 'Erstelle ZUERST einen knappen nummerierten Plan (3-6 Schritte) für diesen ' +
+                'Auftrag: welche Werkzeuge/Subagenten du nutzt, welche Quellen du liest, ' +
+                'welche Dateien du wohin schreibst. NUR den Plan, keine Ausführung.'
+              : 'Nenne in 2-4 knappen nummerierten Schritten, wie du diesen Auftrag ' +
+                'ausführst (Werkzeug + Zieldatei). NUR die Schritte, keine Ausführung, ' +
+                'keine Abwägungen.',
+          },
+        ];
         const planErgebnis = await streamChatRound({
           model: planOllama,
-          messages: [
-            ...messages,
-            {
-              role: 'user',
-              content: istGross
-                ? 'Erstelle ZUERST einen knappen nummerierten Plan (3-6 Schritte) für diesen ' +
-                  'Auftrag: welche Werkzeuge/Subagenten du nutzt, welche Quellen du liest, ' +
-                  'welche Dateien du wohin schreibst. NUR den Plan, keine Ausführung.'
-                : 'Nenne in 2-4 knappen nummerierten Schritten, wie du diesen Auftrag ' +
-                  'ausführst (Werkzeug + Zieldatei). NUR die Schritte, keine Ausführung, ' +
-                  'keine Abwägungen.',
-            },
-          ],
+          messages: planNachrichten,
           tools: [],
           think: istGross && agentConfig.thinkingGewuenscht() && agentConfig.kannDenken(planOllama),
           numPredict: istGross
@@ -1093,7 +1122,7 @@ async function processAgentChatJob(ctx, job) {
           signal: abbruch.signal,
         });
         denkenEnde();
-        metrikSammeln(planErgebnis);
+        metrikSammeln(planErgebnis, planNachrichten);
         const plan = (planErgebnis.content || '').trim();
         await stepRecorder.abschliessen({ stepId: planStep.id, output: plan || '(kein Plan)' });
         if (plan) {
@@ -1182,7 +1211,7 @@ async function processAgentChatJob(ctx, job) {
           signal: abbruch.signal,
         });
         denkenEnde();
-        metrikSammeln(rundenErgebnis);
+        metrikSammeln(rundenErgebnis, rundenMessages);
       } catch (err) {
         if (toolsAktiv && istToolsNichtUnterstuetzt(err)) {
           // Modell kann keine Werkzeuge — eine werkzeuglose Runde ist der
@@ -1542,6 +1571,7 @@ async function processAgentChatJob(ctx, job) {
     vorlaufDauerNs: vorlaufDauerErsteNs,
     evalTokens: evalTokensGesamt,
     evalDauerNs: evalDauerNsGesamt,
+    vorlaufZeichen: zeichenErsteRunde,
   });
 
   service.notifySubscribers(jobId, {

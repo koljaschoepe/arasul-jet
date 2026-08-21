@@ -26,6 +26,7 @@ const grundfall = {
   vorlaufDauerNs: 20_000_000_000,
   evalTokens: 300,
   evalDauerNs: 4_000_000_000,
+  vorlaufZeichen: 18_400,
 };
 
 describe('vorlaufFesthalten', () => {
@@ -57,7 +58,47 @@ describe('vorlaufFesthalten', () => {
     // 20 Sekunden Vorverarbeitung, 24 Sekunden insgesamt.
     expect(werte[5]).toBe(20000);
     expect(werte[4]).toBe(24000);
-    expect(werte[7]).toBe(5200);
+  });
+
+  /**
+   * Aus der Review von #451. Der achte Parameter ist `context_length`, und der
+   * ist in `030_model_performance_metrics.sql` als Zeichenzahl dokumentiert.
+   * `llmOllamaStream` schreibt dort `prompt.length`. Stuende hier die
+   * Tokenzahl, haette dieselbe Spalte je nach Pfad zwei Bedeutungen, um den
+   * Faktor drei bis vier auseinander, und jede spaetere Auswertung waere
+   * vergiftet, ohne dass etwas sichtbar kaputtgeht.
+   */
+  test('context_length bekommt Zeichen, nicht Tokens', async () => {
+    const database = datenbank();
+    await vorlaufFesthalten({ database, log, ...grundfall });
+
+    const werte = database.query.mock.calls[1][1];
+    expect(werte[7]).toBe(18400);
+    expect(werte[7]).not.toBe(grundfall.vorlaufTokens);
+  });
+
+  /**
+   * Die Tokenzahl geht nicht verloren, sie steht nur woanders: in
+   * `llm_jobs.prompt_tokens`, geschrieben vom ersten der beiden Aufrufe.
+   */
+  test('die Tokenzahl steht weiterhin in llm_jobs', async () => {
+    const database = datenbank();
+    await vorlaufFesthalten({ database, log, ...grundfall });
+
+    const [sql, werte] = database.query.mock.calls[0];
+    expect(sql).toContain('prompt_tokens');
+    expect(werte[0]).toBe(5200);
+  });
+
+  /**
+   * Ohne gemessene Zeichen bleibt die Spalte leer, statt eine Null zu
+   * behaupten, die niemand gemessen hat.
+   */
+  test('ohne Zeichenzahl bleibt context_length leer', async () => {
+    const database = datenbank();
+    await vorlaufFesthalten({ database, log, ...grundfall, vorlaufZeichen: 0 });
+
+    expect(database.query.mock.calls[1][1][7]).toBeNull();
   });
 
   test('ohne Zahlen wird nichts geschrieben', async () => {
