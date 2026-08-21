@@ -1651,6 +1651,53 @@ das Einzige, was heute überhaupt greift.
 damit aus dem Juli. Der Filter dort steht auf 90 Tagen, und in den letzten
 sieben gab es keine einzige Messung.
 
+### Der Vorlauf, Posten für Posten gewogen
+
+Ollama gibt bei `num_predict: 0` den `prompt_eval_count` zurück, ohne ein Wort
+zu erzeugen. Damit lässt sich jeder Bestandteil einzeln wiegen, ohne dass etwas
+ausgeliefert werden muss. Am 21.08.2026 auf dem Orin, Modell `qwen3-coder:30b`,
+jeder Posten so aufgebaut, wie `chatAgentRunner` ihn zusammensetzt:
+
+| Posten                              | Token | dazu      | Anteil |
+| ----------------------------------- | ----- | --------- | ------ |
+| nur die Frage                       | 20    |           |        |
+| Basis-Systemprompt                  | 89    | +69       | 1 %    |
+| Unternehmenskontext                 | 156   | +67       | 1 %    |
+| Agent-Anweisung                     | 1293  | **+1137** | 19 %   |
+| Projektordner, 120 Einträge         | 3240  | **+1947** | 33 %   |
+| Werkzeuge, 12 strukturell           | 5895  | **+2655** | 45 %   |
+| Verlauf, 12 gewöhnliche Nachrichten | 6519  | +624      |        |
+| Verlauf an der Kappungsgrenze       | 17955 | +12060    |        |
+
+**Der Grundvorlauf ohne Verlauf sind 5895 Token.** Das deckt sich mit der
+Messung vom 19.08. („5200 Token"). Bei 262 Token je Sekunde Vorverarbeitung
+sind das rund 22 Sekunden, bevor das erste Wort kommt, und auch das deckt sich
+mit den dort gemessenen 20.
+
+**Drei Posten machen 97 Prozent aus:** die Werkzeugbeschreibungen (2655), die
+Ordnerstruktur (1947) und die Agent-Anweisung (1137). Zusammen 5739 von 5895.
+Systemprompt und Unternehmenskontext zusammen sind 136 Token, also Rundung.
+
+### Was das für die Abnahme heißt
+
+Die Abnahme verlangt: „Bei einer Unterhaltung mit 20 Nachrichten liegt der
+Vorlauf unter 2500 Token."
+
+**Zwei Anmerkungen dazu, beide gemessen.** Erstens gibt es keine Unterhaltung
+mit 20 Nachrichten im Vorlauf: `MAX_HISTORY_MESSAGES` ist 12, es gehen nie mehr
+mit. Die Zahl im Plan beschreibt eine Unterhaltung, nicht den Vorlauf.
+
+Zweitens: unter 2500 zu kommen heißt, alle drei großen Posten mindestens zu
+halbieren. Der Verlauf ist dabei nicht das Problem, solange die Nachrichten
+gewöhnlich lang sind (624 Token für zwölf). Er wird eins an der Kappungsgrenze:
+`MAX_MESSAGE_CHARS` erlaubt 8000 Zeichen je Nachricht, zwölf davon sind 12060
+Token allein für den Verlauf. Genau dort greift „Verlauf ab einer Schwelle
+zusammenfassen".
+
+Die Reihenfolge für Schritt 2 ergibt sich damit aus der Messung, nicht aus
+einer Vermutung: erst die Werkzeuge, dann die Ordnerstruktur, dann die
+Anweisung, und die Zusammenfassung des Verlaufs als Sicherung nach oben.
+
 ## D8 Zusatzkontext beschreibt das Produkt
 
 Der Chat gibt auf die Frage, was Arasul kann, das Firmenprofil wieder, weil genau
