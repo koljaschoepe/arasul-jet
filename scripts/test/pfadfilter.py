@@ -32,7 +32,10 @@ weniger Kopierquellen gemeldet, statt einen Fehler zu werfen.
 Was NICHT geprueft wird
 -----------------------
 Ob der Filter zu oft baut. Er faellt bewusst offen aus, das kostet Zeit und
-niemals Richtigkeit.
+niemals Richtigkeit. Dazu gehoert auch, dass die CI bei einem PR mit zwei
+Punkten vergleicht statt mit dem Verschmelzungspunkt: waechst `main` waehrend
+der PR laeuft, stehen fremde Dateien in der Liste und es wird zu viel gebaut.
+Nie zu wenig.
 
 Aufruf
 ------
@@ -142,9 +145,18 @@ def kopierquellen(wurzel, dockerfiles):
         vorsatz = "" if kontext in (".", "./", None) else kontext.rstrip("/") + "/"
         for zeile in logische_zeilen(pfad.read_text(encoding="utf-8")):
             zeile = zeile.strip()
-            if not zeile.upper().startswith("COPY "):
+            gross = zeile.upper()
+            # ADD zaehlt mit. Es kopiert genauso aus dem Kontext, nur mit
+            # Zusatzfunktionen, und waere sonst die eine Anweisung, die am
+            # Waechter vorbeikommt. Aus der Review von #454.
+            if not (gross.startswith("COPY ") or gross.startswith("ADD ")):
                 continue
             teile = zeile.split()[1:]
+            # ADD von einer URL oder einem git-Verweis holt nichts aus dem Repo.
+            if gross.startswith("ADD ") and any(
+                t.startswith(("http://", "https://", "git@")) for t in teile
+            ):
+                continue
             # --from=builder kopiert aus einer frueheren Stufe, nicht aus dem Repo
             if any(t.startswith("--from=") for t in teile):
                 continue

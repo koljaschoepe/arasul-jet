@@ -1,5 +1,18 @@
 name: CI
 
+# Reine Dokumentation loest keinen Lauf aus. Die Sperre sitzt bewusst hier am
+# AUSLOESER und nicht als `if:` an den einzelnen Jobs: GitHub laesst einen
+# Pflicht-Check, dessen ganzer Workflow durch `paths-ignore` uebersprungen
+# wurde, automatisch als erfuellt durchgehen. Ein uebersprungener EINZELJOB
+# bekommt diese Behandlung NICHT und wuerde einen reinen Doku-PR fuer immer
+# blockieren.
+#
+# WER BRANCH-SCHUTZ EINSCHALTET, muss das vorher einmal echt ausprobieren:
+# einen PR aufmachen, der nur eine .md-Datei aendert, und nachsehen, ob der
+# Merge-Knopf freigegeben wird. Ein falscher Griff faellt hier nicht auf, er
+# blockiert lautlos. Stand 21.08.2026 hat dieses Repo weder Branch-Schutz noch
+# Rulesets, nachgemessen ueber die API. P9-3 im Master-Plan verlangt aber, "CI
+# Summary" zum Pflicht-Check zu machen, also wird der Fall kommen.
 on:
   push:
     branches: [main]
