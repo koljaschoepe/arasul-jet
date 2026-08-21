@@ -27,7 +27,18 @@ CREATE TABLE IF NOT EXISTS model_performance_metrics (
 
     -- Context
     thinking_enabled BOOLEAN DEFAULT false,
-    context_length INTEGER DEFAULT NULL,  -- Number of chars in context/prompt
+    -- Zeichen im Kontext/Prompt, NICHT Tokens. Beide Schreibwege halten das
+    -- ein: llmOllamaStream schreibt prompt.length, der Agentenpfad die Summe
+    -- der Zeichen aller gesendeten Nachrichten der ersten Runde.
+    --
+    -- ACHTUNG, aus der Review von #451: gezaehlt werden nur die NACHRICHTEN.
+    -- Werkzeugbeschreibungen gehen als eigener `tools`-Parameter an Ollama und
+    -- tauchen in keiner Nachricht auf. Bei Agent-Laeufen sind sie laut Messung
+    -- in Plan 023 D7 rund 59 Prozent des Grundprompts (2655 von 4502 Tokens).
+    -- `context_length` untertreibt die echte Prompt-Groesse dort also deutlich
+    -- und ist NICHT mit prompt_tokens derselben Zeile vergleichbar. Der
+    -- einfache Chatpfad hat dieselbe Luecke, aus demselben Grund.
+    context_length INTEGER DEFAULT NULL,
 
     -- Timestamps
     created_at TIMESTAMPTZ DEFAULT NOW(),

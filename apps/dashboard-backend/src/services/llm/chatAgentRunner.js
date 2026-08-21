@@ -417,11 +417,19 @@ async function streamChatRound({
             // eval_count = erzeugte Tokens, eval_duration = reine Generierzeit
             // in Nanosekunden. Der Aufrufer summiert sie über alle Runden für
             // die Tokens/Sekunde-Anzeige am Ende.
+            //
+            // Plan 023 D7 — dazu die PROMPT-Seite. Ollama meldet sie im selben
+            // Chunk und dieser Pfad hat sie bisher fallen gelassen. Ohne sie
+            // gibt es keine Zahl für den Vorlauf, und D7 könnte seine eigene
+            // Abnahme nicht belegen: `llm_jobs` hatte am 21.08.2026 neun
+            // Zeilen und keine einzige mit `prompt_tokens`.
             resolve({
               content,
               toolCalls,
               evalCount: Number(data.eval_count) || 0,
               evalDurationNs: Number(data.eval_duration) || 0,
+              promptCount: Number(data.prompt_eval_count) || 0,
+              promptDurationNs: Number(data.prompt_eval_duration) || 0,
             });
           }
         }
@@ -431,11 +439,97 @@ async function streamChatRound({
         if (!settled) {
           settled = true;
           cleanup();
-          resolve({ content, toolCalls, evalCount: 0, evalDurationNs: 0 });
+          resolve({
+            content,
+            toolCalls,
+            evalCount: 0,
+            evalDurationNs: 0,
+            promptCount: 0,
+            promptDurationNs: 0,
+          });
         }
       });
     });
   });
+}
+
+/**
+ * Aufschreiben, was der Lauf gekostet hat (Plan 023 D7).
+ *
+ * Am 21.08.2026 auf dem Orin gemessen: `llm_jobs` hatte neun Zeilen, keine
+ * einzige mit `prompt_tokens`, die juengste vom 30.07. `v_llm_usage_profile`
+ * war leer, und `model_performance_metrics` hatte in sieben Tagen keinen
+ * Eintrag. `llmOllamaStream` schreibt beides seit langem; dieser Pfad, der das
+ * Produkt traegt, schrieb nichts.
+ *
+ * Das hatte zwei Folgen. D7 konnte seine eigene Abnahme nicht belegen, weil es
+ * keine Vorlaufzahl gab. Und die Haltezeit-Automatik stufte jede Stunde als
+ * `idle` ein, weil ihr Nutzungsprofil aus genau dieser leeren Sicht kommt,
+ * womit sie das Modell nach zwei Minuten Ruhe entlud, waehrend der Agent
+ * Ollama dreissig mitgab.
+ *
+ * Fehler beim Schreiben brechen den Lauf nicht ab. Eine Antwort, die beim
+ * Nutzer angekommen ist, darf nicht daran scheitern, dass die Messung nicht
+ * gespeichert werden konnte.
+ */
+async function vorlaufFesthalten({
+  database,
+  log,
+  jobId,
+  modelId,
+  vorlaufTokens,
+  vorlaufDauerNs,
+  evalTokens,
+  evalDauerNs,
+  vorlaufZeichen,
+}) {
+  if (!vorlaufTokens && !evalTokens) {
+    return;
+  }
+  // Aus der Review von #451: das ist die Vorverarbeitung der ERSTEN Runde plus
+  // die Generierungszeit ALLER Runden. Die Vorverarbeitung der Runden zwei bis
+  // n fehlt, und die kostet echte Zeit, weil jede Runde einen gewachsenen
+  // Kontext neu verarbeitet. Bei mehrrundigen Laeufen ist `total_duration_ms`
+  // damit zu klein und die daraus gerechnete Spalte `tokens_per_second`
+  // systematisch zu hoch. Bewusst so: D7 misst den Vorlauf der ersten Runde,
+  // und die ist die Zahl, die der Nutzer als Wartezeit erlebt. Wer spaeter
+  // echte Wanduhrzeit braucht, misst sie und rechnet sie nicht aus Teilen.
+  const gesamtMs = Math.round((vorlaufDauerNs + evalDauerNs) / 1e6);
+  try {
+    await database.query(
+      `UPDATE llm_jobs SET prompt_tokens = $1, completion_tokens = $2 WHERE id = $3`,
+      [vorlaufTokens || null, evalTokens || null, jobId]
+    );
+  } catch (err) {
+    log.warn(`[JOB ${jobId}] Vorlauf nicht in llm_jobs geschrieben: ${err.message}`);
+  }
+  try {
+    // Dieselbe Funktion, die `llmOllamaStream` benutzt, nicht ein zweiter
+    // Schreibweg daneben. Die Bedeutung der Spalten soll zwischen beiden
+    // Pfaden dieselbe bleiben, sonst steht in einer Tabelle zweierlei.
+    //
+    // `time_to_first_token_ms` ist hier die reine Vorverarbeitung, und genau
+    // das ist die Zahl, um die es in D7 geht: was vergeht, bevor das erste
+    // Wort kommt.
+    await database.query(`SELECT record_model_performance($1, $2, $3, $4, $5, $6, $7, $8)`, [
+      modelId || 'unknown',
+      jobId,
+      'chat',
+      evalTokens || 0,
+      gesamtMs || 0,
+      Math.round(vorlaufDauerNs / 1e6) || null,
+      false,
+      // Achter Parameter ist `context_length`, und der ist im Schema als
+      // ZEICHENZAHL dokumentiert. `llmOllamaStream` schreibt dort
+      // `prompt.length`. Hier stand bis zur Review von #451 die Tokenzahl,
+      // womit dieselbe Spalte je nach Pfad zweierlei bedeutet haette, rund um
+      // den Faktor drei bis vier auseinander. Die Tokenzahl geht oben nach
+      // `llm_jobs.prompt_tokens`, hier stehen Zeichen.
+      vorlaufZeichen || null,
+    ]);
+  } catch (err) {
+    log.warn(`[JOB ${jobId}] Messung nicht gespeichert: ${err.message}`);
+  }
 }
 
 /** Ollama meldet fehlende Tool-Unterstützung als 400 mit dieser Formulierung. */
@@ -551,12 +645,44 @@ async function processAgentChatJob(ctx, job) {
   // ganzen Agent-Lauf widerspiegeln, nicht nur die letzte Runde.
   let evalTokensGesamt = 0;
   let evalDauerNsGesamt = 0;
-  const metrikSammeln = ergebnis => {
+  // Plan 023 D7 — der Vorlauf der ERSTEN Runde ist die Zahl, um die es geht:
+  // Systemprompt, Werkzeugbeschreibungen, Zusatzkontext und Verlauf, also
+  // alles, was der Nutzer bezahlt, bevor das erste Wort kommt. Spätere Runden
+  // wachsen um die Werkzeugergebnisse und sagen darüber nichts.
+  let vorlaufErsteRunde = 0;
+  let vorlaufDauerErsteNs = 0;
+  let vorlaufGesamt = 0;
+  // Plan 023 D7, aus der Review von #451: `context_length` ist im Schema als
+  // ZEICHENZAHL dokumentiert (`030_model_performance_metrics.sql`), und
+  // `llmOllamaStream` schreibt dort `prompt.length`. Wer hier die Tokenzahl
+  // hineinschreibt, gibt derselben Spalte je nach Pfad zwei Bedeutungen. Die
+  // Tokenzahl steht ohnehin in `llm_jobs.prompt_tokens`.
+  //
+  // Gezaehlt werden nur die Nachrichten. Werkzeugbeschreibungen gehen als
+  // eigener `tools`-Parameter an Ollama und stehen in keiner Nachricht; sie
+  // sind laut der Messung weiter unten in diesem Plan rund 59 Prozent des
+  // Grundprompts. `context_length` untertreibt die echte Prompt-Groesse also
+  // und ist nicht mit `prompt_tokens` derselben Zeile vergleichbar. Der
+  // einfache Chatpfad hat dieselbe Luecke. Steht auch am Spaltenkommentar in
+  // 030_model_performance_metrics.sql.
+  let zeichenErsteRunde = 0;
+  const zeichenZaehlen = nachrichten =>
+    Array.isArray(nachrichten)
+      ? nachrichten.reduce((summe, n) => summe + String(n?.content ?? '').length, 0)
+      : 0;
+  const metrikSammeln = (ergebnis, gesendeteNachrichten) => {
     if (!ergebnis) {
       return;
     }
     evalTokensGesamt += Number(ergebnis.evalCount) || 0;
     evalDauerNsGesamt += Number(ergebnis.evalDurationNs) || 0;
+    const vorlauf = Number(ergebnis.promptCount) || 0;
+    if (vorlaufErsteRunde === 0 && vorlauf > 0) {
+      vorlaufErsteRunde = vorlauf;
+      vorlaufDauerErsteNs = Number(ergebnis.promptDurationNs) || 0;
+      zeichenErsteRunde = zeichenZaehlen(gesendeteNachrichten);
+    }
+    vorlaufGesamt += vorlauf;
   };
   // Sofort-Weg: die Abbruch-Route feuert registrierte AbortController direkt.
   if (typeof llmJobService.registerStream === 'function') {
@@ -976,21 +1102,24 @@ async function processAgentChatJob(ctx, job) {
         // Der Plan-Text streamt als Gedankengang live ins UI (nicht als
         // Antwort): der Nutzer sieht das Modell planen, die Antwort bleibt sauber.
         const planOllama = istGross && qualModell ? await zuOllamaName(qualModell) : ollamaModel;
+        // In einer Variablen, damit die Zeichenzahl derselben Nachrichten
+        // gemessen werden kann, die auch gesendet wurden.
+        const planNachrichten = [
+          ...messages,
+          {
+            role: 'user',
+            content: istGross
+              ? 'Erstelle ZUERST einen knappen nummerierten Plan (3-6 Schritte) für diesen ' +
+                'Auftrag: welche Werkzeuge/Subagenten du nutzt, welche Quellen du liest, ' +
+                'welche Dateien du wohin schreibst. NUR den Plan, keine Ausführung.'
+              : 'Nenne in 2-4 knappen nummerierten Schritten, wie du diesen Auftrag ' +
+                'ausführst (Werkzeug + Zieldatei). NUR die Schritte, keine Ausführung, ' +
+                'keine Abwägungen.',
+          },
+        ];
         const planErgebnis = await streamChatRound({
           model: planOllama,
-          messages: [
-            ...messages,
-            {
-              role: 'user',
-              content: istGross
-                ? 'Erstelle ZUERST einen knappen nummerierten Plan (3-6 Schritte) für diesen ' +
-                  'Auftrag: welche Werkzeuge/Subagenten du nutzt, welche Quellen du liest, ' +
-                  'welche Dateien du wohin schreibst. NUR den Plan, keine Ausführung.'
-                : 'Nenne in 2-4 knappen nummerierten Schritten, wie du diesen Auftrag ' +
-                  'ausführst (Werkzeug + Zieldatei). NUR die Schritte, keine Ausführung, ' +
-                  'keine Abwägungen.',
-            },
-          ],
+          messages: planNachrichten,
           tools: [],
           think: istGross && agentConfig.thinkingGewuenscht() && agentConfig.kannDenken(planOllama),
           numPredict: istGross
@@ -1001,7 +1130,7 @@ async function processAgentChatJob(ctx, job) {
           signal: abbruch.signal,
         });
         denkenEnde();
-        metrikSammeln(planErgebnis);
+        metrikSammeln(planErgebnis, planNachrichten);
         const plan = (planErgebnis.content || '').trim();
         await stepRecorder.abschliessen({ stepId: planStep.id, output: plan || '(kein Plan)' });
         if (plan) {
@@ -1090,7 +1219,7 @@ async function processAgentChatJob(ctx, job) {
           signal: abbruch.signal,
         });
         denkenEnde();
-        metrikSammeln(rundenErgebnis);
+        metrikSammeln(rundenErgebnis, rundenMessages);
       } catch (err) {
         if (toolsAktiv && istToolsNichtUnterstuetzt(err)) {
           // Modell kann keine Werkzeuge — eine werkzeuglose Runde ist der
@@ -1438,6 +1567,21 @@ async function processAgentChatJob(ctx, job) {
   const tokensProSekunde =
     evalDauerNsGesamt > 0 ? Number(((evalTokensGesamt * 1e9) / evalDauerNsGesamt).toFixed(1)) : 0;
 
+  // Plan 023 D7 — aufschreiben, was gemessen wurde. Bis hierher war der Pfad,
+  // der das Produkt trägt, der einzige ohne Messung: `v_llm_usage_profile` war
+  // leer, und damit stufte die Haltezeit-Automatik jede Stunde als `idle` ein.
+  await vorlaufFesthalten({
+    database,
+    log,
+    jobId,
+    modelId: requested_model,
+    vorlaufTokens: vorlaufErsteRunde,
+    vorlaufDauerNs: vorlaufDauerErsteNs,
+    evalTokens: evalTokensGesamt,
+    evalDauerNs: evalDauerNsGesamt,
+    vorlaufZeichen: zeichenErsteRunde,
+  });
+
   service.notifySubscribers(jobId, {
     done: true,
     persisted,
@@ -1450,6 +1594,10 @@ async function processAgentChatJob(ctx, job) {
     performance: {
       tokens: evalTokensGesamt,
       tokens_per_second: tokensProSekunde,
+      // Plan 023 D7: was vor dem ersten Wort stand.
+      prompt_tokens: vorlaufErsteRunde,
+      prompt_tokens_total: vorlaufGesamt,
+      prompt_ms: Math.round(vorlaufDauerErsteNs / 1e6),
     },
     timestamp: new Date().toISOString(),
   });
@@ -1519,6 +1667,9 @@ function deriveRoots(wurzel, ablageZiel) {
 
 module.exports = {
   processAgentChatJob,
+  // Plan 023 D7: die Messung des Vorlaufs. Der Plan macht sie zum
+  // Abnahmekriterium, also gehoert sie unter Test.
+  vorlaufFesthalten,
   AGENT_WERKZEUGE,
   AGENT_ROLLEN,
   streamChatRound,
