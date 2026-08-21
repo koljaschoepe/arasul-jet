@@ -657,6 +657,14 @@ async function processAgentChatJob(ctx, job) {
   // `llmOllamaStream` schreibt dort `prompt.length`. Wer hier die Tokenzahl
   // hineinschreibt, gibt derselben Spalte je nach Pfad zwei Bedeutungen. Die
   // Tokenzahl steht ohnehin in `llm_jobs.prompt_tokens`.
+  //
+  // Gezaehlt werden nur die Nachrichten. Werkzeugbeschreibungen gehen als
+  // eigener `tools`-Parameter an Ollama und stehen in keiner Nachricht; sie
+  // sind laut der Messung weiter unten in diesem Plan rund 59 Prozent des
+  // Grundprompts. `context_length` untertreibt die echte Prompt-Groesse also
+  // und ist nicht mit `prompt_tokens` derselben Zeile vergleichbar. Der
+  // einfache Chatpfad hat dieselbe Luecke. Steht auch am Spaltenkommentar in
+  // 030_model_performance_metrics.sql.
   let zeichenErsteRunde = 0;
   const zeichenZaehlen = nachrichten =>
     Array.isArray(nachrichten)
