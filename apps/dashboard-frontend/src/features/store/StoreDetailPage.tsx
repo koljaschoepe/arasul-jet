@@ -450,18 +450,6 @@ function ModelDetail({
           <Spec label="Kontextlänge">{formatContextLength(model.context_window)}</Spec>
         )}
         {model.license && <Spec label="Lizenz">{model.license}</Spec>}
-        {kartenLink && (
-          <Spec label="Modellkarte">
-            <a
-              href={kartenLink}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-sm text-primary underline-offset-2 hover:underline"
-            >
-              Beim Hersteller nachlesen
-            </a>
-          </Spec>
-        )}
       </div>
 
       {!steckbriefDa && (
@@ -498,11 +486,16 @@ function ModelDetail({
         </div>
       )}
 
-      {model.ollama_library_url && (
+      {/* Plan 023 D2 hatte den Link ein zweites Mal in die Steckbrief-Liste
+          gesetzt, ohne diesen hier zu sehen. Am 21.08.2026 stand er dadurch
+          zweimal auf derselben Seite. Er bleibt hier, weil er sichtbarer ist,
+          und heisst jetzt nicht mehr nach Ollama: die Karte von
+          hf.co/unsloth/Qwen3.8-27B-GGUF liegt bei Hugging Face. */}
+      {kartenLink && (
         <div className="mt-6 border-t border-border pt-6">
-          <a href={sanitizeUrl(model.ollama_library_url)} target="_blank" rel="noopener noreferrer">
+          <a href={kartenLink} target="_blank" rel="noopener noreferrer">
             <Button variant="secondary">
-              <ExternalLink className="size-4" /> Ollama Library ansehen
+              <ExternalLink className="size-4" /> Modellkarte beim Hersteller
             </Button>
           </a>
         </div>

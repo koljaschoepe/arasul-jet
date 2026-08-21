@@ -21,6 +21,7 @@ const readFileAsync = promisify(fs.readFile);
 const { createDownloadHelpers } = require('./modelDownloadHelpers');
 const { createSyncHelpers } = require('./modelSyncHelpers');
 const { steckbriefeAnstossen } = require('./modelProfile');
+const { merkeEntladung } = require('./unloadRegistry');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
@@ -981,6 +982,10 @@ function createModelService(deps = {}) {
      * Unload a model from RAM
      */
     async unloadModel(modelId) {
+      // Plan 023 D3: gemerkt wird VOR dem Versuch. Auch ein gescheiterter
+      // Aufruf kann das Modell erwischt haben, und eine falsche
+      // Herkunftsangabe im Protokoll ist schlimmer als gar keine.
+      merkeEntladung(modelId);
       try {
         await axios.post(
           `${LLM_SERVICE_URL}/api/generate`,

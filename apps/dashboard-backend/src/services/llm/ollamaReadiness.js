@@ -14,6 +14,7 @@ const logger = require('../../utils/logger');
 const database = require('../../database');
 const services = require('../../config/services');
 const modelLifecycleService = require('./modelLifecycleService');
+const { warUnsereEntladung, vergissEntladung } = require('./unloadRegistry');
 
 // Service URLs (from centralized config)
 const LLM_SERVICE_URL = services.llm.url;
@@ -30,6 +31,45 @@ let syncIntervalId = null;
 let unloadCheckIntervalId = null;
 const modelUsageTracker = new Map(); // modelId -> { lastUsed: Date, activeRequests: number }
 const activeRequests = new Map(); // requestId -> { modelId, startTime }
+
+/**
+ * Was beim letzten Durchgang im Speicher lag (Plan 023 D3, Nachtrag).
+ *
+ * Am 21.08.2026 am Geraet gemessen: `gemma3:1b` geladen, das Protokoll sagte
+ * `keep_alive: 120s`, danach war `/api/ps` leer, `llm_model_switches` hatte
+ * KEINE Zeile und das Protokoll keine Meldung. Ollama hatte das Modell selbst
+ * entladen, und Arasul hat davon nichts gemerkt.
+ *
+ * Das ist kein Zufall, sondern die Regel: Arasul reicht dieselbe Frist an
+ * Ollama durch, die es selbst als Schwelle benutzt. Ollama entlaedt genau bei
+ * Ablauf, `checkAndUnload` prueft alle 30 Sekunden und ueberspringt Modelle,
+ * deren `expires_at` noch in der Zukunft liegt. Ollama gewinnt also immer,
+ * ausser der Aufrufer hat eine laengere Frist mitgegeben (der Agentenpfad tut
+ * das mit `AGENT_KEEP_ALIVE`).
+ *
+ * Fuer die Anzeige heisst das: das Modell verschwindet aus der Statusleiste,
+ * und niemand sagt warum. Genau das sollte D3 beenden. Der Vergleich mit dem
+ * vorigen Durchgang schliesst die Luecke.
+ *
+ * Was der Vergleich NICHT sehen kann, und das ist Absicht: ein Modell, das
+ * zwischen zwei Durchgaengen entladen UND wieder geladen wird. Dann hat auch
+ * niemand eine Luecke gesehen, es gibt also nichts zu erklaeren.
+ *
+ * Und was er nicht darf: aus "diesmal nicht gesehen" auf "Ollama hat entladen"
+ * schliessen. Drei Wege fuehren daran vorbei, und jeder einzelne wuerde eine
+ * falsche Herkunft ins Protokoll schreiben: eine gescheiterte Abfrage sieht
+ * aus wie ein leerer Speicher, eine Entladung von Hand sieht aus wie eine
+ * automatische, und ein alter Merkposten sieht aus wie der passende. Alle drei
+ * sind in `_checkSmartUnload` ausgeschlossen, jeder mit einem eigenen Test.
+ */
+let zuletztGeladen = new Set();
+
+/**
+ * Laeuft gerade ein Durchgang? Der Wecker feuert alle 30 Sekunden, ohne zu
+ * fragen, ob der vorige fertig ist. Zwei gleichzeitige Durchgaenge schrieben
+ * `zuletztGeladen` durcheinander.
+ */
+let vergleichLaeuft = false;
 
 class OllamaReadinessService {
   constructor() {
@@ -223,26 +263,133 @@ class OllamaReadinessService {
   }
 
   /**
-   * Delegate unload checks to modelLifecycleService
+   * Delegate unload checks to modelLifecycleService, und danach nachsehen, ob
+   * Ollama von sich aus etwas entladen hat (Plan 023 D3, Nachtrag).
    */
   async checkSmartUnload() {
+    if (vergleichLaeuft) {
+      logger.debug('[OllamaReadiness] Unload-Pruefung laeuft noch, dieser Takt entfaellt');
+      return;
+    }
+    vergleichLaeuft = true;
+    try {
+      await this._checkSmartUnload();
+    } finally {
+      vergleichLaeuft = false;
+    }
+  }
+
+  async _checkSmartUnload() {
+    // Einmal abfragen, zweimal benutzt: die Automatik entscheidet daraus, und
+    // derselbe Stand dient als Vergleich mit dem vorigen Durchgang.
+    const stand = await this._ladeStandVonOllama();
+    const geladen = stand.models;
+    const jetzt = new Set(geladen.map(m => m.name || m.model).filter(Boolean));
+    const selbstEntladen = new Set();
+
     await modelLifecycleService.checkAndUnload({
-      getLoadedModels: () => this._getLoadedModelsFromOllama(),
+      getLoadedModels: async () => geladen,
       modelUsageTracker,
-      unloadModel: (modelId, reason) => this.unloadModelWithTracking(modelId, reason),
+      unloadModel: async (modelId, reason) => {
+        // Erst merken, wenn es geklappt hat. Sonst faellt das Modell aus dem
+        // Vergleichsstand, obwohl es noch geladen ist, und eine spaetere
+        // echte Entladung bliebe einen Takt lang unbemerkt.
+        const geschafft = await this.unloadModelWithTracking(modelId, reason);
+        if (geschafft) {
+          selbstEntladen.add(modelId);
+        }
+        return geschafft;
+      },
     });
+
+    // Eine gescheiterte Abfrage sieht aus wie eine leere. Ohne diese
+    // Unterscheidung buchte EIN Zeitueberschreiten gegen /api/ps jedes
+    // geladene Modell als "wegen Ruhe entladen", obwohl nichts entladen wurde.
+    // Auf einem Geraet, das gerade rechnet, ist das kein Gedankenspiel.
+    if (!stand.erreichbar) {
+      return;
+    }
+
+    for (const modelId of zuletztGeladen) {
+      if (jetzt.has(modelId) || selbstEntladen.has(modelId)) {
+        continue;
+      }
+      // Vier Wege fuehren zu einer eigenen Entladung, und nur einer davon
+      // laeuft ueber `checkAndUnload`. Die anderen drei (Knopf im Dashboard,
+      // Loeschen, Verdraengen fuer ein anderes Modell) merkt sich
+      // `modelService.unloadModel` in der Ablage.
+      if (warUnsereEntladung(modelId)) {
+        continue;
+      }
+      await this._protokolliereFremdentladung(modelId);
+    }
+
+    // Was wir selbst entladen haben, ist beim naechsten Durchgang schon
+    // gebucht und darf dort nicht ein zweites Mal als fremd gelten.
+    for (const modelId of selbstEntladen) {
+      jetzt.delete(modelId);
+    }
+
+    // Was jetzt geladen ist, kann keine offene Entladung mehr haben. Ein
+    // liegengebliebener Eintrag verschluckte sonst ein spaeteres, echtes
+    // Auslaufen desselben Modells.
+    for (const modelId of jetzt) {
+      vergissEntladung(modelId);
+    }
+
+    zuletztGeladen = jetzt;
+  }
+
+  /**
+   * Eine Entladung buchen, die nicht von Arasul kam.
+   *
+   * Der Grund traegt bewusst das Praefix `auto_unload_`, damit die Anzeige ihn
+   * ohne Sonderfall uebersetzt: fuer den Nutzer ist es dieselbe Sache, ein
+   * Modell ist wegen Ruhe aus dem Speicher genommen worden. Wer es getan hat,
+   * ist eine Frage der Innereien und steht in der Kennung.
+   */
+  async _protokolliereFremdentladung(modelId) {
+    try {
+      modelUsageTracker.delete(modelId);
+      await database.query(
+        `INSERT INTO llm_model_switches (from_model, to_model, reason, switch_duration_ms)
+         VALUES ($1, 'unloaded', 'auto_unload_ollama_keepalive', 0)`,
+        [modelId]
+      );
+      logger.info(`[OllamaReadiness] Model ${modelId} was unloaded by Ollama itself (keep_alive)`);
+    } catch (err) {
+      logger.error(
+        `[OllamaReadiness] Could not record Ollama unload of ${modelId}: ${err.message}`
+      );
+    }
+  }
+
+  /** Nur fuer Tests: den Vergleichsstand zuruecksetzen. */
+  _vergleichsstandZuruecksetzen() {
+    zuletztGeladen = new Set();
+    vergleichLaeuft = false;
   }
 
   /**
    * Get all currently loaded models from Ollama /api/ps
    */
   async _getLoadedModelsFromOllama() {
+    return (await this._ladeStandVonOllama()).models;
+  }
+
+  /**
+   * Wie `_getLoadedModelsFromOllama`, sagt aber dazu, ob Ollama geantwortet
+   * hat. Eine gescheiterte Abfrage und ein leerer Speicher sehen sonst gleich
+   * aus, und fuer den Vergleich zweier Durchgaenge ist das der Unterschied
+   * zwischen "nichts geladen" und "keine Ahnung".
+   */
+  async _ladeStandVonOllama() {
     try {
       const response = await axios.get(`${LLM_SERVICE_URL}/api/ps`, { timeout: 5000 });
-      return response.data?.models || [];
+      return { erreichbar: true, models: response.data?.models || [] };
     } catch (err) {
       logger.debug(`[OllamaReadiness] Could not query loaded models: ${err.message}`);
-      return [];
+      return { erreichbar: false, models: [] };
     }
   }
 
@@ -251,7 +398,17 @@ class OllamaReadinessService {
    */
   async unloadModelWithTracking(modelId, reason) {
     try {
-      await this.modelService.unloadModel(modelId);
+      // `unloadModel` wirft nicht, es meldet. Genau dieser Unterschied ist am
+      // 21.08.2026 am Geraet aufgefallen: eine Antwort mit `success: false`
+      // und der Meldung "wurde entladen" daneben. Wer hier nur auf einen
+      // Fehlschlag horcht, buchte eine Entladung, die nicht stattgefunden hat.
+      const ergebnis = await this.modelService.unloadModel(modelId);
+      if (ergebnis && ergebnis.success === false) {
+        logger.warn(
+          `[OllamaReadiness] Unload attempt for ${modelId} failed: ${ergebnis.error || 'unbekannt'}`
+        );
+        return false;
+      }
       modelUsageTracker.delete(modelId);
 
       // Log to database for monitoring (to_model = 'unloaded' since column is NOT NULL)
@@ -262,8 +419,10 @@ class OllamaReadinessService {
       );
 
       logger.info(`[OllamaReadiness] Model ${modelId} unloaded (reason: ${reason})`);
+      return true;
     } catch (err) {
       logger.error(`[OllamaReadiness] Failed to unload model ${modelId}: ${err.message}`);
+      return false;
     }
   }
 

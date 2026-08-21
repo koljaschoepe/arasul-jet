@@ -1395,19 +1395,19 @@ und 64 MB entpackt.
 
 ### Model Management
 
-| Method | Endpoint                     | Description                                    |
-| ------ | ---------------------------- | ---------------------------------------------- |
-| GET    | `/api/models/catalog`        | List curated model catalog                     |
-| GET    | `/api/models/installed`      | List installed models                          |
-| GET    | `/api/models/status`         | Current loaded model + queue stats             |
-| GET    | `/api/models/memory-budget`  | KI-RAM-Lage, geladene Modelle, letzter Wechsel |
-| GET    | `/api/models/loaded`         | Get currently loaded model                     |
-| GET    | `/api/models/default`        | Get default model                              |
-| POST   | `/api/models/default`        | Set default model                              |
-| POST   | `/api/models/download`       | Download model (SSE progress)                  |
-| DELETE | `/api/models/:id`            | Delete installed model                         |
-| POST   | `/api/models/:id/activate`   | Load model into RAM                            |
-| POST   | `/api/models/:id/deactivate` | Unload model from RAM                          |
+| Method | Endpoint                     | Description                                     |
+| ------ | ---------------------------- | ----------------------------------------------- |
+| GET    | `/api/models/catalog`        | List curated model catalog                      |
+| GET    | `/api/models/installed`      | List installed models                           |
+| GET    | `/api/models/status`         | Current loaded model + queue stats              |
+| GET    | `/api/models/memory-budget`  | KI-RAM-Lage, geladene Modelle, letzter Wechsel  |
+| GET    | `/api/models/loaded`         | Get currently loaded model                      |
+| GET    | `/api/models/default`        | Get default model                               |
+| POST   | `/api/models/default`        | Set default model                               |
+| POST   | `/api/models/download`       | Download model (SSE progress)                   |
+| DELETE | `/api/models/:id`            | Delete installed model                          |
+| POST   | `/api/models/:id/activate`   | Load model into RAM                             |
+| POST   | `/api/models/:id/deactivate` | Unload model from RAM (identisch mit `/unload`) |
 
 **GET /api/models/catalog:**
 
@@ -1462,6 +1462,12 @@ so ausliefert.
 }
 ```
 
+`/unload` und `/deactivate` tun seit Plan 023 D3 dasselbe und laufen durch
+denselben Helfer. Bis dahin löste nur `/unload` die Katalog-Kennung auf den
+Ollama-Namen auf; `/deactivate` reichte sie roh durch und entlud dadurch nichts,
+meldete aber „wurde entladen". Beide nehmen die **Katalog-Kennung**
+(`qwen3:7b-q8`), nicht den Ollama-Namen.
+
 **GET /api/models/memory-budget:**
 
 ```json
@@ -1490,7 +1496,17 @@ nichts mehr, was gerade zu sehen ist. Bewusst nur Entladungen: das Laden erklär
 sich von selbst, das Modell steht danach in der Leiste. `model` ist der Anzeigename aus dem Katalog, nicht die Kennung: die
 Ableitung aus `gemma4:e4b-q4` ergäbe „Gemma 4" statt „Gemma 4 Kompakt", und das
 wäre derselbe Namensbruch, den D1 beseitigt hat. `reason` bleibt die rohe
-Kennung; übersetzt wird sie im Frontend (`utils/modellZustand.ts`).
+Kennung; übersetzt wird sie im Frontend (`utils/modellZustand.ts`). Bekannte
+Kennungen: `auto_unload_adaptive_idle|normal|peak` (Arasul hat entladen, weil
+das Modell länger ungenutzt war) und `auto_unload_ollama_keepalive` (Ollama hat
+es selbst entladen, bevor Arasul dazu kam). Für den Nutzer ist beides dasselbe,
+deshalb tragen beide dasselbe Präfix und werden gleich übersetzt.
+
+Was ein Mensch selbst ausgelöst hat, erscheint hier **nicht**: der Knopf im
+Dashboard, das Löschen eines Modells und das Verdrängen für ein anderes laufen
+alle durch `modelService.unloadModel` und werden dort in
+`services/llm/unloadRegistry.js` gemerkt, damit der Vergleich sie nicht für
+eine Entladung wegen Ruhe hält.
 
 **POST /api/models/download:**
 

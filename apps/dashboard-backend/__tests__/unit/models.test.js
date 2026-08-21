@@ -281,6 +281,7 @@ describe('Models Routes', () => {
   // ============================================================================
   describe('POST /api/models/:modelId/deactivate', () => {
     test('should deactivate model', async () => {
+      db.query.mockResolvedValue({ rows: [{ model_type: 'llm', ollama_name: 'llama3:8b' }] });
       modelService.unloadModel.mockResolvedValue({ success: true });
 
       const response = await request(app)
@@ -291,6 +292,43 @@ describe('Models Routes', () => {
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('message');
       expect(modelService.unloadModel).toHaveBeenCalledWith('llama3:8b');
+    });
+
+    /**
+     * Plan 023 D3: bis zum 21.08.2026 reichte diese Route die Katalog-Kennung
+     * roh an Ollama durch, waehrend die Schwesterroute /unload sie aufloeste.
+     * Am Geraet gemessen:
+     *
+     *   POST /api/models/qwen3:7b-q8/deactivate
+     *   -> {"success":false,"error":"...404...","message":"... wurde entladen"}
+     *   curl /api/ps -> ['qwen3:8b']   (also weiterhin geladen)
+     *
+     * Der alte Test lief nur deshalb gruen, weil er eine Kennung waehlte, die
+     * zufaellig ihr eigener Ollama-Name ist.
+     */
+    test('loest die Katalog-Kennung auf den Ollama-Namen auf', async () => {
+      db.query.mockResolvedValue({ rows: [{ model_type: 'llm', ollama_name: 'qwen3:8b' }] });
+      modelService.unloadModel.mockResolvedValue({ success: true });
+
+      const response = await request(app)
+        .post('/api/models/qwen3:7b-q8/deactivate')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(modelService.unloadModel).toHaveBeenCalledWith('qwen3:8b');
+      expect(modelService.unloadModel).not.toHaveBeenCalledWith('qwen3:7b-q8');
+    });
+
+    test('meldet einen Fehlschlag als Fehlschlag', async () => {
+      // Vorher stand hier "wurde entladen", auch mit success: false daneben.
+      db.query.mockResolvedValue({ rows: [{ model_type: 'llm', ollama_name: 'qwen3:8b' }] });
+      modelService.unloadModel.mockResolvedValue({ success: false, error: '404' });
+
+      const response = await request(app)
+        .post('/api/models/qwen3:7b-q8/deactivate')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.body.message).toContain('konnte nicht entladen werden');
     });
   });
 
