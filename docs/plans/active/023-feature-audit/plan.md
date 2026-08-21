@@ -1547,6 +1547,21 @@ Kundengerät. `usage_count` zählt, was dieses eine Gerät protokolliert hat. Al
 Beleg dafür, dass ein Modell im Katalog überflüssig IST, reicht das nicht. Als
 Beleg dafür, dass niemand geprüft hat, ob es gebraucht wird, reicht es.
 
+### Vier von vierundzwanzig Katalogeinträgen sind nicht ladbar
+
+Jeder Eintrag wurde gegen die Quelle abgerufen, aus der er käme: die
+Ollama-Registrierung beziehungsweise Hugging Face. Kontrollprobe `qwen3:8b`
+antwortet mit 200, die Methode trägt.
+
+| Eintrag             | Befund                                                                                                                                                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paligemma-3b-mix`  | **existiert in der Ollama-Registrierung nicht**, weder mit dem hinterlegten Tag noch als `latest`. Und `getRecommendedModel` empfiehlt genau dieses Modell auf **vier** Geräteprofilen als Standard fürs Sehen |
+| `paddleocr:latest`  | keine Ollama-Bibliothek, und im Dokument-Indexer nicht installiert (`ModuleNotFoundError`)                                                                                                                     |
+| `tesseract:latest`  | keine Ollama-Bibliothek, aber im Dokument-Indexer vorhanden (5.3.0). Der Eintrag ist richtig, der Download-Knopf daneben nicht                                                                                 |
+| `qwen3:14b-nothink` | nur lokal erzeugt (`importUnknownModels`). Auf einem frischen Gerät gibt es den Eintrag gar nicht, geprüft am Prüfstand, also kein Problem für einen Kunden                                                    |
+
+Die zwanzig übrigen sind ladbar.
+
 ## D6 Der Agentenpfad benutzt den Lebenszyklus
 
 `modelLifecycleService.js` stuft jede Stunde nach Nutzungsprofil ein und liefert
