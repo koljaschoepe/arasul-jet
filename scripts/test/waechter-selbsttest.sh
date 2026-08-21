@@ -154,6 +154,15 @@ pruefe "Pfadfilter: fehlende Kopierquelle ist rot" 1 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
 mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
 
+# Mehrzeiliges COPY: die Fortsetzungszeile muss gelesen werden. Wuerde sie
+# uebergangen, meldete der Waechter einfach weniger Quellen und bliebe gruen,
+# also genau das stille Loch, gegen das er gebaut ist. Aus der Review von #454.
+printf 'COPY \\\n  sonstiges/hilfsmittel \\\n  ./ziel/\n' \
+  >> "$PF/apps/dashboard-backend/Dockerfile"
+pruefe "Pfadfilter: mehrzeiliges COPY wird gelesen" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+cp "$WURZEL/apps/dashboard-backend/Dockerfile" "$PF/apps/dashboard-backend/Dockerfile"
+
 # Kein Ausdruck mehr: der Waechter muss sich melden, statt Ruhe zu geben.
 sed -i.sicherung "s|grep -qE '[^']*'|grep -q platzhalter|" "$PF/.github/workflows/test.yml"
 pruefe "Pfadfilter: verschwundener Ausdruck ist rot" 1 \

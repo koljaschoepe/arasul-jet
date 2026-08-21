@@ -23,6 +23,12 @@ Was geprueft wird
 3. **Der Ausdruck ist ueberhaupt auffindbar.** Wird der Job umgebaut oder
    umbenannt, meldet sich der Waechter, statt stillschweigend nichts zu pruefen.
 
+Mehrzeilige COPY-Anweisungen
+---------------------------
+Ein `COPY` mit `\\` am Zeilenende wird zusammengezogen, bevor es gelesen wird.
+Ohne das haette der Waechter die Fortsetzungszeilen still uebergangen und
+weniger Kopierquellen gemeldet, statt einen Fehler zu werfen.
+
 Was NICHT geprueft wird
 -----------------------
 Ob der Filter zu oft baut. Er faellt bewusst offen aus, das kostet Zeit und
@@ -91,6 +97,28 @@ def gebaute_dockerfiles(wurzel):
     return aus
 
 
+def logische_zeilen(text):
+    """Zeilen eines Dockerfiles, Fortsetzungen mit `\\` am Ende zusammengezogen.
+
+    Aus der Review von #454: eine mehrzeilige COPY-Anweisung haette der Waechter
+    sonst nur bis zur ersten Zeile gelesen und den Rest STILL uebergangen. Das
+    waere genau die Fehlerklasse gewesen, gegen die er gebaut ist, eine Ebene
+    tiefer. Heute hat kein gebautes Dockerfile eine solche Zeile, morgen kann
+    das jemand schreiben, ohne an diesen Waechter zu denken.
+    """
+    aus, puffer = [], ""
+    for zeile in text.splitlines():
+        blank = zeile.strip()
+        if blank.endswith("\\"):
+            puffer += blank[:-1].rstrip() + " "
+            continue
+        aus.append((puffer + blank).strip())
+        puffer = ""
+    if puffer:
+        aus.append(puffer.strip())
+    return aus
+
+
 def kopierquellen(wurzel, dockerfiles):
     """Quellpfade aus den COPY-Zeilen der gebauten Images, bezogen auf den Kontext."""
     quellen = set()
@@ -100,7 +128,7 @@ def kopierquellen(wurzel, dockerfiles):
             quellen.add(f"!!fehlt:{name}")
             continue
         vorsatz = "" if kontext in (".", "./", None) else kontext.rstrip("/") + "/"
-        for zeile in pfad.read_text(encoding="utf-8").splitlines():
+        for zeile in logische_zeilen(pfad.read_text(encoding="utf-8")):
             zeile = zeile.strip()
             if not zeile.upper().startswith("COPY "):
                 continue
