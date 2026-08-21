@@ -50,16 +50,17 @@ describe('StoreModelsFilterPanel', () => {
     useStoreFilterStore.setState({ modelQuery: '', modelFilters: EMPTY_MODEL_FILTERS });
   });
 
-  it('zeigt klare Typ-Labels (Sprachmodell statt Llm)', () => {
+  it('zeigt klare Labels (Sprachmodell statt Llm, Sehen statt Vision)', () => {
     render(<StoreModelsFilterPanel />);
     expect(screen.getByText('Sprachmodell')).toBeInTheDocument();
-    expect(screen.getByText('Vision')).toBeInTheDocument();
+    // Plan 023 D5: gefiltert wird nach der Aufgabe, und die heisst deutsch.
+    expect(screen.getByText('Sehen')).toBeInTheDocument();
     expect(screen.queryByText('Llm')).not.toBeInTheDocument();
   });
 
   it('eine Facette anhaken schreibt in den storeFilterStore', () => {
     render(<StoreModelsFilterPanel />);
-    fireEvent.click(screen.getByText('Vision'));
+    fireEvent.click(screen.getByText('Sehen'));
     expect(useStoreFilterStore.getState().modelFilters.types).toEqual(['vision']);
   });
 

@@ -1428,6 +1428,8 @@ und 64 MB entpackt.
       "is_installed": true,
       "is_loaded": false,
       "is_default": true,
+      "task": "text",
+      "is_task_default": true,
       "parameter_label": "8.2B",
       "quantization": "Q4_K_M",
       "license": "apache-2.0",
@@ -1440,7 +1442,11 @@ und 64 MB entpackt.
 }
 ```
 
-Die letzten sechs Felder kommen aus Plan 023 D2. Die ersten vier liest der
+`task` und `is_task_default` kommen aus Plan 023 D5: wofür das Modell
+vorgesehen ist, und ob es für diese Aufgabe voreingestellt ist. Je Aufgabe gibt
+es höchstens eines, von der Datenbank erzwungen.
+
+Die sechs Felder danach kommen aus Plan 023 D2. Die ersten vier liest der
 Modell-Abgleich aus Ollamas `/api/show`, also aus den Gewichten; sie sind
 `null`, solange das Modell nicht auf dem Gerät liegt. `measured_tps` ist der
 Median der Ausgabegeschwindigkeit auf DIESEM Gerät, `measured_runs` die Zahl

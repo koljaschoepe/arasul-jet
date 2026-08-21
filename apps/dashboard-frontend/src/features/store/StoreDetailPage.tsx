@@ -57,6 +57,7 @@ import { useExtensionStore } from '@/stores/extensionStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { formatBytes as formatSize } from '@/utils/formatting';
 import { modellAnzeigeName } from '@/utils/modelDisplay';
+import { typeLabel } from './storeModelFilters';
 import { sanitizeUrl } from '@/utils/sanitizeUrl';
 import ActivationButton from './ActivationButton';
 import DownloadProgress from './DownloadProgress';
@@ -431,6 +432,14 @@ function ModelDetail({
         <Spec label="Modell-ID">
           <code className="text-sm">{model.id}</code>
         </Spec>
+        {model.task && (
+          <Spec label="Aufgabe">
+            {typeLabel(model.task)}
+            {model.is_task_default && (
+              <span className="ml-1 text-xs font-normal text-primary">voreingestellt</span>
+            )}
+          </Spec>
+        )}
         {model.parameter_label && <Spec label="Parameter">{model.parameter_label}</Spec>}
         {model.quantization && <Spec label="Quantisierung">{model.quantization}</Spec>}
         <Spec label="Download-Größe">{formatSize(model.size_bytes)}</Spec>

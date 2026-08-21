@@ -1515,12 +1515,21 @@ inert.
 | `supports_vision_input` | boolean                  | ✅       | `false`                         |
 | `is_platform_default`   | boolean                  | ✅       | `false`                         |
 | `speed_tier`            | character varying        | ✅       | `'balanced'::character varying` |
+| `task`                  | character varying        | ✅       |                                 |
+| `is_task_default`       | boolean                  | ✅       | `false`                         |
 | `parameter_label`       | character varying        | ✅       |                                 |
 | `quantization`          | character varying        | ✅       |                                 |
 | `license`               | character varying        | ✅       |                                 |
 | `profile_read_at`       | timestamp with time zone | ✅       |                                 |
 
-Die letzten vier stammen aus Migration 148 (Plan 023 D2) und werden nicht
+`task` und `is_task_default` stammen aus Migration 151 (Plan 023 D5). `task`
+sagt, wofür ein Modell vorgesehen ist (`text`, `coding`, `vision`, `ocr`,
+`embedding`), anders als `model_type`, der sagt, was es kann. Der eindeutige
+Teil-Index `idx_llm_catalog_task_default` erzwingt **höchstens einen Standard je
+Aufgabe**; die Vorgängerspalte `is_platform_default` stand bei drei Modellen auf
+`true` und hatte keinen einzigen Leser, sie ist in derselben Migration entfallen.
+
+Die vier davor stammen aus Migration 148 (Plan 023 D2) und werden nicht
 gepflegt, sondern beim Modell-Abgleich aus Ollamas `/api/show` gelesen.
 `profile_read_at` unterscheidet „noch nie gelesen" von „gelesen, das Modell
 trägt die Angabe nicht".

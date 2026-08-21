@@ -47,6 +47,13 @@ export interface CatalogModel {
   measured_tps?: string | number | null;
   /** Zahl der Messungen, aus denen der Median stammt. */
   measured_runs?: string | number | null;
+  /**
+   * Plan 023 D5: wofuer das Modell vorgesehen ist (text, coding, vision, ocr,
+   * embedding). Anders als `model_type`, der sagt, was es KANN.
+   */
+  task?: string | null;
+  /** Voreingestellt fuer seine Aufgabe. Hoechstens eines je Aufgabe. */
+  is_task_default?: boolean;
   /** Plan 023 D3: Stand eines laufenden Downloads in Bytes, aus llm_installed_models. */
   bytes_completed?: number | null;
   bytes_total?: number | null;

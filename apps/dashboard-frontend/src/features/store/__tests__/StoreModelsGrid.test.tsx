@@ -27,6 +27,8 @@ vi.mock('@/contexts/ToastContext', () => ({
 type Model = {
   id: string;
   name: string;
+  task?: string;
+  is_task_default?: boolean;
   description: string;
   size_bytes: number;
   ram_required_gb: number;
@@ -192,5 +194,17 @@ describe('StoreModelsGrid', () => {
     };
     renderGrid();
     expect(screen.getByText('Ollama-Version zu alt für dieses Modell.')).toBeInTheDocument();
+  });
+
+  // Plan 023 D5: welches Modell fuer seine Aufgabe voreingestellt ist.
+  it('nennt das voreingestellte Modell seiner Aufgabe', () => {
+    catalog.models = [
+      model({ id: 'minicpm', name: 'MiniCPM', task: 'vision', is_task_default: true }),
+      model({ id: 'llava', name: 'LLaVA', task: 'vision', is_task_default: false }),
+    ];
+    renderGrid();
+    expect(screen.getByText('Empfohlen für Sehen')).toBeInTheDocument();
+    const karte = screen.getByTestId('model-card-llava');
+    expect(within(karte).queryByText(/Empfohlen für/)).not.toBeInTheDocument();
   });
 });
