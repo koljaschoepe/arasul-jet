@@ -262,6 +262,33 @@ function kurzInput(input, maxJeWert) {
 }
 
 /**
+ * Wie lange Ollama das Modell nach dieser Anfrage halten soll (Plan 023 D6).
+ *
+ * Bis zum 21.08.2026 stand hier fest `agentConfig.KEEP_ALIVE`, also
+ * `AGENT_KEEP_ALIVE` aus der Umgebung, Vorgabe 30 Minuten. Der zweite Pfad
+ * (`llmOllamaStream`) fragt seit langem den Lebenszyklus. Ausgerechnet der
+ * Pfad, der am meisten benutzt wird, haengt also nicht an der Automatik.
+ *
+ * Das war nicht nur inkonsequent, es hatte eine sichtbare Folge: weil der
+ * Agent Ollama 30 Minuten mitgibt, waehrend die Automatik nach zwei Minuten
+ * Ruhe entlaedt, entladen sich beide gegenseitig. Genau daher stammen die 877
+ * protokollierten Entladungen, die Plan 023 D3 gefunden hat.
+ *
+ * Der Umgebungswert bleibt als Rueckfall, falls der Lebenszyklus nicht
+ * antwortet. Ein Agentenlauf soll nicht daran scheitern.
+ */
+async function haltezeit() {
+  try {
+    const modelLifecycleService = require('./modelLifecycleService');
+    modelLifecycleService.anfrageGesehen();
+    const lage = await modelLifecycleService.getCurrentKeepAlive();
+    return lage.keepAliveSeconds;
+  } catch {
+    return agentConfig.KEEP_ALIVE;
+  }
+}
+
+/**
  * Eine Modell-Runde über /api/chat mit stream:true.
  * Antwort-Token fließen sofort über onToken; tool_calls werden gesammelt.
  * Inaktivitäts-Timeout statt Gesamt-Timeout: ein langsam tröpfelnder Stream
@@ -291,7 +318,7 @@ async function streamChatRound({
       messages,
       stream: true,
       think: think === true,
-      keep_alive: agentConfig.KEEP_ALIVE,
+      keep_alive: await haltezeit(),
       options: {
         num_ctx: agentConfig.NUM_CTX,
         num_predict: Number.isFinite(numPredict) ? numPredict : agentConfig.NUM_PREDICT,

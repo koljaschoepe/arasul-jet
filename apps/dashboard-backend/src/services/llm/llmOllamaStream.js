@@ -276,6 +276,10 @@ async function _streamFromOllamaImpl(
     let keepAlive;
     try {
       const modelLifecycleService = require('./modelLifecycleService');
+      // Plan 023 D6: erst melden, dann fragen. Sonst zaehlt der Lebenszyklus
+      // die Anfrage erst beim naechsten Mal, und genau die erste einer Sitzung
+      // ist die, bei der das Modell noch kalt ist.
+      modelLifecycleService.anfrageGesehen();
       const lifecycle = await modelLifecycleService.getCurrentKeepAlive();
       keepAlive = lifecycle.keepAliveSeconds;
     } catch {
