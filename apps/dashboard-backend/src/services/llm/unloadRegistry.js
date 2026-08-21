@@ -23,12 +23,23 @@
  */
 
 /**
- * Wie lange eine eigene Entladung den Vergleich stumm schaltet.
+ * Wie lange ein Eintrag hoechstens liegen bleibt.
  *
- * Der Vergleich laeuft alle 30 Sekunden. Zwei Minuten decken den Fall ab, dass
- * eine Entladung kurz nach einem Durchgang passiert und erst beim
- * uebernaechsten auffaellt, und sind kurz genug, dass ein spaeteres, echtes
- * Auslaufen derselben Kennung nicht mit verschluckt wird.
+ * Diese Zahl ist BEWUSST an nichts gekoppelt, insbesondere nicht an
+ * `MODEL_IDLE_KEEP_ALIVE_MINUTES`. Anfangs war sie es gedanklich, und genau
+ * daraus entstand ein Fehler: ein Eintrag, der zwei Minuten liegen bleibt,
+ * konnte ein spaeteres, echtes Auslaufen desselben Modells verschlucken.
+ *
+ * Die Richtigkeit haengt seither nicht mehr an einer Frist, sondern an zwei
+ * Ereignissen: ein Eintrag wird beim ersten Treffer verbraucht
+ * (`warUnsereEntladung`) und verworfen, sobald das Modell wieder geladen zu
+ * sehen ist (`vergissEntladung`). Was danach noch uebrig bleibt, ist ein
+ * Eintrag, den nie jemand abholt, zum Beispiel weil `/deactivate` mit einer
+ * erfundenen Kennung aufgerufen wurde. Fuer den ist diese Frist da, und fuer
+ * nichts sonst: sie haelt die Ablage klein, sie entscheidet nichts.
+ *
+ * Wer `MODEL_IDLE_KEEP_ALIVE_MINUTES` hochsetzt, muss hier deshalb nichts
+ * nachziehen. Die beiden Zahlen duerfen auseinanderlaufen.
  */
 const KARENZ_MS = 120000;
 
@@ -61,17 +72,12 @@ function merkeEntladung(kennung) {
 /**
  * War das eine eigene Entladung?
  *
- * Ein Treffer wird VERBRAUCHT. Das ist nicht Sparsamkeit, sondern noetig: die
- * Frist von zwei Minuten ist ungefaehr so lang wie die kuerzeste Haltezeit
- * (`MODEL_IDLE_KEEP_ALIVE_MINUTES`, Vorgabe 2). Ohne Verbrauch koennte
- * derselbe Eintrag zweimal greifen, naemlich wenn ein Modell von Hand entladen,
- * fuer die naechste Anfrage neu geladen und dann innerhalb derselben zwei
- * Minuten von Ollama wegen Ruhe wieder entladen wird. Die zweite, echte
- * Entladung fiele stillschweigend unter den Tisch, und der Nutzer saehe wieder
- * ein Modell verschwinden, ohne dass jemand sagt warum.
- *
- * Jede eigene Entladung laesst genau ein Verschwinden erwarten, also passt
- * genau ein Treffer dazu.
+ * Ein Treffer wird VERBRAUCHT. Jede eigene Entladung laesst genau ein
+ * Verschwinden erwarten, also passt genau ein Treffer dazu. Ohne Verbrauch
+ * koennte derselbe Eintrag zweimal greifen: ein Modell von Hand entladen, fuer
+ * die naechste Anfrage neu geladen und dann von Ollama wegen Ruhe wieder
+ * entladen. Die zweite, echte Entladung fiele stillschweigend unter den Tisch,
+ * und der Nutzer saehe ein Modell verschwinden, ohne dass jemand sagt warum.
  *
  * Abgelaufene Eintraege werden dabei entfernt, damit die Ablage nicht waechst.
  */
