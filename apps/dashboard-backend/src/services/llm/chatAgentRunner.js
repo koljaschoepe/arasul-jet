@@ -262,6 +262,32 @@ function kurzInput(input, maxJeWert) {
 }
 
 /**
+ * Wie lange Ollama das Modell nach dieser Anfrage halten soll (Plan 023 D6).
+ *
+ * Bis zum 21.08.2026 stand hier fest `agentConfig.KEEP_ALIVE`, also
+ * `AGENT_KEEP_ALIVE` aus der Umgebung, Vorgabe 30 Minuten. Der zweite Pfad
+ * (`llmOllamaStream`) fragt seit langem den Lebenszyklus. Ausgerechnet der
+ * Pfad, der am meisten benutzt wird, haengt also nicht an der Automatik.
+ *
+ * Das war nicht nur inkonsequent, es hatte eine sichtbare Folge: weil der
+ * Agent Ollama 30 Minuten mitgibt, waehrend die Automatik nach zwei Minuten
+ * Ruhe entlaedt, entladen sich beide gegenseitig. Genau daher stammen die 877
+ * protokollierten Entladungen, die Plan 023 D3 gefunden hat.
+ *
+ * Der Umgebungswert bleibt als Rueckfall, falls der Lebenszyklus nicht
+ * antwortet. Ein Agentenlauf soll nicht daran scheitern.
+ */
+async function haltezeit() {
+  try {
+    const modelLifecycleService = require('./modelLifecycleService');
+    const lage = await modelLifecycleService.getCurrentKeepAlive();
+    return lage.keepAliveSeconds;
+  } catch {
+    return agentConfig.KEEP_ALIVE;
+  }
+}
+
+/**
  * Eine Modell-Runde über /api/chat mit stream:true.
  * Antwort-Token fließen sofort über onToken; tool_calls werden gesammelt.
  * Inaktivitäts-Timeout statt Gesamt-Timeout: ein langsam tröpfelnder Stream
@@ -291,7 +317,7 @@ async function streamChatRound({
       messages,
       stream: true,
       think: think === true,
-      keep_alive: agentConfig.KEEP_ALIVE,
+      keep_alive: await haltezeit(),
       options: {
         num_ctx: agentConfig.NUM_CTX,
         num_predict: Number.isFinite(numPredict) ? numPredict : agentConfig.NUM_PREDICT,
@@ -424,6 +450,21 @@ function istToolsNichtUnterstuetzt(err) {
  * persistiert über llmJobService (updateJobContent/completeJob).
  */
 async function processAgentChatJob(ctx, job) {
+  // Plan 023 D6: EINE Anfrage je Auftrag, nicht je Werkzeugrunde. Ein Auftrag
+  // ist eine Frage des Nutzers; eine Antwort darauf kann bis zu MAX_RUNDEN
+  // Runden brauchen, und jede einzelne zu zaehlen hiesse, dass eine gewoehnliche
+  // agentische Antwort (suchen, lesen, schreiben) allein schon die Schwelle
+  // fuer die lange Haltezeit reisst. Die Stufe dazwischen waere damit vom
+  // Agentenpfad aus nie erreichbar.
+  //
+  // Waehrend der Auftrag laeuft, schuetzt ohnehin `activeRequests` vor dem
+  // Entladen; die Haltezeit zaehlt erst danach.
+  try {
+    require('./modelLifecycleService').anfrageGesehen();
+  } catch {
+    /* ohne Lebenszyklus laeuft der Auftrag trotzdem */
+  }
+
   const { database, logger: log, llmJobService } = ctx.deps;
   const service = ctx.service;
   const { id: jobId, request_data: requestData, requested_model } = job;

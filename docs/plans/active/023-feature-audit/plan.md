@@ -1562,6 +1562,38 @@ antwortet mit 200, die Methode trägt.
 
 Die zwanzig übrigen sind ladbar.
 
+### Was daraus wurde
+
+Migration 151 legt `task` und `is_task_default` an, mit einem **eindeutigen
+Teil-Index**: je Aufgabe höchstens ein Standard. Ein Feld namens „der Standard"
+mit drei Werten soll die Datenbank ablehnen, nicht ein Mensch bemerken. Am
+Prüfstand gegengeprüft, der Index weist einen zweiten zurück.
+
+`getRecommendedModel` prüft jede Kennung gegen den Katalog und fällt auf den
+Standard der Aufgabe zurück. Die Ausweichsuche fürs Sehen geht über die Aufgabe
+statt über `supports_vision_input`. Der Filter nennt die Aufgabe auf Deutsch.
+`paligemma-3b-mix` ist raus.
+
+**Nicht entschieden:** welche der übrigen zwanzig Modelle überflüssig sind. Nach
+dieser Migration ist jedes einer Aufgabe zugeordnet, die erste Hälfte des
+Kriteriums greift also nicht mehr, und die zweite („nicht messbar besser") ist
+für dreizehn nie installierte Einträge nicht messbar. Ein gelöschtes Modell, das
+ein Kunde geladen hat, ist nicht zurückzuholen.
+
+**Erledigt am 21.08.2026,** `arasul-jet` #449, live abgenommen:
+
+| Aufgabe   | Standard am Gerät  |
+| --------- | ------------------ |
+| text      | `gemma4:26b-q4`    |
+| coding    | `qwen3-coder:30b`  |
+| vision    | `minicpm-v:8b`     |
+| ocr       | `tesseract:latest` |
+| embedding | `nomic-embed-text` |
+
+`paligemma-3b-mix`: null Zeilen. Am Prüfstand steht unter coding
+`deepseek-coder:6.7b`, weil `qwen3-coder:30b` dort nicht existiert. Genau dafür
+ist die Rangfolge da.
+
 ## D6 Der Agentenpfad benutzt den Lebenszyklus
 
 `modelLifecycleService.js` stuft jede Stunde nach Nutzungsprofil ein und liefert
@@ -1591,6 +1623,33 @@ mitzuschicken.
 **Abnahme:** Bei einer Unterhaltung mit 20 Nachrichten liegt der Vorlauf unter
 2500 Token. Die Zeit bis zum ersten Wort sinkt gegenüber der Messung vom 19.08.
 um mindestens 8 Sekunden.
+
+### Erst gemessen: es gibt nichts zu messen
+
+Am 21.08.2026 auf dem Orin:
+
+| Abfrage                                               | Ergebnis                        |
+| ----------------------------------------------------- | ------------------------------- |
+| `SELECT count(*), count(prompt_tokens) FROM llm_jobs` | **9 Zeilen, 0 mit Vorlauf**     |
+| jüngster Job                                          | **30.07.2026**, drei Wochen alt |
+| `SELECT * FROM v_llm_usage_profile`                   | **leer**                        |
+| `model_performance_metrics` der letzten sieben Tage   | **0**                           |
+
+**Der Pfad, der das Produkt trägt, schreibt seinen Vorlauf nicht auf.**
+`llmOllamaStream` liest `prompt_eval_count` und speichert es; `chatAgentRunner`
+nicht. D7 kann seine eigene Abnahme also gar nicht belegen, bevor das
+nachgeholt ist.
+
+**Und dasselbe Loch erklärt D6.** Die adaptive Haltezeit stuft nach dem
+Nutzungsprofil ein, das Profil kommt aus `v_llm_usage_profile`, und die Sicht
+ist leer. Auf diesem Gerät ist damit **jede Stunde `idle`**, die Haltezeit sind
+zwei Minuten, und das ist kein theoretischer Fall, sondern der gemessene
+Zustand. Die kurzfristige Aktivität aus D6 ist deshalb nicht Beiwerk, sondern
+das Einzige, was heute überhaupt greift.
+
+**Nachtrag zu D2:** die auf der Detailseite gezeigte Geschwindigkeit stammt
+damit aus dem Juli. Der Filter dort steht auf 90 Tagen, und in den letzten
+sieben gab es keine einzige Messung.
 
 ## D8 Zusatzkontext beschreibt das Produkt
 

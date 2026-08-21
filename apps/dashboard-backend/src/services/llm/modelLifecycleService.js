@@ -27,6 +27,25 @@ let cachedProfile = null;
 let profileLastRefreshed = 0;
 const PROFILE_TTL = 15 * 60 * 1000; // 15 min
 
+/**
+ * Was gerade passiert, nicht was frueher passiert ist (Plan 023 D6).
+ *
+ * Das Nutzungsprofil oben stuft nach STUNDEN der Vergangenheit ein. Auf einem
+ * frischen Geraet gibt es keine Vergangenheit: jede Stunde ist `idle`, die
+ * Haltezeit sind zwei Minuten, und vor jeder zweiten Frage steht ein
+ * Kaltstart. Beim 27B-Modell sind das gemessen 11,2 Sekunden, und zwar genau
+ * am Anfang einer Vorfuehrung.
+ *
+ * Deshalb zaehlt zusaetzlich, was in den letzten Minuten wirklich lief. Wer
+ * am Agenten arbeitet, soll das Modell warm halten, ohne dass erst eine
+ * Woche Geschichte entsteht. Bewusst im Speicher und ohne Datenbank: es
+ * beantwortet eine Frage ueber die letzten Minuten, nicht ueber gestern, und
+ * ein Neustart darf es vergessen.
+ */
+const FENSTER_MS = parseInt(process.env.MODEL_ACTIVITY_WINDOW_MINUTES || '10') * 60 * 1000;
+const ANFRAGEN_FUER_PEAK = parseInt(process.env.MODEL_ACTIVITY_PEAK_REQUESTS || '3');
+let letzteAnfragen = [];
+
 class ModelLifecycleService {
   /**
    * Get the 24-hour usage profile from llm_jobs history.
@@ -102,6 +121,29 @@ class ModelLifecycleService {
   }
 
   /**
+   * Eine Anfrage vermerken. Ruft jeder Pfad, der Ollama beschaeftigt.
+   *
+   * Nimmt einen Zeitpunkt entgegen, damit ein Test nicht warten muss.
+   */
+  anfrageGesehen(zeitpunkt = Date.now()) {
+    letzteAnfragen.push(zeitpunkt);
+    const grenze = zeitpunkt - FENSTER_MS;
+    letzteAnfragen = letzteAnfragen.filter(t => t > grenze);
+  }
+
+  /** Wie viele Anfragen im Fenster liegen. */
+  anfragenImFenster(jetzt = Date.now()) {
+    const grenze = jetzt - FENSTER_MS;
+    letzteAnfragen = letzteAnfragen.filter(t => t > grenze);
+    return letzteAnfragen.length;
+  }
+
+  /** Nur fuer Tests. */
+  _aktivitaetZuruecksetzen() {
+    letzteAnfragen = [];
+  }
+
+  /**
    * Get current phase and dynamic keep-alive in seconds.
    */
   async getCurrentKeepAlive() {
@@ -133,10 +175,24 @@ class ModelLifecycleService {
         keepAliveMinutes = NORMAL_KEEP_ALIVE_MIN;
     }
 
+    // Die Gegenwart schlaegt die Geschichte, aber nur nach oben. Wer gerade
+    // arbeitet, soll sein Modell warm behalten; wer nicht arbeitet, bekommt
+    // deshalb keine kuerzere Haltezeit als das Profil vorsieht.
+    const anfragen = this.anfragenImFenster();
+    let phase = hourData.phase;
+    if (anfragen >= ANFRAGEN_FUER_PEAK && keepAliveMinutes < PEAK_KEEP_ALIVE_MIN) {
+      keepAliveMinutes = PEAK_KEEP_ALIVE_MIN;
+      phase = 'peak';
+    } else if (anfragen > 0 && keepAliveMinutes < NORMAL_KEEP_ALIVE_MIN) {
+      keepAliveMinutes = NORMAL_KEEP_ALIVE_MIN;
+      phase = 'normal';
+    }
+
     return {
       keepAliveSeconds: keepAliveMinutes * 60,
       keepAliveMinutes,
-      phase: hourData.phase,
+      phase,
+      recentRequests: anfragen,
     };
   }
 
@@ -230,7 +286,7 @@ class ModelLifecycleService {
    */
   async getLifecycleStatus() {
     const profile = await this.getUsageProfile();
-    const { keepAliveMinutes, phase } = await this.getCurrentKeepAlive();
+    const { keepAliveMinutes, phase, recentRequests } = await this.getCurrentKeepAlive();
     const currentHour = new Date().getHours();
 
     // Find next phase change
@@ -253,6 +309,12 @@ class ModelLifecycleService {
       nextPhaseChange: `${String(nextPhaseChangeHour).padStart(2, '0')}:00`,
       nextPhase,
       currentHour,
+      // Plan 023 D6: woher die aktuelle Haltezeit kommt. Ohne diese beiden
+      // Angaben laesst sich am Geraet nicht unterscheiden, ob eine erhoehte
+      // Haltezeit aus der Geschichte stammt oder daraus, dass gerade jemand
+      // arbeitet. Genau diese Frage stellt sich, wenn jemand nachsieht.
+      recentRequests,
+      activityWindowMinutes: FENSTER_MS / 60000,
       usageProfile: profile.map(p => ({
         hour: p.hour,
         avgRequests: p.avgRequests,
@@ -263,6 +325,7 @@ class ModelLifecycleService {
         peakKeepAliveMin: PEAK_KEEP_ALIVE_MIN,
         normalKeepAliveMin: NORMAL_KEEP_ALIVE_MIN,
         idleKeepAliveMin: IDLE_KEEP_ALIVE_MIN,
+        activityPeakRequests: ANFRAGEN_FUER_PEAK,
       },
     };
   }
