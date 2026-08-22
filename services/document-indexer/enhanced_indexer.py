@@ -668,6 +668,21 @@ class EnhancedDocumentIndexer:
         """
         if not ENABLE_AI_ANALYSIS or INDEXER_ANREICHERUNG_PRO_ZYKLUS <= 0:
             return 0
+        # Der Nutzer rechnet: gar nicht erst anfangen.
+        #
+        # Diese Pruefung steht VOR der Abfrage und vor jeder Info-Zeile, und
+        # das ist kein Schoenheitsgrund. Der erste Entwurf prueft erst in der
+        # Schleife und setzte dabei `_nacharbeit_offen`, was den kurzen
+        # Nachbrenner-Takt ausloest. Ergebnis am 22.08.2026 auf dem Orin: alle
+        # 2,8 Sekunden zwei Log-Zeilen, "werden nachgetragen" und
+        # "zurueckgestellt", waehrend eines vier Minuten langen Flows. Der
+        # Vorrang war richtig, der Leerlauf dazu war meiner.
+        if gpu_vorrang.gpu_belegt():
+            logger.debug(
+                "Anreicherung ruht, der Nutzer rechnet "
+                f"(noch {gpu_vorrang.restsekunden():.0f} s)"
+            )
+            return 0
         try:
             offen = self.db.get_dokumente_ohne_anreicherung(
                 limit=INDEXER_ANREICHERUNG_PRO_ZYKLUS
@@ -703,12 +718,15 @@ class EnhancedDocumentIndexer:
             # Chat-Runde 30 bis 60 Sekunden auf ein Modell, das kurz zuvor
             # schon geladen war. Die Herleitung mit den Messwerten steht im
             # Kopf von `gpu_vorrang.py`.
+            #
+            # Hier wird NICHT `_nacharbeit_offen` gesetzt: das loeste den
+            # kurzen Nachbrenner-Takt aus und liess den Indexer alle drei
+            # Sekunden leer drehen. Wer wartet, wartet den normalen Takt ab.
             if gpu_vorrang.gpu_belegt():
                 logger.info(
-                    "Anreicherung zurueckgestellt, der Chat rechnet "
+                    "Anreicherung unterbrochen, der Nutzer rechnet "
                     f"(noch {gpu_vorrang.restsekunden():.0f} s)"
                 )
-                self._nacharbeit_offen = True
                 break
             try:
                 antwort = self.minio_client.get_object(
