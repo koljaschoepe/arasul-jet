@@ -53,7 +53,8 @@ _stub(
     chunk_text_hierarchical=lambda *a, **k: [],
     MIN_CHILD_WORDS=1,
 )
-_stub("spell_corrector", update_domain_dictionary=lambda *a, **k: None)
+_stub("spell_corrector", update_domain_dictionary=lambda *a, **k: None,
+      flush_domain_dictionary=lambda *a, **k: False)
 _stub(
     "entity_extractor",
     extract_from_document=lambda *a, **k: None,

@@ -52,6 +52,7 @@ from document_processor import (
     parse_document, get_document_space_info, contextualize_chunk,
     run_indexing_pipeline, reichere_an, PARSERS, SUPPORTED_MIMES
 )
+from spell_corrector import flush_domain_dictionary
 
 # Logger inherits structured JSON formatting from api_server.py entry point
 logger = logging.getLogger(__name__)
@@ -887,6 +888,12 @@ class EnhancedDocumentIndexer:
             # eine Datei dazu, ist sie im naechsten Zyklus dran und wartet
             # nicht hinter der Modell-Arbeit fremder Dokumente.
             if not cap_reached:
+                # Ruhiger Moment: jetzt kostet das Schreiben des Woerterbuchs
+                # niemanden etwas (Plan 023 G4).
+                try:
+                    flush_domain_dictionary(force=True)
+                except Exception as e:
+                    logger.warning(f"Woerterbuch nicht schreibbar: {e}")
                 self._anreicherung_nachholen()
 
             # Get actual pending count from database
@@ -1002,6 +1009,11 @@ class EnhancedDocumentIndexer:
     def stop(self):
         """Stop the indexer"""
         self.status['running'] = False
+        # Was seit dem letzten Schreiben dazukam, sonst festhalten.
+        try:
+            flush_domain_dictionary(force=True)
+        except Exception as e:
+            logger.warning(f"Woerterbuch beim Beenden nicht schreibbar: {e}")
         self._watchdog_stop.set()
         if self._watchdog_thread is not None:
             self._watchdog_thread.join(timeout=5)
