@@ -214,3 +214,33 @@ def test_der_weckruf_erreicht_die_analyse_selbst(monkeypatch):
     assert gesehen['abbruch']() is False
     ix._weckruf_offen = True
     assert gesehen['abbruch']() is True
+
+
+def test_ruht_solange_der_nutzer_rechnet(monkeypatch):
+    """
+    Der Nutzer hat Vorrang an der einen GPU (Fund vom 22.08.2026).
+
+    Geprueft wird beides, was schiefgehen kann: dass ueberhaupt nichts
+    angefasst wird, UND dass der kurze Nachbrenner-Takt nicht ausgeloest wird.
+    Der erste Entwurf setzte ihn und liess den Indexer alle 2,8 Sekunden zwei
+    Log-Zeilen schreiben, ohne je zu arbeiten.
+    """
+    monkeypatch.setattr(ei, 'ENABLE_AI_ANALYSIS', True)
+    monkeypatch.setattr(ei.gpu_vorrang, 'gpu_belegt', lambda: True)
+    monkeypatch.setattr(ei, 'reichere_an', lambda *a, **k: True)
+    monkeypatch.setattr(ei, 'parse_document', lambda d, f: 'Text genug.')
+    db = _Db([DOK])
+    ix = _indexer(db)
+    assert ix._anreicherung_nachholen() == 0
+    assert ix._nacharbeit_offen is False
+    assert db.geschrieben == []
+
+
+def test_arbeitet_wieder_sobald_die_gpu_frei_ist(monkeypatch):
+    monkeypatch.setattr(ei, 'ENABLE_AI_ANALYSIS', True)
+    monkeypatch.setattr(ei.gpu_vorrang, 'gpu_belegt', lambda: False)
+    monkeypatch.setattr(ei, 'reichere_an', lambda *a, **k: True)
+    monkeypatch.setattr(ei, 'parse_document', lambda d, f: 'Text genug.')
+    db = _Db([DOK])
+    ix = _indexer(db)
+    assert ix._anreicherung_nachholen() == 1
