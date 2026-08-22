@@ -29,9 +29,29 @@ const logger = require('../../utils/logger');
 const { withGpuLock } = require('./gpuQueue');
 const { parseTextToolCalls, enthaeltToolSyntax } = require('../llm/textToolCalls');
 
-// Eigene Umgebungsvariable, NICHT die AGENT_*-Namen: Der Flow-Pfad soll seine
-// Zeitgrenze pro Modell-Aufruf unabhängig vom (abgelösten) Agenten-Pfad haben.
-const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
+// Eine eigene Variable, und zwar seit dem 22.08.2026 wirklich eine eigene.
+//
+// Bis dahin teilte sich dieser Pfad `FLOW_LLM_TIMEOUT_MS` mit dem Chat-Agenten,
+// und dieselbe Zahl bedeutete an beiden Stellen etwas ANDERES:
+//
+//   Chat  (`chatAgentRunner`): wie lange der Strom ZWISCHEN zwei Zeichen
+//         stumm bleiben darf. Der Zaehler beginnt bei jedem Datenstueck neu.
+//   Flow  (hier): das Zeitlimit des GANZEN Aufrufs. Der Aufruf laeuft mit
+//         `stream: false`, es gibt keine Zwischenstuecke, und axios bricht
+//         nach dieser Zeit ab.
+//
+// 120 Sekunden Stille zwischen zwei Zeichen sind grosszuegig. 120 Sekunden fuer
+// eine ganze Antwort sind bei rund zehn Token je Sekunde etwa 1200 Token, und
+// damit scheitert jeder Auftrag, der mehr verlangt.
+//
+// Am Orin gemessen: der `handbuch-bau`-Flow verlangt je Abschnitt "mindestens
+// 80 Zeilen ausfuehrlichem HTML-Inhalt" in EINEM Werkzeugaufruf. Acht
+// Delegationen liefen ins Zeitlimit, und die Datei blieb bei 373 Bytes.
+// Dieselbe Rolle mit einem kleinen Auftrag arbeitete einwandfrei.
+//
+// Der Vorgabewert entspricht `FLOW_LLM_VORLAUF_TIMEOUT_MS`: dieselbe Maschine,
+// dieselbe Groessenordnung. Die aeussere Grenze bleibt `zeitlimit_s` des Flows.
+const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_AUFRUF_TIMEOUT_MS || '300000', 10);
 
 // Katalog-ID → Ollama-Name (z. B. 'qwen3:7b-q8' → 'qwen3:8b'). Der Standard-
 // Modell-Weg liefert die KATALOG-ID; Ollama kennt aber nur seinen eigenen

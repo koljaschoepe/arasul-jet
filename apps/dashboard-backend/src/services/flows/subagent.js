@@ -346,6 +346,46 @@ class SubagentTool extends BaseTool {
       return gekappt;
     }
 
+    // Ein gescheiterter Modell-Aufruf ist kein leeres Ergebnis (22.08.2026).
+    //
+    // `runLoop` WIRFT bei einem Fehler nicht, sondern gibt
+    // `{ result: '', runden: 0, error: '...' }` zurueck. Der `catch` oben
+    // greift deshalb nie, `error` wurde nirgends gelesen, und der Schritt ging
+    // als `fertig` mit leerem Ergebnis durch.
+    //
+    // Am Orin gemessen: der `handbuch-bau`-Flow verlangt je Abschnitt
+    // "mindestens 80 Zeilen ausfuehrlichem HTML-Inhalt" in EINEM
+    // Werkzeugaufruf. Das Standardmodell schafft bei rund zehn Token je
+    // Sekunde keine 80 Zeilen in den 120 Sekunden von FLOW_LLM_TIMEOUT_MS.
+    // Acht Delegationen liefen ins Zeitlimit, acht Schritte standen auf
+    // `fertig`, und die Datei blieb bei 373 Bytes. Der Lauf meldete Erfolg.
+    //
+    // Ein Flow, der Erfolg meldet und ein kaputtes Ergebnis hinterlaesst, ist
+    // schlimmer als einer, der abbricht.
+    if (ergebnis && ergebnis.error && !String(ergebnis.result || '').trim()) {
+      const msg =
+        `Fehler: Rolle "${rolleName}" hat nichts geliefert: ${ergebnis.error}. ` +
+        `Bei einem Zeitlimit hilft ein kleinerer Auftrag je Delegation.`;
+      const gekappt =
+        msg.length > rolle.ergebnis.max_zeichen ? msg.slice(0, rolle.ergebnis.max_zeichen) : msg;
+      logger.warn(`Subagent-Rolle "${rolleName}" ohne Ergebnis: ${ergebnis.error}`);
+      if (stepRecorder && eigenerSchritt) {
+        try {
+          await stepRecorder.abschliessen({
+            stepId: eigenerSchritt.id,
+            output: gekappt,
+            rawOutput: gelesenes.length
+              ? `[Werkzeug-Verlauf der Rolle]\n${gelesenes.join('\n')}`
+              : null,
+            status: 'fehler',
+          });
+        } catch (err) {
+          logger.warn(`Subagent "${rolleName}": Schritt nicht gespeichert: ${err.message}`);
+        }
+      }
+      return gekappt;
+    }
+
     const schlussText = ergebnis && ergebnis.result ? String(ergebnis.result) : '';
     // `raw` fürs Protokoll = was die Rolle gelesen hat PLUS ihr Schluss-Text.
     const raw = [

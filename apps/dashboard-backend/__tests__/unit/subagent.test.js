@@ -376,3 +376,75 @@ describe('SubagentTool — eigenes Rundenbudget je Rolle (Plan 023 I5)', () => {
     expect(runLoop.mock.calls[0][0].maxRunden).toBe(4);
   });
 });
+
+describe('SubagentTool — ein gescheiterter Aufruf ist kein leeres Ergebnis', () => {
+  const SubagentTool3 = require('../../src/services/flows/subagent');
+  const { RunLimits: RunLimits3 } = require('../../src/services/flows/limits');
+
+  /**
+   * `runLoop` WIRFT bei einem Fehler nicht, sondern gibt
+   * `{ result: '', runden: 0, error: '...' }` zurueck. Der Fehlerzweig griff
+   * deshalb nie, und der Schritt ging als `fertig` mit leerem Ergebnis durch.
+   *
+   * Am 22.08.2026 auf dem Orin gemessen: der `handbuch-bau`-Flow verlangt je
+   * Abschnitt "mindestens 80 Zeilen ausfuehrlichem HTML-Inhalt" in EINEM
+   * Werkzeugaufruf. Das Standardmodell schafft das bei rund zehn Token je
+   * Sekunde nicht in den 120 Sekunden von FLOW_LLM_TIMEOUT_MS. Acht
+   * Delegationen liefen ins Zeitlimit, acht Schritte standen auf `fertig`, die
+   * Datei blieb bei 373 Bytes, und der Lauf meldete Erfolg.
+   *
+   * Nachgestellt mit einer kleinen und einer grossen Anforderung: nur die
+   * grosse lief ins Zeitlimit. Das ist die Ursache, nicht die Rolle selbst.
+   */
+  const rolle3 = {
+    name: 'autor',
+    prompt: 'Du haengst an.',
+    werkzeuge: ['dateien_anhaengen'],
+    ergebnis: { felder: ['ergebnis'], max_zeichen: 600 },
+  };
+
+  function ctx(runLoop, stepRecorder) {
+    return {
+      rollen: [rolle3],
+      limits: new RunLimits3({ maxAufrufe: 20, zeitlimitS: 900 }),
+      depth: 0,
+      model: 'm',
+      werkzeugRunden: 8,
+      roleContextBase: { roots: ['/a'], spaceIds: null, userId: 1 },
+      makeTools: jest.fn(() => [{ name: 'dateien_anhaengen' }]),
+      stepRecorder,
+      runLoop,
+    };
+  }
+
+  it('meldet den Grund, statt ein leeres Ergebnis zurueckzugeben', async () => {
+    const runLoop = jest.fn(async () => ({
+      result: '',
+      runden: 0,
+      error: 'timeout of 120000ms exceeded',
+    }));
+    const out = await new SubagentTool3().execute({ rolle: 'autor', auftrag: 'x' }, ctx(runLoop));
+    expect(out).toMatch(/nichts geliefert/i);
+    expect(out).toMatch(/timeout of 120000ms/);
+  });
+
+  it('haelt den Schritt als Fehler fest, nicht als fertig', async () => {
+    const abschliessen = jest.fn(async () => ({}));
+    const stepRecorder = { beginnen: jest.fn(async () => ({ id: 7 })), abschliessen };
+    const runLoop = jest.fn(async () => ({ result: '', runden: 0, error: 'kaputt' }));
+    await new SubagentTool3().execute({ rolle: 'autor', auftrag: 'x' }, ctx(runLoop, stepRecorder));
+    expect(abschliessen).toHaveBeenCalledWith(expect.objectContaining({ status: 'fehler' }));
+  });
+
+  it('ein echtes Ergebnis mit gesetztem error bleibt das Ergebnis', async () => {
+    // Ein Lauf, der trotz Fehler etwas geliefert hat, verliert es nicht.
+    const runLoop = jest.fn(async () => ({
+      result: JSON.stringify({ ergebnis: 'Abschnitt angehaengt.' }),
+      runden: 2,
+      error: 'eine Runde scheiterte',
+    }));
+    const out = await new SubagentTool3().execute({ rolle: 'autor', auftrag: 'x' }, ctx(runLoop));
+    expect(out).toMatch(/angehaengt/i);
+    expect(out).not.toMatch(/nichts geliefert/i);
+  });
+});
