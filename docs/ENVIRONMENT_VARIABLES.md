@@ -4,6 +4,26 @@ Complete reference for all Arasul Platform configuration variables.
 
 All variables are defined in `.env` file at repository root.
 
+## Eine Variable in der `.env` wirkt nur, wenn `compose/` sie durchreicht
+
+Die Container bekommen ihre Umgebung ausschliesslich ueber den
+`environment:`-Block in `compose/*.yaml`. Es gibt kein `env_file:`. Steht eine
+Variable hier in der Dokumentation und im Quelltext, aber in keiner
+Compose-Datei, dann erreicht ein Wert aus der `.env` den Container nie, und der
+Code faellt still auf seinen eingebauten Vorgabewert zurueck. Es wird nichts
+rot, es passiert nur nichts.
+
+Am 22.08.2026 gemessen: **88 der hier beschriebenen Variablen** werden im
+Backend gelesen und von `compose/` nicht durchgereicht. Sie sind damit auf
+einem ausgelieferten Geraet nicht einstellbar. Die Liste steht in
+`scripts/test/durchreichung.py`; derselbe Waechter laesst keine neue
+dazukommen. Wer eine davon braucht, ergaenzt eine Zeile in
+`compose/compose.app.yaml` und streicht sie dort aus der Liste.
+
+Geheimnisse sind die Ausnahme und richtig verdrahtet: `JWT_SECRET` und die
+beiden `N8N_OWNER_*` kommen als `<NAME>_FILE` aus `compose.secrets.yaml` und
+werden von `utils/resolveSecrets.js` beim Start eingelesen.
+
 ---
 
 ## System
@@ -565,9 +585,9 @@ dessen Kopfdaten (`grenzen.werkzeug_runden` / `grenzen.zeitlimit_s`), nicht aus
 einer Umgebungsvariablen. Steuerbar per Env ist nur das Zeitlimit je einzelnem
 Modell-Aufruf:
 
-| Variable            | Default | Description                                                             |
-| ------------------- | ------- | ----------------------------------------------------------------------- |
-| FLOW_LLM_TIMEOUT_MS | 120000  | Timeout (ms) je Ollama-Aufruf eines Flow-Laufs (eigen, nicht `AGENT_*`) |
+| Variable            | Default | Description                                                                                                                                                                                                                 |
+| ------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FLOW_LLM_TIMEOUT_MS | 120000  | Wie lange eine Modell-Runde stumm bleiben darf, bevor der Lauf als tot gilt. Gilt fuer Fluesse UND fuer den Chat-Agenten. Seit 22.08.2026 in `compose.app.yaml` durchgereicht; davor bewirkte ein Wert in der `.env` nichts |
 
 ### Chat-Agent (Harness v2, 2026-07-30, `services/llm/agentConfig.js`)
 
