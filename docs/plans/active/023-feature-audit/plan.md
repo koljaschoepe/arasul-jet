@@ -2193,7 +2193,51 @@ wird dort das Zuhören, nicht der Prozess.
 
 ### Live abgenommen: der Lauf über 30 Minuten
 
-LUECKE_LANGER_LAUF
+Am 22.08.2026, dritter Versuch, Auftrag über zwanzig Kapitel:
+
+|                                       |                                                    |
+| ------------------------------------- | -------------------------------------------------- |
+| Laufzeit bis zum Stopp                | **32 Minuten**, `status = streaming`, kein Abbruch |
+| Abbrüche im Protokoll                 | keine                                              |
+| Wartezeit auf das erste Wort je Runde | 0 bis 1 ms                                         |
+
+Der Lauf wurde nicht müde, er wurde beendet: mit dem Stopp-Knopf, und damit
+beweist derselbe Versuch die zweite Zusage gleich mit.
+
+|                      |                                              |
+| -------------------- | -------------------------------------------- |
+| DELETE-Antwort       | **68 ms**                                    |
+| `status = cancelled` | **134 ms** nach dem Klick                    |
+| Grund und Kennung    | `nutzer`, `ABB-f4fd66-nutzer`                |
+| Teiltext             | 1356 Zeichen erhalten, Nachricht `completed` |
+| Modell frei          | `/api/ps` leer                               |
+| Warteschlange        | nächste Frage nach 37 Sekunden beantwortet   |
+
+### Was der Kontext-Haushalt dabei über sich verraten hat
+
+Die neue Nachmessung aus Ollamas `prompt_eval_count` lief mit und zeigt, wie
+weit die Schätzung danebenlag:
+
+```
+[KONTEXT] Aufschlag 3167 auf 3285 (geschaetzt 3530, gemessen 6815)
+[KONTEXT] Aufschlag 3735 auf 3924 (geschaetzt 4149, gemessen 8073)
+```
+
+**Die Schätzung lag um den Faktor 1,9 zu niedrig.** Rund 2200 Token davon sind
+die Werkzeugbeschreibungen, die sie gar nicht sehen kann. Der Rest ist der
+Zeichenfaktor selbst: `Zeichen / 3,2` trifft für deutschen Fachtext mit Markdown
+nicht, gerechnet sind es eher 2,25. Wer diese Zahl fest einträgt, hat sie beim
+nächsten Modell wieder falsch; deshalb wird sie gemessen.
+
+### Und ein Defekt an der eigenen Arbeit, den erst der echte Stopp zeigte
+
+Im Chat stand nach dem Stopp `_Abgebrochen._` **ohne Grund und ohne Kennung**,
+also genau das, was E1 abgeschafft hatte. In der Datenbank stand alles richtig.
+
+Der Grund: ein Abbruch zwischen zwei Runden verlässt die Schleife, ohne zu
+werfen. Der `catch`-Zweig, der die Kennung setzt, läuft nie. Behoben an zwei
+Stellen, und die zweite ist die lehrreichere: die Kennung ist aus Job-Id und
+Grund **ableitbar**, also wird sie hergeleitet statt weggelassen.
 
 ### Was nicht erfüllt ist, und warum
 

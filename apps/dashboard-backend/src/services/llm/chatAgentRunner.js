@@ -40,7 +40,13 @@ const { buildSystemPrompt } = require('./systemPromptBuilder');
 const agentConfig = require('./agentConfig');
 const { parseTextToolCalls, enthaeltToolSyntax, ToolSyntaxFilter } = require('./textToolCalls');
 const { TodoListeTool, todoErinnerung, parseTodos } = require('./agentTodoTool');
-const { abbruchMelden, abbruchFesthalten, abbruchText, grundAusFehler } = require('./abbruchGrund');
+const {
+  abbruchMelden,
+  abbruchFesthalten,
+  abbruchText,
+  grundAusFehler,
+  kennung,
+} = require('./abbruchGrund');
 const { benenneNachLauf } = require('../chat/chatTitle');
 
 /**
@@ -1593,6 +1599,31 @@ async function processAgentChatJob(ctx, job) {
     let runde = 0;
     for (; runde < MAX_RUNDEN; runde++) {
       if (abgebrochen) {
+        // Plan 023 E2, gefunden bei der Live-Abnahme: ein Abbruch ZWISCHEN
+        // zwei Runden verlaesst die Schleife hier, ohne zu werfen. Der
+        // catch-Zweig weiter unten laeuft also nie, und ohne diese Zeilen
+        // bekaeme der Nutzer den nackten Satz `_Abgebrochen._` ohne Grund und
+        // ohne Kennung, also genau das, was E1 abgeschafft hat. Am Geraet
+        // gemessen an einem Lauf, den der Stopp-Knopf nach 32 Minuten beendet
+        // hat.
+        abbruchKennung = abbruchMelden({
+          log,
+          jobId,
+          grund: abbruchGrund,
+          quelle: 'chatAgentRunner.zwischenRunden',
+          detail: abbruchDetail || `nach Runde ${runde}`,
+          nachMs: Date.now() - laufBegonnen,
+          fehler: abbruchGrund !== 'nutzer',
+        });
+        onToken(abbruchText(abbruchGrund, abbruchKennung));
+        await abbruchFesthalten({
+          database,
+          log,
+          jobId,
+          grund: abbruchGrund,
+          kennung: abbruchKennung,
+          detail: abbruchDetail || `nach Runde ${runde}`,
+        });
         break;
       }
       if (Date.now() >= deadline) {
@@ -2093,9 +2124,14 @@ async function processAgentChatJob(ctx, job) {
           // Plan 023 E1: derselbe Satz wie im Strom, mit derselben Kennung.
           // Sonst stuende beim Neuladen des Chats etwas anderes da als
           // waehrend des Laufs, und die Kennung waere weg.
-          const marker = abbruchKennung
-            ? abbruchText(abbruchGrund, abbruchKennung).trimStart()
-            : '_Abgebrochen._';
+          // Auch wenn kein Zweig oben eine Kennung gesetzt hat, wird sie
+          // hergeleitet statt weggelassen: sie ist aus Job-Id und Grund
+          // ableitbar, und ein Satz ohne sie waere fuer den Nutzer wieder
+          // unauffindbar.
+          const marker = abbruchText(
+            abbruchGrund,
+            abbruchKennung || kennung(jobId, abbruchGrund)
+          ).trimStart();
           await database.query(
             `UPDATE chat_messages SET content = $1, status = 'completed' WHERE id = $2`,
             [fertigText ? `${fertigText}\n\n${marker}` : marker, messageId]
