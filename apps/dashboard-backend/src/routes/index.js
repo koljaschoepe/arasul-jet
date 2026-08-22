@@ -46,6 +46,7 @@ const API_ROUTE_GROUPS = [
   { prefix: '/ops', group: 'admin' },
   { prefix: '/werksreset', group: 'admin' },
   { prefix: '/models', group: 'ai' },
+  { prefix: '/modelle-extern', group: 'ai' },
   { prefix: '/embeddings', group: 'ai' },
   { prefix: '/memory', group: 'ai' },
   { prefix: '/spaces', group: 'ai' },
@@ -119,6 +120,10 @@ router.use('/werksreset', require('./admin/werksreset'));
 
 // --- AI ---
 router.use('/models', require('./ai/models'));
+// Plan 023 D9: externe Cloud-Modelle. Eigener Prefix statt eines Unterpfads
+// von /models, damit an der Adresse ablesbar bleibt, wann etwas das Gerät
+// verlässt.
+router.use('/modelle-extern', require('./ai/externeModelle'));
 router.use('/embeddings', llmLimiter, require('./ai/embeddings'));
 router.use('/memory', require('./ai/memory'));
 router.use('/spaces', require('./ai/spaces'));

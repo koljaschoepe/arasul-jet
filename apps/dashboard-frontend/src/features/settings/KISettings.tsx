@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
-import { User, SlidersHorizontal } from 'lucide-react';
+import { User, SlidersHorizontal, Cloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FilterBar, type FilterBarItem } from '@/components/ui/FilterBar';
 import { ComponentErrorBoundary } from '../../components/ui/ErrorBoundary';
 import { AIProfileSettings } from './AIProfileSettings';
 import { RagLlmSettings } from './RagLlmSettings';
+import { ExterneModelleSettings } from './ExterneModelleSettings';
 
-type SubId = 'profile' | 'rag-llm';
+type SubId = 'profile' | 'rag-llm' | 'extern';
 
 const subSections: FilterBarItem<SubId>[] = [
   { id: 'profile', label: 'Firmenprofil & Kontext', icon: User },
   { id: 'rag-llm', label: 'Sprachmodell', icon: SlidersHorizontal },
+  { id: 'extern', label: 'Externe Modelle', icon: Cloud },
 ];
 
 interface KISettingsProps {
@@ -54,6 +56,17 @@ export function KISettings({ onDirtyChange }: KISettingsProps = {}) {
       <div className={cn(active !== 'rag-llm' && 'hidden')}>
         <ComponentErrorBoundary componentName="Sprachmodell">
           <RagLlmSettings onDirtyChange={setRagDirty} />
+        </ComponentErrorBoundary>
+      </div>
+      {/*
+        Externe Modelle melden keinen Schmutzstand nach oben: hier gibt es
+        kein Formular, das man halb ausgefuellt verlassen koennte. Jede
+        Aktion (speichern, pruefen, schalten, entfernen) ist fuer sich
+        abgeschlossen und sofort wirksam.
+      */}
+      <div className={cn(active !== 'extern' && 'hidden')}>
+        <ComponentErrorBoundary componentName="Externe Modelle">
+          <ExterneModelleSettings />
         </ComponentErrorBoundary>
       </div>
     </FilterBar>
