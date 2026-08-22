@@ -596,13 +596,19 @@ export default function ComposerCard({
         <input
           ref={fileInputRef}
           type="file"
+          // Plan 023 E6: mehrere. Der Umbau von `attachedFile` auf eine Liste
+          // hat den Ziehweg geheilt und diesen hier uebersehen: die Klammer
+          // nahm weiter nur die erste Datei, und `multiple` fehlte, also liess
+          // der Dialog gar keine zweite zu.
+          multiple
           className="hidden"
           // Deckungsgleich mit der Backend-Whitelist (documentAnalysis.js) —
           // sonst wählt der Nutzer eine Datei, die der Upload dann ablehnt.
           accept=".pdf,.docx,.txt,.md,.markdown,.yaml,.yml,.csv,.json,.html,.htm,.xml,.log,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp,.gif"
           onChange={e => {
-            const f = e.target.files?.[0];
-            if (f) onPickFile(f);
+            for (const f of Array.from(e.target.files ?? [])) {
+              onPickFile(f);
+            }
             e.target.value = '';
           }}
         />

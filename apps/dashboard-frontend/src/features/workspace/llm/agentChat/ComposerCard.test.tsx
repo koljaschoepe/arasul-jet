@@ -6,7 +6,7 @@
  * übernimmt, Stift bearbeitet, feste Befehle /flows und /neuer-flow.
  */
 import { useState } from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -397,5 +397,33 @@ describe('ordnerBeschriftung (Plan 023 E6)', () => {
     expect(ordnerBeschriftung({ label: 'leer', dateien: 0 })).toBe(
       'Speichern in: leer · 0 Dateien'
     );
+  });
+});
+
+/**
+ * Plan 023 E6, Nachtrag aus der Live-Abnahme: die Bueroklammer nahm weiter nur
+ * die erste Datei.
+ *
+ * Der Umbau von `attachedFile` auf eine Liste hat den Ziehweg geheilt und
+ * diesen hier uebersehen. Am Geraet fiel es sofort auf, im Test niemandem: es
+ * gab keinen.
+ */
+describe('Datei-Auswahl ueber die Bueroklammer (Plan 023 E6)', () => {
+  it('reicht ALLE gewaehlten Dateien weiter, nicht nur die erste', () => {
+    const onPickFile = vi.fn();
+    const { container } = render(<ComposerCard {...makeProps({ onPickFile })} />);
+    const feld = container.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(feld).toBeTruthy();
+    expect(feld.multiple).toBe(true);
+
+    const dateien = [
+      new File(['a'], 'eins.md', { type: 'text/markdown' }),
+      new File(['b'], 'zwei.md', { type: 'text/markdown' }),
+    ];
+    Object.defineProperty(feld, 'files', { value: dateien, configurable: true });
+    fireEvent.change(feld);
+
+    expect(onPickFile).toHaveBeenCalledTimes(2);
+    expect(onPickFile.mock.calls.map(c => c[0].name)).toEqual(['eins.md', 'zwei.md']);
   });
 });
