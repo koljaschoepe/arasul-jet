@@ -76,11 +76,17 @@ INDEXER_NACHBRENNER = int(os.getenv('DOCUMENT_INDEXER_NACHBRENNER', '2'))
 # Standen sie in derselben Warteschlange, wartete eine gerade geschriebene
 # Datei hinter jedem Vorgaenger: bei 71 offenen Dokumenten ueber eine Stunde.
 #
-# Nachgeholt wird nur, wenn der Scan nichts Neues mehr findet. Drei Stueck sind
-# rund zweieinhalb Minuten; so lange dauert es hoechstens, bis eine neue Datei
-# an die Reihe kommt. 0 schaltet das Nachholen ab.
+# Nachgeholt wird nur, wenn der Scan nichts Neues mehr findet, und eine laufende
+# Runde bricht ab, sobald ein Weckruf kommt.
+#
+# EINS je Runde, nicht mehr: ein Weckruf kann nur ZWISCHEN zwei Dokumenten
+# greifen, nie mitten in einem Modellaufruf. Der Deckel ist damit die
+# Wartezeit im schlechtesten Fall. Bei drei Stueck waren das zweieinhalb
+# Minuten, bei einem sind es rund fuenfzig Sekunden. Der Durchsatz leidet
+# nicht: hat eine Runde etwas geschafft, geht es nach INDEXER_NACHBRENNER
+# Sekunden weiter statt nach INDEXER_INTERVAL. 0 schaltet das Nachholen ab.
 INDEXER_ANREICHERUNG_PRO_ZYKLUS = int(
-    os.getenv('DOCUMENT_INDEXER_ANREICHERUNG_PRO_ZYKLUS', '3')
+    os.getenv('DOCUMENT_INDEXER_ANREICHERUNG_PRO_ZYKLUS', '1')
 )
 # Phase 0 (BUG-002): Max automatic retries for failed documents in the scan loop.
 # The scan loop must honor this cap; explicit /retry endpoint bypasses it by resetting retry_count.
