@@ -24,6 +24,8 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
+import useConfirm from '../../hooks/useConfirm';
+import { sitzungLaeuftUeberFernzugriff, trennFrage } from './sitzungUeberFernzugriff';
 
 interface Peer {
   id: string;
@@ -139,6 +141,7 @@ function setCachedStatus(data: TailscaleStatus) {
 export function RemoteAccessSettings() {
   const api = useApi();
   const toast = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const initialCache = getCachedStatus();
   const [status, setStatus] = useState<TailscaleStatus | null>(initialCache);
@@ -296,6 +299,17 @@ export function RemoteAccessSettings() {
   };
 
   const handleDisconnect = async () => {
+    // Plan 023 J5: „Trennen" kappte sofort, ohne zu fragen. Wer gerade ÜBER
+    // diese Verbindung angemeldet ist, kappte damit die Leitung unter sich
+    // selbst weg und kam nur noch im lokalen Netz wieder heran.
+    const ueberFernzugriff = sitzungLaeuftUeberFernzugriff(
+      typeof window === 'undefined' ? '' : window.location.hostname,
+      status
+    );
+    const ok = await confirm(trennFrage(ueberFernzugriff));
+    if (!ok) {
+      return;
+    }
     setDisconnecting(true);
     try {
       await api.post('/tailscale/disconnect', null, { showError: false });
@@ -401,6 +415,7 @@ export function RemoteAccessSettings() {
 
   return (
     <div className="animate-in fade-in">
+      {ConfirmDialog}
       <PageHeader
         title="Fernzugriff"
         description="Greife sicher von überall auf dein Gerät zu, über Tailscale VPN."
