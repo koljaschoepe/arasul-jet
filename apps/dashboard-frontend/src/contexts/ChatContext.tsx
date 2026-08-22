@@ -1465,6 +1465,36 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                 continue;
               }
 
+              /**
+               * Plan 023 E2: der Platz in der Warteschlange gehoert in die
+               * Anzeige.
+               *
+               * Die GPU arbeitet strikt einen Auftrag nach dem anderen (so
+               * entschieden am 29.07.2026). Wer hinter einem langen Agent-Lauf
+               * wartet, sah bisher eine Zeile, die "arbeitet" sagte, und
+               * nichts weiter. Der Platz nimmt die Wartezeit nicht weg, aber
+               * er nimmt ihr das Raetselhafte.
+               */
+              if (data.type === 'queue_position' && typeof data.queuePosition === 'number') {
+                const platz = data.queuePosition;
+                updateMessages(chatId, prev => {
+                  const u = [...prev];
+                  const cur = u[assistantMessageIndex];
+                  if (cur) {
+                    u[assistantMessageIndex] = {
+                      ...cur,
+                      streamStatus: 'pending',
+                      statusMessage:
+                        platz > 0
+                          ? `wartet, Platz ${platz} in der Warteschlange`
+                          : 'ist an der Reihe',
+                    };
+                  }
+                  return u;
+                });
+                continue;
+              }
+
               if (data.error) {
                 streamError = true;
                 updateError(chatId, data.error);

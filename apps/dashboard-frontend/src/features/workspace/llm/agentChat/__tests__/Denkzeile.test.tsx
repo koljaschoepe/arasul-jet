@@ -147,3 +147,35 @@ describe('Denkzeile', () => {
     expect(screen.getByRole('button')).toHaveAttribute('aria-live', 'polite');
   });
 });
+
+/**
+ * Plan 023 E2: der Platz in der Warteschlange gehört in die Zeile.
+ *
+ * Die GPU arbeitet strikt einen Auftrag nach dem anderen (entschieden am
+ * 29.07.2026). Wer hinter einem langen Agent-Lauf wartet, sah bisher eine
+ * Zeile, die „arbeitet" sagte, und nichts weiter.
+ */
+describe('Denkzeile und die Warteschlange (Plan 023 E2)', () => {
+  it('nennt den Platz, statt „arbeitet" zu sagen', () => {
+    expect(
+      laufText({
+        steps: [],
+        statusMessage: 'wartet, Platz 3 in der Warteschlange',
+        denktGerade: false,
+      })
+    ).toBe('wartet, Platz 3 in der Warteschlange');
+  });
+
+  it('laesst einen laufenden Schritt trotzdem vorgehen', () => {
+    // Wer schon dran ist, wartet nicht mehr, auch wenn eine alte
+    // Warteschlangen-Meldung noch im Zustand steht.
+    const text = laufText({
+      steps: [
+        schritt({ id: 1, tool: 'dateien_schreiben', status: 'running', params: { pfad: 'a.md' } }),
+      ],
+      statusMessage: 'wartet, Platz 3 in der Warteschlange',
+      denktGerade: false,
+    });
+    expect(text).toBe('schreibt a.md');
+  });
+});
