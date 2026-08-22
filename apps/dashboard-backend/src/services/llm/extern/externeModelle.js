@@ -22,6 +22,27 @@ const adapter = require('./adapter');
 const { NotFoundError, ValidationError } = require('../../../utils/errors');
 
 /**
+ * Buchhaltung, die niemals den eigentlichen Fehler verdraengt.
+ *
+ * `ergebnisFesthalten` steht in jedem catch-Zweig hier. Wirft es selbst,
+ * ersetzt sein Fehler den des Anbieters, und der Nutzer liest etwas ueber die
+ * Datenbank statt "der Schluessel wird zurueckgewiesen". Genau das ist am
+ * 22.08.2026 am Geraet passiert, Ursache war ein fehlender Typ-Cast im SQL.
+ * Der Cast ist behoben; diese Klammer sorgt dafuer, dass die naechste solche
+ * Ursache die Diagnose nicht noch einmal unbrauchbar macht.
+ *
+ * @param {string} anbieterName
+ * @param {string|null} fehler
+ */
+async function ergebnisNotieren(anbieterName, fehler) {
+  try {
+    await speicher.ergebnisFesthalten(anbieterName, fehler);
+  } catch (err) {
+    logger.error(`[Extern] Stand von ${anbieterName} nicht festgehalten: ${err.message}`);
+  }
+}
+
+/**
  * Die Modellliste eines Anbieters aendert sich selten. Ohne Zwischenspeicher
  * ginge bei jedem Oeffnen der Modellauswahl eine Anfrage ins Netz, und das
  * waere auf einem Geraet, das lokal arbeiten soll, das falsche Verhalten.
@@ -57,10 +78,10 @@ async function modelleEinesAnbieters(anbieterName, optionen = {}) {
   try {
     const modelle = await adapter.modelleHolen(anbieterName, schluessel);
     zwischenspeicher.set(anbieterName, { zeit: jetzt, modelle });
-    await speicher.ergebnisFesthalten(anbieterName, null);
+    await ergebnisNotieren(anbieterName, null);
     return modelle;
   } catch (err) {
-    await speicher.ergebnisFesthalten(anbieterName, err.message);
+    await ergebnisNotieren(anbieterName, err.message);
     logger.warn(`[Extern] Modellliste von ${anbieterName} nicht abrufbar: ${err.message}`);
     // Ein stiller Ausfall des Anbieters darf die Modellauswahl nicht
     // sprengen. Der Fehler steht in der Anbieter-Zeile und wird dort
@@ -122,10 +143,10 @@ async function schluesselPruefen(anbieterName) {
   try {
     const modelle = await adapter.modelleHolen(anbieterName, schluessel);
     zwischenspeicher.set(anbieterName, { zeit: Date.now(), modelle });
-    await speicher.ergebnisFesthalten(anbieterName, null);
+    await ergebnisNotieren(anbieterName, null);
     return { anzahl: modelle.length };
   } catch (err) {
-    await speicher.ergebnisFesthalten(anbieterName, err.message);
+    await ergebnisNotieren(anbieterName, err.message);
     throw err;
   }
 }

@@ -133,10 +133,17 @@ async function aktivSetzen(name, aktiv) {
  * @param {string|null} fehler null bei Erfolg
  */
 async function ergebnisFesthalten(name, fehler = null) {
+  // Der Typ von $2 steht ausdruecklich da. Ohne den Cast kann Postgres ihn
+  // nicht ableiten, weil der Parameter einmal zugewiesen und einmal nur auf
+  // IS NULL geprueft wird, und antwortet mit "could not determine data type of
+  // parameter $2". Am 22.08.2026 am Geraet passiert, und zwar mit Folgen:
+  // dieser Aufruf steht im catch-Zweig von schluesselPruefen, sein Fehler hat
+  // also die ehrliche 401-Meldung des Anbieters ueberschrieben. Der Nutzer las
+  // "Internal server error" statt "Anthropic weist den Schluessel zurueck".
   await database.query(
     `UPDATE arasul.externe_modell_anbieter
-        SET letzter_fehler = $2,
-            zuletzt_geprueft_am = CASE WHEN $2 IS NULL THEN NOW() ELSE zuletzt_geprueft_am END
+        SET letzter_fehler = $2::text,
+            zuletzt_geprueft_am = CASE WHEN $2::text IS NULL THEN NOW() ELSE zuletzt_geprueft_am END
       WHERE anbieter = $1`,
     [name, fehler]
   );

@@ -264,3 +264,46 @@ describe('die drei Zusagen der Abnahme', () => {
     expect(holen).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('die Buchhaltung darf den echten Fehler nicht verdraengen', () => {
+  /**
+   * Am 22.08.2026 am Geraet: `ergebnisFesthalten` scheiterte an einem
+   * fehlenden Typ-Cast im SQL, und weil der Aufruf im catch-Zweig steht,
+   * ersetzte SEIN Fehler den des Anbieters. Der Nutzer las "Internal server
+   * error" statt "Anthropic weist den Schluessel zurueck". Der Cast ist
+   * behoben; dieser Test haelt fest, dass die naechste solche Ursache die
+   * Diagnose nicht wieder unbrauchbar macht.
+   */
+  let externeModelle;
+  let speicher;
+
+  beforeEach(() => {
+    jest.resetModules();
+    jest.doMock('../../src/services/llm/extern/schluesselSpeicher', () => ({
+      aktiveAnbieter: jest.fn().mockResolvedValue([]),
+      schluesselLesen: jest.fn().mockResolvedValue('sk-test'),
+      ergebnisFesthalten: jest.fn().mockRejectedValue(new Error('could not determine data type')),
+    }));
+    jest.doMock('../../src/services/llm/extern/adapter', () => ({
+      modelleHolen: jest.fn().mockRejectedValue(new Error('Anthropic weist den Schlüssel zurück')),
+      antwortStroemen: jest.fn(),
+    }));
+    jest.doMock('../../src/middleware/audit', () => ({
+      writeAuditLog: jest.fn().mockResolvedValue(undefined),
+    }));
+    speicher = require('../../src/services/llm/extern/schluesselSpeicher');
+    externeModelle = require('../../src/services/llm/extern/externeModelle');
+    externeModelle.speicherLeeren();
+  });
+
+  test('scheitert das Festhalten, kommt trotzdem der Fehler des Anbieters an', async () => {
+    await expect(externeModelle.schluesselPruefen('anthropic')).rejects.toThrow(
+      'Anthropic weist den Schlüssel zurück'
+    );
+    expect(speicher.ergebnisFesthalten).toHaveBeenCalled();
+  });
+
+  test('und die Modellliste bleibt leer, statt zu werfen', async () => {
+    await expect(externeModelle.modelleEinesAnbieters('anthropic')).resolves.toEqual([]);
+  });
+});
