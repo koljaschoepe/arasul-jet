@@ -3370,6 +3370,61 @@ durchgesetzt, nicht von der Anwendung.
 Daten in einer eigenen Tabelle ab und läuft nachts einmal von selbst. Ohne
 Freigabe scheitert jeder dieser drei Aufrufe mit einer verständlichen Meldung.
 
+### Erst gemessen: eine der vier Fähigkeiten gibt es schon
+
+| Fähigkeit                 | Stand                    |
+| ------------------------- | ------------------------ |
+| Ausgehende Aufrufe        | fehlte                   |
+| Eigene Datenbanktabellen  | fehlte                   |
+| **Eigene Dateiablage**    | **gab es seit Plan 017** |
+| Zeitgesteuerte Ausführung | fehlte, teilweise        |
+
+Die Dateiablage ist da: `bruecke/dateien` arbeitet in
+`EXTENSIONS_DATA_DIR/<id>`, also einem eigenen Topf je Erweiterung, TOCTOU-sicher
+über `pathSafe`. Der Compose-Kommentar sagt es ausdrücklich: „bewusst GETRENNT
+von /arasul/projects".
+
+„Teilweise" bei der Zeitsteuerung heißt: eine **Flow-Erweiterung** wird als
+n8n-Workflow ausgerollt und aktiviert (`flowDeployService.liveSchalten` ruft
+`/activate`), und n8ns Schedule-Trigger kann jeden Takt. Nur eine
+App-Erweiterung im iframe konnte das nicht.
+
+### Was daraus wurde
+
+**Ausgehende Aufrufe (#493).** Die Ziele stehen im Manifest, durchgesetzt wird
+im Backend. Drei Wände: die Fähigkeit, das Ziel, die aufgelöste Adresse.
+
+Die dritte ist die wichtigste, und sie ist der Grund für ein eigenes Modul. Ein
+Name im Manifest kann auf `127.0.0.1` oder `172.17.0.1` zeigen, absichtlich oder
+weil jemand den DNS-Eintrag geändert hat, nachdem die Erweiterung installiert
+war. Ohne sie wäre die zweite Wand eine Empfehlung, und eine Erweiterung mit
+`netz` käme an Postgres, MinIO, Ollama, den Docker-Proxy und das Dashboard
+selbst. Geprüft werden **alle** aufgelösten Adressen, nicht die erste.
+
+Nur https, keine Umleitungen (eine Umleitung ist eine zweite Adresse, die
+niemand geprüft hat), kein selbst gesetzter `cookie`.
+
+**Eigene Tabellen (#495).** Je Erweiterung ein Schema `ext_<slug>`. Die
+Erweiterung schickt **niemals SQL**: sie sagt, was sie will, und das SQL entsteht
+im Backend aus geprüften Bezeichnern und gebundenen Werten. Eine Brücke, die SQL
+durchreicht, wäre keine Brücke, sondern ein Datenbankzugang mit Extraschritten.
+
+Ungültige Namen werden abgewiesen, nicht bereinigt: sonst läge die Tabelle unter
+einem anderen Namen als die Erweiterung glaubt.
+
+**Nächtliche Läufe (#496).** Was läuft, ist ein Flow, kein Code der Erweiterung
+— die läuft im Browser, und nachts ist kein Browser offen. `HH:MM` statt Cron:
+der Cron-Parser für Flow-Zeitpläne ist am 28.07.2026 ersatzlos entfernt worden,
+und wer mehr braucht, baut eine Flow-Erweiterung.
+
+Die zwei Fälle, an denen so etwas scheitert, sind beide abgedeckt: der letzte
+Lauf wird tagesgenau verglichen (sonst liefe der Flow im Nachholfenster elfmal),
+und ein Nachholfenster von zehn Minuten fängt ein Gerät ab, das um 03:00 gerade
+neu startet.
+
+**Offen:** die Live-Abnahme selbst. Eine Beispielanwendung, die alle drei
+benutzt, und die drei Meldungen ohne Freigabe.
+
 ## H2 Ein Weg vom Terminal zur laufenden App
 
 Heute registriert der Watcher jede Werkstatt mit `manifest.json` automatisch. Was
@@ -3403,6 +3458,47 @@ Der CSP-Verstoß beim Einbetten bleibt vorerst offen, er ist folgenlos.
 „fremdes Projekt zur Erweiterung machen" ist als Anleitung belegt. Behebt F-14,
 F-17.
 
+### Wie das geht, aus der laufenden Fassung gelesen
+
+Nicht aus n8ns Dokumentation, sondern aus dem, was auf dem Gerät liegt (n8n
+**2.29.10**, `n8n-editor-ui/dist/assets/*`, gelesen am 22.08.2026):
+
+|        |                                                               |
+| ------ | ------------------------------------------------------------- |
+| Akzent | `--color--primary--h: 7`, `--s: 100%`, `--l: 68%` auf `:root` |
+| Thema  | `body[data-theme]`, gemerkt unter dem Schlüssel `N8N_THEME`   |
+
+Alles Weitere leitet n8n aus den drei HSL-Teilen ab. Bis auf die eigene
+Orange-Leiter `--color--orange-50` bis `-950`, die nicht am Akzent hängt und
+stehen geblieben wäre. Ersetzt wird nur der Farbton; die Helligkeit jeder Stufe
+bleibt, sonst kippen die Kontraste, die n8n damit baut.
+
+Die Arasul-Farbe wird zur Laufzeit aus dem eigenen Dokument gelesen, nicht als
+Zahl hinterlegt: Arasul hat je Thema eine andere, und eine zweite Stelle mit
+derselben Farbe wäre beim nächsten Umfärben falsch.
+
+### Live abgenommen, 22.08.2026
+
+Im Browser gegen den Orin, im n8n-Dokument selbst gemessen (#492):
+
+```
+{"thema":"dark","stilDa":true,"h":"210","s":"34%","l":"63%",
+ "orange500":"hsl(210 34% 50%)","gespeichert":"dark"}
+```
+
+Sieben von sieben grün. Kein Orange mehr, weder im Akzent noch in der Leiter.
+
+### Was bleibt: n8n ist weiter englisch
+
+Der Befund oben nennt zwei Brüche, hell und englisch. Der erste ist behoben,
+der zweite nicht, und zwar nicht aus Nachlässigkeit: die installierte Fassung
+bringt **keine deutschen Texte mit**. Weder ein `i18n`-Ordner noch ein einziger
+deutscher String steht im Build; `N8N_DEFAULT_LOCALE=de` änderte deshalb nichts.
+n8n selbst zu übersetzen ist ein eigenes Vorhaben, keine Zeile in diesem Plan.
+
+Die Abnahme verlangt Themenwechsel, kein Orange und die Anleitung. Alle drei
+sind erfüllt.
+
 ## H5 Erweiterungen sichtbar und schaltbar
 
 Aktive Erweiterungen erscheinen links in der Leiste und lassen sich dort öffnen.
@@ -3413,6 +3509,35 @@ gegen „Selbst gebaut".
 **Abnahme:** Eine aktive Erweiterung steht links. Ausschalten fragt einmal nach,
 wenn Tabs offen sind. Alle Schalter tragen dieselbe Beschriftung. Behebt F-11,
 teilweise F-37.
+
+### Erst gemessen
+
+„Eine aktive Erweiterung steht links" war schon erfüllt: die Activity-Bar zeigt
+aktivierte App-Erweiterungen. Die beiden anderen Punkte nicht.
+
+| Karte          | Text neben dem Schalter | was er beschreibt         |
+| -------------- | ----------------------- | ------------------------- |
+| Kern-App (n8n) | „Im Workspace sichtbar" | den Zustand des Schalters |
+| Paket          | „Selbst gebaut"         | die Herkunft des Pakets   |
+
+Derselbe Schalter, dieselbe Stelle, zweierlei daneben. Wer das liest, rät, was
+der Schalter tut.
+
+Und die Rückfrage fehlte ganz: `setAppEnabled` schloss die offenen Tabs der App
+wortlos. Wer in einem n8n-Workflow mitten in einer Eingabe stand, verlor sie.
+
+### Ein dritter Punkt, der im Plan nicht steht
+
+Für Pakete schloss gar nichts: `setExtensionEnabled` fasst keine Tabs an. Der
+Tab einer ausgeblendeten Erweiterung blieb offen stehen und zeigte etwas, das
+laut Schalter nicht mehr da ist.
+
+### Was daraus wurde (#490)
+
+Beide Karten tragen dieselbe Beschriftung, die Herkunft steht bei den Merkmalen.
+Ausschalten fragt einmal, mit der Zahl der betroffenen Tabs; einschalten fragt
+nie, da geht nichts zu. Ein Paket schließt jetzt seine eigenen Tabs, ein fremdes
+Paket bleibt unangetastet.
 
 ---
 
