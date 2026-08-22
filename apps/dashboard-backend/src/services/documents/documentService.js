@@ -52,7 +52,10 @@ async function deleteDocument(documentId, filePath) {
 
   // Post-commit cleanup: remove Qdrant vectors (non-critical, with retry).
   const qdrantSuccess = await qdrantService.deleteDocumentVectors(documentId);
-  if (!qdrantSuccess) {
+  // Ist Qdrant als abgeschaltet vermerkt, gibt es dort auch nichts nachzuholen:
+  // ohne laufenden Dienst wurden nie Vektoren geschrieben. Ein Vermerk je
+  // Dokument waere reines Rauschen (Plan 023 G4).
+  if (!qdrantSuccess && !qdrantService.istAbgeschaltet()) {
     // Mark for later cleanup if Qdrant delete fails
     try {
       await pool.query(`UPDATE documents SET qdrant_cleanup_pending = true WHERE id = $1`, [

@@ -20,12 +20,73 @@ const QDRANT_PORT = services.qdrant.port;
 const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
 
 /**
+ * Sicherung gegen einen abgeschalteten Qdrant (Plan 023 G4).
+ *
+ * Seit Plan 021, Schritt 8 liegt Qdrant im Compose-Profil `classic-rag` und
+ * startet nicht mit. Der Name löst dann gar nicht erst auf. Jeder Aufruf hier
+ * lief trotzdem in drei Versuche mit Wartezeit dazwischen.
+ *
+ * Am 22.08.2026 auf dem Orin gemessen, beim Löschen eines Ordners mit hundert
+ * Dateien:
+ *
+ *   18:26:45  Failed to delete from Qdrant after retries … getaddrinfo EAI_AGAIN
+ *   18:26:50  Failed to delete from Qdrant after retries … getaddrinfo EAI_AGAIN
+ *
+ * Fünf Sekunden je Dokument, also über acht Minuten für den Ordner, in denen
+ * der Ordner-Abgleich nichts anderes tat. Neue Dateien bekamen in dieser Zeit
+ * keine Zeile und waren nicht auffindbar.
+ *
+ * Deshalb ein Schalter, der von selbst zurückspringt: Sagt das Netz „diesen
+ * Rechner gibt es nicht", wird Qdrant für `PAUSE_MS` als abgeschaltet
+ * behandelt und jeder Aufruf kehrt sofort zurück. Ein Flag wäre die schlechtere
+ * Lösung: es müsste gepflegt werden und träfe den Fall „Qdrant läuft, ist aber
+ * gerade nicht erreichbar" nicht.
+ */
+const NICHT_ERREICHBAR = new Set(['EAI_AGAIN', 'ENOTFOUND', 'ECONNREFUSED', 'EHOSTUNREACH']);
+const PAUSE_MS = parseInt(process.env.QDRANT_PAUSE_MS || '60000', 10);
+let stummBis = 0;
+
+/** Ist Qdrant gerade als abgeschaltet vermerkt? */
+function istAbgeschaltet() {
+  return Date.now() < stummBis;
+}
+
+/** Einen Fehler bewerten: war das „gibt es nicht" oder „hat nicht geklappt"? */
+function vermerkeFehler(err) {
+  const code = err?.code || err?.cause?.code;
+  if (!NICHT_ERREICHBAR.has(code)) {
+    return false;
+  }
+  if (!istAbgeschaltet()) {
+    logger.info(
+      `Qdrant nicht erreichbar (${code}), wird für ${Math.round(PAUSE_MS / 1000)}s ` +
+        'übersprungen. Das ist der Normalfall, solange die Vektorsuche aus ist.'
+    );
+  }
+  stummBis = Date.now() + PAUSE_MS;
+  return true;
+}
+
+/** Ein geglückter Aufruf hebt die Pause sofort auf. */
+function vermerkeErfolg() {
+  stummBis = 0;
+}
+
+/** Nur für Tests: den Schalter zurückstellen. */
+function _pauseZuruecksetzen() {
+  stummBis = 0;
+}
+
+/**
  * Delete all vectors for a document from Qdrant (with retry).
  * Non-critical: logs errors but does not throw.
  * @param {string} documentId - Document ID
  * @returns {Promise<boolean>} True if deleted successfully
  */
 async function deleteDocumentVectors(documentId) {
+  if (istAbgeschaltet()) {
+    return false;
+  }
   try {
     await retry(
       () =>
@@ -47,13 +108,21 @@ async function deleteDocumentVectors(documentId) {
         maxAttempts: 3,
         initialDelay: 500,
         onRetry: (attempt, err) => {
+          // Ein nicht auflösbarer Name wird beim zweiten Versuch nicht besser.
+          if (vermerkeFehler(err)) {
+            throw err;
+          }
           logger.warn(`Qdrant delete retry ${attempt} for doc ${documentId}: ${err.message}`);
         },
       }
     );
+    vermerkeErfolg();
     logger.info(`Deleted document from Qdrant: ${documentId}`);
     return true;
   } catch (e) {
+    if (vermerkeFehler(e)) {
+      return false;
+    }
     logger.error(`Failed to delete from Qdrant after retries for doc ${documentId}: ${e.message}`);
     return false;
   }
@@ -66,14 +135,21 @@ async function deleteDocumentVectors(documentId) {
  * @returns {Promise<boolean>} True if deleted successfully
  */
 async function deleteDocumentVectorsSimple(documentId) {
+  if (istAbgeschaltet()) {
+    return false;
+  }
   try {
     await axios.post(
       `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/delete`,
       { filter: { must: [{ key: 'document_id', match: { value: documentId } }] } },
       { timeout: 5000 }
     );
+    vermerkeErfolg();
     return true;
   } catch (e) {
+    if (vermerkeFehler(e)) {
+      return false;
+    }
     logger.warn(`Failed to remove from Qdrant: ${e.message}`);
     return false;
   }
@@ -97,6 +173,9 @@ async function updateDocumentSpacePayload(documentId, spaceId, spaceName, spaceS
     filter: { must: [{ key: 'document_id', match: { value: documentId } }] },
   };
 
+  if (istAbgeschaltet()) {
+    return false;
+  }
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       await axios.post(
@@ -104,11 +183,15 @@ async function updateDocumentSpacePayload(documentId, spaceId, spaceName, spaceS
         qdrantPayload,
         { timeout: 10000 }
       );
+      vermerkeErfolg();
       logger.info(
         `Updated Qdrant payloads for document ${documentId} (space: ${spaceName || 'none'})`
       );
       return true;
     } catch (e) {
+      if (vermerkeFehler(e)) {
+        return false;
+      }
       if (attempt < 3) {
         logger.warn(`Qdrant sync attempt ${attempt}/3 failed for doc ${documentId}: ${e.message}`);
         await new Promise(r => {
@@ -173,6 +256,8 @@ async function deleteAllVectors() {
 
 module.exports = {
   deleteAllVectors,
+  istAbgeschaltet,
+  _pauseZuruecksetzen,
   deleteDocumentVectors,
   deleteDocumentVectorsSimple,
   updateDocumentSpacePayload,
