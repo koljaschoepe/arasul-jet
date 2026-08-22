@@ -128,13 +128,20 @@ http:
     # ergaenzen. Zwei voneinander unabhaengige Gruende fuer dieselbe Luecke.
     #
     # Warum das hier steht und nicht einfach `security-headers` benutzt wird:
-    # jene Middleware bringt eine SCHARFE Policy mit, und die Anwendung ist
-    # noch nie unter einer gelaufen. Sie hat zwei Inline-Skripte im
-    # `index.html`, einen Worker im PDF-Betrachter und drei Stellen mit
-    # `new Function(`. Wer das ohne Messung scharf schaltet, liefert ein Geraet
-    # aus, auf dem der PDF-Betrachter schweigt. Alles andere aus
-    # `security-headers` gilt hier unveraendert; nur die Policy ist vorerst
-    # BERICHTEND. Gemessen wird mit `scripts/test/csp-abnahme.mjs`.
+    # jene Middleware traegt eine andere Policy, ohne `worker-src` und ohne
+    # `media-src`. Der PDF-Betrachter laedt seinen Worker ueber eine
+    # blob:-URL, und die Anlagen im Chat sind Blobs.
+    #
+    # Die Policy war zuerst BERICHTEND, weil die Anwendung noch nie unter einer
+    # gelaufen war. Am 22.08.2026 auf dem Orin gemessen
+    # (`scripts/test/csp-abnahme.mjs`, vier Stationen plus geoeffnetes PDF):
+    # genau EIN Verstoss im ganzen Durchlauf, und zwar eine Bibliothek, die
+    # mit `new Function("")` FRAGT, ob sie kompilieren darf, und den Fehler
+    # abfaengt. Unter einer scharfen Policy lautet die Antwort Nein, und mehr
+    # passiert nicht. Der Betrachter zeichnete dabei drei Leinwaende.
+    #
+    # KEIN `unsafe-eval`. Das war der Grund fuer die Messung, und es bleibt
+    # dabei: pdf.js bekommt vom Frontend ohnehin `isEvalSupported: false`.
     security-headers-dokument:
       headers:
         frameDeny: true
@@ -149,7 +156,7 @@ http:
         customResponseHeaders:
           X-Powered-By: 'Arasul Platform'
           Server: ''
-          Content-Security-Policy-Report-Only: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+          Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
 
     # MinIO Headers for reverse proxy
     minio-headers:
