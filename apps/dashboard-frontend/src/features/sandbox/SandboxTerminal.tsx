@@ -215,7 +215,10 @@ export default function SandboxTerminal({
           Panel schmal, während das Fenster breit bleibt), deshalb eine
           Container-Abfrage und keine Bildschirm-Abfrage. Ab 34 rem stehen die
           Knöpfe einzeln, darunter liegen sie in einem Menü. */}
-      <div className="@container shrink-0 border-b border-border bg-background">
+      <div
+        className="@container shrink-0 border-b border-border bg-background"
+        data-testid="terminal-kopfzeile"
+      >
         <div className="flex items-center justify-between gap-x-2 px-2 py-1">
           <div className="flex items-center gap-2 min-w-0">
             <span className="flex shrink-0 items-center" title={status.text}>

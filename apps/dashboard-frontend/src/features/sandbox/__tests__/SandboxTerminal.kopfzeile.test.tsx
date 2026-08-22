@@ -88,3 +88,23 @@ describe('Kopfzeile des Terminals (Plan 023 F1)', () => {
     expect(screen.getByText('I')).toBeInTheDocument();
   });
 });
+
+/**
+ * Plan 023 F1, Nachtrag aus der Live-Messung: die Kopfzeile trägt ein eigenes
+ * Kennzeichen.
+ *
+ * Die Messung suchte sie zuerst über ihren Aufbau (der Kasten mit dem
+ * Verbindungszustand darin). Das ging genau so lange gut, bis der Umbau den
+ * Zustand in eine eigene Hülle steckte: danach traf der Selektor ein inneres
+ * Element von 40 Pixeln Breite und meldete grün. Ein grünes Ergebnis aus einem
+ * falschen Selektor ist schlimmer als ein rotes.
+ */
+describe('Kennzeichen der Kopfzeile (Plan 023 F1)', () => {
+  it('ist eindeutig auffindbar', () => {
+    const { container } = zeichne();
+    const kopf = container.querySelector('[data-testid="terminal-kopfzeile"]');
+    expect(kopf).toBeTruthy();
+    // Und es ist derselbe Kasten, der den Container-Kontext herstellt.
+    expect(kopf?.className).toContain('@container');
+  });
+});

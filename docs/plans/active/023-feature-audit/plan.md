@@ -2768,6 +2768,48 @@ Webseite mit Schrift in Festbreite.
 **Abnahme:** Ein Pfad mit 120 Zeichen bricht an einer sinnvollen Stelle. Bei
 jeder Größe bleibt der Inhalt lesbar.
 
+### Erst gemessen, am Gerät
+
+Die Klage nennt drei Dinge: Umbrüche mitten im Wort bei Pfaden, uneinheitliche
+Abstände, Bruch beim Verkleinern. Gemessen am 22.08.2026 gilt nur das dritte,
+und es gilt deutlich.
+
+**Pfade brechen nirgends mitten im Wort.** Bei 500 Pixeln Fenster durchsucht,
+jedes Blattelement mit einem Schrägstrich und mehr als 25 Zeichen: kein einziges
+umbricht. Die Flächen des Produkts kürzen mit `truncate` und zeigen den vollen
+Pfad im `title`. Was der Rundgang gesehen hat, war der Inhalt **im Terminal
+selbst**, und dort bricht xterm an der Spaltengrenze um. Das ist kein Fehler,
+das ist ein Terminal.
+
+**Das Verkleinern bricht wirklich.** Bei sichtbarem Terminal gemessen:
+
+| Fenster | rechtes Panel | davon Terminal |
+| ------- | ------------- | -------------- |
+| 400 px  | **142 px**    | **118 px**     |
+| 600 px  | 223 px        | 202 px         |
+| 800 px  | 304 px        | 287 px         |
+| 1000 px | 386 px        | 362 px         |
+
+118 Pixel sind bei 14 Pixeln Schriftgröße rund **dreizehn Spalten**. Ein Pfad
+mit 120 Zeichen bricht darin zehnmal um, und lesbar ist gar nichts mehr.
+
+### Warum das Panel so schmal wird
+
+Die Arbeitsfläche verlangt nebeneinander: Aktivitätsleiste rund 48 Pixel,
+Dateibaum mindestens 160, Mitte mindestens 30 Prozent, rechtes Panel höchstens
+45 Prozent. Bei 400 Pixeln Fenster sind das zusammen über 500. Die Aufteilung
+kann ihre eigenen Mindestbreiten nicht einhalten und verteilt Reste.
+
+### Was daraus wurde
+
+Unterhalb von 900 Pixeln gibt es keine drei Spalten mehr: der Dateibaum fällt
+weg (die Aktivitätsleiste bleibt, er ist einen Klick entfernt), die Mitte darf
+auf null schrumpfen, und das rechte Panel darf die ganze Breite nehmen. Der
+Nutzer kann weiter ziehen; nur die Grenzen sind andere.
+
+Die 900 sind gemessen und nicht gewählt: darunter ist eine dritte Spalte nicht
+mehr sinnvoll unterzubringen, darüber schon.
+
 ---
 
 # Phase G, Dateien, Projekte, GitHub, Wissen
