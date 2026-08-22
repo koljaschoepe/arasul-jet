@@ -457,27 +457,27 @@ async function stromAlsText(strom) {
  */
 function systemAnDenAnfang(nachrichten) {
   const liste = Array.isArray(nachrichten) ? nachrichten : [];
-  const ersteSystem = liste.findIndex(n => n?.role === 'system');
-  if (ersteSystem < 0) {
+  const system = liste.filter(n => n?.role === 'system');
+  const rest = liste.filter(n => n?.role !== 'system');
+  // Nichts zu tun heisst: hoechstens eine System-Nachricht, und die steht schon
+  // ganz vorne. Alles andere wird zusammengelegt, auch der Fall EINER
+  // System-Nachricht mitten im Verlauf: sie ist genauso verboten wie zwei, und
+  // ein "verschoben: 0" waere hier eine falsche Auskunft.
+  if (system.length === 0 || (system.length === 1 && liste[0]?.role === 'system')) {
     return { nachrichten: liste, verschoben: 0 };
   }
-  const nachzuegler = liste.filter((n, i) => n?.role === 'system' && i > ersteSystem);
-  if (nachzuegler.length === 0) {
-    return { nachrichten: liste, verschoben: 0 };
-  }
-  const zusammengelegt = liste
-    .filter((n, i) => n?.role !== 'system' || i === ersteSystem)
-    .map((n, i) =>
-      i === ersteSystem
-        ? {
-            ...n,
-            content: [n.content, ...nachzuegler.map(x => String(x.content ?? ''))]
-              .filter(Boolean)
-              .join('\n\n'),
-          }
-        : n
-    );
-  return { nachrichten: zusammengelegt, verschoben: nachzuegler.length };
+  const zusammen = {
+    ...system[0],
+    role: 'system',
+    content: system
+      .map(n => String(n.content ?? ''))
+      .filter(Boolean)
+      .join('\n\n'),
+  };
+  return {
+    nachrichten: [zusammen, ...rest],
+    verschoben: system.length - (liste[0]?.role === 'system' ? 1 : 0),
+  };
 }
 
 /**

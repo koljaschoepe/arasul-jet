@@ -463,3 +463,33 @@ describe('streamChatRound und die zwei Wartezeiten (Plan 023 E2)', () => {
     }
   }, 20000);
 });
+
+/**
+ * Plan 023 E9, Nachtrag: eine EINZELNE System-Nachricht mitten im Verlauf.
+ *
+ * Die erste Fassung suchte die erste System-Nachricht und zog nur die danach
+ * nach vorn. Gab es genau eine, und stand die hinten, passierte nichts: sie
+ * war ja "die erste". Im Agentenpfad faellt das nicht auf, dort steht immer ein
+ * Systemprompt vorne. Die Funktion verspricht aber etwas anderes, und wer sie
+ * spaeter woanders benutzt, bekaeme genau den HTTP 500 zurueck, gegen den sie
+ * gebaut wurde.
+ */
+describe('systemAnDenAnfang, der einzelne Nachzuegler (Plan 023 E9)', () => {
+  test('zieht auch eine EINZELNE nachgestellte System-Nachricht nach vorn', () => {
+    const { nachrichten, verschoben } = systemAnDenAnfang([
+      { role: 'user', content: 'hi' },
+      { role: 'system', content: 'Regeln' },
+    ]);
+    expect(verschoben).toBe(1);
+    expect(nachrichten[0]).toEqual({ role: 'system', content: 'Regeln' });
+    expect(nachrichten[1]).toEqual({ role: 'user', content: 'hi' });
+  });
+
+  test('meldet keine Verschiebung, wenn schon alles richtig steht', () => {
+    const eingabe = [
+      { role: 'system', content: 'A' },
+      { role: 'user', content: 'u' },
+    ];
+    expect(systemAnDenAnfang(eingabe)).toEqual({ nachrichten: eingabe, verschoben: 0 });
+  });
+});

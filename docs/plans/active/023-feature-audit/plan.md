@@ -8,16 +8,16 @@
 
 ## Stand
 
-| Phase                                 | Stand                                  | Belege                                                                                                                                                                                                                                                                              |
-| ------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                        |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                    |
-| C, Fundament                          | **fertig** 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                               |
-| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                           |
-| D, Modelle                            | **fertig** 22.08.2026, live abgenommen | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel |
-| E, Coding-Agent und Chat              | **laeuft**, E1 fertig 22.08.2026       | E1 #458, #459: jeder Abbruch traegt Grund und Kennung, dreimal am Geraet nachgestellt. Gefunden dabei: der Teiltext eines abgebrochenen Laufs geht verloren (260 Zeichen in `llm_jobs`, 0 in `chat_messages`), und 88 dokumentierte Stellschrauben erreichen den Container nie      |
-| F bis K                               | offen                                  |                                                                                                                                                                                                                                                                                     |
+| Phase                                 | Stand                                                   | Belege                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                                   | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                                                                                            |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen                  | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                                                                                                    |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen                  | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                                                                                                |
+| C, Fundament                          | **fertig** 20.08.2026, live abgenommen                  | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                                                                                                           |
+| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen                  | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                                                                                                       |
+| D, Modelle                            | **fertig** 22.08.2026, live abgenommen                  | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel                                                                             |
+| E, Coding-Agent und Chat              | **laeuft**, E1 und E3 bis E9 live abgenommen 22.08.2026 | #458 bis #471. Live im Browser gegen den Orin: 20 von 20 Zusagen gehalten (`scripts/test/chat-abnahme.mjs`). Groesste Funde: der Teiltext eines abgebrochenen Laufs ging verloren, das Standardmodell scheiterte an jeder Aufgabenliste, und 88 dokumentierte Stellschrauben erreichen den Container nie. Offen bei E2: die Warteschlange bleibt strikt seriell |
+| F bis K                               | offen                                                   |                                                                                                                                                                                                                                                                                                                                                                 |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -2139,6 +2139,86 @@ nicht blockieren.
 ihn in unter zwei Sekunden, das Modell wird frei, die Warteschlange läuft weiter.
 Zwei parallele lange Läufe blockieren einander nicht.
 
+### Gebaut, in drei Schritten, jeder aus einer Messung
+
+**Der Teiltext ging verloren.** Der Fund aus E1: `llm_jobs.content` hatte 260
+Zeichen, `chat_messages` null, Status `error`. Die Bedingung `!fertigText &&
+!dbPuffer` prüft nicht, was sie zu prüfen glaubt: `fertigText` wird erst am Ende
+einer Runde gefüllt, `dbPuffer` leert jeder Schreibtakt nach 800 Millisekunden.
+Ein Abbruch kurz nach einem Schreibtakt sah deshalb aus wie einer vor dem ersten
+Wort. Neu ist ein Merkzeichen, das `onToken` setzt und niemand zurückdreht.
+`arasul-jet` #462.
+
+**Ein laufender Job verlor seine Zuhörer.** `cleanupStaleSubscribers` verwarf
+sie nach zehn Minuten, ausdrücklich „regardless of job status". Ein Lauf, der
+länger dauert, verlor seine Anzeige, während er weiterlief. Mit dieser Zeile war
+die Abnahme „über 30 Minuten" nicht erreichbar.
+
+**Der erste Versuch der Abnahme starb an der eigenen Größe.** Nach 15:39
+Minuten, `ABB-6153f7-stream_still`, das Modell hatte 121 Sekunden nichts
+geschickt. Nachgerechnet war das keine Störung:
+
+|                        |                                   |
+| ---------------------- | --------------------------------- |
+| Zusammenhang der Runde | **31 267 Token** von 32 768       |
+| Vorverarbeitung warm   | 507 bis 589 Token/s → 53 bis 62 s |
+| Vorverarbeitung kalt   | 262 Token/s → **119 s**           |
+| Modell laden           | 6 bis 30 s                        |
+
+Die eine Grenze von 120 Sekunden lag genau auf der Kante des erlaubten Falls.
+Jetzt sind es zwei: **300 Sekunden vor dem ersten Wort** einer Runde, wo
+Modellladung und Vorverarbeitung laufen, und **120 zwischen zwei Wörtern**, wo
+ein stiller Strom wirklich tot ist.
+
+Dazu die zweite Ursache: der Zusammenhang hätte gar nicht auf 31 267 Token
+wachsen dürfen. Der Haushalt dampft bei 22 937 ein und hielt den Lauf für
+darunter, weil die Schätzung einen ganzen Posten nicht sieht: die
+Werkzeugbeschreibungen gehen als eigener `tools`-Parameter an Ollama und stehen
+in keiner Nachricht, gemessen rund 2200 Token in **jeder** Runde. Statt diese
+Zahl abzuschreiben wird sie nach jeder Runde aus Ollamas `prompt_eval_count`
+nachgemessen. `arasul-jet` #464.
+
+### Der Stopp-Knopf
+
+Das Abbruch-Signal geht jetzt mit an `axios`. Zwischen dem Aufruf und dem
+Anhängen des Horchers lag die gesamte Anfrage, bei einem kalten Modell die
+längste Spanne des Laufs, und jeder Abbruch darin ging verloren. Und das
+Terminal-Werkzeug hört auf das Signal: ein Befehl darf 900 Sekunden laufen, so
+lange wartete der Agent, bevor er den Abbruch bemerkte. Ehrlich benannt: beendet
+wird dort das Zuhören, nicht der Prozess.
+
+**Live gemessen am 22.08.2026:** Stopp nach 20 Sekunden, Kennung
+`ABB-5fc762-nutzer` in Chat, Datenbank und zweimal im Protokoll, Status
+`cancelled`, Teiltext erhalten.
+
+### Live abgenommen: der Lauf über 30 Minuten
+
+LUECKE_LANGER_LAUF
+
+### Was nicht erfüllt ist, und warum
+
+„Zwei parallele lange Läufe blockieren einander nicht" ist mit einer strikt
+seriellen Warteschlange nicht erfüllbar, und die Serialität ist gewollt: am
+29.07.2026 entschieden, „strikt einer nach dem anderen, keine Priorisierung".
+Gemessen am 22.08.2026: eine kurze Frage hinter einem langen Agent-Lauf wartete
+**228 Sekunden** und begann in der Sekunde, in der der lange Lauf endete.
+
+Die Umstellung wäre möglich und stünde **nicht** im Widerspruch zu dieser
+Entscheidung: die GPU-Sperre bliebe der Serialisierer, nur die Warteschlange
+ließe mehr als einen Auftrag zu. Sie berührt aber `processingJobId` an zwanzig
+Stellen, darunter den Zeitlimit-Wächter und die Fehlerbehandlung, also genau das
+Stück, das jeden Chat trägt. Unbeaufsichtigt auszuliefern ist das falsch.
+
+Geliefert ist stattdessen, was die Wartezeit erträglich macht: der Platz steht
+in der Denkzeile. Das Backend schickte ihn seit langem als `queue_position`, die
+Oberfläche hat ihn nie gelesen. Jetzt steht dort „wartet, Platz 3 in der
+Warteschlange". Das nimmt die Wartezeit nicht weg, es nimmt ihr das
+Rätselhafte. `arasul-jet` #471.
+
+**Entscheidung für Kolja:** soll die Warteschlange zwei Aufträge zugleich
+zulassen? Kosten: ein Umbau am Herzstück. Nutzen: eine kurze Frage wartet nicht
+mehr eine halbe Stunde.
+
 ## E3 Eine Denkzeile, live und auf Deutsch
 
 Heute erscheinen beim Absenden drei Anzeigen gleichzeitig, „Plan wird erstellt",
@@ -2240,6 +2320,51 @@ nachbenannt. Kein Zwischenzustand als Titel.
 
 **Abnahme:** Zehn Chats aus verschiedenen Aufgaben tragen unterscheidbare Namen,
 die die Aufgabe nennen.
+
+### Gebaut
+
+Der Titel war die erste Zeile der ersten Frage. Bei zehn Chats aus zehn
+Aufträgen stehen dann zehn Fragen untereinander, und wer zurückspringt, sucht
+nach dem, was herauskam.
+
+Nach einem Lauf fragt `benenneNachLauf` das Modell nach einer Überschrift von
+höchstens sechs Wörtern. Drei Entscheidungen darin:
+
+- **Dasselbe Modell wie der Lauf.** Es liegt schon im Speicher. Ein schnelleres
+  zu nehmen hieße, das große zu entladen und wieder zu laden, gemessen 6 bis 30
+  Sekunden für eine Zeile.
+- **Nach der Antwort, nie davor, und ohne `await`.** Der Nutzer wartet nie auf
+  einen Titel; scheitert er, bleibt der bisherige stehen.
+- **Ein von Hand vergebener Titel bleibt.** `titel_quelle = NULL` heißt, der
+  Mensch hat entschieden. Die Bedingung steht auch im `UPDATE`.
+
+Umbenannt wird, wenn sich die Zahl der Nachrichten seit der Benennung
+verdoppelt. Das benennt einen kurzen Chat früh und einen langen selten und
+braucht keine Uhr. Migration 155.
+
+### Live abgenommen am 22.08.2026
+
+Zehn Chats aus zehn verschiedenen Aufgaben, alle mit `titel_quelle = 'lauf'`:
+
+```
+Datei netz-01.md erstellt mit drei Sätzen über Switches
+Datei notiz2.md gelesen und zusammengefasst
+Projekt durchsucht nach .md Dateien
+Datei liste.md mit Bürorobusten erstellt
+DNS übersetzt Domainnamen in IP-Adressen
+Datei preise.md mit Tabelle erstellt
+Lokale KI bietet Sicherheit Latenz und Offline-Nutzung
+Datei readme-test.md erstellt mit Überschrift und zwei Absätzen
+Verzeichnisinhalt analysiert drei letzte Änderungen ermittelt
+VPN dient zur Privatsphäre Sicherheit und Inhaltszugriffsbeschränkung
+```
+
+Zehn von zehn unterscheidbar, zehn von zehn nennen die Aufgabe. Einer trägt
+einen Modellfehler: aus „Büromaterialien" wurde „Bürorobusten". Das ist ein
+Ausrutscher des Modells in sechs Wörtern, kein Fehler des Verfahrens, und er
+steht hier, weil eine Abnahme auch das zeigt, was nicht perfekt war.
+
+`arasul-jet` #466.
 
 ## E6 Dateien und Ordner in den Chat ziehen
 
@@ -2405,6 +2530,76 @@ fertige Antwort behandelt.
 **Abnahme:** Drei Aufgaben, die je ein anderes Werkzeug verlangen (Datei suchen,
 Datei lesen, Datei schreiben), führen zum Aufruf genau dieses Werkzeugs, ohne
 Rückfrage. Am Gerät belegt, mit dem Standardmodell und mit `qwen3-coder:30b`.
+
+### Der Befund war falsch
+
+Der Eintrag entstand am 22.08.2026 in Eile. Nachgemessen reproduziert er sich
+nicht. Mit dem exakten Systemprompt des Produkts (Basisprompt,
+Produktbeschreibung, Unternehmenskontext, Agent-Anweisung, Projektstruktur) und
+allen zwölf Werkzeugen ruft jedes der beiden Modelle das richtige Werkzeug auf,
+direkt, ohne Rückfrage.
+
+### Was stattdessen real war, und schlimmer
+
+Beim Nachmessen am Gerät, Chat 222:
+
+```
+Antwort:  Ich erstelle nun die Datei `notiz.md` mit dem gewünschten Inhalt.
+          <function=dateien_schreiben> <parameter=pfad> notiz.md </parameter>
+          <parameter=inhalt> Hallo Arasul </parameter> </function> </tool_call>
+          Die Datei `notiz.md` wurde erfolgreich im Arbeitsordner erstellt.
+
+Schritte: ["plan", "aufgaben", "todo_liste"]      ← kein dateien_schreiben
+Platte:   notiz.md existiert nicht
+```
+
+Rohes XML im Chat, ein behaupteter Erfolg, keine Datei. Für eine Vorführung
+schlimmer als eine Rückfrage: das ist keine Gegenfrage, das ist eine Lüge.
+
+Drei Ursachen:
+
+1. **Der Nachparser lief nur bei einer leeren Runde** (`!toolCalls.length &&
+…`). In derselben Runde rief das Modell `todo_liste` korrekt auf, also war
+   `toolCalls.length` größer als null, und der als Text geschriebene
+   Schreibaufruf verschwand.
+2. **Das XML lief live an die Anzeige.** `parseTextToolCalls` räumt den Text der
+   Runde auf, aber `onToken` hat jedes Stück längst durchgereicht. Neu ist ein
+   Zeichenautomat zwischen Strom und Anzeige; ein Regex reicht nicht, weil eine
+   Marke regelmäßig mitten durchgeschnitten ankommt.
+3. **Die einzeilige Form ergab Werte mit Leerzeichen.** `<parameter=pfad>
+notiz.md </parameter>` wurde zu `" notiz.md "`, und ein Pfad mit führendem
+   Leerzeichen ist kein Pfad.
+
+`arasul-jet` #460.
+
+### Und eine vierte Ursache, gefunden bei der Abnahme
+
+Auf dem **Standardmodell** scheiterte jeder Agent-Lauf, der eine Aufgabenliste
+anlegt, also jeder größere Auftrag. `Qwen3.8-27B` lehnt eine `system`-Nachricht
+ab, die nicht die erste ist:
+
+```
+Jinja Exception: System message must be at the beginning.
+```
+
+Der Agent hängt aber genau so eine ans Ende, sobald eine Aufgabenliste
+existiert. Mit `qwen3-coder:30b` fiel es nicht auf, dessen Vorlage ist
+nachsichtiger.
+
+Der Fehler war dabei doppelt verdeckt: `istToolsNichtUnterstuetzt` rief
+`JSON.stringify` auf einem Node-Strom, dessen Socket-Geflecht ringförmig ist,
+und warf im `catch`. Was Ollama sagte, was im Protokoll stand und was der Nutzer
+las, waren drei verschiedene Dinge. `arasul-jet` #462.
+
+### Live abgenommen am 22.08.2026
+
+| Aufgabe         | `qwen3-coder:30b`   | `Qwen3.8-27B` (Standard) |
+| --------------- | ------------------- | ------------------------ |
+| Datei suchen    | `dateien_suchen`    | `dateien_suchen`         |
+| Datei lesen     | `dateien_lesen`     | `dateien_lesen`          |
+| Datei schreiben | `dateien_schreiben` | `dateien_schreiben`      |
+
+Sechs von sechs, kein rohes XML im Text, keine Rückfrage.
 
 ---
 
