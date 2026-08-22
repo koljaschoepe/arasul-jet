@@ -118,24 +118,59 @@ try {
 
   if (kopfDa) {
     // --- F1: einzeilig bei jeder Breite ------------------------------------
-    // Gemessen wird die Hoehe der Kopfzeile. Eine Zeile sind rund 26 Pixel;
-    // ein Umbruch macht daraus rund 46. Die Grenze liegt deshalb bei 34.
-    const EINZEILIG_MAX = 34;
-    const hoehen = [];
+    //
+    // Gemessen wird die ZUSAGE, nicht ein Pixelbudget.
+    //
+    // Bis zum 22.08.2026 stand hier `hoehe <= 34`, abgeleitet aus der Messung
+    // bei der Abnahme (19 bis 26 Pixel). Beim naechsten Durchlauf meldete das
+    // Skript sieben rote Ergebnisse: 42 bis 54 Pixel. Ein Blick auf das Bild
+    // zeigte eine tadellos einzeilige Kopfzeile — die Fuellung war groesser
+    // geworden, die Zeile nicht zweizeilig. Eine Schwelle in Pixeln driftet
+    // mit jeder Aenderung an Abstaenden, und ein Waechter, der falsch meldet,
+    // kostet mehr als er einbringt.
+    //
+    // Was zweizeilig WIRKLICH heisst: es gibt ein waagerechtes Band quer durch
+    // die Kopfzeile, in dem nichts liegt — die Luecke zwischen den Zeilen. Auf
+    // einer Zeile gibt es diese Luecke nicht, egal wie hoch die Fuellung ist.
+    // Genau danach wird jetzt gesucht.
+    //
+    // (Der zweite Versuch, "liegen zwei Teile untereinander", war ebenfalls
+    // falsch: die Pfade INNERHALB zweier Symbole liegen auf verschiedenen
+    // Hoehen, ohne dass irgendetwas umbricht.)
+    const zeilen = [];
     for (const breite of [400, 500, 700, 900, 1200, 1500, 1800]) {
       await page.setViewportSize({ width: breite, height: 1000 });
       await page.waitForTimeout(600);
       const mass = await kopf.evaluate(el => {
         const r = el.getBoundingClientRect();
-        return { hoehe: Math.round(r.height), breite: Math.round(r.width) };
+        const teile = [...el.querySelectorAll('*')]
+          .map(k => k.getBoundingClientRect())
+          .filter(b => b.height > 0 && b.width > 0)
+          .map(b => [b.top, b.bottom])
+          .sort((a, b) => a[0] - b[0]);
+        // Die belegten Baender zusammenschieben und nach einer Luecke suchen.
+        let luecke = 0;
+        let ende = teile.length ? teile[0][1] : 0;
+        for (const [oben, unten] of teile) {
+          if (oben > ende + 1) {
+            luecke = Math.max(luecke, Math.round(oben - ende));
+          }
+          ende = Math.max(ende, unten);
+        }
+        return {
+          hoehe: Math.round(r.height),
+          breite: Math.round(r.width),
+          teile: teile.length,
+          luecke,
+        };
       });
-      hoehen.push({ fenster: breite, ...mass });
+      zeilen.push({ fenster: breite, ...mass });
     }
-    for (const h of hoehen) {
+    for (const z of zeilen) {
       pruefe(
-        `F1: einzeilig bei ${h.fenster} px Fenster`,
-        h.hoehe > 0 && h.hoehe <= EINZEILIG_MAX,
-        `Kopfzeile ${h.breite} px breit, ${h.hoehe} px hoch`
+        `F1: einzeilig bei ${z.fenster} px Fenster`,
+        z.teile > 0 && z.luecke === 0,
+        `${z.teile} Teile, groesste Luecke ${z.luecke} px, Kopfzeile ${z.hoehe} px hoch`
       );
     }
 
