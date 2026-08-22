@@ -46,6 +46,17 @@ const SetEnabledBody = z
 // ---------------------------------------------------------------------------
 // KI-Brücke (Plan 017 Schritt 2)
 // ---------------------------------------------------------------------------
+//
+// `z.record` braucht ZWEI Argumente (Zod 4). Mit einem einzigen baut das Schema
+// zwar, aber beim Parsen eines NICHT LEEREN Objekts wirft es:
+//
+//   Cannot read properties of undefined (reading '_zod')
+//
+// Und weil ein leeres Objekt durchgeht, faellt es in keinem Test auf, der die
+// Vorgabe prueft. Am 22.08.2026 auf dem Orin gefunden, als eine Erweiterung
+// zum ersten Mal wirklich eine Zeile schreiben wollte: `anlegen` und `lesen`
+// gingen, `schreiben` gab HTTP 500. Fuenf Stellen waren betroffen, darunter
+// die Kopfzeilen ausgehender Aufrufe und die Argumente eines Flow-Starts.
 
 const BrueckeLlmBody = z
   .object({
@@ -84,7 +95,7 @@ const BrueckeNetzBody = z
   .object({
     url: z.string().trim().min(1).max(2000),
     methode: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).default('GET'),
-    kopf: z.record(z.string().max(4000)).default({}),
+    kopf: z.record(z.string(), z.string().max(4000)).default({}),
     rumpf: z
       .string()
       .max(1024 * 1024)
@@ -113,8 +124,8 @@ const BrueckeTabellenBody = z
       )
       .max(60)
       .optional(),
-    werte: z.record(z.unknown()).optional(),
-    wo: z.record(z.unknown()).optional(),
+    werte: z.record(z.string(), z.unknown()).optional(),
+    wo: z.record(z.string(), z.unknown()).optional(),
     anzahl: z.coerce.number().int().min(1).max(500).optional(),
     alles: z.boolean().optional(),
   })
@@ -126,14 +137,14 @@ const BrueckeZeitplanBody = z
     aktion: z.enum(['liste', 'anlegen', 'entfernen']),
     flow: z.string().trim().max(64).optional(),
     uhrzeit: z.string().trim().max(5).optional(),
-    args: z.record(z.unknown()).optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
     id: z.coerce.number().int().positive().optional(),
   })
   .strict();
 
 const BrueckeFlowRunBody = z
   .object({
-    args: z.record(z.unknown()).default({}),
+    args: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
 
