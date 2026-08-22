@@ -230,6 +230,21 @@ run_endpunkte_check() {
   fi
 }
 
+# Funktion: README und CLAUDE.md gegen den Code (Plan 023 K3)
+# Prosa bleibt Handarbeit. Geprueft wird, was still falsch wird, ohne dass es
+# jemand merkt: Links ins Leere, Pfade, die gewandert sind, Befehle, die es
+# nicht mehr gibt, und Dienste hinter einem compose-Profil, die als laufend
+# beschrieben werden.
+run_anleitungen_check() {
+  echo ""
+  echo "-> Pruefe README und CLAUDE.md gegen den Code..."
+  if python3 "${PROJECT_ROOT}/scripts/test/anleitungen.py"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Toter Code (Plan 023 B3)
 # Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
 # jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
@@ -416,6 +431,7 @@ run_einheiten_check
 run_durchreichung_check
 run_geruest_regeln_check
 run_endpunkte_check
+run_anleitungen_check
 run_faden_check
 run_selbsttest_check
 

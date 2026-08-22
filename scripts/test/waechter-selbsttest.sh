@@ -357,6 +357,33 @@ printf 'services:\n  backend:\n    environment:\n      GEHEIMNIS_FILE: /run/secr
 pruefe "Durchreichung: die Secret-Form zaehlt als durchgereicht" 0 \
   python3 "$WURZEL/scripts/test/durchreichung.py" --wurzel "$DR"
 
+# --- anleitungen.py ---------------------------------------------------------
+# Der Waechter aus Plan 023 K3: haelt README und CLAUDE.md gegen den Code.
+# Drei Faelle, drei Arten, wie eine Anleitung still falsch wird.
+AN="$TMP/anleitungen"
+mkdir -p "$AN/docs" "$AN/compose"
+printf 'services:\n  qdrant:\n    profiles:\n      - classic-rag\n  backend:\n    image: x\n' \
+  > "$AN/compose/compose.app.yaml"
+printf '# Doku\n' > "$AN/docs/INDEX.md"
+
+printf '# Titel\n\nSiehe [Index](docs/INDEX.md) und `docs/INDEX.md`.\n' > "$AN/README.md"
+printf '# Titel\n\nNichts Besonderes.\n' > "$AN/CLAUDE.md"
+pruefe "Anleitungen: ein gueltiger Verweis ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
+
+printf '# Titel\n\nSiehe [Index](docs/WEGGEZOGEN.md).\n' > "$AN/README.md"
+pruefe "Anleitungen: ein Link ins Leere ist rot" 1 \
+  python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
+
+printf '# Titel\n\nDer Vektorspeicher `qdrant` gehoert zum laufenden Geraet.\n' > "$AN/README.md"
+pruefe "Anleitungen: ein Dienst hinter einem Profil als laufend ist rot" 1 \
+  python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
+
+printf '# Titel\n\nEs gibt keine Befehle unter `docs/commands/`, den Ordner gibt es nicht.\n' \
+  > "$AN/README.md"
+pruefe "Anleitungen: was ausdruecklich als nicht vorhanden benannt ist, zaehlt nicht" 0 \
+  python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else
