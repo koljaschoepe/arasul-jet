@@ -8,21 +8,21 @@
 
 ## Stand
 
-| Phase                                 | Stand                                                   | Belege                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                                   | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                                                                                                                                                                                                                             |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen                  | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen                  | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                                                                                                                                                                                                                                 |
-| C, Fundament                          | **fertig** 20.08.2026, live abgenommen                  | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                                                                                                                                                                                                                                            |
-| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen                  | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                                                                                                                                                                                                                                        |
-| D, Modelle                            | **fertig** 22.08.2026, live abgenommen                  | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel                                                                                                                                                                                                              |
-| E, Coding-Agent und Chat              | **laeuft**, E1 und E3 bis E9 live abgenommen 22.08.2026 | #458 bis #471. Live im Browser gegen den Orin: 20 von 20 Zusagen gehalten (`scripts/test/chat-abnahme.mjs`). Groesste Funde: der Teiltext eines abgebrochenen Laufs ging verloren, das Standardmodell scheiterte an jeder Aufgabenliste, und 88 dokumentierte Stellschrauben erreichen den Container nie. Offen bei E2: die Warteschlange bleibt strikt seriell. Am 22.08. erneut gemessen, 20 von 20 gruen; drei rote Punkte aus vier Vorlaeufen waren mein Wartepunkt, nicht das Geraet (#516) |
-| F, Terminal                           | **fertig** 22.08.2026, live abgenommen                  | #473 bis #476. F1 Kopfzeile von 44 auf 19 bis 26 Pixel bei jeder Breite, F2 und F3 waren schon erfuellt und sind jetzt gemessen, F4 Datei im Baum nach 15 Sekunden statt nie, F5 unter 900 Pixeln keine drei Spalten mehr. `scripts/test/terminal-abnahme.mjs`, 9 von 9. Offen an F3 ist nur die Prosa, nicht die Abnahme                                                                                                                                                                        |
-| G, Dateien und Projekte               | **laeuft**, G1 und G4 live abgenommen 22.08.2026        | #477 bis #491. G1 5000 Dateien vollstaendig durchklickbar, kein Deckel mehr. G4 in sieben Ursachen zerlegt und abgenommen: eine Datei 2,3 statt 113 Sekunden, hundert Dateien 110 statt ueber 300. Groesster Fund der Phase liegt bei G3 und war nicht die Aufgabe: Kopplung und Trennen loeschten den Projektordner des Kunden. G2 und G3 gebaut, ihre Abnahmen brauchen Koljas Repository und Schluessel                                                                                       |
-| H, Erweiterungen                      | **laeuft**, H4 live abgenommen 22.08.2026               | #490, #492 bis #499. H1: alle vier Faehigkeiten da, eine gab es schon, eine halb. H2: ein Befehl legt das Geruest an, ein Waechter haelt Werkstatt und Backend zusammen. H3: ein Werkzeug entscheidet, was dasselbe Paket ist. H4 sieben von sieben im n8n-Dokument gemessen. H5 gebaut, dazu ein Punkt, der im Plan nicht stand                                                                                                                                                                 |
-| I, Flows                              | **laeuft**                                              | #500. I1 war groesstenteils schon gebaut, I2 zur Haelfte: die autonome Betriebsart ist das Annahmen-Protokoll und traf die Abnahme woertlich. Gebaut wurde die zweite Art samt Rueckfrage mit vier Optionen und Freitextfeld. I5 am Geraet gemessen, vier Vorlagen-Flows live durchgelaufen                                                                                                                                                                                                      |
-| J, Einstellungen                      | **laeuft**, J2 live abgenommen 22.08.2026               | #501, #503, #504. J4: der Plan nennt einen Fehler, es waren drei, darunter einer, der Art. 17 auf einem Kundengeraet unmoeglich machte. J1: nach dem MinIO-Passwortwechsel scheiterte jeder Dateizugriff. J5 war zur Haelfte schon da. J2 acht von acht im Browser. J3 live abgenommen 22.08.2026: Export auf den Datentraeger, wieder einlesbar, beide Waende greifen                                                                                                                           |
-| K, Dokumentation                      | **laeuft**                                              | #506 bis #508. K1: ein Waechter meldet Endpunkte ohne Beschreibung, 373 im Code, Luecke von 77 auf 35. K2 zur Haelfte: die Planzustaende stehen hier, die Roadmap liegt im Steuer-Repo. K3: README, CLAUDE.md und ARCHITECTURE zeigten zwei Dienste, die nicht laufen                                                                                                                                                                                                                            |
+| Phase                                 | Stand                                                   | Belege                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                                   | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen                  | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen                  | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                                                                                                                                                                                                                                                                  |
+| C, Fundament                          | **fertig** 20.08.2026, live abgenommen                  | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                                                                                                                                                                                                                                                                             |
+| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen                  | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                                                                                                                                                                                                                                                                         |
+| D, Modelle                            | **fertig** 22.08.2026, live abgenommen                  | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel                                                                                                                                                                                                                                               |
+| E, Coding-Agent und Chat              | **laeuft**, E1 und E3 bis E9 live abgenommen 22.08.2026 | #458 bis #471. Live im Browser gegen den Orin: 20 von 20 Zusagen gehalten (`scripts/test/chat-abnahme.mjs`). Groesste Funde: der Teiltext eines abgebrochenen Laufs ging verloren, das Standardmodell scheiterte an jeder Aufgabenliste, und 88 dokumentierte Stellschrauben erreichen den Container nie. Offen bei E2: die Warteschlange bleibt strikt seriell. Am 22.08. erneut gemessen, 20 von 20 gruen; drei rote Punkte aus vier Vorlaeufen waren mein Wartepunkt, nicht das Geraet (#516)                                  |
+| F, Terminal                           | **fertig** 22.08.2026, live abgenommen                  | #473 bis #476. F1 Kopfzeile von 44 auf 19 bis 26 Pixel bei jeder Breite, F2 und F3 waren schon erfuellt und sind jetzt gemessen, F4 Datei im Baum nach 15 Sekunden statt nie, F5 unter 900 Pixeln keine drei Spalten mehr. `scripts/test/terminal-abnahme.mjs`, 9 von 9. Offen an F3 ist nur die Prosa, nicht die Abnahme                                                                                                                                                                                                         |
+| G, Dateien und Projekte               | **laeuft**, G1 und G4 live abgenommen 22.08.2026        | #477 bis #491. G1 5000 Dateien vollstaendig durchklickbar, kein Deckel mehr. G4 in sieben Ursachen zerlegt und abgenommen: eine Datei 2,3 statt 113 Sekunden, hundert Dateien 110 statt ueber 300. Groesster Fund der Phase liegt bei G3 und war nicht die Aufgabe: Kopplung und Trennen loeschten den Projektordner des Kunden. G2 und G3 gebaut, ihre Abnahmen brauchen Koljas Repository und Schluessel                                                                                                                        |
+| H, Erweiterungen                      | **laeuft**, H4 live abgenommen 22.08.2026               | #490, #492 bis #499. H1: alle vier Faehigkeiten da, eine gab es schon, eine halb. H2: ein Befehl legt das Geruest an, ein Waechter haelt Werkstatt und Backend zusammen. H3: ein Werkzeug entscheidet, was dasselbe Paket ist. H4 sieben von sieben im n8n-Dokument gemessen. H5 gebaut, dazu ein Punkt, der im Plan nicht stand. H1 live abgenommen 22.08.2026, und die Abnahme fand drei Fehler: zwei Faehigkeiten gaben IMMER HTTP 500 (Schemata nie exportiert), und z.record mit einem Argument brach jedes gefuellte Objekt |
+| I, Flows                              | **laeuft**                                              | #500. I1 war groesstenteils schon gebaut, I2 zur Haelfte: die autonome Betriebsart ist das Annahmen-Protokoll und traf die Abnahme woertlich. Gebaut wurde die zweite Art samt Rueckfrage mit vier Optionen und Freitextfeld. I5 am Geraet gemessen, vier Vorlagen-Flows live durchgelaufen                                                                                                                                                                                                                                       |
+| J, Einstellungen                      | **laeuft**, J2 live abgenommen 22.08.2026               | #501, #503, #504. J4: der Plan nennt einen Fehler, es waren drei, darunter einer, der Art. 17 auf einem Kundengeraet unmoeglich machte. J1: nach dem MinIO-Passwortwechsel scheiterte jeder Dateizugriff. J5 war zur Haelfte schon da. J2 acht von acht im Browser. J3 live abgenommen 22.08.2026: Export auf den Datentraeger, wieder einlesbar, beide Waende greifen                                                                                                                                                            |
+| K, Dokumentation                      | **laeuft**                                              | #506 bis #508. K1: ein Waechter meldet Endpunkte ohne Beschreibung, 373 im Code, Luecke von 77 auf 35. K2 zur Haelfte: die Planzustaende stehen hier, die Roadmap liegt im Steuer-Repo. K3: README, CLAUDE.md und ARCHITECTURE zeigten zwei Dienste, die nicht laufen                                                                                                                                                                                                                                                             |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -3425,8 +3425,40 @@ Lauf wird tagesgenau verglichen (sonst liefe der Flow im Nachholfenster elfmal),
 und ein Nachholfenster von zehn Minuten fängt ein Gerät ab, das um 03:00 gerade
 neu startet.
 
-**Offen:** die Live-Abnahme selbst. Eine Beispielanwendung, die alle drei
-benutzt, und die drei Meldungen ohne Freigabe.
+### Live abgenommen am 22.08.2026, und sie hat drei Fehler gefunden
+
+Eine Beispiel-Erweiterung `beispiel-drei` mit allen drei Fähigkeiten wurde auf
+dem Orin registriert und benutzt. **Zwei der drei Fähigkeiten hatten nie
+funktioniert**, und niemand hätte es gemerkt, ohne sie anzufassen.
+
+| Was die Abnahme fand                                   | Ursache                                                                                                                                                 | behoben |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `tabellen` und `zeitplan` gaben **immer** HTTP 500     | `BrueckeTabellenBody` und `BrueckeZeitplanBody` standen im Schema-Modul, wurden aber nie exportiert. `validateBody(undefined)` wirft beim ersten Aufruf | #523    |
+| Ohne Freigabe kam ein Zod-Feldname statt einer Meldung | `autorisieren` stand **nach** `validateBody`                                                                                                            | #523    |
+| `schreiben` in die eigene Tabelle gab HTTP 500         | `z.record` braucht in Zod 4 **zwei** Argumente. Fünf Stellen betroffen                                                                                  | #525    |
+
+Der dritte ist der unangenehmste: mit einem Argument baut das Schema, wirft
+aber beim Parsen eines **nicht leeren** Objekts. Ein leeres geht durch, also
+war jeder Test grün, der die Vorgabe prüft. Betroffen waren auch die
+Kopfzeilen ausgehender Aufrufe und die Argumente eines Flow-Starts, das heißt:
+**eine Erweiterung konnte noch nie einen Flow mit Argumenten starten.**
+
+Danach, am Gerät gemessen:
+
+| Fähigkeit          | Beleg                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------- |
+| Ausgehende Aufrufe | `https://example.com/` gibt HTTP 200. `https://api.github.com/` gibt `FORBIDDEN` und nennt das Erlaubte |
+| Eigene Tabellen    | anlegen, schreiben, lesen, gezielt suchen. Schema `ext_beispiel_drei`                                   |
+| Isolation          | `lesen` auf `users` gibt `NOT_FOUND`, die Erweiterung sieht nur ihren Namensraum                        |
+| Zeitplan           | Eintrag für 03:00 angelegt und gelistet. `25:99` gibt `VALIDATION_ERROR` mit erklärendem Satz           |
+| Ohne Freigabe      | alle drei geben `UNAUTHORIZED`, weil ohne Freigabe kein Brücken-Token entsteht                          |
+
+Damit ist H1 erledigt.
+
+**Was daraus zu lernen ist, und es ist dasselbe wie eine Woche davor bei
+`BRUECKE_FAEHIGKEITEN`:** die Tests prüften die Dienste gründlich und die
+Verdrahtung gar nicht. Beide Wächter, die jetzt mitkommen, vergleichen die
+Routen-Datei mit dem, was das Modul wirklich hergibt.
 
 ## H2 Ein Weg vom Terminal zur laufenden App
 
@@ -3996,6 +4028,71 @@ Anleitungen in `docs/` und alles, woran eine KI sich beim Mitarbeiten orientiert
 
 **Abnahme:** Jede Aussage in README und CLAUDE.md ist gegen den Code geprüft.
 Kein Verweis auf Entferntes. Jede gespiegelte Zahl trägt Stand und Quelle.
+
+---
+
+# Funde außerhalb der Aufgabenliste
+
+Der Plan hat 64 Aufgaben. Manches, was beim Abnehmen herausfällt, steht in
+keiner davon und ist trotzdem zu wichtig, um in einer Commit-Nachricht zu
+verschwinden. Hier steht es.
+
+## Der Indexer rechnete gegen den Chat um dieselbe GPU (behoben, #517, #521)
+
+`gpuQueue.js` nennt sich in seiner Kopfzeile „die **eine** Sperre für alle
+lokalen Modell-Aufrufe". Das stimmte für alles im Backend-Prozess. Der
+Document-Indexer ist ein eigener Container und ruft Ollama direkt auf.
+
+Gemessen am 22.08.2026, `llm_model_switches`:
+
+|                                        | vorher, 40 Minuten               | nachher, 18 Minuten mit einem 262-Sekunden-Flow |
+| -------------------------------------- | -------------------------------- | ----------------------------------------------- |
+| Wechsel `auto_unload_ollama_keepalive` | 35                               | 6                                               |
+| teure Ladevorgänge                     | 9, zwischen 11 827 und 60 066 ms | **0**                                           |
+
+Der Nutzer wartete also bei fast jeder Chat-Runde eine halbe bis eine ganze
+Minute auf ein Modell, das kurz zuvor schon im Speicher war. Auf einem
+Kundengerät heißt das: wer einen Ordner Dokumente ablegt, macht sich den Chat
+für die nächste Stunde langsam, ohne zu ahnen warum.
+
+Gemeldet wird jetzt eine **Frist**, kein Schalter. Fällt das Backend aus, läuft
+sie ab und der Indexer arbeitet weiter.
+
+## Der n8n-Knoten umgeht dieselbe Sperre (offen, Entscheidung)
+
+`services/n8n/custom-nodes/n8n-nodes-arasul-llm` spricht mit
+`llm-service:11434` **direkt**. Ein n8n-Workflow mit dem LLM-Knoten tut deshalb
+genau das, was der Indexer tat: er lädt sein Modell und wirft das des Chats
+hinaus.
+
+**Nicht gebaut, und das ist Absicht.** Es ist eine Änderung an einer
+ausgelieferten Integration mit mehreren möglichen Wegen (über das Backend
+leiten, die Frist mitnehmen, oder das Modell gleich lassen). Das ist eine
+Entscheidung, keine Ausführung.
+
+## Das Dokument trug keine einzige Sicherheitskopfzeile (behoben, #519, #526)
+
+Jeder API-Pfad hatte eine Content-Security-Policy, ausgerechnet die Seite, die
+der Browser als **Dokument** lädt, nicht. Zwei voneinander unabhängige Gründe:
+der Traefik-Router `dashboard-frontend` trug als einziger keine
+Sicherheitskopfzeilen, und das nginx im Container verwirft seine eigene Policy,
+weil `location = /index.html` einen eigenen `add_header`-Satz setzt und nginx
+den geerbten damit **ersetzt**.
+
+Erst berichtend geschaltet und gemessen (`scripts/test/csp-abnahme.mjs`, vier
+Stationen plus geöffnetes PDF), dann scharf. Genau **ein** Verstoß im ganzen
+Durchlauf: eine Bibliothek fragt mit `new Function("")`, ob sie kompilieren
+darf, und fängt den Fehler ab. **Kein `unsafe-eval`.** Der PDF-Betrachter
+zeichnet weiter, 14 von 14 grün unter der scharfen Policy.
+
+## Ein fertiger Lauf ohne Text hinterließ eine leere Blase (behoben, #520)
+
+Von 261 Antworten des Assistenten waren drei leer **und** abgeschlossen, alle
+vom 22.08. Der Nutzer sah eine Sprechblase ohne Inhalt und ohne Hinweis. Der
+Abbruchzweig kannte den Fall längst, dem normalen Ende fehlte er.
+
+Warum das Modell bei einer trivialen Frage nichts liefert, ist damit **nicht**
+beantwortet. Das bleibt offen.
 
 ---
 
