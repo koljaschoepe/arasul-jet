@@ -58,9 +58,9 @@ class RagSucheTool extends BaseTool {
 
   get description() {
     return (
-      'Liest den indexierten Text einer BESTIMMTEN hochgeladenen Datei (Argument ' +
-      '"dateiname", auch aus PDF/DOCX). Für allgemeines Suchen im Projekt nutze ' +
-      'stattdessen "dateien_suchen". (Die semantische Vektor-Suche ist standardmäßig aus.)'
+      'Liest den indexierten Text einer BESTIMMTEN hochgeladenen Datei ' +
+      '(dateiname), auch aus PDF/DOCX. Allgemein im Projekt sucht ' +
+      'dateien_suchen.'
     );
   }
 
@@ -73,15 +73,15 @@ class RagSucheTool extends BaseTool {
       },
       anzahl: {
         type: 'number',
-        description: `Wie viele Fundstellen höchstens (Standard ${DEFAULT_LIMIT}, max ${MAX_LIMIT})`,
+        description: `Höchstzahl Fundstellen (Standard ${DEFAULT_LIMIT}, max ${MAX_LIMIT})`,
         required: false,
       },
       dateiname: {
         type: 'string',
         description:
-          'Optional: Nennt der Nutzer eine BESTIMMTE Datei (z. B. "bericht.pdf"), gib hier ' +
-          'genau diesen Dateinamen an, dann bekommst du gezielt den Inhalt DIESER Datei ' +
-          'statt projektweiter Treffer. Ohne Angabe wird die ganze Wissensbasis durchsucht.',
+          'Nennt der Nutzer eine bestimmte Datei ("bericht.pdf"), hier genau ' +
+          'diesen Namen angeben. Ohne Angabe wird die ganze Wissensbasis ' +
+          'durchsucht.',
         required: false,
       },
     };

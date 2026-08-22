@@ -50,9 +50,8 @@ class TodoListeTool extends BaseTool {
 
   get description() {
     return (
-      'Pflegt deine Aufgabenliste für mehrschrittige Aufträge. Übergib die KOMPLETTE ' +
-      'aktuelle Liste als Markdown-Checkboxen: "- [ ] offen", "- [~] in Arbeit", "- [x] erledigt". ' +
-      'Nach jedem erledigten Schritt aktualisieren.'
+      'Pflegt deine Aufgabenliste. Übergib immer die KOMPLETTE Liste als ' +
+      'Checkboxen: "- [ ] offen", "- [~] in Arbeit", "- [x] erledigt".'
     );
   }
 
@@ -60,9 +59,7 @@ class TodoListeTool extends BaseTool {
     return {
       liste: {
         type: 'string',
-        description:
-          'Die vollständige Aufgabenliste, eine Zeile je Aufgabe ' +
-          '(z. B. "- [x] Quellen lesen\\n- [~] Entwurf schreiben\\n- [ ] Prüfen")',
+        description: 'Die vollständige Liste, eine Zeile je Aufgabe.',
         required: true,
       },
     };

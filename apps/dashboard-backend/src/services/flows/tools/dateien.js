@@ -78,7 +78,7 @@ class DateienLesenTool extends BaseTool {
   }
 
   get description() {
-    return 'Dateien in den erlaubten Ordnern auflisten (aktion=list) oder lesen (aktion=read)';
+    return 'Dateien auflisten (aktion=list) oder lesen (aktion=read)';
   }
 
   get parameters() {
@@ -92,17 +92,15 @@ class DateienLesenTool extends BaseTool {
       pfad: {
         type: 'string',
         description:
-          'Pfad relativ zum Arbeitsverzeichnis (dem ersten erlaubten Ordner). ' +
-          'Ein anderer erlaubter Ordner wird über seinen vollständigen Pfad angesprochen. ' +
-          'Bei list optional, Standard = Arbeitsverzeichnis.',
+          'Pfad relativ zum Arbeitsverzeichnis, bei list optional. Ein anderer ' +
+          'erlaubter Ordner wird mit vollem Pfad angesprochen.',
         required: false,
       },
       offset: {
         type: 'integer',
         description:
-          'Nur bei read: Byte-Offset zum Weiterlesen großer Dateien. Standard 0 ' +
-          '(Dateianfang). Ist eine Datei länger als der Lese-Block, nennt die ' +
-          'Antwort den nächsten offset zum Weiterlesen.',
+          'Nur bei read: Byte-Offset zum Weiterlesen, Standard 0. Ist die Datei ' +
+          'länger als ein Block, nennt die Antwort den nächsten offset.',
         required: false,
       },
     };
@@ -255,7 +253,7 @@ class DateienSchreibenTool extends BaseTool {
   }
 
   get description() {
-    return 'Schreibt eine Datei in einen der erlaubten Ordner (überschreibt vorhandene Inhalte)';
+    return 'Schreibt eine Datei, vorhandener Inhalt wird überschrieben';
   }
 
   get parameters() {
@@ -263,8 +261,8 @@ class DateienSchreibenTool extends BaseTool {
       pfad: {
         type: 'string',
         description:
-          'Pfad relativ zum Arbeitsverzeichnis (dem ersten erlaubten Ordner). ' +
-          'Ein anderer erlaubter Ordner wird über seinen vollständigen Pfad angesprochen.',
+          'Pfad relativ zum Arbeitsverzeichnis. Ein anderer erlaubter Ordner ' +
+          'wird mit vollem Pfad angesprochen.',
         required: true,
       },
       inhalt: {
@@ -437,8 +435,8 @@ class DateienBearbeitenTool extends BaseTool {
 
   get description() {
     return (
-      'Ändert eine Stelle in einer bestehenden Datei per Suchen/Ersetzen, ' +
-      'für gezielte Änderungen IMMER dies nutzen statt die Datei komplett neu zu schreiben'
+      'Ändert eine Stelle einer bestehenden Datei per Suchen/Ersetzen. Für ' +
+      'gezielte Änderungen IMMER dies statt die Datei neu zu schreiben'
     );
   }
 
@@ -446,24 +444,24 @@ class DateienBearbeitenTool extends BaseTool {
     return {
       pfad: {
         type: 'string',
-        description: 'Pfad der bestehenden Datei relativ zum Arbeitsverzeichnis',
+        description: 'Pfad der bestehenden Datei',
         required: true,
       },
       suchen: {
         type: 'string',
         description:
-          'Der EXAKTE bestehende Textblock, der ersetzt werden soll (mit genug Zeilen, ' +
-          'dass er nur einmal vorkommt, Text 1:1 aus der Datei kopieren)',
+          'Der EXAKTE bestehende Textblock, 1:1 aus der Datei kopiert, mit genug ' +
+          'Zeilen, dass er nur einmal vorkommt',
         required: true,
       },
       ersetzen: {
         type: 'string',
-        description: 'Der neue Text, der an diese Stelle tritt (leer = Block löschen)',
+        description: 'Der neue Text (leer = Block löschen)',
         required: true,
       },
       alle: {
         type: 'boolean',
-        description: 'true = ALLE Vorkommen ersetzen (Standard: genau eines)',
+        description: 'true = ALLE Vorkommen (Standard: genau eines)',
         required: false,
       },
     };
@@ -596,8 +594,8 @@ class DateienAnhaengenTool extends BaseTool {
 
   get description() {
     return (
-      'Hängt Text ans ENDE einer Datei an (legt sie bei Bedarf an), ' +
-      'damit entstehen lange Dokumente abschnittsweise, Sektion für Sektion'
+      'Hängt Text ans ENDE einer Datei an, legt sie bei Bedarf an. So ' +
+      'entstehen lange Dokumente Abschnitt für Abschnitt'
     );
   }
 
@@ -605,12 +603,12 @@ class DateienAnhaengenTool extends BaseTool {
     return {
       pfad: {
         type: 'string',
-        description: 'Pfad der Zieldatei relativ zum Arbeitsverzeichnis',
+        description: 'Pfad der Zieldatei',
         required: true,
       },
       inhalt: {
         type: 'string',
-        description: 'Der anzuhängende Abschnitt (er wird unverändert ans Dateiende gesetzt)',
+        description: 'Der anzuhängende Abschnitt',
         required: true,
       },
     };

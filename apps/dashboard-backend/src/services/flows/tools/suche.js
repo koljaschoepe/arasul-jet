@@ -130,9 +130,8 @@ class DateiSuchenTool extends BaseTool {
 
   get description() {
     return (
-      'Sucht in den erlaubten Ordnern nach Dateien: nach Namensmuster (muster, ' +
-      'z. B. *.md) und/oder nach Textinhalt (text). Liefert passende Pfade bzw. ' +
-      'Fundstellen mit Zeilennummer.'
+      'Sucht Dateien nach Namensmuster (muster) und/oder Textinhalt (text). ' +
+      'Liefert Pfade bzw. Fundstellen mit Zeilennummer.'
     );
   }
 
@@ -140,39 +139,29 @@ class DateiSuchenTool extends BaseTool {
     return {
       muster: {
         type: 'string',
-        description:
-          'Glob für Dateinamen, z. B. "*.md" oder "**/*.js". Ohne "/" wird nur ' +
-          'der Dateiname verglichen, mit "/" der Pfad. Optional.',
+        description: 'Glob, z. B. "*.md". Ohne "/" gilt er dem Dateinamen, mit "/" dem Pfad.',
         required: false,
       },
       text: {
         type: 'string',
         description:
-          'Teilzeichenkette, nach der in den Dateien gesucht wird (Groß-/' +
-          'Kleinschreibung egal, kein Regulärer Ausdruck). Optional. Mindestens ' +
-          'muster ODER text muss angegeben sein.',
+          'Gesuchter Text (Groß-/Kleinschreibung egal, kein Regex). Mindestens ' +
+          'muster ODER text angeben.',
         required: false,
       },
       pfad: {
         type: 'string',
-        description:
-          'Unterordner relativ zum Arbeitsverzeichnis, in dem gesucht wird. ' +
-          'Optional, Standard = Arbeitsverzeichnis.',
+        description: 'Unterordner, in dem gesucht wird. Standard: Arbeitsverzeichnis.',
         required: false,
       },
       kontext: {
         type: 'number',
-        description:
-          'Bei Textsuche: wie viele Zeilen VOR und NACH jeder Fundstelle mit ' +
-          `ausgegeben werden (0–${MAX_KONTEXT}, Standard 0). Hilft, den Fund im ` +
-          'Code einzuordnen.',
+        description: `Zeilen vor und nach jeder Fundstelle (0–${MAX_KONTEXT}, Standard 0).`,
         required: false,
       },
       alles: {
         type: 'boolean',
-        description:
-          'Wenn true, werden auch Rausch-Ordner wie node_modules/.git/dist ' +
-          'durchsucht (Standard false: diese werden übersprungen).',
+        description: 'true durchsucht auch node_modules/.git/dist (Standard false).',
         required: false,
       },
     };

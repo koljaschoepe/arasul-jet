@@ -49,6 +49,28 @@ const MAX_RUNDEN = 64;
 const ZEITLIMIT_S = 24 * 60 * 60;
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 8000;
+/**
+ * Wie viele Token der Verlauf im Vorlauf der ERSTEN Runde hoechstens kosten
+ * darf (Plan 023 D7, Schritt 2).
+ *
+ * Der Kontext-Haushalt weiter unten hat ein anderes Ziel: er verhindert, dass
+ * der Kontext ueberlaeuft, und greift deshalb erst bei NUM_CTX * 0.7, also bei
+ * rund 22900 Token. Fuer die Zeit bis zum ersten Wort ist das viel zu spaet.
+ * MAX_MESSAGE_CHARS erlaubt 8000 Zeichen je Nachricht; zwoelf davon sind
+ * gemessen 12060 Token allein fuer den Verlauf, und bei 262 Token je Sekunde
+ * Vorverarbeitung wartet der Nutzer dafuer 46 Sekunden, bevor das erste Wort
+ * kommt. Niemand hat ihn ueberlaufen sehen, weil er nie ueberlaeuft.
+ *
+ * Deshalb ein zweites, viel kleineres Budget, das nur den Verlauf betrifft und
+ * nur beim Zusammenbauen greift. Die juengsten Nachrichten bleiben vollstaendig,
+ * aeltere werden gekuerzt, und was dann noch nicht passt, faellt weg und wird
+ * durch eine Zeile ersetzt, die sagt, wie viel fehlt.
+ */
+const VERLAUF_TOKEN_BUDGET = agentConfig.VERLAUF_TOKEN_BUDGET;
+/** Die juengsten Nachrichten bleiben immer ungekuerzt, egal wie lang sie sind. */
+const VERLAUF_SCHUTZ = 2;
+/** Auf so viele Zeichen wird eine aeltere Nachricht eingedampft. */
+const VERLAUF_KURZ_CHARS = 400;
 const KURZ_INPUT = 300;
 const KURZ_OUTPUT = 500;
 /** Wie oft der Lauf nachschaut, ob der Nutzer abgebrochen hat. */
@@ -176,21 +198,41 @@ const AGENT_ROLLEN = [
   },
 ];
 
+/**
+ * Die Arbeitsweise des Orchestrators.
+ *
+ * Kurz gehalten seit Plan 023 D7, Schritt 2 (22.08.2026). Der Vorlauf des
+ * Agentenpfads lag bei 3811 Token, davon 1142 in dieser Anweisung und 2654 in
+ * den Werkzeugbeschreibungen. Gemessen mit `scripts/test/vorlauf-wiegen.js`.
+ *
+ * Gekuerzt wurde nicht nach Gefuehl, sondern entlang einer Regel: was
+ * strukturell schon an einem Werkzeug haengt, steht hier nicht noch einmal.
+ * Der Vergleich symbol_suche gegen dateien_suchen stand in beiden, die
+ * dateiname-Regel von rag_suche stand in beiden, die Ordnerregeln von
+ * dateien_bearbeiten und dateien_anhaengen ebenfalls. Das Modell sieht jede
+ * dieser Regeln weiterhin, aber nur einmal und an der Stelle, an der sie
+ * hingehoert.
+ *
+ * Die Nummern enden bewusst bei 10: was der Runner je nach Anfrage
+ * zusaetzlich anhaengt (Zielordner, Datei-Modus), traegt keine eigene Nummer
+ * mehr. Bis zum 22.08.2026 haengte er dort "7." und "8." an, obwohl die Liste
+ * schon eine 7 und eine 8 hatte, und zwar hinter dem Projektbaum, also weit
+ * weg von der Liste, in die sie sich einreihen wollten.
+ */
 const AGENT_ANWEISUNG = `
 
 ## Arbeitsweise
 Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
 1. Einfache Fragen und Gespräche beantwortest du DIREKT, ohne Werkzeug.
-2. Nutze die Struktur-Übersicht des Projektordners (unten): lies relevante Dateien mit dateien_lesen, bevor du antwortest oder etwas erstellst. Neue Dateien legst du GENAU dort an, wo der Nutzer es sagt, nennt er nur einen Dateinamen, speichere unter exakt diesem Namen (Wurzel des Arbeitsordners). ERFINDE KEINE Ordner oder Kunden-/Firmennamen; einen Unterordner nutzt du nur, wenn der Nutzer ihn nennt oder die Struktur-Übersicht einen eindeutig passenden BESTEHENDEN Ordner zeigt. In großen Bäumen findest du Dateien gezielt mit dateien_suchen (Muster oder Textsuche) statt zu raten. Bei Code: suchst du, WO eine Funktion/Klasse/Methode DEFINIERT ist, nimm symbol_suche(name=…), das liefert die Definitionsstelle, nicht jede Aufrufstelle.
-3. Fragen zu Dokumenten, Projekten oder Firmenwissen: durchsuche die Projektdateien mit dateien_suchen (Namensmuster und/oder Textsuche, optional mit "kontext" für umliegende Zeilen) und lies Treffer mit dateien_lesen, verarbeite sie frei als Material. PDF/DOCX und andere Binärdateien liest du NICHT mit dateien_lesen; ihren INHALT holst du gezielt mit rag_suche, indem du den Dateinamen im Parameter "dateiname" übergibst (z. B. "fasse bericht.pdf zusammen" → rag_suche mit dateiname="bericht.pdf"). So bekommst du den Inhalt GENAU dieser Datei und verwechselst ihn nie mit einer anderen. Eine allgemeine, dateilose Vektor-Suche gibt es nicht mehr, allgemein findest du dich mit dateien_suchen selbst durch den Ordner.
-4. Wenn der Nutzer ein Dokument oder eine Datei will (Newsletter, Webseite, Bericht, Liste …): erstelle den vollständigen Inhalt und speichere ihn mit dateien_schreiben (.html für Webseiten, .md für Texte/Berichte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach: EIN kurzer Satz, was du gespeichert hast, den Dateiinhalt NICHT wiederholen.
-5. LANGE Dokumente (viele Abschnitte, große Webseiten) baust du abschnittsweise: dateien_schreiben mit dem Kopf/Anfang, danach Abschnitt für Abschnitt dateien_anhaengen, nie alles in einem einzigen Aufruf. Bestehende Dateien änderst du GEZIELT mit dateien_bearbeiten (exakten Textblock suchen/ersetzen) statt sie neu zu schreiben.
-6. Bei mehrschrittigen Aufträgen pflegst du mit todo_liste eine Aufgabenliste: zu Beginn anlegen, nach JEDEM erledigten Schritt aktualisieren ("- [x] …"). Sie hält dich auf Kurs.
-7. DELEGIERE AGGRESSIV: Zerlege größere Aufträge in kleine, in sich geschlossene Blöcke und gib JEDEN an einen frischen Subagenten, subagent(rolle="rechercheur", auftrag=…) sammelt Material, rolle="autor" schreibt Dateien aus Material, rolle="entwickler" schreibt UND testet Code per Terminal, rolle="pruefer" kontrolliert Ergebnisse. Jeder Subagent hat seinen EIGENEN frischen Kontext und gibt dir nur sein Ergebnis zurück, so bleibt dein Hauptkontext schlank, auch bei großen/komplexen Aufträgen. Faustregel: sobald ein Teilschritt selbst mehrere Werkzeug-Aufrufe braucht oder viel Text liest, delegiere ihn statt ihn selbst inline abzuarbeiten. Lieber viele kleine, präzise Subagenten-Aufträge (je mit Zielpfad und vollständigem Kontext) als ein überladener Eigen-Lauf. Unabhängige Blöcke gehen als getrennte Subagenten-Aufrufe.
-8. Mit terminal kannst du selbst Befehle im Projektordner ausführen (Skripte testen, Dateien umwandeln, Pakete bauen).
-9. Sage vor jedem Werkzeug-Block in EINEM kurzen Satz, was du gerade tust ("Ich lese zuerst die Preisliste."), und rufe die Werkzeuge dann SOFORT in derselben Antwort auf. Niemals eine Aktion ankündigen, ohne sie auszuführen.
-10. Erfinde keine Fakten. Wenn Werkzeuge nichts liefern, sag das ehrlich.
-11. Antworte auf Deutsch, ohne Emojis (außer der Nutzer bittet darum).`;
+2. Nutze die Struktur-Übersicht des Projektordners (unten) und lies relevante Dateien, bevor du antwortest oder etwas erstellst. In großen Bäumen findest du Dateien mit dateien_suchen, statt zu raten.
+3. ERFINDE KEINE Ordner oder Kunden- und Firmennamen. Neue Dateien legst du GENAU dort an, wo der Nutzer es sagt; nennt er nur einen Dateinamen, speicherst du unter exakt diesem Namen in der Wurzel des Arbeitsordners. Einen Unterordner nutzt du nur, wenn der Nutzer ihn nennt oder die Struktur-Übersicht einen eindeutig passenden BESTEHENDEN zeigt.
+4. Fragen zu Dokumenten, Projekten oder Firmenwissen beantwortest du aus den Projektdateien: mit dateien_suchen finden, mit dateien_lesen holen, frei als Material verarbeiten. PDF, DOCX und andere Binärdateien liest du NICHT mit dateien_lesen, ihren Inhalt holst du mit rag_suche.
+5. Will der Nutzer ein Dokument (Newsletter, Webseite, Bericht, Liste …), erstellst du den vollständigen Inhalt und speicherst ihn mit dateien_schreiben (.html für Webseiten, .md für Texte, .csv für Tabellen; kurzer Dateiname ohne Umlaute). Danach EIN kurzer Satz, was du gespeichert hast, den Inhalt NICHT wiederholen.
+6. Lange Dokumente baust du abschnittsweise: dateien_schreiben für den Anfang, danach Abschnitt für Abschnitt dateien_anhaengen, nie alles in einem Aufruf.
+7. Bei mehrschrittigen Aufträgen pflegst du mit todo_liste eine Aufgabenliste: zu Beginn anlegen, nach JEDEM erledigten Schritt aktualisieren.
+8. DELEGIERE AGGRESSIV: zerlege größere Aufträge in kleine, in sich geschlossene Blöcke und gib JEDEN an einen frischen Subagenten. rolle="rechercheur" sammelt Material, "autor" schreibt Dateien aus Material, "entwickler" schreibt und testet Code per Terminal, "pruefer" kontrolliert Ergebnisse. Jeder Subagent hat seinen EIGENEN Kontext, so bleibt deiner schlank. Faustregel: braucht ein Teilschritt selbst mehrere Werkzeug-Aufrufe oder viel Lesestoff, delegiere ihn, mit Zielpfad und vollständigem Kontext. Unabhängige Blöcke gehen als getrennte Aufrufe.
+9. Sage vor jedem Werkzeug-Block in EINEM kurzen Satz, was du tust ("Ich lese zuerst die Preisliste."), und rufe die Werkzeuge dann SOFORT in derselben Antwort auf. Niemals eine Aktion ankündigen, ohne sie auszuführen.
+10. Erfinde keine Fakten. Liefern die Werkzeuge nichts, sag das ehrlich. Antworte auf Deutsch, ohne Emojis (außer der Nutzer bittet darum).`;
 
 /**
  * Hakt jede Checkbox einer Aufgabenliste ab ([ ]/[~] → [x]), Einrückung und
@@ -200,6 +242,60 @@ Du bist der Arasul-Orchestrator mit Werkzeugen und Subagenten. Regeln:
  */
 function alleTodosErledigt(liste) {
   return String(liste || '').replace(/^(\s*[-*]\s*)\[[ xX~]\]/gm, '$1[x]');
+}
+
+/**
+ * Deckelt den Verlauf auf VERLAUF_TOKEN_BUDGET (Plan 023 D7, Schritt 2).
+ *
+ * Von hinten nach vorn, weil die juengsten Nachrichten die sind, auf die sich
+ * die Frage bezieht. Die letzten VERLAUF_SCHUTZ bleiben ungekuerzt, auch wenn
+ * sie das Budget allein sprengen: die aktuelle Frage zu beschneiden waere
+ * schlimmer als jede Wartezeit. Danach wird gekuerzt, und was dann noch nicht
+ * passt, faellt weg. Dass etwas fehlt, erfaehrt das Modell als eine Zeile,
+ * statt dass der Verlauf stillschweigend mit einer Antwort ohne Frage beginnt.
+ *
+ * @param {{role:string, content:string}[]} nachrichten juengste zuletzt
+ * @returns {{verlauf:object[], weggelassen:number, gekuerzt:number}}
+ */
+function verlaufAufBudget(nachrichten) {
+  const kosten = text => Math.ceil(String(text || '').length / 3.2) + 8;
+  const behalten = [];
+  let summe = 0;
+  let gekuerzt = 0;
+  let weggelassen = 0;
+  for (let i = nachrichten.length - 1; i >= 0; i--) {
+    const m = nachrichten[i];
+    const geschuetzt = nachrichten.length - 1 - i < VERLAUF_SCHUTZ;
+    if (geschuetzt) {
+      behalten.unshift(m);
+      summe += kosten(m.content);
+      continue;
+    }
+    if (summe + kosten(m.content) <= VERLAUF_TOKEN_BUDGET) {
+      behalten.unshift(m);
+      summe += kosten(m.content);
+      continue;
+    }
+    const knapp = kurz(m.content, VERLAUF_KURZ_CHARS);
+    if (summe + kosten(knapp) <= VERLAUF_TOKEN_BUDGET) {
+      behalten.unshift({ role: m.role, content: knapp });
+      summe += kosten(knapp);
+      gekuerzt += 1;
+      continue;
+    }
+    // Ab hier passt nichts mehr; alles Aeltere faellt in einem Zug weg.
+    weggelassen = i + 1;
+    break;
+  }
+  if (weggelassen > 0) {
+    behalten.unshift({
+      role: 'user',
+      content:
+        `[${weggelassen} ältere Nachricht${weggelassen === 1 ? '' : 'en'} aus diesem Gespräch ` +
+        'sind hier ausgelassen. Frag nach, wenn dir etwas fehlt.]',
+    });
+  }
+  return { verlauf: behalten, weggelassen, gekuerzt };
 }
 
 /**
@@ -798,19 +894,28 @@ async function processAgentChatJob(ctx, job) {
     log.warn(`[JOB ${jobId}] Struktur-Übersicht fehlgeschlagen: ${err.message}`);
   }
   if (zielPrefix) {
-    systemPrompt += `\n7. Zielordner des Nutzers: "${zielPrefix}", dein Arbeitsverzeichnis zeigt bereits dorthin, schreibe Dateien einfach mit relativem Pfad.`;
+    systemPrompt += `\n\n## Für diese Anfrage\n- Zielordner des Nutzers: "${zielPrefix}". Dein Arbeitsverzeichnis zeigt bereits dorthin, schreibe Dateien mit relativem Pfad.`;
   }
   if (requestData.datei_modus) {
-    systemPrompt += `\n8. Der Nutzer hat den Datei-Modus aktiviert: erstelle für diese Anfrage IN JEDEM FALL eine Datei mit dateien_schreiben (passende Endung), und antworte danach nur mit einem kurzen Bestätigungssatz.`;
+    systemPrompt += zielPrefix
+      ? `\n- Datei-Modus: erstelle IN JEDEM FALL eine Datei mit dateien_schreiben (passende Endung) und antworte danach nur mit einem kurzen Bestätigungssatz.`
+      : `\n\n## Für diese Anfrage\n- Datei-Modus: erstelle IN JEDEM FALL eine Datei mit dateien_schreiben (passende Endung) und antworte danach nur mit einem kurzen Bestätigungssatz.`;
   }
 
   // --- Verlauf: letzte Nachrichten, hart gekappt ----------------------------
-  const verlauf = (Array.isArray(requestData.messages) ? requestData.messages : [])
+  const verlaufRoh = (Array.isArray(requestData.messages) ? requestData.messages : [])
     .filter(
       m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
     )
     .slice(-MAX_HISTORY_MESSAGES)
     .map(m => ({ role: m.role, content: kurz(m.content, MAX_MESSAGE_CHARS) }));
+  const { verlauf, weggelassen, gekuerzt: verlaufGekuerzt } = verlaufAufBudget(verlaufRoh);
+  if (weggelassen > 0 || verlaufGekuerzt > 0) {
+    log.info(
+      `[JOB ${jobId}] Verlauf auf ${VERLAUF_TOKEN_BUDGET} Token gedeckelt: ` +
+        `${verlaufGekuerzt} gekuerzt, ${weggelassen} weggelassen`
+    );
+  }
   const messages = [{ role: 'system', content: systemPrompt }, ...verlauf];
 
   const ollamaModel = await zuOllamaName(requested_model);
@@ -1670,7 +1775,14 @@ module.exports = {
   // Plan 023 D7: die Messung des Vorlaufs. Der Plan macht sie zum
   // Abnahmekriterium, also gehoert sie unter Test.
   vorlaufFesthalten,
+  // Plan 023 D7, Schritt 2: `scripts/test/vorlauf-wiegen.js` wiegt die
+  // Anweisung gegen Ollama. Sie muss aus DIESER Datei kommen, nicht als
+  // Kopie im Messwerkzeug liegen, sonst misst das Werkzeug einen Text, den
+  // niemand mehr ausliefert.
+  AGENT_ANWEISUNG,
   AGENT_WERKZEUGE,
+  verlaufAufBudget,
+  VERLAUF_TOKEN_BUDGET,
   AGENT_ROLLEN,
   streamChatRound,
   verstaendlicherFehler,

@@ -50,6 +50,24 @@ const PLAN_NUM_PREDICT_KLEIN = ganzzahl(process.env.AGENT_PLAN_TOKENS_KLEIN, 512
 const KONTEXT_SCHWELLE = 0.7;
 
 /**
+ * Wie viele Token der VERLAUF im Vorlauf der ersten Runde hoechstens kosten
+ * darf (Plan 023 D7, Schritt 2).
+ *
+ * Nicht zu verwechseln mit KONTEXT_SCHWELLE darueber. Die schuetzt den
+ * Kontext vor dem Ueberlaufen und greift bei NUM_CTX * 0.7, also rund 22900
+ * Token. Dieses Budget schuetzt die Zeit bis zum ersten Wort und greift viel
+ * frueher: zwoelf Nachrichten a 8000 Zeichen sind gemessen 12060 Token, und
+ * bei 262 Token je Sekunde Vorverarbeitung sind das 46 Sekunden Warten, bevor
+ * ein Wort erscheint. Der Kontext laeuft dabei nie ueber, deshalb hat es
+ * niemand gesehen.
+ *
+ * 1200 Token sind rund vier gewoehnliche Nachrichtenpaare in voller Laenge.
+ * Wer laengere Gespraeche ungekuerzt will, setzt AGENT_VERLAUF_TOKEN_BUDGET
+ * hoch und bezahlt es in Wartezeit.
+ */
+const VERLAUF_TOKEN_BUDGET = ganzzahl(process.env.AGENT_VERLAUF_TOKEN_BUDGET, 1200);
+
+/**
  * Aggressivere Delegation (Plan 019 · Phase 5): Obergrenze der Subagent-Aufrufe
  * über den GANZEN Lauf. Höher = der Orchestrator kann große Aufträge in viele
  * kleine, in sich geschlossene Blöcke zerlegen — jeder Subagent arbeitet mit
@@ -121,6 +139,7 @@ function sollDenken(ollamaName, letzteNutzerfrage) {
 
 module.exports = {
   NUM_CTX,
+  VERLAUF_TOKEN_BUDGET,
   NUM_PREDICT,
   KEEP_ALIVE,
   PLAN_NUM_PREDICT_GROSS,
