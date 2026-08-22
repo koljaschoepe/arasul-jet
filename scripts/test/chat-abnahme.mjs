@@ -44,6 +44,28 @@ async function assistentUeberspringen(page) {
   });
 }
 
+/**
+ * Wartet, bis MINDESTENS `mindestens` Antworten dastehen UND die letzte davon
+ * ihre Kennzahlenzeile traegt. Die Zeile entsteht genau einmal je fertigem
+ * Lauf und haengt IM Element der Antwort, zu der sie gehoert (CompactMessage).
+ * Deshalb ist sie das einzige Zeichen, das nicht auf einen fremden Lauf
+ * hereinfaellt.
+ */
+async function wartetAufFertigenLauf(page, mindestens, zeitlimitMs = 1800000) {
+  await page
+    .waitForFunction(
+      min => {
+        const antworten = document.querySelectorAll('[data-testid="assistant-message"]');
+        if (antworten.length < min) return false;
+        const letzte = antworten[antworten.length - 1];
+        return !!letzte.querySelector('[data-testid="tokens-pro-sekunde"]');
+      },
+      mindestens,
+      { timeout: zeitlimitMs, polling: 2000 }
+    )
+    .catch(() => {});
+}
+
 const ergebnisse = [];
 function pruefe(was, ok, detail = '') {
   ergebnisse.push({ was, ok, detail });
@@ -128,7 +150,11 @@ try {
     const nochDa = await zeile.isVisible().catch(() => false);
     if (nochDa) {
       const dauer2 = await page.locator('[data-testid="denkzeile-dauer"]').textContent();
-      pruefe('E3: aktualisiert sich binnen zwei Sekunden', dauer1 !== dauer2, `${dauer1} auf ${dauer2}`);
+      pruefe(
+        'E3: aktualisiert sich binnen zwei Sekunden',
+        dauer1 !== dauer2,
+        `${dauer1} auf ${dauer2}`
+      );
     } else {
       pruefe('E3: aktualisiert sich binnen zwei Sekunden', true, 'Lauf war vorher fertig');
     }
@@ -174,7 +200,11 @@ try {
     ]);
     await page.waitForTimeout(600);
     const chips2 = await page.locator('[data-testid="composer-chip"]').count();
-    pruefe('E6: ein zweiter Vorgang haengt an, statt zu ersetzen', chips2 >= 4, `${chips2} Anlagen`);
+    pruefe(
+      'E6: ein zweiter Vorgang haengt an, statt zu ersetzen',
+      chips2 >= 4,
+      `${chips2} Anlagen`
+    );
     // Jede einzeln entfernbar.
     const entfernen = page.locator('[data-testid="composer-chip"] button').first();
     await entfernen.click();
@@ -198,6 +228,12 @@ try {
   //
   // Uebersprungen mit ARASUL_OHNE_LAUF=1, wenn die GPU gerade belegt ist.
   if (!process.env.ARASUL_OHNE_LAUF) {
+    // Zuerst den E3-Lauf zu Ende laufen lassen. Die Warteschlange ist strikt
+    // seriell (E2): wer jetzt abschickt, stellt sich nur an, und der naechste
+    // Wartepunkt schlaegt dann bei der Kennzahl der VORIGEN Antwort an.
+    await wartetAufFertigenLauf(page, 1);
+    const antwortenVorher = await page.locator('[data-testid="assistant-message"]').count();
+
     await eingabe.focus();
     await page.keyboard.type(
       'Schreibe drei Dateien abnahme-a.md, abnahme-b.md und abnahme-c.md, jede mit einem Satz ueber Netzwerktechnik.',
@@ -216,17 +252,16 @@ try {
     //     zwischen zwei Werkzeugrunden und kommt wieder. Das Warten war nach
     //     der ersten Runde vorbei, und gezaehlt wurde mitten im Lauf.
     //
-    // Das verlaessliche Zeichen ist die Kennzahlenzeile: sie entsteht genau
-    // einmal je FERTIGEM Lauf. Gewartet wird, bis eine mehr dasteht als vorher.
-    const metrikVorher = await page.locator('[data-testid="tokens-pro-sekunde"]').count();
-    await page
-      .waitForFunction(
-        vorher =>
-          document.querySelectorAll('[data-testid="tokens-pro-sekunde"]').length > vorher,
-        metrikVorher,
-        { timeout: 1800000, polling: 2000 }
-      )
-      .catch(() => {});
+    //  3. "Warte, bis eine Kennzahlenzeile mehr dasteht als vorher." Die Zahl
+    //     wurde ERST NACH dem Abschicken genommen, und die E3-Antwort war da
+    //     noch nicht fertig. Der Wartepunkt schlug bei DEREN Kennzahl an, und
+    //     gezaehlt wurde, bevor der eigene Lauf ueberhaupt begonnen hatte.
+    //     Belegt am 22.08.2026: Auftrag 22:11:32 angelegt, gemessen 22:11:35.
+    //
+    // Das verlaessliche Zeichen ist die Kennzahlenzeile IN DER LETZTEN
+    // Antwort: sie entsteht genau einmal je fertigem Lauf und haengt an der
+    // Antwort, zu der sie gehoert.
+    await wartetAufFertigenLauf(page, antwortenVorher + 1);
     await page.waitForTimeout(3000);
 
     const karten = await page.locator('[data-testid="datei-karte"]').count();
@@ -247,9 +282,15 @@ try {
     const metrik = page.locator('[data-testid="tokens-pro-sekunde"]').last();
     const metrikDa = (await metrik.count()) > 0;
     const metrikText = metrikDa ? (await metrik.innerText()).replace(/\s+/g, ' ') : '';
-    pruefe('E4: Gesamtdauer und Tempo stehen da', /min|s/.test(metrikText) && /tok\/s/.test(metrikText), metrikText);
+    pruefe(
+      'E4: Gesamtdauer und Tempo stehen da',
+      /min|s/.test(metrikText) && /tok\/s/.test(metrikText),
+      metrikText
+    );
 
-    const quellen = await page.locator('[data-testid="quellen"], [data-testid="quellen-leer"]').count();
+    const quellen = await page
+      .locator('[data-testid="quellen"], [data-testid="quellen-leer"]')
+      .count();
     pruefe('E8: die Antwort sagt, woher sie ihr Wissen hat', quellen > 0, `${quellen} Zeilen`);
   }
 
