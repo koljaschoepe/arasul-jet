@@ -179,6 +179,38 @@ class DatabaseManager:
                 result = cur.fetchone()
                 return dict(result) if result else None
 
+    def get_dokumente_ohne_anreicherung(self, limit: int = 5) -> list:
+        """
+        Fertig indexierte Dokumente, denen die Zusammenfassung noch fehlt
+        (Plan 023 G4).
+
+        Der Scan-Zyklus indexiert ohne Anreicherung, damit eine neue Datei
+        nicht hinter der Modell-Arbeit ihrer Vorgaenger wartet. Diese Abfrage
+        sagt, was danach nachzuholen ist.
+
+        Aeltestes zuerst: sonst blieben bei Dauerbetrieb genau die Dokumente
+        ewig ohne Zusammenfassung, die am laengsten darauf warten.
+
+        Args:
+            limit: hoechstens so viele Zeilen
+
+        Returns:
+            Liste aus id, filename und file_path (dem MinIO-Objektnamen)
+        """
+        with self.get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT id, filename, file_path
+                    FROM documents
+                    WHERE status = 'indexed'
+                      AND summary IS NULL
+                      AND deleted_at IS NULL
+                      AND file_path IS NOT NULL
+                    ORDER BY updated_at ASC
+                    LIMIT %s
+                """, (limit,))
+                return [dict(r) for r in cur.fetchall()]
+
     # PHASE1-FIX: Whitelist of allowed fields to prevent SQL injection
     ALLOWED_UPDATE_FIELDS = frozenset({
         'status', 'title', 'author', 'language', 'page_count',
