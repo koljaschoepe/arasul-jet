@@ -14,18 +14,23 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                               ├─ PostgreSQL 16 (migrations in services/postgres/init/)
                               ├─ MinIO (S3-compatible object storage)
                               ├─ Ollama / LLM-Service (:11434/:11436) [GPU]
-                              ├─ Embedding-Service (:11435) [GPU]
-                              ├─ Qdrant Vector DB (:6333)
                               ├─ Document-Indexer (:9102)
+                              ├─ SearXNG (Web-Suche der Agenten)
                               ├─ n8n Workflow Engine (:5678)
                               └─ Docker-Proxy → Self-Healing, Metrics, Backup
 ```
+
+**Läuft NICHT von selbst:** `qdrant` und `embedding-service`. Plan 021, Schritt
+8 hat das klassische Vektor-RAG durch agentisches ersetzt (grep, Symbolsuche,
+benanntes Datei-Lesen). Beide liegen im Compose-Profil `classic-rag` und starten
+nur auf Zuruf. Wer eine Doku findet, die sie als Teil des laufenden Geräts
+nennt, hat eine veraltete Doku gefunden — nachsehen mit `docker compose ps`.
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |
 | Frontend | React 19 + Vite 6 + Tailwind v4 + shadcn/ui + TypeScript          | `apps/dashboard-frontend/`                                    |
 | Backend  | Node.js/Express + PostgreSQL + WebSocket/SSE                      | `apps/dashboard-backend/`                                     |
-| AI       | Ollama (LLM) + BGE-M3 (embeddings) + Qdrant (vectors)             | `services/llm-service/`, `services/embedding-service/`        |
+| AI       | Ollama (LLM) + Textlayer-Indexer                                  | `services/llm-service/`, `services/document-indexer/`         |
 | Infra    | Docker Compose V2 + NVIDIA Container Runtime + Traefik v2.11      | `compose/`, `config/traefik/`                                 |
 | Ops      | Self-Healing Agent + Metrics Collector + Backup Service           | `services/self-healing-agent/`, `services/metrics-collector/` |
 | DB       | PostgreSQL 16 (sequential migrations; next = highest on disk + 1) | `services/postgres/init/`                                     |
@@ -80,7 +85,10 @@ review checklist, etc.) live under `.claude/context/`.
 ## Woran gerade gearbeitet wird
 
 **Der laufende Plan ist [`docs/plans/active/023-feature-audit/plan.md`](docs/plans/active/023-feature-audit/plan.md).**
-Elf Phasen A bis K, 61 Aufgaben. Eine Aufgabe gilt erst als erledigt, wenn ihre
+Stand: 22.08.2026. Quelle für jede Zahl unten ist der Plan selbst, nicht diese
+Seite.
+Elf Phasen A bis K, 64 Aufgaben (gezählt, nicht erinnert:
+`grep -c '^## [A-K][0-9]' docs/plans/active/023-feature-audit/plan.md`). Eine Aufgabe gilt erst als erledigt, wenn ihre
 Abnahme live auf dem Orin belegt ist, nicht wenn der Branch gemerged wurde.
 Der Stand jeder Phase steht in der Tabelle ganz oben im Plan selbst.
 
@@ -101,10 +109,11 @@ Themenspeicher auf derselben Seite stammt aus der Zeit **vor** Plan 023 und ist
 nicht der laufende Faden. Der Gate-Titel G4 sagt dort noch „Mandanten-Isolation",
 das Gate wurde am 19.08.2026 auf Geräte-Isolation umdefiniert.
 
-**Die vier Befehle** aus `CONTRIBUTING.md` §8 sind der Mechanismus, nicht die
-Quelle: `/plan` (Interview zu einer Planseite), `/work` (autonome Ausführung bis
-zum Live-Verify auf dem Jetson), `/audit` (Scan zu Befunden), `/status`
-(Lagebild). Nightly: `scripts/util/nightly-run.sh`.
+**Die vier Befehle** sind der Mechanismus, nicht die Quelle: `/plan` (Interview
+zu einer Planseite), `/work` (autonome Ausführung bis zum Live-Verify auf dem
+Jetson), `/audit` (Scan zu Befunden), `/status` (Lagebild). Sie liegen als
+Skills unter `.claude/skills/`, nicht als Befehle unter `.claude/commands/` —
+den Ordner gibt es nicht. Nightly: `scripts/util/nightly-run.sh`.
 
 ## Quick reference
 
@@ -143,25 +152,25 @@ make logs s=dashboard-backend                      # Logs via Make
 
 ## Documentation
 
-| Topic                  | File                                                                                                                                               |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Architecture           | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                                                       |
-| API reference          | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                                             |
-| API errors             | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                                                   |
-| Database schema        | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                                                         |
-| Design system          | [docs/development/DESIGN_SYSTEM.md](docs/development/DESIGN_SYSTEM.md)                                                                             |
-| Development            | [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md)                                                                                 |
-| Onboarding             | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                                                   |
-| Testing                | [docs/development/TESTING.md](docs/development/TESTING.md)                                                                                         |
-| Environment variables  | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                                                                                     |
-| Platform compatibility | [docs/features/PLATFORM_COMPATIBILITY.md](docs/features/PLATFORM_COMPATIBILITY.md)                                                                 |
-| Admin handbook         | [docs/ops/ADMIN_HANDBUCH.md](docs/ops/ADMIN_HANDBUCH.md) (DE)                                                                                      |
-| Deployment             | [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)                                                                                                   |
-| Troubleshooting        | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                                                         |
-| Backup & DR            | [docs/ops/BACKUP_SYSTEM.md](docs/ops/BACKUP_SYSTEM.md), [docs/ops/DISASTER_RECOVERY.md](docs/ops/DISASTER_RECOVERY.md)                             |
-| Integrations (n8n)     | [docs/integrations/N8N.md](docs/integrations/N8N.md) (operator), [docs/integrations/N8N_OVERVIEW.md](docs/integrations/N8N_OVERVIEW.md) (customer) |
-| Workspace              | [docs/features/WORKSPACE.md](docs/features/WORKSPACE.md) (Netzwerkmodi, Wissensraum, Claude-Login)                                                 |
-| Erweiterungs-Baukasten | [docs/features/EXTENSIONS.md](docs/features/EXTENSIONS.md) (Werkstatt, Paketformat, Fork/Download/Install)                                         |
-| Legal / DSGVO          | [docs/legal/](docs/legal/) (AVV-Vorlage, Datenschutz-Module, Drittland-Konnektoren)                                                                |
-| Full doc index         | [docs/INDEX.md](docs/INDEX.md)                                                                                                                     |
-| Contributing           | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                                                 |
+| Topic                  | File                                                                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture           | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                                                         |
+| API reference          | [docs/api/API_REFERENCE.md](docs/api/API_REFERENCE.md)                                                                                               |
+| API errors             | [docs/api/API_ERRORS.md](docs/api/API_ERRORS.md)                                                                                                     |
+| Database schema        | [docs/api/DATABASE_SCHEMA.md](docs/api/DATABASE_SCHEMA.md)                                                                                           |
+| Design system          | [docs/development/DESIGN_SYSTEM.md](docs/development/DESIGN_SYSTEM.md)                                                                               |
+| Development            | [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md)                                                                                   |
+| Onboarding             | [docs/development/ONBOARDING.md](docs/development/ONBOARDING.md)                                                                                     |
+| Testing                | [docs/development/TESTING.md](docs/development/TESTING.md)                                                                                           |
+| Environment variables  | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)                                                                                       |
+| Platform compatibility | [docs/features/PLATFORM_COMPATIBILITY.md](docs/features/PLATFORM_COMPATIBILITY.md)                                                                   |
+| Admin handbook         | [docs/ops/ADMIN_HANDBUCH.md](docs/ops/ADMIN_HANDBUCH.md) (DE)                                                                                        |
+| Deployment             | [docs/ops/DEPLOYMENT.md](docs/ops/DEPLOYMENT.md)                                                                                                     |
+| Troubleshooting        | [docs/ops/TROUBLESHOOTING.md](docs/ops/TROUBLESHOOTING.md)                                                                                           |
+| Backup & DR            | [docs/ops/BACKUP_SYSTEM.md](docs/ops/BACKUP_SYSTEM.md), [docs/ops/DISASTER_RECOVERY.md](docs/ops/DISASTER_RECOVERY.md)                               |
+| Integrations (n8n)     | [docs/integrations/N8N.md](docs/integrations/N8N.md) (operator), [docs/integrations/N8N_OVERVIEW.md](docs/integrations/N8N_OVERVIEW.md) (customer)   |
+| Workspace              | [docs/features/WORKSPACE.md](docs/features/WORKSPACE.md) (Netzwerkmodi, Wissensraum, Claude-Login)                                                   |
+| Erweiterungs-Baukasten | [docs/features/EXTENSIONS.md](docs/features/EXTENSIONS.md) (Werkstatt, Paketformat, Fähigkeiten `netz`/`tabellen`/`zeitplan`, Fork/Download/Install) |
+| Legal / DSGVO          | [docs/legal/](docs/legal/) (AVV-Vorlage, Datenschutz-Module, Drittland-Konnektoren)                                                                  |
+| Full doc index         | [docs/INDEX.md](docs/INDEX.md)                                                                                                                       |
+| Contributing           | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                                                   |
