@@ -41,6 +41,7 @@ const agentConfig = require('./agentConfig');
 const { parseTextToolCalls, enthaeltToolSyntax, ToolSyntaxFilter } = require('./textToolCalls');
 const { TodoListeTool, todoErinnerung, parseTodos } = require('./agentTodoTool');
 const { abbruchMelden, abbruchFesthalten, abbruchText, grundAusFehler } = require('./abbruchGrund');
+const { benenneNachLauf } = require('../chat/chatTitle');
 
 /**
  * Wie lange ein Modell-Strom stumm bleiben darf, in zwei Faellen (Plan 023 E2).
@@ -2150,6 +2151,22 @@ async function processAgentChatJob(ctx, job) {
   // Wissens-Spiegel übernehmen (statt auf den nächsten Sync-Takt zu warten).
   if (projectId) {
     require('../projects/ordnerSyncService').trigger(projectId);
+  }
+
+  // Plan 023 E5: der Chat bekommt einen Namen nach dem, was getan wurde.
+  //
+  // NACH der Antwort und ohne await: der Nutzer wartet nie auf eine
+  // Ueberschrift. Und mit DEMSELBEN Modell, das gerade gelaufen ist; es liegt
+  // im Speicher, ein anderes zu nehmen hiesse es zu entladen und wieder zu
+  // laden, gemessen 6 bis 30 Sekunden fuer eine Zeile.
+  if (!abgebrochen) {
+    benenneNachLauf({
+      conversationId: job.conversation_id,
+      modell: ollamaModel,
+      frage: letzteNachricht,
+      antwort: fertigText,
+      dateien: dateien.map(d => d.pfad).filter(Boolean),
+    }).catch(err => log.debug(`[TITEL] Job ${jobId}: ${err.message}`));
   }
 
   const { onJobComplete } = require('./llmOllamaStream');

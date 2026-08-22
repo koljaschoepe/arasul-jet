@@ -732,6 +732,14 @@
 | `preferred_model`          | character varying        | ✅       | `NULL::character varying`                  |
 | `preferred_space_id`       | uuid                     | ✅       |                                            |
 | `user_id`                  | bigint                   | ⛔       |                                            |
+| `titel_bei_nachrichten`    | integer                  | ✅       |                                            |
+| `titel_quelle`             | character varying        | ✅       |                                            |
+
+Die beiden `titel_*`-Spalten kommen aus Migration 155 (Plan 023 E5).
+`titel_quelle` ist `vorgabe`, `frage` oder `lauf`; **NULL bedeutet von Hand
+vergeben und wird nie überschrieben.** `titel_bei_nachrichten` hält fest, bei
+welchem Stand der Titel entstand: verdoppelt sich `message_count` seitdem, ist
+ein neuer fällig. Das braucht weder eine Uhr noch eine zweite Tabelle.
 
 **Primary key:** `id`
 

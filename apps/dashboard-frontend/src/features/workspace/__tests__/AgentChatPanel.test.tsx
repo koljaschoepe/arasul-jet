@@ -212,7 +212,9 @@ describe('AgentChatPanel', () => {
     chatContext.globalQueue = { pending_count: 1, processing: null, queue: [] };
     try {
       renderPanel();
-      await waitFor(() => expect(screen.getByText('Arasul denkt nach …')).toBeInTheDocument());
+      // Plan 023 E5: der Kopf traegt den Chatnamen, nicht den Zustand. Bei
+      // einem einzigen wartenden Auftrag erscheint kein Warteschlangenhinweis.
+      await waitFor(() => expect(screen.getByText('Neuer Chat')).toBeInTheDocument());
       expect(screen.queryByTestId('queue-hinweis')).not.toBeInTheDocument();
     } finally {
       chatContext.getBackgroundLoading.mockReturnValue(false);
