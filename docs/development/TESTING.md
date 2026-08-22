@@ -25,6 +25,33 @@ The ARASUL Platform uses a multi-layered testing approach to ensure reliability 
 - **Docker Build Tests**: Validate all container images build successfully
 - **Dependency Tests**: Validate Docker Compose dependency chain
 - **Security Scans**: Scan for vulnerabilities in dependencies and containers
+- **Wächter**: halten Zusagen, die kein Unit-Test halten kann (siehe unten)
+
+### Die Wächter
+
+Ein Unit-Test prüft eine Funktion. Ein Wächter prüft eine **Zusage über das
+Repo**, die still bricht, ohne dass ein Test rot wird: eine Doku, die auf eine
+gewanderte Datei zeigt, eine Stellschraube, die den Container nie erreicht,
+eine Route, deren Schema niemand exportiert hat. Sie laufen bei jedem
+`./scripts/test/run-tests.sh` mit, unabhängig von der gewählten Auswahl.
+
+| Wächter              | Was er hält                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `anleitungen.py`     | README und CLAUDE.md gegen den Code: Links, Pfade, CLI-Befehle, Make-Ziele, und ob ein Dienst hinter einem compose-Profil als laufend beschrieben wird |
+| `bausteine.py`       | Das Komponentenset der Oberfläche                                                                                                                      |
+| `durchreichung.py`   | Jede dokumentierte Stellschraube erreicht den Container über `compose/`                                                                                |
+| `einheiten.py`       | Eine Rechnung je Zählweise, keine zwei Zahlen für dasselbe                                                                                             |
+| `endpunkte.py`       | Jeder Endpunkt im Code hat eine Zeile in der Schnittstellendoku                                                                                        |
+| `gedankenstriche.py` | Keine Gedankenstriche als Trenner                                                                                                                      |
+| `geruest-regeln.py`  | Werkstatt und Backend kennen dieselben Fähigkeiten                                                                                                     |
+| `modellnamen.py`     | Modellnamen kommen aus der Live-Quelle, nicht aus dem Gedächtnis                                                                                       |
+| `plan-faden.py`      | Genau ein Plan unter `docs/plans/active/`                                                                                                              |
+| `toter-code.sh`      | Keine Datei ohne Importeur                                                                                                                             |
+
+**Jeder Wächter hat einen Selbsttest.** `waechter-selbsttest.sh` baut einen
+kleinen Baum, in dem der Fall wirklich vorliegt, und prüft beide Richtungen:
+grün, wenn alles stimmt, und rot, wenn es nicht stimmt. Ein Wächter, der immer
+grün ist, belegt nichts.
 
 ### Testing Frameworks
 
