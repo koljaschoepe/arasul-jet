@@ -106,7 +106,14 @@ describe('Extension-Toggle live (gemeinsamer Query-Cache)', () => {
     );
   });
 
-  it('Deaktivieren schließt den offenen Mitte-Tab der App im selben Zug', async () => {
+  /**
+   * Seit Plan 023 H5 fragt das Ausschalten EINMAL nach, wenn dabei Tabs
+   * zugehen. Vorher schloss der Schalter sie wortlos; wer in einem
+   * n8n-Workflow mitten in einer Eingabe stand, verlor sie ohne Vorwarnung.
+   * Der Rest bleibt: nach dem Bestaetigen geht der Tab zu, und der Fokus
+   * landet auf dem verbliebenen.
+   */
+  it('Deaktivieren fragt nach und schließt danach den Mitte-Tab der App', async () => {
     const user = userEvent.setup();
     useWorkspaceStore.setState({
       tabs: [
@@ -118,6 +125,12 @@ describe('Extension-Toggle live (gemeinsamer Query-Cache)', () => {
     renderExtensions();
 
     await user.click(await screen.findByRole('switch', { name: 'n8n deaktivieren' }));
+
+    // Erst die Rueckfrage, und der Tab steht noch.
+    expect(await screen.findByText('Erweiterung ausblenden?')).toBeInTheDocument();
+    expect(useWorkspaceStore.getState().tabs).toHaveLength(2);
+
+    await user.click(screen.getByText('Ausblenden'));
 
     await waitFor(() =>
       expect(useWorkspaceStore.getState().tabs.map(t => t.id)).toEqual(['erweiterungen'])

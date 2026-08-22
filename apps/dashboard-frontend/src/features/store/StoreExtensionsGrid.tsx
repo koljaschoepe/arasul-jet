@@ -20,6 +20,9 @@ import { useExtensionStore } from '@/stores/extensionStore';
 import { useStoreFilterStore } from '@/stores/storeFilterStore';
 import { useExtensions } from '@/hooks/useExtensions';
 import type { InstalledExtension } from '@/hooks/useExtensions';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { ConfirmModal } from '@/components/ui/Modal';
+import { betroffeneTabs, schalterText, schliessFrage } from './schalter';
 import {
   applyExtensionFilters,
   extensionQueryMatches,
@@ -37,8 +40,12 @@ function ExtensionCard({
   const toast = useToast();
   const selectExtension = useExtensionStore(s => s.selectExtension);
   const [busy, setBusy] = useState(false);
+  // Offene Tabs, die das Ausschalten schließen würde (Plan 023 H5). null =
+  // keine Rückfrage nötig oder gerade keine offen.
+  const [frage, setFrage] = useState<number | null>(null);
+  const tabs = useWorkspaceStore(s => s.tabs);
 
-  const handleToggle = async (checked: boolean) => {
+  const schalten = async (checked: boolean) => {
     if (busy) return;
     setBusy(true);
     try {
@@ -49,6 +56,19 @@ function ExtensionCard({
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleToggle = async (checked: boolean) => {
+    // Nur beim AUSschalten fragen, und nur, wenn dabei wirklich etwas zugeht.
+    // Eine Rückfrage ohne Folgen ist ein Klick, den niemand braucht.
+    if (!checked) {
+      const offen = betroffeneTabs(tabs, { tabTyp: app.tab }).length;
+      if (offen > 0) {
+        setFrage(offen);
+        return;
+      }
+    }
+    await schalten(checked);
   };
 
   return (
@@ -84,7 +104,7 @@ function ExtensionCard({
 
       <div className="flex items-center justify-between border-t border-border p-3">
         <span className="text-xs font-medium text-muted-foreground">
-          {app.enabled ? 'Im Workspace sichtbar' : 'Im Workspace ausgeblendet'}
+          {schalterText(app.enabled)}
         </span>
         <Switch
           checked={app.enabled}
@@ -93,6 +113,19 @@ function ExtensionCard({
           onCheckedChange={handleToggle}
         />
       </div>
+
+      <ConfirmModal
+        isOpen={frage !== null}
+        title="Erweiterung ausblenden?"
+        message={schliessFrage(app.name, frage ?? 0)}
+        confirmText="Ausblenden"
+        cancelText="Abbrechen"
+        onClose={() => setFrage(null)}
+        onConfirm={async () => {
+          setFrage(null);
+          await schalten(false);
+        }}
+      />
     </div>
   );
 }
@@ -112,18 +145,41 @@ function InstalledExtensionCard({
   const toast = useToast();
   const selectExtension = useExtensionStore(s => s.selectExtension);
   const [busy, setBusy] = useState(false);
+  const [frage, setFrage] = useState<number | null>(null);
+  const tabs = useWorkspaceStore(s => s.tabs);
+  const closeTab = useWorkspaceStore(s => s.closeTab);
 
-  const handleToggle = async (checked: boolean) => {
+  const schalten = async (checked: boolean) => {
     if (busy) return;
     setBusy(true);
     try {
       await onToggle(ext.id, checked);
-      toast.success(checked ? `${ext.name} aktiviert` : `${ext.name} deaktiviert`);
+      // Beim Ausschalten die eigenen Tabs schließen. Vorher blieb der Tab einer
+      // ausgeblendeten Erweiterung offen stehen — er zeigte etwas, das laut
+      // Schalter gar nicht mehr da ist. Kern-Apps machen das seit jeher
+      // (useWorkspaceApps.setAppEnabled), Pakete nicht.
+      if (!checked) {
+        for (const tab of betroffeneTabs(tabs, { extensionId: ext.id })) {
+          closeTab(tab.id);
+        }
+      }
+      toast.success(checked ? `${ext.name} aktiviert` : `${ext.name} im Workspace ausgeblendet`);
     } catch {
       toast.error('Änderung konnte nicht gespeichert werden');
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleToggle = async (checked: boolean) => {
+    if (!checked) {
+      const offen = betroffeneTabs(tabs, { extensionId: ext.id }).length;
+      if (offen > 0) {
+        setFrage(offen);
+        return;
+      }
+    }
+    await schalten(checked);
   };
 
   return (
@@ -165,12 +221,18 @@ function InstalledExtensionCard({
           <Badge variant="outline" className="h-5 px-1.5 text-ui-xs text-muted-foreground">
             v{ext.version}
           </Badge>
+          {/* Die Herkunft stand vorher neben dem Schalter und las sich wie
+              dessen Beschriftung. Sie ist ein Merkmal und gehört hierher
+              (Plan 023 H5). */}
+          <Badge variant="outline" className="h-5 px-1.5 text-ui-xs text-muted-foreground">
+            {ext.source === 'built' ? 'Selbst gebaut' : 'Importiert'}
+          </Badge>
         </div>
       </button>
 
       <div className="flex items-center justify-between border-t border-border p-3">
         <span className="text-xs font-medium text-muted-foreground">
-          {ext.source === 'built' ? 'Selbst gebaut' : 'Importiert'}
+          {schalterText(ext.enabled)}
         </span>
         <Switch
           checked={ext.enabled}
@@ -179,6 +241,19 @@ function InstalledExtensionCard({
           onCheckedChange={handleToggle}
         />
       </div>
+
+      <ConfirmModal
+        isOpen={frage !== null}
+        title="Erweiterung ausblenden?"
+        message={schliessFrage(ext.name, frage ?? 0)}
+        confirmText="Ausblenden"
+        cancelText="Abbrechen"
+        onClose={() => setFrage(null)}
+        onConfirm={async () => {
+          setFrage(null);
+          await schalten(false);
+        }}
+      />
     </div>
   );
 }
