@@ -3893,6 +3893,27 @@ ohne Pull Request.
 **Abnahme:** `roadmap/ROADMAP.html` neu gebaut, kein Plan mehr im falschen
 Zustand, das DGX-Ziel steht mit Frist.
 
+### Was hier ging und was nicht
+
+Die Abnahme hat zwei Hälften in zwei Repos.
+
+**Hier erledigt (22.08.2026):** `docs/plans/paused/README.md` sagt jetzt für
+beide Pläne, was sie sind. 021 ist **abgeschlossen mit benannter Abweichung**:
+der Engine-Wechsel auf SGLang (Schritt 3) hat nicht stattgefunden, Phase D
+dieses Plans hat auf dem vorhandenen Ollama-Pfad gearbeitet. Was von Schritt 3
+übrig ist, ist die engine-bewusste Sicht in `GET /api/llm/models` — die
+Abstraktion existiert, der Wechsel wurde nie vollzogen. 020 ist
+**teilgeliefert**: das Mess-Harness steht und misst auf jeder Hardware, der
+Rest hängt an der DGX-Entscheidung.
+
+Ein ruhender Plan wartet darauf, wiederaufgenommen zu werden. Diese beiden
+warten nicht — deshalb der andere Zustand.
+
+**Nicht hier:** `roadmap/ROADMAP.html` und das Ziel J4 liegen im Steuer-Repo
+(`Arasul-GmbH/arasul-os`). Von dieser Sitzung aus wird dort nichts geschrieben;
+das ist Sache einer Sitzung in jenem Ordner. Der Teil der Abnahme bleibt offen,
+und zwar sichtbar, statt hier als erledigt zu gelten.
+
 ## K3 README und Arbeitsanleitungen
 
 Nach dem Umbau stimmt vieles nicht mehr: die Legacy-Shell ist weg, der
