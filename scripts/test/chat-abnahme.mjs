@@ -170,6 +170,43 @@ try {
     pruefe('E6: Datei-Auswahl vorhanden', false, 'kein input[type=file]');
   }
 
+  // --- E4 und E8: an einem fertigen Lauf mit geaenderten Dateien -----------
+  // Der Verlauf wird ueber die Chatliste geoeffnet; welcher Chat das ist, sagt
+  // ARASUL_ABNAHME_CHAT. Ohne die Variable wird dieser Teil uebersprungen,
+  // denn ein Lauf mit drei geaenderten Dateien laesst sich nicht nebenbei
+  // erzeugen: er dauert Minuten und belegt die GPU.
+  const abnahmeChat = process.env.ARASUL_ABNAHME_CHAT;
+  if (abnahmeChat) {
+    await page.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    await page.evaluate(id => localStorage.setItem('arasul_panel_chat_id', id), abnahmeChat);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(8000);
+
+    const karten = await page.locator('[data-testid="datei-karte"]').count();
+    pruefe('E4: die geaenderten Dateien stehen als Karten da', karten >= 3, `${karten} Karten`);
+
+    const schalter = page.locator('[data-testid="datei-diff-schalter"]');
+    const schalterZahl = await schalter.count();
+    pruefe('E4: jede Karte traegt einen Vergleich', schalterZahl >= 3, `${schalterZahl} Schalter`);
+    if (schalterZahl >= 3) {
+      for (let i = 0; i < 3; i++) {
+        await schalter.nth(i).click();
+        await page.waitForTimeout(1200);
+      }
+      const offen = await page.locator('[data-testid="datei-diff-zeilen"]').count();
+      pruefe('E4: drei Vergleiche klappen auf', offen >= 3, `${offen} offen`);
+    }
+
+    const metrik = page.locator('[data-testid="tokens-pro-sekunde"]').last();
+    const metrikDa = (await metrik.count()) > 0;
+    const metrikText = metrikDa ? (await metrik.innerText()).replace(/\s+/g, ' ') : '';
+    pruefe('E4: Gesamtdauer und Tempo stehen da', /min|s/.test(metrikText) && /tok\/s/.test(metrikText), metrikText);
+
+    const quellen = await page.locator('[data-testid="quellen"], [data-testid="quellen-leer"]').count();
+    pruefe('E8: die Antwort sagt, woher sie ihr Wissen hat', quellen > 0, `${quellen} Zeilen`);
+  }
+
   await page.screenshot({ path: '/tmp/abnahme-chat.png' });
 } catch (err) {
   pruefe('Durchlauf ohne Ausnahme', false, String(err.message).slice(0, 200));
