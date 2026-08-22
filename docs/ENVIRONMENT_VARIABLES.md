@@ -585,9 +585,10 @@ dessen Kopfdaten (`grenzen.werkzeug_runden` / `grenzen.zeitlimit_s`), nicht aus
 einer Umgebungsvariablen. Steuerbar per Env ist nur das Zeitlimit je einzelnem
 Modell-Aufruf:
 
-| Variable            | Default | Description                                                                                                                                                                                                                 |
-| ------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FLOW_LLM_TIMEOUT_MS | 120000  | Wie lange eine Modell-Runde stumm bleiben darf, bevor der Lauf als tot gilt. Gilt fuer Fluesse UND fuer den Chat-Agenten. Seit 22.08.2026 in `compose.app.yaml` durchgereicht; davor bewirkte ein Wert in der `.env` nichts |
+| Variable                    | Default | Description                                                                                                                                                                                                                                                                                                                              |
+| --------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FLOW_LLM_TIMEOUT_MS         | 120000  | Wie lange eine Modell-Runde ZWISCHEN zwei Woertern stumm bleiben darf. Gilt fuer Fluesse UND fuer den Chat-Agenten. Seit 22.08.2026 in `compose.app.yaml` durchgereicht; davor bewirkte ein Wert in der `.env` nichts                                                                                                                    |
+| FLOW_LLM_VORLAUF_TIMEOUT_MS | 300000  | Wie lange eine Runde VOR ihrem ersten Wort stumm bleiben darf, waehrend Modellladung und Vorverarbeitung laufen. Getrennt seit 22.08.2026: bei vollem Zusammenhang dauert die Vorverarbeitung auf dem Orin gemessen bis zu 119 Sekunden, und eine gemeinsame Grenze von 120 Sekunden liess lange Laeufe an ihrer eigenen Groesse sterben |
 
 ### Chat-Agent (Harness v2, 2026-07-30, `services/llm/agentConfig.js`)
 

@@ -399,3 +399,67 @@ describe('istToolsNichtUnterstuetzt (Plan 023 E2)', () => {
     expect(() => istToolsNichtUnterstuetzt({ message: 'x', response: { data: ring } })).not.toThrow();
   });
 });
+
+/**
+ * Plan 023 E2: zwei Grenzen statt einer.
+ *
+ * Am 22.08.2026 auf dem Orin gemessen, Job 6153f7c8: ein Agent-Lauf starb nach
+ * 15:39 Minuten daran, dass das Modell 121 Sekunden lang nichts schickte. Bei
+ * 31 267 Token Zusammenhang ist das keine Stoerung, sondern die Rechenzeit der
+ * Vorverarbeitung. Die eine gemeinsame Grenze von 120 Sekunden lag genau auf
+ * der Kante des erlaubten Falls.
+ */
+describe('streamChatRound und die zwei Wartezeiten (Plan 023 E2)', () => {
+  test('gibt vor dem ersten Wort mehr Zeit als zwischen zwei Woertern', async () => {
+    jest.useFakeTimers();
+    try {
+      const stream = new PassThrough();
+      axios.post.mockResolvedValueOnce({ data: stream });
+      const lauf = streamChatRound({ model: 'x', messages: [], tools: [], onToken: () => {} });
+      const gefangen = lauf.catch(err => err);
+
+      // Ollama oeffnet den Strom sofort und schweigt dann, solange es den
+      // Prompt verarbeitet. Ein leerer Block ist noch kein Wort.
+      stream.write(`${JSON.stringify({ message: {} })}\n`);
+      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(150_000);
+      // Nach 150 Sekunden ohne Wort laeuft der Lauf noch: die grosszuegige
+      // Grenze gilt, weil die Runde ihr erstes Wort noch nicht hatte.
+      let fertig = false;
+      void gefangen.then(() => {
+        fertig = true;
+      });
+      await Promise.resolve();
+      expect(fertig).toBe(false);
+
+      // Jetzt kommt das erste Wort. Ab hier gilt die strenge Grenze.
+      stream.write(`${JSON.stringify({ message: { content: 'Hallo' } })}\n`);
+      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(130_000);
+      const err = await gefangen;
+      expect(String(err.message)).toMatch(/120s ohne Daten/);
+    } finally {
+      jest.useRealTimers();
+    }
+  }, 20000);
+
+  test('bricht vor dem ersten Wort ab, wenn auch die grosse Grenze reisst', async () => {
+    jest.useFakeTimers();
+    try {
+      const stream = new PassThrough();
+      axios.post.mockResolvedValueOnce({ data: stream });
+      const lauf = streamChatRound({ model: 'x', messages: [], tools: [], onToken: () => {} });
+      const gefangen = lauf.catch(err => err);
+      // In Schritten vorspulen: zwischen `haltezeit()` und dem Aufbau des
+      // Stroms liegen mehrere Mikro-Aufgaben, und ein einziger grosser Sprung
+      // laesst sie nicht dazwischen laufen.
+      for (let i = 0; i < 32; i++) {
+        await jest.advanceTimersByTimeAsync(10_000);
+      }
+      const err = await gefangen;
+      expect(String(err.message)).toMatch(/300s ohne Daten/);
+    } finally {
+      jest.useRealTimers();
+    }
+  }, 20000);
+});
