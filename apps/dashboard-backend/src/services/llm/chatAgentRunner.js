@@ -2072,6 +2072,11 @@ async function processAgentChatJob(ctx, job) {
       prompt_tokens: vorlaufErsteRunde,
       prompt_tokens_total: vorlaufGesamt,
       prompt_ms: Math.round(vorlaufDauerErsteNs / 1e6),
+      // Plan 023 E4: die Gesamtdauer des Laufs, von der Annahme des Auftrags
+      // bis hierher. Etwas anderes als `tokens_per_second`: darin steckt nur
+      // die reine Erzeugungszeit, nicht das Warten auf Werkzeuge, Subagenten
+      // und das Laden des Modells. Der Nutzer erlebt aber diese Zahl.
+      dauer_ms: Date.now() - laufBegonnen,
     },
     timestamp: new Date().toISOString(),
   });

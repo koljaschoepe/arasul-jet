@@ -12,6 +12,7 @@ import {
   ChevronRight,
   FilePlus2,
   FileText,
+  Clock,
   Gauge,
   ListTodo,
   Paperclip,
@@ -24,7 +25,8 @@ import type { AgentToolStep, ChatMessage, MessageDatei, TodoEintrag } from '@/co
 import type { DocumentSource } from '@/types';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
-import { Denkzeile } from './Denkzeile';
+import { Denkzeile, dauerText } from './Denkzeile';
+import { DateiDiff } from './DateiDiff';
 import { agentStepLabel, agentStepIcon } from './schrittText';
 
 /** Einklappbare Ein-Zeilen-Row für Denk-/Tool-Schritte. */
@@ -86,15 +88,12 @@ function DenkTicker({
   thinking,
   live,
   seconds,
-  tokensPerSecond,
 }: {
   thinking: string;
   /** Läuft die Denkphase gerade (Tokens kommen noch)? */
   live: boolean;
   /** Gemessene Denkdauer in Sekunden (nach Abschluss). */
   seconds?: number;
-  /** Tokens/Sekunde des Laufs (nach Abschluss). */
-  tokensPerSecond?: number;
 }) {
   const [open, setOpen] = useState(false);
   const letzteZeile = useMemo(() => {
@@ -135,15 +134,6 @@ function DenkTicker({
         ) : (
           <span className="flex-1" />
         )}
-        {tokensPerSecond != null && tokensPerSecond > 0 && (
-          <span
-            className="flex shrink-0 items-center gap-1 opacity-70"
-            data-testid="tokens-pro-sekunde"
-          >
-            <Gauge className="size-3" />
-            {tokensPerSecond} tok/s
-          </span>
-        )}
         <ChevronRight className={cn('size-3 shrink-0 transition-transform', open && 'rotate-90')} />
       </button>
       {open && (
@@ -156,15 +146,34 @@ function DenkTicker({
 }
 
 /** Kleiner Lauf-Metrik-Chip: Tokens/Sekunde ohne Denkphase (Plan 022). */
-function LaufMetrik({ tokensPerSecond }: { tokensPerSecond?: number }) {
-  if (tokensPerSecond == null || tokensPerSecond <= 0) return null;
+function LaufMetrik({
+  tokensPerSecond,
+  durationMs,
+}: {
+  tokensPerSecond?: number;
+  /** Gesamtdauer des Laufs (Plan 023 E4). */
+  durationMs?: number;
+}) {
+  const hatTempo = tokensPerSecond != null && tokensPerSecond > 0;
+  const hatDauer = durationMs != null && durationMs > 0;
+  if (!hatTempo && !hatDauer) return null;
   return (
     <div
-      className="mt-0.5 flex items-center gap-1 px-1 text-[11px] text-muted-foreground"
+      className="mt-0.5 flex items-center gap-2 px-1 text-[11px] text-muted-foreground"
       data-testid="tokens-pro-sekunde"
     >
-      <Gauge className="size-3" />
-      {tokensPerSecond} tok/s
+      {hatDauer && (
+        <span className="flex items-center gap-1" data-testid="lauf-dauer">
+          <Clock className="size-3" />
+          {dauerText(Math.round(durationMs / 1000))}
+        </span>
+      )}
+      {hatTempo && (
+        <span className="flex items-center gap-1">
+          <Gauge className="size-3" />
+          {tokensPerSecond} tok/s
+        </span>
+      )}
     </div>
   );
 }
@@ -638,6 +647,30 @@ function DateiKarte({ datei }: { datei: MessageDatei }) {
   );
 }
 
+/**
+ * Karte plus Vergleich (Plan 023 E4).
+ *
+ * Die Karte selbst bleibt ein Knopf, der die Datei oeffnet; der Vergleich ist
+ * ein zweiter, unabhaengiger Knopf DARUNTER. Ineinander verschachtelte Knoepfe
+ * waeren ungueltiges HTML, und der Klick auf den inneren wuerde den aeusseren
+ * mit ausloesen: der Vergleich haette jedes Mal einen Tab geoeffnet.
+ */
+function DateiBlock({ datei }: { datei: MessageDatei }) {
+  const zeigtVergleich = Boolean(datei.project_id && datei.pfad) && datei.aenderung !== 'geloescht';
+  return (
+    <div>
+      <DateiKarte datei={datei} />
+      {zeigtVergleich && (
+        <DateiDiff
+          projectId={datei.project_id!}
+          pfad={datei.pfad!}
+          neu={datei.aenderung === 'neu'}
+        />
+      )}
+    </div>
+  );
+}
+
 interface CompactMessageProps {
   message: ChatMessage;
   isStreaming: boolean;
@@ -734,7 +767,6 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
               thinking={message.thinking || ''}
               live={false}
               seconds={message.thinkingSeconds}
-              tokensPerSecond={message.tokensPerSecond}
             />
           )}
         </>
@@ -764,7 +796,7 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
             </div>
           )}
           {gespeicherteDateien.map((d, i) => (
-            <DateiKarte key={`${d.pfad}-${i}`} datei={d} />
+            <DateiBlock key={`${d.pfad}-${i}`} datei={d} />
           ))}
           {message.content && message.content.length > 600 && (
             <>
@@ -798,7 +830,13 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
 
       {/* Tokens/Sekunde am Ende — ohne Denkphase steht die Metrik eigenständig
           (mit Denkphase trägt sie der „Nachgedacht"-Chip). */}
-      {!isStreaming && !hasThinking && <LaufMetrik tokensPerSecond={message.tokensPerSecond} />}
+      {/* Plan 023 E4: Dauer und Tempo stehen an EINER Stelle, unabhaengig
+          davon, ob der Lauf gedacht hat. Vorher zeigte sie der Denk-Ticker,
+          wenn es eine Denkphase gab, und diese Zeile sonst; die Gesamtdauer
+          waere damit je nach Modell mal da und mal weg. */}
+      {!isStreaming && (
+        <LaufMetrik tokensPerSecond={message.tokensPerSecond} durationMs={message.durationMs} />
+      )}
 
       {message.sources && message.sources.length > 0 && <SourcesFooter sources={message.sources} />}
 

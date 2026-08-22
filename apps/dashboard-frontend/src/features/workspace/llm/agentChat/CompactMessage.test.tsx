@@ -206,3 +206,58 @@ describe('Denk-Ticker (Plan 022)', () => {
     expect(screen.getByTestId('tokens-pro-sekunde')).toHaveTextContent('55 tok/s');
   });
 });
+
+/**
+ * Plan 023 E4: Dauer und Tempo je Antwort, an EINER Stelle.
+ *
+ * Vorher zeigte der Denk-Ticker die Tokens je Sekunde, wenn es eine Denkphase
+ * gab, und eine eigene Zeile sonst. Die Gesamtdauer wäre damit je nach Modell
+ * mal da und mal weg gewesen.
+ */
+describe('Lauf-Metrik (Plan 023 E4)', () => {
+  it('zeigt Gesamtdauer und Tempo nebeneinander', () => {
+    render(
+      <CompactMessage
+        isStreaming={false}
+        message={nachricht({ content: 'Fertig.', tokensPerSecond: 42, durationMs: 84_000 })}
+      />
+    );
+    const metrik = screen.getByTestId('tokens-pro-sekunde');
+    expect(metrik).toHaveTextContent('84 s');
+    expect(metrik).toHaveTextContent('42 tok/s');
+  });
+
+  it('zeigt die Dauer auch mit Denkphase, wo sie vorher verschwand', () => {
+    render(
+      <CompactMessage
+        isStreaming={false}
+        message={nachricht({
+          content: 'Fertig.',
+          thinking: 'Gedankengang.',
+          hasThinking: true,
+          thinkingCollapsed: true,
+          thinkingSeconds: 12,
+          tokensPerSecond: 42,
+          durationMs: 125_000,
+        })}
+      />
+    );
+    expect(screen.getByTestId('lauf-dauer')).toHaveTextContent('2:05 min');
+    expect(screen.getByTestId('denk-ticker')).toHaveTextContent('Nachgedacht · 12s');
+  });
+
+  it('zeigt nichts, solange keine der beiden Zahlen da ist', () => {
+    render(<CompactMessage isStreaming={false} message={nachricht({ content: 'Kurz.' })} />);
+    expect(screen.queryByTestId('tokens-pro-sekunde')).not.toBeInTheDocument();
+  });
+
+  it('zeigt während des Laufs keine Endzahlen', () => {
+    render(
+      <CompactMessage
+        isStreaming
+        message={nachricht({ content: 'Halb', tokensPerSecond: 42, durationMs: 5000 })}
+      />
+    );
+    expect(screen.queryByTestId('tokens-pro-sekunde')).not.toBeInTheDocument();
+  });
+});

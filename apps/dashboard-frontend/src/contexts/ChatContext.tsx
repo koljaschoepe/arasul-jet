@@ -119,6 +119,14 @@ export interface ChatMessage {
   thinkingSeconds?: number;
   /** Tokens/Sekunde des Laufs aus dem done-Event (Plan 022) — am Ende angezeigt. */
   tokensPerSecond?: number;
+  /**
+   * Gesamtdauer des Laufs in Millisekunden (Plan 023 E4).
+   *
+   * Etwas anderes als `tokensPerSecond`: darin steckt nur die reine
+   * Erzeugungszeit, nicht das Warten auf Werkzeuge, Subagenten und das Laden
+   * des Modells. Der Nutzer erlebt aber diese Zahl.
+   */
+  durationMs?: number;
   sources?: DocumentSource[];
   sourcesCollapsed?: boolean;
   status?: string;
@@ -157,7 +165,11 @@ export function dateiListe(datei: ChatMessage['datei']): MessageDatei[] {
 function uebertrageLaufMetriken(prev: ChatMessage[], geladen: ChatMessage[]): ChatMessage[] {
   const live = [...prev]
     .reverse()
-    .find(m => m.role === 'assistant' && (m.tokensPerSecond != null || m.thinkingSeconds != null));
+    .find(
+      m =>
+        m.role === 'assistant' &&
+        (m.tokensPerSecond != null || m.thinkingSeconds != null || m.durationMs != null)
+    );
   if (!live) return geladen;
   let zielIdx = -1;
   for (let i = geladen.length - 1; i >= 0; i--) {
@@ -172,6 +184,7 @@ function uebertrageLaufMetriken(prev: ChatMessage[], geladen: ChatMessage[]): Ch
   kopie[zielIdx] = {
     ...ziel,
     ...(live.tokensPerSecond != null ? { tokensPerSecond: live.tokensPerSecond } : {}),
+    ...(live.durationMs != null ? { durationMs: live.durationMs } : {}),
     ...(live.thinkingSeconds != null ? { thinkingSeconds: live.thinkingSeconds } : {}),
   };
   return kopie;
@@ -1613,12 +1626,17 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                 // Plan 022 — Tokens/Sekunde des Laufs am Abschluss festhalten
                 // (Backend liefert sie im done-Event unter performance).
                 const tps = Number(data.performance?.tokens_per_second);
-                if (Number.isFinite(tps) && tps > 0) {
+                const dauer = Number(data.performance?.dauer_ms);
+                if ((Number.isFinite(tps) && tps > 0) || (Number.isFinite(dauer) && dauer > 0)) {
                   updateMessages(chatId, prev => {
                     const u = [...prev];
                     const cur = u[assistantMessageIndex];
                     if (cur) {
-                      u[assistantMessageIndex] = { ...cur, tokensPerSecond: tps };
+                      u[assistantMessageIndex] = {
+                        ...cur,
+                        ...(Number.isFinite(tps) && tps > 0 ? { tokensPerSecond: tps } : {}),
+                        ...(Number.isFinite(dauer) && dauer > 0 ? { durationMs: dauer } : {}),
+                      };
                     }
                     return u;
                   });
