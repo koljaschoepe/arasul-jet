@@ -11,6 +11,7 @@
  * So liegt die gesamte Tastatur-Logik an EINER Stelle (im Eingabefeld), und das
  * Menü muss nur zeichnen und Mausklicks melden.
  */
+import { useEffect, useRef } from 'react';
 import { FilePlus2, List, Pencil, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Flow } from '@/types/flows';
@@ -22,6 +23,9 @@ export const FLOW_COMMANDS = [
 ] as const;
 
 export type FlowCommandName = (typeof FLOW_COMMANDS)[number]['name'];
+
+/** Ab so vielen Buchstaben sucht das Menue auch in der Mitte eines Namens. */
+const MIN_ENTHAELT = 3;
 
 export type FlowMenuItem =
   | { kind: 'flow'; name: string; beschreibung: string; flow: Flow }
@@ -36,20 +40,38 @@ export type FlowMenuItem =
  */
 export function buildMenuItems(query: string, flows: Flow[]): FlowMenuItem[] {
   const q = query.trim().toLowerCase();
-  const passt = (name: string) => name.toLowerCase().startsWith(q);
+  const beginnt = (name: string) => name.toLowerCase().startsWith(q);
+  // Plan 023 E7: enthaelt, aber NACH beginnt und erst ab drei Buchstaben.
+  //
+  // Ein Befehlsmenue soll vorne treffen, sonst springt die Auswahl beim
+  // Tippen. Wer aber "recherche-lang" sucht und "lang" tippt, fand bisher
+  // nichts, und drei Buchstaben aus der Mitte sind eine normale Art zu suchen.
+  //
+  // Die Untergrenze ist kein Geschmack: bei einem einzigen Buchstaben trifft
+  // "enthaelt" fast jeden Namen, und die Liste waere nach dem ersten
+  // Tastendruck laenger als ohne Filter.
+  const enthaelt = (name: string) =>
+    q.length >= MIN_ENTHAELT && !beginnt(name) && name.toLowerCase().includes(q);
 
-  const flowItems: FlowMenuItem[] = flows
-    .filter(s => passt(s.name))
-    .map(s => ({ kind: 'flow', name: s.name, beschreibung: s.beschreibung, flow: s }));
-
-  const commandItems: FlowMenuItem[] = FLOW_COMMANDS.filter(c => passt(c.name)).map(c => ({
+  const alsFlow = (s: Flow): FlowMenuItem => ({
+    kind: 'flow',
+    name: s.name,
+    beschreibung: s.beschreibung,
+    flow: s,
+  });
+  const alsBefehl = (c: (typeof FLOW_COMMANDS)[number]): FlowMenuItem => ({
     kind: 'command',
     name: c.name,
     label: c.label,
     beschreibung: c.beschreibung,
-  }));
+  });
 
-  return [...flowItems, ...commandItems];
+  return [
+    ...flows.filter(s => beginnt(s.name)).map(alsFlow),
+    ...FLOW_COMMANDS.filter(c => beginnt(c.name)).map(alsBefehl),
+    ...flows.filter(s => enthaelt(s.name)).map(alsFlow),
+    ...FLOW_COMMANDS.filter(c => enthaelt(c.name)).map(alsBefehl),
+  ];
 }
 
 interface FlowMenuProps {
@@ -64,6 +86,24 @@ interface FlowMenuProps {
 }
 
 export default function FlowMenu({ items, activeIndex, onPick, onEdit, onHover }: FlowMenuProps) {
+  const aktivRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Plan 023 E7: die Auswahl in Sicht halten.
+   *
+   * Die Liste ist auf `max-h-64` gedeckelt und scrollt. Bei dreissig Flows
+   * passen davon rund fuenf ins Bild; ohne diese Zeilen wandert die Auswahl
+   * beim Blaettern aus dem Sichtfeld, und der Nutzer drueckt Tab auf einen
+   * Eintrag, den er nicht sieht. Genau das meint die Abnahme mit "bei 30 Flows
+   * noch bedienbar".
+   *
+   * `block: 'nearest'` scrollt nur so weit wie noetig, statt die Auswahl bei
+   * jedem Tastendruck in die Mitte zu ruecken.
+   */
+  useEffect(() => {
+    aktivRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
+
   return (
     <div
       className="absolute bottom-full left-0 z-20 mb-1 max-h-64 w-72 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md"
@@ -77,6 +117,7 @@ export default function FlowMenu({ items, activeIndex, onPick, onEdit, onHover }
         return (
           <div
             key={`${item.kind}-${item.name}`}
+            ref={aktiv ? aktivRef : undefined}
             role="option"
             aria-selected={aktiv}
             // Die Pfeiltasten-Steuerung liegt bewusst im Textarea; die Zeile ist
