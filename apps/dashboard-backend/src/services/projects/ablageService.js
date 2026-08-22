@@ -33,7 +33,17 @@ const {
 } = require('../../utils/errors');
 const logger = require('../../utils/logger');
 
-// Gleicher Standard wie gitSyncService — beide leben bewusst im selben Baum.
+// DERSELBE Ordner wie in gitSyncService, nicht nur derselbe Baum: beide lesen
+// diese Variable mit derselben Vorgabe und haengen dieselbe Projekt-ID an.
+// `PROJECT_GIT_DIR/<id>` und `ABLAGE_DIR/<id>` sind ein und dasselbe
+// Verzeichnis.
+//
+// Das ist Absicht (der Git-Arbeitsbaum SOLL die Ablage sein, sonst saehe der
+// Nutzer die geklonten Dateien nicht), aber es ist auch eine Falle: der
+// Variablenname sagt „Git", der Inhalt sind die Dokumente des Kunden. Am
+// 22.08.2026 loeschte gitSyncService diesen Ordner an drei Stellen rekursiv,
+// weil der Kommentar dort von einem Wegwerf-Checkout sprach. Wer hier etwas
+// aendert, aendert es fuer beide.
 const ABLAGE_DIR = process.env.PROJECT_GIT_DIR || '/arasul/projects';
 
 // Deckel gegen Ausreißer: der Editor ist für Text gedacht, nicht für Videos.
