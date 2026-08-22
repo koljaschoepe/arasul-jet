@@ -68,12 +68,22 @@ function parseListe(text) {
 
 /**
  * Setzt Vorlagen in den `parameter`-Werten eines Werkzeug-Schritts ein.
- * Nur String-Werte werden ersetzt; Zahlen/Booleans bleiben unangetastet.
+ *
+ * Nur Zeichenketten werden ersetzt; Zahlen und Wahrheitswerte bleiben, wie sie
+ * sind. Listen von Zeichenketten werden EINTRAGSWEISE ersetzt (Plan 023 I4):
+ * `frage_nutzer` bekommt seine Optionen als Liste, und eine Option darf
+ * denselben Platzhalter tragen wie die Frage darüber.
  */
 function resolveParams(parameter = {}, scope = {}) {
   const out = {};
   for (const [key, value] of Object.entries(parameter)) {
-    out[key] = typeof value === 'string' ? fillPlaceholders(value, scope) : value;
+    if (typeof value === 'string') {
+      out[key] = fillPlaceholders(value, scope);
+    } else if (Array.isArray(value)) {
+      out[key] = value.map(v => (typeof v === 'string' ? fillPlaceholders(v, scope) : v));
+    } else {
+      out[key] = value;
+    }
   }
   return out;
 }

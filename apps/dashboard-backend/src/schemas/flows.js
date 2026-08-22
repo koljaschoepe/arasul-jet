@@ -181,8 +181,15 @@ const FlowStep = z
     auftrag: z.string().trim().max(4000).optional(),
     // werkzeug-Schritt:
     werkzeug: z.enum(VALID_TOOLS).optional(),
+    // Werte eines Werkzeug-Schritts. Listen von Zeichenketten sind erlaubt,
+    // seit `frage_nutzer` seine `optionen` als Liste erwartet (Plan 023 I4):
+    // ein Werkzeug mit einem Listen-Parameter ist nichts Ungewöhnliches, und
+    // ohne diese Zeile liesse es sich in einer Schritt-Kette gar nicht rufen.
     parameter: z
-      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+      .record(
+        z.string(),
+        z.union([z.string(), z.number(), z.boolean(), z.array(z.string().max(500)).max(20)])
+      )
       .default({})
       .optional(),
     iterationen: z.coerce.number().int().min(1).max(10).default(1),
