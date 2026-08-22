@@ -307,3 +307,95 @@ describe('streamChatRound und der Abbruch (Plan 023 E2)', () => {
     ).rejects.toThrow('Vom Nutzer abgebrochen');
   });
 });
+
+/**
+ * Plan 023 E2: Zwei Fehler, die derselbe Lauf am 22.08.2026 auf dem Orin
+ * gezeigt hat, und die einander verdeckten.
+ */
+const {
+  systemAnDenAnfang,
+  istToolsNichtUnterstuetzt,
+} = require('../../src/services/llm/chatAgentRunner');
+
+describe('systemAnDenAnfang (Plan 023 E2)', () => {
+  test('legt eine nachgestellte System-Nachricht mit der ersten zusammen', () => {
+    // Das Standardmodell des Geraets antwortet sonst mit HTTP 500:
+    // "Jinja Exception: System message must be at the beginning."
+    const { nachrichten, verschoben } = systemAnDenAnfang([
+      { role: 'system', content: 'Grundregeln' },
+      { role: 'user', content: 'Schreib mir was' },
+      { role: 'system', content: '## Aufgabenliste\n- [ ] etwas' },
+    ]);
+    expect(verschoben).toBe(1);
+    expect(nachrichten).toHaveLength(2);
+    expect(nachrichten[0].role).toBe('system');
+    expect(nachrichten[0].content).toBe('Grundregeln\n\n## Aufgabenliste\n- [ ] etwas');
+    expect(nachrichten[1]).toEqual({ role: 'user', content: 'Schreib mir was' });
+  });
+
+  test('laesst eine Liste ohne nachgestellte System-Nachricht unveraendert', () => {
+    const eingabe = [
+      { role: 'system', content: 'A' },
+      { role: 'user', content: 'B' },
+      { role: 'assistant', content: 'C' },
+    ];
+    const { nachrichten, verschoben } = systemAnDenAnfang(eingabe);
+    expect(verschoben).toBe(0);
+    expect(nachrichten).toBe(eingabe);
+  });
+
+  test('kommt ohne jede System-Nachricht zurecht', () => {
+    const eingabe = [{ role: 'user', content: 'B' }];
+    expect(systemAnDenAnfang(eingabe).verschoben).toBe(0);
+  });
+
+  test('legt mehrere nachgestellte in der richtigen Reihenfolge zusammen', () => {
+    const { nachrichten, verschoben } = systemAnDenAnfang([
+      { role: 'system', content: 'eins' },
+      { role: 'user', content: 'u' },
+      { role: 'system', content: 'zwei' },
+      { role: 'system', content: 'drei' },
+    ]);
+    expect(verschoben).toBe(2);
+    expect(nachrichten[0].content).toBe('eins\n\nzwei\n\ndrei');
+    expect(nachrichten.filter(n => n.role === 'system')).toHaveLength(1);
+  });
+
+  test('behaelt die Reihenfolge der uebrigen Nachrichten', () => {
+    const { nachrichten } = systemAnDenAnfang([
+      { role: 'system', content: 's' },
+      { role: 'user', content: '1' },
+      { role: 'assistant', content: '2' },
+      { role: 'system', content: 'ende' },
+      { role: 'user', content: '3' },
+    ]);
+    expect(nachrichten.map(n => n.content)).toEqual(['s\n\nende', '1', '2', '3']);
+  });
+});
+
+describe('istToolsNichtUnterstuetzt (Plan 023 E2)', () => {
+  test('wirft nicht, wenn der Fehlerrumpf ein Strom ist', () => {
+    // Vorher: JSON.stringify auf einem Node-Strom warf "Converting circular
+    // structure to JSON", und weil der Aufruf in einem catch-Block steht,
+    // ersetzte dieser Fehler den echten. Der Nutzer las danach "Der KI-Dienst
+    // ist gerade nicht erreichbar", obwohl Ollama etwas ganz anderes gesagt
+    // hatte.
+    const err = { message: 'Request failed with status code 500' };
+    err.response = { data: new PassThrough() };
+    expect(() => istToolsNichtUnterstuetzt(err)).not.toThrow();
+    expect(istToolsNichtUnterstuetzt(err)).toBe(false);
+  });
+
+  test('erkennt den Fall weiterhin, um den es geht', () => {
+    expect(
+      istToolsNichtUnterstuetzt({ message: 'x', response: { data: 'model does not support tools' } })
+    ).toBe(true);
+    expect(istToolsNichtUnterstuetzt({ message: 'does not support tools' })).toBe(true);
+  });
+
+  test('kommt mit einem ringfoermigen Objekt zurecht', () => {
+    const ring = { a: 1 };
+    ring.selbst = ring;
+    expect(() => istToolsNichtUnterstuetzt({ message: 'x', response: { data: ring } })).not.toThrow();
+  });
+});

@@ -385,6 +385,79 @@ async function haltezeit() {
 }
 
 /**
+ * Liest einen Antwortstrom vollstaendig als Text (Plan 023 E2).
+ *
+ * Nur fuer Fehlerrumpfe gedacht, die klein sind. Ein Fehlschlag beim Lesen ist
+ * kein Grund, den urspruenglichen Fehler zu verlieren, deshalb faellt alles auf
+ * eine leere Zeichenkette zurueck.
+ *
+ * @param {any} strom
+ * @returns {Promise<string>}
+ */
+async function stromAlsText(strom) {
+  if (!strom || typeof strom.on !== 'function') {
+    return '';
+  }
+  try {
+    const stuecke = [];
+    for await (const stueck of strom) {
+      stuecke.push(Buffer.from(stueck));
+      if (stuecke.reduce((n, b) => n + b.length, 0) > 8192) {
+        break;
+      }
+    }
+    return Buffer.concat(stuecke).toString('utf8');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Zieht jede System-Nachricht an den Anfang (Plan 023 E2).
+ *
+ * Am 22.08.2026 auf dem Orin gemessen: das Standard-Chatmodell des Geraets
+ * lehnt eine System-Nachricht ab, die nicht die erste ist. Ollama antwortet mit
+ * HTTP 500 und dem Satz aus der Vorlage des Modells:
+ *
+ *   Jinja Exception: System message must be at the beginning.
+ *
+ * Der Agent haengt aber genau so eine ans Ende, sobald eine Aufgabenliste
+ * existiert. Damit scheiterte auf dem Standardmodell **jeder** Agent-Lauf, der
+ * eine Aufgabenliste anlegt, also jeder groessere Auftrag. Mit
+ * `qwen3-coder:30b` fiel es nicht auf, dessen Vorlage ist nachsichtiger.
+ *
+ * Der Inhalt geht nicht verloren, er wandert an die erste System-Nachricht.
+ * Die Reihenfolge der uebrigen Nachrichten bleibt unberuehrt.
+ *
+ * @param {{role:string, content:string}[]} nachrichten
+ * @returns {{nachrichten:object[], verschoben:number}}
+ */
+function systemAnDenAnfang(nachrichten) {
+  const liste = Array.isArray(nachrichten) ? nachrichten : [];
+  const ersteSystem = liste.findIndex(n => n?.role === 'system');
+  if (ersteSystem < 0) {
+    return { nachrichten: liste, verschoben: 0 };
+  }
+  const nachzuegler = liste.filter((n, i) => n?.role === 'system' && i > ersteSystem);
+  if (nachzuegler.length === 0) {
+    return { nachrichten: liste, verschoben: 0 };
+  }
+  const zusammengelegt = liste
+    .filter((n, i) => n?.role !== 'system' || i === ersteSystem)
+    .map((n, i) =>
+      i === ersteSystem
+        ? {
+            ...n,
+            content: [n.content, ...nachzuegler.map(x => String(x.content ?? ''))]
+              .filter(Boolean)
+              .join('\n\n'),
+          }
+        : n
+    );
+  return { nachrichten: zusammengelegt, verschoben: nachzuegler.length };
+}
+
+/**
  * Eine Modell-Runde über /api/chat mit stream:true.
  * Antwort-Token fließen sofort über onToken; tool_calls werden gesammelt.
  * Inaktivitäts-Timeout statt Gesamt-Timeout: ein langsam tröpfelnder Stream
@@ -418,9 +491,18 @@ async function streamChatRound({
     // Explizite options statt Server-Defaults (Harness v2): Ollama schneidet
     // Prompts über num_ctx STILL vorne ab — System-Prompt und Tools zuerst.
     // Der Agent setzt sein Fenster deshalb selbst und haushaltet davor.
+    // Plan 023 E2: nie eine System-Nachricht mitten im Verlauf. Das
+    // Standardmodell des Geraets lehnt sie mit HTTP 500 ab, und der Fehler kam
+    // beim Nutzer als "Der KI-Dienst ist gerade nicht erreichbar" an.
+    const { nachrichten: geordnet, verschoben } = systemAnDenAnfang(messages);
+    if (verschoben > 0) {
+      logger.debug(
+        `[SYSTEM] ${verschoben} System-Nachricht(en) an den Anfang gezogen, Modell ${model}`
+      );
+    }
     const body = {
       model,
-      messages,
+      messages: geordnet,
       stream: true,
       think: think === true,
       keep_alive: await haltezeit(),
@@ -437,11 +519,25 @@ async function streamChatRound({
     // Anfrage; wer erst dort horcht, verpasst jeden Abbruch, der in dieser
     // Zeit kommt, und der Lauf liefe bis zum Ende weiter. Genau diese Spanne
     // ist bei einem kalten Modell die laengste des ganzen Laufs.
-    const response = await axios.post(services.llm.chatEndpoint, body, {
-      responseType: 'stream',
-      timeout: 0,
-      signal,
-    });
+    let response;
+    try {
+      response = await axios.post(services.llm.chatEndpoint, body, {
+        responseType: 'stream',
+        timeout: 0,
+        signal,
+      });
+    } catch (err) {
+      // Plan 023 E2: Bei `responseType: 'stream'` ist auch der FEHLER-Rumpf ein
+      // Strom. Wer ihn nicht liest, verliert die einzige Auskunft darueber, was
+      // Ollama eigentlich beanstandet hat, und behaelt ein nacktes
+      // "Request failed with status code 500".
+      const rumpf = await stromAlsText(err?.response?.data);
+      if (rumpf) {
+        err.message = `${err.message}: ${rumpf.slice(0, 400)}`;
+        err.response.data = rumpf;
+      }
+      throw err;
+    }
     // Und noch einmal danach: das Abbrechen kann genau in dem Augenblick
     // passiert sein, in dem die Antwort schon unterwegs war.
     if (signal?.aborted) {
@@ -694,8 +790,47 @@ async function vorlaufFesthalten({
 
 /** Ollama meldet fehlende Tool-Unterstützung als 400 mit dieser Formulierung. */
 function istToolsNichtUnterstuetzt(err) {
-  const text = `${err.message || ''} ${JSON.stringify(err.response?.data || '')}`.toLowerCase();
-  return text.includes('does not support tools');
+  return `${err.message || ''} ${fehlerRumpf(err)}`
+    .toLowerCase()
+    .includes('does not support tools');
+}
+
+/**
+ * Der Antwortrumpf eines gescheiterten Ollama-Aufrufs, als Text (Plan 023 E2).
+ *
+ * Hier stand `JSON.stringify(err.response?.data || '')`. Bei `responseType:
+ * 'stream'` ist `data` aber ein Node-Strom, und dessen Socket-Geflecht ist
+ * ringfoermig: `JSON.stringify` wirft `Converting circular structure to JSON`.
+ *
+ * Der Aufruf stand in einem catch-Block. Der geworfene Fehler ersetzte also den
+ * echten, und zwar genau in dem Augenblick, in dem der echte gebraucht wurde.
+ * Am 22.08.2026 auf dem Orin gemessen: Ollama meldete "System message must be
+ * at the beginning", der Nutzer las "Der KI-Dienst ist gerade nicht
+ * erreichbar", und im Protokoll stand der Serialisierungsfehler.
+ *
+ * Zweite Folge, stiller: die Ausweiche fuer Modelle ohne Werkzeug-Unterstuetzung
+ * (`toolsAktiv = false`) wurde nie erreicht, weil der Test davor warf.
+ */
+function fehlerRumpf(err) {
+  const daten = err?.response?.data;
+  if (daten == null) {
+    return '';
+  }
+  if (typeof daten === 'string') {
+    return daten;
+  }
+  if (Buffer.isBuffer(daten)) {
+    return daten.toString('utf8').slice(0, 500);
+  }
+  // Ein Strom oder irgendein anderes Geflecht: nicht serialisieren.
+  if (typeof daten.pipe === 'function' || typeof daten.on === 'function') {
+    return '';
+  }
+  try {
+    return JSON.stringify(daten).slice(0, 500);
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -2019,6 +2154,10 @@ module.exports = {
   VERLAUF_TOKEN_BUDGET,
   AGENT_ROLLEN,
   streamChatRound,
+  // Plan 023 E2: das Standardmodell lehnt eine System-Nachricht ab, die nicht
+  // die erste ist. Die Regel gehoert unter Test, nicht in einen Kommentar.
+  systemAnDenAnfang,
+  istToolsNichtUnterstuetzt,
   verstaendlicherFehler,
   aktiveTaskIndexAus,
   alleTodosErledigt,
