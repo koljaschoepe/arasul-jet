@@ -1,9 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AgentChatPanel from '../llm/agentChat/AgentChatPanel';
 import CompactMessage from '../llm/agentChat/CompactMessage';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+
+/**
+ * Plan 023 E3: waehrend eines Laufs steht nur noch die Denkzeile da, die
+ * Schrittliste liegt aufgeklappt darunter. Diese Hilfe oeffnet sie, damit die
+ * Tests weiter das pruefen, worum es ihnen geht (den Inhalt der Liste), und
+ * nicht die neue Faltung.
+ */
+function detailsAufklappen() {
+  const zeile = screen.queryByTestId('denkzeile');
+  if (!zeile) {
+    return screen;
+  }
+  fireEvent.click(within(zeile).getByRole('button'));
+  // Die Denkzeile wiederholt den juengsten Schritt in ihrer Kopfzeile. Wer
+  // danach global sucht, findet ihn zweimal; deshalb gibt diese Hilfe den
+  // aufgeklappten Bereich zurueck, in dem jeder Schritt genau einmal steht.
+  return within(screen.getByTestId('denkzeile-details'));
+}
 
 /** Der Panel bindet über die ConversationList (Schritt 20) React Query ein. */
 function renderPanel() {
@@ -267,6 +285,7 @@ describe('CompactMessage', () => {
         }}
       />
     );
+    detailsAufklappen();
     expect(screen.getByText('liest brief.md')).toBeInTheDocument();
     // Laufender Schritt bekommt das Ellipsis-Suffix
     expect(screen.getByText('sucht im Wissen: Kündigungsfrist …')).toBeInTheDocument();
@@ -292,6 +311,7 @@ describe('CompactMessage', () => {
         }}
       />
     );
+    detailsAufklappen();
     // Kurz-Zählerkopf im Verlauf (die feste Leiste unten lebt im Panel).
     expect(screen.getByTestId('todo-liste')).toBeInTheDocument();
     expect(screen.getByText('Aufgaben · 1/3 erledigt')).toBeInTheDocument();
@@ -341,6 +361,7 @@ describe('CompactMessage', () => {
         }}
       />
     );
+    detailsAufklappen();
     // Aufgabe 0 ist fertig → eingeklappt: ihr Schritt „liest quelle.md" ist
     // zunächst versteckt, bis man die Aufgabe aufklappt.
     expect(screen.queryByText('liest quelle.md')).not.toBeInTheDocument();
@@ -399,6 +420,7 @@ describe('CompactMessage', () => {
         }}
       />
     );
+    detailsAufklappen();
     // Läuft (isStreaming) → Vorbereitung flach sichtbar, Schritt geht nicht verloren.
     expect(screen.getByText('sucht im Web: Fakten')).toBeInTheDocument();
   });
@@ -431,10 +453,11 @@ describe('CompactMessage', () => {
         }}
       />
     );
+    const details = detailsAufklappen();
     // Der Subagent hängt unter der Aufgabe, sein Werkzeug-Schritt eingerückt darunter.
-    expect(screen.getByText(/Helfer „rechercheur"/)).toBeInTheDocument();
-    expect(screen.getByTestId('agent-substeps')).toBeInTheDocument();
-    expect(screen.getByText('sucht im Web: Marktzahlen')).toBeInTheDocument();
+    expect(details.getByText(/Helfer „rechercheur"/)).toBeInTheDocument();
+    expect(details.getByTestId('agent-substeps')).toBeInTheDocument();
+    expect(details.getByText('sucht im Web: Marktzahlen')).toBeInTheDocument();
   });
 
   it('beschriftet die neuen Werkzeuge dateien_bearbeiten und dateien_anhaengen', () => {
@@ -451,6 +474,7 @@ describe('CompactMessage', () => {
         }}
       />
     );
+    detailsAufklappen();
     expect(screen.getByText('ändert brief.md')).toBeInTheDocument();
     expect(screen.getByText('ergänzt bericht.md …')).toBeInTheDocument();
   });

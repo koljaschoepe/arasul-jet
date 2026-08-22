@@ -13,13 +13,10 @@ import {
   FilePlus2,
   FileText,
   Gauge,
-  Globe,
   ListTodo,
   Paperclip,
   Search,
   Sparkles,
-  TerminalSquare,
-  Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { dateiListe } from '@/contexts/ChatContext';
@@ -27,6 +24,8 @@ import type { AgentToolStep, ChatMessage, MessageDatei, TodoEintrag } from '@/co
 import type { DocumentSource } from '@/types';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
+import { Denkzeile } from './Denkzeile';
+import { agentStepLabel, agentStepIcon } from './schrittText';
 
 /** Einklappbare Ein-Zeilen-Row für Denk-/Tool-Schritte. */
 function StepRow({
@@ -566,91 +565,6 @@ function AgentActivity({
   );
 }
 
-/** Kompakte deutsche Beschriftung eines Werkzeug-Schritts aus Name + Parametern. */
-function agentStepLabel(step: AgentToolStep): string {
-  const p = step.params || {};
-  const str = (v: unknown) => (typeof v === 'string' ? v : '');
-  if (step.kind === 'plan') {
-    return step.status === 'running' ? 'erstellt einen Plan' : 'Plan erstellt';
-  }
-  if (step.kind === 'todos') {
-    return 'aktualisiert die Aufgabenliste';
-  }
-  if (step.kind === 'subagent') {
-    return step.status === 'running' ? `Helfer „${step.tool}" arbeitet` : `Helfer „${step.tool}"`;
-  }
-  switch (step.tool) {
-    case 'dateien':
-    case 'dateien_lesen': {
-      const aktion = str(p.aktion).toLowerCase();
-      const pfad = str(p.pfad) || '/';
-      if (aktion === 'read') return `liest ${pfad}`;
-      if (aktion === 'write') return `schreibt ${pfad}`;
-      if (aktion === 'list') return `listet ${pfad}`;
-      return `Dateien: ${pfad}`;
-    }
-    case 'dateien_schreiben':
-      return `schreibt ${str(p.pfad) || 'Datei'}`;
-    case 'dateien_bearbeiten':
-      return `ändert ${str(p.pfad) || 'Datei'}`;
-    case 'dateien_anhaengen':
-      return `ergänzt ${str(p.pfad) || 'Datei'}`;
-    case 'todo_liste':
-      return 'aktualisiert die Aufgabenliste';
-    case 'dateien_suchen': {
-      const muster = str(p.muster) || str(p.text) || str(p.suchbegriff) || str(p.query);
-      return muster ? `sucht Dateien: ${muster}` : 'durchsucht Dateien';
-    }
-    case 'rag':
-    case 'rag_suche': {
-      const q = str(p.frage) || str(p.query);
-      return q ? `sucht im Wissen: ${q}` : 'durchsucht das Wissen';
-    }
-    case 'web_suche': {
-      const q = str(p.frage) || str(p.query) || str(p.suchbegriff);
-      return q ? `sucht im Web: ${q}` : 'sucht im Web';
-    }
-    case 'web_lesen':
-      return `liest ${str(p.adresse) || str(p.url) || 'eine Webseite'}`;
-    case 'terminal': {
-      const cmd = str(p.befehl) || str(p.command);
-      return cmd ? `führt aus: ${cmd}` : 'führt einen Befehl aus';
-    }
-    default:
-      return `nutzt ${step.tool || 'Werkzeug'}`;
-  }
-}
-
-function agentStepIcon(step: AgentToolStep): React.ReactNode {
-  if (step.kind === 'plan' || step.kind === 'todos') {
-    return <ListTodo className="size-3" />;
-  }
-  if (step.kind === 'subagent') {
-    return <Sparkles className="size-3" />;
-  }
-  switch (step.tool) {
-    case 'dateien':
-    case 'dateien_lesen':
-    case 'dateien_schreiben':
-    case 'dateien_bearbeiten':
-    case 'dateien_anhaengen':
-    case 'dateien_suchen':
-      return <FileText className="size-3" />;
-    case 'todo_liste':
-      return <ListTodo className="size-3" />;
-    case 'rag':
-    case 'rag_suche':
-    case 'web_suche':
-      return <Search className="size-3" />;
-    case 'web_lesen':
-      return <Globe className="size-3" />;
-    case 'terminal':
-      return <TerminalSquare className="size-3" />;
-    default:
-      return <Wrench className="size-3" />;
-  }
-}
-
 /**
  * Klickbare Datei-Karte (wie Cursor): die gespeicherte Antwort als Datei —
  * Klick öffnet sie im Editor-Tab, statt den langen Text inline auszubreiten.
@@ -795,28 +709,41 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
 
   return (
     <div className="group/nachricht my-2" data-testid="assistant-message">
-      {(alleSteps.length > 0 || todos.length > 0) && (
-        <AgentActivity steps={alleSteps} todos={todos} laufend={isStreaming} />
-      )}
-      {hasThinking && (
-        <DenkTicker
-          thinking={message.thinking || ''}
-          live={isStreaming && !message.thinkingCollapsed}
-          seconds={message.thinkingSeconds}
-          tokensPerSecond={isStreaming ? undefined : message.tokensPerSecond}
-        />
+      {/* Plan 023 E3: WAEHREND des Laufs genau eine Zeile. Vorher standen hier
+          drei Anzeigen nebeneinander (Aufgabenliste, Denk-Ticker, Statuszeile),
+          alle drei zugleich und alle drei traege. Nach dem Lauf erscheint der
+          Verlauf wieder in voller Breite, denn dann ist er Beleg und nicht
+          mehr Zustandsanzeige. */}
+      {isStreaming ? (
+        <Denkzeile
+          steps={alleSteps}
+          statusMessage={message.statusMessage}
+          thinking={message.thinking}
+        >
+          {(alleSteps.length > 0 || todos.length > 0) && (
+            <AgentActivity steps={alleSteps} todos={todos} laufend />
+          )}
+        </Denkzeile>
+      ) : (
+        <>
+          {(alleSteps.length > 0 || todos.length > 0) && (
+            <AgentActivity steps={alleSteps} todos={todos} laufend={false} />
+          )}
+          {hasThinking && (
+            <DenkTicker
+              thinking={message.thinking || ''}
+              live={false}
+              seconds={message.thinkingSeconds}
+              tokensPerSecond={message.tokensPerSecond}
+            />
+          )}
+        </>
       )}
       {matched.length > 0 && (
         <StepRow
           icon={<Search className="size-3" />}
           label="Dokumente durchsucht"
           detail={matched.map(m => m.name).join(', ')}
-        />
-      )}
-      {message.streamStatus && !message.content && (
-        <StepRow
-          icon={<Search className="size-3" />}
-          label={message.statusMessage || 'Arbeitet …'}
         />
       )}
 

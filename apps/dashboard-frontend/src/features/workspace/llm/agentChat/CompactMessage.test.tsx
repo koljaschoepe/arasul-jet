@@ -5,10 +5,28 @@
  * Kind-Schritten statt flacher Liste), (2) Datei-Karten tragen die
  * Änderungs-Badges neu/geändert/gelöscht, gelöschte sind nicht klickbar.
  */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import CompactMessage, { TodoLeiste } from './CompactMessage';
 import type { ChatMessage } from '@/contexts/ChatContext';
+
+/**
+ * Plan 023 E3: waehrend eines Laufs steht nur noch die Denkzeile da, die
+ * Schrittliste liegt aufgeklappt darunter. Diese Hilfe oeffnet sie, damit die
+ * Tests weiter das pruefen, worum es ihnen geht (den Inhalt der Liste), und
+ * nicht die neue Faltung.
+ */
+function detailsAufklappen() {
+  const zeile = screen.queryByTestId('denkzeile');
+  if (!zeile) {
+    return screen;
+  }
+  fireEvent.click(within(zeile).getByRole('button'));
+  // Die Denkzeile wiederholt den juengsten Schritt in ihrer Kopfzeile. Wer
+  // danach global sucht, findet ihn zweimal; deshalb gibt diese Hilfe den
+  // aufgeklappten Bereich zurueck, in dem jeder Schritt genau einmal steht.
+  return within(screen.getByTestId('denkzeile-details'));
+}
 
 vi.mock('@/hooks/useApi', () => ({ useApi: () => ({ get: vi.fn(), post: vi.fn() }) }));
 
@@ -57,14 +75,15 @@ describe('AgentSteps als Baum', () => {
         })}
       />
     );
+    const details = detailsAufklappen();
     // Helfer-Zeile in Alltagssprache …
-    expect(screen.getByText(/Helfer „rechercheur" arbeitet/)).toBeInTheDocument();
+    expect(details.getByText(/Helfer „rechercheur" arbeitet/)).toBeInTheDocument();
     // … mit dem inneren Werkzeug-Schritt als eingerücktem Kind.
-    const substeps = screen.getByTestId('agent-substeps');
+    const substeps = details.getByTestId('agent-substeps');
     expect(substeps).toHaveTextContent('sucht im Web: Jetson');
     // Der Wurzel-Schritt steht NICHT im Kind-Container.
     expect(substeps).not.toHaveTextContent('schreibt bericht.md');
-    expect(screen.getByText('schreibt bericht.md')).toBeInTheDocument();
+    expect(details.getByText('schreibt bericht.md')).toBeInTheDocument();
   });
 });
 
@@ -136,19 +155,27 @@ describe('TodoLeiste (feste Aufgaben-Leiste, Plan 019)', () => {
 });
 
 describe('Denk-Ticker (Plan 022)', () => {
-  it('läuft während des Streams als „Denkt nach" mit letzter Zeile', () => {
+  it('weicht während des Laufs der Denkzeile (Plan 023 E3)', () => {
+    // Bis zum 22.08.2026 lief hier der Denk-Ticker mit, neben der
+    // Aufgabenliste und einer Statuszeile. Drei Anzeigen zugleich, alle drei
+    // träge. Während des Laufs steht jetzt genau eine Zeile da; der
+    // Gedankengang selbst bleibt erreichbar, aber eine Ebene tiefer.
     render(
       <CompactMessage
         isStreaming={true}
         message={nachricht({
-          thinking: 'Erst prüfe ich A.\nJetzt prüfe ich B.',
+          thinking: 'Let me check A.\nNow let me check B.',
           hasThinking: true,
           thinkingCollapsed: false,
         })}
       />
     );
-    expect(screen.getByTestId('denk-ticker')).toHaveTextContent('Denkt nach');
-    expect(screen.getByTestId('denk-ticker-live')).toHaveTextContent('Jetzt prüfe ich B.');
+    expect(screen.getByTestId('denkzeile-text')).toHaveTextContent('denkt nach');
+    expect(screen.queryByTestId('denk-ticker')).not.toBeInTheDocument();
+    // Der englische Denktext steht NICHT in der Zeile, die der Nutzer liest.
+    expect(screen.getByTestId('denkzeile-text')).not.toHaveTextContent('let me check');
+    const details = detailsAufklappen();
+    expect(details.getByText(/Now let me check B\./)).toBeInTheDocument();
   });
 
   it('zeigt nach Abschluss „Nachgedacht · Ns" und Tokens/Sekunde', () => {
