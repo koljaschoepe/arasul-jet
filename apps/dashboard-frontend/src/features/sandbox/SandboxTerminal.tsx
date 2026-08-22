@@ -205,90 +205,156 @@ export default function SandboxTerminal({
     // Statusleiste, danach füllt das Terminal die ganze Fläche (Nutzerkritik:
     // „maximal nur das Terminal", zu viele Leisten/Rahmen).
     <div className={cn('flex flex-col h-full min-h-0', className)}>
-      {/* Schlanke Statusleiste — einheitliche Schriftgröße (text-ui-xs).
-          flex-wrap: bei sehr schmalem Panel rutscht der Reconnect in die nächste
-          Zeile, statt dass „Infrastruktur" & Co. ihn überlappen (Nutzerkritik). */}
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 py-1 bg-background border-b border-border shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          {status.icon}
-          <span className="text-ui-xs text-muted-foreground">{status.text}</span>
+      {/* Schlanke Statusleiste, EINZEILIG bei jeder Breite (Plan 023 F1).
+          Vorher stand hier `flex-wrap`, und genau das war der gemeldete Fehler:
+          bei schmalem Panel rutschten „Quick Launch" und „KI-Zugang" in eine
+          zweite Zeile, und das Terminal wurde bei jeder Größenänderung kürzer.
 
-          {/* Modus-Badge: Isoliert=neutral, Intern=ok, Infrastruktur=rot */}
-          {modeBadge && (
-            <span
-              title={modeBadge.title}
-              className={cn(
-                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-ui-xs font-medium leading-none',
-                modeBadge.className
-              )}
-            >
-              {networkMode === 'infrastructure' && <ShieldAlert className="size-3 shrink-0" />}
-              {modeBadge.label}
+          Statt umzubrechen wird jetzt zusammengefasst. Die Breite, die zählt,
+          ist die des PANELS und nicht die des Fensters (der Nutzer zieht das
+          Panel schmal, während das Fenster breit bleibt), deshalb eine
+          Container-Abfrage und keine Bildschirm-Abfrage. Ab 34 rem stehen die
+          Knöpfe einzeln, darunter liegen sie in einem Menü. */}
+      <div className="@container shrink-0 border-b border-border bg-background">
+        <div className="flex items-center justify-between gap-x-2 px-2 py-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex shrink-0 items-center" title={status.text}>
+              {status.icon}
             </span>
-          )}
+            {/* Unter 20 rem bleibt nur das Symbol. Bei 400 Pixeln Fenster ist
+              das Panel gemessen 123 Pixel breit; dort passt kein Wort mehr
+              neben Abzeichen, Werkzeug-Menue und Wiederholen-Symbol, und der
+              Zustand steht ohnehin im `title`. */}
+            <span
+              className="hidden @[20rem]:inline text-ui-xs text-muted-foreground truncate"
+              title={status.text}
+            >
+              {status.text}
+            </span>
 
-          {/* Quick Launch — Radix DropdownMenu for portal-based rendering */}
-          {isConnected && (
+            {/* Modus-Badge: Isoliert=neutral, Intern=ok, Infrastruktur=rot */}
+            {modeBadge && (
+              <span
+                title={modeBadge.title}
+                className={cn(
+                  'inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-ui-xs font-medium leading-none',
+                  modeBadge.className
+                )}
+              >
+                {networkMode === 'infrastructure' && <ShieldAlert className="size-3 shrink-0" />}
+                {/* Unter 26 rem trägt der Modus nur noch sein Kürzel; der volle
+                  Name steht im `title` und ist damit nicht verloren. */}
+                <span className="hidden @[26rem]:inline">{modeBadge.label}</span>
+                <span className="@[26rem]:hidden">{modeBadge.label.slice(0, 1)}</span>
+              </span>
+            )}
+
+            {/* Ab 34 rem stehen die beiden Knoepfe einzeln da. */}
+            {isConnected && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hidden @[34rem]:inline-flex text-muted-foreground hover:text-foreground h-6 px-2 text-ui-xs gap-1"
+                    data-testid="terminal-quick-launch"
+                  >
+                    <Sparkles className="size-3" />
+                    Quick Launch
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-50">
+                  {QUICK_LAUNCH_ITEMS.map(item => (
+                    <DropdownMenuItem
+                      key={item.label}
+                      onClick={() => sendInput(item.command)}
+                      className="gap-3"
+                    >
+                      <Terminal className="size-3 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-ui-sm font-medium">{item.label}</div>
+                        <div className="text-ui-xs text-muted-foreground">{item.description}</div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Zentraler KI-Zugang — einmal hinterlegen, gilt in jeder Sandbox. */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setZugangOffen(true)}
+              className="hidden @[34rem]:inline-flex h-6 gap-1 px-2 text-ui-xs text-muted-foreground hover:text-foreground"
+              title="KI-Zugang (Claude) einmal hinterlegen, gilt in jeder Sandbox"
+              data-testid="terminal-ki-zugang"
+            >
+              <KeyRound className="size-3" />
+              KI-Zugang
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Darunter liegen dieselben zwei Punkte in EINEM Menue. Nichts
+              verschwindet, es wird nur zusammengefasst. */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground h-6 px-2 text-ui-xs gap-1"
+                  size="icon-sm"
+                  className="@[34rem]:hidden text-muted-foreground hover:text-foreground"
+                  title="Werkzeuge"
+                  aria-label="Werkzeuge"
+                  data-testid="terminal-werkzeuge"
                 >
-                  <Sparkles className="size-3" />
-                  Quick Launch
+                  <Sparkles className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-50">
-                {QUICK_LAUNCH_ITEMS.map(item => (
-                  <DropdownMenuItem
-                    key={item.label}
-                    onClick={() => sendInput(item.command)}
-                    className="gap-3"
-                  >
-                    <Terminal className="size-3 text-primary shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-ui-sm font-medium">{item.label}</div>
-                      <div className="text-ui-xs text-muted-foreground">{item.description}</div>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
+              <DropdownMenuContent align="end" className="min-w-50">
+                {isConnected &&
+                  QUICK_LAUNCH_ITEMS.map(item => (
+                    <DropdownMenuItem
+                      key={item.label}
+                      onClick={() => sendInput(item.command)}
+                      className="gap-3"
+                    >
+                      <Terminal className="size-3 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-ui-sm font-medium">{item.label}</div>
+                        <div className="text-ui-xs text-muted-foreground">{item.description}</div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                <DropdownMenuItem onClick={() => setZugangOffen(true)} className="gap-3">
+                  <KeyRound className="size-3 text-primary shrink-0" />
+                  <div className="text-ui-sm font-medium">KI-Zugang</div>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-
-          {/* Zentraler KI-Zugang — einmal hinterlegen, gilt in jeder Sandbox. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setZugangOffen(true)}
-            className="h-6 gap-1 px-2 text-ui-xs text-muted-foreground hover:text-foreground"
-            title="KI-Zugang (Claude) einmal hinterlegen, gilt in jeder Sandbox"
-          >
-            <KeyRound className="size-3" />
-            KI-Zugang
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1 shrink-0">
-          {error && (
-            <span className="text-ui-xs text-destructive mr-1 flex items-center gap-1">
-              <AlertCircle className="size-3" />
-              {error}
-            </span>
-          )}
-          {status.showReconnect && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={reconnect}
-              title="Neu verbinden"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <RefreshCw className="size-3.5" />
-            </Button>
-          )}
+            {error && (
+              <span
+                className="text-ui-xs text-destructive mr-1 flex min-w-0 items-center gap-1"
+                title={error}
+              >
+                <AlertCircle className="size-3 shrink-0" />
+                {/* Eine lange Fehlermeldung ist der sicherste Weg zum Umbruch.
+                  Schmal bleibt nur das Symbol, der Text steht im `title`. */}
+                <span className="hidden @[30rem]:inline truncate">{error}</span>
+              </span>
+            )}
+            {status.showReconnect && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={reconnect}
+                title="Neu verbinden"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className="size-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

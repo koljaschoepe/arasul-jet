@@ -2660,12 +2660,84 @@ Größe verändert.
 **Abnahme:** Bei jeder Breite zwischen 400 und 1800 Pixeln bleibt die Kopfzeile
 einzeilig, notfalls durch Zusammenfassen in ein Menü. Behebt F-51.
 
+### Erst gemessen, am Gerät
+
+`scripts/test/terminal-abnahme.mjs` misst die **Höhe** der Kopfzeile bei
+mehreren Fensterbreiten. Ein Umbruch verdoppelt sie, das ist eindeutig. Am
+22.08.2026, vor dem Umbau:
+
+| Fenster          | Panel          | Kopfzeile                   |
+| ---------------- | -------------- | --------------------------- |
+| 400 px           | 123 px         | **44 px**, also zwei Zeilen |
+| 500 px           | 164 px         | **44 px**                   |
+| 700 px           | 246 px         | **44 px**                   |
+| 900 px           | 328 px         | 26 px                       |
+| 1200 bis 1800 px | 376 bis 386 px | 25 bis 26 px                |
+
+Die Zahl, die zählt, ist die des **Panels**, nicht die des Fensters: der Nutzer
+zieht das Panel schmal, während das Fenster breit bleibt. Bei 400 Pixeln Fenster
+sind es 123 Pixel Panel.
+
+### Die Ursache stand wörtlich im Markup
+
+```tsx
+<div className="flex flex-wrap items-center justify-between …">
+```
+
+`flex-wrap`, mit einem Kommentar daneben, der es als Lösung beschreibt: „bei
+sehr schmalem Panel rutscht der Reconnect in die nächste Zeile, statt dass
+Infrastruktur & Co. ihn überlappen". Es war der Ausweg vor einem Überlappen,
+und er hat den Umbruch eingeführt, über den jetzt geklagt wird.
+
+### Was daraus wurde
+
+Statt umzubrechen wird zusammengefasst, in drei Stufen, gesteuert über eine
+**Container-Abfrage** (nicht über die Fensterbreite, siehe oben):
+
+| ab       | was steht da                                                       |
+| -------- | ------------------------------------------------------------------ |
+| 34 rem   | Zustand, Modus, „Quick Launch", „KI-Zugang", Wiederholen           |
+| 30 rem   | dazu: eine Fehlermeldung schrumpft auf ihr Symbol, Text im `title` |
+| 26 rem   | dazu: der Modus zeigt nur seinen Anfangsbuchstaben                 |
+| 20 rem   | dazu: der Verbindungszustand zeigt nur sein Symbol                 |
+| darunter | dazu: „Quick Launch" und „KI-Zugang" liegen in **einem** Menü      |
+
+**Nichts verschwindet.** Jeder Punkt bleibt erreichbar, und was nur noch als
+Symbol dasteht, trägt seinen Text im `title`.
+
 ## F2 Farben
 
 Das Grün passt nicht zum Produkt. Farbschema auf Blau und Grau, mit den
 Standardfarben für Fehler und Warnung, die auch sonst gelten.
 
 **Abnahme:** Kein Farbwert im Terminal, der nicht aus den Themenwerten stammt.
+
+### Gemessen, nicht behauptet: hier war nichts zu tun
+
+`scripts/test/terminal-abnahme.mjs` liest die **gerechneten** Farben jedes
+Elements im Terminalbereich, nicht die Klassennamen im Quelltext, und vergleicht
+sie mit den vierzehn Grundfarben des Themas. Am 22.08.2026:
+
+**Kein Farbwert außerhalb der Themenwerte.** Das Grün, über das F2 klagt, ist
+in Phase C mitgegangen; die Kopfzeile arbeitet durchgehend mit `text-primary`,
+`text-destructive`, `bg-muted` und deren halbdurchsichtigen Ableitungen.
+
+Zwei Dinge musste die Messung dafür lernen, und beide sind der eigentliche
+Ertrag dieser Aufgabe:
+
+- **Halbdurchsichtige Ableitungen sind Themenwerte.** `bg-primary/10` steht je
+  nach Farbraum als `rgba(…)` oder als `oklab(… / 0.1)` da. Erkennbar sind beide
+  am Alpha-Anteil, nicht an der Schreibweise. Ohne diese Unterscheidung meldete
+  die erste Messung drei Verstöße, die keine waren.
+- **Die ANSI-Palette von xterm ist ausdrücklich kein Verstoß.** Sie steht in
+  `lib/terminalThemes.ts` als Literale, weil xterm keine CSS-Variablen lesen
+  kann, und sie ist das, was ein Programm im Terminal anfordert, wenn es grün
+  schreibt. Sie auf Blau zu ziehen hieße, `git diff` die Bedeutung seiner Farben
+  zu nehmen und jede TUI unlesbar zu machen. Die Messung nimmt den xterm-Bereich
+  deshalb bewusst aus, mit dieser Begründung im Code.
+
+**Erfüllt am 22.08.2026, ohne Änderung am Produkt.** Der Wert dieser Aufgabe
+liegt in der Messung, die es vorher nicht gab.
 
 ## F3 MCP-Server verwalten
 
