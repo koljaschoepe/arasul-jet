@@ -12,6 +12,7 @@ const EventEmitter = require('events');
 const services = require('../../config/services');
 const AsyncMutex = require('./AsyncMutex');
 const { processChatJob, processRAGJob, onJobComplete } = require('./llmJobProcessor');
+const { istExtern } = require('./extern/providerRegistry');
 const { ServiceUnavailableError } = require('../../utils/errors');
 
 // Configuration from environment
@@ -451,8 +452,20 @@ function createLLMQueueService(deps = {}) {
 
         this.processingJobId = job.id;
 
+        // Plan 023 D9: ein externes Modell wird nicht geladen, es läuft nicht
+        // hier. Ohne diese Bedingung versuchte die Warteschlange, Ollama nach
+        // `extern:anthropic/...` zu fragen, bekäme "not found" und meldete dem
+        // Nutzer "Bitte im Model Store erneut herunterladen" für ein Modell,
+        // das es im Store nie geben wird.
+        const externesModell = istExtern(requested_model);
+
         // Model switch if needed - P2-006: With retry logic
-        if (should_switch && requested_model && requested_model !== currentModel) {
+        if (
+          should_switch &&
+          requested_model &&
+          requested_model !== currentModel &&
+          !externesModell
+        ) {
           logger.info(
             `Switching model: ${currentModel || 'none'} -> ${requested_model} (reason: ${switch_reason})`
           );
@@ -576,8 +589,10 @@ function createLLMQueueService(deps = {}) {
           [job.id]
         );
 
-        // Track request start for smart unloading
-        const ollamaReadiness = getOllamaReadiness();
+        // Track request start for smart unloading. Ein externes Modell hat
+        // hier nichts zu suchen: es belegt keinen Speicher, den man wieder
+        // freigeben müsste, und würde als "geladenes Modell" gezählt.
+        const ollamaReadiness = externesModell ? null : getOllamaReadiness();
         if (ollamaReadiness) {
           ollamaReadiness.trackRequestStart(job.id, requested_model || currentModel);
         }

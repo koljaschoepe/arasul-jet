@@ -199,6 +199,9 @@ interface InstalledModel {
   rag_optimized?: boolean;
   supports_vision_input?: boolean;
   model_type?: string;
+  /** Plan 023 D9: bei einem Cloud-Anbieter statt auf diesem Gerät. */
+  extern?: boolean;
+  anbieter_name?: string;
 }
 
 interface Space {

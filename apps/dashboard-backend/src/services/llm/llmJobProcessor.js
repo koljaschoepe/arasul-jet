@@ -139,6 +139,28 @@ async function processChatJob(ctx, job) {
   const { id: jobId, request_data: requestData, requested_model } = job;
   const { messages, temperature, max_tokens, thinking, images } = requestData;
 
+  // Plan 023 D9: ein externes Cloud-Modell rechnet nicht auf diesem Gerät.
+  // Die Abzweigung steht GANZ vorn, vor dem Agent-Modus und vor allem, was
+  // Speicher, GPU-Sperre oder Lebenszyklus anfasst: nichts davon gilt für ein
+  // Modell, das anderswo läuft. Der Agent-Modus bleibt vorerst lokal, weil
+  // die Werkzeugschleife auf Ollamas Format für Werkzeugaufrufe gebaut ist;
+  // extern gewählt, antwortet das Modell hier ohne Werkzeuge.
+  const { istExtern } = require('./extern/providerRegistry');
+  if (istExtern(requested_model)) {
+    const { externenChatFahren } = require('./extern/externerChat');
+    const { buildSystemPrompt: baueSystemPrompt } = require('./systemPromptBuilder');
+    const externerSystemPrompt = await baueSystemPrompt(database, job.conversation_id, {
+      includeTools: false,
+    });
+    await externenChatFahren(ctx, job, {
+      nachrichten: (messages || []).filter(m => m && m.role !== 'system'),
+      systemPrompt: externerSystemPrompt,
+      temperatur: temperature,
+      maxTokens: max_tokens,
+    });
+    return;
+  }
+
   // Agent-Modus (2026-07-28): Text-Nachrichten laufen als Werkzeug-Lauf.
   // Bild-Nachrichten bleiben auf dem Vision-Pfad unten (die Agent-Schleife
   // spricht /api/chat ohne Bild-Unterstützung).

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUp,
   ChevronDown,
+  Cloud,
   FilePlus2,
   FolderOpen,
   FolderOutput,
@@ -38,6 +39,14 @@ import { modellAnzeigeName } from '@/utils/modelDisplay';
 export interface ComposerModel {
   id: string;
   name: string;
+  /**
+   * Plan 023 D9: laeuft dieses Modell bei einem Cloud-Anbieter? Der Plan
+   * verlangt, dass ein externes Modell "deutlich als extern gekennzeichnet"
+   * ist. Ein Produkt, das mit "laeuft vollstaendig lokal" verkauft wird, darf
+   * seine eine Ausnahme nicht wie den Normalfall aussehen lassen.
+   */
+  extern?: boolean;
+  anbieter_name?: string;
 }
 
 /**
@@ -333,9 +342,14 @@ export default function ComposerCard({
   // Auswahlliste darunter. Bis zum 20.08.2026 stand hier nur das erste Wort,
   // am Geraet gemessen: "Gemma" statt "Gemma 4 Kompakt", "Qwen3.8" statt
   // "Qwen3.8 27B". Die Breite haelt jetzt das Layout, nicht der Text.
+  const gewaehltesModell = models.find(m => m.id === selectedModel);
   const modelLabel = selectedModel
-    ? modellAnzeigeName(models.find(m => m.id === selectedModel) ?? { id: selectedModel })
+    ? modellAnzeigeName(gewaehltesModell ?? { id: selectedModel })
     : 'Auto';
+  // Plan 023 D9: ist gerade ein Cloud-Modell gewaehlt, steht das an der
+  // Schaltflaeche selbst, nicht erst in der aufgeklappten Liste. Wer tippt,
+  // sieht die Liste nicht.
+  const externGewaehlt = gewaehltesModell?.extern === true;
 
   const hasChips =
     Boolean(chatScope) ||
@@ -507,7 +521,11 @@ export default function ComposerCard({
               title={modelLabel}
               className="flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
             >
+              {externGewaehlt && (
+                <Cloud className="size-3 shrink-0 text-primary" aria-hidden="true" />
+              )}
               <span className="max-w-[11rem] truncate">{modelLabel}</span>
+              {externGewaehlt && <span className="shrink-0 text-primary">extern</span>}
               <ChevronDown className="size-3 shrink-0" />
             </button>
           </DropdownMenuTrigger>
@@ -517,8 +535,21 @@ export default function ComposerCard({
             </DropdownMenuItem>
             {models.map(m => (
               <DropdownMenuItem key={m.id} onClick={() => onSelectModel(m.id)}>
-                <span className={cn(selectedModel === m.id && 'font-semibold')}>
+                <span
+                  className={cn(
+                    'flex items-center gap-2',
+                    selectedModel === m.id && 'font-semibold'
+                  )}
+                >
+                  {m.extern && (
+                    <Cloud className="size-3 shrink-0 text-primary" aria-hidden="true" />
+                  )}
                   {modellAnzeigeName(m)}
+                  {m.extern && (
+                    <span className="ml-auto shrink-0 text-[0.7rem] text-primary">
+                      {m.anbieter_name ?? 'extern'}, verlässt das Gerät
+                    </span>
+                  )}
                 </span>
               </DropdownMenuItem>
             ))}

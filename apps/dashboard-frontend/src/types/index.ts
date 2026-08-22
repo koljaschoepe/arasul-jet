@@ -108,6 +108,14 @@ export interface InstalledModel {
   performance_tier?: number;
   model_type?: string;
   is_running?: boolean;
+  /**
+   * Plan 023 D9: laeuft dieses Modell bei einem Cloud-Anbieter statt auf
+   * diesem Geraet? Der Chat muss das anzeigen koennen, ohne die Id zu
+   * zerlegen.
+   */
+  extern?: boolean;
+  anbieter?: string;
+  anbieter_name?: string;
 }
 
 // `CatalogModel` stand bis Plan 023 D3 hier UND in `hooks/useStoreCatalog.ts`.

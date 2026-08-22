@@ -678,7 +678,14 @@ export default function AgentChatPanel() {
     // (z. B. nomic-embed-text) sind installiert, aber keine Gesprächspartner
     // (Plan 022: fähigkeits-bewusster Filter, eine gemeinsame Quelle).
     .filter(istChatModell)
-    .map(m => ({ id: m.id, name: modellAnzeigeName(m) }));
+    // Plan 023 D9: `extern` muss mit. Ohne dieses Feld sähe die Auswahl ein
+    // Cloud-Modell wie jedes andere aus, und genau das darf sie nicht.
+    .map(m => ({
+      id: m.id,
+      name: modellAnzeigeName(m),
+      extern: m.extern === true,
+      anbieter_name: m.anbieter_name,
+    }));
 
   const lastIndex = messages.length - 1;
 

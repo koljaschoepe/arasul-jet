@@ -2909,6 +2909,33 @@ PK (projekt_id, jahr).
 
 ---
 
+## `externe_modell_anbieter`
+
+> Plan 023 D9: je Anbieter ein verschlüsselter Cloud-Schlüssel. Geräteweit, nicht je Nutzer (Entscheidung E1: ein Zugang je Gerät). Modellnamen stehen NICHT hier, sie kommen zur Laufzeit vom Anbieter. Jede Anfrage an ein externes Modell steht in `api_audit_logs` mit `action_type = 'externes_modell'`.
+
+| Column                        | Type                     | Nullable | Default |
+| ----------------------------- | ------------------------ | -------- | ------- |
+| `anbieter`                    | character varying(50)    | ⛔       |         |
+| `verschluesselter_schluessel` | bytea                    | ⛔       |         |
+| `schluessel_endet_auf`        | character varying(8)     | ⛔       |         |
+| `aktiv`                       | boolean                  | ⛔       | `false` |
+| `zuletzt_geprueft_am`         | timestamp with time zone | ✅       |         |
+| `letzter_fehler`              | text                     | ✅       |         |
+| `angelegt_am`                 | timestamp with time zone | ⛔       | `now()` |
+| `geaendert_am`                | timestamp with time zone | ⛔       | `now()` |
+
+**Primary key:** `anbieter`
+
+**Trigger:** `trg_externe_modell_anbieter_geaendert` setzt `geaendert_am` bei jedem UPDATE.
+
+Der Schlüssel liegt als AES-256-GCM-Blob (IV || AuthTag || Ciphertext), erzeugt
+von `utils/tokenCrypto.js` mit einem Schlüssel aus `JWT_SECRET`. Eine geleakte
+Zeile ohne `JWT_SECRET` ist wertlos. `schluessel_endet_auf` ist bewusst
+Klartext, damit die Oberfläche zeigen kann, WELCHER Schlüssel hinterlegt ist,
+ohne ihn zu entschlüsseln.
+
+---
+
 ## `user_external_credentials`
 
 > Pro Nutzer verschlüsselt gespeicherte Credentials externer CLIs (Plan 008 Schritt 14). v1: provider=claude — die Claude-Code-Login-Dateien, damit ein Login einen Container-Rebuild überlebt.

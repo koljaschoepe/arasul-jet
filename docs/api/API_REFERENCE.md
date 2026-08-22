@@ -1409,6 +1409,55 @@ und 64 MB entpackt.
 | POST   | `/api/models/:id/activate`   | Load model into RAM                             |
 | POST   | `/api/models/:id/deactivate` | Unload model from RAM (identisch mit `/unload`) |
 
+**Hinweis zu `/api/models/installed`:** Die Antwort enthaelt seit Plan 023 D9
+auch die externen Cloud-Modelle, sofern ein Anbieter eingeschaltet ist. Sie
+tragen `"extern": true`, eine Id mit dem Praefix `extern:<anbieter>/<modell>`
+und `ram_required_gb: 0`, weil sie auf diesem Geraet keinen Speicher belegen.
+Ist kein Anbieter eingeschaltet, kommt nichts dazu.
+
+### Externe Cloud-Modelle (Plan 023 D9)
+
+Ein Cloud-Modell dazuschalten, um damit Anwendungen zu bauen, die danach lokal
+laufen. Ab Werk ist nichts eingeschaltet. Der Schluessel wird AES-256-GCM
+verschluesselt gespeichert (`utils/tokenCrypto`, Schluessel aus `JWT_SECRET`)
+und **nie** zurueckgegeben; angezeigt werden die letzten vier Zeichen.
+
+| Method | Endpoint                                 | Description                                    |
+| ------ | ---------------------------------------- | ---------------------------------------------- |
+| GET    | `/api/modelle-extern`                    | Stand aller Anbieter, auch der ohne Schluessel |
+| GET    | `/api/modelle-extern/modelle`            | Die heute waehlbaren externen Modelle          |
+| PUT    | `/api/modelle-extern/:anbieter`          | Schluessel hinterlegen oder ersetzen           |
+| DELETE | `/api/modelle-extern/:anbieter`          | Schluessel entfernen                           |
+| POST   | `/api/modelle-extern/:anbieter/pruefen`  | Schluessel gegen den Anbieter pruefen          |
+| POST   | `/api/modelle-extern/:anbieter/schalten` | Anbieter ein- oder ausschalten                 |
+
+`:anbieter` ist `anthropic` oder `openai`. Die Modellliste kommt vom Anbieter
+selbst (`GET /v1/models`), nicht aus einer Liste im Code; ohne Schluessel gibt
+es niemanden zu fragen, und die Liste bleibt leer.
+
+**Jede Anfrage an ein externes Modell steht im Pruefprotokoll**
+(`api_audit_logs`) mit `action_type = "externes_modell"`. Festgehalten wird,
+WAS wohin ging (Anbieter, Modell, Zeichenzahl, Tokenzahlen), nicht der Text.
+
+**GET /api/modelle-extern:**
+
+```json
+{
+  "data": [
+    {
+      "anbieter": "anthropic",
+      "name": "Anthropic",
+      "schluessel_hinweis": "beginnt mit sk-ant-",
+      "schluessel_hinterlegt": true,
+      "schluessel_endet_auf": "ab12",
+      "aktiv": false,
+      "zuletzt_geprueft_am": "2026-08-22T09:00:00.000Z",
+      "letzter_fehler": null
+    }
+  ]
+}
+```
+
 **GET /api/models/catalog:**
 
 ```json
