@@ -424,7 +424,8 @@ def run_indexing_pipeline(
     qdrant_manager,
     graph_store,
     enable_similarity: bool,
-    skip_if_unchanged: bool = False
+    skip_if_unchanged: bool = False,
+    anreichern: bool = True
 ) -> Optional[int]:
     """
     Shared indexing pipeline for both new and existing documents.
@@ -447,6 +448,11 @@ def run_indexing_pipeline(
             Plan 012 Phase F Schritt 17). Default False, damit ein
             ausdruecklich angestossener /reindex IMMER neu baut — sonst waere
             der Knopf wirkungslos, was niemand erwartet.
+        anreichern: Wenn False, wird die KI-Anreicherung (Zusammenfassung,
+            Themen, Kategorie) NICHT hier ausgefuehrt. Das Dokument ist danach
+            vollstaendig indexiert und durchsuchbar, nur ohne Zusammenfassung.
+            Der Scan-Zyklus setzt das auf False und holt die Anreicherung
+            nach, sobald keine neuen Dokumente mehr warten (Plan 023 G4).
 
     Returns:
         Number of chunks indexed, or None on failure
@@ -598,42 +604,24 @@ def run_indexing_pipeline(
         f"[space: {space_info.get('space_name', 'none')}]"
     )
 
-    # Plan 023 G4: die Anreicherung, nachdem das Dokument auffindbar ist.
+    # Plan 023 G4: das Billige sofort, das Teure spaeter.
     #
-    # Sie darf scheitern, ohne dass daraus ein gescheitertes Dokument wird: der
-    # Text ist indexiert, die Zusammenfassung ist Beiwerk. Vorher haette ein
-    # Fehler hier den ganzen Lauf gekippt.
-    try:
-        if ENABLE_AI_ANALYSIS:
-            logger.info(f"Running AI analysis for {filename}")
-            analysis = analyzer.analyze_document(
-                text=text,
-                filename=filename,
-                title=metadata.get('title'),
-                categories=db.get_categories()
-            )
-            updates = {}
-            if analysis.get('summary'):
-                updates['summary'] = analysis['summary']
-            if analysis.get('key_topics'):
-                updates['key_topics'] = analysis['key_topics']
-            if analysis.get('category'):
-                cat = db.get_category_by_name(analysis['category'])
-                if cat:
-                    updates['category_id'] = cat['id']
-                    updates['category_confidence'] = analysis.get(
-                        'category_confidence', 0.5
-                    )
-            if updates:
-                db.update_document(doc_id, updates)
-        else:
+    # Ohne KI-Analyse sind die Themen ein Regex-Lauf ueber den Text, also
+    # Millisekunden. Der bleibt hier. Mit KI-Analyse sind es drei
+    # Modellaufrufe, am 22.08.2026 auf dem Orin rund fuenfzig Sekunden je
+    # Dokument, und die gehoeren nicht in die Warteschlange (siehe
+    # `anreichern`).
+    if not ENABLE_AI_ANALYSIS:
+        try:
             simple_topics = extract_key_topics(text, max_topics=10)
             if simple_topics:
                 db.update_document(doc_id, {'key_topics': simple_topics})
-    except Exception as anreicherung_err:
-        logger.warning(
-            f"Anreicherung fuer {filename} uebersprungen: {anreicherung_err}"
-        )
+        except Exception as themen_err:
+            logger.warning(
+                f"Themen fuer {filename} uebersprungen: {themen_err}"
+            )
+    elif anreichern:
+        reichere_an(doc_id, text, filename, metadata.get('title'), db, analyzer)
 
     # Calculate similarity if enabled
     if enable_similarity:
@@ -953,3 +941,58 @@ def _index_to_qdrant(
                 f"Failed to rollback parent_chunks for {doc_id}: {cleanup_err}"
             )
         raise
+
+
+def reichere_an(doc_id, text, filename, titel, db, analyzer) -> bool:
+    """
+    Zusammenfassung, Themen und Kategorie nachtragen (Plan 023 G4).
+
+    Beiwerk, kein Muss: der Text ist zu diesem Zeitpunkt bereits indexiert und
+    durchsuchbar. Ein Fehler hier darf das Dokument nicht kippen, deshalb faengt
+    die Funktion selbst und meldet nur, ob es geklappt hat.
+
+    Getrennt vom Indexieren, weil die drei Modellaufrufe am 22.08.2026 auf dem
+    Orin rund fuenfzig Sekunden brauchten. Steckten sie in der Warteschlange,
+    wartete eine gerade geschriebene Datei hinter jedem Vorgaenger: bei
+    einundsiebzig offenen Dokumenten ueber eine Stunde, gemessen.
+
+    Args:
+        doc_id: Dokument-UUID
+        text: der bereits extrahierte Text
+        filename: Dateiname, nur fuer die Protokollzeile
+        titel: Titel aus den Metadaten oder None
+        db: DatabaseManager
+        analyzer: DocumentAnalyzer
+
+    Returns:
+        True, wenn etwas geschrieben wurde
+    """
+    try:
+        logger.info(f"Running AI analysis for {filename}")
+        analysis = analyzer.analyze_document(
+            text=text,
+            filename=filename,
+            title=titel,
+            categories=db.get_categories()
+        )
+        updates = {}
+        if analysis.get('summary'):
+            updates['summary'] = analysis['summary']
+        if analysis.get('key_topics'):
+            updates['key_topics'] = analysis['key_topics']
+        if analysis.get('category'):
+            cat = db.get_category_by_name(analysis['category'])
+            if cat:
+                updates['category_id'] = cat['id']
+                updates['category_confidence'] = analysis.get(
+                    'category_confidence', 0.5
+                )
+        if updates:
+            db.update_document(doc_id, updates)
+            return True
+        return False
+    except Exception as anreicherung_err:
+        logger.warning(
+            f"Anreicherung fuer {filename} uebersprungen: {anreicherung_err}"
+        )
+        return False

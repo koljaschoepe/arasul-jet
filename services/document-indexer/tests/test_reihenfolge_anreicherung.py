@@ -11,6 +11,13 @@ NACH alldem auf `indexed` gesetzt, war also ueber eine Minute lang nicht
 auffindbar, obwohl der Textlayer in rund einer Sekunde fertig gewesen waere.
 
 Die Anreicherung ist Beiwerk; die Auffindbarkeit ist die Zusage.
+
+Nachtrag vom selben Tag, nach der Live-Messung: die Reihenfolge INNERHALB eines
+Dokuments zu drehen reichte nicht. Der naechste Fund war die Warteschlange.
+Eine frisch geschriebene Datei stand hinter 71 offenen Dokumenten, jedes mit
+rund fuenfzig Sekunden Modell-Arbeit, also ueber eine Stunde. Deshalb laeuft
+die Anreicherung jetzt gar nicht mehr im Indexier-Durchgang, sondern erst
+danach und nur dann, wenn nichts Neues wartet.
 """
 
 import inspect
@@ -26,7 +33,7 @@ def test_status_wird_vor_der_ki_analyse_gesetzt():
     """`indexed` steht, bevor das Sprachmodell ueberhaupt gefragt wird."""
     text = _quelltext()
     status_pos = text.index("update_document_status(doc_id, final_status")
-    analyse_pos = text.index("analyzer.analyze_document(")
+    analyse_pos = text.index("reichere_an(")
     assert status_pos < analyse_pos, (
         "Die KI-Analyse laeuft wieder VOR dem Statuswechsel. Damit ist ein "
         "Dokument erst nach mehreren Sprachmodell-Aufrufen auffindbar."
@@ -35,17 +42,16 @@ def test_status_wird_vor_der_ki_analyse_gesetzt():
 
 def test_indexierung_laeuft_vor_der_ki_analyse():
     text = _quelltext()
-    assert text.index("_index_to_qdrant(") < text.index("analyzer.analyze_document(")
+    assert text.index("_index_to_qdrant(") < text.index("reichere_an(")
 
 
 def test_eine_gescheiterte_anreicherung_kippt_den_lauf_nicht():
     """Der Text ist indexiert; eine fehlende Zusammenfassung ist kein Fehlschlag."""
-    text = _quelltext()
-    analyse_pos = text.index("analyzer.analyze_document(")
-    # Der Aufruf liegt in einem try-Block mit einem eigenen except davor/danach.
-    davor = text[:analyse_pos]
-    assert davor.rstrip().endswith(("try:", "(")) or "try:" in davor.split("Anreicherung")[-1]
-    assert "Anreicherung fuer" in text
+    quelle = inspect.getsource(dp.reichere_an)
+    assert "except Exception" in quelle
+    assert "return False" in quelle
+    # Und sie meldet den Fehlschlag, statt ihn zu verschlucken.
+    assert "Anreicherung fuer" in quelle
 
 
 def test_die_kategorie_in_der_nutzlast_ist_bewusst_allgemein():
@@ -56,3 +62,33 @@ def test_die_kategorie_in_der_nutzlast_ist_bewusst_allgemein():
     """
     text = _quelltext()
     assert "'category_name': 'Allgemein'" in text
+
+
+def test_die_anreicherung_laesst_sich_abschalten():
+    """Der Schalter, ohne den die Warteschlange wieder verstopft."""
+    unterschrift = inspect.signature(dp.run_indexing_pipeline)
+    assert 'anreichern' in unterschrift.parameters
+    # Voreinstellung True: ein direkter Aufruf verhaelt sich wie vorher.
+    assert unterschrift.parameters['anreichern'].default is True
+
+
+def test_der_scan_indexiert_ohne_anzureichern():
+    """Der eine Aufrufer, auf den es ankommt.
+
+    Wenn der Scan-Zyklus wieder mit anreichern=True indexiert, ist die
+    Stunde Wartezeit zurueck, ohne dass ein anderer Test es merkt.
+    """
+    import enhanced_indexer as ei
+    quelle = inspect.getsource(ei.EnhancedDocumentIndexer.scan_and_index)
+    assert "anreichern=False" in quelle, (
+        "Der Scan-Zyklus reichert wieder waehrend des Indexierens an."
+    )
+
+
+def test_nachgeholt_wird_nur_ohne_rueckstau():
+    """Neue Dateien haben Vorrang vor der Zusammenfassung alter."""
+    import enhanced_indexer as ei
+    quelle = inspect.getsource(ei.EnhancedDocumentIndexer.scan_and_index)
+    bedingung = quelle.index("if not cap_reached:")
+    aufruf = quelle.index("self._anreicherung_nachholen()")
+    assert bedingung < aufruf

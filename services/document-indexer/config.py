@@ -68,6 +68,20 @@ INDEXER_MAX_DOCS_PER_CYCLE = int(os.getenv('DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE'
 # Wartezeit: am 22.08.2026 auf dem Orin gemessen, 93 Dokumente auf `pending`,
 # Indexer bei 0,01 Prozent CPU. Ein Dokument braucht rund eine Sekunde.
 INDEXER_NACHBRENNER = int(os.getenv('DOCUMENT_INDEXER_NACHBRENNER', '2'))
+# Plan 023 G4: wie viele Dokumente je Zyklus nachtraeglich angereichert werden.
+#
+# Indexieren und Anreichern sind seit dem 22.08.2026 getrennt. Das Indexieren
+# ist schnell (rund eine Drittelsekunde je Dokument, gemessen), die drei
+# Modellaufrufe der Anreicherung brauchten auf dem Orin rund fuenfzig Sekunden.
+# Standen sie in derselben Warteschlange, wartete eine gerade geschriebene
+# Datei hinter jedem Vorgaenger: bei 71 offenen Dokumenten ueber eine Stunde.
+#
+# Nachgeholt wird nur, wenn der Scan nichts Neues mehr findet. Drei Stueck sind
+# rund zweieinhalb Minuten; so lange dauert es hoechstens, bis eine neue Datei
+# an die Reihe kommt. 0 schaltet das Nachholen ab.
+INDEXER_ANREICHERUNG_PRO_ZYKLUS = int(
+    os.getenv('DOCUMENT_INDEXER_ANREICHERUNG_PRO_ZYKLUS', '3')
+)
 # Phase 0 (BUG-002): Max automatic retries for failed documents in the scan loop.
 # The scan loop must honor this cap; explicit /retry endpoint bypasses it by resetting retry_count.
 INDEXER_MAX_RETRIES = int(os.getenv('DOCUMENT_INDEXER_MAX_RETRIES', '3'))

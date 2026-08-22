@@ -36,7 +36,7 @@ from config import (
     MINIO_HOST, MINIO_PORT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD,
     MINIO_BUCKET, QDRANT_COLLECTION, EMBEDDING_ENABLED,
     INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE, INDEXER_MAX_RETRIES,
-    INDEXER_NACHBRENNER,
+    INDEXER_NACHBRENNER, INDEXER_ANREICHERUNG_PRO_ZYKLUS,
     INDEXER_WATCHDOG_INTERVAL_SECONDS,
     PARTIAL_REPICKUP_INTERVAL_SECONDS,
     PARTIAL_REPICKUP_MAX_ATTEMPTS,
@@ -50,7 +50,7 @@ from qdrant_manager import QdrantManager
 from document_processor import (
     calculate_content_hash, calculate_file_hash, get_mime_type,
     parse_document, get_document_space_info, contextualize_chunk,
-    run_indexing_pipeline, PARSERS, SUPPORTED_MIMES
+    run_indexing_pipeline, reichere_an, PARSERS, SUPPORTED_MIMES
 )
 
 # Logger inherits structured JSON formatting from api_server.py entry point
@@ -127,6 +127,8 @@ class EnhancedDocumentIndexer:
         # Plan 023 G4: blieb im letzten Zyklus Arbeit liegen? Dann ist die
         # Pause danach kurz. Wird in `scan_and_index` gesetzt.
         self._nacharbeit_offen = False
+        # doc_id -> gescheiterte Anreicherungs-Versuche (Plan 023 G4)
+        self._anreicherung_versuche = {}
         self.status = {
             'running': True,
             'last_scan': None,
@@ -247,13 +249,17 @@ class EnhancedDocumentIndexer:
     # ------------------------------------------------------------------
 
     def process_new_document(self, object_name: str,
-                             data: bytes) -> Optional[str]:
+                             data: bytes,
+                             anreichern: bool = True) -> Optional[str]:
         """
         Process a new document from MinIO.
 
         Args:
             object_name: Path in MinIO bucket
             data: File data bytes
+            anreichern: Wenn False, wird die KI-Anreicherung nicht hier
+                ausgefuehrt, sondern spaeter nachgeholt (Plan 023 G4). Der
+                Scan-Zyklus setzt das auf False.
 
         Returns:
             Document ID if successful, None otherwise
@@ -357,7 +363,8 @@ class EnhancedDocumentIndexer:
                     f"will index: {filename}"
                 )
                 return self._index_existing_document(
-                    doc_id, data, filename, content_hash, file_hash
+                    doc_id, data, filename, content_hash, file_hash,
+                    anreichern=anreichern
                 )
 
         # Check by file hash for re-indexing
@@ -375,7 +382,8 @@ class EnhancedDocumentIndexer:
                 )
                 doc_id = existing_by_path['id']
                 return self._index_existing_document(
-                    doc_id, data, filename, content_hash, file_hash
+                    doc_id, data, filename, content_hash, file_hash,
+                    anreichern=anreichern
                 )
 
         # Gleicher INHALT unter einem anderen Pfad? Dann ist er schon indexiert.
@@ -473,7 +481,8 @@ class EnhancedDocumentIndexer:
                 embedding_client=self._embedding_client,
                 qdrant_manager=self._qdrant_manager,
                 graph_store=self.graph_store,
-                enable_similarity=ENABLE_SIMILARITY
+                enable_similarity=ENABLE_SIMILARITY,
+                anreichern=anreichern
             )
 
             if chunk_count is None:
@@ -522,7 +531,8 @@ class EnhancedDocumentIndexer:
         data: bytes,
         filename: str,
         content_hash: str,
-        file_hash: str
+        file_hash: str,
+        anreichern: bool = True
     ) -> Optional[str]:
         """
         Index an existing document that is in pending/failed state.
@@ -552,7 +562,8 @@ class EnhancedDocumentIndexer:
                 embedding_client=self._embedding_client,
                 qdrant_manager=self._qdrant_manager,
                 graph_store=self.graph_store,
-                enable_similarity=ENABLE_SIMILARITY
+                enable_similarity=ENABLE_SIMILARITY,
+                anreichern=anreichern
             )
 
             if chunk_count is None:
@@ -636,6 +647,96 @@ class EnhancedDocumentIndexer:
     # Scan loop & lifecycle
     # ------------------------------------------------------------------
 
+    def _anreicherung_nachholen(self) -> int:
+        """
+        Fertig indexierten Dokumenten die Zusammenfassung nachtragen (G4).
+
+        Laeuft nur, wenn der Scan gerade nichts Neues mehr gefunden hat. Der
+        Deckel je Zyklus haelt die Runde kurz, damit eine Datei, die in der
+        Zwischenzeit geschrieben wird, nicht hinter einer langen Nachhol-Runde
+        wartet: bei drei Dokumenten und rund fuenfzig Sekunden je Stueck sind
+        das etwa zweieinhalb Minuten, nicht eine Stunde.
+
+        Returns:
+            Anzahl der angereicherten Dokumente
+        """
+        if not ENABLE_AI_ANALYSIS or INDEXER_ANREICHERUNG_PRO_ZYKLUS <= 0:
+            return 0
+        try:
+            offen = self.db.get_dokumente_ohne_anreicherung(
+                limit=INDEXER_ANREICHERUNG_PRO_ZYKLUS
+            )
+        except Exception as e:
+            logger.warning(f"Anreicherung: Abfrage fehlgeschlagen: {e}")
+            return 0
+        if not offen:
+            return 0
+
+        logger.info(f"Anreicherung: {len(offen)} Dokument(e) werden nachgetragen")
+        fertig = 0
+        for dok in offen:
+            try:
+                antwort = self.minio_client.get_object(
+                    MINIO_BUCKET, dok['file_path']
+                )
+                try:
+                    daten = antwort.read()
+                finally:
+                    antwort.close()
+                    antwort.release_conn()
+                text = parse_document(daten, dok['filename'])
+                if not text or not text.strip():
+                    # Nichts zusammenzufassen: ein Logo ohne Schrift, eine
+                    # leere Datei. Kein Fehler, aber auch nichts, worauf man
+                    # wartet.
+                    self._anreicherung_aufgeben(dok, 'kein Text')
+                    continue
+                if reichere_an(
+                    dok['id'], text, dok['filename'], None,
+                    self.db, self.analyzer
+                ):
+                    self._anreicherung_versuche.pop(str(dok['id']), None)
+                    fertig += 1
+                else:
+                    self._anreicherung_gescheitert(dok)
+            except Exception as e:
+                logger.warning(
+                    f"Anreicherung fuer {dok.get('filename')} fehlgeschlagen: {e}"
+                )
+                self._anreicherung_gescheitert(dok)
+        return fertig
+
+    def _anreicherung_gescheitert(self, dok) -> None:
+        """
+        Einen fehlgeschlagenen Versuch zaehlen und ab drei aufgeben.
+
+        Ohne diese Zaehlung stuende dasselbe Dokument fuer immer vorn: die
+        Abfrage sortiert nach `updated_at`, und ein gescheiterter Versuch
+        schreibt nichts, aendert also nichts an der Reihenfolge. Ein einziges
+        unzusammenfassbares Dokument haette so alle anderen blockiert.
+
+        Drei Versuche, weil eine kurz nicht erreichbare GPU der haeufigste
+        Grund ist und sich von selbst erledigt (gleiche Zahl wie
+        INDEXER_MAX_RETRIES).
+        """
+        kennung = str(dok['id'])
+        versuche = self._anreicherung_versuche.get(kennung, 0) + 1
+        self._anreicherung_versuche[kennung] = versuche
+        if versuche >= INDEXER_MAX_RETRIES:
+            self._anreicherung_aufgeben(dok, f'{versuche} Versuche')
+
+    def _anreicherung_aufgeben(self, dok, grund: str) -> None:
+        """Leere Zusammenfassung eintragen, damit die Zeile Ruhe gibt."""
+        try:
+            self.db.update_document(dok['id'], {'summary': ''})
+        except Exception as e:
+            logger.warning(f"Anreicherung: Aufgeben fehlgeschlagen: {e}")
+            return
+        self._anreicherung_versuche.pop(str(dok['id']), None)
+        logger.info(
+            f"Anreicherung fuer {dok.get('filename')} aufgegeben ({grund})"
+        )
+
     def scan_and_index(self):
         """Scan MinIO bucket and index new documents (capped per cycle)."""
         try:
@@ -686,7 +787,9 @@ class EnhancedDocumentIndexer:
                         response.release_conn()
 
                     # Process document
-                    self.process_new_document(obj.object_name, data)
+                    self.process_new_document(
+                        obj.object_name, data, anreichern=False
+                    )
                     processed_this_cycle += 1
 
                 except Exception as e:
@@ -715,6 +818,16 @@ class EnhancedDocumentIndexer:
                     f"naechster Zyklus in {INDEXER_NACHBRENNER}s statt "
                     f"{INDEXER_INTERVAL}s."
                 )
+
+            # Plan 023 G4: die Anreicherung kommt nach, nicht dazwischen.
+            #
+            # Indexiert wird oben ohne sie. Erst wenn der Deckel NICHT erreicht
+            # wurde — also gerade nichts Neues wartet — werden ein paar
+            # Dokumente nachtraeglich zusammengefasst. Kommt waehrenddessen
+            # eine Datei dazu, ist sie im naechsten Zyklus dran und wartet
+            # nicht hinter der Modell-Arbeit fremder Dokumente.
+            if not cap_reached:
+                self._anreicherung_nachholen()
 
             # Get actual pending count from database
             try:
