@@ -3661,6 +3661,36 @@ vereinfachte Oberfläche das trägt.
 **Abnahme:** Der nachgebaute Flow läuft auf dem Gerät durch und erzeugt ein
 brauchbares Dokument auf Deutsch.
 
+### Das Vorbild, nachgesehen
+
+Im Projekte-Development-Ordner auf dem Gerät liegt unter `Wissen/Abläufe/angebot/`
+ein zweiphasiger Ablauf: `phase-1-analyse.md` liest das PRD und sucht
+Kundendaten im Projektordner, `phase-2-generierung.md` schreibt daraus das
+Angebot.
+
+### Der Nachbau (#511)
+
+Drei Schritte, zwei Rollen, eine Rückfrage:
+
+| Schritt      | Art                     | was er tut                                                |
+| ------------ | ----------------------- | --------------------------------------------------------- |
+| `unterlagen` | Subagent `sichter`      | Sucht und liest im Kundenordner, trennt bekannt von offen |
+| `umfang`     | Werkzeug `frage_nutzer` | Drei Optionen: kompakt, ausführlich, nur Preisrahmen      |
+| `schreiben`  | Subagent `autor`        | Schreibt `{{kunde}}/angebot.md`                           |
+
+Die Antwort geht als `{{umfang}}` in den letzten Schritt. Ohne diesen
+Platzhalter wäre die Rückfrage Zierde: gefragt, gehört, nicht benutzt.
+
+Der Flow ist zugleich der erste echte Nutzer der Betriebsart `rueckfragen` aus
+I2, und er greift ins Annahmen-Protokoll: der Autor schreibt `[offene Stelle]`,
+wo er nichts weiß, und genau diese Marker liest `pruefung.js` hinterher aus.
+
+**Eine Lücke, die dabei auffiel:** Schritt-Parameter ließen nur Zeichenketten,
+Zahlen und Wahrheitswerte zu. `frage_nutzer` erwartet seine `optionen` als
+Liste und ließ sich damit in einer Schritt-Kette gar nicht rufen.
+
+**Offen:** die Live-Abnahme. Sie ist zugleich die von I2 und I3.
+
 ## I5 Auf das Standardmodell abgestimmt
 
 Der Harness muss mit Qwen3.8 27B gut laufen, nicht nur mit einem großen
@@ -3783,6 +3813,34 @@ erkannt und als Ziel angeboten, daneben der Download.
 
 **Abnahme:** Eine angesteckte SSD erscheint innerhalb von zehn Sekunden als Ziel.
 Der Export landet darauf und ist wieder einlesbar.
+
+### Was daraus wurde (#513)
+
+Der Host hängt eine Platte unter `/media/<nutzer>/<name>` ein, das ist der
+Standardweg unter Ubuntu. Dieser Ordner wird per Compose in den Container
+gereicht. Der Container sieht damit **genau die eingehängten Datenträger und
+sonst nichts vom Host**: kein `lsblk`, kein Docker-Socket, keine Rechte, selbst
+einzuhängen. Einhängen bleibt Sache des Betriebssystems.
+
+Die Oberfläche fragt alle zehn Sekunden nach, also genau in dem Fenster, das die
+Abnahme nennt.
+
+Zwei Wände beim Ziel, beide aus demselben Grund wie bei den Erweiterungs-Tabellen:
+der Name wird **abgewiesen, nicht bereinigt**, und der aufgelöste Pfad muss
+wirklich unter dem Ordner liegen — sonst zeigt ein Symlink auf der fremden
+Platte zurück ins Gerät.
+
+Geschrieben wird erst daneben, dann umbenannt. Wer die Platte mitten im
+Schreiben abzieht, hätte sonst etwas, das aussieht wie ein Export.
+
+**Der Unterschied, der in der Antwort steht:** „keine Platte angesteckt" ist
+nicht dasselbe wie „der Ordner ist gar nicht eingebunden". Ohne diesen
+Unterschied sucht jemand eine Stunde am falschen Ende.
+
+**Offen:** die Live-Abnahme mit einer physisch angesteckten Platte. Die
+Code-Strecke lässt sich ohne Hardware prüfen — ein Ordner unter `/media/arasul`
+verhält sich für alles oberhalb des Betriebssystems wie eine eingehängte Platte
+—, der Unterschied liegt allein im Einhängen.
 
 ## J4 Löschung nach Art. 17
 
