@@ -3007,6 +3007,59 @@ Zusage „Antworten mit Quellen" nur halb eingelöst.
 **Abnahme:** Eine Frage, die kein Wort aus dem Dokument enthält, findet die
 richtige Stelle. Behebt F-50.
 
+### Erst gemessen: die Vektorsuche ist nicht „aus", sie ist abgebaut
+
+Am 22.08.2026 auf dem Orin:
+
+|                                |                                                          |
+| ------------------------------ | -------------------------------------------------------- |
+| Container `qdrant`             | läuft nicht                                              |
+| Container `embedding-service`  | läuft nicht                                              |
+| `RAG_VEKTOR_SUCHE` im Backend  | nicht gesetzt                                            |
+| `EMBEDDING_ENABLED` im Indexer | nicht gesetzt                                            |
+| Protokoll des Indexers         | `Textlayer-only indexed … (Embedding aus — kein Qdrant)` |
+
+Das ist kein vergessener Schalter. **Plan 021, Schritt 8 hat das klassische
+Vektor-RAG durch agentisches ersetzt**; seither liegen beide Container im
+Compose-Profil `classic-rag` und starten nicht mit. Dieselbe Planseite hält das
+bei D5 bereits fest.
+
+G5 verlangt damit die Rücknahme einer Architekturentscheidung, nicht das
+Umlegen eines Schalters.
+
+### Was das Einschalten kostet, gerechnet
+
+| Posten              |                                                                   |
+| ------------------- | ----------------------------------------------------------------- |
+| `embedding-service` | eigener Container, `RAM_LIMIT_EMBEDDING=8G` auf diesem Gerät      |
+| `qdrant`            | eigener Container plus Plattenplatz für die Vektoren              |
+| Neu-Indexierung     | rund **1100** Dokumente, jedes einmal durch das Einbettungsmodell |
+| Speicherlage heute  | 27 von 61 GB belegt, davon 18,6 GB allein das Sprachmodell        |
+
+Der `embedding-service` rechnet auf derselben GPU wie das Sprachmodell. Ein
+Chat, der während einer Neu-Indexierung läuft, teilt sie sich mit ihr.
+
+### Entscheidung für Kolja, nicht für mich
+
+Zwei Wege, beide vertretbar:
+
+**Bei agentischem RAG bleiben.** Dann ist G5 hinfällig und die Zusage
+„Antworten mit Quellen" wird anders eingelöst: der Agent sucht mit
+`dateien_suchen` und liest mit `dateien_lesen`, und seit E8 sagt die Antwort,
+worauf sie sich stützt und wonach vergeblich gesucht wurde. Die Abnahme von G5
+(„eine Frage, die kein Wort aus dem Dokument enthält, findet die richtige
+Stelle") ist damit **nicht** erfüllbar; eine Textsuche kann das nicht.
+
+**Zurück zur Vektorsuche.** Dann ist es kein Schalter, sondern ein Vorhaben:
+Profil starten, Indexer umstellen, Bestand neu einbetten, Speicher und GPU neu
+verteilen, und die Karte in `PLATFORM_COMPATIBILITY.md` und der Wurzel-
+`CLAUDE.md` nachziehen (beide zeigen noch auf die alte Welt, siehe D5).
+
+**Nicht entschieden, weil es nicht meine Entscheidung ist.** Ein Profil zu
+starten, das eine frühere Architekturentscheidung umkehrt, und dabei den
+Speicher eines Geräts neu zu verteilen, während niemand hinsieht, wäre der
+falsche Umgang mit einem Auslieferungsgerät.
+
 ---
 
 # Phase H, eigene Anwendungen bauen und hosten
