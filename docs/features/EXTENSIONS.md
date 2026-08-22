@@ -409,6 +409,40 @@ aktualisiert und ändert seine Variablennamen, greift die Angleichung nicht mehr
 — sie fällt dann auf das fremde Design zurück, statt zu scheitern. Beim
 Aktualisieren also einmal hinsehen.
 
+## Der Vertrag für zweite Werkzeuge (Plan 023 H3)
+
+Ein Partner baut über **ara-kit**, ein Unternehmen im Terminal. Beide müssen
+dasselbe Paket erzeugen. Was „dasselbe" heißt, entscheidet nicht die Meinung,
+sondern `scripts/test/paket-vergleich.py`:
+
+```bash
+python3 scripts/test/paket-vergleich.py ara-kit-bau/ terminal-bau/
+```
+
+**Dasselbe heißt nicht byte-gleich.** Zwei gzip-Archive derselben Dateien
+unterscheiden sich schon durch den Zeitstempel im Kopf. Verglichen wird, was ein
+Paket ausmacht:
+
+| Was        | Wie                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| Manifest   | normalisiert: Reihenfolge der Schlüssel egal, Einrückung egal, `faehigkeiten` als **Menge**       |
+| Dateiliste | ohne Ordner, relativ zur Paketwurzel                                                              |
+| Inhalt     | SHA-256 je Datei                                                                                  |
+| `version`  | zählt **nicht** (zwei Fassungen derselben Anwendung sind dieselbe Anwendung). Mit `--streng` doch |
+
+Ein zweites Werkzeug muss also nicht die Formatierung des Backends treffen. Es
+muss dieselben Felder mit denselben Werten schreiben und dieselben Dateien
+liefern.
+
+**Artefakte des Betriebssystems zählen.** `._*`, `.DS_Store` und `__MACOSX/`
+werden vom Import mitentpackt, sind also Teil des Pakets. Der Vergleich meldet
+sie, benennt sie aber als das, was sie sind — sonst sucht jemand eine Stunde,
+was `._index.html` bedeutet. Beim Packen auf macOS hilft `COPYFILE_DISABLE=1`.
+
+Was ein zweites Werkzeug zusätzlich einhalten muss, steht schon oben: die
+Manifest-Regeln (`erweiterung pruefen` spiegelt sie, `geruest-regeln.py` hält
+die Spiegelung ehrlich) und das Paketformat `arasulExtensionVersion: 1`.
+
 ## Verwandte Dokumentation
 
 - API: [`API_REFERENCE.md`](../api/API_REFERENCE.md) → Abschnitt **Extensions**
