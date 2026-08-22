@@ -18,27 +18,36 @@ migrations always backward-compatible, no rewrites — only incremental change.
 
 ## 1. Service Overview (17 Services)
 
-14 core services + 3 optional services. Die Workspaces (Container, Netzwerkmodi, Wissensraum) laufen im dashboard-backend (kein separater Container).
+12 laufende Dienste + 2 im Profil `classic-rag` + 3 optionale. Die Workspaces
+(Container, Netzwerkmodi, Wissensraum) laufen im dashboard-backend (kein
+separater Container).
 
-| #   | Service            | Port      | Technology          | Entry Point           | Purpose                            |
-| --- | ------------------ | --------- | ------------------- | --------------------- | ---------------------------------- |
-| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                             |
-| 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket         |
-| 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database                |
-| 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference                      |
-| 5   | embedding-service  | 11435     | Flask               | `embedding_server.py` | Text vectorization                 |
-| 6   | document-indexer   | 9102      | Flask               | `api_server.py`       | RAG document processing            |
-| 7   | qdrant             | 6333      | Qdrant              | -                     | Vector database                    |
-| 8   | minio              | 9000/9001 | MinIO               | -                     | S3-compatible storage              |
-| 9   | metrics-collector  | 9100      | aiohttp             | `collector.py`        | System metrics                     |
-| 10  | self-healing-agent | 9200      | Python              | `healing_engine.py`   | Autonomous recovery                |
-| 11  | docker-proxy       | -         | Docker Socket Proxy | -                     | Secure Docker API access           |
-| 12  | n8n                | 5678      | n8n                 | -                     | Workflow automation                |
-| 13  | reverse-proxy      | 80/443    | Traefik             | `routes.yml`          | Reverse proxy + SSL                |
-| 14  | backup-service     | -         | Alpine + cron       | `backup.sh`           | Automated backups                  |
-| 15  | loki               | 3100      | Grafana Loki        | -                     | Log aggregation (optional)         |
-| 16  | promtail           | 9080      | Grafana Promtail    | -                     | Log collector (optional)           |
-| 17  | cloudflared        | -         | Cloudflare Tunnel   | -                     | OAuth & webhook gateway (optional) |
+**`embedding-service` (5) und `qdrant` (7) laufen NICHT von selbst.** Plan 021,
+Schritt 8 hat das klassische Vektor-RAG durch agentisches ersetzt; beide liegen
+seither im Compose-Profil `classic-rag` und starten nur auf Zuruf
+(`docker compose --profile classic-rag up -d qdrant embedding-service`). Sie
+stehen weiter in dieser Tabelle, weil es sie gibt — nicht, weil sie laufen. Am
+22.08.2026 auf dem Orin nachgesehen: `docker ps` zeigt beide nicht.
+
+| #   | Service            | Port      | Technology          | Entry Point           | Purpose                                        |
+| --- | ------------------ | --------- | ------------------- | --------------------- | ---------------------------------------------- |
+| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                                         |
+| 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket                     |
+| 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database                            |
+| 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference                                  |
+| 5   | embedding-service  | 11435     | Flask               | `embedding_server.py` | Text vectorization (Profil `classic-rag`, aus) |
+| 6   | document-indexer   | 9102      | Flask               | `api_server.py`       | RAG document processing                        |
+| 7   | qdrant             | 6333      | Qdrant              | -                     | Vector database (Profil `classic-rag`, aus)    |
+| 8   | minio              | 9000/9001 | MinIO               | -                     | S3-compatible storage                          |
+| 9   | metrics-collector  | 9100      | aiohttp             | `collector.py`        | System metrics                                 |
+| 10  | self-healing-agent | 9200      | Python              | `healing_engine.py`   | Autonomous recovery                            |
+| 11  | docker-proxy       | -         | Docker Socket Proxy | -                     | Secure Docker API access                       |
+| 12  | n8n                | 5678      | n8n                 | -                     | Workflow automation                            |
+| 13  | reverse-proxy      | 80/443    | Traefik             | `routes.yml`          | Reverse proxy + SSL                            |
+| 14  | backup-service     | -         | Alpine + cron       | `backup.sh`           | Automated backups                              |
+| 15  | loki               | 3100      | Grafana Loki        | -                     | Log aggregation (optional)                     |
+| 16  | promtail           | 9080      | Grafana Promtail    | -                     | Log collector (optional)                       |
+| 17  | cloudflared        | -         | Cloudflare Tunnel   | -                     | OAuth & webhook gateway (optional)             |
 
 ### Host-Level Services
 

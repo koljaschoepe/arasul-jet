@@ -27,12 +27,18 @@ Internet (443) → Traefik → Dashboard frontend (React 19 SPA)
                               ├─ PostgreSQL 16
                               ├─ MinIO (S3 storage)
                               ├─ LLM service (Ollama, GPU)
-                              ├─ Embedding service (BGE-M3, GPU)
-                              ├─ Qdrant (vector DB)
-                              ├─ Document indexer (RAG)
+                              ├─ Document indexer (text layer)
                               ├─ n8n (workflows)
+                              ├─ SearXNG (web search for agents)
                               └─ Self-healing + metrics + backup
 ```
+
+**Not running by default:** `qdrant` and `embedding-service`. Plan 021 (step 8)
+replaced classic vector RAG with agentic RAG — grep, symbol search, and reading
+named files. Both containers sit in the `classic-rag` compose profile and start
+only on request (`docker compose --profile classic-rag up -d qdrant`). Anything
+that claims they are part of the running box is out of date; verify with
+`docker compose ps`.
 
 Full topology, ports, startup order: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -55,7 +61,7 @@ arasul-jet/
 │   ├── ops/                    install, run, recover
 │   ├── features/               per-service feature docs
 │   └── plans/                  active and archived roadmaps
-├── .claude/                    Claude Code workspace (commands, agents, hooks, context)
+├── .claude/                    Claude Code workspace (skills, agents, hooks, context)
 ├── CLAUDE.md                   AI-facing rules and entry point
 ├── CONTRIBUTING.md             workflow, conventions, slash-command catalog
 ├── README.md                   you are here
