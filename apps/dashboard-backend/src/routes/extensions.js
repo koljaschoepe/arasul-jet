@@ -33,6 +33,7 @@ const {
   BrueckeDateienBody,
   BrueckeNetzBody,
   BrueckeTabellenBody,
+  BrueckeZeitplanBody,
   BrueckeFlowRunBody,
   BrueckeFlowParams,
   BrueckeRunParams,
@@ -394,6 +395,24 @@ router.post(
   asyncHandler(async (req, res) => {
     await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'tabellen');
     const data = await brueckeService.tabellen(req.params.id, req.body);
+    res.json({ ...data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/extensions/:id/bruecke/zeitplan — nächtliche Läufe (Plan 023 H1).
+ *
+ * Was läuft, ist ein Flow. Ohne die Fähigkeit `zeitplan` scheitert schon das
+ * Eintragen, nicht erst der Lauf.
+ */
+router.post(
+  '/:id/bruecke/zeitplan',
+  apiLimiter,
+  validateParams(ExtensionIdParams),
+  validateBody(BrueckeZeitplanBody),
+  asyncHandler(async (req, res) => {
+    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'zeitplan');
+    const data = await brueckeService.zeitplan(req.params.id, req.body);
     res.json({ ...data, timestamp: new Date().toISOString() });
   })
 );

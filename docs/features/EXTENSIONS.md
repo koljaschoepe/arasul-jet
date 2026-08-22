@@ -261,6 +261,48 @@ Tabelle nie wieder.
 Grenzen: 25 Tabellen und 60 Spalten je Erweiterung, 500 Zeilen je Leseaufruf.
 Beim Deinstallieren wird das Schema samt Inhalt entfernt.
 
+## Nächtliche Läufe (Fähigkeit `zeitplan`, Plan 023 H1)
+
+```js
+await bruecke('zeitplan', {
+  aktion: 'anlegen',
+  flow: 'abgleich',
+  uhrzeit: '03:00',
+  args: { quelle: 'datev' },
+});
+```
+
+**Was läuft, ist ein Flow.** Nicht Code der Erweiterung: die läuft im Browser,
+in einem iframe, und nachts ist kein Browser offen. Ein Flow ist Arasuls eigene,
+prüfbare Ausführungsebene mit einem Werkzeugsatz, der schon abgesichert ist.
+Eine zweite Ausführungsumgebung für Erweiterungen wäre eine zweite
+Angriffsfläche für denselben Zweck.
+
+**Kein Cron-Ausdruck**, sondern `HH:MM` in Gerätezeit. Der frühere Cron-Parser
+für Flow-Zeitpläne ist am 28.07.2026 ersatzlos entfernt worden; ihn für „einmal
+nachts" zurückzuholen hieße, eine Fehlerquelle für einen Nutzen einzukaufen, den
+niemand belegt hat.
+
+Wer einen anderen Takt braucht, baut eine **Flow-Erweiterung**: die wird als
+n8n-Workflow ausgerollt und aktiviert (`flowDeployService.liveSchalten`), und
+n8ns Schedule-Trigger kann jeden Takt. Dieser Weg existiert seit Plan 017 und
+war die Antwort auf „zeitgesteuert" schon vor H1 — nur eben nicht für
+App-Erweiterungen im iframe.
+
+Zwei Eigenschaften, an denen so etwas sonst scheitert:
+
+|                       |                                                                                                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Läuft nicht zu oft    | Der letzte Lauf wird je Zeitplan festgehalten und tagesgenau verglichen. Der Takt schaut jede Minute nach; ohne diesen Vergleich liefe der Flow im Nachholfenster elfmal |
+| Läuft nicht gar nicht | Ein Nachholfenster von `EXTENSIONS_ZEITPLAN_NACHHOLEN_MIN` Minuten. Ein Gerät, das um 03:00 gerade neu startet, hätte sonst genau diesen einen Lauf verloren             |
+
+Der Lauf wird **vor** dem Start vermerkt, nicht danach: sonst würde ein Flow,
+der eine Minute läuft, im nächsten Takt ein zweites Mal gestartet. Ein
+gescheiterter Lauf steht mit seinem Grund in `letzter_fehler`.
+
+Grenzen: 10 Zeitpläne je Erweiterung. Wird die Erweiterung deaktiviert oder
+entfernt, laufen ihre Zeitpläne nicht mehr.
+
 ## Ablageorte
 
 | Was                | Pfad (Container)                      | Bind-Mount               |

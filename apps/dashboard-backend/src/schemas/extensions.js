@@ -120,6 +120,17 @@ const BrueckeTabellenBody = z
   })
   .strict();
 
+/** Zeitgesteuerte Ausführung (Plan 023 H1). */
+const BrueckeZeitplanBody = z
+  .object({
+    aktion: z.enum(['liste', 'anlegen', 'entfernen']),
+    flow: z.string().trim().max(64).optional(),
+    uhrzeit: z.string().trim().max(5).optional(),
+    args: z.record(z.unknown()).optional(),
+    id: z.coerce.number().int().positive().optional(),
+  })
+  .strict();
+
 const BrueckeFlowRunBody = z
   .object({
     args: z.record(z.unknown()).default({}),

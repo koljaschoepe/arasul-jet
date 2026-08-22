@@ -844,6 +844,13 @@ if (alsServerGestartet) {
       logger.error(`Werkstatt-Watcher konnte nicht starten: ${err.message}`);
     }
 
+    // Zeitpläne von Erweiterungen (Plan 023 H1): nächtliche Flow-Läufe.
+    try {
+      require('./services/extensions/zeitplanService').starte();
+    } catch (err) {
+      logger.error(`Erweiterungs-Zeitpläne konnten nicht starten: ${err.message}`);
+    }
+
     // Startup readiness summary
     try {
       const { detectDevice, getGpuInfo, getLlmRamGB } = require('./utils/hardware');
