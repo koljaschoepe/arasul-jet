@@ -214,6 +214,13 @@ router.post(
     // Restart MinIO service to apply new password
     await restartService('minio');
 
+    // Plan 023 J1: das eigene Backend muss mit. Es läuft weiter, hält aber
+    // einen zwischengespeicherten MinIO-Client mit dem ALTEN Geheimnis. Ohne
+    // diese beiden Zeilen scheiterte danach jeder Datei-Zugriff mit
+    // `SignatureDoesNotMatch` — während die Antwort unten Erfolg meldete.
+    process.env.MINIO_ROOT_PASSWORD = newPassword;
+    require('../../services/documents/minioService').clientZuruecksetzen();
+
     logger.info(`MinIO password changed successfully by ${req.user.username}`);
 
     logSecurityEvent({
@@ -226,7 +233,9 @@ router.post(
 
     res.json({
       success: true,
-      message: 'MinIO password changed successfully. Service restarted.',
+      message:
+        'MinIO-Passwort geändert, der Dienst wurde neu gestartet. ' +
+        'Der Dateizugriff läuft ohne Neustart des Dashboards weiter.',
       timestamp: new Date().toISOString(),
     });
   })

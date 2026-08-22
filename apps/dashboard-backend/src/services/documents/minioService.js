@@ -17,11 +17,9 @@ const services = require('../../config/services');
 // Configuration (using centralized service config)
 const MINIO_HOST = services.minio.host;
 const MINIO_PORT = services.minio.port;
-const MINIO_ROOT_USER = process.env.MINIO_ROOT_USER;
-const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD;
 const MINIO_BUCKET = process.env.DOCUMENT_INDEXER_MINIO_BUCKET || 'documents';
 
-if (!MINIO_ROOT_USER || !MINIO_ROOT_PASSWORD) {
+if (!process.env.MINIO_ROOT_USER || !process.env.MINIO_ROOT_PASSWORD) {
   logger.error('MINIO_ROOT_USER and MINIO_ROOT_PASSWORD must be set in environment');
 }
 
@@ -30,6 +28,16 @@ let minioClient = null;
 
 /**
  * Get or create the MinIO client singleton
+ *
+ * Das Geheimnis wird beim BAUEN des Clients aus `process.env` gelesen, nicht
+ * beim Laden des Moduls (Plan 023 J1). Der Unterschied zählt genau einmal, dann
+ * aber richtig: beim Ändern des MinIO-Passworts. Die Einstellungsseite schreibt
+ * die neue `.env`, startet MinIO neu und meldet Erfolg — das Backend selbst
+ * läuft weiter. Stand das alte Geheimnis in einer Modul-Konstante, hielt der
+ * zwischengespeicherte Client es bis zum nächsten Neustart fest, und JEDER
+ * Datei-Zugriff scheiterte danach mit `SignatureDoesNotMatch`, ohne dass die
+ * Erfolgsmeldung davon etwas gesagt hätte.
+ *
  * @returns {Minio.Client}
  */
 function getMinioClient() {
@@ -38,11 +46,22 @@ function getMinioClient() {
       endPoint: MINIO_HOST,
       port: MINIO_PORT,
       useSSL: false,
-      accessKey: MINIO_ROOT_USER,
-      secretKey: MINIO_ROOT_PASSWORD,
+      accessKey: process.env.MINIO_ROOT_USER,
+      secretKey: process.env.MINIO_ROOT_PASSWORD,
     });
   }
   return minioClient;
+}
+
+/**
+ * Den zwischengespeicherten Client wegwerfen (Plan 023 J1).
+ *
+ * Nach einem Passwortwechsel aufzurufen. Der nächste Zugriff baut den Client
+ * neu und nimmt dabei das Geheimnis, das dann in `process.env` steht.
+ */
+function clientZuruecksetzen() {
+  minioClient = null;
+  logger.info('MinIO-Client zurückgesetzt, der nächste Zugriff meldet sich neu an');
 }
 
 /**
@@ -245,6 +264,7 @@ module.exports = {
   getObject,
   statObject,
   removeObject,
+  clientZuruecksetzen,
   listAllObjects,
   getStorageUsage,
   enforceQuota,
