@@ -2155,6 +2155,41 @@ Dokumente deutsch sind.
 Statuszeile, die sich mindestens alle zwei Sekunden aktualisiert. Behebt F-30,
 F-33.
 
+### Gebaut und am Gerät gemessen
+
+Vorher standen **drei** Anzeigen nebeneinander: die Aufgabenliste
+(`AgentActivity`), der Denk-Ticker mit der letzten Zeile des englischen
+Gedankengangs, und eine Statuszeile aus dem Backend. Alle drei zugleich, alle
+drei träge.
+
+Jetzt während des Laufs genau eine Zeile, die den jüngsten Schritt in derselben
+deutschen Sprache nennt wie die Schrittliste danach. `agentStepLabel` zog dafür
+nach `schrittText.tsx`: zwei Kopien derselben Sätze wären sicher
+auseinandergelaufen.
+
+Zwei Entscheidungen tragen die Abnahme, und beide sind bewusst unabhängig vom
+Backend:
+
+- **Die Zeile erscheint mit der Nachricht**, nicht mit dem ersten Ereignis aus
+  dem Netz. Sonst hinge „innerhalb einer Sekunde" an der Warteschlange und wäre
+  auf einem beschäftigten Gerät nicht erfüllbar.
+- **Der Sekundenzähler tickt selbst.** Käme die Bewegung nur aus den
+  Schritt-Ereignissen, stünde die Zeile während einer langen Modellrunde
+  minutenlang still, und niemand könnte von außen unterscheiden, ob das Gerät
+  arbeitet oder hängt. Genau das war die Klage.
+
+**Live abgenommen am 22.08.2026** mit `scripts/test/chat-abnahme.mjs`, einem
+echten Browser gegen den Orin:
+
+| Zusage                               | gemessen                       |
+| ------------------------------------ | ------------------------------ |
+| erscheint innerhalb einer Sekunde    | **186 ms**                     |
+| aktualisiert sich alle zwei Sekunden | `0 s` auf `2 s`                |
+| deutsch                              | `„arbeitet"`                   |
+| genau eine Anzeige                   | Denk-Ticker 0, Aufgabenliste 0 |
+
+`arasul-jet` #463.
+
 ## E4 Inline-Darstellung wie im Terminal
 
 Heute kommt ein Satz, dann eine Pause, dann der nächste Satz. Änderungen an
@@ -2166,6 +2201,33 @@ Fließtext. Vorbild ist die Darstellung von Claude Code.
 
 **Abnahme:** Eine Aufgabe, die drei Dateien ändert, zeigt drei aufklappbare
 Diffs, die Gesamtdauer und die Ausgabegeschwindigkeit.
+
+### Gebaut
+
+Vorher zeigte der Chat eine Karte mit dem Dateinamen und einem Abzeichen „Neu"
+oder „Geändert". Was drinsteht, sah man erst nach dem Öffnen eines eigenen Tabs,
+und was sich geändert hat, gar nicht. Bei drei Dateien heißt das dreimal Tab
+öffnen, dreimal suchen, dreimal zurück.
+
+Jede Karte trägt jetzt einen aufklappbaren Vergleich mit Zähler. Die
+Vorher-Fassung kommt aus dem Schnappschuss-Dienst, der seit Plan 022 jeden
+Schreibschritt sichert; `lineDiff` ist dieselbe Rechnung wie im Editor-Tab.
+
+**Geholt wird erst beim Aufklappen.** Ein Lauf, der zehn Dateien anfasst, würde
+sonst zwanzig Abfragen auslösen, von denen niemand eine angesehen hat, und zwar
+auf einem Gerät, das gerade ein Modell rechnet. Eine neue Datei hat keine
+Vorgeschichte; für sie entfällt die zweite Abfrage.
+
+Dazu die **Gesamtdauer** eines Laufs, neu im `done`-Ereignis. Sie ist etwas
+anderes als die Tokens je Sekunde: darin steckt nur die reine Erzeugungszeit,
+nicht das Warten auf Werkzeuge, Subagenten und das Laden des Modells. Bei einem
+Agent-Lauf sind das zwei Größenordnungen Unterschied.
+
+Beide stehen an **einer** Stelle. Vorher zeigte der Denk-Ticker das Tempo, wenn
+es eine Denkphase gab, und eine eigene Zeile sonst; die Gesamtdauer wäre damit
+je nach Modell mal da und mal weg gewesen.
+
+`arasul-jet` #465.
 
 ## E5 Chats bekommen brauchbare Namen
 
@@ -2191,6 +2253,44 @@ sichtbare Rückmeldung beim Ziehen.
 **Abnahme:** Drei Vorgänge nacheinander mit je zwei Dateien ergeben sechs
 Anlagen. Ein Ordner mit 20 Dateien wird als ein Eintrag mit Zahl angezeigt.
 
+### Die Ursache, im Code eindeutig
+
+```tsx
+const [attachedFile, setAttachedFile] = useState<File | null>(null);   // EIN Feld
+…
+for (const file of Array.from(e.dataTransfer.files)) {
+  pickFile(file);        // jeder Aufruf ueberschreibt den vorigen
+}
+```
+
+Zwei Dateien in einem Zug ergaben **eine** Anlage, nämlich die letzte. Drei
+Vorgänge nacheinander ebenfalls eine. Nichts wies darauf hin. Das gemeldete
+„nicht zuverlässig" war vollständig zuverlässig, nur falsch.
+
+### Was daraus wurde
+
+Aus dem Feld wird eine Liste, quer durch den ganzen Weg. Der Upload läuft
+nacheinander, nicht nebeneinander: er legt in denselben Ordner, und die Antwort
+nennt den vergebenen Pfad; bei gleichem Namen hängt die Nummerierung davon ab,
+was schon dort liegt. Dieselbe Datei zweimal ergibt eine Anlage, denn wer einen
+Ordner zweimal zieht, will nicht zwanzig doppelte.
+
+Der Ordner trägt jetzt seine Zahl: `Speichern in: berichte · 20 Dateien`. Ist
+der Baum-Abzug gedeckelt, steht „mindestens" davor. Eine geschönigte Zahl wäre
+schlimmer als gar keine.
+
+### Was die Live-Abnahme sofort gefunden hat
+
+Der Umbau heilte den **Ziehweg** und übersah die **Büroklammer**. Dort stand
+weiter `e.target.files?.[0]`, und dem Feld fehlte `multiple`, der Dialog ließ
+also gar keine zweite Datei zu. Am Gerät fiel es im ersten Durchlauf auf, im
+Testlauf niemandem: es gab keinen Test dafür.
+
+Genau deshalb steht im Plan, dass eine Aufgabe erst mit der Abnahme am Gerät
+erledigt ist.
+
+`arasul-jet` #467 und der Nachtrag.
+
 ## E7 Slash-Menü wie im Terminal
 
 Heute öffnet Slash ein Menü, das nicht durchsuchbar ist, und das Bearbeiten von
@@ -2204,6 +2304,46 @@ Dateien über ein eigenes Zeichen.
 **Abnahme:** Slash, drei Buchstaben, Tab, Argument, Absenden funktioniert ohne
 Maus. Die Liste ist bei 30 Flows noch bedienbar.
 
+### Was schon ging, und was nicht
+
+Der Tastaturweg war vollständig: `/` öffnet, Tippen filtert, Pfeiltasten wählen,
+Tab und Enter übernehmen, danach springt Tab von Argument zu Argument, Enter
+sendet. Die Abnahme hing nicht am Weg, sondern an zwei Stellen, an denen er
+unbenutzbar wurde.
+
+**Die Auswahl blieb nicht in Sicht.** Die Liste ist auf `max-h-64` gedeckelt und
+scrollt; bei dreißig Flows passen davon rund fünf ins Bild. Ohne
+`scrollIntoView` wanderte die Auswahl beim Blättern aus dem Sichtfeld, und der
+Nutzer drückte Tab auf einen Eintrag, den er nicht sieht.
+
+**Gefiltert wurde nur über den Namensanfang.** Wer `recherche-lang` sucht und
+`lang` tippt, fand nichts. Ab drei Buchstaben trifft die Suche jetzt auch in der
+Mitte, Anfangstreffer weiter zuerst. Die Untergrenze ist kein Geschmack: bei
+einem einzigen Buchstaben trifft „enthält" fast jeden Namen, und die Liste wäre
+nach dem ersten Tastendruck länger als ohne Filter.
+
+### `@` findet Dateien
+
+Für Dateien gab es bisher nichts. Wer eine meinen wollte, musste ihren Pfad
+kennen und tippen oder sie aus dem Explorer herüberziehen, und beides setzt
+voraus, dass man weiß, wo sie liegt.
+
+`@` sucht nach dem Namen, quer durch die Ablage, und setzt den Pfad in den Text.
+Was danach dort steht, ist gewöhnlicher Text; der Agent liest den Pfad und
+benutzt `dateien_lesen`. Es bleibt also nichts hängen, was beim Absenden noch
+aufgelöst werden müsste. Das Fragment wird an der Cursor-Position gelesen, nicht
+am Zeilenende, und eine Mailadresse öffnet kein Menü.
+
+**Live abgenommen am 22.08.2026:** Slash öffnet, Tippen filtert von zehn
+Einträgen auf zwei, der aktive Eintrag ist sichtbar, Tab übernimmt ihn. Alles
+ohne Maus.
+
+**Nicht enthalten:** ein Dateiargument per Ziehen zu füllen. Das steht in der
+Prosa von E7, nicht in seiner Abnahme, und es braucht einen eigenen Ziehpfad in
+den ArgumentPicker.
+
+`arasul-jet` #468.
+
 ## E8 Quellen bei jeder Antwort aus Dokumenten
 
 Der leere Chat verspricht „Antworten kommen mit Quellen aus deinen Dokumenten".
@@ -2213,6 +2353,34 @@ Quelle da ist.
 
 **Abnahme:** Eine Frage mit passendem Dokument nennt Datei und Stelle. Eine Frage
 ohne passendes Dokument sagt, dass nichts gefunden wurde.
+
+### Warum keine Quelle kam
+
+Kein Versäumnis, sondern ein Pfadwechsel: **`message.sources` füllt nur die alte
+RAG-Pipeline.** Im Agent-Modus, der heute der Normalfall ist, steht dort nichts,
+und die Zusage des leeren Chats hat keine Deckung.
+
+Die Auskunft liegt aber vor, nur woanders: in den Schritten des Laufs. Jeder
+Aufruf von `rag_suche` oder `dateien_lesen` steht dort mit seinen Parametern und
+seinem Ergebnis. `quellenAusSchritten` liest sie zurück.
+
+Das ist bewusst **deterministisch** und nicht dem Modell überlassen. Ein Modell
+zu bitten, seine Quellen zu nennen, ist eine Bitte; eine Schrittliste ist ein
+Protokoll. Und der Fall, um den es E8 eigentlich geht, ist ohnehin der, in dem
+das Modell nichts zu nennen hat.
+
+Zwei Fälle, der zweite ist der wichtigere:
+
+|          |                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------- |
+| gefunden | Datei und Stelle, klickbar. Die Stelle ist der Ausschnitt, auf den sich die Antwort stützt  |
+| nichts   | ein Satz mit dem Suchbegriff, plus der Hinweis, dass die Antwort aus dem Modellwissen kommt |
+
+Hat der Lauf gar nicht in Dokumenten gesucht, steht dort nichts. Ein „keine
+Quellen" unter jeder Plauderei wäre Lärm. Schreiben und Auflisten zählen nicht
+als Quelle: geschrieben wird kein Wissen, und eine Ordnerliste ist keine Stelle.
+
+`arasul-jet` #469.
 
 ## E9 Eine klare Aufgabe wird ausgeführt, nicht zurückgefragt
 

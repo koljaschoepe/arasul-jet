@@ -2147,7 +2147,12 @@ async function processAgentChatJob(ctx, job) {
       // bis hierher. Etwas anderes als `tokens_per_second`: darin steckt nur
       // die reine Erzeugungszeit, nicht das Warten auf Werkzeuge, Subagenten
       // und das Laden des Modells. Der Nutzer erlebt aber diese Zahl.
-      dauer_ms: Date.now() - laufBegonnen,
+      //
+      // Der Name ist ABSICHTLICH derselbe wie im einfachen Chatpfad
+      // (`llmOllamaStream`, seit P4-002). Ein zweiter Name fuer dieselbe Sache
+      // haette bedeutet, dass die Anzeige beide kennen muss und bei jedem
+      // kuenftigen Pfad einen dritten dazu.
+      duration_ms: Date.now() - laufBegonnen,
     },
     timestamp: new Date().toISOString(),
   });

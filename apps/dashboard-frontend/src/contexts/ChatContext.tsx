@@ -1652,7 +1652,7 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
                 // Plan 022 — Tokens/Sekunde des Laufs am Abschluss festhalten
                 // (Backend liefert sie im done-Event unter performance).
                 const tps = Number(data.performance?.tokens_per_second);
-                const dauer = Number(data.performance?.dauer_ms);
+                const dauer = Number(data.performance?.duration_ms);
                 if ((Number.isFinite(tps) && tps > 0) || (Number.isFinite(dauer) && dauer > 0)) {
                   updateMessages(chatId, prev => {
                     const u = [...prev];
