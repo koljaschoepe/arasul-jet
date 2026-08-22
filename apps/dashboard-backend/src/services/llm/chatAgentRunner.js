@@ -42,6 +42,28 @@ const { parseTextToolCalls, enthaeltToolSyntax, ToolSyntaxFilter } = require('./
 const { TodoListeTool, todoErinnerung, parseTodos } = require('./agentTodoTool');
 const { abbruchMelden, abbruchFesthalten, abbruchText, grundAusFehler } = require('./abbruchGrund');
 
+/**
+ * Wie lange ein Modell-Strom stumm bleiben darf, in zwei Faellen (Plan 023 E2).
+ *
+ * Bis zum 22.08.2026 war das EINE Zahl, 120 Sekunden, fuer zwei sehr
+ * verschiedene Wartezeiten. Am Geraet gemessen, Job 6153f7c8: ein Agent-Lauf
+ * starb nach 15:39 Minuten daran, dass das Modell 121 Sekunden lang nichts
+ * schickte. Nachgerechnet war das kein Haenger:
+ *
+ *   Zusammenhang der Runde   31 267 Token (von 32 768)
+ *   Vorverarbeitung warm     507 bis 589 Token je Sekunde  ->  53 bis 62 s
+ *   Vorverarbeitung kalt     262 Token je Sekunde          ->        119 s
+ *   Modell laden                                                6 bis 30 s
+ *
+ * Die 120 Sekunden lagen also genau auf der Kante des erlaubten Falls. Ein
+ * grosser Zusammenhang und ein kaltes Modell reichten, und der Lauf starb an
+ * seiner eigenen Groesse.
+ *
+ * Deshalb zwei Grenzen. VOR dem ersten Wort einer Runde laeuft Modellladung
+ * und Vorverarbeitung, das darf lange dauern. ZWISCHEN zwei Woertern darf es
+ * das nicht: dort ist ein stiller Strom wirklich tot.
+ */
+const VORLAUF_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_VORLAUF_TIMEOUT_MS || '300000', 10);
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
 // Kein praktisches Zeitlimit mehr (Interview 2026-07-29: „Unbegrenzt +
 // Abbruch-Knopf") — die Grenze ist der Nutzer-Abbruch; die Zahlen hier sind
@@ -554,6 +576,15 @@ async function streamChatRound({
       let settled = false;
       // Plan 023 E1: zwei verschiedene Wartezeiten, bisher unter einer Zahl.
       const rundeBegonnen = Date.now();
+      /**
+       * Wann das erste WORT dieser Runde kam, nicht der erste Block.
+       *
+       * Der Unterschied ist der ganze Punkt: Ollama oeffnet den Strom sofort
+       * und schweigt danach, solange es den Prompt verarbeitet. Wer den ersten
+       * Block fuer den Anfang der Antwort haelt, misst null Millisekunden und
+       * legt danach die strenge Grenze an eine Wartezeit, die noch gar nicht
+       * begonnen hat.
+       */
       let erstesZeichenNachMs = null;
       // Plan 023 E9: Werkzeug-Syntax darf nicht in der Anzeige landen. Der
       // Nachparser weiter unten raeumt den Text der Runde auf, aber er kommt
@@ -584,35 +615,26 @@ async function streamChatRound({
         if (inactivity) {
           clearTimeout(inactivity);
         }
+        // Plan 023 E2: zwei Grenzen, nicht eine. Vor dem ersten Wort laeuft
+        // Modellladung und Vorverarbeitung, danach nur noch das Erzeugen.
+        const grenze = erstesZeichenNachMs === null ? VORLAUF_TIMEOUT_MS : CALL_TIMEOUT_MS;
         inactivity = setTimeout(() => {
           // Plan 023 E1: der Grund unterscheidet, was bisher gleich aussah.
-          // Kam noch kein einziges Zeichen, wartete der Lauf auf Modell-Ladung
-          // und Vorverarbeitung; kam schon Text, ist der Strom mittendrin
-          // versiegt. Beides endet hier, aber es sind zwei Fehler.
-          const wartet = erstesZeichenNachMs === null ? 'vor dem ersten Zeichen' : 'mitten im Text';
+          const wartet = erstesZeichenNachMs === null ? 'vor dem ersten Wort' : 'mitten im Text';
           abbruchMelden({
             log: logger,
             jobId,
             grund: 'stream_still',
             quelle: 'chatAgentRunner.streamChatRound',
-            detail: `${wartet}, Modell ${model}, Grenze ${CALL_TIMEOUT_MS / 1000}s`,
+            detail: `${wartet}, Modell ${model}, Grenze ${grenze / 1000}s`,
             nachMs: Date.now() - rundeBegonnen,
           });
-          fail(new Error(`Modell-Stream ${CALL_TIMEOUT_MS / 1000}s ohne Daten, abgebrochen`));
-        }, CALL_TIMEOUT_MS);
+          fail(new Error(`Modell-Stream ${grenze / 1000}s ohne Daten, abgebrochen`));
+        }, grenze);
       };
       armInactivity();
 
       stream.on('data', chunk => {
-        if (erstesZeichenNachMs === null) {
-          erstesZeichenNachMs = Date.now() - rundeBegonnen;
-          // Immer aufschreiben, auch wenn es gut ging. Diese Zahl ist die
-          // einzige Auskunft darüber, wie viel Luft bis CALL_TIMEOUT_MS bleibt.
-          logger.info(
-            `[VORLAUF] job=${jobId || 'ohne'} modell=${model} ` +
-              `erstes_zeichen_nach=${erstesZeichenNachMs}ms grenze=${CALL_TIMEOUT_MS}ms`
-          );
-        }
         armInactivity();
         buffer += chunk.toString('utf8');
         const lines = buffer.split('\n');
@@ -635,6 +657,16 @@ async function streamChatRound({
           // Reasoning-Trace (qwen3 & Co.): Ollama liefert ihn als eigenes
           // thinking-Feld. Live durchreichen — der Nutzer sieht den
           // Gedankengang, in den Verlauf wandert er NICHT.
+          // Plan 023 E2: erst das erste WORT beendet den Vorlauf. Danach
+          // gilt die strenge Grenze, davor die grosszuegige.
+          if (erstesZeichenNachMs === null && (msg.content || msg.thinking)) {
+            erstesZeichenNachMs = Date.now() - rundeBegonnen;
+            logger.info(
+              `[VORLAUF] job=${jobId || 'ohne'} modell=${model} ` +
+                `erstes_wort_nach=${erstesZeichenNachMs}ms grenze=${VORLAUF_TIMEOUT_MS}ms`
+            );
+            armInactivity();
+          }
           if (msg.thinking && typeof onThinking === 'function') {
             try {
               onThinking(msg.thinking);
@@ -984,6 +1016,21 @@ async function processAgentChatJob(ctx, job) {
       zeichenErsteRunde = zeichenZaehlen(gesendeteNachrichten);
     }
     vorlaufGesamt += vorlauf;
+    // Plan 023 E2: die Schaetzung des Kontext-Haushalts gegen Ollamas eigene
+    // Zaehlung halten. Die Differenz ist der Posten, den die Schaetzung nicht
+    // sehen kann, allen voran die Werkzeugbeschreibungen: sie gehen als
+    // eigener Parameter an Ollama und stehen in keiner Nachricht.
+    if (vorlauf > 0 && Array.isArray(gesendeteNachrichten)) {
+      const geschaetzt = schaetzeTokens(gesendeteNachrichten);
+      const neu = Math.max(0, vorlauf - geschaetzt);
+      if (Math.abs(neu - vorlaufAufschlag) > 100) {
+        log.info(
+          `[KONTEXT] job=${jobId} Aufschlag ${vorlaufAufschlag} auf ${neu} ` +
+            `(geschaetzt ${geschaetzt}, gemessen ${vorlauf})`
+        );
+      }
+      vorlaufAufschlag = neu;
+    }
   };
   // Sofort-Weg: die Abbruch-Route feuert registrierte AbortController direkt.
   if (typeof llmJobService.registerStream === 'function') {
@@ -1264,20 +1311,43 @@ async function processAgentChatJob(ctx, job) {
   // stehen weiterhin im Schritt-Protokoll.
   const schaetzeTokens = list =>
     list.reduce((n, m) => n + Math.ceil(String(m.content || '').length / 3.2) + 8, 0);
+  /**
+   * Was die Schaetzung UNTERSCHLAEGT, aus Ollamas eigener Zaehlung (Plan 023 E2).
+   *
+   * Am 22.08.2026 gemessen, Job 6153f7c8: der Zusammenhang erreichte 31 267
+   * Token von 32 768, waehrend der Haushalt oben ihn fuer unter 22 937 hielt
+   * und deshalb nie eindampfte. Der Grund ist nicht der Zeichenfaktor, sondern
+   * ein ganzer Posten, den die Schaetzung gar nicht sieht: die
+   * Werkzeugbeschreibungen gehen als eigener `tools`-Parameter an Ollama und
+   * stehen in keiner Nachricht. Gemessen sind das rund 2200 Token, also fast
+   * ein Zehntel des Budgets, in JEDER Runde.
+   *
+   * Statt diese Zahl abzuschreiben und beim naechsten Werkzeug falsch zu haben,
+   * wird sie nach jeder Runde nachgemessen: Ollama liefert `prompt_eval_count`
+   * in jedem Abschluss-Block. Die Differenz zur eigenen Schaetzung ist der
+   * Aufschlag, und er enthaelt beides, die Werkzeuge und den Fehler des
+   * Zeichenfaktors.
+   */
+  let vorlaufAufschlag = 0;
   let kompaktierungGemeldet = false;
   const kontextHaushalt = () => {
     const budget = Math.floor(agentConfig.NUM_CTX * agentConfig.KONTEXT_SCHWELLE);
-    if (schaetzeTokens(messages) <= budget) {
+    const belegt = () => schaetzeTokens(messages) + vorlaufAufschlag;
+    if (belegt() <= budget) {
       return;
     }
+    log.info(
+      `[KONTEXT] job=${jobId} eindampfen: geschaetzt=${schaetzeTokens(messages)} ` +
+        `aufschlag=${vorlaufAufschlag} budget=${budget}`
+    );
     const SCHUTZ = 6; // die jüngsten Nachrichten bleiben immer vollständig
-    for (let i = 1; i < messages.length - SCHUTZ && schaetzeTokens(messages) > budget; i++) {
+    for (let i = 1; i < messages.length - SCHUTZ && belegt() > budget; i++) {
       const m = messages[i];
       if (m.role === 'tool' && typeof m.content === 'string' && m.content.length > 700) {
         m.content = `${m.content.slice(0, 400)}\n… [ältere Werkzeug-Ausgabe gekürzt, Details im Schritt-Protokoll]`;
       }
     }
-    for (let i = 1; i < messages.length - SCHUTZ && schaetzeTokens(messages) > budget; i++) {
+    for (let i = 1; i < messages.length - SCHUTZ && belegt() > budget; i++) {
       const m = messages[i];
       if (
         (m.role === 'user' || m.role === 'assistant') &&
