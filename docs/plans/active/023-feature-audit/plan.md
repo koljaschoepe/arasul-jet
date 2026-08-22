@@ -3559,6 +3559,29 @@ Standard.
 **Abnahme:** Ein Flow mit drei Schritten entsteht in unter fünf Minuten ohne
 Dokumentation. Ein Flow mit Subagenten bleibt möglich.
 
+### Erst gemessen: das Formular ist schon eine Reihenfolge
+
+Der Flows-Umbau vom 02.08.2026 hat genau das gebaut, was hier steht: drei
+nummerierte Abschnitte in Alltagssprache, plus ein eingeklappter Bereich mit dem
+Technischen.
+
+| Abschnitt           | was darin steht                            |
+| ------------------- | ------------------------------------------ |
+| ① Was soll er tun?  | Name, Beschreibung, Auftrag                |
+| ② Welche Eingaben?  | Argumente                                  |
+| ③ Was kommt heraus? | Format, Vorlage, Länge, Aufbau             |
+| Erweitert (zu)      | Werkzeuge, Ordner, Ablauf, Grenzen, Modell |
+
+Subagenten stehen unter „Erweitert" und bleiben damit möglich, ohne im Weg zu
+stehen. Der zweite Teil der Abnahme ist erfüllt.
+
+Mit I2 kommt ein vierter Abschnitt dazu: „Darf der Flow zwischendurch fragen?"
+Bewusst NICHT unter „Erweitert" — das ist keine technische Stellschraube,
+sondern die Frage, ob der Flow den Nutzer beim Laufen anspricht.
+
+**Offen:** die Fünf-Minuten-Messung. Sie braucht jemanden, der die Oberfläche
+zum ersten Mal sieht; ich bin dafür der falsche Prüfer.
+
 ## I2 Zwei Betriebsarten
 
 Ein Flow läuft entweder mit Rückfragerunden oder vollständig autonom. Das wird
@@ -3566,6 +3589,33 @@ beim Anlegen gewählt und beim Start noch einmal angezeigt.
 
 **Abnahme:** Derselbe Flow läuft in beiden Betriebsarten durch. Autonom stellt er
 keine Frage, sondern trifft die Annahme und schreibt sie mit.
+
+### Erst gemessen: die eine Betriebsart gibt es schon
+
+Der zweite Satz der Abnahme beschreibt wörtlich, was Flows heute tun, und zwar
+als Nutzer-Entscheidung:
+
+```js
+// services/flows/pruefung.js
+// Statt Rückfragen gilt das ANNAHMEN-PROTOKOLL (Nutzer-Entscheidung §8):
+// Annahmen aus der Prüfrunde + verbliebene [offene Stellen] werden
+// strukturiert am Lauf gespeichert und im Ergebnis sichtbar gemacht.
+```
+
+Es fehlte also nicht die autonome Art, sondern die andere.
+
+### Was daraus wurde (#500)
+
+`betriebsart: autonom | rueckfragen`, Vorgabe `autonom`. **Die Vorgabe ist
+Absicht:** jeder vorhandene Flow bleibt genau so, wie er war, und ein Flow, der
+ungefragt anhält, wäre für einen n8n-Start oder einen nächtlichen Lauf das Ende.
+Dort sieht niemand die Frage. Der Serializer schreibt die Zeile nur, wenn sie
+vom Standard abweicht.
+
+Das Werkzeug `frage_nutzer` liegt in `autonom` **gar nicht** im Werkzeugkasten.
+Nicht als gesperrte Variante: ein Modell, das ein Werkzeug sieht, benutzt es
+irgendwann, und die Zusage „autonom fragt nie" hält nur, wenn es die Frage nicht
+geben kann.
 
 ## I3 Rückfragen mit Auswahl
 
@@ -3575,6 +3625,28 @@ Empfehlung.
 
 **Abnahme:** Eine Rückfrage im laufenden Flow zeigt bis zu vier Optionen und ein
 Freitextfeld, die Antwort fließt in den weiteren Lauf ein.
+
+### Gebaut (#500)
+
+Bis zu vier Optionen, die erste ist die Empfehlung, und **immer** ein
+Freitextfeld. Das Freitextfeld ist nicht das Kleingedruckte, sondern der Grund,
+warum die Optionen Vorschläge heißen dürfen.
+
+Die Karte sagt außerdem, dass der Lauf wartet. Ohne diesen Satz sieht ein
+stehengebliebener Fortschritt wie ein Fehler aus.
+
+Zwei Fragen entscheiden, ob so etwas trägt:
+
+**Was, wenn niemand antwortet?** Nach `FLOW_RUECKFRAGE_TIMEOUT_MS` gilt die
+erste Empfehlung, und der Lauf schreibt das mit. Ein hängender Lauf wäre
+schlechter als eine Annahme.
+
+**Blockiert das Warten die GPU?** Nein, und das ist geprüft: `withGpuLock`
+umschließt einen einzelnen Ollama-Aufruf, nicht den ganzen Lauf. Wäre das
+anders, blockierte eine unbeantwortete Frage den Chat des ganzen Geräts.
+
+**Offen:** die Live-Abnahme, ein Flow mit `betriebsart: rueckfragen`, der
+wirklich anhält.
 
 ## I4 Vorlage nach dem Muster aus dem Entwicklungsordner
 
@@ -3594,6 +3666,44 @@ genug für ein Modell dieser Größe.
 
 **Abnahme:** Jeder Vorlagen-Flow läuft mit dem Standardmodell ohne Eingriff
 durch.
+
+### Am Gerät gemessen, 22.08.2026
+
+Das Standardmodell ist `Qwen3.8-27B` (Ollama-Tag
+`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS`, 27,3 Mrd. Parameter, live abgefragt).
+
+**Kein einziger Flow setzt ein eigenes Modell.** Alle acht laufen auf dem
+Standard, „ohne Eingriff" ist damit schon die Ausgangslage:
+
+| Flow                    | Modell   | Werkzeuge |
+| ----------------------- | -------- | --------- |
+| dokument-zusammenfassen | Standard | 0         |
+| erweiterung             | Standard | 3         |
+| execute                 | Standard | 2         |
+| handbuch-bau            | Standard | 4         |
+| newsletter              | Standard | 3         |
+| qa-zusammenfassung      | Standard | 0         |
+| recherche               | Standard | 3         |
+| wissen                  | Standard | 1         |
+
+Live durchgelaufen:
+
+| Flow                    | Dauer | Ergebnis                                |
+| ----------------------- | ----- | --------------------------------------- |
+| qa-zusammenfassung      | 45 s  | drei Stichpunkte, auf Deutsch           |
+| dokument-zusammenfassen | 49 s  | Zusammenfassung der Datei, auf Deutsch  |
+| wissen                  | 209 s | Antwort mit ehrlichem „nichts gefunden" |
+
+Der `wissen`-Lauf ist der interessanteste: er suchte mehrfach, fand nichts und
+sagte das, statt etwas zu erfinden. Genau das soll ein Flow dieser Größe tun.
+
+Ein Nebenbefund, der kein Flow-Fehler ist: zwei Läufe brachen mit „Backend
+wurde neu gestartet, während der Lauf lief" ab, weil währenddessen ein Deploy
+lief. Die Meldung ist richtig und benennt die Ursache; die Aufräumung
+verwaister Läufe arbeitet.
+
+**Offen:** die übrigen fünf Flows, darunter `handbuch-bau` und `erweiterung`,
+die deutlich länger laufen.
 
 ---
 
