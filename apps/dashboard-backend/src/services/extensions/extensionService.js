@@ -399,6 +399,14 @@ async function removeExtension(id) {
   if (ext.type === 'flow' && ext.n8nWorkflowId) {
     await require('./flowDeployService').entfernen(ext);
   }
+  // Eigene Tabellen mit abraeumen (Plan 023 H1). Ohne das bliebe ein Schema
+  // `ext_<slug>` mit Kundendaten stehen, das niemand mehr zuordnen kann: die
+  // Register-Zeile ist dann weg. Best effort, wie der Paket-Ordner darunter.
+  await require('./tabellenService')
+    .entfernen(id)
+    .catch(err => {
+      logger.warn(`Tabellen von "${id}" nicht entfernt: ${err.message}`);
+    });
   await db.query('DELETE FROM extensions WHERE id = $1', [id]);
   await pkg.removeDir(pkg.packageDirFor(id)).catch(err => {
     logger.warn(`Paket-Ordner von "${id}" nicht gelöscht: ${err.message}`);

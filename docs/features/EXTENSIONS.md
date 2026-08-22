@@ -210,6 +210,57 @@ Weitere Festlegungen:
 Jeder Aufruf steht im Protokoll mit Erweiterung, Methode, Ziel, Status und der
 Adresse, mit der wirklich verbunden wurde.
 
+## Eigene Tabellen (Fähigkeit `tabellen`, Plan 023 H1)
+
+Eine Erweiterung darf Zustand ablegen, aber nicht neben den Kundendaten. Jede
+bekommt deshalb ein eigenes Postgres-Schema `ext_<slug>`.
+
+**Die Erweiterung schickt niemals SQL.** Sie sagt, was sie will:
+
+```js
+await bruecke('tabellen', {
+  aktion: 'anlegen',
+  name: 'belege',
+  spalten: [
+    { name: 'nummer', typ: 'text' },
+    { name: 'betrag', typ: 'zahl' },
+  ],
+});
+await bruecke('tabellen', {
+  aktion: 'schreiben',
+  name: 'belege',
+  werte: { nummer: 'R-2026-001', betrag: 119.0 },
+});
+await bruecke('tabellen', { aktion: 'lesen', name: 'belege', wo: { nummer: 'R-2026-001' } });
+```
+
+Das SQL entsteht im Backend aus geprüften Bezeichnern und gebundenen Werten.
+Eine Brücke, die SQL durchreicht, wäre keine Brücke, sondern ein
+Datenbankzugang mit Extraschritten: die erste Erweiterung mit einem Tippfehler
+im Escaping läse `admin_users`.
+
+| Aktion      |                                                                            |
+| ----------- | -------------------------------------------------------------------------- |
+| `liste`     | welche Tabellen gehören dieser Erweiterung                                 |
+| `anlegen`   | Tabelle mit deklarierten Spalten; `id` und `angelegt_am` kommen immer dazu |
+| `schreiben` | eine Zeile; Werte werden gebunden                                          |
+| `lesen`     | Gleichheitsfilter auf bekannten Spalten, neueste zuerst                    |
+| `loeschen`  | mit Filter, oder ausdrücklich `alles: true`                                |
+
+Erlaubte Spaltentypen: `text`, `zahl`, `ganzzahl`, `wahrheit`, `zeitpunkt`,
+`json`. Bewusst kurz; was fehlt, lässt sich als `text` ablegen.
+
+**Kein freies WHERE.** Gleichheit auf bekannten Spalten reicht für den Zustand
+einer Anwendung, und alles darüber wäre wieder ein Weg, SQL hereinzureichen.
+
+**Ungültige Namen werden abgewiesen, nicht bereinigt.** Wer eine Tabelle
+`a"; DROP TABLE admin_users; --` nennen will, bekommt einen Fehler. Sie
+stillschweigend umzubenennen wäre schlimmer: die Erweiterung fände ihre eigene
+Tabelle nie wieder.
+
+Grenzen: 25 Tabellen und 60 Spalten je Erweiterung, 500 Zeilen je Leseaufruf.
+Beim Deinstallieren wird das Schema samt Inhalt entfernt.
+
 ## Ablageorte
 
 | Was                | Pfad (Container)                      | Bind-Mount               |
