@@ -170,18 +170,34 @@ try {
     pruefe('E6: Datei-Auswahl vorhanden', false, 'kein input[type=file]');
   }
 
-  // --- E4 und E8: an einem fertigen Lauf mit geaenderten Dateien -----------
-  // Der Verlauf wird ueber die Chatliste geoeffnet; welcher Chat das ist, sagt
-  // ARASUL_ABNAHME_CHAT. Ohne die Variable wird dieser Teil uebersprungen,
-  // denn ein Lauf mit drei geaenderten Dateien laesst sich nicht nebenbei
-  // erzeugen: er dauert Minuten und belegt die GPU.
-  const abnahmeChat = process.env.ARASUL_ABNAHME_CHAT;
-  if (abnahmeChat) {
-    await page.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3000);
-    await page.evaluate(id => localStorage.setItem('arasul_panel_chat_id', id), abnahmeChat);
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(8000);
+  // --- E4 und E8: ein Lauf, der drei Dateien aendert ------------------------
+  //
+  // Der Lauf wird HIER gefahren und nicht an einem alten Verlauf geprueft:
+  // Dauer und Tempo leben nur im Strom, sie stehen nicht in der Datenbank
+  // (Plan 022, bewusst). Nach einem Neuladen waeren sie weg, und die Abnahme
+  // pruefte etwas, das der Nutzer nie so sieht.
+  //
+  // Uebersprungen mit ARASUL_OHNE_LAUF=1, wenn die GPU gerade belegt ist.
+  if (!process.env.ARASUL_OHNE_LAUF) {
+    await eingabe.focus();
+    await page.keyboard.type(
+      'Schreibe drei Dateien abnahme-a.md, abnahme-b.md und abnahme-c.md, jede mit einem Satz ueber Netzwerktechnik.',
+      { delay: 3 }
+    );
+    await page.keyboard.press('Enter');
+    // Der Lauf legt Dateien an; das dauert. Auf die Karten warten, nicht auf
+    // eine feste Zeit.
+    await page
+      .locator('[data-testid="datei-karte"]')
+      .nth(2)
+      .waitFor({ timeout: 900000 })
+      .catch(() => {});
+    // Und danach auf das Ende des Laufs: erst dann stehen Dauer und Tempo da.
+    await page
+      .locator('[data-testid="denkzeile"]')
+      .waitFor({ state: 'detached', timeout: 300000 })
+      .catch(() => {});
+    await page.waitForTimeout(2000);
 
     const karten = await page.locator('[data-testid="datei-karte"]').count();
     pruefe('E4: die geaenderten Dateien stehen als Karten da', karten >= 3, `${karten} Karten`);
