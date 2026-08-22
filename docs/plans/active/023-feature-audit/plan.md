@@ -8,14 +8,15 @@
 
 ## Stand
 
-| Phase                                 | Stand                                  | Belege                                                                                                                                                                                    |
-| ------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                      |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                              |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                          |
-| C, Fundament                          | **fertig** 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten     |
-| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle |
-| D bis K                               | offen                                  |                                                                                                                                                                                           |
+| Phase                                 | Stand                                  | Belege                                                                                                                                                                                                     |
+| ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                       |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                               |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                           |
+| C, Fundament                          | **fertig** 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                      |
+| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                  |
+| D, Modelle                            | D1 bis D8 erledigt, D9 offen           | #444 bis #453. D7 Schritt 2 am 22.08.2026 live gemessen: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282. Die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung steht bei D7 |
+| E bis K                               | offen                                  | Neu aufgenommen: E9, eine klare Aufgabe wird zurueckgefragt statt ausgefuehrt                                                                                                                              |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -1733,6 +1734,122 @@ bleibt, wie sie ist.
 Agenten hängt. Ob er die Werkzeuge danach noch richtig benutzt, zeigt kein
 Testlauf, sondern nur eine echte Unterhaltung am Gerät.
 
+### Schritt 2 ausgeführt, 22.08.2026, live auf dem Orin
+
+Gemessen mit `scripts/test/vorlauf-wiegen.js` gegen Ollama auf dem Gerät, und
+danach live über `llm_jobs.prompt_tokens` in einer echten Unterhaltung.
+
+| Posten                                    | vorher | nachher | Ersparnis |
+| ----------------------------------------- | ------ | ------- | --------- |
+| Agent-Anweisung                           | 1142   | 759     | 383       |
+| Werkzeuge, 12 strukturell                 | 2654   | 2280    | 374       |
+| Grundvorlauf ohne Verlauf und Projektbaum | 3811   | 3054    | 757       |
+| **live gemessen, echte Unterhaltung**     | 4147   | 3390    | 757       |
+
+Gekürzt wurde entlang einer Regel, nicht nach Gefühl: was strukturell schon an
+einem Werkzeug hängt, steht nicht noch einmal in der Anweisung. Der Vergleich
+`symbol_suche` gegen `dateien_suchen`, die `dateiname`-Regel von `rag_suche`,
+die Ordnerregeln von `dateien_bearbeiten` und `dateien_anhaengen` standen in
+beiden. Das Modell sieht jede Regel weiter, aber nur einmal.
+
+**Die Warnung oben ist eingelöst.** Dieselbe Frage lief einmal gegen `main` und
+einmal gegen den gekürzten Stand, beide Male am Gerät mit `qwen3-coder:30b`.
+Ergebnis: der gekürzte Stand verhält sich nicht schlechter, sondern besser. Die
+Antwort von `main` wiederholt sich zweimal und zählt Beispiele auf; die
+gekürzte ist kurz. Ein Werkzeug ruft **keiner** von beiden auf, dazu unten.
+
+### Der Verlauf war der eigentliche Posten, und sein Netz hatte ein Loch
+
+Der Plan nennt oben „Verlauf ab einer Schwelle zusammenfassen". Nachgesehen,
+was heute passiert: `kontextHaushalt` dampft ältere Nachrichten ein, aber erst
+ab `NUM_CTX * KONTEXT_SCHWELLE`, also bei **22 937 Token**.
+
+Der schlimmste Verlauf, den `MAX_MESSAGE_CHARS` überhaupt zulässt, sind zwölf
+Nachrichten à 8000 Zeichen. Gemessen sind das **22 321 Token**.
+
+**Das sind 616 Token unter der Schwelle, die ihn abfangen soll.** Das Netz kann
+für die erste Runde gar nicht auslösen, und niemand hat es gemerkt, weil der
+Kontext dabei auch nie überläuft. Es dauert nur.
+
+Deshalb ein zweites Budget, das nur den Verlauf betrifft und nur beim
+Zusammenbauen greift, `AGENT_VERLAUF_TOKEN_BUDGET`, Vorgabe 1200. Die zwei
+jüngsten Nachrichten bleiben immer vollständig, ältere werden gekürzt, der Rest
+fällt weg und wird durch eine Zeile ersetzt, die sagt, wie viel fehlt.
+
+| Zwölf Nachrichten à 8000 Zeichen | Token      |
+| -------------------------------- | ---------- |
+| vorher                           | 22 321     |
+| nachher                          | 6 282      |
+| **Ersparnis**                    | **16 039** |
+
+### Die Abnahme, ehrlich abgerechnet
+
+Die Abnahme verlangt zwei Dinge. Eines ist erfüllt, eines nicht.
+
+**„Der Vorlauf liegt unter 2500 Token": nicht erfüllt, live sind es 3390.** Der
+Rest verteilt sich auf 2280 Token Werkzeuge, 759 Anweisung und rund 350 für
+Basisprompt, Unternehmenskontext und Projektbaum. Gemessen kostet allein die
+JSON-Hülle eines Werkzeugs rund 52 Token, dazu einmalig 210 Token
+Werkzeug-Gerüst im Chatschema des Modells. Zwölf Werkzeuge haben damit einen
+Boden von rund 834 Token, bevor ein einziges Wort Beschreibung dasteht. Unter
+2500 zu kommen heißt deshalb nicht mehr kürzen, sondern **Werkzeuge weglassen
+oder zusammenlegen**, etwa die vier `dateien_*` zu einem Werkzeug mit einem
+`aktion`-Parameter. Das ist eine Produktentscheidung, keine Textarbeit, und
+steht deshalb hier und nicht im Code.
+
+**„Die Zeit bis zum ersten Wort sinkt um mindestens 8 Sekunden": erfüllt, aber
+nicht dort, wo der Plan es erwartet hat.** Der Plan rechnet mit **262 Token je
+Sekunde** Vorverarbeitung. Am 22.08.2026 nachgemessen, beide Modelle, jeweils
+drei Läufe:
+
+| Modell                          | erster Lauf | danach        |
+| ------------------------------- | ----------- | ------------- |
+| `qwen3-coder:30b`               | 947 Tok/s   | 1417 bis 1510 |
+| `Qwen3.8-27B-IQ4_XS` (Standard) | 258 Tok/s   | 507 bis 589   |
+
+**Die 262 aus dem Plan sind ein Kaltstart-Wert.** Warm macht das Standardmodell
+gut das Doppelte. Damit ist die Rechnung „5200 Token sind 20 Sekunden" eine
+Rechnung über ein Modell, das gerade erst geladen wurde, also über D6 und nicht
+über D7.
+
+Was die Kürzung des Grundvorlaufs wirklich bringt, in einem frischen Gespräch:
+
+| Fall            | 4147 Token | 3390 Token | Ersparnis |
+| --------------- | ---------- | ---------- | --------- |
+| kalt, 258 Tok/s | 16,1 s     | 13,1 s     | **3,0 s** |
+| warm, 550 Tok/s | 7,5 s      | 6,2 s      | **1,3 s** |
+
+Die acht Sekunden holt nicht die Anweisung und nicht die Werkzeugliste, sondern
+das Verlaufsbudget, und zwar in genau dem Gespräch, in dem eine Vorführung
+stattfindet, dem langen:
+
+| Fall            | 22 321 Token | 6 282 Token | Ersparnis  |
+| --------------- | ------------ | ----------- | ---------- |
+| warm, 550 Tok/s | 40,6 s       | 11,4 s      | **29,2 s** |
+| kalt, 258 Tok/s | 86,5 s       | 24,3 s      | **62,2 s** |
+
+### Zwei Funde nebenbei, beide vorher unsichtbar
+
+**Das Messwerkzeug hätte gelogen.** `AGENT_ANWEISUNG` war nicht exportiert. Der
+erste Durchgang wog damit `undefined` und meldete 15 Token statt 1142, ohne
+einen Fehler. `vorlauf-wiegen.js` prüft jetzt beim Start, ob ein Bestandteil
+leer ankommt, und bricht ab, statt eine schöne Zahl zu liefern.
+
+**Zwei Nummern waren doppelt vergeben.** Die Anweisung hatte Regeln 1 bis 11,
+und der Runner hängte danach `\n7. Zielordner…` und `\n8. Datei-Modus…` an,
+noch dazu hinter dem Projektbaum, also weit weg von der Liste, in die sie sich
+einreihen wollten. Die Zusätze tragen jetzt keine Nummer mehr, sondern stehen
+unter „Für diese Anfrage".
+
+### Ein neuer Befund, der nicht zu D7 gehört
+
+Auf die Bitte „Suche im Projekt nach Dateien mit der Endung .md und nenne mir
+die ersten drei Pfade" ruft der Agent **kein Werkzeug auf**. Er fragt zurück,
+was denn gesucht werden soll. Auf `main` genauso, es liegt also nicht an der
+Kürzung. Für eine Vorführung ist das schwerer als jede Wartezeit: der Kunde
+stellt eine klare Aufgabe, und das Gerät stellt eine Rückfrage. Gehört zu Phase
+E, nicht hierher, und ist dort als **E9** aufgenommen.
+
 ## D8 Zusatzkontext beschreibt das Produkt
 
 Der Chat gibt auf die Frage, was Arasul kann, das Firmenprofil wieder, weil genau
@@ -1928,6 +2045,30 @@ Quelle da ist.
 
 **Abnahme:** Eine Frage mit passendem Dokument nennt Datei und Stelle. Eine Frage
 ohne passendes Dokument sagt, dass nichts gefunden wurde.
+
+## E9 Eine klare Aufgabe wird ausgeführt, nicht zurückgefragt
+
+Gefunden am 22.08.2026 beim Live-Vergleich für D7, auf `main` und auf dem
+gekürzten Stand gleichermaßen, Modell `qwen3-coder:30b`.
+
+Die Bitte „Suche im Projekt nach Dateien mit der Endung .md und nenne mir die
+ersten drei Pfade" nennt das Werkzeug (`dateien_suchen`), das Muster (`*.md`)
+und die gewünschte Ausgabe. Der Agent ruft trotzdem kein Werkzeug auf, sondern
+antwortet mit einer Rückfrage und Beispielen, wonach man denn suchen könne.
+
+Für eine Vorführung wiegt das schwerer als jede Wartezeit: der Kunde stellt eine
+eindeutige Aufgabe, und das Gerät stellt eine Gegenfrage. Regel 9 der
+Agent-Anweisung verbietet genau das („Niemals eine Aktion ankündigen, ohne sie
+auszuführen"), und die erste Zeile der Antwort lautet wörtlich „Ich suche".
+
+Zu klären ist zuerst, woran es liegt, bevor am Prompt gedreht wird: ob das
+Modell die Werkzeuge im `tools`-Parameter überhaupt sieht, ob es sie sieht und
+verwirft, oder ob die Plan-Runde vor der Werkzeug-Runde die Rückfrage schon als
+fertige Antwort behandelt.
+
+**Abnahme:** Drei Aufgaben, die je ein anderes Werkzeug verlangen (Datei suchen,
+Datei lesen, Datei schreiben), führen zum Aufruf genau dieses Werkzeugs, ohne
+Rückfrage. Am Gerät belegt, mit dem Standardmodell und mit `qwen3-coder:30b`.
 
 ---
 
