@@ -107,3 +107,89 @@ describe('WorkspaceSwitcher', () => {
     galerie.vorlagen = [];
   });
 });
+
+/**
+ * Plan 023 G2: zwei weitere Wege ins Projekt, beide sichtbar.
+ *
+ * Geprüft wird, dass die Herkunft die Felder steuert und dass der Anlegen-Knopf
+ * nicht durchlässt, was nichts täte: ein Ordner-Import ohne gewählten Ordner
+ * oder ein GitHub-Import ohne Adresse ergäbe ein leeres Projekt, das niemand so
+ * wollte.
+ */
+describe('Neues Projekt: Herkunft (Plan 023 G2)', () => {
+  async function dialogOeffnen() {
+    const nutzer = userEvent.setup();
+    render(<WorkspaceSwitcher />);
+    await nutzer.click(screen.getByLabelText('Projekt wechseln'));
+    await nutzer.click(screen.getByText('Neues Projekt …'));
+    return nutzer;
+  }
+
+  it('bietet alle drei Wege an', async () => {
+    await dialogOeffnen();
+    expect(screen.getByTestId('herkunft-leer')).toBeInTheDocument();
+    expect(screen.getByTestId('herkunft-ordner')).toBeInTheDocument();
+    expect(screen.getByTestId('herkunft-github')).toBeInTheDocument();
+  });
+
+  it('zeigt anfangs keine Import-Felder', async () => {
+    await dialogOeffnen();
+    expect(screen.queryByTestId('herkunft-ordner-felder')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('herkunft-github-felder')).not.toBeInTheDocument();
+  });
+
+  it('blendet die GitHub-Felder erst nach der Wahl ein', async () => {
+    const nutzer = await dialogOeffnen();
+    await nutzer.click(screen.getByTestId('herkunft-github'));
+    expect(screen.getByTestId('herkunft-github-felder')).toBeInTheDocument();
+    expect(screen.queryByTestId('herkunft-ordner-felder')).not.toBeInTheDocument();
+  });
+
+  it('laesst GitHub ohne Adresse nicht anlegen', async () => {
+    const nutzer = await dialogOeffnen();
+    await nutzer.type(screen.getByLabelText('Name'), 'Mein Projekt');
+    await nutzer.click(screen.getByTestId('herkunft-github'));
+    expect(screen.getByTestId('projekt-anlegen')).toBeDisabled();
+    await nutzer.type(screen.getByLabelText('Repository'), 'https://github.com/o/r');
+    expect(screen.getByTestId('projekt-anlegen')).toBeEnabled();
+  });
+
+  it('laesst den Ordner-Weg ohne gewaehlten Ordner nicht anlegen', async () => {
+    const nutzer = await dialogOeffnen();
+    await nutzer.type(screen.getByLabelText('Name'), 'Mein Projekt');
+    await nutzer.click(screen.getByTestId('herkunft-ordner'));
+    expect(screen.getByTestId('projekt-anlegen')).toBeDisabled();
+  });
+
+  it('schlaegt den Projektnamen aus der Repository-Adresse vor', async () => {
+    const nutzer = await dialogOeffnen();
+    await nutzer.click(screen.getByTestId('herkunft-github'));
+    await nutzer.type(screen.getByLabelText('Repository'), 'https://github.com/org/mein-repo.git');
+    expect(screen.getByLabelText('Name')).toHaveValue('mein-repo');
+  });
+
+  it('oeffnet den Ordner-Dialog und nicht den Datei-Dialog', async () => {
+    // Ohne beide Schreibweisen des Attributs zeigt Chrome den Datei-Dialog,
+    // und der Nutzer kann gar keinen Ordner waehlen.
+    const nutzer = await dialogOeffnen();
+    await nutzer.click(screen.getByTestId('herkunft-ordner'));
+    const eingabe = screen.getByTestId('ordner-eingabe');
+    expect(eingabe).toHaveAttribute('webkitdirectory');
+    expect(eingabe).toHaveAttribute('directory');
+  });
+});
+
+describe('Namensvorschlag folgt der Quelle (Plan 023 G2)', () => {
+  it('ueberschreibt einen selbst getippten Namen nicht', async () => {
+    // Umgekehrt waere es schlimmer als kein Vorschlag: der Nutzer tippt einen
+    // Namen, waehlt danach das Repository und findet seinen Namen ersetzt.
+    const nutzer = userEvent.setup();
+    render(<WorkspaceSwitcher />);
+    await nutzer.click(screen.getByLabelText('Projekt wechseln'));
+    await nutzer.click(screen.getByText('Neues Projekt …'));
+    await nutzer.type(screen.getByLabelText('Name'), 'Kundenprojekt');
+    await nutzer.click(screen.getByTestId('herkunft-github'));
+    await nutzer.type(screen.getByLabelText('Repository'), 'https://github.com/o/anders.git');
+    expect(screen.getByLabelText('Name')).toHaveValue('Kundenprojekt');
+  });
+});
