@@ -403,8 +403,9 @@ router.get(
  * versehentliche Trigger via XSS, Mistypes oder fremde Browser-Sessions.
  *
  * Was passiert:
- *   - Persönliche Inhalte werden gelöscht (Chats, Dokumenten-Metadaten,
- *     KI-Memories, Knowledge-Spaces, Projekte).
+ *   - Persönliche Inhalte werden gelöscht: Chats samt Anhängen, Dokumente
+ *     (Metadaten UND die Dateien in MinIO), Wissensräume, Projekte samt
+ *     Ablage-Ordnern auf der Platte.
  *   - Aktive Sessions des Users werden invalidiert.
  *   - Compliance-Trails (audit_logs, api_audit_logs, login_attempts) werden
  *     anonymisiert (user_id/username → NULL) statt gelöscht — DSGVO Art. 17 (3) (b)
@@ -413,6 +414,25 @@ router.get(
  *     anonymisiert).
  *   - admin_users: Eigene Row wird gelöscht — ABER nur wenn nicht letzter
  *     Admin (sonst wäre die Box gemauert; Single-Box-Appliance).
+ *
+ * DREI FEHLER, GEFUNDEN AM 22.08.2026 (Plan 023 J4):
+ *
+ *  1. `DELETE FROM documents WHERE uploaded_by = $1` mit der Id. `uploaded_by`
+ *     ist `character varying` und enthält einen NAMEN ('admin', 'ordner-sync',
+ *     'nightrun'). Der Vergleich traf nie, die Antwort meldete `documents: 0`
+ *     und sah aus wie die Wahrheit. Dieselbe Verwechslung war in der Auskunft
+ *     (Art. 15) am 19.08. behoben worden, hier stand sie noch.
+ *  2. Wissensräume und Projekte wurden gar nicht gelöscht, obwohl der
+ *     Kommentar oben sie aufzählte.
+ *  3. Der Letzter-Admin-Schutz machte die Löschung auf einem Kundengerät
+ *     UNMÖGLICH: mit einem Zugang je Gerät (Entscheidung E1) ist der
+ *     Antragsteller immer der letzte Admin. Art. 17 lief damit in einen 403.
+ *
+ * Zu (3): die Daten werden jetzt IMMER gelöscht. Nur die Zugangs-Zeile bleibt
+ * stehen, wenn es die letzte ist, und die Antwort sagt das ausdrücklich. Ein
+ * gemauertes Gerät wäre die schlechtere Antwort auf einen Löschantrag; ob der
+ * Benutzername selbst noch stehen bleiben darf, ist eine Rechtsfrage und keine
+ * Frage an den Code.
  */
 router.delete(
   '/me',
@@ -428,16 +448,15 @@ router.delete(
       );
     }
 
-    // Single-Box-Schutz: letzter Admin darf sich nicht selbst löschen, sonst
-    // ist die Appliance unbedienbar. User muss erst einen anderen Admin anlegen.
+    // Single-Box-Schutz, neu gefasst (Plan 023 J4). Der letzte Admin darf seine
+    // Zugangs-Zeile nicht löschen, sonst ist das Gerät unbedienbar — seine
+    // DATEN muss er trotzdem löschen können. Mit einem Zugang je Gerät
+    // (Entscheidung E1) ist er sonst nämlich immer der letzte, und Art. 17
+    // liefe grundsätzlich in einen 403.
     const adminCount = await db.query(
       `SELECT COUNT(*)::int AS n FROM admin_users WHERE role = 'admin' AND is_active = true`
     );
-    if (req.user.role === 'admin' && (adminCount.rows[0]?.n ?? 0) <= 1) {
-      throw new ForbiddenError(
-        'Du bist der letzte aktive Admin. Lege erst einen Ersatz-Admin an, sonst ist die Box danach unbedienbar.'
-      );
-    }
+    const letzterAdmin = req.user.role === 'admin' && (adminCount.rows[0]?.n ?? 0) <= 1;
 
     logger.warn(`[gdpr-delete] user ${username} (id=${userId}) initiates account deletion`);
 
@@ -449,6 +468,11 @@ router.delete(
     // aktuelle Token bliebe bis zu 60s aus dem Cache gültig. Bei Rollback der
     // Transaktion ist der User nur ausgeloggt (Account bleibt) — sicheres Fail.
     await blacklistAllUserTokens(userId);
+
+    // Was nach der Transaktion von der Platte muss. Innerhalb der Transaktion
+    // gesammelt, danach geräumt: ein Rollback darf keine Datei kosten.
+    let minioPfade = [];
+    let projektIds = [];
 
     const summary = await db.transaction(async client => {
       const counts = {};
@@ -486,14 +510,45 @@ router.delete(
         userId,
       ]);
 
-      // 2) Documents — Metadaten löschen. Single-Box: documents.uploaded_by
-      //    ist die einzige user-gebundene Spalte; ai_memories und knowledge_spaces
-      //    sind Box-weit (kein user_id-Feld) und werden vom
-      //    Single-Box-Schutz oben ohnehin auf einem Nachfolge-Admin "vererbt".
-      //    MinIO-Files bleiben (Cleanup ist follow-up Phase 5.7); für DSGVO ist
-      //    die DB-Löschung der entscheidende Schritt, weil MinIO-Objekte ohne
-      //    Metadata-Referenz nicht mehr addressierbar sind.
-      await del('documents', `DELETE FROM documents WHERE uploaded_by = $1`, [userId]);
+      // 2) Dokumente. ZWEI Spalten, wie in der Auskunft (Art. 15): `owner_id`
+      //    trägt die numerische Id, `uploaded_by` einen NAMEN. Die alte
+      //    Abfrage verglich `uploaded_by` mit der Id — sie traf nie und
+      //    meldete `documents: 0`, als wäre das die Wahrheit.
+      //
+      //    Die Dateipfade werden VOR dem Löschen eingesammelt: nach dem
+      //    DELETE weiß niemand mehr, welche MinIO-Objekte zu räumen sind, und
+      //    "Metadaten weg, Bytes da" ist keine Löschung.
+      const dateien = await client.query(
+        `SELECT file_path FROM documents
+          WHERE (owner_id = $1 OR uploaded_by = $2) AND file_path IS NOT NULL`,
+        [userId, username]
+      );
+      minioPfade = dateien.rows.map(r => r.file_path).filter(Boolean);
+
+      await del(
+        'document_chunks',
+        `DELETE FROM document_chunks
+          WHERE document_id IN (
+            SELECT id FROM documents WHERE owner_id = $1 OR uploaded_by = $2
+          )`,
+        [userId, username]
+      );
+      await del('documents', `DELETE FROM documents WHERE owner_id = $1 OR uploaded_by = $2`, [
+        userId,
+        username,
+      ]);
+
+      // 2b) Wissensräume. `knowledge_spaces.owner_id` gibt es (die alte
+      //     Behauptung "kein user_id-Feld" stimmte nicht).
+      await del('knowledge_spaces', `DELETE FROM knowledge_spaces WHERE owner_id = $1`, [userId]);
+
+      // 2c) Projekte. Die Tabelle hat KEINE Besitzerspalte: mit einem Zugang je
+      //     Gerät (E1) gehören alle Projekte diesem Zugang. Ihre Ablage-Ordner
+      //     werden nach der Transaktion von der Platte geräumt — sonst stünden
+      //     die Dateien des Kunden nach seiner Löschung weiter da.
+      const projekte = await client.query(`SELECT id FROM projects`);
+      projektIds = projekte.rows.map(r => r.id);
+      await del('projects', `DELETE FROM projects`);
 
       // 3) Aktive Sessions invalidieren
       await del('active_sessions', `DELETE FROM active_sessions WHERE user_id = $1`, [userId]);
@@ -517,11 +572,46 @@ router.delete(
       ]);
 
       // 5) admin_users — eigene Row löschen (Single-Box-Schutz oben hat
-      //    sichergestellt, dass es nicht der letzte Admin ist).
-      await del('admin_users', `DELETE FROM admin_users WHERE id = $1`, [userId]);
+      //    Zeile bleibt beim letzten Admin stehen, siehe oben.
+      if (letzterAdmin) {
+        counts.admin_users = 0;
+      } else {
+        await del('admin_users', `DELETE FROM admin_users WHERE id = $1`, [userId]);
+      }
 
       return counts;
     });
+
+    // Nach dem Commit: die Bytes. Best effort und einzeln protokolliert — ein
+    // nicht löschbares Objekt darf die schon vollzogene Löschung nicht
+    // zurückdrehen, aber es darf auch nicht verschwiegen werden.
+    const minioService = require('../../services/documents/minioService');
+    let dateienGeloescht = 0;
+    for (const pfad of minioPfade) {
+      try {
+        await minioService.removeObject(pfad);
+        dateienGeloescht += 1;
+      } catch (err) {
+        logger.error(`[gdpr-delete] MinIO-Objekt "${pfad}" blieb liegen: ${err.message}`);
+      }
+    }
+    summary.minio_objekte = dateienGeloescht;
+    summary.minio_offen = minioPfade.length - dateienGeloescht;
+
+    const fsp = require('fs/promises');
+    const path = require('path');
+    // Derselbe Ordner wie in ablageService/gitSyncService, siehe deren Kopf.
+    const ABLAGE_DIR = process.env.PROJECT_GIT_DIR || '/arasul/projects';
+    let ordnerGeloescht = 0;
+    for (const id of projektIds) {
+      try {
+        await fsp.rm(path.join(ABLAGE_DIR, String(id)), { recursive: true, force: true });
+        ordnerGeloescht += 1;
+      } catch (err) {
+        logger.error(`[gdpr-delete] Projektordner "${id}" blieb liegen: ${err.message}`);
+      }
+    }
+    summary.projekt_ordner = ordnerGeloescht;
 
     logSecurityEvent({
       userId: null,
@@ -545,7 +635,11 @@ router.delete(
 
     res.json({
       ok: true,
-      message: 'Account und alle persönlichen Daten wurden gelöscht.',
+      message: letzterAdmin
+        ? 'Alle persönlichen Daten wurden gelöscht. Der Zugang selbst bleibt ' +
+          'bestehen, weil es der letzte ist und das Gerät sonst unbedienbar wäre.'
+        : 'Account und alle persönlichen Daten wurden gelöscht.',
+      zugangBleibt: letzterAdmin,
       summary,
       timestamp: new Date().toISOString(),
     });
