@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Workflow, AlertTriangle } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
-import { useTheme } from '@/hooks/useTheme';
-import { gleicheN8nAn, n8nThema, zuHsl } from './n8nDesign';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/shadcn/button';
 
@@ -27,11 +25,6 @@ import { Button } from '@/components/ui/shadcn/button';
  * Retry-Budget (~48 s) mit gedeckeltem Backoff, und „Erneut versuchen" lädt
  * zusätzlich den iframe neu (über einen Remount-Schlüssel), damit ein bereits
  * geladener, aber unauthentifizierter n8n-Rahmen sauber neu startet.
- *
- * Design (Plan 023 H4): n8n kommt hell und orange, Arasul ist schwarz und blau.
- * Weil der Rahmen same-origin läuft, lässt sich sein Dokument angleichen —
- * Akzent und Thema, bei jedem Laden und bei jedem Themawechsel. Wie das geht,
- * steht in `n8nDesign.ts`; hier steht nur, WANN es passiert.
  */
 const VERSUCHE = 8;
 // Wachsend, dann gedeckelt bei 10 s — Summe der Wartezeiten ~48,5 s deckt einen
@@ -40,8 +33,6 @@ const BACKOFF_MS = [0, 1500, 3000, 5000, 8000, 10000, 10000, 10000];
 
 export default function AutomationenTab() {
   const api = useApi();
-  const { theme } = useTheme();
-  const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   // Remount-Schlüssel: erzwingt beim erneuten Herstellen einen frischen iframe,
   // damit ein zuvor unauthentifiziert geladener n8n-Rahmen neu startet.
@@ -79,31 +70,6 @@ export default function AutomationenTab() {
     };
   }, [establishSession]);
 
-  /**
-   * n8n an Arasul angleichen (Plan 023 H4).
-   *
-   * Die Akzentfarbe wird zur Laufzeit aus dem eigenen Dokument gelesen, nicht
-   * als Zahl hinterlegt: Arasul hat je Thema eine andere, und eine zweite
-   * Stelle mit derselben Farbe wäre beim nächsten Umfärben falsch.
-   */
-  const angleichen = useCallback(() => {
-    const fenster = typeof window === 'undefined' ? null : window;
-    const roh = fenster
-      ? getComputedStyle(fenster.document.documentElement).getPropertyValue('--primary')
-      : '';
-    try {
-      gleicheN8nAn(frameRef.current?.contentDocument, zuHsl(roh), n8nThema(theme));
-    } catch {
-      // Kein Zugriff auf das Dokument (fremde Origin, Rahmen noch leer).
-      // Dann bleibt n8n, wie es ist — das ist kein Grund, den Tab zu stören.
-    }
-  }, [theme]);
-
-  // Bei jedem Themawechsel nachziehen, ohne den Rahmen neu zu laden.
-  useEffect(() => {
-    angleichen();
-  }, [angleichen, status, frameKey]);
-
   if (status === 'loading') {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-background text-text-secondary">
@@ -136,12 +102,10 @@ export default function AutomationenTab() {
   return (
     <iframe
       key={frameKey}
-      ref={frameRef}
       src="/n8n/"
       title="Automationen (n8n)"
       className="h-full w-full border-0 bg-background"
       data-testid="n8n-frame"
-      onLoad={angleichen}
     />
   );
 }
