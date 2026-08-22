@@ -943,7 +943,7 @@ def _index_to_qdrant(
         raise
 
 
-def reichere_an(doc_id, text, filename, titel, db, analyzer) -> bool:
+def reichere_an(doc_id, text, filename, titel, db, analyzer, abbruch=None) -> bool:
     """
     Zusammenfassung, Themen und Kategorie nachtragen (Plan 023 G4).
 
@@ -963,9 +963,12 @@ def reichere_an(doc_id, text, filename, titel, db, analyzer) -> bool:
         titel: Titel aus den Metadaten oder None
         db: DatabaseManager
         analyzer: DocumentAnalyzer
+        abbruch: Aufruf ohne Argumente, der True liefert, sobald etwas
+            Wichtigeres wartet. Wird zwischen den drei Modellaufrufen geprueft.
 
     Returns:
-        True, wenn etwas geschrieben wurde
+        True, wenn etwas geschrieben wurde. Auch ein unterbrochener Lauf kann
+        True liefern: die Zusammenfassung allein ist besser als nichts.
     """
     try:
         logger.info(f"Running AI analysis for {filename}")
@@ -973,7 +976,8 @@ def reichere_an(doc_id, text, filename, titel, db, analyzer) -> bool:
             text=text,
             filename=filename,
             title=titel,
-            categories=db.get_categories()
+            categories=db.get_categories(),
+            abbruch=abbruch
         )
         updates = {}
         if analysis.get('summary'):

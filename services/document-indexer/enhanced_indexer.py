@@ -711,7 +711,8 @@ class EnhancedDocumentIndexer:
                     continue
                 if reichere_an(
                     dok['id'], text, dok['filename'], None,
-                    self.db, self.analyzer
+                    self.db, self.analyzer,
+                    abbruch=lambda: self._weckruf_offen
                 ):
                     self._anreicherung_versuche.pop(str(dok['id']), None)
                     fertig += 1
