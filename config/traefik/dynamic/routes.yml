@@ -10,6 +10,10 @@ http:
       service: dashboard-frontend-service
       priority: 1
       middlewares:
+        # Bis zum 22.08.2026 stand hier nur `compress`. Der einzige Router
+        # ohne Sicherheitskopfzeilen war ausgerechnet der, der dem Browser das
+        # Dokument liefert. Begruendung bei `dokument-csp-bericht`.
+        - security-headers-dokument
         - compress
       entryPoints:
         - websecure

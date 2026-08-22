@@ -113,6 +113,44 @@ http:
           - 'X-User-Name'
           - 'X-User-Email'
 
+    # Sicherheitskopfzeilen fuer das DOKUMENT (Fund 22.08.2026).
+    #
+    # Der Router `dashboard-frontend` trug als einziger keine
+    # Sicherheitskopfzeilen. Ausgerechnet der, denn eine
+    # Content-Security-Policy auf einer JSON-Antwort schuetzt fast nichts, auf
+    # der Seite, die der Browser als Dokument laedt, dagegen alles.
+    # Nachgemessen am Geraet: `curl -D- https://localhost/` lieferte nur
+    # `x-content-type-options` und `x-frame-options`, sonst nichts.
+    #
+    # Auch das nginx im Frontend-Container liefert seine eigene Policy nicht
+    # aus: `location = /index.html` und der Asset-Block setzen jeweils eigene
+    # `add_header`, und nginx ERSETZT damit den geerbten Satz, statt ihn zu
+    # ergaenzen. Zwei voneinander unabhaengige Gruende fuer dieselbe Luecke.
+    #
+    # Warum das hier steht und nicht einfach `security-headers` benutzt wird:
+    # jene Middleware bringt eine SCHARFE Policy mit, und die Anwendung ist
+    # noch nie unter einer gelaufen. Sie hat zwei Inline-Skripte im
+    # `index.html`, einen Worker im PDF-Betrachter und drei Stellen mit
+    # `new Function(`. Wer das ohne Messung scharf schaltet, liefert ein Geraet
+    # aus, auf dem der PDF-Betrachter schweigt. Alles andere aus
+    # `security-headers` gilt hier unveraendert; nur die Policy ist vorerst
+    # BERICHTEND. Gemessen wird mit `scripts/test/csp-abnahme.mjs`.
+    security-headers-dokument:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        customFrameOptionsValue: 'SAMEORIGIN'
+        referrerPolicy: 'strict-origin-when-cross-origin'
+        permissionsPolicy: 'camera=(), microphone=(), geolocation=(), payment=()'
+        customResponseHeaders:
+          X-Powered-By: 'Arasul Platform'
+          Server: ''
+          Content-Security-Policy-Report-Only: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+
     # MinIO Headers for reverse proxy
     minio-headers:
       headers:
