@@ -1,0 +1,11 @@
+{
+  "id": "-falsch-",
+  "name": "Meine App",
+  "description": "Meine App \u2014 noch ohne Beschreibung.",
+  "type": "app",
+  "accessTier": "internet",
+  "version": "0.1.0",
+  "arasulExtensionVersion": 1,
+  "entry": "fehlt.html",
+  "faehigkeiten": ["zauberei"]
+}
