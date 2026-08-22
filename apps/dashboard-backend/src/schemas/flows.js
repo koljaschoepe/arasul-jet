@@ -545,6 +545,18 @@ const SaveFlowBody = z
     schritte: z.array(FlowStep).max(20).optional(),
     grenzen: FlowLimitsShape.optional(),
     ausgabe: FlowAusgabe.optional(),
+    // Plan 023 I2, nachgetragen am 22.08.2026.
+    //
+    // `betriebsart` stand in `FlowDefinition`, aber nicht hier. Da dieses
+    // Schema `.strict()` ist, wies die API jeden Flow ab, der die
+    // Betriebsart nennt:
+    //
+    //   POST /api/flows  ->  Unrecognized key: "betriebsart"
+    //
+    // Damit war die gesamte Rueckfrage-Betriebsart ueber den normalen Weg
+    // unerreichbar, einschliesslich des `angebot`-Beispiels, das genau sie
+    // vorfuehren soll. Aufgefallen beim Versuch, es aus dem Katalog anzulegen.
+    betriebsart: z.enum(['autonom', 'rueckfragen']).optional(),
     prompt: z.string().trim().min(1).max(50000),
   })
   .strict();
