@@ -278,11 +278,18 @@ Marks the setup wizard as skipped. The wizard will not be shown again, but setti
 
 ### AI Chat (LLM)
 
-| Method | Endpoint          | Description                   | Rate Limit |
-| ------ | ----------------- | ----------------------------- | ---------- |
-| POST   | `/api/llm/chat`   | LLM inference (SSE streaming) | 10/s       |
-| GET    | `/api/llm/models` | List available models         | -          |
-| GET    | `/api/llm/status` | LLM service status            | -          |
+| Method | Endpoint                    | Description                                                      | Rate Limit |
+| ------ | --------------------------- | ---------------------------------------------------------------- | ---------- |
+| POST   | `/api/llm/chat`             | LLM inference (SSE streaming)                                    | 10/s       |
+| GET    | `/api/llm/models`           | List available models                                            | -          |
+| GET    | `/api/llm/status`           | LLM service status                                               | -          |
+| GET    | `/api/llm/jobs`             | Die Läufe (`llm_jobs`), neueste zuerst                           | -          |
+| GET    | `/api/llm/jobs/:id`         | Ein Lauf im Einzelnen, samt Teiltext und Abbruchgrund            | -          |
+| GET    | `/api/llm/jobs/:id/stream`  | Der Ereignis-Strom eines laufenden Laufs (SSE)                   | -          |
+| DELETE | `/api/llm/jobs/:id`         | Einen Lauf abbrechen. Der Teiltext bleibt erhalten (Plan 023 E1) | -          |
+| GET    | `/api/llm/queue`            | Wer wartet gerade auf die GPU, in welcher Reihenfolge            | -          |
+| GET    | `/api/llm/queue/metrics`    | Wartezeiten und Durchsatz der GPU-Warteschlange                  | -          |
+| POST   | `/api/llm/queue/prioritize` | Einen wartenden Lauf nach vorn holen                             | -          |
 
 **GET /api/llm/models:** Eine engine-bewusste Sicht (Plan 021). Das Backend
 löst die aktive Inferenz-Engine nach Hardware/Override auf und liefert die
@@ -365,17 +372,21 @@ klassischen Stream zurück (`warning`-Code `AGENT_TOOLS_UNSUPPORTED`).
 
 ### Chat Conversations
 
-| Method | Endpoint                                   | Description                       |
-| ------ | ------------------------------------------ | --------------------------------- |
-| GET    | `/api/chats`                               | List all conversations            |
-| POST   | `/api/chats`                               | Create new conversation           |
-| GET    | `/api/chats/:id`                           | Get conversation details          |
-| PATCH  | `/api/chats/:id`                           | Update title                      |
-| DELETE | `/api/chats/:id`                           | Soft delete conversation          |
-| GET    | `/api/chats/:id/messages`                  | Get messages                      |
-| POST   | `/api/chats/:id/messages`                  | Add message                       |
-| PUT    | `/api/chats/:id/messages/:messageId/datei` | Datei-Verweis an Nachricht hängen |
-| GET    | `/api/chats/:id/export`                    | Export chat (JSON/Markdown)       |
+| Method | Endpoint                                   | Description                                              |
+| ------ | ------------------------------------------ | -------------------------------------------------------- |
+| GET    | `/api/chats`                               | List all conversations                                   |
+| POST   | `/api/chats`                               | Create new conversation                                  |
+| GET    | `/api/chats/:id`                           | Get conversation details                                 |
+| PATCH  | `/api/chats/:id`                           | Update title                                             |
+| DELETE | `/api/chats/:id`                           | Soft delete conversation                                 |
+| GET    | `/api/chats/:id/messages`                  | Get messages                                             |
+| POST   | `/api/chats/:id/messages`                  | Add message                                              |
+| PUT    | `/api/chats/:id/messages/:messageId/datei` | Datei-Verweis an Nachricht hängen                        |
+| GET    | `/api/chats/:id/export`                    | Export chat (JSON/Markdown)                              |
+| PATCH  | `/api/chats/:id/settings`                  | Einstellungen eines Chats (Modell, Wissensraum, Projekt) |
+| GET    | `/api/chats/:id/jobs`                      | Die Läufe dieses Chats (`llm_jobs`), für die Nachschau   |
+| GET    | `/api/chats/recent`                        | Die zuletzt benutzten Chats, für die Schnellauswahl      |
+| GET    | `/api/chats/search?q=…`                    | Volltextsuche über Titel und Nachrichten                 |
 
 **POST /api/chats:**
 
@@ -482,12 +493,14 @@ Markdown Export: Generates a human-readable Markdown file with collapsible think
 
 ### RAG (Document Q&A)
 
-| Method | Endpoint            | Description                      |
-| ------ | ------------------- | -------------------------------- |
-| POST   | `/api/rag/query`    | RAG query (SSE streaming)        |
-| GET    | `/api/rag/status`   | Qdrant collection status         |
-| GET    | `/api/rag/settings` | Current RAG/LLM tunables (admin) |
-| PATCH  | `/api/rag/settings` | Update RAG/LLM tunables (admin)  |
+| Method | Endpoint                 | Description                                                                                   |
+| ------ | ------------------------ | --------------------------------------------------------------------------------------------- |
+| POST   | `/api/rag/query`         | RAG query (SSE streaming)                                                                     |
+| GET    | `/api/rag/status`        | Qdrant collection status                                                                      |
+| GET    | `/api/rag/settings`      | Current RAG/LLM tunables (admin)                                                              |
+| PATCH  | `/api/rag/settings`      | Update RAG/LLM tunables (admin)                                                               |
+| GET    | `/api/rag/metrics`       | Zahlen zur Suche: Treffer, Dauer, Trefferquote (aus `rag_query_log`)                          |
+| POST   | `/api/rag/fix-space-ids` | Wartungsweg: gleicht `space_id` in der Qdrant-Nutzlast an die Datenbank an. Kein Alltagsknopf |
 
 **POST /api/rag/query:**
 
@@ -576,14 +589,28 @@ Request: `multipart/form-data` with `file` field.
 
 ### Documents (Data Tab)
 
-| Method | Endpoint                     | Description                   |
-| ------ | ---------------------------- | ----------------------------- |
-| GET    | `/api/documents`             | List all documents            |
-| POST   | `/api/documents/upload`      | Upload document (multipart)   |
-| GET    | `/api/documents/:id`         | Get document details          |
-| DELETE | `/api/documents/:id`         | Delete document               |
-| GET    | `/api/documents/:id/content` | Get file content (text files) |
-| PUT    | `/api/documents/:id/content` | Update file content           |
+| Method | Endpoint                          | Description                                                                                                                                                  |
+| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/documents`                  | List all documents                                                                                                                                           |
+| POST   | `/api/documents/upload`           | Upload document (multipart)                                                                                                                                  |
+| GET    | `/api/documents/:id`              | Get document details                                                                                                                                         |
+| DELETE | `/api/documents/:id`              | Delete document                                                                                                                                              |
+| GET    | `/api/documents/:id/content`      | Get file content (text files)                                                                                                                                |
+| PUT    | `/api/documents/:id/content`      | Update file content                                                                                                                                          |
+| PATCH  | `/api/documents/:id`              | Einzelne Felder ändern (Titel, Kategorie, Wissensraum)                                                                                                       |
+| GET    | `/api/documents/:id/download`     | Die Originaldatei herunterladen (`Content-Disposition: attachment`)                                                                                          |
+| GET    | `/api/documents/:id/similar`      | Ähnliche Dokumente über die Vektor-Nachbarschaft. **Liefert heute nichts**: die Vektorsuche ist seit Plan 021, Schritt 8 abgeschaltet (siehe G5 in Plan 023) |
+| POST   | `/api/documents/:id/reindex`      | Ein Dokument neu indexieren (setzt `status='pending'`, der Indexer holt es)                                                                                  |
+| PUT    | `/api/documents/:id/move`         | Ein Dokument in einen anderen Wissensraum verschieben                                                                                                        |
+| GET    | `/api/documents/categories`       | Die Kategorien, in die der Indexer einordnet                                                                                                                 |
+| GET    | `/api/documents/statistics`       | Zahlen über den Bestand (je Status, je Kategorie, Chunks)                                                                                                    |
+| GET    | `/api/documents/storage`          | Belegter Platz in MinIO, mit dem Deckel aus `checkBucketQuota`                                                                                               |
+| POST   | `/api/documents/search`           | Volltextsuche über den Textlayer (`{query, limit?}`)                                                                                                         |
+| POST   | `/api/documents/create-markdown`  | Eine Markdown-Datei anlegen, ohne Upload (`{title, content, space_id?}`)                                                                                     |
+| POST   | `/api/documents/batch/delete`     | Mehrere Dokumente auf einmal löschen (`{ids}`)                                                                                                               |
+| POST   | `/api/documents/batch/move`       | Mehrere Dokumente auf einmal verschieben (`{ids, space_id}`)                                                                                                 |
+| POST   | `/api/documents/batch/reindex`    | Mehrere Dokumente auf einmal neu indexieren (`{ids}`)                                                                                                        |
+| POST   | `/api/documents/cleanup-orphaned` | Zeilen ohne Datei in MinIO aufräumen. Wartungsweg, kein Alltagsknopf                                                                                         |
 
 Editierbare Endungen (GET/PUT `/content`): Text/Markup (`.md`, `.markdown`,
 `.txt`, `.yaml`, `.yml`, `.html`, `.htm`) **plus Quelltext** (Plan 013, B10:
@@ -1400,19 +1427,26 @@ und 64 MB entpackt.
 
 ### Model Management
 
-| Method | Endpoint                     | Description                                     |
-| ------ | ---------------------------- | ----------------------------------------------- |
-| GET    | `/api/models/catalog`        | List curated model catalog                      |
-| GET    | `/api/models/installed`      | List installed models                           |
-| GET    | `/api/models/status`         | Current loaded model + queue stats              |
-| GET    | `/api/models/memory-budget`  | KI-RAM-Lage, geladene Modelle, letzter Wechsel  |
-| GET    | `/api/models/loaded`         | Get currently loaded model                      |
-| GET    | `/api/models/default`        | Get default model                               |
-| POST   | `/api/models/default`        | Set default model                               |
-| POST   | `/api/models/download`       | Download model (SSE progress)                   |
-| DELETE | `/api/models/:id`            | Delete installed model                          |
-| POST   | `/api/models/:id/activate`   | Load model into RAM                             |
-| POST   | `/api/models/:id/deactivate` | Unload model from RAM (identisch mit `/unload`) |
+| Method | Endpoint                       | Description                                                                    |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------ |
+| GET    | `/api/models/catalog`          | List curated model catalog                                                     |
+| GET    | `/api/models/installed`        | List installed models                                                          |
+| GET    | `/api/models/status`           | Current loaded model + queue stats                                             |
+| GET    | `/api/models/memory-budget`    | KI-RAM-Lage, geladene Modelle, letzter Wechsel                                 |
+| GET    | `/api/models/loaded`           | Get currently loaded model                                                     |
+| GET    | `/api/models/default`          | Get default model                                                              |
+| POST   | `/api/models/default`          | Set default model                                                              |
+| POST   | `/api/models/download`         | Download model (SSE progress)                                                  |
+| DELETE | `/api/models/:id`              | Delete installed model                                                         |
+| POST   | `/api/models/:id/activate`     | Load model into RAM                                                            |
+| POST   | `/api/models/:id/deactivate`   | Unload model from RAM (identisch mit `/unload`)                                |
+| GET    | `/api/models/:id`              | Ein Modell im Einzelnen (Katalogeintrag plus Installationsstand)               |
+| GET    | `/api/models/:id/capabilities` | Was das Modell kann: Werkzeugaufrufe, Denkschritte, Kontextlänge               |
+| POST   | `/api/models/:id/load`         | Modell in den Speicher holen (gleichbedeutend mit `/activate`)                 |
+| POST   | `/api/models/:id/unload`       | Modell aus dem Speicher werfen                                                 |
+| GET    | `/api/models/recommended`      | Empfehlung für diese Hardware, aus RAM und Rechenwerk abgeleitet               |
+| GET    | `/api/models/lifecycle`        | Lade- und Entladeverlauf, für die Ursachensuche bei RAM-Engpässen              |
+| POST   | `/api/models/sync`             | Katalog und Installationsstand abgleichen, wenn jemand am CLI nachgeholfen hat |
 
 **Hinweis zu `/api/models/installed`:** Die Antwort enthaelt seit Plan 023 D9
 auch die externen Cloud-Modelle, sofern ein Anbieter eingeschaltet ist. Sie

@@ -245,6 +245,48 @@ printf "ID_MUSTER='^[a-zA-Z0-9-]+$'\n" >> "$SH_DATEI"
 sed -i.bak "1d" "$SH_DATEI" && rm -f "$SH_DATEI.bak"
 pruefe "Geruest-Regeln: ein zu weites Id-Muster ist rot" 1 \
   python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
+# --- endpunkte.py -----------------------------------------------------------
+# Der Waechter aus Plan 023 K1: meldet ein Endpunkt ohne Zeile in der Doku.
+# Beide Richtungen muessen greifen, wie bei der Durchreichung: ein NEUER
+# undokumentierter Endpunkt ist rot, und ein Eintrag in der Schuldenliste, den
+# es nicht mehr gibt, ebenfalls. Ohne die zweite Richtung verwahrlost die Liste.
+EP="$TMP/endpunkte"
+mkdir -p "$EP/apps/dashboard-backend/src/routes" "$EP/docs/api"
+printf "router.use('/foo', require('./foo'));\n" \
+  > "$EP/apps/dashboard-backend/src/routes/index.js"
+printf "router.get('/bar', h);\n" > "$EP/apps/dashboard-backend/src/routes/foo.js"
+
+printf '| Method | Endpoint | Zweck |\n| --- | --- | --- |\n| GET | `/api/foo/bar` | Beispiel |\n' \
+  > "$EP/docs/api/API_REFERENCE.md"
+pruefe "Endpunkte: ein dokumentierter Endpunkt ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/endpunkte.py" --wurzel "$EP"
+
+printf '| Method | Endpoint | Zweck |\n| --- | --- | --- |\n' \
+  > "$EP/docs/api/API_REFERENCE.md"
+pruefe "Endpunkte: ein undokumentierter Endpunkt ist rot" 1 \
+  python3 "$WURZEL/scripts/test/endpunkte.py" --wurzel "$EP"
+
+# Ein anderer Parametername ist derselbe Endpunkt.
+printf "router.get('/bar/:projectId', h);\n" > "$EP/apps/dashboard-backend/src/routes/foo.js"
+printf '| Method | Endpoint | Zweck |\n| --- | --- | --- |\n| GET | `/api/foo/bar/:id` | Beispiel |\n' \
+  > "$EP/docs/api/API_REFERENCE.md"
+pruefe "Endpunkte: ein anderer Parametername zaehlt als derselbe Endpunkt" 0 \
+  python3 "$WURZEL/scripts/test/endpunkte.py" --wurzel "$EP"
+
+# Eine Ueberschrift zaehlt auch als Beschreibung.
+printf '### GET /api/foo/bar/:x\n' > "$EP/docs/api/API_REFERENCE.md"
+pruefe "Endpunkte: eine Ueberschrift zaehlt als Beschreibung" 0 \
+  python3 "$WURZEL/scripts/test/endpunkte.py" --wurzel "$EP"
+
+# Und die Schuldenliste verwahrlost nicht: ein Eintrag, den es nicht mehr gibt,
+# ist rot. Ohne diese Richtung meldete der Waechter Ruhe ueber Endpunkte, die
+# laengst dokumentiert sind.
+mkdir -p "$EP/scripts/test"
+printf 'GET /api/foo/gibtsnicht\n' > "$EP/scripts/test/endpunkte-luecke.txt"
+pruefe "Endpunkte: ein veralteter Eintrag in der Schuldenliste ist rot" 1 \
+  python3 "$WURZEL/scripts/test/endpunkte.py" --wurzel "$EP"
+rm -f "$EP/scripts/test/endpunkte-luecke.txt"
+
 # --- paket-vergleich.py -----------------------------------------------------
 # Das Messwerkzeug fuer H3: "dieselbe Anwendung, einmal ueber ara-kit und
 # einmal im Terminal gebaut, ergibt dasselbe Paket". Ohne ein Werkzeug, das

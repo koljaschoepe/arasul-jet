@@ -1,0 +1,51 @@
+# Endpunkte ohne Zeile in docs/api/API_REFERENCE.md (Plan 023 K1).
+#
+# Diese Liste ist eine SCHULD, kein Freibrief: sie darf schrumpfen, nicht
+# wachsen. Wer einen Endpunkt dokumentiert, nimmt ihn hier heraus, und der
+# Waechter merkt es, wenn er drinbleibt.
+#
+# Was hier steht, ist bewusst uebrig geblieben: Betriebs- und Wartungswege
+# (Datenbank-Pool, Protokolle, Selbstheilung, Aktualisierung, Dienste-Neustart,
+# n8n-Workflow-Verwaltung). Die Abnahme aus K1 verlangt die Endpunkte, die eine
+# Erweiterung ODER EIN PARTNER benutzen darf; diese hier benutzt das Dashboard
+# selbst. Wer sie dokumentiert, tut etwas Gutes, aber es ist nicht die Abnahme.
+#
+# Am 22.08.2026 von 77 auf 35 gebracht: Dokumente, Chats, RAG, Modelle
+# und die Laufverwaltung sind seither beschrieben.
+#
+# Stand: 35 Eintraege.
+DELETE /api/services/llm/models/:x
+DELETE /api/workflows/cleanup
+GET /api/apps/:x/config
+GET /api/apps/:x/n8n-credentials
+GET /api/database/connections
+GET /api/database/health
+GET /api/database/pool
+GET /api/database/queries
+GET /api/extensions/werkstatt/status
+GET /api/logs/list
+GET /api/logs/search
+GET /api/logs/stream
+GET /api/self-healing/metrics
+GET /api/self-healing/reboot-history
+GET /api/self-healing/recovery-actions
+GET /api/self-healing/service-failures
+GET /api/services/all
+GET /api/services/embedding/info
+GET /api/services/llm/models
+GET /api/services/llm/models/:x
+GET /api/system/diagnostics/quick
+GET /api/system/heartbeat
+GET /api/update/check
+GET /api/workflows/active
+GET /api/workflows/history
+GET /api/workflows/list
+GET /api/workflows/stats
+POST /api/apps/:x/config
+POST /api/services/llm/models/pull
+POST /api/services/restart/:x
+POST /api/system/diagnostics
+POST /api/system/reload-config
+POST /api/update/apply
+POST /api/update/download
+POST /api/workflows/execution

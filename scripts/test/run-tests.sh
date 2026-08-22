@@ -220,6 +220,16 @@ run_geruest_regeln_check() {
   fi
 }
 
+run_endpunkte_check() {
+  echo ""
+  echo "-> Pruefe, ob jeder Endpunkt eine Beschreibung hat..."
+  if python3 "${PROJECT_ROOT}/scripts/test/endpunkte.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Toter Code (Plan 023 B3)
 # Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
 # jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
@@ -405,6 +415,7 @@ run_modellnamen_check
 run_einheiten_check
 run_durchreichung_check
 run_geruest_regeln_check
+run_endpunkte_check
 run_faden_check
 run_selbsttest_check
 
