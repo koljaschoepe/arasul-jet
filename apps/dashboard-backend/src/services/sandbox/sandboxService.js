@@ -892,6 +892,10 @@ async function loadWorkspace(workspaceRef) {
 }
 
 module.exports = {
+  // Plan 023 I5, gemessen am 22.08.2026: die kanonische Werkstatt bekam die
+  // Vorlagen nie, weil sie nicht ueber `createProject` entsteht, sondern als
+  // `ordner` eines Flows. `runFlow` saet deshalb selbst aus.
+  seedWerkstattTemplates,
   loadWorkspace,
   createProject,
   ensureProjectContainer,

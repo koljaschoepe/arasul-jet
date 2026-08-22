@@ -122,6 +122,49 @@ async function resolveOrdnerListe(ordner = [], deps = {}, meta = null) {
  * @returns {{ werte: object, spaceIds: string[] }}
  * @throws {ValidationError} bei fehlendem Pflichtargument oder ungültiger Auswahl.
  */
+/**
+ * Die kanonische Werkstatt bekommt ihre Vorlagen (Plan 023 I5, 22.08.2026).
+ *
+ * `seedWerkstattTemplates` legt ANLEITUNG.md und die drei Beispiele in JEDEN
+ * frisch angelegten Sandbox-Ordner. Die Werkstatt entsteht aber nicht ueber
+ * `createProject`, sondern als `ordner` der Bau-Flows `/erweiterung` und
+ * `/execute`. Sie blieb deshalb leer.
+ *
+ * Gemessen: der `erweiterung`-Flow verbrauchte auf dem Orin vier seiner zwanzig
+ * Werkzeug-Runden allein damit, die ANLEITUNG zu suchen, die sein eigener
+ * Prompt als Erstes zu lesen verlangt. Ein Kunde, der die Werkstatt im
+ * Terminal oeffnet, fand einen leeren Ordner ohne jeden Hinweis.
+ *
+ * Nicht beim Start ausgesaet, sondern wenn der Ordner wirklich entsteht: ein
+ * Geraet ab Werk zeigt leere Listen (Entscheidung E6), und ein Ordner, den
+ * niemand angefordert hat, waere ein Eintrag zu viel.
+ *
+ * Best effort in beide Richtungen: vorhandene Dateien werden nicht
+ * ueberschrieben, und ein Fehlschlag bremst keinen Lauf.
+ *
+ * @param {string} ordner Absoluter Pfad des gerade angelegten Flow-Ordners
+ * @param {string} flowName Nur fuer die Protokollzeile
+ */
+async function werkstattVorlagenSaeen(ordner, flowName) {
+  const { SANDBOX_DATA_DIR } = require('../sandbox/sandboxShared');
+  const werkstatt = path.join(SANDBOX_DATA_DIR, 'werkstatt');
+  if (path.resolve(ordner) !== path.resolve(werkstatt)) {
+    return;
+  }
+  try {
+    // Schon ausgesaet? Dann nichts tun und auch nichts protokollieren.
+    await fs.access(path.join(ordner, 'ANLEITUNG.md'));
+    return;
+  } catch {
+    /* fehlt, also aussaeen */
+  }
+  try {
+    require('../sandbox/sandboxService').seedWerkstattTemplates(ordner);
+  } catch (err) {
+    logger.warn(`Flow "${flowName}": Werkstatt-Vorlagen nicht ausgesaet: ${err.message}`);
+  }
+}
+
 function resolveArguments(declared = [], provided = {}) {
   const werte = {};
   const spaceIds = [];
@@ -323,6 +366,7 @@ async function runFlow(
   for (const o of flow.ordner) {
     try {
       await fs.mkdir(o, { recursive: true });
+      await werkstattVorlagenSaeen(o, flowName);
     } catch (err) {
       logger.warn(`Flow "${flowName}": Ordner "${o}" nicht anlegbar: ${err.message}`);
     }
@@ -796,6 +840,9 @@ async function runFlow(
 }
 
 module.exports = {
+  // Nur fuer Tests: die Auswahl, WELCHER Ordner die Werkstatt-Vorlagen
+  // bekommt. Das Kopieren selbst gehoert dem sandboxService.
+  _werkstattVorlagenSaeen: werkstattVorlagenSaeen,
   runFlow,
   resolveArguments,
   buildUserInput,

@@ -663,3 +663,62 @@ describe('anreichernMitDateien', () => {
     expect(out).toMatch(/Inhalt\n--- Ende der Datei ---/);
   });
 });
+
+describe('Werkstatt-Vorlagen (Plan 023 I5, 22.08.2026)', () => {
+  const os = require('os');
+  const fsSync = require('fs');
+  const pathMod = require('path');
+
+  /**
+   * `seedWerkstattTemplates` legt ANLEITUNG.md und die Beispiele in JEDEN
+   * frisch angelegten Sandbox-Ordner. Die Werkstatt entsteht aber nicht ueber
+   * `createProject`, sondern als `ordner` der Bau-Flows, und blieb deshalb
+   * leer. Der `erweiterung`-Flow verbrauchte auf dem Orin vier seiner zwanzig
+   * Runden damit, die ANLEITUNG zu suchen, die sein Prompt als Erstes zu lesen
+   * verlangt.
+   *
+   * Geprueft wird die Auswahl, nicht das Kopieren selbst: nur die kanonische
+   * Werkstatt bekommt die Vorlagen, jeder andere Flow-Ordner nicht.
+   */
+  function ladeMitSandboxDir(sandboxDir, seed) {
+    jest.resetModules();
+    jest.doMock('../../src/services/sandbox/sandboxShared', () => ({
+      SANDBOX_DATA_DIR: sandboxDir,
+    }));
+    jest.doMock('../../src/services/sandbox/sandboxService', () => ({
+      seedWerkstattTemplates: seed,
+    }));
+    return require('../../src/services/flows/runFlow');
+  }
+
+  test('nur der Werkstatt-Ordner wird ausgesaet', async () => {
+    const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'werkstatt-'));
+    const seed = jest.fn();
+    const { _werkstattVorlagenSaeen } = ladeMitSandboxDir(wurzel, seed);
+    if (!_werkstattVorlagenSaeen) return; // nicht exportiert: Test entfaellt
+
+    const werkstatt = pathMod.join(wurzel, 'werkstatt');
+    fsSync.mkdirSync(werkstatt, { recursive: true });
+    await _werkstattVorlagenSaeen(werkstatt, 'erweiterung');
+    expect(seed).toHaveBeenCalledWith(werkstatt);
+
+    seed.mockClear();
+    const anderer = pathMod.join(wurzel, 'kunden');
+    fsSync.mkdirSync(anderer, { recursive: true });
+    await _werkstattVorlagenSaeen(anderer, 'newsletter');
+    expect(seed).not.toHaveBeenCalled();
+  });
+
+  test('eine schon ausgesaete Werkstatt wird nicht noch einmal angefasst', async () => {
+    const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'werkstatt2-'));
+    const seed = jest.fn();
+    const { _werkstattVorlagenSaeen } = ladeMitSandboxDir(wurzel, seed);
+    if (!_werkstattVorlagenSaeen) return;
+
+    const werkstatt = pathMod.join(wurzel, 'werkstatt');
+    fsSync.mkdirSync(werkstatt, { recursive: true });
+    fsSync.writeFileSync(pathMod.join(werkstatt, 'ANLEITUNG.md'), '# schon da');
+    await _werkstattVorlagenSaeen(werkstatt, 'erweiterung');
+    expect(seed).not.toHaveBeenCalled();
+  });
+});
