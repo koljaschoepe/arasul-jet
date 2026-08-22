@@ -17,7 +17,8 @@
 | Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen                  | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                                                                                                       |
 | D, Modelle                            | **fertig** 22.08.2026, live abgenommen                  | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel                                                                             |
 | E, Coding-Agent und Chat              | **laeuft**, E1 und E3 bis E9 live abgenommen 22.08.2026 | #458 bis #471. Live im Browser gegen den Orin: 20 von 20 Zusagen gehalten (`scripts/test/chat-abnahme.mjs`). Groesste Funde: der Teiltext eines abgebrochenen Laufs ging verloren, das Standardmodell scheiterte an jeder Aufgabenliste, und 88 dokumentierte Stellschrauben erreichen den Container nie. Offen bei E2: die Warteschlange bleibt strikt seriell |
-| F bis K                               | offen                                                   |                                                                                                                                                                                                                                                                                                                                                                 |
+| F, Terminal                           | **fertig** 22.08.2026, live abgenommen                  | #473 bis #476. F1 Kopfzeile von 44 auf 19 bis 26 Pixel bei jeder Breite, F2 und F3 waren schon erfuellt und sind jetzt gemessen, F4 Datei im Baum nach 15 Sekunden statt nie, F5 unter 900 Pixeln keine drei Spalten mehr. `scripts/test/terminal-abnahme.mjs`, 9 von 9. Offen an F3 ist nur die Prosa, nicht die Abnahme                                       |
+| G bis K                               | offen                                                   |                                                                                                                                                                                                                                                                                                                                                                 |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -2750,6 +2751,54 @@ Erreichbarkeit, sichtbar in der Oberfläche und über die Kommandozeile.
 **Abnahme:** Ein hinzugefügter MCP-Server steht nach einem Neustart des
 Containers in einer neuen Shell zur Verfügung.
 
+### Erst gemessen: die Abnahme war schon erfüllt
+
+Plan 017, Schritt 5, hat die Verwaltung bereits gebaut: `sandbox_project_connections`
+(Tabelle 136), Geheimwerte AES-256-GCM verschlüsselt, und beim **Sitzungs-Start**
+schreibt `terminalService` daraus `/workspace/.mcp.json` für Claude Code plus die
+Codex-Konfiguration. Die Dateien sind erzeugt, nicht gepflegt; die Verbindungen
+sind die Wahrheit.
+
+Am 22.08.2026 am Gerät nachgestellt, genau in der Reihenfolge der Abnahme:
+
+```
+1. MCP-Server anlegen      POST /sandbox/projects/…/verbindungen
+                           {name: abnahme-mcp, kind: mcp, command: npx, args: […]}
+2. Container neu starten   docker restart arasul-sandbox-souveraenitaet
+3. neue Shell oeffnen      Terminal im Browser
+4. nachsehen               cat /workspace/.mcp.json
+```
+
+```json
+{ "mcpServers": { "abnahme-mcp": { "command": "npx", "args": ["-y", "…", "/workspace/projekt"] } } }
+```
+
+**Erfüllt am 22.08.2026, ohne Änderung am Produkt.**
+
+Ein Detail, das dabei auffiel und das man wissen muss: die Konfiguration
+entsteht beim **Sitzungs-Start**, nicht beim Container-Start. Ein `docker
+restart` allein schreibt sie nicht; sie erscheint, sobald jemand eine Shell
+öffnet. Für die Abnahme ist das richtig herum, denn ohne Shell braucht sie
+niemand.
+
+### Was in der Prosa steht und noch fehlt
+
+Die Aufgabenbeschreibung verlangt mehr als ihre Abnahme. Offen bleibt:
+
+| offen                       | Bemerkung                                                             |
+| --------------------------- | --------------------------------------------------------------------- |
+| sichtbar in der Oberfläche  | es gibt keine Fläche dafür, nur die HTTP-Schnittstelle                |
+| Prüfen der Erreichbarkeit   | ein hinterlegter Server wird nie angefasst, bis ihn ein Agent startet |
+| Verwaltung je Gerät         | heute je Projekt                                                      |
+| der Agent fügt selbst hinzu | er kann die Schnittstelle rufen, hat aber kein Kommando dafür         |
+
+**Zur Verwaltung je Gerät ein Widerspruch:** je Projekt ist die bessere Bauform
+und sollte bleiben. Ein Sandbox-Projekt ist die Isolationsgrenze des Geräts; ein
+MCP-Server, der Dateizugriff auf `/workspace/projekt` gewährt, gehört genau
+dorthin und nicht in eine geräteweite Liste, aus der ihn jedes Projekt erbt. Was
+fehlt, ist nicht die geräteweite Ablage, sondern eine Fläche, auf der man sie je
+Projekt sieht.
+
 ## F4 Claude Code arbeitet im gewählten Projekt
 
 Der Agent im Terminal muss im Ordner des oben gewählten Projekts stehen, dort
@@ -2799,6 +2848,16 @@ eine schlechte Voreinstellung. Ein verstecktes Fenster fragt ohnehin nicht.
 
 Die Regel steht als eigene Funktion da und nicht als Ausdruck in der Abfrage,
 damit sie sich prüfen lässt, ohne den ganzen Explorer zu zeichnen.
+
+### Live abgenommen am 22.08.2026
+
+Datei im Terminal geschrieben, dann gewartet, ohne die Seite neu zu laden:
+
+| nach | im Dateibaum |
+| ---- | ------------ |
+| 15 s | **ja**       |
+
+Vor der Änderung stand sie auch nach neunzig Sekunden nicht da.
 
 ## F5 Darstellung insgesamt
 
