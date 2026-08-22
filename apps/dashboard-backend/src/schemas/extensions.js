@@ -161,6 +161,8 @@ module.exports = {
   BrueckeRagBody,
   BrueckeDateienBody,
   BrueckeNetzBody,
+  BrueckeTabellenBody,
+  BrueckeZeitplanBody,
   BrueckeFlowRunBody,
   BrueckeFlowParams,
   BrueckeRunParams,

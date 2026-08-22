@@ -290,6 +290,34 @@ function bearerFrom(req) {
   return h.startsWith('Bearer ') ? h.slice(7) : null;
 }
 
+/**
+ * Erst die Freigabe, dann der Rumpf (Plan 023 H1, Fund vom 22.08.2026).
+ *
+ * Bis hierher stand `autorisieren` IM Rumpf des Handlers, also NACH
+ * `validateBody`. Wer die Faehigkeit nicht hatte, bekam deshalb einen
+ * Schema-Fehler zu sehen:
+ *
+ *   POST .../bruecke/netz  ohne Freigabe, leerer Rumpf
+ *   -> VALIDATION_ERROR: url: Invalid input: expected string, received undefined
+ *
+ * Der Plan verlangt an dieser Stelle "eine verstaendliche Meldung", und ein
+ * Feldname aus einem Zod-Schema ist keine. Jetzt kommt zuerst
+ *
+ *   -> FORBIDDEN: Faehigkeit "netz" ist fuer "beispiel-drei" nicht freigegeben
+ *
+ * Nebeneffekt, der genauso zaehlt: ohne Freigabe verraet die Antwort nichts
+ * mehr ueber die Form des Rumpfes.
+ *
+ * Das Ergebnis haengt an `req.brueckeExt`, damit der Handler die Erweiterung
+ * nicht ein zweites Mal laden muss.
+ */
+function verlangeFaehigkeit(faehigkeit) {
+  return asyncHandler(async (req, _res, next) => {
+    req.brueckeExt = await brueckeService.autorisieren(req.params.id, bearerFrom(req), faehigkeit);
+    next();
+  });
+}
+
 router.use('/:id/bruecke', brueckeCors);
 // Grunddrossel für ALLE Brücken-Aufrufe (aus untrusted iframe-Code erreichbar);
 // die teuren LLM-/RAG-Routen bekommen zusätzlich den strengeren llmLimiter.
@@ -330,9 +358,9 @@ router.post(
   '/:id/bruecke/llm',
   llmLimiter,
   validateParams(ExtensionIdParams),
+  verlangeFaehigkeit('llm'),
   validateBody(BrueckeLlmBody),
   asyncHandler(async (req, res) => {
-    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'llm');
     await brueckeService.llmStream(req.body, res);
   })
 );
@@ -342,9 +370,9 @@ router.post(
   '/:id/bruecke/rag',
   llmLimiter,
   validateParams(ExtensionIdParams),
+  verlangeFaehigkeit('rag'),
   validateBody(BrueckeRagBody),
   asyncHandler(async (req, res) => {
-    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'rag');
     const treffer = await brueckeService.ragSuche(req.body);
     res.json({ treffer, timestamp: new Date().toISOString() });
   })
@@ -354,9 +382,9 @@ router.post(
 router.post(
   '/:id/bruecke/dateien',
   validateParams(ExtensionIdParams),
+  verlangeFaehigkeit('dateien'),
   validateBody(BrueckeDateienBody),
   asyncHandler(async (req, res) => {
-    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'dateien');
     const data = await brueckeService.dateien(req.params.id, req.body);
     res.json({ ...data, timestamp: new Date().toISOString() });
   })
@@ -373,9 +401,10 @@ router.post(
   '/:id/bruecke/netz',
   apiLimiter,
   validateParams(ExtensionIdParams),
+  verlangeFaehigkeit('netz'),
   validateBody(BrueckeNetzBody),
   asyncHandler(async (req, res) => {
-    const { extension } = await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'netz');
+    const { extension } = req.brueckeExt;
     const data = await brueckeService.netzAufruf(req.params.id, extension.manifest, req.body);
     res.json({ ...data, timestamp: new Date().toISOString() });
   })
@@ -391,9 +420,9 @@ router.post(
   '/:id/bruecke/tabellen',
   apiLimiter,
   validateParams(ExtensionIdParams),
+  verlangeFaehigkeit('tabellen'),
   validateBody(BrueckeTabellenBody),
   asyncHandler(async (req, res) => {
-    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'tabellen');
     const data = await brueckeService.tabellen(req.params.id, req.body);
     res.json({ ...data, timestamp: new Date().toISOString() });
   })
@@ -409,9 +438,9 @@ router.post(
   '/:id/bruecke/zeitplan',
   apiLimiter,
   validateParams(ExtensionIdParams),
+  verlangeFaehigkeit('zeitplan'),
   validateBody(BrueckeZeitplanBody),
   asyncHandler(async (req, res) => {
-    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'zeitplan');
     const data = await brueckeService.zeitplan(req.params.id, req.body);
     res.json({ ...data, timestamp: new Date().toISOString() });
   })
@@ -432,9 +461,10 @@ router.get(
 router.post(
   '/:id/bruecke/flows/:name/run',
   validateParams(BrueckeFlowParams),
+  verlangeFaehigkeit('flows'),
   validateBody(BrueckeFlowRunBody),
   asyncHandler(async (req, res) => {
-    const { userId } = await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'flows');
+    const { userId } = req.brueckeExt;
     const data = await brueckeService.flowStarten({
       name: req.params.name,
       args: req.body.args,
