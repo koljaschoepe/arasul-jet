@@ -233,6 +233,10 @@ services:
       # Sekunden zu schlafen, obwohl noch neunzig Dokumente warten, war die
       # eigentliche Wartezeit.
       DOCUMENT_INDEXER_NACHBRENNER: ${DOCUMENT_INDEXER_NACHBRENNER:-2}
+      # Laenger als das haelt sich der Indexer nie zurueck, egal was das
+      # Backend meldet. Eine Zusage, die ihn eine Viertelstunde stilllegt,
+      # waere ein Ausfall und kein Vorrang (services/document-indexer/gpu_vorrang.py).
+      GPU_VORRANG_HOECHSTFRIST_S: ${GPU_VORRANG_HOECHSTFRIST_S:-120}
       DOCUMENT_INDEXER_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHUNK_SIZE}
       DOCUMENT_INDEXER_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHUNK_OVERLAP}
       DOCUMENT_INDEXER_API_PORT: ${DOCUMENT_INDEXER_API_PORT:-9102}

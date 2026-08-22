@@ -53,6 +53,7 @@ from document_processor import (
     run_indexing_pipeline, reichere_an, PARSERS, SUPPORTED_MIMES
 )
 from spell_corrector import flush_domain_dictionary
+import gpu_vorrang
 
 # Logger inherits structured JSON formatting from api_server.py entry point
 logger = logging.getLogger(__name__)
@@ -694,6 +695,21 @@ class EnhancedDocumentIndexer:
                     "Anreicherung unterbrochen, es warten neue Dateien"
                 )
                 break
+            # Der Nutzer hat Vorrang an der GPU (Fund vom 22.08.2026).
+            #
+            # Die Anreicherung laedt qwen3:14b, der Chat rechnet mit dem
+            # 27B-Modell. Zusammen passen sie nicht in den Speicher, also wirft
+            # Ollama das jeweils andere heraus, und der Nutzer wartet bei jeder
+            # Chat-Runde 30 bis 60 Sekunden auf ein Modell, das kurz zuvor
+            # schon geladen war. Die Herleitung mit den Messwerten steht im
+            # Kopf von `gpu_vorrang.py`.
+            if gpu_vorrang.gpu_belegt():
+                logger.info(
+                    "Anreicherung zurueckgestellt, der Chat rechnet "
+                    f"(noch {gpu_vorrang.restsekunden():.0f} s)"
+                )
+                self._nacharbeit_offen = True
+                break
             try:
                 antwort = self.minio_client.get_object(
                     MINIO_BUCKET, dok['file_path']
@@ -713,7 +729,7 @@ class EnhancedDocumentIndexer:
                 if reichere_an(
                     dok['id'], text, dok['filename'], None,
                     self.db, self.analyzer,
-                    abbruch=lambda: self._weckruf_offen
+                    abbruch=lambda: self._weckruf_offen or gpu_vorrang.gpu_belegt()
                 ):
                     self._anreicherung_versuche.pop(str(dok['id']), None)
                     fertig += 1

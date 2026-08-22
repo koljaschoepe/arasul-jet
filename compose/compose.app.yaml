@@ -90,6 +90,12 @@ services:
       DOCUMENT_INDEXER_HOST: ${DOCUMENT_INDEXER_HOST:-document-indexer}
       DOCUMENT_INDEXER_API_PORT: ${DOCUMENT_INDEXER_API_PORT:-9102}
       DOCUMENT_INDEXER_MINIO_BUCKET: ${DOCUMENT_INDEXER_MINIO_BUCKET:-documents}
+      # Vorrang des Nutzers an der einen GPU (Fund 22.08.2026). Der Indexer
+      # kann die Sperre des Backends nicht nehmen, also wird ihm gesagt, dass
+      # gerechnet wird. Herleitung in services/flows/gpuVorrang.js.
+      GPU_VORRANG: ${GPU_VORRANG:-true}
+      GPU_VORRANG_FRIST_S: ${GPU_VORRANG_FRIST_S:-30}
+      GPU_VORRANG_ZEITLIMIT_MS: ${GPU_VORRANG_ZEITLIMIT_MS:-1500}
       JWT_EXPIRY: ${JWT_EXPIRY}
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       # Leer statt Warnung: ungesetzt ist der Normalfall, siehe .env.example.

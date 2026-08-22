@@ -165,10 +165,19 @@ seine eigenen Bausteine mit (keine Abhängigkeit mehr auf `services/agents/`):
   `scheduleStore.js`, `cronExpr.js`, Tabelle `flow_schedules`, Routen
   `/flows/zeitplaene`, externer `events/:name`-Endpunkt) ist am 2026-07-28
   ersatzlos entfernt (Migration 123 droppt die Tabelle).
-- `gpuQueue.js` — die **eine** GPU-Sperre, geteilt mit dem Chat: der
-  Ollama-Aufruf in `services/llm/llmOllamaStream.js` (`streamFromOllama`) geht
-  durch dieselbe `withGpuLock`. Nie treffen Chat und Flow zugleich auf die GPU
-  (Nutzer-Entscheidung: strikt einer nach dem anderen, keine Priorisierung).
+- `gpuQueue.js` — die **eine** GPU-Sperre für alles, was in DIESEM Prozess
+  läuft: der Ollama-Aufruf in `services/llm/llmOllamaStream.js`
+  (`streamFromOllama`) geht durch dieselbe `withGpuLock`. Nie treffen Chat und
+  Flow zugleich auf die GPU (Nutzer-Entscheidung: strikt einer nach dem
+  anderen, keine Priorisierung).
+- `gpuVorrang.js` — **der Indexer ist der eine Aufrufer, der diesen Mutex nicht
+  nehmen kann**: eigener Prozess, eigener Container, direkter Ollama-Aufruf. Am
+  22.08.2026 auf dem Orin gemessen, was das kostet: 35 Wechsel
+  `auto_unload_ollama_keepalive` in vierzig Minuten und Ladezeiten von 11 827
+  bis 60 066 ms, weil Ollama abwechselnd das Chat-Modell (22 GB) und das
+  Indexer-Modell (14 GB) hinauswirft. `withGpuLock` meldet deshalb an
+  `document-indexer` eine **Frist**, keinen Schalter: fällt das Backend aus,
+  läuft sie ab und der Indexer arbeitet weiter.
 - `pathSafe.js` — symlink-sichere Pfad-Sperre über mehrere erlaubte Ordner;
   schließt das TOCTOU-Fenster über Dateideskriptoren. **Jeder** Dateizugriff
   läuft hierdurch.

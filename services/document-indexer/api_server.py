@@ -27,6 +27,7 @@ from spell_corrector import correct_query, SYMSPELL_AVAILABLE
 from sparse_encoder import compute_sparse_vector, STEMMER_AVAILABLE
 from entity_extractor import extract_entities, extract_from_document, SPACY_AVAILABLE
 from graph_refiner import get_refiner
+import gpu_vorrang
 
 # Flask app
 app = Flask(__name__)
@@ -119,6 +120,38 @@ def status():
             'status': 'error',
             'error': str(e)
         }), 500
+
+
+@app.route('/gpu/vorrang', methods=['POST'])
+def gpu_vorrang_melden():
+    """
+    Das Backend meldet, dass es die GPU fuer einen Nutzerlauf haelt.
+
+    Body: {"sekunden": 30}. Null gibt frei. Die Begruendung, warum das eine
+    Frist ist und kein Schalter, steht im Kopf von `gpu_vorrang.py`.
+
+    Bewusst ohne Anmeldung: der Dienst ist nur im internen Docker-Netz
+    erreichbar (kein veroeffentlichter Port, siehe compose), und der einzige
+    Schaden, den ein Aufruf anrichten koennte, ist eine Anreicherung, die
+    hoechstens `GPU_VORRANG_HOECHSTFRIST_S` Sekunden spaeter laeuft.
+    """
+    daten = request.get_json(silent=True) or {}
+    try:
+        sekunden = float(daten.get('sekunden', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'sekunden muss eine Zahl sein'}), 400
+    gilt = gpu_vorrang.melde_belegt(sekunden)
+    return jsonify({'belegt': gpu_vorrang.gpu_belegt(), 'restsekunden': round(gilt, 1)})
+
+
+@app.route('/gpu/vorrang', methods=['GET'])
+def gpu_vorrang_stand():
+    """Was der Indexer gerade glaubt. Fuer die Abnahme und die Fehlersuche."""
+    return jsonify({
+        'belegt': gpu_vorrang.gpu_belegt(),
+        'restsekunden': round(gpu_vorrang.restsekunden(), 1),
+        'hoechstfrist_s': gpu_vorrang.HOECHSTFRIST_S,
+    })
 
 
 @app.route('/statistics', methods=['GET'])

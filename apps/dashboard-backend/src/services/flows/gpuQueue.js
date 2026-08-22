@@ -23,6 +23,7 @@
  */
 
 const AsyncMutex = require('../llm/AsyncMutex');
+const { mitVorrang } = require('./gpuVorrang');
 
 // Ein einziger, prozessweiter Mutex für ALLE lokalen Modell-Aufrufe (Chat wie
 // Flow). Dass es genau EINE Instanz ist, ist der ganze Punkt — deshalb lebt
@@ -37,7 +38,11 @@ const gpuMutex = new AsyncMutex();
  * @template T
  */
 function withGpuLock(fn) {
-  return gpuMutex.withLock(fn);
+  // Der Indexer ist der einzige Aufrufer der GPU, der diesen Mutex nicht
+  // nehmen kann: eigener Prozess, eigener Container, direkter Ollama-Aufruf.
+  // Ihm wird deshalb gesagt, dass hier gerade gerechnet wird. Warum das eine
+  // Frist ist und kein Schalter, steht in `gpuVorrang.js`.
+  return gpuMutex.withLock(() => mitVorrang(fn));
 }
 
 module.exports = { withGpuLock, _gpuMutex: gpuMutex };
