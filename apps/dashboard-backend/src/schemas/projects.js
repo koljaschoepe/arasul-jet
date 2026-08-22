@@ -49,6 +49,26 @@ const ProjectIdParams = z.object({ id: ProjectIdField }).strict();
 
 const AblageReadQuery = z.object({ pfad: AblagePfad }).strict();
 
+/**
+ * Eine einzelne Ebene des Dateibaums (Plan 023 G1).
+ *
+ * `ordner` fehlt oder ist leer: die Wurzel. Die Wurzel ist der einzige Pfad,
+ * der leer sein darf, deshalb hier ein eigenes Schema statt `AblagePfad`, das
+ * auf mindestens ein Zeichen besteht.
+ */
+const AblageEbeneQuery = z
+  .object({
+    ordner: z
+      .string()
+      .trim()
+      .max(500)
+      .refine(p => !p.startsWith('/'), 'Pfad muss relativ sein')
+      .refine(p => !p.split('/').includes('..'), 'Pfad darf nicht nach oben zeigen')
+      .optional()
+      .default(''),
+  })
+  .strict();
+
 const AblageSucheQuery = z
   .object({ q: z.string().trim().min(2, 'Mindestens 2 Zeichen').max(200) })
   .strict();
@@ -94,6 +114,7 @@ module.exports = {
   SetActiveProjectBody,
   AblagePfad,
   AblageReadQuery,
+  AblageEbeneQuery,
   AblageSucheQuery,
   AblageWriteBody,
   AblageOrdnerBody,

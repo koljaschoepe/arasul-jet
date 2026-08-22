@@ -386,3 +386,71 @@ describe('resolveOrdnerListe (projekt://aktiv)', () => {
     ).rejects.toThrow(/Ungültiger Ordner/);
   });
 });
+
+/**
+ * Plan 023 G1: eine einzelne Ebene, ohne Budget über den ganzen Baum.
+ *
+ * Am 22.08.2026 am Gerät gemessen: ein Projekt mit 5000 Dateien lieferte 2000
+ * Einträge und `gekuerzt: true`, und im Explorer stand „Liste gekürzt" ohne
+ * einen Weg zum Rest.
+ */
+describe('listEbene (Plan 023 G1)', () => {
+  const EBENE_PROJEKT = '99999999-8888-7777-6666-555555555555';
+  const ebeneDeps = {
+    getProject: jest.fn(async id => ({ id, slug: 'ebenentest' })),
+    db: { query: jest.fn(async () => ({ rows: [] })) },
+  };
+  let wurzel;
+
+  beforeAll(async () => {
+    wurzel = await ablage.projektOrdner(EBENE_PROJEKT, ebeneDeps);
+    fs.mkdirSync(path.join(wurzel, 'ordner-a', 'tief'), { recursive: true });
+    fs.writeFileSync(path.join(wurzel, 'oben.md'), 'x');
+    fs.writeFileSync(path.join(wurzel, 'ordner-a', 'mitte.md'), 'y');
+    fs.writeFileSync(path.join(wurzel, 'ordner-a', 'tief', 'unten.md'), 'z');
+  });
+
+  it('liefert NUR die direkten Kinder, nicht den ganzen Baum', async () => {
+    const { eintraege } = await ablage.listEbene(EBENE_PROJEKT, '', ebeneDeps);
+    const namen = eintraege.map(e => e.name);
+    expect(namen).toContain('oben.md');
+    expect(namen).toContain('ordner-a');
+    // Zwei Ebenen tiefer, also NICHT dabei. Genau darum geht es.
+    expect(namen).not.toContain('mitte.md');
+    expect(namen).not.toContain('unten.md');
+  });
+
+  it('liefert die Kinder eines Unterordners', async () => {
+    const { eintraege } = await ablage.listEbene(EBENE_PROJEKT, 'ordner-a', ebeneDeps);
+    expect(eintraege.map(e => e.name).sort()).toEqual(['mitte.md', 'tief']);
+  });
+
+  it('stellt Ordner vor Dateien', async () => {
+    const { eintraege } = await ablage.listEbene(EBENE_PROJEKT, 'ordner-a', ebeneDeps);
+    expect(eintraege[0].typ).toBe('ordner');
+    expect(eintraege[0].name).toBe('tief');
+  });
+
+  it('meldet einen unbekannten Ordner als leer, nicht als Fehler', async () => {
+    // Der Explorer fragt nach dem, was er im Baum gesehen hat, und der kann
+    // veraltet sein. Ein Fehler waere hier die schlechtere Auskunft.
+    const { eintraege, gekuerzt } = await ablage.listEbene(
+      EBENE_PROJEKT,
+      'gibtsnicht',
+      ebeneDeps
+    );
+    expect(eintraege).toEqual([]);
+    expect(gekuerzt).toBe(false);
+  });
+
+  it('laesst keinen Pfad aus der Ablage heraus', async () => {
+    await expect(ablage.listEbene(EBENE_PROJEKT, '../..', ebeneDeps)).rejects.toThrow(
+      ValidationError
+    );
+  });
+
+  it('traegt keine Kuerzung, solange die Ebene klein ist', async () => {
+    const { gekuerzt } = await ablage.listEbene(EBENE_PROJEKT, '', ebeneDeps);
+    expect(gekuerzt).toBe(false);
+  });
+});

@@ -44,6 +44,19 @@ const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // Upload in die Ablage
 const MAX_VORSCHAU_BYTES = 50 * 1024 * 1024; // Inline-Vorschau (PDF/Bild, Plan 019)
 const MAX_TREE_ENTRIES = 2000; // Baum-Budget (danach ehrlich „gekürzt")
 const MAX_TREE_DEPTH = 12;
+/**
+ * Wie viele Eintraege EINE Ebene hoechstens liefert (Plan 023 G1).
+ *
+ * Der Baum oben ist auf 2000 Eintraege ueber ALLE Ebenen gedeckelt. Bei 5000
+ * Dateien war das am 22.08.2026 gemessen: 2000 Eintraege, `gekuerzt: true`,
+ * und im Explorer stand "Liste gekuerzt" ohne einen Weg zum Rest.
+ *
+ * Eine einzelne Ebene ist etwas anderes: sie ist das, was ein Mensch beim
+ * Aufklappen sehen will, und sie ist in der Praxis klein. Der Deckel hier ist
+ * deshalb grosszuegig und trotzdem da, denn ein Ordner mit hunderttausend
+ * Dateien wuerde sonst die Anzeige erschlagen.
+ */
+const MAX_EBENE_ENTRIES = 1000;
 
 /**
  * Einträge, die der Baum überspringt — Sync-Interna und Paket-Müllhalden.
@@ -228,6 +241,98 @@ async function listTree(projectId, deps = {}) {
   // Tiefengrenze griff —, dann ist der Baum ehrlich als gekürzt zu melden.
   if (ebene.length > 0) {
     gekuerzt = true;
+  }
+  return { eintraege, gekuerzt };
+}
+
+/**
+ * Die direkten Kinder EINES Ordners (Plan 023 G1).
+ *
+ * Der Gegenentwurf zu `listTree`: kein Budget ueber den ganzen Baum, keine
+ * Tiefe, keine Kuerzung quer durch fremde Ordner. Wer aufklappt, bekommt genau
+ * das, was er aufgeklappt hat.
+ *
+ * @param {string} projectId
+ * @param {string} relPfad '' fuer die Wurzel
+ * @param {object} [deps]
+ * @returns {Promise<{eintraege: object[], gekuerzt: boolean}>}
+ */
+async function listEbene(projectId, relPfad = '', deps = {}) {
+  const dir = await projektOrdner(projectId, deps);
+  let startAbs = dir;
+  const rel = String(relPfad || '').trim();
+  if (rel) {
+    const kandidat = path.resolve(dir, rel);
+    // Ein Ausbruch faellt auf die Wurzel zurueck, wie in listTree. Ein Pfad,
+    // der nicht existiert, ist ein leerer Ordner, kein Fehler: der Explorer
+    // fragt nach dem, was er im Baum gesehen hat, und der kann veraltet sein.
+    if (kandidat !== dir && !kandidat.startsWith(dir + path.sep)) {
+      throw new ValidationError('Pfad zeigt aus der Projektablage heraus');
+    }
+    startAbs = kandidat;
+  }
+
+  let dirents;
+  try {
+    dirents = await fsp.readdir(startAbs, { withFileTypes: true });
+  } catch (err) {
+    logger.warn(`Projektablage ${projectId}: "${rel || '.'}" nicht lesbar: ${err.message}`);
+    return { eintraege: [], gekuerzt: false };
+  }
+
+  dirents.sort((a, b) => {
+    const da = a.isDirectory() ? 0 : 1;
+    const db = b.isDirectory() ? 0 : 1;
+    return da !== db ? da - db : a.name.localeCompare(b.name, 'de');
+  });
+
+  const eintraege = [];
+  let gekuerzt = false;
+  for (const d of dirents) {
+    if (VERSTECKT.has(d.name) || d.isSymbolicLink()) {
+      continue;
+    }
+    if (eintraege.length >= MAX_EBENE_ENTRIES) {
+      gekuerzt = true;
+      break;
+    }
+    const kindRel = rel ? `${rel}/${d.name}` : d.name;
+    if (d.isDirectory()) {
+      eintraege.push({
+        pfad: kindRel,
+        name: d.name,
+        typ: 'ordner',
+        groesse: null,
+        geaendert: null,
+      });
+      continue;
+    }
+    if (!d.isFile()) {
+      continue;
+    }
+    let stat = null;
+    try {
+      stat = await fsp.stat(path.join(startAbs, d.name));
+    } catch {
+      // Genau dieser eine Eintrag ist nicht lesbar. Ihn zu nennen ist besser,
+      // als den ganzen Baum pauschal als gekuerzt zu melden (Plan 023 G1).
+      eintraege.push({
+        pfad: kindRel,
+        name: d.name,
+        typ: 'datei',
+        groesse: null,
+        geaendert: null,
+        unlesbar: true,
+      });
+      continue;
+    }
+    eintraege.push({
+      pfad: kindRel,
+      name: d.name,
+      typ: 'datei',
+      groesse: stat.size,
+      geaendert: stat.mtime.toISOString(),
+    });
   }
   return { eintraege, gekuerzt };
 }
@@ -594,9 +699,13 @@ async function fuerVorschau(projectId, relPfad, deps = {}) {
  * Ordner mit Wissensraum-Spiegel tragen ihre `space_id` (für „Mit Ordner
  * chatten" und die Wissenssuche-Scopes).
  */
-async function listTreeMitWissen(projectId, deps = {}) {
-  const { db = require('../../database') } = deps;
-  const { eintraege, gekuerzt } = await listTree(projectId, deps);
+/**
+ * Reichert eine Eintragsliste um den Wissens-Status an (Plan 023 G1).
+ *
+ * Herausgezogen, weil es der Baum UND die einzelne Ebene brauchen. Zwei Kopien
+ * waeren zwei Wahrheiten darueber, was als indexiert gilt.
+ */
+async function mitWissen(projectId, eintraege, db) {
   const [docs, raeume] = await Promise.all([
     db.query(
       `SELECT id, rel_pfad, status FROM documents
@@ -622,10 +731,26 @@ async function listTreeMitWissen(projectId, deps = {}) {
       e.space_id = raumJePfad.get(e.pfad);
     }
   }
-  return { eintraege, gekuerzt };
+  return eintraege;
+}
+
+/** Eine Ebene plus Wissens-Status (Plan 023 G1). */
+async function listEbeneMitWissen(projectId, relPfad = '', deps = {}) {
+  const { db = require('../../database') } = deps;
+  const { eintraege, gekuerzt } = await listEbene(projectId, relPfad, deps);
+  return { eintraege: await mitWissen(projectId, eintraege, db), gekuerzt };
+}
+
+async function listTreeMitWissen(projectId, deps = {}) {
+  const { db = require('../../database') } = deps;
+  const { eintraege, gekuerzt } = await listTree(projectId, deps);
+  return { eintraege: await mitWissen(projectId, eintraege, db), gekuerzt };
 }
 
 module.exports = {
+  listEbene,
+  listEbeneMitWissen,
+  MAX_EBENE_ENTRIES,
   ABLAGE_DIR,
   MAX_EDITOR_BYTES,
   MAX_UPLOAD_BYTES,

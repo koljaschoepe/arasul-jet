@@ -34,6 +34,7 @@ const {
   ProjectIdParams,
   AblageReadQuery,
   AblageSucheQuery,
+  AblageEbeneQuery,
   AblageWriteBody,
   AblageOrdnerBody,
   VorlagenUebernahmeBody,
@@ -252,6 +253,29 @@ router.get(
   validateParams(ProjectIdParams),
   asyncHandler(async (req, res) => {
     const { eintraege, gekuerzt } = await ablageService.listTreeMitWissen(req.params.id);
+    res.json({ data: { eintraege, gekuerzt }, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/projects/:id/dateien/ebene?ordner=…
+ *
+ * Die direkten Kinder EINES Ordners (Plan 023 G1). Der Baum darueber ist auf
+ * 2000 Eintraege ueber alle Ebenen gedeckelt; bei 5000 Dateien blieb davon
+ * "Liste gekuerzt" ohne einen Weg zum Rest. Wer aufklappt, fragt ab jetzt
+ * genau die Ebene, die er aufgeklappt hat, und die hat keinen Deckel ueber
+ * fremde Ordner hinweg.
+ */
+router.get(
+  '/:id/dateien/ebene',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  validateQuery(AblageEbeneQuery),
+  asyncHandler(async (req, res) => {
+    const { eintraege, gekuerzt } = await ablageService.listEbeneMitWissen(
+      req.params.id,
+      req.query.ordner
+    );
     res.json({ data: { eintraege, gekuerzt }, timestamp: new Date().toISOString() });
   })
 );
