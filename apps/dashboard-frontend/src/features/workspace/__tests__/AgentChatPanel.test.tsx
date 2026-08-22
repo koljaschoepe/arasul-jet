@@ -492,3 +492,67 @@ describe('CompactMessage', () => {
     expect(screen.getByText('Überlege …')).toBeInTheDocument();
   });
 });
+
+/**
+ * Plan 023 E6: mehrere Dateien und Ordner in den Chat ziehen.
+ *
+ * Gemeldet war, dass mehrere Dateien nacheinander „nicht zuverlässig"
+ * funktionieren. Gemessen im Code war es eindeutig: `attachedFile` war EIN
+ * Feld, und `handleDrop` rief `pickFile` in einer Schleife. Jeder Aufruf
+ * überschrieb den vorigen, und übrig blieb die letzte Datei.
+ */
+describe('Dateien in den Chat ziehen (Plan 023 E6)', () => {
+  beforeEach(resetStore);
+
+  function datei(name: string, inhalt = 'x') {
+    return new File([inhalt], name, { type: 'text/plain' });
+  }
+
+  function ziehen(dateien: File[]) {
+    const panel = screen.getByTestId('agent-chat-panel');
+    fireEvent.drop(panel, {
+      dataTransfer: { files: dateien, getData: () => '', types: ['Files'] },
+    });
+  }
+
+  it('haengt zwei Dateien aus EINEM Zug als zwei Anlagen an', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('agent-chat-panel')).toBeInTheDocument());
+    ziehen([datei('eins.md'), datei('zwei.md')]);
+    await waitFor(() => expect(screen.getAllByTestId('composer-chip')).toHaveLength(2));
+  });
+
+  it('ergibt aus drei Vorgaengen mit je zwei Dateien sechs Anlagen', async () => {
+    // Genau die Abnahme aus dem Plan.
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('agent-chat-panel')).toBeInTheDocument());
+    ziehen([datei('a1.md'), datei('a2.md')]);
+    ziehen([datei('b1.md'), datei('b2.md')]);
+    ziehen([datei('c1.md'), datei('c2.md')]);
+    await waitFor(() => expect(screen.getAllByTestId('composer-chip')).toHaveLength(6));
+  });
+
+  it('nimmt dieselbe Datei nicht zweimal', async () => {
+    // Wer einen Ordner zweimal hineinzieht, will nicht zwanzig doppelte
+    // Anlagen.
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('agent-chat-panel')).toBeInTheDocument());
+    ziehen([datei('gleich.md', 'inhalt')]);
+    ziehen([datei('gleich.md', 'inhalt')]);
+    await waitFor(() => expect(screen.getAllByTestId('composer-chip')).toHaveLength(1));
+  });
+
+  it('laesst jede Anlage einzeln entfernen', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('agent-chat-panel')).toBeInTheDocument());
+    ziehen([datei('eins.md'), datei('zwei.md'), datei('drei.md')]);
+    await waitFor(() => expect(screen.getAllByTestId('composer-chip')).toHaveLength(3));
+    const chips = screen.getAllByTestId('composer-chip');
+    fireEvent.click(within(chips[1]!).getByRole('button', { name: /entfernen/i }));
+    await waitFor(() => expect(screen.getAllByTestId('composer-chip')).toHaveLength(2));
+    const uebrig = screen.getAllByTestId('composer-chip').map(c => c.textContent);
+    expect(uebrig.join(' ')).toContain('eins.md');
+    expect(uebrig.join(' ')).toContain('drei.md');
+    expect(uebrig.join(' ')).not.toContain('zwei.md');
+  });
+});

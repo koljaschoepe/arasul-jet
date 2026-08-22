@@ -54,6 +54,28 @@ export interface ComposerModel {
  * Deutlich sichtbar (Border + `bg-muted`), damit hineingezogene Dateien sofort
  * als „liegt an" erkennbar sind. Komfort-Dichte über `text-ui-xs`.
  */
+/**
+ * Beschriftung des Ordner-Chips (Plan 023 E6).
+ *
+ * Ohne Zahl ist der Ordner eine Behauptung. Mit gedeckeltem Baum ist die Zahl
+ * eine Untergrenze, und dann steht auch "mindestens" da: eine geschoenigte
+ * Zahl waere schlimmer als gar keine.
+ */
+export function ordnerBeschriftung(ziel: {
+  label: string;
+  dateien?: number | null;
+  dateienGedeckelt?: boolean;
+}): string {
+  const kopf = `Speichern in: ${ziel.label}`;
+  if (ziel.dateien == null) {
+    return kopf;
+  }
+  const wort = ziel.dateien === 1 ? 'Datei' : 'Dateien';
+  return ziel.dateienGedeckelt
+    ? `${kopf} · mindestens ${ziel.dateien} ${wort}`
+    : `${kopf} · ${ziel.dateien} ${wort}`;
+}
+
 function AttachmentChip({
   icon,
   label,
@@ -93,8 +115,10 @@ interface ComposerCardProps {
   /** Stop wurde geklickt, der Lauf beendet sich gerade (sichtbares Feedback). */
   stopping?: boolean;
   disabled?: boolean;
-  attachedFile: File | null;
-  onRemoveFile: () => void;
+  /** Die Anlagen dieser Nachricht, in der Reihenfolge des Hinzufuegens (Plan 023 E6). */
+  attachedFiles: File[];
+  /** Entfernt die Anlage an dieser Stelle (Plan 023 E6: jede einzeln). */
+  onRemoveFile: (index: number) => void;
   attachedImages: { file: File; base64: string }[];
   onRemoveImage: (index: number) => void;
   onPickFile: (file: File) => void;
@@ -102,7 +126,13 @@ interface ComposerCardProps {
   dateiModus?: boolean;
   onToggleDateiModus?: () => void;
   /** Ziel-Ordner fürs Speichern (per Drag & Drop aus dem Ablage-Baum). */
-  dateiZiel?: { projectId: string; pfad: string; label: string } | null;
+  dateiZiel?: {
+    projectId: string;
+    pfad: string;
+    label: string;
+    dateien?: number | null;
+    dateienGedeckelt?: boolean;
+  } | null;
   onClearDateiZiel?: () => void;
   models: ComposerModel[];
   selectedModel: string;
@@ -135,7 +165,7 @@ export default function ComposerCard({
   isLoading,
   stopping = false,
   disabled,
-  attachedFile,
+  attachedFiles,
   onRemoveFile,
   attachedImages,
   onRemoveImage,
@@ -185,7 +215,7 @@ export default function ComposerCard({
     menuQuery !== null &&
     !menuDismissed &&
     menuItems.length > 0 &&
-    !attachedFile &&
+    attachedFiles.length === 0 &&
     attachedImages.length === 0;
 
   // Bei jedem neuen Filtertext die Auswahl auf den obersten Treffer zurücksetzen.
@@ -225,7 +255,7 @@ export default function ComposerCard({
   const submit = useCallback(() => {
     const m = value.match(/^\/([^\s/]+)/);
     const flow = m ? flows.find(s => s.name === m[1]) : undefined;
-    if (flow && m && onRunFlow && !attachedFile && attachedImages.length === 0) {
+    if (flow && m && onRunFlow && attachedFiles.length === 0 && attachedImages.length === 0) {
       if (inArgs && args.argState?.flow.name === flow.name) {
         onRunFlow(flow.name, args.collect(), flow.projekt?.id ?? null);
         return;
@@ -244,7 +274,7 @@ export default function ComposerCard({
       return;
     }
     onSend();
-  }, [value, flows, onRunFlow, onSend, inArgs, args, attachedFile, attachedImages]);
+  }, [value, flows, onRunFlow, onSend, inArgs, args, attachedFiles, attachedImages]);
 
   const autoGrow = useCallback(() => {
     const el = textareaRef.current;
@@ -337,7 +367,9 @@ export default function ComposerCard({
   );
 
   const canSend =
-    !disabled && !isLoading && (value.trim() || attachedFile || attachedImages.length > 0);
+    !disabled &&
+    !isLoading &&
+    (value.trim() || attachedFiles.length > 0 || attachedImages.length > 0);
   // Plan 023 D1: derselbe Name wie im Katalog, in der Statusleiste und in der
   // Auswahlliste darunter. Bis zum 20.08.2026 stand hier nur das erste Wort,
   // am Geraet gemessen: "Gemma" statt "Gemma 4 Kompakt", "Qwen3.8" statt
@@ -355,7 +387,7 @@ export default function ComposerCard({
     Boolean(chatScope) ||
     Boolean(dateiZiel) ||
     pins.length > 0 ||
-    Boolean(attachedFile) ||
+    attachedFiles.length > 0 ||
     attachedImages.length > 0;
 
   return (
@@ -401,7 +433,7 @@ export default function ComposerCard({
           {dateiZiel && (
             <AttachmentChip
               icon={<FolderOutput className="size-3.5 shrink-0 text-muted-foreground" />}
-              label={`Speichern in: ${dateiZiel.label}`}
+              label={ordnerBeschriftung(dateiZiel)}
               onRemove={() => onClearDateiZiel?.()}
               removeLabel="Datei-Ziel entfernen"
             />
@@ -416,14 +448,15 @@ export default function ComposerCard({
               removeLabel="Anheftung entfernen"
             />
           ))}
-          {attachedFile && (
+          {attachedFiles.map((datei, i) => (
             <AttachmentChip
+              key={`${datei.name}-${datei.size}-${i}`}
               icon={<Paperclip className="size-3.5 shrink-0 text-muted-foreground" />}
-              label={attachedFile.name}
-              onRemove={onRemoveFile}
+              label={datei.name}
+              onRemove={() => onRemoveFile(i)}
               removeLabel="Anhang entfernen"
             />
-          )}
+          ))}
           {attachedImages.map((img, i) => (
             <AttachmentChip
               key={`${img.file.name}-${i}`}

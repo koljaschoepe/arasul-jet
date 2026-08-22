@@ -97,7 +97,15 @@ export default function AgentChatPanel() {
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [input, setInput] = useState('');
-  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  /**
+   * Die Dateien, die der Nutzer hineingezogen oder gewaehlt hat (Plan 023 E6).
+   *
+   * Eine Liste. Vorher stand hier `File | null`, und `handleDrop` rief
+   * `pickFile` in einer Schleife: jeder Aufruf ueberschrieb den vorigen. Zwei
+   * Dateien in einem Zug ergaben eine Anlage, drei Vorgaenge nacheinander
+   * ebenfalls eine, und nichts wies darauf hin.
+   */
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [attachedImages, setAttachedImages] = useState<{ file: File; base64: string }[]>([]);
   const [dragOver, setDragOver] = useState(false);
   // Tiefenzähler statt einzelnem dragleave: dragenter/dragleave feuern für
@@ -335,12 +343,12 @@ export default function AgentChatPanel() {
   }, [isLoading, wartendeNachricht, sendeNurText]);
 
   const handleSend = useCallback(async () => {
-    const hasInput = input.trim() || attachedFile || attachedImages.length > 0;
+    const hasInput = input.trim() || attachedFiles.length > 0 || attachedImages.length > 0;
     if (!hasInput) return;
     if (isLoading) {
       // Nicht mehr stumm verschlucken: reiner Text wartet sichtbar und geht
       // nach dem Abschluss automatisch raus; Anhänge brauchen den Nutzer.
-      if (input.trim() && !attachedFile && attachedImages.length === 0) {
+      if (input.trim() && attachedFiles.length === 0 && attachedImages.length === 0) {
         setWartendeNachricht(input.trim());
         setInput('');
       } else {
@@ -353,16 +361,20 @@ export default function AgentChatPanel() {
     // nur Bilder ohne Text brauchen weiter einen (die Pipeline will Inhalt).
     const msg =
       input.trim() ||
-      (attachedFile
-        ? `Sieh dir die Datei „${attachedFile.name}" an.`
-        : `[${attachedImages.length} Bild${attachedImages.length > 1 ? 'er' : ''}]`);
-    const file = attachedFile;
+      (attachedFiles.length === 1
+        ? `Sieh dir die Datei „${attachedFiles[0]!.name}" an.`
+        : attachedFiles.length > 1
+          ? `Sieh dir diese ${attachedFiles.length} Dateien an.`
+          : `[${attachedImages.length} Bild${attachedImages.length > 1 ? 'er' : ''}]`);
+    const dateien = attachedFiles;
+    // Ohne Projekt bleibt es beim alten Weg, und der kennt genau eine Datei.
+    const file = dateien[0] ?? null;
     const images = attachedImages.map(i => i.base64);
     // Datei-Modus: manuell umgeschaltet ODER aus der Eingabe erkannt
     // („speicher das als Datei …") — gilt für genau diese Nachricht.
-    const alsDatei = !file && (dateiModus || SPEICHER_ABSICHT.test(input));
+    const alsDatei = dateien.length === 0 && (dateiModus || SPEICHER_ABSICHT.test(input));
     setInput('');
-    setAttachedFile(null);
+    setAttachedFiles([]);
     setAttachedImages([]);
     setDateiModus(false);
     setError(null);
@@ -374,35 +386,45 @@ export default function AgentChatPanel() {
     // (Ziel-Ordner aus dem Baum oder Wurzel), dann läuft die Nachricht als
     // normaler Agent-Auftrag mit bekanntem Datei-Pfad. Nur wenn kein Projekt
     // aktiv ist, bleibt die alte Dokument-Analyse-Pipeline.
-    let anhang: { projectId: string; pfad: string; name: string; inhalt?: string } | undefined;
+    const anhaenge: Array<{ projectId: string; pfad: string; name: string; inhalt?: string }> = [];
     const anhangProjektId = chatDateiZiel?.projectId || activeProjectId;
-    if (file && anhangProjektId) {
-      try {
-        const form = new FormData();
-        form.append('file', file);
-        if (chatDateiZiel?.pfad) form.append('ordner', chatDateiZiel.pfad);
-        const res = await api.post<{ data: { pfad: string } }>(
-          `/projects/${anhangProjektId}/dateien/upload`,
-          form,
-          { showError: false }
-        );
-        anhang = { projectId: anhangProjektId, pfad: res.data.pfad, name: file.name };
-        // Kleine Text-Dateien: Inhalt direkt in den Auftrag geben — kleine
-        // Modelle überspringen sonst das Lesen und erfinden den Inhalt.
-        const TEXT_ENDUNGEN = /\.(txt|md|markdown|csv|json|log|html|htm|xml|ya?ml)$/i;
-        if (
-          file.size <= 16 * 1024 &&
-          (file.type.startsWith('text/') || TEXT_ENDUNGEN.test(file.name))
-        ) {
-          try {
-            anhang.inhalt = await file.text();
-          } catch {
-            // Ohne Inhalt bleibt der Lese-Hinweis im Payload.
+    if (anhangProjektId) {
+      // Nacheinander, nicht nebeneinander: der Upload legt Dateien in denselben
+      // Ordner, und die Antwort nennt den vergebenen Pfad. Bei gleichem Namen
+      // haengt die Nummerierung davon ab, was schon dort liegt.
+      for (const datei of dateien) {
+        try {
+          const form = new FormData();
+          form.append('file', datei);
+          if (chatDateiZiel?.pfad) form.append('ordner', chatDateiZiel.pfad);
+          const res = await api.post<{ data: { pfad: string } }>(
+            `/projects/${anhangProjektId}/dateien/upload`,
+            form,
+            { showError: false }
+          );
+          const eintrag: { projectId: string; pfad: string; name: string; inhalt?: string } = {
+            projectId: anhangProjektId,
+            pfad: res.data.pfad,
+            name: datei.name,
+          };
+          // Kleine Text-Dateien: Inhalt direkt in den Auftrag geben — kleine
+          // Modelle überspringen sonst das Lesen und erfinden den Inhalt.
+          const TEXT_ENDUNGEN = /\.(txt|md|markdown|csv|json|log|html|htm|xml|ya?ml)$/i;
+          if (
+            datei.size <= 16 * 1024 &&
+            (datei.type.startsWith('text/') || TEXT_ENDUNGEN.test(datei.name))
+          ) {
+            try {
+              eintrag.inhalt = await datei.text();
+            } catch {
+              // Ohne Inhalt bleibt der Lese-Hinweis im Payload.
+            }
           }
+          anhaenge.push(eintrag);
+        } catch {
+          setError(`„${datei.name}" konnte nicht in den Projektordner gelegt werden`);
+          return;
         }
-      } catch {
-        setError(`„${file.name}" konnte nicht in den Projektordner gelegt werden`);
-        return;
       }
     }
 
@@ -415,15 +437,15 @@ export default function AgentChatPanel() {
         // Wissensraum-Suche, Ablage lesen/schreiben, Web, Subagenten. Der
         // frühere Client-RAG-Vorlauf (strikter Zitier-Modus, verweigerte
         // Erstell-Aufgaben) entfällt; Anhänge liegen als Projektdatei bereit.
-        agent: !file || !!anhang,
+        agent: !file || anhaenge.length > 0,
         useRAG: false,
         useThinking: model?.supports_thinking === true,
         selectedSpaces: scopeActive && chatScope ? chatScope.spaceIds : [],
         matchedSpaces: [],
         messages: messagesRef.current,
         model: selectedModel || undefined,
-        file: anhang ? undefined : file || undefined,
-        anhang,
+        file: anhaenge.length > 0 ? undefined : file || undefined,
+        anhaenge,
         images: images.length > 0 ? images : undefined,
         alsDatei,
         dateiZiel: chatDateiZiel
@@ -436,7 +458,7 @@ export default function AgentChatPanel() {
     }
   }, [
     input,
-    attachedFile,
+    attachedFiles,
     attachedImages,
     isLoading,
     chatScope,
@@ -592,8 +614,37 @@ export default function AgentChatPanel() {
       setError(`Dateityp ${ext} wird nicht unterstützt (z. B. PDF, DOCX, MD, HTML, CSV).`);
       return;
     }
-    setAttachedFile(file);
+    // Anhaengen statt ersetzen, und dieselbe Datei nicht zweimal: wer einen
+    // Ordner zweimal hineinzieht, will nicht zwanzig doppelte Anlagen.
+    setAttachedFiles(vorher =>
+      vorher.some(v => v.name === file.name && v.size === file.size) ? vorher : [...vorher, file]
+    );
   }, []);
+
+  /**
+   * Zaehlt die Dateien eines Projektordners nach (Plan 023 E6).
+   *
+   * Der Baum-Endpunkt ist budget-gedeckelt. Ist er gekuerzt, ist die Zahl eine
+   * Untergrenze, und die Anzeige sagt das mit einem "mindestens". Eine
+   * geschoenigte Zahl waere schlimmer als gar keine.
+   */
+  const zaehleOrdner = useCallback(
+    async (ziel: { projectId: string; pfad: string; label: string }) => {
+      try {
+        const res = await api.get<{
+          data: { eintraege: Array<{ pfad: string; typ: string }>; gekuerzt?: boolean };
+        }>(`/projects/${ziel.projectId}/dateien`, { showError: false });
+        const prefix = ziel.pfad ? `${ziel.pfad}/` : '';
+        const anzahl = (res.data?.eintraege ?? []).filter(
+          e => e.typ === 'datei' && e.pfad.startsWith(prefix)
+        ).length;
+        setChatDateiZiel({ ...ziel, dateien: anzahl, dateienGedeckelt: !!res.data?.gekuerzt });
+      } catch {
+        // Ohne Zahl bleibt der Ordner ein Ordner. Kein Grund fuer eine Meldung.
+      }
+    },
+    [api, setChatDateiZiel]
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -610,11 +661,17 @@ export default function AgentChatPanel() {
             typ?: string;
           };
           if (parsed.projectId && parsed.typ === 'ordner') {
-            setChatDateiZiel({
+            const ziel = {
               projectId: parsed.projectId,
               pfad: parsed.pfad ?? '',
               label: parsed.name || 'Projektordner',
-            });
+            };
+            setChatDateiZiel(ziel);
+            // Plan 023 E6: ein Ordner ohne Zahl ist eine Behauptung. Der
+            // Nutzer sieht "Speichern in: berichte" und weiss nicht, ob dort
+            // drei oder dreihundert Dateien liegen. Die Zahl kommt nach, ohne
+            // das Ablegen aufzuhalten.
+            void zaehleOrdner(ziel);
             // Ein-Ordner-Modell: derselbe Ordner ist auch Wissens-Scope.
             // Liefert der Explorer eine space_id-Payload mit, wird der Chat
             // gleich auf den Ordner eingegrenzt („Mit Ordner chatten").
@@ -654,7 +711,7 @@ export default function AgentChatPanel() {
         pickFile(file);
       }
     },
-    [pickFile, setChatScope, setChatDateiZiel]
+    [pickFile, setChatScope, setChatDateiZiel, zaehleOrdner]
   );
 
   // Nachträgliche Aktion an einer fertigen Antwort: als Datei speichern.
@@ -854,8 +911,8 @@ export default function AgentChatPanel() {
           onCancel={handleCancel}
           isLoading={isLoading}
           stopping={stoppt}
-          attachedFile={attachedFile}
-          onRemoveFile={() => setAttachedFile(null)}
+          attachedFiles={attachedFiles}
+          onRemoveFile={i => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))}
           attachedImages={attachedImages}
           onRemoveImage={i => setAttachedImages(prev => prev.filter((_, idx) => idx !== i))}
           onPickFile={pickFile}

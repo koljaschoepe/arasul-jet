@@ -10,7 +10,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import ComposerCard, { type ComposerModel } from './ComposerCard';
+import ComposerCard, { ordnerBeschriftung, type ComposerModel } from './ComposerCard';
 import type { Flow } from '@/types/flows';
 
 // Ordner-Scope kommt aus dem workspaceStore — hier ohne aktiven Scope mocken.
@@ -33,7 +33,7 @@ function makeProps(overrides: Record<string, unknown> = {}) {
     onSend: vi.fn(),
     onCancel: vi.fn(),
     isLoading: false,
-    attachedFile: null as File | null,
+    attachedFiles: [] as File[],
     onRemoveFile: vi.fn(),
     attachedImages: [] as { file: File; base64: string }[],
     onRemoveImage: vi.fn(),
@@ -61,7 +61,7 @@ describe('ComposerCard', () => {
     const onRemoveFile = vi.fn();
     const file = new File(['x'], 'quartalsbericht.pdf', { type: 'application/pdf' });
 
-    render(<ComposerCard {...makeProps({ attachedFile: file, onRemoveFile })} />);
+    render(<ComposerCard {...makeProps({ attachedFiles: [file], onRemoveFile })} />);
 
     expect(screen.getByTestId('composer-chips')).toBeInTheDocument();
     expect(screen.getByText('quartalsbericht.pdf')).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe('ComposerCard', () => {
 
   test('keine Menü bei angehängter Datei', () => {
     const file = new File(['x'], 'a.pdf', { type: 'application/pdf' });
-    render(<ComposerCard {...makeProps({ value: '/', flows, attachedFile: file })} />);
+    render(<ComposerCard {...makeProps({ value: '/', flows, attachedFiles: [file] })} />);
     expect(screen.queryByTestId('flow-menu')).not.toBeInTheDocument();
   });
 
@@ -360,5 +360,42 @@ describe('ComposerCard · Flow-Lauf abschicken (Schritt 15)', () => {
     await user.click(screen.getByLabelText('Nachricht an die KI'));
     await user.keyboard('{Enter}');
     expect(onRunFlow).toHaveBeenCalledWith('recherche', {}, null);
+  });
+});
+
+/**
+ * Plan 023 E6: ein Ordner ohne Zahl ist eine Behauptung.
+ *
+ * Der Nutzer sieht „Speichern in: berichte" und weiß nicht, ob dort drei oder
+ * dreihundert Dateien liegen.
+ */
+describe('ordnerBeschriftung (Plan 023 E6)', () => {
+  it('nennt die Zahl der Dateien', () => {
+    expect(ordnerBeschriftung({ label: 'berichte', dateien: 20 })).toBe(
+      'Speichern in: berichte · 20 Dateien'
+    );
+  });
+
+  it('sagt „mindestens", wenn der Baum gedeckelt war', () => {
+    // Eine geschönigte Zahl wäre schlimmer als gar keine.
+    expect(ordnerBeschriftung({ label: 'gross', dateien: 500, dateienGedeckelt: true })).toBe(
+      'Speichern in: gross · mindestens 500 Dateien'
+    );
+  });
+
+  it('bleibt ohne Zahl bei der schlichten Form', () => {
+    expect(ordnerBeschriftung({ label: 'neu' })).toBe('Speichern in: neu');
+    expect(ordnerBeschriftung({ label: 'neu', dateien: null })).toBe('Speichern in: neu');
+  });
+
+  it('zaehlt eine einzelne Datei im Singular', () => {
+    expect(ordnerBeschriftung({ label: 'x', dateien: 1 })).toContain('1 Datei');
+    expect(ordnerBeschriftung({ label: 'x', dateien: 1 })).not.toContain('Dateien');
+  });
+
+  it('nennt auch einen leeren Ordner ehrlich', () => {
+    expect(ordnerBeschriftung({ label: 'leer', dateien: 0 })).toBe(
+      'Speichern in: leer · 0 Dateien'
+    );
   });
 });

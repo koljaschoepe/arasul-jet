@@ -186,6 +186,17 @@ export interface ChatDateiZiel {
   projectId: string;
   pfad: string;
   label: string;
+  /**
+   * Wie viele Dateien in diesem Ordner liegen (Plan 023 E6).
+   *
+   * Ein Ordner ohne Zahl ist eine Behauptung: der Nutzer sieht "Speichern in:
+   * berichte" und weiss nicht, ob dort drei oder dreihundert Dateien liegen.
+   * `null` heisst "noch nicht gezaehlt", nicht "leer" - die Zahl kommt erst
+   * nach dem Ablegen aus einer eigenen Abfrage.
+   */
+  dateien?: number | null;
+  /** Der Baum ist gedeckelt; dann ist die Zahl eine Untergrenze. */
+  dateienGedeckelt?: boolean;
 }
 
 /**
