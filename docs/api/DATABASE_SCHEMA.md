@@ -2931,6 +2931,30 @@ PK (projekt_id, jahr).
 
 ---
 
+## `extension_tabellen`
+
+> Plan 023 H1: das Register der Tabellen, die eine Erweiterung sich selbst angelegt hat. Die Tabellen SELBST liegen nicht hier, sondern je Erweiterung in einem eigenen Schema `ext_<slug>`. Ohne dieses Register wäre nach einer Deinstallation nicht mehr feststellbar, was aufzuräumen ist.
+
+| Column         | Type                     | Nullable | Default       |
+| -------------- | ------------------------ | -------- | ------------- |
+| `id`           | bigint                   | ⛔       | `nextval(…)`  |
+| `extension_id` | text                     | ⛔       |               |
+| `name`         | text                     | ⛔       |               |
+| `spalten`      | jsonb                    | ⛔       | `'[]'::jsonb` |
+| `angelegt_am`  | timestamp with time zone | ⛔       | `now()`       |
+
+**Primary key:** `id` · **Unique:** (`extension_id`, `name`) · **Index:** `idx_extension_tabellen_ext`
+
+`spalten` hält `[{"name":"beleg_nr","typ":"text"}, …]`. Die erlaubten Typen
+stehen im Backend (`tabellenService.TYPEN`), nicht als Constraint: eine Prüfung
+in der Datenbank wäre eine zweite Wahrheit neben der im Code.
+
+Der Präfix `ext_` im Schemanamen ist kein Schmuck. Er sorgt dafür, dass eine
+Erweiterung namens `public` oder `arasul` nicht in das entsprechende Schema
+schreiben kann.
+
+---
+
 ## `externe_modell_anbieter`
 
 > Plan 023 D9: je Anbieter ein verschlüsselter Cloud-Schlüssel. Geräteweit, nicht je Nutzer (Entscheidung E1: ein Zugang je Gerät). Modellnamen stehen NICHT hier, sie kommen zur Laufzeit vom Anbieter. Jede Anfrage an ein externes Modell steht in `api_audit_logs` mit `action_type = 'externes_modell'`.

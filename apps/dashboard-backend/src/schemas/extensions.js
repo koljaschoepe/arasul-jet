@@ -92,6 +92,34 @@ const BrueckeNetzBody = z
   })
   .strict();
 
+/**
+ * Eigene Tabellen (Plan 023 H1).
+ *
+ * Die Erweiterung schickt NIE SQL. Sie sagt, was sie will; das SQL entsteht im
+ * Backend aus geprüften Bezeichnern und gebundenen Werten.
+ */
+const BrueckeTabellenBody = z
+  .object({
+    aktion: z.enum(['liste', 'anlegen', 'schreiben', 'lesen', 'loeschen']),
+    name: z.string().trim().max(64).optional(),
+    spalten: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().max(64),
+            typ: z.string().trim().max(20).default('text'),
+          })
+          .strict()
+      )
+      .max(60)
+      .optional(),
+    werte: z.record(z.unknown()).optional(),
+    wo: z.record(z.unknown()).optional(),
+    anzahl: z.coerce.number().int().min(1).max(500).optional(),
+    alles: z.boolean().optional(),
+  })
+  .strict();
+
 const BrueckeFlowRunBody = z
   .object({
     args: z.record(z.unknown()).default({}),

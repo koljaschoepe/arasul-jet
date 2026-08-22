@@ -32,6 +32,7 @@ const {
   BrueckeRagBody,
   BrueckeDateienBody,
   BrueckeNetzBody,
+  BrueckeTabellenBody,
   BrueckeFlowRunBody,
   BrueckeFlowParams,
   BrueckeRunParams,
@@ -375,6 +376,24 @@ router.post(
   asyncHandler(async (req, res) => {
     const { extension } = await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'netz');
     const data = await brueckeService.netzAufruf(req.params.id, extension.manifest, req.body);
+    res.json({ ...data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/extensions/:id/bruecke/tabellen — eigene Tabellen (Plan 023 H1).
+ *
+ * Die Erweiterung schickt nie SQL. Jede Aktion nennt Tabelle, Spalten und
+ * Werte; das SQL entsteht im `tabellenService` aus geprüften Bezeichnern.
+ */
+router.post(
+  '/:id/bruecke/tabellen',
+  apiLimiter,
+  validateParams(ExtensionIdParams),
+  validateBody(BrueckeTabellenBody),
+  asyncHandler(async (req, res) => {
+    await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'tabellen');
+    const data = await brueckeService.tabellen(req.params.id, req.body);
     res.json({ ...data, timestamp: new Date().toISOString() });
   })
 );

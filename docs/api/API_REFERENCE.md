@@ -1299,6 +1299,7 @@ Freigabe, antwortet das Aktivieren mit `400` (`details.freigabe_erforderlich`).
 | POST   | `/api/extensions/:id/bruecke/rag`               | Fähigkeit `rag` — Wissensbasis-Suche `{ treffer }`                                                                                        |
 | POST   | `/api/extensions/:id/bruecke/dateien`           | Fähigkeit `dateien` — eigener Datentopf (list/read/write)                                                                                 |
 | POST   | `/api/extensions/:id/bruecke/netz`              | Fähigkeit `netz` — Aufruf an ein im Manifest deklariertes Ziel (Plan 023 H1). Nur https, keine Umleitungen, keine Adresse im eigenen Netz |
+| POST   | `/api/extensions/:id/bruecke/tabellen`          | Fähigkeit `tabellen` — eigene Tabellen im Schema `ext_<slug>` (Plan 023 H1). Die Erweiterung schickt nie SQL |
 | GET    | `/api/extensions/:id/bruecke/flows`             | Fähigkeit `flows` — verfügbare Flows                                                                                                      |
 | POST   | `/api/extensions/:id/bruecke/flows/:name/run`   | Fähigkeit `flows` — Flow starten (`202 { runId }`)                                                                                        |
 | GET    | `/api/extensions/:id/bruecke/flows/runs/:runId` | Fähigkeit `flows` — Lauf-Status/Ergebnis                                                                                                  |

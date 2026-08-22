@@ -532,6 +532,31 @@ async function netzAufruf(extensionId, manifest, { url, methode, kopf, rumpf }, 
   };
 }
 
+/**
+ * Die Tabellen-Fähigkeit an ihren Dienst weiterreichen (Plan 023 H1).
+ *
+ * Steht hier und nicht in der Route, damit alle Brücken-Fähigkeiten denselben
+ * Weg nehmen: Route prüft die Freigabe, Brücke reicht weiter, Fachdienst
+ * entscheidet.
+ */
+async function tabellen(extensionId, rumpf, deps = {}) {
+  const dienst = deps.tabellenService || require('./tabellenService');
+  switch (rumpf.aktion) {
+    case 'liste':
+      return dienst.liste(extensionId, deps);
+    case 'anlegen':
+      return dienst.anlegen(extensionId, rumpf, deps);
+    case 'schreiben':
+      return dienst.schreiben(extensionId, rumpf, deps);
+    case 'lesen':
+      return dienst.lesen(extensionId, rumpf, deps);
+    case 'loeschen':
+      return dienst.loeschen(extensionId, rumpf, deps);
+    default:
+      throw new ValidationError(`Unbekannte Aktion: ${rumpf.aktion}`);
+  }
+}
+
 module.exports = {
   TOKEN_TTL_MS,
   istAktiv,
@@ -541,6 +566,7 @@ module.exports = {
   ragSuche,
   dateien,
   netzAufruf,
+  tabellen,
   flowsListe,
   flowStarten,
   flowLauf,
