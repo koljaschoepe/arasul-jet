@@ -259,17 +259,86 @@ export function ExplorerPanel() {
     return () => timers.forEach(clearTimeout);
   }, []);
 
+  /**
+   * Nachgeladene Ebenen (Plan 023 G1).
+   *
+   * Der Baum-Endpunkt ist auf 2000 Eintraege ueber ALLE Ebenen gedeckelt. Bei
+   * 5000 Dateien war das am 22.08.2026 gemessen: 2000 Eintraege, `gekuerzt:
+   * true`, und im Explorer stand "Liste gekuerzt" ohne einen Weg zum Rest.
+   *
+   * Wer einen Ordner aufklappt, dessen Kinder der Baum nicht mitgebracht hat,
+   * holt genau diese eine Ebene nach. Sie wird in dieselbe flache Liste
+   * gemischt, aus der `kinderVon` entsteht; alles andere im Explorer (Suche,
+   * Ziehen, Kontextmenue) arbeitet unveraendert weiter.
+   */
+  const [nachgeladen, setNachgeladen] = useState<Map<string, AblageEintrag[]>>(new Map());
+  const [ladeOrdner, setLadeOrdner] = useState<Set<string>>(new Set());
+
+  // Ein Projektwechsel wirft die nachgeladenen Ebenen weg: sie gehoeren zum
+  // alten Projekt, und ihre Pfade wuerden sich im neuen still danebenmischen.
+  useEffect(() => {
+    setNachgeladen(new Map());
+    setLadeOrdner(new Set());
+  }, [activeId]);
+
   // Kinder je Ordner-Pfad ('' = Wurzel) — der Baum kommt flach mit Pfaden.
   const kinderVon = useMemo(() => {
     const map = new Map<string, AblageEintrag[]>();
-    for (const e of eintraege) {
+    const gesehen = new Set<string>();
+    const einsortieren = (e: AblageEintrag) => {
+      if (gesehen.has(e.pfad)) {
+        return;
+      }
+      gesehen.add(e.pfad);
       const eltern = elternPfad(e.pfad);
       const liste = map.get(eltern) ?? [];
       liste.push(e);
       map.set(eltern, liste);
+    };
+    for (const e of eintraege) {
+      einsortieren(e);
+    }
+    for (const liste of nachgeladen.values()) {
+      for (const e of liste) {
+        einsortieren(e);
+      }
     }
     return map;
-  }, [eintraege]);
+  }, [eintraege, nachgeladen]);
+
+  /**
+   * Holt die Kinder eines Ordners nach, wenn der Baum sie nicht hat.
+   *
+   * Nur einmal je Ordner und nur, wenn wirklich nichts da ist: ein Ordner, den
+   * der Baum vollstaendig mitgebracht hat, kostet keine zweite Anfrage.
+   */
+  const ebeneNachladen = useCallback(
+    async (pfad: string) => {
+      if (!activeId || nachgeladen.has(pfad) || ladeOrdner.has(pfad)) {
+        return;
+      }
+      setLadeOrdner(prev => new Set(prev).add(pfad));
+      try {
+        const res = await api.get<AblageResponse>(
+          `/projects/${activeId}/dateien/ebene?ordner=${encodeURIComponent(pfad)}`,
+          { showError: false }
+        );
+        setNachgeladen(prev => new Map(prev).set(pfad, res.data.eintraege ?? []));
+      } catch {
+        // Ohne Nachladung bleibt der Ordner leer statt falsch. Eine Meldung
+        // waere hier Laerm; der Nutzer sieht, dass nichts kam, und kann
+        // erneut aufklappen.
+        setNachgeladen(prev => new Map(prev).set(pfad, []));
+      } finally {
+        setLadeOrdner(prev => {
+          const neu = new Set(prev);
+          neu.delete(pfad);
+          return neu;
+        });
+      }
+    },
+    [activeId, api, nachgeladen, ladeOrdner]
+  );
 
   // --- Suche ---------------------------------------------------------------
 
@@ -318,13 +387,20 @@ export function ExplorerPanel() {
     [matches, eintraege]
   );
 
-  const toggleOrdner = (pfad: string) =>
+  const toggleOrdner = (pfad: string) => {
     setExpanded(prev => {
       const neu = new Set(prev);
       if (neu.has(pfad)) neu.delete(pfad);
       else neu.add(pfad);
       return neu;
     });
+    // Plan 023 G1: beim Aufklappen die Ebene nachholen, falls der Baum sie
+    // nicht mitgebracht hat. `kinderVon` kennt den Stand VOR diesem Klick,
+    // deshalb hier und nicht im Zustand danach.
+    if (!expanded.has(pfad) && (kinderVon.get(pfad) ?? []).length === 0) {
+      void ebeneNachladen(pfad);
+    }
+  };
   const istOffen = (pfad: string) => q !== '' || expanded.has(pfad);
 
   // --- Aktionen ------------------------------------------------------------
@@ -368,22 +444,32 @@ export function ExplorerPanel() {
         void oeffneDatei(imBaum ?? t);
         return;
       }
-      // Ordner außerhalb des Budget-gedeckelten Baums: Aufklappen liefe ins
-      // Leere (der Knoten ist gar nicht geladen) — Suche stehen lassen und
-      // ehrlich sagen, statt scheinbar nichts zu tun.
-      if (!eintraege.some(k => k.pfad === t.pfad)) {
-        toast.info(`„${t.pfad}" liegt außerhalb des geladenen Baums (Baum gekürzt)`);
-        return;
-      }
+      // Plan 023 G1: ein Ordner ausserhalb des Baum-Budgets ist kein Grund
+      // mehr fuer eine Absage. Die Ebenen auf dem Weg dorthin werden geholt,
+      // dann klappt der Pfad auf. Vorher stand hier eine Meldung, die dem
+      // Nutzer sagte, was er NICHT bekommt.
       setQuery('');
+      const teilePfade = (() => {
+        const teile = t.pfad.split('/');
+        const pfade: string[] = [];
+        for (let i = 1; i <= teile.length; i++) pfade.push(teile.slice(0, i).join('/'));
+        return pfade;
+      })();
+      // Die Eltern-Ebenen nacheinander, damit jede die naechste kennt.
+      void (async () => {
+        for (const p of ['', ...teilePfade.slice(0, -1)]) {
+          if ((kinderVon.get(p) ?? []).length === 0) {
+            await ebeneNachladen(p);
+          }
+        }
+      })();
       setExpanded(prev => {
         const neu = new Set(prev);
-        const teile = t.pfad.split('/');
-        for (let i = 1; i <= teile.length; i++) neu.add(teile.slice(0, i).join('/'));
+        for (const p of teilePfade) neu.add(p);
         return neu;
       });
     },
-    [eintraege, oeffneDatei, toast]
+    [eintraege, oeffneDatei, kinderVon, ebeneNachladen]
   );
 
   /** Relativen Pfad in die Zwischenablage kopieren (Kontextmenü). */
@@ -1042,11 +1128,12 @@ export function ExplorerPanel() {
                   Noch keine Dateien, einfach hierher ziehen; sie werden automatisch indexiert
                 </p>
               )}
-              {data?.data.gekuerzt && (
-                <p className="px-2 py-1 text-[11px] text-muted-foreground/60">
-                  Liste gekürzt, nicht alle Einträge werden angezeigt
-                </p>
-              )}
+              {/* Plan 023 G1: hier stand "Liste gekuerzt, nicht alle Eintraege
+                  werden angezeigt" - eine Sackgasse ohne Weg zum Rest. Die
+                  Wurzel ist immer vollstaendig (der Baum laeuft in Breite),
+                  und tiefere Ordner holen ihre Ebene beim Aufklappen nach.
+                  Ein Hinweis, der nur sagt "da ist mehr", ohne zu sagen wo,
+                  hilft niemandem und ist deshalb weg. */}
             </div>
           )}
         </div>
