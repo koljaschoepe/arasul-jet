@@ -27,6 +27,39 @@ Erweiterungs-Werkstatt (Sandbox)  →  Paket  →  Register  →  Erweiterungen-
    im selben Dialog _Paket importieren_.
 5. **Weiterbauen** — _Forken_ legt eine neue Werkstatt-Sandbox mit einer Kopie an.
 
+## Vom leeren Ordner zum Tab (Plan 023 H2)
+
+In der Werkstatt liegt ein Befehl im PATH:
+
+```bash
+erweiterung neu meine-app --name "Meine App"
+erweiterung pruefen meine-app
+```
+
+Der erste legt das Gerüst mit fertigem Manifest an, der zweite prüft es, bevor
+der Watcher es still ablehnt. Beide drucken danach dieselbe Kette:
+
+1. Der Werkstatt-Watcher sieht den Ordner (spätestens nach
+   `EXTENSIONS_WATCH_INTERVAL_MS`) und registriert die Erweiterung.
+2. Sie erscheint im Katalog, **ausgeschaltet**. Nichts geht ungefragt live.
+3. Einschalten, deklarierte Fähigkeiten dabei einmal freigeben.
+4. Danach steht sie links in der Leiste, ein Klick öffnet ihren Tab.
+
+Dieser vierte Satz ist der Grund für den Befehl. Ohne ihn wartet jemand, der
+gerade einen Ordner angelegt hat, auf einen Knopf, den es nicht gibt.
+
+**Die doppelte Prüfung ist Absicht, aber bewacht.** Die Wahrheit über ein
+gültiges Manifest steht im Backend (`extensionPackage.validiereManifest`); die
+Werkstatt kommt dort nicht heran und spiegelt die Regeln. Damit die beiden nicht
+auseinanderlaufen, vergleicht `scripts/test/geruest-regeln.py` sie bei jedem
+Testlauf: Fähigkeitenliste, Typen, und das Id-Muster über sein Verhalten an den
+Rändern statt über seinen Text.
+
+Dieser Wächter hat einen konkreten Anlass. Am 22.08.2026 bekamen drei neue
+Fähigkeiten ihre Routen, ihre Dienste und ihre Tests, standen aber nicht in
+`BRUECKE_FAEHIGKEITEN`. Alle Tests waren grün, und deklarieren konnte sie
+niemand.
+
 ## Automatisch live — der Werkstatt-Watcher
 
 Seit der Interview-Entscheidung vom 2026-07-29 gilt: **die Plattform erkennt

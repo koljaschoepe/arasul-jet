@@ -207,6 +207,45 @@ pruefe "Pfadfilter: verschwundener Ausdruck ist rot" 1 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
 mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
 
+# --- geruest-regeln.py ------------------------------------------------------
+# Der Waechter, der Werkstatt und Backend zusammenhaelt (Plan 023 H2). Er
+# existiert wegen eines echten Falls: drei neue Faehigkeiten hatten Routen,
+# Dienste und Tests, standen aber nicht in der Liste des Backends, und niemand
+# konnte sie deklarieren.
+GR="$TMP/geruest"
+mkdir -p "$GR/apps/dashboard-backend/src/services/extensions" "$GR/services/sandbox"
+JS_DATEI="$GR/apps/dashboard-backend/src/services/extensions/extensionPackage.js"
+SH_DATEI="$GR/services/sandbox/erweiterung.sh"
+
+schreibe_geruest() {
+  printf "const BRUECKE_FAEHIGKEITEN = [%s];\n" "$1" > "$JS_DATEI"
+  {
+    printf "ID_MUSTER='^[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$'\n"
+    printf 'TYPEN="app flow tool"\n'
+    printf 'FAEHIGKEITEN="%s"\n' "$2"
+  } > "$SH_DATEI"
+}
+
+schreibe_geruest "'llm', 'rag'" "llm rag"
+pruefe "Geruest-Regeln: gleiche Listen sind gruen" 0 \
+  python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
+
+schreibe_geruest "'llm', 'rag', 'netz'" "llm rag"
+pruefe "Geruest-Regeln: eine Faehigkeit nur im Backend ist rot" 1 \
+  python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
+
+schreibe_geruest "'llm', 'rag'" "llm rag zauberei"
+pruefe "Geruest-Regeln: eine Faehigkeit nur in der Werkstatt ist rot" 1 \
+  python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
+
+# Das Id-Muster wird ueber sein VERHALTEN verglichen, nicht ueber den Text:
+# beide Seiten schreiben denselben Ausdruck in verschiedenen Dialekten.
+schreibe_geruest "'llm'" "llm"
+printf "ID_MUSTER='^[a-zA-Z0-9-]+$'\n" >> "$SH_DATEI"
+sed -i.bak "1d" "$SH_DATEI" && rm -f "$SH_DATEI.bak"
+pruefe "Geruest-Regeln: ein zu weites Id-Muster ist rot" 1 \
+  python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
+
 # --- durchreichung.py -------------------------------------------------------
 # Der Waechter, der prueft, ob eine dokumentierte Stellschraube den Container
 # ueberhaupt erreicht (Plan 023 E1). Beide Richtungen muessen greifen: eine

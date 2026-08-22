@@ -210,6 +210,16 @@ run_durchreichung_check() {
   fi
 }
 
+run_geruest_regeln_check() {
+  echo ""
+  echo "-> Pruefe die Geruest-Regeln (Werkstatt gegen Backend)..."
+  if python3 "${PROJECT_ROOT}/scripts/test/geruest-regeln.py"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Toter Code (Plan 023 B3)
 # Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
 # jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
@@ -394,6 +404,7 @@ run_bausteine_check
 run_modellnamen_check
 run_einheiten_check
 run_durchreichung_check
+run_geruest_regeln_check
 run_faden_check
 run_selbsttest_check
 

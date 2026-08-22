@@ -75,6 +75,9 @@ RUN pip3 install --break-system-packages --no-cache-dir \
 # open-ara launcher: installs the operator-provided sources from
 # /opt/tools/open-ara (read-only bind mount) on first use, then execs `arasul`.
 COPY --chmod=755 open-ara.sh /usr/local/bin/open-ara
+# Geruest-Befehl fuer Erweiterungen (Plan 023 H2). Liegt im PATH, damit er im
+# Terminal ohne Pfadangabe da ist.
+COPY --chmod=755 erweiterung.sh /usr/local/bin/erweiterung
 
 # KI-CLI-Wrapper (Erststart: npm install -g in ~/.npm-global, dann exec)
 COPY --chmod=755 claude.sh /usr/local/bin/claude

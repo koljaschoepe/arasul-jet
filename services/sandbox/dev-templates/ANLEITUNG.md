@@ -5,6 +5,31 @@ Terminal-Zugriff, in der du (oder ein Agent wie Claude Code) eine Arasul-
 Erweiterung baust. Am Ende wird der Ordner zu einem **Paket**, das sich forken,
 herunterladen und wieder installieren lässt.
 
+## Der schnellste Weg: `erweiterung neu`
+
+```bash
+erweiterung neu meine-app --name "Meine App"
+```
+
+Das legt einen Ordner mit fertigem Manifest an und sagt danach, **was von
+selbst passiert**. Genau dieser zweite Teil fehlte bisher: der Werkstatt-Watcher
+registriert den Ordner ohne Zutun, und ohne den Hinweis wartet man auf einen
+Knopf, den es nicht gibt.
+
+|                                |                                                         |
+| ------------------------------ | ------------------------------------------------------- |
+| `erweiterung neu <id>`         | Gerüst anlegen (`--typ app\|flow\|tool`, `--name`)      |
+| `erweiterung pruefen [ordner]` | Manifest prüfen, **bevor** der Watcher es still ablehnt |
+| `erweiterung kette`            | Was nach dem Anlegen von selbst passiert                |
+
+`pruefen` ist der Befehl, der Zeit spart. Ein Manifest mit einer ungültigen Id
+oder einer unbekannten Fähigkeit wird vom Watcher **stillschweigend** übergangen
+— es passiert einfach nichts, und man sucht am falschen Ende.
+
+Die Regeln in `pruefen` sind eine Spiegelung der Regeln im Backend, weil die
+Werkstatt nicht ans Backend herankommt. Damit die beiden nicht auseinanderlaufen,
+vergleicht `scripts/test/geruest-regeln.py` sie in der CI.
+
 ## Was ist eine Erweiterung?
 
 Ein Ordner mit einer `manifest.json` und den zugehörigen Assets. Drei Typen:
