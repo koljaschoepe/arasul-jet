@@ -58,3 +58,42 @@ describe('Brücken-Fähigkeiten (Plan 023 H1)', () => {
     expect(ohneRoute).toEqual([]);
   });
 });
+
+/**
+ * Dieselbe Klasse Fehler, ein Stockwerk tiefer (22.08.2026, zweiter Fund).
+ *
+ * `BrueckeTabellenBody` und `BrueckeZeitplanBody` standen in
+ * `schemas/extensions.js`, wurden aber nicht exportiert. `validateBody(undefined)`
+ * wirft beim ersten Aufruf, und beide Routen antworteten mit HTTP 500
+ * "Internal server error" — nicht seit einem Fehler, sondern seit dem ersten
+ * Tag. Am Geraet nachgemessen:
+ *
+ *   POST /api/extensions/beispiel-drei/bruecke/tabellen -> 500
+ *   Log: Cannot read properties of undefined (reading 'safeParse')
+ *
+ * Alle Tests waren gruen, weil sie die DIENSTE pruefen, nicht die Verdrahtung
+ * der Route. Deshalb vergleicht dieser Test jeden `validateBody(...)`-Aufruf in
+ * der Routen-Datei mit dem, was das Schema-Modul wirklich hergibt.
+ */
+describe('Brücken-Schemata (Plan 023 H1)', () => {
+  const schemata = require('../../src/schemas/extensions');
+
+  /** Alle Namen, die `routes/extensions.js` an validateBody/Params/Query gibt. */
+  function schemaNamenAusRouten() {
+    const quelle = fs.readFileSync(path.join(__dirname, '../../src/routes/extensions.js'), 'utf8');
+    const treffer = [...quelle.matchAll(/validate(?:Body|Params|Query)\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\)/g)];
+    return [...new Set(treffer.map(m => m[1]))];
+  }
+
+  test('jedes Schema, das eine Route benutzt, wird auch exportiert', () => {
+    const benutzt = schemaNamenAusRouten();
+    expect(benutzt.length).toBeGreaterThan(3);
+    const fehlend = benutzt.filter(n => typeof schemata[n]?.safeParse !== 'function');
+    expect(fehlend).toEqual([]);
+  });
+
+  test('die beiden, die es getroffen hat, sind da', () => {
+    expect(typeof schemata.BrueckeTabellenBody?.safeParse).toBe('function');
+    expect(typeof schemata.BrueckeZeitplanBody?.safeParse).toBe('function');
+  });
+});
