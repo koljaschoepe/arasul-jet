@@ -31,6 +31,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { Pin as PinItem } from '../../useWorkspaceContext';
 import type { Flow } from '@/types/flows';
 import FlowMenu, { buildMenuItems, type FlowMenuItem } from '@/features/flows/FlowMenu';
+import { DateiMenue, dateiFragment, setzePfadEin, type DateiTreffer } from './DateiMenue';
 import ArgumentHints, { COMPOSER_TEXT_CLASSES } from '@/features/flows/ArgumentHints';
 import ArgumentPicker from '@/features/flows/ArgumentPicker';
 import { useFlowArgs } from '@/features/flows/useFlowArgs';
@@ -133,6 +134,11 @@ interface ComposerCardProps {
     dateien?: number | null;
     dateienGedeckelt?: boolean;
   } | null;
+  /**
+   * Projekt, in dem `@` nach Dateien sucht (Plan 023 E7). Ohne Projekt gibt es
+   * nichts zu durchsuchen, und das Zeichen bleibt gewoehnlicher Text.
+   */
+  suchProjektId?: string | null;
   onClearDateiZiel?: () => void;
   models: ComposerModel[];
   selectedModel: string;
@@ -173,6 +179,7 @@ export default function ComposerCard({
   dateiModus = false,
   onToggleDateiModus,
   dateiZiel = null,
+  suchProjektId = null,
   onClearDateiZiel,
   models,
   selectedModel,
@@ -186,6 +193,10 @@ export default function ComposerCard({
   onRunFlow,
 }: ComposerCardProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Plan 023 E7: das `@`-Menue. `dateiFrag` ist null, solange keins offen ist.
+  const [dateiFrag, setDateiFrag] = useState<string | null>(null);
+  const [dateiTreffer, setDateiTreffer] = useState<DateiTreffer[]>([]);
+  const [dateiIndex, setDateiIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatScope = useWorkspaceStore(s => s.chatScope);
   const setChatScope = useWorkspaceStore(s => s.setChatScope);
@@ -217,6 +228,37 @@ export default function ComposerCard({
     menuItems.length > 0 &&
     attachedFiles.length === 0 &&
     attachedImages.length === 0;
+
+  /**
+   * Plan 023 E7: das Datei-Menue. Es oeffnet nur, wenn ein Projekt da ist,
+   * denn ohne Projekt gaebe es nichts zu durchsuchen, und ein `@` in einem
+   * gewoehnlichen Satz duerfte dann kein Menue aufziehen.
+   *
+   * Es schliesst das Flow-Menue nicht aus, weil beide sich gegenseitig
+   * ausschliessen: `/` steht am Zeilenanfang, `@` am Wortanfang danach.
+   */
+  const showDateiMenue = Boolean(suchProjektId) && dateiFrag !== null && !showMenu;
+
+  /** Setzt den gewaehlten Pfad ins Feld und schliesst das Menue. */
+  const dateiWaehlen = useCallback(
+    (treffer: DateiTreffer) => {
+      const el = textareaRef.current;
+      const cursor = el?.selectionStart ?? value.length;
+      const { text, cursor: neu } = setzePfadEin(value, cursor, treffer.pfad);
+      onChange(text);
+      setDateiFrag(null);
+      // Erst nach dem Neuzeichnen setzen, sonst ueberschreibt React die
+      // Auswahl, und der Cursor springt ans Ende der Zeile.
+      requestAnimationFrame(() => {
+        const feld = textareaRef.current;
+        if (feld) {
+          feld.focus();
+          feld.setSelectionRange(neu, neu);
+        }
+      });
+    },
+    [value, onChange]
+  );
 
   // Bei jedem neuen Filtertext die Auswahl auf den obersten Treffer zurücksetzen.
   useEffect(() => {
@@ -322,6 +364,32 @@ export default function ComposerCard({
         args.advance();
         return;
       }
+      // Plan 023 E7: das Datei-Menue hat dieselbe Tastatur wie das Flow-Menue.
+      // Zwei verschiedene Bedienungen fuer zwei Menues im selben Feld waeren
+      // eine Zumutung.
+      if (showDateiMenue && dateiTreffer.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setDateiIndex(i => (i + 1) % dateiTreffer.length);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setDateiIndex(i => (i - 1 + dateiTreffer.length) % dateiTreffer.length);
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setDateiFrag(null);
+          return;
+        }
+        if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+          e.preventDefault();
+          const t = dateiTreffer[dateiIndex];
+          if (t) dateiWaehlen(t);
+          return;
+        }
+      }
       if (showMenu) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -363,6 +431,10 @@ export default function ComposerCard({
       args.pickerArg,
       args.canAdvance,
       args.advance,
+      showDateiMenue,
+      dateiTreffer,
+      dateiIndex,
+      dateiWaehlen,
     ]
   );
 
@@ -403,6 +475,17 @@ export default function ComposerCard({
             onEditFlow?.(name);
           }}
           onHover={setActiveIndex}
+        />
+      )}
+      {/* Datei-Suche mit `@` (Plan 023 E7) */}
+      {showDateiMenue && suchProjektId && (
+        <DateiMenue
+          projectId={suchProjektId}
+          fragment={dateiFrag ?? ''}
+          activeIndex={dateiIndex}
+          onTreffer={setDateiTreffer}
+          onPick={dateiWaehlen}
+          onHover={setDateiIndex}
         />
       )}
       {/* Argument-Auswahl (Datei/Liste/Wissensbasis) — Plan 011, Schritt 14 */}
@@ -486,6 +569,15 @@ export default function ComposerCard({
             // Verlässt der Text den „/<teilname>"-Modus, die Escape-Sperre lösen,
             // damit ein späteres „/" das Menü wieder öffnet.
             if (!/^\/[^\s/]*$/.test(v)) setMenuDismissed(false);
+            // Plan 023 E7: das `@`-Fragment aus der Cursor-Position lesen, nicht
+            // aus dem Zeilenende. Wer mitten im Satz ergaenzt, meint die Stelle,
+            // an der er steht.
+            const frag = dateiFragment(v, e.target.selectionStart ?? v.length);
+            setDateiFrag(frag);
+            if (frag === null) {
+              setDateiTreffer([]);
+            }
+            setDateiIndex(0);
             onChange(v);
             autoGrow();
           }}

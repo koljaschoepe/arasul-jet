@@ -78,3 +78,43 @@ describe('FlowMenu (Darstellung)', () => {
     expect(screen.getAllByLabelText(/bearbeiten/i)).toHaveLength(2);
   });
 });
+
+/**
+ * Plan 023 E7: die Liste muss bei 30 Flows bedienbar bleiben, und drei
+ * Buchstaben aus der Mitte eines Namens sollen treffen.
+ */
+describe('buildMenuItems, Suche in der Mitte (Plan 023 E7)', () => {
+  const viele = Array.from({ length: 30 }, (_, i) => ({
+    name: `flow-${String(i).padStart(2, '0')}-bericht`,
+    beschreibung: `Nummer ${i}`,
+    argumente: [],
+  })) as unknown as Parameters<typeof buildMenuItems>[1];
+
+  it('findet drei Buchstaben aus der Mitte', () => {
+    const items = buildMenuItems('ber', viele);
+    expect(items).toHaveLength(30);
+    expect(items[0]).toMatchObject({ kind: 'flow' });
+  });
+
+  it('sucht bei ein und zwei Buchstaben NUR am Anfang', () => {
+    // Sonst waere die Liste nach dem ersten Tastendruck laenger als ohne
+    // Filter, und die Auswahl spraenge bei jedem weiteren Buchstaben.
+    expect(buildMenuItems('b', viele)).toHaveLength(0);
+    expect(buildMenuItems('be', viele)).toHaveLength(0);
+    // Ab drei Buchstaben greift die Mitte: 30 Flows beginnen mit "flo", dazu
+    // der Befehl /flows (Anfang) und /neuer-flow (Mitte).
+    expect(buildMenuItems('flo', viele)).toHaveLength(32);
+    expect(buildMenuItems('flo', viele).map(i => i.name)).toContain('neuer-flow');
+  });
+
+  it('stellt Anfangstreffer vor Mitte-Treffer', () => {
+    const gemischt = [
+      { name: 'zusammenfassen-bericht', beschreibung: '', argumente: [] },
+      { name: 'bericht-lang', beschreibung: '', argumente: [] },
+    ] as unknown as Parameters<typeof buildMenuItems>[1];
+    expect(buildMenuItems('ber', gemischt).map(i => i.name)).toEqual([
+      'bericht-lang',
+      'zusammenfassen-bericht',
+    ]);
+  });
+});

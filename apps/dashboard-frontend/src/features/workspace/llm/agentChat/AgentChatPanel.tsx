@@ -924,6 +924,7 @@ export default function AgentChatPanel() {
           dateiModus={dateiModus}
           onToggleDateiModus={() => setDateiModus(v => !v)}
           dateiZiel={chatDateiZiel}
+          suchProjektId={chatDateiZiel?.projectId || activeProjectId || null}
           onClearDateiZiel={() => setChatDateiZiel(null)}
           models={composerModels}
           selectedModel={selectedModel}
