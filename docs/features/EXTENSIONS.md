@@ -171,6 +171,45 @@ Sandbox liegen. Eine frisch installierte Erweiterung ist zunächst
 **deaktiviert** und muss bewusst eingeschaltet werden — das gilt auch für
 alles, was der Werkstatt-Watcher automatisch registriert.
 
+## Ausgehende Aufrufe (Fähigkeit `netz`, Plan 023 H1)
+
+Eine Erweiterung, die DATEV oder Lexware erreichen soll, deklariert ihre Ziele
+im Manifest:
+
+```json
+{
+  "faehigkeiten": ["netz"],
+  "netz": { "ziele": ["https://api.datev.de/v1/"] }
+}
+```
+
+Aufgerufen wird über `POST /api/extensions/:id/bruecke/netz` mit
+`{ url, methode, kopf, rumpf }`. Durchgesetzt wird im Backend, nicht in der
+Anwendung. Drei Wände, in dieser Reihenfolge:
+
+1. **Fähigkeit.** `netz` muss deklariert **und** freigegeben sein. Die Freigabe
+   passiert beim Aktivieren, sichtbar, einmal.
+2. **Ziel.** Die Adresse muss in `netz.ziele` stehen. Der Pfad zählt als
+   Präfix: `https://api.datev.de/v1/` erlaubt `/v1/belege`, nicht `/admin`. Ein
+   anderer Rechner oder ein anderer Port ist ein anderes Ziel.
+3. **Adresse.** Der Name wird aufgelöst, und **jede** zurückgegebene Adresse
+   muss außerhalb des eigenen Netzes liegen. Ohne diese Wand wäre die zweite
+   eine Empfehlung: ein Name im Manifest kann auf `127.0.0.1` oder
+   `172.17.0.1` zeigen, absichtlich oder weil jemand den DNS-Eintrag geändert
+   hat, nachdem die Erweiterung installiert war.
+
+Weitere Festlegungen:
+
+|                                                  |                                                                                                                                                                                               |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nur `https`                                      | Ein Kundengeheimnis geht nicht im Klartext ins Netz                                                                                                                                           |
+| Keine Umleitungen                                | Eine Umleitung ist eine zweite Adresse, die niemand geprüft hat. Die Erweiterung bekommt Status und `location` zurück und kann selbst entscheiden; dann läuft es wieder durch alle drei Wände |
+| `host`, `cookie`, `content-length`, `connection` | Setzt die Erweiterung nicht. Ein selbst gesetzter `cookie` wäre der Weg, fremde Sitzungen mitzuschicken                                                                                       |
+| Zeitlimit und Größe                              | `EXTENSIONS_NETZ_TIMEOUT_MS`, `EXTENSIONS_NETZ_MAX_ANTWORT`                                                                                                                                   |
+
+Jeder Aufruf steht im Protokoll mit Erweiterung, Methode, Ziel, Status und der
+Adresse, mit der wirklich verbunden wurde.
+
 ## Ablageorte
 
 | Was                | Pfad (Container)                      | Bind-Mount               |

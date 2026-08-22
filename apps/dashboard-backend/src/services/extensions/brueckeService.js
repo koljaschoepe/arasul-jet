@@ -443,6 +443,95 @@ function _reset() {
   tokens.clear();
 }
 
+// --- Ausgehende Aufrufe (Plan 023 H1) ---------------------------------------
+
+const NETZ_TIMEOUT_MS = parseInt(process.env.EXTENSIONS_NETZ_TIMEOUT_MS || '20000', 10);
+const NETZ_MAX_ANTWORT = parseInt(process.env.EXTENSIONS_NETZ_MAX_ANTWORT || '1048576', 10);
+const NETZ_METHODEN = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+/**
+ * Kopfzeilen, die die Erweiterung NICHT setzen darf.
+ *
+ * `host` und `content-length` gehören der Verbindung, nicht dem Aufrufer. Und
+ * ein selbst gesetzter `cookie` wäre der Weg, fremde Sitzungen mitzuschicken.
+ */
+const NETZ_VERBOTENE_KOEPFE = new Set(['host', 'content-length', 'connection', 'cookie']);
+
+/**
+ * Ein Aufruf nach draußen, an ein im Manifest deklariertes Ziel (Plan 023 H1).
+ *
+ * Drei Wände, in dieser Reihenfolge:
+ *   1. Fähigkeit `netz` deklariert UND freigegeben (macht `autorisieren`)
+ *   2. Adresse steht im Manifest unter `netz.ziele` (`pruefeZiel`)
+ *   3. Der Name löst nicht ins eigene Netz auf (`pruefeAdresse`)
+ *
+ * Umleitungen werden NICHT verfolgt. Eine Umleitung ist eine zweite Adresse,
+ * die niemand geprüft hat; wer ihr folgt, hebt Wand 2 und 3 auf. Die
+ * Erweiterung bekommt Ziel und Status zurück und kann selbst entscheiden, ob
+ * sie das neue Ziel aufrufen will — dann läuft es wieder durch alle drei.
+ *
+ * @returns {Promise<{status:number, kopf:object, rumpf:string, gekuerzt:boolean}>}
+ */
+async function netzAufruf(extensionId, manifest, { url, methode, kopf, rumpf }, deps = {}) {
+  const { pruefeZiel, pruefeAdresse } = deps.netzZiele || require('./netzZiele');
+  const holen = deps.fetch || globalThis.fetch;
+
+  const ziel = pruefeZiel(url, manifest);
+  const verfahren = String(methode || 'GET').toUpperCase();
+  if (!NETZ_METHODEN.has(verfahren)) {
+    throw new ValidationError(`Methode "${verfahren}" ist nicht erlaubt`);
+  }
+  const adressen = await pruefeAdresse(ziel.hostname, deps.aufloesen);
+
+  const koepfe = {};
+  for (const [k, v] of Object.entries(kopf || {})) {
+    const klein = String(k).toLowerCase();
+    if (NETZ_VERBOTENE_KOEPFE.has(klein)) {
+      throw new ValidationError(`Kopfzeile "${k}" darf nicht gesetzt werden`);
+    }
+    koepfe[k] = String(v);
+  }
+
+  const abbruch = new AbortController();
+  const uhr = setTimeout(() => abbruch.abort(), NETZ_TIMEOUT_MS);
+  let antwort;
+  try {
+    antwort = await holen(ziel.toString(), {
+      method: verfahren,
+      headers: koepfe,
+      body: verfahren === 'GET' || verfahren === 'DELETE' ? undefined : (rumpf ?? undefined),
+      redirect: 'manual',
+      signal: abbruch.signal,
+    });
+  } catch (err) {
+    throw new ServiceUnavailableError(
+      err.name === 'AbortError'
+        ? `Das Ziel hat nicht innerhalb von ${Math.round(NETZ_TIMEOUT_MS / 1000)}s geantwortet`
+        : `Aufruf fehlgeschlagen: ${err.message}`
+    );
+  } finally {
+    clearTimeout(uhr);
+  }
+
+  const text = await antwort.text();
+  const gekuerzt = text.length > NETZ_MAX_ANTWORT;
+  const antwortKoepfe = {};
+  antwort.headers?.forEach?.((v, k) => {
+    antwortKoepfe[k] = v;
+  });
+
+  logger.info(
+    `Bruecke netz: ${extensionId} -> ${verfahren} ${ziel.origin}${ziel.pathname} ` +
+      `(${antwort.status}, ${adressen[0]})`
+  );
+
+  return {
+    status: antwort.status,
+    kopf: antwortKoepfe,
+    rumpf: gekuerzt ? text.slice(0, NETZ_MAX_ANTWORT) : text,
+    gekuerzt,
+  };
+}
+
 module.exports = {
   TOKEN_TTL_MS,
   istAktiv,
@@ -451,6 +540,7 @@ module.exports = {
   llmStream,
   ragSuche,
   dateien,
+  netzAufruf,
   flowsListe,
   flowStarten,
   flowLauf,

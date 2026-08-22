@@ -73,6 +73,25 @@ const BrueckeDateienBody = z
   })
   .strict();
 
+/**
+ * Ein Aufruf nach draußen (Plan 023 H1).
+ *
+ * Ob die Adresse erlaubt ist, entscheidet NICHT dieses Schema, sondern das
+ * Manifest der Erweiterung (`netzZiele.pruefeZiel`). Hier steht nur, was
+ * überhaupt eine Adresse sein kann.
+ */
+const BrueckeNetzBody = z
+  .object({
+    url: z.string().trim().min(1).max(2000),
+    methode: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).default('GET'),
+    kopf: z.record(z.string().max(4000)).default({}),
+    rumpf: z
+      .string()
+      .max(1024 * 1024)
+      .optional(),
+  })
+  .strict();
+
 const BrueckeFlowRunBody = z
   .object({
     args: z.record(z.unknown()).default({}),
@@ -102,6 +121,7 @@ module.exports = {
   BrueckeLlmBody,
   BrueckeRagBody,
   BrueckeDateienBody,
+  BrueckeNetzBody,
   BrueckeFlowRunBody,
   BrueckeFlowParams,
   BrueckeRunParams,
