@@ -143,6 +143,39 @@ function statusSuffix(status: DokumentStatus): { text: string; cls: string } | n
 }
 
 /** Läuft für irgendeinen Eintrag noch die Indexierung? */
+/**
+ * Wie oft der Dateibaum von selbst nachlaedt, in Millisekunden, oder `false`.
+ *
+ * Zwei Gruende, und beide haben eine Messung hinter sich:
+ *
+ *   laufende Indexierung   `pending` wird zu `indexed`, ohne dass jemand etwas
+ *                          tut. Ohne Takt bliebe die Zeile stehen.
+ *   offenes Terminal       Plan 023 F4. Am 22.08.2026 am Geraet gemessen: eine
+ *                          im Terminal geschriebene Datei tauchte auch nach
+ *                          NEUNZIG Sekunden nicht im Baum auf, erst nach einem
+ *                          Neuladen der Seite. Der Baum kommt aus einer
+ *                          Abfrage, und niemand sagt ihr, dass sich auf der
+ *                          Platte etwas geaendert hat. Das Terminal ist genau
+ *                          die Stelle, an der das an der Anwendung vorbei
+ *                          passiert.
+ *
+ * Sonst gar nicht. Ein Dauertakt fuer alle Faelle waere auf einem Geraet, das
+ * nebenher ein Modell rechnet, eine schlechte Voreinstellung. Ein verstecktes
+ * Fenster fragt ohnehin nicht, `refetchIntervalInBackground` bleibt aus.
+ */
+export function nachladeTakt({
+  laufendeIndexierung,
+  terminalOffen,
+}: {
+  laufendeIndexierung: boolean;
+  terminalOffen: boolean;
+}): number | false {
+  if (laufendeIndexierung) {
+    return 20_000;
+  }
+  return terminalOffen ? 15_000 : false;
+}
+
 function hatLaufendeIndexierung(eintraege: AblageEintrag[]): boolean {
   return eintraege.some(
     e => e.dokument && (e.dokument.status === 'pending' || e.dokument.status === 'processing')
@@ -186,16 +219,27 @@ export function ExplorerPanel() {
   });
   const hatKunden = (kundenQuery.data?.data?.length ?? 0) > 0;
 
+  /**
+   * Ist das Terminal gerade offen? (Plan 023 F4)
+   *
+   * Es ist die einzige Stelle, an der Dateien an der Anwendung vorbei
+   * entstehen. Solange es zu ist, gibt es nichts nachzuladen.
+   */
+  const terminalOffen = useWorkspaceStore(
+    s => s.rightPanelVisible && s.rightPanelMode === 'terminal'
+  );
+
   const queryKey = useMemo(() => ['projekt-dateien', activeId], [activeId]);
   const { data, isLoading, isFetching, refetch, error } = useQuery({
     queryKey,
     enabled: !!activeId,
     queryFn: () => api.get<AblageResponse>(`/projects/${activeId}/dateien`, { showError: false }),
     staleTime: 5_000,
-    // Solange irgendein Eintrag pending/processing ist, alle 20 s nachladen —
-    // so wird pending→indexed auch ohne Nutzeraktion sichtbar.
     refetchInterval: q =>
-      hatLaufendeIndexierung(q.state.data?.data.eintraege ?? []) ? 20_000 : false,
+      nachladeTakt({
+        laufendeIndexierung: hatLaufendeIndexierung(q.state.data?.data.eintraege ?? []),
+        terminalOffen,
+      }),
   });
   const eintraege = useMemo(() => data?.data.eintraege ?? [], [data]);
 

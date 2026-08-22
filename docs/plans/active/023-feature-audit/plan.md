@@ -2759,6 +2759,47 @@ schreiben dürfen und Verbindungen aufbauen können.
 richtigen Ordner. Eine dort geschriebene Datei taucht ohne Neuladen im Dateibaum
 auf.
 
+### Erst gemessen: die eine Hälfte war schon da, die andere gar nicht
+
+**Der Ordner stimmt.** Der Sandbox-Container bindet den Ablage-Ordner des
+verbundenen Projekts als `/workspace/projekt` ein, und die Shell startet dort,
+sobald es ihn gibt. Am 22.08.2026 nachgesehen:
+
+```
+sandbox_projects.slug = souveraenitaet
+project_id            = 4419a0db-1fde-48b8-87c0-5bb144fa000b
+Bind                  = data/projects/4419a0db-…:/workspace/projekt:rw
+Eingabezeile          = sandbox@sandbox-souveraenitaet:/workspace/projekt$
+```
+
+Jedes Sandbox-Projekt hat eine eigene `project_id` und damit einen eigenen
+Container mit eigener Einbindung. Ein Projektwechsel wechselt den Container.
+
+**Die Datei taucht nicht auf.** Im Terminal geschrieben, dann gewartet:
+
+| nach                        | im Dateibaum |
+| --------------------------- | ------------ |
+| 5 s                         | nein         |
+| 15 s                        | nein         |
+| 30 s                        | nein         |
+| 60 s                        | nein         |
+| **90 s**                    | **nein**     |
+| nach dem Neuladen der Seite | ja           |
+
+### Warum
+
+Der Baum kommt aus einer Abfrage, und niemand sagt ihr, dass sich auf der
+Platte etwas geändert hat. Es gab genau einen Takt, und der lief nur, solange
+ein Eintrag noch indexiert wurde.
+
+Das Terminal ist die eine Stelle, an der Dateien **an der Anwendung vorbei**
+entstehen. Also lädt der Baum nach, solange es offen ist, und sonst nicht: ein
+Dauertakt für alle Fälle wäre auf einem Gerät, das nebenher ein Modell rechnet,
+eine schlechte Voreinstellung. Ein verstecktes Fenster fragt ohnehin nicht.
+
+Die Regel steht als eigene Funktion da und nicht als Ausdruck in der Abfrage,
+damit sie sich prüfen lässt, ohne den ganzen Explorer zu zeichnen.
+
 ## F5 Darstellung insgesamt
 
 Zeilenumbrüche mitten im Wort bei Pfaden, uneinheitliche Abstände, Bruch beim
