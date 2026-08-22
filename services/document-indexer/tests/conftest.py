@@ -61,7 +61,18 @@ _stub(
 )
 _stub("graph_store", GraphStore=object)
 _stub("database", DatabaseManager=object)
-_stub("ai_services", AIServices=object, DocumentAnalyzer=object)
+# `requests` steht hier stellvertretend fuer die Netz-Abhaengigkeit von
+# ai_services. Mit dem Stub laesst sich das ECHTE Modul importieren, statt es
+# selbst durch einen Platzhalter zu ersetzen: nur so lassen sich seine Regeln
+# pruefen (Plan 023 G4, die unterbrechbare Analyse).
+_stub("requests", get=lambda *a, **k: None, post=lambda *a, **k: None,
+      exceptions=types.SimpleNamespace(RequestException=Exception,
+                                       Timeout=Exception,
+                                       ConnectionError=Exception))
+try:
+    import ai_services  # noqa: F401
+except Exception:  # pragma: no cover — Rueckfall, falls neue Importe dazukommen
+    _stub("ai_services", AIServices=object, DocumentAnalyzer=object)
 _stub("embedding_client", EmbeddingClient=object)
 _stub("bm25_index", BM25Index=object)
 _stub("qdrant_manager", QdrantManager=object)

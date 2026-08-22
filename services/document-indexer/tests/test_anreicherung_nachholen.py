@@ -188,3 +188,29 @@ def test_eine_leere_runde_verkuerzt_die_pause_nicht(monkeypatch):
     ix = _indexer(_Db([]))
     ix._anreicherung_nachholen()
     assert ix._nacharbeit_offen is False
+
+
+def test_der_weckruf_erreicht_die_analyse_selbst(monkeypatch):
+    """Ein Weckruf muss auch MITTEN in einem Dokument greifen.
+
+    Drei Modellaufrufe je Dokument, zusammen rund fuenfzig Sekunden. Wer erst
+    zwischen zwei Dokumenten prueft, laesst eine gerade geschriebene Datei
+    genau so lange warten. Geprueft wird deshalb zwischen den Aufrufen; ein
+    laufender Aufruf wird nicht abgebrochen, das Modell rechnet ohnehin weiter.
+    """
+    monkeypatch.setattr(ei, 'ENABLE_AI_ANALYSIS', True)
+    monkeypatch.setattr(ei, 'parse_document', lambda d, f: 'Text genug.')
+    gesehen = {}
+
+    def reichert(doc_id, text, filename, titel, db, analyzer, abbruch=None):
+        gesehen['abbruch'] = abbruch
+        return True
+
+    monkeypatch.setattr(ei, 'reichere_an', reichert)
+    ix = _indexer(_Db([DOK]))
+    ix._anreicherung_nachholen()
+
+    assert callable(gesehen['abbruch']), "Die Analyse bekommt keinen Abbruch gereicht."
+    assert gesehen['abbruch']() is False
+    ix._weckruf_offen = True
+    assert gesehen['abbruch']() is True

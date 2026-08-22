@@ -317,7 +317,8 @@ class DocumentAnalyzer:
         text: str,
         filename: str,
         title: Optional[str] = None,
-        categories: Optional[List[Dict[str, Any]]] = None
+        categories: Optional[List[Dict[str, Any]]] = None,
+        abbruch=None
     ) -> Dict[str, Any]:
         """
         Perform full document analysis
@@ -327,9 +328,18 @@ class DocumentAnalyzer:
             filename: Document filename
             title: Optional extracted title
             categories: Available categories for classification
+            abbruch: Aufruf ohne Argumente, der True liefert, sobald etwas
+                Wichtigeres wartet (Plan 023 G4). Wird ZWISCHEN den drei
+                Modellaufrufen geprueft. Ein laufender Aufruf wird nicht
+                abgebrochen: das Modell rechnet ohnehin weiter, und ein
+                halbes Ergebnis waere schlechter als gar keins. Ohne die
+                Pruefung wartete eine neu geschriebene Datei am 22.08.2026
+                auf dem Orin bis zu fuenfzig Sekunden auf die Zusammenfassung
+                eines fremden Dokuments; mit ihr sind es rund zwanzig.
 
         Returns:
-            Dictionary with analysis results
+            Dictionary with analysis results. `analysis_complete` bleibt False,
+            wenn unterwegs abgebrochen wurde.
         """
         results = {
             'summary': None,
@@ -350,6 +360,10 @@ class DocumentAnalyzer:
         logger.info(f"Generating summary for {filename}")
         results['summary'] = self.ai.generate_summary(text, title)
 
+        if abbruch is not None and abbruch():
+            logger.info(f"Analyse fuer {filename} unterbrochen, es wartet Arbeit")
+            return results
+
         # Categorize if categories provided
         if categories:
             logger.info(f"Categorizing {filename}")
@@ -358,6 +372,10 @@ class DocumentAnalyzer:
             )
             results['category'] = category
             results['category_confidence'] = confidence
+
+        if abbruch is not None and abbruch():
+            logger.info(f"Analyse fuer {filename} unterbrochen, es wartet Arbeit")
+            return results
 
         # Extract topics
         logger.info(f"Extracting topics for {filename}")
