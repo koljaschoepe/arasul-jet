@@ -8,17 +8,18 @@
 
 ## Stand
 
-| Phase                                 | Stand                                                   | Belege                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                                   | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                                                                                            |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen                  | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                                                                                                    |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen                  | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                                                                                                |
-| C, Fundament                          | **fertig** 20.08.2026, live abgenommen                  | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                                                                                                           |
-| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen                  | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                                                                                                       |
-| D, Modelle                            | **fertig** 22.08.2026, live abgenommen                  | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel                                                                             |
-| E, Coding-Agent und Chat              | **laeuft**, E1 und E3 bis E9 live abgenommen 22.08.2026 | #458 bis #471. Live im Browser gegen den Orin: 20 von 20 Zusagen gehalten (`scripts/test/chat-abnahme.mjs`). Groesste Funde: der Teiltext eines abgebrochenen Laufs ging verloren, das Standardmodell scheiterte an jeder Aufgabenliste, und 88 dokumentierte Stellschrauben erreichen den Container nie. Offen bei E2: die Warteschlange bleibt strikt seriell |
-| F, Terminal                           | **fertig** 22.08.2026, live abgenommen                  | #473 bis #476. F1 Kopfzeile von 44 auf 19 bis 26 Pixel bei jeder Breite, F2 und F3 waren schon erfuellt und sind jetzt gemessen, F4 Datei im Baum nach 15 Sekunden statt nie, F5 unter 900 Pixeln keine drei Spalten mehr. `scripts/test/terminal-abnahme.mjs`, 9 von 9. Offen an F3 ist nur die Prosa, nicht die Abnahme                                       |
-| G bis K                               | offen                                                   |                                                                                                                                                                                                                                                                                                                                                                 |
+| Phase                                 | Stand                                                   | Belege                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                                   | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                                                                                                 |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen                  | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                                                                                                         |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen                  | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                                                                                                     |
+| C, Fundament                          | **fertig** 20.08.2026, live abgenommen                  | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                                                                                                                |
+| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen                  | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                                                                                                            |
+| D, Modelle                            | **fertig** 22.08.2026, live abgenommen                  | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel                                                                                  |
+| E, Coding-Agent und Chat              | **laeuft**, E1 und E3 bis E9 live abgenommen 22.08.2026 | #458 bis #471. Live im Browser gegen den Orin: 20 von 20 Zusagen gehalten (`scripts/test/chat-abnahme.mjs`). Groesste Funde: der Teiltext eines abgebrochenen Laufs ging verloren, das Standardmodell scheiterte an jeder Aufgabenliste, und 88 dokumentierte Stellschrauben erreichen den Container nie. Offen bei E2: die Warteschlange bleibt strikt seriell      |
+| F, Terminal                           | **fertig** 22.08.2026, live abgenommen                  | #473 bis #476. F1 Kopfzeile von 44 auf 19 bis 26 Pixel bei jeder Breite, F2 und F3 waren schon erfuellt und sind jetzt gemessen, F4 Datei im Baum nach 15 Sekunden statt nie, F5 unter 900 Pixeln keine drei Spalten mehr. `scripts/test/terminal-abnahme.mjs`, 9 von 9. Offen an F3 ist nur die Prosa, nicht die Abnahme                                            |
+| G, Dateien und Projekte               | **laeuft**, G1 live abgenommen 22.08.2026               | #477 bis #487. G1 5000 Dateien vollstaendig durchklickbar, kein Deckel mehr. G4 in sechs Ursachen zerlegt, eine Datei jetzt 2,3 Sekunden statt 1:53 Minuten. Groesster Fund der Phase liegt bei G3 und war nicht die Aufgabe: Kopplung und Trennen loeschten den Projektordner des Kunden. G2 und G3 gebaut, ihre Abnahmen brauchen Koljas Repository und Schluessel |
+| H bis K                               | offen                                                   |                                                                                                                                                                                                                                                                                                                                                                      |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -2928,6 +2929,38 @@ Ein Eintrag, der wirklich nicht lesbar ist, wird einzeln benannt, nicht pauschal
 **Abnahme:** Ein Projekt mit 5000 Dateien ist vollständig durchklickbar. Keine
 Meldung über Kürzung. Behebt F-07.
 
+### Erst gemessen: bei 5000 Dateien war nach 2000 Schluss
+
+Am 22.08.2026 auf dem Orin, mit einem Projekt aus 50 Ordnern zu je 100 Dateien:
+
+|                            |                              |
+| -------------------------- | ---------------------------- |
+| Dateien auf der Platte     | **5000**                     |
+| Einträge in der Antwort    | **2000**                     |
+| Kennzeichen in der Antwort | `gekuerzt: true`             |
+| in der Oberfläche          | „Liste gekürzt", ohne Ausweg |
+
+Der Deckel saß im Backend, nicht in der Anzeige: die Antwort trug den ganzen
+Baum auf einmal und kappte ihn bei 2000.
+
+### Was daraus wurde
+
+Der Baum lädt **je Ebene** nach (`listEbene`, Deckel 1000 Einträge je Ordner),
+und die Anzeige holt die Kinder erst beim Aufklappen. Damit gibt es keine Zahl
+mehr, ab der etwas verschwindet, sondern nur noch Ordner, die man noch nicht
+geöffnet hat. Beide Meldungen sind weg, „Liste gekürzt" und „liegt außerhalb des
+geladenen Baums".
+
+**Live abgenommen (#477):** im Browser durchgeklickt, `gross` → `ordner-01` bis
+`ordner-50` → `datei-001.md` bis `datei-100.md`. Keine Kürzungsmeldung an
+keiner Stelle. Die 5000 Testdateien sind danach vom Gerät entfernt.
+
+Ein Nebenbefund aus derselben Messung, der **kein** Fehler ist: von den 5000
+Dateien bekamen nur 100 eine Zeile in `documents`. Der Testdatensatz hatte
+hundert verschiedene Inhalte, fünfzigmal wiederholt, und identischer Inhalt
+wird über `content_hash` bewusst nur einmal indexiert. Die Dateien bleiben
+sichtbar und herunterladbar.
+
 ## G2 Projekt anlegen aus Ordner oder GitHub
 
 Zwei Wege, beide sichtbar: einen vorhandenen Ordner importieren oder ein
@@ -2935,6 +2968,41 @@ GitHub-Repository klonen.
 
 **Abnahme:** Beide Wege führen zu einem Projekt, das oben wählbar ist, im
 Dateibaum vollständig erscheint und im Terminal und Chat verfügbar ist.
+
+### Erst gemessen: es gab keinen der beiden Wege
+
+`POST /api/projects` nahm `name`, `description`, `icon`, `color` und `vorlage`.
+Kein Ordner, kein Repository. Im Anlege-Dialog stand die Vorlagen-Galerie und
+sonst nichts.
+
+### Was daraus wurde, und warum kein neuer Endpunkt
+
+Der Dialog bekommt eine **Herkunft**: leer oder Vorlage wie bisher, einen
+vorhandenen Ordner übernehmen, oder ein GitHub-Repository klonen. Beide neuen
+Wege setzen nur zusammen, was es schon gibt:
+
+| Weg    | Ablauf                                                                       |
+| ------ | ---------------------------------------------------------------------------- |
+| Ordner | `POST /projects` → je Datei `POST /projects/:id/dateien/upload` mit `ordner` |
+| GitHub | `POST /projects` → `POST /git/:id/connect` → `POST /git/:id/sync`            |
+
+Ein eigener Import-Endpunkt wäre eine dritte Stelle, an der dieselbe Ablage
+befüllt wird. Und weil `PROJECT_GIT_DIR/<id>` und die Ablage **derselbe Ordner**
+sind (siehe G3), landet der Klon direkt im Dateibaum, im Terminal unter
+`/workspace/projekt` und im Chat. Die Abnahme fällt damit mit dem Weg zusammen.
+
+Die Stelle, die still falsch wird, steht als eigene geprüfte Funktion da: der
+Browser liefert bei einem Verzeichnis-Upload immer den **gewählten** Ordner als
+erstes Segment. Bliebe es stehen, läge der ganze Import eine Ebene zu tief, und
+das merkt niemand, bis jemand im Dateibaum nachsieht.
+
+Beim Bauen gefunden und behoben: der Namensvorschlag setzte den Namen nach dem
+**ersten Zeichen** der Adresse (`if (!name.trim())` trifft nur beim allerersten
+Tastendruck zu), im Feld stand danach `h`.
+
+**Stand (#484):** gebaut, 24 Tests. Der Ordner-Weg ist am Gerät nachzumessen.
+Der GitHub-Weg braucht ein Repository und einen Zugangsschlüssel von Kolja,
+genau wie D9 und G3.
 
 ## G3 GitHub-Kopplung in der Oberfläche
 
@@ -2946,6 +3014,75 @@ Umfang: Zustand der Kopplung, Änderungen gegenüber dem Stand auf GitHub, Holen
 
 **Abnahme:** Ein Repository koppeln, im Terminal ändern, aus der Oberfläche
 übertragen, die Änderung ist auf GitHub sichtbar. Alles ohne die Kommandozeile.
+
+### Erst gemessen: vier von sechs Punkten waren da
+
+| Punkt aus dem Umfang                      | vorher      |
+| ----------------------------------------- | ----------- |
+| Zustand der Kopplung                      | da          |
+| Änderungen gegenüber dem Stand auf GitHub | **fehlte**  |
+| Holen                                     | da, im Sync |
+| Übertragen                                | da          |
+| Zweig wechseln                            | **fehlte**  |
+| Konflikt sichtbar machen                  | da          |
+
+### Der Fund, der wichtiger war als die Aufgabe
+
+Beim Lesen des Kopplungswegs fiel auf, dass `gitSyncService` seinen Arbeitsbaum
+für einen container-lokalen Wegwerf-Checkout hält. Das steht so im Kopf der
+Datei. Es stimmt nicht:
+
+```js
+// gitSyncService.js
+const PROJECT_GIT_DIR = process.env.PROJECT_GIT_DIR || '/arasul/projects';
+// ablageService.js
+const ABLAGE_DIR = process.env.PROJECT_GIT_DIR || '/arasul/projects';
+```
+
+Dasselbe Verzeichnis, beide hängen die Projekt-ID an. Es ist die Ablage: was im
+Dateibaum steht, was das Terminal sieht, was der Chat liest. **An drei Stellen
+wurde es rekursiv gelöscht.**
+
+| Stelle           | Bedingung                  | Wirkung                    |
+| ---------------- | -------------------------- | -------------------------- |
+| `synchronisiere` | kein `.git` vorhanden      | `fs.rm(cwd)`, dann `clone` |
+| `synchronisiere` | Repo oder Zweig gewechselt | `fs.rm(cwd)`, dann `clone` |
+| `trenne`         | immer                      | `fs.rm(checkoutPfad(id))`  |
+
+Der erste ist der Normalfall: ein Projektordner ist kein Git-Repo, bis er
+gekoppelt wird. Wer also ein bestehendes Projekt an ein Repository koppelt und
+auf Synchronisieren drückt, verliert beim ersten Lauf alles, was nicht im Repo
+steht. Der dritte ist noch direkter: der Knopf **Kopplung trennen** löscht alle
+Dateien des Projekts.
+
+Der Rechnungs-Schutz aus Plan 014 sitzt vor `trenne` und zeigt, dass das
+jemandem schon einmal aufgefallen ist. Er schützte die Rechnungen und nicht die
+Arbeit.
+
+**Behoben (#482):** der Projektordner wird selbst zum Arbeitsbaum, statt durch
+einen Klon ersetzt zu werden. `.git` neu anlegen, den Bestand als Commit
+festhalten, die Ferne dazuholen; ein leerer Ordner nimmt `reset --hard`. Der
+Merge bekommt `--allow-unrelated-histories`, weil lokaler Bestand und Ferne beim
+ersten Sync zwei getrennte Historien sind. Gelöscht wird nur noch `cwd/.git`.
+Vier Tests prüfen dabei nicht Git, sondern die Platte.
+
+### Was aus der eigentlichen Aufgabe wurde
+
+**Änderungen (#486):** `GET /api/git/:projectId/aenderungen` liefert die
+geänderten Dateien mit Art, dazu voraus und zurück in Commits. Bewusst **ohne
+Netz**: die Anzeige hängt in der Statusleiste, und ein `fetch` bei jedem Öffnen
+wäre auf einem Gerät, das offline laufen können muss, der falsche Tausch.
+Verglichen wird mit dem zuletzt geholten Stand, und die Anzeige schreibt
+darunter, wann das war. Ein Test hält das fest.
+
+**Zweigwechsel (#486):** keine eigene Route. Koppeln mit demselben Repository
+und einem anderen Zweig **ist** der Wechsel; der gespeicherte Schlüssel bleibt.
+Dass das gefahrlos ist, kommt aus #482 — vorher hätte ein Zweigwechsel den
+Projektordner geleert.
+
+**Offen:** die Abnahme selbst. Koppeln, im Terminal ändern, übertragen, auf
+GitHub nachsehen — dafür braucht es ein Repository und einen persönlichen
+Zugangsschlüssel von Kolja. Sie bleibt offen wie die positive Strecke bei D9.
 
 ## G4 Indexierung beschleunigen
 
@@ -3022,6 +3159,92 @@ optimistisch, und die Reihenfolge ist der größere Posten.
 indexieren und den Status setzen, dann zusammenfassen, einordnen und Themen
 ziehen. Eine gescheiterte Anreicherung kippt den Lauf nicht mehr: der Text ist
 indexiert, die Zusammenfassung fehlt eben.
+
+### Die dritte Ursache: die Anreicherung stand in der Warteschlange
+
+Die Reihenfolge innerhalb eines Dokuments zu drehen reichte nicht. Am
+22.08.2026 nach dem Deploy gemessen:
+
+|                                      |                      |
+| ------------------------------------ | -------------------- |
+| Datei über die Ablage geschrieben    | 15:35:49             |
+| Status nach zehn Minuten             | `pending`            |
+| Dokumente davor in der Warteschlange | **71**               |
+| Modell-Arbeit je Dokument            | rund **50 Sekunden** |
+| daraus folgende Wartezeit            | über **eine Stunde** |
+
+Zum Vergleich das Indexieren selbst, aus demselben Protokoll: 0,35 Sekunden.
+
+```
+15:37:49.898  Found pending document, will index: datei-030.md
+15:37:50.247  Successfully indexed document: datei-030.md (1 chunks)
+15:37:50.247  Running AI analysis for datei-030.md
+```
+
+**Behoben (#481):** der Scan indexiert mit `anreichern=False`. Angereichert wird
+erst danach und nur, wenn gerade nichts Neues wartet. Ein Dokument, das sich
+dauerhaft nicht zusammenfassen lässt, hätte die Warteschlange dabei übernommen —
+die Abfrage sortiert nach `updated_at`, und ein gescheiterter Versuch schreibt
+nichts. Nach drei Versuchen wird eine leere Zusammenfassung eingetragen.
+
+### Die vierte Ursache: zwei Zyklen liefen nebeneinander
+
+Beim Nachmessen stand jede Zeile der Anreicherung **zweimal** im Protokoll, mit
+Millisekunden Abstand, während 45 Dokumente warteten. Es gibt zwei Aufrufer von
+`scan_and_index` und keinen Schutz: die eigene Schleife und der Thread aus
+`POST /scan`, den der Ordner-Sync seit dem Weckruf-Umbau bei jeder Änderung
+ruft. Aus einem theoretischen Rennen war der Normalfall geworden.
+
+Zwei Folgen, beide schlecht. Erstens teilen sich beide Zyklen die wartenden
+Dokumente, jeder sieht weniger als den Deckel und meldet `cap_reached = False`,
+obwohl der Rückstau da ist — beide gehen daraufhin in die Nachhol-Anreicherung,
+die genau dann nicht laufen soll. Zweitens holen beide dieselben Dokumente aus
+der Anreicherungs-Abfrage und rechnen sie doppelt.
+
+**Behoben (#483):** `scan_and_index` ist eine Schleuse. Ein abgewiesener
+Weckruf geht nicht verloren, er verkürzt die Pause danach.
+
+### Die fünfte Ursache: die Anreicherung wich nicht
+
+Der Rückstau-Schutz prüfte nur **vor** der Runde. Eine Runde dauerte drei
+Dokumente lang, je rund fünfzig Sekunden, und der Weckruf trifft mitten hinein.
+Gemessen: hundert frisch geschriebene Dateien auf `pending`, null davon
+indexiert, während der Indexer in aller Ruhe ein altes Dokument zusammenfasste.
+
+**Behoben (#485):** die Runde prüft zwischen zwei Dokumenten und bricht ab. Der
+Deckel je Runde fällt von drei auf eins — ein Weckruf kann nur zwischen zwei
+Dokumenten greifen, nie mitten in einem Modellaufruf, der Deckel ist also die
+Wartezeit im schlechtesten Fall.
+
+### Die sechste Ursache lag gar nicht im Indexer
+
+Nach alldem brauchte eine einzelne Datei immer noch **315 Sekunden**. Schuld war
+der Ordner-Abgleich davor:
+
+```
+18:26:45  Failed to delete from Qdrant after retries for doc 52972b3b… : getaddrinfo EAI_AGAIN qdrant
+18:26:50  Failed to delete from Qdrant after retries for doc 766a7239… : getaddrinfo EAI_AGAIN qdrant
+```
+
+Fünf Sekunden je gelöschtem Dokument. Seit Plan 021, Schritt 8 liegt `qdrant` im
+Compose-Profil `classic-rag` und startet nicht mit; der Name löst gar nicht auf.
+Jedes Löschen lief trotzdem in drei Versuche mit Wartezeit dazwischen, gegen
+einen Dienst, den es hier nicht gibt. Für einen Ordner mit hundert Dateien sind
+das über acht Minuten, in denen der Abgleich nichts anderes tut und neue Dateien
+keine Zeile bekommen.
+
+**Behoben (#487):** sagt das Netz „diesen Rechner gibt es nicht", gilt Qdrant für
+`QDRANT_PAUSE_MS` als abgeschaltet und jeder Aufruf kehrt sofort zurück. Ein
+geglückter Aufruf hebt die Pause auf. Kein Flag: ein Flag müsste gepflegt werden
+und träfe den Fall „läuft, ist aber gerade nicht erreichbar" nicht.
+
+### Was gemessen ist
+
+|                                    | Abnahme         | gemessen            |
+| ---------------------------------- | --------------- | ------------------- |
+| eine Datei, leere Warteschlange    | unter 5 s       | **2,3 s**           |
+| eine Datei, 5 in der Warteschlange | —               | 5,5 s               |
+| 100 Dateien                        | unter 2 Minuten | steht nach #487 aus |
 
 ## G5 Vektorsuche einschalten
 
