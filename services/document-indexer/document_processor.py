@@ -527,46 +527,30 @@ def run_indexing_pipeline(
                 f"Failed to persist metadata for {doc_id}: {meta_err}"
             )
 
-    # Get categories for AI analysis
-    categories = db.get_categories()
-
-    # Run AI analysis if enabled
-    analysis = {}
-    if ENABLE_AI_ANALYSIS:
-        logger.info(f"Running AI analysis for {filename}")
-        analysis = analyzer.analyze_document(
-            text=text,
-            filename=filename,
-            title=metadata.get('title'),
-            categories=categories
-        )
-
-        # Update document with AI results
-        updates = {}
-        if analysis.get('summary'):
-            updates['summary'] = analysis['summary']
-        if analysis.get('key_topics'):
-            updates['key_topics'] = analysis['key_topics']
-        if analysis.get('category'):
-            cat = db.get_category_by_name(analysis['category'])
-            if cat:
-                updates['category_id'] = cat['id']
-                updates['category_confidence'] = analysis.get(
-                    'category_confidence', 0.5
-                )
-
-        if updates:
-            db.update_document(doc_id, updates)
-    else:
-        # Use simple topic extraction
-        simple_topics = extract_key_topics(text, max_topics=10)
-        if simple_topics:
-            db.update_document(doc_id, {'key_topics': simple_topics})
-
     # RAG 2.0: Get space info for document
     space_info = get_document_space_info(db, doc_id)
 
     # Index into Qdrant (chunking + embedding + upsert)
+    #
+    # Plan 023 G4: ERST indexieren, DANN anreichern.
+    #
+    # Bis zum 22.08.2026 lief die KI-Analyse (Zusammenfassung, Kategorie,
+    # Themen) davor, und jede davon ist ein Aufruf ans Sprachmodell. Am Geraet
+    # gemessen, an einer Datei mit wenigen Zeilen:
+    #
+    #   15:26:03  Generating summary
+    #   15:26:37  Categorizing          (34 s spaeter)
+    #   15:26:56  Extracting topics     (weitere 19 s)
+    #
+    # Das Dokument wurde erst NACH alldem auf `indexed` gesetzt, war also
+    # ueber eine Minute lang nicht auffindbar, obwohl der Textlayer in rund
+    # einer Sekunde fertig gewesen waere. Die Anreicherung ist Beiwerk; die
+    # Auffindbarkeit ist die Zusage.
+    #
+    # `category_name` steht deshalb auf 'Allgemein' wie im Fall ohne Analyse.
+    # Der Wert landet ausschliesslich in der Qdrant-Nutzlast; die echte
+    # Kategorie steht an der Dokumentzeile und wird unten nachgetragen, und von
+    # dort liest sie auch das Backend.
     index_stats = {}
     chunk_count = _index_to_qdrant(
         doc_id=doc_id,
@@ -576,10 +560,7 @@ def run_indexing_pipeline(
             'content_hash': content_hash,
             'title': metadata.get('title', filename),
             'language': metadata.get('language', 'de'),
-            'category_name': (
-                analysis.get('category', 'Allgemein')
-                if ENABLE_AI_ANALYSIS else 'Allgemein'
-            ),
+            'category_name': 'Allgemein',
             **space_info
         },
         db=db,
@@ -616,6 +597,43 @@ def run_indexing_pipeline(
         f"Successfully indexed document: {filename} ({chunk_count} chunks) "
         f"[space: {space_info.get('space_name', 'none')}]"
     )
+
+    # Plan 023 G4: die Anreicherung, nachdem das Dokument auffindbar ist.
+    #
+    # Sie darf scheitern, ohne dass daraus ein gescheitertes Dokument wird: der
+    # Text ist indexiert, die Zusammenfassung ist Beiwerk. Vorher haette ein
+    # Fehler hier den ganzen Lauf gekippt.
+    try:
+        if ENABLE_AI_ANALYSIS:
+            logger.info(f"Running AI analysis for {filename}")
+            analysis = analyzer.analyze_document(
+                text=text,
+                filename=filename,
+                title=metadata.get('title'),
+                categories=db.get_categories()
+            )
+            updates = {}
+            if analysis.get('summary'):
+                updates['summary'] = analysis['summary']
+            if analysis.get('key_topics'):
+                updates['key_topics'] = analysis['key_topics']
+            if analysis.get('category'):
+                cat = db.get_category_by_name(analysis['category'])
+                if cat:
+                    updates['category_id'] = cat['id']
+                    updates['category_confidence'] = analysis.get(
+                        'category_confidence', 0.5
+                    )
+            if updates:
+                db.update_document(doc_id, updates)
+        else:
+            simple_topics = extract_key_topics(text, max_topics=10)
+            if simple_topics:
+                db.update_document(doc_id, {'key_topics': simple_topics})
+    except Exception as anreicherung_err:
+        logger.warning(
+            f"Anreicherung fuer {filename} uebersprungen: {anreicherung_err}"
+        )
 
     # Calculate similarity if enabled
     if enable_similarity:
