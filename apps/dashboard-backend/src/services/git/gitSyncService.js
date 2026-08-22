@@ -2,8 +2,17 @@
  * Git-Sync-Dienst (Plan 013, B9) — Projektordner ↔ GitHub-Repo.
  *
  * Ein Projekt wird an EIN GitHub-Repo gekoppelt (gitStore/`project_git`). Dieser
- * Dienst hält dafür einen container-lokalen Checkout unter PROJECT_GIT_DIR/<id>
- * und gleicht ihn zwei-wegig ab: lokale Änderungen werden committet, dann wird
+ * Dienst legt dafür KEINEN eigenen Checkout an: er macht den Projektordner
+ * selbst zum Arbeitsbaum. `PROJECT_GIT_DIR/<id>` IST die Ablage des Projekts,
+ * dieselbe, die `ablageService` unter `ABLAGE_DIR/<id>` zeigt, dieselbe, die im
+ * Dateibaum, im Terminal und im Chat erscheint.
+ *
+ * DARAUS FOLGT DIE WICHTIGSTE REGEL DIESER DATEI: hier wird NIE `cwd` gelöscht,
+ * sondern höchstens `cwd/.git`. Wer den Ordner löscht, löscht die Dateien des
+ * Kunden. Das stand bis zum 22.08.2026 an drei Stellen so im Code, weil der
+ * Kommentar oben von einem „container-lokalen Checkout" sprach, den es nie gab.
+ *
+ * Abgeglichen wird zwei-wegig: lokale Änderungen werden committet, dann wird
  * die Ferne hereingeholt (merge) und zurückgeschoben (push). Ein Merge-Konflikt
  * wird sauber gemeldet und der Arbeitsbaum wieder freigeräumt (merge --abort) —
  * nie bleibt ein halb-gemergter Baum zurück.
@@ -157,6 +166,67 @@ function status({ projectId }, deps = {}) {
  *
  * @returns {Promise<{status, commit, pushed}>}
  */
+/**
+ * Macht den Projektordner zum Arbeitsbaum für dieses Repo, ohne eine einzige
+ * Datei des Nutzers anzufassen.
+ *
+ * Der frühere Weg war `git clone` in einen leeren Ordner. Das setzte voraus,
+ * dass der Ordner leer sein DARF — und genau das ist er nicht: er ist die
+ * Ablage. Deshalb andersherum: `.git` neu anlegen, den vorhandenen Bestand als
+ * ersten Commit festhalten und die Ferne dazuholen. Der Merge in Schritt (3)
+ * bringt beide Seiten zusammen.
+ *
+ * Zwei Sonderfälle:
+ *  - Die Ferne ist leer oder der Branch existiert dort noch nicht. Dann bleibt
+ *    es beim lokalen Stand; der erste Push legt den Branch an.
+ *  - Der Projektordner ist leer, es gibt also keinen lokalen Commit. Dann ist
+ *    die Ferne der Stand, und `reset --hard` holt sie herein. Das ist der Fall,
+ *    der früher der Klon war.
+ *
+ * @param {object} p
+ * @param {string} p.cwd Projektordner (IST die Ablage)
+ * @param {string} p.repoUrl Repository
+ * @param {string} p.branch Zweig
+ * @param {string|null} p.pat Token
+ * @param {Function} p.git werfende Git-Ausführung
+ * @param {Function} p.run nicht werfende Git-Ausführung
+ */
+async function setzeArbeitsbaumAuf({ cwd, repoUrl, branch, pat, git, run }) {
+  await fs.mkdir(cwd, { recursive: true });
+  // NUR die Verwaltung. Nie den Inhalt.
+  await fs.rm(path.join(cwd, '.git'), { recursive: true, force: true });
+
+  // `init -b` gibt es erst ab git 2.28; der Rückfall setzt den Zweig danach.
+  const initMitZweig = await run(['-C', cwd, 'init', '-b', branch]);
+  if (initMitZweig.code !== 0) {
+    await git(['-C', cwd, 'init']);
+    await git(['-C', cwd, 'checkout', '-B', branch]);
+  }
+  await git(['-C', cwd, 'remote', 'add', 'origin', repoUrl]);
+
+  // Bestand festhalten, sonst hätte der Merge unten kein HEAD, in das er
+  // hineinmergen könnte.
+  await git(['-C', cwd, 'add', '-A']);
+  const bestand = await run(['-C', cwd, 'status', '--porcelain']);
+  if (bestand.stdout.trim()) {
+    await git(['-C', cwd, 'commit', '-m', 'Bestand vor der Kopplung']);
+  }
+
+  const geholt = await run(['-C', cwd, 'fetch', 'origin', branch], { pat });
+  if (geholt.code !== 0) {
+    return;
+  }
+  const fern = await run(['-C', cwd, 'rev-parse', '--verify', `origin/${branch}`]);
+  if (fern.code !== 0) {
+    return;
+  }
+  const kopf = await run(['-C', cwd, 'rev-parse', '--verify', 'HEAD']);
+  if (kopf.code !== 0) {
+    // Leerer Projektordner: die Ferne ist der Stand.
+    await git(['-C', cwd, 'reset', '--hard', `origin/${branch}`]);
+  }
+}
+
 async function synchronisiere({ projectId }, deps = {}) {
   const { run = gitRoh, store = gitStore } = deps;
   const git = macheGit(run);
@@ -176,37 +246,25 @@ async function synchronisiere({ projectId }, deps = {}) {
   const cwd = kopplung.local_path || checkoutPfad(projectId);
 
   try {
-    // (1) Checkout sicherstellen. Ein VORHANDENER Checkout muss noch auf DIESE
+    // (1) Arbeitsbaum sicherstellen. Ein VORHANDENES `.git` muss noch auf DIESE
     // Ferne + DIESEN Branch zeigen — nach einer Neukopplung (anderes Repo/anderer
-    // Branch) zeigt der alte Checkout sonst noch aufs alte origin, und wir pushten
-    // ins FALSCHE Repository. Passt etwas nicht, wird frisch geklont.
-    let brauchtKlon = !(await istRepo(cwd));
-    if (!brauchtKlon) {
+    // Branch) zeigt es sonst noch aufs alte origin, und wir pushten ins FALSCHE
+    // Repository. Passt etwas nicht, wird die Verwaltung neu aufgesetzt.
+    //
+    // NEU AUFSETZEN heisst: `.git` weg, Dateien bleiben. Bis zum 22.08.2026 stand
+    // hier `fs.rm(cwd)`, und `cwd` ist der Projektordner selbst. Wer ein Projekt
+    // mit Dateien an ein Repo koppelte und auf Synchronisieren drueckte, verlor
+    // beim ersten Lauf alles, was nicht im Repo stand.
+    let brauchtAufsetzen = !(await istRepo(cwd));
+    if (!brauchtAufsetzen) {
       const origin = await run(['-C', cwd, 'remote', 'get-url', 'origin']);
       const aktBranch = await run(['-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD']);
       const fernePasst = origin.code === 0 && origin.stdout.trim() === kopplung.repo_url;
       const branchPasst = aktBranch.code === 0 && aktBranch.stdout.trim() === branch;
-      if (!fernePasst || !branchPasst) {
-        await fs.rm(cwd, { recursive: true, force: true });
-        brauchtKlon = true;
-      }
+      brauchtAufsetzen = !fernePasst || !branchPasst;
     }
-    if (brauchtKlon) {
-      await fs.mkdir(PROJECT_GIT_DIR, { recursive: true });
-      await fs.rm(cwd, { recursive: true, force: true });
-      const geklont = await run(
-        ['clone', '--branch', branch, '--single-branch', kopplung.repo_url, cwd],
-        { pat }
-      );
-      if (geklont.code !== 0) {
-        // Häufigster Grund: der Branch existiert remote (noch) nicht (leeres Repo).
-        // Dann normal klonen und den Branch lokal anlegen; der erste Push erzeugt
-        // ihn remote. (Andere Klon-Fehler — Auth/Netz — schlagen unten beim Push
-        // erneut zu und landen sichtbar im Status.)
-        await fs.rm(cwd, { recursive: true, force: true });
-        await git(['clone', kopplung.repo_url, cwd], { pat });
-        await git(['-C', cwd, 'checkout', '-B', branch]);
-      }
+    if (brauchtAufsetzen) {
+      await setzeArbeitsbaumAuf({ cwd, repoUrl: kopplung.repo_url, branch, pat, git, run });
     }
 
     // (1b) Schutz gegen einen zuvor unsauber abgebrochenen Merge: liegen noch
@@ -243,7 +301,21 @@ async function synchronisiere({ projectId }, deps = {}) {
     const fetch = await run(['-C', cwd, 'fetch', 'origin', branch], { pat });
     const remoteRef = await run(['-C', cwd, 'rev-parse', '--verify', `origin/${branch}`]);
     if (fetch.code === 0 && remoteRef.code === 0) {
-      const merge = await run(['-C', cwd, 'merge', '--no-edit', `origin/${branch}`]);
+      // `--allow-unrelated-histories`: beim ERSTEN Sync eines Projekts, das schon
+      // Dateien hatte, sind der lokale Bestandscommit und die Ferne zwei
+      // getrennte Historien. Ohne das Kennzeichen verweigert git den Merge, und
+      // der Nutzer saehe „refusing to merge unrelated histories" statt seiner
+      // Dateien. Die Schutzwirkung des Kennzeichens (Versehen gegen ein fremdes
+      // Repo) hat hier keinen Sinn: die Kopplung IST die ausdrueckliche Ansage,
+      // dass diese beiden zusammengehoeren.
+      const merge = await run([
+        '-C',
+        cwd,
+        'merge',
+        '--no-edit',
+        '--allow-unrelated-histories',
+        `origin/${branch}`,
+      ]);
       if (merge.code !== 0) {
         const konflikte = await run(['-C', cwd, 'diff', '--name-only', '--diff-filter=U']);
         // Baum wieder freiräumen — MUSS klappen, sonst bliebe ein halb-gemergter
@@ -297,14 +369,18 @@ async function synchronisiere({ projectId }, deps = {}) {
 }
 
 /**
- * Löst die Kopplung (verschlüsselter PAT wird gelöscht) und entfernt den lokalen
- * Checkout. Best-effort beim Ordner — die DB-Wahrheit ist entscheidend.
+ * Löst die Kopplung: der verschlüsselte PAT wird gelöscht und die Git-Verwaltung
+ * (`.git`) aus dem Projektordner entfernt. **Die Dateien bleiben.**
  *
- * SCHUTZ (Plan 014, Phase 5): Enthält das Projekt ausgestellte, unveränderliche
- * Rechnungen, würde das rekursive Löschen sie stillschweigend vernichten
- * (chmod 0444 hilft nicht — Löschen hängt am Schreibrecht des Verzeichnisses,
- * nicht am Dateimodus). Deshalb VOR dem Löschen prüfen und mit klarer Meldung
- * ablehnen, statt einen rechtsverbindlichen Beleg zu zerstören.
+ * Bis zum 22.08.2026 löschte diese Funktion `checkoutPfad(projectId)` rekursiv,
+ * also den Projektordner. „Kopplung trennen" in der Oberfläche hat damit alle
+ * Dateien des Projekts gelöscht: Dokumente, Notizen, Code. Wer eine Kopplung
+ * löst, will die Verbindung los sein, nicht seine Arbeit.
+ *
+ * Der Rechnungs-Schutz (Plan 014, Phase 5) steht weiter davor. Er ist seit dem
+ * Umbau eigentlich gegenstandslos — es wird ja nichts mehr gelöscht, was eine
+ * Rechnung sein könnte — bleibt aber als zweite Sicherung stehen: sollte hier
+ * je wieder ein rekursives Löschen einziehen, faellt es an ihm auf.
  */
 async function trenne({ projectId }, deps = {}) {
   const { store = gitStore, db = require('../../database') } = deps;
@@ -321,9 +397,12 @@ async function trenne({ projectId }, deps = {}) {
   }
   const geloescht = await store.loescheKopplung({ projectId });
   try {
-    await fs.rm(checkoutPfad(projectId), { recursive: true, force: true });
+    await fs.rm(path.join(checkoutPfad(projectId), '.git'), {
+      recursive: true,
+      force: true,
+    });
   } catch (err) {
-    logger.warn(`Git-Checkout ${projectId} nicht entfernbar: ${err.message}`);
+    logger.warn(`Git-Verwaltung ${projectId} nicht entfernbar: ${err.message}`);
   }
   return geloescht;
 }

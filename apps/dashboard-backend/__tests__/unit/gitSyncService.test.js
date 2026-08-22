@@ -124,7 +124,7 @@ describe('synchronisiere', () => {
       driftPasst([
         ['status --porcelain', { stdout: '' }],
         ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
-        ['merge --no-edit origin/main', { code: 1, stdout: 'CONFLICT' }],
+        ['merge --no-edit --allow-unrelated-histories origin/main', { code: 1, stdout: 'CONFLICT' }],
         ['diff --name-only --diff-filter=U', { stdout: 'a.txt\nb.txt\n' }],
       ])
     );
@@ -157,21 +157,105 @@ describe('synchronisiere', () => {
     );
   });
 
-  test('Repo gewechselt (origin weicht ab) → alter Checkout wird neu geklont', async () => {
+  test('Repo gewechselt (origin weicht ab) → Verwaltung neu, Dateien bleiben', async () => {
     const store = fakeStore(kopplung());
     const run = fakeRun([
-      // origin zeigt noch auf das ALTE Repo → Drift → Neu-Klon erzwingen.
+      // origin zeigt noch auf das ALTE Repo → Drift → neu aufsetzen.
       ['remote get-url origin', { stdout: 'https://github.com/o/ALT' }],
       ['rev-parse --abbrev-ref HEAD', { stdout: 'main' }],
       ['status --porcelain', { stdout: '' }],
       ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
       ['rev-parse --short HEAD', { stdout: 'abc1234' }],
     ]);
+    await fs.writeFile(path.join(cwd, 'notiz.md'), 'wichtig');
 
     await gitSyncService.synchronisiere({ projectId: 'p1' }, { run, store });
 
-    expect(run.rief('clone')).toBe(true); // frisch geklont gegen die richtige Ferne
+    // Die Ferne stimmt wieder …
+    expect(run.rief('remote add origin https://github.com/o/r')).toBe(true);
     expect(run.rief('push origin HEAD:main')).toBe(true);
+    // … und die Datei des Nutzers liegt noch da.
+    await expect(fs.readFile(path.join(cwd, 'notiz.md'), 'utf8')).resolves.toBe('wichtig');
+  });
+
+  /**
+   * Am 22.08.2026 gefunden: `PROJECT_GIT_DIR/<id>` und `ABLAGE_DIR/<id>` sind
+   * DERSELBE Ordner. Beide lesen `process.env.PROJECT_GIT_DIR` mit derselben
+   * Vorgabe `/arasul/projects`, beide haengen die Projekt-ID an. Der Ordner,
+   * den dieser Dienst fuer einen Wegwerf-Checkout hielt, ist die Ablage: das,
+   * was im Dateibaum steht, was das Terminal unter /workspace/projekt sieht,
+   * was der Chat liest.
+   *
+   * Ein Kunde koppelt sein Projekt an ein Repo und drueckt Synchronisieren.
+   * Vorher: `fs.rm(cwd, {recursive: true})`, dann klonen. Alles weg, was nicht
+   * im Repo stand.
+   *
+   * Diese drei Tests pruefen nicht Git, sondern die Platte.
+   */
+  describe('der Projektordner ueberlebt (Datenverlust vom 22.08.2026)', () => {
+    test('erste Kopplung eines Projekts MIT Dateien loescht nichts', async () => {
+      const store = fakeStore(kopplung());
+      // Kein .git: das ist der Normalfall bei der ersten Kopplung.
+      await fs.rm(path.join(cwd, '.git'), { recursive: true, force: true });
+      await fs.writeFile(path.join(cwd, 'angebot.md'), 'Angebot an Kunde X');
+      await fs.mkdir(path.join(cwd, 'belege'), { recursive: true });
+      await fs.writeFile(path.join(cwd, 'belege', 'r-001.pdf'), 'PDF');
+
+      const run = fakeRun([
+        ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
+        ['rev-parse --verify HEAD', { code: 0, stdout: 'cafe' }],
+        ['status --porcelain', { stdout: ' M angebot.md' }],
+        ['rev-parse --short HEAD', { stdout: 'abc1234' }],
+      ]);
+
+      await gitSyncService.synchronisiere({ projectId: 'p1' }, { run, store });
+
+      await expect(fs.readFile(path.join(cwd, 'angebot.md'), 'utf8')).resolves.toBe(
+        'Angebot an Kunde X'
+      );
+      await expect(
+        fs.readFile(path.join(cwd, 'belege', 'r-001.pdf'), 'utf8')
+      ).resolves.toBe('PDF');
+    });
+
+    test('der Bestand wird festgehalten, bevor die Ferne dazukommt', async () => {
+      // Sonst haette der Merge kein HEAD, in das er mergen koennte, und die
+      // vorhandenen Dateien waeren nicht Teil der Historie.
+      const store = fakeStore(kopplung());
+      await fs.rm(path.join(cwd, '.git'), { recursive: true, force: true });
+      const run = fakeRun([
+        ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
+        ['rev-parse --verify HEAD', { code: 0, stdout: 'cafe' }],
+        ['status --porcelain', { stdout: 'A  angebot.md' }],
+        ['rev-parse --short HEAD', { stdout: 'abc1234' }],
+      ]);
+
+      await gitSyncService.synchronisiere({ projectId: 'p1' }, { run, store });
+
+      const reihenfolge = run.calls.map(c => c.args.join(' '));
+      const bestand = reihenfolge.findIndex(a => a.includes('Bestand vor der Kopplung'));
+      const holen = reihenfolge.findIndex(a => a.includes('fetch origin main'));
+      expect(bestand).toBeGreaterThanOrEqual(0);
+      expect(bestand).toBeLessThan(holen);
+    });
+
+    test('ein leerer Projektordner nimmt die Ferne als Stand', async () => {
+      // Der Fall, der frueher der Klon war.
+      const store = fakeStore(kopplung());
+      await fs.rm(path.join(cwd, '.git'), { recursive: true, force: true });
+      const run = fakeRun([
+        ['rev-parse --verify origin/main', { code: 0, stdout: 'deadbeef' }],
+        // Kein HEAD: es gibt lokal keinen Commit.
+        ['rev-parse --verify HEAD', { code: 128, stdout: '' }],
+        ['status --porcelain', { stdout: '' }],
+        ['rev-parse --short HEAD', { stdout: 'abc1234' }],
+      ]);
+
+      await gitSyncService.synchronisiere({ projectId: 'p1' }, { run, store });
+
+      expect(run.rief('reset --hard origin/main')).toBe(true);
+      expect(run.rief('commit -m Bestand vor der Kopplung')).toBe(false);
+    });
   });
 
   test('doppelter Sync desselben Projekts → zweiter läuft in ConflictError', async () => {
@@ -248,6 +332,45 @@ describe('trenne — Rechnungsschutz (Plan 014, Phase 5)', () => {
     const res = await gitSyncService.trenne({ projectId: 'p1' }, { store, db });
     expect(store.loescheKopplung).toHaveBeenCalledWith({ projectId: 'p1' });
     expect(res).toEqual({ getrennt: true });
+  });
+
+  /**
+   * Der zweite Fund vom 22.08.2026, aus derselben Verwechslung: „Kopplung
+   * trennen" loeschte `checkoutPfad(projectId)` rekursiv, also den
+   * Projektordner. Ein Knopf mit der Aufschrift „trennen" loeschte alle
+   * Dokumente, Notizen und Dateien des Projekts.
+   *
+   * Der Rechnungs-Schutz darueber zeigt, dass das jemandem schon einmal
+   * aufgefallen war — er schuetzte aber nur die Rechnungen, nicht die Arbeit.
+   */
+  test('trennen loescht die Verwaltung, nicht die Dateien', async () => {
+    const ordner = path.join(process.env.PROJECT_GIT_DIR, 'p9');
+    await fs.mkdir(path.join(ordner, '.git'), { recursive: true });
+    await fs.writeFile(path.join(ordner, 'HEAD'), 'ref');
+    await fs.writeFile(path.join(ordner, 'protokoll.md'), 'monatelange Arbeit');
+
+    const store = { loescheKopplung: jest.fn(async () => ({ getrennt: true })) };
+    const db = { query: jest.fn(async () => ({ rows: [{ anzahl: 0 }] })) };
+    await gitSyncService.trenne({ projectId: 'p9' }, { store, db });
+
+    await expect(fs.readFile(path.join(ordner, 'protokoll.md'), 'utf8')).resolves.toBe(
+      'monatelange Arbeit'
+    );
+    await expect(fs.access(path.join(ordner, '.git'))).rejects.toThrow();
+    await fs.rm(ordner, { recursive: true, force: true });
+  });
+});
+
+/**
+ * Die Tatsache, aus der alles oben folgt. Sie steht als eigener Test da, weil
+ * sie sonst nirgends geprueft wird und beim naechsten Umbau leise wegfallen
+ * koennte — und dann waeren die drei Loeschungen oben wieder harmlos aussehende
+ * Aufraeumarbeiten.
+ */
+describe('Ablage und Git-Arbeitsbaum sind derselbe Ordner', () => {
+  test('checkoutPfad zeigt auf den Projektordner der Ablage', () => {
+    const ablageService = require('../../src/services/projects/ablageService');
+    expect(ablageService.ABLAGE_DIR).toBe(gitSyncService.PROJECT_GIT_DIR);
   });
 });
 
