@@ -2076,7 +2076,36 @@ async function processAgentChatJob(ctx, job) {
   }
   await flushDb();
 
-  if (inhaltBereinigt && !abgebrochen) {
+  // Ein fertiger Lauf ohne ein einziges Wort hinterlaesst keine leere Blase.
+  //
+  // Am 22.08.2026 auf dem Orin gemessen: von vier Laeufen mit derselben Frage
+  // ("Nenne drei Farben.") endeten DREI mit `content = ''` und Status
+  // `completed`. In der Datenbank standen 261 Antworten, drei davon leer und
+  // abgeschlossen (Nachricht 498, 502, 510). Im Browser sieht der Nutzer eine
+  // Sprechblase ohne Inhalt und keinen Hinweis, was zu tun waere.
+  //
+  // Der Abbruchzweig weiter unten kennt diesen Fall laengst und setzt seinen
+  // Satz. Dem NORMALEN Ende fehlte er. Die Kennung wird nach demselben
+  // Gedanken gebildet wie dort, aber mit eigenem Praefix: `ABB-` heisst
+  // Abbruch, und ein Lauf, der ordentlich zu Ende gelaufen ist und nur nichts
+  // zu sagen hatte, ist keiner.
+  if (!abgebrochen && !String(fertigText || '').trim()) {
+    const k = leerKennung(jobId);
+    fertigText = dateien.length
+      ? `Der Lauf ist fertig. Das Modell hat dazu keinen Text geschrieben, ` +
+        `die Aenderungen stehen aber unten. (${k})`
+      : `Der Lauf ist beendet, aber das Modell hat keinen Text geliefert. ` +
+        `Bitte noch einmal versuchen. (${k})`;
+    log.warn(
+      `[JOB ${jobId}] Lauf ohne Text beendet, Ersatzsatz gesetzt ` +
+        `(kennung=${k} dateien=${dateien.length})`
+    );
+    try {
+      await llmJobService.setJobContent(jobId, fertigText);
+    } catch (err) {
+      log.warn(`[JOB ${jobId}] Ersatzsatz nicht gesetzt: ${err.message}`);
+    }
+  } else if (inhaltBereinigt && !abgebrochen) {
     try {
       await llmJobService.setJobContent(jobId, fertigText);
     } catch (err) {
@@ -2220,6 +2249,23 @@ async function processAgentChatJob(ctx, job) {
 }
 
 /**
+ * Kennung fuer einen Lauf, der ordentlich endete und nichts geschrieben hat.
+ *
+ * Wie bei `kennung` in `abbruchGrund.js` ableitbar statt zufaellig: dieselbe
+ * Job-Id gibt dieselbe Kennung, und wer sie aus einem Bildschirmfoto liest,
+ * findet sie im Protokoll wieder. Eigenes Praefix, weil `ABB-` fuer Abbrueche
+ * steht und dies keiner ist.
+ *
+ * @param {string} jobId
+ * @returns {string} z. B. "LEER-3f2a91"
+ */
+function leerKennung(jobId) {
+  return `LEER-${String(jobId || 'ohnejob')
+    .replace(/-/g, '')
+    .slice(0, 6)}`;
+}
+
+/**
  * Aktive Aufgabe aus der Todo-Liste bestimmen (Plan 019): die gerade laufende
  * Aufgabe, sonst die erste offene, sonst keine. Danach beginnende Schritte
  * werden dieser Aufgabe zugeordnet (task_index) — Grundlage der gruppierten
@@ -2287,6 +2333,10 @@ module.exports = {
   VERLAUF_TOKEN_BUDGET,
   AGENT_ROLLEN,
   streamChatRound,
+  // Ein fertiger Lauf ohne Text bekommt einen Satz statt einer leeren
+  // Sprechblase. Die Kennung muss ableitbar bleiben, sonst findet sie
+  // niemand im Protokoll wieder, deshalb steht sie unter Test.
+  leerKennung,
   // Plan 023 E2: das Standardmodell lehnt eine System-Nachricht ab, die nicht
   // die erste ist. Die Regel gehoert unter Test, nicht in einen Kommentar.
   systemAnDenAnfang,
