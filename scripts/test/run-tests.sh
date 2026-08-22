@@ -195,6 +195,21 @@ run_einheiten_check() {
   fi
 }
 
+# Funktion: Durchreichung der Stellschrauben (Plan 023 E1)
+# Laeuft immer mit. Eine dokumentierte Umgebungsvariable, die compose/ nicht
+# durchreicht, erreicht den Container nie; der Code faellt still auf seinen
+# Vorgabewert zurueck. Gefunden an FLOW_LLM_TIMEOUT_MS, das seit Monaten in der
+# Dokumentation steht und auf dem Geraet nichts bewirkt.
+run_durchreichung_check() {
+  echo ""
+  echo "-> Pruefe die Durchreichung der Stellschrauben..."
+  if python3 "${PROJECT_ROOT}/scripts/test/durchreichung.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 # Funktion: Toter Code (Plan 023 B3)
 # Laeuft immer mit, egal welche Auswahl. Eine Datei ohne Importeur ist in
 # jedem Teilbereich ein Befund, und einmal von Hand aufraeumen haelt nicht.
@@ -378,6 +393,7 @@ run_gedankenstrich_check
 run_bausteine_check
 run_modellnamen_check
 run_einheiten_check
+run_durchreichung_check
 run_faden_check
 run_selbsttest_check
 

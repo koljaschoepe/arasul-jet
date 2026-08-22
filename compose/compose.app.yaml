@@ -49,6 +49,17 @@ services:
       AGENT_KEEP_ALIVE: ${AGENT_KEEP_ALIVE:-30m}
       AGENT_QUALITAETS_MODELL: ${AGENT_QUALITAETS_MODELL:-}
       AGENT_THINKING: ${AGENT_THINKING:-an}
+      AGENT_MAX_SUBAGENTEN: ${AGENT_MAX_SUBAGENTEN:-8}
+      AGENT_PLAN_TOKENS_GROSS: ${AGENT_PLAN_TOKENS_GROSS:-2048}
+      AGENT_PLAN_TOKENS_KLEIN: ${AGENT_PLAN_TOKENS_KLEIN:-512}
+      AGENT_VERLAUF_TOKEN_BUDGET: ${AGENT_VERLAUF_TOKEN_BUDGET:-1200}
+      # Wie lange eine Modell-Runde stumm bleiben darf, bevor der Lauf als tot
+      # gilt (Plan 023 E1). Stand bisher in der Dokumentation und im Code, aber
+      # nicht hier, war also auf einem ausgelieferten Geraet nicht einstellbar.
+      FLOW_LLM_TIMEOUT_MS: ${FLOW_LLM_TIMEOUT_MS:-120000}
+      # Externe Cloud-Modelle (Plan 023 D9).
+      EXTERN_TIMEOUT_MS: ${EXTERN_TIMEOUT_MS:-60000}
+      EXTERN_MODELLE_CACHE_MS: ${EXTERN_MODELLE_CACHE_MS:-300000}
       EMBEDDING_SERVICE_HOST: ${EMBEDDING_SERVICE_HOST}
       EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT}
       MINIO_HOST: ${MINIO_HOST}

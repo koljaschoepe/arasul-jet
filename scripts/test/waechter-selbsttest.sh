@@ -207,6 +207,37 @@ pruefe "Pfadfilter: verschwundener Ausdruck ist rot" 1 \
   python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
 mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
 
+# --- durchreichung.py -------------------------------------------------------
+# Der Waechter, der prueft, ob eine dokumentierte Stellschraube den Container
+# ueberhaupt erreicht (Plan 023 E1). Beide Richtungen muessen greifen: eine
+# neue Luecke ist rot, und eine geschlossene Luecke, die noch in der
+# Schuldenliste steht, ebenfalls. Ohne die zweite Richtung verwahrlost die
+# Liste, und der Waechter meldet Ruhe ueber Variablen, die es nicht mehr gibt.
+DR="$TMP/durch"
+mkdir -p "$DR/docs" "$DR/compose" "$DR/apps/dashboard-backend/src"
+printf '| Variable | Standard | Zweck |\n| --- | --- | --- |\n| TESTKNOPF | 1 | Beispiel |\n' \
+  > "$DR/docs/ENVIRONMENT_VARIABLES.md"
+printf 'const x = process.env.TESTKNOPF;\n' > "$DR/apps/dashboard-backend/src/a.js"
+
+printf 'services:\n  backend:\n    environment:\n      TESTKNOPF: ${TESTKNOPF:-1}\n' \
+  > "$DR/compose/compose.app.yaml"
+pruefe "Durchreichung: eine durchgereichte Variable ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/durchreichung.py" --wurzel "$DR"
+
+printf 'services:\n  backend:\n    environment:\n      ANDERES: 1\n' \
+  > "$DR/compose/compose.app.yaml"
+pruefe "Durchreichung: eine fehlende Variable ist rot" 1 \
+  python3 "$WURZEL/scripts/test/durchreichung.py" --wurzel "$DR"
+
+# Die Secret-Form zaehlt: JWT_SECRET kommt als JWT_SECRET_FILE herein.
+printf '| Variable | Standard | Zweck |\n| --- | --- | --- |\n| GEHEIMNIS | | Beispiel |\n' \
+  > "$DR/docs/ENVIRONMENT_VARIABLES.md"
+printf 'const x = process.env.GEHEIMNIS;\n' > "$DR/apps/dashboard-backend/src/a.js"
+printf 'services:\n  backend:\n    environment:\n      GEHEIMNIS_FILE: /run/secrets/g\n' \
+  > "$DR/compose/compose.app.yaml"
+pruefe "Durchreichung: die Secret-Form zaehlt als durchgereicht" 0 \
+  python3 "$WURZEL/scripts/test/durchreichung.py" --wurzel "$DR"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else
