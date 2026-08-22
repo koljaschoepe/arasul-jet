@@ -186,12 +186,13 @@ When enabled, the queue system batches all requests for the currently loaded mod
 
 ## Qdrant (Vector Database)
 
-| Variable               | Default   | Description        |
-| ---------------------- | --------- | ------------------ |
-| QDRANT_HOST            | qdrant    | Qdrant hostname    |
-| QDRANT_PORT            | 6333      | Qdrant HTTP port   |
-| QDRANT_GRPC_PORT       | 6334      | Qdrant gRPC port   |
-| QDRANT_COLLECTION_NAME | documents | Default collection |
+| Variable               | Default   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| QDRANT_HOST            | qdrant    | Qdrant hostname                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| QDRANT_PORT            | 6333      | Qdrant HTTP port                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| QDRANT_GRPC_PORT       | 6334      | Qdrant gRPC port                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| QDRANT_COLLECTION_NAME | documents | Default collection                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| QDRANT_PAUSE_MS        | 60000     | Plan 023 G4: Wie lange Qdrant nach einem „Rechner gibt es nicht" (`EAI_AGAIN`, `ENOTFOUND`, `ECONNREFUSED`, `EHOSTUNREACH`) als abgeschaltet gilt und jeder Aufruf sofort zurückkehrt. Seit Plan 021 Schritt 8 ist das der Normalfall: Qdrant liegt im Compose-Profil `classic-rag` und startet nicht mit. Ohne die Pause kostete jedes gelöschte Dokument fünf Sekunden Wartezeit gegen einen Namen, der nicht auflöst. Ein geglückter Aufruf hebt sie sofort auf. |
 
 ---
 

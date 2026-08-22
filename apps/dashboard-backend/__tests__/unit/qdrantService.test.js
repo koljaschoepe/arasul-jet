@@ -46,3 +46,87 @@ test('ein nicht erreichbarer Qdrant bleibt ein Fehlschlag', async () => {
 
   await expect(deleteAllVectors()).rejects.toThrow(/EAI_AGAIN/);
 });
+
+/**
+ * Plan 023 G4: ein abgeschalteter Qdrant kostet keine Wartezeit mehr.
+ *
+ * Seit Plan 021, Schritt 8 liegt Qdrant im Compose-Profil `classic-rag` und
+ * startet nicht mit. Der Name loest dann gar nicht erst auf. Jeder Aufruf lief
+ * trotzdem in drei Versuche mit Wartezeit dazwischen.
+ *
+ * Am 22.08.2026 auf dem Orin gemessen, beim Loeschen eines Ordners mit hundert
+ * Dateien:
+ *
+ *   18:26:45  Failed to delete from Qdrant after retries … getaddrinfo EAI_AGAIN
+ *   18:26:50  Failed to delete from Qdrant after retries … getaddrinfo EAI_AGAIN
+ *
+ * Fuenf Sekunden je Dokument, ueber acht Minuten fuer den Ordner. In dieser
+ * Zeit tat der Ordner-Abgleich nichts anderes, und neu geschriebene Dateien
+ * bekamen keine Zeile und waren nicht auffindbar.
+ */
+const qdrant = require('../../src/services/documents/qdrantService');
+
+/** Ein Fehler, wie ihn ein nicht auflösbarer Hostname erzeugt. */
+function namenlos() {
+  const e = new Error('getaddrinfo EAI_AGAIN qdrant');
+  e.code = 'EAI_AGAIN';
+  return e;
+}
+
+describe('abgeschalteter Qdrant (Plan 023 G4)', () => {
+  beforeEach(() => {
+    axios.post.mockReset();
+    qdrant._pauseZuruecksetzen();
+  });
+
+  afterEach(() => qdrant._pauseZuruecksetzen());
+
+  test('der erste Fehlschlag wiederholt nicht und schaltet stumm', async () => {
+    axios.post.mockRejectedValue(namenlos());
+
+    await expect(qdrant.deleteDocumentVectors('d1')).resolves.toBe(false);
+
+    // EIN Versuch, nicht drei: ein nicht aufloesbarer Name wird beim zweiten
+    // Mal nicht besser.
+    expect(axios.post).toHaveBeenCalledTimes(1);
+    expect(qdrant.istAbgeschaltet()).toBe(true);
+  });
+
+  test('danach geht gar kein Aufruf mehr hinaus', async () => {
+    axios.post.mockRejectedValue(namenlos());
+    await qdrant.deleteDocumentVectors('d1');
+    axios.post.mockClear();
+
+    await expect(qdrant.deleteDocumentVectors('d2')).resolves.toBe(false);
+    await expect(qdrant.deleteDocumentVectorsSimple('d3')).resolves.toBe(false);
+    await expect(qdrant.updateDocumentSpacePayload('d4', null, '', '')).resolves.toBe(false);
+
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+
+  test('ein echter Fehler schaltet NICHT stumm', async () => {
+    // Eine abgerissene Verbindung heisst: Qdrant ist da und hat ein Problem.
+    // Da lohnt der zweite Versuch, und die naechste Loeschung muss es wieder
+    // probieren, statt eine Minute lang gar nichts zu tun.
+    const fehler = new Error('socket hang up');
+    fehler.code = 'ECONNRESET';
+    axios.post.mockRejectedValue(fehler);
+
+    await expect(qdrant.deleteDocumentVectors('d1')).resolves.toBe(false);
+
+    expect(axios.post).toHaveBeenCalledTimes(3);
+    expect(qdrant.istAbgeschaltet()).toBe(false);
+  });
+
+  test('ein geglueckter Aufruf hebt die Pause sofort auf', async () => {
+    axios.post.mockRejectedValueOnce(namenlos());
+    await qdrant.deleteDocumentVectors('d1');
+    expect(qdrant.istAbgeschaltet()).toBe(true);
+
+    // Qdrant kommt zurueck. Die Pause darf nicht bis zum Ablauf stehen bleiben.
+    qdrant._pauseZuruecksetzen();
+    axios.post.mockResolvedValue({ data: {} });
+    await expect(qdrant.deleteDocumentVectors('d2')).resolves.toBe(true);
+    expect(qdrant.istAbgeschaltet()).toBe(false);
+  });
+});
