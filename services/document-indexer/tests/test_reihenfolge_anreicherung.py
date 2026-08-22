@@ -79,7 +79,7 @@ def test_der_scan_indexiert_ohne_anzureichern():
     Stunde Wartezeit zurueck, ohne dass ein anderer Test es merkt.
     """
     import enhanced_indexer as ei
-    quelle = inspect.getsource(ei.EnhancedDocumentIndexer.scan_and_index)
+    quelle = inspect.getsource(ei.EnhancedDocumentIndexer._zyklus)
     assert "anreichern=False" in quelle, (
         "Der Scan-Zyklus reichert wieder waehrend des Indexierens an."
     )
@@ -88,7 +88,7 @@ def test_der_scan_indexiert_ohne_anzureichern():
 def test_nachgeholt_wird_nur_ohne_rueckstau():
     """Neue Dateien haben Vorrang vor der Zusammenfassung alter."""
     import enhanced_indexer as ei
-    quelle = inspect.getsource(ei.EnhancedDocumentIndexer.scan_and_index)
+    quelle = inspect.getsource(ei.EnhancedDocumentIndexer._zyklus)
     bedingung = quelle.index("if not cap_reached:")
     aufruf = quelle.index("self._anreicherung_nachholen()")
     assert bedingung < aufruf

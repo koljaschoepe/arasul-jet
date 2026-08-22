@@ -129,6 +129,10 @@ class EnhancedDocumentIndexer:
         self._nacharbeit_offen = False
         # doc_id -> gescheiterte Anreicherungs-Versuche (Plan 023 G4)
         self._anreicherung_versuche = {}
+        # Es laeuft immer nur EIN Zyklus (Plan 023 G4, siehe scan_and_index)
+        self._zyklus_lock = threading.Lock()
+        # Weckruf, der waehrend eines laufenden Zyklus kam (Plan 023 G4)
+        self._weckruf_offen = False
         self.status = {
             'running': True,
             'last_scan': None,
@@ -738,6 +742,41 @@ class EnhancedDocumentIndexer:
         )
 
     def scan_and_index(self):
+        """
+        Ein Zyklus: neue Dokumente indexieren, danach ggf. anreichern.
+
+        IMMER NUR EINER AUF EINMAL. Es gibt zwei Aufrufer: die eigene Schleife
+        in `run()` und `POST /scan`, das der Ordner-Sync seit dem 22.08.2026 bei
+        jeder Aenderung ruft (`api_server.trigger_scan` startet dafuer einen
+        Thread). Vorher war das selten genug, um nicht aufzufallen; seither
+        laufen regelmaessig zwei Zyklen nebeneinander, und das ging schief:
+
+        - Beide teilen sich die wartenden Dokumente. Jeder sieht dann WENIGER
+          als `INDEXER_MAX_DOCS_PER_CYCLE` und meldet `cap_reached = False`,
+          obwohl der Rueckstau da ist. Beide gehen daraufhin in die
+          Nachhol-Anreicherung, die genau dann NICHT laufen soll.
+        - Beide holen sich dieselben Dokumente aus
+          `get_dokumente_ohne_anreicherung` und fassen sie doppelt zusammen. Im
+          Protokoll stand am 22.08.2026 jede Zeile zweimal, mit zwei Sekunden
+          Abstand: doppelte GPU-Arbeit fuer dasselbe Ergebnis.
+
+        Ein Weckruf waehrend eines laufenden Zyklus geht nicht verloren: er
+        setzt `_nacharbeit_offen`, und die Schleife legt danach die kurze Pause
+        ein statt der langen.
+        """
+        if not self._zyklus_lock.acquire(blocking=False):
+            # NICHT `_nacharbeit_offen`: der laufende Zyklus setzt den am
+            # Ende auf seinen eigenen Stand und wuerde den Weckruf dabei
+            # ueberschreiben.
+            self._weckruf_offen = True
+            logger.debug("Zyklus laeuft bereits, Weckruf vorgemerkt")
+            return
+        try:
+            self._zyklus()
+        finally:
+            self._zyklus_lock.release()
+
+    def _zyklus(self):
         """Scan MinIO bucket and index new documents (capped per cycle)."""
         try:
             objects = self.minio_client.list_objects(
@@ -931,7 +970,12 @@ class EnhancedDocumentIndexer:
             # Plan 023 G4: liegt noch Arbeit, kurz durchatmen statt lange
             # schlafen. Sonst kostet ein Ordner mit hundert Dateien zehn
             # Runden a dreissig Sekunden, fuer rund zehn Sekunden Arbeit.
-            pause = INDEXER_NACHBRENNER if self._nacharbeit_offen else INDEXER_INTERVAL
+            # Ein Weckruf, der waehrend des Zyklus kam, zaehlt wie liegen
+            # gebliebene Arbeit: kurz durchatmen, dann noch einmal nachsehen.
+            weckruf = self._weckruf_offen
+            self._weckruf_offen = False
+            eilig = self._nacharbeit_offen or weckruf
+            pause = INDEXER_NACHBRENNER if eilig else INDEXER_INTERVAL
             time.sleep(pause)
 
     def stop(self):
