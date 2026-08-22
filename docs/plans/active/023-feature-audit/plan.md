@@ -8,15 +8,15 @@
 
 ## Stand
 
-| Phase                                 | Stand                                  | Belege                                                                                                                                                                                                     |
-| ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                       |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                               |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                           |
-| C, Fundament                          | **fertig** 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                      |
-| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                  |
-| D, Modelle                            | D1 bis D8 erledigt, D9 offen           | #444 bis #453. D7 Schritt 2 am 22.08.2026 live gemessen: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282. Die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung steht bei D7 |
-| E bis K                               | offen                                  | Neu aufgenommen: E9, eine klare Aufgabe wird zurueckgefragt statt ausgefuehrt                                                                                                                              |
+| Phase                                 | Stand                                  | Belege                                                                                                                                                                                                                                                                              |
+| ------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                  | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                        |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                    |
+| C, Fundament                          | **fertig** 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                               |
+| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                           |
+| D, Modelle                            | **fertig** 22.08.2026, live abgenommen | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel |
+| E bis K                               | offen                                  | Neu aufgenommen: E9, eine klare Aufgabe wird zurueckgefragt statt ausgefuehrt                                                                                                                                                                                                       |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -1936,6 +1936,48 @@ Claude Code.
 **Abnahme:** Ein hinterlegter Schlüssel macht das Modell im Chat wählbar. Ohne
 Schlüssel taucht nichts auf. Eine Anfrage an ein externes Modell ist im
 Prüfprotokoll als solche erkennbar. Behebt F-48.
+
+### Gebaut und live abgenommen, 22.08.2026
+
+Anthropic und OpenAI, je ein Schlüssel, verschlüsselt (AES-256-GCM, Schlüssel
+aus `JWT_SECRET`), standardmäßig aus. Migration 153, geräteweit ohne `user_id`,
+weil Entscheidung E1 sagt, es gibt keine Nutzerverwaltung.
+
+**Kein einziger Modellname steht im Code.** Die Liste kommt vom Anbieter
+selbst, beide bieten `GET /v1/models`. Das ist Regel 1 aus `CLAUDE.md`, und es
+hat einen praktischen Nebeneffekt: die Zusage „ohne Schlüssel taucht nichts
+auf" ergibt sich von allein, statt gefiltert zu werden, denn ohne Schlüssel
+gibt es niemanden zu fragen.
+
+Am Gerät geprüft:
+
+| Prüfung                                    | Ergebnis                                                             |
+| ------------------------------------------ | -------------------------------------------------------------------- |
+| Migration 153 angewendet                   | `success = t`                                                        |
+| Ab Werk                                    | beide Anbieter ohne Schlüssel, `aktiv: false`, 0 externe Modelle     |
+| Liegt der Schlüssel im Klartext in der DB? | **kein Klartext**, nur der AES-Blob                                  |
+| Falscher Schlüssel gegen die echte API     | `UNAUTHORIZED`, „Anthropic weist den hinterlegten Schlüssel zurück." |
+| Eingeschaltet mit falschem Schlüssel       | Liste bleibt leer, Fehler steht an der Anbieter-Zeile                |
+
+Die 401 belegt nebenbei, dass der Weg zu `api.anthropic.com` wirklich
+funktioniert.
+
+**Was NICHT live belegt ist:** der Positivfall mit einem gültigen Schlüssel.
+Dafür bräuchte es einen echten API-Schlüssel, und der gehört nicht in eine
+Arbeitssitzung. Der Pfad ist über Tests abgedeckt; die Abnahme „ein
+hinterlegter Schlüssel macht das Modell wählbar" steht erst, wenn Kolja einmal
+seinen eigenen Schlüssel einträgt. **Das ist der einzige offene Punkt an D9.**
+
+**Ein Fehler, den nur der Live-Lauf gezeigt hat.** Auf „Prüfen" antwortete das
+Produkt zuerst mit „Internal server error" statt mit der ehrlichen Meldung.
+`ergebnisFesthalten` ließ Postgres den Typ von `$2` raten. Die Folge war größer
+als der Fehler: der Aufruf steht in jedem catch-Zweig, sein eigener Fehler hat
+also den des Anbieters ersetzt. Behoben ist beides, der Cast und die Klammer um
+die Buchhaltung.
+
+**Bewusst gezogene Grenze:** protokolliert werden Chat-Anfragen, also die, die
+Nutzertext tragen. Das Abholen der Modellliste verlässt das Gerät auch, trägt
+aber keine Nutzerdaten und steht nicht im Protokoll.
 
 ---
 
