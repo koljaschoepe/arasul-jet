@@ -142,7 +142,7 @@ describe('Schalter mit Rueckfrage (Plan 023 H5)', () => {
   it('beim EINschalten wird nie gefragt', async () => {
     // Da geht nichts zu; eine Rueckfrage waere ein Klick ohne Grund.
     useWorkspaceStore.setState({
-      tabs: [{ id: 't1', type: 'database', title: 'Datenbank' }],
+      tabs: [{ id: 't1', type: 'erweiterungen', title: 'Erweiterungen' }],
       activeTabId: 't1',
     });
     render(<StoreExtensionsGrid />);

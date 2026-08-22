@@ -15,7 +15,7 @@ import { schalterText, betroffeneTabs, schliessFrage } from '../schalter';
 import type { WorkspaceTab } from '@/stores/workspaceStore';
 
 function tab(t: Partial<WorkspaceTab>): WorkspaceTab {
-  return { id: 'x', type: 'chat', title: 'X', ...t } as WorkspaceTab;
+  return { id: 'x', type: 'settings', title: 'X', ...t } as WorkspaceTab;
 }
 
 describe('schalterText', () => {
@@ -28,7 +28,7 @@ describe('schalterText', () => {
 describe('betroffeneTabs', () => {
   const tabs = [
     tab({ id: 'a', type: 'automationen' }),
-    tab({ id: 'b', type: 'chat' }),
+    tab({ id: 'b', type: 'settings' }),
     tab({ id: 'c', type: 'extension', extensionId: 'e1' }),
     tab({ id: 'd', type: 'extension', extensionId: 'e2' }),
   ];
