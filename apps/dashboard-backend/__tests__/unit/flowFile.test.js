@@ -285,3 +285,44 @@ Antwort aus {{q}}.
     expect(() => parseFlowFile(bad)).toThrow(/auftrag/);
   });
 });
+
+/**
+ * Plan 023 I2: die Betriebsart steht in der Datei, aber nur wenn sie vom
+ * Standard abweicht.
+ */
+describe('Betriebsart (Plan 023 I2)', () => {
+  const basis = {
+    name: 'test',
+    beschreibung: '',
+    argumente: [],
+    ordner: [],
+    werkzeuge: [],
+    rollen: [],
+    schritte: [],
+    grenzen: {},
+    systemPrompt: 'Tu etwas.',
+  };
+
+  it('schreibt autonom NICHT in die Datei', () => {
+    // Sonst bekaemen alle vorhandenen Flow-Dateien beim naechsten Speichern
+    // eine Zeile dazu, die nichts aendert.
+    const text = serializeFlowFile({ ...basis, betriebsart: 'autonom' });
+    expect(text).not.toContain('betriebsart');
+  });
+
+  it('schreibt rueckfragen in die Datei', () => {
+    const text = serializeFlowFile({ ...basis, betriebsart: 'rueckfragen' });
+    expect(text).toContain('betriebsart: rueckfragen');
+  });
+
+  it('eine Datei ohne Angabe bleibt autonom', () => {
+    const text = serializeFlowFile(basis);
+    expect(text).not.toContain('betriebsart');
+    expect(parseFlowFile(text).betriebsart).toBe('autonom');
+  });
+
+  it('liest die Betriebsart wieder ein', () => {
+    const text = serializeFlowFile({ ...basis, betriebsart: 'rueckfragen' });
+    expect(parseFlowFile(text).betriebsart).toBe('rueckfragen');
+  });
+});

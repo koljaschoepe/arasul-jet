@@ -147,6 +147,12 @@ function serializeFlowFile(flow) {
     ...(flow.rollen && flow.rollen.length ? { rollen: flow.rollen } : {}),
     ...(flow.schritte && flow.schritte.length ? { schritte: flow.schritte } : {}),
     ...(flow.grenzen ? { grenzen: flow.grenzen } : {}),
+    // Nur schreiben, wenn es NICHT die Voreinstellung ist: sonst bekämen alle
+    // vorhandenen Flow-Dateien beim nächsten Speichern eine Zeile dazu, die
+    // nichts ändert (Plan 023 I2).
+    ...(flow.betriebsart && flow.betriebsart !== 'autonom'
+      ? { betriebsart: flow.betriebsart }
+      : {}),
     ...(flow.ausgabe ? { ausgabe: flow.ausgabe } : {}),
   };
 

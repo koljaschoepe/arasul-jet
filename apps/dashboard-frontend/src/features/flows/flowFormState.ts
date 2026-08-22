@@ -28,6 +28,11 @@ export interface FlowFormState {
   rollen: FlowRole[];
   schritte: FlowStep[];
   grenzen: FlowLimits;
+  /**
+   * Betriebsart (Plan 023 I2). `autonom` ist die Voreinstellung: der Flow fragt
+   * nie, er trifft die Annahme und schreibt sie mit.
+   */
+  betriebsart: 'autonom' | 'rueckfragen';
   /** Die Ausgabe-Sektion (Flows-Umbau 2026-08-02) — immer gesetzt, `format:
    *  'keins'` heißt „nur Text-Antwort, keine Datei". */
   ausgabe: FlowAusgabe;
@@ -57,6 +62,7 @@ export const LEER_FORM: FlowFormState = {
   rollen: [],
   schritte: [],
   grenzen: { ...STANDARD_GRENZEN },
+  betriebsart: 'autonom',
   ausgabe: { ...STANDARD_AUSGABE },
   modell: '',
 };
@@ -116,6 +122,7 @@ export function fromDefinition(def: FlowDefinition): FlowFormState {
       parameter: s.parameter ? { ...s.parameter } : undefined,
     })),
     grenzen: { ...STANDARD_GRENZEN, ...(def.grenzen ?? {}) },
+    betriebsart: def.betriebsart ?? 'autonom',
     ausgabe: def.ausgabe
       ? {
           ...def.ausgabe,
@@ -233,6 +240,7 @@ export function toBody(state: FlowFormState): Record<string, unknown> {
       werkzeug_runden: state.grenzen.werkzeug_runden,
       max_tiefe: state.grenzen.max_tiefe,
     },
+    betriebsart: state.betriebsart,
     ausgabe: ausgabeToBody(state.ausgabe),
     // Leeres Modell wird MITGESCHICKT: der zusammenführende PUT übernimmt es
     // und der Serializer lässt '' weg — so lässt sich ein gesetztes Modell

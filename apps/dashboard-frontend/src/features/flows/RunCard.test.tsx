@@ -38,6 +38,7 @@ function base(overrides: Partial<FlowRunState> = {}): FlowRunState {
     error: null,
     changes: [],
     annahmen: [],
+    frage: null,
     verbunden: true,
     ...overrides,
   };

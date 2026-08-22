@@ -29,6 +29,10 @@ const VALID_TOOLS = [
   // Plan 014, Phase 5: stellt ZUGFeRD-Rechnungen mit lückenlosem Nummernkreis
   // aus — alle Summen rechnet Code, nie das Modell.
   'rechnung_erstellen',
+  // Plan 023 I3: EINE Rückfrage an den Nutzer, mit bis zu vier Optionen. Nur
+  // wirksam in der Betriebsart `rueckfragen`; in `autonom` legt die Registry
+  // es gar nicht erst in den Kasten (siehe `betriebsart` unten).
+  'frage_nutzer',
 ];
 
 // Argumenttypen. Jeder Typ entspricht einer eigenen Eingabehilfe im Chat und —
@@ -334,11 +338,32 @@ const FlowDefinition = z
     // der Rumpf-Prompt die Antwort aus ihren Ausgaben.
     schritte: z.array(FlowStep).max(20).default([]),
     grenzen: FlowLimits,
+    // Plan 023 I2: zwei Betriebsarten. `autonom` ist die Voreinstellung und das
+    // bisherige Verhalten: der Flow fragt nie, er trifft die Annahme und
+    // schreibt sie mit (Annahmen-Protokoll, `pruefung.js`). `rueckfragen`
+    // erlaubt ihm, anzuhalten und zu fragen.
+    //
+    // Die Voreinstellung ist Absicht: jeder vorhandene Flow bleibt genau so,
+    // wie er war, und ein Flow, der ungefragt anhält, wäre für einen
+    // n8n-Start oder einen nächtlichen Lauf das Ende.
+    betriebsart: z.enum(['autonom', 'rueckfragen']).default('autonom'),
     ausgabe: FlowAusgabe.optional(),
     systemPrompt: z.string().trim().min(1, 'Ein Flow braucht einen Prompt (Markdown-Rumpf)'),
   })
   .strict()
   .superRefine((flow, ctx) => {
+    // Plan 023 I2: `frage_nutzer` in einem autonomen Flow ist ein Widerspruch,
+    // kein Detail. Ihn beim Anlegen zu melden ist besser, als ihn zur Laufzeit
+    // stillschweigend aufzulösen — der Autor glaubt sonst, sein Flow frage.
+    if (flow.betriebsart !== 'rueckfragen' && flow.werkzeuge.includes('frage_nutzer')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['werkzeuge'],
+        message:
+          '"frage_nutzer" braucht die Betriebsart "rueckfragen". Ein autonomer ' +
+          'Flow stellt keine Frage, er trifft die Annahme und schreibt sie mit.',
+      });
+    }
     // Doppelte Argumentnamen — sonst überschreibt die Platzhalter-Ersetzung
     // still den einen mit dem anderen.
     const argNames = flow.argumente.map(a => a.name);
@@ -532,6 +557,19 @@ const FlowNameParams = z.object({ name: FlowName }).strict();
 const RunIdParams = z.object({ id: z.coerce.number().int().positive() }).strict();
 
 /**
+ * Die Antwort auf eine Rückfrage (Plan 023 I3).
+ *
+ * Ob der Text einer der angebotenen Optionen entspricht, prüft NIEMAND: das
+ * Freitextfeld ist Teil der Zusage, und eine Antwort, die keine Option ist, ist
+ * genau der Fall, für den es da ist.
+ */
+const FlowAntwortBody = z
+  .object({
+    antwort: z.string().trim().min(1, 'Eine leere Antwort hilft dem Lauf nicht weiter').max(2000),
+  })
+  .strict();
+
+/**
  * Body von POST /flows/laeufe/:id/wiederholen („Ab Fehler wiederholen",
  * 2026-07-29). Bewusst leer und `.strict()`: Der Lauf bestimmt Flow und
  * Argumente selbst — ein Body-Feld hier wäre ein Missverständnis des Aufrufers
@@ -618,6 +656,7 @@ module.exports = {
   FlowNameParams,
   VorlageNameParams,
   RunIdParams,
+  FlowAntwortBody,
   WiederholenBody,
   ListRunsQuery,
   StartRunBody,

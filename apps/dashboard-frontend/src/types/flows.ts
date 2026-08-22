@@ -52,7 +52,9 @@ export type FlowTool =
   | 'web_lesen'
   | 'terminal'
   | 'subagent'
-  | 'rechnung_erstellen';
+  | 'rechnung_erstellen'
+  // Plan 023 I3: nur in der Betriebsart `rueckfragen` wirksam.
+  | 'frage_nutzer';
 
 /** Der Ergebnis-Vertrag einer Subagent-Rolle (§3 Kontext-Sparsamkeit). */
 export interface FlowRoleResult {
@@ -149,6 +151,12 @@ export interface FlowDefinition {
   /** Optionale deterministische Schritt-Kette (B7). Leer → modellgetrieben. */
   schritte: FlowStep[];
   grenzen: FlowLimits;
+  /**
+   * Zwei Betriebsarten (Plan 023 I2). `autonom` ist die Voreinstellung und das
+   * bisherige Verhalten: der Flow fragt nie, er trifft die Annahme und schreibt
+   * sie mit. `rueckfragen` erlaubt ihm, anzuhalten und zu fragen.
+   */
+  betriebsart?: 'autonom' | 'rueckfragen';
   ausgabe?: FlowAusgabe;
   prompt: string;
 }

@@ -356,7 +356,7 @@ async function runFlow(
   }
 
   // 3. Werkzeuge.
-  const tools = makeTools(flow.werkzeuge);
+  const tools = makeTools(flow.werkzeuge, { betriebsart: flow.betriebsart });
 
   // 4. Kontext für die Werkzeuge (die Basis, die auch Rollen für IHRE Werkzeuge
   //    erben). Bewusst getrennt gehalten: `roleContextBase` sind die Ordner/
@@ -468,6 +468,9 @@ async function runFlow(
     // Das Abbruch-Signal fließt mit in den Kontext, damit auch die
     // verschachtelten Rollen-Schleifen (Subagent) es prüfen und aufhören.
     signal,
+    // Plan 023 I3: `frage_nutzer` braucht die Lauf-Nummer, um seine Frage
+    // zuzuordnen. `onEvent` kommt gleich dazu, sobald `weiter` steht.
+    runId: run.id,
   };
 
   // Ereignisse der Schleife an den Lauf-Speicher UND an den optionalen Live-Sink
@@ -503,6 +506,12 @@ async function runFlow(
       emitLive(evt);
     }
   };
+
+  // Erst jetzt, weil `weiter` oben noch nicht stand (Plan 023 I3). Das
+  // Werkzeug `frage_nutzer` schickt seine Frage hierüber an den Live-Kanal.
+  context.onEvent = weiter;
+  roleContextBase.onEvent = weiter;
+  roleContextBase.runId = run.id;
 
   // 5b. Änderungs-Übersicht (Schritt 16): Nur wenn der Flow überhaupt Dateien
   //     verändern KANN (Schreib-Werkzeug oder Terminal), einen Abzug der Ordner
