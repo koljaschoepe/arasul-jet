@@ -190,3 +190,30 @@ describe('abbruchGrund', () => {
     });
   });
 });
+
+/**
+ * Plan 023 E2, gefunden bei der Live-Abnahme: ein Abbruch ZWISCHEN zwei Runden.
+ *
+ * Der Stopp-Knopf beendete am 22.08.2026 einen Lauf, der 32 Minuten gelaufen
+ * war. In der Datenbank stand alles richtig (`nutzer`, `ABB-f4fd66-nutzer`), im
+ * Chat aber nur der nackte Satz `_Abgebrochen._`. Der Grund: dieser Weg
+ * verlaesst die Runden-Schleife, ohne zu werfen, und der catch-Zweig, der die
+ * Kennung setzt, laeuft nie.
+ *
+ * Die Lehre steckt in `kennung`: sie ist aus Job-Id und Grund ABLEITBAR. Wo
+ * keine mitgefuehrt wurde, wird sie hergeleitet, statt sie wegzulassen.
+ */
+describe('Kennung als Notnagel (Plan 023 E2)', () => {
+  it('laesst sich jederzeit aus Job und Grund herleiten', () => {
+    expect(kennung(JOB, 'nutzer')).toBe('ABB-3f2a91-nutzer');
+    expect(abbruchText('nutzer', kennung(JOB, 'nutzer'))).toContain('Kennung ABB-3f2a91-nutzer');
+  });
+
+  it('ergibt denselben Satz wie der Weg ueber den catch-Zweig', () => {
+    // Sonst stuende im Chat je nach Weg etwas anderes, und der Nutzer koennte
+    // aus dem Satz nicht schliessen, wonach er suchen soll.
+    const ueberCatch = abbruchText('nutzer', 'ABB-3f2a91-nutzer');
+    const ueberNotnagel = abbruchText('nutzer', kennung(JOB, 'nutzer'));
+    expect(ueberNotnagel).toBe(ueberCatch);
+  });
+});
