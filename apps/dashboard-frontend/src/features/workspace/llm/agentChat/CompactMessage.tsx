@@ -27,6 +27,8 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
 import { Denkzeile, dauerText } from './Denkzeile';
 import { DateiDiff } from './DateiDiff';
+import { Quellenzeile } from './Quellenzeile';
+import { quellenAusSchritten } from './quellen';
 import { agentStepLabel, agentStepIcon } from './schrittText';
 
 /** Einklappbare Ein-Zeilen-Row für Denk-/Tool-Schritte. */
@@ -674,11 +676,24 @@ function DateiBlock({ datei }: { datei: MessageDatei }) {
 interface CompactMessageProps {
   message: ChatMessage;
   isStreaming: boolean;
+  /**
+   * Das aktive Projekt (Plan 023 E8).
+   *
+   * Wird von aussen hereingereicht, nicht selbst geholt: diese Komponente ist
+   * darstellend, und ein Datenhaken darin verlangte einen QueryClient um jede
+   * einzelne Nachricht.
+   */
+  projectId?: string | null;
   /** Nachträgliche Aktion „Als Datei speichern" an einer fertigen Antwort. */
   onAlsDateiSpeichern?: (m: ChatMessage) => Promise<void> | void;
 }
 
-function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: CompactMessageProps) {
+function CompactMessageInner({
+  message,
+  isStreaming,
+  onAlsDateiSpeichern,
+  projectId: aktivesProjekt = null,
+}: CompactMessageProps) {
   // Bei gespeicherter Datei ist die Karte die Hauptdarstellung; der volle
   // Antwort-Text bleibt auf Klick erreichbar.
   const [textOffen, setTextOffen] = useState(false);
@@ -739,6 +754,12 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
         ? parseTodoSchritt(todoSchritt.result)
         : [];
   const gespeicherteDateien = dateiListe(message.datei).filter(d => d.art === 'projektdatei');
+  // Plan 023 E8: aus denselben Schritten, die oben die Liste zeichnen.
+  const quellenlage = useMemo(() => quellenAusSchritten(alleSteps), [alleSteps]);
+  // Das aktive Projekt, nicht das einer geschriebenen Datei: eine reine
+  // Lesefrage schreibt nichts, und die Quellen waeren sonst nicht anklickbar.
+  const quellProjektId =
+    aktivesProjekt ?? gespeicherteDateien.find(d => d.project_id)?.project_id ?? null;
 
   return (
     <div className="group/nachricht my-2" data-testid="assistant-message">
@@ -839,6 +860,13 @@ function CompactMessageInner({ message, isStreaming, onAlsDateiSpeichern }: Comp
       )}
 
       {message.sources && message.sources.length > 0 && <SourcesFooter sources={message.sources} />}
+
+      {/* Plan 023 E8: die Quellen des AGENT-Pfads. `message.sources` fuellt nur
+          die alte RAG-Pipeline; im Agent-Modus, dem Normalfall, stand dort
+          nichts, und die Zusage des leeren Chats ("Antworten kommen mit Quellen
+          aus deinen Dokumenten") hatte keine Deckung. Die Auskunft liegt in den
+          Schritten des Laufs, also wird sie von dort gelesen. */}
+      {!isStreaming && <Quellenzeile lage={quellenlage} projectId={quellProjektId} />}
 
       {/* Nachträglich als Datei speichern — dezent, erscheint beim Überfahren. */}
       {!isStreaming &&

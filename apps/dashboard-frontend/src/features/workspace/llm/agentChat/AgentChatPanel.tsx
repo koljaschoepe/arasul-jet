@@ -827,6 +827,7 @@ export default function AgentChatPanel() {
                   message={m}
                   isStreaming={isLoading && i === lastIndex}
                   onAlsDateiSpeichern={handleAlsDateiSpeichern}
+                  projectId={chatDateiZiel?.projectId || activeProjectId || null}
                 />
               </ComponentErrorBoundary>
             ))}

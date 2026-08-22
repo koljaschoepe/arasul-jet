@@ -261,3 +261,87 @@ describe('Lauf-Metrik (Plan 023 E4)', () => {
     expect(screen.queryByTestId('tokens-pro-sekunde')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Plan 023 E8: die Quellen des Agent-Pfads.
+ *
+ * Der leere Chat verspricht „Antworten kommen mit Quellen aus deinen
+ * Dokumenten". `message.sources` füllt nur die alte RAG-Pipeline; im
+ * Agent-Modus, dem Normalfall, stand dort nichts.
+ */
+describe('Quellen aus dem Agent-Lauf (Plan 023 E8)', () => {
+  it('nennt Datei und Stelle nach einem Treffer', () => {
+    render(
+      <CompactMessage
+        isStreaming={false}
+        projectId="p1"
+        message={nachricht({
+          content: 'Ein Switch verbindet Geräte im LAN.',
+          steps: [
+            {
+              id: 1,
+              tool: 'rag_suche',
+              params: { frage: 'Switch' },
+              status: 'done',
+              result: 'Gefundene Stellen:\n1. [handbuch.md] Ein Switch verbindet Geräte im LAN.',
+            },
+          ],
+        })}
+      />
+    );
+    fireEvent.click(screen.getByTestId('quellen-schalter'));
+    const liste = screen.getByTestId('quellen-liste');
+    expect(liste).toHaveTextContent('handbuch.md');
+    expect(liste).toHaveTextContent('Ein Switch verbindet Geräte im LAN.');
+  });
+
+  it('sagt bei erfolgloser Suche, dass nichts gefunden wurde, und wonach', () => {
+    render(
+      <CompactMessage
+        isStreaming={false}
+        projectId="p1"
+        message={nachricht({
+          content: 'Dazu weiß ich nichts aus deinen Unterlagen.',
+          steps: [
+            {
+              id: 1,
+              tool: 'rag_suche',
+              params: { frage: 'Quartalszahlen' },
+              status: 'done',
+              result: 'Nichts gefunden, die Wissensbasis enthaelt keine passenden Stellen.',
+            },
+          ],
+        })}
+      />
+    );
+    const zeile = screen.getByTestId('quellen-leer');
+    expect(zeile).toHaveTextContent('nichts Passendes gefunden');
+    expect(zeile).toHaveTextContent('Quartalszahlen');
+  });
+
+  it('schweigt, wenn der Lauf gar nicht in Dokumenten gesucht hat', () => {
+    render(<CompactMessage isStreaming={false} message={nachricht({ content: 'Guten Tag.' })} />);
+    expect(screen.queryByTestId('quellen')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('quellen-leer')).not.toBeInTheDocument();
+  });
+
+  it('zeigt waehrend des Laufs noch keine Quellen', () => {
+    render(
+      <CompactMessage
+        isStreaming
+        message={nachricht({
+          steps: [
+            {
+              id: 1,
+              tool: 'rag_suche',
+              params: { frage: 'x' },
+              status: 'done',
+              result: 'Nichts gefunden.',
+            },
+          ],
+        })}
+      />
+    );
+    expect(screen.queryByTestId('quellen-leer')).not.toBeInTheDocument();
+  });
+});
