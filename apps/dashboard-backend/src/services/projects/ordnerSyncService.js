@@ -45,6 +45,7 @@ const path = require('path');
 const crypto = require('crypto');
 const logger = require('../../utils/logger');
 const { dekodiereUploadName } = require('../../utils/uploadName');
+const services = require('../../config/services');
 
 // Lazy geladen, damit Tests einzelne Abhängigkeiten ersetzen können.
 function deps(overrides = {}) {
@@ -651,7 +652,33 @@ async function synchronisiere(projectId, overrides = {}) {
         (stats.doubletten ? `, ${stats.doubletten} Doublette(n) übersprungen` : '')
     );
   }
+  // Plan 023 G4: den Indexer wecken, statt ihn warten zu lassen.
+  //
+  // Er sucht von sich aus alle dreissig Sekunden. Am 22.08.2026 auf dem Orin
+  // gemessen brauchte eine Datei mit 739 Byte deshalb 1:53 Minuten, obwohl das
+  // Verarbeiten selbst rund eine Sekunde dauert. Der Endpunkt dafuer gibt es
+  // seit langem; niemand hat ihn je gerufen.
+  if (stats.neu || stats.geaendert) {
+    weckeIndexer();
+  }
   return stats;
+}
+
+/**
+ * Sagt dem Indexer, dass etwas zu tun ist (Plan 023 G4).
+ *
+ * Ohne await und ohne Fehlerbehandlung nach aussen: der Ordner-Sync ist fertig,
+ * ob der Indexer die Nachricht bekommt oder nicht. Bekommt er sie nicht, greift
+ * sein eigener Takt wie bisher, nur eben langsamer.
+ */
+function weckeIndexer() {
+  const url = `${services.documentIndexer.url}/scan`;
+  const abbruch = new AbortController();
+  const wecker = setTimeout(() => abbruch.abort(), 3000);
+  fetch(url, { method: 'POST', signal: abbruch.signal })
+    .then(() => logger.debug('Ordner-Sync: Indexer geweckt'))
+    .catch(err => logger.debug(`Ordner-Sync: Indexer nicht geweckt: ${err.message}`))
+    .finally(() => clearTimeout(wecker));
 }
 
 /**

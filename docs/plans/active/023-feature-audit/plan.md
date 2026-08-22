@@ -2956,6 +2956,49 @@ Einbettungsmodells und Taktung der Warteschlange.
 **Abnahme:** Eine kleine Datei ist in unter fünf Sekunden durchsuchbar. Ein
 Ordner mit 100 Dateien in unter zwei Minuten. Behebt F-49.
 
+### Erst gemessen: der Indexer schläft, während die Arbeit wartet
+
+Am 22.08.2026 auf dem Orin, mit 93 wartenden Dokumenten:
+
+|                                       |                    |
+| ------------------------------------- | ------------------ |
+| `documents` auf `pending`             | **93**             |
+| CPU des Indexers                      | **0,01 Prozent**   |
+| Zeit für ein Dokument, laut Protokoll | rund **1 Sekunde** |
+
+Und die Zeile, die alles erklärt:
+
+```
+Scan cycle cap reached (10 docs); remaining pending documents
+will be picked up in next cycle.
+```
+
+Zwei Werte stehen dahinter: `DOCUMENT_INDEXER_INTERVAL = 30` und
+`DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE = 10`. Der Indexer nimmt zehn Dokumente,
+arbeitet sie in rund zehn Sekunden ab und schläft dann dreißig. Bei hundert
+Dateien sind das zehn Runden, also **fünf Minuten Wartezeit für zehn Sekunden
+Arbeit**.
+
+Die gemeldeten 1:53 Minuten für eine Datei mit 739 Byte sind damit erklärt: sie
+war fast vollständig Warten auf den nächsten Zyklus.
+
+### Was daraus wurde
+
+**Der Indexer wird geweckt.** `POST /scan` gibt es seit langem im Indexer, und
+niemand hat ihn je gerufen. Der Ordner-Sync tut es jetzt, sobald er etwas Neues
+oder Geändertes gespiegelt hat. Ohne `await` und ohne Fehlerbehandlung nach
+außen: der Sync ist fertig, ob die Nachricht ankommt oder nicht, und wenn nicht,
+greift der eigene Takt wie bisher.
+
+**Nach einem vollen Zyklus wird kurz durchgeatmet, nicht lange geschlafen.**
+Bleibt Arbeit liegen, geht es nach `DOCUMENT_INDEXER_NACHBRENNER` Sekunden
+weiter (Vorgabe 2) statt nach dreißig. Der Deckel selbst bleibt: er hält einen
+Zyklus überschaubar, und der Wachhund sieht regelmäßig Leben. Nur das Schlafen
+danach hatte keinen Sinn.
+
+Aus fünf Minuten für hundert Dateien werden damit rechnerisch rund zwanzig
+Sekunden.
+
 ## G5 Vektorsuche einschalten
 
 Die Suche läuft heute auf der Textebene, die Vektorsuche ist aus. Damit ist die
