@@ -312,12 +312,61 @@ router.get(
       }),
     };
 
-    // Set headers for download
     const filename = `arasul-gdpr-export-${req.user.username}-${new Date().toISOString().split('T')[0]}.json`;
+
+    // Plan 023 J3: mit `?ziel=<datentraeger>` landet der Export auf einer
+    // angesteckten Platte statt im Browser. Der Export selbst ist derselbe —
+    // nur diese letzten Zeilen entscheiden, wohin er geht. Ihn zweimal zu bauen
+    // waeren zwei Wahrheiten ueber denselben Datenbestand.
+    const ziel = typeof req.query.ziel === 'string' ? req.query.ziel.trim() : '';
+    if (ziel) {
+      const medien = require('../../services/medien/medienService');
+      const geschrieben = await medien.schreibe(
+        ziel,
+        filename,
+        JSON.stringify(exportData, null, 2)
+      );
+      logSecurityEvent({
+        userId,
+        action: 'gdpr_data_export',
+        details: { ziel: geschrieben.pfad, bytes: geschrieben.bytes },
+        ipAddress: req.ip,
+        requestId: req.headers['x-request-id'],
+      });
+      res.json({
+        ok: true,
+        message: `Export liegt auf "${ziel}".`,
+        datei: geschrieben.pfad,
+        bytes: geschrieben.bytes,
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Set headers for download
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
     res.json(exportData);
+  })
+);
+
+/**
+ * GET /api/gdpr/ziele
+ * Welche Datenträger sind gerade angesteckt (Plan 023 J3)?
+ *
+ * Die Antwort trägt IMMER einen `hinweis`, wenn nichts da ist — und der
+ * unterscheidet „keine Platte angesteckt" von „der Ordner ist gar nicht
+ * eingebunden". Ohne diesen Unterschied sucht jemand eine Stunde am falschen
+ * Ende.
+ */
+router.get(
+  '/ziele',
+  requireAuth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const data = await require('../../services/medien/medienService').liste();
+    res.json({ data, timestamp: new Date().toISOString() });
   })
 );
 
