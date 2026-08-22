@@ -329,7 +329,14 @@ router.get(
     };
 
     connection.onClose(() => {
-      logger.debug(`[RECONNECT ${jobId}] Client disconnected`);
+      // Plan 023 E1: die vierte der vier Stellen aus dem Plan, der
+      // "Verbindungsabbruch im Browser". Gemessen ist das KEIN Abbruch: der
+      // Lauf laeuft weiter, und beim Zurueckkommen holt `reconnect` ihn ab.
+      // Genau deshalb steht hier `[VERBINDUNG]` und nicht `[ABBRUCH]` - wer
+      // beides gleich benennt, sucht spaeter die Ursache an der falschen
+      // Stelle. Zaehlbar ist es trotzdem, denn haeufen sich die Zeilen
+      // waehrend eines Laufs, reisst die Leitung, nicht das Modell.
+      logger.info(`[VERBINDUNG] job=${jobId} zustand=weg lauf=geht_weiter`);
       clearPoll();
       if (unsubscribe) {
         unsubscribe();

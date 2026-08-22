@@ -9,6 +9,8 @@
  *   const testService = createLLMJobService({ database: mockDb, logger: mockLogger });
  */
 
+const { abbruchMelden, abbruchFesthalten } = require('./abbruchGrund');
+
 // Batching configuration
 const BATCH_INTERVAL_MS = 500;
 const BATCH_SIZE_CHARS = 100;
@@ -490,11 +492,29 @@ function createLLMJobService(deps = {}) {
               ]
             );
             if (row.job_status === 'streaming' || row.job_status === 'pending') {
+              // Plan 023 E1: derselbe Grund wie ueberall, damit sich ein
+              // Neustart-Abbruch von einem Zeitlimit unterscheiden laesst,
+              // ohne den Freitext zu lesen.
+              const kennung = abbruchMelden({
+                log: logger,
+                jobId: row.job_id_found,
+                grund: 'neustart',
+                quelle: 'llmJobService.recoverOrphanedMessages',
+                detail: `Nachricht ${row.message_id} stand auf 'streaming', Job auf '${row.job_status}'`,
+              });
               await database.query(
                 `UPDATE llm_jobs SET status = 'error', completed_at = NOW(),
                  error_message = 'Durch Neustart unterbrochen, Antwort unvollständig' WHERE id = $1`,
                 [row.job_id_found]
               );
+              await abbruchFesthalten({
+                database,
+                log: logger,
+                jobId: row.job_id_found,
+                grund: 'neustart',
+                kennung,
+                detail: row.job_status,
+              });
             }
             recovered++;
             logger.info(

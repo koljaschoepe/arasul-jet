@@ -1463,6 +1463,20 @@ inert.
 | `context_window_used` | integer                  | ✅       |                                |
 | `matched_spaces`      | jsonb                    | ✅       |                                |
 | `images`              | jsonb                    | ✅       |                                |
+| `abbruch_grund`       | character varying        | ✅       |                                |
+| `abbruch_kennung`     | character varying        | ✅       |                                |
+| `abbruch_detail`      | text                     | ✅       |                                |
+| `abbruch_am`          | timestamp with time zone | ✅       |                                |
+
+Die vier `abbruch_*`-Spalten kommen aus Migration 154 (Plan 023 E1) und sind
+ausdrücklich etwas anderes als `error_message`. `abbruch_grund` ist eine stabile
+Kennung aus `services/llm/abbruchGrund.js` (`nutzer`, `stream_still`,
+`strom_zeitlimit`, `zuhoerer_verworfen`, `neustart`, ...), nach der sich zählen
+lässt; `error_message` ist freier Text, nach dem sich nicht zählen lässt.
+`abbruch_kennung` hat die Form `ABB-<6 Zeichen der Job-Id>-<Grund>` und steht
+zugleich im Chat und im Protokoll, damit der Weg von der Meldung auf dem
+Bildschirm zur Zeile im Protokoll eine einzige Suche ist. Auswertung:
+`scripts/util/abbrueche.sh`.
 
 **Primary key:** `id`
 
