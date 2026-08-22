@@ -3720,6 +3720,28 @@ Betrifft Dashboard und MinIO.
 **Abnahme:** Beide Passwörter geändert, neu angemeldet, Dateizugriff geprüft,
 alter Zugang abgelehnt. Fehlerfälle mit verständlicher Meldung.
 
+### Gefunden: der Dateizugriff überlebte den MinIO-Wechsel nicht
+
+Der Ablauf sah aus wie Erfolg: `.env` schreiben, MinIO neu starten, „changed
+successfully" antworten. Das Backend läuft dabei weiter, und es hielt einen
+zwischengespeicherten MinIO-Client mit dem **alten** Geheimnis fest:
+
+```js
+// minioService.js, beim LADEN des Moduls gelesen
+const MINIO_ROOT_PASSWORD = process.env.MINIO_ROOT_PASSWORD;
+```
+
+Jeder Datei-Zugriff scheiterte danach mit `SignatureDoesNotMatch`, bis jemand
+das Dashboard neu startete. Genau der Schritt, den die Abnahme nennt.
+
+**Behoben (#504):** das Geheimnis wird beim Bauen des Clients gelesen, und die
+Route setzt `process.env` sowie den zwischengespeicherten Client zurück. Ein
+Test hält fest, dass **beides** nötig ist.
+
+**Offen:** die Live-Abnahme ist destruktiv (sie ändert das MinIO-Root-Passwort
+des Geräts) und gehört auf den Prüfstand. Der Dashboard-Teil ist noch nicht
+nachgemessen.
+
 ## J2 Fernzugriff belastbar
 
 Der Zustand muss laufend ausgelesen und aktualisiert werden, auch auf anderer
@@ -3729,6 +3751,27 @@ getrennt.
 
 **Abnahme:** Zustand aktualisiert sich ohne Neuladen. Schritt 5 zeigt erledigt,
 wenn die Verbindung steht. Die Seite bricht bei keiner Breite.
+
+### Live abgenommen, 22.08.2026
+
+Im Browser gegen den Orin (`scripts/test/fernzugriff-abnahme.mjs`), acht von
+acht:
+
+| Zusage                            | gemessen                                                  |
+| --------------------------------- | --------------------------------------------------------- |
+| Zustand ohne Neuladen             | eine zweite Statusabfrage in 35 Sekunden                  |
+| Schritt 5 erledigt bei Verbindung | alle fünf Schritte abgehakt, „Fertig" grün                |
+| keine Breite bricht               | 400, 600, 900, 1200, 1600 Pixel, kein waagerechtes Rollen |
+
+Die fünf Schritte stehen bei 1400 Pixeln in einer Reihe und sind klar getrennt.
+
+**Ein Fehlalarm von mir, festgehalten, weil er lehrreich ist.** Das erste Bild
+zeigte eine rechts abgeschnittene Seite, und ich hielt das für einen Befund.
+Es war der Nachhall des Wechsels auf 400 Pixel im selben Durchlauf: die
+Aufteilung schaltet dort auf zwei Spalten (siehe F5) und braucht länger als die
+Wartezeit, bis sie wieder drei zeichnet. Ein sauberes zweites Bild ohne
+Größenwechsel zeigte die Seite vollständig. Das Prüfskript nimmt das Bild
+jetzt ZUERST auf.
 
 ## J3 Datenexport auf externe SSD
 
@@ -3752,6 +3795,42 @@ keinen fremden Datenbestand, den man versehentlich mitlöschen könnte.
 Projekte des Zugangs. Eine anschließende Auskunft liefert leere Kategorien. Vorher
 ein Export, nachher ein Vergleich.
 
+### Der Plan nennt einen Fehler. Es sind drei.
+
+Alle drei haben dieselbe Eigenschaft: **die Antwort meldete Erfolg.**
+
+**Erstens der genannte.** `DELETE FROM documents WHERE uploaded_by = $1` mit der
+Id. Am 22.08.2026 auf dem Orin nachgesehen: `uploaded_by` ist
+`character varying` und enthält `admin`, `ordner-sync`, `nightrun`. Der
+Vergleich traf nie, `rowCount: 0`, kein Fehler.
+
+**Zweitens:** Wissensräume und Projekte wurden gar nicht gelöscht, obwohl der
+Kommentar über der Route sie aufzählte. Die Begründung dort — `knowledge_spaces`
+habe „kein user_id-Feld" — stimmte nicht, die Tabelle hat ein `owner_id`.
+
+**Drittens, und das ist der schwerste:** der Letzter-Admin-Schutz machte die
+Löschung auf einem Kundengerät **unmöglich**. Mit einem Zugang je Gerät
+(Entscheidung E1) ist der Antragsteller immer der letzte Admin, und Art. 17 lief
+grundsätzlich in einen 403.
+
+### Was daraus wurde (#501)
+
+Die Daten werden jetzt immer gelöscht. Nur die Zugangs-Zeile bleibt beim letzten
+Admin stehen, und die Antwort sagt das ausdrücklich (`zugangBleibt: true`). Ein
+gemauertes Gerät wäre die schlechtere Antwort auf einen Löschantrag.
+
+Dazu die Bytes: Dateipfade und Projekt-Ids werden **vor** dem Löschen
+eingesammelt, danach werden MinIO-Objekte und Ablage-Ordner geräumt. Der alte
+Kommentar nannte das einen Follow-up und argumentierte, Objekte ohne Metadaten
+seien „nicht mehr adressierbar". Das ist kein Löschen, sondern Verstecken.
+
+Sechs neue Tests prüfen nicht das Ergebnis, sondern das **SQL** — genau weil das
+Ergebnis in allen drei Fällen gut aussah.
+
+**Offen, und ausdrücklich:** ob der Benutzername selbst noch stehen bleiben darf,
+wenn er der letzte ist, ist eine Rechtsfrage und keine Frage an den Code. Und
+die Live-Abnahme ist destruktiv; sie gehört auf den Prüfstand.
+
 ## J5 Zerstörende Aktionen fragen nach
 
 „Konto endgültig löschen" ist ohne Absicherung erreichbar, „Trennen" im
@@ -3760,6 +3839,29 @@ Fernzugriff kappt sofort die Verbindung, über die man gerade angemeldet ist.
 **Abnahme:** Beide Aktionen fragen zweistufig nach und nennen die Folge.
 „Trennen" warnt ausdrücklich, wenn die aktuelle Sitzung darüber läuft. Behebt
 F-27, F-37.
+
+### Erst gemessen: eine Hälfte war schon da
+
+„Konto endgültig löschen" ist **nicht** ungesichert. `handleDelete` hat zwei
+Stufen: eine Rückfrage, die die Folge nennt, und danach ein Feld für den genauen
+Bestätigungstext, den auch das Backend noch einmal prüft.
+
+„Trennen" dagegen kappte sofort, ohne Dialog und ohne Warnung.
+
+### Was daraus wurde (#503)
+
+Ob die eigene Sitzung über den Fernzugriff läuft, entscheidet die **Adresse im
+Browser**. Der Server weiß es nicht besser: hinter Traefik sieht er nur die
+interne Adresse. Erkannt werden der MagicDNS-Name, der kurze Name, die
+gemeldete IP, jeder Name auf `.ts.net` und der Bereich `100.64.0.0/10`.
+
+Die Ränder des Bereichs sind mitgeprüft: `100.63.x` und `100.128.x` gehören
+nicht dazu. Wer /8 statt /10 rechnet, warnt fälschlich, und eine Warnung, die zu
+oft kommt, wird weggeklickt.
+
+Zwei Texte, nicht einer: läuft die Sitzung darüber, steht „Du bist gerade ÜBER
+diese Verbindung angemeldet" und der Knopf heißt „Trotzdem trennen". Sonst wird
+bewusst nicht dramatisiert.
 
 ---
 
