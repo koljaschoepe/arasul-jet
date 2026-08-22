@@ -717,7 +717,12 @@ export default function AgentChatPanel() {
           className="min-w-0 flex-1 truncate text-xs font-medium text-foreground"
           aria-live="polite"
         >
-          {isLoading ? 'Arasul denkt nach …' : title || 'Neuer Chat'}
+          {/* Plan 023 E5: kein Zwischenzustand als Titel. "Arasul denkt nach"
+              stand hier waehrend jeder Antwort und wurde danach ersetzt; beim
+              Zurueckspringen fand man nichts wieder, weil der Kopf nie sagte,
+              worum es ging. Der Fortschritt steht in der Denkzeile, dort
+              gehoert er hin. */}
+          {title || 'Neuer Chat'}
         </span>
         {/* Warteschlangen-Hinweis: erst ab >1 wartendem Auftrag interessant. */}
         {isLoading && (globalQueue?.pending_count ?? 0) > 1 && (
