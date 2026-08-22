@@ -204,19 +204,23 @@ try {
       { delay: 3 }
     );
     await page.keyboard.press('Enter');
-    // Der Lauf legt Dateien an; das dauert. Auf die Karten warten, nicht auf
-    // eine feste Zeit.
-    await page
-      .locator('[data-testid="datei-karte"]')
-      .nth(2)
-      .waitFor({ timeout: 900000 })
-      .catch(() => {});
-    // Und danach auf das Ende des Laufs: erst dann stehen Dauer und Tempo da.
+    // Erst auf das ENDE des Laufs warten, dann zaehlen.
+    //
+    // Bis zum 22.08.2026 stand es andersherum: warte auf die dritte Datei-Karte,
+    // danach auf das Laufende. Die Karten erscheinen aber ERST am Laufende (die
+    // Aenderungs-Uebersicht entsteht aus dem Vergleich vorher/nachher). Die
+    // erste Wartezeit konnte also nie zuschlagen, lief 15 Minuten leer, und
+    // danach zaehlte das Skript null Karten und meldete drei rote Ergebnisse.
+    //
+    // Auf der Platte lagen die drei Dateien zu dem Zeitpunkt laengst. Der Lauf
+    // brauchte auf dem 27B-Modell nur laenger als das Budget: gemessen 21:45,
+    // 21:47 und 21:50 fuer die drei Schreibvorgaenge, danach noch die
+    // Abschlussrunden.
     await page
       .locator('[data-testid="denkzeile"]')
-      .waitFor({ state: 'detached', timeout: 300000 })
+      .waitFor({ state: 'detached', timeout: 1800000 })
       .catch(() => {});
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     const karten = await page.locator('[data-testid="datei-karte"]').count();
     pruefe('E4: die geaenderten Dateien stehen als Karten da', karten >= 3, `${karten} Karten`);
