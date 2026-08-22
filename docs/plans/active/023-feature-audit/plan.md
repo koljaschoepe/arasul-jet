@@ -1651,6 +1651,88 @@ das Einzige, was heute überhaupt greift.
 damit aus dem Juli. Der Filter dort steht auf 90 Tagen, und in den letzten
 sieben gab es keine einzige Messung.
 
+### Der Vorlauf, Posten für Posten gewogen
+
+Ollama gibt bei `num_predict: 0` den `prompt_eval_count` zurück, ohne ein Wort
+zu erzeugen. Damit lässt sich jeder Bestandteil einzeln wiegen, ohne dass etwas
+ausgeliefert werden muss. Am 21.08.2026 auf dem Orin, Modell `qwen3-coder:30b`,
+jeder Posten so aufgebaut, wie `chatAgentRunner` ihn zusammensetzt:
+
+| Posten                              | Token | dazu      | Anteil   |
+| ----------------------------------- | ----- | --------- | -------- |
+| nur die Frage                       | 20    |           |          |
+| Basis-Systemprompt                  | 89    | +69       | 2 %      |
+| Unternehmenskontext                 | 156   | +67       | 1 %      |
+| Agent-Anweisung                     | 1293  | **+1137** | 25 %     |
+| Projektordner, echte Struktur       | 1847  | +554      | 12 %     |
+| Werkzeuge, 12 strukturell           | 4502  | **+2655** | **59 %** |
+| Verlauf, 12 gewöhnliche Nachrichten | 5126  | +624      |          |
+| Verlauf an der Kappungsgrenze       | 16562 | +12060    |          |
+
+**Der Grundvorlauf ohne Verlauf sind 4502 Token.** Die Messung vom 19.08.
+nannte 5200; der Unterschied liegt am Projekt, das dabei angehängt war. Bei 262
+Token je Sekunde Vorverarbeitung sind das rund 17 Sekunden, bevor das erste Wort
+kommt; der Rundgang maß 20.
+
+**Ein Posten macht die Mehrheit aus: die Werkzeugbeschreibungen mit 2655 Token,
+59 Prozent.** Dahinter die Agent-Anweisung mit 1137. Systemprompt und
+Unternehmenskontext zusammen sind 136 Token, also Rundung.
+
+#### Eine eigene Fehlmessung, korrigiert
+
+Der erste Durchgang wies der Ordnerstruktur **1947 Token** zu und machte sie zum
+zweitgrößten Posten. Das war ein Artefakt: ich hatte 120 erfundene Pfade der
+Form `Projekte/Development/modul-N/datei-N.ts` gewogen, die länger sind als
+echte, und angenommen, die Kappung bei 120 schneide alphabetisch aus 1388
+Einträgen.
+
+Beides falsch. `listTree` läuft seit dem 18.08. in **Breitensuche**, Ebene für
+Ebene, Ordner vor Dateien. Die ersten 120 Einträge sind damit Tiefe 1
+vollständig (35) und Tiefe 2 fast vollständig (85). Am größten Projekt auf dem
+Gerät gemessen, 1388 Einträge:
+
+| Zuschnitt                      | Zeilen | Token   |
+| ------------------------------ | ------ | ------- |
+| heute: Breitensuche, erste 120 | 120    | **559** |
+| Tiefe 1 und 2 vollständig      | 125    | 595     |
+| Tiefe 1 bis 3                  | 450    | 3300    |
+
+**Der bestehende Zuschnitt ist bereits der beste der drei.** Hätte ich meiner
+ersten Messung geglaubt, hätte ich an der Ordnerstruktur gekürzt, also an der
+Stelle, die schon in Ordnung ist, während der eigentliche Posten unberührt
+geblieben wäre.
+
+### Was das für die Abnahme heißt
+
+Die Abnahme verlangt: „Bei einer Unterhaltung mit 20 Nachrichten liegt der
+Vorlauf unter 2500 Token."
+
+**Zwei Anmerkungen dazu, beide gemessen.** Erstens gibt es keine Unterhaltung
+mit 20 Nachrichten im Vorlauf: `MAX_HISTORY_MESSAGES` ist 12, es gehen nie mehr
+mit. Die Zahl im Plan beschreibt eine Unterhaltung, nicht den Vorlauf.
+
+Zweitens: unter 2500 zu kommen heißt, die Werkzeugbeschreibungen und die
+Agent-Anweisung zusammen um rund 2000 Token zu drücken, also beide etwa zu
+halbieren. Der Verlauf ist dabei nicht das Problem, solange die Nachrichten
+gewöhnlich lang sind (624 Token für zwölf). Er wird eins an der Kappungsgrenze:
+`MAX_MESSAGE_CHARS` erlaubt 8000 Zeichen je Nachricht, zwölf davon sind 12060
+Token allein für den Verlauf. Genau dort greift „Verlauf ab einer Schwelle
+zusammenfassen".
+
+**Werkzeuge wegzulassen bringt wenig**, gemessen: die drei selteneren
+(`subagent`, `web_suche`, `web_lesen`) sparen zusammen 386 Token, weil ihre
+Beschreibungen kurz sind. Die teuren sind die, die man immer braucht:
+`dateien_suchen` (1170 Zeichen), `rag_suche` (826), `dateien_lesen` (764). Der
+Hebel ist also nicht die Auswahl, sondern die Länge der Beschreibungen.
+
+Die Reihenfolge für Schritt 2 ergibt sich damit aus der Messung: erst die
+Werkzeugbeschreibungen straffen, dann die Agent-Anweisung. Die Ordnerstruktur
+bleibt, wie sie ist.
+
+**Und eine Warnung dazu:** beide Kürzungen ändern Text, an dem das Verhalten des
+Agenten hängt. Ob er die Werkzeuge danach noch richtig benutzt, zeigt kein
+Testlauf, sondern nur eine echte Unterhaltung am Gerät.
+
 ## D8 Zusatzkontext beschreibt das Produkt
 
 Der Chat gibt auf die Frage, was Arasul kann, das Firmenprofil wieder, weil genau
@@ -1659,6 +1741,70 @@ Auslieferungszustand des Zusatzkontexts beschreibt künftig das Produkt.
 
 **Abnahme:** Die Frage aus dem Rundgang liefert drei Stichpunkte über das Gerät,
 nicht über die Beratungsleistung.
+
+### Erst gemessen: es ist schlimmer als beschrieben
+
+Am 21.08.2026 mit `qwen3-coder:30b` und derselben Prompt-Zusammensetzung wie im
+Produkt, drei Fälle, dieselbe Frage „Was kann Arasul?":
+
+| Fall                                          | Antwort                                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Entwicklungsgerät (Profil = Arasul selbst)    | „ein Unternehmen, das sich auf lokale KI-Hardware sowie Beratungs- und Support-Dienstleistungen spezialisiert hat" |
+| **Auslieferungszustand** (Platzhalter-Profil) | **„ein deutscher Anbieter von Softwarelösungen für die Lebensmittelindustrie … ERP-Systeme … HACCP"**              |
+| **Kundengerät** (fremdes Profil)              | **„ein deutscher Hersteller spezialisiert auf Klebetechnik und Oberflächenbehandlung"**                            |
+
+**Auf einem ausgelieferten Gerät erfindet der Chat, was Arasul ist**, und zwar
+überzeugend und passend zur Branche des Kunden. Der Plan nennt das „korrektes
+Verhalten bei falschem Inhalt"; das trifft nur den ersten Fall, wo im Kontext
+tatsächlich Arasul als Firma steht. Bei einem Kunden ist es eine Halluzination
+über das Produkt, das er gerade gekauft hat, im ersten Gespräch.
+
+**Nachgeprüft über drei Modelle, denn ein Modell ist keine Messung.** Der
+Auslieferungszustand, dieselbe Frage:
+
+| Modell                                                    | ohne Beschreibung                                                                            | mit Beschreibung                                                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `qwen3-coder:30b` (Coding-Standard, läuft im Agentenpfad) | „ein deutscher Anbieter von Softwarelösungen für die Lebensmittelindustrie … ERP … HACCP"    | „ein lokaler KI-Assistent … Arasul-Gerät … NVIDIA-Jetson"                |
+| `gemma4:e4b`                                              | „Da Sie nicht angegeben haben, was Arasul ist, kann ich keine spezifische Antwort geben"     | „Ich bin ein hilfreicher KI-Assistent, der auf einem Arasul-Gerät läuft" |
+| `qwen3:8b`                                                | „ein KI-gestütztes Chatbot-System, das präzise und strukturierte Antworten auf Deutsch gibt" | „ein KI-System, das auf einem Arasul-Gerät läuft"                        |
+
+**Nicht jedes Modell halluziniert.** `gemma4:e4b` fragt ehrlich nach, `qwen3:8b`
+leitet aus dem Basisprompt ab. Erfunden hat nur `qwen3-coder:30b`, und das ist
+ausgerechnet das Modell, das im Agentenpfad antwortet, also der Normalfall im
+Chat. Der schlimmste Fall ist damit auch der wahrscheinlichste.
+
+**Die Beschreibung wirkt bei allen dreien.** Ihr Nutzen ist deshalb nicht nur,
+eine Halluzination zu verhindern, sondern dass das Gerät überhaupt weiß, was es
+ist. Ohne sie war die beste der drei Antworten ein ehrliches „ich weiß es
+nicht".
+
+**Die Ursache liegt woanders als vermutet.** Nicht der Zusatzkontext ist
+falsch, der gehört dem Kunden und beschreibt zu Recht dessen Firma. Es fehlt
+eine Beschreibung des Produkts. Der Basisprompt waren zwei Sätze über
+Höflichkeit; der einzige Eigenname weit und breit stand im Kundenprofil, und
+darauf hat das Modell geantwortet.
+
+### Was daraus wurde
+
+Die Beschreibung steht in `GLOBAL_BASE_PROMPT`, also im Teil, der mit dem Gerät
+ausgeliefert wird, nicht im Zusatzkontext. Sechs Sätze, rund 130 Token in jeder
+Anfrage, also drei Prozent des Grundvorlaufs von 4502. D7 kürzt an anderer
+Stelle deutlich mehr; ein erfundenes Produkt ist der teurere Posten.
+
+Gemessen mit demselben Aufbau, dieselbe Frage:
+
+| Fall                 | mit Beschreibung                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Auslieferungszustand | „ein lokaler KI-Assistent, der auf einem speziellen Rechner namens Arasul-Gerät läuft … NVIDIA-Jetson-Prozessor … vor Ort"                       |
+| Kundengerät          | „ein auf einem NVIDIA-Jetson-Prozessor laufendes Gerät … lokale Dateien, Browser-Terminal mit Coding-Agent, Abläufe, Katalog von Sprachmodellen" |
+
+**Ein Satz wurde dabei zurückgenommen.** Der erste Entwurf sagte „keine Cloud,
+keine Daten nach draußen". Das ist falsch: die Websuche geht ins Internet.
+Phase A hat gerade fünf unerfüllte Zusagen von der Website genommen; eine
+sechste im Systemprompt wäre der falsche Ort. Jetzt steht dort, was zutrifft:
+die Antworten entstehen auf dem Gerät, und einzelne Werkzeuge gehen ins
+Internet, wenn der Agent sie benutzt. Ein Test hält fest, dass die Zusage nicht
+zurückkommt.
 
 ## D9 Externes Cloud-Modell dazuschalten
 

@@ -146,10 +146,66 @@ pruefe "Striche: im SQL-Kommentar bleibt es still" 0 python3 "$WURZEL/scripts/te
 rm "$SQL/153_probe.sql"
 
 # Angewandte Migrationen werden nicht mehr geaendert, ihre Pruefsumme steht im
-# Migrationsbuch. Deshalb gilt die Regel erst ab der Nummerngrenze.
+# Migrationsbuch. Deshalb gilt die Regel erst ab der Nummerngrenze. Geprueft
+# wird die Grenze von beiden Seiten, sonst verschiebt sie sich unbemerkt.
 printf "UPDATE t SET beschreibung = 'Ein Modell — schnell und klein.';\n" > "$SQL/090_alt.sql"
 pruefe "Striche: alte Migrationen bleiben ausgenommen" 0 python3 "$WURZEL/scripts/test/gedankenstriche.py" --pfad "$TMP/sql"
 rm "$SQL/090_alt.sql"
+
+printf "UPDATE t SET beschreibung = 'Ein Modell — schnell und klein.';\n" > "$SQL/151_grenze_darunter.sql"
+pruefe "Striche: eine Nummer unter der Grenze bleibt still" 0 python3 "$WURZEL/scripts/test/gedankenstriche.py" --pfad "$TMP/sql"
+rm "$SQL/151_grenze_darunter.sql"
+
+printf "UPDATE t SET beschreibung = 'Ein Modell — schnell und klein.';\n" > "$SQL/152_grenze.sql"
+pruefe "Striche: genau auf der Grenze ist rot" 1 python3 "$WURZEL/scripts/test/gedankenstriche.py" --pfad "$TMP/sql"
+rm "$SQL/152_grenze.sql"
+# -----------------------------------------------------------------------------
+# Pfadfilter (aus der Review von #454)
+# -----------------------------------------------------------------------------
+# Der Waechter liest den grep-Ausdruck und die Bild-Matrix aus
+# .github/workflows/test.yml. Beides kann jemand aendern, ohne an ihn zu denken.
+# Geprueft wird deshalb an einer Kopie des echten Workflows, dass er die zwei
+# Faelle findet, die wirklich weh tun: eine fehlende Kopierquelle im Filter, und
+# ein Filter, den es gar nicht mehr gibt.
+PF="$TMP/pfadfilter"
+mkdir -p "$PF/.github/workflows"
+# Ohne 2>/dev/null: schlaegt das Kopieren fehl, will man den Grund sehen und
+# nicht eine verwirrende Folgemeldung aus pfadfilter.py. Aus der Review von #454.
+cp -R "$WURZEL/apps" "$WURZEL/services" "$PF/"
+mkdir -p "$PF/packages" "$PF/libs"
+cp "$WURZEL/.github/workflows/test.yml" "$PF/.github/workflows/test.yml"
+
+pruefe "Pfadfilter: der echte Workflow ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+
+# libs/ raus: libs/shared-python wird in beide Python-Images kopiert.
+sed -i.sicherung 's#packages/|libs/|#packages/|#' "$PF/.github/workflows/test.yml"
+pruefe "Pfadfilter: fehlende Kopierquelle ist rot" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
+
+# Mehrzeiliges COPY: die Fortsetzungszeile muss gelesen werden. Wuerde sie
+# uebergangen, meldete der Waechter einfach weniger Quellen und bliebe gruen,
+# also genau das stille Loch, gegen das er gebaut ist. Aus der Review von #454.
+printf 'COPY \\\n  sonstiges/hilfsmittel \\\n  ./ziel/\n' \
+  >> "$PF/apps/dashboard-backend/Dockerfile"
+pruefe "Pfadfilter: mehrzeiliges COPY wird gelesen" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+cp "$WURZEL/apps/dashboard-backend/Dockerfile" "$PF/apps/dashboard-backend/Dockerfile"
+
+# `COPY . .` kopiert den ganzen Kontext. Vorher wurde die Quelle durch ein
+# lstrip("./") zu einer leeren Zeichenkette und fiel still weg. Aus der Review
+# von #454.
+printf 'COPY . .\n' >> "$PF/apps/dashboard-backend/Dockerfile"
+pruefe "Pfadfilter: COPY des ganzen Kontexts ist rot" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+cp "$WURZEL/apps/dashboard-backend/Dockerfile" "$PF/apps/dashboard-backend/Dockerfile"
+
+# Kein Ausdruck mehr: der Waechter muss sich melden, statt Ruhe zu geben.
+sed -i.sicherung "s|grep -qE '[^']*'|grep -q platzhalter|" "$PF/.github/workflows/test.yml"
+pruefe "Pfadfilter: verschwundener Ausdruck ist rot" 1 \
+  python3 "$WURZEL/scripts/test/pfadfilter.py" --pfad "$PF"
+mv "$PF/.github/workflows/test.yml.sicherung" "$PF/.github/workflows/test.yml"
 
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"

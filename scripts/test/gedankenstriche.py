@@ -34,7 +34,9 @@ angewandte Migration wird nicht mehr geaendert, ihre Pruefsumme steht im
 Migrationsbuch. Die aelteren nachtraeglich zu saeubern hiesse, Geschichte
 umzuschreiben, und brachte niemandem etwas: was in ihnen steht, ist laengst in
 der Datenbank und wird dort durch eine NEUE Migration richtiggestellt, so wie
-152 es tut.
+152 es tut. Die Grenze liegt deshalb auf 152, der ersten noch nicht angewandten
+Migration, und nicht darueber: sonst waere ausgerechnet die Migration, die die
+Katalogtexte richtigstellt, selbst ungeprueft.
 
 Was NICHT gemeldet wird
 -----------------------
@@ -135,7 +137,7 @@ def pruefe_datei(pfad):
 # Ab dieser Migrationsnummer gilt die Regel. Alles davor ist angewandte
 # Geschichte: die Pruefsumme steht im Migrationsbuch, und der Inhalt ist laengst
 # in der Datenbank. Richtiggestellt wird er dort durch eine neue Migration.
-SQL_AB_NUMMER = 153
+SQL_AB_NUMMER = 152
 
 
 def sql_geprueft(pfad):
