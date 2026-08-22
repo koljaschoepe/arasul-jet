@@ -31,6 +31,7 @@ const {
   BrueckeLlmBody,
   BrueckeRagBody,
   BrueckeDateienBody,
+  BrueckeNetzBody,
   BrueckeFlowRunBody,
   BrueckeFlowParams,
   BrueckeRunParams,
@@ -355,6 +356,25 @@ router.post(
   asyncHandler(async (req, res) => {
     await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'dateien');
     const data = await brueckeService.dateien(req.params.id, req.body);
+    res.json({ ...data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * POST /api/extensions/:id/bruecke/netz — Aufruf an ein deklariertes Ziel.
+ *
+ * Die Ziele stehen im Manifest der Erweiterung, durchgesetzt werden sie im
+ * Backend. Ohne die Fähigkeit `netz` scheitert der Aufruf hier, ohne passendes
+ * Ziel im Manifest eine Zeile später.
+ */
+router.post(
+  '/:id/bruecke/netz',
+  apiLimiter,
+  validateParams(ExtensionIdParams),
+  validateBody(BrueckeNetzBody),
+  asyncHandler(async (req, res) => {
+    const { extension } = await brueckeService.autorisieren(req.params.id, bearerFrom(req), 'netz');
+    const data = await brueckeService.netzAufruf(req.params.id, extension.manifest, req.body);
     res.json({ ...data, timestamp: new Date().toISOString() });
   })
 );
