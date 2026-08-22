@@ -76,7 +76,9 @@ router.post(
 
 /**
  * DELETE /api/git/:projectId
- * Kopplung lösen (verschlüsselter PAT + lokaler Checkout werden entfernt).
+ * Kopplung lösen: verschlüsselter PAT und die Git-Verwaltung (`.git`) im
+ * Projektordner werden entfernt. Die Dateien bleiben — der Ordner IST die
+ * Ablage des Projekts, nicht ein Checkout daneben.
  */
 router.delete(
   '/:projectId',

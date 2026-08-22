@@ -7,7 +7,10 @@ import {
   FileText,
   Headphones,
   Landmark,
+  FolderUp,
+  Github,
   Plus,
+  Sparkles,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -45,6 +48,13 @@ import {
   type Project,
   type ProjektVorlage,
 } from './useProjects';
+import {
+  ordnerDateien,
+  ordnerHochladen,
+  ordnerName,
+  repoName,
+  type ImportFortschritt,
+} from './projektImport';
 
 /** Lucide-Symbol je Vorlagen-Icon-Name — unbekannte Namen fallen auf Boxes zurück. */
 const VORLAGEN_ICONS: Record<string, LucideIcon> = {
@@ -90,6 +100,22 @@ export function WorkspaceSwitcher() {
   const [logoDatei, setLogoDatei] = useState<File | null>(null);
   const [richtetEin, setRichtetEin] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  // Herkunft des neuen Projekts (Plan 023 G2). 'leer' ist der bisherige Weg
+  // (leer oder aus einer Vorlage); die beiden anderen füllen die Ablage nach
+  // dem Anlegen.
+  const [herkunft, setHerkunft] = useState<'leer' | 'ordner' | 'github'>('leer');
+  const [ordnerAuswahl, setOrdnerAuswahl] = useState<File[]>([]);
+  // Hat der Nutzer den Namen selbst angefasst? Solange nicht, folgt er der
+  // Quelle. Ohne diesen Merker stünde nach dem ersten Zeichen der Adresse „h"
+  // im Namensfeld und bliebe dort: die Prüfung „Name noch leer" trifft nur beim
+  // allerersten Tastendruck zu.
+  const [nameHandisch, setNameHandisch] = useState(false);
+  const ordnerInputRef = useRef<HTMLInputElement>(null);
+  const [repoUrl, setRepoUrl] = useState('');
+  const [repoZweig, setRepoZweig] = useState('main');
+  const [repoToken, setRepoToken] = useState('');
+  const [fortschritt, setFortschritt] = useState<ImportFortschritt | null>(null);
+
   // Zu löschendes Projekt (öffnet den Bestätigungsdialog). Das Standard-Projekt
   // ist nie hier — es lässt sich nicht löschen (Backend + fehlender Knopf).
   const [loeschZiel, setLoeschZiel] = useState<Project | null>(null);
@@ -110,6 +136,75 @@ export function WorkspaceSwitcher() {
     }
   };
 
+  /** Alles zurücksetzen, was der Anlege-Dialog gesammelt hat. */
+  const anlegenZuruecksetzen = () => {
+    setName('');
+    setBeschreibung('');
+    setVorlage(null);
+    setHerkunft('leer');
+    setOrdnerAuswahl([]);
+    setRepoUrl('');
+    setRepoZweig('main');
+    setRepoToken('');
+    setFortschritt(null);
+    setNameHandisch(false);
+  };
+
+  /**
+   * Den gewählten Ordner in die Ablage des frischen Projekts legen (G2).
+   *
+   * Fehler einzelner Dateien beenden den Import nicht; am Ende steht, wie viele
+   * ankamen und wie viele nicht. Ein Projekt mit 298 von 300 Dateien ist
+   * brauchbar, ein Abbruch bei Datei 47 nicht.
+   */
+  const ordnerUebernehmen = async (projektId: string) => {
+    const ergebnis = await ordnerHochladen(
+      projektId,
+      ordnerAuswahl,
+      (id, form) => api.post(`/projects/${id}/dateien/upload`, form, { showError: false }),
+      setFortschritt
+    );
+    setFortschritt(null);
+    if (ergebnis.fehler.length > 0) {
+      toast.error(
+        `${ergebnis.hochgeladen} von ${ordnerAuswahl.length} Dateien übernommen, ` +
+          `${ergebnis.fehler.length} nicht: ${ergebnis.fehler[0]?.pfad}`
+      );
+      return;
+    }
+    toast.success(`${ergebnis.hochgeladen} Dateien übernommen`);
+  };
+
+  /**
+   * Das Repository koppeln und einmal synchronisieren (G2).
+   *
+   * Scheitert eins von beidem, bleibt das Projekt bestehen: es ist angelegt und
+   * aktiv, und die Kopplung lässt sich im rechten Panel nachholen. Es wieder zu
+   * löschen wäre der schlechtere Weg, weil ein Tippfehler in der Adresse dann
+   * die Eingaben mitnähme.
+   */
+  const repoUebernehmen = async (projektId: string) => {
+    try {
+      await api.post(
+        `/git/${projektId}/connect`,
+        {
+          repo_url: repoUrl.trim(),
+          branch: repoZweig.trim() || 'main',
+          ...(repoToken.trim() ? { pat: repoToken.trim() } : {}),
+        },
+        { showError: false }
+      );
+      await api.post(`/git/${projektId}/sync`, {}, { showError: false });
+      toast.success('Repository geklont, die Dateien stehen im Dateibaum');
+    } catch (err) {
+      toast.error(
+        `Projekt angelegt, aber das Repository kam nicht: ` +
+          `${err instanceof Error ? err.message : 'unbekannter Fehler'}. ` +
+          'Die Kopplung lässt sich im Panel „GitHub" nachholen.'
+      );
+    }
+  };
+
   const anlegen = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -117,25 +212,29 @@ export function WorkspaceSwitcher() {
       const res = await createProject.mutateAsync({
         name: trimmed,
         description: beschreibung.trim() || null,
-        vorlage: vorlage?.id ?? null,
+        vorlage: herkunft === 'leer' ? (vorlage?.id ?? null) : null,
       });
       await setActive.mutateAsync(res.data.id);
+      if (herkunft === 'ordner') {
+        await ordnerUebernehmen(res.data.id);
+      } else if (herkunft === 'github') {
+        await repoUebernehmen(res.data.id);
+      }
       toast.success(
-        vorlage
+        vorlage && herkunft === 'leer'
           ? `Projekt „${trimmed}" aus Vorlage „${vorlage.name}" angelegt und aktiviert`
           : `Projekt „${trimmed}" angelegt und aktiviert`
       );
       // CRM-Vorlage: direkt ins Einrichtungs-Interview wechseln (Phase 3) —
       // der Dialog bleibt offen und sammelt Firmendaten + ersten Kunden.
-      if (vorlage?.id === 'kunden-auftraege') {
+      if (herkunft === 'leer' && vorlage?.id === 'kunden-auftraege') {
         setEinrichtung({ projektId: res.data.id, name: trimmed });
       } else {
         setDialogOffen(false);
       }
-      setName('');
-      setBeschreibung('');
-      setVorlage(null);
+      anlegenZuruecksetzen();
     } catch {
+      setFortschritt(null);
       toast.error('Projekt konnte nicht angelegt werden');
     }
   };
@@ -382,12 +481,125 @@ export function WorkspaceSwitcher() {
             <DialogHeader>
               <DialogTitle>Neues Projekt</DialogTitle>
               <DialogDescription>
-                Starte leer, oder mit einer fertigen Vorlage: Sie bringt Ordnerstruktur,
-                Wissens-Dateien und passende Flows gleich mit.
+                Leer oder aus einer Vorlage starten, einen vorhandenen Ordner übernehmen oder ein
+                GitHub-Repository klonen.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4 py-1">
-              {vorlagen.length > 0 && (
+              {/* Herkunft (Plan 023 G2) — steht vor allem anderen, weil sie
+                  bestimmt, welche Felder darunter überhaupt sinnvoll sind. */}
+              <div className="flex flex-col gap-1.5">
+                <Label>Herkunft</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      { id: 'leer', name: 'Leer oder Vorlage', Icon: Sparkles },
+                      { id: 'ordner', name: 'Ordner übernehmen', Icon: FolderUp },
+                      { id: 'github', name: 'Von GitHub', Icon: Github },
+                    ] as const
+                  ).map(({ id, name: titel, Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      data-testid={`herkunft-${id}`}
+                      aria-pressed={herkunft === id}
+                      onClick={() => setHerkunft(id)}
+                      className={`flex flex-col items-start gap-1 rounded-md border p-2.5 text-left transition-colors ${
+                        herkunft === id
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/40'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <span className="text-ui-xs font-medium text-foreground">{titel}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {herkunft === 'ordner' && (
+                <div className="flex flex-col gap-1.5" data-testid="herkunft-ordner-felder">
+                  <Label>Ordner</Label>
+                  <input
+                    ref={ordnerInputRef}
+                    type="file"
+                    className="hidden"
+                    data-testid="ordner-eingabe"
+                    // webkitdirectory ist kein React-Attribut; ohne die beiden
+                    // Schreibweisen öffnet Chrome den Datei- statt den
+                    // Ordner-Dialog.
+                    {...{ webkitdirectory: '', directory: '' }}
+                    onChange={e => {
+                      const dateien = ordnerDateien(e.target.files);
+                      setOrdnerAuswahl(dateien);
+                      if (!nameHandisch) setName(ordnerName(dateien));
+                    }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => ordnerInputRef.current?.click()}
+                    >
+                      Ordner wählen …
+                    </Button>
+                    <span className="min-w-0 truncate text-ui-xs text-muted-foreground">
+                      {ordnerAuswahl.length > 0
+                        ? `${ordnerAuswahl.length} Dateien aus „${ordnerName(ordnerAuswahl)}"`
+                        : 'Der Inhalt landet in der Ablage des Projekts'}
+                    </span>
+                  </div>
+                  {fortschritt && (
+                    <span className="text-ui-xs tabular-nums text-muted-foreground">
+                      {fortschritt.fertig} von {fortschritt.gesamt} übertragen
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {herkunft === 'github' && (
+                <div className="flex flex-col gap-3" data-testid="herkunft-github-felder">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="repo-url">Repository</Label>
+                    <Input
+                      id="repo-url"
+                      value={repoUrl}
+                      onChange={e => {
+                        setRepoUrl(e.target.value);
+                        if (!nameHandisch) setName(repoName(e.target.value));
+                      }}
+                      placeholder="https://github.com/org/repo"
+                      maxLength={300}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="repo-zweig">Zweig</Label>
+                      <Input
+                        id="repo-zweig"
+                        value={repoZweig}
+                        onChange={e => setRepoZweig(e.target.value)}
+                        placeholder="main"
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="repo-token">Token (privat)</Label>
+                      <Input
+                        id="repo-token"
+                        type="password"
+                        value={repoToken}
+                        onChange={e => setRepoToken(e.target.value)}
+                        placeholder="nur bei privatem Repository"
+                        maxLength={200}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {herkunft === 'leer' && vorlagen.length > 0 && (
                 <div className="flex flex-col gap-1.5">
                   <Label>Vorlage</Label>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -452,7 +664,10 @@ export function WorkspaceSwitcher() {
                 <Input
                   id="projekt-name"
                   value={name}
-                  onChange={e => setName(e.target.value)}
+                  onChange={e => {
+                    setName(e.target.value);
+                    setNameHandisch(true);
+                  }}
                   placeholder="z. B. Marketing"
                   maxLength={100}
                   onKeyDown={e => {
@@ -479,8 +694,25 @@ export function WorkspaceSwitcher() {
               <Button variant="outline" onClick={() => setDialogOffen(false)}>
                 Abbrechen
               </Button>
-              <Button onClick={anlegen} disabled={!name.trim() || createProject.isPending}>
-                {createProject.isPending ? 'Legt an …' : 'Anlegen & aktivieren'}
+              <Button
+                onClick={anlegen}
+                data-testid="projekt-anlegen"
+                disabled={
+                  !name.trim() ||
+                  createProject.isPending ||
+                  fortschritt !== null ||
+                  // Ohne Ordner bzw. ohne Adresse hätte der gewählte Weg nichts
+                  // zu tun, und der Nutzer bekäme ein leeres Projekt, das er so
+                  // nicht wollte.
+                  (herkunft === 'ordner' && ordnerAuswahl.length === 0) ||
+                  (herkunft === 'github' && !repoUrl.trim())
+                }
+              >
+                {fortschritt
+                  ? `Überträgt ${fortschritt.fertig}/${fortschritt.gesamt} …`
+                  : createProject.isPending
+                    ? 'Legt an …'
+                    : 'Anlegen & aktivieren'}
               </Button>
             </DialogFooter>
           </DialogContent>
