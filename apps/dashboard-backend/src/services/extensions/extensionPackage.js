@@ -30,7 +30,22 @@ const PACKAGE_FORMAT_VERSION = 1;
 // KI-Brücke (Plan 017 Schritt 2): Fähigkeiten, die eine Erweiterung im
 // Manifest deklarieren kann. Der Admin gibt sie beim Live-Schalten frei;
 // die Brücken-Routen erlauben zur Laufzeit nur den freigegebenen Schnitt.
-const BRUECKE_FAEHIGKEITEN = ['llm', 'rag', 'dateien', 'flows'];
+//
+// DIESE LISTE IST DAS NADELÖHR. Eine Fähigkeit, die hier fehlt, ist nicht
+// deklarierbar: `validiereManifest` weist das Manifest ab, und die Erweiterung
+// wird gar nicht erst registriert. Wer eine Brücken-Route hinzufügt, muss die
+// Zeile hier mitnehmen — sonst gibt es die Route zwar, aber niemanden, der sie
+// benutzen darf. Ein Test hält Liste und Routen zusammen.
+const BRUECKE_FAEHIGKEITEN = [
+  'llm',
+  'rag',
+  'dateien',
+  'flows',
+  // Plan 023 H1
+  'netz',
+  'tabellen',
+  'zeitplan',
+];
 
 // Gleiche Form wie Flow-Namen: Kleinbuchstaben/Ziffern/Bindestriche, kein
 // führender/abschließender Bindestrich. Der Wert wird zum Ordnernamen.
