@@ -8,18 +8,18 @@
 
 ## Stand
 
-| Phase                                 | Stand                                                   | Belege                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                                   | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                                                                                                 |
-| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen                  | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                                                                                                         |
-| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen                  | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                                                                                                     |
-| C, Fundament                          | **fertig** 20.08.2026, live abgenommen                  | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                                                                                                                |
-| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen                  | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                                                                                                            |
-| D, Modelle                            | **fertig** 22.08.2026, live abgenommen                  | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel                                                                                  |
-| E, Coding-Agent und Chat              | **laeuft**, E1 und E3 bis E9 live abgenommen 22.08.2026 | #458 bis #471. Live im Browser gegen den Orin: 20 von 20 Zusagen gehalten (`scripts/test/chat-abnahme.mjs`). Groesste Funde: der Teiltext eines abgebrochenen Laufs ging verloren, das Standardmodell scheiterte an jeder Aufgabenliste, und 88 dokumentierte Stellschrauben erreichen den Container nie. Offen bei E2: die Warteschlange bleibt strikt seriell      |
-| F, Terminal                           | **fertig** 22.08.2026, live abgenommen                  | #473 bis #476. F1 Kopfzeile von 44 auf 19 bis 26 Pixel bei jeder Breite, F2 und F3 waren schon erfuellt und sind jetzt gemessen, F4 Datei im Baum nach 15 Sekunden statt nie, F5 unter 900 Pixeln keine drei Spalten mehr. `scripts/test/terminal-abnahme.mjs`, 9 von 9. Offen an F3 ist nur die Prosa, nicht die Abnahme                                            |
-| G, Dateien und Projekte               | **laeuft**, G1 live abgenommen 22.08.2026               | #477 bis #487. G1 5000 Dateien vollstaendig durchklickbar, kein Deckel mehr. G4 in sechs Ursachen zerlegt, eine Datei jetzt 2,3 Sekunden statt 1:53 Minuten. Groesster Fund der Phase liegt bei G3 und war nicht die Aufgabe: Kopplung und Trennen loeschten den Projektordner des Kunden. G2 und G3 gebaut, ihre Abnahmen brauchen Koljas Repository und Schluessel |
-| H bis K                               | offen                                                   |                                                                                                                                                                                                                                                                                                                                                                      |
+| Phase                                 | Stand                                                   | Belege                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A, Entscheidungen und Zusagen         | **fertig** 19.08.2026                                   | Website und AVV nehmen die fünf unerfüllten Zusagen zurück, die drei fremden Projekte sind vom Gerät                                                                                                                                                                                                                                                                                                       |
+| S, Sicherung wiederherstellbar        | **fertig** 19.08.2026, live abgenommen                  | #407 bis #410, #412, #414. Gate G6 hat als erstes einen belastbaren Nachweis                                                                                                                                                                                                                                                                                                                               |
+| B, Aufräumen und Auslieferungszustand | **fertig** 20.08.2026, live abgenommen                  | #411, #413, #415 bis #424. `scripts/test/werksreset-abnahme.sh`, 24 von 24, am 20.08. nach dem Frischgerät-Fund erneut bestanden                                                                                                                                                                                                                                                                           |
+| C, Fundament                          | **fertig** 20.08.2026, live abgenommen                  | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                                                                                                                                                      |
+| Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen                  | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                                                                                                                                                  |
+| D, Modelle                            | **fertig** 22.08.2026, live abgenommen                  | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel                                                                                                                        |
+| E, Coding-Agent und Chat              | **laeuft**, E1 und E3 bis E9 live abgenommen 22.08.2026 | #458 bis #471. Live im Browser gegen den Orin: 20 von 20 Zusagen gehalten (`scripts/test/chat-abnahme.mjs`). Groesste Funde: der Teiltext eines abgebrochenen Laufs ging verloren, das Standardmodell scheiterte an jeder Aufgabenliste, und 88 dokumentierte Stellschrauben erreichen den Container nie. Offen bei E2: die Warteschlange bleibt strikt seriell                                            |
+| F, Terminal                           | **fertig** 22.08.2026, live abgenommen                  | #473 bis #476. F1 Kopfzeile von 44 auf 19 bis 26 Pixel bei jeder Breite, F2 und F3 waren schon erfuellt und sind jetzt gemessen, F4 Datei im Baum nach 15 Sekunden statt nie, F5 unter 900 Pixeln keine drei Spalten mehr. `scripts/test/terminal-abnahme.mjs`, 9 von 9. Offen an F3 ist nur die Prosa, nicht die Abnahme                                                                                  |
+| G, Dateien und Projekte               | **laeuft**, G1 und G4 live abgenommen 22.08.2026        | #477 bis #491. G1 5000 Dateien vollstaendig durchklickbar, kein Deckel mehr. G4 in sieben Ursachen zerlegt und abgenommen: eine Datei 2,3 statt 113 Sekunden, hundert Dateien 110 statt ueber 300. Groesster Fund der Phase liegt bei G3 und war nicht die Aufgabe: Kopplung und Trennen loeschten den Projektordner des Kunden. G2 und G3 gebaut, ihre Abnahmen brauchen Koljas Repository und Schluessel |
+| H bis K                               | offen                                                   |                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -3238,13 +3238,46 @@ keine Zeile bekommen.
 geglückter Aufruf hebt die Pause auf. Kein Flag: ein Flag müsste gepflegt werden
 und träfe den Fall „läuft, ist aber gerade nicht erreichbar" nicht.
 
+### Die siebte Ursache: das Fachwörterbuch
+
+Nach alldem blieben 134,9 Sekunden für hundert Dateien. Der Blick in eine
+einzelne Indexierung zeigt, wohin sie gehen:
+
+```
+17:01:57.606  Found pending document, will index: datei-001.md
+17:01:57.625  Contextualized 1 chunks for parent 1/1
+17:01:57.950  Domain dictionary updated: 9 new terms, 242012 total
+17:01:57.959  Successfully indexed document
+```
+
+**0,33 von 0,35 Sekunden** für das Wörterbuch. Bei jedem Dokument wurde es ganz
+von der Platte gelesen, um neun Wörter ergänzt, nach Häufigkeit sortiert,
+zurückgeschrieben und in SymSpell nachgeladen. Bei hundert Dateien 33 Sekunden,
+und die Zahl wächst mit dem Wörterbuch.
+
+**Behoben (#491):** es liegt jetzt im Speicher und wird gesammelt geschrieben,
+spätestens in jedem Zyklus ohne Rückstau. Verloren gehen kann nur, was seit dem
+letzten Schreiben dazukam, und das ist abgeleitete Information.
+
 ### Was gemessen ist
 
-|                                    | Abnahme         | gemessen            |
-| ---------------------------------- | --------------- | ------------------- |
-| eine Datei, leere Warteschlange    | unter 5 s       | **2,3 s**           |
-| eine Datei, 5 in der Warteschlange | —               | 5,5 s               |
-| 100 Dateien                        | unter 2 Minuten | steht nach #487 aus |
+|                                    | Abnahme         | gemessen    |
+| ---------------------------------- | --------------- | ----------- |
+| eine Datei, leere Warteschlange    | unter 5 s       | **2,3 s**   |
+| eine Datei, 5 in der Warteschlange | (keine)         | 5,5 s       |
+| 100 Dateien                        | unter 2 Minuten | **110,1 s** |
+
+Der Weg dahin, jede Zahl am Gerät gemessen:
+
+| Stand                            | 100 Dateien                 |
+| -------------------------------- | --------------------------- |
+| vor Phase G                      | 1:53 min für **eine** Datei |
+| nach #487, Qdrant                | 96 von 100 nach 300 s       |
+| nach #489, Analyse unterbrechbar | 161 s                       |
+| nach #491, Wörterbuch            | **110,1 s**                 |
+
+**G4 ist damit live abgenommen.** Sieben Ursachen, sechs davon erst beim
+Nachmessen der jeweils vorigen Behebung sichtbar geworden.
 
 ## G5 Vektorsuche einschalten
 
