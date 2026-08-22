@@ -87,35 +87,64 @@ das Dokument dauerhaft `pending` („wird indexiert" im Explorer).
 
 ## API Endpoints
 
-| Method | Path         | Description                    |
-| ------ | ------------ | ------------------------------ |
-| GET    | `/health`    | Health check                   |
-| GET    | `/status`    | Indexing status                |
-| POST   | `/reindex`   | Force reindex of all documents |
-| GET    | `/documents` | List indexed documents         |
+| Method | Path           | Description                                                                                              |
+| ------ | -------------- | -------------------------------------------------------------------------------------------------------- |
+| GET    | `/health`      | Health check                                                                                             |
+| GET    | `/status`      | Indexing status                                                                                          |
+| POST   | `/reindex`     | Force reindex of all documents                                                                           |
+| GET    | `/documents`   | List indexed documents                                                                                   |
+| POST   | `/gpu/vorrang` | Das Backend meldet, dass es die GPU fuer einen Nutzerlauf haelt. Body `{"sekunden": 30}`, Null gibt frei |
+| GET    | `/gpu/vorrang` | Was der Indexer gerade glaubt. Fuer die Abnahme und die Fehlersuche                                      |
+
+### Warum es `/gpu/vorrang` gibt
+
+Das Geraet hat **eine** GPU. Das Backend serialisiert seine eigenen Aufrufe
+ueber `services/flows/gpuQueue.js`, aber der Indexer ist ein eigener Prozess in
+einem eigenen Container und ruft Ollama direkt auf. Er kann diese Sperre nicht
+nehmen.
+
+Am 22.08.2026 auf dem Orin gemessen, was das kostet: der Indexer laedt zum
+Anreichern `qwen3:14b` (14 GB), der Chat rechnet mit dem 27B-Modell (22 GB),
+zusammen passen sie nicht in das Budget. In `llm_model_switches` stehen fuer
+vierzig Minuten 35 Zeilen `auto_unload_ollama_keepalive` im Wechsel und neun
+Ladevorgaenge zwischen 11 827 und 60 066 Millisekunden. Der Nutzer wartet also
+bei fast jeder Chat-Runde eine halbe bis eine ganze Minute auf ein Modell, das
+kurz zuvor schon im Speicher war.
+
+Gemeldet wird eine **Frist**, kein Schalter: faellt das Backend aus, laeuft sie
+ab und der Indexer arbeitet von selbst weiter. Zurueckgehalten wird nur der
+START eines Modellaufrufs; ein laufender wird nicht abgebrochen, weil das
+Modell ohnehin zu Ende rechnet und ein halbes Ergebnis schlechter waere als gar
+keins.
+
+Bewusst ohne Anmeldung: der Dienst hat keinen veroeffentlichten Port und ist
+nur im internen Docker-Netz erreichbar. Der einzige Schaden, den ein Aufruf
+anrichten koennte, ist eine Anreicherung, die hoechstens
+`GPU_VORRANG_HOECHSTFRIST_S` Sekunden spaeter laeuft.
 
 ## Environment Variables
 
-| Variable                       | Default           | Description             |
-| ------------------------------ | ----------------- | ----------------------- |
-| DOCUMENT_INDEXER_INTERVAL      | 30                | Scan interval (seconds) |
-| DOCUMENT_INDEXER_CHUNK_SIZE    | 500               | Chunk size (characters) |
-| DOCUMENT_INDEXER_CHUNK_OVERLAP | 50                | Overlap (characters)    |
-| DOCUMENT_INDEXER_MINIO_BUCKET  | documents         | MinIO bucket name       |
-| MINIO_HOST                     | minio             | MinIO hostname          |
-| MINIO_PORT                     | 9000              | MinIO port              |
-| MINIO_ROOT_USER                | (required)        | MinIO access key        |
-| MINIO_ROOT_PASSWORD            | (required)        | MinIO secret key        |
-| EMBEDDING_SERVICE_HOST         | embedding-service | Embedding service host  |
-| EMBEDDING_SERVICE_PORT         | 11435             | Embedding service port  |
-| QDRANT_HOST                    | qdrant            | Qdrant hostname         |
-| QDRANT_PORT                    | 6333              | Qdrant HTTP port        |
-| QDRANT_COLLECTION_NAME         | documents         | Collection name         |
-| EMBEDDING_VECTOR_SIZE          | 768               | Vector dimension        |
-| POSTGRES_HOST                  | postgres-db       | Database host           |
-| POSTGRES_PORT                  | 5432              | Database port           |
-| POSTGRES_USER                  | arasul            | Database user           |
-| POSTGRES_DB                    | arasul_db         | Database name           |
+| Variable                       | Default           | Description                                                        |
+| ------------------------------ | ----------------- | ------------------------------------------------------------------ |
+| DOCUMENT_INDEXER_INTERVAL      | 30                | Scan interval (seconds)                                            |
+| DOCUMENT_INDEXER_CHUNK_SIZE    | 500               | Chunk size (characters)                                            |
+| DOCUMENT_INDEXER_CHUNK_OVERLAP | 50                | Overlap (characters)                                               |
+| DOCUMENT_INDEXER_MINIO_BUCKET  | documents         | MinIO bucket name                                                  |
+| MINIO_HOST                     | minio             | MinIO hostname                                                     |
+| MINIO_PORT                     | 9000              | MinIO port                                                         |
+| MINIO_ROOT_USER                | (required)        | MinIO access key                                                   |
+| MINIO_ROOT_PASSWORD            | (required)        | MinIO secret key                                                   |
+| EMBEDDING_SERVICE_HOST         | embedding-service | Embedding service host                                             |
+| EMBEDDING_SERVICE_PORT         | 11435             | Embedding service port                                             |
+| QDRANT_HOST                    | qdrant            | Qdrant hostname                                                    |
+| QDRANT_PORT                    | 6333              | Qdrant HTTP port                                                   |
+| QDRANT_COLLECTION_NAME         | documents         | Collection name                                                    |
+| EMBEDDING_VECTOR_SIZE          | 768               | Vector dimension                                                   |
+| POSTGRES_HOST                  | postgres-db       | Database host                                                      |
+| POSTGRES_PORT                  | 5432              | Database port                                                      |
+| POSTGRES_USER                  | arasul            | Database user                                                      |
+| POSTGRES_DB                    | arasul_db         | Database name                                                      |
+| GPU_VORRANG_HOECHSTFRIST_S     | 120               | Laenger haelt sich der Indexer nie zurueck, egal was gemeldet wird |
 
 ## Chunking Strategy
 
