@@ -557,6 +557,23 @@ async function tabellen(extensionId, rumpf, deps = {}) {
   }
 }
 
+/**
+ * Die Zeitplan-Fähigkeit an ihren Dienst weiterreichen (Plan 023 H1).
+ */
+async function zeitplan(extensionId, rumpf, deps = {}) {
+  const dienst = deps.zeitplanService || require('./zeitplanService');
+  switch (rumpf.aktion) {
+    case 'liste':
+      return dienst.liste(extensionId, deps);
+    case 'anlegen':
+      return dienst.anlegen(extensionId, rumpf, deps);
+    case 'entfernen':
+      return dienst.entfernen(extensionId, rumpf, deps);
+    default:
+      throw new ValidationError(`Unbekannte Aktion: ${rumpf.aktion}`);
+  }
+}
+
 module.exports = {
   TOKEN_TTL_MS,
   istAktiv,
@@ -567,6 +584,7 @@ module.exports = {
   dateien,
   netzAufruf,
   tabellen,
+  zeitplan,
   flowsListe,
   flowStarten,
   flowLauf,
