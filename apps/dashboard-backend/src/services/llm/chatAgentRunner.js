@@ -40,6 +40,7 @@ const { buildSystemPrompt } = require('./systemPromptBuilder');
 const agentConfig = require('./agentConfig');
 const { parseTextToolCalls, enthaeltToolSyntax } = require('./textToolCalls');
 const { TodoListeTool, todoErinnerung, parseTodos } = require('./agentTodoTool');
+const { abbruchMelden, abbruchFesthalten, abbruchText, grundAusFehler } = require('./abbruchGrund');
 
 const CALL_TIMEOUT_MS = parseInt(process.env.FLOW_LLM_TIMEOUT_MS || '120000', 10);
 // Kein praktisches Zeitlimit mehr (Interview 2026-07-29: „Unbegrenzt +
@@ -389,6 +390,14 @@ async function haltezeit() {
  * Inaktivitäts-Timeout statt Gesamt-Timeout: ein langsam tröpfelnder Stream
  * ist gesund, ein stiller Stream ist tot.
  *
+ * Plan 023 E1: die Wartezeit auf das ERSTE Zeichen wird gemessen und
+ * aufgeschrieben, auch wenn sie gut ausgeht. Sie ist etwas anderes als die
+ * Pause zwischen zwei Zeichen: davor laufen Modell-Ladung und Vorverarbeitung
+ * des ganzen Prompts, und beides kann auf dem Jetson nahe an CALL_TIMEOUT_MS
+ * heranreichen, ohne dass irgendetwas kaputt ist. Ohne diese Zahl laesst sich
+ * nicht unterscheiden, ob ein Abbruch ein totes Modell war oder ein zu knapp
+ * gesetztes Zeitlimit.
+ *
  * @returns {Promise<{content:string, toolCalls:object[]}>}
  */
 async function streamChatRound({
@@ -400,6 +409,7 @@ async function streamChatRound({
   think,
   signal,
   numPredict,
+  jobId = null,
 }) {
   return withGpuLock(async () => {
     if (signal?.aborted) {
@@ -434,6 +444,9 @@ async function streamChatRound({
       const toolCalls = [];
       let inactivity = null;
       let settled = false;
+      // Plan 023 E1: zwei verschiedene Wartezeiten, bisher unter einer Zahl.
+      const rundeBegonnen = Date.now();
+      let erstesZeichenNachMs = null;
 
       const onAbort = () => fail(new Error('Vom Nutzer abgebrochen'));
       const cleanup = () => {
@@ -458,14 +471,35 @@ async function streamChatRound({
         if (inactivity) {
           clearTimeout(inactivity);
         }
-        inactivity = setTimeout(
-          () => fail(new Error(`Modell-Stream ${CALL_TIMEOUT_MS / 1000}s ohne Daten, abgebrochen`)),
-          CALL_TIMEOUT_MS
-        );
+        inactivity = setTimeout(() => {
+          // Plan 023 E1: der Grund unterscheidet, was bisher gleich aussah.
+          // Kam noch kein einziges Zeichen, wartete der Lauf auf Modell-Ladung
+          // und Vorverarbeitung; kam schon Text, ist der Strom mittendrin
+          // versiegt. Beides endet hier, aber es sind zwei Fehler.
+          const wartet = erstesZeichenNachMs === null ? 'vor dem ersten Zeichen' : 'mitten im Text';
+          abbruchMelden({
+            log: logger,
+            jobId,
+            grund: 'stream_still',
+            quelle: 'chatAgentRunner.streamChatRound',
+            detail: `${wartet}, Modell ${model}, Grenze ${CALL_TIMEOUT_MS / 1000}s`,
+            nachMs: Date.now() - rundeBegonnen,
+          });
+          fail(new Error(`Modell-Stream ${CALL_TIMEOUT_MS / 1000}s ohne Daten, abgebrochen`));
+        }, CALL_TIMEOUT_MS);
       };
       armInactivity();
 
       stream.on('data', chunk => {
+        if (erstesZeichenNachMs === null) {
+          erstesZeichenNachMs = Date.now() - rundeBegonnen;
+          // Immer aufschreiben, auch wenn es gut ging. Diese Zahl ist die
+          // einzige Auskunft darüber, wie viel Luft bis CALL_TIMEOUT_MS bleibt.
+          logger.info(
+            `[VORLAUF] job=${jobId || 'ohne'} modell=${model} ` +
+              `erstes_zeichen_nach=${erstesZeichenNachMs}ms grenze=${CALL_TIMEOUT_MS}ms`
+          );
+        }
         armInactivity();
         buffer += chunk.toString('utf8');
         const lines = buffer.split('\n');
@@ -733,6 +767,12 @@ async function processAgentChatJob(ctx, job) {
   // über das Signal den laufenden Modell-Stream und alle Subagenten mit ab.
   const abbruch = new AbortController();
   let abgebrochen = false;
+  // Plan 023 E1: WARUM abgebrochen wurde. Bisher gab es nur das Ob, und
+  // deshalb sah ein Nutzer-Stopp im Chat genauso aus wie ein Zeitlimit.
+  let abbruchGrund = 'nutzer';
+  let abbruchDetail = '';
+  let abbruchKennung = null;
+  const laufBegonnen = Date.now();
   abbruch.signal.addEventListener('abort', () => {
     abgebrochen = true;
   });
@@ -791,6 +831,10 @@ async function processAgentChatJob(ctx, job) {
       .query('SELECT status FROM llm_jobs WHERE id = $1', [jobId])
       .then(r => {
         if (r.rows[0]?.status === 'cancelled' && !abgebrochen) {
+          // Plan 023 E1: dieser Weg ist der Ersatzweg. Dass er greift, heisst,
+          // dass die Sofort-Registrierung verloren gegangen ist, und das
+          // gehoert ins Protokoll, auch wenn der Abbruch selbst gewollt war.
+          abbruchDetail = 'über den Datenbank-Poller erkannt, nicht über die Abbruch-Route';
           abbruch.abort();
         }
       })
@@ -1233,6 +1277,7 @@ async function processAgentChatJob(ctx, job) {
           onThinking,
           onToken: token => onThinking(token), // Plan-Text in die Gedankengang-Zeile
           signal: abbruch.signal,
+          jobId,
         });
         denkenEnde();
         metrikSammeln(planErgebnis, planNachrichten);
@@ -1282,12 +1327,37 @@ async function processAgentChatJob(ctx, job) {
       }
     }
 
-    for (let runde = 0; runde < MAX_RUNDEN; runde++) {
+    // Die Laufvariable steht ABSICHTLICH ausserhalb der Schleife (Plan 023 E1):
+    // nur so laesst sich danach unterscheiden, ob die Schleife regulaer
+    // verlassen wurde (`break`, dann ist runde < MAX_RUNDEN) oder ob ihr die
+    // Runden ausgegangen sind (dann ist runde === MAX_RUNDEN). Das war die
+    // vierte stille Stelle: der Lauf endete ohne Abschlusssatz, und die
+    // Antwort hoerte fuer den Nutzer einfach auf.
+    let runde = 0;
+    for (; runde < MAX_RUNDEN; runde++) {
       if (abgebrochen) {
         break;
       }
       if (Date.now() >= deadline) {
-        onToken(`\n\n_Abgebrochen: Zeitlimit von ${ZEITLIMIT_S}s erreicht._`);
+        abbruchGrund = 'lauf_zeitlimit';
+        abbruchDetail = `Zeitlimit ${ZEITLIMIT_S}s, Runde ${runde + 1}`;
+        const k = abbruchMelden({
+          log,
+          jobId,
+          grund: abbruchGrund,
+          quelle: 'chatAgentRunner.rundenSchleife',
+          detail: abbruchDetail,
+          nachMs: Date.now() - laufBegonnen,
+        });
+        onToken(abbruchText(abbruchGrund, k));
+        await abbruchFesthalten({
+          database,
+          log,
+          jobId,
+          grund: abbruchGrund,
+          kennung: k,
+          detail: abbruchDetail,
+        });
         break;
       }
 
@@ -1322,6 +1392,7 @@ async function processAgentChatJob(ctx, job) {
           onThinking,
           onToken,
           signal: abbruch.signal,
+          jobId,
         });
         denkenEnde();
         metrikSammeln(rundenErgebnis, rundenMessages);
@@ -1452,9 +1523,17 @@ async function processAgentChatJob(ctx, job) {
       letzteToolSignatur = toolSignatur;
       letzteFortschrittMarke = fortschrittMarke;
       if (stagnation >= MAX_STAGNATION) {
-        log.warn(
-          `[JOB ${jobId}] Agent-Lauf ohne Fortschritt beendet (${stagnation + 1} gleiche Runden in Folge)`
-        );
+        // Plan 023 E1: die fuenfte Stelle, an der ein Lauf endet. Der Plan
+        // nannte vier; diese hier hatte schon einen deutschen Satz, aber keine
+        // Kennung, war also im Protokoll nicht wiederzufinden.
+        const k = abbruchMelden({
+          log,
+          jobId,
+          grund: 'kein_fortschritt',
+          quelle: 'chatAgentRunner.fortschrittsWaechter',
+          detail: `${stagnation + 1} gleiche Runden in Folge, Signatur ${kurz(toolSignatur, 120)}`,
+          nachMs: Date.now() - laufBegonnen,
+        });
         service.notifySubscribers(jobId, {
           type: 'warning',
           message:
@@ -1463,8 +1542,16 @@ async function processAgentChatJob(ctx, job) {
         });
         onToken(
           '\n\n_Ich komme hier nicht weiter, die letzten Schritte brachten keinen Fortschritt. ' +
-            'Bitte formuliere den Auftrag anders oder teile ihn in kleinere Teile._'
+            `Bitte formuliere den Auftrag anders oder teile ihn in kleinere Teile. Kennung ${k}._`
         );
+        await abbruchFesthalten({
+          database,
+          log,
+          jobId,
+          grund: 'kein_fortschritt',
+          kennung: k,
+          detail: `${stagnation + 1} gleiche Runden in Folge`,
+        });
         break;
       }
 
@@ -1526,7 +1613,17 @@ async function processAgentChatJob(ctx, job) {
               }
             }
           } catch (err) {
-            log.warn(`[JOB ${jobId}] Agent-Werkzeug "${toolName}" warf: ${err.message}`);
+            // Plan 023 E1: feste Form, damit sich Werkzeugfehler zaehlen
+            // lassen. Wichtig dabei: ein Werkzeugfehler beendet den Lauf NICHT.
+            // Er wird dem Modell als Text zurueckgegeben, das Modell versucht
+            // etwas anderes. Der Plan zaehlte diese Stelle zu den vier Orten,
+            // an denen ein Lauf endet; gemessen endet er hier nie. Was hier
+            // wirklich passiert, sieht man erst im Fortschritts-Waechter
+            // weiter oben, wenn dasselbe Werkzeug mehrfach gleich scheitert.
+            log.warn(
+              `[WERKZEUGFEHLER] job=${jobId} werkzeug=${toolName} ` +
+                `detail=${JSON.stringify(String(err.message).slice(0, 300))}`
+            );
             result = `Fehler bei "${toolName}": ${err.message}`;
           }
         }
@@ -1579,6 +1676,30 @@ async function processAgentChatJob(ctx, job) {
         messages.push({ role: 'tool', content: result });
       }
     }
+    // Plan 023 E1: die vierte stille Stelle. Laeuft die Schleife bis
+    // MAX_RUNDEN durch, endet der Lauf ohne Abschlusssatz des Modells, und
+    // der Nutzer sah eine Antwort, die einfach aufhoert. Der Zaehler steht
+    // nach der Schleife auf MAX_RUNDEN; ein Abbruch oder ein regulaeres Ende
+    // haette sie vorher verlassen.
+    if (!abgebrochen && runde >= MAX_RUNDEN) {
+      const k = abbruchMelden({
+        log,
+        jobId,
+        grund: 'runden_ende',
+        quelle: 'chatAgentRunner.rundenSchleife',
+        detail: `${MAX_RUNDEN} Werkzeug-Runden ohne Abschluss`,
+        nachMs: Date.now() - laufBegonnen,
+      });
+      onToken(abbruchText('runden_ende', k));
+      await abbruchFesthalten({
+        database,
+        log,
+        jobId,
+        grund: 'runden_ende',
+        kennung: k,
+        detail: `${MAX_RUNDEN} Werkzeug-Runden ohne Abschluss`,
+      });
+    }
   } catch (err) {
     if (dbFlushTimer) {
       clearTimeout(dbFlushTimer);
@@ -1586,19 +1707,58 @@ async function processAgentChatJob(ctx, job) {
     }
     if (abgebrochen) {
       // Nutzer-Abbruch ist kein Fehler: bisherigen Text und Schritte behalten.
-      log.info(`[JOB ${jobId}] Agent-Lauf vom Nutzer abgebrochen`);
-      onToken('\n\n_Abgebrochen._');
+      // Plan 023 E1: trotzdem mit Grund und Kennung, denn `abgebrochen` wird
+      // auch vom Poller gesetzt, wenn irgendetwas anderes den Job auf
+      // 'cancelled' gestellt hat. Genau diese beiden Faelle waren im Chat
+      // bisher nicht auseinanderzuhalten.
+      const k = abbruchMelden({
+        log,
+        jobId,
+        grund: abbruchGrund,
+        quelle: 'chatAgentRunner.abbruch',
+        detail: abbruchDetail || err.message,
+        nachMs: Date.now() - laufBegonnen,
+        fehler: abbruchGrund !== 'nutzer',
+      });
+      abbruchKennung = k;
+      onToken(abbruchText(abbruchGrund, k));
+      await abbruchFesthalten({
+        database,
+        log,
+        jobId,
+        grund: abbruchGrund,
+        kennung: k,
+        detail: abbruchDetail || err.message,
+      });
     } else if (!fertigText && !dbPuffer) {
       // Fehler VOR jedem Inhalt: werfen, die Queue markiert den Job als Fehler.
       // Dem Nutzer gehört die verständliche Fassung; die rohe steht im Log.
       clearInterval(abbruchPoller);
-      log.error(`[JOB ${jobId}] Agent-Lauf gescheitert: ${err.message}`);
-      throw new Error(verstaendlicherFehler(err));
+      const grund = grundAusFehler(err);
+      const k = abbruchMelden({
+        log,
+        jobId,
+        grund,
+        quelle: 'chatAgentRunner.vorInhalt',
+        detail: err.message,
+        nachMs: Date.now() - laufBegonnen,
+      });
+      await abbruchFesthalten({ database, log, jobId, grund, kennung: k, detail: err.message });
+      throw new Error(`${verstaendlicherFehler(err)} (Kennung ${k})`);
     } else {
       // Fehler NACH gestreamtem Inhalt: sauber abschließen statt werfen — der
       // Nutzer soll den bisherigen Text behalten.
-      log.error(`[JOB ${jobId}] Agent-Lauf nach Teilantwort gescheitert: ${err.message}`);
-      onToken(`\n\n_Abgebrochen: ${verstaendlicherFehler(err)}_`);
+      const grund = grundAusFehler(err);
+      const k = abbruchMelden({
+        log,
+        jobId,
+        grund,
+        quelle: 'chatAgentRunner.nachTeilantwort',
+        detail: err.message,
+        nachMs: Date.now() - laufBegonnen,
+      });
+      onToken(`\n\n_Abgebrochen: ${verstaendlicherFehler(err)} Kennung ${k}._`);
+      await abbruchFesthalten({ database, log, jobId, grund, kennung: k, detail: err.message });
     }
   } finally {
     clearInterval(abbruchPoller);
@@ -1656,9 +1816,15 @@ async function processAgentChatJob(ctx, job) {
           [JSON.stringify(schritte), dateiWert ? JSON.stringify(dateiWert) : null, messageId]
         );
         if (abgebrochen) {
+          // Plan 023 E1: derselbe Satz wie im Strom, mit derselben Kennung.
+          // Sonst stuende beim Neuladen des Chats etwas anderes da als
+          // waehrend des Laufs, und die Kennung waere weg.
+          const marker = abbruchKennung
+            ? abbruchText(abbruchGrund, abbruchKennung).trimStart()
+            : '_Abgebrochen._';
           await database.query(
             `UPDATE chat_messages SET content = $1, status = 'completed' WHERE id = $2`,
-            [fertigText ? `${fertigText}\n\n_Abgebrochen._` : '_Abgebrochen._', messageId]
+            [fertigText ? `${fertigText}\n\n${marker}` : marker, messageId]
           );
         }
       }

@@ -12,6 +12,7 @@ const EventEmitter = require('events');
 const services = require('../../config/services');
 const AsyncMutex = require('./AsyncMutex');
 const { processChatJob, processRAGJob, onJobComplete } = require('./llmJobProcessor');
+const { abbruchMelden, abbruchFesthalten } = require('./abbruchGrund');
 const { istExtern } = require('./extern/providerRegistry');
 const { ServiceUnavailableError } = require('../../utils/errors');
 
@@ -117,11 +118,38 @@ function createLLMQueueService(deps = {}) {
       for (const [jobId, timestamp] of this.jobSubscriberTimestamps.entries()) {
         // BE5: Always remove entries older than maxAge, regardless of job status
         if (now - timestamp > maxAge) {
+          // Plan 023 E1: das hier ist kein Aufraeumen, das ist ein Abbruch.
+          // Der Kommentar oben sagt "regardless of job status", und genau so
+          // verhaelt es sich: ein Lauf, der laenger als zehn Minuten dauert,
+          // verliert seine Zuhoerer, waehrend er noch laeuft. Danach geht kein
+          // Token mehr an den Browser, der Lauf selbst laeuft weiter, und der
+          // Nutzer sieht eine Anzeige, die stehen bleibt. E2 behebt das; hier
+          // wird es erst einmal sichtbar gemacht, denn ohne diese Zeile war es
+          // im Protokoll nicht von einem gewoehnlichen Aufraeumen zu trennen.
+          let laeuftNoch = false;
+          try {
+            const stand = await database.query(`SELECT status FROM llm_jobs WHERE id = $1`, [
+              jobId,
+            ]);
+            laeuftNoch = ['pending', 'streaming'].includes(stand.rows[0]?.status);
+          } catch {
+            laeuftNoch = false;
+          }
           this.jobSubscribers.delete(jobId);
           this.jobSubscriberTimestamps.delete(jobId);
-          logger.debug(
-            `Cleaned up stale subscribers for job ${jobId} (age: ${Math.round((now - timestamp) / 1000)}s)`
-          );
+          if (laeuftNoch) {
+            abbruchMelden({
+              log: logger,
+              jobId,
+              grund: 'zuhoerer_verworfen',
+              quelle: 'llmQueueService.cleanupStaleSubscribers',
+              detail: `Job laeuft noch, Zuhoerer nach ${Math.round((now - timestamp) / 1000)}s verworfen`,
+            });
+          } else {
+            logger.debug(
+              `Cleaned up stale subscribers for job ${jobId} (age: ${Math.round((now - timestamp) / 1000)}s)`
+            );
+          }
           continue;
         }
 
@@ -756,10 +784,18 @@ function createLLMQueueService(deps = {}) {
       }
 
       // Notify subscribers
+      const kennung = abbruchMelden({
+        log: logger,
+        jobId,
+        grund: 'nutzer',
+        quelle: 'llmQueueService.cancelJob',
+        fehler: false,
+      });
+      await abbruchFesthalten({ database, log: logger, jobId, grund: 'nutzer', kennung });
       this.notifySubscribers(jobId, {
         type: 'cancelled',
         done: true,
-        error: 'Job was cancelled',
+        error: `Vom Nutzer gestoppt. Kennung ${kennung}.`,
       });
 
       return true;
@@ -876,12 +912,35 @@ function createLLMQueueService(deps = {}) {
                 }
               }
 
+              // Plan 023 E1: Grund und Kennung, und zwar auf Deutsch. Diese
+              // beiden Saetze waren die einzigen Abbruchmeldungen des Produkts
+              // in englischer Sprache, und sie erreichten den Nutzer.
+              const grund =
+                row.old_status === 'streaming' ? 'strom_zeitlimit' : 'warteschlange_zeitlimit';
+              const kennung = abbruchMelden({
+                log: logger,
+                jobId: row.id,
+                grund,
+                quelle: 'llmQueueService.zeitlimitWaechter',
+                detail:
+                  row.old_status === 'streaming'
+                    ? 'zehn Minuten ohne Aktualisierung, kein aktiver Strom in diesem Prozess'
+                    : 'dreissig Minuten in der Warteschlange',
+              });
+              await abbruchFesthalten({
+                database,
+                log: logger,
+                jobId: row.id,
+                grund,
+                kennung,
+                detail: row.old_status,
+              });
               this.notifySubscribers(row.id, {
                 type: 'error',
                 error:
-                  row.old_status === 'streaming'
-                    ? 'Job timed out during streaming (10 minutes without update)'
-                    : 'Job timed out in queue',
+                  grund === 'strom_zeitlimit'
+                    ? `Der Lauf hat zehn Minuten lang nichts mehr geschrieben und wurde beendet. Kennung ${kennung}.`
+                    : `Der Auftrag stand dreissig Minuten in der Warteschlange und wurde beendet. Kennung ${kennung}.`,
                 done: true,
               });
               if (this.processingJobId === row.id) {
