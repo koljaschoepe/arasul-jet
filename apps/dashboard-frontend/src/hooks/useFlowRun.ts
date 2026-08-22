@@ -76,6 +76,13 @@ export interface FlowRunState {
   changes: FlowRunChange[];
   /** Annahmen-Protokoll des Prüfschritts (Plan 014, Phase 2). */
   annahmen: string[];
+  /**
+   * Die offene Rückfrage, falls der Lauf gerade wartet (Plan 023 I3).
+   *
+   * Nur die Betriebsart `rueckfragen` erzeugt so etwas; ein autonomer Flow
+   * trifft die Annahme und schreibt sie mit, statt zu fragen.
+   */
+  frage: { frage: string; optionen: string[] } | null;
   /** Läuft gerade eine Live-Verbindung? */
   verbunden: boolean;
 }
@@ -92,6 +99,7 @@ interface StreamEvent {
     | 'error'
     | 'aenderungen'
     | 'annahmen'
+    | 'frage'
     | 'ende';
   /** Bei step_start/step_end: die Schritt-Zeile (ohne Rohdaten). */
   step?: FlowRunStep;
@@ -113,6 +121,9 @@ interface StreamEvent {
   status?: FlowRunStatus;
   changes?: FlowRunChange[];
   annahmen?: string[];
+  /** Plan 023 I3: die Frage und ihre Optionen. */
+  frage?: string;
+  optionen?: string[];
 }
 
 const LEER: FlowRunState = {
@@ -125,6 +136,7 @@ const LEER: FlowRunState = {
   error: null,
   changes: [],
   annahmen: [],
+  frage: null,
   verbunden: false,
 };
 
@@ -218,8 +230,15 @@ export function useFlowRun() {
             return { ...s, changes: evt.changes ?? s.changes };
           case 'annahmen':
             return { ...s, annahmen: evt.annahmen ?? s.annahmen };
+          case 'frage':
+            return {
+              ...s,
+              frage: { frage: evt.frage ?? '', optionen: evt.optionen ?? [] },
+            };
           case 'ende':
-            return { ...s, status: evt.status ?? s.status, verbunden: false };
+            // Eine Frage, auf die niemand mehr wartet, darf nicht stehen
+            // bleiben: der Lauf ist vorbei, die Antwort ginge ins Leere.
+            return { ...s, status: evt.status ?? s.status, verbunden: false, frage: null };
           default:
             return s;
         }

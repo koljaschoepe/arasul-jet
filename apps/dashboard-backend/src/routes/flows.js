@@ -24,6 +24,7 @@ const {
   FlowNameParams,
   VorlageNameParams,
   RunIdParams,
+  FlowAntwortBody,
   WiederholenBody,
   ListRunsQuery,
   StartRunBody,
@@ -38,6 +39,7 @@ const logger = require('../utils/logger');
 const registry = require('../services/flows/flowRegistry');
 const runStore = require('../services/flows/runStore');
 const flowRunner = require('../services/flows/flowRunner');
+const frageStore = require('../services/flows/frageStore');
 const { resolveArguments } = require('../services/flows/runFlow');
 const { berechneVorabErgebnisse } = require('../services/flows/stepExecutor');
 const { serializeFlowFile } = require('../services/flows/flowFile');
@@ -414,6 +416,37 @@ router.post(
       throw new NotFoundError(`Kein laufender Flow-Lauf ${req.params.id}`);
     }
     res.json({ data: run, timestamp: new Date().toISOString() });
+  })
+);
+
+// GET /api/flows/laeufe/:id/frage — die offene Rückfrage eines Laufs (I3).
+// Für den Fall, dass der Nutzer die Seite neu lädt, während der Flow wartet:
+// der Live-Kanal ist dann weg, die Frage nicht.
+router.get(
+  '/laeufe/:id/frage',
+  requireAuth,
+  validateParams(RunIdParams),
+  asyncHandler(async (req, res) => {
+    // `getRun` wirft NotFound, wenn der Lauf nicht diesem Nutzer gehört. Ohne
+    // diesen Schritt verriete die Frage eines fremden Laufs ihren Inhalt.
+    await runStore.getRun({ runId: req.params.id, userId: req.user.id });
+    res.json({
+      data: frageStore.offeneFrage(req.params.id),
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+// POST /api/flows/laeufe/:id/antwort — eine Rückfrage beantworten (I3).
+router.post(
+  '/laeufe/:id/antwort',
+  requireAuth,
+  validateParams(RunIdParams),
+  validateBody(FlowAntwortBody),
+  asyncHandler(async (req, res) => {
+    await runStore.getRun({ runId: req.params.id, userId: req.user.id });
+    const data = frageStore.beantworte(req.params.id, req.body.antwort);
+    res.json({ data, timestamp: new Date().toISOString() });
   })
 );
 

@@ -24,6 +24,7 @@ const TerminalTool = require('./tools/terminal');
 const { WebSucheTool, WebLesenTool } = require('./tools/web');
 const { RechnungErstellenTool } = require('./rechnung');
 const SubagentTool = require('./subagent');
+const FrageNutzerTool = require('./tools/frage');
 const BaseTool = require('../../tools/baseTool');
 
 /**
@@ -65,14 +66,16 @@ const FACTORIES = {
   web_lesen: () => new WebLesenTool(),
   subagent: () => new SubagentTool(),
   rechnung_erstellen: () => new RechnungErstellenTool(),
+  frage_nutzer: () => new FrageNutzerTool(),
 };
 
 /**
  * Baut die Werkzeuge für eine Liste deklarierter Namen.
  * @param {string[]} namen
+ * @param {{betriebsart?: 'autonom'|'rueckfragen'}} [opts]
  * @returns {import('../../tools/baseTool')[]}
  */
-function buildTools(namen = []) {
+function buildTools(namen = [], { betriebsart = 'autonom' } = {}) {
   const seen = new Set();
   const tools = [];
   for (const name of namen) {
@@ -80,6 +83,14 @@ function buildTools(namen = []) {
       continue;
     }
     seen.add(name);
+    // Plan 023 I2: in der Betriebsart `autonom` gibt es `frage_nutzer` NICHT.
+    // Nicht als gesperrte Variante, die eine Fehlermeldung liefert, sondern
+    // gar nicht: ein Modell, das ein Werkzeug sieht, benutzt es irgendwann,
+    // und die Zusage "autonom stellt er keine Frage" haelt nur, wenn es die
+    // Frage nicht geben kann.
+    if (name === 'frage_nutzer' && betriebsart !== 'rueckfragen') {
+      continue;
+    }
     const factory = FACTORIES[name];
     // Unbekannte Namen werden schon vom Schema abgewiesen; hier still
     // überspringen statt werfen, damit eine künftige Schema-Erweiterung nicht

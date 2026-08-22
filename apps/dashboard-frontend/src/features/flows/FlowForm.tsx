@@ -43,6 +43,7 @@ const WERKZEUG_LABEL: Record<FlowTool, string> = {
   terminal: 'Terminal',
   subagent: 'Subagenten',
   rechnung_erstellen: 'Rechnung ausstellen',
+  frage_nutzer: 'Rückfrage',
 };
 
 const werkzeugLabel = (name: FlowTool): string => WERKZEUG_LABEL[name] ?? name;
@@ -298,6 +299,66 @@ export default function FlowForm({ value, onChange, mode, werkzeuge }: FlowFormP
         hinweis="Format, Vorlage, Länge, Sprache und Aufbau des Ergebnisses."
       >
         <AusgabeEditor value={value.ausgabe} onChange={ausgabe => patch({ ausgabe })} />
+      </Abschnitt>
+
+      {/* ④ Betriebsart (Plan 023 I2). Ein eigener Abschnitt und nicht unter
+          „Erweitert": es ist keine technische Stellschraube, sondern die Frage,
+          ob der Flow den Nutzer beim Laufen anspricht. */}
+      <Abschnitt
+        nummer="4"
+        titel="Darf der Flow zwischendurch fragen?"
+        hinweis="Autonom läuft er ohne Unterbrechung durch. Mit Rückfragen hält er an, wenn eine Entscheidung ansteht."
+      >
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {(
+            [
+              {
+                id: 'autonom',
+                titel: 'Autonom durchlaufen',
+                text: 'Er fragt nie. Fehlt eine Angabe, trifft er eine Annahme und schreibt sie mit.',
+              },
+              {
+                id: 'rueckfragen',
+                titel: 'Zwischendurch fragen',
+                text: 'Er hält an, wenn eine Entscheidung den weiteren Ablauf ändert. Ohne Antwort läuft er nach einer Weile autonom weiter.',
+              },
+            ] as const
+          ).map(({ id, titel, text }) => (
+            <button
+              key={id}
+              type="button"
+              data-testid={`betriebsart-${id}`}
+              aria-pressed={value.betriebsart === id}
+              onClick={() =>
+                patch({
+                  betriebsart: id,
+                  // Das Werkzeug hängt an der Betriebsart. Es beim Umschalten
+                  // stehen zu lassen hiesse, den Flow beim Speichern mit einer
+                  // Fehlermeldung abzuweisen, die niemand erwartet.
+                  werkzeuge:
+                    id === 'rueckfragen'
+                      ? value.werkzeuge
+                      : value.werkzeuge.filter(w => w !== 'frage_nutzer'),
+                })
+              }
+              className={cn(
+                'flex flex-col gap-1 rounded-md border p-3 text-left transition-colors',
+                value.betriebsart === id
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/40'
+              )}
+            >
+              <span className="text-sm font-medium text-foreground">{titel}</span>
+              <span className="text-ui-xs text-muted-foreground">{text}</span>
+            </button>
+          ))}
+        </div>
+        {value.betriebsart === 'rueckfragen' && !value.werkzeuge.includes('frage_nutzer') && (
+          <p className="text-ui-xs text-muted-foreground">
+            Damit er wirklich fragen kann, braucht er das Werkzeug &bdquo;Rückfrage&ldquo; unter
+            &bdquo;Erweitert&ldquo;.
+          </p>
+        )}
       </Abschnitt>
 
       {/* Erweitert (eingeklappt) */}

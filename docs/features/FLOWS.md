@@ -227,12 +227,47 @@ Ein Flow muss nicht von Hand im Chat gestartet werden:
   frühere eingebaute Zeitplan-/Ereignis-Mechanismus (`flow_schedules`) wurde
   am 2026-07-28 ersatzlos entfernt (Migration 123) — n8n deckt das ab.
 
-## Sicherheit — bewusst ohne Rückfrage
+## Zwei Betriebsarten (Plan 023 I2)
+
+Ein Flow erklärt in seiner Datei, ob er zwischendurch fragen darf:
+
+```yaml
+betriebsart: rueckfragen # oder gar nichts, dann gilt "autonom"
+```
+
+|                            |                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `autonom` (Voreinstellung) | Er fragt **nie**. Fehlt eine Angabe, trifft er eine Annahme und schreibt sie mit (Annahmen-Protokoll unten) |
+| `rueckfragen`              | Er hält an, wenn eine Entscheidung den weiteren Ablauf ändert                                               |
+
+**Die Voreinstellung ist Absicht.** Jeder vorhandene Flow bleibt genau so, wie
+er war. Und ein Flow, der ungefragt anhält, wäre für einen n8n-Start oder einen
+nächtlichen Lauf das Ende: dort sieht niemand die Frage.
+
+Gefragt wird über das Werkzeug `frage_nutzer`. Es liegt **nur** in der
+Betriebsart `rueckfragen` im Werkzeugkasten — nicht als gesperrte Variante,
+sondern gar nicht. Ein Modell, das ein Werkzeug sieht, benutzt es irgendwann,
+und die Zusage „autonom fragt nie" hält nur, wenn es die Frage nicht geben kann.
+Ein Flow, der `frage_nutzer` deklariert, ohne die Betriebsart zu setzen, wird
+beim Speichern abgewiesen; das ist ein Widerspruch, kein Detail.
+
+Die Frage erscheint im laufenden Lauf mit bis zu vier Optionen (die erste ist
+die Empfehlung) und **immer** einem Freitextfeld. Antwortet niemand, gilt nach
+`FLOW_RUECKFRAGE_TIMEOUT_MS` die erste Empfehlung, und der Lauf schreibt das
+mit. Ein hängender Lauf wäre schlechter als eine Annahme.
+
+Das Warten kostet keine GPU: `withGpuLock` umschließt einen einzelnen
+Modellaufruf, nicht den ganzen Lauf. Wäre das anders, blockierte eine
+unbeantwortete Frage den Chat des ganzen Geräts.
+
+## Sicherheit — bewusst ohne Bestätigungsdialoge
 
 Es gibt **kein Rechtekonzept**: Der (einzige) Admin darf jeden Flow anlegen und
 ihm jedes Werkzeug geben, inklusive Terminal und Web-Zugriff. Flows laufen
-**autonom ohne Bestätigungsdialoge** — gebremst wird nur durch die Grenzen und
-den Abbrechen-Knopf. Die Gegenleistung ist die lückenlose Änderungs-Übersicht am
+**ohne Bestätigungsdialoge** — gebremst wird nur durch die Grenzen und den
+Abbrechen-Knopf. Eine Rückfrage nach `frage_nutzer` ist etwas anderes: sie kommt
+vom Flow, weil er eine Entscheidung braucht, nicht vom System, weil es sich
+absichern will. Die Gegenleistung bleibt die lückenlose Änderungs-Übersicht am
 Ende jedes Laufs mit Schreibzugriff: Du siehst hinterher, was passiert ist.
 
 ## Beispiele als Startpunkt

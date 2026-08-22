@@ -61,6 +61,8 @@ services:
       # und Vorverarbeitung laufen. Grosszuegiger, weil das bei vollem
       # Zusammenhang auf dem Jetson gemessen bis zu zwei Minuten dauert.
       FLOW_LLM_VORLAUF_TIMEOUT_MS: ${FLOW_LLM_VORLAUF_TIMEOUT_MS:-300000}
+      # Plan 023 I3: wie lange ein Flow auf eine Rueckfrage-Antwort wartet.
+      FLOW_RUECKFRAGE_TIMEOUT_MS: ${FLOW_RUECKFRAGE_TIMEOUT_MS:-}
       # Externe Cloud-Modelle (Plan 023 D9).
       EXTERN_TIMEOUT_MS: ${EXTERN_TIMEOUT_MS:-60000}
       EXTERN_MODELLE_CACHE_MS: ${EXTERN_MODELLE_CACHE_MS:-300000}

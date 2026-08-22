@@ -17,6 +17,7 @@ import { CompactMarkdown } from '@/components/ui/CompactMarkdown';
 import { useFlowRun, type FlowRunStatus, type FlowRunStep } from '@/hooks/useFlowRun';
 import RunStep from './RunStep';
 import ChangeSummary from './ChangeSummary';
+import RueckfrageKarte from './RueckfrageKarte';
 
 const STATUS_TEXT: Record<FlowRunStatus, string> = {
   laeuft: 'läuft',
@@ -176,7 +177,22 @@ export default function RunCard({ runId, flowName, onFinished }: RunCardProps) {
         </div>
       )}
 
-      {/* Annahmen-Protokoll (Plan 014, Phase 2): Flows fragen nie zurück —
+      {/* Rückfrage (Plan 023 I3). Steht ÜBER den Annahmen: die eine ist die
+          Frage, auf die der Lauf gerade wartet, die andere das Protokoll
+          dessen, was er ohne Frage entschieden hat. */}
+      {run.frage && (
+        <div className="border-t border-border px-2.5 py-2">
+          <RueckfrageKarte
+            frage={run.frage.frage}
+            optionen={run.frage.optionen}
+            onAntwort={async antwort => {
+              await api.post(`/flows/laeufe/${run.runId}/antwort`, { antwort });
+            }}
+          />
+        </div>
+      )}
+
+      {/* Annahmen-Protokoll (Plan 014, Phase 2): ein autonomer Flow fragt nie —
           Lücken werden als Annahmen gefüllt und hier ehrlich benannt. */}
       {run.annahmen.length > 0 && (
         <div

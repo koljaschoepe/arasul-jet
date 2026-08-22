@@ -640,7 +640,41 @@ describe('Werkzeug-Registry', () => {
         'subagent',
         // Plan 014, Phase 5: ZUGFeRD-Rechnungen mit Code-Summen.
         'rechnung_erstellen',
+        // Plan 023 I3: EINE Rueckfrage an den Nutzer. Nur wirksam in der
+        // Betriebsart `rueckfragen` — siehe die Tests darunter.
+        'frage_nutzer',
       ].sort()
     );
+  });
+
+  /**
+   * Plan 023 I2: in der Betriebsart `autonom` gibt es `frage_nutzer` NICHT.
+   *
+   * Nicht als gesperrte Variante, die eine Fehlermeldung liefert, sondern gar
+   * nicht. Ein Modell, das ein Werkzeug sieht, benutzt es irgendwann, und die
+   * Zusage "autonom stellt er keine Frage" haelt nur, wenn es die Frage nicht
+   * geben kann.
+   */
+  describe('frage_nutzer haengt an der Betriebsart (Plan 023 I2)', () => {
+    const namen = t => t.map(x => x.name).sort();
+
+    it('faellt ohne Angabe weg — die Voreinstellung ist autonom', () => {
+      expect(namen(buildTools(['dateien_lesen', 'frage_nutzer']))).toEqual(['dateien_lesen']);
+    });
+
+    it('faellt bei betriebsart autonom weg', () => {
+      const t = buildTools(['dateien_lesen', 'frage_nutzer'], { betriebsart: 'autonom' });
+      expect(namen(t)).toEqual(['dateien_lesen']);
+    });
+
+    it('ist bei betriebsart rueckfragen da', () => {
+      const t = buildTools(['dateien_lesen', 'frage_nutzer'], { betriebsart: 'rueckfragen' });
+      expect(namen(t)).toEqual(['dateien_lesen', 'frage_nutzer']);
+    });
+
+    it('laesst die uebrigen Werkzeuge unberuehrt', () => {
+      const t = buildTools(['rag_suche', 'web_lesen'], { betriebsart: 'autonom' });
+      expect(namen(t)).toEqual(['rag_suche', 'web_lesen']);
+    });
   });
 });

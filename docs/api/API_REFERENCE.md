@@ -2645,6 +2645,8 @@ Flows are Markdown files with YAML front matter under `data/flows/` (container p
 | GET    | `/api/flows/laeufe/:id`             | One run with its steps (`?raw=1` includes raw step data)                                                                                |
 | GET    | `/api/flows/laeufe/:id/stream`      | SSE event stream: replay stored history, then live steps                                                                                |
 | POST   | `/api/flows/laeufe/:id/abbrechen`   | Cancel a running run (404 if not running/owned)                                                                                         |
+| GET    | `/api/flows/laeufe/:id/frage`       | Die offene Rückfrage eines Laufs, oder `null` (Plan 023 I3). Für den Fall, dass die Seite neu geladen wird, während der Flow wartet     |
+| POST   | `/api/flows/laeufe/:id/antwort`     | Eine Rückfrage beantworten (`{antwort}`). 404, wenn nichts offen ist                                                                    |
 | POST   | `/api/flows/laeufe/:id/wiederholen` | Retry a **failed** run of a flow with a declared step chain (body `{}`); `202 { runId, uebernommeneSchritte }`                          |
 
 **Starting flows.** A flow runs from the chat (slash command `/name`) or via the
