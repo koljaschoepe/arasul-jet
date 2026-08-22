@@ -57,6 +57,11 @@ services:
       # gilt (Plan 023 E1). Stand bisher in der Dokumentation und im Code, aber
       # nicht hier, war also auf einem ausgelieferten Geraet nicht einstellbar.
       FLOW_LLM_TIMEOUT_MS: ${FLOW_LLM_TIMEOUT_MS:-120000}
+      # Zwei Zahlen, weil es zwei verschiedene Dinge sind: oben die
+      # erlaubte Stille zwischen zwei Zeichen im Chat, hier das
+      # Zeitlimit eines ganzen, nicht gestreamten Flow-Aufrufs
+      # (services/flows/toolLoop.js).
+      FLOW_LLM_AUFRUF_TIMEOUT_MS: ${FLOW_LLM_AUFRUF_TIMEOUT_MS:-300000}
       # Und wie lange VOR dem ersten Wort einer Runde, waehrend Modellladung
       # und Vorverarbeitung laufen. Grosszuegiger, weil das bei vollem
       # Zusammenhang auf dem Jetson gemessen bis zu zwei Minuten dauert.
