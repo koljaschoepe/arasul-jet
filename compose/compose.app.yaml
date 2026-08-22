@@ -85,6 +85,8 @@ services:
       EXTENSIONS_NETZ_MAX_ANTWORT: ${EXTENSIONS_NETZ_MAX_ANTWORT:-}
       EXTENSIONS_ZEITPLAN_TAKT_MS: ${EXTENSIONS_ZEITPLAN_TAKT_MS:-}
       EXTENSIONS_ZEITPLAN_NACHHOLEN_MIN: ${EXTENSIONS_ZEITPLAN_NACHHOLEN_MIN:-}
+      # Plan 023 J3: wo die eingehaengten Datentraeger IM Container liegen.
+      EXTERNE_MEDIEN_DIR: ${EXTERNE_MEDIEN_DIR:-/arasul/medien}
       DOCUMENT_INDEXER_HOST: ${DOCUMENT_INDEXER_HOST:-document-indexer}
       DOCUMENT_INDEXER_API_PORT: ${DOCUMENT_INDEXER_API_PORT:-9102}
       DOCUMENT_INDEXER_MINIO_BUCKET: ${DOCUMENT_INDEXER_MINIO_BUCKET:-documents}
@@ -149,6 +151,12 @@ services:
       # Mount fuer Sandboxes. Auch der Git-Sync-Checkout (PROJECT_GIT_DIR)
       # liegt hier; ueberlebt Rebuilds und wandert ins Backup.
       - ${DATA_PATH:-../data}/projects:/arasul/projects
+      # Angesteckte Datentraeger (Plan 023 J3). Der Host haengt sie unter
+      # /media/<nutzer>/<name> ein; der Container sieht GENAU diese Ordner und
+      # sonst nichts vom Host. Einhaengen bleibt Sache des Betriebssystems.
+      # Fehlt der Pfad auf dem Host, ist der Mount leer und die Oberflaeche
+      # sagt das; sie zeigt keinen Fehler.
+      - ${EXTERNE_MEDIEN:-/media/arasul}:/arasul/medien
     security_opt:
       - no-new-privileges:true
     depends_on:

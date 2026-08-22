@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Download, Trash2, Info } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Download, Trash2, Info, HardDrive, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/shadcn/button';
 import { Input } from '@/components/ui/shadcn/input';
 import { Label } from '@/components/ui/shadcn/label';
@@ -13,6 +13,33 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Section, SectionList } from '@/components/ui/Section';
 
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
+
+/** Ein angesteckter Datenträger (Plan 023 J3). */
+interface Datentraeger {
+  name: string;
+  freiBytes: number | null;
+  beschreibbar: boolean;
+}
+
+interface ZieleAntwort {
+  medien: Datentraeger[];
+  ordner: string;
+  hinweis: string | null;
+}
+
+/** Bytes als Zahl, die jemand vorlesen kann. */
+export function groesse(bytes: number | null): string {
+  if (bytes === null || !Number.isFinite(bytes)) return 'unbekannt';
+  const einheiten = ['Byte', 'KB', 'MB', 'GB', 'TB'];
+  let wert = bytes;
+  let i = 0;
+  while (wert >= 1024 && i < einheiten.length - 1) {
+    wert /= 1024;
+    i += 1;
+  }
+  const gerundet = i === 0 ? Math.round(wert) : Math.round(wert * 10) / 10;
+  return `${String(gerundet).replace('.', ',')} ${einheiten[i]}`;
+}
 
 /**
  * P3.3: Datenschutz-Tab. DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung).
@@ -28,6 +55,51 @@ export function PrivacySettings() {
   // In-app type-to-confirm modal (replaces native window.prompt).
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
   const [typedToken, setTypedToken] = useState('');
+
+  // Angesteckte Datenträger als Ziel (Plan 023 J3). `hinweis` unterscheidet
+  // „keine Platte angesteckt" von „der Ordner ist gar nicht eingebunden" — ohne
+  // diesen Unterschied sucht jemand am falschen Ende.
+  const [medien, setMedien] = useState<Datentraeger[]>([]);
+  const [medienHinweis, setMedienHinweis] = useState<string | null>(null);
+  const [medienLaedt, setMedienLaedt] = useState(false);
+
+  const ladeMedien = useCallback(async () => {
+    setMedienLaedt(true);
+    try {
+      const res = await api.get<{ data: ZieleAntwort }>('/gdpr/ziele', { showError: false });
+      setMedien(res.data.medien ?? []);
+      setMedienHinweis(res.data.hinweis ?? null);
+    } catch {
+      setMedien([]);
+      setMedienHinweis('Die Datenträger lassen sich gerade nicht abfragen.');
+    } finally {
+      setMedienLaedt(false);
+    }
+  }, [api]);
+
+  // Beim Öffnen einmal, danach alle zehn Sekunden: die Abnahme verlangt, dass
+  // eine angesteckte Platte „innerhalb von zehn Sekunden" erscheint.
+  useEffect(() => {
+    void ladeMedien();
+    const takt = setInterval(() => void ladeMedien(), 10_000);
+    return () => clearInterval(takt);
+  }, [ladeMedien]);
+
+  const exportAufMedium = async (name: string) => {
+    setExporting(true);
+    try {
+      const res = await api.get<{ datei: string; bytes: number }>(
+        `/gdpr/export?ziel=${encodeURIComponent(name)}`,
+        { showError: false }
+      );
+      toast.success(`Export liegt auf „${name}": ${res.datei} (${groesse(res.bytes)})`);
+      void ladeMedien();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export auf den Datenträger schlug fehl');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -121,9 +193,59 @@ export function PrivacySettings() {
           icon={<Download />}
           description="Lädt eine JSON-Datei mit allen zu deinem Konto gespeicherten Daten herunter: Profil, Chats, Dokument-Metadaten, Projekte, API-Schlüssel, Prüfprotokoll."
         >
-          <Button onClick={handleExport} disabled={exporting} variant="outline">
-            {exporting ? 'Exportiere...' : 'Datenexport herunterladen'}
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button onClick={handleExport} disabled={exporting} variant="outline">
+              {exporting ? 'Exportiere...' : 'Datenexport herunterladen'}
+            </Button>
+
+            {/* Angesteckte Datenträger (Plan 023 J3). Auf einem Gerät im
+                Serverraum ist ein Browser-Download der unbequemste Weg. */}
+            <div className="flex flex-col gap-2" data-testid="export-ziele">
+              <div className="flex items-center gap-2 text-ui-xs text-muted-foreground">
+                <HardDrive className="size-3.5" aria-hidden="true" />
+                <span>Oder direkt auf einen angesteckten Datenträger</span>
+                <button
+                  type="button"
+                  onClick={() => void ladeMedien()}
+                  className="ml-auto rounded p-1 hover:bg-accent"
+                  aria-label="Datenträger neu suchen"
+                  title="Datenträger neu suchen"
+                >
+                  <RefreshCw
+                    className={`size-3.5 ${medienLaedt ? 'animate-spin' : ''}`}
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+
+              {medien.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {medien.map(m => (
+                    <Button
+                      key={m.name}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={exporting || !m.beschreibbar}
+                      data-testid={`export-ziel-${m.name}`}
+                      title={
+                        m.beschreibbar ? `${groesse(m.freiBytes)} frei` : 'Nur lesend eingehängt'
+                      }
+                      onClick={() => void exportAufMedium(m.name)}
+                    >
+                      <HardDrive className="size-3.5" aria-hidden="true" />
+                      {m.name}
+                      <span className="text-ui-xs text-muted-foreground">
+                        {m.beschreibbar ? groesse(m.freiBytes) : 'nur lesend'}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-ui-xs text-muted-foreground">{medienHinweis}</p>
+              )}
+            </div>
+          </div>
         </Section>
 
         <Section title="Konto löschen" icon={<Trash2 className="text-destructive" />}>

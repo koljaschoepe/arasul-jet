@@ -1986,11 +1986,12 @@ All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
 
 All endpoints require authentication. `export` and `categories` additionally require admin role.
 
-| Method | Endpoint               | Auth     | Description                                     |
-| ------ | ---------------------- | -------- | ----------------------------------------------- |
-| GET    | `/api/gdpr/export`     | Admin    | Full GDPR data export (Art. 20) as JSON file    |
-| GET    | `/api/gdpr/categories` | Admin    | List data categories with record counts         |
-| DELETE | `/api/gdpr/me`         | Required | Delete own account (Art. 17 — right to erasure) |
+| Method | Endpoint               | Auth     | Description                                                                                                                                                          |
+| ------ | ---------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/gdpr/export`     | Admin    | Full GDPR data export (Art. 20) as JSON file                                                                                                                         |
+| GET    | `/api/gdpr/categories` | Admin    | List data categories with record counts                                                                                                                              |
+| GET    | `/api/gdpr/ziele`      | Required | Angesteckte Datenträger als Export-Ziel (Plan 023 J3). Die Antwort trägt einen `hinweis`, der „keine Platte angesteckt" von „Ordner nicht eingebunden" unterscheidet |
+| DELETE | `/api/gdpr/me`         | Required | Delete own account (Art. 17 — right to erasure)                                                                                                                      |
 
 **GET /api/gdpr/export:**
 
