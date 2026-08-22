@@ -206,19 +206,26 @@ try {
     await page.keyboard.press('Enter');
     // Erst auf das ENDE des Laufs warten, dann zaehlen.
     //
-    // Bis zum 22.08.2026 stand es andersherum: warte auf die dritte Datei-Karte,
-    // danach auf das Laufende. Die Karten erscheinen aber ERST am Laufende (die
-    // Aenderungs-Uebersicht entsteht aus dem Vergleich vorher/nachher). Die
-    // erste Wartezeit konnte also nie zuschlagen, lief 15 Minuten leer, und
-    // danach zaehlte das Skript null Karten und meldete drei rote Ergebnisse.
+    // Zwei Anlaeufe waren falsch, beide steht hier, damit es niemand ein
+    // drittes Mal versucht:
     //
-    // Auf der Platte lagen die drei Dateien zu dem Zeitpunkt laengst. Der Lauf
-    // brauchte auf dem 27B-Modell nur laenger als das Budget: gemessen 21:45,
-    // 21:47 und 21:50 fuer die drei Schreibvorgaenge, danach noch die
-    // Abschlussrunden.
+    //  1. "Warte auf die dritte Datei-Karte, dann aufs Laufende." Die Karten
+    //     erscheinen ERST am Laufende (die Aenderungs-Uebersicht entsteht aus
+    //     dem Vergleich vorher/nachher). Die Wartezeit konnte nie zuschlagen.
+    //  2. "Warte, bis die Denkzeile verschwindet." Sie verschwindet AUCH
+    //     zwischen zwei Werkzeugrunden und kommt wieder. Das Warten war nach
+    //     der ersten Runde vorbei, und gezaehlt wurde mitten im Lauf.
+    //
+    // Das verlaessliche Zeichen ist die Kennzahlenzeile: sie entsteht genau
+    // einmal je FERTIGEM Lauf. Gewartet wird, bis eine mehr dasteht als vorher.
+    const metrikVorher = await page.locator('[data-testid="tokens-pro-sekunde"]').count();
     await page
-      .locator('[data-testid="denkzeile"]')
-      .waitFor({ state: 'detached', timeout: 1800000 })
+      .waitForFunction(
+        vorher =>
+          document.querySelectorAll('[data-testid="tokens-pro-sekunde"]').length > vorher,
+        metrikVorher,
+        { timeout: 1800000, polling: 2000 }
+      )
       .catch(() => {});
     await page.waitForTimeout(3000);
 
