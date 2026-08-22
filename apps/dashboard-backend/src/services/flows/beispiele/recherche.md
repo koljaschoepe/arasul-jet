@@ -15,18 +15,27 @@ rollen:
     beschreibung: Findet relevante Seiten zum Thema.
     werkzeuge:
       - web_suche
+    # Eine Runde, also GENAU eine Suche (Plan 023 I5, gemessen 22.08.2026).
+    # Ohne diese Zeile erbt die Rolle die zwölf Runden des Flows. Auf dem Orin
+    # rief sie web_suche 26-mal auf, obwohl ihr Prompt drei bis fünf URLs
+    # verlangt, und der Lauf lief nach 1216 Sekunden ins Zeitlimit, ohne je
+    # eine Antwort zu schreiben.
+    runden: 1
     ergebnis:
       felder:
         - treffer
       max_zeichen: 2000
     prompt: >-
-      Suche mit dem Werkzeug web_suche nach dem genannten Thema. Gib die besten
-      drei bis fünf URLs zurück, je mit einem kurzen Satz, warum die Seite
-      relevant ist. Keine eigenen Vermutungen — nur, was die Trefferliste hergibt.
+      Führe GENAU EINE Suche mit dem Werkzeug web_suche aus. Gib danach aus der
+      Trefferliste die besten drei bis fünf URLs zurück, je mit einem kurzen
+      Satz, warum die Seite relevant ist. Suche kein zweites Mal, auch nicht mit
+      anderen Worten. Keine eigenen Vermutungen, nur was die Trefferliste hergibt.
   - name: leser
     beschreibung: Liest eine Seite und extrahiert belegte Fakten.
     werkzeuge:
       - web_lesen
+    # Eine Seite lesen, hoechstens einmal nachfassen, wenn der Abruf scheitert.
+    runden: 2
     ergebnis:
       felder:
         - fakten
