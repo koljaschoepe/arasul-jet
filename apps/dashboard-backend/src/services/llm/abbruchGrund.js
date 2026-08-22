@@ -184,7 +184,16 @@ function grundAusFehler(err) {
   if (/ohne Daten|Modell-Stream/i.test(roh)) {
     return 'stream_still';
   }
-  if (/ECONNREFUSED|ENOTFOUND|fetch failed|ECONNRESET|socket hang up/i.test(roh)) {
+  // `aborted` steht hier ausdruecklich mit dabei: so meldet sich eine
+  // gerissene Verbindung zum KI-Dienst. Am 22.08.2026 nachgestellt, indem der
+  // Dienst mitten in der Antwort angehalten wurde; der Grund landete damals auf
+  // `unbekannt`, und das half niemandem. Der Nutzer-Abbruch kommt hier nicht
+  // an, der hat weiter oben seinen eigenen Zweig.
+  if (
+    /ECONNREFUSED|ENOTFOUND|fetch failed|ECONNRESET|socket hang up|^aborted$|stream has been aborted|EPIPE/i.test(
+      roh
+    )
+  ) {
     return 'modell_weg';
   }
   if (/timeout|timed?\s*out|ETIMEDOUT/i.test(roh)) {

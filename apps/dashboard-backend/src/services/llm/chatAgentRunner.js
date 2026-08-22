@@ -432,10 +432,22 @@ async function streamChatRound({
     if (tools && tools.length > 0) {
       body.tools = tools;
     }
+    // Plan 023 E2: das Signal geht MIT an axios. Zwischen diesem Aufruf und
+    // dem Anhaengen des Abbruch-Horchers weiter unten liegt die gesamte
+    // Anfrage; wer erst dort horcht, verpasst jeden Abbruch, der in dieser
+    // Zeit kommt, und der Lauf liefe bis zum Ende weiter. Genau diese Spanne
+    // ist bei einem kalten Modell die laengste des ganzen Laufs.
     const response = await axios.post(services.llm.chatEndpoint, body, {
       responseType: 'stream',
       timeout: 0,
+      signal,
     });
+    // Und noch einmal danach: das Abbrechen kann genau in dem Augenblick
+    // passiert sein, in dem die Antwort schon unterwegs war.
+    if (signal?.aborted) {
+      response.data?.destroy?.();
+      throw new Error('Vom Nutzer abgebrochen');
+    }
 
     return new Promise((resolve, reject) => {
       const stream = response.data;
@@ -1042,6 +1054,24 @@ async function processAgentChatJob(ctx, job) {
   // --- Token-Fluss: live an Client UND gebatcht in die DB -------------------
   let dbPuffer = '';
   let dbFlushTimer = null;
+  /**
+   * Ist ueberhaupt schon ein Zeichen an den Nutzer gegangen (Plan 023 E2)?
+   *
+   * Bis zum 22.08.2026 fragte der Fehlerzweig weiter unten `!fertigText &&
+   * !dbPuffer`, und beide sind mitten in einer Runde regelmaessig leer:
+   * `fertigText` wird erst am ENDE einer Runde gefuellt, `dbPuffer` leert jeder
+   * Schreibtakt nach 800 Millisekunden. Ein Abbruch kurz nach einem
+   * Schreibtakt sah deshalb aus wie einer vor dem ersten Wort, der Lauf warf,
+   * und der Teiltext ging verloren.
+   *
+   * Am Geraet gemessen, Job 6e610c80: 260 Zeichen in `llm_jobs.content`, 0 in
+   * `chat_messages`, Status `error`. Der Nutzer hatte diese 260 Zeichen kommen
+   * sehen. Das ist die gemeldete Meldung, woertlich: sie kommt "einfach", und
+   * der Text ist danach weg.
+   *
+   * Dieses Merkzeichen wird nur gesetzt, nie zurueckgenommen.
+   */
+  let etwasGestroemt = false;
   const flushDb = async () => {
     if (!dbPuffer) {
       return;
@@ -1056,6 +1086,9 @@ async function processAgentChatJob(ctx, job) {
   };
   const onToken = token => {
     denkenEnde(); // erster Antwort-Token schließt die Gedankengang-Zeile
+    if (token) {
+      etwasGestroemt = true;
+    }
     service.notifySubscribersBatched(jobId, { type: 'response', token });
     dbPuffer += token;
     if (!dbFlushTimer) {
@@ -1765,7 +1798,7 @@ async function processAgentChatJob(ctx, job) {
         kennung: k,
         detail: abbruchDetail || err.message,
       });
-    } else if (!fertigText && !dbPuffer) {
+    } else if (!etwasGestroemt) {
       // Fehler VOR jedem Inhalt: werfen, die Queue markiert den Job als Fehler.
       // Dem Nutzer gehört die verständliche Fassung; die rohe steht im Log.
       clearInterval(abbruchPoller);

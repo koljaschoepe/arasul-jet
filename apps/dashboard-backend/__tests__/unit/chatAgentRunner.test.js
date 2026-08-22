@@ -228,3 +228,82 @@ describe('deriveRoots (Plan 019 · Phase 2: strenge Ordner-Bindung)', () => {
     expect(deriveRoots(WURZEL, null).scoped).toBe(false);
   });
 });
+
+/**
+ * Plan 023 E9: Werkzeug-Syntax gehoert nicht in die Anzeige, wohl aber in den
+ * Text der Runde, denn genau daraus zieht der Nachparser die Aufrufe.
+ */
+describe('streamChatRound und die Werkzeug-Syntax (Plan 023 E9)', () => {
+  test('zeigt kein rohes XML, behaelt es aber im Inhalt der Runde', async () => {
+    // So kam es am 22.08.2026 auf dem Orin an, in Stuecken zerschnitten.
+    axios.post.mockResolvedValueOnce({
+      data: fakeStream([
+        { message: { content: 'Ich erstelle nun die Datei notiz.md.\n\n' } },
+        { message: { content: '<function=dateien_schrei' } },
+        { message: { content: 'ben> <parameter=pfad> notiz.md </parameter>' } },
+        { message: { content: ' </function>\n</tool_call>\n' } },
+        { message: { content: 'Fertig.' } },
+        { message: {}, done: true },
+      ]),
+    });
+
+    const tokens = [];
+    const { content } = await streamChatRound({
+      model: 'qwen3-coder:30b',
+      messages: [],
+      tools: [],
+      onToken: t => tokens.push(t),
+    });
+
+    expect(tokens.join('')).toBe('Ich erstelle nun die Datei notiz.md.\n\nFertig.');
+    // Der Inhalt bleibt roh: der Nachparser im Aufrufer braucht ihn so.
+    expect(content).toContain('<function=dateien_schreiben>');
+  });
+
+  test('laesst ein gewoehnliches Kleiner-Zeichen durch', async () => {
+    axios.post.mockResolvedValueOnce({
+      data: fakeStream([
+        { message: { content: 'Wenn a < b, dann ' } },
+        { message: { content: '3<4.' } },
+        { message: {}, done: true },
+      ]),
+    });
+    const tokens = [];
+    await streamChatRound({ model: 'x', messages: [], tools: [], onToken: t => tokens.push(t) });
+    expect(tokens.join('')).toBe('Wenn a < b, dann 3<4.');
+  });
+});
+
+/**
+ * Plan 023 E2: Der Stopp-Knopf soll sofort greifen, nicht am Ende der Runde.
+ */
+describe('streamChatRound und der Abbruch (Plan 023 E2)', () => {
+  test('bricht ab, sobald das Signal ausgeloest wird', async () => {
+    const stream = new PassThrough();
+    axios.post.mockResolvedValueOnce({ data: stream });
+    const abbruch = new AbortController();
+
+    const lauf = streamChatRound({
+      model: 'x',
+      messages: [],
+      tools: [],
+      onToken: () => {},
+      signal: abbruch.signal,
+    });
+    // Der Strom bleibt absichtlich offen: ohne die Abbruch-Behandlung wuerde
+    // dieser Aufruf haengen, bis das Inaktivitaets-Zeitlimit greift. Erst ein
+    // Token schicken, damit der Horcher sicher haengt, dann abbrechen.
+    stream.write(`${JSON.stringify({ message: { content: 'Anfang' } })}\n`);
+    await new Promise(r => setTimeout(r, 30));
+    abbruch.abort();
+    await expect(lauf).rejects.toThrow('Vom Nutzer abgebrochen');
+  });
+
+  test('bricht sofort ab, wenn das Signal schon vorher gesetzt war', async () => {
+    const abbruch = new AbortController();
+    abbruch.abort();
+    await expect(
+      streamChatRound({ model: 'x', messages: [], tools: [], onToken: () => {}, signal: abbruch.signal })
+    ).rejects.toThrow('Vom Nutzer abgebrochen');
+  });
+});

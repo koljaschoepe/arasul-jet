@@ -116,16 +116,19 @@ function createLLMQueueService(deps = {}) {
       const maxAge = 10 * 60 * 1000; // 10 minutes max subscriber lifetime (reduced from 30min)
 
       for (const [jobId, timestamp] of this.jobSubscriberTimestamps.entries()) {
-        // BE5: Always remove entries older than maxAge, regardless of job status
+        // Alt hier: bedingungslos verwerfen, "regardless of job status".
         if (now - timestamp > maxAge) {
-          // Plan 023 E1: das hier ist kein Aufraeumen, das ist ein Abbruch.
-          // Der Kommentar oben sagt "regardless of job status", und genau so
-          // verhaelt es sich: ein Lauf, der laenger als zehn Minuten dauert,
-          // verliert seine Zuhoerer, waehrend er noch laeuft. Danach geht kein
-          // Token mehr an den Browser, der Lauf selbst laeuft weiter, und der
-          // Nutzer sieht eine Anzeige, die stehen bleibt. E2 behebt das; hier
-          // wird es erst einmal sichtbar gemacht, denn ohne diese Zeile war es
-          // im Protokoll nicht von einem gewoehnlichen Aufraeumen zu trennen.
+          // Plan 023 E2: Ein LAUFENDER Job behaelt seine Zuhoerer.
+          //
+          // Das bedingungslose Verwerfen war genau der Grund, warum E2 seine
+          // eigene Abnahme nicht erreichen konnte: ein Lauf ueber zehn Minuten
+          // verlor seine Anzeige, waehrend er weiterlief. Kein Token kam mehr
+          // an, der Browser sah nur noch Herzschlaege, und der Nutzer blickte
+          // auf eine Antwort, die stehen blieb.
+          //
+          // Gegen ein Speicherleck schuetzen weiter zwei andere Dinge, die
+          // beide keine Uhr brauchen: der Endstatus-Zweig darunter und die
+          // harte Obergrenze am Ende der Methode.
           let laeuftNoch = false;
           try {
             const stand = await database.query(`SELECT status FROM llm_jobs WHERE id = $1`, [
@@ -133,23 +136,23 @@ function createLLMQueueService(deps = {}) {
             ]);
             laeuftNoch = ['pending', 'streaming'].includes(stand.rows[0]?.status);
           } catch {
+            // Kein Stand ermittelbar: dann lieber aufraeumen als ein Leck.
             laeuftNoch = false;
+          }
+          if (laeuftNoch) {
+            // Zeitstempel auffrischen, sonst faellt derselbe Job bei jedem
+            // Aufraeumtakt erneut hierher und fragt die Datenbank.
+            this.jobSubscriberTimestamps.set(jobId, now);
+            logger.debug(
+              `Job ${jobId} laeuft noch (${Math.round((now - timestamp) / 1000)}s), Zuhoerer bleiben`
+            );
+            continue;
           }
           this.jobSubscribers.delete(jobId);
           this.jobSubscriberTimestamps.delete(jobId);
-          if (laeuftNoch) {
-            abbruchMelden({
-              log: logger,
-              jobId,
-              grund: 'zuhoerer_verworfen',
-              quelle: 'llmQueueService.cleanupStaleSubscribers',
-              detail: `Job laeuft noch, Zuhoerer nach ${Math.round((now - timestamp) / 1000)}s verworfen`,
-            });
-          } else {
-            logger.debug(
-              `Cleaned up stale subscribers for job ${jobId} (age: ${Math.round((now - timestamp) / 1000)}s)`
-            );
-          }
+          logger.debug(
+            `Cleaned up stale subscribers for job ${jobId} (age: ${Math.round((now - timestamp) / 1000)}s)`
+          );
           continue;
         }
 

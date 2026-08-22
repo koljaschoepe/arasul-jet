@@ -61,8 +61,9 @@ class TerminalTool extends BaseTool {
 
   /**
    * @param {{befehl?:string}} params
-   * @param {{containerId?:string, cwd?:string, timeoutS?:number}} context
+   * @param {{containerId?:string, cwd?:string, timeoutS?:number, signal?:AbortSignal}} context
    *   `containerId` und `cwd` liefert der Aufrufer (services/flows/sandboxResolve.js).
+   *   `signal` ist das Abbruch-Signal des Laufs (Plan 023 E2).
    */
   async execute(params = {}, context = {}) {
     const befehl = String(params.befehl || '').trim();
@@ -110,7 +111,7 @@ class TerminalTool extends BaseTool {
 
     let ausgabe;
     try {
-      ausgabe = await this._sammleAusgabe(exec, timeoutS);
+      ausgabe = await this._sammleAusgabe(exec, timeoutS, context.signal);
     } catch (err) {
       logger.warn(`terminal: Ausführung fehlgeschlagen: ${err.message}`);
       return `Fehler beim Ausführen: ${err.message}`;
@@ -121,6 +122,21 @@ class TerminalTool extends BaseTool {
       code = (await exec.inspect()).ExitCode;
     } catch {
       // Exit-Code nicht ermittelbar — die Ausgabe ist trotzdem gültig.
+    }
+
+    // Plan 023 E2: Der Stopp-Knopf soll in unter zwei Sekunden greifen. Ein
+    // Terminalbefehl darf bis zu MAX_TIMEOUT_S laufen, und ohne diese Stelle
+    // wartete der Lauf darauf, bevor er den Abbruch bemerkte.
+    //
+    // Ehrlich benannt: beendet wird hier das ZUHOEREN, nicht der Prozess. Der
+    // Befehl laeuft im Container weiter, bis das `timeout` davor ihn beendet.
+    // Ihn selbst zu toeten hiesse, im Container nach seiner Prozessnummer zu
+    // suchen, und das waere ein zweiter Eingriff mit eigenen Fehlerquellen.
+    if (ausgabe.abgebrochen) {
+      const teil = ausgabe.text.trim();
+      return teil
+        ? `Abgebrochen: Der Lauf wurde gestoppt.\n${teil}`
+        : 'Abgebrochen: Der Lauf wurde gestoppt.';
     }
 
     const kopf =
@@ -142,7 +158,7 @@ class TerminalTool extends BaseTool {
    * einen Befehl absetzt, braucht die Fehlermeldung genauso wie das Ergebnis —
    * getrennt zu liefern hieße, dass es die Hälfte übersieht.
    */
-  async _sammleAusgabe(exec, timeoutS) {
+  async _sammleAusgabe(exec, timeoutS, signal = null) {
     const stream = await exec.start({ hijack: true, stdin: false });
 
     return new Promise((resolve, reject) => {
@@ -151,20 +167,29 @@ class TerminalTool extends BaseTool {
       let truncated = false;
       let fertig = false;
 
-      const abschluss = () => {
+      const abschluss = (abgebrochen = false) => {
         if (fertig) {
           return;
         }
         fertig = true;
         clearTimeout(wecker);
+        signal?.removeEventListener?.('abort', aufAbbruch);
         stream.destroy();
-        resolve({ text: Buffer.concat(stuecke).toString('utf8'), truncated });
+        resolve({ text: Buffer.concat(stuecke).toString('utf8'), truncated, abgebrochen });
       };
+      // Was bis zum Abbruch schon da war, geht nicht verloren: der Nutzer soll
+      // sehen, wie weit der Befehl gekommen ist.
+      const aufAbbruch = () => abschluss(true);
+      if (signal?.aborted) {
+        setImmediate(aufAbbruch);
+      } else {
+        signal?.addEventListener?.('abort', aufAbbruch, { once: true });
+      }
 
       // Notbremse: `timeout` im Container beendet den Prozess; falls der Strom
       // trotzdem offen bleibt (Container weg, Verbindung hängt), wird hier
       // zugemacht, statt den Lauf blockieren zu lassen.
-      const wecker = setTimeout(() => abschluss(), (timeoutS + 15) * 1000);
+      const wecker = setTimeout(() => abschluss(false), (timeoutS + 15) * 1000);
       // Der Wecker darf den Prozess nicht am Leben halten — er ist eine
       // Notbremse, kein Grund weiterzulaufen. (Im Server hält ohnehin der
       // HTTP-Listener die Ereignisschleife offen.)
@@ -190,14 +215,18 @@ class TerminalTool extends BaseTool {
       const senke = { write: aufnehmen, end: () => {} };
       getDocker().modem.demuxStream(stream, senke, senke);
 
-      stream.on('end', abschluss);
-      stream.on('close', abschluss);
+      // Ausdruecklich ohne Weiterreichen des Ereignis-Arguments: `close`
+      // liefert bei Node einen Wahrheitswert mit, der sonst als "abgebrochen"
+      // durchginge.
+      stream.on('end', () => abschluss(false));
+      stream.on('close', () => abschluss(false));
       stream.on('error', err => {
         if (fertig) {
           return;
         }
         fertig = true;
         clearTimeout(wecker);
+        signal?.removeEventListener?.('abort', aufAbbruch);
         reject(err);
       });
     });
