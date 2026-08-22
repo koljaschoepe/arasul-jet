@@ -16,7 +16,8 @@
 | C, Fundament                          | **fertig** 20.08.2026, live abgenommen | #427, #428, #429, #431, #435, #437, #440, #442, #443. `scripts/test/bausteine.py` hält das Raster, seit #433 auch bei Dialogen, seit C7 ohne Ausnahme für den Einrichtungsassistenten                                                                                               |
 | Frischgerät, dazwischengekommen       | **fertig** 20.08.2026, live abgenommen | `scripts/test/frischgeraet-abnahme.sh`, 12 von 12. Ein fabrikneues Gerät überlebte seinen ersten Neustart nicht: 47 verdeckte Tabellen, Kunde ausgesperrt, Konto ab Werk an seiner Stelle                                                                                           |
 | D, Modelle                            | **fertig** 22.08.2026, live abgenommen | #444 bis #456. D7 Schritt 2: Grundvorlauf 4147 auf 3390 Token, schlimmster Verlauf 22 321 auf 6 282; die Abnahme unter 2500 Token ist nicht erfuellt, Begruendung bei D7. D9: externe Modelle ab Werk aus, Schluessel verschluesselt, Positivfall braucht Koljas eigenen Schluessel |
-| E bis K                               | offen                                  | Neu aufgenommen: E9, eine klare Aufgabe wird zurueckgefragt statt ausgefuehrt                                                                                                                                                                                                       |
+| E, Coding-Agent und Chat              | **laeuft**, E1 fertig 22.08.2026       | E1 #458, #459: jeder Abbruch traegt Grund und Kennung, dreimal am Geraet nachgestellt. Gefunden dabei: der Teiltext eines abgebrochenen Laufs geht verloren (260 Zeichen in `llm_jobs`, 0 in `chat_messages`), und 88 dokumentierte Stellschrauben erreichen den Container nie      |
+| F bis K                               | offen                                  |                                                                                                                                                                                                                                                                                     |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -1999,6 +2000,131 @@ und eine Kennung. Dann eine lange Sitzung fahren, bis es auftritt.
 
 **Abnahme:** Der Abbruch ist mindestens zweimal reproduziert, die Ursache steht
 im Protokoll mit Grund und Kennung.
+
+### Erst gemessen: fünf Orte, ein Satz
+
+Der Plan nennt vier Stellen, an denen ein Lauf enden kann. Es sind fünf, und
+keine davon hinterließ etwas, wonach man suchen könnte.
+
+| Ort im Code                              | was der Nutzer sah                    | was die Datenbank wusste |
+| ---------------------------------------- | ------------------------------------- | ------------------------ |
+| `streamChatRound`, Inaktivität           | `_Abgebrochen: <Fehlertext>_`         | nichts                   |
+| Nutzer-Abbruch über den Stopp-Knopf      | `_Abgebrochen._`                      | nichts                   |
+| Zeitlimit des Laufs                      | `_Abgebrochen: Zeitlimit von 86400s_` | nichts                   |
+| Ende der Werkzeug-Runden                 | die Antwort hörte einfach auf         | nichts                   |
+| **Fortschritts-Wächter** (im Plan fehlt) | ein deutscher Satz ohne Kennung       | nichts                   |
+
+Dazu drei Stellen außerhalb des Agentenlaufs: der Zeitlimit-Wächter der
+Warteschlange, die Neustart-Rettung und der Aufräumtakt der Zuhörer. Zwei davon
+schrieben ihre Meldung auf Englisch, und zwar an den Nutzer:
+`Job timed out during streaming (10 minutes without update)` und
+`Job was cancelled`.
+
+**„Fehler im Werkzeugaufruf" gehört nicht dazu.** Der Plan zählt ihn zu den
+vier Orten. Im Code wird er aufgefangen und dem Modell als Text zurückgegeben,
+der Lauf läuft weiter. Er endet dort nie. Was wirklich passiert, wenn dasselbe
+Werkzeug mehrfach gleich scheitert, sieht man erst im Fortschritts-Wächter.
+
+### Was daraus wurde
+
+`services/llm/abbruchGrund.js` ist die eine Stelle, an der ein Abbruch benannt
+wird, und liefert immer alle drei Teile zusammen: einen **Grund** aus einer
+festen Liste, nach dem sich zählen lässt, eine **Kennung** der Form
+`ABB-<6 Zeichen der Job-Id>-<Grund>`, die im Chat, im Protokoll und in der
+Datenbank steht, und eine **Protokollzeile** in fester Form.
+
+Migration 154 legt `abbruch_grund`, `abbruch_kennung`, `abbruch_detail` und
+`abbruch_am` an `llm_jobs` an, ausdrücklich neben `error_message`: der Grund ist
+zählbar, der Freitext nicht. `scripts/util/abbrueche.sh` liest beides
+nebeneinander.
+
+**Erledigt am 22.08.2026,** `arasul-jet` #458.
+
+### Die Wartezeit auf das erste Zeichen gibt es nicht
+
+Der Plan geht davon aus, dass eine „Zeitüberschreitung im Stream" auch das
+Warten auf das erste Wort abdeckt. Gemessen ist das Gegenteil. Vier Läufe auf
+dem Orin, drei Modelle, warm und kalt:
+
+```
+[VORLAUF] job=… modell=qwen3:32b        erstes_zeichen_nach=0ms grenze=1500ms
+[VORLAUF] job=… modell=qwen3-coder:30b  erstes_zeichen_nach=0ms grenze=120000ms
+```
+
+**Immer null Millisekunden.** Ollama öffnet den Strom sofort und lässt die
+Vorverarbeitung danach laufen. Der Inaktivitäts-Wächter wird erst armiert,
+nachdem `axios.post` die Kopfzeilen hat, und `axios` läuft mit `timeout: 0`.
+
+Damit sind **Modellladung und Vorverarbeitung des Prompts vollständig
+unbewacht**. Die 120 Sekunden messen ausschließlich den Abstand zwischen zwei
+Zeichen. Ein hängender Modell-Ladevorgang läuft unbegrenzt weiter, und der
+Nutzer sieht nichts. Das korrigiert auch die Rechnung aus D7: die dort
+befürchtete Zeitüberschreitung durch einen zu großen Vorlauf kann so gar nicht
+entstehen.
+
+### Dreimal reproduziert, am Gerät
+
+| #   | Grund          | wie erzeugt                                   | Kennung                   | nach  |
+| --- | -------------- | --------------------------------------------- | ------------------------- | ----- |
+| 1   | `nutzer`       | Stopp-Knopf während eines Schreibauftrags     | `ABB-5fc762-nutzer`       | 20 s  |
+| 2   | `unbekannt`    | `docker pause llm-service`, Verbindung reißt  | `ABB-27609e-unbekannt`    | 9 s   |
+| 3   | `stream_still` | `SIGSTOP` auf `ollama serve`, Strom verstummt | `ABB-6e610c-stream_still` | 122 s |
+
+Der dritte ist der wichtigste: kein Eingriff an der Einstellung, die echte
+Grenze von 120 Sekunden, und die Protokollzeile unterscheidet, was vorher gleich
+aussah:
+
+```
+[ABBRUCH] kennung=ABB-6e610c-stream_still job=6e610c80-… grund=stream_still
+          quelle=chatAgentRunner.streamChatRound nach=122s
+          detail="mitten im Text, Modell qwen3-coder:30b, Grenze 120s"
+```
+
+Für Fall 1 steht die Kennung zugleich im Chat, in `llm_jobs` und zweimal im
+Protokoll. Der Weg vom Satz auf dem Bildschirm zur Zeile im Protokoll ist damit
+eine einzige Suche.
+
+**Abnahme erfüllt am 22.08.2026.**
+
+### Was die Reproduktion gefunden hat, und das ist der eigentliche Fund
+
+Bei Fall 3 blieb die Antwort im Chat **leer**, obwohl der Nutzer 260 Zeichen
+hatte kommen sehen. Nachgezählt:
+
+| Ort                     | Inhalt                          |
+| ----------------------- | ------------------------------- |
+| `llm_jobs.content`      | **260 Zeichen**                 |
+| `chat_messages.content` | **0 Zeichen**, `status = error` |
+
+Der Text war geschrieben und wurde nicht übertragen. Die Ursache steht in einer
+Bedingung, die zu prüfen glaubt, ob schon etwas geflossen ist:
+
+```js
+} else if (!fertigText && !dbPuffer) {
+  throw new Error(verstaendlicherFehler(err));   // Job wird Fehler, Teiltext weg
+```
+
+Beides ist mitten in einer Runde regelmäßig leer. `fertigText` wird erst am
+**Ende** einer Runde gefüllt, und `dbPuffer` leert jeder Schreibtakt. Ein
+Abbruch kurz nach einem Schreibtakt sieht deshalb aus wie ein Abbruch vor dem
+ersten Wort, und der Lauf wirft, statt den Teiltext zu behalten.
+
+**Das ist die Meldung aus der Fehlermeldung, wörtlich.** Sie kommt „einfach",
+sie kommt „irgendwann", und der Text, den der Nutzer gerade gelesen hat, ist
+danach weg. Behoben wird das in E2.
+
+Zwei kleinere Funde daneben:
+
+- `aborted`, der Fehler einer gerissenen Verbindung zum KI-Dienst, fällt in
+  `grundAusFehler` auf `unbekannt`. Er gehört zu `modell_weg`.
+- `cleanupStaleSubscribers` verwirft die Zuhörer eines Laufs nach zehn Minuten,
+  ausdrücklich „regardless of job status". Ein Lauf, der länger dauert, verliert
+  seine Anzeige, während er weiterläuft. E2 verlangt einen Lauf über 30 Minuten;
+  ohne diese Änderung ist die Abnahme nicht erreichbar.
+- `FLOW_LLM_TIMEOUT_MS` erreichte den Container nie. Beim Beheben kamen
+  **88 dokumentierte Stellschrauben** ans Licht, die auf einem ausgelieferten
+  Gerät nichts bewirken. Wächter und Zahl in `scripts/test/durchreichung.py`,
+  `arasul-jet` #459.
 
 ## E2 Abbruch beheben und Abbrechen ernst nehmen
 
