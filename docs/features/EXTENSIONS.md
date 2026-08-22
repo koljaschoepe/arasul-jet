@@ -189,6 +189,61 @@ alles, was der Werkstatt-Watcher automatisch registriert.
   heute die Sandbox, in der gebaut wird, noch nicht eine eigene Laufzeit pro
   Erweiterung.
 
+## Ein fremdes Projekt zur Erweiterung machen (Plan 023 H4)
+
+n8n ist der erste Fall und damit die Vorlage. Der Weg hat vier Schritte, und
+der vierte ist der, den alle vergessen.
+
+**1. Erreichbar machen, same-origin.** Traefik routet `/n8n` auf dieselbe
+Herkunft wie das Dashboard (`config/traefik/`). Das ist keine Bequemlichkeit,
+sondern die Voraussetzung für Schritt 4: nur ein same-origin-Rahmen lässt sich
+von außen anfassen. Ein fremdes Projekt auf einer eigenen Domain bleibt eine
+Blackbox.
+
+**2. Die Anmeldung übernehmen.** Der Kunde meldet sich EINMAL an, bei Arasul.
+`GET /api/automations/session` meldet den festen Besitzer bei n8n an und reicht
+dessen Sitzungs-Cookie durch. n8ns eigene Anmeldung erscheint nie
+(`AutomationenTab.tsx`).
+
+**3. Auf den Kaltstart einstellen.** Ein fremder Dienst braucht nach einem
+Geräte-Neustart länger als die Oberfläche. Wer beim ersten Fehlversuch aufgibt,
+liefert ein Gerät aus, an dem die Erweiterung nach jedem Stromausfall „kaputt"
+aussieht. Der Tab probiert acht Mal mit wachsendem Abstand, zusammen rund 48
+Sekunden.
+
+**4. Das Design angleichen.** Ein fremdes Projekt bringt sein eigenes Design
+mit, und zwar immer. Bei n8n war das hell und orange in einer schwarzen, blauen
+Oberfläche — im Rundgang der auffälligste Bruch überhaupt.
+
+Zwei Hebel reichen fast immer, und beide werden **aus der laufenden Fassung
+gelesen**, nicht aus der Dokumentation des Projekts:
+
+|             | bei n8n 2.29.10, gelesen am 22.08.2026               |
+| ----------- | ---------------------------------------------------- |
+| Akzentfarbe | `--color--primary--h/s/l` auf `:root`, in HSL-Teilen |
+| Hell/Dunkel | `body[data-theme]`, gemerkt unter `N8N_THEME`        |
+
+Dazu kommt, was NICHT am Akzent hängt: n8n hat eine eigene Orange-Leiter
+(`--color--orange-50` bis `-950`), die stehen bliebe. Ersetzt wird nur der
+Farbton, die Helligkeit jeder Stufe bleibt — sonst kippen die Kontraste, die
+das fremde Projekt damit baut.
+
+Die Arasul-Farbe wird zur Laufzeit aus dem eigenen Dokument gelesen
+(`--primary`), nicht als Zahl hinterlegt: Arasul hat je Thema eine andere, und
+eine zweite Stelle mit derselben Farbe wäre beim nächsten Umfärben falsch.
+
+Wie das im Einzelnen aussieht, steht in
+`apps/dashboard-frontend/src/features/workspace/viewers/n8nDesign.ts`; WANN es
+passiert, in `AutomationenTab.tsx`. Für das nächste fremde Projekt ist die
+Trennung die eigentliche Anleitung: die Farbregeln gehören in eine eigene,
+prüfbare Datei, der Rahmen sagt nur Bescheid.
+
+**Was offen bleibt.** Der Verstoß gegen die Content-Security-Policy beim
+Einbetten ist bekannt und folgenlos. Und: wird das fremde Projekt
+aktualisiert und ändert seine Variablennamen, greift die Angleichung nicht mehr
+— sie fällt dann auf das fremde Design zurück, statt zu scheitern. Beim
+Aktualisieren also einmal hinsehen.
+
 ## Verwandte Dokumentation
 
 - API: [`API_REFERENCE.md`](../api/API_REFERENCE.md) → Abschnitt **Extensions**
