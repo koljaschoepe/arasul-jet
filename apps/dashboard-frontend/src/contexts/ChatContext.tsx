@@ -250,7 +250,16 @@ interface SendMessageOptions {
    *  die Nachricht läuft als normaler Agent-Auftrag, der Agent kennt den Pfad.
    *  `inhalt` (kleine Text-Dateien) geht mit in den Payload — kleine Modelle
    *  überspringen sonst das Lesen und konfabulieren den Inhalt. */
-  anhang?: { projectId: string; pfad: string; name: string; inhalt?: string };
+  /**
+   * Dateien, die der Nutzer in den Chat gezogen hat und die bereits im
+   * Projektordner liegen (Plan 023 E6).
+   *
+   * Eine LISTE, nicht ein Objekt. Bis zum 22.08.2026 war es eines, und der
+   * Aufrufer rief `pickFile` in einer Schleife auf; jeder Aufruf ueberschrieb
+   * den vorigen. Wer zwei Dateien in einem Zug hineinzog, haengte genau eine
+   * an, und zwar die letzte, ohne dass irgendetwas darauf hinwies.
+   */
+  anhaenge?: Array<{ projectId: string; pfad: string; name: string; inhalt?: string }>;
   images?: string[]; // Base64-encoded images for vision models
   /** Antwort nach dem Stream automatisch als Datei in der Projektablage speichern. */
   alsDatei?: boolean;
@@ -1126,10 +1135,11 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
         messages = [],
         model,
         file,
-        anhang,
+        anhaenge,
         images,
       } = options;
-      if ((!input.trim() && !file && !anhang) || !chatId) return;
+      const anhangListe = anhaenge ?? [];
+      if ((!input.trim() && !file && anhangListe.length === 0) || !chatId) return;
 
       // RACE-002: Synchronous guard against double-send (React state updates are async)
       if (sendLockRef.current.has(chatId)) return;
@@ -1144,14 +1154,21 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
       const effectiveModel = model !== undefined ? model : selectedModelRef.current;
       // Ein-Ordner-Modell: der Anhang liegt bereits im Projektordner — er hängt
       // als klickbare Projektdatei-Karte an der Nutzer-Nachricht.
-      const anhangDatei: MessageDatei | null = anhang
-        ? {
-            art: 'projektdatei',
-            project_id: anhang.projectId,
-            pfad: anhang.pfad,
-            name: anhang.name,
-          }
-        : null;
+      const anhangDateien: MessageDatei[] = anhangListe.map(a => ({
+        art: 'projektdatei' as const,
+        project_id: a.projectId,
+        pfad: a.pfad,
+        name: a.name,
+      }));
+      // `datei` traegt seit Migration 127 EIN Objekt oder eine Liste. Eine
+      // einzelne Anlage bleibt deshalb ein Objekt, damit sich an gespeicherten
+      // Nachrichten nichts aendert, was sich nicht aendern muss.
+      const anhangDatei: MessageDatei | MessageDatei[] | null =
+        anhangDateien.length === 0
+          ? null
+          : anhangDateien.length === 1
+            ? anhangDateien[0]!
+            : anhangDateien;
 
       // Save user message to DB (skip for file uploads — backend handles it)
       if (!isFileUpload) {
@@ -1293,12 +1310,21 @@ export function ChatProvider({ children, isAuthenticated }: ChatProviderProps) {
             '\n\n(Antworte NUR mit dem reinen Dokumentinhalt in Markdown und beginne mit einer #-Überschrift. Keine Vor- oder Nachbemerkungen und keine Aussagen über Dateien oder Speicherung, das Speichern übernimmt die Plattform.)';
           // Anhang-Hinweis nur im Payload — die persistierte Nachricht bleibt
           // der Originaltext, die Karte hängt als datei-Feld daran.
-          const ANHANG_HINWEIS = anhang
-            ? `\n\n(Der Nutzer hat die Datei "${anhang.pfad}" in den Projektordner gelegt, sie liegt dort bereits, du musst sie nicht neu erstellen. ` +
-              (anhang.inhalt !== undefined
-                ? `Ihr exakter Inhalt:\n"""\n${anhang.inhalt}\n"""\nWenn du sie woanders ablegst, verwende GENAU diesen Inhalt.)`
-                : `Text-Dateien liest du mit dateien_lesen, PDF/DOCX über rag_suche.)`)
-            : '';
+          const ANHANG_HINWEIS =
+            anhangListe.length === 0
+              ? ''
+              : `\n\n(Der Nutzer hat ${
+                  anhangListe.length === 1 ? 'die Datei' : `diese ${anhangListe.length} Dateien`
+                } in den Projektordner gelegt. Sie liegen dort bereits, du musst sie nicht neu erstellen.\n` +
+                anhangListe
+                  .map(a =>
+                    a.inhalt !== undefined
+                      ? `- "${a.pfad}", Inhalt:\n"""\n${a.inhalt}\n"""`
+                      : `- "${a.pfad}"`
+                  )
+                  .join('\n') +
+                `\nText-Dateien liest du mit dateien_lesen, PDF/DOCX über rag_suche. ` +
+                `Legst du eine woanders ab, verwende GENAU den hier gezeigten Inhalt.)`;
           const letzterIndex = newMessages.length - 1;
           const chatPayload: ChatInput = {
             messages: newMessages.map((m, idx) => ({

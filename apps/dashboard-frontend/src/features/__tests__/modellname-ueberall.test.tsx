@@ -141,7 +141,7 @@ function composerProps(modelle: ComposerModel[], gewaehlt: string) {
     onSend: vi.fn(),
     onCancel: vi.fn(),
     isLoading: false,
-    attachedFile: null as File | null,
+    attachedFiles: [] as File[],
     onRemoveFile: vi.fn(),
     attachedImages: [] as { file: File; base64: string }[],
     onRemoveImage: vi.fn(),
