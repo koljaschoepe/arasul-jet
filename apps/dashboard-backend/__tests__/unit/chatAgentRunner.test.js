@@ -493,3 +493,23 @@ describe('systemAnDenAnfang, der einzelne Nachzuegler (Plan 023 E9)', () => {
     expect(systemAnDenAnfang(eingabe)).toEqual({ nachrichten: eingabe, verschoben: 0 });
   });
 });
+
+describe('leerKennung (ein fertiger Lauf ohne Text, 22.08.2026)', () => {
+  const { leerKennung } = require('../../src/services/llm/chatAgentRunner');
+
+  test('ist ableitbar: dieselbe Job-Id gibt dieselbe Kennung', () => {
+    expect(leerKennung('3f2a9155-1111-2222-3333-444455556666')).toBe('LEER-3f2a91');
+    expect(leerKennung('3f2a9155-1111-2222-3333-444455556666')).toBe('LEER-3f2a91');
+  });
+
+  test('traegt NICHT das Abbruch-Praefix', () => {
+    // "ABB-" heisst Abbruch. Ein Lauf, der ordentlich endete und nur nichts zu
+    // sagen hatte, ist keiner, und die Kennung darf das nicht behaupten.
+    expect(leerKennung('abc123')).not.toMatch(/^ABB-/);
+    expect(leerKennung('abc123')).toBe('LEER-abc123');
+  });
+
+  test('kommt ohne Job-Id zurecht', () => {
+    expect(leerKennung(null)).toBe('LEER-ohnejo');
+  });
+});
