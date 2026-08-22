@@ -82,6 +82,26 @@ function buildApp() {
   return app;
 }
 
+/**
+ * Ein Transaktions-Doppel, das mitschreibt.
+ *
+ * `rows: []` ist nicht Kosmetik: die Loeschung SAMMELT vor dem Loeschen die
+ * Dateipfade und Projekt-Ids ein (sonst weiss danach niemand mehr, welche
+ * Bytes zu raeumen sind). Ein Client ohne `rows` laesst genau diesen Teil
+ * abstuerzen.
+ */
+function fakeTransaction() {
+  const queryCalls = [];
+  const fakeClient = {
+    query: jest.fn().mockImplementation((sql, params) => {
+      queryCalls.push({ sql: sql.replace(/\s+/g, ' ').trim(), params });
+      return Promise.resolve({ rowCount: 1, rows: [] });
+    }),
+  };
+  db.transaction.mockImplementation(async cb => cb(fakeClient));
+  return { queryCalls, fakeClient };
+}
+
 describe('DELETE /api/gdpr/me', () => {
   beforeEach(() => {
     // mockReset (statt clearAllMocks) leert auch die mockResolvedValueOnce-Queue,
@@ -116,31 +136,38 @@ describe('DELETE /api/gdpr/me', () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
-  test('blockiert letzten aktiven Admin', async () => {
+  /**
+   * Plan 023 J4: der letzte Admin loescht seine DATEN, behaelt aber den Zugang.
+   *
+   * Vorher warf diese Stelle einen 403. Mit einem Zugang je Geraet
+   * (Entscheidung E1) ist der Antragsteller IMMER der letzte Admin, und Art. 17
+   * lief damit auf einem Kundengeraet grundsaetzlich ins Leere. Ein gemauertes
+   * Geraet waere die schlechtere Antwort auf einen Loeschantrag.
+   */
+  test('letzter Admin: Daten weg, Zugang bleibt, und die Antwort sagt es', async () => {
     db.query.mockResolvedValueOnce({ rows: [{ n: 1 }] });
-    const app = buildApp();
+    const { queryCalls } = fakeTransaction();
 
+    const app = buildApp();
     const res = await request(app)
       .delete('/api/gdpr/me')
       .send({ confirm: 'LOESCHEN-BESTAETIGT' });
 
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe('FORBIDDEN');
-    expect(db.transaction).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(res.body.zugangBleibt).toBe(true);
+    expect(res.body.message).toMatch(/Zugang selbst bleibt bestehen/);
+    // Die Daten sind trotzdem weg …
+    expect(queryCalls.some(c => c.sql.includes('DELETE FROM chat_conversations'))).toBe(true);
+    expect(queryCalls.some(c => c.sql.includes('DELETE FROM documents'))).toBe(true);
+    // … nur die Zugangs-Zeile nicht.
+    expect(queryCalls.some(c => c.sql.includes('DELETE FROM admin_users'))).toBe(false);
+    expect(res.body.summary.admin_users).toBe(0);
   });
 
   test('führt Löschung in einer Transaction aus, wenn Backup-Admin existiert', async () => {
     db.query.mockResolvedValueOnce({ rows: [{ n: 2 }] });
 
-    // Transaction-Callback simulieren: Client zählt rowCount für jede Query.
-    const queryCalls = [];
-    const fakeClient = {
-      query: jest.fn().mockImplementation((sql, params) => {
-        queryCalls.push({ sql: sql.replace(/\s+/g, ' ').trim(), params });
-        return Promise.resolve({ rowCount: 1 });
-      }),
-    };
-    db.transaction.mockImplementation(async cb => cb(fakeClient));
+    const { queryCalls } = fakeTransaction();
 
     const app = buildApp();
     const res = await request(app)
@@ -185,8 +212,7 @@ describe('DELETE /api/gdpr/me', () => {
     // count=1 darf den Nicht-Admin nicht blocken — der ist ja kein Admin
     db.query.mockResolvedValueOnce({ rows: [{ n: 1 }] });
 
-    const fakeClient = { query: jest.fn().mockResolvedValue({ rowCount: 0 }) };
-    db.transaction.mockImplementation(async cb => cb(fakeClient));
+    fakeTransaction();
 
     const app = buildApp();
     const res = await request(app)
@@ -194,6 +220,8 @@ describe('DELETE /api/gdpr/me', () => {
       .send({ confirm: 'LOESCHEN-BESTAETIGT' });
 
     expect(res.status).toBe(200);
+    // Kein Admin, also auch kein Letzter-Admin-Fall: die Zugangs-Zeile geht mit.
+    expect(res.body.zugangBleibt).toBe(false);
   });
 
   test('ohne Auth → 401', async () => {
@@ -205,5 +233,86 @@ describe('DELETE /api/gdpr/me', () => {
 
     expect(res.status).toBe(401);
     expect(db.transaction).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Plan 023 J4: die drei Fehler, die am 22.08.2026 gefunden wurden.
+ *
+ * Alle drei hatten gemeinsam, dass die Antwort Erfolg meldete. Ein
+ * `documents: 0` sieht aus wie „es gab nichts zu löschen", nicht wie „die
+ * Abfrage hat nie getroffen". Deshalb prüfen diese Tests nicht das Ergebnis,
+ * sondern das SQL.
+ */
+describe('DELETE /api/gdpr/me — was wirklich gelöscht wird (Plan 023 J4)', () => {
+  beforeEach(() => {
+    db.query.mockReset();
+    db.transaction.mockReset();
+    auth.__setUser({ id: 42, username: 'kolja', role: 'admin' });
+  });
+
+  async function loeschen() {
+    db.query.mockResolvedValueOnce({ rows: [{ n: 2 }] });
+    const { queryCalls } = fakeTransaction();
+    const app = buildApp();
+    const res = await request(app)
+      .delete('/api/gdpr/me')
+      .send({ confirm: 'LOESCHEN-BESTAETIGT' });
+    return { res, queryCalls, sqls: queryCalls.map(c => c.sql) };
+  }
+
+  test('Dokumente werden ueber BEIDE Spalten geloescht, nicht nur ueber die Id', async () => {
+    // `uploaded_by` ist character varying und enthaelt einen NAMEN
+    // ('admin', 'ordner-sync', 'nightrun'). Der alte Vergleich mit der
+    // numerischen Id traf nie und meldete trotzdem Erfolg.
+    const { queryCalls } = await loeschen();
+    const del = queryCalls.find(c => c.sql.startsWith('DELETE FROM documents'));
+    expect(del).toBeDefined();
+    expect(del.sql).toContain('owner_id = $1');
+    expect(del.sql).toContain('uploaded_by = $2');
+    expect(del.params).toEqual([42, 'kolja']);
+  });
+
+  test('die Dateipfade werden VOR dem Loeschen eingesammelt', async () => {
+    // Danach weiss niemand mehr, welche MinIO-Objekte zu raeumen sind, und
+    // "Metadaten weg, Bytes da" ist keine Loeschung.
+    const { sqls } = await loeschen();
+    const idxSelect = sqls.findIndex(s => s.includes('SELECT file_path FROM documents'));
+    const idxDelete = sqls.findIndex(s => s.startsWith('DELETE FROM documents'));
+    expect(idxSelect).toBeGreaterThanOrEqual(0);
+    expect(idxSelect).toBeLessThan(idxDelete);
+  });
+
+  test('Wissensraeume und Projekte werden geloescht', async () => {
+    // Der Kommentar zaehlte sie auf, der Code loeschte sie nicht.
+    const { sqls } = await loeschen();
+    expect(sqls.some(s => s.includes('DELETE FROM knowledge_spaces WHERE owner_id = $1'))).toBe(
+      true
+    );
+    expect(sqls.some(s => s.includes('DELETE FROM projects'))).toBe(true);
+  });
+
+  test('die Projekt-Ids werden VOR dem Loeschen eingesammelt', async () => {
+    // Sonst bleiben die Ablage-Ordner des Kunden auf der Platte stehen.
+    const { sqls } = await loeschen();
+    const idxSelect = sqls.findIndex(s => s.includes('SELECT id FROM projects'));
+    const idxDelete = sqls.findIndex(s => s.startsWith('DELETE FROM projects'));
+    expect(idxSelect).toBeGreaterThanOrEqual(0);
+    expect(idxSelect).toBeLessThan(idxDelete);
+  });
+
+  test('Chunks gehen vor den Dokumenten', async () => {
+    const { sqls } = await loeschen();
+    const idxChunks = sqls.findIndex(s => s.includes('DELETE FROM document_chunks'));
+    const idxDocs = sqls.findIndex(s => s.startsWith('DELETE FROM documents'));
+    expect(idxChunks).toBeGreaterThanOrEqual(0);
+    expect(idxChunks).toBeLessThan(idxDocs);
+  });
+
+  test('die Antwort zaehlt auch die Bytes, nicht nur die Zeilen', async () => {
+    const { res } = await loeschen();
+    expect(res.body.summary).toHaveProperty('minio_objekte');
+    expect(res.body.summary).toHaveProperty('minio_offen');
+    expect(res.body.summary).toHaveProperty('projekt_ordner');
   });
 });

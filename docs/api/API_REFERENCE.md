@@ -2025,7 +2025,11 @@ vorher verschluckte ein `.catch` jeden Fehler).
 
 **DELETE /api/gdpr/me:**
 
-DSGVO Art. 17 right to erasure. Deletes conversations, messages, documents, memories, and the account itself. Compliance trails (audit logs, login history) are anonymised (user_id set to NULL) rather than deleted, as permitted under Art. 17(3)(b). The last remaining admin cannot delete themselves.
+DSGVO Art. 17 right to erasure. Löscht Chats samt Anhängen, Dokumente (Metadaten **und** die Dateien in MinIO), Wissensräume, Projekte samt Ablage-Ordnern auf der Platte, und die Zugangs-Zeile. Compliance-Trails (audit logs, login history) werden anonymisiert (user_id auf NULL) statt gelöscht, wie Art. 17(3)(b) es erlaubt.
+
+**Der letzte Admin (Plan 023 J4):** seine Daten werden gelöscht, seine Zugangs-Zeile bleibt stehen. Sonst wäre das Gerät unbedienbar, und mit einem Zugang je Gerät (Entscheidung E1) wäre Art. 17 grundsätzlich unerreichbar. Die Antwort trägt dann `zugangBleibt: true` und sagt es im `message`-Feld.
+
+Dokumente werden über **beide** Spalten gelöscht: `owner_id` (numerische Id) und `uploaded_by` (ein NAME). Bis zum 22.08.2026 verglich die Löschung `uploaded_by` mit der Id, traf nie und meldete trotzdem Erfolg.
 
 ```json
 // Request — confirmation token is mandatory
@@ -2046,8 +2050,12 @@ DSGVO Art. 17 right to erasure. Deletes conversations, messages, documents, memo
     "anon_audit_logs": 100,
     "anon_api_audit_logs": 900,
     "anon_login_attempts": 50,
-    "admin_users": 1
+    "admin_users": 1,
+    "minio_objekte": 10,
+    "minio_offen": 0,
+    "projekt_ordner": 3
   },
+  "zugangBleibt": false,
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
