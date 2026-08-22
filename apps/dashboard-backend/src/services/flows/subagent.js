@@ -99,6 +99,18 @@ class SubagentTool extends BaseTool {
       return 'Fehler: Für diesen Lauf sind keine Grenzen gesetzt, Delegation nicht möglich.';
     }
 
+    // Das Rundenbudget DIESER Rolle (Plan 023 I5, gemessen am 22.08.2026).
+    //
+    // Ohne eigene Angabe erbt die Rolle das Budget des Flows. Beim
+    // `recherche`-Flow waren das 12 Runden JE Delegation, und die Rolle
+    // `sucher` rief `web_suche` 26-mal auf, obwohl ihr Prompt drei bis fünf
+    // URLs verlangt. Der Lauf lief nach 1216 Sekunden ins Zeitlimit, ohne je
+    // eine Antwort zu schreiben.
+    //
+    // Groesser als das Budget des Flows wird es nie: eine Rolle darf nicht
+    // mehr Luft haben als der Lauf, in dem sie steckt.
+    const rollenRunden = rolle.runden ? Math.min(rolle.runden, werkzeugRunden) : werkzeugRunden;
+
     // Notbremse: zählt den Aufruf nur, wenn er erlaubt ist.
     const grund = limits.subagentErlaubt(depth);
     if (grund) {
@@ -263,7 +275,10 @@ class SubagentTool extends BaseTool {
         systemPrompt: rolle.prompt + vertragsHinweis,
         userInput: auftrag,
         tools: roleTools,
-        maxRunden: werkzeugRunden,
+        // Eine Rolle darf ihr eigenes, kleineres Budget nennen (Plan 023 I5).
+        // Groesser als das des Flows wird es nie: sonst haette eine Rolle mehr
+        // Luft als der Lauf, in dem sie steckt.
+        maxRunden: rollenRunden,
         // Die geteilte Frist als verbleibende Sekunden — so gilt EIN Zeitlimit
         // über den ganzen Lauf, nicht je Ebene neu.
         zeitlimitS: limits.restSekunden(),
@@ -289,7 +304,7 @@ class SubagentTool extends BaseTool {
             `dateien_schreiben (bzw. dateien_anhaengen/dateien_bearbeiten) mit dem ` +
             `vollständigen Inhalt auf und berichte erst danach.`,
           tools: roleTools,
-          maxRunden: Math.min(werkzeugRunden, 6),
+          maxRunden: Math.min(rollenRunden, 6),
           zeitlimitS: limits.restSekunden(),
           context: roleContext,
           think: denkt,

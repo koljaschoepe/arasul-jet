@@ -213,6 +213,18 @@ verschachteln soll; die GPU arbeitet sequenziell, jede Ebene kostet Laufzeit.
 Wird eine Grenze erreicht, endet der Lauf sauber und nennt Grund und bisheriges
 Ergebnis.
 
+**`runden` je Rolle.** Eine Rolle erbt ohne eigene Angabe die
+`werkzeug_runden` des Flows, und zwar bei **jeder** Delegation. Mit
+`runden: <1..20>` bekommt sie ein eigenes, kleineres Budget; größer als das
+des Flows wird es nie.
+
+Warum das gebraucht wird, am 22.08.2026 auf dem Orin gemessen: die Rolle
+`sucher` des `recherche`-Flows erbte zwölf Runden und rief `web_suche` **26-mal**
+auf, obwohl ihr Prompt drei bis fünf URLs verlangt. Der Lauf lief nach 1216
+Sekunden ins Zeitlimit, ohne je eine Antwort zu schreiben. Ein Prompt allein
+reicht dafür nicht; eine Rolle, die genau eine Suche machen soll, bekommt
+`runden: 1`.
+
 ## Auslöser — Flows von außen starten
 
 Ein Flow muss nicht von Hand im Chat gestartet werden:

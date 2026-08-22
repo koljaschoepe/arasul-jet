@@ -139,6 +139,18 @@ const SubagentRole = z
     // Schreib-Verifikation (Harness v2). Ohne Angabe greift die Heuristik
     // über die Schreib-Werkzeuge der Rolle (subagent.js).
     schreibend: z.coerce.boolean().optional(),
+    // Eigenes Rundenbudget der Rolle (Plan 023 I5, gemessen am 22.08.2026).
+    //
+    // Ohne Angabe bekommt eine Rolle das Budget des ganzen Flows. Beim
+    // `recherche`-Flow waren das 12 Runden JE Delegation: die Rolle `sucher`
+    // rief `web_suche` 26-mal auf, obwohl ihr Prompt „gib die besten drei bis
+    // fünf URLs zurück" sagt, und der Lauf lief nach 1216 Sekunden ins
+    // Zeitlimit, ohne je eine Antwort zu schreiben.
+    //
+    // Ein Prompt allein reicht dafür nicht. Genau das ist die Aussage von I5:
+    // Schritte klein genug für ein Modell dieser Größe, und zwar durchgesetzt,
+    // nicht erbeten.
+    runden: z.coerce.number().int().min(1).max(20).optional(),
   })
   .strict();
 

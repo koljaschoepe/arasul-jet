@@ -313,3 +313,66 @@ describe('SubagentTool', () => {
     expect(kindEnde).toBeTruthy();
   });
 });
+
+describe('SubagentTool — eigenes Rundenbudget je Rolle (Plan 023 I5)', () => {
+  const SubagentTool2 = require('../../src/services/flows/subagent');
+  const { RunLimits: RunLimits2 } = require('../../src/services/flows/limits');
+
+  /**
+   * Am 22.08.2026 auf dem Orin gemessen: die Rolle `sucher` des
+   * `recherche`-Flows erbte die zwoelf Runden des Flows und rief `web_suche`
+   * 26-mal auf, obwohl ihr Prompt drei bis fuenf URLs verlangt. Der Lauf lief
+   * nach 1216 Sekunden ins Zeitlimit, ohne je eine Antwort zu schreiben.
+   *
+   * Ein Prompt allein reicht dafuer nicht. Genau das ist die Aussage von I5:
+   * Schritte klein genug fuer ein Modell dieser Groesse, und zwar
+   * durchgesetzt, nicht erbeten.
+   */
+  function ctxMit(rolle, werkzeugRunden, runLoop) {
+    return {
+      rollen: [rolle],
+      limits: new RunLimits2({ maxAufrufe: 20, zeitlimitS: 900 }),
+      depth: 0,
+      model: 'm',
+      werkzeugRunden,
+      roleContextBase: { roots: ['/a'], spaceIds: null, userId: 1 },
+      makeTools: jest.fn(() => [{ name: 'web_suche' }]),
+      runLoop,
+    };
+  }
+
+  const basis = {
+    name: 'sucher',
+    prompt: 'Du suchst.',
+    werkzeuge: ['web_suche'],
+    ergebnis: { felder: ['treffer'], max_zeichen: 2000 },
+  };
+
+  it('ohne Angabe erbt die Rolle das Budget des Flows', async () => {
+    const runLoop = jest.fn(async () => ({ result: JSON.stringify({ treffer: 'a' }) }));
+    await new SubagentTool2().execute(
+      { rolle: 'sucher', auftrag: 'x' },
+      ctxMit(basis, 12, runLoop)
+    );
+    expect(runLoop.mock.calls[0][0].maxRunden).toBe(12);
+  });
+
+  it('eine Rolle mit `runden: 1` bekommt genau eine Runde', async () => {
+    const runLoop = jest.fn(async () => ({ result: JSON.stringify({ treffer: 'a' }) }));
+    await new SubagentTool2().execute(
+      { rolle: 'sucher', auftrag: 'x' },
+      ctxMit({ ...basis, runden: 1 }, 12, runLoop)
+    );
+    expect(runLoop.mock.calls[0][0].maxRunden).toBe(1);
+  });
+
+  it('groesser als der Flow wird eine Rolle nie', async () => {
+    // Sonst haette eine Rolle mehr Luft als der Lauf, in dem sie steckt.
+    const runLoop = jest.fn(async () => ({ result: JSON.stringify({ treffer: 'a' }) }));
+    await new SubagentTool2().execute(
+      { rolle: 'sucher', auftrag: 'x' },
+      ctxMit({ ...basis, runden: 20 }, 4, runLoop)
+    );
+    expect(runLoop.mock.calls[0][0].maxRunden).toBe(4);
+  });
+});
