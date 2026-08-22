@@ -364,3 +364,66 @@ describe('sandboxResolve — Container-Lebenszyklus', () => {
     );
   });
 });
+
+/**
+ * Plan 023 E2: Der Stopp-Knopf soll in unter zwei Sekunden greifen.
+ *
+ * Ein Terminalbefehl darf bis zu 900 Sekunden laufen. Ohne das Abbruch-Signal
+ * wartete der Agent darauf, bevor er den Abbruch ueberhaupt bemerkte, und der
+ * Nutzer sah eine Anzeige, die nach dem Klick weiterlief.
+ */
+describe('TerminalTool und der Abbruch (Plan 023 E2)', () => {
+  const tool = new TerminalTool();
+
+  /** Ein exec-Doppel, dessen Strom NIE von selbst endet. */
+  function execOhneEnde(vorher = []) {
+    const stream = new EventEmitter();
+    stream.destroy = jest.fn();
+    mockDocker.modem.demuxStream.mockImplementation((s, out) => {
+      process.nextTick(() => {
+        for (const stueck of vorher) {
+          out.write(Buffer.from(stueck));
+        }
+      });
+    });
+    return {
+      start: jest.fn().mockResolvedValue(stream),
+      inspect: jest.fn().mockResolvedValue({ ExitCode: null }),
+      stream,
+    };
+  }
+
+  it('beendet das Warten, sobald das Signal ausgeloest wird', async () => {
+    mockContainer.exec.mockResolvedValue(execOhneEnde());
+    const abbruch = new AbortController();
+    const lauf = tool.execute({ befehl: 'sleep 900' }, { ...ctx, signal: abbruch.signal });
+    setTimeout(() => abbruch.abort(), 20);
+    await expect(lauf).resolves.toMatch(/^Abgebrochen: Der Lauf wurde gestoppt\./);
+  });
+
+  it('behaelt, was bis zum Abbruch schon ausgegeben war', async () => {
+    mockContainer.exec.mockResolvedValue(execOhneEnde(['Zeile eins\n']));
+    const abbruch = new AbortController();
+    const lauf = tool.execute({ befehl: 'lang' }, { ...ctx, signal: abbruch.signal });
+    setTimeout(() => abbruch.abort(), 30);
+    const text = await lauf;
+    expect(text).toContain('Abgebrochen');
+    expect(text).toContain('Zeile eins');
+  });
+
+  it('greift auch, wenn das Signal schon vorher gesetzt war', async () => {
+    mockContainer.exec.mockResolvedValue(execOhneEnde());
+    const abbruch = new AbortController();
+    abbruch.abort();
+    const text = await tool.execute({ befehl: 'egal' }, { ...ctx, signal: abbruch.signal });
+    expect(text).toMatch(/^Abgebrochen: Der Lauf wurde gestoppt\./);
+  });
+
+  it('nennt ohne Abbruch weiter den Exit-Code, nicht "abgebrochen"', async () => {
+    mockContainer.exec.mockResolvedValue(execDoppel(['fertig\n'], 0));
+    const abbruch = new AbortController();
+    const text = await tool.execute({ befehl: 'echo fertig' }, { ...ctx, signal: abbruch.signal });
+    expect(text).toContain('Exit-Code: 0');
+    expect(text).not.toContain('Abgebrochen');
+  });
+});

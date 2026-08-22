@@ -450,6 +450,55 @@ describe('LLMQueueService', () => {
       // Should clean up on error to prevent memory leak
       expect(service._getSubscriberCount()).toBe(0);
     });
+
+    // Plan 023 E2: Ein Lauf ueber zehn Minuten behaelt seine Anzeige.
+    //
+    // Vorher stand hier ein bedingungsloses Verwerfen nach zehn Minuten,
+    // "regardless of job status". E2 verlangt einen Lauf ueber 30 Minuten;
+    // damit war die Abnahme nicht erreichbar, und niemand haette gesehen,
+    // woran es liegt: der Lauf laeuft ja weiter, nur eben unsichtbar.
+    test('behaelt die Zuhoerer eines laufenden Jobs auch nach zehn Minuten', async () => {
+      service.subscribeToJob('job-lang', jest.fn());
+      service.jobSubscriberTimestamps.set('job-lang', Date.now() - 45 * 60 * 1000);
+      mockDb.query.mockResolvedValueOnce({ rows: [{ status: 'streaming' }] });
+
+      await service.cleanupStaleSubscribers();
+
+      expect(service._getSubscriberCount()).toBe(1);
+    });
+
+    test('frischt den Zeitstempel auf, damit nicht jeder Takt erneut nachfragt', async () => {
+      service.subscribeToJob('job-lang', jest.fn());
+      const alt = Date.now() - 45 * 60 * 1000;
+      service.jobSubscriberTimestamps.set('job-lang', alt);
+      mockDb.query.mockResolvedValueOnce({ rows: [{ status: 'streaming' }] });
+
+      await service.cleanupStaleSubscribers();
+
+      expect(service.jobSubscriberTimestamps.get('job-lang')).toBeGreaterThan(alt);
+    });
+
+    test('verwirft die Zuhoerer eines laengst beendeten Jobs weiterhin', async () => {
+      service.subscribeToJob('job-alt', jest.fn());
+      service.jobSubscriberTimestamps.set('job-alt', Date.now() - 45 * 60 * 1000);
+      mockDb.query.mockResolvedValueOnce({ rows: [{ status: 'completed' }] });
+
+      await service.cleanupStaleSubscribers();
+
+      expect(service._getSubscriberCount()).toBe(0);
+    });
+
+    test('verwirft sie auch, wenn der Stand nicht zu ermitteln ist', async () => {
+      // Im Zweifel aufraeumen: ein Leck waere schlimmer als eine verlorene
+      // Anzeige, und der Browser holt den Lauf ueber reconnect wieder ab.
+      service.subscribeToJob('job-unklar', jest.fn());
+      service.jobSubscriberTimestamps.set('job-unklar', Date.now() - 45 * 60 * 1000);
+      mockDb.query.mockRejectedValueOnce(new Error('DB weg'));
+
+      await service.cleanupStaleSubscribers();
+
+      expect(service._getSubscriberCount()).toBe(0);
+    });
   });
 
   // =====================================================

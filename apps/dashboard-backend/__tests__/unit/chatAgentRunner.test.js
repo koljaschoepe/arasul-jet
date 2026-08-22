@@ -228,3 +228,174 @@ describe('deriveRoots (Plan 019 · Phase 2: strenge Ordner-Bindung)', () => {
     expect(deriveRoots(WURZEL, null).scoped).toBe(false);
   });
 });
+
+/**
+ * Plan 023 E9: Werkzeug-Syntax gehoert nicht in die Anzeige, wohl aber in den
+ * Text der Runde, denn genau daraus zieht der Nachparser die Aufrufe.
+ */
+describe('streamChatRound und die Werkzeug-Syntax (Plan 023 E9)', () => {
+  test('zeigt kein rohes XML, behaelt es aber im Inhalt der Runde', async () => {
+    // So kam es am 22.08.2026 auf dem Orin an, in Stuecken zerschnitten.
+    axios.post.mockResolvedValueOnce({
+      data: fakeStream([
+        { message: { content: 'Ich erstelle nun die Datei notiz.md.\n\n' } },
+        { message: { content: '<function=dateien_schrei' } },
+        { message: { content: 'ben> <parameter=pfad> notiz.md </parameter>' } },
+        { message: { content: ' </function>\n</tool_call>\n' } },
+        { message: { content: 'Fertig.' } },
+        { message: {}, done: true },
+      ]),
+    });
+
+    const tokens = [];
+    const { content } = await streamChatRound({
+      model: 'qwen3-coder:30b',
+      messages: [],
+      tools: [],
+      onToken: t => tokens.push(t),
+    });
+
+    expect(tokens.join('')).toBe('Ich erstelle nun die Datei notiz.md.\n\nFertig.');
+    // Der Inhalt bleibt roh: der Nachparser im Aufrufer braucht ihn so.
+    expect(content).toContain('<function=dateien_schreiben>');
+  });
+
+  test('laesst ein gewoehnliches Kleiner-Zeichen durch', async () => {
+    axios.post.mockResolvedValueOnce({
+      data: fakeStream([
+        { message: { content: 'Wenn a < b, dann ' } },
+        { message: { content: '3<4.' } },
+        { message: {}, done: true },
+      ]),
+    });
+    const tokens = [];
+    await streamChatRound({ model: 'x', messages: [], tools: [], onToken: t => tokens.push(t) });
+    expect(tokens.join('')).toBe('Wenn a < b, dann 3<4.');
+  });
+});
+
+/**
+ * Plan 023 E2: Der Stopp-Knopf soll sofort greifen, nicht am Ende der Runde.
+ */
+describe('streamChatRound und der Abbruch (Plan 023 E2)', () => {
+  test('bricht ab, sobald das Signal ausgeloest wird', async () => {
+    const stream = new PassThrough();
+    axios.post.mockResolvedValueOnce({ data: stream });
+    const abbruch = new AbortController();
+
+    const lauf = streamChatRound({
+      model: 'x',
+      messages: [],
+      tools: [],
+      onToken: () => {},
+      signal: abbruch.signal,
+    });
+    // Der Strom bleibt absichtlich offen: ohne die Abbruch-Behandlung wuerde
+    // dieser Aufruf haengen, bis das Inaktivitaets-Zeitlimit greift. Erst ein
+    // Token schicken, damit der Horcher sicher haengt, dann abbrechen.
+    stream.write(`${JSON.stringify({ message: { content: 'Anfang' } })}\n`);
+    await new Promise(r => setTimeout(r, 30));
+    abbruch.abort();
+    await expect(lauf).rejects.toThrow('Vom Nutzer abgebrochen');
+  });
+
+  test('bricht sofort ab, wenn das Signal schon vorher gesetzt war', async () => {
+    const abbruch = new AbortController();
+    abbruch.abort();
+    await expect(
+      streamChatRound({ model: 'x', messages: [], tools: [], onToken: () => {}, signal: abbruch.signal })
+    ).rejects.toThrow('Vom Nutzer abgebrochen');
+  });
+});
+
+/**
+ * Plan 023 E2: Zwei Fehler, die derselbe Lauf am 22.08.2026 auf dem Orin
+ * gezeigt hat, und die einander verdeckten.
+ */
+const {
+  systemAnDenAnfang,
+  istToolsNichtUnterstuetzt,
+} = require('../../src/services/llm/chatAgentRunner');
+
+describe('systemAnDenAnfang (Plan 023 E2)', () => {
+  test('legt eine nachgestellte System-Nachricht mit der ersten zusammen', () => {
+    // Das Standardmodell des Geraets antwortet sonst mit HTTP 500:
+    // "Jinja Exception: System message must be at the beginning."
+    const { nachrichten, verschoben } = systemAnDenAnfang([
+      { role: 'system', content: 'Grundregeln' },
+      { role: 'user', content: 'Schreib mir was' },
+      { role: 'system', content: '## Aufgabenliste\n- [ ] etwas' },
+    ]);
+    expect(verschoben).toBe(1);
+    expect(nachrichten).toHaveLength(2);
+    expect(nachrichten[0].role).toBe('system');
+    expect(nachrichten[0].content).toBe('Grundregeln\n\n## Aufgabenliste\n- [ ] etwas');
+    expect(nachrichten[1]).toEqual({ role: 'user', content: 'Schreib mir was' });
+  });
+
+  test('laesst eine Liste ohne nachgestellte System-Nachricht unveraendert', () => {
+    const eingabe = [
+      { role: 'system', content: 'A' },
+      { role: 'user', content: 'B' },
+      { role: 'assistant', content: 'C' },
+    ];
+    const { nachrichten, verschoben } = systemAnDenAnfang(eingabe);
+    expect(verschoben).toBe(0);
+    expect(nachrichten).toBe(eingabe);
+  });
+
+  test('kommt ohne jede System-Nachricht zurecht', () => {
+    const eingabe = [{ role: 'user', content: 'B' }];
+    expect(systemAnDenAnfang(eingabe).verschoben).toBe(0);
+  });
+
+  test('legt mehrere nachgestellte in der richtigen Reihenfolge zusammen', () => {
+    const { nachrichten, verschoben } = systemAnDenAnfang([
+      { role: 'system', content: 'eins' },
+      { role: 'user', content: 'u' },
+      { role: 'system', content: 'zwei' },
+      { role: 'system', content: 'drei' },
+    ]);
+    expect(verschoben).toBe(2);
+    expect(nachrichten[0].content).toBe('eins\n\nzwei\n\ndrei');
+    expect(nachrichten.filter(n => n.role === 'system')).toHaveLength(1);
+  });
+
+  test('behaelt die Reihenfolge der uebrigen Nachrichten', () => {
+    const { nachrichten } = systemAnDenAnfang([
+      { role: 'system', content: 's' },
+      { role: 'user', content: '1' },
+      { role: 'assistant', content: '2' },
+      { role: 'system', content: 'ende' },
+      { role: 'user', content: '3' },
+    ]);
+    expect(nachrichten.map(n => n.content)).toEqual(['s\n\nende', '1', '2', '3']);
+  });
+});
+
+describe('istToolsNichtUnterstuetzt (Plan 023 E2)', () => {
+  test('wirft nicht, wenn der Fehlerrumpf ein Strom ist', () => {
+    // Vorher: JSON.stringify auf einem Node-Strom warf "Converting circular
+    // structure to JSON", und weil der Aufruf in einem catch-Block steht,
+    // ersetzte dieser Fehler den echten. Der Nutzer las danach "Der KI-Dienst
+    // ist gerade nicht erreichbar", obwohl Ollama etwas ganz anderes gesagt
+    // hatte.
+    const err = { message: 'Request failed with status code 500' };
+    err.response = { data: new PassThrough() };
+    expect(() => istToolsNichtUnterstuetzt(err)).not.toThrow();
+    expect(istToolsNichtUnterstuetzt(err)).toBe(false);
+  });
+
+  test('erkennt den Fall weiterhin, um den es geht', () => {
+    expect(
+      istToolsNichtUnterstuetzt({ message: 'x', response: { data: 'model does not support tools' } })
+    ).toBe(true);
+    expect(istToolsNichtUnterstuetzt({ message: 'does not support tools' })).toBe(true);
+  });
+
+  test('kommt mit einem ringfoermigen Objekt zurecht', () => {
+    const ring = { a: 1 };
+    ring.selbst = ring;
+    expect(() => istToolsNichtUnterstuetzt({ message: 'x', response: { data: ring } })).not.toThrow();
+  });
+});
