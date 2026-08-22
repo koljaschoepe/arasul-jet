@@ -102,13 +102,14 @@ try {
   await reiter.click({ timeout: 20000 }).catch(() => {});
   // Der erste Aufruf startet ggf. den Sandbox-Container; das dauert.
   await page.waitForTimeout(8000);
-  // Die Kopfzeile ohne Kenntnis ihrer Klassen finden: sie ist der Kasten mit
-  // dem Verbindungszustand darin. So misst dasselbe Skript auch den Stand VOR
-  // dem Umbau, und das ist der Vergleich, auf den es ankommt.
-  const kopf = page
-    .locator('[data-testid="workspace-terminal-panel"] div')
-    .filter({ hasText: /Verbunden|Getrennt|Verbinde/ })
-    .last();
+  // Ein eigenes Kennzeichen, kein geratener Aufbau.
+  //
+  // Der erste Versuch suchte den Kasten, der den Verbindungszustand enthaelt.
+  // Das ging genau so lange gut, bis der Umbau den Zustand in eine eigene
+  // Huelle steckte: danach traf der Selektor ein inneres Element von 40 Pixeln
+  // Breite und meldete 19 Pixel Hoehe, also gruen. Ein gruenes Ergebnis aus
+  // einem falschen Selektor ist schlimmer als ein rotes.
+  const kopf = page.locator('[data-testid="terminal-kopfzeile"]').first();
   const kopfDa = await kopf.waitFor({ timeout: 120000 }).then(
     () => true,
     () => false

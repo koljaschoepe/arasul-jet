@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { useWorkspaceStore, pathToTabSpec, tabToPath, tabId } from '@/stores/workspaceStore';
+import { useSchmalesFenster } from '@/hooks/useSchmalesFenster';
 import { useWorkspaceApps } from '@/hooks/useWorkspaceApps';
 import { WorkspaceMenuBar } from './WorkspaceMenuBar';
 import { StatusBar } from './StatusBar';
@@ -147,6 +148,22 @@ export default function WorkspaceShell(props: TabThemeControls) {
   // Das rechte Panel (Chat/Terminal) ist als Ganzes sichtbar oder nicht.
   const rightVisible = rightPanelVisible;
 
+  /**
+   * Plan 023 F5: bei einem schmalen Fenster gibt es keine drei Spalten.
+   *
+   * Am 22.08.2026 gemessen: bei 400 px Fenster bleiben dem rechten Panel 142 px,
+   * davon 118 px fuer das Terminal, also rund dreizehn Spalten. Die
+   * Mindestbreiten der drei Panels ergeben zusammen ueber 500 px; die
+   * Aufteilung kann sie also gar nicht einhalten und verteilt Reste.
+   *
+   * Darunter faellt der Dateibaum weg (die Aktivitaetsleiste bleibt, er ist
+   * einen Klick entfernt), die Mitte darf auf null schrumpfen, und das rechte
+   * Panel darf die ganze Breite nehmen. Der Nutzer kann weiter ziehen; nur die
+   * Grenzen sind andere.
+   */
+  const schmal = useSchmalesFenster();
+  const sidebarZeigen = sidebarVisible && !schmal;
+
   // Panel-Layout (Breiten) in localStorage persistieren. Die Panel-Ids sind
   // stabil (Panels bleiben wegen Keep-alive immer gemountet).
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
@@ -176,17 +193,17 @@ export default function WorkspaceShell(props: TabThemeControls) {
             defaultSize="18%"
             minSize="160px"
             maxSize="35%"
-            aria-hidden={!sidebarVisible}
-            data-shell-hidden={sidebarVisible ? 'false' : 'true'}
+            aria-hidden={!sidebarZeigen}
+            data-shell-hidden={sidebarZeigen ? 'false' : 'true'}
           >
             <SidebarHost />
           </Panel>
           <Separator
-            aria-hidden={!sidebarVisible}
-            data-shell-hidden={sidebarVisible ? 'false' : 'true'}
+            aria-hidden={!sidebarZeigen}
+            data-shell-hidden={sidebarZeigen ? 'false' : 'true'}
             className="w-px bg-border transition-colors hover:bg-primary/50"
           />
-          <Panel id="main" minSize="30%">
+          <Panel id="main" minSize={schmal ? '0px' : '30%'}>
             <div className="flex h-full min-w-0 flex-col">
               <TabBar />
               <div className="min-h-0 flex-1 overflow-hidden rounded-tl-md bg-background">
@@ -203,7 +220,12 @@ export default function WorkspaceShell(props: TabThemeControls) {
             id="llm"
             defaultSize="26%"
             minSize="220px"
-            maxSize="45%"
+            // Plan 023 F5: bei einem schmalen Fenster darf das rechte Panel die
+            // ganze Breite nehmen. Mit dem festen Deckel von 45 Prozent blieben
+            // bei 400 px Fenster gemessen 142 px uebrig, davon 118 px fuer das
+            // Terminal, also rund dreizehn Spalten. Darin ist nichts mehr
+            // lesbar, und das ist genau die Klage aus F5.
+            maxSize={schmal ? '100%' : '45%'}
             aria-hidden={!rightVisible}
             data-shell-hidden={rightVisible ? 'false' : 'true'}
           >
