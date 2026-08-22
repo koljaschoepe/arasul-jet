@@ -8,9 +8,11 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/hooks/useApi';
-import type { GitLink, GitSyncResult } from '@/types/git';
+import type { GitAenderungen, GitLink, GitSyncResult } from '@/types/git';
 
 export const gitSyncKey = (projectId: string | null) => ['git', projectId] as const;
+export const gitAenderungenKey = (projectId: string | null) =>
+  ['git', projectId, 'aenderungen'] as const;
 
 export interface ConnectGitInput {
   repo_url: string;
@@ -19,7 +21,11 @@ export interface ConnectGitInput {
   pat?: string;
 }
 
-export function useGitSync(projectId: string | null) {
+/**
+ * @param projectId Projekt, dessen Kopplung gemeint ist
+ * @param aktiv Ist die Anzeige gerade offen? Steuert nur die Änderungsabfrage.
+ */
+export function useGitSync(projectId: string | null, aktiv = false) {
   const api = useApi();
   const qc = useQueryClient();
 
@@ -30,7 +36,28 @@ export function useGitSync(projectId: string | null) {
     staleTime: 15_000,
   });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: gitSyncKey(projectId) });
+  /**
+   * Was ist hier anders als auf GitHub (Plan 023 G3)?
+   *
+   * `enabled` haengt am Popover: die Abfrage laesst `git status` laufen, und
+   * das auf einem Geraet, das nebenher ein Modell rechnet, im Hintergrund alle
+   * paar Sekunden zu tun, waere Verschwendung fuer eine Anzeige, die niemand
+   * ansieht.
+   */
+  const aenderungen = useQuery({
+    queryKey: gitAenderungenKey(projectId),
+    queryFn: () =>
+      api.get<{ data: GitAenderungen | null }>(`/git/${projectId}/aenderungen`, {
+        showError: false,
+      }),
+    enabled: !!projectId && aktiv,
+    staleTime: 5_000,
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: gitSyncKey(projectId) });
+    qc.invalidateQueries({ queryKey: gitAenderungenKey(projectId) });
+  };
 
   const connect = useMutation({
     mutationFn: (input: ConnectGitInput) =>
@@ -53,6 +80,8 @@ export function useGitSync(projectId: string | null) {
 
   return {
     link: query.data?.data ?? null,
+    aenderungen: aenderungen.data?.data ?? null,
+    aenderungenLaedt: aenderungen.isFetching,
     isLoading: query.isLoading,
     connect,
     sync,

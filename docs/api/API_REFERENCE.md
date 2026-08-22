@@ -959,12 +959,13 @@ Access Token wird AES-256-GCM-verschlüsselt gespeichert (`project_git`,
 `utils/tokenCrypto`) und nie zurückgegeben — nur die letzten vier Zeichen
 (`pat_last4`) erscheinen zur Anzeige.
 
-| Method | Endpoint                      | Description                                                                      |
-| ------ | ----------------------------- | -------------------------------------------------------------------------------- |
-| GET    | `/api/git/:projectId`         | Kopplungs-/Sync-Status (`{data: link\|null}`)                                    |
-| POST   | `/api/git/:projectId/connect` | Repo koppeln (`{repo_url, branch?, pat?}`); prüft Erreichbarkeit per `ls-remote` |
-| POST   | `/api/git/:projectId/sync`    | Zwei-Wege-Sync; **409 CONFLICT** mit `details.conflicts:[…]` bei Merge-Konflikt  |
-| DELETE | `/api/git/:projectId`         | Kopplung lösen (verschlüsselter PAT + lokaler Checkout werden entfernt)          |
+| Method | Endpoint                          | Description                                                                                                                                 |
+| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/git/:projectId`             | Kopplungs-/Sync-Status (`{data: link\|null}`)                                                                                               |
+| GET    | `/api/git/:projectId/aenderungen` | Was ist anders als auf GitHub? Ohne Netz, verglichen mit dem zuletzt geholten Stand                                                         |
+| POST   | `/api/git/:projectId/connect`     | Repo koppeln (`{repo_url, branch?, pat?}`); prüft Erreichbarkeit per `ls-remote`. Derselbe Aufruf mit anderem `branch` ist der Zweigwechsel |
+| POST   | `/api/git/:projectId/sync`        | Zwei-Wege-Sync; **409 CONFLICT** mit `details.conflicts:[…]` bei Merge-Konflikt                                                             |
+| DELETE | `/api/git/:projectId`             | Kopplung lösen (verschlüsselter PAT und `.git` werden entfernt, die Dateien bleiben)                                                        |
 
 > Nur HTTPS-Remotes auf `github.com`. Ein leerer `pat` beim erneuten Connect lässt
 > einen bereits gespeicherten Token unverändert (Repo/Branch ändern ohne Neueingabe).

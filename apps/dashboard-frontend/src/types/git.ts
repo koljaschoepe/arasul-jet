@@ -29,3 +29,30 @@ export interface GitSyncResult {
   pushed: boolean;
   kopplung?: GitLink;
 }
+
+/** Eine geänderte Datei gegenüber dem zuletzt geholten Stand (Plan 023 G3). */
+export interface GitAenderung {
+  art: 'neu' | 'geändert' | 'gelöscht' | 'umbenannt' | 'hinzugefügt' | 'Konflikt';
+  pfad: string;
+}
+
+/**
+ * Was ist hier anders als auf GitHub (Plan 023 G3)?
+ *
+ * Bewusst ohne Netzzugriff: verglichen wird mit dem Stand, den der letzte Sync
+ * geholt hat. `stand` sagt, wann das war, damit die Anzeige nicht so tut, als
+ * wüsste sie es besser.
+ */
+export interface GitAenderungen {
+  gekoppelt: true;
+  zweig: string;
+  dateien: GitAenderung[];
+  /** Weitere Dateien über dem Anzeigedeckel hinaus. */
+  mehr: number;
+  /** Eigene Commits, die noch nicht auf GitHub sind. */
+  voraus: number;
+  /** Commits auf GitHub, die hier noch fehlen (Stand des letzten Holens). */
+  zurueck: number;
+  stand: string | null;
+  nieSynchronisiert: boolean;
+}

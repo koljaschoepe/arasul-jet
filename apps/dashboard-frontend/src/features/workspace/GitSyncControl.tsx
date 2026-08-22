@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GitBranch, RefreshCw, Github, Unplug, AlertTriangle, Check } from 'lucide-react';
+import { GitBranch, RefreshCw, Github, Unplug, AlertTriangle, Check, FileDiff } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { useToast } from '@/contexts/ToastContext';
 import { useActiveProject } from '@/features/workspace/useProjects';
@@ -45,12 +45,18 @@ function repoKurz(url: string): string {
 export function GitSyncControl() {
   const toast = useToast();
   const { activeId, activeProject } = useActiveProject();
-  const { link, connect, sync, disconnect } = useGitSync(activeId);
-
   const [open, setOpen] = useState(false);
+  // `open` steuert die Änderungsabfrage: sie lässt `git status` laufen und
+  // gehört nicht in den Hintergrund, solange niemand hinsieht.
+  const { link, aenderungen, aenderungenLaedt, connect, sync, disconnect } = useGitSync(
+    activeId,
+    open
+  );
   const [repoUrl, setRepoUrl] = useState('');
   const [branch, setBranch] = useState('main');
   const [pat, setPat] = useState('');
+  // Zweigwechsel (Plan 023 G3): null = geschlossen, sonst der getippte Zweig.
+  const [neuerZweig, setNeuerZweig] = useState<string | null>(null);
 
   // Ohne aktives Projekt gibt es nichts zu koppeln (Standard ist immer aktiv,
   // dies ist nur der Sicherheitsgurt während des ersten Ladens).
@@ -59,6 +65,9 @@ export function GitSyncControl() {
   }
 
   const connected = !!link;
+  // Der Server kann sich ändern; eine fehlende Liste darf die Statusleiste
+  // nicht mitreißen (sie hängt in JEDER Ansicht).
+  const geaendert = aenderungen?.dateien ?? [];
   const { label, color } = statusAnzeige(link?.last_status ?? null, connected);
 
   const handleConnect = async () => {
@@ -88,6 +97,30 @@ export function GitSyncControl() {
       } else {
         toast.error(e.message ?? 'Synchronisieren fehlgeschlagen');
       }
+    }
+  };
+
+  /**
+   * Zweig wechseln (Plan 023 G3).
+   *
+   * Keine eigene Route: koppeln mit demselben Repository und einem anderen
+   * Zweig IST der Wechsel. Der gespeicherte Token bleibt, weil `pat` weggelassen
+   * wird. Der anschliessende Sync richtet den Arbeitsbaum auf den neuen Zweig
+   * ein, ohne Dateien zu loeschen (siehe `setzeArbeitsbaumAuf` im Backend).
+   */
+  const handleZweigWechsel = async () => {
+    const ziel = (neuerZweig ?? '').trim();
+    if (!link || !ziel || ziel === link.branch) {
+      setNeuerZweig(null);
+      return;
+    }
+    try {
+      await connect.mutateAsync({ repo_url: link.repo_url, branch: ziel });
+      setNeuerZweig(null);
+      await sync.mutateAsync();
+      toast.success(`Auf Zweig „${ziel}" gewechselt`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Zweigwechsel fehlgeschlagen');
     }
   };
 
@@ -133,10 +166,47 @@ export function GitSyncControl() {
                 <dd className="truncate text-foreground">{repoKurz(link.repo_url)}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Branch</dt>
-                <dd className="flex items-center gap-1 text-foreground">
-                  <GitBranch className="h-3 w-3" aria-hidden="true" />
-                  {link.branch}
+                <dt className="text-muted-foreground">Zweig</dt>
+                <dd className="flex min-w-0 items-center gap-1 text-foreground">
+                  <GitBranch className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  {neuerZweig === null ? (
+                    <>
+                      <span className="truncate">{link.branch}</span>
+                      <button
+                        type="button"
+                        onClick={() => setNeuerZweig(link.branch)}
+                        className="shrink-0 rounded px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        data-testid="git-zweig-wechseln"
+                      >
+                        wechseln
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        autoFocus
+                        value={neuerZweig}
+                        onChange={e => setNeuerZweig(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') void handleZweigWechsel();
+                          if (e.key === 'Escape') setNeuerZweig(null);
+                        }}
+                        aria-label="Zweig"
+                        data-testid="git-zweig-eingabe"
+                        className="w-28 min-w-0 rounded border border-border bg-background px-1.5 py-0.5 text-foreground outline-none focus:border-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleZweigWechsel()}
+                        disabled={connect.isPending || sync.isPending}
+                        className="shrink-0 rounded px-1 text-primary hover:bg-accent disabled:opacity-60"
+                        data-testid="git-zweig-uebernehmen"
+                      >
+                        ok
+                      </button>
+                    </>
+                  )}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -175,6 +245,60 @@ export function GitSyncControl() {
                 </span>
               </p>
             )}
+
+            {/* Was ist hier anders als auf GitHub (Plan 023 G3)? Ohne Netz:
+                verglichen wird mit dem zuletzt geholten Stand, und darunter
+                steht, wann das war. */}
+            <div className="flex flex-col gap-1" data-testid="git-aenderungen">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <FileDiff className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>Änderungen gegenüber GitHub</span>
+                {aenderungenLaedt && <span className="ml-auto">liest …</span>}
+              </div>
+              {aenderungen?.nieSynchronisiert ? (
+                <p className="text-muted-foreground">
+                  Noch nie synchronisiert, es gibt nichts zu vergleichen.
+                </p>
+              ) : aenderungen &&
+                geaendert.length === 0 &&
+                !aenderungen.voraus &&
+                !aenderungen.zurueck ? (
+                <p className="text-muted-foreground">Keine Unterschiede.</p>
+              ) : aenderungen ? (
+                <>
+                  {(aenderungen.voraus > 0 || aenderungen.zurueck > 0) && (
+                    <p className="text-foreground">
+                      {aenderungen.voraus > 0 &&
+                        `${aenderungen.voraus} eigene Änderung(en) noch nicht übertragen`}
+                      {aenderungen.voraus > 0 && aenderungen.zurueck > 0 && ', '}
+                      {aenderungen.zurueck > 0 &&
+                        `${aenderungen.zurueck} von GitHub noch nicht geholt`}
+                    </p>
+                  )}
+                  {geaendert.length > 0 && (
+                    <ul className="max-h-32 overflow-y-auto">
+                      {geaendert.map(d => (
+                        <li key={d.pfad} className="flex items-baseline gap-1.5">
+                          <span className="w-16 shrink-0 text-muted-foreground">{d.art}</span>
+                          <span className="min-w-0 truncate text-foreground" title={d.pfad}>
+                            {d.pfad}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {(aenderungen.mehr ?? 0) > 0 && (
+                    <p className="text-muted-foreground">und {aenderungen.mehr} weitere</p>
+                  )}
+                  {aenderungen.stand && (
+                    <p className="text-muted-foreground">
+                      Verglichen mit dem Stand vom{' '}
+                      {new Date(aenderungen.stand).toLocaleString('de-DE')}
+                    </p>
+                  )}
+                </>
+              ) : null}
+            </div>
 
             <div className="mt-1 flex items-center gap-2">
               <button
