@@ -26,6 +26,24 @@ const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
 const PASSWORT = process.env.ARASUL_PASSWORT || '2309';
 
+/**
+ * Den Erst-Start-Assistenten wegnehmen.
+ *
+ * Er erscheint einmal je Browser (localStorage-Flag) und legt eine Flaeche
+ * ueber die Seite. Ein frischer Browser sieht ihn also bei JEDER Abnahme, und
+ * gemessen wuerde dann eine Oberflaeche hinter einem Vorhang. Das Flag wird
+ * VOR dem Anmelden gesetzt, damit er gar nicht erst aufgeht.
+ */
+async function assistentUeberspringen(page) {
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem('arasul-onboarding-seen-v1', '1');
+    } catch {
+      /* nicht lesbar, dann eben mit Vorhang */
+    }
+  });
+}
+
 const ergebnisse = [];
 function pruefe(was, ok, detail = '') {
   ergebnisse.push({ was, ok, detail });
@@ -41,6 +59,7 @@ const page = await ctx.newPage();
 
 try {
   await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await assistentUeberspringen(page);
 
   const passwortFeld = page.locator('input[type="password"]');
   await passwortFeld.waitFor({ timeout: 20000 }).catch(() => {});
