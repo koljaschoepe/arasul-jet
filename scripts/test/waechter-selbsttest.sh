@@ -245,6 +245,44 @@ printf "ID_MUSTER='^[a-zA-Z0-9-]+$'\n" >> "$SH_DATEI"
 sed -i.bak "1d" "$SH_DATEI" && rm -f "$SH_DATEI.bak"
 pruefe "Geruest-Regeln: ein zu weites Id-Muster ist rot" 1 \
   python3 "$WURZEL/scripts/test/geruest-regeln.py" --wurzel "$GR"
+# --- paket-vergleich.py -----------------------------------------------------
+# Das Messwerkzeug fuer H3: "dieselbe Anwendung, einmal ueber ara-kit und
+# einmal im Terminal gebaut, ergibt dasselbe Paket". Ohne ein Werkzeug, das
+# "dasselbe" entscheidet, ist die Abnahme eine Meinung.
+PV="$TMP/paket"
+mkdir -p "$PV/a" "$PV/b"
+printf '<h1>Hallo</h1>\n' > "$PV/a/index.html"
+printf '<h1>Hallo</h1>\n' > "$PV/b/index.html"
+printf '{"id":"x","name":"X","type":"app","entry":"index.html","version":"1.0.0","faehigkeiten":["llm","rag"]}\n' > "$PV/a/manifest.json"
+# B: andere Reihenfolge der Schluessel, andere Reihenfolge der Faehigkeiten,
+# andere Fassung. Nichts davon macht ein anderes Paket.
+printf '{"faehigkeiten":["rag","llm"],"version":"2.0.0","entry":"index.html","type":"app","name":"X","id":"x"}\n' > "$PV/b/manifest.json"
+pruefe "Paket-Vergleich: Reihenfolge und Fassung machen kein anderes Paket" 0 \
+  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b"
+
+pruefe "Paket-Vergleich: mit --streng zaehlt die Fassung" 1 \
+  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b" --streng
+
+printf '<h1>Anders</h1>\n' > "$PV/b/index.html"
+printf '{"faehigkeiten":["rag","llm"],"version":"1.0.0","entry":"index.html","type":"app","name":"X","id":"x"}\n' > "$PV/b/manifest.json"
+pruefe "Paket-Vergleich: anderer Dateiinhalt ist ein anderes Paket" 1 \
+  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b"
+
+printf '<h1>Hallo</h1>\n' > "$PV/b/index.html"
+printf 'extra\n' > "$PV/b/dazu.js"
+pruefe "Paket-Vergleich: eine zusaetzliche Datei ist ein anderes Paket" 1 \
+  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b"
+
+rm -f "$PV/b/dazu.js"
+printf 'x\n' > "$PV/b/.DS_Store"
+pruefe "Paket-Vergleich: auch ein Artefakt zaehlt, wird aber benannt" 1 \
+  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a" "$PV/b"
+rm -f "$PV/b/.DS_Store"
+
+# Ein Archiv gegen einen Ordner: der Weg, den ara-kit nehmen wird.
+( cd "$PV/a" && COPYFILE_DISABLE=1 tar -czf "$PV/a.tar.gz" . )
+pruefe "Paket-Vergleich: Archiv gegen Ordner" 0 \
+  python3 "$WURZEL/scripts/test/paket-vergleich.py" "$PV/a.tar.gz" "$PV/b"
 
 # --- durchreichung.py -------------------------------------------------------
 # Der Waechter, der prueft, ob eine dokumentierte Stellschraube den Container
