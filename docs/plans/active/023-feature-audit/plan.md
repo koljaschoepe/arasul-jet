@@ -2999,6 +2999,30 @@ danach hatte keinen Sinn.
 Aus fünf Minuten für hundert Dateien werden damit rechnerisch rund zwanzig
 Sekunden.
 
+### Die zweite Ursache, gefunden beim Nachmessen: die KI-Analyse lief zuerst
+
+Nach dem ersten Eingriff blieb der Indexer langsam. Das Protokoll sagt, warum:
+
+```
+15:26:03  Generating summary for datei-018.md
+15:26:37  Categorizing datei-018.md            (34 s später)
+15:26:56  Extracting topics for datei-018.md   (weitere 19 s)
+```
+
+Drei Aufrufe ans Sprachmodell, für eine Datei mit wenigen Zeilen. Und sie liefen
+**vor** dem Indexieren: das Dokument wurde erst danach auf `indexed` gesetzt,
+war also über eine Minute lang nicht auffindbar, obwohl der Textlayer in rund
+einer Sekunde fertig gewesen wäre.
+
+Meine erste Rechnung („ein Dokument braucht rund eine Sekunde") stammte aus
+einem Protokollausschnitt, in dem die Analyse übersprungen war. Sie war zu
+optimistisch, und die Reihenfolge ist der größere Posten.
+
+**Die Anreicherung ist Beiwerk, die Auffindbarkeit ist die Zusage.** Also erst
+indexieren und den Status setzen, dann zusammenfassen, einordnen und Themen
+ziehen. Eine gescheiterte Anreicherung kippt den Lauf nicht mehr: der Text ist
+indexiert, die Zusammenfassung fehlt eben.
+
 ## G5 Vektorsuche einschalten
 
 Die Suche läuft heute auf der Textebene, die Vektorsuche ist aus. Damit ist die
