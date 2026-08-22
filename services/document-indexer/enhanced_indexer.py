@@ -679,6 +679,20 @@ class EnhancedDocumentIndexer:
         logger.info(f"Anreicherung: {len(offen)} Dokument(e) werden nachgetragen")
         fertig = 0
         for dok in offen:
+            # Neue Dateien haben IMMER Vorrang (Plan 023 G4).
+            #
+            # Die Pruefung vor dem Zyklus reicht nicht: eine Runde dauert je
+            # Dokument rund fuenfzig Sekunden, und der Weckruf des Ordner-Syncs
+            # trifft mitten hinein. Am 22.08.2026 auf dem Orin gemessen, kurz
+            # nachdem das Nachholen eingebaut war: hundert frisch geschriebene
+            # Dateien standen auf `pending`, waehrend der Indexer in aller Ruhe
+            # `update-workflow.md` zusammenfasste. Die Anreicherung ist
+            # Fuellarbeit; jedes Anzeichen echter Arbeit bricht sie ab.
+            if self._weckruf_offen:
+                logger.info(
+                    "Anreicherung unterbrochen, es warten neue Dateien"
+                )
+                break
             try:
                 antwort = self.minio_client.get_object(
                     MINIO_BUCKET, dok['file_path']
@@ -708,6 +722,12 @@ class EnhancedDocumentIndexer:
                     f"Anreicherung fuer {dok.get('filename')} fehlgeschlagen: {e}"
                 )
                 self._anreicherung_gescheitert(dok)
+        if fertig:
+            # Es bleibt vermutlich mehr liegen. Kurz durchatmen statt dreissig
+            # Sekunden schlafen — der naechste Zyklus sieht ZUERST nach neuen
+            # Dateien und macht erst danach hier weiter, die Reihenfolge stimmt
+            # also auch dann.
+            self._nacharbeit_offen = True
         return fertig
 
     def _anreicherung_gescheitert(self, dok) -> None:

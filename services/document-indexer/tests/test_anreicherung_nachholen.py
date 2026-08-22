@@ -55,6 +55,8 @@ def _indexer(db, minio=None, analyzer=None):
     ix.minio_client = minio or _Minio()
     ix.analyzer = analyzer or types.SimpleNamespace()
     ix._anreicherung_versuche = {}
+    ix._weckruf_offen = False
+    ix._nacharbeit_offen = False
     return ix
 
 
@@ -137,3 +139,52 @@ def test_eine_kaputte_abfrage_kippt_den_zyklus_nicht(monkeypatch):
             raise RuntimeError('Postgres weg')
 
     assert _indexer(_Kaputt())._anreicherung_nachholen() == 0
+
+
+def test_ein_weckruf_bricht_die_laufende_runde_ab(monkeypatch):
+    """Neue Dateien haben Vorrang, auch mitten in der Nachhol-Runde.
+
+    Die Pruefung VOR dem Zyklus reicht nicht: eine Runde dauert je Dokument
+    rund fuenfzig Sekunden, und der Weckruf trifft mitten hinein. Am
+    22.08.2026 auf dem Orin standen hundert frisch geschriebene Dateien auf
+    `pending`, waehrend der Indexer in aller Ruhe ein altes Dokument
+    zusammenfasste.
+    """
+    monkeypatch.setattr(ei, 'ENABLE_AI_ANALYSIS', True)
+    monkeypatch.setattr(ei, 'INDEXER_ANREICHERUNG_PRO_ZYKLUS', 3)
+    monkeypatch.setattr(ei, 'parse_document', lambda d, f: 'Text genug.')
+    angefasst = []
+
+    db = _Db([
+        {'id': 'a1', 'filename': 'a.md', 'file_path': '1_a.md'},
+        {'id': 'a2', 'filename': 'b.md', 'file_path': '2_b.md'},
+        {'id': 'a3', 'filename': 'c.md', 'file_path': '3_c.md'},
+    ])
+    ix = _indexer(db)
+
+    def reichert(doc_id, *a, **k):
+        angefasst.append(doc_id)
+        # Waehrend des ersten Dokuments trifft der Weckruf ein.
+        ix._weckruf_offen = True
+        return True
+
+    monkeypatch.setattr(ei, 'reichere_an', reichert)
+    assert ix._anreicherung_nachholen() == 1
+    assert angefasst == ['a1'], "Nach dem Weckruf darf kein weiteres Dokument mehr folgen."
+
+
+def test_eine_erfolgreiche_runde_verkuerzt_die_pause(monkeypatch):
+    """Sonst kaeme das naechste Dokument erst nach INDEXER_INTERVAL dran."""
+    monkeypatch.setattr(ei, 'ENABLE_AI_ANALYSIS', True)
+    monkeypatch.setattr(ei, 'reichere_an', lambda *a, **k: True)
+    monkeypatch.setattr(ei, 'parse_document', lambda d, f: 'Text genug.')
+    ix = _indexer(_Db([DOK]))
+    ix._anreicherung_nachholen()
+    assert ix._nacharbeit_offen is True
+
+
+def test_eine_leere_runde_verkuerzt_die_pause_nicht(monkeypatch):
+    monkeypatch.setattr(ei, 'ENABLE_AI_ANALYSIS', True)
+    ix = _indexer(_Db([]))
+    ix._anreicherung_nachholen()
+    assert ix._nacharbeit_offen is False
