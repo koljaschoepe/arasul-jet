@@ -27,10 +27,14 @@ function faehigkeitenAusRouten() {
     path.join(__dirname, '../../src/routes/extensions.js'),
     'utf8'
   );
-  // Die Aufrufe stehen mal in einer, mal in vier Zeilen, und der zweite
-  // Parameter ist selbst ein Aufruf (`bearerFrom(req)`). Deshalb ab
-  // `autorisieren(` bis zum naechsten Zeichenketten-Argument suchen.
-  const treffer = [...quelle.matchAll(/autorisieren\([\s\S]{0,160}?'([a-z]+)'/g)];
+  // Zwei Formen, seit die Freigabe vor die Rumpf-Pruefung gezogen wurde:
+  // `verlangeFaehigkeit('netz')` als Middleware, und `autorisieren(..., 'flows')`
+  // dort, wo der Handler die Erweiterung ohnehin braucht. Beide zaehlen, sonst
+  // faende der Test nach einer Umstellung nichts mehr und waere still gruen.
+  const treffer = [
+    ...quelle.matchAll(/verlangeFaehigkeit\('([a-z]+)'\)/g),
+    ...quelle.matchAll(/autorisieren\([\s\S]{0,160}?'([a-z]+)'/g),
+  ];
   return [...new Set(treffer.map(m => m[1]))];
 }
 
