@@ -368,6 +368,96 @@ async function synchronisiere({ projectId }, deps = {}) {
   }
 }
 
+/** Höchstens so viele geänderte Dateien werden aufgezählt. */
+const MAX_AENDERUNGEN = 200;
+
+/** Kürzel von `git status --porcelain` in ein deutsches Wort übersetzen. */
+function aenderungsArt(kennzeichen) {
+  const k = String(kennzeichen || '').trim();
+  if (k === '??') {return 'neu';}
+  if (k.includes('D')) {return 'gelöscht';}
+  if (k.includes('R')) {return 'umbenannt';}
+  if (k.includes('A')) {return 'hinzugefügt';}
+  if (k.includes('U')) {return 'Konflikt';}
+  return 'geändert';
+}
+
+/**
+ * Was ist hier anders als auf GitHub? (Plan 023 G3)
+ *
+ * OHNE Netz. Die Antwort vergleicht mit dem Stand, den der letzte Sync geholt
+ * hat, und sagt dazu, wann das war. Ein `fetch` bei jeder Abfrage wäre der
+ * ehrlichere Vergleich und ein schlechter Tausch: die Anzeige hängt in der
+ * Statusleiste und würde bei jedem Öffnen ins Netz greifen, auf einem Gerät,
+ * das offline laufen können muss.
+ *
+ * @returns {Promise<null|{gekoppelt, zweig, dateien, mehr, voraus, zurueck, stand}>}
+ *   null, wenn das Projekt nicht gekoppelt ist
+ */
+async function aenderungen({ projectId }, deps = {}) {
+  const { run = gitRoh, store = gitStore } = deps;
+  const kopplung = await store.getKopplung({ projectId });
+  if (!kopplung) {
+    return null;
+  }
+  const cwd = kopplung.local_path || checkoutPfad(projectId);
+  const zweig = kopplung.branch || 'main';
+  if (!(await istRepo(cwd))) {
+    // Gekoppelt, aber noch nie synchronisiert: es gibt nichts zu vergleichen.
+    return {
+      gekoppelt: true,
+      zweig,
+      dateien: [],
+      mehr: 0,
+      voraus: 0,
+      zurueck: 0,
+      stand: kopplung.last_synced_at ?? null,
+      nieSynchronisiert: true,
+    };
+  }
+
+  const roh = await run(['-C', cwd, 'status', '--porcelain']);
+  const zeilen =
+    roh.code === 0
+      ? roh.stdout
+          .split('\n')
+          .map(z => z.replace(/\r$/, ''))
+          .filter(z => z.trim() !== '')
+      : [];
+  const dateien = zeilen.slice(0, MAX_AENDERUNGEN).map(z => ({
+    art: aenderungsArt(z.slice(0, 2)),
+    pfad: z.slice(3).trim(),
+  }));
+
+  // Wie weit auseinander sind lokaler Zweig und der zuletzt geholte Stand?
+  let voraus = 0;
+  let zurueck = 0;
+  const zaehlung = await run([
+    '-C',
+    cwd,
+    'rev-list',
+    '--left-right',
+    '--count',
+    `origin/${zweig}...HEAD`,
+  ]);
+  if (zaehlung.code === 0) {
+    const [hinten, vorne] = zaehlung.stdout.trim().split(/\s+/);
+    zurueck = Number.parseInt(hinten, 10) || 0;
+    voraus = Number.parseInt(vorne, 10) || 0;
+  }
+
+  return {
+    gekoppelt: true,
+    zweig,
+    dateien,
+    mehr: Math.max(0, zeilen.length - dateien.length),
+    voraus,
+    zurueck,
+    stand: kopplung.last_synced_at ?? null,
+    nieSynchronisiert: false,
+  };
+}
+
 /**
  * Löst die Kopplung: der verschlüsselte PAT wird gelöscht und die Git-Verwaltung
  * (`.git`) aus dem Projektordner entfernt. **Die Dateien bleiben.**
@@ -410,6 +500,7 @@ async function trenne({ projectId }, deps = {}) {
 module.exports = {
   verbinde,
   status,
+  aenderungen,
   synchronisiere,
   trenne,
   // für Tests:

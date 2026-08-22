@@ -31,6 +31,21 @@ router.get(
 );
 
 /**
+ * GET /api/git/:projectId/aenderungen
+ * Was ist hier anders als auf GitHub (Plan 023 G3)? Ohne Netz: verglichen wird
+ * mit dem Stand, den der letzte Sync geholt hat; `stand` sagt, wann das war.
+ */
+router.get(
+  '/:projectId/aenderungen',
+  requireAuth,
+  validateParams(ProjectIdParams),
+  asyncHandler(async (req, res) => {
+    const daten = await gitSyncService.aenderungen({ projectId: req.params.projectId });
+    res.json({ data: daten, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
  * POST /api/git/:projectId/connect
  * Repo + Branch (+ optional PAT) koppeln; prüft die Erreichbarkeit sofort.
  */

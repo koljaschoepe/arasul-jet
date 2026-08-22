@@ -315,6 +315,121 @@ describe('synchronisiere', () => {
   });
 });
 
+/**
+ * Plan 023 G3: „Änderungen gegenüber dem Stand auf GitHub".
+ *
+ * Bewusst OHNE Netz. Die Anzeige hängt in der Statusleiste; ein `fetch` bei
+ * jedem Öffnen wäre auf einem Gerät, das offline laufen können muss, der
+ * falsche Tausch. Verglichen wird mit dem zuletzt geholten Stand, und `stand`
+ * sagt dazu, wann das war.
+ */
+describe('aenderungen (Plan 023 G3)', () => {
+  let cwd;
+
+  beforeEach(async () => {
+    cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'gitaend-'));
+    await fs.mkdir(path.join(cwd, '.git'), { recursive: true });
+  });
+
+  afterEach(async () => {
+    await fs.rm(cwd, { recursive: true, force: true });
+  });
+
+  function kopplung(extra = {}) {
+    return {
+      project_id: 'p1',
+      repo_url: 'https://github.com/o/r',
+      branch: 'main',
+      local_path: cwd,
+      last_synced_at: '2026-08-22T10:00:00.000Z',
+      ...extra,
+    };
+  }
+
+  test('nicht gekoppelt → null', async () => {
+    const store = { getKopplung: jest.fn(async () => null) };
+    await expect(gitSyncService.aenderungen({ projectId: 'p1' }, { store })).resolves.toBeNull();
+  });
+
+  test('zaehlt und benennt die geaenderten Dateien', async () => {
+    const store = { getKopplung: jest.fn(async () => kopplung()) };
+    const run = fakeRun([
+      [
+        'status --porcelain',
+        { stdout: ' M src/a.js\n?? neu.md\n D weg.txt\nR  alt.md -> neu2.md\n' },
+      ],
+      ['rev-list', { stdout: '2\t3' }],
+    ]);
+
+    const res = await gitSyncService.aenderungen({ projectId: 'p1' }, { run, store });
+
+    expect(res.dateien).toEqual([
+      { art: 'geändert', pfad: 'src/a.js' },
+      { art: 'neu', pfad: 'neu.md' },
+      { art: 'gelöscht', pfad: 'weg.txt' },
+      { art: 'umbenannt', pfad: 'alt.md -> neu2.md' },
+    ]);
+    expect(res.mehr).toBe(0);
+    // `rev-list --left-right --count origin/main...HEAD`: links die Ferne,
+    // rechts der eigene Stand.
+    expect(res.zurueck).toBe(2);
+    expect(res.voraus).toBe(3);
+    expect(res.zweig).toBe('main');
+    expect(res.stand).toBe('2026-08-22T10:00:00.000Z');
+  });
+
+  test('greift nicht ins Netz', async () => {
+    // Der eigentliche Punkt dieser Funktion. Ein fetch hier waere in der
+    // Statusleiste bei jedem Oeffnen ein Netzzugriff.
+    const store = { getKopplung: jest.fn(async () => kopplung()) };
+    const run = fakeRun([['status --porcelain', { stdout: '' }]]);
+    await gitSyncService.aenderungen({ projectId: 'p1' }, { run, store });
+    expect(run.rief('fetch')).toBe(false);
+    expect(run.rief('ls-remote')).toBe(false);
+    expect(run.rief('pull')).toBe(false);
+  });
+
+  test('deckelt lange Listen und meldet den Rest als Zahl', async () => {
+    const store = { getKopplung: jest.fn(async () => kopplung()) };
+    const viele = Array.from({ length: 250 }, (_, i) => `?? datei-${i}.md`).join('\n');
+    const run = fakeRun([
+      ['status --porcelain', { stdout: viele }],
+      ['rev-list', { stdout: '0\t0' }],
+    ]);
+
+    const res = await gitSyncService.aenderungen({ projectId: 'p1' }, { run, store });
+
+    expect(res.dateien).toHaveLength(200);
+    expect(res.mehr).toBe(50);
+  });
+
+  test('gekoppelt, aber nie synchronisiert → leer statt Fehler', async () => {
+    await fs.rm(path.join(cwd, '.git'), { recursive: true, force: true });
+    const store = { getKopplung: jest.fn(async () => kopplung({ last_synced_at: null })) };
+    const run = fakeRun();
+
+    const res = await gitSyncService.aenderungen({ projectId: 'p1' }, { run, store });
+
+    expect(res.nieSynchronisiert).toBe(true);
+    expect(res.dateien).toEqual([]);
+    expect(run.rief('status')).toBe(false);
+  });
+
+  test('ein kaputtes rev-list macht die Anzeige nicht kaputt', async () => {
+    const store = { getKopplung: jest.fn(async () => kopplung()) };
+    const run = fakeRun([
+      ['status --porcelain', { stdout: ' M a.js' }],
+      ['rev-list', { code: 128, stderr: 'unknown revision' }],
+    ]);
+
+    const res = await gitSyncService.aenderungen({ projectId: 'p1' }, { run, store });
+
+    expect(res.voraus).toBe(0);
+    expect(res.zurueck).toBe(0);
+    expect(res.dateien).toHaveLength(1);
+  });
+});
+
 describe('trenne — Rechnungsschutz (Plan 014, Phase 5)', () => {
   test('lehnt das Trennen ab, wenn das Projekt ausgestellte Rechnungen enthält', async () => {
     const store = { loescheKopplung: jest.fn(async () => ({})) };
