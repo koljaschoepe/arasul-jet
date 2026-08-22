@@ -160,9 +160,9 @@ class SymbolSuchenTool extends BaseTool {
 
   get description() {
     return (
-      'Findet, WO ein Symbol (Funktion, Klasse, Methode, Konstante) im Code ' +
-      'DEFINIERT wird, anders als dateien_suchen, das jede Erwähnung/Aufrufstelle ' +
-      'liefert. Gib den Namen an; du bekommst Datei:Zeile mit der Definition.'
+      'Findet, WO ein Symbol (Funktion, Klasse, Methode, Konstante) DEFINIERT ' +
+      'ist, und liefert Datei:Zeile. dateien_suchen liefert dagegen jede ' +
+      'Erwähnung.'
     );
   }
 
@@ -170,21 +170,19 @@ class SymbolSuchenTool extends BaseTool {
     return {
       name: {
         type: 'string',
-        description: 'Name des gesuchten Symbols (z. B. "berechneSumme", "UserService").',
+        description: 'Name des Symbols, z. B. "berechneSumme".',
         required: true,
       },
       pfad: {
         type: 'string',
-        description:
-          'Unterordner relativ zum Arbeitsverzeichnis, in dem gesucht wird. ' +
-          'Optional, Standard = Arbeitsverzeichnis.',
+        description: 'Unterordner, in dem gesucht wird. Standard: Arbeitsverzeichnis.',
         required: false,
       },
       ungefaehr: {
         type: 'boolean',
         description:
-          'Wenn true, wird der Name als Teilzeichenkette und ohne Groß-/ ' +
-          'Kleinschreibung verglichen (Standard false: exakter Name).',
+          'true vergleicht als Teilzeichenkette ohne Groß-/Kleinschreibung ' +
+          '(Standard false: exakt).',
         required: false,
       },
     };
