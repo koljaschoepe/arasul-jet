@@ -185,7 +185,11 @@ export function GitSyncControl() {
                     <>
                       <input
                         type="text"
-                        autoFocus
+                        // Kein `autoFocus`-Attribut (jsx-a11y verbietet es, und
+                        // zu Recht): hier ist der Sprung richtig, weil der
+                        // Nutzer gerade „wechseln" GEDRUECKT hat und sonst ein
+                        // zweites Mal klicken muesste.
+                        ref={el => el?.focus()}
                         value={neuerZweig}
                         onChange={e => setNeuerZweig(e.target.value)}
                         onKeyDown={e => {
