@@ -36,6 +36,7 @@ from config import (
     MINIO_HOST, MINIO_PORT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD,
     MINIO_BUCKET, QDRANT_COLLECTION, EMBEDDING_ENABLED,
     INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE, INDEXER_MAX_RETRIES,
+    INDEXER_NACHBRENNER,
     INDEXER_WATCHDOG_INTERVAL_SECONDS,
     PARTIAL_REPICKUP_INTERVAL_SECONDS,
     PARTIAL_REPICKUP_MAX_ATTEMPTS,
@@ -123,6 +124,9 @@ class EnhancedDocumentIndexer:
         self.supported_mimes = SUPPORTED_MIMES
 
         # Status tracking
+        # Plan 023 G4: blieb im letzten Zyklus Arbeit liegen? Dann ist die
+        # Pause danach kurz. Wird in `scan_and_index` gesetzt.
+        self._nacharbeit_offen = False
         self.status = {
             'running': True,
             'last_scan': None,
@@ -691,11 +695,25 @@ class EnhancedDocumentIndexer:
                     )
                     continue
 
+            # Plan 023 G4: der Deckel bleibt, das lange Warten danach nicht.
+            #
+            # Am 22.08.2026 auf dem Orin gemessen: 93 Dokumente lagen auf
+            # `pending`, der Indexer stand bei 0,01 Prozent CPU. Er hatte seine
+            # zehn abgearbeitet und schlief dreissig Sekunden. Bei hundert
+            # Dateien sind das zehn Runden, also fuenf Minuten Wartezeit fuer
+            # rund zehn Sekunden Arbeit.
+            #
+            # Der Deckel hat seinen Sinn (ein Zyklus bleibt ueberschaubar, der
+            # Wachhund sieht regelmaessig Leben), das Schlafen danach nicht.
+            # Bleibt Arbeit liegen, geht es nach `INDEXER_NACHBRENNER` Sekunden
+            # weiter statt nach `INDEXER_INTERVAL`.
+            self._nacharbeit_offen = cap_reached
             if cap_reached:
                 logger.info(
                     f"Scan cycle cap reached "
                     f"({INDEXER_MAX_DOCS_PER_CYCLE} docs); "
-                    f"remaining pending documents will be picked up in next cycle."
+                    f"naechster Zyklus in {INDEXER_NACHBRENNER}s statt "
+                    f"{INDEXER_INTERVAL}s."
                 )
 
             # Get actual pending count from database
@@ -797,7 +815,11 @@ class EnhancedDocumentIndexer:
             except Exception as e:
                 logger.error(f"Main loop error: {e}", exc_info=True)
 
-            time.sleep(INDEXER_INTERVAL)
+            # Plan 023 G4: liegt noch Arbeit, kurz durchatmen statt lange
+            # schlafen. Sonst kostet ein Ordner mit hundert Dateien zehn
+            # Runden a dreissig Sekunden, fuer rund zehn Sekunden Arbeit.
+            pause = INDEXER_NACHBRENNER if self._nacharbeit_offen else INDEXER_INTERVAL
+            time.sleep(pause)
 
     def stop(self):
         """Stop the indexer"""

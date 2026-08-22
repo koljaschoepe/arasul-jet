@@ -228,6 +228,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       DOCUMENT_INDEXER_INTERVAL: ${DOCUMENT_INDEXER_INTERVAL}
       DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE: ${DOCUMENT_INDEXER_MAX_DOCS_PER_CYCLE:-10}
+      # Plan 023 G4: Pause, wenn im letzten Zyklus Arbeit liegen blieb. Der
+      # Deckel darueber haelt einen Zyklus ueberschaubar; danach dreissig
+      # Sekunden zu schlafen, obwohl noch neunzig Dokumente warten, war die
+      # eigentliche Wartezeit.
+      DOCUMENT_INDEXER_NACHBRENNER: ${DOCUMENT_INDEXER_NACHBRENNER:-2}
       DOCUMENT_INDEXER_CHUNK_SIZE: ${DOCUMENT_INDEXER_CHUNK_SIZE}
       DOCUMENT_INDEXER_CHUNK_OVERLAP: ${DOCUMENT_INDEXER_CHUNK_OVERLAP}
       DOCUMENT_INDEXER_API_PORT: ${DOCUMENT_INDEXER_API_PORT:-9102}
