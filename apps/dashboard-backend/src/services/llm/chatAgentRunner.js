@@ -38,7 +38,7 @@ const { projektOrdner, listTree } = require('../projects/ablageService');
 const { ensureFlowSandbox } = require('../flows/sandboxResolve');
 const { buildSystemPrompt } = require('./systemPromptBuilder');
 const agentConfig = require('./agentConfig');
-const { parseTextToolCalls, enthaeltToolSyntax } = require('./textToolCalls');
+const { parseTextToolCalls, enthaeltToolSyntax, ToolSyntaxFilter } = require('./textToolCalls');
 const { TodoListeTool, todoErinnerung, parseTodos } = require('./agentTodoTool');
 const { abbruchMelden, abbruchFesthalten, abbruchText, grundAusFehler } = require('./abbruchGrund');
 
@@ -447,6 +447,11 @@ async function streamChatRound({
       // Plan 023 E1: zwei verschiedene Wartezeiten, bisher unter einer Zahl.
       const rundeBegonnen = Date.now();
       let erstesZeichenNachMs = null;
+      // Plan 023 E9: Werkzeug-Syntax darf nicht in der Anzeige landen. Der
+      // Nachparser weiter unten raeumt den Text der Runde auf, aber er kommt
+      // zu spaet: onToken hat jedes Stueck laengst durchgereicht. `content`
+      // bleibt absichtlich ROH, denn genau daraus zieht der Parser die Aufrufe.
+      const syntaxFilter = new ToolSyntaxFilter();
 
       const onAbort = () => fail(new Error('Vom Nutzer abgebrochen'));
       const cleanup = () => {
@@ -531,10 +536,13 @@ async function streamChatRound({
           }
           if (msg.content) {
             content += msg.content;
-            try {
-              onToken(msg.content);
-            } catch (err) {
-              logger.warn(`Chat-Agent onToken warf: ${err.message}`);
+            const sichtbar = syntaxFilter.durch(msg.content);
+            if (sichtbar) {
+              try {
+                onToken(sichtbar);
+              } catch (err) {
+                logger.warn(`Chat-Agent onToken warf: ${err.message}`);
+              }
             }
           }
           if (Array.isArray(msg.tool_calls)) {
@@ -543,6 +551,16 @@ async function streamChatRound({
           if (data.done && !settled) {
             settled = true;
             cleanup();
+            // Ein angefangener Halbsatz gehoert dem Nutzer; ein angefangener
+            // AUFRUF nicht, der war nie Text.
+            const nachzuegler = syntaxFilter.rest();
+            if (nachzuegler) {
+              try {
+                onToken(nachzuegler);
+              } catch (err) {
+                logger.warn(`Chat-Agent onToken warf: ${err.message}`);
+              }
+            }
             // Plan 022 — Generierungs-Metriken der Runde (Ollama done-Chunk):
             // eval_count = erzeugte Tokens, eval_duration = reine Generierzeit
             // in Nanosekunden. Der Aufrufer summiert sie über alle Runden für
@@ -1422,18 +1440,35 @@ async function processAgentChatJob(ctx, job) {
       // (fehlendes <tool_call>-Tag → Ollamas Parser greift nicht). Statt das
       // rohe XML als Antwort stehen zu lassen, parsen wir es selbst und
       // führen die Aufrufe normal aus; der Antworttext wird vom XML befreit.
-      if (!toolCalls.length && enthaeltToolSyntax(content)) {
+      // Plan 023 E9: die Bedingung hiess bis zum 22.08.2026 `!toolCalls.length
+      // && ...`. Eine GEMISCHTE Runde fiel damit durch: ruft das Modell ein
+      // Werkzeug richtig auf (etwa todo_liste) und schreibt ein zweites als
+      // Text daneben, war `toolCalls.length` groesser als null, der Nachparser
+      // lief nicht, und der zweite Aufruf verschwand. Am Geraet gemessen: der
+      // Agent meldete "Die Datei notiz.md wurde erfolgreich erstellt", zeigte
+      // rohes XML und hatte nichts geschrieben. Genau das verbietet Regel 9
+      // der Agent-Anweisung.
+      if (enthaeltToolSyntax(content)) {
         const geparst = parseTextToolCalls(content);
         if (geparst.calls.length > 0) {
           log.info(
-            `[JOB ${jobId}] Text-Tool-Call-Fallback: ${geparst.calls.length} Aufruf(e) aus Antworttext geparst`
+            `[JOB ${jobId}] Text-Tool-Call-Fallback: ${geparst.calls.length} Aufruf(e) aus Antworttext geparst` +
+              (toolCalls.length ? `, neben ${toolCalls.length} regulaeren` : '')
           );
           toolCalls.push(...geparst.calls);
           content = geparst.rest;
           inhaltBereinigt = true;
-        } else if (nachfassZyklen < MAX_NACHFASS_ZYKLEN && toolsAktiv && !abgebrochen) {
+        } else if (
+          !toolCalls.length &&
+          nachfassZyklen < MAX_NACHFASS_ZYKLEN &&
+          toolsAktiv &&
+          !abgebrochen
+        ) {
           // Syntax erkannt, aber nicht parsebar — dem Modell eine saubere
-          // Wiederholung im echten Werkzeug-Format abverlangen.
+          // Wiederholung im echten Werkzeug-Format abverlangen. Nur, wenn die
+          // Runde ueberhaupt keinen regulaeren Aufruf hatte: ein verwaistes
+          // </tool_call> neben einem richtigen Aufruf ist kein Grund, dem
+          // Modell Formatfehler vorzuwerfen und die Runde zu wiederholen.
           nachfassZyklen += 1;
           messages.push({ role: 'assistant', content });
           messages.push({
