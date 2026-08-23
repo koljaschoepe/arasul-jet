@@ -4779,6 +4779,61 @@ für G7 liest. Jetzt sagt jeder Ausgang, was wirklich passiert ist:
 `system_reboot_abgebrochen`, `system_reboot_unterdrueckt`, `system_reboot` erst
 beim echten Absetzen, `system_reboot_gescheitert`.
 
+## Drei Abnahmen maßen etwas anderes als ihren Namen (23.08.2026)
+
+Alle drei sind an mir selbst aufgefallen, beim Versuch, die Prüfstand-Gates
+nachzumessen. Sie stehen hier, weil eine Abnahme, die das Falsche misst,
+schlimmer ist als keine: sie erzeugt Vertrauen ohne Deckung.
+
+**Die zerstörende Abnahme zielte auf das Arbeitsgerät (#583).** Der Kopf von
+`passwort-loeschung-abnahme.sh` sagt seit jeher „läuft ausschließlich gegen
+den Prüfstand". Die Vorgabe war aber `https://localhost:8443` — und das ist
+NUR auf dem Gerät der Prüfstand. Vom Arbeitsrechner aus zeigt dieselbe Adresse
+durch den SSH-Tunnel auf das echte Gerät. Der Lauf hat dort das
+Administrator-Passwort zu ändern versucht; verhindert hat es die
+Anmeldedrossel mit HTTP 429, also Zufall. Jetzt wird der Prüfstand
+nachgewiesen (ein laufender `pruef-reverse-proxy`, der 443 nach 8443
+veröffentlicht), bevor irgendetwas passiert.
+
+**Der „Fabrikzustand" trug das Konto des Arbeitsgeräts (#584).**
+`pruefstand.sh` legt `.env.pruefstand` als Kopie der echten `.env` an, und die
+trägt `ADMIN_PASSWORD` und `ADMIN_HASH`. Die Frischgerät-Abnahme baute daraus
+ihren Fabrikzustand und fand folgerichtig ein Konto ab Werk vor. Kein Mangel
+am Gerät, sondern eine Abnahme, die etwas anderes gemessen hat als ihren
+Namen. Sie legt ihre Fabrik-Umgebung jetzt selbst an, ohne Zugangsdaten.
+
+**Der Prüfstand läuft auf dem Gerät, nicht auf dem Arbeitsrechner.** Vorher
+antwortete er von dort mit `docker: command not found` — richtig, aber
+unbrauchbar. Jetzt steht der fertige ssh-Aufruf daneben.
+
+Was im selben Lauf **bestanden** hat, und zwar genau die drei Punkte, die
+heute früh noch offen waren:
+
+```
+OK    Ersteinrichtung nach Neustart                  True
+OK    Administratoren nach Neustart                  0
+OK    Flow-Dateien nach Neustart                     0
+ABNAHME BESTANDEN
+```
+
+## Das Gerät bekam je Deploy einen Commit ohne Elternkette (#585)
+
+`deploy-local.sh` holt den neuen Stand mit `git fetch "$SRC" "$NEW_SHA"` aus
+dem Checkout des Läufers. Der lief mit `fetch-depth: 1`, hatte also keine
+Vorfahren. `git fsck` auf dem Orin:
+
+```
+broken link from commit f1f1e86b -> to commit dec3a5b6
+missing commit dec3a5b6      (der Merge von einer Stunde vorher)
+```
+
+Der Plan nannte dieses Loch bisher „60 von über 700 Commits vorhanden" und
+behandelte es als gewachsenen Schaden. Es ist keiner: es ist die Folge von
+`fetch-depth: 1`, und es wächst mit jedem Deploy. Das kostet den Rollback:
+`git reset --hard "$PREV_SHA"` scheitert auf einem Gerät ohne Historie, der
+Rollback fällt auf das Zurückdrehen der Images zurück und meldet sich seit
+#567 ehrlich als unvollständig.
+
 ## G7 hat seit dem 23.08.2026 einen Bericht (#555)
 
 G7 fragt nicht „läuft es gerade", sondern „lief es sieben Tage, ohne dass
