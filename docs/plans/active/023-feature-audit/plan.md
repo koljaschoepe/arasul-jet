@@ -4904,12 +4904,19 @@ Ereignistabelle steht seit dem Neustart des Agents nur `engine_started`.
 
 **Der Schutz war zuerst um zehn Sekunden zu kurz.** Das Fenster schliesst,
 sobald `compose up` zurueckkommt, und die Dienste sind dann noch ungesund.
-Zweimal gemessen, derselbe Vorgang:
+Dreimal angesetzt, derselbe Vorgang:
 
-| Pruefstand-Start     | Fenster                      | Eingriffe der Selbstheilung |
-| -------------------- | ---------------------------- | --------------------------- |
-| 00:05, ohne Nachlauf | 00:05:12 bis 00:05:33        | **2** (n8n, n8n-runners)    |
-| 00:32, mit Nachlauf  | 00:32:54 bis 00:33:05 + 60 s | **0**                       |
+| Pruefstand-Start          | Fenster                      | Eingriffe der Selbstheilung |
+| ------------------------- | ---------------------------- | --------------------------- |
+| 00:05, ohne Nachlauf      | 00:05:12 bis 00:05:33        | **2** (n8n, n8n-runners)    |
+| 00:32, Nachlauf 60 s      | 00:32:54 bis 00:33:05 + 60 s | **3**, ab 00:34:17          |
+| ab 24.08., Nachlauf 300 s | noch nicht gemessen          | offen                       |
+
+**Die mittlere Zeile stand hier zuerst mit einer Null.** Ich hatte um 00:34
+gemessen und den Erfolg gemeldet; der erste Eingriff kam um 00:34:17, zwoelf
+Sekunden nach Ablauf des Nachlaufs, und loeste die Kaskade um 00:41 und 00:42
+aus. Ein Beleg, der zu frueh genommen wird, ist keiner. Der Nachlauf steht
+seither auf 300 Sekunden.
 
 Die Ursache dahinter ist eingegrenzt, aber nicht geklaert. n8n wird kurz
 ungesund, und zwar nicht durch Zeitueberschreitung: der Healthcheck brauchte

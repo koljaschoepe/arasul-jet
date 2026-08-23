@@ -113,9 +113,26 @@ WARTUNG_MAX_MINUTEN = int(os.getenv('SELFHEAL_WARTUNG_MAX_MINUTEN', '30'))
 #
 # Das Fenster schliesst, sobald `compose up` zurueckkommt. Die Dienste sind
 # dann aber noch ungesund und brauchen erst einen erfolgreichen Healthcheck,
-# um wieder als gesund zu gelten — bei n8n alle 15 Sekunden. Sechzig Sekunden
-# decken vier solche Zyklen ab.
-WARTUNG_NACHLAUF_SEKUNDEN = int(os.getenv('SELFHEAL_WARTUNG_NACHLAUF_SEKUNDEN', '60'))
+# um wieder als gesund zu gelten.
+#
+# Der erste Wurf stand auf 60 Sekunden, und das war zu kurz. Am 24.08.2026
+# nachgemessen, derselbe Pruefstand-Start:
+#
+#   00:33:05  Wartungsfenster beendet, 60s Nachlauf
+#   00:34:05  Nachlauf abgelaufen
+#   00:34:17  n8n unhealthy, performing restart
+#   00:41:43  n8n still unhealthy, stop+start
+#   00:42:16  n8n-runners still unhealthy, stop+start
+#
+# Zwoelf Sekunden nach Ablauf griff die Selbstheilung zu, und dieser eine
+# Eingriff loeste die Kaskade aus, die danach folgte. Ich hatte den Erfolg
+# schon gemeldet — gemessen um 00:34, also bevor der Eingriff kam. Ein Beleg,
+# der zu frueh genommen wird, ist keiner.
+#
+# 300 Sekunden decken den gemessenen Fall (72 Sekunden bis n8n noch ungesund
+# war) mit Abstand ab und sind kurz genug, dass ein echter Ausfall nicht lange
+# unbemerkt bleibt. Der Deckel aus WARTUNG_MAX_MINUTEN gilt unabhaengig davon.
+WARTUNG_NACHLAUF_SEKUNDEN = int(os.getenv('SELFHEAL_WARTUNG_NACHLAUF_SEKUNDEN', '300'))
 
 # External heartbeat / Dead Man's Switch
 # If set, POST to this URL every HEARTBEAT_INTERVAL_CYCLES cycles
