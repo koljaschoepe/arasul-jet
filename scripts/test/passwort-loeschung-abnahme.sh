@@ -150,6 +150,27 @@ else
   echo 'hinweis  J1: MinIO uebersprungen, ARASUL_MINIO_PASSWORT nicht gesetzt'
 fi
 
+# --- J4: erst Daten anlegen ---------------------------------------------------
+# Ohne diesen Abschnitt loeschte die Abnahme NICHTS und war trotzdem gruen.
+# Auf einem frischen Pruefstand gibt es keine Chats und keine Wissensraeume;
+# "alle Kategorien leer" war danach kein Beweis, sondern eine Selbstaussage
+# (23.08.2026). Eine Loeschung, die nichts zu loeschen hat, gelingt immer.
+CHAT_ID=$(curl -sk -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+  -d '{"title":"Abnahme-Chat"}' "$BASIS/api/chats" |
+  python3 -c 'import sys,json
+try: print(json.load(sys.stdin)["chat"]["id"])
+except Exception: print("")' 2>/dev/null)
+if [ -n "$CHAT_ID" ]; then
+  curl -sk -o /dev/null -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+    -d '{"role":"user","content":"Diese Nachricht muss die Loeschung entfernen."}' \
+    "$BASIS/api/chats/$CHAT_ID/messages"
+fi
+curl -sk -o /dev/null -X POST -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+  -d '{"name":"Abnahme-Raum","description":"Wissensraum der Abnahme"}' "$BASIS/api/spaces"
+
+pruefe 'J4: es gibt ueberhaupt etwas zu loeschen' \
+  "$([ -n "$CHAT_ID" ] && echo ja || echo nein)" "Chat $CHAT_ID"
+
 # --- J4: vorher ein Export ----------------------------------------------------
 VORHER=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/gdpr/export")
 # Dieselbe Formel wie nachher. Vorher `1` fuer jedes Objekt zu zaehlen und
