@@ -73,6 +73,51 @@ rm -f "$TMP/faden/CLAUDE.md"
 rm -r "$TMP/faden/docs/plans/active/023-beispiel"
 pruefe "Faden: leerer Ordner ist rot" 1 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
 
+# --- wartungsfenster.sh -----------------------------------------------------
+# Das Fenster haelt die Selbstheilung zurueck, solange ein Deploy oder ein
+# Pruefstand-Build laeuft. Es hat drei Teile, die einzeln stillschweigend
+# kaputtgehen koennen: die Datei entsteht, sie wird nachgefasst, und sie
+# verschwindet wieder. Der dritte ist der gefaehrlichste — eine liegen
+# gebliebene Datei legt die Selbstheilung bis zum Deckel schlafen.
+WF="$TMP/wf"
+mkdir -p "$WF"
+wf_probe() {
+  (
+    source "$WURZEL/scripts/lib/wartungsfenster.sh"
+    WARTUNG_FALLBACK_DIR="$WF"
+    WARTUNG_AGENT="gibt-es-nicht-$$"   # erzwingt den Fallback statt Docker
+    WARTUNG_TAKT_SEKUNDEN=1
+    wartung_herzschlag_an
+    [ -f "$WARTUNG_DATEI" ] || exit 1
+    # Den INHALT vergleichen, nicht die Groesse: die Datei traegt einen
+    # Zeitstempel auf die Sekunde, also muss sie sich nach drei Sekunden
+    # geaendert haben. Der erste Wurf dieses Tests prueft nur `-s`, und damit
+    # waere er auch dann gruen gewesen, wenn der Herzschlag gar nicht laeuft.
+    vorher=$(cat "$WARTUNG_DATEI")
+    sleep 3
+    nachher=$(cat "$WARTUNG_DATEI" 2>/dev/null)
+    [ -n "$nachher" ] || exit 1
+    [ "$vorher" != "$nachher" ] || exit 1
+    wartung_aus
+    [ -f "$WARTUNG_DATEI" ] && exit 1
+    kill -0 "${WARTUNG_HERZ:-1}" 2>/dev/null && exit 1
+    exit 0
+  )
+}
+pruefe "Wartungsfenster: setzen, nachfassen, entfernen" 0 wf_probe
+
+wf_pfad_kommt_von_docker() {
+  (
+    source "$WURZEL/scripts/lib/wartungsfenster.sh"
+    WARTUNG_FALLBACK_DIR="$WF/fallback"
+    WARTUNG_AGENT="gibt-es-nicht-$$"
+    # Ohne erreichbaren Container MUSS der Fallback greifen, und zwar genau
+    # dorthin und nicht ins Arbeitsverzeichnis.
+    [ "$(wartung_pfad)" = "$WF/fallback/wartung.aktiv" ]
+  )
+}
+pruefe "Wartungsfenster: ohne Agent greift der Fallback" 0 wf_pfad_kommt_von_docker
+
 # --- bausteine.py -----------------------------------------------------------
 BAU="$TMP/bau/apps/dashboard-frontend/src/features/beispiel"
 mkdir -p "$BAU"

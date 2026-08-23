@@ -4889,11 +4889,23 @@ gehört zum Prüfstand, nicht zum Produkt. Die Selbstheilung des Produktstacks
 „überwacht das Compose-Projekt: arasul-platform", und das letzte
 `pruef-*`-Ereignis stammt vom 23.08. 02:32.
 
-**Was NICHT belegt ist:** dass die knappen Healthcheck-Timeouts mitschuldig
-sind. Der Verdacht lag nahe — n8n hat zwei Sekunden, `minio` eine —, aber im
-Leerlauf liegen alle fünfzehn Dienste zwischen 0 und 7 Prozent ihres Timeouts
-(`scripts/test/healthcheck-luft.sh`). Deshalb wurde kein einziger Timeout
-angefasst. Unter Last ist es noch nicht gemessen.
+**Der Verdacht gegen die knappen Healthcheck-Timeouts hat sich nicht
+bestätigt.** Er lag nahe — n8n hat zwei Sekunden, `minio` eine —, aber gemessen
+wurde er widerlegt (`scripts/test/healthcheck-luft.sh`):
+
+| Lastfall                                     | schlechtester Dienst | Anteil am Timeout | Fehlschläge |
+| -------------------------------------------- | -------------------- | ----------------- | ----------- |
+| Leerlauf, 194 Proben je Dienst               | dashboard-backend    | 7 Prozent         | 0           |
+| volle Abnahme-Reihe, 13 Abnahmen, 317 Proben | dashboard-backend    | 13 Prozent        | 0           |
+
+Deshalb wurde kein einziger Timeout angefasst. Während der gesamten
+Abnahme-Reihe hat die Selbstheilung **kein einziges Mal** eingegriffen; in der
+Ereignistabelle steht seit dem Neustart des Agents nur `engine_started`.
+
+**Was damit weiter offen ist:** Abnahmelast ist GPU- und I/O-Last, kein
+Docker-Build. Ein Build sättigt alle CPU-Kerne, und genau das war der Fall vom
+00:59. Gemessen ist dieses Profil nicht — aber es ist ab jetzt abgedeckt, weil
+`pruefstand.sh` dasselbe Wartungsfenster setzt wie der Deploy.
 
 ---
 

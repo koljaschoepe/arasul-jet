@@ -40,29 +40,14 @@ summary() { [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "$*" >> "$GITHUB_STEP_SUMM
 # --- Wartungsfenster ---------------------------------------------------------
 # Waehrend `docker compose up` steht der alte Container noch da und ist
 # ungesund, weil er gerade heruntergefahren wird. Die Selbstheilung sah darin
-# einen Ausfall und startete ihn neu — mitten im Deploy, gegen den Deploy. Am
-# 23.08.2026 auf dem Orin viermal so passiert; um 15:01 lief die Kette bis zur
-# Neustart-Entscheidung durch, und dass das Geraet oben blieb, lag allein
-# daran, dass SELF_HEALING_REBOOT_ENABLED aus stand.
-#
-# Kein Schalter, sondern ein Herzschlag: die Datei wird waehrend des ganzen
-# Deploys immer wieder angefasst. Ein abgebrochener Deploy legt die
-# Selbstheilung deshalb nicht dauerhaft schlafen — nach
-# SELFHEAL_WARTUNG_MAX_MINUTEN (Vorgabe 30) greift sie wieder ein, auch wenn
-# die Datei liegen bleibt.
-#
-# Das `trap` deckt beide Ausgaenge ab, den Erfolg und den Rollback.
-# Den Ordner NICHT raten: `LOGS_PATH` ist konfigurierbar, und liefe der Deploy
-# auf einen anderen Pfad als der Agent, waere das Fenster wirkungslos, ohne
-# dass es jemand merkt. Also fragen wir Docker, wohin der Agent /arasul/logs
-# gemountet hat. Der Fallback greift nur, wenn es den Container noch nicht
-# gibt — dann heilt auch niemand.
-WARTUNG_DIR="$(docker inspect self-healing-agent \
-  --format '{{range .Mounts}}{{if eq .Destination "/arasul/logs"}}{{.Source}}{{end}}{{end}}' \
-  2>/dev/null)"
-WARTUNG="${WARTUNG_DIR:-${DEPLOY_DIR}/logs}/wartung.aktiv"
-wartung_an()  { mkdir -p "$(dirname "$WARTUNG")" 2>/dev/null; printf '%s deploy %s\n' "$(date -Iseconds)" "${NEW_SHA:0:7}" > "$WARTUNG" 2>/dev/null || true; }
-wartung_aus() { rm -f "$WARTUNG" 2>/dev/null || true; }
+# einen Ausfall und startete ihn neu, mitten im Deploy. Warum das so gebaut
+# ist und warum der Pfad bei Docker erfragt statt geraten wird, steht in
+# `scripts/lib/wartungsfenster.sh` — dieselbe Datei nutzt `pruefstand.sh`,
+# denn ein Build des zweiten Stacks richtet auf demselben Geraet denselben
+# Schaden an.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/wartungsfenster.sh"
+WARTUNG_FALLBACK_DIR="${DEPLOY_DIR}/logs"
+WARTUNG_GRUND="deploy ${NEW_SHA:0:7}"
 trap wartung_aus EXIT
 
 # Pfad-Praefix -> compose-Servicename. Reihenfolge egal.

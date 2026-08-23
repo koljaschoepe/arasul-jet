@@ -19,8 +19,13 @@
 # Erreichbar unter http://<geraet>:8081 bzw. https://<geraet>:8443.
 # =============================================================================
 set -euo pipefail
+
+# Das Wartungsfenster teilt sich dieses Skript mit `deploy-local.sh`.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/wartungsfenster.sh"
+WARTUNG_GRUND="pruefstand-build"
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WURZEL"
+WARTUNG_FALLBACK_DIR="${WURZEL}/logs"
 
 # Dieses Skript spricht `docker compose` DIREKT an, also laeuft es auf dem
 # Geraet und nicht vom Arbeitsrechner aus. Ohne diese Zeile war die Auskunft
@@ -153,7 +158,18 @@ case "${1:-}" in
     sicherheitsnetz
     mkdir -p data-pruefstand logs-pruefstand
     ordner_anlegen
+    # Der Bau des zweiten Stacks laeuft auf DEMSELBEN Geraet wie der erste. Am
+    # 23.08.2026 um 00:59 wurde n8n dabei ungesund, die Selbstheilung des
+    # Produktstacks startete ihn neu, und die Kette lief bis zur
+    # Neustart-Entscheidung durch. Dass das Geraet oben blieb, lag allein
+    # daran, dass SELF_HEALING_REBOOT_ENABLED aus stand.
+    #
+    # `--build` blockiert am Stueck, kann also selbst nicht nachfassen —
+    # deshalb der Herzschlag im Hintergrund. Das Fenster gilt NUR fuer den
+    # ersten Stack; der Pruefstand hat keine eigene Selbstheilung.
+    wartung_herzschlag_an
     compose up -d --build "${DIENSTE[@]}"
+    wartung_aus
     ohne_gpu
     echo ""
     echo "Pruefstand laeuft. Oberflaeche: https://$(hostname):8443"
