@@ -4274,6 +4274,26 @@ Kein Verweis auf Entferntes. Jede gespiegelte Zahl trägt Stand und Quelle.
 
 ---
 
+# Regressionsrunde vom 23.08.2026
+
+Nach zwölf Fixes in einer Nacht ist die Frage nicht, ob jeder für sich stimmt,
+sondern ob zusammen noch alles läuft. Alle vier Abnahmeskripte gegen den Orin,
+in einem Zug:
+
+| Abnahme                                     | Ergebnis      |
+| ------------------------------------------- | ------------- |
+| Chat, Phase E (`chat-abnahme.mjs`)          | **20 von 20** |
+| Content-Security-Policy (`csp-abnahme.mjs`) | **14 von 14** |
+| Terminal, Phase F (`terminal-abnahme.mjs`)  | **9 von 9**   |
+| Fernzugriff, J2 (`fernzugriff-abnahme.mjs`) | **8 von 8**   |
+
+**51 von 51.** Kein Fix der Nacht hat etwas anderes gebrochen.
+
+Dazu die Prüfstand-Abnahme für J1 und J4 und die Live-Abnahme für I2 bis I4,
+beide oben bei den Aufgaben beschrieben.
+
+---
+
 # Was noch offen ist, und wer es schließen kann
 
 Stand 23.08.2026. Acht der dreizehn Phasen sind fertig und live abgenommen.
