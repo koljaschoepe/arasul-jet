@@ -4834,6 +4834,69 @@ behandelte es als gewachsenen Schaden. Es ist keiner: es ist die Folge von
 Rollback fällt auf das Zurückdrehen der Images zurück und meldet sich seit
 #567 ehrlich als unvollständig.
 
+## Ein hängender Dienst reichte für einen Geräteneustart (23.08.2026, behoben)
+
+Gate G7 verspricht sieben Tage unbeaufsichtigt. Der Orin läuft seit dem
+19.08.2026 durch, und das sah nach dem Nachweis aus. Es war keiner.
+
+`SELF_HEALING_REBOOT_ENABLED` steht auf **diesem** Gerät aus. In der
+Ereignistabelle stehen trotzdem drei Neustart-Entscheidungen:
+
+```
+19.08. 21:39  system_reboot              Multiple critical failures: 136 events in 30min
+23.08. 01:05  system_reboot              Multiple critical failures: 3 events in 30min
+23.08. 09:32  system_reboot              Multiple critical failures: 3 events in 30min
+23.08. 15:01  system_reboot_unterdrueckt Neustart waere faellig gewesen
+```
+
+Beim Kunden im unbeaufsichtigten Betrieb steht der Schalter an
+(`scripts/interactive_setup.sh`, `UNATTENDED_MODE`). Dort hätte sich das Gerät
+in vier Tagen dreimal selbst neu gestartet.
+
+**Ursache.** `get_critical_events_count()` zählte CRITICAL-Zeilen. Solange ein
+Dienst ungesund blieb, schrieb Kategorie A bei jedem Durchlauf eine weitere
+Zeile `service_escalation` für denselben unveränderten Zustand — der Cooldown
+von Kategorie C stand hinter dem `log_event`. Sieben Tage rückwärts gemessen:
+
+```
+service_escalation  pruef-llm-service   311 Zeilen an 61 Minuten
+service_escalation  n8n-runners         283 Zeilen an 59 Minuten
+service_escalation  n8n                 279 Zeilen an 60 Minuten
+alles uebrige zusammen                   24 Zeilen
+```
+
+97 Prozent Wiederholung. Bei `MAX_CRITICAL_EVENTS = 3` war der Zähler in einer
+halben Minute voll.
+
+**Behoben an zwei Stellen**, weil eine allein zu leicht wieder aufgeht:
+Migration 161 zählt `DISTINCT (event_type, service_name)`, und Kategorie A
+schreibt die Zeile nur noch, wenn Kategorie C auch handelt (PR #610). Dazu das
+Wartungsfenster (PR #611), damit ein Deploy die Kette gar nicht erst anstößt —
+die Selbstheilung startete Dienste bis dahin mitten im Deploy neu, gegen den
+Deploy, viermal an einem Tag.
+
+**Live belegt auf dem Orin**, dieselben Daten, beide Zählweisen:
+
+```
+Fenster 19.08. 21:09 bis 21:39   132 Zeilen alt  →  2 Vorfaelle neu
+letzte 48 Stunden                230 Zeilen alt  →  7 Vorfaelle neu
+```
+
+**Was dabei nebenbei auffiel und ebenfalls behoben ist:** `pruef-llm-service`
+gehört zum Prüfstand, nicht zum Produkt. Die Selbstheilung des Produktstacks
+überwachte jeden Container des Hosts. Seit dem Projektfilter
+(`SELFHEAL_COMPOSE_PROJECT`) meldet der Agent beim Start
+„überwacht das Compose-Projekt: arasul-platform", und das letzte
+`pruef-*`-Ereignis stammt vom 23.08. 02:32.
+
+**Was NICHT belegt ist:** dass die knappen Healthcheck-Timeouts mitschuldig
+sind. Der Verdacht lag nahe — n8n hat zwei Sekunden, `minio` eine —, aber im
+Leerlauf liegen alle fünfzehn Dienste zwischen 0 und 7 Prozent ihres Timeouts
+(`scripts/test/healthcheck-luft.sh`). Deshalb wurde kein einziger Timeout
+angefasst. Unter Last ist es noch nicht gemessen.
+
+---
+
 ## Zwei KI-Dienste rufen nach draußen (23.08.2026, offen)
 
 Das ist der schwerste Befund des Tages. Gate G4 heißt „Daten bleiben auf dem

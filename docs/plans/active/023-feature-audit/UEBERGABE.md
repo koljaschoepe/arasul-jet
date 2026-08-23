@@ -11,12 +11,14 @@ braucht, holt sie aus der Live-Quelle: die Befehle stehen jeweils daneben.
 
 ## 1. Was ohne diese Sitzung weiterläuft
 
-| Was                                              | Wo                                                | Überlebt                                        |
-| ------------------------------------------------ | ------------------------------------------------- | ----------------------------------------------- |
-| Der Ausgang-Lauscher auf `llm-service`, 24 h     | auf dem **Gerät**, `logs/ausgang-llm-service.log` | Chat-Ende, Sitzungswechsel, Neustart des Geräts |
-| Der Dauerlauf für G7                             | das Gerät selbst                                  | alles außer einem Neustart des Geräts           |
-| Nächtlicher Lauf (`scripts/util/nightly-run.sh`) | launchd auf dem Mac, 02:30                        | Chat-Ende                                       |
-| Nächtlicher Wiederherstellungs-Drill             | `backup-service` auf dem Gerät                    | alles                                           |
+| Was                                               | Wo                                                | Überlebt                                        |
+| ------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| Der Ausgang-Lauscher auf `llm-service`, 24 h      | auf dem **Gerät**, `logs/ausgang-llm-service.log` | Chat-Ende, Sitzungswechsel, Neustart des Geräts |
+| Derselbe Lauscher auf `searxng` als Kanarienvogel | `logs/ausgang-searxng.log`                        | dasselbe                                        |
+| Die Healthcheck-Luftmessung, 2 h                  | `logs/health-dauer.log`                           | dasselbe                                        |
+| Der Dauerlauf für G7                              | das Gerät selbst                                  | alles außer einem Neustart des Geräts           |
+| Nächtlicher Lauf (`scripts/util/nightly-run.sh`)  | launchd auf dem Mac, 02:30                        | Chat-Ende                                       |
+| Nächtlicher Wiederherstellungs-Drill              | `backup-service` auf dem Gerät                    | alles                                           |
 
 **Was NICHT weiterläuft:** der `/loop`-Wecker und alle Hintergrundbefehle
 dieser Sitzung. Sie sterben mit dem Chat. Das ist kein Verlust — alles, was
@@ -24,6 +26,8 @@ zählt, steht in Dateien.
 
 ```bash
 scripts/test/ausgang-lauscher.sh stand llm-service   # was der Lauscher bisher sah
+scripts/test/ausgang-lauscher.sh stand searxng       # der Kanarienvogel, siehe unten
+scripts/test/healthcheck-luft.sh stand               # wie nah die Healthchecks am Timeout sind
 bash scripts/test/dauerlauf-bericht.sh               # G7-Stand, live
 ```
 
@@ -45,6 +49,15 @@ Zwei Adressen kommen laut Binärdatei infrage:
 **Wenn er nichts fängt**, ist das ein Ergebnis, kein Nicht-Ergebnis: 24 Stunden
 Normalbetrieb ohne eine einzige Verbindung nach draußen gehören in die
 G4-Beweislage.
+
+**Aber nur mit dem Kanarienvogel.** Am 23.08.2026 meldete derselbe Lauscher
+anderthalb Stunden lang „keine einzige Verbindung nach draußen" — er war
+blind, ein Filter verwarf jede Zeile. Ein Beobachter, der nie etwas sieht, ist
+von einem Beobachter, der nichts zu sehen bekommt, nicht zu unterscheiden.
+Deshalb läuft derselbe Lauscher zusätzlich auf `searxng`, das nachweislich
+nach draußen spricht. Stand 23.08. 22:45: **1035 Zeilen bei searxng, null bei
+`llm-service`**, in derselben Zeit, mit derselben Mechanik. Erst das macht die
+Null belastbar.
 
 ---
 
@@ -125,6 +138,24 @@ gesucht wurde und wo nicht.
 | Git auf dem Gerät | jeder Deploy hinterließ einen Commit ohne Eltern; Historie geheilt, Rollback funktioniert wieder               |
 | Wissensgraph      | `related/:name` hatte drei rekursive Zweige und hat **nie** funktioniert                                       |
 | Modelle           | über einen Link hinzufügen und wieder entfernen, mit Abnahme                                                   |
+| Neustart-Kette    | ein einziger hängender Dienst reichte für einen Geräteneustart; siehe unten                                    |
+| Wartungsfenster   | die Selbstheilung startete Dienste **mitten im Deploy** neu, gegen den Deploy                                  |
+| Prüfstand         | die Selbstheilung des Produktstacks heilte in den Prüfstand hinein (311 Ereignisse in sieben Tagen)            |
+
+**Die Neustart-Kette ist der schwerste Befund des Tages.** Der Orin läuft seit
+dem 19.08. durch, und das klang nach dem Nachweis für G7. Es war ein Zufall:
+`SELF_HEALING_REBOOT_ENABLED` steht auf diesem Gerät aus. Beim Kunden im
+unbeaufsichtigten Betrieb — dem Modus, den G7 zusagt — steht der Schalter an,
+und dort hätte sich das Gerät in vier Tagen dreimal selbst neu gestartet
+(19.08. 21:39, 23.08. 01:05, 23.08. 09:32). Ursache: `get_critical_events_count()`
+zählte Protokollzeilen statt Vorfälle, und ein ungesunder Dienst schrieb im
+Takt des Durchlaufs immer dieselbe Zeile. Gegengerechnet an den echten Daten
+des Geräts: **132 Zeilen, 2 Vorfälle** im Fenster des 19.08.
+
+Behoben an zwei Stellen (Migration 161 und `_category_c_in_cooldown()`), plus
+das Wartungsfenster, damit ein Deploy die Kette gar nicht erst anstößt. Live
+belegt: dieselbe Funktion auf dem Gerät zählt für die letzten 48 Stunden jetzt
+**7 Vorfälle statt 230 Zeilen**.
 
 **Und vier Messungen, die das Falsche gemessen haben** — die sind die
 unangenehmere Hälfte: die G4-Abnahme sah nur `established`, hielt
@@ -134,7 +165,7 @@ wurde. Dazu eine zerstörende Abnahme, die vom Arbeitsrechner aus auf das
 Produktionsgerät zielte, und ein „Fabrikzustand", der das Konto des
 Arbeitsgeräts trug.
 
-## 6. Drei Fallen, die einen halben Tag gekostet haben
+## 6. Vier Fallen, die einen halben Tag gekostet haben
 
 Sie stehen in den Kommentaren der jeweiligen Skripte, aber wer neu anfängt,
 sollte sie kennen.
@@ -144,7 +175,13 @@ sollte sie kennen.
    deshalb monatelang nur EIN Ziel geprüft.
 2. **`ssh -n` und ein Heredoc schließen sich aus.** `-n` leitet stdin von
    `/dev/null`, also kommt eine leere Datei an.
-3. **Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler.**
+3. **Ein Beobachter braucht eine Gegenprobe.** Der Ausgang-Lauscher meldete
+   anderthalb Stunden „nichts", während `ss` im selben Moment offene
+   Verbindungen zeigte. Die Gegenprobe kostet eine Minute und steht in der
+   Anleitung des Skripts. Dasselbe gilt für Tests: der Wartungsfenster-Test
+   wurde erst geglaubt, nachdem die Bedingung testweise auf `if False` stand
+   und er fehlschlug.
+4. **Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler.**
    Am 23.08. gaben fünf Endpunkte auf jedem Gerät HTTP 500, alle von grünen
    Tests gedeckt. Deshalb `endpunkte-live.py`, und deshalb läuft jede Abnahme
    gegen echtes Blech.
