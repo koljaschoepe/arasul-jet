@@ -318,4 +318,4 @@ function createSyncHelpers({ database, logger, activeDownloadIds, modelAvailabil
   };
 }
 
-module.exports = { createSyncHelpers, tagVarianten, inOllama };
+module.exports = { createSyncHelpers, tagVarianten, inOllama, kategorieFuerBytes };
