@@ -274,8 +274,26 @@ async function ragSuche({ frage, anzahl }) {
   }
   limit = Math.min(limit, RAG_MAX_LIMIT);
 
-  const embedding = await ragCore.getEmbedding(query);
-  const results = await ragCore.hybridSearch(query, embedding, limit, null);
+  // `ragCore` sucht ueber Qdrant. Qdrant und der embedding-service liegen seit
+  // Plan 021 Schritt 8 im Compose-Profil `classic-rag` und laufen auf einem
+  // normalen Geraet NICHT (siehe CLAUDE.md). Ohne diesen Zweig kam hier ein
+  // rohes "Vector search backend unavailable" an, aus dem niemand ableiten
+  // kann, was zu tun ist (auf dem Orin gemessen, 23.08.2026).
+  let results;
+  try {
+    const embedding = await ragCore.getEmbedding(query);
+    results = await ragCore.hybridSearch(query, embedding, limit, null);
+  } catch (err) {
+    if (/qdrant|EAI_AGAIN|ECONNREFUSED|Vector search/i.test(String(err.message))) {
+      throw new ServiceUnavailableError(
+        'Die Vektorsuche laeuft auf diesem Geraet nicht. Sie liegt im ' +
+          'Compose-Profil "classic-rag" und wird nur auf Zuruf gestartet ' +
+          '(docker compose --profile classic-rag up -d qdrant embedding-service). ' +
+          'Ohne sie hat die Faehigkeit "rag" keine Datenquelle.'
+      );
+    }
+    throw err;
+  }
   return (Array.isArray(results) ? results : []).map(r => {
     const payload = r.payload || {};
     const raw = String(payload.text || payload.content || '')
@@ -406,7 +424,11 @@ async function dateien(extensionId, { aktion, pfad, inhalt }) {
 
 async function flowsListe() {
   const flowRegistry = require('../flows/flowRegistry');
-  const flows = await flowRegistry.listFlows();
+  // `listFlows` liefert `{ flows, fehlerhaft }`, kein Array. Bis zum
+  // 23.08.2026 stand hier `const flows = await …`, und der Aufruf endete
+  // jedes Mal mit `(flows || []).map is not a function` — die Faehigkeit
+  // `flows` hat aus einer App also nie etwas aufgelistet.
+  const { flows } = await flowRegistry.listFlows();
   return (flows || []).map(f => ({
     name: f.name,
     beschreibung: f.beschreibung || f.description || '',

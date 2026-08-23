@@ -338,6 +338,9 @@ jobs:
       - name: Durchreichung der Stellschrauben (Plan 023 E1)
         run: python3 scripts/test/durchreichung.py --wurzel .
 
+      - name: Datenordner werden vorher angelegt (Plan 023 H1)
+        run: python3 scripts/test/datenordner.py --wurzel .
+
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh
 

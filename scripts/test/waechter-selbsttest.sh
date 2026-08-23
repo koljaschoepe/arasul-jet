@@ -357,6 +357,29 @@ printf 'services:\n  backend:\n    environment:\n      GEHEIMNIS_FILE: /run/secr
 pruefe "Durchreichung: die Secret-Form zaehlt als durchgereicht" 0 \
   python3 "$WURZEL/scripts/test/durchreichung.py" --wurzel "$DR"
 
+# --- datenordner.py ---------------------------------------------------------
+# Der Waechter aus dem Fund vom 23.08.2026: legt Docker eine fehlende
+# Bind-Quelle selbst an, gehoert sie root, und der Container (uid 1000) kann
+# nicht hinein schreiben. Beide Richtungen: eine fehlende Zeile ist rot, eine
+# ueberzaehlige harmlos.
+DO="$TMP/datenordner"
+mkdir -p "$DO/compose"
+printf 'services:\n  backend:\n    volumes:\n      - ${DATA_PATH:-../data}/dinge:/arasul/dinge\n' \
+  > "$DO/compose/compose.app.yaml"
+
+printf '#!/bin/bash\nmkdir -p data/dinge\n' > "$DO/arasul"
+pruefe "Datenordner: ein angelegter Ordner ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/datenordner.py" --wurzel "$DO"
+
+printf '#!/bin/bash\nmkdir -p data/anderes\n' > "$DO/arasul"
+pruefe "Datenordner: ein nur gemounteter Ordner ist rot" 1 \
+  python3 "$WURZEL/scripts/test/datenordner.py" --wurzel "$DO"
+
+# Die Klammerform muss aufgeloest werden, sonst meldet der Waechter Fehlalarm.
+printf '#!/bin/bash\nmkdir -p data/{anderes,dinge}\n' > "$DO/arasul"
+pruefe "Datenordner: die Klammerform zaehlt" 0 \
+  python3 "$WURZEL/scripts/test/datenordner.py" --wurzel "$DO"
+
 # --- anleitungen.py ---------------------------------------------------------
 # Der Waechter aus Plan 023 K3: haelt README und CLAUDE.md gegen den Code.
 # Drei Faelle, drei Arten, wie eine Anleitung still falsch wird.

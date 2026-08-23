@@ -547,6 +547,17 @@ create_directories() {
     mkdir -p data/ssh-keys
     mkdir -p data/sandbox/projects
     mkdir -p data/skills
+    # Am 23.08.2026 nachgetragen: genau der oben beschriebene Fall war erneut
+    # eingetreten. data/extensions-data gehoerte root, und jede Erweiterung
+    # bekam bei ihrem ersten Schreibversuch
+    # "EACCES: permission denied, mkdir /arasul/extensions-data/<id>".
+    # Die Faehigkeit "eigene Dateiablage" war damit auf jedem Geraet tot.
+    # scripts/test/datenordner.py vergleicht diese Liste jetzt mit den
+    # Bind-Quellen in compose/, damit die Falle nicht ein drittes Mal zuschlaegt.
+    mkdir -p data/extensions
+    mkdir -p data/extensions-data
+    mkdir -p data/flows
+    mkdir -p data/projects
     mkdir -p cache
     mkdir -p updates
 
