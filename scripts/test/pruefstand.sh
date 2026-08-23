@@ -36,6 +36,17 @@ WARTUNG_GRUND="pruefstand-build"
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WURZEL"
 WARTUNG_FALLBACK_DIR="${WURZEL}/logs"
+# Ohne `trap` bleibt die Wartungsdatei liegen, sobald irgendetwas schiefgeht —
+# und dieses Skript laeuft mit `set -e`, bricht also mitten im Lauf ab. Am
+# 23.08.2026 um 23:41 genau so passiert: der Bau lief durch, das Hochfahren
+# scheiterte an einem belegten Port 8090, `wartung_aus` wurde nie erreicht.
+# Die Selbstheilung haette bis zum Ablauf des Deckels geschwiegen, also eine
+# halbe Stunde, ohne dass jemand es gemerkt haette.
+#
+# Der Deckel hat also getan, wofuer er da ist. Er ist trotzdem das Netz und
+# nicht der Boden: `deploy-local.sh` hat diesen `trap` von Anfang an, hier
+# hatte ich ihn vergessen.
+trap wartung_aus EXIT
 
 # Dieses Skript spricht `docker compose` DIREKT an, also laeuft es auf dem
 # Geraet und nicht vom Arbeitsrechner aus. Ohne diese Zeile war die Auskunft
@@ -161,8 +172,41 @@ eigene_geheimnisse() {
   echo "Eigene Geheimnisse angelegt: config/secrets-pruefstand"
 }
 
+# Ein belegter Port faellt sonst erst nach dem Bauen auf, und die Meldung von
+# Docker ("Bind for 0.0.0.0:8090 failed: port is already allocated") sagt zwar
+# WAS klemmt, aber nicht WER es haelt. Am 23.08.2026 war es `jetcam`, ein
+# drittes Projekt auf demselben Geraet — das zu finden hat laenger gedauert als
+# der ganze Bau.
+#
+# Container mit dem eigenen Praefix zaehlen nicht: die gehoeren zum Pruefstand
+# selbst und werden gleich ersetzt.
+ports_frei() {
+  local fehler=0 name wert wer praefix
+  # Den Praefix aus derselben Datei lesen wie die Ports. Ihn hier
+  # hinzuschreiben waere eine zweite Quelle fuer dieselbe Angabe.
+  praefix="$(grep -E '^CONTAINER_PREFIX=' "$UMGEBUNG" | cut -d= -f2 | tr -d ' ')"
+  while IFS='=' read -r name wert; do
+    wert="${wert%%[!0-9]*}"
+    [ -n "$wert" ] || continue
+    wer="$(docker ps --format '{{.Names}}\t{{.Ports}}' | grep -E ":${wert}->" | cut -f1 | head -1)"
+    case "$wer" in
+      ''|"${praefix}"*) ;;
+      *) echo "  Port ${wert} (${name}) haelt bereits: ${wer}"; fehler=1 ;;
+    esac
+  done < <(grep -E '^[A-Z_]+_PORT=[0-9]+' "$UMGEBUNG")
+
+  if [ "$fehler" -ne 0 ]; then
+    echo ""
+    echo "ABBRUCH: mindestens ein Port ist belegt."
+    echo "Entweder den fremden Container anhalten oder den Port in"
+    echo "${UMGEBUNG} aendern. Fremde Stacks werden hier NICHT angefasst."
+    exit 3
+  fi
+}
+
 case "${1:-}" in
   hoch)
+    ports_frei
     eigene_env
     eigene_geheimnisse
     sicherheitsnetz
@@ -179,7 +223,7 @@ case "${1:-}" in
     # ersten Stack; der Pruefstand hat keine eigene Selbstheilung.
     wartung_herzschlag_an
     compose up -d --build "${DIENSTE[@]}"
-    wartung_aus
+    wartung_aus   # der `trap` oben faengt den Abbruchfall, das hier den Normalfall
     ohne_gpu
     echo ""
     echo "Pruefstand laeuft. Oberflaeche: https://$(hostname):8443"
