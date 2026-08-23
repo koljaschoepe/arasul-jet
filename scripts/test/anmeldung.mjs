@@ -84,3 +84,56 @@ export async function hinweisWeg(seite) {
     }
   });
 }
+
+/**
+ * Der Pfad der gespeicherten Sitzung, oder `undefined`, wenn es keine gibt.
+ * Direkt in `newContext({ storageState: ... })` verwendbar.
+ */
+export function sitzungsZustand() {
+  return fs.existsSync(SPEICHER) ? SPEICHER : undefined;
+}
+
+/** Die Sitzung nach einer erfolgreichen Anmeldung merken. Wirft nie. */
+export async function sitzungMerken(kontext) {
+  try {
+    await kontext.storageState({ path: SPEICHER });
+  } catch {
+    /* nicht schreibbar — dann eben jedes Mal neu anmelden */
+  }
+}
+
+/**
+ * Meldet an, WENN das Passwortfeld da ist. Mit einer gueltigen gespeicherten
+ * Sitzung ist es das nicht, und der Aufruf tut nichts.
+ *
+ * Liefert `{ angemeldet, neu, grund }`. `angemeldet: false` heisst: die
+ * Anmeldung kam nicht durch, meist weil die zehn Versuche je Viertelstunde
+ * aufgebraucht sind. Das sagt nichts ueber das Geraet, und die Abnahme soll
+ * genau das schreiben koennen.
+ */
+export async function anmeldenFallsNoetig(seite, kontext, { url, benutzer, passwort }) {
+  const feld = seite.locator('input[type="password"]');
+  await feld.waitFor({ timeout: 8000 }).catch(() => {});
+  if ((await feld.count()) === 0) {
+    return { angemeldet: true, neu: false };
+  }
+  await seite.fill('input[name="username"], input[type="text"]', benutzer);
+  await feld.fill(passwort);
+  await seite.click('button[type="submit"]');
+  await seite.waitForTimeout(4000);
+  const ok = await seite
+    .evaluate(() => document.cookie.includes('arasul_csrf'))
+    .catch(() => false);
+  if (!ok) {
+    return {
+      angemeldet: false,
+      neu: true,
+      grund:
+        'Die Anmeldung kam nicht durch. Haeufigste Ursache: zehn Anmeldungen ' +
+        'je Viertelstunde und IP sind aufgebraucht (HTTP 429). Das sagt nichts ' +
+        'ueber das Geraet.',
+    };
+  }
+  await sitzungMerken(kontext);
+  return { angemeldet: true, neu: true };
+}

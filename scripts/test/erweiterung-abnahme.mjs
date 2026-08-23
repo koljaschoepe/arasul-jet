@@ -26,6 +26,7 @@
  */
 
 import { chromium } from 'playwright';
+import { anmeldenFallsNoetig, sitzungsZustand, hinweisWeg } from './anmeldung.mjs';
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
@@ -42,6 +43,10 @@ const browser = await chromium.launch({ headless: true });
 const kontext = await browser.newContext({
   ignoreHTTPSErrors: true,
   viewport: { width: 1600, height: 1000 },
+  // Eine gespeicherte Sitzung wiederverwenden: zehn Anmeldungen je
+  // Viertelstunde und IP sind schnell aufgebraucht, wenn mehrere Abnahmen
+  // hintereinander laufen (23.08.2026).
+  ...(sitzungsZustand() ? { storageState: sitzungsZustand() } : {}),
 });
 const seite = await kontext.newPage();
 
@@ -55,27 +60,19 @@ let selbstEingeschaltet = false;
 
 try {
   await seite.goto(URL, { waitUntil: 'domcontentloaded' });
-  await seite.fill('input[name="username"], input[type="text"]', BENUTZER);
-  await seite.fill('input[type="password"]', PASSWORT);
-  await seite.click('button[type="submit"]');
-  await seite.waitForTimeout(4000);
-  await seite.evaluate(() => {
-    try {
-      localStorage.setItem('arasul-onboarding-seen-v1', '1');
-    } catch {
-      /* Speicher gesperrt — der Hinweis stoert nur die Sicht, nicht die Messung. */
-    }
+  // Ohne diese Pruefung meldete die Abnahme bei einer abgewiesenen Anmeldung
+  // (etwa HTTP 429 nach zu vielen Versuchen) den Satz „Knopf nicht gefunden" —
+  // ein falsches Rot, das auf das Geraet zeigt statt auf den Messaufbau.
+  const an = await anmeldenFallsNoetig(seite, kontext, {
+    url: URL,
+    benutzer: BENUTZER,
+    passwort: PASSWORT,
   });
-
-  // Erst pruefen, ob die Anmeldung ueberhaupt durchkam. Ohne diese Zeile
-  // meldete die Abnahme bei einer abgewiesenen Anmeldung (etwa nach zu vielen
-  // Versuchen, HTTP 429) den Satz „Knopf nicht gefunden" — ein falsches Rot,
-  // das auf das Geraet zeigt statt auf den Messaufbau (23.08.2026).
-  const angemeldet = await seite.evaluate(() => document.cookie.includes('arasul_csrf'));
-  merke(angemeldet, angemeldet ? 'angemeldet' : 'Anmeldung abgewiesen, die Messung sagt nichts ueber das Geraet');
-  if (!angemeldet) {
+  merke(an.angemeldet, an.angemeldet ? (an.neu ? 'angemeldet' : 'Sitzung wiederverwendet') : an.grund);
+  if (!an.angemeldet) {
     throw new Error('abbruch');
   }
+  await hinweisWeg(seite);
 
   await seite.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded' });
   await seite.waitForTimeout(4000);

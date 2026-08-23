@@ -6,6 +6,7 @@
  * aktualisiert sich der Zustand ohne Neuladen?
  */
 import { chromium } from 'playwright';
+import { anmeldenFallsNoetig, sitzungsZustand } from './anmeldung.mjs';
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const ergebnisse = [];
@@ -15,18 +16,23 @@ const pruefe = (was, ok, detail = '') => {
 };
 
 const browser = await chromium.launch({ headless: true });
-const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1400, height: 900 } });
+// Gespeicherte Sitzung wiederverwenden: zehn Anmeldungen je Viertelstunde und
+// IP sind aufgebraucht, wenn mehrere Abnahmen hintereinander laufen (23.08.2026).
+const ctx = await browser.newContext({
+  ignoreHTTPSErrors: true,
+  viewport: { width: 1400, height: 900 },
+  ...(sitzungsZustand() ? { storageState: sitzungsZustand() } : {}),
+});
 const page = await ctx.newPage();
 
 try {
   await page.addInitScript(() => { try { localStorage.setItem('arasul-onboarding-seen-v1','1'); } catch { /* egal */ } });
   await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.locator('input[type="password"]').waitFor({ timeout: 30000 });
-  await page.locator('input').first().fill('admin');
-  await page.locator('input[type="password"]').fill('2309');
-  await page.locator('button[type="submit"]').first().click();
-  await page.waitForURL(/\/workspace/, { timeout: 60000 });
-  pruefe('Anmeldung', true);
+  const an = await anmeldenFallsNoetig(page, ctx, { url: URL, benutzer: 'admin', passwort: '2309' });
+  pruefe('Anmeldung', an.angemeldet, an.angemeldet ? (an.neu ? 'neu' : 'Sitzung wiederverwendet') : an.grund);
+  if (an.neu) {
+    await page.waitForURL(/\/workspace/, { timeout: 60000 }).catch(() => {});
+  }
 
   await page.goto(`${URL}/settings?tab=remote-access`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(6000);

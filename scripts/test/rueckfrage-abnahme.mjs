@@ -23,6 +23,7 @@
  */
 
 import { chromium } from 'playwright';
+import { anmeldenFallsNoetig, sitzungsZustand } from './anmeldung.mjs';
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
@@ -78,16 +79,20 @@ const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({
   ignoreHTTPSErrors: true,
   viewport: { width: 1600, height: 1000 },
+  // Gespeicherte Sitzung wiederverwenden. Zehn Anmeldungen je Viertelstunde und
+  // IP sind aufgebraucht, wenn mehrere Abnahmen hintereinander laufen
+  // (23.08.2026).
+  ...(sitzungsZustand() ? { storageState: sitzungsZustand() } : {}),
 });
 const page = await ctx.newPage();
 
 try {
   // --- Anmelden -------------------------------------------------------------
   await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.fill('input[name="username"], input[type="text"]', BENUTZER);
-  await page.fill('input[type="password"]', PASSWORT);
-  await page.click('button[type="submit"]');
-  await page.waitForTimeout(4000);
+  const an = await anmeldenFallsNoetig(page, ctx, { url: URL, benutzer: BENUTZER, passwort: PASSWORT });
+  if (!an.angemeldet) {
+    pruefe('Anmeldung', false, an.grund);
+  }
   await assistentUeberspringen(page);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
