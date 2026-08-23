@@ -45,7 +45,17 @@ summary() { [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "$*" >> "$GITHUB_STEP_SUMM
 # `scripts/lib/wartungsfenster.sh` — dieselbe Datei nutzt `pruefstand.sh`,
 # denn ein Build des zweiten Stacks richtet auf demselben Geraet denselben
 # Schaden an.
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/wartungsfenster.sh"
+# Hart abbrechen, wenn die Bibliothek fehlt. `deploy-local.sh` laeuft mit
+# `set -uo pipefail` OHNE `-e`: ein gescheitertes `source` wuerde den Lauf
+# nicht anhalten, `wartung_an` waere nur ein "command not found", und der
+# Deploy liefe gruen durch — mit einem Wartungsfenster, das nie aufgeht. Ein
+# Schutz, der still ausfaellt, ist schlimmer als keiner, weil man sich auf ihn
+# verlaesst.
+WARTUNG_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/wartungsfenster.sh"
+if ! source "$WARTUNG_LIB"; then
+  echo "ABBRUCH: ${WARTUNG_LIB} nicht ladbar. Ohne Wartungsfenster wird nicht deployt." >&2
+  exit 1
+fi
 WARTUNG_FALLBACK_DIR="${DEPLOY_DIR}/logs"
 WARTUNG_GRUND="deploy ${NEW_SHA:0:7}"
 trap wartung_aus EXIT
