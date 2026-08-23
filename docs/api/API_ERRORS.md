@@ -239,6 +239,24 @@ Returned when API rate limits are exceeded.
 
 Returned when request data is invalid or malformed.
 
+#### Ungueltiger Wert in der Adresse (seit 23.08.2026)
+
+Eine Id, die nicht zum Spaltentyp passt (etwa Text statt UUID), gibt **400**,
+nicht 500:
+
+```json
+{
+  "error": { "code": "VALIDATION_ERROR", "message": "Ungueltiger Wert in der Anfrage" },
+  "timestamp": "2026-08-23T10:21:21.000Z"
+}
+```
+
+Vorher warf Postgres `22P02`, der Fehlerpfad kannte den Code nicht, und der
+Aufrufer bekam HTTP 500 mit der rohen Datenbankmeldung samt seiner eigenen
+Eingabe zurueck. Gefunden an `DELETE /api/sandbox/projects/:id`. Fuer den
+Betreiber ist das der Unterschied zwischen "ich habe mich vertippt" und "das
+Geraet ist kaputt".
+
 #### Missing Required Field
 
 ```json
