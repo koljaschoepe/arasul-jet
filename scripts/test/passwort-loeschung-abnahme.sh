@@ -152,11 +152,21 @@ fi
 
 # --- J4: vorher ein Export ----------------------------------------------------
 VORHER=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/gdpr/export")
+# Dieselbe Formel wie nachher. Vorher `1` fuer jedes Objekt zu zaehlen und
+# nachher die Schluessel war der Grund, warum die Zahlen NACH der Loeschung
+# hoeher aussahen als davor.
 ZAEHLUNG_VORHER=$(printf '%s' "$VORHER" | python3 -c 'import sys,json
 try: d = json.load(sys.stdin)
 except Exception: print("{}"); raise SystemExit
 d = d.get("data", d)
-print(json.dumps({k: (len(v) if isinstance(v, list) else 1) for k, v in d.items() if k != "_meta"}))' 2>/dev/null)
+def zahl(v):
+    if isinstance(v, list): return len(v)
+    if isinstance(v, dict):
+        if "count" in v: return int(v["count"] or 0)
+        if "data" in v: return len(v["data"] or [])
+        return len(v)
+    return 0 if v in (None, "") else 1
+print(json.dumps({k: zahl(v) for k, v in d.items() if k != "_meta"}))' 2>/dev/null)
 pruefe 'J4: Auskunft vor der Loeschung' \
   "$([ -n "$ZAEHLUNG_VORHER" ] && [ "$ZAEHLUNG_VORHER" != "{}" ] && echo ja || echo nein)" \
   "$ZAEHLUNG_VORHER"
@@ -187,20 +197,31 @@ sleep 5
 # Zeile unten aus wie ein nicht geleerter Bestand.
 TOK=$(hole_token "$NUTZER" "$PASS_NEU")
 NACHHER=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/gdpr/export")
-# Gezaehlt wird DIESELBE Form wie vorher, nicht nur Listen.
+# Gezaehlt wird der INHALT einer Kategorie, nicht ihre Huelle.
 #
-# Der erste Entwurf zaehlte `isinstance(v, list) and v`. Wo der Export ein
-# Objekt liefert, war das leer, und die Zeile meldete "alle leer", waehrend die
-# Loeschung an einem Fremdschluessel gescheitert war. Ein falsches Gruen ist
-# schlimmer als ein falsches Rot: es haette einen Rechtsverstoss als erledigt
-# ausgewiesen.
+# Zwei Anlaeufe waren falsch, und zwar in entgegengesetzte Richtungen. Der
+# erste zaehlte `isinstance(v, list) and v`. Der Export liefert je Kategorie
+# aber ein Objekt `{"count": 0, "data": []}`, also zaehlte er nichts und
+# meldete "alle leer", waehrend die Loeschung an einem Fremdschluessel
+# gescheitert war (23.08.2026, frueh).
+#
+# Der zweite zaehlte bei einem Objekt dessen SCHLUESSEL. Eine leere Kategorie
+# hat aber immer zwei oder drei davon (`count`, `data`, manchmal `note`), also
+# stand danach `{"documents": 3}` da, obwohl `count` 0 war (23.08.2026, spaet).
+#
+# Richtig ist: `count` lesen, sonst die Laenge von `data`, und erst wenn beides
+# fehlt die Schluessel. Ein falsches Gruen wiese einen Rechtsverstoss als
+# erledigt aus, ein falsches Rot schickt einen vier Stunden in die Irre.
 ZAEHLUNG_NACHHER=$(printf '%s' "$NACHHER" | python3 -c 'import sys,json
 try: d = json.load(sys.stdin)
 except Exception: print("fehler"); raise SystemExit
 d = d.get("data", d)
 def zahl(v):
     if isinstance(v, list): return len(v)
-    if isinstance(v, dict): return len(v)
+    if isinstance(v, dict):
+        if "count" in v: return int(v["count"] or 0)
+        if "data" in v: return len(v["data"] or [])
+        return len(v)
     return 0 if v in (None, "") else 1
 voll = {k: zahl(v) for k, v in d.items() if k not in ("_meta", "profile")}
 uebrig = {k: n for k, n in voll.items() if n}
