@@ -36,6 +36,20 @@ echo "=== Dauerlauf-Bericht, letzte ${TAGE} Tage ==="
 echo "Gelesen am: $(date '+%Y-%m-%d %H:%M')"
 echo ""
 
+# --- 0. Die eigentliche G7-Zahl ---------------------------------------------
+# Wie lange laeuft das Geraet am Stueck? Alles andere in diesem Bericht ist
+# Beiwerk, wenn diese Zahl unter sieben Tagen liegt.
+LAUFZEIT=$(ssh "$HOST" "cat /proc/uptime" 2>/dev/null | cut -d' ' -f1 | cut -d. -f1)
+BOOT_EPOCH=$(( $(date +%s) - ${LAUFZEIT:-0} ))
+TAGE_AM_STUECK=$(( ${LAUFZEIT:-0} / 86400 ))
+echo "--- Laufzeit am Stueck ---"
+echo "  ${TAGE_AM_STUECK} Tage ($(( ${LAUFZEIT:-0} / 3600 )) Stunden)"
+echo "  letzter Neustart: $(date -r "$BOOT_EPOCH" '+%d.%m. %H:%M' 2>/dev/null || date -d "@$BOOT_EPOCH" '+%d.%m. %H:%M' 2>/dev/null)"
+if [ "$TAGE_AM_STUECK" -lt 7 ]; then
+  echo "  G7 verlangt sieben Tage. Noch $(( 7 - TAGE_AM_STUECK )) Tage."
+fi
+echo ""
+
 # --- 1. Neustarts ----------------------------------------------------------
 # Der Pruefstand (pruef-*) ist ein zweiter Stack fuer Abnahmen und gehoert
 # nicht zum Produkt. Er wird hier ausgeblendet, sonst faelscht er das Bild.
@@ -55,7 +69,19 @@ echo ""
 echo "--- Selbstheilung ---"
 HEIL=$(sql "SELECT count(*), count(*) FILTER (WHERE success IS NOT TRUE) FROM public.self_healing_events WHERE timestamp > now() - interval '${TAGE} days';")
 GESAMT="${HEIL%%|*}"; MISS="${HEIL##*|}"
-echo "  Eingriffe: ${GESAMT:-0}, davon fehlgeschlagen: ${MISS:-0}"
+echo "  in ${TAGE} Tagen: ${GESAMT:-0} Eingriffe, davon fehlgeschlagen: ${MISS:-0}"
+
+# Das Urteil haengt am DAUERLAUF, nicht an sieben Kalendertagen. G7 fragt: seit
+# dem letzten Neustart, musste jemand eingreifen? Ereignisse von davor gehoeren
+# zu einem anderen Lauf und wuerden den Bericht auf immer rot halten
+# (23.08.2026).
+SEIT_BOOT=$(sql "SELECT count(*), count(*) FILTER (WHERE success IS NOT TRUE) FROM public.self_healing_events WHERE timestamp > to_timestamp(${BOOT_EPOCH});")
+GESAMT_B="${SEIT_BOOT%%|*}"; MISS_B="${SEIT_BOOT##*|}"
+echo "  seit dem letzten Neustart: ${GESAMT_B:-0} Eingriffe, davon fehlgeschlagen: ${MISS_B:-0}"
+if [ "${MISS_B:-0}" -gt 0 ]; then
+  echo "  die fehlgeschlagenen:"
+  sql "SELECT to_char(timestamp,'DD.MM. HH24:MI')||' '||coalesce(service_name,'-')||' '||action_taken FROM public.self_healing_events WHERE timestamp > to_timestamp(${BOOT_EPOCH}) AND success IS NOT TRUE ORDER BY timestamp DESC LIMIT 5;" | sed 's/^/    /'
+fi
 sql "SELECT to_char(timestamp,'DD.MM. HH24:MI')||' '||coalesce(service_name,'-')||' '||action_taken||' ('||severity||')' FROM public.self_healing_events WHERE timestamp > now() - interval '${TAGE} days' ORDER BY timestamp DESC LIMIT 5;" | sed 's/^/  /'
 echo ""
 
@@ -70,9 +96,20 @@ LUECKE=$(sql "WITH t AS (SELECT timestamp, lag(timestamp) OVER (ORDER BY timesta
 PUNKTE="${LUECKE%%|*}"; MAXL="${LUECKE##*|}"
 echo "  Messpunkte: ${PUNKTE:-0}"
 echo "  groesste Luecke: ${MAXL:-0} s"
+
+# Eine Luecke, in der das Geraet neu gestartet ist, ist erklaert. Ohne diese
+# Unterscheidung stand der Bericht dauerhaft auf ROT wegen eines Neustarts vom
+# 19.08.2026, den man an der Laufzeit oben ohnehin sieht (23.08.2026).
+LUECKE_UNERKLAERT=0
 if [ "${MAXL:-0}" -gt 900 ]; then
-  echo "  ACHTUNG: ueber 15 Minuten ohne Messwert. Entweder war das Geraet weg"
-  echo "  oder der Sammler. Beides zaehlt gegen G7."
+  UEBER_BOOT=$(sql "WITH t AS (SELECT timestamp, lag(timestamp) OVER (ORDER BY timestamp) AS vorher FROM public.metrics_cpu WHERE timestamp > now() - interval '${TAGE} days') SELECT count(*) FROM t WHERE extract(epoch FROM timestamp - vorher) > 900 AND to_timestamp(${BOOT_EPOCH}) BETWEEN vorher - interval '5 minutes' AND timestamp + interval '5 minutes';")
+  ALLE_GROSS=$(sql "WITH t AS (SELECT timestamp, lag(timestamp) OVER (ORDER BY timestamp) AS vorher FROM public.metrics_cpu WHERE timestamp > now() - interval '${TAGE} days') SELECT count(*) FROM t WHERE extract(epoch FROM timestamp - vorher) > 900;")
+  LUECKE_UNERKLAERT=$(( ${ALLE_GROSS:-0} - ${UEBER_BOOT:-0} ))
+  echo "  Luecken ueber 15 min: ${ALLE_GROSS:-0}, davon durch den Neustart erklaert: ${UEBER_BOOT:-0}"
+  if [ "$LUECKE_UNERKLAERT" -gt 0 ]; then
+    echo "  ACHTUNG: ${LUECKE_UNERKLAERT} unerklaerte Luecke(n). Entweder war das"
+    echo "  Geraet weg oder der Sammler. Beides zaehlt gegen G7."
+  fi
 fi
 sql "SELECT to_char(min(timestamp),'DD.MM. HH24:MI')||' bis '||to_char(max(timestamp),'DD.MM. HH24:MI') FROM public.metrics_cpu WHERE timestamp > now() - interval '${TAGE} days';" | sed 's/^/  Zeitraum: /'
 echo ""
@@ -81,10 +118,14 @@ echo ""
 echo "--- Urteil ---"
 ROT=0
 [ -n "$SCHLECHT" ] && { echo "  ROT: mindestens ein Dienst musste neu starten"; ROT=1; }
-[ "${MISS:-0}" -gt 0 ] && { echo "  ROT: eine Selbstheilung ist fehlgeschlagen"; ROT=1; }
-[ "${MAXL:-0}" -gt 900 ] && { echo "  ROT: die Messreihe hat eine Luecke"; ROT=1; }
+[ "${MISS_B:-0}" -gt 0 ] && { echo "  ROT: seit dem Neustart ist eine Selbstheilung fehlgeschlagen"; ROT=1; }
+[ "${LUECKE_UNERKLAERT:-0}" -gt 0 ] && { echo "  ROT: die Messreihe hat eine unerklaerte Luecke"; ROT=1; }
 if [ "$ROT" = "0" ]; then
-  echo "  GRUEN fuer diesen Zeitraum. G7 verlangt sieben Tage am Stueck;"
-  echo "  dieser Bericht sagt nur, was in den letzten ${TAGE} Tagen war."
+  echo "  Nichts Rotes in diesem Zeitraum."
+  if [ "$TAGE_AM_STUECK" -ge 7 ]; then
+    echo "  GRUEN fuer G7: sieben Tage am Stueck, ohne Eingriff."
+  else
+    echo "  NOCH NICHT GRUEN fuer G7: das Geraet laeuft erst ${TAGE_AM_STUECK} Tage am Stueck."
+  fi
 fi
 exit "$ROT"

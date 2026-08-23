@@ -135,10 +135,53 @@ class CategoryHandlersMixin:
         'no such container',
     )
 
+    # Fehler, bei denen die VERBINDUNG zum Docker-Daemon abgerissen ist, nicht
+    # der Neustart misslungen. `container.restart()` laeuft ueber den
+    # docker-proxy; reisst dabei die Verbindung ab, sagt das nichts darueber,
+    # ob der Container danach laeuft. Meistens laeuft er.
+    VERBINDUNG_ABGERISSEN = (
+        'connection aborted',
+        'remotedisconnected',
+        'connection reset',
+        'connection refused',
+        'read timed out',
+        'timeout',
+    )
+
+    # So lange wird nach einem abgerissenen Aufruf gewartet, bevor nachgesehen
+    # wird. Ein Neustart braucht ein paar Sekunden.
+    NACHSCHAU_SEKUNDEN = 15
+
     def _is_container_being_replaced(self, error) -> bool:
         """Ist der Fehler nur ein Container-Wechsel (Deploy), kein Ausfall?"""
         text = str(error).lower()
         return any(pattern in text for pattern in self.CONTAINER_BEING_REPLACED)
+
+    def _ist_verbindungsabriss(self, error) -> bool:
+        text = str(error).lower()
+        return any(muster in text for muster in self.VERBINDUNG_ABGERISSEN)
+
+    def _laeuft_wieder(self, service_name: str) -> bool:
+        """Nach einem abgerissenen Aufruf: laeuft der Dienst wieder?
+
+        In der Nacht auf den 23.08.2026 auf dem Orin beobachtet. n8n wurde
+        unter Last ungesund, der Agent startete es neu, und der Neustart selbst
+        riss ihm die Verbindung zum docker-proxy ab
+        (`('Connection aborted.', RemoteDisconnected(...))`). Der Agent buchte
+        das als "Failed to recover" und eskalierte — obwohl n8n danach lief.
+        Vier Runden lang, von 00:59 bis 02:32.
+
+        Nachsehen statt annehmen ist hier billig und die einzige ehrliche
+        Antwort auf die Frage, ob die Wiederherstellung geklappt hat.
+        """
+        time.sleep(self.NACHSCHAU_SEKUNDEN)
+        try:
+            container = self.docker_client.containers.get(service_name)
+            container.reload()
+            return container.status == 'running'
+        except Exception as e:
+            logger.debug(f"Nachschau fuer {service_name} nicht moeglich: {e}")
+            return False
 
     def handle_category_a_service_down(self, service_name: str, container):
         """Category A: Service Down - tiered restart strategies with exponential backoff"""
@@ -243,6 +286,25 @@ class CategoryHandlersMixin:
                     'service_replacement_detected', 'INFO',
                     f'{service_name} wird gerade ersetzt (Deploy), kein Ausfall',
                     'Kein Eingriff', service_name, True
+                )
+                return
+            if self._ist_verbindungsabriss(e) and self._laeuft_wieder(service_name):
+                # Die Verbindung riss ab, der Dienst laeuft. Das ist genau der
+                # Fall, der n8n in der Nacht auf den 23.08.2026 in eine
+                # Eskalationsschleife geschickt hat.
+                logger.info(
+                    f"{service_name}: Docker-Aufruf riss ab, der Dienst laeuft "
+                    f"aber wieder ({e})"
+                )
+                self.log_event(
+                    'service_recovery_verified', 'INFO',
+                    f'{service_name}: Aufruf riss ab, Dienst laeuft wieder',
+                    'Nachgesehen statt eskaliert', service_name, True
+                )
+                self.record_recovery_action(
+                    'service_restart', service_name,
+                    'Verbindung riss ab, Nachschau ergab: laeuft',
+                    True, duration_ms
                 )
                 return
             logger.error(f"Failed to recover {service_name}: {e}")
