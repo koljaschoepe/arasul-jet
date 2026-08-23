@@ -210,6 +210,18 @@ run_durchreichung_check() {
   fi
 }
 
+# Jede Bind-Quelle unter data/ muss vorher angelegt sein. Legt Docker sie an,
+# gehoert sie root, und der Container (uid 1000) kann nicht hinein schreiben.
+run_datenordner_check() {
+  echo ""
+  echo "-> Pruefe, ob jeder gemountete Datenordner vorher angelegt wird..."
+  if python3 "${PROJECT_ROOT}/scripts/test/datenordner.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_geruest_regeln_check() {
   echo ""
   echo "-> Pruefe die Geruest-Regeln (Werkstatt gegen Backend)..."
@@ -429,6 +441,7 @@ run_bausteine_check
 run_modellnamen_check
 run_einheiten_check
 run_durchreichung_check
+run_datenordner_check
 run_geruest_regeln_check
 run_endpunkte_check
 run_anleitungen_check
