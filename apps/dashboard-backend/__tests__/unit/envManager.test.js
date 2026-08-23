@@ -97,3 +97,51 @@ describe('updateEnvVariables', () => {
     expect(datei).toContain('NEU=dazu');
   });
 });
+
+describe('Sicherung im Speicher statt auf der Platte (23.08.2026)', () => {
+  const { backupEnvFile, envZurueckrollen } = require('../../src/utils/envManager');
+
+  /**
+   * `.env` ist als EINZELNE Datei eingehaengt. `/arasul/config` gibt es im
+   * Container nur als Halterung dafuer, gehoert `root` und ist fuer das
+   * Backend nicht beschreibbar. Eine Sicherung als NACHBARDATEI kann dort nie
+   * entstehen, und der Passwortwechsel rief genau das als ERSTES auf:
+   *
+   *   EACCES: permission denied, copyfile
+   *   '/arasul/config/.env' -> '/arasul/config/.env.backup.…'
+   *
+   * Jeder Passwortwechsel endete deshalb mit HTTP 500. Am Geraet nachgesehen:
+   * die einzigen zwei `.env.backup.*` stammen vom 14.03.2026 und aus einem
+   * Host-Skript, an der Namensform erkennbar. Diese Funktion hat nie eine
+   * Sicherung erzeugt.
+   */
+  test('backupEnvFile liefert den Inhalt und schreibt NICHTS', async () => {
+    fs.readFile.mockResolvedValue('A=1\nB=2\n');
+    const inhalt = await backupEnvFile();
+    expect(inhalt).toBe('A=1\nB=2\n');
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  test('es gibt kein copyFile mehr, das an einer Halterung scheitern koennte', () => {
+    // Die Attrappe kennt nur readFile und writeFile. Ein `fs.copyFile` im
+    // Modul wuerde hier als "is not a function" auffallen, und genau das war
+    // der Fehler.
+    expect(fs.copyFile).toBeUndefined();
+  });
+
+  test('envZurueckrollen schreibt den gesicherten Stand zurueck', async () => {
+    expect(await envZurueckrollen('A=1\n')).toBe(true);
+    expect(fs.writeFile.mock.calls[0][1]).toBe('A=1\n');
+  });
+
+  test('envZurueckrollen wirft nie, auch nicht ohne Inhalt', async () => {
+    await expect(envZurueckrollen('')).resolves.toBe(false);
+    await expect(envZurueckrollen(null)).resolves.toBe(false);
+    expect(fs.writeFile).not.toHaveBeenCalled();
+  });
+
+  test('envZurueckrollen schluckt einen Schreibfehler, statt den ersten zu verdecken', async () => {
+    fs.writeFile.mockRejectedValueOnce(new Error('Platte voll'));
+    await expect(envZurueckrollen('A=1\n')).resolves.toBe(false);
+  });
+});

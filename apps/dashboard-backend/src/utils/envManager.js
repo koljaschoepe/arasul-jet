@@ -1,6 +1,25 @@
 /**
  * Environment File Manager
  * Handles secure updating of .env file variables
+ *
+ * **Die Sicherung liegt im Speicher, nicht auf der Platte** (Fund 23.08.2026).
+ *
+ * `.env` ist als EINZELNE DATEI eingehaengt
+ * (`${ENV_DATEI:-../.env}:/arasul/config/.env`). `/arasul/config` gibt es im
+ * Container nur als Halterung dafuer, gehoert `root` und ist fuer das Backend
+ * nicht beschreibbar. Eine Sicherung als Nachbardatei kann dort nie entstehen:
+ *
+ *   EACCES: permission denied, copyfile
+ *   '/arasul/config/.env' -> '/arasul/config/.env.backup.…'
+ *
+ * Der Passwortwechsel rief das als ERSTES auf und endete deshalb IMMER mit
+ * HTTP 500. Auf dem Geraet nachgesehen: die einzigen zwei `.env.backup.*`
+ * stammen vom 14.03.2026 und aus einem Host-Skript, an der Namensform
+ * erkennbar. Diese Funktion hat nie eine Sicherung erzeugt.
+ *
+ * Was die Sicherung schuetzen soll, ist ein abgebrochener Schreibvorgang. Dagegen
+ * hilft der Inhalt im Speicher genauso, und er dupliziert die Geheimnisse nicht
+ * in eine zweite Datei.
  */
 
 const fs = require('fs').promises;
@@ -88,17 +107,31 @@ async function updateEnvVariables(updates) {
  * Backup .env file before making changes
  */
 async function backupEnvFile() {
+  const inhalt = await readEnvFile();
+  logger.info(`.env gesichert: ${inhalt.length} Zeichen im Speicher`);
+  return inhalt;
+}
+
+/**
+ * Setzt den gesicherten Inhalt zurueck.
+ *
+ * Wirft NICHT: der Aufrufer steckt bereits in einem Fehlerfall, und ein
+ * zweiter Fehler daraus wuerde den ersten verdecken. Was hier schiefgeht,
+ * steht im Protokoll.
+ *
+ * @param {string} inhalt Rueckgabe von `backupEnvFile`
+ */
+async function envZurueckrollen(inhalt) {
+  if (typeof inhalt !== 'string' || inhalt.length === 0) {
+    return false;
+  }
   try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupPath = `${ENV_FILE_PATH}.backup.${timestamp}`;
-
-    await fs.copyFile(ENV_FILE_PATH, backupPath);
-    logger.info(`Created .env backup: ${backupPath}`);
-
-    return backupPath;
+    await fs.writeFile(ENV_FILE_PATH, inhalt, 'utf8');
+    logger.warn('.env auf den Stand vor der Aenderung zurueckgesetzt');
+    return true;
   } catch (error) {
-    logger.error(`Failed to backup .env file: ${error.message}`);
-    throw new Error('Failed to create environment configuration backup');
+    logger.error(`.env liess sich nicht zurueckrollen: ${error.message}`);
+    return false;
   }
 }
 
@@ -106,4 +139,5 @@ module.exports = {
   updateEnvVariable,
   updateEnvVariables,
   backupEnvFile,
+  envZurueckrollen,
 };
