@@ -73,17 +73,19 @@ app.use(
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'blob:'],
-        connectSrc: [
-          "'self'",
-          'ws:',
-          'wss:',
-          'http://localhost:*',
-          'https://localhost:*',
-          'http://192.168.*:*',
-          'https://192.168.*:*',
-          'http://10.*:*',
-          'https://10.*:*',
-        ],
+        // `192.168.*:*` und `10.*:*` standen hier und waren als CSP-Quelle
+        // UNGUELTIG: ein Platzhalter darf nur eine fuehrende Beschriftung
+        // ersetzen (`*.beispiel.de`), nicht mitten im Namen stehen. Der Browser
+        // hat die vier Zeilen deshalb verworfen und das auch gesagt:
+        //
+        //   The source list for the Content Security Policy directive
+        //   'connect-src' contains an invalid source: 'http://192.168.*:*'.
+        //   It will be ignored.
+        //
+        // Gebraucht wurden sie ohnehin nie: die Oberflaeche spricht ihre eigene
+        // Herkunft an, und die deckt `'self'` ab. Am 23.08.2026 entfernt, damit
+        // die Richtlinie nicht behauptet, was sie nicht tut.
+        connectSrc: ["'self'", 'ws:', 'wss:', 'http://localhost:*', 'https://localhost:*'],
         fontSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'self'"],

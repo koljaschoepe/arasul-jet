@@ -28,6 +28,23 @@ const PASSWORT = process.env.ARASUL_PASSWORT || '2309';
 const ANSICHTEN = ['Dateien', 'Modelle', 'Erweiterungen', 'Flows', 'Automation', 'Einstellungen'];
 const BREITEN = [1024, 1280, 1600];
 
+/**
+ * Bekannte, benannte Ausnahmen. Jede braucht einen Grund, sonst waere die
+ * Abnahme nur noch eine Liste von Ausreden.
+ *
+ * n8n laedt einen `data:`-Baustein, um `import.meta.resolve` zu pruefen. Unsere
+ * Richtlinie verbietet `data:` fuer Skripte, also meldet der Browser einen
+ * Verstoss. Plan 023 H4 haelt das ausdruecklich fest: „Der CSP-Verstoss beim
+ * Einbetten bleibt vorerst offen, er ist folgenlos." Der Editor laeuft.
+ */
+const BEKANNTE_MELDUNGEN = [
+  {
+    ansicht: 'Automation',
+    muster: /import\.meta\.resolve|data:text\/javascript/i,
+    grund: 'n8n prueft import.meta.resolve mit einem data:-Baustein (Plan 023 H4, bekannt)',
+  },
+];
+
 const ergebnisse = [];
 const pruefe = (was, ok, detail = '') => {
   ergebnisse.push({ was, ok, detail });
@@ -92,10 +109,17 @@ try {
         `${mass.scrollWidth} gegen ${mass.clientWidth}`
       );
       pruefe(`${breite} px, „${name}" zeichnet etwas`, mass.text > 40, `${mass.text} Zeichen`);
+      const bekannt = BEKANNTE_MELDUNGEN.filter(b => b.ansicht === name);
+      const unerwartet = fehlerFenster.filter(t => !bekannt.some(b => b.muster.test(t)));
+      const erklaert = fehlerFenster.length - unerwartet.length;
       pruefe(
-        `${breite} px, „${name}" ohne Konsolenfehler`,
-        fehlerFenster.length === 0,
-        fehlerFenster.slice(0, 2).join(' | ')
+        `${breite} px, „${name}" ohne unerklaerte Konsolenfehler`,
+        unerwartet.length === 0,
+        unerwartet.length
+          ? unerwartet.slice(0, 2).join(' | ')
+          : erklaert
+            ? `${erklaert} bekannte: ${bekannt[0].grund}`
+            : 'keine'
       );
     }
   }
