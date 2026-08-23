@@ -4230,6 +4230,49 @@ Kein Verweis auf Entferntes. Jede gespiegelte Zahl trägt Stand und Quelle.
 
 ---
 
+# Was noch offen ist, und wer es schließen kann
+
+Stand 23.08.2026. Acht der dreizehn Phasen sind fertig und live abgenommen.
+Was offen ist, ist es aus einem von drei Gründen, und der Grund entscheidet,
+wer es schließt.
+
+## Braucht Kolja, weil es seine Zugänge braucht
+
+| Aufgabe | Was fehlt                                                                                                                  |
+| ------- | -------------------------------------------------------------------------------------------------------------------------- |
+| G2, G3  | Ein GitHub-Repository und ein persönlicher Zugangsschlüssel. Koppeln, im Terminal ändern, übertragen, auf GitHub nachsehen |
+| D9      | Der Positivfall braucht einen echten Schlüssel für ein externes Modell                                                     |
+
+**In einer Sitzung wird nie nach einem Schlüssel gefragt.** Beide bleiben offen,
+bis Kolja sie selbst fährt.
+
+## Braucht einen Menschen, der es zum ersten Mal tut
+
+| Aufgabe | Warum ich der falsche Prüfer bin                                                                                                                          |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H2      | „In unter zehn Minuten, **ohne Wissen über den Aufbau des Manifests**." Ich habe das Manifest-Schema gelesen; meine Zeit wäre keine Antwort auf die Frage |
+| I1      | Dieselbe Sache mit fünf Minuten und der Oberfläche                                                                                                        |
+
+Eine Zahl, die ich hier messe, sagt nur, wie schnell jemand ist, der es schon
+weiß. Das ist nicht, was die Abnahme wissen will.
+
+## Braucht ein anderes Repository
+
+| Aufgabe | Was fehlt                                                                                                                                                                                                           |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H3      | „Dieselbe Anwendung, einmal über ara-kit und einmal im Terminal gebaut, ergibt dasselbe Paket." Das Werkzeug dafür steht und ist selbstgetestet (`paket-vergleich.py`); der ara-kit-Lauf gehört in jenes Repository |
+| K2      | Die Roadmap-Hälfte liegt im Steuer-Repo, nicht hier                                                                                                                                                                 |
+
+## Eine Entscheidung, keine Ausführung
+
+| Punkt                                | Warum ich ihn nicht allein entscheide                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Der n8n-Knoten umgeht die GPU-Sperre | Eine Änderung an einer ausgelieferten Integration mit mehreren möglichen Wegen. Steht unten ausführlich |
+| `ip_address` in `login_attempts`     | Ob die Aufbewahrungspflicht nach Art. 17 (3) (b) sie deckt, ist eine Rechtsfrage                        |
+| E2, strikt serielle Warteschlange    | Eine Nutzer-Entscheidung vom 22.07.2026, bewusst ohne Priorisierung                                     |
+
+---
+
 # Funde außerhalb der Aufgabenliste
 
 Der Plan hat 64 Aufgaben. Manches, was beim Abnehmen herausfällt, steht in
