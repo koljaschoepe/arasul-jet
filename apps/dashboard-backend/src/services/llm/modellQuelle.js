@@ -160,8 +160,17 @@ async function variantenHolen(repo, { zeitlimitMs = 20000 } = {}) {
     );
   }
 
-  if (antwort.status === 404) {
-    throw new ValidationError(`Die Ablage „${repo}" gibt es bei HuggingFace nicht.`);
+  // 401 und 403 sind hier KEIN Ausfall, sondern die Antwort auf einen
+  // Tippfehler. HuggingFace verraet bei einer unbekannten Ablage nicht, ob sie
+  // fehlt oder nur nicht oeffentlich ist, und antwortet mit 401 statt 404. Am
+  // 23.08.2026 auf dem Orin nachgemessen: `gibtesnicht/gibtesnicht` ergab
+  // HTTP 401, und die Meldung lautete "huggingface.co antwortete mit HTTP
+  // 401" — also "der Dienst ist kaputt", wo "der Name stimmt nicht" richtig
+  // gewesen waere. Ein Nutzer haette an der falschen Stelle gesucht.
+  if ([401, 403, 404].includes(antwort.status)) {
+    throw new ValidationError(
+      `Die Ablage „${repo}" gibt es bei HuggingFace nicht, oder sie ist nicht öffentlich.`
+    );
   }
   if (antwort.status !== 200) {
     throw new ServiceUnavailableError(`huggingface.co antwortete mit HTTP ${antwort.status}.`);
