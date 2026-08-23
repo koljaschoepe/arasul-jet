@@ -6,6 +6,7 @@
 const fs = require('fs').promises;
 const db = require('../../database');
 const logger = require('../../utils/logger');
+const { NotFoundError, ValidationError } = require('../../utils/errors');
 
 /**
  * Resolve ${VAR} patterns in a string from process.env
@@ -96,7 +97,7 @@ async function setAppConfig(appId, config) {
   const manifest = manifests[appId];
 
   if (!manifest) {
-    throw new Error(`App ${appId} not found`);
+    throw new NotFoundError(`App ${appId} nicht gefunden`);
   }
 
   // Build a map of secret fields
@@ -171,11 +172,17 @@ async function getN8nCredentials(appId) {
   const manifest = manifests[appId];
 
   if (!manifest) {
-    throw new Error(`App ${appId} not found`);
+    throw new NotFoundError(`App ${appId} nicht gefunden`);
   }
 
   if (!manifest.n8nIntegration?.enabled) {
-    throw new Error(`App ${appId} unterstützt keine n8n-Integration`);
+    // `throw new Error` wurde vom Fehlerbehandler zu HTTP 500 mit der Meldung
+    // "Internal server error" — der Anrufer erfuhr nicht, was los ist, und die
+    // Ueberwachung sah einen Serverfehler, wo eine ganz normale Auskunft
+    // faellig war. Am 23.08.2026 live gefunden: `GET
+    // /api/apps/minio/n8n-credentials` antwortete mit 500, und MinIO hat
+    // schlicht keine n8n-Anbindung.
+    throw new ValidationError(`App ${appId} unterstützt keine n8n-Integration`);
   }
 
   // Docker Gateway = Host IP from container perspective
