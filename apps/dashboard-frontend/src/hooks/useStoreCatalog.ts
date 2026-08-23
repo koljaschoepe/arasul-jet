@@ -21,6 +21,12 @@ export interface CatalogModel {
   recommended_for?: string[];
   install_status: string;
   /**
+   * Vom Kunden selbst ueber einen Link eingetragen (Plan 023, 23.08.2026).
+   * Nur diese Zeilen lassen sich wieder aus dem Katalog entfernen; die
+   * kuratierten kommen aus Migrationen und kaemen ohnehin wieder.
+   */
+  selbst_hinzugefuegt?: boolean;
+  /**
    * Diese beiden standen bis Plan 023 D3 nur in der zweiten, inzwischen
    * geloeschten Beschreibung in `types/index.ts`, obwohl das Backend sie
    * immer geliefert hat. Genau daran zeigt sich, warum zwei Typen fuer
