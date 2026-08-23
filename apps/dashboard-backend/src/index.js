@@ -123,7 +123,7 @@ app.use((req, res, next) => {
 // SEC-007 FIX: Restrict CORS to specific origins + allow local/tailnet access.
 // Origin-matching rules live in utils/corsOrigin.js as a pure, unit-tested
 // function (LAN via RFC-1918 + *.local, remote via Tailscale CGNAT + *.ts.net).
-const { isAllowedOrigin } = require('./utils/corsOrigin');
+const { isAllowedOrigin, brueckeCorsOptionen } = require('./utils/corsOrigin');
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -150,7 +150,14 @@ const corsOptions = {
   maxAge: 86400, // 24 hours
 };
 
-app.use(cors(corsOptions));
+// Die enge Ausnahme fuer den opaken Origin der KI-Bruecke steht als reine
+// Funktion in `utils/corsOrigin.js`, mit Begruendung und eigenen Tests.
+app.use(
+  cors((req, callback) =>
+    callback(null, brueckeCorsOptionen(req.headers.origin, req.path) || corsOptions)
+  )
+);
+
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
