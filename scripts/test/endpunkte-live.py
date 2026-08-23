@@ -125,6 +125,60 @@ def erste_id(pfad: str, kekse: Path, zwischenspeicher: dict):
     return None, 'keine Quelle fuer eine Id hinterlegt'
 
 
+# Falsche Eingaben, die eine ANTWORT ergeben muessen und keinen Absturz.
+#
+# Warum das eine eigene Liste ist: die 500er, die dieser Sweep am 23.08.2026
+# gefunden hat, waren alle GET ohne Eingabe. Die andere Haelfte derselben
+# Krankheit sitzt bei den Eingaben — `throw new Error` fuer eine erwartbare
+# Lage wird vom Fehlerbehandler zu HTTP 500 mit "Internal server error", und
+# die eigentliche Meldung wird verworfen. Genau so verhielt sich
+# `POST /api/alerts/test-webhook` mit einer internen Adresse.
+#
+# Jeder Fall hier ist bewusst so gewaehlt, dass er NICHTS veraendert: die
+# Eingabe wird geprueft und abgelehnt, bevor irgendetwas geschrieben oder
+# irgendwohin gesendet wird. Wer einen Fall ergaenzt, prueft das zuerst.
+FALSCHE_EINGABEN = [
+    ('POST', '/api/alerts/test-webhook', {'webhook_url': 'http://127.0.0.1/x'},
+     'interne Adresse, wird vor jeder Anfrage abgelehnt'),
+    ('POST', '/api/alerts/test-webhook', {'webhook_url': 'ftp://example.invalid/x'},
+     'kein HTTP, wird vor jeder Anfrage abgelehnt'),
+    ('POST', '/api/services/llm/models/pull', {'model_name': ''},
+     'leerer Modellname, Rumpfpruefung lehnt ab'),
+    ('POST', '/api/workflows/execution', {'workflow_name': ''},
+     'leerer Workflowname, Rumpfpruefung lehnt ab'),
+    ('POST', '/api/apps/gibt-es-nicht/config', {'config': {}},
+     'App gibt es nicht, faellt vor dem Schreiben durch'),
+    ('GET', '/api/projects/keine-uuid/dateien', None,
+     'kaputte Id in der Adresse'),
+    ('GET', '/api/logs/search', None,
+     'Pflichtangabe query fehlt'),
+]
+
+
+def csrf_aus(kekse: Path) -> str:
+    """Das CSRF-Merkmal steht im Keksglas, nicht in der Antwort."""
+    try:
+        for zeile in kekse.read_text(encoding='utf-8').splitlines():
+            teile = zeile.split('\t')
+            if len(teile) >= 7 and teile[5] == 'arasul_csrf':
+                return teile[6]
+    except Exception:
+        pass
+    return ''
+
+
+def sende(verb: str, pfad: str, rumpf, kekse: Path):
+    befehl = ['curl', '-sk', '-b', str(kekse), '-m', '25', '-w', '\n%{http_code}',
+              '-X', verb, f'{URL}{pfad}']
+    if rumpf is not None:
+        befehl += ['-H', 'Content-Type: application/json',
+                   '-H', f'X-CSRF-Token: {csrf_aus(kekse)}',
+                   '-d', json.dumps(rumpf)]
+    ergebnis = subprocess.run(befehl, capture_output=True, text=True, errors='replace')
+    teile = ergebnis.stdout.rsplit('\n', 1)
+    return teile[-1].strip(), (teile[0] if len(teile) > 1 else '')[:200]
+
+
 def anmelden(kekse: Path) -> bool:
     ergebnis = subprocess.run(
         [
@@ -210,6 +264,20 @@ def main() -> int:
 
         for muster, grund in NICHT_MESSBAR.items():
             ungemessen.append((muster, grund))
+
+        print(f'\n{len(FALSCHE_EINGABEN)} falsche Eingaben, die eine Antwort '
+              f'ergeben muessen\n')
+        for verb, pfad, rumpf, warum in FALSCHE_EINGABEN:
+            code, text = sende(verb, pfad, rumpf, kekse)
+            anzeige = f'{verb} {pfad}'
+            if code == '429':
+                time.sleep(3)
+                code, text = sende(verb, pfad, rumpf, kekse)
+            if code and code[0] == '4':
+                gruen += 1
+            else:
+                rot.append((f'{anzeige}  ({warum})', code or '---', text))
+                print(f'ROT   {code}  {anzeige}  — erwartet 4xx')
 
         print(f'\n{gruen} beantwortet, {len(rot)} mit Serverfehler, '
               f'{len(gedrosselt)} gedrosselt, {len(ungemessen)} nicht gemessen')
