@@ -16,6 +16,69 @@ const DEFAULT_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const DEFAULT_EMAIL = process.env.ADMIN_EMAIL || 'admin@arasul.local';
 
 /**
+ * Fehler, die "noch nicht bereit" heissen und nicht "kaputt".
+ *
+ * Postgres startet bei einer FRISCHEN Datenbank zweimal: erst ein
+ * Uebergangs-Server fuer die Init-Skripte, dann der richtige. Der
+ * Healthcheck kann in der ersten Phase gruen werden, und die Verbindung
+ * danach trotzdem abgewiesen. `depends_on: service_healthy` schuetzt davor
+ * nicht.
+ *
+ * 57P03 ist `cannot_connect_now` (Postgres faehrt gerade hoch),
+ * 53300 `too_many_connections`.
+ */
+const NOCH_NICHT_BEREIT = new Set([
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ETIMEDOUT',
+  'ECONNRESET',
+  '57P03',
+  '53300',
+]);
+
+const WARTE_VERSUCHE = parseInt(process.env.BOOTSTRAP_DB_VERSUCHE || '10', 10);
+const WARTE_MS = parseInt(process.env.BOOTSTRAP_DB_WARTE_MS || '3000', 10);
+
+/**
+ * Migrationen fahren, und dabei auf die Datenbank warten statt aufzugeben.
+ *
+ * Der Unterschied ist der ganze Punkt: eine NICHT ERREICHBARE Datenbank ist
+ * kein schiefes Schema. Eine gescheiterte Migration wird NICHT wiederholt, die
+ * bleibt ein harter Halt.
+ *
+ * Am 23.08.2026 auf dem Pruefstand zweimal in Folge beobachtet: der Stack kam
+ * frisch hoch, `runMigrations` bekam `ECONNREFUSED`, und damit wurde KEIN
+ * Administrator ab Werk angelegt. Auf einem Kundengeraet ist das der erste
+ * Start nach dem Werksreset: das Geraet zeigt die Ersteinrichtung, und das
+ * Konto ab Werk entsteht nie. Es half nur ein Neustart von Hand.
+ *
+ * @returns {Promise<object>} Ergebnis von `runMigrations`
+ */
+async function migrationenMitGeduld() {
+  let letzter = null;
+  for (let versuch = 1; versuch <= WARTE_VERSUCHE; versuch += 1) {
+    try {
+      return await runMigrations(db.pool);
+    } catch (error) {
+      const kennung = error && (error.code || '');
+      if (!NOCH_NICHT_BEREIT.has(kennung) || versuch === WARTE_VERSUCHE) {
+        throw error;
+      }
+      letzter = error;
+      logger.warn(
+        `Bootstrap: Datenbank noch nicht bereit (${kennung}), Versuch ` +
+          `${versuch} von ${WARTE_VERSUCHE}, naechster in ${WARTE_MS} ms`
+      );
+      await new Promise(r => {
+        setTimeout(r, WARTE_MS);
+      });
+    }
+  }
+  throw letzter;
+}
+
+/**
  * Run pending database migrations, then ensure admin user exists.
  */
 async function bootstrap() {
@@ -32,7 +95,7 @@ async function bootstrap() {
   // oeffnen laesst, waehrend der Besitzer ausgesperrt ist, ist etwas anderes.
   let schemaKaputt = null;
   try {
-    const result = await runMigrations(db.pool);
+    const result = await migrationenMitGeduld();
     if (result.failed) {
       schemaKaputt = `Migration ${result.failed} ist gescheitert`;
     } else if (result.schatten && result.schatten.length > 0) {
@@ -185,4 +248,7 @@ async function ensureAdminUser() {
   }
 }
 
-module.exports = { bootstrap, ensureAdminUser };
+// `migrationenMitGeduld` steht unter Test: der Unterschied zwischen "noch
+// nicht bereit" und "kaputt" entscheidet, ob ein frisches Geraet seinen
+// Administrator bekommt.
+module.exports = { bootstrap, ensureAdminUser, migrationenMitGeduld };
