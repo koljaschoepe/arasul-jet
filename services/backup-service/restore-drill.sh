@@ -393,6 +393,20 @@ fi
 # Verglichen werden SCHEMAS, nicht Tabellenzahlen. Zwischen Sicherung und
 # Drill kann eine Migration gelaufen sein, dann weicht die Zahl zu Recht ab.
 # Ein fehlendes Schema weicht nie zu Recht ab.
+#
+# Gegengeprobt am 24.08.2026, weil eine Pruefung, die nur im guten Fall
+# gelaufen ist, nichts beweist. Ein Abzug mit `--exclude-schema=arasul`,
+# darauf `restore-drill.sh --file`:
+#
+#   Schemas im Betrieb: arasul n8n public
+#   Schemas im Abzug:   n8n public
+#   FAIL: im Abzug fehlt ganz: arasul
+#
+# Ehrlich dazu: in diesem Versuch hat auch `ON_ERROR_STOP=1` angeschlagen, weil
+# `pg_dump --clean` Verweise auf Objekte des fehlenden Schemas mitschreibt. Ein
+# Abzug ohne solche Verweise waere sauber eingelaufen und ohne diese Pruefung
+# gruen gewesen. Der Unterschied bleibt auch im gemeinsamen Fall nuetzlich:
+# ON_ERROR_STOP sagt "not cleanly restorable", diese Zeilen sagen, WAS fehlt.
 schemas_abzug=$(printf '%s\n' "$im_abzug" | cut -d. -f1 | sort -u | tr '\n' ' ')
 schemas_fehlen=()
 if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] \
