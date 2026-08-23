@@ -73,6 +73,12 @@ ID_QUELLEN = [
     ('/api/sandbox/projects/', '/api/sandbox/projects', 'projects', 'id'),
     ('/api/llm/jobs/', '/api/llm/jobs', 'jobs', 'id'),
     ('/api/services/llm/models/', '/api/services/llm/models', 'models', 'name'),
+    # Am 23.08.2026 dazugekommen: diese drei standen vorher unter "nicht
+    # gemessen, keine Quelle hinterlegt". Sie HATTEN eine, es hatte nur niemand
+    # nachgesehen. Ein ungemessener Endpunkt ist keine Ruhe, sondern eine
+    # offene Frage.
+    ('/api/models/', '/api/models/catalog', 'models', 'id'),
+    ('/api/knowledge-graph/related/', '/api/knowledge-graph/entities', 'entities', 'name'),
 ]
 
 # Pfade mit `:x`, die hier nicht gemessen werden, jeweils mit Grund.

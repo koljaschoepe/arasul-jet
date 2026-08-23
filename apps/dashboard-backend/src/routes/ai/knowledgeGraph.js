@@ -118,27 +118,31 @@ router.get(
 
       UNION ALL
 
+      -- EIN rekursiver Zweig, nicht zwei. Hier standen bis zum 23.08.2026 zwei
+      -- getrennte (einmal Kante vorwaerts, einmal rueckwaerts), und damit hatte
+      -- der Ausdruck drei Zweige. PostgreSQL erlaubt genau zwei: einen Anker
+      -- und einen rekursiven. Die Folge war kein Teilergebnis, sondern gar
+      -- keins — der Endpunkt gab auf JEDEM Geraet HTTP 500:
+      --
+      --   recursive reference to query graph_walk must not appear
+      --   within its non-recursive term
+      --
+      -- Gefunden, als der Live-Sweep zum ersten Mal einen Namen fuer
+      -- :entityName hatte. Beide Richtungen stecken jetzt in einer
+      -- Verbindung: die Kante zaehlt, egal von welcher Seite sie haengt.
       SELECT
-        t.id, t.name, t.entity_type,
+        n.id, n.name, n.entity_type,
         gw.distance + 1,
         gw.relation_path || CASE WHEN gw.relation_path = '' THEN '' ELSE ' → ' END || r.relation_type,
-        gw.visited || t.id
+        gw.visited || n.id
       FROM graph_walk gw
-      JOIN kg_relations r ON r.source_entity_id = gw.id
-      JOIN kg_entities t ON t.id = r.target_entity_id
-      WHERE gw.distance < $2 AND t.id != ALL(gw.visited)
-
-      UNION ALL
-
-      SELECT
-        s.id, s.name, s.entity_type,
-        gw.distance + 1,
-        gw.relation_path || CASE WHEN gw.relation_path = '' THEN '' ELSE ' → ' END || r.relation_type,
-        gw.visited || s.id
-      FROM graph_walk gw
-      JOIN kg_relations r ON r.target_entity_id = gw.id
-      JOIN kg_entities s ON s.id = r.source_entity_id
-      WHERE gw.distance < $2 AND s.id != ALL(gw.visited)
+      JOIN kg_relations r
+        ON r.source_entity_id = gw.id OR r.target_entity_id = gw.id
+      JOIN kg_entities n
+        ON n.id = CASE WHEN r.source_entity_id = gw.id
+                       THEN r.target_entity_id
+                       ELSE r.source_entity_id END
+      WHERE gw.distance < $2 AND n.id != ALL(gw.visited)
     )
     SELECT DISTINCT ON (name)
       name, entity_type AS type, distance, relation_path AS relation

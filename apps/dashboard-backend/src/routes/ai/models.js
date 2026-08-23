@@ -937,8 +937,14 @@ router.get(
     const db = require('../../database');
 
     const result = await db.query(
+      // `supports_audio_input` und `max_context_window` gibt es in dieser
+      // Tabelle NICHT. Der Endpunkt gab deshalb auf jedem Geraet HTTP 500
+      // (23.08.2026 gefunden, als der Live-Sweep zum ersten Mal eine Id fuer
+      // `:modelId` hatte). Die Spalte fuer das Kontextfenster heisst
+      // `context_window`; Audio kennt der Katalog gar nicht, und ein Modell,
+      // das es kann, gibt es auf dem Geraet auch nicht.
       `SELECT id, name, model_type, supports_thinking, supports_vision_input,
-              supports_audio_input, max_context_window, capabilities, rag_optimized
+              context_window, capabilities, rag_optimized
        FROM llm_model_catalog WHERE id = $1`,
       [modelId]
     );
@@ -956,10 +962,13 @@ router.get(
         vision: model.supports_vision_input === true || model.model_type === 'vision',
         thinking: model.supports_thinking === true,
         ocr: model.model_type === 'ocr',
-        audio: model.supports_audio_input === true,
+        // Bleibt in der Antwort, damit nichts bricht, was das Feld schon liest
+        // — aber ehrlich: der Katalog kennt keine Audio-Faehigkeit, also ist
+        // die Antwort immer `false` und nicht "unbekannt als true getarnt".
+        audio: false,
         rag_optimized: model.rag_optimized === true,
         streaming: true,
-        max_context_window: model.max_context_window || null,
+        max_context_window: model.context_window || null,
         extra: model.capabilities || [],
       },
       timestamp: new Date().toISOString(),
