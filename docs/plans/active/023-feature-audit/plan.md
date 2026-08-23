@@ -4700,7 +4700,7 @@ heute.
 
 | Gate                             | Beleg                                                       | Stand                                                                                                                    |
 | -------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| G1, Funktionen vollständig       | zwölf Abnahmen, `scripts/test/abnahmen.sh`                  | über 150 Prüfpunkte, alle grün                                                                                           |
+| G1, Funktionen vollständig       | dreizehn Abnahmen, `scripts/test/abnahmen.sh`               | über 190 Prüfpunkte, alle grün                                                                                           |
 | G2, Rückmeldung bei jeder Aktion | `rueckmeldung-abnahme.mjs`                                  | 7/7, nachdem vier stumme Explorer-Aktionen nachgezogen sind                                                              |
 | G3, Oberfläche einheitlich       | `oberflaeche-abnahme.mjs`, sechs Ansichten mal drei Breiten | 55/55, dazu die Wächter in der CI                                                                                        |
 | G4, Daten bleiben auf dem Gerät  | `souveraenitaet-abnahme.sh`                                 | **offen seit 23.08.2026**: `llm-service` rief `ollama.com`, `embedding-service` hält eine Verbindung zu `huggingface.co` |
