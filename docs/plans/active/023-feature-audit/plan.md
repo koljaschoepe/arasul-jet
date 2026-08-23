@@ -21,7 +21,7 @@
 | G, Dateien und Projekte               | **laeuft**, G1 und G4 live abgenommen 22.08.2026        | #477 bis #491. G1 5000 Dateien vollstaendig durchklickbar, kein Deckel mehr. G4 in sieben Ursachen zerlegt und abgenommen: eine Datei 2,3 statt 113 Sekunden, hundert Dateien 110 statt ueber 300. Groesster Fund der Phase liegt bei G3 und war nicht die Aufgabe: Kopplung und Trennen loeschten den Projektordner des Kunden. G2 und G3 gebaut, ihre Abnahmen brauchen Koljas Repository und Schluessel                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | H, Erweiterungen                      | **laeuft**, H4 live abgenommen 22.08.2026               | #490, #492 bis #499. H1: alle vier Faehigkeiten da, eine gab es schon, eine halb. H2: ein Befehl legt das Geruest an, ein Waechter haelt Werkstatt und Backend zusammen. H3: ein Werkzeug entscheidet, was dasselbe Paket ist. H4 sieben von sieben im n8n-Dokument gemessen. H5 gebaut, dazu ein Punkt, der im Plan nicht stand. H1 live abgenommen 22.08.2026, und die Abnahme fand drei Fehler: zwei Faehigkeiten gaben IMMER HTTP 500 (Schemata nie exportiert), und z.record mit einem Argument brach jedes gefuellte Objekt                                                                                                                                                                                                                                                                                           |
 | I, Flows                              | **laeuft**, I2 bis I5 live abgenommen 23.08.2026        | #500. I1 war groesstenteils schon gebaut, I2 zur Haelfte: die autonome Betriebsart ist das Annahmen-Protokoll und traf die Abnahme woertlich. Gebaut wurde die zweite Art samt Rueckfrage mit vier Optionen und Freitextfeld. I2 bis I4 live abgenommen 23.08.2026, elf von elf: der Flow haelt nach 125 s an, fragt auf Deutsch, und das Angebot liegt danach im Kundenordner. Die Abnahme fand dabei VIER Fehler, ohne die sie nicht haette laufen koennen (#529, #533, #534, #535). I5 vollstaendig gemessen, alle acht Vorlagen-Flows. Fuenf liefen auf Anhieb, die drei anderen legten je einen Fehler frei: eine Rolle erbte das Rundenbudget je Delegation (#524), die kanonische Werkstatt bekam ihre ANLEITUNG nie (#530), und ein Zeitlimit von 120 s je Flow-Aufruf wurde als leeres Ergebnis verschluckt (#531) |
-| J, Einstellungen                      | **laeuft**, J2 live abgenommen 22.08.2026               | #501, #503, #504. J4: der Plan nennt einen Fehler, es waren drei, darunter einer, der Art. 17 auf einem Kundengeraet unmoeglich machte. J1: nach dem MinIO-Passwortwechsel scheiterte jeder Dateizugriff. J5 war zur Haelfte schon da. J2 acht von acht im Browser. J3 live abgenommen 22.08.2026: Export auf den Datentraeger, wieder einlesbar, beide Waende greifen                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| J, Einstellungen                      | **fertig** 23.08.2026, live abgenommen                  | #501, #503, #504. J4: der Plan nennt einen Fehler, es waren drei, darunter einer, der Art. 17 auf einem Kundengeraet unmoeglich machte. J1: nach dem MinIO-Passwortwechsel scheiterte jeder Dateizugriff. J5 war zur Haelfte schon da. J2 acht von acht im Browser. J3 live abgenommen 22.08.2026. J1 und J4 live abgenommen 23.08.2026 auf dem Pruefstand, und die Abnahme fand VIER Fehler, die jedes Geraet betrafen: der Passwortwechsel endete immer mit HTTP 500 (#537), ein frisches Geraet bekam keinen Administrator (#538), und die Loeschung nach Art. 17 scheiterte in zwei weiteren Schichten (#539, #540)                                                                                                                                                                                                     |
 | K, Dokumentation                      | **laeuft**                                              | #506 bis #508. K1: ein Waechter meldet Endpunkte ohne Beschreibung, 373 im Code, Luecke von 77 auf 35. K2 zur Haelfte: die Planzustaende stehen hier, die Roadmap liegt im Steuer-Repo. K3: README, CLAUDE.md und ARCHITECTURE zeigten zwei Dienste, die nicht laufen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
@@ -3902,9 +3902,61 @@ das Dashboard neu startete. Genau der Schritt, den die Abnahme nennt.
 Route setzt `process.env` sowie den zwischengespeicherten Client zurück. Ein
 Test hält fest, dass **beides** nötig ist.
 
-**Offen:** die Live-Abnahme ist destruktiv (sie ändert das MinIO-Root-Passwort
-des Geräts) und gehört auf den Prüfstand. Der Dashboard-Teil ist noch nicht
-nachgemessen.
+### Live abgenommen am 23.08.2026 auf dem Prüfstand
+
+`scripts/test/passwort-loeschung-abnahme.sh`. Die Abnahme ist zerstörend und
+läuft deshalb nur gegen Port 8443; ein Wachhund bricht bei jeder anderen
+Adresse ab, bevor er etwas anfasst.
+
+| Was geprüft wurde                                         | Ergebnis                        |
+| --------------------------------------------------------- | ------------------------------- |
+| Anmeldung mit dem alten Passwort                          | grün                            |
+| Ein zu kurzes Passwort wird abgelehnt                     | HTTP 400                        |
+| Ein falsches altes Passwort nennt den Grund               | „Current password is incorrect" |
+| Dashboard-Passwort geändert                               | HTTP 200                        |
+| Der alte Zugang wird abgelehnt                            | grün                            |
+| Anmeldung mit dem neuen Passwort                          | grün                            |
+| Dateizugriff überlebt den MinIO-Wechsel **ohne Neustart** | HTTP 200                        |
+
+Die letzte Zeile ist die, für die #504 gebaut wurde.
+
+**Die Abnahme hat zwei Fehler gefunden, und beide betrafen jedes Gerät.**
+
+**Der Passwortwechsel endete immer mit HTTP 500 (#537).** `.env` ist als
+einzelne Datei eingehängt; `/arasul/config` gibt es im Container nur als
+Halterung dafür, gehört `root`, und das Backend läuft als `node`. Die Funktion
+`backupEnvFile` wollte dort eine Nachbardatei anlegen:
+
+```
+EACCES: permission denied, copyfile
+'/arasul/config/.env' -> '/arasul/config/.env.backup.…'
+```
+
+Das ist kein Rechte-Unfall, sondern ein Widerspruch zwischen einem
+Einzeldatei-Mount und einer Funktion, die ein Geschwister schreiben will.
+Betroffen waren Dashboard, MinIO und n8n gleichermaßen. Am Gerät nachgesehen:
+die einzigen zwei `.env.backup.*` stammen vom 14.03.2026 und aus einem
+Host-Skript. **Diese Funktion hat nie eine Sicherung erzeugt.** Die Sicherung
+liegt jetzt im Speicher und wird im Fehlerfall auch wirklich benutzt.
+
+**Ein frisches Gerät bekam keinen Administrator (#538).** Postgres startet bei
+einer frischen Datenbank zweimal: erst ein Übergangs-Server für die
+Init-Skripte, dann der richtige. Der Healthcheck wird in der ersten Phase grün,
+`depends_on: service_healthy` schützt also nicht. Die Migration bekam
+`ECONNREFUSED`, und der Schutz gegen ein Werkskonto auf unbelegtem Schema
+griff. Zweimal in Folge reproduziert.
+
+Auf einem Kundengerät ist das der erste Start nach dem Werksreset. Der Schutz
+bleibt und ist richtig; was fehlte, ist die Unterscheidung: eine gescheiterte
+Migration bleibt ein harter Halt, eine abgewiesene Verbindung bekommt zehn
+Versuche. Danach am Gerät belegt:
+
+```
+Bootstrap: Datenbank noch nicht bereit (ECONNREFUSED), Versuch 1 von 10
+Bootstrap: Datenbank noch nicht bereit (ECONNREFUSED), Versuch 2 von 10
+Bootstrap: Datenbank noch nicht bereit (ECONNREFUSED), Versuch 3 von 10
+Bootstrap: Created initial admin user "admin"
+```
 
 ## J2 Fernzugriff belastbar
 
@@ -4031,9 +4083,57 @@ seien „nicht mehr adressierbar". Das ist kein Löschen, sondern Verstecken.
 Sechs neue Tests prüfen nicht das Ergebnis, sondern das **SQL** — genau weil das
 Ergebnis in allen drei Fällen gut aussah.
 
-**Offen, und ausdrücklich:** ob der Benutzername selbst noch stehen bleiben darf,
-wenn er der letzte ist, ist eine Rechtsfrage und keine Frage an den Code. Und
-die Live-Abnahme ist destruktiv; sie gehört auf den Prüfstand.
+### Live abgenommen am 23.08.2026 auf dem Prüfstand
+
+Und sie hat gezeigt, dass die Löschung **immer noch nicht funktionierte**, in
+zwei weiteren Schichten. Beide betrafen jedes Gerät, nicht einen Sonderfall.
+
+**Erste Schicht: ein Fremdschlüssel (#539).**
+
+```
+Transaction rolled back: update or delete on table "projects" violates
+foreign key constraint "knowledge_spaces_project_id_fkey"
+```
+
+Der Wissensraum „Allgemein" trägt `owner_id = NULL` und hängt an einem Projekt.
+Der Filter auf `owner_id` ließ ihn stehen, und weil der Fremdschlüssel auf
+`RESTRICT` steht, rollte die ganze Transaktion zurück. Das ist der
+Normalzustand eines Geräts.
+
+**Zweite Schicht: eine NOT-NULL-Spalte (#540).**
+
+```
+null value in column "username" of relation "login_attempts"
+violates not-null constraint
+```
+
+Die Anonymisierung setzte `username = NULL` gegen eine `NOT NULL`-Spalte. Da
+jedes Gerät Anmeldeversuche hat, scheiterte auch das immer. Anonymisiert wird
+jetzt mit einem festen Platzhalter.
+
+**Und ein Test, der das Falsche festhielt.** `gdprDelete.test.js` prüfte
+`SET username = NULL` und war grün, während es am Gerät jedes Mal scheiterte.
+Ein Test, der eine Zusage prüft, die es nicht gibt, ist schlimmer als kein
+Test.
+
+Danach in der Datenbank nachgesehen, statt der Antwort zu glauben:
+
+| Tabelle                   | nach der Löschung |
+| ------------------------- | ----------------- |
+| `projects`                | 0                 |
+| `knowledge_spaces`        | 0                 |
+| `chat_conversations`      | 0                 |
+| `documents`               | 0                 |
+| `login_attempts.username` | `(geloescht)`     |
+
+Damit ist J4 erledigt.
+
+**Offen, und ausdrücklich zwei Rechtsfragen, keine Fragen an den Code:** ob der
+Benutzername selbst stehen bleiben darf, wenn er der letzte ist. Und ob die
+Aufbewahrungspflicht nach Art. 17 (3) (b) die Spalte `ip_address` in
+`login_attempts` deckt, die ebenfalls `NOT NULL` ist und stehen bleibt. Eine
+IP-Adresse ist ein personenbezogenes Datum; der Hinweis steht an der Stelle im
+Code.
 
 ## J5 Zerstörende Aktionen fragen nach
 
