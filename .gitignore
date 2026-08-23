@@ -100,3 +100,4 @@ apps/*/test-results.json
 data-pruefstand/
 logs-pruefstand/
 .env.pruefstand
+arasul-abnahme-sitzung.json

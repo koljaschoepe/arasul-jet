@@ -26,6 +26,7 @@
 
 import { chromium } from 'playwright';
 import { execFileSync } from 'child_process';
+import { angemeldeteSeite, hinweisWeg } from './anmeldung.mjs';
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
@@ -86,29 +87,24 @@ function abraeumen() {
 }
 
 const browser = await chromium.launch({ headless: true });
-const kontext = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 1000 } });
-const seite = await kontext.newPage();
+const bau = (zustand) =>
+  browser.newContext({
+    ignoreHTTPSErrors: true,
+    viewport: { width: 1600, height: 1000 },
+    ...(zustand ? { storageState: zustand } : {}),
+  });
+
+const sitzung = await angemeldeteSeite(bau, { url: URL, benutzer: BENUTZER, passwort: PASSWORT });
+const seite = sitzung.seite;
 
 try {
   anlegen();
 
-  await seite.goto(URL, { waitUntil: 'domcontentloaded' });
-  await seite.fill('input[name="username"], input[type="text"]', BENUTZER);
-  await seite.fill('input[type="password"]', PASSWORT);
-  await seite.click('button[type="submit"]');
-  await seite.waitForTimeout(4000);
-  const angemeldet = await seite.evaluate(() => document.cookie.includes('arasul_csrf'));
-  merke(angemeldet, angemeldet ? 'angemeldet' : 'Anmeldung abgewiesen, die Messung sagt nichts ueber das Geraet');
-  if (!angemeldet) {
+  merke(sitzung.angemeldet, sitzung.angemeldet ? 'angemeldet' : sitzung.grund);
+  if (!sitzung.angemeldet) {
     throw new Error('abbruch');
   }
-  await seite.evaluate(() => {
-    try {
-      localStorage.setItem('arasul-onboarding-seen-v1', '1');
-    } catch {
-      /* Speicher gesperrt, stoert nur die Sicht */
-    }
-  });
+  await hinweisWeg(seite);
   await seite.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded' });
   await seite.waitForTimeout(3000);
 
@@ -146,7 +142,18 @@ try {
   await knopf.click();
   await seite.locator('[data-testid="extension-frame"]').waitFor({ state: 'visible', timeout: 20000 });
 
-  const rahmen = seite.frames().find((f) => f.url().includes(`/app/t/`));
+  // Die Adresse des Rahmens entsteht erst, nachdem die Seite den Lese-Token
+  // geholt hat. Wer direkt nach dem Klick sucht, findet nichts.
+  let rahmen = null;
+  for (let i = 0; i < 30; i++) {
+    rahmen = seite.frames().find((f) => f.url().includes('/app/t/'));
+    if (rahmen) break;
+    await seite.waitForTimeout(1000);
+  }
+  merke(Boolean(rahmen), rahmen ? 'der Rahmen laedt die App ueber den Lese-Token' : 'kein Rahmen');
+  if (!rahmen) {
+    throw new Error('abbruch');
+  }
   await rahmen.waitForFunction(
     () => window.ArasulBruecke && ArasulBruecke.faehigkeiten().length > 0,
     null,
@@ -187,7 +194,20 @@ try {
 
   merke(e.faehigkeiten.length === 7, `sieben Faehigkeiten freigegeben (${e.faehigkeiten.join(', ')})`);
   merke(e.llm.ok && /paris/i.test(e.llm.wert || ''), `llm: „${String(e.llm.wert || e.llm.fehler).trim().slice(0, 60)}"`);
-  merke(e.rag.ok, e.rag.ok ? `rag: ${(e.rag.wert || []).length} Treffer` : `rag: ${e.rag.fehler}`);
+  // `rag` sucht ueber Qdrant, und Qdrant liegt seit Plan 021 Schritt 8 im
+  // Profil `classic-rag` und laeuft auf einem normalen Geraet nicht. Das ist
+  // eine Entscheidung, kein Defekt — die Abnahme darf deswegen nicht dauerhaft
+  // rot stehen. Rot ist sie erst, wenn `rag` aus einem ANDEREN Grund scheitert
+  // oder die Meldung nicht mehr erklaert, was zu tun ist.
+  const ragAus = !e.rag.ok && /Vektorsuche laeuft auf diesem Geraet nicht/i.test(e.rag.fehler || '');
+  merke(
+    e.rag.ok || ragAus,
+    e.rag.ok
+      ? `rag: ${(e.rag.wert || []).length} Treffer`
+      : ragAus
+        ? 'rag: Vektorsuche ist auf diesem Geraet aus (Profil classic-rag), und die Meldung sagt das'
+        : `rag: ${e.rag.fehler}`
+  );
   merke(
     e.dateien_schreiben.ok && e.dateien_lesen.ok && e.dateien_lesen.wert?.inhalt === 'hallo',
     'dateien: geschrieben und unveraendert zurueckgelesen'
