@@ -21,7 +21,7 @@ set -uo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WURZEL"
 
-ALLE=(chat terminal csp rueckfrage fernzugriff erweiterung bruecke paket dokument modell rueckmeldung oberflaeche)
+ALLE=(chat terminal csp rueckfrage fernzugriff erweiterung bruecke paket dokument modell modell-link rueckmeldung oberflaeche)
 GEWAEHLT=("$@")
 [ ${#GEWAEHLT[@]} -eq 0 ] && GEWAEHLT=("${ALLE[@]}")
 
