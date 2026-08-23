@@ -589,7 +589,27 @@ router.delete(
 
       // 2b) Wissensräume. `knowledge_spaces.owner_id` gibt es (die alte
       //     Behauptung "kein user_id-Feld" stimmte nicht).
-      await del('knowledge_spaces', `DELETE FROM knowledge_spaces WHERE owner_id = $1`, [userId]);
+      //
+      //     Aber `owner_id` allein reicht nicht, und das ist der Normalfall,
+      //     nicht der Sonderfall. Am 23.08.2026 auf dem Prüfstand: der Raum
+      //     „Allgemein" trägt `owner_id = NULL` und hängt an einem Projekt.
+      //     Der Filter ließ ihn stehen, und weil
+      //     `knowledge_spaces_project_id_fkey` auf RESTRICT steht, scheiterte
+      //     eine Zeile später die ganze Transaktion:
+      //
+      //       update or delete on table "projects" violates foreign key
+      //       constraint "knowledge_spaces_project_id_fkey"
+      //
+      //     Die Löschung nach Art. 17 war damit auf einem gewöhnlichen Gerät
+      //     unmöglich. Mit einem Zugang je Gerät (E1) gehören alle Projekte
+      //     diesem Zugang, also auch die Räume an ihnen.
+      await del(
+        'knowledge_spaces',
+        `DELETE FROM knowledge_spaces
+          WHERE owner_id = $1
+             OR project_id IN (SELECT id FROM projects)`,
+        [userId]
+      );
 
       // 2c) Projekte. Die Tabelle hat KEINE Besitzerspalte: mit einem Zugang je
       //     Gerät (E1) gehören alle Projekte diesem Zugang. Ihre Ablage-Ordner
