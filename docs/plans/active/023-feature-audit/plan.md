@@ -3453,12 +3453,46 @@ Danach, am Gerät gemessen:
 | Zeitplan           | Eintrag für 03:00 angelegt und gelistet. `25:99` gibt `VALIDATION_ERROR` mit erklärendem Satz           |
 | Ohne Freigabe      | alle drei geben `UNAUTHORIZED`, weil ohne Freigabe kein Brücken-Token entsteht                          |
 
-Damit ist H1 erledigt.
-
 **Was daraus zu lernen ist, und es ist dasselbe wie eine Woche davor bei
 `BRUECKE_FAEHIGKEITEN`:** die Tests prüften die Dienste gründlich und die
 Verdrahtung gar nicht. Beide Wächter, die jetzt mitkommen, vergleichen die
 Routen-Datei mit dem, was das Modul wirklich hergibt.
+
+### Nachgemessen am 23.08.2026, diesmal AUS EINER APP (#549)
+
+Die Messung oben lief mit einem Brücken-Token von außen, nicht aus dem
+Rahmen einer laufenden Erweiterung. Die Abnahme sagt aber „eine
+Beispielanwendung ruft". Nachdem #548 den Weg in den Rahmen überhaupt erst
+geöffnet hat, ist das nachgeholt, und es lagen noch zwei Schichten dazwischen.
+
+**Erstens: die drei Fähigkeiten standen nicht in `arasul-bruecke.js`.** Das ist
+die Datei, mit der eine Erweiterung die Brücke benutzt, und sie kannte `netz`,
+`tabellen` und `zeitplan` nicht. Einen allgemeinen Ausweg bietet sie auch
+nicht, sie gibt den Token nicht heraus. Aus einer App waren die drei damit
+unerreichbar. Dazu kam: die Werkstatt-Vorlagen werden nur **einmal** ausgesät
+und danach nie überschrieben, die Datei hätte ein bestehendes Gerät also
+ohnehin nie erreicht. Und weil ein gebautes Paket seine Kopie in sich trägt,
+wäre der Fehler in jede dort gebaute App mitgewandert.
+
+**Zweitens: der nächtliche Lauf startete nie.** Der Zeitplan feuerte pünktlich,
+und der Lauf starb in derselben Sekunde an
+`null value in column "user_id" of relation "flow_runs"`. `taktLauf` rief den
+Flow mit `userId: null` auf, und drei Tests hielten genau das als Zusicherung
+fest. Die dritte Zusage aus H1 war damit auf keinem Gerät je erfüllbar.
+
+Danach, aus dem Rahmen einer eigens gebauten App gemessen (`erweiterung neu`,
+Manifest mit `netz`, `tabellen`, `zeitplan`, Ziel `https://example.com/`):
+
+| Zusage                           | Beleg                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| ruft eine externe Schnittstelle  | `ArasulBruecke.netz('https://example.com/')` gibt HTTP 200, 559 Zeichen       |
+| fremdes Ziel                     | benannt abgewiesen, mit der Liste des Erlaubten                               |
+| legt Daten in eigener Tabelle ab | anlegen, schreiben, lesen: die Zeile kommt mit `wert: "Paris"` zurück         |
+| läuft von selbst                 | Zeitplan auf die nächste Minute, Lauf 105 startet unter Nutzer 1, kein Fehler |
+| ohne Freigabe                    | `llm` gibt „Fähigkeit „llm" ist für „pruef-faehigkeiten" nicht freigegeben"   |
+
+Die Prüf-App ist danach entfernt, samt Zeitplan und ihrem `ext_`-Schema. Damit
+ist H1 erledigt.
 
 ## H2 Ein Weg vom Terminal zur laufenden App
 
