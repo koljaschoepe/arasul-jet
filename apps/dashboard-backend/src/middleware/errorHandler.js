@@ -118,6 +118,16 @@ const errorHandler = (err, req, res, next) => {
     message = 'Invalid reference';
     code = 'VALIDATION_ERROR';
     logger.warn(`${req.method} ${req.originalUrl}: FK violation`, errorContext);
+  } else if (err.code === '22P02') {
+    // PostgreSQL: der Text passt nicht zum Spaltentyp, praktisch immer eine
+    // kaputte Id in der Adresse (23.08.2026 an `DELETE /api/sandbox/projects/:id`
+    // gefunden). Ohne diesen Zweig kam HTTP 500 zurueck — der Betreiber liest
+    // "das Geraet ist kaputt", obwohl die Eingabe falsch war. Und die Antwort
+    // trug die rohe Postgres-Meldung samt der eingegebenen Zeichenkette.
+    statusCode = 400;
+    message = 'Ungueltiger Wert in der Anfrage';
+    code = 'VALIDATION_ERROR';
+    logger.warn(`${req.method} ${req.originalUrl}: ungueltiger Wert (22P02)`, errorContext);
   } else {
     // Unknown error - log full details
     logger.error(`${req.method} ${req.originalUrl}: ${err.message}`, {
