@@ -569,15 +569,22 @@ export function ExplorerPanel() {
     if (!dialog || !activeId) return;
     const name = dialogName.trim();
     try {
+      // Jede dieser vier Aktionen meldet sich (Gate G2, 23.08.2026 gemessen).
+      // Vorher taten es nur fuenf andere im selben Panel: Pfad kopieren,
+      // Hochladen, Anheften, Eingrenzen und VERSCHIEBEN. Ausgerechnet
+      // Verschieben zeigt, dass "man sieht es ja im Baum" nicht der Grund war:
+      // es wirkt genauso sichtbar wie Loeschen und meldete sich trotzdem.
       if (dialog.kind === 'neu-datei') {
         if (!name) return;
         const pfad = dialog.ordner ? `${dialog.ordner}/${name}` : name;
         await api.put(`/projects/${activeId}/dateien/inhalt`, { pfad, inhalt: '' });
         openTab({ type: 'projektdatei', projectId: activeId, filePath: pfad, title: name });
+        toast.success(`„${name}“ angelegt`);
       } else if (dialog.kind === 'neu-ordner') {
         if (!name) return;
         const pfad = dialog.ordner ? `${dialog.ordner}/${name}` : name;
         await api.post(`/projects/${activeId}/dateien/ordner`, { pfad });
+        toast.success(`„${name}“ angelegt`);
       } else if (dialog.kind === 'umbenennen') {
         if (!name) return;
         const eltern = elternPfad(dialog.eintrag.pfad);
@@ -590,6 +597,7 @@ export function ExplorerPanel() {
         // Sonst zeigt der Tab weiter auf den alten Namen und legt die Datei beim
         // nächsten automatischen Speichern dort wieder an.
         verschiebeProjektdatei(activeId, dialog.eintrag.pfad, nach);
+        toast.success(`„${name}“ umbenannt`);
       } else if (dialog.kind === 'loeschen') {
         await api.del(
           `/projects/${activeId}/dateien?pfad=${encodeURIComponent(dialog.eintrag.pfad)}`
@@ -597,6 +605,7 @@ export function ExplorerPanel() {
         // Gelöscht heißt gelöscht: offene Tabs auf diesen Pfad schließen, sonst
         // schreibt das automatische Speichern die Datei zurück.
         schliesseProjektdatei(activeId, dialog.eintrag.pfad);
+        toast.success(`„${dialog.eintrag.pfad}“ gelöscht`);
       }
       setDialog(null);
       setDialogName('');
