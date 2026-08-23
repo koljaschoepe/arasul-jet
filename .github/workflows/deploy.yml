@@ -23,10 +23,33 @@ jobs:
     # Kein Deploy fuer reine Doc-/Meta-Merges wird im Skript selbst erkannt und
     # uebersprungen (git diff-basiert), damit die Erkennung PREV..NEW exakt ist.
     steps:
-      - name: Checkout (nur fuer das aktuelle Deploy-Skript)
+      - name: Checkout (Quelle fuer das Deploy-Skript UND fuer die Historie)
         uses: actions/checkout@v7
         with:
-          fetch-depth: 1
+          # Ganze Historie, nicht nur der letzte Commit. Der Grund liegt nicht
+          # hier, sondern in `deploy-local.sh`: das Geraet holt sich den neuen
+          # Stand mit `git fetch "$SRC" "$NEW_SHA"` aus GENAU diesem Checkout.
+          # Bei `fetch-depth: 1` hat der Checkout keine Vorfahren, also bekommt
+          # das Geraet je Deploy einen Commit OHNE Elternkette.
+          #
+          # Am 23.08.2026 auf dem Orin nachgesehen, `git fsck`:
+          #   broken link from commit f1f1e86b -> to commit dec3a5b6
+          #   missing commit dec3a5b6 (der Merge von eine Stunde vorher)
+          # `git rev-list --count HEAD` bricht ab, `main` ist nicht
+          # durchlaufbar. Das ist keine Beschaedigung, das ist die Folge von
+          # `fetch-depth: 1`, und sie waechst mit jedem Deploy.
+          #
+          # Es kostet etwas: der Rollback in `deploy-local.sh` macht
+          # `git reset --hard "$PREV_SHA"`, und genau das scheitert auf einem
+          # Geraet ohne Historie. Der Rollback fiel damit auf das
+          # Zurueckdrehen der Images zurueck und meldete sich seit #567
+          # ehrlich als UNVOLLSTAENDIG. Mit ganzer Historie funktioniert er
+          # wieder.
+          #
+          # Der Laeufer laeuft auf dem Geraet selbst, die Uebertragung ist
+          # also lokal. `_work` liegt bei 558 MB, `.git` bei 47 MB, frei sind
+          # 1,3 TB (23.08.2026 gemessen).
+          fetch-depth: 0
 
       - name: Deploy ausfuehren
         env:
