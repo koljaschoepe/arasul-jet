@@ -257,6 +257,42 @@ run_geruest_regeln_check() {
   fi
 }
 
+# Drei Waechter liefen bisher NUR in der CI. Wer lokal `run-tests.sh` aufruft,
+# sah sie nicht — und ein Zug, der die CI umgeht (Weboberflaeche, --no-verify,
+# ein Workflow, der selbst committet), sieht sie dann gar nicht. Am 24.08.2026
+# beim Durchzaehlen aufgefallen: von 58 Skripten in scripts/test/ standen
+# `pfadfilter.py`, `routenregeln.py` und `stiller-tod.py` nur auf einer der
+# beiden Seiten.
+run_pfadfilter_check() {
+  echo ""
+  echo "-> Pruefe die Pfadfilter..."
+  if python3 "${PROJECT_ROOT}/scripts/test/pfadfilter.py" --pfad "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
+run_routenregeln_check() {
+  echo ""
+  echo "-> Pruefe Regel 1 (asyncHandler, keine nackten Fehler in Routen)..."
+  if python3 "${PROJECT_ROOT}/scripts/test/routenregeln.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
+run_stiller_tod_check() {
+  echo ""
+  echo "-> Pruefe auf Zuweisungen, die ein Skript wortlos beenden..."
+  if python3 "${PROJECT_ROOT}/scripts/test/stiller-tod.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_endpunkte_check() {
   echo ""
   echo "-> Pruefe, ob jeder Endpunkt eine Beschreibung hat..."
@@ -470,6 +506,9 @@ run_datenordner_check
 run_werksreset_tabellen_check
 run_rollback_meldung_check
 run_geruest_regeln_check
+run_pfadfilter_check
+run_routenregeln_check
+run_stiller_tod_check
 run_endpunkte_check
 run_anleitungen_check
 run_faden_check
