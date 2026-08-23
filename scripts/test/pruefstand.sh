@@ -71,6 +71,17 @@ sicherheitsnetz() {
     echo "ENV_DATEI in ${UMGEBUNG} pruefen."
     exit 1
   fi
+
+  # Und die Geheimnisse. Zeigt der Pruefstand darauf, traegt sein
+  # "Fabrikzustand" das Erstpasswort des Arbeitsgeraets, und ein Werksreset
+  # dort fasst die echten Dateien an.
+  local geheim
+  geheim=$(echo "$gerendert" | grep -oE "file: ${WURZEL}/config/secrets/" | head -1 || true)
+  if [ -n "$geheim" ]; then
+    echo "ABBRUCH: der Pruefstand zeigt auf ${WURZEL}/config/secrets, also auf die echten Geheimnisse."
+    echo "SECRETS_PFAD in ${UMGEBUNG} pruefen."
+    exit 1
+  fi
 }
 
 # Alle Bind-Mount-Ordner vorher anlegen, und zwar als der aufrufende Benutzer.
@@ -118,9 +129,27 @@ eigene_env() {
   fi
 }
 
+# Siebte Trennung: eigene Geheimnisse. Ein Werksreset auf dem Pruefstand fasst
+# sonst die echten an, und der "Fabrikzustand" traegt das Erstpasswort des
+# Arbeitsgeraets als Docker-Secret mit (23.08.2026 gemessen).
+#
+# Als KOPIE und nicht leer: die meisten Dienste starten ohne ihr Geheimnis gar
+# nicht. Wer einen Fabrikzustand will, laesst gezielt eine Datei weg — das tut
+# `frischgeraet-abnahme.sh` mit `admin_password`.
+eigene_geheimnisse() {
+  local quelle="${WURZEL}/config/secrets"
+  local ziel="${WURZEL}/config/secrets-pruefstand"
+  [ -d "$ziel" ] && return 0
+  mkdir -p "$ziel"
+  chmod 700 "$ziel"
+  cp -a "$quelle"/* "$ziel"/ 2>/dev/null || true
+  echo "Eigene Geheimnisse angelegt: config/secrets-pruefstand"
+}
+
 case "${1:-}" in
   hoch)
     eigene_env
+    eigene_geheimnisse
     sicherheitsnetz
     mkdir -p data-pruefstand logs-pruefstand
     ordner_anlegen
@@ -137,7 +166,7 @@ case "${1:-}" in
     ;;
   weg)
     compose down -v
-    rm -rf data-pruefstand logs-pruefstand .env.pruefstand
+    rm -rf data-pruefstand logs-pruefstand .env.pruefstand config/secrets-pruefstand
     echo "Pruefstand und seine Daten entfernt. Der Arbeitsstand ist unberuehrt."
     ;;
   *)

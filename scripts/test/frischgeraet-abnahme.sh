@@ -121,6 +121,25 @@ if [ ! -f .env.pruefstand ]; then
 	echo "  Fabrik-Umgebung angelegt: .env.pruefstand ohne Zugangsdaten"
 fi
 
+# Und dasselbe fuer die Geheimnisse. Die .env allein reicht NICHT: dasselbe
+# Erstpasswort kommt als Docker-Secret herein (bootstrap.js, Fund vom
+# 19.08.2026). Genau daran ist der erste Anlauf dieser Zeilen gescheitert —
+# `.env.pruefstand` war sauber, und trotzdem stand ein Administrator da.
+if [ ! -d config/secrets-pruefstand ]; then
+	mkdir -p config/secrets-pruefstand
+	chmod 700 config/secrets-pruefstand
+	cp -a config/secrets/* config/secrets-pruefstand/ 2>/dev/null || true
+	# LEER, nicht geloescht: compose verweigert den Start, wenn eine als Secret
+	# deklarierte Datei fehlt. `resolveSecrets()` liest sie und macht daraus
+	# nach `.trim()` eine leere Zeichenkette — und genau die laesst
+	# bootstrap.js keinen Administrator anlegen ("ADMIN_PASSWORD is not
+	# available"). Das ist der Fabrikzustand, den ein Kunde vorfindet.
+	: > config/secrets-pruefstand/admin_password
+	chmod 600 config/secrets-pruefstand/admin_password
+	rm -f config/secrets-pruefstand/admin.hash
+	echo "  Fabrik-Geheimnisse angelegt: admin_password ist leer"
+fi
+
 scripts/test/pruefstand.sh hoch >/dev/null
 warte_auf_backend
 

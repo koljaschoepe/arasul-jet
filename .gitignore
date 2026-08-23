@@ -64,6 +64,9 @@ n8n_data/
 admin.hash
 config/secrets/
 !config/secrets/.example/
+# Siebte Trennung des Pruefstands (compose/pruefstand.vars): eigene
+# Geheimnisse, damit ein Werksreset dort nicht die echten anfasst.
+config/secrets-pruefstand/
 config/.traefik-credentials
 config/certs/
 # Device-specific self-signed TLS pair, generated per box by setup_https() in
