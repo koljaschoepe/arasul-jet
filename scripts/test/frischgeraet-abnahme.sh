@@ -97,6 +97,30 @@ migrationen_auf_platte() {
 
 echo "== 1. Pruefstand von Null aufbauen (das ist der Fabrikzustand) =="
 scripts/test/pruefstand.sh weg >/dev/null 2>&1 || true
+
+# Der Pruefstand legt `.env.pruefstand` sonst als KOPIE der echten `.env` an,
+# und die traegt ADMIN_PASSWORD und ADMIN_HASH des Arbeitsgeraets. Damit war
+# der "Fabrikzustand" keiner: bootstrap.js legte daraus ein Konto an, und
+# Schritt 4 fand ein Konto ab Werk vor.
+#
+# Am 23.08.2026 auf dem Orin gesehen:
+#   FEHLT Ersteinrichtung faellig            erwartet True, ist False
+#   FEHLT kein Konto ab Werk vorhanden       erwartet 0, ist 1
+# und danach `Setup already completed, an admin account already exists`.
+#
+# Das war kein Mangel am Geraet, sondern eine Abnahme, die etwas anderes
+# gemessen hat als ihren Namen. Ein echtes Fabrikgeraet hat diese drei Zeilen
+# nicht — der Werksreset entwertet sie beim Schritt "Auslieferungszustand",
+# und genau dieses Ergebnis wird hier nachgestellt.
+#
+# Warum nicht in `pruefstand.sh`: die Werksreset-Abnahme braucht den
+# umgekehrten Fall, ein Geraet MIT Konto, das sie dann zuruecksetzt.
+if [ ! -f .env.pruefstand ]; then
+	grep -vE '^(ADMIN_PASSWORD|ADMIN_HASH|ADMIN_USERNAME|ADMIN_EMAIL)=' .env > .env.pruefstand
+	chmod 600 .env.pruefstand
+	echo "  Fabrik-Umgebung angelegt: .env.pruefstand ohne Zugangsdaten"
+fi
+
 scripts/test/pruefstand.sh hoch >/dev/null
 warte_auf_backend
 
