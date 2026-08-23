@@ -81,6 +81,25 @@ echo "  seit dem letzten Neustart: ${GESAMT_B:-0} Eingriffe, davon fehlgeschlage
 if [ "${MISS_B:-0}" -gt 0 ]; then
   echo "  die fehlgeschlagenen:"
   sql "SELECT to_char(timestamp,'DD.MM. HH24:MI')||' '||coalesce(service_name,'-')||' '||action_taken FROM public.self_healing_events WHERE timestamp > to_timestamp(${BOOT_EPOCH}) AND success IS NOT TRUE ORDER BY timestamp DESC LIMIT 5;" | sed 's/^/    /'
+
+  # Steht der letzte Fehlschlag VOR dem Start des jetzt laufenden
+  # Selbstheilungs-Agenten, dann hat die aktuelle Fassung ihn nicht verursacht.
+  # Das aendert das Urteil NICHT — G7 fragt nach dem ganzen Dauerlauf, nicht
+  # nach der neuesten Fassung. Aber wer den Bericht liest, muss sehen koennen,
+  # ob das Problem noch besteht oder abgestellt ist.
+  #
+  # Grund fuer die Zeile, 23.08.2026: die fuenf Fehlschlaege der Nacht kamen
+  # alle aus derselben Ursache (ein Deploy sah aus wie ein Ausfall, #570), und
+  # nach dem Fix ist keiner mehr dazugekommen. Ohne diese Zeile liest sich der
+  # Bericht in zwei Tagen so, als waere das noch offen.
+  LETZTER=$(sql "SELECT extract(epoch FROM max(timestamp))::bigint FROM public.self_healing_events WHERE timestamp > to_timestamp(${BOOT_EPOCH}) AND success IS NOT TRUE;")
+  AGENT_START=$(ssh "$HOST" "docker inspect self-healing-agent --format '{{.State.StartedAt}}'" 2>/dev/null)
+  AGENT_EPOCH=$(ssh "$HOST" "date -d '${AGENT_START}' +%s" 2>/dev/null)
+  if [ -n "${LETZTER:-}" ] && [ -n "${AGENT_EPOCH:-}" ] && [ "${LETZTER}" -lt "${AGENT_EPOCH}" ]; then
+    STUNDEN=$(( ( $(date +%s) - LETZTER ) / 3600 ))
+    echo "  Hinweis: der letzte Fehlschlag liegt ${STUNDEN} h zurueck und damit VOR"
+    echo "           dem Start des jetzigen Agenten. Seither keiner mehr."
+  fi
 fi
 sql "SELECT to_char(timestamp,'DD.MM. HH24:MI')||' '||coalesce(service_name,'-')||' '||action_taken||' ('||severity||')' FROM public.self_healing_events WHERE timestamp > now() - interval '${TAGE} days' ORDER BY timestamp DESC LIMIT 5;" | sed 's/^/  /'
 echo ""
