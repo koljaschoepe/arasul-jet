@@ -225,6 +225,18 @@ run_datenordner_check() {
 # Eine neue Tabelle, die im Werksreset nicht eingeordnet ist, blockiert ihn auf
 # JEDEM Geraet. Gemerkt hat das bisher nur der Pruefstand, und den faehrt
 # niemand nebenbei hoch.
+# Der Rollback im Deploy meldete unbedingt Erfolg, auch wenn kein Schritt
+# geklappt hatte. Auf dem kritischsten Pfad des Geraets.
+run_rollback_meldung_check() {
+  echo ""
+  echo "-> Pruefe, ob der Deploy-Rollback die Wahrheit ueber sich sagt..."
+  if bash "${PROJECT_ROOT}/scripts/test/rollback-meldung.sh"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_werksreset_tabellen_check() {
   echo ""
   echo "-> Pruefe, ob jede Tabelle im Werksreset eingeordnet ist..."
@@ -456,6 +468,7 @@ run_einheiten_check
 run_durchreichung_check
 run_datenordner_check
 run_werksreset_tabellen_check
+run_rollback_meldung_check
 run_geruest_regeln_check
 run_endpunkte_check
 run_anleitungen_check

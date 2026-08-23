@@ -219,18 +219,42 @@ done
 ok "Rollback-Images getaggt: ${!HAD_IMAGE[*]:-<keine>}"
 
 # --- Rollback-Funktion -------------------------------------------------------
+# Jeder Schritt haengt hier an `|| true`, und das ist richtig: ein Rollback
+# soll ALLES versuchen und nicht beim ersten Fehler stehenbleiben. Falsch war
+# nur die Meldung danach. Bis zum 23.08.2026 stand dort unbedingt
+# "Produktivstand wiederhergestellt" — auch wenn kein einziger Schritt geklappt
+# hatte. Auf dem kritischsten Pfad des Geraets las der Betreiber damit einen
+# Erfolg, waehrend der kaputte Stand weiterlief.
+#
+# Das ist kein erfundener Fall: die Git-Historie auf dem Orin hat ein Loch
+# (60 von ueber 700 Commits vorhanden, `main` nicht durchlaufbar). Ein
+# `git reset --hard` auf einen aelteren Stand scheitert dort, und der
+# Diff-Zweig weiter oben rechnet ausdruecklich damit.
 rollback() {
   err "DEPLOY FEHLGESCHLAGEN — Rollback wird ausgefuehrt."
+  local misslungen=()
   for s in "${SERVICES[@]}"; do
     if [ "${HAD_IMAGE[$s]:-0}" -eq 1 ]; then
-      docker tag "${PROJECT}-${s}:rollback" "${PROJECT}-${s}:latest" || true
+      docker tag "${PROJECT}-${s}:rollback" "${PROJECT}-${s}:latest" ||
+        misslungen+=("Image $s")
     fi
   done
   # Container mit dem alten Image (ohne Rebuild) wieder hochfahren
-  "${COMPOSE[@]}" up -d --no-build "${SERVICES[@]}" 2>&1 | tail -5 || true
-  git reset --hard "$PREV_SHA" || true
-  err "Rollback auf $PREV_SHA abgeschlossen. Produktivstand wiederhergestellt."
-  summary "❌ **Deploy fehlgeschlagen** → automatischer Rollback auf \`${PREV_SHA:0:7}\`."
+  if ! "${COMPOSE[@]}" up -d --no-build "${SERVICES[@]}" 2>&1 | tail -5; then
+    misslungen+=("Container starten")
+  fi
+  if ! git reset --hard "$PREV_SHA"; then
+    misslungen+=("git reset auf $PREV_SHA")
+  fi
+
+  if [ "${#misslungen[@]}" -eq 0 ]; then
+    err "Rollback auf $PREV_SHA abgeschlossen. Produktivstand wiederhergestellt."
+    summary "❌ **Deploy fehlgeschlagen** → automatischer Rollback auf \`${PREV_SHA:0:7}\`."
+  else
+    err "Rollback UNVOLLSTAENDIG. Nicht geklappt: ${misslungen[*]}"
+    err "Das Geraet steht NICHT auf dem Produktivstand. Bitte von Hand nachsehen."
+    summary "❌ **Deploy fehlgeschlagen**, und der Rollback auf \`${PREV_SHA:0:7}\` ist UNVOLLSTAENDIG: ${misslungen[*]}"
+  fi
   exit 1
 }
 
