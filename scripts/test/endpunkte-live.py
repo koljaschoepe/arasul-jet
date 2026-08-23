@@ -25,7 +25,6 @@ verweigerte Berechtigung ist eine Antwort, kein Absturz.
 
 import json
 import os
-import re
 import subprocess
 import sys
 import time
