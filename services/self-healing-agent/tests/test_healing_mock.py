@@ -175,6 +175,66 @@ class TestSelfHealingEngine(unittest.TestCase):
         self.assertEqual(len(status), 2)
         self.mock_client.containers.get.side_effect = None
 
+    def test_verbindungsabriss_wird_nachgesehen(self):
+        """Ein abgerissener Docker-Aufruf ist kein misslungener Neustart.
+
+        In der Nacht auf den 23.08.2026 auf dem Orin: n8n wurde unter Last
+        ungesund, der Agent startete es neu, und der Neustart riss ihm die
+        Verbindung zum docker-proxy ab. Der Agent buchte das als "Failed to
+        recover" und eskalierte — vier Runden lang, obwohl n8n danach lief.
+        """
+        self.engine.NACHSCHAU_SEKUNDEN = 0
+        container = MagicMock()
+        container.name = 'n8n'
+        container.restart.side_effect = Exception(
+            "('Connection aborted.', RemoteDisconnected('Remote end closed connection'))"
+        )
+        danach = MagicMock()
+        danach.status = 'running'
+        self.mock_client.containers.get.return_value = danach
+        self.engine.get_failure_count = MagicMock(return_value=1)
+        self.engine.is_in_cooldown = MagicMock(return_value=False)
+        self.engine.log_event = MagicMock()
+
+        self.engine.handle_category_a_service_down('n8n', container)
+
+        typen = [c.args[0] for c in self.engine.log_event.call_args_list]
+        self.assertIn('service_recovery_verified', typen)
+        self.assertNotIn('service_recovery_failed', typen)
+
+    def test_verbindungsabriss_und_dienst_bleibt_weg(self):
+        """Laeuft er danach NICHT, bleibt es ein Fehlschlag."""
+        self.engine.NACHSCHAU_SEKUNDEN = 0
+        container = MagicMock()
+        container.name = 'n8n'
+        container.restart.side_effect = Exception("('Connection aborted.', RemoteDisconnected())")
+        danach = MagicMock()
+        danach.status = 'exited'
+        self.mock_client.containers.get.return_value = danach
+        self.engine.get_failure_count = MagicMock(return_value=1)
+        self.engine.is_in_cooldown = MagicMock(return_value=False)
+        self.engine.log_event = MagicMock()
+
+        self.engine.handle_category_a_service_down('n8n', container)
+
+        typen = [c.args[0] for c in self.engine.log_event.call_args_list]
+        self.assertIn('service_recovery_failed', typen)
+
+    def test_anderer_fehler_wird_nicht_nachgesehen(self):
+        """Ein echter Fehler bleibt ein Fehler, ohne Nachschau."""
+        self.engine.NACHSCHAU_SEKUNDEN = 0
+        container = MagicMock()
+        container.name = 'n8n'
+        container.restart.side_effect = Exception('image not found')
+        self.engine.get_failure_count = MagicMock(return_value=1)
+        self.engine.is_in_cooldown = MagicMock(return_value=False)
+        self.engine.log_event = MagicMock()
+
+        self.engine.handle_category_a_service_down('n8n', container)
+
+        typen = [c.args[0] for c in self.engine.log_event.call_args_list]
+        self.assertIn('service_recovery_failed', typen)
+
     def test_handle_category_a_restart(self):
         """Test Category A recovery: Simple restart"""
         container = MagicMock()
