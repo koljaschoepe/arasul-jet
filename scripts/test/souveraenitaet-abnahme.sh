@@ -206,7 +206,13 @@ while IFS= read -r zeile; do
   # (23.08.2026).
   container=$(printf '%s' "$zeile" | awk -F'[| ]' '{print $2}')
   ip=$(printf '%s' "$zeile" | awk -F'[| ]' '{print $3}')
-  name=$(ssh "$HOST" "getent hosts $ip 2>/dev/null | awk '{print \$2}'" 2>/dev/null | head -1)
+  # `ssh -n`: OHNE das liest ssh die Eingabe der Schleife mit auf, und die
+  # Schleife endet nach dem ERSTEN Eintrag. Genau daran hat diese Messung
+  # bisher immer nur ein einziges Ziel geprueft — in einem Lauf mit sechs
+  # Zielen stand eines in der Meldung, und die anderen fuenf, darunter
+  # `embedding-service` nach huggingface.co, fielen still unter den Tisch
+  # (23.08.2026).
+  name=$(ssh -n "$HOST" "getent hosts $ip 2>/dev/null | awk '{print \$2}'" 2>/dev/null | head -1)
   [ -z "$name" ] && name="$ip"
   erlaubt=nein
   for erlaubter in $(printf '%s' "$NACH_AUSSEN_ERLAUBT" | tr ',' ' '); do
