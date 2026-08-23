@@ -37,8 +37,14 @@ const NOCH_NICHT_BEREIT = new Set([
   '53300',
 ]);
 
-const WARTE_VERSUCHE = parseInt(process.env.BOOTSTRAP_DB_VERSUCHE || '10', 10);
-const WARTE_MS = parseInt(process.env.BOOTSTRAP_DB_WARTE_MS || '3000', 10);
+// Beim AUFRUF gelesen, nicht beim Laden des Moduls. Zwei Gruende, und der
+// zweite wiegt schwerer: ein Wert in der `.env` des Geraets wirkt sofort, und
+// ein Test kann die Wartezeit wirklich verkuerzen. Der erste Entwurf las beim
+// Laden, und die Bootstrap-Tests warteten trotz `BOOTSTRAP_DB_WARTE_MS=1` je
+// drei Sekunden echt; im vollen Lauf lief dadurch eine fremde Testdatei in ihr
+// Zeitlimit.
+const warteVersuche = () => parseInt(process.env.BOOTSTRAP_DB_VERSUCHE || '10', 10);
+const warteMs = () => parseInt(process.env.BOOTSTRAP_DB_WARTE_MS || '3000', 10);
 
 /**
  * Migrationen fahren, und dabei auf die Datenbank warten statt aufzugeben.
@@ -56,22 +62,24 @@ const WARTE_MS = parseInt(process.env.BOOTSTRAP_DB_WARTE_MS || '3000', 10);
  * @returns {Promise<object>} Ergebnis von `runMigrations`
  */
 async function migrationenMitGeduld() {
+  const versuche = warteVersuche();
+  const pause = warteMs();
   let letzter = null;
-  for (let versuch = 1; versuch <= WARTE_VERSUCHE; versuch += 1) {
+  for (let versuch = 1; versuch <= versuche; versuch += 1) {
     try {
       return await runMigrations(db.pool);
     } catch (error) {
       const kennung = error && (error.code || '');
-      if (!NOCH_NICHT_BEREIT.has(kennung) || versuch === WARTE_VERSUCHE) {
+      if (!NOCH_NICHT_BEREIT.has(kennung) || versuch === versuche) {
         throw error;
       }
       letzter = error;
       logger.warn(
         `Bootstrap: Datenbank noch nicht bereit (${kennung}), Versuch ` +
-          `${versuch} von ${WARTE_VERSUCHE}, naechster in ${WARTE_MS} ms`
+          `${versuch} von ${versuche}, naechster in ${pause} ms`
       );
       await new Promise(r => {
-        setTimeout(r, WARTE_MS);
+        setTimeout(r, pause);
       });
     }
   }

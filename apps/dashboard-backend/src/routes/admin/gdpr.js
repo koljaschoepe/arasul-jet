@@ -18,6 +18,15 @@ const logger = require('../../utils/logger');
 const DELETE_CONFIRMATION_TOKEN = 'LOESCHEN-BESTAETIGT';
 
 /**
+ * Platzhalter fuer anonymisierte Spalten, die NOT NULL sind.
+ *
+ * Kein Name, den jemand haben koennte, und kein leerer String: ein
+ * leerer Wert sieht in einer Auswertung aus wie ein Fehler, ein
+ * sprechender Platzhalter sagt, was geschehen ist.
+ */
+const ANONYM = '(geloescht)';
+
+/**
  * GET /api/gdpr/export
  * Export all data associated with the authenticated user.
  * Returns JSON with all personal data categories.
@@ -631,11 +640,27 @@ router.delete(
       await anon('api_audit_logs', `UPDATE api_audit_logs SET user_id = NULL WHERE user_id = $1`, [
         userId,
       ]);
-      await anon(
-        'login_attempts',
-        `UPDATE login_attempts SET username = NULL WHERE username = $1`,
-        [username]
-      );
+      // `login_attempts.username` ist NOT NULL (23.08.2026 auf dem Pruefstand
+      // gefunden). Ein `SET username = NULL` liess die ganze Transaktion
+      // zurueckrollen:
+      //
+      //   null value in column "username" of relation "login_attempts"
+      //   violates not-null constraint
+      //
+      // Da jedes Geraet Anmeldeversuche hat, ist das kein Sonderfall: die
+      // Loeschung nach Art. 17 scheiterte daran immer. Anonymisiert wird
+      // deshalb mit einem festen Platzhalter statt mit NULL; die Zeile bleibt
+      // fuer die Aufbewahrungspflicht erhalten und zeigt auf niemanden mehr.
+      //
+      // OFFEN, und ausdruecklich eine Entscheidung und keine Auslassung: die
+      // Spalte `ip_address` ist ebenfalls NOT NULL und bleibt stehen. Eine
+      // IP-Adresse ist ein personenbezogenes Datum. Ob die
+      // Aufbewahrungspflicht (Art. 17 (3) (b)) sie deckt oder ob auch sie zu
+      // ersetzen ist, ist eine Rechtsfrage und keine Frage an den Code.
+      await anon('login_attempts', `UPDATE login_attempts SET username = $2 WHERE username = $1`, [
+        username,
+        ANONYM,
+      ]);
       await anon('rag_query_log', `UPDATE rag_query_log SET user_id = NULL WHERE user_id = $1`, [
         userId,
       ]);
