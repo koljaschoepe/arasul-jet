@@ -19,6 +19,7 @@ process.env.JWT_SECRET =
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 const { BRUECKE_FAEHIGKEITEN } = require('../../src/services/extensions/extensionPackage');
 
 /** Alle Fähigkeiten, die `routes/extensions.js` beim Autorisieren verlangt. */
@@ -99,5 +100,51 @@ describe('Brücken-Schemata (Plan 023 H1)', () => {
   test('die beiden, die es getroffen hat, sind da', () => {
     expect(typeof schemata.BrueckeTabellenBody?.safeParse).toBe('function');
     expect(typeof schemata.BrueckeZeitplanBody?.safeParse).toBe('function');
+  });
+});
+
+/**
+ * Zweites Nadeloehr, gefunden am 23.08.2026: `arasul-bruecke.js`.
+ *
+ * Eine Faehigkeit kann deklarierbar sein, eine Route haben, einen Dienst und
+ * Tests — und aus einer App trotzdem unerreichbar, wenn die ausgelieferte
+ * Client-Datei sie nicht kennt. Genau so lagen `netz`, `tabellen` und
+ * `zeitplan` seit H1 da: drei Routen, kein Weg hin. Die Datei bietet auch
+ * keinen allgemeinen Ausweg — sie gibt den Token nicht heraus.
+ *
+ * Der Test vergleicht deshalb die Routen mit der Client-Datei, nicht die
+ * Client-Datei mit sich selbst.
+ */
+describe('Bruecken-Client (arasul-bruecke.js)', () => {
+  const CLIENT_REL = '../../../../services/sandbox/dev-templates/arasul-bruecke.js';
+  const client = fs.readFileSync(path.join(__dirname, CLIENT_REL), 'utf8');
+
+  test('jede Faehigkeit ist aus einer App aufrufbar', () => {
+    const fehlend = faehigkeitenAusRouten().filter(f => !client.includes(`'/${f}'`));
+    expect(fehlend).toEqual([]);
+  });
+
+  test('die Vorlage der Beispiel-App traegt dieselbe Datei', () => {
+    // Zwei Kopien sind nur so lange harmlos, wie sie gleich sind. Eine dritte
+    // lag bis zum 23.08.2026 im Repo-Wurzelordner (`meine-app/`), versehentlich
+    // beim Bau von H2 mitgelaufen, und war bereits veraltet.
+    const zweite = fs.readFileSync(
+      path.join(__dirname, '../../../../services/sandbox/dev-templates/beispiel-app/arasul-bruecke.js'),
+      'utf8'
+    );
+    expect(zweite).toBe(client);
+  });
+
+  test('es gibt genau diese zwei Kopien im Repo', () => {
+    const treffer = execSync(
+      "git ls-files '*arasul-bruecke.js'",
+      { cwd: path.join(__dirname, '../../../..'), encoding: 'utf8' }
+    )
+      .split('\n')
+      .filter(Boolean);
+    expect(treffer.sort()).toEqual([
+      'services/sandbox/dev-templates/arasul-bruecke.js',
+      'services/sandbox/dev-templates/beispiel-app/arasul-bruecke.js',
+    ]);
   });
 });

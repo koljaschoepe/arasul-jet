@@ -122,7 +122,15 @@ describe('entfernen', () => {
 describe('taktLauf', () => {
   const FAELLIG = {
     rows: [
-      { id: 1, extension_id: 'meine-ext', flow: 'abgleich', uhrzeit: '03:00', args: { a: 1 }, zuletzt_am: null },
+      {
+        id: 1,
+        extension_id: 'meine-ext',
+        flow: 'abgleich',
+        uhrzeit: '03:00',
+        args: { a: 1 },
+        zuletzt_am: null,
+        erstellt_von: 7,
+      },
     ],
   };
 
@@ -132,7 +140,10 @@ describe('taktLauf', () => {
     const n = await dienst.taktLauf({ db, jetzt: um(1, 3, 0), flowStarten });
 
     expect(n).toBe(1);
-    expect(flowStarten).toHaveBeenCalledWith({ name: 'abgleich', args: { a: 1 }, userId: null });
+    // `userId` ist der Kern, nicht Beiwerk: bis zum 23.08.2026 stand hier
+    // `null`, und `flow_runs.user_id` ist NOT NULL. Der Zeitplan feuerte also
+    // puenktlich, und der Lauf starb sofort — auf jedem Geraet.
+    expect(flowStarten).toHaveBeenCalledWith({ name: 'abgleich', args: { a: 1 }, userId: 7 });
     expect(db.sqlMit('SET zuletzt_lauf')).toHaveLength(1);
   });
 
@@ -191,5 +202,54 @@ describe('taktLauf', () => {
     const abfrage = db.abfragen[0].sql;
     expect(abfrage).toContain('z.aktiv = TRUE');
     expect(abfrage).toContain('e.enabled = TRUE');
+  });
+});
+
+describe('Wer laeuft, wenn in der Zeile kein Nutzer steht (23.08.2026)', () => {
+  const OHNE_NUTZER = {
+    rows: [
+      {
+        id: 1,
+        extension_id: 'meine-ext',
+        flow: 'abgleich',
+        uhrzeit: '03:00',
+        args: {},
+        zuletzt_am: null,
+        erstellt_von: null,
+      },
+    ],
+  };
+
+  test('Zeilen von vor Migration 158 fallen auf den aeltesten Administrator zurueck', async () => {
+    // Ohne Rueckfall liefe so eine Zeile nie wieder, und zwar still.
+    const db = fakeDb([OHNE_NUTZER, { rows: [] }, { rows: [{ id: 3 }] }]);
+    const flowStarten = jest.fn(async () => ({ runId: 5 }));
+    await dienst.taktLauf({ db, jetzt: um(1, 3, 0), flowStarten });
+    expect(flowStarten).toHaveBeenCalledWith({ name: 'abgleich', args: {}, userId: 3 });
+  });
+
+  test('ohne jeden Administrator wird der Fehler festgehalten, nicht verschluckt', async () => {
+    const db = fakeDb([OHNE_NUTZER, { rows: [] }, { rows: [] }]);
+    const flowStarten = jest.fn();
+    const n = await dienst.taktLauf({ db, jetzt: um(1, 3, 0), flowStarten });
+    expect(n).toBe(0);
+    expect(flowStarten).not.toHaveBeenCalled();
+    expect(db.sqlMit('SET letzter_fehler')).toHaveLength(1);
+  });
+});
+
+describe('anlegen haelt den Nutzer fest', () => {
+  test('der Nutzer aus dem Bruecken-Token landet in der Zeile', async () => {
+    const db = fakeDb([{ rows: [{ anzahl: 0 }] }, { rows: [{ id: 1 }] }]);
+    await dienst.anlegen('meine-ext', { flow: 'abgleich', uhrzeit: '03:00', userId: 9 }, { db });
+    const einfuegen = db.sqlMit('INSERT INTO public.extension_zeitplaene')[0];
+    expect(einfuegen.sql).toContain('erstellt_von');
+    expect(einfuegen.werte).toContain(9);
+  });
+
+  test('ein erneutes Anlegen ohne Nutzer loescht den vorhandenen nicht', async () => {
+    const db = fakeDb([{ rows: [{ anzahl: 0 }] }, { rows: [{ id: 1 }] }]);
+    await dienst.anlegen('meine-ext', { flow: 'abgleich', uhrzeit: '03:00' }, { db });
+    expect(db.sqlMit('INSERT INTO public.extension_zeitplaene')[0].sql).toContain('COALESCE');
   });
 });

@@ -117,14 +117,29 @@ Eine live geschaltete App läuft weiter im abgeriegelten iframe (opaker Origin,
 keine Cookies/fremden APIs). Über die **KI-Brücke** kann sie kontrolliert LLM,
 RAG, einen eigenen Datentopf und n8n-Flows nutzen:
 
-- Das Manifest deklariert `faehigkeiten` (`llm`, `rag`, `dateien`, `flows`);
-  der Admin gibt sie beim Live-Schalten frei (wirksam = deklariert ∩ freigegeben).
+- Das Manifest deklariert `faehigkeiten` (`llm`, `rag`, `dateien`, `flows`,
+  `netz`, `tabellen`, `zeitplan`); der Admin gibt sie beim Live-Schalten frei
+  (wirksam = deklariert ∩ freigegeben).
 - Das Dashboard reicht der App per postMessage einen **kurzlebigen, pro
   Erweiterung gescopten Token**; damit ruft sie
-  `/api/extensions/:id/bruecke/{llm,rag,dateien,flows}` auf. Das Backend prüft
-  Token + Erweiterung + Fähigkeit bei **jedem** Aufruf.
+  `/api/extensions/:id/bruecke/{llm,rag,dateien,flows,netz,tabellen,zeitplan}`
+  auf. Das Backend prüft Token + Erweiterung + Fähigkeit bei **jedem** Aufruf.
 - Ein Env-Flag `EXTENSIONS_BRUECKE_ENABLED=false` schaltet die Brücke geräteweit
   ab. Client-SDK: `arasul-bruecke.js` (in den Dev-Vorlagen).
+
+`arasul-bruecke.js` ist **unsere** Datei, kein Nutzerinhalt. Sie zieht deshalb
+als einzige in einer bestehenden Werkstatt nach, wenn sich die ausgelieferte
+Fassung ändert (beim Start des Backends und beim nächsten Flow in diesem
+Ordner); alles andere in der Werkstatt bleibt unangetastet. Wer eigene
+Änderungen braucht, legt eine eigene Datei an.
+
+Das ist kein Beiwerk: die Vorlagen wurden bis zum 23.08.2026 nur **einmal**
+ausgesät und nie überschrieben. Als H1 der Brücke `netz`, `tabellen` und
+`zeitplan` gab, kannte die Client-Datei jeder bestehenden Werkstatt diese drei
+nicht — und weil ein gebautes Paket seine Kopie in sich trägt, wäre der Fehler
+in jede dort gebaute App mitgewandert. Ein Test hält Routen und Client-Datei
+jetzt zusammen.
+
 - Flow-Erweiterungen werden beim Live-Schalten per n8n-API importiert +
   aktiviert (`GET /api/extensions/:id/flow-status` zeigt aktiv/letzter Lauf);
   fehlt `N8N_API_KEY` oder ist n8n aus, degradiert das sichtbar.
