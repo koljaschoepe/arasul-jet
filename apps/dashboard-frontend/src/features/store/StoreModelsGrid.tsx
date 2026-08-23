@@ -31,6 +31,7 @@ import { useMemoryBudget, MEMORY_BUDGET_QUERY_KEY } from '@/hooks/useMemoryBudge
 import { useToast } from '@/contexts/ToastContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useActivation } from '@/contexts/ActivationContext';
+import { ModellHinzufuegen } from './ModellHinzufuegen';
 import {
   useStoreCatalog,
   isModelInstalled,
@@ -594,6 +595,9 @@ export function StoreModelsGrid() {
         <>
           <div className="shrink-0 px-4 pt-4">
             <ModelsDashboard models={models} shown={visible.length} />
+            <div className="mt-3">
+              <ModellHinzufuegen onHinzugefuegt={() => invalidateModels()} />
+            </div>
           </div>
           <div className="@container min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             <div className="flex flex-col gap-6">
@@ -622,6 +626,12 @@ export function StoreModelsGrid() {
               ? 'Keine Modelle passen zu Suche/Filter.'
               : 'Noch keine Modelle im Katalog.'}
           </p>
+          {/* Auch im leeren Katalog erreichbar: genau dort braucht man ihn. */}
+          {!isFiltered && (
+            <div className="flex justify-center">
+              <ModellHinzufuegen onHinzugefuegt={() => invalidateModels()} />
+            </div>
+          )}
         </div>
       )}
     </div>
