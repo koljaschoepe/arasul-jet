@@ -98,6 +98,12 @@ services:
       # Vorrang des Nutzers an der einen GPU (Fund 22.08.2026). Der Indexer
       # kann die Sperre des Backends nicht nehmen, also wird ihm gesagt, dass
       # gerechnet wird. Herleitung in services/flows/gpuVorrang.js.
+      # Der Start wartet auf eine noch nicht erreichbare Datenbank. Postgres
+      # faehrt bei einer FRISCHEN Datenbank zweimal hoch, und der
+      # Healthcheck kann in der ersten Phase schon gruen sein
+      # (src/bootstrap.js).
+      BOOTSTRAP_DB_VERSUCHE: ${BOOTSTRAP_DB_VERSUCHE:-10}
+      BOOTSTRAP_DB_WARTE_MS: ${BOOTSTRAP_DB_WARTE_MS:-3000}
       GPU_VORRANG: ${GPU_VORRANG:-true}
       GPU_VORRANG_FRIST_S: ${GPU_VORRANG_FRIST_S:-30}
       GPU_VORRANG_ZEITLIMIT_MS: ${GPU_VORRANG_ZEITLIMIT_MS:-1500}

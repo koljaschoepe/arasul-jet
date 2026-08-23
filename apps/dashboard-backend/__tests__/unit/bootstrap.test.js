@@ -201,3 +201,73 @@ describe('bootstrap', () => {
     expect(adminZaehlungLief()).toBe(false);
   });
 });
+
+describe('Bootstrap wartet auf die Datenbank (23.08.2026)', () => {
+  const { migrationenMitGeduld } = require('../../src/bootstrap');
+
+  /**
+   * Postgres startet bei einer FRISCHEN Datenbank zweimal: erst ein
+   * Uebergangs-Server fuer die Init-Skripte, dann der richtige. Der
+   * Healthcheck kann in der ersten Phase gruen werden, und die Verbindung
+   * danach trotzdem abgewiesen. `depends_on: service_healthy` schuetzt nicht
+   * davor.
+   *
+   * Am 23.08.2026 auf dem Pruefstand zweimal in Folge beobachtet: der Stack
+   * kam frisch hoch, `runMigrations` bekam `ECONNREFUSED`, und damit wurde
+   * KEIN Administrator ab Werk angelegt. Auf einem Kundengeraet ist das der
+   * erste Start nach dem Werksreset.
+   *
+   * Der Unterschied ist der ganze Punkt: eine nicht erreichbare Datenbank ist
+   * kein schiefes Schema.
+   */
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.BOOTSTRAP_DB_WARTE_MS = '1';
+  });
+
+  function fehlerMit(code) {
+    const e = new Error(`connect ${code} 172.31.0.67:5432`);
+    e.code = code;
+    return e;
+  }
+
+  test('ein ECONNREFUSED wird wiederholt, bis die Datenbank da ist', async () => {
+    runMigrations
+      .mockRejectedValueOnce(fehlerMit('ECONNREFUSED'))
+      .mockRejectedValueOnce(fehlerMit('ECONNREFUSED'))
+      .mockResolvedValueOnce({ applied: 3, failed: null });
+
+    const ergebnis = await migrationenMitGeduld();
+    expect(ergebnis.applied).toBe(3);
+    expect(runMigrations).toHaveBeenCalledTimes(3);
+  });
+
+  test('auch 57P03 zaehlt als "noch nicht bereit"', async () => {
+    runMigrations
+      .mockRejectedValueOnce(fehlerMit('57P03'))
+      .mockResolvedValueOnce({ applied: 0, failed: null });
+    await expect(migrationenMitGeduld()).resolves.toMatchObject({ failed: null });
+  });
+
+  test('eine GESCHEITERTE Migration wird NICHT wiederholt', async () => {
+    // Sonst liefe ein kaputtes Schema zehnmal gegen dieselbe Wand, und der
+    // Schutz gegen ein Konto ab Werk auf unbelegtem Schema waere aufgeweicht.
+    const e = new Error('syntax error at or near "SELCT"');
+    e.code = '42601';
+    runMigrations.mockRejectedValue(e);
+    await expect(migrationenMitGeduld()).rejects.toThrow(/SELCT/);
+    expect(runMigrations).toHaveBeenCalledTimes(1);
+  });
+
+  test('nach den Versuchen gibt es auf, statt ewig zu warten', async () => {
+    process.env.BOOTSTRAP_DB_VERSUCHE = '3';
+    jest.resetModules();
+    const { migrationenMitGeduld: mitGrenze } = require('../../src/bootstrap');
+    const { runMigrations: rm } = require('../../src/migrationRunner');
+    rm.mockReset();
+    rm.mockRejectedValue(fehlerMit('ECONNREFUSED'));
+    await expect(mitGrenze()).rejects.toThrow(/ECONNREFUSED/);
+    expect(rm).toHaveBeenCalledTimes(3);
+    delete process.env.BOOTSTRAP_DB_VERSUCHE;
+  });
+});
