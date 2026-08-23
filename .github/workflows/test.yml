@@ -359,6 +359,9 @@ jobs:
       - name: Geruest-Regeln (Plan 023 H2)
         run: python3 scripts/test/geruest-regeln.py
 
+      - name: Stiller Tod (Zuweisungen, die ein Skript wortlos beenden)
+        run: python3 scripts/test/stiller-tod.py --wurzel .
+
       - name: Der Deploy-Rollback sagt die Wahrheit ueber sich
         run: bash scripts/test/rollback-meldung.sh
 

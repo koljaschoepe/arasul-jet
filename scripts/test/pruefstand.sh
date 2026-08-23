@@ -184,11 +184,16 @@ ports_frei() {
   local fehler=0 name wert wer praefix
   # Den Praefix aus derselben Datei lesen wie die Ports. Ihn hier
   # hinzuschreiben waere eine zweite Quelle fuer dieselbe Angabe.
-  praefix="$(grep -E '^CONTAINER_PREFIX=' "$UMGEBUNG" | cut -d= -f2 | tr -d ' ')"
+  praefix="$(grep -E '^CONTAINER_PREFIX=' "$UMGEBUNG" | cut -d= -f2 | tr -d ' ' || true)"
   while IFS='=' read -r name wert; do
     wert="${wert%%[!0-9]*}"
     [ -n "$wert" ] || continue
-    wer="$(docker ps --format '{{.Names}}\t{{.Ports}}' | grep -E ":${wert}->" | cut -f1 | head -1)"
+    # `|| true` ist hier Pflicht, nicht Kosmetik: findet `grep` nichts, ist der
+    # Exit-Code der Zuweisung 1, und `set -e` beendet das Skript WORTLOS. Beim
+    # ersten Lauf am 24.08.2026 kam genau das heraus — Rueckgabewert 1, keine
+    # Zeile Ausgabe, kein Hinweis worauf. Ein freier Port ist der Normalfall,
+    # also stirbt das Skript ausgerechnet dann, wenn alles in Ordnung ist.
+    wer="$(docker ps --format '{{.Names}}\t{{.Ports}}' | grep -E ":${wert}->" | cut -f1 | head -1 || true)"
     case "$wer" in
       ''|"${praefix}"*) ;;
       *) echo "  Port ${wert} (${name}) haelt bereits: ${wer}"; fehler=1 ;;
