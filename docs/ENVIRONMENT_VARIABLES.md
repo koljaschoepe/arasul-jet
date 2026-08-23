@@ -43,17 +43,17 @@ werden von `utils/resolveSecrets.js` beim Start eingelesen.
 
 ## Authentication
 
-| Variable               | Default            | Description                                         |
-| ---------------------- | ------------------ | --------------------------------------------------- |
-| ADMIN_USERNAME         | admin              | Dashboard admin username                            |
-| ADMIN_PASSWORD         | (required)         | Dashboard admin password (redacted after bootstrap) |
-| ADMIN_EMAIL            | admin@arasul.local | Bootstrap admin email                               |
-| JWT_SECRET             | (required)         | JWT signing key (32+ chars)                         |
-| JWT_EXPIRY             | 4h                 | Token expiration time                               |
-| LOGIN_LOCKOUT_ATTEMPTS | 5                  | Failed attempts before lockout                      |
-| LOGIN_LOCKOUT_MINUTES  | 15                 | Lockout duration                                    |
-| FORCE_HTTPS            | false              | HTTPS erzwingen                                     |
-| FORCE_SECURE_COOKIES   | false              | Secure-Flag für Cookies                             |
+| Variable               | Default            | Description                                                                                                                                                                                                                                                            |
+| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ADMIN_USERNAME         | admin              | Dashboard admin username                                                                                                                                                                                                                                               |
+| ADMIN_PASSWORD         | (required)         | Dashboard admin password (redacted after bootstrap)                                                                                                                                                                                                                    |
+| ADMIN_EMAIL            | admin@arasul.local | Bootstrap admin email                                                                                                                                                                                                                                                  |
+| JWT_SECRET             | (required)         | JWT signing key (32+ chars)                                                                                                                                                                                                                                            |
+| JWT_EXPIRY             | 4h                 | Lebensdauer eines Tokens (`24h`, `4h`, `30m`, oder Sekunden als Zahl). Das Sitzungs-Cookie folgt diesem Wert seit dem 23.08.2026; vorher stand dort fest 4h, und nach vier Stunden brach bei `JWT_EXPIRY=24h` still der n8n-Rahmen, weil ein iframe nur das Cookie hat |
+| LOGIN_LOCKOUT_ATTEMPTS | 5                  | Failed attempts before lockout                                                                                                                                                                                                                                         |
+| LOGIN_LOCKOUT_MINUTES  | 15                 | Lockout duration                                                                                                                                                                                                                                                       |
+| FORCE_HTTPS            | false              | HTTPS erzwingen                                                                                                                                                                                                                                                        |
+| FORCE_SECURE_COOKIES   | false              | Secure-Flag für Cookies                                                                                                                                                                                                                                                |
 
 ---
 

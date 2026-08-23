@@ -11,6 +11,9 @@ const {
   blacklistToken,
   blacklistAllUserTokens,
   getUserSessions,
+  // Das Sitzungs-Cookie muss genau so lange gelten wie der Token. Stand hier
+  // fest 4 Stunden, waehrend JWT_EXPIRY auf dem Geraet 24h sagt (23.08.2026).
+  tokenLebensdauerMs,
 } = require('../utils/jwt');
 const { verifyPassword } = require('../utils/password');
 const { changeDashboardPassword } = require('../services/auth/passwordService');
@@ -128,7 +131,7 @@ router.post(
       httpOnly: true,
       secure: isSecure,
       sameSite: isSecure ? 'strict' : 'lax',
-      maxAge: 4 * 60 * 60 * 1000, // 4 hours (matches JWT_EXPIRY)
+      maxAge: tokenLebensdauerMs(),
       path: '/',
     });
 
@@ -138,7 +141,7 @@ router.post(
       httpOnly: false, // Must be readable by frontend JS
       secure: isSecure,
       sameSite: isSecure ? 'strict' : 'lax',
-      maxAge: 4 * 60 * 60 * 1000, // 4 hours (matches session cookie)
+      maxAge: tokenLebensdauerMs(),
       path: '/',
     });
 
@@ -201,7 +204,7 @@ router.post(
       httpOnly: true,
       secure: isSecure,
       sameSite: isSecure ? 'strict' : 'lax',
-      maxAge: 4 * 60 * 60 * 1000,
+      maxAge: tokenLebensdauerMs(),
       path: '/',
     });
 
@@ -210,7 +213,7 @@ router.post(
       httpOnly: false,
       secure: isSecure,
       sameSite: isSecure ? 'strict' : 'lax',
-      maxAge: 4 * 60 * 60 * 1000,
+      maxAge: tokenLebensdauerMs(),
       path: '/',
     });
 
@@ -402,7 +405,7 @@ router.get(
       httpOnly: false, // Must be readable by frontend JS
       secure: isSecure,
       sameSite: isSecure ? 'strict' : 'lax',
-      maxAge: 4 * 60 * 60 * 1000, // 4 hours (matches session cookie)
+      maxAge: tokenLebensdauerMs(),
       path: '/',
     });
     res.json({ csrfToken, timestamp: new Date().toISOString() });
@@ -451,7 +454,7 @@ router.post(
       httpOnly: true,
       secure: isSecure,
       sameSite: isSecure ? 'strict' : 'lax',
-      maxAge: 4 * 60 * 60 * 1000,
+      maxAge: tokenLebensdauerMs(),
       path: '/',
     });
 

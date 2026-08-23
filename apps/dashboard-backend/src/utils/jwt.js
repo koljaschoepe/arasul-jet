@@ -25,6 +25,38 @@ if (!JWT_SECRET) {
 }
 
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '4h';
+
+/**
+ * Die Lebensdauer eines Tokens in Millisekunden.
+ *
+ * Gebraucht wird sie fuer das Sitzungs-Cookie, das GENAU SO LANGE gelten muss
+ * wie der Token. Bis zum 23.08.2026 stand dort an sechs Stellen fest
+ * `4 * 60 * 60 * 1000`, mit dem Kommentar "matches JWT_EXPIRY" — auf dem Orin
+ * steht `JWT_EXPIRY=24h`. Nach vier Stunden lief die Anwendung also weiter
+ * (sie schickt den Token aus dem Speicher als `Authorization`), und nur der
+ * n8n-Rahmen brach mit 401: ein iframe kann keinen Kopf setzen, es hat nur das
+ * Cookie. Der Nutzer sah eine leere Flaeche ohne Erklaerung.
+ *
+ * `jsonwebtoken` nimmt Sekunden als Zahl oder eine Zeichenkette wie `24h`.
+ * Beides wird hier gelesen; was nicht lesbar ist, faellt auf vier Stunden
+ * zurueck, den bisherigen Wert.
+ */
+function tokenLebensdauerMs(wert = JWT_EXPIRY) {
+  if (typeof wert === 'number' && Number.isFinite(wert) && wert > 0) {
+    return wert * 1000;
+  }
+  const treffer = String(wert || '')
+    .trim()
+    .match(/^(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)?$/i);
+  if (!treffer) {
+    return 4 * 60 * 60 * 1000;
+  }
+  const zahl = parseFloat(treffer[1]);
+  const einheit = (treffer[2] || 's').toLowerCase();
+  const faktor = { ms: 1, s: 1000, m: 60000, h: 3600000, d: 86400000 }[einheit];
+  const ms = Math.round(zahl * faktor);
+  return ms > 0 ? ms : 4 * 60 * 60 * 1000;
+}
 const JWT_ISSUER = 'arasul-platform';
 const JWT_AUDIENCE = 'arasul-dashboard';
 
@@ -294,6 +326,7 @@ async function cleanupExpiredAuth() {
 }
 
 module.exports = {
+  tokenLebensdauerMs,
   generateToken,
   verifyToken,
   blacklistToken,
