@@ -28,6 +28,42 @@
 # =============================================================================
 set -uo pipefail
 
+# -----------------------------------------------------------------------------
+# Sicherheitsnetz: dieses Skript zielt sonst auf das Arbeitsgeraet
+# -----------------------------------------------------------------------------
+# Am 23.08.2026 selbst hineingelaufen. Der Kopf sagt "laeuft ausschliesslich
+# gegen den Pruefstand", die Vorgabe war aber `https://localhost:8443` — und
+# das ist NUR auf dem Geraet der Pruefstand. Vom Arbeitsrechner aus zeigt
+# dieselbe Adresse durch den SSH-Tunnel auf das ECHTE Geraet.
+#
+# Der Lauf hat dort das Administrator-Passwort zu aendern versucht. Verhindert
+# hat es die Anmeldedrossel (HTTP 429), also Zufall, nicht Vorsorge. Ein Satz
+# im Kommentar ist kein Sicherheitsnetz.
+#
+# Jetzt wird der Pruefstand NACHGEWIESEN, bevor irgendetwas passiert: es muss
+# ein laufender Container `pruef-reverse-proxy` geben, der Port 443 nach 8443
+# veroeffentlicht. Kein docker, kein Container, kein Lauf.
+if ! command -v docker >/dev/null 2>&1; then
+  echo "ABBRUCH: kein docker erreichbar."
+  echo "Diese Abnahme ist zerstoerend und laeuft AUF DEM GERAET, nicht vom"
+  echo "Arbeitsrechner aus. Dort ist https://localhost:8443 der Pruefstand;"
+  echo "hier waere es durch den Tunnel das echte Geraet."
+  exit 2
+fi
+
+PRUEF_CONTAINER="${ARASUL_PRUEFSTAND_CONTAINER:-pruef-reverse-proxy}"
+PRUEF_HAFEN=$(docker port "$PRUEF_CONTAINER" 443 2>/dev/null | head -1)
+case "$PRUEF_HAFEN" in
+  *:8443) : ;;
+  *)
+    echo "ABBRUCH: kein Pruefstand gefunden."
+    echo "Erwartet: ein laufender Container '$PRUEF_CONTAINER', der 443 nach 8443"
+    echo "veroeffentlicht. Gefunden: ${PRUEF_HAFEN:-nichts}."
+    echo "Erst hochfahren:  scripts/test/pruefstand.sh hoch"
+    exit 2
+    ;;
+esac
+
 BASIS="${ARASUL_PRUEFSTAND_URL:-https://localhost:8443}"
 NUTZER="${ARASUL_BENUTZER:-admin}"
 PASS_ALT="${ARASUL_PASSWORT:-2309}"
