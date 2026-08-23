@@ -37,6 +37,34 @@ err()  { printf '\033[1;31mx %s\033[0m\n' "$*" >&2; }
 
 summary() { [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "$*" >> "$GITHUB_STEP_SUMMARY" || true; }
 
+# --- Wartungsfenster ---------------------------------------------------------
+# Waehrend `docker compose up` steht der alte Container noch da und ist
+# ungesund, weil er gerade heruntergefahren wird. Die Selbstheilung sah darin
+# einen Ausfall und startete ihn neu — mitten im Deploy, gegen den Deploy. Am
+# 23.08.2026 auf dem Orin viermal so passiert; um 15:01 lief die Kette bis zur
+# Neustart-Entscheidung durch, und dass das Geraet oben blieb, lag allein
+# daran, dass SELF_HEALING_REBOOT_ENABLED aus stand.
+#
+# Kein Schalter, sondern ein Herzschlag: die Datei wird waehrend des ganzen
+# Deploys immer wieder angefasst. Ein abgebrochener Deploy legt die
+# Selbstheilung deshalb nicht dauerhaft schlafen — nach
+# SELFHEAL_WARTUNG_MAX_MINUTEN (Vorgabe 30) greift sie wieder ein, auch wenn
+# die Datei liegen bleibt.
+#
+# Das `trap` deckt beide Ausgaenge ab, den Erfolg und den Rollback.
+# Den Ordner NICHT raten: `LOGS_PATH` ist konfigurierbar, und liefe der Deploy
+# auf einen anderen Pfad als der Agent, waere das Fenster wirkungslos, ohne
+# dass es jemand merkt. Also fragen wir Docker, wohin der Agent /arasul/logs
+# gemountet hat. Der Fallback greift nur, wenn es den Container noch nicht
+# gibt — dann heilt auch niemand.
+WARTUNG_DIR="$(docker inspect self-healing-agent \
+  --format '{{range .Mounts}}{{if eq .Destination "/arasul/logs"}}{{.Source}}{{end}}{{end}}' \
+  2>/dev/null)"
+WARTUNG="${WARTUNG_DIR:-${DEPLOY_DIR}/logs}/wartung.aktiv"
+wartung_an()  { mkdir -p "$(dirname "$WARTUNG")" 2>/dev/null; printf '%s deploy %s\n' "$(date -Iseconds)" "${NEW_SHA:0:7}" > "$WARTUNG" 2>/dev/null || true; }
+wartung_aus() { rm -f "$WARTUNG" 2>/dev/null || true; }
+trap wartung_aus EXIT
+
 # Pfad-Praefix -> compose-Servicename. Reihenfolge egal.
 declare -A PATH2SVC=(
   ["apps/dashboard-backend/"]="dashboard-backend"
@@ -259,6 +287,10 @@ rollback() {
 }
 
 # --- 5. Bauen + Hochfahren ---------------------------------------------------
+# Das Fenster faengt beim Bauen an, nicht erst beim Hochfahren: ein Build
+# lastet den Orin aus, und mehrere Dienste haben nur ein bis drei Sekunden
+# Healthcheck-Timeout. Unter Last kippt so einer, ohne dass ihm etwas fehlt.
+wartung_an
 if [ "${#SERVICES[@]}" -gt 0 ]; then
   log "Baue: ${SERVICES[*]}"
   "${COMPOSE[@]}" build "${SERVICES[@]}" || rollback
@@ -290,6 +322,7 @@ for s in "${SERVICES[@]}"; do
       unhealthy) err "$cname ist unhealthy"; rollback ;;
       missing) err "$cname existiert nicht"; rollback ;;
     esac
+    wartung_an   # Herzschlag: der Healthcheck darf laenger dauern als der Deckel
     sleep 5
   done
   [ -z "$status" ] && { err "$cname wurde nicht rechtzeitig healthy"; rollback; }

@@ -92,6 +92,17 @@ APPLICATION_SERVICES = [
 # anders heisst.
 COMPOSE_PROJECT = os.getenv('SELFHEAL_COMPOSE_PROJECT', '')
 
+# Wartungsfenster: solange diese Datei frisch ist, laeuft ein Deploy, und
+# Kategorie A haelt still. Sie liegt in `logs/`, weil das der einzige Ordner
+# ist, den der Agent und das Deploy-Skript beide sehen (Bind-Mount).
+#
+# Kein Schalter, sondern ein Herzschlag: `deploy-local.sh` fasst die Datei
+# waehrend des ganzen Deploys immer wieder an. Ein abgebrochener Deploy legt
+# die Selbstheilung deshalb nicht dauerhaft schlafen, sondern hoechstens fuer
+# WARTUNG_MAX_MINUTEN.
+WARTUNGSDATEI = os.getenv('SELFHEAL_WARTUNGSDATEI', '/arasul/logs/wartung.aktiv')
+WARTUNG_MAX_MINUTEN = int(os.getenv('SELFHEAL_WARTUNG_MAX_MINUTEN', '30'))
+
 # External heartbeat / Dead Man's Switch
 # If set, POST to this URL every HEARTBEAT_INTERVAL_CYCLES cycles
 # External monitoring service alerts operator if heartbeat stops
