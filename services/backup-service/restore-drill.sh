@@ -355,7 +355,7 @@ kunden_uebersprungen=()
 # Einmal lesen, nicht je Tabelle: der Abzug ist verschluesselt und einige
 # zehn Megabyte gross.
 im_abzug=$(sicherung_lesen "$BACKUP_FILE" | zcat 2>/dev/null \
-    | grep -oE '^CREATE TABLE [a-z_]+\.[a-z_]+ ' | awk '{print $3}' | sort -u)
+    | grep -oE '^CREATE TABLE [a-z0-9_]+\.[a-z0-9_]+ ' | awk '{print $3}' | sort -u)
 for tbl in "${KUNDENTABELLEN[@]}"; do
     if ! printf '%s\n' "$im_abzug" | grep -qx "$tbl"; then
         log "----: $tbl steht nicht im Abzug, nicht geprueft"
