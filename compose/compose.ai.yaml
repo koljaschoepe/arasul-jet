@@ -70,6 +70,29 @@ services:
       LLM_KEEP_ALIVE_SECONDS: ${LLM_KEEP_ALIVE_SECONDS:-3600}
       OLLAMA_STARTUP_TIMEOUT: ${OLLAMA_STARTUP_TIMEOUT:-120}
       OLLAMA_FLASH_ATTENTION: '1'
+      # Kein Weg nach ollama.com. Am 24.08.2026 um 00:21 hat der
+      # Ausgang-Lauscher eine Minute offene Verbindung zu 34.36.133.15
+      # protokolliert, und `getent ahostsv4 ollama.com` liefert genau diese
+      # Adresse. Derselbe Befund schon am 23.08. um 17:01. Gate G4 sagt
+      # "Daten bleiben auf dem Geraet"; eine Verbindung, die niemand
+      # angefordert hat, steht dem entgegen.
+      #
+      # Das Geraet braucht keine Cloud-Funktion von Ollama: die Websuche der
+      # Agenten laeuft ueber `searxng`, im Repo kommt `web_search` nicht vor.
+      #
+      # Modelle ueber `hf.co/` bleiben moeglich. Nachgemessen am 24.08.2026 mit
+      # zwei Wegwerf-Containern, einmal mit und einmal ohne den Schalter,
+      # gleicher Pull-Versuch:
+      #
+      #   Error: pull model manifest: realm host "huggingface.co" does not
+      #          match original host "hf.co"
+      #
+      # Beide Male dieselbe Meldung, beide Male wurde huggingface.co erreicht.
+      # Der Schalter zieht diesen Weg also nicht zu.
+      #
+      # Ob er die ollama.com-Verbindung wirklich verhindert, sagt erst der
+      # Lauscher: `scripts/test/ausgang-lauscher.sh stand llm-service`.
+      OLLAMA_NO_CLOUD: '${OLLAMA_NO_CLOUD:-1}'
       # q8_0 statt q4_0 (Harness v2, 2026-07-30): halbiert den KV-Speicher
       # gegenüber f16 bei praktisch verlustfreier Qualität; q4_0 sparte mehr,
       # kostete aber messbar Antwortqualität — auf einem 64-GB-Orin ist der
