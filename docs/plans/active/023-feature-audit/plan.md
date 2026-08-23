@@ -4911,11 +4911,27 @@ Zweimal gemessen, derselbe Vorgang:
 | 00:05, ohne Nachlauf | 00:05:12 bis 00:05:33        | **2** (n8n, n8n-runners)    |
 | 00:32, mit Nachlauf  | 00:32:54 bis 00:33:05 + 60 s | **0**                       |
 
-Die Ursache dahinter ist NICHT geklaert: n8n wird beim Hochfahren des zweiten
-Stacks kurz ungesund, und zwar nicht durch Zeitueberschreitung. Der
-Healthcheck brauchte 34 Millisekunden von 2000 erlaubten und meldete trotzdem
-einen Fehler, fuenf Sekunden vor dem Neustart. Der Nachlauf faengt die Folge
-ab, nicht den Grund.
+Die Ursache dahinter ist eingegrenzt, aber nicht geklaert. n8n wird kurz
+ungesund, und zwar nicht durch Zeitueberschreitung: der Healthcheck brauchte
+34 Millisekunden von 2000 erlaubten und meldete trotzdem einen Fehler, fuenf
+Sekunden vor dem Neustart. Vier Versuche mit demselben Befehl:
+
+| Versuch | Was lief                                                       | Fehler am Healthendpoint |
+| ------- | -------------------------------------------------------------- | ------------------------ |
+| 23:41   | Pruefstand, Images wurden gebaut                               | ja                       |
+| 00:05   | Pruefstand, Images wurden gebaut                               | ja                       |
+| 00:32   | Pruefstand, Images aus dem Cache                               | nein                     |
+| 00:39   | Pruefstand, Images aus dem Cache, dazu ein Beobachter alle 2 s | nein                     |
+
+Es liegt also am **Bauen**, nicht am Hochfahren. Das passt zu der Vermutung,
+dass eine gesaettigte CPU den Container kurz nicht zum Zug kommen laesst — und
+es erklaert, warum die Timeout-Messung nichts fand: die Antwortzeit steigt
+nicht, die Verbindung kommt gar nicht erst zustande.
+
+Belegen liesse sich das mit einem Bau ohne Cache, der eine halbe Stunde
+Volllast erzeugt. Das ist es nicht wert, solange der Nachlauf die Folge
+abfaengt. Wer die Frage doch schliessen will, findet in
+`logs/n8n-healthz.log` den Beobachter dafuer beschrieben.
 
 **Was das fuer den G7-Zaehler heisst.** Der Dauerlauf-Bericht misst nicht nur
 Laufzeit, sondern auch, ob seit dem letzten Neustart eine Selbstheilung
