@@ -77,6 +77,21 @@ APPLICATION_SERVICES = [
     'dashboard-frontend'
 ]
 
+# Nur die Container DIESES Compose-Projekts ueberwachen (23.08.2026).
+#
+# `containers.list(all=True)` liefert jeden Container des Hosts. Auf dem Orin
+# waren das auch der Pruefstand (ein zweiter Stack fuer Abnahmen) und die
+# Sandbox-Container der Terminals. Ergebnis in sieben Tagen: 311 CRITICAL-
+# Ereignisse zu `pruef-llm-service`, einem Dienst, den es im Produkt gar nicht
+# gibt, und der absichtlich nicht laeuft. Das ist genau die Art Rauschen, die
+# Gate G7 unbelegbar macht: wer 800 Eintraege durchsehen muss, sieht den einen
+# echten nicht.
+#
+# Leer lassen heisst: der Agent liest das Projekt aus seinem EIGENEN Container.
+# Das ist die richtige Vorgabe, weil sie auch dann stimmt, wenn das Projekt
+# anders heisst.
+COMPOSE_PROJECT = os.getenv('SELFHEAL_COMPOSE_PROJECT', '')
+
 # External heartbeat / Dead Man's Switch
 # If set, POST to this URL every HEARTBEAT_INTERVAL_CYCLES cycles
 # External monitoring service alerts operator if heartbeat stops
