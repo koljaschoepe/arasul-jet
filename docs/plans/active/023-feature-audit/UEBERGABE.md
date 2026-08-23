@@ -20,6 +20,12 @@ braucht, holt sie aus der Live-Quelle: die Befehle stehen jeweils daneben.
 | Nächtlicher Lauf (`scripts/util/nightly-run.sh`)  | launchd auf dem Mac, 02:30                        | Chat-Ende                                       |
 | Nächtlicher Wiederherstellungs-Drill              | `backup-service` auf dem Gerät                    | alles                                           |
 
+**Stand der Nacht auf den 24.08.2026, 01:00:** dreizehn PRs (#610 bis #622),
+alle gemergt, `main` grün, keine PR offen. Alle dreizehn Abnahmen grün (201
+Prüfpunkte), 192 Endpunkte ohne Serverfehler. Der G7-Zähler läuft neu ab dem
+23.08. 17:01, also ist **G7 frühestens am 30.08.2026 erfüllbar** — Einzelheiten
+im Plan.
+
 **Was NICHT weiterläuft:** der `/loop`-Wecker und alle Hintergrundbefehle
 dieser Sitzung. Sie sterben mit dem Chat. Das ist kein Verlust — alles, was
 zählt, steht in Dateien.
@@ -141,6 +147,8 @@ gesucht wurde und wo nicht.
 | Neustart-Kette    | ein einziger hängender Dienst reichte für einen Geräteneustart; siehe unten                                    |
 | Wartungsfenster   | die Selbstheilung startete Dienste **mitten im Deploy** neu, gegen den Deploy                                  |
 | Prüfstand         | die Selbstheilung des Produktstacks heilte in den Prüfstand hinein (311 Ereignisse in sieben Tagen)            |
+| Stiller Tod       | 23 Zuweisungen beendeten ihr Skript wortlos, sobald `grep` nichts fand; alle behoben, Wächter hält es sauber   |
+| Aufgabenzahl      | drei Stellen im Repo nannten drei verschiedene Zahlen (61, 64, gezählt 66)                                     |
 
 **Die Neustart-Kette ist der schwerste Befund des Tages.** Der Orin läuft seit
 dem 19.08. durch, und das klang nach dem Nachweis für G7. Es war ein Zufall:
