@@ -271,28 +271,50 @@ describe('projekt://-Praefix in einem Werkzeug-Pfad (Plan 023 I4, 23.08.2026)', 
    *
    *   Abnahme Musterbau GmbH/projekt:/aktiv/Abnahme Musterbau GmbH/angebot.md
    */
-  test('nimmt den Kopf ab und laesst den Rest relativ', () => {
+  test('nimmt den Kopf ab, der Rest ist projekt-absolut', () => {
     expect(ohneProjektPraefix('projekt://aktiv/Kunde/angebot.md')).toBe('Kunde/angebot.md');
     expect(ohneProjektPraefix('projekt://abc-123/Kunde/x.md')).toBe('Kunde/x.md');
   });
 
-  test('der Ordner selbst ist das Arbeitsverzeichnis', () => {
+  test('der Ordner selbst ist der Projektordner', () => {
     expect(ohneProjektPraefix('projekt://aktiv')).toBe('.');
     expect(ohneProjektPraefix('projekt://aktiv/')).toBe('.');
   });
 
-  test('laesst alles andere unangetastet', () => {
-    expect(ohneProjektPraefix('angebot.md')).toBe('angebot.md');
-    expect(ohneProjektPraefix('./unter/x.md')).toBe('./unter/x.md');
-    expect(ohneProjektPraefix('')).toBe('');
+  test('ohne Praefix meldet die Funktion null, statt zu raten', () => {
+    expect(ohneProjektPraefix('angebot.md')).toBe(null);
+    expect(ohneProjektPraefix('./unter/x.md')).toBe(null);
+    expect(ohneProjektPraefix('')).toBe(null);
     expect(ohneProjektPraefix(null)).toBe(null);
   });
 
-  test('ein Pfad mit Praefix landet im Arbeitsverzeichnis, nicht in einem Ordner "projekt:"', () => {
+  test('ein Pfad mit Praefix landet nicht in einem Ordner "projekt:"', () => {
     const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'praefix-'));
     const ziel = aufloesen([wurzel], 'projekt://aktiv/angebot.md');
     expect(ziel).toBe(pathMod.join(wurzel, 'angebot.md'));
     expect(ziel).not.toMatch(/projekt:/);
+  });
+
+  /**
+   * Der eigentliche Fall vom 23.08.2026: der Flow arbeitet IM Kundenordner und
+   * schreibt nach `projekt://aktiv/<Kunde>/angebot.md`. Als relativer Pfad
+   * gelesen ergaebe das den Kundenordner ein zweites Mal.
+   */
+  test('projekt-absolut zaehlt gegen den Projektordner, nicht gegen das Arbeitsverzeichnis', () => {
+    const projekt = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'projekt-'));
+    const kunde = pathMod.join(projekt, 'Musterbau GmbH');
+    fsSync.mkdirSync(kunde, { recursive: true });
+
+    // Wurzeln wie im echten Lauf: Arbeitsverzeichnis zuerst, Projektordner danach.
+    const ziel = aufloesen([kunde, projekt], 'projekt://aktiv/Musterbau GmbH/angebot.md');
+    expect(ziel).toBe(pathMod.join(kunde, 'angebot.md'));
+    expect(ziel).not.toBe(pathMod.join(kunde, 'Musterbau GmbH', 'angebot.md'));
+  });
+
+  test('ohne Projektordner unter den Wurzeln bleibt das Arbeitsverzeichnis', () => {
+    const kunde = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'nurkunde-'));
+    const ziel = aufloesen([kunde], 'projekt://aktiv/angebot.md');
+    expect(ziel).toBe(pathMod.join(kunde, 'angebot.md'));
   });
 
   test('der Ausbruchschutz bleibt', () => {

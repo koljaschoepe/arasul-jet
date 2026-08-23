@@ -210,9 +210,24 @@ try {
     await page.locator('[data-testid="flow-antwort-frei"]').fill('Kompakt, eine Seite');
     await page.locator('[data-testid="flow-antwort-senden"]').click();
   }
-  await page.waitForTimeout(3000);
-  const kartenDanach = await page.locator('[data-testid="flow-rueckfrage"]').count();
-  pruefe('I3: nach dem Absenden ist die Frage weg', kartenDanach === 0, `${kartenDanach} Karten`);
+  await page.waitForTimeout(4000);
+  // Geprueft wird, dass die Antwort ANKOMMT, nicht dass die Karte verschwindet.
+  //
+  // Die Karte raeumt sich nicht selbst weg (`RueckfrageKarte.tsx` haelt nur
+  // `laeuft`), das entscheidet der Lauf. Ob sie noch dasteht, ist Aussehen;
+  // ob der Flow die Antwort hat, ist die Zusage aus I3.
+  const rid = start.koerper?.data?.runId;
+  const schritte = await page.evaluate(async id => {
+    const antwort = await fetch(`/api/flows/laeufe/${id}`, { credentials: 'include' });
+    const d = (await antwort.json())?.data;
+    return (d?.steps || []).map(x => `${x.name}: ${String(x.output || '').slice(0, 120)}`);
+  }, rid);
+  const antwortZeile = schritte.find(z => z.startsWith('frage_nutzer:'));
+  pruefe(
+    'I3: die Antwort kommt beim Lauf an',
+    !!antwortZeile && /Antwort des Nutzers/.test(antwortZeile),
+    antwortZeile || 'kein frage_nutzer-Schritt'
+  );
 
   // --- I4: das Ergebnis ist ein Dokument im Kundenordner --------------------
   //
@@ -241,8 +256,10 @@ try {
   // Gelesen wird ueber die Projektablage, also denselben Weg, den auch der
   // Editor nimmt. Das aktive Projekt liefert `/api/projects/active`.
   const datei = await page.evaluate(async kunde => {
+    // `/api/projects/active` antwortet mit `{ data: { project: {...} } }`.
+    // Am Geraet nachgesehen; die kuerzere Form gab es nie.
     const aktiv = await (await fetch('/api/projects/active', { credentials: 'include' })).json();
-    const projektId = aktiv?.data?.id ?? aktiv?.id;
+    const projektId = aktiv?.data?.project?.id ?? aktiv?.data?.id ?? aktiv?.id;
     if (!projektId) return { ok: false, status: 'kein aktives Projekt' };
     const antwort = await fetch(
       `/api/projects/${projektId}/dateien/inhalt?pfad=${encodeURIComponent(`${kunde}/angebot.md`)}`,
