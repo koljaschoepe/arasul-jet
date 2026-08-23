@@ -239,12 +239,24 @@ def main() -> int:
             if code == '503' and anzeige in ERWARTET_503:
                 gruen += 1
                 return
+            # `000` heisst: curl bekam gar keine Antwort. Das ist nicht dasselbe
+            # wie ein Serverfehler, und es hat oft eine harmlose Ursache — ein
+            # Deploy, der den Container gerade neu startet. Am 23.08.2026 stand
+            # so zweimal ROT im Bericht, und beide Endpunkte antworteten
+            # einzeln nachgemessen in 0,1 Sekunden.
+            #
+            # Einmal nachfassen, mit Pause. Bleibt es dabei, ist es ein Befund;
+            # sonst war es der Neustart. Eine Messung, die einen Neustart als
+            # Ausfall meldet, macht sich selbst unglaubwuerdig.
+            if code == '000':
+                time.sleep(5)
+                code, rumpf = hole(pfad, kekse)
             if code and code[0] == '5':
                 rot.append((anzeige, code, rumpf))
                 print(f'ROT   {code}  {anzeige}')
             elif code == '000':
-                rot.append((anzeige, 'keine Antwort', ''))
-                print(f'ROT   ---  {anzeige}  (keine Antwort im Zeitlimit)')
+                rot.append((anzeige, 'keine Antwort', 'auch beim zweiten Versuch nicht'))
+                print(f'ROT   ---  {anzeige}  (zweimal keine Antwort im Zeitlimit)')
             else:
                 gruen += 1
 
