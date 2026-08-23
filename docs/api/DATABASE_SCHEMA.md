@@ -2955,6 +2955,38 @@ schreiben kann.
 
 ---
 
+## `extension_zeitplaene`
+
+> Plan 023 H1: „läuft nachts einmal von selbst". Was läuft, ist ein Flow — Arasuls eigene, prüfbare Ausführungsebene, nicht beliebiger Code der Erweiterung. Kein Cron-Ausdruck, nur `HH:MM` in Gerätezeit.
+
+| Column           | Type                     | Nullable | Default       |
+| ---------------- | ------------------------ | -------- | ------------- |
+| `id`             | bigint                   | ⛔       | `nextval(…)`  |
+| `extension_id`   | text                     | ⛔       |               |
+| `flow`           | text                     | ⛔       |               |
+| `uhrzeit`        | text                     | ⛔       |               |
+| `args`           | jsonb                    | ⛔       | `'{}'::jsonb` |
+| `aktiv`          | boolean                  | ⛔       | `true`        |
+| `zuletzt_am`     | timestamp with time zone | ✅       |               |
+| `zuletzt_lauf`   | bigint                   | ✅       |               |
+| `letzter_fehler` | text                     | ✅       |               |
+| `erstellt_von`   | bigint                   | ✅       |               |
+
+**Primary key:** `id` · **Unique:** (`extension_id`, `flow`, `uhrzeit`) · **Index:** `idx_extension_zeitplaene_aktiv`
+
+`erstellt_von` kam am 23.08.2026 dazu (Migration 158) und ist der Grund, warum
+das Ganze überhaupt läuft. Vorher startete `taktLauf` den Flow mit
+`userId: null`, und `flow_runs.user_id` ist NOT NULL. Auf dem Orin gemessen:
+der Zeitplan feuerte pünktlich, der Lauf starb sofort mit
+`null value in column "user_id" … violates not-null constraint`. Steht die
+Spalte leer (Zeile von vorher), fällt der Dienst auf den ältesten Administrator
+zurück, statt still nie wieder zu laufen.
+
+`zuletzt_am` wird VOR dem Start gesetzt, nicht danach: sonst startete ein Flow,
+der eine Minute läuft, im nächsten Takt ein zweites Mal.
+
+---
+
 ## `externe_modell_anbieter`
 
 > Plan 023 D9: je Anbieter ein verschlüsselter Cloud-Schlüssel. Geräteweit, nicht je Nutzer (Entscheidung E1: ein Zugang je Gerät). Modellnamen stehen NICHT hier, sie kommen zur Laufzeit vom Anbieter. Jede Anfrage an ein externes Modell steht in `api_audit_logs` mit `action_type = 'externes_modell'`.

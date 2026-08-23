@@ -105,7 +105,7 @@ async function liste(extensionId, deps = {}) {
 }
 
 /** Einen Zeitplan anlegen oder seine Argumente überschreiben. */
-async function anlegen(extensionId, { flow, uhrzeit, args }, deps = {}) {
+async function anlegen(extensionId, { flow, uhrzeit, args, userId }, deps = {}) {
   const d = deps.db || db;
   const name = String(flow || '').trim();
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(name)) {
@@ -121,13 +121,16 @@ async function anlegen(extensionId, { flow, uhrzeit, args }, deps = {}) {
     throw new ForbiddenError(`Höchstens ${MAX_ZEITPLAENE} Zeitpläne je Erweiterung`);
   }
 
+  // `erstellt_von` ist der Nutzer, unter dem der naechtliche Lauf startet.
+  // Ohne ihn scheitert er an `flow_runs.user_id NOT NULL` — siehe Migration 158.
   const { rows } = await d.query(
-    `INSERT INTO public.extension_zeitplaene (extension_id, flow, uhrzeit, args)
-     VALUES ($1, $2, $3, $4::jsonb)
+    `INSERT INTO public.extension_zeitplaene (extension_id, flow, uhrzeit, args, erstellt_von)
+     VALUES ($1, $2, $3, $4::jsonb, $5)
      ON CONFLICT (extension_id, flow, uhrzeit)
-       DO UPDATE SET args = EXCLUDED.args, aktiv = TRUE
+       DO UPDATE SET args = EXCLUDED.args, aktiv = TRUE,
+                     erstellt_von = COALESCE(EXCLUDED.erstellt_von, public.extension_zeitplaene.erstellt_von)
      RETURNING id, flow, uhrzeit, args, aktiv`,
-    [extensionId, name, zeit, JSON.stringify(args || {})]
+    [extensionId, name, zeit, JSON.stringify(args || {}), userId ?? null]
   );
   logger.info(`Zeitplan gesetzt: ${extensionId} -> ${name} um ${zeit}`);
   return rows[0];
@@ -161,7 +164,7 @@ async function taktLauf(deps = {}) {
   const starte = deps.flowStarten || (async o => require('./brueckeService').flowStarten(o));
 
   const { rows } = await d.query(
-    `SELECT z.id, z.extension_id, z.flow, z.uhrzeit, z.args, z.zuletzt_am
+    `SELECT z.id, z.extension_id, z.flow, z.uhrzeit, z.args, z.zuletzt_am, z.erstellt_von
      FROM public.extension_zeitplaene z
      JOIN arasul.extensions e ON e.id = z.extension_id
      WHERE z.aktiv = TRUE AND e.enabled = TRUE`
@@ -177,7 +180,8 @@ async function taktLauf(deps = {}) {
       plan.id,
     ]);
     try {
-      const lauf = await starte({ name: plan.flow, args: plan.args || {}, userId: null });
+      const userId = plan.erstellt_von ?? (await rueckfallNutzer(d));
+      const lauf = await starte({ name: plan.flow, args: plan.args || {}, userId });
       await d.query(
         'UPDATE public.extension_zeitplaene SET zuletzt_lauf = $2, letzter_fehler = NULL WHERE id = $1',
         [plan.id, lauf?.runId ?? null]
@@ -193,6 +197,24 @@ async function taktLauf(deps = {}) {
     }
   }
   return gestartet;
+}
+
+/**
+ * Wer laeuft, wenn in der Zeile kein Nutzer steht?
+ *
+ * Zeilen aus der Zeit vor Migration 158 haben keinen. Ohne Rueckfall liefen
+ * sie nie wieder, und zwar still. Der aelteste Administrator ist die
+ * naheliegende Wahl: nach Entscheidung E1 teilen sich ohnehin alle Nutzer
+ * einen Zugang.
+ */
+async function rueckfallNutzer(d) {
+  const { rows } = await d.query(
+    "SELECT id FROM public.admin_users WHERE role = 'admin' ORDER BY id LIMIT 1"
+  );
+  if (!rows[0]) {
+    throw new Error('Kein Administrator vorhanden. Ein Zeitplan ohne Nutzer kann nicht starten');
+  }
+  return rows[0].id;
 }
 
 /** Den Takt starten. Idempotent. */

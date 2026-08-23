@@ -499,7 +499,12 @@ router.post(
   verlangeFaehigkeit('zeitplan'),
   validateBody(BrueckeZeitplanBody),
   asyncHandler(async (req, res) => {
-    const data = await brueckeService.zeitplan(req.params.id, req.body);
+    // Der Nutzer aus dem Bruecken-Token wandert mit: unter ihm startet der
+    // naechtliche Lauf spaeter (Migration 158).
+    const data = await brueckeService.zeitplan(req.params.id, {
+      ...req.body,
+      userId: req.brueckeExt.userId,
+    });
     res.json({ ...data, timestamp: new Date().toISOString() });
   })
 );
