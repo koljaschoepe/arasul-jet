@@ -29,6 +29,31 @@ const ANSICHTEN = ['Dateien', 'Modelle', 'Erweiterungen', 'Flows', 'Automation',
 const BREITEN = [1024, 1280, 1600];
 
 /**
+ * Ansichten, die KEINEN Knopf in der Seitenleiste haben und deshalb bisher in
+ * keiner Messung vorkamen. Sie werden ueber ihre Adresse angesteuert, so wie
+ * ein Tab sie oeffnet (`tabToPath` in `stores/workspaceStore.ts`).
+ *
+ * Am 23.08.2026 nachgesehen: alle sechs zeichnen etwas, auch die leeren tragen
+ * einen Text statt einer weissen Flaeche ("Noch keine Kunden. Lege im Chat mit
+ * /neuer-kunde den ersten Kunden an"). Gemessen wird bei EINER Breite, nicht
+ * bei dreien: es geht um "gibt es diese Ansicht ueberhaupt und bricht sie",
+ * nicht um das Raster, das die sechs Hauptansichten schon abdecken.
+ */
+const PFAD_ANSICHTEN = [
+  ['Kundenuebersicht', '/workspace/kunden'],
+  ['Projekte', '/workspace/projekte'],
+  ['Projektuebersicht', '/workspace/projekt'],
+  ['Flow-Editor', '/workspace/flow'],
+  ['Modelle ueber die Adresse', '/workspace/modelle'],
+  ['Automationen ueber die Adresse', '/workspace/automationen'],
+];
+
+// Der Automationen-Tab ist ein iframe. Sein Inhalt liegt in einem eigenen
+// Dokument, der Wirt hat deshalb null Zeichen Text. Das ist kein leerer Tab,
+// das ist die Bauweise.
+const OHNE_EIGENEN_TEXT = new Set(['Automationen ueber die Adresse']);
+
+/**
  * Bekannte, benannte Ausnahmen. Jede braucht einen Grund, sonst waere die
  * Abnahme nur noch eine Liste von Ausreden.
  *
@@ -68,6 +93,23 @@ seite.on('console', m => {
 });
 seite.on('pageerror', e => fehlerFenster.push(`pageerror: ${String(e.message).slice(0, 160)}`));
 
+// Die Konsole sagt bei einer fehlgeschlagenen Anfrage nur "Failed to load
+// resource: 503" und verschweigt, WELCHE. Damit ist ein rotes Feld nicht
+// nachvollziehbar. Deshalb wird die Adresse hier mitgeschrieben und beim
+// Melden angehaengt (23.08.2026: zwei rote Punkte, und beide nannten nur den
+// Code).
+let antworten = [];
+seite.on('response', r => {
+  if (r.status() >= 500) {
+    antworten.push(`${r.status()} ${r.url().replace(URL, '')}`);
+  }
+});
+
+/** Was in diesem Fenster serverseitig schieflief, als Text fuer die Meldung. */
+function serverfehler() {
+  return [...new Set(antworten)].slice(0, 3).join(' | ');
+}
+
 try {
   await seite.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const an = await anmeldenFallsNoetig(seite, ctx, { url: URL, benutzer: BENUTZER, passwort: PASSWORT });
@@ -90,6 +132,7 @@ try {
         continue;
       }
       fehlerFenster = [];
+      antworten = [];
       await knopf.click();
       await seite.waitForTimeout(2500);
 
@@ -116,12 +159,50 @@ try {
         `${breite} px, „${name}" ohne unerklaerte Konsolenfehler`,
         unerwartet.length === 0,
         unerwartet.length
-          ? unerwartet.slice(0, 2).join(' | ')
+          ? `${unerwartet.slice(0, 2).join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
           : erklaert
             ? `${erklaert} bekannte: ${bekannt[0].grund}`
             : 'keine'
       );
     }
+  }
+  // --- Die Ansichten ohne Knopf in der Leiste -------------------------------
+  await seite.setViewportSize({ width: 1440, height: 1000 });
+  for (const [name, pfad] of PFAD_ANSICHTEN) {
+    fehlerFenster = [];
+    antworten = [];
+    await seite.goto(`${URL}${pfad}`, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+    await seite.waitForTimeout(4000);
+
+    const mass = await seite.evaluate(() => ({
+      rollt: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      text: (document.querySelector('main')?.innerText || document.body.innerText || '')
+        .replace(/\s+/g, ' ')
+        .trim().length,
+    }));
+
+    pruefe(
+      `„${name}" rollt nicht waagerecht`,
+      !mass.rollt,
+      `${mass.scrollWidth} gegen ${mass.clientWidth}`
+    );
+    if (OHNE_EIGENEN_TEXT.has(name)) {
+      pruefe(`„${name}" ist erreichbar`, true, 'iframe, Text liegt im eigenen Dokument');
+    } else {
+      pruefe(`„${name}" zeichnet etwas`, mass.text > 40, `${mass.text} Zeichen`);
+    }
+    const unerwartet = fehlerFenster.filter(
+      t => !BEKANNTE_MELDUNGEN.some(b => b.muster.test(t))
+    );
+    pruefe(
+      `„${name}" ohne unerklaerte Konsolenfehler`,
+      unerwartet.length === 0,
+      unerwartet.length
+        ? `${unerwartet.slice(0, 2).join(' | ')}${serverfehler() ? `  [${serverfehler()}]` : ''}`
+        : 'keine'
+    );
   }
 } catch (err) {
   if (err.message !== 'abbruch') {
