@@ -84,6 +84,12 @@ review checklist, etc.) live under `.claude/context/`.
 
 ## Woran gerade gearbeitet wird
 
+**Wer neu einsteigt, liest zuerst
+[`docs/plans/active/023-feature-audit/UEBERGABE.md`](docs/plans/active/023-feature-audit/UEBERGABE.md).**
+Eine Seite: was gerade auf dem Gerät weiterläuft (auch ohne Sitzung), was bei
+Kolja als Entscheidung liegt, was blockiert ist, und wie man den Stand selbst
+herleitet statt ihn zu erinnern.
+
 **Der laufende Plan ist [`docs/plans/active/023-feature-audit/plan.md`](docs/plans/active/023-feature-audit/plan.md).**
 Stand: 22.08.2026. Quelle für jede Zahl unten ist der Plan selbst, nicht diese
 Seite.
