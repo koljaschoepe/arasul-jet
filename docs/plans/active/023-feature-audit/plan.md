@@ -22,7 +22,7 @@
 | H, Erweiterungen                      | **laeuft**, H1 H4 H5 live abgenommen, H5 am 23.08.2026  | #490, #492 bis #499. H1: alle vier Faehigkeiten da, eine gab es schon, eine halb. H2: ein Befehl legt das Geruest an, ein Waechter haelt Werkstatt und Backend zusammen. H3: ein Werkzeug entscheidet, was dasselbe Paket ist. H4 sieben von sieben im n8n-Dokument gemessen. H5 gebaut, dazu ein Punkt, der im Plan nicht stand. H1 live abgenommen 22.08.2026, und die Abnahme fand drei Fehler: zwei Faehigkeiten gaben IMMER HTTP 500 (Schemata nie exportiert), und z.record mit einem Argument brach jedes gefuellte Objekt Am 23.08.2026 aus einer echten App nachgemessen (#548, #549): der Weg IN den Rahmen war viermal verstellt, die drei neuen Faehigkeiten standen nicht in der Client-Datei, und der naechtliche Lauf starb an einer NOT-NULL-Spalte. Danach fuenf von fuenf, Modellantwort in der App und Zeitplan-Lauf unter Nutzer 1                                                                                                                                                        |
 | I, Flows                              | **fertig bis auf I1** 23.08.2026, live abgenommen       | #500. I1 war groesstenteils schon gebaut, I2 zur Haelfte: die autonome Betriebsart ist das Annahmen-Protokoll und traf die Abnahme woertlich. Gebaut wurde die zweite Art samt Rueckfrage mit vier Optionen und Freitextfeld. I2 bis I4 live abgenommen 23.08.2026, elf von elf: der Flow haelt nach 125 s an, fragt auf Deutsch, und das Angebot liegt danach im Kundenordner. Die Abnahme fand dabei VIER Fehler, ohne die sie nicht haette laufen koennen (#529, #533, #534, #535). I5 erledigt: alle Fluesse gemessen, die beiden gescheiterten laufen nach den Fixes durch (erweiterung 221 s, handbuch-bau 3750 s mit 81 099 Bytes statt 373). Offen bleibt allein I1, die Fuenf-Minuten-Messung mit einem Erstnutzer. Fuenf liefen auf Anhieb, die drei anderen legten je einen Fehler frei: eine Rolle erbte das Rundenbudget je Delegation (#524), die kanonische Werkstatt bekam ihre ANLEITUNG nie (#530), und ein Zeitlimit von 120 s je Flow-Aufruf wurde als leeres Ergebnis verschluckt (#531) |
 | J, Einstellungen                      | **fertig** 23.08.2026, live abgenommen                  | #501, #503, #504. J4: der Plan nennt einen Fehler, es waren drei, darunter einer, der Art. 17 auf einem Kundengeraet unmoeglich machte. J1: nach dem MinIO-Passwortwechsel scheiterte jeder Dateizugriff. J5 war zur Haelfte schon da. J2 acht von acht im Browser. J3 live abgenommen 22.08.2026. J1 und J4 live abgenommen 23.08.2026 auf dem Pruefstand, und die Abnahme fand VIER Fehler, die jedes Geraet betrafen: der Passwortwechsel endete immer mit HTTP 500 (#537), ein frisches Geraet bekam keinen Administrator (#538), und die Loeschung nach Art. 17 scheiterte in zwei weiteren Schichten (#539, #540)                                                                                                                                                                                                                                                                                                                                                                                       |
-| K, Dokumentation                      | **laeuft**                                              | #506 bis #508. K1: ein Waechter meldet Endpunkte ohne Beschreibung, 373 im Code, Luecke von 77 auf 35. K2 zur Haelfte: die Planzustaende stehen hier, die Roadmap liegt im Steuer-Repo. K3: README, CLAUDE.md und ARCHITECTURE zeigten zwei Dienste, die nicht laufen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| K, Dokumentation                      | **fertig bis auf K2** 23.08.2026                        | #506 bis #508, #569, #571. K1 erfuellt: die Luecke ging von 77 ueber 35 auf NULL, und das Schliessen legte fuenf Endpunkte frei, die auf jedem Geraet HTTP 500 gaben oder ihre Daten verschwiegen — alle fuenf von gruenen Unit-Tests gedeckt. Neu `scripts/test/endpunkte-live.py`, naechtlich. K2 zur Haelfte: die Planzustaende stehen hier, die Roadmap liegt im Steuer-Repo. K3: README, CLAUDE.md und ARCHITECTURE zeigten zwei Dienste, die nicht laufen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 Die Abnahme des Werksresets läuft auf dem zweiten Stack, nicht am Arbeitsgerät:
 `scripts/test/pruefstand.sh hoch`, dann `scripts/test/werksreset-abnahme.sh`.
@@ -4693,6 +4693,73 @@ heute.
 G7 ist das einzige, das nur Zeit braucht. Der Zähler läuft seit dem Neustart
 am 19.08. um 17:29; jeder weitere Neustart des Geräts setzt ihn zurück. Ein
 Deploy zählt nicht mit, er tauscht nur Container.
+
+## K1 ist erfüllt, und das Erfüllen hat fünf Fehler freigelegt (23.08.2026)
+
+Die Schuldenliste `scripts/test/endpunkte-luecke.txt` steht bei **null**. Am
+22.08. waren es 35, und die Begründung damals lautete: das sind Betriebs- und
+Wartungswege, nicht die Abnahme. Das stimmte und war die bequemere Hälfte der
+Wahrheit — ein Partner, der ein Gerät überwacht, braucht genau diese
+Endpunkte.
+
+Beim Lesen der Quelldateien fiel der erste Fehler auf, ein Sweep über alle
+GET-Endpunkte fand die übrigen. **Alle fünf antworteten auf jedem Gerät mit
+HTTP 500 oder verschwiegen ihre Daten, und alle fünf waren von grünen
+Unit-Tests gedeckt** — weil dort `db.query` nachgebildet ist und eine
+erfundene Spalte brav mitliefert.
+
+| Endpunkt                            | was los war                                                               | Folge                                    |
+| ----------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------- |
+| `GET /api/self-healing/metrics`     | Spalte `resolved_at` gibt es in `service_failures` nicht                  | 500, ausgerechnet der G7-Nachweis        |
+| `GET /api/audit/logs`               | Spalten `username` und `request_method` gibt es in `api_audit_logs` nicht | 500, das Prüfprotokoll aus G5            |
+| `GET /api/llm/queue/metrics`        | `AVG(...)::INTEGER FILTER (...)` ist ein Syntaxfehler                     | 500                                      |
+| `GET /api/system/diagnostics/quick` | `detected_at` statt `timestamp`, von einem stillen catch geschluckt       | zeigte `database: {}` und sah gesund aus |
+| `GET /api/apps/:id/n8n-credentials` | `throw new Error` für eine ganz normale Auskunft                          | 500 statt 400 mit Grund                  |
+
+Die Uptime in Prozent, die `/api/self-healing/metrics` versprach, ist mit
+diesem Schema nicht zu rechnen: `service_failures` kennt den Zeitpunkt der
+Störung, nicht den der Behebung. Statt eine Zahl zu erfinden, die niemand
+prüfen kann, liefert der Endpunkt jetzt `failures_by_service`.
+
+**Neu: `scripts/test/endpunkte-live.py`.** Sie ruft alle GET-Endpunkte auf
+einem laufenden Gerät auf, holt sich echte Ids aus den Listen-Endpunkten und
+ist rot bei jedem 5xx. Ein 4xx ist grün: eine fehlende Pflichtangabe ist eine
+Antwort, kein Absturz. Was sie nicht messen kann, steht am Ende **mit Grund**
+statt als stilles Grün. Stand nach den Fixes, live gegen den Orin: 190 von
+195 gemessen, keiner rot. Sie läuft nächtlich (`scripts/util/nightly-run.sh`)
+und ausdrücklich nicht in der CI — sie braucht ein Gerät mit echter Datenbank,
+und genau daran sind die fünf Fehler jahrelang vorbeigekommen.
+
+## Der Wachhund wollte das Gerät neu starten, wegen eines Deploys (23.08.2026)
+
+Zwei Funde aus dem Ereignisprotokoll des Orin, beide treffen G7.
+
+**Ein Deploy schickte das Gerät fast in den Neustart.** Um 09:27 UTC wurde n8n
+während eines Deploys ungesund. Der Agent startete es neu, der Docker-Aufruf
+riss ab, und die Nachschau sah nach 15 Sekunden **einmal** nach. Da war der
+Container noch nicht wieder da, denn Compose baute gerade das Abbild.
+
+```
+09:27:31 n8n         service_restart          WARNING   n8n unhealthy, performing restart
+09:27:57 n8n-runners service_recovery_failed  CRITICAL  ('Connection aborted.', RemoteDisconnected(...))
+09:32:37 n8n         service_escalation       CRITICAL  n8n failed 6 times, escalating to hard recovery
+09:32:59 (System)    system_reboot            EMERGENCY System reboot triggered: 3 events in 30min
+```
+
+Die Nachschau sieht jetzt bis zu zwei Minuten lang alle fünf Sekunden nach,
+gedeckelt durch ein Budget von 150 Sekunden je Runde. Das Budget ist kein
+Beiwerk: die Heilungsrunde ist einfädig, und während sie wartet, läuft weder
+die Temperatur- noch die GPU- noch die Plattenprüfung. Ohne Deckel hätten drei
+Dienste den Wachhund sieben Minuten blind gemacht.
+
+**Der Neustart-Eintrag war eine Behauptung, keine Beobachtung.** `system_reboot`
+wurde vor jeder Prüfung geschrieben, mit `success=True`, Wortlaut „Saving state
+and initiating reboot". Das Gerät lief danach vier Tage ununterbrochen weiter:
+`SELF_HEALING_REBOOT_ENABLED` ist ab Werk aus, es gab nie einen Neustart. Der
+Satz stand in genau dem Protokoll, aus dem `dauerlauf-bericht.sh` den Nachweis
+für G7 liest. Jetzt sagt jeder Ausgang, was wirklich passiert ist:
+`system_reboot_abgebrochen`, `system_reboot_unterdrueckt`, `system_reboot` erst
+beim echten Absetzen, `system_reboot_gescheitert`.
 
 ## G7 hat seit dem 23.08.2026 einen Bericht (#555)
 
