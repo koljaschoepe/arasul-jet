@@ -4606,6 +4606,37 @@ Partnergespräch fertig sein, weil die AVV-Vorlage mitgeht.
 | G6, Sicherung                    | S1 bis S8, B5, J3                        |
 | G7, sieben Tage unbeaufsichtigt  | B3, E2, G4                               |
 
+## G7 hat seit dem 23.08.2026 einen Bericht (#555)
+
+G7 fragt nicht „läuft es gerade", sondern „lief es sieben Tage, ohne dass
+jemand eingreifen musste". Das ist eine Zeitreihe, und sie entsteht nur, wenn
+rechtzeitig gemessen wird. `scripts/test/dauerlauf-bericht.sh` liest sie aus
+dem laufenden Gerät: Neustarts (Dockers `RestartCount`, ein Deploy zählt also
+nicht mit), Selbstheilungen, Sicherungen und Lücken in der Messreihe.
+
+Der erste Lauf über sieben Tage war rot, und zwei der drei Gründe waren
+Buchhaltung, nicht Instabilität:
+
+| Befund                                   | was dahinter steckte                                                                                                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 802 Selbstheilungen, 91 „fehlgeschlagen" | 311 galten `pruef-llm-service`, also dem Prüfstand. `containers.list(all=True)` liefert jeden Container des Hosts, auch fremde Stacks und die Sandbox-Terminals der Nutzer |
+| 74 der 91 Fehlschläge                    | Beobachtungen ohne Eingriff („consider restart if trend continues"), die als gescheiterte Heilung gebucht wurden                                                           |
+| Lücke von 1031 s in der Messreihe        | steht noch offen, siehe unten                                                                                                                                              |
+| kein Dienst startete von selbst neu      | das ist die gute Antwort, und sie gilt                                                                                                                                     |
+
+Nach dem Fix überwacht der Agent nur sein eigenes Compose-Projekt, gelesen aus
+seinem eigenen Container. Live nachgesehen: „Selbstheilung ueberwacht das
+Compose-Projekt: arasul-platform", und seit dem Neustart ein Ereignis statt
+hunderter.
+
+**Offen bleibt die Lücke von 1031 Sekunden** in `metrics_cpu`. Über 17 Minuten
+ohne Messwert heißt: entweder war das Gerät weg oder der Sammler. Beides zählt
+gegen G7, und welches von beidem es war, ist noch nicht gemessen.
+
+**Der Prüfstand lief mit.** Seit 02:32 desselben Tages, ein Überbleibsel der
+Passwort-Abnahme. Er ist weg. Wer ihn hochfährt, nimmt ihn danach wieder
+herunter, sonst misst die nächste Messung ihn mit.
+
 # Ablauf
 
 Die Phasen laufen in der Reihenfolge A, S, B bis K. Phase S steht außerhalb der Buchstabenfolge, weil sie erst am 19.08.2026 aus einem Befund der Phase A entstanden ist. Innerhalb einer Phase kann die
