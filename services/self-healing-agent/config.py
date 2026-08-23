@@ -103,6 +103,20 @@ COMPOSE_PROJECT = os.getenv('SELFHEAL_COMPOSE_PROJECT', '')
 WARTUNGSDATEI = os.getenv('SELFHEAL_WARTUNGSDATEI', '/arasul/logs/wartung.aktiv')
 WARTUNG_MAX_MINUTEN = int(os.getenv('SELFHEAL_WARTUNG_MAX_MINUTEN', '30'))
 
+# Nachlauf: nach dem Ende der Wartung bleibt Kategorie A noch so lange
+# ausgesetzt. Ohne das war der Schutz um Sekunden zu kurz. Am 24.08.2026 auf
+# dem Orin gemessen:
+#
+#   00:05:12  Wartungsfenster aktiv (pruefstand-build)
+#   00:05:33  Wartungsfenster beendet
+#   00:05:43  n8n unhealthy, performing restart
+#
+# Das Fenster schliesst, sobald `compose up` zurueckkommt. Die Dienste sind
+# dann aber noch ungesund und brauchen erst einen erfolgreichen Healthcheck,
+# um wieder als gesund zu gelten — bei n8n alle 15 Sekunden. Sechzig Sekunden
+# decken vier solche Zyklen ab.
+WARTUNG_NACHLAUF_SEKUNDEN = int(os.getenv('SELFHEAL_WARTUNG_NACHLAUF_SEKUNDEN', '60'))
+
 # External heartbeat / Dead Man's Switch
 # If set, POST to this URL every HEARTBEAT_INTERVAL_CYCLES cycles
 # External monitoring service alerts operator if heartbeat stops
