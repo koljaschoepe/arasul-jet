@@ -134,6 +134,40 @@ describe('ExplorerPanel (Ein-Ordner-Modell: EIN Baum aus /projects/:id/dateien)'
       </Providers>
     );
 
+  /**
+   * Gate G2 verlangt Rueckmeldung bei JEDER Aktion, und zwar plattformweit
+   * dieselbe. Am 23.08.2026 gemessen: derselbe Explorer meldete sich beim
+   * Kopieren eines Pfades, beim Hochladen, beim Anheften, beim Eingrenzen und
+   * beim VERSCHIEBEN — aber nicht beim Anlegen, Umbenennen oder Loeschen.
+   *
+   * Verschieben ist der Beweis, dass "man sieht es ja im Baum" nicht der Grund
+   * war: es wirkt genauso sichtbar wie Loeschen und meldete sich trotzdem.
+   */
+  it('meldet sich beim Anlegen eines Ordners', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('docs')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText('Neuer Ordner'));
+    const feld = await screen.findByLabelText('Name');
+    fireEvent.change(feld, { target: { value: 'neuer-ordner' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Anlegen' }));
+
+    await waitFor(() => expect(screen.getByText(/„neuer-ordner“ angelegt/)).toBeInTheDocument());
+  });
+
+  it('meldet sich beim Loeschen', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('docs')).toBeInTheDocument());
+
+    fireEvent.contextMenu(row('docs'));
+    const loeschen = await screen.findByText(/^Löschen$/);
+    fireEvent.click(loeschen);
+    const bestaetigen = await screen.findByRole('button', { name: /^Löschen$/ });
+    fireEvent.click(bestaetigen);
+
+    await waitFor(() => expect(screen.getByText(/„docs“ gelöscht/)).toBeInTheDocument());
+  });
+
   it('rendert EINEN Baum mit Index-Status als Text, ohne Punkte und ohne „Projektablage“-Bereich', async () => {
     renderPanel();
     await waitFor(() => expect(screen.getByText('docs')).toBeInTheDocument());
