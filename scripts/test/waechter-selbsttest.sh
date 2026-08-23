@@ -118,6 +118,24 @@ wf_pfad_kommt_von_docker() {
 }
 pruefe "Wartungsfenster: ohne Agent greift der Fallback" 0 wf_pfad_kommt_von_docker
 
+wf_abbruch_raeumt_auf() {
+  # Der gefaehrlichste der drei Faelle: ein Lauf bricht mittendrin ab. Am
+  # 23.08.2026 um 23:41 blieb die Datei so liegen, weil `pruefstand.sh` keinen
+  # `trap` hatte — die Selbstheilung haette eine halbe Stunde geschwiegen.
+  local datei
+  (
+    source "$WURZEL/scripts/lib/wartungsfenster.sh"
+    WARTUNG_FALLBACK_DIR="$WF/abbruch"
+    WARTUNG_AGENT="gibt-es-nicht-$$"
+    trap wartung_aus EXIT
+    wartung_an
+    exit 7          # irgendetwas geht schief
+  )
+  datei="$WF/abbruch/wartung.aktiv"
+  [ ! -f "$datei" ]
+}
+pruefe "Wartungsfenster: ein Abbruch laesst nichts liegen" 0 wf_abbruch_raeumt_auf
+
 # --- bausteine.py -----------------------------------------------------------
 BAU="$TMP/bau/apps/dashboard-frontend/src/features/beispiel"
 mkdir -p "$BAU"

@@ -206,11 +206,32 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
 
         self._wartung_abgelaufen_gemeldet = False
         if not self._wartung_gemeldet:
+            # Den Grund aus der Datei nennen und nicht "Deploy" behaupten. Am
+            # 23.08.2026 um 23:40 stand im Protokoll "Wartungsfenster aktiv
+            # (Deploy laeuft)", waehrend in der Datei "pruefstand-build" stand.
+            # Eine Zeile, die etwas Falsches behauptet, ist beim naechsten
+            # Nachsehen schlimmer als gar keine: sie schickt den Suchenden in
+            # die falsche Richtung, und der Deploy-Verlauf haette den Grund
+            # nicht hergegeben.
             logger.info(
-                "Wartungsfenster aktiv (Deploy laeuft) — Kategorie A ausgesetzt"
+                f"Wartungsfenster aktiv ({self._wartungsgrund()}) — Kategorie A ausgesetzt"
             )
             self._wartung_gemeldet = True
         return True
+
+    def _wartungsgrund(self) -> str:
+        """Die zweite Spalte der Wartungsdatei, oder eine ehrliche Auskunft.
+
+        Format der Datei: `<Zeitstempel> <Grund>`, geschrieben von
+        `scripts/lib/wartungsfenster.sh`. Faellt das Lesen aus, wird das
+        gesagt und nicht geraten.
+        """
+        try:
+            with open(WARTUNGSDATEI, encoding='utf-8') as datei:
+                teile = datei.readline().split(None, 1)
+        except OSError:
+            return 'Grund nicht lesbar'
+        return teile[1].strip() if len(teile) > 1 else 'ohne Grund'
 
     def check_service_health(self) -> Dict[str, Dict]:
         """Check health of all services"""

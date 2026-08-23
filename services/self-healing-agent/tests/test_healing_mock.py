@@ -352,6 +352,29 @@ class TestSelfHealingEngine(unittest.TestCase):
             with patch('healing_engine.WARTUNGSDATEI', datei.name):
                 self.assertTrue(self.engine.wartung_laeuft())
 
+    def test_der_grund_kommt_aus_der_datei(self):
+        """Die Protokollzeile nennt, WAS laeuft.
+
+        Am 23.08.2026 um 23:40 stand dort "Wartungsfenster aktiv (Deploy
+        laeuft)", waehrend in der Datei "pruefstand-build" stand. Wer spaeter
+        sucht, warum die Selbstheilung geschwiegen hat, sucht dann im
+        Deploy-Verlauf und findet nichts.
+        """
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.aktiv', mode='w', delete=False) as datei:
+            datei.write('2026-08-23T23:40:01+02:00 pruefstand-build\n')
+            name = datei.name
+        try:
+            with patch('healing_engine.WARTUNGSDATEI', name):
+                self.assertEqual(self.engine._wartungsgrund(), 'pruefstand-build')
+        finally:
+            os.unlink(name)
+
+    def test_ohne_lesbaren_grund_wird_nicht_geraten(self):
+        """Lieber "nicht lesbar" als eine erfundene Auskunft."""
+        with patch('healing_engine.WARTUNGSDATEI', '/gibt/es/nicht/wartung.aktiv'):
+            self.assertEqual(self.engine._wartungsgrund(), 'Grund nicht lesbar')
+
     def test_vergessene_wartungsdatei_laeuft_ab(self):
         """Ein abgebrochener Deploy darf die Selbstheilung nicht einschlaefern.
 
