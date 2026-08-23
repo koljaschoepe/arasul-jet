@@ -262,11 +262,44 @@ const RAG_DEFAULT_LIMIT = 5;
 const RAG_MAX_LIMIT = 15;
 const RAG_SNIPPET_CHARS = 600;
 
-async function ragSuche({ frage, anzahl }) {
+/** Textlayer-Grenze wie beim Flow-Werkzeug: genug fuer ein langes Dokument. */
+const RAG_DATEI_MAX_ZEICHEN = 60000;
+
+async function ragSuche({ frage, anzahl, dateiname }) {
   const ragCore = require('../rag/ragCore');
   const query = String(frage || '').trim();
   if (!query) {
     throw new ValidationError('"frage" darf nicht leer sein');
+  }
+
+  // Der Weg, der auf diesem Geraet WIRKLICH funktioniert (23.08.2026).
+  //
+  // Plan 021 Schritt 8 hat das Vektor-RAG durch agentisches ersetzt. Das
+  // Flow-Werkzeug `rag_suche` zieht daraus seit jeher die Folge: eine benannte
+  // Datei wird aus dem Textlayer in Postgres gelesen, und der Vektor-Zweig
+  // liegt hinter `RAG_VEKTOR_SUCHE`. Die Bruecke rief dagegen unbedingt
+  // `hybridSearch` und lief damit immer in Qdrant, das nicht laeuft — die
+  // Faehigkeit `rag` war fuer jede Erweiterung tot.
+  //
+  // Auf dem Orin liegen 2171 Dokumente mit 37 487 Abschnitten im Textlayer.
+  // Sie sind da; es fehlte nur der Weg dorthin.
+  const name = String(dateiname || '').trim();
+  if (name) {
+    const { ladeDokumentText } = require('../flows/documentText');
+    const doc = await ladeDokumentText({ filename: name, maxZeichen: RAG_DATEI_MAX_ZEICHEN });
+    if (!doc.gefunden) {
+      throw new NotFoundError(
+        `Die Datei "${name}" ist im Wissensraum nicht zu finden oder noch nicht indexiert.`
+      );
+    }
+    return [
+      {
+        quelle: name,
+        text: doc.text,
+        gekuerzt: Boolean(doc.gekuerzt),
+        score: null,
+      },
+    ];
   }
   let limit = Number.parseInt(anzahl, 10);
   if (!Number.isFinite(limit) || limit < 1) {
@@ -286,10 +319,10 @@ async function ragSuche({ frage, anzahl }) {
   } catch (err) {
     if (/qdrant|EAI_AGAIN|ECONNREFUSED|Vector search/i.test(String(err.message))) {
       throw new ServiceUnavailableError(
-        'Die Vektorsuche laeuft auf diesem Geraet nicht. Sie liegt im ' +
-          'Compose-Profil "classic-rag" und wird nur auf Zuruf gestartet ' +
-          '(docker compose --profile classic-rag up -d qdrant embedding-service). ' +
-          'Ohne sie hat die Faehigkeit "rag" keine Datenquelle.'
+        'Ohne "dateiname" braucht diese Faehigkeit die Vektorsuche, und die ' +
+          'laeuft auf diesem Geraet nicht (Compose-Profil "classic-rag", Plan ' +
+          '021 Schritt 8). Gib den Namen einer hochgeladenen Datei an, dann ' +
+          'kommt ihr indexierter Text zurueck, auch aus PDF oder DOCX.'
       );
     }
     throw err;

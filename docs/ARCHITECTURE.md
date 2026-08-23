@@ -189,18 +189,19 @@ Critical dependency chain (enforced via Docker Compose `depends_on` with `condit
 ### Tier 3: AI Services Layer
 
 - **llm-service** (11434) - Depends on: postgres-db. Requires GPU (NVIDIA runtime)
-- **embedding-service** (11435) - Depends on: postgres-db. Requires GPU (NVIDIA runtime)
-- **qdrant** (6333) - Vector database
+- **embedding-service** (11435) - Profil `classic-rag`, laeuft NICHT von selbst
+- **qdrant** (6333) - Vector database, Profil `classic-rag`, laeuft NICHT von selbst
 
 ### Tier 4: Application Services Layer
 
-- **dashboard-backend** (3001) - Depends on: postgres-db, minio, metrics-collector, llm-service, embedding-service
+- **dashboard-backend** (3001) - Depends on: postgres-db, minio, metrics-collector, llm-service
+  (embedding-service nur mit Profil `classic-rag`)
 - **dashboard-frontend** (3000) - No dependencies (static files served by Nginx)
 - **document-indexer** (9102) - RAG pipeline
 
 ### Tier 5: Workflow & Routing
 
-- **n8n** (5678) - Depends on: postgres-db, llm-service, embedding-service, minio
+- **n8n** (5678) - Depends on: postgres-db, llm-service, minio
 - **reverse-proxy** (80/443) - Starts after all application services are healthy
 
 ### Tier 6: Auxiliary Services

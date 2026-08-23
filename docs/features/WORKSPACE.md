@@ -48,7 +48,11 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   Projekts. Jeder Unterordner wird automatisch als Wissensraum
   (`knowledge_spaces.rel_pfad`) gespiegelt, jede indexierbare Datei (`.pdf
 .docx .md .txt .html .csv …`, ≤ 50 MB) automatisch als Dokument in die
-  Index-Pipeline gegeben (`documents.rel_pfad`, MinIO → Indexer → Qdrant).
+  Index-Pipeline gegeben (`documents.rel_pfad`, MinIO → Indexer → Abschnitte in
+  `document_chunks` + BM25-Index des Indexers). **Die Vektor-Stufe läuft
+  nicht:** Qdrant und der embedding-service liegen seit Plan 021, Schritt 8 im
+  Compose-Profil `classic-rag` und starten nur auf Zuruf. Am 23.08.2026 auf dem
+  Orin nachgesehen: 2171 Dokumente, 37 487 Abschnitte, kein Qdrant.
   „In den Wissensraum übernehmen" gibt es nicht mehr. Der Abgleich läuft in
   `services/projects/ordnerSyncService.js` (Takt `ORDNER_SYNC_INTERVAL_MS`
   = 20 s, plus Sofort-Trigger nach Datei-Operationen, Chat-Agent- und
@@ -79,7 +83,7 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
   **Ordnerstruktur des Projekts steht immer im Kontext**; komplexe Aufträge
   beginnen mit einem **Plan-Schritt** (auf dem Qualitätsmodell
   `AGENT_QUALITAETS_MODELL`, mit live gestreamtem **Gedankengang**), dann
-  arbeitet das Modell mit **Wissensraum-Suche** (`rag_suche`),
+  arbeitet das Modell mit **Datei-Suche** (grep und Symbolsuche),
   **Datei-Werkzeugen** (lesen/schreiben/**bearbeiten** per Suchen-Ersetzen/
   **anhängen** für Langdokumente/suchen), **Web**, **Terminal**
   (projektbeschränkt im Sandbox-Container) und **Subagenten** der

@@ -160,10 +160,27 @@ try {
     { timeout: 30000 }
   );
 
+  // Einen Dateinamen holen, der auf DIESEM Geraet wirklich indexiert ist.
+  // Ein fest verdrahteter Name war nach dem naechsten Aufraeumen weg, und die
+  // Abnahme meldete dann das Geraet als kaputt (23.08.2026).
+  const indexiert = await seite.evaluate(async () => {
+    const r = await fetch('/api/documents?limit=20', { credentials: 'include' });
+    if (!r.ok) {
+      return null;
+    }
+    const j = await r.json();
+    const liste = j.data?.documents || j.documents || j.data || [];
+    const treffer = (Array.isArray(liste) ? liste : []).find(
+      (d) => (d.status || '') === 'indexed' && d.filename
+    );
+    return treffer ? treffer.filename : null;
+  });
+  merke(Boolean(indexiert), indexiert ? `indexierte Datei fuer den rag-Test: ${indexiert}` : 'keine indexierte Datei gefunden');
+
   const jetzt = new Date(Date.now() + 70000);
   const hhmm = `${String(jetzt.getHours()).padStart(2, '0')}:${String(jetzt.getMinutes()).padStart(2, '0')}`;
 
-  const e = await rahmen.evaluate(async ({ ziel, uhrzeit }) => {
+  const e = await rahmen.evaluate(async ({ ziel, uhrzeit, datei }) => {
     const raus = {};
     const nimm = async (name, fn) => {
       try {
@@ -175,6 +192,9 @@ try {
     raus.faehigkeiten = ArasulBruecke.faehigkeiten();
     await nimm('llm', () => ArasulBruecke.llm('Antworte mit genau einem Wort: Hauptstadt von Frankreich?'));
     await nimm('rag', () => ArasulBruecke.rag('Wartungsvertrag', { anzahl: 2 }));
+    if (datei) {
+      await nimm('rag_datei', () => ArasulBruecke.rag('Worum geht es?', { dateiname: datei }));
+    }
     await nimm('dateien_schreiben', () => ArasulBruecke.dateien.schreiben('probe.txt', 'hallo'));
     await nimm('dateien_lesen', () => ArasulBruecke.dateien.lesen('probe.txt'));
     await nimm('dateien_liste', () => ArasulBruecke.dateien.liste('.'));
@@ -190,7 +210,7 @@ try {
     await nimm('zeitplan_anlegen', () => ArasulBruecke.zeitplan.anlegen('dokument-zusammenfassen', uhrzeit, { datei: 'gibt-es-nicht.md' }));
     await nimm('zeitplan_liste', () => ArasulBruecke.zeitplan.liste());
     return raus;
-  }, { ziel: ZIEL, uhrzeit: hhmm });
+  }, { ziel: ZIEL, uhrzeit: hhmm, datei: indexiert });
 
   merke(e.faehigkeiten.length === 7, `sieben Faehigkeiten freigegeben (${e.faehigkeiten.join(', ')})`);
   merke(e.llm.ok && /paris/i.test(e.llm.wert || ''), `llm: „${String(e.llm.wert || e.llm.fehler).trim().slice(0, 60)}"`);
@@ -199,15 +219,27 @@ try {
   // eine Entscheidung, kein Defekt — die Abnahme darf deswegen nicht dauerhaft
   // rot stehen. Rot ist sie erst, wenn `rag` aus einem ANDEREN Grund scheitert
   // oder die Meldung nicht mehr erklaert, was zu tun ist.
-  const ragAus = !e.rag.ok && /Vektorsuche laeuft auf diesem Geraet nicht/i.test(e.rag.fehler || '');
+  const ragAus = !e.rag.ok && /dateiname/i.test(e.rag.fehler || '');
   merke(
     e.rag.ok || ragAus,
     e.rag.ok
       ? `rag: ${(e.rag.wert || []).length} Treffer`
       : ragAus
-        ? 'rag: Vektorsuche ist auf diesem Geraet aus (Profil classic-rag), und die Meldung sagt das'
+        ? 'rag ohne Dateiname: Vektorsuche ist aus, und die Meldung nennt den Weg'
         : `rag: ${e.rag.fehler}`
   );
+  // Der Weg, der auf diesem Geraet wirklich traegt: eine benannte Datei aus dem
+  // Textlayer. Ohne diese Zeile pruefte die Abnahme nur, dass die Faehigkeit
+  // ordentlich scheitert.
+  if (indexiert) {
+    const text = String(e.rag_datei?.wert?.[0]?.text || '');
+    merke(
+      Boolean(e.rag_datei?.ok) && text.length > 0,
+      e.rag_datei?.ok
+        ? `rag mit Dateiname: ${text.replace(/\s+/g, ' ').slice(0, 70)}`
+        : `rag mit Dateiname: ${e.rag_datei?.fehler}`
+    );
+  }
   merke(
     e.dateien_schreiben.ok && e.dateien_lesen.ok && e.dateien_lesen.wert?.inhalt === 'hallo',
     'dateien: geschrieben und unveraendert zurueckgelesen'

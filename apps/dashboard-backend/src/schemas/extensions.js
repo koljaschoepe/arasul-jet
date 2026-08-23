@@ -70,6 +70,9 @@ const BrueckeRagBody = z
   .object({
     frage: z.string().trim().min(1).max(2000),
     anzahl: z.coerce.number().int().min(1).max(15).default(5),
+    // Wie beim Flow-Werkzeug `rag_suche`: eine BESTIMMTE Datei wird gezielt
+    // gelesen, statt projektweit zu suchen (23.08.2026).
+    dateiname: z.string().trim().max(400).optional(),
   })
   .strict();
 
