@@ -321,8 +321,8 @@ detect_hardware() {
 
     # Default-Modell aus Profil extrahieren
     if [ -f "$detect_script" ]; then
-        DEFAULT_LLM_MODEL=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^LLM_MODEL=" | cut -d= -f2)
-        RECOMMENDED_MODELS_STR=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^RECOMMENDED_MODELS=" | cut -d= -f2 | tr -d '"')
+        DEFAULT_LLM_MODEL=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^LLM_MODEL=" | cut -d= -f2 || true)
+        RECOMMENDED_MODELS_STR=$(get_config_for_profile "$DEVICE_PROFILE" 2>/dev/null | grep "^RECOMMENDED_MODELS=" | cut -d= -f2 | tr -d '"' || true)
     fi
     DEFAULT_LLM_MODEL="${DEFAULT_LLM_MODEL:-gemma4:e4b-q4}"
     RECOMMENDED_MODELS_STR="${RECOMMENDED_MODELS_STR:-gemma4:e4b-q4,mistral:7b}"
@@ -540,7 +540,7 @@ main() {
     if [ -f "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" ]; then
         _prev_n8n_key=$(cat "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" 2>/dev/null)
     elif [ -f "${PROJECT_ROOT}/.env" ]; then
-        _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "${PROJECT_ROOT}/.env" 2>/dev/null | cut -d'=' -f2-)
+        _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "${PROJECT_ROOT}/.env" 2>/dev/null | cut -d'=' -f2- || true)
     fi
     N8N_ENCRYPTION_KEY=${_prev_n8n_key:-$(generate_secret 32)}
 

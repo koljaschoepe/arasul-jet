@@ -224,7 +224,10 @@ else
   if [ -f "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" ]; then
     _prev_n8n_key=$(cat "${PROJECT_ROOT}/config/secrets/n8n_encryption_key" 2>/dev/null)
   elif [ -f "$ENV_FILE" ]; then
-    _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "$ENV_FILE" 2>/dev/null | cut -d'=' -f2-)
+    # `|| true`: fehlt die Zeile in der .env, ist grep's Rueckgabewert 1, und
+    # mit `pipefail` plus `set -e` stirbt das Skript hier. Die Zeile darunter
+    # faengt den Leerfall laengst ab — sie kam nur nie dran.
+    _prev_n8n_key=$(grep '^N8N_ENCRYPTION_KEY=' "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- || true)
   fi
   N8N_ENCRYPTION_KEY=${_prev_n8n_key:-$(generate_secret 32)}
   N8N_BASIC_AUTH_PASSWORD=$(generate_password 16)
@@ -419,7 +422,10 @@ MIDDLEWARES_FILE="${PROJECT_ROOT}/config/traefik/dynamic/middlewares.yml"
 if [ -f "$MIDDLEWARES_FILE" ] && grep -q "PLACEHOLDER" "$MIDDLEWARES_FILE" 2>/dev/null; then
   # Use ADMIN_PASSWORD from .env if available (new install), else generate fresh
   if [ -z "${ADMIN_PASSWORD:-}" ] && [ -f "$ENV_FILE" ]; then
-    ADMIN_PASSWORD=$(grep "^ADMIN_PASSWORD=" "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
+    # Ohne `|| true` konnte "else generate fresh" aus dem Kommentar darueber
+    # nie passieren: fehlt ADMIN_PASSWORD in der .env, war das Skript vorher
+    # tot — im Einrichtungspfad eines frischen Geraets.
+    ADMIN_PASSWORD=$(grep "^ADMIN_PASSWORD=" "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'" || true)
   fi
 
   # Auto-generate password if none is set
@@ -531,7 +537,7 @@ if [ "$SKIP_MODEL" = true ]; then
 else
   # Load .env to get model name
   if [ -f "$ENV_FILE" ]; then
-    LLM_MODEL=$(grep "^LLM_MODEL=" "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
+    LLM_MODEL=$(grep "^LLM_MODEL=" "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'" || true)
   fi
   LLM_MODEL=${LLM_MODEL:-"gemma4:e4b-q4"}
 
