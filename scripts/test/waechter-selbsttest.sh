@@ -188,6 +188,51 @@ BEISPIEL
 pruefe "Stiller Tod: ls ohne Netz ist rot" 1 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
 rm -r "$TMP/st"
 
+# --- routenregeln.py --------------------------------------------------------
+RR="$TMP/rr/apps/dashboard-backend/src/routes"
+mkdir -p "$RR"
+cat > "$RR/sauber.js" <<'BEISPIEL'
+router.get('/heartbeat', (req, res) => { res.json({ ok: true }); });
+router.post(
+  '/hochladen',
+  upload.single('file'),
+  asyncHandler(async (req, res) => {
+    throw new ValidationError('kein Feld');
+  })
+);
+BEISPIEL
+pruefe "Routenregeln: sauberer Code ist gruen" 0 python3 "$WURZEL/scripts/test/routenregeln.py" --wurzel "$TMP/rr"
+
+cat > "$RR/wirft.js" <<'BEISPIEL'
+router.get(
+  '/liste',
+  asyncHandler(async (req, res) => {
+    throw new Error('kaputt');
+  })
+);
+BEISPIEL
+pruefe "Routenregeln: throw new Error ist rot" 1 python3 "$WURZEL/scripts/test/routenregeln.py" --wurzel "$TMP/rr"
+rm "$RR/wirft.js"
+
+cat > "$RR/nackt.js" <<'BEISPIEL'
+router.get('/liste', async (req, res) => {
+  const daten = await service.holen();
+  res.json(daten);
+});
+BEISPIEL
+pruefe "Routenregeln: async ohne asyncHandler ist rot" 1 python3 "$WURZEL/scripts/test/routenregeln.py" --wurzel "$TMP/rr"
+rm "$RR/nackt.js"
+
+# Ein synchroner Handler braucht keinen asyncHandler. Wuerde die Pruefung ihn
+# melden, waeren sieben echte Routen im Repo rot, und sie wuerde abgeschaltet.
+cat > "$RR/synchron.js" <<'BEISPIEL'
+router.get('/_meta', (req, res) => {
+  res.json({ name: 'x' });
+});
+BEISPIEL
+pruefe "Routenregeln: synchroner Handler ist gruen" 0 python3 "$WURZEL/scripts/test/routenregeln.py" --wurzel "$TMP/rr"
+rm -r "$TMP/rr"
+
 # --- bausteine.py -----------------------------------------------------------
 BAU="$TMP/bau/apps/dashboard-frontend/src/features/beispiel"
 mkdir -p "$BAU"
