@@ -39,6 +39,18 @@ HOST="${ARASUL_SSH:-jetson}"
 # erlaubt sind. Kommagetrennt, als IP oder als Name. Der Fernzugriff braucht
 # hier nichts: sein Bereich (100.64/10) zaehlt ohnehin als drinnen.
 ERLAUBT="${ARASUL_ERLAUBTE_ZIELE:-}"
+
+# Container, deren Weg nach draussen die FUNKTION ist und nicht ihr Gegenteil.
+# Bewusst als Liste von Containern und nicht von Zielen: eine Metasuche fragt
+# je Anfrage andere Suchmaschinen, eine Aufzaehlung waere am naechsten Tag
+# unvollstaendig. Am 23.08.2026 gemessen: `searxng` sprach in einem Lauf mit
+# fuenf verschiedenen Adressen, darunter `text-lb.esams.wikimedia.org`.
+#
+# Das macht das Gate nicht weicher, es macht es ehrlich: die Websuche IST eine
+# Verbindung nach draussen, und der Nutzer schaltet sie ein. Was dabei
+# hinausgeht, ist die Suchanfrage — die Frage danach gehoert in die
+# Datenschutz-Unterlagen, nicht in diese Messung.
+NACH_AUSSEN_ERLAUBT="${ARASUL_ERLAUBTE_CONTAINER:-searxng}"
 # Die Proben BLEIBEN nach dem Lauf liegen, wenn etwas nach draussen ging.
 # Am 23.08.2026 stand am Ende `llm-service 34.36.133.15|31|31`, und die Datei
 # war schon geloescht — die Frage "wann genau und auf welchem Port" liess sich
@@ -67,6 +79,21 @@ fi
 # --- Der Beobachter auf dem Geraet -------------------------------------------
 # Laeuft, bis die Stopp-Datei da ist. `nsenter` sieht in den Netz-Namensraum
 # jedes Containers; ohne das saehe man nur den Host und nicht die Container.
+#
+# `state connected` und nicht `state established`. Der Unterschied ist kein
+# Detail: am 23.08.2026 hielt `embedding-service` eine Verbindung zu
+# `huggingface.co` im Zustand CLOSE-WAIT, und die Messung sah sie NICHT. Sie
+# meldete "keine einzige" nach draussen, waehrend das Kabel noch dranhing.
+#
+#   CLOSE-WAIT 25 0  172.30.0.74:45468  3.160.39.100:443
+#
+# Ein halb geschlossener Anschluss ist der Beweis, dass gesprochen WURDE, und
+# ein TIME-WAIT genauso. Fuer ein Gate, das "Daten bleiben auf dem Geraet"
+# heisst, zaehlt beides.
+#
+# Mit dem Zustandsfilter `connected` traegt `ss` eine Spalte mehr: der
+# Gegenueber steht in $5 statt in $4. Dieselbe Falle wie am 22.08.2026 bei den
+# awk-Feldnummern, deshalb steht sie hier.
 lauscher() {
   ssh "$HOST" "rm -f $PROBEN_DATEI $STOP_DATEI
     while [ ! -f $STOP_DATEI ]; do
@@ -74,8 +101,8 @@ lauscher() {
         pid=\$(docker inspect \$c --format '{{.State.Pid}}' 2>/dev/null)
         [ -z \"\\\$pid\" ] && continue
         [ \"\\\$pid\" = 0 ] && continue
-        sudo -n nsenter -t \$pid -n ss -tn state established 2>/dev/null |
-          tail -n +2 | awk -v c=\$c '{print c, \$4}'
+        sudo -n nsenter -t \$pid -n ss -tn state connected 2>/dev/null |
+          tail -n +2 | awk -v c=\$c 'NF>=5 {print c, \$5, \$1}'
       done >> $PROBEN_DATEI
       sleep 2
     done" 2>/dev/null
@@ -119,7 +146,26 @@ pruefe "$WAS lief waehrend der Messung" \
 # --- Auswertung ---------------------------------------------------------------
 AUSWERTUNG=$(ssh "$HOST" "cat $PROBEN_DATEI 2>/dev/null" | awk '
 {
-  peer=$2; sub(/^\[::ffff:/,"",peer); sub(/\]/,"",peer); n=split(peer,a,":"); ip=a[1];
+  peer=$2; zustand=$3;
+  # IPv6 steht in eckigen Klammern: [::1]:33008, [fe80::1]:80. Vorher lief nur
+  # `sub(/\]/,"")` und danach ein Split an ":" — aus [::1]:33008 wurde damit die
+  # "Adresse" [ , und die zaehlte als DRAUSSEN. Am 23.08.2026 standen so
+  # `minio [` 317-mal, `docker-proxy [` 317-mal und `n8n [` 211-mal in der
+  # Auswertung, alles in Wahrheit die eigene Maschine (23.08.2026).
+  if (peer ~ /^\[/) {
+    klammer = peer; sub(/^\[/,"",klammer); n6 = index(klammer, "]");
+    ip6 = (n6 > 1 ? substr(klammer, 1, n6 - 1) : "");
+    if (ip6 ~ /^::ffff:/) { sub(/^::ffff:/,"",ip6); ip = ip6 }
+    else {
+      # ::1 ist die Rueckschleife, fe80:: das Verbindungslokale, fc00::/7 das
+      # eindeutig lokale. Alles andere waere eine echte Adresse nach draussen.
+      if (ip6 == "::1" || ip6 ~ /^fe80:/ || ip6 ~ /^f[cd]/) next;
+      ip = ip6;
+    }
+  } else {
+    n = split(peer, a, ":"); ip = a[1];
+  }
+  if (zustand != "") zustaende[$1 " " ip] = zustaende[$1 " " ip] (index(zustaende[$1 " " ip], zustand) ? "" : (zustaende[$1 " " ip] ? "," : "") zustand);
   if (ip == "") next;
   if (ip ~ /^10\./ || ip ~ /^127\./ || ip ~ /^192\.168\./ || ip ~ /^169\.254\./) next;
   if (ip ~ /^172\.(1[6-9]|2[0-9]|3[01])\./) next;
@@ -128,7 +174,7 @@ AUSWERTUNG=$(ssh "$HOST" "cat $PROBEN_DATEI 2>/dev/null" | awk '
 }
 END {
   for (k in tailnet) print "TAILNET|" k "|" tailnet[k];
-  for (k in draussen) print "DRAUSSEN|" k "|" draussen[k];
+  for (k in draussen) print "DRAUSSEN|" k "|" draussen[k] "|" zustaende[k];
 }')
 
 PROBEN=$(ssh "$HOST" "wc -l < $PROBEN_DATEI 2>/dev/null" | tr -d ' ')
@@ -152,10 +198,20 @@ while IFS= read -r zeile; do
     DRAUSSEN\|*) ;;
     *) continue ;;
   esac
-  ip=$(printf '%s' "$zeile" | awk -F'[| ]' '{print $4}')
+  # Die Zeile sieht so aus:  DRAUSSEN|<container> <ip>|<anzahl>|<zustaende>
+  # Mit -F'[| ]' ist also $2 der Container und $3 die Adresse. Vorher stand
+  # hier $4, und das ist die ANZAHL: die Rueckwaertsaufloesung bekam eine Zahl
+  # zu sehen, fand nichts, und schrieb die Zahl als "Namen" in die Meldung.
+  # Genau deshalb las der erste Fund sich als `llm-service 34.36.133.15|31|31`
+  # (23.08.2026).
+  container=$(printf '%s' "$zeile" | awk -F'[| ]' '{print $2}')
+  ip=$(printf '%s' "$zeile" | awk -F'[| ]' '{print $3}')
   name=$(ssh "$HOST" "getent hosts $ip 2>/dev/null | awk '{print \$2}'" 2>/dev/null | head -1)
   [ -z "$name" ] && name="$ip"
   erlaubt=nein
+  for erlaubter in $(printf '%s' "$NACH_AUSSEN_ERLAUBT" | tr ',' ' '); do
+    [ "$container" = "$erlaubter" ] && erlaubt=ja
+  done
   if [ -n "$ERLAUBT" ]; then
     IFS=',' read -r -a ziele <<< "$ERLAUBT"
     for z in "${ziele[@]}"; do
@@ -174,7 +230,17 @@ TAILNET=$(printf '%s\n' "$AUSWERTUNG" | grep -c '^TAILNET|' 2>/dev/null)
 
 pruefe 'kein Container hat unangekuendigt nach draussen verbunden' \
   "$([ "${DRAUSSEN:-0}" = "0" ] && echo ja || echo nein)" \
-  "$([ "${DRAUSSEN:-0}" = "0" ] && echo 'keine einzige' || printf '%s' "$(printf '%s' "$GEPRUEFT" | grep '^nein|' | head -5 | tr '\n' ' ')")"
+  "$([ "${DRAUSSEN:-0}" = "0" ] && echo 'keine einzige' || echo "${DRAUSSEN} Stueck, siehe unten")"
+
+# Alle roten Ziele einzeln, nicht die ersten fuenf in einer Zeile. Am
+# 23.08.2026 standen neun in den Daten und eines in der Meldung.
+if [ "${DRAUSSEN:-0}" != "0" ]; then
+  echo ""
+  echo "Unangekuendigt nach draussen:"
+  printf '%s' "$GEPRUEFT" | grep '^nein|' | while IFS= read -r z; do
+    echo "  $(printf '%s' "$z" | sed 's/^nein|DRAUSSEN|/  /')"
+  done
+fi
 
 if [ "${ERLAUBTE_TREFFER:-0}" != "0" ]; then
   echo ""
