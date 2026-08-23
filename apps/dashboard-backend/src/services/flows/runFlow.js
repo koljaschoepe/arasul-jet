@@ -151,15 +151,22 @@ async function werkstattVorlagenSaeen(ordner, flowName) {
   if (path.resolve(ordner) !== path.resolve(werkstatt)) {
     return;
   }
+  const sandboxService = require('../sandbox/sandboxService');
+  let schonDa = true;
   try {
-    // Schon ausgesaet? Dann nichts tun und auch nichts protokollieren.
     await fs.access(path.join(ordner, 'ANLEITUNG.md'));
-    return;
   } catch {
-    /* fehlt, also aussaeen */
+    schonDa = false;
   }
   try {
-    require('../sandbox/sandboxService').seedWerkstattTemplates(ordner);
+    if (schonDa) {
+      // Die Vorlagen bleiben, wie der Nutzer sie hat. NUR die Bruecken-Bibliothek
+      // zieht nach — sonst startet jede hier neu gebaute App mit einer Fassung,
+      // die neuere Faehigkeiten nicht kennt (Fund vom 23.08.2026).
+      sandboxService.aktualisiereBrueckeClient(ordner);
+      return;
+    }
+    sandboxService.seedWerkstattTemplates(ordner);
   } catch (err) {
     logger.warn(`Flow "${flowName}": Werkstatt-Vorlagen nicht ausgesaet: ${err.message}`);
   }

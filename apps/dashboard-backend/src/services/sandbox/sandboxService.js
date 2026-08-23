@@ -210,6 +210,55 @@ function seedWerkstattTemplates(targetDir) {
       `Konnte Werkstatt-Templates nicht kopieren (${src} → ${targetDir}): ${err.message}`
     );
   }
+  aktualisiereBrueckeClient(targetDir);
+}
+
+/** Die eine Datei, die kein Nutzerinhalt ist, sondern unsere Bibliothek. */
+const BRUECKE_CLIENT = 'arasul-bruecke.js';
+
+/**
+ * Zieht `arasul-bruecke.js` in einer Werkstatt nach (Fund vom 23.08.2026).
+ *
+ * `seedWerkstattTemplates` kopiert mit `force: false` und ueberschreibt nie —
+ * richtig fuer alles, was der Nutzer anfasst, falsch fuer diese eine Datei.
+ * Als H1 der Bruecke `netz`, `tabellen` und `zeitplan` gab, blieb in jeder
+ * bestehenden Werkstatt die alte Fassung liegen. Jede dort neu gebaute App
+ * waere mit einer Bibliothek gestartet, die drei ihrer Faehigkeiten nicht
+ * kennt — und ein Paket traegt seine Kopie in sich, der Fehler waere also
+ * mitgewandert.
+ *
+ * Nur diese Datei, nur bei abweichendem Inhalt, und auch in den mitgelieferten
+ * Beispielordnern. Wer eigene Aenderungen braucht, legt eine eigene Datei an;
+ * das steht so in `docs/features/EXTENSIONS.md`.
+ */
+function aktualisiereBrueckeClient(targetDir) {
+  const src = getDevTemplatesDir();
+  const quelle = path.join(src, BRUECKE_CLIENT);
+  try {
+    if (!fs.existsSync(quelle)) {
+      return;
+    }
+    const inhalt = fs.readFileSync(quelle, 'utf8');
+    const ziele = [targetDir];
+    for (const eintrag of fs.readdirSync(targetDir, { withFileTypes: true })) {
+      if (
+        eintrag.isDirectory() &&
+        fs.existsSync(path.join(targetDir, eintrag.name, BRUECKE_CLIENT))
+      ) {
+        ziele.push(path.join(targetDir, eintrag.name));
+      }
+    }
+    for (const ordner of ziele) {
+      const ziel = path.join(ordner, BRUECKE_CLIENT);
+      if (fs.existsSync(ziel) && fs.readFileSync(ziel, 'utf8') === inhalt) {
+        continue;
+      }
+      fs.writeFileSync(ziel, inhalt);
+      logger.info(`Bruecken-Client aktualisiert: ${ziel}`);
+    }
+  } catch (err) {
+    logger.warn(`Bruecken-Client nicht aktualisierbar (${targetDir}): ${err.message}`);
+  }
 }
 
 /**
@@ -896,6 +945,7 @@ module.exports = {
   // Vorlagen nie, weil sie nicht ueber `createProject` entsteht, sondern als
   // `ordner` eines Flows. `runFlow` saet deshalb selbst aus.
   seedWerkstattTemplates,
+  aktualisiereBrueckeClient,
   loadWorkspace,
   createProject,
   ensureProjectContainer,

@@ -179,6 +179,24 @@ async function bootstrap() {
   } catch (error) {
     logger.error(`Bootstrap: Sandbox-Projekt-Backfill error: ${error.message}`);
   }
+
+  // Step 8: Bruecken-Bibliothek in der kanonischen Werkstatt nachziehen
+  // (23.08.2026). Die Vorlagen werden sonst nur EINMAL ausgesaet und danach nie
+  // ueberschrieben; eine Werkstatt, die es schon gibt, bekaeme neue
+  // Bruecken-Faehigkeiten nie zu sehen. Hier, weil der Start der einzige
+  // Zeitpunkt ist, den jedes Geraet durchlaeuft — ein Flow in genau diesem
+  // Ordner ist keiner.
+  try {
+    const path = require('path');
+    const { SANDBOX_DATA_DIR } = require('./services/sandbox/sandboxShared');
+    const { aktualisiereBrueckeClient } = require('./services/sandbox/sandboxService');
+    const werkstatt = path.join(SANDBOX_DATA_DIR, 'werkstatt');
+    if (require('fs').existsSync(werkstatt)) {
+      aktualisiereBrueckeClient(werkstatt);
+    }
+  } catch (error) {
+    logger.warn(`Bootstrap: Bruecken-Client nicht nachgezogen: ${error.message}`);
+  }
 }
 
 /**

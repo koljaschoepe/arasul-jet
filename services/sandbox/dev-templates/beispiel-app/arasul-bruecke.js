@@ -22,6 +22,10 @@
  *   ArasulBruecke.dateien.liste(pfad)             — { eintraege: [{name, typ}] }
  *   ArasulBruecke.dateien.lesen(pfad)             — { inhalt }
  *   ArasulBruecke.dateien.schreiben(pfad, inhalt) — { geschrieben, pfad }
+ *   ArasulBruecke.netz(url, { methode, kopf, rumpf }) — { status, kopf, rumpf }
+ *   ArasulBruecke.tabellen.liste() / .anlegen(name, spalten) / .schreiben(name, werte)
+ *                 .lesen(name, { wo, anzahl }) / .loeschen(name, { wo, alles })
+ *   ArasulBruecke.zeitplan.liste() / .anlegen(flow, uhrzeit, args) / .entfernen(id)
  *   ArasulBruecke.flows.liste()                   — [{ name, beschreibung, argumente }]
  *   ArasulBruecke.flows.starten(name, args)       — { runId }
  *   ArasulBruecke.flows.lauf(runId)               — { status, ergebnis, fehler }
@@ -203,6 +207,76 @@
         return postJson('/dateien', { aktion: 'write', pfad: pfad, inhalt: String(inhalt) });
       },
     },
+    /**
+     * Ausgehender Aufruf an ein Ziel aus dem Manifest (Fähigkeit `netz`).
+     * Liefert { status, kopf, rumpf, gekuerzt }. Welche Ziele erlaubt sind,
+     * entscheidet das Backend anhand von `netz.ziele`, nicht diese Datei.
+     */
+    netz: function (url, opts) {
+      var o = opts || {};
+      var daten = {
+        url: String(url),
+        methode: o.methode || 'GET',
+        kopf: o.kopf || {},
+      };
+      if (o.rumpf !== undefined && o.rumpf !== null) {
+        daten.rumpf = String(o.rumpf);
+      }
+      return postJson('/netz', daten);
+    },
+
+    /** Eigene Tabellen im eigenen Namensraum (Fähigkeit `tabellen`). */
+    tabellen: {
+      liste: function () {
+        return postJson('/tabellen', { aktion: 'liste' });
+      },
+      anlegen: function (name, spalten) {
+        return postJson('/tabellen', { aktion: 'anlegen', name: name, spalten: spalten || [] });
+      },
+      schreiben: function (name, werte) {
+        return postJson('/tabellen', { aktion: 'schreiben', name: name, werte: werte || {} });
+      },
+      lesen: function (name, opts) {
+        var o = opts || {};
+        var daten = { aktion: 'lesen', name: name };
+        if (o.wo) {
+          daten.wo = o.wo;
+        }
+        if (o.anzahl) {
+          daten.anzahl = o.anzahl;
+        }
+        return postJson('/tabellen', daten);
+      },
+      loeschen: function (name, opts) {
+        var o = opts || {};
+        var daten = { aktion: 'loeschen', name: name };
+        if (o.wo) {
+          daten.wo = o.wo;
+        }
+        if (o.alles) {
+          daten.alles = true;
+        }
+        return postJson('/tabellen', daten);
+      },
+    },
+
+    /** Zeitgesteuerte Flow-Laeufe (Fähigkeit `zeitplan`). */
+    zeitplan: {
+      liste: function () {
+        return postJson('/zeitplan', { aktion: 'liste' });
+      },
+      anlegen: function (flow, uhrzeit, args) {
+        var daten = { aktion: 'anlegen', flow: flow, uhrzeit: uhrzeit };
+        if (args) {
+          daten.args = args;
+        }
+        return postJson('/zeitplan', daten);
+      },
+      entfernen: function (id) {
+        return postJson('/zeitplan', { aktion: 'entfernen', id: id });
+      },
+    },
+
     flows: {
       liste: function () {
         return jsonAufruf('/flows', { method: 'GET' }).then(function (b) {
