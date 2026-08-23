@@ -86,7 +86,18 @@ try {
   pruefe('Ordner anlegen meldet sich', Boolean(m1), m1 || 'keine Rueckmeldung');
 
   // --- 2. Loeschen fragt vorher nach (J5) -----------------------------------
-  const eintrag = seite.getByText(ORDNER, { exact: false }).first();
+  //
+  // IM DATEIBAUM suchen, nicht auf der ganzen Seite. Die Rueckmeldung von
+  // Schritt 1 lautet „<Ordnername> angelegt" und enthaelt den Namen selbst.
+  // `getByText(ORDNER).first()` traf deshalb den Toast, und ein Rechtsklick auf
+  // einen Toast oeffnet kein Kontextmenue: die Abnahme brach am 23.08.2026 mit
+  // „das Kontextmenue bietet Loeschen an" ab, obwohl am Geraet nichts fehlte.
+  //
+  // Ein selbst gebauter Wettlauf: die Meldung beim Anlegen gibt es erst seit
+  // #560, und sie hat die naechste Pruefung derselben Abnahme erschlagen.
+  const baum = seite.locator('[data-testid="explorer-tree"]');
+  await baum.waitFor({ state: 'visible', timeout: 15000 });
+  const eintrag = baum.getByText(ORDNER, { exact: false }).first();
   await eintrag.waitFor({ state: 'visible', timeout: 15000 });
   await eintrag.click({ button: 'right' });
   const loeschen = seite.getByRole('menuitem').filter({ hasText: /Löschen|Loeschen/ }).first();
