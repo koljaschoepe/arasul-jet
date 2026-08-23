@@ -19,10 +19,11 @@ const { requireAuth } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { validateBody, validateParams, validateQuery } = require('../middleware/validate');
 const { uploadLimiter, llmLimiter, apiLimiter } = require('../middleware/rateLimit');
-const { ValidationError } = require('../utils/errors');
+const { ValidationError, UnauthorizedError } = require('../utils/errors');
 const extensionService = require('../services/extensions/extensionService');
 const werkstattWatcher = require('../services/extensions/werkstattWatcher');
 const brueckeService = require('../services/extensions/brueckeService');
+const appToken = require('../services/extensions/appToken');
 const {
   ExtensionIdParams,
   BuildExtensionBody,
@@ -189,6 +190,55 @@ async function sendAppAsset(res, id, relPath) {
   res.on('close', () => stream.destroy());
   stream.pipe(res);
 }
+
+/**
+ * POST /api/extensions/:id/app-token — kurzlebiger Lese-Token fuer die Dateien
+ * dieser Erweiterung. Aufrufer ist die ANGEMELDETE Dashboard-Seite; sie baut
+ * ihn in die Adresse des iframes ein. Warum das noetig ist, steht im Kopf von
+ * `services/extensions/appToken.js`.
+ */
+router.post(
+  '/:id/app-token',
+  requireAuth,
+  validateParams(ExtensionIdParams),
+  asyncHandler(async (req, res) => {
+    const data = appToken.ausgeben(req.params.id, req.user?.id);
+    res.json({ ...data, timestamp: new Date().toISOString() });
+  })
+);
+
+/**
+ * GET /api/extensions/:id/app/t/:token[/*] — dieselben Dateien, aber mit dem
+ * Token im PFAD statt dem Cookie im Kopf. Relative Verweise im App-HTML erben
+ * den Praefix von selbst; das ist der ganze Grund fuer diese Form.
+ *
+ * Ohne `requireAuth`, weil aus dem opaken Rahmen kein Cookie kommt. Der Token
+ * ersetzt es: 32 Zufallsbytes, kurzlebig, und er oeffnet ausschliesslich die
+ * Dateien GENAU DIESER Erweiterung — dieselben, die der angemeldete Aufrufer
+ * eine Zeile weiter oben ohnehin lesen darf.
+ */
+function tokenPfad(req, res, next) {
+  if (!appToken.gueltig(req.params.token, req.params.id)) {
+    return next(new UnauthorizedError('Lese-Token ungueltig oder abgelaufen'));
+  }
+  next();
+}
+
+router.get(
+  '/:id/app/t/:token',
+  tokenPfad,
+  asyncHandler(async (req, res) => {
+    await sendAppAsset(res, req.params.id, '');
+  })
+);
+
+router.get(
+  '/:id/app/t/:token/*',
+  tokenPfad,
+  asyncHandler(async (req, res) => {
+    await sendAppAsset(res, req.params.id, req.params[0] || '');
+  })
+);
 
 router.get(
   '/:id/app',

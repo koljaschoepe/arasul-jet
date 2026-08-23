@@ -172,13 +172,26 @@ Die Startdatei je Typ: `app` → HTML-Seite, `flow` → `workflow.json`,
 Eine aktivierte `app`-Erweiterung läuft direkt in der Arbeitsfläche — wie n8n.
 Auf ihrer Detailseite (Erweiterungen → Karte anklicken) erscheint **„Öffnen"**;
 das lädt ihre Startdatei als eigenen Mitte-Tab in einem **Sandbox-iframe**.
-Technisch liefert `GET /api/extensions/:id/app/…` die Paket-Dateien same-origin
-(Auth über das Session-Cookie); die `Content-Security-Policy: sandbox`-Antwort
-plus das iframe-`sandbox`-Attribut geben dem Nutzer-HTML einen eigenen, opaken
-Origin — seine Skripte laufen, kommen aber nicht an das Dashboard, seine Cookies
-oder die API. Eine `app` ist deshalb bewusst eine **selbst-enthaltene**
-`index.html` (Assets im Paket, keine externen Skripte). Deaktivierte
-Erweiterungen lassen sich nicht öffnen.
+Technisch liefert `GET /api/extensions/:id/app/t/:token/…` die Paket-Dateien;
+die `Content-Security-Policy: sandbox`-Antwort plus das iframe-`sandbox`-Attribut
+geben dem Nutzer-HTML einen eigenen, opaken Origin — seine Skripte laufen,
+kommen aber nicht an das Dashboard, seine Cookies oder die API. Eine `app` ist
+deshalb bewusst eine **selbst-enthaltene** `index.html` (Assets im Paket, keine
+externen Skripte). Deaktivierte Erweiterungen lassen sich nicht öffnen.
+
+Der Token im Pfad ersetzt das Cookie, und zwar notgedrungen (23.08.2026): weil
+der Rahmen einen opaken Origin hat, gilt jede Unteranfrage daraus als
+cross-site, und `arasul_session` ist `SameSite=Strict`. Bis dahin konnte
+**keine Unterdatei** einer App nachladen — kein Stylesheet, kein Bild und auch
+nicht `arasul-bruecke.js`, die Client-Datei der KI-Brücke. Nur die Startdatei
+kam an. Die angemeldete Seite holt den Token und hängt ihn an die Adresse des
+Rahmens; relative Verweise im App-HTML erben ihn von selbst. Er gilt 15 Minuten
+und öffnet nur die Dateien dieser einen Erweiterung.
+
+Gemessen wird das mit `scripts/test/erweiterung-abnahme.mjs`: es öffnet die
+Beispiel-App auf dem Gerät und prüft den Text, den nur eine **antwortende**
+Brücke erzeugt. Ein Blick auf den Tab hätte grün gesagt, die App zeichnet ihre
+Oberfläche ja auch ohne Brücke.
 
 ## Zugriffs-Stufen
 

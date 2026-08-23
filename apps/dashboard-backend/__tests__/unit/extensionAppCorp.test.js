@@ -114,3 +114,72 @@ describe('App-Dateien und der opake Rahmen', () => {
     expect(res.headers['x-content-type-options']).toBe('nosniff');
   });
 });
+
+describe('Lese-Token im Pfad', () => {
+  // Der eigentliche Grund fuer den Token (23.08.2026): aus dem opaken Rahmen
+  // kommt KEIN Cookie. `arasul_session` ist `SameSite=Strict`, und jede
+  // Unteranfrage eines sandgekasteten Dokuments zaehlt als cross-site. Nur die
+  // Startdatei kam an, weil ihr Abruf eine Navigation des Elternfensters ist.
+  // Betroffen war damit jede Unterdatei, nicht nur `arasul-bruecke.js`.
+  const appToken = require('../../src/services/extensions/appToken');
+
+  beforeEach(() => {
+    appToken.alleVerwerfen();
+    extensionService.resolveAppAsset.mockResolvedValue({
+      filePath: DATEI,
+      contentType: 'application/javascript; charset=utf-8',
+    });
+  });
+
+  test('mit gueltigem Token ohne Cookie', async () => {
+    const { token } = appToken.ausgeben('beispiel-app', 1);
+    const res = await request(app).get(
+      `/api/extensions/beispiel-app/app/t/${token}/arasul-bruecke.js`
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
+  });
+
+  test('die Startdatei ebenso', async () => {
+    const { token } = appToken.ausgeben('beispiel-app', 1);
+    const res = await request(app).get(`/api/extensions/beispiel-app/app/t/${token}`);
+    expect(res.status).toBe(200);
+  });
+
+  test('ein erfundener Token kommt nicht durch', async () => {
+    const res = await request(app).get(
+      '/api/extensions/beispiel-app/app/t/ausgedacht/arasul-bruecke.js'
+    );
+    expect(res.status).toBe(401);
+  });
+
+  test('ein Token fuer eine ANDERE Erweiterung kommt nicht durch', async () => {
+    const { token } = appToken.ausgeben('andere-app', 1);
+    const res = await request(app).get(
+      `/api/extensions/beispiel-app/app/t/${token}/arasul-bruecke.js`
+    );
+    expect(res.status).toBe(401);
+  });
+
+  test('ein abgelaufener Token kommt nicht durch', async () => {
+    const { token } = appToken.ausgeben('beispiel-app', 1);
+    const eintrag = appToken._internals.tokens.get(token);
+    eintrag.exp = Date.now() - 1;
+    const res = await request(app).get(
+      `/api/extensions/beispiel-app/app/t/${token}/arasul-bruecke.js`
+    );
+    expect(res.status).toBe(401);
+  });
+
+  test('der Token-Pfad wird VOR dem Platzhalter /app/* gefunden', async () => {
+    // Steht `/:id/app/*` frueher in der Datei, faengt Express den Token-Pfad
+    // dort ab. Der Status verriete das hier NICHT — `requireAuth` ist in
+    // diesem Test durchgereicht, die Antwort waere ebenfalls 200. Es verraet
+    // der Pfad: die falsche Route reichte `t/<token>/tief/x.js` weiter und
+    // suchte damit eine Datei, die es nicht gibt.
+    const { token } = appToken.ausgeben('beispiel-app', 1);
+    const res = await request(app).get(`/api/extensions/beispiel-app/app/t/${token}/tief/x.js`);
+    expect(res.status).toBe(200);
+    expect(extensionService.resolveAppAsset).toHaveBeenCalledWith('beispiel-app', 'tief/x.js');
+  });
+});

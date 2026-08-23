@@ -1279,6 +1279,9 @@ importieren → forken. Alle Routen erfordern Authentifizierung.
 | GET    | `/api/extensions/:id/download`                      | Paket als `.tar.gz` herunterladen                                                          |
 | GET    | `/api/extensions/:id/app`                           | Oberfläche einer `app`-Erweiterung (Startdatei)                                            |
 | GET    | `/api/extensions/:id/app/*`                         | Einzelne Datei aus dem Paket (Assets)                                                      |
+| POST   | `/api/extensions/:id/app-token`                     | Kurzlebiger Lese-Token für die Paket-Dateien dieser Erweiterung                            |
+| GET    | `/api/extensions/:id/app/t/:token`                  | Startdatei mit Token im Pfad (der Weg, den der iframe nimmt)                               |
+| GET    | `/api/extensions/:id/app/t/:token/*`                | Einzelne Paket-Datei mit Token im Pfad                                                     |
 | GET    | `/api/extensions/:id/flow-status`                   | n8n-Live-Status einer `flow`-Erweiterung (aktiv/importiert/erreichbar + letzter Lauf)      |
 | POST   | `/api/extensions/:id/rollback`                      | Genau einen Schritt zurück auf den vor dem letzten Überschreiben gesicherten Stand         |
 | POST   | `/api/extensions/:id/fork`                          | Kopie als neue Werkstatt-Sandbox anlegen                                                   |
@@ -1302,12 +1305,27 @@ sichtbar (klare Fehlermeldung) statt zu brechen.
 `GET /api/extensions/:id/app` (und `/app/*`) liefert die Oberfläche einer
 `app`-Erweiterung, damit sie „in der Mitte" (wie n8n) in einem Sandbox-iframe
 läuft. Nur für `type = 'app'`; jeder Pfad ist symlink-sicher im Paket-Ordner
-eingesperrt. Auth kommt über das `arasul_session`-Cookie (ein iframe-`src` kann
-keinen Bearer-Header setzen). Die Antwort trägt `Content-Security-Policy:
-sandbox …` — das ausgelieferte Nutzer-HTML bekommt einen eigenen, opaken Origin
-und kommt nicht an Dashboard-Cookies oder die API. Eine **deaktivierte**
-Erweiterung wird nicht ausgeliefert (`403`, seit 19.08.2026) — vorher bediente
-ein schon offener Tab die App weiter, obwohl der Schalter im Katalog aus war.
+eingesperrt. Die Antwort trägt `Content-Security-Policy: sandbox …` — das
+ausgelieferte Nutzer-HTML bekommt einen eigenen, opaken Origin und kommt nicht
+an Dashboard-Cookies oder die API. Eine **deaktivierte** Erweiterung wird nicht
+ausgeliefert (`403`, seit 19.08.2026) — vorher bediente ein schon offener Tab
+die App weiter, obwohl der Schalter im Katalog aus war.
+
+Der iframe nimmt seit dem 23.08.2026 den Weg `GET /api/extensions/:id/app/t/:token[/*]`.
+Grund: das Cookie trägt hier nicht. `arasul_session` ist `SameSite=Strict`, und
+jede Unteranfrage aus einem Dokument mit opakem Origin zählt als cross-site.
+Nur die Startdatei kam an, weil ihr Abruf eine Navigation des Elternfensters
+ist. Jede **Unterdatei** bekam `401` und obendrein
+`ERR_BLOCKED_BY_RESPONSE.NotSameOrigin` — gemessen an `arasul-bruecke.js`, das
+damit in keiner App je geladen hat. Die angemeldete Dashboard-Seite holt sich
+über `POST /api/extensions/:id/app-token` einen kurzlebigen Token (15 min,
+`EXTENSIONS_APP_TOKEN_TTL_MS`) und baut ihn in die Adresse des Rahmens ein;
+relative Verweise im App-HTML erben den Präfix von selbst. Der Token öffnet
+ausschließlich die Dateien **genau dieser** Erweiterung und ist bewusst vom
+Brücken-Token getrennt: die Brücke lässt sich abschalten, die Auslieferung
+nicht. Diese Antworten tragen `Cross-Origin-Resource-Policy: cross-origin` —
+ohne das blockiert der Browser sie für den opaken Rahmen, egal wie gültig der
+Token ist. Der Cookie-Weg bleibt für das direkte Öffnen der Startdatei.
 
 #### KI-Brücke (Plan 017 Schritt 2)
 
