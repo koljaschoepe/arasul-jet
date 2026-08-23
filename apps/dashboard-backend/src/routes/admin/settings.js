@@ -9,7 +9,7 @@ const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { createUserRateLimiter } = require('../../middleware/rateLimit');
 const { verifyPassword, validatePasswordComplexity } = require('../../utils/password');
 const { changeDashboardPassword } = require('../../services/auth/passwordService');
-const { updateEnvVariables, backupEnvFile } = require('../../utils/envManager');
+const { updateEnvVariables, backupEnvFile, envZurueckrollen } = require('../../utils/envManager');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { logSecurityEvent } = require('../../utils/auditLog');
@@ -129,8 +129,11 @@ router.post(
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
-    // Create backup before making changes
-    await backupEnvFile();
+    // Sicherung im Speicher, nicht auf der Platte. Warum, steht im Kopf von
+    // `utils/envManager.js`: `.env` ist als einzelne Datei eingehaengt, eine
+    // Nachbardatei kann dort nicht entstehen, und der Versuch liess jeden
+    // Passwortwechsel mit HTTP 500 enden.
+    const envVorher = await backupEnvFile();
 
     const newPasswordHash = await changeDashboardPassword(
       req.user.id,
@@ -144,9 +147,17 @@ router.post(
 
     // SECURITY FIX: Only store the hash, not the plaintext password
     // The hash is sufficient for authentication (DB is source of truth)
-    await updateEnvVariables({
-      ADMIN_HASH: newPasswordHash,
-    });
+    try {
+      await updateEnvVariables({
+        ADMIN_HASH: newPasswordHash,
+      });
+    } catch (err) {
+      // Die Datenbank ist die Quelle der Wahrheit, das Passwort ist also schon
+      // gewechselt. Eine halb geschriebene `.env` waere trotzdem ein kaputtes
+      // Geraet beim naechsten Start.
+      await envZurueckrollen(envVorher);
+      throw err;
+    }
 
     // SEC-FIX: Invalidate all existing sessions after password change
     // Without this, old tokens remain valid even after password change
@@ -203,13 +214,17 @@ router.post(
       throw new ValidationError('New password must be different from current password');
     }
 
-    // Create backup before making changes
-    await backupEnvFile();
+    const envVorher = await backupEnvFile();
 
     // Update .env file
-    await updateEnvVariables({
-      MINIO_ROOT_PASSWORD: newPassword,
-    });
+    try {
+      await updateEnvVariables({
+        MINIO_ROOT_PASSWORD: newPassword,
+      });
+    } catch (err) {
+      await envZurueckrollen(envVorher);
+      throw err;
+    }
 
     // Restart MinIO service to apply new password
     await restartService('minio');
@@ -276,12 +291,17 @@ router.post(
     }
 
     // Create backup before making changes
-    await backupEnvFile();
+    const envVorher = await backupEnvFile();
 
     // Update .env file
-    await updateEnvVariables({
-      N8N_BASIC_AUTH_PASSWORD: newPassword,
-    });
+    try {
+      await updateEnvVariables({
+        N8N_BASIC_AUTH_PASSWORD: newPassword,
+      });
+    } catch (err) {
+      await envZurueckrollen(envVorher);
+      throw err;
+    }
 
     // Restart n8n service to apply new password
     await restartService('n8n');

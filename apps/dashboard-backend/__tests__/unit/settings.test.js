@@ -24,7 +24,10 @@ jest.mock('../../src/utils/logger', () => ({
 
 jest.mock('../../src/utils/envManager', () => ({
   updateEnvVariables: jest.fn().mockResolvedValue(true),
-  backupEnvFile: jest.fn().mockResolvedValue(true)
+  // Liefert seit dem 23.08.2026 den Inhalt im Speicher statt eine Datei
+  // anzulegen, siehe Kopf von `utils/envManager.js`.
+  backupEnvFile: jest.fn().mockResolvedValue('ADMIN_HASH=alt\n'),
+  envZurueckrollen: jest.fn().mockResolvedValue(true)
 }));
 
 jest.mock('child_process', () => ({
