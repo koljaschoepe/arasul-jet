@@ -93,7 +93,7 @@ herleitet statt ihn zu erinnern.
 **Der laufende Plan ist [`docs/plans/active/023-feature-audit/plan.md`](docs/plans/active/023-feature-audit/plan.md).**
 Stand: 22.08.2026. Quelle für jede Zahl unten ist der Plan selbst, nicht diese
 Seite.
-Elf Phasen A bis K, 64 Aufgaben (gezählt, nicht erinnert:
+Elf Phasen A bis K, 66 Aufgaben (gezählt, nicht erinnert:
 `grep -c '^## [A-K][0-9]' docs/plans/active/023-feature-audit/plan.md`). Eine Aufgabe gilt erst als erledigt, wenn ihre
 Abnahme live auf dem Orin belegt ist, nicht wenn der Branch gemerged wurde.
 Der Stand jeder Phase steht in der Tabelle ganz oben im Plan selbst.

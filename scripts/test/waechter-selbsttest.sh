@@ -49,6 +49,27 @@ mkdir -p "$TMP/faden/docs/plans/active/anhang"
 pruefe "Faden: Ordner ohne plan.md ist rot" 1 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
 rmdir "$TMP/faden/docs/plans/active/anhang"
 
+# Die Aufgabenzahl. Am 23.08.2026 standen drei verschiedene Zahlen fuer
+# dieselbe Sache im Repo: der Plan sagte 61, CLAUDE.md sagte 64, gezaehlt waren
+# es 66. Beide abgeschriebenen Zahlen waren falsch.
+cat > "$TMP/faden/docs/plans/active/023-beispiel/plan.md" <<'BEISPIEL'
+# Plan mit zwei Aufgaben
+
+## A1 Erste
+## A2 Zweite
+BEISPIEL
+pruefe "Faden: keine genannte Zahl ist gruen" 0 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
+
+printf '\nDer Plan hat 2 Aufgaben.\n' >> "$TMP/faden/docs/plans/active/023-beispiel/plan.md"
+pruefe "Faden: richtige Zahl ist gruen" 0 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
+
+printf '\nDer Plan hat 7 Aufgaben.\n' >> "$TMP/faden/docs/plans/active/023-beispiel/plan.md"
+pruefe "Faden: falsche Zahl im Plan ist rot" 1 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
+
+echo "Elf Phasen A bis K, 9 Aufgaben." > "$TMP/faden/CLAUDE.md"
+pruefe "Faden: falsche Zahl in CLAUDE.md ist rot" 1 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
+rm -f "$TMP/faden/CLAUDE.md"
+
 rm -r "$TMP/faden/docs/plans/active/023-beispiel"
 pruefe "Faden: leerer Ordner ist rot" 1 python3 "$WURZEL/scripts/test/plan-faden.py" --pfad "$TMP/faden"
 

@@ -4,7 +4,7 @@
 > desselben Tages (`nachpruefung-2026-08-19.md`, acht Befunde behoben) und die
 > Rückmeldung von Kolja vom 19.08.2026 mit 29 Anmerkungen.
 >
-> Stand: 2026-08-20. Umfang: elf Phasen, 61 Aufgaben, geschätzt 198 Stunden.
+> Stand: 2026-08-23. Umfang: elf Phasen, 66 Aufgaben, geschätzt 198 Stunden.
 
 ## Stand
 
@@ -4439,7 +4439,7 @@ weiß. Das ist nicht, was die Abnahme wissen will.
 
 # Funde außerhalb der Aufgabenliste
 
-Der Plan hat 64 Aufgaben. Manches, was beim Abnehmen herausfällt, steht in
+Der Plan hat 66 Aufgaben. Manches, was beim Abnehmen herausfällt, steht in
 keiner davon und ist trotzdem zu wichtig, um in einer Commit-Nachricht zu
 verschwinden. Hier steht es.
 
