@@ -5017,12 +5017,24 @@ Keiner davon ist gesetzt. Am ehesten passt `OLLAMA_NO_CLOUD`, und das Geraet
 braucht nichts davon: die Websuche der Agenten laeuft ueber `searxng`, und
 Modelle kommen ueber das Praefix `hf.co/` direkt von HuggingFace.
 
-**Warum der Schalter trotzdem nicht einfach gesetzt wird.** Ob
-`OLLAMA_NO_CLOUD` auch den Weg zu HuggingFace zuzieht, steht nirgends
-geschrieben. Ein Kunde, der ein neues Modell ueber einen Link hinzufuegen
-will, haette dann eine Funktion verloren, die ausdruecklich gewuenscht ist.
-Das gehoert auf den Pruefstand, nicht auf das Arbeitsgeraet: Schalter setzen,
-kleines Modell ueber `hf.co/` laden, und erst danach entscheiden.
+**Der Schalter ist seit dem 24.08.2026 gesetzt** (`OLLAMA_NO_CLOUD=1`, PR
+#628). Vorher war zu klaeren, ob er auch den Weg zu HuggingFace zuzieht — ein
+Kunde haette sonst das Hinzufuegen eigener Modelle verloren. Gemessen mit zwei
+Wegwerf-Containern aus demselben Image, gleicher Pull-Versuch:
+
+    mit OLLAMA_NO_CLOUD=1   Error: pull model manifest: realm host
+                            "huggingface.co" does not match original host "hf.co"
+    ohne den Schalter       dieselbe Meldung
+
+Beide Male wurde huggingface.co erreicht. Am Geraet nachgeprueft, nachdem der
+Schalter live war: `llm-service` ist healthy, und das Standardmodell
+`hf.co/unsloth/Qwen3.8-27B-GGUF:IQ4_XS` laedt und antwortet (27 s, davon 26 s
+Ladezeit nach dem Neustart).
+
+**Was damit NICHT belegt ist:** dass der Schalter die ollama.com-Verbindung
+wirklich verhindert. Das sagt erst der Lauscher, der bis zum Abend des
+24.08.2026 laeuft. Keine neue Zeile heisst belegt; eine neue Zeile heisst, der
+Schalter war der falsche.
 
 **`embedding-service` → `huggingface.co`.** Beim Nachsehen im selben
 Netz-Namensraum gefunden, und dieser ist eindeutig:
