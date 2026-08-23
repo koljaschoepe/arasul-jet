@@ -4613,20 +4613,26 @@ das laufende Gerät und gibt eine Tabelle aus. Nacheinander, nicht parallel:
 mehrere Browser gegen dasselbe Modell wären eine Aussage über die
 Warteschlange, nicht über die Funktion.
 
-| Abnahme       | was sie belegt                                                                           |
-| ------------- | ---------------------------------------------------------------------------------------- |
-| `chat`        | 20 Zusagen aus Phase E, von der Denkzeile bis zum abgebrochenen Lauf                     |
-| `terminal`    | Phase F, neun Punkte                                                                     |
-| `csp`         | die Sicherheitskopfzeilen brechen die Anwendung nicht                                    |
-| `rueckfrage`  | I2 bis I4: der Flow hält an, fragt auf Deutsch, das Angebot liegt danach im Kundenordner |
-| `fernzugriff` | J2 bei jeder Breite                                                                      |
-| `erweiterung` | die sichtbare Kette bis zur antwortenden Brücke im Tab                                   |
-| `bruecke`     | alle sieben Fähigkeiten aus dem Rahmen einer echten App                                  |
-| `paket`       | bauen, herunterladen, einspielen, forken, zurückrollen                                   |
-| `dokument`    | die Kernzusage: neues Dokument hoch, Antwort mit Quelle                                  |
-| `modell`      | der Modellwechsel wirkt, gemessen am Tempo statt am Klick                                |
+| Abnahme        | was sie belegt                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| `chat`         | 20 Zusagen aus Phase E, von der Denkzeile bis zum abgebrochenen Lauf                     |
+| `terminal`     | Phase F, neun Punkte                                                                     |
+| `csp`          | die Sicherheitskopfzeilen brechen die Anwendung nicht                                    |
+| `rueckfrage`   | I2 bis I4: der Flow hält an, fragt auf Deutsch, das Angebot liegt danach im Kundenordner |
+| `fernzugriff`  | J2 bei jeder Breite                                                                      |
+| `erweiterung`  | die sichtbare Kette bis zur antwortenden Brücke im Tab                                   |
+| `bruecke`      | alle sieben Fähigkeiten aus dem Rahmen einer echten App                                  |
+| `paket`        | bauen, herunterladen, einspielen, forken, zurückrollen                                   |
+| `dokument`     | die Kernzusage: neues Dokument hoch, Antwort mit Quelle                                  |
+| `modell`       | der Modellwechsel wirkt, gemessen am Tempo statt am Klick                                |
+| `rueckmeldung` | Gate G2: jede Aktion meldet sich, und Zerstoerendes fragt vorher                         |
+| `oberflaeche`  | Gate G3: sechs Ansichten mal drei Breiten, ohne waagerechtes Rollen                      |
 
-Am 23.08.2026 gegen `main`: **100 Prüfpunkte, alle grün**, in 14 Minuten.
+Am 23.08.2026 gegen `main`: über 150 Prüfpunkte, alle grün.
+
+Dazu `souveraenitaet-abnahme.sh`, die nicht misst, was das Gerät tut, sondern
+was es **nicht** tut: sie sieht während der Arbeit in jeden Container und
+sammelt, wohin verbunden ist.
 
 Drei weitere laufen auf dem Prüfstand, weil sie Daten löschen:
 `werksreset-abnahme.sh` (24/24), `frischgeraet-abnahme.sh` (bestanden),
@@ -4667,6 +4673,26 @@ Quelle: pruefvertrag-wv-2026-8834.md (Abschnitte „Vergütung" und „Laufzeit"
 146 Sekunden vom Absenden bis zur fertigen Antwort. Das Dokument wird danach
 wieder entfernt, sonst misst die nächste Messung in einem Feld aus
 Prüfverträgen.
+
+## Welches Gate hat welchen Beleg (Stand 23.08.2026)
+
+Ein Gate ist nicht geschlossen, weil die Aufgaben darunter erledigt sind,
+sondern wenn jemand es am Gerät nachweisen kann. Diese Spalte fehlte bis
+heute.
+
+| Gate                             | Beleg                                                       | Stand                                                        |
+| -------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
+| G1, Funktionen vollständig       | zwölf Abnahmen, `scripts/test/abnahmen.sh`                  | über 150 Prüfpunkte, alle grün                               |
+| G2, Rückmeldung bei jeder Aktion | `rueckmeldung-abnahme.mjs`                                  | 7/7, nachdem vier stumme Explorer-Aktionen nachgezogen sind  |
+| G3, Oberfläche einheitlich       | `oberflaeche-abnahme.mjs`, sechs Ansichten mal drei Breiten | 55/55, dazu die Wächter in der CI                            |
+| G4, Daten bleiben auf dem Gerät  | `souveraenitaet-abnahme.sh`                                 | 2421 Verbindungszeilen im Betrieb, keine nach draußen        |
+| G5, DSGVO                        | `passwort-loeschung-abnahme.sh` auf dem Prüfstand           | 11/11, Auskunft und Löschung stimmen seit heute überein      |
+| G6, Sicherung                    | `restore-drill.sh`, nächtlich                               | sechs Tabellen geprüft, 44 s, Bericht in `data/backups/`     |
+| G7, sieben Tage unbeaufsichtigt  | `dauerlauf-bericht.sh`                                      | **3 von 7 Tagen**, kein Dienst musste von selbst neu starten |
+
+G7 ist das einzige, das nur Zeit braucht. Der Zähler läuft seit dem Neustart
+am 19.08. um 17:29; jeder weitere Neustart des Geräts setzt ihn zurück. Ein
+Deploy zählt nicht mit, er tauscht nur Container.
 
 ## G7 hat seit dem 23.08.2026 einen Bericht (#555)
 
