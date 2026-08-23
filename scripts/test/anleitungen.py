@@ -33,7 +33,14 @@ import sys
 # Wie bei den anderen Waechtern: die Wurzel ist umstellbar, damit der
 # Selbsttest den Waechter gegen einen gebauten Baum laufen lassen kann.
 WURZEL = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DATEIEN = ['README.md', 'CLAUDE.md', 'docs/features/WORKSPACE.md', 'docs/ARCHITECTURE.md']
+# Diese beiden MUESSEN da sein: fehlt eine, ist das ein Befund.
+PFLICHT = ['README.md', 'CLAUDE.md']
+# Diese kommen dazu, wenn es sie gibt. Sie beschreiben Ablaeufe, und genau dort
+# faellt ein abgeschalteter Dienst am wenigsten auf (23.08.2026). Fehlen sie,
+# ist das kein Fehler: der Waechter laeuft auch gegen einen Behelfsbaum im
+# Selbsttest, und dort gibt es sie nicht.
+ZUSAETZLICH = ['docs/features/WORKSPACE.md', 'docs/ARCHITECTURE.md']
+DATEIEN = PFLICHT + ZUSAETZLICH
 
 # Verweise auf Stellen ausserhalb des Repos oder auf Anker sind kein Fund.
 UEBERSPRINGEN = ('http://', 'https://', 'mailto:', '#')
@@ -151,7 +158,8 @@ def main():
     for datei in DATEIEN:
         pfad = os.path.join(WURZEL, datei)
         if not os.path.exists(pfad):
-            fehler.append(f'{datei}: gibt es nicht')
+            if datei in PFLICHT:
+                fehler.append(f'{datei}: gibt es nicht')
             continue
         text = open(pfad, encoding='utf-8').read()
 
