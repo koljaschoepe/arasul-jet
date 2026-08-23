@@ -23,7 +23,8 @@ from config import (
     HEALING_INTERVAL, ENABLED, REBOOT_ENABLED, EXCLUDED_CONTAINERS,
     FAILURE_WINDOW_MINUTES, MAX_FAILURES_IN_WINDOW, CRITICAL_WINDOW_MINUTES,
     METRICS_COLLECTOR_URL, HEARTBEAT_URL, HEARTBEAT_INTERVAL_CYCLES,
-    COMPOSE_PROJECT, WARTUNGSDATEI, WARTUNG_MAX_MINUTEN, logger
+    COMPOSE_PROJECT, WARTUNGSDATEI, WARTUNG_MAX_MINUTEN,
+    WARTUNG_NACHLAUF_SEKUNDEN, logger
 )
 from db import DatabaseMixin
 from recovery_actions import RecoveryActionsMixin
@@ -76,6 +77,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         # fuer die Aussage "es passiert nichts".
         self._wartung_gemeldet = False
         self._wartung_abgelaufen_gemeldet = False
+        self._wartung_endete_um = 0.0
 
         # MEM-TREND: Per-container memory samples for leak detection
         # Key: container_name, Value: list of (timestamp, rss_mb) tuples
@@ -190,8 +192,19 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             alter = time.time() - os.path.getmtime(WARTUNGSDATEI)
         except OSError:
             if self._wartung_gemeldet:
-                logger.info("Wartungsfenster beendet, Kategorie A ist wieder scharf")
+                self._wartung_endete_um = time.time()
+                logger.info(
+                    f"Wartungsfenster beendet, noch {WARTUNG_NACHLAUF_SEKUNDEN}s Nachlauf"
+                )
                 self._wartung_gemeldet = False
+            # Nachlauf: die Dienste sind nach der Wartung noch ungesund und
+            # brauchen erst einen erfolgreichen Healthcheck. Ohne das griff
+            # die Selbstheilung zehn Sekunden nach Fensterschluss zu.
+            if time.time() - self._wartung_endete_um < WARTUNG_NACHLAUF_SEKUNDEN:
+                return True
+            if self._wartung_endete_um:
+                logger.info("Nachlauf vorbei, Kategorie A ist wieder scharf")
+                self._wartung_endete_um = 0.0
             return False
 
         if alter > WARTUNG_MAX_MINUTEN * 60:

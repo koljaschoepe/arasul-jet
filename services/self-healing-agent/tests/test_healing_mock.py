@@ -352,6 +352,33 @@ class TestSelfHealingEngine(unittest.TestCase):
             with patch('healing_engine.WARTUNGSDATEI', datei.name):
                 self.assertTrue(self.engine.wartung_laeuft())
 
+    def test_nach_dem_fenster_gilt_ein_nachlauf(self):
+        """Der Schutz war um zehn Sekunden zu kurz.
+
+        Am 24.08.2026 auf dem Orin gemessen: Fenster zu um 00:05:33, und um
+        00:05:43 startete die Selbstheilung n8n neu. `compose up` war fertig,
+        die Dienste aber noch ungesund — sie brauchen erst einen
+        erfolgreichen Healthcheck, um wieder als gesund zu gelten.
+        """
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.aktiv', delete=False) as datei:
+            name = datei.name
+        try:
+            with patch('healing_engine.WARTUNGSDATEI', name):
+                self.assertTrue(self.engine.wartung_laeuft())   # Fenster offen
+        finally:
+            os.unlink(name)
+
+        with patch('healing_engine.WARTUNGSDATEI', name), \
+             patch('healing_engine.WARTUNG_NACHLAUF_SEKUNDEN', 60):
+            # Datei weg, aber der Nachlauf laeuft noch.
+            self.assertTrue(self.engine.wartung_laeuft())
+
+        with patch('healing_engine.WARTUNGSDATEI', name), \
+             patch('healing_engine.WARTUNG_NACHLAUF_SEKUNDEN', 0):
+            # Nachlauf abgelaufen: wieder scharf.
+            self.assertFalse(self.engine.wartung_laeuft())
+
     def test_der_grund_kommt_aus_der_datei(self):
         """Die Protokollzeile nennt, WAS laeuft.
 
