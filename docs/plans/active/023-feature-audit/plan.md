@@ -4896,8 +4896,26 @@ sein. Heute kann ein Kunde nur laden, was im Katalog steht, und der Katalog
 kommt aus Migrationen — also aus einer Software-Aktualisierung. Genau das darf
 nicht die Bedingung sein. Siehe „Modelle über einen Link hinzufügen".
 
-**Offen bleibt `llm-service` → `ollama.com`.** Einmal beobachtet, in zwei
-Stunden Beobachtung nicht wieder aufgetreten, Ursache unbekannt.
+**Offen bleibt `llm-service` → `ollama.com`.** Einmal beobachtet, am
+23.08.2026 um 17:01 UTC, rund eine Minute lang. Danach:
+
+| Versuch                                                 | Ergebnis |
+| ------------------------------------------------------- | -------- |
+| Leerlauf, 4 Minuten im Zwei-Sekunden-Takt               | nichts   |
+| `api/tags`, `api/ps`, `api/show`                        | nichts   |
+| zweiter vollständiger Lauf der Kernkette                | nichts   |
+| Beobachtung über **zwei Stunden** im Fünf-Sekunden-Takt | nichts   |
+
+Vier negative Ergebnisse sind kein Beweis, dass es nicht passiert; sie zeigen
+nur, dass es selten ist. Ein seltener Fall braucht einen langen Atem, deshalb
+läuft seit dem 23.08. 19:51 ein Lauscher über **24 Stunden** im
+Zwanzig-Sekunden-Takt (`/tmp/llm-draussen.log` auf dem Gerät). Er schreibt
+Zeitpunkt, Zustand und Ziel mit — genau das, was beim ersten Fund fehlte.
+
+Was bekannt ist: die Ollama-Binärdatei (0.32.12) enthält zwei Adressen, die
+infrage kommen, `https://ollama.com/api/web_search` und
+`https://ollama.com/api/experimental/model-recommendations`. Welche es war,
+ist offen.
 
 **Was heute getan ist:** die Messung wirft ihren Beleg nicht mehr weg (#587).
 Beim ersten Fund war die Rohprobendatei schon gelöscht, und Port und
