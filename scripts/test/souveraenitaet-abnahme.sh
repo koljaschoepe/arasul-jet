@@ -50,7 +50,17 @@ ERLAUBT="${ARASUL_ERLAUBTE_ZIELE:-}"
 # Verbindung nach draussen, und der Nutzer schaltet sie ein. Was dabei
 # hinausgeht, ist die Suchanfrage — die Frage danach gehoert in die
 # Datenschutz-Unterlagen, nicht in diese Messung.
-NACH_AUSSEN_ERLAUBT="${ARASUL_ERLAUBTE_CONTAINER:-searxng}"
+# `embedding-service` steht seit dem 23.08.2026 hier, und zwar als
+# ENTSCHEIDUNG von Kolja, nicht als Nachlaessigkeit: der Dienst laedt seine
+# Modelle von huggingface.co, und genau das soll er duerfen. Der Kunde soll
+# neue Modelle selbst nachladen koennen, auch wenn sein Geraet nie wieder eine
+# Software-Aktualisierung sieht. Ein Geraet, das keine Modelle mehr bekommt,
+# altert schneller als eines, das einmal telefoniert.
+#
+# Was das NICHT heisst: dass Kundendaten hinausgehen. Was hinausgeht, ist der
+# Name eines Modells. Der Unterschied gehoert in die Datenschutz-Unterlagen,
+# und er steht dort.
+NACH_AUSSEN_ERLAUBT="${ARASUL_ERLAUBTE_CONTAINER:-searxng,embedding-service}"
 # Die Proben BLEIBEN nach dem Lauf liegen, wenn etwas nach draussen ging.
 # Am 23.08.2026 stand am Ende `llm-service 34.36.133.15|31|31`, und die Datei
 # war schon geloescht — die Frage "wann genau und auf welchem Port" liess sich
