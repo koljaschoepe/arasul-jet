@@ -122,7 +122,7 @@ router.get(
       -- getrennte (einmal Kante vorwaerts, einmal rueckwaerts), und damit hatte
       -- der Ausdruck drei Zweige. PostgreSQL erlaubt genau zwei: einen Anker
       -- und einen rekursiven. Die Folge war kein Teilergebnis, sondern gar
-      -- keins — der Endpunkt gab auf JEDEM Geraet HTTP 500:
+      -- keins. Der Endpunkt gab auf JEDEM Geraet HTTP 500:
       --
       --   recursive reference to query graph_walk must not appear
       --   within its non-recursive term
