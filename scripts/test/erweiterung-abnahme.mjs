@@ -67,6 +67,16 @@ try {
     }
   });
 
+  // Erst pruefen, ob die Anmeldung ueberhaupt durchkam. Ohne diese Zeile
+  // meldete die Abnahme bei einer abgewiesenen Anmeldung (etwa nach zu vielen
+  // Versuchen, HTTP 429) den Satz „Knopf nicht gefunden" — ein falsches Rot,
+  // das auf das Geraet zeigt statt auf den Messaufbau (23.08.2026).
+  const angemeldet = await seite.evaluate(() => document.cookie.includes('arasul_csrf'));
+  merke(angemeldet, angemeldet ? 'angemeldet' : 'Anmeldung abgewiesen, die Messung sagt nichts ueber das Geraet');
+  if (!angemeldet) {
+    throw new Error('abbruch');
+  }
+
   await seite.goto(`${URL}/workspace`, { waitUntil: 'domcontentloaded' });
   await seite.waitForTimeout(4000);
 

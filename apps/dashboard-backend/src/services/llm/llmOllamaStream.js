@@ -67,12 +67,10 @@ const BATCH_INTERVAL_MS = 150;
 const BATCH_SIZE_CHARS = 200;
 
 // Shared HTTP agent for Ollama connections (keep-alive + connection pooling)
-const ollamaAgent = new http.Agent({
-  keepAlive: true,
-  maxSockets: 5,
-  maxFreeSockets: 2,
-  timeout: 600000,
-});
+// Der Agent steht seit dem 23.08.2026 in einem eigenen Modul, weil die Bruecke
+// denselben braucht und ihn nicht hatte. Der Grund dafuer, dass es ihn
+// ueberhaupt gibt, steht dort.
+const { ollamaAgent } = require('./ollamaAgent');
 
 /**
  * Öffentlicher Einstieg: hält die GPU-Sperre für die GESAMTE Dauer des Streams.

@@ -189,6 +189,7 @@ async function llmStream({ prompt, system = '', temperature = 0.7 }, res) {
           options: { temperature },
         });
         const url = new URL('/api/chat', LLM_SERVICE_URL);
+        const { ollamaAgent, OLLAMA_AGENT_TIMEOUT_MS } = require('../llm/ollamaAgent');
         const req = http.request(
           url,
           {
@@ -197,6 +198,11 @@ async function llmStream({ prompt, system = '', temperature = 0.7 }, res) {
               'Content-Type': 'application/json',
               'Content-Length': Buffer.byteLength(body),
             },
+            // Ohne eigenen Agenten gilt Nodes globaler, und der zerstoert den
+            // Sockel nach fuenf Sekunden Stille. Bis zum ersten Token eines
+            // 27B-Modells vergeht regelmaessig mehr. Siehe ollamaAgent.js.
+            agent: ollamaAgent,
+            timeout: OLLAMA_AGENT_TIMEOUT_MS,
           },
           up => {
             let puffer = '';
