@@ -22,6 +22,16 @@ set -euo pipefail
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WURZEL"
 
+# Dieses Skript spricht `docker compose` DIREKT an, also laeuft es auf dem
+# Geraet und nicht vom Arbeitsrechner aus. Ohne diese Zeile war die Auskunft
+# `docker: command not found` — richtig, aber unbrauchbar (23.08.2026).
+if ! command -v docker >/dev/null 2>&1; then
+  echo "ABBRUCH: kein docker erreichbar."
+  echo "Der Pruefstand laeuft AUF DEM GERAET. Von hier aus:"
+  echo "  ssh jetson 'cd /home/arasul/arasul/arasul-jet && scripts/test/pruefstand.sh $*'"
+  exit 2
+fi
+
 PROJEKT="arasul-pruefstand"
 UMGEBUNG="compose/pruefstand.vars"
 DIENSTE=(postgres-db minio dashboard-backend dashboard-frontend reverse-proxy n8n)
