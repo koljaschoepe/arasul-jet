@@ -4606,6 +4606,43 @@ Partnergespräch fertig sein, weil die AVV-Vorlage mitgeht.
 | G6, Sicherung                    | S1 bis S8, B5, J3                        |
 | G7, sieben Tage unbeaufsichtigt  | B3, E2, G4                               |
 
+## Die Abnahme-Reihe: ein Befehl, zehn Messungen (Stand 23.08.2026)
+
+`bash scripts/test/abnahmen.sh` fährt alle Browser-Abnahmen nacheinander gegen
+das laufende Gerät und gibt eine Tabelle aus. Nacheinander, nicht parallel:
+mehrere Browser gegen dasselbe Modell wären eine Aussage über die
+Warteschlange, nicht über die Funktion.
+
+| Abnahme       | was sie belegt                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| `chat`        | 20 Zusagen aus Phase E, von der Denkzeile bis zum abgebrochenen Lauf                     |
+| `terminal`    | Phase F, neun Punkte                                                                     |
+| `csp`         | die Sicherheitskopfzeilen brechen die Anwendung nicht                                    |
+| `rueckfrage`  | I2 bis I4: der Flow hält an, fragt auf Deutsch, das Angebot liegt danach im Kundenordner |
+| `fernzugriff` | J2 bei jeder Breite                                                                      |
+| `erweiterung` | die sichtbare Kette bis zur antwortenden Brücke im Tab                                   |
+| `bruecke`     | alle sieben Fähigkeiten aus dem Rahmen einer echten App                                  |
+| `paket`       | bauen, herunterladen, einspielen, forken, zurückrollen                                   |
+| `dokument`    | die Kernzusage: neues Dokument hoch, Antwort mit Quelle                                  |
+| `modell`      | der Modellwechsel wirkt, gemessen am Tempo statt am Klick                                |
+
+Am 23.08.2026 gegen `main`: **100 Prüfpunkte, alle grün**, in 14 Minuten.
+
+Drei weitere laufen auf dem Prüfstand, weil sie Daten löschen:
+`werksreset-abnahme.sh` (24/24), `frischgeraet-abnahme.sh` (bestanden),
+`passwort-loeschung-abnahme.sh` (11/11). Und `dauerlauf-bericht.sh` liest die
+Beweislage für G7 aus dem laufenden Gerät.
+
+**Was diese Reihe an einem Tag gefunden hat**, nachdem alle Unit-Tests grün
+waren: die KI-Brücke war auf sechs Ebenen unbenutzbar, drei von sieben
+Fähigkeiten tot, der nächtliche Lauf einer Erweiterung startete nie, der
+Werksreset war auf jedem Gerät blockiert, die Erweiterungs-Schemata überlebten
+ihn mit Kundendaten darin, und die Auskunft nach Art. 15 zeigte Wissensräume
+nicht, die die Löschung nach Art. 17 entfernt.
+
+Keiner dieser Fehler war in den Tests sichtbar. Sie waren alle an der Naht
+zwischen zwei Teilen, die einzeln geprüft waren.
+
 ## Die Kernzusage hat seit dem 23.08.2026 eine Abnahme (#558)
 
 „Ein Dokument hochladen und danach eine Frage dazu beantwortet bekommen, mit
