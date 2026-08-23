@@ -344,6 +344,9 @@ jobs:
       - name: Jede Tabelle ist im Werksreset eingeordnet (Plan 023 B5)
         run: python3 scripts/test/werksreset-tabellen.py --wurzel .
 
+      - name: Der Deploy-Rollback sagt die Wahrheit ueber sich
+        run: bash scripts/test/rollback-meldung.sh
+
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh
 
