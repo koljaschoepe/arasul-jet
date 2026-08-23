@@ -93,7 +93,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Count query
@@ -137,7 +142,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Count query
@@ -175,7 +185,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Count query
@@ -211,7 +226,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Count and data queries should include POST filter
@@ -247,7 +267,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Data queries
@@ -283,7 +308,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Data queries
@@ -322,7 +352,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Data queries
@@ -360,7 +395,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Data queries
@@ -398,7 +438,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Fail on audit queries
@@ -463,7 +508,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Daily stats query
@@ -501,7 +551,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Daily stats query with 7 days
@@ -532,7 +587,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Daily stats query - should cap at 90 days
@@ -563,7 +623,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Fail on stats query
@@ -626,7 +691,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Endpoint stats query
@@ -665,7 +735,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Endpoint stats query with custom params
@@ -697,7 +772,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Endpoint stats query - should cap values
@@ -729,7 +809,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Fail on endpoint stats query
@@ -764,7 +849,12 @@ describe('Audit API Integration Tests', () => {
                 if (query.includes('update_session_activity')) {
                     return Promise.resolve({ rows: [] });
                 }
-                if (query.includes('admin_users')) {
+                // Nur die Anmeldung meint `admin_users`. Die Datenabfrage der
+                // Pruefprotokolle nennt die Tabelle seit dem 23.08.2026 auch
+                // (LEFT JOIN fuer den Benutzernamen) und wurde von diesem
+                // Zweig verschluckt — der Test war rot, ohne dass am Code
+                // etwas falsch war.
+                if (query.includes('admin_users') && !query.includes('api_audit_logs')) {
                     return Promise.resolve({ rows: [mockUser] });
                 }
                 // Data queries with multiple filters
