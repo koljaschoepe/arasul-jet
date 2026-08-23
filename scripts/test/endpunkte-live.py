@@ -30,6 +30,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 WURZEL = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(WURZEL / 'scripts' / 'test'))
@@ -51,8 +52,39 @@ ERWARTET_503 = {
     '/api/services/embedding/info': 'embedding-service laeuft nicht von selbst',
 }
 
+# Woher eine echte Id kommt, mit der ein Pfad mit `:x` aufgerufen werden kann.
+# Praefix -> (Listen-Endpunkt, Schluessel der Liste, Schluessel der Id).
+#
+# Die Liste wird EINMAL geholt und die erste Id verwendet. Sie ist damit so
+# aussagekraeftig wie das Geraet gefuellt ist: findet sich nichts, steht der
+# Pfad am Ende unter "nicht gemessen" — und zwar sichtbar, nicht als stilles
+# Gruen. Am 23.08.2026 gelernt: eine Pruefung, die von zufaellig vorhandenen
+# Daten abhaengt, misst den Zufall.
+ID_QUELLEN = [
+    ('/api/apps/', '/api/apps', 'apps', 'id'),
+    ('/api/chats/', '/api/chats', 'chats', 'id'),
+    ('/api/documents/', '/api/documents', 'documents', 'id'),
+    ('/api/knowledge-graph/document/', '/api/documents', 'documents', 'id'),
+    ('/api/extensions/', '/api/extensions', 'data', 'id'),
+    ('/api/flows/beispiele/', '/api/flows', 'data', 'name'),
+    ('/api/flows/', '/api/flows', 'data', 'name'),
+    ('/api/projects/', '/api/projects', 'data', 'id'),
+    ('/api/git/', '/api/projects', 'data', 'id'),
+    ('/api/spaces/', '/api/spaces', 'spaces', 'id'),
+    ('/api/sandbox/projects/', '/api/sandbox/projects', 'projects', 'id'),
+    ('/api/llm/jobs/', '/api/llm/jobs', 'jobs', 'id'),
+    ('/api/services/llm/models/', '/api/services/llm/models', 'models', 'name'),
+]
 
-def endpunkte():
+# Pfade mit `:x`, die hier nicht gemessen werden, jeweils mit Grund.
+NICHT_MESSBAR = {
+    '/api/llm/jobs/:x/stream': 'endloser Strom',
+    '/api/flows/laeufe/:x/stream': 'endloser Strom',
+    '/api/license/check/:x': 'braucht einen Merkmalsnamen, keine Id aus einer Liste',
+}
+
+
+def alle_gets():
     """Die Liste kommt aus dem Code, nicht aus einer Datei."""
     import importlib.util
 
@@ -60,11 +92,38 @@ def endpunkte():
     modul = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modul)
     alle = modul.aus_code(WURZEL)
-    return sorted(
-        e[4:]
-        for e in alle
-        if e.startswith('GET ') and ':x' not in e and '*' not in e and e[4:] not in STROEME
-    )
+    return sorted(e[4:] for e in alle if e.startswith('GET ') and '*' not in e)
+
+
+def endpunkte():
+    return [e for e in alle_gets() if ':x' not in e and e not in STROEME]
+
+
+def mit_parametern():
+    return [e for e in alle_gets() if ':x' in e and e not in NICHT_MESSBAR]
+
+
+def erste_id(pfad: str, kekse: Path, zwischenspeicher: dict):
+    """Eine echte Id fuer einen Pfad mit `:x`, oder None mit Grund."""
+    for praefix, liste, schluessel, feld in ID_QUELLEN:
+        if not pfad.startswith(praefix):
+            continue
+        if liste not in zwischenspeicher:
+            code, rumpf = hole(liste, kekse, kurz=False)
+            werte = []
+            if code == '200':
+                try:
+                    daten = json.loads(rumpf)
+                    eintraege = daten.get(schluessel) or []
+                    werte = [str(e[feld]) for e in eintraege if isinstance(e, dict) and e.get(feld)]
+                except Exception:
+                    werte = []
+            zwischenspeicher[liste] = werte
+        werte = zwischenspeicher[liste]
+        if werte:
+            return werte[0], None
+        return None, f'{liste} liefert nichts, woraus eine Id zu nehmen waere'
+    return None, 'keine Quelle fuer eine Id hinterlegt'
 
 
 def anmelden(kekse: Path) -> bool:
@@ -81,15 +140,18 @@ def anmelden(kekse: Path) -> bool:
     return ergebnis.stdout.strip() == '200'
 
 
-def hole(pfad: str, kekse: Path):
+def hole(pfad: str, kekse: Path, kurz: bool = True):
+    # Ohne `errors='replace'` stirbt die ganze Messung an der ersten Antwort,
+    # die kein UTF-8 ist — ein Download, ein Archiv, ein Bild. Der Antwortcode
+    # interessiert hier, nicht der Rumpf.
     ergebnis = subprocess.run(
         ['curl', '-sk', '-b', str(kekse), '-m', '25', '-w', '\n%{http_code}', f'{URL}{pfad}'],
-        capture_output=True, text=True,
+        capture_output=True, text=True, errors='replace',
     )
     teile = ergebnis.stdout.rsplit('\n', 1)
     code = teile[-1].strip()
     rumpf = teile[0] if len(teile) > 1 else ''
-    return code, rumpf[:200]
+    return code, (rumpf[:200] if kurz else rumpf)
 
 
 def main() -> int:
@@ -101,34 +163,61 @@ def main() -> int:
             print(f'ROT   Anmeldung an {URL} fehlgeschlagen')
             return 1
 
-        liste = endpunkte()
-        print(f'{len(liste)} parameterlose GET-Endpunkte gegen {URL}\n')
+        rot, gedrosselt, ungemessen = [], [], []
+        gruen = 0
+        listen = {}
 
-        rot, gedrosselt, gruen = [], [], 0
-        for pfad in liste:
+        def messen(pfad: str, anzeige: str):
+            nonlocal gruen
             code, rumpf = hole(pfad, kekse)
             # Die eigene Ratenbremse ist kein Befund. Einmal warten, einmal neu.
             if code == '429':
                 time.sleep(3)
                 code, rumpf = hole(pfad, kekse)
                 if code == '429':
-                    gedrosselt.append(pfad)
-                    continue
-            if code == '503' and pfad in ERWARTET_503:
+                    gedrosselt.append(anzeige)
+                    return
+            if code == '503' and anzeige in ERWARTET_503:
                 gruen += 1
-                continue
+                return
             if code and code[0] == '5':
-                rot.append((pfad, code, rumpf))
-                print(f'ROT   {code}  {pfad}')
+                rot.append((anzeige, code, rumpf))
+                print(f'ROT   {code}  {anzeige}')
             elif code == '000':
-                rot.append((pfad, 'keine Antwort', ''))
-                print(f'ROT   ---  {pfad}  (keine Antwort im Zeitlimit)')
+                rot.append((anzeige, 'keine Antwort', ''))
+                print(f'ROT   ---  {anzeige}  (keine Antwort im Zeitlimit)')
             else:
                 gruen += 1
 
-        print(f'\n{gruen} beantwortet, {len(rot)} mit Serverfehler, {len(gedrosselt)} gedrosselt')
+        ohne = endpunkte()
+        mit = mit_parametern()
+        print(f'{len(ohne)} parameterlose und {len(mit)} parametrisierte '
+              f'GET-Endpunkte gegen {URL}\n')
+
+        for pfad in ohne:
+            messen(pfad, pfad)
+
+        for muster in mit:
+            # Mehrere `:x` in einem Pfad: die erste Id ist die des Objekts,
+            # jede weitere gehoert zu einer Unterliste, die es hier nicht gibt.
+            if muster.count(':x') > 1:
+                ungemessen.append((muster, 'zwei Ids noetig, nur die erste ist zu holen'))
+                continue
+            wert, grund = erste_id(muster, kekse, listen)
+            if wert is None:
+                ungemessen.append((muster, grund))
+                continue
+            messen(muster.replace(':x', quote(str(wert), safe='')), f'{muster}  [{wert}]')
+
+        for muster, grund in NICHT_MESSBAR.items():
+            ungemessen.append((muster, grund))
+
+        print(f'\n{gruen} beantwortet, {len(rot)} mit Serverfehler, '
+              f'{len(gedrosselt)} gedrosselt, {len(ungemessen)} nicht gemessen')
         for pfad in gedrosselt:
-            print(f'  gedrosselt (nicht gemessen): {pfad}')
+            print(f'  gedrosselt: {pfad}')
+        for muster, grund in sorted(ungemessen):
+            print(f'  nicht gemessen: {muster}  ({grund})')
         if rot:
             print('\nWas geantwortet hat:')
             for pfad, code, rumpf in rot:
