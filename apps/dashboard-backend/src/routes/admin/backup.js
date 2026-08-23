@@ -16,6 +16,33 @@ const { promisify } = require('util');
 const execFilePromise = promisify(execFile);
 
 const EXTERNAL_MOUNT = process.env.EXTERNAL_BACKUP_PATH || '/mnt/external-ssd';
+// Dieselbe Datei, aus der `/api/ops/overview` liest. Eine zweite Quelle fuer
+// dieselbe Zahl waere genau der Widerspruch, den dieser Endpunkt hatte.
+const BACKUP_REPORT_PATH = process.env.BACKUP_REPORT_PATH || '/arasul/backups/backup_report.json';
+
+/**
+ * Der letzte Sicherungslauf, so wie ihn das Sicherungs-Skript hinterlaesst.
+ *
+ * Faellt der Bericht weg, gilt die Sicherung als fehlend und veraltet. Ein
+ * fehlender Bericht ist kein "unbekannt": wer nicht belegen kann, dass er
+ * gesichert hat, hat fuer diese Frage nicht gesichert.
+ */
+async function leseSicherungsbericht() {
+  try {
+    const roh = await fs.readFile(BACKUP_REPORT_PATH, 'utf8');
+    const bericht = JSON.parse(roh);
+    const stat = await fs.stat(BACKUP_REPORT_PATH);
+    const alterStunden = Math.round((Date.now() - stat.mtimeMs) / 36e5);
+    return {
+      status: bericht.status || 'unknown',
+      timestamp: bericht.timestamp || null,
+      ageHours: alterStunden,
+      stale: alterStunden > 48,
+    };
+  } catch {
+    return { status: 'missing', timestamp: null, ageHours: null, stale: true };
+  }
+}
 
 /**
  * Check if external SSD is mounted and accessible
@@ -69,7 +96,21 @@ async function getSsdStatus() {
 
 /**
  * GET /api/backup/status
- * Check if external SSD is detected and mounted
+ *
+ * Zwei verschiedene Dinge, die hier bis zum 23.08.2026 eines waren.
+ *
+ * `backupEnabled` stand auf `ssdStatus.mounted`, also auf "haengt eine externe
+ * Platte dran". Auf dem Orin gemessen: keine Platte angesteckt, Antwort
+ * `backupEnabled: false` — und gleichzeitig 38 Postgres-Sicherungen, 37 fuer
+ * MinIO, 328 WAL-Segmente, 4,9 GB, letzte Sicherung drei Stunden alt, und eine
+ * Wiederherstellungsprobe derselben Nacht mit sechs geprueften Tabellen.
+ *
+ * Das Geraet sichert also, und der Endpunkt sagte das Gegenteil. Wer eine
+ * eigene Anwendung dagegen baut, schliesst daraus, die Sicherung sei aus.
+ *
+ * Jetzt sagt die Antwort beides getrennt: ob eine externe Platte da ist, und ob
+ * wirklich gesichert wird. Die Quelle fuer das Zweite ist dieselbe Datei, aus
+ * der auch `/api/ops/overview` liest.
  */
 router.get(
   '/status',
@@ -77,10 +118,22 @@ router.get(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const ssdStatus = await getSsdStatus();
+    const bericht = await leseSicherungsbericht();
 
     res.json({
       ssd: ssdStatus,
-      backupEnabled: ssdStatus.mounted,
+      // Bleibt erhalten, weil eine dokumentierte Antwortform nicht still die
+      // Bedeutung wechselt. Aber sie sagt jetzt die Wahrheit: laeuft die
+      // Sicherung.
+      backupEnabled: bericht.status === 'completed' && !bericht.stale,
+      // Was frueher `backupEnabled` hiess und wirklich gemeint war.
+      ssdBackupMoeglich: ssdStatus.mounted,
+      letzteSicherung: {
+        status: bericht.status,
+        zeitpunkt: bericht.timestamp,
+        alterStunden: bericht.ageHours ?? null,
+        veraltet: bericht.stale,
+      },
       timestamp: new Date().toISOString(),
     });
   })
