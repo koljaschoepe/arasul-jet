@@ -379,6 +379,45 @@ if (( ${#kunden_uebersprungen[@]} > 0 )); then
     log "Hinweis: nicht im Abzug und daher nicht geprueft: ${kunden_uebersprungen[*]}"
 fi
 
+# --- Kommt jedes Schema mit? -------------------------------------------------
+# `ON_ERROR_STOP=1` faengt jeden Fehler BEIM Einspielen. Es faengt nicht, was
+# gar nicht erst im Abzug steht: ein `pg_dump --schema=public` wuerde ohne eine
+# einzige Fehlermeldung 127 Tabellen weglassen, und der Drill haette weiter
+# "all 11 critical tables verified" gemeldet — die elf liegen alle in `public`.
+#
+# Am 24.08.2026 auf dem Orin gezaehlt: public 79, n8n 111, arasul 16. Das
+# Schema `arasul` legt Migration 090 an, und genau daran ist am 20.08.2026 ein
+# fabrikneues Geraet gescheitert; ein Abzug ohne dieses Schema waere still
+# unbrauchbar.
+#
+# Verglichen werden SCHEMAS, nicht Tabellenzahlen. Zwischen Sicherung und
+# Drill kann eine Migration gelaufen sein, dann weicht die Zahl zu Recht ab.
+# Ein fehlendes Schema weicht nie zu Recht ab.
+schemas_abzug=$(printf '%s\n' "$im_abzug" | cut -d. -f1 | sort -u | tr '\n' ' ')
+schemas_fehlen=()
+if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] \
+   && schemas_betrieb=$(docker exec "${POSTGRES_CONTAINER:-postgres-db}" \
+        psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+        "SELECT DISTINCT table_schema FROM information_schema.tables
+         WHERE table_type='BASE TABLE'
+           AND table_schema NOT IN ('pg_catalog','information_schema')" 2>/dev/null); then
+    for schema in $schemas_betrieb; do
+        if ! printf '%s\n' $schemas_abzug | grep -qx "$schema"; then
+            schemas_fehlen+=("$schema")
+        fi
+    done
+    log "Schemas im Betrieb: $(printf '%s ' $schemas_betrieb)"
+    log "Schemas im Abzug:   ${schemas_abzug}"
+    if (( ${#schemas_fehlen[@]} > 0 )); then
+        log "FAIL: im Abzug fehlt ganz: ${schemas_fehlen[*]}"
+        failed_tables+=("schema:${schemas_fehlen[*]}")
+    fi
+else
+    # Kein Zugriff auf die laufende Datenbank ist kein Fehlschlag des Drills,
+    # aber auch kein Freispruch. Es wird gesagt statt verschwiegen.
+    log "Hinweis: Schemas nicht vergleichbar, laufende Datenbank nicht erreichbar"
+fi
+
 # Flow-Archiv mitpruefen. Ein beschaedigtes Archiv laesst den Drill scheitern —
 # ein fehlendes nicht, denn auf Geraeten ohne Flows gibt es schlicht keines.
 flows_ok=true
