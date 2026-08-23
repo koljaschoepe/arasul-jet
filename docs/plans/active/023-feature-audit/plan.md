@@ -4700,7 +4700,7 @@ heute.
 
 | Gate                             | Beleg                                                       | Stand                                                                                                                    |
 | -------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| G1, Funktionen vollständig       | zwölf Abnahmen, `scripts/test/abnahmen.sh`                  | über 150 Prüfpunkte, alle grün                                                                                           |
+| G1, Funktionen vollständig       | dreizehn Abnahmen, `scripts/test/abnahmen.sh`               | über 190 Prüfpunkte, alle grün                                                                                           |
 | G2, Rückmeldung bei jeder Aktion | `rueckmeldung-abnahme.mjs`                                  | 7/7, nachdem vier stumme Explorer-Aktionen nachgezogen sind                                                              |
 | G3, Oberfläche einheitlich       | `oberflaeche-abnahme.mjs`, sechs Ansichten mal drei Breiten | 55/55, dazu die Wächter in der CI                                                                                        |
 | G4, Daten bleiben auf dem Gerät  | `souveraenitaet-abnahme.sh`                                 | **offen seit 23.08.2026**: `llm-service` rief `ollama.com`, `embedding-service` hält eine Verbindung zu `huggingface.co` |
@@ -4903,6 +4903,55 @@ Stunden Beobachtung nicht wieder aufgetreten, Ursache unbekannt.
 Beim ersten Fund war die Rohprobendatei schon gelöscht, und Port und
 Zeitpunkt waren nicht mehr feststellbar. Das hat den halben Nachmittag
 gekostet.
+
+## Modelle über einen Link hinzufügen (23.08.2026, gebaut und abgenommen)
+
+Kommt aus der Entscheidung zu G4: wenn huggingface.co erlaubt bleibt, damit
+der Kunde neue Modelle bekommt, dann muss er sie auch hinzufügen können. Bis
+dahin konnte er nur laden, was im Katalog steht, und der Katalog kommt aus
+Migrationen — also aus einer Software-Aktualisierung. Ein Gerät ohne
+Aktualisierungen hätte für immer die Modelle seines Auslieferungstages.
+
+**Der Weg dahinter war nicht neu, nur nie erreichbar.** Ollama lädt direkt von
+HuggingFace, wenn der Name mit `hf.co/` beginnt; das Standardmodell dieses
+Geräts ist genau so eines. Es fehlte die Tür, nicht der Raum dahinter.
+
+Zweistufig, und der erste Schritt ist der Punkt. Eine GGUF-Ablage trägt ein
+Dutzend Quantisierungen zwischen 11 und 50 GB. Live am Orin:
+
+```
+Ablage: unsloth/Qwen3-30B-A3B-GGUF | frei: 14.9 GB
+  IQ1_S          9 GB  braucht  12 GB  passt
+  IQ2_M       10.9 GB  braucht  15 GB  passt NICHT
+  ... insgesamt 25 Varianten
+```
+
+Ohne diesen Schritt müsste der Kunde raten und danach zweistellige Gigabyte
+laden, um zu merken, dass es nicht hineinpasst.
+
+**Was der Live-Lauf gefunden hat, und kein Unit-Test finden konnte.** Zwei
+Fehler in genau diesen Zeilen, beide erst am Gerät sichtbar:
+
+| Fund                                                                | Wirkung                                                                    |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| HuggingFace antwortet auf einen Tippfehler mit **401**, nicht 404   | Meldung sagte „der Dienst ist kaputt" statt „der Name stimmt nicht" (#596) |
+| `category` ist eine **Größenklasse**, kein Typ (CHECK small…xlarge) | jeder Aufruf endete mit HTTP 500 (#597)                                    |
+
+Der zweite ist dieselbe Klasse wie die fünf Endpunkte vom selben Tag: im Test
+ist die Datenbank nachgebildet und nimmt jeden Wert an.
+
+**Und die Kehrseite, beim Nachweisen aufgefallen:** hinzufügen ging, entfernen
+nicht. `DELETE /api/models/:id` räumt nur `llm_installed_models`, die
+Katalogzeile bleibt — ein Tippfehler stünde für immer im Katalog des Kunden.
+Migration 160 trägt dafür `selbst_hinzugefuegt`; die Spalte steht dort und
+nicht als Text in `description`, weil eine Berechtigung nicht davon abhängen
+darf, wie ein Satz formuliert ist (#598).
+
+**Abnahme:** `scripts/test/modell-link-abnahme.mjs`, zehn von zehn im Browser.
+Sie misst die Kette, nicht die Endpunkte: Varianten vor dem Laden, Größe UND
+Speicherbedarf, Eintrag im Katalog, „Nicht von Arasul geprüft", Entfernen, und
+dass ein kuratiertes Modell sich nicht entfernen lässt. Geladen wird nichts —
+ein GGUF-Pull misst Ollama, nicht diese Funktion.
 
 ## G7 hat seit dem 23.08.2026 einen Bericht (#555)
 
