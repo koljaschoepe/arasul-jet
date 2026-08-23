@@ -49,6 +49,9 @@ async function captionImagesWithVisionModel(visionOllamaName, images, logger) {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(payload),
         },
+        // Derselbe Agent wie ueberall zum Modelldienst (siehe ollamaAgent.js);
+        // das kurze Zeitlimit hier ist gewollt, es ist nur ein Rueckfall.
+        agent: require('./ollamaAgent').ollamaAgent,
         timeout: 30000,
       },
       res => {
