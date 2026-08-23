@@ -58,6 +58,52 @@ function within(root, target) {
 }
 
 /**
+ * Der `projekt://`-Praefix, wie ihn ein Flow-Argument vom Typ `ordner` traegt.
+ *
+ * Er gehoert in die Argumente eines Laufs, nicht in einen Werkzeug-Pfad. Ein
+ * Modell weiss das nicht: es liest im Prompt "Schreibe das Angebot nach
+ * {{kunde}}/angebot.md", bekommt dort
+ * `projekt://aktiv/Abnahme Musterbau GmbH` eingesetzt und reicht genau das an
+ * `dateien_schreiben` weiter.
+ *
+ * Am 23.08.2026 auf dem Orin gemessen: der Lauf meldete Erfolg, die Antwort
+ * nannte `angebot.md`, und auf der Platte lag
+ *
+ *   Abnahme Musterbau GmbH/projekt:/aktiv/Abnahme Musterbau GmbH/angebot.md
+ *
+ * Ein Kunde, der in seinen Ordner sieht, findet einen Ordner namens `projekt:`
+ * und nicht sein Angebot.
+ *
+ * Aufgeloest wird hier und nicht beim Einsetzen des Platzhalters, weil es hier
+ * fuer JEDES Werkzeug gilt, auch fuer einen Pfad, den das Modell selbst aus
+ * dem Prompt zusammensetzt.
+ */
+const PROJEKT_PREFIX = 'projekt://';
+
+/**
+ * Nimmt einem Pfad den `projekt://…`-Kopf ab.
+ *
+ * Der Rest ist bewusst RELATIV: die erste Wurzel ist das Arbeitsverzeichnis,
+ * und ein `ordner`-Argument wird genau dazu. `projekt://aktiv/Kunde/x.md` und
+ * `projekt://<id>/Kunde/x.md` zeigen beide auf dasselbe, sobald der Lauf dort
+ * arbeitet.
+ *
+ * `projekt://aktiv` allein ist das Arbeitsverzeichnis selbst.
+ *
+ * @param {string} roh
+ * @returns {string} der Pfad ohne Praefix, oder unveraendert
+ */
+function ohneProjektPraefix(roh) {
+  if (typeof roh !== 'string' || !roh.startsWith(PROJEKT_PREFIX)) {
+    return roh;
+  }
+  const rest = roh.slice(PROJEKT_PREFIX.length);
+  const schraeg = rest.indexOf('/');
+  // `projekt://aktiv` -> '' (das Arbeitsverzeichnis selbst)
+  return schraeg === -1 ? '.' : rest.slice(schraeg + 1) || '.';
+}
+
+/**
  * Löst `relPath` gegen die erlaubten Ordner auf — rein lexikalisch.
  *
  * Relative Pfade gehen gegen die erste Wurzel (das Arbeitsverzeichnis).
@@ -70,7 +116,7 @@ function within(root, target) {
  */
 function resolveWithinRoots(roots, relPath) {
   const list = normalizeRoots(roots);
-  const raw = typeof relPath === 'string' ? relPath.trim() : '';
+  const raw = ohneProjektPraefix(typeof relPath === 'string' ? relPath.trim() : '');
 
   if (path.isAbsolute(raw)) {
     for (const root of list) {
@@ -221,6 +267,9 @@ function assertFdWithinRoots(roots, fd, relPath) {
 }
 
 module.exports = {
+  // Unter Test, weil ein Fehler hier nicht auffaellt, sondern eine Datei an
+  // einen Ort legt, an dem niemand sucht.
+  ohneProjektPraefix,
   normalizeRoots,
   resolveWithinRoots,
   resolveRealWithinRoots,

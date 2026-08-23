@@ -249,3 +249,54 @@ describe('assertFdWithinRoots', () => {
     }
   });
 });
+
+describe('projekt://-Praefix in einem Werkzeug-Pfad (Plan 023 I4, 23.08.2026)', () => {
+  const os = require('os');
+  const fsSync = require('fs');
+  const pathMod = require('path');
+  const {
+    ohneProjektPraefix,
+    resolveWithinRoots: aufloesen,
+  } = require('../../src/services/flows/pathSafe');
+
+  /**
+   * Der Praefix gehoert in die Argumente eines Laufs, nicht in einen
+   * Werkzeug-Pfad. Ein Modell weiss das nicht: es liest im Prompt "Schreibe das
+   * Angebot nach {{kunde}}/angebot.md", bekommt dort
+   * `projekt://aktiv/Abnahme Musterbau GmbH` eingesetzt und reicht genau das
+   * weiter.
+   *
+   * Am Orin gemessen: der Lauf meldete Erfolg, die Antwort nannte
+   * `angebot.md`, und auf der Platte lag
+   *
+   *   Abnahme Musterbau GmbH/projekt:/aktiv/Abnahme Musterbau GmbH/angebot.md
+   */
+  test('nimmt den Kopf ab und laesst den Rest relativ', () => {
+    expect(ohneProjektPraefix('projekt://aktiv/Kunde/angebot.md')).toBe('Kunde/angebot.md');
+    expect(ohneProjektPraefix('projekt://abc-123/Kunde/x.md')).toBe('Kunde/x.md');
+  });
+
+  test('der Ordner selbst ist das Arbeitsverzeichnis', () => {
+    expect(ohneProjektPraefix('projekt://aktiv')).toBe('.');
+    expect(ohneProjektPraefix('projekt://aktiv/')).toBe('.');
+  });
+
+  test('laesst alles andere unangetastet', () => {
+    expect(ohneProjektPraefix('angebot.md')).toBe('angebot.md');
+    expect(ohneProjektPraefix('./unter/x.md')).toBe('./unter/x.md');
+    expect(ohneProjektPraefix('')).toBe('');
+    expect(ohneProjektPraefix(null)).toBe(null);
+  });
+
+  test('ein Pfad mit Praefix landet im Arbeitsverzeichnis, nicht in einem Ordner "projekt:"', () => {
+    const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'praefix-'));
+    const ziel = aufloesen([wurzel], 'projekt://aktiv/angebot.md');
+    expect(ziel).toBe(pathMod.join(wurzel, 'angebot.md'));
+    expect(ziel).not.toMatch(/projekt:/);
+  });
+
+  test('der Ausbruchschutz bleibt', () => {
+    const wurzel = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), 'praefix2-'));
+    expect(() => aufloesen([wurzel], 'projekt://aktiv/../../etc/passwd')).toThrow();
+  });
+});
