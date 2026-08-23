@@ -4606,6 +4606,31 @@ Partnergespräch fertig sein, weil die AVV-Vorlage mitgeht.
 | G6, Sicherung                    | S1 bis S8, B5, J3                        |
 | G7, sieben Tage unbeaufsichtigt  | B3, E2, G4                               |
 
+## Die Kernzusage hat seit dem 23.08.2026 eine Abnahme (#558)
+
+„Ein Dokument hochladen und danach eine Frage dazu beantwortet bekommen, mit
+Quelle." Das ist der Satz, mit dem Arasul verkauft wird, und er war bis dahin
+nicht als dauerhafte Abnahme belegt. Belegt war er einmal von Hand, an einem
+Dokument, das schon Wochen auf dem Gerät lag. Das ist etwas anderes: eine alte
+Datei sagt nichts darüber, ob eine **neue** ankommt und gefunden wird.
+
+`scripts/test/dokument-abnahme.mjs` lädt deshalb ein frisches Dokument hoch,
+mit einer Zahl, die es sonst nirgends gibt. Ein Modell, das rät, trifft sie
+nicht. Danach fragt es, **ohne den Dateinamen zu nennen**.
+
+Auf dem Orin, sechs von sechs:
+
+```
+Ich lese den Wartungsvertrag.
+Grundpauschale: 41.780 Euro netto pro Jahr
+Kündigungsfrist: 7 Wochen zum Laufzeitende
+Quelle: pruefvertrag-wv-2026-8834.md (Abschnitte „Vergütung" und „Laufzeit")
+```
+
+146 Sekunden vom Absenden bis zur fertigen Antwort. Das Dokument wird danach
+wieder entfernt, sonst misst die nächste Messung in einem Feld aus
+Prüfverträgen.
+
 ## G7 hat seit dem 23.08.2026 einen Bericht (#555)
 
 G7 fragt nicht „läuft es gerade", sondern „lief es sieben Tage, ohne dass
