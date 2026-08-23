@@ -65,6 +65,32 @@ if [ "$CLAUDE_EXIT" -ne 0 ]; then
 fi
 # Success path sends its own Telegram summary from inside /work --nightly.
 
+# Die Live-Pruefung der Endpunkte. Sie gehoert hierher und nicht in die CI:
+# sie braucht ein laufendes Geraet mit echter Datenbank. Genau diese Klasse von
+# Fehlern findet kein Jest-Lauf, weil dort `db.query` nachgebildet ist — am
+# 23.08.2026 antworteten drei Endpunkte auf JEDEM Geraet mit HTTP 500, alle
+# drei von gruenen Unit-Tests gedeckt.
+echo "----- Endpunkte live -----"
+# Ein selbst geoeffneter Tunnel bleibt stehen. Das ist gewollt: der naechste
+# Lauf benutzt ihn wieder, und ihn zu schliessen hiesse, seine PID zu raten.
+if ! nc -z localhost 8443 2>/dev/null; then
+  ssh -f -N -L 8443:localhost:443 jetson 2>/dev/null && sleep 2 || true
+fi
+if nc -z localhost 8443 2>/dev/null; then
+  set +e
+  python3 scripts/test/endpunkte-live.py
+  ENDPUNKTE_EXIT=$?
+  set -e
+  if [ "$ENDPUNKTE_EXIT" -ne 0 ]; then
+    "$NOTIFY" "Endpunkt-Pruefung rot: mindestens ein Endpunkt antwortet mit 5xx. Log: $LOG_FILE" "Nightly" || true
+  fi
+else
+  # Ausdruecklich gemeldet und nicht stillschweigend uebersprungen: eine
+  # Pruefung, die nicht lief, ist kein bestandener Punkt.
+  echo "NICHT GELAUFEN: kein Tunnel auf 8443, das Geraet war nicht erreichbar."
+  "$NOTIFY" "Endpunkt-Pruefung NICHT gelaufen: kein Tunnel auf 8443." "Nightly" || true
+fi
+
 # Leave the repo on clean main for the morning.
 git checkout main >/dev/null 2>&1 || true
 echo "===== nightly-run done $(date '+%Y-%m-%d %H:%M:%S') ====="

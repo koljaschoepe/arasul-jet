@@ -676,6 +676,12 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         logger.debug("Running healing cycle")
 
         try:
+            # Das Nachschau-Budget dieser Runde. Ohne es kann eine Runde bei
+            # einem Deploy, der mehrere Container trifft, minutenlang in der
+            # Nachschau haengen — und solange laufen Temperatur-, GPU- und
+            # Plattenpruefung nicht.
+            self.nachschau_frist = time.time() + self.NACHSCHAU_BUDGET_JE_RUNDE
+
             self.update_heartbeat()
 
             metrics = self.get_metrics()
