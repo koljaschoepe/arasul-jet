@@ -4879,12 +4879,25 @@ Er hält 3,9 GiB und arbeitet alle 13 bis 17 Sekunden einen Embedding-Stapel
 ab. Der Indexer ist es nicht: der protokolliert ausdrücklich
 „Textlayer-only indexed 2 chunks (Embedding aus — kein Qdrant)".
 
-**Nicht entschieden, und zwar bewusst.** Es sind drei Fragen, und jede ist
-eine Entscheidung: den beiden Diensten den Weg nach draußen sperren (dann
-kann ein Reranker nicht mehr nachgeladen werden), die Offline-Schalter setzen
-(dann scheitert ein fehlendes Modell laut statt still), oder die Ziele als
-deklariert zulassen (dann ist G4 weicher, als es klingt). Alle drei ändern
-ein ausgeliefertes Verhalten.
+### Entschieden von Kolja am 23.08.2026: huggingface.co bleibt erlaubt
+
+Der Weg des Einbettungsdienstes nach huggingface.co wird **nicht** gesperrt.
+Die Begründung ist nicht Bequemlichkeit, sondern das Gegenteil: der Kunde soll
+neue Modelle selbst nachladen können, auch wenn sein Gerät nie wieder eine
+Software-Aktualisierung sieht. Ein Gerät, das keine Modelle mehr bekommt,
+altert schneller als eines, das einmal telefoniert.
+
+Damit ist `embedding-service` in `souveraenitaet-abnahme.sh` ein **deklariertes
+Ziel**, so wie `searxng`. Was hinausgeht, ist der Name eines Modells, nicht
+Kundenmaterial. Der Unterschied gehört in die Datenschutz-Unterlagen.
+
+**Daraus folgt eine Aufgabe, und die ist neu:** die Quellen müssen einstellbar
+sein. Heute kann ein Kunde nur laden, was im Katalog steht, und der Katalog
+kommt aus Migrationen — also aus einer Software-Aktualisierung. Genau das darf
+nicht die Bedingung sein. Siehe „Modelle über einen Link hinzufügen".
+
+**Offen bleibt `llm-service` → `ollama.com`.** Einmal beobachtet, in zwei
+Stunden Beobachtung nicht wieder aufgetreten, Ursache unbekannt.
 
 **Was heute getan ist:** die Messung wirft ihren Beleg nicht mehr weg (#587).
 Beim ersten Fund war die Rohprobendatei schon gelöscht, und Port und
