@@ -277,7 +277,7 @@ describe('memoryService', () => {
       const oversized = 'a'.repeat(3000);
 
       await expect(memoryService.updateProfile(oversized)).rejects.toThrow(
-        /exceeds maximum size/
+        /Das Profil ist zu groß/
       );
     });
 

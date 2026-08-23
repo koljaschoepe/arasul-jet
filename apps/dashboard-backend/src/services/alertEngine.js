@@ -19,6 +19,11 @@ const crypto = require('crypto');
 const { URL } = require('url');
 const dns = require('dns');
 const net = require('net');
+// Eine abgelehnte Webhook-URL ist eine Eingabe, die nicht passt, kein Absturz.
+// Als schlichter `Error` wurde daraus HTTP 500 "Internal server error", und der
+// Betreiber sah "das Geraet ist kaputt" statt "diese Adresse ist nicht
+// erlaubt" (23.08.2026 auf dem Orin nachgemessen).
+const { ValidationError } = require('./../utils/errors');
 const services = require('../config/services');
 
 /**
@@ -80,12 +85,12 @@ async function validateWebhookUrl(urlString) {
   const hostname = parsed.hostname;
 
   if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error('Nur HTTP/HTTPS-URLs erlaubt');
+    throw new ValidationError('Nur HTTP/HTTPS-URLs erlaubt');
   }
 
   if (net.isIP(hostname)) {
     if (isPrivateIP(hostname)) {
-      throw new Error('Webhook-URLs zu internen/privaten Adressen sind nicht erlaubt');
+      throw new ValidationError('Webhook-URLs zu internen/privaten Adressen sind nicht erlaubt');
     }
     return { family: net.isIPv6(hostname) ? 6 : 4, address: hostname };
   }
@@ -95,19 +100,19 @@ async function validateWebhookUrl(urlString) {
   const resolved = await new Promise((resolve, reject) => {
     dns.lookup(hostname, { family: 0, all: true }, (err, addrs) => {
       if (err) {
-        return reject(new Error(`DNS-Auflösung fehlgeschlagen: ${hostname}`));
+        return reject(new ValidationError(`DNS-Auflösung fehlgeschlagen: ${hostname}`));
       }
       resolve(addrs);
     });
   });
 
   if (resolved.length === 0) {
-    throw new Error(`DNS-Auflösung lieferte keine Adressen: ${hostname}`);
+    throw new ValidationError(`DNS-Auflösung lieferte keine Adressen: ${hostname}`);
   }
 
   for (const { address } of resolved) {
     if (isPrivateIP(address)) {
-      throw new Error('Webhook-URL löst zu einer internen Adresse auf');
+      throw new ValidationError('Webhook-URL löst zu einer internen Adresse auf');
     }
   }
   return resolved[0];
