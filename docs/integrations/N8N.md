@@ -167,6 +167,32 @@ ablegen (Gmail/Outlook „Create Draft") statt sie zu senden.
 
 ---
 
+## 6c. Der Knoten „Arasul LLM" umgeht die GPU-Sperre (Stand: 23.08.2026)
+
+**Wer den Knoten benutzt, wirft dem Chat das Modell aus dem Speicher.**
+
+Der eigene Knoten `n8n-nodes-arasul-llm` spricht `llm-service:11434` direkt an
+(`credentials/ArasulLlmApi.credentials.ts`, Vorgabe `llm-service` / `11434`).
+Er geht damit an der Warteschlange des Backends vorbei, und die hält die
+GPU-Sperre. Nennt der Workflow ein anderes Modell als der Chat, lädt Ollama es
+und wirft das laufende hinaus — mitten in einer Antwort.
+
+Auf dem Gerät nachgesehen (23.08.2026): der Knoten ist unter `/custom-nodes`
+installiert, keiner der vorhandenen Workflows benutzt ihn.
+
+**Bis das entschieden ist, gilt:** entweder im Workflow dasselbe Modell nennen,
+das der Chat benutzt (Einstellungen, KI, Standardmodell), oder statt des
+Knotens einen HTTP-Request-Knoten auf
+`http://dashboard-backend:3001/api/v1/external/llm/chat` legen — der geht durch
+die Warteschlange.
+
+Der Plan (`docs/plans/active/023-feature-audit/plan.md`, „Der n8n-Knoten umgeht
+dieselbe Sperre") hält die Entscheidung offen: durch das Backend leiten, die
+Sperre mitnehmen, oder das Modell gleich lassen. Alle drei ändern eine
+ausgelieferte Integration; keine davon ist eine Ausführung.
+
+---
+
 ## 7. Common failure modes
 
 | Symptom                                                                                                      | Likely cause                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -177,6 +203,7 @@ ablegen (Gmail/Outlook „Create Draft") statt sie zu senden.
 | Webhook returns 503 Cloudflare                                                                               | Cloudflare BotFightMode treats Stripe/GitHub webhook IPs as bots. Add a path-based bypass for `/webhook/*`.                                                                                                                                                                                                                                                                                                                                        |
 | `Generated encryption key` warning in n8n logs on first boot                                                 | `n8n_encryption_key` Docker secret not mounted. Check `compose.secrets.yaml`.                                                                                                                                                                                                                                                                                                                                                                      |
 | HTTP Request to an internal host fails with "Request blocked"                                                | Instance-wide SSRF protection (`N8N_SSRF_PROTECTION_ENABLED=true`) is working as intended. Legitimate internal targets belong in `N8N_SSRF_ALLOWED_HOSTNAMES` (compose.app.yaml).                                                                                                                                                                                                                                                                  |
+| Der Chat wird mitten in der Antwort langsam, sobald ein n8n-Workflow läuft                                   | Der Knoten „Arasul LLM" geht an der GPU-Sperre vorbei und lädt sein eigenes Modell — siehe §6c.                                                                                                                                                                                                                                                                                                                                                    |
 | Code node hangs / "no task runner available"                                                                 | `n8n-runners` sidecar down or auth-token mismatch — see [N8N_AGENTS.md](N8N_AGENTS.md) §Troubleshooting.                                                                                                                                                                                                                                                                                                                                           |
 | Automationen-Tab bleibt auf „nicht verfügbar" **direkt nach einem Geräte-Neustart**                          | n8n-Kaltstart dauerte länger als das Session-Retry-Budget. Seit Plan 016 versucht der Tab ~60 s (8 Versuche, gedeckelter Backoff) und „Erneut versuchen" lädt den iframe neu — normalerweise reicht Warten/ein Klick.                                                                                                                                                                                                                              |
 | n8n-Editor lädt leer / Login-Maske / WebSocket-Fehler, **wenn NICHT über die konfigurierte Origin geöffnet** | `N8N_EDITOR_BASE_URL` (`N8N_EXTERNAL_URL` in `.env`) ist eine **absolute** URL (z. B. `https://192.168.0.197/n8n`). Wird das Dashboard über eine andere Origin geöffnet (Tailscale-IP, Hostname, geänderte LAN-IP), zeigen die absoluten Editor-/WebSocket-Aufrufe des iframes weiter auf die alte Origin → cross-origin/Cookie-blockiert. Abhilfe: `N8N_EXTERNAL_URL` in `.env` auf die tatsächlich genutzte Origin setzen und `n8n` neu starten. |
