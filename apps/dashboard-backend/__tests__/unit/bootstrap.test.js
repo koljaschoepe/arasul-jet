@@ -260,14 +260,12 @@ describe('Bootstrap wartet auf die Datenbank (23.08.2026)', () => {
   });
 
   test('nach den Versuchen gibt es auf, statt ewig zu warten', async () => {
+    // Die Zahl wird beim AUFRUF gelesen, deshalb reicht das Setzen hier.
     process.env.BOOTSTRAP_DB_VERSUCHE = '3';
-    jest.resetModules();
-    const { migrationenMitGeduld: mitGrenze } = require('../../src/bootstrap');
-    const { runMigrations: rm } = require('../../src/migrationRunner');
-    rm.mockReset();
-    rm.mockRejectedValue(fehlerMit('ECONNREFUSED'));
-    await expect(mitGrenze()).rejects.toThrow(/ECONNREFUSED/);
-    expect(rm).toHaveBeenCalledTimes(3);
+    runMigrations.mockReset();
+    runMigrations.mockRejectedValue(fehlerMit('ECONNREFUSED'));
+    await expect(migrationenMitGeduld()).rejects.toThrow(/ECONNREFUSED/);
+    expect(runMigrations).toHaveBeenCalledTimes(3);
     delete process.env.BOOTSTRAP_DB_VERSUCHE;
   });
 });

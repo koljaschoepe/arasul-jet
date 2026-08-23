@@ -194,7 +194,11 @@ describe('DELETE /api/gdpr/me', () => {
     // Anonymisierungs-Updates auf Compliance-Tabellen
     expect(sqls.some(s => s.includes('UPDATE audit_logs SET user_id = NULL'))).toBe(true);
     expect(sqls.some(s => s.includes('UPDATE rag_query_log SET user_id = NULL'))).toBe(true);
-    expect(sqls.some(s => s.includes('UPDATE login_attempts SET username = NULL'))).toBe(true);
+    // Bis zum 23.08.2026 stand hier `SET username = NULL`. Die Spalte ist
+    // NOT NULL, und der Test hat damit festgehalten, was am Geraet IMMER
+    // scheiterte. Ein Test, der eine Zusage prueft, die es nicht gibt,
+    // ist schlimmer als kein Test.
+    expect(sqls.some(s => s.includes('UPDATE login_attempts SET username = $2'))).toBe(true);
 
     // Session-Cookie geräumt
     const setCookies = res.headers['set-cookie'] || [];
@@ -341,4 +345,32 @@ describe('DELETE /api/gdpr/me — was wirklich gelöscht wird (Plan 023 J4)', ()
     expect(res.body.summary).toHaveProperty('minio_offen');
     expect(res.body.summary).toHaveProperty('projekt_ordner');
   });
+
+  /**
+   * `login_attempts.username` ist NOT NULL. Ein `SET username = NULL` liess die
+   * ganze Transaktion zurueckrollen:
+   *
+   *   null value in column "username" of relation "login_attempts"
+   *   violates not-null constraint
+   *
+   * Da jedes Geraet Anmeldeversuche hat, ist das kein Sonderfall: die Loeschung
+   * nach Art. 17 scheiterte daran IMMER. Gefunden auf dem Pruefstand, nachdem
+   * der Fremdschluessel auf `knowledge_spaces` behoben war und die naechste
+   * Schicht sichtbar wurde.
+   */
+  test('login_attempts bekommt einen Platzhalter statt NULL', async () => {
+    const { sqls } = await loeschen();
+    const zeile = sqls.find(s2 => s2.includes('UPDATE login_attempts'));
+    expect(zeile).toBeDefined();
+    expect(zeile).not.toMatch(/SET username = NULL/);
+    expect(zeile).toMatch(/SET username = \$2/);
+  });
+
+  test('die anderen Trails bleiben bei NULL, dort ist die Spalte nullable', async () => {
+    // Nicht alles gleichmachen: `audit_logs.user_id` darf NULL sein, und ein
+    // Platzhalter waere dort eine Zahl, die es nicht gibt.
+    const { sqls } = await loeschen();
+    expect(sqls.some(s2 => s2.includes('UPDATE audit_logs SET user_id = NULL'))).toBe(true);
+  });
+
 });
