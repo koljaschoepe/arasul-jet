@@ -148,9 +148,19 @@ class CategoryHandlersMixin:
         'timeout',
     )
 
-    # So lange wird nach einem abgerissenen Aufruf gewartet, bevor nachgesehen
-    # wird. Ein Neustart braucht ein paar Sekunden.
+    # So lange wird nach einem abgerissenen Aufruf gewartet, bevor zum ersten
+    # Mal nachgesehen wird. Ein Neustart braucht ein paar Sekunden.
     NACHSCHAU_SEKUNDEN = 15
+
+    # Und so lange wird insgesamt nachgesehen, in Schritten von
+    # NACHSCHAU_TAKT_SEKUNDEN. Grund am 23.08.2026 auf dem Orin gemessen: bei
+    # einem Deploy baut Compose das Abbild und ERSETZT den Container. Zwischen
+    # `restart()` und dem laufenden neuen Container lagen mehr als 15 Sekunden,
+    # der Container war zeitweise gar nicht da. Nach einem Blick stand deshalb
+    # "laeuft nicht", und die Eskalationsleiter lief bis zum Neustart des
+    # ganzen Geraets durch — wegen eines Deploys.
+    NACHSCHAU_GESAMT_SEKUNDEN = 120
+    NACHSCHAU_TAKT_SEKUNDEN = 5
 
     def _is_container_being_replaced(self, error) -> bool:
         """Ist der Fehler nur ein Container-Wechsel (Deploy), kein Ausfall?"""
@@ -175,13 +185,27 @@ class CategoryHandlersMixin:
         Antwort auf die Frage, ob die Wiederherstellung geklappt hat.
         """
         time.sleep(self.NACHSCHAU_SEKUNDEN)
-        try:
-            container = self.docker_client.containers.get(service_name)
-            container.reload()
-            return container.status == 'running'
-        except Exception as e:
-            logger.debug(f"Nachschau fuer {service_name} nicht moeglich: {e}")
-            return False
+        frist = time.time() + self.NACHSCHAU_GESAMT_SEKUNDEN
+        letzter = 'nie gesehen'
+        while True:
+            try:
+                container = self.docker_client.containers.get(service_name)
+                container.reload()
+                letzter = container.status
+                if letzter == 'running':
+                    return True
+            except Exception as e:
+                # Waehrend eines Deploys gibt es den Container zeitweise nicht.
+                # Das ist kein Befund, sondern der Zustand zwischen zwei
+                # Containern.
+                letzter = f'nicht da ({e})'
+            if time.time() >= frist:
+                logger.debug(
+                    f"Nachschau fuer {service_name} nach "
+                    f"{self.NACHSCHAU_GESAMT_SEKUNDEN}s ohne Erfolg: {letzter}"
+                )
+                return False
+            time.sleep(self.NACHSCHAU_TAKT_SEKUNDEN)
 
     def handle_category_a_service_down(self, service_name: str, container):
         """Category A: Service Down - tiered restart strategies with exponential backoff"""
@@ -622,31 +646,55 @@ class CategoryHandlersMixin:
         """Category D: System Reboot - ultima ratio"""
         logger.critical(f"SYSTEM REBOOT TRIGGERED: {reason}")
 
-        self.log_event(
-            'system_reboot', 'EMERGENCY',
-            f'System reboot triggered: {reason}',
-            'Saving state and initiating reboot', None, True
-        )
-
+        # Hier stand bis zum 23.08.2026 EIN Eintrag, und zwar vor jeder
+        # Pruefung: 'Saving state and initiating reboot', success=True. Am
+        # 23.08. um 09:32 UTC stand er so im Protokoll des Orin, und das Geraet
+        # lief seit vier Tagen ununterbrochen weiter — `REBOOT_ENABLED` ist ab
+        # Werk aus. Der Eintrag behauptete etwas, das nicht geschah, und zwar
+        # ausgerechnet in dem Protokoll, aus dem der Nachweis fuer Gate G7
+        # gelesen wird.
+        #
+        # Jetzt sagt jeder Ausgang, was wirklich passiert ist.
         if not self.perform_reboot_safety_checks(reason):
             logger.error("Reboot safety checks failed - aborting reboot")
+            self.log_event(
+                'system_reboot_abgebrochen', 'CRITICAL',
+                f'Neustart verworfen, Sicherheitspruefung: {reason}',
+                'Kein Neustart, Sicherheitspruefung schlug fehl', None, False
+            )
             return
 
         reboot_id = self.save_reboot_state(reason)
         self._pause_active_jobs_for_reboot(reason)
 
-        if REBOOT_ENABLED:
-            logger.critical("Initiating system reboot in 10 seconds...")
-            time.sleep(10)
-            try:
-                subprocess.run(['sudo', 'reboot'], timeout=5)
-            except Exception as e:
-                logger.error(f"Reboot command failed: {e}")
-                logger.critical("MANUAL REBOOT REQUIRED")
-        else:
+        if not REBOOT_ENABLED:
             logger.critical("REBOOT DISABLED - Manual intervention required")
             logger.critical(f"Reboot would be triggered for: {reason}")
             logger.critical("Enable reboots by setting SELF_HEALING_REBOOT_ENABLED=true")
+            self.log_event(
+                'system_reboot_unterdrueckt', 'CRITICAL',
+                f'Neustart waere faellig gewesen: {reason}',
+                'Kein Neustart, SELF_HEALING_REBOOT_ENABLED ist aus', None, False
+            )
+            return
+
+        self.log_event(
+            'system_reboot', 'EMERGENCY',
+            f'System reboot triggered: {reason}',
+            'Saving state and initiating reboot', None, True
+        )
+        logger.critical("Initiating system reboot in 10 seconds...")
+        time.sleep(10)
+        try:
+            subprocess.run(['sudo', 'reboot'], timeout=5)
+        except Exception as e:
+            logger.error(f"Reboot command failed: {e}")
+            logger.critical("MANUAL REBOOT REQUIRED")
+            self.log_event(
+                'system_reboot_gescheitert', 'EMERGENCY',
+                f'Neustartbefehl scheiterte: {e}',
+                'Handeingriff noetig', None, False
+            )
 
     def perform_reboot_safety_checks(self, reason: str) -> bool:
         """Perform safety checks before initiating reboot"""
