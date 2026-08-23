@@ -380,6 +380,34 @@ printf '#!/bin/bash\nmkdir -p data/{anderes,dinge}\n' > "$DO/arasul"
 pruefe "Datenordner: die Klammerform zaehlt" 0 \
   python3 "$WURZEL/scripts/test/datenordner.py" --wurzel "$DO"
 
+# --- werksreset-tabellen.py -------------------------------------------------
+# Beide Richtungen, und die dritte, an der der erste Anlauf gescheitert ist:
+# eine spaeter geloeschte Tabelle darf nicht mehr verlangt werden.
+WT="$TMP/werksreset"
+mkdir -p "$WT/services/postgres/init" "$WT/apps/dashboard-backend/src/services/werksreset"
+LISTE="$WT/apps/dashboard-backend/src/services/werksreset/tabellen.js"
+
+# `bleibt` ist immer da. Ohne sie waere die Menge nach dem DROP leer, und der
+# Waechter meldete "keine CREATE TABLE gefunden" — der dritte Fall waere dann
+# aus dem falschen Grund rot.
+printf 'CREATE TABLE public.bleibt (id int);\nCREATE TABLE public.dinge (id int);\n' \
+  > "$WT/services/postgres/init/001_a.sql"
+printf "const INHALTE = [\n  ['public.bleibt', 'Bleibt'],\n  ['public.dinge', 'Dinge'],\n];\n" > "$LISTE"
+pruefe "Werksreset-Tabellen: eingeordnet ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/werksreset-tabellen.py" --wurzel "$WT"
+
+printf "const INHALTE = [\n  ['public.bleibt', 'Bleibt'],\n];\n" > "$LISTE"
+pruefe "Werksreset-Tabellen: nicht eingeordnet ist rot" 1 \
+  python3 "$WURZEL/scripts/test/werksreset-tabellen.py" --wurzel "$WT"
+
+printf 'DROP TABLE IF EXISTS public.dinge;\n' > "$WT/services/postgres/init/002_weg.sql"
+pruefe "Werksreset-Tabellen: eine geloeschte Tabelle zaehlt nicht mehr" 0 \
+  python3 "$WURZEL/scripts/test/werksreset-tabellen.py" --wurzel "$WT"
+
+printf 'ALTER TABLE public.bleibt RENAME TO umbenannt;\n' > "$WT/services/postgres/init/003_um.sql"
+pruefe "Werksreset-Tabellen: nach einer Umbenennung zaehlt der neue Name" 1 \
+  python3 "$WURZEL/scripts/test/werksreset-tabellen.py" --wurzel "$WT"
+
 # --- anleitungen.py ---------------------------------------------------------
 # Der Waechter aus Plan 023 K3: haelt README und CLAUDE.md gegen den Code.
 # Drei Faelle, drei Arten, wie eine Anleitung still falsch wird.
