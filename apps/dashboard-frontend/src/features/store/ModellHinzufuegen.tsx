@@ -190,8 +190,8 @@ export function ModellHinzufuegen({ onHinzugefuegt }: { onHinzugefuegt?: () => v
           {befund.varianten.some(v => v.passt === false) && (
             <Alert className="mt-2">
               <AlertDescription className="text-xs">
-                Eine Variante, die nicht ins Gerät passt, lässt sich hinzufügen und laden — sie
-                bleibt aber im Katalog stehen, bis genug Speicher frei ist.
+                Eine Variante, die nicht ins Gerät passt, lässt sich hinzufügen und laden. Sie
+                bleibt dann im Katalog stehen, bis genug Speicher frei ist.
               </AlertDescription>
             </Alert>
           )}
