@@ -81,26 +81,59 @@ function within(root, target) {
 const PROJEKT_PREFIX = 'projekt://';
 
 /**
- * Nimmt einem Pfad den `projekt://…`-Kopf ab.
+ * Nimmt einem Pfad den `projekt://<ziel>`-Kopf ab.
  *
- * Der Rest ist bewusst RELATIV: die erste Wurzel ist das Arbeitsverzeichnis,
- * und ein `ordner`-Argument wird genau dazu. `projekt://aktiv/Kunde/x.md` und
- * `projekt://<id>/Kunde/x.md` zeigen beide auf dasselbe, sobald der Lauf dort
- * arbeitet.
+ * Was uebrig bleibt, ist PROJEKT-ABSOLUT, nicht relativ zum
+ * Arbeitsverzeichnis. `projekt://aktiv/Kunde/x.md` meint "im Projekt, im
+ * Ordner Kunde", ganz gleich, wo der Lauf gerade arbeitet.
  *
- * `projekt://aktiv` allein ist das Arbeitsverzeichnis selbst.
+ * Der Unterschied ist nicht theoretisch. Am 23.08.2026 auf dem Orin: der
+ * `angebot`-Flow arbeitet IM Kundenordner und schreibt nach
+ * `projekt://aktiv/Abnahme Musterbau GmbH/angebot.md`. Als relativer Pfad
+ * gelesen ergab das
+ *
+ *   Abnahme Musterbau GmbH/Abnahme Musterbau GmbH/angebot.md
+ *
+ * also denselben Ordner ein zweites Mal. Davor, ganz ohne Behandlung des
+ * Praefixes, entstand ein Ordner namens `projekt:`.
+ *
+ * `projekt://aktiv` allein ist der Projektordner selbst.
  *
  * @param {string} roh
- * @returns {string} der Pfad ohne Praefix, oder unveraendert
+ * @returns {string|null} der Pfad ohne Praefix, oder null wenn kein Praefix
  */
 function ohneProjektPraefix(roh) {
   if (typeof roh !== 'string' || !roh.startsWith(PROJEKT_PREFIX)) {
-    return roh;
+    return null;
   }
   const rest = roh.slice(PROJEKT_PREFIX.length);
   const schraeg = rest.indexOf('/');
-  // `projekt://aktiv` -> '' (das Arbeitsverzeichnis selbst)
   return schraeg === -1 ? '.' : rest.slice(schraeg + 1) || '.';
+}
+
+/**
+ * Die Wurzel, gegen die ein projekt-absoluter Pfad zaehlt.
+ *
+ * Unter den erlaubten Ordnern ist der Projektordner der aeusserste: der
+ * Arbeitsordner eines Laufs liegt in ihm. Deshalb die KUERZESTE Wurzel, in der
+ * der Pfad landet, und nicht die erste.
+ *
+ * Bleibt keine uebrig, wird nichts erraten: der Aufrufer bekommt den
+ * gewohnten Fehler, dass der Pfad ausserhalb liegt.
+ *
+ * @param {string[]} list Bereits normalisierte Wurzeln
+ * @param {string} rest Pfad ohne Praefix
+ * @returns {string|null}
+ */
+function projektAbsolutAufloesen(list, rest) {
+  const nachLaenge = [...list].sort((a, b) => a.length - b.length);
+  for (const root of nachLaenge) {
+    const hit = within(root, path.resolve(root, rest || '.'));
+    if (hit) {
+      return hit;
+    }
+  }
+  return null;
 }
 
 /**
@@ -116,7 +149,22 @@ function ohneProjektPraefix(roh) {
  */
 function resolveWithinRoots(roots, relPath) {
   const list = normalizeRoots(roots);
-  const raw = ohneProjektPraefix(typeof relPath === 'string' ? relPath.trim() : '');
+  const roh = typeof relPath === 'string' ? relPath.trim() : '';
+
+  // Ein `projekt://`-Pfad ist projekt-absolut und zaehlt gegen den
+  // Projektordner, nicht gegen das Arbeitsverzeichnis.
+  const projektRest = ohneProjektPraefix(roh);
+  if (projektRest !== null) {
+    const treffer = projektAbsolutAufloesen(list, projektRest);
+    if (!treffer) {
+      throw new ValidationError(
+        `Pfad "${relPath}" liegt ausserhalb der erlaubten Ordner (${list.join(', ')})`
+      );
+    }
+    return treffer;
+  }
+
+  const raw = roh;
 
   if (path.isAbsolute(raw)) {
     for (const root of list) {
