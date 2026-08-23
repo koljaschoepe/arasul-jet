@@ -7,6 +7,7 @@
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
+const { NotFoundError, ValidationError } = require('../../utils/errors');
 
 // Docker Compose prefixes network names with project name
 // The project name is derived from the directory name: arasul-jet
@@ -19,8 +20,8 @@ const NETWORK_NAME = process.env.DOCKER_NETWORK || 'arasul-platform_arasul-backe
 const VALID_APP_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,63}$/;
 function validateAppId(appId) {
   if (!appId || typeof appId !== 'string' || !VALID_APP_ID_PATTERN.test(appId)) {
-    throw new Error(
-      `Invalid app ID: ${appId}. Only lowercase alphanumeric, hyphens, and underscores allowed (3-64 chars).`
+    throw new ValidationError(
+      `Ungültige App-Kennung: ${appId}. Erlaubt sind Kleinbuchstaben, Ziffern, Bindestrich und Unterstrich, 3 bis 64 Zeichen.`
     );
   }
 }
@@ -35,7 +36,7 @@ async function startApp(appId) {
   const result = await db.query('SELECT * FROM app_installations WHERE app_id = $1', [appId]);
 
   if (result.rows.length === 0) {
-    throw new Error(`App ${appId} ist nicht installiert`);
+    throw new NotFoundError(`App ${appId} ist nicht installiert`);
   }
 
   const installation = result.rows[0];
@@ -113,7 +114,7 @@ async function stopApp(appId) {
   const result = await db.query('SELECT * FROM app_installations WHERE app_id = $1', [appId]);
 
   if (result.rows.length === 0) {
-    throw new Error(`App ${appId} ist nicht installiert`);
+    throw new NotFoundError(`App ${appId} ist nicht installiert`);
   }
 
   const installation = result.rows[0];
@@ -220,7 +221,7 @@ async function restartApp(appId, applyConfig = false) {
   const result = await db.query('SELECT * FROM app_installations WHERE app_id = $1', [appId]);
 
   if (result.rows.length === 0) {
-    throw new Error(`App ${appId} ist nicht installiert`);
+    throw new NotFoundError(`App ${appId} ist nicht installiert`);
   }
 
   const installation = result.rows[0];
@@ -288,7 +289,7 @@ async function recreateAppWithConfig(appId, asyncMode = false) {
   const manifest = manifests[appId];
 
   if (!manifest) {
-    throw new Error(`App ${appId} not found in manifests`);
+    throw new NotFoundError(`App ${appId} nicht gefunden`);
   }
 
   // Built-in apps don't have containers to recreate
@@ -420,7 +421,7 @@ async function getAppLogs(appId, tail = 100) {
   ]);
 
   if (result.rows.length === 0) {
-    throw new Error(`App ${appId} ist nicht installiert`);
+    throw new NotFoundError(`App ${appId} ist nicht installiert`);
   }
 
   // Built-in apps share dashboard-backend logs

@@ -546,7 +546,7 @@ describe('Store App Lifecycle', () => {
     for (const badId of badIds) {
       expect(
         installService.installApp(badId)
-      ).rejects.toThrow(/Invalid app ID/);
+      ).rejects.toThrow(/Ungültige App-Kennung/);
     }
   });
 

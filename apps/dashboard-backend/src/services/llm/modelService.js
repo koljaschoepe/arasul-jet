@@ -16,6 +16,10 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const execFileAsync = promisify(execFile);
+// Ohne diese Klassen wird jede erwartbare Lage (zu wenig RAM, Modell nicht im
+// Katalog, laeuft schon) vom Fehlerbehandler zu HTTP 500 mit der Meldung
+// "Internal server error". Der Nutzer erfaehrt dann nicht, was zu tun ist.
+const { NotFoundError, ValidationError, ConflictError } = require('../../utils/errors');
 const readFileAsync = promisify(fs.readFile);
 
 const { createDownloadHelpers } = require('./modelDownloadHelpers');
@@ -102,7 +106,7 @@ function createModelService(deps = {}) {
         `${envLimit ? ' (RAM_LIMIT_LLM)' : ' (auto-detected)'}. ` +
         `Bitte ein kleineres Modell wählen.`;
       logger.error(`[ACTIVATE] ${errorMsg}`);
-      throw new Error(errorMsg);
+      throw new ConflictError(errorMsg);
     }
 
     // Multi-model budget check: use getMemoryBudget() for available space
@@ -147,7 +151,7 @@ function createModelService(deps = {}) {
           `Verfügbar: ${((budget.availableMb + freedMb) / 1024).toFixed(1)}GB. ` +
           `Bitte erst ein geladenes Modell entladen.`;
         logger.error(`[ACTIVATE] ${errorMsg}`);
-        throw new Error(errorMsg);
+        throw new ConflictError(errorMsg);
       }
     }
 
@@ -612,7 +616,7 @@ function createModelService(deps = {}) {
         [modelId]
       );
       if (catalogResult.rows.length === 0) {
-        throw new Error(`Model ${modelId} not found in catalog`);
+        throw new NotFoundError(`Modell ${modelId} steht nicht im Katalog`);
       }
 
       const catalogModel = catalogResult.rows[0];
@@ -637,7 +641,7 @@ function createModelService(deps = {}) {
 
       if (claimResult.rows.length === 0) {
         logger.warn(`[DOWNLOAD] Model ${modelId} is already downloading, skipping`);
-        throw new Error('Modell wird bereits heruntergeladen');
+        throw new ConflictError('Modell wird bereits heruntergeladen');
       }
 
       // Register as active AFTER successful claim so periodic sync can't mark it stale
@@ -780,12 +784,14 @@ function createModelService(deps = {}) {
           [modelId]
         );
         if (defaultCheck.rows[0]?.is_default) {
-          throw new Error('Cannot delete the default model. Set another model as default first.');
+          throw new ConflictError(
+            'Das Standardmodell lässt sich nicht löschen. Bitte zuerst ein anderes als Standard setzen.'
+          );
         }
 
         // Prevent deletion while model is being downloaded
         if (activeDownloadIds.has(modelId)) {
-          throw new Error('Cannot delete a model while it is being downloaded.');
+          throw new ConflictError('Ein Modell lässt sich nicht löschen, während es geladen wird.');
         }
 
         // Get ollama_name from catalog
@@ -962,7 +968,7 @@ function createModelService(deps = {}) {
                          WHERE id = $2`,
             [validation.error, modelId]
           );
-          throw new Error(validation.error);
+          throw new ValidationError(validation.error);
         }
 
         // Check if model is already among loaded models (multi-model support)
