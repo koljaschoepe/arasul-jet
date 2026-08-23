@@ -904,11 +904,9 @@ describe('exec() Elimination', () => {
   const fs = require('fs');
   const pathModule = require('path');
 
-  const filesToCheck = [
-    'src/services/llm/modelService.js',
-    'src/tools/servicesTool.js',
-    'src/tools/logsTool.js',
-  ];
+  // `src/tools/` ist am 23.08.2026 entfallen: die Registry wurde in den
+  // System-Prompt geschrieben, aber von keiner Stelle ausgefuehrt.
+  const filesToCheck = ['src/services/llm/modelService.js'];
 
   for (const file of filesToCheck) {
     it(`${file} does not use exec() (uses execFile instead)`, () => {

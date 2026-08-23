@@ -231,10 +231,9 @@ async function loadProfile() {
  * @param {string|null} conversationId - Current conversation ID (reserved; kept
  *   for signature stability with existing callers).
  * @param {Object} [options] - Options
- * @param {boolean} [options.includeTools=true] - Whether to include tools section
  * @returns {Promise<string>} Combined system prompt
  */
-async function buildSystemPrompt(database, conversationId, { includeTools = true } = {}) {
+async function buildSystemPrompt(database, conversationId) {
   const parts = [getBasePrompt()];
 
   // Layer 2: AI Profile
@@ -253,18 +252,21 @@ async function buildSystemPrompt(database, conversationId, { includeTools = true
     }
   }
 
-  // Layer 4: Available Tools (only for medium/complex queries)
-  if (includeTools) {
-    try {
-      const toolRegistry = require('../../tools');
-      const toolsPrompt = await toolRegistry.generateToolsPrompt();
-      if (toolsPrompt) {
-        parts.push(toolsPrompt);
-      }
-    } catch {
-      // Tools not available - ignore
-    }
-  }
+  // Hier stand bis zum 23.08.2026 eine vierte Schicht: `## Tools`, sechs
+  // Systemwerkzeuge im Format `[TOOL: name param=wert]`, aus
+  // `src/tools/toolRegistry`. Der Text ging ins Modell, und dann geschah
+  // nichts: `processToolCalls`, `parseToolCalls` und `execute` dieser
+  // Registry werden im ganzen Backend von KEINER Stelle aufgerufen, auch von
+  // keinem Test. Der Marker wurde also weder ausgefuehrt noch entfernt — er
+  // stand woertlich in der Antwort.
+  //
+  // Wen das traf: den Weg OHNE Agent-Modus, also `POST
+  // /api/v1/external/llm/chat` (n8n, Automationen) und Bild-Nachrichten. Der
+  // Chat selbst laeuft seit dem 28.07.2026 als Agent und hat seine eigenen,
+  // wirklich ausgefuehrten Werkzeuge aus `services/flows/toolRegistry`.
+  //
+  // Einem Modell Faehigkeiten zu versprechen, die niemand ausfuehrt, ist
+  // schlimmer als keine Faehigkeiten: es antwortet, es habe nachgesehen.
 
   return parts.join('\n\n');
 }
