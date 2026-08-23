@@ -79,8 +79,8 @@ echo ""
 
 # Manifest anzeigen
 if [ -f MANIFEST.yml ]; then
-    local_version=$(grep "^version:" MANIFEST.yml 2>/dev/null | cut -d'"' -f2)
-    local_created=$(grep "^created:" MANIFEST.yml 2>/dev/null | cut -d'"' -f2)
+    local_version=$(grep "^version:" MANIFEST.yml 2>/dev/null | cut -d'"' -f2 || true)
+    local_created=$(grep "^created:" MANIFEST.yml 2>/dev/null | cut -d'"' -f2 || true)
     echo -e "  Version:  ${GREEN}${local_version:-unbekannt}${NC}"
     echo -e "  Erstellt: ${local_created:-unbekannt}"
     echo ""
@@ -105,7 +105,11 @@ if [ -f images.tar.gz ]; then
     images_loaded=true
     echo -e "  ${GREEN}✓${NC} Docker-Images geladen"
 elif [ -d docker-images/ ]; then
-    img_count=$(ls docker-images/*.tar.gz 2>/dev/null | wc -l)
+    # Ohne `|| true` erschien die Fehlermeldung drei Zeilen weiter unten NIE:
+    # findet `ls` keine Datei, ist sein Rueckgabewert 2, und das Skript stirbt,
+    # bevor es sagen kann, was fehlt. Genau der Fall, fuer den die Meldung
+    # geschrieben wurde.
+    img_count=$(ls docker-images/*.tar.gz 2>/dev/null | wc -l || true)
     if [ "$img_count" -eq 0 ]; then
         echo -e "  ${RED}Fehler: docker-images/ Verzeichnis existiert, aber enthaelt keine .tar.gz Dateien${NC}"
         exit 1
@@ -224,7 +228,10 @@ echo -e "${BOLD}═════════════════════�
 echo -e "${GREEN}  Factory-Installation abgeschlossen!${NC}"
 echo ""
 
-local_hostname=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2)
+# Diese Zeile steht NACH "Factory-Installation abgeschlossen!". Ohne
+# `|| true` sah der Werker die Erfolgsmeldung, danach brach das Skript ab, und
+# die Adresse des Dashboards stand nie da.
+local_hostname=$(grep "^MDNS_NAME=" .env 2>/dev/null | cut -d'=' -f2 || true)
 echo -e "  Dashboard: ${BLUE}https://${local_hostname:-arasul}.local${NC}"
 echo ""
 echo -e "  Dieses Verzeichnis ist die Arasul-Installation."
