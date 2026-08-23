@@ -1125,11 +1125,9 @@ async function processAgentChatJob(ctx, job) {
   };
 
   // --- System-Prompt (geschichtete Basis + Agent-Arbeitsweise) --------------
-  // includeTools:false — der alte '## Tools'-Prompt-Text entfällt; der Agent
-  // bekommt seine Werkzeuge STRUKTURELL über den tools-Parameter.
-  const basisPrompt = await buildSystemPrompt(database, job.conversation_id, {
-    includeTools: false,
-  });
+  // Der Agent bekommt seine Werkzeuge STRUKTURELL über den tools-Parameter.
+  // Einen '## Tools'-Prompt-Text gibt es seit dem 23.08.2026 nirgends mehr.
+  const basisPrompt = await buildSystemPrompt(database, job.conversation_id);
   let systemPrompt = (basisPrompt || '') + AGENT_ANWEISUNG;
 
   // Orchestrator-Protokoll (Interview 2026-07-29): Die Ordnerstruktur des

@@ -152,9 +152,7 @@ async function processChatJob(ctx, job) {
   if (istExtern(requested_model)) {
     const { externenChatFahren } = require('./extern/externerChat');
     const { buildSystemPrompt: baueSystemPrompt } = require('./systemPromptBuilder');
-    const externerSystemPrompt = await baueSystemPrompt(database, job.conversation_id, {
-      includeTools: false,
-    });
+    const externerSystemPrompt = await baueSystemPrompt(database, job.conversation_id);
     await externenChatFahren(ctx, job, {
       nachrichten: (messages || []).filter(m => m && m.role !== 'system'),
       systemPrompt: externerSystemPrompt,
@@ -213,10 +211,8 @@ async function processChatJob(ctx, job) {
   }
 
   // Build layered system prompt (global base + AI profile + company context + project prompt)
-  // Skip tools section for trivial/simple queries to reduce prefill overhead
-  const includeTools = complexity.level !== 'trivial' && complexity.level !== 'simple';
   const { buildSystemPrompt } = require('./systemPromptBuilder');
-  const systemPrompt = await buildSystemPrompt(database, job.conversation_id, { includeTools });
+  const systemPrompt = await buildSystemPrompt(database, job.conversation_id);
 
   // Context Management: Build optimized prompt within token budget
   const contextBudgetManager = require('../context/contextBudgetManager');

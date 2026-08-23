@@ -4490,7 +4490,7 @@ schweren Mangel aus. Im Protokoll stand aber `rag: 0` und kein Agentenpfad: das
 ist der EINFACHE Chat ohne Werkzeuge, nicht der Weg der Oberfläche. Gemessen
 wurde am falschen Endpunkt.
 
-## Werkzeuge, die niemand ausführt (offen, Entscheidung)
+## Werkzeuge, die niemand ausführt (entschieden am 23.08.2026: entfernt)
 
 Beim Nachgehen des Fehlalarms gefunden. `apps/dashboard-backend/src/tools/`
 enthält sechs Werkzeuge (`status`, `logs`, `services`, `workflows`, `alerts`,
@@ -4516,11 +4516,29 @@ Die sichtbare Oberfläche ist nicht betroffen; sie geht immer über den
 Agentenpfad (`isAgent` ist die Vorgabe in `ChatContext`), und dort werden
 Werkzeuge wirklich ausgeführt.
 
-**Nicht entschieden, und das ist Absicht.** Es gibt zwei Wege, und beide sind
-vertretbar: den Ausführer im einfachen Pfad verdrahten, oder die Beschreibung
-weglassen und das Teilsystem entfernen. Das zweite hiesse, sechs Dateien plus
-Registry zu löschen, die jemand gebaut hat. Ein Teilsystem stillzulegen ist
-eine Entscheidung, keine Ausführung.
+### Entschieden am 23.08.2026, und warum ich es entschieden habe
+
+Der Absatz darüber ließ die Entscheidung offen. Dazwischen kam ein Befund, den
+er nicht kannte: **der einfache Pfad ist nicht nur ein dokumentierter Endpunkt,
+er ist die n8n-Anbindung.** `POST /api/v1/external/llm/chat` reicht an
+`llmQueueService.enqueue` durch, ohne `agent` zu setzen — also genau der Weg,
+auf dem die Beschreibung ins Modell geht und der Marker unausgeführt in der
+Antwort landet. Damit trifft es ein Verkaufsmerkmal, nicht nur eine Doku-Zeile.
+
+Die zwei Wege sind nicht gleich riskant. Den Ausführer verdrahten heißt, einem
+Pfad, der nie eine Werkzeugschleife hatte, unbeaufsichtigt eine zu geben — und
+der Agentenpfad hat längst eine, die wirklich läuft. Die Beschreibung
+wegzunehmen kostet dagegen **keine einzige Fähigkeit**, weil keine davon je
+funktioniert hat.
+
+Entfernt sind: die vierte Prompt-Schicht in `systemPromptBuilder.js`, der
+Parameter `includeTools` an allen vier Aufrufstellen und `src/tools/`
+(1293 Zeilen, neun Dateien). Die Werkzeuge des Agenten
+(`services/flows/toolRegistry`) sind davon nicht berührt.
+
+**Wenn Kolja den anderen Weg will**, ist er einen Revert entfernt: der Code
+steht in der Historie, und die Stelle, an der er verdrahtet würde, ist im
+Kommentar in `systemPromptBuilder.js` benannt.
 
 ## Der n8n-Knoten umgeht dieselbe Sperre (offen, Entscheidung)
 

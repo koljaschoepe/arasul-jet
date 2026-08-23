@@ -25,7 +25,7 @@ src/
   schemas/       Zod schemas — one file per route domain (auth.js, chats.js, ...).
   utils/         Stateless helpers: errors, logger, jwt, password, retry, ...
   config/        Static config (no runtime state).
-  tools/         Standalone scripts (run via `node src/tools/<name>.js`).
+  tools/         Nur noch `baseTool.js`, die Basisklasse der Flow-Werkzeuge.
   database.js    Main pg.Pool. Use `db.query(...)` — never instantiate your own pool.
 ```
 
@@ -126,7 +126,7 @@ Phase 5 hardening); the cookie is unreliable for WS upgrades.
 ### 8. Logging
 
 `utils/logger.js` (rotating Winston). Use `logger.info|warn|error`. Never
-`console.log` outside of `src/tools/`. `logger.error(msg, { ...context })`
+`console.log` im Backend. `logger.error(msg, { ...context })`
 is preferred so `errorHandler` keeps structured fields.
 
 ## Forbidden
