@@ -162,6 +162,16 @@ class CategoryHandlersMixin:
     NACHSCHAU_GESAMT_SEKUNDEN = 120
     NACHSCHAU_TAKT_SEKUNDEN = 5
 
+    # Und so viel Nachschau darf eine GANZE Runde kosten, ueber alle Dienste
+    # zusammen. Der Grund wiegt schwerer als die Nachschau selbst: die
+    # Heilungsrunde ist einfaedig. Waehrend hier gewartet wird, laufen weder
+    # die Temperaturpruefung noch die GPU-Fehlerbehandlung noch die
+    # Plattenpruefung. Ein Deploy trifft mehrere Container gleichzeitig, und
+    # drei Dienste mit je zwei Minuten Nachschau haetten den Wachhund auf einem
+    # Jetson sieben Minuten lang blind gemacht — auf Hardware, die bei 90 Grad
+    # abschaltet. Das Budget deckelt genau diesen Fall.
+    NACHSCHAU_BUDGET_JE_RUNDE = 150
+
     def _is_container_being_replaced(self, error) -> bool:
         """Ist der Fehler nur ein Container-Wechsel (Deploy), kein Ausfall?"""
         text = str(error).lower()
@@ -170,6 +180,13 @@ class CategoryHandlersMixin:
     def _ist_verbindungsabriss(self, error) -> bool:
         text = str(error).lower()
         return any(muster in text for muster in self.VERBINDUNG_ABGERISSEN)
+
+    def _nachschau_rest(self) -> float:
+        """Wie viel Nachschau diese Runde noch kosten darf."""
+        frist = getattr(self, 'nachschau_frist', None)
+        if frist is None:
+            return float(self.NACHSCHAU_SEKUNDEN)
+        return max(0.0, frist - time.time())
 
     def _laeuft_wieder(self, service_name: str) -> bool:
         """Nach einem abgerissenen Aufruf: laeuft der Dienst wieder?
@@ -181,11 +198,23 @@ class CategoryHandlersMixin:
         das als "Failed to recover" und eskalierte — obwohl n8n danach lief.
         Vier Runden lang, von 00:59 bis 02:32.
 
-        Nachsehen statt annehmen ist hier billig und die einzige ehrliche
-        Antwort auf die Frage, ob die Wiederherstellung geklappt hat.
+        Nachsehen statt annehmen ist die einzige ehrliche Antwort auf die
+        Frage, ob die Wiederherstellung geklappt hat. Billig ist es nicht mehr:
+        bis zu zwei Minuten je Dienst, gedeckelt durch das Budget der Runde
+        (`NACHSCHAU_BUDGET_JE_RUNDE`), damit der Wachhund nicht blind wird.
         """
-        time.sleep(self.NACHSCHAU_SEKUNDEN)
+        rundenfrist = getattr(self, 'nachschau_frist', None)
+        if rundenfrist is not None and time.time() >= rundenfrist:
+            logger.warning(
+                f"Nachschau fuer {service_name} entfaellt: das Nachschau-Budget "
+                f"dieser Runde ist aufgebraucht"
+            )
+            return False
+
+        time.sleep(min(self.NACHSCHAU_SEKUNDEN, self._nachschau_rest()))
         frist = time.time() + self.NACHSCHAU_GESAMT_SEKUNDEN
+        if rundenfrist is not None:
+            frist = min(frist, rundenfrist)
         letzter = 'nie gesehen'
         while True:
             try:
@@ -201,11 +230,10 @@ class CategoryHandlersMixin:
                 letzter = f'nicht da ({e})'
             if time.time() >= frist:
                 logger.debug(
-                    f"Nachschau fuer {service_name} nach "
-                    f"{self.NACHSCHAU_GESAMT_SEKUNDEN}s ohne Erfolg: {letzter}"
+                    f"Nachschau fuer {service_name} ohne Erfolg: {letzter}"
                 )
                 return False
-            time.sleep(self.NACHSCHAU_TAKT_SEKUNDEN)
+            time.sleep(min(self.NACHSCHAU_TAKT_SEKUNDEN, max(0.0, frist - time.time())))
 
     def handle_category_a_service_down(self, service_name: str, container):
         """Category A: Service Down - tiered restart strategies with exponential backoff"""

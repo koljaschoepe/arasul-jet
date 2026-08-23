@@ -190,8 +190,6 @@ class TestSelfHealingEngine(unittest.TestCase):
         Verbindung zum docker-proxy ab. Der Agent buchte das als "Failed to
         recover" und eskalierte — vier Runden lang, obwohl n8n danach lief.
         """
-        self.engine.NACHSCHAU_SEKUNDEN = 0
-        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 0
         container = MagicMock()
         container.name = 'n8n'
         container.restart.side_effect = Exception(
@@ -212,8 +210,6 @@ class TestSelfHealingEngine(unittest.TestCase):
 
     def test_verbindungsabriss_und_dienst_bleibt_weg(self):
         """Laeuft er danach NICHT, bleibt es ein Fehlschlag."""
-        self.engine.NACHSCHAU_SEKUNDEN = 0
-        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 0
         container = MagicMock()
         container.name = 'n8n'
         container.restart.side_effect = Exception("('Connection aborted.', RemoteDisconnected())")
@@ -231,8 +227,6 @@ class TestSelfHealingEngine(unittest.TestCase):
 
     def test_anderer_fehler_wird_nicht_nachgesehen(self):
         """Ein echter Fehler bleibt ein Fehler, ohne Nachschau."""
-        self.engine.NACHSCHAU_SEKUNDEN = 0
-        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 0
         container = MagicMock()
         container.name = 'n8n'
         container.restart.side_effect = Exception('image not found')
@@ -323,6 +317,32 @@ class TestSelfHealingEngine(unittest.TestCase):
 
         logged = [c.args[0] for c in mock_log.call_args_list]
         self.assertIn('service_recovery_failed', logged)
+
+    def test_nachschau_budget_deckelt_die_runde(self):
+        """Eine Runde darf nicht minutenlang in der Nachschau haengen.
+
+        Die Heilungsrunde ist einfaedig. Waehrend die Nachschau wartet, laufen
+        weder Temperatur- noch GPU- noch Plattenpruefung. Ein Deploy trifft
+        mehrere Container gleichzeitig; ohne Budget waeren drei Dienste mit je
+        zwei Minuten Nachschau sieben blinde Minuten auf Hardware, die bei
+        90 Grad abschaltet.
+        """
+        self.engine.NACHSCHAU_SEKUNDEN = 0
+        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 999
+        # Budget bereits aufgebraucht
+        self.engine.nachschau_frist = time.time() - 1
+        self.assertFalse(self.engine._laeuft_wieder('n8n'))
+
+    def test_ohne_budget_laeuft_die_nachschau_wie_bisher(self):
+        """Ohne gesetzte Frist (z. B. direkter Aufruf) bleibt es beim Alten."""
+        self.engine.NACHSCHAU_SEKUNDEN = 0
+        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 0
+        if hasattr(self.engine, 'nachschau_frist'):
+            del self.engine.nachschau_frist
+        danach = MagicMock()
+        danach.status = 'running'
+        self.mock_client.containers.get.return_value = danach
+        self.assertTrue(self.engine._laeuft_wieder('n8n'))
 
     def test_handle_category_b_cpu_overload(self):
         """Test Category B: CPU Overload"""
