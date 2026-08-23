@@ -205,10 +205,16 @@ networks:
     ipam:
       config:
         - subnet: ${NETZ_BASIS:-172.30.0}.64/26
-  # Dedicated network for the Docker Socket Proxy. Only dashboard-backend and
-  # self-healing-agent join it — no other service (n8n, document-indexer, …) has
-  # a network path to docker-proxy:2375, so a compromised workload container
-  # cannot reach the privileged Docker API.
+  # Dedicated network for the Docker Socket Proxy. Only dashboard-backend,
+  # self-healing-agent and backup-service join it — no other service (n8n,
+  # document-indexer, …) has a network path to docker-proxy:2375, so a
+  # compromised workload container cannot reach the privileged Docker API.
+  #
+  # Am 23.08.2026 auf dem Orin nachgezaehlt statt geglaubt:
+  #   docker network inspect arasul-platform_arasul-docker-proxy
+  #   -> docker-proxy self-healing-agent dashboard-backend backup-service
+  # Der Kommentar nannte drei Namen und meinte vier. Wer diese Liste aendert,
+  # zaehlt sie dort nach.
   arasul-docker-proxy:
     driver: bridge
     ipam:
