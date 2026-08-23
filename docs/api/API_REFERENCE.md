@@ -1699,6 +1699,7 @@ Die Werte greifen erst nach `POST /api/apps/:id/restart` mit
 | POST   | `/api/models/download`         | Download model (SSE progress)                                                  |
 | POST   | `/api/models/quelle/pruefen`   | Nachsehen, welche Varianten hinter einem Link stecken und wie groß sie sind    |
 | POST   | `/api/models/katalog`          | Ein Modell über einen Link in den Katalog aufnehmen                            |
+| DELETE | `/api/models/katalog/*`        | Einen selbst hinzugefügten Katalogeintrag wieder entfernen                     |
 | DELETE | `/api/models/:id`              | Delete installed model                                                         |
 | POST   | `/api/models/:id/activate`     | Load model into RAM                                                            |
 | POST   | `/api/models/:id/deactivate`   | Unload model from RAM (identisch mit `/unload`)                                |
@@ -1752,6 +1753,18 @@ Schätzung; bei Ollama-Modellen trägt der Download sie nach.
 
 Danach ist das Modell über den normalen Weg (`POST /api/models/download`)
 ladbar wie jedes kuratierte auch.
+
+**DELETE /api/models/katalog/\*** — nimmt einen selbst hinzugefügten Eintrag
+wieder aus dem Katalog. Der Pfad endet auf `*` und nicht auf einen Parameter,
+weil die Kennung eines HuggingFace-Modells selbst Schrägstriche trägt
+(`hf.co/unsloth/Qwen3-30B-A3B-GGUF:IQ1_S`).
+
+Entfernt wird ausschließlich, was `selbst_hinzugefuegt` trägt (Migration 160).
+Ein kuratierter Eintrag ergibt `400`: er kommt aus einer Migration und käme
+beim nächsten Start ohnehin wieder — ihn löschen zu lassen wäre eine Zusage,
+die das Gerät nicht halten kann. Ist das Modell noch installiert, ergibt es
+`409`: erst das Modell löschen (`DELETE /api/models/:id`), dann den Eintrag,
+sonst läge es weiter auf der Platte, ohne dass es im Katalog steht.
 
 **Hinweis zu `/api/models/installed`:** Die Antwort enthaelt seit Plan 023 D9
 auch die externen Cloud-Modelle, sofern ein Anbieter eingeschaltet ist. Sie

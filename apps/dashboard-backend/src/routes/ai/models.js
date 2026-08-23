@@ -288,8 +288,8 @@ router.post(
       `INSERT INTO llm_model_catalog
          (id, name, description, size_bytes, ram_required_gb, category,
           capabilities, recommended_for, jetson_tested, performance_tier,
-          ollama_name, model_type)
-       VALUES ($1, $2, $3, $4, $5, $6, '[]'::jsonb, '[]'::jsonb, false, 2, $7, 'llm')`,
+          ollama_name, model_type, selbst_hinzugefuegt)
+       VALUES ($1, $2, $3, $4, $5, $6, '[]'::jsonb, '[]'::jsonb, false, 2, $7, 'llm', true)`,
       // `category` ist eine GROESSENKLASSE, kein Typ: der Katalog hat einen
       // CHECK auf small/medium/large/xlarge. Beim ersten Anlauf stand hier
       // 'custom', und jeder Aufruf endete mit HTTP 500
@@ -317,6 +317,68 @@ router.post(
         size_bytes: groesseBytes,
         ram_required_gb: ramFuer(groesseBytes),
       },
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * DELETE /api/models/katalog/:modelId
+ *
+ * Eine selbst hinzugefuegte Katalogzeile wieder entfernen.
+ *
+ * Ohne diesen Weg gaebe es keinen zurueck: `DELETE /api/models/:id` raeumt nur
+ * `llm_installed_models`, die Katalogzeile bleibt. Ein Tippfehler im Namen
+ * stuende damit fuer immer im Katalog des Kunden (beim Nachweisen am Geraet am
+ * 23.08.2026 aufgefallen).
+ *
+ * Entfernt wird ausschliesslich, was `selbst_hinzugefuegt` traegt. Die
+ * kuratierten Zeilen kommen aus Migrationen und kaemen beim naechsten Start
+ * ohnehin wieder — sie hier loeschen zu lassen waere eine Zusage, die das
+ * Geraet nicht halten kann.
+ */
+router.delete(
+  // `*` und nicht `:modelId`: die Kennung eines HuggingFace-Modells traegt
+  // selbst Schraegstriche (`hf.co/unsloth/Qwen3-30B-A3B-GGUF:IQ1_S`), und ein
+  // Parameter fasst nur EIN Segment.
+  '/katalog/*',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const modelId = req.params[0];
+    if (!modelId) {
+      throw new ValidationError('Ohne Kennung lässt sich nichts entfernen.');
+    }
+
+    const zeile = await database.query(
+      'SELECT id, name, selbst_hinzugefuegt FROM llm_model_catalog WHERE id = $1',
+      [modelId]
+    );
+    if (zeile.rows.length === 0) {
+      throw new NotFoundError(`„${modelId}" steht nicht im Katalog.`);
+    }
+    if (!zeile.rows[0].selbst_hinzugefuegt) {
+      throw new ValidationError(
+        `„${modelId}" gehört zum Lieferumfang und lässt sich nicht aus dem Katalog entfernen. ` +
+          'Ein installiertes Modell löschst du über DELETE /api/models/:id.'
+      );
+    }
+
+    const installiert = await database.query('SELECT id FROM llm_installed_models WHERE id = $1', [
+      modelId,
+    ]);
+    if (installiert.rows.length > 0) {
+      throw new ConflictError(
+        `„${modelId}" ist noch installiert. Erst das Modell löschen, dann den Katalogeintrag.`
+      );
+    }
+
+    await database.query('DELETE FROM llm_model_catalog WHERE id = $1', [modelId]);
+    cacheService.invalidatePattern('models:*');
+    logger.info(`Katalogeintrag entfernt: ${modelId} (von ${req.user.username})`);
+
+    res.json({
+      data: { id: modelId, name: zeile.rows[0].name },
+      message: `„${zeile.rows[0].name}" ist nicht mehr im Katalog.`,
       timestamp: new Date().toISOString(),
     });
   })
