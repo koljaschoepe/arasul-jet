@@ -175,6 +175,14 @@ async function sendAppAsset(res, id, relPath) {
   res.setHeader('Content-Type', asset.contentType);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Security-Policy', 'sandbox allow-scripts allow-popups allow-forms;');
+  // Der Rahmen laeuft ohne `allow-same-origin`, hat also einen opaken Origin.
+  // Fuer ihn ist JEDE Antwort dieses Servers fremd — und Helmets Vorgabe
+  // `Cross-Origin-Resource-Policy: same-origin` blockiert sie deshalb. Bis zum
+  // 22.08.2026 traf das auch `arasul-bruecke.js`: die Bruecken-API laesst
+  // `Origin: null` ausdruecklich zu (siehe `brueckeCors`), ihre eigene
+  // Client-Datei kam aber nie im Rahmen an. Die Dateien bleiben hinter
+  // `requireAuth` und tragen oben ihre eigene Sandbox-CSP.
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Cache-Control', 'no-store');
   const stream = fs.createReadStream(asset.filePath);
   stream.on('error', err => res.destroy(err));
