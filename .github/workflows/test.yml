@@ -344,6 +344,21 @@ jobs:
       - name: Jede Tabelle ist im Werksreset eingeordnet (Plan 023 B5)
         run: python3 scripts/test/werksreset-tabellen.py --wurzel .
 
+      # Diese drei liefen bisher nur in `run-tests.sh`, also nur lokal. Ein Zug
+      # ueber die Weboberflaeche, mit `--no-verify` oder aus einem Workflow
+      # heraus hat sie nie gesehen — und genau das ist der Weg, auf dem die
+      # Schuldenliste der undokumentierten Endpunkte still wieder wachsen
+      # koennte. Sie steht seit dem 23.08.2026 bei null (Plan 023 K1) und soll
+      # dort bleiben.
+      - name: Jeder Endpunkt hat eine Beschreibung (Plan 023 K1)
+        run: python3 scripts/test/endpunkte.py --wurzel .
+
+      - name: Anleitungen zeigen nichts, was es nicht gibt (Plan 023 K3)
+        run: python3 scripts/test/anleitungen.py
+
+      - name: Geruest-Regeln (Plan 023 H2)
+        run: python3 scripts/test/geruest-regeln.py
+
       - name: Der Deploy-Rollback sagt die Wahrheit ueber sich
         run: bash scripts/test/rollback-meldung.sh
 
