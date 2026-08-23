@@ -39,6 +39,11 @@ HOST="${ARASUL_SSH:-jetson}"
 # erlaubt sind. Kommagetrennt, als IP oder als Name. Der Fernzugriff braucht
 # hier nichts: sein Bereich (100.64/10) zaehlt ohnehin als drinnen.
 ERLAUBT="${ARASUL_ERLAUBTE_ZIELE:-}"
+# Die Proben BLEIBEN nach dem Lauf liegen, wenn etwas nach draussen ging.
+# Am 23.08.2026 stand am Ende `llm-service 34.36.133.15|31|31`, und die Datei
+# war schon geloescht — die Frage "wann genau und auf welchem Port" liess sich
+# nicht mehr beantworten, und der Fund war danach nicht zu reproduzieren. Eine
+# Messung, die ihren eigenen Beleg wegwirft, kostet einen ganzen Nachmittag.
 PROBEN_DATEI="/tmp/arasul-souveraenitaet-$$.txt"
 STOP_DATEI="/tmp/arasul-souveraenitaet-$$.stop"
 
@@ -127,6 +132,12 @@ END {
 }')
 
 PROBEN=$(ssh "$HOST" "wc -l < $PROBEN_DATEI 2>/dev/null" | tr -d ' ')
+# Die Proben nur dann wegwerfen, wenn NICHTS nach draussen ging. Ging etwas,
+# bleiben sie liegen und ihr Pfad steht am Ende — sonst ist der einzige Beleg
+# weg, bevor jemand ihn ansehen kann (23.08.2026 genau so passiert).
+if printf '%s' "$AUSWERTUNG" | grep -q '^DRAUSSEN|'; then
+  BELEG=$(ssh "$HOST" "cp $PROBEN_DATEI /tmp/arasul-souveraenitaet-beleg.txt 2>/dev/null && echo /tmp/arasul-souveraenitaet-beleg.txt")
+fi
 ssh "$HOST" "rm -f $PROBEN_DATEI $STOP_DATEI" 2>/dev/null
 rm -f /tmp/arasul-souv-kette-$$.log
 
@@ -175,6 +186,12 @@ if [ "${TAILNET:-0}" != "0" ]; then
   echo ""
   echo "Hinweis: Verbindungen im Tailnet-Bereich (Fernzugriff, bewusst eingeschaltet):"
   printf '%s\n' "$AUSWERTUNG" | grep '^TAILNET|' | sed 's/^/  /'
+fi
+
+if [ -n "${BELEG:-}" ]; then
+  echo ""
+  echo "Die Rohproben liegen auf dem Geraet: $BELEG"
+  echo "Darin steht je Zeile Container, lokale und entfernte Adresse mit Port."
 fi
 
 echo ""
