@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, PowerOff } from 'lucide-react';
 import { API_BASE } from '@/config/api';
 import { useApi } from '@/hooks/useApi';
@@ -6,10 +6,19 @@ import { useExtensions } from '@/hooks/useExtensions';
 
 /**
  * ExtensionAppTab (Plan 012 Batch 3) — rendert die Oberfläche einer installierten
- * App-Erweiterung „in der Mitte", genau wie der n8n-Tab: ein same-origin-iframe
- * auf `GET /api/extensions/:id/app/`. Das Backend liefert die Startdatei des
- * Pakets aus; die Auth trägt das `arasul_session`-Cookie (same-origin), das ein
- * iframe automatisch mitschickt.
+ * App-Erweiterung „in der Mitte", genau wie der n8n-Tab: ein iframe auf
+ * `GET /api/extensions/:id/app/t/<token>/`. Das Backend liefert die Startdatei
+ * des Pakets aus.
+ *
+ * Der Token im Pfad ist kein Beiwerk (Fund vom 23.08.2026). Bis dahin stand
+ * dort `…/app/` und die Auth sollte das `arasul_session`-Cookie tragen. Das
+ * ging nur für die Startdatei gut: ihr Abruf ist eine Navigation des
+ * Elternfensters und zählt als same-site. Jede UNTERdatei fragt das
+ * sandgekastete Dokument selbst an — mit opakem Origin, also cross-site, und
+ * `arasul_session` ist `SameSite=Strict`. Es wurde nie mitgeschickt. Gemessen
+ * an `arasul-bruecke.js`: 401 plus `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`.
+ * Relative Verweise im App-HTML erben den Token-Pfad von selbst; deshalb diese
+ * Form und keine Lockerung an `SameSite`.
  *
  * Der iframe ist doppelt eingesperrt: das `sandbox`-Attribut hier UND die
  * CSP-`sandbox`-Direktive der Antwort. Ohne `allow-same-origin` bekommt die
@@ -40,6 +49,35 @@ export default function ExtensionAppTab({
   const api = useApi();
   const { extensions, isLoading: erweiterungenLaden } = useExtensions();
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  // null = wird geholt, '' = fehlgeschlagen, sonst der Token.
+  const [leseToken, setLeseToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!extensionId) {
+      return;
+    }
+    let abgemeldet = false;
+    setLeseToken(null);
+    void api
+      .post<{ token: string }>(
+        `/extensions/${encodeURIComponent(extensionId)}/app-token`,
+        {},
+        { showError: false }
+      )
+      .then(d => {
+        if (!abgemeldet) {
+          setLeseToken(d.token || '');
+        }
+      })
+      .catch(() => {
+        if (!abgemeldet) {
+          setLeseToken('');
+        }
+      });
+    return () => {
+      abgemeldet = true;
+    };
+  }, [api, extensionId]);
 
   const sendeToken = useCallback(async () => {
     const frame = frameRef.current;
@@ -118,7 +156,21 @@ export default function ExtensionAppTab({
     );
   }
 
-  const src = `${API_BASE}/extensions/${encodeURIComponent(extensionId)}/app/`;
+  if (leseToken === null) {
+    return <div className="h-full w-full bg-background" aria-busy="true" />;
+  }
+  if (leseToken === '') {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-background px-6 text-center text-text-secondary">
+        <AlertTriangle className="h-8 w-8" aria-hidden="true" />
+        <p className="text-sm">Die Erweiterung konnte nicht geladen werden.</p>
+      </div>
+    );
+  }
+
+  const src =
+    `${API_BASE}/extensions/${encodeURIComponent(extensionId)}` +
+    `/app/t/${encodeURIComponent(leseToken)}/`;
 
   return (
     <iframe

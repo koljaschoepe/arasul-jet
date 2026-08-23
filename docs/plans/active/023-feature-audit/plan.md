@@ -3574,6 +3574,43 @@ Ausschalten fragt einmal, mit der Zahl der betroffenen Tabs; einschalten fragt
 nie, da geht nichts zu. Ein Paket schließt jetzt seine eigenen Tabs, ein fremdes
 Paket bleibt unangetastet.
 
+### Vierter Punkt: der Tab öffnete sich, und dahinter war nichts (#548)
+
+Am 23.08.2026 die ganze sichtbare Kette gemessen, nicht nur den Schalter:
+einschalten, Knopf links, Tab in der Mitte — und darin die KI-Brücke. Der Tab
+öffnete sich, die App zeichnete ihre Oberfläche, und daneben stand:
+
+    net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin
+    /api/extensions/beispiel-app/app/arasul-bruecke.js
+
+Ein Blick auf den Tab hätte grün gesagt. Vier Schichten lagen übereinander, und
+jede musste einzeln gemessen werden, weil die darüber die darunter verdeckte:
+
+1. **CORP.** Der Rahmen läuft absichtlich ohne `allow-same-origin`, hat also
+   einen opaken Origin. Helmets Vorgabe `Cross-Origin-Resource-Policy:
+same-origin` blockiert damit jede Antwort dieses Servers.
+2. **Das Cookie kam gar nicht mit.** `arasul_session` ist `SameSite=Strict`,
+   und jede Unteranfrage aus einem opaken Dokument zählt als cross-site — also 401. Nur die Startdatei kam an, weil ihr Abruf eine Navigation des
+   Elternfensters ist. Damit konnte in einer App-Erweiterung **überhaupt keine
+   Datei** nachladen, kein Stylesheet, kein Bild. Die Lösung ist ein
+   kurzlebiger Lese-Token im PFAD des Rahmens; relative Verweise erben ihn von
+   selbst, und `SameSite` bleibt, wie es ist.
+3. **Der Vorabflug.** `brueckeCors` lässt `Origin: null` ausdrücklich zu — kam
+   aber nie dran, weil der globale CORS-Wächter vor dem Router läuft und den
+   OPTIONS-Aufruf mit 403 beantwortete.
+4. **Traefik.** `POST .../bruecke/llm` streamt, stand aber am allgemeinen
+   `/api`-Router hinter `body-limit`. Direkt am Backend kam der Strom an, über
+   Traefik brach er sofort ab.
+
+Damit steht fest: die KI-Brücke hat aus einer App-Erweiterung heraus noch nie
+funktioniert, seit sie in Plan 017 gebaut wurde. Getestet war sie mit einem
+Token von außen, nicht aus dem Rahmen.
+
+Die Abnahme ist `scripts/test/erweiterung-abnahme.mjs`. Sie prüft nicht, ob
+etwas erscheint, sondern den Text, den nur eine **antwortende** Brücke erzeugt,
+und stellt danach eine echte Frage ans Modell. Auf dem Orin: 5/5, die App
+bekommt „Paris".
+
 ---
 
 # Phase I, Flows
