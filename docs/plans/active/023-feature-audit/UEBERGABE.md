@@ -20,11 +20,24 @@ braucht, holt sie aus der Live-Quelle: die Befehle stehen jeweils daneben.
 | Nächtlicher Lauf (`scripts/util/nightly-run.sh`)  | launchd auf dem Mac, 02:30                        | Chat-Ende                                       |
 | Nächtlicher Wiederherstellungs-Drill              | `backup-service` auf dem Gerät                    | alles                                           |
 
-**Stand der Nacht auf den 24.08.2026, 01:00:** dreizehn PRs (#610 bis #622),
+**Stand der Nacht auf den 24.08.2026, 01:30:** zwanzig PRs (#610 bis #629),
 alle gemergt, `main` grün, keine PR offen. Alle dreizehn Abnahmen grün (201
-Prüfpunkte), 192 Endpunkte ohne Serverfehler. Der G7-Zähler läuft neu ab dem
-23.08. 17:01, also ist **G7 frühestens am 30.08.2026 erfüllbar** — Einzelheiten
-im Plan.
+Prüfpunkte), 192 Endpunkte ohne Serverfehler.
+
+**Zwei Messungen laufen und beantworten je eine offene Frage:**
+
+| Frage                                                          | Wo die Antwort steht                                 | Wann          |
+| -------------------------------------------------------------- | ---------------------------------------------------- | ------------- |
+| Verhindert `OLLAMA_NO_CLOUD=1` die Verbindung nach ollama.com? | `scripts/test/ausgang-lauscher.sh stand llm-service` | 24.08. abends |
+| Läuft das Gerät jetzt ohne Selbstheilungs-Eingriff durch?      | `bash scripts/test/dauerlauf-bericht.sh`             | fortlaufend   |
+
+Beim Lauscher gilt: **keine neue Zeile nach 01:22 heißt, der Schalter wirkt.**
+Steht dort eine, war er der falsche, und `OLLAMA_CLOUD_BASE_URL` ist der
+nächste Kandidat. Der Kanarienvogel auf `searxng` muss dabei weiterzählen,
+sonst misst der Lauscher wieder nichts (siehe Abschnitt 2).
+
+Der G7-Zähler läuft neu ab dem 23.08. 17:01, also ist **G7 frühestens am
+30.08.2026 erfüllbar** — Einzelheiten im Plan.
 
 **Was NICHT weiterläuft:** der `/loop`-Wecker und alle Hintergrundbefehle
 dieser Sitzung. Sie sterben mit dem Chat. Das ist kein Verlust — alles, was
@@ -149,6 +162,9 @@ gesucht wurde und wo nicht.
 | Prüfstand         | die Selbstheilung des Produktstacks heilte in den Prüfstand hinein (311 Ereignisse in sieben Tagen)            |
 | Stiller Tod       | 23 Zuweisungen beendeten ihr Skript wortlos, sobald `grep` nichts fand; alle behoben, Wächter hält es sauber   |
 | Aufgabenzahl      | drei Stellen im Repo nannten drei verschiedene Zahlen (61, 64, gezählt 66)                                     |
+| G4, ollama.com    | der Lauscher hat die Verbindung gefangen; `OLLAMA_NO_CLOUD=1` gesetzt, Wirkung wird gemessen                   |
+| G6, Sicherung     | der Drill hätte ein fehlendes Schema nicht bemerkt (127 von 206 Tabellen); jetzt geprüft und gegengeprobt      |
+| Wartungsfenster   | der Schutz war zehn Sekunden zu kurz, die Selbstheilung griff direkt nach Fensterschluss zu                    |
 
 **Die Neustart-Kette ist der schwerste Befund des Tages.** Der Orin läuft seit
 dem 19.08. durch, und das klang nach dem Nachweis für G7. Es war ein Zufall:
