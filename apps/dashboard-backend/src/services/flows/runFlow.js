@@ -674,9 +674,27 @@ async function runFlow(
     });
     let ausgabe;
     try {
-      const [tool] = makeTools([werkzeug]);
+      // Die Betriebsart MUSS mit (Plan 023 I3, gefunden am 23.08.2026).
+      //
+      // `buildTools` laesst `frage_nutzer` in der Betriebsart `autonom`
+      // absichtlich weg, und ohne diese Angabe ist die Vorgabe `autonom`. Ein
+      // deterministischer Schritt mit `werkzeug: frage_nutzer` scheiterte
+      // deshalb IMMER, auch in einem Flow mit `betriebsart: rueckfragen`:
+      //
+      //   Schritt "umfang" fehlgeschlagen:
+      //   Werkzeug "frage_nutzer" ist nicht verfuegbar
+      //
+      // Damit war die Rueckfrage im deklarierten Schritt unerreichbar, also
+      // genau der Weg, den das `angebot`-Beispiel geht. Der modellgetriebene
+      // Pfad eine Zeile weiter oben reichte sie laengst durch.
+      const [tool] = makeTools([werkzeug], { betriebsart: flow.betriebsart });
       if (!tool) {
-        throw new ValidationError(`Werkzeug "${werkzeug}" ist nicht verfügbar`);
+        throw new ValidationError(
+          `Werkzeug "${werkzeug}" ist nicht verfügbar` +
+            (werkzeug === 'frage_nutzer' && flow.betriebsart !== 'rueckfragen'
+              ? '. "frage_nutzer" braucht die Betriebsart "rueckfragen".'
+              : '')
+        );
       }
       ausgabe = String(await tool.execute(params, context));
     } catch (err) {
