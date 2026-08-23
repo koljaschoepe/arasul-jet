@@ -195,14 +195,23 @@ try {
   );
 
   // --- I3: antworten --------------------------------------------------------
+  // Ein Klick auf eine Option SENDET bereits (`onClick={() => schicken(o)}`
+  // in `RueckfrageKarte.tsx`). Der Knopf `flow-antwort-senden` gehoert zum
+  // Freitextfeld daneben und ist ohne Eingabe zu Recht gesperrt.
+  //
+  // Mein erster Versuch klickte beides und lief in ein Zeitlimit auf einem
+  // `disabled`-Knopf. Das sah aus wie ein Mangel und war meiner: die Antwort
+  // war da laengst zugestellt (`frage_nutzer -> Antwort des Nutzers: …`).
   const ersteOption = page.locator('[data-testid^="flow-option-"]').first();
-  if (await ersteOption.count()) {
+  const hatOption = (await ersteOption.count()) > 0;
+  if (hatOption) {
     await ersteOption.click();
-    await page.waitForTimeout(400);
+  } else {
+    await page.locator('[data-testid="flow-antwort-frei"]').fill('Kompakt, eine Seite');
+    await page.locator('[data-testid="flow-antwort-senden"]').click();
   }
-  await page.locator('[data-testid="flow-antwort-senden"]').click();
-  await page.waitForTimeout(2000);
-  const kartenDanach = await page.locator('[data-testid="flow-antwort-senden"]').count();
+  await page.waitForTimeout(3000);
+  const kartenDanach = await page.locator('[data-testid="flow-rueckfrage"]').count();
   pruefe('I3: nach dem Absenden ist die Frage weg', kartenDanach === 0, `${kartenDanach} Karten`);
 
   // --- I4: das Ergebnis ist ein Dokument im Kundenordner --------------------
