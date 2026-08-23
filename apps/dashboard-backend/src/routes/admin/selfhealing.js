@@ -326,27 +326,34 @@ router.get(
   requireAuth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    // Calculate uptime percentages per service (last 7 days)
-    const uptimeQuery = `
-        WITH service_downtime AS (
-            SELECT
-                service_name,
-                COUNT(*) as failure_count,
-                SUM(EXTRACT(EPOCH FROM (resolved_at - timestamp))) as total_downtime_seconds
-            FROM service_failures
-            WHERE timestamp >= NOW() - INTERVAL '7 days'
-            GROUP BY service_name
-        )
+    // Stoerungen je Dienst, letzte sieben Tage.
+    //
+    // Hier stand bis zum 23.08.2026 eine Rechnung auf `resolved_at`. Die Spalte
+    // gibt es in `service_failures` nicht und hat es nie gegeben (Migration
+    // 003), also endete dieser Endpunkt auf JEDEM Geraet mit HTTP 500 —
+    // ausgerechnet der, der den Nachweis fuer Gate G7 traegt. Der Unit-Test hat
+    // es nicht gemerkt, weil er die Datenbank nachbildet und die erfundene
+    // Spalte brav mit ausliefert.
+    //
+    // Die Tabelle kennt keinen Zeitpunkt der Behebung, nur den der Stoerung.
+    // Eine Ausfallzeit ist daraus nicht zu rechnen. Statt eine Prozentzahl zu
+    // erfinden, die niemand pruefen kann, steht hier, was die Tabelle wirklich
+    // weiss: wie oft ein Dienst gestoert war und wie oft die Selbstheilung
+    // gegriffen hat.
+    const stoerungenQuery = `
         SELECT
             service_name,
-            failure_count,
-            COALESCE(total_downtime_seconds, 0) as downtime_seconds,
-            ROUND(100.0 - (COALESCE(total_downtime_seconds, 0) / (7 * 24 * 3600) * 100), 2) as uptime_percent
-        FROM service_downtime
-        ORDER BY uptime_percent ASC
+            COUNT(*) AS failure_count,
+            COUNT(*) FILTER (WHERE recovery_success IS TRUE) AS recovered,
+            COUNT(*) FILTER (WHERE recovery_success IS FALSE) AS not_recovered,
+            MAX(timestamp) AS last_failure
+        FROM service_failures
+        WHERE timestamp >= NOW() - INTERVAL '7 days'
+        GROUP BY service_name
+        ORDER BY failure_count DESC
     `;
 
-    const uptimeResult = await db.query(uptimeQuery);
+    const stoerungenResult = await db.query(stoerungenQuery);
 
     // Recovery action success rate
     const recoverySuccessQuery = `
@@ -379,7 +386,7 @@ router.get(
     const trendResult = await db.query(trendQuery);
 
     res.json({
-      uptime: uptimeResult.rows,
+      failures_by_service: stoerungenResult.rows,
       recovery_success_rates: recoverySuccessResult.rows,
       event_trends: trendResult.rows,
       timestamp: new Date().toISOString(),

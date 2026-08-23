@@ -170,12 +170,54 @@ Returns user info headers on success:
 
 ### System
 
-| Method | Endpoint                 | Description                         |
-| ------ | ------------------------ | ----------------------------------- |
-| GET    | `/api/system/status`     | System health (OK/WARNING/CRITICAL) |
-| GET    | `/api/system/info`       | Version, build hash, uptime         |
-| GET    | `/api/system/network`    | IP addresses, mDNS, connectivity    |
-| GET    | `/api/system/thresholds` | Device-specific metric thresholds   |
+| Method | Endpoint                        | Description                                 |
+| ------ | ------------------------------- | ------------------------------------------- |
+| GET    | `/api/system/status`            | System health (OK/WARNING/CRITICAL)         |
+| GET    | `/api/system/info`              | Version, build hash, uptime                 |
+| GET    | `/api/system/network`           | IP addresses, mDNS, connectivity            |
+| GET    | `/api/system/thresholds`        | Device-specific metric thresholds           |
+| GET    | `/api/system/heartbeat`         | Lebenszeichen, ohne Anmeldung               |
+| GET    | `/api/system/diagnostics/quick` | Lagebild als JSON, ohne Archiv              |
+| POST   | `/api/system/diagnostics`       | Diagnosearchiv erzeugen und ausliefern      |
+| POST   | `/api/system/reload-config`     | Ratenbremse und Protokollstufe neu einlesen |
+
+**GET /api/system/heartbeat:**
+
+Auth: keine. Der einzige Weg, ein Gerät von außen auf Leben zu prüfen, ohne
+Anmeldung. Antwortet mit `status`, `uptime` (Sekunden seit dem Start des
+Betriebssystems, nicht des Dienstes) und `timestamp`.
+
+```json
+{ "status": "ok", "uptime": 864000, "timestamp": "2026-08-23T10:00:00.000Z" }
+```
+
+**GET /api/system/diagnostics/quick:**
+
+Auth: erforderlich. Vier Quellen in einer Antwort, jede einzeln abgesichert:
+`system` (Hostname, Plattform, Last, Speicher), `services` (Docker-Zustand,
+bei Fehler `{}`), `database` (Verbindungen, Datenbankgröße,
+Selbstheilungs-Ereignisse und Dienstausfälle der letzten 24 Stunden, bei
+Fehler `{}`) und `disk` (aus `df -h /`). Kein Archiv, keine Datei.
+
+**POST /api/system/diagnostics:**
+
+Auth: erforderlich. Ruft `scripts/system/diagnostics.sh` auf (Zeitlimit 120 s)
+und liefert das erzeugte Archiv als Download aus
+(`Content-Type: application/gzip`). Der Aufruf wird im Sicherheitsprotokoll
+vermerkt.
+
+Request Body (beides optional):
+
+```json
+{ "days": 3, "includeLogs": true }
+```
+
+**POST /api/system/reload-config:**
+
+Auth: erforderlich. Liest neu ein, was ohne Neustart geht:
+`{"reloaded": ["rate_limits", "logging_config"]}`. Datenbankzugang, Ports und
+alles andere brauchen weiterhin einen Neustart, das sagt die Antwort in `note`
+auch selbst.
 
 **GET /api/system/thresholds:**
 
@@ -271,10 +313,56 @@ Marks the setup wizard as skipped. The wizard will not be shown again, but setti
 
 ### Services
 
-| Method | Endpoint           | Description               |
-| ------ | ------------------ | ------------------------- |
-| GET    | `/api/services`    | Status of all services    |
-| GET    | `/api/services/ai` | AI services with GPU load |
+| Method | Endpoint                             | Description                                        |
+| ------ | ------------------------------------ | -------------------------------------------------- |
+| GET    | `/api/services`                      | Status of all services                             |
+| GET    | `/api/services/ai`                   | AI services with GPU load                          |
+| GET    | `/api/services/all`                  | Alle Dienste als Liste, mit `canRestart` je Dienst |
+| GET    | `/api/services/llm/models`           | Modelle, die auf dem Gerät liegen                  |
+| GET    | `/api/services/llm/models/:name`     | Ein Modell im Einzelnen (Modelfile, Parameter)     |
+| POST   | `/api/services/llm/models/pull`      | Ein Modell nachladen, im Hintergrund               |
+| DELETE | `/api/services/llm/models/:name`     | Ein Modell vom Gerät löschen                       |
+| GET    | `/api/services/embedding/info`       | Auskunft des Embedding-Dienstes                    |
+| POST   | `/api/services/restart/:serviceName` | Einen Dienst neu starten (nur Admin)               |
+
+**GET /api/services/all:**
+
+Auth: erforderlich. Liste statt Objekt, mit `id`, `name`, `status`, `health`,
+`state` und `canRestart`. `canRestart` ist keine Vermutung, sondern die
+Zugehörigkeit zur Liste unten.
+
+**POST /api/services/llm/models/pull:**
+
+Auth: erforderlich. Body: `{ "model_name": "gemma3:1b" }`. Antwortet sofort mit
+`status: "started"` und lädt danach im Hintergrund (Zeitlimit eine Stunde). Der
+Fortschritt steht nicht in dieser Antwort; nachsehen über
+`GET /api/services/llm/models`.
+
+**DELETE /api/services/llm/models/:name:**
+
+Auth: erforderlich. Löscht das Modell im LLM-Dienst. `404`, wenn es das Modell
+nicht gibt, `503`, wenn der Dienst nicht erreichbar ist.
+
+**GET /api/services/embedding/info:**
+
+Auth: erforderlich. Reicht die Auskunft des Embedding-Dienstes durch. Achtung:
+der Dienst läuft seit Plan 021 nicht mehr von selbst (Compose-Profil
+`classic-rag`), auf einem Standardgerät antwortet dieser Endpunkt deshalb mit
+`503`.
+
+**POST /api/services/restart/:serviceName:**
+
+Auth: erforderlich, **Admin**. Drei Sperren übereinander: der Name muss in der
+Positivliste stehen (sonst `403`), je Dienst ist höchstens ein Neustart in
+60 Sekunden erlaubt (sonst `429`), und nach 30 Sekunden ohne Antwort gilt der
+Neustart als gescheitert (`503`). Jeder Versuch, auch der gescheiterte, landet
+als `manual_restart` in `self_healing_events`.
+
+Erlaubte Dienste (Stand: 2026-08-23, Quelle:
+`apps/dashboard-backend/src/routes/system/services.js`, `ALLOWED_SERVICES`):
+`postgres-db`, `minio`, `qdrant`, `metrics-collector`, `llm-service`,
+`embedding-service`, `document-indexer`, `reverse-proxy`, `dashboard-backend`,
+`dashboard-frontend`, `n8n`, `self-healing-agent`, `backup-service`.
 
 ### AI Chat (LLM)
 
@@ -641,9 +729,45 @@ CodeMirror-6-Editor (Syntaxfarben, editierbar); andere Typen liefern `400`.
 
 ### Workflows (n8n)
 
-| Method | Endpoint                  | Description         |
-| ------ | ------------------------- | ------------------- |
-| GET    | `/api/workflows/activity` | Workflow statistics |
+| Method | Endpoint                   | Description                                        |
+| ------ | -------------------------- | -------------------------------------------------- |
+| GET    | `/api/workflows/activity`  | Workflow statistics                                |
+| GET    | `/api/workflows/active`    | Workflows mit einem Lauf in den letzten 24 Stunden |
+| GET    | `/api/workflows/history`   | Laufhistorie, filterbar und blätterbar             |
+| GET    | `/api/workflows/stats`     | Kennzahlen je Workflow über einen Zeitraum         |
+| GET    | `/api/workflows/list`      | Platzhalter, siehe unten                           |
+| POST   | `/api/workflows/execution` | Einen Lauf protokollieren (von n8n aus)            |
+| DELETE | `/api/workflows/cleanup`   | Alte Laufeinträge löschen                          |
+
+Alle sechs verlangen eine angemeldete Sitzung.
+
+**POST /api/workflows/execution:**
+
+Der Weg, auf dem ein n8n-Workflow seinen eigenen Lauf einträgt. Body:
+`workflow_name`, `execution_id`, `status`, `duration_ms`, `error`. Antwortet mit
+`201` und dem gespeicherten Satz.
+
+**GET /api/workflows/history:**
+
+Query: `workflow_name`, `status`, `limit` (Standard 100, höchstens 1000),
+`offset`. Antwortet mit `count`, `limit`, `offset` und `data`.
+
+**GET /api/workflows/stats:**
+
+Query: `workflow_name` (optional), `range` — erlaubt sind genau `1h`, `24h`
+(Standard), `7d`, `30d`. Alles andere ist ein `VALIDATION_ERROR`.
+
+**DELETE /api/workflows/cleanup:**
+
+Query: `days` (Standard 7, gestutzt auf 1 bis 365). Löscht Laufeinträge, die
+älter sind, und antwortet mit `deleted_count` und `days_kept`.
+
+**GET /api/workflows/list:**
+
+Gibt bewusst eine leere Liste zurück und verweist auf `/n8n`. Das Auflisten der
+Workflows selbst braucht einen n8n-API-Schlüssel, den das Gerät ab Werk nicht
+hat. Stand: 2026-08-23, Quelle:
+`apps/dashboard-backend/src/routes/store/workflows.js`.
 
 ### Automations (n8n auto-session)
 
@@ -660,10 +784,37 @@ On n8n being unreachable or login failing, returns `503 SERVICE_UNAVAILABLE`.
 
 ### Self-Healing
 
-| Method | Endpoint                   | Description    |
-| ------ | -------------------------- | -------------- |
-| GET    | `/api/self-healing/events` | Event history  |
-| GET    | `/api/self-healing/status` | Current status |
+| Method | Endpoint                             | Description                                |
+| ------ | ------------------------------------ | ------------------------------------------ |
+| GET    | `/api/self-healing/events`           | Event history                              |
+| GET    | `/api/self-healing/status`           | Current status                             |
+| GET    | `/api/self-healing/recovery-actions` | Was der Wächter unternommen hat            |
+| GET    | `/api/self-healing/service-failures` | Ausfälle je Dienst, filterbar              |
+| GET    | `/api/self-healing/reboot-history`   | Neustarts des Geräts                       |
+| GET    | `/api/self-healing/metrics`          | Verfügbarkeit, Erfolgsquote, Verlauf (7 d) |
+
+Die vier unteren verlangen **Admin**, nicht nur eine Anmeldung.
+
+**GET /api/self-healing/recovery-actions, /service-failures, /reboot-history:**
+
+Alle drei blättern gleich: Query `limit` und `offset`, Antwort mit `count` (was
+diese Seite enthält), `total` (was es insgesamt gibt), `limit` und `offset`.
+Standard-`limit`: 20 für Aktionen, 50 für Ausfälle, 10 für Neustarts.
+`/service-failures` nimmt zusätzlich `service_name`.
+
+**GET /api/self-healing/metrics:**
+
+Drei Auswertungen über die letzten sieben Tage: `failures_by_service`
+(`failure_count`, `recovered`, `not_recovered`, `last_failure`),
+`recovery_success_rates` je Art der Maßnahme und `event_trends` je Tag,
+getrennt nach `CRITICAL` und `WARNING`.
+
+Eine Verfügbarkeit in Prozent steht hier bewusst **nicht**.
+`service_failures` kennt den Zeitpunkt der Störung, nicht den der Behebung —
+eine Ausfalldauer ist daraus nicht zu rechnen. Bis zum 23.08.2026 stand hier
+eine Rechnung auf einer Spalte `resolved_at`, die es nie gab; der Endpunkt
+antwortete auf jedem Gerät mit `500`. Stand: 2026-08-23, Quelle:
+`services/postgres/init/003_self_healing_schema.sql`.
 
 **Query Parameters (events):**
 
@@ -1160,6 +1311,27 @@ Response:
 | GET    | `/api/update/history`          | Update history                    |
 | GET    | `/api/update/usb-devices`      | Scan for USB devices with updates |
 | POST   | `/api/update/install-from-usb` | Install update from USB device    |
+| GET    | `/api/update/check`            | Nach Aktualisierungen sehen       |
+| POST   | `/api/update/download`         | Aktualisierung herunterladen      |
+| POST   | `/api/update/apply`            | Ein Paket einspielen              |
+
+**GET /api/update/check** und **POST /api/update/download** verlangen
+**Admin**, nicht nur eine Anmeldung.
+
+**POST /api/update/download:**
+
+Body: `downloadUrl`, `version`. Nur `https://` ist erlaubt, alles andere ist ein
+`VALIDATION_ERROR`. Antwortet sofort mit `status: "downloading"` und lädt im
+Hintergrund; danach prüft der Dienst die Signatur selbst und trägt den Stand
+`downloaded` in `update_events` ein. Der Fortschritt steht in
+`GET /api/update/status`.
+
+**POST /api/update/apply:**
+
+Auth: erforderlich, **Admin**. Body: `file_path`. Der Pfad muss unterhalb von
+`/arasul/updates` oder `/tmp/updates` liegen, sonst `VALIDATION_ERROR`; das ist
+die Sperre gegen Pfadausbruch. Läuft bereits eine Aktualisierung, antwortet der
+Endpunkt mit `409 CONFLICT`; fehlt die Datei, mit `404`.
 
 **POST /api/update/upload:**
 
@@ -1233,17 +1405,75 @@ Response (same as POST /upload):
 
 ### Logs
 
-| Method | Endpoint              | Description              |
-| ------ | --------------------- | ------------------------ |
-| GET    | `/api/logs`           | List available log files |
-| GET    | `/api/logs/:filename` | Get log file content     |
+| Method | Endpoint              | Description                                   |
+| ------ | --------------------- | --------------------------------------------- |
+| GET    | `/api/logs`           | List available log files                      |
+| GET    | `/api/logs/:filename` | Get log file content                          |
+| GET    | `/api/logs/list`      | Protokolldateien mit Größe und Änderungsdatum |
+| GET    | `/api/logs/search`    | In einem Protokoll suchen                     |
+| GET    | `/api/logs/stream`    | Ein Protokoll mitlesen (SSE)                  |
+
+Alle verlangen eine angemeldete Sitzung.
+
+**GET /api/logs/list:**
+
+Je bekanntem Dienst eine Zeile mit `service`, `path`, `size`, `size_mb`,
+`modified` und `accessible`. Eine nicht vorhandene Datei fehlt nicht, sie steht
+mit `accessible: false` da — der Unterschied zwischen „kein Protokoll" und
+„Dienst unbekannt" bleibt so sichtbar.
+
+**GET /api/logs/search:**
+
+Query: `service` (Standard `system`), `query` (Pflicht), `lines` (Standard 100,
+höchstens 10 000), `case_sensitive` (`true`/`false`, Standard `false`). Sucht
+als Teilzeichenkette, nicht als regulärer Ausdruck.
+
+**GET /api/logs/stream:**
+
+Server-Sent Events. Query: `service`, `lines` (Standard 50, höchstens 1000).
+Schickt zuerst die letzten Zeilen, danach jede neue. Ein Keepalive alle
+15 Sekunden hält den Traefik-Leerlauf offen.
+
+Bekannte Dienstnamen (Stand: 2026-08-23, Quelle:
+`apps/dashboard-backend/src/routes/system/logs.js`, `LOG_FILES`): `system`,
+`self_healing`, `update`, `traefik`, `traefik-access`, `metrics-collector`,
+`dashboard-backend`, `dashboard-frontend`, `llm-service`, `embedding-service`,
+`n8n`, `self-healing-agent`, `postgres-db`, `minio`. Ein anderer Name ist ein
+`VALIDATION_ERROR`, ein fehlendes Protokoll ein `404`.
 
 ### Database
 
-| Method | Endpoint                | Description                |
-| ------ | ----------------------- | -------------------------- |
-| GET    | `/api/database/status`  | Database connection status |
-| GET    | `/api/database/metrics` | Database size & stats      |
+| Method | Endpoint                    | Description                                 |
+| ------ | --------------------------- | ------------------------------------------- |
+| GET    | `/api/database/status`      | Database connection status                  |
+| GET    | `/api/database/metrics`     | Database size & stats                       |
+| GET    | `/api/database/health`      | Erreichbarkeit mit Latenz, `503` wenn krank |
+| GET    | `/api/database/pool`        | Kennzahlen des Verbindungspools             |
+| GET    | `/api/database/connections` | Verbindungen aus Sicht von PostgreSQL       |
+| GET    | `/api/database/queries`     | Langsame Abfragen                           |
+
+Alle verlangen eine angemeldete Sitzung.
+
+**GET /api/database/health:**
+
+Der einzige hier, der den Zustand auch im HTTP-Code sagt: `200` mit
+`status: "healthy"` oder **`503`** mit `status: "unhealthy"` und `error`. Dazu
+`latency_ms` und `pool_stats`. Wer den Zustand überwacht, wertet den Code aus,
+nicht den Text.
+
+**GET /api/database/connections:**
+
+Zählt in `pg_stat_activity` nach: `total`, `active`, `idle`,
+`idle_in_transaction` und `arasul_apps` (Anwendungsname beginnt mit
+`arasul-`), dazu `limits.max_connections` aus `SHOW max_connections` und die
+Auslastung in Prozent.
+
+**GET /api/database/queries:**
+
+Braucht die Erweiterung `pg_stat_statements`. Fehlt sie, ist
+`pg_stat_statements_enabled` falsch und `slow_queries` leer — das ist kein
+Fehler, sondern eine Auskunft. Sonst die zehn langsamsten Abfragen über
+100 ms Mittelwert, auf 200 Zeichen gekürzt.
 
 ### Workspace-Apps
 
@@ -1276,6 +1506,7 @@ importieren → forken. Alle Routen erfordern Authentifizierung.
 | POST   | `/api/extensions/bauen`                             | Ordner einer Sandbox paketieren + registrieren                                             |
 | POST   | `/api/extensions/import`                            | Paket-Archiv (`.tar.gz`) hochladen und installieren                                        |
 | GET    | `/api/extensions/werkstatt/inventar?projekt=<slug>` | Werkstatt-Inventar (erkannt/registriert/live/abgelehnt + Rollback-Verfügbarkeit)           |
+| GET    | `/api/extensions/werkstatt/status`                  | Sicht des Watchers: was er übernommen und was er mit welchem Grund abgelehnt hat           |
 | GET    | `/api/extensions/:id/download`                      | Paket als `.tar.gz` herunterladen                                                          |
 | GET    | `/api/extensions/:id/app`                           | Oberfläche einer `app`-Erweiterung (Startdatei)                                            |
 | GET    | `/api/extensions/:id/app/*`                         | Einzelne Datei aus dem Paket (Assets)                                                      |
@@ -1393,19 +1624,30 @@ und 64 MB entpackt.
 
 ### Store
 
-| Method | Endpoint                  | Description                           |
-| ------ | ------------------------- | ------------------------------------- |
-| GET    | `/api/apps`               | List all apps (installed + available) |
-| GET    | `/api/apps/categories`    | List app categories                   |
-| GET    | `/api/apps/:id`           | Get single app details                |
-| GET    | `/api/apps/:id/logs`      | Get container logs                    |
-| GET    | `/api/apps/:id/events`    | Get app event history                 |
-| POST   | `/api/apps/:id/install`   | Install an app                        |
-| POST   | `/api/apps/:id/uninstall` | Uninstall an app                      |
-| POST   | `/api/apps/:id/start`     | Start an installed app                |
-| POST   | `/api/apps/:id/stop`      | Stop a running app                    |
-| POST   | `/api/apps/:id/restart`   | Restart an app                        |
-| POST   | `/api/apps/sync`          | Sync system apps status               |
+| Method | Endpoint                        | Description                                   |
+| ------ | ------------------------------- | --------------------------------------------- |
+| GET    | `/api/apps`                     | List all apps (installed + available)         |
+| GET    | `/api/apps/categories`          | List app categories                           |
+| GET    | `/api/apps/:id`                 | Get single app details                        |
+| GET    | `/api/apps/:id/logs`            | Get container logs                            |
+| GET    | `/api/apps/:id/events`          | Get app event history                         |
+| POST   | `/api/apps/:id/install`         | Install an app                                |
+| POST   | `/api/apps/:id/uninstall`       | Uninstall an app                              |
+| POST   | `/api/apps/:id/start`           | Start an installed app                        |
+| POST   | `/api/apps/:id/stop`            | Stop a running app                            |
+| POST   | `/api/apps/:id/restart`         | Restart an app                                |
+| POST   | `/api/apps/sync`                | Sync system apps status                       |
+| GET    | `/api/apps/:id/config`          | Konfiguration einer App, Geheimnisse maskiert |
+| POST   | `/api/apps/:id/config`          | Konfiguration einer App setzen                |
+| GET    | `/api/apps/:id/n8n-credentials` | Zugangsdaten, mit denen n8n diese App anstößt |
+
+**GET /api/apps/:id/config:** Geheimnisse kommen maskiert zurück. Wer den
+Klartext braucht, hat ihn selbst gesetzt.
+
+**POST /api/apps/:id/config:** Body: `{ "config": { … } }`. Jeder einzelne Wert
+darf höchstens 10 KB haben, sonst `VALIDATION_ERROR` mit dem Namen des Feldes.
+Die Werte greifen erst nach `POST /api/apps/:id/restart` mit
+`applyConfig: true`.
 
 **GET /api/apps Query Parameters:**
 

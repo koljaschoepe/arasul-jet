@@ -429,11 +429,20 @@ describe('Self-Healing Routes', () => {
 
     test('should return self-healing metrics', async () => {
       mockWithRouteQueries((query) => {
-        // Uptime query
-        if (query.includes('service_downtime') || query.includes('uptime_percent')) {
+        // Stoerungen je Dienst. Nur Spalten, die es in `service_failures`
+        // wirklich gibt — der Vorgaenger dieses Tests hat eine erfundene
+        // Spalte (`resolved_at`) nachgebildet und damit HTTP 500 auf jedem
+        // echten Geraet gedeckt (23.08.2026).
+        if (query.includes('service_failures') && query.includes('recovery_success')) {
           return Promise.resolve({
             rows: [
-              { service_name: 'llm-service', failure_count: '2', downtime_seconds: '120', uptime_percent: '99.97' }
+              {
+                service_name: 'llm-service',
+                failure_count: '2',
+                recovered: '2',
+                not_recovered: '0',
+                last_failure: '2026-08-23T09:00:00.000Z',
+              }
             ]
           });
         }
@@ -461,7 +470,8 @@ describe('Self-Healing Routes', () => {
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('uptime');
+      expect(response.body).toHaveProperty('failures_by_service');
+      expect(response.body.failures_by_service[0]).toHaveProperty('recovered');
       expect(response.body).toHaveProperty('recovery_success_rates');
       expect(response.body).toHaveProperty('event_trends');
       expect(response.body).toHaveProperty('timestamp');

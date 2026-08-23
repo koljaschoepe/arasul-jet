@@ -548,10 +548,20 @@ router.get(
           (SELECT count(*) FROM pg_stat_activity) AS connections,
           (SELECT pg_size_pretty(pg_database_size('arasul_db'))) AS db_size,
           (SELECT count(*) FROM self_healing_events WHERE timestamp > NOW() - INTERVAL '24 hours') AS healing_events_24h,
-          (SELECT count(*) FROM service_failures WHERE detected_at > NOW() - INTERVAL '24 hours') AS failures_24h
+          (SELECT count(*) FROM service_failures WHERE timestamp > NOW() - INTERVAL '24 hours') AS failures_24h
       `
         )
-        .catch(() => ({ rows: [{}] })),
+        // `detected_at` gibt es in `service_failures` nicht (Migration 003),
+        // die Spalte heisst `timestamp`. Bis zum 23.08.2026 fiel das keinem
+        // auf, weil dieses catch den Fehler verschluckt und ein leeres Objekt
+        // zurueckgab: das Lagebild zeigte auf JEDEM Geraet `database: {}` und
+        // sah dabei gesund aus. Deshalb wird der Fehler jetzt protokolliert,
+        // bevor er weggefangen wird — ein stilles catch, das nichts sagt, ist
+        // schlimmer als kein catch.
+        .catch(err => {
+          logger.error(`Schnelldiagnose: Datenbankteil fehlgeschlagen: ${err.message}`);
+          return { rows: [{}] };
+        }),
     ]);
 
     // Disk usage via df
