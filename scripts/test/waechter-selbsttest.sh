@@ -435,6 +435,22 @@ printf '# Titel\n\nEs gibt keine Befehle unter `docs/commands/`, den Ordner gibt
 pruefe "Anleitungen: was ausdruecklich als nicht vorhanden benannt ist, zaehlt nicht" 0 \
   python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
 
+# Make-Ziele: nur in Codeschrift. Der Waechter las bis zum 23.08.2026 jedes
+# "make every" aus einem englischen Satz als Makefile-Ziel.
+printf 'start:\n\techo x\n' > "$AN/Makefile"
+printf '# Titel\n\nRuf `make start` auf.\n' > "$AN/README.md"
+pruefe "Anleitungen: ein vorhandenes make-Ziel in Codeschrift ist gruen" 0 \
+  python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
+
+printf '# Titel\n\nRuf `make gibtsnicht` auf.\n' > "$AN/README.md"
+pruefe "Anleitungen: ein erfundenes make-Ziel in Codeschrift ist rot" 1 \
+  python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
+
+printf '# Titel\n\nThat would make every build look newer.\n' > "$AN/README.md"
+pruefe "Anleitungen: make im Fliesstext zaehlt nicht" 0 \
+  python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
+rm -f "$AN/Makefile"
+
 if [ "$FEHLER" = "0" ]; then
   echo "   Selbsttest der Waechter: bestanden"
 else

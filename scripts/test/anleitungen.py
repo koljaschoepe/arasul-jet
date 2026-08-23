@@ -113,7 +113,20 @@ def arasul_befehle(text):
 
 
 def make_ziele(text):
-    return set(re.findall(r'\bmake ([a-z][a-z-]*)', text))
+    """Nur `make <ziel>` in Codeschrift, nicht im Fliesstext.
+
+    Ohne diese Einschraenkung las der Waechter jedes "make every" oder "make
+    sure" in einem englischen Satz als Makefile-Ziel und meldete es (23.08.2026
+    an einem Satz in der README passiert). Ein Befehl steht in dieser
+    Dokumentation immer in Backticks oder in einem Codeblock.
+    """
+    in_code = []
+    # Codebloecke mit ``` und Einzeiler mit `...`
+    for block in re.findall(r'```[a-z]*\n(.*?)```', text, re.S):
+        in_code.append(block)
+    in_code.extend(re.findall(r'`([^`\n]+)`', text))
+    zusammen = '\n'.join(in_code)
+    return set(re.findall(r'\bmake ([a-z][a-z-]*)', zusammen))
 
 
 def compose_dienste():

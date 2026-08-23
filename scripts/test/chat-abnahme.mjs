@@ -302,6 +302,23 @@ try {
       metrikText
     );
 
+    // E8 bekommt einen EIGENEN Lauf, und zwar einen, der suchen MUSS.
+    //
+    // Die Quellenzeile erscheint nur, wenn der Lauf ueberhaupt in Dokumenten
+    // gesucht oder gelesen hat (`lage.gesucht`, so gewollt: ein „keine
+    // Quellen" unter jeder Plauderei waere Laerm). Vorher haing E8 am Lauf
+    // oben, der drei Dateien schreibt — ob der nebenbei liest, ist Zufall.
+    // Am 23.08.2026 war E8 um 12:00 gruen und um 13:20 rot, ohne dass sich
+    // etwas geaendert haette. Das war meine Messung, nicht das Geraet.
+    const vorherE8 = await page.locator('[data-testid="assistant-message"]').count();
+    await eingabe.click();
+    await eingabe.fill(
+      'Suche in den Projektdateien nach dem Wort "Angebot" und nenne mir die ' +
+        'Datei, in der es steht. Antworte in einem Satz.'
+    );
+    await page.keyboard.press('Enter');
+    await wartetAufFertigenLauf(page, vorherE8 + 1);
+
     const quellen = await page
       .locator('[data-testid="quellen"], [data-testid="quellen-leer"]')
       .count();

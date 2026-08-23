@@ -1,6 +1,12 @@
 # Arasul Platform
 
-**Version 1.0.0** · Autonomous edge-AI appliance for NVIDIA Jetson AGX Orin / Thor.
+**Vorserie** · Autonomous edge-AI appliance for NVIDIA Jetson AGX Orin / Thor.
+
+> The device says **Vorserie**, not a version number, for as long as sales
+> gates remain open (`utils/version.js`, Plan 023 C6/F-19). A round 1.0.0 on a
+> product with zero closed gates is a claim, not a fact. `package.json` keeps
+> `1.0.0` because the update service compares against it; changing that value
+> would make every offered build look newer on a device without a set version.
 
 Arasul is a commercial edge-AI box: customers buy a physical Jetson appliance that runs chat, RAG, document analysis, and workflow automation entirely **locally** — no cloud calls, no data leakage, designed for **5 years of unattended operation**.
 
