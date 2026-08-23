@@ -4902,6 +4902,21 @@ Deshalb wurde kein einziger Timeout angefasst. Während der gesamten
 Abnahme-Reihe hat die Selbstheilung **kein einziges Mal** eingegriffen; in der
 Ereignistabelle steht seit dem Neustart des Agents nur `engine_started`.
 
+**Der Schutz war zuerst um zehn Sekunden zu kurz.** Das Fenster schliesst,
+sobald `compose up` zurueckkommt, und die Dienste sind dann noch ungesund.
+Zweimal gemessen, derselbe Vorgang:
+
+| Pruefstand-Start     | Fenster                      | Eingriffe der Selbstheilung |
+| -------------------- | ---------------------------- | --------------------------- |
+| 00:05, ohne Nachlauf | 00:05:12 bis 00:05:33        | **2** (n8n, n8n-runners)    |
+| 00:32, mit Nachlauf  | 00:32:54 bis 00:33:05 + 60 s | **0**                       |
+
+Die Ursache dahinter ist NICHT geklaert: n8n wird beim Hochfahren des zweiten
+Stacks kurz ungesund, und zwar nicht durch Zeitueberschreitung. Der
+Healthcheck brauchte 34 Millisekunden von 2000 erlaubten und meldete trotzdem
+einen Fehler, fuenf Sekunden vor dem Neustart. Der Nachlauf faengt die Folge
+ab, nicht den Grund.
+
 **Was das fuer den G7-Zaehler heisst.** Der Dauerlauf-Bericht misst nicht nur
 Laufzeit, sondern auch, ob seit dem letzten Neustart eine Selbstheilung
 fehlgeschlagen ist. Am 23.08.2026 um 17:01 gab es den letzten solchen

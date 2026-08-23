@@ -100,9 +100,16 @@ for zeile in sys.stdin:
         e += 86400
     # Als Menge, nicht als Liste: `docker inspect` haelt die letzten fuenf
     # Proben vor, und bei 45 s Takt sehen wir dieselbe Probe mehrfach.
-    daten[name].add((t[1], round(e - a, 4)))
-    if t[3] != "0":
-        fehl[name] += 1
+    probe = (t[1], round(e - a, 4))
+    # Dieselbe Probe kommt mehrfach an: `docker inspect` haelt die letzten
+    # fuenf vor, abgefragt wird alle 45 Sekunden. Die Dauern lagen deshalb
+    # schon immer in einer Menge — die Fehlschlaege aber wurden bei jedem
+    # Wiedersehen erneut gezaehlt. n8n stand mit "3" da, obwohl es zwei
+    # Fehlschlaege waren (24.08.2026).
+    if probe not in daten[name]:
+        daten[name].add(probe)
+        if t[3] != "0":
+            fehl[name] += 1
 
 if not daten:
     print("Noch keine Messwerte.")
