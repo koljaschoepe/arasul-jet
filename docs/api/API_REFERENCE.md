@@ -1336,19 +1336,19 @@ Die App deklariert im Manifest `faehigkeiten` (Teilmenge von
 (`PUT /api/extensions/:id` mit `faehigkeitenFreigeben: true`). Fehlt die
 Freigabe, antwortet das Aktivieren mit `400` (`details.freigabe_erforderlich`).
 
-| Method | Endpoint                                        | Zweck                                                                                                                                     |
-| ------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/api/extensions/:id/bruecke/token`             | Brücken-Token ausstellen (authentifizierte Dashboard-Seite); deaktivierte Erweiterung → `200 { token: null }` statt Fehler                |
-| GET    | `/api/extensions/:id/bruecke/info`              | `{ id, name, faehigkeiten }` (wirksame Fähigkeiten)                                                                                       |
-| POST   | `/api/extensions/:id/bruecke/llm`               | Fähigkeit `llm` — gestreamte Antwort (SSE)                                                                                                |
-| POST   | `/api/extensions/:id/bruecke/rag`               | Fähigkeit `rag` — Wissensbasis-Suche `{ treffer }`                                                                                        |
-| POST   | `/api/extensions/:id/bruecke/dateien`           | Fähigkeit `dateien` — eigener Datentopf (list/read/write)                                                                                 |
-| POST   | `/api/extensions/:id/bruecke/netz`              | Fähigkeit `netz` — Aufruf an ein im Manifest deklariertes Ziel (Plan 023 H1). Nur https, keine Umleitungen, keine Adresse im eigenen Netz |
-| POST   | `/api/extensions/:id/bruecke/tabellen`          | Fähigkeit `tabellen` — eigene Tabellen im Schema `ext_<slug>` (Plan 023 H1). Die Erweiterung schickt nie SQL                              |
-| POST   | `/api/extensions/:id/bruecke/zeitplan`          | Fähigkeit `zeitplan` — nächtliche Flow-Läufe (Plan 023 H1), `HH:MM` in Gerätezeit                                                         |
-| GET    | `/api/extensions/:id/bruecke/flows`             | Fähigkeit `flows` — verfügbare Flows                                                                                                      |
-| POST   | `/api/extensions/:id/bruecke/flows/:name/run`   | Fähigkeit `flows` — Flow starten (`202 { runId }`)                                                                                        |
-| GET    | `/api/extensions/:id/bruecke/flows/runs/:runId` | Fähigkeit `flows` — Lauf-Status/Ergebnis                                                                                                  |
+| Method | Endpoint                                        | Zweck                                                                                                                                        |
+| ------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/extensions/:id/bruecke/token`             | Brücken-Token ausstellen (authentifizierte Dashboard-Seite); deaktivierte Erweiterung → `200 { token: null }` statt Fehler                   |
+| GET    | `/api/extensions/:id/bruecke/info`              | `{ id, name, faehigkeiten }` (wirksame Fähigkeiten)                                                                                          |
+| POST   | `/api/extensions/:id/bruecke/llm`               | Fähigkeit `llm` — gestreamte Antwort (SSE)                                                                                                   |
+| POST   | `/api/extensions/:id/bruecke/rag`               | Fähigkeit `rag` — mit `dateiname` der indexierte Text genau dieser Datei, ohne ihn die Vektorsuche (Profil `classic-rag`, aus) `{ treffer }` |
+| POST   | `/api/extensions/:id/bruecke/dateien`           | Fähigkeit `dateien` — eigener Datentopf (list/read/write)                                                                                    |
+| POST   | `/api/extensions/:id/bruecke/netz`              | Fähigkeit `netz` — Aufruf an ein im Manifest deklariertes Ziel (Plan 023 H1). Nur https, keine Umleitungen, keine Adresse im eigenen Netz    |
+| POST   | `/api/extensions/:id/bruecke/tabellen`          | Fähigkeit `tabellen` — eigene Tabellen im Schema `ext_<slug>` (Plan 023 H1). Die Erweiterung schickt nie SQL                                 |
+| POST   | `/api/extensions/:id/bruecke/zeitplan`          | Fähigkeit `zeitplan` — nächtliche Flow-Läufe (Plan 023 H1), `HH:MM` in Gerätezeit                                                            |
+| GET    | `/api/extensions/:id/bruecke/flows`             | Fähigkeit `flows` — verfügbare Flows                                                                                                         |
+| POST   | `/api/extensions/:id/bruecke/flows/:name/run`   | Fähigkeit `flows` — Flow starten (`202 { runId }`)                                                                                           |
+| GET    | `/api/extensions/:id/bruecke/flows/runs/:runId` | Fähigkeit `flows` — Lauf-Status/Ergebnis                                                                                                     |
 
 Der Token (kurzlebig, In-Memory, Standard 15 min) wird der App per postMessage
 gereicht und als `Authorization: Bearer …` gesendet. Das Backend prüft bei

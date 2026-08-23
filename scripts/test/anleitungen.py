@@ -33,7 +33,7 @@ import sys
 # Wie bei den anderen Waechtern: die Wurzel ist umstellbar, damit der
 # Selbsttest den Waechter gegen einen gebauten Baum laufen lassen kann.
 WURZEL = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DATEIEN = ['README.md', 'CLAUDE.md']
+DATEIEN = ['README.md', 'CLAUDE.md', 'docs/features/WORKSPACE.md', 'docs/ARCHITECTURE.md']
 
 # Verweise auf Stellen ausserhalb des Repos oder auf Anker sind kein Fund.
 UEBERSPRINGEN = ('http://', 'https://', 'mailto:', '#')
@@ -155,6 +155,11 @@ def main():
             continue
         text = open(pfad, encoding='utf-8').read()
 
+        # Ein Link in einer Datei zeigt relativ zu IHREM Ordner, nicht zur
+        # Wurzel. Solange nur README.md und CLAUDE.md geprueft wurden, war das
+        # dasselbe; seit docs/ dazukam, ist es das nicht mehr (23.08.2026).
+        ordner = os.path.dirname(pfad) or WURZEL
+
         # 1. Markdown-Links
         for anzeige, ziel in markdown_links(text):
             if ziel.startswith(UEBERSPRINGEN):
@@ -162,7 +167,9 @@ def main():
             ohne_anker = ziel.split('#')[0]
             if not ohne_anker:
                 continue
-            if not os.path.exists(os.path.join(WURZEL, ohne_anker)):
+            relativ = os.path.join(ordner, ohne_anker)
+            absolut = os.path.join(WURZEL, ohne_anker)
+            if not os.path.exists(relativ) and not os.path.exists(absolut):
                 fehler.append(f'{datei}: Link "{anzeige}" zeigt auf {ziel}, das es nicht gibt')
 
         # 2. Pfade in Backticks
@@ -171,7 +178,14 @@ def main():
         for p in pfade:
             if '*' in p:
                 continue
-            if not os.path.exists(os.path.join(WURZEL, p)):
+            # `data/` entsteht zur Laufzeit auf dem Geraet und liegt nicht im
+            # Repo. Ein Verweis darauf ist richtig, auch wenn die Datei hier
+            # fehlt.
+            if p.startswith('data/'):
+                continue
+            if not os.path.exists(os.path.join(WURZEL, p)) and not os.path.exists(
+                os.path.join(ordner, p)
+            ):
                 fehler.append(f'{datei}: `{p}` gibt es nicht')
 
         # 3. CLI-Unterbefehle
@@ -192,19 +206,28 @@ def main():
 
     # 5. Dienste, die als laufend beschrieben werden
     alle, mit_profil = compose_dienste()
-    readme = open(os.path.join(WURZEL, 'README.md'), encoding='utf-8').read()
-    claude = open(os.path.join(WURZEL, 'CLAUDE.md'), encoding='utf-8').read()
     # Der Abschnitt, der ausdruecklich sagt, was NICHT laeuft, wird
     # ausgeklammert: dort duerfen Profil-Dienste stehen, das ist der Punkt.
     def ohne_ausnahme(text):
         return re.sub(
-            r'(\*\*Not running by default:\*\*|\*\*Läuft NICHT von selbst:\*\*).*?(?=\n\n)',
+            # Drei Schreibweisen, weil drei Dateien es unterschiedlich sagen.
+            # `laufen NICHT von selbst` steht in ARCHITECTURE.md mitten im
+            # Fettsatz, nicht als Ueberschrift.
+            r'(\*\*Not running by default:\*\*|\*\*Läuft NICHT von selbst:\*\*'
+            r'|\*\*`[^`]+`[^*]*lauf(?:en|t) NICHT von selbst).*?(?=\n\n)',
             '',
             text,
             flags=re.S,
         )
 
-    for datei, text in (('README.md', ohne_ausnahme(readme)), ('CLAUDE.md', ohne_ausnahme(claude))):
+    # Fuer ALLE geprueften Dateien, nicht nur die beiden im Wurzelordner. Die
+    # Feature-Doku beschreibt Ablaeufe ("MinIO -> Indexer -> Qdrant"), und genau
+    # dort faellt ein abgeschalteter Dienst am wenigsten auf (23.08.2026).
+    for datei in DATEIEN:
+        pfad = os.path.join(WURZEL, datei)
+        if not os.path.exists(pfad):
+            continue
+        text = ohne_ausnahme(open(pfad, encoding='utf-8').read())
         for dienst in sorted(mit_profil):
             if re.search(rf'`{re.escape(dienst)}`', text):
                 fehler.append(
@@ -219,7 +242,7 @@ def main():
         return 1
 
     print(
-        f'   Anleitungen: README und CLAUDE.md geprueft, {len(alle)} Dienste bekannt, '
+        f'   Anleitungen: {len(DATEIEN)} Dateien geprueft, {len(alle)} Dienste bekannt, '
         f'{nicht_geprueft} Angaben nicht als Pfad gewertet, keine Befunde'
     )
     return 0

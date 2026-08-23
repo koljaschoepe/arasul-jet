@@ -175,6 +175,9 @@ try {
     raus.faehigkeiten = ArasulBruecke.faehigkeiten();
     await nimm('llm', () => ArasulBruecke.llm('Antworte mit genau einem Wort: Hauptstadt von Frankreich?'));
     await nimm('rag', () => ArasulBruecke.rag('Wartungsvertrag', { anzahl: 2 }));
+    await nimm('rag_datei', () =>
+      ArasulBruecke.rag('Grundpauschale?', { dateiname: 'wartungsvertrag-nordwind.md' })
+    );
     await nimm('dateien_schreiben', () => ArasulBruecke.dateien.schreiben('probe.txt', 'hallo'));
     await nimm('dateien_lesen', () => ArasulBruecke.dateien.lesen('probe.txt'));
     await nimm('dateien_liste', () => ArasulBruecke.dateien.liste('.'));
@@ -199,14 +202,23 @@ try {
   // eine Entscheidung, kein Defekt — die Abnahme darf deswegen nicht dauerhaft
   // rot stehen. Rot ist sie erst, wenn `rag` aus einem ANDEREN Grund scheitert
   // oder die Meldung nicht mehr erklaert, was zu tun ist.
-  const ragAus = !e.rag.ok && /Vektorsuche laeuft auf diesem Geraet nicht/i.test(e.rag.fehler || '');
+  const ragAus = !e.rag.ok && /dateiname/i.test(e.rag.fehler || '');
   merke(
     e.rag.ok || ragAus,
     e.rag.ok
       ? `rag: ${(e.rag.wert || []).length} Treffer`
       : ragAus
-        ? 'rag: Vektorsuche ist auf diesem Geraet aus (Profil classic-rag), und die Meldung sagt das'
+        ? 'rag ohne Dateiname: Vektorsuche ist aus, und die Meldung nennt den Weg'
         : `rag: ${e.rag.fehler}`
+  );
+  // Der Weg, der auf diesem Geraet wirklich traegt: eine benannte Datei aus dem
+  // Textlayer. Ohne diese Zeile pruefte die Abnahme nur, dass die Faehigkeit
+  // ordentlich scheitert.
+  merke(
+    e.rag_datei.ok && /Grundpauschale|18\.400/i.test(JSON.stringify(e.rag_datei.wert || '')),
+    e.rag_datei.ok
+      ? `rag mit Dateiname: ${String(e.rag_datei.wert?.[0]?.text || '').replace(/\s+/g, ' ').slice(0, 70)}`
+      : `rag mit Dateiname: ${e.rag_datei.fehler}`
   );
   merke(
     e.dateien_schreiben.ok && e.dateien_lesen.ok && e.dateien_lesen.wert?.inhalt === 'hallo',

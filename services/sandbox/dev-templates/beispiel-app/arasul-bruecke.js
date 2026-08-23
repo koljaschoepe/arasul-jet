@@ -18,7 +18,7 @@
  *                                                 — gestreamte Antwort; onChunk
  *                                                   bekommt jedes Textstück,
  *                                                   Rückgabe ist der Gesamttext
- *   ArasulBruecke.rag(frage, { anzahl })          — [{ quelle, text, score }]
+ *   ArasulBruecke.rag(frage, { anzahl, dateiname }) — [{ quelle, text, score }]
  *   ArasulBruecke.dateien.liste(pfad)             — { eintraege: [{name, typ}] }
  *   ArasulBruecke.dateien.lesen(pfad)             — { inhalt }
  *   ArasulBruecke.dateien.schreiben(pfad, inhalt) — { geschrieben, pfad }
@@ -189,12 +189,23 @@
       return jsonAufruf('/info', { method: 'GET' });
     },
     llm: llm,
+    /**
+     * Wissensbasis lesen (Faehigkeit `rag`).
+     *
+     * Mit `{ dateiname: '...' }` kommt der indexierte Text GENAU dieser Datei
+     * zurueck, auch aus PDF oder DOCX. Ohne Dateinamen braucht es die
+     * Vektorsuche, und die laeuft auf einem gewoehnlichen Geraet nicht (Plan
+     * 021 Schritt 8). Der Aufruf sagt das dann auch.
+     */
     rag: function (frage, opts) {
-      return postJson('/rag', { frage: String(frage), anzahl: (opts && opts.anzahl) || 5 }).then(
-        function (b) {
-          return b.treffer;
-        }
-      );
+      var o = opts || {};
+      var daten = { frage: String(frage), anzahl: o.anzahl || 5 };
+      if (o.dateiname) {
+        daten.dateiname = String(o.dateiname);
+      }
+      return postJson('/rag', daten).then(function (b) {
+        return b.treffer;
+      });
     },
     dateien: {
       liste: function (pfad) {

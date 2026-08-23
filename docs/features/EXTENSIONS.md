@@ -127,6 +127,14 @@ RAG, einen eigenen Datentopf und n8n-Flows nutzen:
 - Ein Env-Flag `EXTENSIONS_BRUECKE_ENABLED=false` schaltet die Brücke geräteweit
   ab. Client-SDK: `arasul-bruecke.js` (in den Dev-Vorlagen).
 
+Die Fähigkeit `rag` nimmt seit dem 23.08.2026 ein `dateiname`-Feld: dann kommt
+der indexierte Text genau dieser Datei zurück, auch aus PDF oder DOCX. Das ist
+derselbe Weg, den das Flow-Werkzeug `rag_suche` seit Plan 021, Schritt 8 geht.
+Ohne Dateinamen bräuchte es die Vektorsuche, und die läuft auf einem
+gewöhnlichen Gerät nicht — der Aufruf sagt das dann und nennt den Weg. Vorher
+lief er unbedingt in Qdrant und war damit für jede Erweiterung tot, obwohl auf
+dem Orin 2171 Dokumente mit 37 487 Abschnitten im Textlayer liegen.
+
 `arasul-bruecke.js` ist **unsere** Datei, kein Nutzerinhalt. Sie zieht deshalb
 als einzige in einer bestehenden Werkstatt nach, wenn sich die ausgelieferte
 Fassung ändert (beim Start des Backends und beim nächsten Flow in diesem
