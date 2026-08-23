@@ -107,8 +107,11 @@ const AUSLIEFERUNG = [
   ['public.update_rollbacks', 'Zurückgenommene Aktualisierungen'],
   ['public.update_state_snapshots', 'Zustand vor einer Aktualisierung'],
   ['arasul.extensions', 'Erweiterungen'],
+  ['arasul.externe_modell_anbieter', 'Zugänge zu externen Modellen, verschlüsselt hinterlegt'],
   ['arasul.n8n_audit_log', 'Prüfprotokoll der n8n-Kopplung'],
   ['arasul.user_external_credentials', 'Hinterlegte Zugangsdaten zu fremden Diensten'],
+  ['public.extension_tabellen', 'Register der Tabellen, die Erweiterungen sich angelegt haben'],
+  ['public.extension_zeitplaene', 'Zeitpläne der Erweiterungen'],
 ];
 
 /**

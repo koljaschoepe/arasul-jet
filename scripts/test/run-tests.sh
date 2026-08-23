@@ -222,6 +222,19 @@ run_datenordner_check() {
   fi
 }
 
+# Eine neue Tabelle, die im Werksreset nicht eingeordnet ist, blockiert ihn auf
+# JEDEM Geraet. Gemerkt hat das bisher nur der Pruefstand, und den faehrt
+# niemand nebenbei hoch.
+run_werksreset_tabellen_check() {
+  echo ""
+  echo "-> Pruefe, ob jede Tabelle im Werksreset eingeordnet ist..."
+  if python3 "${PROJECT_ROOT}/scripts/test/werksreset-tabellen.py" --wurzel "${PROJECT_ROOT}"; then
+    :
+  else
+    EXIT_CODE=1
+  fi
+}
+
 run_geruest_regeln_check() {
   echo ""
   echo "-> Pruefe die Geruest-Regeln (Werkstatt gegen Backend)..."
@@ -442,6 +455,7 @@ run_modellnamen_check
 run_einheiten_check
 run_durchreichung_check
 run_datenordner_check
+run_werksreset_tabellen_check
 run_geruest_regeln_check
 run_endpunkte_check
 run_anleitungen_check

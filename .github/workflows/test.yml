@@ -341,6 +341,9 @@ jobs:
       - name: Datenordner werden vorher angelegt (Plan 023 H1)
         run: python3 scripts/test/datenordner.py --wurzel .
 
+      - name: Jede Tabelle ist im Werksreset eingeordnet (Plan 023 B5)
+        run: python3 scripts/test/werksreset-tabellen.py --wurzel .
+
       - name: Selbsttest der Waechter
         run: bash scripts/test/waechter-selbsttest.sh
 

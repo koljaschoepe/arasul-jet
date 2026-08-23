@@ -307,6 +307,27 @@ async function ausfuehren({ stufe, bestaetigung, modelleLoeschen = false, ausgel
       // kein Konto. Der Neustart des Containers passiert nach der Transaktion.
       await client.query('DROP SCHEMA IF EXISTS n8n CASCADE');
       await client.query('CREATE SCHEMA n8n');
+      // Die eigenen Tabellen einer Erweiterung liegen NICHT in `public` oder
+      // `arasul`, sondern je Erweiterung in einem Schema `ext_<slug>` (siehe
+      // tabellenService). `unbekannteTabellen()` sieht sie deshalb nie, und
+      // `tabellen.js` kann sie nicht auffuehren: sie entstehen zur Laufzeit.
+      //
+      // Bis zum 23.08.2026 blieben sie nach einem Werksreset stehen, mit den
+      // Daten des Kunden darin. Ein Auslieferungszustand mit Kundendaten ist
+      // keiner, und genau das behauptet der Reset.
+      const extAbfrage = await client.query(
+        "SELECT nspname FROM pg_namespace WHERE nspname LIKE 'ext\\_%'"
+      );
+      // `?? []`, damit eine Antwort ohne `rows` nicht die ganze Transaktion
+      // reisst. Ein Werksreset, der an dieser Stelle abbricht, laesst das
+      // Geraet in einem halben Zustand zurueck.
+      const extSchemata = extAbfrage?.rows ?? [];
+      for (const { nspname } of extSchemata) {
+        await client.query(`DROP SCHEMA IF EXISTS ${escapeIdentifier(nspname)} CASCADE`);
+      }
+      if (extSchemata.length) {
+        logger.warn(`[werksreset] ${extSchemata.length} Erweiterungs-Schema(ta) entfernt`);
+      }
       await werkseinstellungen(client);
       // Der Merker, ohne den bootstrap.js beim naechsten Start wieder einen
       // Administrator aus ADMIN_PASSWORD anlegt. Das Entwerten in der .env
