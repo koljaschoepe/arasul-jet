@@ -4902,7 +4902,26 @@ Deshalb wurde kein einziger Timeout angefasst. Während der gesamten
 Abnahme-Reihe hat die Selbstheilung **kein einziges Mal** eingegriffen; in der
 Ereignistabelle steht seit dem Neustart des Agents nur `engine_started`.
 
-**Was damit weiter offen ist:** Abnahmelast ist GPU- und I/O-Last, kein
+**Was das fuer den G7-Zaehler heisst.** Der Dauerlauf-Bericht misst nicht nur
+Laufzeit, sondern auch, ob seit dem letzten Neustart eine Selbstheilung
+fehlgeschlagen ist. Am 23.08.2026 um 17:01 gab es den letzten solchen
+Fehlschlag, und er zaehlt: das Urteil steht auf ROT, obwohl der Orin seit dem
+19.08. durchlaeuft.
+
+Das ist richtig gemessen und unbequem zugleich. Sieben Tage unbeaufsichtigt
+heisst sieben Tage OHNE Eingriff, nicht sieben Tage Betriebszeit mit
+Eingriffen dazwischen. Der Zaehler laeuft also faktisch ab dem letzten
+Fehlschlag: **frueheste Erfuellung von G7 ist der 30.08.2026**, sofern ab
+jetzt nichts mehr passiert.
+
+Und genau daran haengt der Wert der heutigen Zuege. Bis heute hat jeder Deploy
+und jeder Pruefstand-Bau die Selbstheilung ausgeloest, also hat jede eigene
+Arbeit den G7-Zaehler zurueckgesetzt. Solange das so blieb, war G7 waehrend
+der Entwicklung gar nicht erreichbar. Mit dem Wartungsfenster finden diese
+Eingriffe nicht mehr statt — der Zaehler kann ab jetzt laufen, auch waehrend
+gebaut wird.
+
+**Was weiter offen ist:** Abnahmelast ist GPU- und I/O-Last, kein
 Docker-Build. Ein Build sättigt alle CPU-Kerne, und genau das war der Fall vom
 00:59. Gemessen ist dieses Profil nicht — aber es ist ab jetzt abgedeckt, weil
 `pruefstand.sh` dasselbe Wartungsfenster setzt wie der Deploy.

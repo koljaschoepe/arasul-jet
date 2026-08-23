@@ -28,12 +28,29 @@ HOST="${ARASUL_SSH:-jetson}"
 TAGE="${1:-7}"
 REPO="/home/arasul/arasul/arasul-jet"
 
+# Die Zeitzone des GERAETS, aus dem Geraet gelesen und nicht hier
+# hingeschrieben. Postgres laeuft im Container mit UTC, das Geraet steht auf
+# Europe/Berlin. Der Bericht gab deshalb Zeiten aus, die zwei Stunden in der
+# Vergangenheit zu liegen schienen: "Zeitraum bis 23.08. 22:17", waehrend auf
+# dem Geraet 00:17 war. Wer das liest, haelt die Messreihe fuer abgerissen —
+# am 24.08.2026 genau so passiert, und ich habe erst nachgemessen, bevor ich
+# es geglaubt habe.
+GERAETE_TZ="$(ssh -n "$HOST" "cat /etc/timezone 2>/dev/null || timedatectl show -p Timezone --value 2>/dev/null" 2>/dev/null | head -1)"
+GERAETE_TZ="${GERAETE_TZ:-UTC}"
+
+# `-n` ist Pflicht: ohne das liest ssh die Standardeingabe mit auf, und eine
+# `while read`-Schleife um einen sql-Aufruf herum endet nach dem ersten
+# Eintrag. Genau dieser Fehler steckte in der Souveraenitaets-Abnahme und hat
+# dort monatelang dafuer gesorgt, dass nur EIN Ziel geprueft wurde.
+# Die Zone kommt ueber PGOPTIONS und nicht als `SET TIME ZONE` vor der
+# Abfrage: psql gibt fuer SET die Zeile "SET" aus, auch mit `-t -A`. Die
+# landete beim ersten Versuch mitten in der Auswertung ("Messpunkte: SET").
 sql() {
-  ssh "$HOST" "docker exec postgres-db psql -U arasul -d arasul_db -t -A -F'|' -c \"$1\"" 2>/dev/null
+  ssh -n "$HOST" "docker exec -e PGOPTIONS='-c timezone=${GERAETE_TZ}' postgres-db psql -U arasul -d arasul_db -t -A -F'|' -c \"$1\"" 2>/dev/null
 }
 
 echo "=== Dauerlauf-Bericht, letzte ${TAGE} Tage ==="
-echo "Gelesen am: $(date '+%Y-%m-%d %H:%M')"
+echo "Gelesen am: $(date '+%Y-%m-%d %H:%M %Z')  (Zeiten unten in ${GERAETE_TZ})"
 echo ""
 
 # --- 0. Die eigentliche G7-Zahl ---------------------------------------------
