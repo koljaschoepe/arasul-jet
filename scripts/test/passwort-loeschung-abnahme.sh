@@ -116,12 +116,19 @@ pruefe 'J1: Anmeldung mit dem neuen Passwort' \
 
 # --- J1, Teil 2: MinIO, und der Dateizugriff DANACH --------------------------
 if [ -n "$MINIO_ALT" ]; then
-  # Die Drossel fuer Passwortwechsel ist ABSICHT und hat vor diesem Aufruf
-  # schon dreimal zugeschlagen (zu kurz, falsches altes, echter Wechsel). Wer
-  # sie hier nicht abwartet, misst sie statt des MinIO-Wechsels: der erste
-  # Durchlauf am 23.08.2026 meldete HTTP 429 und sah aus wie ein Mangel.
+  # Die Drossel ist ABSICHT und in Zahlen bekannt: drei Wechsel je fuenfzehn
+  # Minuten und Zugang, geteilt ueber alle drei Passwort-Routen
+  # (`createUserRateLimiter(3, 15 * 60 * 1000)`). Die Fehlerfaelle davor
+  # verbrauchen sie: zu kurz, falsches altes, echter Wechsel. Der MinIO-Wechsel
+  # ist der vierte.
+  #
+  # Gewartet wird deshalb bis zu siebzehn Minuten. Das macht die Abnahme lang
+  # und ist richtig so: wer hier abkuerzt, misst den Begrenzer statt des
+  # Wechsels. Am 23.08.2026 meldete der erste Durchlauf HTTP 429 und sah aus
+  # wie ein Mangel.
+  echo "hinweis  J1: warte auf die Passwort-Drossel (bis zu 17 Minuten)"
   ANTWORT=429
-  for versuch in 1 2 3 4 5 6; do
+  for versuch in $(seq 1 17); do
     ANTWORT=$(curl -sk -o /dev/null -w '%{http_code}' -X POST \
       -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
       -d "{\"currentPassword\":\"$MINIO_ALT\",\"newPassword\":\"$MINIO_NEU\"}" \
@@ -175,6 +182,10 @@ pruefe 'J4: Loeschung angenommen' \
 sleep 5
 
 # --- J4: nachher ein Vergleich ------------------------------------------------
+# Neu anmelden: die Loeschung verwirft alle Sitzungen des Zugangs, und das ist
+# richtig so. Der alte Token liefert danach einen Fehler, und der sah in der
+# Zeile unten aus wie ein nicht geleerter Bestand.
+TOK=$(hole_token "$NUTZER" "$PASS_NEU")
 NACHHER=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/gdpr/export")
 # Gezaehlt wird DIESELBE Form wie vorher, nicht nur Listen.
 #
