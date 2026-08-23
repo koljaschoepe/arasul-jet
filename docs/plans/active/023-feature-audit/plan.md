@@ -4698,15 +4698,15 @@ Ein Gate ist nicht geschlossen, weil die Aufgaben darunter erledigt sind,
 sondern wenn jemand es am Gerät nachweisen kann. Diese Spalte fehlte bis
 heute.
 
-| Gate                             | Beleg                                                       | Stand                                                        |
-| -------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
-| G1, Funktionen vollständig       | zwölf Abnahmen, `scripts/test/abnahmen.sh`                  | über 150 Prüfpunkte, alle grün                               |
-| G2, Rückmeldung bei jeder Aktion | `rueckmeldung-abnahme.mjs`                                  | 7/7, nachdem vier stumme Explorer-Aktionen nachgezogen sind  |
-| G3, Oberfläche einheitlich       | `oberflaeche-abnahme.mjs`, sechs Ansichten mal drei Breiten | 55/55, dazu die Wächter in der CI                            |
-| G4, Daten bleiben auf dem Gerät  | `souveraenitaet-abnahme.sh`                                 | 2421 Verbindungszeilen im Betrieb, keine nach draußen        |
-| G5, DSGVO                        | `passwort-loeschung-abnahme.sh` auf dem Prüfstand           | 11/11, Auskunft und Löschung stimmen seit heute überein      |
-| G6, Sicherung                    | `restore-drill.sh`, nächtlich                               | sechs Tabellen geprüft, 44 s, Bericht in `data/backups/`     |
-| G7, sieben Tage unbeaufsichtigt  | `dauerlauf-bericht.sh`                                      | **3 von 7 Tagen**, kein Dienst musste von selbst neu starten |
+| Gate                             | Beleg                                                       | Stand                                                                                                                    |
+| -------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| G1, Funktionen vollständig       | zwölf Abnahmen, `scripts/test/abnahmen.sh`                  | über 150 Prüfpunkte, alle grün                                                                                           |
+| G2, Rückmeldung bei jeder Aktion | `rueckmeldung-abnahme.mjs`                                  | 7/7, nachdem vier stumme Explorer-Aktionen nachgezogen sind                                                              |
+| G3, Oberfläche einheitlich       | `oberflaeche-abnahme.mjs`, sechs Ansichten mal drei Breiten | 55/55, dazu die Wächter in der CI                                                                                        |
+| G4, Daten bleiben auf dem Gerät  | `souveraenitaet-abnahme.sh`                                 | **offen seit 23.08.2026**: `llm-service` rief `ollama.com`, `embedding-service` hält eine Verbindung zu `huggingface.co` |
+| G5, DSGVO                        | `passwort-loeschung-abnahme.sh` auf dem Prüfstand           | 11/11, Auskunft und Löschung stimmen seit heute überein                                                                  |
+| G6, Sicherung                    | `restore-drill.sh`, nächtlich                               | sechs Tabellen geprüft, 44 s, Bericht in `data/backups/`                                                                 |
+| G7, sieben Tage unbeaufsichtigt  | `dauerlauf-bericht.sh`                                      | **3 von 7 Tagen**, kein Dienst musste von selbst neu starten                                                             |
 
 G7 ist das einzige, das nur Zeit braucht. Der Zähler läuft seit dem Neustart
 am 19.08. um 17:29; jeder weitere Neustart des Geräts setzt ihn zurück. Ein
@@ -4833,6 +4833,63 @@ behandelte es als gewachsenen Schaden. Es ist keiner: es ist die Folge von
 `git reset --hard "$PREV_SHA"` scheitert auf einem Gerät ohne Historie, der
 Rollback fällt auf das Zurückdrehen der Images zurück und meldet sich seit
 #567 ehrlich als unvollständig.
+
+## Zwei KI-Dienste rufen nach draußen (23.08.2026, offen)
+
+Das ist der schwerste Befund des Tages. Gate G4 heißt „Daten bleiben auf dem
+Gerät", und die Souveränitäts-Abnahme meldete zum ersten Mal einen Verstoß.
+
+**`llm-service` → `ollama.com`.** Am 23.08.2026 um 17:01 UTC, während die
+Kernkette lief:
+
+```
+ROT  kein Container hat unangekuendigt nach draussen verbunden
+     nein|DRAUSSEN|llm-service 34.36.133.15|31|31
+```
+
+`34.36.133.15` ist `ollama.com`, auf dem Gerät aufgelöst. 31 Proben im
+Zwei-Sekunden-Takt sind rund eine Minute offene Verbindung. Vier Versuche,
+es zu reproduzieren, blieben leer: im Leerlauf (zweimal, zusammen über eine
+Stunde) verbindet der Dienst nicht, `api/tags`, `api/ps` und `api/show` lösen
+es nicht aus, und ein zweiter vollständiger Lauf der Kernkette auch nicht. Die
+Ollama-Binärdatei (0.32.12) enthält zwei Adressen, die dafür infrage kommen:
+`https://ollama.com/api/web_search` und
+`https://ollama.com/api/experimental/model-recommendations`.
+
+**`embedding-service` → `huggingface.co`.** Beim Nachsehen im selben
+Netz-Namensraum gefunden, und dieser ist eindeutig:
+
+```
+CLOSE-WAIT 25 0  172.30.0.74:45468  3.160.39.100:443
+$ getent hosts 3.160.39.100
+server-3-160-39-100.txl50.r.cloudfront.net
+$ getent ahostsv4 huggingface.co
+3.160.39.100 3.160.39.15 3.160.39.87 3.160.39.99
+```
+
+Der Dienst setzt weder `HF_HUB_OFFLINE` noch `TRANSFORMERS_OFFLINE`.
+sentence-transformers fragt deshalb beim Laden eines Modells bei
+huggingface.co nach. Im Bild liegt nur `models--BAAI--bge-m3`; die beiden
+Reranker (`ms-marco-MiniLM-L-12-v2`, `BAAI/bge-reranker-v2-m3`) liegen weder
+dort noch im HF-Zwischenspeicher des Containers (12 KB, leer).
+
+**Dazu ein Zustand, der nicht zur Konfiguration passt.** `embedding-service`
+läuft auf dem Orin, obwohl sein Compose-Profil `classic-rag` ihn ausschaltet.
+Er hält 3,9 GiB und arbeitet alle 13 bis 17 Sekunden einen Embedding-Stapel
+ab. Der Indexer ist es nicht: der protokolliert ausdrücklich
+„Textlayer-only indexed 2 chunks (Embedding aus — kein Qdrant)".
+
+**Nicht entschieden, und zwar bewusst.** Es sind drei Fragen, und jede ist
+eine Entscheidung: den beiden Diensten den Weg nach draußen sperren (dann
+kann ein Reranker nicht mehr nachgeladen werden), die Offline-Schalter setzen
+(dann scheitert ein fehlendes Modell laut statt still), oder die Ziele als
+deklariert zulassen (dann ist G4 weicher, als es klingt). Alle drei ändern
+ein ausgeliefertes Verhalten.
+
+**Was heute getan ist:** die Messung wirft ihren Beleg nicht mehr weg (#587).
+Beim ersten Fund war die Rohprobendatei schon gelöscht, und Port und
+Zeitpunkt waren nicht mehr feststellbar. Das hat den halben Nachmittag
+gekostet.
 
 ## G7 hat seit dem 23.08.2026 einen Bericht (#555)
 
