@@ -27,9 +27,12 @@ else
     # Read from stdin and extract file path
     INPUT=$(cat)
     # Extract file path from various formats
-    FILE_PATH=$(echo "$INPUT" | grep -oE '(services/[^"'\''[:space:]]+\.(js|ts|jsx|tsx|py|sql|yml|yaml|json|css))' | head -1)
+    # Ohne `|| true` konnte der Ersatzversuch drei Zeilen weiter unten nie
+    # greifen: findet `grep` nichts, ist das Skript vorher tot. Der Hook tat
+    # dann nichts, und niemand erfuhr warum.
+    FILE_PATH=$(echo "$INPUT" | grep -oE '(services/[^"'\''[:space:]]+\.(js|ts|jsx|tsx|py|sql|yml|yaml|json|css))' | head -1 || true)
     if [ -z "$FILE_PATH" ]; then
-        FILE_PATH=$(echo "$INPUT" | grep -oE '/home/[^"'\''[:space:]]+\.(js|ts|jsx|tsx|py|sql|yml|yaml|json|css)' | head -1)
+        FILE_PATH=$(echo "$INPUT" | grep -oE '/home/[^"'\''[:space:]]+\.(js|ts|jsx|tsx|py|sql|yml|yaml|json|css)' | head -1 || true)
     fi
 fi
 
