@@ -55,6 +55,13 @@ class TestSelfHealingEngine(unittest.TestCase):
         # Initialize engine
         self.engine = SelfHealingEngine()
 
+        # Die Nachschau nach einem abgerissenen Docker-Aufruf wartet auf einem
+        # echten Geraet bis zu zwei Minuten (ein Deploy dauert). Im Test gibt
+        # es nichts zu warten: der Mock antwortet sofort und aendert sich
+        # nicht mehr. Ohne diese zwei Zeilen kostet EIN Testfall 135 Sekunden.
+        self.engine.NACHSCHAU_SEKUNDEN = 0
+        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 0
+
     def test_initialization(self):
         """Test that the engine initializes correctly"""
         self.assertIsNotNone(self.engine.docker_client)
@@ -184,6 +191,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         recover" und eskalierte — vier Runden lang, obwohl n8n danach lief.
         """
         self.engine.NACHSCHAU_SEKUNDEN = 0
+        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 0
         container = MagicMock()
         container.name = 'n8n'
         container.restart.side_effect = Exception(
@@ -205,6 +213,7 @@ class TestSelfHealingEngine(unittest.TestCase):
     def test_verbindungsabriss_und_dienst_bleibt_weg(self):
         """Laeuft er danach NICHT, bleibt es ein Fehlschlag."""
         self.engine.NACHSCHAU_SEKUNDEN = 0
+        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 0
         container = MagicMock()
         container.name = 'n8n'
         container.restart.side_effect = Exception("('Connection aborted.', RemoteDisconnected())")
@@ -223,6 +232,7 @@ class TestSelfHealingEngine(unittest.TestCase):
     def test_anderer_fehler_wird_nicht_nachgesehen(self):
         """Ein echter Fehler bleibt ein Fehler, ohne Nachschau."""
         self.engine.NACHSCHAU_SEKUNDEN = 0
+        self.engine.NACHSCHAU_GESAMT_SEKUNDEN = 0
         container = MagicMock()
         container.name = 'n8n'
         container.restart.side_effect = Exception('image not found')
@@ -430,6 +440,57 @@ class TestSelfHealingEngine(unittest.TestCase):
         with patch.object(self.engine, 'hard_restart_application_services') as mock_restart:
             self.engine.handle_category_c_critical("Test reason")
             mock_restart.assert_not_called()
+
+
+class NeustartEhrlichkeitTests(unittest.TestCase):
+    """Was im Protokoll steht, muss auch passiert sein.
+
+    Am 23.08.2026 um 09:32 UTC stand auf dem Orin ein EMERGENCY-Eintrag
+    'System reboot triggered ... Saving state and initiating reboot' mit
+    success=True. Das Geraet lief seit vier Tagen ununterbrochen weiter:
+    `SELF_HEALING_REBOOT_ENABLED` ist ab Werk aus. Der Eintrag behauptete
+    etwas, das nicht geschah, und zwar in genau dem Protokoll, aus dem der
+    Nachweis fuer Gate G7 gelesen wird.
+    """
+
+    def setUp(self):
+        os.environ['SELF_HEALING_ENABLED'] = 'true'
+        mock_docker.from_env.return_value = MagicMock()
+        mock_psycopg2.pool.ThreadedConnectionPool.return_value = MagicMock()
+        self.engine = SelfHealingEngine()
+        self.engine.log_event = MagicMock()
+        self.engine.save_reboot_state = MagicMock(return_value=1)
+        self.engine._pause_active_jobs_for_reboot = MagicMock()
+        self.engine.perform_reboot_safety_checks = MagicMock(return_value=True)
+
+    def _typen(self):
+        return [c.args[0] for c in self.engine.log_event.call_args_list]
+
+    def test_ausgeschalteter_neustart_wird_nicht_als_ausgefuehrt_gebucht(self):
+        with patch('category_handlers.REBOOT_ENABLED', False):
+            self.engine.handle_category_d_reboot('Testgrund')
+        typen = self._typen()
+        self.assertIn('system_reboot_unterdrueckt', typen)
+        self.assertNotIn('system_reboot', typen)
+        # und zwar ausdruecklich NICHT als Erfolg
+        eintrag = [c for c in self.engine.log_event.call_args_list
+                   if c.args[0] == 'system_reboot_unterdrueckt'][0]
+        self.assertIs(eintrag.args[5], False)
+
+    def test_gescheiterte_sicherheitspruefung_steht_im_protokoll(self):
+        self.engine.perform_reboot_safety_checks = MagicMock(return_value=False)
+        with patch('category_handlers.REBOOT_ENABLED', True):
+            self.engine.handle_category_d_reboot('Testgrund')
+        self.assertIn('system_reboot_abgebrochen', self._typen())
+        self.engine.save_reboot_state.assert_not_called()
+
+    def test_eingeschalteter_neustart_wird_gebucht_und_ausgefuehrt(self):
+        with patch('category_handlers.REBOOT_ENABLED', True), \
+             patch('category_handlers.time.sleep'), \
+             patch('category_handlers.subprocess.run') as lauf:
+            self.engine.handle_category_d_reboot('Testgrund')
+        self.assertIn('system_reboot', self._typen())
+        lauf.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
