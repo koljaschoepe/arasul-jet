@@ -24,6 +24,14 @@
 #   scripts/test/ausgang-lauscher.sh stand [container]            was bisher gesehen wurde
 #   scripts/test/ausgang-lauscher.sh weg [container]              anhalten
 #
+# Gegenprobe, bevor man einem leeren Protokoll glaubt (das kostet eine Minute
+# und haette am 23.08.2026 einen blinden Lauscher sofort entlarvt):
+#
+#   scripts/test/ausgang-lauscher.sh hoch searxng 1
+#   ssh jetson "docker exec dashboard-backend sh -c 'wget -qO- \
+#     \"http://searxng:8080/search?q=berlin&format=json\" >/dev/null'"
+#   scripts/test/ausgang-lauscher.sh stand searxng    # muss Treffer zeigen
+#
 # `state connected` und nicht `state established`: eine halb geschlossene
 # Verbindung (CLOSE-WAIT) ist der Beweis, dass gesprochen WURDE. Genau daran
 # ist die Abnahme am 23.08. vorbeigelaufen.
@@ -63,9 +71,31 @@ ENDE=\$(( \$(date +%s) + ${STUNDEN} * 3600 ))
 while [ \$(date +%s) -lt \$ENDE ]; do
   PID=\$(docker inspect -f '{{.State.Pid}}' ${CONTAINER} 2>/dev/null)
   if [ -n "\$PID" ] && [ "\$PID" != "0" ]; then
+    # NUR die Gegenstelle pruefen, nicht die ganze Zeile. Der erste Wurf hatte
+    # hier ein grep ueber die GANZE Zeile, und die lokale Adresse jedes
+    # Containers liegt im Bereich 172.30.x — also flog jede Zeile raus, und der
+    # Lauscher meldete stundenlang "keine einzige Verbindung nach draussen",
+    # waehrend nebenan Verbindungen offen standen. Am 23.08.2026 mit einer
+    # ausgeloesten Websuche nachgewiesen: `ss` zeigte ESTAB nach 142.250.181.238,
+    # der Lauscher zeigte nichts.
+    #
+    # Ein Beobachter, der nie etwas sieht, ist von einem Beobachter, der nichts
+    # zu sehen bekommt, nicht zu unterscheiden. Deshalb steht in der Anleitung
+    # jetzt auch, wie man ihn gegenprueft.
     sudo -n nsenter -t \$PID -n ss -tn state connected 2>/dev/null \
-      | grep -vE '127\.0\.0\.1|172\.3[01]\.|\[::1\]|Local Address' \
-      | awk -v t="\$(date '+%d.%m. %H:%M:%S')" 'NF>=5 {print t, \$1, \$5}' >> "\$AUS"
+      | tail -n +2 \
+      | awk -v t="\$(date '+%d.%m. %H:%M:%S')" '
+          NF>=5 {
+            peer=\$5
+            sub(/^\[::ffff:/,"",peer); sub(/\]/,"",peer)
+            n=split(peer,a,":"); ip=a[1]
+            if (ip=="" || ip=="*") next
+            if (ip ~ /^127\./ || ip ~ /^10\./ || ip ~ /^192\.168\./ || ip ~ /^169\.254\./) next
+            if (ip ~ /^172\.(1[6-9]|2[0-9]|3[01])\./) next
+            if (ip ~ /^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\./) next
+            if (ip ~ /^::1$/ || ip ~ /^fe80/ || ip ~ /^f[cd]/ || ip=="[") next
+            print t, \$1, \$5
+          }' >> "\$AUS"
   fi
   sleep 20
 done
@@ -96,7 +126,11 @@ FERNSKRIPT
     # Je Ziel eine Zeile, mit Namen. `ssh -n` in der Schleife ist Pflicht: ohne
     # das liest ssh die Eingabe mit auf und die Schleife endet nach dem ersten
     # Eintrag (am 23.08.2026 genau so in der Souveraenitaets-Abnahme gefunden).
-    ssh -n "$HOST" "grep -vE '^(START|ENDE)' ${PROTOKOLL} | awk '{print \$4, \$5}' | sort | uniq -c | sort -rn | head -20" |
+    # Eine Protokollzeile sieht so aus:  23.08. 21:32:03 ESTAB 185.15.59.224:443
+    # Also: $1 Datum, $2 Uhrzeit, $3 Zustand, $4 Gegenstelle. Beim ersten Wurf
+    # stand hier $4,$5 — $5 ist leer, und `getent hosts ""` antwortet mit
+    # "localhost". Jedes Ziel hiess deshalb localhost (23.08.2026).
+    ssh -n "$HOST" "grep -vE '^(START|ENDE)' ${PROTOKOLL} | awk '{print \$3, \$4}' | sort | uniq -c | sort -rn | head -20" |
       while IFS= read -r zeile; do
         ip=$(printf '%s' "$zeile" | awk '{print $3}' | sed 's/:[0-9]*$//' | tr -d '[]')
         name=$(ssh -n "$HOST" "getent hosts ${ip} 2>/dev/null | awk '{print \$2}'" | head -1)
