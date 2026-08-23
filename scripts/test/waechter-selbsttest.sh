@@ -136,6 +136,41 @@ wf_abbruch_raeumt_auf() {
 }
 pruefe "Wartungsfenster: ein Abbruch laesst nichts liegen" 0 wf_abbruch_raeumt_auf
 
+# --- stiller-tod.py ---------------------------------------------------------
+# Die Pruefung darf NUR anschlagen, wenn `set -e` und `pipefail` zusammenkommen.
+# Ohne `pipefail` zaehlt in einer Pipe nur das letzte Glied, und `cut` oder
+# `head` geben immer 0 zurueck — dieselbe Zeile ist dann harmlos.
+ST="$TMP/st/scripts"
+mkdir -p "$ST"
+cat > "$ST/streng.sh" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+WER=$(docker ps | grep foo | head -1)
+BEISPIEL
+pruefe "Stiller Tod: set -e plus pipefail ist rot" 1 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
+
+cat > "$ST/streng.sh" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+WER=$(docker ps | grep foo | head -1 || true)
+BEISPIEL
+pruefe "Stiller Tod: mit Auffangnetz ist gruen" 0 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
+
+cat > "$ST/streng.sh" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+local_ist_harmlos() { local wer=$(docker ps | grep foo | head -1); echo "$wer"; }
+BEISPIEL
+pruefe "Stiller Tod: local faengt den Code ab, also gruen" 0 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
+
+cat > "$ST/streng.sh" <<'BEISPIEL'
+#!/bin/bash
+set -eu
+WER=$(docker ps | grep foo | head -1)
+BEISPIEL
+pruefe "Stiller Tod: ohne pipefail ist gruen" 0 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
+rm -r "$TMP/st"
+
 # --- bausteine.py -----------------------------------------------------------
 BAU="$TMP/bau/apps/dashboard-frontend/src/features/beispiel"
 mkdir -p "$BAU"
