@@ -58,43 +58,43 @@ router.get(
     let paramIndex = 1;
 
     if (filters.date_from) {
-      conditions.push(`timestamp >= $${paramIndex}`);
+      conditions.push(`a.timestamp >= $${paramIndex}`);
       params.push(filters.date_from);
       paramIndex++;
     }
 
     if (filters.date_to) {
-      conditions.push(`timestamp <= $${paramIndex}`);
+      conditions.push(`a.timestamp <= $${paramIndex}`);
       params.push(filters.date_to);
       paramIndex++;
     }
 
     if (filters.action_type) {
-      conditions.push(`action_type = $${paramIndex}`);
+      conditions.push(`a.action_type = $${paramIndex}`);
       params.push(filters.action_type.toUpperCase());
       paramIndex++;
     }
 
     if (filters.user_id !== null) {
-      conditions.push(`user_id = $${paramIndex}`);
+      conditions.push(`a.user_id = $${paramIndex}`);
       params.push(filters.user_id);
       paramIndex++;
     }
 
     if (filters.endpoint) {
-      conditions.push(`target_endpoint ILIKE $${paramIndex}`);
+      conditions.push(`a.target_endpoint ILIKE $${paramIndex}`);
       params.push(`%${filters.endpoint}%`);
       paramIndex++;
     }
 
     if (filters.status_min !== null) {
-      conditions.push(`response_status >= $${paramIndex}`);
+      conditions.push(`a.response_status >= $${paramIndex}`);
       params.push(filters.status_min);
       paramIndex++;
     }
 
     if (filters.status_max !== null) {
-      conditions.push(`response_status <= $${paramIndex}`);
+      conditions.push(`a.response_status <= $${paramIndex}`);
       params.push(filters.status_max);
       paramIndex++;
     }
@@ -104,7 +104,7 @@ router.get(
 
     // Get total count
     const countResult = await db.query(
-      `SELECT COUNT(*) as total FROM api_audit_logs ${whereClause}`,
+      `SELECT COUNT(*) as total FROM api_audit_logs a ${whereClause}`,
       params
     );
     const total = parseInt(countResult.rows[0].total);
@@ -114,22 +114,29 @@ router.get(
     const dataResult = await db.query(
       `
         SELECT
-            id,
-            timestamp,
-            user_id,
-            username,
-            action_type,
-            target_endpoint,
-            request_method,
-            request_payload,
-            response_status,
-            duration_ms,
-            ip_address,
-            user_agent,
-            error_message
-        FROM api_audit_logs
+            a.id,
+            a.timestamp,
+            a.user_id,
+            u.username,
+            a.action_type,
+            a.target_endpoint,
+            -- 'action_type' IST die Methode (varchar(10)). Eine eigene Spalte
+            -- 'request_method' gibt es nicht, sie wurde hier trotzdem gelesen,
+            -- zusammen mit 'username'. Beides zusammen liess das
+            -- Pruefprotokoll auf JEDEM Geraet mit HTTP 500 antworten
+            -- (23.08.2026 live nachgemessen). Der Name bleibt in der Antwort,
+            -- damit nichts bricht, was ihn schon liest.
+            a.action_type AS request_method,
+            a.request_payload,
+            a.response_status,
+            a.duration_ms,
+            a.ip_address,
+            a.user_agent,
+            a.error_message
+        FROM api_audit_logs a
+        LEFT JOIN admin_users u ON u.id = a.user_id
         ${whereClause}
-        ORDER BY timestamp DESC
+        ORDER BY a.timestamp DESC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `,
       dataParams

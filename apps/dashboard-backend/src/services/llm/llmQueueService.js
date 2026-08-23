@@ -749,7 +749,12 @@ function createLLMQueueService(deps = {}) {
                     COUNT(*) FILTER (WHERE status = 'streaming') as streaming_count,
                     COUNT(*) FILTER (WHERE status = 'completed' AND completed_at > NOW() - INTERVAL '1 minute') as completed_last_minute,
                     COUNT(*) FILTER (WHERE status = 'error' AND completed_at > NOW() - INTERVAL '1 minute') as errors_last_minute,
-                    AVG(EXTRACT(EPOCH FROM (started_at - queued_at)))::INTEGER FILTER (WHERE started_at IS NOT NULL AND queued_at IS NOT NULL) as avg_wait_seconds,
+                    -- FILTER gehoert direkt hinter die Aggregatfunktion, der
+                    -- Cast dahinter. Umgekehrt ist es ein Syntaxfehler, und der
+                    -- traf die ganze Abfrage: GET /api/llm/queue/metrics gab auf
+                    -- jedem Geraet HTTP 500 (am 23.08.2026 live nachgemessen).
+                    (AVG(EXTRACT(EPOCH FROM (started_at - queued_at)))
+                        FILTER (WHERE started_at IS NOT NULL AND queued_at IS NOT NULL))::INTEGER as avg_wait_seconds,
                     MAX(queue_position) FILTER (WHERE status = 'pending') as max_queue_position
                 FROM llm_jobs
                 WHERE queued_at > NOW() - INTERVAL '1 hour'
