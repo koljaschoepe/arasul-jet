@@ -4981,6 +4981,49 @@ Ollama-Binärdatei (0.32.12) enthält zwei Adressen, die dafür infrage kommen:
 `https://ollama.com/api/web_search` und
 `https://ollama.com/api/experimental/model-recommendations`.
 
+### Der Lauscher hat es gefangen (24.08.2026, 00:21)
+
+Nach zweieinhalb Stunden Beobachtung stand es im Protokoll:
+
+```
+24.08. 00:21:22 ESTAB     34.36.133.15:443
+24.08. 00:22:22 ESTAB     34.36.133.15:443
+24.08. 00:22:42 TIME-WAIT 34.36.133.15:443
+24.08. 00:23:42 TIME-WAIT 34.36.133.15:443
+```
+
+`getent ahostsv4 ollama.com` liefert genau diese Adresse. Die Verbindung stand
+rund eine Minute offen, wie beim ersten Mal am 23.08. um 17:01. Damit ist der
+Befund reproduziert, und zwar mit einem Beobachter, dessen Sehfaehigkeit im
+selben Zeitraum belegt ist: der Kanarienvogel auf `searxng` zaehlte 3470
+Zeilen, waehrend `llm-service` bei acht stand.
+
+**Was es nicht ist.** `llama-server` laeuft mit `--offline`, das Modell selbst
+spricht also nicht. Die 127.0.0.1-Aufrufe kurz davor sind eine falsche Spur:
+davon gibt es 1498 in sechs Stunden, das ist der normale interne Verkehr.
+Bleibt `ollama serve`.
+
+**Die Schalter, die es dafuer gibt**, aus der Binaerdatei gelesen und nicht
+erinnert (`grep -aoE 'OLLAMA_[A-Z_]{3,30}' /usr/bin/ollama`):
+
+| Schalter                         | was er abschaltet                   |
+| -------------------------------- | ----------------------------------- |
+| `OLLAMA_NO_CLOUD`                | alle Cloud-Verbindungen             |
+| `OLLAMA_AGENT_DISABLE_WEBSEARCH` | die eingebaute Websuche des Agenten |
+| `OLLAMA_CLOUD_BASE_URL`          | die Zieladresse selbst              |
+| `OLLAMA_REMOTES`                 | entfernte Modellquellen             |
+
+Keiner davon ist gesetzt. Am ehesten passt `OLLAMA_NO_CLOUD`, und das Geraet
+braucht nichts davon: die Websuche der Agenten laeuft ueber `searxng`, und
+Modelle kommen ueber das Praefix `hf.co/` direkt von HuggingFace.
+
+**Warum der Schalter trotzdem nicht einfach gesetzt wird.** Ob
+`OLLAMA_NO_CLOUD` auch den Weg zu HuggingFace zuzieht, steht nirgends
+geschrieben. Ein Kunde, der ein neues Modell ueber einen Link hinzufuegen
+will, haette dann eine Funktion verloren, die ausdruecklich gewuenscht ist.
+Das gehoert auf den Pruefstand, nicht auf das Arbeitsgeraet: Schalter setzen,
+kleines Modell ueber `hf.co/` laden, und erst danach entscheiden.
+
 **`embedding-service` → `huggingface.co`.** Beim Nachsehen im selben
 Netz-Namensraum gefunden, und dieser ist eindeutig:
 
