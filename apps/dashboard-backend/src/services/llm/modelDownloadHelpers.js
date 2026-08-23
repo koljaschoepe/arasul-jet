@@ -288,6 +288,21 @@ function createDownloadHelpers({ database, logger, axios, modelAvailabilityCache
                 `,
                 [modelId]
               );
+              // Ein selbst hinzugefuegtes Modell kommt mit `size_bytes = 0` in
+              // den Katalog, wenn seine Groesse vorher nicht zu erfahren war
+              // (Ollamas eigene Ablage nennt sie nicht). Jetzt ist sie bekannt.
+              // Ohne diese Zeilen bliebe `ram_required_gb` bei 2, und die
+              // Speicherpruefung vor dem Laden waere blind.
+              if (bytes?.total) {
+                await database.query(
+                  `UPDATE llm_model_catalog
+                      SET size_bytes = $2,
+                          ram_required_gb = GREATEST(2, CEIL(($2::numeric / 1e9) * 1.3)),
+                          updated_at = NOW()
+                    WHERE id = $1 AND (size_bytes IS NULL OR size_bytes = 0)`,
+                  [modelId, bytes.total]
+                );
+              }
               logger.info(`Model ${modelId} downloaded successfully`);
               modelAvailabilityCache.delete(modelId);
               await autoSetDefault(modelId);

@@ -1697,6 +1697,8 @@ Die Werte greifen erst nach `POST /api/apps/:id/restart` mit
 | GET    | `/api/models/default`          | Get default model                                                              |
 | POST   | `/api/models/default`          | Set default model                                                              |
 | POST   | `/api/models/download`         | Download model (SSE progress)                                                  |
+| POST   | `/api/models/quelle/pruefen`   | Nachsehen, welche Varianten hinter einem Link stecken und wie groß sie sind    |
+| POST   | `/api/models/katalog`          | Ein Modell über einen Link in den Katalog aufnehmen                            |
 | DELETE | `/api/models/:id`              | Delete installed model                                                         |
 | POST   | `/api/models/:id/activate`     | Load model into RAM                                                            |
 | POST   | `/api/models/:id/deactivate`   | Unload model from RAM (identisch mit `/unload`)                                |
@@ -1707,6 +1709,43 @@ Die Werte greifen erst nach `POST /api/apps/:id/restart` mit
 | GET    | `/api/models/recommended`      | Empfehlung für diese Hardware, aus RAM und Rechenwerk abgeleitet               |
 | GET    | `/api/models/lifecycle`        | Lade- und Entladeverlauf, für die Ursachensuche bei RAM-Engpässen              |
 | POST   | `/api/models/sync`             | Katalog und Installationsstand abgleichen, wenn jemand am CLI nachgeholfen hat |
+
+**Ein Modell über einen Link hinzufügen (Plan 023, Entscheidung 23.08.2026):**
+
+Bis dahin konnte ein Kunde nur laden, was im Katalog steht, und der Katalog
+kommt aus Migrationen — also aus einer Software-Aktualisierung. Ein Gerät, das
+keine mehr bekommt, hätte für immer die Modelle seines Auslieferungstages. Der
+Weg dahinter ist nicht neu: Ollama lädt direkt von HuggingFace, wenn der Name
+mit `hf.co/` beginnt (das Standardmodell dieses Geräts ist genau so eines).
+
+Der Ablauf ist zweistufig, und der erste Schritt ist der Punkt: eine GGUF-Ablage
+trägt ein Dutzend Quantisierungen zwischen 11 und 50 GB.
+
+**POST /api/models/quelle/pruefen** — Body: `{ "quelle": "…" }`. Angenommen wird
+eine Adresse (`https://huggingface.co/<besitzer>/<ablage>`, auch mit
+`/tree/main`), die Kurzform `hf.co/<besitzer>/<ablage>:<variante>`,
+`<besitzer>/<ablage>` oder ein Ollama-Name wie `llama3.2:3b`. Alles andere ist
+ein `VALIDATION_ERROR`; eine Adresse zu einem anderen Host wird ausdrücklich
+abgelehnt.
+
+Antwort bei HuggingFace: `repo`, `frei_gb` (freier KI-Speicher des Geräts) und
+`varianten` mit `tag`, `groesse_gb`, `ramGb` und `passt`. `passt` ist `null`,
+wenn das Gerät seinen freien Speicher nicht nennen kann — ein erfundenes „passt"
+wäre schlimmer als keine Aussage. Aufgeteilte Dateien
+(`-00001-of-00002.gguf`) stehen nicht in der Liste: Ollama kann sie nicht über
+einen Tag laden, sie anzubieten hieße einen Fehlschlag zu verkaufen.
+
+`503`, wenn huggingface.co nicht erreichbar ist. `400`, wenn die Ablage nicht
+existiert oder freigabepflichtig ist.
+
+**POST /api/models/katalog** — Body: `{ "quelle": "…", "variante": "IQ4_XS" }`.
+Legt die Katalogzeile an (`category = 'custom'`, `jetson_tested = false`,
+Beschreibung „Nicht von Arasul geprüft"). `409`, wenn die Kennung schon im
+Katalog steht. Größe und RAM-Bedarf kommen aus der Quelle, nicht aus einer
+Schätzung; bei Ollama-Modellen trägt der Download sie nach.
+
+Danach ist das Modell über den normalen Weg (`POST /api/models/download`)
+ladbar wie jedes kuratierte auch.
 
 **Hinweis zu `/api/models/installed`:** Die Antwort enthaelt seit Plan 023 D9
 auch die externen Cloud-Modelle, sofern ein Anbieter eingeschaltet ist. Sie

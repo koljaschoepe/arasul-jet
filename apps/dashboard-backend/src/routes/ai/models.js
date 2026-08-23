@@ -24,8 +24,15 @@ const modelService = require('../../services/llm/modelService');
 const logger = require('../../utils/logger');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const { validateBody } = require('../../middleware/validate');
-const { DownloadBody, DefaultModelBody } = require('../../schemas/models');
-const { NotFoundError, ValidationError } = require('../../utils/errors');
+const {
+  DownloadBody,
+  DefaultModelBody,
+  QuellePruefenBody,
+  KatalogHinzufuegenBody,
+} = require('../../schemas/models');
+const { NotFoundError, ValidationError, ConflictError } = require('../../utils/errors');
+const { quelleLesen, variantenHolen, ramFuer } = require('../../services/llm/modellQuelle');
+const database = require('../../database');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
 const { getLlmRamGB } = require('../../utils/hardware');
@@ -162,6 +169,141 @@ router.get(
   asyncHandler(async (req, res) => {
     const budget = await modelService.getMemoryBudget();
     res.json(budget);
+  })
+);
+
+/**
+ * POST /api/models/quelle/pruefen
+ *
+ * Nachsehen, was hinter einem Link steckt, BEVOR etwas geladen wird.
+ *
+ * Der Grund steht in `services/llm/modellQuelle.js`: ohne diesen Schritt
+ * muesste der Kunde die Quantisierung raten und danach zweistellige Gigabyte
+ * laden, um zu merken, dass sie nicht ins Geraet passt. Hier steht die Groesse
+ * vorher fest, und `passt` sagt es in einem Wort.
+ */
+router.post(
+  '/quelle/pruefen',
+  requireAuth,
+  validateBody(QuellePruefenBody),
+  asyncHandler(async (req, res) => {
+    const gelesen = quelleLesen(req.body.quelle);
+
+    if (gelesen.art === 'ollama') {
+      res.json({
+        art: 'ollama',
+        name: gelesen.name,
+        varianten: [],
+        hinweis:
+          'Das ist ein Modell aus Ollamas eigener Ablage. Varianten lassen sich ' +
+          'von hier aus nicht auflisten; der Name wird so übernommen, wie er dasteht.',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    const varianten = await variantenHolen(gelesen.repo);
+    if (varianten.length === 0) {
+      throw new ValidationError(
+        `In „${gelesen.repo}" liegt keine einzelne GGUF-Datei. Ollama kann nur ` +
+          'GGUF laden, und aufgeteilte Dateien nicht über einen Tag.'
+      );
+    }
+
+    const frei = await modelService.getMemoryBudget().catch(() => null);
+    const freiGb = frei && typeof frei.availableMb === 'number' ? frei.availableMb / 1024 : null;
+
+    res.json({
+      art: 'huggingface',
+      repo: gelesen.repo,
+      name: gelesen.name,
+      frei_gb: freiGb === null ? null : Math.round(freiGb * 10) / 10,
+      varianten: varianten
+        .map(v => ({
+          ...v,
+          groesse_gb: Math.round((v.groesseBytes / 1e9) * 10) / 10,
+          // `null`, wenn das Geraet seinen freien Speicher nicht nennen kann.
+          // Ein erfundenes „passt" waere schlimmer als keine Aussage.
+          passt: freiGb === null ? null : v.ramGb <= freiGb,
+        }))
+        .sort((a, b) => a.groesseBytes - b.groesseBytes),
+      timestamp: new Date().toISOString(),
+    });
+  })
+);
+
+/**
+ * POST /api/models/katalog
+ *
+ * Ein Modell in den Katalog aufnehmen. Danach ist es ueber den normalen Weg
+ * (`POST /api/models/download`) ladbar wie jedes kuratierte auch.
+ *
+ * `jetson_tested = false` ist keine Formalie: der Kunde soll sehen, dass
+ * dieses Modell nicht von Arasul geprueft wurde.
+ */
+router.post(
+  '/katalog',
+  requireAuth,
+  validateBody(KatalogHinzufuegenBody),
+  asyncHandler(async (req, res) => {
+    const gelesen = quelleLesen(req.body.quelle);
+    const variante = req.body.variante || gelesen.tag || null;
+
+    if (gelesen.art === 'huggingface' && !variante) {
+      throw new ValidationError(
+        'Bitte eine Variante angeben (zum Beispiel „IQ4_XS"). ' +
+          'POST /api/models/quelle/pruefen nennt die verfügbaren.'
+      );
+    }
+
+    const id = gelesen.art === 'huggingface' ? `hf.co/${gelesen.repo}:${variante}` : gelesen.name;
+
+    const vorhanden = await database.query('SELECT id FROM llm_model_catalog WHERE id = $1', [id]);
+    if (vorhanden.rows.length > 0) {
+      throw new ConflictError(`„${id}" steht bereits im Katalog.`);
+    }
+
+    // Groesse und RAM aus der Quelle, nicht geraten. Bei Ollama-Modellen wissen
+    // wir sie erst nach dem Laden — dann traegt sie der Download nach.
+    let groesseBytes = 0;
+    if (gelesen.art === 'huggingface') {
+      const varianten = await variantenHolen(gelesen.repo);
+      const treffer = varianten.find(v => v.tag === variante);
+      if (!treffer) {
+        throw new ValidationError(
+          `Die Variante „${variante}" gibt es in „${gelesen.repo}" nicht. ` +
+            `Vorhanden: ${varianten.map(v => v.tag).join(', ') || 'keine'}.`
+        );
+      }
+      groesseBytes = treffer.groesseBytes;
+    }
+
+    const anzeige = req.body.name || (gelesen.repo ? gelesen.repo.split('/')[1] : gelesen.name);
+    const beschreibung = `Selbst hinzugefügt${
+      gelesen.art === 'huggingface' ? ` von huggingface.co/${gelesen.repo}` : ''
+    }${variante ? `, Variante ${variante}` : ''}. Nicht von Arasul geprüft.`;
+
+    await database.query(
+      `INSERT INTO llm_model_catalog
+         (id, name, description, size_bytes, ram_required_gb, category,
+          capabilities, recommended_for, jetson_tested, performance_tier,
+          ollama_name, model_type)
+       VALUES ($1, $2, $3, $4, $5, 'custom', '[]'::jsonb, '[]'::jsonb, false, 2, $6, 'llm')`,
+      [id, anzeige, beschreibung, groesseBytes, ramFuer(groesseBytes), id]
+    );
+
+    cacheService.invalidate(CACHE_KEYS.CATALOG);
+    logger.info(`Modell in den Katalog aufgenommen: ${id} (von ${req.user.username})`);
+
+    res.status(201).json({
+      data: {
+        id,
+        name: anzeige,
+        size_bytes: groesseBytes,
+        ram_required_gb: ramFuer(groesseBytes),
+      },
+      timestamp: new Date().toISOString(),
+    });
   })
 );
 
