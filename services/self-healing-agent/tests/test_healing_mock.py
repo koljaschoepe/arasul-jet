@@ -281,6 +281,65 @@ class TestSelfHealingEngine(unittest.TestCase):
 
         mock_cat_c.assert_called_once()
 
+    def test_eskalation_wird_nicht_im_takt_wiederholt(self):
+        """Ein unveraenderter Zustand ist eine Zeile, nicht zwanzig.
+
+        Am 23.08.2026 auf dem Orin: solange n8n ungesund blieb, schrieb jeder
+        Durchlauf eine weitere CRITICAL-Zeile `service_escalation`, obwohl
+        Kategorie C im Cooldown war und nichts mehr tat. Sieben Tage
+        rueckwaerts waren 97 Prozent aller kritischen Zeilen solche
+        Wiederholungen. Weil `get_critical_events_count()` sie mitzaehlt und
+        ab MAX_CRITICAL_EVENTS neu gestartet wird, war ein einziger haengender
+        Dienst genug, um einen Geraeteneustart auszuloesen.
+        """
+        container = MagicMock()
+
+        def c_merkt_sich_die_zeit(_reason):
+            self.engine.last_critical_action_time = time.time()
+
+        with patch.object(self.engine, 'record_failure'), \
+             patch.object(self.engine, 'is_in_cooldown', return_value=False), \
+             patch.object(self.engine, 'get_failure_count', return_value=4), \
+             patch.object(self.engine, 'log_event') as mock_log, \
+             patch.object(self.engine, 'record_recovery_action'), \
+             patch.object(self.engine, 'handle_category_c_critical',
+                          side_effect=c_merkt_sich_die_zeit) as mock_cat_c:
+            for _ in range(20):
+                self.engine.handle_category_a_service_down('n8n', container)
+
+        eskalationen = [
+            aufruf for aufruf in mock_log.call_args_list
+            if aufruf.args and aufruf.args[0] == 'service_escalation'
+        ]
+        self.assertEqual(len(eskalationen), 1, 'zwanzig Durchlaeufe, eine Zeile')
+        mock_cat_c.assert_called_once()
+
+    def test_nach_dem_cooldown_wird_wieder_eskaliert(self):
+        """Die Entprellung darf die Eskalation nicht totlegen.
+
+        Sonst waere aus einem zu lauten Waechter ein stummer geworden, und das
+        ist der schlechtere von beiden Fehlern.
+        """
+        container = MagicMock()
+        self.engine.last_critical_action_time = (
+            time.time() - self.engine.CATEGORY_C_COOLDOWN_SEKUNDEN - 1
+        )
+
+        with patch.object(self.engine, 'record_failure'), \
+             patch.object(self.engine, 'is_in_cooldown', return_value=False), \
+             patch.object(self.engine, 'get_failure_count', return_value=4), \
+             patch.object(self.engine, 'log_event') as mock_log, \
+             patch.object(self.engine, 'record_recovery_action'), \
+             patch.object(self.engine, 'handle_category_c_critical') as mock_cat_c:
+            self.engine.handle_category_a_service_down('n8n', container)
+
+        eskalationen = [
+            aufruf for aufruf in mock_log.call_args_list
+            if aufruf.args and aufruf.args[0] == 'service_escalation'
+        ]
+        self.assertEqual(len(eskalationen), 1)
+        mock_cat_c.assert_called_once()
+
     def test_handle_category_a_deploy_is_not_an_outage(self):
         """Ein laufender Deploy darf keinen CRITICAL-Fehlalarm erzeugen."""
         container = MagicMock()

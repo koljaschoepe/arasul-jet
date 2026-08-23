@@ -112,14 +112,14 @@ Alle Schema-Definitionen in: `services/postgres/init/003_self_healing_schema.sql
 
 ### Helper Functions
 
-| Function                                        | Zweck                        |
-| ----------------------------------------------- | ---------------------------- |
-| `get_service_failure_count(service, minutes)`   | Failure Count im Zeitfenster |
-| `is_service_in_cooldown(service, minutes)`      | Cooldown-Check               |
-| `get_critical_events_count(minutes)`            | Critical Events im Fenster   |
-| `record_service_failure(service, type, status)` | Failure Recording            |
-| `record_recovery_action(...)`                   | Action Recording             |
-| `cleanup_service_failures()`                    | Auto-Cleanup alter Daten     |
+| Function                                        | Zweck                                                                                                                |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `get_service_failure_count(service, minutes)`   | Failure Count im Zeitfenster                                                                                         |
+| `is_service_in_cooldown(service, minutes)`      | Cooldown-Check                                                                                                       |
+| `get_critical_events_count(minutes)`            | Verschiedene kritische Vorfaelle im Fenster (Ereignistyp je Dienst), **nicht** Protokollzeilen — siehe Migration 161 |
+| `record_service_failure(service, type, status)` | Failure Recording                                                                                                    |
+| `record_recovery_action(...)`                   | Action Recording                                                                                                     |
+| `cleanup_service_failures()`                    | Auto-Cleanup alter Daten                                                                                             |
 
 ---
 
@@ -155,6 +155,18 @@ CRITICAL_WINDOW_MINUTES = 30            # Critical Event Window
 MAX_FAILURES_IN_WINDOW = 3              # Max Failures vor Eskalation
 MAX_CRITICAL_EVENTS = 3                 # Max Critical Events vor Reboot
 ```
+
+`MAX_CRITICAL_EVENTS` zaehlt seit dem 23.08.2026 **verschiedene Vorfaelle**,
+nicht Protokollzeilen. Vorher reichte ein einziger Dienst, der nicht wieder
+hochkam: seine Eskalationszeile wurde im Takt des Durchlaufs neu geschrieben,
+und der Zaehler war in einer halben Minute voll. Am 19.08.2026 stand deshalb
+"136 events in 30min" im Protokoll und die Selbstheilung entschied auf
+Neustart — dieselben 30 Minuten nach Vorfaellen gezaehlt: zwei.
+
+Zwei Stellen halten das jetzt auseinander:
+`get_critical_events_count()` (Migration 161) zaehlt `DISTINCT (event_type,
+service_name)`, und Kategorie A schreibt die Eskalationszeile nur noch, wenn
+Kategorie C auch wirklich handelt (`_category_c_in_cooldown()`).
 
 ---
 

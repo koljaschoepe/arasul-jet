@@ -235,6 +235,33 @@ class CategoryHandlersMixin:
                 return False
             time.sleep(min(self.NACHSCHAU_TAKT_SEKUNDEN, max(0.0, frist - time.time())))
 
+    # Kategorie C hat einen eigenen Cooldown von einer Stunde. Der stand aber
+    # HINTER dem `log_event` in Kategorie A: solange ein Dienst ungesund blieb
+    # und sein Fehlerzaehler ueber MAX_FAILURES_IN_WINDOW lag, schrieb JEDER
+    # Durchlauf eine weitere CRITICAL-Zeile `service_escalation`, obwohl C
+    # selbst laengst nichts mehr tat und sofort zurueckkehrte.
+    #
+    # Am 23.08.2026 auf dem Orin gemessen: 20 solche Zeilen in zwei Minuten
+    # fuer n8n und n8n-runners (`SELECT ... FROM self_healing_events WHERE
+    # event_type = 'service_escalation'`).
+    #
+    # Das ist nicht nur Rauschen. `get_critical_events_count()` zaehlte
+    # CRITICAL-Zeilen, und ab MAX_CRITICAL_EVENTS startet das Geraet neu. Ein
+    # einziger Dienst, der nicht hochkommt, fuellte den Zaehler damit in einer
+    # halben Minute. Am selben Tag um 15:01 UTC stand deshalb im Protokoll
+    # "Multiple critical events detected (3), escalating to reboot" — dass das
+    # Geraet oben blieb, lag allein daran, dass SELF_HEALING_REBOOT_ENABLED
+    # aus war. Im unbeaufsichtigten Betrieb, den Gate G7 verspricht, steht der
+    # Schalter auf true.
+    CATEGORY_C_COOLDOWN_SEKUNDEN = 3600
+
+    def _category_c_in_cooldown(self) -> bool:
+        """True, solange Kategorie C ohnehin nicht handeln wuerde."""
+        return (
+            time.time() - self.last_critical_action_time
+            < self.CATEGORY_C_COOLDOWN_SEKUNDEN
+        )
+
     def handle_category_a_service_down(self, service_name: str, container):
         """Category A: Service Down - tiered restart strategies with exponential backoff"""
 
@@ -306,6 +333,16 @@ class CategoryHandlersMixin:
                 )
 
             elif failure_count >= MAX_FAILURES_IN_WINDOW:
+                if self._category_c_in_cooldown():
+                    # Der Zustand ist unveraendert und schon protokolliert.
+                    # Eine zweite CRITICAL-Zeile fuer denselben Vorfall waere
+                    # keine neue Erkenntnis, sondern ein Stimmzettel mehr fuer
+                    # den Neustart.
+                    logger.debug(
+                        f"{service_name} bleibt ungesund, Kategorie C ist im "
+                        f"Cooldown — keine weitere Eskalationszeile"
+                    )
+                    return
                 logger.error(
                     f"Service {service_name} failed {failure_count} times in "
                     f"{FAILURE_WINDOW_MINUTES}min window, escalating"
@@ -574,8 +611,7 @@ class CategoryHandlersMixin:
     def handle_category_c_critical(self, reason: str):
         """Category C: Critical Errors - aggressive recovery"""
 
-        current_time = time.time()
-        if current_time - self.last_critical_action_time < 3600:
+        if self._category_c_in_cooldown():
             logger.warning(f"Category C recovery triggered but in cooldown (last action < 1h ago). Reason: {reason}")
             return
 
