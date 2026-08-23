@@ -21,6 +21,7 @@
  * Rueckgabe 0, wenn jede Zusage gehalten ist, sonst 1.
  */
 import { chromium } from 'playwright';
+import { sitzungsZustand, sitzungMerken } from './anmeldung.mjs';
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
@@ -76,6 +77,11 @@ const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({
   ignoreHTTPSErrors: true,
   viewport: { width: 1400, height: 900 },
+  // Gespeicherte Sitzung wiederverwenden. Zehn Anmeldungen je Viertelstunde
+  // und IP sind aufgebraucht, wenn mehrere Abnahmen hintereinander laufen; die
+  // Abnahmen meldeten dann Dinge ueber das Geraet, die nur ueber den
+  // Messaufbau galten (23.08.2026).
+  ...(sitzungsZustand() ? { storageState: sitzungsZustand() } : {}),
 });
 const page = await ctx.newPage();
 
@@ -92,6 +98,14 @@ try {
     await page.getByRole('button', { name: /Anmelden/i }).click();
     const r = await antwort.catch(() => null);
     pruefe('Anmeldung', !!r && r.status() === 200, r ? `HTTP ${r.status()}` : 'keine Antwort');
+    if (r && r.status() === 200) {
+      await sitzungMerken(ctx);
+    }
+  } else {
+    // Mit wiederverwendeter Sitzung erscheint kein Passwortfeld. Die Zeile
+    // bleibt trotzdem stehen, sonst wechselt die Zahl der Befunde je nachdem,
+    // ob vorher schon eine Abnahme lief (23.08.2026).
+    pruefe('Anmeldung', true, 'Sitzung wiederverwendet');
   }
   await page.waitForTimeout(5000);
 

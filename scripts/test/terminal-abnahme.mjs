@@ -19,6 +19,7 @@
  *   node scripts/test/terminal-abnahme.mjs
  */
 import { chromium } from 'playwright';
+import { anmeldenFallsNoetig, sitzungsZustand } from './anmeldung.mjs';
 
 const URL = process.env.ARASUL_URL || 'https://localhost:8443';
 const BENUTZER = process.env.ARASUL_BENUTZER || 'admin';
@@ -81,19 +82,17 @@ const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({
   ignoreHTTPSErrors: true,
   viewport: { width: 1800, height: 1000 },
+  // Gespeicherte Sitzung wiederverwenden. Zehn Anmeldungen je Viertelstunde und
+  // IP sind aufgebraucht, wenn mehrere Abnahmen hintereinander laufen
+  // (23.08.2026).
+  ...(sitzungsZustand() ? { storageState: sitzungsZustand() } : {}),
 });
 const page = await ctx.newPage();
 
 try {
   await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await assistentUeberspringen(page);
-  const pw = page.locator('input[type="password"]');
-  await pw.waitFor({ timeout: 20000 }).catch(() => {});
-  if (await pw.count()) {
-    await page.getByLabel(/Benutzername/i).fill(BENUTZER);
-    await pw.fill(PASSWORT);
-    await page.getByRole('button', { name: /Anmelden/i }).click();
-  }
+  await anmeldenFallsNoetig(page, ctx, { url: URL, benutzer: BENUTZER, passwort: PASSWORT });
   await page.waitForTimeout(6000);
 
   // Auf das Terminal umschalten. Der Umschalter ist ein `role="tab"` im
