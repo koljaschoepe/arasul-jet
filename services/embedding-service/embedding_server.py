@@ -170,9 +170,31 @@ def _get_cross_encoder():
     return _cross_encoder
 
 
+# Wie oft der Gesundheitscheck wirklich rechnet, statt nur zu antworten.
+#
+# Der Check lief alle 15 Sekunden (Dockerfile HEALTHCHECK) und rechnete dabei
+# jedes Mal `model.encode("test")` — eine echte Einbettung auf der GPU. Das
+# sind 5760 GPU-Aufrufe am Tag, nur um "mir geht es gut" zu sagen, und jeder
+# davon nimmt `_model_encode_lock` und laeuft gegen dieselbe GPU, auf der der
+# Chat antwortet. Auf einem Geraet, dessen ganzer Zweck diese GPU ist, ist das
+# keine Kleinigkeit (23.08.2026 auf dem Orin gemessen: alle 13 bis 17 Sekunden
+# ein Stapel, rund um die Uhr, ohne dass jemand den Dienst benutzte).
+#
+# Die Aussage bleibt dieselbe, nur seltener nachgerechnet: hoechstens alle
+# fuenf Minuten. Dazwischen sagt der Check, was er ohne Rechnen weiss — das
+# Modell ist geladen — und wie alt die letzte echte Probe ist. Wer die frische
+# Aussage braucht, ruft `/health?tief=1`.
+TIEFENPRUEFUNG_ABSTAND_S = 300
+_letzte_tiefenpruefung = 0.0
+_letzte_tiefenpruefung_ms = None
+_letzte_vektorlaenge = None
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    global _letzte_tiefenpruefung, _letzte_tiefenpruefung_ms, _letzte_vektorlaenge
+
     if model is None:
         return jsonify({
             'status': 'unhealthy',
@@ -180,12 +202,22 @@ def health_check():
             'timestamp': time.time()
         }), 503
 
+    jetzt = time.time()
+    tief = request.args.get('tief') in ('1', 'true', 'ja')
+    rechnen = tief or (jetzt - _letzte_tiefenpruefung) >= TIEFENPRUEFUNG_ABSTAND_S
+
     try:
-        # Test vectorization
-        start_time = time.time()
-        with _model_encode_lock:
-            test_vec = model.encode("test", convert_to_numpy=True)
-        latency = (time.time() - start_time) * 1000
+        if rechnen:
+            start_time = time.time()
+            with _model_encode_lock:
+                test_vec = model.encode("test", convert_to_numpy=True)
+            latency = (time.time() - start_time) * 1000
+            _letzte_tiefenpruefung = jetzt
+            _letzte_tiefenpruefung_ms = round(latency, 2)
+            _letzte_vektorlaenge = len(test_vec)
+        else:
+            latency = _letzte_tiefenpruefung_ms if _letzte_tiefenpruefung_ms is not None else 0
+            test_vec = None
 
         # Include GPU memory status
         gpu_mem = check_gpu_memory()
@@ -202,8 +234,12 @@ def health_check():
             'status': 'healthy',
             'model': MODEL_NAME,
             'device': device,
-            'vector_size': len(test_vec),
-            'test_latency_ms': round(latency, 2),
+            'vector_size': _letzte_vektorlaenge,
+            'test_latency_ms': round(latency, 2) if latency else None,
+            'test_gerechnet': rechnen,
+            'test_alter_s': (
+                round(jetzt - _letzte_tiefenpruefung, 1) if _letzte_tiefenpruefung else None
+            ),
             'reranking_enabled': ENABLE_RERANKING,
             'gpu_memory': gpu_info,
             'gpu_status': gpu_status,
