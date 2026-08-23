@@ -114,3 +114,30 @@ describe('variantenHolen', () => {
     expect(axios.get).not.toHaveBeenCalled();
   });
 });
+
+describe('kategorieFuerBytes (aus modelSyncHelpers, hier mitgeprueft)', () => {
+  // `category` ist eine GROESSENKLASSE, kein Typ. Der Katalog hat einen CHECK
+  // auf small/medium/large/xlarge. Beim ersten Anlauf von POST
+  // /api/models/katalog stand dort 'custom', und jeder Aufruf endete mit HTTP
+  // 500 — am 23.08.2026 erst am Geraet aufgefallen, weil kein Test die Zeile
+  // gegen eine echte Datenbank geschrieben hat.
+  const { kategorieFuerBytes } = require('../../src/services/llm/modelSyncHelpers');
+
+  test.each([
+    [1e9, 'small'],
+    [7.9e9, 'small'],
+    [9e9, 'medium'],
+    [16.4e9, 'large'],
+    [31e9, 'xlarge'],
+    [0, 'small'],
+  ])('%i Bytes ergibt %s', (bytes, erwartet) => {
+    expect(kategorieFuerBytes(bytes)).toBe(erwartet);
+  });
+
+  test('liefert nur Werte, die der Katalog-CHECK erlaubt', () => {
+    const erlaubt = ['small', 'medium', 'large', 'xlarge'];
+    for (const gb of [0, 1, 8, 15, 16, 29, 30, 100]) {
+      expect(erlaubt).toContain(kategorieFuerBytes(gb * 1e9));
+    }
+  });
+});

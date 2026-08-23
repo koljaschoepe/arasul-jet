@@ -32,6 +32,7 @@ const {
 } = require('../../schemas/models');
 const { NotFoundError, ValidationError, ConflictError } = require('../../utils/errors');
 const { quelleLesen, variantenHolen, ramFuer } = require('../../services/llm/modellQuelle');
+const { kategorieFuerBytes } = require('../../services/llm/modelSyncHelpers');
 const database = require('../../database');
 const { initSSE, trackConnection } = require('../../utils/sseHelper');
 const { cacheService, cacheMiddleware } = require('../../services/core/cacheService');
@@ -288,8 +289,22 @@ router.post(
          (id, name, description, size_bytes, ram_required_gb, category,
           capabilities, recommended_for, jetson_tested, performance_tier,
           ollama_name, model_type)
-       VALUES ($1, $2, $3, $4, $5, 'custom', '[]'::jsonb, '[]'::jsonb, false, 2, $6, 'llm')`,
-      [id, anzeige, beschreibung, groesseBytes, ramFuer(groesseBytes), id]
+       VALUES ($1, $2, $3, $4, $5, $6, '[]'::jsonb, '[]'::jsonb, false, 2, $7, 'llm')`,
+      // `category` ist eine GROESSENKLASSE, kein Typ: der Katalog hat einen
+      // CHECK auf small/medium/large/xlarge. Beim ersten Anlauf stand hier
+      // 'custom', und jeder Aufruf endete mit HTTP 500
+      // (`llm_model_catalog_category_check`, am 23.08.2026 am Geraet gefunden).
+      // Die Einordnung kommt aus `modelSyncHelpers`, damit der automatische
+      // Import und dieser Weg nicht zwei Wahrheiten haben.
+      [
+        id,
+        anzeige,
+        beschreibung,
+        groesseBytes,
+        ramFuer(groesseBytes),
+        kategorieFuerBytes(groesseBytes),
+        id,
+      ]
     );
 
     cacheService.invalidate(CACHE_KEYS.CATALOG);
