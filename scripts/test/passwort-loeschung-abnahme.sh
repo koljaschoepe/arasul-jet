@@ -116,10 +116,19 @@ pruefe 'J1: Anmeldung mit dem neuen Passwort' \
 
 # --- J1, Teil 2: MinIO, und der Dateizugriff DANACH --------------------------
 if [ -n "$MINIO_ALT" ]; then
-  ANTWORT=$(curl -sk -o /dev/null -w '%{http_code}' -X POST \
-    -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
-    -d "{\"currentPassword\":\"$MINIO_ALT\",\"newPassword\":\"$MINIO_NEU\"}" \
-    "$BASIS/api/settings/password/minio")
+  # Die Drossel fuer Passwortwechsel ist ABSICHT und hat vor diesem Aufruf
+  # schon dreimal zugeschlagen (zu kurz, falsches altes, echter Wechsel). Wer
+  # sie hier nicht abwartet, misst sie statt des MinIO-Wechsels: der erste
+  # Durchlauf am 23.08.2026 meldete HTTP 429 und sah aus wie ein Mangel.
+  ANTWORT=429
+  for versuch in 1 2 3 4 5 6; do
+    ANTWORT=$(curl -sk -o /dev/null -w '%{http_code}' -X POST \
+      -H "authorization: Bearer $TOK" -H 'content-type: application/json' \
+      -d "{\"currentPassword\":\"$MINIO_ALT\",\"newPassword\":\"$MINIO_NEU\"}" \
+      "$BASIS/api/settings/password/minio")
+    [ "$ANTWORT" != "429" ] && break
+    sleep 60
+  done
   pruefe 'J1: MinIO-Passwort geaendert' \
     "$([ "$ANTWORT" = "200" ] && echo ja || echo nein)" "HTTP $ANTWORT"
 
@@ -167,14 +176,26 @@ sleep 5
 
 # --- J4: nachher ein Vergleich ------------------------------------------------
 NACHHER=$(curl -sk -H "authorization: Bearer $TOK" "$BASIS/api/gdpr/export")
-LEER=$(printf '%s' "$NACHHER" | python3 -c 'import sys,json
+# Gezaehlt wird DIESELBE Form wie vorher, nicht nur Listen.
+#
+# Der erste Entwurf zaehlte `isinstance(v, list) and v`. Wo der Export ein
+# Objekt liefert, war das leer, und die Zeile meldete "alle leer", waehrend die
+# Loeschung an einem Fremdschluessel gescheitert war. Ein falsches Gruen ist
+# schlimmer als ein falsches Rot: es haette einen Rechtsverstoss als erledigt
+# ausgewiesen.
+ZAEHLUNG_NACHHER=$(printf '%s' "$NACHHER" | python3 -c 'import sys,json
 try: d = json.load(sys.stdin)
 except Exception: print("fehler"); raise SystemExit
 d = d.get("data", d)
-voll = [k for k, v in d.items() if k not in ("_meta", "profile") and isinstance(v, list) and v]
-print(",".join(voll) if voll else "alle leer")' 2>/dev/null)
+def zahl(v):
+    if isinstance(v, list): return len(v)
+    if isinstance(v, dict): return len(v)
+    return 0 if v in (None, "") else 1
+voll = {k: zahl(v) for k, v in d.items() if k not in ("_meta", "profile")}
+uebrig = {k: n for k, n in voll.items() if n}
+print(json.dumps(uebrig) if uebrig else "alle leer")' 2>/dev/null)
 pruefe 'J4: die Auskunft danach ist leer' \
-  "$([ "$LEER" = "alle leer" ] && echo ja || echo nein)" "$LEER"
+  "$([ "$ZAEHLUNG_NACHHER" = "alle leer" ] && echo ja || echo nein)" "$ZAEHLUNG_NACHHER"
 
 echo
 echo "$gruen von $((gruen + rot)) gruen"

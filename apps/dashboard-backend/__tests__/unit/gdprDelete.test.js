@@ -286,10 +286,36 @@ describe('DELETE /api/gdpr/me — was wirklich gelöscht wird (Plan 023 J4)', ()
   test('Wissensraeume und Projekte werden geloescht', async () => {
     // Der Kommentar zaehlte sie auf, der Code loeschte sie nicht.
     const { sqls } = await loeschen();
-    expect(sqls.some(s => s.includes('DELETE FROM knowledge_spaces WHERE owner_id = $1'))).toBe(
-      true
-    );
+    expect(sqls.some(s => s.includes('DELETE FROM knowledge_spaces'))).toBe(true);
     expect(sqls.some(s => s.includes('DELETE FROM projects'))).toBe(true);
+  });
+
+  /**
+   * Am 23.08.2026 auf dem Pruefstand: der Raum "Allgemein" traegt
+   * `owner_id = NULL` und haengt an einem Projekt. Der Filter auf `owner_id`
+   * liess ihn stehen, und weil `knowledge_spaces_project_id_fkey` auf RESTRICT
+   * steht, scheiterte eine Zeile spaeter die ganze Transaktion:
+   *
+   *   update or delete on table "projects" violates foreign key constraint
+   *   "knowledge_spaces_project_id_fkey"
+   *
+   * Die Loeschung nach Art. 17 war damit auf einem GEWOEHNLICHEN Geraet
+   * unmoeglich, nicht in einem Sonderfall.
+   */
+  test('auch ein Wissensraum OHNE Besitzer am Projekt wird geloescht', async () => {
+    const { sqls } = await loeschen();
+    const zeile = sqls.find(s => s.includes('DELETE FROM knowledge_spaces'));
+    expect(zeile).toBeDefined();
+    expect(zeile).toMatch(/project_id IN \(SELECT id FROM projects\)/);
+  });
+
+  test('die Wissensraeume gehen VOR den Projekten', async () => {
+    // Andersherum steht der Fremdschluessel im Weg.
+    const { sqls } = await loeschen();
+    const idxRaum = sqls.findIndex(s => s.includes('DELETE FROM knowledge_spaces'));
+    const idxProjekt = sqls.findIndex(s => s.startsWith('DELETE FROM projects'));
+    expect(idxRaum).toBeGreaterThanOrEqual(0);
+    expect(idxRaum).toBeLessThan(idxProjekt);
   });
 
   test('die Projekt-Ids werden VOR dem Loeschen eingesammelt', async () => {
