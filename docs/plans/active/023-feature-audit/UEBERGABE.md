@@ -1,6 +1,6 @@
 # Übergabe: was gerade läuft, was offen ist, wo man weitermacht
 
-**Stand: 23.08.2026, 20:15.** Diese Seite ist für die nächste Sitzung
+**Stand: 23.08.2026, 21:20.** Diese Seite ist für die nächste Sitzung
 geschrieben, nicht für den Rückblick. Wer sie liest, soll ohne Chatverlauf
 weiterarbeiten können.
 
@@ -109,6 +109,30 @@ nc -z localhost 8443 || ssh -f -N -L 8443:localhost:443 jetson
 ```
 
 ---
+
+## 5b. Was der Tag gebracht hat, in einem Satz je Zeile
+
+Nicht als Erfolgsmeldung, sondern damit die nächste Sitzung weiß, wo schon
+gesucht wurde und wo nicht.
+
+| Bereich           | Was sich geändert hat                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| Endpunkte         | von **fünf** HTTP 500 auf jedem Gerät zu **null**; 192 antworten, keiner mit Serverfehler                      |
+| Fehlermeldungen   | 26 Stellen gaben „Internal server error" statt des Grundes                                                     |
+| Selbstheilung     | ein Deploy schickte das Gerät fast in einen Neustart; der Neustart-Eintrag behauptete einen, der nie stattfand |
+| n8n               | nach vier Klicks war der Automationen-Tab weg (Anmeldedrossel)                                                 |
+| GPU               | der Einbettungsdienst rechnete 5760-mal am Tag für einen Gesundheitscheck                                      |
+| Git auf dem Gerät | jeder Deploy hinterließ einen Commit ohne Eltern; Historie geheilt, Rollback funktioniert wieder               |
+| Wissensgraph      | `related/:name` hatte drei rekursive Zweige und hat **nie** funktioniert                                       |
+| Modelle           | über einen Link hinzufügen und wieder entfernen, mit Abnahme                                                   |
+
+**Und vier Messungen, die das Falsche gemessen haben** — die sind die
+unangenehmere Hälfte: die G4-Abnahme sah nur `established`, hielt
+IPv6-Localhost für „draußen", löste die Anzahl statt der Adresse auf, und
+`ssh` fraß die Schleifeneingabe, sodass immer nur das **erste** Ziel geprüft
+wurde. Dazu eine zerstörende Abnahme, die vom Arbeitsrechner aus auf das
+Produktionsgerät zielte, und ein „Fabrikzustand", der das Konto des
+Arbeitsgeräts trug.
 
 ## 6. Drei Fallen, die einen halben Tag gekostet haben
 
