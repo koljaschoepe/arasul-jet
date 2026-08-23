@@ -66,6 +66,10 @@ describe('Automations Routes', () => {
     jest.clearAllMocks();
     token = generateTestToken();
     setupAuth();
+    // Der Cookie-Zwischenspeicher lebt im Modul und ueberlebt sonst jeden
+    // Testfall: der zweite bekaeme den Cookie des ersten und meldete sich nie
+    // bei n8n an.
+    require('../../src/routes/automations')._cookieVergessen();
   });
 
   describe('GET /api/automations/session', () => {
@@ -112,6 +116,46 @@ describe('Automations Routes', () => {
 
       expect(res.status).toBe(503);
       expect(res.body.error.code).toBe('SERVICE_UNAVAILABLE');
+    });
+
+    test('ein zweiter Aufruf meldet sich NICHT erneut bei n8n an', async () => {
+      // Am 23.08.2026 auf dem Orin gemessen: n8n drosselt Anmeldungen, der
+      // fuenfte Aufruf kurz hintereinander kam als 503 zurueck. Der
+      // Arbeitsbereich ruft diese Route bei jedem Ansichtswechsel.
+      const cookie = 'n8n-auth=zwischengespeichert; Path=/; HttpOnly';
+      axios.post.mockResolvedValueOnce({ status: 200, headers: { 'set-cookie': [cookie] } });
+
+      const erst = await request(app)
+        .get('/api/automations/session')
+        .set('Authorization', `Bearer ${token}`);
+      expect(erst.status).toBe(200);
+
+      // Zweiter Aufruf: axios.post ist nicht noch einmal bestueckt. Ohne
+      // Zwischenspeicher liefe er ins Leere und die Antwort waere 503.
+      const zweit = await request(app)
+        .get('/api/automations/session')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(zweit.status).toBe(200);
+      expect(axios.post).toHaveBeenCalledTimes(1);
+      expect(zweit.headers['set-cookie'][0]).toContain('zwischengespeichert');
+    });
+
+    test('nach einem Fehlschlag wird beim naechsten Mal neu angemeldet', async () => {
+      axios.post.mockResolvedValueOnce({ status: 401, headers: {} });
+      const erst = await request(app)
+        .get('/api/automations/session')
+        .set('Authorization', `Bearer ${token}`);
+      expect(erst.status).toBe(503);
+
+      const cookie = 'n8n-auth=danach; Path=/; HttpOnly';
+      axios.post.mockResolvedValueOnce({ status: 200, headers: { 'set-cookie': [cookie] } });
+      const zweit = await request(app)
+        .get('/api/automations/session')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(zweit.status).toBe(200);
+      expect(axios.post).toHaveBeenCalledTimes(2);
     });
 
     test('erfordert Auth', async () => {
