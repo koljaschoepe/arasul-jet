@@ -151,7 +151,7 @@ fi
 if [ "$INCLUDE_MODELS" = true ]; then
     echo -e "${BOLD}[3c/6]${NC} KI-Modelle exportieren..."
 
-    LLM_VOLUME=$(docker volume ls -q 2>/dev/null | grep -E "llm|ollama" | head -1)
+    LLM_VOLUME=$(docker volume ls -q 2>/dev/null | grep -E "llm|ollama" | head -1 || true)
     if [ -n "$LLM_VOLUME" ]; then
         mkdir -p "${STAGING}/ollama-models"
         docker run --rm \

@@ -469,19 +469,19 @@ find_backup_by_date() {
     local file=""
     case "$backup_type" in
         postgres)
-            file=$(ls "${BACKUP_DIR}/postgres/arasul_db_${date}"*.sql.gz* 2>/dev/null | head -1)
+            file=$(ls "${BACKUP_DIR}/postgres/arasul_db_${date}"*.sql.gz* 2>/dev/null | head -1 || true)
             ;;
         minio)
-            file=$(ls "${BACKUP_DIR}/minio/documents_${date}"*.tar.gz* 2>/dev/null | head -1)
+            file=$(ls "${BACKUP_DIR}/minio/documents_${date}"*.tar.gz* 2>/dev/null | head -1 || true)
             ;;
         qdrant)
-            file=$(ls "${BACKUP_DIR}/qdrant/qdrant_${date}"*.tar.gz* 2>/dev/null | head -1)
+            file=$(ls "${BACKUP_DIR}/qdrant/qdrant_${date}"*.tar.gz* 2>/dev/null | head -1 || true)
             ;;
         n8n)
-            file=$(ls "${BACKUP_DIR}/n8n/workflows_${date}"*.json* 2>/dev/null | head -1)
+            file=$(ls "${BACKUP_DIR}/n8n/workflows_${date}"*.json* 2>/dev/null | head -1 || true)
             ;;
         config)
-            file=$(ls "${BACKUP_DIR}/config/config_${date}"*.tar.gz* 2>/dev/null | head -1)
+            file=$(ls "${BACKUP_DIR}/config/config_${date}"*.tar.gz* 2>/dev/null | head -1 || true)
             ;;
     esac
 

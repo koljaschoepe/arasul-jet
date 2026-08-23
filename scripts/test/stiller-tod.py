@@ -59,7 +59,17 @@ import sys
 from pathlib import Path
 
 ZUWEISUNG = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*="?\$\(')
-FEHLSCHLAEGT = re.compile(r'\b(grep|ls|find)\b')
+# `find` gehoert NICHT hierher: es meldet "nichts gefunden" mit
+# Rueckgabewert 0, anders als `grep` und `ls`. Am 24.08.2026 nachgemessen:
+#
+#   X=$(find /tmp -name gibtesnicht | head -1)   ueberlebt, rc=0
+#   X=$(ls /tmp/gibtesnicht* | head -1)          tot,       rc=1
+#   X=$(echo hallo | grep welt | head -1)        tot,       rc=1
+#
+# Der erste Wurf dieser Pruefung hatte `find` mit im Muster und meldete
+# dadurch drei Stellen, an denen nichts kaputt war. Genau so verliert eine
+# Pruefung ihre Glaubwuerdigkeit.
+FEHLSCHLAEGT = re.compile(r'\b(grep|ls)\b')
 NETZ = re.compile(r'\|\|')
 KOPF_E = re.compile(r'^set -[a-z]*e', re.M)
 
@@ -86,24 +96,13 @@ def stellen(datei: Path) -> list[tuple[int, str]]:
     return gefunden
 
 
-# Bestand vom 24.08.2026. Format: "pfad:zeile". Wer eine Stelle repariert,
-# streicht ihre Zeile. Nichts hier ist als "in Ordnung" markiert — nur als
-# "war schon da und ist noch nicht bewertet".
-BEKANNT = {
-    'scripts/backup/restore.sh:360',
-    'scripts/backup/restore.sh:472',
-    'scripts/backup/restore.sh:475',
-    'scripts/backup/restore.sh:478',
-    'scripts/backup/restore.sh:481',
-    'scripts/backup/restore.sh:484',
-    'scripts/deploy/create-deployment-image.sh:199',
-    'scripts/deploy/create-factory-image.sh:154',
-    'scripts/deploy/create-update-package.sh:203',
-    'scripts/deploy/create-update-package.sh:225',
-    'scripts/deploy/create-update-package.sh:230',
-    'scripts/util/auto-restart-service.sh:30',
-    'scripts/util/auto-restart-service.sh:32',
-}
+# Format: "pfad:zeile". Der Bestand vom 24.08.2026 umfasste 23 Stellen und ist
+# vollstaendig abgearbeitet: zehn in Kundenpfaden behoben (#618), neun in
+# Werkzeugen behoben, drei waren Fehlalarme mit `find`.
+#
+# Die Liste bleibt leer. Wer eine neue Stelle einträgt, statt sie zu beheben,
+# schreibt bitte daneben, warum sie so bleiben muss.
+BEKANNT: set[str] = set()
 
 
 def main() -> int:

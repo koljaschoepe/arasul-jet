@@ -196,7 +196,7 @@ mkdir -p "$MIGRATIONS_DIR"
 
 if [ -d "services/postgres/init" ]; then
   cp -r services/postgres/init/* "$MIGRATIONS_DIR/" 2>/dev/null || true
-  MIGRATION_COUNT=$(ls -1 "$MIGRATIONS_DIR"/*.sql 2>/dev/null | wc -l)
+  MIGRATION_COUNT=$(ls -1 "$MIGRATIONS_DIR"/*.sql 2>/dev/null | wc -l || true)
   log_success "Copied $MIGRATION_COUNT database migrations"
 else
   log_warning "No migration files found"

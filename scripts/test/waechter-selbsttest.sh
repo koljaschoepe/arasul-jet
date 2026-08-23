@@ -169,6 +169,23 @@ set -eu
 WER=$(docker ps | grep foo | head -1)
 BEISPIEL
 pruefe "Stiller Tod: ohne pipefail ist gruen" 0 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
+
+# `find` meldet "nichts gefunden" mit Rueckgabewert 0, `ls` und `grep` nicht.
+# Der erste Wurf der Pruefung hatte `find` im Muster und meldete drei Stellen,
+# an denen nichts kaputt war.
+cat > "$ST/streng.sh" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+X=$(find . -name "*.snapshot" | head -1)
+BEISPIEL
+pruefe "Stiller Tod: find ist harmlos, also gruen" 0 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
+
+cat > "$ST/streng.sh" <<'BEISPIEL'
+#!/bin/bash
+set -euo pipefail
+X=$(ls /pfad/*.tar.gz 2>/dev/null | head -1)
+BEISPIEL
+pruefe "Stiller Tod: ls ohne Netz ist rot" 1 python3 "$WURZEL/scripts/test/stiller-tod.py" --wurzel "$TMP/st"
 rm -r "$TMP/st"
 
 # --- bausteine.py -----------------------------------------------------------

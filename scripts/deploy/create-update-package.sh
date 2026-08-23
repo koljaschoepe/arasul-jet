@@ -200,7 +200,7 @@ for component in "${COMPONENTS[@]}"; do
                 # Copy all SQL migrations to payload
                 cp "$MIGRATIONS_DIR"/*.sql "$WORKSPACE/payload/migrations/" 2>/dev/null || true
 
-                MIGRATION_COUNT=$(ls -1 "$WORKSPACE/payload/migrations/"*.sql 2>/dev/null | wc -l)
+                MIGRATION_COUNT=$(ls -1 "$WORKSPACE/payload/migrations/"*.sql 2>/dev/null | wc -l || true)
                 if [ "$MIGRATION_COUNT" -gt 0 ]; then
                     add_component "postgres-migrations" "migrations" "postgres-db" "migrations/"
                     echo "  PostgreSQL Migrations packaged ($MIGRATION_COUNT files)"
