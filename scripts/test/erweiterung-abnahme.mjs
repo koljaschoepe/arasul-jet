@@ -72,13 +72,20 @@ try {
 
   // Einschalten, falls noetig. Der Schalter traegt „<Name> aktivieren", der
   // fertige Eintrag in der Seitenleiste nur den Namen.
+  //
+  // Erst WARTEN, nicht sofort zaehlen: die Seitenleiste fuellt sich aus
+  // `GET /api/extensions`. Direkt nach einem Neustart des Backends kam das
+  // Ergebnis spaeter als die feste Wartezeit — die Abnahme meldete dann
+  // „nicht gefunden", obwohl die Erweiterung eingeschaltet war (23.08.2026).
   const knopf = seite.locator(`[aria-label="${APP}"]`).first();
+  await knopf.waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
   if ((await knopf.count()) === 0) {
     // Der Schalter steht im Erweiterungs-Raster; `/store` leitet in den
     // Arbeitsbereich um und oeffnet es dort.
     await seite.goto(`${URL}/store`, { waitUntil: 'domcontentloaded' });
     await seite.waitForTimeout(4000);
     const schalter = seite.locator(`[aria-label="${APP} aktivieren"]`).first();
+    await schalter.waitFor({ state: 'attached', timeout: 20000 }).catch(() => {});
     if ((await schalter.count()) === 0) {
       merke(false, `weder Knopf noch Schalter fuer „${APP}" gefunden`);
       throw new Error('abbruch');
@@ -108,6 +115,21 @@ try {
     await seite.waitForTimeout(1000);
   }
   merke(/Br(ü|ue)cke aktiv/i.test(text), `Bruecke im Rahmen: „${text.trim()}"`);
+
+  // Bis hierher ist nur belegt, dass sich die Bruecke MELDET. Der Zweck ist,
+  // dass eine Erweiterung das lokale Modell benutzen kann — also wird gefragt.
+  if (/Br(ü|ue)cke aktiv/i.test(text) && /llm/.test(text)) {
+    await inhalt.locator('#frage').fill('Antworte mit genau einem Wort: Hauptstadt von Frankreich?');
+    await inhalt.locator('#fragen').click();
+    let antwort = '';
+    for (let i = 0; i < 180; i++) {
+      antwort = (await inhalt.locator('#out').textContent()) || '';
+      if (antwort.trim() && antwort.trim() !== '–') break;
+      await seite.waitForTimeout(1000);
+    }
+    const kurz = antwort.trim().replace(/\s+/g, ' ').slice(0, 120);
+    merke(/paris/i.test(antwort), `Antwort des Modells an die App: „${kurz}"`);
+  }
 
   const bruecke = blockiert.filter(z => z.includes('arasul-bruecke'));
   merke(bruecke.length === 0, bruecke.length ? `blockiert: ${bruecke[0]}` : 'nichts blockiert beim Laden der App');
