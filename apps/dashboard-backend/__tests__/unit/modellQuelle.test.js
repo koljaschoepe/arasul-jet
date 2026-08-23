@@ -99,9 +99,18 @@ describe('variantenHolen', () => {
     await expect(variantenHolen('meta-llama/Llama-3')).rejects.toThrow(/freigabepflichtig/);
   });
 
-  test('meldet eine unbekannte Ablage als 404-Fall', async () => {
-    axios.get.mockResolvedValueOnce({ status: 404, data: {} });
+  // HuggingFace verraet bei einer unbekannten Ablage nicht, ob sie fehlt oder
+  // nur nicht oeffentlich ist. Am 23.08.2026 auf dem Orin gemessen: ein
+  // Tippfehler ergibt HTTP 401, nicht 404. Wer nur 404 abfaengt, meldet dem
+  // Nutzer "der Dienst ist kaputt", wo "der Name stimmt nicht" richtig waere.
+  test.each([404, 401, 403])('meldet eine unbekannte Ablage bei HTTP %i als Eingabefehler', async status => {
+    axios.get.mockResolvedValueOnce({ status, data: {} });
     await expect(variantenHolen('gibt/es-nicht')).rejects.toThrow(/gibt es bei HuggingFace nicht/);
+  });
+
+  test('ein echter Ausfall bleibt ein Ausfall', async () => {
+    axios.get.mockResolvedValueOnce({ status: 502, data: {} });
+    await expect(variantenHolen('unsloth/Qwen3')).rejects.toThrow(/HTTP 502/);
   });
 
   test('meldet fehlendes Netz als Dienst nicht erreichbar', async () => {

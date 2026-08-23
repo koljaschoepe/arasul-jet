@@ -1735,8 +1735,14 @@ wäre schlimmer als keine Aussage. Aufgeteilte Dateien
 (`-00001-of-00002.gguf`) stehen nicht in der Liste: Ollama kann sie nicht über
 einen Tag laden, sie anzubieten hieße einen Fehlschlag zu verkaufen.
 
-`503`, wenn huggingface.co nicht erreichbar ist. `400`, wenn die Ablage nicht
-existiert oder freigabepflichtig ist.
+`400`, wenn die Ablage nicht existiert, nicht öffentlich oder
+freigabepflichtig ist. `503` nur bei einem echten Ausfall.
+
+Der Unterschied ist nicht theoretisch: HuggingFace antwortet auf einen
+Tippfehler im Namen mit **401**, nicht mit 404 — es verrät nicht, ob eine
+Ablage fehlt oder nur nicht öffentlich ist. Wer nur 404 abfängt, meldet dem
+Nutzer „der Dienst ist kaputt", wo „der Name stimmt nicht" richtig wäre.
+Stand: 2026-08-23, auf dem Orin gemessen.
 
 **POST /api/models/katalog** — Body: `{ "quelle": "…", "variante": "IQ4_XS" }`.
 Legt die Katalogzeile an (`category = 'custom'`, `jetson_tested = false`,
