@@ -3503,6 +3503,35 @@ eine sichtbare Kette von der Werkstatt über die Registrierung bis zum Tab.
 **Abnahme:** Vom leeren Projekt bis zur sichtbaren, funktionierenden Anwendung
 im Tab in unter zehn Minuten, ohne Wissen über den Aufbau des Manifests.
 
+### Die Paket-Kette, am 23.08.2026 gemessen (#554)
+
+H3 fragt, ob ara-kit und das Terminal dasselbe Paket erzeugen. Das braucht
+Koljas Repository. Was ohne ihn messbar war, ist die Kette selbst, und die ist
+der Weg, den ein Partner geht: bauen, herunterladen, auf einem Kundengerät
+einspielen, forken, weiterbauen, zurückrollen.
+
+`scripts/test/paket-abnahme.mjs` läuft sie als Ganzes ab, weil ihre Glieder
+einzeln grün sein können und zusammen trotzdem nichts ergeben. Elf von elf auf
+dem Orin. Was zurückkommt ist dasselbe, was rausging, und `rollback` geht
+genau einen Schritt zurück, nicht irgendeinen: jeder Stand trägt dafür ein
+eigenes Kennzeichen im Paket.
+
+Zwei rote Punkte im ersten Lauf waren mein Messfehler, nicht das Gerät.
+
+### Flow-Erweiterungen: der Negativpfad ist belegt, der Positivpfad braucht dich
+
+`N8N_API_KEY` ist auf dem Orin gesetzt, aber leer. Das Einschalten einer
+`flow`-Erweiterung antwortet daraufhin mit
+
+    503 n8n-API-Zugang fehlt oder ist ungültig (N8N_API_KEY),
+        Flow-Erweiterung nicht importierbar
+
+und `GET /:id/flow-status` bleibt lesbar (`erreichbar: true, importiert:
+false, aktiv: false`), statt zu brechen. Genau das sagt H4 zu, und es hält.
+
+Der Positivpfad braucht einen n8n-API-Schlüssel. Den lege ich nicht selbst auf
+dem Gerät an: das ist eine Zugangsberechtigung, keine Messung.
+
 ## H3 ara-kit geht denselben Weg
 
 Ein Partner baut über ara-kit, ein Unternehmen im Terminal. Beide müssen dasselbe

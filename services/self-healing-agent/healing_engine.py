@@ -22,7 +22,8 @@ from typing import Dict, Optional
 from config import (
     HEALING_INTERVAL, ENABLED, REBOOT_ENABLED, EXCLUDED_CONTAINERS,
     FAILURE_WINDOW_MINUTES, MAX_FAILURES_IN_WINDOW, CRITICAL_WINDOW_MINUTES,
-    METRICS_COLLECTOR_URL, HEARTBEAT_URL, HEARTBEAT_INTERVAL_CYCLES, logger
+    METRICS_COLLECTOR_URL, HEARTBEAT_URL, HEARTBEAT_INTERVAL_CYCLES,
+    COMPOSE_PROJECT, logger
 )
 from db import DatabaseMixin
 from recovery_actions import RecoveryActionsMixin
@@ -41,6 +42,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
 
     def __init__(self):
         self.docker_client = __import__('docker').from_env()
+        self._projekt = None  # gemerkt, damit nicht jeder Takt nachfragt
         self.connection_pool = None
         self.pool_stats = {
             'total_queries': 0,
@@ -138,12 +140,54 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             logger.error(f"psutil fallback also failed: {e}")
             return None
 
+    def eigenes_projekt(self) -> str:
+        """Das Compose-Projekt, zu dem der Agent selbst gehoert.
+
+        Aus dem eigenen Container gelesen, damit es auch stimmt, wenn das
+        Projekt anders heisst. `SELFHEAL_COMPOSE_PROJECT` schlaegt das.
+        """
+        if COMPOSE_PROJECT:
+            return COMPOSE_PROJECT
+        if self._projekt is not None:
+            return self._projekt
+        self._projekt = ''
+        try:
+            eigener = self.docker_client.containers.get(os.getenv('HOSTNAME', ''))
+            self._projekt = (eigener.labels or {}).get('com.docker.compose.project', '') or ''
+        except Exception as e:
+            logger.debug(f"Eigenes Compose-Projekt nicht lesbar: {e}")
+        if self._projekt:
+            logger.info(f"Selbstheilung ueberwacht das Compose-Projekt: {self._projekt}")
+        return self._projekt
+
     def check_service_health(self) -> Dict[str, Dict]:
         """Check health of all services"""
         services_status = {}
 
         try:
             containers = self.docker_client.containers.list(all=True)
+
+            # Nur die Container DIESES Projekts. Ohne diesen Filter ueberwacht
+            # der Agent jeden Container des Hosts — auf dem Orin auch den
+            # Pruefstand und die Sandbox-Terminals. In sieben Tagen kamen so
+            # 311 CRITICAL-Ereignisse zu `pruef-llm-service` zusammen, einem
+            # Dienst, den es im Produkt gar nicht gibt (23.08.2026).
+            projekt = self.eigenes_projekt()
+            if projekt:
+                gefiltert = [
+                    c for c in containers
+                    if (c.labels or {}).get('com.docker.compose.project') == projekt
+                ]
+                # Ausfallsicher: findet der Filter nichts, ist die Annahme
+                # falsch, und blind gar nichts zu ueberwachen waere schlimmer
+                # als zu viel.
+                if gefiltert:
+                    containers = gefiltert
+                else:
+                    logger.warning(
+                        f"Kein Container mit Projekt '{projekt}' gefunden, "
+                        f"ueberwache ersatzweise alle {len(containers)}"
+                    )
 
             for container in containers:
                 name = container.name
@@ -367,7 +411,12 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                         f'{name}: +{slope_mb_per_hour:.1f} MB/h over 24h '
                         f'(current: {ys[-1]:.0f} MB)',
                         'Potential memory leak — consider restart if trend continues',
-                        name, False
+                        # `success` sagt, ob der EINGRIFF geklappt hat. Hier gab
+                        # es keinen, das ist eine Beobachtung. Mit False stand
+                        # sie in jedem G7-Bericht als fehlgeschlagene Heilung
+                        # (74 von 91 "Fehlschlaegen" in sieben Tagen waren
+                        # solche Beobachtungen, 23.08.2026).
+                        name, True
                     )
 
             except Exception as e:
@@ -446,7 +495,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                     'db_bloat', 'WARNING',
                     f'High dead tuple ratio in: {", ".join(tables)}',
                     'Autovacuum may be falling behind',
-                    'postgres-db', False
+                    'postgres-db', True  # Beobachtung, kein Eingriff
                 )
 
             # XID wraparound check (critical for multi-year uptime)

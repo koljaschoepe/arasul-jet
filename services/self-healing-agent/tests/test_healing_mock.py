@@ -113,6 +113,68 @@ class TestSelfHealingEngine(unittest.TestCase):
         self.assertEqual(status['service2']['status'], 'exited')
         self.assertEqual(status['service2']['health'], 'unknown')
 
+    def _container(self, name, projekt=None, status='running'):
+        c = MagicMock()
+        c.name = name
+        c.status = status
+        c.attrs = {'State': {'Health': {'Status': 'healthy'}}}
+        c.labels = {'com.docker.compose.project': projekt} if projekt else {}
+        return c
+
+    def test_nur_das_eigene_compose_projekt(self):
+        """Fremde Stacks gehoeren nicht dazu (23.08.2026).
+
+        `containers.list(all=True)` liefert jeden Container des Hosts. Auf dem
+        Orin waren das auch der Pruefstand und die Sandbox-Terminals; in sieben
+        Tagen kamen so 311 CRITICAL-Ereignisse zu `pruef-llm-service` zusammen,
+        einem Dienst, den es im Produkt gar nicht gibt.
+        """
+        os.environ['HOSTNAME'] = 'self-healing-agent'
+        self.engine._projekt = None
+        eigener = self._container('self-healing-agent', 'arasul-platform')
+        self.mock_client.containers.get.return_value = eigener
+        self.mock_client.containers.list.return_value = [
+            self._container('llm-service', 'arasul-platform'),
+            self._container('pruef-llm-service', 'arasul-pruefstand', status='exited'),
+            self._container('arasul-sandbox-kunde'),  # ohne Projekt-Label
+        ]
+
+        status = self.engine.check_service_health()
+
+        self.assertIn('llm-service', status)
+        self.assertNotIn('pruef-llm-service', status)
+        self.assertNotIn('arasul-sandbox-kunde', status)
+
+    def test_ohne_treffer_wird_alles_ueberwacht(self):
+        """Ausfallsicher: blind gar nichts zu ueberwachen waere schlimmer."""
+        os.environ['HOSTNAME'] = 'self-healing-agent'
+        self.engine._projekt = None
+        self.mock_client.containers.get.return_value = self._container(
+            'self-healing-agent', 'ein-anderes-projekt'
+        )
+        self.mock_client.containers.list.return_value = [
+            self._container('llm-service', 'arasul-platform'),
+        ]
+
+        status = self.engine.check_service_health()
+
+        self.assertIn('llm-service', status)
+
+    def test_projekt_ohne_eigenes_label(self):
+        """Kein Label lesbar: dann wird nicht gefiltert, statt zu raten."""
+        os.environ['HOSTNAME'] = 'self-healing-agent'
+        self.engine._projekt = None
+        self.mock_client.containers.get.side_effect = Exception('kein Docker')
+        self.mock_client.containers.list.return_value = [
+            self._container('llm-service', 'arasul-platform'),
+            self._container('pruef-llm-service', 'arasul-pruefstand'),
+        ]
+
+        status = self.engine.check_service_health()
+
+        self.assertEqual(len(status), 2)
+        self.mock_client.containers.get.side_effect = None
+
     def test_handle_category_a_restart(self):
         """Test Category A recovery: Simple restart"""
         container = MagicMock()
