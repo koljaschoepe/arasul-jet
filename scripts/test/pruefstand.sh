@@ -21,7 +21,17 @@
 set -euo pipefail
 
 # Das Wartungsfenster teilt sich dieses Skript mit `deploy-local.sh`.
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/wartungsfenster.sh"
+# Hart abbrechen, wenn die Bibliothek fehlt. Hier bricht `set -e` zwar ohnehin ab,
+# aber die Aussage soll an beiden Stellen dieselbe sein: ein gescheitertes `source` wuerde den Lauf
+# nicht anhalten, `wartung_an` waere nur ein "command not found", und der
+# Lauf liefe gruen durch — mit einem Wartungsfenster, das nie aufgeht. Ein
+# Schutz, der still ausfaellt, ist schlimmer als keiner, weil man sich auf ihn
+# verlaesst.
+WARTUNG_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/wartungsfenster.sh"
+if ! source "$WARTUNG_LIB"; then
+  echo "ABBRUCH: ${WARTUNG_LIB} nicht ladbar. Ohne Wartungsfenster wird nicht gebaut." >&2
+  exit 1
+fi
 WARTUNG_GRUND="pruefstand-build"
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WURZEL"
