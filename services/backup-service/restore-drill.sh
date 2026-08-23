@@ -54,6 +54,32 @@ CRITICAL_TABLES=(
     alert_settings
 )
 
+# Was der Kunde selbst gebaut hat. Diese sechs oben sind das Geraet; die hier
+# sind seine Arbeit: Automationen, Zugaenge, Flow-Laeufe, eigene Erweiterungen
+# und deren Zeitplaene.
+#
+# Warum sie nicht einfach in die Liste oben gehoeren: sie liegen in eigenen
+# Schemata (`n8n`, `arasul`), und ein Geraet, das n8n nie gestartet hat, hat das
+# Schema gar nicht. Eine feste Liste wuerde dort rot, ohne dass etwas kaputt
+# ist.
+#
+# Deshalb entscheidet die SICHERUNG selbst, was geprueft wird: was im Abzug
+# steht, muss nach dem Zurueckspielen auch da sein. Das ist die Frage, die G6
+# wirklich stellt — nicht "laesst sich irgendwas zurueckspielen", sondern
+# "bekommt der Kunde seine Sachen wieder".
+#
+# Fund vom 23.08.2026: der Drill prueft sechs Tabellen, alle in `public`. Ein
+# Abzug, bei dem das Schema `n8n` fehlgeschlagen waere, haette ihn trotzdem
+# bestanden — und der Kunde haette nach dem Zurueckspielen keine einzige
+# Automation mehr.
+KUNDENTABELLEN=(
+    n8n.workflow_entity
+    n8n.credentials_entity
+    arasul.flow_runs
+    arasul.extensions
+    public.extension_zeitplaene
+)
+
 DRY_RUN=false
 BACKUP_FILE=""
 
@@ -321,6 +347,37 @@ for tbl in "${CRITICAL_TABLES[@]}"; do
     log "OK:   $tbl = $count rows"
     verified=$((verified + 1))
 done
+
+# Die Sachen des Kunden. Geprueft wird nur, was im Abzug ueberhaupt steht.
+kunden_geprueft=0
+kunden_fehlen=()
+kunden_uebersprungen=()
+# Einmal lesen, nicht je Tabelle: der Abzug ist verschluesselt und einige
+# zehn Megabyte gross.
+im_abzug=$(sicherung_lesen "$BACKUP_FILE" | zcat 2>/dev/null \
+    | grep -oE '^CREATE TABLE [a-z_]+\.[a-z_]+ ' | awk '{print $3}' | sort -u)
+for tbl in "${KUNDENTABELLEN[@]}"; do
+    if ! printf '%s\n' "$im_abzug" | grep -qx "$tbl"; then
+        log "----: $tbl steht nicht im Abzug, nicht geprueft"
+        kunden_uebersprungen+=("$tbl")
+        continue
+    fi
+    if ! count=$(docker exec "$DRILL_CONTAINER" \
+            psql -U "$DRILL_USER" -d "$DRILL_DB" -tAc "SELECT COUNT(*) FROM $tbl" 2>/dev/null); then
+        log "FAIL: $tbl steht im Abzug, kam aber nicht zurueck"
+        kunden_fehlen+=("$tbl")
+        continue
+    fi
+    log "OK:   $tbl = $count rows"
+    kunden_geprueft=$((kunden_geprueft + 1))
+done
+verified=$((verified + kunden_geprueft))
+if (( ${#kunden_fehlen[@]} > 0 )); then
+    failed_tables+=("${kunden_fehlen[@]}")
+fi
+if (( ${#kunden_uebersprungen[@]} > 0 )); then
+    log "Hinweis: nicht im Abzug und daher nicht geprueft: ${kunden_uebersprungen[*]}"
+fi
 
 # Flow-Archiv mitpruefen. Ein beschaedigtes Archiv laesst den Drill scheitern —
 # ein fehlendes nicht, denn auf Geraeten ohne Flows gibt es schlicht keines.
