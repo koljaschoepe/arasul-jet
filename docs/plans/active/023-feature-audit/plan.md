@@ -4364,6 +4364,64 @@ für die nächste Stunde langsam, ohne zu ahnen warum.
 Gemeldet wird jetzt eine **Frist**, kein Schalter. Fällt das Backend aus, läuft
 sie ab und der Indexer arbeitet weiter.
 
+## Das Kernversprechen, Ende zu Ende gemessen (23.08.2026)
+
+Nicht als Aufgabe im Plan, aber das, wofür ein Kunde das Gerät kauft. Ein
+Wartungsvertrag mit erfundenen, aber eindeutigen Zahlen wurde in die
+Projektablage gelegt, der Indexer nahm ihn auf (vier Abschnitte), und dann kam
+die Frage im Chat, im Browser, auf dem Weg des Nutzers:
+
+> Welche Grundpauschale steht im Wartungsvertrag mit Nordwind Anlagenbau, und
+> wie lang ist die Kündigungsfrist?
+
+Die Antwort:
+
+> Grundpauschale: 18.400 Euro netto pro Jahr
+> Kündigungsfrist: drei Monate zum Laufzeitende
+> Laufzeit des Vertrags: 01.03.2026 bis 28.02.2029
+
+Mit Aufgabenliste, einem `dateien_lesen` auf die richtige Datei, **einer
+Quelle** und 1:51 Minuten. Alle Zahlen stimmen mit dem Dokument überein.
+
+**Und ein Fehlalarm von mir, festgehalten, weil er lehrreich ist.** Der erste
+Versuch lief über `POST /api/llm/chat`, und die Antwort lautete „Ich habe
+keinen Zugriff auf die spezifischen Vertragsunterlagen". Das sah nach einem
+schweren Mangel aus. Im Protokoll stand aber `rag: 0` und kein Agentenpfad: das
+ist der EINFACHE Chat ohne Werkzeuge, nicht der Weg der Oberfläche. Gemessen
+wurde am falschen Endpunkt.
+
+## Werkzeuge, die niemand ausführt (offen, Entscheidung)
+
+Beim Nachgehen des Fehlalarms gefunden. `apps/dashboard-backend/src/tools/`
+enthält sechs Werkzeuge (`status`, `logs`, `services`, `workflows`, `alerts`,
+`help`), eine Registry mit vollständigem Ausführer (`execute`,
+`processToolCalls`, `executeOllamaToolCalls`) und einen Parser für
+`[TOOL: name param=wert]`.
+
+**Aufgerufen wird davon nichts.** Die einzige Verwendung im ganzen Backend ist
+`generateToolsPrompt()` in `systemPromptBuilder.js`, also das BESCHREIBEN der
+Werkzeuge im Systemprompt. Gesucht wurde nach jedem Aufrufer:
+
+```
+grep -rn "processToolCalls|executeOllamaToolCalls|getOllamaToolDefinitions" src/
+  ausserhalb von src/tools/ -> kein Treffer
+```
+
+Wirksam wird das bei mittleren und komplexen Fragen an `/api/llm/chat`, einem
+**dokumentierten** Endpunkt (`API_REFERENCE.md`, `DEVELOPMENT.md`). Das Modell
+liest dort, es habe Werkzeuge, und wenn es eines aufruft, geschieht nichts. Das
+ist dieselbe Klasse wie E9: eine angekündigte Handlung, die nicht stattfindet.
+
+Die sichtbare Oberfläche ist nicht betroffen; sie geht immer über den
+Agentenpfad (`isAgent` ist die Vorgabe in `ChatContext`), und dort werden
+Werkzeuge wirklich ausgeführt.
+
+**Nicht entschieden, und das ist Absicht.** Es gibt zwei Wege, und beide sind
+vertretbar: den Ausführer im einfachen Pfad verdrahten, oder die Beschreibung
+weglassen und das Teilsystem entfernen. Das zweite hiesse, sechs Dateien plus
+Registry zu löschen, die jemand gebaut hat. Ein Teilsystem stillzulegen ist
+eine Entscheidung, keine Ausführung.
+
 ## Der n8n-Knoten umgeht dieselbe Sperre (offen, Entscheidung)
 
 `services/n8n/custom-nodes/n8n-nodes-arasul-llm` spricht mit
