@@ -51,8 +51,13 @@ nmap -sn 192.168.1.0/24
 
 ## 4. Anmelden
 
-- **Benutzername:** `admin`
-- **Passwort:** Wurde Ihnen bei der Uebergabe mitgeteilt
+- **Benutzername und Passwort:** die, die Sie im Setup-Assistenten selbst
+  vergeben haben.
+
+Das Geraet wird **ohne Konto** ausgeliefert. Wer als Erster im Netz die
+Oberflaeche oeffnet, legt es an; danach ist dieser Weg zu, damit kein spaeterer
+Besucher ein eingerichtetes Geraet uebernehmen kann. Es gibt also kein
+Werkspasswort, das Ihnen jemand mitteilen muesste.
 
 ## 5. Erste Schritte
 
