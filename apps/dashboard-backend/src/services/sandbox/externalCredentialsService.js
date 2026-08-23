@@ -28,6 +28,7 @@
  */
 
 const { Writable } = require('stream');
+const { ValidationError } = require('../../utils/errors');
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
@@ -66,10 +67,10 @@ const CLAUDE_CRED_FILES = [
  */
 async function saveCredentials(userId, provider, credsObject) {
   if (!userId) {
-    throw new Error('userId ist erforderlich');
+    throw new ValidationError('userId ist erforderlich');
   }
   if (!provider) {
-    throw new Error('provider ist erforderlich');
+    throw new ValidationError('provider ist erforderlich');
   }
   const json = JSON.stringify(credsObject ?? {});
   const encrypted = encryptToken(json);
@@ -394,7 +395,7 @@ function envVarForMode(mode) {
 async function setCentralAuth(userId, mode, value) {
   const m = mode === 'apikey' ? 'apikey' : 'token';
   if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error('value ist erforderlich');
+    throw new ValidationError('value ist erforderlich');
   }
   await saveCredentials(userId, PROVIDER_CENTRAL, { mode: m, value: value.trim() });
   return { mode: m };

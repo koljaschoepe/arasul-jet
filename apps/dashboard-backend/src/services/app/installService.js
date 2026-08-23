@@ -6,7 +6,7 @@
 const db = require('../../database');
 const logger = require('../../utils/logger');
 const { docker } = require('../core/docker');
-const { ConflictError } = require('../../utils/errors');
+const { NotFoundError, ValidationError, ConflictError } = require('../../utils/errors');
 
 /**
  * Validate app ID format to prevent container name injection.
@@ -15,8 +15,8 @@ const { ConflictError } = require('../../utils/errors');
 const VALID_APP_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{2,63}$/;
 function validateAppId(appId) {
   if (!appId || typeof appId !== 'string' || !VALID_APP_ID_PATTERN.test(appId)) {
-    throw new Error(
-      `Invalid app ID: ${appId}. Only lowercase alphanumeric, hyphens, and underscores allowed (3-64 chars).`
+    throw new ValidationError(
+      `Ungültige App-Kennung: ${appId}. Erlaubt sind Kleinbuchstaben, Ziffern, Bindestrich und Unterstrich, 3 bis 64 Zeichen.`
     );
   }
 }
@@ -37,7 +37,7 @@ async function installApp(appId, config = {}) {
   const manifest = manifests[appId];
 
   if (!manifest) {
-    throw new Error(`App ${appId} not found`);
+    throw new NotFoundError(`App ${appId} nicht gefunden`);
   }
 
   // Check if already installed
@@ -72,7 +72,7 @@ async function installApp(appId, config = {}) {
     if (dep.required) {
       const depStatus = await containerService.getContainerStatus(dep.container);
       if (!depStatus || !depStatus.Running) {
-        throw new Error(`Abhängigkeit ${dep.container} ist nicht aktiv`);
+        throw new ConflictError(`Abhängigkeit ${dep.container} ist nicht aktiv`);
       }
     }
   }
@@ -138,7 +138,7 @@ async function installApp(appId, config = {}) {
       logger.info(`Checking local image ${manifest.docker.image} for ${appId}`);
       const imageExists = await containerService.checkImageExists(manifest.docker.image);
       if (!imageExists) {
-        throw new Error(
+        throw new ConflictError(
           `Lokales Image ${manifest.docker.image} nicht gefunden. Bitte zuerst mit 'docker build' erstellen.`
         );
       }
@@ -230,7 +230,7 @@ async function installAppWithProgress(appId, config, onProgress) {
   const manifest = manifests[appId];
 
   if (!manifest) {
-    throw new Error(`App ${appId} not found`);
+    throw new NotFoundError(`App ${appId} nicht gefunden`);
   }
 
   // Check if already installed
@@ -265,7 +265,7 @@ async function installAppWithProgress(appId, config, onProgress) {
     if (dep.required) {
       const depStatus = await containerService.getContainerStatus(dep.container);
       if (!depStatus || !depStatus.Running) {
-        throw new Error(`Abhängigkeit ${dep.container} ist nicht aktiv`);
+        throw new ConflictError(`Abhängigkeit ${dep.container} ist nicht aktiv`);
       }
     }
   }
@@ -333,7 +333,7 @@ async function installAppWithProgress(appId, config, onProgress) {
     if (manifest.docker.buildRequired) {
       const imageExists = await containerService.checkImageExists(manifest.docker.image);
       if (!imageExists) {
-        throw new Error(
+        throw new ConflictError(
           `Lokales Image ${manifest.docker.image} nicht gefunden. Bitte zuerst mit 'docker build' erstellen.`
         );
       }
@@ -376,7 +376,9 @@ async function installAppWithProgress(appId, config, onProgress) {
         try {
           await docker.createVolume({ Name: vol.name });
         } catch (err) {
-          if (!err.message.includes('already exists')) {throw err;}
+          if (!err.message.includes('already exists')) {
+            throw err;
+          }
         }
       }
     }
@@ -437,7 +439,7 @@ async function uninstallApp(appId, removeVolumes = false) {
   const result = await db.query('SELECT * FROM app_installations WHERE app_id = $1', [appId]);
 
   if (result.rows.length === 0) {
-    throw new Error(`App ${appId} ist nicht installiert`);
+    throw new NotFoundError(`App ${appId} ist nicht installiert`);
   }
 
   const installation = result.rows[0];

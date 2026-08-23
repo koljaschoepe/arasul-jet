@@ -155,10 +155,10 @@ describe('Container Service', () => {
     });
 
     test('validates app ID format', async () => {
-      await expect(containerService.startApp('')).rejects.toThrow('Invalid app ID');
-      await expect(containerService.startApp('AB')).rejects.toThrow('Invalid app ID');
-      await expect(containerService.startApp('a b')).rejects.toThrow('Invalid app ID');
-      await expect(containerService.startApp('../etc/passwd')).rejects.toThrow('Invalid app ID');
+      await expect(containerService.startApp('')).rejects.toThrow('Ungültige App-Kennung');
+      await expect(containerService.startApp('AB')).rejects.toThrow('Ungültige App-Kennung');
+      await expect(containerService.startApp('a b')).rejects.toThrow('Ungültige App-Kennung');
+      await expect(containerService.startApp('../etc/passwd')).rejects.toThrow('Ungültige App-Kennung');
     });
   });
 
@@ -347,7 +347,7 @@ describe('Container Service', () => {
     });
 
     test('validates app ID', async () => {
-      await expect(containerService.getAppLogs('')).rejects.toThrow('Invalid app ID');
+      await expect(containerService.getAppLogs('')).rejects.toThrow('Ungültige App-Kennung');
     });
   });
 
@@ -380,7 +380,7 @@ describe('Container Service', () => {
       ];
 
       for (const id of dangerousIds) {
-        await expect(containerService.startApp(id)).rejects.toThrow('Invalid app ID');
+        await expect(containerService.startApp(id)).rejects.toThrow('Ungültige App-Kennung');
       }
     });
   });

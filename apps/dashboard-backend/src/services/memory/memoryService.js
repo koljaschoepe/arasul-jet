@@ -12,6 +12,7 @@
  */
 
 const Minio = require('minio');
+const { ValidationError } = require('../../utils/errors');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../../utils/logger');
 const database = require('../../database');
@@ -176,7 +177,9 @@ async function getProfile() {
 async function updateProfile(yamlContent) {
   // Enforce size limit
   if (Buffer.byteLength(yamlContent, 'utf-8') > MAX_PROFILE_BYTES) {
-    throw new Error(`Profile exceeds maximum size of ${MAX_PROFILE_BYTES} bytes`);
+    throw new ValidationError(
+      `Das Profil ist zu groß: höchstens ${MAX_PROFILE_BYTES} Bytes erlaubt.`
+    );
   }
 
   // Save to MinIO

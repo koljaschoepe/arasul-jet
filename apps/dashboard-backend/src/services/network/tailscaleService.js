@@ -7,7 +7,7 @@
 
 const { docker } = require('../core/docker');
 const logger = require('../../utils/logger');
-const { ServiceUnavailableError } = require('../../utils/errors');
+const { ServiceUnavailableError, ValidationError, ConflictError } = require('../../utils/errors');
 
 const HOST_IMAGE = 'alpine:latest';
 
@@ -402,18 +402,20 @@ async function install() {
 async function connect(authKey, hostname) {
   const installed = await isInstalled();
   if (!installed) {
-    throw new Error('Tailscale ist nicht installiert');
+    throw new ConflictError('Tailscale ist nicht installiert');
   }
 
   // Strict validation — only safe characters allowed (prevents shell injection)
   if (!authKey || !/^tskey-[a-zA-Z0-9_-]+$/.test(authKey)) {
-    throw new Error('Ungültiger Auth-Key (muss mit tskey- beginnen, nur alphanumerische Zeichen)');
+    throw new ValidationError(
+      'Ungültiger Auth-Key (muss mit tskey- beginnen, nur alphanumerische Zeichen)'
+    );
   }
 
   let hostnameArg = '';
   if (hostname) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/.test(hostname)) {
-      throw new Error(
+      throw new ValidationError(
         'Ungültiger Hostname (nur Buchstaben, Zahlen und Bindestriche, max 63 Zeichen)'
       );
     }
@@ -455,7 +457,7 @@ async function connect(authKey, hostname) {
 async function disconnect() {
   const installed = await isInstalled();
   if (!installed) {
-    throw new Error('Tailscale ist nicht installiert');
+    throw new ConflictError('Tailscale ist nicht installiert');
   }
 
   const { exitCode, output } = await runOnHost('tailscale down 2>&1', 10000);
@@ -524,7 +526,7 @@ async function serveStatus() {
 async function enableServe() {
   const installed = await isInstalled();
   if (!installed) {
-    throw new Error('Tailscale ist nicht installiert');
+    throw new ConflictError('Tailscale ist nicht installiert');
   }
 
   const cmd = 'tailscale serve --bg --https=443 https+insecure://127.0.0.1:443 2>&1';
@@ -549,7 +551,7 @@ async function enableServe() {
 async function disableServe() {
   const installed = await isInstalled();
   if (!installed) {
-    throw new Error('Tailscale ist nicht installiert');
+    throw new ConflictError('Tailscale ist nicht installiert');
   }
 
   const { exitCode, output } = await runOnHost('tailscale serve reset 2>&1', 10000);
