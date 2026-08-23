@@ -123,6 +123,25 @@ describe('GET /api/gdpr/export', () => {
     expect(sql).not.toContain('created_by');
   });
 
+  test('findet Wissensraeume auch ohne owner_id, wie die Loeschung', async () => {
+    /**
+     * Am 23.08.2026 auf dem Pruefstand gemessen: ein ueber die Oberflaeche
+     * angelegter Wissensraum traegt `owner_id = NULL` und haengt an einem
+     * Projekt. Die Auskunft nach Art. 15 filterte nur auf `owner_id` und
+     * meldete null Raeume, waehrend die Loeschung nach Art. 17 ihn sehr wohl
+     * entfernte.
+     *
+     * Auskunft und Loeschung duerfen sich nicht widersprechen. Wer nicht
+     * erfaehrt, was gespeichert ist, kann seine Rechte daran nicht ausueben.
+     */
+    await request(buildApp()).get('/api/gdpr/export');
+    const raeume = db.query.mock.calls.find(c => c[0].includes('FROM knowledge_spaces'));
+
+    expect(raeume).toBeDefined();
+    expect(raeume[0]).toContain('owner_id = $1');
+    expect(raeume[0]).toContain('project_id IN (SELECT id FROM projects)');
+  });
+
   test('sucht Dokumente über Id UND Name, weil uploaded_by ein Name ist', async () => {
     await request(buildApp()).get('/api/gdpr/export');
     const dokumente = db.query.mock.calls.find(c => c[0].includes('FROM documents'));

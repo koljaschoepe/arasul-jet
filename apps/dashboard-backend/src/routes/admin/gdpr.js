@@ -244,8 +244,19 @@ router.get(
       () =>
         hole(
           'wissensraeume',
+          // Dieselbe Bedingung wie in der Loeschung (Art. 17), und aus
+          // demselben Grund: `owner_id` ist im Normalfall NULL. Ein ueber die
+          // Oberflaeche angelegter Raum haengt an einem Projekt, nicht an
+          // einem Nutzer. Am 23.08.2026 auf dem Pruefstand gemessen: der Raum
+          // lag in der Datenbank, die Auskunft nach Art. 15 meldete null.
+          //
+          // Auskunft und Loeschung duerfen sich nicht widersprechen. Wenn die
+          // Loeschung ihn entfernt, muss die Auskunft ihn zeigen; sonst
+          // erfaehrt der Betroffene nicht, was ueber ihn gespeichert ist.
           `SELECT id, name, slug, description, document_count, created_at, updated_at
-         FROM knowledge_spaces WHERE owner_id = $1
+         FROM knowledge_spaces
+        WHERE owner_id = $1
+           OR project_id IN (SELECT id FROM projects)
          ORDER BY created_at DESC`,
           [userId]
         ),
@@ -404,7 +415,12 @@ router.get(
         ),
         db.query('SELECT count(*) FROM ai_memories WHERE is_active = TRUE'),
         db.query('SELECT count(*) FROM api_audit_logs WHERE user_id = $1', [userId]),
-        db.query('SELECT count(*) FROM knowledge_spaces WHERE owner_id = $1', [userId]),
+        // Dieselbe Bedingung wie im Export und in der Loeschung.
+        db.query(
+          `SELECT count(*) FROM knowledge_spaces
+            WHERE owner_id = $1 OR project_id IN (SELECT id FROM projects)`,
+          [userId]
+        ),
         db.query('SELECT count(*) FROM projects'),
       ]);
 
