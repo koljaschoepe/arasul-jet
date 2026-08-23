@@ -340,6 +340,63 @@ class TestSelfHealingEngine(unittest.TestCase):
         self.assertEqual(len(eskalationen), 1)
         mock_cat_c.assert_called_once()
 
+    def test_wartungsfenster_haelt_kategorie_a_zurueck(self):
+        """Waehrend eines Deploys wird nicht geheilt.
+
+        Der alte Container ist beim Herunterfahren ungesund. Die Selbstheilung
+        sah darin einen Ausfall und startete ihn neu, gegen den laufenden
+        Deploy. Am 23.08.2026 auf dem Orin viermal so passiert.
+        """
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.aktiv') as datei:
+            with patch('healing_engine.WARTUNGSDATEI', datei.name):
+                self.assertTrue(self.engine.wartung_laeuft())
+
+    def test_vergessene_wartungsdatei_laeuft_ab(self):
+        """Ein abgebrochener Deploy darf die Selbstheilung nicht einschlaefern.
+
+        Sonst waere aus einem Wartungsfenster ein Ausschalter geworden, den
+        niemand mehr zurueckdreht.
+        """
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.aktiv') as datei:
+            alt = time.time() - (31 * 60)
+            os.utime(datei.name, (alt, alt))
+            with patch('healing_engine.WARTUNGSDATEI', datei.name), \
+                 patch('healing_engine.WARTUNG_MAX_MINUTEN', 30):
+                self.assertFalse(self.engine.wartung_laeuft())
+
+    def test_ohne_wartungsdatei_wird_geheilt(self):
+        """Der Normalfall: keine Datei, also volle Zustaendigkeit."""
+        with patch('healing_engine.WARTUNGSDATEI', '/gibt/es/nicht/wartung.aktiv'):
+            self.assertFalse(self.engine.wartung_laeuft())
+
+    def test_die_schleife_beachtet_das_wartungsfenster(self):
+        """Der Test, auf den es ankommt.
+
+        Die drei Tests darueber pruefen nur, ob `wartung_laeuft()` richtig
+        rechnet. Ob die Hauptschleife sie ueberhaupt fragt, sagen sie nicht —
+        und eine Pruefung, die das Falsche misst, ist heute schon zweimal der
+        Fehler des Tages gewesen.
+        """
+        container = MagicMock()
+        dienste = {'n8n': {'status': 'running', 'health': 'unhealthy', 'container': container}}
+
+        with patch.object(self.engine, 'get_metrics', return_value=None), \
+             patch.object(self.engine, 'check_disk_usage'), \
+             patch.object(self.engine, 'check_service_health', return_value=dienste), \
+             patch.object(self.engine, 'is_store_app_intentionally_stopped', return_value=False), \
+             patch.object(self.engine, 'update_heartbeat'), \
+             patch.object(self.engine, 'handle_category_a_service_down') as mock_a:
+
+            with patch.object(self.engine, 'wartung_laeuft', return_value=True):
+                self.engine.run_healing_cycle()
+            mock_a.assert_not_called()
+
+            with patch.object(self.engine, 'wartung_laeuft', return_value=False):
+                self.engine.run_healing_cycle()
+            mock_a.assert_called_once_with('n8n', container)
+
     def test_handle_category_a_deploy_is_not_an_outage(self):
         """Ein laufender Deploy darf keinen CRITICAL-Fehlalarm erzeugen."""
         container = MagicMock()

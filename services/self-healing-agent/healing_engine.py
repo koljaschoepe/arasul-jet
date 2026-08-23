@@ -23,7 +23,7 @@ from config import (
     HEALING_INTERVAL, ENABLED, REBOOT_ENABLED, EXCLUDED_CONTAINERS,
     FAILURE_WINDOW_MINUTES, MAX_FAILURES_IN_WINDOW, CRITICAL_WINDOW_MINUTES,
     METRICS_COLLECTOR_URL, HEARTBEAT_URL, HEARTBEAT_INTERVAL_CYCLES,
-    COMPOSE_PROJECT, logger
+    COMPOSE_PROJECT, WARTUNGSDATEI, WARTUNG_MAX_MINUTEN, logger
 )
 from db import DatabaseMixin
 from recovery_actions import RecoveryActionsMixin
@@ -70,6 +70,12 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         self._temp_throttle_armed = True
         self._temp_restart_armed = True
         self.last_critical_action_time = 0
+
+        # Wartungsfenster: nur beim Betreten und Verlassen protokollieren.
+        # Eine Zeile je Durchlauf waeren bei 10 s Takt 360 Zeilen pro Stunde
+        # fuer die Aussage "es passiert nichts".
+        self._wartung_gemeldet = False
+        self._wartung_abgelaufen_gemeldet = False
 
         # MEM-TREND: Per-container memory samples for leak detection
         # Key: container_name, Value: list of (timestamp, rss_mb) tuples
@@ -159,6 +165,52 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         if self._projekt:
             logger.info(f"Selbstheilung ueberwacht das Compose-Projekt: {self._projekt}")
         return self._projekt
+
+    def wartung_laeuft(self) -> bool:
+        """True, solange ein Deploy laeuft.
+
+        Waehrend `docker compose up` steht der alte Container noch da und ist
+        ungesund, weil er gerade heruntergefahren wird. Die Selbstheilung sah
+        darin einen Ausfall und startete ihn neu — mitten im Deploy, gegen den
+        Deploy. Am 23.08.2026 auf dem Orin viermal so passiert (15:24, 15:44
+        und zweimal in der Nacht), und um 15:01 eskalierte die Kette bis zur
+        Neustart-Entscheidung.
+
+        Der zweite Fall ist subtiler und traf n8n nachts um 00:59: auf dem
+        Geraet baute der Pruefstand. n8n hat 2 Sekunden Healthcheck-Timeout,
+        und unter Build-Last reicht das nicht. Auch dagegen hilft, waehrend
+        eines Deploys nicht einzugreifen.
+
+        Ausdruecklich NICHT ausgesetzt wird Kategorie B: Temperatur, RAM und
+        Platte bleiben scharf. Ein Build heizt das Geraet, und ein
+        Temperaturschutz, der sich beim Bauen abschaltet, waere genau
+        verkehrt herum gebaut.
+        """
+        try:
+            alter = time.time() - os.path.getmtime(WARTUNGSDATEI)
+        except OSError:
+            if self._wartung_gemeldet:
+                logger.info("Wartungsfenster beendet, Kategorie A ist wieder scharf")
+                self._wartung_gemeldet = False
+            return False
+
+        if alter > WARTUNG_MAX_MINUTEN * 60:
+            if not self._wartung_abgelaufen_gemeldet:
+                logger.warning(
+                    f"Wartungsdatei {WARTUNGSDATEI} ist {int(alter / 60)} min alt "
+                    f"(Deckel: {WARTUNG_MAX_MINUTEN} min) — ich behandle sie als "
+                    f"vergessen und greife wieder ein"
+                )
+                self._wartung_abgelaufen_gemeldet = True
+            return False
+
+        self._wartung_abgelaufen_gemeldet = False
+        if not self._wartung_gemeldet:
+            logger.info(
+                "Wartungsfenster aktiv (Deploy laeuft) — Kategorie A ausgesetzt"
+            )
+            self._wartung_gemeldet = True
+        return True
 
     def check_service_health(self) -> Dict[str, Dict]:
         """Check health of all services"""
@@ -722,6 +774,7 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             services = self.check_service_health()
 
             # Category A: Check for unhealthy services
+            in_wartung = self.wartung_laeuft()
             for service_name, service_info in services.items():
                 if service_name == 'self-healing-agent':
                     continue
@@ -732,6 +785,13 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
                     continue
 
                 if service_info['health'] == 'unhealthy':
+                    if in_wartung:
+                        # Weder eingreifen NOCH den Fehler zaehlen: sonst steht
+                        # der Zaehler nach dem Deploy schon auf Eskalation.
+                        logger.debug(
+                            f"{service_name} ungesund, aber ein Deploy laeuft — nichts tun"
+                        )
+                        continue
                     self.handle_category_a_service_down(service_name, service_info['container'])
 
             # Category B: Check for overload conditions
