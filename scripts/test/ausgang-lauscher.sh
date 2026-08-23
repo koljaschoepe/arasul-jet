@@ -114,7 +114,23 @@ FERNSKRIPT
     fi
     laeuft=$(ssh -n "$HOST" "test -f ${PIDDATEI} && kill -0 \$(cat ${PIDDATEI}) 2>/dev/null && echo ja || echo nein")
     echo "=== Ausgang-Lauscher, ${CONTAINER} ==="
-    ssh -n "$HOST" "grep -E '^(START|ENDE)' ${PROTOKOLL}" | sed 's/^/  /'
+    # NUR den laufenden Abschnitt zeigen, also ab dem letzten START. Das
+    # Protokoll ueberlebt jeden Neustart und sammelt deshalb alte Laeufe an.
+    # Am 24.08.2026 stand hier "ENDE 23.08. 22:32" direkt ueber "laeuft
+    # gerade: ja" — das ENDE gehoerte zu einem Lauscher, der laengst
+    # abgeloest war, und der Widerspruch hat mich erst einmal suchen lassen.
+    # Den letzten START zeigen, nicht die letzte START-oder-ENDE-Zeile: ein
+    # abgeloester Lauscher schreibt sein ENDE, NACHDEM der neue schon gestartet
+    # ist, und `tail -1` erwischt dann genau das falsche.
+    ssh -n "$HOST" "grep -E '^START' ${PROTOKOLL} | tail -1" | sed 's/^/  /'
+    if [ "$laeuft" = "nein" ]; then
+      ssh -n "$HOST" "grep -E '^ENDE' ${PROTOKOLL} | tail -1" | sed 's/^/  /'
+    fi
+    frueher=$(ssh -n "$HOST" "grep -cE '^START' ${PROTOKOLL}" | tr -d ' ')
+    if [ "${frueher:-1}" -gt 1 ]; then
+      echo "  Hinweis: $((frueher - 1)) abgeloeste(r) Lauf im selben Protokoll,"
+      echo "  die Zeilen unten koennen also aus mehreren Laeufen stammen."
+    fi
     echo "  laeuft gerade: ${laeuft}"
     echo ""
     treffer=$(ssh -n "$HOST" "grep -cvE '^(START|ENDE)' ${PROTOKOLL} 2>/dev/null" | tr -d ' ')
