@@ -2109,11 +2109,27 @@ All endpoints require admin authentication (`requireAuth` + `requireAdmin`).
 
 The backup path defaults to `/mnt/external-ssd` and can be overridden with `EXTERNAL_BACKUP_PATH`.
 
-| Method | Endpoint              | Description                             |
-| ------ | --------------------- | --------------------------------------- |
-| GET    | `/api/backup/status`  | Check if external SSD is detected       |
-| POST   | `/api/backup/trigger` | Trigger a manual backup to external SSD |
-| GET    | `/api/backup/history` | List previous backup directories on SSD |
+**Zwei verschiedene Dinge, und sie waren bis zum 23.08.2026 eines.**
+`backupEnabled` stand auf „haengt eine externe Platte dran". Auf dem Orin
+gemessen: keine Platte angesteckt, Antwort `backupEnabled: false` — und
+gleichzeitig 38 Postgres-Sicherungen, 328 WAL-Segmente, letzte Sicherung drei
+Stunden alt. Wer eine eigene Anwendung dagegen baut, schloss daraus, die
+Sicherung sei aus.
+
+| Feld                | Bedeutung                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------- |
+| `backupEnabled`     | Es wird wirklich gesichert (letzter Lauf `completed` und nicht aelter als 48 Stunden) |
+| `ssdBackupMoeglich` | Eine externe Platte ist eingehaengt                                                   |
+| `letzteSicherung`   | Stand und Alter des letzten Laufs                                                     |
+
+Die Quelle fuer den Sicherungsstand ist dieselbe Datei wie bei
+`/api/ops/overview`.
+
+| Method | Endpoint              | Description                                   |
+| ------ | --------------------- | --------------------------------------------- |
+| GET    | `/api/backup/status`  | Zustand der Sicherung UND der externen Platte |
+| POST   | `/api/backup/trigger` | Trigger a manual backup to external SSD       |
+| GET    | `/api/backup/history` | List previous backup directories on SSD       |
 
 **GET /api/backup/status Response:**
 
@@ -2127,6 +2143,13 @@ The backup path defaults to `/mnt/external-ssd` and can be overridden with `EXTE
     "availableBytes": 800000000000
   },
   "backupEnabled": true,
+  "ssdBackupMoeglich": true,
+  "letzteSicherung": {
+    "status": "completed",
+    "zeitpunkt": "2026-08-23T02:00:54+00:00",
+    "alterStunden": 3,
+    "veraltet": false
+  },
   "timestamp": "2026-01-15T10:00:00.000Z"
 }
 ```
