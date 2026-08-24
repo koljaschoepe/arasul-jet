@@ -329,7 +329,7 @@ wurde. Dazu eine zerstörende Abnahme, die vom Arbeitsrechner aus auf das
 Produktionsgerät zielte, und ein „Fabrikzustand", der das Konto des
 Arbeitsgeräts trug.
 
-## 6. Sieben Fallen, die einen halben Tag gekostet haben
+## 6. Acht Fallen, die einen halben Tag gekostet haben
 
 Sie stehen in den Kommentaren der jeweiligen Skripte, aber wer neu anfängt,
 sollte sie kennen.
@@ -363,15 +363,34 @@ sollte sie kennen.
 5. **Eine Abnahme-Ausgabe abschneiden heisst, den Befund wegwerfen.** Zweimal
    am 24.08.2026 passiert: einmal ein roter Jest-Lauf unter `--silent`, einmal
    `72 von 73` in der Oberflächen-Abnahme mit `tail -4`. Beide Male war der
-   Folgelauf grün, und beide Male ist die Stelle unwiederbringlich weg. Der
-   Oberflächen-Fall steht offen: **nach dem tiptap-Deploy war einer von drei
-   Läufen 72 von 73, welcher Punkt, ist unbekannt.** Wer das nächste Mal etwas
-   Rotes sieht, schreibt zuerst die ganze Ausgabe in eine Datei.
-6. **Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler.**
+   Folgelauf grün, und beide Male war die Stelle weg. Der Oberflächen-Fall kam
+   in der vollen Reihe wieder und ließ sich dann aufklären — er hat aber eine
+   Stunde gekostet, die das Protokoll gespart hätte. Wer etwas Rotes sieht,
+   schreibt zuerst die ganze Ausgabe in eine Datei.
+6. **Ein Messfehler, der wandert, sieht aus wie ein Produktfehler, der
+   wandert.** Am 24.08.2026 waren beide roten Punkte der vollen Reihe genau
+   das, und beide hätten in einem unbeaufsichtigten Lauf als Gate-Regression
+   gegolten.
+
+   | Was rot war                                          | Was wirklich los war                                                                                                                                                                                                                                                |
+   | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `oberflaeche` 72/73, CSP-Verstoß bei „Einstellungen" | Der Verstoß war als bekannt hinterlegt — aber unter `ansicht: 'Automation'`. n8n lädt im iframe asynchron weiter, die Meldung traf nach dem nächsten Klick ein und landete im falschen Fenster. Bindet jetzt an die **Quelle** (`m.location().url` enthält `/n8n/`) |
+   | `rueckmeldung` 6/7, „Ordner anlegen meldet sich"     | Beim nächsten Lauf war ein **anderer** Punkt rot („Ordner löschen"). Die Abnahme zählte Toasts statt sie zu lesen; lief ein alter ab, während der neue erschien, blieb die Anzahl gleich. Vergleicht jetzt die **Texte**                                            |
+
+   Beim ersten Fall führte die Spur zuerst zu Vite 8 und zu pdfjs 6, beide am
+   selben Vormittag gemergt, beide unschuldig. Ohne eine Sonde, die den **Ort**
+   jeder Konsolenmeldung mitschreibt, wäre ein falscher Befund gegen ein
+   Bauwerkzeug im Plan gelandet.
+
+   Für eine Notbremse der Art „dreimal dieselbe Abnahme rot beendet die Phase"
+   heißt das: sie muss **dieselbe Abnahme** zählen, nicht dieselbe Stelle. Ein
+   wandernder Messfehler läuft sonst durch.
+
+7. **Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler.**
    Am 23.08. gaben fünf Endpunkte auf jedem Gerät HTTP 500, alle von grünen
    Tests gedeckt. Deshalb `endpunkte-live.py`, und deshalb läuft jede Abnahme
    gegen echtes Blech.
-7. **Eine Abhängigkeit, die niemand neu baut, ist nicht geprüft — sie ist
+8. **Eine Abhängigkeit, die niemand neu baut, ist nicht geprüft — sie ist
    ungeprüft.** Am 24.08. scheiterten zwei Deploys hintereinander an
    `x document-indexer ist unhealthy`, ohne Ursache im Lauf-Log. Sie stand die
    ganze Zeit im Container-Log, aber der Rollback ersetzt den Container, und
