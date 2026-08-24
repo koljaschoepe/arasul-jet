@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@arasul/shared-schemas": "file:../../packages/shared-schemas",
-    "axios": "^1.18.1",
+    "axios": "^1.19.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
