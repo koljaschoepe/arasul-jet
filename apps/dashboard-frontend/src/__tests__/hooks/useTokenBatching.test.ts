@@ -3,12 +3,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Dispatch, SetStateAction } from 'react';
 import useTokenBatching, { type TokenCountableMessage } from '../../hooks/useTokenBatching';
 
+// Der Hook nimmt genau diesen Setter. `ReturnType<typeof vi.fn>` stand hier
+// bis vitest 4 — der Typ ist dort `Mock<Procedure | Constructable>` und passt
+// auf keinen Parameter mehr. Der Mock wird jetzt ueber die Signatur typisiert,
+// die er nachbildet, statt ueber ein Interna von vitest.
+type SetMessages = Dispatch<SetStateAction<TokenCountableMessage[]>>;
+
 describe('useTokenBatching', () => {
-  let setMessagesMock: ReturnType<typeof vi.fn>;
+  let setMessagesMock: ReturnType<typeof vi.fn<SetMessages>>;
 
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    setMessagesMock = vi.fn();
+    setMessagesMock = vi.fn<SetMessages>();
   });
 
   afterEach(() => {
