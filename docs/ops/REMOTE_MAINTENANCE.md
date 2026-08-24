@@ -42,6 +42,32 @@ sudo tailscale up --authkey tskey-auth-... --ssh --accept-routes
 tailscale status
 ```
 
+**Danach den Schluesselablauf abschalten, sonst bricht der Zugang nach 90
+Tagen.** Tailscale laesst Geraeteschluessel standardmaessig verfallen. Auf dem
+Arbeitsgeraet am 24.08.2026 nachgesehen:
+
+```bash
+sudo tailscale status --json | python3 -c \
+  "import sys,json; print(json.load(sys.stdin)['Self'].get('KeyExpiry'))"
+# 2026-11-22T21:06:57Z
+```
+
+Bei einem Geraet im Haus ist das eine Unbequemlichkeit. Bei einem
+ausgelieferten Kundengeraet ist es der Verlust des Fernwartungszugangs: nach
+Ablauf kommt niemand mehr heran, und der Kunde muesste den Schluessel vor Ort
+neu setzen.
+
+Abgeschaltet wird der Ablauf **in der Konsole**, nicht auf dem Geraet:
+https://login.tailscale.com/admin/machines, Geraet auswaehlen,
+"Disable key expiry". Das gehoert zur Auslieferung wie das Erstpasswort.
+
+Nachsehen, wann er ablaeuft, geht auch ohne Konsole:
+
+```bash
+sudo tailscale status --json | grep -o '"KeyExpiry":"[^"]*"'
+# nichts zurueck heisst: Ablauf ist abgeschaltet, so soll es sein
+```
+
 ### Zugriff nach Einrichtung
 
 Ein Gerät, ein Denkmodell: im LAN über den `.local`-Namen, unterwegs über den

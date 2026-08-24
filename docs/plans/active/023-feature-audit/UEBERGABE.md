@@ -100,6 +100,14 @@ Null belastbar.
 
 ## 3. Was bei Kolja liegt, nicht bei der nächsten Sitzung
 
+**Neu am 24.08.2026, mit Frist: der Tailscale-Schlüssel des Arbeitsgeräts läuft
+am 22.11.2026 ab.** Danach bricht der Fernwartungszugang. Abschalten lässt sich
+das nur in der Konsole (https://login.tailscale.com/admin/machines, Gerät
+auswählen, „Disable key expiry"), nicht auf dem Gerät und nicht aus einer
+Sitzung. Bei einem ausgelieferten Kundengerät wäre dasselbe der Verlust des
+Zugangs, deshalb steht es jetzt auch in `docs/ops/REMOTE_MAINTENANCE.md` als
+Schritt der Einrichtung.
+
 Diese drei sind **Entscheidungen**, keine Aufgaben. Sie werden nicht
 unbeaufsichtigt gebaut.
 
