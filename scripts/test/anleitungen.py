@@ -242,7 +242,7 @@ def main():
         )
 
     # Fuer ALLE geprueften Dateien, nicht nur die beiden im Wurzelordner. Die
-    # Feature-Doku beschreibt Ablaeufe ("MinIO -> Indexer -> Qdrant"), und genau
+    # Feature-Doku beschreibt Ablaeufe ("MinIO -> Indexer -> Textlayer"), und genau
     # dort faellt ein abgeschalteter Dienst am wenigsten auf (23.08.2026).
     for datei in DATEIEN:
         pfad = os.path.join(WURZEL, datei)

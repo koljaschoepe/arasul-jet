@@ -199,7 +199,6 @@ backup_minio() {
     fi
 }
 
-# Backup Qdrant vector database
 # Backup n8n workflows
 backup_n8n() {
     log "INFO" "Starting n8n workflows backup..."

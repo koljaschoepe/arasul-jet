@@ -38,7 +38,6 @@ MinIO (documents bucket)
          │
          ▼
   ┌──────────────┐
-  │   Qdrant     │ ── Vector storage
   └──────────────┘
 ```
 
@@ -82,7 +81,7 @@ das Dokument dauerhaft `pending` („wird indexiert" im Explorer).
 2. **Parse**: Extract text content from document
 3. **Chunk**: Split text into 500-character chunks with 50-char overlap
 4. **Embed**: Generate vector embeddings via Embedding Service
-5. **Store**: Save vectors to Qdrant with metadata
+5. **Store**: Save chunks to the PostgreSQL text layer with metadata
 6. **Track**: Update document status in PostgreSQL
 
 ## API Endpoints
@@ -136,9 +135,6 @@ anrichten koennte, ist eine Anreicherung, die hoechstens
 | MINIO_ROOT_PASSWORD            | (required)        | MinIO secret key                                                   |
 | EMBEDDING_SERVICE_HOST         | embedding-service | Embedding service host                                             |
 | EMBEDDING_SERVICE_PORT         | 11435             | Embedding service port                                             |
-| QDRANT_HOST                    | qdrant            | Qdrant hostname                                                    |
-| QDRANT_PORT                    | 6333              | Qdrant HTTP port                                                   |
-| QDRANT_COLLECTION_NAME         | documents         | Collection name                                                    |
 | EMBEDDING_VECTOR_SIZE          | 768               | Vector dimension                                                   |
 | POSTGRES_HOST                  | postgres-db       | Database host                                                      |
 | POSTGRES_PORT                  | 5432              | Database port                                                      |
@@ -159,7 +155,7 @@ CHUNK_OVERLAP = 50    # characters
 
 ## Vector Metadata
 
-Each vector stored in Qdrant includes:
+Each chunk stored in the text layer includes:
 
 ```json
 {
@@ -175,7 +171,6 @@ Each vector stored in Qdrant includes:
 ## Dependencies
 
 - minio (7.2.5) - MinIO S3 client
-- qdrant-client (1.7.3) - Vector database client
 - PyPDF2 (3.0.1) - PDF parsing
 - python-docx (1.1.0) - DOCX parsing
 - markdown (3.5.2) - Markdown parsing

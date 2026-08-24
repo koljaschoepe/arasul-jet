@@ -321,7 +321,7 @@ Browse to `https://<host>/n8n` and log in with the credentials in `.env`.
 - [ ] All 15+ services running: `docker compose ps`.
 - [ ] All health checks green.
 - [ ] At least one Ollama model loaded.
-- [ ] Embedding service reachable; Qdrant running.
+- [ ] Embedding service reachable.
 
 ### Backup & update
 

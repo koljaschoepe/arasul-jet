@@ -178,7 +178,7 @@ guard`. `main` has no ruleset, so these are the only thing between a red
   build and the Orin — the reasoning is in `UEBERGABE.md` §2c. A missing check
   is not a passed check.
 - **Hold what you can't verify unattended**: major runtime bumps
-  (transformers / sentence-transformers / protobuf / qdrant — RAG regressions
+  (transformers / sentence-transformers / protobuf — Embedding-Regressionen
   are invisible to smoke tests), API-contract changes whose UX can't be driven,
   legal/policy content (§203, DSGVO), and anything flipping CI from advisory to
   blocking (breaks auto-merge — standing constraint). Leave the PR open with a

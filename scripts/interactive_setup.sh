@@ -641,7 +641,6 @@ EMBEDDING_MODEL=BAAI/bge-m3
 EMBEDDING_VECTOR_SIZE=1024
 EMBEDDING_MAX_INPUT_TOKENS=8192
 
-# --- Qdrant (Vektor-DB) ---
 
 # --- Document Indexer ---
 DOCUMENT_INDEXER_HOST=document-indexer

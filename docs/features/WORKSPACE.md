@@ -16,11 +16,11 @@ Typ und einer Zugriffs-Stufe.
 Die drei Stufen („Zugriffs-Stufe — was darf dieser Workspace?") steuern, was der
 Container erreichen darf (`VALID_NETWORK_MODES`):
 
-| Modus            | UI-Bezeichnung               | Zugriff                                    |
-| ---------------- | ---------------------------- | ------------------------------------------ |
-| `isolated`       | Nur Internet                 | Internet ja, Plattform nein (Standard)     |
-| `internal`       | Interne Dienste              | interne Dienste: DB / MinIO / Qdrant / RAG |
-| `infrastructure` | Voller Systemzugriff (Admin) | Infrastruktur — **nur Admin**              |
+| Modus            | UI-Bezeichnung               | Zugriff                                 |
+| ---------------- | ---------------------------- | --------------------------------------- |
+| `isolated`       | Nur Internet                 | Internet ja, Plattform nein (Standard)  |
+| `internal`       | Interne Dienste              | interne Dienste: DB / MinIO / Textlayer |
+| `infrastructure` | Voller Systemzugriff (Admin) | Infrastruktur — **nur Admin**           |
 
 > **Ordner-Umfang:** Jeder Workspace sieht genau **seinen eigenen** Ordner unter
 > `/workspace` (plus `/opt/tools` read-only); `infrastructure` bekommt zusätzlich
@@ -50,9 +50,9 @@ Ein-Ordner-Modell die **einzige Wahrheit** — die frühere Zweiteilung
 .docx .md .txt .html .csv …`, ≤ 50 MB) automatisch als Dokument in die
   Index-Pipeline gegeben (`documents.rel_pfad`, MinIO → Indexer → Abschnitte in
   `document_chunks` + BM25-Index des Indexers). **Die Vektor-Stufe läuft
-  nicht:** Qdrant und der embedding-service liegen seit Plan 021, Schritt 8 im
-  Compose-Profil `classic-rag` und starten nur auf Zuruf. Am 23.08.2026 auf dem
-  Orin nachgesehen: 2171 Dokumente, 37 487 Abschnitte, kein Qdrant.
+  nicht:** Qdrant ist am 24.08.2026 ausgebaut worden — der agentische Pfad
+  liest den Textlayer in PostgreSQL. Am 22.08.2026 auf dem Orin nachgesehen:
+  2171 Dokumente, 37 487 Abschnitte.
   „In den Wissensraum übernehmen" gibt es nicht mehr. Der Abgleich läuft in
   `services/projects/ordnerSyncService.js` (Takt `ORDNER_SYNC_INTERVAL_MS`
   = 20 s, plus Sofort-Trigger nach Datei-Operationen, Chat-Agent- und

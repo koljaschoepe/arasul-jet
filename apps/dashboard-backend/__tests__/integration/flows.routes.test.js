@@ -185,7 +185,6 @@ describe('Flows-Routen', () => {
       const nach = Object.fromEntries(res.body.data.map(w => [w.name, w.verfuegbar]));
       // Alle Werkzeuge des Plans sind gebaut (Schritte 6–11).
       expect(nach.dateien_lesen).toBe(true);
-      expect(nach.rag_suche).toBe(true);
       expect(nach.terminal).toBe(true);
       expect(nach.web_suche).toBe(true);
       expect(nach.web_lesen).toBe(true);

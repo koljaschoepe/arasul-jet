@@ -22,32 +22,34 @@ migrations always backward-compatible, no rewrites — only incremental change.
 (Container, Netzwerkmodi, Wissensraum) laufen im dashboard-backend (kein
 separater Container).
 
-**`embedding-service` (5) und `qdrant` (7) laufen NICHT von selbst.** Plan 021,
-Schritt 8 hat das klassische Vektor-RAG durch agentisches ersetzt; beide liegen
-seither im Compose-Profil `classic-rag` und starten nur auf Zuruf
-(`docker compose --profile classic-rag up -d qdrant embedding-service`). Sie
-stehen weiter in dieser Tabelle, weil es sie gibt — nicht, weil sie laufen. Am
-22.08.2026 auf dem Orin nachgesehen: `docker ps` zeigt beide nicht.
+**Qdrant gibt es nicht mehr.** Plan 021, Schritt 8 hatte das klassische
+Vektor-RAG durch agentisches ersetzt; am 24.08.2026 ist der Dienst samt Code
+ausgebaut worden, weil drei Features still durchfielen, statt ihren Ausfall zu
+melden (Migration `162_qdrant_ausbau.sql` nennt die Zahlen). Gesucht wird über
+den Textlayer in `document_chunks` und die Werkzeuge des Agenten.
 
-| #   | Service            | Port      | Technology          | Entry Point           | Purpose                                        |
-| --- | ------------------ | --------- | ------------------- | --------------------- | ---------------------------------------------- |
-| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                                         |
-| 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket                     |
-| 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database                            |
-| 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference                                  |
-| 5   | embedding-service  | 11435     | Flask               | `embedding_server.py` | Text vectorization (Profil `classic-rag`, aus) |
-| 6   | document-indexer   | 9102      | Flask               | `api_server.py`       | RAG document processing                        |
-| 7   | qdrant             | 6333      | Qdrant              | -                     | Vector database (Profil `classic-rag`, aus)    |
-| 8   | minio              | 9000/9001 | MinIO               | -                     | S3-compatible storage                          |
-| 9   | metrics-collector  | 9100      | aiohttp             | `collector.py`        | System metrics                                 |
-| 10  | self-healing-agent | 9200      | Python              | `healing_engine.py`   | Autonomous recovery                            |
-| 11  | docker-proxy       | -         | Docker Socket Proxy | -                     | Secure Docker API access                       |
-| 12  | n8n                | 5678      | n8n                 | -                     | Workflow automation                            |
-| 13  | reverse-proxy      | 80/443    | Traefik             | `routes.yml`          | Reverse proxy + SSL                            |
-| 14  | backup-service     | -         | Alpine + cron       | `backup.sh`           | Automated backups                              |
-| 15  | loki               | 3100      | Grafana Loki        | -                     | Log aggregation (optional)                     |
-| 16  | promtail           | 9080      | Grafana Promtail    | -                     | Log collector (optional)                       |
-| 17  | cloudflared        | -         | Cloudflare Tunnel   | -                     | OAuth & webhook gateway (optional)             |
+`embedding-service` (5) läuft dagegen ohne Profil mit: die OpenAI-kompatible
+`/v1/embeddings`, das Wissensraum-Routing und die Einstellungsseite brauchen
+ihn.
+
+| #   | Service            | Port      | Technology          | Entry Point           | Purpose                            |
+| --- | ------------------ | --------- | ------------------- | --------------------- | ---------------------------------- |
+| 1   | dashboard-frontend | 3000      | React 19            | `src/App.tsx`         | Web UI                             |
+| 2   | dashboard-backend  | 3001      | Node.js/Express     | `src/index.js`        | REST API + SSE + WebSocket         |
+| 3   | postgres-db        | 5432      | PostgreSQL 16       | `init/*.sql`          | Relational database                |
+| 4   | llm-service        | 11434     | Ollama + Flask      | `api_server.py`       | LLM inference                      |
+| 5   | embedding-service  | 11435     | Flask               | `embedding_server.py` | Text vectorization                 |
+| 6   | document-indexer   | 9102      | Flask               | `api_server.py`       | RAG document processing            |
+| 8   | minio              | 9000/9001 | MinIO               | -                     | S3-compatible storage              |
+| 9   | metrics-collector  | 9100      | aiohttp             | `collector.py`        | System metrics                     |
+| 10  | self-healing-agent | 9200      | Python              | `healing_engine.py`   | Autonomous recovery                |
+| 11  | docker-proxy       | -         | Docker Socket Proxy | -                     | Secure Docker API access           |
+| 12  | n8n                | 5678      | n8n                 | -                     | Workflow automation                |
+| 13  | reverse-proxy      | 80/443    | Traefik             | `routes.yml`          | Reverse proxy + SSL                |
+| 14  | backup-service     | -         | Alpine + cron       | `backup.sh`           | Automated backups                  |
+| 15  | loki               | 3100      | Grafana Loki        | -                     | Log aggregation (optional)         |
+| 16  | promtail           | 9080      | Grafana Promtail    | -                     | Log collector (optional)           |
+| 17  | cloudflared        | -         | Cloudflare Tunnel   | -                     | OAuth & webhook gateway (optional) |
 
 ### Host-Level Services
 
@@ -78,9 +80,9 @@ browser-trusted cert served by `tailscale serve` → Traefik:443.
 ├─────────────────────────────────────────────────────────────────┤
 │                         AI SERVICES                              │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │   LLM Service   │  │   Embedding     │  │    Qdrant       │  │
-│  │   (Ollama)      │  │   Service       │  │  (Vector DB)    │  │
-│  │   Port: 11434   │  │   Port: 11435   │  │  Port: 6333     │  │
+│  │   LLM Service   │  │   Embedding     │  │    SearXNG      │  │
+│  │   (Ollama)      │  │   Service       │  │  (Websuche)     │  │
+│  │   Port: 11434   │  │   Port: 11435   │  │  Port: 8080     │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 │  ┌─────────────────┐                                            │
 │  │    Document     │                                            │
@@ -140,8 +142,8 @@ browser-trusted cert served by `tailscale serve` → Traefik:443.
     └───────────┘          └─────────────┘        └──────────────┘
           │                       │
     ┌─────▼─────┐          ┌──────▼──────┐        ┌──────────────┐
-    │ Metrics   │          │  Embedding  │        │   Qdrant     │
-    │ :9100     │          │  :11435     │        │  :6333/6334  │
+    │ Metrics   │          │  Embedding  │        │   SearXNG    │
+    │ :9100     │          │  :11435     │        │  :8080       │
     └───────────┘          └─────────────┘        └──────────────┘
           │
     ┌─────▼─────┐          ┌─────────────┐
@@ -162,7 +164,6 @@ browser-trusted cert served by `tailscale serve` → Traefik:443.
 | dashboard-backend  | 3001          | 8080/api (via proxy) | HTTP/WS    |
 | postgres-db        | 5432          | -                    | TCP        |
 | minio              | 9000, 9001    | 9001                 | HTTP       |
-| qdrant             | 6333, 6334    | 6333, 6334           | HTTP/gRPC  |
 | llm-service        | 11434, 11436  | -                    | HTTP       |
 | embedding-service  | 11435         | -                    | HTTP       |
 | document-indexer   | 9102          | -                    | HTTP       |
@@ -190,7 +191,6 @@ Critical dependency chain (enforced via Docker Compose `depends_on` with `condit
 
 - **llm-service** (11434) - Depends on: postgres-db. Requires GPU (NVIDIA runtime)
 - **embedding-service** (11435) - Profil `classic-rag`, laeuft NICHT von selbst
-- **qdrant** (6333) - Vector database, Profil `classic-rag`, laeuft NICHT von selbst
 
 ### Tier 4: Application Services Layer
 
@@ -238,16 +238,16 @@ User → Frontend → Backend → LLM Service → Backend → Frontend → User
 User Query
      │
      ▼
-┌─────────┐    embed    ┌───────────┐   search   ┌────────┐
-│ Backend │ ──────────▶ │ Embedding │ ─────────▶ │ Qdrant │
-└────┬────┘             │  Service  │            └────┬───┘
-     │                  └───────────┘                 │
-     │◀────────────── relevant chunks ────────────────┘
+┌─────────┐   grep / Symbolsuche / Datei   ┌──────────────────┐
+│  Agent  │ ─────────────────────────────▶ │  document_chunks │
+└────┬────┘                                │   (PostgreSQL)   │
+     │                                     └────────┬─────────┘
+     │◀──────────── passende Abschnitte ────────────┘
      │
-     │  context + query
+     │  Zusammenhang + Frage
      ▼
 ┌─────────┐
-│   LLM   │ ──────────▶ Response with sources
+│   LLM   │ ──────────▶ Antwort mit Fundstellen
 │ Service │
 └─────────┘
 ```
@@ -272,14 +272,15 @@ Upload Document
               ┌──────────────┼──────────────┐
               │              │              │
               ▼              ▼              ▼
-         Parse Doc      Chunk Text     Embed Chunks
+         Parse Doc      Chunk Text     Kontext bilden
               │              │              │
               └──────────────┼──────────────┘
                              │
                              ▼
-                     ┌───────────────┐
-                     │    Qdrant     │ (store vectors)
-                     └───────────────┘
+                     ┌────────────────────┐
+                     │  document_chunks   │ (Textlayer)
+                     │  document_parent_… │
+                     └────────────────────┘
 ```
 
 ### Service Communication
@@ -289,8 +290,8 @@ Frontend ──HTTP──> Traefik ──HTTP──> Backend
                                        │
                     ┌──────────────────┼──────────────────┐
                     ▼                  ▼                  ▼
-              LLM-Service      Embedding-Service       Qdrant
-              (11434)          (11435)                 (6333)
+              LLM-Service      Embedding-Service       SearXNG
+              (11434)          (11435)                 (8080)
                     │                  │                  │
                     └──────────────────┴──────────────────┘
                                        │
@@ -369,7 +370,7 @@ Ordner werden serverseitig in den Prompt injiziert.
 **Workspace (Plan 008):** Ein **Workspace** ist die Entität `sandbox_projects`
 — ein `host_path`-Ordner + Container mit einem Netzwerkmodus (»Was darf dieser
 Workspace?«: **Abgeschottet** = isoliert, Internet ja/Plattform nein, Default ·
-**Am System** = interner Zugriff auf DB/MinIO/Qdrant/RAG · **Voller Zugriff** =
+**Am System** = interner Zugriff auf DB/MinIO/Textlayer · **Voller Zugriff** =
 Infrastruktur, nur Admin) und einem Besitzer. Jeder Workspace besitzt genau einen
 unsichtbaren Wissensraum, in den geschriebene Dateien automatisch indiziert
 werden. Details: [`docs/features/WORKSPACE.md`](features/WORKSPACE.md).
@@ -450,7 +451,6 @@ services/postgres/init/
 | ------------------ | ------------------------------------------------- | -------- | ------- | ------- | ------------ |
 | postgres-db        | `pg_isready -U $USER -d $DB`                      | 10s      | 2s      | 3       | -            |
 | minio              | `curl -f http://localhost:9000/minio/health/live` | 10s      | 1s      | 3       | -            |
-| qdrant             | file check                                        | 10s      | 3s      | 3       | 10s          |
 | metrics-collector  | `curl -f http://localhost:9100/health`            | 10s      | 1s      | 3       | -            |
 | llm-service        | Custom script (model test)                        | 30s      | 5s      | 3       | 300s         |
 | embedding-service  | Custom script (vectorization test)                | 15s      | 3s      | 3       | 300s         |

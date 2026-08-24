@@ -32,7 +32,7 @@ The `arasul` script is the canonical CLI for the platform. Run `./arasul --help`
 
 ### Why no x86 dev mode?
 
-Arasul's core surfaces (LLM service, embedding service, Qdrant indexing) are tied to the GPU. A mock-stack on x86 (mock-LLM that echoes prompts, mock-embedding that returns hashed vectors) was evaluated and rejected because the mocks would diverge from real CUDA behavior — UI work might pass against the mocks but break on the Jetson, creating false confidence. The single canonical workflow is "edit on the Jetson, rebuild the affected service, verify in the browser".
+Arasul's core surfaces (LLM service, embedding service, document indexing) are tied to the GPU. A mock-stack on x86 (mock-LLM that echoes prompts, mock-embedding that returns hashed vectors) was evaluated and rejected because the mocks would diverge from real CUDA behavior — UI work might pass against the mocks but break on the Jetson, creating false confidence. The single canonical workflow is "edit on the Jetson, rebuild the affected service, verify in the browser".
 
 ---
 
@@ -53,14 +53,14 @@ Concretely, this means:
 
 ### The 6 Surfaces
 
-| Surface             | Lives in                        | Who cares               |
-| ------------------- | ------------------------------- | ----------------------- |
-| **Dashboard UI**    | `apps/dashboard-frontend/`      | End users, admins       |
-| **HTTP API**        | `apps/dashboard-backend/`       | Frontend, n8n, agents   |
-| **Database**        | `services/postgres/init/*.sql`  | All backend services    |
-| **LLM / RAG**       | `services/llm-service/`, Qdrant | Chat, agents, search    |
-| **Ops / Self-heal** | `services/self-healing-agent/`  | Autonomous recovery     |
-| **Setup / Boot**    | `./arasul`, `scripts/setup/`    | First-boot provisioning |
+| Surface             | Lives in                       | Who cares               |
+| ------------------- | ------------------------------ | ----------------------- |
+| **Dashboard UI**    | `apps/dashboard-frontend/`     | End users, admins       |
+| **HTTP API**        | `apps/dashboard-backend/`      | Frontend, n8n, agents   |
+| **Database**        | `services/postgres/init/*.sql` | All backend services    |
+| **LLM / RAG**       | `services/llm-service/`        | Chat, agents, search    |
+| **Ops / Self-heal** | `services/self-healing-agent/` | Autonomous recovery     |
+| **Setup / Boot**    | `./arasul`, `scripts/setup/`   | First-boot provisioning |
 
 ### Project layout (orientation only — read what you need)
 

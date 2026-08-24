@@ -360,7 +360,7 @@ als `manual_restart` in `self_healing_events`.
 
 Erlaubte Dienste (Stand: 2026-08-23, Quelle:
 `apps/dashboard-backend/src/routes/system/services.js`, `ALLOWED_SERVICES`):
-`postgres-db`, `minio`, `qdrant`, `metrics-collector`, `llm-service`,
+`postgres-db`, `minio`, `metrics-collector`, `llm-service`,
 `embedding-service`, `document-indexer`, `reverse-proxy`, `dashboard-backend`,
 `dashboard-frontend`, `n8n`, `self-healing-agent`, `backup-service`.
 
@@ -579,26 +579,17 @@ JSON Export Example:
 
 Markdown Export: Generates a human-readable Markdown file with collapsible thinking blocks and source citations.
 
-### RAG (Document Q&A)
+### Einstellungen für die Generierung
 
-| Method | Endpoint                 | Description                                                                                   |
-| ------ | ------------------------ | --------------------------------------------------------------------------------------------- |
-| POST   | `/api/rag/query`         | RAG query (SSE streaming)                                                                     |
-| GET    | `/api/rag/status`        | Qdrant collection status                                                                      |
-| GET    | `/api/rag/settings`      | Current RAG/LLM tunables (admin)                                                              |
-| PATCH  | `/api/rag/settings`      | Update RAG/LLM tunables (admin)                                                               |
-| GET    | `/api/rag/metrics`       | Zahlen zur Suche: Treffer, Dauer, Trefferquote (aus `rag_query_log`)                          |
-| POST   | `/api/rag/fix-space-ids` | Wartungsweg: gleicht `space_id` in der Qdrant-Nutzlast an die Datenbank an. Kein Alltagsknopf |
+Das Präfix heißt weiter `/api/rag`, weil die Einstellungsseite darauf zeigt.
+Die Suchrouten (`/query`, `/status`, `/metrics`, `/fix-space-ids`) sind am
+24.08.2026 mit Qdrant entfallen; gesucht wird über den Textlayer und die
+Werkzeuge des Agenten.
 
-**POST /api/rag/query:**
-
-```json
-{
-  "query": "Your question about documents",
-  "conversation_id": "uuid", // optional
-  "top_k": 5 // optional, default: 5
-}
-```
+| Method | Endpoint            | Description                  |
+| ------ | ------------------- | ---------------------------- |
+| GET    | `/api/rag/settings` | Current LLM tunables (admin) |
+| PATCH  | `/api/rag/settings` | Update LLM tunables (admin)  |
 
 **GET /api/rag/settings** (admin only) — returns the raw `system_settings`
 values for every RAG/LLM tunable as `{ "data": { ... } }`. A `null` value means
@@ -610,25 +601,24 @@ immediately (no restart). Body validated by `UpdateRagSettingsBody` (`.strict()`
 unknown keys → `400 VALIDATION_ERROR`). Sending `""` for `llm_base_system_prompt`
 resets it to `NULL` (built-in default). Bounds:
 
-| Field                          | Type   | Range / notes                          |
-| ------------------------------ | ------ | -------------------------------------- |
-| `rag_top_k`                    | int    | 1–50                                   |
-| `rag_final_k`                  | int    | 1–20                                   |
-| `rag_score_threshold`          | float  | 0–1                                    |
-| `rag_relevance_threshold`      | float  | 0–1                                    |
-| `rag_rerank_enabled`           | bool   |                                        |
-| `rag_timeout_rerank_ms`        | int    | 1000–120000                            |
-| `llm_num_ctx_default`          | int    | 512–131072, nullable                   |
-| `llm_keep_alive_seconds`       | int    | 0–86400                                |
-| `llm_num_predict_default`      | int    | 64–16384                               |
-| `rag_temperature`              | float  | 0–2                                    |
-| `rag_num_predict`              | int    | 64–16384                               |
-| `rag_mmr_lambda`               | float  | 0–1                                    |
-| `rag_dedup_max_per_doc`        | int    | 1–10                                   |
-| `rag_hybrid_search`            | bool   | master switch for Qdrant hybrid search |
-| `rag_space_routing_threshold`  | float  | 0–1                                    |
-| `rag_space_routing_max_spaces` | int    | 1–10                                   |
-| `llm_base_system_prompt`       | string | ≤4000 chars, nullable (`""` → reset)   |
+| Field                          | Type   | Range / notes                        |
+| ------------------------------ | ------ | ------------------------------------ |
+| `rag_top_k`                    | int    | 1–50                                 |
+| `rag_final_k`                  | int    | 1–20                                 |
+| `rag_score_threshold`          | float  | 0–1                                  |
+| `rag_relevance_threshold`      | float  | 0–1                                  |
+| `rag_rerank_enabled`           | bool   |                                      |
+| `rag_timeout_rerank_ms`        | int    | 1000–120000                          |
+| `llm_num_ctx_default`          | int    | 512–131072, nullable                 |
+| `llm_keep_alive_seconds`       | int    | 0–86400                              |
+| `llm_num_predict_default`      | int    | 64–16384                             |
+| `rag_temperature`              | float  | 0–2                                  |
+| `rag_num_predict`              | int    | 64–16384                             |
+| `rag_mmr_lambda`               | float  | 0–1                                  |
+| `rag_dedup_max_per_doc`        | int    | 1–10                                 |
+| `rag_space_routing_threshold`  | float  | 0–1                                  |
+| `rag_space_routing_max_spaces` | int    | 1–10                                 |
+| `llm_base_system_prompt`       | string | ≤4000 chars, nullable (`""` → reset) |
 
 Response: the fresh full settings row as `{ "data": { ... } }`.
 
@@ -693,7 +683,6 @@ Request: `multipart/form-data` with `file` field.
 | GET    | `/api/documents/categories`       | Die Kategorien, in die der Indexer einordnet                                                                                                                 |
 | GET    | `/api/documents/statistics`       | Zahlen über den Bestand (je Status, je Kategorie, Chunks)                                                                                                    |
 | GET    | `/api/documents/storage`          | Belegter Platz in MinIO, mit dem Deckel aus `checkBucketQuota`                                                                                               |
-| POST   | `/api/documents/search`           | Volltextsuche über den Textlayer (`{query, limit?}`)                                                                                                         |
 | POST   | `/api/documents/create-markdown`  | Eine Markdown-Datei anlegen, ohne Upload (`{title, content, space_id?}`)                                                                                     |
 | POST   | `/api/documents/batch/delete`     | Mehrere Dokumente auf einmal löschen (`{ids}`)                                                                                                               |
 | POST   | `/api/documents/batch/move`       | Mehrere Dokumente auf einmal verschieben (`{ids, space_id}`)                                                                                                 |
@@ -1109,7 +1098,7 @@ symlink-sicher innerhalb des Projektordners (`resolveRealWithinRoots`);
 > Projektordner automatisch: jeder Unterordner wird eine
 > `knowledge_spaces`-Zeile, jede indexierbare Datei (`.pdf .docx .txt .md
 .markdown .csv .json .html .htm .xml .yaml .yml .log`, ≤ 50 MB) eine
-> `documents`-Zeile (`status='pending'` → Document-Indexer → Qdrant).
+> `documents`-Zeile (`status='pending'` → Document-Indexer → Textlayer).
 > Umbenennen/Verschieben wird per Inhalts-Hash erkannt und kostet keine
 > Neu-Indexierung; gelöschte Dateien räumen Dokument, MinIO-Objekt und
 > Vektoren ab. Altbestand (nur in MinIO) wird beim Boot auf die Platte
@@ -2661,21 +2650,18 @@ Ergebnis für Objektspeicher, Vektoren, n8n und Modelle, dazu die Dauer.
 
 Manages the AI assistant's persistent memory profile and individual memory entries. All routes require authentication.
 
-| Method | Endpoint                    | Description                                 |
-| ------ | --------------------------- | ------------------------------------------- |
-| GET    | `/api/memory/profile`       | Get AI profile YAML                         |
-| PUT    | `/api/memory/profile`       | Update AI profile YAML                      |
-| POST   | `/api/memory/profile`       | Create profile from wizard data             |
-| GET    | `/api/memory/list`          | List all memories (paginated)               |
-| GET    | `/api/memory/search`        | Semantic memory search                      |
-| GET    | `/api/memory/stats`         | Memory statistics                           |
-| GET    | `/api/memory/context-stats` | Context compaction and token usage stats    |
-| POST   | `/api/memory/reindex`       | Reindex all memories into Qdrant            |
-| POST   | `/api/memory/export`        | Export all memories as JSON                 |
-| DELETE | `/api/memory/all`           | Delete all memories (confirmation required) |
-| GET    | `/api/memory/:id`           | — (via list/search)                         |
-| PUT    | `/api/memory/:id`           | Update a memory's content                   |
-| DELETE | `/api/memory/:id`           | Delete a single memory                      |
+| Method | Endpoint                    | Description                              |
+| ------ | --------------------------- | ---------------------------------------- |
+| GET    | `/api/memory/profile`       | Get AI profile YAML                      |
+| PUT    | `/api/memory/profile`       | Update AI profile YAML                   |
+| POST   | `/api/memory/profile`       | Create profile from wizard data          |
+| GET    | `/api/memory/context-stats` | Context compaction and token usage stats |
+
+Das KI-Gedächtnis (`/list`, `/search`, `/stats`, `/reindex`, `/export`,
+`/all`, `/:id`) ist am 24.08.2026 entfallen. Es lag in Qdrant und hatte über
+die gesamte Laufzeit des Geräts 0 Einträge, ohne das zu melden. Geblieben sind
+das Firmenprofil, das in jeden System-Prompt fließt, und die Kontext-Statistik,
+die `compaction_log` liest und mit dem Gedächtnis nie zu tun hatte.
 
 **GET /api/memory/profile Response:**
 

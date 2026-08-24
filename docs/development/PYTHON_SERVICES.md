@@ -49,34 +49,34 @@ Flask APIs (except metrics-collector which uses aiohttp). Each service has a
 
 ### Endpoints
 
-| Method | Path                      | Purpose                                   |
-| ------ | ------------------------- | ----------------------------------------- |
-| GET    | `/health`                 | Health check (reports DB + Qdrant status) |
-| GET    | `/status`                 | Detailed status for self-healing agent    |
-| GET    | `/statistics`             | Indexing statistics                       |
-| GET    | `/documents`              | List all documents                        |
-| GET    | `/documents/<id>`         | Get single document                       |
-| DELETE | `/documents/<id>`         | Delete document                           |
-| POST   | `/documents/<id>/reindex` | Reindex a document                        |
-| GET    | `/documents/<id>/similar` | Find similar documents                    |
-| GET    | `/categories`             | List document categories                  |
-| POST   | `/scan`                   | Trigger MinIO scan                        |
-| POST   | `/search`                 | Semantic search                           |
-| POST   | `/extract-entities`       | Extract entities from text                |
-| POST   | `/extract-document`       | Extract entities from a document          |
-| POST   | `/bm25/search`            | BM25 keyword search                       |
-| POST   | `/bm25/rebuild`           | Rebuild BM25 index                        |
-| GET    | `/bm25/status`            | BM25 index status                         |
-| POST   | `/refine-graph`           | Trigger knowledge graph refinement        |
-| GET    | `/refine-graph/status`    | Graph refinement status                   |
-| POST   | `/decompound`             | German compound word splitting            |
-| POST   | `/spellcheck`             | Spell correction                          |
-| POST   | `/sparse-encode`          | Sparse vector encoding                    |
+| Method | Path                      | Purpose                                |
+| ------ | ------------------------- | -------------------------------------- |
+| GET    | `/health`                 | Health check (reports DB status)       |
+| GET    | `/status`                 | Detailed status for self-healing agent |
+| GET    | `/statistics`             | Indexing statistics                    |
+| GET    | `/documents`              | List all documents                     |
+| GET    | `/documents/<id>`         | Get single document                    |
+| DELETE | `/documents/<id>`         | Delete document                        |
+| POST   | `/documents/<id>/reindex` | Reindex a document                     |
+| GET    | `/documents/<id>/similar` | Find similar documents                 |
+| GET    | `/categories`             | List document categories               |
+| POST   | `/scan`                   | Trigger MinIO scan                     |
+| POST   | `/search`                 | Semantic search                        |
+| POST   | `/extract-entities`       | Extract entities from text             |
+| POST   | `/extract-document`       | Extract entities from a document       |
+| POST   | `/bm25/search`            | BM25 keyword search                    |
+| POST   | `/bm25/rebuild`           | Rebuild BM25 index                     |
+| GET    | `/bm25/status`            | BM25 index status                      |
+| POST   | `/refine-graph`           | Trigger knowledge graph refinement     |
+| GET    | `/refine-graph/status`    | Graph refinement status                |
+| POST   | `/decompound`             | German compound word splitting         |
+| POST   | `/spellcheck`             | Spell correction                       |
+| POST   | `/sparse-encode`          | Sparse vector encoding                 |
 
 ### Pipeline
 
 ```
-MinIO scan → parse (PDF/DOCX/images) → chunk → embed → Qdrant + PostgreSQL
+MinIO scan → parse (PDF/DOCX/images) → chunk → Textlayer in PostgreSQL
 ```
 
 - **Chunking:** Hierarchical strategy (2000-char parent chunks, 400-char child chunks)
@@ -94,7 +94,6 @@ MinIO scan → parse (PDF/DOCX/images) → chunk → embed → Qdrant + PostgreS
 
 - PostgreSQL (document metadata, chunks)
 - MinIO (document file storage)
-- Qdrant (vector storage and similarity search)
 - Embedding-Service (text embedding)
 - LLM-Service (entity extraction, graph refinement)
 
@@ -326,7 +325,6 @@ Dashboard Backend (Node.js)
     ├── Document-Indexer :9102
     │       ├── Embedding-Service :11435
     │       ├── LLM-Service :11436
-    │       ├── Qdrant :6333
     │       └── MinIO :9000
     └── Metrics-Collector :9100
 

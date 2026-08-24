@@ -1,6 +1,6 @@
 # Backup Service
 
-Scheduled backup and restore-drill orchestrator for Arasul. Runs out of an Alpine container, dumps PostgreSQL, syncs MinIO buckets, snapshots Qdrant collections, and stores the bundle on a mounted volume.
+Scheduled backup and restore-drill orchestrator for Arasul. Runs out of an Alpine container, dumps PostgreSQL, syncs MinIO buckets, and stores the bundle on a mounted volume.
 
 ## Overview
 
@@ -18,7 +18,7 @@ Scheduled backup and restore-drill orchestrator for Arasul. Runs out of an Alpin
 backup-service/
 ├── Dockerfile         Alpine + postgres-client + docker-cli + gzip/tar
 ├── entrypoint.sh      Container entry — installs cron jobs, tails the log
-├── backup.sh          Runs the actual backup (postgres + minio + qdrant)
+├── backup.sh          Runs the actual backup (postgres + minio)
 └── restore-drill.sh   Periodic restore-drill (mounts the latest backup into a sidecar postgres and verifies SELECT 1)
 ```
 

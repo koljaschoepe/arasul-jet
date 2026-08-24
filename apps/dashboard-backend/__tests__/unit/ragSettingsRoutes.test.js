@@ -26,10 +26,6 @@ jest.mock('../../src/utils/logger', () => ({
 // Mock axios for external service calls
 jest.mock('axios');
 
-jest.mock('../../src/services/context/queryOptimizer', () => ({
-  optimizeQuery: jest.fn(),
-}));
-
 jest.mock('../../src/services/llm/llmJobService', () => ({
   createJob: jest.fn(),
   updateJobContent: jest.fn(),

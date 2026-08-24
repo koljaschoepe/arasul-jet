@@ -20,11 +20,15 @@ Internet (443) → Traefik → Dashboard-Frontend (React 19 SPA)
                               └─ Docker-Proxy → Self-Healing, Metrics, Backup
 ```
 
-**Läuft NICHT von selbst:** `qdrant` und `embedding-service`. Plan 021, Schritt
-8 hat das klassische Vektor-RAG durch agentisches ersetzt (grep, Symbolsuche,
-benanntes Datei-Lesen). Beide liegen im Compose-Profil `classic-rag` und starten
-nur auf Zuruf. Wer eine Doku findet, die sie als Teil des laufenden Geräts
-nennt, hat eine veraltete Doku gefunden — nachsehen mit `docker compose ps`.
+**Es gibt kein Vektor-RAG mehr.** Plan 021, Schritt 8 hatte es durch
+agentisches ersetzt (grep, Symbolsuche, benanntes Datei-Lesen); am 24.08.2026
+ist `qdrant` samt Code ausgebaut worden, weil drei Features still durchfielen,
+statt zu melden, dass sie nichts tun. Gesucht wird über den Textlayer in
+Postgres (`document_chunks`) und die Werkzeuge des Agenten. `embedding-service`
+läuft weiter und ohne Profil: die OpenAI-kompatible `/v1/embeddings` und das
+Wissensraum-Routing brauchen ihn. Wer eine Doku findet, die Qdrant als Teil des
+Geräts nennt, hat eine veraltete Doku gefunden — nachsehen mit
+`docker compose ps`.
 
 | Layer    | Stack                                                             | Path                                                          |
 | -------- | ----------------------------------------------------------------- | ------------------------------------------------------------- |

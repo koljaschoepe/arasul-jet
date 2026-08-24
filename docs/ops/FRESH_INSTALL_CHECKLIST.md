@@ -48,14 +48,11 @@
 - [ ] ⚠️ **Regressionsschutz — alle Custom-Images gebaut.** `build_images` baut u. a.
       `llm-service` **und** `document-indexer` (früher fehlten beide → versteckter Build
       mitten im Start). `docker compose build` läuft ohne „missing service".
-- [ ] `qdrant` wird gepullt (Teil von `pull_images`).
 
 ## 5. Service-Start (`start_services`)
 
 - [ ] Layer 1: `postgres-db`, `minio` healthy.
-- [ ] ⚠️ **Regressionsschutz — RAG-Stack startet.** `qdrant` (Layer 1b) **und**
-      `document-indexer` (Layer 6) laufen — früher wurden beide nie gestartet, RAG war tot.
-      → `docker compose ps` zeigt `qdrant` und `document-indexer` als `running`/`healthy`.
+
 - [ ] `llm-service`, `embedding-service` healthy (Modell-Laden kann dauern).
 - [ ] `reverse-proxy`, `dashboard-backend`, `dashboard-frontend`, `n8n`, `self-healing-agent` healthy.
 
@@ -81,16 +78,15 @@
 
 - [ ] Login → Chat: eine LLM-Antwort kommt zurück.
 - [ ] Dokument hochladen → erscheint in der Dokumentenliste, wird indexiert (RAG).
-- [ ] Eine RAG-/Wissens-Frage liefert eine Antwort mit Kontext (Qdrant + document-indexer aktiv).
+- [ ] Eine Wissens-Frage liefert eine Antwort mit Fundstellen (Agent liest den Textlayer,
+      `document-indexer` aktiv).
 - [ ] Settings/Services-Seite: GPU-Last wird als echter Wert (nicht dauerhaft 0.0) angezeigt.
 - [ ] Keine roten Fehler in der Browser-Konsole auf den Kern-Seiten.
 
 ## 9. Backup (nach dem ersten geplanten Lauf)
 
 - [ ] `backup-service` läuft; nach dem ersten Zyklus existieren Backups unter
-      `data/backups/postgres/`, `data/backups/minio/` **und** `data/backups/qdrant/`
-      (⚠️ Qdrant-Vektor-Backup war früher nicht abgedeckt).
-- [ ] `data/backups/backup_report.json` zeigt `qdrant_status`.
+      `data/backups/postgres/` **und** `data/backups/minio/`.
 
 ---
 

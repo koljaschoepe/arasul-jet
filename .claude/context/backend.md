@@ -40,7 +40,6 @@
 | LLM (Ollama)     | `http://llm-service:11434`       | Inference                      |
 | LLM management   | `http://llm-service:11436`       | Pull/list/delete models        |
 | Embeddings       | `http://embedding-service:11435` | BGE-M3                         |
-| Qdrant           | `http://qdrant:6333`             | Vector DB                      |
 | MinIO            | `http://minio:9000`              | Object storage                 |
 | Document indexer | `http://document-indexer:9102`   | Ingest pipeline                |
 | Docker proxy     | `tcp://docker-proxy:2375`        | Read-only socket via tecnativa |

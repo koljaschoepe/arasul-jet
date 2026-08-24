@@ -207,11 +207,11 @@ Ein **Workspace** ist die zentrale Arbeitsumgebung: ein Ordner plus ein
 Container mit einem Besitzer und einem **Netzwerkmodus** („Was darf dieser
 Workspace?"):
 
-| Modus              | Zugriff                                           |
-| ------------------ | ------------------------------------------------- |
-| **Abgeschottet**   | Internet ja, Plattform nein (Standard)            |
-| **Am System**      | interne Dienste: Datenbank / MinIO / Qdrant / RAG |
-| **Voller Zugriff** | Infrastruktur, **nur Admins**                     |
+| Modus              | Zugriff                                        |
+| ------------------ | ---------------------------------------------- |
+| **Abgeschottet**   | Internet ja, Plattform nein (Standard)         |
+| **Am System**      | interne Dienste: Datenbank / MinIO / Textlayer |
+| **Voller Zugriff** | Infrastruktur, **nur Admins**                  |
 
 Jeder Workspace hat genau einen unsichtbaren Wissensbereich („Ordner"): dort
 geschriebene Dateien werden **automatisch indiziert** (kein manueller Upload).
@@ -321,7 +321,7 @@ Das System erstellt automatisch taegliche Backups um 02:00 Uhr:
 
 - **PostgreSQL-Datenbank:** Alle Einstellungen, Chats, Benutzer
 - **Dokumente (MinIO):** Alle hochgeladenen Dateien
-- **Vektordaten (Qdrant):** Indexierte Dokumenten-Vektoren
+- **Textlayer (PostgreSQL):** Der ausgelesene Text der Dokumente, in Abschnitten
 
 ### Manuelles Backup
 

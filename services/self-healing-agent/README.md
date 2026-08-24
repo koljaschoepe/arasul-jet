@@ -95,7 +95,7 @@ System-level emergency.
 
 | Category    | Services                                                                   |
 | ----------- | -------------------------------------------------------------------------- |
-| System      | postgres-db, minio, qdrant, reverse-proxy, metrics-collector               |
+| System      | postgres-db, minio, reverse-proxy, metrics-collector                       |
 | Application | llm-service, embedding-service, n8n, dashboard-backend, dashboard-frontend |
 | Self        | document-indexer                                                           |
 

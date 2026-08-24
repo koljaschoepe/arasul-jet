@@ -8,21 +8,21 @@
 
 Root `docker-compose.yml` includes 6 files from `compose/`:
 
-| File                      | Purpose                                              |
-| ------------------------- | ---------------------------------------------------- |
-| `compose.secrets.yaml`    | Docker secrets (passwords, keys as files)            |
-| `compose.core.yaml`       | PostgreSQL, MinIO, Traefik, docker-proxy             |
-| `compose.ai.yaml`         | LLM (Ollama), embedding-service, Qdrant, doc-indexer |
-| `compose.app.yaml`        | Dashboard backend/frontend, n8n                      |
-| `compose.monitoring.yaml` | Metrics, self-healing, backup, loki, promtail        |
-| `compose.external.yaml`   | Cloudflare tunnel (optional, `--profile tunnel`)     |
+| File                      | Purpose                                          |
+| ------------------------- | ------------------------------------------------ |
+| `compose.secrets.yaml`    | Docker secrets (passwords, keys as files)        |
+| `compose.core.yaml`       | PostgreSQL, MinIO, Traefik, docker-proxy         |
+| `compose.ai.yaml`         | LLM (Ollama), embedding-service, doc-indexer     |
+| `compose.app.yaml`        | Dashboard backend/frontend, n8n                  |
+| `compose.monitoring.yaml` | Metrics, self-healing, backup, loki, promtail    |
+| `compose.external.yaml`   | Cloudflare tunnel (optional, `--profile tunnel`) |
 
 **File locations**: `compose/*.yaml` (relative paths inside reference `../services/`, `../config/`, etc.)
 
 **Startup order** (enforced by `depends_on` with `condition: service_healthy`):
 
 1. `postgres-db`, `minio` (core)
-2. `qdrant`, `llm-service`, `embedding-service` (AI)
+2. `llm-service`, `embedding-service` (AI)
 3. `metrics-collector` (monitoring)
 4. `reverse-proxy` (Traefik, waits for postgres + minio)
 5. `dashboard-backend`, `dashboard-frontend`, `n8n` (app)
@@ -129,7 +129,6 @@ All config under `config/traefik/`:
 | reverse-proxy      | 80, 443, 8080 | HTTP/S            | `wget http://localhost:8080/ping`              |
 | llm-service        | 11434 / 11436 | Ollama / Mgmt API | `/healthcheck.sh` (bash)                       |
 | embedding-service  | 11435         | HTTP              | `curl http://localhost:11435/health`           |
-| qdrant             | 6333 / 6334   | HTTP / gRPC       | `test -f /qdrant/storage/raft_state.json`      |
 | document-indexer   | 9102          | HTTP              | `curl http://localhost:9102/health`            |
 | dashboard-backend  | 3001          | HTTP              | `node` inline check on `/api/health`           |
 | dashboard-frontend | 3000          | HTTP (nginx)      | `test -f /usr/share/nginx/html/index.html`     |
@@ -151,7 +150,6 @@ All config under `config/traefik/`:
 | `arasul-minio`             | minio               | Object storage              |
 | `arasul-llm-models`        | llm-service         | Ollama model files          |
 | `arasul-embeddings-models` | embedding-service   | Sentence transformer models |
-| `arasul-qdrant`            | qdrant              | Vector database storage     |
 | `arasul-n8n`               | n8n                 | Workflow data               |
 | `arasul-bm25-index`        | document-indexer    | BM25 search index           |
 | `arasul-metrics`           | metrics-collector   | Metrics cache               |
@@ -217,7 +215,6 @@ Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment v
 | reverse-proxy      | `wget` HTTP      | 10s      | 3s      | 30s          | 3       |
 | llm-service        | bash script      | 30s      | 5s      | 300s         | 3       |
 | embedding-service  | `curl` HTTP      | 30s      | 5s      | 300s         | 3       |
-| qdrant             | file existence   | 10s      | 3s      | 10s          | 3       |
 | document-indexer   | `curl` HTTP      | 30s      | 5s      | 60s          | 3       |
 | dashboard-backend  | `node` inline    | 10s      | 3s      | 10s          | 3       |
 | dashboard-frontend | file existence   | 10s      | 1s      | 15s          | 3       |
@@ -237,7 +234,6 @@ Secrets are mounted at `/run/secrets/<name>` and read via `*_FILE` environment v
 | ---------------------------- | ------- | ------------------ |
 | `RAM_LIMIT_LLM`              | 32G     | llm-service        |
 | `RAM_LIMIT_EMBEDDING`        | 12G     | embedding-service  |
-| `RAM_LIMIT_QDRANT`           | 6G      | qdrant             |
 | `RAM_LIMIT_POSTGRES`         | 4G      | postgres-db        |
 | `RAM_LIMIT_MINIO`            | 4G      | minio              |
 | `RAM_LIMIT_N8N`              | 2G      | n8n                |
@@ -291,7 +287,7 @@ Checklist for adding a Docker service to the platform:
      hostname: my-service
      restart: always
      networks:
-       - arasul-backend   # pick appropriate network(s)
+       - arasul-backend # pick appropriate network(s)
      environment:
        # ... env vars
      healthcheck:

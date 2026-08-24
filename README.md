@@ -39,11 +39,14 @@ Internet (443) → Traefik → Dashboard frontend (React 19 SPA)
                               └─ Self-healing + metrics + backup
 ```
 
-**Not running by default:** `qdrant` and `embedding-service`. Plan 021 (step 8)
-replaced classic vector RAG with agentic RAG — grep, symbol search, and reading
-named files. Both containers sit in the `classic-rag` compose profile and start
-only on request (`docker compose --profile classic-rag up -d qdrant`). Anything
-that claims they are part of the running box is out of date; verify with
+**There is no vector RAG any more.** Plan 021 (step 8) replaced it with
+agentic RAG — grep, symbol search, and reading named files. On 24.08.2026
+`qdrant` was removed along with its code, because three features were failing
+silently instead of reporting that they did nothing. Search now goes through the
+text layer in Postgres (`document_chunks`) and the agent's own tools.
+`embedding-service` keeps running and carries no profile: the OpenAI-compatible
+`/v1/embeddings` endpoint and knowledge-space routing both need it. Anything
+that claims Qdrant is part of the running box is out of date; verify with
 `docker compose ps`.
 
 Full topology, ports, startup order: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
