@@ -4950,17 +4950,43 @@ werden konnte:
 | `--remove-orphans`                       | steht nirgends im Skript                                                                                                                    |
 | Was Compose vorhat                       | `up --dry-run` meldet ausschliesslich `pruef-n8n Creating/Created/Starting/Started`, keinen Stop                                            |
 
-Es bleibt also ein Stop um 02:22:44, der zeitlich mit dem Pruefstand-Start
-zusammenfaellt, nicht ueber den Proxy lief und in Compose' eigener Vorschau
-nicht vorkommt. Der Trockenlauf lief allerdings OHNE `--build`, und genau der
-Bau ist der Teil, der beim echten Lauf dazwischenliegt.
+**Der Lauf mit ungefiltertem `docker events` hat es aufgeloest, und die Antwort
+lautet: es war der Deploy.**
 
-Naechster Schritt: ein Lauf mit `docker events` OHNE Filter, damit die
-Reihenfolge aller Ereignisse sichtbar wird statt nur der drei gesuchten.
+```
+1787531900 container start pruef-n8n
+1787531903 container kill n8n-runners
+1787531904 network disconnect arasul-platform_arasul-backend
+1787531904 container stop n8n-runners
+1787531904 container kill n8n
+```
 
-Was das fuer G5 und den Werksreset heisst, steht damit noch nicht fest. Solange
-der Verursacher unbekannt ist, gilt: der Pruefstand wird nicht gestartet,
-waehrend auf dem Geraet etwas laeuft, das nicht unterbrochen werden darf.
+Die vierte Zeile ist der Beweis. `network disconnect` vom Netz
+`arasul-platform_arasul-backend` heisst, dass der Container im
+PRODUKTIONSPROJEKT neu erstellt wird. Das tut kein Compose-Aufruf mit
+`-p arasul-pruefstand`. Das tut ein Deploy.
+
+Nachgerechnet:
+
+| Stop     | Deploy begann | Abstand    |
+| -------- | ------------- | ---------- |
+| 01:53:38 | 01:52:29      | 69 s       |
+| 02:38:23 | 02:36:42      | 101 s      |
+| 02:22:44 | kein Deploy   | ungeklaert |
+
+Zwei von drei Stops fallen mitten in einen laufenden Deploy. Fuer den dritten
+fehlt der Mitschnitt, weil damals nur nach `kill|stop|die` gefiltert wurde.
+
+**Der Fehler war meiner.** Ich habe Pruefstand-Starts angesetzt, waehrend meine
+eigenen PRs deployt wurden, und die Wirkungen vermischt. Die Regel "keine
+Abnahme waehrend eines Deploys" steht seit Tagen in der UEBERGABE; sie gilt
+auch fuer Versuche, die einen Befund einkreisen sollen.
+
+**Was davon bleibt:** ein Deploy erstellt n8n neu, und das ist richtig so. Das
+Wartungsfenster deckt genau diesen Fall ab — es war nur zu kurz und wurde bei
+sehr kurzen Laeufen gar nicht erst gesehen (siehe oben). Die Zusicherung der
+sieben Trennungen ist NICHT widerlegt: keine Namenskollision, keine
+Netzkollision, getrennte Images, und `up --dry-run` plant keinen Stop.
 
 **Ein zweiter, kleinerer Fehler steckt in meinem eigenen Nachlauf.** Beim
 vierten Versuch hat der Agent das Fenster nie gesehen: der ganze Lauf dauerte
