@@ -5,34 +5,146 @@
     "strang": "gate",
     "titel": "G7 abnehmen und festschreiben: sieben Tage ohne fehlgeschlagenen Heilversuch",
     "abnahme": "bash scripts/test/dauerlauf-bericht.sh",
-    "bedingung": "Urteil GRUEN, Laufzeit mindestens sieben Tage seit dem letzten fehlgeschlagenen Eingriff",
+    "bedingung": "Urteil GRUEN, seit dem letzten fehlgeschlagenen Eingriff mindestens sieben Tage",
     "deckel_minuten": 30,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Zaehlt ab dem letzten FEHLGESCHLAGENEN Versuch, nicht ab jedem Eingriff. Am 24.08.2026 war das der 23.08. 17:01, also frueherstens am 30.08. erfuellbar."
+    "notiz": "Zaehlt ab dem letzten FEHLGESCHLAGENEN Versuch, nicht ab jedem Eingriff. Am 24.08.2026 war das der 23.08. 17:01."
   },
+  {
+    "id": "P0-G7-02",
+    "phase": 0,
+    "strang": "gate",
+    "titel": "Den G7-Beleg mit Datum in die Tagesseite schreiben, samt Befehl zum Nachrechnen",
+    "abnahme": "bash scripts/test/dauerlauf-bericht.sh",
+    "bedingung": "Tagesseite nennt Laufzeit, letzten fehlgeschlagenen Eingriff und den Befehl",
+    "deckel_minuten": 20,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Der Beleg ist am 12.09. zwoelf Tage alt. Das gehoert dazugeschrieben, nicht verschwiegen."
+  },
+
   {
     "id": "P1-G1-01",
     "phase": 1,
     "strang": "gate",
-    "titel": "Volle Abnahme-Reihe als Ausgangsmessung, Ergebnis in die Tagesseite",
+    "titel": "Volle Abnahme-Reihe als Ausgangsmessung",
     "abnahme": "bash scripts/test/abnahmen.sh",
     "bedingung": "alle dreizehn Abnahmen gruen",
     "deckel_minuten": 45,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Am 24.08.2026 zuletzt 13 von 13 gruen. Kein Ergebnis abschreiben, neu messen."
+    "notiz": "Am 24.08.2026 zuletzt 13 von 13. Kein Ergebnis abschreiben, neu messen."
+  },
+  {
+    "id": "P1-G1-02",
+    "phase": 1,
+    "strang": "gate",
+    "titel": "Endpunkte live gegen das Geraet, kein Serverfehler",
+    "abnahme": "python3 scripts/test/endpunkte-live.py",
+    "bedingung": "0 mit Serverfehler",
+    "deckel_minuten": 45,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler. Deshalb live."
   },
   {
     "id": "P1-J13-01",
     "phase": 1,
     "strang": "zielbild",
     "titel": "Bestandsaufnahme: welche Routendatei fasst welche Ressource an, und wer prueft heute owner_id",
-    "abnahme": "node scripts/test/routenregeln.py --bericht || python3 scripts/test/routenregeln.py",
+    "abnahme": "python3 scripts/test/routenregeln.py",
     "bedingung": "eine Liste je Routendatei mit Ressource und vorhandener Rechtepruefung, ohne Codeaenderung",
+    "deckel_minuten": 150,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Reine Bestandsaufnahme. Migration 089 nennt owner_id und space_members. Erst zaehlen, dann bauen."
+  },
+
+  {
+    "id": "P2-G3-01",
+    "phase": 2,
+    "strang": "gate",
+    "titel": "Oberflaechen-Abnahme: die Ansichten ohne Knopf in der Leiste mit aufnehmen",
+    "abnahme": "node scripts/test/oberflaeche-abnahme.mjs",
+    "bedingung": "gruen, dreimal hintereinander",
     "deckel_minuten": 120,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Reine Bestandsaufnahme. Migration 089 nennt owner_id und space_members."
+    "notiz": "Dreimal, weil ein einzelner gruener Lauf am 24.08. einen wandernden Messfehler verdeckt hat."
+  },
+  {
+    "id": "P2-G3-02",
+    "phase": 2,
+    "strang": "gate",
+    "titel": "CI-Waechter fuer die Oberflaeche nachziehen: Bausteine, Einheiten, Namensregister",
+    "abnahme": "bash scripts/test/run-tests.sh",
+    "bedingung": "alle Waechter gruen, Selbsttest bestanden",
+    "deckel_minuten": 90,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Die Waechter decken den Quelltext ab, die Abnahme das Gezeichnete. Beides gehoert zu G3."
+  },
+  {
+    "id": "P2-J13-02",
+    "phase": 2,
+    "strang": "zielbild",
+    "titel": "J13 Schritt 1: Lesepfade gegen owner_id und space_members absichern",
+    "abnahme": "npx jest --config apps/dashboard-backend/jest.config.js",
+    "bedingung": "alle Backend-Tests gruen, je abgesicherter Route ein Test, der den Fremdzugriff ablehnt",
+    "deckel_minuten": 180,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Verweigert wird im Backend. Eine Sichtbarkeitsregel im Frontend ist kein Rechtekonzept."
+  },
+
+  {
+    "id": "P3-G2-01",
+    "phase": 3,
+    "strang": "gate",
+    "titel": "Rueckmeldungs-Abnahme auf jeden Bereich ausweiten, nicht nur Dateien und Erweiterungen",
+    "abnahme": "node scripts/test/rueckmeldung-abnahme.mjs",
+    "bedingung": "gruen, dreimal hintereinander, und kein Rest bleibt liegen",
+    "deckel_minuten": 150,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Die Abnahme vergleicht seit dem 24.08. Texte statt Anzahlen. Wer sie erweitert, behaelt das bei."
+  },
+  {
+    "id": "P3-J13-03",
+    "phase": 3,
+    "strang": "zielbild",
+    "titel": "J13 Schritt 2: Schreibpfade absichern",
+    "abnahme": "npx jest --config apps/dashboard-backend/jest.config.js",
+    "bedingung": "alle Backend-Tests gruen, je Schreibroute ein Test, der den Fremdzugriff ablehnt",
+    "deckel_minuten": 180,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Schreiben ist der Fall, der Daten zerstoert. Lesen war Phase 2."
+  },
+
+  {
+    "id": "P4-G1-01",
+    "phase": 4,
+    "strang": "gate",
+    "titel": "Rest aus dem Feature-Audit 023 sichten und entscheiden, was ohne Kolja machbar ist",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "je uebernommener Aufgabe entweder erledigt und live belegt, oder mit Grund uebersprungen",
+    "deckel_minuten": 120,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Die Liste steht in docs/plans/done/023-feature-audit/. D9-Positivpfad braucht Koljas Schluessel und wird NIE erfragt."
+  },
+  {
+    "id": "P4-J13-04",
+    "phase": 4,
+    "strang": "zielbild",
+    "titel": "J13 Abnahme: ein Skript belegt, dass kein Benutzer die Daten eines anderen sieht",
+    "abnahme": "bash scripts/test/isolation-abnahme.sh",
+    "bedingung": "zwei Benutzer angelegt, jeder sieht nur seine Daten, jeder Fremdzugriff wird abgelehnt",
+    "deckel_minuten": 180,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Das Skript gibt es noch nicht, es entsteht in dieser Aufgabe. Es gehoert danach in abnahmen.sh."
   }
 ]
