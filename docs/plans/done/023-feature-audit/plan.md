@@ -4,7 +4,34 @@
 > desselben Tages (`nachpruefung-2026-08-19.md`, acht Befunde behoben) und die
 > Rückmeldung von Kolja vom 19.08.2026 mit 29 Anmerkungen.
 >
-> Stand: 2026-08-23. Umfang: elf Phasen, 66 Aufgaben, geschätzt 198 Stunden.
+> Stand: 2026-08-23. Umfang: elf Phasen, geschätzt 198 Stunden. Die Zahl der
+> Aufgaben nicht abschreiben, sie steht hier bewusst nicht:
+> `grep -c '^## [A-K][0-9]' plan.md`.
+
+## Abgeschlossen am 24.08.2026
+
+Dieser Plan ist abgeschlossen und nach `docs/plans/done/` gegangen. Der eine
+aktive Plan im Repo ist seither `024-urlaubslauf`.
+
+**Was ihn abschließt.** Neun der elf Phasen sind fertig und live abgenommen,
+zwei laufen nur noch an Aufgaben weiter, die auf etwas warten, das dieser Plan
+nicht herstellen kann: einen Zugangsschlüssel, einen Erstnutzer mit Stoppuhr,
+ein anderes Repo, eine Architekturentscheidung. Sie sind in `024` als
+übernommener Rest gelistet, mit dem Grund je Aufgabe. Ein Plan, dessen offene
+Punkte alle auf jemand anderen warten, ist fertig, nicht laufend.
+
+**Womit er abgeschlossen wird.** Die volle Abnahme-Reihe vom 24.08.2026 gegen
+den Orin. Nicht abschreiben, neu holen: `bash scripts/test/abnahmen.sh`.
+
+**Der Tag, an dem er endete, in drei Sätzen.** Der Indexer startete seit einer
+Versionsanhebung bei jedem Neubau nicht mehr, und niemand hatte es gemerkt, weil
+er nicht neu gebaut wurde; drei PRs schließen das auf drei Ebenen (Code, Deploy,
+CI). Zwei rote Punkte der Abnahme-Reihe waren **Messfehler in den Abnahmen
+selbst**, keine Produktfehler, und die Spur führte zuerst zu zwei unschuldigen
+Abhängigkeiten. Die Lehre daraus steht als Notbremse-Regel in `024`, nicht als
+Erfahrung in einem Kopf.
+
+**Wer den Faden aufnimmt**, liest zuerst `UEBERGABE.md` neben dieser Datei.
 
 ## Stand
 

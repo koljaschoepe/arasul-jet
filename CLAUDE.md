@@ -85,19 +85,21 @@ review checklist, etc.) live under `.claude/context/`.
 
 ## Woran gerade gearbeitet wird
 
-**Wer neu einsteigt, liest zuerst
-[`docs/plans/active/023-feature-audit/UEBERGABE.md`](docs/plans/active/023-feature-audit/UEBERGABE.md).**
-Eine Seite: was gerade auf dem Gerät weiterläuft (auch ohne Sitzung), was bei
-Kolja als Entscheidung liegt, was blockiert ist, und wie man den Stand selbst
-herleitet statt ihn zu erinnern.
+**Der laufende Plan ist [`docs/plans/active/024-urlaubslauf/plan.md`](docs/plans/active/024-urlaubslauf/plan.md).**
+Vierzehn Phasen vom 30.08. bis 12.09.2026, je einmal täglich ausgelöst, dazwischen
+ohne Eingriff. Zwei Stränge je Phase: Gates und Zielbild; wo sie sich berühren,
+gewinnt der Gate-Strang. Der Stand jeder Phase steht in der Tabelle oben im Plan
+selbst, nicht hier.
 
-**Der laufende Plan ist [`docs/plans/active/023-feature-audit/plan.md`](docs/plans/active/023-feature-audit/plan.md).**
-Stand: 22.08.2026. Quelle für jede Zahl unten ist der Plan selbst, nicht diese
-Seite.
-Elf Phasen A bis K, 66 Aufgaben (gezählt, nicht erinnert:
-`grep -c '^## [A-K][0-9]' docs/plans/active/023-feature-audit/plan.md`). Eine Aufgabe gilt erst als erledigt, wenn ihre
-Abnahme live auf dem Orin belegt ist, nicht wenn der Branch gemerged wurde.
-Der Stand jeder Phase steht in der Tabelle ganz oben im Plan selbst.
+Eine Aufgabe gilt erst als erledigt, wenn ihre Abnahme **live auf dem Orin**
+belegt ist, nicht wenn der Branch gemerged wurde.
+
+**Wer neu einsteigt, liest zuerst
+[`docs/plans/done/023-feature-audit/UEBERGABE.md`](docs/plans/done/023-feature-audit/UEBERGABE.md).**
+Sie gehört zum abgeschlossenen Vorgänger, ist aber die einzige Seite, die sagt:
+was auf dem Gerät ohne Sitzung weiterläuft, was bei Kolja als Entscheidung
+liegt, was blockiert ist, und welche acht Fallen einen halben Tag gekostet
+haben. Diese Fallen gelten weiter.
 
 `docs/plans/active/` enthält **genau einen** Plan. Das ist keine Konvention,
 sondern eine Prüfung: `scripts/test/plan-faden.py` schlägt fehl, sobald dort ein
