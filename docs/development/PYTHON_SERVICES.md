@@ -371,13 +371,6 @@ password = os.environ.get('POSTGRES_PASSWORD') or \
 
 ---
 
-## MCP Remote Bash (`services/mcp-remote-bash/`)
-
-**Port:** 8765
-**Role:** Claude Code CLI Proxy für Remote-Bash/Docker-Commands
-
----
-
 ## Debugging
 
 ```bash

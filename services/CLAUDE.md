@@ -16,7 +16,6 @@
 | `backup-service/`     | Scheduled `pg_dump` + restore-drill                  | Bash    |
 | `n8n/`                | Workflow engine + custom nodes                       | TS/n8n  |
 | `postgres/`           | DB image, migrations — **see `postgres/CLAUDE.md`**  | SQL     |
-| `mcp-remote-bash/`    | MCP server (remote bash for Claude Code)             | TS      |
 | `cloudflared/`        | Cloudflare tunnel client                             | config  |
 | `sandbox/`            | Per-user execution sandbox                           | config  |
 
