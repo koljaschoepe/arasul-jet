@@ -118,14 +118,50 @@ blankes `up -d` startet ihn also **nicht** — er wurde am 23.08. ausdrücklich
 mit `--profile classic-rag` gestartet und seither nicht gestoppt. Das ist die
 Handlung eines Menschen, kein Versagen des Mechanismus.
 
-**Warum das über diesen Ordner hinausgeht:** der gesamte technische Beleg
-dafür, dass eine Komponente nicht ausgeliefert wird, ist das Wort `profiles:`
-in einer Compose-Datei. An dieser Aussage hängt eine Zusage in einer
-Vertragsanlage. Die Messung oben zeigt: der Beleg trägt.
+**Zurückgenommen: `profiles:` allein trägt NICHT als Beleg dafür, dass eine
+Komponente nicht ausgeliefert wird.** Hier stand am 24.08. zuerst das Gegenteil,
+gestützt auf die Messung oben. Sie ist richtig, beantwortet aber die falsche
+Frage: **ein Kundengerät startet nicht mit `docker compose up -d`.** Es startet
+über `packaging/arasul-platform/etc/systemd/system/arasul-platform.service`,
+das `scripts/system/ordered-startup.sh` aufruft — und dieses Skript nennt
+Dienste **namentlich**:
 
-Dieselbe Messung sagt aber auch, dass **`n8n` und `n8n-runners` in der blanken
-Liste stehen** — sie werden heute ausgeliefert und gestartet. Wer sie hinter
-ein Profil legt, kann sich auf denselben Mechanismus verlassen.
+```
+PHASE2_SERVICES="qdrant llm-service embedding-service"
+PHASE3_SERVICES="dashboard-backend dashboard-frontend n8n reverse-proxy"
+```
+
+Ein namentlich genannter Dienst aktiviert sein Profil **implizit**. Am
+24.08.2026 auf dem Orin gegen Compose 5.0.1 nachgemessen, mit `qdrant`, weil er
+nicht läuft und der Fall damit sauber ist:
+
+```
+docker compose config --services | grep -c '^qdrant$'   → 0     (nicht in der Liste)
+docker compose --dry-run up -d qdrant                   → Container qdrant Creating
+                                                          Container qdrant Created
+                                                          Container qdrant Starting
+```
+
+**Folge für Issue 686:** ein `profiles:` am n8n-Dienst allein ändert am
+Auslieferungszustand nichts, solange `n8n` in `PHASE3_SERVICES` steht. Der
+Auftrag braucht **beides** — das Profil **und** die Streichung aus
+`PHASE3_SERVICES`. Wer nur das Profil setzt und die Zusage in der Vertragsanlage
+für eingelöst hält, irrt.
+
+**Und ein Befund, der schwerer wiegt als der Anlass:** auf dem Orin ist
+`arasul-platform.service` **weder aktiv noch installiert**.
+
+```
+systemctl list-unit-files arasul-platform.service   → 0 unit files listed
+/etc/systemd/system/arasul-platform.service         → existiert nicht
+/opt/arasul                                          → existiert
+laufende Dienste kommen aus                          → /home/arasul/arasul/arasul-jet/docker-compose.yml
+```
+
+Der vorgesehene Auslieferungs-Startweg ist auf dem einzigen physisch
+vorhandenen Gerät **nie gelaufen**. Das ist eine M1-Frage, keine Lizenzfrage —
+und sie betrifft G7: der Dauerlauf-Nachweis entsteht auf einem Gerät, das nicht
+so startet, wie ein Kundengerät starten würde.
 
 Er ist damit auch der Grund für eine der sechs Außenverbindungen oben
 (cloudfront, also huggingface). Die Abnahme führt ihn korrekt als deklariertes
