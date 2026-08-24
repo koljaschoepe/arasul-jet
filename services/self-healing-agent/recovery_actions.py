@@ -211,16 +211,25 @@ class RecoveryActionsMixin:
             )
             logger.info(f"Container cleanup: {result.stdout.decode()}")
 
+            # Dasselbe Argument, kleinere Menge: 461 Images, davon 51 GB
+            # rueckgewinnbar (24.08.2026).
             logger.info("Pruning dangling images only (tagged images preserved)")
             subprocess.run(
                 ['docker', 'image', 'prune', '-f'],
-                capture_output=True, timeout=60
+                capture_output=True, timeout=300
             )
 
+            # Zeitgrenze grosszuegig: der Build Cache ist der groesste Posten,
+            # den diese Aufraeumung anfasst. Am 24.08.2026 auf dem Orin gemessen:
+            # 159,4 GB in 2576 Eintraegen. Sechzig Sekunden waren dafuer
+            # geschaetzt, nicht gemessen — und laeuft die Grenze ab, wirft
+            # `subprocess` eine Ausnahme, der ganze Block landet im `except`,
+            # und die Platte bleibt voll. Ein zu knapper Deckel scheitert
+            # ausgerechnet dann, wenn am meisten zu tun ist.
             logger.info("Cleaning Docker build cache")
             subprocess.run(
                 ['docker', 'builder', 'prune', '-af'],
-                capture_output=True, timeout=60
+                capture_output=True, timeout=900
             )
 
             if self.connection_pool:
