@@ -5024,6 +5024,17 @@ Volllast erzeugt. Das ist es nicht wert, solange der Nachlauf die Folge
 abfaengt. Wer die Frage doch schliessen will, findet in
 `logs/n8n-healthz.log` den Beobachter dafuer beschrieben.
 
+**Gegenprobe am 24.08.2026, 07:08:** die volle Abnahme-Reihe unter den neuen
+Regeln. Dreizehn Abnahmen, 201 Pruefpunkte, alles gruen — darunter `chat`
+20/20 und `modell-link` 10/10, also genau die beiden, die `OLLAMA_NO_CLOUD`
+haette brechen koennen. Waehrend der 25 Minuten voller Last (GPU-Chat,
+Dokumente, Modelle, Browser) hat die Selbstheilung **kein einziges Mal**
+eingegriffen, und kein Dienst wurde ungesund.
+
+Das ist die andere Haelfte des Nachweises: das Wartungsfenster setzt nicht zu
+viel aus. Ein Schutz, der auch echte Ausfaelle verschluckt, waere schlimmer
+als keiner.
+
 **Was das fuer den G7-Zaehler heisst.** Der Dauerlauf-Bericht misst nicht nur
 Laufzeit, sondern auch, ob seit dem letzten Neustart eine Selbstheilung
 fehlgeschlagen ist. Am 23.08.2026 um 17:01 gab es den letzten solchen
