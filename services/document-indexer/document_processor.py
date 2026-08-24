@@ -574,8 +574,11 @@ def run_indexing_pipeline(
     # knowledge base is incomplete and should be re-indexed. Previously this was
     # silently reported as fully 'indexed'.
     if chunk_count and chunk_count > 0:
-        final_status = 'partial' if index_stats.get('skipped_chunks', 0) > 0 else 'indexed'
-        db.update_document_status(doc_id, final_status, chunk_count=chunk_count)
+        # Frueher gab es hier 'partial': einzelne Chunks konnten am Einbetten
+        # scheitern, waehrend andere durchkamen. Ohne Vektorzweig (24.08.2026)
+        # gibt es diesen Fall nicht mehr — geschrieben wird der Textlayer, und
+        # der geht ganz oder gar nicht.
+        db.update_document_status(doc_id, 'indexed', chunk_count=chunk_count)
     else:
         db.update_document_status(
             doc_id, 'failed',
@@ -658,9 +661,9 @@ def schreibe_textlayer(
 
     Hiess bis zum 24.08.2026 `_index_to_qdrant` und tat zweierlei: sie schrieb
     den Textlayer nach Postgres UND Vektoren nach Qdrant. Der Qdrant-Zweig lag
-    seit Plan 021 Schritt 8 hinter `INDEXER_EMBEDDING_ENABLED`, das auf dem
-    Geraet auf `false` steht — er lief also seit Monaten nicht mehr. Mit dem
-    Ausbau von Qdrant am 24.08.2026 ist er ersatzlos entfallen.
+    seit Plan 021 Schritt 8 hinter einem Schalter, der auf dem Geraet auf
+    `false` stand — er lief also seit Monaten nicht mehr. Mit dem Ausbau von
+    Qdrant am 24.08.2026 ist er ersatzlos entfallen.
 
     Geblieben ist das Muster des Parent-Document-Retrievers, weil der
     agentische Pfad es nutzt: grosse Eltern-Chunks fuer den Zusammenhang,

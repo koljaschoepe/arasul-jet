@@ -135,7 +135,6 @@ anrichten koennte, ist eine Anreicherung, die hoechstens
 | MINIO_ROOT_PASSWORD            | (required)        | MinIO secret key                                                   |
 | EMBEDDING_SERVICE_HOST         | embedding-service | Embedding service host                                             |
 | EMBEDDING_SERVICE_PORT         | 11435             | Embedding service port                                             |
-| EMBEDDING_VECTOR_SIZE          | 768               | Vector dimension                                                   |
 | POSTGRES_HOST                  | postgres-db       | Database host                                                      |
 | POSTGRES_PORT                  | 5432              | Database port                                                      |
 | POSTGRES_USER                  | arasul            | Database user                                                      |

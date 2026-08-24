@@ -61,7 +61,6 @@ Flask APIs (except metrics-collector which uses aiohttp). Each service has a
 | GET    | `/documents/<id>/similar` | Find similar documents                 |
 | GET    | `/categories`             | List document categories               |
 | POST   | `/scan`                   | Trigger MinIO scan                     |
-| POST   | `/search`                 | Semantic search                        |
 | POST   | `/extract-entities`       | Extract entities from text             |
 | POST   | `/extract-document`       | Extract entities from a document       |
 | POST   | `/bm25/search`            | BM25 keyword search                    |
@@ -71,7 +70,6 @@ Flask APIs (except metrics-collector which uses aiohttp). Each service has a
 | GET    | `/refine-graph/status`    | Graph refinement status                |
 | POST   | `/decompound`             | German compound word splitting         |
 | POST   | `/spellcheck`             | Spell correction                       |
-| POST   | `/sparse-encode`          | Sparse vector encoding                 |
 
 ### Pipeline
 

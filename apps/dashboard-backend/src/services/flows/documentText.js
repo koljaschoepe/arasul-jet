@@ -34,8 +34,7 @@ const MAX_ZEICHEN = 16000;
  * @param {number} [p.maxZeichen] - Zeichen-Budget; darüber wird gekürzt.
  * @param {string[]|null} [p.spaceIds] - Optionaler Wissensraum-Zuschnitt. Ist
  *   eine nicht-leere Liste gesetzt, wird die Suche auf diese Räume (plus
- *   nicht zugeordnete Dokumente) beschränkt — spiegelt die Qdrant-Filter-Logik
- *   in `ragCore.buildSpaceFilter` und verhindert, dass bei gleich benannten
+ *   nicht zugeordnete Dokumente) beschränkt und verhindert, dass bei gleich benannten
  *   Dateien in mehreren Projekten still der Inhalt eines fremden Projekts
  *   eingespeist wird (F-07). Ohne Liste (null/[]) wird projektübergreifend
  *   gesucht — das bisherige Flow-Verhalten.
@@ -65,9 +64,8 @@ async function ladeDokumentText(
     // Ein Dokument über seinen Dateinamen suchen — optional auf Räume zugeschnitten.
     // Space-Zuschnitt: die genannten Räume ODER nicht zugeordnete Dokumente
     // (space_id IS NULL). `documents.space_id` ist eine UUID-Spalte — sie ist
-    // nie der Leerstring (anders als der Qdrant-Payload in buildSpaceFilter, der
-    // untypisiert ist); ein `= ''`-Zweig ließe die Query am UUID-Typ-Coercion
-    // scheitern. Array-Cast `::uuid[]` wie das etablierte Muster in routes/rag.js.
+    // nie der Leerstring; ein `= ''`-Zweig ließe die Query am UUID-Typ-Coercion
+    // scheitern. Array-Cast `::uuid[]`.
     const sucheDoc = async withScope => {
       const scopeKlausel = withScope ? ` AND (space_id = ANY($2::uuid[]) OR space_id IS NULL)` : '';
       const r = await query(

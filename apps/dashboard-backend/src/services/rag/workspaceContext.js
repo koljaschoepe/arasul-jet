@@ -174,7 +174,7 @@ async function removePin(userId, pinId) {
 }
 
 /**
- * Löst die Pins eines Nutzers in Qdrant-Filter-Bausteine auf:
+ * Löst die Pins eines Nutzers in Filter-Bausteine für die Suche auf:
  *  - spaceIds:    Ordner-Pins zu ihren Teilbäumen expandiert
  *  - documentIds: direkt angeheftete Dokumente
  */

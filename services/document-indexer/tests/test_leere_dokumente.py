@@ -13,12 +13,6 @@ Gefunden beim Import einer echten 1-GB-Kundenablage (2026-08-18). Fuenf von
   contain NUL (0x00) characters") — Postgres nimmt in ``text`` alles ausser
   0x00 an, der Parser lieferte sie mit.
 
-Dazu der dritte Fall: ``calculate_similarities`` haengt an
-``ENABLE_SIMILARITY``, nicht am Embedding-Flag. Mit abgeschaltetem Vektor-Zweig
-(``INDEXER_EMBEDDING_ENABLED=false``) ist ``QdrantManager.client`` ``None``, und
-die Methode lief pro Dokument in ein „'NoneType' object has no attribute
-'scroll'".
-
 Die Tests stubben die schweren Geschwister-Module, damit sie ohne PyMuPDF,
 spacy & Co. laufen.
 """
@@ -138,6 +132,3 @@ def test_nicht_parsebares_dokument_bleibt_failed():
     ergebnis, db = _pipeline(None, filename='kaputt.pdf')
     assert db.calls == [('failed', 'Failed to parse document')]
     assert ergebnis is None
-
-
-# --- Similarity ohne Qdrant ---------------------------------------------------

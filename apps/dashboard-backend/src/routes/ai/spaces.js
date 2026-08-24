@@ -45,7 +45,6 @@ const services = require('../../config/services');
 // Cache configuration
 const CACHE_KEY_SPACES = 'spaces:list';
 
-// Qdrant configuration for space-deletion vector sync
 const CACHE_TTL_SPACES = 30000; // 30 seconds
 
 /**
@@ -837,7 +836,7 @@ router.get(
  * PUT /api/spaces/:id/context-file
  * Kontextdatei eines Ordners anlegen oder aktualisieren (Upsert).
  * Kontextdateien bekommen status 'context' — der Document-Indexer pollt nur
- * 'pending' und überspringt sie damit (kein Qdrant-Index, kein RAG-Zitat).
+ * 'pending' und überspringt sie damit (kein Textlayer, kein Zitat).
  */
 router.put(
   '/:id/context-file',

@@ -312,8 +312,9 @@ async function getRecommendedModel() {
  * Auf einem Xavier NX empfahl der Einrichtungsassistent damit `phi3:mini`, ein
  * Modell, das im Katalog nicht steht und also nicht geladen werden kann. Bei
  * `bge-m3` ist es kein Tippfehler, sondern ein Rest: Plan 021 Schritt 8 hat das
- * klassische Vektor-RAG abgeloest, `embedding-service` und `qdrant` liegen
- * seither im Compose-Profil `classic-rag` und laufen nicht.
+ * klassische Vektor-RAG abgeloest, und am 24.08.2026 ist Qdrant ganz
+ * ausgebaut worden. Der `embedding-service` laeuft weiter, aber das Modell
+ * steht nicht im Katalog.
  *
  * Statt die Karte von Hand nachzupflegen, faellt eine Kennung, die der Katalog
  * nicht kennt, auf den Standard ihrer Aufgabe zurueck (`is_task_default`, seit

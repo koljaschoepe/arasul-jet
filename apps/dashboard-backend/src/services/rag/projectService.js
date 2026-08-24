@@ -7,8 +7,8 @@
  * space_ids die RAG-Suche läuft. Einzel-Admin → das aktive Projekt ist eine
  * app-weite Singleton-Einstellung (system_settings.id = 1).
  *
- * Kein Qdrant-Re-Index nötig: Scoping bleibt ein space_id-Set im Qdrant-Filter;
- * ein Projekt löst sich zur Laufzeit in die space_ids seiner Ordner auf.
+ * Kein Re-Index nötig: Scoping bleibt ein space_id-Set, und ein Projekt löst
+ * sich zur Laufzeit in die space_ids seiner Ordner auf.
  */
 
 const db = require('../../database');
@@ -170,7 +170,7 @@ async function updateProject(id, patch) {
 /**
  * Projekt löschen. Nicht erlaubt für das Standard-Projekt oder solange es noch
  * Ordner enthält (der Nutzer räumt erst auf — kein stilles Mitreißen von
- * Ordnern/Dokumenten/Qdrant-Vektoren). War es das aktive Projekt, wird danach
+ * Ordnern und Dokumenten). War es das aktive Projekt, wird danach
  * das Standard-Projekt aktiv.
  */
 async function deleteProject(id) {

@@ -12,7 +12,7 @@
  *
  * Business logic is delegated to service files:
  * - services/documents/minioService.js — MinIO operations
- * - services/documents/documentService.js — Orchestration (DB + MinIO + Qdrant)
+ * - services/documents/documentService.js — Orchestration (DB + MinIO)
  */
 
 const express = require('express');

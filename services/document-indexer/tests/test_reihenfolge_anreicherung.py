@@ -32,7 +32,7 @@ def _quelltext():
 def test_status_wird_vor_der_ki_analyse_gesetzt():
     """`indexed` steht, bevor das Sprachmodell ueberhaupt gefragt wird."""
     text = _quelltext()
-    status_pos = text.index("update_document_status(doc_id, final_status")
+    status_pos = text.index("update_document_status(doc_id, 'indexed'")
     analyse_pos = text.index("reichere_an(")
     assert status_pos < analyse_pos, (
         "Die KI-Analyse laeuft wieder VOR dem Statuswechsel. Damit ist ein "
