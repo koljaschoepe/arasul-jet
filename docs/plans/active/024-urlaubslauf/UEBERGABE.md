@@ -145,6 +145,41 @@ auf einem Gerät, auf dem ein Dienst läuft, den ein Kundengerät nicht hätte.
 
 ---
 
+## 2d. G6 ist belegt, mit einer klar benannten Grenze
+
+Der Wiederherstellungs-Drill läuft **sonntags 04:00**. Der nächste Lauf wäre der
+30.08. gewesen — also genau der Tag, an dem Phase 0 startet. Die Reparaturen an
+ihm stammen vom 24.08. nachts (#625, #627) und wären dort **zum ersten Mal**
+gelaufen. Das ist der schlechteste denkbare Zeitpunkt für einen ersten Lauf,
+deshalb am 24.08. 15:16 von Hand ausgelöst:
+
+```
+OK:   documents = 2222 rows
+OK:   document_chunks = 37586 rows
+OK:   n8n.workflow_entity = 2 rows
+OK:   arasul.flow_runs = 119 rows
+Schemas im Betrieb: arasul n8n public
+Schemas im Abzug:   arasul n8n public
+OK:   Flow-Archiv lesbar (9 Flow-Dateien)
+Drill OK in 49s (verified=11, flows=ok)
+```
+
+Der Schemavergleich in den letzten beiden Zeilen **ist** die Reparatur: vorher
+hätte der Drill ein im Abzug fehlendes Schema nicht bemerkt. Er läuft, und die
+Sicherung von heute 02:00 ist wiederherstellbar.
+
+Gefahrlos, weil der Drill in einem **eigenen** Postgres-Container mit eigenem
+Namen und zufälligem Port arbeitet (`DRILL_DB=arasul_drill`) und die
+Produktions-Datenbank nur lesend anfasst — für den Schemavergleich.
+
+**Die Grenze, und sie gehört zum Beleg:** verifiziert werden **11 kritische
+Tabellen**, nicht alle. Der Phasenvorschlag legt „über alle 206 Tabellen" auf
+Phase 6 — das bleibt dort und wird hier nicht vorweggenommen. Was jetzt belegt
+ist: der Drill läuft, findet ein fehlendes Schema, und die letzte Sicherung
+trägt.
+
+---
+
 ## 3. Was der Trockenlauf gleich gefunden hat
 
 Erwähnenswert, weil es die Mechanik rechtfertigt: `phasenlauf-test.mjs` hat beim
