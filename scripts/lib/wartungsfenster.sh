@@ -45,10 +45,24 @@ wartung_an() {
   printf '%s %s\n' "$(date -Iseconds)" "${WARTUNG_GRUND:-wartung}" > "$WARTUNG_DATEI" 2>/dev/null || true
 }
 
+# Beendet das Fenster, LOESCHT die Datei aber nicht, sondern schreibt einen
+# Endzeitpunkt hinein. Der Grund steht in der Selbstheilung: der Agent prueft
+# alle zehn Sekunden, und am 24.08.2026 lag ein ganzer Vorgang dazwischen (27
+# Sekunden gesamt, das Fenster davon nur wenige). Er hat das Fenster nie
+# gesehen, also lief auch kein Nachlauf, und er griff siebzehn Sekunden spaeter
+# zu. Ausgerechnet die kurzen Vorgaenge waren damit ungeschuetzt.
+#
+# Mit dem Endzeitpunkt in der Datei braucht er das Fenster nicht gesehen zu
+# haben: er liest, wann es zu war, und rechnet den Nachlauf ab da. Liegen
+# bleibt die Datei ohne Schaden — der naechste `wartung_an` ueberschreibt sie,
+# und der Deckel aus SELFHEAL_WARTUNG_MAX_MINUTEN greift unabhaengig davon.
 wartung_aus() {
   [ -n "${WARTUNG_HERZ:-}" ] && kill "$WARTUNG_HERZ" 2>/dev/null
   WARTUNG_HERZ=''
-  [ -n "${WARTUNG_DATEI:-}" ] && rm -f "$WARTUNG_DATEI" 2>/dev/null
+  if [ -n "${WARTUNG_DATEI:-}" ] && [ -f "$WARTUNG_DATEI" ]; then
+    printf '%s %s ende=%s\n' "$(date -Iseconds)" "${WARTUNG_GRUND:-wartung}" "$(date +%s)" \
+      > "$WARTUNG_DATEI" 2>/dev/null || true
+  fi
   return 0
 }
 

@@ -188,6 +188,27 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
         Temperaturschutz, der sich beim Bauen abschaltet, waere genau
         verkehrt herum gebaut.
         """
+        # Steht ein `ende=` in der Datei, ist das Fenster zu und der Nachlauf
+        # laeuft ab genau diesem Zeitpunkt. Das ist der Fall, den der Agent
+        # sonst verpasst: dauert ein Vorgang weniger als einen Takt, hat er das
+        # Fenster nie offen gesehen, und ohne diesen Wert gaebe es keinen
+        # Nachlauf (24.08.2026, siehe scripts/lib/wartungsfenster.sh).
+        ende = self._wartungsende()
+        if ende is not None:
+            seit = time.time() - ende
+            if seit < WARTUNG_NACHLAUF_SEKUNDEN:
+                if not self._wartung_gemeldet:
+                    logger.info(
+                        f"Wartung eben beendet ({self._wartungsgrund()}), "
+                        f"noch {int(WARTUNG_NACHLAUF_SEKUNDEN - seit)}s Nachlauf"
+                    )
+                    self._wartung_gemeldet = True
+                return True
+            if self._wartung_gemeldet:
+                logger.info("Nachlauf vorbei, Kategorie A ist wieder scharf")
+                self._wartung_gemeldet = False
+            return False
+
         try:
             alter = time.time() - os.path.getmtime(WARTUNGSDATEI)
         except OSError:
@@ -231,6 +252,26 @@ class SelfHealingEngine(DatabaseMixin, RecoveryActionsMixin, CategoryHandlersMix
             )
             self._wartung_gemeldet = True
         return True
+
+    def _wartungsende(self):
+        """Der Zeitpunkt aus `ende=` in der Wartungsdatei, sonst None.
+
+        `None` heisst NICHT "kein Wartungsfenster", sondern nur "kein Ende
+        vermerkt" — also entweder laeuft es noch, oder es gibt keine Datei.
+        Beides entscheidet der Aufrufer.
+        """
+        try:
+            with open(WARTUNGSDATEI, encoding='utf-8') as datei:
+                zeile = datei.readline()
+        except OSError:
+            return None
+        for stueck in zeile.split():
+            if stueck.startswith('ende='):
+                try:
+                    return float(stueck[5:])
+                except ValueError:
+                    return None
+        return None
 
     def _wartungsgrund(self) -> str:
         """Die zweite Spalte der Wartungsdatei, oder eine ehrliche Auskunft.
