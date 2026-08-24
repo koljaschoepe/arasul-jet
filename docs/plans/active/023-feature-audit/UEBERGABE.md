@@ -211,6 +211,66 @@ startet.
 
 ---
 
+## 2d. Vorarbeit: die 1058 Selbstheilungs-Eingriffe sind nicht, wonach sie aussehen
+
+Am 24.08.2026 gemessen, weil die Zahl als „6,3 Eingriffe pro Stunde" gelesen
+wurde. Sie ist keine Rate, sie sind zwei Spitzen und ein Rest, und zwei der drei
+Ursachen sind bereits behoben.
+
+### Wer die Eingriffe verursacht hat
+
+| Dienst                                                                                      |     Eingriffe (7 Tage) | letzter          | Stand                                                                                                                                       |
+| ------------------------------------------------------------------------------------------- | ---------------------: | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pruef-llm-service` und andere `pruef-*`                                                    |                    317 | **23.08. 04:32** | erledigt: der Agent überwachte jeden Container des Hosts, auch den Prüfstand. Seit dem Projekt-Filter (`config.py`, `COMPOSE_PROJECT`) null |
+| `n8n` und `n8n-runners`, davon `service_escalation`                                         |                    562 | **23.08. 17:01** | erledigt: Eskalations-Spam, seit der Entprellung in #610 null                                                                               |
+| `n8n`, echte Neustarts (`service_restart`, `service_stop_start`, `service_recovery_failed`) |                     43 | 24.08. 02:43     | **offen, das ist der Kern**                                                                                                                 |
+| alles übrige (`document-indexer`, `llm-service`, `dashboard-backend`, …)                    | ~136, davon 0 kritisch | laufend          | Rauschen, kein Befund                                                                                                                       |
+
+Pro Tag gezählt sieht man dasselbe: 19.08. **556** (317 Prüfstand, 227 n8n),
+23.08. **256** (234 n8n), 24.08. bis mittags **19**. Wer die 1058 durch 168
+Stunden teilt, rechnet mit einer Rate, die es nie gab.
+
+```sql
+SELECT to_char(timestamp AT TIME ZONE 'Europe/Berlin','DD.MM.') AS tag, COUNT(*),
+       COUNT(*) FILTER (WHERE service_name LIKE 'pruef-%') AS pruefstand,
+       COUNT(*) FILTER (WHERE service_name LIKE 'n8n%')    AS n8n
+FROM self_healing_events WHERE timestamp > NOW() - INTERVAL '8 days'
+GROUP BY 1 ORDER BY MIN(timestamp);
+```
+
+### Drei Hypothesen zum offenen Rest, alle drei widerlegt
+
+Damit die nächste Phase sie nicht noch einmal verfolgt:
+
+1. **„Das nächtliche Backup um 02:00 drückt n8n unter Wasser."** Nein. Die
+   Neustarts verteilen sich auf die Stunden 21 bis 00 (7, 6, 6, 4) und nur 4 auf
+   die Stunde 02. Das ist die Zeit, in der am Gerät gearbeitet wurde, kein
+   Zeitplan.
+2. **„Der Healthcheck-Timeout von 2 s ist zu knapp."** Nein. `healthcheck-luft.sh`
+   misst für n8n Median **0,036 s** und Max **0,119 s** — 6 % der Grenze. Von
+   Last kippt da nichts.
+3. **„Es ist Last allgemein."** Nein. n8n hat als **einziger** Dienst überhaupt
+   Fehlschläge: **2 von 477 Proben**. Alle anderen vierzehn Dienste stehen bei 0.
+
+### Was daraus für Phase 5 folgt
+
+Die Frage ist nicht „warum wird n8n unter Last langsam", sondern **„warum
+antwortet n8n gelegentlich gar nicht"**. Es ist kein Zeitproblem, sondern ein
+Aussetzer: sonst 0,036 s, und dann nichts. Zwei Spuren, die dazu passen und
+noch nicht verfolgt sind:
+
+- Die Anmeldedrossel von n8n. Sie hat schon einmal zugeschlagen: nach vier
+  Klicks war der Automationen-Tab weg (Phase H). Ein gedrosselter `/healthz`
+  würde genau so aussehen.
+- `n8n-runners` stirbt mit, aber nie zuerst — in jedem Ereignispaar steht `n8n`
+  vor `n8n-runners`. Der Runner ist Folge, nicht Ursache.
+
+Zielgröße, falls eine gebraucht wird: **null fehlgeschlagene Heilversuche**
+zählt für G7, nicht null Eingriffe. Ein erfolgreicher Neustart setzt den Zähler
+nicht zurück.
+
+---
+
 ## 3. Was bei Kolja liegt, nicht bei der nächsten Sitzung
 
 **Neu am 24.08.2026, mit Frist: der Tailscale-Schlüssel des Arbeitsgeräts läuft
