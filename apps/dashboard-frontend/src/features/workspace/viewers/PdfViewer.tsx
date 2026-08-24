@@ -5,7 +5,12 @@
  * <canvas> — KEIN <iframe>/<object> (die CSP verbietet `frame-src blob:` /
  * `object-src`), KEIN CDN (Worker selbst gehostet über Vites `?worker`).
  *
- * `isEvalSupported: false`, weil die Edge-CSP kein `unsafe-eval` erlaubt.
+ * Bis pdfjs-dist 4 stand hier `isEvalSupported: false`, weil die Edge-CSP kein
+ * `unsafe-eval` erlaubt. Ab 6 gibt es die Option nicht mehr, und sie wird auch
+ * nicht gebraucht: in `build/pdf.mjs` und `build/pdf.worker.mjs` steht weder
+ * `eval(` noch `new Function` (am 24.08.2026 gezaehlt, je 0). Der eine Treffer,
+ * den eine Textsuche im Worker findet, ist `new FunctionBasedShading` — ein
+ * Klassenname.
  * Lazy geladen (pdf.js ist schwer). Das PDF wird EINMAL geparst (Document in
  * einer Ref); Zoom zeichnet nur neu, ohne erneutes Parsen.
  *
@@ -45,6 +50,8 @@ export default function PdfViewer({
   const api = useApi();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pdfRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  // Der Ladevorgang bleibt erreichbar, weil nur er ein destroy() hat.
+  const ladeTaskRef = useRef<pdfjsLib.PDFDocumentLoadingTask | null>(null);
   // Jeder Lade-Lauf bekommt eine Generation; alles Ältere gilt als veraltet.
   const genRef = useRef(0);
   const [docGen, setDocGen] = useState(0);
@@ -58,7 +65,11 @@ export default function PdfViewer({
     const myGen = ++genRef.current;
     const ac = new AbortController();
     // Alt-Document sofort freigeben — die neue Generation übernimmt.
-    void pdfRef.current?.destroy();
+    // Freigegeben wird über den Ladevorgang: `PDFDocumentProxy.destroy()` gibt
+    // es ab pdfjs-dist 6 nicht mehr, nur noch `PDFDocumentLoadingTask.destroy()`
+    // (und das zerstört das Document mit).
+    void ladeTaskRef.current?.destroy();
+    ladeTaskRef.current = null;
     pdfRef.current = null;
     setStatus('laedt');
     setSeiten(0);
@@ -75,12 +86,13 @@ export default function PdfViewer({
         );
         const buf = await res.arrayBuffer();
         if (genRef.current !== myGen) return;
-        loadingTask = pdfjsLib.getDocument({ data: buf, isEvalSupported: false });
+        loadingTask = pdfjsLib.getDocument({ data: buf });
         const pdf = await loadingTask.promise;
         if (genRef.current !== myGen) {
-          void pdf.destroy();
+          void loadingTask.destroy();
           return;
         }
+        ladeTaskRef.current = loadingTask;
         pdfRef.current = pdf;
         setSeiten(pdf.numPages);
         setStatus('bereit');
@@ -103,7 +115,8 @@ export default function PdfViewer({
   // Beim endgültigen Unmount das zuletzt geparste Document freigeben.
   useEffect(() => {
     return () => {
-      void pdfRef.current?.destroy();
+      void ladeTaskRef.current?.destroy();
+      ladeTaskRef.current = null;
       pdfRef.current = null;
     };
   }, []);
@@ -140,8 +153,11 @@ export default function PdfViewer({
           canvas.className = 'mx-auto mb-3 border border-border bg-white shadow-sm';
           if (veraltet()) return;
           container.appendChild(canvas);
+          // v6 nimmt das Canvas selbst. `canvasContext` gibt es noch, aber nur
+          // rueckwaertskompatibel und dann mit `canvas: null` — der empfohlene
+          // Weg ist das Canvas.
           const task = page.render({
-            canvasContext: ctx,
+            canvas,
             viewport,
             transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : undefined,
           });
