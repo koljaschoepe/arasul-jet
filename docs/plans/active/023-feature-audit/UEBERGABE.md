@@ -20,8 +20,8 @@ braucht, holt sie aus der Live-Quelle: die Befehle stehen jeweils daneben.
 | Nächtlicher Lauf (`scripts/util/nightly-run.sh`)  | launchd auf dem Mac, 02:30                        | Chat-Ende                                       |
 | Nächtlicher Wiederherstellungs-Drill              | `backup-service` auf dem Gerät                    | alles                                           |
 
-**Stand der Nacht auf den 24.08.2026, 01:30:** zwanzig PRs (#610 bis #629),
-alle gemergt, `main` grün, keine PR offen. Alle dreizehn Abnahmen grün (201
+**Stand der Nacht auf den 24.08.2026, 03:40:** neunundzwanzig PRs (#610 bis
+#638), alle gemergt, `main` grün, keine PR offen. Alle dreizehn Abnahmen grün (201
 Prüfpunkte), 192 Endpunkte ohne Serverfehler.
 
 **Zwei Messungen laufen und beantworten je eine offene Frage:**
@@ -189,7 +189,7 @@ wurde. Dazu eine zerstörende Abnahme, die vom Arbeitsrechner aus auf das
 Produktionsgerät zielte, und ein „Fabrikzustand", der das Konto des
 Arbeitsgeräts trug.
 
-## 6. Vier Fallen, die einen halben Tag gekostet haben
+## 6. Fünf Fallen, die einen halben Tag gekostet haben
 
 Sie stehen in den Kommentaren der jeweiligen Skripte, aber wer neu anfängt,
 sollte sie kennen.
@@ -199,13 +199,28 @@ sollte sie kennen.
    deshalb monatelang nur EIN Ziel geprüft.
 2. **`ssh -n` und ein Heredoc schließen sich aus.** `-n` leitet stdin von
    `/dev/null`, also kommt eine leere Datei an.
-3. **Ein Beobachter braucht eine Gegenprobe.** Der Ausgang-Lauscher meldete
+3. **Eine Messung braucht Abstand.** In der Nacht auf den 24.08.2026 habe ich
+   dreimal einen eigenen Schluss zurücknehmen müssen, und jedes Mal war die
+   Ursache dieselbe Sorte Fehler:
+
+   | Was ich sagte                             | Was stimmte                                  |
+   | ----------------------------------------- | -------------------------------------------- |
+   | „Der Nachlauf wirkt, null Eingriffe"      | um 00:34 gemessen, der Eingriff kam 00:34:17 |
+   | „Der Prüfstand stoppt Produktionsdienste" | belegt war nur, **dass** sie stoppen         |
+   | „Der Prüfstand war es"                    | es war mein eigener paralleler Deploy        |
+
+   Die Regel „keine Abnahme während eines Deploys" steht seit Tagen hier. Sie
+   gilt auch für Versuche, die einen Befund einkreisen sollen — gerade für die,
+   denn dort ist die Versuchung am größten, das erste passende Muster für die
+   Antwort zu halten.
+
+4. **Ein Beobachter braucht eine Gegenprobe.** Der Ausgang-Lauscher meldete
    anderthalb Stunden „nichts", während `ss` im selben Moment offene
    Verbindungen zeigte. Die Gegenprobe kostet eine Minute und steht in der
    Anleitung des Skripts. Dasselbe gilt für Tests: der Wartungsfenster-Test
    wurde erst geglaubt, nachdem die Bedingung testweise auf `if False` stand
    und er fehlschlug.
-4. **Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler.**
+5. **Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler.**
    Am 23.08. gaben fünf Endpunkte auf jedem Gerät HTTP 500, alle von grünen
    Tests gedeckt. Deshalb `endpunkte-live.py`, und deshalb läuft jede Abnahme
    gegen echtes Blech.
