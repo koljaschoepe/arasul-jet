@@ -1,0 +1,38 @@
+[
+  {
+    "id": "P0-G7-01",
+    "phase": 0,
+    "strang": "gate",
+    "titel": "G7 abnehmen und festschreiben: sieben Tage ohne fehlgeschlagenen Heilversuch",
+    "abnahme": "bash scripts/test/dauerlauf-bericht.sh",
+    "bedingung": "Urteil GRUEN, Laufzeit mindestens sieben Tage seit dem letzten fehlgeschlagenen Eingriff",
+    "deckel_minuten": 30,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Zaehlt ab dem letzten FEHLGESCHLAGENEN Versuch, nicht ab jedem Eingriff. Am 24.08.2026 war das der 23.08. 17:01, also frueherstens am 30.08. erfuellbar."
+  },
+  {
+    "id": "P1-G1-01",
+    "phase": 1,
+    "strang": "gate",
+    "titel": "Volle Abnahme-Reihe als Ausgangsmessung, Ergebnis in die Tagesseite",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "alle dreizehn Abnahmen gruen",
+    "deckel_minuten": 45,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Am 24.08.2026 zuletzt 13 von 13 gruen. Kein Ergebnis abschreiben, neu messen."
+  },
+  {
+    "id": "P1-J13-01",
+    "phase": 1,
+    "strang": "zielbild",
+    "titel": "Bestandsaufnahme: welche Routendatei fasst welche Ressource an, und wer prueft heute owner_id",
+    "abnahme": "node scripts/test/routenregeln.py --bericht || python3 scripts/test/routenregeln.py",
+    "bedingung": "eine Liste je Routendatei mit Ressource und vorhandener Rechtepruefung, ohne Codeaenderung",
+    "deckel_minuten": 120,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Reine Bestandsaufnahme. Migration 089 nennt owner_id und space_members."
+  }
+]
