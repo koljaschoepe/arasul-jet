@@ -58,7 +58,9 @@ Geräts nennt, hat eine veraltete Doku gefunden — nachsehen mit
 7. **Lockfile strategy: root-only.** This is an npm-workspaces monorepo with
    exactly **one** lockfile — `/package-lock.json`. Never add a per-workspace
    `package-lock.json` (they drift from the root lock and break `npm ci` on
-   `main` — see the 2026-05-05 incident, `docs/plans/archive/2026-07-02_dependabot-hardening.md`).
+   `main` — see the 2026-05-05 incident, festgehalten im Plan
+   „Dependabot + Lock-File Hardening" vom 02.07.2026, nachzulesen ueber
+   [`docs/plans/HISTORIE.md`](docs/plans/HISTORIE.md)).
    Install with `npm ci` from the repo root; Dockerfiles install via
    `npm ci --workspace=<name> --include-workspace-root`. CI's **Lockfile drift
    guard** fails any PR whose root lock is out of sync. **Dependabot is off**
@@ -90,7 +92,8 @@ review checklist, etc.) live under `.claude/context/`.
 ## Woran gerade gearbeitet wird
 
 **Der laufende Plan ist [`docs/plans/active/024-urlaubslauf/plan.md`](docs/plans/active/024-urlaubslauf/plan.md).**
-Vierzehn Phasen vom 30.08. bis 12.09.2026, je einmal täglich ausgelöst, dazwischen
+Fünfzehn Phasen (0 bis 14) vom 30.08. bis 12.09.2026, je einmal täglich
+ausgelöst, dazwischen
 ohne Eingriff. Zwei Stränge je Phase: Gates und Zielbild; wo sie sich berühren,
 gewinnt der Gate-Strang. Der Stand jeder Phase steht in der Tabelle oben im Plan
 selbst, nicht hier.

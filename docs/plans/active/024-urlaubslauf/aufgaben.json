@@ -21,7 +21,7 @@
     "deckel_minuten": 20,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Der Beleg ist am 12.09. zwoelf Tage alt. Das gehoert dazugeschrieben, nicht verschwiegen."
+    "notiz": "Der Beleg ist am 12.09. zwoelf Tage alt. Das gehoert dazugeschrieben, nicht verschwiegen. Zusatz vom 24.08.2026: das Geraet faehrt im Entwicklungsmodus (arasul-platform.service ist weder aktiv noch installiert, die Dienste laufen aus dem Arbeitsverzeichnis). Der Beleg gilt fuer diesen Zustand, nicht fuer den Auslieferungsstand. Das gehoert in die Formulierung."
   },
 
   {
@@ -46,7 +46,7 @@
     "deckel_minuten": 45,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler. Deshalb live."
+    "notiz": "Ein Unit-Test mit nachgebildeter Datenbank findet keinen Spaltenfehler. Deshalb live. Negativ-Eingaben NUR aus der geprueften Liste FALSCHE_EINGABEN; jeder neue Fall wird erst durch Lesen der Route darauf geprueft, dass er nichts veraendert."
   },
   {
     "id": "P1-J13-01",
@@ -90,12 +90,12 @@
     "phase": 2,
     "strang": "zielbild",
     "titel": "J13 Schritt 1: Lesepfade gegen owner_id und space_members absichern",
-    "abnahme": "npx jest --config apps/dashboard-backend/jest.config.js",
+    "abnahme": "bash scripts/test/run-tests.sh --backend",
     "bedingung": "alle Backend-Tests gruen, je abgesicherter Route ein Test, der den Fremdzugriff ablehnt",
     "deckel_minuten": 180,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Verweigert wird im Backend. Eine Sichtbarkeitsregel im Frontend ist kein Rechtekonzept."
+    "notiz": "Verweigert wird im Backend. Eine Sichtbarkeitsregel im Frontend ist kein Rechtekonzept. Der Befehl stand hier bis zum 24.08.2026 als `npx jest --config apps/dashboard-backend/jest.config.js` — diese Datei gibt es nicht, der Aufruf brach ab."
   },
 
   {
@@ -108,14 +108,14 @@
     "deckel_minuten": 150,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Die Abnahme vergleicht seit dem 24.08. Texte statt Anzahlen. Wer sie erweitert, behaelt das bei."
+    "notiz": "Die Abnahme vergleicht seit dem 24.08.2026 Texte statt Anzahlen. Wer sie erweitert, behaelt das bei."
   },
   {
     "id": "P3-J13-03",
     "phase": 3,
     "strang": "zielbild",
     "titel": "J13 Schritt 2: Schreibpfade absichern",
-    "abnahme": "npx jest --config apps/dashboard-backend/jest.config.js",
+    "abnahme": "bash scripts/test/run-tests.sh --backend",
     "bedingung": "alle Backend-Tests gruen, je Schreibroute ein Test, der den Fremdzugriff ablehnt",
     "deckel_minuten": 180,
     "zustand": "offen",
@@ -133,7 +133,7 @@
     "deckel_minuten": 120,
     "zustand": "offen",
     "versuche": 0,
-    "notiz": "Die Liste steht in docs/plans/done/023-feature-audit/. D9-Positivpfad braucht Koljas Schluessel und wird NIE erfragt."
+    "notiz": "Die Liste steht im abgeschlossenen Plan 023, der am 24.08.2026 aus dem Arbeitsbaum genommen wurde: `git show 4837f70b:docs/plans/done/023-feature-audit/plan.md`, Abschnitt Stand. D9-Positivpfad braucht Koljas API-Schluessel und wird NIE erfragt."
   },
   {
     "id": "P4-J13-04",
@@ -146,5 +146,231 @@
     "zustand": "offen",
     "versuche": 0,
     "notiz": "Das Skript gibt es noch nicht, es entsteht in dieser Aufgabe. Es gehoert danach in abnahmen.sh."
+  },
+
+  {
+    "id": "P5-G7-01",
+    "phase": 5,
+    "strang": "gate",
+    "titel": "G7-Ursachenarbeit: die 43 echten n8n-Neustarts erklaeren oder abstellen",
+    "abnahme": "bash scripts/test/dauerlauf-bericht.sh",
+    "bedingung": "entweder die Ursache steht mit Beleg in der Tagesseite, oder die Neustarts hoeren auf",
+    "deckel_minuten": 180,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Am 24.08.2026 zerlegt: von 1058 Eingriffen waren 317 Pruefstand (behoben), 562 Eskalations-Spam (behoben, Migration 161), 43 echte n8n-Neustarts, Rest Rauschen. Alle 43 geschahen im LEERLAUF bei 2,7 bis 8,2 Prozent CPU — drei Hypothesen sind daran schon gescheitert. Eng fassen: nur n8n, keine Generalueberholung der Selbstheilung."
+  },
+  {
+    "id": "P5-J14-01",
+    "phase": 5,
+    "strang": "zielbild",
+    "titel": "J14 Datenmodell und Endpunkte: Mitarbeiter anlegen, Anwendungen einzeln freigeben",
+    "abnahme": "bash scripts/test/run-tests.sh --backend",
+    "bedingung": "Migration angewandt, Routen mit Tests, jeder Fremdzugriff wird im Backend abgelehnt",
+    "deckel_minuten": 240,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Naechste Migrationsnummer ist die hoechste auf der Platte plus eins, nicht abschreiben. Die harte Bedingung des Plans gilt: die Rolle blendet aus, aber sie entscheidet nichts. Verweigert wird in der Route."
+  },
+
+  {
+    "id": "P6-G6-01",
+    "phase": 6,
+    "strang": "gate",
+    "titel": "G6: der Wiederherstellungsdrill deckt alle Tabellen, nicht nur elf",
+    "abnahme": "bash scripts/test/dr-drill.sh",
+    "bedingung": "Drill gruen, und der Schemavergleich nennt die Zahl der geprueften Tabellen",
+    "deckel_minuten": 120,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Am 24.08.2026 gemessen: `Drill OK in 49s (verified=11, flows=ok)`. Elf kritische Tabellen von 206. Das ist ein Anfang, kein Beleg fuer G6. Der Drill startet seit dem Qdrant-Ausbau nur noch postgres-db und minio."
+  },
+  {
+    "id": "P6-J14-02",
+    "phase": 6,
+    "strang": "zielbild",
+    "titel": "J14 Oberflaeche: Mitarbeiterliste, anlegen und sperren",
+    "abnahme": "node scripts/test/oberflaeche-abnahme.mjs",
+    "bedingung": "die neue Ansicht laeuft in der Oberflaechen-Abnahme mit und ist gruen",
+    "deckel_minuten": 240,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Theme-Token statt Hex-Werte, jeder Aufruf ueber useApi. Eine neue Ansicht ohne Eintrag in der Abnahme ist nicht abgenommen."
+  },
+
+  {
+    "id": "P7-G1-02",
+    "phase": 7,
+    "strang": "gate",
+    "titel": "Nachlauf G1 bis G3: was in den Phasen 1 bis 4 rot blieb oder uebersprungen wurde",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "kein Eintrag mehr auf rot oder uebersprungen, oder je Eintrag ein Grund in der Tagesseite",
+    "deckel_minuten": 180,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Die Quelle ist diese Datei: jede Aufgabe mit Zustand rot oder uebersprungen aus den Phasen 1 bis 4. Nicht aus dem Gedaechtnis arbeiten."
+  },
+  {
+    "id": "P7-J14-03",
+    "phase": 7,
+    "strang": "zielbild",
+    "titel": "J14 App-Freigabe: ein Admin gibt einem Mitarbeiter eine einzelne Anwendung frei",
+    "abnahme": "bash scripts/test/run-tests.sh --backend",
+    "bedingung": "Freigabe und Entzug wirken, ein nicht freigegebener Aufruf endet mit 403 aus der Route",
+    "deckel_minuten": 240,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "403 aus der Route, nicht ein ausgeblendeter Knopf. Ein vergessenes if waere sonst ein Datenleck statt eines Schoenheitsfehlers."
+  },
+
+  {
+    "id": "P8-G4-01",
+    "phase": 8,
+    "strang": "gate",
+    "titel": "G4 haerten: die Souveraenitaets-Abnahme prueft mehr als drei Faelle",
+    "abnahme": "bash scripts/test/souveraenitaet-abnahme.sh",
+    "bedingung": "gruen, und die Abnahme belegt fuer jeden Dienst mit Netzzugang, wohin er darf",
+    "deckel_minuten": 180,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Am 24.08.2026 belegt: 3 von 3, 13 668 Verbindungszeilen, alle vier Reparaturen im Lauf sichtbar. Drei Faelle sind wenig fuer ein Verkaufs-Gate, das Datensouveraenitaet verspricht. Der Ausgangs-Lauscher (scripts/test/ausgang-lauscher.sh) liefert die Rohdaten."
+  },
+  {
+    "id": "P8-J14-04",
+    "phase": 8,
+    "strang": "zielbild",
+    "titel": "J14 Abnahme: ein Skript belegt die Mitarbeiter- und Freigabewege Ende zu Ende",
+    "abnahme": "bash scripts/test/isolation-abnahme.sh",
+    "bedingung": "Admin legt an, Mitarbeiter sieht nur Freigegebenes, Entzug wirkt sofort",
+    "deckel_minuten": 240,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Baut auf dem Skript aus Phase 4 auf, statt ein zweites daneben zu stellen."
+  },
+
+  {
+    "id": "P9-NACH-01",
+    "phase": 9,
+    "strang": "gate",
+    "titel": "Nachlauf: alles, was aus den Phasen 5 bis 8 offen blieb",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "kein Eintrag mehr auf rot, oder je Eintrag ein Grund in der Tagesseite",
+    "deckel_minuten": 180,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Wenn nichts offen ist, ist diese Aufgabe in Minuten erledigt. Das ist der Sinn eines Nachlaufs, nicht ein Fehler."
+  },
+  {
+    "id": "P9-K4-01",
+    "phase": 9,
+    "strang": "zielbild",
+    "titel": "K4 Deploybefehl: den Bedarf aus Sicht dieses Repos aufschreiben, nicht bauen",
+    "abnahme": "python3 scripts/test/endpunkte.py",
+    "bedingung": "eine Seite unter docs/, die nennt, welche Endpunkte und Rechte ein Ausrollbefehl braucht",
+    "deckel_minuten": 120,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "ACHTUNG: K4 gehoert nach `ara-kit`, nicht hierher. Dieser Lauf kann dort nicht bauen. Was von hier aus geht, ist die Gegenseite zu beschreiben: welche Endpunkte, welche Schluessel, welche Fehlerfaelle. Wer hier anfaengt, ein Ausrollwerkzeug zu bauen, hat den Plan missverstanden."
+  },
+
+  {
+    "id": "P10-NACH-01",
+    "phase": 10,
+    "strang": "gate",
+    "titel": "Nachlauf und volle Reihe auf dem dann aktuellen Stand",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "alle Abnahmen gruen",
+    "deckel_minuten": 120,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Nach fuenf Phasen Umbau ist eine Reihe auf frischem Stand mehr wert als eine weitere Aufgabe."
+  },
+  {
+    "id": "P10-K4-02",
+    "phase": 10,
+    "strang": "zielbild",
+    "titel": "K4 Gegenprobe: die beschriebenen Endpunkte einmal live gegen den Orin fahren",
+    "abnahme": "python3 scripts/test/endpunkte-live.py",
+    "bedingung": "jeder in der K4-Seite genannte Endpunkt antwortet, kein Serverfehler",
+    "deckel_minuten": 120,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Eine Beschreibung, die nie gegen das Geraet lief, ist eine Behauptung. Nur lesende Aufrufe und die geprueften Negativ-Eingaben."
+  },
+
+  {
+    "id": "P11-NACH-01",
+    "phase": 11,
+    "strang": "gate",
+    "titel": "Nachlauf, letzte Gelegenheit vor der Gesamtabnahme",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "alle Abnahmen gruen",
+    "deckel_minuten": 120,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Was hier nicht gruen wird, geht als offener Punkt in den Abschlussbericht."
+  },
+  {
+    "id": "P11-K5-01",
+    "phase": 11,
+    "strang": "zielbild",
+    "titel": "K5: die dreizehn externen Endpunkte durcharbeiten und belegen, dass sie tun, was die Doku sagt",
+    "abnahme": "python3 scripts/test/endpunkte-live.py",
+    "bedingung": "je Endpunkt ein Beleg, Abweichungen zwischen Doku und Verhalten stehen in der Tagesseite",
+    "deckel_minuten": 240,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Die Doku-Seite selbst gehoert nach `ara-kit`. Was hierher gehoert, ist der Beleg, dass die dreizehn Endpunkte in `routes/external/` sich so verhalten, wie sie beschrieben werden. D9-Positivpfad bleibt aussen vor: er braucht Koljas Schluessel, und der wird NIE erfragt."
+  },
+
+  {
+    "id": "P12-ALL-01",
+    "phase": 12,
+    "strang": "gate",
+    "titel": "Gesamtabnahme: volle Reihe, Endpunkte live, Dauerlauf, Drill, Souveraenitaet",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "alle fuenf Messungen an einem Tag, jede mit Zeitstempel in der Tagesseite",
+    "deckel_minuten": 240,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Drei Gates laufen NICHT in der Abnahme-Reihe mit und muessen einzeln gefahren werden: dauerlauf-bericht.sh (G7), dr-drill.sh (G6), souveraenitaet-abnahme.sh (G4). Wer nur abnahmen.sh fahrt, hat G4, G6 und G7 nicht gemessen."
+  },
+  {
+    "id": "P12-META-01",
+    "phase": 12,
+    "strang": "gate",
+    "titel": "Den gemessenen Gate-Stand aufschreiben, damit das Steuer-Repo ihn uebernehmen kann",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "eine Tabelle mit je Gate: Urteil, Messung, Befehl, Zeitstempel",
+    "deckel_minuten": 60,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "ACHTUNG: `#roadmap-meta` liegt in der Roadmap-Seite des Steuer-Repos, nicht hier. Dieser Lauf schreibt es NICHT. Er legt die gemessene Tabelle so ab, dass sie von dort uebernommen werden kann. Nichts von Hand schaetzen: nur was in dieser Phase gemessen wurde."
+  },
+
+  {
+    "id": "P13-FIX-01",
+    "phase": 13,
+    "strang": "gate",
+    "titel": "Reparieren, was die Gesamtabnahme gefunden hat",
+    "abnahme": "bash scripts/test/abnahmen.sh",
+    "bedingung": "jeder Befund aus Phase 12 ist behoben und live belegt, oder mit Grund verschoben",
+    "deckel_minuten": 300,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Wenn Phase 12 nichts gefunden hat, faellt diese Phase aus. Das ist ein gutes Ergebnis und kein Grund, Arbeit zu erfinden."
+  },
+
+  {
+    "id": "P14-BERICHT-01",
+    "phase": 14,
+    "strang": "gate",
+    "titel": "Abschlussbericht: was erreicht wurde, was nicht, und was bei Kolja liegt",
+    "abnahme": "python3 scripts/test/plan-faden.py",
+    "bedingung": "eine Seite mit Gate-Stand, offenen Punkten und je Punkt einer Entscheidung oder einem naechsten Schritt",
+    "deckel_minuten": 120,
+    "zustand": "offen",
+    "versuche": 0,
+    "notiz": "Ehrlich statt schoen. Ein halb fertiger Zielbild-Strang ist ein zulaessiges Ergebnis, ein halb fertiges Gate nicht — das gehoert so hingeschrieben. Danach wandert der Plan nach docs/plans/done/ und die Uebergabe wird fortgeschrieben."
   }
 ]

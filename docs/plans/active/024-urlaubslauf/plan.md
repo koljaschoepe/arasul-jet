@@ -1,4 +1,4 @@
-# Plan 024, Urlaubslauf: vierzehn autonome Phasen
+# Plan 024, Urlaubslauf: fünfzehn autonome Phasen
 
 > Grundlage: die Firmensicht `plans/aktiv/2026-08-24-urlaubslauf.md` im
 > Steuer-Repo. Sie trägt die Entscheidungen und die Widersprüche dazu. Diese
@@ -58,8 +58,17 @@ statt eines Schönheitsfehlers.
 
 ## Was aus 023 offen übernommen wird
 
-Nicht abschreiben, im abgeschlossenen Plan nachlesen:
-`docs/plans/done/023-feature-audit/plan.md`, Abschnitt „Stand".
+Nicht abschreiben, im abgeschlossenen Plan nachlesen. Er ist am 24.08.2026 mit
+der uebrigen Plan-Historie aus dem Arbeitsbaum genommen worden und steht in der
+Git-Historie:
+
+```bash
+git show 4837f70b:docs/plans/done/023-feature-audit/plan.md | less
+```
+
+Der Abschnitt heisst „Stand". Die Uebergabe desselben Plans liegt weiter im
+Baum: `docs/plans/done/023-feature-audit/UEBERGABE.md`, dort stehen die acht
+Fallen.
 
 | Aufgabe                                 | Warum sie offen ist                                            |
 | --------------------------------------- | -------------------------------------------------------------- |
@@ -172,5 +181,5 @@ stimmt.
 
 1. Sechs Gates grün, jedes mit dem Befehl belegbar, der es misst.
 2. `#roadmap-meta` trägt diesen Stand aus der Messung.
-3. Vierzehn Tagesseiten, je höchstens dreißig Zeilen.
+3. Fünfzehn Tagesseiten, je höchstens dreißig Zeilen.
 4. Der Zielbild-Strang so weit, wie er gekommen ist, ehrlich benannt.
