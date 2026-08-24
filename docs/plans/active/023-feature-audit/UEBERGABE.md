@@ -244,13 +244,30 @@ Damit die nächste Phase sie nicht noch einmal verfolgt:
 
 1. **„Das nächtliche Backup um 02:00 drückt n8n unter Wasser."** Nein. Die
    Neustarts verteilen sich auf die Stunden 21 bis 00 (7, 6, 6, 4) und nur 4 auf
-   die Stunde 02. Das ist die Zeit, in der am Gerät gearbeitet wurde, kein
-   Zeitplan.
+   die Stunde 02.
 2. **„Der Healthcheck-Timeout von 2 s ist zu knapp."** Nein. `healthcheck-luft.sh`
    misst für n8n Median **0,036 s** und Max **0,119 s** — 6 % der Grenze. Von
    Last kippt da nichts.
-3. **„Es ist Last allgemein."** Nein. n8n hat als **einziger** Dienst überhaupt
-   Fehlschläge: **2 von 477 Proben**. Alle anderen vierzehn Dienste stehen bei 0.
+3. **„Es ist Last allgemein."** Nein, und das ist der stärkste Befund. n8n hat
+   als **einziger** Dienst überhaupt Fehlschläge (**2 von 477 Proben**, alle
+   anderen vierzehn stehen bei 0). Vor allem aber: die CPU-Last des Geräts in
+   den zehn Minuten **vor** jedem der 43 Neustarts lag zwischen **2,7 % und
+   8,2 %**. Kein einziger fand unter Last statt.
+
+   Damit ist auch eine frühere Formulierung dieser Seite widerlegt, nämlich die
+   Häufung 21 bis 00 Uhr sei „die Zeit, in der am Gerät gearbeitet wurde". Das
+   Gerät war zu jedem dieser Zeitpunkte im Leerlauf.
+
+   ```sql
+   WITH neustarts AS (
+     SELECT timestamp FROM self_healing_events
+     WHERE timestamp > NOW() - INTERVAL '7 days' AND service_name LIKE 'n8n%'
+       AND event_type IN ('service_restart','service_stop_start','service_recovery_failed'))
+   SELECT n.timestamp,
+          (SELECT ROUND(AVG(value)::numeric,1) FROM public.metrics_cpu m
+           WHERE m.timestamp BETWEEN n.timestamp - INTERVAL '10 min' AND n.timestamp)
+   FROM neustarts n ORDER BY 1;
+   ```
 
 ### Was daraus für Phase 5 folgt
 
@@ -259,9 +276,16 @@ antwortet n8n gelegentlich gar nicht"**. Es ist kein Zeitproblem, sondern ein
 Aussetzer: sonst 0,036 s, und dann nichts. Zwei Spuren, die dazu passen und
 noch nicht verfolgt sind:
 
+- **Ein Aufräumjob von n8n selbst.** Das ist nach der Leerlauf-Messung die
+  bessere Spur als die Anmeldedrossel, denn sie erklärt, warum es ohne jede
+  Anfrage von außen passiert. Am Gerät gesetzt: `EXECUTIONS_DATA_PRUNE=true`,
+  `EXECUTIONS_DATA_MAX_AGE=336` (14 Tage), `EXECUTIONS_DATA_PRUNE_MAX_COUNT=50000`.
+  n8n löscht periodisch alte Ausführungen; blockiert das den Ereignis-Loop lange
+  genug, antwortet `/healthz` nicht mehr, und genau das sieht der Agent.
 - Die Anmeldedrossel von n8n. Sie hat schon einmal zugeschlagen: nach vier
   Klicks war der Automationen-Tab weg (Phase H). Ein gedrosselter `/healthz`
-  würde genau so aussehen.
+  würde ähnlich aussehen — erklärt aber den Leerlauf-Fall nicht, weil dann
+  niemand klickt.
 - `n8n-runners` stirbt mit, aber nie zuerst — in jedem Ereignispaar steht `n8n`
   vor `n8n-runners`. Der Runner ist Folge, nicht Ursache.
 
