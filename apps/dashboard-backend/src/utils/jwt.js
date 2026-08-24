@@ -4,7 +4,7 @@
  */
 
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('node:crypto'); // v4-UUID aus dem Node-Kern, seit 14.17
 const db = require('../database');
 const logger = require('./logger');
 const {

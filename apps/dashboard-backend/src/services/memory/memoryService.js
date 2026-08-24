@@ -13,7 +13,7 @@
 
 const Minio = require('minio');
 const { ValidationError } = require('../../utils/errors');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID: uuidv4 } = require('node:crypto'); // v4-UUID aus dem Node-Kern, seit 14.17
 const logger = require('../../utils/logger');
 const database = require('../../database');
 const services = require('../../config/services');
