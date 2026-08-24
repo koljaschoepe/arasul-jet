@@ -204,6 +204,17 @@ class RecoveryActionsMixin:
             # SAFETY: Use --filter to exclude images used by running/stopped
             # containers. Never use 'docker system prune -af' which can remove
             # images of temporarily stopped services, breaking restarts.
+            #
+            # UND NIEMALS `docker volume prune`. Am 24.08.2026 lagen auf dem
+            # Orin 11,3 GB in Volumes ohne Container — das sieht nach einer
+            # leichten Beute aus und ist keine. Ein Volume ohne Container ist
+            # nicht dasselbe wie ein Volume ohne Daten: die Selbstheilung
+            # stoppt Dienste selbst (RAM-Entlastung, stop+start), und in genau
+            # diesem Fenster haenge an einem gestoppten Dienst sein Volume
+            # ohne Container. Ein Prune dort loescht Kundendaten, nicht
+            # Abfall. Die 11 GB sind der Preis dafuer, und er ist niedrig:
+            # die Platte war zu 26 Prozent belegt, und der Build Cache allein
+            # gibt 65 GB her.
             logger.info("Running Docker container prune (stopped containers only)")
             result = subprocess.run(
                 ['docker', 'container', 'prune', '-f'],
