@@ -429,7 +429,7 @@ class TestSelfHealingEngine(unittest.TestCase):
         """
         import tempfile
         with tempfile.NamedTemporaryFile(suffix='.aktiv', mode='w', delete=False) as datei:
-            datei.write('2026-08-23T23:40:01+02:00 pruefstand-build\n')
+            datei.write('2026-08-23T23:40:01+02:00 pruefstand-build ende=1787532690\n')
             name = datei.name
         try:
             with patch('healing_engine.WARTUNGSDATEI', name):
