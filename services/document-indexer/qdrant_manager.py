@@ -15,7 +15,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue,
     SparseVectorParams, SparseVector, Modifier,
-    BinaryQuantization, BinaryQuantizationConfig, HnswConfigDiff, NamedVector
+    BinaryQuantization, BinaryQuantizationConfig, HnswConfigDiff
 )
 
 from sparse_encoder import compute_sparse_vector
