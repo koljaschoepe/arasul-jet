@@ -47,10 +47,17 @@ fi
 # Der Vorspann steht in EINEM Heredoc ohne Ersetzung ('INNEN' in
 # Anfuehrungszeichen), sonst zerlegt die Shell `declare -A` und die Arrays.
 # Der Rueckgabewert von `git` kommt ueber die Umgebung herein.
+#
+# Die beiden SHAs sind absichtlich verschieden. PREV_SHA kommt von GitHub und
+# sagt, was gebaut werden muss; GERAET_SHA ist der Stand, aus dem die laufenden
+# Images gebaut wurden. Am 24.08.2026 fielen sie auseinander, und der Rollback
+# setzte git auf den falschen von beiden. `git` gibt hier seine Argumente aus,
+# damit der Test sieht, WOHIN zurueckgesetzt wird.
 cat > "$TMP/vorspann.sh" <<'INNEN'
 set -uo pipefail
 PROJECT=test
-PREV_SHA=abcdef1234567890
+PREV_SHA=aaaaaaaaaaaaaaaa_von_github
+GERAET_SHA=bbbbbbbbbbbbbbbb_vom_geraet
 SERVICES=(backend)
 declare -A HAD_IMAGE
 HAD_IMAGE[backend]=1
@@ -58,7 +65,7 @@ COMPOSE=(true)
 err() { echo "ERR $*"; }
 summary() { echo "SUMMARY $*"; }
 docker() { return 0; }
-git() { return "${GIT_ERFOLG:-0}"; }
+git() { echo "GIT $*"; return "${GIT_ERFOLG:-0}"; }
 exit() { return 0; }
 INNEN
 
@@ -86,6 +93,15 @@ AUS_ROT="$(lauf 1)"
 pruefe "git reset gescheitert: meldet UNVOLLSTAENDIG" "UNVOLLSTAENDIG" "$AUS_ROT"
 pruefe "git reset gescheitert: nennt den Schritt" "git reset" "$AUS_ROT"
 nicht "git reset gescheitert: behauptet KEINE Wiederherstellung" "Produktivstand wiederhergestellt" "$AUS_ROT"
+
+# Der Gleichlauf zwischen git und Abbild. Bis zum 24.08.2026 setzte der
+# Rollback git auf PREV_SHA — den Stand von GitHub — waehrend er die Images auf
+# den Stand des GERAETS zuruecktaggte. Nach zwei fehlgeschlagenen Deploys
+# hintereinander sind das zwei verschiedene Staende, und das Geraet behauptet
+# danach einen Stand, den es nicht faehrt.
+pruefe "Gleichlauf: setzt git auf den Stand der Images" "GIT reset --hard bbbbbbbbbbbbbbbb_vom_geraet" "$AUS_OK"
+nicht "Gleichlauf: setzt git NICHT auf den GitHub-Stand" "reset --hard aaaaaaaaaaaaaaaa_von_github" "$AUS_OK"
+pruefe "Gleichlauf: die Meldung nennt den Stand der Images" "bbbbbbbbbbbbbbbb_vom_geraet" "$AUS_OK"
 
 if [ "$FEHLER" = "0" ]; then
   echo "   Rollback-Meldung: in Ordnung"
