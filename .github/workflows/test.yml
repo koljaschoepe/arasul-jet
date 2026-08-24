@@ -196,6 +196,19 @@ jobs:
           - name: self-healing-agent
             dockerfile: services/self-healing-agent/Dockerfile
             context: .
+          # Der Indexer stand hier bis zum 24.08.2026 nicht drin, und seine
+          # Requirements werden im pytest-Job bewusst nicht installiert (siehe
+          # dort). Damit war er der einzige Dienst, dessen Abhaengigkeiten in
+          # keinem einzigen CI-Job je echt aufgeloest wurden. #671 hob
+          # qdrant-client auf >=1.19 an, wo `NamedVector` nicht mehr existiert,
+          # die CI blieb gruen, und der Fehler schlug erst Tage spaeter beim
+          # ersten Neubau auf dem Geraet zu — als zwei gescheiterte Deploys.
+          - name: document-indexer
+            dockerfile: services/document-indexer/Dockerfile
+            context: .
+            # Bauen allein haette #685 NICHT gefunden: das Image baut sauber,
+            # der ImportError kommt erst, wenn der Prozess startet.
+            smoke: import api_server
     steps:
       - uses: actions/checkout@v7
 
@@ -209,8 +222,22 @@ jobs:
           target: ${{ matrix.image.target }}
           push: false
           platforms: linux/amd64
+          # Nur wo eine Startprobe folgt, muss das Image auch im lokalen Daemon
+          # landen. `load` kostet Zeit, deshalb nicht fuer alle.
+          load: ${{ matrix.image.smoke != '' }}
+          tags: ${{ matrix.image.name }}:ci
           cache-from: type=gha,scope=${{ matrix.image.name }}
           cache-to: type=gha,scope=${{ matrix.image.name }},mode=max
+
+      - name: Startprobe
+        if: matrix.image.smoke != ''
+        env:
+          BILD: ${{ matrix.image.name }}:ci
+          SMOKE: ${{ matrix.image.smoke }}
+        # Ohne Netz und ohne Secrets: geprueft wird ausschliesslich, ob der
+        # Prozess seine Importe aufloest. Alles, was danach kommt (Datenbank,
+        # MinIO), gehoert nicht hierher und wuerde nur falsche Alarme erzeugen.
+        run: docker run --rm --network none "$BILD" python3 -c "$SMOKE"
 
   # ----------------------------------------------------------------------------
   # Lockfile drift guard (Master-Plan P9-4 / AC2): the repo keeps a single
@@ -260,6 +287,14 @@ jobs:
           # (PyMuPDF, spacy, qdrant-client, psycopg2, …) selbst und laufen
           # bewusst in einer nackten Umgebung. Sie zu installieren waere nur
           # ein paar Minuten CI-Zeit fuer nichts.
+          #
+          # Der Satz stimmt fuer die Tests, aber er hat ein Loch hinterlassen:
+          # bis zum 24.08.2026 war das der EINZIGE Ort, an dem die Requirements
+          # des Indexers haetten aufgeloest werden koennen — und weil es hier
+          # nicht passiert, wurde eine kaputte Versionsanhebung (#671) gruen
+          # durchgewunken. Geschlossen wird das jetzt nicht hier, sondern in
+          # der Startprobe des docker-build-Jobs, wo es hingehoert: dort laeuft
+          # das echte Image mit den echten Paketen.
           if [ "${{ matrix.service }}" != "document-indexer" ]; then
             pip install -r requirements.txt
           fi
