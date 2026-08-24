@@ -95,11 +95,13 @@ Eine Aufgabe gilt erst als erledigt, wenn ihre Abnahme **live auf dem Orin**
 belegt ist, nicht wenn der Branch gemerged wurde.
 
 **Wer neu einsteigt, liest zuerst
-[`docs/plans/done/023-feature-audit/UEBERGABE.md`](docs/plans/done/023-feature-audit/UEBERGABE.md).**
-Sie gehört zum abgeschlossenen Vorgänger, ist aber die einzige Seite, die sagt:
-was auf dem Gerät ohne Sitzung weiterläuft, was bei Kolja als Entscheidung
-liegt, was blockiert ist, und welche acht Fallen einen halben Tag gekostet
-haben. Diese Fallen gelten weiter.
+[`docs/plans/active/024-urlaubslauf/UEBERGABE.md`](docs/plans/active/024-urlaubslauf/UEBERGABE.md).**
+Eine Seite: was auf dem Gerät ohne Sitzung weiterläuft, wie weit die
+Vorbereitung ist, und was bei Kolja als Entscheidung liegt. Sie verweist für
+alles Ältere auf die Übergabe des abgeschlossenen Vorgängers
+[`docs/plans/done/023-feature-audit/UEBERGABE.md`](docs/plans/done/023-feature-audit/UEBERGABE.md)
+— dort stehen die **acht Fallen**, die einen halben Tag gekostet haben. Sie
+gelten weiter.
 
 `docs/plans/active/` enthält **genau einen** Plan. Das ist keine Konvention,
 sondern eine Prüfung: `scripts/test/plan-faden.py` schlägt fehl, sobald dort ein
