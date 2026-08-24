@@ -4937,14 +4937,30 @@ danach**. Sie hat nicht zu frueh eingegriffen, sondern richtig gehandelt: sie
 hat repariert, was der Pruefstand kaputt gemacht hat. Das Wartungsfenster hat
 diese Heilung zweimal um Minuten verzoegert.
 
-**Der eigentliche Befund lautet damit: `pruefstand.sh hoch` faehrt Dienste des
-Produktionsstacks herunter.** Das trifft die Zusicherung der sieben
-Trennungen, und es trifft jede zerstoerende Abnahme, die auf dem Pruefstand
-laufen soll (G5, Werksreset). Die Ursache ist NICHT geklaert: alle
-`container_name` tragen den Praefix, `--remove-orphans` steht nirgends, und
-die Projekte heissen verschieden (`arasul-platform` gegen
-`arasul-pruefstand`). Naechster Schritt ist ein Lauf mit vollstaendigem
-`docker events`, um den Ausloeser zu sehen statt ihn zu erraten.
+**Der Befund lautet damit: waehrend `pruefstand.sh hoch` laeuft, werden n8n und
+n8n-runners des Produktionsstacks gestoppt.** Wer sie stoppt, ist NICHT
+belegt, und die naheliegende Antwort ist die einzige, die schon ausgeschlossen
+werden konnte:
+
+| geprueft                                 | Ergebnis                                                                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Die Selbstheilung ueber den docker-proxy | nein. Im Fenster 02:22:30 bis 02:23:10 steht dort KEIN stop und kein kill, nur zwei `restart` um 02:22:53 und 02:23:04 — also NACH dem Stop |
+| Namenskollision                          | nein. `docker compose config` loest zu `pruef-n8n` und `pruef-n8n-runners` auf                                                              |
+| Netzkollision                            | nein. Eigene Netze `arasul-pruefstand_*`, Subnetz 172.31 statt 172.30                                                                       |
+| `--remove-orphans`                       | steht nirgends im Skript                                                                                                                    |
+| Was Compose vorhat                       | `up --dry-run` meldet ausschliesslich `pruef-n8n Creating/Created/Starting/Started`, keinen Stop                                            |
+
+Es bleibt also ein Stop um 02:22:44, der zeitlich mit dem Pruefstand-Start
+zusammenfaellt, nicht ueber den Proxy lief und in Compose' eigener Vorschau
+nicht vorkommt. Der Trockenlauf lief allerdings OHNE `--build`, und genau der
+Bau ist der Teil, der beim echten Lauf dazwischenliegt.
+
+Naechster Schritt: ein Lauf mit `docker events` OHNE Filter, damit die
+Reihenfolge aller Ereignisse sichtbar wird statt nur der drei gesuchten.
+
+Was das fuer G5 und den Werksreset heisst, steht damit noch nicht fest. Solange
+der Verursacher unbekannt ist, gilt: der Pruefstand wird nicht gestartet,
+waehrend auf dem Geraet etwas laeuft, das nicht unterbrochen werden darf.
 
 **Ein zweiter, kleinerer Fehler steckt in meinem eigenen Nachlauf.** Beim
 vierten Versuch hat der Agent das Fenster nie gesehen: der ganze Lauf dauerte
