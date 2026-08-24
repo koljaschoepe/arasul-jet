@@ -70,7 +70,6 @@ async function getServiceStatus() {
     embedding: { status: 'unknown' },
     postgres: { status: 'unknown' },
     minio: { status: 'unknown' },
-    qdrant: { status: 'unknown' },
   };
 
   // Check LLM service
@@ -88,15 +87,6 @@ async function getServiceStatus() {
     services.embedding.status = 'online';
   } catch (e) {
     services.embedding.status = 'offline';
-  }
-
-  // Check Qdrant
-  try {
-    const qdrantUrl = `http://${process.env.QDRANT_HOST || 'qdrant'}:${process.env.QDRANT_PORT || '6333'}`;
-    await axios.get(`${qdrantUrl}/collections`, { timeout: 2000 });
-    services.qdrant.status = 'online';
-  } catch (e) {
-    services.qdrant.status = 'offline';
   }
 
   return services;

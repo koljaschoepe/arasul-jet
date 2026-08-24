@@ -127,7 +127,6 @@ test('meldet gescheiterte Teilschritte, statt Erfolg zu behaupten', async () => 
     dauerMs: 1200,
     tabellen: { a: 1 },
     n8n: { ok: false, fehler: 'container not found' },
-    vektoren: { ok: true },
   });
   const nutzer = userEvent.setup();
   render(<Werksreset />);

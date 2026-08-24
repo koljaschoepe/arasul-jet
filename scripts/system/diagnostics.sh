@@ -118,7 +118,7 @@ if [[ "${INCLUDE_LOGS}" == true ]]; then
 
   services=(
     dashboard-backend dashboard-frontend postgres-db minio
-    llm-service embedding-service qdrant document-indexer
+    llm-service embedding-service document-indexer
     n8n self-healing-agent metrics-collector reverse-proxy docker-proxy
   )
 

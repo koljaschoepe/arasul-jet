@@ -32,9 +32,6 @@ MINIO_ROOT_PASSWORD = os.getenv('MINIO_ROOT_PASSWORD', '')
 MINIO_BUCKET = os.getenv('DOCUMENT_INDEXER_MINIO_BUCKET', 'documents')
 
 # --- Qdrant ---
-QDRANT_HOST = os.getenv('QDRANT_HOST', 'qdrant')
-QDRANT_PORT = int(os.getenv('QDRANT_PORT', '6333'))
-QDRANT_COLLECTION = os.getenv('QDRANT_COLLECTION_NAME', 'documents')
 
 # --- Embedding Service ---
 EMBEDDING_HOST = os.getenv('EMBEDDING_SERVICE_HOST', 'embedding-service')

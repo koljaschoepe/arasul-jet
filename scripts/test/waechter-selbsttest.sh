@@ -602,7 +602,7 @@ pruefe "Werksreset-Tabellen: nach einer Umbenennung zaehlt der neue Name" 1 \
 # Drei Faelle, drei Arten, wie eine Anleitung still falsch wird.
 AN="$TMP/anleitungen"
 mkdir -p "$AN/docs" "$AN/compose"
-printf 'services:\n  qdrant:\n    profiles:\n      - classic-rag\n  backend:\n    image: x\n' \
+printf 'services:\n  loki:\n    profiles:\n      - monitoring\n  backend:\n    image: x\n' \
   > "$AN/compose/compose.app.yaml"
 printf '# Doku\n' > "$AN/docs/INDEX.md"
 
@@ -615,7 +615,7 @@ printf '# Titel\n\nSiehe [Index](docs/WEGGEZOGEN.md).\n' > "$AN/README.md"
 pruefe "Anleitungen: ein Link ins Leere ist rot" 1 \
   python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
 
-printf '# Titel\n\nDer Vektorspeicher `qdrant` gehoert zum laufenden Geraet.\n' > "$AN/README.md"
+printf '# Titel\n\nDer Protokollspeicher `loki` gehoert zum laufenden Geraet.\n' > "$AN/README.md"
 pruefe "Anleitungen: ein Dienst hinter einem Profil als laufend ist rot" 1 \
   python3 "$WURZEL/scripts/test/anleitungen.py" --wurzel "$AN"
 

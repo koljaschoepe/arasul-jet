@@ -1,6 +1,6 @@
 #!/bin/bash
 # ARASUL PLATFORM - Restore from Backup
-# Restores PostgreSQL database, MinIO objects, and Qdrant vectors from backup.
+# Restores PostgreSQL database and MinIO objects from backup.
 #
 # Usage:
 #   ./scripts/recovery/restore-from-backup.sh                     # Latest backup
@@ -8,7 +8,7 @@
 #   ./scripts/recovery/restore-from-backup.sh --list              # List available backups
 #
 # Prerequisites:
-#   - Docker containers must be running (at least postgres-db, minio, qdrant)
+#   - Docker containers must be running (at least postgres-db, minio)
 #   - Backup volume mounted at /backups/ (or BACKUP_DIR env var set)
 
 set -euo pipefail
@@ -48,11 +48,6 @@ list_backups() {
         ls -lh "$BACKUP_DIR"/minio_*.tar.gz 2>/dev/null | awk '{print "  " $NF " (" $5 ")"}' || echo "  (none)"
         echo ""
 
-        # Qdrant backups
-        echo -e "${BLUE}Qdrant:${NC}"
-        ls -lh "$BACKUP_DIR"/qdrant_*.tar.gz 2>/dev/null | awk '{print "  " $NF " (" $5 ")"}' || echo "  (none)"
-        echo ""
-
         # WAL archives
         if [ -d "$BACKUP_DIR/../wal-archive" ]; then
             echo -e "${BLUE}WAL Archives:${NC}"
@@ -65,7 +60,7 @@ list_backups() {
 
 # Find backup file matching timestamp pattern
 find_backup() {
-    local type="$1"    # postgres, minio, qdrant
+    local type="$1"    # postgres, minio
     local timestamp="$2"
 
     if [ "$timestamp" = "latest" ]; then
@@ -124,40 +119,11 @@ restore_minio() {
     log "MinIO restore complete"
 }
 
-# Restore Qdrant
-restore_qdrant() {
-    local backup_file="$1"
-    log "Restoring Qdrant from: $(basename "$backup_file")"
-
-    log "Stopping Qdrant..."
-    docker compose stop qdrant 2>/dev/null || true
-
-    log "Extracting snapshot..."
-    local qdrant_data
-    qdrant_data=$(docker inspect --format='{{range .Mounts}}{{if eq .Destination "/qdrant/storage"}}{{.Source}}{{end}}{{end}}' "${COMPOSE_PROJECT}-qdrant-1" 2>/dev/null)
-
-    if [ -n "$qdrant_data" ]; then
-        sudo tar -xzf "$backup_file" -C "$qdrant_data" 2>/dev/null
-    else
-        warn "Could not determine Qdrant data directory, trying default volume path"
-        local tmp_dir
-        tmp_dir=$(mktemp -d)
-        tar -xzf "$backup_file" -C "$tmp_dir"
-        docker cp "$tmp_dir/." "${COMPOSE_PROJECT}-qdrant-1:/qdrant/storage/"
-        rm -rf "$tmp_dir"
-    fi
-
-    log "Starting Qdrant..."
-    docker compose up -d qdrant 2>/dev/null
-    log "Qdrant restore complete"
-}
-
 # Main
 main() {
     local timestamp="latest"
     local restore_db=true
     local restore_minio_flag=true
-    local restore_qdrant_flag=true
 
     # Parse arguments
     for arg in "$@"; do
@@ -168,7 +134,6 @@ main() {
                 ;;
             --db-only)
                 restore_minio_flag=false
-                restore_qdrant_flag=false
                 ;;
             --no-db)
                 restore_db=false
@@ -226,17 +191,6 @@ main() {
             restore_minio "$minio_backup"
         else
             warn "No MinIO backup found for timestamp: $timestamp"
-        fi
-    fi
-
-    # Qdrant
-    if $restore_qdrant_flag; then
-        local qdrant_backup
-        qdrant_backup=$(find_backup "qdrant" "$timestamp")
-        if [ -n "$qdrant_backup" ]; then
-            restore_qdrant "$qdrant_backup"
-        else
-            warn "No Qdrant backup found for timestamp: $timestamp"
         fi
     fi
 

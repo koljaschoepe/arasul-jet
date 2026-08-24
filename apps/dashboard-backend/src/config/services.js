@@ -20,10 +20,6 @@ const VLLM_SERVICE_PORT = process.env.VLLM_SERVICE_PORT || '8000';
 const EMBEDDING_SERVICE_HOST = process.env.EMBEDDING_SERVICE_HOST || 'embedding-service';
 const EMBEDDING_SERVICE_PORT = process.env.EMBEDDING_SERVICE_PORT || '11435';
 
-// Qdrant Vector Database
-const QDRANT_HOST = process.env.QDRANT_HOST || 'qdrant';
-const QDRANT_PORT = process.env.QDRANT_PORT || '6333';
-
 // Metrics Collector
 const METRICS_COLLECTOR_HOST = process.env.METRICS_COLLECTOR_HOST || 'metrics-collector';
 const METRICS_COLLECTOR_PORT = '9100';
@@ -90,14 +86,6 @@ const services = {
     url: `http://${EMBEDDING_SERVICE_HOST}:${EMBEDDING_SERVICE_PORT}`,
     embedEndpoint: `http://${EMBEDDING_SERVICE_HOST}:${EMBEDDING_SERVICE_PORT}/embed`,
     healthEndpoint: `http://${EMBEDDING_SERVICE_HOST}:${EMBEDDING_SERVICE_PORT}/health`,
-  },
-
-  // Qdrant
-  qdrant: {
-    host: QDRANT_HOST,
-    port: QDRANT_PORT,
-    url: `http://${QDRANT_HOST}:${QDRANT_PORT}`,
-    collectionsEndpoint: `http://${QDRANT_HOST}:${QDRANT_PORT}/collections`,
   },
 
   // Metrics Collector

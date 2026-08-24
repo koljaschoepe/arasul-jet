@@ -49,7 +49,6 @@ _stub("ai_services", AIServices=object, DocumentAnalyzer=object)
 _stub("entity_extractor", SPACY_AVAILABLE=False, extract_from_document=None)
 _stub("graph_store", GraphStore=object)
 _stub("embedding_client", EmbeddingClient=object)
-_stub("qdrant_manager", QdrantManager=object)
 _stub(
     "config",
     MINIO_HOST="h", MINIO_PORT=9000, MINIO_ROOT_USER="u",

@@ -9,8 +9,6 @@ the public API consumed by api_server.py:
 
 Sub-modules:
   config.py            — environment variables, constants, secret resolution
-  embedding_client.py  — embedding service HTTP client
-  qdrant_manager.py    — Qdrant collection init, upsert, similarity, delete
   document_processor.py — parsing, hashing, AI analysis, indexing pipeline
 """
 
@@ -34,7 +32,7 @@ from graph_store import GraphStore
 
 from config import (
     MINIO_HOST, MINIO_PORT, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD,
-    MINIO_BUCKET, QDRANT_COLLECTION, EMBEDDING_ENABLED,
+    MINIO_BUCKET,
     INDEXER_INTERVAL, INDEXER_MAX_DOCS_PER_CYCLE, INDEXER_MAX_RETRIES,
     INDEXER_NACHBRENNER, INDEXER_ANREICHERUNG_PRO_ZYKLUS,
     INDEXER_WATCHDOG_INTERVAL_SECONDS,
@@ -42,11 +40,9 @@ from config import (
     PARTIAL_REPICKUP_MAX_ATTEMPTS,
     PARTIAL_REPICKUP_BATCH,
     MAX_FILE_SIZE_MB, MAX_FILE_SIZE_BYTES,
-    ENABLE_AI_ANALYSIS, ENABLE_SIMILARITY, ENABLE_KNOWLEDGE_GRAPH,
+    ENABLE_AI_ANALYSIS, ENABLE_KNOWLEDGE_GRAPH,
     EMBEDDING_MODEL, POSTGRES_DSN
 )
-from embedding_client import EmbeddingClient
-from qdrant_manager import QdrantManager
 from document_processor import (
     calculate_content_hash, calculate_file_hash, get_mime_type,
     parse_document, get_document_space_info, contextualize_chunk,
@@ -69,10 +65,6 @@ class EnhancedDocumentIndexer:
         # Initialize components with retry logic
         self.minio_client = self._init_minio()
 
-        # Qdrant manager (owns the QdrantClient)
-        self._qdrant_manager = QdrantManager()
-        self.qdrant_client = self._qdrant_manager.client
-
         # Database
         self.db = DatabaseManager()
 
@@ -88,23 +80,6 @@ class EnhancedDocumentIndexer:
         # AI services
         self.ai_services = AIServices()
         self.analyzer = DocumentAnalyzer(self.ai_services)
-
-        # Embedding client
-        self._embedding_client = EmbeddingClient()
-
-        # Verify embedding service is reachable. Plan 021 (Schritt 8): ist der
-        # Vektor-Zweig abgeschaltet, ist der embedding-service bewusst nicht da —
-        # die Prüfung überspringen (sonst Timeout/Warn-Spam beim Start).
-        if not EMBEDDING_ENABLED:
-            logger.info("Embedding abgeschaltet (INDEXER_EMBEDDING_ENABLED=false) "
-                        "- nur Textlayer-Indexierung, kein Qdrant")
-        elif not self._embedding_client.check_health():
-            logger.warning(
-                "Embedding service is not reachable at startup "
-                "- embeddings will fail until service is available"
-            )
-        else:
-            logger.info("Embedding service health check passed")
 
         # Initialize Knowledge Graph store
         self.graph_store = (
@@ -188,18 +163,6 @@ class EnhancedDocumentIndexer:
     # Delegating methods (preserve the public API surface)
     # ------------------------------------------------------------------
 
-    def _check_embedding_service(self) -> bool:
-        """Verify embedding service is reachable."""
-        return self._embedding_client.check_health()
-
-    def get_embedding(self, text: str):
-        """Get embedding vector from embedding service"""
-        return self._embedding_client.get_embedding(text)
-
-    def get_batch_embeddings(self, texts):
-        """Get embeddings for multiple texts efficiently"""
-        return self._embedding_client.get_batch_embeddings(texts)
-
     def calculate_content_hash(self, data: bytes) -> str:
         """Calculate SHA256 hash of file content"""
         return calculate_content_hash(data)
@@ -230,24 +193,21 @@ class EnhancedDocumentIndexer:
         )
 
     # ------------------------------------------------------------------
-    # index_document — delegates to document_processor._index_to_qdrant
+    # index_document — reicht an document_processor.schreibe_textlayer durch
     # ------------------------------------------------------------------
 
     def index_document(self, doc_id: str, text: str,
                        metadata: Dict[str, Any]) -> int:
         """
-        Index document text into Qdrant using hierarchical chunking.
-
-        Delegates to document_processor._index_to_qdrant.
+        Den Text eines Dokuments hierarchisch zerlegen und als Textlayer
+        nach PostgreSQL schreiben.
         """
-        from document_processor import _index_to_qdrant
-        return _index_to_qdrant(
+        from document_processor import schreibe_textlayer
+        return schreibe_textlayer(
             doc_id=doc_id,
             text=text,
             metadata=metadata,
             db=self.db,
-            embedding_client=self._embedding_client,
-            qdrant_manager=self._qdrant_manager
         )
 
     # ------------------------------------------------------------------
@@ -484,10 +444,7 @@ class EnhancedDocumentIndexer:
                 content_hash=content_hash,
                 db=self.db,
                 analyzer=self.analyzer,
-                embedding_client=self._embedding_client,
-                qdrant_manager=self._qdrant_manager,
                 graph_store=self.graph_store,
-                enable_similarity=ENABLE_SIMILARITY,
                 anreichern=anreichern
             )
 
@@ -565,10 +522,7 @@ class EnhancedDocumentIndexer:
                 content_hash=content_hash,
                 db=self.db,
                 analyzer=self.analyzer,
-                embedding_client=self._embedding_client,
-                qdrant_manager=self._qdrant_manager,
                 graph_store=self.graph_store,
-                enable_similarity=ENABLE_SIMILARITY,
                 anreichern=anreichern
             )
 
@@ -617,9 +571,6 @@ class EnhancedDocumentIndexer:
             True if successful
         """
         try:
-            # Delete from Qdrant
-            self._qdrant_manager.delete_document_vectors(doc_id)
-
             # Delete from MinIO
             doc = self.db.get_document(doc_id)
             if doc and doc.get('file_path'):
@@ -960,9 +911,6 @@ class EnhancedDocumentIndexer:
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             status['statistics'] = {}
-
-        # Add Qdrant info
-        status['qdrant'] = self._qdrant_manager.get_collection_info()
 
         return status
 

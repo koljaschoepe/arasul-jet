@@ -32,7 +32,7 @@ function createLLMJobService(deps = {}) {
     /**
      * Create a new LLM job and placeholder message
      * @param {number} conversationId - Chat conversation ID
-     * @param {string} jobType - 'chat' or 'rag'
+     * @param {string} jobType - 'chat'
      * @param {object} requestData - Original request parameters
      * @returns {Promise<{jobId: string, messageId: number}>}
      */

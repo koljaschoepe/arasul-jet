@@ -454,11 +454,6 @@ async function raeumeUmsysteme({ stufe, modelleLoeschen }) {
     return { entfernt: pfade.length };
   });
 
-  ergebnis.vektoren = await stillEntfernen('Vektoren', async () => {
-    const qdrant = require('../documents/qdrantService');
-    return qdrant.deleteAllVectors();
-  });
-
   if (stufe === 'auslieferung') {
     ergebnis.n8n = await stillEntfernen('n8n', async () => {
       const docker = require('../core/docker');

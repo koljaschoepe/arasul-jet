@@ -11,7 +11,7 @@
 const EventEmitter = require('events');
 const services = require('../../config/services');
 const AsyncMutex = require('./AsyncMutex');
-const { processChatJob, processRAGJob, onJobComplete } = require('./llmJobProcessor');
+const { processChatJob, onJobComplete } = require('./llmJobProcessor');
 const { abbruchMelden, abbruchFesthalten } = require('./abbruchGrund');
 const { istExtern } = require('./extern/providerRegistry');
 const { ServiceUnavailableError } = require('../../utils/errors');
@@ -234,7 +234,7 @@ function createLLMQueueService(deps = {}) {
     /**
      * Add a job to the queue
      * @param {number} conversationId - Chat conversation ID
-     * @param {string} jobType - 'chat' or 'rag'
+     * @param {string} jobType - 'chat'
      * @param {object} requestData - Original request parameters
      * @param {object} options - Optional: model, modelSequence, priority, maxWaitSeconds
      * @returns {Promise<{jobId: string, messageId: number, queuePosition: number, model: string}>}
@@ -648,8 +648,6 @@ function createLLMQueueService(deps = {}) {
         // Process the job based on type
         if (job.job_type === 'chat') {
           await processChatJob(ctx, job);
-        } else if (job.job_type === 'rag') {
-          await processRAGJob(ctx, job);
         }
         // Erst hier ist die Fehlerfolge gebrochen, nicht schon beim Entnehmen
         // des Auftrags. Sonst wüchse die Pause nie über eine Sekunde hinaus,

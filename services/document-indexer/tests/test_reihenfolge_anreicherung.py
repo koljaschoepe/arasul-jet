@@ -42,7 +42,7 @@ def test_status_wird_vor_der_ki_analyse_gesetzt():
 
 def test_indexierung_laeuft_vor_der_ki_analyse():
     text = _quelltext()
-    assert text.index("_index_to_qdrant(") < text.index("reichere_an(")
+    assert text.index("schreibe_textlayer(") < text.index("reichere_an(")
 
 
 def test_eine_gescheiterte_anreicherung_kippt_den_lauf_nicht():

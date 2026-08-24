@@ -458,23 +458,7 @@ describe('Documents Routes', () => {
             expect(logger.warn).toHaveBeenCalled();
         });
 
-        test('behandelt Qdrant-Löschfehler graceful', async () => {
-            pool.query
-                .mockResolvedValueOnce({ rows: [{ file_path: 'path/to/file.pdf' }] }) // Get doc
-                .mockResolvedValueOnce({ rows: [] })  // qdrant_cleanup_pending update
-                .mockResolvedValueOnce({ rows: [] }); // Soft delete
-
-            axios.post.mockRejectedValueOnce(new Error('Qdrant error'));
-
-            const response = await request(app)
-                .delete('/api/documents/doc-123');
-
-            expect(response.status).toBe(200);
-            expect(logger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to delete from Qdrant')
-            );
-        });
-    });
+            });
 
     // =====================================================
     // POST /api/documents/:id/reindex - Reindex
@@ -658,93 +642,7 @@ describe('Documents Routes', () => {
     // =====================================================
     // POST /api/documents/search - Semantic Search
     // =====================================================
-    describe('POST /api/documents/search', () => {
-        test('führt semantische Suche durch', async () => {
-            // Mock embedding response
-            axios.post.mockImplementation((url) => {
-                if (url.includes('/embed')) {
-                    return Promise.resolve({
-                        data: { vectors: [[0.1, 0.2, 0.3]] }
-                    });
-                }
-                if (url.includes('/points/search')) {
-                    return Promise.resolve({
-                        data: {
-                            result: [
-                                {
-                                    payload: {
-                                        document_id: 'doc-1',
-                                        document_name: 'test.pdf',
-                                        text: 'Relevant content here'
-                                    },
-                                    score: 0.95
-                                }
-                            ]
-                        }
-                    });
-                }
-                return Promise.resolve({ data: {} });
-            });
-
-            pool.query.mockResolvedValue({ rows: [] });  // Access log
-
-            const response = await request(app)
-                .post('/api/documents/search')
-                .send({ query: 'test query', top_k: 5 });
-
-            expect(response.status).toBe(200);
-            expect(response.body.results).toHaveLength(1);
-            expect(response.body.results[0].document_id).toBe('doc-1');
-        });
-
-        test('gibt 400 ohne Query', async () => {
-            const response = await request(app)
-                .post('/api/documents/search')
-                .send({});
-
-            expect(response.status).toBe(400);
-            expect(response.body.error.message).toContain('Suchbegriff erforderlich');
-        });
-
-        test('gibt 400 für ungültigen Query-Typ', async () => {
-            const response = await request(app)
-                .post('/api/documents/search')
-                .send({ query: 123 });
-
-            expect(response.status).toBe(400);
-        });
-
-        test('dedupliziert Ergebnisse nach Dokument-ID', async () => {
-            axios.post.mockImplementation((url) => {
-                if (url.includes('/embed')) {
-                    return Promise.resolve({ data: { vectors: [[0.1, 0.2]] } });
-                }
-                if (url.includes('/points/search')) {
-                    return Promise.resolve({
-                        data: {
-                            result: [
-                                { payload: { document_id: 'doc-1', text: 'chunk 1' }, score: 0.95 },
-                                { payload: { document_id: 'doc-1', text: 'chunk 2' }, score: 0.90 },
-                                { payload: { document_id: 'doc-2', text: 'other doc' }, score: 0.85 }
-                            ]
-                        }
-                    });
-                }
-                return Promise.resolve({ data: {} });
-            });
-
-            pool.query.mockResolvedValue({ rows: [] });
-
-            const response = await request(app)
-                .post('/api/documents/search')
-                .send({ query: 'test', top_k: 10 });
-
-            expect(response.status).toBe(200);
-            // Should deduplicate to 2 unique documents
-            expect(response.body.results).toHaveLength(2);
-        });
-    });
-
+    
     // =====================================================
     // GET /api/documents/:id/content - Get Content
     // =====================================================

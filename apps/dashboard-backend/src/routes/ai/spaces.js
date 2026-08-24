@@ -46,9 +46,6 @@ const services = require('../../config/services');
 const CACHE_KEY_SPACES = 'spaces:list';
 
 // Qdrant configuration for space-deletion vector sync
-const QDRANT_HOST = services.qdrant.host;
-const QDRANT_PORT = services.qdrant.port;
-const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION_NAME || 'documents';
 const CACHE_TTL_SPACES = 30000; // 30 seconds
 
 /**
@@ -637,31 +634,6 @@ router.delete(
       `Deleted knowledge space: ${id}, moved ${movedCount} documents` +
         (contextFileDeleted ? ', context file soft-deleted' : '')
     );
-
-    // QDRANT-SYNC: Update Qdrant payloads for documents moved from deleted space
-    if (movedCount > 0) {
-      const defaultResult = await pool.query(
-        'SELECT id, name, slug FROM knowledge_spaces WHERE is_default = TRUE'
-      );
-      const defaultSpace = defaultResult.rows[0];
-      try {
-        await axios.post(
-          `http://${QDRANT_HOST}:${QDRANT_PORT}/collections/${QDRANT_COLLECTION}/points/payload`,
-          {
-            payload: {
-              space_id: defaultSpace?.id || null,
-              space_name: defaultSpace?.name || '',
-              space_slug: defaultSpace?.slug || '',
-            },
-            filter: { must: [{ key: 'space_id', match: { value: id } }] },
-          },
-          { timeout: 15000 }
-        );
-        logger.info(`Updated Qdrant payloads for ${movedCount} docs from deleted space ${id}`);
-      } catch (e) {
-        logger.error(`Failed to update Qdrant payloads after space deletion ${id}: ${e.message}`);
-      }
-    }
 
     // Invalidate spaces cache
     cacheService.invalidate(CACHE_KEY_SPACES);

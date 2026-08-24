@@ -7,7 +7,7 @@
  *     (`rel_pfad` = Pfad relativ zum Projektordner).
  *   - Jede indexierbare Datei spiegelt sich als `documents`-Zeile
  *     (`rel_pfad` gesetzt) und wandert automatisch durch die bestehende
- *     Index-Pipeline (MinIO → status 'pending' → Document-Indexer → Qdrant).
+ *     Index-Pipeline (MinIO → status 'pending' → Document-Indexer → Textlayer).
  *   - Verschwindet eine Datei von der Platte, verschwinden Dokument,
  *     MinIO-Objekt und Vektoren; verschwindet ein Ordner, verschwindet
  *     sein Raum.
@@ -24,7 +24,7 @@
  *   synchronisiere() — laufend (Platte → DB): Abgleich per Größe/mtime,
  *     Inhalt per SHA-256 nur bei Verdacht. Umbenennen/Verschieben wird über
  *     den Hash erkannt und kostet KEINE Neu-Indexierung (Pfad-Update +
- *     Qdrant-Payload statt Pipeline-Neustart).
+ *     Raumwechsel in der Datenbank statt Pipeline-Neustart).
  *
  * Es gibt bewusst KEINEN fs-Watcher: Routen stoßen den Abgleich nach jeder
  * Datei-Operation direkt an (`trigger`), alles andere (Terminal, Git, Flows,
@@ -53,7 +53,6 @@ function deps(overrides = {}) {
     db: overrides.db || require('../../database'),
     minio: overrides.minio || require('../documents/minioService'),
     documentService: overrides.documentService || require('../documents/documentService'),
-    qdrantService: overrides.qdrantService || require('../documents/qdrantService'),
     ablage: overrides.ablage || require('./ablageService'),
   };
 }
@@ -444,7 +443,7 @@ async function legeDokumentAn(d, { projectId, datei, spaceId, hash = null }) {
  */
 async function synchronisiere(projectId, overrides = {}) {
   const d = deps(overrides);
-  const { db, documentService, qdrantService, ablage } = d;
+  const { db, documentService, ablage } = d;
   const stats = { neu: 0, geaendert: 0, verschoben: 0, geloescht: 0, doubletten: 0 };
 
   const dir = await ablage.projektOrdner(projectId);
@@ -496,9 +495,6 @@ async function synchronisiere(projectId, overrides = {}) {
       // Raum folgt dem Ordner — die Platte ist die Wahrheit.
       if (raum && zeile.space_id !== raum.id) {
         await db.query('UPDATE documents SET space_id = $1 WHERE id = $2', [raum.id, zeile.id]);
-        qdrantService
-          .updateDocumentSpacePayload(zeile.id, raum.id, raum.name, raum.slug)
-          .catch(err => logger.warn(`Ordner-Sync: Qdrant-Payload: ${err.message}`));
       }
       const c = cache.get(datei.rel);
       const unveraendert =
@@ -512,7 +508,7 @@ async function synchronisiere(projectId, overrides = {}) {
       if (hash === zeile.content_hash) {
         return;
       }
-      // Inhalt geändert: alte Zeile samt Vektoren/MinIO austragen, frisch in
+      // Inhalt geändert: alte Zeile samt MinIO-Objekt austragen, frisch in
       // die Pipeline — sauberer als in einer indexierten Zeile herumzudoktern.
       await documentService.deleteDocument(zeile.id, zeile.file_path);
       const neuId = await legeDokumentAn(d, { projectId, datei, spaceId: raum?.id || null });
@@ -543,11 +539,6 @@ async function synchronisiere(projectId, overrides = {}) {
       );
       beansprucht.add(perHash.rel_pfad);
       cache.delete(perHash.rel_pfad);
-      if (raum) {
-        qdrantService
-          .updateDocumentSpacePayload(perHash.id, raum.id, raum.name, raum.slug)
-          .catch(err => logger.warn(`Ordner-Sync: Qdrant-Payload: ${err.message}`));
-      }
       stats.verschoben += 1;
       return;
     }

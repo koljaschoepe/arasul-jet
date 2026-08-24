@@ -60,7 +60,6 @@ interface Bericht {
   dauerMs: number;
   tabellen: Record<string, number>;
   objektspeicher?: Nebenwirkung;
-  vektoren?: Nebenwirkung;
   n8n?: Nebenwirkung;
   modelle?: Nebenwirkung;
   ordner?: { pfad: string; fehler?: string }[];
@@ -74,8 +73,6 @@ interface Bericht {
  */
 const FOLGE: Record<string, string> = {
   n8n: 'n8n wurde nicht neu gestartet. Die Workflow-Oberflaeche bleibt bis zum naechsten Neustart des Dienstes leer oder fehlerhaft.',
-  vektoren:
-    'Die Vektoren der Dokumente stehen noch in Qdrant. Die Suche kann Treffer zu geloeschten Dokumenten liefern.',
   objektspeicher: 'Die Dateien liegen noch im Objektspeicher, obwohl ihre Eintraege weg sind.',
   modelle: 'Die Modelle liegen noch auf der Platte.',
 };

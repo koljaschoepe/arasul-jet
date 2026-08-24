@@ -1,41 +1,28 @@
 /**
  * System Settings Service — in-memory cache of the singleton system_settings row.
  *
- * Loaded once at boot (after migrations) so request hot-paths can read RAG/LLM
+ * Loaded once at boot (after migrations) so request hot-paths can read the LLM
  * defaults from a Map instead of hitting Postgres. The read path stays
  * synchronous; the admin settings route calls reload() after an UPDATE so
  * changes take effect without a restart (single-process backend — no
  * cross-instance invalidation needed).
  *
  * Consumers:
- *  - routes/rag.js                   (top_k, final_k, mmr, dedup, admin GET/PATCH)
- *  - services/rag/ragCore.js         (thresholds, hybrid/rerank switches, routing)
- *  - services/llm/llmOllamaStream.js (llm_num_predict_default, llm_keep_alive_seconds)
- *  - services/llm/llmJobProcessor.js (rag_temperature, rag_num_predict)
+ *  - routes/rag.js                       (admin GET/PATCH)
+ *  - services/llm/llmOllamaStream.js     (llm_num_predict_default, llm_keep_alive_seconds)
  *  - services/llm/systemPromptBuilder.js (llm_base_system_prompt)
  */
 
 const db = require('../../database');
 const logger = require('../../utils/logger');
 
+// Die dreizehn Spalten mit `rag_`-Praefix sind am 24.08.2026 entfallen. Sie
+// stellten Abruf, Rerank und Wissensraum-Routing der Qdrant-Suche ein; mit dem
+// Ausbau von Qdrant hat sie niemand mehr gelesen.
 const SETTINGS_COLUMNS = [
-  'rag_top_k',
-  'rag_final_k',
-  'rag_score_threshold',
-  'rag_relevance_threshold',
-  'rag_rerank_enabled',
-  'rag_timeout_rerank_ms',
   'llm_num_ctx_default',
   'llm_keep_alive_seconds',
   'llm_num_predict_default',
-  // 096: generation + retrieval tunables and the editable base prompt
-  'rag_temperature',
-  'rag_num_predict',
-  'rag_mmr_lambda',
-  'rag_dedup_max_per_doc',
-  'rag_hybrid_search',
-  'rag_space_routing_threshold',
-  'rag_space_routing_max_spaces',
   'llm_base_system_prompt',
 ];
 

@@ -12,7 +12,6 @@
  *
  * Business logic is delegated to service files:
  * - services/documents/minioService.js — MinIO operations
- * - services/documents/qdrantService.js — Qdrant vector operations
  * - services/documents/documentService.js — Orchestration (DB + MinIO + Qdrant)
  */
 
@@ -38,13 +37,11 @@ const {
 const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
 const { uploadLimiter } = require('../middleware/rateLimit');
 const { buildSetClauses } = require('../utils/queryBuilder');
-const { getEmbedding } = require('../services/embeddingService');
 const { validateFileContent } = require('../utils/fileValidation');
 const documentImagesRouter = require('./documentImages');
 
 // Document services
 const minioService = require('../services/documents/minioService');
-const qdrantService = require('../services/documents/qdrantService');
 const documentService = require('../services/documents/documentService');
 
 /**
@@ -667,83 +664,6 @@ router.get(
     res.json({
       document_id: id,
       similar_documents: result.rows,
-      timestamp: new Date().toISOString(),
-    });
-  })
-);
-
-/**
- * POST /api/documents/search
- * Semantic search across all documents
- */
-router.post(
-  '/search',
-  requireAuth,
-  validateBody(SearchBody),
-  asyncHandler(async (req, res) => {
-    const { query, top_k = 10, category_id } = req.body;
-
-    // Get query embedding
-    const queryVector = await getEmbedding(query);
-    if (!queryVector) {
-      throw new ValidationError('Embedding-Service nicht verfügbar');
-    }
-
-    // Build Qdrant filter
-    const filter = category_id
-      ? {
-          must: [
-            {
-              key: 'category',
-              match: { value: category_id },
-            },
-          ],
-        }
-      : undefined;
-
-    // Search Qdrant
-    const searchResults = await qdrantService.searchDocuments(queryVector, top_k * 2, filter);
-
-    // Deduplicate by document
-    const seenDocs = new Set();
-    const results = [];
-
-    for (const result of searchResults) {
-      const docId = result.payload?.document_id;
-      if (docId && !seenDocs.has(docId)) {
-        seenDocs.add(docId);
-        results.push({
-          document_id: docId,
-          document_name: result.payload.document_name,
-          title: result.payload.title,
-          category: result.payload.category,
-          chunk_text: result.payload.text?.substring(0, 300),
-          score: result.score,
-        });
-
-        if (results.length >= top_k) {
-          break;
-        }
-      }
-    }
-
-    // Log search (non-critical)
-    for (const result of results) {
-      try {
-        await pool.query(
-          `INSERT INTO document_access_log (document_id, access_type, query_text, user_id)
-                 VALUES ($1, 'search', $2, $3)`,
-          [result.document_id, query, req.user?.username || req.user?.id?.toString() || 'unknown']
-        );
-      } catch (e) {
-        // Non-critical
-      }
-    }
-
-    res.json({
-      query,
-      results,
-      total: results.length,
       timestamp: new Date().toISOString(),
     });
   })

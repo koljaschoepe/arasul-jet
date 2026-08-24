@@ -3,7 +3,7 @@
 /**
  * Netzwerk-/Berechtigungsmodus eines Sandbox-Projekts (Migration 100):
  * - isolated: Bridge, nur Internet — DSGVO-saubere Testumgebung
- * - internal: Backend-Netz (LLM, Qdrant, DB)
+ * - internal: Backend-Netz (LLM, DB)
  * - infrastructure: wie internal + Plattform-Repo rw + Docker-Socket (nur Admin)
  */
 export type SandboxNetworkMode = 'isolated' | 'internal' | 'infrastructure';

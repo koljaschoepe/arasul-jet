@@ -26,25 +26,6 @@ jest.mock('../../src/utils/logger', () => ({
 // Mock axios for external service calls
 jest.mock('axios');
 
-// Mock ragCore — settings routes don't touch it, but routes/rag.js requires it at load
-jest.mock('../../src/services/rag/ragCore', () => ({
-  getEmbedding: jest.fn(),
-  getEmbeddings: jest.fn(),
-  getCompanyContext: jest.fn(),
-  routeToSpaces: jest.fn(),
-  buildSpaceFilter: jest.fn(),
-  hybridSearch: jest.fn(),
-  rerankResults: jest.fn(),
-  filterByRelevance: jest.fn(),
-  deduplicateByDocument: jest.fn(),
-  applyMMR: jest.fn(),
-  graphEnrichedRetrieval: jest.fn(),
-  getParentChunks: jest.fn(),
-  buildHierarchicalContext: jest.fn(),
-  ENABLE_RERANKING: false,
-  RAG_FINAL_K: 4,
-}));
-
 jest.mock('../../src/services/context/queryOptimizer', () => ({
   optimizeQuery: jest.fn(),
 }));
@@ -207,16 +188,16 @@ describe('RAG Settings Routes', () => {
       const response = await request(app)
         .patch('/api/rag/settings')
         .set('Authorization', `Bearer ${generateTestToken()}`)
-        .send({ rag_final_k: 6, rag_mmr_lambda: 0.5 });
+        .send({ llm_keep_alive_seconds: 600, llm_num_predict_default: 1024 });
 
       expect(response.status).toBe(200);
-      expect(response.body.data).toHaveProperty('rag_final_k');
+      expect(response.body.data).toHaveProperty('llm_keep_alive_seconds');
 
       const updateCall = db.query.mock.calls.find(([q]) => q.startsWith('UPDATE system_settings'));
       expect(updateCall).toBeDefined();
-      expect(updateCall[0]).toContain('rag_final_k = $1');
-      expect(updateCall[0]).toContain('rag_mmr_lambda = $2');
-      expect(updateCall[1]).toEqual([6, 0.5]);
+      expect(updateCall[0]).toContain('llm_keep_alive_seconds = $1');
+      expect(updateCall[0]).toContain('llm_num_predict_default = $2');
+      expect(updateCall[1]).toEqual([600, 1024]);
 
       expect(reloadSpy).toHaveBeenCalledTimes(1);
     });

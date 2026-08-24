@@ -82,10 +82,6 @@ services:
       # und hier hinterlegt; fehlt er, degradiert das Live-Schalten sichtbar.
       N8N_URL: ${N8N_URL:-http://n8n:5678}
       N8N_API_KEY: ${N8N_API_KEY:-}
-      QDRANT_HOST: ${QDRANT_HOST}
-      QDRANT_PORT: ${QDRANT_PORT}
-      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME}
-      QDRANT_PAUSE_MS: ${QDRANT_PAUSE_MS:-}
       EXTENSIONS_APP_TOKEN_TTL_MS: ${EXTENSIONS_APP_TOKEN_TTL_MS:-}
       EXTENSIONS_NETZ_TIMEOUT_MS: ${EXTENSIONS_NETZ_TIMEOUT_MS:-}
       EXTENSIONS_NETZ_MAX_ANTWORT: ${EXTENSIONS_NETZ_MAX_ANTWORT:-}
@@ -355,7 +351,7 @@ services:
       # Hostname-Allowlist freigegeben (Allowlist > Blocklist). postgres-db
       # ist bewusst NICHT freigegeben.
       N8N_SSRF_PROTECTION_ENABLED: 'true'
-      N8N_SSRF_ALLOWED_HOSTNAMES: 'llm-service,qdrant,dashboard-backend,minio,embedding-service,document-indexer'
+      N8N_SSRF_ALLOWED_HOSTNAMES: 'llm-service,dashboard-backend,minio,embedding-service,document-indexer'
       # Instanzweiten MCP-Server (Beta, macht Workflows als MCP-Tools nach
       # außen verfügbar) hart abschalten. Der MCP-Client-Tool-Node in
       # Agent-Workflows ist davon NICHT betroffen.
@@ -377,9 +373,6 @@ services:
       # downstream services anyway.
       llm-service:
         condition: service_started
-      # Plan 021 (Schritt 8): embedding-service ist ins Profil "classic-rag"
-      # gewandert (standardmäßig aus) — n8n darf nicht mehr auf ihn warten,
-      # sonst zöge depends_on ihn wieder mit hoch.
       minio:
         condition: service_healthy
     healthcheck:

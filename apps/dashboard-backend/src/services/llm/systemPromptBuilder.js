@@ -2,12 +2,12 @@
  * System Prompt Builder
  * Builds a layered system prompt from 3 sources:
  *   1. Global base (hardcoded German default)
- *   2. AI profile (YAML from MinIO/DB via memoryService)
+ *   2. AI profile (YAML from MinIO/DB via profilService)
  *   3. Company context (from company_context table)
  */
 
 const yaml = require('js-yaml');
-const memoryService = require('../memory/memoryService');
+const profilService = require('../memory/profilService');
 const logger = require('../../utils/logger');
 const systemSettings = require('../system-settings/systemSettingsService');
 
@@ -135,7 +135,7 @@ function invalidateCompanyContextCache() {
 
 /**
  * Format a YAML profile string into a readable system prompt section.
- * @param {string} yamlString - Raw YAML from memoryService
+ * @param {string} yamlString - Raw YAML from profilService
  * @returns {string|null} Formatted section or null
  */
 function formatProfile(yamlString) {
@@ -215,7 +215,7 @@ async function loadProfile() {
   }
 
   try {
-    const yaml = await memoryService.getProfile();
+    const yaml = await profilService.getProfile();
     cache.profile = { value: yaml, expiresAt: now + CACHE_TTL_MS };
     return yaml;
   } catch (err) {

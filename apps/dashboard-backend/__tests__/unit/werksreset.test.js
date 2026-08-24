@@ -42,10 +42,6 @@ jest.mock('../../src/services/documents/minioService', () => ({
   removeObject: jest.fn(),
 }));
 
-jest.mock('../../src/services/documents/qdrantService', () => ({
-  deleteAllVectors: jest.fn(),
-}));
-
 jest.mock('../../src/middleware/auth', () => ({
   clearUserCache: jest.fn(),
   optionalAuth: (req, res, next) => next(),
@@ -263,7 +259,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
   const envManager = require('../../src/utils/envManager');
   const docker = require('../../src/services/core/docker');
   const minio = require('../../src/services/documents/minioService');
-  const qdrant = require('../../src/services/documents/qdrantService');
 
   let clientAbfragen;
 
@@ -296,7 +291,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
     envManager.updateEnvVariable.mockResolvedValue(true);
     docker.restartContainer.mockResolvedValue(true);
     minio.listAllObjects.mockResolvedValue([]);
-    qdrant.deleteAllVectors.mockResolvedValue({ entfernt: 'alle' });
     require('../../src/middleware/auth').clearUserCache.mockClear();
   });
 
@@ -365,14 +359,18 @@ describe('ausfuehren, ganzer Durchlauf', () => {
   });
 
   test('ein nicht erreichbarer Nachbardienst nimmt den Reset nicht zurück', async () => {
-    qdrant.deleteAllVectors.mockRejectedValue(new Error('Qdrant antwortet nicht'));
+    // Der Fall hing bis zum 24.08.2026 an Qdrant. Qdrant ist ausgebaut, die
+    // Frage bleibt dieselbe: die Datenbank ist zu diesem Zeitpunkt geleert,
+    // und ein toter Nachbardienst darf das nicht zurücknehmen — er wird
+    // gemeldet, nicht verschwiegen.
+    minio.listAllObjects.mockRejectedValue(new Error('MinIO antwortet nicht'));
 
     const bericht = await werksreset.ausfuehren({
       stufe: 'inhalte',
       bestaetigung: 'orin-vorfuehrer',
     });
 
-    expect(bericht.vektoren).toEqual({ ok: false, fehler: 'Qdrant antwortet nicht' });
+    expect(bericht.objektspeicher).toEqual({ ok: false, fehler: 'MinIO antwortet nicht' });
     expect(bericht.zeilenGesamt).toBeGreaterThan(0);
   });
 });
@@ -380,7 +378,6 @@ describe('ausfuehren, ganzer Durchlauf', () => {
 describe('Objektspeicher', () => {
   const fs = require('fs');
   const minio = require('../../src/services/documents/minioService');
-  const qdrant = require('../../src/services/documents/qdrantService');
 
   test('loescht die Pfade, die listAllObjects liefert, nicht deren .name', async () => {
     db.query.mockReset();
@@ -389,7 +386,6 @@ describe('Objektspeicher', () => {
     db.transaction.mockImplementation(async r => r({ query: jest.fn().mockResolvedValue({ rowCount: 1 }) }));
     fs.promises.readdir.mockResolvedValue([]);
     fs.promises.readFile.mockResolvedValue('ADMIN_PASSWORD=REDACTED_AFTER_BOOTSTRAP\n');
-    qdrant.deleteAllVectors.mockResolvedValue({});
     // Der echte Dienst liefert ein Set von Zeichenketten.
     minio.listAllObjects.mockResolvedValue(new Set(['2026/rechnung.pdf', '2026/angebot.pdf']));
     minio.removeObject.mockResolvedValue(undefined);
@@ -514,7 +510,6 @@ describe('Entwertung nachlesen', () => {
 describe('Nachbarsysteme ohne Bestand', () => {
   const fs = require('fs');
   const minio = require('../../src/services/documents/minioService');
-  const qdrant = require('../../src/services/documents/qdrantService');
 
   test('ein fehlender Dokumenten-Eimer ist kein Fehlschlag', async () => {
     db.query.mockReset();
@@ -522,7 +517,6 @@ describe('Nachbarsysteme ohne Bestand', () => {
     tabellenInDerDatenbank(ALLE);
     db.transaction.mockResolvedValue({ 'public.documents': 0 });
     fs.promises.readdir.mockResolvedValue([]);
-    qdrant.deleteAllVectors.mockResolvedValue({ uebersprungen: 'Sammlung nicht vorhanden' });
     const fehler = new Error('S3Error: The specified bucket does not exist');
     fehler.code = 'NoSuchBucket';
     minio.listAllObjects.mockRejectedValue(fehler);

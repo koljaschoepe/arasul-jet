@@ -258,15 +258,10 @@ async function llmStream({ prompt, system = '', temperature = 0.7 }, res) {
 // Fähigkeit: rag — Wissensbasis-Suche mit Quellen
 // ============================================================================
 
-const RAG_DEFAULT_LIMIT = 5;
-const RAG_MAX_LIMIT = 15;
-const RAG_SNIPPET_CHARS = 600;
-
 /** Textlayer-Grenze wie beim Flow-Werkzeug: genug fuer ein langes Dokument. */
 const RAG_DATEI_MAX_ZEICHEN = 60000;
 
 async function ragSuche({ frage, anzahl, dateiname }) {
-  const ragCore = require('../rag/ragCore');
   const query = String(frage || '').trim();
   if (!query) {
     throw new ValidationError('"frage" darf nicht leer sein');
@@ -301,43 +296,24 @@ async function ragSuche({ frage, anzahl, dateiname }) {
       },
     ];
   }
-  let limit = Number.parseInt(anzahl, 10);
-  if (!Number.isFinite(limit) || limit < 1) {
-    limit = RAG_DEFAULT_LIMIT;
-  }
-  limit = Math.min(limit, RAG_MAX_LIMIT);
-
-  // `ragCore` sucht ueber Qdrant. Qdrant und der embedding-service liegen seit
-  // Plan 021 Schritt 8 im Compose-Profil `classic-rag` und laufen auf einem
-  // normalen Geraet NICHT (siehe CLAUDE.md). Ohne diesen Zweig kam hier ein
-  // rohes "Vector search backend unavailable" an, aus dem niemand ableiten
-  // kann, was zu tun ist (auf dem Orin gemessen, 23.08.2026).
-  let results;
-  try {
-    const embedding = await ragCore.getEmbedding(query);
-    results = await ragCore.hybridSearch(query, embedding, limit, null);
-  } catch (err) {
-    if (/qdrant|EAI_AGAIN|ECONNREFUSED|Vector search/i.test(String(err.message))) {
-      throw new ServiceUnavailableError(
-        'Ohne "dateiname" braucht diese Faehigkeit die Vektorsuche, und die ' +
-          'laeuft auf diesem Geraet nicht (Compose-Profil "classic-rag", Plan ' +
-          '021 Schritt 8). Gib den Namen einer hochgeladenen Datei an, dann ' +
-          'kommt ihr indexierter Text zurueck, auch aus PDF oder DOCX.'
-      );
-    }
-    throw err;
-  }
-  return (Array.isArray(results) ? results : []).map(r => {
-    const payload = r.payload || {};
-    const raw = String(payload.text || payload.content || '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    return {
-      quelle: payload.document_name || payload.title || payload.document_id || 'Unbekannt',
-      text: raw.length > RAG_SNIPPET_CHARS ? `${raw.slice(0, RAG_SNIPPET_CHARS)}…` : raw,
-      score: typeof r.score === 'number' ? r.score : null,
-    };
-  });
+  // Ohne Dateinamen gibt es hier nichts mehr zu holen.
+  //
+  // Bis zum 24.08.2026 lief dieser Zweig in `ragCore.hybridSearch`, also in
+  // Qdrant. Qdrant ist mit dem Ausbau desselben Tages aus dem Produkt
+  // verschwunden: Plan 021 Schritt 8 hatte das Vektor-RAG schon durch
+  // agentisches ersetzt, der Dienst lief seitdem nicht mehr, und die Suche
+  // lieferte leere Trefferlisten. Statt einer leeren Liste steht hier jetzt
+  // die Anweisung, die weiterhilft.
+  //
+  // Der Textlayer selbst ist unangetastet: `ladeDokumentText` liest oben jede
+  // benannte Datei aus Postgres, auch aus PDF oder DOCX.
+  throw new ValidationError(
+    'Diese Faehigkeit braucht "dateiname". Die Suche ueber alle Dokumente ' +
+      'auf einmal gibt es nicht mehr (Qdrant-Ausbau, 24.08.2026). Gib den ' +
+      'Namen einer hochgeladenen Datei an, dann kommt ihr indexierter Text ' +
+      'zurueck. Wer nicht weiss, welche Datei es ist, fragt den Chat: der ' +
+      'Agent durchsucht den Wissensraum mit `dateien_suchen`.'
+  );
 }
 
 // ============================================================================

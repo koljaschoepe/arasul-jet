@@ -9,7 +9,7 @@
 #
 # Phases:
 #   1. Infrastructure: postgres-db, minio
-#   2. AI Services: qdrant, llm-service, embedding-service
+#   2. AI Services: llm-service, embedding-service
 #   3. Application: dashboard-backend, dashboard-frontend, n8n, reverse-proxy
 #   4. Monitoring: metrics-collector, self-healing-agent, backup-service, loki, promtail, document-indexer
 
@@ -35,7 +35,7 @@ mkdir -p "$LOG_DIR"
 
 # Phase definitions: space-separated service names
 PHASE1_SERVICES="postgres-db minio"
-PHASE2_SERVICES="qdrant llm-service embedding-service"
+PHASE2_SERVICES="llm-service embedding-service"
 PHASE3_SERVICES="dashboard-backend dashboard-frontend n8n reverse-proxy"
 PHASE4_SERVICES="metrics-collector self-healing-agent backup-service loki promtail document-indexer"
 

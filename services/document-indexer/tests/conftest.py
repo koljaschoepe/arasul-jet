@@ -1,7 +1,7 @@
 """Gemeinsames Test-Geruest fuer den document-indexer.
 
 Die Tests laufen bewusst OHNE die schweren Laufzeit-Abhaengigkeiten des
-Services (PyMuPDF, pdfplumber, spacy, qdrant-client, psycopg2, …). Statt sie zu
+Services (PyMuPDF, pdfplumber, spacy, psycopg2, …). Statt sie zu
 installieren, werden die Geschwister-Module hier durch leichte Stubs ersetzt.
 
 Warum zentral und nicht je Testdatei: Genau diese Stub-Liste stand vorher in
@@ -76,7 +76,6 @@ except Exception:  # pragma: no cover — Rueckfall, falls neue Importe dazukomm
     _stub("ai_services", AIServices=object, DocumentAnalyzer=object)
 _stub("embedding_client", EmbeddingClient=object)
 _stub("bm25_index", BM25Index=object)
-_stub("qdrant_manager", QdrantManager=object)
 _minio = _stub("minio", Minio=object)
 _stub("minio.error", S3Error=type("S3Error", (Exception,), {}))
 _minio.error = sys.modules["minio.error"]
@@ -90,14 +89,6 @@ _stub("psycopg2", errors=None)
 _stub("psycopg2.errors", UniqueViolation=_UniqueViolation)
 # `import psycopg2.errors` braucht das Attribut am Elternmodul.
 sys.modules["psycopg2"].errors = sys.modules["psycopg2.errors"]
-_stub("qdrant_client", QdrantClient=object)
-_stub(
-    "qdrant_client.models",
-    Distance=object, VectorParams=object, PointStruct=object, Filter=object,
-    FieldCondition=object, MatchValue=object, SparseVectorParams=object,
-    SparseVector=object, Modifier=object, BinaryQuantization=object,
-    BinaryQuantizationConfig=object, HnswConfigDiff=object, NamedVector=object,
-)
 
 # Alles, was document_processor UND enhanced_indexer aus config ziehen.
 _stub(
@@ -109,7 +100,6 @@ _stub(
     EMBEDDING_ENABLED=True,
     MINIO_HOST="h", MINIO_PORT=9000, MINIO_ROOT_USER="u",
     MINIO_ROOT_PASSWORD="p", MINIO_BUCKET="b", QDRANT_COLLECTION="c",
-    QDRANT_HOST="qdrant", QDRANT_PORT=6333,
     EMBEDDING_VECTOR_SIZE=1024, SIMILARITY_THRESHOLD=0.8,
     INDEXER_INTERVAL=30, INDEXER_MAX_DOCS_PER_CYCLE=10, INDEXER_MAX_RETRIES=3,
     INDEXER_NACHBRENNER=2,

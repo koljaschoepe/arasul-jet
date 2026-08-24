@@ -253,7 +253,7 @@ fi
 section "4. Data & Backups"
 
 # Required directories
-REQUIRED_DIRS=("data/postgres" "data/minio" "data/qdrant" "data/ollama" "data/backups" "data/uploads" "logs" "updates")
+REQUIRED_DIRS=("data/postgres" "data/minio" "data/ollama" "data/backups" "data/uploads" "logs" "updates")
 MISSING_DIRS=0
 for dir in "${REQUIRED_DIRS[@]}"; do
   if [ ! -d "$dir" ]; then

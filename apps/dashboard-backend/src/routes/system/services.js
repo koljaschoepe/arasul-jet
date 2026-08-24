@@ -25,7 +25,6 @@ const { PullModelBody } = require('../../schemas/system-services');
 const ALLOWED_SERVICES = [
   'postgres-db',
   'minio',
-  'qdrant',
   'metrics-collector',
   'llm-service',
   'embedding-service',

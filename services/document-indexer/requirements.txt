@@ -5,7 +5,6 @@
 minio==7.2.20
 
 # Vector Database
-qdrant-client>=1.19.0,<1.20
 
 # Document Parsing
 PyMuPDF==1.28.2

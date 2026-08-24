@@ -47,7 +47,6 @@ STROEME = {
 # Dienste, die seit Plan 021 Schritt 8 nicht mehr von selbst laufen
 # (Compose-Profil `classic-rag`). Ihr 503 ist die richtige Antwort, kein Fehler.
 ERWARTET_503 = {
-    '/api/rag/status': 'qdrant und embedding-service laufen nicht von selbst',
     '/api/services/embedding/info': 'embedding-service laeuft nicht von selbst',
 }
 

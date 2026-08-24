@@ -130,7 +130,6 @@ describe('AgentChatPanel', () => {
     expect(call[1]).toBe('Was steht im Handbuch?');
     // Agent-Modus (2026-07-28): Werkzeugschleife statt Client-RAG-Vorlauf.
     expect(call[2].agent).toBe(true);
-    expect(call[2].useRAG).toBe(false);
     expect(call[2].useThinking).toBe(true); // Default-Modell unterstützt Thinking
   });
 

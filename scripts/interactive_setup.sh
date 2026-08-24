@@ -642,9 +642,6 @@ EMBEDDING_VECTOR_SIZE=1024
 EMBEDDING_MAX_INPUT_TOKENS=8192
 
 # --- Qdrant (Vektor-DB) ---
-QDRANT_HOST=qdrant
-QDRANT_PORT=6333
-QDRANT_COLLECTION_NAME=documents
 
 # --- Document Indexer ---
 DOCUMENT_INDEXER_HOST=document-indexer

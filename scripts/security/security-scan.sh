@@ -55,7 +55,6 @@ if [ "$SKIP_TRIVY" = false ]; then
         IMAGES=(
             "postgres:16-alpine"
             "minio/minio:latest"
-            "qdrant/qdrant:latest"
             "traefik:v2.11"
             "grafana/loki:2.9.3"
             "grafana/promtail:2.9.3"

@@ -115,7 +115,6 @@ node_modules
 deployment
 data/postgres
 data/minio
-data/qdrant
 data/ollama
 data/backups
 data/uploads

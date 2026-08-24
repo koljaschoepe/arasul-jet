@@ -3,7 +3,7 @@
  *
  * Tests the layered system prompt construction:
  * Layer 1: Global base (always present)
- * Layer 2: AI profile (from memoryService)
+ * Layer 2: AI profile (from profilService)
  * Layer 3: Company context (from DB)
  */
 
@@ -21,13 +21,13 @@ jest.mock('../../src/utils/logger', () => ({
   debug: jest.fn(),
 }));
 
-jest.mock('../../src/services/memory/memoryService', () => ({
+jest.mock('../../src/services/memory/profilService', () => ({
   getProfile: jest.fn(),
   updateProfile: jest.fn(),
   generateProfileYaml: jest.fn(),
 }));
 
-const memoryService = require('../../src/services/memory/memoryService');
+const profilService = require('../../src/services/memory/profilService');
 
 const {
   buildSystemPrompt,
@@ -55,7 +55,7 @@ beforeEach(() => {
 describe('SystemPromptBuilder', () => {
   describe('buildSystemPrompt', () => {
     it('should return only global base when no layers are configured', async () => {
-      memoryService.getProfile.mockResolvedValue(null);
+      profilService.getProfile.mockResolvedValue(null);
       mockDatabase.query.mockResolvedValue({ rows: [] });
 
       const result = await buildSystemPrompt(mockDatabase, null);
@@ -64,7 +64,7 @@ describe('SystemPromptBuilder', () => {
     });
 
     it('should combine global base + AI profile', async () => {
-      memoryService.getProfile.mockResolvedValue(
+      profilService.getProfile.mockResolvedValue(
         'firma: "TestCorp"\nbranche: "IT & Software"\nsprache: "de"\n'
       );
       mockDatabase.query.mockResolvedValue({ rows: [] });
@@ -78,7 +78,7 @@ describe('SystemPromptBuilder', () => {
     });
 
     it('should combine global base + company context', async () => {
-      memoryService.getProfile.mockResolvedValue(null);
+      profilService.getProfile.mockResolvedValue(null);
       mockDatabase.query
         .mockResolvedValueOnce({ rows: [{ content: 'Wir sind eine Beratungsfirma.' }] }) // company context
         .mockResolvedValue({ rows: [] }); // project prompt
@@ -92,7 +92,7 @@ describe('SystemPromptBuilder', () => {
     });
 
     it('should combine all 3 layers', async () => {
-      memoryService.getProfile.mockResolvedValue(
+      profilService.getProfile.mockResolvedValue(
         'firma: "ACME"\nbranche: "Handel"\nsprache: "de"\n'
       );
       mockDatabase.query.mockResolvedValueOnce({ rows: [{ content: 'Firmenkontext hier.' }] }); // company context
@@ -114,7 +114,7 @@ describe('SystemPromptBuilder', () => {
     });
 
     it('should skip empty profile', async () => {
-      memoryService.getProfile.mockResolvedValue('');
+      profilService.getProfile.mockResolvedValue('');
       mockDatabase.query.mockResolvedValue({ rows: [] });
 
       const result = await buildSystemPrompt(mockDatabase, null);
@@ -124,7 +124,7 @@ describe('SystemPromptBuilder', () => {
     });
 
     it('should skip empty company context', async () => {
-      memoryService.getProfile.mockResolvedValue(null);
+      profilService.getProfile.mockResolvedValue(null);
       mockDatabase.query
         .mockResolvedValueOnce({ rows: [{ content: '' }] }) // empty company context
         .mockResolvedValue({ rows: [] });
@@ -135,7 +135,7 @@ describe('SystemPromptBuilder', () => {
     });
 
     it('should handle YAML parsing errors gracefully', async () => {
-      memoryService.getProfile.mockResolvedValue('{{invalid yaml:::');
+      profilService.getProfile.mockResolvedValue('{{invalid yaml:::');
       mockDatabase.query.mockResolvedValue({ rows: [] });
 
       const result = await buildSystemPrompt(mockDatabase, null);
@@ -146,7 +146,7 @@ describe('SystemPromptBuilder', () => {
     });
 
     it('should handle DB errors gracefully (fallback to global base)', async () => {
-      memoryService.getProfile.mockRejectedValue(new Error('MinIO unavailable'));
+      profilService.getProfile.mockRejectedValue(new Error('MinIO unavailable'));
       mockDatabase.query.mockRejectedValue(new Error('DB connection lost'));
 
       const result = await buildSystemPrompt(mockDatabase, 'conv-err');
@@ -155,7 +155,7 @@ describe('SystemPromptBuilder', () => {
     });
 
     it('should not include project prompt without conversationId', async () => {
-      memoryService.getProfile.mockResolvedValue(null);
+      profilService.getProfile.mockResolvedValue(null);
       mockDatabase.query.mockResolvedValue({ rows: [] });
 
       const result = await buildSystemPrompt(mockDatabase, null);
@@ -222,18 +222,18 @@ praeferenzen:
 
   describe('caching', () => {
     it('should cache profile across calls', async () => {
-      memoryService.getProfile.mockResolvedValue('firma: "Cached"\n');
+      profilService.getProfile.mockResolvedValue('firma: "Cached"\n');
       mockDatabase.query.mockResolvedValue({ rows: [] });
 
       await buildSystemPrompt(mockDatabase, null);
       await buildSystemPrompt(mockDatabase, null);
 
       // getProfile should only be called once (second call uses cache)
-      expect(memoryService.getProfile).toHaveBeenCalledTimes(1);
+      expect(profilService.getProfile).toHaveBeenCalledTimes(1);
     });
 
     it('should cache company context across calls', async () => {
-      memoryService.getProfile.mockResolvedValue(null);
+      profilService.getProfile.mockResolvedValue(null);
       mockDatabase.query.mockResolvedValue({ rows: [{ content: 'Cached context' }] });
 
       await buildSystemPrompt(mockDatabase, null);
@@ -244,21 +244,21 @@ praeferenzen:
     });
 
     it('should invalidate profile cache', async () => {
-      memoryService.getProfile.mockResolvedValue('firma: "V1"\n');
+      profilService.getProfile.mockResolvedValue('firma: "V1"\n');
       mockDatabase.query.mockResolvedValue({ rows: [] });
 
       await buildSystemPrompt(mockDatabase, null);
       invalidateProfileCache();
 
-      memoryService.getProfile.mockResolvedValue('firma: "V2"\n');
+      profilService.getProfile.mockResolvedValue('firma: "V2"\n');
       const result = await buildSystemPrompt(mockDatabase, null);
 
-      expect(memoryService.getProfile).toHaveBeenCalledTimes(2);
+      expect(profilService.getProfile).toHaveBeenCalledTimes(2);
       expect(result).toContain('V2');
     });
 
     it('should invalidate company context cache', async () => {
-      memoryService.getProfile.mockResolvedValue(null);
+      profilService.getProfile.mockResolvedValue(null);
       mockDatabase.query.mockResolvedValue({ rows: [{ content: 'V1' }] });
 
       await buildSystemPrompt(mockDatabase, null);

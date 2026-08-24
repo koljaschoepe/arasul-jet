@@ -186,84 +186,6 @@ if [ "$DAY_OF_MONTH" = "01" ]; then
     echo "[$TIMESTAMP] Monthly MinIO snapshot saved"
 fi
 
-# Qdrant vector-DB backup (RAG-Index) — ueber die HTTP-API im Backend-Netz.
-#
-# Frueher via `docker exec qdrant curl ...`. Das konnte NIE funktionieren: im
-# Qdrant-Image gibt es gar kein `curl` (exec endet mit 127). Entsprechend gab es
-# auf dem Geraet kein einziges Qdrant-Archiv. Der Backup-Dienst ruft die
-# Snapshot-API jetzt selbst auf — er haengt ohnehin im selben Netz.
-mkdir -p /backups/qdrant /backups/qdrant/weekly
-QDRANT_OK=skipped
-QDRANT_URL="http://${QDRANT_HOST:-qdrant}:6333"
-QDRANT_TMP=/tmp/qdrant_backup_$TIMESTAMP
-
-# Qdrant liegt seit Plan 021 Schritt 8 im Compose-Profil `classic-rag` und
-# laeuft im Normalbetrieb NICHT. Vorher lief das hier in den Fehlerzweig, jeder
-# naechtliche Lauf meldete `partial_failure`, und ein Daueralarm verdeckt jeden
-# echten: dass der Wiederherstellungstest am 16.08.2026 fehlschlug, fiel drei
-# Tage lang niemandem auf.
-#
-# Unterschieden wird deshalb zwischen "gar nicht da" und "da und kaputt". Kein
-# Schalter in der Umgebung, sondern eine Erreichbarkeitsprobe: wird das Profil
-# aktiviert, zaehlt ein Fehlschlag von selbst wieder, ohne dass jemand daran
-# denken muss. Drei Versuche, damit ein kurzer Aussetzer eines LAUFENDEN Qdrant
-# nicht als "nicht vorhanden" durchgeht.
-QDRANT_ERREICHBAR=false
-for _versuch in 1 2 3; do
-    if curl -sf --max-time 5 "${QDRANT_URL}/readyz" >/dev/null 2>&1 \
-       || curl -sf --max-time 5 "${QDRANT_URL}/" >/dev/null 2>&1; then
-        QDRANT_ERREICHBAR=true
-        break
-    fi
-    sleep 2
-done
-
-if [ "$QDRANT_ERREICHBAR" != true ]; then
-    echo "[$TIMESTAMP] [INFO] Qdrant nicht erreichbar (${QDRANT_URL}) — Profil classic-rag offenbar nicht aktiv, uebersprungen"
-    QDRANT_OK=skipped
-elif curl -sf --max-time 30 -X POST "${QDRANT_URL}/snapshots" -H "Content-Type: application/json" -o /tmp/qdrant_snap_$TIMESTAMP.json 2>/dev/null; then
-    QDRANT_SNAPSHOT=$(grep -o '"name":"[^"]*"' /tmp/qdrant_snap_$TIMESTAMP.json | head -1 | cut -d'"' -f4)
-    rm -f /tmp/qdrant_snap_$TIMESTAMP.json
-    if [ -n "$QDRANT_SNAPSHOT" ]; then
-        mkdir -p "$QDRANT_TMP"
-        if curl -sf --max-time 300 -o "${QDRANT_TMP}/${QDRANT_SNAPSHOT}" "${QDRANT_URL}/snapshots/${QDRANT_SNAPSHOT}" 2>/dev/null \
-           && tar -czf /backups/qdrant/qdrant_$TIMESTAMP.tar.gz -C "$QDRANT_TMP" . 2>/dev/null \
-           && tar -tzf /backups/qdrant/qdrant_$TIMESTAMP.tar.gz >/dev/null 2>&1; then
-            echo "[$TIMESTAMP] Qdrant backup completed and verified (${QDRANT_SNAPSHOT})"
-            encrypt_file /backups/qdrant/qdrant_$TIMESTAMP.tar.gz
-            ln -sf qdrant_$TIMESTAMP.tar.gz /backups/qdrant/qdrant_latest.tar.gz
-            QDRANT_OK=true
-        else
-            echo "[$TIMESTAMP] [ERROR] Qdrant snapshot download or archiving failed"
-            QDRANT_OK=false
-            BACKUP_OK=false
-        fi
-        rm -rf "$QDRANT_TMP"
-        # Snapshot in Qdrant wieder loeschen, sonst sammeln sie sich auf dem Geraet an.
-        curl -sf --max-time 30 -X DELETE "${QDRANT_URL}/snapshots/${QDRANT_SNAPSHOT}" >/dev/null 2>&1 || true
-    else
-        echo "[$TIMESTAMP] [ERROR] Qdrant snapshot created but no name returned by the API"
-        QDRANT_OK=false
-        BACKUP_OK=false
-    fi
-else
-    echo "[$TIMESTAMP] [ERROR] Qdrant snapshot request failed (${QDRANT_URL}) — vector DB NOT backed up"
-    QDRANT_OK=false
-    BACKUP_OK=false
-fi
-
-# Weekly snapshot for Qdrant
-if [ "$QDRANT_OK" = true ] && [ "$DAY_OF_WEEK" = "7" ]; then
-    cp /backups/qdrant/qdrant_$TIMESTAMP.tar.gz /backups/qdrant/weekly/
-    echo "[$TIMESTAMP] Weekly Qdrant snapshot saved"
-fi
-
-# Monthly snapshot for Qdrant
-if [ "$QDRANT_OK" = true ] && [ "$DAY_OF_MONTH" = "01" ]; then
-    mkdir -p /backups/qdrant/monthly
-    cp /backups/qdrant/qdrant_$TIMESTAMP.tar.gz /backups/qdrant/monthly/
-    echo "[$TIMESTAMP] Monthly Qdrant snapshot saved"
-fi
 
 # Flow definitions (Plan 011): Markdown files under data/flows, mounted here
 # read-only. They are small but USER-AUTHORED and reproducible from nowhere else
@@ -326,7 +248,6 @@ if [ "$BACKUP_OK" = true ]; then
     # Cleanup: daily backups (short retention)
     find /backups/postgres -maxdepth 1 -name "*.sql.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/qdrant -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/flows -maxdepth 1 -name "*.tar.gz" ! -name "*latest*" -mtime +$RETENTION_DAYS -delete 2>/dev/null || true
 
     # WAL archive cleanup: keep only retention period worth
@@ -355,13 +276,11 @@ if [ "$BACKUP_OK" = true ]; then
     # Cleanup: weekly backups (longer retention)
     find /backups/postgres/weekly -name "*.sql.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/qdrant/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/flows/weekly -name "*.tar.gz" -mtime +$WEEKLY_RETENTION_DAYS -delete 2>/dev/null || true
 
     # Cleanup: monthly backups (5-year retention)
     find /backups/postgres/monthly -name "*.sql.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/minio/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
-    find /backups/qdrant/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     find /backups/flows/monthly -name "*.tar.gz" -mtime +$MONTHLY_RETENTION_DAYS -delete 2>/dev/null || true
     echo "[$TIMESTAMP] Cleanup completed (daily: ${RETENTION_DAYS}d, weekly: ${WEEKLY_RETENTION_WEEKS}w, monthly: ${MONTHLY_RETENTION_MONTHS}mo)"
 else
@@ -371,7 +290,6 @@ fi
 # Calculate backup sizes
 PG_SIZE=$(du -sh /backups/postgres/ 2>/dev/null | cut -f1 || echo "0")
 MINIO_SIZE=$(du -sh /backups/minio/ 2>/dev/null | cut -f1 || echo "0")
-QDRANT_SIZE=$(du -sh /backups/qdrant/ 2>/dev/null | cut -f1 || echo "0")
 WAL_SIZE=$(du -sh /backups/wal/ 2>/dev/null | cut -f1 || echo "0")
 TOTAL_SIZE=$(du -sh /backups/ 2>/dev/null | cut -f1 || echo "0")
 
@@ -397,11 +315,8 @@ cat > /backups/backup_report.json << EOF
   "minio_weekly": $(ls /backups/minio/weekly/*.tar.gz 2>/dev/null | wc -l),
   "minio_monthly": $(ls /backups/minio/monthly/*.tar.gz 2>/dev/null | wc -l),
   "minio_status": "$MINIO_OK",
-  "qdrant_status": "$QDRANT_OK",
   "flows_status": "$FLOWS_OK",
   "flows_backups": $(find /backups/flows -maxdepth 1 -name '*.tar.gz' ! -name '*latest*' 2>/dev/null | wc -l),
-  "qdrant_backups": $(find /backups/qdrant -maxdepth 1 -name '*.tar.gz' ! -name '*latest*' 2>/dev/null | wc -l),
-  "qdrant_size": "$QDRANT_SIZE",
   "retention_days": $RETENTION_DAYS,
   "weekly_retention_weeks": $WEEKLY_RETENTION_WEEKS,
   "monthly_retention_months": $MONTHLY_RETENTION_MONTHS,
