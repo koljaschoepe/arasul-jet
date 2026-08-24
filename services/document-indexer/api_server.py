@@ -92,10 +92,23 @@ def health():
         # Always return 200 when indexer is running — Docker should not restart for transient dep failures
         # Self-healing agent uses /status for detailed checks
         return jsonify(checks), 200
-    # Indexer still initializing
+    # Indexer still initializing.
+    # 503, nicht 200. Der Docker-Healthcheck ist `curl -f`, er sieht nur den
+    # Statuscode — mit 200 galt ein Indexer, der seine zehn Startversuche
+    # allesamt verliert (Datenbank weg, MinIO-Zugang falsch), als gesund. Der
+    # Deploy haette so einen Stand gruen gemeldet statt zurueckzurollen, und
+    # genau das soll er verhindern.
+    #
+    # Gefahrlos, weil `start_period` 60s betraegt und die Initialisierung am
+    # 24.08.2026 auf dem Orin 5,3s gedauert hat (Start 09:39:16.5,
+    # "initialized successfully" 09:39:21.8). Solange die start_period laeuft,
+    # fuehrt ein 503 zu `starting`, nicht zu `unhealthy`.
+    #
+    # /status gibt in derselben Lage schon immer 503 — die beiden Endpunkte
+    # widersprachen sich.
     checks['status'] = 'initializing'
     checks['indexer'] = 'initializing'
-    return jsonify(checks)
+    return jsonify(checks), 503
 
 
 @app.route('/status', methods=['GET'])
