@@ -99,12 +99,15 @@ wf_probe() {
     [ -n "$nachher" ] || exit 1
     [ "$vorher" != "$nachher" ] || exit 1
     wartung_aus
-    [ -f "$WARTUNG_DATEI" ] && exit 1
+    # Die Datei BLEIBT liegen, mit `ende=` darin. Der Agent braucht diesen
+    # Zeitpunkt, um den Nachlauf zu rechnen, auch wenn er das offene Fenster
+    # nie gesehen hat (24.08.2026).
+    grep -q 'ende=[0-9]' "$WARTUNG_DATEI" || exit 1
     kill -0 "${WARTUNG_HERZ:-1}" 2>/dev/null && exit 1
     exit 0
   )
 }
-pruefe "Wartungsfenster: setzen, nachfassen, entfernen" 0 wf_probe
+pruefe "Wartungsfenster: setzen, nachfassen, Ende vermerken" 0 wf_probe
 
 wf_pfad_kommt_von_docker() {
   (
@@ -132,9 +135,14 @@ wf_abbruch_raeumt_auf() {
     exit 7          # irgendetwas geht schief
   )
   datei="$WF/abbruch/wartung.aktiv"
-  [ ! -f "$datei" ]
+  # Frueher wurde hier geprueft, dass die Datei WEG ist. Seit dem 24.08.2026
+  # bleibt sie liegen und traegt `ende=`: ein Abbruch soll den Nachlauf
+  # ausloesen, nicht ihn verschlucken. Der Deckel aus
+  # SELFHEAL_WARTUNG_MAX_MINUTEN sorgt dafuer, dass eine vergessene Datei die
+  # Selbstheilung trotzdem nicht dauerhaft schlafen legt.
+  [ -f "$datei" ] && grep -q 'ende=[0-9]' "$datei"
 }
-pruefe "Wartungsfenster: ein Abbruch laesst nichts liegen" 0 wf_abbruch_raeumt_auf
+pruefe "Wartungsfenster: ein Abbruch vermerkt sein Ende" 0 wf_abbruch_raeumt_auf
 
 # --- stiller-tod.py ---------------------------------------------------------
 # Die Pruefung darf NUR anschlagen, wenn `set -e` und `pipefail` zusammenkommen.

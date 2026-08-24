@@ -379,6 +379,46 @@ class TestSelfHealingEngine(unittest.TestCase):
             # Nachlauf abgelaufen: wieder scharf.
             self.assertFalse(self.engine.wartung_laeuft())
 
+    def test_nachlauf_auch_ohne_gesehenes_fenster(self):
+        """Der Fall, den der Agent bisher verpasst hat.
+
+        Dauert ein Deploy weniger als einen Takt, hat der Agent das Fenster nie
+        offen gesehen. Am 24.08.2026 genau so passiert: 27 Sekunden Lauf, davon
+        das Fenster wenige, Takt zehn — kein Nachlauf, und siebzehn Sekunden
+        spaeter griff die Selbstheilung zu. Jetzt steht der Endzeitpunkt in der
+        Datei, und der Agent rechnet ab dort.
+        """
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.aktiv', mode='w', delete=False) as datei:
+            datei.write(f'2026-08-24T02:45:00+02:00 deploy ende={time.time():.0f}\n')
+            name = datei.name
+        try:
+            with patch('healing_engine.WARTUNGSDATEI', name), \
+                 patch('healing_engine.WARTUNG_NACHLAUF_SEKUNDEN', 300):
+                self.assertTrue(self.engine.wartung_laeuft())
+
+            # Dasselbe, aber das Ende liegt lange zurueck: wieder scharf.
+            with open(name, 'w') as datei:
+                datei.write(f'2026-08-24T02:45:00+02:00 deploy ende={time.time() - 400:.0f}\n')
+            with patch('healing_engine.WARTUNGSDATEI', name), \
+                 patch('healing_engine.WARTUNG_NACHLAUF_SEKUNDEN', 300):
+                self.assertFalse(self.engine.wartung_laeuft())
+        finally:
+            os.unlink(name)
+
+    def test_ohne_ende_gilt_das_fenster_als_offen(self):
+        """Eine Datei ohne `ende=` heisst: die Wartung laeuft noch."""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.aktiv', mode='w', delete=False) as datei:
+            datei.write('2026-08-24T02:45:00+02:00 pruefstand-build\n')
+            name = datei.name
+        try:
+            with patch('healing_engine.WARTUNGSDATEI', name):
+                self.assertIsNone(self.engine._wartungsende())
+                self.assertTrue(self.engine.wartung_laeuft())
+        finally:
+            os.unlink(name)
+
     def test_der_grund_kommt_aus_der_datei(self):
         """Die Protokollzeile nennt, WAS laeuft.
 
