@@ -71,6 +71,51 @@ die noch nicht gefüllt sind (nach dem Vorschlag 8 und 6).
 
 ---
 
+## 2c. G4 ist belegt — und dabei fiel ein Rest auf
+
+**Der Beleg.** `souveraenitaet-abnahme.sh` am 24.08.2026 um 15:00, **3 von 3
+grün**:
+
+```
+gruen  die Kernkette lief waehrend der Messung        6 von 6 gruen
+gruen  es wurde ueberhaupt beobachtet                 13668 Verbindungszeilen
+gruen  kein Container hat unangekuendigt nach draussen verbunden   keine einzige
+```
+
+Derselbe Lauf belegt nebenbei, dass die vier Reparaturen vom 23./24.08. wirken
+— jede an einer Stelle, an der die Messung vorher gelogen hätte:
+
+| Reparatur                             | im Lauf sichtbar als                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------- |
+| `state connected` statt `established` | alle sechs Funde stehen auf **CLOSE-WAIT**; vorher wäre keiner davon gesehen worden |
+| IPv6 richtig zerlegt                  | keine Rückschleife in der Liste                                                     |
+| Adresse statt Anzahl                  | `185.15.59.224` mit Namen `text-lb.esams.wikimedia.org`, nicht `\|53\|53`           |
+| `ssh -n`                              | **sechs** Ziele in der Meldung. Vorher stand dort genau eines                       |
+
+Damit ist die Aufgabe, die der Phasenvorschlag auf Phase 8 legt, erledigt,
+bevor der Lauf beginnt.
+
+**Der Rest, der dabei auffiel.** `embedding-service` läuft auf dem Arbeitsgerät
+seit **23.08. 16:21** (`RestartCount=0`) — obwohl er im Compose unter
+`profiles: ['classic-rag']` steht und `CLAUDE.md` sagt, er laufe nicht von
+selbst. Für `qdrant` stimmt die Aussage, für ihn nicht.
+
+Er ist damit auch der Grund für eine der sechs Außenverbindungen oben
+(cloudfront, also huggingface). Die Abnahme führt ihn korrekt als deklariertes
+Ziel, das Gate bleibt grün — aber:
+
+> Ein Kundengerät hätte diesen Dienst gar nicht laufen. Was hier gemessen wird,
+> ist damit an einer Stelle **strenger** als der Auslieferungszustand, nicht
+> lockerer. Das ist die gute Richtung, gehört aber gewusst.
+
+**Nicht gestoppt.** Ein laufender Dienst auf dem Produktionsgerät wird nicht
+nebenbei angehalten; wer ihn am 23.08. gestartet hat, hatte einen Grund, und
+der steht nirgends. Entweder er wird gestoppt und `CLAUDE.md` behält recht,
+oder er bleibt und der Satz dort wird richtiggestellt. Beides ist eine
+Entscheidung, keine Aufgabe.
+
+---
+
 ## 3. Was der Trockenlauf gleich gefunden hat
 
 Erwähnenswert, weil es die Mechanik rechtfertigt: `phasenlauf-test.mjs` hat beim
