@@ -1,6 +1,6 @@
 # Übergabe zu Plan 024
 
-**Stand: 24.08.2026, 18:30.** Diese Seite trägt nur, was seit dem Abschluss von
+**Stand: 24.08.2026, 22:00.** Diese Seite trägt nur, was seit dem Abschluss von
 023 dazugekommen ist. Alles Ältere steht in
 [`docs/plans/done/023-feature-audit/UEBERGABE.md`](../../done/023-feature-audit/UEBERGABE.md)
 — besonders die **acht Fallen**, die dort einen halben Tag gekostet haben. Sie
@@ -274,6 +274,54 @@ git show <commit>:docs/plans/done/<datei>
 
 Die Übergabe von 023 ist geblieben. **Wer im Lauf einen alten Plan sucht und
 ihn nicht findet, hat ihn nicht verloren — er steht in der Historie.**
+
+## 2g. Der Qdrant-Ausbau ist live abgenommen (24.08.2026, 21:30 bis 22:00)
+
+PR #695 ist gemergt, der Deploy lief in 6m17s durch. Danach auf dem Orin
+gemessen, nicht abgeschrieben:
+
+| Was                                  | Ergebnis                                                                                                                |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Dienste                              | 15 von 15 `running (healthy)`, auch `document-indexer`                                                                  |
+| Migration 162                        | `success = t` in `schema_migrations`                                                                                    |
+| `ai_memories`                        | weg                                                                                                                     |
+| `rag_*`-Spalten in `system_settings` | 0                                                                                                                       |
+| **Textlayer**                        | **37 638 Chunks aus 1217 Dokumenten, unverändert**                                                                      |
+| Backend-Fehler seit dem Deploy       | 0                                                                                                                       |
+| **G4** Souveränität                  | **grün, 3 von 3**, 15 671 Verbindungszeilen, kein Container unangekündigt nach draußen                                  |
+| **G6** Wiederherstellungsdrill       | **grün**, 11 kritische Tabellen, 52 s, aus dem Backup von 19:32 — also einem, das das umgebaute `backup.sh` erzeugt hat |
+| **G7** Dauerlauf                     | **rot, aber nicht durch diesen Eingriff** (siehe unten)                                                                 |
+
+**Zu G7.** Der Bericht sagt es selbst: der letzte fehlgeschlagene Heilversuch
+war am **23.08. um 17:01**, achtundzwanzig Stunden vor dem Ausbau, und
+„seither keiner mehr". Dazu erst **5 von 7** geforderten Tagen Laufzeit
+(letzter Neustart 19.08. 17:29). Kein Dienst musste von selbst neu starten.
+Das ist der bekannte Stand für den 30.08., kein neuer Befund.
+
+**Zwei Dinge, die CI gefangen hat und die sonst auf dem Gerät gelandet wären:**
+
+1. Die **Docker-Startprobe** des Indexers (aus #688) schlug fehl:
+   `ImportError: cannot import name 'ENABLE_AI_ANALYSIS' from 'config'`. Beim
+   Aufräumen hatte ein Regex die Zeile davor mitgenommen. **Der Indexer wäre
+   auf dem Orin als Crash-Loop hochgekommen.** Danach nicht nur der eine Fall
+   geprüft, sondern alle 24 Namen, die Indexer-Module aus `config` importieren.
+2. Der **KI-Review** fand zwei Doku-Tabellen, die umformatiert, aber nicht
+   inhaltlich nachgezogen waren: `API_REFERENCE.md` führte zwölf `rag_`-Felder
+   weiter, die das `.strict()`-Schema heute mit `400` beantwortet, und
+   `PYTHON_SERVICES.md` zwei gelöschte Indexer-Routen.
+
+**Eine Falle für den Lauf, teuer wenn man hineinläuft:**
+`scripts/test/dr-drill.sh` ist **destruktiv** — er verlangt die Eingabe
+`DESTROY` und stellt die Produktionsdatenbank aus dem Backup wieder her. Der
+reguläre, harmlose Drill ist ein anderer:
+
+```bash
+docker exec backup-service /usr/local/bin/restore-drill.sh
+cat data/backups/restore_drill_report.json
+```
+
+Er stellt in einen **Sidecar-Postgres** wieder her. Die Aufgabe `P6-G6-01`
+meint diesen, nicht `dr-drill.sh`.
 
 ## 3. Was der Trockenlauf gleich gefunden hat
 
